@@ -30,8 +30,12 @@
 #include "config.h"
 #include "CSSStyleValueFactory.h"
 
+#include "CSSAppleColorFilterPropertyValue.h"
+#include "CSSBoxShadowPropertyValue.h"
 #include "CSSCalcValue.h"
 #include "CSSCustomPropertyValue.h"
+#include "CSSEasingFunctionValue.h"
+#include "CSSFilterPropertyValue.h"
 #include "CSSKeywordValue.h"
 #include "CSSNumericFactory.h"
 #include "CSSParser.h"
@@ -39,12 +43,14 @@
 #include "CSSPropertyParser.h"
 #include "CSSStyleImageValue.h"
 #include "CSSStyleValue.h"
+#include "CSSTextShadowPropertyValue.h"
 #include "CSSTokenizer.h"
 #include "CSSTransformListValue.h"
 #include "CSSTransformValue.h"
 #include "CSSUnitValue.h"
 #include "CSSUnparsedValue.h"
 #include "CSSValueList.h"
+#include "CSSValuePool.h"
 #include "CSSVariableData.h"
 #include "CSSVariableReferenceValue.h"
 #include "StylePropertiesInlines.h"
@@ -310,11 +316,56 @@ ExceptionOr<Ref<CSSStyleValue>> CSSStyleValueFactory::reifyValue(const CSSValue&
             CSSTokenizer tokenizer(customPropertyValue->customCSSText());
             return ExceptionOr<Ref<CSSStyleValue>> { CSSUnparsedValue::create(tokenizer.tokenRange()) };
         });
-    } else if (auto* transformList = dynamicDowncast<CSSTransformListValue>(cssValue)) {
-        auto transformValue = CSSTransformValue::create(*transformList);
+    } else if (RefPtr transformList = dynamicDowncast<CSSTransformListValue>(cssValue)) {
+        auto transformValue = CSSTransformValue::create(transformList.releaseNonNull());
         if (transformValue.hasException())
             return transformValue.releaseException();
         return Ref<CSSStyleValue> { transformValue.releaseReturnValue() };
+    } else if (RefPtr property = dynamicDowncast<CSSFilterPropertyValue>(cssValue)) {
+        return WTF::switchOn(property->filter(),
+            [&](CSS::Keyword::None) -> ExceptionOr<Ref<CSSStyleValue>> {
+                return static_reference_cast<CSSStyleValue>(CSSKeywordValue::rectifyKeywordish(nameLiteral(CSSValueNone)));
+            },
+            [&](const auto&) -> ExceptionOr<Ref<CSSStyleValue>> {
+                return CSSStyleValue::create(Ref(const_cast<CSSValue&>(cssValue)));
+            }
+        );
+    } else if (RefPtr property = dynamicDowncast<CSSAppleColorFilterPropertyValue>(cssValue)) {
+        return WTF::switchOn(property->filter(),
+            [&](CSS::Keyword::None) -> ExceptionOr<Ref<CSSStyleValue>> {
+                return static_reference_cast<CSSStyleValue>(CSSKeywordValue::rectifyKeywordish(nameLiteral(CSSValueNone)));
+            },
+            [&](const auto&) -> ExceptionOr<Ref<CSSStyleValue>> {
+                return CSSStyleValue::create(Ref(const_cast<CSSValue&>(cssValue)));
+            }
+        );
+    } else if (RefPtr property = dynamicDowncast<CSSBoxShadowPropertyValue>(cssValue)) {
+        return WTF::switchOn(property->shadow(),
+            [&](CSS::Keyword::None) -> ExceptionOr<Ref<CSSStyleValue>> {
+                return static_reference_cast<CSSStyleValue>(CSSKeywordValue::rectifyKeywordish(nameLiteral(CSSValueNone)));
+            },
+            [&](const auto&) -> ExceptionOr<Ref<CSSStyleValue>> {
+                return CSSStyleValue::create(Ref(const_cast<CSSValue&>(cssValue)));
+            }
+        );
+    } else if (RefPtr property = dynamicDowncast<CSSTextShadowPropertyValue>(cssValue)) {
+        return WTF::switchOn(property->shadow(),
+            [&](CSS::Keyword::None) -> ExceptionOr<Ref<CSSStyleValue>> {
+                return static_reference_cast<CSSStyleValue>(CSSKeywordValue::rectifyKeywordish(nameLiteral(CSSValueNone)));
+            },
+            [&](const auto&) -> ExceptionOr<Ref<CSSStyleValue>> {
+                return CSSStyleValue::create(Ref(const_cast<CSSValue&>(cssValue)));
+            }
+        );
+    } else if (RefPtr property = dynamicDowncast<CSSEasingFunctionValue>(cssValue)) {
+        return WTF::switchOn(property->easingFunction(),
+            [&]<CSSValueID keyword>(Constant<keyword>) -> ExceptionOr<Ref<CSSStyleValue>> {
+                return static_reference_cast<CSSStyleValue>(CSSKeywordValue::rectifyKeywordish(nameLiteral(keyword)));
+            },
+            [&](const auto&) -> ExceptionOr<Ref<CSSStyleValue>> {
+                return CSSStyleValue::create(Ref(const_cast<CSSValue&>(cssValue)));
+            }
+        );
     } else if (auto* valueList = dynamicDowncast<CSSValueList>(cssValue)) {
         // Reifying the first value in value list.
         // FIXME: Verify this is the expected behavior.
@@ -339,10 +390,10 @@ RefPtr<CSSStyleValue> CSSStyleValueFactory::constructStyleValueForCustomProperty
         return nullptr;
     }, [&](const CSSCustomPropertyValue::NumericSyntaxValue& numericValue) -> RefPtr<CSSStyleValue>  {
         return CSSUnitValue::create(numericValue.value, numericValue.unitType);
-    }, [&](const StyleColor& colorValue) -> RefPtr<CSSStyleValue> {
+    }, [&](const Style::Color& colorValue) -> RefPtr<CSSStyleValue> {
         if (colorValue.isCurrentColor())
             return CSSKeywordValue::rectifyKeywordish(nameLiteral(CSSValueCurrentcolor));
-        return CSSStyleValue::create(CSSValuePool::singleton().createColorValue(colorValue.absoluteColor()));
+        return CSSStyleValue::create(CSSValuePool::singleton().createColorValue(colorValue.resolvedColor()));
     }, [&](const URL& urlValue) -> RefPtr<CSSStyleValue> {
         return CSSStyleValue::create(CSSPrimitiveValue::createURI(urlValue.string()));
     }, [&](const String& identValue) -> RefPtr<CSSStyleValue> {

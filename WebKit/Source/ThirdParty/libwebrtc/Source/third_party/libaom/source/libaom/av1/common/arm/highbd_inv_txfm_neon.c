@@ -51,11 +51,11 @@
   } while (0)
 #endif  // AOM_ARCH_AARCH64
 
-static INLINE void transpose_4x4(const int32x4_t *in, int32x4_t *out) {
+static inline void transpose_4x4(const int32x4_t *in, int32x4_t *out) {
   TRANSPOSE_4X4(in[0], in[1], in[2], in[3], out[0], out[1], out[2], out[3]);
 }
 
-static INLINE void transpose_8x8(const int32x4_t *in, int32x4_t *out) {
+static inline void transpose_8x8(const int32x4_t *in, int32x4_t *out) {
   TRANSPOSE_4X4(in[0], in[2], in[4], in[6], out[0], out[2], out[4], out[6]);
   TRANSPOSE_4X4(in[1], in[3], in[5], in[7], out[8], out[10], out[12], out[14]);
   TRANSPOSE_4X4(in[8], in[10], in[12], in[14], out[1], out[3], out[5], out[7]);
@@ -63,7 +63,7 @@ static INLINE void transpose_8x8(const int32x4_t *in, int32x4_t *out) {
                 out[15]);
 }
 
-static INLINE void round_shift_array_32_neon(int32x4_t *input,
+static inline void round_shift_array_32_neon(int32x4_t *input,
                                              int32x4_t *output, const int size,
                                              const int bit) {
   const int32x4_t v_bit = vdupq_n_s32(-bit);
@@ -72,7 +72,7 @@ static INLINE void round_shift_array_32_neon(int32x4_t *input,
   }
 }
 
-static INLINE void round_shift_rect_array_32_neon(int32x4_t *input,
+static inline void round_shift_rect_array_32_neon(int32x4_t *input,
                                                   int32x4_t *output,
                                                   const int size) {
   for (int i = 0; i < size; i++) {
@@ -81,7 +81,7 @@ static INLINE void round_shift_rect_array_32_neon(int32x4_t *input,
   }
 }
 
-static INLINE int32x4_t half_btf_neon_r(const int32_t *n0, const int32x4_t *w0,
+static inline int32x4_t half_btf_neon_r(const int32_t *n0, const int32x4_t *w0,
                                         const int32_t *n1, const int32x4_t *w1,
                                         const int32x4_t *v_bit,
                                         const int32x4_t *rnding) {
@@ -92,7 +92,7 @@ static INLINE int32x4_t half_btf_neon_r(const int32_t *n0, const int32x4_t *w0,
   return x;
 }
 
-static INLINE int32x4_t half_btf_neon_mode11_r(
+static inline int32x4_t half_btf_neon_mode11_r(
     const int32_t *n0, const int32x4_t *w0, const int32_t *n1,
     const int32x4_t *w1, const int32x4_t *v_bit, const int32x4_t *rnding) {
   int32x4_t x;
@@ -102,7 +102,7 @@ static INLINE int32x4_t half_btf_neon_mode11_r(
   return x;
 }
 
-static INLINE int32x4_t half_btf_neon_mode01_r(
+static inline int32x4_t half_btf_neon_mode01_r(
     const int32_t *n0, const int32x4_t *w0, const int32_t *n1,
     const int32x4_t *w1, const int32x4_t *v_bit, const int32x4_t *rnding) {
   int32x4_t x;
@@ -112,7 +112,7 @@ static INLINE int32x4_t half_btf_neon_mode01_r(
   return x;
 }
 
-static INLINE int32x4_t half_btf_neon_mode10_r(
+static inline int32x4_t half_btf_neon_mode10_r(
     const int32_t *n0, const int32x4_t *w0, const int32_t *n1,
     const int32x4_t *w1, const int32x4_t *v_bit, const int32x4_t *rnding) {
   int32x4_t x;
@@ -122,7 +122,7 @@ static INLINE int32x4_t half_btf_neon_mode10_r(
   return x;
 }
 
-static INLINE int32x4_t half_btf_0_neon_r(const int32_t *n0,
+static inline int32x4_t half_btf_0_neon_r(const int32_t *n0,
                                           const int32x4_t *w0,
                                           const int32x4_t *v_bit,
                                           const int32x4_t *rnding) {
@@ -132,7 +132,7 @@ static INLINE int32x4_t half_btf_0_neon_r(const int32_t *n0,
   return x;
 }
 
-static INLINE int32x4_t half_btf_0_m_neon_r(const int32_t *n0,
+static inline int32x4_t half_btf_0_m_neon_r(const int32_t *n0,
                                             const int32x4_t *w0,
                                             const int32x4_t *v_bit,
                                             const int32x4_t *rnding) {
@@ -142,7 +142,7 @@ static INLINE int32x4_t half_btf_0_m_neon_r(const int32_t *n0,
   return x;
 }
 
-static INLINE void flip_buf_neon(int32x4_t *in, int32x4_t *out, int size) {
+static inline void flip_buf_neon(int32x4_t *in, int32x4_t *out, int size) {
   for (int i = 0; i < size; ++i) {
     out[size - i - 1] = in[i];
   }
@@ -155,7 +155,7 @@ typedef void (*transform_1d_neon)(int32x4_t *in, int32x4_t *out, int32_t bit,
                                   int32_t do_cols, int32_t bd,
                                   int32_t out_shift);
 
-static INLINE uint16x8_t highbd_clamp_u16(uint16x8_t *u, const uint16x8_t *min,
+static inline uint16x8_t highbd_clamp_u16(uint16x8_t *u, const uint16x8_t *min,
                                           const uint16x8_t *max) {
   int16x8_t clamped;
   clamped = vminq_s16(vreinterpretq_s16_u16(*u), vreinterpretq_s16_u16(*max));
@@ -163,7 +163,7 @@ static INLINE uint16x8_t highbd_clamp_u16(uint16x8_t *u, const uint16x8_t *min,
   return vreinterpretq_u16_s16(clamped);
 }
 
-static INLINE void round_shift_4x4(int32x4_t *in, int shift) {
+static inline void round_shift_4x4(int32x4_t *in, int shift) {
   if (shift != 0) {
     const int32x4_t v_shift = vdupq_n_s32(-shift);
     in[0] = vrshlq_s32(in[0], v_shift);
@@ -213,7 +213,7 @@ static void highbd_clamp_s32_neon(int32x4_t *in, int32x4_t *out,
   }
 }
 
-static INLINE uint16x8_t highbd_get_recon_8x8_neon(const uint16x8_t pred,
+static inline uint16x8_t highbd_get_recon_8x8_neon(const uint16x8_t pred,
                                                    int32x4_t res0,
                                                    int32x4_t res1,
                                                    const int bd) {
@@ -238,7 +238,7 @@ static INLINE uint16x8_t highbd_get_recon_8x8_neon(const uint16x8_t pred,
   return res;
 }
 
-static INLINE uint16x4_t highbd_get_recon_4xn_neon(uint16x4_t pred,
+static inline uint16x4_t highbd_get_recon_4xn_neon(uint16x4_t pred,
                                                    int32x4_t res0,
                                                    const int bd) {
   uint16x4_t x0_ = vreinterpret_u16_s16(
@@ -250,7 +250,7 @@ static INLINE uint16x4_t highbd_get_recon_4xn_neon(uint16x4_t pred,
   return vget_low_u16(x0);
 }
 
-static INLINE void highbd_write_buffer_4xn_neon(int32x4_t *in, uint16_t *output,
+static inline void highbd_write_buffer_4xn_neon(int32x4_t *in, uint16_t *output,
                                                 int stride, int flipud,
                                                 int height, const int bd) {
   int j = flipud ? (height - 1) : 0;
@@ -263,7 +263,7 @@ static INLINE void highbd_write_buffer_4xn_neon(int32x4_t *in, uint16_t *output,
   }
 }
 
-static INLINE void highbd_write_buffer_8xn_neon(int32x4_t *in, uint16_t *output,
+static inline void highbd_write_buffer_8xn_neon(int32x4_t *in, uint16_t *output,
                                                 int stride, int flipud,
                                                 int height, const int bd) {
   int j = flipud ? (height - 1) : 0;
@@ -276,14 +276,14 @@ static INLINE void highbd_write_buffer_8xn_neon(int32x4_t *in, uint16_t *output,
   }
 }
 
-static INLINE void load_buffer_32bit_input(const int32_t *in, int stride,
+static inline void load_buffer_32bit_input(const int32_t *in, int stride,
                                            int32x4_t *out, int out_size) {
   for (int i = 0; i < out_size; ++i) {
     out[i] = vld1q_s32(in + i * stride);
   }
 }
 
-static INLINE void load_buffer_4x4(const int32_t *coeff, int32x4_t *in) {
+static inline void load_buffer_4x4(const int32_t *coeff, int32x4_t *in) {
   in[0] = vld1q_s32(coeff + 0);
   in[1] = vld1q_s32(coeff + 4);
   in[2] = vld1q_s32(coeff + 8);
@@ -321,7 +321,7 @@ static void shift_and_clamp_neon(int32x4_t *in0, int32x4_t *in1,
   *in1 = in1_w_offset;
 }
 
-static INLINE void idct32_stage4_neon(int32x4_t *bf1, const int32_t *cospi,
+static inline void idct32_stage4_neon(int32x4_t *bf1, const int32_t *cospi,
                                       const int32x4_t *v_bit,
                                       const int32x4_t *rnding) {
   int32x4_t temp1, temp2;
@@ -350,7 +350,7 @@ static INLINE void idct32_stage4_neon(int32x4_t *bf1, const int32_t *cospi,
   bf1[22] = temp2;
 }
 
-static INLINE void idct32_stage5_neon(int32x4_t *bf1, const int32_t *cospi,
+static inline void idct32_stage5_neon(int32x4_t *bf1, const int32_t *cospi,
                                       const int32x4_t *clamp_lo,
                                       const int32x4_t *clamp_hi,
                                       const int32x4_t *v_bit,
@@ -378,7 +378,7 @@ static INLINE void idct32_stage5_neon(int32x4_t *bf1, const int32_t *cospi,
   addsub_neon(bf1[30], bf1[29], bf1 + 30, bf1 + 29, clamp_lo, clamp_hi);
 }
 
-static INLINE void idct32_stage6_neon(int32x4_t *bf1, const int32_t *cospi,
+static inline void idct32_stage6_neon(int32x4_t *bf1, const int32_t *cospi,
                                       const int32x4_t *clamp_lo,
                                       const int32x4_t *clamp_hi,
                                       const int32x4_t *v_bit,
@@ -417,7 +417,7 @@ static INLINE void idct32_stage6_neon(int32x4_t *bf1, const int32_t *cospi,
   bf1[21] = temp2;
 }
 
-static INLINE void idct32_stage7_neon(int32x4_t *bf1, const int32_t *cospi,
+static inline void idct32_stage7_neon(int32x4_t *bf1, const int32_t *cospi,
                                       const int32x4_t *clamp_lo,
                                       const int32x4_t *clamp_hi,
                                       const int32x4_t *v_bit,
@@ -448,7 +448,7 @@ static INLINE void idct32_stage7_neon(int32x4_t *bf1, const int32_t *cospi,
   addsub_neon(bf1[28], bf1[27], bf1 + 28, bf1 + 27, clamp_lo, clamp_hi);
 }
 
-static INLINE void idct32_stage8_neon(int32x4_t *bf1, const int32_t *cospi,
+static inline void idct32_stage8_neon(int32x4_t *bf1, const int32_t *cospi,
                                       const int32x4_t *clamp_lo,
                                       const int32x4_t *clamp_hi,
                                       const int32x4_t *v_bit,
@@ -484,7 +484,7 @@ static INLINE void idct32_stage8_neon(int32x4_t *bf1, const int32_t *cospi,
   bf1[23] = temp2;
 }
 
-static INLINE void idct32_stage9_neon(int32x4_t *bf1, int32x4_t *out,
+static inline void idct32_stage9_neon(int32x4_t *bf1, int32x4_t *out,
                                       const int do_cols, const int bd,
                                       const int out_shift,
                                       const int32x4_t *clamp_lo,
@@ -2841,7 +2841,7 @@ static void iidentity16_neon(int32x4_t *in, int32x4_t *out, int bit,
   }
 }
 
-static INLINE void idct64_stage8_neon(int32x4_t *u, const int32_t *cospi,
+static inline void idct64_stage8_neon(int32x4_t *u, const int32_t *cospi,
                                       const int32x4_t *clamp_lo,
                                       const int32x4_t *clamp_hi,
                                       const int32x4_t *v_bit,
@@ -2907,7 +2907,7 @@ static INLINE void idct64_stage8_neon(int32x4_t *u, const int32_t *cospi,
   u[43] = temp4;
 }
 
-static INLINE void idct64_stage9_neon(int32x4_t *u, const int32_t *cospi,
+static inline void idct64_stage9_neon(int32x4_t *u, const int32_t *cospi,
                                       const int32x4_t *clamp_lo,
                                       const int32x4_t *clamp_hi,
                                       const int32x4_t *v_bit,
@@ -2946,7 +2946,7 @@ static INLINE void idct64_stage9_neon(int32x4_t *u, const int32_t *cospi,
   }
 }
 
-static INLINE void idct64_stage10_neon(int32x4_t *u, const int32_t *cospi,
+static inline void idct64_stage10_neon(int32x4_t *u, const int32_t *cospi,
                                        const int32x4_t *clamp_lo,
                                        const int32x4_t *clamp_hi,
                                        const int32x4_t *v_bit,
@@ -2998,7 +2998,7 @@ static INLINE void idct64_stage10_neon(int32x4_t *u, const int32_t *cospi,
   u[47] = temp4;
 }
 
-static INLINE void idct64_stage11_neon(int32x4_t *u, int32x4_t *out,
+static inline void idct64_stage11_neon(int32x4_t *u, int32x4_t *out,
                                        int do_cols, int bd, int out_shift,
                                        const int32x4_t *clamp_lo,
                                        const int32x4_t *clamp_hi) {
@@ -5050,7 +5050,7 @@ DECLARE_ALIGNED(16, static const int16_t *,
   av1_eob_to_eobxy_32x16_default,
 };
 
-static INLINE void highbd_get_eobx_eoby_scan_default(int *eobx, int *eoby,
+static inline void highbd_get_eobx_eoby_scan_default(int *eobx, int *eoby,
                                                      TX_SIZE tx_size, int eob) {
   if (eob == 1) {
     *eobx = 0;
@@ -5065,7 +5065,7 @@ static INLINE void highbd_get_eobx_eoby_scan_default(int *eobx, int *eoby,
   *eoby = eobxy >> 8;
 }
 
-static INLINE void get_eobx_eoby_scan_default(int *eobx, int *eoby,
+static inline void get_eobx_eoby_scan_default(int *eobx, int *eoby,
                                               TX_SIZE tx_size) {
   if (tx_size == 2) {
     *eoby = 15, *eobx = 15;
@@ -5098,14 +5098,14 @@ static INLINE void get_eobx_eoby_scan_default(int *eobx, int *eoby,
   }
 }
 
-static INLINE void get_eobx_eoby_scan_v_identity(int *eobx, int *eoby,
+static inline void get_eobx_eoby_scan_v_identity(int *eobx, int *eoby,
                                                  TX_SIZE tx_size) {
   const int txfm_size_row = tx_size_high[tx_size];
   *eoby = AOMMIN(32, txfm_size_row) - 1;
   *eobx = 0;
 }
 
-static INLINE void get_eobx_eoby_scan_h_identity(int *eobx, int *eoby,
+static inline void get_eobx_eoby_scan_h_identity(int *eobx, int *eoby,
                                                  TX_SIZE tx_size) {
   const int txfm_size_col = tx_size_wide[tx_size];
   *eobx = AOMMIN(32, txfm_size_col) - 1;

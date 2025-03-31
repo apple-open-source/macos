@@ -7,11 +7,12 @@
 #include "utils.h"
 #include "corefile.h"
 #include "vm.h"
-
+#include "vanilla.h"
+#include "sparse.h"
 #include <mach-o/loader.h>
 #include <mach-o/fat.h>
 #include <mach-o/dyld_process_info.h>
-
+#include <mach-o/dyld_introspection.h>
 #include <mach/mach.h>
 #include <mach/task.h>
 #include <mach/mach_vm.h>
@@ -33,6 +34,60 @@
  * program may have deliberately constructed something to
  * cause us harm.
  */
+
+/*
+ * List of memory regions that cannot be optmized,
+ * because they are critical for analysis
+ */
+#define DYLD_PRIVATE_MEMORY_NAME "dyld private memory"
+
+static const char *protected_regions [] = {
+    DYLD_PRIVATE_MEMORY_NAME,
+    NULL
+};
+
+struct memory_region_preservation
+{
+    dyld_shared_cache_t sc;
+    dyld_process_t process;
+    dyld_process_snapshot_t snapshot;
+    struct regionhead *rhead;
+
+};
+/* Create the dyld headers coredump sections */
+
+static void get_dyld_ranges(task_t task);
+
+/*
+ * Check if a region should not be removed to protect analysis,
+ * returns true if that region is NOT protected
+ */
+bool 
+can_remove_region(struct region *r) {
+    if (r->r_info.user_tag == VM_MEMORY_DYLD) {
+        return false;
+    }
+    if (r->r_nsubregions) {
+        for (unsigned i = 0; i < r->r_nsubregions; i++) {
+            struct subregion *s = r->r_subregions[i];
+            const char *subregion_name = S_FILENAME(s);
+            for (unsigned j=0;j<sizeof(protected_regions)/sizeof(protected_regions[0]);j++) {
+                if (OPTIONS_DEBUG(opt, 3)) {
+                    printr(r,"comparing name %s with %s\n",subregion_name,protected_regions[j]);
+                }
+
+                if (!strcmp(subregion_name,protected_regions[j])) {
+                    if (OPTIONS_DEBUG(opt, 3)) {
+                        printr(r,"have to be protected\n");
+                    }
+                    return false;
+                }
+            }
+        }
+    }
+    printr(r,"can be removed\n");
+    return true;
+}
 
 static const char warn_dyld_info[] = "dyld information is incomplete or damaged";
 
@@ -219,7 +274,10 @@ bool
 libent_build_nametable(task_t task, dyld_process_info dpi)
 {
     __block bool valid = true;
-
+    /*
+     * Lets prepare the range of DYLD shared for latter use
+     */
+    get_dyld_ranges(task);
 	_dyld_process_info_for_each_image(dpi, ^(uint64_t mhaddr, const uuid_t uuid, const char *path) {
         if (valid) {
             native_mach_header_t *mh = copy_dyld_image_mh(task, mhaddr, path);
@@ -311,4 +369,185 @@ libent_build_nametable(task_t task, dyld_process_info dpi)
     if (OPTIONS_DEBUG(opt, 3))
         printf("nametable %sconstructed\n", valid ? "" : "NOT ");
     return valid;
+}
+
+void create_dyld_header_regions(task_t task, struct regionhead *rhead) {
+    struct liblist *ll;
+    dyld_shared_cache_t sc = NULL;
+    dyld_process_t process = NULL;
+    dyld_process_snapshot_t snapshot = NULL;
+    kern_return_t ret = KERN_SUCCESS;
+
+    if (OPTIONS_DEBUG(opt, 1))
+        printf("creating shared libraries macho headers section\n");
+
+    process = dyld_process_create_for_task(task, &ret);
+    if (KERN_SUCCESS != ret) {
+        err_mach(ret, NULL, "dyld_process_create_for_task()");
+        goto done;
+    }
+    snapshot = dyld_process_snapshot_create_for_process(process, &ret);
+    if (KERN_SUCCESS != ret) {
+        err_mach(ret, NULL, "dyld_process_snapshot_create_for_process()");
+        goto done;
+    }
+    sc = dyld_process_snapshot_get_shared_cache(snapshot);
+    
+
+    STAILQ_FOREACH(ll, &libhead, ll_linkage) {
+        vm_region_submap_info_data_64_t info = {0};
+        natural_t depth = 0;
+        mach_msg_type_number_t count = VM_REGION_SUBMAP_INFO_COUNT_64;
+        mach_vm_address_t vm_addr = ll->ll_entry.le_mhaddr;
+        if(vm_addr == 0) {
+            continue;
+        }
+        mach_vm_size_t vm_size = ll->ll_entry.le_mh->sizeofcmds + sizeof(*ll->ll_entry.le_mh);
+        /*
+         * We want to process only DYLD headers, rest will be part of the
+         * regular coredump.
+         */
+        if (!is_range_part_of_the_shared_library_address_space(vm_addr,vm_size)) {
+            if (OPTIONS_DEBUG(opt, 3))
+                printf("skipping shared library macho header section at address 0x%16.16llx size %llu name %s\n",vm_addr,vm_size,ll->ll_entry.le_filename);
+            continue;
+        }
+        if (OPTIONS_DEBUG(opt, 3))
+            printf("shared library macho header section at address 0x%16.16llx size %llu name %s\n",vm_addr,vm_size,ll->ll_entry.le_filename);
+        do {
+            mach_vm_address_t test_addr = vm_addr;
+            mach_vm_size_t test_size;
+            ret = mach_vm_region_recurse(task, &test_addr, &test_size, &depth, (vm_region_recurse_info_t)&info, &count);
+            depth++;
+
+            if (KERN_FAILURE == ret) {
+                err_mach(ret, NULL, "error inspecting task at %llx", vm_addr);
+                continue;
+            } else if (KERN_INVALID_ADDRESS == ret) {
+                err_mach(ret, NULL, "invalid address at %llx", vm_addr);
+                continue;
+            } else if (KERN_SUCCESS != ret) {
+                err_mach(ret, NULL, "error inspecting task at %llx", vm_addr);
+                continue;
+            }
+        } while(info.is_submap);
+        
+        if (OPTIONS_DEBUG(opt, 3))
+            printf("inserting shared library macho header section at address 0x%16.16llx size %llu name %s\n",vm_addr,vm_size,ll->ll_entry.le_filename);
+        (void) vm_insert_region(rhead,vm_addr, vm_size, &info, sc);
+    }
+done:
+    if (snapshot)
+        dyld_process_snapshot_dispose(snapshot);
+    if (process)
+        dyld_process_dispose(process);
+
+}
+
+static walk_return_t
+check_if_region_must_be_preserved(struct region *r, void *arg)
+{
+    if (OPTIONS_DEBUG(opt, 3)) {
+        printr(r, "Checking region\n");
+    }
+    struct memory_region_preservation * preservation_data = (struct memory_region_preservation *)arg;
+    struct regionhead *rhead = preservation_data->rhead;
+    if (!can_remove_region(r)) {
+
+        (void) vm_insert_region(rhead,r->r_range.addr, r->r_range.size, &r->r_info, preservation_data->sc);
+    }
+    return WALK_DELETE_REGION;
+}
+
+/*
+ * This function adds to the coredump the regions that even being discarded
+ * by common criteria (read/only, not dirty, etc.) they have to be part of the
+ * coredump or analysis would fail.
+ * They are identified by its name
+ * An example of them are the dyld private sections, that are unique
+ * per process and cannot be read on host process in skinny analysis
+ */
+void add_forced_regions(task_t task,struct regionhead *rhead) {
+    kern_return_t ret;
+    struct memory_region_preservation preservation_data = {
+        .process = NULL,
+        .sc = NULL,
+        .snapshot = NULL,
+        .rhead = rhead,
+    };
+    preservation_data.process = dyld_process_create_for_task(task, &ret);
+    if (KERN_SUCCESS != ret) {
+        err_mach(ret, NULL, "dyld_process_create_for_task()");
+        goto done;
+    }
+    preservation_data.snapshot = dyld_process_snapshot_create_for_process(preservation_data.process, &ret);
+    if (KERN_SUCCESS != ret) {
+        err_mach(ret, NULL, "dyld_process_snapshot_create_for_process()");
+        goto done;
+    }
+    preservation_data.sc = dyld_process_snapshot_get_shared_cache(preservation_data.snapshot);
+
+    struct regionhead *sys_rhead = build_region_list(task, true);
+    if (OPTIONS_DEBUG(opt, 3)) {
+        printf("Adding forced regions\n");
+    }
+    walk_region_list(sys_rhead, check_if_region_must_be_preserved, &preservation_data);
+    del_region_list(sys_rhead);
+
+done:
+    if (preservation_data.snapshot)
+        dyld_process_snapshot_dispose(preservation_data.snapshot);
+    if (preservation_data.process)
+        dyld_process_dispose(preservation_data.process);
+}
+
+
+static mach_vm_address_t dyld_shared_cache_base_addr = UINT64_MAX;
+static mach_vm_size_t    dyld_shared_cache_size      = UINT64_MAX;
+static void get_dyld_ranges(task_t task) {
+    dyld_shared_cache_base_addr = UINT64_MAX;
+    dyld_shared_cache_size = UINT64_MAX;
+    
+    kern_return_t dyld_err = KERN_FAILURE;
+    
+    dyld_process_t process = dyld_process_create_for_task(task, &dyld_err);
+    if (!process) {
+        errx(EX_OSERR, "Failed to create dyld process info with error %s", mach_error_string(dyld_err));
+    }
+    
+    dyld_process_snapshot_t snapshot = dyld_process_snapshot_create_for_process(process, &dyld_err);
+    if (!snapshot) {
+        errx(EX_OSERR, "Failed to create dyld snapshot with error %s", mach_error_string(dyld_err));
+    }
+    
+    dyld_shared_cache_t cache = dyld_process_snapshot_get_shared_cache(snapshot);
+    if (!cache) {
+        errx(EX_OSERR, "Failed to get dyld shared cache info");
+    }
+    
+    if (!dyld_shared_cache_is_mapped_private(cache)) {
+        /* ignore private shared caches */
+        dyld_shared_cache_base_addr = dyld_shared_cache_get_base_address(cache);
+        dyld_shared_cache_size = dyld_shared_cache_get_mapped_size(cache);
+    }
+    
+    dyld_process_snapshot_dispose(snapshot);
+    dyld_process_dispose(process);
+
+}
+
+/*
+ * Checks if a range belongs to the DYLD memory cache, normally
+ * used to avoid creating file references for executables / frameworks
+ * that are not part of shared cache
+ *
+ * Returns true if the range is part of DYLD areas.
+ */
+bool is_range_part_of_the_shared_library_address_space(mach_vm_address_t address,mach_vm_size_t size) {
+    if (dyld_shared_cache_base_addr <= address &&
+        dyld_shared_cache_base_addr+dyld_shared_cache_size >= address + size)
+    {
+        return true;
+    }
+    return false;
 }

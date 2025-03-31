@@ -80,13 +80,13 @@ SSCSPDLSession::makeReferenceKey(SSCSPSession &session, KeyHandle inKeyHandle,
 								 uint32 inKeyAttr, const CssmData *inKeyLabel)
 {
 // The analyzer doesn't know what to do with the naked creation of an item
-#ifndef __clang_analyzer__
+    [[clang::suppress]] {
 	SSKey* sskey = new SSKey(session, inKeyHandle, outKey, inSSDatabase, inKeyAttr,
 			  inKeyLabel);
-    (void) sskey; // Compiler thinks this variable isn't used, but we want the side effects of creation. Tell the compiler it's okay.
+        (void) sskey; // Compiler thinks this variable isn't used, but we want the side effects of creation. Tell the compiler it's okay.
 
-    secinfo("SecAccessReference", "made a new reference sskey with handle %d [%ld]", sskey->keyHandle(), sskey->keyReference());
-#endif
+        secinfo("SecAccessReference", "made a new reference sskey with handle %d [%ld]", sskey->keyHandle(), sskey->keyReference());
+    }
 }
 
 SSKey &

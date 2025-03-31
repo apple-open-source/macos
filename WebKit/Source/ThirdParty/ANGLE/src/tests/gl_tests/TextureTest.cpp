@@ -471,6 +471,17 @@ class Texture2DTestES3 : public Texture2DTest
     void testCopyImageDepthStencil(const APIExtensionVersion usedExtension);
 };
 
+class MultisampleTexture2DTestES31 : public Texture2DTest
+{
+  protected:
+    MultisampleTexture2DTestES31() : Texture2DTest() {}
+
+    void testCopyMultisampleImage(const APIExtensionVersion usedExtension,
+                                  const GLenum internalFormat);
+    void testCopyMultisampleArrayImage(const APIExtensionVersion usedExtension,
+                                       const GLenum internalFormat);
+};
+
 class Texture2DMemoryTestES3 : public Texture2DTestES3
 {
   protected:
@@ -2756,6 +2767,125 @@ TEST_P(Texture2DTest, PBOWithMultipleDraws)
     EXPECT_EQ(expected, actual);
 }
 
+// Almost mirrors UnitTest_DMSAA_dst_read test from Android skqp test suite
+TEST_P(Texture2DTestES3, UnitTest_DMSAA_dst_read)
+{
+    ANGLE_SKIP_TEST_IF(!IsGLExtensionEnabled("GL_EXT_sRGB_write_control"));
+
+    GLTexture texture;
+    glActiveTexture(GL_TEXTURE31);
+    glBindTexture(GL_TEXTURE_2D, texture);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGBA8, 16, 16);
+    glBindTexture(GL_TEXTURE_2D, 0);
+
+    GLFramebuffer fboTexture;
+    glBindFramebuffer(GL_FRAMEBUFFER, fboTexture);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texture, 0);
+    glCheckFramebufferStatus(GL_FRAMEBUFFER);
+
+    GLFramebuffer fboRenderbuffer;
+    GLRenderbuffer renderbuffer;
+    glBindFramebuffer(GL_FRAMEBUFFER, fboRenderbuffer);
+    glBindRenderbuffer(GL_RENDERBUFFER, renderbuffer);
+    glRenderbufferStorageMultisample(GL_RENDERBUFFER, 4, GL_RGBA8, 16, 16);
+    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_RENDERBUFFER, renderbuffer);
+    glCheckFramebufferStatus(GL_FRAMEBUFFER);
+
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, texture);
+    GLSampler sampler;
+    glSamplerParameteri(sampler, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glSamplerParameteri(sampler, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glSamplerParameteri(sampler, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glSamplerParameteri(sampler, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glSamplerParameterf(sampler, GL_TEXTURE_MAX_ANISOTROPY_EXT, 1.000000);
+    glBindSampler(0, sampler);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
+
+    glBindFramebuffer(GL_FRAMEBUFFER, fboRenderbuffer);
+    glViewport(0, 0, 16, 16);
+    glDisable(GL_FRAMEBUFFER_SRGB_EXT);
+
+    // Create texture program
+    ANGLE_GL_PROGRAM(drawTexture, essl1_shaders::vs::Texture2D(), essl1_shaders::fs::Texture2D());
+    ASSERT_GL_NO_ERROR();
+    GLint texLocation = glGetUniformLocation(drawTexture, "u_tex2D");
+    ASSERT_NE(-1, texLocation);
+    glUniform1i(texLocation, 0);
+
+    glDisable(GL_BLEND);
+    glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+    glDisable(GL_SCISSOR_TEST);
+    glDisable(GL_STENCIL_TEST);
+
+    glEnable(GL_FRAMEBUFFER_SRGB_EXT);
+    drawQuad(drawTexture, essl1_shaders::PositionAttrib(), 0.5f);
+
+    glDisable(GL_FRAMEBUFFER_SRGB_EXT);
+    glEnable(GL_SCISSOR_TEST);
+    glScissor(0, 6, 10, 10);
+
+    drawQuad(drawTexture, essl1_shaders::PositionAttrib(), 0.5f);
+
+    // Blit fboRenderbuffer onto fboTexture
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, fboRenderbuffer);
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, fboTexture);
+    glDisable(GL_SCISSOR_TEST);
+    glBlitFramebuffer(0, 6, 10, 16, 0, 6, 10, 16, GL_COLOR_BUFFER_BIT, GL_NEAREST);
+    GLenum attachment = GL_COLOR_ATTACHMENT0;
+    glInvalidateFramebuffer(GL_READ_FRAMEBUFFER, 1, &attachment);
+
+    glBindFramebuffer(GL_FRAMEBUFFER, fboTexture);
+    std::array<GLubyte, 10 * 10 * 4> pixelData;
+    glReadPixels(0, 6, 10, 10, GL_RGBA, GL_UNSIGNED_BYTE, pixelData.data());
+    glFinish();
+
+    glClearColor(1.000000, 1.000000, 1.000000, 1.000000);
+    glClear(GL_COLOR_BUFFER_BIT);
+
+    glBindFramebuffer(GL_FRAMEBUFFER, fboRenderbuffer);
+    glEnable(GL_FRAMEBUFFER_SRGB_EXT);
+    drawQuad(drawTexture, essl1_shaders::PositionAttrib(), 0.5f);
+
+    glDisable(GL_FRAMEBUFFER_SRGB_EXT);
+    glEnable(GL_SCISSOR_TEST);
+    drawQuad(drawTexture, essl1_shaders::PositionAttrib(), 0.5f);
+
+    // Blit fboRenderbuffer onto fboTexture
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, fboRenderbuffer);
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, fboTexture);
+    glDisable(GL_SCISSOR_TEST);
+    glBlitFramebuffer(0, 6, 10, 16, 0, 6, 10, 16, GL_COLOR_BUFFER_BIT, GL_NEAREST);
+    attachment = GL_COLOR_ATTACHMENT0;
+    glInvalidateFramebuffer(GL_READ_FRAMEBUFFER, 1, &attachment);
+    glFinish();
+
+    glBindFramebuffer(GL_FRAMEBUFFER, fboRenderbuffer);
+    glEnable(GL_FRAMEBUFFER_SRGB_EXT);
+    drawQuad(drawTexture, essl1_shaders::PositionAttrib(), 0.5f);
+
+    glDisable(GL_FRAMEBUFFER_SRGB_EXT);
+    glEnable(GL_SCISSOR_TEST);
+    drawQuad(drawTexture, essl1_shaders::PositionAttrib(), 0.5f);
+
+    // Blit fboRenderbuffer onto fboTexture
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, fboRenderbuffer);
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, fboTexture);
+    glDisable(GL_SCISSOR_TEST);
+    glBlitFramebuffer(0, 6, 10, 16, 0, 6, 10, 16, GL_COLOR_BUFFER_BIT, GL_NEAREST);
+    attachment = GL_COLOR_ATTACHMENT0;
+    glInvalidateFramebuffer(GL_READ_FRAMEBUFFER, 1, &attachment);
+    glFinish();
+
+    glBindFramebuffer(GL_FRAMEBUFFER, fboTexture);
+    glReadPixels(0, 6, 10, 10, GL_RGBA, GL_UNSIGNED_BYTE, pixelData.data());
+    glFinish();
+}
+
 // Test that stencil texture uploads work.
 TEST_P(Texture2DTestES3, TexImageWithStencilData)
 {
@@ -3747,7 +3877,8 @@ void main()
     std::vector<GLColor> textureColor(kTextureWidth * kTextureHeight, GLColor::red);
     constexpr uint32_t kIterationCount = 4096;
 
-    for (uint32_t i = 0; i < kIterationCount; i++)
+    uint32_t iteration = 0;
+    for (; iteration < kIterationCount; iteration++)
     {
         GLTexture texture;
         glBindTexture(GL_TEXTURE_2D, texture);
@@ -3760,15 +3891,15 @@ void main()
         EXPECT_GL_FRAMEBUFFER_COMPLETE(GL_FRAMEBUFFER);
         drawQuad(program, essl3_shaders::PositionAttrib(), 0.5f);
 
-        if (getPerfCounters().commandQueueSubmitCallsTotal == expectedSubmitCalls)
+        if (getPerfCounters().commandQueueSubmitCallsTotal >= expectedSubmitCalls)
         {
             break;
         }
     }
 
     glEndPerfMonitorAMD(monitor);
-
-    EXPECT_EQ(getPerfCounters().commandQueueSubmitCallsTotal, expectedSubmitCalls);
+    EXPECT_EQ(getPerfCounters().commandQueueSubmitCallsTotal, expectedSubmitCalls)
+        << "iteration " << iteration;
     EXPECT_EQ(getPerfCounters().deviceMemoryImageAllocationFallbacks,
               expectedDeviceMemoryFallbacks);
     ASSERT_GL_NO_ERROR();
@@ -6028,6 +6159,162 @@ void Texture2DTestES3::testCopyImage(const APIExtensionVersion usedExtension)
     EXPECT_PIXEL_RECT_EQ(0, 0, 2, 4, GLColor::red);
 }
 
+void MultisampleTexture2DTestES31::testCopyMultisampleImage(const APIExtensionVersion usedExtension,
+                                                            const GLenum internalFormat)
+{
+    ASSERT(usedExtension == APIExtensionVersion::EXT || usedExtension == APIExtensionVersion::OES);
+
+    ANGLE_GL_PROGRAM(drawRed, essl1_shaders::vs::Simple(), essl1_shaders::fs::Red());
+
+    GLTexture srcTexture;
+    GLTexture destTexture;
+    const GLenum target = GL_TEXTURE_2D_MULTISAMPLE;
+
+    GLint maxSamples = 0;
+    glGetInternalformativ(target, internalFormat, GL_SAMPLES, 1, &maxSamples);
+    EXPECT_GL_NO_ERROR();
+
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(target, destTexture);
+    glTexStorage2DMultisample(target, maxSamples, internalFormat, 4, 4, false);
+    EXPECT_GL_NO_ERROR();
+
+    glBindTexture(target, srcTexture);
+    glTexStorage2DMultisample(target, maxSamples, internalFormat, 4, 4, false);
+    EXPECT_GL_NO_ERROR();
+
+    GLFramebuffer fbo;
+    glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, target, srcTexture, 0);
+    EXPECT_GL_NO_ERROR();
+
+    // Draw red into the source texture
+    glViewport(0, 0, 4, 4);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+
+    drawQuad(drawRed, essl1_shaders::PositionAttrib(), 0.5f);
+    ASSERT_GL_NO_ERROR();
+
+    glBindTexture(target, 0);
+
+    // Copy
+    if (usedExtension == APIExtensionVersion::OES)
+    {
+        glCopyImageSubDataOES(srcTexture, target, 0, 0, 0, 0, destTexture, target, 0, 0, 0, 0, 4, 4,
+                              1);
+    }
+    else
+    {
+        glCopyImageSubDataEXT(srcTexture, target, 0, 0, 0, 0, destTexture, target, 0, 0, 0, 0, 4, 4,
+                              1);
+    }
+    EXPECT_GL_NO_ERROR();
+
+    // Resolve the target texture
+    GLTexture resolveTexture;
+    glBindTexture(GL_TEXTURE_2D, resolveTexture);
+    glTexStorage2D(GL_TEXTURE_2D, 1, internalFormat, 4, 4);
+
+    GLFramebuffer resolveFbo;
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, resolveFbo);
+    glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, resolveTexture,
+                           0);
+
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, fbo);
+    glFramebufferTexture2D(GL_READ_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, target, destTexture, 0);
+    ASSERT_GL_NO_ERROR();
+    glCheckFramebufferStatus(GL_FRAMEBUFFER);
+    EXPECT_GL_FRAMEBUFFER_COMPLETE(GL_FRAMEBUFFER);
+
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+    glBlitFramebuffer(0, 0, 4, 4, 0, 0, 4, 4, GL_COLOR_BUFFER_BIT, GL_LINEAR);
+    ASSERT_GL_NO_ERROR();
+
+    glBindFramebuffer(GL_FRAMEBUFFER, resolveFbo);
+    EXPECT_PIXEL_RECT_EQ(0, 0, 4, 4, GLColor::red);
+}
+
+void MultisampleTexture2DTestES31::testCopyMultisampleArrayImage(
+    const APIExtensionVersion usedExtension,
+    const GLenum internalFormat)
+{
+    ANGLE_SKIP_TEST_IF(!IsGLExtensionEnabled("GL_OES_texture_storage_multisample_2d_array"));
+
+    ASSERT(usedExtension == APIExtensionVersion::EXT || usedExtension == APIExtensionVersion::OES);
+
+    ANGLE_GL_PROGRAM(drawRed, essl1_shaders::vs::Simple(), essl1_shaders::fs::Red());
+
+    GLTexture srcTexture;
+    GLTexture destTexture;
+
+    GLint maxSamples = 0;
+    glGetInternalformativ(GL_TEXTURE_2D_MULTISAMPLE, internalFormat, GL_SAMPLES, 1, &maxSamples);
+    EXPECT_GL_NO_ERROR();
+
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D_MULTISAMPLE_ARRAY_OES, destTexture);
+    glTexStorage3DMultisampleOES(GL_TEXTURE_2D_MULTISAMPLE_ARRAY_OES, maxSamples, internalFormat, 4,
+                                 4, 3, false);
+    EXPECT_GL_NO_ERROR();
+
+    glBindTexture(GL_TEXTURE_2D_MULTISAMPLE_ARRAY_OES, srcTexture);
+    glTexStorage3DMultisampleOES(GL_TEXTURE_2D_MULTISAMPLE_ARRAY_OES, maxSamples, internalFormat, 4,
+                                 4, 3, false);
+    EXPECT_GL_NO_ERROR();
+
+    GLFramebuffer fbo;
+    glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+    glFramebufferTextureLayer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, srcTexture, 0, 1);
+    EXPECT_GL_NO_ERROR();
+
+    // Draw red into the source texture layer 1
+    glViewport(0, 0, 4, 4);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+
+    drawQuad(drawRed, essl1_shaders::PositionAttrib(), 0.5f);
+    ASSERT_GL_NO_ERROR();
+
+    glBindTexture(GL_TEXTURE_2D_MULTISAMPLE_ARRAY_OES, 0);
+
+    // Copy
+    if (usedExtension == APIExtensionVersion::OES)
+    {
+        glCopyImageSubDataOES(srcTexture, GL_TEXTURE_2D_MULTISAMPLE_ARRAY_OES, 0, 0, 0, 1,
+                              destTexture, GL_TEXTURE_2D_MULTISAMPLE_ARRAY_OES, 0, 0, 0, 2, 4, 4,
+                              1);
+    }
+    else
+    {
+        glCopyImageSubDataEXT(srcTexture, GL_TEXTURE_2D_MULTISAMPLE_ARRAY_OES, 0, 0, 0, 1,
+                              destTexture, GL_TEXTURE_2D_MULTISAMPLE_ARRAY_OES, 0, 0, 0, 2, 4, 4,
+                              1);
+    }
+    EXPECT_GL_NO_ERROR();
+
+    // Resolve the target texture
+    GLTexture resolveTexture;
+    glBindTexture(GL_TEXTURE_2D, resolveTexture);
+    glTexStorage2D(GL_TEXTURE_2D, 1, internalFormat, 4, 4);
+
+    GLFramebuffer resolveFbo;
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, resolveFbo);
+    glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, resolveTexture,
+                           0);
+
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, fbo);
+    glFramebufferTextureLayer(GL_READ_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, destTexture, 0, 2);
+    ASSERT_GL_NO_ERROR();
+    glCheckFramebufferStatus(GL_FRAMEBUFFER);
+    EXPECT_GL_FRAMEBUFFER_COMPLETE(GL_FRAMEBUFFER);
+
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+    glBlitFramebuffer(0, 0, 4, 4, 0, 0, 4, 4, GL_COLOR_BUFFER_BIT, GL_LINEAR);
+    ASSERT_GL_NO_ERROR();
+
+    glBindFramebuffer(GL_FRAMEBUFFER, resolveFbo);
+    EXPECT_PIXEL_RECT_EQ(0, 0, 4, 4, GLColor::red);
+}
+
 // Test basic GL_EXT_copy_image copy without any bound textures
 TEST_P(Texture2DTestES3, CopyImageEXT)
 {
@@ -6438,6 +6725,78 @@ TEST_P(Texture2DTestES3, DrawWithLevelsOutsideRangeWithInconsistentDimensions)
     drawQuad(mProgram, "position", 0.5f);
 
     EXPECT_PIXEL_COLOR_EQ(0, 0, GLColor::cyan);
+}
+
+// Test glCopyImageSubDataEXT with GL_TEXTURE_2D_MULTISAMPLE,
+// RGBA8->RGBA8 copy
+// RGB8->RGB8 copy
+TEST_P(MultisampleTexture2DTestES31, CopyMultisampleImageEXT)
+{
+    ANGLE_SKIP_TEST_IF(!IsGLExtensionEnabled("GL_EXT_copy_image"));
+    testCopyMultisampleImage(APIExtensionVersion::EXT, GL_RGBA8);
+    testCopyMultisampleImage(APIExtensionVersion::EXT, GL_RGB8);
+}
+
+// Test glCopyImageSubDataOES with GL_TEXTURE_2D_MULTISAMPLE,
+// RGBA8->RGBA8 copy
+// RGB8->RGB8 copy
+TEST_P(MultisampleTexture2DTestES31, CopyMultisampleImageOES)
+{
+    ANGLE_SKIP_TEST_IF(!IsGLExtensionEnabled("GL_OES_copy_image"));
+    testCopyMultisampleImage(APIExtensionVersion::OES, GL_RGBA8);
+    testCopyMultisampleImage(APIExtensionVersion::OES, GL_RGB8);
+}
+
+// Test glCopyImageSubDataEXT with GL_TEXTURE_2D_MULTISAMPLE_ARRAY,
+// RGBA8->RGBA8 copy
+// RGB8->RGB8 copy
+TEST_P(MultisampleTexture2DTestES31, CopyMultisampleArrayImageEXT)
+{
+    ANGLE_SKIP_TEST_IF(!IsGLExtensionEnabled("GL_EXT_copy_image"));
+    testCopyMultisampleArrayImage(APIExtensionVersion::EXT, GL_RGBA8);
+    testCopyMultisampleArrayImage(APIExtensionVersion::EXT, GL_RGB8);
+}
+
+// Test glCopyImageSubDataOES with GL_TEXTURE_2D_MULTISAMPLE_ARRAY,
+// RGBA8->RGBA8 copy
+// RGB8->RGB8 copy
+TEST_P(MultisampleTexture2DTestES31, CopyMultisampleArrayImageOES)
+{
+    ANGLE_SKIP_TEST_IF(!IsGLExtensionEnabled("GL_OES_copy_image"));
+    testCopyMultisampleArrayImage(APIExtensionVersion::OES, GL_RGBA8);
+    testCopyMultisampleArrayImage(APIExtensionVersion::OES, GL_RGB8);
+}
+
+// Depth/Stencil textures cannot be 3D.
+TEST_P(Texture3DTestES3, DepthStencil3DDisallowed)
+{
+    const std::array<std::tuple<GLenum, GLenum, GLenum>, 6> testConfigs = {
+        std::make_tuple(GL_DEPTH_COMPONENT16, GL_DEPTH_COMPONENT, GL_UNSIGNED_SHORT),
+        std::make_tuple(GL_DEPTH_COMPONENT24, GL_DEPTH_COMPONENT, GL_UNSIGNED_INT),
+        std::make_tuple(GL_DEPTH_COMPONENT32F, GL_DEPTH_COMPONENT, GL_FLOAT),
+        std::make_tuple(GL_DEPTH32F_STENCIL8, GL_DEPTH_STENCIL, GL_FLOAT_32_UNSIGNED_INT_24_8_REV),
+        std::make_tuple(GL_DEPTH24_STENCIL8, GL_DEPTH_STENCIL, GL_UNSIGNED_INT_24_8),
+        std::make_tuple(GL_STENCIL_INDEX8, GL_STENCIL_INDEX, GL_UNSIGNED_BYTE)};
+
+    for (auto testConfig : testConfigs)
+    {
+        const GLenum internalformat = std::get<0>(testConfig);
+        const GLenum format         = std::get<1>(testConfig);
+        const GLenum type           = std::get<2>(testConfig);
+
+        if (internalformat == GL_STENCIL_INDEX8 && !IsGLExtensionEnabled("GL_OES_texture_stencil8"))
+        {
+            continue;
+        }
+
+        GLTexture depthTexture;
+        glBindTexture(GL_TEXTURE_3D, depthTexture);
+        glTexImage3D(GL_TEXTURE_3D, 0, internalformat, 16, 16, 16, 0, format, type, nullptr);
+        EXPECT_GL_ERROR(GL_INVALID_OPERATION);
+
+        glTexStorage3D(GL_TEXTURE_3D, 2, internalformat, 16, 16, 16);
+        EXPECT_GL_ERROR(GL_INVALID_OPERATION);
+    }
 }
 
 // Test that drawing works correctly when levels outside the BASE_LEVEL/MAX_LEVEL range do not
@@ -11490,6 +11849,33 @@ TEST_P(TextureCubeTestES3, IncompatibleLayerABThenCompatibleLayerABSingleLevel)
     }
 }
 
+// Test that the maximum texture layer can allocate enough memory.
+TEST_P(TextureCubeTestES32, MaxArrayTextureLayersVerify)
+{
+    GLint maxTextureLayers = 0;
+    GLTexture texture;
+
+    glBindTexture(GL_TEXTURE_2D_ARRAY, texture);
+    ASSERT_GL_NO_ERROR();
+
+    glGetIntegerv(GL_MAX_ARRAY_TEXTURE_LAYERS, &maxTextureLayers);
+    ASSERT_GL_NO_ERROR();
+
+    glTexImage3D(GL_TEXTURE_2D_ARRAY, 0, GL_RGBA8, 256, 256, maxTextureLayers, 0, GL_RGBA,
+                 GL_UNSIGNED_BYTE, nullptr);
+    ASSERT_GL_NO_ERROR();
+
+    glTexImage3D(GL_TEXTURE_2D_ARRAY, 0, GL_RGBA8, 256, 256, maxTextureLayers + 1, 0, GL_RGBA,
+                 GL_UNSIGNED_BYTE, nullptr);
+    EXPECT_GL_ERROR(GL_INVALID_VALUE);
+
+    glTexStorage3D(GL_TEXTURE_2D_ARRAY, 1, GL_RGBA8, 256, 256, maxTextureLayers);
+    ASSERT_GL_NO_ERROR();
+
+    glTexStorage3D(GL_TEXTURE_2D_ARRAY, 1, GL_RGBA8, 256, 256, maxTextureLayers + 1);
+    EXPECT_GL_ERROR(GL_INVALID_VALUE);
+}
+
 // Tests defining a cube map array texture using glTexImage3D().
 TEST_P(TextureCubeTestES32, ValidateCubeMapArrayTexImage)
 {
@@ -13791,13 +14177,136 @@ TEST_P(ETC1CompressedTextureTest, ETC1ShrinkThenGrowMaxLevels)
     ASSERT_GL_NO_ERROR();
 }
 
-class TextureBufferTestES31 : public ANGLETest<>
+class TextureBufferTestBase : public ANGLETest<>
+{
+  protected:
+    TextureBufferTestBase() {}
+
+    void callTexBufferAPI(const APIExtensionVersion usedExtension,
+                          GLenum target,
+                          GLenum internalFormat,
+                          GLuint buffer);
+    void testTexBuffer(const APIExtensionVersion usedExtension,
+                       GLenum internalFormat,
+                       const size_t inputTextureDataSize,
+                       const void *inputTextureData,
+                       const GLColor expectedOutputColor);
+};
+
+class TextureBufferTestES31 : public TextureBufferTestBase
 {
   protected:
     TextureBufferTestES31() {}
 
     void drawWithIncompleteOrZeroTexture(bool useCompleteTexture, bool useNonZeroTexture);
 };
+
+class TextureBufferTestES32 : public TextureBufferTestBase
+{
+  protected:
+    TextureBufferTestES32() {}
+};
+
+void TextureBufferTestBase::callTexBufferAPI(const APIExtensionVersion usedExtension,
+                                             GLenum target,
+                                             GLenum internalFormat,
+                                             GLuint buffer)
+{
+    ASSERT(usedExtension == APIExtensionVersion::EXT || usedExtension == APIExtensionVersion::OES ||
+           usedExtension == APIExtensionVersion::Core);
+    if (usedExtension == APIExtensionVersion::EXT)
+    {
+        glTexBufferEXT(target, internalFormat, buffer);
+    }
+    else if (usedExtension == APIExtensionVersion::OES)
+    {
+        glTexBufferOES(target, internalFormat, buffer);
+    }
+    else
+    {
+        glTexBuffer(target, internalFormat, buffer);
+    }
+}
+
+void TextureBufferTestBase::testTexBuffer(const APIExtensionVersion usedExtension,
+                                          GLenum internalFormat,
+                                          const size_t inputTextureDataSize,
+                                          const void *inputTextureData,
+                                          const GLColor expectedOutputColor)
+{
+    ASSERT(usedExtension == APIExtensionVersion::EXT || usedExtension == APIExtensionVersion::OES ||
+           usedExtension == APIExtensionVersion::Core);
+
+    // TODO(http://anglebug.com/42264369): Claims to support GL_OES_texture_buffer, but fails
+    // compilation of shader because "extension 'GL_OES_texture_buffer' is not supported".
+    ANGLE_SKIP_TEST_IF(usedExtension == APIExtensionVersion::OES && IsQualcomm() && IsOpenGLES());
+
+    GLBuffer buffer;
+    glBindBuffer(GL_TEXTURE_BUFFER, buffer);
+    glBufferData(GL_TEXTURE_BUFFER, inputTextureDataSize, inputTextureData, GL_DYNAMIC_DRAW);
+    EXPECT_GL_NO_ERROR();
+
+    // Shaders
+    std::string simpleVS;
+    std::string samplerBufferFS;
+
+    constexpr char kGLSLVersion31[] = R"(#version 310 es
+)";
+    constexpr char kGLSLVersion32[] = R"(#version 320 es
+)";
+    constexpr char kTexBufEXT[]     = R"(#extension GL_EXT_texture_buffer : require
+)";
+    constexpr char kTexBufOES[]     = R"(#extension GL_OES_texture_buffer : require
+)";
+
+    if (usedExtension == APIExtensionVersion::EXT)
+    {
+        simpleVS.append(kGLSLVersion31);
+        samplerBufferFS.append(kGLSLVersion31);
+        samplerBufferFS.append(kTexBufEXT);
+    }
+    else if (usedExtension == APIExtensionVersion::OES)
+    {
+        simpleVS.append(kGLSLVersion31);
+        samplerBufferFS.append(kGLSLVersion31);
+        samplerBufferFS.append(kTexBufOES);
+    }
+    else
+    {
+        simpleVS.append(kGLSLVersion32);
+        samplerBufferFS.append(kGLSLVersion32);
+    }
+
+    constexpr char kVSBody[] = R"(
+in vec4 a_position;
+void main()
+{
+    gl_Position = a_position;
+})";
+    simpleVS.append(kVSBody);
+
+    constexpr char kFSBody[] = R"(
+precision mediump float;
+uniform highp samplerBuffer s;
+out vec4 colorOut;
+void main()
+{
+    colorOut = texelFetch(s, 0);
+})";
+    samplerBufferFS.append(kFSBody);
+
+    ANGLE_GL_PROGRAM(program, simpleVS.c_str(), samplerBufferFS.c_str());
+    ASSERT_GL_NO_ERROR();
+
+    // Draw
+    callTexBufferAPI(usedExtension, GL_TEXTURE_BUFFER, internalFormat, buffer);
+    ASSERT_GL_NO_ERROR();
+
+    drawQuad(program, "a_position", 0.5);
+    ASSERT_GL_NO_ERROR();
+
+    EXPECT_PIXEL_COLOR_EQ(0, 0, expectedOutputColor);
+}
 
 void TextureBufferTestES31::drawWithIncompleteOrZeroTexture(bool useCompleteTexture,
                                                             bool useNonZeroTexture)
@@ -13917,6 +14426,184 @@ void main()
     EXPECT_GL_NO_ERROR();
 
     EXPECT_PIXEL_COLOR_EQ(0, 0, GLColor::red);
+}
+
+// Test that glTexBufferEXT can be used in a draw call for R8 normalized values.
+TEST_P(TextureBufferTestES31, RNorm8EXT)
+{
+    ANGLE_SKIP_TEST_IF(!IsGLExtensionEnabled("GL_EXT_texture_buffer"));
+
+    const std::array<uint8_t, 1> kTexData = {0xFF};
+    testTexBuffer(APIExtensionVersion::EXT, GL_R8, sizeof(kTexData), kTexData.data(), GLColor::red);
+}
+
+// Test that glTexBufferEXT can be used in a draw call for RG8 normalized values.
+TEST_P(TextureBufferTestES31, RGNorm8EXT)
+{
+    ANGLE_SKIP_TEST_IF(!IsGLExtensionEnabled("GL_EXT_texture_buffer"));
+
+    const std::array<uint8_t, 2> kTexData = {0xFF, 0xFF};
+    testTexBuffer(APIExtensionVersion::EXT, GL_RG8, sizeof(kTexData), kTexData.data(),
+                  GLColor::yellow);
+}
+
+// Test that glTexBufferEXT can be used in a draw call for RGBA8 normalized values.
+TEST_P(TextureBufferTestES31, RGBANorm8EXT)
+{
+    ANGLE_SKIP_TEST_IF(!IsGLExtensionEnabled("GL_EXT_texture_buffer"));
+
+    const std::array<uint8_t, 4> kTexData = {0xFF, 0, 0xFF, 0xFF};
+    testTexBuffer(APIExtensionVersion::EXT, GL_RGBA8, sizeof(kTexData), kTexData.data(),
+                  GLColor::magenta);
+}
+
+// Test that glTexBufferEXT can be used in a draw call for R16 normalized values.
+TEST_P(TextureBufferTestES31, RNorm16EXT)
+{
+    ANGLE_SKIP_TEST_IF(!IsGLExtensionEnabled("GL_EXT_texture_buffer"));
+    ANGLE_SKIP_TEST_IF(!IsGLExtensionEnabled("GL_EXT_texture_norm16"));
+
+    const std::array<uint16_t, 1> kTexData = {0xFFFF};
+    testTexBuffer(APIExtensionVersion::EXT, GL_R16_EXT, sizeof(kTexData), kTexData.data(),
+                  GLColor::red);
+}
+
+// Test that glTexBufferEXT can be used in a draw call for RG16 normalized values.
+TEST_P(TextureBufferTestES31, RGNorm16EXT)
+{
+    ANGLE_SKIP_TEST_IF(!IsGLExtensionEnabled("GL_EXT_texture_buffer"));
+    ANGLE_SKIP_TEST_IF(!IsGLExtensionEnabled("GL_EXT_texture_norm16"));
+
+    const std::array<uint16_t, 2> kTexData = {0xFFFF, 0xFFFF};
+    testTexBuffer(APIExtensionVersion::EXT, GL_RG16_EXT, sizeof(kTexData), kTexData.data(),
+                  GLColor::yellow);
+}
+
+// Test that glTexBufferEXT can be used in a draw call for RGBA16 normalized values.
+TEST_P(TextureBufferTestES31, RGBANorm16EXT)
+{
+    ANGLE_SKIP_TEST_IF(!IsGLExtensionEnabled("GL_EXT_texture_buffer"));
+    ANGLE_SKIP_TEST_IF(!IsGLExtensionEnabled("GL_EXT_texture_norm16"));
+
+    const std::array<uint16_t, 4> kTexData = {0xFFFF, 0, 0xFFFF, 0xFFFF};
+    testTexBuffer(APIExtensionVersion::EXT, GL_RGBA16_EXT, sizeof(kTexData), kTexData.data(),
+                  GLColor::magenta);
+}
+
+// Test that glTexBufferOES can be used in a draw call for R8 normalized values.
+TEST_P(TextureBufferTestES31, RNorm8OES)
+{
+    ANGLE_SKIP_TEST_IF(!IsGLExtensionEnabled("GL_OES_texture_buffer"));
+
+    const std::array<uint8_t, 1> kTexData = {0xFF};
+    testTexBuffer(APIExtensionVersion::OES, GL_R8, sizeof(kTexData), kTexData.data(), GLColor::red);
+}
+
+// Test that glTexBufferOES can be used in a draw call for RG8 normalized values.
+TEST_P(TextureBufferTestES31, RGNorm8OES)
+{
+    ANGLE_SKIP_TEST_IF(!IsGLExtensionEnabled("GL_OES_texture_buffer"));
+
+    const std::array<uint8_t, 2> kTexData = {0xFF, 0xFF};
+    testTexBuffer(APIExtensionVersion::OES, GL_RG8, sizeof(kTexData), kTexData.data(),
+                  GLColor::yellow);
+}
+
+// Test that glTexBufferOES can be used in a draw call for RGBA8 normalized values.
+TEST_P(TextureBufferTestES31, RGBANorm8OES)
+{
+    ANGLE_SKIP_TEST_IF(!IsGLExtensionEnabled("GL_OES_texture_buffer"));
+
+    const std::array<uint8_t, 4> kTexData = {0xFF, 0, 0xFF, 0xFF};
+    testTexBuffer(APIExtensionVersion::OES, GL_RGBA8, sizeof(kTexData), kTexData.data(),
+                  GLColor::magenta);
+}
+
+// Test that glTexBufferOES can be used in a draw call for R16 normalized values.
+TEST_P(TextureBufferTestES31, RNorm16OES)
+{
+    ANGLE_SKIP_TEST_IF(!IsGLExtensionEnabled("GL_OES_texture_buffer"));
+    ANGLE_SKIP_TEST_IF(!IsGLExtensionEnabled("GL_EXT_texture_norm16"));
+
+    const std::array<uint16_t, 1> kTexData = {0xFFFF};
+    testTexBuffer(APIExtensionVersion::OES, GL_R16_EXT, sizeof(kTexData), kTexData.data(),
+                  GLColor::red);
+}
+
+// Test that glTexBufferOES can be used in a draw call for RG16 normalized values.
+TEST_P(TextureBufferTestES31, RGNorm16OES)
+{
+    ANGLE_SKIP_TEST_IF(!IsGLExtensionEnabled("GL_OES_texture_buffer"));
+    ANGLE_SKIP_TEST_IF(!IsGLExtensionEnabled("GL_EXT_texture_norm16"));
+
+    const std::array<uint16_t, 2> kTexData = {0xFFFF, 0xFFFF};
+    testTexBuffer(APIExtensionVersion::OES, GL_RG16_EXT, sizeof(kTexData), kTexData.data(),
+                  GLColor::yellow);
+}
+
+// Test that glTexBufferOES can be used in a draw call for RGBA16 normalized values.
+TEST_P(TextureBufferTestES31, RGBANorm16OES)
+{
+    ANGLE_SKIP_TEST_IF(!IsGLExtensionEnabled("GL_OES_texture_buffer"));
+    ANGLE_SKIP_TEST_IF(!IsGLExtensionEnabled("GL_EXT_texture_norm16"));
+
+    const std::array<uint16_t, 4> kTexData = {0xFFFF, 0, 0xFFFF, 0xFFFF};
+    testTexBuffer(APIExtensionVersion::OES, GL_RGBA16_EXT, sizeof(kTexData), kTexData.data(),
+                  GLColor::magenta);
+}
+
+// Test that glTexBuffer can be used in a draw call for R8 normalized values.
+TEST_P(TextureBufferTestES32, RNorm8)
+{
+    const std::array<uint8_t, 1> kTexData = {0xFF};
+    testTexBuffer(APIExtensionVersion::Core, GL_R8, sizeof(kTexData), kTexData.data(),
+                  GLColor::red);
+}
+
+// Test that glTexBuffer can be used in a draw call for RG8 normalized values.
+TEST_P(TextureBufferTestES32, RGNorm8)
+{
+    const std::array<uint8_t, 2> kTexData = {0xFF, 0xFF};
+    testTexBuffer(APIExtensionVersion::Core, GL_RG8, sizeof(kTexData), kTexData.data(),
+                  GLColor::yellow);
+}
+
+// Test that glTexBuffer can be used in a draw call for RGBA8 normalized values.
+TEST_P(TextureBufferTestES32, RGBANorm8)
+{
+    const std::array<uint8_t, 4> kTexData = {0xFF, 0, 0xFF, 0xFF};
+    testTexBuffer(APIExtensionVersion::Core, GL_RGBA8, sizeof(kTexData), kTexData.data(),
+                  GLColor::magenta);
+}
+
+// Test that glTexBuffer can be used in a draw call for R16 normalized values.
+TEST_P(TextureBufferTestES32, RNorm16)
+{
+    ANGLE_SKIP_TEST_IF(!IsGLExtensionEnabled("GL_EXT_texture_norm16"));
+
+    const std::array<uint16_t, 1> kTexData = {0xFFFF};
+    testTexBuffer(APIExtensionVersion::Core, GL_R16_EXT, sizeof(kTexData), kTexData.data(),
+                  GLColor::red);
+}
+
+// Test that glTexBuffer can be used in a draw call for RG16 normalized values.
+TEST_P(TextureBufferTestES32, RGNorm16)
+{
+    ANGLE_SKIP_TEST_IF(!IsGLExtensionEnabled("GL_EXT_texture_norm16"));
+
+    const std::array<uint16_t, 2> kTexData = {0xFFFF, 0xFFFF};
+    testTexBuffer(APIExtensionVersion::Core, GL_RG16_EXT, sizeof(kTexData), kTexData.data(),
+                  GLColor::yellow);
+}
+
+// Test that glTexBuffer can be used in a draw call for RGBA16 normalized values.
+TEST_P(TextureBufferTestES32, RGBANorm16)
+{
+    ANGLE_SKIP_TEST_IF(!IsGLExtensionEnabled("GL_EXT_texture_norm16"));
+
+    const std::array<uint16_t, 4> kTexData = {0xFFFF, 0, 0xFFFF, 0xFFFF};
+    testTexBuffer(APIExtensionVersion::Core, GL_RGBA16_EXT, sizeof(kTexData), kTexData.data(),
+                  GLColor::magenta);
 }
 
 // Test that uploading data to buffer that's in use then using it as texture buffer works.
@@ -14264,7 +14951,13 @@ TEST_P(TextureBufferTestES31, TestErrorWhenNotEnabled)
 class CopyImageTestES31 : public ANGLETest<>
 {
   protected:
-    CopyImageTestES31() {}
+    CopyImageTestES31()
+    {
+        setConfigRedBits(8);
+        setConfigGreenBits(8);
+        setConfigBlueBits(8);
+        setConfigAlphaBits(8);
+    }
 };
 
 // Test that copies between RGB formats doesn't affect the emulated alpha channel, if any.
@@ -14694,6 +15387,63 @@ TEST_P(CopyImageTestES31, Texture3DSelfCopyImageSubData)
     glFramebufferTextureLayer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, tex, 1, 1);
     EXPECT_PIXEL_RECT_EQ(0, 0, kWidth >> 1, kHeight >> 1, GLColor::blue);
     ASSERT_GL_NO_ERROR();
+}
+
+// Verify that copying between multisample renderbuffer work
+TEST_P(CopyImageTestES31, MultisampleRenderbufferCopyImageSubData)
+{
+    ANGLE_SKIP_TEST_IF(!IsGLExtensionEnabled("GL_EXT_copy_image"));
+
+    constexpr uint32_t kWidth  = 16;
+    constexpr uint32_t kHeight = 16;
+
+    ANGLE_GL_PROGRAM(drawRed, essl1_shaders::vs::Simple(), essl1_shaders::fs::Red());
+
+    GLint maxSample = 0;
+    glGetInternalformativ(GL_RENDERBUFFER, GL_RGBA8, GL_SAMPLES, 1, &maxSample);
+    ASSERT_GL_NO_ERROR();
+
+    GLFramebuffer fboRenderbuffer;
+    GLRenderbuffer srcRenderbuffer;
+    glBindFramebuffer(GL_FRAMEBUFFER, fboRenderbuffer);
+    glBindRenderbuffer(GL_RENDERBUFFER, srcRenderbuffer);
+    glRenderbufferStorageMultisample(GL_RENDERBUFFER, maxSample, GL_RGBA8, kWidth, kHeight);
+    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_RENDERBUFFER,
+                              srcRenderbuffer);
+    ASSERT_GL_NO_ERROR();
+    glCheckFramebufferStatus(GL_FRAMEBUFFER);
+    EXPECT_GL_FRAMEBUFFER_COMPLETE(GL_FRAMEBUFFER);
+
+    /* Draw red into the source renderbuffer */
+    glViewport(0, 0, kWidth, kHeight);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+
+    drawQuad(drawRed, essl1_shaders::PositionAttrib(), 0.5f);
+    ASSERT_GL_NO_ERROR();
+
+    /* Copy source renderbuffer to destination renderbuffer*/
+    GLRenderbuffer dstRenderbuffer;
+    glBindRenderbuffer(GL_RENDERBUFFER, dstRenderbuffer);
+    glRenderbufferStorageMultisample(GL_RENDERBUFFER, maxSample, GL_RGBA8, kWidth, kHeight);
+    glCopyImageSubDataEXT(srcRenderbuffer, GL_RENDERBUFFER, 0, 0, 0, 0, dstRenderbuffer,
+                          GL_RENDERBUFFER, 0, 0, 0, 0, kWidth, kHeight, 1);
+    ASSERT_GL_NO_ERROR();
+
+    /* Resolve the dstRenderbuffer */
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, fboRenderbuffer);
+    glFramebufferRenderbuffer(GL_READ_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_RENDERBUFFER,
+                              dstRenderbuffer);
+    ASSERT_GL_NO_ERROR();
+    glCheckFramebufferStatus(GL_FRAMEBUFFER);
+    EXPECT_GL_FRAMEBUFFER_COMPLETE(GL_FRAMEBUFFER);
+
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+    glBlitFramebuffer(0, 0, kWidth, kHeight, 0, 0, kWidth, kHeight, GL_COLOR_BUFFER_BIT, GL_LINEAR);
+    ASSERT_GL_NO_ERROR();
+
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    EXPECT_PIXEL_RECT_EQ(0, 0, kWidth, kHeight, GLColor::red);
 }
 
 class TextureChangeStorageUploadTest : public ANGLETest<>
@@ -15498,6 +16248,9 @@ ANGLE_INSTANTIATE_TEST_ES3(PBOCompressedTexture3DTest);
 GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(TextureBufferTestES31);
 ANGLE_INSTANTIATE_TEST_ES31(TextureBufferTestES31);
 
+GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(TextureBufferTestES32);
+ANGLE_INSTANTIATE_TEST_ES32(TextureBufferTestES32);
+
 GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(TextureTestES31);
 ANGLE_INSTANTIATE_TEST_ES31(TextureTestES31);
 
@@ -15514,5 +16267,8 @@ ANGLE_INSTANTIATE_TEST_ES3_AND(Texture2DDepthStencilTestES3,
 
 GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(RGBTextureBufferTestES31);
 ANGLE_INSTANTIATE_TEST_ES31(RGBTextureBufferTestES31);
+
+GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(MultisampleTexture2DTestES31);
+ANGLE_INSTANTIATE_TEST_ES31(MultisampleTexture2DTestES31);
 
 }  // anonymous namespace

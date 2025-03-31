@@ -12,10 +12,10 @@
 #include "modules/video_coding/codecs/h264/include/h264.h"
 
 #include <memory>
+#include <optional>
 #include <string>
 
 #include "absl/container/inlined_vector.h"
-#include "absl/types/optional.h"
 #include "api/video_codecs/sdp_video_format.h"
 #include "media/base/media_constants.h"
 #include "rtc_base/trace_event.h"
@@ -56,7 +56,7 @@ SdpVideoFormat CreateH264Format(H264Profile profile,
                                 H264Level level,
                                 const std::string& packetization_mode,
                                 bool add_scalability_modes) {
-  const absl::optional<std::string> profile_string =
+  const std::optional<std::string> profile_string =
       H264ProfileLevelIdToString(H264ProfileLevelId(profile, level));
   RTC_CHECK(profile_string);
   absl::InlinedVector<ScalabilityMode, kScalabilityModeCount> scalability_modes;
@@ -92,17 +92,17 @@ std::vector<SdpVideoFormat> SupportedH264Codecs(bool add_scalability_modes) {
   //
   // We support both packetization modes 0 (mandatory) and 1 (optional,
   // preferred).
-  return {CreateH264Format(H264Profile::kProfileBaseline, H264Level::kLevel4_2,
+  return {CreateH264Format(H264Profile::kProfileBaseline, H264Level::kLevel3_1,
                            "1", add_scalability_modes),
-          CreateH264Format(H264Profile::kProfileBaseline, H264Level::kLevel4_2,
+          CreateH264Format(H264Profile::kProfileBaseline, H264Level::kLevel3_1,
                            "0", add_scalability_modes),
           CreateH264Format(H264Profile::kProfileConstrainedBaseline,
-                           H264Level::kLevel4_2, "1", add_scalability_modes),
+                           H264Level::kLevel3_1, "1", add_scalability_modes),
           CreateH264Format(H264Profile::kProfileConstrainedBaseline,
-                           H264Level::kLevel4_2, "0", add_scalability_modes),
-          CreateH264Format(H264Profile::kProfileMain, H264Level::kLevel4_2, "1",
+                           H264Level::kLevel3_1, "0", add_scalability_modes),
+          CreateH264Format(H264Profile::kProfileMain, H264Level::kLevel3_1, "1",
                            add_scalability_modes),
-          CreateH264Format(H264Profile::kProfileMain, H264Level::kLevel4_2, "0",
+          CreateH264Format(H264Profile::kProfileMain, H264Level::kLevel3_1, "0",
                            add_scalability_modes)};
 }
 
@@ -113,18 +113,12 @@ std::vector<SdpVideoFormat> SupportedH264DecoderCodecs() {
 
   std::vector<SdpVideoFormat> supportedCodecs = SupportedH264Codecs();
 
+  // OpenH264 doesn't yet support High Predictive 4:4:4 encoding but it does
+  // support decoding.
   supportedCodecs.push_back(CreateH264Format(
-      H264Profile::kProfileConstrainedHigh, H264Level::kLevel4_2, "1"));
+      H264Profile::kProfilePredictiveHigh444, H264Level::kLevel3_1, "1"));
   supportedCodecs.push_back(CreateH264Format(
-      H264Profile::kProfileConstrainedHigh, H264Level::kLevel4_2, "0"));
-  supportedCodecs.push_back(
-      CreateH264Format(H264Profile::kProfileHigh, H264Level::kLevel4_2, "1"));
-  supportedCodecs.push_back(
-      CreateH264Format(H264Profile::kProfileHigh, H264Level::kLevel4_2, "0"));
-  supportedCodecs.push_back(CreateH264Format(
-      H264Profile::kProfilePredictiveHigh444, H264Level::kLevel4_2, "1"));
-  supportedCodecs.push_back(CreateH264Format(
-      H264Profile::kProfilePredictiveHigh444, H264Level::kLevel4_2, "0"));
+      H264Profile::kProfilePredictiveHigh444, H264Level::kLevel3_1, "0"));
 
   return supportedCodecs;
 }

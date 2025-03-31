@@ -74,6 +74,7 @@ static void TestNarrowQuarters(void);
 static void TestExtraneousCharacters(void);
 static void TestParseTooStrict(void);
 static void TestHourCycle(void);
+static void TestLocaleNameCrash(void);
 #if APPLE_ICU_CHANGES
 // rdar://
 static void TestStandardPatterns(void);
@@ -102,6 +103,10 @@ static void TestRgSubtag(void); // rdar://106566783
 static void TestTimeFormatInheritance(void); // rdar://106179361
 static void TestRelativeDateTime(void); // rdar://114975916
 static void TestBadLocaleID(void); // rdar://131338112, rdar://130919763
+static void TestLongDayPeriodDefaults(void); // rdar://17278425
+static void TestIndianAMPM(void); // rdar://142529306, rdar://142529982, rdar://126856083, rdar://128190439
+static void TestTaiwanDayPeriods(void); // rdar://142599503
+static void TestMonthAndDayNames(void); // rdar://143103676, rdar://132385606, rdar://132231977, rdar://140215649
 #endif  // APPLE_ICU_CHANGES
 
 void addDateForTest(TestNode** root);
@@ -134,6 +139,7 @@ void addDateForTest(TestNode** root)
     TESTCASE(TestExtraneousCharacters);
     TESTCASE(TestParseTooStrict);
     TESTCASE(TestHourCycle);
+    TESTCASE(TestLocaleNameCrash);
 #if APPLE_ICU_CHANGES
 // rdar://
     TESTCASE(TestStandardPatterns);
@@ -163,10 +169,14 @@ void addDateForTest(TestNode** root)
     TESTCASE(TestRelativeDateTime); // rdar://114975916
     TESTCASE(TestUkrainianDayNames); // rdar:122185743
     TESTCASE(TestBadLocaleID); // rdar://131338112, rdar://130919763
+    TESTCASE(TestLongDayPeriodDefaults); // rdar://17278425
+    TESTCASE(TestIndianAMPM); // rdar://142529306, rdar://142529982, rdar://126856083, rdar://128190439
+    TESTCASE(TestTaiwanDayPeriods); // // rdar://142599503
+    TESTCASE(TestMonthAndDayNames); // rdar://143103676, rdar://132385606, rdar://132231977, rdar://140215649
 #endif  // APPLE_ICU_CHANGES
 }
 /* Testing the DateFormat API */
-static void TestDateFormat()
+static void TestDateFormat(void)
 {
     UDateFormat *def, *fr, *it, *de, *def1, *fr_pat;
     UDateFormat *any;
@@ -531,7 +541,7 @@ enum { kDateOrTimeOutMax = 96, kDateAndTimeOutMax = 192 };
 static const UDate minutesTolerance = 2 * 60.0 * 1000.0;
 static const UDate daysTolerance = 2 * 24.0 * 60.0 * 60.0 * 1000.0;
 
-static void TestRelativeDateFormat()
+static void TestRelativeDateFormat(void)
 {
     UDate today = 0.0;
     const UDateFormatStyle * stylePtr;
@@ -681,7 +691,7 @@ static void TestRelativeDateFormat()
 }
 
 /*Testing udat_getSymbols() and udat_setSymbols() and udat_countSymbols()*/
-static void TestSymbols()
+static void TestSymbols(void)
 {
 #if APPLE_ICU_CHANGES
 // rdar://
@@ -1071,7 +1081,7 @@ free(pattern);
 /**
  * Test DateFormat(Calendar) API
  */
-static void TestDateFormatCalendar() {
+static void TestDateFormatCalendar(void) {
     UDateFormat *date=0, *time=0, *full=0;
     UCalendar *cal=0;
     UChar buf[256];
@@ -1198,7 +1208,7 @@ static void TestDateFormatCalendar() {
 /**
  * Test parsing two digit year against "YY" vs. "YYYY" patterns
  */
-static void TestCalendarDateParse() {
+static void TestCalendarDateParse(void) {
 
     int32_t result;
     UErrorCode ec = U_ZERO_ERROR;
@@ -1278,7 +1288,7 @@ static void TestCalendarDateParse() {
 
 
 /*INTERNAL FUNCTIONS USED*/
-static int getCurrentYear() {
+static int getCurrentYear(void) {
     static int currentYear = 0;
     if (currentYear == 0) {
         UErrorCode status = U_ZERO_ERROR;
@@ -1511,7 +1521,7 @@ static UBool _aux2ExtremeDates(UDateFormat* fmt, UDate small, UDate large,
  *  0.75*10^30, etc.  A logarithmic search will find 10^15, then 10^7.5
  *  and 10^22.5, etc.
  */
-static void TestExtremeDates() {
+static void TestExtremeDates(void) {
     UDateFormat *fmt;
     UErrorCode ec;
     UChar buf[256];
@@ -2383,9 +2393,14 @@ static void TestHourCycle(void) {
     const UChar* testCases[] = {
         // test some locales for which we have data
         u"en_US", u"Tuesday, March 16, 1943 at 3:45:32 PM",
+#if APPLE_ICU_CHANGES
+// rdar://
         u"en_CA", u"Tuesday, March 16, 1943 at 3:45:32 PM",
-        u"en_GB", u"Tuesday 16 March 1943 at 15:45:32",
-        u"en_AU", u"Tuesday 16 March 1943 at 3:45:32 pm", // rdar://123446235
+#else
+        u"en_CA", u"Tuesday, March 16, 1943 at 3:45:32 p.m.",
+#endif
+        u"en_GB", u"Tuesday, 16 March 1943 at 15:45:32",
+        u"en_AU", u"Tuesday, 16 March 1943 at 3:45:32 pm",
         // test a couple locales for which we don't have specific locale files (we should still get the correct hour cycle)
         u"en_CO", u"Tuesday, 16 March 1943 at 3:45:32 PM",
         u"en_MX", u"Tuesday, 16 March 1943 at 3:45:32 p.m.",
@@ -2398,32 +2413,32 @@ static void TestHourCycle(void) {
 // and the locale's region code to determine the symbols to use (e.g., the AM/PM strings).  The LDML spec is actually
 // rather vague as to which things should be controlled by the rg subtag.  We may be doing the wrong thing here,
 // but probably can't without breaking rdar://112976115.  This needs more thought! --rtg 1/3/24
-        u"en_US@rg=GBzzzz", u"Tuesday 16 March 1943 at 15:45:32",
+        u"en_US@rg=GBzzzz", u"Tuesday, 16 March 1943 at 15:45:32",
         u"en_US@rg=CAzzzz", u"Tuesday, March 16, 1943 at 3:45:32 PM",
         u"en_CA@rg=USzzzz", u"Tuesday, March 16, 1943 at 3:45:32 PM",
         u"en_GB@rg=USzzzz", u"Tuesday, March 16, 1943 at 3:45:32 pm", // rdar://123446235
         u"en_GB@rg=CAzzzz", u"Tuesday, March 16, 1943 at 3:45:32 pm", // rdar://123446235
-        u"en_GB@rg=AUzzzz", u"Tuesday 16 March 1943 at 3:45:32 pm", // rdar://123446235
+        u"en_GB@rg=AUzzzz", u"Tuesday, 16 March 1943 at 3:45:32 pm", // rdar://123446235
 #else
         u"en_US@rg=GBzzzz", u"Tuesday, March 16, 1943 at 15:45:32",
         u"en_US@rg=CAzzzz", u"Tuesday, March 16, 1943 at 3:45:32 PM",
         u"en_CA@rg=USzzzz", u"Tuesday, March 16, 1943 at 3:45:32 PM",
-        u"en_GB@rg=USzzzz", u"Tuesday 16 March 1943 at 3:45:32 PM",
-        u"en_GB@rg=CAzzzz", u"Tuesday 16 March 1943 at 3:45:32 PM",
-        u"en_GB@rg=AUzzzz", u"Tuesday 16 March 1943 at 3:45:32 PM",
+        u"en_GB@rg=USzzzz", u"Tuesday, 16 March 1943 at 3:45:32 PM",
+        u"en_GB@rg=CAzzzz", u"Tuesday, 16 March 1943 at 3:45:32 PM",
+        u"en_GB@rg=AUzzzz", u"Tuesday, 16 March 1943 at 3:45:32 PM",
 #endif // APPLE_ICU_CHANGES
         // test that the hc ("hours") subtag does the right thing
         u"en_US@hours=h23", u"Tuesday, March 16, 1943 at 15:45:32",
-        u"en_GB@hours=h12", u"Tuesday 16 March 1943 at 3:45:32 pm", // rdar://123446235
+        u"en_GB@hours=h12", u"Tuesday, 16 March 1943 at 3:45:32 pm", // rdar://123446235
         // test that the rg and hc subtags do the right thing when used together
 #if APPLE_ICU_CHANGES
 // rdar://112976115 (SEED: 21A5291h/iPhone13,3: Date format incorrect with en_US@rg=dkzzzz)
 // (See block comment above)
-        u"en_US@rg=GBzzzz;hours=h12", u"Tuesday 16 March 1943 at 3:45:32 PM",
+        u"en_US@rg=GBzzzz;hours=h12", u"Tuesday, 16 March 1943 at 3:45:32 PM",
         u"en_GB@rg=USzzzz;hours=h23", u"Tuesday, March 16, 1943 at 15:45:32",
 #else
         u"en_US@rg=GBzzzz;hours=h12", u"Tuesday, March 16, 1943 at 3:45:32 PM",
-        u"en_GB@rg=USzzzz;hours=h23", u"Tuesday 16 March 1943 at 15:45:32",
+        u"en_GB@rg=USzzzz;hours=h23", u"Tuesday, 16 March 1943 at 15:45:32",
 #endif // APPLE_ICU_CHANGES
     };
     
@@ -2447,6 +2462,19 @@ static void TestHourCycle(void) {
             }
         }
     }
+}
+
+static void TestLocaleNameCrash(void) {
+    UErrorCode status = U_ZERO_ERROR;
+    UDateFormat icudf;
+
+    icudf = udat_open(UDAT_MEDIUM, UDAT_NONE, "notalanguage", NULL, 0, NULL, 0, &status);
+    if ( U_SUCCESS(status) ) {
+        log_verbose("Success: did not crash on udat_open(locale=\"notalanguage\")\n");
+    } else {
+        log_err("FAIL: didn't crash on udat_open(locale=\"notalanguage\"), but got %s.\n", u_errorName(status));
+    }
+    udat_close(icudf);
 }
 
 #if APPLE_ICU_CHANGES
@@ -2480,15 +2508,15 @@ static const StandardPatternItem stdPatternItems[] = {
     // See hack in test code for "rkt"; depending on the system test is being run on,"rkt" may fall back to
     // patterns from root (egular space before AM) or en (\u202F before AM). Test needs to handle both.
     { "rkt",   UDAT_NONE, UDAT_SHORT, u"5:10 AM" }, // rkt (no locale) => rkt_Beng_BD, BD pref cycle h unlike root H
-    // Add tests for rdar://47494884
-    { "ur_PK",      UDAT_MEDIUM, UDAT_SHORT, u"25 فرو، 2015، 5:10 ق.د." },
-    { "ur_IN",      UDAT_MEDIUM, UDAT_SHORT, u"۲۵ فرو، ۲۰۱۵، ۵:۱۰ ق.د." },
-    { "ur_Arab",    UDAT_MEDIUM, UDAT_SHORT, u"25 فرو، 2015، 5:10 ق.د." },
-    { "ur_Aran",    UDAT_MEDIUM, UDAT_SHORT, u"25 فرو، 2015، 5:10 ق.د." },
-    { "ur_Arab_PK", UDAT_MEDIUM, UDAT_SHORT, u"25 فرو، 2015، 5:10 ق.د." },
-    { "ur_Aran_PK", UDAT_MEDIUM, UDAT_SHORT, u"25 فرو، 2015، 5:10 ق.د." },
-    { "ur_Arab_IN", UDAT_MEDIUM, UDAT_SHORT, u"۲۵ فرو، ۲۰۱۵، ۵:۱۰ ق.د." },
-    { "ur_Aran_IN", UDAT_MEDIUM, UDAT_SHORT, u"۲۵ فرو، ۲۰۱۵، ۵:۱۰ ق.د." },
+    // Add tests for rdar://47494884 (all results also changed by rdar://17278425)
+    { "ur_PK",      UDAT_MEDIUM, UDAT_SHORT, u"25 فرو، 2015، 5:10 صبح" },
+    { "ur_IN",      UDAT_MEDIUM, UDAT_SHORT, u"25 فرو، 2015، 5:10 صبح" }, // result changed for rdar://126856083
+    { "ur_Arab",    UDAT_MEDIUM, UDAT_SHORT, u"25 فرو، 2015، 5:10 صبح" },
+    { "ur_Aran",    UDAT_MEDIUM, UDAT_SHORT, u"25 فرو، 2015، 5:10 صبح" },
+    { "ur_Arab_PK", UDAT_MEDIUM, UDAT_SHORT, u"25 فرو، 2015، 5:10 صبح" },
+    { "ur_Aran_PK", UDAT_MEDIUM, UDAT_SHORT, u"25 فرو، 2015، 5:10 صبح" },
+    { "ur_Arab_IN", UDAT_MEDIUM, UDAT_SHORT, u"25 فرو، 2015، 5:10 صبح" }, // result changed for rdar://126856083
+    { "ur_Aran_IN", UDAT_MEDIUM, UDAT_SHORT, u"25 فرو، 2015، 5:10 صبح" }, // result changed for rdar://126856083
     // Add tests for rdar://59940681
     { "zh@calendar=buddhist",      UDAT_NONE, UDAT_MEDIUM, u"05:10:00" },
     { "zh@calendar=buddhist",      UDAT_NONE, UDAT_SHORT,  u"05:10" },
@@ -2537,7 +2565,19 @@ static const StandardPatternItem stdPatternItems[] = {
     { "en_HU", UDAT_SHORT,  UDAT_NONE, u"2015. 02. 25." },
     { "hu_HU", UDAT_LONG,   UDAT_NONE, u"2015. február 25." },
     { "hu_HU", UDAT_SHORT,  UDAT_NONE, u"2015. 02. 25." },
-    // terminator
+    // add tests for rdar://116185298
+    { "en_US", UDAT_NONE, UDAT_SHORT, u"5:10 AM" },
+    { "zh_TW", UDAT_NONE, UDAT_SHORT, u"清晨5:10" },
+    { "hi_IN", UDAT_NONE, UDAT_SHORT, u"सुबह 5:10" },
+    { "hi_US", UDAT_NONE, UDAT_SHORT, u"सुबह 5:10" },
+    // add test for rdar://129389486
+    { "ta",    UDAT_LONG, UDAT_SHORT, u"25 பிப்ரவரி, 2015, காலை 5:10" },
+    // add test for rdar://140753035
+    { "hi",    UDAT_LONG, UDAT_SHORT, u"25 फ़रवरी 2015, सुबह 5:10" },
+    // add test for rdar://128053661
+    { "or",    UDAT_LONG, UDAT_SHORT, u"ଫେବୃଆରୀ 25, 2015, 5:10 AM" },
+
+   // terminator
     { NULL, (UDateFormatStyle)0, (UDateFormatStyle)0, NULL } /* terminator */
 };
 
@@ -2776,16 +2816,16 @@ static const UChar* patterns12Hr_zh_buddhist[] = {
 };
 
 static const UChar* patterns12Hr_zhHant_buddhist[] = {
-    u"ah時",
-    u"ah時",
-    u"ah:mm",
-    u"ah:mm",
-    u"ah:mm:ss",
-    u"ah:mm:ss",
-    u"z ah:mm", // as in gregorian/generic standard, gregorian availableFormats
-    u"z ah:mm",
-    u"EEE ah:mm",
-    u"EEE ah:mm",
+    u"Bh時",
+    u"Bh時",
+    u"Bh:mm",
+    u"Bh:mm",
+    u"Bh:mm:ss",
+    u"Bh:mm:ss",
+    u"z Bh:mm", // as in gregorian/generic standard, gregorian availableFormats
+    u"z Bh:mm",
+    u"EEE Bh:mm",
+    u"EEE Bh:mm",
     NULL
 };
 
@@ -3390,42 +3430,47 @@ static const char * remapResults_th[] = {
 };
 
 static const char * remapResults_hi[] = {
-    "a h:mm:ss zzzz", // full
+    "B h:mm:ss zzzz", // full (original result changed by rdar://17278425)
     "HH:mm:ss zzzz",  //   force24
-    "a h:mm:ss zzzz", //   force12
-    "a h:mm:ss z",    // long
+    "B h:mm:ss zzzz", //   force12 (original result changed by rdar://17278425)
+    "B h:mm:ss z",    // long (original result changed by rdar://17278425)
     "HH:mm:ss z",     //   force24
-    "a h:mm:ss z",    //   force12
-    "a h:mm:ss",      // medium
+    "B h:mm:ss z",    //   force12 (original result changed by rdar://17278425)
+    "B h:mm:ss",      // medium (original result changed by rdar://17278425)
     "HH:mm:ss",       //   force24
-    "a h:mm:ss",      //   force12
-    "a h:mm",         // short
+    "B h:mm:ss",      //   force12 (original result changed by rdar://17278425)
+    "B h:mm",         // short (original result changed by rdar://17278425)
     "HH:mm",          //   force24
-    "a h:mm",         //   force12
-    "EEEE, d MMMM y \\u0915\\u094B a h:mm:ss z \\u092C\\u091C\\u0947", // long_df
-    "EEEE, d MMMM y \\u0915\\u094B HH:mm:ss z \\u092C\\u091C\\u0947",  //   force24
-    "EEEE, d MMMM y \\u0915\\u094B a h:mm:ss z \\u092C\\u091C\\u0947", //   force12
-    "d/M/yy, a h:mm", // short_ds
+    "B h:mm",         //   force12 (original result changed by rdar://17278425)
+    "EEEE, d MMMM y, B h:mm:ss z", // long_df (original result changed by rdar://17278425 and rdar://140753035)
+    "EEEE, d MMMM y, HH:mm:ss z",  //   force24 (original result changed by rdar://140753035)
+    "EEEE, d MMMM y, B h:mm:ss z", //   force12 (original result changed by rdar://17278425 and rdar://140753035)
+    "d/M/yy, B h:mm", // short_ds (original result changed by rdar://17278425)
     "d/M/yy, HH:mm",  //   force24
-    "d/M/yy, a h:mm", //   force12
+    "d/M/yy, B h:mm", //   force12 (original result changed by rdar://17278425)
 
-    "a h:mm:ss",      // jmmss
+    "B h:mm:ss",      // jmmss
     "HH:mm:ss",       //   force24
-    "a h:mm:ss",      //   force12
-    "a h:mm:ss",      // jjmmss
+    "B h:mm:ss",      //   force12
+    "B h:mm:ss",      // jjmmss
     "HH:mm:ss",       //   force24
     "HH:mm:ss",       //   force24 | match hour field length
-    "a h:mm:ss",      //   force12
-    "a hh:mm:ss",     //   force12 | match hour field length
+    "B h:mm:ss",      //   force12
+#if APPLE_ICU_CHANGES
+// rdar://17278425 (“पू” (“AM”) “अ” (“PM”) don’t make sense to Hindi users)
+    "B hh:mm:ss",     //   force12 | match hour field length
+#else
+    "B h:mm:ss",      //   force12 | match hour field length
+#endif
     "hh:mm",          // Jmm
     "HH:mm",          //   force24
     "hh:mm",          //   force12
-    "a h:mm:ss v",    // jmsv
+    "B h:mm:ss v",    // jmsv
     "HH:mm:ss v",     //   force24
-    "a h:mm:ss v",    //   force12
-    "a h:mm:ss z",    // jmsz
+    "B h:mm:ss v",    //   force12
+    "B h:mm:ss z",    // jmsz
     "HH:mm:ss z",     //   force24
-    "a h:mm:ss z",    //   force12
+    "B h:mm:ss z",    //   force12
 
     "h:mm:ss a",                          // "h:mm:ss"
     "HH:mm:ss",                           //
@@ -3438,16 +3483,16 @@ static const char * remapResults_hi[] = {
     "yyMMddhhmmss",                       // "yyMMddhhmmss"
     "yyMMddHHmmss",                       //
 
-    "a h:mm:ss",                          // "H:mm:ss"
+    "B h:mm:ss",                          // "H:mm:ss"
     "H:mm:ss",                            //
-    "a h:mm:ss d MMM y",                  // "H:mm:ss d MMM y"
+    "B h:mm:ss d MMM y",                  // "H:mm:ss d MMM y"
     "H:mm:ss d MMM y",                    //
-    "EEE, d MMM y 'aha' a h:mm:ss 'hrs'", // "EEE, d MMM y 'aha' H:mm:ss 'hrs'"
+    "EEE, d MMM y 'aha' B h:mm:ss 'hrs'", // "EEE, d MMM y 'aha' H:mm:ss 'hrs'"
     "EEE, d MMM y 'aha' H:mm:ss 'hrs'",   //
-    "EEE, d MMM y 'aha' a h'h'mm'm'ss",   // "EEE, d MMM y 'aha' H'h'mm'm'ss"
+    "EEE, d MMM y 'aha' B h'h'mm'm'ss",   // "EEE, d MMM y 'aha' H'h'mm'm'ss"
     "EEE, d MMM y 'aha' H'h'mm'm'ss",     //
 
-    "uuuu-MM-dd a h:mm:ss '+0000'",       //
+    "uuuu-MM-dd B h:mm:ss '+0000'",       //
 
     NULL
 };
@@ -4701,10 +4746,10 @@ static void TestRgSubtag(void) { // rdar://106566783
         u"es_ES@rg=USzzzz",  u"3/16/43, 11:56 p. m.",
 
         u"zh_CN",            u"1943/3/16 23:56",
-        u"zh_TW",            u"1943/3/16 晚上11:56",
+        u"zh_TW",            u"1943/3/16 晚上11:56", // rdar://17278425
         u"zh_US",            u"3/16/43 下午11:56",
         u"zh_CN@rg=USzzzz",  u"3/16/43 下午11:56",
-        u"zh_TW@rg=USzzzz",  u"3/16/43 下午11:56",
+        u"zh_TW@rg=USzzzz",  u"3/16/43 晚上11:56", // rdar://17278425
 
         u"pt_BR",            u"16/03/1943, 23:56",
         u"pt_PT",            u"16/03/43, 23:56",
@@ -4791,7 +4836,7 @@ static void TestTimeFormatInheritance(void) {
     }
 }
 
-// rdar://114975916
+// rdar://114975916 and rdar://129389486
 static void TestRelativeDateTime(void) {
     typedef struct {
         const char* locale;
@@ -4808,6 +4853,12 @@ static void TestRelativeDateTime(void) {
         { "fi_FI", UDAT_LONG_RELATIVE,   u"tänään klo 17.00" },
         { "fi_FI", UDAT_MEDIUM_RELATIVE, u"tänään klo 17.00" },
         { "fi_FI", UDAT_SHORT_RELATIVE,  u"tänään klo 17.00" },
+        // rdar://129389486
+        { "ta",    UDAT_LONG_RELATIVE,   u"இன்று, மாலை 5:00" },
+        // rdar://140753035
+        { "hi",    UDAT_LONG_RELATIVE,   u"आज, शाम 5:00" },
+        // rdar://128053661
+        { "or",    UDAT_LONG_RELATIVE,   u"ଆଜି, 5:00 PM" },
     };
     
     for (int32_t i = 0; i < UPRV_LENGTHOF(testCases); i++) {
@@ -4895,6 +4946,173 @@ static void TestBadLocaleID(void) {
     }
 }
 
+
+// rdar://17278425
+static void TestLongDayPeriodDefaults(void) {
+    // what this test does is verify that, for each locale or language that uses long day periods
+    // in 12-hour time instead of AM/PM, we get the same thing back if we use the "short" standard
+    // time pattern as we do if we use "jmm" with the DateTimePatternGenerator (the DateTimePatternGenerator
+    // alters things algorithmically to handle long day periods-- the standard patterns just have
+    // to be changed-- so this verifies I remembered to change the standard day patterns)
+    const char* locales[] = { "bn", "gu", "hi", "hi_US", "kn", "ml", "mr", "or", "pa", "ta", "te", "ur", "zh_TW" };
+    
+    const UDate kTestDate = -845634545982.0; // March 16, 1943, 6:30 AM PST
+    
+    for (int32_t i = 0; i < UPRV_LENGTHOF(locales); i++) {
+        UErrorCode err = U_ZERO_ERROR;
+        
+        UDateTimePatternGenerator* dtpg = udatpg_open(locales[i], &err);
+        UChar pattern[100];
+        udatpg_getBestPattern(dtpg, u"jmm", -1, pattern, 100, &err);
+        UDateFormat* df1 = udat_open(UDAT_PATTERN, UDAT_PATTERN, locales[i], u"America/Los_Angeles", -1, pattern, -1, &err);
+        UDateFormat* df2 = udat_open(UDAT_SHORT, UDAT_NONE, locales[i], u"America/Los_Angeles", -1, NULL, 0, &err);
+        
+        if (assertSuccess("Error setting up formatters", &err)) {
+            UChar result1[100];
+            UChar result2[100];
+            
+            udat_format(df1, kTestDate, result1, 100, NULL, &err);
+            udat_format(df2, kTestDate, result2, 100, NULL, &err);
+            
+            if (assertSuccess("Error formatting dates", &err)) {
+                assertUEquals(locales[i], result1, result2);
+            }
+        }
+        
+        udat_close(df1);
+        udat_close(df2);
+        udatpg_close(dtpg);
+    }
+}
+
+// rdar://142529306, rdar://142529982, rdar://126856083, rdar://128190439
+static void TestIndianAMPM(void) {
+    UChar* testData[]  = {
+        // NOTE: "@ldpn=no" is an internal cheat code to simulate having the log-day-period-name feature turned off
+        u"kn@ldpn=no", u"03:45 PM", u"06:30 AM", // rdar://142529306 (actually fixed by CLDR 46)
+        u"pa@ldpn=no", u"3:45 PM",  u"6:30 AM",  // rdar://142529982
+        u"ur@ldpn=no", u"\u200e3:45 PM",  u"\u200e6:30 AM",  // rdar://126856083, rdar://143869868
+        u"ta@ldpn=no", u"3:45 PM",  u"6:30 AM",  // rdar://128190439 (actually fixed by CLDR 46)
+    };
+    const UDate pmDate = -845601267742; // March 16, 1943, 3:45 PM
+    const UDate amDate = -845634545982; // March 16, 1943, 6:30 AM
+    
+    for (int32_t i = 0; i < UPRV_LENGTHOF(testData); i += 3) {
+        char* locale = austrdup(testData[i]);
+        UChar* expectedPMResult = testData[i + 1];
+        UChar* expectedAMResult = testData[i + 2];
+
+        UErrorCode err = U_ZERO_ERROR;
+        UChar result[200];
+        UDateFormat* df = udat_open(UDAT_SHORT, UDAT_NONE, locale, u"America/Los_Angeles", -1, NULL, 0, &err);
+        
+        udat_format(df, pmDate, result, 200, NULL, &err);
+        if (assertSuccess("Error in formatting", &err)) {
+            assertUEquals("Wrong formatting result", expectedPMResult, result);
+        }
+        
+        udat_format(df, amDate, result, 200, NULL, &err);
+        if (assertSuccess("Error in formatting", &err)) {
+            assertUEquals("Wrong formatting result", expectedAMResult, result);
+        }
+        
+        udat_close(df);
+    }
+    
+    {
+        // extra test for rdar://144571583: Also make sure this works if we include the weekday
+        UErrorCode err = U_ZERO_ERROR;
+        UChar result[200];
+        UChar pattern[200];
+        UDateTimePatternGenerator* dtpg = udatpg_open("ur@ldpn=no", &err);
+        udatpg_getBestPattern(dtpg, u"Ehm", -1, pattern, 200, &err);
+        UDateFormat* df = udat_open(UDAT_PATTERN, UDAT_PATTERN, "ur@ldpn=no", u"America/Los_Angeles", -1, pattern, -1, &err);
+        
+        if (assertSuccess("Failed to create time-with-weekday formatter", &err)) {
+            udat_format(df, pmDate, result, 200, NULL, &err);
+            if (assertSuccess("Error in formatting", &err)) {
+                assertUEquals("Wrong formatting result", u"منگل \u200e3:45 PM", result);
+            }
+            
+            udat_format(df, amDate, result, 200, NULL, &err);
+            if (assertSuccess("Error in formatting", &err)) {
+                assertUEquals("Wrong formatting result", u"منگل \u200e6:30 AM", result);
+            }
+        }
+        udat_close(df);
+        udatpg_close(dtpg);
+    }
+}
+
+// rdar://142599503
+static void TestTaiwanDayPeriods(void) {
+    // a quick test to verify that we get long day periods in zh_Hant regardless of whether the
+    // longDayPeriodNames feature flag is turned on (but that it does still control other languages,
+    // such as Hindi)
+    UChar* testData[]  = {
+        // NOTE: "@ldpn=no" is an internal cheat code to simulate having the log-day-period-name feature turned off
+        u"hi",            u"दोपहर 3:45", u"सुबह 6:30",
+        u"hi@ldpn=no",    u"अ 3:45",   u"पू 6:30",
+        u"zh_TW",         u"下午3:45",  u"清晨6:30",
+        u"zh_TW@ldpn=no", u"下午3:45",  u"清晨6:30",
+    };
+    const UDate pmDate = -845601267742; // March 16, 1943, 3:45 PM
+    const UDate amDate = -845634545982; // March 16, 1943, 6:30 AM PST
+    
+    for (int32_t i = 0; i < UPRV_LENGTHOF(testData); i += 3) {
+        char* locale = austrdup(testData[i]);
+        UChar* expectedPMResult = testData[i + 1];
+        UChar* expectedAMResult = testData[i + 2];
+
+        UErrorCode err = U_ZERO_ERROR;
+        UChar result[200];
+        UDateFormat* df = udat_open(UDAT_SHORT, UDAT_NONE, locale, u"America/Los_Angeles", -1, NULL, 0, &err);
+        
+        udat_format(df, pmDate, result, 200, NULL, &err);
+        if (assertSuccess("Error in formatting", &err)) {
+            assertUEquals("Wrong formatting result", expectedPMResult, result);
+        }
+        
+        udat_format(df, amDate, result, 200, NULL, &err);
+        if (assertSuccess("Error in formatting", &err)) {
+            assertUEquals("Wrong formatting result", expectedAMResult, result);
+        }
+        
+        udat_close(df);
+    }
+}
+
+// rdar://143103676, rdar://132385606, rdar://132231977, rdar://140215649
+static void TestMonthAndDayNames(void) {
+    typedef struct {
+        const char* locale;
+        UDateFormatSymbolType symbolType;
+        const UChar* expectedResults[12];
+    } MonthAndDayNameTestCase;
+    
+    MonthAndDayNameTestCase testCases[] = {
+        { "gu", UDAT_SHORT_MONTHS, { u"જાન૰", u"ફેબ૰", u"માર્ચ", u"એપ્રિલ", u"મે", u"જૂન", u"જુલાઈ", u"ઑગ૰", u"સપ્ટ૰", u"ઑક્ટ૰", u"નવ૰", u"ડિસ૰" } }, // rdar://143103676
+        { "ur", UDAT_NARROW_MONTHS, { u"ج", u"ف", u"م", u"ا", u"م", u"ج", u"ج", u"ا", u"س", u"ا", u"ن", u"د" } }, // rdar://132385606
+        { "ur", UDAT_NARROW_WEEKDAYS, { u"", u"ا", u"پ", u"م", u"ب", u"ج", u"ج", u"ہ", u"", u"", u"", u"", } }, // rdar://132231977
+        { "hi", UDAT_MONTHS, { u"जनवरी", u"फ़रवरी", u"मार्च", u"अप्रैल", u"मई", u"जून", u"जुलाई", u"अगस्त", u"सितंबर", u"अक्तूबर", u"नवंबर", u"दिसंबर", } }, // rdar://140215649
+    };
+    
+    for (int32_t i = 0; i < UPRV_LENGTHOF(testCases); i++) {
+        UErrorCode err = U_ZERO_ERROR;
+        UChar actualResult[50];
+        UDateFormat* df = udat_open(UDAT_NONE, UDAT_MEDIUM, testCases[i].locale, u"America/Los_Angeles", -1, NULL, 0, &err);
+        
+        int32_t numNames = udat_countSymbols(df, testCases[i].symbolType);
+        for (int32_t j = 0; j < numNames; j++) {
+            udat_getSymbols(df, testCases[i].symbolType, j, actualResult, UPRV_LENGTHOF(actualResult), &err);
+            
+            if (assertSuccess("Symbol retrieval failed", &err)) {
+                assertUEquals("Wrong name", testCases[i].expectedResults[j], actualResult);
+            }
+        }
+        udat_close(df);
+    }
+}
 
 #endif  // APPLE_ICU_CHANGES
 

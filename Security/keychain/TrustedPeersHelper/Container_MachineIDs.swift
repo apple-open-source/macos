@@ -418,7 +418,6 @@ extension Container {
                         }
                     }
 
-
                     if machine.status == TPMachineIDStatus.evicted.rawValue {
                         self.handleEvicted(machine: machine, listDifferences: &differences)
                     } else if machine.status == TPMachineIDStatus.unknownReason.rawValue {

@@ -23,6 +23,7 @@
 #include "CSSValue.h"
 #include <array>
 #include <unicode/umachine.h>
+#include <wtf/MallocSpan.h>
 
 namespace WebCore {
 
@@ -66,7 +67,7 @@ public:
     using CSSValue::separatorCSSText;
 
     bool customTraverseSubresources(const Function<bool(const CachedResource&)>&) const;
-    void customSetReplacementURLForSubresources(const HashMap<String, String>&);
+    void customSetReplacementURLForSubresources(const UncheckedKeyHashMap<String, String>&);
     void customClearReplacementURLForSubresources();
 
     CSSValueListBuilder copyValues() const;
@@ -95,7 +96,7 @@ protected:
 private:
     unsigned m_size { 0 };
     std::array<const CSSValue*, 4> m_inlineStorage;
-    const CSSValue** m_additionalStorage;
+    MallocSpan<const CSSValue*> m_additionalStorage;
 };
 
 class CSSValueList final : public CSSValueContainingVector {
@@ -134,8 +135,6 @@ inline CSSValueContainingVector::~CSSValueContainingVector()
 {
     for (auto& value : *this)
         value.deref();
-    if (m_size > m_inlineStorage.size())
-        fastFree(m_additionalStorage);
 }
 
 inline const CSSValue& CSSValueContainingVector::operator[](unsigned index) const
@@ -145,7 +144,7 @@ inline const CSSValue& CSSValueContainingVector::operator[](unsigned index) cons
         ASSERT(index < m_size);
         return *m_inlineStorage[index];
     }
-    RELEASE_ASSERT(index < m_size);
+    ASSERT(index < m_size);
     return *m_additionalStorage[index - maxInlineSize];
 }
 

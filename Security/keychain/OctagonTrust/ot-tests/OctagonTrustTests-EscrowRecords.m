@@ -48,6 +48,7 @@
 #import "keychain/categories/NSError+UsefulConstructors.h"
 
 #import "OctagonTrustTests.h"
+#import <KeychainCircle/MetricsOverrideForTests.h>
 
 @implementation ProxyXPCConnection
 
@@ -160,14 +161,32 @@
     return nil;
 }
 
+- (NSDictionary *)recoverWithCDPContext:(OTICDPRecordContext *)cdpContext
+                           escrowRecord:(OTEscrowRecord*)escrowRecord
+                                altDSID:(NSString* _Nullable)altDSID
+                                 flowID:(NSString* _Nullable)flowID
+                        deviceSessionID:(NSString* _Nullable)deviceSessionID
+                                  error:(NSError *__autoreleasing *)error
+{
+    return nil;
+}
+
+- (NSDictionary* _Nullable)recoverSilentWithCDPContext:(OTICDPRecordContext*)cdpContext
+                                            allRecords:(NSArray<OTEscrowRecord*>*)allRecords
+                                               altDSID:(NSString* _Nullable)altDSID
+                                                flowID:(NSString* _Nullable)flowID
+                                       deviceSessionID:(NSString* _Nullable)deviceSessionID
+                                                 error:(NSError * __autoreleasing *)error
+{
+    return nil;
+}
+
 - (NSError *)recoverWithInfo:(NSDictionary *)info results:(NSDictionary *__autoreleasing *)results {
     return nil;
 }
 
-#ifndef __clang_analyzer__
-- (void)restoreKeychainAsyncWithPassword:(id)password keybagDigest:(NSData *)keybagDigest haveBottledPeer:(BOOL)haveBottledPeer viewsNotToBeRestored:(NSMutableSet<NSString *> *)viewsNotToBeRestored error:(NSError *__autoreleasing *)error {
+- (void)restoreKeychainAsyncWithPassword:(id)password keybagDigest:(NSData *)keybagDigest haveBottledPeer:(BOOL)haveBottledPeer viewsNotToBeRestored:(NSMutableSet<NSString *> *)viewsNotToBeRestored error:(NSError *__autoreleasing *)error [[clang::suppress]] {
 }
-#endif
 
 - (bool)isRecoveryKeySet:(NSError *__autoreleasing *)error {
     if (self.failRecoveryKeySet) {
@@ -603,6 +622,16 @@
     self.otControl = [[OTControl alloc] initWithConnection:self.otXPCProxy.connection sync: true];
 
     self.mockClique = OCMClassMock([OTClique class]);
+
+    // Set the global metrics bool to FALSE
+    MetricsDisable();
+}
+
+- (void)tearDown
+{
+    MetricsEnable();
+
+    [super tearDown];
 }
 
 - (void)testFetchOneViableEscrowRecord

@@ -36,6 +36,9 @@
 
 OSStatus SecNameContraintsMatchSubtrees(SecCertificateRef certificate, CFArrayRef subtrees, bool *matched, bool permit);
 
+// Returns false if we encountered a subtree with an unsupported GN type
+bool SecNameConstraintsAreSubtreesSupported(CFArrayRef subtrees);
+
 void SecNameConstraintsIntersectSubtrees(CFMutableArrayRef subtrees_state, CFArrayRef subtrees_new);
 
 #endif /* SECURITY_NAMECONSTRAINTS_H */

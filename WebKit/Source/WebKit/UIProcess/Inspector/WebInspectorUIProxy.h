@@ -107,17 +107,21 @@ public:
     explicit WebInspectorUIProxy(WebPageProxy&);
     virtual ~WebInspectorUIProxy();
 
+    void ref() const final { API::ObjectImpl<API::Object::Type::Inspector>::ref(); }
+    void deref() const final { API::ObjectImpl<API::Object::Type::Inspector>::deref(); }
+
     void invalidate();
 
     API::InspectorClient& inspectorClient() { return *m_inspectorClient; }
     void setInspectorClient(std::unique_ptr<API::InspectorClient>&&);
 
     // Public APIs
-    RefPtr<WebPageProxy> inspectedPage() const { return m_inspectedPage.get(); }
-    RefPtr<WebPageProxy> inspectorPage() const { return m_inspectorPage.get(); }
+    RefPtr<WebPageProxy> protectedInspectedPage() const { return m_inspectedPage.get(); }
+    RefPtr<WebPageProxy> protectedInspectorPage() const { return m_inspectorPage.get(); }
 
 #if ENABLE(INSPECTOR_EXTENSIONS)
     WebInspectorUIExtensionControllerProxy* extensionController() const { return m_extensionController.get(); }
+    RefPtr<WebInspectorUIExtensionControllerProxy> protectedExtensionController() const;
 #endif
 
     bool isConnected() const { return !!m_inspectorPage; }
@@ -225,7 +229,7 @@ private:
     void sendMessageToFrontend(const String& message) override;
     ConnectionType connectionType() const override { return ConnectionType::Local; }
 
-    WebPageProxy* platformCreateFrontendPage();
+    RefPtr<WebPageProxy> platformCreateFrontendPage();
     void platformCreateFrontendWindow();
     void platformCloseFrontendPageAndWindow();
 
@@ -296,6 +300,7 @@ private:
     unsigned inspectionLevel() const;
 
     WebPreferences& inspectorPagePreferences() const;
+    Ref<WebPreferences> protectedInspectorPagePreferences() const;
 
 #if PLATFORM(MAC)
     void applyForcedAppearance();

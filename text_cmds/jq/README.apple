@@ -1,0 +1,9 @@
+# Updating jq
+
+1. Update the sources, making sure to preserve Apple changes, particularly in `Makefile.am`.
+2. Edit `scripts/version` so it prints "x.y.z-apple" where x.y.z is the version you are importing.  If you are working from a Git clone of jq, this should match whatever `scripts/version` prints there; if you are working from a distribution tarball (which I do not recommend), it should match the value of `PACKAGE_VERSION` which is hardcoded into the pregenerated `configure` script.
+3. Run `autoreconf -i` followed by `./configure --with-oniguruma=builtin`
+4. Run `make apple` to regenerate `src/config_apple.h`; if this fails, you didn't pay proper attention to step 1.
+5. Run `xcodebuild build install -target jq`
+6. Run `jq/run-tests.sh`
+7. Update `jq/jq.plist` and `jq/oniguruma.plist`

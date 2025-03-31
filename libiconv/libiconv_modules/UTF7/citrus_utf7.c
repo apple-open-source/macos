@@ -332,7 +332,11 @@ done:
 
 static int
 _citrus_UTF7_utf16tomb(_UTF7EncodingInfo * __restrict ei,
+#ifdef __APPLE__
+    char * __restrict s, size_t n, uint16_t u16,
+#else
     char * __restrict s, size_t n __unused, uint16_t u16,
+#endif
     _UTF7State * __restrict psenc, size_t * __restrict nresult)
 {
 	int bits, i;
@@ -343,14 +347,28 @@ _citrus_UTF7_utf16tomb(_UTF7EncodingInfo * __restrict ei,
 	if (ISSAFE(ei, u16)) {
 		if (psenc->mode) {
 			if (psenc->bits > 0) {
+#ifdef __APPLE__
+				if (n < 3 + (u16 == BASE64_IN))
+					return (E2BIG);
+#endif
 				bits = BASE64_BIT - psenc->bits;
 				i = (psenc->cache << bits) & BASE64_MAX;
 				psenc->ch[psenc->chlen++] = base64[i];
 				psenc->bits = psenc->cache = 0;
+#ifdef __APPLE__
+			} else {
+				if (n < 2 + (u16 == BASE64_IN))
+					return (E2BIG);
+#endif
 			}
 			if (u16 == BASE64_OUT || FINDLEN(ei, u16) >= 0)
 				psenc->ch[psenc->chlen++] = BASE64_OUT;
 			psenc->mode = 0;
+#ifdef __APPLE__
+		} else {
+			if (n < 1 + (u16 == BASE64_IN))
+				return (E2BIG);
+#endif
 		}
 		if (psenc->bits != 0)
 			return (EINVAL);
@@ -358,6 +376,11 @@ _citrus_UTF7_utf16tomb(_UTF7EncodingInfo * __restrict ei,
 		if (u16 == BASE64_IN)
 			psenc->ch[psenc->chlen++] = BASE64_OUT;
 	} else {
+#ifdef __APPLE__
+		bits = UTF16_BIT + psenc->bits;
+		if (n < bits / BASE64_BIT + !psenc->mode)
+			return (E2BIG);
+#endif
 		if (!psenc->mode) {
 			if (psenc->bits > 0)
 				return (EINVAL);
@@ -365,7 +388,9 @@ _citrus_UTF7_utf16tomb(_UTF7EncodingInfo * __restrict ei,
 			psenc->mode = 1;
 		}
 		psenc->cache = (psenc->cache << UTF16_BIT) | u16;
+#ifndef __APPLE__
 		bits = UTF16_BIT + psenc->bits;
+#endif
 		psenc->bits = bits % BASE64_BIT;
 		while ((bits -= BASE64_BIT) >= 0) {
 			i = (psenc->cache >> bits) & BASE64_MAX;

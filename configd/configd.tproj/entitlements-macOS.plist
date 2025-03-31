@@ -2,6 +2,8 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>com.apple.developer.hardened-process</key>
+	<true/>
 	<key>com.apple.networkd.modify_settings</key>
 	<true/>
 	<key>com.apple.networkd_privileged</key>
@@ -40,6 +42,8 @@
 		<string>com.apple.private.wifi.driverkit</string>
 	</array>
 	<key>com.apple.private.route.iflist.include-clat46</key>
+	<true/>
+	<key>com.apple.rootless.volume.Preboot</key>
 	<true/>
 </dict>
 </plist>

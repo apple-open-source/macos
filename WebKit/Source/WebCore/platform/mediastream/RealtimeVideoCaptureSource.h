@@ -51,9 +51,7 @@ public:
 
     void ensureIntrinsicSizeMaintainsAspectRatio();
 
-    void ref() const final;
-    void deref() const final;
-    ThreadSafeWeakPtrControlBlock& controlBlock() const final;
+    WTF_ABSTRACT_THREAD_SAFE_REF_COUNTED_AND_CAN_MAKE_WEAK_PTR_IMPL;
 
 protected:
     RealtimeVideoCaptureSource(const CaptureDevice&, MediaDeviceHashSalts&&, std::optional<PageIdentifier>);

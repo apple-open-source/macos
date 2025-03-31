@@ -3,7 +3,7 @@
  *
  * SPDX-License-Identifier: BSD-2-Clause
  *
- * Copyright (c) 2018-2023 Gavin D. Howard and contributors.
+ * Copyright (c) 2018-2024 Gavin D. Howard and contributors.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -89,10 +89,8 @@ typedef struct BcLexKeyword
 #define BC_LEX_KW_LEN(kw) ((size_t) ((kw)->data & ~(BC_LEX_CHAR_MSB(1))))
 
 /// A macro to easily build a keyword entry. See bc_lex_kws in src/data.c.
-#define BC_LEX_KW_ENTRY(a, b, c)                                              \
-	{                                                                         \
-		.data = ((b) & ~(BC_LEX_CHAR_MSB(1))) | BC_LEX_CHAR_MSB(c), .name = a \
-	}
+#define BC_LEX_KW_ENTRY(a, b, c) \
+	{ .data = ((b) & ~(BC_LEX_CHAR_MSB(1))) | BC_LEX_CHAR_MSB(c), .name = a }
 
 #if BC_ENABLE_EXTRA_MATH
 
@@ -235,7 +233,7 @@ bc_lex_token(BcLex* l);
  * @param t  The token to return operator data for.
  * @return   The operator data for @a t.
  */
-#define BC_PARSE_OP_DATA(t) bc_parse_ops[((t) -BC_LEX_OP_INC)]
+#define BC_PARSE_OP_DATA(t) bc_parse_ops[((t) - BC_LEX_OP_INC)]
 
 /**
  * Returns non-zero if operator @a op is left associative, zero otherwise.
@@ -277,7 +275,7 @@ bc_lex_token(BcLex* l);
  * @return   True if i is an expression token, false otherwise.
  */
 #define BC_PARSE_EXPR(i) \
-	(bc_parse_exprs[(((i) & (uchar) ~(0x07)) >> 3)] & (1 << (7 - ((i) &0x07))))
+	(bc_parse_exprs[(((i) & (uchar) ~(0x07)) >> 3)] & (1 << (7 - ((i) & 0x07))))
 
 /**
  * Returns the operator (by lex token) that is at the top of the operator
@@ -342,7 +340,7 @@ bc_lex_token(BcLex* l);
  * @param t  The token to turn into an instruction.
  * @return   The token as an instruction.
  */
-#define BC_PARSE_TOKEN_INST(t) ((uchar) ((t) -BC_LEX_NEG + BC_INST_NEG))
+#define BC_PARSE_TOKEN_INST(t) ((uchar) ((t) - BC_LEX_NEG + BC_INST_NEG))
 
 /**
  * Returns true if the token is a bc keyword.
@@ -373,10 +371,8 @@ typedef struct BcParseNext
 
 /// A macro to generate a BcParseNext literal from BcParseNext data. See
 /// src/data.c for examples.
-#define BC_PARSE_NEXT(a, ...)                                 \
-	{                                                         \
-		.len = (uchar) (a), BC_PARSE_NEXT_TOKENS(__VA_ARGS__) \
-	}
+#define BC_PARSE_NEXT(a, ...) \
+	{ .len = (uchar) (a), BC_PARSE_NEXT_TOKENS(__VA_ARGS__) }
 
 /// A status returned by @a bc_parse_expr_err(). It can either return success or
 /// an error indicating an empty expression.

@@ -12,7 +12,7 @@
 #ifndef AOM_TEST_TRANSFORM_TEST_BASE_H_
 #define AOM_TEST_TRANSFORM_TEST_BASE_H_
 
-#include "third_party/googletest/src/googletest/include/gtest/gtest.h"
+#include "gtest/gtest.h"
 
 #include "aom/aom_codec.h"
 #include "aom_dsp/txfm_common.h"

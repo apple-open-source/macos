@@ -22,7 +22,6 @@
 #include <utilities/debugging.h>
 #include <notify.h>
 
-#if OCTAGON
 #import "keychain/ot/OTControl.h"
 #import "keychain/ot/OTJoiningConfiguration.h"
 #import "KeychainCircle/KCJoiningAcceptSession+Internal.h"
@@ -33,9 +32,14 @@
 #import "keychain/ot/proto/generated_source/OTSupportSOSMessage.h"
 #import "keychain/ot/proto/generated_source/OTSupportOctagonMessage.h"
 #import "keychain/ot/proto/generated_source/OTPairingMessage.h"
-#endif
 
 #import <KeychainCircle/PairingChannel.h>
+#import <KeychainCircle/SecurityAnalyticsConstants.h>
+#import <KeychainCircle/SecurityAnalyticsReporterRTC.h>
+#import <KeychainCircle/AAFAnalyticsEvent+Security.h>
+#import "keychain/categories/NSError+UsefulConstructors.h"
+
+#import "MetricsOverrideForTests.h"
 
 typedef enum {
     kExpectingA,
@@ -61,9 +65,39 @@ typedef enum {
 @property (nonatomic, strong) OTControl* otControl;
 #endif
 @property (nonatomic, strong) NSMutableDictionary *defaults;
+@property (nonatomic, strong) NSString* altDSID;
+@property (nonatomic, strong) NSString* flowID;
+@property (nonatomic, strong) NSString* deviceSessionID;
 @end
 
 @implementation KCJoiningAcceptSession
+
++ (nullable instancetype) sessionWithInitialMessage:(NSData*) message
+                                     secretDelegate:(NSObject<KCJoiningAcceptSecretDelegate>*) secretDelegate
+                                     circleDelegate:(NSObject<KCJoiningAcceptCircleDelegate>*) circleDelegate
+                                               dsid:(uint64_t) dsid
+                                            altDSID:(NSString* _Nullable)altDSID
+                                             flowID:(NSString* _Nullable)flowID
+                                    deviceSessionID:(NSString* _Nullable)deviceSessionID
+                                              error:(NSError**) error
+{
+    int cc_error = 0;
+    struct ccrng_state * rng = ccrng(&cc_error);
+
+    if (rng == nil) {
+        CoreCryptoError(cc_error, error, @"RNG fetch failed");
+        return nil;
+    }
+
+    return [[KCJoiningAcceptSession alloc] initWithSecretDelegate:secretDelegate
+                                                   circleDelegate:circleDelegate
+                                                             dsid:dsid
+                                                          altDSID:altDSID
+                                                           flowID:flowID
+                                                  deviceSessionID:deviceSessionID
+                                                              rng:rng
+                                                            error:error];
+}
 
 + (nullable instancetype) sessionWithInitialMessage: (NSData*) message
                                      secretDelegate: (NSObject<KCJoiningAcceptSecretDelegate>*) secretDelegate
@@ -79,11 +113,14 @@ typedef enum {
         return nil;
     }
 
-    return [[KCJoiningAcceptSession alloc] initWithSecretDelegate: secretDelegate
-                                                   circleDelegate: circleDelegate
-                                                             dsid: dsid
-                                                              rng: rng
-                                                            error: error];
+    return [[KCJoiningAcceptSession alloc] initWithSecretDelegate:secretDelegate
+                                                   circleDelegate:circleDelegate
+                                                             dsid:dsid
+                                                          altDSID:nil
+                                                           flowID:nil
+                                                  deviceSessionID:nil
+                                                              rng:rng
+                                                            error:error];
 }
 
 - (bool)setupSession:(NSError**)error {
@@ -97,7 +134,9 @@ typedef enum {
     self->_session = [KCAESGCMDuplexSession sessionAsReceiver:key context:self.dsid];
 #if OCTAGON
     self.session.pairingUUID = self.joiningConfiguration.pairingUUID;
-    self.session.altDSID = self.controlArguments.altDSID;
+    self.session.altDSID = self.altDSID;
+    self.session.flowID = self.flowID;
+    self.session.deviceSessionID = self.deviceSessionID;
 #endif
     self.session.piggybackingVersion = self.piggy_version;
 
@@ -107,6 +146,9 @@ typedef enum {
 - (nullable instancetype) initWithSecretDelegate: (NSObject<KCJoiningAcceptSecretDelegate>*) secretDelegate
                                   circleDelegate: (NSObject<KCJoiningAcceptCircleDelegate>*) circleDelegate
                                             dsid: (uint64_t) dsid
+                                         altDSID:(NSString* _Nullable)altDSID
+                                          flowID:(NSString* _Nullable)flowID
+                                 deviceSessionID:(NSString* _Nullable)deviceSessionID
                                              rng: (struct ccrng_state *)rng
                                            error: (NSError**) error {
     if ((self = [super init])) {
@@ -120,25 +162,28 @@ typedef enum {
                                                        digestInfo: ccsha256_di()
                                                             group: ccsrp_gp_rfc5054_3072()
                                                      randomSource: rng];
-        self.secretDelegate = secretDelegate;
-        self.circleDelegate = circleDelegate;
-        self->_state = kExpectingA;
-        self->_dsid = dsid;
-        self->_piggy_uuid = nil;
-        self->_defaults = [NSMutableDictionary dictionary];
+        _secretDelegate = secretDelegate;
+        _circleDelegate = circleDelegate;
+        _state = kExpectingA;
+        _dsid = dsid;
+        _piggy_uuid = nil;
+        _defaults = [NSMutableDictionary dictionary];
+        _altDSID = altDSID;
+        _flowID = flowID;
+        _deviceSessionID = deviceSessionID;
 
 #if OCTAGON
-        self->_otControl = [OTControl controlObject:true error:error];
-        self->_piggy_version = kPiggyV2;
-        self->_joiningConfiguration = [[OTJoiningConfiguration alloc]initWithProtocolType:@"OctagonPiggybacking"
+        _otControl = [OTControl controlObject:true error:error];
+        _piggy_version = kPiggyV2;
+        _joiningConfiguration = [[OTJoiningConfiguration alloc]initWithProtocolType:@"OctagonPiggybacking"
                                                                            uniqueDeviceID:@"acceptor-deviceid"
                                                                            uniqueClientID:@"requester-deviceid"
                                                                               pairingUUID:[[NSUUID UUID] UUIDString]
                                                                                     epoch:0
                                                                               isInitiator:false];
-        self->_controlArguments = [[OTControlArguments alloc] init];
+        _controlArguments = [[OTControlArguments alloc] init];
 #else
-        self->_piggy_version = kPiggyV1;
+        _piggy_version = kPiggyV1;
 #endif
     }    
     return self;
@@ -200,9 +245,26 @@ typedef enum {
     NSString *uuid = nil;
     NSData *octagon = nil;
 
-    self.startMessage = extractStartFromInitialMessage(initialMessage, &version, &uuid, &octagon, error);
-    if (self.startMessage == NULL) {
-        secerror("joining: failed to extract startMessage: %@", error ? * error : nil);
+    AAFAnalyticsEventSecurity *eventS = [[AAFAnalyticsEventSecurity alloc] initWithKeychainCircleMetrics:nil
+                                                                                                 altDSID:self.altDSID
+                                                                                                  flowID:self.flowID
+                                                                                         deviceSessionID:self.deviceSessionID
+                                                                                               eventName:kSecurityRTCEventNamePiggybackingAcceptorInitialMessage
+                                                                                         testsAreEnabled:MetricsOverrideTestsAreEnabled()
+                                                                                          canSendMetrics:YES
+                                                                                                category:kSecurityRTCEventCategoryAccountDataAccessRecovery];
+
+    NSError* localError = nil;
+    self.startMessage = extractStartFromInitialMessage(initialMessage, &version, &uuid, &octagon, &localError);
+    if (self.startMessage == NULL || localError) {
+        if (localError == nil) {
+            localError = [NSError errorWithDomain:KCErrorDomain code: kFailedToExtractStartMessage description:@"Failed to extract startMessage"];
+        }
+        secerror("joining: failed to extract startMessage: %@", localError);
+        [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:NO error:localError];
+        if (error) {
+            *error = localError;
+        }
         return nil;
     }
 
@@ -213,7 +275,11 @@ typedef enum {
             secerror("joining: octagon refusing octagon acceptor since we don't have a selfEgo");
             if (SOSCCIsSOSTrustAndSyncingEnabled() == NO && self.joiningConfiguration.testsEnabled == NO) {
                 secerror("joining: device does not support SOS, failing flow");
-                KCJoiningErrorCreate(kUnableToPiggyBackDueToTrustSystemSupport, error, @"Unable to piggyback with device due to lack of trust system support");
+                localError = [NSError errorWithDomain:KCErrorDomain code:kUnableToPiggyBackDueToTrustSystemSupport description:@"Unable to piggyback with device due to lack of trust system support" ];
+                [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:NO error:localError];
+                if (error) {
+                    *error = localError;
+                }
                 return nil;
             } else {
                 secnotice("joining", "device supports SOS, continuing flow with piggyV1");
@@ -227,9 +293,16 @@ typedef enum {
     self.piggy_uuid = uuid;
     self.piggy_version = (PiggyBackProtocolVersion)version;
 
-    NSData* srpMessage = [self copyChallengeMessage: error];
-    if (srpMessage == nil) {
-        secerror("joining: failed to copy srpMessage: %@", error ? * error : nil);
+    NSData* srpMessage = [self copyChallengeMessage: &localError];
+    if (srpMessage == nil || localError) {
+        if (localError == nil) {
+            localError = [NSError errorWithDomain:KCErrorDomain code:kFailedToCopyChallengeMessage description:@"Failed to copy srpMessage"];
+        }
+        secerror("joining: failed to copy srpMessage: %@", localError);
+        [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:NO error:localError];
+        if (error) {
+            *error = localError;
+        }
         return nil;
     }
 
@@ -266,26 +339,77 @@ typedef enum {
             if (error) {
                 *error = captureError;
             }
+            [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:NO error:captureError];
             return nil;
         }
-        return [[KCJoiningMessage messageWithType:kChallenge
-                                             data:srpMessage
-                                          payload:next
-                                            error:error] der];
+        NSData* outgoingMessage = [[KCJoiningMessage messageWithType:kChallenge
+                                                                data:srpMessage
+                                                             payload:next
+                                                               error:&localError] der];
+        if (outgoingMessage == nil || localError) {
+            if (localError == nil) {
+                localError = [NSError errorWithDomain:KCErrorDomain code:kFailedToCreateChallengeMessage description:@"Failed to create challenge message"];
+            }
+            secerror("joining: failed to create challenge message: %@", localError);
+
+            [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:NO error:localError];
+            if (error) {
+                *error = localError;
+            }
+        }
+        else {
+            [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:YES error:nil];
+        }
+        return outgoingMessage;
+        
     } else if (SOSCCIsSOSTrustAndSyncingEnabled() || self.joiningConfiguration.testsEnabled) {
 
-        return [[KCJoiningMessage messageWithType:kChallenge
-                                             data:srpMessage
-                                            error:error] der];
+        NSData* outgoingMessage = [[KCJoiningMessage messageWithType:kChallenge
+                                                                data:srpMessage
+                                                               error:&localError] der];
+        if (outgoingMessage == nil || localError) {
+            if (localError == nil) {
+                localError = [NSError errorWithDomain:KCErrorDomain code:kFailedToCreateChallengeMessage description:@"Failed to create challenge message"];
+            }
+            secerror("joining: failed to create challenge message: %@", localError);
+
+            [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:NO error:localError];
+            if (error) {
+                *error = localError;
+            }
+        } else {
+            [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:YES error:nil];
+        }
+        return outgoingMessage;
     }
 
-    KCJoiningErrorCreate(kUnableToPiggyBackDueToTrustSystemSupport, error, @"Unable to piggyback with device due to lack of trust system support");
+    localError = [NSError errorWithDomain:KCErrorDomain code:kUnableToPiggyBackDueToTrustSystemSupport description:@"Unable to piggyback with device due to lack of trust system support"];
+
+    [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:NO error:localError];
+    if (error) {
+        *error = localError;
+    }
+
     return nil;
 }
 
 - (NSData*)processResponse:(KCJoiningMessage*)message error:(NSError**)error {
+    AAFAnalyticsEventSecurity *eventS = [[AAFAnalyticsEventSecurity alloc] initWithKeychainCircleMetrics:nil
+                                                                                                 altDSID:self.altDSID
+                                                                                                  flowID:self.flowID
+                                                                                         deviceSessionID:self.deviceSessionID
+                                                                                               eventName:kSecurityRTCEventNamePiggybackingAcceptorProcessMessage
+                                                                                         testsAreEnabled:MetricsOverrideTestsAreEnabled()
+                                                                                          canSendMetrics:YES
+                                                                                                category:kSecurityRTCEventCategoryAccountDataAccessRecovery];
+
+    NSError* localError = nil;
     if ([message type] != kResponse) {
-        KCJoiningErrorCreate(kUnexpectedMessage, error, @"Expected response!");
+        localError = [NSError errorWithDomain:KCErrorDomain code:kUnexpectedMessageTypeExpectedResponse description:@"Expected response!"];
+        [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:NO error:localError];
+        if (error) {
+            *error = localError;
+        }
         return nil;
     }
 
@@ -297,43 +421,101 @@ typedef enum {
         // Find out what kind of error we should send.
         NSData* errorData = nil;
 
-        KCRetryOrNot status = [secretDelegate verificationFailed: error];
+        KCRetryOrNot status = [secretDelegate verificationFailed: &localError];
         secerror("processResponse: handle error: %d", (int)status);
 
         switch (status) {
             case kKCRetryError:
-                // We fill in an error if they didn't, but if they did this wont bother.
-                KCJoiningErrorCreate(kInternalError, error, @"Delegate returned error without filling in error: %@", secretDelegate);
+                if (localError == nil) {
+                    localError = [NSError errorWithDomain:KCErrorDomain code:kRetryError description:[NSString stringWithFormat:@"Delegate returned error without filling in error: %@", secretDelegate]];
+                }
+                [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:NO error:localError];
+                if (error) {
+                    *error = localError;
+                }
                 return nil;
             case kKCRetryWithSameChallenge:
                 errorData = [NSData data];
                 break;
             case kKCRetryWithNewChallenge:
-                if ([self.context resetWithPassword:[secretDelegate secret] error:error]) {
-                    errorData = [self copyChallengeMessage: error];
+                if ([self.context resetWithPassword:[secretDelegate secret] error:&localError]) {
+                    errorData = [self copyChallengeMessage: &localError];
                 }
                 break;
         }
-        if (errorData == nil) return nil;
+        if (errorData == nil || localError) {
+            if (localError == nil) {
+                localError = [NSError errorWithDomain:KCErrorDomain code:kNilErrorData description:@"errorData is nil"];
+            }
+            secerror("processResponse: errorData is nil, error: %@", localError);
+            [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:NO error:localError];
+            if (error) {
+                *error = localError;
+            }
+            return nil;
+        }
+        NSData* messageOut = [[KCJoiningMessage messageWithType:kError
+                                                           data:errorData
+                                                          error:&localError] der];
 
-        return [[KCJoiningMessage messageWithType:kError
-                                             data:errorData
-                                            error:error] der];
+        if (messageOut == nil || localError) {
+            if (localError == nil) {
+                localError = [NSError errorWithDomain:KCErrorDomain code:kFailedToCreateErrorResponseMessage description:@"Failed to create error response message"];
+            }
+            secerror("processResponse: failed to create error response message: %@", localError);
+
+            [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:NO error:localError];
+            if (error) {
+                *error = localError;
+            }
+        } else {
+            secnotice("joining", "processResponse: successfully created response message");
+            [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:YES error:nil];
+        }
+        return messageOut;
     }
 
-    NSData* encoded = [NSData dataWithEncodedString:[secretDelegate accountCode] error:error];
-    if (encoded == nil)
+    NSData* encoded = [NSData dataWithEncodedString:[secretDelegate accountCode] error:&localError];
+    if (encoded == nil || localError) {
+        if (localError == nil) {
+            localError = [NSError errorWithDomain:KCErrorDomain code:kFailedToEncodeData description:@"Failed to encode data"];
+        }
+        [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:NO error:localError];
+        if (error) {
+            *error = localError;
+        }
         return nil;
+    }
 
-    NSData* encrypted = [self.session encrypt:encoded error:error];
-    if (encrypted == nil) return nil;
-
+    NSData* encrypted = [self.session encrypt:encoded error:&localError];
+    if (encrypted == nil || localError) {
+        if (localError == nil) {
+            localError = [NSError errorWithDomain:KCErrorDomain code:kFailedToEncryptEncodedData description:@"Failed to encrypt encoded data"];
+        }
+        [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:NO error:localError];
+        if (error) {
+            *error = localError;
+        }
+        return nil;
+    }
     self->_state = kExpectingPeerInfo;
 
-    return [[KCJoiningMessage messageWithType:kVerification
-                                         data:confirmation
-                                      payload:encrypted
-                                        error:error] der];
+    NSData* messageOut = [[KCJoiningMessage messageWithType:kVerification
+                                                       data:confirmation
+                                                    payload:encrypted
+                                                      error:&localError] der];
+    if (messageOut == nil || localError) {
+        if (localError == nil) {
+            localError = [NSError errorWithDomain:KCErrorDomain code:kFailedToCreateVerificationMessage description:@"Failed to create response message"];
+        }
+        [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:NO error:localError];
+        if (error) {
+            *error = localError;
+        }
+    } else {
+        [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:YES error:nil];
+    }
+    return messageOut;
 }
 
 - (NSData*)processSOSApplication:(NSData*) message error:(NSError**)error
@@ -397,9 +579,10 @@ typedef enum {
 #if OCTAGON
 - (OTPairingMessage *)createPairingMessageFromJoiningMessage:(KCJoiningMessage *)message error:(NSError**)error
 {
-    NSData *decryptInitialMessage = [self.session decryptAndVerify:message.firstData error:error];
-    if (!decryptInitialMessage) {
-        secinfo("KeychainCircle", "Failed to decrypt message first data: %@. Trying legacy OTPairingMessage construction.", error ? *error : @"");
+    NSError* localError = nil;
+    NSData *decryptInitialMessage = [self.session decryptAndVerify:message.firstData error:&localError];
+    if (decryptInitialMessage == nil || localError) {
+        secinfo("KeychainCircle", "Failed to decrypt message first data: %@. Trying legacy OTPairingMessage construction.", localError);
         return [[OTPairingMessage alloc] initWithData:message.firstData];
     } else {
         KCInitialMessageData *initialMessage = [[KCInitialMessageData alloc] initWithData:decryptInitialMessage];
@@ -468,29 +651,64 @@ typedef enum {
 
 - (NSData*)processApplication:(KCJoiningMessage*)message error:(NSError**)error {
 
+    AAFAnalyticsEventSecurity *eventS = [[AAFAnalyticsEventSecurity alloc] initWithKeychainCircleMetrics:nil
+                                                                                                 altDSID:self.altDSID
+                                                                                                  flowID:self.flowID
+                                                                                         deviceSessionID:self.deviceSessionID
+                                                                                               eventName:kSecurityRTCEventNamePiggybackingAcceptorProcessApplication
+                                                                                         testsAreEnabled:MetricsOverrideTestsAreEnabled()
+                                                                                          canSendMetrics:YES
+                                                                                                category:kSecurityRTCEventCategoryAccountDataAccessRecovery];
+    NSError* localError = nil;
     if ([message type] == kTLKRequest) {
-        return [self createTLKRequestResponse: error];
+        NSData* createTLKResponseData = [self createTLKRequestResponse: &localError];
+        if (createTLKResponseData == nil || localError) {
+            if (localError == nil) {
+                localError = [NSError errorWithDomain:KCErrorDomain code:kFailedToCreateTLKRequestResponse description:@"Failed to create tlk request response message"];
+            }
+            [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:NO error:localError];
+            if (error) {
+                *error = localError;
+            }
+        } else {
+            [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:YES error:nil];
+        }
+        return createTLKResponseData;
     }
     
     if ([message type] != kPeerInfo) {
-        KCJoiningErrorCreate(kUnexpectedMessage, error, @"Expected peerInfo!");
+        localError = [NSError errorWithDomain:KCErrorDomain code:kReceivedUnexpectedMessageTypeExpectedPeerInfo description:@"Expected peerInfo!"];
+        [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:NO error:localError];
+        if (error) {
+            *error = localError;
+        }
         return nil;
     }
 
     if (self.piggy_version == kPiggyV2) {
         __block NSData* next = nil;
-        __block NSError* localError = nil;
+        __block NSError* voucherError = nil;
 
-        OTPairingMessage *pairingMessage = [self createPairingMessageFromJoiningMessage:message error:error];
-        if (!pairingMessage) {
-            secerror("octagon, failed to create pairing message from JoiningMessage");
-            KCJoiningErrorCreate(kUnexpectedMessage, error, @"Failed to create pairing message from JoiningMessage");
+        OTPairingMessage *pairingMessage = [self createPairingMessageFromJoiningMessage:message error:&localError];
+        if (pairingMessage == nil || localError) {
+            if (localError == nil) {
+                localError = [NSError errorWithDomain:KCErrorDomain code:kFailedToCreateMessageFromJoiningMessage description:@"Failed to create pairing message from JoiningMessage"];
+            }
+            secerror("octagon, failed to create pairing message from JoiningMessage: %@", localError);
+            [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:NO error:localError];
+            if (error) {
+                *error = nil;
+            }
             return nil;
         }
 
-        if (!pairingMessage.hasPrepare) {
+        if (pairingMessage.hasPrepare == NO) {
             secerror("octagon, message does not contain prepare message");
-            KCJoiningErrorCreate(kUnexpectedMessage, error, @"Expected prepare message!");
+            localError = [NSError errorWithDomain:KCErrorDomain code:kMessageDoesNotContainPeerInfoData description:@"Expected prepare message!"];
+            [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:NO error:localError];
+            if (error) {
+                *error = nil;
+            }
             return nil;
         }
         OTApplicantToSponsorRound2M1 *prepareMessage = pairingMessage.prepare;
@@ -511,8 +729,8 @@ typedef enum {
                                                                                      NSData *voucherSig,
                                                                                      NSError *err) {
             if (err) {
-                secerror("error producing octagon voucher: %@", err);
-                localError = err;
+                secerror("joining: error producing octagon voucher: %@", err);
+                voucherError = err;
             } else {
                 OTPairingMessage *pairingResponse = [[OTPairingMessage alloc] init];
                 pairingResponse.supportsSOS = [[OTSupportSOSMessage alloc] init];
@@ -527,9 +745,13 @@ typedef enum {
             }
         }];
 
-        if (next == NULL) {
-            if (error && localError) {
-                *error = localError;
+        if (next == nil || voucherError) {
+            if (voucherError == nil) {
+                voucherError = [NSError errorWithDomain:KCErrorDomain code:kVoucherCreationFailed description:@"Voucher creation failed"];
+            }
+            [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:NO error:voucherError];
+            if (error) {
+                *error = voucherError;
             }
             return nil;
         }
@@ -537,10 +759,16 @@ typedef enum {
         NSData* encryptedOutgoing = nil;
         if ([self shouldProcessSOSApplication:message pairingMessage:pairingMessage]) {
             secnotice("joining", "doing SOS processSOSApplication");
-            encryptedOutgoing = [self processSOSApplication: message.secondData error:error];
-            if (encryptedOutgoing == nil) {
-                secerror("joining: failed to process SOS application: %@", error && *error ? *error : nil);
-                KCJoiningErrorCreate(kProcessApplicationFailure, error, @"message failed to process application");
+            encryptedOutgoing = [self processSOSApplication: message.secondData error:&localError];
+            if (encryptedOutgoing == nil || localError) {
+                if (localError == nil) {
+                    localError = [NSError errorWithDomain:KCErrorDomain code:kProcessApplicationFailure description:@"message failed to process application"];
+                }
+                secerror("joining: failed to process SOS application: %@", localError);
+                [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:NO error:localError];
+                if (error) {
+                    *error = localError;
+                }
                 return nil;
             }
         }
@@ -548,31 +776,68 @@ typedef enum {
         self->_state = kAcceptDone;
 
         //note we are stuffing SOS into the payload
-        return [[KCJoiningMessage messageWithType:kCircleBlob
-                                             data:next
-                                          payload:encryptedOutgoing
-                                            error:error] der];
+        NSData* messageOut = [[KCJoiningMessage messageWithType:kCircleBlob
+                                                           data:next
+                                                        payload:encryptedOutgoing
+                                                          error:&localError] der];
+        if (messageOut == nil || localError) {
+            if (localError == nil) {
+                localError = [NSError errorWithDomain:KCErrorDomain code:kFailedToCreateCircleBlobMessage description:@"Failed to create circle blob response message"];
+            }
+            [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:NO error:localError];
+            if (error) {
+                *error = localError;
+            }
+        } else {
+            [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:YES error:nil];
+        }
+        return messageOut;
     }
 
     if (!SOSCCIsSOSTrustAndSyncingEnabled()) {
         NSString *description = [NSString stringWithFormat:@"cannot join piggyback version %d with SOS disabled", (int)self.piggy_version];
         secerror("joining: %s", [description UTF8String]);
-        if (error != nil) {
-            *error = [NSError errorWithJoiningError:kInternalError format:@"%@", description];
+        localError = [NSError errorWithJoiningError:kInternalError format:@"%@", description];
+        [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:NO error:localError];
+        if (error) {
+            *error = localError;
         }
         return nil;
     }
 
-    NSData* encryptedOutgoing = [self processSOSApplication: message.firstData error:error];
-    
+    NSData* encryptedOutgoing = [self processSOSApplication: message.firstData error:&localError];
+    if (encryptedOutgoing == nil || localError) {
+        if (localError == nil) {
+            localError = [NSError errorWithDomain:KCErrorDomain code:kFailedToProcessSOSApplication description:@"Failed to process SOS Application"];
+        }
+        [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:NO error:localError];
+        if (error) {
+            *error = localError;
+        }
+        return nil;
+    }
+
     self->_state = kAcceptDone;
 
     secnotice("joining", "posting kSOSCCCircleOctagonKeysChangedNotification");
     notify_post(kSOSCCCircleOctagonKeysChangedNotification);
-    
-    return [[KCJoiningMessage messageWithType:kCircleBlob
-                                         data:encryptedOutgoing
-                                        error:error] der];
+
+    NSData* messageOut = [[KCJoiningMessage messageWithType:kCircleBlob
+                                                       data:encryptedOutgoing
+                                                      error:&localError] der];
+    if (messageOut == nil || localError) {
+        if (localError == nil) {
+            localError = [NSError errorWithDomain:KCErrorDomain code:kFailedToCreateCircleBlobMessage description:@"Failed to create circle blob response message"];
+        }
+        [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:NO error:localError];
+        if (error) {
+            *error = localError;
+        }
+    } else {
+        [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:YES error:nil];
+    }
+
+    return messageOut;
 }
 
 

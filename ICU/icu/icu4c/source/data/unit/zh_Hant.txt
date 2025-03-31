@@ -163,6 +163,11 @@ zh_Hant{
             nanosecond{
                 other{"{0}奈秒"}
             }
+            night{
+                dnam{"夜"}
+                other{"{0} 夜"}
+                per{"{0}/夜"}
+            }
             quarter{
                 dnam{"刻"}
                 other{"{0}刻"}
@@ -310,7 +315,8 @@ zh_Hant{
                 other{"{0}英里"}
             }
             mile-scandinavian{
-                other{"{0}斯堪地那維亞英里"}
+                dnam{"斯堪地那維亞里"}
+                other{"{0}斯堪地那維亞里"}
             }
             millimeter{
                 other{"{0}公釐"}
@@ -645,7 +651,7 @@ zh_Hant{
                 other{"{0}平方英尺"}
             }
             square-inch{
-                other{"{0}in²"}
+                other{"{0}平方英寸"}
             }
             square-kilometer{
                 other{"{0}km²"}
@@ -758,6 +764,11 @@ zh_Hant{
             }
             nanosecond{
                 other{"{0}ns"}
+            }
+            night{
+                dnam{"夜"}
+                other{"{0}夜"}
+                per{"{0}/夜"}
             }
             quarter{
                 other{"{0}刻"}
@@ -872,13 +883,13 @@ zh_Hant{
         }
         length{
             astronomical-unit{
-                other{"{0}au"}
+                other{"{0}天文單位"}
             }
             centimeter{
                 other{"{0}公分"}
             }
             decimeter{
-                other{"{0}dm"}
+                other{"{0}公寸"}
             }
             earth-radius{
                 other{"{0}R⊕"}
@@ -911,19 +922,20 @@ zh_Hant{
                 other{"{0}英里"}
             }
             mile-scandinavian{
+                dnam{"斯堪地那維亞里"}
                 other{"{0}smi"}
             }
             millimeter{
                 other{"{0}公釐"}
             }
             nanometer{
-                other{"{0}nm"}
+                other{"{0}奈米"}
             }
             nautical-mile{
                 other{"{0}nmi"}
             }
             parsec{
-                other{"{0}pc"}
+                other{"{0}秒差距"}
             }
             picometer{
                 other{"{0}皮米"}
@@ -1154,11 +1166,9 @@ zh_Hant{
             }
             gallon{
                 other{"{0}加侖"}
-                per{"{0}/gal"}
             }
             gallon-imperial{
                 other{"{0}英制加侖"}
-                per{"{0}/galIm"}
             }
             hectoliter{
                 other{"{0}公石"}
@@ -1403,6 +1413,11 @@ zh_Hant{
                 dnam{"奈秒"}
                 other{"{0}奈秒"}
             }
+            night{
+                dnam{"夜"}
+                other{"{0} 夜"}
+                per{"{0}/夜"}
+            }
             quarter{
                 dnam{"刻"}
                 other{"{0}刻"}
@@ -1563,8 +1578,8 @@ zh_Hant{
                 other{"{0}英里"}
             }
             mile-scandinavian{
-                dnam{"斯堪地那維亞英里"}
-                other{"{0}斯堪地那維亞英里"}
+                dnam{"斯堪地那維亞里"}
+                other{"{0}斯堪地那維亞里"}
             }
             millimeter{
                 dnam{"公釐"}

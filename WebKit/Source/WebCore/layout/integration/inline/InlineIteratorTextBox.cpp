@@ -68,7 +68,7 @@ TextBoxIterator& TextBoxIterator::traverseNextTextBox()
     return *this;
 }
 
-TextBoxIterator firstTextBoxFor(const RenderText& text)
+TextBoxIterator lineLeftmostTextBoxFor(const RenderText& text)
 {
     if (auto* lineLayout = LayoutIntegration::LineLayout::containing(text))
         return lineLayout->textBoxesFor(text);
@@ -94,7 +94,7 @@ TextBoxIterator textBoxFor(const LayoutIntegration::InlineContent& content, size
 
 BoxRange<TextBoxIterator> textBoxesFor(const RenderText& text)
 {
-    return { firstTextBoxFor(text) };
+    return { lineLeftmostTextBoxFor(text) };
 }
 
 }

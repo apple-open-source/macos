@@ -80,8 +80,8 @@ public:
 
 #if !RELEASE_LOG_DISABLED
     const Logger* loggerPtr() const final;
-    WEBCORE_EXPORT const void* logIdentifier() const final;
-    WEBCORE_EXPORT const void* nextChildIdentifier() const final;
+    WEBCORE_EXPORT uint64_t logIdentifier() const final;
+    WEBCORE_EXPORT uint64_t nextChildIdentifier() const final;
     ASCIILiteral logClassName() const { return "VideoPresentationModelVideoElement"_s; }
     WTFLogChannel& logChannel() const;
 #endif
@@ -125,7 +125,7 @@ private:
     RefPtr<HTMLVideoElement> m_videoElement;
     RetainPtr<PlatformLayer> m_videoFullscreenLayer;
     bool m_isListening { false };
-    HashSet<CheckedPtr<VideoPresentationModelClient>> m_clients;
+    UncheckedKeyHashSet<CheckedPtr<VideoPresentationModelClient>> m_clients;
     bool m_hasVideo { false };
     bool m_documentIsVisible { true };
     FloatSize m_videoDimensions;

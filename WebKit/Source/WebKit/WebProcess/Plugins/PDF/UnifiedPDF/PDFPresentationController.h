@@ -29,6 +29,9 @@
 
 #include "PDFDocumentLayout.h"
 #include "PDFPageCoverage.h"
+#include "UnifiedPDFPlugin.h"
+#include <WebCore/GraphicsLayer.h>
+#include <WebCore/PlatformLayerIdentifier.h>
 #include <wtf/OptionSet.h>
 #include <wtf/RefPtr.h>
 #include <wtf/RetainPtr.h>
@@ -40,7 +43,6 @@ OBJC_CLASS PDFDocument;
 namespace WebCore {
 enum class TiledBackingScrollability : uint8_t;
 class GraphicsLayerClient;
-class GraphicsLayer;
 };
 
 namespace WebKit {
@@ -87,18 +89,20 @@ public:
 
     virtual void didGeneratePreviewForPage(PDFDocumentLayout::PageIndex) = 0;
 
-    virtual void repaintForIncrementalLoad() = 0;
-    virtual void setNeedsRepaintInDocumentRect(OptionSet<RepaintRequirement>, const WebCore::FloatRect& rectInDocumentCoordinates, std::optional<PDFLayoutRow>) = 0;
+    void setNeedsRepaintForPageCoverage(RepaintRequirements, const PDFPageCoverage&);
 
     virtual std::optional<PDFLayoutRow> visibleRow() const { return { }; }
-    virtual std::optional<PDFLayoutRow> rowForLayerID(WebCore::PlatformLayerIdentifier) const { return { }; }
+    virtual std::optional<PDFLayoutRow> rowForLayer(const WebCore::GraphicsLayer*) const { return { }; }
 
     struct VisiblePDFPosition {
         PDFDocumentLayout::PageIndex pageIndex { 0 };
         WebCore::FloatPoint pagePoint;
     };
 
-    virtual std::optional<VisiblePDFPosition> pdfPositionForCurrentView(bool preservePosition = true) const = 0;
+    enum class AnchorPoint : uint8_t { TopLeft, Center };
+    std::optional<VisiblePDFPosition> pdfPositionForCurrentView(AnchorPoint, bool preservePosition = true) const;
+    WebCore::FloatPoint anchorPointInDocumentSpace(AnchorPoint) const;
+    virtual std::optional<PDFDocumentLayout::PageIndex> pageIndexForCurrentView(AnchorPoint) const = 0;
     virtual void restorePDFPosition(const VisiblePDFPosition&) = 0;
 
     virtual void ensurePageIsVisible(PDFDocumentLayout::PageIndex) = 0;
@@ -117,9 +121,18 @@ public:
     RetainPtr<PDFDocument> pluginPDFDocument() const;
     bool pluginShouldCachePagePreviews() const;
 
+    virtual std::optional<WebCore::PlatformLayerIdentifier> contentsLayerIdentifier() const { return std::nullopt; }
+
+    float scaleForPagePreviews() const;
 protected:
     RefPtr<WebCore::GraphicsLayer> createGraphicsLayer(const String&, WebCore::GraphicsLayer::Type);
     RefPtr<WebCore::GraphicsLayer> makePageContainerLayer(PDFDocumentLayout::PageIndex);
+    struct LayerCoverage {
+        Ref<WebCore::GraphicsLayer> layer;
+        WebCore::FloatRect bounds;
+        RepaintRequirements repaintRequirements;
+    };
+    virtual Vector<LayerCoverage> layerCoveragesForRepaintPageCoverage(RepaintRequirements, const PDFPageCoverage&) = 0;
 
     static RefPtr<WebCore::GraphicsLayer> pageBackgroundLayerForPageContainerLayer(WebCore::GraphicsLayer&);
 
@@ -129,7 +142,6 @@ protected:
 
     Ref<UnifiedPDFPlugin> m_plugin;
     RefPtr<AsyncPDFRenderer> m_asyncRenderer;
-
 };
 
 } // namespace WebKit

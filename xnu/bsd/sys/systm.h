@@ -117,7 +117,7 @@ __BEGIN_DECLS
 __END_DECLS
 
 #ifdef BSD_KERNEL_PRIVATE
-extern char version[];                  /* system version */
+extern char version[__null_terminated]; /* system version */
 extern const char *const copyright;     /* system copyright */
 
 

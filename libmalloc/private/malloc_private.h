@@ -105,7 +105,7 @@ int malloc_engaged_nano(void) __result_use_check;
  */
 #if !TARGET_OS_EXCLAVECORE && !TARGET_OS_EXCLAVEKIT
 SPI_AVAILABLE(macos(14.3), ios(17.4), tvos(17.4), watchos(10.4),
-		driverkit(23.4), xros(1.1))
+		driverkit(23.4), visionos(1.1))
 int malloc_engaged_secure_allocator(void) __result_use_check;
 #endif
 
@@ -142,6 +142,7 @@ typedef struct {
 	uintptr_t DisableExpensiveDebuggingOptions : 1;
 	uintptr_t DisableProbabilisticGuardMalloc : 1;
 	uintptr_t DisableMallocStackLogging : 1;
+	uintptr_t ReservedFlag : 1;
 } malloc_thread_options_t;
 
 #if !TARGET_OS_EXCLAVECORE && !TARGET_OS_EXCLAVEKIT
@@ -240,7 +241,7 @@ OS_OPTIONS(malloc_options_np, uint64_t,
  * @function malloc_type_zone_malloc_with_options_np
  *
  * @discussion
- * When malloc_zone_malloc_with_options_np was introduced, the TMO inferrence
+ * When malloc_zone_malloc_with_options_np was introduced, the TMO inference
  * argument index was incorrectly set to the 4th argument (options). As such,
  * TMO rewritten callsites will put the type descriptor in the 5th argument,
  * instead of the 4th. To avoid revlocking and potential bincompat issues, we're
@@ -252,7 +253,7 @@ OS_OPTIONS(malloc_options_np, uint64_t,
  */
 SPI_DEPRECATED("Do not call through typed entrypoint directly",
 		macos(14.3, 15.0), ios(17.4, 18.0), tvos(17.4, 18.0),
-		watchos(10.4, 11.0), driverkit(23.4, 24.0), xros(1.1, 2.0))
+		watchos(10.4, 11.0), driverkit(23.4, 24.0), visionos(1.1, 2.0))
 void * __sized_by_or_null(size) malloc_type_zone_malloc_with_options_np(
 		malloc_zone_t *zone, size_t align, size_t size,
 		malloc_options_np_t options, malloc_type_id_t desc) __result_use_check
@@ -272,7 +273,7 @@ __attribute__((__diagnose_if__(align && (size % align),
  * implementation detail for malloc_zone_malloc_with_options_np
  */
 SPI_AVAILABLE(macos(15.0), ios(18.0), tvos(18.0), watchos(11.0),
-		driverkit(24.0), xros(2.0))
+		driverkit(24.0), visionos(2.0))
 void * __sized_by_or_null(size) malloc_type_zone_malloc_with_options_internal(
 		malloc_zone_t *zone, size_t align, size_t size,
 		malloc_type_id_t desc, malloc_options_np_t options) __result_use_check
@@ -312,7 +313,7 @@ __attribute__((__diagnose_if__(align && (size % align),
  * This SPI does not set errno on all codepaths when the allocation fails.
  */
 SPI_AVAILABLE(macos(14.3), ios(17.4), tvos(17.4), watchos(10.4),
-		driverkit(23.4), xros(1.1))
+		driverkit(23.4), visionos(1.1))
 void * __sized_by_or_null(size) malloc_zone_malloc_with_options_np(
 		malloc_zone_t *zone, size_t align, size_t size,
 		malloc_options_np_t options) __result_use_check
@@ -328,9 +329,14 @@ __attribute__((__diagnose_if__(align && (size % align),
 #if !TARGET_OS_EXCLAVECORE && !TARGET_OS_EXCLAVEKIT
 // Indicates whether the libmalloc debug dylib is in use in the current process
 SPI_AVAILABLE(macos(14.3), ios(17.4), tvos(17.4), watchos(10.4),
-		driverkit(23.4), xros(1.1))
+		driverkit(23.4), visionos(1.1))
 bool
 malloc_variant_is_debug_4test(void);
+
+// Indicates whether libmalloc internal security policy is enabled in the
+// current process
+bool
+malloc_allows_internal_security_4test(void);
 #endif /* !TARGET_OS_EXCLAVECORE && !TARGET_OS_EXCLAVEKIT */
 
 __END_DECLS

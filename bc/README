@@ -8,7 +8,7 @@
 
 3. Generate the Makefile:
 
-       (cd bc && CPPFLAGS=-D_DARWIN_C_SOURCE LC_ALL=C ./configure --disable-generated-tests --disable-problematic-tests --enable-editline)
+       (cd bc && LC_ALL=C ./configure --disable-generated-tests --disable-problematic-tests --enable-editline)
 
    We disable generated and problematic tests because they are either very large or very slow and there is no compelling reason (e.g. known past regressions) to include them.
 

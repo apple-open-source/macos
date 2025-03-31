@@ -312,12 +312,6 @@ static double simple_weight(YV12_BUFFER_CONFIG *source) {
   return sum_weights;
 }
 
-// Returns the saturating cast of a double value to int.
-static int saturate_cast_double_to_int(double d) {
-  if (d > INT_MAX) return INT_MAX;
-  return (int)d;
-}
-
 /* This function returns the current per frame maximum bitrate target */
 static int frame_max_bits(VP8_COMP *cpi) {
   /* Max allocation for a single frame based on the max section guidelines
@@ -1244,7 +1238,6 @@ void vp8_init_second_pass(VP8_COMP *cpi) {
   vp8_new_framerate(cpi, 10000000.0 * cpi->twopass.total_stats.count /
                              cpi->twopass.total_stats.duration);
 
-  cpi->output_framerate = cpi->framerate;
   cpi->twopass.bits_left = (int64_t)(cpi->twopass.total_stats.duration *
                                      cpi->oxcf.target_bandwidth / 10000000.0);
   cpi->twopass.bits_left -= (int64_t)(cpi->twopass.total_stats.duration *
@@ -2712,9 +2705,10 @@ static void find_next_key_frame(VP8_COMP *cpi, FIRSTPASS_STATS *this_frame) {
         else if (cpi->twopass.kf_group_bits < av_group_bits) {
           int64_t bits_below_av = av_group_bits - cpi->twopass.kf_group_bits;
 
-          cpi->twopass.kf_group_bits += (int64_t)(
-              (double)bits_below_av * (double)(buffer_lvl - opt_buffer_lvl) /
-              (double)(high_water_mark - opt_buffer_lvl));
+          cpi->twopass.kf_group_bits +=
+              (int64_t)((double)bits_below_av *
+                        (double)(buffer_lvl - opt_buffer_lvl) /
+                        (double)(high_water_mark - opt_buffer_lvl));
         }
       }
     }

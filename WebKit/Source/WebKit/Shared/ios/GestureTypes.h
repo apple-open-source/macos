@@ -74,4 +74,12 @@ enum class SelectionFlags : uint8_t {
 
 enum class RespectSelectionAnchor : bool { No, Yes };
 
+enum class TextInteractionSource : uint8_t {
+    Touch = 1 << 0,
+    Mouse = 1 << 1,
+};
+
+enum class SelectionEndpoint : bool { Start, End };
+enum class SelectionWasFlipped : bool { No, Yes };
+
 } // namespace WebKit

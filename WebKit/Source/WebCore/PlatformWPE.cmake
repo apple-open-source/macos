@@ -52,6 +52,7 @@ list(APPEND WebCore_PRIVATE_FRAMEWORK_HEADERS
     accessibility/atspi/AccessibilityRootAtspi.h
 
     platform/glib/ApplicationGLib.h
+    platform/glib/SystemSettings.h
 
     platform/graphics/egl/PlatformDisplaySurfaceless.h
 
@@ -60,8 +61,6 @@ list(APPEND WebCore_PRIVATE_FRAMEWORK_HEADERS
 
     platform/graphics/libwpe/PlatformDisplayLibWPE.h
 )
-
-set(CSS_VALUE_PLATFORM_DEFINES "HAVE_OS_DARK_MODE_SUPPORT=1")
 
 set(WebCore_USER_AGENT_SCRIPTS_DEPENDENCIES ${WEBCORE_DIR}/platform/wpe/RenderThemeWPE.cpp)
 
@@ -138,15 +137,6 @@ if (ENABLE_GAMEPAD)
 
     list(APPEND WebCore_PRIVATE_FRAMEWORK_HEADERS
         platform/gamepad/libwpe/GamepadProviderLibWPE.h
-    )
-endif ()
-
-if (ENABLE_SPEECH_SYNTHESIS)
-    list(APPEND WebCore_SYSTEM_INCLUDE_DIRECTORIES
-        ${Flite_INCLUDE_DIRS}
-    )
-    list(APPEND WebCore_LIBRARIES
-        ${Flite_LIBRARIES}
     )
 endif ()
 

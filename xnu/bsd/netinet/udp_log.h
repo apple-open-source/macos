@@ -56,6 +56,7 @@ enum {
 #ifdef BSD_KERNEL_PRIVATE
 
 #include <netinet/inp_log.h>
+#include <netinet/udp.h>
 
 extern uint32_t udp_log_enable_flags;
 
@@ -65,6 +66,7 @@ extern void udp_log_bind(struct inpcb *inp, int error);
 extern void udp_log_connect(struct inpcb *inp, int error);
 extern void udp_log_connection_summary(struct inpcb *inp);
 extern void udp_log_message(const char *func_name, int line_no, struct inpcb *inp, const char *format, ...) __printflike(4, 5);
+extern void udp_log_drop_pcb(void *hdr, struct udphdr *uh, struct inpcb *inp, bool outgoing, const char *format);
 
 static inline bool
 udp_is_log_enabled(struct inpcb *inp, uint32_t req_flags)
@@ -114,6 +116,13 @@ udp_is_log_enabled(struct inpcb *inp, uint32_t req_flags)
 
 #define UDP_LOG(inp, format, ...) if (udp_is_log_enabled((inp), ULEF_LOG)) \
     udp_log_message(__func__, __LINE__, (inp), format, ## __VA_ARGS__)
+
+#define UDP_LOG_DROP_NECP(hdr, uh, inp, outgoing) if (udp_is_log_enabled(inp, ULEF_DROP_NECP)) \
+    udp_log_drop_pcb((hdr), (uh), (inp), (outgoing), "NECP")
+
+#define UDP_LOG_DROP_PCB(hdr, uh, inp, outgoing, reason) if (udp_is_log_enabled(inp, ULEF_DROP_PCB)) \
+    udp_log_drop_pcb((hdr), (uh), (inp), (outgoing), (reason))
+
 
 #endif /* BSD_KERNEL_PRIVATE */
 

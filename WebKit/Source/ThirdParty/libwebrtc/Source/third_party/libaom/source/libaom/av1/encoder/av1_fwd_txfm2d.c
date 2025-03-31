@@ -20,7 +20,7 @@
 #include "av1/encoder/av1_fwd_txfm1d.h"
 #include "av1/encoder/av1_fwd_txfm1d_cfg.h"
 
-static INLINE TxfmFunc fwd_txfm_type_to_func(TXFM_TYPE txfm_type) {
+static inline TxfmFunc fwd_txfm_type_to_func(TXFM_TYPE txfm_type) {
   switch (txfm_type) {
     case TXFM_TYPE_DCT4: return av1_fdct4;
     case TXFM_TYPE_DCT8: return av1_fdct8;
@@ -53,7 +53,7 @@ void av1_gen_fwd_stage_range(int8_t *stage_range_col, int8_t *stage_range_row,
   }
 }
 
-static INLINE void fwd_txfm2d_c(const int16_t *input, int32_t *output,
+static inline void fwd_txfm2d_c(const int16_t *input, int32_t *output,
                                 const int stride, const TXFM_2D_FLIP_CFG *cfg,
                                 int32_t *buf, int bd) {
   int c, r;
@@ -386,7 +386,7 @@ static const int8_t *fwd_txfm_range_mult2_list[TXFM_TYPES] = {
   fidtx8_range_mult2, fidtx16_range_mult2, fidtx32_range_mult2
 };
 
-static INLINE void set_fwd_txfm_non_scale_range(TXFM_2D_FLIP_CFG *cfg) {
+static inline void set_fwd_txfm_non_scale_range(TXFM_2D_FLIP_CFG *cfg) {
   av1_zero(cfg->stage_range_col);
   av1_zero(cfg->stage_range_row);
 

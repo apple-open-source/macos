@@ -129,7 +129,6 @@ extern NSString *WebPreferencesCacheModelChangedInternalNotification WEBKIT_DEPR
 @property (nonatomic) BOOL asyncFrameScrollingEnabled;
 @property (nonatomic, getter=isSpatialNavigationEnabled) BOOL spatialNavigationEnabled;
 @property (nonatomic) BOOL mediaDevicesEnabled;
-@property (nonatomic) BOOL mediaStreamEnabled;
 @property (nonatomic) BOOL peerConnectionEnabled;
 @property (nonatomic) WebKitEditableLinkBehavior editableLinkBehavior;
 @property (nonatomic) WebTextDirectionSubmenuInclusionBehavior textDirectionSubmenuInclusionBehavior;
@@ -228,6 +227,7 @@ extern NSString *WebPreferencesCacheModelChangedInternalNotification WEBKIT_DEPR
 @property (nonatomic) BOOL allowMediaContentTypesRequiringHardwareSupportAsFallback;
 @property (nonatomic) BOOL mediaCapabilitiesEnabled;
 @property (nonatomic) BOOL sourceBufferChangeTypeEnabled;
+@property (nonatomic) BOOL siteSpecificQuirksModeEnabled;
 @property (nonatomic) NSString *mediaContentTypesRequiringHardwareSupport;
 @property (nonatomic, retain) NSArray<NSString *> *additionalSupportedImageTypes; // additionalSupportedImageTypes is an array of image UTIs.
 
@@ -244,10 +244,6 @@ extern NSString *WebPreferencesCacheModelChangedInternalNotification WEBKIT_DEPR
 
 @property (nonatomic) BOOL storageTrackerEnabled;
 @property (nonatomic) unsigned audioSessionCategoryOverride;
-// WARNING: this affect network performance. This must not be enabled for production use.
-// Enabling this makes WebCore reports the network data usage.
-// This is a global setting.
-@property (nonatomic) BOOL networkDataUsageTrackingEnabled;
 @property (nonatomic) NSString *networkInterfaceName;
 @property (nonatomic, setter=_setMinimumZoomFontSize:) float _minimumZoomFontSize;
 @property (nonatomic) BOOL mediaPlaybackAllowsAirPlay;
@@ -296,7 +292,6 @@ extern NSString *WebPreferencesCacheModelChangedInternalNotification WEBKIT_DEPR
 @interface WebPreferences (WebPrivatePreferencesConvertedToWebFeature)
 @property (nonatomic) BOOL userGesturePromisePropagationEnabled;
 @property (nonatomic) BOOL requestIdleCallbackEnabled;
-@property (nonatomic) BOOL highlightAPIEnabled;
 @property (nonatomic) BOOL asyncClipboardAPIEnabled;
 @property (nonatomic) BOOL visualViewportAPIEnabled;
 @property (nonatomic) BOOL CSSOMViewSmoothScrollingEnabled;
@@ -305,7 +300,6 @@ extern NSString *WebPreferencesCacheModelChangedInternalNotification WEBKIT_DEPR
 @property (nonatomic) BOOL privateClickMeasurementEnabled;
 @property (nonatomic) BOOL genericCueAPIEnabled;
 @property (nonatomic) BOOL coreMathMLEnabled;
-@property (nonatomic) BOOL linkPreloadResponsiveImagesEnabled;
 @property (nonatomic) BOOL remotePlaybackEnabled;
 @property (nonatomic) BOOL readableByteStreamAPIEnabled;
 @property (nonatomic) BOOL mediaRecorderEnabled;
@@ -320,6 +314,7 @@ extern NSString *WebPreferencesCacheModelChangedInternalNotification WEBKIT_DEPR
 // The preferences in this category are deprecated and have no effect. They should
 // be removed when it is considered safe to do so.
 
+@property (nonatomic) BOOL linkPreloadResponsiveImagesEnabled;
 @property (nonatomic) BOOL constantPropertiesEnabled;
 @property (nonatomic) BOOL maskWebGLStringsEnabled;
 @property (nonatomic) BOOL CSSCustomPropertiesAndValuesEnabled;
@@ -352,10 +347,16 @@ extern NSString *WebPreferencesCacheModelChangedInternalNotification WEBKIT_DEPR
 @property (nonatomic) BOOL transformStreamAPIEnabled;
 @property (nonatomic) BOOL lineHeightUnitsEnabled;
 @property (nonatomic) BOOL CSSIndividualTransformPropertiesEnabled;
+@property (nonatomic) BOOL highlightAPIEnabled;
 @property (nonatomic) BOOL serverTimingEnabled;
 @property (nonatomic) BOOL offlineWebApplicationCacheEnabled;
 @property (nonatomic) int64_t applicationCacheTotalQuota;
 @property (nonatomic) int64_t applicationCacheDefaultOriginQuota;
+@property (nonatomic) BOOL mediaStreamEnabled;
+
+#if TARGET_OS_IPHONE
+@property (nonatomic) BOOL networkDataUsageTrackingEnabled;
+#endif
 
 - (void)setDiskImageCacheEnabled:(BOOL)enabled;
 

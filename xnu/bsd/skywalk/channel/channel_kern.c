@@ -616,9 +616,9 @@ kern_channel_memstatus(struct proc *p, uint32_t status,
 		return;
 	}
 
-	SK_DF(SK_VERB_CHANNEL, "%s(%d) ch 0x%llx flags 0x%b status %s",
+	SK_DF(SK_VERB_CHANNEL, "%s(%d) ch 0x%llx flags 0x%b status %d",
 	    sk_proc_name_address(p), sk_proc_pid(p), SK_KVA(ch),
-	    ch->ch_flags, CHANF_BITS, sk_memstatus2str(status));
+	    ch->ch_flags, CHANF_BITS, status);
 
 	/* serialize accesses against channel syscalls */
 	lck_mtx_lock(&ch->ch_lock);

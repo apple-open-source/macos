@@ -76,6 +76,7 @@ cy{
         bin{"Bini"}
         bkm{"Comeg"}
         bla{"Siksika"}
+        blo{"Anii"}
         bm{"Bambareg"}
         bn{"Bengaleg"}
         bo{"Tibeteg"}
@@ -286,6 +287,7 @@ cy{
         kv{"Comi"}
         kw{"Cernyweg"}
         kwk{"Kwakʼwala"}
+        kxv{"Kuvi"}
         ky{"Cirgiseg"}
         la{"Lladin"}
         lad{"Iddew-Sbaeneg"}
@@ -296,6 +298,7 @@ cy{
         lez{"Lezgheg"}
         lg{"Ganda"}
         li{"Limbwrgeg"}
+        lij{"Ligwreg"}
         lil{"Lillooet"}
         lkt{"Lakota"}
         lmo{"Lombardeg"}
@@ -558,6 +561,7 @@ cy{
         vep{"Feps"}
         vi{"Fietnameg"}
         vls{"Fflemeg Gorllewinol"}
+        vmw{"Macua"}
         vo{"Folapük"}
         vot{"Foteg"}
         vun{"Funjo"}
@@ -571,6 +575,7 @@ cy{
         wuu{"Wu Tsieineaidd"}
         xal{"Calmyceg"}
         xh{"Xhosa"}
+        xnr{"Kangri"}
         xog{"Soga"}
         yav{"Iangben"}
         ybb{"Iembaeg"}
@@ -578,6 +583,7 @@ cy{
         yo{"Iorwba"}
         yrl{"Nheengatu"}
         yue{"Cantoneeg"}
+        za{"Zhuang"}
         zap{"Zapoteceg"}
         zbl{"Blisssymbols"}
         zea{"Zêlandeg"}
@@ -599,7 +605,6 @@ cy{
         zh{"Tsieinëeg, Mandarin"}
     }
     Languages%short{
-        az{"Aseri"}
         en_GB{"Saesneg (DU)"}
         en_US{"Saesneg (UDA)"}
     }
@@ -632,7 +637,6 @@ cy{
         Hebr{"Hebreig"}
         Hira{"Hiragana"}
         Hrkt{"Syllwyddor Japaneaidd"}
-        Jamo{"Jamo"}
         Jpan{"Japaneaidd"}
         Kana{"Catacana"}
         Khmr{"Chmeraidd"}
@@ -701,7 +705,6 @@ cy{
             gb2312han{"Trefn Symledig Tsieina - GB2312"}
             phonebook{"Trefn Llyfr Ffôn"}
             pinyin{"Trefn Pinyin"}
-            reformed{"Trefn Diwygiedig"}
             search{"Chwilio at Ddibenion Cyffredinol"}
             standard{"Trefn Safonol"}
             traditional{"Trefn Traddodiadol"}

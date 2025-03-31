@@ -576,31 +576,24 @@ static const size_t kCipherAliasesLen = OPENSSL_ARRAY_SIZE(kCipherAliases);
 bool ssl_cipher_get_evp_aead(const EVP_AEAD **out_aead,
                              size_t *out_mac_secret_len,
                              size_t *out_fixed_iv_len, const SSL_CIPHER *cipher,
-                             uint16_t version, bool is_dtls) {
+                             uint16_t version) {
   *out_aead = NULL;
   *out_mac_secret_len = 0;
   *out_fixed_iv_len = 0;
 
-  const bool is_tls12 = version == TLS1_2_VERSION && !is_dtls;
-  const bool is_tls13 = version == TLS1_3_VERSION && !is_dtls;
-
   if (cipher->algorithm_mac == SSL_AEAD) {
     if (cipher->algorithm_enc == SSL_AES128GCM) {
-      if (is_tls12) {
+      if (version < TLS1_3_VERSION) {
         *out_aead = EVP_aead_aes_128_gcm_tls12();
-      } else if (is_tls13) {
-        *out_aead = EVP_aead_aes_128_gcm_tls13();
       } else {
-        *out_aead = EVP_aead_aes_128_gcm();
+        *out_aead = EVP_aead_aes_128_gcm_tls13();
       }
       *out_fixed_iv_len = 4;
     } else if (cipher->algorithm_enc == SSL_AES256GCM) {
-      if (is_tls12) {
+      if (version < TLS1_3_VERSION) {
         *out_aead = EVP_aead_aes_256_gcm_tls12();
-      } else if (is_tls13) {
-        *out_aead = EVP_aead_aes_256_gcm_tls13();
       } else {
-        *out_aead = EVP_aead_aes_256_gcm();
+        *out_aead = EVP_aead_aes_256_gcm_tls13();
       }
       *out_fixed_iv_len = 4;
     } else if (cipher->algorithm_enc == SSL_CHACHA20POLY1305) {
@@ -926,7 +919,6 @@ static bool ssl_cipher_strength_sort(CIPHER_ORDER **head_p,
   if (!number_uses.Init(max_strength_bits + 1)) {
     return false;
   }
-  OPENSSL_memset(number_uses.data(), 0, (max_strength_bits + 1) * sizeof(int));
 
   // Now find the strength_bits values actually used.
   curr = *head_p;
@@ -1238,7 +1230,7 @@ bool ssl_create_cipher_list(UniquePtr<SSLCipherPreferenceList> *out_cipher_list,
   UniquePtr<STACK_OF(SSL_CIPHER)> cipherstack(sk_SSL_CIPHER_new_null());
   Array<bool> in_group_flags;
   if (cipherstack == nullptr ||
-      !in_group_flags.Init(OPENSSL_ARRAY_SIZE(kCiphers))) {
+      !in_group_flags.InitForOverwrite(OPENSSL_ARRAY_SIZE(kCiphers))) {
     return false;
   }
 
@@ -1253,13 +1245,11 @@ bool ssl_create_cipher_list(UniquePtr<SSLCipherPreferenceList> *out_cipher_list,
       in_group_flags[num_in_group_flags++] = curr->in_group;
     }
   }
+  in_group_flags.Shrink(num_in_group_flags);
 
   UniquePtr<SSLCipherPreferenceList> pref_list =
       MakeUnique<SSLCipherPreferenceList>();
-  if (!pref_list ||
-      !pref_list->Init(
-          std::move(cipherstack),
-          MakeConstSpan(in_group_flags).subspan(0, num_in_group_flags))) {
+  if (!pref_list || !pref_list->Init(std::move(cipherstack), in_group_flags)) {
     return false;
   }
 

@@ -43,7 +43,7 @@ class Locale {
     WTF_MAKE_NONCOPYABLE(Locale);
 
 public:
-    static std::unique_ptr<Locale> create(const AtomString& localeIdentifier);
+    WEBCORE_EXPORT static std::unique_ptr<Locale> create(const AtomString& localeIdentifier);
     static std::unique_ptr<Locale> createDefault();
 
     // Converts the specified number string to another number string localized
@@ -59,7 +59,15 @@ public:
     // resultant string.
     String convertFromLocalizedNumber(const String&);
 
-#if ENABLE(DATE_AND_TIME_INPUT_TYPES)
+    enum class WritingDirection: uint8_t {
+        Default,
+        LeftToRight,
+        RightToLeft
+    };
+
+    // Returns the default writing direction for the specified locale.
+    virtual WritingDirection defaultWritingDirection() const;
+
     // Returns date format in Unicode TR35 LDML[1] containing day of month,
     // month, and year, e.g. "dd/mm/yyyy"
     // [1] LDML http://unicode.org/reports/tr35/#Date_Format_Patterns
@@ -112,9 +120,7 @@ public:
     virtual const Vector<String>& monthLabels() = 0;
 
     String localizedDecimalSeparator();
-#endif
 
-#if ENABLE(DATE_AND_TIME_INPUT_TYPES)
     enum FormatType { FormatTypeUnspecified, FormatTypeShort, FormatTypeMedium };
 
     // Serializes the specified date into a formatted date string to
@@ -122,9 +128,8 @@ public:
     // localized dates the function should return an empty string.
     // FormatType can be used to specify if you want the short format. 
     virtual String formatDateTime(const DateComponents&, FormatType = FormatTypeUnspecified);
-#endif
 
-    virtual ~Locale();
+    WEBCORE_EXPORT virtual ~Locale();
 
 protected:
     enum {
@@ -142,7 +147,7 @@ private:
     bool detectSignAndGetDigitRange(const String& input, bool& isNegative, unsigned& startIndex, unsigned& endIndex);
     unsigned matchedDecimalSymbolIndex(const String& input, unsigned& position);
 
-    String m_decimalSymbols[DecimalSymbolsSize];
+    std::array<String, DecimalSymbolsSize> m_decimalSymbols;
     String m_positivePrefix;
     String m_positiveSuffix;
     String m_negativePrefix;

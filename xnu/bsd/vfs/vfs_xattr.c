@@ -438,7 +438,7 @@ vnode_setasnamedstream_internal(vnode_t vp, vnode_t svp)
 	 * for checking MNTK_NAMED_STREAMS bit at many places in the
 	 * code.
 	 */
-	vnode_update_identity(svp, vp, NULL, 0, 0, VNODE_UPDATE_NAMEDSTREAM_PARENT);
+	vnode_update_identity(svp, vp, NULL, 0, 0, (VNODE_UPDATE_NAMEDSTREAM_PARENT | VNODE_UPDATE_FORCE_PARENT_REF));
 
 	if (vnode_isdyldsharedcache(vp)) {
 		vnode_lock_spin(svp);

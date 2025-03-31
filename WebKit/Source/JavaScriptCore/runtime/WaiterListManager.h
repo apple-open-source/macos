@@ -223,6 +223,7 @@ private:
     template <typename ValueType>
     JSValue waitAsyncImpl(JSGlobalObject*, VM&, ValueType* ptr, ValueType expectedValue, Seconds timeout);
 
+    // Notify the waiter if its ticket is not canceled.
     void notifyWaiterImpl(const AbstractLocker&, Ref<Waiter>&&, const ResolveResult);
 
     void timeoutAsyncWaiter(void* ptr, Ref<Waiter>&&);
@@ -234,7 +235,7 @@ private:
     RefPtr<WaiterList> findList(void* ptr);
 
     Lock m_waiterListsLock;
-    HashMap<void*, Ref<WaiterList>> m_waiterLists;
+    UncheckedKeyHashMap<void*, Ref<WaiterList>> m_waiterLists;
 };
 
 } // namespace JSC

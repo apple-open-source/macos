@@ -1,5 +1,5 @@
 #!/bin/sh
-# Copyright (c) 2004-2018, 2020, 2021, 2024 Apple Inc.
+# Copyright (c) 2004-2018, 2020, 2021, 2024, 2025 Apple Inc.
 #
 # get-mobility-info
 #
@@ -138,11 +138,11 @@ fi
 # get-network-info
 #
 if [ -x /System/Library/Frameworks/SystemConfiguration.framework/Resources/get-network-info ]; then
-	/bin/sh /System/Library/Frameworks/SystemConfiguration.framework/Resources/get-network-info -s -c -P "${WORKDIR}"
+	/System/Library/Frameworks/SystemConfiguration.framework/Resources/get-network-info -s -c -P "${WORKDIR}"
 elif [ -x /System/Library/Frameworks/SystemConfiguration.framework/get-network-info ]; then
-	/bin/sh /System/Library/Frameworks/SystemConfiguration.framework/get-network-info -s -c -P "${WORKDIR}"
+	/System/Library/Frameworks/SystemConfiguration.framework/get-network-info -s -c -P "${WORKDIR}"
 elif [ -x /System/Library/PrivateFrameworks/SystemConfiguration.framework/get-network-info ]; then
-	/bin/sh /System/Library/PrivateFrameworks/SystemConfiguration.framework/get-network-info -s -c -P "${WORKDIR}"
+	/System/Library/PrivateFrameworks/SystemConfiguration.framework/get-network-info -s -c -P "${WORKDIR}"
 fi
 
 #

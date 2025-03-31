@@ -11,9 +11,13 @@
 #ifndef API_TEST_MOCK_TRANSFORMABLE_AUDIO_FRAME_H_
 #define API_TEST_MOCK_TRANSFORMABLE_AUDIO_FRAME_H_
 
+#include <cstdint>
+#include <optional>
 #include <string>
 
+#include "api/array_view.h"
 #include "api/frame_transformer_interface.h"
+#include "api/units/timestamp.h"
 #include "test/gmock.h"
 
 namespace webrtc {
@@ -29,11 +33,9 @@ class MockTransformableAudioFrame : public TransformableAudioFrameInterface {
   MOCK_METHOD(uint32_t, GetSsrc, (), (const, override));
   MOCK_METHOD(uint32_t, GetTimestamp, (), (const, override));
   MOCK_METHOD(std::string, GetMimeType, (), (const, override));
-  MOCK_METHOD(rtc::ArrayView<const uint32_t>,
-              GetContributingSources,
-              (),
-              (const override));
-  MOCK_METHOD(const absl::optional<uint16_t>,
+  MOCK_METHOD(rtc::ArrayView<const uint32_t>, GetContributingSources, (),
+              (const, override));
+  MOCK_METHOD(const std::optional<uint16_t>,
               SequenceNumber,
               (),
               (const, override));
@@ -41,7 +43,7 @@ class MockTransformableAudioFrame : public TransformableAudioFrameInterface {
               GetDirection,
               (),
               (const, override));
-  MOCK_METHOD(absl::optional<uint64_t>,
+  MOCK_METHOD(std::optional<uint64_t>,
               AbsoluteCaptureTimestamp,
               (),
               (const, override));
@@ -49,7 +51,9 @@ class MockTransformableAudioFrame : public TransformableAudioFrameInterface {
               Type,
               (),
               (const, override));
-  MOCK_METHOD(absl::optional<uint8_t>, AudioLevel, (), (const, override));
+  MOCK_METHOD(std::optional<uint8_t>, AudioLevel, (), (const, override));
+
+  MOCK_METHOD(std::optional<Timestamp>, ReceiveTime, (), (const, override));
 };
 
 }  // namespace webrtc

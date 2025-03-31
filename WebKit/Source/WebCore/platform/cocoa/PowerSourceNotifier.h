@@ -47,8 +47,6 @@ public:
     WEBCORE_EXPORT explicit PowerSourceNotifier(PowerSourceNotifierCallback&&);
     WEBCORE_EXPORT ~PowerSourceNotifier();
 
-    WEBCORE_EXPORT bool isLowPowerModeEnabled() const;
-
 private:
     void notifyPowerSourceChanged();
 

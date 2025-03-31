@@ -21,7 +21,7 @@
 #include "aom_dsp/arm/mem_neon.h"
 #include "aom_dsp/arm/transpose_neon.h"
 
-static INLINE int16x4_t compound_convolve8_4_v(
+static inline int16x4_t compound_convolve8_4_v(
     const int16x4_t s0, const int16x4_t s1, const int16x4_t s2,
     const int16x4_t s3, const int16x4_t s4, const int16x4_t s5,
     const int16x4_t s6, const int16x4_t s7, const int16x8_t filter,
@@ -42,7 +42,7 @@ static INLINE int16x4_t compound_convolve8_4_v(
   return vshrn_n_s32(sum, COMPOUND_ROUND1_BITS);
 }
 
-static INLINE int16x8_t compound_convolve8_8_v(
+static inline int16x8_t compound_convolve8_8_v(
     const int16x8_t s0, const int16x8_t s1, const int16x8_t s2,
     const int16x8_t s3, const int16x8_t s4, const int16x8_t s5,
     const int16x8_t s6, const int16x8_t s7, const int16x8_t filter,
@@ -76,7 +76,7 @@ static INLINE int16x8_t compound_convolve8_8_v(
   return vcombine_s16(res0, res1);
 }
 
-static INLINE void compound_convolve_vert_scale_8tap_neon(
+static inline void compound_convolve_vert_scale_8tap_neon(
     const int16_t *src, int src_stride, uint16_t *dst, int dst_stride, int w,
     int h, const int16_t *y_filter, int subpel_y_qn, int y_step_qn) {
   const int bd = 8;
@@ -139,7 +139,7 @@ static INLINE void compound_convolve_vert_scale_8tap_neon(
   }
 }
 
-static INLINE void compound_avg_convolve_vert_scale_8tap_neon(
+static inline void compound_avg_convolve_vert_scale_8tap_neon(
     const int16_t *src, int src_stride, uint8_t *dst8, int dst8_stride,
     uint16_t *dst16, int dst16_stride, int w, int h, const int16_t *y_filter,
     int subpel_y_qn, int y_step_qn) {
@@ -225,7 +225,7 @@ static INLINE void compound_avg_convolve_vert_scale_8tap_neon(
   }
 }
 
-static INLINE void compound_dist_wtd_convolve_vert_scale_8tap_neon(
+static inline void compound_dist_wtd_convolve_vert_scale_8tap_neon(
     const int16_t *src, int src_stride, uint8_t *dst8, int dst8_stride,
     uint16_t *dst16, int dst16_stride, int w, int h, const int16_t *y_filter,
     ConvolveParams *conv_params, int subpel_y_qn, int y_step_qn) {
@@ -334,7 +334,7 @@ static INLINE void compound_dist_wtd_convolve_vert_scale_8tap_neon(
   }
 }
 
-static INLINE uint8x8_t convolve8_4_v(const int16x4_t s0, const int16x4_t s1,
+static inline uint8x8_t convolve8_4_v(const int16x4_t s0, const int16x4_t s1,
                                       const int16x4_t s2, const int16x4_t s3,
                                       const int16x4_t s4, const int16x4_t s5,
                                       const int16x4_t s6, const int16x4_t s7,
@@ -358,7 +358,7 @@ static INLINE uint8x8_t convolve8_4_v(const int16x4_t s0, const int16x4_t s1,
   return vqmovun_s16(vcombine_s16(res, vdup_n_s16(0)));
 }
 
-static INLINE uint8x8_t convolve8_8_v(const int16x8_t s0, const int16x8_t s1,
+static inline uint8x8_t convolve8_8_v(const int16x8_t s0, const int16x8_t s1,
                                       const int16x8_t s2, const int16x8_t s3,
                                       const int16x8_t s4, const int16x8_t s5,
                                       const int16x8_t s6, const int16x8_t s7,
@@ -393,7 +393,7 @@ static INLINE uint8x8_t convolve8_8_v(const int16x8_t s0, const int16x8_t s1,
   return vqmovun_s16(vcombine_s16(res0, res1));
 }
 
-static INLINE void convolve_vert_scale_8tap_neon(
+static inline void convolve_vert_scale_8tap_neon(
     const int16_t *src, int src_stride, uint8_t *dst, int dst_stride, int w,
     int h, const int16_t *y_filter, int subpel_y_qn, int y_step_qn) {
   const int bd = 8;
@@ -477,7 +477,7 @@ static INLINE void convolve_vert_scale_8tap_neon(
   }
 }
 
-static INLINE int16x4_t compound_convolve6_4_v(
+static inline int16x4_t compound_convolve6_4_v(
     const int16x4_t s0, const int16x4_t s1, const int16x4_t s2,
     const int16x4_t s3, const int16x4_t s4, const int16x4_t s5,
     const int16x8_t filter, const int32x4_t offset_const) {
@@ -496,7 +496,7 @@ static INLINE int16x4_t compound_convolve6_4_v(
   return vshrn_n_s32(sum, COMPOUND_ROUND1_BITS);
 }
 
-static INLINE int16x8_t compound_convolve6_8_v(
+static inline int16x8_t compound_convolve6_8_v(
     const int16x8_t s0, const int16x8_t s1, const int16x8_t s2,
     const int16x8_t s3, const int16x8_t s4, const int16x8_t s5,
     const int16x8_t filter, const int32x4_t offset_const) {
@@ -526,7 +526,7 @@ static INLINE int16x8_t compound_convolve6_8_v(
   return vcombine_s16(res0, res1);
 }
 
-static INLINE void compound_convolve_vert_scale_6tap_neon(
+static inline void compound_convolve_vert_scale_6tap_neon(
     const int16_t *src, int src_stride, uint16_t *dst, int dst_stride, int w,
     int h, const int16_t *y_filter, int subpel_y_qn, int y_step_qn) {
   const int bd = 8;
@@ -589,7 +589,7 @@ static INLINE void compound_convolve_vert_scale_6tap_neon(
   }
 }
 
-static INLINE void compound_avg_convolve_vert_scale_6tap_neon(
+static inline void compound_avg_convolve_vert_scale_6tap_neon(
     const int16_t *src, int src_stride, uint8_t *dst8, int dst8_stride,
     uint16_t *dst16, int dst16_stride, int w, int h, const int16_t *y_filter,
     int subpel_y_qn, int y_step_qn) {
@@ -675,7 +675,7 @@ static INLINE void compound_avg_convolve_vert_scale_6tap_neon(
   }
 }
 
-static INLINE void compound_dist_wtd_convolve_vert_scale_6tap_neon(
+static inline void compound_dist_wtd_convolve_vert_scale_6tap_neon(
     const int16_t *src, int src_stride, uint8_t *dst8, int dst8_stride,
     uint16_t *dst16, int dst16_stride, int w, int h, const int16_t *y_filter,
     ConvolveParams *conv_params, int subpel_y_qn, int y_step_qn) {
@@ -784,7 +784,7 @@ static INLINE void compound_dist_wtd_convolve_vert_scale_6tap_neon(
   }
 }
 
-static INLINE uint8x8_t convolve6_4_v(const int16x4_t s0, const int16x4_t s1,
+static inline uint8x8_t convolve6_4_v(const int16x4_t s0, const int16x4_t s1,
                                       const int16x4_t s2, const int16x4_t s3,
                                       const int16x4_t s4, const int16x4_t s5,
                                       const int16x8_t filter,
@@ -806,7 +806,7 @@ static INLINE uint8x8_t convolve6_4_v(const int16x4_t s0, const int16x4_t s1,
   return vqmovun_s16(vcombine_s16(res, vdup_n_s16(0)));
 }
 
-static INLINE uint8x8_t convolve6_8_v(const int16x8_t s0, const int16x8_t s1,
+static inline uint8x8_t convolve6_8_v(const int16x8_t s0, const int16x8_t s1,
                                       const int16x8_t s2, const int16x8_t s3,
                                       const int16x8_t s4, const int16x8_t s5,
                                       const int16x8_t filter,
@@ -837,7 +837,7 @@ static INLINE uint8x8_t convolve6_8_v(const int16x8_t s0, const int16x8_t s1,
   return vqmovun_s16(vcombine_s16(res0, res1));
 }
 
-static INLINE void convolve_vert_scale_6tap_neon(
+static inline void convolve_vert_scale_6tap_neon(
     const int16_t *src, int src_stride, uint8_t *dst, int dst_stride, int w,
     int h, const int16_t *y_filter, int subpel_y_qn, int y_step_qn) {
   const int bd = 8;

@@ -26,7 +26,6 @@
  */
 
 #include "archive_platform.h"
-__FBSDID("$FreeBSD: head/lib/libarchive/archive_read_support_format_iso9660.c 201246 2009-12-30 05:30:35Z kientzle $");
 
 #ifdef HAVE_ERRNO_H
 #include <errno.h>
@@ -1007,27 +1006,8 @@ read_children(struct archive_read *a, struct file_info *parent)
 		p = b;
 		b += iso9660->logical_block_size;
 		step -= iso9660->logical_block_size;
-
-		/* step is partitioned in blocks, each of size
-		 * iso9660->logical_block_size.
-		 * b points to the beginning of the next block, while
-		 * p is used to iterate records in the current block.
-		 *
-		 * Note that *p (i.e. p[0]), contains the length of the
-		 * current record.
-		 *
-		 * We must ensure that we don't step past (b - 1); the latter
-		 * two conditions in the loop guard check that when incrementing
-		 * p by the record length:
-		 * - We have not stepped into the next block
-		 * - We will not step into the next block accessing any valid
-		 *   offset into the record.
-		 *
-		 * Note that parse_file_info() performs similar checks, but we
-		 * check in the loop guard too, since we access offsets of p
-		 * directly in order to skip certain records.
-		 */
-		for (; *p != 0 && p < b && p + *p < b; p += *p) {
+		for (; *p != 0 && p + DR_name_offset < b && p + *p <= b;
+			p += *p) {
 			struct file_info *child;
 
 			/* Make sure this record is big enough for us
@@ -1783,7 +1763,7 @@ parse_file_info(struct archive_read *a, struct file_info *parent,
 	size_t name_len;
 	const unsigned char *rr_start, *rr_end;
 	const unsigned char *p;
-	size_t dr_len;
+	size_t dr_len = 0;
 	uint64_t fsize, offset;
 	int32_t location;
 	int flags;
@@ -1927,7 +1907,7 @@ parse_file_info(struct archive_read *a, struct file_info *parent,
 	 * NUMBER of RRIP "PX" extension.
 	 * Note: Old mkisofs did not record that FILE SERIAL NUMBER
 	 * in ISO images.
-	 * Note2: xorriso set 0 to the location of a symlink file. 
+	 * Note2: xorriso set 0 to the location of a symlink file.
 	 */
 	if (file->size == 0 && location >= 0) {
 		/* If file->size is zero, its location points wrong place,
@@ -1981,7 +1961,7 @@ parse_file_info(struct archive_read *a, struct file_info *parent,
 			 * made by makefs is not zero and its location is
 			 * the same as those of next regular file. That is
 			 * the same as hard like file and it causes unexpected
-			 * error. 
+			 * error.
 			 */
 			if (file->size > 0 &&
 			    (file->mode & AE_IFMT) == AE_IFLNK) {
@@ -2773,7 +2753,7 @@ next_cache_entry(struct archive_read *a, struct iso9660 *iso9660,
 			 * If directory entries all which are descendant of
 			 * rr_moved are still remaining, expose their.
 			 */
-			if (iso9660->re_files.first != NULL && 
+			if (iso9660->re_files.first != NULL &&
 			    iso9660->rr_moved != NULL &&
 			    iso9660->rr_moved->rr_moved_has_re_only)
 				/* Expose "rr_moved" entry. */
@@ -3041,6 +3021,11 @@ heap_add_entry(struct archive_read *a, struct heap_queue *heap,
 	uint64_t file_key, parent_key;
 	int hole, parent;
 
+	/* Reserve 16 bits for possible key collisions (needed for linked items) */
+	/* For ISO files with more than 65535 entries, reordering will still occur */
+	key <<= 16;
+	key += heap->used & 0xFFFF;
+
 	/* Expand our pending files list as necessary. */
 	if (heap->used >= heap->allocated) {
 		struct file_info **new_pending_files;
@@ -3206,11 +3191,11 @@ isodate17(const unsigned char *v)
 static time_t
 time_from_tm(struct tm *t)
 {
-#if HAVE_TIMEGM
+#if HAVE__MKGMTIME
+        return _mkgmtime(t);
+#elif HAVE_TIMEGM
         /* Use platform timegm() if available. */
         return (timegm(t));
-#elif HAVE__MKGMTIME64
-        return (_mkgmtime64(t));
 #else
         /* Else use direct calculation using POSIX assumptions. */
         /* First, fix up tm_yday based on the year/month/day. */

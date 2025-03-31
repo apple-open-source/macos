@@ -51,6 +51,11 @@ DestinationColorSpace PlatformImageNativeImageBackend::colorSpace() const
     return DestinationColorSpace::SRGB();
 }
 
+Headroom PlatformImageNativeImageBackend::headroom() const
+{
+    return Headroom::None;
+}
+
 std::optional<Color> NativeImage::singlePixelSolidColor() const
 {
     if (size() != IntSize(1, 1))
@@ -72,6 +77,15 @@ void NativeImage::draw(GraphicsContext& context, const FloatRect& destinationRec
 void NativeImage::clearSubimages()
 {
 }
+
+#if USE(COORDINATED_GRAPHICS)
+uint64_t NativeImage::uniqueID() const
+{
+    if (auto& image = platformImage())
+        return getSurfaceUniqueID(image.get());
+    return 0;
+}
+#endif
 
 } // namespace WebCore
 

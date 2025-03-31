@@ -26,6 +26,7 @@
 #pragma once
 
 #include "CSSNumericValue.h"
+#include "CSSPrimitiveValue.h"
 #include "ScrollTimeline.h"
 #include "ViewTimelineOptions.h"
 #include <wtf/Ref.h>
@@ -37,38 +38,62 @@ namespace Style {
 class BuilderState;
 }
 
-class CSSViewValue;
 class Element;
 
-struct ViewTimelineInsets {
-    std::optional<Length> start;
-    std::optional<Length> end;
-    bool operator==(const ViewTimelineInsets&) const = default;
-};
+struct TimelineRange;
 
 class ViewTimeline final : public ScrollTimeline {
 public:
-    static Ref<ViewTimeline> create(ViewTimelineOptions&& = { });
+    static ExceptionOr<Ref<ViewTimeline>> create(Document&, ViewTimelineOptions&& = { });
     static Ref<ViewTimeline> create(const AtomString&, ScrollAxis, ViewTimelineInsets&&);
-    static Ref<ViewTimeline> createFromCSSValue(Style::BuilderState&, const CSSViewValue&);
 
-    Element* subject() const { return m_subject.get(); }
-    const CSSNumericValue& startOffset() const { return m_startOffset.get(); }
-    const CSSNumericValue& endOffset() const { return m_endOffset.get(); }
+    const Element* subject() const { return m_subject.get(); }
+    void setSubject(const Element*);
+
     const ViewTimelineInsets& insets() const { return m_insets; }
+    void setInsets(ViewTimelineInsets&& insets) { m_insets = WTFMove(insets); }
+
+    Ref<CSSNumericValue> startOffset() const;
+    Ref<CSSNumericValue> endOffset() const;
+
+    AnimationTimeline::ShouldUpdateAnimationsAndSendEvents documentWillUpdateAnimationsAndSendEvents() override;
+    AnimationTimelinesController* controller() const override;
+
+    const RenderBox* sourceScrollerRenderer() const;
+    Element* source() const override;
+    TimelineRange defaultRange() const final;
 
 private:
-    explicit ViewTimeline(ViewTimelineOptions&& = { });
+    ScrollTimeline::Data computeTimelineData() const final;
+    std::pair<WebAnimationTime, WebAnimationTime> intervalForAttachmentRange(const TimelineRange&) const final;
+
+    explicit ViewTimeline(ScrollAxis);
     explicit ViewTimeline(const AtomString&, ScrollAxis, ViewTimelineInsets&&);
 
-    void dump(TextStream&) const final;
-    Ref<CSSValue> toCSSValue(const RenderStyle&) const final;
     bool isViewTimeline() const final { return true; }
 
+    struct CurrentTimeData {
+        float scrollOffset { 0 };
+        float scrollContainerSize { 0 };
+        float subjectOffset { 0 };
+        float subjectSize { 0 };
+        float insetStart { 0 };
+        float insetEnd { 0 };
+    };
+
+    void cacheCurrentTime();
+
+    struct SpecifiedViewTimelineInsets {
+        RefPtr<CSSPrimitiveValue> start;
+        RefPtr<CSSPrimitiveValue> end;
+    };
+
+    ExceptionOr<SpecifiedViewTimelineInsets> validateSpecifiedInsets(const ViewTimelineInsetValue, const Document&);
+
     WeakPtr<Element, WeakPtrImplWithEventTargetData> m_subject;
-    Ref<CSSNumericValue> m_startOffset;
-    Ref<CSSNumericValue> m_endOffset;
+    std::optional<SpecifiedViewTimelineInsets> m_specifiedInsets;
     ViewTimelineInsets m_insets;
+    CurrentTimeData m_cachedCurrentTimeData { };
 };
 
 } // namespace WebCore

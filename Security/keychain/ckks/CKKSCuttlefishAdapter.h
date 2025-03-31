@@ -23,6 +23,10 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)fetchRecoverableTLKShares:(TPSpecificUser* __nullable)activeAccount
                            peerID:(NSString*)peerID
                         contextID:(NSString*)contextID
+                          altDSID:(NSString* _Nullable)altDSID
+                           flowID:(NSString* _Nullable)flowID
+                  deviceSessionID:(NSString* _Nullable)deviceSessionID
+                   canSendMetrics:(BOOL)canSendMetrics
                             reply:(void (^)(NSArray<CKKSTLKShareRecord*>* _Nullable tlkShares,
                                             NSError * _Nullable error))reply;
 

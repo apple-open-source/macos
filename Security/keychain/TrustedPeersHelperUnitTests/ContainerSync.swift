@@ -137,13 +137,21 @@ extension Container {
     func establishSync(test: XCTestCase,
                        ckksKeys: [CKKSKeychainBackedKeySet],
                        tlkShares: [CKKSTLKShare],
-                       preapprovedKeys: [Data]?) -> (String?, [CKRecord], TPSyncingPolicy?, Error?) {
+                       preapprovedKeys: [Data]?,
+                       altDSID: String?,
+                       flowID: String?,
+                       deviceSessionID: String?,
+                       canSendMetrics: Bool) -> (String?, [CKRecord], TPSyncingPolicy?, Error?) {
         let expectation = XCTestExpectation(description: "prepare replied")
         var reta: String?, retkhr: [CKRecord]?, reterr: Error?
         var retpolicy: TPSyncingPolicy?
         self.establish(ckksKeys: ckksKeys,
                        tlkShares: tlkShares,
-                       preapprovedKeys: preapprovedKeys) { a, khr, policy, err in
+                       preapprovedKeys: preapprovedKeys,
+                       altDSID: altDSID,
+                       flowID: flowID,
+                       deviceSessionID: deviceSessionID,
+                       canSendMetrics: canSendMetrics) { a, khr, policy, err in
                         reta = a
                         retkhr = khr
                         retpolicy = policy
@@ -186,12 +194,12 @@ extension Container {
         return (reta, retb, reterr)
     }
 
-    func preflightVouchWithBottleSync(test: XCTestCase, bottleID: String) -> (String?, TPSyncingPolicy?, Bool, Error?) {
+    func preflightVouchWithBottleSync(test: XCTestCase, bottleID: String, altDSID: String? = nil, flowID: String? = nil, deviceSessionID: String? = nil, canSendMetrics: Bool = false) -> (String?, TPSyncingPolicy?, Bool, Error?) {
         let expectation = XCTestExpectation(description: "preflightVouchWithBottle replied")
         var reta: String?, reterr: Error?
         var retrefetched: Bool = false
         var retpolicy: TPSyncingPolicy?
-        self.preflightVouchWithBottle(bottleID: bottleID) { a, policy, refetched, err in
+        self.preflightVouchWithBottle(bottleID: bottleID, altDSID: altDSID, flowID: flowID, deviceSessionID: deviceSessionID, canSendMetrics: canSendMetrics) { a, policy, refetched, err in
             reta = a
             retpolicy = policy
             retrefetched = refetched
@@ -202,10 +210,24 @@ extension Container {
         return (reta, retpolicy, retrefetched, reterr)
     }
 
-    func vouchWithBottleSync(test: XCTestCase, b: String, entropy: Data, bottleSalt: String, tlkShares: [CKKSTLKShare]) -> (Data?, Data?, [CKKSTLKShare]?, TrustedPeersHelperTLKRecoveryResult?, Error?) {
+    func vouchWithBottleSync(test: XCTestCase, b: String,
+                             entropy: Data,
+                             bottleSalt: String,
+                             tlkShares: [CKKSTLKShare],
+                             altDSID: String?,
+                             flowID: String?,
+                             deviceSessionID: String?,
+                             canSendMetrics: Bool) -> (Data?, Data?, [CKKSTLKShare]?, TrustedPeersHelperTLKRecoveryResult?, Error?) {
         let expectation = XCTestExpectation(description: "vouchWithBottle replied")
         var reta: Data?, retb: Data?, retc: [CKKSTLKShare]?, retd: TrustedPeersHelperTLKRecoveryResult?, reterr: Error?
-        self.vouchWithBottle(bottleID: b, entropy: entropy, bottleSalt: bottleSalt, tlkShares: tlkShares) { a, b, c, d, err in
+        self.vouchWithBottle(bottleID: b,
+                             entropy: entropy,
+                             bottleSalt: bottleSalt,
+                             tlkShares: tlkShares,
+                             altDSID: altDSID,
+                             flowID: flowID,
+                             deviceSessionID: deviceSessionID,
+                             canSendMetrics: canSendMetrics) { a, b, c, d, err in
             reta = a
             retb = b
             retc = c
@@ -252,7 +274,11 @@ extension Container {
     func preapprovedJoinSync(test: XCTestCase,
                              ckksKeys: [CKKSKeychainBackedKeySet],
                              tlkShares: [CKKSTLKShare],
-                             preapprovedKeys: [Data]? = nil) -> (String?, [CKRecord]?, TPSyncingPolicy?, Error?) {
+                             preapprovedKeys: [Data]? = nil,
+                             altDSID: String?,
+                             flowID: String?,
+                             deviceSessionID: String?,
+                             canSendMetrics: Bool) -> (String?, [CKRecord]?, TPSyncingPolicy?, Error?) {
         let expectation = XCTestExpectation(description: "preapprovedjoin replied")
         var reta: String?
         var retkhr: [CKRecord]?
@@ -260,7 +286,11 @@ extension Container {
         var reterr: Error?
         self.preapprovedJoin(ckksKeys: ckksKeys,
                              tlkShares: tlkShares,
-                             preapprovedKeys: preapprovedKeys) { a, khr, policy, err in
+                             preapprovedKeys: preapprovedKeys,
+                             altDSID: altDSID,
+                             flowID: flowID,
+                             deviceSessionID: deviceSessionID,
+                             canSendMetrics: canSendMetrics) { a, khr, policy, err in
                                 reta = a
                                 retkhr = khr
                                 retpolicy = policy

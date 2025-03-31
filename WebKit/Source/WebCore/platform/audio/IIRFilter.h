@@ -38,8 +38,8 @@ public:
 
     void reset();
 
-    void process(const float* source, float* destination, size_t framesToProcess);
-    void getFrequencyResponse(unsigned length, const float* frequency, float* magResponse, float* phaseResponse);
+    void process(std::span<const float> source, std::span<float> destination);
+    void getFrequencyResponse(unsigned length, std::span<const float> frequency, std::span<float> magResponse, std::span<float> phaseResponse);
     double tailTime(double sampleRate, bool isFilterStable);
 
     const Vector<double>& feedforward() const { return m_feedforward; }

@@ -753,7 +753,7 @@
 		};
 		7200F2F81958A34D0033E22C /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
+			buildActionMask = 8;
 			dstPath = /usr/share/man/man1/;
 			dstSubfolderSpec = 0;
 			files = (
@@ -862,7 +862,7 @@
 		};
 		72311F40194A349000EB4788 /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
+			buildActionMask = 8;
 			dstPath = /usr/share/man/man1/;
 			dstSubfolderSpec = 0;
 			files = (
@@ -872,7 +872,7 @@
 		};
 		723C7066142BAFEA007C87E9 /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
+			buildActionMask = 8;
 			dstPath = /usr/share/man/man8;
 			dstSubfolderSpec = 0;
 			files = (
@@ -882,7 +882,7 @@
 		};
 		7247B82F16165EDC00873B3C /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
+			buildActionMask = 8;
 			dstPath = /usr/local/share/man/man8/;
 			dstSubfolderSpec = 0;
 			files = (
@@ -942,7 +942,7 @@
 		};
 		7282BA0A1AFAD4C9005DE836 /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
+			buildActionMask = 8;
 			dstPath = /usr/share/man/man1/;
 			dstSubfolderSpec = 0;
 			files = (
@@ -951,7 +951,7 @@
 		};
 		72946F411BBF055700087E35 /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
+			buildActionMask = 8;
 			dstPath = /usr/share/man/man1/;
 			dstSubfolderSpec = 0;
 			files = (
@@ -980,7 +980,7 @@
 		};
 		72B732D81899B0380060E6D4 /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
+			buildActionMask = 8;
 			dstPath = /usr/share/man/man1/;
 			dstSubfolderSpec = 0;
 			files = (
@@ -990,7 +990,7 @@
 		};
 		72E0B542291C116000E573A7 /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
+			buildActionMask = 8;
 			dstPath = /usr/share/man/man1/;
 			dstSubfolderSpec = 0;
 			files = (
@@ -1090,9 +1090,6 @@
 		726120A90EE86F5C00AFED1B /* ping6.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = ping6.c; sourceTree = "<group>"; };
 		726120AE0EE86F6700AFED1B /* rarpd.8 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = rarpd.8; sourceTree = "<group>"; };
 		726120AF0EE86F6700AFED1B /* rarpd.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = rarpd.c; sourceTree = "<group>"; };
-		726120B30EE86F7200AFED1B /* gen_header.pl */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.perl; path = gen_header.pl; sourceTree = "<group>"; };
-		726120B40EE86F7200AFED1B /* keywords */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = keywords; sourceTree = "<group>"; };
-		726120B50EE86F7200AFED1B /* keywords.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = keywords.h; sourceTree = "<group>"; };
 		726120B70EE86F7200AFED1B /* route.8 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = route.8; sourceTree = "<group>"; };
 		726120B80EE86F7200AFED1B /* route.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = route.c; sourceTree = "<group>"; };
 		726120BC0EE86F8200AFED1B /* advcap.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = advcap.c; sourceTree = "<group>"; };
@@ -1616,9 +1613,6 @@
 		726120B20EE86F7200AFED1B /* route.tproj */ = {
 			isa = PBXGroup;
 			children = (
-				726120B30EE86F7200AFED1B /* gen_header.pl */,
-				726120B40EE86F7200AFED1B /* keywords */,
-				726120B50EE86F7200AFED1B /* keywords.h */,
 				726120B70EE86F7200AFED1B /* route.8 */,
 				726120B80EE86F7200AFED1B /* route.c */,
 			);
@@ -2475,7 +2469,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 			shellPath = /bin/sh;
-			shellScript = "/bin/chmod 0444 $DSTROOT/usr/share/man/man8/route.8";
+			shellScript = "/bin/chmod 0444 $DSTROOT/usr/share/man/man8/route.8\n";
 		};
 		7216D3450EE89FB900AE70E4 /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -3868,6 +3862,7 @@
 		7216D2EF0EE89CBC00AE70E4 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					"$(inherited)",
 					INET6,
@@ -3880,6 +3875,7 @@
 				INSTALL_MODE_FLAG = 555;
 				INSTALL_PATH = /sbin;
 				PRODUCT_NAME = route;
+				STRIP_INSTALLED_PRODUCT = NO;
 			};
 			name = Debug;
 		};
@@ -4229,6 +4225,7 @@
 				CODE_SIGN_IDENTITY = "-";
 				COPY_PHASE_STRIP = NO;
 				DEAD_CODE_STRIPPING = YES;
+				DEBUG_INFORMATION_FORMAT = dwarf;
 				ENABLE_TESTABILITY = YES;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_ENABLE_FIX_AND_CONTINUE = YES;

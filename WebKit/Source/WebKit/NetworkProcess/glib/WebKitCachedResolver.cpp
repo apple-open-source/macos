@@ -32,10 +32,10 @@
 
 using namespace WebKit;
 
-typedef struct {
+struct WebKitCachedResolverPrivate {
     GRefPtr<GResolver> wrappedResolver;
-    DNSCache cache;
-} WebKitCachedResolverPrivate;
+    Ref<DNSCache> cache { DNSCache::create() };
+};
 
 struct _WebKitCachedResolver {
     GResolver parentInstance;
@@ -67,22 +67,20 @@ static Vector<GRefPtr<GInetAddress>> addressListGListToVector(GList* addressList
 
 struct LookupAsyncData {
     CString hostname;
-#if GLIB_CHECK_VERSION(2, 59, 0)
     DNSCache::Type dnsCacheType { DNSCache::Type::Default };
-#endif
 };
 WEBKIT_DEFINE_ASYNC_DATA_STRUCT(LookupAsyncData)
 
 static GList* webkitCachedResolverLookupByName(GResolver* resolver, const char* hostname, GCancellable* cancellable, GError** error)
 {
     auto* priv = WEBKIT_CACHED_RESOLVER(resolver)->priv;
-    auto addressList = priv->cache.lookup(hostname);
+    auto addressList = priv->cache->lookup(hostname);
     if (addressList)
         return addressListVectorToGList(addressList.value());
 
     auto* returnValue = g_resolver_lookup_by_name(priv->wrappedResolver.get(), hostname, cancellable, error);
     if (returnValue)
-        priv->cache.update(hostname, addressListGListToVector(returnValue));
+        priv->cache->update(hostname, addressListGListToVector(returnValue));
     return returnValue;
 }
 
@@ -90,7 +88,7 @@ static void webkitCachedResolverLookupByNameAsync(GResolver* resolver, const cha
 {
     GRefPtr<GTask> task = adoptGRef(g_task_new(resolver, cancellable, callback, userData));
     auto* priv = WEBKIT_CACHED_RESOLVER(resolver)->priv;
-    auto addressList = priv->cache.lookup(hostname);
+    auto addressList = priv->cache->lookup(hostname);
     if (addressList) {
         g_task_return_pointer(task.get(), addressListVectorToGList(addressList.value()), reinterpret_cast<GDestroyNotify>(g_resolver_free_addresses));
         return;
@@ -105,7 +103,7 @@ static void webkitCachedResolverLookupByNameAsync(GResolver* resolver, const cha
         if (auto* addressList = g_resolver_lookup_by_name_finish(G_RESOLVER(resolver), result, &error.outPtr())) {
             auto* priv = WEBKIT_CACHED_RESOLVER(g_task_get_source_object(task.get()))->priv;
             auto* asyncData = static_cast<LookupAsyncData*>(g_task_get_task_data(task.get()));
-            priv->cache.update(asyncData->hostname, addressListGListToVector(addressList));
+            priv->cache->update(asyncData->hostname, addressListGListToVector(addressList));
             g_task_return_pointer(task.get(), addressList, reinterpret_cast<GDestroyNotify>(g_resolver_free_addresses));
         } else
             g_task_return_error(task.get(), error.release());
@@ -119,7 +117,6 @@ static GList* webkitCachedResolverLookupByNameFinish(GResolver* resolver, GAsync
     return static_cast<GList*>(g_task_propagate_pointer(G_TASK(result), error));
 }
 
-#if GLIB_CHECK_VERSION(2, 59, 0)
 static inline DNSCache::Type dnsCacheType(GResolverNameLookupFlags flags)
 {
     // A cache is kept for each type of response to avoid the overcomplication of combining or filtering results.
@@ -136,13 +133,13 @@ static GList* webkitCachedResolverLookupByNameWithFlags(GResolver* resolver, con
 {
     auto* priv = WEBKIT_CACHED_RESOLVER(resolver)->priv;
     auto cacheType = dnsCacheType(flags);
-    auto addressList = priv->cache.lookup(hostname, cacheType);
+    auto addressList = priv->cache->lookup(hostname, cacheType);
     if (addressList)
         return addressListVectorToGList(addressList.value());
 
     auto* returnValue = g_resolver_lookup_by_name_with_flags(priv->wrappedResolver.get(), hostname, flags, cancellable, error);
     if (returnValue)
-        priv->cache.update(hostname, addressListGListToVector(returnValue), cacheType);
+        priv->cache->update(hostname, addressListGListToVector(returnValue), cacheType);
     return returnValue;
 }
 
@@ -151,7 +148,7 @@ static void webkitCachedResolverLookupByNameWithFlagsAsync(GResolver* resolver, 
     GRefPtr<GTask> task = adoptGRef(g_task_new(resolver, cancellable, callback, userData));
     auto* priv = WEBKIT_CACHED_RESOLVER(resolver)->priv;
     auto cacheType = dnsCacheType(flags);
-    auto addressList = priv->cache.lookup(hostname, cacheType);
+    auto addressList = priv->cache->lookup(hostname, cacheType);
     if (addressList) {
         g_task_return_pointer(task.get(), addressListVectorToGList(addressList.value()), reinterpret_cast<GDestroyNotify>(g_resolver_free_addresses));
         return;
@@ -167,7 +164,7 @@ static void webkitCachedResolverLookupByNameWithFlagsAsync(GResolver* resolver, 
         if (auto* addressList = g_resolver_lookup_by_name_with_flags_finish(G_RESOLVER(resolver), result, &error.outPtr())) {
             auto* priv = WEBKIT_CACHED_RESOLVER(g_task_get_source_object(task.get()))->priv;
             auto* asyncData = static_cast<LookupAsyncData*>(g_task_get_task_data(task.get()));
-            priv->cache.update(asyncData->hostname, addressListGListToVector(addressList), asyncData->dnsCacheType);
+            priv->cache->update(asyncData->hostname, addressListGListToVector(addressList), asyncData->dnsCacheType);
             g_task_return_pointer(task.get(), addressList, reinterpret_cast<GDestroyNotify>(g_resolver_free_addresses));
         } else
             g_task_return_error(task.get(), error.release());
@@ -180,7 +177,6 @@ static GList* webkitCachedResolverLookupByNameWithFlagsFinish(GResolver* resolve
 
     return static_cast<GList*>(g_task_propagate_pointer(G_TASK(result), error));
 }
-#endif // GLIB_CHECK_VERSION(2, 59, 0)
 
 static char* webkitCachedResolverLookupByAddress(GResolver* resolver, GInetAddress* address, GCancellable* cancellable, GError** error)
 {
@@ -214,7 +210,7 @@ static GList* webkitCachedResolverLookupRecordsFinish(GResolver* resolver, GAsyn
 
 static void webkitCachedResolverReload(GResolver* resolver)
 {
-    WEBKIT_CACHED_RESOLVER(resolver)->priv->cache.clear();
+    WEBKIT_CACHED_RESOLVER(resolver)->priv->cache->clear();
 }
 
 static void webkit_cached_resolver_class_init(WebKitCachedResolverClass* klass)
@@ -223,11 +219,9 @@ static void webkit_cached_resolver_class_init(WebKitCachedResolverClass* klass)
     resolverClass->lookup_by_name = webkitCachedResolverLookupByName;
     resolverClass->lookup_by_name_async = webkitCachedResolverLookupByNameAsync;
     resolverClass->lookup_by_name_finish = webkitCachedResolverLookupByNameFinish;
-#if GLIB_CHECK_VERSION(2, 59, 0)
     resolverClass->lookup_by_name_with_flags = webkitCachedResolverLookupByNameWithFlags;
     resolverClass->lookup_by_name_with_flags_async = webkitCachedResolverLookupByNameWithFlagsAsync;
     resolverClass->lookup_by_name_with_flags_finish = webkitCachedResolverLookupByNameWithFlagsFinish;
-#endif
     resolverClass->lookup_by_address = webkitCachedResolverLookupByAddress;
     resolverClass->lookup_by_address_async = webkitCachedResolverLookupByAddressAsync;
     resolverClass->lookup_by_address_finish = webkitCachedResolverLookupByAddressFinish;

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005-2024 Apple Inc. All rights reserved.
+ * Copyright (C) 2005-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -112,10 +112,8 @@ private:
 
     bool paintProgressBar(const RenderObject&, const PaintInfo&, const IntRect&) override;
 
-#if ENABLE(DATALIST_ELEMENT)
     IntSize sliderTickSize() const override;
     int sliderTickOffsetFromTrackCenter() const override;
-#endif
 
     void adjustSearchFieldStyle(RenderStyle&, const Element*) const override;
     void paintSearchFieldDecorations(const RenderBox&, const PaintInfo&, const IntRect&) override;
@@ -133,18 +131,11 @@ private:
     bool supportsMeter(StyleAppearance) const final;
     bool paintMeter(const RenderObject&, const PaintInfo&, const IntRect&) final;
 
-#if ENABLE(DATALIST_ELEMENT)
     bool paintListButton(const RenderObject&, const PaintInfo&, const FloatRect&) final;
 
     void paintSliderTicks(const RenderObject&, const PaintInfo&, const FloatRect&) final;
-#endif
 
-#if ENABLE(INPUT_TYPE_COLOR)
-    String colorInputStyleSheet() const final;
-
-    void adjustColorWellStyle(RenderStyle&, const Element*) const final;
     void paintColorWellDecorations(const RenderObject&, const PaintInfo&, const FloatRect&) final;
-#endif
 
     void adjustSearchFieldDecorationPartStyle(RenderStyle&, const Element*) const final;
     bool paintSearchFieldDecorationPart(const RenderObject&, const PaintInfo&, const IntRect&) final;
@@ -200,7 +191,6 @@ private:
 
     Color controlTintColor(const RenderStyle&, OptionSet<StyleColorOptions>) const;
 
-    void adjustStyleForAlternateFormControlDesignTransition(RenderStyle&, const Element*) const;
     void adjustMinimumIntrinsicSizeForAppearance(StyleAppearance, RenderStyle&) const;
 };
 

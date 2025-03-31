@@ -42,7 +42,7 @@ typedef unsigned long long malloc_type_id_t;
 #endif
 #include <sys/cdefs.h> /* __BEGIN_DECLS */
 
-#define _MALLOC_TYPE_AVAILABILITY __API_AVAILABLE(macos(14.0), ios(17.0), tvos(17.0), watchos(10.0), bridgeos(8.0), xros(1.0), driverkit(23.0))
+#define _MALLOC_TYPE_AVAILABILITY __API_AVAILABLE(macos(14.0), ios(17.0), tvos(17.0), watchos(10.0), bridgeos(8.0), visionos(1.0), driverkit(23.0))
 
 __BEGIN_DECLS
 
@@ -73,10 +73,10 @@ __END_DECLS
 
 /* Rewrite enablement */
 #if defined(__has_feature) && __has_feature(typed_memory_operations)
-#if __has_builtin(__is_target_os) && (__is_target_os(ios) || __is_target_os(driverkit) || __is_target_os(macos) || (__has_builtin(__is_target_environment) && (__is_target_environment(exclavekit) || __is_target_environment(exclavecore))))
+#if __has_builtin(__is_target_os) && (__is_target_os(ios) || __is_target_os(driverkit) || __is_target_os(macos) || __is_target_os(xros) || __is_target_os(watchos) || __is_target_os(tvos) || (__has_builtin(__is_target_environment) && (__is_target_environment(exclavekit) || __is_target_environment(exclavecore))))
 #define _MALLOC_TYPED(override, type_param_pos) __attribute__((typed_memory_operation(override, type_param_pos)))
 #define _MALLOC_TYPE_ENABLED 1
-#endif /* __is_target_os(ios || driverkit || macos || exclave{kit,core}.*) */
+#endif /* __is_target_os(ios || driverkit || macos || xros || watchos || tvos || exclave{kit,core}.*) */
 #endif /* defined(__has_feature) && __has_feature(typed_memory_operations) */
 
 #endif /* MALLOC_TARGET_64BIT */

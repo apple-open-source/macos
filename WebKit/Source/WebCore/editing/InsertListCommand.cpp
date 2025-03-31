@@ -132,7 +132,7 @@ void InsertListCommand::doApply()
     // margin/padding, but not others.  We should make the gap painting more consistent and 
     // then use a left margin/padding rule here.
     if (visibleEnd != visibleStart && isStartOfParagraph(visibleEnd, CanSkipOverEditingBoundary)) {
-        setEndingSelection(VisibleSelection(visibleStart, visibleEnd.previous(CannotCrossEditingBoundary), endingSelection().isDirectional()));
+        setEndingSelection(VisibleSelection(visibleStart, visibleEnd.previous(CannotCrossEditingBoundary), endingSelection().directionality()));
         if (!endingSelection().rootEditableElement())
             return;
     }
@@ -190,7 +190,11 @@ void InsertListCommand::doApply()
                     if (startOfCurrentParagraph == startOfSelection)
                         startOfSelection = endingSelection().visibleStart();
 
+                    // Move to the start of the next paragraph. If this does not move forward, then return early to avoid an infinite loop.
+                    VisiblePosition oldStartOfCurrentParagraph = startOfCurrentParagraph;
                     startOfCurrentParagraph = startOfNextParagraph(endingSelection().visibleStart());
+                    if (!oldStartOfCurrentParagraph.isOrphan() && startOfCurrentParagraph <= oldStartOfCurrentParagraph)
+                        return;
                 }
                 setEndingSelection(endOfSelection);
                 doApplyForSingleParagraph(forceCreateList, listTag, currentSelection);
@@ -198,7 +202,7 @@ void InsertListCommand::doApply()
                 endOfSelection = endingSelection().visibleEnd();
                 if (startOfSelection.isOrphan())
                     startOfSelection = visiblePositionForIndex(startIndex, startScope.get());
-                setEndingSelection(VisibleSelection(startOfSelection, endOfSelection, endingSelection().isDirectional()));
+                setEndingSelection(VisibleSelection(startOfSelection, endOfSelection, endingSelection().directionality()));
                 return;
             }
         }

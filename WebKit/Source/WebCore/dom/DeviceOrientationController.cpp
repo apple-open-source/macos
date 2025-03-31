@@ -1,6 +1,7 @@
 /*
  * Copyright 2010, The Android Open Source Project
  * Copyright (C) 2012 Samsung Electronics. All rights reserved.
+ * Copyright (C) 2024 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -36,6 +37,7 @@
 
 namespace WebCore {
 
+WTF_MAKE_TZONE_ALLOCATED_IMPL(DeviceOrientationClient);
 WTF_MAKE_TZONE_ALLOCATED_IMPL(DeviceOrientationController);
 
 DeviceOrientationController::DeviceOrientationController(DeviceOrientationClient& client)

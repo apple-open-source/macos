@@ -44,6 +44,8 @@ class URLRegistrable {
 public:
     virtual ~URLRegistrable() = default;
     virtual URLRegistry& registry() const = 0;
+    enum class RegistrableType : uint8_t { Blob, MediaSource };
+    virtual RegistrableType registrableType() const = 0;
 };
 
 class URLRegistry {

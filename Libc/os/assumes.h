@@ -26,6 +26,12 @@
 #include <sys/cdefs.h>
 #include <stdalign.h>
 
+#ifdef __LIBC_STAGED_BOUNDS_SAFETY_ATTRIBUTES
+#define __OS_CSTR __null_terminated
+#else
+#define __OS_CSTR __unsafe_indexable
+#endif
+
 __BEGIN_DECLS
 
 #if __has_include(<Availability.h>)
@@ -91,12 +97,12 @@ OS_ASSUME_PTR_ABI_SINGLE_BEGIN
 	({ \
 		const char *__null_terminated __fmt_tmp = NULL; \
 		char __buf[OS_CRASH_MSG_BUFSZ] = { 0 }; \
-		char *__unsafe_indexable __composed = os_log_send_and_compose( \
+		char *__OS_CSTR __composed = __unsafe_forge_null_terminated(char *__null_terminated, os_log_send_and_compose( \
 				OS_LOG_F_SEND | OS_LOG_F_COMPOSE, \
 				&__fmt_tmp, __buf, sizeof(__buf), \
 				OS_LOG_DEFAULT, OS_LOG_TYPE_ERROR, \
-				fmt, __VA_ARGS__); \
-		_os_crash_msg(__fmt_tmp, __unsafe_forge_single(char *, __composed)); \
+				fmt, __VA_ARGS__)); \
+		_os_crash_msg(__fmt_tmp, __composed); \
 		os_hardware_trap(); \
 	})
 
@@ -129,7 +135,7 @@ _os_crash_fmt(os_log_pack_t, size_t);
 API_AVAILABLE(macos(13.0), ios(16.0), tvos(16.0), watchos(9.0))
 OS_COLD
 extern void
-_os_crash_msg(const char *, char *);
+_os_crash_msg(const char *, char *__OS_CSTR);
 
 /*!
  * @function os_assert_sprintf
@@ -207,7 +213,8 @@ os_assert_asprintf(int ret)
 API_AVAILABLE(macos(10.14), ios(12.0), tvos(12.0), watchos(5.0))
 OS_ALWAYS_INLINE
 static inline void
-os_assert_malloc(const char *desc, const void *const p, size_t alloc_size)
+os_assert_malloc(const char *desc, const void *const __unsafe_indexable p,
+		size_t alloc_size)
 {
 	if (!p) {
 		os_crash("allocation failed: obj = %s, size = %lu, error = %s",
@@ -319,7 +326,7 @@ os_set_crash_callback(os_crash_callback_t callback) {
 #if defined(OS_CRASH_ENABLE_EXPERIMENTAL_LIBTRACE) && !defined(OS_CRASH_EXCLAVES)
 
 #define _os_assert_crash(value, expression) ({ \
-		os_crash("assertion failure: \"" expression "\" -> %lld", value); \
+		os_crash("assertion failure: \"" expression "\" -> %llu", value); \
 })
 
 #define _os_assert_crash_errno(value, expression) ({ \
@@ -329,7 +336,7 @@ os_set_crash_callback(os_crash_callback_t callback) {
 #else // OS_CRASH_ENABLE_EXPERIMENTAL_LIBTRACE && !defined(OS_CRASH_EXCLAVES)
 
 #define _os_assert_crash(e, ...) ({ \
-		char *__unsafe_indexable _fail_message = _os_assert_log(e); \
+		char *__OS_CSTR _fail_message = _os_assert_log(e); \
 		os_crash(_fail_message); \
 		free(_fail_message); \
 })
@@ -383,7 +390,7 @@ os_set_crash_callback(os_crash_callback_t callback) {
 #define __os_assert_zero_msg(e, fmt, ...) __extension__({ \
 	__typeof__(e) _e = (e); \
 	if (os_unlikely(_e)) { \
-		os_crash("assertion failure (%lld): " fmt, value, ##__VA_ARGS__); \
+		os_crash("assertion failure (%llu != 0): " fmt, (uint64_t)(uintptr_t)_e, ##__VA_ARGS__); \
 	} \
 })
 
@@ -533,7 +540,7 @@ typedef bool (*os_log_callout_t)(_SIMPLE_STRING ignored, void *ctx, const char *
 			__OS_COMPILETIME_ASSERT__(e); \
 		} \
 									\
-		char *__unsafe_indexable _fail_message = _os_assert_log_ctx((f), (ctx), (uint64_t)(uintptr_t)_e); \
+		char *__OS_CSTR _fail_message = _os_assert_log_ctx((f), (ctx), (uint64_t)(uintptr_t)_e); \
 		os_crash(_fail_message);	     \
 		free(_fail_message); \
 	} \
@@ -546,7 +553,7 @@ typedef bool (*os_log_callout_t)(_SIMPLE_STRING ignored, void *ctx, const char *
 			__OS_COMPILETIME_ASSERT__(!(e)); \
 		} \
 \
-		char *__unsafe_indexable _fail_message = _os_assert_log_ctx((f), (ctx), (uint64_t)(uintptr_t)_e); \
+		char *__OS_CSTR _fail_message = _os_assert_log_ctx((f), (ctx), (uint64_t)(uintptr_t)_e); \
 		os_crash(_fail_message);	     \
 		free(_fail_message); \
 	} \
@@ -555,7 +562,7 @@ typedef bool (*os_log_callout_t)(_SIMPLE_STRING ignored, void *ctx, const char *
 #define posix_assert_zero_ctx(f, ctx, e) __extension__({ \
 	__typeof__(e) _e = os_slowpath(e); \
 	if (_e == (__typeof__(e))-1) { \
-		char *__unsafe_indexable _fail_message = _os_assert_log_ctx((f), (ctx), (uint64_t)(uintptr_t)errno); \
+		char *__OS_CSTR _fail_message = _os_assert_log_ctx((f), (ctx), (uint64_t)(uintptr_t)errno); \
 		os_crash(_fail_message);	     \
 		free(_fail_message); \
 	} \
@@ -568,7 +575,7 @@ typedef bool (*os_log_callout_t)(_SIMPLE_STRING ignored, void *ctx, const char *
 __OSX_AVAILABLE_STARTING(__MAC_10_11, __IPHONE_9_0)
 OS_COLD OS_NOT_TAIL_CALLED
 extern void
-_os_crash(const char *__unsafe_indexable);
+_os_crash(const char *__OS_CSTR);
 
 __OSX_AVAILABLE_STARTING(__MAC_10_9, __IPHONE_6_0)
 OS_COLD OS_NOT_TAIL_CALLED
@@ -577,7 +584,7 @@ _os_assumes_log(uint64_t code);
 
 __OSX_AVAILABLE_STARTING(__MAC_10_9, __IPHONE_6_0)
 OS_COLD OS_NOT_TAIL_CALLED
-extern char *__unsafe_indexable
+extern char *__OS_CSTR
 _os_assert_log(uint64_t code);
 
 __OSX_AVAILABLE_STARTING(__MAC_10_9, __IPHONE_6_0)
@@ -587,7 +594,7 @@ _os_assumes_log_ctx(os_log_callout_t callout, void *ctx, uint64_t code);
 
 __OSX_AVAILABLE_STARTING(__MAC_10_9, __IPHONE_6_0)
 OS_COLD OS_NOT_TAIL_CALLED
-extern char *__unsafe_indexable
+extern char *__OS_CSTR
 _os_assert_log_ctx(os_log_callout_t callout, void *ctx, uint64_t code);
 
 __OSX_AVAILABLE_STARTING(__MAC_10_9, __IPHONE_6_0)

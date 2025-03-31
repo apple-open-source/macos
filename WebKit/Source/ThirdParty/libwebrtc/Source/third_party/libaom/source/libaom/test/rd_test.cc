@@ -15,7 +15,7 @@
 #include "av1/common/quant_common.h"
 #include "av1/encoder/rd.h"
 #include "aom/aom_codec.h"
-#include "third_party/googletest/src/googletest/include/gtest/gtest.h"
+#include "gtest/gtest.h"
 
 namespace {
 

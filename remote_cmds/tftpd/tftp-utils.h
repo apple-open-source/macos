@@ -1,5 +1,5 @@
 /*-
- * SPDX-License-Identifier: BSD-2-Clause-FreeBSD
+ * SPDX-License-Identifier: BSD-2-Clause
  *
  * Copyright (C) 2008 Edwin Groothuis. All rights reserved.
  *
@@ -24,9 +24,6 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  */
-
-#include <sys/cdefs.h>
-__FBSDID("$FreeBSD$");
 
 /*
  */
@@ -65,7 +62,7 @@ extern int	acting_as_client;
 /*
  */
 void	unmappedaddr(struct sockaddr_in6 *sin6);
-ssize_t	get_field(int peer, char *buffer, ssize_t size);
+size_t	get_field(int peer, char *buffer, size_t size);
 
 /*
  * Packet types
@@ -102,7 +99,7 @@ struct debugs {
 };
 extern int	debug;
 extern struct debugs debugs[];
-extern int	packetdroppercentage;
+extern unsigned int packetdroppercentage;
 int	debug_find(char *s);
 int	debug_finds(char *s);
 const char *debug_show(int d);

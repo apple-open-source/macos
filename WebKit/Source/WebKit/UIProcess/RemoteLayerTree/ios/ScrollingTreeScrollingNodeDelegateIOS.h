@@ -40,15 +40,6 @@
 @class WKBEScrollView;
 @class WKScrollingNodeScrollViewDelegate;
 
-namespace WebKit {
-class ScrollingTreeScrollingNodeDelegateIOS;
-}
-
-namespace WTF {
-template<typename T> struct IsDeprecatedWeakRefSmartPointerException;
-template<> struct IsDeprecatedWeakRefSmartPointerException<WebKit::ScrollingTreeScrollingNodeDelegateIOS> : std::true_type { };
-}
-
 namespace WebCore {
 
 class FloatPoint;
@@ -60,8 +51,9 @@ class ScrollingTreeScrollingNode;
 
 namespace WebKit {
 
-class ScrollingTreeScrollingNodeDelegateIOS final : public WebCore::ScrollingTreeScrollingNodeDelegate, public CanMakeWeakPtr<ScrollingTreeScrollingNodeDelegateIOS> {
+class ScrollingTreeScrollingNodeDelegateIOS final : public WebCore::ScrollingTreeScrollingNodeDelegate, public CanMakeWeakPtr<ScrollingTreeScrollingNodeDelegateIOS>, public CanMakeCheckedPtr<ScrollingTreeScrollingNodeDelegateIOS> {
     WTF_MAKE_TZONE_ALLOCATED(ScrollingTreeScrollingNodeDelegateIOS);
+    WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(ScrollingTreeScrollingNodeDelegateIOS);
 public:
     
     enum class AllowOverscrollToPreventScrollPropagation : bool { No, Yes };
@@ -91,6 +83,7 @@ public:
     void computeActiveTouchActionsForGestureRecognizer(UIGestureRecognizer*);
     void clearActiveTouchActions() { m_activeTouchActions = { }; }
     void cancelPointersForGestureRecognizer(UIGestureRecognizer*);
+    bool shouldAllowPanGestureRecognizerToReceiveTouches() const;
 
     UIScrollView *findActingScrollParent(UIScrollView *);
     WKBaseScrollView *scrollView() const;

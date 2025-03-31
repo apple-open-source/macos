@@ -50,7 +50,7 @@ static inline void append(Vector<uint8_t>& buffer, std::span<const uint8_t> byte
 
 static inline void append(Vector<uint8_t>& buffer, const char* string)
 {
-    buffer.append(span8(string));
+    buffer.append(unsafeSpan8(string));
 }
 
 static inline void append(Vector<uint8_t>& buffer, const CString& string)
@@ -92,11 +92,10 @@ static void appendQuoted(Vector<uint8_t>& buffer, const Vector<uint8_t>& string)
 // https://url.spec.whatwg.org/#concept-urlencoded-byte-serializer
 static void appendFormURLEncoded(Vector<uint8_t>& buffer, std::span<const uint8_t> string)
 {
-    static const char safeCharacters[] = "-._*";
+    static constexpr auto safeCharacters = "-._*"_span;
     for (size_t i = 0; i < string.size(); ++i) {
         auto character = string[i];
-        if (isASCIIAlphanumeric(character)
-            || (character != '\0' && strchr(safeCharacters, character)))
+        if (isASCIIAlphanumeric(character) || (character != '\0' && WTF::contains(safeCharacters, character)))
             append(buffer, character);
         else if (character == ' ')
             append(buffer, '+');
@@ -128,7 +127,7 @@ Vector<uint8_t> generateUniqueBoundaryString()
     // Note that our algorithm makes it twice as much likely for 'A' or 'B'
     // to appear in the boundary string, because 0x41 and 0x42 are present in
     // the below array twice.
-    static const char alphaNumericEncodingMap[64] = {
+    static constexpr std::array<char, 64> alphaNumericEncodingMap {
         0x41, 0x42, 0x43, 0x44, 0x45, 0x46, 0x47, 0x48,
         0x49, 0x4A, 0x4B, 0x4C, 0x4D, 0x4E, 0x4F, 0x50,
         0x51, 0x52, 0x53, 0x54, 0x55, 0x56, 0x57, 0x58,

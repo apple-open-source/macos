@@ -26,13 +26,22 @@
  * @APPLE_OSREFERENCE_LICENSE_HEADER_END@
  */
 
+#include <sys/ioctl.h>
+#include <sys/socket.h>
 #include <sys/sysctl.h>
+#include <sys/sockio_private.h>
 
+#include <net/if_mib.h>
 #include <net/if_ports_used.h>
 #include <net/net_api_stats.h>
+
+#include <netinet/in.h>
+
 #include <err.h>
 #include <stdio.h>
 #include <strings.h>
+#include <sysexits.h>
+#include <unistd.h>
 
 #include "netstat.h"
 
@@ -176,4 +185,100 @@ if (STATDIFF(_field) != 0 || sflag <= 1) { \
 		bcopy(&if_ports_used_stats, &pif_ports_used_stats, len);
 	}
 #endif /* IF_PORTS_USED_STATS_LIST */
+}
+
+void
+print_if_link_heuristics_stats(char *name)
+{
+	struct ifreq ifr = { 0 };
+
+	strlcpy(ifr.ifr_name, name, sizeof(ifr.ifr_name));
+
+#ifdef SIOCGLINKHEURISTICS
+	int s;
+
+	s = socket(AF_INET, SOCK_DGRAM, 0);
+
+	if (s < 0) {
+		err(EX_OSERR, "socket");
+	}
+
+	if (ioctl(s, SIOCGLINKHEURISTICS, &ifr) == -1) {
+		warn("ioctl SIOCGLINKHEURISTICS");
+		return;
+	}
+	close(s);
+	s = -1;
+#endif /* SIOCGLINKHEURISTICS */
+
+#ifdef HAS_IF_LINK_HEURISTICS_STATS
+	struct if_linkheuristics if_linkheuristics = { 0 };
+	size_t miblen = sizeof(struct if_linkheuristics);
+	int mib[6];
+
+	/* Common OID prefix */
+	mib[0] = CTL_NET;
+	mib[1] = PF_LINK;
+	mib[2] = NETLINK_GENERIC;
+	mib[3] = IFMIB_IFDATA;
+	mib[4] = if_nametoindex(name);
+	mib[5] = IFDATA_LINKHEURISTICS;
+	if (sysctl(mib, 6, &if_linkheuristics, &miblen, (void *)0, 0) == -1) {
+		warn("sysctl IFDATA_LINKHEURISTICS");
+		return;
+	}
+
+	/*
+	 * Do not bother to cluter the output if there is nothing to report
+	 */
+	if (ifr.ifr_intval == 0 &&
+		if_linkheuristics.iflh_link_heuristics_cnt == 0 &&
+		if_linkheuristics.iflh_congested_link_cnt == 0 &&
+		if_linkheuristics.iflh_lqm_good_cnt == 0 &&
+		if_linkheuristics.iflh_lqm_poor_cnt == 0 &&
+		if_linkheuristics.iflh_lqm_bad_cnt == 0) {
+		return;
+	}
+
+	printf("link heuristics on %s\n", name);
+
+	printf("\tenabled: %s\n", ifr.ifr_intval ? "true" : "false");
+
+#define	p(f, m) if (if_linkheuristics.f || sflag <= 1) \
+    printf(m, if_linkheuristics.f, plural(if_linkheuristics.f))
+
+#define	p1(f, m) if (if_linkheuristics.f || sflag <= 1) \
+	printf(m, if_linkheuristics.f / 1000, if_linkheuristics.f % 1000)
+
+	p(iflh_link_heuristics_cnt, "\t%llu time%s link heuristics enabled\n");
+	p1(iflh_link_heuristics_time, "\t%llu.%03llu seconds link heuristics enabled\n");
+
+	p(iflh_congested_link_cnt, "\t%llu time%s link congested enabled\n");
+	p1(iflh_congested_link_time, "\t%llu.%03llu seconds link congested\n");
+
+	p(iflh_lqm_good_cnt, "\t%llu time%s good link quality enabled\n");
+	p1(iflh_lqm_good_time, "\t%llu.%03llu seconds of good link quality\n");
+
+	p(iflh_lqm_poor_cnt, "\t%llu time%s poor link quality enabled\n");
+	p1(iflh_lqm_poor_time, "\t%llu.%03llu seconds of poor link quality\n");
+
+	p(iflh_lqm_min_viable_cnt, "\t%llu time%s minimally viable link quality enabled\n");
+	p1(iflh_lqm_min_viable_time, "\t%llu.%03llu seconds of minimally viable link quality\n");
+
+	p(iflh_lqm_bad_cnt, "\t%llu time%s bad link quality enabled\n");
+	p1(iflh_lqm_bad_time, "\t%llu.%03llu seconds of bad link quality\n");
+
+	p(iflh_tcp_linkheur_stealthdrop, "\t%llu stealth TCP packet%s to closed port\n");
+
+	p(iflh_tcp_linkheur_noackpri, "\t%llu TCP packet%s ACK/SYN no prioritized\n");
+
+	p(iflh_tcp_linkheur_comprxmt, "\t%llu TCP data retransmission%s compressed\n");
+
+	p(iflh_tcp_linkheur_synrxmt, "\t%llu TCP SYN retransmission%s standard backoff\n");
+
+	p(iflh_tcp_linkheur_rxmtfloor, "\t%llu TCP retransmission%s delayed to floor\n");
+
+	p(iflh_udp_linkheur_stealthdrop, "\t%llu stealth UDP packet%s to closed port\n");
+
+#endif /* HAS_IF_LINK_HEURISTICS_STATS */
 }

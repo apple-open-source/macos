@@ -32,22 +32,6 @@
  * SUCH DAMAGE.
  */
 
-#if 0
-#ifndef lint
-static char const copyright[] =
-"@(#) Copyright (c) 1989, 1993\n\
-	The Regents of the University of California.  All rights reserved.\n";
-#endif /* not lint */
-#endif
-
-#ifndef lint
-#if 0
-static char sccsid[] = "@(#)cat.c	8.2 (Berkeley) 4/27/95";
-#endif
-#endif /* not lint */
-#include <sys/cdefs.h>
-__FBSDID("$FreeBSD$");
-
 #ifndef __APPLE__
 #include <sys/capsicum.h>
 #endif
@@ -91,6 +75,7 @@ static void usage(void) __dead2;
 static void scanfiles(char *argv[], int cooked);
 #ifndef BOOTSTRAP_CAT
 static void cook_cat(FILE *);
+static ssize_t in_kernel_copy(int);
 #endif
 static void raw_cat(int);
 
@@ -157,7 +142,7 @@ init_casper_net(cap_channel_t *casper)
 	familylimit = AF_LOCAL;
 	cap_net_limit_name2addr_family(limit, &familylimit, 1);
 
-	if (cap_net_limit(limit) < 0)
+	if (cap_net_limit(limit) != 0)
 		err(EXIT_FAILURE, "unable to apply limits");
 }
 #endif
@@ -173,7 +158,7 @@ init_casper(int argc, char *argv[])
 		err(EXIT_FAILURE, "unable to create Casper");
 
 	fa = fileargs_cinit(casper, argc, argv, O_RDONLY, 0,
-	    cap_rights_init(&rights, CAP_READ | CAP_FSTAT | CAP_FCNTL),
+	    cap_rights_init(&rights, CAP_READ, CAP_FSTAT, CAP_FCNTL, CAP_SEEK),
 	    FA_OPEN | FA_REALPATH);
 	if (fa == NULL)
 		err(EXIT_FAILURE, "unable to create fileargs");
@@ -231,7 +216,7 @@ main(int argc, char *argv[])
 		stdout_lock.l_start = 0;
 		stdout_lock.l_type = F_WRLCK;
 		stdout_lock.l_whence = SEEK_SET;
-		if (fcntl(STDOUT_FILENO, F_SETLKW, &stdout_lock) == -1)
+		if (fcntl(STDOUT_FILENO, F_SETLKW, &stdout_lock) != 0)
 			err(EXIT_FAILURE, "stdout");
 	}
 
@@ -240,7 +225,7 @@ main(int argc, char *argv[])
 
 	caph_cache_catpages();
 
-	if (caph_enter_casper() < 0)
+	if (caph_enter_casper() != 0)
 		err(EXIT_FAILURE, "capsicum");
 #endif
 
@@ -304,7 +289,17 @@ scanfiles(char *argv[], int cooked __unused)
 			}
 #endif
 		} else {
+#ifndef BOOTSTRAP_CAT
+			if (in_kernel_copy(fd) != 0) {
+				if (errno == EINVAL || errno == EBADF ||
+				    errno == EISDIR)
+					raw_cat(fd);
+				else
+					err(1, "stdout");
+			}
+#else
 			raw_cat(fd);
+#endif
 			if (fd != STDIN_FILENO)
 				close(fd);
 		}
@@ -425,6 +420,26 @@ ilseq:
 	if (ferror(stdout))
 		err(1, "stdout");
 }
+
+static ssize_t
+in_kernel_copy(int rfd)
+{
+#ifndef __APPLE__
+	int wfd;
+	ssize_t ret;
+
+	wfd = fileno(stdout);
+	ret = 1;
+
+	while (ret > 0)
+		ret = copy_file_range(rfd, NULL, wfd, NULL, SSIZE_MAX, 0);
+
+	return (ret);
+#else /* __APPLE__ */
+	errno = EINVAL;
+	return (-1);
+#endif /* __APPLE__ */
+}
 #endif /* BOOTSTRAP_CAT */
 
 static void
@@ -483,7 +498,6 @@ udom_open(const char *path, int flags)
 	 */
 	bzero(&hints, sizeof(hints));
 	hints.ai_family = AF_LOCAL;
-	fd = -1;
 
 	if (fileargs_realpath(fa, path, rpath) == NULL)
 		return (-1);
@@ -498,6 +512,10 @@ udom_open(const char *path, int flags)
 	cap_rights_init(&rights, CAP_CONNECT, CAP_READ, CAP_WRITE,
 	    CAP_SHUTDOWN, CAP_FSTAT, CAP_FCNTL);
 #endif
+
+	/* Default error if something goes wrong. */
+	serrno = EINVAL;
+
 	for (res = res0; res != NULL; res = res->ai_next) {
 		fd = socket(res->ai_family, res->ai_socktype,
 		    res->ai_protocol);
@@ -508,7 +526,7 @@ udom_open(const char *path, int flags)
 			return (-1);
 		}
 #ifndef __APPLE__
-		if (caph_rights_limit(fd, &rights) < 0) {
+		if (caph_rights_limit(fd, &rights) != 0) {
 			serrno = errno;
 			close(fd);
 			freeaddrinfo(res0);
@@ -522,46 +540,47 @@ udom_open(const char *path, int flags)
 		else {
 			serrno = errno;
 			close(fd);
-			fd = -1;
 		}
 	}
 	freeaddrinfo(res0);
 
+	if (res == NULL) {
+		errno = serrno;
+		return (-1);
+	}
+
 	/*
 	 * handle the open flags by shutting down appropriate directions
 	 */
-	if (fd >= 0) {
-		switch(flags & O_ACCMODE) {
-		case O_RDONLY:
+
+	switch (flags & O_ACCMODE) {
+	case O_RDONLY:
 #ifndef __APPLE__
-			cap_rights_clear(&rights, CAP_WRITE);
+		cap_rights_clear(&rights, CAP_WRITE);
 #endif
-			if (shutdown(fd, SHUT_WR) == -1)
-				warn(NULL);
-			break;
-		case O_WRONLY:
+		if (shutdown(fd, SHUT_WR) != 0)
+			warn(NULL);
+		break;
+	case O_WRONLY:
 #ifndef __APPLE__
-			cap_rights_clear(&rights, CAP_READ);
+		cap_rights_clear(&rights, CAP_READ);
 #endif
-			if (shutdown(fd, SHUT_RD) == -1)
-				warn(NULL);
-			break;
-		default:
-			break;
-		}
+		if (shutdown(fd, SHUT_RD) != 0)
+			warn(NULL);
+		break;
+	default:
+		break;
+	}
 
 #ifndef __APPLE__
-		cap_rights_clear(&rights, CAP_CONNECT, CAP_SHUTDOWN);
-		if (caph_rights_limit(fd, &rights) < 0) {
-			serrno = errno;
-			close(fd);
-			errno = serrno;
-			return (-1);
-		}
-#endif
-	} else {
+	cap_rights_clear(&rights, CAP_CONNECT, CAP_SHUTDOWN);
+	if (caph_rights_limit(fd, &rights) != 0) {
+		serrno = errno;
+		close(fd);
 		errno = serrno;
+		return (-1);
 	}
+#endif
 	return (fd);
 }
 

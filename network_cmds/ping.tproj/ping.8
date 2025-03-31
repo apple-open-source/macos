@@ -84,6 +84,8 @@ packets to network hosts
 .Op Fl z Ar tos
 .Op Fl Fl apple-connect
 .Op Fl Fl apple-time
+.Op Fl Fl apple-print-id
+.Op Fl Fl apple-print-req
 .Ar host
 .Nm
 .Op Fl AaDdfLnoQqRrv
@@ -106,6 +108,8 @@ packets to network hosts
 .Op Fl z Ar tos
 .Op Fl Fl apple-connect
 .Op Fl Fl apple-time
+.Op Fl Fl apple-print-id
+.Op Fl Fl apple-print-req
 .Ar mcast-group
 .Sh DESCRIPTION
 The
@@ -362,6 +366,12 @@ Connects the socket to the destination address.
 This option is an Apple addition.
 .It Fl Fl apple-time
 Prints the time a packet was received.
+This option is an Apple addition.
+.It Fl Fl apple-print-id
+Prints the ICMP echo ID.
+This option is an Apple addition.
+.It Fl Fl apple-print-req
+Prints the ICMP echo request.
 This option is an Apple addition.
 .El
 .Pp

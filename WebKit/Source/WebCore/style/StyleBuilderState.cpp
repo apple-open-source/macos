@@ -30,10 +30,13 @@
 #include "config.h"
 #include "StyleBuilderState.h"
 
+#include "CSSAppleColorFilterPropertyValue.h"
 #include "CSSCanvasValue.h"
+#include "CSSColorValue.h"
 #include "CSSCrossfadeValue.h"
 #include "CSSCursorImageValue.h"
 #include "CSSFilterImageValue.h"
+#include "CSSFilterPropertyValue.h"
 #include "CSSFontSelector.h"
 #include "CSSFunctionValue.h"
 #include "CSSGradientValue.h"
@@ -41,12 +44,10 @@
 #include "CSSImageValue.h"
 #include "CSSNamedImageValue.h"
 #include "CSSPaintImageValue.h"
-#include "CSSShadowValue.h"
-#include "ColorFromPrimitiveValue.h"
+#include "CalculationRandomKeyMap.h"
 #include "Document.h"
 #include "DocumentInlines.h"
 #include "ElementInlines.h"
-#include "FilterOperationsBuilder.h"
 #include "FontCache.h"
 #include "HTMLElement.h"
 #include "RenderStyleSetters.h"
@@ -54,12 +55,15 @@
 #include "SVGElementTypeHelpers.h"
 #include "SVGSVGElement.h"
 #include "Settings.h"
+#include "StyleAppleColorFilterProperty.h"
 #include "StyleBuilder.h"
 #include "StyleCachedImage.h"
 #include "StyleCanvasImage.h"
+#include "StyleColor.h"
 #include "StyleCrossfadeImage.h"
 #include "StyleCursorImage.h"
 #include "StyleFilterImage.h"
+#include "StyleFilterProperty.h"
 #include "StyleFontSizeFunctions.h"
 #include "StyleGeneratedImage.h"
 #include "StyleGradientImage.h"
@@ -76,7 +80,7 @@ BuilderState::BuilderState(Builder& builder, RenderStyle& style, BuilderContext&
     , m_styleMap(*this)
     , m_style(style)
     , m_context(WTFMove(context))
-    , m_cssToLengthConversionData(style, m_context)
+    , m_cssToLengthConversionData(style, *this)
 {
 }
 
@@ -98,7 +102,7 @@ bool BuilderState::useSVGZoomRulesForLength() const
     return is<SVGElement>(element()) && !(is<SVGSVGElement>(*element()) && element()->parentNode());
 }
 
-RefPtr<StyleImage> BuilderState::createStyleImage(const CSSValue& value)
+RefPtr<StyleImage> BuilderState::createStyleImage(const CSSValue& value) const
 {
     if (auto* imageValue = dynamicDowncast<CSSImageValue>(value))
         return imageValue->createStyleImage(*this);
@@ -114,40 +118,53 @@ RefPtr<StyleImage> BuilderState::createStyleImage(const CSSValue& value)
         return crossfadeValue->createStyleImage(*this);
     if (auto* filterImageValue = dynamicDowncast<CSSFilterImageValue>(value))
         return filterImageValue->createStyleImage(*this);
-    if (auto* linearGradientValue = dynamicDowncast<CSSLinearGradientValue>(value))
-        return linearGradientValue->createStyleImage(*this);
-    if (auto* linearGradientValue = dynamicDowncast<CSSPrefixedLinearGradientValue>(value))
-        return linearGradientValue->createStyleImage(*this);
-    if (auto* linearGradientValue = dynamicDowncast<CSSDeprecatedLinearGradientValue>(value))
-        return linearGradientValue->createStyleImage(*this);
-    if (auto* radialGradientvalue = dynamicDowncast<CSSRadialGradientValue>(value))
-        return radialGradientvalue->createStyleImage(*this);
-    if (auto* radialGradientvalue = dynamicDowncast<CSSPrefixedRadialGradientValue>(value))
-        return radialGradientvalue->createStyleImage(*this);
-    if (auto* radialGradientvalue = dynamicDowncast<CSSDeprecatedRadialGradientValue>(value))
-        return radialGradientvalue->createStyleImage(*this);
-    if (auto conicGradientValue = dynamicDowncast<CSSConicGradientValue>(value))
-        return conicGradientValue->createStyleImage(*this);
+    if (auto* gradientValue = dynamicDowncast<CSSGradientValue>(value))
+        return gradientValue->createStyleImage(*this);
     if (auto* paintImageValue = dynamicDowncast<CSSPaintImageValue>(value))
         return paintImageValue->createStyleImage(*this);
     return nullptr;
 }
 
-FilterOperations BuilderState::createFilterOperations(const CSSValue& inValue)
+FilterOperations BuilderState::createFilterOperations(const CSS::FilterProperty& value) const
 {
-    return WebCore::Style::createFilterOperations(document(), m_style, m_cssToLengthConversionData, inValue);
+    return WebCore::Style::createFilterOperations(value, document(), m_style, m_cssToLengthConversionData);
 }
 
-bool BuilderState::isColorFromPrimitiveValueDerivedFromElement(const CSSPrimitiveValue& value)
+FilterOperations BuilderState::createFilterOperations(const CSSValue& value) const
 {
-    return StyleColor::containsCurrentColor(value) || StyleColor::containsColorSchemeDependentColor(value);
+    if (RefPtr primitive = dynamicDowncast<CSSPrimitiveValue>(value)) {
+        ASSERT(primitive->valueID() == CSSValueNone);
+        return { };
+    }
+
+    Ref filterValue = downcast<CSSFilterPropertyValue>(value);
+    return createFilterOperations(filterValue->filter());
 }
 
-StyleColor BuilderState::colorFromPrimitiveValue(const CSSPrimitiveValue& value, ForVisitedLink forVisitedLink) const
+FilterOperations BuilderState::createAppleColorFilterOperations(const CSS::AppleColorFilterProperty& value) const
+{
+    return WebCore::Style::createAppleColorFilterOperations(value, document(), m_style, m_cssToLengthConversionData);
+}
+
+FilterOperations BuilderState::createAppleColorFilterOperations(const CSSValue& value) const
+{
+    if (RefPtr primitive = dynamicDowncast<CSSPrimitiveValue>(value)) {
+        ASSERT(primitive->valueID() == CSSValueNone);
+        return { };
+    }
+
+    Ref filterValue = downcast<CSSAppleColorFilterPropertyValue>(value);
+    return createAppleColorFilterOperations(filterValue->filter());
+}
+
+Color BuilderState::createStyleColor(const CSSValue& value, ForVisitedLink forVisitedLink) const
 {
     if (!element() || !element()->isLink())
         forVisitedLink = ForVisitedLink::No;
-    return { WebCore::Style::colorFromPrimitiveValue(document(), m_style, m_cssToLengthConversionData, value, forVisitedLink) };
+
+    if (RefPtr color = dynamicDowncast<CSSColorValue>(value))
+        return toStyle(color->color(), *this, forVisitedLink);
+    return toStyle(CSS::Color { CSS::KeywordColor { value.valueID() } }, *this, forVisitedLink);
 }
 
 void BuilderState::registerContentAttribute(const AtomString& attributeLocalName)
@@ -162,8 +179,8 @@ void BuilderState::adjustStyleForInterCharacterRuby()
         return;
 
     m_style.setTextAlign(TextAlignMode::Center);
-    if (m_style.isHorizontalWritingMode())
-        m_style.setWritingMode(WritingMode::VerticalLr);
+    if (!m_style.writingMode().isVerticalTypographic())
+        m_style.setWritingMode(StyleWritingMode::VerticalLr);
 }
 
 void BuilderState::updateFont()
@@ -210,7 +227,7 @@ void BuilderState::updateFontForTextSizeAdjust()
     else
         newFontDescription.setComputedSize(newFontDescription.specifiedSize());
 
-    m_style.setFontDescription(WTFMove(newFontDescription));
+    m_style.setFontDescriptionWithoutUpdate(WTFMove(newFontDescription));
 }
 #endif
 
@@ -223,7 +240,7 @@ void BuilderState::updateFontForZoomChange()
     auto newFontDescription = childFont;
     setFontSize(newFontDescription, childFont.specifiedSize());
 
-    m_style.setFontDescription(WTFMove(newFontDescription));
+    m_style.setFontDescriptionWithoutUpdate(WTFMove(newFontDescription));
 }
 
 void BuilderState::updateFontForGenericFamilyChange()
@@ -253,7 +270,7 @@ void BuilderState::updateFontForGenericFamilyChange()
 
     auto newFontDescription = childFont;
     setFontSize(newFontDescription, size);
-    m_style.setFontDescription(WTFMove(newFontDescription));
+    m_style.setFontDescriptionWithoutUpdate(WTFMove(newFontDescription));
 }
 
 void BuilderState::updateFontForOrientationChange()
@@ -267,7 +284,7 @@ void BuilderState::updateFontForOrientationChange()
     auto newFontDescription = fontDescription;
     newFontDescription.setNonCJKGlyphOrientation(glyphOrientation);
     newFontDescription.setOrientation(fontOrientation);
-    m_style.setFontDescription(WTFMove(newFontDescription));
+    m_style.setFontDescriptionWithoutUpdate(WTFMove(newFontDescription));
 }
 
 void BuilderState::setFontSize(FontCascadeDescription& fontDescription, float size)
@@ -278,9 +295,32 @@ void BuilderState::setFontSize(FontCascadeDescription& fontDescription, float si
 
 CSSPropertyID BuilderState::cssPropertyID() const
 {
-    ASSERT(m_currentProperty);
-    return m_currentProperty->id;
+    return m_currentProperty ? m_currentProperty->id : CSSPropertyInvalid;
 }
 
+bool BuilderState::isCurrentPropertyInvalidAtComputedValueTime() const
+{
+    return m_invalidAtComputedValueTimeProperties.get(cssPropertyID());
 }
+
+void BuilderState::setCurrentPropertyInvalidAtComputedValueTime()
+{
+    m_invalidAtComputedValueTimeProperties.set(cssPropertyID());
 }
+
+Ref<Calculation::RandomKeyMap> BuilderState::randomKeyMap(bool perElement) const
+{
+    if (perElement) {
+        ASSERT(element());
+
+        std::optional<Style::PseudoElementIdentifier> pseudoElementIdentifier;
+        if (style().pseudoElementType() != PseudoId::None)
+            pseudoElementIdentifier = Style::PseudoElementIdentifier { style().pseudoElementType(), style().pseudoElementNameArgument() };
+
+        return element()->randomKeyMap(pseudoElementIdentifier);
+    }
+    return document().randomKeyMap();
+}
+
+} // namespace Style
+} // namespace WebCore

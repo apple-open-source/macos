@@ -69,7 +69,7 @@ static Ref<CSSValue> createCSSValue(const Vector<SVGLengthValue>& dashes)
     return CSSValueList::createCommaSeparated(WTFMove(list));
 }
 
-Ref<CSSValue> ComputedStyleExtractor::adjustSVGPaint(SVGPaintType paintType, const String& url, Ref<CSSPrimitiveValue> color) const
+Ref<CSSValue> ComputedStyleExtractor::adjustSVGPaint(SVGPaintType paintType, const String& url, Ref<CSSValue> color) const
 {
     if (paintType >= SVGPaintType::URINone) {
         CSSValueListBuilder values;
@@ -107,7 +107,7 @@ RefPtr<CSSValue> ComputedStyleExtractor::svgPropertyValue(CSSPropertyID property
 
     const SVGRenderStyle& svgStyle = style->svgStyle();
 
-    auto createColor = [&style](const StyleColor& color) {
+    auto createColor = [&style](const Style::Color& color) {
         auto resolvedColor = style->colorResolvingCurrentColor(color);
         return CSSValuePool::singleton().createColorValue(resolvedColor);
     };
@@ -145,8 +145,6 @@ RefPtr<CSSValue> ComputedStyleExtractor::svgPropertyValue(CSSPropertyID property
         return createColor(svgStyle.stopColor());
     case CSSPropertyFill:
         return adjustSVGPaint(svgStyle.fillPaintType(), svgStyle.fillPaintUri(), createColor(svgStyle.fillPaintColor()));
-    case CSSPropertyKerning:
-        return svgStyle.kerning().toCSSPrimitiveValue();
     case CSSPropertyMarkerEnd:
         return svgMarkerValue(svgStyle.markerEndResource(), m_element.get());
     case CSSPropertyMarkerMid:

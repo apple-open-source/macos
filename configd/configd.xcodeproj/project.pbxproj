@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 46;
+	objectVersion = 70;
 	objects = {
 
 /* Begin PBXAggregateTarget section */
@@ -83,6 +83,7 @@
 			buildPhases = (
 			);
 			dependencies = (
+				8AB8DEB72D14C653000FBDB5 /* PBXTargetDependency */,
 				15631D111ECF92E70088EEDD /* PBXTargetDependency */,
 				1558480607550D470046C2E9 /* PBXTargetDependency */,
 				1558480807550D470046C2E9 /* PBXTargetDependency */,
@@ -168,6 +169,7 @@
 			buildPhases = (
 			);
 			dependencies = (
+				8AB8DEB92D14C690000FBDB5 /* PBXTargetDependency */,
 				15631D131ECF93040088EEDD /* PBXTargetDependency */,
 				158317660CFB80D5006F62B9 /* PBXTargetDependency */,
 				1523BBE21E075859006281F1 /* PBXTargetDependency */,
@@ -1084,8 +1086,8 @@
 		720A4C0D1C585C9F007436B8 /* proxyAgent.h in Headers */ = {isa = PBXBuildFile; fileRef = 7280157F1BE16833009F4F60 /* proxyAgent.h */; };
 		7214BCE31BEB392000A8F056 /* Network.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 728015951BE16B6C009F4F60 /* Network.framework */; };
 		7214BCE41BEB392300A8F056 /* NetworkExtension.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 728015961BE16B6C009F4F60 /* NetworkExtension.framework */; settings = {ATTRIBUTES = (Weak, ); }; };
-		72499BA41AC9B7AB0090C49F /* get-network-info in Resources */ = {isa = PBXBuildFile; fileRef = 72499BA31AC9B7AB0090C49F /* get-network-info */; };
-		72499BA51AC9B7AB0090C49F /* get-network-info in Resources */ = {isa = PBXBuildFile; fileRef = 72499BA31AC9B7AB0090C49F /* get-network-info */; };
+		72499BA41AC9B7AB0090C49F /* deprecated-get-network-info in Resources */ = {isa = PBXBuildFile; fileRef = 72499BA31AC9B7AB0090C49F /* deprecated-get-network-info */; };
+		72499BA51AC9B7AB0090C49F /* deprecated-get-network-info in Resources */ = {isa = PBXBuildFile; fileRef = 72499BA31AC9B7AB0090C49F /* deprecated-get-network-info */; };
 		72573D291D667372004975AD /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = 72573D281D667372004975AD /* main.m */; };
 		72573D2E1D6673B6004975AD /* SCTest.m in Sources */ = {isa = PBXBuildFile; fileRef = 72573D2D1D6673B6004975AD /* SCTest.m */; };
 		72573D321D667686004975AD /* SCTestUtils.m in Sources */ = {isa = PBXBuildFile; fileRef = 72573D311D667686004975AD /* SCTestUtils.m */; };
@@ -1148,6 +1150,8 @@
 		72D3E6611AE6EA3A00DB4C69 /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = 72D3E6601AE6EA3A00DB4C69 /* main.swift */; };
 		72D3E66C1AE6EAF600DB4C69 /* test-objC.m in Sources */ = {isa = PBXBuildFile; fileRef = 72D3E66B1AE6EAF600DB4C69 /* test-objC.m */; };
 		78C951FE1F797B44000EA36B /* libnetwork.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = 78C951FD1F797B43000EA36B /* libnetwork.tbd */; };
+		8A4FBFF62CEF200800EE71AD /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 15B9C0B42232224A00C8FF86 /* Foundation.framework */; };
+		8A4FC0002CEF208400EE71AD /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 15B9C0B42232224A00C8FF86 /* Foundation.framework */; };
 		8AC687F72C7E81650053C3B9 /* ps_filtering_rules.txt in Install posix spawn filtering rules for MTE enablement */ = {isa = PBXBuildFile; fileRef = 8AC687F52C7E7FE00053C3B9 /* ps_filtering_rules.txt */; };
 		8AC687F92C7E81E80053C3B9 /* ps_filtering_rules.txt in Install posix spawn filtering rules for MTE enablement */ = {isa = PBXBuildFile; fileRef = 8AC687F52C7E7FE00053C3B9 /* ps_filtering_rules.txt */; };
 		94109B672A4A9BBA00EAE26A /* SCTestRankAssertion.m in Sources */ = {isa = PBXBuildFile; fileRef = 94D7F5DA29A4140D001088C5 /* SCTestRankAssertion.m */; };
@@ -1877,6 +1881,20 @@
 			remoteGlobalIDString = 155847430754FDCD0046C2E9;
 			remoteInfo = scutil;
 		};
+		8AB8DEB62D14C653000FBDB5 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 15CB6A7705C0722B0099E85F /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 8A4FBFFE2CEF208300EE71AD;
+			remoteInfo = "get-network-info";
+		};
+		8AB8DEB82D14C690000FBDB5 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 15CB6A7705C0722B0099E85F /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 8A4FBFFE2CEF208300EE71AD;
+			remoteInfo = "get-network-info";
+		};
 		8AE1A26B28B8405C00D54F88 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 15CB6A7705C0722B0099E85F /* Project object */;
@@ -2031,7 +2049,7 @@
 		};
 		72573D241D667372004975AD /* npt_configd.plist */ = {
 			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
+			buildActionMask = 8;
 			dstPath = /AppleInternal/CoreOS/BATS/npt_tests;
 			dstSubfolderSpec = 0;
 			files = (
@@ -2042,13 +2060,31 @@
 		};
 		7271EA2C1D76600B0055B1AA /* npt_configd.plist */ = {
 			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
+			buildActionMask = 8;
 			dstPath = /AppleInternal/CoreOS/BATS/npt_tests;
 			dstSubfolderSpec = 0;
 			files = (
 				7271EA2D1D76600B0055B1AA /* npt_configd.plist in npt_configd.plist */,
 			);
 			name = npt_configd.plist;
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		8A4FBFF32CEF200600EE71AD /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /usr/local/share/man/man1/;
+			dstSubfolderSpec = 0;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		8A4FBFFD2CEF208300EE71AD /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = usr/local/share/man/man1;
+			dstSubfolderSpec = 16;
+			files = (
+			);
 			runOnlyForDeploymentPostprocessing = 1;
 		};
 		8AC687F62C7E81280053C3B9 /* Install posix spawn filtering rules for MTE enablement */ = {
@@ -2086,7 +2122,7 @@
 		};
 		F9B686CE273D839C00918A9C /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
+			buildActionMask = 8;
 			dstPath = /usr/share/man/man1/;
 			dstSubfolderSpec = 0;
 			files = (
@@ -2426,7 +2462,7 @@
 		23C1E2BE062DD5DB00835B54 /* pppcontroller.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = pppcontroller.h; path = configd.build/SystemConfiguration.framework.build/DerivedSources/pppcontroller.h; sourceTree = BUILT_PRODUCTS_DIR; };
 		55A3DB9D183C2A8200ED3DB7 /* SCNetworkMigration.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = SCNetworkMigration.c; sourceTree = "<group>"; };
 		720985431C580D9F00966D30 /* network_config_agent_info_priv.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = network_config_agent_info_priv.h; path = nwi/network_config_agent_info_priv.h; sourceTree = "<group>"; };
-		72499BA31AC9B7AB0090C49F /* get-network-info */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; path = "get-network-info"; sourceTree = SOURCE_ROOT; };
+		72499BA31AC9B7AB0090C49F /* deprecated-get-network-info */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; path = "deprecated-get-network-info"; sourceTree = SOURCE_ROOT; };
 		72573D261D667372004975AD /* sctest */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = sctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		72573D281D667372004975AD /* main.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = main.m; sourceTree = "<group>"; };
 		72573D2D1D6673B6004975AD /* SCTest.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = SCTest.m; sourceTree = "<group>"; };
@@ -2469,6 +2505,8 @@
 		72D3E6691AE6EAF600DB4C69 /* SCTest-ObjC */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = "SCTest-ObjC"; sourceTree = BUILT_PRODUCTS_DIR; };
 		72D3E66B1AE6EAF600DB4C69 /* test-objC.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = "test-objC.m"; sourceTree = "<group>"; };
 		78C951FD1F797B43000EA36B /* libnetwork.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libnetwork.tbd; path = usr/lib/libnetwork.tbd; sourceTree = SDKROOT; };
+		8A4FBFF52CEF200600EE71AD /* deprecated-get-network-info */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = "deprecated-get-network-info"; sourceTree = BUILT_PRODUCTS_DIR; };
+		8A4FBFFF2CEF208400EE71AD /* get-network-info */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = "get-network-info"; sourceTree = BUILT_PRODUCTS_DIR; };
 		8AC687F52C7E7FE00053C3B9 /* ps_filtering_rules.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = ps_filtering_rules.txt; sourceTree = "<group>"; };
 		8AE1A27428B94A1D00D54F88 /* Makefile */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.make; path = Makefile; sourceTree = "<group>"; };
 		949FE9C129277A5F00988AC3 /* SCTestNetworkConfiguration.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = SCTestNetworkConfiguration.m; sourceTree = "<group>"; };
@@ -2564,6 +2602,10 @@
 		F9FE0256291AC893005771AD /* CategoryManagerServer.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = CategoryManagerServer.c; sourceTree = "<group>"; };
 		F9FE025D291AC994005771AD /* CategoryManager.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = CategoryManager.c; sourceTree = "<group>"; };
 /* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedRootGroup section */
+		8A4FC0012CEF208400EE71AD /* get-network-info */ = {isa = PBXFileSystemSynchronizedRootGroup; explicitFileTypes = {}; explicitFolders = (); path = "get-network-info"; sourceTree = "<group>"; };
+/* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
 		151D06061EC1491600E02E48 /* Frameworks */ = {
@@ -2875,6 +2917,22 @@
 			buildActionMask = 2147483647;
 			files = (
 				150EC0FF21016BFD0047F4BF /* SystemConfiguration.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		8A4FBFF22CEF200600EE71AD /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				8A4FBFF62CEF200800EE71AD /* Foundation.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		8A4FBFFC2CEF208300EE71AD /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				8A4FC0002CEF208400EE71AD /* Foundation.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -3232,7 +3290,7 @@
 				1577253606EFBF3100D7B52B /* NetworkInterface.strings */,
 				158D6D871C974DBA00A08E78 /* com.apple.SystemConfiguration.plist */,
 				15CFC229068B222F00123568 /* get-mobility-info */,
-				72499BA31AC9B7AB0090C49F /* get-network-info */,
+				72499BA31AC9B7AB0090C49F /* deprecated-get-network-info */,
 			);
 			name = "Supporting Files";
 			sourceTree = "<group>";
@@ -3487,6 +3545,7 @@
 				72D3E66A1AE6EAF600DB4C69 /* SCTest-ObjC */,
 				72D3E65F1AE6EA3A00DB4C69 /* SCTest-Swift */,
 				F9B686D1273D839C00918A9C /* netconfig */,
+				8A4FC0012CEF208400EE71AD /* get-network-info */,
 				15CB690F05C0722B0099E85F /* Products */,
 				90507AAE1CE2F55B0067D16B /* Frameworks */,
 				15CB6A6E05C0722B0099E85F /* External Frameworks and Libraries */,
@@ -3549,6 +3608,8 @@
 				15EF89B121894636003B2C5C /* SCTest-ObjC-EmbeddedSimulator */,
 				15EF89BC21894665003B2C5C /* SCTest-Swift-EmbeddedSimulator */,
 				F9B686D0273D839C00918A9C /* netconfig */,
+				8A4FBFF52CEF200600EE71AD /* deprecated-get-network-info */,
+				8A4FBFFF2CEF208400EE71AD /* get-network-info */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -5717,6 +5778,47 @@
 			productReference = 72D3E6691AE6EAF600DB4C69 /* SCTest-ObjC */;
 			productType = "com.apple.product-type.tool";
 		};
+		8A4FBFF42CEF200600EE71AD /* deprecated-get-network-info */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 8A4FBFFA2CEF200800EE71AD /* Build configuration list for PBXNativeTarget "deprecated-get-network-info" */;
+			buildPhases = (
+				8A4FBFF12CEF200600EE71AD /* Sources */,
+				8A4FBFF22CEF200600EE71AD /* Frameworks */,
+				8A4FBFF32CEF200600EE71AD /* CopyFiles */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = "deprecated-get-network-info";
+			packageProductDependencies = (
+			);
+			productName = "get-network-info";
+			productReference = 8A4FBFF52CEF200600EE71AD /* deprecated-get-network-info */;
+			productType = "com.apple.product-type.tool";
+		};
+		8A4FBFFE2CEF208300EE71AD /* get-network-info */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 8A4FC0072CEF208400EE71AD /* Build configuration list for PBXNativeTarget "get-network-info" */;
+			buildPhases = (
+				8A4FBFFB2CEF208300EE71AD /* Sources */,
+				8A4FBFFC2CEF208300EE71AD /* Frameworks */,
+				8A4FBFFD2CEF208300EE71AD /* CopyFiles */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				8A4FC0012CEF208400EE71AD /* get-network-info */,
+			);
+			name = "get-network-info";
+			packageProductDependencies = (
+			);
+			productName = "network-info";
+			productReference = 8A4FBFFF2CEF208400EE71AD /* get-network-info */;
+			productType = "com.apple.product-type.tool";
+		};
 		C4666C70206ED01800247AB6 /* SystemConfigurationEventFactory */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = C4666C77206ED01800247AB6 /* Build configuration list for PBXNativeTarget "SystemConfigurationEventFactory" */;
@@ -5772,6 +5874,13 @@
 					};
 					72D3E6681AE6EAF600DB4C69 = {
 						CreatedOnToolsVersion = 7.0;
+					};
+					8A4FBFF42CEF200600EE71AD = {
+						CreatedOnToolsVersion = 16.3;
+					};
+					8A4FBFFE2CEF208300EE71AD = {
+						CreatedOnToolsVersion = 16.3;
+						LastSwiftMigration = 1630;
 					};
 					C4666C70206ED01800247AB6 = {
 						CreatedOnToolsVersion = 10.0;
@@ -5876,6 +5985,8 @@
 				72D3E65D1AE6EA3900DB4C69 /* SCTest-Swift */,
 				15E91DCC21893EE1001155DC /* SCTest-Swift-Embedded */,
 				15EF89B221894665003B2C5C /* SCTest-Swift-EmbeddedSimulator */,
+				8A4FBFF42CEF200600EE71AD /* deprecated-get-network-info */,
+				8A4FBFFE2CEF208300EE71AD /* get-network-info */,
 			);
 		};
 /* End PBXProject section */
@@ -5909,7 +6020,7 @@
 			files = (
 				1572C4DA0CFB55B400E2776E /* Localizable.strings in Resources */,
 				1572C4DB0CFB55B400E2776E /* NetworkInterface.strings in Resources */,
-				72499BA51AC9B7AB0090C49F /* get-network-info in Resources */,
+				72499BA51AC9B7AB0090C49F /* deprecated-get-network-info in Resources */,
 				1572C4DC0CFB55B400E2776E /* NetworkConfiguration.plist in Resources */,
 				1572C4DD0CFB55B400E2776E /* get-mobility-info in Resources */,
 			);
@@ -5984,7 +6095,7 @@
 				15DAD66B07591A1A0084A6ED /* NetworkInterface.strings in Resources */,
 				F9E8B87428132B9500523749 /* Network.tiff in Resources */,
 				15DAD66A07591A1A0084A6ED /* get-mobility-info in Resources */,
-				72499BA41AC9B7AB0090C49F /* get-network-info in Resources */,
+				72499BA41AC9B7AB0090C49F /* deprecated-get-network-info in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -6268,7 +6379,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "if [ -r /usr/local/lib/OrderFiles/SystemConfiguration.order ]; then\n\tcp /usr/local/lib/OrderFiles/SystemConfiguration.order ${OBJROOT}/SystemConfiguration.order\nelse\n\ttouch ${OBJROOT}/SystemConfiguration.order\nfi";
+			shellScript = "if [ -r /usr/local/lib/OrderFiles/SystemConfiguration.order ]; then\n\tcp /usr/local/lib/OrderFiles/SystemConfiguration.order ${OBJROOT}/SystemConfiguration.order\nelse\n\ttouch ${OBJROOT}/SystemConfiguration.order\nfi\n";
 			showEnvVarsInLog = 0;
 		};
 		15DAD6B007591A1A0084A6ED /* get-mobility-info */ = {
@@ -7214,6 +7325,20 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		8A4FBFF12CEF200600EE71AD /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		8A4FBFFB2CEF208300EE71AD /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		C4666C6D206ED01800247AB6 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -7637,6 +7762,16 @@
 			target = 155847430754FDCD0046C2E9 /* scutil */;
 			targetProxy = 72C4A47F1BE44D19009D570E /* PBXContainerItemProxy */;
 		};
+		8AB8DEB72D14C653000FBDB5 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 8A4FBFFE2CEF208300EE71AD /* get-network-info */;
+			targetProxy = 8AB8DEB62D14C653000FBDB5 /* PBXContainerItemProxy */;
+		};
+		8AB8DEB92D14C690000FBDB5 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 8A4FBFFE2CEF208300EE71AD /* get-network-info */;
+			targetProxy = 8AB8DEB82D14C690000FBDB5 /* PBXContainerItemProxy */;
+		};
 		8AE1A26A28B8405C00D54F88 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 72573D251D667372004975AD /* sctest */;
@@ -7872,7 +8007,10 @@
 				LIBRARY_STYLE = STATIC;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRIP_INSTALLED_PRODUCT = NO;
-				SYSTEM_HEADER_SEARCH_PATHS = "$(inherited) $(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders";
+				SYSTEM_HEADER_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders",
+				);
 			};
 			name = Debug;
 		};
@@ -7885,7 +8023,10 @@
 				LIBRARY_STYLE = STATIC;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRIP_INSTALLED_PRODUCT = NO;
-				SYSTEM_HEADER_SEARCH_PATHS = "$(inherited) $(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders";
+				SYSTEM_HEADER_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders",
+				);
 			};
 			name = Release;
 		};
@@ -7920,7 +8061,10 @@
 				SDKROOT = iphoneos.internal;
 				STRIP_INSTALLED_PRODUCT = NO;
 				SUPPORTED_PLATFORMS = "iphoneos tvos watchos bridgeos";
-				SYSTEM_HEADER_SEARCH_PATHS = "$(inherited) $(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders";
+				SYSTEM_HEADER_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders",
+				);
 			};
 			name = Debug;
 		};
@@ -7935,7 +8079,10 @@
 				SDKROOT = iphoneos.internal;
 				STRIP_INSTALLED_PRODUCT = NO;
 				SUPPORTED_PLATFORMS = "iphoneos tvos watchos bridgeos";
-				SYSTEM_HEADER_SEARCH_PATHS = "$(inherited) $(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders";
+				SYSTEM_HEADER_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders",
+				);
 			};
 			name = Release;
 		};
@@ -8007,7 +8154,10 @@
 				STRIP_INSTALLED_PRODUCT_debug = NO;
 				STRIP_INSTALLED_PRODUCT_normal = YES;
 				STRIP_INSTALLED_PRODUCT_profile = NO;
-				SYSTEM_HEADER_SEARCH_PATHS = "$(inherited) $(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders";
+				SYSTEM_HEADER_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders",
+				);
 			};
 			name = Debug;
 		};
@@ -8040,7 +8190,10 @@
 				STRIP_INSTALLED_PRODUCT_debug = NO;
 				STRIP_INSTALLED_PRODUCT_normal = YES;
 				STRIP_INSTALLED_PRODUCT_profile = NO;
-				SYSTEM_HEADER_SEARCH_PATHS = "$(inherited) $(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders";
+				SYSTEM_HEADER_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders",
+				);
 			};
 			name = Release;
 		};
@@ -8065,8 +8218,15 @@
 				OTHER_TAPI_FLAGS = "$(inherited) -DEXCLUDE_VPN_TUNNEL_PLUGIN_FUNCTIONS -I$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders --extra-private-header=$(PROJECT_DIR)/SystemConfiguration.fproj/SystemConfigurationInternal.h --extra-private-header=$(PROJECT_DIR)/SystemConfiguration.fproj/SCDynamicStoreInternal.h --verify-api-skip-external-headers";
 				PRODUCT_BUNDLE_IDENTIFIER = com.apple.SystemConfiguration;
 				PRODUCT_NAME = SystemConfiguration;
-				SYSTEM_FRAMEWORK_SEARCH_PATHS = "$(inherited) $(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/CoreServices.framework/Frameworks";
-				SYSTEM_HEADER_SEARCH_PATHS = "$(inherited) $(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders $(SDKROOT)/usr/local/include/ppp";
+				SYSTEM_FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/CoreServices.framework/Frameworks",
+				);
+				SYSTEM_HEADER_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders",
+					"$(SDKROOT)/usr/local/include/ppp",
+				);
 				WRAPPER_EXTENSION = framework;
 			};
 			name = Debug;
@@ -8098,8 +8258,15 @@
 					__text,
 					"$(OBJROOT)/SystemConfiguration.order",
 				);
-				SYSTEM_FRAMEWORK_SEARCH_PATHS = "$(inherited) $(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/CoreServices.framework/Frameworks";
-				SYSTEM_HEADER_SEARCH_PATHS = "$(inherited) $(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders $(SDKROOT)/usr/local/include/ppp";
+				SYSTEM_FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/CoreServices.framework/Frameworks",
+				);
+				SYSTEM_HEADER_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders",
+					"$(SDKROOT)/usr/local/include/ppp",
+				);
 				WRAPPER_EXTENSION = framework;
 			};
 			name = Release;
@@ -8154,7 +8321,10 @@
 				);
 				PRODUCT_NAME = IPMonitor;
 				STRIP_INSTALLED_PRODUCT = NO;
-				SYSTEM_HEADER_SEARCH_PATHS = "$(inherited) $(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders";
+				SYSTEM_HEADER_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders",
+				);
 			};
 			name = Debug;
 		};
@@ -8171,7 +8341,10 @@
 				);
 				PRODUCT_NAME = IPMonitor;
 				STRIP_INSTALLED_PRODUCT = NO;
-				SYSTEM_HEADER_SEARCH_PATHS = "$(inherited) $(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders";
+				SYSTEM_HEADER_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders",
+				);
 			};
 			name = Release;
 		};
@@ -8277,7 +8450,10 @@
 				);
 				PRODUCT_NAME = KernelEventMonitor;
 				STRIP_INSTALLED_PRODUCT = NO;
-				SYSTEM_HEADER_SEARCH_PATHS = "$(inherited) $(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders";
+				SYSTEM_HEADER_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders",
+				);
 			};
 			name = Debug;
 		};
@@ -8293,7 +8469,10 @@
 				);
 				PRODUCT_NAME = KernelEventMonitor;
 				STRIP_INSTALLED_PRODUCT = NO;
-				SYSTEM_HEADER_SEARCH_PATHS = "$(inherited) $(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders";
+				SYSTEM_HEADER_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders",
+				);
 			};
 			name = Release;
 		};
@@ -8305,7 +8484,10 @@
 				LIBRARY_STYLE = STATIC;
 				PRODUCT_NAME = LinkConfiguration;
 				STRIP_INSTALLED_PRODUCT = NO;
-				SYSTEM_HEADER_SEARCH_PATHS = "$(inherited) $(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders";
+				SYSTEM_HEADER_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders",
+				);
 			};
 			name = Debug;
 		};
@@ -8317,7 +8499,10 @@
 				LIBRARY_STYLE = STATIC;
 				PRODUCT_NAME = LinkConfiguration;
 				STRIP_INSTALLED_PRODUCT = NO;
-				SYSTEM_HEADER_SEARCH_PATHS = "$(inherited) $(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders";
+				SYSTEM_HEADER_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders",
+				);
 			};
 			name = Release;
 		};
@@ -8436,8 +8621,14 @@
 					"-lQoSMarking$(EXECUTABLE_VARIANT_SUFFIX)",
 				);
 				PRODUCT_NAME = configd;
-				SYSTEM_FRAMEWORK_SEARCH_PATHS = "$(inherited) $(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
-				SYSTEM_HEADER_SEARCH_PATHS = "$(inherited) $(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders";
+				SYSTEM_FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
+				);
+				SYSTEM_HEADER_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders",
+				);
 			};
 			name = Debug;
 		};
@@ -8467,8 +8658,14 @@
 					"-lQoSMarking$(EXECUTABLE_VARIANT_SUFFIX)",
 				);
 				PRODUCT_NAME = configd;
-				SYSTEM_FRAMEWORK_SEARCH_PATHS = "$(inherited) $(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
-				SYSTEM_HEADER_SEARCH_PATHS = "$(inherited) $(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders";
+				SYSTEM_FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
+				);
+				SYSTEM_HEADER_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders",
+				);
 			};
 			name = Release;
 		};
@@ -8662,6 +8859,7 @@
 					"-Wno-pre-c11-compat",
 					"-Wno-c23-extensions",
 					"-Wno-unknown-warning-option",
+					"-Wno-missing-include-dirs",
 				);
 			};
 			name = Debug;
@@ -8739,7 +8937,8 @@
 				SDKROOT = macosx.internal;
 				SUPPORTED_PLATFORMS = macosx;
 				SUPPORTS_TEXT_BASED_API = YES;
-				SWIFT_OPTIMIZATION_LEVEL = "-Owholemodule";
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
 				SWIFT_VERSION = 5.0;
 				TAPI_VERIFY_MODE = Pedantic;
 				USE_HEADERMAP = YES;
@@ -8771,6 +8970,7 @@
 					"-Wno-pre-c11-compat",
 					"-Wno-c23-extensions",
 					"-Wno-unknown-warning-option",
+					"-Wno-missing-include-dirs",
 				);
 			};
 			name = Release;
@@ -8838,7 +9038,11 @@
 				PRODUCT_NAME = SystemConfiguration;
 				SDKROOT = iphoneos.internal;
 				SUPPORTED_PLATFORMS = "iphoneos tvos watchos bridgeos";
-				SYSTEM_HEADER_SEARCH_PATHS = "$(inherited) $(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders $(SDKROOT)/usr/local/include/ppp";
+				SYSTEM_HEADER_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders",
+					"$(SDKROOT)/usr/local/include/ppp",
+				);
 				"USING_PRIVATE_SYSTEMCONFIGURATION_FRAMEWORK[sdk=appletvos*]" = NO;
 				"USING_PRIVATE_SYSTEMCONFIGURATION_FRAMEWORK[sdk=bridgeos*]" = NO;
 				"USING_PRIVATE_SYSTEMCONFIGURATION_FRAMEWORK[sdk=iphoneos*]" = NO;
@@ -8872,7 +9076,11 @@
 				PRODUCT_NAME = SystemConfiguration;
 				SDKROOT = iphoneos.internal;
 				SUPPORTED_PLATFORMS = "iphoneos tvos watchos bridgeos";
-				SYSTEM_HEADER_SEARCH_PATHS = "$(inherited) $(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders $(SDKROOT)/usr/local/include/ppp";
+				SYSTEM_HEADER_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders",
+					"$(SDKROOT)/usr/local/include/ppp",
+				);
 				"USING_PRIVATE_SYSTEMCONFIGURATION_FRAMEWORK[sdk=appletvos*]" = NO;
 				"USING_PRIVATE_SYSTEMCONFIGURATION_FRAMEWORK[sdk=bridgeos*]" = NO;
 				"USING_PRIVATE_SYSTEMCONFIGURATION_FRAMEWORK[sdk=iphoneos*]" = NO;
@@ -8915,8 +9123,14 @@
 				PRODUCT_NAME = configd_sim;
 				SDKROOT = iphoneos.internal;
 				SUPPORTED_PLATFORMS = "iphonesimulator tvossimulator watchsimulator";
-				SYSTEM_FRAMEWORK_SEARCH_PATHS = "$(inherited) $(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
-				SYSTEM_HEADER_SEARCH_PATHS = "$(inherited) $(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders";
+				SYSTEM_FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
+				);
+				SYSTEM_HEADER_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders",
+				);
 			};
 			name = Debug;
 		};
@@ -8954,8 +9168,14 @@
 				PRODUCT_NAME = configd_sim;
 				SDKROOT = iphoneos.internal;
 				SUPPORTED_PLATFORMS = "iphonesimulator tvossimulator watchsimulator";
-				SYSTEM_FRAMEWORK_SEARCH_PATHS = "$(inherited) $(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
-				SYSTEM_HEADER_SEARCH_PATHS = "$(inherited) $(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders";
+				SYSTEM_FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
+				);
+				SYSTEM_HEADER_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders",
+				);
 			};
 			name = Release;
 		};
@@ -9105,7 +9325,10 @@
 				PRODUCT_NAME = scutil;
 				SDKROOT = iphoneos.internal;
 				SUPPORTED_PLATFORMS = "iphoneos tvos watchos bridgeos";
-				SYSTEM_FRAMEWORK_SEARCH_PATHS = "$(inherited) $(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
+				SYSTEM_FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"",
+				);
 			};
 			name = Debug;
 		};
@@ -9125,7 +9348,10 @@
 				PRODUCT_NAME = scutil;
 				SDKROOT = iphoneos.internal;
 				SUPPORTED_PLATFORMS = "iphoneos tvos watchos bridgeos";
-				SYSTEM_FRAMEWORK_SEARCH_PATHS = "$(inherited) $(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
+				SYSTEM_FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"",
+				);
 			};
 			name = Release;
 		};
@@ -9157,7 +9383,10 @@
 				SDKROOT = iphoneos.internal;
 				STRIP_INSTALLED_PRODUCT_normal = YES;
 				SUPPORTED_PLATFORMS = "iphoneos tvos watchos bridgeos";
-				SYSTEM_HEADER_SEARCH_PATHS = "$(inherited) $(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders";
+				SYSTEM_HEADER_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders",
+				);
 			};
 			name = Debug;
 		};
@@ -9188,7 +9417,10 @@
 				SDKROOT = iphoneos.internal;
 				STRIP_INSTALLED_PRODUCT_normal = YES;
 				SUPPORTED_PLATFORMS = "iphoneos tvos watchos bridgeos";
-				SYSTEM_HEADER_SEARCH_PATHS = "$(inherited) $(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders";
+				SYSTEM_HEADER_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders",
+				);
 			};
 			name = Release;
 		};
@@ -9207,7 +9439,10 @@
 				SDKROOT = iphoneos.internal;
 				STRIP_INSTALLED_PRODUCT = NO;
 				SUPPORTED_PLATFORMS = "iphoneos tvos watchos bridgeos";
-				SYSTEM_HEADER_SEARCH_PATHS = "$(inherited) $(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders";
+				SYSTEM_HEADER_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders",
+				);
 			};
 			name = Debug;
 		};
@@ -9226,7 +9461,10 @@
 				SDKROOT = iphoneos.internal;
 				STRIP_INSTALLED_PRODUCT = NO;
 				SUPPORTED_PLATFORMS = "iphoneos tvos watchos bridgeos";
-				SYSTEM_HEADER_SEARCH_PATHS = "$(inherited) $(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders";
+				SYSTEM_HEADER_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders",
+				);
 			};
 			name = Release;
 		};
@@ -9278,7 +9516,10 @@
 				SDKROOT = iphoneos.internal;
 				STRIP_INSTALLED_PRODUCT = NO;
 				SUPPORTED_PLATFORMS = "iphoneos tvos watchos bridgeos";
-				SYSTEM_HEADER_SEARCH_PATHS = "$(inherited) $(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders";
+				SYSTEM_HEADER_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders",
+				);
 			};
 			name = Debug;
 		};
@@ -9296,7 +9537,10 @@
 				SDKROOT = iphoneos.internal;
 				STRIP_INSTALLED_PRODUCT = NO;
 				SUPPORTED_PLATFORMS = "iphoneos tvos watchos bridgeos";
-				SYSTEM_HEADER_SEARCH_PATHS = "$(inherited) $(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders";
+				SYSTEM_HEADER_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders",
+				);
 			};
 			name = Release;
 		};
@@ -9310,7 +9554,10 @@
 				SDKROOT = iphoneos.internal;
 				STRIP_INSTALLED_PRODUCT = NO;
 				SUPPORTED_PLATFORMS = "iphoneos tvos watchos bridgeos";
-				SYSTEM_HEADER_SEARCH_PATHS = "$(inherited) $(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders";
+				SYSTEM_HEADER_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders",
+				);
 			};
 			name = Debug;
 		};
@@ -9324,7 +9571,10 @@
 				SDKROOT = iphoneos.internal;
 				STRIP_INSTALLED_PRODUCT = NO;
 				SUPPORTED_PLATFORMS = "iphoneos tvos watchos bridgeos";
-				SYSTEM_HEADER_SEARCH_PATHS = "$(inherited) $(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders";
+				SYSTEM_HEADER_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders",
+				);
 			};
 			name = Release;
 		};
@@ -9483,8 +9733,14 @@
 				PRODUCT_NAME = configd;
 				SDKROOT = iphoneos.internal;
 				SUPPORTED_PLATFORMS = "iphoneos tvos watchos bridgeos";
-				SYSTEM_FRAMEWORK_SEARCH_PATHS = "$(inherited) $(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
-				SYSTEM_HEADER_SEARCH_PATHS = "$(inherited) $(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders";
+				SYSTEM_FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
+				);
+				SYSTEM_HEADER_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders",
+				);
 			};
 			name = Debug;
 		};
@@ -9541,8 +9797,14 @@
 				PRODUCT_NAME = configd;
 				SDKROOT = iphoneos.internal;
 				SUPPORTED_PLATFORMS = "iphoneos tvos watchos bridgeos";
-				SYSTEM_FRAMEWORK_SEARCH_PATHS = "$(inherited) $(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
-				SYSTEM_HEADER_SEARCH_PATHS = "$(inherited) $(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders";
+				SYSTEM_FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
+				);
+				SYSTEM_HEADER_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders",
+				);
 			};
 			name = Release;
 		};
@@ -9740,7 +10002,11 @@
 				PRODUCT_NAME = SystemConfiguration;
 				SDKROOT = iphoneos.internal;
 				SUPPORTED_PLATFORMS = "iphonesimulator tvossimulator watchsimulator";
-				SYSTEM_HEADER_SEARCH_PATHS = "$(inherited) $(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders $(SDKROOT)/usr/local/include/ppp";
+				SYSTEM_HEADER_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders",
+					"$(SDKROOT)/usr/local/include/ppp",
+				);
 				"USING_PRIVATE_SYSTEMCONFIGURATION_FRAMEWORK[sdk=appletvsimulator*]" = NO;
 				"USING_PRIVATE_SYSTEMCONFIGURATION_FRAMEWORK[sdk=iphonesimulator*]" = NO;
 				"USING_PRIVATE_SYSTEMCONFIGURATION_FRAMEWORK[sdk=watchsimulator*]" = YES;
@@ -9778,7 +10044,11 @@
 				PRODUCT_NAME = SystemConfiguration;
 				SDKROOT = iphoneos.internal;
 				SUPPORTED_PLATFORMS = "iphonesimulator tvossimulator watchsimulator";
-				SYSTEM_HEADER_SEARCH_PATHS = "$(inherited) $(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders $(SDKROOT)/usr/local/include/ppp";
+				SYSTEM_HEADER_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders",
+					"$(SDKROOT)/usr/local/include/ppp",
+				);
 				"USING_PRIVATE_SYSTEMCONFIGURATION_FRAMEWORK[sdk=appletvsimulator*]" = NO;
 				"USING_PRIVATE_SYSTEMCONFIGURATION_FRAMEWORK[sdk=iphonesimulator*]" = NO;
 				"USING_PRIVATE_SYSTEMCONFIGURATION_FRAMEWORK[sdk=watchsimulator*]" = YES;
@@ -9831,7 +10101,10 @@
 				SDKROOT = iphoneos.internal;
 				STRIP_INSTALLED_PRODUCT = NO;
 				SUPPORTED_PLATFORMS = "iphonesimulator tvossimulator watchsimulator";
-				SYSTEM_HEADER_SEARCH_PATHS = "$(inherited) $(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders";
+				SYSTEM_HEADER_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders",
+				);
 			};
 			name = Debug;
 		};
@@ -9850,7 +10123,10 @@
 				SDKROOT = iphoneos.internal;
 				STRIP_INSTALLED_PRODUCT = NO;
 				SUPPORTED_PLATFORMS = "iphonesimulator tvossimulator watchsimulator";
-				SYSTEM_HEADER_SEARCH_PATHS = "$(inherited) $(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders";
+				SYSTEM_HEADER_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders",
+				);
 			};
 			name = Release;
 		};
@@ -9895,7 +10171,10 @@
 				SDKROOT = iphoneos.internal;
 				STRIP_INSTALLED_PRODUCT = NO;
 				SUPPORTED_PLATFORMS = "iphonesimulator tvossimulator watchsimulator";
-				SYSTEM_HEADER_SEARCH_PATHS = "$(inherited) $(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders";
+				SYSTEM_HEADER_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders",
+				);
 			};
 			name = Debug;
 		};
@@ -9916,7 +10195,10 @@
 				SDKROOT = iphoneos.internal;
 				STRIP_INSTALLED_PRODUCT = NO;
 				SUPPORTED_PLATFORMS = "iphonesimulator tvossimulator watchsimulator";
-				SYSTEM_HEADER_SEARCH_PATHS = "$(inherited) $(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders";
+				SYSTEM_HEADER_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders",
+				);
 			};
 			name = Release;
 		};
@@ -10171,7 +10453,10 @@
 				INSTALL_PATH = /usr/local/bin;
 				PLIST_FILE_OUTPUT_FORMAT = "same-as-input";
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SYSTEM_HEADER_SEARCH_PATHS = "$(inherited) $(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders";
+				SYSTEM_HEADER_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders",
+				);
 			};
 			name = Debug;
 		};
@@ -10184,7 +10469,10 @@
 				INSTALL_PATH = /usr/local/bin;
 				PLIST_FILE_OUTPUT_FORMAT = "same-as-input";
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SYSTEM_HEADER_SEARCH_PATHS = "$(inherited) $(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders";
+				SYSTEM_HEADER_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders",
+				);
 			};
 			name = Release;
 		};
@@ -10199,7 +10487,10 @@
 				PRODUCT_NAME = sctest;
 				SDKROOT = iphoneos.internal;
 				SUPPORTED_PLATFORMS = "iphoneos tvos watchos bridgeos";
-				SYSTEM_HEADER_SEARCH_PATHS = "$(inherited) $(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders";
+				SYSTEM_HEADER_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders",
+				);
 			};
 			name = Debug;
 		};
@@ -10214,7 +10505,10 @@
 				PRODUCT_NAME = sctest;
 				SDKROOT = iphoneos.internal;
 				SUPPORTED_PLATFORMS = "iphoneos tvos watchos bridgeos";
-				SYSTEM_HEADER_SEARCH_PATHS = "$(inherited) $(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders";
+				SYSTEM_HEADER_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders",
+				);
 			};
 			name = Release;
 		};
@@ -10266,6 +10560,145 @@
 			};
 			name = Release;
 		};
+		8A4FBFF82CEF200800EE71AD /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CODE_SIGN_STYLE = Automatic;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				IPHONEOS_DEPLOYMENT_TARGET = 19.0;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos.internal;
+				STRIP_INSTALLED_PRODUCT = NO;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		8A4FBFF92CEF200800EE71AD /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				IPHONEOS_DEPLOYMENT_TARGET = 19.0;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos.internal;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		8A4FC0082CEF208400EE71AD /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CODE_SIGN_STYLE = Automatic;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				INSTALL_PATH = /System/Library/Frameworks/SystemConfiguration.framework;
+				"INSTALL_PATH[sdk=macosx*]" = /System/Library/Frameworks/SystemConfiguration.framework/Versions/A/Resources;
+				"INSTALL_PATH[sdk=watchos*]" = /System/Library/PrivateFrameworks/SystemConfiguration.framework;
+				IPHONEOS_DEPLOYMENT_TARGET = 19.0;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos.internal;
+				STRIP_INSTALLED_PRODUCT = NO;
+				SUPPORTED_PLATFORMS = "iphonesimulator iphoneos";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		8A4FC0092CEF208400EE71AD /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				INSTALL_PATH = /System/Library/Frameworks/SystemConfiguration.framework;
+				"INSTALL_PATH[sdk=macosx*]" = /System/Library/Frameworks/SystemConfiguration.framework/Versions/A/Resources;
+				"INSTALL_PATH[sdk=watchos*]" = /System/Library/PrivateFrameworks/SystemConfiguration.framework;
+				IPHONEOS_DEPLOYMENT_TARGET = 19.0;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos.internal;
+				SUPPORTED_PLATFORMS = "iphonesimulator iphoneos";
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
 		8AE1A27128B8405C00D54F88 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -10304,7 +10737,10 @@
 				PRODUCT_BUNDLE_IDENTIFIER = "com.apple.$(TARGET_NAME)";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx.internal;
-				SYSTEM_FRAMEWORK_SEARCH_PATHS = "$(inherited) $(SDKROOT)$(APPLE_INTERNAL_LIBRARY_DIR)/Frameworks";
+				SYSTEM_FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)$(APPLE_INTERNAL_LIBRARY_DIR)/Frameworks",
+				);
 			};
 			name = Debug;
 		};
@@ -10332,7 +10768,10 @@
 				PRODUCT_BUNDLE_IDENTIFIER = "com.apple.$(TARGET_NAME)";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx.internal;
-				SYSTEM_FRAMEWORK_SEARCH_PATHS = "$(inherited) $(SDKROOT)$(APPLE_INTERNAL_LIBRARY_DIR)/Frameworks";
+				SYSTEM_FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)$(APPLE_INTERNAL_LIBRARY_DIR)/Frameworks",
+				);
 			};
 			name = Release;
 		};
@@ -11089,6 +11528,24 @@
 			buildConfigurations = (
 				72D3E66E1AE6EAF600DB4C69 /* Debug */,
 				72D3E66F1AE6EAF600DB4C69 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		8A4FBFFA2CEF200800EE71AD /* Build configuration list for PBXNativeTarget "deprecated-get-network-info" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				8A4FBFF82CEF200800EE71AD /* Debug */,
+				8A4FBFF92CEF200800EE71AD /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		8A4FC0072CEF208400EE71AD /* Build configuration list for PBXNativeTarget "get-network-info" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				8A4FC0082CEF208400EE71AD /* Debug */,
+				8A4FC0092CEF208400EE71AD /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

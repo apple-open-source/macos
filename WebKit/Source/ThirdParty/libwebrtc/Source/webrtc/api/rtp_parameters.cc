@@ -76,6 +76,15 @@ RtpHeaderExtensionCapability::RtpHeaderExtensionCapability(
     int preferred_id,
     RtpTransceiverDirection direction)
     : uri(uri), preferred_id(preferred_id), direction(direction) {}
+RtpHeaderExtensionCapability::RtpHeaderExtensionCapability(
+    absl::string_view uri,
+    int preferred_id,
+    bool preferred_encrypt,
+    RtpTransceiverDirection direction)
+    : uri(uri),
+      preferred_id(preferred_id),
+      preferred_encrypt(preferred_encrypt),
+      direction(direction) {}
 RtpHeaderExtensionCapability::~RtpHeaderExtensionCapability() = default;
 
 RtpExtension::RtpExtension() = default;
@@ -149,6 +158,7 @@ constexpr char RtpExtension::kRidUri[];
 constexpr char RtpExtension::kRepairedRidUri[];
 constexpr char RtpExtension::kVideoFrameTrackingIdUri[];
 constexpr char RtpExtension::kCsrcAudioLevelsUri[];
+constexpr char RtpExtension::kCorruptionDetectionUri[];
 
 constexpr int RtpExtension::kMinId;
 constexpr int RtpExtension::kMaxId;
@@ -184,7 +194,8 @@ bool RtpExtension::IsSupportedForVideo(absl::string_view uri) {
          uri == webrtc::RtpExtension::kRidUri ||
          uri == webrtc::RtpExtension::kRepairedRidUri ||
          uri == webrtc::RtpExtension::kVideoLayersAllocationUri ||
-         uri == webrtc::RtpExtension::kVideoFrameTrackingIdUri;
+         uri == webrtc::RtpExtension::kVideoFrameTrackingIdUri ||
+         uri == webrtc::RtpExtension::kCorruptionDetectionUri;
 }
 
 bool RtpExtension::IsEncryptionSupported(absl::string_view uri) {

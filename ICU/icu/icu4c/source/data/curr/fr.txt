@@ -1031,6 +1031,10 @@ fr{
             "XCD",
             "dollar des Caraïbes orientales",
         }
+        XCG{
+            "Cg.",
+            "florin caribéen",
+        }
         XDR{
             "XDR",
             "droit de tirage spécial",
@@ -2172,6 +2176,10 @@ fr{
             one{"dollar des Caraïbes orientales"}
             other{"dollars des Caraïbes orientales"}
         }
+        XCG{
+            one{"florin caribéen"}
+            other{"florins caribéens"}
+        }
         XDR{
             one{"droit de tirage spécial"}
             other{"droits de tirage spéciaux"}
@@ -2268,9 +2276,5 @@ fr{
             one{"dollar zimbabwéen (2008)"}
             other{"dollars zimbabwéens (2008)"}
         }
-    }
-    CurrencyUnitPatterns{
-        one{"{0} {1}"}
-        other{"{0} {1}"}
     }
 }

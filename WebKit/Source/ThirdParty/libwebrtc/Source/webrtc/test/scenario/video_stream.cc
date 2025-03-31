@@ -263,7 +263,7 @@ std::unique_ptr<FrameGeneratorInterface> CreateFrameGenerator(
     case Capture::kGenerator:
       return CreateSquareFrameGenerator(
           source.generator.width, source.generator.height,
-          source.generator.pixel_format, /*num_squares*/ absl::nullopt);
+          source.generator.pixel_format, /*num_squares*/ std::nullopt);
     case Capture::kVideoFile:
       RTC_CHECK(source.video_file.width && source.video_file.height);
       return CreateFromYuvFileFrameGenerator(
@@ -455,7 +455,7 @@ void SendVideoStream::UpdateConfig(
 }
 
 void SendVideoStream::UpdateActiveLayers(std::vector<bool> active_layers) {
-  sender_->task_queue_.PostTask([=] {
+  sender_->task_queue_.PostTask([this, active_layers] {
     MutexLock lock(&mutex_);
     VideoEncoderConfig encoder_config = CreateVideoEncoderConfig(config_);
     RTC_CHECK_EQ(encoder_config.simulcast_layers.size(), active_layers.size());

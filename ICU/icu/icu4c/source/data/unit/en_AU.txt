@@ -22,20 +22,12 @@ en_AU{
             kilometer{
                 dnam{"kilometre"}
             }
-            micrometer{
-                dnam{"micrometres"}
-            }
         }
         pressure{
             pound-force-per-square-inch{
                 dnam{"pounds per square inch"}
                 one{"{0} pound per square inch"}
                 other{"{0} pounds per square inch"}
-            }
-        }
-        temperature{
-            generic{
-                dnam{"degrees"}
             }
         }
         volume{
@@ -78,21 +70,9 @@ en_AU{
         }
         duration{
             century{
-                dnam{"C."}
-                one{"{0}C."}
-                other{"{0}C."}
-            }
-            microsecond{
-                dnam{"μsec."}
-            }
-            millisecond{
-                dnam{"msec."}
-            }
-            second{
-                dnam{"sec."}
-                one{"{0}s."}
-                other{"{0}s."}
-                per{"{0} ps."}
+                dnam{"C"}
+                one{"{0}C"}
+                other{"{0}C"}
             }
         }
         speed{
@@ -104,12 +84,6 @@ en_AU{
                 dnam{"m.p.h."}
                 one{"{0} m.p.h."}
                 other{"{0} m.p.h."}
-            }
-        }
-        temperature{
-            celsius{
-                one{"{0}°C"}
-                other{"{0}°C"}
             }
         }
         volume{
@@ -230,18 +204,12 @@ en_AU{
         }
         duration{
             century{
-                dnam{"C."}
-                one{"{0} C."}
-                other{"{0} C."}
+                dnam{"C"}
+                one{"{0} C"}
+                other{"{0} C"}
             }
             hour{
                 per{"{0} phr"}
-            }
-            microsecond{
-                dnam{"μsec."}
-            }
-            millisecond{
-                dnam{"millisec."}
             }
             minute{
                 one{"{0} min"}
@@ -250,9 +218,6 @@ en_AU{
             month{
                 one{"{0} m."}
                 other{"{0} m."}
-            }
-            nanosecond{
-                dnam{"nanosec."}
             }
             second{
                 dnam{"sec."}

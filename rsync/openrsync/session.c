@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2019 Kristaps Dzonsons <kristaps@bsd.lv>
+ * Copyright (c) 2024, Klara, Inc.
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -16,6 +17,7 @@
 #include "config.h"
 
 #include <assert.h>
+#include <inttypes.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -59,7 +61,7 @@ stats_log(struct sess *sess,
 		char rbuf[32], wbuf[32], sbuf[32], ratebuf[32];
 		int64_t rate;
 
-		rate = (tread + twrite) / (sess->flist_xfer + 0.5);
+		rate = (tread + twrite) / ((sess->xfer_time + 0.1) / 1000);
 
 		rsync_humanize(sess, rbuf, sizeof(rbuf), tread);
 		rsync_humanize(sess, wbuf, sizeof(wbuf), twrite);
@@ -88,8 +90,8 @@ stats_output(struct sess *sess)
 {
 	char *tbuf[32];
 
-	LOG0("Number of files: %llu", sess->total_files);
-	LOG0("Number of files transferred: %llu", sess->total_files_xfer);
+	LOG0("Number of files: %" PRIu64, sess->total_files);
+	LOG0("Number of files transferred: %" PRIu64, sess->total_files_xfer);
 	rsync_humanize(sess, (char*)&tbuf, sizeof(tbuf), sess->total_size);
 	LOG0("Total file size: %s", (char*)&tbuf);
 	rsync_humanize(sess, (char*)&tbuf, sizeof(tbuf), sess->total_xfer_size);
@@ -220,4 +222,30 @@ sess_stats_recv(struct sess *sess, int fd)
 		stats_output(sess);
 
 	return 1;
+}
+
+/*
+ * sess_cleanup() should be called before discarding a session
+ * object to ensure all accumlated resources are released.
+ */
+void
+sess_cleanup(struct sess *sess)
+{
+	free(sess->token_dbuf);
+	sess->token_dbuf = NULL;
+
+	free(sess->token_cbuf);
+	sess->token_cbuf = NULL;
+
+	free(sess->token_buf);
+	sess->token_buf = NULL;
+
+	free(sess->fuzzy_root);
+	sess->fuzzy_root = NULL;
+
+	if (sess->fuzzy_dirp != NULL) {
+		closedir(sess->fuzzy_dirp);
+		sess->fuzzy_rootfd = -1;
+		sess->fuzzy_dirp = NULL;
+	}
 }

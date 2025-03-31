@@ -42,8 +42,6 @@
 #include "WebPageProxy.h"
 #include "WebProcessPool.h"
 #include <Commctrl.h>
-#include <WebCore/BitmapInfo.h>
-#include <WebCore/CairoUtilities.h>
 #include <WebCore/Cursor.h>
 #include <WebCore/Editor.h>
 #include <WebCore/FloatRect.h>
@@ -64,8 +62,14 @@
 #endif
 
 #if USE(CAIRO)
+#include <WebCore/CairoUtilities.h>
 #include <cairo-win32.h>
 #include <cairo.h>
+#endif
+
+#if USE(SKIA)
+#include <WebCore/BitmapInfo.h>
+#include <skia/core/SkCanvas.h>
 #endif
 
 #if USE(GRAPHICS_LAYER_WC)
@@ -112,7 +116,7 @@ LRESULT WebView::wndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         break;
     case WM_DESTROY:
         m_isBeingDestroyed = true;
-        close();
+        closeInternal();
         break;
     case WM_ERASEBKGND:
         lResult = 1;
@@ -233,13 +237,13 @@ WebView::WebView(RECT rect, const API::PageConfiguration& configuration, HWND pa
     // status into account. <http://webkit.org/b/54104>
     ASSERT(m_isVisible == static_cast<bool>(::GetWindowLong(m_window, GWL_STYLE) & WS_VISIBLE));
 
-    auto pageConfiguration = configuration.copy();
+    Ref pageConfiguration = configuration.copy();
     pageConfiguration->preferences().setAllowTestOnlyIPC(pageConfiguration->allowTestOnlyIPC());
     WebProcessPool& processPool = pageConfiguration->processPool();
     m_page = processPool.createWebPage(*m_pageClient, WTFMove(pageConfiguration));
 
-    auto& openerInfo = m_page->configuration().openerInfo();
-    m_page->initializeWebPage(openerInfo ? openerInfo->site : Site(aboutBlankURL()));
+    auto& configurationFromPage = m_page->configuration();
+    m_page->initializeWebPage(configurationFromPage.openedSite(), configurationFromPage.initialSandboxFlags());
 
     m_page->setIntrinsicDeviceScaleFactor(deviceScaleFactorForWindow(m_window));
 
@@ -335,7 +339,7 @@ void WebView::windowAncestryDidChange()
 
 LRESULT WebView::onMouseEvent(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam, bool& handled)
 {
-    NativeWebMouseEvent mouseEvent = NativeWebMouseEvent(hWnd, message, wParam, lParam, m_wasActivatedByMouseEvent, m_page->deviceScaleFactor());
+    NativeWebMouseEvent mouseEvent = NativeWebMouseEvent(hWnd, message, wParam, lParam, m_wasActivatedByMouseEvent, m_page->intrinsicDeviceScaleFactor());
     setWasActivatedByMouseEvent(false);
 
     switch (message) {
@@ -372,7 +376,7 @@ LRESULT WebView::onMouseEvent(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPa
 
 LRESULT WebView::onWheelEvent(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam, bool& handled)
 {
-    NativeWebWheelEvent wheelEvent(hWnd, message, wParam, lParam, m_page->deviceScaleFactor());
+    NativeWebWheelEvent wheelEvent(hWnd, message, wParam, lParam, m_page->intrinsicDeviceScaleFactor());
     if (wheelEvent.controlKey()) {
         // We do not want WebKit to handle Control + Wheel, this should be handled by the client application
         // to zoom the page.
@@ -476,7 +480,7 @@ static void drawPageBackground(HDC dc, const WebPageProxy* page, const IntRect& 
         return;
 
     auto scaledRect = rect;
-    scaledRect.scale(page->deviceScaleFactor());
+    scaledRect.scale(page->intrinsicDeviceScaleFactor());
     RECT viewRect = scaledRect;
     ::FillRect(dc, &viewRect, reinterpret_cast<HBRUSH>(COLOR_WINDOW + 1));
 }
@@ -490,16 +494,32 @@ void WebView::paint(HDC hdc, const IntRect& dirtyRect)
         auto painter = [&](auto drawingArea) {
             // FIXME: We should port WebKit1's rect coalescing logic here.
             Region unpaintedRegion;
+            auto intrinsicDeviceScaleFactor = m_page->intrinsicDeviceScaleFactor();
 #if USE(CAIRO)
             cairo_surface_t* surface = cairo_win32_surface_create(hdc);
-            auto deviceScaleFactor = m_page->deviceScaleFactor();
-            cairo_surface_set_device_scale(surface, deviceScaleFactor, deviceScaleFactor);
+            cairo_surface_set_device_scale(surface, intrinsicDeviceScaleFactor, intrinsicDeviceScaleFactor);
             cairo_t* context = cairo_create(surface);
 
             drawingArea->paint(context, dirtyRect, unpaintedRegion);
     
             cairo_destroy(context);
             cairo_surface_destroy(surface);
+#elif USE(SKIA)
+            WebCore::IntRect scaledRect = dirtyRect;
+            scaledRect.scale(intrinsicDeviceScaleFactor);
+            auto info = SkImageInfo::MakeN32Premul(scaledRect.width(), scaledRect.height(), SkColorSpace::MakeSRGB());
+            auto surface = SkSurfaces::Raster(info);
+            auto canvas = surface->getCanvas();
+            canvas->scale(intrinsicDeviceScaleFactor, intrinsicDeviceScaleFactor);
+            canvas->translate(-dirtyRect.x(), -dirtyRect.y());
+
+            drawingArea->paint(canvas, dirtyRect, unpaintedRegion);
+
+            SkPixmap pixmap;
+            if (surface->peekPixels(&pixmap)) {
+                auto bitmapInfo = WebCore::BitmapInfo::createBottomUp({ pixmap.width(), pixmap.height() });
+                SetDIBitsToDevice(hdc, scaledRect.x(), scaledRect.y(), pixmap.width(), pixmap.height(), 0, 0, 0, pixmap.height(), pixmap.addr(), &bitmapInfo, DIB_RGB_COLORS);
+            }
 #endif
     
             auto unpaintedRects = unpaintedRegion.rects();
@@ -530,7 +550,7 @@ LRESULT WebView::onPaintEvent(HWND hWnd, UINT message, WPARAM, LPARAM, bool& han
     PAINTSTRUCT paintStruct;
     HDC hdc = ::BeginPaint(m_window, &paintStruct);
     FloatRect dirtyRect(paintStruct.rcPaint);
-    dirtyRect.scale(1 / m_page->deviceScaleFactor());
+    dirtyRect.scale(1 / m_page->intrinsicDeviceScaleFactor());
     paint(hdc, enclosingIntRect(dirtyRect));
 
     ::EndPaint(m_window, &paintStruct);
@@ -553,11 +573,10 @@ LRESULT WebView::onPrintClientEvent(HWND hWnd, UINT, WPARAM wParam, LPARAM, bool
 
 LRESULT WebView::onSizeEvent(HWND hwnd, UINT, WPARAM, LPARAM lParam, bool& handled)
 {
+    float intrinsicDeviceScaleFactor = deviceScaleFactorForWindow(hwnd);
     if (m_page)
-        m_page->setIntrinsicDeviceScaleFactor(deviceScaleFactorForWindow(hwnd));
-    // If there are no m_page, use intrinsic device scale factor.
-    float deviceScaleFactor = m_page ? m_page->deviceScaleFactor() : deviceScaleFactorForWindow(hwnd);
-    m_viewSize = expandedIntSize(FloatSize(LOWORD(lParam), HIWORD(lParam)) / deviceScaleFactor);
+        m_page->setIntrinsicDeviceScaleFactor(intrinsicDeviceScaleFactor);
+    m_viewSize = expandedIntSize(FloatSize(LOWORD(lParam), HIWORD(lParam)) / intrinsicDeviceScaleFactor);
 
     if (m_page && m_page->drawingArea()) {
         // FIXME specify correctly layerPosition.
@@ -777,15 +796,13 @@ bool WebView::shouldInitializeTrackPointHack()
 
 void WebView::close()
 {
-    if (m_window) {
-        // We can't check IsWindow(m_window) here, because that will return true even while
-        // we're already handling WM_DESTROY. So we check !m_isBeingDestroyed instead.
-        if (!m_isBeingDestroyed)
-            DestroyWindow(m_window);
-        // Either we just destroyed m_window, or it's in the process of being destroyed. Either
-        // way, we clear it out to make sure we don't try to use it later.
-        m_window = 0;
-    }
+    if (m_window && !m_isBeingDestroyed)
+        DestroyWindow(m_window);
+}
+
+void WebView::closeInternal()
+{
+    m_window = 0;
     setParentWindow(0);
     m_page->close();
 }
@@ -864,13 +881,13 @@ void WebView::setScrollOffsetOnNextResize(const IntSize& scrollOffset)
 {
     // The next time we get a WM_SIZE message, scroll by the specified amount in onSizeEvent().
     m_nextResizeScrollOffset = scrollOffset;
-    m_nextResizeScrollOffset.scale(1 / m_page->deviceScaleFactor());
+    m_nextResizeScrollOffset.scale(1 / m_page->intrinsicDeviceScaleFactor());
 }
 
 void WebView::setViewNeedsDisplay(const WebCore::Region& region)
 {
     auto rect = region.bounds();
-    rect.scale(m_page->deviceScaleFactor());
+    rect.scale(m_page->intrinsicDeviceScaleFactor());
     const RECT viewRect(rect);
     ::InvalidateRect(m_window, &viewRect, true);
 }
@@ -917,7 +934,7 @@ void WebView::windowReceivedMessage(HWND, UINT message, WPARAM wParam, LPARAM)
 static Vector<wchar_t> truncatedString(const String& string)
 {
     // Truncate tooltip texts because multiline mode of tooltip control does word-wrapping very slowly
-    auto maxLength = 1024;
+    size_t maxLength = 1024;
     auto buffer = string.wideCharacters();
     if (buffer.size() > maxLength) {
         buffer[maxLength - 4] = L'.';

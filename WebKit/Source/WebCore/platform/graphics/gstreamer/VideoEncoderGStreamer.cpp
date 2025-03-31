@@ -20,7 +20,7 @@
 #include "config.h"
 #include "VideoEncoderGStreamer.h"
 
-#if ENABLE(WEB_CODECS) && USE(GSTREAMER)
+#if ENABLE(VIDEO) && USE(GSTREAMER)
 
 #include "GStreamerCommon.h"
 #include "GStreamerElementHarness.h"
@@ -43,7 +43,11 @@ GST_DEBUG_CATEGORY(webkit_video_encoder_debug);
 
 static WorkQueue& gstEncoderWorkQueue()
 {
-    static NeverDestroyed<Ref<WorkQueue>> queue(WorkQueue::create("GStreamer VideoEncoder Queue"_s));
+    static std::once_flag onceKey;
+    static LazyNeverDestroyed<Ref<WorkQueue>> queue;
+    std::call_once(onceKey, [] {
+        queue.construct(WorkQueue::create("GStreamer VideoEncoder queue"_s));
+    });
     return queue.get();
 }
 
@@ -96,8 +100,8 @@ void GStreamerVideoEncoder::create(const String& codecName, const VideoEncoder::
         return;
     }
 
-    auto encoder = makeUniqueRef<GStreamerVideoEncoder>(config, WTFMove(descriptionCallback), WTFMove(outputCallback));
-    auto internalEncoder = encoder->m_internalEncoder;
+    Ref encoder = adoptRef(*new GStreamerVideoEncoder(config, WTFMove(descriptionCallback), WTFMove(outputCallback)));
+    Ref internalEncoder = encoder->m_internalEncoder;
     auto error = internalEncoder->initialize(codecName);
     if (!error.isEmpty()) {
         GST_WARNING("Error creating encoder: %s", error.ascii().data());
@@ -107,7 +111,7 @@ void GStreamerVideoEncoder::create(const String& codecName, const VideoEncoder::
     gstEncoderWorkQueue().dispatch([callback = WTFMove(callback), encoder = WTFMove(encoder)]() mutable {
         auto internalEncoder = encoder->m_internalEncoder;
         GST_DEBUG("Encoder created");
-        callback(UniqueRef<VideoEncoder> { WTFMove(encoder) });
+        callback(Ref<VideoEncoder> { WTFMove(encoder) });
     });
 }
 
@@ -180,8 +184,10 @@ static std::optional<unsigned> retrieveTemporalIndex(const GRefPtr<GstSample>& s
         GST_TRACE("Looking-up layer id in %" GST_PTR_FORMAT, metaStructure);
         return gstStructureGet<unsigned>(metaStructure, "layer-id"_s);
     }
+#ifndef GST_DISABLE_GST_DEBUG
     auto name = gstStructureGetName(structure);
     GST_TRACE("Retrieval of temporal index from encoded format %s is not yet supported.", reinterpret_cast<const char*>(name.rawCharacters()));
+#endif
 #endif
     return { };
 }
@@ -341,4 +347,4 @@ void GStreamerInternalVideoEncoder::flush()
 
 } // namespace WebCore
 
-#endif // ENABLE(WEB_CODECS) && USE(GSTREAMER)
+#endif // ENABLE(VIDEO) && USE(GSTREAMER)

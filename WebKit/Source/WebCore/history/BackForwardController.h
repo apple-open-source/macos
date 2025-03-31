@@ -25,6 +25,7 @@
 
 #pragma once
 
+#include "BackForwardFrameItemIdentifier.h"
 #include "FrameIdentifier.h"
 #include <wtf/CheckedPtr.h>
 #include <wtf/Forward.h>
@@ -56,21 +57,22 @@ public:
     WEBCORE_EXPORT bool goBack();
     WEBCORE_EXPORT bool goForward();
 
-    void addItem(FrameIdentifier, Ref<HistoryItem>&&);
+    void addItem(Ref<HistoryItem>&&);
+    void setChildItem(BackForwardFrameItemIdentifier, Ref<HistoryItem>&&);
     void setCurrentItem(HistoryItem&);
-        
+
     unsigned count() const;
     WEBCORE_EXPORT unsigned backCount() const;
     WEBCORE_EXPORT unsigned forwardCount() const;
 
-    WEBCORE_EXPORT RefPtr<HistoryItem> itemAtIndex(int);
+    WEBCORE_EXPORT RefPtr<HistoryItem> itemAtIndex(int, std::optional<FrameIdentifier> = std::nullopt);
     bool containsItem(const HistoryItem&) const;
 
     void close();
 
-    WEBCORE_EXPORT RefPtr<HistoryItem> backItem();
-    WEBCORE_EXPORT RefPtr<HistoryItem> currentItem();
-    WEBCORE_EXPORT RefPtr<HistoryItem> forwardItem();
+    WEBCORE_EXPORT RefPtr<HistoryItem> backItem(std::optional<FrameIdentifier> = std::nullopt);
+    WEBCORE_EXPORT RefPtr<HistoryItem> currentItem(std::optional<FrameIdentifier> = std::nullopt);
+    WEBCORE_EXPORT RefPtr<HistoryItem> forwardItem(std::optional<FrameIdentifier> = std::nullopt);
 
     Vector<Ref<HistoryItem>> allItems();
 

@@ -33,6 +33,7 @@ T_DECL(pthread_setugid_np_124671138,
     "Make sure pthread_setugid_np() isn't sticky to workqueue threads",
     T_META_CHECK_LEAKS(false),
     T_META_ASROOT(true),
+    T_META_ENABLED(false), /* this test takes 10+minutes on some HW */
     T_META_TAG_VM_PREFERRED)
 {
 	size_t batch = 1024;

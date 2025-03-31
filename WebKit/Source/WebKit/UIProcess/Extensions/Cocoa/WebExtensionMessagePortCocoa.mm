@@ -81,6 +81,11 @@ WebExtensionMessagePort::WebExtensionMessagePort(WebExtensionContext& extensionC
 {
 }
 
+WebExtensionMessagePort::~WebExtensionMessagePort()
+{
+    remove();
+}
+
 bool WebExtensionMessagePort::operator==(const WebExtensionMessagePort& other) const
 {
     return this == &other || (m_extensionContext == other.m_extensionContext && m_applicationIdentifier == other.m_applicationIdentifier && m_channelIdentifier == other.m_channelIdentifier);
@@ -116,26 +121,42 @@ void WebExtensionMessagePort::remove()
     if (isDisconnected())
         return;
 
-    m_extensionContext->removeNativePort(*this);
-    m_extensionContext->firePortDisconnectEventIfNeeded(WebExtensionContentWorldType::Native, WebExtensionContentWorldType::Main, m_channelIdentifier);
+    Ref protectedThis { *this };
+
+    RefPtr extensionContext = m_extensionContext.get();
+    if (!extensionContext)
+        return;
+
+    extensionContext->removeNativePort(*this);
+    extensionContext->firePortDisconnectEventIfNeeded(WebExtensionContentWorldType::Native, WebExtensionContentWorldType::Main, m_channelIdentifier);
     m_extensionContext = nullptr;
 }
 
 void WebExtensionMessagePort::sendMessage(id message, CompletionHandler<void(Error error)>&& completionHandler)
 {
     if (isDisconnected()) {
-        completionHandler({ { ErrorType::NotConnected, std::nullopt } });
+        if (completionHandler)
+            completionHandler({ { ErrorType::NotConnected, std::nullopt } });
         return;
     }
 
     if (message && !isValidJSONObject(message, JSONOptions::FragmentsAllowed)) {
-        completionHandler({ { ErrorType::MessageInvalid, std::nullopt } });
+        if (completionHandler)
+            completionHandler({ { ErrorType::MessageInvalid, std::nullopt } });
         return;
     }
 
-    m_extensionContext->portPostMessage(WebExtensionContentWorldType::Native, WebExtensionContentWorldType::Main, std::nullopt, m_channelIdentifier, encodeJSONString(message, JSONOptions::FragmentsAllowed) );
+    RefPtr extensionContext = m_extensionContext.get();
+    if (!extensionContext) {
+        if (completionHandler)
+            completionHandler({ { ErrorType::NotConnected, std::nullopt } });
+        return;
+    }
 
-    completionHandler(std::nullopt);
+    extensionContext->portPostMessage(WebExtensionContentWorldType::Native, WebExtensionContentWorldType::Main, std::nullopt, m_channelIdentifier, encodeJSONString(message, JSONOptions::FragmentsAllowed) );
+
+    if (completionHandler)
+        completionHandler(std::nullopt);
 }
 
 void WebExtensionMessagePort::receiveMessage(id message, Error error)

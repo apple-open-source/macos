@@ -419,19 +419,10 @@ SADNXN4D  32,  32, 1
 SADNXN4D  32,  16, 1
 SADNXN4D  16,  32, 1
 SADNXN4D  16,  16, 1
-SADNXN4D  16,   8, 1
 SADNXN4D   8,  16, 1
-SADNXN4D   8,   8, 1
-SADNXN4D   4,   8, 1
 %if CONFIG_REALTIME_ONLY==0
 SADNXN4D   4,  16, 1
 SADNXN4D   8,  32, 1
-SADNXN4D  32,   8, 1
 SADNXN4D  16,  64, 1
 SADNXN4D  64,  16, 1
 %endif
-
-; Different assembly is needed when the height gets subsampled to 2
-; SADNXN4D 16,  4, 1
-; SADNXN4D  8,  4, 1
-; SADNXN4D  4,  4, 1

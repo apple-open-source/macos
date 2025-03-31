@@ -19,6 +19,7 @@
 
 #include <algorithm>
 #include <memory>
+#include <optional>
 #include <string>
 #include <tuple>
 #include <utility>
@@ -27,7 +28,6 @@
 #include "absl/algorithm/container.h"
 #include "absl/memory/memory.h"
 #include "absl/strings/string_view.h"
-#include "absl/types/optional.h"
 #include "api/candidate.h"
 #include "api/crypto/crypto_options.h"
 #include "api/dtmf_sender_interface.h"
@@ -84,6 +84,7 @@
 #include "rtc_base/firewall_socket_server.h"
 #include "rtc_base/gunit.h"
 #include "rtc_base/logging.h"
+#include "rtc_base/random.h"
 #include "rtc_base/socket_address.h"
 #include "rtc_base/ssl_certificate.h"
 #include "rtc_base/ssl_fingerprint.h"
@@ -197,6 +198,48 @@ TEST_P(PeerConnectionIntegrationTest,
       absl::c_all_of(callee()->rtp_receiver_observers(),
                      [](const std::unique_ptr<MockRtpReceiverObserver>& o) {
                        return o->first_packet_received();
+                     }));
+}
+
+TEST_P(PeerConnectionIntegrationTest, RtpSenderObserverOnFirstPacketSent) {
+  ASSERT_TRUE(CreatePeerConnectionWrappers());
+  ConnectFakeSignaling();
+  caller()->AddAudioVideoTracks();
+  callee()->AddAudioVideoTracks();
+  // Start offer/answer exchange and wait for it to complete.
+  caller()->CreateAndSetAndSignalOffer();
+  ASSERT_TRUE_WAIT(SignalingStateStable(), kDefaultTimeout);
+  // Should be one sender each for audio/video.
+  EXPECT_EQ(2U, caller()->rtp_sender_observers().size());
+  EXPECT_EQ(2U, callee()->rtp_sender_observers().size());
+  // Wait for all "first packet sent" callbacks to be fired.
+  EXPECT_TRUE_WAIT(
+      absl::c_all_of(caller()->rtp_sender_observers(),
+                     [](const std::unique_ptr<MockRtpSenderObserver>& o) {
+                       return o->first_packet_sent();
+                     }),
+      kMaxWaitForFramesMs);
+  EXPECT_TRUE_WAIT(
+      absl::c_all_of(callee()->rtp_sender_observers(),
+                     [](const std::unique_ptr<MockRtpSenderObserver>& o) {
+                       return o->first_packet_sent();
+                     }),
+      kMaxWaitForFramesMs);
+  // If new observers are set after the first packet was already sent, the
+  // callback should still be invoked.
+  caller()->ResetRtpSenderObservers();
+  callee()->ResetRtpSenderObservers();
+  EXPECT_EQ(2U, caller()->rtp_sender_observers().size());
+  EXPECT_EQ(2U, callee()->rtp_sender_observers().size());
+  EXPECT_TRUE(
+      absl::c_all_of(caller()->rtp_sender_observers(),
+                     [](const std::unique_ptr<MockRtpSenderObserver>& o) {
+                       return o->first_packet_sent();
+                     }));
+  EXPECT_TRUE(
+      absl::c_all_of(callee()->rtp_sender_observers(),
+                     [](const std::unique_ptr<MockRtpSenderObserver>& o) {
+                       return o->first_packet_sent();
                      }));
 }
 
@@ -605,9 +648,10 @@ TEST_P(PeerConnectionIntegrationTest, BundlingEnabledWhileIceRestartOccurs) {
   caller()->AddAudioVideoTracks();
   callee()->AddAudioVideoTracks();
   // Remove the bundle group from the SDP received by the callee.
-  callee()->SetReceivedSdpMunger([](cricket::SessionDescription* desc) {
-    desc->RemoveGroupByName("BUNDLE");
-  });
+  callee()->SetReceivedSdpMunger(
+      [](std::unique_ptr<SessionDescriptionInterface>& sdp) {
+        sdp->description()->RemoveGroupByName("BUNDLE");
+      });
   caller()->CreateAndSetAndSignalOffer();
   ASSERT_TRUE_WAIT(SignalingStateStable(), kDefaultTimeout);
   {
@@ -673,11 +717,12 @@ TEST_P(PeerConnectionIntegrationTest, RotatedVideoWithoutCVOExtension) {
       callee()->CreateLocalVideoTrackWithRotation(kVideoRotation_270));
 
   // Remove the CVO extension from the offered SDP.
-  callee()->SetReceivedSdpMunger([](cricket::SessionDescription* desc) {
-    cricket::VideoContentDescription* video =
-        GetFirstVideoContentDescription(desc);
-    video->ClearRtpHeaderExtensions();
-  });
+  callee()->SetReceivedSdpMunger(
+      [](std::unique_ptr<SessionDescriptionInterface>& sdp) {
+        cricket::VideoContentDescription* video =
+            GetFirstVideoContentDescription(sdp->description());
+        video->ClearRtpHeaderExtensions();
+      });
   // Wait for video frames to be received by both sides.
   caller()->CreateAndSetAndSignalOffer();
   ASSERT_TRUE_WAIT(SignalingStateStable(), kDefaultTimeout);
@@ -845,8 +890,8 @@ TEST_P(PeerConnectionIntegrationTest, VideoRejectedInSubsequentOffer) {
   // Renegotiate, rejecting the video m= section.
   if (sdp_semantics_ == SdpSemantics::kPlanB_DEPRECATED) {
     caller()->SetGeneratedSdpMunger(
-        [](cricket::SessionDescription* description) {
-          for (cricket::ContentInfo& content : description->contents()) {
+        [](std::unique_ptr<SessionDescriptionInterface>& sdp) {
+          for (cricket::ContentInfo& content : sdp->description()->contents()) {
             if (cricket::IsVideoContent(&content)) {
               content.rejected = true;
             }
@@ -1010,10 +1055,11 @@ TEST_F(PeerConnectionIntegrationTestUnifiedPlan,
 }
 
 // Used for the test below.
-void RemoveBundleGroupSsrcsAndMidExtension(cricket::SessionDescription* desc) {
-  RemoveSsrcsAndKeepMsids(desc);
-  desc->RemoveGroupByName("BUNDLE");
-  for (ContentInfo& content : desc->contents()) {
+void RemoveBundleGroupSsrcsAndMidExtension(
+    std::unique_ptr<SessionDescriptionInterface>& sdp) {
+  RemoveSsrcsAndKeepMsids(sdp);
+  sdp->description()->RemoveGroupByName("BUNDLE");
+  for (ContentInfo& content : sdp->description()->contents()) {
     cricket::MediaContentDescription* media = content.media_description();
     cricket::RtpHeaderExtensions extensions = media->rtp_header_extensions();
     extensions.erase(std::remove_if(extensions.begin(), extensions.end(),
@@ -1058,9 +1104,9 @@ TEST_F(PeerConnectionIntegrationTestUnifiedPlan,
 
 // Used for the test below.
 void ModifyPayloadTypesAndRemoveMidExtension(
-    cricket::SessionDescription* desc) {
+    std::unique_ptr<SessionDescriptionInterface>& sdp) {
   int pt = 96;
-  for (ContentInfo& content : desc->contents()) {
+  for (ContentInfo& content : sdp->description()->contents()) {
     cricket::MediaContentDescription* media = content.media_description();
     cricket::RtpHeaderExtensions extensions = media->rtp_header_extensions();
     extensions.erase(std::remove_if(extensions.begin(), extensions.end(),
@@ -1154,9 +1200,10 @@ TEST_P(PeerConnectionIntegrationTest, EndToEndCallWithTwoVideoTracks) {
   ASSERT_TRUE(ExpectNewFrames(media_expectations));
 }
 
-static void MakeSpecCompliantMaxBundleOffer(cricket::SessionDescription* desc) {
+static void MakeSpecCompliantMaxBundleOffer(
+    std::unique_ptr<SessionDescriptionInterface>& sdp) {
   bool first = true;
-  for (cricket::ContentInfo& content : desc->contents()) {
+  for (cricket::ContentInfo& content : sdp->description()->contents()) {
     if (first) {
       first = false;
       continue;
@@ -1164,7 +1211,8 @@ static void MakeSpecCompliantMaxBundleOffer(cricket::SessionDescription* desc) {
     content.bundle_only = true;
   }
   first = true;
-  for (cricket::TransportInfo& transport : desc->transport_infos()) {
+  for (cricket::TransportInfo& transport :
+       sdp->description()->transport_infos()) {
     if (first) {
       first = false;
       continue;
@@ -2347,7 +2395,7 @@ TEST_P(PeerConnectionIntegrationTestWithFakeClock,
   ASSERT_EQ(first_candidate_stats.size(), 0u);
 
   // Add a "fake" candidate.
-  absl::optional<RTCError> result;
+  std::optional<RTCError> result;
   caller()->pc()->AddIceCandidate(
       absl::WrapUnique(CreateIceCandidate(
           "", 0,
@@ -2567,9 +2615,10 @@ TEST_P(PeerConnectionIntegrationTest, CodecNamesAreCaseInsensitive) {
 
   // Remove all but one audio/video codec (opus and VP8), and change the
   // casing of the caller's generated offer.
-  caller()->SetGeneratedSdpMunger([](cricket::SessionDescription* description) {
+  caller()->SetGeneratedSdpMunger([](std::unique_ptr<
+                                      SessionDescriptionInterface>& sdp) {
     cricket::AudioContentDescription* audio =
-        GetFirstAudioContentDescription(description);
+        GetFirstAudioContentDescription(sdp->description());
     ASSERT_NE(nullptr, audio);
     auto audio_codecs = audio->codecs();
     audio_codecs.erase(std::remove_if(audio_codecs.begin(), audio_codecs.end(),
@@ -2582,7 +2631,7 @@ TEST_P(PeerConnectionIntegrationTest, CodecNamesAreCaseInsensitive) {
     audio->set_codecs(audio_codecs);
 
     cricket::VideoContentDescription* video =
-        GetFirstVideoContentDescription(description);
+        GetFirstVideoContentDescription(sdp->description());
     ASSERT_NE(nullptr, video);
     auto video_codecs = video->codecs();
     video_codecs.erase(std::remove_if(video_codecs.begin(), video_codecs.end(),
@@ -2630,9 +2679,10 @@ TEST_P(PeerConnectionIntegrationTest, GetSourcesVideo) {
   caller()->AddVideoTrack();
   caller()->CreateAndSetAndSignalOffer();
   ASSERT_TRUE_WAIT(SignalingStateStable(), kDefaultTimeout);
-  // Wait for one video frame to be received by the callee.
+  // Wait for two video frames to be received by the callee.
+  // TODO: https://issues.webrtc.org/42220900 - wait for only one frame again
   MediaExpectations media_expectations;
-  media_expectations.CalleeExpectsSomeVideo(1);
+  media_expectations.CalleeExpectsSomeVideo(2);
   ASSERT_TRUE(ExpectNewFrames(media_expectations));
   ASSERT_EQ(callee()->pc()->GetReceivers().size(), 1u);
   auto receiver = callee()->pc()->GetReceivers()[0];
@@ -3231,9 +3281,9 @@ TEST_F(PeerConnectionIntegrationTestUnifiedPlan,
   ConnectFakeSignaling();
   caller()->AddVideoTrack();
   callee()->AddVideoTrack();
-  auto munger = [](cricket::SessionDescription* desc) {
+  auto munger = [](std::unique_ptr<SessionDescriptionInterface>& sdp) {
     cricket::VideoContentDescription* video =
-        GetFirstVideoContentDescription(desc);
+        GetFirstVideoContentDescription(sdp->description());
     auto codecs = video->codecs();
     for (auto&& codec : codecs) {
       if (codec.name == "H264") {
@@ -3254,17 +3304,18 @@ TEST_F(PeerConnectionIntegrationTestUnifiedPlan,
   caller()->CreateAndSetAndSignalOffer();
   ASSERT_TRUE_WAIT(SignalingStateStable(), kDefaultTimeout);
   // Observe that after munging the parameter is present in generated SDP.
-  caller()->SetGeneratedSdpMunger([](cricket::SessionDescription* desc) {
-    cricket::VideoContentDescription* video =
-        GetFirstVideoContentDescription(desc);
-    for (auto&& codec : video->codecs()) {
-      if (codec.name == "H264") {
-        std::string value;
-        EXPECT_TRUE(
-            codec.GetParam(cricket::kH264FmtpSpsPpsIdrInKeyframe, &value));
-      }
-    }
-  });
+  caller()->SetGeneratedSdpMunger(
+      [](std::unique_ptr<SessionDescriptionInterface>& sdp) {
+        cricket::VideoContentDescription* video =
+            GetFirstVideoContentDescription(sdp->description());
+        for (auto&& codec : video->codecs()) {
+          if (codec.name == "H264") {
+            std::string value;
+            EXPECT_TRUE(
+                codec.GetParam(cricket::kH264FmtpSpsPpsIdrInKeyframe, &value));
+          }
+        }
+      });
   caller()->CreateOfferAndWait();
 }
 
@@ -3785,24 +3836,25 @@ TEST_F(PeerConnectionIntegrationTestUnifiedPlan,
   auto send_transceiver = audio_transceiver_or_error.MoveValue();
   // Munge the SDP to include NACK and RRTR on Opus, and remove all other
   // codecs.
-  caller()->SetGeneratedSdpMunger([](cricket::SessionDescription* desc) {
-    for (ContentInfo& content : desc->contents()) {
-      cricket::MediaContentDescription* media = content.media_description();
-      std::vector<cricket::Codec> codecs = media->codecs();
-      std::vector<cricket::Codec> codecs_out;
-      for (cricket::Codec codec : codecs) {
-        if (codec.name == "opus") {
-          codec.AddFeedbackParam(cricket::FeedbackParam(
-              cricket::kRtcpFbParamNack, cricket::kParamValueEmpty));
-          codec.AddFeedbackParam(cricket::FeedbackParam(
-              cricket::kRtcpFbParamRrtr, cricket::kParamValueEmpty));
-          codecs_out.push_back(codec);
+  caller()->SetGeneratedSdpMunger(
+      [](std::unique_ptr<SessionDescriptionInterface>& sdp) {
+        for (ContentInfo& content : sdp->description()->contents()) {
+          cricket::MediaContentDescription* media = content.media_description();
+          std::vector<cricket::Codec> codecs = media->codecs();
+          std::vector<cricket::Codec> codecs_out;
+          for (cricket::Codec codec : codecs) {
+            if (codec.name == "opus") {
+              codec.AddFeedbackParam(cricket::FeedbackParam(
+                  cricket::kRtcpFbParamNack, cricket::kParamValueEmpty));
+              codec.AddFeedbackParam(cricket::FeedbackParam(
+                  cricket::kRtcpFbParamRrtr, cricket::kParamValueEmpty));
+              codecs_out.push_back(codec);
+            }
+          }
+          EXPECT_FALSE(codecs_out.empty());
+          media->set_codecs(codecs_out);
         }
-      }
-      EXPECT_FALSE(codecs_out.empty());
-      media->set_codecs(codecs_out);
-    }
-  });
+      });
 
   caller()->CreateAndSetAndSignalOffer();
   // Check for failure in helpers
@@ -3835,22 +3887,23 @@ TEST_F(PeerConnectionIntegrationTestUnifiedPlan, VideoPacketLossCausesNack) {
   auto send_transceiver = video_transceiver_or_error.MoveValue();
   // Munge the SDP to include NACK and RRTR on VP8, and remove all other
   // codecs.
-  caller()->SetGeneratedSdpMunger([](cricket::SessionDescription* desc) {
-    for (ContentInfo& content : desc->contents()) {
-      cricket::MediaContentDescription* media = content.media_description();
-      std::vector<cricket::Codec> codecs = media->codecs();
-      std::vector<cricket::Codec> codecs_out;
-      for (cricket::Codec codec : codecs) {
-        if (codec.name == "VP8") {
-          ASSERT_TRUE(codec.HasFeedbackParam(cricket::FeedbackParam(
-              cricket::kRtcpFbParamNack, cricket::kParamValueEmpty)));
-          codecs_out.push_back(codec);
+  caller()->SetGeneratedSdpMunger(
+      [](std::unique_ptr<SessionDescriptionInterface>& sdp) {
+        for (ContentInfo& content : sdp->description()->contents()) {
+          cricket::MediaContentDescription* media = content.media_description();
+          std::vector<cricket::Codec> codecs = media->codecs();
+          std::vector<cricket::Codec> codecs_out;
+          for (cricket::Codec codec : codecs) {
+            if (codec.name == "VP8") {
+              ASSERT_TRUE(codec.HasFeedbackParam(cricket::FeedbackParam(
+                  cricket::kRtcpFbParamNack, cricket::kParamValueEmpty)));
+              codecs_out.push_back(codec);
+            }
+          }
+          EXPECT_FALSE(codecs_out.empty());
+          media->set_codecs(codecs_out);
         }
-      }
-      EXPECT_FALSE(codecs_out.empty());
-      media->set_codecs(codecs_out);
-    }
-  });
+      });
 
   caller()->CreateAndSetAndSignalOffer();
   // Check for failure in helpers
@@ -3870,6 +3923,333 @@ TEST_F(PeerConnectionIntegrationTestUnifiedPlan, VideoPacketLossCausesNack) {
 
   // Wait until caller has received at least one NACK
   EXPECT_TRUE_WAIT(NacksReceivedCount(*caller()) > 0, kDefaultTimeout);
+}
+
+TEST_F(PeerConnectionIntegrationTestUnifiedPlan, PrAnswerStateTransitions) {
+  RTCConfiguration config;
+  ASSERT_TRUE(CreatePeerConnectionWrappersWithConfig(config, config));
+  ConnectFakeSignaling();
+  caller()->pc()->AddTransceiver(caller()->CreateLocalAudioTrack());
+  caller()->pc()->AddTransceiver(caller()->CreateLocalVideoTrack());
+
+  callee()->SetGeneratedSdpMunger(
+      [](std::unique_ptr<SessionDescriptionInterface>& sdp) {
+        SetSdpType(sdp, SdpType::kPrAnswer);
+      });
+  std::unique_ptr<SessionDescriptionInterface> answer;
+  caller()->SetReceivedSdpMunger(
+      [&](std::unique_ptr<SessionDescriptionInterface>& sdp) {
+        answer = sdp->Clone();
+      });
+  caller()->CreateAndSetAndSignalOffer();
+  ASSERT_FALSE(HasFailure());
+  EXPECT_EQ(caller()->pc()->signaling_state(),
+            PeerConnectionInterface::kHaveRemotePrAnswer);
+  EXPECT_EQ(callee()->pc()->signaling_state(),
+            PeerConnectionInterface::kHaveLocalPrAnswer);
+
+  // // Apply the pranswer as a definitive one.
+  SetSdpType(answer, SdpType::kAnswer);
+  EXPECT_TRUE(caller()->SetRemoteDescription(std::move(answer)));
+  EXPECT_EQ(caller()->pc()->signaling_state(),
+            PeerConnectionInterface::kStable);
+}
+
+// Let caller get a prAnswer followed by answer.
+TEST_F(PeerConnectionIntegrationTestUnifiedPlan,
+       PrAnswerStateTransitionsAsymmetric) {
+  RTCConfiguration config;
+  ASSERT_TRUE(CreatePeerConnectionWrappersWithConfig(config, config));
+  ConnectFakeSignaling();
+  caller()->pc()->AddTransceiver(caller()->CreateLocalAudioTrack());
+  caller()->pc()->AddTransceiver(caller()->CreateLocalVideoTrack());
+
+  std::unique_ptr<SessionDescriptionInterface> answer;
+  caller()->SetReceivedSdpMunger(
+      [&](std::unique_ptr<SessionDescriptionInterface>& sdp) {
+        answer = sdp->Clone();
+        SetSdpType(sdp, SdpType::kPrAnswer);
+      });
+  caller()->CreateAndSetAndSignalOffer();
+  ASSERT_FALSE(HasFailure());
+  EXPECT_EQ(caller()->pc()->signaling_state(),
+            PeerConnectionInterface::kHaveRemotePrAnswer);
+  EXPECT_EQ(callee()->pc()->signaling_state(),
+            PeerConnectionInterface::kStable);
+
+  // // Apply the pranswer as a definitive one.
+  EXPECT_TRUE(caller()->SetRemoteDescription(std::move(answer)));
+  EXPECT_EQ(caller()->pc()->signaling_state(),
+            PeerConnectionInterface::kStable);
+}
+
+int ReassignPayloadIds(std::unique_ptr<SessionDescriptionInterface>& sdp) {
+  int swaps = 0;
+  for (ContentInfo& content : sdp->description()->contents()) {
+    if (!content.media_description()) {
+      continue;
+    }
+    std::vector<cricket::Codec> codecs = content.media_description()->codecs();
+    int left = 0;
+    int right = codecs.size() - 1;
+    while (left < right) {
+      if (!codecs[left].IsMediaCodec()) {
+        left++;
+        continue;
+      }
+      if (!codecs[right].IsMediaCodec()) {
+        right--;
+        continue;
+      }
+      auto tmp = codecs[left].id;
+      codecs[left].id = codecs[right].id;
+      codecs[right].id = tmp;
+      left++;
+      right--;
+      swaps++;
+    }
+    content.media_description()->set_codecs(codecs);
+  }
+  return swaps;
+}
+
+int SetNewSsrcs(std::unique_ptr<SessionDescriptionInterface>& sdp) {
+  int assignments = 0;
+  std::unordered_set<uint32_t> already_used_ssrcs;
+  for (ContentInfo& content : sdp->description()->contents()) {
+    if (!content.media_description()) {
+      continue;
+    }
+    for (const auto& stream : content.media_description()->streams()) {
+      for (const auto& ssrc : stream.ssrcs) {
+        already_used_ssrcs.insert(ssrc);
+      }
+    }
+  }
+
+  Random random(/* random_seed= */ 77);
+  auto ssrc_generator = [&]() -> uint32_t {
+    do {
+      auto ssrc = random.Rand(1u, 0xFFFFFFF0u);
+      if (already_used_ssrcs.find(ssrc) == already_used_ssrcs.end()) {
+        already_used_ssrcs.insert(ssrc);
+        return ssrc;
+      }
+    } while (true);
+  };
+
+  for (ContentInfo& content : sdp->description()->contents()) {
+    if (!content.media_description()) {
+      continue;
+    }
+    for (auto& stream : content.media_description()->mutable_streams()) {
+      // Only reassign primary ssrc for now...
+      // but we should maybe also reassign ssrcs for ssrc groups?.
+      if (stream.ssrcs.size() == 1) {
+        assignments++;
+        stream.ssrcs[0] = ssrc_generator();
+      }
+    }
+  }
+  return assignments;
+}
+
+void SetNewFingerprint(std::unique_ptr<SessionDescriptionInterface>& sdp) {
+  auto identity = rtc::SSLIdentity::Create("NewIdentity", rtc::KT_DEFAULT);
+  auto new_fingerprint =
+      rtc::SSLFingerprint::CreateUnique("sha-256", *identity.get());
+  for (auto& transport_info : sdp->description()->transport_infos()) {
+    transport_info.description.identity_fingerprint =
+        absl::WrapUnique(new rtc::SSLFingerprint(*new_fingerprint.get()));
+  }
+}
+
+TEST_F(PeerConnectionIntegrationTestUnifiedPlan,
+       PrAnswerStateTransitionsAsymmetricScrambled) {
+  RTCConfiguration config;
+  ASSERT_TRUE(CreatePeerConnectionWrappersWithConfig(config, config));
+  ConnectFakeSignaling();
+  webrtc::RtpEncodingParameters init_send_encodings;
+  init_send_encodings.active = false;
+  caller()->pc()->AddTrack(caller()->CreateLocalAudioTrack(), {"name"},
+                           {init_send_encodings});
+  caller()->pc()->AddTrack(caller()->CreateLocalVideoTrack(), {"name"},
+                           {init_send_encodings});
+  callee()->pc()->AddTrack(callee()->CreateLocalAudioTrack(), {"name"},
+                           {init_send_encodings});
+  callee()->pc()->AddTrack(callee()->CreateLocalVideoTrack(), {"name"},
+                           {init_send_encodings});
+
+  std::unique_ptr<SessionDescriptionInterface> answer;
+  caller()->SetReceivedSdpMunger(
+      [&](std::unique_ptr<SessionDescriptionInterface>& sdp) {
+        answer = sdp->Clone();
+        SetSdpType(sdp, SdpType::kPrAnswer);
+      });
+  caller()->CreateAndSetAndSignalOffer();
+
+  ASSERT_FALSE(HasFailure());
+  ASSERT_EQ(caller()->pc()->signaling_state(),
+            PeerConnectionInterface::kHaveRemotePrAnswer);
+  ASSERT_EQ(callee()->pc()->signaling_state(),
+            PeerConnectionInterface::kStable);
+
+  // Now scramble the answer sdp so that it (really!) different from the first
+  // prAnswer.
+  // Note: this is maybe {possibly...probably?} a spec violation.
+  ASSERT_GT(SetNewSsrcs(answer), 0);
+  ASSERT_GT(ReassignPayloadIds(answer), 0);
+  SetNewFingerprint(answer);
+
+  // Apply the modified answer as a definitive one.
+  EXPECT_TRUE(caller()->SetRemoteDescription(std::move(answer)));
+  EXPECT_EQ(caller()->pc()->signaling_state(),
+            PeerConnectionInterface::kStable);
+}
+
+TEST_F(PeerConnectionIntegrationTestUnifiedPlan,
+       OnlyOnePairWantsCorruptionScorePlumbing) {
+  // In order for corruption score to be logged, encryption of RTP header
+  // extensions must be allowed.
+  CryptoOptions crypto_options;
+  crypto_options.srtp.enable_encrypted_rtp_header_extensions = true;
+  PeerConnectionInterface::RTCConfiguration config;
+  config.crypto_options = crypto_options;
+  config.offer_extmap_allow_mixed = true;
+  ASSERT_TRUE(CreatePeerConnectionWrappersWithConfig(config, config));
+  ConnectFakeSignaling();
+
+  // Munge the corruption detection header extension into the SDP.
+  // If caller adds corruption detection header extension to its SDP offer, it
+  // will receive it from the callee.
+  caller()->AddCorruptionDetectionHeader();
+
+  // Do normal offer/answer and wait for some frames to be received in each
+  // direction, and `corruption_score` to be aggregated.
+  caller()->AddAudioVideoTracks();
+  callee()->AddAudioVideoTracks();
+  caller()->CreateAndSetAndSignalOffer();
+  ASSERT_TRUE_WAIT(SignalingStateStable(), kDefaultTimeout);
+  ASSERT_TRUE_WAIT(caller()->GetCorruptionScoreCount() > 0, kMaxWaitForStatsMs);
+  ASSERT_TRUE_WAIT(callee()->GetCorruptionScoreCount() == 0,
+                   kMaxWaitForStatsMs);
+
+  for (const auto& pair : {caller(), callee()}) {
+    rtc::scoped_refptr<const RTCStatsReport> report = pair->NewGetStats();
+    ASSERT_TRUE(report);
+    auto inbound_stream_stats =
+        report->GetStatsOfType<RTCInboundRtpStreamStats>();
+    for (const auto& stat : inbound_stream_stats) {
+      if (*stat->kind == "video") {
+        if (pair == caller()) {
+          EXPECT_TRUE(stat->total_corruption_probability.has_value());
+          EXPECT_TRUE(stat->total_squared_corruption_probability.has_value());
+
+          double average_corruption_score =
+              (*stat->total_corruption_probability) /
+              static_cast<int32_t>(*stat->corruption_measurements);
+          EXPECT_GE(average_corruption_score, 0.0);
+          EXPECT_LE(average_corruption_score, 1.0);
+        }
+        if (pair == callee()) {
+          // Since only `caller` requests corruption score calculation the
+          // callee should not aggregate it.
+          EXPECT_FALSE(stat->total_corruption_probability.has_value());
+          EXPECT_FALSE(stat->total_squared_corruption_probability.has_value());
+        }
+      }
+    }
+  }
+}
+
+TEST_F(PeerConnectionIntegrationTestUnifiedPlan,
+       BothPairsWantCorruptionScorePlumbing) {
+  // In order for corruption score to be logged, encryption of RTP header
+  // extensions must be allowed.
+  CryptoOptions crypto_options;
+  crypto_options.srtp.enable_encrypted_rtp_header_extensions = true;
+  PeerConnectionInterface::RTCConfiguration config;
+  config.crypto_options = crypto_options;
+  config.offer_extmap_allow_mixed = true;
+  ASSERT_TRUE(CreatePeerConnectionWrappersWithConfig(config, config));
+  ConnectFakeSignaling();
+
+  // Munge the corruption detection header extension into the SDP.
+  // If caller adds corruption detection header extension to its SDP offer, it
+  // will receive it from the callee.
+  caller()->AddCorruptionDetectionHeader();
+  callee()->AddCorruptionDetectionHeader();
+
+  // Do normal offer/answer and wait for some frames to be received in each
+  // direction, and `corruption_score` to be aggregated.
+  caller()->AddAudioVideoTracks();
+  callee()->AddAudioVideoTracks();
+  caller()->CreateAndSetAndSignalOffer();
+  ASSERT_TRUE_WAIT(SignalingStateStable(), kDefaultTimeout);
+  ASSERT_TRUE_WAIT(caller()->GetCorruptionScoreCount() > 0, kMaxWaitForStatsMs);
+  ASSERT_TRUE_WAIT(callee()->GetCorruptionScoreCount() > 0, kMaxWaitForStatsMs);
+
+  for (const auto& pair : {caller(), callee()}) {
+    rtc::scoped_refptr<const RTCStatsReport> report = pair->NewGetStats();
+    ASSERT_TRUE(report);
+    auto inbound_stream_stats =
+        report->GetStatsOfType<RTCInboundRtpStreamStats>();
+    for (const auto& stat : inbound_stream_stats) {
+      if (*stat->kind == "video") {
+        EXPECT_TRUE(stat->total_corruption_probability.has_value());
+        EXPECT_TRUE(stat->total_squared_corruption_probability.has_value());
+
+        double average_corruption_score =
+            (*stat->total_corruption_probability) /
+            static_cast<int32_t>(*stat->corruption_measurements);
+        EXPECT_GE(average_corruption_score, 0.0);
+        EXPECT_LE(average_corruption_score, 1.0);
+      }
+    }
+  }
+}
+
+TEST_F(PeerConnectionIntegrationTestUnifiedPlan,
+       CorruptionScorePlumbingShouldNotWorkWhenEncryptionIsOff) {
+  // In order for corruption score to be logged, encryption of RTP header
+  // extensions must be allowed.
+  CryptoOptions crypto_options;
+  crypto_options.srtp.enable_encrypted_rtp_header_extensions = false;
+  PeerConnectionInterface::RTCConfiguration config;
+  config.crypto_options = crypto_options;
+  config.offer_extmap_allow_mixed = true;
+  ASSERT_TRUE(CreatePeerConnectionWrappersWithConfig(config, config));
+  ConnectFakeSignaling();
+
+  // Munge the corruption detection header extension into the SDP.
+  // If caller adds corruption detection header extension to its SDP offer, it
+  // will receive it from the callee.
+  caller()->AddCorruptionDetectionHeader();
+  callee()->AddCorruptionDetectionHeader();
+
+  // Do normal offer/answer and wait for some frames to be received in each
+  // direction, and `corruption_score` to be aggregated.
+  caller()->AddAudioVideoTracks();
+  callee()->AddAudioVideoTracks();
+  caller()->CreateAndSetAndSignalOffer();
+  ASSERT_TRUE_WAIT(SignalingStateStable(), kDefaultTimeout);
+  ASSERT_TRUE_WAIT(caller()->GetCorruptionScoreCount() == 0,
+                   kMaxWaitForStatsMs);
+  ASSERT_TRUE_WAIT(callee()->GetCorruptionScoreCount() == 0,
+                   kMaxWaitForStatsMs);
+
+  for (const auto& pair : {caller(), callee()}) {
+    rtc::scoped_refptr<const RTCStatsReport> report = pair->NewGetStats();
+    ASSERT_TRUE(report);
+    auto inbound_stream_stats =
+        report->GetStatsOfType<RTCInboundRtpStreamStats>();
+    for (const auto& stat : inbound_stream_stats) {
+      if (*stat->kind == "video") {
+        EXPECT_FALSE(stat->total_corruption_probability.has_value());
+        EXPECT_FALSE(stat->total_squared_corruption_probability.has_value());
+      }
+    }
+  }
 }
 
 }  // namespace

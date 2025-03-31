@@ -49,7 +49,7 @@ WTF_MAKE_TZONE_ALLOCATED_IMPL(DownloadProxyMap);
 
 DownloadProxyMap::DownloadProxyMap(NetworkProcessProxy& process)
     : m_process(process)
-#if PLATFORM(COCOA)
+#if PLATFORM(COCOA) && !HAVE(MODERN_DOWNLOADPROGRESS)
     , m_shouldTakeAssertion(WTF::processHasEntitlement("com.apple.multitasking.systemappassertions"_s))
 #endif
 {
@@ -96,10 +96,8 @@ Ref<DownloadProxy> DownloadProxyMap::createDownloadProxy(WebsiteDataStore& dataS
 
     if (m_downloads.size() == 1 && m_shouldTakeAssertion) {
         ASSERT(!m_downloadUIAssertion);
-        ASSERT(!m_downloadNetworkingAssertion);
         m_downloadUIAssertion = ProcessAssertion::create(getCurrentProcessID(), "WebKit downloads"_s, ProcessAssertionType::UnboundedNetworking);
-        m_downloadNetworkingAssertion = ProcessAssertion::create(m_process, "WebKit downloads"_s, ProcessAssertionType::UnboundedNetworking);
-        RELEASE_LOG(ProcessSuspension, "UIProcess took 'WebKit downloads' assertions for UIProcess and NetworkProcess");
+        RELEASE_LOG(ProcessSuspension, "UIProcess took 'WebKit downloads' assertion for UIProcess");
     }
 
     protectedProcess()->addMessageReceiver(Messages::DownloadProxy::messageReceiverName(), downloadProxy->downloadID().toUInt64(), downloadProxy.get());
@@ -121,10 +119,8 @@ void DownloadProxyMap::downloadFinished(DownloadProxy& downloadProxy)
 
     if (m_downloads.isEmpty() && m_shouldTakeAssertion) {
         ASSERT(m_downloadUIAssertion);
-        ASSERT(m_downloadNetworkingAssertion);
         m_downloadUIAssertion = nullptr;
-        m_downloadNetworkingAssertion = nullptr;
-        RELEASE_LOG(ProcessSuspension, "UIProcess released 'WebKit downloads' assertions for UIProcess and NetworkProcess");
+        RELEASE_LOG(ProcessSuspension, "UIProcess released 'WebKit downloads' assertion for UIProcess");
     }
 }
 
@@ -139,8 +135,7 @@ void DownloadProxyMap::invalidate()
 
     m_downloads.clear();
     m_downloadUIAssertion = nullptr;
-    m_downloadNetworkingAssertion = nullptr;
-    RELEASE_LOG(ProcessSuspension, "UIProcess DownloadProxyMap invalidated - Released 'WebKit downloads' assertions for UIProcess and NetworkProcess");
+    RELEASE_LOG(ProcessSuspension, "UIProcess DownloadProxyMap invalidated - Released 'WebKit downloads' assertion for UIProcess");
 }
 
 } // namespace WebKit

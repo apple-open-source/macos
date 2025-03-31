@@ -71,7 +71,10 @@
     CFArrayRef certRef = NULL;
     NSDictionary *attrs = nil;
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
     SecKeychainOpen(kSystemLoginKeychainPath, &kcRef);
+#pragma clang diagnostic pop
     if (!kcRef) {
         return nil;
     }

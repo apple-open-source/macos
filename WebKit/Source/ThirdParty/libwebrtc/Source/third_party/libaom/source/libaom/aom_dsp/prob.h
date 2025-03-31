@@ -97,7 +97,7 @@ typedef uint16_t aom_cdf_prob;
       AOM_ICDF(a11), AOM_ICDF(a12), AOM_ICDF(a13), AOM_ICDF(a14),             \
       AOM_ICDF(CDF_PROB_TOP), 0
 
-static INLINE uint8_t get_prob(unsigned int num, unsigned int den) {
+static inline uint8_t get_prob(unsigned int num, unsigned int den) {
   assert(den != 0);
   {
     const int p = (int)(((uint64_t)num * 256 + (den >> 1)) / den);
@@ -107,7 +107,7 @@ static INLINE uint8_t get_prob(unsigned int num, unsigned int den) {
   }
 }
 
-static INLINE void update_cdf(aom_cdf_prob *cdf, int8_t val, int nsymbs) {
+static inline void update_cdf(aom_cdf_prob *cdf, int8_t val, int nsymbs) {
   assert(nsymbs < 17);
   const int count = cdf[nsymbs];
 

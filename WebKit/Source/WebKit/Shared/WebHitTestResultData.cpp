@@ -21,7 +21,6 @@
 #include "WebHitTestResultData.h"
 
 #include "ShareableBitmapUtilities.h"
-#include "WebCoreArgumentCoders.h"
 #include "WebFrame.h"
 #include <WebCore/Document.h>
 #include <WebCore/ElementInlines.h>

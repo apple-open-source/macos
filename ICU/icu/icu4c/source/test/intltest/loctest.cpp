@@ -95,7 +95,7 @@ static const char* const rawData[33][8] = {
         //{   "anglais (Etats-Unis)", "francais (France)", "catalan (Espagne)", "grec (Grece)", "norvegien (Norvege,Nynorsk)", "italien", "xx (YY)" },
 #if APPLE_ICU_CHANGES
 // rdar://47499172 a7fdc2124c.. Update loc names for CN,HK,MO; delete redundant short names for them
-        {   "anglais (\\u00C9tats-Unis)", "fran\\u00E7ais (France)", "catalan (Espagne)", "grec (Gr\\u00E8ce)", "norv\\u00E9gien (Norv\\u00E8ge, NY)", "italien", "xx (YY)", "chinois simplifi\\u00E9 (Chine continentale)" },
+        {   "anglais (\\u00C9tats-Unis)", "fran\\u00E7ais (France)", "catalan (Espagne)", "grec (Gr\\u00E8ce)", "norv\\u00E9gien (Norv\\u00E8ge, NY)", "italien", "xx (YY)", "chinois simplifi\\u00e9 (Chine continentale)" },
 #else
         {   "anglais (\\u00C9tats-Unis)", "fran\\u00E7ais (France)", "catalan (Espagne)", "grec (Gr\\u00E8ce)", "norv\\u00E9gien (Norv\\u00E8ge, NY)", "italien", "xx (YY)", "chinois (simplifi\\u00E9, Chine)" },
 #endif  // APPLE_ICU_CHANGES
@@ -228,12 +228,12 @@ LocaleTest::LocaleTest()
 
 LocaleTest::~LocaleTest()
 {
-    if (dataTable != 0) {
+    if (dataTable != nullptr) {
         for (int32_t i = 0; i < 33; i++) {
             delete []dataTable[i];
         }
         delete []dataTable;
-        dataTable = 0;
+        dataTable = nullptr;
     }
 }
 
@@ -242,6 +242,7 @@ void LocaleTest::runIndexedTest( int32_t index, UBool exec, const char* &name, c
     TESTCASE_AUTO_BEGIN;
     TESTCASE_AUTO(TestBug11421);         // Must run early in list to trigger failure.
     TESTCASE_AUTO(TestBasicGetters);
+    TESTCASE_AUTO(TestVariantLengthLimit);
     TESTCASE_AUTO(TestSimpleResourceInfo);
     TESTCASE_AUTO(TestDisplayNames);
     TESTCASE_AUTO(TestSimpleObjectStuff);
@@ -272,6 +273,7 @@ void LocaleTest::runIndexedTest( int32_t index, UBool exec, const char* &name, c
 #endif
     TESTCASE_AUTO(TestSetIsBogus);
     TESTCASE_AUTO(TestParallelAPIValues);
+    TESTCASE_AUTO(TestPseudoLocales);
     TESTCASE_AUTO(TestAddLikelySubtags);
     TESTCASE_AUTO(TestMinimizeSubtags);
     TESTCASE_AUTO(TestAddLikelyAndMinimizeSubtags);
@@ -348,7 +350,7 @@ void LocaleTest::TestBasicGetters() {
         else {
             testLocale = Locale(rawData[LANG][i], rawData[CTRY][i], rawData[VAR][i]);
         }
-        logln("Testing " + (UnicodeString)testLocale.getName() + "...");
+        logln("Testing " + UnicodeString(testLocale.getName()) + "...");
 
         if ( (temp=testLocale.getLanguage()) != (dataTable[LANG][i]))
             errln("  Language code mismatch: " + temp + " versus "
@@ -445,6 +447,69 @@ void LocaleTest::TestBasicGetters() {
     delete pb;
 }
 
+void LocaleTest::TestVariantLengthLimit() {
+    static constexpr char valid[] =
+        "_"
+        "_12345678"
+        "_12345678"
+        "_12345678"
+        "_12345678"
+        "_12345678"
+        "_12345678"
+        "_12345678"
+        "_12345678"
+        "_12345678"
+        "_12345678"
+        "_12345678"
+        "_12345678"
+        "_12345678"
+        "_12345678"
+        "_12345678"
+        "_12345678"
+        "_12345678"
+        "_12345678"
+        "_12345678"
+        "_12345678";
+
+    static constexpr char invalid[] =
+        "_"
+        "_12345678"
+        "_12345678"
+        "_12345678"
+        "_12345678"
+        "_12345678"
+        "_12345678"
+        "_12345678"
+        "_12345678"
+        "_12345678"
+        "_12345678"
+        "_12345678"
+        "_12345678"
+        "_12345678"
+        "_12345678"
+        "_12345678"
+        "_12345678"
+        "_12345678"
+        "_12345678"
+        "_12345678"
+        "_12345678X";  // One character too long.
+
+    constexpr const char* variantsExpected = valid + 2;  // Skip initial "__".
+
+    Locale validLocale(valid);
+    if (validLocale.isBogus()) {
+        errln("Valid locale is unexpectedly bogus.");
+    } else if (uprv_strcmp(variantsExpected, validLocale.getVariant()) != 0) {
+        errln("Expected variants \"%s\" but got variants \"%s\"\n",
+              variantsExpected, validLocale.getVariant());
+    }
+
+    Locale invalidLocale(invalid);
+    if (!invalidLocale.isBogus()) {
+        errln("Invalid locale is unexpectedly NOT bogus.");
+    }
+}
+
 void LocaleTest::TestParallelAPIValues() {
     logln("Test synchronization between C and C++ API");
     if (strcmp(Locale::getChinese().getName(), ULOC_CHINESE) != 0) {
@@ -532,14 +597,14 @@ void LocaleTest::TestSimpleResourceInfo() {
             errln("  ISO-3 country code mismatch: " + temp
                 + " versus " + dataTable[CTRY3][i]);
 
-        snprintf(temp2, sizeof(temp2), "%x", (int)testLocale.getLCID());
+        snprintf(temp2, sizeof(temp2), "%x", static_cast<int>(testLocale.getLCID()));
         if (UnicodeString(temp2) != dataTable[LCID][i])
-            errln((UnicodeString)"  LCID mismatch: " + temp2 + " versus "
+            errln(UnicodeString("  LCID mismatch: ") + temp2 + " versus "
                 + dataTable[LCID][i]);
 
         if(U_FAILURE(err))
         {
-            errln((UnicodeString)"Some error on number " + i + u_errorName(err));
+            errln(UnicodeString("Some error on number ") + i + u_errorName(err));
         }
         err = U_ZERO_ERROR;
     }
@@ -905,7 +970,7 @@ void LocaleTest::doTestDisplayNames(Locale& displayLocale, int32_t compareIndex)
 
 void LocaleTest::setUpDataTable()
 {
-    if (dataTable == 0) {
+    if (dataTable == nullptr) {
         dataTable = new UnicodeString*[33];
 
         for (int32_t i = 0; i < 33; i++) {
@@ -989,7 +1054,7 @@ LocaleTest::TestGetLangsAndCountries()
               if (uprv_strcmp(test[j],spotCheck1[i])== 0)
                     break;
             if (j == testCount || (uprv_strcmp(test[j],spotCheck1[i])!=0))
-                errln("Couldn't find " + (UnicodeString)spotCheck1[i] + " in language list.");
+                errln("Couldn't find " + UnicodeString(spotCheck1[i]) + " in language list.");
         }
     }
     for (i = 0; i < testCount; i++) {
@@ -1378,7 +1443,7 @@ LocaleTest::TestEuroSupport()
         delete nf;
     }
 
-    UnicodeString dollarStr("USD", ""), euroStr("EUR", ""), genericStr((char16_t)0x00a4), resultStr;
+    UnicodeString dollarStr("USD", ""), euroStr("EUR", ""), genericStr(static_cast<char16_t>(0x00a4)), resultStr;
     char16_t tmp[4];
     status = U_ZERO_ERROR;
 
@@ -1517,7 +1582,7 @@ LocaleTest::date(int32_t y, int32_t m, int32_t d, int32_t hr, int32_t min, int32
 {
     UErrorCode status = U_ZERO_ERROR;
     Calendar *cal = Calendar::createInstance(status);
-    if (cal == 0)
+    if (cal == nullptr)
         return 0.0;
     cal->clear();
     cal->set(1900 + y, m, d, hr, min, sec); // Add 1900 to follow java.util.Date protocol
@@ -1710,7 +1775,7 @@ void LocaleTest::Test20639_DeprecatesISO3Language() {
         {"ro", "ron"},
         {"mo", "mol"},
     };
-    for (auto& cas : cases) {
+    for (const auto& cas : cases) {
         Locale loc(cas.localeName);
         const char* actual = loc.getISO3Language();
         assertEquals(cas.localeName, cas.expectedISO3Language, actual);
@@ -1738,7 +1803,7 @@ LocaleTest::Test4105828()
         }
         UnicodeString result;
         FieldPosition pos(FieldPosition::DONT_CARE);
-        fmt->format((int32_t)1, result, pos);
+        fmt->format(static_cast<int32_t>(1), result, pos);
         UnicodeString temp;
         if(result != "100%") {
             errln(UnicodeString("Percent for ") + LOC[i].getDisplayName(temp) + " should be 100%, got " + result);
@@ -1764,6 +1829,119 @@ LocaleTest::TestSetIsBogus() {
     }
 }
 
+
+void LocaleTest::TestPseudoLocales() {
+    // input locale tag, expected locale tag
+    static const struct {
+        const char* const input;
+        const char* const expected;
+    } test_cases[] = {
+        // language + region, en
+        { "en-XA", "en-Latn-XA" },
+        { "en-XB", "en-Latn-XB" },
+        { "en-XC", "en-Latn-XC" },
+
+        // language + region, ar
+        { "ar-XA", "ar-Arab-XA" },
+        { "ar-XB", "ar-Arab-XB" },
+        { "ar-XC", "ar-Arab-XC" },
+
+        // language + region, something other than en, ar
+        { "ru-XA", "ru-Cyrl-XA" },
+        { "el-XB", "el-Grek-XB" },
+
+        // undefined language - region
+        { "und-XA", "en-Latn-XA" },
+        { "und-XB", "en-Latn-XB" },
+        { "und-XC", "en-Latn-XC" },
+
+        // language + script + region
+        { "und-Latn-XA", "en-Latn-XA" },
+        { "und-Latn-XB", "en-Latn-XB" },
+        { "und-Latn-XC", "en-Latn-XC" },
+        { "und-Arab-XA", "ar-Arab-XA" },
+        { "und-Arab-XB", "ar-Arab-XB" },
+        { "und-Arab-XC", "ar-Arab-XC" },
+        { "und-Cyrl-XA", "ru-Cyrl-XA" },
+        { "und-Grek-XB", "el-Grek-XB" },
+
+        // Make sure the script is not damaged, when correct
+        { "ru-Cyrl-XA", "ru-Cyrl-XA" },
+        { "el-Grek-XB", "el-Grek-XB" },
+
+        // Make sure the script is not damaged, even if it is wrong
+        { "ru-Grek-XA", "ru-Grek-XA" },
+        { "el-Cyrl-XB", "el-Cyrl-XB" },
+
+        // PS Variants
+        { "en-XA-PSACCENT", "en-Latn-XA-psaccent" },
+        { "en-XA-PSBIDI", "en-Latn-XA-psbidi" },
+        { "en-XA-PSCRACK", "en-Latn-XA-pscrack" },
+        { "ar-XB-PSACCENT", "ar-Arab-XB-psaccent" },
+        { "ar-XB-PSBIDI", "ar-Arab-XB-psbidi" },
+        { "ar-XB-PSCRACK", "ar-Arab-XB-pscrack" },
+        { "en-XC-PSACCENT", "en-Latn-XC-psaccent" },
+        { "en-XC-PSBIDI", "en-Latn-XC-psbidi" },
+        { "en-XC-PSCRACK", "en-Latn-XC-pscrack" },
+
+        { "en-US-PSACCENT", "en-Latn-US-psaccent" },
+        { "en-US-PSBIDI", "en-Latn-US-psbidi" },
+        { "en-US-PSCRACK", "en-Latn-US-pscrack" },
+        { "ar-EG-PSACCENT", "ar-Arab-EG-psaccent" },
+        { "ar-EG-PSBIDI", "ar-Arab-EG-psbidi" },
+        { "ar-EG-PSCRACK", "ar-Arab-EG-pscrack" },
+
+        { "en-PSACCENT", "en-Latn-US-psaccent" },
+        { "en-PSBIDI", "en-Latn-US-psbidi" },
+        { "en-PSCRACK", "en-Latn-US-pscrack" },
+        { "ar-PSACCENT", "ar-Arab-EG-psaccent" },
+        { "ar-PSBIDI", "ar-Arab-EG-psbidi" },
+        { "ar-PSCRACK", "ar-Arab-EG-pscrack" },
+
+        { "und-US-PSACCENT", "en-Latn-US-psaccent" },
+        { "und-US-PSBIDI", "en-Latn-US-psbidi" },
+        { "und-US-PSCRACK", "en-Latn-US-pscrack" },
+        { "und-EG-PSACCENT", "ar-Arab-EG-psaccent" },
+        { "und-EG-PSBIDI", "ar-Arab-EG-psbidi" },
+        { "und-EG-PSCRACK", "ar-Arab-EG-pscrack" },
+
+        { "und-PSACCENT", "en-Latn-US-psaccent" },
+        { "und-PSBIDI", "en-Latn-US-psbidi" },
+        { "und-PSCRACK", "en-Latn-US-pscrack" },
+        { "und-PSACCENT", "en-Latn-US-psaccent" },
+        { "und-PSBIDI", "en-Latn-US-psbidi" },
+        { "und-PSCRACK", "en-Latn-US-pscrack" },
+    };
+
+    std::string extensions("-u-nu-Deva-hc-h23-fw-mon-mu-celsius-x-somethin-more");
+
+    IcuTestErrorCode status(*this, "TestPseudoLocales()");
+    for (const auto& item : test_cases) {
+        const char* const inputTag = item.input;
+        const char* const expectedTag = item.expected;
+        Locale result = Locale::forLanguageTag(inputTag, status);
+        result.addLikelySubtags(status);
+        status.errIfFailureAndReset("\"%s\"", inputTag);
+        Locale expected = Locale::forLanguageTag(expectedTag, status);
+        status.errIfFailureAndReset("\"%s\"", expectedTag);
+        assertEquals(inputTag, expected.getName(), result.getName());
+
+        // Test extension
+        std::string extendedTag(inputTag);
+        extendedTag.append(extensions);
+
+        result = Locale::forLanguageTag(extendedTag, status);
+        result.addLikelySubtags(status);
+        status.errIfFailureAndReset(extendedTag.c_str());
+
+        std::string expectedExtendedTag(expectedTag);
+        expectedExtendedTag.append(extensions);
+
+        expected = Locale::forLanguageTag(expectedExtendedTag, status);
+        status.errIfFailureAndReset(expectedExtendedTag.c_str());
+        assertEquals(extendedTag.c_str(), expected.getName(), result.getName());
+    }
+}
 
 void
 LocaleTest::TestAddLikelySubtags() {
@@ -3490,8 +3668,8 @@ LocaleTest::TestAddLikelyAndMinimizeSubtags() {
             "zh_TW"
         }, {
             "und_Hant_CN",
-            "zh_Hant_CN",
-            "zh_Hant_CN"
+            "yue_Hant_CN",
+            "yue_Hant_CN"
         }, {
             "und_Hant_TW",
             "zh_Hant_TW",
@@ -3992,6 +4170,122 @@ LocaleTest::TestAddLikelyAndMinimizeSubtags() {
             "und_US",
             "en_Latn_US",
             "en"
+        }, {
+            // ICU-22547
+            // unicode_language_id = "root" |
+            //   (unicode_language_subtag (sep unicode_script_subtag)?  | unicode_script_subtag)
+            //     (sep unicode_region_subtag)?  (sep unicode_variant_subtag)* ;
+            // so "aaaa" is a well-formed unicode_language_id
+            "aaaa",
+#if APPLE_ICU_CHANGES
+            // rdar://121488288 (21E188: footprint regressions in multiple processes since 21E187)
+            // TODO(rtg): This is a new test in OSICU 76, but from reading the commentary in the original ticket
+            // and in the PR, it's not clear why "aaaa" should maximize to "aaaa" and not to "en_aaaa_US".  My understanding
+            // is that if all we have is a single alpha-4 subtag, it should get interpreted as the SCRIPT code (IOW,
+            // "aaaa" is semantically equivalent to "und_aaaa") and we should maximize based on that.  The difference
+            // might be that we have to check to see whether "aaaa" is a VALID script code before treating it as such,
+            // but I don't see where Frank's change for this issue does anything like that.  Need to research this more...
+            "en_Aaaa_US",
+            "en_Aaaa",
+#else
+            "aaaa",
+            "aaaa",
+#endif // APPLE_ICU_CHANGES
+        }, {
+            // ICU-22727
+            // unicode_language_subtag = alpha{2,3} | alpha{5,8};
+            // so "bbbbb", "cccccc", "ddddddd", "eeeeeeee" are
+            // well-formed unicode_language_subtag and therefore
+            // well-formed unicode_language_id
+            // but "fffffffff" is not.
+            "bbbbb",
+            "bbbbb",
+            "bbbbb",
+        }, {
+            // ICU-22727
+            "cccccc",
+            "cccccc",
+            "cccccc",
+        }, {
+            // ICU-22727
+            "ddddddd",
+            "ddddddd",
+            "ddddddd",
+        }, {
+            // ICU-22727
+            "eeeeeeee",
+            "eeeeeeee",
+            "eeeeeeee",
+        }, {
+            // ICU-22546
+            "und-Zzzz",
+            "en_Latn_US", // If change, please also update common/unicode/locid.h
+            "en"
+        }, {
+            // ICU-22546
+            "en",
+            "en_Latn_US", // If change, please also update common/unicode/locid.h
+            "en"
+        }, {
+            // ICU-22546
+            "de",
+            "de_Latn_DE", // If change, please also update common/unicode/locid.h
+            "de"
+        }, {
+            // ICU-22546
+            "sr",
+            "sr_Cyrl_RS", // If change, please also update common/unicode/locid.h
+            "sr"
+        }, {
+            // ICU-22546
+            "sh",
+            "sh",// If change, please also update common/unicode/locid.h
+            "sh"
+        }, {
+            // ICU-22546
+            "zh_Hani",
+            "zh_Hani_CN", // If change, please also update common/unicode/locid.h
+            "zh_Hani"
+        }, {
+            // ICU-22545 & ICU-22742
+            "en_XA",
+            "en_Latn_XA",
+            "en_XA",
+        }, {
+            // ICU-22545 & ICU-22742
+            "ar_XB",
+            "ar_Arab_XB",
+            "ar_XB",
+        }, {
+            // ICU-22545 & ICU-22742
+            "ru_XC",
+            "ru_Cyrl_XC",
+            "ru_XC",
+        }, {
+            // ICU-22742
+            "en_PSACCENT",
+            "en_Latn_US_PSACCENT",
+            "en__PSACCENT"
+        }, {
+            "ar_PSBIDI",
+            "ar_Arab_EG_PSBIDI",
+            "ar__PSBIDI"
+        }, {
+            "ru_PSCRACK",
+            "ru_Cyrl_RU_PSCRACK",
+            "ru__PSCRACK"
+        }, {
+            "ar_PSACCENT",
+            "ar_Arab_EG_PSACCENT",
+            "ar__PSACCENT"
+        }, {
+            "ru_PSBIDI",
+            "ru_Cyrl_RU_PSBIDI",
+            "ru__PSBIDI"
+        }, {
+            "en_PSCRACK",
+            "en_Latn_US_PSCRACK",
+            "en__PSCRACK"
         }
     };
 
@@ -4539,8 +4833,8 @@ LocaleTest::TestGetBaseName() {
  * prefix + '_' + x, then return 1.  Otherwise return a value < 0.
  */
 static UBool _loccmp(const char* string, const char* prefix) {
-    int32_t slen = (int32_t)strlen(string),
-            plen = (int32_t)strlen(prefix);
+    int32_t slen = static_cast<int32_t>(strlen(string)),
+            plen = static_cast<int32_t>(strlen(prefix));
     int32_t c = uprv_strncmp(string, prefix, plen);
     /* 'root' is "less than" everything */
     if (prefix[0] == '\0') {
@@ -4665,7 +4959,7 @@ void LocaleTest::TestGetLocale() {
         DateFormat* df =
             DateFormat::createDateInstance(DateFormat::kDefault,
                                            Locale::createFromName(req));
-        if (df == 0){
+        if (df == nullptr) {
             dataerrln("Error calling DateFormat::createDateInstance()");
         } else {
             SimpleDateFormat* dat = dynamic_cast<SimpleDateFormat*>(df);
@@ -4718,7 +5012,7 @@ void LocaleTest::TestGetLocale() {
         
             // After registering something, the behavior should be different
             URegistryKey key = BreakIterator::registerInstance(brk, reqLoc, UBRK_WORD, ec);
-            brk = 0; // registerInstance adopts
+            brk = nullptr; // registerInstance adopts
             if (U_FAILURE(ec)) {
                 errln("FAIL: BreakIterator::registerInstance() failed");
             } else {
@@ -4742,7 +5036,7 @@ void LocaleTest::TestGetLocale() {
                     errln("FAIL: BreakIterator::unregister() failed");
                 }
                 delete brk;
-                brk = 0;
+                brk = nullptr;
             }
 
             // After unregistering, should behave normally again
@@ -4786,7 +5080,7 @@ void LocaleTest::TestGetLocale() {
 
             // After registering something, the behavior should be different
             URegistryKey key = Collator::registerInstance(coll, reqLoc, ec);
-            coll = 0; // registerInstance adopts
+            coll = nullptr; // registerInstance adopts
             if (U_FAILURE(ec)) {
                 errln("FAIL: Collator::registerInstance() failed");
             } else {
@@ -4812,7 +5106,7 @@ void LocaleTest::TestGetLocale() {
                     errln("FAIL: Collator::unregister() failed");
                 }
                 delete coll;
-                coll = 0;
+                coll = nullptr;
             }
 
             // After unregistering, should behave normally again
@@ -4966,9 +5260,9 @@ static Locale _canonicalize(int32_t selector, /* 0==createFromName, 1==createCan
     case 1:
         return Locale::createCanonical(localeID);
     case 2:
-        return Locale(localeID);
+        return {localeID};
     default:
-        return Locale("");
+        return {""};
     }
 }
 
@@ -4991,6 +5285,18 @@ void LocaleTest::TestCanonicalization()
         { "no@ny", "no@ny", "no__NY" /* not: "nn" [alan ICU3.0] */ }, /* POSIX ID */
         { "no-no.utf32@B", "no_NO.utf32@B", "no_NO_B" }, /* POSIX ID */
         { "qz-qz@Euro", "qz_QZ@Euro", "qz_QZ_EURO" }, /* qz-qz uses private use iso codes */
+
+        // A very long charset name in IANA charset
+        { "ja_JP.Extended_UNIX_Code_Packed_Format_for_Japanese@B",
+          "ja_JP.Extended_UNIX_Code_Packed_Format_for_Japanese@B", "ja_JP_B" }, /* POSIX ID */
+        // A fake long charset name below the limitation
+        { "ja_JP.1234567890123456789012345678901234567890123456789012345678901234@B",
+          "ja_JP.1234567890123456789012345678901234567890123456789012345678901234@B",
+          "ja_JP_B" }, /* POSIX ID */
+        // A fake long charset name one char above the limitation
+        { "ja_JP.12345678901234567890123456789012345678901234567890123456789012345@B",
+          "BOGUS",
+          "ja_JP_B" }, /* POSIX ID */
         // NOTE: uloc_getName() works on en-BOONT, but Locale() parser considers it BOGUS
         // TODO: unify this behavior
         { "en-BOONT", "en__BOONT", "en__BOONT" }, /* registered name */
@@ -5267,7 +5573,7 @@ void LocaleTest::TestCurrencyByDate()
     UnicodeString tempStr, resultStr;
 
 	// Cycle through historical currencies
-    date = (UDate)-630720000000.0; // pre 1961 - no currency defined
+    date = static_cast<UDate>(-630720000000.0); // pre 1961 - no currency defined
     index = ucurr_countCurrencies("eo_AM", date, &status);
     if (index != 0)
 	{
@@ -5279,7 +5585,7 @@ void LocaleTest::TestCurrencyByDate()
     }
     status = U_ZERO_ERROR;
 
-    date = (UDate)0.0; // 1970 - one currency defined
+    date = static_cast<UDate>(0.0); // 1970 - one currency defined
     index = ucurr_countCurrencies("eo_AM", date, &status);
     if (index != 1)
 	{
@@ -5292,7 +5598,7 @@ void LocaleTest::TestCurrencyByDate()
         errcheckln(status, "FAIL: didn't return SUR for eo_AM - %s", u_errorName(status));
     }
 
-    date = (UDate)693792000000.0; // 1992 - one currency defined
+    date = static_cast<UDate>(693792000000.0); // 1992 - one currency defined
 	index = ucurr_countCurrencies("eo_AM", date, &status);
     if (index != 1)
 	{
@@ -5305,7 +5611,7 @@ void LocaleTest::TestCurrencyByDate()
         errcheckln(status, "FAIL: didn't return RUR for eo_AM - %s", u_errorName(status));
     }
 
-	date = (UDate)977616000000.0; // post 1993 - one currency defined
+	date = static_cast<UDate>(977616000000.0); // post 1993 - one currency defined
 	index = ucurr_countCurrencies("eo_AM", date, &status);
     if (index != 1)
 	{
@@ -5319,7 +5625,7 @@ void LocaleTest::TestCurrencyByDate()
     }
 
     // Locale AD has multiple currencies at once
-	date = (UDate)977616000000.0; // year 2001
+	date = static_cast<UDate>(977616000000.0); // year 2001
 	index = ucurr_countCurrencies("eo_AD", date, &status);
     if (index != 4)
 	{
@@ -5350,7 +5656,7 @@ void LocaleTest::TestCurrencyByDate()
         errcheckln(status, "FAIL: didn't return ADP for eo_AD - %s", u_errorName(status));
     }
 
-	date = (UDate)0.0; // year 1970
+	date = static_cast<UDate>(0.0); // year 1970
 	index = ucurr_countCurrencies("eo_AD", date, &status);
     if (index != 3)
 	{
@@ -5375,7 +5681,7 @@ void LocaleTest::TestCurrencyByDate()
         errcheckln(status, "FAIL: didn't return ADP for eo_AD - %s", u_errorName(status));
     }
 
-	date = (UDate)-630720000000.0; // year 1950
+	date = static_cast<UDate>(-630720000000.0); // year 1950
 	index = ucurr_countCurrencies("eo_AD", date, &status);
     if (index != 2)
 	{
@@ -5394,7 +5700,7 @@ void LocaleTest::TestCurrencyByDate()
         errcheckln(status, "FAIL: didn't return ADP for eo_AD - %s", u_errorName(status));
     }
 
-	date = (UDate)-2207520000000.0; // year 1900
+	date = static_cast<UDate>(-2207520000000.0); // year 1900
 	index = ucurr_countCurrencies("eo_AD", date, &status);
     if (index != 1)
 	{
@@ -5408,7 +5714,7 @@ void LocaleTest::TestCurrencyByDate()
     }
 
 	// Locale UA has gap between years 1994 - 1996
-	date = (UDate)788400000000.0;
+	date = static_cast<UDate>(788400000000.0);
 	index = ucurr_countCurrencies("eo_UA", date, &status);
     if (index != 0)
 	{
@@ -5452,7 +5758,7 @@ void LocaleTest::TestCurrencyByDate()
     status = U_ZERO_ERROR;
 
     // Cycle through histrocial currencies
-	date = (UDate)977616000000.0; // 2001 - one currency
+	date = static_cast<UDate>(977616000000.0); // 2001 - one currency
 	index = ucurr_countCurrencies("eo_AO", date, &status);
     if (index != 1)
 	{
@@ -5465,7 +5771,7 @@ void LocaleTest::TestCurrencyByDate()
         errcheckln(status, "FAIL: didn't return AOA for eo_AO - %s", u_errorName(status));
     }
 
-	date = (UDate)819936000000.0; // 1996 - 2 currencies
+	date = static_cast<UDate>(819936000000.0); // 1996 - 2 currencies
 	index = ucurr_countCurrencies("eo_AO", date, &status);
     if (index != 2)
 	{
@@ -5484,7 +5790,7 @@ void LocaleTest::TestCurrencyByDate()
         errcheckln(status, "FAIL: didn't return AON for eo_AO - %s", u_errorName(status));
     }
 
-	date = (UDate)662256000000.0; // 1991 - 2 currencies
+	date = static_cast<UDate>(662256000000.0); // 1991 - 2 currencies
 	index = ucurr_countCurrencies("eo_AO", date, &status);
     if (index != 2)
 	{
@@ -5503,7 +5809,7 @@ void LocaleTest::TestCurrencyByDate()
         errcheckln(status, "FAIL: didn't return AOK for eo_AO - %s", u_errorName(status));
     }
 
-	date = (UDate)315360000000.0; // 1980 - one currency
+	date = static_cast<UDate>(315360000000.0); // 1980 - one currency
 	index = ucurr_countCurrencies("eo_AO", date, &status);
     if (index != 1)
 	{
@@ -5516,7 +5822,7 @@ void LocaleTest::TestCurrencyByDate()
         errcheckln(status, "FAIL: didn't return AOK for eo_AO - %s", u_errorName(status));
     }
 
-	date = (UDate)0.0; // 1970 - no currencies
+	date = static_cast<UDate>(0.0); // 1970 - no currencies
 	index = ucurr_countCurrencies("eo_AO", date, &status);
     if (index != 0)
 	{
@@ -5529,7 +5835,7 @@ void LocaleTest::TestCurrencyByDate()
     status = U_ZERO_ERROR;
 
     // Test with currency keyword override
-	date = (UDate)977616000000.0; // 2001 - two currencies
+	date = static_cast<UDate>(977616000000.0); // 2001 - two currencies
 	index = ucurr_countCurrencies("eo_DE@currency=DEM", date, &status);
     if (index != 2)
 	{
@@ -5594,6 +5900,7 @@ void LocaleTest::TestIsRightToLeft() {
     assertTrue("ckb RTL", Locale("ckb").isRightToLeft(), false, true);  // Sorani Kurdish
     assertFalse("fil LTR", Locale("fil").isRightToLeft());
     assertFalse("he-Zyxw LTR", Locale("he-Zyxw").isRightToLeft());
+
 #if APPLE_ICU_CHANGES
 // rdar://
     // Additional Apple tests for rdar://51447187
@@ -5735,7 +6042,7 @@ void LocaleTest::TestLocaleCanonicalizationFromFile()
     }
     // Format:
     // <source locale identifier>	;	<expected canonicalized locale identifier>
-    while (fgets(line, (int)sizeof(line), testFile.getAlias())!=nullptr) {
+    while (fgets(line, static_cast<int>(sizeof(line)), testFile.getAlias()) != nullptr) {
         if (line[0] == '#') {
             // ignore any lines start with #
             continue;
@@ -5747,9 +6054,9 @@ void LocaleTest::TestLocaleCanonicalizationFromFile()
         }
         *semi = '\0'; // null terminiate on the spot of semi
         const char* from = u_skipWhitespace((const char*)line);
-        u_rtrim((char*)from);
+        u_rtrim(const_cast<char*>(from));
         const char* to = u_skipWhitespace((const char*)semi + 1);
-        u_rtrim((char*)to);
+        u_rtrim(const_cast<char*>(to));
         std::string expect(to);
         // Change the _ to -
         std::transform(expect.begin(), expect.end(), expect.begin(),
@@ -5792,14 +6099,6 @@ public:
     }
 };
 
-bool isKnownSourceForCLDR17099(const std::string& s) {
-    if (s.compare("qaa-Cyrl-CH") == 0) {
-        return true;
-    }
-    
-	return false;
-}
-
 void U_CALLCONV
 testLikelySubtagsLineFn(void *context,
                char *fields[][2], int32_t fieldCount,
@@ -5808,11 +6107,8 @@ testLikelySubtagsLineFn(void *context,
         return;
     }
     (void)fieldCount;
-    LocaleTest* THIS = (LocaleTest*)context;
+    LocaleTest* THIS = static_cast<LocaleTest*>(context);
     std::string source(trim(std::string(fields[0][0], fields[0][1]-fields[0][0])));
-    if (isKnownSourceForCLDR17099(source) && THIS->logKnownIssue("CLDR-17099", "likelySubtags.txt wrong for qaa-Cyrl-CH")) {
-        return;
-    }
     std::string addLikely(trim(std::string(fields[1][0], fields[1][1]-fields[1][0])));
     std::string removeFavorScript(trim(std::string(fields[2][0], fields[2][1]-fields[2][0])));
     if (removeFavorScript.length() == 0) {
@@ -5936,7 +6232,7 @@ void LocaleTest::TestKnownCanonicalizedListCorrect()
     IcuTestErrorCode status(*this, "TestKnownCanonicalizedListCorrect");
     int32_t numOfKnownCanonicalized;
     const char* const* knownCanonicalized =
-        ulocimp_getKnownCanonicalizedLocaleForTest(&numOfKnownCanonicalized);
+        ulocimp_getKnownCanonicalizedLocaleForTest(numOfKnownCanonicalized);
     for (int32_t i = 0; i < numOfKnownCanonicalized; i++) {
         std::string msg("Known Canonicalized Locale is not canonicalized: ");
         assertTrue((msg + knownCanonicalized[i]).c_str(),

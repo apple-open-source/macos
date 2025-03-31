@@ -41,10 +41,10 @@
 #import <CoreText/CTFontDescriptor.h>
 #import <WebCore/ColorCocoa.h>
 #import <WebCore/FontCocoa.h>
-#import <WebCore/RuntimeApplicationChecks.h>
 #import <pal/spi/cocoa/NSKeyedUnarchiverSPI.h>
 #import <wtf/BlockObjCExceptions.h>
 #import <wtf/HashSet.h>
+#import <wtf/RuntimeApplicationChecks.h>
 #import <wtf/cf/CFURLExtras.h>
 #import <wtf/cocoa/NSURLExtras.h>
 #import <wtf/cocoa/TypeCastsCocoa.h>
@@ -79,6 +79,8 @@
 #if USE(PASSKIT)
 #import <pal/cocoa/ContactsSoftLink.h>
 #endif
+
+#if !HAVE(WK_SECURE_CODING_NSURLREQUEST)
 
 @interface WKSecureCodingArchivingDelegate : NSObject <NSKeyedArchiverDelegate, NSKeyedUnarchiverDelegate>
 @property (nonatomic, assign) BOOL rewriteMutableArray;
@@ -261,6 +263,8 @@ static constexpr NSString *innerColorKey = @"WK.CocoaColor";
 
 @end
 
+#endif // !HAVE(WK_SECURE_CODING_NSURLREQUEST)
+
 namespace IPC {
 using namespace WebCore;
 
@@ -305,6 +309,10 @@ template<> Class getClass<PKContact>()
 template<> Class getClass<PKPaymentMerchantSession>()
 {
     return PAL::getPKPaymentMerchantSessionClass();
+}
+template<> Class getClass<PKPaymentSetupFeature>()
+{
+    return PAL::getPKPaymentSetupFeatureClass();
 }
 template<> Class getClass<PKPayment>()
 {
@@ -371,16 +379,54 @@ NSType typeFromObject(id object)
         return NSType::String;
     if ([object isKindOfClass:[NSURL class]])
         return NSType::URL;
+#if USE(PASSKIT)
+    if ([object isKindOfClass:getClass<PKPaymentMethod>()])
+        return NSType::PKPaymentMethod;
+    if ([object isKindOfClass:getClass<PKPaymentMerchantSession>()])
+        return NSType::PKPaymentMerchantSession;
+    if ([object isKindOfClass:getClass<PKPaymentSetupFeature>()])
+        return NSType::PKPaymentSetupFeature;
+    if ([object isKindOfClass:getClass<PKContact>()])
+        return NSType::PKContact;
+    if ([object isKindOfClass:getClass<PKSecureElementPass>()])
+        return NSType::PKSecureElementPass;
+    if ([object isKindOfClass:getClass<PKPayment>()])
+        return NSType::PKPayment;
+    if ([object isKindOfClass:getClass<PKPaymentToken>()])
+        return NSType::PKPaymentToken;
+    if ([object isKindOfClass:getClass<PKShippingMethod>()])
+        return NSType::PKShippingMethod;
+    if ([object isKindOfClass:getClass<PKDateComponentsRange>()])
+        return NSType::PKDateComponentsRange;
+    if ([object isKindOfClass:getClass<CNContact>()])
+        return NSType::CNContact;
+    if ([object isKindOfClass:getClass<CNPhoneNumber>()])
+        return NSType::CNPhoneNumber;
+    if ([object isKindOfClass:getClass<CNPostalAddress>()])
+        return NSType::CNPostalAddress;
+#endif
+#if ENABLE(DATA_DETECTION) && HAVE(WK_SECURE_CODING_DATA_DETECTORS)
+    if ([object isKindOfClass:getClass<DDScannerResult>()])
+        return NSType::DDScannerResult;
+#if PLATFORM(MAC)
+    if ([object isKindOfClass:getClass<WKDDActionContext>()])
+        return NSType::WKDDActionContext;
+#endif
+#endif
+    if ([object isKindOfClass:[NSDateComponents class]])
+        return NSType::NSDateComponents;
     // Not all CF types are toll-free-bridged to NS types.
     // Non-toll-free-bridged CF types do not conform to NSSecureCoding.
     if ([object isKindOfClass:NSClassFromString(@"__NSCFType")])
         return NSType::CF;
 
+#if !HAVE(WK_SECURE_CODING_NSURLREQUEST)
     // Check NSSecureCoding after the specific cases since
     // most of the classes above conform to NSSecureCoding,
     // and we want our special case coders for them instead.
     if ([object conformsToProtocol:@protocol(NSSecureCoding)])
         return NSType::SecureCoding;
+#endif
 
     ASSERT_NOT_REACHED();
     return NSType::Unknown;
@@ -399,6 +445,8 @@ bool isSerializableValue(id value)
 }
 
 #pragma mark - id <NSSecureCoding>
+
+#if !HAVE(WK_SECURE_CODING_NSURLREQUEST)
 
 template<> void encodeObjectDirectly<NSObject<NSSecureCoding>>(Encoder& encoder, NSObject<NSSecureCoding> *object)
 {
@@ -456,8 +504,7 @@ template<> void encodeObjectDirectly<NSObject<NSSecureCoding>>(Encoder& encoder,
 
 static bool shouldEnableStrictMode(Decoder& decoder, const AllowedClassHashSet& allowedClasses)
 {
-#if HAVE(STRICT_DECODABLE_NSTEXTTABLE) \
-    && HAVE(STRICT_DECODABLE_PKCONTACT) \
+#if HAVE(STRICT_DECODABLE_PKCONTACT) \
     && HAVE(STRICT_DECODABLE_CNCONTACT) \
     && (HAVE(STRICT_DECODABLE_PKPAYMENTPASS) || !HAVE(PKPAYMENTPASS))
     // Shortcut the following unnecessary Class checks on newer OSes to fix rdar://111926152.
@@ -536,15 +583,6 @@ static constexpr bool haveSecureActionContext = false;
         return haveStrictDecodablePKContact;
 #endif // ENABLE(APPLE_PAY)
 
-    // rdar://107553230 don't reintroduce rdar://108038436
-#if HAVE(STRICT_DECODABLE_NSTEXTTABLE)
-    static constexpr bool haveStrictDecodableNSTextTable = true;
-#else
-    static constexpr bool haveStrictDecodableNSTextTable = false;
-#endif
-    if (allowedClasses.contains(NSParagraphStyle.class))
-        return haveStrictDecodableNSTextTable;
-
     // rdar://107553194, Don't reintroduce rdar://108339450
     if (allowedClasses.contains(NSMutableURLRequest.class))
         return true;
@@ -594,9 +632,6 @@ template<> std::optional<RetainPtr<id>> decodeObjectDirectlyRequiringAllowedClas
         allowedClasses.add(NSMutableData.class);
         allowedClasses.add(NSMutableURLRequest.class);
     }
-
-    if (allowedClasses.contains(NSParagraphStyle.class))
-        allowedClasses.add(NSMutableParagraphStyle.class);
 
 #if USE(PASSKIT)
     // FIXME: Remove these exceptions for PKSecureElementPass
@@ -651,11 +686,6 @@ template<> std::optional<RetainPtr<id>> decodeObjectDirectlyRequiringAllowedClas
 ENCODE_AS_SECURE_CODING(NSURLRequest);
 #endif
 
-ENCODE_AS_SECURE_CODING(NSParagraphStyle);
-#if USE(PASSKIT)
-ENCODE_AS_SECURE_CODING(PKSecureElementPass);
-#endif
-
 #if ENABLE(DATA_DETECTION) && !HAVE(WK_SECURE_CODING_DATA_DETECTORS)
 ENCODE_AS_SECURE_CODING(DDScannerResult);
 #if PLATFORM(MAC)
@@ -664,6 +694,8 @@ ENCODE_AS_SECURE_CODING(WKDDActionContext);
 #endif
 
 #undef ENCODE_AS_SECURE_CODING
+
+#endif // !HAVE(WK_SECURE_CODING_NSURLREQUEST)
 
 #pragma mark - CF
 

@@ -10,27 +10,41 @@
 
 #include "rtc_base/ssl_stream_adapter.h"
 
-#include <algorithm>
+#include <openssl/evp.h>
+#include <openssl/sha.h>
+
+#include <cstddef>
+#include <cstdint>
+#include <cstring>
+#include <ctime>
 #include <memory>
 #include <set>
 #include <string>
+#include <utility>
+#include <vector>
 
 #include "absl/memory/memory.h"
 #include "absl/strings/string_view.h"
 #include "api/array_view.h"
+#include "api/sequence_checker.h"
 #include "api/task_queue/pending_task_safety_flag.h"
+#include "api/units/time_delta.h"
 #include "rtc_base/buffer_queue.h"
 #include "rtc_base/callback_list.h"
 #include "rtc_base/checks.h"
 #include "rtc_base/crypto_random.h"
+#include "rtc_base/fake_clock.h"
 #include "rtc_base/gunit.h"
+#include "rtc_base/logging.h"
 #include "rtc_base/memory/fifo_buffer.h"
 #include "rtc_base/memory_stream.h"
 #include "rtc_base/message_digest.h"
 #include "rtc_base/openssl_stream_adapter.h"
-#include "rtc_base/ssl_adapter.h"
 #include "rtc_base/ssl_identity.h"
 #include "rtc_base/stream.h"
+#include "rtc_base/third_party/sigslot/sigslot.h"
+#include "rtc_base/thread.h"
+#include "rtc_base/time_utils.h"
 #include "test/field_trial.h"
 #include "test/gmock.h"
 #include "test/gtest.h"
@@ -42,110 +56,136 @@ using ::testing::Values;
 using ::testing::WithParamInterface;
 using ::webrtc::SafeTask;
 
-static const int kBlockSize = 4096;
-static const char kExporterLabel[] = "label";
-static const unsigned char kExporterContext[] = "context";
-static int kExporterContextLen = sizeof(kExporterContext);
-
 // A private key used for testing, broken into pieces in order to avoid
 // issues with Git's checks for private keys in repos.
+// Generated using `openssl genrsa -out key.pem 2048`
 #define RSA_PRIVATE_KEY_HEADER "-----BEGIN RSA PRIVATE KEY-----\n"
 
 static const char kRSA_PRIVATE_KEY_PEM[] = RSA_PRIVATE_KEY_HEADER
-    "MIICdwIBADANBgkqhkiG9w0BAQEFAASCAmEwggJdAgEAAoGBAMYRkbhmI7kVA/rM\n"
-    "czsZ+6JDhDvnkF+vn6yCAGuRPV03zuRqZtDy4N4to7PZu9PjqrRl7nDMXrG3YG9y\n"
-    "rlIAZ72KjcKKFAJxQyAKLCIdawKRyp8RdK3LEySWEZb0AV58IadqPZDTNHHRX8dz\n"
-    "5aTSMsbbkZ+C/OzTnbiMqLL/vg6jAgMBAAECgYAvgOs4FJcgvp+TuREx7YtiYVsH\n"
-    "mwQPTum2z/8VzWGwR8BBHBvIpVe1MbD/Y4seyI2aco/7UaisatSgJhsU46/9Y4fq\n"
-    "2TwXH9QANf4at4d9n/R6rzwpAJOpgwZgKvdQjkfrKTtgLV+/dawvpxUYkRH4JZM1\n"
-    "CVGukMfKNrSVH4Ap4QJBAOJmGV1ASPnB4r4nc99at7JuIJmd7fmuVUwUgYi4XgaR\n"
-    "WhScBsgYwZ/JoywdyZJgnbcrTDuVcWG56B3vXbhdpMsCQQDf9zeJrjnPZ3Cqm79y\n"
-    "kdqANep0uwZciiNiWxsQrCHztywOvbFhdp8iYVFG9EK8DMY41Y5TxUwsHD+67zao\n"
-    "ZNqJAkEA1suLUP/GvL8IwuRneQd2tWDqqRQ/Td3qq03hP7e77XtF/buya3Ghclo5\n"
-    "54czUR89QyVfJEC6278nzA7n2h1uVQJAcG6mztNL6ja/dKZjYZye2CY44QjSlLo0\n"
-    "MTgTSjdfg/28fFn2Jjtqf9Pi/X+50LWI/RcYMC2no606wRk9kyOuIQJBAK6VSAim\n"
-    "1pOEjsYQn0X5KEIrz1G3bfCbB848Ime3U2/FWlCHMr6ch8kCZ5d1WUeJD3LbwMNG\n"
-    "UCXiYxSsu20QNVw=\n"
+    "MIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQC4XOJ6agj673j+\n"
+    "O8sEnPmhVkjDOd858shAa07kVdeRePlE+wU4GUTY0i5JdXF8cUQLTSdKfqsR7f8L\n"
+    "jtxhehZk7+OQs5P1VsSQeotr2L0WFBNQZ+cSswLBHt4DjG9vyDJMELwPYkLO/EZw\n"
+    "Q1HBgrSSHUHE9mRak2JQzxEqdnj2ssUs+K9kTkYLnzq86dMRGc+TA4TiVA4U065M\n"
+    "lwSe95QMJ5OqYBwbNsVF6BTvdnkkNyizunfoGWB8m9gqYIdlmo3uT21OEnF40Pei\n"
+    "K5CjvB29IpO6cPmNDR7+vwCy/IeGkXwzvICq/ZrocFNBR5Z4tSm003HX6BbIHtnj\n"
+    "tvxVaIeFAgMBAAECggEADxQ3yOPh0qZiCsc4smqlZzr/rgoOdjajhtNQC1BzFnii\n"
+    "yK/QTDeS4DoGo6b5roA0HMmFcGweUVPaM6eOYmGiMcTGI9hwPlWHs7p2K065nnPr\n"
+    "ZXzuEyM1kzaTWY5zsdyZsot+2jJC/Rt4pmd3KSDn5HiEn9e4OwlJdgsNoB+7ApBW\n"
+    "G8UmI9IUYic+xgS0IADJIYFx99bVmjLi7zshQAHVemn15v9GcBTCA7uojxX+FLmR\n"
+    "i8nuqUcTqGemE6PaQiX9MahgHU7NJ/gLs9dEeX4tD+8KVkrH/RRbg43eEATkRo8D\n"
+    "bO3JZ6MBwVNL6BU4hr+BViXEkHqBa9adoImIWHaLGQKBgQC4zlmHrDm9Ftb6fgsc\n"
+    "KXbEphPF/fuw4FJrPXP+0kRvF8AGbGqesBksX/JJCo46jfehNNGHmKFZ7oKMsHbS\n"
+    "yZp1/YZlg020ZLJkJz4GGPF1HgaxdV1L6TvIlofKWKKUEyi3RpMhq6w8hb/+mz/C\n"
+    "KverTah0EkZjZWwSZa4lQjwCaQKBgQD/YtL6WXiduF94pfVz7MmEoBa00C0rPFaC\n"
+    "5TOMVH+W2RbcGyVoPoLmwf1H2lN9v+wzaTRaPeHWs5MwQ4HDUbACXtGQ+I+6VNvo\n"
+    "iEo23jIK0hYzFgRGSMK7E0Uj8oBuPdJjkpCM4qqr0p8UHrktUOD8kB3DjdJrbqLm\n"
+    "q+9qAWzAvQKBgQCGR5EwDojphuXvnpPuA4bDvjSR4Uj3LRdVypI07o1A903UnQQf\n"
+    "h67S2mhOgDf1/d+XJ6yzTMi4cqAzH6lG4au03eDAc9aLI7unIAhmH8uaIJYWbUO7\n"
+    "+50v04iZEywWUZF9Ee+oQHfmhfyKQD3klJnew4+Jvxmb8T7EY1NUyTqXOQKBgQDM\n"
+    "EpsGZBJm7dqUXQE7Zh5NtWMPjz5YyzlSFXbQjwD5eHW04phMqY8OeDs9fG+1D3Te\n"
+    "TBYCemqJlytpqLf7bL4Z1szdbFHlkkO7l5S+LWWNkf0dS12VEDVTKf3Y0MHh1dLV\n"
+    "sFuDyOiaro5hlH9if7uY9kxiZGSdZmYTr5Z7fbH6fQKBgF+NKzivaJKz0a7ZCFhR\n"
+    "UfjvWrldeRzvyOiq+6nohTy3WNUZ+jSjwXZ7B4HGbHeaTBbsaNeO7aPGNe+Rt3Sr\n"
+    "rj6EzpBKk60ukkg49c+X/Rski/RmRosovJv4YUHtafafjAzeMhfU/tdKvjM00p9x\n"
+    "yf5MmWCNPsPfGsRZJpnYGvg3\n"
     "-----END RSA PRIVATE KEY-----\n";
-
 #undef RSA_PRIVATE_KEY_HEADER
 
+// Generated using
+// `openssl req -new -x509 -key key.pem -out cert.pem -days 365`
+// after setting the machine date to something that will ensure the
+// certificate is expired.
 static const char kCERT_PEM[] =
     "-----BEGIN CERTIFICATE-----\n"
-    "MIIBmTCCAQKgAwIBAgIEbzBSAjANBgkqhkiG9w0BAQsFADARMQ8wDQYDVQQDEwZX\n"
-    "ZWJSVEMwHhcNMTQwMTAyMTgyNDQ3WhcNMTQwMjAxMTgyNDQ3WjARMQ8wDQYDVQQD\n"
-    "EwZXZWJSVEMwgZ8wDQYJKoZIhvcNAQEBBQADgY0AMIGJAoGBAMYRkbhmI7kVA/rM\n"
-    "czsZ+6JDhDvnkF+vn6yCAGuRPV03zuRqZtDy4N4to7PZu9PjqrRl7nDMXrG3YG9y\n"
-    "rlIAZ72KjcKKFAJxQyAKLCIdawKRyp8RdK3LEySWEZb0AV58IadqPZDTNHHRX8dz\n"
-    "5aTSMsbbkZ+C/OzTnbiMqLL/vg6jAgMBAAEwDQYJKoZIhvcNAQELBQADgYEAUflI\n"
-    "VUe5Krqf5RVa5C3u/UTAOAUJBiDS3VANTCLBxjuMsvqOG0WvaYWP3HYPgrz0jXK2\n"
-    "LJE/mGw3MyFHEqi81jh95J+ypl6xKW6Rm8jKLR87gUvCaVYn/Z4/P3AqcQTB7wOv\n"
-    "UD0A8qfhfDM+LK6rPAnCsVN0NRDY3jvd6rzix9M=\n"
+    "MIIDjTCCAnWgAwIBAgIUTkCy4o8+4W/86RYmgWc8FEhWTzYwDQYJKoZIhvcNAQEL\n"
+    "BQAwVjELMAkGA1UEBhMCQVUxEzARBgNVBAgMClNvbWUtU3RhdGUxITAfBgNVBAoM\n"
+    "GEludGVybmV0IFdpZGdpdHMgUHR5IEx0ZDEPMA0GA1UEAwwGV2ViUlRDMB4XDTI0\n"
+    "MDkwMzAwNTk0NloXDTI1MDkwMzAwNTk0NlowVjELMAkGA1UEBhMCQVUxEzARBgNV\n"
+    "BAgMClNvbWUtU3RhdGUxITAfBgNVBAoMGEludGVybmV0IFdpZGdpdHMgUHR5IEx0\n"
+    "ZDEPMA0GA1UEAwwGV2ViUlRDMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKC\n"
+    "AQEAuFziemoI+u94/jvLBJz5oVZIwznfOfLIQGtO5FXXkXj5RPsFOBlE2NIuSXVx\n"
+    "fHFEC00nSn6rEe3/C47cYXoWZO/jkLOT9VbEkHqLa9i9FhQTUGfnErMCwR7eA4xv\n"
+    "b8gyTBC8D2JCzvxGcENRwYK0kh1BxPZkWpNiUM8RKnZ49rLFLPivZE5GC586vOnT\n"
+    "ERnPkwOE4lQOFNOuTJcEnveUDCeTqmAcGzbFRegU73Z5JDcos7p36BlgfJvYKmCH\n"
+    "ZZqN7k9tThJxeND3oiuQo7wdvSKTunD5jQ0e/r8AsvyHhpF8M7yAqv2a6HBTQUeW\n"
+    "eLUptNNx1+gWyB7Z47b8VWiHhQIDAQABo1MwUTAdBgNVHQ4EFgQUlZmkvo2n5ZEa\n"
+    "B/GCnl8SMQr8G04wHwYDVR0jBBgwFoAUlZmkvo2n5ZEaB/GCnl8SMQr8G04wDwYD\n"
+    "VR0TAQH/BAUwAwEB/zANBgkqhkiG9w0BAQsFAAOCAQEAnHDEEEOdPaujj3jVWDnk\n"
+    "bxQYQXuymHr5oqIbGSNZaDiK1ZDwui6fywiUjQUgFipC4Gt3EvpEv8b/M9G4Kr3d\n"
+    "ET1loApfl6dMRyRym8HydsF4rWs/KmUMpHEcgQzz6ehsX5kqQtStdsAxtTE2QkoY\n"
+    "5YbQgTKQ0yrwsagKX8pWv0UmXQASJUa26h5H9YpNNfwHy5PZvQya0719qFd8r2EH\n"
+    "JW67EJElwG5qE2N8DStPUjvVsydfbJflvRBjnf9IRuY9rGogeIOTkkkHAOyNWj3V\n"
+    "3tZ0r8lKDpUSH6Z5fALuwfEQsWj1qZkZn2ysv1GzEJS2jhS/xPfzOqs8eLVi91lx\n"
+    "1A==\n"
     "-----END CERTIFICATE-----\n";
 
+// Google GTS CA 1C3 certificate. Obtained from https://www.webrtc.org
 static const char kIntCert1[] =
     "-----BEGIN CERTIFICATE-----\n"
-    "MIIEUjCCAjqgAwIBAgIBAjANBgkqhkiG9w0BAQsFADCBljELMAkGA1UEBhMCVVMx\n"
-    "EzARBgNVBAgMCkNhbGlmb3JuaWExFjAUBgNVBAcMDU1vdW50YWluIFZpZXcxFDAS\n"
-    "BgNVBAoMC0dvb2dsZSwgSW5jMQwwCgYDVQQLDANHVFAxFzAVBgNVBAMMDnRlbGVw\n"
-    "aG9ueS5nb29nMR0wGwYJKoZIhvcNAQkBFg5ndHBAZ29vZ2xlLmNvbTAeFw0xNzA5\n"
-    "MjYwNDA5MDNaFw0yMDA2MjIwNDA5MDNaMGQxCzAJBgNVBAYTAlVTMQswCQYDVQQI\n"
-    "DAJDQTEWMBQGA1UEBwwNTW91bnRhaW4gVmlldzEXMBUGA1UECgwOdGVsZXBob255\n"
-    "Lmdvb2cxFzAVBgNVBAMMDnRlbGVwaG9ueS5nb29nMIGfMA0GCSqGSIb3DQEBAQUA\n"
-    "A4GNADCBiQKBgQDJXWeeU1v1+wlqkVobzI3aN7Uh2iVQA9YCdq5suuabtiD/qoOD\n"
-    "NKpmQqsx7WZGGWSZTDFEBaUpvIK7Hb+nzRqk6iioPCFOFuarm6GxO1xVneImMuE6\n"
-    "tuWb3YZPr+ikChJbl11y5UcSbg0QsbeUc+jHl5umNvrL85Y+z8SP0rxbBwIDAQAB\n"
-    "o2AwXjAdBgNVHQ4EFgQU7tdZobqlN8R8V72FQnRxmqq8tKswHwYDVR0jBBgwFoAU\n"
-    "5GgKMUtcxkQ2dJrtNR5YOlIAPDswDwYDVR0TAQH/BAUwAwEB/zALBgNVHQ8EBAMC\n"
-    "AQYwDQYJKoZIhvcNAQELBQADggIBADObh9Z+z14FmP9zSenhFtq7hFnmNrSkklk8\n"
-    "eyYWXKfOuIriEQQBZsz76ZcnzStih8Rj+yQ0AXydk4fJ5LOwC2cUqQBar17g6Pd2\n"
-    "8g4SIL4azR9WvtiSvpuGlwp25b+yunaacDne6ebnf/MUiiKT5w61Xo3cEPVfl38e\n"
-    "/Up2l0bioid5enUTmg6LY6RxDO6tnZQkz3XD+nNSwT4ehtkqFpHYWjErj0BbkDM2\n"
-    "hiVc/JsYOZn3DmuOlHVHU6sKwqh3JEyvHO/d7DGzMGWHpHwv2mCTJq6l/sR95Tc2\n"
-    "GaQZgGDVNs9pdEouJCDm9e/PbQWRYhnat82PTkXx/6mDAAwdZlIi/pACzq8K4p7e\n"
-    "6hF0t8uKGnXJubHPXxlnJU6yxZ0yWmivAGjwWK4ur832gKlho4jeMDhiI/T3QPpl\n"
-    "iMNsIvxRhdD+GxJkQP1ezayw8s+Uc9KwKglrkBSRRDLCJUfPOvMmXLUDSTMX7kp4\n"
-    "/Ak1CA8dVLJIlfEjLBUuvAttlP7+7lsKNgxAjCxZkWLXIyGULzNPQwVWkGfCbrQs\n"
-    "XyMvSbFsSIb7blV7eLlmf9a+2RprUUkc2ALXLLCI9YQXmxm2beBfMyNmmebwBJzT\n"
-    "B0OR+5pFFNTJPoNlqpdrDsGrDu7JlUtk0ZLZzYyKXbgy2qXxfd4OWzXXjxpLMszZ\n"
-    "LDIpOAkj\n"
+    "MIIFljCCA36gAwIBAgINAgO8U1lrNMcY9QFQZjANBgkqhkiG9w0BAQsFADBHMQsw\n"
+    "CQYDVQQGEwJVUzEiMCAGA1UEChMZR29vZ2xlIFRydXN0IFNlcnZpY2VzIExMQzEU\n"
+    "MBIGA1UEAxMLR1RTIFJvb3QgUjEwHhcNMjAwODEzMDAwMDQyWhcNMjcwOTMwMDAw\n"
+    "MDQyWjBGMQswCQYDVQQGEwJVUzEiMCAGA1UEChMZR29vZ2xlIFRydXN0IFNlcnZp\n"
+    "Y2VzIExMQzETMBEGA1UEAxMKR1RTIENBIDFDMzCCASIwDQYJKoZIhvcNAQEBBQAD\n"
+    "ggEPADCCAQoCggEBAPWI3+dijB43+DdCkH9sh9D7ZYIl/ejLa6T/belaI+KZ9hzp\n"
+    "kgOZE3wJCor6QtZeViSqejOEH9Hpabu5dOxXTGZok3c3VVP+ORBNtzS7XyV3NzsX\n"
+    "lOo85Z3VvMO0Q+sup0fvsEQRY9i0QYXdQTBIkxu/t/bgRQIh4JZCF8/ZK2VWNAcm\n"
+    "BA2o/X3KLu/qSHw3TT8An4Pf73WELnlXXPxXbhqW//yMmqaZviXZf5YsBvcRKgKA\n"
+    "gOtjGDxQSYflispfGStZloEAoPtR28p3CwvJlk/vcEnHXG0g/Zm0tOLKLnf9LdwL\n"
+    "tmsTDIwZKxeWmLnwi/agJ7u2441Rj72ux5uxiZ0CAwEAAaOCAYAwggF8MA4GA1Ud\n"
+    "DwEB/wQEAwIBhjAdBgNVHSUEFjAUBggrBgEFBQcDAQYIKwYBBQUHAwIwEgYDVR0T\n"
+    "AQH/BAgwBgEB/wIBADAdBgNVHQ4EFgQUinR/r4XN7pXNPZzQ4kYU83E1HScwHwYD\n"
+    "VR0jBBgwFoAU5K8rJnEaK0gnhS9SZizv8IkTcT4waAYIKwYBBQUHAQEEXDBaMCYG\n"
+    "CCsGAQUFBzABhhpodHRwOi8vb2NzcC5wa2kuZ29vZy9ndHNyMTAwBggrBgEFBQcw\n"
+    "AoYkaHR0cDovL3BraS5nb29nL3JlcG8vY2VydHMvZ3RzcjEuZGVyMDQGA1UdHwQt\n"
+    "MCswKaAnoCWGI2h0dHA6Ly9jcmwucGtpLmdvb2cvZ3RzcjEvZ3RzcjEuY3JsMFcG\n"
+    "A1UdIARQME4wOAYKKwYBBAHWeQIFAzAqMCgGCCsGAQUFBwIBFhxodHRwczovL3Br\n"
+    "aS5nb29nL3JlcG9zaXRvcnkvMAgGBmeBDAECATAIBgZngQwBAgIwDQYJKoZIhvcN\n"
+    "AQELBQADggIBAIl9rCBcDDy+mqhXlRu0rvqrpXJxtDaV/d9AEQNMwkYUuxQkq/BQ\n"
+    "cSLbrcRuf8/xam/IgxvYzolfh2yHuKkMo5uhYpSTld9brmYZCwKWnvy15xBpPnrL\n"
+    "RklfRuFBsdeYTWU0AIAaP0+fbH9JAIFTQaSSIYKCGvGjRFsqUBITTcFTNvNCCK9U\n"
+    "+o53UxtkOCcXCb1YyRt8OS1b887U7ZfbFAO/CVMkH8IMBHmYJvJh8VNS/UKMG2Yr\n"
+    "PxWhu//2m+OBmgEGcYk1KCTd4b3rGS3hSMs9WYNRtHTGnXzGsYZbr8w0xNPM1IER\n"
+    "lQCh9BIiAfq0g3GvjLeMcySsN1PCAJA/Ef5c7TaUEDu9Ka7ixzpiO2xj2YC/WXGs\n"
+    "Yye5TBeg2vZzFb8q3o/zpWwygTMD0IZRcZk0upONXbVRWPeyk+gB9lm+cZv9TSjO\n"
+    "z23HFtz30dZGm6fKa+l3D/2gthsjgx0QGtkJAITgRNOidSOzNIb2ILCkXhAd4FJG\n"
+    "AJ2xDx8hcFH1mt0G/FX0Kw4zd8NLQsLxdxP8c4CU6x+7Nz/OAipmsHMdMqUybDKw\n"
+    "juDEI/9bfU1lcKwrmz3O2+BtjjKAvpafkmO8l7tdufThcV4q5O8DIrGKZTqPwJNl\n"
+    "1IXNDw9bg1kWRxYtnCQ6yICmJhSFm/Y3m6xv+cXDBlHz4n/FsRC6UfTd\n"
     "-----END CERTIFICATE-----\n";
 
+// Google GTS Root R1 certificate. Obtained from https://www.webrtc.org
 static const char kCACert[] =
     "-----BEGIN CERTIFICATE-----\n"
-    "MIIGETCCA/mgAwIBAgIJAKN9r/BdbGUJMA0GCSqGSIb3DQEBCwUAMIGWMQswCQYD\n"
-    "VQQGEwJVUzETMBEGA1UECAwKQ2FsaWZvcm5pYTEWMBQGA1UEBwwNTW91bnRhaW4g\n"
-    "VmlldzEUMBIGA1UECgwLR29vZ2xlLCBJbmMxDDAKBgNVBAsMA0dUUDEXMBUGA1UE\n"
-    "AwwOdGVsZXBob255Lmdvb2cxHTAbBgkqhkiG9w0BCQEWDmd0cEBnb29nbGUuY29t\n"
-    "MB4XDTE3MDcyNzIzMDE0NVoXDTE3MDgyNjIzMDE0NVowgZYxCzAJBgNVBAYTAlVT\n"
-    "MRMwEQYDVQQIDApDYWxpZm9ybmlhMRYwFAYDVQQHDA1Nb3VudGFpbiBWaWV3MRQw\n"
-    "EgYDVQQKDAtHb29nbGUsIEluYzEMMAoGA1UECwwDR1RQMRcwFQYDVQQDDA50ZWxl\n"
-    "cGhvbnkuZ29vZzEdMBsGCSqGSIb3DQEJARYOZ3RwQGdvb2dsZS5jb20wggIiMA0G\n"
-    "CSqGSIb3DQEBAQUAA4ICDwAwggIKAoICAQCfvpF7aBV5Hp1EHsWoIlL3GeHwh8dS\n"
-    "lv9VQCegN9rD06Ny7MgcED5AiK2vqXmUmOVS+7NbATkdVYN/eozDhKtN3Q3n87kJ\n"
-    "Nt/TD/TcZZHOZIGsRPbrf2URK26E/5KzTzbzXVBOA1e+gSj+EBbltGqb01ZO5ErF\n"
-    "iPGViPM/HpYKdq6mfz2bS5PhU67XZMM2zvToyReQ/Fjm/6PJhwKSRXSgZF5djPhk\n"
-    "2LfOKMLS0AeZtd2C4DFsCU41lfLUkybioDgFuzTQ3TFi1K8A07KYTMmLY/yQppnf\n"
-    "SpNX58shlVhM+Ed37K1Z0rU0OfVCZ5P+KKaSSfMranjlU7zeUIhZYjqq/EYrEhbS\n"
-    "dLnNHwgJrqxzId3kq8uuLM6+VB7JZKnZLfT90GdAbX4+tutNe21smmogF9f80vEy\n"
-    "gM4tOp9rXrvz9vCwWHXVY9kdKemdLAsREoO6MS9k2ctK4jj80o2dROuFC6Q3e7mz\n"
-    "RjvZr5Tvi464c2o9o/jNlJ0O6q7V2eQzohD+7VnV5QPpRGXxlIeqpR2zoAg+WtRS\n"
-    "4OgHOVYiD3M6uAlggJA5pcDjMfkEZ+pkhtVcT4qMCEoruk6GbyPxS565oSHu16bH\n"
-    "EjeCqbZOVND5T3oA7nz6aQSs8sJabt0jmxUkGVnE+4ZDIuuRtkRma+0P/96Mtqor\n"
-    "OlpNWY1OBDY64QIDAQABo2AwXjAdBgNVHQ4EFgQU5GgKMUtcxkQ2dJrtNR5YOlIA\n"
-    "PDswHwYDVR0jBBgwFoAU5GgKMUtcxkQ2dJrtNR5YOlIAPDswDwYDVR0TAQH/BAUw\n"
-    "AwEB/zALBgNVHQ8EBAMCAQYwDQYJKoZIhvcNAQELBQADggIBAARQly5/bB6VUL2C\n"
-    "ykDYgWt48go407pAra6tL2kjpdfxV5PdL7iMZRkeht00vj+BVahIqZKrNOa/f5Fx\n"
-    "vlpahZFu0PDN436aQwRZ9qWut2qDOK0/z9Hhj6NWybquRFwMwqkPG/ivLMDU8Dmj\n"
-    "CIplpngPYNwXCs0KzdjSXYxqxJbwMjQXELD+/RcurY0oTtJMM1/2vKQMzw24UJqe\n"
-    "XLJAlsnd2AnWzWNUEviDZY89j9NdkHerBmV2gGzcU+X5lgOO5M8odBv0ZC9D+a6Z\n"
-    "QPZAOfdGVw60hhGvTW5s/s0dHwCpegRidhs0MD0fTmwwjYFBSmUx3Gztr4JTzOOr\n"
-    "7e5daJuak2ujQ5DqcGBvt1gePjSudb5brS7JQtN8tI/FyrnR4q/OuOwv1EvlC5RG\n"
-    "hLX+TXaWqFxB1Hd8ebKRR40mboFG6KcUI3lLBthDvQE7jnq48QfZMjlMQK0ZF1l7\n"
-    "SrlwRXWA74bU8CLJvnZKKo9p4TsTiDYGSYC6tNHKj5s3TGWL46oqGyZ0KdGNhrtC\n"
-    "rIGenMhth1vPYjyy0XuGBndXT85yi+IM2l8g8oU845+plxIhgpSI8bbC0oLwnhQ5\n"
-    "ARfsiYLkXDE7imSS0CSUmye76372mlzAIB1is4bBB/SzpPQtBuB9LDKtONgpSGHn\n"
-    "dGaXBy+qbVXVyGXaeEbIRjtJ6m92\n"
+    "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\n"
     "-----END CERTIFICATE-----\n";
 
 class SSLStreamAdapterTestBase;
@@ -354,7 +394,6 @@ class BufferQueueStream : public rtc::StreamInterface {
   rtc::BufferQueue buffer_;
 };
 
-static const int kFifoBufferSize = 4096;
 static const int kBufferCapacity = 1;
 static const size_t kDefaultBufferSize = 2048;
 
@@ -366,11 +405,15 @@ class SSLStreamAdapterTestBase : public ::testing::Test,
       absl::string_view client_private_key_pem,
       bool dtls,
       rtc::KeyParams client_key_type = rtc::KeyParams(rtc::KT_DEFAULT),
-      rtc::KeyParams server_key_type = rtc::KeyParams(rtc::KT_DEFAULT))
+      rtc::KeyParams server_key_type = rtc::KeyParams(rtc::KT_DEFAULT),
+      std::pair<std::string, size_t> digest =
+          std::make_pair(rtc::DIGEST_SHA_256, SHA256_DIGEST_LENGTH))
       : client_cert_pem_(client_cert_pem),
         client_private_key_pem_(client_private_key_pem),
         client_key_type_(client_key_type),
         server_key_type_(server_key_type),
+        digest_algorithm_(digest.first),
+        digest_length_(digest.second),
         delay_(0),
         mtu_(1460),
         loss_(0),
@@ -465,9 +508,9 @@ class SSLStreamAdapterTestBase : public ::testing::Test,
   }
 
   void SetPeerIdentitiesByDigest(bool correct, bool expect_success) {
-    unsigned char server_digest[20];
+    unsigned char server_digest[EVP_MAX_MD_SIZE];
     size_t server_digest_len;
-    unsigned char client_digest[20];
+    unsigned char client_digest[EVP_MAX_MD_SIZE];
     size_t client_digest_len;
     bool rv;
     rtc::SSLPeerCertificateDigestError err;
@@ -477,19 +520,21 @@ class SSLStreamAdapterTestBase : public ::testing::Test,
             : rtc::SSLPeerCertificateDigestError::VERIFICATION_FAILED;
 
     RTC_LOG(LS_INFO) << "Setting peer identities by digest";
+    RTC_DCHECK(server_identity());
+    RTC_DCHECK(client_identity());
 
     rv = server_identity()->certificate().ComputeDigest(
-        rtc::DIGEST_SHA_1, server_digest, 20, &server_digest_len);
+        digest_algorithm_, server_digest, digest_length_, &server_digest_len);
     ASSERT_TRUE(rv);
     rv = client_identity()->certificate().ComputeDigest(
-        rtc::DIGEST_SHA_1, client_digest, 20, &client_digest_len);
+        digest_algorithm_, client_digest, digest_length_, &client_digest_len);
     ASSERT_TRUE(rv);
 
     if (!correct) {
       RTC_LOG(LS_INFO) << "Setting bogus digest for server cert";
       server_digest[0]++;
     }
-    rv = client_ssl_->SetPeerCertificateDigest(rtc::DIGEST_SHA_1, server_digest,
+    rv = client_ssl_->SetPeerCertificateDigest(digest_algorithm_, server_digest,
                                                server_digest_len, &err);
     EXPECT_EQ(expected_err, err);
     EXPECT_EQ(expect_success, rv);
@@ -498,7 +543,7 @@ class SSLStreamAdapterTestBase : public ::testing::Test,
       RTC_LOG(LS_INFO) << "Setting bogus digest for client cert";
       client_digest[0]++;
     }
-    rv = server_ssl_->SetPeerCertificateDigest(rtc::DIGEST_SHA_1, client_digest,
+    rv = server_ssl_->SetPeerCertificateDigest(digest_algorithm_, client_digest,
                                                client_digest_len, &err);
     EXPECT_EQ(expected_err, err);
     EXPECT_EQ(expect_success, rv);
@@ -513,8 +558,6 @@ class SSLStreamAdapterTestBase : public ::testing::Test,
   }
 
   void TestHandshake(bool expect_success = true) {
-    server_ssl_->SetMode(dtls_ ? rtc::SSL_MODE_DTLS : rtc::SSL_MODE_TLS);
-    client_ssl_->SetMode(dtls_ ? rtc::SSL_MODE_DTLS : rtc::SSL_MODE_TLS);
 
     if (!dtls_) {
       // Make sure we simulate a reliable network for TLS.
@@ -540,22 +583,20 @@ class SSLStreamAdapterTestBase : public ::testing::Test,
 
     // Now run the handshake
     if (expect_success) {
-      EXPECT_TRUE_WAIT((client_ssl_->GetState() == rtc::SS_OPEN) &&
-                           (server_ssl_->GetState() == rtc::SS_OPEN),
-                       handshake_wait_);
+      EXPECT_TRUE_SIMULATED_WAIT((client_ssl_->GetState() == rtc::SS_OPEN) &&
+                                     (server_ssl_->GetState() == rtc::SS_OPEN),
+                                 handshake_wait_, clock_);
     } else {
-      EXPECT_TRUE_WAIT(client_ssl_->GetState() == rtc::SS_CLOSED,
-                       handshake_wait_);
+      EXPECT_TRUE_SIMULATED_WAIT(client_ssl_->GetState() == rtc::SS_CLOSED,
+                                 handshake_wait_, clock_);
     }
   }
 
   // This tests that we give up after 12 DTLS resends.
+  // Only works for BoringSSL which allows advancing the fake clock.
   void TestHandshakeTimeout() {
-    rtc::ScopedFakeClock clock;
-    int64_t time_start = clock.TimeNanos();
+    int64_t time_start = clock_.TimeNanos();
     webrtc::TimeDelta time_increment = webrtc::TimeDelta::Millis(1000);
-    server_ssl_->SetMode(dtls_ ? rtc::SSL_MODE_DTLS : rtc::SSL_MODE_TLS);
-    client_ssl_->SetMode(dtls_ ? rtc::SSL_MODE_DTLS : rtc::SSL_MODE_TLS);
 
     if (!dtls_) {
       // Make sure we simulate a reliable network for TLS.
@@ -582,23 +623,20 @@ class SSLStreamAdapterTestBase : public ::testing::Test,
     // Now wait for the handshake to timeout (or fail after an hour of simulated
     // time).
     while (client_ssl_->GetState() == rtc::SS_OPENING &&
-           (rtc::TimeDiff(clock.TimeNanos(), time_start) <
+           (rtc::TimeDiff(clock_.TimeNanos(), time_start) <
             3600 * rtc::kNumNanosecsPerSec)) {
-      EXPECT_TRUE_WAIT(!((client_ssl_->GetState() == rtc::SS_OPEN) &&
-                         (server_ssl_->GetState() == rtc::SS_OPEN)),
-                       1000);
-      clock.AdvanceTime(time_increment);
+      EXPECT_TRUE_SIMULATED_WAIT(!((client_ssl_->GetState() == rtc::SS_OPEN) &&
+                                   (server_ssl_->GetState() == rtc::SS_OPEN)),
+                                 1000, clock_);
+      clock_.AdvanceTime(time_increment);
     }
-    RTC_CHECK_EQ(client_ssl_->GetState(), rtc::SS_CLOSED);
+    EXPECT_EQ(client_ssl_->GetState(), rtc::SS_CLOSED);
   }
 
   // This tests that the handshake can complete before the identity is verified,
   // and the identity will be verified after the fact. It also verifies that
   // packets can't be read or written before the identity has been verified.
   void TestHandshakeWithDelayedIdentity(bool valid_identity) {
-    server_ssl_->SetMode(dtls_ ? rtc::SSL_MODE_DTLS : rtc::SSL_MODE_TLS);
-    client_ssl_->SetMode(dtls_ ? rtc::SSL_MODE_DTLS : rtc::SSL_MODE_TLS);
-
     if (!dtls_) {
       // Make sure we simulate a reliable network for TLS.
       // This is just a check to make sure that people don't write wrong
@@ -614,9 +652,9 @@ class SSLStreamAdapterTestBase : public ::testing::Test,
     ASSERT_EQ(0, client_ssl_->StartSSL());
 
     // Now run the handshake.
-    EXPECT_TRUE_WAIT(
+    EXPECT_TRUE_SIMULATED_WAIT(
         client_ssl_->IsTlsConnected() && server_ssl_->IsTlsConnected(),
-        handshake_wait_);
+        handshake_wait_, clock_);
 
     // Until the identity has been verified, the state should still be
     // SS_OPENING and writes should return SR_BLOCK.
@@ -630,20 +668,20 @@ class SSLStreamAdapterTestBase : public ::testing::Test,
 
     // Collect both of the certificate digests; needs to be done before calling
     // SetPeerCertificateDigest as that may reset the identity.
-    unsigned char server_digest[20];
+    unsigned char server_digest[EVP_MAX_MD_SIZE];
     size_t server_digest_len;
-    unsigned char client_digest[20];
+    unsigned char client_digest[EVP_MAX_MD_SIZE];
     size_t client_digest_len;
     bool rv;
 
     ASSERT_THAT(server_identity(), NotNull());
     rv = server_identity()->certificate().ComputeDigest(
-        rtc::DIGEST_SHA_1, server_digest, 20, &server_digest_len);
+        digest_algorithm_, server_digest, digest_length_, &server_digest_len);
     ASSERT_TRUE(rv);
 
     ASSERT_THAT(client_identity(), NotNull());
     rv = client_identity()->certificate().ComputeDigest(
-        rtc::DIGEST_SHA_1, client_digest, 20, &client_digest_len);
+        digest_algorithm_, client_digest, digest_length_, &client_digest_len);
     ASSERT_TRUE(rv);
 
     if (!valid_identity) {
@@ -658,7 +696,7 @@ class SSLStreamAdapterTestBase : public ::testing::Test,
         valid_identity
             ? rtc::SSLPeerCertificateDigestError::NONE
             : rtc::SSLPeerCertificateDigestError::VERIFICATION_FAILED;
-    rv = client_ssl_->SetPeerCertificateDigest(rtc::DIGEST_SHA_1, server_digest,
+    rv = client_ssl_->SetPeerCertificateDigest(digest_algorithm_, server_digest,
                                                server_digest_len, &err);
     EXPECT_EQ(expected_err, err);
     EXPECT_EQ(valid_identity, rv);
@@ -677,7 +715,7 @@ class SSLStreamAdapterTestBase : public ::testing::Test,
     }
 
     // Set the peer certificate digest for the server.
-    rv = server_ssl_->SetPeerCertificateDigest(rtc::DIGEST_SHA_1, client_digest,
+    rv = server_ssl_->SetPeerCertificateDigest(digest_algorithm_, client_digest,
                                                client_digest_len, &err);
     EXPECT_EQ(expected_err, err);
     EXPECT_EQ(valid_identity, rv);
@@ -775,21 +813,6 @@ class SSLStreamAdapterTestBase : public ::testing::Test,
       return server_ssl_->GetSslVersionBytes(version);
   }
 
-  bool ExportKeyingMaterial(absl::string_view label,
-                            const unsigned char* context,
-                            size_t context_len,
-                            bool use_context,
-                            bool client,
-                            unsigned char* result,
-                            size_t result_len) {
-    if (client)
-      return client_ssl_->ExportKeyingMaterial(label, context, context_len,
-                                               use_context, result, result_len);
-    else
-      return server_ssl_->ExportKeyingMaterial(label, context, context_len,
-                                               use_context, result, result_len);
-  }
-
   // To be implemented by subclasses.
   virtual void WriteData() = 0;
   virtual void ReadData(rtc::StreamInterface* stream) = 0;
@@ -832,10 +855,13 @@ class SSLStreamAdapterTestBase : public ::testing::Test,
   }
 
   rtc::AutoThread main_thread_;
+  rtc::ScopedFakeClock clock_;
   std::string client_cert_pem_;
   std::string client_private_key_pem_;
   rtc::KeyParams client_key_type_;
   rtc::KeyParams server_key_type_;
+  std::string digest_algorithm_;
+  size_t digest_length_;
   std::unique_ptr<rtc::SSLStreamAdapter> client_ssl_;
   std::unique_ptr<rtc::SSLStreamAdapter> server_ssl_;
   int delay_;
@@ -848,136 +874,12 @@ class SSLStreamAdapterTestBase : public ::testing::Test,
   bool identities_set_;
 };
 
-class SSLStreamAdapterTestTLS
-    : public SSLStreamAdapterTestBase,
-      public WithParamInterface<tuple<rtc::KeyParams, rtc::KeyParams>> {
- public:
-  SSLStreamAdapterTestTLS()
-      : SSLStreamAdapterTestBase("",
-                                 "",
-                                 false,
-                                 ::testing::get<0>(GetParam()),
-                                 ::testing::get<1>(GetParam())) {}
-
-  std::unique_ptr<rtc::StreamInterface> CreateClientStream() override final {
-    return absl::WrapUnique(
-        new SSLDummyStream(this, "c2s", &client_buffer_, &server_buffer_));
-  }
-
-  std::unique_ptr<rtc::StreamInterface> CreateServerStream() override final {
-    return absl::WrapUnique(
-        new SSLDummyStream(this, "s2c", &server_buffer_, &client_buffer_));
-  }
-
-  // Test data transfer for TLS
-  void TestTransfer(int size) override {
-    RTC_LOG(LS_INFO) << "Starting transfer test with " << size << " bytes";
-    // Create some dummy data to send.
-    size_t received;
-
-    send_stream_.ReserveSize(size);
-    for (int i = 0; i < size; ++i) {
-      uint8_t ch = static_cast<uint8_t>(i);
-      size_t written;
-      int error;
-      send_stream_.Write(rtc::MakeArrayView(&ch, 1), written, error);
-    }
-    send_stream_.Rewind();
-
-    // Prepare the receive stream.
-    recv_stream_.ReserveSize(size);
-
-    // Start sending
-    WriteData();
-
-    // Wait for the client to close
-    EXPECT_TRUE_WAIT(server_ssl_->GetState() == rtc::SS_CLOSED, 10000);
-
-    // Now check the data
-    recv_stream_.GetSize(&received);
-
-    EXPECT_EQ(static_cast<size_t>(size), received);
-    EXPECT_EQ(0,
-              memcmp(send_stream_.GetBuffer(), recv_stream_.GetBuffer(), size));
-  }
-
-  void WriteData() override {
-    size_t position, tosend, size;
-    rtc::StreamResult rv;
-    size_t sent;
-    uint8_t block[kBlockSize];
-
-    send_stream_.GetSize(&size);
-    if (!size)
-      return;
-
-    for (;;) {
-      send_stream_.GetPosition(&position);
-      int dummy_error;
-      if (send_stream_.Read(block, tosend, dummy_error) != rtc::SR_EOS) {
-        int error;
-        rv = client_ssl_->Write(rtc::MakeArrayView(block, tosend), sent, error);
-
-        if (rv == rtc::SR_SUCCESS) {
-          send_stream_.SetPosition(position + sent);
-          RTC_LOG(LS_VERBOSE) << "Sent: " << position + sent;
-        } else if (rv == rtc::SR_BLOCK) {
-          RTC_LOG(LS_VERBOSE) << "Blocked...";
-          send_stream_.SetPosition(position);
-          break;
-        } else {
-          ADD_FAILURE();
-          break;
-        }
-      } else {
-        // Now close
-        RTC_LOG(LS_INFO) << "Wrote " << position << " bytes. Closing";
-        client_ssl_->Close();
-        break;
-      }
-    }
-  }
-
-  void ReadData(rtc::StreamInterface* stream) override final {
-    uint8_t buffer[1600];
-    size_t bread;
-    int err2;
-    rtc::StreamResult r;
-
-    for (;;) {
-      r = stream->Read(buffer, bread, err2);
-
-      if (r == rtc::SR_ERROR || r == rtc::SR_EOS) {
-        // Unfortunately, errors are the way that the stream adapter
-        // signals close in OpenSSL.
-        stream->Close();
-        return;
-      }
-
-      if (r == rtc::SR_BLOCK)
-        break;
-
-      ASSERT_EQ(rtc::SR_SUCCESS, r);
-      RTC_LOG(LS_VERBOSE) << "Read " << bread;
-      size_t written;
-      int error;
-      recv_stream_.Write(rtc::MakeArrayView(buffer, bread), written, error);
-    }
-  }
-
- private:
-  StreamWrapper client_buffer_{
-      std::make_unique<rtc::FifoBuffer>(kFifoBufferSize)};
-  StreamWrapper server_buffer_{
-      std::make_unique<rtc::FifoBuffer>(kFifoBufferSize)};
-  rtc::MemoryStream send_stream_;
-  rtc::MemoryStream recv_stream_;
-};
-
 class SSLStreamAdapterTestDTLSBase : public SSLStreamAdapterTestBase {
  public:
-  SSLStreamAdapterTestDTLSBase(rtc::KeyParams param1, rtc::KeyParams param2)
-      : SSLStreamAdapterTestBase("", "", true, param1, param2),
+  SSLStreamAdapterTestDTLSBase(rtc::KeyParams param1,
+                               rtc::KeyParams param2,
+                               std::pair<std::string, size_t> digest)
+      : SSLStreamAdapterTestBase("", "", true, param1, param2, digest),
         packet_size_(1000),
         count_(0),
         sent_(0) {}
@@ -1071,14 +973,15 @@ class SSLStreamAdapterTestDTLSBase : public SSLStreamAdapterTestBase {
 
     WriteData();
 
-    EXPECT_TRUE_WAIT(sent_ == count_, 10000);
+    EXPECT_TRUE_SIMULATED_WAIT(sent_ == count_, 10000, clock_);
     RTC_LOG(LS_INFO) << "sent_ == " << sent_;
 
     if (damage_) {
-      WAIT(false, 2000);
+      SIMULATED_WAIT(false, 2000, clock_);
       EXPECT_EQ(0U, received_.size());
     } else if (loss_ == 0) {
-      EXPECT_EQ_WAIT(static_cast<size_t>(sent_), received_.size(), 1000);
+      EXPECT_EQ_SIMULATED_WAIT(static_cast<size_t>(sent_), received_.size(),
+                               1000, clock_);
     } else {
       RTC_LOG(LS_INFO) << "Sent " << sent_ << " packets; received "
                        << received_.size();
@@ -1096,19 +999,6 @@ class SSLStreamAdapterTestDTLSBase : public SSLStreamAdapterTestBase {
   int count_;
   int sent_;
   std::set<int> received_;
-};
-
-class SSLStreamAdapterTestDTLS
-    : public SSLStreamAdapterTestDTLSBase,
-      public WithParamInterface<tuple<rtc::KeyParams, rtc::KeyParams>> {
- public:
-  SSLStreamAdapterTestDTLS()
-      : SSLStreamAdapterTestDTLSBase(::testing::get<0>(GetParam()),
-                                     ::testing::get<1>(GetParam())) {}
-
-  SSLStreamAdapterTestDTLS(absl::string_view cert_pem,
-                           absl::string_view private_key_pem)
-      : SSLStreamAdapterTestDTLSBase(cert_pem, private_key_pem) {}
 };
 
 rtc::StreamResult SSLDummyStream::Write(rtc::ArrayView<const uint8_t> data,
@@ -1129,19 +1019,18 @@ rtc::StreamResult SSLDummyStream::Write(rtc::ArrayView<const uint8_t> data,
                                  error);
 }
 
-class SSLStreamAdapterTestDTLSFromPEMStrings : public SSLStreamAdapterTestDTLS {
- public:
-  SSLStreamAdapterTestDTLSFromPEMStrings()
-      : SSLStreamAdapterTestDTLS(kCERT_PEM, kRSA_PRIVATE_KEY_PEM) {}
-};
-
 // Test fixture for certificate chaining. Server will push more than one
-// certificate.
-class SSLStreamAdapterTestDTLSCertChain : public SSLStreamAdapterTestDTLS {
+// certificate. Note: these tests use RSA keys and SHA1 digests.
+class SSLStreamAdapterTestDTLSCertChain : public SSLStreamAdapterTestDTLSBase {
  public:
-  SSLStreamAdapterTestDTLSCertChain() : SSLStreamAdapterTestDTLS("", "") {}
+  SSLStreamAdapterTestDTLSCertChain() : SSLStreamAdapterTestDTLSBase("", "") {}
   void SetUp() override {
     InitializeClientAndServerStreams();
+    // These tests apparently need a longer DTLS timeout due to the larger
+    // handshake. If the client triggers a resend before the handshake is
+    // complete, the handshake fails.
+    client_ssl_->SetInitialRetransmissionTimeout(/*timeout_ms=*/1000);
+    server_ssl_->SetInitialRetransmissionTimeout(/*timeout_ms=*/1000);
 
     std::unique_ptr<rtc::SSLIdentity> client_identity;
     if (!client_cert_pem_.empty() && !client_private_key_pem_.empty()) {
@@ -1154,23 +1043,6 @@ class SSLStreamAdapterTestDTLSCertChain : public SSLStreamAdapterTestDTLS {
     client_ssl_->SetIdentity(std::move(client_identity));
   }
 };
-
-// Basic tests: TLS
-
-// Test that we can make a handshake work
-TEST_P(SSLStreamAdapterTestTLS, TestTLSConnect) {
-  TestHandshake();
-}
-
-TEST_P(SSLStreamAdapterTestTLS, GetPeerCertChainWithOneCertificate) {
-  TestHandshake();
-  std::unique_ptr<rtc::SSLCertChain> cert_chain =
-      client_ssl_->GetPeerSSLCertChain();
-  ASSERT_NE(nullptr, cert_chain);
-  EXPECT_EQ(1u, cert_chain->GetSize());
-  EXPECT_EQ(cert_chain->Get(0).ToPEMString(),
-            server_identity()->certificate().ToPEMString());
-}
 
 TEST_F(SSLStreamAdapterTestDTLSCertChain, TwoCertHandshake) {
   auto server_identity = rtc::SSLIdentity::CreateFromPEMChainStrings(
@@ -1222,108 +1094,87 @@ TEST_F(SSLStreamAdapterTestDTLSCertChain, ThreeCertHandshake) {
 #endif
 }
 
-// Test that closing the connection on one side updates the other side.
-TEST_P(SSLStreamAdapterTestTLS, TestTLSClose) {
-  TestHandshake();
-  client_ssl_->Close();
-  EXPECT_EQ_WAIT(rtc::SS_CLOSED, server_ssl_->GetState(), handshake_wait_);
-}
+class SSLStreamAdapterTestDTLSHandshake
+    : public SSLStreamAdapterTestDTLSBase,
+      public WithParamInterface<tuple<rtc::KeyParams,
+                                      rtc::KeyParams,
+                                      std::pair<std::string, size_t>>> {
+ public:
+  SSLStreamAdapterTestDTLSHandshake()
+      : SSLStreamAdapterTestDTLSBase(::testing::get<0>(GetParam()),
+                                     ::testing::get<1>(GetParam()),
+                                     ::testing::get<2>(GetParam())) {}
+};
 
-// Test transfer -- trivial
-TEST_P(SSLStreamAdapterTestTLS, TestTLSTransfer) {
-  TestHandshake();
-  TestTransfer(100000);
-}
-
-// Test read-write after close.
-TEST_P(SSLStreamAdapterTestTLS, ReadWriteAfterClose) {
-  TestHandshake();
-  TestTransfer(100000);
-  client_ssl_->Close();
-
-  rtc::StreamResult rv;
-  uint8_t block[kBlockSize];
-  size_t dummy;
-  int error;
-
-  // It's an error to write after closed.
-  rv = client_ssl_->Write(block, dummy, error);
-  ASSERT_EQ(rtc::SR_ERROR, rv);
-
-  // But after closed read gives you EOS.
-  rv = client_ssl_->Read(block, dummy, error);
-  ASSERT_EQ(rtc::SR_EOS, rv);
-}
-
-// Test a handshake with a bogus peer digest
-TEST_P(SSLStreamAdapterTestTLS, TestTLSBogusDigest) {
-  SetPeerIdentitiesByDigest(false, true);
-  TestHandshake(false);
-}
-
-TEST_P(SSLStreamAdapterTestTLS, TestTLSDelayedIdentity) {
-  TestHandshakeWithDelayedIdentity(true);
-}
-
-TEST_P(SSLStreamAdapterTestTLS, TestTLSDelayedIdentityWithBogusDigest) {
-  TestHandshakeWithDelayedIdentity(false);
-}
-
-// Test that the correct error is returned when SetPeerCertificateDigest is
-// called with an unknown algorithm.
-TEST_P(SSLStreamAdapterTestTLS,
-       TestSetPeerCertificateDigestWithUnknownAlgorithm) {
-  unsigned char server_digest[20];
-  size_t server_digest_len;
-  bool rv;
-  rtc::SSLPeerCertificateDigestError err;
-
-  rv = server_identity()->certificate().ComputeDigest(
-      rtc::DIGEST_SHA_1, server_digest, 20, &server_digest_len);
-  ASSERT_TRUE(rv);
-
-  rv = client_ssl_->SetPeerCertificateDigest("unknown algorithm", server_digest,
-                                             server_digest_len, &err);
-  EXPECT_EQ(rtc::SSLPeerCertificateDigestError::UNKNOWN_ALGORITHM, err);
-  EXPECT_FALSE(rv);
-}
-
-// Test that the correct error is returned when SetPeerCertificateDigest is
-// called with an invalid digest length.
-TEST_P(SSLStreamAdapterTestTLS, TestSetPeerCertificateDigestWithInvalidLength) {
-  unsigned char server_digest[20];
-  size_t server_digest_len;
-  bool rv;
-  rtc::SSLPeerCertificateDigestError err;
-
-  rv = server_identity()->certificate().ComputeDigest(
-      rtc::DIGEST_SHA_1, server_digest, 20, &server_digest_len);
-  ASSERT_TRUE(rv);
-
-  rv = client_ssl_->SetPeerCertificateDigest(rtc::DIGEST_SHA_1, server_digest,
-                                             server_digest_len - 1, &err);
-  EXPECT_EQ(rtc::SSLPeerCertificateDigestError::INVALID_LENGTH, err);
-  EXPECT_FALSE(rv);
-}
-
-// Test moving a bunch of data
-
-// Basic tests: DTLS
-// Test that we can make a handshake work
-TEST_P(SSLStreamAdapterTestDTLS, TestDTLSConnect) {
+// Test that we can make a handshake work with different parameters.
+TEST_P(SSLStreamAdapterTestDTLSHandshake, TestDTLSConnect) {
   TestHandshake();
 }
+
+// Test getting the used DTLS ciphers.
+// DTLS 1.2 is max version for client and server.
+TEST_P(SSLStreamAdapterTestDTLSHandshake, TestGetSslCipherSuite) {
+  SetupProtocolVersions(rtc::SSL_PROTOCOL_DTLS_12, rtc::SSL_PROTOCOL_DTLS_12);
+  TestHandshake();
+
+  int client_cipher;
+  ASSERT_TRUE(GetSslCipherSuite(true, &client_cipher));
+  int server_cipher;
+  ASSERT_TRUE(GetSslCipherSuite(false, &server_cipher));
+
+  ASSERT_EQ(client_cipher, server_cipher);
+  ASSERT_TRUE(rtc::SSLStreamAdapter::IsAcceptableCipher(
+      server_cipher, ::testing::get<1>(GetParam()).type()));
+}
+
+// Test different key sizes with SHA-256, then different signature algorithms
+// with ECDSA. Two different RSA sizes are tested on the client and server.
+// TODO: bugs.webrtc.org/375552698 - these tests are slow in debug builds
+// and have caused flakyness in the past with a key size of 2048.
+INSTANTIATE_TEST_SUITE_P(
+    SSLStreamAdapterTestDTLSHandshakeKeyParameters,
+    SSLStreamAdapterTestDTLSHandshake,
+    Values(std::make_tuple(rtc::KeyParams::ECDSA(rtc::EC_NIST_P256),
+                           rtc::KeyParams::RSA(rtc::kRsaDefaultModSize,
+                                               rtc::kRsaDefaultExponent),
+                           std::make_pair(rtc::DIGEST_SHA_256,
+                                          SHA256_DIGEST_LENGTH)),
+           std::make_tuple(rtc::KeyParams::RSA(1152, rtc::kRsaDefaultExponent),
+                           rtc::KeyParams::ECDSA(rtc::EC_NIST_P256),
+                           std::make_pair(rtc::DIGEST_SHA_256,
+                                          SHA256_DIGEST_LENGTH))));
+
+INSTANTIATE_TEST_SUITE_P(
+    SSLStreamAdapterTestDTLSHandshakeSignatureAlgorithms,
+    SSLStreamAdapterTestDTLSHandshake,
+    Combine(Values(rtc::KeyParams::ECDSA(rtc::EC_NIST_P256)),
+            Values(rtc::KeyParams::ECDSA(rtc::EC_NIST_P256)),
+            Values(std::make_pair(rtc::DIGEST_SHA_1, SHA_DIGEST_LENGTH),
+                   std::make_pair(rtc::DIGEST_SHA_224, SHA224_DIGEST_LENGTH),
+                   std::make_pair(rtc::DIGEST_SHA_256, SHA256_DIGEST_LENGTH),
+                   std::make_pair(rtc::DIGEST_SHA_384, SHA384_DIGEST_LENGTH),
+                   std::make_pair(rtc::DIGEST_SHA_512, SHA512_DIGEST_LENGTH))));
+
+// Basic tests done with ECDSA certificates and SHA-256.
+class SSLStreamAdapterTestDTLS : public SSLStreamAdapterTestDTLSBase {
+ public:
+  SSLStreamAdapterTestDTLS()
+      : SSLStreamAdapterTestDTLSBase(
+            rtc::KeyParams::ECDSA(rtc::EC_NIST_P256),
+            rtc::KeyParams::ECDSA(rtc::EC_NIST_P256),
+            std::make_pair(rtc::DIGEST_SHA_256, SHA256_DIGEST_LENGTH)) {}
+};
 
 // Test that we can make a handshake work if the first packet in
 // each direction is lost. This gives us predictable loss
 // rather than having to tune random
-TEST_P(SSLStreamAdapterTestDTLS, TestDTLSConnectWithLostFirstPacket) {
+TEST_F(SSLStreamAdapterTestDTLS, TestDTLSConnectWithLostFirstPacket) {
   SetLoseFirstPacket(true);
   TestHandshake();
 }
 
 // Test a handshake with loss and delay
-TEST_P(SSLStreamAdapterTestDTLS, TestDTLSConnectWithLostFirstPacketDelay2s) {
+TEST_F(SSLStreamAdapterTestDTLS, TestDTLSConnectWithLostFirstPacketDelay2s) {
   SetLoseFirstPacket(true);
   SetDelay(2000);
   SetHandshakeWait(20000);
@@ -1332,47 +1183,53 @@ TEST_P(SSLStreamAdapterTestDTLS, TestDTLSConnectWithLostFirstPacketDelay2s) {
 
 // Test a handshake with small MTU
 // Disabled due to https://code.google.com/p/webrtc/issues/detail?id=3910
-TEST_P(SSLStreamAdapterTestDTLS, DISABLED_TestDTLSConnectWithSmallMtu) {
+TEST_F(SSLStreamAdapterTestDTLS, DISABLED_TestDTLSConnectWithSmallMtu) {
   SetMtu(700);
   SetHandshakeWait(20000);
   TestHandshake();
 }
 
 // Test a handshake with total loss and timing out.
-TEST_P(SSLStreamAdapterTestDTLS, TestDTLSConnectTimeout) {
+// Only works in BoringSSL.
+#ifdef OPENSSL_IS_BORINGSSL
+#define MAYBE_TestDTLSConnectTimeout TestDTLSConnectTimeout
+#else
+#define MAYBE_TestDTLSConnectTimeout DISABLED_TestDTLSConnectTimeout
+#endif
+TEST_F(SSLStreamAdapterTestDTLS, MAYBE_TestDTLSConnectTimeout) {
   SetLoss(100);
   TestHandshakeTimeout();
 }
 
 // Test transfer -- trivial
-TEST_P(SSLStreamAdapterTestDTLS, TestDTLSTransfer) {
+TEST_F(SSLStreamAdapterTestDTLS, TestDTLSTransfer) {
   TestHandshake();
   TestTransfer(100);
 }
 
-TEST_P(SSLStreamAdapterTestDTLS, TestDTLSTransferWithLoss) {
+TEST_F(SSLStreamAdapterTestDTLS, TestDTLSTransferWithLoss) {
   TestHandshake();
   SetLoss(10);
   TestTransfer(100);
 }
 
-TEST_P(SSLStreamAdapterTestDTLS, TestDTLSTransferWithDamage) {
+TEST_F(SSLStreamAdapterTestDTLS, TestDTLSTransferWithDamage) {
   SetDamage();  // Must be called first because first packet
                 // write happens at end of handshake.
   TestHandshake();
   TestTransfer(100);
 }
 
-TEST_P(SSLStreamAdapterTestDTLS, TestDTLSDelayedIdentity) {
+TEST_F(SSLStreamAdapterTestDTLS, TestDTLSDelayedIdentity) {
   TestHandshakeWithDelayedIdentity(true);
 }
 
-TEST_P(SSLStreamAdapterTestDTLS, TestDTLSDelayedIdentityWithBogusDigest) {
+TEST_F(SSLStreamAdapterTestDTLS, TestDTLSDelayedIdentityWithBogusDigest) {
   TestHandshakeWithDelayedIdentity(false);
 }
 
 // Test DTLS-SRTP with SrtpAes128CmSha1_80
-TEST_P(SSLStreamAdapterTestDTLS, TestDTLSSrtpAes128CmSha1_80) {
+TEST_F(SSLStreamAdapterTestDTLS, TestDTLSSrtpAes128CmSha1_80) {
   const std::vector<int> crypto_suites = {rtc::kSrtpAes128CmSha1_80};
   SetDtlsSrtpCryptoSuites(crypto_suites, true);
   SetDtlsSrtpCryptoSuites(crypto_suites, false);
@@ -1388,7 +1245,7 @@ TEST_P(SSLStreamAdapterTestDTLS, TestDTLSSrtpAes128CmSha1_80) {
 }
 
 // Test DTLS-SRTP with SrtpAes128CmSha1_32
-TEST_P(SSLStreamAdapterTestDTLS, TestDTLSSrtpAes128CmSha1_32) {
+TEST_F(SSLStreamAdapterTestDTLS, TestDTLSSrtpAes128CmSha1_32) {
   const std::vector<int> crypto_suites = {rtc::kSrtpAes128CmSha1_32};
   SetDtlsSrtpCryptoSuites(crypto_suites, true);
   SetDtlsSrtpCryptoSuites(crypto_suites, false);
@@ -1404,7 +1261,7 @@ TEST_P(SSLStreamAdapterTestDTLS, TestDTLSSrtpAes128CmSha1_32) {
 }
 
 // Test DTLS-SRTP with incompatible cipher suites -- should not converge.
-TEST_P(SSLStreamAdapterTestDTLS, TestDTLSSrtpIncompatibleCipherSuites) {
+TEST_F(SSLStreamAdapterTestDTLS, TestDTLSSrtpIncompatibleCipherSuites) {
   SetDtlsSrtpCryptoSuites({rtc::kSrtpAes128CmSha1_80}, true);
   SetDtlsSrtpCryptoSuites({rtc::kSrtpAes128CmSha1_32}, false);
   TestHandshake();
@@ -1417,7 +1274,7 @@ TEST_P(SSLStreamAdapterTestDTLS, TestDTLSSrtpIncompatibleCipherSuites) {
 
 // Test DTLS-SRTP with each side being mixed -- should select the stronger
 // cipher.
-TEST_P(SSLStreamAdapterTestDTLS, TestDTLSSrtpMixed) {
+TEST_F(SSLStreamAdapterTestDTLS, TestDTLSSrtpMixed) {
   const std::vector<int> crypto_suites = {rtc::kSrtpAes128CmSha1_80,
                                           rtc::kSrtpAes128CmSha1_32};
   SetDtlsSrtpCryptoSuites(crypto_suites, true);
@@ -1434,7 +1291,7 @@ TEST_P(SSLStreamAdapterTestDTLS, TestDTLSSrtpMixed) {
 }
 
 // Test DTLS-SRTP with SrtpAeadAes128Gcm.
-TEST_P(SSLStreamAdapterTestDTLS, TestDTLSSrtpAeadAes128Gcm) {
+TEST_F(SSLStreamAdapterTestDTLS, TestDTLSSrtpAeadAes128Gcm) {
   std::vector<int> crypto_suites = {rtc::kSrtpAeadAes128Gcm};
   SetDtlsSrtpCryptoSuites(crypto_suites, true);
   SetDtlsSrtpCryptoSuites(crypto_suites, false);
@@ -1450,7 +1307,7 @@ TEST_P(SSLStreamAdapterTestDTLS, TestDTLSSrtpAeadAes128Gcm) {
 }
 
 // Test DTLS-SRTP with all GCM-256 ciphers.
-TEST_P(SSLStreamAdapterTestDTLS, TestDTLSSrtpGCM256) {
+TEST_F(SSLStreamAdapterTestDTLS, TestDTLSSrtpGCM256) {
   std::vector<int> crypto_suites = {rtc::kSrtpAeadAes256Gcm};
   SetDtlsSrtpCryptoSuites(crypto_suites, true);
   SetDtlsSrtpCryptoSuites(crypto_suites, false);
@@ -1466,7 +1323,7 @@ TEST_P(SSLStreamAdapterTestDTLS, TestDTLSSrtpGCM256) {
 }
 
 // Test DTLS-SRTP with incompatbile GCM-128/-256 ciphers -- should not converge.
-TEST_P(SSLStreamAdapterTestDTLS, TestDTLSSrtpIncompatibleGcmCipherSuites) {
+TEST_F(SSLStreamAdapterTestDTLS, TestDTLSSrtpIncompatibleGcmCipherSuites) {
   SetDtlsSrtpCryptoSuites({rtc::kSrtpAeadAes128Gcm}, true);
   SetDtlsSrtpCryptoSuites({rtc::kSrtpAeadAes256Gcm}, false);
   TestHandshake();
@@ -1478,7 +1335,7 @@ TEST_P(SSLStreamAdapterTestDTLS, TestDTLSSrtpIncompatibleGcmCipherSuites) {
 }
 
 // Test DTLS-SRTP with both GCM-128/-256 ciphers -- should select GCM-256.
-TEST_P(SSLStreamAdapterTestDTLS, TestDTLSSrtpGCMMixed) {
+TEST_F(SSLStreamAdapterTestDTLS, TestDTLSSrtpGCMMixed) {
   std::vector<int> crypto_suites = {rtc::kSrtpAeadAes256Gcm,
                                     rtc::kSrtpAeadAes128Gcm};
   SetDtlsSrtpCryptoSuites(crypto_suites, true);
@@ -1495,7 +1352,7 @@ TEST_P(SSLStreamAdapterTestDTLS, TestDTLSSrtpGCMMixed) {
 }
 
 // Test SRTP cipher suite lengths.
-TEST_P(SSLStreamAdapterTestDTLS, TestDTLSSrtpKeyAndSaltLengths) {
+TEST_F(SSLStreamAdapterTestDTLS, TestDTLSSrtpKeyAndSaltLengths) {
   int key_len;
   int salt_len;
 
@@ -1524,27 +1381,38 @@ TEST_P(SSLStreamAdapterTestDTLS, TestDTLSSrtpKeyAndSaltLengths) {
 }
 
 // Test an exporter
-TEST_P(SSLStreamAdapterTestDTLS, TestDTLSExporter) {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+TEST_F(SSLStreamAdapterTestDTLS, TestDTLSExporter) {
+  const std::vector<int> crypto_suites = {rtc::kSrtpAes128CmSha1_80};
+  SetDtlsSrtpCryptoSuites(crypto_suites, true);
+  SetDtlsSrtpCryptoSuites(crypto_suites, false);
+
   TestHandshake();
-  unsigned char client_out[20];
-  unsigned char server_out[20];
+  int selected_crypto_suite;
+  EXPECT_TRUE(GetDtlsSrtpCryptoSuite(/*client=*/false, &selected_crypto_suite));
+  int key_len;
+  int salt_len;
+  ASSERT_TRUE(rtc::GetSrtpKeyAndSaltLengths(selected_crypto_suite, &key_len,
+                                            &salt_len));
+  rtc::ZeroOnFreeBuffer<uint8_t> client_out(2 * (key_len + salt_len));
+  rtc::ZeroOnFreeBuffer<uint8_t> server_out(2 * (key_len + salt_len));
 
-  bool result;
-  result = ExportKeyingMaterial(kExporterLabel, kExporterContext,
-                                kExporterContextLen, true, true, client_out,
-                                sizeof(client_out));
-  ASSERT_TRUE(result);
+  EXPECT_TRUE(client_ssl_->ExportSrtpKeyingMaterial(client_out));
+  EXPECT_TRUE(server_ssl_->ExportSrtpKeyingMaterial(server_out));
+  EXPECT_EQ(client_out, server_out);
 
-  result = ExportKeyingMaterial(kExporterLabel, kExporterContext,
-                                kExporterContextLen, true, false, server_out,
-                                sizeof(server_out));
-  ASSERT_TRUE(result);
-
-  ASSERT_TRUE(!memcmp(client_out, server_out, sizeof(client_out)));
+  // Legacy variant.
+  rtc::ZeroOnFreeBuffer<uint8_t> legacy_out(2 * (key_len + salt_len));
+  EXPECT_TRUE(client_ssl_->ExportKeyingMaterial("EXTRACTOR-dtls_srtp", nullptr,
+                                                0, false, legacy_out.data(),
+                                                legacy_out.size()));
+  EXPECT_EQ(client_out, legacy_out);
 }
+#pragma clang diagnostic pop
 
 // Test not yet valid certificates are not rejected.
-TEST_P(SSLStreamAdapterTestDTLS, TestCertNotYetValid) {
+TEST_F(SSLStreamAdapterTestDTLS, TestCertNotYetValid) {
   long one_day = 60 * 60 * 24;
   // Make the certificates not valid until one day later.
   ResetIdentitiesWithValidity(one_day, one_day);
@@ -1552,12 +1420,19 @@ TEST_P(SSLStreamAdapterTestDTLS, TestCertNotYetValid) {
 }
 
 // Test expired certificates are not rejected.
-TEST_P(SSLStreamAdapterTestDTLS, TestCertExpired) {
+TEST_F(SSLStreamAdapterTestDTLS, TestCertExpired) {
   long one_day = 60 * 60 * 24;
   // Make the certificates already expired.
   ResetIdentitiesWithValidity(-one_day, -one_day);
   TestHandshake();
 }
+
+class SSLStreamAdapterTestDTLSFromPEMStrings
+    : public SSLStreamAdapterTestDTLSBase {
+ public:
+  SSLStreamAdapterTestDTLSFromPEMStrings()
+      : SSLStreamAdapterTestDTLSBase(kCERT_PEM, kRSA_PRIVATE_KEY_PEM) {}
+};
 
 // Test data transfer using certs created from strings.
 TEST_F(SSLStreamAdapterTestDTLSFromPEMStrings, TestTransfer) {
@@ -1592,7 +1467,7 @@ TEST_F(SSLStreamAdapterTestDTLSFromPEMStrings, TestDTLSGetPeerCertificate) {
 }
 
 // Test getting the DTLS 1.2 version.
-TEST_P(SSLStreamAdapterTestDTLS, TestGetSslVersionBytes) {
+TEST_F(SSLStreamAdapterTestDTLS, TestGetSslVersionBytes) {
   // https://datatracker.ietf.org/doc/html/rfc9147#section-5.3
   const int kDtls1_2 = 0xFEFD;
   SetupProtocolVersions(rtc::SSL_PROTOCOL_DTLS_12, rtc::SSL_PROTOCOL_DTLS_12);
@@ -1606,89 +1481,3 @@ TEST_P(SSLStreamAdapterTestDTLS, TestGetSslVersionBytes) {
   ASSERT_TRUE(GetSslVersionBytes(false, &server_version));
   EXPECT_EQ(server_version, kDtls1_2);
 }
-
-// Test getting the used DTLS ciphers.
-// DTLS 1.2 is max version for client and server.
-TEST_P(SSLStreamAdapterTestDTLS, TestGetSslCipherSuite) {
-  SetupProtocolVersions(rtc::SSL_PROTOCOL_DTLS_12, rtc::SSL_PROTOCOL_DTLS_12);
-  TestHandshake();
-
-  int client_cipher;
-  ASSERT_TRUE(GetSslCipherSuite(true, &client_cipher));
-  int server_cipher;
-  ASSERT_TRUE(GetSslCipherSuite(false, &server_cipher));
-
-  ASSERT_EQ(client_cipher, server_cipher);
-  ASSERT_TRUE(rtc::SSLStreamAdapter::IsAcceptableCipher(
-      server_cipher, ::testing::get<1>(GetParam()).type()));
-}
-
-// The RSA keysizes here might look strange, why not include the RFC's size
-// 2048?. The reason is test case slowness; testing two sizes to exercise
-// parametrization is sufficient.
-INSTANTIATE_TEST_SUITE_P(
-    SSLStreamAdapterTestsTLS,
-    SSLStreamAdapterTestTLS,
-    Combine(Values(rtc::KeyParams::RSA(1024, 65537),
-                   rtc::KeyParams::RSA(1152, 65537),
-                   rtc::KeyParams::ECDSA(rtc::EC_NIST_P256)),
-            Values(rtc::KeyParams::RSA(1024, 65537),
-                   rtc::KeyParams::RSA(1152, 65537),
-                   rtc::KeyParams::ECDSA(rtc::EC_NIST_P256))));
-INSTANTIATE_TEST_SUITE_P(
-    SSLStreamAdapterTestsDTLS,
-    SSLStreamAdapterTestDTLS,
-    Combine(Values(rtc::KeyParams::RSA(1024, 65537),
-                   rtc::KeyParams::RSA(1152, 65537),
-                   rtc::KeyParams::ECDSA(rtc::EC_NIST_P256)),
-            Values(rtc::KeyParams::RSA(1024, 65537),
-                   rtc::KeyParams::RSA(1152, 65537),
-                   rtc::KeyParams::ECDSA(rtc::EC_NIST_P256))));
-
-// Tests for enabling the (D)TLS extension permutation which randomizes the
-// order of extensions in the client hello.
-// These tests are a no-op under OpenSSL.
-#ifdef OPENSSL_IS_BORINGSSL
-class SSLStreamAdapterTestDTLSExtensionPermutation
-    : public SSLStreamAdapterTestDTLSBase {
- public:
-  SSLStreamAdapterTestDTLSExtensionPermutation()
-      : SSLStreamAdapterTestDTLSBase(rtc::KeyParams::ECDSA(rtc::EC_NIST_P256),
-                                     rtc::KeyParams::ECDSA(rtc::EC_NIST_P256)) {
-  }
-
-  void Initialize(absl::string_view client_experiment,
-                  absl::string_view server_experiment) {
-    InitializeClientAndServerStreams(client_experiment, server_experiment);
-    client_ssl_->SetIdentity(
-        rtc::SSLIdentity::Create("client", client_key_type_));
-    server_ssl_->SetIdentity(
-        rtc::SSLIdentity::Create("server", server_key_type_));
-  }
-};
-
-TEST_F(SSLStreamAdapterTestDTLSExtensionPermutation,
-       ClientDefaultServerDefault) {
-  Initialize("", "");
-  TestHandshake();
-}
-
-TEST_F(SSLStreamAdapterTestDTLSExtensionPermutation,
-       ClientDefaultServerPermute) {
-  Initialize("", "WebRTC-PermuteTlsClientHello/Enabled/");
-  TestHandshake();
-}
-
-TEST_F(SSLStreamAdapterTestDTLSExtensionPermutation,
-       ClientPermuteServerDefault) {
-  Initialize("WebRTC-PermuteTlsClientHello/Enabled/", "");
-  TestHandshake();
-}
-
-TEST_F(SSLStreamAdapterTestDTLSExtensionPermutation,
-       ClientPermuteServerPermute) {
-  Initialize("WebRTC-PermuteTlsClientHello/Enabled/",
-             "WebRTC-PermuteTlsClientHello/Enabled/");
-  TestHandshake();
-}
-#endif  // OPENSSL_IS_BORINGSSL

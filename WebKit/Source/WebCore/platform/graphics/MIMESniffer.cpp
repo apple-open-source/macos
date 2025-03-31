@@ -27,6 +27,7 @@
 #include "MIMESniffer.h"
 
 #include <array>
+#include <wtf/StdLibExtras.h>
 
 namespace WebCore {
 
@@ -35,7 +36,7 @@ namespace MIMESniffer {
 template<std::size_t N>
 constexpr auto span8(const char(&p)[N])
 {
-    return std::span<const uint8_t, N - 1>(byteCast<uint8_t>(&p[0]), N - 1);
+    return unsafeMakeSpan<const uint8_t, N - 1>(byteCast<uint8_t>(static_cast<const char*>(p)), N - 1);
 }
 
 static bool hasSignatureForMP4(std::span<const uint8_t> sequence)

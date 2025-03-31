@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024 Klara, Inc.
+ * Copyright (c) 2024, Klara, Inc.
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -37,7 +37,6 @@
  */
 
 #define	RSYNCD_LOG_FORMAT	"%o %h [%a] %m (%u) %f %l"
-#define	RSYNCD_LOG_FILE_PREFIX	"%t [%p] "
 
 struct daemon_cfg_module;
 struct daemon_cfg_param;
@@ -71,7 +70,7 @@ static struct rsync_daemon_param {
 	PARAM("exclude",	NULL),
 	PARAM("exclude from",	"excludefrom"),
 	PARAM("filter",		NULL),
-	PARAM_DFLT("gid",		NULL,		"-2"),
+	PARAM("gid",		NULL),
 	PARAM("hosts allow",	"hostsallow"),
 	PARAM("hosts deny",	"hostsdeny"),
 	PARAM_DFLT("ignore errors",	"ignoreerrors",	"false"),
@@ -82,6 +81,7 @@ static struct rsync_daemon_param {
 	PARAM_DFLT("list",		NULL,		"true"),
 	PARAM_DFLT("lock file",		"lockfile",	"/var/run/rsyncd.lock"),
 	PARAM("log file",	"logfile"),
+	PARAM_DFLT("log format",	"logformat",		RSYNCD_LOG_FORMAT),
 	PARAM_DFLT("max connections",	"maxconnections",	"0"),
 	PARAM_DFLT("max verbosity",	"maxverbosity",	"1"),
 	/* next two defaults are based on chroot. */
@@ -97,13 +97,10 @@ static struct rsync_daemon_param {
 	PARAM_DFLT("strict modes",	"strictmodes",	"true"),
 	PARAM_DFLT("syslog facility",	"syslogfacility",	"daemon"),
 	PARAM_DFLT("timeout",	NULL,	"0"),
-	PARAM_DFLT("uid",		NULL,		"-2"),
+	PARAM_DFLT("transfer logging",	"transferlogging",	"false"),
+	PARAM_DFLT("uid",		NULL,		"nobody"),
 	PARAM_DFLT("use chroot",	"usechroot",	"true"),
 	PARAM_DFLT("write only",	"writeonly",	"false"),
-
-	/* Not implemented module options */
-	PARAM_DFLT("transfer logging",	"transferlogging",	"false"),
-	PARAM_DFLT("log format",	"logformat",		RSYNCD_LOG_FORMAT),
 
 	/* Intentionally omitted options (will warn) */
 	PARAM("dont compress",	"dontcompress"),
@@ -611,6 +608,16 @@ cfg_parse(const struct sess *sess, const char *cfg_file, int module)
 
 hasval:
 		if (!continued) {
+			/*
+			 * Trim any trailing whitespace now that we've sorted
+			 * out all of the continuations.
+			 */
+			while (isspace(value[valuelen - 1])) {
+				valuelen--;
+			}
+
+			value[valuelen] = '\0';
+
 			/*
 			 * cfg_module_add_param() will free our value or take
 			 * possession of it.

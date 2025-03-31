@@ -12,7 +12,7 @@
 #include <climits>
 
 #include "aom/aom_image.h"
-#include "third_party/googletest/src/googletest/include/gtest/gtest.h"
+#include "gtest/gtest.h"
 
 TEST(AomImageTest, AomImgWrapInvalidAlign) {
   const int kWidth = 128;

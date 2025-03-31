@@ -39,6 +39,7 @@
 #import <wtf/HashSet.h>
 #import <wtf/NeverDestroyed.h>
 #import <wtf/RunLoop.h>
+#import <wtf/StdLibExtras.h>
 #import <wtf/cocoa/Entitlements.h>
 #import <wtf/spi/darwin/XPCSPI.h>
 
@@ -67,10 +68,8 @@ static void connectionEventHandler(xpc_object_t request)
     }
 
     auto messageType { static_cast<PCM::MessageType>(xpc_dictionary_get_uint64(request, PCM::protocolMessageTypeKey)) };
-    size_t dataSize { 0 };
-    const void* data = xpc_dictionary_get_data(request, PCM::protocolEncodedMessageKey, &dataSize);
-    std::span encodedMessage { static_cast<const uint8_t*>(data), dataSize };
-    decodeMessageAndSendToManager(Daemon::Connection(xpc_dictionary_get_remote_connection(request)), messageType, encodedMessage, replySender(messageType, request));
+    auto encodedMessage = xpc_dictionary_get_data_span(request, PCM::protocolEncodedMessageKey);
+    decodeMessageAndSendToManager(Daemon::Connection::create(xpc_dictionary_get_remote_connection(request)), messageType, encodedMessage, replySender(messageType, request));
 }
 
 static void registerScheduledActivityHandler()
@@ -123,15 +122,18 @@ static void connectionRemoved(xpc_connection_t connection)
     PCM::DaemonConnectionSet::singleton().remove(connection);
 }
 
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
+
 int PCMDaemonMain(int argc, const char** argv)
 {
-    if (argc < 5 || strcmp(argv[1], "--machServiceName") || strcmp(argv[3], "--storageLocation")) {
-        NSLog(@"Usage: %s --machServiceName <name> --storageLocation <location> [--startActivity]", argv[0]);
+    auto arguments = unsafeMakeSpan(argv, argc);
+    if (arguments.size() < 5 || strcmp(arguments[1], "--machServiceName") || strcmp(arguments[3], "--storageLocation")) {
+        NSLog(@"Usage: %s --machServiceName <name> --storageLocation <location> [--startActivity]", arguments[0]);
         return -1;
     }
-    const char* machServiceName = argv[2];
-    const char* storageLocation = argv[4];
-    bool startActivity = argc > 5 && !strcmp(argv[5], "--startActivity");
+    const char* machServiceName = arguments[2];
+    const char* storageLocation = arguments[4];
+    bool startActivity = arguments.size() > 5 && !strcmp(arguments[5], "--startActivity");
 
     @autoreleasepool {
 #if ENABLE(CFPREFS_DIRECT_MODE)
@@ -150,5 +152,7 @@ int PCMDaemonMain(int argc, const char** argv)
     CFRunLoopRun();
     return 0;
 }
+
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
 
 } // namespace WebKit

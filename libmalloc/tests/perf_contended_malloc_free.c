@@ -498,7 +498,7 @@ T_DECL(perf_contended_large_bench, "Contended large malloc",
 }
 
 // rdar://100479142
-#if CONFIG_DEFERRED_RECLAIM
+#if CONFIG_MAGAZINE_DEFERRED_RECLAIM || CONFIG_XZM_DEFERRED_RECLAIM
 
 // If deferred reclaim is available but not enabled by default, test it too
 T_DECL(perf_contended_large_deferred_reclaim_bench,
@@ -514,4 +514,4 @@ T_DECL(perf_contended_large_deferred_reclaim_bench,
 	malloc_bench(false, 16 * 1024, 256 * 1024, 16 * 1024);
 }
 
-#endif // CONFIG_DEFERRED_RECLAIM
+#endif // CONFIG_MAGAZINE_DEFERRED_RECLAIM || CONFIG_XZM_DEFERRED_RECLAIM

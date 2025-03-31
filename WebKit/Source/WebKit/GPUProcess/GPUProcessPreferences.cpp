@@ -38,26 +38,6 @@ namespace WebKit {
 
 void GPUProcessPreferences::copyEnabledWebPreferences(const WebPreferences& webPreferences)
 {
-#if ENABLE(OPUS)
-    if (webPreferences.opusDecoderEnabled())
-        opusDecoderEnabled = true;
-#endif
-
-#if ENABLE(VORBIS)
-    if (webPreferences.vorbisDecoderEnabled())
-        vorbisDecoderEnabled = true;
-#endif
-
-#if ENABLE(MEDIA_SOURCE) && ENABLE(VP9)
-    if (webPreferences.webMParserEnabled())
-        webMParserEnabled = true;
-#endif
-
-#if ENABLE(MEDIA_SOURCE) && HAVE(AVSAMPLEBUFFERVIDEOOUTPUT)
-    if (webPreferences.mediaSourceInlinePaintingEnabled())
-        mediaSourceInlinePaintingEnabled = true;
-#endif
-
 #if USE(MODERN_AVCONTENTKEYSESSION)
     if (webPreferences.shouldUseModernAVContentKeySession())
         shouldUseModernAVContentKeySession = true;
@@ -74,8 +54,6 @@ void GPUProcessPreferences::copyEnabledWebPreferences(const WebPreferences& webP
 #endif
 
 #if ENABLE(VP9)
-    if (webPreferences.vp8DecoderEnabled())
-        vp8DecoderEnabled = true;
     if (webPreferences.vp9DecoderEnabled())
         vp9DecoderEnabled = true;
     if (webPreferences.sWVPDecodersAlwaysEnabled())

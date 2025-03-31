@@ -51,9 +51,9 @@ XrResult OpenXRInput::initialize()
         XRHandedness::Left, XRHandedness::Right
     };
 
-    for (auto handeness : hands) {
+    for (auto handedness : hands) {
         m_handleIndex++;;
-        if (auto inputSource = OpenXRInputSource::create(m_instance, m_session, handeness, m_handleIndex))
+        if (auto inputSource = OpenXRInputSource::create(m_instance, m_session, handedness, m_handleIndex))
             m_inputSources.append(makeUniqueRefFromNonNullUniquePtr(WTFMove(inputSource)));
     }
 

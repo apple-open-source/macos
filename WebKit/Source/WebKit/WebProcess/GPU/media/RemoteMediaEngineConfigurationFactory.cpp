@@ -43,7 +43,8 @@ using namespace WebCore;
 
 WTF_MAKE_TZONE_ALLOCATED_IMPL(RemoteMediaEngineConfigurationFactory);
 
-RemoteMediaEngineConfigurationFactory::RemoteMediaEngineConfigurationFactory(WebProcess&)
+RemoteMediaEngineConfigurationFactory::RemoteMediaEngineConfigurationFactory(WebProcess& webProcess)
+    : m_webProcess(webProcess)
 {
 }
 
@@ -90,6 +91,9 @@ GPUProcessConnection& RemoteMediaEngineConfigurationFactory::gpuProcessConnectio
 
 void RemoteMediaEngineConfigurationFactory::createDecodingConfiguration(MediaDecodingConfiguration&& configuration, MediaEngineConfigurationFactory::DecodingConfigurationCallback&& callback)
 {
+    if (!m_webProcess->mediaPlaybackEnabled())
+        return callback({ });
+
     gpuProcessConnection().connection().sendWithAsyncReply(Messages::RemoteMediaEngineConfigurationFactoryProxy::CreateDecodingConfiguration(WTFMove(configuration)), [callback = WTFMove(callback)] (MediaCapabilitiesDecodingInfo&& info) mutable {
         callback(WTFMove(info));
     });
@@ -97,6 +101,9 @@ void RemoteMediaEngineConfigurationFactory::createDecodingConfiguration(MediaDec
 
 void RemoteMediaEngineConfigurationFactory::createEncodingConfiguration(MediaEncodingConfiguration&& configuration, MediaEngineConfigurationFactory::EncodingConfigurationCallback&& callback)
 {
+    if (!m_webProcess->mediaPlaybackEnabled())
+        return callback({ });
+
     gpuProcessConnection().connection().sendWithAsyncReply(Messages::RemoteMediaEngineConfigurationFactoryProxy::CreateEncodingConfiguration(WTFMove(configuration)), [callback = WTFMove(callback)] (MediaCapabilitiesEncodingInfo&& info) mutable {
         callback(WTFMove(info));
     });

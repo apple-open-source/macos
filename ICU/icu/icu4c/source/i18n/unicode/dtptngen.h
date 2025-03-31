@@ -216,11 +216,6 @@ public:
      * @return conflicting status.  The value could be UDATPG_NO_CONFLICT,
      *                             UDATPG_BASE_CONFLICT or UDATPG_CONFLICT.
      * @stable ICU 3.8
-     * <p>
-     * <h4>Sample code</h4>
-     * \snippet samples/dtptngsample/dtptngsample.cpp getBestPatternExample1
-     * \snippet samples/dtptngsample/dtptngsample.cpp addPatternExample
-     * <p>
      */
     UDateTimePatternConflict addPattern(const UnicodeString& pattern,
                                         UBool override,
@@ -393,11 +388,6 @@ public:
      * @return bestPattern
      *            The best pattern found from the given skeleton.
      * @stable ICU 3.8
-     * <p>
-     * <h4>Sample code</h4>
-     * \snippet samples/dtptngsample/dtptngsample.cpp getBestPatternExample1
-     * \snippet samples/dtptngsample/dtptngsample.cpp getBestPatternExample
-     * <p>
      */
      UnicodeString getBestPattern(const UnicodeString& skeleton, UErrorCode& status);
 
@@ -441,11 +431,6 @@ public:
      *               which must not indicate a failure before the function call.
      * @return pattern adjusted to match the skeleton fields widths and subtypes.
      * @stable ICU 3.8
-     * <p>
-     * <h4>Sample code</h4>
-     * \snippet samples/dtptngsample/dtptngsample.cpp getBestPatternExample1
-     * \snippet samples/dtptngsample/dtptngsample.cpp replaceFieldTypesExample
-     * <p>
      */
      UnicodeString replaceFieldTypes(const UnicodeString& pattern,
                                      const UnicodeString& skeleton,
@@ -564,6 +549,15 @@ public:
 
 #endif /* #if !UCONFIG_NO_FORMATTING */
     
+#if APPLE_ICU_CHANGES
+// rdar://17278425 (“पू” (“AM”) “अ” (“PM”) don’t make sense to Hindi users)
+    /**
+     * Returns true if the specified locale uses long day periods.
+     * @internal
+     */
+    static bool localeUsesLongDayPeriods(const Locale& locale);
+#endif
+    
     /**
      * ICU "poor man's RTTI", returns a UClassID for the actual class.
      *
@@ -576,7 +570,7 @@ public:
      *
      * @stable ICU 3.8
      */
-    static UClassID U_EXPORT2 getStaticClassID(void);
+    static UClassID U_EXPORT2 getStaticClassID();
 
 private:
     /**
@@ -655,7 +649,7 @@ private:
 #else
     UnicodeString mapSkeletonMetacharacters(const UnicodeString& patternForm, int32_t* flags, UErrorCode& status);
 #endif  // APPLE_ICU_CHANGES
-    const UnicodeString* getBestRaw(DateTimeMatcher& source, int32_t includeMask, DistanceInfo* missingFields, UErrorCode& status, const PtnSkeleton** specifiedSkeletonPtr = 0);
+    const UnicodeString* getBestRaw(DateTimeMatcher& source, int32_t includeMask, DistanceInfo* missingFields, UErrorCode& status, const PtnSkeleton** specifiedSkeletonPtr = nullptr);
     UnicodeString adjustFieldTypes(const UnicodeString& pattern, const PtnSkeleton* specifiedSkeleton, int32_t flags, UDateTimePatternMatchOptions options = UDATPG_MATCH_NO_OPTIONS);
     UnicodeString getBestAppending(int32_t missingFields, int32_t flags, UErrorCode& status, UDateTimePatternMatchOptions options = UDATPG_MATCH_NO_OPTIONS);
     int32_t getTopBitNumber(int32_t foundMask) const;

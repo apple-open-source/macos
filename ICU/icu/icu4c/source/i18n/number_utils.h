@@ -21,8 +21,7 @@
 
 U_NAMESPACE_BEGIN
 
-namespace number {
-namespace impl {
+namespace number::impl {
 
 enum CldrPatternStyle {
     CLDR_PATTERN_STYLE_DECIMAL,
@@ -107,8 +106,7 @@ int16_t getMinGroupingForLocale(const Locale& locale);
 
 } // namespace utils
 
-} // namespace impl
-} // namespace number
+} // namespace number::impl
 
 U_NAMESPACE_END
 

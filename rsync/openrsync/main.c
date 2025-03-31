@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2019 Kristaps Dzonsons <kristaps@bsd.lv>
+ * Copyright (c) 2024, Klara, Inc.
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -15,6 +16,7 @@
  */
 #include "config.h"
 
+#include <sys/param.h>
 #include <sys/stat.h>
 #include <sys/socket.h>
 #include <sys/wait.h>
@@ -60,7 +62,7 @@ int poll_contimeout;
 int poll_timeout;
 
 /*
- * A remote host is has a colon before the first path separator.
+ * A remote host has a colon before the first path separator.
  * This works for rsh remote hosts (host:/foo/bar), implicit rsync
  * remote hosts (host::/foo/bar), and explicit (rsync://host/foo).
  * Return zero if local, non-zero if remote.
@@ -69,6 +71,9 @@ static int
 fargs_is_remote(const char *v)
 {
 	size_t	 pos;
+
+	if (v == NULL)
+		return 0;
 
 	pos = strcspn(v, ":/");
 	return v[pos] == ':';
@@ -257,26 +262,34 @@ fargs_parse(size_t argc, char *argv[], struct opts *opts)
 	struct fargs	*f = NULL;
 	char		*cp;
 	size_t		 i, j, hostlen = 0;
+	size_t		 sinkarg;
 
 	/* Allocations. */
 
 	if ((f = calloc(1, sizeof(struct fargs))) == NULL)
 		err(ERR_NOMEM, NULL);
 
-	f->sourcesz = argc - 1;
+	if (argc > 1) {
+		sinkarg = argc - 1;
+		f->sourcesz = argc - 1;
+	} else if (opts->read_batch != NULL) {
+		sinkarg = argc - 1;
+		f->sourcesz = 0;
+	} else {
+		sinkarg = argc;
+		f->sourcesz = 1;
+	}
+
 	if (f->sourcesz > 0) {
 		if ((f->sources = calloc(f->sourcesz, sizeof(char *))) == NULL)
 			err(ERR_NOMEM, NULL);
 
-		for (i = 0; i < argc - 1; i++)
+		for (i = 0; i < sinkarg; i++)
 			if ((f->sources[i] = strdup(argv[i])) == NULL)
 				err(ERR_NOMEM, NULL);
-	} else if (opts->read_batch == NULL) {
-		errx(ERR_SYNTAX,
-		    "One argument without --read-batch not yet supported");
 	}
 
-	if ((f->sink = strdup(argv[argc - 1])) == NULL)
+	if (argv[sinkarg] != NULL && (f->sink = strdup(argv[sinkarg])) == NULL)
 		err(ERR_NOMEM, NULL);
 
 	if (opts->read_batch != NULL) {
@@ -292,12 +305,13 @@ fargs_parse(size_t argc, char *argv[], struct opts *opts)
 	 * If the last is a remote host, then we're sending from the
 	 * local to the remote host ("sender" mode).
 	 * If the first, remote to local ("receiver" mode).
-	 * If neither, a local transfer in sender style.
+	 * If neither, a local transfer in sender style unless we're doing an
+	 * implied --list-only.
 	 */
 
-	f->mode = FARGS_SENDER;
+	f->mode = f->sink == NULL ? FARGS_RECEIVER : FARGS_SENDER;
 
-	if (fargs_is_remote(f->sink)) {
+	if (f->sink != NULL && fargs_is_remote(f->sink)) {
 		f->mode = FARGS_SENDER;
 		if ((f->host = strdup(f->sink)) == NULL)
 			err(ERR_NOMEM, NULL);
@@ -333,13 +347,21 @@ fargs_parse(size_t argc, char *argv[], struct opts *opts)
 
 			memmove(f->host, cp, hostlen + 1 /* NUL */);
 
-			if ((cp = strchr(f->host, '/')) == NULL)
+			if ((cp = strchr(f->host, '/')) == NULL &&
+			    f->sink != NULL) {
 				errx(ERR_SYNTAX,
 				    "rsync protocol requires a module name");
-			*cp++ = '\0';
-			f->module = cp;
-			if ((cp = strchr(f->module, '/')) != NULL)
-				*cp = '\0';
+			}
+
+			if (cp != NULL) {
+				*cp++ = '\0';
+				f->module = cp;
+				if ((cp = strchr(f->module, '/')) != NULL)
+					*cp = '\0';
+			} else {
+				f->module = "";
+			}
+
 			if ((cp = strchr(f->host, ':')) != NULL) {
 				/* host:port --> extract port */
 				*cp++ = '\0';
@@ -359,11 +381,25 @@ fargs_parse(size_t argc, char *argv[], struct opts *opts)
 					*cp = '\0';
 			}
 		}
+
 		if ((hostlen = strlen(f->host)) == 0)
 			errx(ERR_SYNTAX, "empty remote host");
-		if (f->remote && strlen(f->module) == 0)
+
+		/*
+		 * Leaving off the module is fine if we're just requesting a
+		 * listing.
+		 */
+		if (f->remote && (f->module == NULL || strlen(f->module) == 0) &&
+		    f->sink != NULL)
 			errx(ERR_SYNTAX, "empty remote module");
 	}
+
+	/*
+	 * For an implied --list-only transfer, we don't need to verify anything
+	 * here because there's just the one arg.
+	 */
+	if (f->sink == NULL)
+		goto skipverify;
 
 	/* Make sure we have the same "hostspec" for all files. */
 
@@ -407,19 +443,22 @@ fargs_parse(size_t argc, char *argv[], struct opts *opts)
 			}
 	}
 
+skipverify:
 	/*
 	 * If we're not remote and a sender, strip our hostname.
 	 * Then exit if we're a sender or a local connection.
 	 */
-
 	if (!f->remote) {
 		if (f->host == NULL)
 			return f;
 		if (f->mode == FARGS_SENDER) {
 			assert(f->host != NULL);
 			assert(hostlen > 0);
-			j = strlen(f->sink);
-			memmove(f->sink, f->sink + hostlen + 1, j - hostlen);
+			if (f->sink != NULL) {
+				j = strlen(f->sink);
+				memmove(f->sink, f->sink + hostlen + 1,
+				    j - hostlen);
+			}
 			return f;
 		} else if (f->mode != FARGS_RECEIVER)
 			return f;
@@ -431,7 +470,7 @@ fargs_parse(size_t argc, char *argv[], struct opts *opts)
 	if (f->mode == FARGS_RECEIVER) {
 		for (i = 0; i < f->sourcesz; i++)
 			fargs_normalize_spec(f, f->sources[i], hostlen);
-	} else {
+	} else if (f->sink != NULL) {
 		/*
 		 * ssh and local transfers bailed out earlier and stripped the
 		 * host: part as needed.  If we got here, we're connecting to
@@ -469,6 +508,198 @@ scan_scaled_def(char *maybe_scaled, long long *result, char def)
 	ret = scan_scaled(s ? s : maybe_scaled, result);
 	free(s);
 	return ret;
+}
+
+/*
+ * Like scan_scaled, but accepts the rsync conventions that:
+ * 2k = 2048, but 2kb = 2000
+ * And additionally allows +1 and -1 (for --max-size etc)
+ */
+typedef enum {
+	NONE = 0, KILO = 1, MEGA = 2, GIGA = 3, TERA = 4, PETA = 5, EXA = 6
+} unit_type;
+
+/* These three arrays MUST be in sync!  XXX make a struct */
+static const unit_type units[] = { NONE, KILO, MEGA, GIGA, TERA, PETA, EXA };
+static const char scale_chars[] = "BKMGTPE";
+static const long long scale_factors[] = {
+	1LL,
+	1024LL,
+	1024LL*1024,
+	1024LL*1024*1024,
+	1024LL*1024*1024*1024,
+	1024LL*1024*1024*1024*1024,
+	1024LL*1024*1024*1024*1024*1024,
+};
+static const long long scale_factors_1000[] = {
+	1LL,
+	1000LL,
+	1000LL*1000,
+	1000LL*1000*1000,
+	1000LL*1000*1000*1000,
+	1000LL*1000*1000*1000*1000,
+	1000LL*1000*1000*1000*1000*1000,
+};
+
+#define	SCALE_LENGTH (sizeof(units)/sizeof(units[0]))
+
+#define MAX_DIGITS (SCALE_LENGTH * 3)	/* XXX strlen(sprintf("%lld", -1)? */
+
+static int
+rsync_scan_scaled(char *scaled, long long *result)
+{
+	char *p = scaled;
+	int sign = 0;
+	unsigned int i, ndigits = 0, fract_digits = 0;
+	long long scale_fact = 1, whole = 0, fpart = 0, plusminus = 0;
+
+	/* Skip leading whitespace */
+	while (isascii((unsigned char)*p) && isspace((unsigned char)*p))
+		++p;
+
+	/* Then at most one leading + or - */
+	while (*p == '-' || *p == '+') {
+		if (*p == '-') {
+			if (sign) {
+				errno = EINVAL;
+				return -1;
+			}
+			sign = -1;
+			++p;
+		} else if (*p == '+') {
+			if (sign) {
+				errno = EINVAL;
+				return -1;
+			}
+			sign = +1;
+			++p;
+		}
+	}
+
+	/* Main loop: Scan digits, find decimal point, if present.
+	 * We don't allow exponentials, so no scientific notation
+	 * (but note that E for Exa might look like e to some!).
+	 * Advance 'p' to end, to get scale factor.
+	 */
+	for (; isascii((unsigned char)*p) &&
+	    (isdigit((unsigned char)*p) || *p=='.'); ++p) {
+		if (*p == '.') {
+			if (fract_digits > 0) {	/* oops, more than one '.' */
+				errno = EINVAL;
+				return -1;
+			}
+			fract_digits = 1;
+			continue;
+		}
+
+		i = (*p) - '0';			/* whew! finally a digit we can use */
+		if (fract_digits > 0) {
+			if (fract_digits >= MAX_DIGITS-1)
+				/* ignore extra fractional digits */
+				continue;
+			fract_digits++;		/* for later scaling */
+			if (fpart > LLONG_MAX / 10) {
+				errno = ERANGE;
+				return -1;
+			}
+			fpart *= 10;
+			if (i > LLONG_MAX - fpart) {
+				errno = ERANGE;
+				return -1;
+			}
+			fpart += i;
+		} else {				/* normal digit */
+			if (++ndigits >= MAX_DIGITS) {
+				errno = ERANGE;
+				return -1;
+			}
+			if (whole > LLONG_MAX / 10) {
+				errno = ERANGE;
+				return -1;
+			}
+			whole *= 10;
+			if (i > LLONG_MAX - whole) {
+				errno = ERANGE;
+				return -1;
+			}
+			whole += i;
+		}
+	}
+
+	if (sign)
+		whole *= sign;
+
+	/* If no scale factor given, we're done. fraction is discarded. */
+	if (!*p) {
+		*result = whole;
+		return 0;
+	}
+
+	/* Validate scale factor, and scale whole and fraction by it. */
+	for (i = 0; i < SCALE_LENGTH; i++) {
+
+		/* Are we there yet? */
+		if (*p == scale_chars[i] ||
+			*p == tolower((unsigned char)scale_chars[i])) {
+			p++;
+
+			scale_fact = scale_factors[i];
+
+			if ((*p == 'i' || tolower((unsigned char)*p) == 'i') &&
+			    (*(p+1) == 'b' || tolower((unsigned char)*(p+1)) == 'b')) {
+				scale_fact = scale_factors[i];
+				p += 2;
+			} else if (*p == 'b' || tolower((unsigned char)*p) == 'b') {
+				/* rsync treats kb differently than just 'k' */
+				scale_fact = scale_factors_1000[i];
+				p++;
+			}
+			/* rsync allows +/- 1 to the units. */
+			if (*p == '+') {
+				plusminus = 1;
+			} else if (*p == '-') {
+				plusminus = -1;
+			} else if (isalnum((unsigned char)*p)) {
+				/* If it ends with alphanumerics after the scale char, bad. */
+				errno = EINVAL;
+				return -1;
+			}
+
+			/* check for overflow and underflow after scaling */
+			if (whole > LLONG_MAX / scale_fact ||
+			    whole < LLONG_MIN / scale_fact) {
+				errno = ERANGE;
+				return -1;
+			}
+
+			/* scale whole part */
+			whole *= scale_fact;
+
+			/* truncate fpart so it does't overflow.
+			 * then scale fractional part.
+			 */
+			while (fpart >= LLONG_MAX / scale_fact) {
+				fpart /= 10;
+				fract_digits--;
+			}
+			fpart *= scale_fact;
+			if (fract_digits > 0) {
+				for (i = 0; i < fract_digits -1; i++)
+					fpart /= 10;
+			}
+			if (sign == -1)
+				whole -= fpart;
+			else
+				whole += fpart;
+			whole += plusminus;
+			*result = whole;
+			return 0;
+		}
+	}
+
+	/* Invalid unit or character */
+	errno = EINVAL;
+	return -1;
 }
 
 /*
@@ -682,6 +913,7 @@ enum {
 	OP_NO_RELATIVE,
 
 	OP_NO_DIRS,
+	OP_NO_IMPLIED_DIRS,
 	OP_FILESFROM,
 	OP_APPEND,
 	OP_PARTIAL_DIR,
@@ -699,6 +931,8 @@ enum {
 	OP_WRITE_BATCH,
 	OP_ONLY_WRITE_BATCH,
 	OP_OUTFORMAT,
+	OP_LOGFORMAT,
+	OP_ITEMIZE,
 	OP_BIT8,
 	OP_HELP,
 	OP_BLOCKING_IO,
@@ -707,13 +941,14 @@ enum {
 	OP_STATS,
 	OP_COMPLEVEL,
 	OP_EXECUTABILITY,
+	OP_LISTONLY,
 
 #ifdef __APPLE__
 	OP_TRACE,
 #endif
 };
 
-const char rsync_shopts[] = "0468B:CDEFHIKLOPRSVWabcde:f:ghklnopqrtuvxyz";
+const char rsync_shopts[] = "0468B:CDEFHIKLOPRST:VWabcde:f:ghiklmnopqrtuvxyz";
 const struct option	 rsync_lopts[] = {
     { "address",	required_argument, NULL,		OP_ADDRESS },
     { "append",		no_argument,	NULL,			OP_APPEND },
@@ -777,6 +1012,7 @@ const struct option	 rsync_lopts[] = {
     { "ipv6",		no_argument,	NULL,			'6' },
     { "keep-dirlinks",	no_argument,	NULL,			'K' },
     { "links",		no_argument,	NULL,			'l' },
+    { "list-only",	no_argument,	NULL,			OP_LISTONLY },
     { "max-delete",	required_argument, NULL,		OP_MAX_DELETE },
     { "max-size",	required_argument, NULL,		OP_MAX_SIZE },
     { "min-size",	required_argument, NULL,		OP_MIN_SIZE },
@@ -798,6 +1034,7 @@ const struct option	 rsync_lopts[] = {
     { "no-perms",	no_argument,	&opts.preserve_perms,	0 },
     { "no-p",		no_argument,	&opts.preserve_perms,	0 },
     { "port",		required_argument, NULL,		OP_PORT },
+    { "prune-empty-dirs",	no_argument, NULL,		'm' },
     { "protocol",	required_argument, NULL,		OP_PROTOCOL },
     { "quiet",		no_argument,	NULL,			'q' },
     { "read-batch",	required_argument, NULL,		OP_READ_BATCH },
@@ -840,7 +1077,6 @@ const struct option	 rsync_lopts[] = {
     { "write-batch",	required_argument, NULL,		OP_WRITE_BATCH },
     { "progress",	no_argument,	&opts.progress,		1 },
     { "no-progress",	no_argument,	&opts.progress,		0 },
-    { "backup",		no_argument,	NULL,			'b' },
     { "relative",	no_argument,	NULL,			'R' },
     { "no-R",		no_argument,	NULL,			OP_NO_RELATIVE },
     { "no-relative",	no_argument,	NULL,			OP_NO_RELATIVE },
@@ -849,9 +1085,12 @@ const struct option	 rsync_lopts[] = {
     { "version",	no_argument,	NULL,			'V' },
     { "dirs",		no_argument,	NULL,			'd' },
     { "no-dirs",	no_argument,	NULL,			OP_NO_DIRS },
+    { "no-implied-dirs", no_argument,	NULL,			OP_NO_IMPLIED_DIRS },
     { "files-from",	required_argument,	NULL,		OP_FILESFROM },
     { "from0",		no_argument,	NULL,			'0' },
     { "out-format",	required_argument,	NULL,		OP_OUTFORMAT },
+    { "log-format",	required_argument,	NULL,		OP_LOGFORMAT },
+    { "itemize-changes", no_argument,	NULL,			OP_ITEMIZE },
     { "delay-updates",	no_argument,	&opts.dlupdates,	1 },
     { "modify-window",	required_argument,	NULL,		OP_MODWIN },
     { "8-bit-output",	no_argument,	NULL,			OP_BIT8 },
@@ -862,25 +1101,29 @@ static void
 usage(int exitcode)
 {
 	fprintf(exitcode == 0 ? stdout : stderr, "usage: %s"
-	    " [-0468BCDEFHIKLOPRSTWVabcdghklnopqrtuvxyz] [-e program] [-f filter]\n"
-	    "\t[--8-bit-output] [--address=sourceaddr]\n"
-	    "\t[--append] [--backup-dir=dir] [--bwlimit=limit] [--cache | --no-cache]\n"
-	    "\t[--compare-dest=dir] [--contimeout] [--copy-dest=dir] [--copy-unsafe-links]\n"
-	    "\t[--del | --delete-after | --delete-before | --delete-during]\n"
-	    "\t[--delay-updates] [--dirs] [--no-dirs]\n"
-	    "\t[--exclude] [--exclude-from=file]\n"
+	    " [-0468BCDEFHIKLOPRSTWVabcdghiklnopqrtuvxyz] [-e program]\n"
+	    "\t[-f filter] [--8-bit-output] [--address=sourceaddr] [--append]\n"
+	    "\t[--backup-dir=dir] [--bwlimit=limit] [--cache | --no-cache]\n"
+	    "\t[--checksum-seed=NUM] [--chmod=mode] [--compare-dest=dir] [--compress]\n"
+	    "\t[--compress-level=NUM] [--contimeout] [--copy-dest=dir]\n"
+	    "\t[--copy-unsafe-links] [--del]\n"
+	    "\t[--delete-after | --delete-before | --delete-delay | --delete-during]\n"
+	    "\t[--delete-excluded] [--delay-updates] [--dirs] [--no-dirs]\n"
+	    "\t[--existing] [--exclude=pattern] [--exclude-from=file] [--executability]\n"
 #ifdef __APPLE__
 	    "\t[--extended-attributes]\n"
 #endif
-	    "\t[--existing] [--force] [--ignore-errors]\n"
-	    "\t[--ignore-existing] [--ignore-non-existing] [--include]\n"
-	    "\t[--include-from=file] [--inplace] [--keep-dirlinks] [--link-dest=dir]\n"
+	    "\t[--existing] [--files-from=filespec] [--force] [--ignore-errors]\n"
+	    "\t[--ignore-existing] [--ignore-non-existing] [--include=pattern]\n"
+	    "\t[--include-from=file] [--inplace] [--itemize-changes]\n"
+	    "\t[--keep-dirlinks] [--link-dest=dir] [--list-only]\n"
 	    "\t[--max-delete=NUM] [--max-size=SIZE] [--min-size=SIZE]\n"
-	    "\t[--modify-window=sec] [--no-motd] [--numeric-ids]\n"
-	    "\t[--out-format=FMT] [--partial] [--password-file=pwfile] [--port=portnumber]\n"
-	    "\t[--progress] [--protocol] [--read-batch=file]\n"
-	    "\t[--remove-source-files] [--rsync-path=program] [--safe-links] [--size-only]\n"
-	    "\t[--sockopts=sockopts] [--specials] [--suffix] [--super] [--timeout=seconds]\n"
+	    "\t[--modify-window=sec] [--no-implied-dirs] [--no-motd] [--numeric-ids]\n"
+	    "\t[--out-format=FMT] [--partial] [--partial-dir] [--password-file=pwfile]\n"
+	    "\t[--port=portnumber] [--progress] [--protocol=NUM] [--prune-empty-dirs]\n"
+	    "\t[--read-batch=file] [--remove-source-files] [--rsync-path=program]\n"
+	    "\t[--safe-links] [--size-only] [--sockopts=sockopts] [--specials]\n"
+	    "\t[--stats] [--suffix] [--super] [--timeout=seconds]\n"
 	    "\t[--only-write-batch=file | --write-batch=file]\n"
 	    "\tsource ... directory\n",
 	    getprogname());
@@ -907,7 +1150,7 @@ rsync_getopt(int argc, char *argv[], rsync_option_filter *filter,
 	size_t		 basedir_cnt = 0;
 	const char	*errstr;
 	int		 c, cvs_excl, lidx;
-	int		 implied_recursive = 0;
+	int		 implied_recursive = -1;
 	int		 opts_F = 0, opts_no_relative = 0, opts_no_dirs = 0;
 	int		 opts_only_batch = 0;
 	int		 opts_timeout = -1;
@@ -923,7 +1166,6 @@ rsync_getopt(int argc, char *argv[], rsync_option_filter *filter,
 	opts.max_size = opts.min_size = -1;
 	opts.compression_level = Z_DEFAULT_COMPRESSION;
 	opts.whole_file = -1;
-	opts.outfile = stderr;
 #ifdef __APPLE__
 	opts.no_cache = 1;
 #endif
@@ -981,7 +1223,7 @@ rsync_getopt(int argc, char *argv[], rsync_option_filter *filter,
 			opts.bit8++;
 			break;
 		case 'B':
-			if (scan_scaled(optarg, &tmplong) == -1)
+			if (rsync_scan_scaled(optarg, &tmplong) == -1)
 				errx(1, "--block-size=%s: invalid numeric value", optarg);
 			if (tmplong < 0)
 				errx(1, "--block-size=%s: must be no less than 0", optarg);
@@ -999,6 +1241,9 @@ rsync_getopt(int argc, char *argv[], rsync_option_filter *filter,
 		case 'E':
 			opts.extended_attributes = 1;
 			break;
+#else
+		case 'E':
+			/* fallthru */
 #endif
 		case OP_EXECUTABILITY:
 			opts.preserve_executability = 1;
@@ -1034,7 +1279,8 @@ rsync_getopt(int argc, char *argv[], rsync_option_filter *filter,
 			opts.omit_dir_times = 1;
 			break;
 		case 'a':
-			implied_recursive = 1;
+			if (implied_recursive < 0)
+				implied_recursive = 1;
 			opts.recursive = 1;
 			opts.preserve_links = 1;
 			opts.preserve_perms = 1;
@@ -1076,6 +1322,9 @@ rsync_getopt(int argc, char *argv[], rsync_option_filter *filter,
 			break;
 		case 'L':
 			opts.copy_links = 1;
+			break;
+		case 'm':
+			opts.prune_empty_dirs = 1;
 			break;
 		case 'n':
 			opts.dry_run = DRY_FULL;
@@ -1142,7 +1391,8 @@ rsync_getopt(int argc, char *argv[], rsync_option_filter *filter,
 			opts.address = optarg;
 			break;
 		case OP_CONTIMEOUT:
-			poll_contimeout = (int)strtonum(optarg, 0, 60*60, &errstr);
+			poll_contimeout = (int)strtonum(optarg, 0, INT_MAX,
+			    &errstr);
 			if (errstr != NULL)
 				errx(ERR_SYNTAX, "timeout is %s: %s",
 				    errstr, optarg);
@@ -1154,7 +1404,8 @@ rsync_getopt(int argc, char *argv[], rsync_option_filter *filter,
 			opts.rsync_path = optarg;
 			break;
 		case OP_TIMEOUT:
-			opts_timeout = (int)strtonum(optarg, 0, 60*60, &errstr);
+			opts_timeout = (int)strtonum(optarg, 0, INT_MAX,
+			    &errstr);
 			if (errstr != NULL)
 				errx(ERR_SYNTAX, "timeout is %s: %s",
 				    errstr, optarg);
@@ -1256,12 +1507,12 @@ basedir:
 			opts.sparse++;
 			break;
 		case OP_MAX_SIZE:
-			if (scan_scaled(optarg, &tmplong) == -1)
+			if (rsync_scan_scaled(optarg, &tmplong) == -1)
 				err(1, "bad max-size");
 			opts.max_size = tmplong;
 			break;
 		case OP_MIN_SIZE:
-			if (scan_scaled(optarg, &tmplong) == -1)
+			if (rsync_scan_scaled(optarg, &tmplong) == -1)
 				err(1, "bad min-size");
 			opts.min_size = tmplong;
 			break;
@@ -1289,6 +1540,9 @@ basedir:
 			opts.dirs = 0;
 			opts_no_dirs++;
 			break;
+		case OP_NO_IMPLIED_DIRS:
+			opts.noimpdirs = 1;
+			break;
 		case OP_FILESFROM:
 			opts.filesfrom = optarg;
 			break;
@@ -1296,7 +1550,16 @@ basedir:
 		        opts.modwin = atoi(optarg);
 			break;
 		case OP_OUTFORMAT:
-		        opts.outformat = optarg;
+		case OP_LOGFORMAT:
+			free((void *)opts.outformat);
+		        opts.outformat = strdup(optarg);
+			break;
+		case 'i':
+			opts.itemize++;
+			/* FALLTHROUGH */
+		case OP_ITEMIZE:
+			if (opts.outformat == NULL)
+				opts.outformat = strdup("%i %n%L");
 			break;
 		case OP_APPEND:
 			opts.append++;
@@ -1348,6 +1611,7 @@ basedir:
 			opts.backup_suffix = strdup(optarg);
 			if (opts.backup_suffix == NULL)
 				errx(ERR_NOMEM, NULL);
+			opts.backup_suffix_given++;
 			break;
 		case OP_PASSWORD_FILE:
 			opts.password_file = optarg;
@@ -1437,6 +1701,11 @@ basedir:
 				break;
 			}
 			opts.human_readable++;
+			break;
+		case OP_LISTONLY:
+			if (opts.dirs == DIRMODE_OFF && !opts_no_dirs)
+				opts.dirs = DIRMODE_IMPLIED;
+			opts.list_only = 1;
 			break;
 		case OP_MAX_DELETE:
 			if (*optarg != '\0') {
@@ -1585,7 +1854,7 @@ basedir:
 			opts.relative = 1;
 		if (!opts_no_dirs)
 			opts.dirs = DIRMODE_IMPLIED;
-		if (implied_recursive)
+		if (implied_recursive > 0)
 			opts.recursive = 0;
 	}
 
@@ -1593,6 +1862,9 @@ basedir:
 		ERRX1("Cannot use --relative and --no-relative at the same time");
 	if (opts.dirs && opts_no_dirs)
 		ERRX1("Cannot use --dirs and --no-dirs at the same time");
+
+	if (opts.recursive && opts.dirs == DIRMODE_OFF && !opts_no_dirs)
+		opts.dirs = DIRMODE_IMPLIED;
 
 	/*
 	 * XXX rsync started defaulting to --delete-during in later versions of
@@ -1632,28 +1904,36 @@ basedir:
 	return &opts;
 }
 
+static void
+child_exited(pid_t pid, int st)
+{
+
+	if (WIFEXITED(st)) {
+		int status = WEXITSTATUS(st);
+
+		if (status != 0)
+			WARNX1("child %d exited with status %d", pid, status);
+	} else if (WIFSIGNALED(st)) {
+		WARNX1("child %d terminated due to signal %d", pid,
+		    WTERMSIG(st));
+	}
+}
+
 int
 main(int argc, char *argv[])
 {
 	pid_t		 child;
-	int		 fds[2], sd = -1, rc, st, i;
+	int		 fds[2], sd = -1, rc, rc2, st, i;
 	struct sess	 sess;
 	struct fargs	*fargs;
 	char		**args;
-	int              printflags;
+	pid_t		 rpid;
 
-#ifdef __APPLE__
-	/*
-	 * csu would use argv[0] as the default progname, but dyld has knowledge
-	 * of the executable name from the kernel and will install that as the
-	 * progname prior to main().  We actually do want argv[0] as the
-	 * progname so that help and usage errors print the name we want to be
-	 * invoked as, i.e., "rsync."
-	 *
-	 * Remove this if openrsync moves out of /usr/libexec.
+	/* We cannot safely log to stdout until we are certain that we're
+	 * the client (i.e., the server must enable multiplexing before
+	 * logging to stdout).
 	 */
-	setprogname(argv[0]);
-#endif
+	rsync_set_logfile(isatty(STDOUT_FILENO) ? stdout : stderr, NULL);
 
 	/* Global pledge. */
 
@@ -1663,7 +1943,6 @@ main(int argc, char *argv[])
 		err(ERR_IPC, "pledge");
 #endif
 
-	rsync_set_logfile(stderr);
 #ifdef __APPLE__
 	if (os_variant_has_internal_content(RSYNC_SUBSYSTEM))
 		syslog_trace = 1;
@@ -1682,34 +1961,9 @@ main(int argc, char *argv[])
 	argc -= optind;
 	argv += optind;
 
-	/*
-	 * We've loosened this restriction for --read-batch, but rsync still
-	 * allows just one argument to be specified.  With only one argument,
-	 * it treats that argument as the source and runs in --list-only mode
-	 * instead of doing any copying.
-	 *
-	 * in --server mode, there are only ever 2 arguments, "." and
-	 * the source or destinations.  However in rsync 2.x if those
-	 * are specified as "host:" then the --server gets them as ""
-	 * and we have to convert it to an implied "."
-	 */
-	if (opts.read_batch == NULL && opts.server == 0 && argc < 2)
+	/* One argument means we're doing an implied --list-only. */
+	if (argc < 1)
 		usage(ERR_SYNTAX);
-	else if (argc < 1)
-		usage(ERR_SYNTAX);
-
-	/*
-	  * Determine whether we:
-	  * - need to itemize
-	  * - need to do output late
-	  */
-	sess.opts = &opts;
-	printflags = output(&sess, NULL, 0);
-	if (printflags & 1)
-		sess.itemize = 1;
-	if (printflags & 2)
-		sess.lateprint = 1;
-	LOG3("Printing(%d): itemize %d late %d", getpid(), sess.itemize, sess.lateprint);
 
 	/*
 	 * Signals blocked until we understand what session we'll be using.
@@ -1727,15 +1981,11 @@ main(int argc, char *argv[])
 			/* Simplify all future checking of this value */
 			opts.whole_file = 0;
 		}
+
 		exit(rsync_server(cleanup_ctx, &opts, (size_t)argc, argv));
 	}
 
-	/*
-	 * To simplify the cleanup process, we create a new process group now so
-	 * that we can reliably send SIGUSR1 to any children.
-	 */
-	if (setpgid(0, getpid()) == -1)
-		err(ERR_IPC, "setpgid");
+	rsync_set_logfile(stdout, NULL);
 
 	/*
 	 * Now we know that we're the client on the local machine
@@ -1786,6 +2036,17 @@ main(int argc, char *argv[])
 	} else if (opts.whole_file < 0) {
 		/* Simplify all future checking of this value */
 		opts.whole_file = 0;
+	}
+
+	/*
+	 * For implied --list-only mode, we set --dirs up early so that it can
+	 * be inherited by the other paths.  We won't touch opts.list_only yet
+	 * because we don't want to send a spurious --list-only to the reference
+	 * rsync.
+	 */
+	if (fargs->sink == NULL) {
+		assert(fargs->mode == FARGS_RECEIVER);
+		opts.dirs = DIRMODE_REQUESTED;
 	}
 
 	/*
@@ -1879,6 +2140,15 @@ main(int argc, char *argv[])
 	default:
 		cleanup_set_child(cleanup_ctx, child);
 
+		/* Implied --list-only */
+		if (fargs->sink == NULL) {
+			assert(fargs->mode == FARGS_RECEIVER);
+			opts.list_only = 1;
+			fargs->sink = strdup(".");
+			if (fargs->sink == NULL)
+				errx(ERR_NOMEM, NULL);
+		}
+
 		close(fds[1]);
 		if (!fargs->remote)
 			rc = rsync_client(cleanup_ctx, &opts, fds[0], fargs);
@@ -1909,24 +2179,26 @@ main(int argc, char *argv[])
 	 */
 	cleanup_set_child(cleanup_ctx, 0);
 
-	/*
-	 * If we don't already have an error (rc == 0), then inherit the
-	 * error code of rsync_server() if it has exited.
-	 * If it hasn't exited, it overrides our return value.
-	 */
+	child_exited(child, st);
 
-	if (rc == 0) {
-		if (WIFEXITED(st))
-			rc = WEXITSTATUS(st);
-		else if (WIFSIGNALED(st)) {
-			if (WTERMSIG(st) != SIGUSR2)
-				rc = ERR_TERMIMATED;
-		} else
-			rc = ERR_WAITPID;
+	/*
+	 * If the child exited abnormally then use its exit status as our exit
+	 * code.  Otherwise, use the return code from the fork parent operation.
+	 */
+	if (WIFEXITED(st)) {
+		rc2 = WEXITSTATUS(st);
+	} else if (WIFSIGNALED(st)) {
+		rc2 = (WTERMSIG(st) != SIGUSR2) ? ERR_TERMINATED : 0;
+	} else {
+		rc2 = ERR_WAITPID;
 	}
 
 	free(opts.filesfrom_host);
+	opts.filesfrom_host = NULL;
 	free(opts.filesfrom_path);
+	opts.filesfrom_path = NULL;
+	free((void *)opts.outformat);
+	opts.outformat = NULL;
 
-	exit(rc);
+	exit(MAX(rc, rc2));
 }

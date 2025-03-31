@@ -10,24 +10,6 @@
 	<array>
 #if TARGET_OS_OSX
 		<dict>
-			<key>Command</key>
-			<array>
-				<string>/bin/sh</string>
-				<string>chgrp.sh</string>
-			</array>
-			<key>AsRoot</key>
-			<true/>
-			<key>TestName</key>
-			<string>chgrp</string>
-			<key>WhenToRun</key>
-			<array>
-				<string>PRESUBMISSION</string>
-				<string>NIGHTLY</string>
-			</array>
-			<key>WorkingDirectory</key>
-			<string>/AppleInternal/Tests/file_cmds</string>
-		</dict>
-		<dict>
 			<key>TestName</key>
 			<string>file_cmds.chflags_test.sh.invalid_usage</string>
 			<key>ShellEnv</key>
@@ -251,6 +233,8 @@
 			<string>Verify that setting ownership recursively via -R doesn't affect symlinks specified via the arguments when -H is specified</string>
 			<key>AsRoot</key>
 			<true/>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -277,6 +261,8 @@
 			<key>Description</key>
 			<string>Verify that setting ownership recursively via -R doesn't affect symlinks specified via the arguments when -L is specified</string>
 			<key>AsRoot</key>
+			<true/>
+			<key>MayRunConcurrently</key>
 			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
@@ -305,6 +291,8 @@
 			<string>Verify that setting ownership recursively via -R doesn't affect symlinks specified via the arguments when -P is specified</string>
 			<key>AsRoot</key>
 			<true/>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -331,6 +319,8 @@
 			<key>Description</key>
 			<string>Verify that setting a mode for a file with -f doesn't emit an error message/exit with a non-zero code</string>
 			<key>AsRoot</key>
+			<true/>
+			<key>MayRunConcurrently</key>
 			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
@@ -359,6 +349,8 @@
 			<string>Verify that setting a mode for a file with -f doesn't emit an error message/exit with a non-zero code</string>
 			<key>AsRoot</key>
 			<true/>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -386,6 +378,37 @@
 			<string>Verify that setting ownership with -v emits the file doesn't emit an error message/exit with a non-zero code</string>
 			<key>AsRoot</key>
 			<true/>
+			<key>MayRunConcurrently</key>
+			<true/>
+			<key>Timeout</key>
+			<integer>300</integer>
+		</dict>
+		<dict>
+			<key>TestName</key>
+			<string>file_cmds.chown_test.sh.n_flag</string>
+			<key>ShellEnv</key>
+			<dict>
+				<key>ATF_SH</key>
+				<string>/usr/local/bin/atf-sh</string>
+				<key>__RUNNING_INSIDE_ATF_RUN</key>
+				<string>internal-yes-value</string>
+			</dict>
+			<key>Command</key>
+			<array>
+				<string>/usr/local/bin/atf-sh</string>
+				<string>/AppleInternal/Tests/file_cmds/chown/chown_test.sh</string>
+				<string>-s</string>
+				<string>/AppleInternal/Tests/file_cmds/chown</string>
+				<string>-r</string>
+				<string>chown_test.sh.n_flag.results.txt</string>
+				<string>n_flag</string>
+			</array>
+			<key>Description</key>
+			<string>Verify that chgrp -n interprets the ID numerically.</string>
+			<key>AsRoot</key>
+			<true/>
+			<key>MayRunConcurrently</key>
+			<false/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -1341,6 +1364,33 @@
 		</dict>
 		<dict>
 			<key>TestName</key>
+			<string>file_cmds.cp_test.sh.link_attr</string>
+			<key>ShellEnv</key>
+			<dict>
+				<key>ATF_SH</key>
+				<string>/usr/local/bin/atf-sh</string>
+				<key>__RUNNING_INSIDE_ATF_RUN</key>
+				<string>internal-yes-value</string>
+			</dict>
+			<key>Command</key>
+			<array>
+				<string>/usr/local/bin/atf-sh</string>
+				<string>/AppleInternal/Tests/file_cmds/cp/cp_test.sh</string>
+				<string>-s</string>
+				<string>/AppleInternal/Tests/file_cmds/cp</string>
+				<string>-r</string>
+				<string>cp_test.sh.link_attr.results.txt</string>
+				<string>link_attr</string>
+			</array>
+			<key>Description</key>
+			<string>Verifying that cp -p preserves symlink's attributes, rather than the attributes of the symlink's target.</string>
+			<key>MayRunConcurrently</key>
+			<true/>
+			<key>Timeout</key>
+			<integer>300</integer>
+		</dict>
+		<dict>
+			<key>TestName</key>
 			<string>file_cmds.cp_test.sh.link_dir</string>
 			<key>ShellEnv</key>
 			<dict>
@@ -2026,26 +2076,6 @@
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
-#endif /* TARGET_OS_OSX */
-		<dict>
-			<key>Command</key>
-			<array>
-				<string>/bin/sh</string>
-				<string>cp.sh</string>
-			</array>
-			<key>AsRoot</key>
-			<false/>
-			<key>TestName</key>
-			<string>cp</string>
-			<key>WhenToRun</key>
-			<array>
-				<string>PRESUBMISSION</string>
-				<string>NIGHTLY</string>
-			</array>
-			<key>WorkingDirectory</key>
-			<string>/AppleInternal/Tests/file_cmds</string>
-		</dict>
-#if TARGET_OS_OSX
 		<dict>
 			<key>TestName</key>
 			<string>file_cmds.ln_test.sh.L_flag</string>
@@ -2068,6 +2098,8 @@
 			</array>
 			<key>Description</key>
 			<string>Verify that when creating a hard link to a symbolic link, '-L' option creates a hard link to the target of the symbolic link</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -2093,6 +2125,8 @@
 			</array>
 			<key>Description</key>
 			<string>Verify that when creating a hard link to a symbolic link, '-P' option creates a hard link to the symbolic link itself</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -2118,6 +2152,8 @@
 			</array>
 			<key>Description</key>
 			<string>Verify that if the target file already exists, '-f' option unlinks it so that link may occur</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -2143,6 +2179,8 @@
 			</array>
 			<key>Description</key>
 			<string>Verify whether creating a hard link fails if the target file already exists</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -2168,6 +2206,8 @@
 			</array>
 			<key>Description</key>
 			<string>Verify whether creating a symbolic link fails if the target file already exists</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -2193,6 +2233,8 @@
 			</array>
 			<key>Description</key>
 			<string>Verify that if the target directory is a symbolic link, '-shf' option prevents following the link</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -2218,6 +2260,35 @@
 			</array>
 			<key>Description</key>
 			<string>Verify that if the target directory is a symbolic link, '-snf' option prevents following the link</string>
+			<key>MayRunConcurrently</key>
+			<true/>
+			<key>Timeout</key>
+			<integer>300</integer>
+		</dict>
+		<dict>
+			<key>TestName</key>
+			<string>file_cmds.ln_test.sh.sF_flag</string>
+			<key>ShellEnv</key>
+			<dict>
+				<key>ATF_SH</key>
+				<string>/usr/local/bin/atf-sh</string>
+				<key>__RUNNING_INSIDE_ATF_RUN</key>
+				<string>internal-yes-value</string>
+			</dict>
+			<key>Command</key>
+			<array>
+				<string>/usr/local/bin/atf-sh</string>
+				<string>/AppleInternal/Tests/file_cmds/ln/ln_test.sh</string>
+				<string>-s</string>
+				<string>/AppleInternal/Tests/file_cmds/ln</string>
+				<string>-r</string>
+				<string>ln_test.sh.sF_flag.results.txt</string>
+				<string>sF_flag</string>
+			</array>
+			<key>Description</key>
+			<string>Verify that if the target file already exists and is a directory, then '-sF' option removes it so that the link may occur</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -2243,6 +2314,35 @@
 			</array>
 			<key>Description</key>
 			<string>Verify that if the target file already exists, '-sf' option unlinks it and creates a symbolic link to the source file</string>
+			<key>MayRunConcurrently</key>
+			<true/>
+			<key>Timeout</key>
+			<integer>300</integer>
+		</dict>
+		<dict>
+			<key>TestName</key>
+			<string>file_cmds.ln_test.sh.sfF_flag</string>
+			<key>ShellEnv</key>
+			<dict>
+				<key>ATF_SH</key>
+				<string>/usr/local/bin/atf-sh</string>
+				<key>__RUNNING_INSIDE_ATF_RUN</key>
+				<string>internal-yes-value</string>
+			</dict>
+			<key>Command</key>
+			<array>
+				<string>/usr/local/bin/atf-sh</string>
+				<string>/AppleInternal/Tests/file_cmds/ln/ln_test.sh</string>
+				<string>-s</string>
+				<string>/AppleInternal/Tests/file_cmds/ln</string>
+				<string>-r</string>
+				<string>ln_test.sh.sfF_flag.results.txt</string>
+				<string>sfF_flag</string>
+			</array>
+			<key>Description</key>
+			<string>Verify that if the target file already exists and is a symlink, then '-sfF' option removes it so that the link may occur</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -2268,6 +2368,8 @@
 			</array>
 			<key>Description</key>
 			<string>Verify that '-s' option creates a symbolic link</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -2293,6 +2395,8 @@
 			</array>
 			<key>Description</key>
 			<string>Verify that if the source file does not exists, '-s' option creates a broken symbolic link to the source file</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -2318,6 +2422,116 @@
 			</array>
 			<key>Description</key>
 			<string>Verify that '-sw' option produces a warning if the source of a symbolic link does not currently exist</string>
+			<key>MayRunConcurrently</key>
+			<true/>
+			<key>Timeout</key>
+			<integer>300</integer>
+		</dict>
+		<dict>
+			<key>TestName</key>
+			<string>file_cmds.ln_test.sh.link_argc</string>
+			<key>ShellEnv</key>
+			<dict>
+				<key>ATF_SH</key>
+				<string>/usr/local/bin/atf-sh</string>
+				<key>__RUNNING_INSIDE_ATF_RUN</key>
+				<string>internal-yes-value</string>
+			</dict>
+			<key>Command</key>
+			<array>
+				<string>/usr/local/bin/atf-sh</string>
+				<string>/AppleInternal/Tests/file_cmds/ln/ln_test.sh</string>
+				<string>-s</string>
+				<string>/AppleInternal/Tests/file_cmds/ln</string>
+				<string>-r</string>
+				<string>ln_test.sh.link_argc.results.txt</string>
+				<string>link_argc</string>
+			</array>
+			<key>Description</key>
+			<string>Verify that link(1) requires exactly two arguments</string>
+			<key>MayRunConcurrently</key>
+			<true/>
+			<key>Timeout</key>
+			<integer>300</integer>
+		</dict>
+		<dict>
+			<key>TestName</key>
+			<string>file_cmds.ln_test.sh.link_basic</string>
+			<key>ShellEnv</key>
+			<dict>
+				<key>ATF_SH</key>
+				<string>/usr/local/bin/atf-sh</string>
+				<key>__RUNNING_INSIDE_ATF_RUN</key>
+				<string>internal-yes-value</string>
+			</dict>
+			<key>Command</key>
+			<array>
+				<string>/usr/local/bin/atf-sh</string>
+				<string>/AppleInternal/Tests/file_cmds/ln/ln_test.sh</string>
+				<string>-s</string>
+				<string>/AppleInternal/Tests/file_cmds/ln</string>
+				<string>-r</string>
+				<string>ln_test.sh.link_basic.results.txt</string>
+				<string>link_basic</string>
+			</array>
+			<key>Description</key>
+			<string>Verify that link(1) creates a link</string>
+			<key>MayRunConcurrently</key>
+			<true/>
+			<key>Timeout</key>
+			<integer>300</integer>
+		</dict>
+		<dict>
+			<key>TestName</key>
+			<string>file_cmds.ln_test.sh.link_eexist</string>
+			<key>ShellEnv</key>
+			<dict>
+				<key>ATF_SH</key>
+				<string>/usr/local/bin/atf-sh</string>
+				<key>__RUNNING_INSIDE_ATF_RUN</key>
+				<string>internal-yes-value</string>
+			</dict>
+			<key>Command</key>
+			<array>
+				<string>/usr/local/bin/atf-sh</string>
+				<string>/AppleInternal/Tests/file_cmds/ln/ln_test.sh</string>
+				<string>-s</string>
+				<string>/AppleInternal/Tests/file_cmds/ln</string>
+				<string>-r</string>
+				<string>ln_test.sh.link_eexist.results.txt</string>
+				<string>link_eexist</string>
+			</array>
+			<key>Description</key>
+			<string>Verify that link(1) fails if the target exists</string>
+			<key>MayRunConcurrently</key>
+			<true/>
+			<key>Timeout</key>
+			<integer>300</integer>
+		</dict>
+		<dict>
+			<key>TestName</key>
+			<string>file_cmds.ln_test.sh.link_eisdir</string>
+			<key>ShellEnv</key>
+			<dict>
+				<key>ATF_SH</key>
+				<string>/usr/local/bin/atf-sh</string>
+				<key>__RUNNING_INSIDE_ATF_RUN</key>
+				<string>internal-yes-value</string>
+			</dict>
+			<key>Command</key>
+			<array>
+				<string>/usr/local/bin/atf-sh</string>
+				<string>/AppleInternal/Tests/file_cmds/ln/ln_test.sh</string>
+				<string>-s</string>
+				<string>/AppleInternal/Tests/file_cmds/ln</string>
+				<string>-r</string>
+				<string>ln_test.sh.link_eisdir.results.txt</string>
+				<string>link_eisdir</string>
+			</array>
+			<key>Description</key>
+			<string>Verify that link(1) fails if the source is a directory</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -3373,6 +3587,60 @@
 		</dict>
 		<dict>
 			<key>TestName</key>
+			<string>file_cmds.pax_test.sh.mod_time_preserve</string>
+			<key>ShellEnv</key>
+			<dict>
+				<key>ATF_SH</key>
+				<string>/usr/local/bin/atf-sh</string>
+				<key>__RUNNING_INSIDE_ATF_RUN</key>
+				<string>internal-yes-value</string>
+			</dict>
+			<key>Command</key>
+			<array>
+				<string>/usr/local/bin/atf-sh</string>
+				<string>/AppleInternal/Tests/file_cmds/pax/pax_test.sh</string>
+				<string>-s</string>
+				<string>/AppleInternal/Tests/file_cmds/pax</string>
+				<string>-r</string>
+				<string>pax_test.sh.mod_time_preserve.results.txt</string>
+				<string>mod_time_preserve</string>
+			</array>
+			<key>Description</key>
+			<string>Verifying that pax(1) preserves modification time with nanosecond resolution.</string>
+			<key>MayRunConcurrently</key>
+			<true/>
+			<key>Timeout</key>
+			<integer>300</integer>
+		</dict>
+		<dict>
+			<key>TestName</key>
+			<string>file_cmds.pax_test.sh.mod_time_set</string>
+			<key>ShellEnv</key>
+			<dict>
+				<key>ATF_SH</key>
+				<string>/usr/local/bin/atf-sh</string>
+				<key>__RUNNING_INSIDE_ATF_RUN</key>
+				<string>internal-yes-value</string>
+			</dict>
+			<key>Command</key>
+			<array>
+				<string>/usr/local/bin/atf-sh</string>
+				<string>/AppleInternal/Tests/file_cmds/pax/pax_test.sh</string>
+				<string>-s</string>
+				<string>/AppleInternal/Tests/file_cmds/pax</string>
+				<string>-r</string>
+				<string>pax_test.sh.mod_time_set.results.txt</string>
+				<string>mod_time_set</string>
+			</array>
+			<key>Description</key>
+			<string>Verifying that pax(1) sets modification time with nanosecond resolution.</string>
+			<key>MayRunConcurrently</key>
+			<true/>
+			<key>Timeout</key>
+			<integer>300</integer>
+		</dict>
+		<dict>
+			<key>TestName</key>
 			<string>file_cmds.readlink_test.sh.basic</string>
 			<key>ShellEnv</key>
 			<dict>
@@ -3723,44 +3991,31 @@
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
-#endif /* TARGET_OS_OSX */
 		<dict>
+			<key>TestName</key>
+			<string>file_cmds.install_test.sh.copy_to_empty</string>
+			<key>ShellEnv</key>
+			<dict>
+				<key>ATF_SH</key>
+				<string>/usr/local/bin/atf-sh</string>
+				<key>__RUNNING_INSIDE_ATF_RUN</key>
+				<string>internal-yes-value</string>
+			</dict>
 			<key>Command</key>
 			<array>
-				<string>/bin/sh</string>
-				<string>pax.sh</string>
+				<string>/usr/local/bin/atf-sh</string>
+				<string>/AppleInternal/Tests/file_cmds/install/install_test.sh</string>
+				<string>-s</string>
+				<string>/AppleInternal/Tests/file_cmds/install</string>
+				<string>-r</string>
+				<string>install_test.sh.copy_to_empty.results.txt</string>
+				<string>copy_to_empty</string>
 			</array>
-			<key>AsRoot</key>
-			<false/>
-			<key>TestName</key>
-			<string>pax</string>
-			<key>WhenToRun</key>
-			<array>
-				<string>PRESUBMISSION</string>
-				<string>NIGHTLY</string>
-			</array>
-			<key>WorkingDirectory</key>
-			<string>/AppleInternal/Tests/file_cmds</string>
+			<key>MayRunConcurrently</key>
+			<true/>
+			<key>Timeout</key>
+			<integer>300</integer>
 		</dict>
-		<dict>
-			<key>Command</key>
-			<array>
-				<string>/bin/sh</string>
-				<string>touch.sh</string>
-			</array>
-			<key>AsRoot</key>
-			<false/>
-			<key>TestName</key>
-			<string>touch</string>
-			<key>WhenToRun</key>
-			<array>
-				<string>PRESUBMISSION</string>
-				<string>NIGHTLY</string>
-			</array>
-			<key>WorkingDirectory</key>
-			<string>/AppleInternal/Tests/file_cmds</string>
-		</dict>
-#if TARGET_OS_OSX
 		<dict>
 			<key>TestName</key>
 			<string>file_cmds.install_test.sh.copy_to_nonexistent</string>
@@ -3781,6 +4036,8 @@
 				<string>install_test.sh.copy_to_nonexistent.results.txt</string>
 				<string>copy_to_nonexistent</string>
 			</array>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -3804,6 +4061,8 @@
 				<string>install_test.sh.copy_to_nonexistent_safe.results.txt</string>
 				<string>copy_to_nonexistent_safe</string>
 			</array>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -3827,6 +4086,8 @@
 				<string>install_test.sh.copy_to_nonexistent_comparing.results.txt</string>
 				<string>copy_to_nonexistent_comparing</string>
 			</array>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -3850,6 +4111,8 @@
 				<string>install_test.sh.copy_to_nonexistent_safe_comparing.results.txt</string>
 				<string>copy_to_nonexistent_safe_comparing</string>
 			</array>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -3873,6 +4136,8 @@
 				<string>install_test.sh.copy_to_nonexistent_backup.results.txt</string>
 				<string>copy_to_nonexistent_backup</string>
 			</array>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -3896,6 +4161,8 @@
 				<string>install_test.sh.copy_to_nonexistent_backup_safe.results.txt</string>
 				<string>copy_to_nonexistent_backup_safe</string>
 			</array>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -3919,6 +4186,8 @@
 				<string>install_test.sh.copy_to_nonexistent_preserving.results.txt</string>
 				<string>copy_to_nonexistent_preserving</string>
 			</array>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -3942,6 +4211,8 @@
 				<string>install_test.sh.copy_self.results.txt</string>
 				<string>copy_self</string>
 			</array>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -3965,6 +4236,8 @@
 				<string>install_test.sh.copy_self_safe.results.txt</string>
 				<string>copy_self_safe</string>
 			</array>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -3988,6 +4261,8 @@
 				<string>install_test.sh.copy_self_comparing.results.txt</string>
 				<string>copy_self_comparing</string>
 			</array>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -4011,6 +4286,8 @@
 				<string>install_test.sh.copy_self_safe_comparing.results.txt</string>
 				<string>copy_self_safe_comparing</string>
 			</array>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -4034,6 +4311,8 @@
 				<string>install_test.sh.overwrite.results.txt</string>
 				<string>overwrite</string>
 			</array>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -4057,6 +4336,8 @@
 				<string>install_test.sh.overwrite_safe.results.txt</string>
 				<string>overwrite_safe</string>
 			</array>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -4080,6 +4361,8 @@
 				<string>install_test.sh.overwrite_comparing.results.txt</string>
 				<string>overwrite_comparing</string>
 			</array>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -4103,6 +4386,8 @@
 				<string>install_test.sh.overwrite_safe_comparing.results.txt</string>
 				<string>overwrite_safe_comparing</string>
 			</array>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -4126,6 +4411,8 @@
 				<string>install_test.sh.overwrite_eq.results.txt</string>
 				<string>overwrite_eq</string>
 			</array>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -4149,6 +4436,8 @@
 				<string>install_test.sh.overwrite_eq_safe.results.txt</string>
 				<string>overwrite_eq_safe</string>
 			</array>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -4172,6 +4461,8 @@
 				<string>install_test.sh.overwrite_eq_comparing.results.txt</string>
 				<string>overwrite_eq_comparing</string>
 			</array>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -4195,6 +4486,8 @@
 				<string>install_test.sh.overwrite_eq_safe_comparing.results.txt</string>
 				<string>overwrite_eq_safe_comparing</string>
 			</array>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -4218,6 +4511,8 @@
 				<string>install_test.sh.overwrite_backup.results.txt</string>
 				<string>overwrite_backup</string>
 			</array>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -4241,6 +4536,8 @@
 				<string>install_test.sh.overwrite_backup_safe.results.txt</string>
 				<string>overwrite_backup_safe</string>
 			</array>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -4264,6 +4561,8 @@
 				<string>install_test.sh.overwrite_backup_comparing.results.txt</string>
 				<string>overwrite_backup_comparing</string>
 			</array>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -4287,6 +4586,8 @@
 				<string>install_test.sh.overwrite_backup_safe_comparing.results.txt</string>
 				<string>overwrite_backup_safe_comparing</string>
 			</array>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -4310,6 +4611,8 @@
 				<string>install_test.sh.strip_changing.results.txt</string>
 				<string>strip_changing</string>
 			</array>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -4333,6 +4636,8 @@
 				<string>install_test.sh.strip_changing_comparing.results.txt</string>
 				<string>strip_changing_comparing</string>
 			</array>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -4356,6 +4661,8 @@
 				<string>install_test.sh.strip_changing_overwrite.results.txt</string>
 				<string>strip_changing_overwrite</string>
 			</array>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -4379,6 +4686,8 @@
 				<string>install_test.sh.strip_changing_overwrite_comparing.results.txt</string>
 				<string>strip_changing_overwrite_comparing</string>
 			</array>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -4402,6 +4711,8 @@
 				<string>install_test.sh.strip_changing_overwrite_eq.results.txt</string>
 				<string>strip_changing_overwrite_eq</string>
 			</array>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -4425,6 +4736,8 @@
 				<string>install_test.sh.strip_changing_overwrite_eq_comparing.results.txt</string>
 				<string>strip_changing_overwrite_eq_comparing</string>
 			</array>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -4448,6 +4761,8 @@
 				<string>install_test.sh.strip_noop.results.txt</string>
 				<string>strip_noop</string>
 			</array>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -4471,6 +4786,8 @@
 				<string>install_test.sh.hard_link.results.txt</string>
 				<string>hard_link</string>
 			</array>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -4494,6 +4811,8 @@
 				<string>install_test.sh.symbolic_link.results.txt</string>
 				<string>symbolic_link</string>
 			</array>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -4517,6 +4836,8 @@
 				<string>install_test.sh.symbolic_link_absolute.results.txt</string>
 				<string>symbolic_link_absolute</string>
 			</array>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -4540,6 +4861,8 @@
 				<string>install_test.sh.symbolic_link_relative.results.txt</string>
 				<string>symbolic_link_relative</string>
 			</array>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -4565,6 +4888,8 @@
 			</array>
 			<key>Description</key>
 			<string>Verify -l rs with absolute paths (.../copyf -> .../a/b/c/testf)</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -4590,6 +4915,8 @@
 			</array>
 			<key>Description</key>
 			<string>Verify -l rs with absolute paths (.../copyf -> .../a/b/c/testf), using double-slashes</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -4615,6 +4942,8 @@
 			</array>
 			<key>Description</key>
 			<string>Verify -l rs with absolute paths (.../a/b/c/copyf -> .../testf)</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -4640,6 +4969,8 @@
 			</array>
 			<key>Description</key>
 			<string>Verify -l rs with absolute paths having common components</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -4663,6 +4994,8 @@
 				<string>install_test.sh.mkdir_simple.results.txt</string>
 				<string>mkdir_simple</string>
 			</array>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -4741,7 +5074,277 @@
 				<string>set_optional_exec</string>
 			</array>
 			<key>AsRoot</key>
+			<false/>
+			<key>MayRunConcurrently</key>
 			<true/>
+			<key>Timeout</key>
+			<integer>300</integer>
+		</dict>
+		<dict>
+			<key>TestName</key>
+			<string>file_cmds.install_test.sh.sandbox_fallback</string>
+			<key>ShellEnv</key>
+			<dict>
+				<key>ATF_SH</key>
+				<string>/usr/local/bin/atf-sh</string>
+				<key>__RUNNING_INSIDE_ATF_RUN</key>
+				<string>internal-yes-value</string>
+			</dict>
+			<key>Command</key>
+			<array>
+				<string>/usr/local/bin/atf-sh</string>
+				<string>/AppleInternal/Tests/file_cmds/install/install_test.sh</string>
+				<string>-s</string>
+				<string>/AppleInternal/Tests/file_cmds/install</string>
+				<string>-r</string>
+				<string>install_test.sh.sandbox_fallback.results.txt</string>
+				<string>sandbox_fallback</string>
+			</array>
+			<key>Description</key>
+			<string>test sandbox fallback</string>
+			<key>MayRunConcurrently</key>
+			<true/>
+			<key>Timeout</key>
+			<integer>300</integer>
+		</dict>
+		<dict>
+			<key>TestName</key>
+			<string>file_cmds.install_test.sh.sandbox_fallback_strip</string>
+			<key>ShellEnv</key>
+			<dict>
+				<key>ATF_SH</key>
+				<string>/usr/local/bin/atf-sh</string>
+				<key>__RUNNING_INSIDE_ATF_RUN</key>
+				<string>internal-yes-value</string>
+			</dict>
+			<key>Command</key>
+			<array>
+				<string>/usr/local/bin/atf-sh</string>
+				<string>/AppleInternal/Tests/file_cmds/install/install_test.sh</string>
+				<string>-s</string>
+				<string>/AppleInternal/Tests/file_cmds/install</string>
+				<string>-r</string>
+				<string>install_test.sh.sandbox_fallback_strip.results.txt</string>
+				<string>sandbox_fallback_strip</string>
+			</array>
+			<key>Description</key>
+			<string>test sandbox fallback with stripping</string>
+			<key>MayRunConcurrently</key>
+			<true/>
+			<key>Timeout</key>
+			<integer>300</integer>
+		</dict>
+		<dict>
+			<key>TestName</key>
+			<string>file_cmds.touch_test.sh.touch_none</string>
+			<key>ShellEnv</key>
+			<dict>
+				<key>ATF_SH</key>
+				<string>/usr/local/bin/atf-sh</string>
+				<key>__RUNNING_INSIDE_ATF_RUN</key>
+				<string>internal-yes-value</string>
+			</dict>
+			<key>Command</key>
+			<array>
+				<string>/usr/local/bin/atf-sh</string>
+				<string>/AppleInternal/Tests/file_cmds/touch/touch_test.sh</string>
+				<string>-s</string>
+				<string>/AppleInternal/Tests/file_cmds/touch</string>
+				<string>-r</string>
+				<string>touch_test.sh.touch_none.results.txt</string>
+				<string>touch_none</string>
+			</array>
+			<key>Description</key>
+			<string>No arguments</string>
+			<key>MayRunConcurrently</key>
+			<true/>
+			<key>Timeout</key>
+			<integer>300</integer>
+		</dict>
+		<dict>
+			<key>TestName</key>
+			<string>file_cmds.touch_test.sh.touch_one</string>
+			<key>ShellEnv</key>
+			<dict>
+				<key>ATF_SH</key>
+				<string>/usr/local/bin/atf-sh</string>
+				<key>__RUNNING_INSIDE_ATF_RUN</key>
+				<string>internal-yes-value</string>
+			</dict>
+			<key>Command</key>
+			<array>
+				<string>/usr/local/bin/atf-sh</string>
+				<string>/AppleInternal/Tests/file_cmds/touch/touch_test.sh</string>
+				<string>-s</string>
+				<string>/AppleInternal/Tests/file_cmds/touch</string>
+				<string>-r</string>
+				<string>touch_test.sh.touch_one.results.txt</string>
+				<string>touch_one</string>
+			</array>
+			<key>Description</key>
+			<string>One argument</string>
+			<key>MayRunConcurrently</key>
+			<true/>
+			<key>Timeout</key>
+			<integer>300</integer>
+		</dict>
+		<dict>
+			<key>TestName</key>
+			<string>file_cmds.touch_test.sh.touch_multiple</string>
+			<key>ShellEnv</key>
+			<dict>
+				<key>ATF_SH</key>
+				<string>/usr/local/bin/atf-sh</string>
+				<key>__RUNNING_INSIDE_ATF_RUN</key>
+				<string>internal-yes-value</string>
+			</dict>
+			<key>Command</key>
+			<array>
+				<string>/usr/local/bin/atf-sh</string>
+				<string>/AppleInternal/Tests/file_cmds/touch/touch_test.sh</string>
+				<string>-s</string>
+				<string>/AppleInternal/Tests/file_cmds/touch</string>
+				<string>-r</string>
+				<string>touch_test.sh.touch_multiple.results.txt</string>
+				<string>touch_multiple</string>
+			</array>
+			<key>Description</key>
+			<string>Multiple arguments</string>
+			<key>MayRunConcurrently</key>
+			<true/>
+			<key>Timeout</key>
+			<integer>300</integer>
+		</dict>
+		<dict>
+			<key>TestName</key>
+			<string>file_cmds.touch_test.sh.touch_absolute</string>
+			<key>ShellEnv</key>
+			<dict>
+				<key>ATF_SH</key>
+				<string>/usr/local/bin/atf-sh</string>
+				<key>__RUNNING_INSIDE_ATF_RUN</key>
+				<string>internal-yes-value</string>
+			</dict>
+			<key>Command</key>
+			<array>
+				<string>/usr/local/bin/atf-sh</string>
+				<string>/AppleInternal/Tests/file_cmds/touch/touch_test.sh</string>
+				<string>-s</string>
+				<string>/AppleInternal/Tests/file_cmds/touch</string>
+				<string>-r</string>
+				<string>touch_test.sh.touch_absolute.results.txt</string>
+				<string>touch_absolute</string>
+			</array>
+			<key>Description</key>
+			<string>Absolute date / time</string>
+			<key>MayRunConcurrently</key>
+			<true/>
+			<key>Timeout</key>
+			<integer>300</integer>
+		</dict>
+		<dict>
+			<key>TestName</key>
+			<string>file_cmds.touch_test.sh.touch_relative</string>
+			<key>ShellEnv</key>
+			<dict>
+				<key>ATF_SH</key>
+				<string>/usr/local/bin/atf-sh</string>
+				<key>__RUNNING_INSIDE_ATF_RUN</key>
+				<string>internal-yes-value</string>
+			</dict>
+			<key>Command</key>
+			<array>
+				<string>/usr/local/bin/atf-sh</string>
+				<string>/AppleInternal/Tests/file_cmds/touch/touch_test.sh</string>
+				<string>-s</string>
+				<string>/AppleInternal/Tests/file_cmds/touch</string>
+				<string>-r</string>
+				<string>touch_test.sh.touch_relative.results.txt</string>
+				<string>touch_relative</string>
+			</array>
+			<key>Description</key>
+			<string>Relative date / time</string>
+			<key>MayRunConcurrently</key>
+			<true/>
+			<key>Timeout</key>
+			<integer>300</integer>
+		</dict>
+		<dict>
+			<key>TestName</key>
+			<string>file_cmds.touch_test.sh.touch_copy</string>
+			<key>ShellEnv</key>
+			<dict>
+				<key>ATF_SH</key>
+				<string>/usr/local/bin/atf-sh</string>
+				<key>__RUNNING_INSIDE_ATF_RUN</key>
+				<string>internal-yes-value</string>
+			</dict>
+			<key>Command</key>
+			<array>
+				<string>/usr/local/bin/atf-sh</string>
+				<string>/AppleInternal/Tests/file_cmds/touch/touch_test.sh</string>
+				<string>-s</string>
+				<string>/AppleInternal/Tests/file_cmds/touch</string>
+				<string>-r</string>
+				<string>touch_test.sh.touch_copy.results.txt</string>
+				<string>touch_copy</string>
+			</array>
+			<key>Description</key>
+			<string>Copy time from another file</string>
+			<key>MayRunConcurrently</key>
+			<true/>
+			<key>Timeout</key>
+			<integer>300</integer>
+		</dict>
+		<dict>
+			<key>TestName</key>
+			<string>file_cmds.touch_test.sh.touch_nocreate</string>
+			<key>ShellEnv</key>
+			<dict>
+				<key>ATF_SH</key>
+				<string>/usr/local/bin/atf-sh</string>
+				<key>__RUNNING_INSIDE_ATF_RUN</key>
+				<string>internal-yes-value</string>
+			</dict>
+			<key>Command</key>
+			<array>
+				<string>/usr/local/bin/atf-sh</string>
+				<string>/AppleInternal/Tests/file_cmds/touch/touch_test.sh</string>
+				<string>-s</string>
+				<string>/AppleInternal/Tests/file_cmds/touch</string>
+				<string>-r</string>
+				<string>touch_test.sh.touch_nocreate.results.txt</string>
+				<string>touch_nocreate</string>
+			</array>
+			<key>Description</key>
+			<string>Do not create file</string>
+			<key>MayRunConcurrently</key>
+			<true/>
+			<key>Timeout</key>
+			<integer>300</integer>
+		</dict>
+		<dict>
+			<key>TestName</key>
+			<string>file_cmds.touch_test.sh.rdar70075417</string>
+			<key>ShellEnv</key>
+			<dict>
+				<key>ATF_SH</key>
+				<string>/usr/local/bin/atf-sh</string>
+				<key>__RUNNING_INSIDE_ATF_RUN</key>
+				<string>internal-yes-value</string>
+			</dict>
+			<key>Command</key>
+			<array>
+				<string>/usr/local/bin/atf-sh</string>
+				<string>/AppleInternal/Tests/file_cmds/touch/touch_test.sh</string>
+				<string>-s</string>
+				<string>/AppleInternal/Tests/file_cmds/touch</string>
+				<string>-r</string>
+				<string>touch_test.sh.rdar70075417.results.txt</string>
+				<string>rdar70075417</string>
+			</array>
+			<key>Description</key>
+			<string>Verifying that touch(1)ing an existing file sets its modification time to be later than its creation time.</string>
 			<key>MayRunConcurrently</key>
 			<true/>
 			<key>Timeout</key>
@@ -5226,26 +5829,114 @@
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
-#endif /* TARGET_OS_OSX */
 		<dict>
+			<key>TestName</key>
+			<string>file_cmds.xattr_test.sh.rdar79795987</string>
+			<key>ShellEnv</key>
+			<dict>
+				<key>ATF_SH</key>
+				<string>/usr/local/bin/atf-sh</string>
+				<key>__RUNNING_INSIDE_ATF_RUN</key>
+				<string>internal-yes-value</string>
+			</dict>
 			<key>Command</key>
 			<array>
-				<string>/bin/sh</string>
-				<string>xattr.sh</string>
+				<string>/usr/local/bin/atf-sh</string>
+				<string>/AppleInternal/Tests/file_cmds/xattr/xattr_test.sh</string>
+				<string>-s</string>
+				<string>/AppleInternal/Tests/file_cmds/xattr</string>
+				<string>-r</string>
+				<string>xattr_test.sh.rdar79795987.results.txt</string>
+				<string>rdar79795987</string>
 			</array>
-			<key>AsRoot</key>
+			<key>Description</key>
+			<string>Verifying that xattr does not exit cleanly on failure</string>
+			<key>MayRunConcurrently</key>
 			<true/>
-			<key>TestName</key>
-			<string>xattr</string>
-			<key>WhenToRun</key>
-			<array>
-				<string>PRESUBMISSION</string>
-				<string>NIGHTLY</string>
-			</array>
-			<key>WorkingDirectory</key>
-			<string>/AppleInternal/Tests/file_cmds</string>
+			<key>Timeout</key>
+			<integer>300</integer>
 		</dict>
-#if TARGET_OS_OSX
+		<dict>
+			<key>TestName</key>
+			<string>file_cmds.xattr_test.sh.rdar79990691</string>
+			<key>ShellEnv</key>
+			<dict>
+				<key>ATF_SH</key>
+				<string>/usr/local/bin/atf-sh</string>
+				<key>__RUNNING_INSIDE_ATF_RUN</key>
+				<string>internal-yes-value</string>
+			</dict>
+			<key>Command</key>
+			<array>
+				<string>/usr/local/bin/atf-sh</string>
+				<string>/AppleInternal/Tests/file_cmds/xattr/xattr_test.sh</string>
+				<string>-s</string>
+				<string>/AppleInternal/Tests/file_cmds/xattr</string>
+				<string>-r</string>
+				<string>xattr_test.sh.rdar79990691.results.txt</string>
+				<string>rdar79990691</string>
+			</array>
+			<key>Description</key>
+			<string>Verifying that xattr behaves correctly when hex values have embedded NULs</string>
+			<key>MayRunConcurrently</key>
+			<true/>
+			<key>Timeout</key>
+			<integer>300</integer>
+		</dict>
+		<dict>
+			<key>TestName</key>
+			<string>file_cmds.xattr_test.sh.rdar80300336</string>
+			<key>ShellEnv</key>
+			<dict>
+				<key>ATF_SH</key>
+				<string>/usr/local/bin/atf-sh</string>
+				<key>__RUNNING_INSIDE_ATF_RUN</key>
+				<string>internal-yes-value</string>
+			</dict>
+			<key>Command</key>
+			<array>
+				<string>/usr/local/bin/atf-sh</string>
+				<string>/AppleInternal/Tests/file_cmds/xattr/xattr_test.sh</string>
+				<string>-s</string>
+				<string>/AppleInternal/Tests/file_cmds/xattr</string>
+				<string>-r</string>
+				<string>xattr_test.sh.rdar80300336.results.txt</string>
+				<string>rdar80300336</string>
+			</array>
+			<key>Description</key>
+			<string>Verifying that deleting an xattr recursively does not exit with an error</string>
+			<key>MayRunConcurrently</key>
+			<true/>
+			<key>Timeout</key>
+			<integer>300</integer>
+		</dict>
+		<dict>
+			<key>TestName</key>
+			<string>file_cmds.xattr_test.sh.rdar82573904</string>
+			<key>ShellEnv</key>
+			<dict>
+				<key>ATF_SH</key>
+				<string>/usr/local/bin/atf-sh</string>
+				<key>__RUNNING_INSIDE_ATF_RUN</key>
+				<string>internal-yes-value</string>
+			</dict>
+			<key>Command</key>
+			<array>
+				<string>/usr/local/bin/atf-sh</string>
+				<string>/AppleInternal/Tests/file_cmds/xattr/xattr_test.sh</string>
+				<string>-s</string>
+				<string>/AppleInternal/Tests/file_cmds/xattr</string>
+				<string>-r</string>
+				<string>xattr_test.sh.rdar82573904.results.txt</string>
+				<string>rdar82573904</string>
+			</array>
+			<key>Description</key>
+			<string>Verifying that deleting an xattr recursively with a symlink directory target does not affect files in that directory</string>
+			<key>MayRunConcurrently</key>
+			<true/>
+			<key>Timeout</key>
+			<integer>300</integer>
+		</dict>
 		<dict>
 			<key>TestName</key>
 			<string>file_cmds.zdiff_test.sh.gzip</string>
@@ -5467,7 +6158,20 @@
 		      <true/>
 		      <key>Timeout</key>
 		      <integer>60</integer>
-	      </dict>
+		</dict>
+		<dict>
+			<key>TestName</key>
+			<string>file_cmds.mtree.test09</string>
+			<key>Command</key>
+			<array>
+				<string>/bin/bash</string>
+				<string>/AppleInternal/Tests/file_cmds/mtree/test09.sh</string>
+			</array>
+			<key>MayRunConcurrently</key>
+			<true/>
+			<key>Timeout</key>
+			<integer>60</integer>
+		</dict>
 	</array>
 	<key>Timeout</key>
 	<integer>30</integer>

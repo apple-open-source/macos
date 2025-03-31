@@ -20,8 +20,6 @@ cd ..
 
 # Now - in the source tree replace a whole directory with a symlink.
 # We want to test whether rsync nukes the dir to make space for the symlink.
-# At the time of this writing the --force-delete flag for GNU rsync will
-# do that and openrsync doesn't have that flag.
 
 rm -rf dir1/foo/bar
 (
@@ -42,5 +40,5 @@ rm -rf dir2/foo/bar
 # remove unrelated symlink that will be broken
 rm dir3/foo/baz/three.txt
 
-rsync -a --force-delete -- dir1/ dir3
+rsync -a --force -- dir1/ dir3
 compare_trees dir2 dir3

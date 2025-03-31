@@ -41,6 +41,11 @@ using namespace WebCore;
 
 WTF_MAKE_TZONE_ALLOCATED_IMPL(AuthenticatorPresenterCoordinator);
 
+Ref<AuthenticatorPresenterCoordinator> AuthenticatorPresenterCoordinator::create(const AuthenticatorManager& manager, const String& rpId, const AuthenticatorPresenterCoordinator::TransportSet& transports, WebCore::ClientDataType type, const String& username)
+{
+    return adoptRef(*new AuthenticatorPresenterCoordinator(manager, rpId, transports, type, username));
+}
+
 AuthenticatorPresenterCoordinator::AuthenticatorPresenterCoordinator(const AuthenticatorManager& manager, const String& rpId, const TransportSet& transports, ClientDataType type, const String& username)
     : m_manager(manager)
 {
@@ -123,6 +128,16 @@ void AuthenticatorPresenterCoordinator::updatePresenter(WebAuthenticationStatus 
         m_credentialRequestHandler(nil, error.get());
         break;
     }
+    case WebAuthenticationStatus::PINTooShort: {
+        RetainPtr error = adoptNS([[NSError alloc] initWithDomain:ASCAuthorizationErrorDomain code:ASCAuthorizationErrorPINTooShort userInfo:nil]);
+        m_credentialRequestHandler(nil, error.get());
+        break;
+    }
+    case WebAuthenticationStatus::PINTooLong: {
+        RetainPtr error = adoptNS([[NSError alloc] initWithDomain:ASCAuthorizationErrorDomain code:ASCAuthorizationErrorPINTooLong userInfo:nil]);
+        m_credentialRequestHandler(nil, error.get());
+        break;
+    }
     case WebAuthenticationStatus::MultipleNFCTagsPresent: {
         auto error = adoptNS([[NSError alloc] initWithDomain:ASCAuthorizationErrorDomain code:ASCAuthorizationErrorMultipleNFCTagsPresent userInfo:nil]);
         [m_presenter updateInterfaceForUserVisibleError:error.get()];
@@ -178,6 +193,20 @@ void AuthenticatorPresenterCoordinator::requestPin(uint64_t, CompletionHandler<v
         return;
     m_presentedPIN = true;
     [m_presenter presentPINEntryInterface];
+#endif // HAVE(ASC_AUTH_UI)
+}
+
+void AuthenticatorPresenterCoordinator::requestNewPin(uint64_t minLength, CompletionHandler<void(const String&)>&& completionHandler)
+{
+#if HAVE(ASC_AUTH_UI)
+    if (m_pinHandler)
+        m_pinHandler(String());
+    m_pinHandler = WTFMove(completionHandler);
+
+    if (m_presentedPIN)
+        return;
+    m_presentedPIN = true;
+    [m_presenter presentNewPINEntryInterfaceWithMinLength:minLength];
 #endif // HAVE(ASC_AUTH_UI)
 }
 

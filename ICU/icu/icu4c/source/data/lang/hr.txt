@@ -82,6 +82,7 @@ hr{
         bin{"bini"}
         bkm{"kom"}
         bla{"siksika"}
+        blo{"anii"}
         bm{"bambara"}
         bn{"bangla"}
         bo{"tibetski"}
@@ -312,6 +313,7 @@ hr{
         kv{"komi"}
         kw{"kornski"}
         kwk{"kwakʼwala"}
+        kxv{"kuvi"}
         ky{"kirgiski"}
         la{"latinski"}
         lad{"ladino"}
@@ -322,8 +324,10 @@ hr{
         lez{"lezgiški"}
         lg{"ganda"}
         li{"limburški"}
+        lij{"ligurski"}
         lil{"lillooet"}
         lkt{"lakota"}
+        lmo{"lombardski"}
         ln{"lingala"}
         lo{"laoski"}
         lol{"mongo"}
@@ -336,7 +340,6 @@ hr{
         lua{"luba-lulua"}
         lui{"luiseno"}
         lun{"lunda"}
-        luo{"luo"}
         lus{"lushai"}
         lut{"lushootseed"}
         luy{"luyia"}
@@ -527,6 +530,7 @@ hr{
         swb{"komorski"}
         syc{"klasični sirski"}
         syr{"sirijski"}
+        szl{"šleski"}
         ta{"tamilski"}
         tce{"južni tutchone"}
         te{"teluški"}
@@ -574,10 +578,11 @@ hr{
         ur{"urdski"}
         ur_Arab{"urdski (naskh)"}
         uz{"uzbečki"}
-        vai{"vai"}
         ve{"venda"}
+        vec{"venecijanski"}
         vi{"vijetnamski"}
         vls{"zapadnoflamanski"}
+        vmw{"makhuwa"}
         vo{"volapük"}
         vot{"votski"}
         vun{"vunjo"}
@@ -591,6 +596,7 @@ hr{
         wuu{"wu kineski"}
         xal{"kalmyk"}
         xh{"xhosa"}
+        xnr{"kangri"}
         xog{"soga"}
         yao{"yao"}
         yap{"japski"}
@@ -869,7 +875,6 @@ hr{
             phonebook{"razvrstavanje po abecedi"}
             phonetic{"fonetsko razvrstavanje"}
             pinyin{"pinyin razvrstavanje"}
-            reformed{"reformirano razvrstavanje"}
             search{"općenito pretraživanje"}
             searchjl{"pretraživanje po početnom suglasniku hangula"}
             standard{"standardno razvrstavanje"}

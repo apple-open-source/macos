@@ -1,0 +1,166 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>modulegraph.zipio — Read-only filesystem access &mdash; modulegraph 0.10.4 documentation</title>
+    
+    <link rel="stylesheet" href="_static/nature.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '',
+        VERSION:     '0.10.4',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <link rel="top" title="modulegraph 0.10.4 documentation" href="index.html" />
+    <link rel="prev" title="modulegraph.util — Utilies functions" href="util.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="util.html" title="modulegraph.util — Utilies functions"
+             accesskey="P">previous</a> |</li>
+        <li><a href="index.html">modulegraph 0.10.4 documentation</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="module-modulegraph.zipio">
+<span id="modulegraph-zipio-read-only-filesystem-access"></span><h1><a class="reference internal" href="#module-modulegraph.zipio" title="modulegraph.zipio: Read-only filesystem access with ZIP support"><tt class="xref py py-mod docutils literal"><span class="pre">modulegraph.zipio</span></tt></a> &#8212; Read-only filesystem access<a class="headerlink" href="#module-modulegraph.zipio" title="Permalink to this headline">¶</a></h1>
+<p>This module contains a number of functions that mirror functions found
+in <a class="reference external" href="http://docs.python.org/library/os.html#os" title="(in Python v2.7)"><tt class="xref py py-mod docutils literal"><span class="pre">os</span></tt></a> and <a class="reference external" href="http://docs.python.org/library/os.path.html#os.path" title="(in Python v2.7)"><tt class="xref py py-mod docutils literal"><span class="pre">os.path</span></tt></a>, but have support for data inside
+zipfiles as well as regular filesystem objects.</p>
+<p>The <em>path</em> argument of all functions below can refer to an object
+on the filesystem, but can also refer to an entry inside a zipfile. In
+the latter case, a prefix of <em>path</em> will be the name of zipfile while
+the rest refers to an object in that zipfile. As an example, when
+<tt class="docutils literal"><span class="pre">somepath/mydata.zip</span></tt> is a zipfile the path <tt class="docutils literal"><span class="pre">somepath/mydata.zip/somefile.txt</span></tt>
+will refer to <tt class="docutils literal"><span class="pre">somefile.txt</span></tt> inside the zipfile.</p>
+<dl class="function">
+<dt id="modulegraph.zipio.open">
+<tt class="descclassname">modulegraph.zipio.</tt><tt class="descname">open</tt><big>(</big><em>path</em><span class="optional">[</span>, <em>mode</em><span class="optional">]</span><big>)</big><a class="headerlink" href="#modulegraph.zipio.open" title="Permalink to this definition">¶</a></dt>
+<dd><p>Open a file, like <tt class="xref py py-func docutils literal"><span class="pre">the</span> <span class="pre">built-in</span> <span class="pre">open</span> <span class="pre">function</span></tt>.</p>
+<p>The <em>mode</em> defaults to <tt class="docutils literal"><span class="pre">&quot;r&quot;</span></tt> and must be either <tt class="docutils literal"><span class="pre">&quot;r&quot;</span></tt> or <tt class="docutils literal"><span class="pre">&quot;rb&quot;</span></tt>.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="modulegraph.zipio.listdir">
+<tt class="descclassname">modulegraph.zipio.</tt><tt class="descname">listdir</tt><big>(</big><em>path</em><big>)</big><a class="headerlink" href="#modulegraph.zipio.listdir" title="Permalink to this definition">¶</a></dt>
+<dd><p>List the contents of a directory, like <a class="reference external" href="http://docs.python.org/library/os.html#os.listdir" title="(in Python v2.7)"><tt class="xref py py-func docutils literal"><span class="pre">os.listdir()</span></tt></a>.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="modulegraph.zipio.isfile">
+<tt class="descclassname">modulegraph.zipio.</tt><tt class="descname">isfile</tt><big>(</big><em>path</em><big>)</big><a class="headerlink" href="#modulegraph.zipio.isfile" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns true if <em>path</em> exists and refers to a file.</p>
+<p>Raises IOError when <em>path</em> doesn&#8217;t exist at all.</p>
+<p>Based on <a class="reference external" href="http://docs.python.org/library/os.path.html#os.path.isfile" title="(in Python v2.7)"><tt class="xref py py-func docutils literal"><span class="pre">os.path.isfile()</span></tt></a></p>
+</dd></dl>
+
+<dl class="function">
+<dt id="modulegraph.zipio.isdir">
+<tt class="descclassname">modulegraph.zipio.</tt><tt class="descname">isdir</tt><big>(</big><em>path</em><big>)</big><a class="headerlink" href="#modulegraph.zipio.isdir" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns true if <em>path</em> exists and refers to a directory.</p>
+<p>Raises IOError when <em>path</em> doesn&#8217;t exist at all.</p>
+<p>Based on <a class="reference external" href="http://docs.python.org/library/os.path.html#os.path.isdir" title="(in Python v2.7)"><tt class="xref py py-func docutils literal"><span class="pre">os.path.isdir()</span></tt></a></p>
+</dd></dl>
+
+<dl class="function">
+<dt id="modulegraph.zipio.islink">
+<tt class="descclassname">modulegraph.zipio.</tt><tt class="descname">islink</tt><big>(</big><em>path</em><big>)</big><a class="headerlink" href="#modulegraph.zipio.islink" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns true if <em>path</em> exists and refers to a symbolic link.</p>
+<p>Raises IOError when <em>path</em> doesn&#8217;t exist at all.</p>
+<p>Based on <a class="reference external" href="http://docs.python.org/library/os.path.html#os.path.islink" title="(in Python v2.7)"><tt class="xref py py-func docutils literal"><span class="pre">os.path.islink()</span></tt></a></p>
+</dd></dl>
+
+<dl class="function">
+<dt id="modulegraph.zipio.readlink">
+<tt class="descclassname">modulegraph.zipio.</tt><tt class="descname">readlink</tt><big>(</big><em>path</em><big>)</big><a class="headerlink" href="#modulegraph.zipio.readlink" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns the contents of a symbolic link, like <a class="reference external" href="http://docs.python.org/library/os.html#os.readlink" title="(in Python v2.7)"><tt class="xref py py-func docutils literal"><span class="pre">os.readlink()</span></tt></a>.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="modulegraph.zipio.getmtime">
+<tt class="descclassname">modulegraph.zipio.</tt><tt class="descname">getmtime</tt><big>(</big><em>path</em><big>)</big><a class="headerlink" href="#modulegraph.zipio.getmtime" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns the last modifiction time of a file or directory, like
+<a class="reference external" href="http://docs.python.org/library/os.path.html#os.path.getmtime" title="(in Python v2.7)"><tt class="xref py py-func docutils literal"><span class="pre">os.path.getmtime()</span></tt></a>.</p>
+</dd></dl>
+
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="util.html"
+                        title="previous chapter"><tt class="docutils literal docutils literal docutils literal"><span class="pre">modulegraph.util</span></tt> &#8212; Utilies functions</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="_sources/zipio.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="util.html" title="modulegraph.util — Utilies functions"
+             >previous</a> |</li>
+        <li><a href="index.html">modulegraph 0.10.4 documentation</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2010, Ronald Oussoren.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1.3.
+    </div>
+  </body>
+</html>

@@ -1,0 +1,63 @@
+{
+  "configurations" : [
+    {
+      "id" : "D892CEF2-231D-4C64-A376-AEDAB5826889",
+      "name" : "Test Scheme Action",
+      "options" : {
+
+      }
+    }
+  ],
+  "defaultOptions" : {
+    "codeCoverage" : {
+      "targets" : [
+        {
+          "containerPath" : "container:ICU.xcodeproj",
+          "identifier" : "CC7980BB2433EE410086956E",
+          "name" : "i18n"
+        },
+        {
+          "containerPath" : "container:ICU.xcodeproj",
+          "identifier" : "CCCF80AA24340E4F0057283F",
+          "name" : "ctestfw"
+        },
+        {
+          "containerPath" : "container:ICU.xcodeproj",
+          "identifier" : "CCF930302432CB8C00C185CD",
+          "name" : "common"
+        },
+        {
+          "containerPath" : "container:ICU.xcodeproj",
+          "identifier" : "CCCF7F9A243407680057283F",
+          "name" : "toolutil"
+        }
+      ]
+    },
+    "environmentVariableEntries" : [
+      {
+        "key" : "ICU_DATA",
+        "value" : "$(CONFIGURATION_BUILD_DIR)\/icudt76l.dat:$(CONFIGURATION_BUILD_DIR)\/testdata.dat"
+      }
+    ],
+    "targetForVariableExpansion" : {
+      "containerPath" : "container:ICU.xcodeproj",
+      "identifier" : "DE587D572CBDB8A800946D2E",
+      "name" : "xc_intltest"
+    }
+  },
+  "testTargets" : [
+    {
+      "parallelizable" : true,
+      "skippedTests" : [
+        "xc_intltest\/test_format",
+        "xc_intltest\/test_utility"
+      ],
+      "target" : {
+        "containerPath" : "container:ICU.xcodeproj",
+        "identifier" : "DE587D572CBDB8A800946D2E",
+        "name" : "xc_intltest"
+      }
+    }
+  ],
+  "version" : 1
+}

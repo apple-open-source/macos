@@ -17,7 +17,7 @@
 #include "config/aom_config.h"
 #include "aom_dsp/arm/mem_neon.h"
 
-static INLINE void highbd_convolve8_horiz_2tap_neon(
+static inline void highbd_convolve8_horiz_2tap_neon(
     const uint16_t *src_ptr, ptrdiff_t src_stride, uint16_t *dst_ptr,
     ptrdiff_t dst_stride, const int16_t *x_filter_ptr, int w, int h, int bd) {
   // Bilinear filter values are all positive and multiples of 8. Divide by 8 to
@@ -96,7 +96,7 @@ static INLINE void highbd_convolve8_horiz_2tap_neon(
   }
 }
 
-static INLINE uint16x4_t highbd_convolve4_4(
+static inline uint16x4_t highbd_convolve4_4(
     const int16x4_t s0, const int16x4_t s1, const int16x4_t s2,
     const int16x4_t s3, const int16x4_t filter, const uint16x4_t max) {
   int32x4_t sum = vmull_lane_s16(s0, filter, 0);
@@ -109,7 +109,7 @@ static INLINE uint16x4_t highbd_convolve4_4(
   return vmin_u16(res, max);
 }
 
-static INLINE uint16x8_t highbd_convolve4_8(
+static inline uint16x8_t highbd_convolve4_8(
     const int16x8_t s0, const int16x8_t s1, const int16x8_t s2,
     const int16x8_t s3, const int16x4_t filter, const uint16x8_t max) {
   int32x4_t sum0 = vmull_lane_s16(vget_low_s16(s0), filter, 0);
@@ -128,7 +128,7 @@ static INLINE uint16x8_t highbd_convolve4_8(
   return vminq_u16(res, max);
 }
 
-static INLINE void highbd_convolve8_vert_4tap_neon(
+static inline void highbd_convolve8_vert_4tap_neon(
     const uint16_t *src_ptr, ptrdiff_t src_stride, uint16_t *dst_ptr,
     ptrdiff_t dst_stride, const int16_t *y_filter_ptr, int w, int h, int bd) {
   assert(w >= 4 && h >= 4);
@@ -200,7 +200,7 @@ static INLINE void highbd_convolve8_vert_4tap_neon(
   }
 }
 
-static INLINE void highbd_convolve8_vert_2tap_neon(
+static inline void highbd_convolve8_vert_2tap_neon(
     const uint16_t *src_ptr, ptrdiff_t src_stride, uint16_t *dst_ptr,
     ptrdiff_t dst_stride, const int16_t *x_filter_ptr, int w, int h, int bd) {
   // Bilinear filter values are all positive and multiples of 8. Divide by 8 to

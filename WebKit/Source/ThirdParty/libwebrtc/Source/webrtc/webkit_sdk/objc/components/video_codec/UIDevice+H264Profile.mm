@@ -99,7 +99,7 @@ constexpr SupportedH264Profile kH264MaxSupportedProfiles[] = {
     {RTCDeviceTypeIPadPro10Inch, {kProfileHigh, kLevel4_2}},   // https://support.apple.com/kb/SP762
 };
 
-absl::optional<ProfileLevelId> FindMaxSupportedProfileForDevice(RTCDeviceType deviceType) {
+std::optional<ProfileLevelId> FindMaxSupportedProfileForDevice(RTCDeviceType deviceType) {
   const auto* result = std::find_if(std::begin(kH264MaxSupportedProfiles),
                                     std::end(kH264MaxSupportedProfiles),
                                     [deviceType](const SupportedH264Profile& supportedProfile) {
@@ -115,7 +115,7 @@ absl::optional<ProfileLevelId> FindMaxSupportedProfileForDevice(RTCDeviceType de
 
 @implementation UIDevice (H264Profile)
 
-+ (absl::optional<webrtc::H264ProfileLevelId>)maxSupportedH264Profile {
++ (std::optional<webrtc::H264ProfileLevelId>)maxSupportedH264Profile {
   return FindMaxSupportedProfileForDevice([self deviceType]);
 }
 

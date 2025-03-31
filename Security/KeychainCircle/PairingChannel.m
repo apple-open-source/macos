@@ -43,7 +43,7 @@
 
 #import <SoftLinking/SoftLinking.h>
 
-#import "MetricsOverrideForTests.h"
+#import <KeychainCircle/MetricsOverrideForTests.h>
 
 SOFT_LINK_OPTIONAL_FRAMEWORK(PrivateFrameworks, AAAFoundation);
 SOFT_LINK_CLASS(AAAFoundation, AAFAnalyticsEvent);
@@ -932,7 +932,7 @@ finishPairing:(BOOL*)finishPairing
         }
             subTaskSuccess = true;
             OctagonSignpostEnd(setupPairingChannelSignPost, OctagonSignpostNamePairingChannelInitiatorMessage4, OctagonSignpostNumber1(OctagonSignpostNamePairingChannelInitiatorMessage4), (int)subTaskSuccess);
-            [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:success ? YES : NO error:error];
+            [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:YES error:error];
             complete(true, nil, nil);
     }];
 }
@@ -1442,7 +1442,7 @@ finishPairing:(BOOL*)finishPairing
         secnotice("pairing", "acceptor reply to packet 3");
         subTaskSuccess = true;
         OctagonSignpostEnd(setupPairingChannelSignPost, OctagonSignpostNamePairingChannelAcceptorMessage3, OctagonSignpostNumber1(OctagonSignpostNamePairingChannelAcceptorMessage3), (int)subTaskSuccess);
-        [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:error2 ? YES : NO error:error2];
+        [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:(error2 == nil) ? YES : NO error:error2];
         complete(true, reply, NULL);
     }];
 }

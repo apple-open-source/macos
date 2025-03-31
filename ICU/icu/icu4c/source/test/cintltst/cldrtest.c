@@ -828,7 +828,12 @@ findSetMatch( UScriptCode *scriptCodes, int32_t scriptsLen,
         }
         pattern[2] = 0;
     }
+#if APPLE_ICU_CHANGES
+// found during ICU 76 integration-- scriptsLen came in as 0
+    if (scriptsLen > 0 && (strcmp(locale, "uk") == 0 || strcmp(locale, "uk_UA") == 0)) {
+#else
     if (strcmp(locale, "uk") == 0 || strcmp(locale, "uk_UA") == 0) {
+#endif // APPLE_ICU_CHANGES
         /* Special addition. Add the modifying apostrophe, which isn't in Cyrillic. */
         uset_add(scripts[0], 0x2bc);
     }
@@ -1066,6 +1071,10 @@ static void VerifyTranslation(void) {
                         log_knownIssue("CLDR-17203", "Some day names in kxv(_Deva)? use chars not in exemplars")) {
                     end = 0;
                 }
+                if (uprv_strncmp(currLoc,"ak",2) == 0 &&  
+                        log_knownIssue("CLDR-17852", "Some month names in ax(_GH) use chars not in exemplars")) {
+                    end = 0;
+                }                
 
                 for (idx = 0; idx < end; idx++) {
                     const UChar *fromBundleStr = ures_getStringByIndex(resArray, idx, &langSize, &errorCode);
@@ -1107,6 +1116,10 @@ static void VerifyTranslation(void) {
                         log_knownIssue("CLDR-17203", "Some month names in kxv(_Deva)? use chars not in exemplars")) {
                     end = 0;
                 }
+                if (uprv_strncmp(currLoc,"ak",2) == 0 &&  
+                        log_knownIssue("CLDR-17852", "Some month names in ax(_GH) use chars not in exemplars")) {
+                    end = 0;
+                }  
 
                 for (idx = 0; idx < end; idx++) {
                     const UChar *fromBundleStr = ures_getStringByIndex(resArray, idx, &langSize, &errorCode);

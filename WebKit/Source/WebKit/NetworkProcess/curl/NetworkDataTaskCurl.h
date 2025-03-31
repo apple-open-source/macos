@@ -52,8 +52,8 @@ public:
 
     ~NetworkDataTaskCurl();
 
-    void ref() override { NetworkDataTask::ref(); }
-    void deref() override { NetworkDataTask::deref(); }
+    void ref() const final { NetworkDataTask::ref(); }
+    void deref() const final { NetworkDataTask::deref(); }
 
 private:
     enum class RequestStatus {
@@ -101,9 +101,9 @@ private:
     String suggestedFilename() const override;
     void deleteDownloadFile();
 
-    WebCore::FrameIdentifier m_frameID;
+    Markable<WebCore::FrameIdentifier> m_frameID;
     Markable<WebCore::PageIdentifier> m_pageID;
-    WebCore::ShouldRelaxThirdPartyCookieBlocking m_shouldRelaxThirdPartyCookieBlocking { WebCore::ShouldRelaxThirdPartyCookieBlocking::No };
+    Markable<WebPageProxyIdentifier> m_webPageProxyID;
     RefPtr<WebCore::SecurityOrigin> m_sourceOrigin;
 
     State m_state { State::Suspended };

@@ -147,7 +147,6 @@ CMSampleBufferRef H264BufferToCMSampleBuffer(const uint8_t* buffer, size_t buffe
 - (NSInteger)decodeData:(const uint8_t *)data
         size:(size_t)size
         timeStamp:(int64_t)timeStamp {
-
   if (_error != noErr) {
     RTC_LOG(LS_WARNING) << "Last frame decode failed.";
     _error = noErr;
@@ -222,6 +221,12 @@ CMSampleBufferRef H264BufferToCMSampleBuffer(const uint8_t* buffer, size_t buffe
 }
 
 - (NSInteger)setAVCFormat:(const uint8_t *)data size:(size_t)size width:(uint16_t)width height:(uint16_t)height {
+  if (auto avcInformation = webrtc::ComputeH264InfoFromAVC(data, size)) {
+    width = avcInformation->width;
+    height = avcInformation->height;
+    _reorderQueue.setReorderSize(avcInformation->reorderSize);
+  }
+
   CFStringRef avcCString = (CFStringRef)@"avcC";
   CFDataRef codecConfig = CFDataCreate(kCFAllocatorDefault, data, size);
   CFDictionaryRef atomsDict = CFDictionaryCreate(NULL,
@@ -250,8 +255,6 @@ CMSampleBufferRef H264BufferToCMSampleBuffer(const uint8_t* buffer, size_t buffe
 
   rtc::ScopedCFTypeRef<CMVideoFormatDescriptionRef> inputFormat = rtc::ScopedCF(videoFormatDescription);
   if (inputFormat) {
-    _reorderQueue.setReorderSize(webrtc::ComputeH264ReorderSizeFromAVC(data, size));
-
     // Check if the video format has changed, and reinitialize decoder if
     // needed.
     if (!CMFormatDescriptionEqual(inputFormat.get(), _videoFormat)) {
@@ -395,10 +398,14 @@ CMSampleBufferRef H264BufferToCMSampleBuffer(const uint8_t* buffer, size_t buffe
   bool hasCalledCallback = false;
   if (!_reorderQueue.isEmpty() || reorderSize) {
     _reorderQueue.append(decodedFrame, reorderSize);
-    while (auto *frame = _reorderQueue.takeIfAvailable()) {
+
+    bool moreFramesAvailable;
+    while (auto *frame = _reorderQueue.takeIfAvailable(moreFramesAvailable)) {
       hasCalledCallback = true;
-      _callback(frame, frame != decodedFrame);
+      _callback(frame, moreFramesAvailable);
     }
+    RTC_DCHECK(!moreFramesAvailable);
+
     if (!hasCalledCallback) {
       _callback(nil, true);
     }

@@ -36,7 +36,7 @@ H264BitstreamParser::Result H264BitstreamParser::ParseNonParameterSetNalu(
   if (!sps_ || !pps_)
     return kInvalidStream;
 
-  last_slice_qp_delta_ = absl::nullopt;
+  last_slice_qp_delta_ = std::nullopt;
   const std::vector<uint8_t> slice_rbsp = H264::ParseRbsp(source);
   if (slice_rbsp.size() < H264::kNaluTypeSize)
     return kInvalidStream;
@@ -325,13 +325,15 @@ void H264BitstreamParser::ParseSlice(rtc::ArrayView<const uint8_t> slice) {
       break;
     }
     case H264::NaluType::kAud:
+    case H264::NaluType::kFiller:
     case H264::NaluType::kSei:
     case H264::NaluType::kPrefix:
       break;  // Ignore these nalus, as we don't care about their contents.
     default:
       Result res = ParseNonParameterSetNalu(slice, nalu_type);
       if (res != kOk)
-        RTC_DLOG(LS_INFO) << "Failed to parse bitstream. Error: " << res;
+        RTC_DLOG(LS_INFO) << "Failed to parse bitstream. NAL type "
+                          << static_cast<int>(nalu_type) << ", error: " << res;
       break;
   }
 }
@@ -344,13 +346,13 @@ void H264BitstreamParser::ParseBitstream(
         bitstream.subview(index.payload_start_offset, index.payload_size));
 }
 
-absl::optional<int> H264BitstreamParser::GetLastSliceQp() const {
+std::optional<int> H264BitstreamParser::GetLastSliceQp() const {
   if (!last_slice_qp_delta_ || !pps_)
-    return absl::nullopt;
+    return std::nullopt;
   const int qp = 26 + pps_->pic_init_qp_minus26 + *last_slice_qp_delta_;
   if (qp < kMinQpValue || qp > kMaxQpValue) {
     RTC_LOG(LS_ERROR) << "Parsed invalid QP from bitstream.";
-    return absl::nullopt;
+    return std::nullopt;
   }
   return qp;
 }

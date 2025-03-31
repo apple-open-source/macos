@@ -13,11 +13,11 @@
 #include <new>
 
 #include "config/av1_rtcd.h"
-#include "test/acm_random.h"
-#include "test/util.h"
 #include "aom_ports/aom_timer.h"
 #include "aom_ports/bitops.h"
-#include "third_party/googletest/src/googletest/include/gtest/gtest.h"
+#include "gtest/gtest.h"
+#include "test/acm_random.h"
+#include "test/util.h"
 
 namespace {
 

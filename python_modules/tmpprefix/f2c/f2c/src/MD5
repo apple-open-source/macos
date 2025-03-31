@@ -1,0 +1,160 @@
+-----BEGIN PGP SIGNED MESSAGE-----
+
+# netlib-bl master Sun Oct 29 04:44:49 EST 2006
+# http://cm.bell-labs.com/netlib/crc/netlib-bl.html
+JOAQtI7OATPEPHcgO29oOA	Notice
+fly3ZKomK206GNH46wxSFQ	README
+3Q1VaIdDsFRiPrusmABTrQ	cds.c
+/nsyHwBVkCjHzWG+j+G4YQ	data.c
+Bi8xI4z7YYsZh2tz+Zg3hA	defines.h
+da6qwj56XHWrcyJ5KrUY+g	defs.h
+agnKboFu0kGoRZbNTjrrFQ	equiv.c
+ZaI9opmQZKDyPjCfcIympA	error.c
+We9htjrpFj86R12wjOsd4w	exec.c
+GGhVqBAwWeMo8Nw4w7OoHA	expr.c
+F345KmWVpdP3bJkyG1hYuw	f2c.1
+P9Inhk/7xaifTvBs3ayVUg	f2c.1t
+uCBnCwhHF1lHUnE0rGdjLg	f2c.h
+nlTwKaTYWq3cdYyEPn7Iiw	format.c
+Ct8Xy1SJtDzDSbqULTh+Ew	format.h
+6mbtLVtZmlqEoMj8RjeYGQ	formatdata.c
+bXzOMCyMUkIryHPZwK3kCA	ftypes.h
+NqL/LjWQnHZyedBP4XpqfA	gram.c
+wcLhkrUK199HFclNrLsEmA	gram.dcl
+BR0ISCGcnHYvhO3VcdLYFg	gram.exec
+YTaIA3HOl1CbwTWQVQAWqA	gram.expr
+otamM17C/vXR1/3PW7hXmA	gram.head
+lbz7bqlOqqviJzMTdC5GSA	gram.io
+ThwP/XxZs8aL8h8mDDQzVQ	index
+tOu2qyAhXw01uGw1kcuFoQ	init.c
+EShU8I+DN4N3rUum/XPmYw	intr.c
+JAHPNKJhN0iDaIkOij5d8w	io.c
+k4LUzpooKR+PVPCpYGYzgA	iob.h
+o07iEUxQUnVLeasDVgrgaQ	lex.c
+rLrbDUdP8lQ5Qvs4al4aLQ	machdefs.h
+gFHLAF+OXzSeMa8bx9vUZA	main.c
+yYk8eDkaHnj7meXeVinzHg	makefile.u
+JNQYJEAPxnXQZDcgKP5BnQ	makefile.vc
+zWb915hzXF/uuLQQU7OdtA	malloc.c
+5RhqowiVdMtwuvtNCeSzfA	mem.c
+FPG0b51piKl9IE95t3gjwA	memset.c
+9m4AGq6ZAw79IwcKoTawNg	misc.c
+AwB5+HB4UJXJIHcLzSDTrA	mkfile.plan9
+JCgvAtoNqN4a/nBZ1xOuhQ	names.c
+SjM9kTf4iqCa3FSpruk1Bw	names.h
+siSqkVyIkoil0SHp9baE6A	niceprintf.c
+8bQkhXLa4jeUyjkSHmJ7Sw	niceprintf.h
+JOAQtI7OATPEPHcgO29oOA	notice
+kg/JBJuEhB83K6bo14TQ7A	output.c
+LB3lIuaW4T9e+bUFa0sGKQ	output.h
+G+/SMd3RtJP3UEQ4O6NHNw	p1defs.h
+fPCYTjOZwgXzWxvpe+oWSA	p1output.c
+1EG8wUqqheRu5l2qVpgOyw	parse.h
+BLxsgmdlgr0QnG7vBKbw+g	parse_args.c
+xtwBUFmjEPS/6PxGqmjFXw	pccdefs.h
+vQH5oXSGkVlQR3amKSX30A	pread.c
+NnCt6rdzsC7K1DcPRyIC5w	proc.c
+9CQkLAGdZao68yi6MS1VWA	put.c
+EA5VAC+IMJeOcTY8+1JOWg	putpcc.c
+fly3ZKomK206GNH46wxSFQ	readme
+mDzUOgU4WUFbNyTfhH+nfA	sysdep.c
+gLqUvTpbT9P8lRz6YWi6OA	sysdep.h
+zRAz80k/OZ7csZPcLy1iJA	sysdeptest.c
+KB6omTENfgMDn6OVoIOdtQ	tokdefs.h
+s2LooafMGSGVYx56EviCOg	tokens
+hJKWx144bZPbU4t6SzJ/wA	usignal.h
+FIdkINxDa1rD/gR4fJUaGQ	vax.c
+E6hUwVrY8gCGKadMA9fmeA	version.c
+HE0jYE9/83rsRs+PslSz3g	xsum.c
+LWAh4NT3h2kEgr5n/ZW6lQ	xsum0.out
+
+-----BEGIN PGP SIGNATURE-----
+Version: 2.6.2
+
+iQCVAwUBRUR4E75pvxO9gjtZAQGIrgP+OJTF9ptCWzlFQZ4CE+vUv4rTbwnT5UlR
+SSuPxaWjPgsYoJA2opgw7MrNRQgmWFooRMkenXSP9kOxfxwfaLAjVAWZfp0c6jfQ
+IrwJAjCzwzvccfFI2Y4j18IiJwtzHCjXoA6XFI5+Z+WZ1OVZ8jOqoSzFUPVL8fbp
+1FMAnPePVSM=
+=3s/U
+-----END PGP SIGNATURE-----
+-----BEGIN PGP SIGNED MESSAGE-----
+
+# netlib-utk master Tue Aug 16 03:35:54 EDT 2011
+JOAQtI7OATPEPHcgO29oOA	Notice
+UyaNj9EKdXjvSo9OiIfdBQ	README
+3Q1VaIdDsFRiPrusmABTrQ	cds.c
+2izZpO9UJWNaU8jRbrn6dA	data.c
+Bi8xI4z7YYsZh2tz+Zg3hA	defines.h
+da6qwj56XHWrcyJ5KrUY+g	defs.h
+btsi+w8CXlt+WFuuSSeHVg	directory
+agnKboFu0kGoRZbNTjrrFQ	equiv.c
+ZaI9opmQZKDyPjCfcIympA	error.c
+We9htjrpFj86R12wjOsd4w	exec.c
+GGhVqBAwWeMo8Nw4w7OoHA	expr.c
+F345KmWVpdP3bJkyG1hYuw	f2c.1
+P9Inhk/7xaifTvBs3ayVUg	f2c.1t
+uCBnCwhHF1lHUnE0rGdjLg	f2c.h
+WvErgHK84jP9lG80Xza1UA	format.c
+Ct8Xy1SJtDzDSbqULTh+Ew	format.h
+6mbtLVtZmlqEoMj8RjeYGQ	formatdata.c
+bXzOMCyMUkIryHPZwK3kCA	ftypes.h
+NqL/LjWQnHZyedBP4XpqfA	gram.c
+wcLhkrUK199HFclNrLsEmA	gram.dcl
+BR0ISCGcnHYvhO3VcdLYFg	gram.exec
+YTaIA3HOl1CbwTWQVQAWqA	gram.expr
+otamM17C/vXR1/3PW7hXmA	gram.head
+lbz7bqlOqqviJzMTdC5GSA	gram.io
+sjIDFatCc/iXC1PWV86FSA	index
+emXfvAYWn5YYPuJsZUXImg	index.html
+tOu2qyAhXw01uGw1kcuFoQ	init.c
+EShU8I+DN4N3rUum/XPmYw	intr.c
+JAHPNKJhN0iDaIkOij5d8w	io.c
+k4LUzpooKR+PVPCpYGYzgA	iob.h
+o07iEUxQUnVLeasDVgrgaQ	lex.c
+rLrbDUdP8lQ5Qvs4al4aLQ	machdefs.h
+gFHLAF+OXzSeMa8bx9vUZA	main.c
+yYk8eDkaHnj7meXeVinzHg	makefile.u
+JNQYJEAPxnXQZDcgKP5BnQ	makefile.vc
+zWb915hzXF/uuLQQU7OdtA	malloc.c
+5RhqowiVdMtwuvtNCeSzfA	mem.c
+FPG0b51piKl9IE95t3gjwA	memset.c
+9m4AGq6ZAw79IwcKoTawNg	misc.c
+AwB5+HB4UJXJIHcLzSDTrA	mkfile.plan9
+JCgvAtoNqN4a/nBZ1xOuhQ	names.c
+SjM9kTf4iqCa3FSpruk1Bw	names.h
+siSqkVyIkoil0SHp9baE6A	niceprintf.c
+8bQkhXLa4jeUyjkSHmJ7Sw	niceprintf.h
+JOAQtI7OATPEPHcgO29oOA	notice
+kg/JBJuEhB83K6bo14TQ7A	output.c
+LB3lIuaW4T9e+bUFa0sGKQ	output.h
+G+/SMd3RtJP3UEQ4O6NHNw	p1defs.h
+cojRcta0Ge7P/XY3xjUD+A	p1output.c
+1EG8wUqqheRu5l2qVpgOyw	parse.h
+BLxsgmdlgr0QnG7vBKbw+g	parse_args.c
+xtwBUFmjEPS/6PxGqmjFXw	pccdefs.h
+vQH5oXSGkVlQR3amKSX30A	pread.c
+NnCt6rdzsC7K1DcPRyIC5w	proc.c
+9CQkLAGdZao68yi6MS1VWA	put.c
+EA5VAC+IMJeOcTY8+1JOWg	putpcc.c
+UyaNj9EKdXjvSo9OiIfdBQ	readme
+Dgo4wI7P5AOgwxXRvXHsIQ	sysdep.c
+gLqUvTpbT9P8lRz6YWi6OA	sysdep.h
+evMjNYhjLeKO/EzTAZWBFQ	sysdeptest.c
+KB6omTENfgMDn6OVoIOdtQ	tokdefs.h
+s2LooafMGSGVYx56EviCOg	tokens
+hJKWx144bZPbU4t6SzJ/wA	usignal.h
+FIdkINxDa1rD/gR4fJUaGQ	vax.c
+wepU29zPWo9VkmOw9jLVAQ	version.c
+JhOCdNhD4R4JJYFVHNL9dw	xsum
+C01+rG7EDLgRBKmvbtMROA	xsum.c
+KjIOGClUWWwmSn+lDX9J8w	xsum0.out
+
+-----BEGIN PGP SIGNATURE-----
+Version: 2.6.2
+
+iQCVAwUBTkod6+FlxDEfrjtlAQHqCQQAh1nj/Z6ASItBJ14XsOOhf82BkhXUUHZe
+mGwpPJK1hRgk2tFEYG1R3jF1yo0/eHRrS3yKl1BC6rce2iK2q10NqJdArkvrsh6H
+sYw3tG8cNQNdBTJ+9TmRTMTXYa+z5eq2aEEnowJR4EpQrgMQwz06CLTTk1DyJ+Qq
+JIN4FbwtMsI=
+=kpHA
+-----END PGP SIGNATURE-----

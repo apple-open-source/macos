@@ -32,6 +32,7 @@
 #include "PlaybackSessionInterfaceMac.h"
 #include "PlaybackSessionModel.h"
 #include "VideoFullscreenCaptions.h"
+#include "VideoPresentationLayerProvider.h"
 #include "VideoPresentationModel.h"
 #include <wtf/CheckedRef.h>
 #include <wtf/RefCounted.h>
@@ -53,6 +54,7 @@ class VideoPresentationInterfaceMac final
     : public VideoPresentationModelClient
     , private PlaybackSessionModelClient
     , public VideoFullscreenCaptions
+    , public VideoPresentationLayerProvider
     , public RefCounted<VideoPresentationInterfaceMac>
     , public CanMakeCheckedPtr<VideoPresentationInterfaceMac> {
     WTF_MAKE_TZONE_ALLOCATED_EXPORT(VideoPresentationInterfaceMac, WEBCORE_EXPORT);
@@ -78,7 +80,7 @@ public:
     WEBCORE_EXPORT void videoDimensionsChanged(const FloatSize&) final;
     void setPlayerIdentifier(std::optional<MediaPlayerIdentifier> identifier) final { m_playerIdentifier = identifier; }
 
-    WEBCORE_EXPORT void setupFullscreen(NSView& layerHostedView, const IntRect& initialRect, NSWindow *parentWindow, HTMLMediaElementEnums::VideoFullscreenMode, bool allowsPictureInPicturePlayback);
+    WEBCORE_EXPORT void setupFullscreen(const IntRect& initialRect, NSWindow *parentWindow, HTMLMediaElementEnums::VideoFullscreenMode, bool allowsPictureInPicturePlayback);
     WEBCORE_EXPORT void enterFullscreen();
     WEBCORE_EXPORT bool exitFullscreen(const IntRect& finalRect, NSWindow *parentWindow);
     WEBCORE_EXPORT void exitFullscreenWithoutAnimationToMode(HTMLMediaElementEnums::VideoFullscreenMode);
@@ -107,8 +109,10 @@ public:
 
     WEBCORE_EXPORT void documentVisibilityChanged(bool) final;
 
+    void swapFullscreenModesWith(VideoPresentationInterfaceMac&) { }
+
 #if !RELEASE_LOG_DISABLED
-    const void* logIdentifier() const;
+    uint64_t logIdentifier() const;
     const Logger* loggerPtr() const;
     ASCIILiteral logClassName() const { return "VideoPresentationInterfaceMac"_s; };
     WTFLogChannel& logChannel() const;
@@ -118,10 +122,10 @@ private:
     WEBCORE_EXPORT VideoPresentationInterfaceMac(PlaybackSessionInterfaceMac&);
 
     // CheckedPtr interface
-    uint32_t ptrCount() const final { return CanMakeCheckedPtr::ptrCount(); }
-    uint32_t ptrCountWithoutThreadCheck() const final { return CanMakeCheckedPtr::ptrCountWithoutThreadCheck(); }
-    void incrementPtrCount() const final { CanMakeCheckedPtr::incrementPtrCount(); }
-    void decrementPtrCount() const final { CanMakeCheckedPtr::decrementPtrCount(); }
+    uint32_t checkedPtrCount() const final { return CanMakeCheckedPtr::checkedPtrCount(); }
+    uint32_t checkedPtrCountWithoutThreadCheck() const final { return CanMakeCheckedPtr::checkedPtrCountWithoutThreadCheck(); }
+    void incrementCheckedPtrCount() const final { CanMakeCheckedPtr::incrementCheckedPtrCount(); }
+    void decrementCheckedPtrCount() const final { CanMakeCheckedPtr::decrementCheckedPtrCount(); }
     void setDocumentBecameVisibleCallback(Function<void()>&& callback) { m_documentBecameVisibleCallback = WTFMove(callback); }
 
     Ref<PlaybackSessionInterfaceMac> m_playbackSessionInterface;

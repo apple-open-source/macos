@@ -48,7 +48,7 @@ class Std140BlockLayoutEncoderFactory : public gl::CustomBlockLayoutEncoderFacto
     sh::BlockLayoutEncoder *makeEncoder() override { return new sh::Std140BlockEncoder(); }
 };
 
-class LinkTaskVk final : public vk::Context, public LinkTask
+class LinkTaskVk final : public vk::ErrorContext, public LinkTask
 {
   public:
     LinkTaskVk(vk::Renderer *renderer,
@@ -58,7 +58,7 @@ class LinkTaskVk final : public vk::Context, public LinkTask
                bool isGLES1,
                vk::PipelineRobustness pipelineRobustness,
                vk::PipelineProtectedAccess pipelineProtectedAccess)
-        : vk::Context(renderer),
+        : vk::ErrorContext(renderer),
           mState(state),
           mExecutable(&mState.getExecutable()),
           mIsGLES1(isGLES1),
@@ -112,11 +112,13 @@ class LinkTaskVk final : public vk::Context, public LinkTask
         // the share group use this program, they will lazily switch to this mode.
         //
         // This is purely an optimization (to avoid creating and later releasing) non-framebuffer
-        // fetch render passes.
-        if (contextVk->getFeatures().permanentlySwitchToFramebufferFetchMode.enabled &&
-            mExecutable->usesFramebufferFetch())
+        // fetch render passes.  The optimization is unnecessary for and does not apply to dynamic
+        // rendering.
+        if (!contextVk->getFeatures().preferDynamicRendering.enabled &&
+            contextVk->getFeatures().permanentlySwitchToFramebufferFetchMode.enabled &&
+            mExecutable->usesColorFramebufferFetch())
         {
-            ANGLE_TRY(contextVk->switchToFramebufferFetchMode(true));
+            ANGLE_TRY(contextVk->switchToColorFramebufferFetchMode(true));
         }
 
         // Forward any errors
@@ -260,16 +262,7 @@ void InitDefaultUniformBlock(const std::vector<sh::ShaderVariable> &uniforms,
     VulkanDefaultBlockEncoder blockEncoder;
     sh::GetActiveUniformBlockInfo(uniforms, "", &blockEncoder, blockLayoutMapOut);
 
-    size_t blockSize = blockEncoder.getCurrentOffset();
-
-    // TODO(jmadill): I think we still need a valid block for the pipeline even if zero sized.
-    if (blockSize == 0)
-    {
-        *blockSizeOut = 0;
-        return;
-    }
-
-    *blockSizeOut = blockSize;
+    *blockSizeOut = blockEncoder.getCurrentOffset();
     return;
 }
 

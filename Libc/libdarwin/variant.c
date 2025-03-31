@@ -875,6 +875,7 @@ static enum boot_mode {
 	BOOTMODE_DIAGNOSTICS,
 	BOOTMODE_MIGRATION,
 	BOOTMODE_EACS,
+	BOOTMODE_POST_UPGRADE,
 } os_boot_mode;
 
 static void
@@ -892,6 +893,8 @@ _os_boot_mode_launchd_init(const char *boot_mode)
 		os_boot_mode = BOOTMODE_MIGRATION;
 	} else if (strcmp(boot_mode, OS_BOOT_MODE_EACS) == 0) {
 		os_boot_mode = BOOTMODE_EACS;
+	} else if (strcmp(boot_mode, OS_BOOT_MODE_POST_UPGRADE) == 0) {
+		os_boot_mode = BOOTMODE_POST_UPGRADE;
 	}
 }
 
@@ -918,6 +921,9 @@ os_boot_mode_query(const char **boot_mode_out)
 		return true;
 	case BOOTMODE_EACS:
 		*boot_mode_out = OS_BOOT_MODE_EACS;
+		return true;
+	case BOOTMODE_POST_UPGRADE:
+		*boot_mode_out = OS_BOOT_MODE_POST_UPGRADE;
 		return true;
 	default:
 		return false;

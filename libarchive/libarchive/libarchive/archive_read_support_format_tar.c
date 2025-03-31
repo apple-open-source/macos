@@ -26,7 +26,6 @@
  */
 
 #include "archive_platform.h"
-__FBSDID("$FreeBSD: head/lib/libarchive/archive_read_support_format_tar.c 201161 2009-12-29 05:44:39Z kientzle $");
 
 #ifdef HAVE_ERRNO_H
 #include <errno.h>
@@ -419,14 +418,13 @@ archive_read_format_tar_bid(struct archive_read *a, int best_bid)
 	/*
 	 * Check format of mode/uid/gid/mtime/size/rdevmajor/rdevminor fields.
 	 */
-	if (bid > 0 && (
-	    validate_number_field(header->mode, sizeof(header->mode)) == 0
+	if (validate_number_field(header->mode, sizeof(header->mode)) == 0
 	    || validate_number_field(header->uid, sizeof(header->uid)) == 0
 	    || validate_number_field(header->gid, sizeof(header->gid)) == 0
 	    || validate_number_field(header->mtime, sizeof(header->mtime)) == 0
 	    || validate_number_field(header->size, sizeof(header->size)) == 0
 	    || validate_number_field(header->rdevmajor, sizeof(header->rdevmajor)) == 0
-	    || validate_number_field(header->rdevminor, sizeof(header->rdevminor)) == 0)) {
+	    || validate_number_field(header->rdevminor, sizeof(header->rdevminor)) == 0) {
 		bid = 0;
 	}
 
@@ -586,11 +584,15 @@ archive_read_format_tar_read_header(struct archive_read *a,
 			l = wcslen(wp);
 			if (l > 0 && wp[l - 1] == L'/') {
 				archive_entry_set_filetype(entry, AE_IFDIR);
+				tar->entry_bytes_remaining = 0;
+				tar->entry_padding = 0;
 			}
 		} else if ((p = archive_entry_pathname(entry)) != NULL) {
 			l = strlen(p);
 			if (l > 0 && p[l - 1] == '/') {
 				archive_entry_set_filetype(entry, AE_IFDIR);
+				tar->entry_bytes_remaining = 0;
+				tar->entry_padding = 0;
 			}
 		}
 	}
@@ -1416,6 +1418,7 @@ read_mac_metadata_blob(struct archive_read *a, struct tar *tar,
     struct archive_entry *entry, const void *h, size_t *unconsumed)
 {
 	int64_t size;
+	size_t msize;
 	const void *data;
 	const char *p, *name;
 	const wchar_t *wp, *wname;
@@ -1454,6 +1457,11 @@ read_mac_metadata_blob(struct archive_read *a, struct tar *tar,
 
  	/* Read the body as a Mac OS metadata blob. */
 	size = archive_entry_size(entry);
+	msize = (size_t)size;
+	if (size < 0 || (uintmax_t)msize != (uintmax_t)size) {
+		*unconsumed = 0;
+		return (ARCHIVE_FATAL);
+	}
 
 	/*
 	 * TODO: Look beyond the body here to peek at the next header.
@@ -1467,13 +1475,13 @@ read_mac_metadata_blob(struct archive_read *a, struct tar *tar,
 	 * Q: Is the above idea really possible?  Even
 	 * when there are GNU or pax extension entries?
 	 */
-	data = __archive_read_ahead(a, (size_t)size, NULL);
+	data = __archive_read_ahead(a, msize, NULL);
 	if (data == NULL) {
 		*unconsumed = 0;
 		return (ARCHIVE_FATAL);
 	}
-	archive_entry_copy_mac_metadata(entry, data, (size_t)size);
-	*unconsumed = (size_t)((size + 511) & ~ 511);
+	archive_entry_copy_mac_metadata(entry, data, msize);
+	*unconsumed = (msize + 511) & ~ 511;
 	tar_flush_unconsumed(a, unconsumed);
 	return (tar_read_header(a, tar, entry, unconsumed));
 }
@@ -2145,9 +2153,35 @@ pax_attribute(struct archive_read *a, struct tar *tar,
 		/* Someday: if (strcmp(key, "security.acl") == 0) { ... } */
 		if (strcmp(key, "size") == 0) {
 			/* "size" is the size of the data in the entry. */
-			r = pax_attribute_size(a, tar, entry, value);
-			if (r == ARCHIVE_FATAL)
-				return (r);
+			tar->entry_bytes_remaining
+			    = tar_atol10(value, strlen(value));
+			if (tar->entry_bytes_remaining < 0) {
+				tar->entry_bytes_remaining = 0;
+				archive_set_error(&a->archive,
+				    ARCHIVE_ERRNO_MISC,
+				    "Tar size attribute is negative");
+				return (ARCHIVE_FATAL);
+			}
+			if (tar->entry_bytes_remaining == INT64_MAX) {
+				/* Note: tar_atol returns INT64_MAX on overflow */
+				tar->entry_bytes_remaining = 0;
+				archive_set_error(&a->archive,
+				    ARCHIVE_ERRNO_MISC,
+				    "Tar size attribute overflow");
+				return (ARCHIVE_FATAL);
+			}
+			/*
+			 * The "size" pax header keyword always overrides the
+			 * "size" field in the tar header.
+			 * GNU.sparse.realsize, GNU.sparse.size and
+			 * SCHILY.realsize override this value.
+			 */
+			if (!tar->realsize_override) {
+				archive_entry_set_size(entry,
+				    tar->entry_bytes_remaining);
+				tar->realsize
+				    = tar->entry_bytes_remaining;
+			}
 		}
 		break;
 	case 'u':

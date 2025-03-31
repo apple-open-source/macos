@@ -5,7 +5,7 @@ sr{
     AuxExemplarCharacters{"[{а̂} {е̂} {и̂} {о̂} {у̂}]"}
     ExemplarCharacters{"[а б в г д ђ е ж з и ј к л љ м н њ о п р с т ћ у ф х ц ч џ ш]"}
     ExemplarCharactersIndex{"[А Б В Г Д Ђ Е Ж З И Ј К Л Љ М Н Њ О П Р С Т Ћ У Ф Х Ц Ч Џ Ш]"}
-    ExemplarCharactersPunctuation{"[\\- ‐‑ – , ; \\: ! ? . … ‘‚ “„ ( ) \\[ \\] \\{ \\} * #]"}
+    ExemplarCharactersPunctuation{"[\\- ‐‑ – , ; \\: ! ? . … ’ ”„ ( ) \\[ \\] \\{ \\} * / #]"}
     NumberElements{
         latn{
             patterns{
@@ -418,7 +418,7 @@ sr{
                 "EEEE, d. MMMM y.",
                 "d. MMMM y.",
                 "d. M. y.",
-                "d.M.yy.",
+                "d. M. y.",
                 "{1} {0}",
                 "{1} {0}",
                 "{1} {0}",
@@ -439,8 +439,7 @@ sr{
                 Bhm{"hh:mm B"}
                 Bhms{"hh:mm:ss B"}
                 E{"E"}
-                EBhm{"E hh:mm B"}
-                EBhms{"E hh:mm:ss B"}
+                EBhms{"E, hh:mm:ss B"}
                 Ed{"E d."}
                 Ehm{"E h:mm a"}
                 Ehms{"E h:mm:ss a"}
@@ -453,9 +452,9 @@ sr{
                 MMMEd{"E d. MMM"}
                 MMMMEd{"E, d. MMMM"}
                 MMMMW{
-                    few{"W. 'седмица' 'у' MMMM."}
-                    one{"W. 'седмица' 'у' MMMM."}
-                    other{"W. 'седмица' 'у' MMMM."}
+                    few{"MMMM: W. 'недеља'"}
+                    one{"MMMM: W. 'недеља'"}
+                    other{"MMMM: W. 'недеља'"}
                 }
                 MMMMd{"d. MMMM"}
                 MMMd{"d. MMM"}
@@ -478,9 +477,9 @@ sr{
                 yQQQ{"QQQ y."}
                 yQQQQ{"QQQQ y."}
                 yw{
-                    few{"w. 'седмица' 'у' Y."}
-                    one{"w. 'седмица' 'у' Y."}
-                    other{"w. 'седмица' 'у' Y."}
+                    few{"w. 'недеља' 'у' Y."}
+                    one{"w. 'недеља' 'у' Y."}
+                    other{"w. 'недеља' 'у' Y."}
                 }
             }
             dayNames{
@@ -531,11 +530,19 @@ sr{
                         afternoon1{"по подне"}
                         evening1{"увече"}
                         midnight{"поноћ"}
-                        morning1{"ујутро"}
+                        morning1{"ујутру"}
                         night1{"ноћу"}
                         noon{"подне"}
                     }
                     narrow{
+                        afternoon1{"по подне"}
+                        evening1{"увече"}
+                        midnight{"поноћ"}
+                        morning1{"ујутру"}
+                        night1{"ноћу"}
+                        noon{"подне"}
+                    }
+                    wide{
                         afternoon1{"по подне"}
                         evening1{"увече"}
                         midnight{"поноћ"}
@@ -550,10 +557,6 @@ sr{
                         evening1{"вече"}
                         morning1{"јутро"}
                         night1{"ноћ"}
-                    }
-                    narrow{
-                        am{"пре подне"}
-                        pm{"по подне"}
                     }
                 }
             }
@@ -1211,8 +1214,7 @@ sr{
         whitespace{"Размак"}
     }
     delimiters{
-        alternateQuotationEnd{"‘"}
-        quotationEnd{"“"}
+        alternateQuotationStart{"’"}
         quotationStart{"„"}
     }
     fields{
@@ -1809,9 +1811,9 @@ sr{
         }
     }
     measurementSystemNames{
-        UK{"УК"}
-        US{"САД"}
-        metric{"Метрички"}
+        UK{"британски"}
+        US{"амерички"}
+        metric{"метрички"}
     }
     parse{
         date{
@@ -1827,10 +1829,10 @@ sr{
                 "[%％﹪ ٪]",
                 "[‰ ؉]",
                 "[\$＄﹩]",
-                "[£ ₤]",
+                "[£￡ ₤]",
                 "[¥￥]",
                 "[₩￦]",
-                "[₹ ₨ {Rp} {Rs}]",
+                "[₹ {Rp} {Rs}₨]",
             }
         }
         number{

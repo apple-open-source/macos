@@ -6,6 +6,9 @@
 #import "utilities/SecCFRelease.h"
 #import "utilities/SecCFWrappers.h"
 
+#import <corecrypto/ccspake.h>
+#import <corecrypto/ccscrypt.h>
+
 #define OS_OBJECT_HAVE_OBJC_SUPPORT 1
 
 #define SEC_NULL_BAD_INPUT ((void *_Nonnull)NULL)
@@ -67,14 +70,6 @@ SEC_OBJECT_DECL_INTERNAL_OBJC(sec_protocol_configuration);
 
 #import <os/object.h>
 
-#ifndef SEC_ANALYZER_HIDE_DEADSTORE
-#  ifdef __clang_analyzer__
-#    define SEC_ANALYZER_HIDE_DEADSTORE(var) do { if (var) {} } while (0)
-#  else // __clang_analyzer__
-#    define SEC_ANALYZER_HIDE_DEADSTORE(var) do {} while (0)
-#  endif // __clang_analyzer__
-#endif // SEC_ANALYZER_HIDE_DEADSTORE
-
 SEC_OBJECT_IMPL_INTERNAL_OBJC(sec_array,
 {
     xpc_object_t xpc_array;
@@ -98,7 +93,7 @@ SEC_OBJECT_IMPL_INTERNAL_OBJC(sec_array,
         xpc_array_apply(self->xpc_array, ^bool(size_t index, __unused xpc_object_t value) {
             void *pointer = xpc_array_get_pointer(self->xpc_array, index);
             sec_object_t object = (sec_object_t)CFBridgingRelease(pointer);
-            SEC_ANALYZER_HIDE_DEADSTORE(object);
+            do [[clang::suppress]] { if (object) {} } while (0);
             object = nil;
             return true;
         });
@@ -156,6 +151,15 @@ SEC_OBJECT_IMPL_INTERNAL_OBJC(sec_identity,
     sec_protocol_private_key_sign_t sign_block;
     sec_protocol_private_key_decrypt_t decrypt_block;
     dispatch_queue_t operation_queue;
+    sec_identity_type_t type;
+
+    // SPAKE2+ credential information
+    dispatch_data_t spake2_context;
+    dispatch_data_t client_identity;
+    dispatch_data_t server_identity;
+    dispatch_data_t client_password_verifier;
+    dispatch_data_t server_password_verifier;
+    dispatch_data_t registration_record;
 });
 
 @implementation SEC_CONCRETE_CLASS_NAME(sec_identity)
@@ -168,6 +172,7 @@ SEC_OBJECT_IMPL_INTERNAL_OBJC(sec_identity,
 
     if ((self = [super init])) {
         self->identity = __DECONST(SecIdentityRef, CFRetainSafe(_identity));
+        self->type = SEC_PROTOCOL_IDENTITY_TYPE_CERTIFICATE;
     } else {
         return SEC_NIL_OUT_OF_MEMORY;
     }
@@ -183,6 +188,7 @@ SEC_OBJECT_IMPL_INTERNAL_OBJC(sec_identity,
     if ((self = [super init])) {
         self->identity = __DECONST(SecIdentityRef, CFRetainSafe(_identity));
         self->certs = __DECONST(CFArrayRef, CFRetainSafe(certificates));
+        self->type = SEC_PROTOCOL_IDENTITY_TYPE_CERTIFICATE;
     } else {
         return SEC_NIL_OUT_OF_MEMORY;
     }
@@ -207,6 +213,28 @@ SEC_OBJECT_IMPL_INTERNAL_OBJC(sec_identity,
         self->sign_block = sign;
         self->decrypt_block = decrypt;
         self->operation_queue = queue;
+        self->type = SEC_PROTOCOL_IDENTITY_TYPE_CERTIFICATE;
+    } else {
+        return SEC_NIL_OUT_OF_MEMORY;
+    }
+    return self;
+}
+
+- (instancetype)initWithSPAKE2PLUSV1Context:(dispatch_data_t)context clientIdentity:(dispatch_data_t)clientIdentity serverIdentity:(dispatch_data_t)serverIdentity clientPasswordVerifier:(dispatch_data_t)clientPasswordVerifier
+                     serverPasswordVerifier:(dispatch_data_t)serverPasswordVerifier registrationRecord:(dispatch_data_t)registrationRecord
+{
+    if (context == NULL) {
+        return SEC_NIL_BAD_INPUT;
+    }
+
+    if ((self = [super init])) {
+        self->spake2_context = context;
+        self->client_identity = clientIdentity;
+        self->server_identity = serverIdentity;
+        self->client_password_verifier = clientPasswordVerifier;
+        self->server_password_verifier = serverPasswordVerifier;
+        self->registration_record = registrationRecord;
+        self->type = SEC_PROTOCOL_IDENTITY_TYPE_SPAKE2PLUSV1;
     } else {
         return SEC_NIL_OUT_OF_MEMORY;
     }
@@ -245,6 +273,367 @@ sec_identity_create_with_certificates_and_external_private_key(CFArrayRef __nonn
                                                       dispatch_queue_t queue)
 {
     return [[SEC_CONCRETE_CLASS_NAME(sec_identity) alloc] initWithCertificates:certificates signBlock:sign_block decryptBlock:decrypt_block queue:queue];
+}
+
+sec_identity_t
+sec_identity_create_client_SPAKE2PLUSV1_identity_internal(dispatch_data_t context,
+                                                          dispatch_data_t client_identity,
+                                                          dispatch_data_t server_identity,
+                                                          dispatch_data_t password_verifier)
+{
+    if (password_verifier == nil || dispatch_data_get_size(password_verifier) != SEC_PROTOCOL_SPAKE2PLUSV1_INPUT_PASSWORD_VERIFIER_NBYTES) {
+        return SEC_NIL_BAD_INPUT;
+    }
+
+    dispatch_data_t client_password_verifier = sec_identity_create_SPAKE2PLUSV1_client_password_verifier(password_verifier);
+    dispatch_data_t server_password_verifier = sec_identity_create_SPAKE2PLUSV1_server_password_verifier(password_verifier);
+    dispatch_data_t registration_record = sec_identity_create_SPAKE2PLUSV1_registration_record(password_verifier);
+
+    return [[SEC_CONCRETE_CLASS_NAME(sec_identity) alloc] initWithSPAKE2PLUSV1Context:context clientIdentity:client_identity serverIdentity:server_identity clientPasswordVerifier:client_password_verifier serverPasswordVerifier:server_password_verifier registrationRecord:registration_record];
+}
+
+static size_t
+dispatch_data_copyout(dispatch_data_t data, void *destination, size_t maxlen)
+{
+    __block size_t copied = 0;
+    __block uint8_t *buffer = (uint8_t *)destination;
+    if (data) {
+        dispatch_data_apply(
+            data, ^bool(__unused dispatch_data_t region, __unused size_t offset, const void *dbuffer, size_t size) {
+                size_t consumed = MIN(maxlen - copied, size);
+                if (consumed) {
+                    memcpy(&buffer[copied], dbuffer, consumed);
+                    copied += consumed;
+                }
+                return copied < maxlen;
+            });
+    }
+    return copied;
+}
+
+static bool
+dispatch_data_copyout_and_alloc(dispatch_data_t data, void **destination, size_t *len)
+{
+    *destination = NULL;
+    *len = dispatch_data_get_size(data);
+    if (*len > 0) {
+        *destination = malloc(*len);
+        if (*destination == NULL) {
+            return false;
+        }
+        return dispatch_data_copyout(data, *destination, *len) == *len;
+    } else {
+        // If the length is 0, then there's nothing to copy out
+        return true;
+    }
+}
+
+static sec_identity_t
+sec_identity_create_client_SPAKE2PLUSV1_identity_for_scrypt_default(dispatch_data_t context_data,
+                                                                    dispatch_data_t client_identity_data,
+                                                                    dispatch_data_t server_identity_data,
+                                                                    dispatch_data_t password_data)
+{
+    if (password_data == nil) {
+        return SEC_NIL_BAD_INPUT;
+    }
+    size_t client_identity_len = 0;
+    if (client_identity_data != NULL) {
+        client_identity_len = dispatch_data_get_size(client_identity_data);
+    }
+    if (client_identity_len > 0xFFFF) {
+        return SEC_NIL_BAD_INPUT;
+    }
+    size_t server_identity_len = 0;
+    if (server_identity_data != NULL) {
+        server_identity_len = dispatch_data_get_size(server_identity_data);
+    }
+    if (server_identity_len > 0xFFFF) {
+        return SEC_NIL_BAD_INPUT;
+    }
+    size_t password_len = dispatch_data_get_size(password_data);
+    if (password_len > 0xFFFF) {
+        return SEC_NIL_BAD_INPUT;
+    }
+
+    uint8_t *client_identity = NULL;
+    if (!dispatch_data_copyout_and_alloc(client_identity_data, (void **)&client_identity, &client_identity_len)) {
+        return SEC_NIL_BAD_INPUT;
+    }
+    uint8_t *server_identity = NULL;
+    if (!dispatch_data_copyout_and_alloc(server_identity_data, (void **)&server_identity, &server_identity_len)) {
+        free(client_identity);
+        return SEC_NIL_BAD_INPUT;
+    }
+    uint8_t *password = NULL;
+    if (!dispatch_data_copyout_and_alloc(password_data, (void **)&password, &password_len)) {
+        free(client_identity);
+        free(server_identity);
+        return SEC_NIL_BAD_INPUT;
+    }
+
+    size_t scrypt_input_len = 2 + password_len + 2 + client_identity_len + 2 + server_identity_len;
+    uint8_t *scrypt_input = (uint8_t *)malloc(scrypt_input_len);
+    if (scrypt_input == NULL) {
+        free(client_identity);
+        free(server_identity);
+        free(password);
+        return SEC_NIL_OUT_OF_MEMORY;
+    }
+
+    // Encode the PBKDF input according to https://datatracker.ietf.org/doc/html/rfc9383#section-3.2
+    size_t offset = 0;
+    uint16_t length = password_len & 0xFFFF;
+    memcpy(scrypt_input + offset, (uint8_t *)&length, 2); offset += 2;
+    memcpy(scrypt_input + offset, password, length); offset += length;
+
+    length = client_identity_len & 0xFFFF;
+    memcpy(scrypt_input + offset, (uint8_t *)&length, 2); offset += 2;
+    memcpy(scrypt_input + offset, client_identity, length); offset += length;
+
+    length = server_identity_len & 0xFFFF;
+    memcpy(scrypt_input + offset, (uint8_t *)&length, 2); offset += 2;
+    memcpy(scrypt_input + offset, server_identity, length); offset += length;
+
+    if (offset != scrypt_input_len) {
+        free(client_identity);
+        free(server_identity);
+        free(password);
+        free(scrypt_input);
+        return SEC_NIL_BAD_INPUT;
+    }
+
+    int64_t buffer_size = ccscrypt_storage_size(32768, 8, 1);
+    uint8_t *buffer = (uint8_t *)malloc((size_t)buffer_size);
+    if (buffer == NULL) {
+        free(client_identity);
+        free(server_identity);
+        free(password);
+        free(scrypt_input);
+        return SEC_NIL_BAD_INPUT;
+    }
+
+    memset(buffer, 0, (size_t)buffer_size);
+
+    uint8_t input_password_verifier[SEC_PROTOCOL_SPAKE2PLUSV1_INPUT_PASSWORD_VERIFIER_NBYTES];
+    int result = ccscrypt(scrypt_input_len, scrypt_input, 0, NULL, buffer, 32768, 8, 1, sizeof(input_password_verifier), input_password_verifier);
+    if (result != CCERR_OK) {
+        free(client_identity);
+        free(server_identity);
+        free(password);
+        free(scrypt_input);
+        free(buffer);
+        return SEC_NIL_BAD_INPUT;
+    }
+
+    dispatch_data_t input_password_verifier_data = dispatch_data_create(input_password_verifier, sizeof(input_password_verifier), NULL, DISPATCH_DATA_DESTRUCTOR_DEFAULT);
+    free(client_identity);
+    free(server_identity);
+    free(password);
+    free(scrypt_input);
+    free(buffer);
+
+    return sec_identity_create_client_SPAKE2PLUSV1_identity_internal(context_data, client_identity_data, server_identity_data, input_password_verifier_data);
+}
+
+sec_identity_t
+sec_identity_create_client_SPAKE2PLUSV1_identity(dispatch_data_t context,
+                                                 dispatch_data_t client_identity,
+                                                 dispatch_data_t server_identity,
+                                                 dispatch_data_t password,
+                                                 pake_pbkdf_params_t pbkdf_params)
+{
+    switch (pbkdf_params) {
+        case PAKE_PBKDF_PARAMS_SCRYPT_DEFAULT:
+            return sec_identity_create_client_SPAKE2PLUSV1_identity_for_scrypt_default(context, client_identity, server_identity, password);
+        default:
+            return SEC_NIL_BAD_INPUT;
+    }
+}
+
+sec_identity_t
+sec_identity_create_server_SPAKE2PLUSV1_identity(dispatch_data_t context,
+                                                 dispatch_data_t client_identity,
+                                                 dispatch_data_t server_identity,
+                                                 dispatch_data_t server_password_verifier,
+                                                 dispatch_data_t registration_record)
+{
+    if (server_password_verifier == nil || dispatch_data_get_size(server_password_verifier) != SEC_PROTOCOL_SPAKE2PLUSV1_SERVER_PASSWORD_VERIFIER_NBYTES) {
+        return SEC_NIL_BAD_INPUT;
+    }
+    if (registration_record == nil || dispatch_data_get_size(registration_record) != SEC_PROTOCOL_SPAKE2PLUSV1_REGISTRATION_RECORD_NBYTES) {
+        return SEC_NIL_BAD_INPUT;
+    }
+    return [[SEC_CONCRETE_CLASS_NAME(sec_identity) alloc] initWithSPAKE2PLUSV1Context:context clientIdentity:client_identity serverIdentity:server_identity clientPasswordVerifier:nil serverPasswordVerifier:server_password_verifier registrationRecord:registration_record];
+}
+
+sec_identity_type_t
+sec_identity_copy_type(sec_identity_t identity)
+{
+    if (identity == NULL) {
+        return SEC_PROTOCOL_IDENTITY_TYPE_INVALID;
+    }
+    return identity->type;
+}
+
+dispatch_data_t
+sec_identity_create_SPAKE2PLUSV1_client_password_verifier(dispatch_data_t input_password_verifier)
+{
+    if (input_password_verifier == NULL) {
+        return SEC_NULL_BAD_INPUT;
+    }
+
+    ccspake_const_cp_t cp = ccspake_cp_256_rfc();
+    size_t expanded_element_len = ccspake_sizeof_w(cp) + 8;
+    size_t buffer_len = dispatch_data_get_size(input_password_verifier);
+    if (buffer_len != (2 * expanded_element_len)) {
+        return SEC_NULL_BAD_INPUT;
+    }
+
+    uint8_t *buffer = (uint8_t *)malloc(buffer_len);
+    if (buffer == NULL) {
+        return SEC_NULL_OUT_OF_MEMORY;
+    }
+
+    size_t copied = dispatch_data_copyout(input_password_verifier, buffer, buffer_len);
+    if (copied != buffer_len) {
+        free(buffer);
+        return SEC_NULL_OUT_OF_MEMORY;
+    }
+
+    uint8_t *w0 = buffer;
+    uint8_t *w1 = buffer + expanded_element_len;
+    size_t verifier_len = ccspake_sizeof_w(cp) * 2;
+    uint8_t *verifier = (uint8_t *)malloc(verifier_len);
+    if (verifier == NULL) {
+        free(buffer);
+        return SEC_NULL_OUT_OF_MEMORY;
+    }
+
+    // Reduce each expanded element to a scalar
+    if (ccspake_reduce_w(cp, expanded_element_len, w0, ccspake_sizeof_w(cp), verifier) != CCERR_OK) {
+        free(buffer);
+        free(verifier);
+        return SEC_NULL_OUT_OF_MEMORY;
+    }
+    if (ccspake_reduce_w(cp, expanded_element_len, w1, ccspake_sizeof_w(cp), verifier + ccspake_sizeof_w(cp)) != CCERR_OK) {
+        free(buffer);
+        free(verifier);
+        return SEC_NULL_OUT_OF_MEMORY;
+    }
+
+    dispatch_data_t password_verifier = dispatch_data_create(verifier, verifier_len, NULL, DISPATCH_DATA_DESTRUCTOR_DEFAULT);
+    free(buffer);
+    free(verifier);
+
+    return password_verifier;
+}
+
+dispatch_data_t
+sec_identity_create_SPAKE2PLUSV1_server_password_verifier(dispatch_data_t input_password_verifier)
+{
+    if (input_password_verifier == NULL) {
+        return SEC_NULL_BAD_INPUT;
+    }
+
+    ccspake_const_cp_t cp = ccspake_cp_256_rfc();
+    size_t expanded_element_len = ccspake_sizeof_w(cp) + 8;
+    size_t buffer_len = dispatch_data_get_size(input_password_verifier);
+    if (buffer_len != (2 * expanded_element_len)) {
+        return SEC_NULL_BAD_INPUT;
+    }
+
+    uint8_t *buffer = (uint8_t *)malloc(buffer_len);
+    if (buffer == NULL) {
+        return SEC_NULL_OUT_OF_MEMORY;
+    }
+
+    size_t copied = dispatch_data_copyout(input_password_verifier, buffer, buffer_len);
+    if (copied != buffer_len) {
+        free(buffer);
+        return SEC_NULL_OUT_OF_MEMORY;
+    }
+
+    uint8_t *w0 = buffer;
+    size_t verifier_len = ccspake_sizeof_w(cp);
+    uint8_t *verifier = (uint8_t *)malloc(verifier_len);
+    if (verifier == NULL) {
+        free(buffer);
+        return SEC_NULL_OUT_OF_MEMORY;
+    }
+
+    // Reduce w0 to a scalar
+    if (ccspake_reduce_w(cp, expanded_element_len, w0, ccspake_sizeof_w(cp), verifier) != CCERR_OK) {
+        free(buffer);
+        free(verifier);
+        return SEC_NULL_OUT_OF_MEMORY;
+    }
+
+    dispatch_data_t password_verifier = dispatch_data_create(verifier, verifier_len, NULL, DISPATCH_DATA_DESTRUCTOR_DEFAULT);
+    free(buffer);
+    free(verifier);
+
+    return password_verifier;
+}
+
+dispatch_data_t
+sec_identity_create_SPAKE2PLUSV1_registration_record(dispatch_data_t password_verifier)
+{
+    if (password_verifier == NULL) {
+        return SEC_NULL_BAD_INPUT;
+    }
+
+    ccspake_const_cp_t cp = ccspake_cp_256_rfc();
+    size_t expanded_element_len = ccspake_sizeof_w(cp) + 8;
+    size_t buffer_len = dispatch_data_get_size(password_verifier);
+    if (buffer_len != (2 * expanded_element_len)) {
+        return SEC_NULL_BAD_INPUT;
+    }
+
+    uint8_t *buffer = (uint8_t *)malloc(buffer_len);
+    if (buffer == NULL) {
+        return SEC_NULL_OUT_OF_MEMORY;
+    }
+
+    size_t copied = dispatch_data_copyout(password_verifier, buffer, buffer_len);
+    if (copied != buffer_len) {
+        free(buffer);
+        return SEC_NULL_OUT_OF_MEMORY;
+    }
+
+    // The format of the input verifier is w0 || w1, and we just need w1
+    uint8_t *w1 = buffer + expanded_element_len;
+    struct ccrng_state *rng = ccrng(NULL);
+    if (rng == NULL) {
+        free(buffer);
+        return SEC_NULL_OUT_OF_MEMORY;
+    }
+
+    size_t L_len = ccspake_sizeof_point(cp);
+    uint8_t *L = (uint8_t *)malloc(L_len);
+    if (L == NULL) {
+        free(buffer);
+        return SEC_NULL_OUT_OF_MEMORY;
+    }
+
+    if (ccspake_reduce_w(cp, expanded_element_len, w1, ccspake_sizeof_w(cp), w1) != CCERR_OK) {
+        free(buffer);
+        free(L);
+        return SEC_NULL_OUT_OF_MEMORY;
+    }
+
+    int result = ccspake_generate_L(cp, ccspake_sizeof_w(cp), w1, L_len, L, rng);
+    if (result != CCERR_OK) {
+        free(buffer);
+        free(L);
+        return SEC_NULL_OUT_OF_MEMORY;
+    }
+
+    dispatch_data_t record = dispatch_data_create(L, L_len, NULL, DISPATCH_DATA_DESTRUCTOR_DEFAULT);
+    free(buffer);
+    free(L);
+
+    return record;
 }
 
 SecIdentityRef
@@ -336,6 +725,59 @@ sec_identity_copy_private_key_queue(sec_identity_t object)
     return SEC_NIL_BAD_INPUT;
 }
 
+dispatch_data_t
+sec_identity_copy_SPAKE2PLUSV1_context(sec_identity_t identity)
+{
+    if (identity == NULL) {
+        return SEC_NULL_BAD_INPUT;
+    }
+    return identity->spake2_context;
+}
+
+dispatch_data_t
+sec_identity_copy_SPAKE2PLUSV1_client_identity(sec_identity_t identity)
+{
+    if (identity == NULL) {
+        return SEC_NULL_BAD_INPUT;
+    }
+    return identity->client_identity;
+}
+
+dispatch_data_t
+sec_identity_copy_SPAKE2PLUSV1_server_identity(sec_identity_t identity)
+{
+    if (identity == NULL) {
+        return SEC_NULL_BAD_INPUT;
+    }
+    return identity->server_identity;
+}
+
+dispatch_data_t
+sec_identity_copy_SPAKE2PLUSV1_server_password_verifier(sec_identity_t identity)
+{
+    if (identity == NULL) {
+        return SEC_NULL_BAD_INPUT;
+    }
+    return identity->server_password_verifier;
+}
+
+dispatch_data_t
+sec_identity_copy_SPAKE2PLUSV1_client_password_verifier(sec_identity_t identity)
+{
+    if (identity == NULL) {
+        return SEC_NULL_BAD_INPUT;
+    }
+    return identity->client_password_verifier;
+}
+
+dispatch_data_t
+sec_identity_copy_SPAKE2PLUSV1_registration_record(sec_identity_t identity)
+{
+    if (identity == NULL) {
+        return SEC_NULL_BAD_INPUT;
+    }
+    return identity->registration_record;
+}
 
 @end
 
@@ -438,6 +880,16 @@ sec_trust_copy_ref(sec_trust_t object)
 @end
 
 static bool
+_is_apple_bundle_exception_enabled(void)
+{
+    //sudo defaults write /Library/Preferences/com.apple.security EnableAppTransportSecurityAppleBundleException -bool YES
+    NSNumber *enabled = CFBridgingRelease(CFPreferencesCopyValue(CFSTR("EnableAppTransportSecurityAppleBundleException"),
+                                                                 CFSTR("com.apple.security"),
+                                                                 kCFPreferencesAnyUser, kCFPreferencesAnyHost));
+    return ([enabled isKindOfClass:[NSNumber class]] && [enabled boolValue] == YES);
+}
+
+static bool
 _is_apple_bundle(void)
 {
     static dispatch_once_t onceToken;
@@ -469,7 +921,11 @@ SEC_OBJECT_IMPL_INTERNAL_OBJC(sec_protocol_configuration_builder,
                 CFTypeRef rawATS = CFDictionaryGetValue(info, CFSTR(kATSInfoKey));
                 self->dictionary = (CFDictionaryRef)rawATS;
                 CFRetainSafe(self->dictionary);
-                self->is_apple = _is_apple_bundle();
+                if (_is_apple_bundle_exception_enabled()) {
+                    self->is_apple = _is_apple_bundle();
+                } else {
+                    self->is_apple = client_is_WebKit();
+                }
             }
         }
     }
@@ -496,7 +952,7 @@ sec_protocol_configuration_builder_copy_default(void)
 }
 
 sec_protocol_configuration_builder_t
-sec_protocol_configuration_builder_create(CFDictionaryRef dictionary, bool is_apple)
+sec_protocol_configuration_builder_create(__nullable CFDictionaryRef dictionary, bool is_apple)
 {
     return [[SEC_CONCRETE_CLASS_NAME(sec_protocol_configuration_builder) alloc] initWithDictionary:dictionary andInternalFlag:is_apple];
 }

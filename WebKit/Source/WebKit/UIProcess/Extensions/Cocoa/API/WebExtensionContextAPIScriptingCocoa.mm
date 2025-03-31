@@ -32,8 +32,10 @@
 
 #if ENABLE(WK_WEB_EXTENSIONS)
 
+#import "APIError.h"
 #import "CocoaHelpers.h"
 #import "WKFrameInfoPrivate.h"
+#import "WKNSError.h"
 #import "WKWebViewInternal.h"
 #import "WKWebViewPrivate.h"
 #import "WebExtensionAPIScripting.h"
@@ -66,19 +68,19 @@ void WebExtensionContext::scriptingExecuteScript(const WebExtensionScriptInjecti
 
     RefPtr tab = getTab(parameters.tabIdentifier.value());
     if (!tab) {
-        completionHandler(toWebExtensionError(apiName, nil, @"tab not found"));
+        completionHandler(toWebExtensionError(apiName, nullString(), @"tab not found"));
         return;
     }
 
     requestPermissionToAccessURLs({ tab->url() }, tab, [this, protectedThis = Ref { *this }, tab, parameters, completionHandler = WTFMove(completionHandler)](auto&& requestedURLs, auto&& allowedURLs, auto expirationDate) mutable {
         if (!tab->extensionHasPermission()) {
-            completionHandler(toWebExtensionError(apiName, nil, @"this extension does not have access to this tab"));
+            completionHandler(toWebExtensionError(apiName, nullString(), @"this extension does not have access to this tab"));
             return;
         }
 
         auto *webView = tab->webView();
         if (!webView) {
-            completionHandler(toWebExtensionError(apiName, nil, @"could not execute script on this tab"));
+            completionHandler(toWebExtensionError(apiName, nullString(), @"could not execute script on this tab"));
             return;
         }
 
@@ -97,27 +99,27 @@ void WebExtensionContext::scriptingInsertCSS(const WebExtensionScriptInjectionPa
 
     RefPtr tab = getTab(parameters.tabIdentifier.value());
     if (!tab) {
-        completionHandler(toWebExtensionError(apiName, nil, @"tab not found"));
+        completionHandler(toWebExtensionError(apiName, nullString(), @"tab not found"));
         return;
     }
 
     requestPermissionToAccessURLs({ tab->url() }, tab, [this, protectedThis = Ref { *this }, tab, parameters, completionHandler = WTFMove(completionHandler)](auto&& requestedURLs, auto&& allowedURLs, auto expirationDate) mutable {
         if (!tab->extensionHasPermission()) {
-            completionHandler(toWebExtensionError(apiName, nil, @"this extension does not have access to this tab"));
+            completionHandler(toWebExtensionError(apiName, nullString(), @"this extension does not have access to this tab"));
             return;
         }
 
         auto *webView = tab->webView();
         if (!webView) {
-            completionHandler(toWebExtensionError(apiName, nil, @"could not inject stylesheet on this tab"));
+            completionHandler(toWebExtensionError(apiName, nullString(), @"could not inject stylesheet on this tab"));
             return;
         }
 
         // FIXME: <https://webkit.org/b/262491> There is currently no way to inject CSS in specific frames based on ID's. If 'frameIds' is passed, default to the main frame.
-        auto injectedFrames = parameters.frameIDs ? WebCore::UserContentInjectedFrames::InjectInTopFrameOnly : WebCore::UserContentInjectedFrames::InjectInAllFrames;
+        auto injectedFrames = parameters.frameIdentifiers ? WebCore::UserContentInjectedFrames::InjectInTopFrameOnly : WebCore::UserContentInjectedFrames::InjectInAllFrames;
 
         auto styleSheetPairs = getSourcePairsForParameters(parameters, *this);
-        injectStyleSheets(styleSheetPairs, webView, *m_contentScriptWorld, parameters.styleLevel, injectedFrames, *this);
+        injectStyleSheets(styleSheetPairs, webView, Ref { *m_contentScriptWorld }, parameters.styleLevel, injectedFrames, *this);
 
         completionHandler({ });
     });
@@ -134,13 +136,13 @@ void WebExtensionContext::scriptingRemoveCSS(const WebExtensionScriptInjectionPa
 
     RefPtr tab = getTab(parameters.tabIdentifier.value());
     if (!tab) {
-        completionHandler(toWebExtensionError(apiName, nil, @"tab not found"));
+        completionHandler(toWebExtensionError(apiName, nullString(), @"tab not found"));
         return;
     }
 
     auto *webView = tab->webView();
     if (!webView) {
-        completionHandler(toWebExtensionError(apiName, nil, @"could not remove stylesheet from this tab"));
+        completionHandler(toWebExtensionError(apiName, nullString(), @"could not remove stylesheet from this tab"));
         return;
     }
 
@@ -148,7 +150,7 @@ void WebExtensionContext::scriptingRemoveCSS(const WebExtensionScriptInjectionPa
     // and permission has been revoked since it inserted CSS. This allows for the extension to clean up.
 
     // FIXME: <https://webkit.org/b/262491> There is currently no way to inject CSS in specific frames based on ID's. If 'frameIds' is passed, default to the main frame.
-    auto injectedFrames = parameters.frameIDs ? WebCore::UserContentInjectedFrames::InjectInTopFrameOnly : WebCore::UserContentInjectedFrames::InjectInAllFrames;
+    auto injectedFrames = parameters.frameIdentifiers ? WebCore::UserContentInjectedFrames::InjectInTopFrameOnly : WebCore::UserContentInjectedFrames::InjectInAllFrames;
 
     auto styleSheetPairs = getSourcePairsForParameters(parameters, *this);
     removeStyleSheets(styleSheetPairs, webView, injectedFrames, *this);
@@ -163,13 +165,13 @@ void WebExtensionContext::scriptingRegisterContentScripts(const Vector<WebExtens
     DynamicInjectedContentsMap injectedContentsMap;
     NSString *errorMessage;
     if (!createInjectedContentForScripts(scripts, FirstTimeRegistration::Yes, injectedContentsMap, apiName, &errorMessage)) {
-        completionHandler(toWebExtensionError(apiName, nil, errorMessage));
+        completionHandler(toWebExtensionError(apiName, nullString(), errorMessage));
         return;
     }
 
     [registeredContentScriptsStore() addScripts:toWebAPI(scripts) completionHandler:makeBlockPtr([this, protectedThis = Ref { *this }, scripts, injectedContentsMap = WTFMove(injectedContentsMap), completionHandler = WTFMove(completionHandler)](NSString *errorMessage) mutable {
         if (errorMessage) {
-            completionHandler(toWebExtensionError(apiName, nil, errorMessage));
+            completionHandler(toWebExtensionError(apiName, nullString(), errorMessage));
             return;
         }
 
@@ -196,7 +198,7 @@ void WebExtensionContext::scriptingUpdateRegisteredScripts(const Vector<WebExten
         auto scriptID = parameters.identifier;
         RefPtr registeredScript = m_registeredScriptsMap.get(scriptID);
         if (!registeredScript) {
-            completionHandler(toWebExtensionError(apiName, nil, @"no existing script with ID '%@'", (NSString *)scriptID));
+            completionHandler(toWebExtensionError(apiName, nullString(), @"no existing script with ID '%@'", (NSString *)scriptID));
             return;
         }
 
@@ -207,14 +209,14 @@ void WebExtensionContext::scriptingUpdateRegisteredScripts(const Vector<WebExten
     NSString *errorMessage;
     DynamicInjectedContentsMap injectedContentsMap;
     if (!createInjectedContentForScripts(updatedParameters, FirstTimeRegistration::No, injectedContentsMap, apiName, &errorMessage)) {
-        completionHandler(toWebExtensionError(apiName, nil, errorMessage));
+        completionHandler(toWebExtensionError(apiName, nullString(), errorMessage));
         return;
     }
 
     auto *scriptsArray = toWebAPI(updatedParameters);
     [registeredContentScriptsStore() updateScripts:scriptsArray completionHandler:makeBlockPtr([this, protectedThis = Ref { *this }, scripts = WTFMove(updatedParameters), injectedContentsMap = WTFMove(injectedContentsMap), completionHandler = WTFMove(completionHandler)](NSString *errorMessage) mutable {
         if (errorMessage) {
-            completionHandler(toWebExtensionError(apiName, nil, errorMessage));
+            completionHandler(toWebExtensionError(apiName, nullString(), errorMessage));
             return;
         }
 
@@ -271,14 +273,14 @@ void WebExtensionContext::scriptingUnregisterContentScripts(const Vector<String>
 
     for (auto& scriptID : ids) {
         if (!m_registeredScriptsMap.contains(scriptID)) {
-            completionHandler(toWebExtensionError(apiName, nil, @"no script with ID '%@'", (NSString *)scriptID));
+            completionHandler(toWebExtensionError(apiName, nullString(), @"no script with ID '%@'", (NSString *)scriptID));
             return;
         }
     }
 
     [registeredContentScriptsStore() deleteScriptsWithIDs:createNSArray(ids).get() completionHandler:makeBlockPtr([this, protectedThis = Ref { *this }, ids, completionHandler = WTFMove(completionHandler)](NSString *errorMessage) mutable {
         if (errorMessage) {
-            completionHandler(toWebExtensionError(apiName, nil, errorMessage));
+            completionHandler(toWebExtensionError(apiName, nullString(), errorMessage));
             return;
         }
 
@@ -306,7 +308,10 @@ void WebExtensionContext::loadRegisteredContentScripts()
         }
 
         Vector<WebExtensionRegisteredScriptParameters> parametersVector;
-        WebExtensionAPIScripting::parseRegisteredContentScripts(scripts, FirstTimeRegistration::Yes, parametersVector);
+        if (!WebExtensionAPIScripting::parseRegisteredContentScripts(scripts, FirstTimeRegistration::Yes, parametersVector, &errorMessage)) {
+            RELEASE_LOG_ERROR(Extensions, "Failed to parse injected content data for extension %{private}@. Error: %{public}@", (NSString *)m_uniqueIdentifier, errorMessage);
+            return;
+        }
 
         DynamicInjectedContentsMap injectedContentsMap;
         createInjectedContentForScripts(parametersVector, FirstTimeRegistration::Yes, injectedContentsMap, nil, &errorMessage);
@@ -344,7 +349,7 @@ bool WebExtensionContext::createInjectedContentForScripts(const Vector<WebExtens
         auto scriptID = parameters.identifier;
 
         if (firstTimeRegistration == FirstTimeRegistration::Yes && (m_registeredScriptsMap.contains(scriptID) || idsToAdd.contains(scriptID))) {
-            *errorMessage = toErrorString(callingAPIName, nil, @"duplicate ID '%@'", (NSString *)scriptID);
+            *errorMessage = toErrorString(callingAPIName, nullString(), @"duplicate ID '%@'", (NSString *)scriptID);
             return false;
         }
 
@@ -359,11 +364,12 @@ bool WebExtensionContext::createInjectedContentForScripts(const Vector<WebExtens
             return !!string.length;
         });
 
+        RefPtr extension = m_extension;
         for (NSString *scriptPath in scriptPaths) {
-            NSError *error;
-            if (!extension().resourceStringForPath(scriptPath, &error, WebExtension::CacheResult::No, WebExtension::SuppressNotFoundErrors::Yes)) {
-                recordError(error);
-                *errorMessage = toErrorString(callingAPIName, nil, @"invalid resource '%@'", scriptPath);
+            RefPtr<API::Error> error;
+            if (!extension->resourceStringForPath(scriptPath, error)) {
+                recordError(::WebKit::wrapper(*error));
+                *errorMessage = toErrorString(callingAPIName, nullString(), @"invalid resource '%@'", scriptPath);
                 return false;
             }
         }
@@ -375,10 +381,10 @@ bool WebExtensionContext::createInjectedContentForScripts(const Vector<WebExtens
         });
 
         for (NSString *styleSheetPath in styleSheetPaths) {
-            NSError *error;
-            if (!extension().resourceStringForPath(styleSheetPath, &error, WebExtension::CacheResult::No, WebExtension::SuppressNotFoundErrors::Yes)) {
-                recordError(error);
-                *errorMessage = toErrorString(callingAPIName, nil, @"invalid resource '%@'", styleSheetPath);
+            RefPtr<API::Error> error;
+            if (!extension->resourceStringForPath(styleSheetPath, error)) {
+                recordError(::WebKit::wrapper(*error));
+                *errorMessage = toErrorString(callingAPIName, nullString(), @"invalid resource '%@'", styleSheetPath);
                 return false;
             }
         }
@@ -387,13 +393,13 @@ bool WebExtensionContext::createInjectedContentForScripts(const Vector<WebExtens
         auto *matchesArray = parameters.matchPatterns ? createNSArray(parameters.matchPatterns.value()).get() : @[ ];
         for (NSString *matchPatternString in matchesArray) {
             if (!matchPatternString.length) {
-                *errorMessage = toErrorString(callingAPIName, nil, @"script with ID '%@' contains an empty match pattern", (NSString *)scriptID);
+                *errorMessage = toErrorString(callingAPIName, nullString(), @"script with ID '%@' contains an empty match pattern", (NSString *)scriptID);
                 return false;
             }
 
             RefPtr matchPattern = WebExtensionMatchPattern::getOrCreate(matchPatternString);
             if (!matchPattern || !matchPattern->isSupported()) {
-                *errorMessage = toErrorString(callingAPIName, nil, @"script with ID '%@' has an invalid match pattern '%@'", (NSString *)scriptID, matchPatternString);
+                *errorMessage = toErrorString(callingAPIName, nullString(), @"script with ID '%@' has an invalid match pattern '%@'", (NSString *)scriptID, matchPatternString);
                 return false;
             }
 
@@ -404,13 +410,13 @@ bool WebExtensionContext::createInjectedContentForScripts(const Vector<WebExtens
         auto *excludeMatchesArray = parameters.excludeMatchPatterns ? createNSArray(parameters.excludeMatchPatterns.value()).get() : @[ ];
         for (NSString *matchPatternString in excludeMatchesArray) {
             if (!matchPatternString.length) {
-                *errorMessage = toErrorString(callingAPIName, nil, @"script with ID '%@' contains an empty exclude match pattern", (NSString *)scriptID);
+                *errorMessage = toErrorString(callingAPIName, nullString(), @"script with ID '%@' contains an empty exclude match pattern", (NSString *)scriptID);
                 return false;
             }
 
             RefPtr matchPattern = WebExtensionMatchPattern::getOrCreate(matchPatternString);
             if (!matchPattern || !matchPattern->isSupported()) {
-                *errorMessage = toErrorString(callingAPIName, nil, @"script with ID '%@' has an invalid exclude match pattern '%@'", (NSString *)scriptID, matchPatternString);
+                *errorMessage = toErrorString(callingAPIName, nullString(), @"script with ID '%@' has an invalid exclude match pattern '%@'", (NSString *)scriptID, matchPatternString);
                 return false;
             }
         }
@@ -421,10 +427,11 @@ bool WebExtensionContext::createInjectedContentForScripts(const Vector<WebExtens
         injectedContentData.excludeMatchPatterns = WTFMove(excludeMatchPatterns);
         injectedContentData.injectionTime = parameters.injectionTime.value_or(WebExtension::InjectionTime::DocumentIdle);
         injectedContentData.injectsIntoAllFrames = parameters.allFrames.value_or(false);
+        injectedContentData.matchParentFrame = parameters.matchParentFrame.value_or(WebCore::UserContentMatchParentFrame::Never);
         injectedContentData.contentWorldType = parameters.world.value_or(WebExtensionContentWorldType::ContentScript);
         injectedContentData.styleLevel = parameters.styleLevel.value_or(WebCore::UserStyleLevel::Author);
-        injectedContentData.scriptPaths = scriptPaths;
-        injectedContentData.styleSheetPaths = styleSheetPaths;
+        injectedContentData.scriptPaths = makeVector<String>(scriptPaths);
+        injectedContentData.styleSheetPaths = makeVector<String>(styleSheetPaths);
 
         injectedContentsMap.add(scriptID, WTFMove(injectedContentData));
     }

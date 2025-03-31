@@ -286,6 +286,7 @@ static void encodeInvocationArguments(WKRemoteObjectEncoder *encoder, NSInvocati
             break;
         }
 
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
         // struct
         case '{':
             if (!strcmp(type, @encode(NSRange))) {
@@ -303,6 +304,7 @@ static void encodeInvocationArguments(WKRemoteObjectEncoder *encoder, NSInvocati
                 break;
             }
             FALLTHROUGH;
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
 
         default:
             [NSException raise:NSInvalidArgumentException format:@"Unsupported invocation argument type '%s'", type];
@@ -598,7 +600,7 @@ static NSString *escapeKey(NSString *key)
 
 - (void)encodeBytes:(const uint8_t *)bytes length:(NSUInteger)length forKey:(NSString *)key
 {
-    _currentDictionary->set(escapeKey(key), API::Data::create({ bytes, length }));
+    _currentDictionary->set(escapeKey(key), API::Data::create(unsafeMakeSpan(bytes, length)));
 }
 
 - (void)encodeBool:(BOOL)value forKey:(NSString *)key
@@ -809,7 +811,9 @@ static const HashSet<CFTypeRef> alwaysAllowedClasses()
 NO_RETURN static void crashWithClassName(const char* className)
 {
     std::array<uint64_t, 6> values { 0, 0, 0, 0, 0, 0 };
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
     strncpy(reinterpret_cast<char*>(values.data()), className, sizeof(values));
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
     CRASH_WITH_INFO(values[0], values[1], values[2], values[3], values[4], values[5]);
 }
 
@@ -964,6 +968,7 @@ static void decodeInvocationArguments(WKRemoteObjectDecoder *decoder, NSInvocati
             break;
         }
 
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
         // struct
         case '{':
             if (!strcmp(type, @encode(NSRange))) {
@@ -978,6 +983,7 @@ static void decodeInvocationArguments(WKRemoteObjectDecoder *decoder, NSInvocati
                 break;
             }
             FALLTHROUGH;
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
 
         default:
             [NSException raise:NSInvalidArgumentException format:@"Unsupported invocation argument type '%s' for argument %zu", type, (unsigned long)i];

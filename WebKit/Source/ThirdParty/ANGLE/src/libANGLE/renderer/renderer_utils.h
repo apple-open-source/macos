@@ -26,7 +26,7 @@ namespace angle
 struct FeatureSetBase;
 struct Format;
 struct ImageLoadContext;
-enum class FormatID;
+enum class FormatID : uint8_t;
 }  // namespace angle
 
 namespace gl
@@ -42,6 +42,11 @@ namespace egl
 class AttributeMap;
 struct DisplayState;
 }  // namespace egl
+
+namespace sh
+{
+struct BlockMemberInfo;
+}
 
 namespace rx
 {
@@ -268,6 +273,63 @@ void GetMatrixUniform(GLenum type, GLfloat *dataOut, const GLfloat *source, bool
 template <typename NonFloatT>
 void GetMatrixUniform(GLenum type, NonFloatT *dataOut, const NonFloatT *source, bool transpose);
 
+// Contains a CPU-side buffer and its data layout, used as a shadow buffer for default uniform
+// blocks in VK and WGPU backends.
+struct BufferAndLayout final : private angle::NonCopyable
+{
+    BufferAndLayout();
+    ~BufferAndLayout();
+
+    // Shadow copies of the shader uniform data.
+    angle::MemoryBuffer uniformData;
+
+    // Tells us where to write on a call to a setUniform method. They are arranged in uniform
+    // location order.
+    std::vector<sh::BlockMemberInfo> uniformLayout;
+};
+
+template <typename T>
+void UpdateBufferWithLayout(GLsizei count,
+                            uint32_t arrayIndex,
+                            int componentCount,
+                            const T *v,
+                            const sh::BlockMemberInfo &layoutInfo,
+                            angle::MemoryBuffer *uniformData);
+
+template <typename T>
+void ReadFromBufferWithLayout(int componentCount,
+                              uint32_t arrayIndex,
+                              T *dst,
+                              const sh::BlockMemberInfo &layoutInfo,
+                              const angle::MemoryBuffer *uniformData);
+
+using DefaultUniformBlockMap = gl::ShaderMap<std::shared_ptr<BufferAndLayout>>;
+
+template <typename T>
+void SetUniform(const gl::ProgramExecutable *executable,
+                GLint location,
+                GLsizei count,
+                const T *v,
+                GLenum entryPointType,
+                DefaultUniformBlockMap *defaultUniformBlocks,
+                gl::ShaderBitSet *defaultUniformBlocksDirty);
+
+template <int cols, int rows>
+void SetUniformMatrixfv(const gl::ProgramExecutable *executable,
+                        GLint location,
+                        GLsizei count,
+                        GLboolean transpose,
+                        const GLfloat *value,
+                        DefaultUniformBlockMap *defaultUniformBlocks,
+                        gl::ShaderBitSet *defaultUniformBlocksDirty);
+
+template <typename T>
+void GetUniform(const gl::ProgramExecutable *executable,
+                GLint location,
+                T *v,
+                GLenum entryPointType,
+                const DefaultUniformBlockMap *defaultUniformBlocks);
+
 const angle::Format &GetFormatFromFormatType(GLenum format, GLenum type);
 
 angle::Result ComputeStartVertex(ContextImpl *contextImpl,
@@ -310,12 +372,16 @@ uint32_t LineLoopRestartIndexCountHelper(GLsizei indexCount, const uint8_t *srcP
         {
             if (curIndex > loopStartIndex)
             {
-                numIndices += 2;
+                if (curIndex > (loopStartIndex + 1))
+                {
+                    numIndices += 1;
+                }
+                numIndices += 1;
             }
             loopStartIndex = curIndex + 1;
         }
     }
-    if (indexCount > loopStartIndex)
+    if (indexCount > (loopStartIndex + 1))
     {
         numIndices++;
     }
@@ -361,17 +427,20 @@ void CopyLineLoopIndicesWithRestart(GLsizei indexCount, const uint8_t *srcPtr, u
         {
             if (curIndex > loopStartIndex)
             {
-                // Emit an extra vertex only if the loop is not empty.
-                *(outIndices++) = inIndices[loopStartIndex];
+                if (curIndex > (loopStartIndex + 1))
+                {
+                    // Emit an extra vertex only if the loop has more than one vertex.
+                    *(outIndices++) = inIndices[loopStartIndex];
+                }
                 // Then restart the strip.
                 *(outIndices++) = outRestartIndex;
             }
             loopStartIndex = curIndex + 1;
         }
     }
-    if (indexCount > loopStartIndex)
+    if (indexCount > (loopStartIndex + 1))
     {
-        // Close the last loop if not empty.
+        // Close the last loop if it has more than one vertex.
         *(outIndices++) = inIndices[loopStartIndex];
     }
 }
@@ -467,11 +536,8 @@ template <typename LargerInt>
 GLint LimitToInt(const LargerInt physicalDeviceValue)
 {
     static_assert(sizeof(LargerInt) >= sizeof(int32_t), "Incorrect usage of LimitToInt");
-
-    // Limit to INT_MAX / 2 instead of INT_MAX.  If the limit is queried as float, the imprecision
-    // in floating point can cause the value to exceed INT_MAX.  This trips dEQP up.
-    return static_cast<GLint>(std::min(
-        physicalDeviceValue, static_cast<LargerInt>(std::numeric_limits<int32_t>::max() / 2)));
+    return static_cast<GLint>(
+        std::min(physicalDeviceValue, static_cast<LargerInt>(std::numeric_limits<int32_t>::max())));
 }
 
 bool TextureHasAnyRedefinedLevels(const gl::CubeFaceArray<gl::TexLevelMask> &redefinedLevels);

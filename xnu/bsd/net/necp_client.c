@@ -7732,8 +7732,8 @@ necp_client_remove_flow(struct necp_fd_data *fd_data, struct necp_client_action_
 		goto done;
 	}
 
-	if (uap->buffer != 0 && buffer_size == sizeof(flow_ifnet_stats)) {
-		error = copyin(uap->buffer, &flow_ifnet_stats, buffer_size);
+	if (uap->buffer != 0 && buffer_size != 0) {
+		error = copyin(uap->buffer, &flow_ifnet_stats, MIN(buffer_size, sizeof(flow_ifnet_stats)));
 		if (error) {
 			NECPLOG(LOG_ERR, "necp_client_remove flow_ifnet_stats copyin error (%d)", error);
 			// Not fatal
@@ -7875,7 +7875,7 @@ necp_client_calculate_flow_tlv_size(struct necp_client_flow_registration *flow_r
 	size_t assigned_results_size = 0;
 	struct necp_client_flow *flow = NULL;
 	LIST_FOREACH(flow, &flow_registration->flow_list, flow_chain) {
-		if (flow->assigned || !necp_client_endpoint_is_unspecified((struct necp_client_endpoint *)&flow->remote_addr)) {
+		if (flow->assigned || flow_registration->defunct || !necp_client_endpoint_is_unspecified((struct necp_client_endpoint *)&flow->remote_addr)) {
 			size_t header_length = 0;
 			if (flow->nexus) {
 				header_length = sizeof(struct necp_client_nexus_flow_header);
@@ -7902,7 +7902,7 @@ necp_client_fillout_flow_tlvs(struct necp_client *client,
 	int error = 0;
 	struct necp_client_flow *flow = NULL;
 	LIST_FOREACH(flow, &flow_registration->flow_list, flow_chain) {
-		if (flow->assigned || !necp_client_endpoint_is_unspecified((struct necp_client_endpoint *)&flow->remote_addr)) {
+		if (flow->assigned || flow_registration->defunct || !necp_client_endpoint_is_unspecified((struct necp_client_endpoint *)&flow->remote_addr)) {
 			// Write TLV headers
 			struct necp_client_nexus_flow_header header = {};
 			u_int32_t length = 0;

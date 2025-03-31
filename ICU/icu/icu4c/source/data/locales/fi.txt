@@ -712,7 +712,7 @@ fi{
                         "la",
                     }
                     wide{
-                        "sunnuntaina",
+                        "sunnuntai",
                         "maanantaina",
                         "tiistaina",
                         "keskiviikkona",
@@ -1002,18 +1002,18 @@ fi{
             monthNames{
                 format{
                     abbreviated{
-                        "tammik.",
-                        "helmik.",
-                        "maalisk.",
-                        "huhtik.",
-                        "toukok.",
-                        "kesäk.",
-                        "heinäk.",
-                        "elok.",
-                        "syysk.",
-                        "lokak.",
-                        "marrask.",
-                        "jouluk.",
+                        "tammi",
+                        "helmi",
+                        "maalis",
+                        "huhti",
+                        "touko",
+                        "kesä",
+                        "heinä",
+                        "elo",
+                        "syys",
+                        "loka",
+                        "marras",
+                        "joulu",
                     }
                     wide{
                         "tammikuuta",
@@ -2061,10 +2061,10 @@ fi{
                 "[%％﹪ ٪]",
                 "[‰ ؉]",
                 "[\$＄﹩]",
-                "[£ ₤]",
+                "[£￡ ₤]",
                 "[¥￥]",
                 "[₩￦]",
-                "[₹ ₨ {Rp} {Rs}]",
+                "[₹ {Rp} {Rs}₨]",
             }
         }
         number{

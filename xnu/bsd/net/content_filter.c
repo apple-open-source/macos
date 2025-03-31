@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2022, 2024 Apple Inc. All rights reserved.
+ * Copyright (c) 2013-2022, 2024, 2025 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -347,6 +347,7 @@
 #include <netinet/tcp_var.h>
 #include <netinet/udp.h>
 #include <netinet/udp_var.h>
+#include <netinet6/in6_pcb.h>
 #include <kern/socket_flows.h>
 
 #include <string.h>
@@ -624,33 +625,35 @@ os_refgrp_decl(static, cfil_refgrp, "CFILRefGroup", NULL);
 #define DEBUG_FLOW(inp, so, local, remote) \
     ((cfil_log_port && MATCH_PORT(inp, local, remote)) || (cfil_log_pid && MATCH_PID(so)) || (cfil_log_proto && MATCH_PROTO(so)))
 
-#define SO_DELAYED_DEAD_SET(so, set) \
-    if (so->so_cfil) { \
-	if (set) { \
-	    so->so_cfil->cfi_flags |= CFIF_SO_DELAYED_DEAD; \
-	} else { \
-	    so->so_cfil->cfi_flags &= ~CFIF_SO_DELAYED_DEAD; \
-	} \
-    } else if (so->so_flow_db) { \
-	if (set) { \
-	    so->so_flow_db->soflow_db_flags |= SOFLOWF_SO_DELAYED_DEAD; \
-	} else { \
-	    so->so_flow_db->soflow_db_flags &= ~SOFLOWF_SO_DELAYED_DEAD; \
-	} \
-    }
+#define SO_DELAYED_DEAD_SET(so, set) do {                               \
+	if (so->so_cfil) {                                              \
+	        if (set) {                                              \
+	                so->so_cfil->cfi_flags |= CFIF_SO_DELAYED_DEAD; \
+	        } else {                                                \
+	                so->so_cfil->cfi_flags &= ~CFIF_SO_DELAYED_DEAD; \
+	        }                                                       \
+	} else if (so->so_flow_db) {                                    \
+	        if (set) {                                              \
+	                so->so_flow_db->soflow_db_flags |= SOFLOWF_SO_DELAYED_DEAD; \
+	        } else {                                                \
+	                so->so_flow_db->soflow_db_flags &= ~SOFLOWF_SO_DELAYED_DEAD; \
+	        }                                                       \
+	}                                                               \
+} while (0)
 
 #define SO_DELAYED_DEAD_GET(so) \
     (so->so_cfil ? (so->so_cfil->cfi_flags & CFIF_SO_DELAYED_DEAD) : \
 	            (so->so_flow_db) ? (so->so_flow_db->soflow_db_flags & SOFLOWF_SO_DELAYED_DEAD) : false)
 
-#define SO_DELAYED_TCP_TIME_WAIT_SET(so, set) \
-    if (so->so_cfil) { \
-    if (set) { \
-       so->so_cfil->cfi_flags |= CFIF_SO_DELAYED_TCP_TIME_WAIT; \
-    } else { \
-       so->so_cfil->cfi_flags &= ~CFIF_SO_DELAYED_TCP_TIME_WAIT; \
-    } \
-    }
+#define SO_DELAYED_TCP_TIME_WAIT_SET(so, set) do {                      \
+	if (so->so_cfil) {                                              \
+	        if (set) {                                              \
+	                so->so_cfil->cfi_flags |= CFIF_SO_DELAYED_TCP_TIME_WAIT; \
+	        } else {                                                \
+	                so->so_cfil->cfi_flags &= ~CFIF_SO_DELAYED_TCP_TIME_WAIT; \
+	        }                                                       \
+	}                                                               \
+} while (0)
 
 #define SO_DELAYED_TCP_TIME_WAIT_GET(so) \
     (so->so_cfil ? (so->so_cfil->cfi_flags & CFIF_SO_DELAYED_TCP_TIME_WAIT) : false)
@@ -2910,16 +2913,19 @@ cfil_sock_is_dead(struct socket *so)
 		int32_t pending_snd = cfil_sock_data_pending(&so->so_snd);
 		int32_t pending_rcv = cfil_sock_data_pending(&so->so_rcv);
 		if (pending_snd || pending_rcv) {
-			SO_DELAYED_DEAD_SET(so, true)
+			SO_DELAYED_DEAD_SET(so, true);
 			return false;
 		}
 	}
 
 	inp = sotoinpcb(so);
 	if (inp != NULL) {
-		inp->inp_state = INPCB_STATE_DEAD;
-		inpcb_gc_sched(inp->inp_pcbinfo, INPCB_TIMER_FAST);
-		SO_DELAYED_DEAD_SET(so, false)
+		SO_DELAYED_DEAD_SET(so, false);
+		if (SOCK_CHECK_DOM(so, PF_INET6)) {
+			in6_pcbdetach(inp);
+		} else {
+			in_pcbdetach(inp);
+		}
 		return true;
 	}
 	return false;
@@ -2949,7 +2955,7 @@ cfil_sock_tcp_add_time_wait(struct socket *so)
 		int32_t pending_snd = cfil_sock_data_pending(&so->so_snd);
 		int32_t pending_rcv = cfil_sock_data_pending(&so->so_rcv);
 		if (pending_snd || pending_rcv) {
-			SO_DELAYED_TCP_TIME_WAIT_SET(so, true)
+			SO_DELAYED_TCP_TIME_WAIT_SET(so, true);
 			return false;
 		}
 	}
@@ -2958,7 +2964,7 @@ cfil_sock_tcp_add_time_wait(struct socket *so)
 	tp = inp ? intotcpcb(inp) : NULL;
 	if (tp != NULL) {
 		add_to_time_wait_now(tp, 2 * tcp_msl);
-		SO_DELAYED_TCP_TIME_WAIT_SET(so, false)
+		SO_DELAYED_TCP_TIME_WAIT_SET(so, false);
 		return true;
 	}
 	return false;
@@ -3957,7 +3963,7 @@ cfil_dispatch_data_event(struct socket *so, struct cfil_info *cfil_info, uint32_
 	mbuf_setlen(msg, hdrsize);
 	mbuf_pkthdr_setlen(msg, hdrsize + copylen);
 	msg->m_next = copy;
-	data_req = (struct cfil_msg_data_event *)mbuf_data(msg);
+	data_req = mtod(msg, struct cfil_msg_data_event *);
 	bzero(data_req, hdrsize);
 	data_req->cfd_msghdr.cfm_len = (uint32_t)hdrsize + copylen;
 	data_req->cfd_msghdr.cfm_version = 1;

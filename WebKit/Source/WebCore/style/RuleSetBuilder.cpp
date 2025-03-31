@@ -2,7 +2,7 @@
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 2004-2005 Allan Sandfeld Jensen (kde@carewolf.com)
  * Copyright (C) 2006, 2007 Nicholas Shanks (webkit@nickshanks.com)
- * Copyright (C) 2005-2021 Apple Inc. All rights reserved.
+ * Copyright (C) 2005-2025 Apple Inc. All rights reserved.
  * Copyright (C) 2007 Alexey Proskuryakov <ap@webkit.org>
  * Copyright (C) 2007, 2008 Eric Seidel <eric@webkit.org>
  * Copyright (C) 2008, 2009 Torch Mobile Inc. All rights reserved. (http://www.torchmobile.com/)
@@ -33,6 +33,7 @@
 #include "CSSCounterStyleRule.h"
 #include "CSSFontSelector.h"
 #include "CSSKeyframesRule.h"
+#include "CSSPositionTryRule.h"
 #include "CSSSelectorParser.h"
 #include "CSSViewTransitionRule.h"
 #include "CustomPropertyRegistry.h"
@@ -54,7 +55,7 @@ RuleSetBuilder::RuleSetBuilder(RuleSet& ruleSet, const MQ::MediaQueryEvaluator& 
     , m_mediaQueryCollector({ evaluator })
     , m_resolver(resolver)
     , m_shrinkToFit(shrinkToFit)
-    , m_shouldResolveNesting(shouldResolveNesting)
+    , m_builderShouldResolveNesting(shouldResolveNesting)
 {
 }
 
@@ -135,10 +136,10 @@ void RuleSetBuilder::addChildRule(Ref<StyleRuleBase> rule)
         // https://drafts.csswg.org/css-nesting/#nesting-at-scope
         // For the purposes of the style rules in its body and its own <scope-end> selector,
         // the @scope rule is treated as an ancestor style rule, matching the elements matched by its <scope-start> selector.
-        if (m_shouldResolveNesting == ShouldResolveNesting::Yes) {
+        if (m_shouldResolveNestingForSheet) {
             const CSSSelectorList* parentResolvedSelectorList = nullptr;
             if (m_selectorListStack.size())
-                parentResolvedSelectorList =  m_selectorListStack.last();
+                parentResolvedSelectorList = m_selectorListStack.last();
             if (!scopeRule->originalScopeStart().isEmpty())
                 scopeRule->setScopeStart(CSSSelectorParser::resolveNestingParent(scopeRule->originalScopeStart(), parentResolvedSelectorList));
             if (!scopeRule->originalScopeEnd().isEmpty())
@@ -217,6 +218,7 @@ void RuleSetBuilder::addChildRule(Ref<StyleRuleBase> rule)
     case StyleRuleType::Keyframes:
     case StyleRuleType::Property:
     case StyleRuleType::ViewTransition:
+    case StyleRuleType::PositionTry:
         disallowDynamicMediaQueryEvaluationIfNeeded();
         if (m_resolver)
             m_collectedResolverMutatingRules.append({ rule, m_currentCascadeLayerIdentifier });
@@ -235,7 +237,6 @@ void RuleSetBuilder::addChildRule(Ref<StyleRuleBase> rule)
     case StyleRuleType::FontFeatureValuesBlock:
         return;
 
-    case StyleRuleType::Unknown:
     case StyleRuleType::Charset:
     case StyleRuleType::Keyframe:
         ASSERT_NOT_REACHED();
@@ -245,6 +246,8 @@ void RuleSetBuilder::addChildRule(Ref<StyleRuleBase> rule)
 
 void RuleSetBuilder::addRulesFromSheetContents(const StyleSheetContents& sheet)
 {
+    auto nestingResolveScope = SetForScope { m_shouldResolveNestingForSheet, m_builderShouldResolveNesting == ShouldResolveNesting::Yes && !sheet.hasResolvedNesting() };
+
     for (auto& rule : sheet.layerRulesBeforeImportRules())
         registerLayers(rule->nameList());
 
@@ -271,10 +274,15 @@ void RuleSetBuilder::addRulesFromSheetContents(const StyleSheetContents& sheet)
     }
 
     addChildRules(sheet.childRules());
+
+    if (m_shouldResolveNestingForSheet)
+        sheet.setHasResolvedNesting(true);
 }
 
 void RuleSetBuilder::resolveSelectorListWithNesting(StyleRuleWithNesting& rule)
 {
+    ASSERT(m_shouldResolveNestingForSheet);
+
     const CSSSelectorList* parentResolvedSelectorList = nullptr;
     if (m_selectorListStack.size())
         parentResolvedSelectorList = m_selectorListStack.last();
@@ -302,7 +310,7 @@ void RuleSetBuilder::addStyleRuleWithSelectorList(const CSSSelectorList& selecto
 
 void RuleSetBuilder::addStyleRule(StyleRuleWithNesting& rule)
 {
-    if (m_shouldResolveNesting == ShouldResolveNesting::Yes)
+    if (m_shouldResolveNestingForSheet)
         resolveSelectorListWithNesting(rule);
 
     const auto& selectorList = rule.selectorList();

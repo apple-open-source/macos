@@ -26,8 +26,10 @@
 #pragma once
 
 #include "MessageReceiver.h"
+#include "SharedPreferencesForWebProcess.h"
 #include "WebPageProxyIdentifier.h"
 #include <WebCore/NotificationDirection.h>
+#include <wtf/AbstractRefCounted.h>
 #include <wtf/UUID.h>
 
 namespace WebCore {
@@ -52,6 +54,7 @@ public:
     virtual void setAppBadge(const WebCore::SecurityOriginData&, std::optional<uint64_t> badge) = 0;
     virtual void getPermissionState(WebCore::SecurityOriginData&&, CompletionHandler<void(WebCore::PushPermissionState)>&&) = 0;
     virtual void getPermissionStateSync(WebCore::SecurityOriginData&&, CompletionHandler<void(WebCore::PushPermissionState)>&&) = 0;
+    virtual std::optional<SharedPreferencesForWebProcess> sharedPreferencesForWebProcess(const IPC::Connection&) const = 0;
 
     // IPC::MessageReceiver
     void didReceiveMessage(IPC::Connection&, IPC::Decoder&);

@@ -96,30 +96,6 @@ struct diff_chunk {
 
 #define DIFF_RESULT_ALLOC_BLOCKSIZE 128
 
-enum diff_chunk_type {
-	CHUNK_EMPTY,
-	CHUNK_PLUS,
-	CHUNK_MINUS,
-	CHUNK_SAME,
-	CHUNK_ERROR,
-};
-
-static inline enum diff_chunk_type
-diff_chunk_type(const struct diff_chunk *chunk)
-{
-	if (!chunk->left_count && !chunk->right_count)
-		return CHUNK_EMPTY;
-	if (!chunk->solved)
-		return CHUNK_ERROR;
-	if (!chunk->right_count)
-		return CHUNK_MINUS;
-	if (!chunk->left_count)
-		return CHUNK_PLUS;
-	if (chunk->left_count != chunk->right_count)
-		return CHUNK_ERROR;
-	return CHUNK_SAME;
-}
-
 struct diff_chunk_context;
 
 bool
@@ -172,8 +148,7 @@ int diff_output_trailing_newline_msg(struct diff_output_info *outinfo,
 int diff_output_match_function_prototype(char *prototype, size_t prototype_size,
 					 int *last_prototype_idx,
 					 const struct diff_result *result,
-					 const struct diff_chunk_context *cc,
-					 unsigned int ncontext);
+					 int chunk_start_line);
 
 struct diff_output_info *diff_output_info_alloc(void);
 

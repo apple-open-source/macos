@@ -33,8 +33,9 @@ WTF_MAKE_TZONE_ALLOCATED_IMPL(StreamClientConnection);
 
 // FIXME(http://webkit.org/b/238986): Workaround for not being able to deliver messages from the dedicated connection to the work queue the client uses.
 
-StreamClientConnection::DedicatedConnectionClient::DedicatedConnectionClient(Connection::Client& receiver)
-    : m_receiver(receiver)
+StreamClientConnection::DedicatedConnectionClient::DedicatedConnectionClient(StreamClientConnection& owner, Connection::Client& receiver)
+    : m_owner(owner)
+    , m_receiver(receiver)
 {
 }
 
@@ -73,7 +74,7 @@ std::optional<StreamClientConnection::StreamConnectionPair> StreamClientConnecti
     // For Connection, "client" means the connection which was established by receiving it through IPC and creating IPC::Connection out from the identifier.
     // The "Client" in StreamClientConnection means the party that mostly does sending, e.g. untrusted party.
     // The "Server" in StreamServerConnection means the party that mostly does receiving, e.g. the trusted party which holds the destination object to communicate with.
-    auto dedicatedConnection = Connection::createServerConnection(connectionIdentifiers->server);
+    auto dedicatedConnection = Connection::createServerConnection(WTFMove(connectionIdentifiers->server));
     auto clientConnection = adoptRef(*new StreamClientConnection(WTFMove(dedicatedConnection), WTFMove(*buffer), defaultTimeoutDuration));
     StreamServerConnection::Handle serverHandle {
         WTFMove(connectionIdentifiers->client),
@@ -112,7 +113,7 @@ void StreamClientConnection::setMaxBatchSize(unsigned size)
 
 void StreamClientConnection::open(Connection::Client& receiver, SerialFunctionDispatcher& dispatcher)
 {
-    m_dedicatedConnectionClient.emplace(receiver);
+    m_dedicatedConnectionClient.emplace(*this, receiver);
     protectedConnection()->open(*m_dedicatedConnectionClient, dispatcher);
 }
 

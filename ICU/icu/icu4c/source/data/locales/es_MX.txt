@@ -6,22 +6,6 @@ es_MX{
     MoreInformation{"[...]"}
     NumberElements{
         latn{
-            patternsLong{
-                decimalFormat{
-                    1000000000000{
-                        one{"0 billón"}
-                        other{"0 billones"}
-                    }
-                    10000000000000{
-                        one{"00 billones"}
-                        other{"00 billones"}
-                    }
-                    100000000000000{
-                        one{"000 billones"}
-                        other{"000 billones"}
-                    }
-                }
-            }
             patternsShort{
                 currencyFormat{
                     1000{
@@ -457,9 +441,6 @@ es_MX{
                 }
             }
         }
-        dayOfYear-narrow{
-            dn{"día del a"}
-        }
         dayOfYear-short{
             dn{"día del a"}
         }
@@ -470,25 +451,11 @@ es_MX{
                 "1"{"el viernes próximo"}
             }
         }
-        fri-narrow{
-            relativeTime{
-                past{
-                    one{"hace {0} VI"}
-                    other{"hace {0} VI"}
-                }
-            }
-        }
         fri-short{
             relative{
                 "-1"{"el vier. pasado"}
                 "0"{"este vier."}
                 "1"{"el próximo vier."}
-            }
-            relativeTime{
-                past{
-                    one{"hace {0} vie."}
-                    other{"hace {0} vie."}
-                }
             }
         }
         hour-short{
@@ -645,9 +612,6 @@ es_MX{
                     other{"en {0} sem."}
                 }
             }
-        }
-        weekOfMonth-narrow{
-            dn{"sem. de m"}
         }
         weekOfMonth-short{
             dn{"sem. de m"}

@@ -1,0 +1,232 @@
+#! /bin/sh
+
+# Test that the --compress/-z option works as expected.
+
+set -e
+set -u
+
+. ${tstdir-.}/lib.sh
+. ${tstdir-.}/conf.sh
+
+SRCD="src/"
+DSTD="dst/"
+
+# Uncomment SRCD to elicit failues with rsync269.
+# Uncomment DSTD to elicit failures with openrsync.
+# rsync330 passes all tests regardless of SRCD/DSTD.
+#
+#SRCD="localhost:${PWD}/src/"
+#DSTD="localhost:${PWD}/dst/"
+
+# Create the source tree consisting of a number of highly compressed,
+# somewhat compressed, and highly compressible files of varying sizes:
+#
+rm -rf src
+mkdir src
+
+for i in 1 17 131 523 1025 ; do
+    for reps in $((1024 * i)) ; do
+	jot ${reps} $i > src/file-${reps}-$i
+	xz -c -3 src/file-${reps}-$i > src/file-${reps}-$i-3.xz
+	xz -c -7 src/file-${reps}-$i > src/file-${reps}-$i-7.xz
+    done
+done
+
+
+# Very simple compression test for non-existent dest dir:
+#
+for opt in "" "--fuzzy" ; do
+    rm -rf dst
+    rsync -az ${opt} -- ${SRCD} ${DSTD}
+    compare_trees -t src dst
+done
+
+
+# Rename all the files in the dest dir such that they can be
+# selected as fuzzy basis files:
+#
+echo "chk 10"
+ls dst | xargs -n1 -I{} mv dst/{} dst/{}-fuzzy
+rsync -az --fuzzy --delete-after -- ${SRCD} ${DSTD}
+compare_trees -t src dst
+
+
+# Create three source files (one sparse, one filled with random data,
+# and one filled with highly compressible text), then iterate over
+# various offsets and block sizes and modify the data in the source
+# files at those offsets and sizes (note that the changes to the
+# source files accumulate over each iteration):
+#
+rm -rf src dst
+mkdir src dst
+dd if=/dev/zero of=src/file0 oseek=$((32768*1024)) bs=1 count=1 > /dev/null 2>&1
+dd if=/dev/random of=src/filez bs=1024k count=9 > /dev/null 2>&1
+jot 1000000 > src/filej
+cp -a src/file? dst/
+
+for i in $(seq 1 17 119) ; do
+    dd if=/dev/random of=src/file0 conv=notrunc bs=$i oseek=$((i-1)) count=1 > /dev/null 2>&1
+    dd if=/dev/zero of=src/filez conv=notrunc bs=$i oseek=$((i-1)) count=1 > /dev/null 2>&1
+    dd if=/dev/random of=src/filej conv=notrunc bs=$i oseek=$((i-1)) count=1 > /dev/null 2>&1
+
+    cp -a src/file0 dst/file0-fuzzy
+    cp -a src/filez dst/filez-fuzzy
+    cp -a src/filej dst/filej-fuzzy
+    rsync -az -I --fuzzy --delete-after -- ${SRCD} ${DSTD}
+    compare_trees -t src dst
+
+    echo "chk 20 $i"
+    rm -f dst/*
+    rsync -az -- ${SRCD} ${DSTD}
+    compare_trees -t src dst
+done
+
+
+# Create two source files (one random/uncompressible and one highly
+# compressible), then iterate over various block sizes, modifying the
+# source and or dest files at various block offsets and run lengths:
+#
+rm -rf src dst
+mkdir src dst
+dd if=/dev/random of=filez.orig bs=1025k count=9 > /dev/null 2>&1
+jot 1000000 > filej.orig
+
+for bs in 127 2049 4096 32791 33792 ; do
+    cp -a filez.orig src/filez
+    cp -a filej.orig src/filej
+
+    # rsync with given block size + compression where dest file does not exist:
+    #
+    echo "chk 30 $bs"
+    rm -f dst/*
+    rsync -az --block-size=${bs} -- ${SRCD} ${DSTD}
+    compare_trees -t src dst
+
+    # rsync with given block size + compression + fuzzy where dest file
+    # does not exist:
+    #
+    echo "chk 40 $bs"
+    rm -f dst/*
+    cp src/filez dst/filez-fuzzy
+    cp src/filej dst/filej-fuzzy
+    rsync -az --block-size=${bs} -I --fuzzy --delete-after -- ${SRCD} ${DSTD}
+    compare_trees -t src dst
+
+    for count in $(seq 1 2 5) ; do
+	cp -a filez.orig src/filez
+	cp -a filej.orig src/filej
+
+	cp src/filez dst/filez-fuzzy
+	cp src/filej dst/filej-fuzzy
+
+	# Permute the source files:
+	#
+	for oseek in $(seq 0 7 63) ; do
+	    dd if=/dev/zero of=src/filez conv=notrunc bs=${bs} oseek=${oseek} count=${count} > /dev/null 2>&1
+	    dd if=/dev/random of=src/filej conv=notrunc bs=${bs} oseek=${oseek} count=${count} > /dev/null 2>&1
+	done
+
+	# rsync with given block size + compression + fuzzy where dest and
+	# fuzzy files exist but all files are different:
+	#
+	# TODO: rsync269 fails here when bs==33792 and count==1.
+	#
+	echo "chk 50 $bs $count"
+	rsync -az --block-size=${bs} -I --fuzzy --delete-after -- ${SRCD} ${DSTD}
+	compare_trees -t src dst
+
+
+	# Permute the dest files:
+	#
+	for oseek in $(seq 0 7 63) ; do
+	    dd if=/dev/zero of=dst/filez conv=notrunc bs=${bs} oseek=${oseek} count=${count} > /dev/null 2>&1
+	    dd if=/dev/random of=dst/filej conv=notrunc bs=${bs} oseek=${oseek} count=${count} > /dev/null 2>&1
+	done
+
+	# rsync with given block size + compression + fuzzy where dest and
+	# fuzzy files exist but all files are different:
+	#
+	# TODO: openrsync fails here when bs==33792 and count==1.
+	#
+	echo "chk 60 $bs $count"
+	touch src/*
+	cp dst/filez dst/filez-fuzzy
+	cp dst/filej dst/filej-fuzzy
+	rsync -az --block-size=${bs} -I --fuzzy --delete-after -- ${SRCD} ${DSTD}
+	compare_trees -t src dst
+    done
+
+    # Same as above, but without fuzzy files:
+    #
+    for count in $(seq 1 2 5) ; do
+	cp -a filez.orig src/filez
+	cp -a filej.orig src/filej
+
+	# Permute the source files:
+	#
+	for oseek in $(seq 0 7 63) ; do
+	    dd if=/dev/zero of=src/filez conv=notrunc bs=${bs} oseek=${oseek} count=${count} > /dev/null 2>&1
+	    dd if=/dev/random of=src/filej conv=notrunc bs=${bs} oseek=${oseek} count=${count} > /dev/null 2>&1
+	done
+
+	echo "chk 70 $bs $count"
+	rsync -az --block-size=${bs} -I -- ${SRCD} ${DSTD}
+	compare_trees -t src dst
+
+
+	# Permute the dest files:
+	#
+	for oseek in $(seq 0 7 63) ; do
+	    dd if=/dev/zero of=dst/filez conv=notrunc bs=${bs} oseek=${oseek} count=${count} > /dev/null 2>&1
+	    dd if=/dev/random of=dst/filej conv=notrunc bs=${bs} oseek=${oseek} count=${count} > /dev/null 2>&1
+	done
+
+	echo "chk 80 $bs $count"
+	touch src/*
+	rsync -az --block-size=${bs} -I -- ${SRCD} ${DSTD}
+	compare_trees -t src dst
+    done
+done
+
+1>&2 echo "-- Starting compression savings test --"
+
+rm -rf ${SRCD} ${DSTD}
+mkdir -p ${SRCD} ${DSTD}
+dd if=/dev/random of=${SRCD}file.part bs=1m count=1
+cat ${SRCD}file.part ${SRCD}file.part ${SRCD}file.part ${SRCD}file.part > ${SRCD}file
+
+cp ${SRCD}file.part ${DSTD}file
+dd if=/dev/random of=${DSTD}file bs=512k count=1 conv=notrunc
+
+ls -al ${SRCD} ${DSTD}
+
+rsync -az --stats --no-W -- ${SRCD}/file ${DSTD} 2>&1 | tee log.txt
+MATCHED=$(grep "Matched data" log.txt)
+set -- ${MATCHED}
+ls -al ${SRCD} ${DSTD}
+[ "$3" -lt 2097000 ] && T=$3 sh -c 'echo "Matched too little data $T, compression must not have worked" 1>&2; false'
+if ! cmp ${SRCD}file ${DSTD}file 1>&2; then
+        1>&2 echo "file does not match"
+        1>&2 echo "-- ${SRCD} -- "
+        1>&2 ls -la ${SRCD}/
+        1>&2 echo "-- ${DSTD} -- "
+        1>&2 ls -la ${DSTD}
+        hexdump -C ${DSTD}file | head -5 1>&2
+        exit 1
+fi
+
+1>&2 echo "-- Starting 0-byte file regression test --"
+echo "-- Starting 0-byte file regression test --"
+
+rm -rf ${SRCD} ${DSTD}
+mkdir -p ${SRCD} ${DSTD}
+dd if=/dev/random of=${SRCD}fileA bs=1m count=1
+touch ${SRCD}fileB
+dd if=/dev/random of=${SRCD}fileC bs=1m count=1
+
+rsync -avz --checksum --no-W -- ${SRCD}/ ${DSTD}
+compare_trees -t ${SRCD} ${DSTD}
+
+rm ${DSTD}/fileC
+rsync -avz --checksum --no-W -- ${SRCD}/ ${DSTD}
+compare_trees -t ${SRCD} ${DSTD}

@@ -22,6 +22,11 @@
 
 #if USE(LIBWEBRTC)
 
+[
+    ExceptionForEnabledBy,
+    DispatchedFrom=WebContent,
+    DispatchedTo=Networking
+]
 messages -> NetworkRTCProvider {
     CreateUDPSocket(WebCore::LibWebRTCSocketIdentifier identifier, WebKit::RTC::Network::SocketAddress localAddress, uint16_t minPort, uint16_t maxPort, WebKit::WebPageProxyIdentifier pageIdentifier, bool isFirstParty, bool isRelayDisabled, WebCore::RegistrableDomain domain)
     CreateClientTCPSocket(WebCore::LibWebRTCSocketIdentifier identifier, WebKit::RTC::Network::SocketAddress localAddress, WebKit::RTC::Network::SocketAddress remoteAddress, String userAgent, int options, WebKit::WebPageProxyIdentifier pageIdentifier, bool isFirstParty, bool isRelayDisabled, WebCore::RegistrableDomain domain)

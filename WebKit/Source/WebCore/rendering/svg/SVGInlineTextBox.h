@@ -23,16 +23,12 @@
 #pragma once
 
 #include "LegacyInlineTextBox.h"
-#include "LegacyRenderSVGResource.h"
-#include "RenderSVGResourcePaintServer.h"
-#include "SVGTextFragment.h"
 
 namespace WebCore {
 
-class LegacyRenderSVGResource;
 class RenderSVGInlineText;
-class SVGPaintServerHandling;
 class SVGRootInlineBox;
+struct SVGTextFragment;
 
 class SVGInlineTextBox final : public LegacyInlineTextBox {
     WTF_MAKE_TZONE_OR_ISO_ALLOCATED(SVGInlineTextBox);
@@ -44,39 +40,23 @@ public:
     float virtualLogicalHeight() const override { return m_logicalHeight; }
     void setLogicalHeight(float height) { m_logicalHeight = height; }
 
-    void paintSelectionBackground(PaintInfo&);
-    void paint(PaintInfo&, const LayoutPoint&, LayoutUnit lineTop, LayoutUnit lineBottom) override;
-    LayoutRect localSelectionRect(unsigned startPosition, unsigned endPosition) const override;
-
     bool mapStartEndPositionsIntoFragmentCoordinates(const SVGTextFragment&, unsigned& startPosition, unsigned& endPosition) const;
 
     FloatRect calculateBoundaries() const;
 
     const Vector<SVGTextFragment>& textFragments() const { return m_textFragments; }
-    void setTextFragments(Vector<SVGTextFragment>&& fragments) { m_textFragments = WTFMove(fragments); }
+    void setTextFragments(Vector<SVGTextFragment>&&);
 
     void dirtyOwnLineBoxes() override;
     void dirtyLineBoxes() override;
-
-    bool startsNewTextChunk() const { return m_startsNewTextChunk; }
-    void setStartsNewTextChunk(bool newTextChunk) { m_startsNewTextChunk = newTextChunk; }
-
-    int offsetForPositionInFragment(const SVGTextFragment&, float position) const;
-    FloatRect selectionRectForTextFragment(const SVGTextFragment&, unsigned fragmentStartPosition, unsigned fragmentEndPosition, const RenderStyle&) const;
 
     inline SVGInlineTextBox* nextTextBox() const;
     
 private:
     bool isSVGInlineTextBox() const override { return true; }
 
-    TextRun constructTextRun(const RenderStyle&, const SVGTextFragment&) const;
-
-
-    bool nodeAtPoint(const HitTestRequest&, HitTestResult&, const HitTestLocation& locationInContainer, const LayoutPoint& accumulatedOffset, LayoutUnit lineTop, LayoutUnit lineBottom, HitTestAction) override;
-
 private:
     float m_logicalHeight { 0 };
-    unsigned m_startsNewTextChunk : 1;
 
     Vector<SVGTextFragment> m_textFragments;
 };

@@ -20,6 +20,7 @@
 # bleached: Boolean to mark a platform as bleached from the pulic SDKs
 
 platform    macos               macOS 		MACOS			cmd_aliases=macosx,osx		dyld_version_define_name=MACOSX	min_max_define_name=MAC_OS_X	availability_aliases=macosx -short_version_numbers availability_deprecation_define_name=MACOS version_define_name=MAC -supports_legacy_environment_defines
+variant     macos               macOSApplicationExtension       MACOSAPPLICATIONEXTENSION
 version     macos               10.0
 version     macos               10.1
 version     macos               10.2
@@ -29,7 +30,9 @@ version     macos               10.5
 version     macos               10.6
 version     macos               10.7
 platform    ios                 iOS         IPHONE		dyld_version_define_name=IOS	min_max_define_name=IPHONE_OS platform_define_name=IOS availability_deprecation_define_name=IOS -supports_legacy_environment_defines
-variant		ios					iosmac		MACCATALYST	availability_aliases=macCatalyst
+variant     ios                 iOSApplicationExtension IOSAPPLICATIONEXTENSION
+variant     ios                 macCatalyst   MACCATALYST
+variant     ios                 macCatalystApplicationExtension MACCATALYSTAPPLICATIONEXTENSION
 version     ios                 2.0
 version     ios                 2.1
 version     ios                 2.2
@@ -55,6 +58,7 @@ version     ios                 7.1
 version     ios                 8.0
 set         fall_2014           2014.9.1	0.0
 platform    watchos             watchOS     WATCHOS		ios_implicit_min=9.0	min_max_define_name=WATCH_OS -supports_legacy_environment_defines
+variant     watchos             watchOSApplicationExtension     WATCHOSAPPLICATIONEXTENSION
 version     watchos             1.0
 version     macos               10.10.2
 version     macos               10.10.3
@@ -65,6 +69,7 @@ version     ios                 8.3
 version     ios                 8.4
 version     ios                 9.0
 platform    tvos                tvOS        TVOS		cmd_aliases=appletvos	ios_implicit_min=9.0 min_max_define_name=TV_OS -supports_legacy_environment_defines
+variant     tvos                tvOSApplicationExtension        TVOSAPPLICATIONEXTENSION 
 version     tvos                9.0
 version     watchos             2.0
 set         fall_2015           2015.9.1	0.0
@@ -99,7 +104,7 @@ version     macos               10.13
 version     ios                 11.0
 version     tvos                11.0
 version     watchos             4.0
-platform    bridgeos            bridgeOS	BRIDGEOS	ios_implicit_min=11.0 min_max_define_name=BRIDGE_OS
+platform    bridgeos            bridgeOS	BRIDGEOS	ios_implicit_min=11.0 min_max_define_name=BRIDGE_OS -bleached
 version     bridgeos            2.0
 set         fall_2017           2017.9.1	0.0
 version     macos               10.13.1
@@ -305,10 +310,10 @@ version     ios                 16.6
 version     tvos                16.6
 version     watchos             9.6
 version     bridgeos            7.6
-set         2022_SU_G           2022.37.0   22.6.0
-# Security updates shipped after 2022_SU_G
 version     macos               13.6
 version     ios                 16.7
+version     macos               13.7
+set         2022_SU_G           2022.37.0   22.6.0
 version     macos               14.0
 version     ios                 17.0
 version     tvos                17.0
@@ -316,7 +321,8 @@ version     watchos             10.0
 version     bridgeos            8.0
 version     driverkit           23.0
 set         fall_2023           2023.9.1    23.0.0
-platform    visionos            visionOS    VISIONOS      min_max_define_name=VISION_OS   cmd_aliases=xros availability_aliases=xros ios_implicit_min=17.1
+platform    visionos            visionOS    VISIONOS      min_max_define_name=VISION_OS   cmd_aliases=xros ios_implicit_min=17.1
+variant     visionos            visionOSApplicationExtension    VISIONOSAPPLICATIONEXTENSION
 version     visionos            1.0
 version     macos               14.1
 version     ios                 17.1

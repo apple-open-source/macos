@@ -26,8 +26,11 @@
 #import "WebCryptoClient.h"
 
 #import "WebDelegateImplementationCaching.h"
+#import "WebFramePrivate.h"
 #import "WebUIDelegatePrivate.h"
+#import <WebCore/CryptoKey.h>
 #import <WebCore/SerializedCryptoKeyWrap.h>
+#import <WebCore/SerializedScriptValue.h>
 #import <WebCore/WrappedCryptoKey.h>
 #import <optional>
 #import <wtf/TZoneMallocInlines.h>
@@ -52,6 +55,17 @@ std::optional<Vector<uint8_t>> WebCryptoClient::wrapCryptoKey(const Vector<uint8
     if (!WebCore::wrapSerializedCryptoKey(WTFMove(*masterKey), key, wrappedKey))
         return std::nullopt;
     return wrappedKey;
+}
+
+std::optional<Vector<uint8_t>> WebCryptoClient::serializeAndWrapCryptoKey(WebCore::CryptoKeyData&& keyData) const
+{
+    auto key = WebCore::CryptoKey::create(WTFMove(keyData));
+    if (!key)
+        return std::nullopt;
+
+    JSContextRef context = [[m_webView mainFrame] globalContext];
+    auto serializedKey = WebCore::SerializedScriptValue::serializeCryptoKey(context, *key);
+    return wrapCryptoKey(serializedKey);
 }
 
 std::optional<Vector<uint8_t>> WebCryptoClient::unwrapCryptoKey(const Vector<uint8_t>& serializedKey) const

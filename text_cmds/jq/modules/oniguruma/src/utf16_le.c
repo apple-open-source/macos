@@ -2,7 +2,7 @@
   utf16_le.c -  Oniguruma (regular expression library)
 **********************************************************************/
 /*-
- * Copyright (c) 2002-2016  K.Kosako  <sndgk393 AT ybb DOT ne DOT jp>
+ * Copyright (c) 2002-2023  K.Kosako
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -26,8 +26,52 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  */
+#include "regint.h"  /* for USE_CALLOUT */
 
-#include "regenc.h"
+static int
+init(void)
+{
+#ifdef USE_CALLOUT
+
+    int id;
+    OnigEncoding enc;
+    char* name;
+    unsigned int args[4];
+    OnigValue    opts[4];
+
+    enc = ONIG_ENCODING_UTF16_LE;
+
+    name = "F\000A\000I\000L\000\000\000";            BC0_P(name, fail);
+    name = "M\000I\000S\000M\000A\000T\000C\000H\000\000\000"; BC0_P(name, mismatch);
+
+    name = "M\000A\000X\000\000\000";
+    args[0] = ONIG_TYPE_TAG | ONIG_TYPE_LONG;
+    args[1] = ONIG_TYPE_CHAR;
+    opts[0].c = 'X';
+    BC_B_O(name, max, 2, args, 1, opts);
+
+    name = "E\000R\000R\000O\000R\000\000\000";
+    args[0] = ONIG_TYPE_LONG; opts[0].l = ONIG_ABORT;
+    BC_P_O(name, error, 1, args, 1, opts);
+
+    name = "C\000O\000U\000N\000T\000\000\000";
+    args[0] = ONIG_TYPE_CHAR; opts[0].c = '>';
+    BC_B_O(name, count, 1, args, 1, opts);
+
+    name = "T\000O\000T\000A\000L\000_\000C\000O\000U\000N\000T\000\000\000";
+    args[0] = ONIG_TYPE_CHAR; opts[0].c = '>';
+    BC_B_O(name, total_count, 1, args, 1, opts);
+
+    name = "C\000M\000P\000\000\000";
+    args[0] = ONIG_TYPE_TAG | ONIG_TYPE_LONG;
+    args[1] = ONIG_TYPE_STRING;
+    args[2] = ONIG_TYPE_TAG | ONIG_TYPE_LONG;
+    BC_P(name, cmp, 3, args);
+
+#endif /* USE_CALLOUT */
+
+  return ONIG_NORMAL;
+}
 
 static const int EncLen_UTF16[] = {
   2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
@@ -51,7 +95,15 @@ static const int EncLen_UTF16[] = {
 static int
 utf16le_code_to_mbclen(OnigCodePoint code)
 {
-  return (code > 0xffff ? 4 : 2);
+  if (code > 0xffff) {
+    if (code > 0x10ffff)
+      return ONIGERR_INVALID_CODE_POINT_VALUE;
+    else
+      return 4;
+  }
+  else {
+    return 2;
+  }
 }
 
 static int
@@ -66,7 +118,16 @@ is_valid_mbc_string(const UChar* p, const UChar* end)
   const UChar* end1 = end - 1;
 
   while (p < end1) {
-    p += utf16le_mbc_enc_len(p);
+    int len = utf16le_mbc_enc_len(p);
+    if (len == 4) {
+      if (p + 3 < end && ! UTF16_IS_SURROGATE_SECOND(*(p + 3)))
+        return FALSE;
+    }
+    else
+      if (UTF16_IS_SURROGATE_SECOND(*(p + 1)))
+        return FALSE;
+
+    p += len;
   }
 
   if (p != end)
@@ -79,7 +140,7 @@ static int
 utf16le_is_mbc_newline(const UChar* p, const UChar* end)
 {
   if (p + 1 < end) {
-    if (*p == 0x0a && *(p+1) == 0x00)
+    if (*p == NEWLINE_CODE && *(p+1) == 0x00)
       return 1;
 #ifdef USE_UNICODE_ALL_LINE_TERMINATORS
     if ((
@@ -133,14 +194,14 @@ utf16le_code_to_mbc(OnigCodePoint code, UChar *buf)
   }
   else {
     *p++ = (UChar )(code & 0xff);
-    *p++ = (UChar )((code & 0xff00) >> 8);
+    *p   = (UChar )((code & 0xff00) >> 8);
     return 2;
   }
 }
 
 static int
 utf16le_mbc_case_fold(OnigCaseFoldType flag,
-		      const UChar** pp, const UChar* end, UChar* fold)
+                      const UChar** pp, const UChar* end, UChar* fold)
 {
   const UChar* p = *pp;
 
@@ -163,52 +224,20 @@ utf16le_mbc_case_fold(OnigCaseFoldType flag,
   }
   else
     return onigenc_unicode_mbc_case_fold(ONIG_ENCODING_UTF16_LE, flag, pp, end,
-					 fold);
+                                         fold);
 }
-
-#if 0
-static int
-utf16le_is_mbc_ambiguous(OnigCaseFoldType flag, const UChar** pp,
-			 const UChar* end)
-{
-  const UChar* p = *pp;
-
-  (*pp) += EncLen_UTF16[*(p+1)];
-
-  if (*(p+1) == 0) {
-    int c, v;
-
-    if (*p == 0xdf && (flag & INTERNAL_ONIGENC_CASE_FOLD_MULTI_CHAR) != 0) {
-      return TRUE;
-    }
-
-    c = *p;
-    v = ONIGENC_IS_UNICODE_ISO_8859_1_BIT_CTYPE(c,
-                       (BIT_CTYPE_UPPER | BIT_CTYPE_LOWER));
-    if ((v | BIT_CTYPE_LOWER) != 0) {
-      /* 0xaa, 0xb5, 0xba are lower case letter, but can't convert. */
-      if (c >= 0xaa && c <= 0xba)
-        return FALSE;
-      else
-        return TRUE;
-    }
-    return (v != 0 ? TRUE : FALSE);
-  }
-
-  return FALSE;
-}
-#endif
 
 static UChar*
 utf16le_left_adjust_char_head(const UChar* start, const UChar* s)
 {
   if (s <= start) return (UChar* )s;
 
-  if ((s - start) % 2 == 1) {
+  if ((s - start) % 2 != 0) {
     s--;
   }
 
-  if (UTF16_IS_SURROGATE_SECOND(*(s+1)) && s > start + 1)
+  if (UTF16_IS_SURROGATE_SECOND(*(s+1)) && s > start + 1 &&
+      UTF16_IS_SURROGATE_FIRST(*(s-1)))
     s -= 2;
 
   return (UChar* )s;
@@ -219,14 +248,14 @@ utf16le_get_case_fold_codes_by_str(OnigCaseFoldType flag,
     const OnigUChar* p, const OnigUChar* end, OnigCaseFoldCodeItem items[])
 {
   return onigenc_unicode_get_case_fold_codes_by_str(ONIG_ENCODING_UTF16_LE,
-						    flag, p, end, items);
+                                                    flag, p, end, items);
 }
 
 OnigEncodingType OnigEncodingUTF16_LE = {
   utf16le_mbc_enc_len,
   "UTF-16LE",   /* name */
-  4,            /* max byte length */
-  2,            /* min byte length */
+  4,            /* max enc length */
+  2,            /* min enc length */
   utf16le_is_mbc_newline,
   utf16le_mbc_to_code,
   utf16le_code_to_mbclen,
@@ -239,7 +268,9 @@ OnigEncodingType OnigEncodingUTF16_LE = {
   onigenc_utf16_32_get_ctype_code_range,
   utf16le_left_adjust_char_head,
   onigenc_always_false_is_allowed_reverse_match,
-  NULL, /* init */
-  NULL, /* is_initialized */
-  is_valid_mbc_string
+  init,
+  0, /* is_initialized */
+  is_valid_mbc_string,
+  ENC_FLAG_UNICODE|ENC_FLAG_SKIP_OFFSET_1,
+  0, 0
 };

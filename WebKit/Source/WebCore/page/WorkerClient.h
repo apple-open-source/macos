@@ -32,14 +32,12 @@
 
 namespace WebCore {
 
-class WorkerOrWorkletThread;
-
 class WorkerClient : public GraphicsClient {
     WTF_MAKE_TZONE_ALLOCATED_INLINE(WorkerClient);
 public:
 
     // Used for constructing clients for nested workers. Created on the worker thread of the outer worker, and then transferred to the nested worker.
-    virtual UniqueRef<WorkerClient> createNestedWorkerClient(WorkerOrWorkletThread&) = 0;
+    virtual UniqueRef<WorkerClient> createNestedWorkerClient(SerialFunctionDispatcher&) = 0;
 
     virtual ~WorkerClient() = default;
 };

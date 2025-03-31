@@ -47,7 +47,7 @@ static inline Vector<uint8_t, 8> encodeBigEndian(uint64_t value)
 {
     Vector<uint8_t, 8> result(8);
     for (int i = 7; i >= 0; --i) {
-        result.data()[i] = value & 0xff;
+        result[i] = value & 0xff;
         value = value >> 8;
     }
     return result;

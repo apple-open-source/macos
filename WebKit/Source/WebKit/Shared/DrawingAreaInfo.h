@@ -46,9 +46,9 @@ enum class DrawingAreaType : uint8_t {
 enum {
     ActivityStateChangeAsynchronous = 0
 };
-typedef uint64_t ActivityStateChangeID;
+using ActivityStateChangeID = uint64_t;
 
 struct DrawingAreaIdentifierType;
-using DrawingAreaIdentifier = LegacyNullableObjectIdentifier<DrawingAreaIdentifierType>;
+using DrawingAreaIdentifier = ObjectIdentifier<DrawingAreaIdentifierType>;
 
 } // namespace WebKit

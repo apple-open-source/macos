@@ -248,7 +248,7 @@ mptcp_reass_present(struct socket *mp_so)
 				dowakeup = 1;
 			}
 		}
-		zfree(tcp_reass_zone, q);
+		tcp_reass_qent_free(q);
 		mp_tp->mpt_reassqlen--;
 		count++;
 		q = LIST_FIRST(&mp_tp->mpt_segq);
@@ -293,7 +293,7 @@ mptcp_reass(struct socket *mp_so, struct pkthdr *phdr, int *tlenp, struct mbuf *
 	}
 
 	/* Allocate a new queue entry. If we can't, just drop the pkt. XXX */
-	te = zalloc_flags(tcp_reass_zone, Z_WAITOK | Z_NOFAIL);
+	te = tcp_reass_qent_alloc();
 
 	mp_tp->mpt_reassqlen++;
 	OSIncrementAtomic(&mptcp_reass_total_qlen);
@@ -321,7 +321,7 @@ mptcp_reass(struct socket *mp_so, struct pkthdr *phdr, int *tlenp, struct mbuf *
 			if (i >= *tlenp) {
 				tcpstat.tcps_mptcp_rcvduppack++;
 				m_freem(m);
-				zfree(tcp_reass_zone, te);
+				tcp_reass_qent_free(te);
 				te = NULL;
 				mp_tp->mpt_reassqlen--;
 				OSDecrementAtomic(&mptcp_reass_total_qlen);
@@ -364,7 +364,7 @@ mptcp_reass(struct socket *mp_so, struct pkthdr *phdr, int *tlenp, struct mbuf *
 		nq = LIST_NEXT(q, tqe_q);
 		LIST_REMOVE(q, tqe_q);
 		m_freem(q->tqe_m);
-		zfree(tcp_reass_zone, q);
+		tcp_reass_qent_free(q);
 		mp_tp->mpt_reassqlen--;
 		OSDecrementAtomic(&mptcp_reass_total_qlen);
 		q = nq;
@@ -410,7 +410,7 @@ mptcp_input(struct mptses *mpte, struct mbuf *m)
 
 	DTRACE_MPTCP(input);
 
-	mp_tp->mpt_rcvwnd = mptcp_sbspace(mp_tp);
+	mp_tp->mpt_rcvwnd = imax(mptcp_sbspace(mp_tp), (int)(mp_tp->mpt_rcvadv - mp_tp->mpt_rcvnxt));
 
 	/*
 	 * Each mbuf contains MPTCP Data Sequence Map
@@ -680,7 +680,7 @@ mptcp_output(struct mptses *mpte)
 	struct mptsub *mpts;
 	struct mptsub *mpts_tried = NULL;
 	struct socket *mp_so;
-	struct mptsub *preferred_mpts = NULL;
+	struct mptsub *preferred_mpts __single = NULL;
 	uint64_t old_snd_nxt;
 	int error = 0;
 
@@ -1456,8 +1456,7 @@ mptcp_session_necp_cb(void *handle, int action, uint32_t interface_index,
 			memcpy(info, mpte->mpte_itfinfo, mpte->mpte_itfinfo_size * sizeof(*info));
 
 			if (mpte->mpte_itfinfo_size > MPTE_ITFINFO_SIZE) {
-				kfree_data(mpte->mpte_itfinfo,
-				    sizeof(*info) * mpte->mpte_itfinfo_size);
+				kfree_data_counted_by(mpte->mpte_itfinfo, mpte->mpte_itfinfo_size);
 			}
 
 			/* We allocated a new one, thus the first must be empty */
@@ -1527,13 +1526,13 @@ mptcp_set_restrictions(struct socket *mp_so)
 
 #define DUMP_BUF_CHK() {        \
 	clen -= k;              \
-	if (clen < 1)           \
-	        goto done;      \
-	c += k;                 \
+    if (clen < 1)           \
+	    goto done;          \
+    c += k;                 \
 }
 
 int
-dump_mptcp_reass_qlen(char *str, int str_len)
+dump_mptcp_reass_qlen(char *str __sized_by(str_len), int str_len)
 {
 	char *c = str;
 	int k, clen = str_len;

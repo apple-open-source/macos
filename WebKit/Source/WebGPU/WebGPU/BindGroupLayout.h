@@ -31,7 +31,7 @@
 #import <wtf/HashMap.h>
 #import <wtf/HashTraits.h>
 #import <wtf/Ref.h>
-#import <wtf/RefCounted.h>
+#import <wtf/RefCountedAndCanMakeWeakPtr.h>
 #import <wtf/TZoneMalloc.h>
 #import <wtf/Vector.h>
 #import <wtf/WeakPtr.h>
@@ -46,7 +46,7 @@ class Device;
 class PipelineLayout;
 
 // https://gpuweb.github.io/gpuweb/#gpubindgrouplayout
-class BindGroupLayout : public WGPUBindGroupLayoutImpl, public RefCounted<BindGroupLayout>, public CanMakeWeakPtr<BindGroupLayout> {
+class BindGroupLayout : public RefCountedAndCanMakeWeakPtr<BindGroupLayout>, public WGPUBindGroupLayoutImpl {
     WTF_MAKE_TZONE_ALLOCATED(BindGroupLayout);
 public:
     template <typename T>
@@ -129,7 +129,7 @@ public:
     uint32_t dynamicUniformBuffers() const;
     uint32_t dynamicStorageBuffers() const;
     uint32_t dynamicBufferCount() const;
-    NSString* errorValidatingDynamicOffsets(const uint32_t*, size_t, const BindGroup&) const;
+    NSString* errorValidatingDynamicOffsets(std::span<const uint32_t>, const BindGroup&) const;
     NSString* errorValidatingBindGroupCompatibility(const BindGroupLayout&) const;
     static bool equalBindingEntries(const BindGroupLayout::Entry::BindingLayout&, const BindGroupLayout::Entry::BindingLayout&);
     const ArgumentIndices& argumentIndices(ShaderStage) const;

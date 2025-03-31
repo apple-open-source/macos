@@ -25,13 +25,6 @@
 #   define UNISTR_FROM_STRING_EXPLICIT explicit
 #endif
 
-#if /*APPLE_ICU_CHANGES*/true // APPLE_ICU_CHANGES is defined in uconfig.h below, but that's too late
-// rdar://121241618 (StarlightE: VideosUI-883.40.54#24 has failed to build in install; cannot initialize a variable of type 'const UChar *' (aka 'const char16_t)
-#ifndef UCHAR_TYPE
-#define UCHAR_TYPE char16_t
-#endif
-#endif // APPLE_ICU_CHANGES
-
 #include "unicode/regex.h"
 #include "unicode/unistr.h"
 #include "unicode/parseerr.h"

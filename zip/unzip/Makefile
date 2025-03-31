@@ -1,25 +1,12 @@
 PROJECT		= unzip
 VERSION		= 60
-DISTFILE	= $(PROJECT)$(shell echo $(VERSION)  | tr -d '.').tgz
+DIST		= $(PROJECT)$(shell echo $(VERSION)  | tr -d '.')
 
 OSLICENSES	= /usr/local/OpenSourceLicenses
-PATCHFILES	= cve-2014-8140-test-compr-eb \
-                  cve-2014-8139-crc-overflow \
-                  cve-2014-8141-getzip64data \
-                  cve-2014-9636-test-compr-eb \
-                  allow-greater-hostver-values \
-                  include-unistd-for-kfreebsd \
-                  handle-pkware-verification-bit \
-                  initialize-the-symlink-flag \
-                  increase-size-of-cfactorstr \
-                  patch-quarantine \
-                  PR-25537454.diff \
-                  PR-4126223.diff \
-                  cve-2022-0530 \
-                  0001-Fix-null-pointer-dereference-and-use-of-uninitialized-data.patch \
-									CVE-2022-0529.patch
+TESTSDIR	?= /AppleInternal/Tests/$(PROJECT)
 
-SRCROOT		?= $(shell pwd)
+SRCROOT		?= $(shell realpath)
+SRCDIR		?= $(SRCROOT)/$(DIST)
 OBJROOT		?= $(SRCROOT)/obj
 SYMROOT		?= $(SRCROOT)/sym
 DSTROOT		?= $(SRCROOT)/dst
@@ -37,33 +24,27 @@ installhdrs:
 clean:
 	rm -rf $(SYMROOT) $(OBJROOT)
 
-install: destroot symbols ossinfo
+install: destroot symbols ossinfo testinfo
 
-installsrc:
-	pax -rw . $(SRCROOT)
-
-destroot: patchsrc unpacksrc
-	$(MAKE) -C $(OBJROOT)/$(PROJECT)$(VERSION) \
-		-f unix/Makefile macosx install \
+destroot:
+	mkdir -p $(OBJROOT)/$(DIST)
+	$(MAKE) -C $(OBJROOT)/$(DIST) \
+		-f $(SRCDIR)/unix/Makefile macosx install \
+		SRCDIR=$(SRCDIR) \
 		prefix=$(DSTROOT)/usr \
 		MANDIR=$(DSTROOT)/usr/share/man/'man$$(manext)' \
 		LOC="$(CFLAGS) $(RC_CFLAGS)" LD="$(CC) $(RC_CFLAGS)" \
 		CC="$(CC)"  INSTALL="$(INSTALL)" DESTDIR=$(DSTROOT) STRIP="echo"
 
 symbols:
-	$(CP) $(OBJROOT)/$(PROJECT)$(VERSION)/unzip $(SYMROOT)
+	$(CP) $(OBJROOT)/$(DIST)/unzip $(SYMROOT)
 	$(DSYMUTIL) $(SYMROOT)/unzip
 
-ossinfo: unpacksrc
+ossinfo:
 	$(MKDIR) $(DSTROOT)/$(OSLICENSES)
-	$(INSTALL_FILE) $(OBJROOT)/$(PROJECT)$(VERSION)/LICENSE $(DSTROOT)/$(OSLICENSES)/$(PROJECT).txt
+	$(INSTALL_FILE) $(SRCDIR)/LICENSE $(DSTROOT)/$(OSLICENSES)/$(PROJECT).txt
 
-unpacksrc:
-	mkdir -p $(OBJROOT)
-	tar zxvf $(SRCROOT)/$(DISTFILE) -C $(OBJROOT)
-
-patchsrc: unpacksrc
-	patch -d $(OBJROOT)/$(PROJECT)$(VERSION)/unix/ -f -p4 --posix < Apple-patch
-	for p in $(PATCHFILES); do			\
-		patch -d $(OBJROOT)/$(PROJECT)$(VERSION) -f -p1 --posix < $(SRCROOT)/$${p} || exit 1;	\
-	done
+testinfo:
+	$(MKDIR) $(DSTROOT)/$(TESTSDIR)/
+	$(INSTALL_SCRIPT) $(SRCROOT)/tests/*.sh $(DSTROOT)/$(TESTSDIR)/
+	$(INSTALL_FILE) $(SRCROOT)/tests/*.in $(DSTROOT)/$(TESTSDIR)/

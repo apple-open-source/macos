@@ -157,7 +157,7 @@ udat_open(UDateFormatStyle  timeStyle,
 {
     DateFormat *fmt;
     if(U_FAILURE(*status)) {
-        return 0;
+        return nullptr;
     }
     if(gOpener!=nullptr) { // if it's registered
       fmt = (DateFormat*) (*gOpener)(timeStyle,dateStyle,locale,tzID,tzIDLength,pattern,patternLength,status);
@@ -166,7 +166,7 @@ udat_open(UDateFormatStyle  timeStyle,
       } // else fall through.
     }
     if(timeStyle != UDAT_PATTERN) {
-        if(locale == 0) {
+        if (locale == nullptr) {
             fmt = DateFormat::createDateTimeInstance((DateFormat::EStyle)dateStyle,
                 (DateFormat::EStyle)timeStyle);
         }
@@ -177,9 +177,9 @@ udat_open(UDateFormatStyle  timeStyle,
         }
     }
     else {
-        UnicodeString pat((UBool)(patternLength == -1), pattern, patternLength);
+        UnicodeString pat(patternLength == -1, pattern, patternLength);
 
-        if(locale == 0) {
+        if (locale == nullptr) {
             fmt = new SimpleDateFormat(pat, *status);
         }
         else {
@@ -196,12 +196,12 @@ udat_open(UDateFormatStyle  timeStyle,
         return nullptr;
     }
 
-    if(tzID != 0) {
-        TimeZone *zone = TimeZone::createTimeZone(UnicodeString((UBool)(tzIDLength == -1), tzID, tzIDLength));
-        if(zone == 0) {
+    if (tzID != nullptr) {
+        TimeZone* zone = TimeZone::createTimeZone(UnicodeString(tzIDLength == -1, tzID, tzIDLength));
+        if (zone == nullptr) {
             *status = U_MEMORY_ALLOCATION_ERROR;
             delete fmt;
-            return 0;
+            return nullptr;
         }
         fmt->adoptTimeZone(zone);
     }
@@ -221,13 +221,13 @@ U_CAPI UDateFormat* U_EXPORT2
 udat_clone(const UDateFormat *fmt,
        UErrorCode *status)
 {
-    if(U_FAILURE(*status)) return 0;
+    if (U_FAILURE(*status)) return nullptr;
 
     Format *res = ((DateFormat*)fmt)->clone();
 
-    if(res == 0) {
+    if (res == nullptr) {
         *status = U_MEMORY_ALLOCATION_ERROR;
-        return 0;
+        return nullptr;
     }
 
     return (UDateFormat*) res;
@@ -258,12 +258,12 @@ udat_format(    const    UDateFormat*    format,
 
     FieldPosition fp;
 
-    if(position != 0)
+    if (position != nullptr)
         fp.setField(position->field);
 
     ((DateFormat*)format)->format(dateToFormat, res, fp);
 
-    if(position != 0) {
+    if (position != nullptr) {
         position->beginIndex = fp.getBeginIndex();
         position->endIndex = fp.getEndIndex();
     }
@@ -296,12 +296,12 @@ udat_formatCalendar(const UDateFormat*  format,
 
     FieldPosition fp;
 
-    if(position != 0)
+    if (position != nullptr)
         fp.setField(position->field);
 
     ((DateFormat*)format)->format(*(Calendar*)calendar, res, fp);
 
-    if(position != 0) {
+    if (position != nullptr) {
         position->beginIndex = fp.getBeginIndex();
         position->endIndex = fp.getEndIndex();
     }
@@ -374,7 +374,7 @@ udat_parse(    const    UDateFormat*        format,
 {
     if(U_FAILURE(*status)) return (UDate)0;
 
-    const UnicodeString src((UBool)(textLength == -1), text, textLength);
+    const UnicodeString src(textLength == -1, text, textLength);
     ParsePosition pp;
     int32_t stackParsePos = 0;
     UDate res;
@@ -407,7 +407,7 @@ udat_parseCalendar(const    UDateFormat*    format,
 {
     if(U_FAILURE(*status)) return;
 
-    const UnicodeString src((UBool)(textLength == -1), text, textLength);
+    const UnicodeString src(textLength == -1, text, textLength);
     ParsePosition pp;
     int32_t stackParsePos = 0;
 
@@ -596,7 +596,7 @@ udat_applyPattern(  UDateFormat     *format,
                     const   char16_t        *pattern,
                     int32_t         patternLength)
 {
-    const UnicodeString pat((UBool)(patternLength == -1), pattern, patternLength);
+    const UnicodeString pat(patternLength == -1, pattern, patternLength);
     UErrorCode status = U_ZERO_ERROR;
 
     verifyIsSimpleDateFormat(format, &status);
@@ -1393,7 +1393,6 @@ udat_setContext(UDateFormat* fmt, UDisplayContext value, UErrorCode* status)
         return;
     }
     ((DateFormat*)fmt)->setContext(value, *status);
-    return;
 }
 
 U_CAPI UDisplayContext U_EXPORT2
@@ -1479,8 +1478,8 @@ udat_applyPatternRelative(UDateFormat *format,
 {
     verifyIsRelativeDateFormat(format, status);
     if(U_FAILURE(*status)) return;
-    const UnicodeString datePat((UBool)(datePatternLength == -1), datePattern, datePatternLength);
-    const UnicodeString timePat((UBool)(timePatternLength == -1), timePattern, timePatternLength);
+    const UnicodeString datePat(datePatternLength == -1, datePattern, datePatternLength);
+    const UnicodeString timePat(timePatternLength == -1, timePattern, timePatternLength);
     ((RelativeDateFormat*)format)->applyPatterns(datePat, timePat, *status);
 }
 

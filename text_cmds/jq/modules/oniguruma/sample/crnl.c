@@ -2,7 +2,7 @@
  * crnl.c  2007/05/30  K.Kosako
  *
  * !!! You should enable USE_CRNL_AS_LINE_TERMINATOR. !!!
- * 
+ *
  * USE_CRNL_AS_LINE_TERMINATOR config test program.
  */
 #include <stdio.h>
@@ -12,7 +12,7 @@
 static int nfail = 0;
 
 static void result(int no, int from, int to,
-		   int expected_from, int expected_to)
+                   int expected_from, int expected_to)
 {
   fprintf(stderr, "%3d: ", no);
   if (from == expected_from && to == expected_to) {
@@ -20,7 +20,7 @@ static void result(int no, int from, int to,
   }
   else {
     fprintf(stderr, "Fail: expected: (%d-%d), result: (%d-%d)\n",
-	    expected_from, expected_to, from, to);
+            expected_from, expected_to, from, to);
 
     nfail++;
   }
@@ -41,7 +41,7 @@ x(int no, char* pattern_arg, char* str_arg,
   str     = (UChar* )str_arg;
 
   r = onig_new(&reg, pattern, pattern + strlen((char* )pattern),
-	ONIG_OPTION_DEFAULT, ONIG_ENCODING_ASCII, ONIG_SYNTAX_DEFAULT, &einfo);
+        ONIG_OPTION_DEFAULT, ONIG_ENCODING_ASCII, ONIG_SYNTAX_DEFAULT, &einfo);
   if (r != ONIG_NORMAL) {
     char s[ONIG_MAX_ERROR_MESSAGE_LEN];
     onig_error_code_to_str(s, r, &einfo);
@@ -65,6 +65,8 @@ x(int no, char* pattern_arg, char* str_arg,
     char s[ONIG_MAX_ERROR_MESSAGE_LEN];
     onig_error_code_to_str(s, r);
     fprintf(stderr, "ERROR: %s\n", s);
+    onig_region_free(region, 1 /* 1:free self, 0:free contents only */);
+    onig_free(reg);
     return -1;
   }
 

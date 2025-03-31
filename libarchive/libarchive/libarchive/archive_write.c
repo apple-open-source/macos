@@ -24,7 +24,6 @@
  */
 
 #include "archive_platform.h"
-__FBSDID("$FreeBSD: head/lib/libarchive/archive_write.c 201099 2009-12-28 03:03:00Z kientzle $");
 
 /*
  * This file contains the "essential" portions of the write API, that
@@ -60,8 +59,6 @@ __FBSDID("$FreeBSD: head/lib/libarchive/archive_write.c 201099 2009-12-28 03:03:
 #include "archive_private.h"
 #include "archive_write_private.h"
 
-static struct archive_vtable *archive_write_vtable(void);
-
 static int	_archive_filter_code(struct archive *, int);
 static const char *_archive_filter_name(struct archive *, int);
 static int64_t	_archive_filter_bytes(struct archive *, int);
@@ -79,26 +76,18 @@ struct archive_none {
 	char *next;
 };
 
-static struct archive_vtable *
-archive_write_vtable(void)
-{
-	static struct archive_vtable av;
-	static int inited = 0;
-
-	if (!inited) {
-		av.archive_close = _archive_write_close;
-		av.archive_filter_bytes = _archive_filter_bytes;
-		av.archive_filter_code = _archive_filter_code;
-		av.archive_filter_name = _archive_filter_name;
-		av.archive_filter_count = _archive_write_filter_count;
-		av.archive_free = _archive_write_free;
-		av.archive_write_header = _archive_write_header;
-		av.archive_write_finish_entry = _archive_write_finish_entry;
-		av.archive_write_data = _archive_write_data;
-		inited = 1;
-	}
-	return (&av);
-}
+static const struct archive_vtable
+archive_write_vtable = {
+	.archive_close = _archive_write_close,
+	.archive_filter_bytes = _archive_filter_bytes,
+	.archive_filter_code = _archive_filter_code,
+	.archive_filter_name = _archive_filter_name,
+	.archive_filter_count = _archive_write_filter_count,
+	.archive_free = _archive_write_free,
+	.archive_write_header = _archive_write_header,
+	.archive_write_finish_entry = _archive_write_finish_entry,
+	.archive_write_data = _archive_write_data,
+};
 
 /*
  * Allocate, initialize and return an archive object.
@@ -114,7 +103,7 @@ archive_write_new(void)
 		return (NULL);
 	a->archive.magic = ARCHIVE_WRITE_MAGIC;
 	a->archive.state = ARCHIVE_STATE_NEW;
-	a->archive.vtable = archive_write_vtable();
+	a->archive.vtable = &archive_write_vtable;
 	/*
 	 * The value 10240 here matches the traditional tar default,
 	 * but is otherwise arbitrary.
@@ -125,7 +114,7 @@ archive_write_new(void)
 
 	/* Initialize a block of nulls for padding purposes. */
 	a->null_length = 1024;
-	nulls = (unsigned char *)calloc(1, a->null_length);
+	nulls = (unsigned char *)calloc(a->null_length, sizeof(unsigned char));
 	if (nulls == NULL) {
 		free(a);
 		return (NULL);
@@ -318,6 +307,25 @@ int
 __archive_write_output(struct archive_write *a, const void *buff, size_t length)
 {
 	return (__archive_write_filter(a->filter_first, buff, length));
+}
+
+static int
+__archive_write_filters_flush(struct archive_write *a)
+{
+	struct archive_write_filter *f;
+	int ret, ret1;
+
+	ret = ARCHIVE_OK;
+	for (f = a->filter_first; f != NULL; f = f->next_filter) {
+		if (f->flush != NULL && f->bytes_written > 0) {
+			ret1 = (f->flush)(f);
+			if (ret1 < ret)
+				ret = ret1;
+			if (ret1 < ARCHIVE_WARN)
+				f->state = ARCHIVE_WRITE_FILTER_STATE_FATAL;
+		}
+	}
+	return (ret);
 }
 
 int
@@ -749,6 +757,18 @@ _archive_write_header(struct archive *_a, struct archive_entry *entry)
 		    "Can't add archive to itself");
 		return (ARCHIVE_FAILED);
 	}
+
+	/* Flush filters at boundary. */
+	r2 = __archive_write_filters_flush(a);
+	if (r2 == ARCHIVE_FAILED) {
+		return (ARCHIVE_FAILED);
+	}
+	if (r2 == ARCHIVE_FATAL) {
+		a->archive.state = ARCHIVE_STATE_FATAL;
+		return (ARCHIVE_FATAL);
+	}
+	if (r2 < ret)
+		ret = r2;
 
 	/* Format and write header. */
 	r2 = ((a->format_write_header)(a, entry));

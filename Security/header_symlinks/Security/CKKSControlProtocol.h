@@ -81,6 +81,9 @@ NS_ASSUME_NONNULL_BEGIN;
 
 - (void)pcsMirrorKeysForServices:(NSDictionary<NSNumber*,NSArray<NSData*>*>*)services reply:(void (^)(NSDictionary<NSNumber*,NSArray<NSData*>*>* _Nullable result, NSError* _Nullable error))reply;
 
+- (void)initialSyncStatus:(NSString*)viewName
+                    reply:(void(^)(BOOL finished, NSError* _Nullable error))reply;
+
 @end
 
 NSXPCInterface* CKKSSetupControlProtocol(NSXPCInterface* interface);

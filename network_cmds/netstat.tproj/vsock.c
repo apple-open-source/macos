@@ -106,19 +106,20 @@ char *name, int af)
 }
 
 static void
-vsock_print_addr(buf, cid, port)
+vsock_print_addr(buf, size, cid, port)
 	char *buf;
+    size_t size;
 	uint32_t cid;
 	uint32_t port;
 {
 	if (cid == VMADDR_CID_ANY && port == VMADDR_PORT_ANY) {
-		(void) sprintf(buf, "*:*");
+		(void) snprintf(buf, size, "*:*");
 	} else if (cid == VMADDR_CID_ANY) {
-		(void) sprintf(buf, "*:%u", port);
+		(void) snprintf(buf, size, "*:%u", port);
 	} else if (port == VMADDR_PORT_ANY) {
-		(void) sprintf(buf, "%u:*", cid);
+		(void) snprintf(buf, size, "%u:*", cid);
 	} else {
-		(void) sprintf(buf, "%u:%u", cid, port);
+		(void) snprintf(buf, size, "%u:%u", cid, port);
 	}
 }
 
@@ -148,8 +149,8 @@ vsockdomainpr(xpcb)
 	char srcAddr[50];
 	char dstAddr[50];
 
-	vsock_print_addr(srcAddr, xpcb->xvp_local_cid, xpcb->xvp_local_port);
-	vsock_print_addr(dstAddr, xpcb->xvp_remote_cid, xpcb->xvp_remote_port);
+	vsock_print_addr(srcAddr, sizeof(srcAddr), xpcb->xvp_local_cid, xpcb->xvp_local_port);
+	vsock_print_addr(dstAddr, sizeof(dstAddr), xpcb->xvp_remote_cid, xpcb->xvp_remote_port);
 
 	// Determine the vsock socket state.
 	char *state;

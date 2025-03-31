@@ -1484,7 +1484,7 @@ bool SOSCCLoggedOutOfAccount_Server(CFErrorRef *error)
         secnotice("circleOps", "Signed out of account!");
 
 
-        bool waitForeverForSynchronization = true;
+        bool waitForeverForSynchronization = false;
         
         bool result = [txn.account.trust leaveCircle:txn.account err:block_error];
 

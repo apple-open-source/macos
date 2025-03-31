@@ -28,6 +28,7 @@
 #include "NetworkCacheData.h"
 #include <wtf/CrossThreadCopier.h>
 #include <wtf/SHA1.h>
+#include <wtf/StdLibExtras.h>
 #include <wtf/text/WTFString.h>
 
 namespace WTF::Persistence {
@@ -97,6 +98,15 @@ public:
         m_partitionHash
     }; }
 
+    Key isolatedCopy() const & { return {
+        crossThreadCopy(m_partition),
+        crossThreadCopy(m_type),
+        crossThreadCopy(m_identifier),
+        crossThreadCopy(m_range),
+        m_hash,
+        m_partitionHash
+    }; }
+
 private:
     friend struct WTF::Persistence::Coder<Key>;
     static String hashAsString(const HashType&);
@@ -127,7 +137,7 @@ struct NetworkCacheKeyHash {
     static unsigned hash(const WebKit::NetworkCache::Key& key)
     {
         static_assert(SHA1::hashSize >= sizeof(unsigned), "Hash size must be greater than sizeof(unsigned)");
-        return *reinterpret_cast<const unsigned*>(key.hash().data());
+        return reinterpretCastSpanStartTo<const unsigned>(std::span { key.hash() });
     }
 
     static bool equal(const WebKit::NetworkCache::Key& a, const WebKit::NetworkCache::Key& b)

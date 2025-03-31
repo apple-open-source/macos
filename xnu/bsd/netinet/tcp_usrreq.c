@@ -1926,6 +1926,8 @@ tcp_fill_info(struct tcpcb *tp, struct tcp_info *ti)
 	ti->tcpi_delivered_ect1_bytes = tp->t_aecn.t_snd_ect1_bytes - 1;
 	ti->tcpi_delivered_ce_bytes = tp->t_aecn.t_snd_ce_bytes;
 
+	ti->tcpi_l4s_enabled = TCP_L4S_ENABLED(tp);
+
 	ti->tcpi_flow_control_total_time = inp->inp_fadv_total_time;
 	ti->tcpi_rcvwnd_limited_total_time = tp->t_rcvwnd_limited_total_time;
 }

@@ -24,32 +24,39 @@
 
 #pragma once
 
+#include "CSSPrimitiveNumericRange.h"
 #include "CSSToLengthConversionData.h"
 #include <optional>
 
 namespace WebCore {
 
+namespace Calculation {
+enum class Category : uint8_t;
+}
+
 class CSSCalcSymbolTable;
 
 namespace CSSCalc {
 
+struct Anchor;
 struct Tree;
 
 struct EvaluationOptions {
+    // `category` represents the context in which the evaluation is taking place.
+    Calculation::Category category;
+
+    // `range` represents the allowed numeric range for the calculated result.
+    CSS::Range range;
+
     // `conversionData` contains information needed to convert units into their canonical forms.
     std::optional<CSSToLengthConversionData> conversionData;
 
     // `symbolTable` contains information needed to convert unresolved symbols into numeric values.
     const CSSCalcSymbolTable& symbolTable;
-
-    // `allowUnresolvedUnits` allows math operations to be evaluated even if the unit is not fully canonicalized. Only meaningful if `conversionData` cannot be supplied.
-    bool allowUnresolvedUnits = false;
-
-    // `allowNonMatchingUnits` allows math operations to be evaluated even if the units of its arguments don't match. Only meaningful if `conversionData` cannot be supplied.
-    bool allowNonMatchingUnits = false;
 };
 
 std::optional<double> evaluateDouble(const Tree&, const EvaluationOptions&);
+std::optional<double> evaluateWithoutFallback(const Anchor&, const EvaluationOptions&);
 
 } // namespace CSSCalc
 } // namespace WebCore

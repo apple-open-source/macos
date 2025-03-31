@@ -87,7 +87,7 @@
         }];
 
         if (error) {
-            os_log_error(fskit_std_log(), "%s: Failed to get the next cluster(s). Error = %@.", __func__, error);
+            os_log_error(OS_LOG_DEFAULT, "%s: Failed to get the next cluster(s). Error = %@.", __func__, error);
             return error;
         }
 
@@ -103,7 +103,7 @@
 
     if (dirBlockNumInVolume == 0) {
         /* Couldn't find the given dir block index (0 is an invalid value when we're not in FAT12/16 root dir). */
-        os_log_fault(fskit_std_log(), "%s: Couldn't find dir block index %u. Dir Size = %llu.", __func__, dirBlockIdxInDir, [self.dir getDirSize]);
+        os_log_fault(OS_LOG_DEFAULT, "%s: Couldn't find dir block index %u. Dir Size = %llu.", __func__, dirBlockIdxInDir, [self.dir getDirSize]);
         return fs_errorForPOSIXError(EFAULT);
     }
 
@@ -115,7 +115,7 @@
 -(void *)getBytesAtOffset:(uint64_t)offsetInDirBlock
 {
     if (offsetInDirBlock >= self.size) {
-        os_log_error(fskit_std_log(), "%s: unexpected offset in dir block (%llu), dir block size %zu", __FUNCTION__, offsetInDirBlock, self.size);
+        os_log_error(OS_LOG_DEFAULT, "%s: unexpected offset in dir block (%llu), dir block size %zu", __FUNCTION__, offsetInDirBlock, self.size);
         return NULL;
     }
 	return (void *)((uint8_t *)self.data.bytes + offsetInDirBlock);

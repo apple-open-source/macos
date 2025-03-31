@@ -49,15 +49,18 @@ std::pair<const char*, const char*> GStreamerCodecUtilities::parseH264ProfileAnd
 {
     ensureDebugCategoryInitialized();
 
+    uint64_t spsAsInteger = 0;
     auto components = codec.split('.');
-    long int spsAsInteger = strtol(components[1].utf8().data(), nullptr, 16);
-    uint8_t sps[3];
-    sps[0] = spsAsInteger >> 16;
-    sps[1] = spsAsInteger >> 8;
-    sps[2] = spsAsInteger;
+    if (components.size() > 1)
+        spsAsInteger = parseInteger<uint64_t>(components[1], 16).value_or(0);
 
-    const char* profile = gst_codec_utils_h264_get_profile(sps, 3);
-    const char* level = gst_codec_utils_h264_get_level(sps, 3);
+    std::array<uint8_t, 3> sps;
+    sps[0] = spsAsInteger >> 16;
+    sps[1] = (spsAsInteger >> 8) & 0xff;
+    sps[2] = spsAsInteger & 0xff;
+
+    const char* profile = gst_codec_utils_h264_get_profile(sps.data(), 3);
+    const char* level = gst_codec_utils_h264_get_level(sps.data(), 3);
 
     // To avoid going through a class hierarchy for such a simple
     // string conversion, we use a little trick here: See
@@ -75,26 +78,25 @@ std::pair<const char*, const char*> GStreamerCodecUtilities::parseH264ProfileAnd
 static std::pair<GRefPtr<GstCaps>, GRefPtr<GstCaps>> h264CapsFromCodecString(const String& codecString)
 {
     auto outputCaps = adoptGRef(gst_caps_new_empty_simple("video/x-h264"));
-    // FIXME: Set level on caps too?
-    auto [gstProfile, _] = GStreamerCodecUtilities::parseH264ProfileAndLevel(codecString);
+    auto [gstProfile, level] = GStreamerCodecUtilities::parseH264ProfileAndLevel(codecString);
     if (gstProfile)
         gst_caps_set_simple(outputCaps.get(), "profile", G_TYPE_STRING, gstProfile, nullptr);
+    if (level)
+        gst_caps_set_simple(outputCaps.get(), "level", G_TYPE_STRING, level, nullptr);
 
     StringBuilder formatBuilder;
     auto profile = StringView::fromLatin1(gstProfile);
-    auto isY444 = profile.findIgnoringASCIICase("high-4:4:4"_s) != notFound;
-    auto isY422 = profile.findIgnoringASCIICase("high-4:2:2"_s) != notFound;
-    auto isY420 = profile.findIgnoringASCIICase("high-10"_s) != notFound;
-    if (isY444)
+    auto isY444TenBits = profile.startsWithIgnoringASCIICase("high-4:4:4"_s);
+    auto isY422TenBits = profile.findIgnoringASCIICase("high-4:2:2"_s) != notFound;
+    auto isI420TenBits = profile.findIgnoringASCIICase("high-10"_s) != notFound;
+    if (isY444TenBits)
         formatBuilder.append("Y444"_s);
-    else if (isY422)
+    else if (isY422TenBits)
         formatBuilder.append("I422"_s);
-    else if (isY420)
-        formatBuilder.append("Y420"_s);
     else
         formatBuilder.append("I420"_s);
 
-    if (isY444 || isY422 || isY420) {
+    if (isY444TenBits || isY422TenBits || isI420TenBits) {
 #if G_BYTE_ORDER == G_LITTLE_ENDIAN
         auto endianness = "LE"_s;
 #else
@@ -130,8 +132,8 @@ const char* GStreamerCodecUtilities::parseHEVCProfile(const String& codec)
         return nullptr;
     }
 
-    uint8_t profileTierLevel[11] = { 0, };
-    memset(profileTierLevel, 0, 11);
+    std::array<uint8_t, 11> profileTierLevel;
+    memset(profileTierLevel.data(), 0, 11);
     profileTierLevel[0] = parameters->generalProfileIDC;
 
     if (profileTierLevel[0] >= 4) {
@@ -140,7 +142,7 @@ const char* GStreamerCodecUtilities::parseHEVCProfile(const String& codec)
             profileTierLevel[i] = constraints[j];
     }
 
-    return gst_codec_utils_h265_get_profile(profileTierLevel, sizeof(profileTierLevel));
+    return gst_codec_utils_h265_get_profile(profileTierLevel.data(), profileTierLevel.size());
 }
 
 static std::pair<GRefPtr<GstCaps>, GRefPtr<GstCaps>> h265CapsFromCodecString(const String& codecString)

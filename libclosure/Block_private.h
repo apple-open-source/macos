@@ -673,50 +673,39 @@ _Block_get_dispose_function(struct Block_layout *aBlock)
 BLOCK_EXPORT size_t Block_size(void *aBlock);
 
 // indicates whether block was compiled with compiler that sets the ABI related metadata bits
-BLOCK_EXPORT bool _Block_has_signature(void *aBlock)
-    __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_4_3);
+BLOCK_EXPORT bool _Block_has_signature(void *aBlock);
 
 // returns TRUE if return value of block is on the stack, FALSE otherwise
-BLOCK_EXPORT bool _Block_use_stret(void *aBlock)
-    __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_4_3);
+BLOCK_EXPORT bool _Block_use_stret(void *aBlock);
 
 // Returns a string describing the block's parameter and return types.
 // The encoding scheme is the same as Objective-C @encode.
 // Returns NULL for blocks compiled with some compilers.
-BLOCK_EXPORT const char * _Block_signature(void *aBlock)
-    __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_4_3);
+BLOCK_EXPORT const char * _Block_signature(void *aBlock);
 
 // Returns a string describing the block's GC layout.
 // This uses the GC skip/scan encoding.
 // May return NULL.
-BLOCK_EXPORT const char * _Block_layout(void *aBlock)
-    __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_4_3);
+BLOCK_EXPORT const char * _Block_layout(void *aBlock);
 
 // Returns a string describing the block's layout.
 // This uses the "extended layout" form described above.
 // May return NULL.
-BLOCK_EXPORT const char * _Block_extended_layout(void *aBlock)
-    __OSX_AVAILABLE_STARTING(__MAC_10_8, __IPHONE_7_0);
+BLOCK_EXPORT const char * _Block_extended_layout(void *aBlock);
 
 // Callable only from the ARR weak subsystem while in exclusion zone
-BLOCK_EXPORT bool _Block_tryRetain(const void *aBlock)
-    __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_4_3);
+BLOCK_EXPORT bool _Block_tryRetain(const void *aBlock);
 
 // Callable only from the ARR weak subsystem while in exclusion zone
-BLOCK_EXPORT bool _Block_isDeallocating(const void *aBlock)
-    __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_4_3);
+BLOCK_EXPORT bool _Block_isDeallocating(const void *aBlock);
 
 
 // the raw data space for runtime classes for blocks
 // class+meta used for stack, malloc, and collectable based blocks
-BLOCK_EXPORT void * _NSConcreteMallocBlock[32]
-    __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_3_2);
-BLOCK_EXPORT void * _NSConcreteAutoBlock[32]
-    __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_3_2);
-BLOCK_EXPORT void * _NSConcreteFinalizingBlock[32]
-    __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_3_2);
-BLOCK_EXPORT void * _NSConcreteWeakBlockVariable[32]
-    __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_3_2);
+BLOCK_EXPORT void * _NSConcreteMallocBlock[32];
+BLOCK_EXPORT void * _NSConcreteAutoBlock[32];
+BLOCK_EXPORT void * _NSConcreteFinalizingBlock[32];
+BLOCK_EXPORT void * _NSConcreteWeakBlockVariable[32];
 // declared in Block.h
 // BLOCK_EXPORT void * _NSConcreteGlobalBlock[32];
 // BLOCK_EXPORT void * _NSConcreteStackBlock[32];

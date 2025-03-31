@@ -305,7 +305,7 @@ int EstablishSession(uint32 sourceAddress,
 
 }
 
-int PrepareRequest(char *data, char *filename) 
+int PrepareRequest(char *data, size_t size, char *filename)
 {
 
   char h1[] = "GET ";
@@ -331,8 +331,7 @@ int PrepareRequest(char *data, char *filename)
 
   if (strlen(session.targetName) > 0) {
 
-    sprintf(data, 
-
+    snprintf(data, size,
 	    "%s/%s %s\r\n%s\r\n%s\r\n%s\r\n%s\r\n%s%s\r\n\r\n", 
 	    h1, 
 	    filename, 
@@ -344,8 +343,7 @@ int PrepareRequest(char *data, char *filename)
 	    h3,
 	    session.targetName);
   }else {
-
-    sprintf(data,
+    snprintf(data, size,
 	    "%s%s%s\r\n%s\r\n\r\n", 
 	    h1, 
 	    filename, 
@@ -380,7 +378,7 @@ void SendRequest(char *filename, void (*ackData)(struct IPPacket *p))
     printf("In SendRequest...\n");
   }
 
-  datalen = PrepareRequest(data, filename);
+  datalen = PrepareRequest(data, sizeof(data), filename);
 
   ipsz = sizeof(struct IpHeader) + sizeof(struct TcpHeader) + datalen + 1; 
 

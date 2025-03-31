@@ -141,18 +141,25 @@
     } else {
         client = self->_client;
     }
-    _SecItemAdd((__bridge CFDictionaryRef) callbackQuery, &client, &cfresult, &cferror);
-
-    // SecItemAdd returns Some CF Object, but NSXPC is pretty adamant that everything be a specific NS type. Split it up here:
-    if(!cfresult) {
-        complete(NULL, NULL, (__bridge NSError *)(cferror));
-    } else if( CFGetTypeID(cfresult) == CFDictionaryGetTypeID()) {
-        complete((__bridge NSDictionary *)(cfresult), NULL, (__bridge NSError *)(cferror));
-    } else if( CFGetTypeID(cfresult) == CFArrayGetTypeID()) {
-        complete(NULL, (__bridge NSArray *)cfresult, (__bridge NSError *)(cferror));
+    if (!_SecItemAdd((__bridge CFDictionaryRef) callbackQuery, &client, &cfresult, &cferror)) {
+        complete(NULL, NULL, (__bridge NSError *)cferror);
+        callbackTransaction.transaction = nil;
     } else {
-        // TODO: actually error here
-        complete(NULL, NULL, NULL);
+        // SecItemAdd returns Some CF Object, but NSXPC is pretty adamant that everything be a specific NS type. Split it up here:
+        if (cfresult != NULL) {
+            if (CFGetTypeID(cfresult) == CFDictionaryGetTypeID()) {
+                complete((__bridge NSDictionary *)cfresult, NULL, NULL);
+            } else if (CFGetTypeID(cfresult) == CFArrayGetTypeID()) {
+                complete(NULL, (__bridge NSArray *)cfresult, NULL);
+            } else {
+                NSError* error = [NSError errorWithDomain:@"securityd" code:errSecInternal
+                                                 userInfo:@{ NSLocalizedDescriptionKey: @"_SecItemAdd returned bad data type"}];
+                complete(NULL, NULL, error);
+                callbackTransaction.transaction = nil;
+            }
+        } else {
+            complete(NULL, NULL, NULL);
+        }
     }
     CFReleaseNull(cfresult);
     CFReleaseNull(cferror);

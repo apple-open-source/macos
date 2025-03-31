@@ -238,7 +238,7 @@ allocate_loop:
 		iin->iin_type = IE_BITS_TYPE(bits);
 		if ((bits & MACH_PORT_TYPE_PORT_RIGHTS) != MACH_PORT_TYPE_NONE &&
 		    entry->ie_request != IE_REQ_NONE) {
-			ipc_port_t port = ip_object_to_port(entry->ie_object);
+			ipc_port_t port = entry->ie_port;
 
 			assert(IP_VALID(port));
 			ip_mq_lock(port);

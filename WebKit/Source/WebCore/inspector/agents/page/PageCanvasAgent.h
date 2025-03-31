@@ -36,6 +36,7 @@ class Page;
 class PageCanvasAgent final : public InspectorCanvasAgent {
     WTF_MAKE_NONCOPYABLE(PageCanvasAgent);
     WTF_MAKE_TZONE_ALLOCATED(PageCanvasAgent);
+    WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(PageCanvasAgent);
 public:
     PageCanvasAgent(PageAgentContext&);
     ~PageCanvasAgent();
@@ -56,7 +57,7 @@ private:
 
     bool matchesCurrentContext(ScriptExecutionContext*) const override;
 
-    Page& m_inspectedPage;
+    WeakRef<Page> m_inspectedPage;
 };
 
 } // namespace WebCore

@@ -63,7 +63,7 @@ typedef void (XMLCALL *xmlFreeFunc)(void *mem);
  *
  * Returns a pointer to the newly allocated block or NULL in case of error.
  */
-typedef void *(LIBXML_ATTR_ALLOC_SIZE(1) XMLCALL *xmlMallocFunc)(size_t size);
+typedef void *(LIBXML_ATTR_ALLOC_SIZE(1) XMLCALL *xmlMallocFunc)(size_t size) LIBXML_API_DEPRECATED_MEMORY_ALLOCATION_FUNCTIONS;
 
 /**
  * xmlReallocFunc:
@@ -74,7 +74,7 @@ typedef void *(LIBXML_ATTR_ALLOC_SIZE(1) XMLCALL *xmlMallocFunc)(size_t size);
  *
  * Returns a pointer to the newly reallocated block or NULL in case of error.
  */
-typedef void *(XMLCALL *xmlReallocFunc)(void *mem, size_t size);
+typedef void *(XMLCALL *xmlReallocFunc)(void *mem, size_t size) LIBXML_API_DEPRECATED_MEMORY_ALLOCATION_FUNCTIONS;
 
 /**
  * xmlStrdupFunc:
@@ -84,7 +84,7 @@ typedef void *(XMLCALL *xmlReallocFunc)(void *mem, size_t size);
  *
  * Returns the copy of the string or NULL in case of error.
  */
-typedef char *(XMLCALL *xmlStrdupFunc)(const char *str);
+typedef char *(XMLCALL *xmlStrdupFunc)(const char *str) LIBXML_API_DEPRECATED_MEMORY_ALLOCATION_FUNCTIONS;
 
 /*
  * The 4 interfaces used for all memory handling within libxml.
@@ -104,24 +104,24 @@ XMLPUBFUN int XMLCALL
 	xmlMemSetup	(xmlFreeFunc freeFunc,
 			 xmlMallocFunc mallocFunc,
 			 xmlReallocFunc reallocFunc,
-			 xmlStrdupFunc strdupFunc);
+			 xmlStrdupFunc strdupFunc) LIBXML_API_DEPRECATED_MEMORY_ALLOCATION_FUNCTIONS;
 XMLPUBFUN int XMLCALL
 	xmlMemGet	(xmlFreeFunc *freeFunc,
 			 xmlMallocFunc *mallocFunc,
 			 xmlReallocFunc *reallocFunc,
-			 xmlStrdupFunc *strdupFunc);
+			 xmlStrdupFunc *strdupFunc) LIBXML_API_DEPRECATED_MEMORY_ALLOCATION_FUNCTIONS;
 XMLPUBFUN int XMLCALL
 	xmlGcMemSetup	(xmlFreeFunc freeFunc,
 			 xmlMallocFunc mallocFunc,
 			 xmlMallocFunc mallocAtomicFunc,
 			 xmlReallocFunc reallocFunc,
-			 xmlStrdupFunc strdupFunc);
+			 xmlStrdupFunc strdupFunc) LIBXML_API_DEPRECATED_MEMORY_ALLOCATION_FUNCTIONS;
 XMLPUBFUN int XMLCALL
 	xmlGcMemGet	(xmlFreeFunc *freeFunc,
 			 xmlMallocFunc *mallocFunc,
 			 xmlMallocFunc *mallocAtomicFunc,
 			 xmlReallocFunc *reallocFunc,
-			 xmlStrdupFunc *strdupFunc);
+			 xmlStrdupFunc *strdupFunc) LIBXML_API_DEPRECATED_MEMORY_ALLOCATION_FUNCTIONS;
 
 /*
  * Initialization of the memory layer.
@@ -152,21 +152,21 @@ XMLPUBFUN void XMLCALL
 XMLPUBFUN void XMLCALL
 	xmlMemoryDump	(void);
 XMLPUBFUN void * XMLCALL
-	xmlMemMalloc	(size_t size) LIBXML_ATTR_ALLOC_SIZE(1);
+	xmlMemMalloc	(size_t size) LIBXML_ATTR_ALLOC_SIZE(1) LIBXML_API_DEPRECATED_MEMORY_ALLOCATION_FUNCTIONS;
 XMLPUBFUN void * XMLCALL
-	xmlMemRealloc	(void *ptr,size_t size);
+	xmlMemRealloc	(void *ptr,size_t size) LIBXML_ATTR_ALLOC_SIZE(2) LIBXML_API_DEPRECATED_MEMORY_ALLOCATION_FUNCTIONS;
 XMLPUBFUN void XMLCALL
-	xmlMemFree	(void *ptr);
+	xmlMemFree	(void *ptr) LIBXML_API_DEPRECATED_MEMORY_ALLOCATION_FUNCTIONS;
 XMLPUBFUN char * XMLCALL
-	xmlMemoryStrdup	(const char *str);
+	xmlMemoryStrdup	(const char *str) LIBXML_API_DEPRECATED_MEMORY_ALLOCATION_FUNCTIONS;
 XMLPUBFUN void * XMLCALL
-	xmlMallocLoc	(size_t size, const char *file, int line) LIBXML_ATTR_ALLOC_SIZE(1);
+	xmlMallocLoc	(size_t size, const char *file, int line) LIBXML_ATTR_ALLOC_SIZE(1) LIBXML_API_DEPRECATED_MEMORY_ALLOCATION_FUNCTIONS;
 XMLPUBFUN void * XMLCALL
-	xmlReallocLoc	(void *ptr, size_t size, const char *file, int line);
+	xmlReallocLoc	(void *ptr, size_t size, const char *file, int line) LIBXML_ATTR_ALLOC_SIZE(2) LIBXML_API_DEPRECATED_MEMORY_ALLOCATION_FUNCTIONS;
 XMLPUBFUN void * XMLCALL
-	xmlMallocAtomicLoc (size_t size, const char *file, int line) LIBXML_ATTR_ALLOC_SIZE(1);
+	xmlMallocAtomicLoc (size_t size, const char *file, int line) LIBXML_ATTR_ALLOC_SIZE(1) LIBXML_API_DEPRECATED_MEMORY_ALLOCATION_FUNCTIONS;
 XMLPUBFUN char * XMLCALL
-	xmlMemStrdupLoc	(const char *str, const char *file, int line);
+	xmlMemStrdupLoc	(const char *str, const char *file, int line) LIBXML_API_DEPRECATED_MEMORY_ALLOCATION_FUNCTIONS;
 
 
 #ifdef DEBUG_MEMORY_LOCATION
@@ -210,6 +210,17 @@ XMLPUBFUN char * XMLCALL
 #define xmlMemStrdup(str) xmlMemStrdupLoc((str), __FILE__, __LINE__)
 
 #endif /* DEBUG_MEMORY_LOCATION */
+
+#if defined(LIBXML_HAS_DEPRECATED_MEMORY_ALLOCATION_FUNCTIONS)
+#define xmlMemMalloc(size) malloc(size)
+#define xmlMemRealloc(ptr, size) realloc(ptr, size)
+#define xmlMemoryStrdup(str) strdup(str)
+
+#define xmlMallocLoc(size, file, line) malloc(size)
+#define xmlReallocLoc(ptr, size, file, line) realloc((ptr), (size))
+#define xmlMallocAtomicLoc(size, file, line) malloc(size)
+#define xmlMemStrdupLoc(str, file, line) strdup(str)
+#endif
 
 #ifdef __cplusplus
 }

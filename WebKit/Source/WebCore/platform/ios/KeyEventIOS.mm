@@ -40,7 +40,7 @@ namespace WebCore {
 
 int windowsKeyCodeForKeyCode(uint16_t keyCode)
 {
-    static const int windowsKeyCode[] = {
+    static constexpr auto windowsKeyCode = std::to_array<int>({
         /* 0 */ 0, // n/a
         /* 1 */ 0, // n/a
         /* 2 */ 0, // n/a
@@ -171,7 +171,7 @@ int windowsKeyCodeForKeyCode(uint16_t keyCode)
         /* 0x7F */ VK_VOLUME_MUTE, // Mute
         /* 0x80 */ VK_VOLUME_UP, // Volume Up
         /* 0x81 */ VK_VOLUME_DOWN, // Volume Down
-    };
+    });
     // Check if key is a modifier or the keypad comma (on JIS keyboard).
     switch (keyCode) {
     case kHIDUsage_KeypadComma:

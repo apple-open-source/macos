@@ -51,8 +51,7 @@ SecTrustStoreRef SecTrustStoreForDomain(SecTrustStoreDomain domain);
 
 CFStringRef SecTrustStoreDomainName(SecTrustStoreRef ts);
 
-Boolean SecTrustStoreContains(SecTrustStoreRef source,
-	SecCertificateRef certificate);
+Boolean SecTrustStoreContains(SecTrustStoreRef source, SecCertificateRef certificate);
 
 /* Only allowed for writable trust stores. */
 OSStatus SecTrustStoreSetTrustSettings(SecTrustStoreRef ts,
@@ -74,6 +73,8 @@ OSStatus SecTrustStoreCopyAll(SecTrustStoreRef ts, CFArrayRef *CF_RETURNS_RETAIN
 OSStatus SecTrustStoreCopyUsageConstraints(SecTrustStoreRef ts,
 	SecCertificateRef certificate,
 	CFArrayRef *CF_RETURNS_RETAINED usageConstraints);
+
+CFArrayRef SecTrustStoreCopyAnchors(SecTrustStoreRef ts, CFStringRef policyId);
 
 __END_DECLS
 

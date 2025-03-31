@@ -39,8 +39,9 @@ test_mvm_allocate_plat(uintptr_t addr, size_t size, int flags,
 {
 #if MALLOC_TARGET_EXCLAVES
 	const _liblibc_map_type_t type = LIBLIBC_MAP_TYPE_PRIVATE |
-			((flags & VM_FLAGS_ANYWHERE) ? 0 : LIBLIBC_MAP_TYPE_FIXED) |
-			((debug_flags & MALLOC_NO_POPULATE) ? LIBLIBC_MAP_TYPE_NOCOMMIT : 0);
+			((debug_flags & MALLOC_CAN_FAULT) ? LIBLIBC_MAP_TYPE_FAULTABLE : LIBLIBC_MAP_TYPE_NONE) |
+			((debug_flags & MALLOC_NO_POPULATE) ? LIBLIBC_MAP_TYPE_NOCOMMIT : LIBLIBC_MAP_TYPE_NONE) |
+			((flags & VM_FLAGS_ANYWHERE) ? 0 : LIBLIBC_MAP_TYPE_FIXED);
 	return mmap_plat(map_out, addr, size,
 			LIBLIBC_MAP_PERM_READ | LIBLIBC_MAP_PERM_WRITE, type, 0,
 			(unsigned)vm_page_label);
@@ -55,6 +56,22 @@ test_mvm_allocate_plat(uintptr_t addr, size_t size, int flags,
 }
 #define mvm_allocate_plat(addr, size, align, flags, debug_flags, vm_page_label, plat) \
 	test_mvm_allocate_plat(addr, size, flags, debug_flags, vm_page_label, plat)
+
+static int
+test_mvm_madvise_plat(void *addr, size_t sz, int advice, unsigned debug_flags, plat_map_t *map)
+{
+	kern_return_t kr;
+
+#if MALLOC_TARGET_EXCLAVES
+	kr = !madvise_plat(map, addr, sz, advice) ? KERN_SUCCESS : errno;
+#else
+	kr = !madvise(addr, sz, advice) ? KERN_SUCCESS : errno;
+#endif // MALLOC_TARGET_EXCLAVES
+
+	return !(kr == KERN_SUCCESS);
+}
+#define mvm_madvise_plat(addr, size, advice, debug_flags, map) \
+		test_mvm_madvise_plat(addr, size, advice, debug_flags, map)
 
 static void test_malloc_lock_lock(_malloc_lock_s *lock) {
 #if MALLOC_HAS_OS_LOCK

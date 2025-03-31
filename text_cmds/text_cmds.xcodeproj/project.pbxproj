@@ -516,9 +516,9 @@
 		3290F575290FDB7500C57BFE /* unicode_fold3_key.c in Sources */ = {isa = PBXBuildFile; fileRef = 3290F55E290FDB6700C57BFE /* unicode_fold3_key.c */; };
 		3290F576290FDB7500C57BFE /* unicode_fold1_key.c in Sources */ = {isa = PBXBuildFile; fileRef = 3290F560290FDB6700C57BFE /* unicode_fold1_key.c */; };
 		CB345C012A0BDBE9001FE3D2 /* md5_test.sh in Copy Test Files */ = {isa = PBXBuildFile; fileRef = CB345C002A0BDBE5001FE3D2 /* md5_test.sh */; };
-		CBBD76ED2BACAC4F008CD52C /* jq.1 in CopyFiles */ = {isa = PBXBuildFile; fileRef = CBBD76EC2BACAC4A008CD52C /* jq.1 */; };
 		CBAA7C3C2BAC9157003B113A /* b64decode.1 in Install section 1 manpages */ = {isa = PBXBuildFile; fileRef = CBAA7C3A2BAC913F003B113A /* b64decode.1 */; };
 		CBAA7C3D2BAC915A003B113A /* b64encode.1 in Install section 1 manpages */ = {isa = PBXBuildFile; fileRef = CBAA7C3B2BAC913F003B113A /* b64encode.1 */; };
+		CBBD76ED2BACAC4F008CD52C /* jq.1 in CopyFiles */ = {isa = PBXBuildFile; fileRef = CBBD76EC2BACAC4A008CD52C /* jq.1 */; };
 		CBDCAA982996BA6600657251 /* libxo.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = E14C02A427C7CED1007B22ED /* libxo.tbd */; };
 		CBDCAA9C299D021D00657251 /* wc_test.sh in Copy Test Files */ = {isa = PBXBuildFile; fileRef = CBDCAA9A299D020200657251 /* wc_test.sh */; };
 		CBFC467B29C3739800DE6539 /* libutil.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = 2AC6B55D268C1B16006AA0B7 /* libutil.tbd */; };
@@ -2508,9 +2508,9 @@
 		3290F5AD29126DD200C57BFE /* shadow1.jq */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = shadow1.jq; sourceTree = "<group>"; };
 		3EF506E11F7ABD7500421EB3 /* tests */ = {isa = PBXFileReference; lastKnownFileType = folder; path = tests; sourceTree = "<group>"; };
 		CB345C002A0BDBE5001FE3D2 /* md5_test.sh */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; name = md5_test.sh; path = tests/md5_test.sh; sourceTree = "<group>"; };
-		CBBD76EC2BACAC4A008CD52C /* jq.1 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.man; path = jq.1; sourceTree = "<group>"; };
 		CBAA7C3A2BAC913F003B113A /* b64decode.1 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.man; name = b64decode.1; path = bintrans/b64decode.1; sourceTree = "<group>"; };
 		CBAA7C3B2BAC913F003B113A /* b64encode.1 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.man; name = b64encode.1; path = bintrans/b64encode.1; sourceTree = "<group>"; };
+		CBBD76EC2BACAC4A008CD52C /* jq.1 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.man; path = jq.1; sourceTree = "<group>"; };
 		CBDCAA9A299D020200657251 /* wc_test.sh */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; name = wc_test.sh; path = tests/wc_test.sh; sourceTree = "<group>"; };
 		E14C02A427C7CED1007B22ED /* libxo.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libxo.tbd; path = usr/lib/libxo.tbd; sourceTree = SDKROOT; };
 		FC6C98FB149A94EB00DDCC47 /* libcurses.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libcurses.dylib; path = /usr/lib/libcurses.dylib; sourceTree = "<absolute>"; };
@@ -6360,114 +6360,18 @@
 				GCC_C_LANGUAGE_STANDARD = gnu11;
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					"__FBSDID=__RCSID",
-					"PACKAGE_NAME=\"jq\"",
-					"PACKAGE_TARNAME=\"jq\"",
-					"PACKAGE_VERSION=\"1.6-159-apple-gcff5336-dirty\"",
-					"PACKAGE_STRING=\"jq 1.6-159-apple-gcff5336-dirty\"",
-					"PACKAGE_BUGREPORT=\"https://github.com/stedolan/jq/issues\"",
-					"PACKAGE_URL=\"https://stedolan.github.io/jq\"",
-					"PACKAGE=\"jq\"",
-					"VERSION=\"1.6-159-gcff5336-dirty\"",
-					"HAVE_STDIO_H=1",
-					"HAVE_STDLIB_H=1",
-					"HAVE_STRING_H=1",
-					"HAVE_INTTYPES_H=1",
-					"HAVE_STDINT_H=1",
-					"HAVE_STRINGS_H=1",
-					"HAVE_SYS_STAT_H=1",
-					"HAVE_SYS_TYPES_H=1",
-					"HAVE_UNISTD_H=1",
-					"STDC_HEADERS=1",
-					"HAVE_DLFCN_H=1",
-					"HAVE_MEMMEM=1",
-					"HAVE_MKSTEMP=1",
-					"USE_DECNUM=1",
-					"HAVE_PTHREAD_PRIO_INHERIT=1",
-					"HAVE_PTHREAD=1",
-					"HAVE_ALLOCA_H=1",
-					"HAVE_ALLOCA=1",
-					"HAVE_ISATTY=1",
-					"HAVE_STRPTIME=1",
-					"HAVE_STRFTIME=1",
-					"HAVE_SETENV=1",
-					"HAVE_TIMEGM=1",
-					"HAVE_GMTIME_R=1",
-					"HAVE_GMTIME=1",
-					"HAVE_LOCALTIME_R=1",
-					"HAVE_LOCALTIME=1",
-					"HAVE_TM_TM_GMT_OFF=1",
-					"HAVE_PTHREAD_KEY_CREATE=1",
-					"HAVE_PTHREAD_ONCE=1",
-					"HAVE_ATEXIT=1",
-					"HAVE_ACOS=1",
-					"HAVE_ACOSH=1",
-					"HAVE_ASIN=1",
-					"HAVE_ASINH=1",
-					"HAVE_ATAN2=1",
-					"HAVE_ATAN=1",
-					"HAVE_ATANH=1",
-					"HAVE_CBRT=1",
-					"HAVE_CEIL=1",
-					"HAVE_COPYSIGN=1",
-					"HAVE_COS=1",
-					"HAVE_COSH=1",
-					"HAVE_ERF=1",
-					"HAVE_ERFC=1",
-					"HAVE___EXP10=1",
-					"HAVE_EXP2=1",
-					"HAVE_EXP=1",
-					"HAVE_EXPM1=1",
-					"HAVE_FABS=1",
-					"HAVE_FDIM=1",
-					"HAVE_FLOOR=1",
-					"HAVE_FMA=1",
-					"HAVE_FMAX=1",
-					"HAVE_FMIN=1",
-					"HAVE_FMOD=1",
-					"HAVE_FREXP=1",
-					"HAVE_HYPOT=1",
-					"HAVE_J0=1",
-					"HAVE_J1=1",
-					"HAVE_JN=1",
-					"HAVE_LDEXP=1",
-					"HAVE_LGAMMA=1",
-					"HAVE_LOG10=1",
-					"HAVE_LOG1P=1",
-					"HAVE_LOG2=1",
-					"HAVE_LOG=1",
-					"HAVE_LOGB=1",
-					"HAVE_MODF=1",
-					"HAVE_NEARBYINT=1",
-					"HAVE_NEXTAFTER=1",
-					"HAVE_NEXTTOWARD=1",
-					"HAVE_POW=1",
-					"HAVE_REMAINDER=1",
-					"HAVE_RINT=1",
-					"HAVE_ROUND=1",
-					"HAVE_SCALB=1",
-					"HAVE_SCALBLN=1",
-					"HAVE_SCALBN=1",
-					"HAVE_ILOGB=1",
-					"HAVE_SIN=1",
-					"HAVE_SINH=1",
-					"HAVE_SQRT=1",
-					"HAVE_TAN=1",
-					"HAVE_TANH=1",
-					"HAVE_TGAMMA=1",
-					"HAVE_TRUNC=1",
-					"HAVE_Y0=1",
-					"HAVE_Y1=1",
-					"HAVE_YN=1",
-					"HAVE___THREAD=1",
-					"HAVE_LIBONIG=1",
-					"IEEE_8087=1",
+					"_REENTRANT",
 				);
 				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
-				HEADER_SEARCH_PATHS = modules/onigurama/src/;
+				HEADER_SEARCH_PATHS = (
+					$SRCROOT/jq,
+					$SRCROOT/jq/modules/oniguruma/src,
+				);
 				MACOSX_DEPLOYMENT_TARGET = 13.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
+				OTHER_CFLAGS = "--include src/config_apple.h";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx;
 				WARNING_CFLAGS = "-Werror=format";

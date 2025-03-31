@@ -24,9 +24,10 @@
 
 #pragma once
 
+#include "CSSColorType.h"
+#include "CSSParserContext.h"
 #include "CSSParserFastPaths.h"
-#include "CSSUnresolvedColorResolutionState.h"
-#include "StyleColor.h"
+#include "CSSPlatformColorResolutionState.h"
 #include <optional>
 #include <wtf/OptionSet.h>
 #include <wtf/RefPtr.h>
@@ -34,33 +35,35 @@
 namespace WebCore {
 
 class Color;
-class CSSPrimitiveValue;
 class CSSParserTokenRange;
-class CSSUnresolvedColor;
-
+class CSSValue;
 struct CSSParserContext;
+
+namespace CSS {
+struct Color;
+}
 
 namespace CSSPropertyParserHelpers {
 
 // Options to augment color parsing.
 struct CSSColorParsingOptions {
     bool acceptQuirkyColors = false;
-    OptionSet<StyleColor::CSSColorType> allowedColorTypes = { StyleColor::CSSColorType::Absolute, StyleColor::CSSColorType::Current, StyleColor::CSSColorType::System };
+    OptionSet<CSS::ColorType> allowedColorTypes = { CSS::ColorType::Absolute, CSS::ColorType::Current, CSS::ColorType::System };
 };
 
 // MARK: <color> consuming (unresolved)
-std::optional<CSSUnresolvedColor> consumeUnresolvedColor(CSSParserTokenRange&, const CSSParserContext&, const CSSColorParsingOptions& = { });
+std::optional<CSS::Color> consumeUnresolvedColor(CSSParserTokenRange&, const CSSParserContext&, const CSSColorParsingOptions& = { });
 
-// MARK: <color> consuming (CSSPrimitiveValue)
-RefPtr<CSSPrimitiveValue> consumeColor(CSSParserTokenRange&, const CSSParserContext&, const CSSColorParsingOptions& = { });
+// MARK: <color> consuming (CSSValue)
+RefPtr<CSSValue> consumeColor(CSSParserTokenRange&, const CSSParserContext&, const CSSColorParsingOptions& = { });
 
 // MARK: <color> consuming (raw)
-Color consumeColorRaw(CSSParserTokenRange&, const CSSParserContext&, const CSSColorParsingOptions&, CSSUnresolvedColorResolutionState&);
+WebCore::Color consumeColorRaw(CSSParserTokenRange&, const CSSParserContext&, const CSSColorParsingOptions&, CSS::PlatformColorResolutionState&);
 
 // MARK: <color> parsing (raw)
-WEBCORE_EXPORT Color parseColorRawSlow(const String&, const CSSParserContext&, const CSSColorParsingOptions&, CSSUnresolvedColorResolutionState&);
+WEBCORE_EXPORT WebCore::Color parseColorRawSlow(const String&, const CSSParserContext&, const CSSColorParsingOptions&, CSS::PlatformColorResolutionState&);
 
-template<typename F> Color parseColorRaw(const String& string, const CSSParserContext& context, F&& lazySlowPathOptionsFunctor)
+template<typename F> WebCore::Color parseColorRaw(const String& string, const CSSParserContext& context, F&& lazySlowPathOptionsFunctor)
 {
     bool strict = !isQuirksModeBehavior(context.mode);
     if (auto color = CSSParserFastPaths::parseSimpleColor(string, strict))

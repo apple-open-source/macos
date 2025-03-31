@@ -31,6 +31,7 @@
 #include "WebPage.h"
 #include <WebCore/Chrome.h>
 #include <WebCore/ChromeClient.h>
+#include <WebCore/DocumentInlines.h>
 #include <WebCore/DocumentMarkerController.h>
 #include <WebCore/Editing.h>
 #include <WebCore/FocusController.h>
@@ -119,9 +120,6 @@ std::optional<WebCore::SimpleRange> TextAnimationController::contextRangeForActi
 
 std::optional<WebCore::SimpleRange> TextAnimationController::contextRangeForTextAnimationID(const WTF::UUID& animationUUID) const
 {
-    if (RefPtr manuallyEnabledAnimationRange = m_manuallyEnabledAnimationRange; manuallyEnabledAnimationRange)
-        return WebCore::makeSimpleRange(*manuallyEnabledAnimationRange);
-
     if (m_initialAnimationID == animationUUID)
         return unreplacedRangeForActiveWritingToolsSession();
 
@@ -163,7 +161,7 @@ void TextAnimationController::removeTransparentMarkersForTextAnimationID(const W
         return;
     }
 
-    document->markers().removeMarkers({ WebCore::DocumentMarker::Type::TransparentContent }, [&](const WebCore::DocumentMarker& marker) {
+    document->markers().removeMarkers({ WebCore::DocumentMarkerType::TransparentContent }, [&](const WebCore::DocumentMarker& marker) {
         return std::get<WebCore::DocumentMarker::TransparentContentData>(marker.data()).uuid == uuid ? WebCore::FilterMarkerResult::Remove : WebCore::FilterMarkerResult::Keep;
     });
 }
@@ -382,7 +380,10 @@ std::optional<WebCore::TextIndicatorData> TextAnimationController::createTextInd
         WebCore::TextIndicatorOption::IncludeSnapshotOfAllVisibleContentWithoutSelection,
         WebCore::TextIndicatorOption::ExpandClipBeyondVisibleRect,
         WebCore::TextIndicatorOption::SkipReplacedContent,
-        WebCore::TextIndicatorOption::RespectTextColor
+        WebCore::TextIndicatorOption::RespectTextColor,
+#if PLATFORM(VISION)
+        WebCore::TextIndicatorOption::SnapshotContentAt3xBaseScale,
+#endif
     };
 
     if (auto textIndicator = WebCore::TextIndicator::createWithRange(range, textIndicatorOptions, WebCore::TextIndicatorPresentationTransition::None, { }))
@@ -420,59 +421,6 @@ void TextAnimationController::createTextIndicatorForTextAnimationID(const WTF::U
     }
 
     completionHandler(createTextIndicatorForRange(*sessionRange));
-}
-
-void TextAnimationController::enableSourceTextAnimationAfterElementWithID(const String& elementID)
-{
-    RefPtr document = this->document();
-    if (!document) {
-        ASSERT_NOT_REACHED();
-        return;
-    }
-
-    RefPtr root = document->documentElement();
-    if (!root) {
-        ASSERT_NOT_REACHED();
-        return;
-    }
-
-    WebCore::VisibleSelection fullDocumentSelection(WebCore::VisibleSelection::selectionFromContentsOfNode(root.get()));
-    auto simpleRange = fullDocumentSelection.range();
-    if (!simpleRange) {
-        ASSERT_NOT_REACHED();
-        return;
-    }
-
-    if (RefPtr element = document->getElementById(elementID)) {
-        auto elementRange = WebCore::makeRangeSelectingNodeContents(*element);
-        if (!elementRange.collapsed())
-            simpleRange->start = elementRange.end;
-    }
-
-    m_manuallyEnabledAnimationRange = createLiveRange(*simpleRange);
-}
-
-void TextAnimationController::enableTextAnimationTypeForElementWithID(const String& elementID)
-{
-    RefPtr document = this->document();
-    if (!document) {
-        ASSERT_NOT_REACHED();
-        return;
-    }
-
-    RefPtr element = document->getElementById(elementID);
-    if (!element) {
-        ASSERT_NOT_REACHED();
-        return;
-    }
-
-    auto elementRange = WebCore::makeRangeSelectingNodeContents(*element);
-    if (elementRange.collapsed()) {
-        ASSERT_NOT_REACHED();
-        return;
-    }
-
-    m_manuallyEnabledAnimationRange = createLiveRange(elementRange);
 }
 
 } // namespace WebKit

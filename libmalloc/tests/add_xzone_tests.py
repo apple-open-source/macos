@@ -31,6 +31,7 @@ def create_xzone_test(test, nano_on_xzone=False, force_pgm=False):
         xzone_test['CanonicalName'] = new_name
 
     envvars = [
+        'MallocAllowInternalSecurity=1',
         'MallocSecureAllocator=1',
     ]
 
@@ -84,10 +85,16 @@ def add_xzone_tests(bats_plist_path, disable_xzone):
         # Keep the original test, unless it's xzone-only
         if 'Tags' not in test or 'xzone_only' not in test['Tags']:
             test_copy = copy.deepcopy(test)
-            # Explicitly disable xzone malloc, so that the old allocator is
-            # still tested on platforms that have xzone malloc by default
-            envvars = ['MallocSecureAllocator=0']
-            extend_env(test_copy, envvars)
+
+            if 'Tags' not in test or 'no_allocator_override' not in test['Tags']:
+                # Explicitly disable xzone malloc, so that the old allocator is
+                # still tested on platforms that have xzone malloc by default
+                envvars = [
+                    'MallocAllowInternalSecurity=1',
+                    'MallocSecureAllocator=0',
+                ]
+                extend_env(test_copy, envvars)
+
             tests.append(test_copy)
 
         if 'Tags' in test and not disable_xzone:

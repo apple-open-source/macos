@@ -19,10 +19,10 @@
 #include "config/aom_config.h"
 #include "config/aom_dsp_rtcd.h"
 #include "config/av1_rtcd.h"
+#include "gtest/gtest.h"
 #include "test/acm_random.h"
 #include "test/register_state_check.h"
 #include "test/util.h"
-#include "third_party/googletest/src/googletest/include/gtest/gtest.h"
 
 namespace {
 using FastSoftmaxFn = void (*)(const float *const input, float *output);

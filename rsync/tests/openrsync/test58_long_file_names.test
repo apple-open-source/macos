@@ -1,0 +1,33 @@
+#! /bin/sh -x
+
+# Test that openrsync handles long file names correctly.
+
+set -e
+set -u
+
+. ${tstdir-.}/lib.sh
+. ${tstdir-.}/conf.sh
+
+# Create the source tree:
+#
+rm -rf src dst
+mkdir src
+
+for i in $(seq 128) ; do
+    date > src/$(jot -n -bf -s. $i)
+    mkfifo src/$(jot -n -bp -s. $i)
+    ln -s $(jot -n -bf -s. $i) src/$(jot -n -bl -s. $i)
+    dir="$(jot -n -bd -s. $i)"
+    mkdir src/${dir}
+    ln -s ../$(jot -n -bf -s. $i) src/${dir}/$(jot -n -bl -s. $i)
+done
+
+rsync -a --specials -- src/ dst/
+
+S=$(find src | wc -l)
+[ $S -eq $((i * 5 + 1)) ]
+
+D=$(find dst | wc -l)
+[ $S -eq $D ]
+
+compare_trees src dst

@@ -12,9 +12,12 @@ set -u
 # use it in lieu of --append in order to match the semantics
 # of --append prior to the introduction of --append-verify.
 #
-OPT_APPEND='--append'
 X=$(rsync -h 2>&1 | grep -- --append-verify || true)
-[ -n "$X" ] && OPT_APPEND='--append-verify'
+if [ -n "$X" ] ; then
+    OPT_APPEND='--append-verify'
+else
+    OPT_APPEND='--append'
+fi
 
 # Check to see if rsync supports --ignore-existing, which
 # is supported by rsync327 and openrsync but not rsync269.
@@ -23,13 +26,13 @@ OPT_IGNEXIST=''
 X=$(rsync -h 2>&1 | grep -- --ignore-existing || true)
 [ -n "$X" ] && OPT_IGNEXIST='--ignore-existing'
 
-rm -rf src dst
+rm -rf src dst ref
 
 # Create the source tree such that the first byte of src/big
 # is well known.
 #
 mkdir src
-date > src/small
+od -x -N64 /dev/random > src/small
 echo 0 > src/big
 jot -r -p9 1000000 >> src/big
 
@@ -38,27 +41,51 @@ jot -r -p9 1000000 >> src/big
 cp -a src/ dst/
 compare_trees -t src dst
 
-cp -a src/ ref/
-compare_trees -t src ref
+touch -A -33 dst/big
+cp -a dst ref
+compare_trees -t dst ref
 
 # Change the first byte in src/big from "0" to "1" and run
-# rsync --append, the dest file should not change.
+# rsync --append, the dest file should not change:
+#
 echo -n 1 | dd bs=1 count=1 conv=notrunc of=src/big 2>/dev/null
 rsync -a ${OPT_APPEND} -- src/ dst/
-compare_trees -t dst ref
+
+# rsync2 --append has a bug in that it does not skip files that are the same
+# size on receiver as on the sender, so we use the version from the first line
+# of the --version output to distinguish between rsync2, rsync3, and openrsync.
+# Interop testing between samba and openrsync will fail if dest is not local:
+#
+SKIP=0
+if [ -n "${RSYNC_PREFIX_DEST}" ] ; then
+    C=$(echo "${RSYNC_CLIENT}" | sed -En 's/.*\.(.*)/\1/p')
+    S=$(echo "${RSYNC_SERVER}" | sed -En 's/.*\.(.*)/\1/p')
+    if [ "$C$S" = "sambaopenrsync" -o "$C$S" = "openrsyncsamba" ] ; then
+	echo "skipping interop test (> vs >=) between $C and $S"
+        SKIP=1
+    fi
+fi
+
+if [ "${SKIP}" -eq 0 ] ; then
+    V=$(rsync --version 2>&1 | head -1 | sed -En 's/^rsync[[:space:]]*version[[:space:]]*([0-9]+).*/\1/p')
+    case "$V" in
+    2) compare_trees -t src dst ;;
+    *) compare_trees -t ref dst ;;
+    esac
+fi
 
 # Make the source file larger and newer than the dest file
 # then run rsync --append, the dest file should become
 # identical to the source file:
 #
-date >> src/big
+od -x -N64 /dev/random >> src/big
 rsync -a ${OPT_APPEND} -- src/ dst/
 compare_trees -t src dst
 
-# Make the dest file larger and newer than the source file
-# the run rsync --append, the dest file should be ignored:
+# Make the dest file larger, newer, and different than the source
+# file, then run rsync --append, the dest file should be ignored:
 #
-date >> dst/big
+od -x -N64 /dev/random >> dst/big
 rm -rf ref
 cp -a dst/ ref/
 compare_trees -t dst ref
@@ -71,19 +98,24 @@ compare_trees -t dst ref
 rsync -a ${OPT_APPEND} --checksum -- src/ dst/
 compare_trees -t dst ref
 
-# Again, make the source file larger and newer than the dest file
-# then run rsync --append, the dest file should become identical
-# to the source file:
+# Make dest identical to source:
 #
-date >> src/big
+rsync -a -- src/ dst/
+compare_trees -t src dst
+
+# Make the source file larger, newer, and different than the dest
+# file then run rsync --append, the dest file should become
+# identical to the source file:
+#
+od -x -N64 /dev/random >> src/big
 rsync -a ${OPT_APPEND} -- src/ dst/
 compare_trees -t src dst
 
-# Make the source file larger and newer than the dest file
-# then run rsync --append --ignore-exist, the dest file
+# Make the source file larger, newer, and different than the dest
+# file then run rsync --append --ignore-exist, the dest file
 # should not be updated:
 #
-date >> src/big
+od -x -N64 /dev/random >> src/big
 rm -rf src/ref
 cp -a dst/ ref/
 

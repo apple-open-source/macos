@@ -132,7 +132,7 @@ NS_ASSUME_NONNULL_BEGIN
  @param lookupOffset optional hint to where to look for the dir entry.
  @param reply In case of a failure returns a non-nil error and dirEntryData = nil. Else, error is nil and the relevant dir entry data is returned.
  */
--(void)lookupDirEntryNamed:(NSString *)lookupName
+-(void)lookupDirEntryNamed:(FSFileName *)lookupName
               dirNameCache:(DirNameCache * _Nullable)nameCache
               lookupOffset:(uint64_t * _Nullable)lookupOffset
               replyHandler:(void (^)(NSError *error,
@@ -150,7 +150,7 @@ NS_ASSUME_NONNULL_BEGIN
  @param reply In case of success, calls reply with error = nil, dirEntryOffsetInVolume = first dir entry offset in the volume, offsetInDir = the starting offset in dir of the newly created dir entries.
     In case of an error, calls reply with error != nil, dirEntryOffsetInVolume = 0 and offsetInDir = 0.
  */
--(void)createNewDirEntryNamed:(NSString *)name
+-(void)createNewDirEntryNamed:(FSFileName *)name
                          type:(FSItemType)type
                    attributes:(FSItemAttributes *)attrs
              firstDataCluster:(uint32_t)firstDataCluster

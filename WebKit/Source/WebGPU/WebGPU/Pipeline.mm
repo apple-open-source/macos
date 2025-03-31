@@ -30,17 +30,15 @@
 
 namespace WebGPU {
 
-std::optional<LibraryCreationResult> createLibrary(id<MTLDevice> device, const ShaderModule& shaderModule, PipelineLayout* pipelineLayout, const String& untransformedEntryPoint, NSString *label, uint32_t constantCount, const WGPUConstantEntry* constants, BufferBindingSizesForPipeline& mininumBufferSizes, NSError **error)
+std::optional<LibraryCreationResult> createLibrary(id<MTLDevice> device, const ShaderModule& shaderModule, PipelineLayout* pipelineLayout, const String& entryPoint, NSString *label, std::span<const WGPUConstantEntry> constants, BufferBindingSizesForPipeline& mininumBufferSizes, NSError **error)
 {
-    // FIXME: Remove below line when https://bugs.webkit.org/show_bug.cgi?id=266774 is completed
     HashMap<String, WGSL::ConstantValue> wgslConstantValues;
 
-    auto entryPoint = shaderModule.transformedEntryPoint(untransformedEntryPoint);
     if (!entryPoint.length() || !shaderModule.isValid())
         return std::nullopt;
 
     if (shaderModule.library() && pipelineLayout) {
-        if (const auto* pipelineLayoutHint = shaderModule.pipelineLayoutHint(entryPoint)) {
+        if (const RefPtr pipelineLayoutHint = shaderModule.pipelineLayoutHint(entryPoint)) {
             if (*pipelineLayoutHint == *pipelineLayout) {
                 if (const auto* entryPointInformation = shaderModule.entryPointInformation(entryPoint))
                     return { { shaderModule.library(), *entryPointInformation,  wgslConstantValues } };
@@ -69,39 +67,14 @@ std::optional<LibraryCreationResult> createLibrary(id<MTLDevice> device, const S
 
     const auto& entryPointInformation = iterator->value;
 
-    for (auto& kvp : entryPointInformation.specializationConstants) {
-        auto& specializationConstant = kvp.value;
-        if (!specializationConstant.defaultValue)
-            continue;
-
-        auto constantValue = WGSL::evaluate(*kvp.value.defaultValue, wgslConstantValues);
-        if (!constantValue) {
-            if (error)
-                *error = [NSError errorWithDomain:@"WebGPU" code:1 userInfo:@{ NSLocalizedDescriptionKey: @"Failed to evaluate override value" }];
-            return std::nullopt;
-        }
-        auto addResult = wgslConstantValues.add(kvp.key, *constantValue);
-        ASSERT_UNUSED(addResult, addResult.isNewEntry);
-    }
-
-    for (uint32_t i = 0; i < constantCount; ++i) {
-        const auto& entry = constants[i];
+    for (const auto entry : constants) {
         auto keyEntry = fromAPI(entry.key);
         auto indexIterator = entryPointInformation.specializationConstants.find(keyEntry);
-        // FIXME: Remove code inside the following conditional statement when https://bugs.webkit.org/show_bug.cgi?id=266774 is completed
-        if (indexIterator == entryPointInformation.specializationConstants.end()) {
-            if (!shaderModule.hasOverride(keyEntry))
-                return { };
+        if (indexIterator == entryPointInformation.specializationConstants.end())
+            return { };
 
-            NSString *nsConstant = [NSString stringWithUTF8String:keyEntry.utf8().data()];
-            nsConstant = [nsConstant stringByApplyingTransform:NSStringTransformToLatin reverse:NO];
-            nsConstant = [nsConstant stringByFoldingWithOptions:NSDiacriticInsensitiveSearch locale:NSLocale.currentLocale];
-            keyEntry = nsConstant;
-            indexIterator = entryPointInformation.specializationConstants.find(keyEntry);
-            if (indexIterator == entryPointInformation.specializationConstants.end())
-                return { };
-        }
         const auto& specializationConstant = indexIterator->value;
+        keyEntry = specializationConstant.mangledName;
         switch (specializationConstant.type) {
         case WGSL::Reflection::SpecializationConstantType::Boolean: {
             bool value = entry.value;
@@ -141,6 +114,21 @@ std::optional<LibraryCreationResult> createLibrary(id<MTLDevice> device, const S
         }
     }
 
+    for (auto& kvp : entryPointInformation.specializationConstants) {
+        auto& specializationConstant = kvp.value;
+        if (!specializationConstant.defaultValue || wgslConstantValues.contains(kvp.value.mangledName))
+            continue;
+
+        auto constantValue = WGSL::evaluate(*kvp.value.defaultValue, wgslConstantValues);
+        if (!constantValue) {
+            if (error)
+                *error = [NSError errorWithDomain:@"WebGPU" code:1 userInfo:@{ NSLocalizedDescriptionKey: @"Failed to evaluate override value" }];
+            return std::nullopt;
+        }
+        auto addResult = wgslConstantValues.add(kvp.value.mangledName, *constantValue);
+        ASSERT_UNUSED(addResult, addResult.isNewEntry);
+    }
+
     if (pipelineLayout) {
         for (unsigned i = 0; i < pipelineLayout->numberOfBindGroupLayouts(); ++i) {
             auto& wgslBindGroupLayout = wgslPipelineLayout->bindGroupLayouts[i];
@@ -149,8 +137,12 @@ std::optional<LibraryCreationResult> createLibrary(id<MTLDevice> device, const S
             for (unsigned i = 0; i < wgslBindGroupLayout.entries.size(); ++i) {
                 auto& wgslBindGroupLayoutEntry = wgslBindGroupLayout.entries[i];
                 auto* wgslBufferBinding = std::get_if<WGSL::BufferBindingLayout>(&wgslBindGroupLayoutEntry.bindingMember);
-                if (wgslBufferBinding && wgslBufferBinding->minBindingSize)
-                    shaderBindingSizeForBuffer.set(wgslBindGroupLayoutEntry.binding, wgslBufferBinding->minBindingSize);
+                if (wgslBufferBinding && wgslBufferBinding->minBindingSize) {
+                    auto newValue = wgslBufferBinding->minBindingSize;
+                    if (auto existingValueIt = shaderBindingSizeForBuffer.find(wgslBindGroupLayoutEntry.binding); existingValueIt != shaderBindingSizeForBuffer.end())
+                        newValue = std::max(newValue, existingValueIt->value);
+                    shaderBindingSizeForBuffer.set(wgslBindGroupLayoutEntry.binding, newValue);
+                }
             }
         }
     }
@@ -183,7 +175,7 @@ id<MTLFunction> createFunction(id<MTLLibrary> library, const WGSL::Reflection::E
 
 NSString* errorValidatingBindGroup(const BindGroup& bindGroup, const BufferBindingSizesForBindGroup* mininumBufferSizes, const Vector<uint32_t>* dynamicOffsets)
 {
-    auto bindGroupLayout = bindGroup.bindGroupLayout();
+    RefPtr bindGroupLayout = bindGroup.bindGroupLayout();
     if (!bindGroupLayout)
         return nil;
 
@@ -212,7 +204,10 @@ NSString* errorValidatingBindGroup(const BindGroup& bindGroup, const BufferBindi
 
             if (bufferSize && buffer->get()) {
                 auto dynamicOffset = bindGroup.dynamicOffset(bindingIndex, dynamicOffsets);
-                auto totalOffset = resource.entryOffset + dynamicOffset;
+                auto checkedTotalOffset = checkedSum<uint64_t>(resource.entryOffset, dynamicOffset);
+                if (checkedTotalOffset.hasOverflowed())
+                    return [NSString stringWithFormat:@"resourceOffset(%llu) + dynamicOffset(%u) overflows uint64_t", resource.entryOffset, dynamicOffset];
+                auto totalOffset = checkedTotalOffset.value();
                 auto mtlBufferLength = buffer->get()->buffer().length;
                 if (totalOffset > mtlBufferLength || (mtlBufferLength - totalOffset) < bufferSize || bufferSize > resource.entrySize)
                     return [NSString stringWithFormat:@"buffer length(%zu) minus offset(%llu), (resourceOffset(%llu) + dynamicOffset(%u)), is less than required bufferSize(%llu)", mtlBufferLength, totalOffset, resource.entryOffset, dynamicOffset, bufferSize];

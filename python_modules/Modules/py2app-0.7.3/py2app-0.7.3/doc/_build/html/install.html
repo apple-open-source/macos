@@ -1,0 +1,169 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Installation &mdash; py2app 0.7.3 documentation</title>
+    
+    <link rel="stylesheet" href="_static/nature.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '',
+        VERSION:     '0.7.3',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <link rel="top" title="py2app 0.7.3 documentation" href="index.html" />
+    <link rel="next" title="Dependencies" href="dependencies.html" />
+    <link rel="prev" title="py2app - Create standalone Mac OS X applications with Python" href="index.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="dependencies.html" title="Dependencies"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="index.html" title="py2app - Create standalone Mac OS X applications with Python"
+             accesskey="P">previous</a> |</li>
+        <li><a href="index.html">py2app 0.7.3 documentation</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="installation">
+<h1>Installation<a class="headerlink" href="#installation" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="installing-with-easy-install">
+<h2>Installing with easy_install<a class="headerlink" href="#installing-with-easy-install" title="Permalink to this headline">¶</a></h2>
+<p>To install py2app using <a class="reference external" href="http://peak.telecommunity.com/DevCenter/EasyInstall">easy_install</a> you must make sure you have a recent
+version of <a class="reference external" href="http://pypi.python.org/pypi/setuptools/">setuptools</a> installed (as of this writing, 0.6b4 or later):</p>
+<div class="highlight-python"><pre>$ curl -O http://peak.telecommunity.com/dist/ez_setup.py
+$ sudo python ez_setup.py -U setuptools</pre>
+</div>
+<p>To install or upgrade to the latest released version of py2app:</p>
+<div class="highlight-python"><pre>$ sudo easy_install -U py2app</pre>
+</div>
+</div>
+<div class="section" id="installing-from-source">
+<h2>Installing from source<a class="headerlink" href="#installing-from-source" title="Permalink to this headline">¶</a></h2>
+<p>To install py2app from source, simply use the normal procedure for
+installing any Python package. Since py2app uses <a class="reference external" href="http://pypi.python.org/pypi/setuptools/">setuptools</a>,
+all dependencies (including <a class="reference external" href="http://pypi.python.org/pypi/setuptools/">setuptools</a> itself) will be automatically
+acquired and installed for you as appropriate:</p>
+<div class="highlight-python"><pre>$ python setup.py install</pre>
+</div>
+<p>If you&#8217;re using a svn checkout, it&#8217;s recommended to use the <a class="reference external" href="http://pypi.python.org/pypi/setuptools/">setuptools</a>
+<a class="reference external" href="http://peak.telecommunity.com/DevCenter/setuptools#development-mode">develop command</a>, which will simply activate py2app directly from your
+source directory. This way you can do a <tt class="docutils literal"><span class="pre">svn</span> <span class="pre">up</span></tt> or make changes to the
+source code without re-installing every time:</p>
+<div class="highlight-python"><pre>$ python setup.py develop</pre>
+</div>
+</div>
+<div class="section" id="upgrade-notes">
+<h2>Upgrade Notes<a class="headerlink" href="#upgrade-notes" title="Permalink to this headline">¶</a></h2>
+<p>The <tt class="docutils literal"><span class="pre">setup.py</span></tt> template has changed slightly in py2app 0.3 in order
+to accommodate the enhancements brought on by <a class="reference external" href="http://pypi.python.org/pypi/setuptools/">setuptools</a>. Old <tt class="docutils literal"><span class="pre">setup.py</span></tt>
+scripts look like this:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="kn">from</span> <span class="nn">distutils.core</span> <span class="kn">import</span> <span class="n">setup</span>
+<span class="kn">import</span> <span class="nn">py2app</span>
+
+<span class="n">setup</span><span class="p">(</span>
+    <span class="n">app</span><span class="o">=</span><span class="p">[</span><span class="s">&quot;myscript.py&quot;</span><span class="p">],</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<p>New py2app scripts should look like this:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="kn">from</span> <span class="nn">setuptools</span> <span class="kn">import</span> <span class="n">setup</span>
+<span class="n">setup</span><span class="p">(</span>
+    <span class="n">app</span><span class="o">=</span><span class="p">[</span><span class="s">&quot;myscript.py&quot;</span><span class="p">],</span>
+    <span class="n">setup_requires</span><span class="o">=</span><span class="p">[</span><span class="s">&quot;py2app&quot;</span><span class="p">],</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">Installation</a><ul>
+<li><a class="reference internal" href="#installing-with-easy-install">Installing with easy_install</a></li>
+<li><a class="reference internal" href="#installing-from-source">Installing from source</a></li>
+<li><a class="reference internal" href="#upgrade-notes">Upgrade Notes</a></li>
+</ul>
+</li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="index.html"
+                        title="previous chapter">py2app - Create standalone Mac OS X applications with Python</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="dependencies.html"
+                        title="next chapter">Dependencies</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="_sources/install.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="dependencies.html" title="Dependencies"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="index.html" title="py2app - Create standalone Mac OS X applications with Python"
+             >previous</a> |</li>
+        <li><a href="index.html">py2app 0.7.3 documentation</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2010, Ronald Oussoren, Bob Ippolito.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1.3.
+    </div>
+  </body>
+</html>

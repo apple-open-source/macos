@@ -132,9 +132,9 @@ gaa{
         }
     }
     codePatterns{
-        language{"Language: {0}"}
-        script{"Script: {0}"}
-        territory{"Region: {0}"}
+        language{"Wiemɔ {0}"}
+        script{"Woloŋmaa {0}"}
+        territory{"Kpokpaanɔ {0}"}
     }
     localeDisplayPattern{
         keyTypePattern{"{0}: {1}"}

@@ -189,9 +189,6 @@ myv{
         "Europe:Tirane"{
             ec{"Тирана"}
         }
-        "Europe:Uzhgorod"{
-            ec{"Ужгород"}
-        }
         "Europe:Vaduz"{
             ec{"Вадуц"}
         }
@@ -209,9 +206,6 @@ myv{
         }
         "Europe:Zagreb"{
             ec{"Загреб"}
-        }
-        "Europe:Zaporozhye"{
-            ec{"Запорожье"}
         }
         "Europe:Zurich"{
             ec{"Цюрих"}

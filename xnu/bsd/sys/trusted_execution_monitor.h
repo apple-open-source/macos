@@ -51,7 +51,7 @@ extern const CSConfig_t *txm_cs_config;
 extern const TXMStatistics_t *txm_stats;
 
 /* All static trust cache information collected from TXM */
-extern uint32_t num_static_trust_caches;
+extern uint32_t txm_static_trust_caches;
 extern TCCapabilities_t static_trust_cache_capabilities0;
 extern TCCapabilities_t static_trust_cache_capabilities1;
 

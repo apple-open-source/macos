@@ -225,8 +225,13 @@ void av1_restore_layer_context(AV1_COMP *const cpi) {
   LAYER_CONTEXT *const lc = get_layer_context(cpi);
   const int old_frame_since_key = cpi->rc.frames_since_key;
   const int old_frame_to_key = cpi->rc.frames_to_key;
+  const int frames_since_scene_change = cpi->rc.frames_since_scene_change;
+  const int last_encoded_size_keyframe = cpi->rc.last_encoded_size_keyframe;
+  const int last_target_size_keyframe = cpi->rc.last_target_size_keyframe;
   const int max_consec_drop = cpi->rc.max_consec_drop;
   const int postencode_drop = cpi->rc.postencode_drop;
+  const int static_since_last_scene_change =
+      cpi->rc.static_since_last_scene_change;
   // Restore layer rate control.
   cpi->rc = lc->rc;
   cpi->ppi->p_rc = lc->p_rc;
@@ -235,13 +240,16 @@ void av1_restore_layer_context(AV1_COMP *const cpi) {
   cpi->mv_search_params.max_mv_magnitude = lc->max_mv_magnitude;
   if (cpi->mv_search_params.max_mv_magnitude == 0)
     cpi->mv_search_params.max_mv_magnitude = AOMMAX(cm->width, cm->height);
-  // Reset the frames_since_key and frames_to_key counters to their values
-  // before the layer restore. Keep these defined for the stream (not layer).
+  // Reset the following parameters to their values before
+  // the layer restore. Keep these defined for the stream (not layer).
   cpi->rc.frames_since_key = old_frame_since_key;
   cpi->rc.frames_to_key = old_frame_to_key;
-  // Reset to value before the layer restore.
+  cpi->rc.frames_since_scene_change = frames_since_scene_change;
+  cpi->rc.last_encoded_size_keyframe = last_encoded_size_keyframe;
+  cpi->rc.last_target_size_keyframe = last_target_size_keyframe;
   cpi->rc.max_consec_drop = max_consec_drop;
   cpi->rc.postencode_drop = postencode_drop;
+  cpi->rc.static_since_last_scene_change = static_since_last_scene_change;
   // For spatial-svc, allow cyclic-refresh to be applied on the spatial layers,
   // for the base temporal layer.
   if (cpi->oxcf.q_cfg.aq_mode == CYCLIC_REFRESH_AQ &&
@@ -291,7 +299,7 @@ void av1_svc_update_buffer_slot_refreshed(AV1_COMP *const cpi) {
   } else if (rtc_ref->set_ref_frame_config) {
     for (unsigned int i = 0; i < INTER_REFS_PER_FRAME; i++) {
       const int ref_frame_map_idx = rtc_ref->ref_idx[i];
-      if (cpi->ppi->rtc_ref.refresh[ref_frame_map_idx]) {
+      if (rtc_ref->refresh[ref_frame_map_idx]) {
         rtc_ref->buffer_time_index[ref_frame_map_idx] = current_frame;
         rtc_ref->buffer_spatial_layer[ref_frame_map_idx] =
             svc->spatial_layer_id;
@@ -323,12 +331,14 @@ void av1_save_layer_context(AV1_COMP *const cpi) {
     lc->actual_num_seg2_blocks = cr->actual_num_seg2_blocks;
     lc->counter_encode_maxq_scene_change = cr->counter_encode_maxq_scene_change;
   }
-  av1_svc_update_buffer_slot_refreshed(cpi);
-  for (unsigned int i = 0; i < REF_FRAMES; i++) {
-    if (frame_is_intra_only(cm) ||
-        cm->current_frame.refresh_frame_flags & (1 << i)) {
-      svc->spatial_layer_fb[i] = svc->spatial_layer_id;
-      svc->temporal_layer_fb[i] = svc->temporal_layer_id;
+  if (!cpi->is_dropped_frame) {
+    av1_svc_update_buffer_slot_refreshed(cpi);
+    for (unsigned int i = 0; i < REF_FRAMES; i++) {
+      if (frame_is_intra_only(cm) ||
+          cm->current_frame.refresh_frame_flags & (1 << i)) {
+        svc->spatial_layer_fb[i] = svc->spatial_layer_id;
+        svc->temporal_layer_fb[i] = svc->temporal_layer_id;
+      }
     }
   }
   if (svc->spatial_layer_id == svc->number_spatial_layers - 1) {
@@ -352,7 +362,8 @@ int av1_svc_primary_ref_frame(const AV1_COMP *const cpi) {
     // when set of enhancement layers are dropped (continued decoding starting
     // at next base TL0), so error_resilience can be off/0 for all layers.
     fb_idx = get_ref_frame_map_idx(cm, LAST_FRAME);
-    if (svc->spatial_layer_fb[fb_idx] == svc->spatial_layer_id &&
+    if (cpi->ppi->rtc_ref.reference[0] == 1 &&
+        svc->spatial_layer_fb[fb_idx] == svc->spatial_layer_id &&
         (svc->temporal_layer_fb[fb_idx] < svc->temporal_layer_id ||
          svc->temporal_layer_fb[fb_idx] == 0)) {
       primary_ref_frame = 0;  // LAST_FRAME: ref_frame - LAST_FRAME
@@ -474,8 +485,10 @@ void av1_set_svc_fixed_mode(AV1_COMP *const cpi) {
   // Set the reference map buffer idx for the 7 references:
   // LAST_FRAME (0), LAST2_FRAME(1), LAST3_FRAME(2), GOLDEN_FRAME(3),
   // BWDREF_FRAME(4), ALTREF2_FRAME(5), ALTREF_FRAME(6).
-  for (i = 0; i < INTER_REFS_PER_FRAME; i++) rtc_ref->ref_idx[i] = i;
-  for (i = 0; i < INTER_REFS_PER_FRAME; i++) rtc_ref->reference[i] = 0;
+  for (i = 0; i < INTER_REFS_PER_FRAME; i++) {
+    rtc_ref->reference[i] = 0;
+    rtc_ref->ref_idx[i] = i;
+  }
   for (i = 0; i < REF_FRAMES; i++) rtc_ref->refresh[i] = 0;
   // Always reference LAST, and reference GOLDEN on SL > 0.
   // For KSVC: GOLDEN reference will be removed on INTER_FRAMES later
@@ -679,7 +692,7 @@ int av1_svc_get_min_ref_dist(const AV1_COMP *cpi) {
       cpi->ppi->use_svc ? cpi->svc.current_superframe
                         : cpi->common.current_frame.frame_number;
   for (unsigned int i = 0; i < INTER_REFS_PER_FRAME; i++) {
-    if (cpi->ppi->rtc_ref.reference[i]) {
+    if (rtc_ref->reference[i]) {
       const int ref_frame_map_idx = rtc_ref->ref_idx[i];
       const int dist =
           current_frame_num - rtc_ref->buffer_time_index[ref_frame_map_idx];

@@ -89,6 +89,7 @@ JSCCallbackFunction::JSCCallbackFunction(VM& vm, Structure* structure, Type type
         g_closure_set_marshal(m_closure.get(), g_cclosure_marshal_generic);
 }
 
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN // GLib port
 JSValueRef JSCCallbackFunction::call(JSContextRef callerContext, JSObjectRef thisObject, size_t argumentCount, const JSValueRef arguments[], JSValueRef* exception)
 {
     JSLockHolder locker(toJS(callerContext));
@@ -227,12 +228,13 @@ JSObjectRef JSCCallbackFunction::construct(JSContextRef callerContext, size_t ar
         *exception = toRef(JSC::createTypeError(toJS(jsContext), "constructor returned null"_s));
         break;
     default:
-        *exception = toRef(JSC::createTypeError(toJS(jsContext), makeString("invalid type "_s, span(g_type_name(G_VALUE_TYPE(&returnValue))), " returned by constructor"_s)));
+        *exception = toRef(JSC::createTypeError(toJS(jsContext), makeString("invalid type "_s, unsafeSpan(g_type_name(G_VALUE_TYPE(&returnValue))), " returned by constructor"_s)));
         break;
     }
     g_value_unset(&returnValue);
     return nullptr;
 }
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
 
 void JSCCallbackFunction::destroy(JSCell* cell)
 {

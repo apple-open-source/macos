@@ -26,7 +26,7 @@
 #pragma once
 
 #include <wtf/Ref.h>
-#include <wtf/RefCounted.h>
+#include <wtf/RefCountedAndCanMakeWeakPtr.h>
 #include <wtf/WeakPtr.h>
 #include <wtf/text/WTFString.h>
 
@@ -34,12 +34,12 @@ namespace WebCore::WebGPU {
 
 class ExternalTexture;
 
-class BindGroup : public RefCounted<BindGroup>, public CanMakeWeakPtr<BindGroup> {
+class BindGroup : public RefCountedAndCanMakeWeakPtr<BindGroup> {
 public:
     virtual ~BindGroup() = default;
 
     String label() const { return m_label; }
-    virtual void updateExternalTextures(const ExternalTexture&) = 0;
+    virtual bool updateExternalTextures(ExternalTexture&) = 0;
 
     void setLabel(String&& label)
     {

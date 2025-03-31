@@ -2,17 +2,17 @@
 		<key>OpenSourceProject</key>
 		<string>cmp</string>
 		<key>OpenSourceVersion</key>
-		<string>2021-10-21</string>
+		<string>2024-10-09</string>
 		<key>OpenSourceWebsiteURL</key>
-		<string>https://cgit.freebsd.org/src/tree/usr.bin/cmp?id=f1f7f31366e5830f4f5b96c6394a0b91475744f4</string>
+		<string>https://cgit.freebsd.org/src/tree/usr.bin/cmp?id=3c37828ee1874754e1c5e96268016113c1e02ba2</string>
 		<key>OpenSourceImportDate</key>
-		<string>2021-10-21</string>
+		<string>2024-10-09</string>
 		<key>OpenSourceModifications</key>
 		<array>
-			<string>Compile fix (needs stdbool.h).</string>
 			<string>cmp.c: remove capsicum support</string>
 			<string>regular.c: remove capsicum support</string>
 			<string>special.c: remove capsicum support</string>
+			<string>regular.c: don't mmap on watchOS (137586103)</string>
 		</array>
 		<key>OpenSourceLicense</key>
 		<string>BSD</string>

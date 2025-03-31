@@ -61,6 +61,7 @@
 #import <wtf/WorkQueue.h>
 #import <wtf/cf/TypeCastsCF.h>
 #import <wtf/text/MakeString.h>
+#import <wtf/text/ParsingUtilities.h>
 #import <wtf/text/StringBuilder.h>
 #import <wtf/text/StringToIntegerConversion.h>
 
@@ -384,31 +385,31 @@ static void buildQuery(DDScanQueryRef scanQuery, const SimpleRange& contextRange
         }
         // Test for white space nodes, we're coalescing them.
         auto currentTextUpconvertedCharactersWithSize = currentText.upconvertedCharacters();
-        auto currentCharPtr = currentTextUpconvertedCharactersWithSize.get();
+        auto upconvertedCharacters = currentTextUpconvertedCharactersWithSize.span();
         
         bool containsOnlyWhiteSpace = true;
         bool hasTab = false;
         bool hasNewline = false;
         int nbspCount = 0;
         for (NSUInteger i = 0; i < currentTextLength; i++) {
-            if (!CFCharacterSetIsCharacterMember(whiteSpacesSet, *currentCharPtr)) {
+            if (!CFCharacterSetIsCharacterMember(whiteSpacesSet, upconvertedCharacters.front())) {
                 containsOnlyWhiteSpace = false;
                 break;
             }
             
-            if (CFCharacterSetIsCharacterMember(newLinesSet, *currentCharPtr))
+            if (CFCharacterSetIsCharacterMember(newLinesSet, upconvertedCharacters.front()))
                 hasNewline = true;
-            else if (*currentCharPtr == '\t')
+            else if (upconvertedCharacters.front() == '\t')
                 hasTab = true;
             
             // Multiple consecutive non breakable spaces are most likely simulated tabs.
-            if (*currentCharPtr == 0xa0) {
+            if (upconvertedCharacters.front() == 0xa0) {
                 if (++nbspCount > 2)
                     hasTab = true;
             } else
                 nbspCount = 0;
 
-            currentCharPtr++;
+            skip(upconvertedCharacters, 1);
         }
         if (containsOnlyWhiteSpace) {
             if (hasNewline) {
@@ -598,7 +599,9 @@ static NSArray * processDataDetectorScannerResults(DDScannerRef scanner, OptionS
     RefPtr<Text> lastTextNodeToUpdate;
     String lastNodeContent;
     unsigned contentOffset = 0;
-    DDQueryOffset lastModifiedQueryOffset = { .queryIndex = -1, .offset = 0 };
+    DDQueryOffset lastModifiedQueryOffset = { };
+    lastModifiedQueryOffset.queryIndex = -1;
+    lastModifiedQueryOffset.offset = 0;
 
     // For each result add the link.
     // Since there could be multiple results in the same text node, the node is only modified when

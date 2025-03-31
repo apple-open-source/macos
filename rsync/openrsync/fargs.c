@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2019 Kristaps Dzonsons <kristaps@bsd.lv>
+ * Copyright (c) 2024, Klara, Inc.
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -196,14 +197,14 @@ fargs_cmdline(struct sess *sess, const struct fargs *f, size_t *skip)
 		if (skip)
 			*skip = args.num;
 		addargs(&args, "--server");
-		if (f->mode == FARGS_RECEIVER)
-			addargs(&args, "--sender");
 	} else {
 		fargs_cmdline_prog(&args, rsync_path);
 		addargs(&args, "--server");
 	}
 
 	/* Shared arguments. */
+	if (f->mode == FARGS_RECEIVER)
+		addargs(&args, "--sender");
 
 	if (sess->opts->del) {
 		switch (sess->opts->del) {
@@ -232,6 +233,8 @@ fargs_cmdline(struct sess *sess, const struct fargs *f, size_t *skip)
 		addargs(&args, "-c");
 	if (sess->seed != 0)
 		addargs(&args, "--checksum-seed=%d", sess->seed);
+	else if (sess->opts->checksum_seed != 0)
+		addargs(&args, "--checksum-seed=%d", sess->opts->checksum_seed);
 	if (sess->opts->del_excl)
 		addargs(&args, "--delete-excluded");
 	if (sess->opts->numeric_ids == NIDS_FULL)
@@ -286,8 +289,6 @@ fargs_cmdline(struct sess *sess, const struct fargs *f, size_t *skip)
 		addargs(&args, "-h");
 	if (sess->opts->whole_file > 0 && !sess->opts->append)
 		addargs(&args, "-W");
-	if (sess->opts->progress > 0)
-		addargs(&args, "--progress");
 	if (sess->opts->backup > 0)
 		addargs(&args, "--backup");
 	if (sess->opts->backup_dir != NULL) {
@@ -295,8 +296,9 @@ fargs_cmdline(struct sess *sess, const struct fargs *f, size_t *skip)
 		addargs(&args, "%s", sess->opts->backup_dir);
 	}
 	if (sess->opts->backup_suffix != NULL &&
-	    strcmp(sess->opts->backup_suffix, "~") != 0 &&
-	    *sess->opts->backup_suffix != '\0') {
+	    *sess->opts->backup_suffix != '\0' &&
+	    (sess->opts->backup_suffix_given ||
+	     strcmp(sess->opts->backup_suffix, "~") != 0)) {
 		addargs(&args, "--suffix");
 		addargs(&args, "%s", sess->opts->backup_suffix);
 	}
@@ -326,18 +328,14 @@ fargs_cmdline(struct sess *sess, const struct fargs *f, size_t *skip)
 		addargs(&args, "--relative");
 	if (sess->opts->dirs > 0)
 		addargs(&args, "--dirs");
+	if (sess->opts->noimpdirs > 0)
+		addargs(&args, "--no-implied-dirs");
 	if (sess->opts->dlupdates > 0)
 		addargs(&args, "--delay-updates");
-	if (sess->opts->copy_links)
-		addargs(&args, "-L");
 	if (sess->opts->copy_unsafe_links)
 		addargs(&args, "--copy-unsafe-links");
 	if (sess->opts->safe_links)
 		addargs(&args, "--safe-links");
-	if (sess->opts->copy_dirlinks)
-		addargs(&args, "-k");
-	if (sess->opts->keep_dirlinks)
-		addargs(&args, "-K");
 	if (sess->opts->remove_source)
 		addargs(&args, "--remove-source-files");
 #ifdef __APPLE__
@@ -348,8 +346,28 @@ fargs_cmdline(struct sess *sess, const struct fargs *f, size_t *skip)
 		addargs(&args, "--ignore-times");
 	if (f->mode == FARGS_SENDER && sess->opts->fuzzy_basis)
 		addargs(&args, "--fuzzy");
-	if (sess->opts->outformat != NULL)
-		addargs(&args, "--out-format=%s", sess->opts->outformat);
+	if (sess->opts->outformat && f->mode == FARGS_SENDER) {
+		const char *ifmt = "%i";
+
+		log_format_init(sess);
+
+		if (sess->itemize_i && sess->opts->itemize > 1)
+			ifmt = "%i%I";
+
+		/*
+		 * We don't send the full outformat to the other side,
+		 * but they need to know about %i or %o.
+		 */
+		if (sess->itemize_i) {
+			addargs(&args, "--log-format=%s", ifmt);
+		} else if (sess->itemize_o) {
+			addargs(&args, "--log-format=%%o");
+		} else if (!verbose) {
+			addargs(&args, "--log-format=X");
+		}
+	}
+	if (sess->opts->list_only)
+		addargs(&args, "--list-only");
 	if (sess->opts->bit8 > 0)
 		addargs(&args, "-8");
 	if (sess->opts->bwlimit >= 1024) {
@@ -362,7 +380,7 @@ fargs_cmdline(struct sess *sess, const struct fargs *f, size_t *skip)
 		addargs(&args, "--temp-dir");
 		addargs(&args, "%s", sess->opts->temp_dir);
 	}
-	if (f->mode == FARGS_SENDER && sess->opts->block_size > 0)
+	if (sess->opts->block_size > 0)
 		addargs(&args, "-B%ld", sess->opts->block_size);
 	if (sess->opts->force_delete)
 		addargs(&args, "--force");
@@ -411,13 +429,20 @@ fargs_cmdline(struct sess *sess, const struct fargs *f, size_t *skip)
 			addargs(&args, "--no-dirs");
 		if (sess->opts->recursive > 0)
 			addargs(&args, "--recursive");
-		if (sess->opts->from0) {
+		if (sess->opts->from0)
 			addargs(&args, "--from0");
-		}
+	} else if (sess->opts->filesfrom != NULL && f->mode == FARGS_RECEIVER) {
+		if (sess->opts->relative == 0)
+			addargs(&args, "--no-relative");
+		addargs(&args, "--files-from=-");
+		addargs(&args, "--from0");
 	}
 
 	/* extra options for the receiver (local is sender) */
 	if (f->mode == FARGS_SENDER) {
+		if (sess->opts->prune_empty_dirs)
+			addargs(&args, "--prune-empty-dirs");
+
 		if (sess->opts->write_batch != NULL &&
 		    sess->opts->dry_run == DRY_XFER) {
 			addargs(&args, "--only-write-batch=%s",
@@ -436,6 +461,14 @@ fargs_cmdline(struct sess *sess, const struct fargs *f, size_t *skip)
 				    sess->opts->basedir[j]);
 			}
 		}
+
+		if (sess->opts->keep_dirlinks)
+			addargs(&args, "-K");
+	} else {
+		if (sess->opts->copy_links)
+			addargs(&args, "-L");
+		if (sess->opts->copy_dirlinks)
+			addargs(&args, "-k");
 	}
 
 	/* Terminate with a full-stop for reasons unknown. */
@@ -454,7 +487,7 @@ fargs_cmdline(struct sess *sess, const struct fargs *f, size_t *skip)
 			else
 				addargs(&args, "%s", f->sources[j]);
 		}
-	} else {
+	} else if (f->sink != NULL) {
 		if (f->sink[0] == '\0')
 			addargs(&args, ".");
 		else

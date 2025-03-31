@@ -22,15 +22,13 @@
  * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- *
- * $FreeBSD: head/lib/libarchive/archive_entry.h 201096 2009-12-28 02:41:27Z kientzle $
  */
 
 #ifndef ARCHIVE_ENTRY_H_INCLUDED
 #define	ARCHIVE_ENTRY_H_INCLUDED
 
 /* Note: Compiler will complain if this does not match archive.h! */
-#define	ARCHIVE_VERSION_NUMBER 3005003
+#define	ARCHIVE_VERSION_NUMBER 3007004
 
 /*
  * Note: archive_entry.h is for use outside of libarchive; the
@@ -101,7 +99,7 @@ typedef ssize_t la_ssize_t;
 #endif
 
 /* Large file support for Android */
-#ifdef __ANDROID__
+#if defined(__LIBARCHIVE_BUILD) && defined(__ANDROID__)
 #include "android_lf.h"
 #endif
 
@@ -124,6 +122,8 @@ typedef ssize_t la_ssize_t;
 #   define __LA_DECL	__declspec(dllimport)
 #  endif
 # endif
+#elif defined __LIBARCHIVE_ENABLE_VISIBILITY
+#  define __LA_DECL __attribute__((visibility("default")))
 #else
 /* Static libraries on all platforms and shared libraries on non-Windows. */
 # define __LA_DECL
@@ -251,11 +251,13 @@ __LA_DECL int		 archive_entry_dev_is_set(struct archive_entry *);
 __LA_DECL dev_t		 archive_entry_devmajor(struct archive_entry *);
 __LA_DECL dev_t		 archive_entry_devminor(struct archive_entry *);
 __LA_DECL __LA_MODE_T	 archive_entry_filetype(struct archive_entry *);
+__LA_DECL int		 archive_entry_filetype_is_set(struct archive_entry *);
 __LA_DECL void		 archive_entry_fflags(struct archive_entry *,
 			    unsigned long * /* set */,
 			    unsigned long * /* clear */);
 __LA_DECL const char	*archive_entry_fflags_text(struct archive_entry *);
 __LA_DECL la_int64_t	 archive_entry_gid(struct archive_entry *);
+__LA_DECL int		 archive_entry_gid_is_set(struct archive_entry *);
 __LA_DECL const char	*archive_entry_gname(struct archive_entry *);
 __LA_DECL const char	*archive_entry_gname_utf8(struct archive_entry *);
 __LA_DECL const wchar_t	*archive_entry_gname_w(struct archive_entry *);
@@ -274,6 +276,7 @@ __LA_DECL const char	*archive_entry_pathname(struct archive_entry *);
 __LA_DECL const char	*archive_entry_pathname_utf8(struct archive_entry *);
 __LA_DECL const wchar_t	*archive_entry_pathname_w(struct archive_entry *);
 __LA_DECL __LA_MODE_T	 archive_entry_perm(struct archive_entry *);
+__LA_DECL int		 archive_entry_perm_is_set(struct archive_entry *);
 __LA_DECL dev_t		 archive_entry_rdev(struct archive_entry *);
 __LA_DECL dev_t		 archive_entry_rdevmajor(struct archive_entry *);
 __LA_DECL dev_t		 archive_entry_rdevminor(struct archive_entry *);
@@ -287,6 +290,7 @@ __LA_DECL const char	*archive_entry_symlink_utf8(struct archive_entry *);
 __LA_DECL int		 archive_entry_symlink_type(struct archive_entry *);
 __LA_DECL const wchar_t	*archive_entry_symlink_w(struct archive_entry *);
 __LA_DECL la_int64_t	 archive_entry_uid(struct archive_entry *);
+__LA_DECL int		 archive_entry_uid_is_set(struct archive_entry *);
 __LA_DECL const char	*archive_entry_uname(struct archive_entry *);
 __LA_DECL const char	*archive_entry_uname_utf8(struct archive_entry *);
 __LA_DECL const wchar_t	*archive_entry_uname_w(struct archive_entry *);

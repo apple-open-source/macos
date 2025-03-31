@@ -1,5 +1,5 @@
-/* ANSI-C code produced by gperf version 3.0.4 */
-/* Command-line: gperf -pt -T -L ANSI-C -N sjis_lookup_property_name --output-file sjis_prop.c sjis_prop.gperf  */
+/* ANSI-C code produced by gperf version 3.1 */
+/* Command-line: gperf -pt -T -L ANSI-C -N onigenc_sjis_lookup_property_name --output-file gperf2.tmp sjis_prop.gperf  */
 /* Computed positions: -k'1,3' */
 
 #if !((' ' == 32) && ('!' == 33) && ('"' == 34) && ('#' == 35) \
@@ -26,13 +26,12 @@
       && ('w' == 119) && ('x' == 120) && ('y' == 121) && ('z' == 122) \
       && ('{' == 123) && ('|' == 124) && ('}' == 125) && ('~' == 126))
 /* The character set is not based on ISO-646.  */
-#error "gperf generated tables don't work with this execution character set. Please report a bug to <bug-gnu-gperf@gnu.org>."
+#error "gperf generated tables don't work with this execution character set. Please report a bug to <bug-gperf@gnu.org>."
 #endif
 
 #line 1 "sjis_prop.gperf"
 
-#include <string.h>
-#include "regenc.h"
+#include "regint.h"
 
 #define TOTAL_KEYWORDS 16
 #define MIN_WORD_LENGTH 4
@@ -49,7 +48,7 @@ inline
 #endif
 #endif
 static unsigned int
-hash (register const char *str, register unsigned int len)
+hash (register const char *str, register size_t len)
 {
   static unsigned char asso_values[] =
     {
@@ -80,73 +79,67 @@ hash (register const char *str, register unsigned int len)
       56, 56, 56, 56, 56, 56, 56, 56, 56, 56,
       56, 56, 56, 56, 56, 56
     };
-  return len + asso_values[(unsigned char)str[2]] + asso_values[(unsigned char)str[0]];
+  return (unsigned int )len + asso_values[(unsigned char)str[2]] + asso_values[(unsigned char)str[0]];
 }
 
-#ifdef __GNUC__
-__inline
-#if defined __GNUC_STDC_INLINE__ || defined __GNUC_GNU_INLINE__
-__attribute__ ((__gnu_inline__))
-#endif
-#endif
 struct PropertyNameCtype *
-sjis_lookup_property_name (register const char *str, register unsigned int len)
+onigenc_sjis_lookup_property_name (register const char *str, register size_t len)
 {
   static struct PropertyNameCtype wordlist[] =
     {
       {""}, {""}, {""}, {""},
-#line 23 "sjis_prop.gperf"
+#line 22 "sjis_prop.gperf"
       {"Word",     12},
-#line 12 "sjis_prop.gperf"
+#line 11 "sjis_prop.gperf"
       {"Alpha",     1},
       {""}, {""},
-#line 26 "sjis_prop.gperf"
+#line 25 "sjis_prop.gperf"
       {"Hiragana", 15},
       {""},
-#line 24 "sjis_prop.gperf"
+#line 23 "sjis_prop.gperf"
       {"Alnum",    13},
       {""}, {""},
-#line 27 "sjis_prop.gperf"
+#line 26 "sjis_prop.gperf"
       {"Katakana", 16},
       {""},
-#line 25 "sjis_prop.gperf"
+#line 24 "sjis_prop.gperf"
       {"ASCII",    14},
-#line 22 "sjis_prop.gperf"
+#line 21 "sjis_prop.gperf"
       {"XDigit",   11},
       {""}, {""}, {""},
-#line 14 "sjis_prop.gperf"
+#line 13 "sjis_prop.gperf"
       {"Cntrl",     3},
       {""}, {""},
-#line 13 "sjis_prop.gperf"
+#line 12 "sjis_prop.gperf"
       {"Blank",     2},
       {""},
-#line 19 "sjis_prop.gperf"
+#line 18 "sjis_prop.gperf"
       {"Punct",     8},
       {""}, {""}, {""}, {""},
-#line 18 "sjis_prop.gperf"
+#line 17 "sjis_prop.gperf"
       {"Print",     7},
       {""}, {""}, {""}, {""},
-#line 21 "sjis_prop.gperf"
+#line 20 "sjis_prop.gperf"
       {"Upper",    10},
       {""}, {""}, {""}, {""},
-#line 20 "sjis_prop.gperf"
+#line 19 "sjis_prop.gperf"
       {"Space",     9},
       {""}, {""}, {""}, {""},
-#line 17 "sjis_prop.gperf"
+#line 16 "sjis_prop.gperf"
       {"Lower",     6},
       {""}, {""}, {""}, {""},
-#line 16 "sjis_prop.gperf"
+#line 15 "sjis_prop.gperf"
       {"Graph",     5},
       {""}, {""}, {""}, {""},
-#line 15 "sjis_prop.gperf"
+#line 14 "sjis_prop.gperf"
       {"Digit",     4}
     };
 
   if (len <= MAX_WORD_LENGTH && len >= MIN_WORD_LENGTH)
     {
-      register int key = hash (str, len);
+      register unsigned int key = hash (str, len);
 
-      if (key <= MAX_HASH_VALUE && key >= 0)
+      if (key <= MAX_HASH_VALUE)
         {
           register const char *s = wordlist[key].name;
 

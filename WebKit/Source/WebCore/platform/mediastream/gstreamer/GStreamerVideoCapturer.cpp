@@ -62,8 +62,17 @@ void GStreamerVideoCapturer::setSinkVideoFrameCallback(SinkVideoFrameCallback&& 
 
     m_sinkVideoFrameCallback.second = WTFMove(callback);
     m_sinkVideoFrameCallback.first = g_signal_connect_swapped(sink(), "new-sample", G_CALLBACK(+[](GStreamerVideoCapturer* capturer, GstElement* sink) -> GstFlowReturn {
-        auto gstSample = adoptGRef(gst_app_sink_pull_sample(GST_APP_SINK(sink)));
-        capturer->m_sinkVideoFrameCallback.second(VideoFrameGStreamer::createWrappedSample(gstSample));
+        auto sample = adoptGRef(gst_app_sink_pull_sample(GST_APP_SINK(sink)));
+        VideoFrameTimeMetadata metadata;
+        metadata.captureTime = MonotonicTime::now().secondsSinceEpoch();
+
+        auto buffer = gst_sample_get_buffer(sample.get());
+        MediaTime presentationTime = MediaTime::invalidTime();
+        if (GST_BUFFER_PTS_IS_VALID(buffer))
+            presentationTime = fromGstClockTime(GST_BUFFER_PTS(buffer));
+
+        auto& size = capturer->size();
+        capturer->m_sinkVideoFrameCallback.second(VideoFrameGStreamer::create(WTFMove(sample), size, presentationTime, VideoFrameGStreamer::Rotation::None, false, WTFMove(metadata)));
         return GST_FLOW_OK;
     }), this);
 }
@@ -84,8 +93,10 @@ GstElement* GStreamerVideoCapturer::createSource()
 GstElement* GStreamerVideoCapturer::createConverter()
 {
     if (isCapturingDisplay()) {
-        gst_caps_set_features(m_caps.get(), 0, gst_caps_features_new("memory:DMABuf", nullptr));
-        return makeGStreamerElement("identity", nullptr);
+#if USE(GBM)
+        m_caps = buildDMABufCaps();
+#endif
+        return nullptr;
     }
 
     auto* bin = gst_bin_new(nullptr);

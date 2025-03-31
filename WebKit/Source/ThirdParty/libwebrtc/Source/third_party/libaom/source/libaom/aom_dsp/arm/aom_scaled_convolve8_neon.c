@@ -17,7 +17,7 @@
 #include "aom_dsp/arm/transpose_neon.h"
 #include "config/aom_dsp_rtcd.h"
 
-static INLINE void scaled_convolve_horiz_neon(
+static inline void scaled_convolve_horiz_neon(
     const uint8_t *src, const ptrdiff_t src_stride, uint8_t *dst,
     const ptrdiff_t dst_stride, const InterpKernel *const x_filter,
     const int x0_q4, const int x_step_q4, int w, int h) {
@@ -146,7 +146,7 @@ static INLINE void scaled_convolve_horiz_neon(
   } while (h > 0);
 }
 
-static INLINE void scaled_convolve_vert_neon(
+static inline void scaled_convolve_vert_neon(
     const uint8_t *src, const ptrdiff_t src_stride, uint8_t *dst,
     const ptrdiff_t dst_stride, const InterpKernel *const y_filter,
     const int y0_q4, const int y_step_q4, int w, int h) {

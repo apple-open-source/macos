@@ -21,10 +21,10 @@
 #include "av1/common/convolve.h"
 #include "av1/common/filter.h"
 
-static INLINE uint16x4_t
-highbd_convolve6_4_y(const int16x4_t s0, const int16x4_t s1, const int16x4_t s2,
-                     const int16x4_t s3, const int16x4_t s4, const int16x4_t s5,
-                     const int16x8_t y_filter, const uint16x4_t max) {
+static inline uint16x4_t highbd_convolve6_4_y(
+    const int16x4_t s0, const int16x4_t s1, const int16x4_t s2,
+    const int16x4_t s3, const int16x4_t s4, const int16x4_t s5,
+    const int16x8_t y_filter, const uint16x4_t max) {
   // Values at indices 0 and 7 of y_filter are zero.
   const int16x4_t y_filter_0_3 = vget_low_s16(y_filter);
   const int16x4_t y_filter_4_7 = vget_high_s16(y_filter);
@@ -40,10 +40,10 @@ highbd_convolve6_4_y(const int16x4_t s0, const int16x4_t s1, const int16x4_t s2,
   return vmin_u16(res, max);
 }
 
-static INLINE uint16x8_t
-highbd_convolve6_8_y(const int16x8_t s0, const int16x8_t s1, const int16x8_t s2,
-                     const int16x8_t s3, const int16x8_t s4, const int16x8_t s5,
-                     const int16x8_t y_filter, const uint16x8_t max) {
+static inline uint16x8_t highbd_convolve6_8_y(
+    const int16x8_t s0, const int16x8_t s1, const int16x8_t s2,
+    const int16x8_t s3, const int16x8_t s4, const int16x8_t s5,
+    const int16x8_t y_filter, const uint16x8_t max) {
   // Values at indices 0 and 7 of y_filter are zero.
   const int16x4_t y_filter_0_3 = vget_low_s16(y_filter);
   const int16x4_t y_filter_4_7 = vget_high_s16(y_filter);
@@ -67,7 +67,7 @@ highbd_convolve6_8_y(const int16x8_t s0, const int16x8_t s1, const int16x8_t s2,
   return vminq_u16(res, max);
 }
 
-static INLINE void highbd_convolve_y_sr_6tap_neon(
+static inline void highbd_convolve_y_sr_6tap_neon(
     const uint16_t *src_ptr, int src_stride, uint16_t *dst_ptr, int dst_stride,
     int w, int h, const int16_t *y_filter_ptr, const int bd) {
   const int16x8_t y_filter_0_7 = vld1q_s16(y_filter_ptr);
@@ -149,11 +149,11 @@ static INLINE void highbd_convolve_y_sr_6tap_neon(
   }
 }
 
-static INLINE uint16x4_t
-highbd_convolve8_4_y(const int16x4_t s0, const int16x4_t s1, const int16x4_t s2,
-                     const int16x4_t s3, const int16x4_t s4, const int16x4_t s5,
-                     const int16x4_t s6, const int16x4_t s7,
-                     const int16x8_t y_filter, const uint16x4_t max) {
+static inline uint16x4_t highbd_convolve8_4_y(
+    const int16x4_t s0, const int16x4_t s1, const int16x4_t s2,
+    const int16x4_t s3, const int16x4_t s4, const int16x4_t s5,
+    const int16x4_t s6, const int16x4_t s7, const int16x8_t y_filter,
+    const uint16x4_t max) {
   const int16x4_t y_filter_0_3 = vget_low_s16(y_filter);
   const int16x4_t y_filter_4_7 = vget_high_s16(y_filter);
 
@@ -170,11 +170,11 @@ highbd_convolve8_4_y(const int16x4_t s0, const int16x4_t s1, const int16x4_t s2,
   return vmin_u16(res, max);
 }
 
-static INLINE uint16x8_t
-highbd_convolve8_8_y(const int16x8_t s0, const int16x8_t s1, const int16x8_t s2,
-                     const int16x8_t s3, const int16x8_t s4, const int16x8_t s5,
-                     const int16x8_t s6, const int16x8_t s7,
-                     const int16x8_t y_filter, const uint16x8_t max) {
+static inline uint16x8_t highbd_convolve8_8_y(
+    const int16x8_t s0, const int16x8_t s1, const int16x8_t s2,
+    const int16x8_t s3, const int16x8_t s4, const int16x8_t s5,
+    const int16x8_t s6, const int16x8_t s7, const int16x8_t y_filter,
+    const uint16x8_t max) {
   const int16x4_t y_filter_0_3 = vget_low_s16(y_filter);
   const int16x4_t y_filter_4_7 = vget_high_s16(y_filter);
 
@@ -201,7 +201,7 @@ highbd_convolve8_8_y(const int16x8_t s0, const int16x8_t s1, const int16x8_t s2,
   return vminq_u16(res, max);
 }
 
-static INLINE void highbd_convolve_y_sr_8tap_neon(
+static inline void highbd_convolve_y_sr_8tap_neon(
     const uint16_t *src_ptr, int src_stride, uint16_t *dst_ptr, int dst_stride,
     int w, int h, const int16_t *y_filter_ptr, int bd) {
   const int16x8_t y_filter = vld1q_s16(y_filter_ptr);
@@ -286,7 +286,7 @@ static INLINE void highbd_convolve_y_sr_8tap_neon(
   }
 }
 
-static INLINE uint16x4_t highbd_convolve12_4_y(
+static inline uint16x4_t highbd_convolve12_4_y(
     const int16x4_t s0, const int16x4_t s1, const int16x4_t s2,
     const int16x4_t s3, const int16x4_t s4, const int16x4_t s5,
     const int16x4_t s6, const int16x4_t s7, const int16x4_t s8,
@@ -313,7 +313,7 @@ static INLINE uint16x4_t highbd_convolve12_4_y(
   return vmin_u16(res, max);
 }
 
-static INLINE uint16x8_t highbd_convolve12_8_y(
+static inline uint16x8_t highbd_convolve12_8_y(
     const int16x8_t s0, const int16x8_t s1, const int16x8_t s2,
     const int16x8_t s3, const int16x8_t s4, const int16x8_t s5,
     const int16x8_t s6, const int16x8_t s7, const int16x8_t s8,
@@ -354,7 +354,7 @@ static INLINE uint16x8_t highbd_convolve12_8_y(
   return vminq_u16(res, max);
 }
 
-static INLINE void highbd_convolve_y_sr_12tap_neon(
+static inline void highbd_convolve_y_sr_12tap_neon(
     const uint16_t *src_ptr, int src_stride, uint16_t *dst_ptr, int dst_stride,
     int w, int h, const int16_t *y_filter_ptr, int bd) {
   const int16x8_t y_filter_0_7 = vld1q_s16(y_filter_ptr);
@@ -490,7 +490,7 @@ void av1_highbd_convolve_y_sr_neon(const uint16_t *src, int src_stride,
                                  y_filter_ptr, bd);
 }
 
-static INLINE uint16x8_t highbd_convolve6_8_x(const int16x8_t s[6],
+static inline uint16x8_t highbd_convolve6_8_x(const int16x8_t s[6],
                                               const int16x8_t x_filter,
                                               const int32x4_t offset,
                                               const uint16x8_t max) {
@@ -519,7 +519,7 @@ static INLINE uint16x8_t highbd_convolve6_8_x(const int16x8_t s[6],
   return vminq_u16(res, max);
 }
 
-static INLINE void highbd_convolve_x_sr_6tap_neon(
+static inline void highbd_convolve_x_sr_6tap_neon(
     const uint16_t *src_ptr, int src_stride, uint16_t *dst_ptr, int dst_stride,
     int w, int h, const int16_t *x_filter_ptr, ConvolveParams *conv_params,
     int bd) {
@@ -564,7 +564,7 @@ static INLINE void highbd_convolve_x_sr_6tap_neon(
   } while (height != 0);
 }
 
-static INLINE uint16x4_t highbd_convolve4_4_x(const int16x4_t s[4],
+static inline uint16x4_t highbd_convolve4_4_x(const int16x4_t s[4],
                                               const int16x4_t x_filter,
                                               const int32x4_t offset,
                                               const uint16x4_t max) {
@@ -578,7 +578,7 @@ static INLINE uint16x4_t highbd_convolve4_4_x(const int16x4_t s[4],
   return vmin_u16(res, max);
 }
 
-static INLINE uint16x8_t highbd_convolve8_8_x(const int16x8_t s[8],
+static inline uint16x8_t highbd_convolve8_8_x(const int16x8_t s[8],
                                               const int16x8_t x_filter,
                                               const int32x4_t offset,
                                               const uint16x8_t max) {
@@ -610,7 +610,7 @@ static INLINE uint16x8_t highbd_convolve8_8_x(const int16x8_t s[8],
   return vminq_u16(res, max);
 }
 
-static INLINE void highbd_convolve_x_sr_neon(const uint16_t *src_ptr,
+static inline void highbd_convolve_x_sr_neon(const uint16_t *src_ptr,
                                              int src_stride, uint16_t *dst_ptr,
                                              int dst_stride, int w, int h,
                                              const int16_t *x_filter_ptr,
@@ -683,7 +683,7 @@ static INLINE void highbd_convolve_x_sr_neon(const uint16_t *src_ptr,
   }
 }
 
-static INLINE uint16x4_t highbd_convolve12_4_x(const int16x4_t s[12],
+static inline uint16x4_t highbd_convolve12_4_x(const int16x4_t s[12],
                                                const int16x8_t x_filter_0_7,
                                                const int16x4_t x_filter_8_11,
                                                const int32x4_t offset,
@@ -709,7 +709,7 @@ static INLINE uint16x4_t highbd_convolve12_4_x(const int16x4_t s[12],
   return vmin_u16(res, max);
 }
 
-static INLINE uint16x8_t highbd_convolve12_8_x(const int16x8_t s[12],
+static inline uint16x8_t highbd_convolve12_8_x(const int16x8_t s[12],
                                                const int16x8_t x_filter_0_7,
                                                const int16x4_t x_filter_8_11,
                                                const int32x4_t offset,
@@ -750,7 +750,7 @@ static INLINE uint16x8_t highbd_convolve12_8_x(const int16x8_t s[12],
   return vminq_u16(res, max);
 }
 
-static INLINE void highbd_convolve_x_sr_12tap_neon(
+static inline void highbd_convolve_x_sr_12tap_neon(
     const uint16_t *src_ptr, int src_stride, uint16_t *dst_ptr, int dst_stride,
     int w, int h, const int16_t *x_filter_ptr, ConvolveParams *conv_params,
     int bd) {
@@ -872,7 +872,7 @@ void av1_highbd_convolve_x_sr_neon(const uint16_t *src, int src_stride,
                             x_filter_ptr, conv_params, bd);
 }
 
-static INLINE uint16x4_t highbd_convolve6_4_2d_v(
+static inline uint16x4_t highbd_convolve6_4_2d_v(
     const int16x4_t s0, const int16x4_t s1, const int16x4_t s2,
     const int16x4_t s3, const int16x4_t s4, const int16x4_t s5,
     const int16x8_t y_filter, const int32x4_t round_shift,
@@ -893,7 +893,7 @@ static INLINE uint16x4_t highbd_convolve6_4_2d_v(
   return vmin_u16(res, max);
 }
 
-static INLINE uint16x8_t highbd_convolve6_8_2d_v(
+static inline uint16x8_t highbd_convolve6_8_2d_v(
     const int16x8_t s0, const int16x8_t s1, const int16x8_t s2,
     const int16x8_t s3, const int16x8_t s4, const int16x8_t s5,
     const int16x8_t y_filter, const int32x4_t round_shift,
@@ -923,7 +923,7 @@ static INLINE uint16x8_t highbd_convolve6_8_2d_v(
   return vminq_u16(res, max);
 }
 
-static INLINE void highbd_convolve_2d_sr_vert_6tap_neon(
+static inline void highbd_convolve_2d_sr_vert_6tap_neon(
     const uint16_t *src_ptr, int src_stride, uint16_t *dst_ptr, int dst_stride,
     int w, int h, const int16_t *y_filter_ptr, ConvolveParams *conv_params,
     int bd, const int offset) {
@@ -1010,7 +1010,7 @@ static INLINE void highbd_convolve_2d_sr_vert_6tap_neon(
   }
 }
 
-static INLINE uint16x4_t highbd_convolve8_4_2d_v(
+static inline uint16x4_t highbd_convolve8_4_2d_v(
     const int16x4_t s0, const int16x4_t s1, const int16x4_t s2,
     const int16x4_t s3, const int16x4_t s4, const int16x4_t s5,
     const int16x4_t s6, const int16x4_t s7, const int16x8_t y_filter,
@@ -1032,7 +1032,7 @@ static INLINE uint16x4_t highbd_convolve8_4_2d_v(
   return vmin_u16(res, max);
 }
 
-static INLINE uint16x8_t highbd_convolve8_8_2d_v(
+static inline uint16x8_t highbd_convolve8_8_2d_v(
     const int16x8_t s0, const int16x8_t s1, const int16x8_t s2,
     const int16x8_t s3, const int16x8_t s4, const int16x8_t s5,
     const int16x8_t s6, const int16x8_t s7, const int16x8_t y_filter,
@@ -1065,7 +1065,7 @@ static INLINE uint16x8_t highbd_convolve8_8_2d_v(
   return vminq_u16(res, max);
 }
 
-static INLINE void highbd_convolve_2d_sr_vert_8tap_neon(
+static inline void highbd_convolve_2d_sr_vert_8tap_neon(
     const uint16_t *src_ptr, int src_stride, uint16_t *dst_ptr, int dst_stride,
     int w, int h, const int16_t *y_filter_ptr, ConvolveParams *conv_params,
     int bd, const int offset) {
@@ -1162,7 +1162,7 @@ static INLINE void highbd_convolve_2d_sr_vert_8tap_neon(
   }
 }
 
-static INLINE uint16x4_t highbd_convolve12_4_2d_v(
+static inline uint16x4_t highbd_convolve12_4_2d_v(
     const int16x4_t s0, const int16x4_t s1, const int16x4_t s2,
     const int16x4_t s3, const int16x4_t s4, const int16x4_t s5,
     const int16x4_t s6, const int16x4_t s7, const int16x4_t s8,
@@ -1190,7 +1190,7 @@ static INLINE uint16x4_t highbd_convolve12_4_2d_v(
   return vmin_u16(res, max);
 }
 
-static INLINE uint16x8_t highbd_convolve12_8_2d_v(
+static inline uint16x8_t highbd_convolve12_8_2d_v(
     const int16x8_t s0, const int16x8_t s1, const int16x8_t s2,
     const int16x8_t s3, const int16x8_t s4, const int16x8_t s5,
     const int16x8_t s6, const int16x8_t s7, const int16x8_t s8,
@@ -1233,7 +1233,7 @@ static INLINE uint16x8_t highbd_convolve12_8_2d_v(
   return vminq_u16(res, max);
 }
 
-static INLINE void highbd_convolve_2d_sr_vert_12tap_neon(
+static inline void highbd_convolve_2d_sr_vert_12tap_neon(
     const uint16_t *src_ptr, int src_stride, uint16_t *dst_ptr, int dst_stride,
     int w, int h, const int16_t *y_filter_ptr, ConvolveParams *conv_params,
     const int bd, const int offset) {
@@ -1342,7 +1342,7 @@ static INLINE void highbd_convolve_2d_sr_vert_12tap_neon(
   }
 }
 
-static INLINE uint16x8_t highbd_convolve6_8_2d_h(const int16x8_t s[6],
+static inline uint16x8_t highbd_convolve6_8_2d_h(const int16x8_t s[6],
                                                  const int16x8_t x_filter,
                                                  const int32x4_t shift_s32,
                                                  const int32x4_t offset) {
@@ -1370,7 +1370,7 @@ static INLINE uint16x8_t highbd_convolve6_8_2d_h(const int16x8_t s[6],
   return vcombine_u16(vqmovun_s32(sum0), vqmovun_s32(sum1));
 }
 
-static INLINE void highbd_convolve_2d_sr_horiz_6tap_neon(
+static inline void highbd_convolve_2d_sr_horiz_6tap_neon(
     const uint16_t *src_ptr, int src_stride, uint16_t *dst_ptr, int dst_stride,
     int w, int h, const int16_t *x_filter_ptr, ConvolveParams *conv_params,
     const int offset) {
@@ -1441,7 +1441,7 @@ static INLINE void highbd_convolve_2d_sr_horiz_6tap_neon(
   } while (--height != 0);
 }
 
-static INLINE uint16x4_t highbd_convolve4_4_2d_h(const int16x4_t s[4],
+static inline uint16x4_t highbd_convolve4_4_2d_h(const int16x4_t s[4],
                                                  const int16x4_t x_filter,
                                                  const int32x4_t shift_s32,
                                                  const int32x4_t offset) {
@@ -1454,7 +1454,7 @@ static INLINE uint16x4_t highbd_convolve4_4_2d_h(const int16x4_t s[4],
   return vqmovun_s32(sum);
 }
 
-static INLINE uint16x8_t highbd_convolve8_8_2d_h(const int16x8_t s[8],
+static inline uint16x8_t highbd_convolve8_8_2d_h(const int16x8_t s[8],
                                                  const int16x8_t x_filter,
                                                  const int32x4_t shift_s32,
                                                  const int32x4_t offset) {
@@ -1485,7 +1485,7 @@ static INLINE uint16x8_t highbd_convolve8_8_2d_h(const int16x8_t s[8],
   return vcombine_u16(vqmovun_s32(sum0), vqmovun_s32(sum1));
 }
 
-static INLINE void highbd_convolve_2d_sr_horiz_neon(
+static inline void highbd_convolve_2d_sr_horiz_neon(
     const uint16_t *src_ptr, int src_stride, uint16_t *dst_ptr, int dst_stride,
     int w, int h, const int16_t *x_filter_ptr, ConvolveParams *conv_params,
     const int offset) {
@@ -1601,7 +1601,7 @@ static INLINE void highbd_convolve_2d_sr_horiz_neon(
   }
 }
 
-static INLINE uint16x4_t highbd_convolve12_4_2d_h(const int16x4_t s[12],
+static inline uint16x4_t highbd_convolve12_4_2d_h(const int16x4_t s[12],
                                                   const int16x8_t x_filter_0_7,
                                                   const int16x4_t x_filter_8_11,
                                                   const int32x4_t shift_s32,
@@ -1626,7 +1626,7 @@ static INLINE uint16x4_t highbd_convolve12_4_2d_h(const int16x4_t s[12],
   return vqmovun_s32(sum);
 }
 
-static INLINE uint16x8_t highbd_convolve12_8_2d_h(const int16x8_t s[12],
+static inline uint16x8_t highbd_convolve12_8_2d_h(const int16x8_t s[12],
                                                   const int16x8_t x_filter_0_7,
                                                   const int16x4_t x_filter_8_11,
                                                   const int32x4_t shift_s32,
@@ -1666,7 +1666,7 @@ static INLINE uint16x8_t highbd_convolve12_8_2d_h(const int16x8_t s[12],
   return vcombine_u16(vqmovun_s32(sum0), vqmovun_s32(sum1));
 }
 
-static INLINE void highbd_convolve_2d_sr_horiz_12tap_neon(
+static inline void highbd_convolve_2d_sr_horiz_12tap_neon(
     const uint16_t *src_ptr, int src_stride, uint16_t *dst_ptr, int dst_stride,
     int w, int h, const int16_t *x_filter_ptr, ConvolveParams *conv_params,
     const int offset) {

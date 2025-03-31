@@ -107,6 +107,11 @@ extern tb_error_t
     tb_error_t (^_Nonnull completion)(xnuupcallsv2_storageupcallsprivate_root__result_s));
 
 extern tb_error_t
+    exclaves_storage_upcall_rootex(const uint32_t fstag,
+    const uint8_t exclaveid[_Nonnull 32],
+    tb_error_t (^_Nonnull completion)(xnuupcallsv2_storageupcallsprivate_rootex__result_s));
+
+extern tb_error_t
     exclaves_storage_upcall_open(const uint32_t fstag,
     const uint64_t rootid, const uint8_t name[_Nonnull 256],
     tb_error_t (^_Nonnull completion)(xnuupcallsv2_storageupcallsprivate_open__result_s));
@@ -156,6 +161,10 @@ extern tb_error_t
 extern tb_error_t
     exclaves_storage_upcall_sealstate(const uint32_t fstag,
     tb_error_t (^_Nonnull completion)(xnuupcallsv2_storageupcallsprivate_sealstate__result_s));
+
+extern tb_error_t
+    exclaves_storage_upcall_queryvolumegroup(const uint8_t vguuid[_Nonnull 37],
+    tb_error_t (^_Nonnull completion)(xnuupcallsv2_storageupcallsprivate_queryvolumegroup__result_s));
 
 __END_DECLS
 

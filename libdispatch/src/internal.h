@@ -667,7 +667,10 @@ void _dispatch_call_block_and_release(void *block);
 bool _dispatch_parse_bool(const char *v);
 bool _dispatch_getenv_bool(const char *env, bool default_v);
 void _dispatch_temporary_resource_shortage(void);
-void *_dispatch_calloc(size_t num_items, size_t size);
+#if defined(_MALLOC_TYPE_ENABLED) && _MALLOC_TYPE_ENABLED
+void *_dispatch_calloc_typed(size_t num_items, size_t size, malloc_type_id_t type_id);
+#endif // defined(_MALLOC_TYPE_ENABLED) && _MALLOC_TYPE_ENABLED
+void *_dispatch_calloc(size_t num_items, size_t size) _MALLOC_TYPED(_dispatch_calloc_typed, 2);
 const char *_dispatch_strdup_if_mutable(const char *str);
 void _dispatch_vtable_init(void);
 char *_dispatch_get_build(void);

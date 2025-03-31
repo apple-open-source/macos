@@ -1353,6 +1353,9 @@ main(int argc, char **argv)
 	    (void) srccat(varval(STRhome), STRsldotlogin);
 #endif
 	/* upward compat. */
+#ifdef __APPLE__
+	if (!getenv("APPLE_PKGKIT_ESCALATING_ROOT"))
+#endif // __APPLE__
 	if (!srccat(varval(STRhome), STRsldottcshrc))
 	    (void) srccat(varval(STRhome), STRsldotcshrc);
 

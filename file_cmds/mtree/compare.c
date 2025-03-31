@@ -696,7 +696,19 @@ typeerr:		LABEL;
 			}
 		}
 	}
-	
+	if (s->flags & F_PURGEABLE) {
+		uint64_t purgeable_flags = get_purgeable_flags(p-> fts_accpath);
+		if (purgeable_flags != s->purgeable) {
+			LABEL;
+			(void)printf("%spurgeable expected %llu found %llu for file %s\n",
+				     tab, s->purgeable, purgeable_flags, p->fts_accpath);
+			tab = "\t";
+			if (mflag) {
+				RECORD_FAILURE(2365295, EINVAL);
+			}
+		}
+	}
+
 	return (label);
 }
 

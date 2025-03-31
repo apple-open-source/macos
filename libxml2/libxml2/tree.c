@@ -54,6 +54,7 @@
 
 #include "buf.h"
 #include "save.h"
+#include "private/memory.h"
 
 int __xmlRegisterCallbacks = 0;
 
@@ -4833,8 +4834,8 @@ xmlChar *
 xmlGetNodePath(const xmlNode *node)
 {
     const xmlNode *cur, *tmp, *next;
-    xmlChar *buffer = NULL, *temp;
-    size_t buf_len;
+    xmlChar *buffer = NULL;
+    size_t buf_len, len;
     xmlChar *buf;
     const char *sep;
     const char *name;
@@ -5034,10 +5035,20 @@ xmlGetNodePath(const xmlNode *node)
         /*
          * Make sure there is enough room
          */
-        if (xmlStrlen(buffer) + sizeof(nametemp) + 20 > buf_len) {
-            buf_len =
-                2 * buf_len + xmlStrlen(buffer) + sizeof(nametemp) + 20;
-            temp = (xmlChar *) xmlRealloc(buffer, buf_len);
+        len = strlen((const char *) buffer);
+        if (buf_len - len < sizeof(nametemp) + 20) {
+            xmlChar *temp;
+            int newSize;
+
+            if ((buf_len > SIZE_MAX / 2) ||
+                (2 * buf_len > SIZE_MAX - len - sizeof(nametemp) - 20)) {
+                xmlFree(buf);
+                xmlFree(buffer);
+                return (NULL);
+            }
+            newSize = 2 * buf_len + len + sizeof(nametemp) + 20;
+
+            temp = xmlRealloc(buffer, newSize);
             if (temp == NULL) {
 		xmlTreeErrMemory("getting node path");
                 xmlFree(buf);
@@ -5045,7 +5056,8 @@ xmlGetNodePath(const xmlNode *node)
                 return (NULL);
             }
             buffer = temp;
-            temp = (xmlChar *) xmlRealloc(buf, buf_len);
+
+            temp = xmlRealloc(buf, newSize);
             if (temp == NULL) {
 		xmlTreeErrMemory("getting node path");
                 xmlFree(buf);
@@ -5053,6 +5065,8 @@ xmlGetNodePath(const xmlNode *node)
                 return (NULL);
             }
             buf = temp;
+
+            buf_len = newSize;
         }
         if (occur == 0)
             snprintf((char *) buf, buf_len, "%s%s%s",
@@ -6082,7 +6096,7 @@ xmlGetNsList(const xmlDoc *doc ATTRIBUTE_UNUSED, const xmlNode *node)
     xmlNsPtr cur;
     xmlNsPtr *ret = NULL;
     int nbns = 0;
-    int maxns = 10;
+    int maxns = 0;
     int i;
 
     if ((node == NULL) || (node->type == XML_NAMESPACE_DECL))
@@ -6092,16 +6106,6 @@ xmlGetNsList(const xmlDoc *doc ATTRIBUTE_UNUSED, const xmlNode *node)
         if (node->type == XML_ELEMENT_NODE) {
             cur = node->nsDef;
             while (cur != NULL) {
-                if (ret == NULL) {
-                    ret =
-                        (xmlNsPtr *) xmlMalloc((maxns + 1) *
-                                               sizeof(xmlNsPtr));
-                    if (ret == NULL) {
-			xmlTreeErrMemory("getting namespace list");
-                        return (NULL);
-                    }
-                    ret[nbns] = NULL;
-                }
                 for (i = 0; i < nbns; i++) {
                     if ((cur->prefix == ret[i]->prefix) ||
                         (xmlStrEqual(cur->prefix, ret[i]->prefix)))
@@ -6109,15 +6113,29 @@ xmlGetNsList(const xmlDoc *doc ATTRIBUTE_UNUSED, const xmlNode *node)
                 }
                 if (i >= nbns) {
                     if (nbns >= maxns) {
-                        maxns *= 2;
-                        ret = (xmlNsPtr *) xmlRealloc(ret,
-                                                      (maxns +
-                                                       1) *
-                                                      sizeof(xmlNsPtr));
-                        if (ret == NULL) {
+                        xmlNsPtr *tmp;
+                        int newSize;
+
+                        newSize = xmlGrowCapacity(maxns, sizeof(tmp[0]),
+                                                  10, XML_MAX_ITEMS);
+                        if (newSize < 0) {
+                            xmlTreeErrMemory("getting namespace list");
+                            xmlFree(ret);
+                            return(NULL);
+                        }
+#ifdef FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION
+                        if (newSize < 2)
+                            newSize = 2;
+#endif
+                        tmp = xmlRealloc(ret,
+                                         (newSize + 1) * sizeof(tmp[0]));
+                        if (tmp == NULL) {
 			    xmlTreeErrMemory("getting namespace list");
+                            xmlFree(ret);
                             return (NULL);
                         }
+                        ret = tmp;
+                        maxns = newSize;
                     }
                     ret[nbns++] = cur;
                     ret[nbns] = NULL;
@@ -6456,6 +6474,30 @@ xmlNewReconciledNs(xmlDocPtr doc, xmlNodePtr tree, xmlNsPtr ns) {
 }
 
 #ifdef LIBXML_TREE_ENABLED
+
+typedef struct {
+    xmlNsPtr oldNs;
+    xmlNsPtr newNs;
+} xmlNsCache;
+
+static int
+xmlGrowNsCache(xmlNsCache **cache, int *capacity) {
+    xmlNsCache *tmp;
+    int newSize;
+
+    newSize = xmlGrowCapacity(*capacity, sizeof(tmp[0]),
+                              10, XML_MAX_ITEMS);
+    if (newSize < 0)
+        return(-1);
+    tmp = xmlRealloc(*cache, newSize * sizeof(tmp[0]));
+    if (tmp == NULL)
+        return(-1);
+    *cache = tmp;
+    *capacity = newSize;
+
+    return(0);
+}
+
 /**
  * xmlReconciliateNs:
  * @doc:  the document
@@ -6468,12 +6510,12 @@ xmlNewReconciledNs(xmlDocPtr doc, xmlNodePtr tree, xmlNsPtr ns) {
  * as possible the function try to reuse the existing namespaces found in
  * the new environment. If not possible the new namespaces are redeclared
  * on @tree at the top of the given subtree.
- * Returns the number of namespace declarations created or -1 in case of error.
+ *
+ * Returns 0 on success or -1 in case of error.
  */
 int
 xmlReconciliateNs(xmlDocPtr doc, xmlNodePtr tree) {
-    xmlNsPtr *oldNs = NULL;
-    xmlNsPtr *newNs = NULL;
+    xmlNsCache *cache = NULL;
     int sizeCache = 0;
     int nbCache = 0;
 
@@ -6483,35 +6525,15 @@ xmlReconciliateNs(xmlDocPtr doc, xmlNodePtr tree) {
     int ret = 0, i;
 
     if ((node == NULL) || (node->type != XML_ELEMENT_NODE)) return(-1);
-    if ((doc == NULL) || (doc->type != XML_DOCUMENT_NODE)) return(-1);
     if (node->doc != doc) return(-1);
     while (node != NULL) {
         /*
 	 * Reconciliate the node namespace
 	 */
 	if (node->ns != NULL) {
-	    /*
-	     * initialize the cache if needed
-	     */
-	    if (sizeCache == 0) {
-		sizeCache = 10;
-		oldNs = (xmlNsPtr *) xmlMalloc(sizeCache *
-					       sizeof(xmlNsPtr));
-		if (oldNs == NULL) {
-		    xmlTreeErrMemory("fixing namespaces");
-		    return(-1);
-		}
-		newNs = (xmlNsPtr *) xmlMalloc(sizeCache *
-					       sizeof(xmlNsPtr));
-		if (newNs == NULL) {
-		    xmlTreeErrMemory("fixing namespaces");
-		    xmlFree(oldNs);
-		    return(-1);
-		}
-	    }
-	    for (i = 0;i < nbCache;i++) {
-	        if (oldNs[i] == node->ns) {
-		    node->ns = newNs[i];
+	    for (i = 0; i < nbCache; i++) {
+	        if (cache[i].oldNs == node->ns) {
+		    node->ns = cache[i].newNs;
 		    break;
 		}
 	    }
@@ -6520,31 +6542,21 @@ xmlReconciliateNs(xmlDocPtr doc, xmlNodePtr tree) {
 		 * OK we need to recreate a new namespace definition
 		 */
 		n = xmlNewReconciledNs(doc, tree, node->ns);
-		if (n != NULL) { /* :-( what if else ??? */
+		if (n == NULL) {
+                    ret = -1;
+                } else {
 		    /*
 		     * check if we need to grow the cache buffers.
 		     */
-		    if (sizeCache <= nbCache) {
-		        sizeCache *= 2;
-			oldNs = (xmlNsPtr *) xmlRealloc(oldNs, sizeCache *
-			                               sizeof(xmlNsPtr));
-		        if (oldNs == NULL) {
-			    xmlTreeErrMemory("fixing namespaces");
-			    xmlFree(newNs);
-			    return(-1);
-			}
-			newNs = (xmlNsPtr *) xmlRealloc(newNs, sizeCache *
-			                               sizeof(xmlNsPtr));
-		        if (newNs == NULL) {
-			    xmlTreeErrMemory("fixing namespaces");
-			    xmlFree(oldNs);
-			    return(-1);
-			}
-		    }
-		    newNs[nbCache] = n;
-		    oldNs[nbCache++] = node->ns;
-		    node->ns = n;
+                    if ((sizeCache <= nbCache) &&
+                                (xmlGrowNsCache(&cache, &sizeCache) < 0)) {
+                                ret = -1;
+                    } else {
+                        cache[nbCache].newNs = n;
+                        cache[nbCache++].oldNs = node->ns;
+                    }
                 }
+		node->ns = n;
 	    }
 	}
 	/*
@@ -6554,28 +6566,9 @@ xmlReconciliateNs(xmlDocPtr doc, xmlNodePtr tree) {
 	    attr = node->properties;
 	    while (attr != NULL) {
 		if (attr->ns != NULL) {
-		    /*
-		     * initialize the cache if needed
-		     */
-		    if (sizeCache == 0) {
-			sizeCache = 10;
-			oldNs = (xmlNsPtr *) xmlMalloc(sizeCache *
-						       sizeof(xmlNsPtr));
-			if (oldNs == NULL) {
-			    xmlTreeErrMemory("fixing namespaces");
-			    return(-1);
-			}
-			newNs = (xmlNsPtr *) xmlMalloc(sizeCache *
-						       sizeof(xmlNsPtr));
-			if (newNs == NULL) {
-			    xmlTreeErrMemory("fixing namespaces");
-			    xmlFree(oldNs);
-			    return(-1);
-			}
-		    }
-		    for (i = 0;i < nbCache;i++) {
-			if (oldNs[i] == attr->ns) {
-			    attr->ns = newNs[i];
+		    for (i = 0; i < nbCache; i++) {
+			if (cache[i].oldNs == attr->ns) {
+			    attr->ns = cache[i].newNs;
 			    break;
 			}
 		    }
@@ -6584,31 +6577,21 @@ xmlReconciliateNs(xmlDocPtr doc, xmlNodePtr tree) {
 			 * OK we need to recreate a new namespace definition
 			 */
 			n = xmlNewReconciledNs(doc, tree, attr->ns);
-			if (n != NULL) { /* :-( what if else ??? */
+			if (n == NULL) {
+                            ret = -1;
+                        } else {
 			    /*
 			     * check if we need to grow the cache buffers.
 			     */
-			    if (sizeCache <= nbCache) {
-				sizeCache *= 2;
-				oldNs = (xmlNsPtr *) xmlRealloc(oldNs,
-				           sizeCache * sizeof(xmlNsPtr));
-				if (oldNs == NULL) {
-				    xmlTreeErrMemory("fixing namespaces");
-				    xmlFree(newNs);
-				    return(-1);
-				}
-				newNs = (xmlNsPtr *) xmlRealloc(newNs,
-				           sizeCache * sizeof(xmlNsPtr));
-				if (newNs == NULL) {
-				    xmlTreeErrMemory("fixing namespaces");
-				    xmlFree(oldNs);
-				    return(-1);
-				}
+                            if ((sizeCache <= nbCache) &&
+                                (xmlGrowNsCache(&cache, &sizeCache) < 0)) {
+                                ret = -1;
+                            } else {
+                                cache[nbCache].newNs = n;
+                                cache[nbCache++].oldNs = attr->ns;
 			    }
-			    newNs[nbCache] = n;
-			    oldNs[nbCache++] = attr->ns;
-			    attr->ns = n;
 			}
+			attr->ns = n;
 		    }
 		}
 		attr = attr->next;
@@ -6644,10 +6627,8 @@ xmlReconciliateNs(xmlDocPtr doc, xmlNodePtr tree) {
 	} else
 	    break;
     }
-    if (oldNs != NULL)
-	xmlFree(oldNs);
-    if (newNs != NULL)
-	xmlFree(newNs);
+    if (cache != NULL)
+	xmlFree(cache);
     return(ret);
 }
 #endif /* LIBXML_TREE_ENABLED */
@@ -8371,9 +8352,11 @@ xmlDOMWrapNSNormAddNsMapItem2(xmlNsPtr **list, int *size, int *number,
 {
     if (*number >= *size) {
         xmlNsPtr *tmp;
-        size_t newSize;
+        int newSize;
 
-        newSize = *size ? *size * 2 : 3;
+        newSize = xmlGrowCapacity(*size, 2 * sizeof(tmp[0]), 3, XML_MAX_ITEMS);
+        if (newSize < 0)
+            return(-1);
         tmp = xmlRealloc(*list, newSize * 2 * sizeof(tmp[0]));
         if (tmp == NULL) {
             xmlTreeErrMemory("realloc ns map item");
@@ -9663,7 +9646,7 @@ xmlDOMWrapCloneNode(xmlDOMWrapCtxtPtr ctxt,
 		/*
 		* Attributes (xmlAttr).
 		*/
-		clone = (xmlNodePtr) xmlMalloc(sizeof(xmlAttr));
+                clone = xmlMalloc(sizeof(xmlAttr));
 		if (clone == NULL) {
 		    xmlTreeErrMemory("xmlDOMWrapCloneNode(): allocating an attr-node");
 		    goto internal_error;

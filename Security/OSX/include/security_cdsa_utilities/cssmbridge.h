@@ -46,7 +46,7 @@ namespace Security {
 //
 #define BEGIN_API \
 	CSSM_RETURN __attribute__((unused)) __retval = CSSM_OK;	  \
-	bool __countlegacyapi = countLegacyAPIEnabledForThread(); \
+	bool __countlegacyapi __attribute__((cleanup(setCountLegacyAPIEnabledForThreadCleanup))) = countLegacyAPIEnabledForThread(); \
 	static dispatch_once_t countToken; \
 	countLegacyAPI(&countToken, __FUNCTION__); \
 	setCountLegacyAPIEnabledForThread(false); \
@@ -60,15 +60,12 @@ namespace Security {
 	catch (const CommonError &err) { __retval = CssmError::cssmError(err, CSSM_ ## base ## _BASE_ERROR); } \
 	catch (const std::bad_alloc &) { __retval = CssmError::cssmError(CSSM_ERRCODE_MEMORY_ERROR, CSSM_ ## base ## _BASE_ERROR); } \
 	catch (...) { __retval = CssmError::cssmError(CSSM_ERRCODE_INTERNAL_ERROR, CSSM_ ## base ## _BASE_ERROR); } \
-	setCountLegacyAPIEnabledForThread(__countlegacyapi); \
 	return __retval;
 #define END_API0		} \
 	catch (...) {} \
-	setCountLegacyAPIEnabledForThread(__countlegacyapi); \
 	return;
 #define END_API1(bad)	} \
 	catch (...) { __retval = bad; } \
-	setCountLegacyAPIEnabledForThread(__countlegacyapi); \
 	return __retval;
 
 #define END_API_NO_METRICS(base)	} \

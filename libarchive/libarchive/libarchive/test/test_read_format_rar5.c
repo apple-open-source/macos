@@ -168,7 +168,7 @@ DEFINE_TEST(test_read_format_rar5_compressed)
 	assertEqualInt(DATA_SIZE, archive_entry_size(ae));
 	assertA(DATA_SIZE == archive_read_data(a, buff, DATA_SIZE));
 	assertA(ARCHIVE_EOF == archive_read_next_header(a, &ae));
-	verify_data(buff, 0, DATA_SIZE);
+	assertA(1 == verify_data(buff, 0, DATA_SIZE));
 
 	EPILOGUE();
 }
@@ -187,25 +187,25 @@ DEFINE_TEST(test_read_format_rar5_multiple_files)
 	assertEqualString("test1.bin", archive_entry_pathname(ae));
 	assertEqualInt(DATA_SIZE, archive_entry_size(ae));
 	assertA(DATA_SIZE == archive_read_data(a, buff, DATA_SIZE));
-	assertA(verify_data(buff, 1, DATA_SIZE));
+	assertA(1 == verify_data(buff, 1, DATA_SIZE));
 
 	assertA(0 == archive_read_next_header(a, &ae));
 	assertEqualString("test2.bin", archive_entry_pathname(ae));
 	assertEqualInt(DATA_SIZE, archive_entry_size(ae));
 	assertA(DATA_SIZE == archive_read_data(a, buff, DATA_SIZE));
-	assertA(verify_data(buff, 2, DATA_SIZE));
+	assertA(1 == verify_data(buff, 2, DATA_SIZE));
 
 	assertA(0 == archive_read_next_header(a, &ae));
 	assertEqualString("test3.bin", archive_entry_pathname(ae));
 	assertEqualInt(DATA_SIZE, archive_entry_size(ae));
 	assertA(DATA_SIZE == archive_read_data(a, buff, DATA_SIZE));
-	assertA(verify_data(buff, 3, DATA_SIZE));
+	assertA(1 == verify_data(buff, 3, DATA_SIZE));
 
 	assertA(0 == archive_read_next_header(a, &ae));
 	assertEqualString("test4.bin", archive_entry_pathname(ae));
 	assertEqualInt(DATA_SIZE, archive_entry_size(ae));
 	assertA(DATA_SIZE == archive_read_data(a, buff, DATA_SIZE));
-	assertA(verify_data(buff, 4, DATA_SIZE));
+	assertA(1 == verify_data(buff, 4, DATA_SIZE));
 
 	/* There should be no more files in this archive. */
 
@@ -230,25 +230,25 @@ DEFINE_TEST(test_read_format_rar5_multiple_files_solid)
 	assertEqualString("test1.bin", archive_entry_pathname(ae));
 	assertEqualInt(DATA_SIZE, archive_entry_size(ae));
 	assertA(DATA_SIZE == archive_read_data(a, buff, DATA_SIZE));
-	assertA(verify_data(buff, 1, DATA_SIZE));
+	assertA(1 == verify_data(buff, 1, DATA_SIZE));
 
 	assertA(0 == archive_read_next_header(a, &ae));
 	assertEqualString("test2.bin", archive_entry_pathname(ae));
 	assertEqualInt(DATA_SIZE, archive_entry_size(ae));
 	assertA(DATA_SIZE == archive_read_data(a, buff, DATA_SIZE));
-	assertA(verify_data(buff, 2, DATA_SIZE));
+	assertA(1 == verify_data(buff, 2, DATA_SIZE));
 
 	assertA(0 == archive_read_next_header(a, &ae));
 	assertEqualString("test3.bin", archive_entry_pathname(ae));
 	assertEqualInt(DATA_SIZE, archive_entry_size(ae));
 	assertA(DATA_SIZE == archive_read_data(a, buff, DATA_SIZE));
-	assertA(verify_data(buff, 3, DATA_SIZE));
+	assertA(1 == verify_data(buff, 3, DATA_SIZE));
 
 	assertA(0 == archive_read_next_header(a, &ae));
 	assertEqualString("test4.bin", archive_entry_pathname(ae));
 	assertEqualInt(DATA_SIZE, archive_entry_size(ae));
 	assertA(DATA_SIZE == archive_read_data(a, buff, DATA_SIZE));
-	assertA(verify_data(buff, 4, DATA_SIZE));
+	assertA(1 == verify_data(buff, 4, DATA_SIZE));
 
 	assertA(ARCHIVE_EOF == archive_read_next_header(a, &ae));
 	EPILOGUE();
@@ -806,6 +806,36 @@ DEFINE_TEST(test_read_format_rar5_extract_win32)
 	EPILOGUE();
 }
 
+DEFINE_TEST(test_read_format_rar5_unicode)
+{
+#if !defined(WIN32) || defined(__CYGWIN__)
+	skipping("Skipping test on non-Windows");
+	return;
+#else
+	/* Corresponds to the names:
+	 * 👋🌎.txt
+	 * 𝒮𝓎𝓂𝒷𝑜𝓁𝒾𝒸 𝐿𝒾𝓃𝓀.txt
+	 * Ⓗⓐⓡⓓ Ⓛⓘⓝⓚ.txt */
+	const wchar_t* emoji_name = L"\U0001f44b\U0001f30e.txt";
+	const wchar_t* italic_name = L"\U0001d4ae\U0001d4ce\U0001d4c2\U0001d4b7\U0001d45c\U0001d4c1\U0001d4be\U0001d4b8 \U0001d43f\U0001d4be\U0001d4c3\U0001d4c0.txt";
+	const wchar_t* circle_name = L"\u24bd\u24d0\u24e1\u24d3 \u24c1\u24d8\u24dd\u24da.txt";
+
+	PROLOGUE("test_read_format_rar5_unicode.rar");
+	assertA(0 == archive_read_next_header(a, &ae));
+	assertEqualWString(emoji_name, archive_entry_pathname_w(ae));
+	assertEqualInt(archive_entry_mode(ae), AE_IFREG | 0644);
+	assertA(0 == archive_read_next_header(a, &ae));
+	assertEqualWString(circle_name, archive_entry_pathname_w(ae));
+	assertEqualInt(archive_entry_mode(ae), AE_IFREG | 0644);
+	assertEqualWString(emoji_name, archive_entry_hardlink_w(ae));
+	assertA(0 == archive_read_next_header(a, &ae));
+	assertEqualWString(italic_name, archive_entry_pathname_w(ae));
+	assertEqualInt(archive_entry_mode(ae), AE_IFLNK | 0644);
+	assertEqualWString(emoji_name, archive_entry_symlink_w(ae));
+	EPILOGUE();
+#endif
+}
+
 DEFINE_TEST(test_read_format_rar5_block_by_block)
 {
 	/* This test uses strange buffer sizes intentionally. */
@@ -1289,6 +1319,31 @@ DEFINE_TEST(test_read_format_rar5_block_size_is_too_small)
 	EPILOGUE();
 }
 
+DEFINE_TEST(test_read_format_rar5_sfx)
+{
+	struct archive *a;
+	struct archive_entry *ae;
+	int bs = 10240;
+	char buff[32];
+	const char reffile[] = "test_read_format_rar5_sfx.exe";
+	const char test_txt[] = "123";
+	int size = sizeof(test_txt) - 1;
+
+	extract_reference_file(reffile);
+	assert((a = archive_read_new()) != NULL);
+	assertA(0 == archive_read_support_filter_all(a));
+	assertA(0 == archive_read_support_format_all(a));
+	assertA(0 == archive_read_open_filename(a, reffile, bs));
+
+	assertA(0 == archive_read_next_header(a, &ae));
+	assertEqualString("test.txt.txt", archive_entry_pathname(ae));
+
+	assertA(size == archive_read_data(a, buff, size));
+	assertEqualMem(buff, test_txt, size);
+	
+	EPILOGUE();
+}
+
 DEFINE_TEST(test_read_format_rar5_decode_number_out_of_bounds_read)
 {
 	/* oss fuzz 30448 */
@@ -1321,6 +1376,29 @@ DEFINE_TEST(test_read_format_rar5_bad_window_size_in_multiarchive_file)
 	while(0 < archive_read_data(a, buf, sizeof(buf))) {}
 	(void) archive_read_next_header(a, &ae);
 	while(0 < archive_read_data(a, buf, sizeof(buf))) {}
+
+	EPILOGUE();
+}
+
+DEFINE_TEST(test_read_format_rar5_read_data_block_uninitialized_offset)
+{
+	const void *buf;
+	size_t size;
+	la_int64_t offset;
+
+	PROLOGUE("test_read_format_rar5_compressed.rar");
+	assertA(0 == archive_read_next_header(a, &ae));
+
+	/* A real code may pass a pointer to an uninitialized variable as an offset
+	 * output argument. Here we want to check this situation. But because
+	 * relying on a value of an uninitialized variable in a test is not a good
+	 * idea, let's pretend that 0xdeadbeef is a random value of the
+	 * uninitialized variable. */
+	offset = 0xdeadbeef;
+	assertEqualInt(ARCHIVE_OK, archive_read_data_block(a, &buf, &size, &offset));
+	/* The test archive doesn't contain a sparse file. And because of that, here
+	 * we assume that the first returned offset should be 0. */
+	assertEqualInt(0, offset);
 
 	EPILOGUE();
 }

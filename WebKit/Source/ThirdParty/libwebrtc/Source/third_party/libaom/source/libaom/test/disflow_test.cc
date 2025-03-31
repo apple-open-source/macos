@@ -11,7 +11,7 @@
 
 #include "aom_dsp/flow_estimation/disflow.h"
 
-#include "third_party/googletest/src/googletest/include/gtest/gtest.h"
+#include "gtest/gtest.h"
 
 #include "config/aom_dsp_rtcd.h"
 #include "test/acm_random.h"

@@ -12,12 +12,12 @@
 
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
 
 #include "absl/strings/string_view.h"
-#include "absl/types/optional.h"
 #include "api/async_dns_resolver.h"
 #include "api/audio/audio_mixer.h"
 #include "api/audio/audio_processing.h"
@@ -122,7 +122,7 @@ PeerConfigurer* PeerConfigurer::SetSSLCertificateVerifier(
 
 PeerConfigurer* PeerConfigurer::AddVideoConfig(VideoConfig config) {
   video_sources_.push_back(
-      CreateSquareFrameGenerator(config, /*type=*/absl::nullopt));
+      CreateSquareFrameGenerator(config, /*type=*/std::nullopt));
   configurable_params_->video_configs.push_back(std::move(config));
   return this;
 }
@@ -240,9 +240,17 @@ PeerConfigurer* PeerConfigurer::SetFieldTrials(
 
 PeerConfigurer* PeerConfigurer::SetPortAllocatorExtraFlags(
     uint32_t extra_flags) {
-  params_->port_allocator_extra_flags = extra_flags;
+  params_->port_allocator_flags = cricket::kDefaultPortAllocatorFlags |
+                                  cricket::PORTALLOCATOR_DISABLE_TCP |
+                                  extra_flags;
   return this;
 }
+
+PeerConfigurer* PeerConfigurer::SetPortAllocatorFlags(uint32_t flags) {
+  params_->port_allocator_flags = flags;
+  return this;
+}
+
 std::unique_ptr<InjectableComponents> PeerConfigurer::ReleaseComponents() {
   RTC_CHECK(components_);
   auto components = std::move(components_);

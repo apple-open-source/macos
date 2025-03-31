@@ -14,8 +14,8 @@
 #include <stdint.h>
 
 #include <memory>
+#include <optional>
 
-#include "absl/types/optional.h"
 #include "api/environment/environment.h"
 #include "api/environment/environment_factory.h"
 #include "api/scoped_refptr.h"
@@ -61,8 +61,8 @@ class VideoCodecInitializerTest : public ::testing::Test {
 
  protected:
   void SetUpFor(VideoCodecType type,
-                absl::optional<int> num_simulcast_streams,
-                absl::optional<int> num_spatial_streams,
+                std::optional<int> num_simulcast_streams,
+                std::optional<int> num_spatial_streams,
                 int num_temporal_streams,
                 bool screenshare) {
     config_ = VideoEncoderConfig();
@@ -113,7 +113,7 @@ class VideoCodecInitializerTest : public ::testing::Test {
   VideoStream DefaultStream(
       int width = kDefaultWidth,
       int height = kDefaultHeight,
-      absl::optional<ScalabilityMode> scalability_mode = absl::nullopt) {
+      std::optional<ScalabilityMode> scalability_mode = std::nullopt) {
     VideoStream stream;
     stream.width = width;
     stream.height = height;
@@ -153,7 +153,7 @@ class VideoCodecInitializerTest : public ::testing::Test {
 };
 
 TEST_F(VideoCodecInitializerTest, SingleStreamVp8Screenshare) {
-  SetUpFor(VideoCodecType::kVideoCodecVP8, 1, absl::nullopt, 1, true);
+  SetUpFor(VideoCodecType::kVideoCodecVP8, 1, std::nullopt, 1, true);
   streams_.push_back(DefaultStream());
   InitializeCodec();
 
@@ -166,7 +166,7 @@ TEST_F(VideoCodecInitializerTest, SingleStreamVp8Screenshare) {
 }
 
 TEST_F(VideoCodecInitializerTest, SingleStreamVp8ScreenshareInactive) {
-  SetUpFor(VideoCodecType::kVideoCodecVP8, 1, absl::nullopt, 1, true);
+  SetUpFor(VideoCodecType::kVideoCodecVP8, 1, std::nullopt, 1, true);
   VideoStream inactive_stream = DefaultStream();
   inactive_stream.active = false;
   streams_.push_back(inactive_stream);
@@ -181,7 +181,7 @@ TEST_F(VideoCodecInitializerTest, SingleStreamVp8ScreenshareInactive) {
 }
 
 TEST_F(VideoCodecInitializerTest, TemporalLayeredVp8ScreenshareConference) {
-  SetUpFor(VideoCodecType::kVideoCodecVP8, 1, absl::nullopt, 2, true);
+  SetUpFor(VideoCodecType::kVideoCodecVP8, 1, std::nullopt, 2, true);
   streams_.push_back(DefaultScreenshareStream());
   InitializeCodec();
   bitrate_allocator_->SetLegacyConferenceMode(true);
@@ -198,7 +198,7 @@ TEST_F(VideoCodecInitializerTest, TemporalLayeredVp8ScreenshareConference) {
 }
 
 TEST_F(VideoCodecInitializerTest, TemporalLayeredVp8Screenshare) {
-  SetUpFor(VideoCodecType::kVideoCodecVP8, 1, absl::nullopt, 2, true);
+  SetUpFor(VideoCodecType::kVideoCodecVP8, 1, std::nullopt, 2, true);
   streams_.push_back(DefaultScreenshareStream());
   InitializeCodec();
 
@@ -213,7 +213,7 @@ TEST_F(VideoCodecInitializerTest, TemporalLayeredVp8Screenshare) {
 }
 
 TEST_F(VideoCodecInitializerTest, SimulcastVp8Screenshare) {
-  SetUpFor(VideoCodecType::kVideoCodecVP8, 2, absl::nullopt, 1, true);
+  SetUpFor(VideoCodecType::kVideoCodecVP8, 2, std::nullopt, 1, true);
   streams_.push_back(DefaultScreenshareStream());
   VideoStream video_stream = DefaultStream();
   video_stream.max_framerate = kScreenshareDefaultFramerate;
@@ -237,7 +237,7 @@ TEST_F(VideoCodecInitializerTest, SimulcastVp8Screenshare) {
 // Tests that when a video stream is inactive, then the bitrate allocation will
 // be 0 for that stream.
 TEST_F(VideoCodecInitializerTest, SimulcastVp8ScreenshareInactive) {
-  SetUpFor(VideoCodecType::kVideoCodecVP8, 2, absl::nullopt, 1, true);
+  SetUpFor(VideoCodecType::kVideoCodecVP8, 2, std::nullopt, 1, true);
   streams_.push_back(DefaultScreenshareStream());
   VideoStream inactive_video_stream = DefaultStream();
   inactive_video_stream.active = false;
@@ -262,7 +262,7 @@ TEST_F(VideoCodecInitializerTest, SimulcastVp8ScreenshareInactive) {
 TEST_F(VideoCodecInitializerTest, HighFpsSimulcastVp8Screenshare) {
   // Two simulcast streams, the lower one using legacy settings (two temporal
   // streams, 5fps), the higher one using 3 temporal streams and 30fps.
-  SetUpFor(VideoCodecType::kVideoCodecVP8, 2, absl::nullopt, 3, true);
+  SetUpFor(VideoCodecType::kVideoCodecVP8, 2, std::nullopt, 3, true);
   streams_.push_back(DefaultScreenshareStream());
   VideoStream video_stream = DefaultStream();
   video_stream.num_temporal_layers = 3;
@@ -286,7 +286,7 @@ TEST_F(VideoCodecInitializerTest, HighFpsSimulcastVp8Screenshare) {
 }
 
 TEST_F(VideoCodecInitializerTest, Vp9SvcDefaultLayering) {
-  SetUpFor(VideoCodecType::kVideoCodecVP9, absl::nullopt, 3, 3, false);
+  SetUpFor(VideoCodecType::kVideoCodecVP9, std::nullopt, 3, 3, false);
   VideoStream stream = DefaultStream();
   stream.num_temporal_layers = 3;
   streams_.push_back(stream);
@@ -297,7 +297,7 @@ TEST_F(VideoCodecInitializerTest, Vp9SvcDefaultLayering) {
 }
 
 TEST_F(VideoCodecInitializerTest, Vp9SvcAdjustedLayering) {
-  SetUpFor(VideoCodecType::kVideoCodecVP9, absl::nullopt, 3, 3, false);
+  SetUpFor(VideoCodecType::kVideoCodecVP9, std::nullopt, 3, 3, false);
   VideoStream stream = DefaultStream();
   stream.num_temporal_layers = 3;
   // Set resolution which is only enough to produce 2 spatial layers.
@@ -312,7 +312,7 @@ TEST_F(VideoCodecInitializerTest, Vp9SvcAdjustedLayering) {
 
 TEST_F(VideoCodecInitializerTest,
        Vp9SingleSpatialLayerMaxBitrateIsEqualToCodecMaxBitrate) {
-  SetUpFor(VideoCodecType::kVideoCodecVP9, absl::nullopt, 1, 3, false);
+  SetUpFor(VideoCodecType::kVideoCodecVP9, std::nullopt, 1, 3, false);
   VideoStream stream = DefaultStream();
   stream.num_temporal_layers = 3;
   streams_.push_back(stream);
@@ -340,7 +340,7 @@ TEST_F(VideoCodecInitializerTest,
 
 TEST_F(VideoCodecInitializerTest,
        Vp9SingleSpatialLayerTargetBitrateIsEqualToCodecMaxBitrate) {
-  SetUpFor(VideoCodecType::kVideoCodecVP9, absl::nullopt, 1, 1, true);
+  SetUpFor(VideoCodecType::kVideoCodecVP9, std::nullopt, 1, 1, true);
   VideoStream stream = DefaultStream();
   stream.num_temporal_layers = 1;
   streams_.push_back(stream);
@@ -355,7 +355,7 @@ TEST_F(VideoCodecInitializerTest,
   // Request 3 spatial layers for 320x180 input. Actual number of layers will be
   // reduced to 1 due to low input resolution but SVC bitrate limits should be
   // applied.
-  SetUpFor(VideoCodecType::kVideoCodecVP9, absl::nullopt, 3, 3, false);
+  SetUpFor(VideoCodecType::kVideoCodecVP9, std::nullopt, 3, 3, false);
   VideoStream stream = DefaultStream();
   stream.width = 320;
   stream.height = 180;
@@ -389,7 +389,7 @@ TEST_F(VideoCodecInitializerTest,
 }
 
 TEST_F(VideoCodecInitializerTest, Vp9DeactivateLayers) {
-  SetUpFor(VideoCodecType::kVideoCodecVP9, absl::nullopt, 3, 1, false);
+  SetUpFor(VideoCodecType::kVideoCodecVP9, std::nullopt, 3, 1, false);
   VideoStream stream = DefaultStream();
   streams_.push_back(stream);
 
@@ -463,7 +463,7 @@ TEST_F(VideoCodecInitializerTest, Vp9DeactivateLayers) {
 }
 
 TEST_F(VideoCodecInitializerTest, Vp9SvcResolutionAlignment) {
-  SetUpFor(VideoCodecType::kVideoCodecVP9, absl::nullopt, 3, 3, false);
+  SetUpFor(VideoCodecType::kVideoCodecVP9, std::nullopt, 3, 3, false);
   VideoStream stream = DefaultStream();
   stream.width = 1281;
   stream.height = 721;
@@ -688,5 +688,67 @@ TEST_F(VideoCodecInitializerTest, UpdatesVp9SpecificFieldsWithScalabilityMode) {
   EXPECT_EQ(codec.VP9()->numberOfTemporalLayers, 1u);
   EXPECT_EQ(codec.VP9()->interLayerPred, InterLayerPredMode::kOff);
 }
+
+#ifdef RTC_ENABLE_H265
+TEST_F(VideoCodecInitializerTest, H265SingleSpatialLayerBitratesAreConsistent) {
+  VideoEncoderConfig config;
+  config.codec_type = VideoCodecType::kVideoCodecH265;
+  std::vector<VideoStream> streams = {DefaultStream()};
+  streams[0].scalability_mode = ScalabilityMode::kL1T2;
+
+  VideoCodec codec =
+      VideoCodecInitializer::SetupCodec(env_.field_trials(), config, streams);
+
+  EXPECT_GE(codec.spatialLayers[0].targetBitrate,
+            codec.spatialLayers[0].minBitrate);
+  EXPECT_LE(codec.spatialLayers[0].targetBitrate,
+            codec.spatialLayers[0].maxBitrate);
+}
+
+// Test that the H.265 codec initializer carries over invalid simulcast layer
+// scalability mode to top level scalability mode setting.
+TEST_F(VideoCodecInitializerTest,
+       H265ScalabilityModeConfiguredToTopLevelWhenNotAllowed) {
+  VideoEncoderConfig config;
+  config.codec_type = VideoCodecType::kVideoCodecH265;
+
+  std::vector<VideoStream> streams = {DefaultStream()};
+  streams[0].scalability_mode = ScalabilityMode::kL3T3;
+
+  VideoCodec codec =
+      VideoCodecInitializer::SetupCodec(env_.field_trials(), config, streams);
+
+  // Check that an unsupported scalability mode will cause top-level scalability
+  // to be set to the same unsupported mode.
+  EXPECT_EQ(codec.GetScalabilityMode(), ScalabilityMode::kL3T3);
+  EXPECT_EQ(codec.spatialLayers[0].numberOfTemporalLayers, 3);
+  EXPECT_EQ(codec.simulcastStream[0].numberOfTemporalLayers, 3);
+}
+
+// Test that inconistent scalability mode settings in simulcast streams will
+// clear top level scalability mode setting.
+TEST_F(VideoCodecInitializerTest,
+       H265InconsistentScalabilityModesWillClearTopLevelScalability) {
+  VideoEncoderConfig config;
+  config.simulcast_layers.resize(2);
+  config.simulcast_layers[0].active = true;
+  config.simulcast_layers[1].active = true;
+  config.codec_type = VideoCodecType::kVideoCodecH265;
+
+  std::vector<VideoStream> streams = {DefaultStream(), DefaultStream()};
+  streams[0].scalability_mode = ScalabilityMode::kL1T3;
+  streams[1].scalability_mode = ScalabilityMode::kL1T1;
+
+  VideoCodec codec =
+      VideoCodecInitializer::SetupCodec(env_.field_trials(), config, streams);
+
+  // Top level scalability mode should be cleared if the simulcast streams have
+  // different per-stream temporal layer settings.
+  EXPECT_EQ(codec.GetScalabilityMode(), std::nullopt);
+  EXPECT_EQ(codec.spatialLayers[0].numberOfTemporalLayers, 3);
+  EXPECT_EQ(codec.simulcastStream[0].numberOfTemporalLayers, 3);
+  EXPECT_EQ(codec.simulcastStream[1].numberOfTemporalLayers, 1);
+}
+#endif
 
 }  // namespace webrtc

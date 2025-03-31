@@ -195,8 +195,8 @@ SECURITY_COMMAND("log", log_control,
                  "   -c scope_list   set log scopes to scope_list for all devices in circle.\n",
                  "control logging settings")
 
-SECURITY_COMMAND_IOS("verify-cert", verify_cert,
-                 "[options]\n"
+SECURITY_COMMAND("verify-cert", verify_cert,
+                 "[options] [url]\n"
                  "   -c certFile     Certificate to verify. Can be specified multiple times.\n"
                  "   -r rootCertFile Root Certificate. Can be specified multiple times.\n"
                  "   -p policy       Verify policy (basic, ssl, smime, eap, IPSec, appleID,\n"
@@ -213,7 +213,10 @@ SECURITY_COMMAND_IOS("verify-cert", verify_cert,
                  "                       require  Require a positive response for successful verification.\n"
                  "                       offline  Consult cached responses only (no network requests).\n"
                  "                   Can be specified multiple times; e.g. to check revocation via OCSP\n"
-                 "                   and require a positive response, use \"-R ocsp -R require\".\n",
+                 "                   and require a positive response, use \"-R ocsp -R require\".\n"
+                 "   -v              Specify verbose output, including per-certificate trust results.\n"
+                 "Note: if a direct URL argument is provided, standard SSL server evaluation policy is used\n"
+                 "and other certificates or policy options will be ignored.",
                  "Verify certificate(s).")
 
 SECURITY_COMMAND("trust-store", trust_store_show_certificates,
@@ -227,14 +230,17 @@ SECURITY_COMMAND("trust-store", trust_store_show_certificates,
                  "Display user trust store certificates and trust settings.")
 
 SECURITY_COMMAND("system-trust-store", trust_store_show_pki_certificates,
-                 "[-p][-f][-s][-v][-t][-k][-j]\n"
-                 "    -p Output cert in PEM format.\n"
+                 "[-P][-f][-s][-v][-t][-k][-j][-p][-C]\n"
+                 "    -P Output cert in PEM format.\n"
                  "    -f Show fingerprint (SHA256 digest of certificate.)\n"
                  "    -s Show subject.\n"
                  "    -v Show entire certificate in text form.\n"
                  "    -t Show trust settings for certificates.\n"
                  "    -k Show keyid (SHA256 digest of public key.)\n"
-                 "    -j Output results in json format.",
+                 "    -j Output results in json format\n"
+                 "    -p Policy OID or policy name (basic, ssl, smime, eap, IPSec, appleID,\n"
+                 "         codeSign, timestamp, revocation)\n"
+                 "    -C Set client policy to true. Default is server policy. (ssl, IPSec, eap)\n",
                  "Display system trust store certificates and trust settings.")
 
 SECURITY_COMMAND("check-trust-update", check_trust_update,

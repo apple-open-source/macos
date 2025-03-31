@@ -27,6 +27,7 @@
 
 #include "APIObject.h"
 #include "WebPushDaemonConnection.h"
+#include <optional>
 
 namespace WebCore {
 enum class PushPermissionState : uint8_t;
@@ -38,6 +39,7 @@ struct PushSubscriptionData;
 namespace WebKit {
 namespace WebPushD {
 class Connection;
+struct WebPushDaemonConnectionConfiguration;
 }
 struct WebPushMessage;
 }
@@ -46,7 +48,7 @@ namespace API {
 
 class WebPushDaemonConnection final : public ObjectImpl<Object::Type::WebPushDaemonConnection> {
 public:
-    WebPushDaemonConnection(const WTF::String& machServiceName, const WTF::String& partition, const WTF::String& bundleIdentifier);
+    WebPushDaemonConnection(const WTF::String& machServiceName, WebKit::WebPushD::WebPushDaemonConnectionConfiguration&&);
 
     void getPushPermissionState(const WTF::URL&, CompletionHandler<void(WebCore::PushPermissionState)>&&);
     void requestPushPermission(const WTF::URL&, CompletionHandler<void(bool)>&&);
@@ -62,7 +64,9 @@ public:
 
 private:
 #if ENABLE(WEB_PUSH_NOTIFICATIONS)
-    UniqueRef<WebKit::WebPushD::Connection> m_connection;
+    Ref<WebKit::WebPushD::Connection> protectedConnection() const;
+
+    Ref<WebKit::WebPushD::Connection> m_connection;
 #endif
 };
 

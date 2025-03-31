@@ -133,14 +133,6 @@ DEPS_RE = re.compile(r'\bdeps \+?= \[(?P<deps>.*?)\]',
 FILE_PATH_RE = re.compile(r'"(?P<file_path>(\w|\/)+)(?P<extension>\.\w+)"')
 
 
-def FindSrcDirPath(starting_dir):
-    """Returns the abs path to the src/ dir of the project."""
-    src_dir = starting_dir
-    while os.path.basename(src_dir) != 'src':
-        src_dir = os.path.normpath(os.path.join(src_dir, os.pardir))
-    return src_dir
-
-
 @contextmanager
 def _AddToPath(*paths):
     original_sys_path = sys.path
@@ -176,7 +168,8 @@ API_CHANGE_MSG = """
 You seem to be changing native API header files. Please make sure that you:
   1. Make compatible changes that don't break existing clients. Usually
      this is done by keeping the existing method signatures unchanged.
-  2. Mark the old stuff as deprecated (use the ABSL_DEPRECATED macro).
+  2. Mark the old stuff as deprecated (use the [[deprecated]] attribute or
+     the ABSL_DEPRECATE_AND_INLINE macro).
   3. Create a timeline and plan for when the deprecated stuff will be
      removed. (The amount of time we give users to change their code
      should be informed by how much work it is for them. If they just
@@ -194,7 +187,7 @@ Related files:
 
 def CheckNativeApiHeaderChanges(input_api, output_api):
     """Checks to remind proper changing of native APIs."""
-    files = []
+    files = set()
     source_file_filter = lambda x: input_api.FilterSourceFile(
         x, files_to_check=[r'.+\.(gn|gni|h)$'])
     for f in input_api.AffectedSourceFiles(source_file_filter):
@@ -203,20 +196,20 @@ def CheckNativeApiHeaderChanges(input_api, output_api):
             if path == 'api':
                 # Special case: Subdirectories included.
                 if dn == 'api' or dn.startswith('api/'):
-                    files.append(f.LocalPath())
+                    files.add(f.LocalPath())
             else:
                 # Normal case: Subdirectories not included.
                 if dn == path:
-                    files.append(f.LocalPath())
+                    files.add(f.LocalPath())
 
     if files:
-        return [output_api.PresubmitNotifyResult(API_CHANGE_MSG, files)]
+        return [output_api.PresubmitNotifyResult(API_CHANGE_MSG, list(files))]
     return []
 
 
 def CheckNoIOStreamInHeaders(input_api, output_api, source_file_filter):
     """Checks to make sure no .h files include <iostream>."""
-    files = []
+    files = set()
     pattern = input_api.re.compile(r'^#include\s*<iostream>',
                                    input_api.re.MULTILINE)
     file_filter = lambda x: (input_api.FilterSourceFile(x) and
@@ -226,7 +219,7 @@ def CheckNoIOStreamInHeaders(input_api, output_api, source_file_filter):
             continue
         contents = input_api.ReadFile(f)
         if pattern.search(contents):
-            files.append(f)
+            files.add(f)
 
     if len(files) > 0:
         return [
@@ -234,14 +227,14 @@ def CheckNoIOStreamInHeaders(input_api, output_api, source_file_filter):
                 'Do not #include <iostream> in header files, since it inserts '
                 'static initialization into every file including the header. '
                 'Instead, #include <ostream>. See http://crbug.com/94794',
-                files)
+                list(files))
         ]
     return []
 
 
 def CheckNoPragmaOnce(input_api, output_api, source_file_filter):
     """Make sure that banned functions are not used."""
-    files = []
+    files = set()
     pattern = input_api.re.compile(r'^#pragma\s+once', input_api.re.MULTILINE)
     file_filter = lambda x: (input_api.FilterSourceFile(x) and
                              source_file_filter(x))
@@ -250,14 +243,14 @@ def CheckNoPragmaOnce(input_api, output_api, source_file_filter):
             continue
         contents = input_api.ReadFile(f)
         if pattern.search(contents):
-            files.append(f)
+            files.add(f)
 
     if files:
         return [
             output_api.PresubmitError(
                 'Do not use #pragma once in header files.\n'
                 'See http://www.chromium.org/developers/coding-style'
-                '#TOC-File-headers', files)
+                '#TOC-File-headers', list(files))
         ]
     return []
 
@@ -324,12 +317,12 @@ def CheckApprovedFilesLintClean(input_api, output_api,
     # work with not-yet-converted code, we're only applying it to new (or
     # moved/renamed) files and files not listed in CPPLINT_EXCEPTIONS.
     verbosity_level = 1
-    files = []
+    files = set()
     for f in input_api.AffectedSourceFiles(source_file_filter):
         # Note that moved/renamed files also count as added.
         if f.Action() == 'A' or not IsLintDisabled(disabled_paths,
                                                    f.LocalPath()):
-            files.append(f.AbsoluteLocalPath())
+            files.add(f.AbsoluteLocalPath())
 
     for file_name in files:
         cpplint.ProcessFile(file_name, verbosity_level)
@@ -350,7 +343,7 @@ def CheckNoSourcesAbove(input_api, gn_files, output_api):
                                           re.MULTILINE | re.DOTALL)
     file_pattern = input_api.re.compile(r'"((\.\./.*?)|(//.*?))"')
     violating_gn_files = set()
-    violating_source_entries = []
+    violating_source_entries = set()
     for gn_file in gn_files:
         contents = input_api.ReadFile(gn_file)
         for source_block_match in source_pattern.finditer(contents):
@@ -360,7 +353,7 @@ def CheckNoSourcesAbove(input_api, gn_files, output_api):
                     source_block_match.group(1)):
                 source_file = file_list_match.group(1)
                 if 'overrides/' not in source_file:
-                    violating_source_entries.append(source_file)
+                    violating_source_entries.add(source_file)
                     violating_gn_files.add(gn_file)
     if violating_gn_files:
         return [
@@ -371,7 +364,7 @@ def CheckNoSourcesAbove(input_api, gn_files, output_api):
                 'Invalid source entries:\n'
                 '%s\n'
                 'Violating GN files:' % '\n'.join(violating_source_entries),
-                items=violating_gn_files)
+                items=list(violating_gn_files))
         ]
     return []
 
@@ -630,9 +623,9 @@ def CheckGnChanges(input_api, output_api):
         files_to_check=(r'.+\.(gn|gni)$', ),
         files_to_skip=(r'.*/presubmit_checks_lib/testdata/.*', )))
 
-    gn_files = []
+    gn_files = set()
     for f in input_api.AffectedSourceFiles(file_filter):
-        gn_files.append(f)
+        gn_files.add(f)
 
     result = []
     if gn_files:
@@ -658,8 +651,8 @@ def CheckGnGen(input_api, output_api):
     with _AddToPath(
             input_api.os_path.join(input_api.PresubmitLocalPath(),
                                    'tools_webrtc', 'presubmit_checks_lib')):
-        from build_helpers import RunGnCheck
-    errors = RunGnCheck(FindSrcDirPath(input_api.PresubmitLocalPath()))[:5]
+        from build_helpers import run_gn_check
+    errors = run_gn_check(input_api.change.RepositoryRoot())[:5]
     if errors:
         return [
             output_api.PresubmitPromptWarning(
@@ -681,8 +674,8 @@ def CheckUnwantedDependencies(input_api, output_api, source_file_filter):
     # We need to wait until we have an input_api object and use this
     # roundabout construct to import checkdeps because this file is
     # eval-ed and thus doesn't have __file__.
-    src_path = FindSrcDirPath(input_api.PresubmitLocalPath())
-    checkdeps_path = input_api.os_path.join(src_path, 'buildtools',
+    repo_root = input_api.change.RepositoryRoot()
+    checkdeps_path = input_api.os_path.join(repo_root, 'buildtools',
                                             'checkdeps')
     if not os.path.exists(checkdeps_path):
         return [
@@ -848,7 +841,7 @@ def RunPythonTests(input_api, output_api):
 def CheckUsageOfGoogleProtobufNamespace(input_api, output_api,
                                         source_file_filter):
     """Checks that the namespace google::protobuf has not been used."""
-    files = []
+    files = set()
     pattern = input_api.re.compile(r'google::protobuf')
     proto_utils_path = os.path.join('rtc_base', 'protobuf_utils.h')
     file_filter = lambda x: (input_api.FilterSourceFile(x) and
@@ -858,14 +851,14 @@ def CheckUsageOfGoogleProtobufNamespace(input_api, output_api,
             continue
         contents = input_api.ReadFile(f)
         if pattern.search(contents):
-            files.append(f)
+            files.add(f)
 
     if files:
         return [
             output_api.PresubmitError(
                 'Please avoid to use namespace `google::protobuf` directly.\n'
                 'Add a using directive in `%s` and include that header instead.'
-                % proto_utils_path, files)
+                % proto_utils_path, list(files))
         ]
     return []
 
@@ -1055,7 +1048,13 @@ def CommonChecks(input_api, output_api):
         CheckBannedAbslMakeUnique(input_api, output_api,
                                   non_third_party_sources))
     results.extend(
+        CheckBannedAbslOptional(input_api, output_api,
+                                non_third_party_sources))
+    results.extend(
         CheckObjcApiSymbols(input_api, output_api, non_third_party_sources))
+    results.extend(
+        CheckConditionalIncludes(input_api, output_api,
+                                 non_third_party_sources))
     return results
 
 
@@ -1119,21 +1118,74 @@ def CheckBannedAbslMakeUnique(input_api, output_api, source_file_filter):
     file_filter = lambda f: (f.LocalPath().endswith(
         ('.cc', '.h')) and source_file_filter(f))
 
-    files = []
+    files = set()
     for f in input_api.AffectedFiles(include_deletes=False,
                                      file_filter=file_filter):
         for _, line in f.ChangedContents():
             if 'absl::make_unique' in line:
-                files.append(f)
+                files.add(f)
                 break
 
     if files:
         return [
             output_api.PresubmitError(
                 'Please use std::make_unique instead of absl::make_unique.\n'
-                'Affected files:', files)
+                'Affected files:', list(files))
         ]
     return []
+
+
+def CheckBannedAbslOptional(input_api, output_api, source_file_filter):
+    absl_optional = re.compile(r'absl::(optional|make_optional|nullopt)',
+                               re.MULTILINE)
+    absl_optional_include = re.compile(r'^#include\s*"absl/types/optional\.h"',
+                                       input_api.re.MULTILINE)
+    file_filter = lambda f: (f.LocalPath().endswith(
+        ('.cc', '.h')) and source_file_filter(f))
+
+    files = set()
+    for f in input_api.AffectedFiles(include_deletes=False,
+                                     file_filter=file_filter):
+        for _, line in f.ChangedContents():
+            if absl_optional.search(line) or absl_optional_include.search(
+                    line):
+                files.add(f.LocalPath())
+                break
+
+    if files:
+        return [
+            output_api.PresubmitError(
+                'Please use std::optional instead of absl::optional.\n'
+                'Affected files:', list(files))
+        ]
+    return []
+
+
+def CheckConditionalIncludes(input_api, output_api, source_file_filter):
+    conditional_includes = {
+        '<netinet/in.h>': '"rtc_base/ip_address.h"',
+        '<sys/socket.h>': '"rtc_base/net_helpers.h"',
+    }
+    file_filter = lambda f: (f.LocalPath().endswith(
+        ('.cc', '.h')) and source_file_filter(f))
+    results = []
+    for key, value in conditional_includes.items():
+        include_regex = re.compile('^#include ' + key +
+                                   '((?!IWYU pragma|no-presubmit-check).)*$')
+        files = set()
+        for f in input_api.AffectedFiles(include_deletes=False,
+                                         file_filter=file_filter):
+            for _, line in f.ChangedContents():
+                if include_regex.search(line):
+                    files.add(f.LocalPath())
+                    break
+
+        if files:
+            results.append(
+                output_api.PresubmitError(
+                    'Please include ' + value + ' instead of ' + key +
+                    '.\nAffected files:', list(files)))
+    return results
 
 
 def CheckObjcApiSymbols(input_api, output_api, source_file_filter):
@@ -1142,7 +1194,7 @@ def CheckObjcApiSymbols(input_api, output_api, source_file_filter):
     file_filter = lambda f: (f.LocalPath().endswith(
         ('.h')) and source_file_filter(f))
 
-    files = []
+    files = set()
     file_filter = lambda x: (input_api.FilterSourceFile(x) and
                              source_file_filter(x))
     for f in input_api.AffectedSourceFiles(file_filter):
@@ -1154,7 +1206,7 @@ def CheckObjcApiSymbols(input_api, output_api, source_file_filter):
         for match in rtc_objc_export.finditer(contents):
             export_block = match.group(0)
             if 'RTC_OBJC_TYPE' not in export_block:
-                files.append(f.LocalPath())
+                files.add(f.LocalPath())
 
     if len(files) > 0:
         return [
@@ -1163,7 +1215,7 @@ def CheckObjcApiSymbols(input_api, output_api, source_file_filter):
                 + 'macro.\n\n' + 'For example:\n' +
                 'RTC_OBJC_EXPORT @protocol RTC_OBJC_TYPE(RtcFoo)\n\n' +
                 'RTC_OBJC_EXPORT @interface RTC_OBJC_TYPE(RtcFoo)\n\n' +
-                'Please fix the following files:', files)
+                'Please fix the following files:', list(files))
         ]
     return []
 
@@ -1173,19 +1225,19 @@ def CheckAssertUsage(input_api, output_api, source_file_filter):
     file_filter = lambda f: (f.LocalPath().endswith(
         ('.cc', '.h', '.m', '.mm')) and source_file_filter(f))
 
-    files = []
+    files = set()
     for f in input_api.AffectedFiles(include_deletes=False,
                                      file_filter=file_filter):
         for _, line in f.ChangedContents():
             if pattern.search(line):
-                files.append(f.LocalPath())
+                files.add(f.LocalPath())
                 break
 
     if len(files) > 0:
         return [
             output_api.PresubmitError(
                 'Usage of assert() has been detected in the following files, '
-                'please use RTC_DCHECK() instead.\n Files:', files)
+                'please use RTC_DCHECK() instead.\n Files:', list(files))
         ]
     return []
 
@@ -1196,7 +1248,7 @@ def CheckAbslMemoryInclude(input_api, output_api, source_file_filter):
     file_filter = lambda f: (f.LocalPath().endswith(
         ('.cc', '.h')) and source_file_filter(f))
 
-    files = []
+    files = set()
     for f in input_api.AffectedFiles(include_deletes=False,
                                      file_filter=file_filter):
         contents = input_api.ReadFile(f)
@@ -1204,7 +1256,7 @@ def CheckAbslMemoryInclude(input_api, output_api, source_file_filter):
             continue
         for _, line in f.ChangedContents():
             if 'absl::WrapUnique' in line:
-                files.append(f)
+                files.add(f)
                 break
 
     if len(files) > 0:
@@ -1212,7 +1264,8 @@ def CheckAbslMemoryInclude(input_api, output_api, source_file_filter):
             output_api.PresubmitError(
                 'Please include "absl/memory/memory.h" header for '
                 'absl::WrapUnique.\nThis header may or may not be included '
-                'transitively depending on the C++ standard version.', files)
+                'transitively depending on the C++ standard version.',
+                list(files))
         ]
     return []
 

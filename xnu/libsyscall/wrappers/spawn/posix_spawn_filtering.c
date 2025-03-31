@@ -111,7 +111,7 @@ can_access(const char *path)
 static bool
 evaluate_rules(const char *rules_file_path, const char *fname, char **envs,
     size_t envs_capacity, char *env_storage, size_t env_storage_capacity,
-    cpu_type_t *type, cpu_subtype_t *subtype, uint32_t *psa_options)
+    cpu_type_t *type, cpu_subtype_t *subtype, uint32_t *psa_options, uint8_t *sec_flags)
 {
 	int saveerrno = errno;
 	int fd = -1;
@@ -213,7 +213,12 @@ evaluate_rules(const char *rules_file_path, const char *fname, char **envs,
 			} else if (memcmp(line, "has_sec_transition:", strlen("has_sec_transition:")) == 0) {
 				char *enable_sec_transitions = line + strlen("has_sec_transition:");
 				if (strcmp(enable_sec_transitions, "1") == 0) {
-					*psa_options |= PSA_OPTION_USE_SEC_TRANSITION_SHIMS;
+					*sec_flags |= POSIX_SPAWN_SECFLAG_EXPLICIT_ENABLE;
+				}
+			} else if (memcmp(line, "sec_transition_inherit:", strlen("sec_transition_inherit:")) == 0) {
+				char *enable_sec_transitions = line + strlen("sec_transition_inherit:");
+				if (strcmp(enable_sec_transitions, "1") == 0) {
+					*sec_flags |= POSIX_SPAWN_SECFLAG_EXPLICIT_ENABLE_INHERIT;
 				}
 			}
 
@@ -287,11 +292,12 @@ _posix_spawn_with_filter(pid_t *pid, const char *fname, char * const *argp,
 	cpu_type_t cputype_binpref = 0;
 	cpu_subtype_t cpusubtype_binpref = 0;
 	uint32_t psa_options = 0;
+	uint8_t sec_flags = 0;
 	bool should_apply_rules = evaluate_rules(rules_file_path, fname,
 	    envs_to_add, sizeof(envs_to_add) / sizeof(envs_to_add[0]),
 	    env_storage, sizeof(env_storage),
 	    &cputype_binpref, &cpusubtype_binpref,
-	    &psa_options);
+	    &psa_options, &sec_flags);
 
 	if (!should_apply_rules) {
 		return false;
@@ -327,6 +333,9 @@ _posix_spawn_with_filter(pid_t *pid, const char *fname, char * const *argp,
 
 	if (psa_options != 0) {
 		new_attr.psa_options |= psa_options;
+	}
+	if (sec_flags != 0) {
+		new_attr.psa_sec_flags |= sec_flags;
 	}
 
 	/*

@@ -465,7 +465,9 @@ NSUInteger MBCGetSupportedGPUSampleCount(id<MTLDevice> device) {
         }
         
         // Rotate
-        if (instance.type == KNIGHT && isBlack) {
+        BOOL rotateKnight = (instance.type == KNIGHT && isBlack);
+        BOOL rotateBishop = (instance.type == BISHOP && !isBlack);
+        if (rotateKnight || rotateBishop) {
             matrix_float4x4 rotateY180 = matrix4x4_rotation(M_PI, kAxisUp);
             modelMatrix = simd_mul(rotateY180, modelMatrix);
         }

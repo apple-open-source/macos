@@ -15,6 +15,7 @@
 #include <limits.h>
 
 #include "aom/aom_integer.h"
+#include "config/aom_config.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -37,14 +38,16 @@ int aom_rb_read_bit(struct aom_read_bit_buffer *rb);
 
 int aom_rb_read_literal(struct aom_read_bit_buffer *rb, int bits);
 
+uint32_t aom_rb_read_uvlc(struct aom_read_bit_buffer *rb);
+
+#if CONFIG_AV1_DECODER
 uint32_t aom_rb_read_unsigned_literal(struct aom_read_bit_buffer *rb, int bits);
 
 int aom_rb_read_inv_signed_literal(struct aom_read_bit_buffer *rb, int bits);
 
-uint32_t aom_rb_read_uvlc(struct aom_read_bit_buffer *rb);
-
 int16_t aom_rb_read_signed_primitive_refsubexpfin(
     struct aom_read_bit_buffer *rb, uint16_t n, uint16_t k, int16_t ref);
+#endif  // CONFIG_AV1_DECODER
 
 #ifdef __cplusplus
 }  // extern "C"

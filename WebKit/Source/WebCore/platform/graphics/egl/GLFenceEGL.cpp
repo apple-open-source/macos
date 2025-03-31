@@ -20,6 +20,8 @@
 #include "config.h"
 #include "GLFenceEGL.h"
 
+#if HAVE(GL_FENCE)
+
 #include "PlatformDisplay.h"
 #include <wtf/Vector.h>
 
@@ -128,3 +130,5 @@ UnixFileDescriptor GLFenceEGL::exportFD()
 #endif
 
 } // namespace WebCore
+
+#endif // HAVE(GL_FENCE)

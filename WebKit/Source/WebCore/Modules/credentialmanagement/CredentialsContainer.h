@@ -29,6 +29,7 @@
 #if ENABLE(WEB_AUTHN)
 
 #include "AuthenticatorCoordinator.h"
+#include "CredentialRequestCoordinator.h"
 #include "DigitalCredential.h"
 #include <wtf/RefCounted.h>
 #include <wtf/WeakPtr.h>

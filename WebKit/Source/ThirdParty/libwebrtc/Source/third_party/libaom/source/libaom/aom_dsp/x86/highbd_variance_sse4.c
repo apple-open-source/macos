@@ -17,7 +17,7 @@
 #include "aom_dsp/variance.h"
 #include "aom_dsp/aom_filter.h"
 
-static INLINE void variance4x4_64_sse4_1(const uint8_t *a8, int a_stride,
+static inline void variance4x4_64_sse4_1(const uint8_t *a8, int a_stride,
                                          const uint8_t *b8, int b_stride,
                                          uint64_t *sse, int64_t *sum) {
   __m128i u0, u1, u2, u3;

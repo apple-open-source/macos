@@ -85,7 +85,7 @@ private:
 
     float m_snapAnimationCurveMagnitude { 0 };
     float m_snapAnimationDecayFactor { 0 };
-    FloatSize m_snapAnimationCurveCoefficients[4] { };
+    std::array<FloatSize, 4> m_snapAnimationCurveCoefficients = { };
     bool m_forceLinearAnimationCurve { false };
     bool m_momentumCalculatorRequiresInitialization { true };
 };

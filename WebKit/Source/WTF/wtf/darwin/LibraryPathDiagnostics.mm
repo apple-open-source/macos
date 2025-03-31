@@ -134,10 +134,12 @@ void LibraryPathDiagnosticsLogger::logObject(const Vector<String>& path, Ref<JSO
 void LibraryPathDiagnosticsLogger::logError(const char* format, ...)
 {
     StringPrintStream stream;
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
     va_list argList;
     va_start(argList, format);
     stream.vprintf(format, argList);
     va_end(argList);
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
 
     os_log_error(m_osLog, "%{public}s", stream.toCString().data());
 }
@@ -163,7 +165,7 @@ void LibraryPathDiagnosticsLogger::logDYLDSharedCacheInfo(void)
 #if HAVE(SHARED_REGION_SPI)
 static bool isAddressInSharedRegion(const void* addr)
 {
-    return bitwise_cast<uintptr_t>(addr) >= SHARED_REGION_BASE && bitwise_cast<uintptr_t>(addr) < (SHARED_REGION_BASE + SHARED_REGION_SIZE);
+    return std::bit_cast<uintptr_t>(addr) >= SHARED_REGION_BASE && std::bit_cast<uintptr_t>(addr) < (SHARED_REGION_BASE + SHARED_REGION_SIZE);
 }
 #endif // HAVE(SHARED_REGION_SPI)
 

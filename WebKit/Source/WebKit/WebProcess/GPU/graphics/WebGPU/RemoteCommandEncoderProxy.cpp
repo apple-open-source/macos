@@ -39,10 +39,10 @@ namespace WebKit::WebGPU {
 
 WTF_MAKE_TZONE_ALLOCATED_IMPL(RemoteCommandEncoderProxy);
 
-RemoteCommandEncoderProxy::RemoteCommandEncoderProxy(RemoteDeviceProxy& parent, ConvertToBackingContext& convertToBackingContext, WebGPUIdentifier identifier)
+RemoteCommandEncoderProxy::RemoteCommandEncoderProxy(RemoteGPUProxy& root, ConvertToBackingContext& convertToBackingContext, WebGPUIdentifier identifier)
     : m_backing(identifier)
     , m_convertToBackingContext(convertToBackingContext)
-    , m_parent(parent)
+    , m_root(root)
 {
 }
 
@@ -66,7 +66,8 @@ RefPtr<WebCore::WebGPU::RenderPassEncoder> RemoteCommandEncoderProxy::beginRende
         return nullptr;
 
     auto result = RemoteRenderPassEncoderProxy::create(*this, convertToBackingContext, identifier);
-    result->setLabel(WTFMove(convertedDescriptor->label));
+    if (convertedDescriptor)
+        result->setLabel(WTFMove(convertedDescriptor->label));
     return result;
 }
 
@@ -87,7 +88,8 @@ RefPtr<WebCore::WebGPU::ComputePassEncoder> RemoteCommandEncoderProxy::beginComp
         return nullptr;
 
     auto result = RemoteComputePassEncoderProxy::create(*this, convertToBackingContext, identifier);
-    result->setLabel(WTFMove(convertedDescriptor->label));
+    if (convertedDescriptor)
+        result->setLabel(WTFMove(convertedDescriptor->label));
     return result;
 }
 
@@ -100,11 +102,7 @@ void RemoteCommandEncoderProxy::copyBufferToBuffer(
 {
     Ref convertToBackingContext = m_convertToBackingContext;
     auto convertedSource = convertToBackingContext->convertToBacking(source);
-    ASSERT(convertedSource);
     auto convertedDestination = convertToBackingContext->convertToBacking(destination);
-    ASSERT(convertedDestination);
-    if (!convertedSource || !convertedDestination)
-        return;
 
     auto sendResult = send(Messages::RemoteCommandEncoder::CopyBufferToBuffer(convertedSource, sourceOffset, convertedDestination, destinationOffset, size));
     UNUSED_VARIABLE(sendResult);
@@ -173,9 +171,6 @@ void RemoteCommandEncoderProxy::clearBuffer(
     std::optional<WebCore::WebGPU::Size64> size)
 {
     auto convertedBuffer = protectedConvertToBackingContext()->convertToBacking(buffer);
-    ASSERT(convertedBuffer);
-    if (!convertedBuffer)
-        return;
 
     auto sendResult = send(Messages::RemoteCommandEncoder::ClearBuffer(convertedBuffer, offset, size));
     UNUSED_VARIABLE(sendResult);
@@ -202,9 +197,6 @@ void RemoteCommandEncoderProxy::insertDebugMarker(String&& markerLabel)
 void RemoteCommandEncoderProxy::writeTimestamp(const WebCore::WebGPU::QuerySet& querySet, WebCore::WebGPU::Size32 queryIndex)
 {
     auto convertedQuerySet = protectedConvertToBackingContext()->convertToBacking(querySet);
-    ASSERT(convertedQuerySet);
-    if (!convertedQuerySet)
-        return;
 
     auto sendResult = send(Messages::RemoteCommandEncoder::WriteTimestamp(convertedQuerySet, queryIndex));
     UNUSED_VARIABLE(sendResult);
@@ -219,11 +211,7 @@ void RemoteCommandEncoderProxy::resolveQuerySet(
 {
     Ref convertToBackingContext = m_convertToBackingContext;
     auto convertedQuerySet = convertToBackingContext->convertToBacking(querySet);
-    ASSERT(convertedQuerySet);
     auto convertedDestination = convertToBackingContext->convertToBacking(destination);
-    ASSERT(convertedDestination);
-    if (!convertedQuerySet || !convertedDestination)
-        return;
 
     auto sendResult = send(Messages::RemoteCommandEncoder::ResolveQuerySet(convertedQuerySet, firstQuery, queryCount, convertedDestination, destinationOffset));
     UNUSED_VARIABLE(sendResult);
@@ -242,7 +230,7 @@ RefPtr<WebCore::WebGPU::CommandBuffer> RemoteCommandEncoderProxy::finish(const W
     if (sendResult != IPC::Error::NoError)
         return nullptr;
 
-    auto result = RemoteCommandBufferProxy::create(m_parent, convertToBackingContext, identifier);
+    auto result = RemoteCommandBufferProxy::create(m_root, convertToBackingContext, identifier);
     result->setLabel(WTFMove(convertedDescriptor->label));
     return result;
 }

@@ -265,31 +265,44 @@ mkstempsock(const char *root, char *path)
 int
 mktemplate(char **ret, const char *path, int hasdir, int tmp)
 {
-	int		 n, dirlen;
+	const char	 suffix[] = ".XXXXXXXXXX";
+	const size_t	 maxfnlen = NAME_MAX - (sizeof(suffix) - 1) - 1;
+	int		 n, dirlen, fnlen;
 	const char	*cp;
 
 	if (tmp) {
-		char *basename = strrchr(path, '/');
+		const char *basename = strrchr(path, '/');
+
 		if (basename == NULL) {
-			basename = (char *)path;
+			basename = path;
 		} else {
 			basename++;
 		}
-		if ((n = asprintf(ret, ".%s.XXXXXXXXXX", basename)) == -1) {
+
+		fnlen = strnlen(basename, maxfnlen);
+
+		if ((n = asprintf(ret, ".%.*s%s", fnlen, basename, suffix)) == -1) {
 			ERR("asprintf");
 			*ret = NULL;
 		}
 	} else if (hasdir && (cp = strrchr(path, '/')) != NULL) {
 		dirlen = (int)(cp - path);
-		n = asprintf(ret, "%.*s/.%s.XXXXXXXXXX",
-			dirlen, path, path + dirlen + 1);
+
+		fnlen = strnlen(path + dirlen + 1, maxfnlen);
+
+		n = asprintf(ret, "%.*s/.%.*s%s",
+			     dirlen, path, fnlen, path + dirlen + 1, suffix);
 		if (n == -1) {
 			ERR("asprintf");
 			*ret = NULL;
 		}
-	} else if ((n = asprintf(ret, ".%s.XXXXXXXXXX", path)) == -1) {
-		ERR("asprintf");
-		*ret = NULL;
+	} else {
+		fnlen = strnlen(path, maxfnlen);
+
+		if ((n = asprintf(ret, ".%.*s%s", fnlen, path, suffix)) == -1) {
+			ERR("asprintf");
+			*ret = NULL;
+		}
 	}
 
 	return n;

@@ -57,6 +57,9 @@ public:
     WebCookieManager(NetworkProcess&);
     ~WebCookieManager();
 
+    void ref() const final;
+    void deref() const final;
+
     static ASCIILiteral supplementName();
 
     void setHTTPCookieAcceptPolicy(PAL::SessionID, WebCore::HTTPCookieAcceptPolicy, CompletionHandler<void()>&&);

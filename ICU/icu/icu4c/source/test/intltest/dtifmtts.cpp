@@ -421,7 +421,7 @@ void DateIntervalFormatTest::testFormat() {
     const char* DATA[] = {
         "GGGGG y MM dd HH:mm:ss", // pattern for from_data/to_data
         // test root
-        "root", "CE 2007 11 10 10:10:10", "CE 2007 12 10 10:10:10", "yM", "2007-11 \\u2013 2007-12",
+        "root", "CE 2007 11 10 10:10:10", "CE 2007 12 10 10:10:10", "yM", "2007-11\\u2009\\u2013\\u20092007-12",
 
         // test 'H' and 'h', using availableFormat in fallback
         "en", "CE 2007 11 10 10:10:10", "CE 2007 11 10 15:10:10", "Hms", "10:10:10\\u2009\\u2013\\u200915:10:10",
@@ -1352,11 +1352,11 @@ void DateIntervalFormatTest::testHourMetacharacters() {
         "zh_HK", "CE 2010 09 27 00:00:00", "CE 2010 09 27 01:00:00", "CC", "\\u4E0A\\u534812\\u6642\\u81F31\\u6642",
 #if APPLE_ICU_CHANGES
 // rdar://
-        "hi_IN", "CE 2010 09 27 10:00:00", "CE 2010 09 27 13:00:00", "jj", "\\u092A\\u0942 10 \\u2013 \\u0905 1",
-        "hi_IN", "CE 2010 09 27 00:00:00", "CE 2010 09 27 01:00:00", "jj", "\\u092A\\u0942 12\\u20131",
+        "hi_IN", "CE 2010 09 27 10:00:00", "CE 2010 09 27 13:00:00", "jj", "\\u0938\\u0941\\u092C\\u0939 10 \\u2013 \\u0926\\u094B\\u092A\\u0939\\u0930 1",
+        "hi_IN", "CE 2010 09 27 00:00:00", "CE 2010 09 27 01:00:00", "jj", "\\u0930\\u093E\\u0924 12\\u20131",
 #else
-        "hi_IN", "CE 2010 09 27 10:00:00", "CE 2010 09 27 13:00:00", "jj", "10 am \\u2013 1 pm",
-        "hi_IN", "CE 2010 09 27 00:00:00", "CE 2010 09 27 01:00:00", "jj", "12\\u20131 am",
+        "hi_IN", "CE 2010 09 27 10:00:00", "CE 2010 09 27 13:00:00", "jj", "10\\u202Fam\\u2009\\u2013\\u20091\\u202Fpm",
+        "hi_IN", "CE 2010 09 27 00:00:00", "CE 2010 09 27 01:00:00", "jj", "12\\u20131\\u202Fam",
 #endif  // APPLE_ICU_CHANGES
         "hi_IN", "CE 2010 09 27 10:00:00", "CE 2010 09 27 13:00:00", "hB", "\\u0938\\u0941\\u092C\\u0939 10 \\u2013 \\u0926\\u094B\\u092A\\u0939\\u0930 1",
         "hi_IN", "CE 2010 09 27 00:00:00", "CE 2010 09 27 01:00:00", "hB", "\\u0930\\u093E\\u0924 12\\u20131",
@@ -1459,7 +1459,7 @@ void DateIntervalFormatTest::expect(const char** data, int32_t data_length) {
         FieldPosition pos(FieldPosition::DONT_CARE);
         dtitvfmt->format(&dtitv, str.remove(), pos, ec);
         if (!assertSuccess("format in expect", ec)) return;
-        assertEquals((UnicodeString)"\"" + locName + "\\" + oneSkeleton + "\\" + ctou(datestr) + "\\" + ctou(datestr_2) + "\"", ctou(data[i++]), str);
+        assertEquals(UnicodeString("\"") + locName + "\\" + oneSkeleton + "\\" + ctou(datestr) + "\\" + ctou(datestr_2) + "\"", ctou(data[i++]), str);
 
         logln("interval date:" + str + "\"" + locName + "\", "
                  + "\"" + datestr + "\", "
@@ -1596,15 +1596,15 @@ void DateIntervalFormatTest::testContext() {
         fmt->setContext(testItemPtr->context, status);
         if (U_FAILURE(status)) {
             errln("setContext failed for locale %s skeleton %s context %04X: %s",
-                    testItemPtr->locale, testItemPtr->skeleton, (unsigned)testItemPtr->context, u_errorName(status));
+                    testItemPtr->locale, testItemPtr->skeleton, static_cast<unsigned>(testItemPtr->context), u_errorName(status));
         } else {
             UDisplayContext getContext = fmt->getContext(UDISPCTX_TYPE_CAPITALIZATION, status);
             if (U_FAILURE(status)) {
                 errln("getContext failed for locale %s skeleton %s context %04X: %s",
-                        testItemPtr->locale, testItemPtr->skeleton, (unsigned)testItemPtr->context, u_errorName(status));
+                        testItemPtr->locale, testItemPtr->skeleton, static_cast<unsigned>(testItemPtr->context), u_errorName(status));
             } else if (getContext != testItemPtr->context) {
                 errln("getContext failed for locale %s skeleton %s context %04X: got context %04X",
-                        testItemPtr->locale, testItemPtr->skeleton, (unsigned)testItemPtr->context, (unsigned)getContext);
+                        testItemPtr->locale, testItemPtr->skeleton, static_cast<unsigned>(testItemPtr->context), static_cast<unsigned>(getContext));
             }
         }
 
@@ -1615,7 +1615,7 @@ void DateIntervalFormatTest::testContext() {
         fmt->format(&interval, getResult, pos, status);
         if (U_FAILURE(status)) {
             errln("format failed for locale %s skeleton %s context %04X: %s",
-                    testItemPtr->locale, testItemPtr->skeleton, (unsigned)testItemPtr->context, u_errorName(status));
+                    testItemPtr->locale, testItemPtr->skeleton, static_cast<unsigned>(testItemPtr->context), u_errorName(status));
             continue;
         }
         UnicodeString expectResult(true, testItemPtr->expectResult, -1);
@@ -1779,7 +1779,7 @@ void DateIntervalFormatTest::expectUserDII(const char** data,
         FieldPosition pos(FieldPosition::DONT_CARE);
         dtitvfmt->format(&dtitv, str.remove(), pos, ec);
         if (!assertSuccess("format in expectUserDII", ec)) return;
-        assertEquals((UnicodeString)"\"" + locName + "\\" + datestr + "\\" + datestr_2 + "\"", ctou(data[i++]), str);
+        assertEquals(UnicodeString("\"") + locName + "\\" + datestr + "\\" + datestr_2 + "\"", ctou(data[i++]), str);
 #ifdef DTIFMTTS_DEBUG
         char result[1000];
         char mesg[1000];
@@ -1999,7 +1999,7 @@ void DateIntervalFormatTest::testTicket11583_2() {
     if (!assertSuccess("Error create format object", status)) {
         return;
     }
-    DateInterval interval((UDate) 1232364615000.0, (UDate) 1328787015000.0);
+    DateInterval interval(static_cast<UDate>(1232364615000.0), static_cast<UDate>(1328787015000.0));
     UnicodeString appendTo;
     FieldPosition fpos(FieldPosition::DONT_CARE);
 #if APPLE_ICU_CHANGES
@@ -2106,7 +2106,7 @@ void DateIntervalFormatTest::testTicket12065() {
         errln("%s:%d DateIntervalFormat and clone are not equal.", __FILE__, __LINE__);
         return;
     }
-    DateInterval interval((UDate) 1232364615000.0, (UDate) 1328787015000.0);
+    DateInterval interval(static_cast<UDate>(1232364615000.0), static_cast<UDate>(1328787015000.0));
     UnicodeString appendTo;
     FieldPosition fpos(FieldPosition::DONT_CARE);
     formatter->format(&interval, appendTo, fpos, status);
@@ -2405,9 +2405,9 @@ void DateIntervalFormatTest::testTicket20707() {
         // Hour-cycle: K
 #if APPLE_ICU_CHANGES
 // rdar://
-        {u"\u092A\u0942 0", u"00", u"00", u"\u092A\u0942 0", u"\u092A\u0942 0", u"0 (\u0918\u0902\u091F\u093E: 00)", u"\u0930\u093E\u0924 0"}
+        {u"\u0930\u093E\u0924 0", u"00", u"00", u"\u092A\u0942 0", u"\u0930\u093E\u0924 0", u"0 (\u0918\u0902\u091F\u093E: 00)", u"\u0930\u093E\u0924 0"}
 #else
-        {u"0 am", u"00", u"00", u"0 am", u"0 am", u"0 (\u0918\u0902\u091F\u093E: 00)", u"\u0930\u093E\u0924 0"}
+        {u"0\u202Fam", u"00", u"00", u"0\u202Fam", u"0\u202Fam", u"0 (\u0918\u0902\u091F\u093E: 00)", u"\u0930\u093E\u0924 0"}
 #endif  // APPLE_ICU_CHANGES
     };
 
@@ -2422,7 +2422,7 @@ void DateIntervalFormatTest::testTicket20707() {
             FieldPosition fposition;
             UnicodeString result;
             LocalPointer<Calendar> calendar(Calendar::createInstance(TimeZone::createTimeZone(timeZone), status));
-            calendar->setTime(UDate(1563235200000), status);
+            calendar->setTime(static_cast<UDate>(1563235200000), status);
             dtifmt->format(*calendar, *calendar, result, fposition, status);
 
             const char* localeID = locale.getName();
@@ -2566,7 +2566,7 @@ void DateIntervalFormatTest::testTicket21222ROCEraDiff() {
     assertEquals("roc calendar - both dates in MG Era",
 #if APPLE_ICU_CHANGES
 // rdar://
-                 u"民國 1/1/2 上午6時至民國 2/1/2 上午6時",
+                 u"民國 1/1/2 清晨6時至民國 2/1/2 清晨6時",
 #else
                  u"民國1/1/2 上午6時\u2009\u2013\u2009民國2/1/2 上午6時",
 #endif  // APPLE_ICU_CHANGES
@@ -2578,7 +2578,7 @@ void DateIntervalFormatTest::testTicket21222ROCEraDiff() {
     assertEquals("roc calendar - prior MG Era and in MG Era",
 #if APPLE_ICU_CHANGES
 // rdar://
-                 u"民國前 1/1/2 上午6時至民國 2/1/2 上午6時",
+                 u"民國前 1/1/2 清晨6時至民國 2/1/2 清晨6時",
 #else
                  u"民國前1/1/2 上午6時\u2009\u2013\u2009民國2/1/2 上午6時",
 #endif  // APPLE_ICU_CHANGES
@@ -2589,7 +2589,7 @@ void DateIntervalFormatTest::testTicket21222ROCEraDiff() {
     assertEquals("roc calendar - both dates prior MG Era",
 #if APPLE_ICU_CHANGES
 // rdar://
-                 u"民國前 2/1/2 上午6時至民國前 1/1/2 上午6時",
+                 u"民國前 2/1/2 清晨6時至民國前 1/1/2 清晨6時",
 #else
                  u"民國前2/1/2 上午6時\u2009\u2013\u2009民國前1/1/2 上午6時",
 #endif  // APPLE_ICU_CHANGES
@@ -2685,15 +2685,31 @@ void DateIntervalFormatTest::testTicket21939() {
         UnicodeString pattern;
         assertEquals("Wrong pattern", u"M/d/r, h:mm\u202Fa", sdf->toPattern(pattern));
     }
+    
+    // additional tests for the related ICU-22202
+    dif.adoptInstead(DateIntervalFormat::createInstance(u"Lh", Locale::getEnglish(), err));
+    if (assertSuccess("Error creating DateIntervalFormat", err)) {
+        const DateFormat* df = dif->getDateFormat();
+        const SimpleDateFormat* sdf = dynamic_cast<const SimpleDateFormat*>(df);
+        UnicodeString pattern;
+        assertEquals("Wrong pattern", u"L, h\u202Fa", sdf->toPattern(pattern));
+    }
+    dif.adoptInstead(DateIntervalFormat::createInstance(u"UH", Locale::forLanguageTag("en-u-ca-chinese", err), err));
+    if (assertSuccess("Error creating DateIntervalFormat", err)) {
+        const DateFormat* df = dif->getDateFormat();
+        const SimpleDateFormat* sdf = dynamic_cast<const SimpleDateFormat*>(df);
+        UnicodeString pattern;
+        assertEquals("Wrong pattern", u"r(U), HH", sdf->toPattern(pattern));
+    }
 }
 
 void DateIntervalFormatTest::testTicket20710_FieldIdentity() {
     IcuTestErrorCode status(*this, "testTicket20710_FieldIdentity");
     LocalPointer<DateIntervalFormat> dtifmt(DateIntervalFormat::createInstance("eeeeMMMddyyhhmma", "de-CH", status));
     LocalPointer<Calendar> calendar1(Calendar::createInstance(TimeZone::createTimeZone(u"CET"), status));
-    calendar1->setTime(UDate(1563235200000), status);
+    calendar1->setTime(static_cast<UDate>(1563235200000), status);
     LocalPointer<Calendar> calendar2(Calendar::createInstance(TimeZone::createTimeZone(u"CET"), status));
-    calendar2->setTime(UDate(1564235200000), status);
+    calendar2->setTime(static_cast<UDate>(1564235200000), status);
 
     {
         auto fv = dtifmt->formatToValue(*calendar1, *calendar2, status);
@@ -2741,7 +2757,7 @@ void DateIntervalFormatTest::testTicket20710_IntervalIdentity() {
         const Locale locale = locales[i];
         LocalPointer<DateTimePatternGenerator> gen(DateTimePatternGenerator::createInstance(locale, status));
         LocalPointer<Calendar> calendar(Calendar::createInstance(TimeZone::createTimeZone(timeZone), status));
-        calendar->setTime(UDate(1563235200000), status);
+        calendar->setTime(static_cast<UDate>(1563235200000), status);
         for (auto skeleton : skeletons) {
             LocalPointer<DateIntervalFormat> dtifmt(DateIntervalFormat::createInstance(skeleton, locale, status));
 

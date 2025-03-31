@@ -121,7 +121,7 @@ _lex_error_message (const char *format, ...)
      va_list args;
 
      va_start (args, format);
-     fprintf (stderr, "%s:%d:", filename, lineno);
+     fprintf (stderr, "%s:%u:", filename, lineno);
      vfprintf (stderr, format, args);
      va_end (args);
      numerror++;

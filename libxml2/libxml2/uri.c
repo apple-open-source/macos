@@ -19,6 +19,8 @@
 #include <libxml/globals.h>
 #include <libxml/xmlerror.h>
 
+#include "private/memory.h"
+
 /**
  * MAX_URI_LENGTH:
  *
@@ -1038,19 +1040,19 @@ xmlCreateURI(void) {
 static xmlChar *
 xmlSaveUriRealloc(xmlChar *ret, int *max) {
     xmlChar *temp;
-    int tmp;
+    int newSize;
 
-    if (*max > MAX_URI_LENGTH) {
+    newSize = xmlGrowCapacity(*max, 1, 80, MAX_URI_LENGTH);
+    if (newSize < 0){
         xmlURIErrMemory("reaching arbitrary MAX_URI_LENGTH limit\n");
         return(NULL);
     }
-    tmp = *max * 2;
-    temp = (xmlChar *) xmlRealloc(ret, (tmp + 1));
+    temp = xmlRealloc(ret, newSize + 1);
     if (temp == NULL) {
         xmlURIErrMemory("saving URI\n");
         return(NULL);
     }
-    *max = tmp;
+    *max = newSize;
     return(temp);
 }
 
@@ -1678,7 +1680,6 @@ xmlURIUnescapeString(const char *str, int len, char *target) {
 xmlChar *
 xmlURIEscapeStr(const xmlChar *str, const xmlChar *list) {
     xmlChar *ret, ch;
-    xmlChar *temp;
     const xmlChar *in;
     int len, out;
 
@@ -1699,13 +1700,22 @@ xmlURIEscapeStr(const xmlChar *str, const xmlChar *list) {
     out = 0;
     while(*in != 0) {
 	if (len - out <= 3) {
-            temp = xmlSaveUriRealloc(ret, &len);
+            xmlChar *temp;
+            int newSize;
+
+            newSize = xmlGrowCapacity(len, 1, 1, XML_MAX_ITEMS);
+            if (newSize < 0) {
+                xmlURIErrMemory("Malloc failure.\n");
+                xmlFree(ret);
+            }
+            temp = xmlRealloc(ret, newSize);
 	    if (temp == NULL) {
                 xmlURIErrMemory("escaping URI value\n");
 		xmlFree(ret);
 		return(NULL);
 	    }
 	    ret = temp;
+            len = newSize;
 	}
 
 	ch = *in;

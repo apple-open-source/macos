@@ -239,6 +239,12 @@ as{
                 one{"{0} নেনোছেকেণ্ড"}
                 other{"{0} নেনোছেকেণ্ড"}
             }
+            night{
+                dnam{"নিশা"}
+                one{"{0} নিশা"}
+                other{"{0} নিশা"}
+                per{"{0}/নিশা"}
+            }
             quarter{
                 dnam{"কোৱাৰ্টাৰ্ছ"}
             }
@@ -578,6 +584,11 @@ as{
                 one{"{0} ঘণ্টা প্ৰতি কিলোমিটাৰ"}
                 other{"{0} ঘণ্টা প্ৰতি কিলোমিটাৰ"}
             }
+            light-speed{
+                dnam{"আলোক"}
+                one{"{0} আলোক"}
+                other{"{0} আলোক"}
+            }
             meter-per-second{
                 dnam{"মিটাৰ প্ৰতি ছেকেণ্ড"}
                 one{"{0} মিটাৰ প্ৰতি ছেকেণ্ড"}
@@ -849,6 +860,12 @@ as{
             }
         }
         duration{
+            night{
+                dnam{"নিশা"}
+                one{"{0} নিশা"}
+                other{"{0} নিশা"}
+                per{"{0}/নিশা"}
+            }
             quarter{
                 one{"{0}কো"}
                 other{"{0}কো"}
@@ -861,6 +878,10 @@ as{
             }
         }
         force{
+            kilowatt-hour-per-100-kilometer{
+                one{"{0}kWh/100km"}
+                other{"{0} kWh/100km"}
+            }
             newton{
                 dnam{"N"}
             }
@@ -925,6 +946,11 @@ as{
             kilometer-per-hour{
                 one{"{0} km/h"}
                 other{"{0} km/h"}
+            }
+            light-speed{
+                dnam{"আলোক"}
+                one{"{0}আলোক"}
+                other{"{0}আলোক"}
             }
         }
         temperature{
@@ -1233,6 +1259,12 @@ as{
                 dnam{"নেনোছেকেণ্ড"}
                 one{"{0} নেঃ ছেঃ"}
                 other{"{0} নেঃ ছেঃ"}
+            }
+            night{
+                dnam{"নিশা"}
+                one{"{0} নিশা"}
+                other{"{0} নিশা"}
+                per{"{0}/নিশা"}
             }
             quarter{
                 dnam{"কোৱাৰ্টাৰ"}
@@ -1665,6 +1697,11 @@ as{
                 dnam{"নট"}
                 one{"{0} নট"}
                 other{"{0} নট"}
+            }
+            light-speed{
+                dnam{"আলোক"}
+                one{"{0} আলোক"}
+                other{"{0} আলোক"}
             }
             meter-per-second{
                 dnam{"মিটাৰ/ছেকেণ্ড"}

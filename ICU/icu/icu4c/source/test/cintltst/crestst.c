@@ -158,7 +158,7 @@ void TestAliasConflict(void) {
 }
 
 
-void TestResourceBundles()
+void TestResourceBundles(void)
 {
     // The test expectation only works if the default locale is not one of the
     // locale bundle in the testdata which have those info. Therefore, we skip
@@ -188,7 +188,7 @@ void TestResourceBundles()
     log_verbose("Passed:=  %d   Failed=   %d \n", pass, fail);
 }
 
-void TestConstruction1()
+void TestConstruction1(void)
 {
     UResourceBundle *test1 = 0, *test2 = 0;
     const UChar *result1, *result2;
@@ -436,15 +436,15 @@ UBool testTag(const char* frag,
         ures_close(theBundle);
     }
     free(base);
-    return (UBool)(passNum == pass);
+    return passNum == pass;
 }
 
-void record_pass()
+void record_pass(void)
 {
   ++pass;
 }
 
-void record_fail()
+void record_fail(void)
 {
   ++fail;
 }
@@ -454,7 +454,7 @@ void record_fail()
  * are set correctly
  */
 
-static void TestFallback()
+static void TestFallback(void)
 {
     UErrorCode status = U_ZERO_ERROR;
     UResourceBundle *fr_FR = NULL;

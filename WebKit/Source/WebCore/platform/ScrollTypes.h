@@ -260,6 +260,11 @@ inline BoxSide boxSideForDirection(ScrollDirection direction)
     return BoxSide::Top;
 }
 
+enum class OverlayScrollbarSizeRelevancy : bool {
+    IgnoreOverlayScrollbarSize,
+    IncludeOverlayScrollbarSize
+};
+
 enum ScrollbarControlStateMask {
     ActiveScrollbarState = 1,
     EnabledScrollbarState = 1 << 1,

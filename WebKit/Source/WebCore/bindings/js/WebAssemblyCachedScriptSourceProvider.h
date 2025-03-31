@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2022 Igalia S.L. All rights reserved.
+ * Copyright (C) 2024 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -34,12 +35,11 @@
 #include "SharedBuffer.h"
 #include <JavaScriptCore/SourceProvider.h>
 #include <wtf/RefPtr.h>
-#include <wtf/TZoneMallocInlines.h>
 
 namespace WebCore {
 
 class WebAssemblyCachedScriptSourceProvider final : public JSC::BaseWebAssemblySourceProvider, public CachedResourceClient {
-    WTF_MAKE_TZONE_ALLOCATED_INLINE(WebAssemblyCachedScriptSourceProvider);
+    WTF_MAKE_TZONE_ALLOCATED(WebAssemblyCachedScriptSourceProvider);
 public:
     static Ref<WebAssemblyCachedScriptSourceProvider> create(CachedScript* cachedScript, Ref<CachedScriptFetcher>&& scriptFetcher)
     {

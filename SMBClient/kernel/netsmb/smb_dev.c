@@ -68,6 +68,8 @@
 #include <netsmb/smb_tran.h>
 #include <netsmb/smb2_mc_support.h>
 
+#include <iokit/smbfs_iokit.h>
+
 /*
  * Userland code loops through minor #s 0 to 1023, looking for one which opens.
  * Intially we create minor 0 and leave it for anyone.  Minor zero will never
@@ -239,7 +241,7 @@ nsmb_dev_close(dev_t dev, int flag, int fmt, struct proc *p)
 static int nsmb_dev_ioctl(dev_t dev, u_long cmd, caddr_t data, int flag, 
 						  struct proc *p)
 {
-#pragma unused(flag, p)
+#pragma unused(flag)
 	struct smb_dev *sdp;
 	struct smb_session *sessionp;
 	struct smb_share *sharep;
@@ -395,6 +397,13 @@ ioc_negotiate_error:
         case SMBIOC_UPDATE_NOTIFIER_PID:
         {
             SMBDEBUG("SMBIOC_UPDATE_NOTIFIER_PID received.\n");
+            if (!smbfs_is_task_entitled_to(proc_task(p), SMBIOC_UPDATE_NOTIFITER_PID_ENTITLEMENT)) {
+                lck_rw_unlock_shared(dev_rw_lck);
+                SMBERROR("SMBIOC_UPDATE_NOTIFIER_PID needs entitlement");
+                error = EPERM;
+                break;
+            }
+
             lck_rw_lock_shared(&sdp->sd_rwlock);
 
             /* free global lock now since we now have sd_rwlock */

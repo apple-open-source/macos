@@ -74,6 +74,8 @@ int diff_chunk_get_right_start(const struct diff_chunk *c,
 int diff_chunk_get_right_end(const struct diff_chunk *c,
 			     const struct diff_result *r,
 			     int context_lines);
+off_t diff_chunk_get_left_start_pos(const struct diff_chunk *c);
+off_t diff_chunk_get_right_start_pos(const struct diff_chunk *c);
 struct diff_chunk *diff_chunk_get(const struct diff_result *r, int chunk_idx);
 int diff_chunk_get_left_count(struct diff_chunk *c);
 int diff_chunk_get_right_count(struct diff_chunk *c);
@@ -95,7 +97,6 @@ int diff_output_unidiff_chunk(struct diff_output_info **output_info, FILE *dest,
 			  const struct diff_input_info *info,
 			  const struct diff_result *result,
 			  const struct diff_chunk_context *cc);
-#ifndef __APPLE__
 int diff_output_chunk_left_version(struct diff_output_info **output_info,
 			       FILE *dest,
 			       const struct diff_input_info *info,
@@ -107,6 +108,5 @@ int diff_output_chunk_right_version(struct diff_output_info **output_info,
 				const struct diff_result *result,
 				const struct diff_chunk_context *cc);
 
-#endif  /* ! __APPLE__ */
 const char *diff_output_get_label_left(const struct diff_input_info *info);
 const char *diff_output_get_label_right(const struct diff_input_info *info);

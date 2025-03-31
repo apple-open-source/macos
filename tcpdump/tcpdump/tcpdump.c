@@ -294,6 +294,8 @@ char *open_special_device(char *);
 int pktap_filter_packet(netdissect_options *, struct pcap_if_info *, const struct pcap_pkthdr *, const u_char *);
 int pktapv2_filter_packet(netdissect_options *, struct pcap_if_info *, const struct pcap_pkthdr *, const u_char *);
 void print_kev_msg(struct netdissect_options *, struct kern_event_msg *);
+
+bool darwin_log_init(void);
 #endif /* __APPLE__ */
 
 #ifdef SIGNAL_REQ_INFO
@@ -1717,6 +1719,8 @@ main(int argc, char **argv)
 	ndo->ndo_t0flag = 0;
 
 	log_arguments(argc, argv);
+
+	darwin_log_init();
 #endif /* __APPLE__ */
 
 	cnt = -1;
@@ -2264,7 +2268,11 @@ main(int argc, char **argv)
 			break;
 
 		case '#':
+#ifdef __APPLE__
+			ndo->ndo_packet_number += 1;
+#else
 			ndo->ndo_packet_number = 1;
+#endif /* __APPLE__ */
 			break;
 
 		case OPTION_VERSION:
@@ -2418,6 +2426,8 @@ main(int argc, char **argv)
 	if (ndo->ndo_tflag == 0) {
 		ndo->ndo_t0flag = 1;
 	}
+	if (ndo->ndo_packet_number > 1 && !(VFileName != NULL || RFileName != NULL))
+		error("-## can only be used with -V or -r");
 #endif /* __APPLE__ */
 
 	switch (ndo->ndo_tflag) {
@@ -4484,6 +4494,13 @@ print_pcap(u_char *user, const struct pcap_pkthdr *h, const u_char *sp)
 	if (packets_captured <= skip_packet_cnt)
 		return;
 
+#if HAS_PCAP_GET_PACKET_READ_COUNT
+	if (ndo->ndo_packet_number == 2) {
+		unsigned long n;
+		pcap_get_packet_read_count(ndo->ndo_pcap, &n);
+		ND_PRINT("%5lu  ", n);
+	} else
+#endif /* HAS_PCAP_GET_PACKET_READ_COUNT */
 	if (ndo->ndo_packet_number)
 		ND_PRINT("%5lu  ", packets_captured - skip_packet_cnt);
 
@@ -4917,6 +4934,13 @@ print_pcap_ng_block(u_char *user, const struct pcap_pkthdr *h, const u_char *sp)
 	if (packets_captured <= skip_packet_cnt)
 		return;
 
+#if HAS_PCAP_GET_PACKET_READ_COUNT
+	if (ndo->ndo_packet_number == 2) {
+		unsigned long n;
+		pcap_get_packet_read_count(ndo->ndo_pcap, &n);
+		ND_PRINT("%5lu  ", n);
+	} else
+#endif /* HAS_PCAP_GET_PACKET_READ_COUNT */
 	if (ndo->ndo_packet_number)
 		ND_PRINT("%5lu  ", packets_captured - skip_packet_cnt);
 

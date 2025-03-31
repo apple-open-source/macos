@@ -86,11 +86,11 @@ private:
         unsigned count { 0 };
         Vector<WeakRef<Element, WeakPtrImplWithEventTargetData>> orderedList;
 #if ASSERT_ENABLED || ENABLE(SECURITY_ASSERTIONS)
-        HashSet<WeakRef<Element, WeakPtrImplWithEventTargetData>> registeredElements;
+        UncheckedKeyHashSet<WeakRef<Element, WeakPtrImplWithEventTargetData>> registeredElements;
 #endif
     };
 
-    using Map = HashMap<AtomString, MapEntry>;
+    using Map = UncheckedKeyHashMap<AtomString, MapEntry>;
 
     mutable Map m_map;
 };

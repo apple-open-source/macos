@@ -22,6 +22,7 @@
  */
 
 #include <malloc/_platform.h>
+#include <malloc_private.h>
 #include <stddef.h>
 
 #include "internal.h"
@@ -343,12 +344,16 @@ place_into_quarantine(sanitizer_zone_t *zone, void * __unsafe_indexable _ptr, si
 
 		if (zone->debug) malloc_report(ASL_LEVEL_INFO, "evicting %p from quarantine, size = 0x%lx\n", iterator, iterator_size);
 
+		// Forge the pointer because it is only sized for quarantined_chunk_t
+		void *iterator_ptr = __unsafe_forge_bidi_indexable(void *, iterator,
+				iterator_size);
+
 		// Same as above, perform actual unpoisoning
 		if (zone->do_poisoning) {
-			unpoison(zone, iterator, iterator_size);
+			unpoison(zone, iterator_ptr, iterator_size);
 		}
 
-		DELEGATE(free_definite_size, iterator, iterator_size);
+		DELEGATE(free_definite_size, iterator_ptr, iterator_size);
 
 		iterator = next;
 	}
@@ -700,7 +705,8 @@ sanitizer_size(sanitizer_zone_t *zone, const void * __unsafe_indexable ptr)
 }
 
 static void * __alloc_size(2)
-sanitizer_malloc(sanitizer_zone_t *zone, size_t size)
+sanitizer_malloc_type_malloc_noalign_with_options(sanitizer_zone_t *zone,
+		size_t size, uint64_t options, malloc_type_id_t type_id)
 {
 	if (!size) {
 		size = 1;
@@ -719,7 +725,50 @@ sanitizer_malloc(sanitizer_zone_t *zone, size_t size)
 			return NULL;
 		}
 	}
-	void *ptr = DELEGATE(malloc, size);
+
+	void *ptr;
+#if MALLOC_TARGET_64BIT
+	malloc_type_descriptor_t type_desc = { .type_id = type_id };
+#endif // MALLOC_TARGET_64BIT
+	if (zone->wrapped_zone->version >= 16) {
+		if (zone->wrapped_zone->malloc_type_malloc_with_options) {
+			// Dispatch directly with pass-thru options
+			ptr = DELEGATE(malloc_type_malloc_with_options, 0, size, options,
+					type_id);
+		} else if (options & MALLOC_NP_OPTION_CLEAR) {
+			// Need fallback for this option
+			ptr = DELEGATE(malloc_type_calloc, 1, size, type_id);
+		} else {
+			// Remaining options already handled in parent, ignore them
+			ptr = DELEGATE(malloc_type_malloc, size, type_id);
+		}
+	} else if (zone->wrapped_zone->version >= 15 &&
+			zone->wrapped_zone->malloc_with_options) {
+		// Dispatch directly with type TSD and pass-thru options
+#if MALLOC_TARGET_64BIT
+		malloc_set_tsd_type_descriptor(type_desc);
+#endif // MALLOC_TARGET_64BIT
+		ptr = DELEGATE(malloc_with_options, 0, size, options);
+#if MALLOC_TARGET_64BIT
+		malloc_set_tsd_type_descriptor(MALLOC_TYPE_DESCRIPTOR_NONE);
+#endif // MALLOC_TARGET_64BIT
+	} else {
+		// Set the type TSD and check the options
+#if MALLOC_TARGET_64BIT
+		malloc_set_tsd_type_descriptor(type_desc);
+#endif // MALLOC_TARGET_64BIT
+		if (options & MALLOC_NP_OPTION_CLEAR) {
+			// Need fallback for this option
+			ptr = DELEGATE(calloc, 1, size);
+		} else {
+			// Remaining options already handled in parent, ignore them
+			ptr = DELEGATE(malloc, size);
+		}
+#if MALLOC_TARGET_64BIT
+		malloc_set_tsd_type_descriptor(MALLOC_TYPE_DESCRIPTOR_NONE);
+#endif // MALLOC_TARGET_64BIT
+	}
+
 #if !MALLOC_TARGET_EXCLAVES
 	record_alloc_stacktrace(zone->depo, zone->map, ptr, usr_size);
 #endif /* !MALLOC_TARGET_EXCLAVES */
@@ -736,8 +785,24 @@ sanitizer_malloc(sanitizer_zone_t *zone, size_t size)
 	return ptr;
 }
 
+static void * __alloc_size(2)
+sanitizer_malloc(sanitizer_zone_t *zone, size_t size)
+{
+	return sanitizer_malloc_type_malloc_noalign_with_options(zone, size, 0,
+			malloc_get_tsd_type_id());
+}
+
+static void * __alloc_size(2)
+sanitizer_malloc_type_malloc(sanitizer_zone_t *zone, size_t size,
+		malloc_type_id_t type_id)
+{
+	return sanitizer_malloc_type_malloc_noalign_with_options(zone, size, 0,
+			type_id);
+}
+
 static void * __alloc_size(2,3)
-sanitizer_calloc(sanitizer_zone_t *zone, size_t num_items, size_t size)
+sanitizer_malloc_type_calloc(sanitizer_zone_t *zone, size_t num_items,
+		size_t size, malloc_type_id_t type_id)
 {
 	size_t usr_size;
 	if (!size || !num_items) {
@@ -760,7 +825,23 @@ sanitizer_calloc(sanitizer_zone_t *zone, size_t num_items, size_t size)
 			return NULL;
 		}
 	}
-	void *ptr = __unsafe_forge_bidi_indexable(void *, DELEGATE(calloc, num_items, size), usr_size);
+
+	void *ptr;
+	if (zone->wrapped_zone->version >= 16) {
+		ptr = __unsafe_forge_bidi_indexable(void *,
+				DELEGATE(malloc_type_calloc, num_items, size, type_id), usr_size);
+	} else {
+#if MALLOC_TARGET_64BIT
+		malloc_set_tsd_type_descriptor(
+				(malloc_type_descriptor_t){ .type_id = type_id });
+#endif // MALLOC_TARGET_64BIT
+		ptr = __unsafe_forge_bidi_indexable(void *,
+				DELEGATE(calloc, num_items, size), usr_size);
+#if MALLOC_TARGET_64BIT
+		malloc_set_tsd_type_descriptor(MALLOC_TYPE_DESCRIPTOR_NONE);
+#endif // MALLOC_TARGET_64BIT
+	}
+
 	if (zone->debug) malloc_report(ASL_LEVEL_INFO, "calloc(0x%lx, 0x%lx) = %p\n", num_items, size, ptr);
 #if !MALLOC_TARGET_EXCLAVES
 	record_alloc_stacktrace(zone->depo, zone->map, ptr, usr_size);
@@ -775,6 +856,14 @@ sanitizer_calloc(sanitizer_zone_t *zone, size_t num_items, size_t size)
 		poison_alloc(zone, ptr, usr_size, redzone_size);
 	}
 	return ptr;
+}
+
+
+static void * __alloc_size(2,3)
+sanitizer_calloc(sanitizer_zone_t *zone, size_t num_items, size_t size)
+{
+	return sanitizer_malloc_type_calloc(zone, num_items, size,
+			malloc_get_tsd_type_id());
 }
 
 static void * __alloc_size(2)
@@ -825,7 +914,9 @@ sanitizer_free(sanitizer_zone_t *zone, void * __unsafe_indexable ptr)
 }
 
 static void * __alloc_size(3)
-sanitizer_realloc(sanitizer_zone_t *zone, void * __unsafe_indexable ptr, size_t new_size)
+sanitizer_malloc_type_realloc(sanitizer_zone_t *zone,
+		void * __unsafe_indexable ptr, size_t new_size,
+		malloc_type_id_t type_id)
 {
 	if (new_size == 0) {
 		new_size = 1;
@@ -844,7 +935,20 @@ sanitizer_realloc(sanitizer_zone_t *zone, void * __unsafe_indexable ptr, size_t 
 		}
 	}
 
-	void *new_ptr = DELEGATE(malloc, new_size);
+	void *new_ptr;
+	if (zone->wrapped_zone->version >= 16) {
+		new_ptr = DELEGATE(malloc_type_malloc, new_size, type_id);
+	} else {
+#if MALLOC_TARGET_64BIT
+		malloc_set_tsd_type_descriptor(
+				(malloc_type_descriptor_t){ .type_id = type_id });
+#endif // MALLOC_TARGET_64BIT
+		new_ptr = DELEGATE(malloc, new_size);
+#if MALLOC_TARGET_64BIT
+		malloc_set_tsd_type_descriptor(MALLOC_TYPE_DESCRIPTOR_NONE);
+#endif // MALLOC_TARGET_64BIT
+	}
+
 #if !MALLOC_TARGET_EXCLAVES
 	record_alloc_stacktrace(zone->depo, zone->map, new_ptr, usr_new_size);
 #endif /* !MALLOC_TARGET_EXCLAVES */
@@ -887,6 +991,13 @@ sanitizer_realloc(sanitizer_zone_t *zone, void * __unsafe_indexable ptr, size_t 
 	return new_ptr;
 }
 
+static void * __alloc_size(3)
+sanitizer_realloc(sanitizer_zone_t *zone, void * __unsafe_indexable ptr, size_t new_size)
+{
+	return sanitizer_malloc_type_realloc(zone, ptr, new_size,
+			malloc_get_tsd_type_id());
+}
+
 static void
 sanitizer_destroy(sanitizer_zone_t *zone)
 {
@@ -901,7 +1012,8 @@ sanitizer_destroy(sanitizer_zone_t *zone)
 }
 
 static void * __alloc_align(2) __alloc_size(3)
-sanitizer_memalign(sanitizer_zone_t *zone, size_t alignment, size_t size)
+sanitizer_malloc_type_memalign(sanitizer_zone_t *zone, size_t align,
+		size_t size, malloc_type_id_t type_id)
 {
 	if (!size) {
 		size = 1;
@@ -916,11 +1028,25 @@ sanitizer_memalign(sanitizer_zone_t *zone, size_t alignment, size_t size)
 			return NULL;
 		}
 	}
-	void *ptr = DELEGATE(memalign, alignment, size);
+
+	void *ptr;
+	if (zone->wrapped_zone->version >= 16) {
+		ptr = DELEGATE(malloc_type_memalign, align, size, type_id);
+	} else {
+#if MALLOC_TARGET_64BIT
+		malloc_set_tsd_type_descriptor(
+				(malloc_type_descriptor_t){ .type_id = type_id });
+#endif // MALLOC_TARGET_64BIT
+		ptr = DELEGATE(memalign, align, size);
+#if MALLOC_TARGET_64BIT
+		malloc_set_tsd_type_descriptor(MALLOC_TYPE_DESCRIPTOR_NONE);
+#endif // MALLOC_TARGET_64BIT
+	}
+
 #if !MALLOC_TARGET_EXCLAVES
 	record_alloc_stacktrace(zone->depo, zone->map, ptr, usr_size);
 #endif /* !MALLOC_TARGET_EXCLAVES */
-	if (zone->debug) malloc_report(ASL_LEVEL_INFO, "memalign(0x%lx, 0x%lx)\n", alignment, size);
+	if (zone->debug) malloc_report(ASL_LEVEL_INFO, "memalign(0x%lx, 0x%lx)\n", align, size);
 	if (ptr && zone->do_poisoning) {
 		// Recalculate the redzone size to include allocator padding
 		size_t actual_size = DELEGATE(size, ptr);
@@ -931,6 +1057,50 @@ sanitizer_memalign(sanitizer_zone_t *zone, size_t alignment, size_t size)
 		poison_alloc(zone, ptr, usr_size, redzone_size);
 	}
 	return ptr;
+}
+
+static void * __alloc_align(2) __alloc_size(3)
+sanitizer_memalign(sanitizer_zone_t *zone, size_t align, size_t size)
+{
+	return sanitizer_malloc_type_memalign(zone, align, size,
+			malloc_get_tsd_type_id());
+}
+
+static void * __alloc_align(2) __alloc_size(3)
+sanitizer_malloc_type_malloc_with_options(sanitizer_zone_t *zone, size_t align,
+	size_t size, uint64_t options, malloc_type_id_t type_id)
+{
+	const malloc_options_np_t known_options = MALLOC_NP_OPTION_CLEAR
+			;
+	if (options & ~known_options) {
+		malloc_zone_error(MALLOC_ABORT_ON_ERROR, true,
+				"sanitizer_malloc_with_options: unsupported options 0x%llx\n",
+				options);
+		__builtin_trap();
+	}
+
+
+	void *ptr;
+	if (!align) {
+		ptr = sanitizer_malloc_type_malloc_noalign_with_options(zone, size,
+			options, type_id);
+	} else {
+		ptr = sanitizer_malloc_type_memalign(zone, align, size, type_id);
+		if (ptr && (options & MALLOC_NP_OPTION_CLEAR)) {
+			bzero(ptr, size);
+		}
+	}
+
+
+	return ptr;
+}
+
+static void * __alloc_align(2) __alloc_size(3)
+sanitizer_malloc_with_options(sanitizer_zone_t *zone, size_t align, size_t size,
+		uint64_t options)
+{
+	return sanitizer_malloc_type_malloc_with_options(zone, align, size, options,
+			malloc_get_tsd_type_id());
 }
 
 static void
@@ -1095,7 +1265,7 @@ sanitizer_diagnose_fault_from_crash_reporter(vm_address_t fault_address, sanitiz
 	}
 	g_crm_reader = NULL;
 
-	memset(report, 0, sizeof(*report));
+	bzero(report, sizeof(*report));
 	report->fault_address = fault_address;
 
 	if (enumeration_context.found_range.address != 0) {
@@ -1191,7 +1361,7 @@ static const malloc_zone_t malloc_zone_template = {
 
 	// Introspection
 	.zone_name = "SanitizerMallocZone",
-	.version = 14,
+	.version = 16,
 	.introspect = &sanitizer_zone_introspect_template,
 
 	// Specialized operations
@@ -1200,6 +1370,15 @@ static const malloc_zone_t malloc_zone_template = {
 	.pressure_relief = malloc_zone_pressure_relief_fallback,
 	.claimed_address = FN_PTR(sanitizer_claimed_address),
 	.try_free_default = NULL,
+	.malloc_with_options = FN_PTR(sanitizer_malloc_with_options),
+
+	// Typed operations
+	.malloc_type_malloc = FN_PTR(sanitizer_malloc_type_malloc),
+	.malloc_type_calloc = FN_PTR(sanitizer_malloc_type_calloc),
+	.malloc_type_realloc = FN_PTR(sanitizer_malloc_type_realloc),
+	.malloc_type_memalign = FN_PTR(sanitizer_malloc_type_memalign),
+	.malloc_type_malloc_with_options =
+			FN_PTR(sanitizer_malloc_type_malloc_with_options),
 };
 
 

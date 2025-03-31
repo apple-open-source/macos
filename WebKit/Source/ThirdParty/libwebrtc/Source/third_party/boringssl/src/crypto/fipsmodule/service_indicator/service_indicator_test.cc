@@ -30,12 +30,13 @@
 #include <openssl/hmac.h>
 #include <openssl/md4.h>
 #include <openssl/md5.h>
-#include <openssl/rand.h>
+#include <openssl/rand.h> // TODO(bbe): only for RAND_bytes call below, replace with BCM call
 #include <openssl/rsa.h>
 #include <openssl/service_indicator.h>
 
 #include "../../test/abi_test.h"
 #include "../../test/test_util.h"
+#include "../bcm_interface.h"
 #include "../bn/internal.h"
 #include "../rand/internal.h"
 #include "../tls/internal.h"
@@ -1128,15 +1129,20 @@ static const struct RSATestVector kRSATestVectors[] = {
     {4096, &EVP_md5, false, FIPSStatus::NOT_APPROVED, FIPSStatus::NOT_APPROVED},
 
     // RSA 1024 is not approved under FIPS 186-5.
-    {1024, &EVP_sha1, false, FIPSStatus::NOT_APPROVED, FIPSStatus::NOT_APPROVED},
-    {1024, &EVP_sha256, false, FIPSStatus::NOT_APPROVED, FIPSStatus::NOT_APPROVED},
-    {1024, &EVP_sha512, false, FIPSStatus::NOT_APPROVED, FIPSStatus::NOT_APPROVED},
+    {1024, &EVP_sha1, false, FIPSStatus::NOT_APPROVED,
+     FIPSStatus::NOT_APPROVED},
+    {1024, &EVP_sha256, false, FIPSStatus::NOT_APPROVED,
+     FIPSStatus::NOT_APPROVED},
+    {1024, &EVP_sha512, false, FIPSStatus::NOT_APPROVED,
+     FIPSStatus::NOT_APPROVED},
     {1024, &EVP_sha1, true, FIPSStatus::NOT_APPROVED, FIPSStatus::NOT_APPROVED},
-    {1024, &EVP_sha256, true, FIPSStatus::NOT_APPROVED, FIPSStatus::NOT_APPROVED},
+    {1024, &EVP_sha256, true, FIPSStatus::NOT_APPROVED,
+     FIPSStatus::NOT_APPROVED},
     // PSS with hashLen == saltLen is not possible for 1024-bit modulus and
     // SHA-512.
 
-    {2048, &EVP_sha1, false, FIPSStatus::NOT_APPROVED, FIPSStatus::NOT_APPROVED},
+    {2048, &EVP_sha1, false, FIPSStatus::NOT_APPROVED,
+     FIPSStatus::NOT_APPROVED},
     {2048, &EVP_sha224, false, FIPSStatus::APPROVED, FIPSStatus::APPROVED},
     {2048, &EVP_sha256, false, FIPSStatus::APPROVED, FIPSStatus::APPROVED},
     {2048, &EVP_sha384, false, FIPSStatus::APPROVED, FIPSStatus::APPROVED},
@@ -1147,7 +1153,8 @@ static const struct RSATestVector kRSATestVectors[] = {
     {2048, &EVP_sha384, true, FIPSStatus::APPROVED, FIPSStatus::APPROVED},
     {2048, &EVP_sha512, true, FIPSStatus::APPROVED, FIPSStatus::APPROVED},
 
-    {3072, &EVP_sha1, false, FIPSStatus::NOT_APPROVED, FIPSStatus::NOT_APPROVED},
+    {3072, &EVP_sha1, false, FIPSStatus::NOT_APPROVED,
+     FIPSStatus::NOT_APPROVED},
     {3072, &EVP_sha224, false, FIPSStatus::APPROVED, FIPSStatus::APPROVED},
     {3072, &EVP_sha256, false, FIPSStatus::APPROVED, FIPSStatus::APPROVED},
     {3072, &EVP_sha384, false, FIPSStatus::APPROVED, FIPSStatus::APPROVED},
@@ -1158,7 +1165,8 @@ static const struct RSATestVector kRSATestVectors[] = {
     {3072, &EVP_sha384, true, FIPSStatus::APPROVED, FIPSStatus::APPROVED},
     {3072, &EVP_sha512, true, FIPSStatus::APPROVED, FIPSStatus::APPROVED},
 
-    {4096, &EVP_sha1, false, FIPSStatus::NOT_APPROVED, FIPSStatus::NOT_APPROVED},
+    {4096, &EVP_sha1, false, FIPSStatus::NOT_APPROVED,
+     FIPSStatus::NOT_APPROVED},
     {4096, &EVP_sha224, false, FIPSStatus::APPROVED, FIPSStatus::APPROVED},
     {4096, &EVP_sha256, false, FIPSStatus::APPROVED, FIPSStatus::APPROVED},
     {4096, &EVP_sha384, false, FIPSStatus::APPROVED, FIPSStatus::APPROVED},
@@ -1772,7 +1780,8 @@ static const struct KDFTestVector {
   const uint8_t *expected_output;
   const FIPSStatus expect_approved;
 } kKDFTestVectors[] = {
-    {EVP_md5_sha1, kTLSOutput_md5_sha1, FIPSStatus::APPROVED},
+    // TLS 1.0 and 1.1 are no longer an approved part of fips
+    {EVP_md5_sha1, kTLSOutput_md5_sha1, FIPSStatus::NOT_APPROVED},
     {EVP_sha224, kTLSOutput_sha224, FIPSStatus::NOT_APPROVED},
     {EVP_sha256, kTLSOutput_sha256, FIPSStatus::APPROVED},
     {EVP_sha384, kTLSOutput_sha384, FIPSStatus::APPROVED},
@@ -1899,6 +1908,8 @@ TEST(ServiceIndicatorTest, SHA) {
 
   std::vector<uint8_t> digest;
 
+  // MD4 is no longer part of FIPS - this is retained for now to ensure that
+  // MD4 continues to report itself as not approved.
   digest.resize(MD4_DIGEST_LENGTH);
   MD4_CTX md4_ctx;
   ASSERT_TRUE(CALL_SERVICE_AND_CHECK_APPROVED(approved, MD4_Init(&md4_ctx)));
@@ -1911,6 +1922,8 @@ TEST(ServiceIndicatorTest, SHA) {
   EXPECT_EQ(Bytes(kOutput_md4), Bytes(digest));
   EXPECT_EQ(approved, FIPSStatus::NOT_APPROVED);
 
+  // MD5 is no longer part of FIPS - this is retained for now to ensure that
+  // MD5 continues to report itself as not approved.
   digest.resize(MD5_DIGEST_LENGTH);
   MD5_CTX md5_ctx;
   ASSERT_TRUE(CALL_SERVICE_AND_CHECK_APPROVED(approved, MD5_Init(&md5_ctx)));

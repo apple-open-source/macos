@@ -26,6 +26,9 @@
 #include "config.h"
 #include "RTCNetwork.h"
 
+#include <wtf/CrossThreadCopier.h>
+#include <wtf/StdLibExtras.h>
+
 #if USE(LIBWEBRTC)
 
 namespace WebKit {
@@ -61,6 +64,23 @@ rtc::Network RTCNetwork::value() const
     return network;
 }
 
+RTCNetwork RTCNetwork::isolatedCopy() const
+{
+    return RTCNetwork {
+        crossThreadCopy(name),
+        crossThreadCopy(description),
+        prefix,
+        prefixLength,
+        type,
+        id,
+        preference,
+        active,
+        ignored,
+        scopeID,
+        crossThreadCopy(ips)
+    };
+}
+
 namespace RTC::Network {
 
 rtc::SocketAddress SocketAddress::rtcAddress() const
@@ -86,7 +106,7 @@ static std::array<uint32_t, 4> fromIPv6Address(const struct in6_addr& address)
 {
     std::array<uint32_t, 4> array;
     static_assert(sizeof(array) == sizeof(address));
-    memcpy(array.data(), &address, sizeof(array));
+    memcpySpan(asMutableByteSpan(array), asByteSpan(address));
     return array;
 }
 
@@ -135,7 +155,7 @@ rtc::IPAddress IPAddress::rtcAddress() const
     }, [] (std::array<uint32_t, 4> ipv6) {
         in6_addr result;
         static_assert(sizeof(ipv6) == sizeof(result));
-        memcpy(&result, ipv6.data(), sizeof(ipv6));
+        memcpySpan(asMutableByteSpan(result), asByteSpan(ipv6));
         return rtc::IPAddress(result);
     });
 }

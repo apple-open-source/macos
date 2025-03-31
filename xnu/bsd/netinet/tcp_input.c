@@ -275,7 +275,7 @@ struct inpcbhead tcb;
 #define tcb6    tcb  /* for KAME src sync over BSD*'s */
 struct inpcbinfo tcbinfo;
 
-static void tcp_dooptions(struct tcpcb *, u_char *, int, struct tcphdr *,
+static void tcp_dooptions(struct tcpcb *, u_char *cp0 __counted_by(cnt0), int cnt0, struct tcphdr *,
     struct tcpopt *);
 static void tcp_finalize_options(struct tcpcb *, struct tcpopt *, unsigned int);
 static void tcp_pulloutofband(struct socket *,
@@ -589,7 +589,7 @@ tcp_reass(struct tcpcb *tp, struct tcphdr *th, int *tlenp, struct mbuf *m,
 		struct mbuf *tmp = m;
 		while (tmp != NULL) {
 			if (mbuf_class_under_pressure(tmp)) {
-				m_freem(m);
+				m_drop(m, DROPTAP_FLAG_DIR_IN | DROPTAP_FLAG_L2_MISSING, DROP_REASON__TCP_REASS_MEMORY_PRESSURE, NULL, 0);
 				tcp_reass_overflows++;
 				tcpstat.tcps_rcvmemdrop++;
 				*tlenp = 0;
@@ -613,13 +613,13 @@ tcp_reass(struct tcpcb *tp, struct tcphdr *th, int *tlenp, struct mbuf *m,
 	    (tp->t_reassqlen + 1) >= qlimit) {
 		tcp_reass_overflows++;
 		tcpstat.tcps_rcvmemdrop++;
-		m_freem(m);
+		m_drop(m, DROPTAP_FLAG_DIR_IN | DROPTAP_FLAG_L2_MISSING, DROP_REASON_TCP_REASS_OVERFLOW, NULL, 0);
 		*tlenp = 0;
 		return 0;
 	}
 
 	/* Allocate a new queue entry. If we can't, just drop the pkt. XXX */
-	te = zalloc_flags(tcp_reass_zone, Z_WAITOK | Z_NOFAIL);
+	te = tcp_reass_qent_alloc();
 	tp->t_reassqlen++;
 	OSIncrementAtomic(&tcp_reass_total_qlen);
 
@@ -673,7 +673,7 @@ tcp_reass(struct tcpcb *tp, struct tcphdr *th, int *tlenp, struct mbuf *m,
 					inp_set_activity_bitmap(inp);
 				}
 				m_freem(m);
-				zfree(tcp_reass_zone, te);
+				tcp_reass_qent_free(te);
 				te = NULL;
 				tp->t_reassqlen--;
 				OSDecrementAtomic(&tcp_reass_total_qlen);
@@ -751,7 +751,7 @@ tcp_reass(struct tcpcb *tp, struct tcphdr *th, int *tlenp, struct mbuf *m,
 		tp->t_reassq_mbcnt -= _MSIZE + (q->tqe_m->m_flags & M_EXT) ?
 		    q->tqe_m->m_ext.ext_size : 0;
 		m_freem(q->tqe_m);
-		zfree(tcp_reass_zone, q);
+		tcp_reass_qent_free(q);
 		tp->t_reassqlen--;
 		OSDecrementAtomic(&tcp_reass_total_qlen);
 		q = nq;
@@ -816,7 +816,7 @@ present:
 				*dowakeup = 1;
 			}
 		}
-		zfree(tcp_reass_zone, q);
+		tcp_reass_qent_free(q);
 		tp->t_reassqlen--;
 		OSDecrementAtomic(&tcp_reass_total_qlen);
 		q = LIST_FIRST(&tp->t_segq);
@@ -1602,6 +1602,7 @@ tcp_tfo_syn(struct tcpcb *tp, struct tcpopt *to)
 
 	len = *to->to_tfo - TCPOLEN_FASTOPEN_REQ;
 	to->to_tfo++;
+	to->to_tfo_size--;
 	if (memcmp(out, to->to_tfo, len)) {
 		/* Cookies are different! Let's return and offer a new cookie */
 		tp->t_tfo_flags |= TFO_F_OFFER_COOKIE;
@@ -1638,6 +1639,7 @@ tcp_tfo_synack(struct tcpcb *tp, struct tcpopt *to)
 		VERIFY(len <= TFO_COOKIE_LEN_MAX);
 
 		to->to_tfo++;
+		to->to_tfo_size--;
 
 		tcp_cache_set_cookie(tp, to->to_tfo, len);
 		tcp_heuristic_tfo_success(tp);
@@ -1827,7 +1829,7 @@ tcp_input_process_accecn_syn(struct tcpcb *tp, int ace_flags, uint8_t ip_ecn)
 		break;
 	case (TH_ACE):
 		/* Accurate ECN */
-		if (TCP_ACC_ECN_ENABLED(tp)) {
+		if (TCP_L4S_ENABLED(tp)) {
 			switch (ip_ecn) {
 			case IPTOS_ECN_NOTECT:
 				tp->ecn_flags |= TE_ACE_SETUP_NON_ECT;
@@ -1862,7 +1864,7 @@ tcp_input_process_accecn_syn(struct tcpcb *tp, int ace_flags, uint8_t ip_ecn)
 	default:
 		/* Forward Compatibility */
 		/* Accurate ECN */
-		if (TCP_ACC_ECN_ENABLED(tp)) {
+		if (TCP_L4S_ENABLED(tp)) {
 			switch (ip_ecn) {
 			case IPTOS_ECN_NOTECT:
 				tp->ecn_flags |= TE_ACE_SETUP_NON_ECT;
@@ -2038,7 +2040,7 @@ tcp_input(struct mbuf *m, int off0)
 	unsigned int ifscope;
 	uint8_t isconnected, isdisconnected;
 	struct ifnet *ifp = m->m_pkthdr.rcvif;
-	int segment_count = m->m_pkthdr.seg_cnt ? : 1;
+	int segment_count = m->m_pkthdr.rx_seg_cnt ? : 1;
 	int win;
 	u_int16_t pf_tag = 0;
 #if MPTCP
@@ -2106,6 +2108,7 @@ tcp_input(struct mbuf *m, int off0)
 
 		if (tcp_input_checksum(AF_INET6, m, th, off0, tlen)) {
 			TCP_LOG_DROP_PKT(ip6, th, ifp, "IPv6 bad tcp checksum");
+			drop_reason = DROP_REASON_TCP_CHECKSUM_INCORRECT;
 			goto dropnosock;
 		}
 
@@ -2124,6 +2127,7 @@ tcp_input(struct mbuf *m, int off0)
 			/* XXX stat */
 			IF_TCP_STATINC(ifp, unspecv6);
 			TCP_LOG_DROP_PKT(ip6, th, ifp, "src IPv6 address unspecified");
+			drop_reason = DROP_REASON_TCP_SRC_ADDR_UNSPECIFIED;
 			goto dropnosock;
 		}
 		DTRACE_TCP5(receive, struct mbuf *, m, struct inpcb *, NULL,
@@ -2156,6 +2160,7 @@ tcp_input(struct mbuf *m, int off0)
 
 		if (tcp_input_checksum(AF_INET, m, th, off0, tlen)) {
 			TCP_LOG_DROP_PKT(ip, th, ifp, "IPv4 bad tcp checksum");
+			drop_reason = DROP_REASON_TCP_CHECKSUM_INCORRECT;
 			goto dropnosock;
 		}
 
@@ -2182,6 +2187,7 @@ tcp_input(struct mbuf *m, int off0)
 		tcpstat.tcps_rcvbadoff++;
 		IF_TCP_STATINC(ifp, badformat);
 		TCP_LOG_DROP_PKT(TCP_LOG_HDR, th, ifp, "bad tcp offset");
+		drop_reason = DROP_REASON_TCP_OFFSET_INCORRECT;
 		goto dropnosock;
 	}
 	tlen -= off;    /* tlen is used instead of ti->ti_len */
@@ -2231,6 +2237,7 @@ tcp_input(struct mbuf *m, int off0)
 	if ((thflags & (TH_SYN | TH_FIN)) == (TH_SYN | TH_FIN)) {
 		IF_TCP_STATINC(ifp, synfin);
 		TCP_LOG_DROP_PKT(TCP_LOG_HDR, th, ifp, "drop SYN FIN");
+		drop_reason = DROP_REASON_TCP_SYN_FIN;
 		goto dropnosock;
 	}
 
@@ -2369,6 +2376,12 @@ findpcb:
 				}
 			}
 		}
+		if ((tcp_link_heuristics_flags & TCP_LINK_HEUR_STEALTH) != 0 &&
+		    if_link_heuristics_enabled(ifp)) {
+			TCP_LOG_DROP_PKT(TCP_LOG_HDR, th, ifp, "link heuristics");
+			IF_TCP_STATINC(ifp, linkheur_stealthdrop);
+			goto dropnosock;
+		}
 		IF_TCP_STATINC(ifp, noconnnolist);
 		TCP_LOG_DROP_PKT(TCP_LOG_HDR, th, ifp, "closed port");
 		goto dropwithresetnosock;
@@ -2385,6 +2398,7 @@ findpcb:
 		printf("tcp_input: no more socket for inp=%x. This shouldn't happen\n", inp);
 #endif
 		TCP_LOG_DROP_PKT(TCP_LOG_HDR, th, ifp, "inp_socket NULL");
+		drop_reason = DROP_REASON_TCP_NO_SOCK;
 		goto dropnosock;
 	}
 
@@ -2393,6 +2407,7 @@ findpcb:
 		socket_unlock(so, 1);
 		inp = NULL;     // pretend we didn't find it
 		TCP_LOG_DROP_PKT(TCP_LOG_HDR, th, ifp, "inp state WNT_STOPUSING");
+		drop_reason = DROP_REASON_TCP_NO_SOCK;
 		goto dropnosock;
 	}
 
@@ -2406,6 +2421,7 @@ findpcb:
 			    ntohs(inp->inp_fport), ntohs(th->th_sport),
 			    ntohs(inp->inp_lport), ntohs(th->th_dport));
 			if (findpcb_iterated) {
+				drop_reason = DROP_REASON_TCP_PCB_MISMATCH;
 				goto drop;
 			}
 			findpcb_iterated = true;
@@ -2423,6 +2439,7 @@ findpcb:
 			    ntohs(inp->inp_fport), ntohs(th->th_sport),
 			    ntohs(inp->inp_lport), ntohs(th->th_dport));
 			if (findpcb_iterated) {
+				drop_reason = DROP_REASON_TCP_PCB_MISMATCH;
 				goto drop;
 			}
 			findpcb_iterated = true;
@@ -2436,6 +2453,7 @@ findpcb:
 	if (tp == NULL) {
 		IF_TCP_STATINC(ifp, noconnlist);
 		TCP_LOG_DROP_PKT(TCP_LOG_HDR, th, ifp, "tp is NULL");
+		drop_reason = DROP_REASON_TCP_NO_PCB;
 		goto dropwithreset;
 	}
 
@@ -2446,6 +2464,7 @@ findpcb:
 
 	if (tp->t_state == TCPS_CLOSED) {
 		TCP_LOG_DROP_PCB(TCP_LOG_HDR, th, tp, false, "tp state TCPS_CLOSED");
+		drop_reason = DROP_REASON_TCP_CLOSED;
 		goto drop;
 	}
 
@@ -2456,6 +2475,7 @@ findpcb:
 		if (!necp_socket_is_allowed_to_send_recv(inp, ifp, pf_tag, NULL, NULL, NULL, NULL)) {
 			TCP_LOG_DROP_NECP(TCP_LOG_HDR, th, intotcpcb(inp), false);
 			IF_TCP_STATINC(ifp, badformat);
+			drop_reason = DROP_REASON_TCP_NECP;
 			goto drop;
 		}
 	} else {
@@ -2478,6 +2498,7 @@ findpcb:
 			    &ip6->ip6_src, ifp, pf_tag, NULL, NULL, NULL, NULL)) {
 				TCP_LOG_DROP_NECP(TCP_LOG_HDR, th, intotcpcb(inp), false);
 				IF_TCP_STATINC(ifp, badformat);
+				drop_reason = DROP_REASON_TCP_NECP;
 				goto drop;
 			}
 		} else {
@@ -2486,6 +2507,7 @@ findpcb:
 			    ifp, pf_tag, NULL, NULL, NULL, NULL)) {
 				TCP_LOG_DROP_NECP(TCP_LOG_HDR, th, intotcpcb(inp), false);
 				IF_TCP_STATINC(ifp, badformat);
+				drop_reason = DROP_REASON_TCP_NECP;
 				goto drop;
 			}
 		}
@@ -2497,6 +2519,7 @@ findpcb:
 	/* If none of the FIN|SYN|RST|ACK flag is set, drop */
 	if ((thflags & TH_ACCEPT) == 0) {
 		TCP_LOG_DROP_PCB(TCP_LOG_HDR, th, tp, false, "rfc5961 TH_ACCEPT == 0");
+		drop_reason = DROP_REASON_TCP_FLAGS_INCORRECT;
 		goto drop;
 	}
 
@@ -2514,6 +2537,7 @@ findpcb:
 	if (tp->t_state == TCPS_LISTEN &&
 	    (so->so_options & SO_ACCEPTCONN) == 0) {
 		TCP_LOG_DROP_PCB(TCP_LOG_HDR, th, tp, false, "closing a listening socket");
+		drop_reason = DROP_REASON_TCP_LISTENER_CLOSING;
 		goto drop;
 	}
 
@@ -2564,6 +2588,7 @@ findpcb:
 				if (thflags & TH_RST) {
 					TCP_LOG_DROP_PCB(TCP_LOG_HDR, th, tp, false,
 					    thflags & TH_SYN ? "ignore SYN with RST" : "ignore RST");
+					drop_reason = DROP_REASON_TCP_SYN_RST;
 					goto drop;
 				}
 				if (thflags & TH_ACK) {
@@ -2571,12 +2596,14 @@ findpcb:
 					    thflags & TH_SYN ? "bad SYN with ACK" : "bad ACK");
 					tp = NULL;
 					tcpstat.tcps_badsyn++;
+					drop_reason = DROP_REASON_TCP_SYN_ACK_LISTENER;
 					goto dropwithreset;
 				}
 
 				/* We come here if there is no SYN set */
 				tcpstat.tcps_badsyn++;
 				TCP_LOG_DROP_PCB(TCP_LOG_HDR, th, tp, false, "bad SYN");
+				drop_reason = DROP_REASON_TCP_LISTENER_NO_SYN;
 				goto drop;
 			}
 			KERNEL_DEBUG(DBG_FNC_TCP_NEWCONN | DBG_FUNC_START, 0, 0, 0, 0, 0);
@@ -2584,10 +2611,12 @@ findpcb:
 				if (isipv6) {
 					if (in6_are_addr_equal_scoped(&ip6->ip6_dst, &ip6->ip6_src, ip6_input_getdstifscope(m), ip6_input_getsrcifscope(m))) {
 						TCP_LOG_DROP_PCB(TCP_LOG_HDR, th, tp, false, "bad tuple same port");
+						drop_reason = DROP_REASON_TCP_SAME_PORT;
 						goto drop;
 					}
 				} else if (ip->ip_dst.s_addr == ip->ip_src.s_addr) {
 					TCP_LOG_DROP_PCB(TCP_LOG_HDR, th, tp, false, "bad tuple same IPv4 address");
+					drop_reason = DROP_REASON_TCP_SAME_PORT;
 					goto drop;
 				}
 			}
@@ -2601,12 +2630,14 @@ findpcb:
 			 */
 			if (m->m_flags & (M_BCAST | M_MCAST)) {
 				TCP_LOG_DROP_PCB(TCP_LOG_HDR, th, tp, false, "mbuf M_BCAST | M_MCAST");
+				drop_reason = DROP_REASON_TCP_BCAST_MCAST;
 				goto drop;
 			}
 			if (isipv6) {
 				if (IN6_IS_ADDR_MULTICAST(&ip6->ip6_dst) ||
 				    IN6_IS_ADDR_MULTICAST(&ip6->ip6_src)) {
 					TCP_LOG_DROP_PCB(TCP_LOG_HDR, th, tp, false, "IN6_IS_ADDR_MULTICAST");
+					drop_reason = DROP_REASON_TCP_BCAST_MCAST;
 					goto drop;
 				}
 			} else if (IN_MULTICAST(ntohl(ip->ip_dst.s_addr)) ||
@@ -2614,6 +2645,7 @@ findpcb:
 			    ip->ip_src.s_addr == htonl(INADDR_BROADCAST) ||
 			    in_broadcast(ip->ip_dst, m->m_pkthdr.rcvif)) {
 				TCP_LOG_DROP_PCB(TCP_LOG_HDR, th, tp, false, "multicast or broadcast address");
+				drop_reason = DROP_REASON_TCP_BCAST_MCAST;
 				goto drop;
 			}
 
@@ -2642,6 +2674,7 @@ findpcb:
 						tp = NULL;
 						IF_TCP_STATINC(ifp, deprecate6);
 						TCP_LOG_DROP_PCB(TCP_LOG_HDR, th, tp, false, "deprecated IPv6 address");
+						drop_reason = DROP_REASON_TCP_DEPRECATED_ADDR;
 						goto dropwithreset;
 					}
 				}
@@ -2698,6 +2731,7 @@ findpcb:
 				}
 				if (!so2) {
 					TCP_LOG_DROP_PCB(TCP_LOG_HDR, th, tp, false, " listen drop");
+					drop_reason = DROP_REASON_TCP_LISTENER_DROP;
 					goto drop;
 				}
 			}
@@ -2799,6 +2833,7 @@ findpcb:
 				socket_lock(oso, 0);    /* release ref on parent */
 				socket_unlock(oso, 1);
 				TCP_LOG_DROP_PCB(TCP_LOG_HDR, th, tp, false, " in_pcbinshash failed");
+				drop_reason = DROP_REASON_TCP_PCB_HASH_FAILED;
 				goto drop;
 			}
 			socket_lock(oso, 0);
@@ -2872,6 +2907,7 @@ findpcb:
 				int error = cfil_sock_attach(so2, SA(&to2), SA(&from), CFS_CONNECTION_DIR_IN);
 				if (error != 0) {
 					TCP_LOG_DROP_PCB(TCP_LOG_HDR, th, tp, false, " cfil_sock_attach failed");
+					drop_reason = DROP_REASON_TCP_CONTENT_FILTER_ATTACH;
 					goto drop;
 				}
 			}
@@ -3300,6 +3336,7 @@ findpcb:
 					tp->t_timer[TCPT_REORDER] = 0;
 					tcp_rack_reset_segs_retransmitted(tp);
 				} else if (tp->t_timer[TCPT_PERSIST] == 0) {
+					tcp_set_link_heur_rtomin(tp, inp->inp_last_outifp);
 					tp->t_timer[TCPT_REXMT] = OFFSET_FROM_START(tp, tp->t_rxtcur);
 				}
 				if (!SLIST_EMPTY(&tp->t_rxt_segments) &&
@@ -3499,10 +3536,11 @@ findpcb:
 
 		/* Clear the logging flags inherited from the listening socket */
 		inp->inp_log_flags = 0;
-		inp->inp_flags2 |= INP2_LOGGED_SUMMARY;
+		inp->inp_flags2 &= ~INP2_LOGGING_ENABLED;
 
 		if (__improbable(inp->inp_flags2 & INP2_BIND_IN_PROGRESS)) {
 			TCP_LOG_DROP_PCB(TCP_LOG_HDR, th, tp, false, "LISTEN bind in progress");
+			drop_reason = DROP_REASON_TCP_BIND_IN_PROGRESS;
 			goto drop;
 		}
 		inp_enter_bind_in_progress(so);
@@ -3512,6 +3550,7 @@ findpcb:
 			if (sin6 == NULL) {
 				error = ENOMEM;
 				TCP_LOG_DROP_PCB(TCP_LOG_HDR, th, tp, false, "LISTEN kalloc_type failed");
+				drop_reason = DROP_REASON_TCP_MEM_ALLOC;
 				goto pcbconnect_done;
 			}
 			sin6->sin6_family = AF_INET6;
@@ -3534,6 +3573,7 @@ findpcb:
 				inp->inp_lifscope = lifscope;
 				in6_verify_ifscope(&inp->in6p_laddr, inp->inp_lifscope);
 				TCP_LOG_DROP_PCB(TCP_LOG_HDR, th, tp, false, " LISTEN in6_pcbconnect failed");
+				drop_reason = DROP_REASON_TCP_PCB_CONNECT;
 				goto pcbconnect_done;
 			}
 			kfree_type(struct sockaddr_in6, sin6);
@@ -3543,6 +3583,7 @@ findpcb:
 			if (sin == NULL) {
 				error = ENOMEM;
 				TCP_LOG_DROP_PCB(TCP_LOG_HDR, th, tp, false, "LISTEN kalloc_type failed");
+				drop_reason = DROP_REASON_TCP_MEM_ALLOC;
 				goto pcbconnect_done;
 			}
 			sin->sin_family = AF_INET;
@@ -3558,6 +3599,7 @@ findpcb:
 				inp->inp_laddr = laddr;
 				kfree_type(struct sockaddr_in, sin);
 				TCP_LOG_DROP_PCB(TCP_LOG_HDR, th, tp, false, " LISTEN in_pcbconnect failed");
+				drop_reason = DROP_REASON_TCP_PCB_CONNECT;
 				goto pcbconnect_done;
 			}
 			kfree_type(struct sockaddr_in, sin);
@@ -3642,6 +3684,7 @@ pcbconnect_done:
 		    SEQ_GT(th->th_ack, tp->snd_max))) {
 			IF_TCP_STATINC(ifp, ooopacket);
 			TCP_LOG_DROP_PCB(TCP_LOG_HDR, th, tp, false, "SYN_RECEIVED bad ACK");
+			drop_reason = DROP_REASON_TCP_SYN_RECEIVED_BAD_ACK;
 			goto dropwithreset;
 		}
 
@@ -3676,6 +3719,7 @@ pcbconnect_done:
 		    SEQ_GT(th->th_ack, tp->snd_max))) {
 			IF_TCP_STATINC(ifp, ooopacket);
 			TCP_LOG_DROP_PCB(TCP_LOG_HDR, th, tp, false, "SYN_SENT bad ACK");
+			drop_reason = DROP_REASON_TCP_SYN_SENT_BAD_ACK;
 			goto dropwithreset;
 		}
 		if (thflags & TH_RST) {
@@ -3710,6 +3754,7 @@ pcbconnect_done:
 		}
 		if ((thflags & TH_SYN) == 0) {
 			TCP_LOG_DROP_PCB(TCP_LOG_HDR, th, tp, false, "SYN_SENT no SYN");
+			drop_reason = DROP_REASON_TCP_SYN_SENT_NO_SYN;
 			goto drop;
 		}
 		tp->snd_wnd = th->th_win;       /* initial send window */
@@ -3742,7 +3787,7 @@ pcbconnect_done:
 						tp->t_client_accecn_state = tcp_connection_client_classic_ecn_available;
 					}
 				}
-			} else if (TCP_ACC_ECN_ENABLED(tp) && ace_flags != 0 &&
+			} else if (TCP_L4S_ENABLED(tp) && ace_flags != 0 &&
 			    ace_flags != TH_ACE) {
 				/* Initialize sender side packet & byte counters */
 				tp->t_aecn.t_snd_ce_packets = 5;
@@ -4086,12 +4131,12 @@ trimthenstep6:
 		if (thflags & TH_SYN && tlen <= 0) {
 			/* Drop the packet silently if we have reached the limit */
 			if (tcp_is_ack_ratelimited(tp)) {
-				TCP_LOG_DROP_PCB(TCP_LOG_HDR, th, tp, false, "ESTABLISHED rfc5961 rate limited");
+				TCP_LOG_DROP_PCB(TCP_LOG_HDR, th, tp, false, "SYN in ESTABLISHED state");
 				goto drop;
 			} else {
 				/* Send challenge ACK */
 				tcpstat.tcps_synchallenge++;
-				TCP_LOG_DROP_PCB(TCP_LOG_HDR, th, tp, false, "ESTABLISHED rfc5961 challenge ACK");
+				TCP_LOG_DROP_PCB(TCP_LOG_HDR, th, tp, false, "SYN in ESTABLISHED state");
 				goto dropafterack;
 			}
 		}
@@ -4224,16 +4269,17 @@ close:
 				tcpstat.tcps_badrst++;
 				/* Drop if we have reached the ACK limit */
 				if (tcp_is_ack_ratelimited(tp)) {
-					TCP_LOG_DROP_PCB(TCP_LOG_HDR, th, tp, false, "ESTABLISHED rfc5961 rate limited");
+					TCP_LOG_DROP_PCB(TCP_LOG_HDR, th, tp, false, "bad RST in ESTABLISHED state");
 					goto drop;
 				} else {
 					/* Send challenge ACK */
 					tcpstat.tcps_rstchallenge++;
-					TCP_LOG_DROP_PCB(TCP_LOG_HDR, th, tp, false, "ESTABLISHED rfc5961 challenge ACK");
+					TCP_LOG_DROP_PCB(TCP_LOG_HDR, th, tp, false, "bad RST in ESTABLISHED state");
 					goto dropafterack;
 				}
 			}
 		}
+		drop_reason = DROP_REASON_TCP_BAD_RST;
 		goto drop;
 	}
 
@@ -4291,6 +4337,7 @@ close:
 			if (tlen > 0) {
 				goto dropafterack;
 			}
+			drop_reason = DROP_REASON_TCP_PAWS;
 			goto drop;
 		}
 	}
@@ -4305,6 +4352,7 @@ close:
 	if (tp->t_state == TCPS_SYN_RECEIVED && SEQ_LT(th->th_seq, tp->irs)) {
 		IF_TCP_STATINC(ifp, dospacket);
 		TCP_LOG_DROP_PCB(TCP_LOG_HDR, th, tp, false, "SYN_RECEIVED bad SEQ");
+		drop_reason = DROP_REASON_TCP_SYN_RECEIVED_BAD_SEQ;
 		goto dropwithreset;
 	}
 
@@ -4436,6 +4484,7 @@ close:
 			tp = tcp_close(tp);
 			tcpstat.tcps_rcvafterclose++;
 			IF_TCP_STATINC(ifp, cleanup);
+			drop_reason = DROP_REASON_TCP_RECV_AFTER_CLOSE;
 			goto dropwithreset;
 		}
 	}
@@ -4523,12 +4572,14 @@ close:
 			tcpstat.tcps_badsyn++;
 			/* Drop if we have reached ACK limit */
 			if (tcp_is_ack_ratelimited(tp)) {
-				TCP_LOG_DROP_PCB(TCP_LOG_HDR, th, tp, false, "rfc5961 bad SYN rate limited");
+				TCP_LOG_DROP_PCB(TCP_LOG_HDR, th, tp, false, "SYN data invalid");
+				drop_reason = DROP_REASON_TCP_SYN_DATA_INVALID;
 				goto drop;
 			} else {
 				/* Send challenge ACK */
 				tcpstat.tcps_synchallenge++;
-				TCP_LOG_DROP_PCB(TCP_LOG_HDR, th, tp, false, "rfc5961 bad SYN challenge ack");
+				TCP_LOG_DROP_PCB(TCP_LOG_HDR, th, tp, false, "SYN data invalid");
+				drop_reason = DROP_REASON_TCP_SYN_DATA_INVALID;
 				goto dropafterack;
 			}
 		} else {
@@ -4579,9 +4630,11 @@ close:
 			goto step6;
 		} else if (tp->t_flags & TF_ACKNOW) {
 			TCP_LOG_DROP_PCB(TCP_LOG_HDR, th, tp, false, "bad ACK");
+			drop_reason = DROP_REASON_TCP_BAD_ACK;
 			goto dropafterack;
 		} else {
 			TCP_LOG_DROP_PCB(TCP_LOG_HDR, th, tp, false, "bad ACK");
+			drop_reason = DROP_REASON_TCP_BAD_ACK;
 			goto drop;
 		}
 	}
@@ -4820,21 +4873,32 @@ close:
 			tcpstat.tcps_rcvacktoomuch++;
 			if (tcp_is_ack_ratelimited(tp)) {
 				TCP_LOG_DROP_PCB(TCP_LOG_HDR, th, tp, false, "rfc5961 rcvacktoomuch");
+				drop_reason = DROP_REASON_TCP_ACK_TOOMUCH;
 				goto drop;
 			} else {
+				drop_reason = DROP_REASON_TCP_ACK_TOOMUCH;
 				goto dropafterack;
 			}
 		}
 		if (SEQ_LT(th->th_ack, tp->snd_una - tp->max_sndwnd)) {
 			if (tcp_is_ack_ratelimited(tp)) {
 				TCP_LOG_DROP_PCB(TCP_LOG_HDR, th, tp, false, "rfc5961 bad ACK");
+				drop_reason = DROP_REASON_TCP_OLD_ACK;
 				goto drop;
 			} else {
+				drop_reason = DROP_REASON_TCP_OLD_ACK;
 				goto dropafterack;
 			}
 		}
 		if (SACK_ENABLED(tp) && to.to_nsacks > 0) {
 			recvd_dsack = tcp_sack_process_dsack(tp, &to, th, &dsack_tlp);
+			if (TCP_RACK_ENABLED(tp)) {
+				/* If DSACK was received (not due to TLP), then increase the reordering window */
+				if (recvd_dsack && !dsack_tlp) {
+					tp->rack.dsack_round_seen = 1;
+				}
+				tcp_rack_update_reordering_window(tp, highest_sacked_seq);
+			}
 			/*
 			 * If DSACK is received and this packet has no
 			 * other SACK information, it can be dropped.
@@ -4851,14 +4915,6 @@ close:
 		if (SACK_ENABLED(tp) &&
 		    (to.to_nsacks > 0 || !TAILQ_EMPTY(&tp->snd_holes))) {
 			tcp_sack_doack(tp, &to, th, &sack_bytes_acked, &highest_sacked_seq);
-		}
-
-		if (TCP_RACK_ENABLED(tp)) {
-			/* If DSACK was received (not due to TLP), then update the reordering window */
-			if (recvd_dsack && !dsack_tlp) {
-				tp->rack.dsack_round_seen = 1;
-			}
-			tcp_rack_update_reordering_window(tp, th->th_ack);
 		}
 
 #if MPTCP
@@ -5328,8 +5384,8 @@ process_ACK:
 			tcp_rack_reset_segs_retransmitted(tp);
 			needoutput = 1;
 		} else if (tp->t_timer[TCPT_PERSIST] == 0) {
-			tp->t_timer[TCPT_REXMT] = OFFSET_FROM_START(tp,
-			    tp->t_rxtcur);
+			tcp_set_link_heur_rtomin(tp, inp->inp_last_outifp);
+			tp->t_timer[TCPT_REXMT] = OFFSET_FROM_START(tp, tp->t_rxtcur);
 		}
 
 		if ((prev_t_state == TCPS_SYN_SENT ||
@@ -5709,6 +5765,7 @@ dodata:
 	if (inp->inp_state == INPCB_STATE_DEAD) {
 		/* Just drop the packet that we are processing and return */
 		TCP_LOG_DROP_PCB(TCP_LOG_HDR, th, tp, false, "INPCB_STATE_DEAD");
+		drop_reason = DROP_REASON_TCP_NO_SOCK;
 		goto drop;
 	}
 
@@ -6062,14 +6119,14 @@ dropwithreset:
 	tra.management_allowed = 1;
 	if (thflags & TH_ACK) {
 		/* mtod() below is safe as long as hdr dropping is delayed */
-		tcp_respond(tp, mtod(m, void *), th, m, (tcp_seq)0, th->th_ack,
+		tcp_respond(tp, mtod(m, void *), m->m_len, th, m, (tcp_seq)0, th->th_ack,
 		    TH_RST, &tra);
 	} else {
 		if (thflags & TH_SYN) {
 			tlen++;
 		}
 		/* mtod() below is safe as long as hdr dropping is delayed */
-		tcp_respond(tp, mtod(m, void *), th, m, th->th_seq + tlen,
+		tcp_respond(tp, mtod(m, void *), m->m_len, th, m, th->th_seq + tlen,
 		    (tcp_seq)0, TH_RST | TH_ACK, &tra);
 	}
 	/* destroy temporarily created socket */
@@ -6110,7 +6167,11 @@ drop:
 		HTONS(th->th_win);
 		HTONS(th->th_urp);
 	}
-	m_drop(m, DROPTAP_FLAG_DIR_IN | DROPTAP_FLAG_L2_MISSING, drop_reason, NULL, 0);
+	if (drop_reason != DROP_REASON_UNSPECIFIED || droptap_verbose > 0) {
+		m_drop(m, DROPTAP_FLAG_DIR_IN | DROPTAP_FLAG_L2_MISSING, drop_reason, NULL, 0);
+	} else {
+		m_freem(m);
+	}
 	/* destroy temporarily created socket */
 	if (dropsocket) {
 		(void) soabort(so);
@@ -6128,11 +6189,14 @@ drop:
  * Parse TCP options and place in tcpopt.
  */
 static void
-tcp_dooptions(struct tcpcb *tp, u_char *cp, int cnt, struct tcphdr *th,
+tcp_dooptions(struct tcpcb *tp, u_char *cp0 __counted_by(cnt0), int cnt0, struct tcphdr *th,
     struct tcpopt *to)
 {
 	u_short mss = 0;
 	uint8_t opt, optlen;
+	u_char *cp = cp0;
+	u_char * const cpend = cp0 + cnt0;
+	int cnt = cnt0;
 
 	for (; cnt > 0; cnt -= optlen, cp += optlen) {
 		opt = cp[0];
@@ -6208,6 +6272,7 @@ tcp_dooptions(struct tcpcb *tp, u_char *cp, int cnt, struct tcphdr *th,
 				continue;
 			}
 			to->to_nsacks = (optlen - 2) / TCPOLEN_SACK;
+			to->to_sacks_size = optlen - 2;
 			to->to_sacks = cp + 2;
 			tcpstat.tcps_sack_rcv_blocks++;
 
@@ -6232,6 +6297,7 @@ tcp_dooptions(struct tcpcb *tp, u_char *cp, int cnt, struct tcphdr *th,
 
 				to->to_flags |= TOF_TFO;
 				to->to_tfo = cp + 1;
+				to->to_tfo_size = optlen - 1;
 			}
 
 			break;
@@ -6243,6 +6309,7 @@ tcp_dooptions(struct tcpcb *tp, u_char *cp, int cnt, struct tcphdr *th,
 			}
 			to->to_num_accecn = (optlen - 2) / TCPOLEN_ACCECN_COUNTER;
 			to->to_accecn = cp + 2;
+			to->to_accecn_size = optlen - 2;
 			if (opt == TCPOPT_ACCECN0) {
 				to->to_accecn_order = 0;
 			} else if (opt == TCPOPT_ACCECN1) {
@@ -6252,7 +6319,7 @@ tcp_dooptions(struct tcpcb *tp, u_char *cp, int cnt, struct tcphdr *th,
 
 #if MPTCP
 		case TCPOPT_MULTIPATH:
-			tcp_do_mptcp_options(tp, cp, th, to, optlen);
+			tcp_do_mptcp_options(tp, cp, cpend, th, to, optlen);
 			break;
 #endif /* MPTCP */
 		}
@@ -7411,7 +7478,7 @@ tcp_clear_recv_bg(struct socket *so)
 void
 inp_fc_throttle_tcp(struct inpcb *inp)
 {
-	struct tcpcb *tp = inp->inp_ppcb;
+	tcpcb_ref_t tp = inp->inp_ppcb;
 
 	if (!tcp_flow_control_response) {
 		return;
@@ -7429,7 +7496,7 @@ inp_fc_throttle_tcp(struct inpcb *inp)
 void
 inp_fc_unthrottle_tcp(struct inpcb *inp)
 {
-	struct tcpcb *tp = inp->inp_ppcb;
+	tcpcb_ref_t tp = inp->inp_ppcb;
 	struct ifnet *outifp = inp->inp_last_outifp;
 
 	if (tcp_flow_control_response) {
@@ -7724,7 +7791,7 @@ tcp_input_checksum(int af, struct mbuf *m, struct tcphdr *th, int off, int tlen)
 }
 
 int
-dump_tcp_reass_qlen(char *str, int str_len)
+dump_tcp_reass_qlen(char *str __sized_by(str_len), int str_len)
 {
 	char *c = str;
 	int k, clen = str_len;

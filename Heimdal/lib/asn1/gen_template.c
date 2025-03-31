@@ -223,7 +223,7 @@ symbol_name(const char *basename, const Type *t)
     for (i = 0; i < sizeof(types)/sizeof(types[0]); i++)
 	if (t->type == types[i].type)
 	    return (types[i].symbol_name)(basename, t);
-    printf("unknown der type: %d\n", t->type);
+    printf("unknown der type: %u\n", t->type);
     exit(1);
 }
 

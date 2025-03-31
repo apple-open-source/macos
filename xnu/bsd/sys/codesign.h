@@ -129,6 +129,13 @@ void            csproc_clear_platform_binary(struct proc *);
 int             csblob_set_validation_category(struct cs_blob *, unsigned int);
 unsigned int    csblob_get_validation_category(struct cs_blob *);
 
+#define XNU_CSBLOB_HAS_AUXILIARY_INFO 1
+int             csblob_set_auxiliary_info(struct cs_blob *, uint64_t);
+uint64_t        csblob_get_auxiliary_info(struct cs_blob *);
+
+#define XNU_CSBLOB_HAS_TRUST_LEVEL 1
+uint32_t        csblob_get_trust_level(struct cs_blob *);
+
 #include <uuid/uuid.h>
 #define XNU_SUPPORTS_PROVISIONING_PROFILE_UUID 1
 int csblob_register_profile_uuid(struct cs_blob *, const uuid_t, void*, vm_size_t);

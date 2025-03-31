@@ -670,3 +670,35 @@ void SecNameConstraintsIntersectSubtrees(CFMutableArrayRef subtrees_state, CFArr
 
     CFReleaseNull(trees_to_append);
 }
+
+bool SecNameConstraintsAreSubtreesSupported(CFArrayRef subtrees) {
+    __block bool supported = true;
+    CFArrayForEach(subtrees, ^(const void *subtree) {
+        if (!subtree || CFDataGetLength(subtree) < 0) {
+            supported = false;
+            return;
+        }
+
+        const DERItem general_name = { (unsigned char *)CFDataGetBytePtr(subtree), (size_t)CFDataGetLength(subtree) };
+        DERDecodedInfo general_name_content;
+        if (DR_Success != DERDecodeItem(&general_name, &general_name_content)) {
+            supported = false;
+            return;
+        }
+
+        SecCEGeneralNameType gnType = nc_gn_type_convert(general_name_content.tag);
+        switch (gnType) {
+            // Supported GN types
+            case GNT_RFC822Name:
+            case GNT_DNSName:
+            case GNT_DirectoryName:
+            case GNT_URI:
+            case GNT_IPAddress:
+                break;
+            default:
+                supported = false;
+                break;
+        }
+    });
+    return supported;
+}

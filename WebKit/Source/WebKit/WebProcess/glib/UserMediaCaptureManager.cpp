@@ -42,13 +42,24 @@ using namespace WebCore;
 WTF_MAKE_TZONE_ALLOCATED_IMPL(UserMediaCaptureManager);
 
 UserMediaCaptureManager::UserMediaCaptureManager(WebProcess& process)
+    : m_process(process)
 {
     process.addMessageReceiver(Messages::UserMediaCaptureManager::messageReceiverName(), *this);
 }
 
 UserMediaCaptureManager::~UserMediaCaptureManager()
 {
-    WebProcess::singleton().removeMessageReceiver(Messages::UserMediaCaptureManager::messageReceiverName());
+    m_process->removeMessageReceiver(Messages::UserMediaCaptureManager::messageReceiverName());
+}
+
+void UserMediaCaptureManager::ref() const
+{
+    m_process->ref();
+}
+
+void UserMediaCaptureManager::deref() const
+{
+    m_process->deref();
 }
 
 void UserMediaCaptureManager::validateUserMediaRequestConstraints(WebCore::MediaStreamRequest request, WebCore::MediaDeviceHashSalts&& deviceIdentifierHashSalts, ValidateUserMediaRequestConstraintsCallback&& completionHandler)

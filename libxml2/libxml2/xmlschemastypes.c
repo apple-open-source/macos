@@ -324,8 +324,11 @@ xmlSchemaInitBasicType(const char *name, xmlSchemaValType type,
 	    ret->flags |= XML_SCHEMAS_TYPE_VARIETY_ATOMIC;
 	    break;
     }
-    xmlHashAddEntry2(xmlSchemaTypesBank, ret->name,
-	             XML_SCHEMAS_NAMESPACE_NAME, ret);
+    if (xmlHashAddEntry2(xmlSchemaTypesBank, ret->name,
+                     XML_SCHEMAS_NAMESPACE_NAME, ret) < 0) {
+        xmlSchemaFreeType(ret);
+        return(NULL);
+    }
     ret->builtInType = type;
     return(ret);
 }
@@ -642,13 +645,20 @@ xmlSchemaCleanupTypes(void) {
 	xmlSchemaFreeWildcard(xmlSchemaTypeAnyTypeDef->attributeWildcard);
 	/* Content type. */
 	particle = (xmlSchemaParticlePtr) xmlSchemaTypeAnyTypeDef->subtypes;
-	/* Wildcard. */
-	xmlSchemaFreeWildcard((xmlSchemaWildcardPtr)
-	    particle->children->children->children);
-	xmlFree((xmlSchemaParticlePtr) particle->children->children);
-	/* Sequence model group. */
-	xmlFree((xmlSchemaModelGroupPtr) particle->children);
-	xmlFree((xmlSchemaParticlePtr) particle);
+        if (particle != NULL) {
+            if (particle->children != NULL) {
+                if (particle->children->children != NULL) {
+                    /* Wildcard. */
+                    xmlSchemaFreeWildcard((xmlSchemaWildcardPtr)
+                        particle->children->children->children);
+                    xmlFree((xmlSchemaParticlePtr)
+                        particle->children->children);
+                }
+                /* Sequence model group. */
+                xmlFree((xmlSchemaModelGroupPtr) particle->children);
+            }
+            xmlFree((xmlSchemaParticlePtr) particle);
+        }
 	xmlSchemaTypeAnyTypeDef->subtypes = NULL;
     }
     xmlHashFree(xmlSchemaTypesBank, xmlSchemaFreeTypeEntry);
@@ -2002,6 +2012,8 @@ xmlSchemaWhiteSpaceReplace(const xmlChar *value) {
     if (*cur == 0)
 	return (NULL);
     ret = xmlStrdup(value);
+    if (ret == NULL)
+        return(NULL);
     /* TODO FIXME: I guess gcc will bark at this. */
     mcur = (xmlChar *)  (ret + (cur - value));
     do {
@@ -4043,10 +4055,11 @@ xmlSchemaDateNormalize (xmlSchemaValPtr dt, double offset)
     dur->value.date.sec -= offset;
 
     ret = _xmlSchemaDateAdd(dt, dur);
-    if (ret == NULL)
-        return NULL;
 
     xmlSchemaFreeValue(dur);
+
+    if (ret == NULL)
+        return NULL;
 
     /* ret->value.date.tzo = 0; */
     return ret;

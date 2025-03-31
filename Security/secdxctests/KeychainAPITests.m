@@ -452,14 +452,18 @@ static void SecDbTestCorruptionHandler(void)
     WithPathInKeychainDirectory(CFSTR("keychain-2.db"), ^(const char *filename) {
         FILE* file = fopen(filename, "w");
         XCTAssert(file != NULL, "Didn't get a FILE pointer");
-        fclose(file);
+        if (file != NULL) {
+            fclose(file);
+        }
         XCTAssertEqual(stat(filename, &before), 0, "Unable to stat newly created file");
     });
 
     WithPathInKeychainDirectory(CFSTR("keychain-2.db-iscorrupt"), ^(const char *filename) {
         FILE* file = fopen(filename, "w");
         XCTAssert(file != NULL, "Didn't get a FILE pointer");
-        fclose(file);
+        if (file != NULL) {
+            fclose(file);
+        }
     });
 
     NSMutableDictionary* query = [@{(id)kSecClass : (id)kSecClassGenericPassword,
@@ -493,7 +497,9 @@ static void SecDbTestCorruptionHandler(void)
     CFStringPerformWithCString(keychainPath, ^(const char *filename) {
         FILE* file = fopen(filename, "w");
         XCTAssert(file != NULL, "Didn't get a FILE pointer");
-        fclose(file);
+        if (file != NULL) {
+            fclose(file);
+        }
         XCTAssertEqual(stat(filename, &after), 0, "Unable to stat newly created file");
     });
 

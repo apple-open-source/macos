@@ -3796,6 +3796,11 @@ _dispatch_lane_drain(dispatch_lane_t dq, dispatch_invoke_context_t dic,
 		owned &= DISPATCH_QUEUE_WIDTH_MASK;
 	}
 
+	if (unlikely(flags & DISPATCH_INVOKE_AGAIN) &&
+			unlikely(_dispatch_needs_to_return_to_kernel())) {
+		_dispatch_return_to_kernel();
+	}
+
 	dc = _dispatch_queue_get_head(dq);
 	goto first_iteration;
 
@@ -7229,6 +7234,12 @@ retry:
 		if (unlikely(_dq_state_is_enqueued_on_target(dq_state))) {
 			_dispatch_retain(dq);
 			_dispatch_trace_item_push(dq->do_targetq, dq);
+			// _dispatch_lane_drain skips the return to kernel check before
+			// invoking the first object on the queue, since it expects that
+			// nothing could have set the tsd before anything is invoked. That
+			// isn't true if we re-invoke the queue here, so we set the
+			// INVOKE_AGAIN flag to force it to run that check.
+			flags |= DISPATCH_INVOKE_AGAIN;
 			goto retry;
 		}
 	} else {

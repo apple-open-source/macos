@@ -107,6 +107,16 @@
 #ifndef IDLBASE_H
 #define IDLBASE_H 	1
 
+/*
+ * Use the default definitions for representations for NDR scalar types
+ * (unless some target specific section below #undef's the symbol) of
+ * these symbols.
+ *
+ * for DCE 1.1, we include the platform specific file ndrtypes.h
+ */
+
+#include <dce/ndrtypes.h>
+
 #ifdef __cplusplus
     extern "C" {
 #endif
@@ -241,16 +251,6 @@
 typedef struct rpc_handle_s_t *handle_t;
 
 /***************************************************************************/
-
-/*
- * Use the default definitions for representations for NDR scalar types
- * (unless some target specific section below #undef's the symbol) of
- * these symbols.
- *
- * for DCE 1.1, we include the platform specific file ndrtypes.h
- */
-
-#include <dce/ndrtypes.h>
 
 /***************************************************************************/
 

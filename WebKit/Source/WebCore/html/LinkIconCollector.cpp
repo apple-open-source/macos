@@ -102,8 +102,8 @@ auto LinkIconCollector::iconsOfTypes(OptionSet<LinkIconType> iconTypes) -> Vecto
 
         Vector<std::pair<String, String>> attributes;
         if (linkElement.hasAttributes()) {
-            auto attributesAccessor = linkElement.attributesIterator();
-            attributes = WTF::map(attributesAccessor, [](auto& attribute) -> std::pair<String, String> {
+            auto linkAttributes = linkElement.attributes();
+            attributes = WTF::map(linkAttributes, [](auto& attribute) -> std::pair<String, String> {
                 return { attribute.localName(), attribute.value() };
             });
         }

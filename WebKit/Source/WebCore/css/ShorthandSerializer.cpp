@@ -35,6 +35,7 @@
 #include "CSSPropertyParserConsumer+Grid.h"
 #include "CSSPropertyParserConsumer+Ident.h"
 #include "CSSValueKeywords.h"
+#include "CSSValueList.h"
 #include "CSSValuePair.h"
 #include "CSSVariableReferenceValue.h"
 #include "ComputedStyleExtractor.h"
@@ -42,6 +43,9 @@
 #include "Quad.h"
 #include "StylePropertiesInlines.h"
 #include "StylePropertyShorthand.h"
+#include "TimelineRange.h"
+#include <algorithm>
+#include <wtf/IndexedRange.h>
 #include <wtf/text/MakeString.h>
 
 namespace WebCore {
@@ -132,9 +136,11 @@ private:
     String serializeTextBox() const;
     String serializeTextWrap() const;
     String serializeWhiteSpace() const;
+    String serializeAnimationRange() const;
+    String serializeSingleAnimationRange(const CSSValue&, SingleTimelineRange::Type, CSSValueID = CSSValueInvalid) const;
 
     StylePropertyShorthand m_shorthand;
-    RefPtr<CSSValue> m_longhandValues[maxShorthandLength];
+    std::array<RefPtr<CSSValue>, maxShorthandLength> m_longhandValues;
     String m_result;
     bool m_commonSerializationChecksSuppliedResult { false };
 };
@@ -148,13 +154,11 @@ inline ShorthandSerializer::ShorthandSerializer(const PropertiesType& properties
 
 inline CSSPropertyID ShorthandSerializer::longhandProperty(unsigned index) const
 {
-    ASSERT(index < length());
     return m_shorthand.properties()[index];
 }
 
 inline CSSValue& ShorthandSerializer::longhandValue(unsigned index) const
 {
-    ASSERT(index < length());
     return *m_longhandValues[index];
 }
 
@@ -332,6 +336,7 @@ String ShorthandSerializer::serialize()
     case CSSPropertyScrollPaddingBlock:
     case CSSPropertyScrollPaddingInline:
         return serializePair();
+    case CSSPropertyBlockStep:
     case CSSPropertyBorderBlockEnd:
     case CSSPropertyBorderBlockStart:
     case CSSPropertyBorderBottom:
@@ -418,6 +423,8 @@ String ShorthandSerializer::serialize()
     case CSSPropertyScrollTimeline:
     case CSSPropertyViewTimeline:
         return serializeCoordinatingListPropertyGroup();
+    case CSSPropertyAnimationRange:
+        return serializeAnimationRange();
     default:
         ASSERT_NOT_REACHED();
         return String();
@@ -525,7 +532,6 @@ public:
 
     std::optional<CSSValueID> valueID(unsigned index) const
     {
-        ASSERT(index < m_shorthand.length());
         return longhandValueID(m_shorthand.properties()[index], m_values[index].get());
     }
 
@@ -561,15 +567,14 @@ public:
     void serialize(StringBuilder& builder) const
     {
         // If all are skipped, then serialize the first.
-        auto begin = std::begin(m_skipSerializing);
-        auto end = begin + m_shorthand.length();
-        bool allSkipped = std::find(begin, end, false) == end;
+        auto range = std::span { m_skipSerializing }.first(m_shorthand.length());
+        bool allSkipped = std::ranges::find(range, false) == range.end();
 
         auto separator = builder.isEmpty() ? ""_s : ", "_s;
-        for (unsigned j = 0; j < m_shorthand.length(); j++) {
+        auto longhands = m_shorthand.properties();
+        for (auto [j, longhand] : indexedRange(longhands)) {
             if (allSkipped ? j : m_skipSerializing[j])
                 continue;
-            auto longhand = m_shorthand.properties()[j];
             if (longhand == CSSPropertyBackgroundSize || longhand == CSSPropertyMaskSize)
                 separator = " / "_s;
             if (auto& value = m_values[j])
@@ -582,8 +587,8 @@ public:
 
 private:
     const StylePropertyShorthand& m_shorthand;
-    bool m_skipSerializing[maxShorthandLength] { };
-    RefPtr<const CSSValue> m_values[maxShorthandLength];
+    std::array<bool, maxShorthandLength> m_skipSerializing = { };
+    std::array<RefPtr<const CSSValue>, maxShorthandLength> m_values;
 };
 
 String ShorthandSerializer::serializeCoordinatingListPropertyGroup() const
@@ -849,8 +854,8 @@ String ShorthandSerializer::serializeBorderImage() const
 String ShorthandSerializer::serializeBorderRadius() const
 {
     ASSERT(length() == 4);
-    RefPtr<const CSSValue> horizontalRadii[4];
-    RefPtr<const CSSValue> verticalRadii[4];
+    std::array<RefPtr<const CSSValue>, 4> horizontalRadii;
+    std::array<RefPtr<const CSSValue>, 4> verticalRadii;
     for (unsigned i = 0; i < 4; ++i) {
         auto& value = longhandValue(i);
         horizontalRadii[i] = &value.first();
@@ -866,7 +871,7 @@ String ShorthandSerializer::serializeBorderRadius() const
     }
 
     StringBuilder result;
-    auto serializeRadii = [&](const auto (&r)[4]) {
+    auto serializeRadii = [&](const std::array<RefPtr<const CSSValue>, 4>& r) {
         if (!r[3]->equals(*r[1]))
             result.append(r[0]->cssText(), ' ', r[1]->cssText(), ' ', r[2]->cssText(), ' ', r[3]->cssText());
         else if (!r[2]->equals(*r[0]) || (m_shorthand.id() == CSSPropertyWebkitBorderRadius && !serializeBoth && !r[1]->equals(*r[0])))
@@ -910,7 +915,7 @@ String ShorthandSerializer::serializeColumnBreak() const
     }
 }
 
-static std::optional<CSSValueID> fontStretchKeyword(double value)
+static std::optional<CSSValueID> fontWidthKeyword(double value)
 {
     // If the numeric value does not fit in the fixed point FontSelectionValue, don't convert it to a keyword even if it rounds to a keyword value.
     float valueAsFloat = value;
@@ -918,7 +923,7 @@ static std::optional<CSSValueID> fontStretchKeyword(double value)
     float valueAsFloatAfterRoundTrip = valueAsFontSelectionValue;
     if (value != valueAsFloatAfterRoundTrip)
         return std::nullopt;
-    return fontStretchKeyword(valueAsFontSelectionValue);
+    return fontWidthKeyword(valueAsFontSelectionValue);
 }
 
 String ShorthandSerializer::serializeFont() const
@@ -943,7 +948,7 @@ String ShorthandSerializer::serializeFont() const
     auto styleIndex = longhandIndex(0, CSSPropertyFontStyle);
     auto capsIndex = longhandIndex(1, CSSPropertyFontVariantCaps);
     auto weightIndex = longhandIndex(2, CSSPropertyFontWeight);
-    auto stretchIndex = longhandIndex(3, CSSPropertyFontStretch);
+    auto widthIndex = longhandIndex(3, CSSPropertyFontWidth);
     auto sizeIndex = longhandIndex(4, CSSPropertyFontSize);
     auto lineHeightIndex = longhandIndex(5, CSSPropertyLineHeight);
     auto familyIndex = longhandIndex(6, CSSPropertyFontFamily);
@@ -959,23 +964,23 @@ String ShorthandSerializer::serializeFont() const
     if (capsKeyword != CSSValueNormal && capsKeyword != CSSValueSmallCaps)
         return String();
 
-    // Font stretch values can only be serialized in the font shorthand as keywords, since percentages are also valid font sizes.
-    // If a font stretch percentage can be expressed as a keyword, then do that.
-    auto stretchKeyword = longhandValueID(stretchIndex);
-    if (stretchKeyword == CSSValueInvalid) {
-        auto& stretchValue = downcast<CSSPrimitiveValue>(longhandValue(stretchIndex));
-        if (stretchValue.isCalculated() || !stretchValue.isPercentage())
+    // Font width values can only be serialized in the font shorthand as keywords, since percentages are also valid font sizes.
+    // If a font width percentage can be expressed as a keyword, then do that.
+    auto widthKeyword = longhandValueID(widthIndex);
+    if (widthKeyword == CSSValueInvalid) {
+        auto& widthValue = downcast<CSSPrimitiveValue>(longhandValue(widthIndex));
+        if (widthValue.isCalculated() || !widthValue.isPercentage())
             return String();
-        auto keyword = fontStretchKeyword(stretchValue.resolveAsPercentageNoConversionDataRequired());
+        auto keyword = fontWidthKeyword(widthValue.resolveAsPercentageNoConversionDataRequired());
         if (!keyword)
             return String();
-        stretchKeyword = *keyword;
+        widthKeyword = *keyword;
     }
 
     bool includeStyle = !isLonghandInitialValue(styleIndex);
     bool includeCaps = capsKeyword != CSSValueNormal;
     bool includeWeight = !isLonghandInitialValue(weightIndex);
-    bool includeStretch = stretchKeyword != CSSValueNormal;
+    bool includeWidth = widthKeyword != CSSValueNormal;
     bool includeLineHeight = !isLonghandInitialValue(lineHeightIndex);
 
     auto style = includeStyle ? serializeLonghandValue(styleIndex) : String();
@@ -983,16 +988,16 @@ String ShorthandSerializer::serializeFont() const
     auto caps = includeCaps ? nameLiteral(capsKeyword) : ""_s;
     auto weightSeparator = includeWeight && (includeStyle || includeCaps) ? " "_s : ""_s;
     auto weight = includeWeight ? serializeLonghandValue(weightIndex) : String();
-    auto stretchSeparator = includeStretch && (includeStyle || includeCaps || includeWeight) ? " "_s : ""_s;
-    auto stretch = includeStretch ? nameLiteral(stretchKeyword) : ""_s;
-    auto sizeSeparator = includeStyle || includeCaps || includeWeight || includeStretch ? " "_s : ""_s;
+    auto widthSeparator = includeWidth && (includeStyle || includeCaps || includeWeight) ? " "_s : ""_s;
+    auto width = includeWidth ? nameLiteral(widthKeyword) : ""_s;
+    auto sizeSeparator = includeStyle || includeCaps || includeWeight || includeWidth ? " "_s : ""_s;
     auto lineHeightSeparator = includeLineHeight ? " / "_s : ""_s;
     auto lineHeight = includeLineHeight ? serializeLonghandValue(lineHeightIndex) : String();
 
     return makeString(style,
         capsSeparator, caps,
         weightSeparator, weight,
-        stretchSeparator, stretch,
+        widthSeparator, width,
         sizeSeparator, serializeLonghandValue(sizeIndex),
         lineHeightSeparator, lineHeight,
         ' ', serializeLonghandValue(familyIndex));
@@ -1316,6 +1321,62 @@ String ShorthandSerializer::serializeTextWrap() const
         return nameString(style);
 
     return makeString(nameLiteral(mode), ' ', nameLiteral(style));
+}
+
+String ShorthandSerializer::serializeSingleAnimationRange(const CSSValue& value, SingleTimelineRange::Type type, CSSValueID startValueID) const
+{
+    if (RefPtr pair = dynamicDowncast<CSSValuePair>(value)) {
+        bool isSameNameAsStart = pair->first().valueID() == startValueID;
+        bool isStartValue = type == SingleTimelineRange::Type::Start;
+        bool isDefaultValue = SingleTimelineRange::isDefault(downcast<CSSPrimitiveValue>(pair->second()), SingleTimelineRange::Type::Start);
+        if (isDefaultValue && (isStartValue || !isSameNameAsStart))
+            return nameLiteral(pair->first().valueID());
+        return pair->cssText();
+    }
+    if (RefPtr primitiveValue = dynamicDowncast<CSSPrimitiveValue>(value)) {
+        if (SingleTimelineRange::isOffsetValue(*primitiveValue))
+            return primitiveValue->cssText();
+        bool isNormal = primitiveValue->valueID() == CSSValueNormal;
+        bool isSameNameAsStart = primitiveValue->valueID() == startValueID;
+        bool isStartValue = type == SingleTimelineRange::Type::Start;
+        if (isStartValue || (!isNormal && !isSameNameAsStart))
+            return nameLiteral(primitiveValue->valueID());
+    }
+    return emptyString();
+}
+
+String ShorthandSerializer::serializeAnimationRange() const
+{
+    StringBuilder builder;
+    auto& startValue = longhandValue(0);
+    auto& endValue = longhandValue(1);
+    auto* startList = dynamicDowncast<CSSValueList>(startValue);
+    auto* endList = dynamicDowncast<CSSValueList>(endValue);
+    if (startList && endList) {
+        ASSERT(startList->size() == endList->size());
+        for (unsigned i = 0; i < startList->size(); i++) {
+            auto start = startList->item(i);
+            RefPtr startPair = dynamicDowncast<CSSValuePair>(start);
+            auto startID = startPair ? startPair->first().valueID() : start->valueID();
+
+            auto serializedStart = serializeSingleAnimationRange(*start, SingleTimelineRange::Type::Start);
+            auto serializedEnd = serializeSingleAnimationRange(*endList->item(i), SingleTimelineRange::Type::End, startID);
+            builder.append(
+                serializedEnd.isEmpty() ? serializedStart : makeString(serializedStart, ' ', serializedEnd),
+                (i < startList->size() - 1) ? ", "_s : emptyString()
+            );
+        }
+        return builder.toString();
+    }
+
+    RefPtr startPair = dynamicDowncast<CSSValuePair>(startValue);
+    auto startID = startPair ? startPair->first().valueID() : startValue.valueID();
+
+    auto serializedStart = serializeSingleAnimationRange(startValue, SingleTimelineRange::Type::Start);
+    auto serializedEnd = serializeSingleAnimationRange(endValue, SingleTimelineRange::Type::End, startID);
+    if (serializedEnd.isEmpty())
+        return serializedStart;
+    return makeString(serializedStart, ' ', serializedEnd);
 }
 
 String ShorthandSerializer::serializeWhiteSpace() const

@@ -61,6 +61,12 @@ const NSString* kSecEntitlementPrivateOctagonWalrus = @"com.apple.private.octago
 
 #import <Foundation/NSDistributedNotificationCenter.h>
 
+#import <KeychainCircle/SecurityAnalyticsConstants.h>
+#import <KeychainCircle/SecurityAnalyticsReporterRTC.h>
+#import <KeychainCircle/AAFAnalyticsEvent+Security.h>
+
+#import <KeychainCircle/MetricsOverrideForTests.h>
+
 SOFT_LINK_FRAMEWORK(PrivateFrameworks, KeychainCircle);
 SOFT_LINK_OPTIONAL_FRAMEWORK(PrivateFrameworks, CloudServices);
 
@@ -73,6 +79,7 @@ SOFT_LINK_CLASS(KeychainCircle, AAFAnalyticsEventSecurity);
 SOFT_LINK_CONSTANT(KeychainCircle, kSecurityRTCEventNameCliqueMemberIdentifier, NSString*);
 SOFT_LINK_CONSTANT(KeychainCircle, kSecurityRTCEventCategoryAccountDataAccessRecovery, NSNumber*);
 SOFT_LINK_CONSTANT(KeychainCircle, kSecurityRTCEventNameRPDDeleteAllRecords, NSString*);
+SOFT_LINK_CONSTANT(KeychainCircle, kSecurityRTCEventNameEstablish, NSString*);
 SOFT_LINK_CLASS(CloudServices, SecureBackup);
 SOFT_LINK_CONSTANT(CloudServices, kSecureBackupErrorDomain, NSErrorDomain);
 SOFT_LINK_CONSTANT(CloudServices, kSecureBackupAuthenticationAppleID, NSString*);
@@ -343,16 +350,35 @@ NSString* OTCDPStatusToString(OTCDPStatus status) {
 }
 #endif
 
+
 - (BOOL)establish:(NSError**)error
+{
+    return [self establish:[[OTConfigurationContext alloc] init] error:error];
+}
+
+- (BOOL)establish:(OTConfigurationContext*)data error:(NSError**)error
 {
     __block BOOL success = NO;
 #if OCTAGON
     secnotice("clique-establish", "establish started");
+
+    AAFAnalyticsEventSecurity *establishEvent = [[getAAFAnalyticsEventSecurityClass() alloc] initWithKeychainCircleMetrics:nil
+                                                                                                 altDSID:data.altDSID
+                                                                                                  flowID:data.flowID
+                                                                                         deviceSessionID:data.deviceSessionID
+                                                                                               eventName:getkSecurityRTCEventNameEstablish()
+                                                                                         testsAreEnabled:self.ctx.testsEnabled
+                                                                                          canSendMetrics:YES
+                                                                                                category:getkSecurityRTCEventCategoryAccountDataAccessRecovery()];
     OctagonSignpost establishSignPost = OctagonSignpostBegin(OctagonSignpostNameEstablish);
+
     bool subTaskSuccess = false;
-    OTControl* control = [self makeOTControl:error];
-    if(!control) {
+    __block NSError* localError = nil;
+
+    OTControl* control = [self makeOTControl:&localError];
+    if (!control || localError) {
         OctagonSignpostEnd(establishSignPost, OctagonSignpostNameEstablish, OctagonSignpostNumber1(OctagonSignpostNameEstablish), (int)subTaskSuccess);
+        [getSecurityAnalyticsReporterRTCClass() sendMetricWithEvent:establishEvent success:NO error:localError];
         return false;
     }
     
@@ -360,23 +386,23 @@ NSString* OTCDPStatusToString(OTCDPStatus status) {
     NSError* fetchError = nil;
     CliqueStatus status = [self fetchCliqueStatus: &fetchError];
 
-    if(fetchError) {
+    if (fetchError) {
         secnotice("clique-establish", "fetching clique status failed: %@", fetchError);
-        if(error) {
+        if (error) {
             *error = fetchError;
         }
         OctagonSignpostEnd(establishSignPost, OctagonSignpostNameEstablish, OctagonSignpostNumber1(OctagonSignpostNameEstablish), (int)subTaskSuccess);
+        [getSecurityAnalyticsReporterRTCClass() sendMetricWithEvent:establishEvent success:NO error:fetchError];
         return NO;
     }
 
-    if(status != CliqueStatusAbsent) {
+    if (status != CliqueStatusAbsent) {
         secnotice("clique-establish", "clique status is %@; performing no Octagon actions", OTCliqueStatusToString(status));
 
         OctagonSignpostEnd(establishSignPost, OctagonSignpostNameEstablish, OctagonSignpostNumber1(OctagonSignpostNameEstablish), (int)subTaskSuccess);
+        [getSecurityAnalyticsReporterRTCClass() sendMetricWithEvent:establishEvent success:YES error:nil];
         return YES;
     }
-    
-    __block NSError* localError = nil;
 
     //only establish
     [control establish:[[OTControlArguments alloc] initWithConfiguration:self.ctx] reply:^(NSError * _Nullable operationError) {
@@ -386,13 +412,20 @@ NSString* OTCDPStatusToString(OTCDPStatus status) {
         success = operationError == nil;
         localError = operationError;
     }];
-    
-    if(localError && error) {
-        *error = localError;
-    }
+
     secnotice("clique-establish", "establish complete: %{BOOL}d", success);
-    subTaskSuccess = success ? true : false;
-    OctagonSignpostEnd(establishSignPost, OctagonSignpostNameEstablish, OctagonSignpostNumber1(OctagonSignpostNameEstablish), (int)subTaskSuccess);
+
+    if (localError) {
+        if (error) {
+            *error = localError;
+        }
+        [getSecurityAnalyticsReporterRTCClass() sendMetricWithEvent:establishEvent success:NO error:localError];
+        OctagonSignpostEnd(establishSignPost, OctagonSignpostNameEstablish, OctagonSignpostNumber1(OctagonSignpostNameEstablish), false);
+        return NO;
+    }
+
+    OctagonSignpostEnd(establishSignPost, OctagonSignpostNameEstablish, OctagonSignpostNumber1(OctagonSignpostNameEstablish), true);
+    [getSecurityAnalyticsReporterRTCClass() sendMetricWithEvent:establishEvent success:YES error:nil];
 
 #endif /* OCTAGON */
     return success;
@@ -2575,7 +2608,7 @@ NSString* OTCDPStatusToString(OTCDPStatus status) {
     if(error) {
         *error = [NSError errorWithDomain:NSOSStatusErrorDomain code:errSecUnimplemented userInfo:nil];
     }
-    return nil;
+    return NO;
 #endif
 
 }
@@ -2618,7 +2651,7 @@ NSString* OTCDPStatusToString(OTCDPStatus status) {
     if(error) {
         *error = [NSError errorWithDomain:NSOSStatusErrorDomain code:errSecUnimplemented userInfo:nil];
     }
-    return nil;
+    return NO;
 #endif
 }
 

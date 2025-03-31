@@ -75,9 +75,6 @@ struct NetworkProcessCreationParameters {
 
     bool enablePrivateClickMeasurement { true };
     bool ftpEnabled { false };
-#if ENABLE(WEB_PUSH_NOTIFICATIONS)
-    bool builtInNotificationsEnabled { false };
-#endif
 #if PLATFORM(COCOA)
     bool enableModernDownloadProgress { false };
 #endif

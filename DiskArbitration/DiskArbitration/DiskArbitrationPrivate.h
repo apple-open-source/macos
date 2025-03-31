@@ -315,6 +315,10 @@ extern DASessionRef _DADiskGetSession( DADiskRef disk );
 
 extern DAReturn _DADiskSetAdoption( DADiskRef disk, Boolean adoption );
 
+/*
+* This is currently not supported.
+* Encoding can be changed by unmounting and mounting the volume with the required encoding.
+*/
 extern DAReturn _DADiskSetEncoding( DADiskRef disk, UInt32 encoding );
 
 extern pid_t DADissenterGetProcessID( DADissenterRef dissenter );

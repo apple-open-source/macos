@@ -1,0 +1,71 @@
+{
+  "configurations" : [
+    {
+      "id" : "6DA066FD-1E9A-46C6-9BAE-D46F9369AF8D",
+      "name" : "Test Scheme Action",
+      "options" : {
+
+      }
+    }
+  ],
+  "defaultOptions" : {
+    "codeCoverage" : {
+      "targets" : [
+        {
+          "containerPath" : "container:ICU.xcodeproj",
+          "identifier" : "CCF930302432CB8C00C185CD",
+          "name" : "common"
+        },
+        {
+          "containerPath" : "container:ICU.xcodeproj",
+          "identifier" : "CCCF80AA24340E4F0057283F",
+          "name" : "ctestfw"
+        },
+        {
+          "containerPath" : "container:ICU.xcodeproj",
+          "identifier" : "CC7980BB2433EE410086956E",
+          "name" : "i18n"
+        },
+        {
+          "containerPath" : "container:ICU.xcodeproj",
+          "identifier" : "CCCF7F9A243407680057283F",
+          "name" : "toolutil"
+        }
+      ]
+    },
+    "environmentVariableEntries" : [
+      {
+        "key" : "ICU_DATA",
+        "value" : "$(CONFIGURATION_BUILD_DIR)\/icudt76l.dat:$(CONFIGURATION_BUILD_DIR)\/testdata.dat"
+      },
+      {
+        "key" : "LANG",
+        "value" : "en_US.UTF-8"
+      },
+      {
+        "key" : "ICU_CONFIGURATION_BUILD_DIR",
+        "value" : "$(CONFIGURATION_BUILD_DIR)"
+      }
+    ],
+    "targetForVariableExpansion" : {
+      "containerPath" : "container:ICU.xcodeproj",
+      "identifier" : "DE2544DC2CA47E2A0015BDAD",
+      "name" : "xc_cintltst"
+    }
+  },
+  "testTargets" : [
+    {
+      "parallelizable" : true,
+      "skippedTests" : [
+        "xc_cintltst\/test_tsformat",
+        "xc_cintltst\/test_tsformat_TestUAMeasureFormat"
+      ],
+      "target" : {
+        "containerPath" : "container:ICU.xcodeproj",
+        "identifier" : "DE2544DC2CA47E2A0015BDAD",
+        "name" : "xc_cintltst"
+      }
+    }
+  ],
+  "version" : 1
+}

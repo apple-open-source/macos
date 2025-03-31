@@ -1,5 +1,5 @@
 /*
- * Copyright(c) 2000-2022 Apple Inc. All rights reserved.
+ * Copyright(c) 2000-2022, 2024 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -433,6 +433,7 @@ __SCPreferencesCreate(CFAllocatorRef	allocator,
 {
 	SCPreferencesPrivateRef		prefsPrivate;
 	int				sc_status	= kSCStatusOK;
+	Boolean 			usePrebootVolume = FALSE;
 
 	/*
 	 * allocate and initialize a new prefs session
@@ -450,13 +451,15 @@ __SCPreferencesCreate(CFAllocatorRef	allocator,
 		prefsPrivate->authorizationData = CFRetain(authorizationData);
 	}
 	if (options != NULL) {
+		CFTypeRef val = CFDictionaryGetValue(options, kSCPreferencesOptionUsePrebootVolume);
 		prefsPrivate->options = CFDictionaryCreateCopy(allocator, options);
+		usePrebootVolume = isA_CFBoolean(val) && CFBooleanGetValue(val);
 	}
 
 	/*
 	 * convert prefsID to path
 	 */
-	prefsPrivate->path = __SCPreferencesPath(allocator, prefsID);
+	prefsPrivate->path = __SCPreferencesPath(allocator, prefsID, usePrebootVolume);
 	if (prefsPrivate->path == NULL) {
 		sc_status = kSCStatusFailed;
 		goto error;

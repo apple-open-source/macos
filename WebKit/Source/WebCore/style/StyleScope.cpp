@@ -47,6 +47,7 @@
 #include "Logging.h"
 #include "ProcessingInstruction.h"
 #include "RenderBoxInlines.h"
+#include "RenderLayer.h"
 #include "RenderView.h"
 #include "RuleSet.h"
 #include "SVGElementTypeHelpers.h"
@@ -637,7 +638,7 @@ void Scope::updateResolver(Vector<RefPtr<CSSStyleSheet>>& activeStyleSheets, Res
 
     unsigned firstNewIndex = m_activeStyleSheets.size();
     Vector<RefPtr<CSSStyleSheet>> newStyleSheets;
-    newStyleSheets.appendRange(activeStyleSheets.begin() + firstNewIndex, activeStyleSheets.end());
+    newStyleSheets.append(activeStyleSheets.subspan(firstNewIndex));
     m_resolver->appendAuthorStyleSheets(newStyleSheets);
 }
 
@@ -933,13 +934,18 @@ bool Scope::updateQueryContainerState(QueryContainerUpdateContext& context)
     auto previousStates = WTFMove(m_queryContainerStates);
     m_queryContainerStates.clear();
 
-    Vector<Element*> containersToInvalidate;
+    Vector<CheckedPtr<Element>> containersToInvalidate;
 
     for (auto& containerRenderer : m_document->renderView()->containerQueryBoxes()) {
-        auto* containerElement = containerRenderer.element();
+        CheckedPtr containerElement = containerRenderer.element();
+
+        // Invalidation uses real elements, replace ::before/::after with its host.
+        if (auto* pseudoElement = dynamicDowncast<PseudoElement>(containerElement.get()))
+            containerElement = pseudoElement->hostElement();
+
         if (!containerElement)
             continue;
-        
+
         auto size = containerRenderer.logicalSize();
 
         auto sizeChanged = [&](LayoutSize oldSize) {
@@ -957,12 +963,12 @@ bool Scope::updateQueryContainerState(QueryContainerUpdateContext& context)
         auto it = previousStates.find(*containerElement);
         bool changed = it == previousStates.end() || sizeChanged(it->value);
         // Protect against unstable layout by invalidating only once per container.
-        if (changed && context.invalidatedContainers.add(containerElement).isNewEntry)
+        if (changed && context.invalidatedContainers.add(*containerElement).isNewEntry)
             containersToInvalidate.append(containerElement);
         m_queryContainerStates.add(*containerElement, size);
     }
 
-    for (auto* toInvalidate : containersToInvalidate)
+    for (auto& toInvalidate : containersToInvalidate)
         toInvalidate->invalidateForQueryContainerSizeChange();
 
     return !containersToInvalidate.isEmpty();
@@ -1029,17 +1035,13 @@ Element* hostForScopeOrdinal(const Element& element, ScopeOrdinal scopeOrdinal)
 
 void Scope::clearAnchorPositioningState()
 {
-    if (m_anchorPositionedStates.isEmptyIgnoringNullReferences() && m_anchorElements.isEmptyIgnoringNullReferences())
-        return;
-
-    for (auto keyAndValue : m_anchorPositionedStates)
+    for (auto keyAndValue : m_anchorPositionedStates) {
+        CheckedRef element = keyAndValue.key;
+        if (auto* renderer = dynamicDowncast<RenderBox>(element->renderer()); renderer && renderer->layer())
+            renderer->layer()->clearSnapshottedScrollOffsetForAnchorPositioning();
         keyAndValue.key.invalidateStyle();
+    }
 
-    for (auto& anchorElement : m_anchorElements)
-        anchorElement.invalidateStyle();
-
-    m_anchorElements.clear();
-    m_anchorsForAnchorName.clear();
     m_anchorPositionedStates.clear();
 }
 

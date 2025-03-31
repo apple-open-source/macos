@@ -67,7 +67,9 @@ bool SocketConnection::read()
             m_readBuffer.reserveCapacity(m_readBuffer.capacity() + defaultBufferSize);
         m_readBuffer.grow(m_readBuffer.capacity());
         GUniqueOutPtr<GError> error;
+        WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN // Glib port.
         auto bytesRead = g_socket_receive(g_socket_connection_get_socket(m_connection.get()), m_readBuffer.data() + previousBufferSize, m_readBuffer.size() - previousBufferSize, nullptr, &error.outPtr());
+        WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
         if (bytesRead == -1) {
             if (g_error_matches(error.get(), G_IO_ERROR, G_IO_ERROR_WOULD_BLOCK)) {
                 m_readBuffer.shrink(previousBufferSize);
@@ -112,7 +114,9 @@ bool SocketConnection::readMessage()
     if (m_readBuffer.size() < sizeof(uint32_t))
         return false;
 
+    WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN // GLib port.
     auto* messageData = m_readBuffer.data();
+    WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
     uint32_t bodySizeHeader;
     memcpy(&bodySizeHeader, messageData, sizeof(uint32_t));
     messageData += sizeof(uint32_t);
@@ -122,8 +126,10 @@ bool SocketConnection::readMessage()
     memcpy(&flags, messageData, sizeof(MessageFlags));
     messageData += sizeof(MessageFlags);
     auto messageSize = sizeof(uint32_t) + sizeof(MessageFlags) + bodySize;
-    if (m_readBuffer.size() < messageSize)
+    if (m_readBuffer.size() < messageSize) {
+        m_readBuffer.reserveCapacity(messageSize);
         return false;
+    }
 
     Checked<size_t> messageNameLength = strlen(messageData);
     messageNameLength++;
@@ -139,20 +145,7 @@ bool SocketConnection::readMessage()
         if (!it->value.first.isNull()) {
             GUniquePtr<GVariantType> variantType(g_variant_type_new(it->value.first.data()));
             size_t parametersSize = bodySize.value() - messageNameLength.value();
-            // g_variant_new_from_data() requires the memory to be properly aligned for the type being loaded,
-            // but it's not possible to know the alignment because g_variant_type_info_query() is not public API.
-            // Since GLib 2.60 g_variant_new_from_data() already checks the alignment and reallocates the buffer
-            // in aligned memory only if needed. For older versions we can simply ensure the memory is 8 aligned.
-#if GLIB_CHECK_VERSION(2, 60, 0)
             parameters = g_variant_new_from_data(variantType.get(), messageData, parametersSize, FALSE, nullptr, nullptr);
-#else
-            auto* alignedMemory = fastAlignedMalloc(8, parametersSize);
-            memcpy(alignedMemory, messageData, parametersSize);
-            GRefPtr<GBytes> bytes = g_bytes_new_with_free_func(alignedMemory, parametersSize, [](gpointer data) {
-                fastAlignedFree(data);
-            }, alignedMemory);
-            parameters = g_variant_new_from_bytes(variantType.get(), bytes.get(), FALSE);
-#endif
             if (messageIsByteSwapped(flags))
                 parameters = adoptGRef(g_variant_byteswap(parameters.get()));
         }
@@ -162,7 +155,9 @@ bool SocketConnection::readMessage()
     }
 
     if (m_readBuffer.size() > messageSize) {
+        WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN // GLib port.
         std::memmove(m_readBuffer.data(), m_readBuffer.data() + messageSize.value(), m_readBuffer.size() - messageSize.value());
+        WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
         m_readBuffer.shrink(m_readBuffer.size() - messageSize.value());
     } else
         m_readBuffer.shrink(0);
@@ -191,7 +186,9 @@ void SocketConnection::sendMessage(const char* messageName, GVariant* parameters
     size_t previousBufferSize = m_writeBuffer.size();
     m_writeBuffer.grow(previousBufferSize + sizeof(uint32_t) + sizeof(MessageFlags) + bodySize.value());
 
+    WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN // GLib port.
     auto* messageData = m_writeBuffer.data() + previousBufferSize;
+    WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
     uint32_t bodySizeHeader = htonl(bodySize.value());
     memcpy(messageData, &bodySizeHeader, sizeof(uint32_t));
     messageData += sizeof(uint32_t);
@@ -228,7 +225,9 @@ void SocketConnection::write()
     }
 
     if (m_writeBuffer.size() > static_cast<size_t>(bytesWritten)) {
+        WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN // GLib port.
         std::memmove(m_writeBuffer.data(), m_writeBuffer.data() + bytesWritten, m_writeBuffer.size() - bytesWritten);
+        WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
         m_writeBuffer.shrink(m_writeBuffer.size() - bytesWritten);
     } else
         m_writeBuffer.shrink(0);

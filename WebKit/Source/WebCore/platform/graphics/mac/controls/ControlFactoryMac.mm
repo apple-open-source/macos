@@ -214,6 +214,13 @@ NSSliderCell *ControlFactoryMac::sliderCell() const
     return m_sliderCell.get();
 }
 
+NSStepperCell *ControlFactoryMac::stepperCell() const
+{
+    if (!m_stepperCell)
+        m_stepperCell = adoptNS([[NSStepperCell alloc] init]);
+    return m_stepperCell.get();
+}
+
 NSTextFieldCell *ControlFactoryMac::textFieldCell() const
 {
     if (!m_textFieldCell) {
@@ -236,12 +243,10 @@ std::unique_ptr<PlatformControl> ControlFactoryMac::createPlatformButton(ButtonP
     return makeUnique<ButtonMac>(part, *this, part.type() == StyleAppearance::DefaultButton ? defaultButtonCell() : buttonCell());
 }
 
-#if ENABLE(INPUT_TYPE_COLOR)
 std::unique_ptr<PlatformControl> ControlFactoryMac::createPlatformColorWell(ColorWellPart& part)
 {
     return makeUnique<ColorWellMac>(part, *this, buttonCell());
 }
-#endif
 
 #if ENABLE(SERVICE_CONTROLS)
 std::unique_ptr<PlatformControl> ControlFactoryMac::createPlatformImageControlsButton(ImageControlsButtonPart& part)
@@ -252,7 +257,7 @@ std::unique_ptr<PlatformControl> ControlFactoryMac::createPlatformImageControlsB
 
 std::unique_ptr<PlatformControl> ControlFactoryMac::createPlatformInnerSpinButton(InnerSpinButtonPart& part)
 {
-    return makeUnique<InnerSpinButtonMac>(part, *this);
+    return makeUnique<InnerSpinButtonMac>(part, *this, stepperCell());
 }
 
 std::unique_ptr<PlatformControl> ControlFactoryMac::createPlatformMenuList(MenuListPart& part)

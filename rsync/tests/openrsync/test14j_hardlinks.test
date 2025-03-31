@@ -1,0 +1,203 @@
+#! /bin/sh
+
+set -e
+set -u
+
+. ${tstdir-.}/lib.sh
+. ${tstdir-.}/conf.sh
+
+# Check that each file in the given dir whose name matches the given pattern
+# has exactly the given link count.  Also check that if the link count
+# is greater than one then all matching files have the same inode.
+#
+check_linkage() {
+    [ $# -eq 3 ]
+    local dir=$1
+    local fnpat=$2
+    local nlinks=$3
+    local inode=0
+
+    find "${dir}" -type f -name "${fnpat}" -exec stat -f '%l %i' {} \; | while read line ; do
+	set -- $line
+	[ $1 -eq ${nlinks} ]
+
+	if [ ${nlinks} -gt 1 ] ; then
+	    if [ ${inode} -eq 0 ] ; then
+		inode=$2
+	    else
+		[ ${inode} -eq $2 ]
+	    fi
+	fi
+    done
+}
+
+rm -rf src dst
+mkdir src
+
+rm -rf src dst
+mkdir src
+
+jot 17 9 > src/b
+for f in c x y ; do
+    ln src/b src/$f
+done
+
+nlinks=$(stat -f %l src/b)
+
+rsync -axSH -- src/ dst/
+compare_trees -t src dst
+
+echo
+echo 'Test 1: test multiple different itemizations for hardlinks (leader before fifo)'
+
+ln src/b src/a
+chmod 400 src/b
+rm -f dst/c
+mkfifo dst/c
+touch -A -59 dst/c
+
+rsync -aixSH -- src/ dst/ | tee log
+compare_trees -t src dst
+
+echo "Test 1.1: check linkage"
+check_linkage dst '[abcxy]' $((nlinks + 1))
+
+echo "Test 1.2: check itemization"
+X=$(egrep -c '^hf\+.* a => b' log)
+[ $X -eq 1 ]
+
+echo "Test 1.3: check itemization"
+X=$(egrep -c '^hf\.stp\..* c => b' log)
+[ $X -eq 1 ]
+
+
+
+echo
+echo 'Test 2: test multiple different itemizations for hardlinks (leader after fifo)'
+
+rm -f src/a dst/a dst/b
+mkfifo dst/b
+chmod 400 src/c
+touch -A -59 dst/c
+
+rsync -aixSH -- src/ dst/ | tee log
+compare_trees -t src dst
+
+echo "Test 2.1: check linkage"
+check_linkage dst '[bcxy]' ${nlinks}
+
+echo "Test 2.2: check itemization"
+X=$(egrep -c '^hf\+.* b => c' log)
+[ $X -eq 1 ]
+
+echo "Test 2.3: check itemization"
+X=$(egrep -c '^hf\.\.t\..* => c' log)
+[ $X -eq 2 ]
+
+
+rm -rf src dst
+mkdir src
+
+rm -rf src dst
+mkdir src
+
+jot 17 9 > src/b
+for f in c x y ; do
+    ln src/b src/$f
+done
+
+nlinks=$(stat -f %l src/b)
+
+rsync -axSH -- src/ dst/
+compare_trees -t src dst
+
+
+# Unlike rsync3, rsync2 does not gratuitously delete
+# an empty dest dir to make way for a hardlink.
+#
+if [ -n "${RSYNC_PREFIX_DEST}" ] ; then
+    V=$(${RSYNC_SERVER} --version | head -1 | awk '{printf "%d", $3}')
+else
+    V=$(rsync --version | head -1 | awk '{printf "%d", $3}')
+fi
+
+if [ "$V" = "2" ] ; then
+    opts="--force --delete"
+else
+    opts=""
+fi
+
+echo 'Test 3: test multiple different itemizations for hardlinks (leader before dir)'
+
+ln src/b src/a
+chmod 400 src/b
+rm -f dst/c
+mkdir dst/c
+touch -A -59 dst/c
+
+rsync -aixSH ${opts} -- src/ dst/ | tee log
+compare_trees -t src dst
+
+echo "Test 3.1: check linkage"
+check_linkage dst '[abcxy]' $((nlinks + 1))
+
+echo "Test 3.2: check itemization"
+X=$(egrep -c '^hf\+.* a => b' log)
+[ $X -eq 1 ]
+
+echo "Test 3.3: check itemization"
+if [ "$V" = "2" ] ; then
+    X=$(egrep -c '^hf\+..* c => b' log)
+else
+    X=$(egrep -c '^hf\.stp\..* c => b' log)
+fi
+
+[ $X -eq 1 ]
+
+
+echo
+echo 'Test 4: test multiple different itemizations for hardlinks (leader after dir)'
+
+rm -f src/a dst/a dst/b
+mkdir dst/b
+chmod 400 src/c
+touch -A -59 dst/c
+
+rsync -aixSH -- src/ dst/ | tee log
+compare_trees -t src dst
+
+echo "Test 4.1: check linkage"
+check_linkage dst '[bcxy]' ${nlinks}
+
+echo "Test 4.2: check itemization"
+X=$(egrep -c '^hf\+.* b => c' log)
+[ $X -eq 1 ]
+
+echo "Test 4.3: check itemization"
+X=$(egrep -c '^hf\.\.t\..* => c' log)
+[ $X -eq 2 ]
+
+
+jot 19 5 > src/z
+
+mkdir -p src/d1/d22/d333/d4444/d55555
+
+for i in $(seq 1 777) ; do
+    ln src/b src/d1/m$i
+    ln src/b src/d1/d22/m$i
+    ln src/b src/d1/d22/d333/m$i
+    ln src/b src/d1/d22/d333/d4444/m$i
+    ln src/b src/d1/d22/d333/d4444/d55555/m$i
+    date > src/d1/d22/d333/d4444/d55555/p$i
+done
+
+nlinks=$(stat -f %l src/b)
+
+echo
+echo 'Test 5: test thousands of hard linked files across multiple dirs'
+
+rsync -aixSH -- src/ dst/ > log
+compare_trees -t src dst
+
+echo "Test 5.1: check linkage"
+check_linkage dst '[bcxym]*' ${nlinks}

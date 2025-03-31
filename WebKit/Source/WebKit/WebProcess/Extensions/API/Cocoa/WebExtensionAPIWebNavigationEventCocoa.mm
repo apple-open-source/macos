@@ -32,7 +32,6 @@
 
 #import "MessageSenderInlines.h"
 #import "WebExtensionContextMessages.h"
-#import "WebPageProxy.h"
 #import "WebProcess.h"
 #import "_WKWebExtensionWebNavigationURLFilter.h"
 
@@ -57,7 +56,7 @@ void WebExtensionAPIWebNavigationEvent::invokeListenersWithArgument(id argument,
     }
 }
 
-void WebExtensionAPIWebNavigationEvent::addListener(WebPage& page, RefPtr<WebExtensionCallbackHandler> listener, NSDictionary *filter, NSString **outExceptionString)
+void WebExtensionAPIWebNavigationEvent::addListener(WebCore::FrameIdentifier frameIdentifier, RefPtr<WebExtensionCallbackHandler> listener, NSDictionary *filter, NSString **outExceptionString)
 {
     _WKWebExtensionWebNavigationURLFilter *parsedFilter;
     if (filter) {
@@ -66,13 +65,13 @@ void WebExtensionAPIWebNavigationEvent::addListener(WebPage& page, RefPtr<WebExt
             return;
     }
 
-    m_pageProxyIdentifier = page.webPageProxyIdentifier();
+    m_frameIdentifier = frameIdentifier;
     m_listeners.append({ listener, parsedFilter });
 
-    WebProcess::singleton().send(Messages::WebExtensionContext::AddListener(m_pageProxyIdentifier, m_type, contentWorldType()), extensionContext().identifier());
+    WebProcess::singleton().send(Messages::WebExtensionContext::AddListener(*m_frameIdentifier, m_type, contentWorldType()), extensionContext().identifier());
 }
 
-void WebExtensionAPIWebNavigationEvent::removeListener(WebPage& page, RefPtr<WebExtensionCallbackHandler> listener)
+void WebExtensionAPIWebNavigationEvent::removeListener(WebCore::FrameIdentifier frameIdentifier, RefPtr<WebExtensionCallbackHandler> listener)
 {
     auto removedCount = m_listeners.removeAllMatching([&](auto& entry) {
         return entry.first->callbackFunction() == listener->callbackFunction();
@@ -81,9 +80,9 @@ void WebExtensionAPIWebNavigationEvent::removeListener(WebPage& page, RefPtr<Web
     if (!removedCount)
         return;
 
-    ASSERT(page.webPageProxyIdentifier() == m_pageProxyIdentifier);
+    ASSERT(frameIdentifier == m_frameIdentifier);
 
-    WebProcess::singleton().send(Messages::WebExtensionContext::RemoveListener(m_pageProxyIdentifier, m_type, contentWorldType(), removedCount), extensionContext().identifier());
+    WebProcess::singleton().send(Messages::WebExtensionContext::RemoveListener(*m_frameIdentifier, m_type, contentWorldType(), removedCount), extensionContext().identifier());
 }
 
 bool WebExtensionAPIWebNavigationEvent::hasListener(RefPtr<WebExtensionCallbackHandler> listener)
@@ -98,7 +97,7 @@ void WebExtensionAPIWebNavigationEvent::removeAllListeners()
     if (m_listeners.isEmpty())
         return;
 
-    WebProcess::singleton().send(Messages::WebExtensionContext::RemoveListener(m_pageProxyIdentifier, m_type, contentWorldType(), m_listeners.size()), extensionContext().identifier());
+    WebProcess::singleton().send(Messages::WebExtensionContext::RemoveListener(*m_frameIdentifier, m_type, contentWorldType(), m_listeners.size()), extensionContext().identifier());
 
     m_listeners.clear();
 }

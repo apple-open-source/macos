@@ -1265,6 +1265,7 @@ int dkioctl(dev_t dev, u_long cmd, caddr_t data, int flags, proc_t proc)
 
     switch ( cmd )
     {
+        #pragma mark DKIOCGETBLOCKSIZE
         case DKIOCGETBLOCKSIZE:                                  // (uint32_t *)
         {
             //
@@ -1275,6 +1276,7 @@ int dkioctl(dev_t dev, u_long cmd, caddr_t data, int flags, proc_t proc)
 
         } break;
 
+        #pragma mark DKIOCGETBLOCKCOUNT
         case DKIOCGETBLOCKCOUNT:                                 // (uint64_t *)
         {
             //
@@ -1290,6 +1292,7 @@ int dkioctl(dev_t dev, u_long cmd, caddr_t data, int flags, proc_t proc)
 
         } break;
             
+        #pragma mark DKIOCGETMAXBLOCKCOUNTREAD
         case DKIOCGETMAXBLOCKCOUNTREAD:                          // (uint64_t *)
         {
             //
@@ -1308,6 +1311,7 @@ int dkioctl(dev_t dev, u_long cmd, caddr_t data, int flags, proc_t proc)
 
         } break;
 
+        #pragma mark DKIOCGETMAXBLOCKCOUNTWRITE
         case DKIOCGETMAXBLOCKCOUNTWRITE:                         // (uint64_t *)
         {
             //
@@ -1326,6 +1330,7 @@ int dkioctl(dev_t dev, u_long cmd, caddr_t data, int flags, proc_t proc)
 
         } break;
 
+        #pragma mark DKIOCGETMAXBYTECOUNTREAD
         case DKIOCGETMAXBYTECOUNTREAD:                           // (uint64_t *)
         {
             //
@@ -1344,6 +1349,7 @@ int dkioctl(dev_t dev, u_long cmd, caddr_t data, int flags, proc_t proc)
 
         } break;
 
+        #pragma mark DKIOCGETMAXBYTECOUNTWRITE
         case DKIOCGETMAXBYTECOUNTWRITE:                          // (uint64_t *)
         {
             //
@@ -1362,6 +1368,7 @@ int dkioctl(dev_t dev, u_long cmd, caddr_t data, int flags, proc_t proc)
 
         } break;
 
+        #pragma mark DKIOCGETMAXSEGMENTCOUNTREAD
         case DKIOCGETMAXSEGMENTCOUNTREAD:                        // (uint64_t *)
         {
             //
@@ -1380,6 +1387,7 @@ int dkioctl(dev_t dev, u_long cmd, caddr_t data, int flags, proc_t proc)
 
         } break;
 
+        #pragma mark DKIOCGETMAXSEGMENTCOUNTWRITE
         case DKIOCGETMAXSEGMENTCOUNTWRITE:                       // (uint64_t *)
         {
             //
@@ -1398,6 +1406,7 @@ int dkioctl(dev_t dev, u_long cmd, caddr_t data, int flags, proc_t proc)
 
         } break;
 
+        #pragma mark DKIOCGETMAXSEGMENTBYTECOUNTREAD
         case DKIOCGETMAXSEGMENTBYTECOUNTREAD:                    // (uint64_t *)
         {
             //
@@ -1416,6 +1425,7 @@ int dkioctl(dev_t dev, u_long cmd, caddr_t data, int flags, proc_t proc)
 
         } break;
 
+        #pragma mark DKIOCGETMAXSEGMENTBYTECOUNTWRITE
         case DKIOCGETMAXSEGMENTBYTECOUNTWRITE:                   // (uint64_t *)
         {
             //
@@ -1434,6 +1444,7 @@ int dkioctl(dev_t dev, u_long cmd, caddr_t data, int flags, proc_t proc)
 
         } break;
 
+        #pragma mark DKIOCGETMINSEGMENTALIGNMENTBYTECOUNT
         case DKIOCGETMINSEGMENTALIGNMENTBYTECOUNT:               // (uint64_t *)
         {
             //
@@ -1452,6 +1463,7 @@ int dkioctl(dev_t dev, u_long cmd, caddr_t data, int flags, proc_t proc)
 
         } break;
 
+        #pragma mark DKIOCGETMAXSEGMENTADDRESSABLEBITCOUNT
         case DKIOCGETMAXSEGMENTADDRESSABLEBITCOUNT:              // (uint64_t *)
         {
             //
@@ -1470,6 +1482,7 @@ int dkioctl(dev_t dev, u_long cmd, caddr_t data, int flags, proc_t proc)
 
         } break;
 
+        #pragma mark DKIOCGETPHYSICALBLOCKSIZE
         case DKIOCGETPHYSICALBLOCKSIZE:                          // (uint32_t *)
         {
             //
@@ -1488,6 +1501,7 @@ int dkioctl(dev_t dev, u_long cmd, caddr_t data, int flags, proc_t proc)
 
         } break;
 
+        #pragma mark DKIOCGETCOMMANDPOOLSIZE
         case DKIOCGETCOMMANDPOOLSIZE:                            // (uint32_t *)
         {
             //
@@ -1506,6 +1520,7 @@ int dkioctl(dev_t dev, u_long cmd, caddr_t data, int flags, proc_t proc)
 
         } break;
 
+        #pragma mark DKIOCISFORMATTED
         case DKIOCISFORMATTED:                                   // (uint32_t *)
         {
             //
@@ -1516,6 +1531,7 @@ int dkioctl(dev_t dev, u_long cmd, caddr_t data, int flags, proc_t proc)
 
         } break;
 
+        #pragma mark DKIOCISWRITABLE
         case DKIOCISWRITABLE:                                    // (uint32_t *)
         {
             //
@@ -1526,6 +1542,7 @@ int dkioctl(dev_t dev, u_long cmd, caddr_t data, int flags, proc_t proc)
 
         } break;
 
+        #pragma mark DKIOCEJECT
         case DKIOCEJECT:                                               // (void)
         {
             //
@@ -1606,6 +1623,7 @@ int dkioctl(dev_t dev, u_long cmd, caddr_t data, int flags, proc_t proc)
 
         } break;
 
+        #pragma mark DKIOCFORMAT
         case DKIOCFORMAT:                            // (dk_format_capacity_t *)
         {
             //
@@ -1701,6 +1719,7 @@ int dkioctl(dev_t dev, u_long cmd, caddr_t data, int flags, proc_t proc)
 
         } break;
 
+        #pragma mark DKIOCGETFORMATCAPACITIES
         case DKIOCGETFORMATCAPACITIES:             // (dk_format_capacities_t *)
         {
             //
@@ -1804,6 +1823,7 @@ int dkioctl(dev_t dev, u_long cmd, caddr_t data, int flags, proc_t proc)
 
         } break;
 
+        #pragma mark DKIOCSYNCHRONIZECACHE
         case DKIOCSYNCHRONIZECACHE:                                    // (void)
         {
             //
@@ -1819,6 +1839,7 @@ int dkioctl(dev_t dev, u_long cmd, caddr_t data, int flags, proc_t proc)
 
         } break;
 
+        #pragma mark DKIOCSYNCHRONIZE
         case DKIOCSYNCHRONIZE:                             // (dk_synchronize_t)
         {
             //
@@ -1849,6 +1870,7 @@ int dkioctl(dev_t dev, u_long cmd, caddr_t data, int flags, proc_t proc)
 
         } break;
 
+        #pragma mark DKIOCUNMAP
         case DKIOCUNMAP:                                         // (dk_unmap_t)
         {
             //
@@ -1999,6 +2021,7 @@ int dkioctl(dev_t dev, u_long cmd, caddr_t data, int flags, proc_t proc)
 
         } break;
 
+        #pragma mark DKIOCGETPROVISIONSTATUS
         case DKIOCGETPROVISIONSTATUS:
         {
 
@@ -2057,6 +2080,7 @@ int dkioctl(dev_t dev, u_long cmd, caddr_t data, int flags, proc_t proc)
 
         } break;
 
+        #pragma mark DKIOCREQUESTIDLE
         case DKIOCREQUESTIDLE:                                         // (void)
         {
             //
@@ -2080,6 +2104,7 @@ int dkioctl(dev_t dev, u_long cmd, caddr_t data, int flags, proc_t proc)
 
         } break;
 
+        #pragma mark DKIOCGETBSDUNIT
         case DKIOCGETBSDUNIT:                                    // (uint32_t *)
         {
             //
@@ -2097,6 +2122,7 @@ int dkioctl(dev_t dev, u_long cmd, caddr_t data, int flags, proc_t proc)
 
         } break;
 
+        #pragma mark DKIOCGETFIRMWAREPATH
         case DKIOCGETFIRMWAREPATH:                     // (dk_firmware_path_t *)
         {
             //
@@ -2113,6 +2139,7 @@ int dkioctl(dev_t dev, u_long cmd, caddr_t data, int flags, proc_t proc)
 
         } break;
 
+        #pragma mark DKIOCGETERRORDESCRIPTION
         case DKIOCGETERRORDESCRIPTION:                     // (dk_error_description_t *)
         {
             //
@@ -2144,6 +2171,7 @@ int dkioctl(dev_t dev, u_long cmd, caddr_t data, int flags, proc_t proc)
 
         } break;
 
+        #pragma mark DKIOCISSOLIDSTATE
         case DKIOCISSOLIDSTATE:                                  // (uint32_t *)
         {
             //
@@ -2171,6 +2199,7 @@ int dkioctl(dev_t dev, u_long cmd, caddr_t data, int flags, proc_t proc)
 
         } break;
 
+        #pragma mark DKIOCISVIRTUAL
         case DKIOCISVIRTUAL:                                     // (uint32_t *)
         {
             //
@@ -2181,6 +2210,7 @@ int dkioctl(dev_t dev, u_long cmd, caddr_t data, int flags, proc_t proc)
 
         } break;
 
+        #pragma mark DKIOCGETBASE
         case DKIOCGETBASE:                                       // (uint64_t *)
         {
             //
@@ -2191,6 +2221,7 @@ int dkioctl(dev_t dev, u_long cmd, caddr_t data, int flags, proc_t proc)
 
         } break;
 
+        #pragma mark DKIOCGETFEATURES
         case DKIOCGETFEATURES:                                   // (uint32_t *)
         {
             //
@@ -2244,6 +2275,7 @@ int dkioctl(dev_t dev, u_long cmd, caddr_t data, int flags, proc_t proc)
 
         } break;
 
+        #pragma mark DKIOCGETTHROTTLEMASK
         case DKIOCGETTHROTTLEMASK:                               // (uint64_t *)
         {
             //
@@ -2254,6 +2286,7 @@ int dkioctl(dev_t dev, u_long cmd, caddr_t data, int flags, proc_t proc)
 
         } break;
 
+        #pragma mark DKIOCGETENCRYPTIONTYPE
         case DKIOCGETENCRYPTIONTYPE:                             // (uint32_t *)
         {
             //
@@ -2288,6 +2321,7 @@ int dkioctl(dev_t dev, u_long cmd, caddr_t data, int flags, proc_t proc)
 
         } break;
 
+        #pragma mark DKIOCISLOWPOWERMODE
         case DKIOCISLOWPOWERMODE:                                // (uint32_t *)
         {
             //
@@ -2315,6 +2349,7 @@ int dkioctl(dev_t dev, u_long cmd, caddr_t data, int flags, proc_t proc)
 
         } break;
             
+        #pragma mark DKIOCGETIOMINSATURATIONBYTECOUNT
         case DKIOCGETIOMINSATURATIONBYTECOUNT:                   // (uint32_t *)
         {
             //
@@ -2333,6 +2368,7 @@ int dkioctl(dev_t dev, u_long cmd, caddr_t data, int flags, proc_t proc)
             
         } break;
             
+        #pragma mark DKIOCGETLOCATION
         case DKIOCGETLOCATION:                                     // (uint64_t *)
         {
             
@@ -2397,6 +2433,7 @@ int dkioctl(dev_t dev, u_long cmd, caddr_t data, int flags, proc_t proc)
 ///w:start
 #if defined(DKIOCGETMAXSWAPWRITE) && defined(kIOMaximumSwapWriteKey)
 ///w:stop
+        #pragma mark DKIOCGETMAXSWAPWRITE
         case DKIOCGETMAXSWAPWRITE:                              // (uint64_t *)
         {
             //
@@ -2449,6 +2486,7 @@ int dkioctl_bdev(dev_t dev, u_long cmd, caddr_t data, int flags, proc_t proc)
 
     switch ( cmd )
     {
+        #pragma mark DKIOCGETBLOCKSIZE
         case DKIOCGETBLOCKSIZE:                                  // (uint32_t *)
         {
             //
@@ -2460,6 +2498,7 @@ int dkioctl_bdev(dev_t dev, u_long cmd, caddr_t data, int flags, proc_t proc)
 
         } break;
 
+        #pragma mark DKIOCSETBLOCKSIZE
         case DKIOCSETBLOCKSIZE:                                  // (uint32_t *)
         {
             //
@@ -2474,6 +2513,7 @@ int dkioctl_bdev(dev_t dev, u_long cmd, caddr_t data, int flags, proc_t proc)
 
         } break;
 
+        #pragma mark DKIOCGETBLOCKCOUNT
         case DKIOCGETBLOCKCOUNT:                                 // (uint64_t *)
         {
             //
@@ -2489,6 +2529,7 @@ int dkioctl_bdev(dev_t dev, u_long cmd, caddr_t data, int flags, proc_t proc)
 
         } break;
 
+        #pragma mark DKIOCLOCKPHYSICALEXTENTS
         case DKIOCLOCKPHYSICALEXTENTS:                                 // (void)
         {
             bool success;
@@ -2502,6 +2543,7 @@ int dkioctl_bdev(dev_t dev, u_long cmd, caddr_t data, int flags, proc_t proc)
 
         } break;
 
+        #pragma mark DKIOCGETPHYSICALEXTENT
         case DKIOCGETPHYSICALEXTENT:                   // (dk_physical_extent_t)
         {
             dk_physical_extent_t * request;
@@ -2554,12 +2596,14 @@ int dkioctl_bdev(dev_t dev, u_long cmd, caddr_t data, int flags, proc_t proc)
 
         } break;
 
+        #pragma mark DKIOCUNLOCKPHYSICALEXTENTS
         case DKIOCUNLOCKPHYSICALEXTENTS:                               // (void)
         {
             minor->media->unlockPhysicalExtents( minor->client );
 
         } break;
 
+        #pragma mark DKIOCSETTIER
         case DKIOCSETTIER:                                    // (dk_set_tier_t)
         {
             //
@@ -2663,6 +2707,7 @@ int dkioctl_cdev(dev_t dev, u_long cmd, caddr_t data, int flags, proc_t proc)
     switch ( cmd )
     {
 #if !TARGET_OS_OSX
+        #pragma mark _DKIOCSETSTATIC
         case _DKIOCSETSTATIC:                                          // (void)
         {
             minor->cdevOptions |= kIOStorageOptionIsStatic;

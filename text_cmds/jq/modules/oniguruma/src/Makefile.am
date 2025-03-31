@@ -2,15 +2,32 @@
 libname = libonig.la
 
 AM_CFLAGS = -Wall
-AM_CPPFLAGS = -I$(top_srcdir) -I$(includedir)
+AM_CPPFLAGS = -I$(top_srcdir)
 
-include_HEADERS = oniguruma.h oniggnu.h onigposix.h
+include_HEADERS = oniguruma.h oniggnu.h
+
+posix_headers = onigposix.h
+
+if ENABLE_POSIX_API
+posix_sources = regposix.c regposerr.c
+include_HEADERS += $(posix_headers)
+AM_CFLAGS += -DUSE_POSIX_API
+else
+posix_sources =
+endif
+
+if ENABLE_BINARY_COMPATIBLE_POSIX_API
+AM_CFLAGS += -DUSE_BINARY_COMPATIBLE_POSIX_API
+endif
+
+
 lib_LTLIBRARIES = $(libname)
 
 libonig_la_SOURCES = regint.h regparse.h regenc.h st.h \
-	regerror.c regparse.c regext.c regcomp.c regexec.c reggnu.c \
-	regenc.c regsyntax.c regtrav.c regversion.c st.c \
-	regposix.c regposerr.c \
+	regparse.c regcomp.c regexec.c \
+	regenc.c regerror.c regext.c regsyntax.c regtrav.c regversion.c st.c \
+	reggnu.c \
+  $(posix_sources) \
 	unicode.c \
 	unicode_unfold_key.c \
 	unicode_fold1_key.c \
@@ -33,19 +50,28 @@ libonig_la_SOURCES = regint.h regparse.h regenc.h st.h \
 	gb18030.c koi8_r.c cp1251.c \
 	onig_init.c
 
-libonig_la_LDFLAGS = -version-info $(LTVERSION)
-
 EXTRA_DIST = koi8.c mktable.c \
 	unicode_fold_data.c unicode_property_data.c \
 	unicode_property_data_posix.c \
-	make_unicode_fold.sh make_unicode_fold_data.py \
-	make_unicode_property.sh make_unicode_property_data.py \
-	gperf_fold_key_conv.py gperf_unfold_key_conv.py \
-	unicode-7.0/unicode_fold1_key.c unicode-7.0/unicode_fold2_key.c \
-	unicode-7.0/unicode_fold3_key.c unicode-7.0/unicode_fold_data.c \
-	unicode-7.0/unicode_property_data.c \
-	unicode-7.0/unicode_property_data_posix.c \
-	unicode-7.0/unicode_unfold_key.c
+	unicode_egcb_data.c unicode_wb_data.c
+
+
+libonig_la_LDFLAGS = $(EXTRA_LIBONIG_LDFLAGS) -version-info $(LTVERSION)
+
+if USE_LIBONIG_DEF_FILE
+
+libonig_la_LDFLAGS +=  -Wl,--output-def,$(LIBONIG_DEF_FILE)
+
+install-data-hook:
+	echo "$(LIBTOOL) $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=install $(INSTALL_DATA) $(LIBONIG_DEF_FILE) $(DESTDIR)$(libdir)"; \
+	$(LIBTOOL) $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=install $(INSTALL_DATA) $(LIBONIG_DEF_FILE) $(DESTDIR)$(libdir) || exit 1
+
+uninstall-hook:
+	echo " $(LIBTOOL) $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=uninstall rm -f '$(DESTDIR)$(libdir)/$(LIBONIG_DEF_FILE)'"; \
+	$(LIBTOOL) $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=uninstall rm -f "$(DESTDIR)$(libdir)/$(LIBONIG_DEF_FILE)"
+
+endif
+
 
 dll:
 	$(CXX) -shared -Wl,--output-def,libonig.def -o libonig.dll *.o \

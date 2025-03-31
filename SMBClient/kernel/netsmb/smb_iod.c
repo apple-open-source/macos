@@ -87,7 +87,7 @@ int smb_iod_get_interface_info(struct smbiod *iod);
 static int smb_iod_main_ch_failover(struct smbiod *iod);
 static void smb_iod_alt_ch_failover(struct smbiod *iod);
 static int smb_iod_proclaim_main(struct smbiod *iod, struct smbiod *iod_main);
-static void smb_iod_read_thread(void *arg);
+static void smb_iod_read_thread(void *arg, wait_result_t wr);
 static void smb_iod_detach_con_entry(struct smbiod *iod);
 static void smb_iod_lease_dequeue(struct smbiod *iod);
 
@@ -3874,7 +3874,7 @@ smb_iod_main(struct smbiod *iod)
 	return;
 }
 
-static void smb_iod_thread(void *arg)
+static void smb_iod_thread(void *arg, __unused wait_result_t wr)
 {
 	struct smbiod *iod = arg;
     struct smb_session *sessionp = iod->iod_session;
@@ -4084,7 +4084,7 @@ smb_iod_lease_enqueue(struct smbiod *received_iod,
 }
 
 static void
-smb_iod_read_thread(void *arg)
+smb_iod_read_thread(void *arg, __unused wait_result_t wr)
 {
     struct smbiod *iod = arg;
 

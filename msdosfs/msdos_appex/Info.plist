@@ -8,7 +8,7 @@
 		<false/>
 		<key>FSSupportsBlockResources</key>
 		<true/>
-		<key>FSSupportsKOIO</key>
+		<key>FSSupportsKernelOffloadedIO</key>
 		<true/>
 		<key>FSShortName</key>
 		<string>msdos</string>
@@ -292,11 +292,11 @@
 			<key>shortOptions</key>
 			<string>NB:F:I:O:S:P:a:b:c:e:f:h:i:k:m:n:o:r:s:u:v:</string>
 		</dict>
-        <key>FSActivateOptionSyntax</key>
-        <dict>
-            <key>shortOptions</key>
-            <string>u:g:m:o:</string>
-        </dict>
+		<key>FSActivateOptionSyntax</key>
+		<dict>
+			<key>shortOptions</key>
+			<string>u:g:m:o:</string>
+		</dict>
 	</dict>
 </dict>
 </plist>

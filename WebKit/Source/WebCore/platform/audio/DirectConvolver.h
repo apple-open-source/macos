@@ -41,7 +41,7 @@ class DirectConvolver final {
 public:
     explicit DirectConvolver(size_t inputBlockSize);
 
-    void process(AudioFloatArray* convolutionKernel, const float* sourceP, float* destP, size_t framesToProcess);
+    void process(AudioFloatArray* convolutionKernel, std::span<const float> source, std::span<float> destination);
 
     void reset();
 

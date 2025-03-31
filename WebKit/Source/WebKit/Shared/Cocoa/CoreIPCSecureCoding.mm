@@ -23,15 +23,15 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#if PLATFORM(COCOA)
-
 #import "config.h"
 #import "CoreIPCSecureCoding.h"
+
+#if PLATFORM(COCOA)
 
 #import "ArgumentCodersCocoa.h"
 #import "AuxiliaryProcessCreationParameters.h"
 #import "WKCrashReporter.h"
-#import <WebCore/RuntimeApplicationChecks.h>
+#import <wtf/RuntimeApplicationChecks.h>
 #import <wtf/TZoneMallocInlines.h>
 #import <wtf/text/StringHash.h>
 
@@ -44,22 +44,19 @@ static std::unique_ptr<HashSet<String>>& internalClassNamesExemptFromSecureCodin
     static dispatch_once_t onceToken;
     static NeverDestroyed<std::unique_ptr<HashSet<String>>> exemptClassNames;
     dispatch_once(&onceToken, ^{
-        if (WebCore::isInAuxiliaryProcess())
+        if (isInAuxiliaryProcess())
             return;
 
-        id object = [[NSUserDefaults standardUserDefaults] objectForKey:@"WebKitCrashOnSecureCodingWithExemptClassesKey"];
-        if (!object)
+        NSArray *array = [[NSUserDefaults standardUserDefaults] arrayForKey:@"WebKitCrashOnSecureCodingWithExemptClassesKey"];
+        if (!array)
             return;
 
         exemptClassNames.get() = WTF::makeUnique<HashSet<String>>();
 
-        if (![object isKindOfClass:NSArray.class])
-            return;
-
-        for (id value in (NSArray *)object) {
+        for (id value in array) {
             if (![value isKindOfClass:[NSString class]])
                 continue;
-            exemptClassNames.get()->add((NSString *)object);
+            exemptClassNames.get()->add((NSString *)value);
         }
     });
 
@@ -73,7 +70,7 @@ const HashSet<String>* classNamesExemptFromSecureCodingCrash()
 
 void applyProcessCreationParameters(const AuxiliaryProcessCreationParameters& parameters)
 {
-    RELEASE_ASSERT(WebCore::isInAuxiliaryProcess());
+    RELEASE_ASSERT(isInAuxiliaryProcess());
 
     auto& exemptClassNames = internalClassNamesExemptFromSecureCodingCrash();
     RELEASE_ASSERT(!exemptClassNames);
@@ -84,19 +81,17 @@ void applyProcessCreationParameters(const AuxiliaryProcessCreationParameters& pa
 
 } // namespace SecureCoding
 
+#if !HAVE(WK_SECURE_CODING_NSURLREQUEST)
 WTF_MAKE_TZONE_ALLOCATED_IMPL(CoreIPCSecureCoding);
+#endif
 
-bool CoreIPCSecureCoding::conformsToWebKitSecureCoding(id object)
+bool conformsToWebKitSecureCoding(id object)
 {
     return [object respondsToSelector:@selector(_webKitPropertyListData)]
         && [object respondsToSelector:@selector(_initWithWebKitPropertyListData:)];
 }
 
-bool CoreIPCSecureCoding::conformsToSecureCoding(id object)
-{
-    return [object conformsToProtocol:@protocol(NSSecureCoding)];
-}
-
+#if !HAVE(WK_SECURE_CODING_NSURLREQUEST)
 NO_RETURN static void crashWithClassName(Class objectClass)
 {
     WebKit::logAndSetCrashLogMessage("NSSecureCoding path used for unexpected object"_s);
@@ -120,6 +115,7 @@ CoreIPCSecureCoding::CoreIPCSecureCoding(id object)
 
     crashWithClassName([object class]);
 }
+#endif
 
 } // namespace WebKit
 

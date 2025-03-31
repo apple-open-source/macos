@@ -61,8 +61,6 @@ module ICU_Private [system] {
   // This file is obsolete and its contents moved to utf_old.h.
   exclude header "unicode/utf32.h"
 
-  export *
-
   explicit module BiDi {
     header "unicode/ubidi.h"
     header "unicode/ubiditransform.h"
@@ -135,8 +133,6 @@ module ICU_Private [system] {
     header "unicode/enumset.h"
     header "unicode/format.h"
     header "unicode/udisplaycontext.h"
-
-    export *
 
     explicit module Currency {
       header "unicode/ucurr.h"
@@ -225,6 +221,8 @@ module ICU_Private [system] {
       header "unicode/udatintv.h"
       export *
     }
+
+    export *
   }
 
   explicit module IDNA {
@@ -233,7 +231,7 @@ module ICU_Private [system] {
     export *
   }
 
-#if defined(BUILD_FOR_MACOS) && BUILD_FOR_MACOS
+#ifdef BUILD_FOR_MACOS
   explicit module IO {
     header "unicode/ustdio.h"
     header "unicode/ustream.h"
@@ -323,7 +321,6 @@ module ICU_Private [system] {
   }
 
   link "icucore"
-}
 
-module ICU_Private_Placeholder_NewFile [system] {
+  export *
 }

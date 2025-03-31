@@ -347,7 +347,7 @@ __private_extern__ void         vm_object_deactivate_pages(
 	vm_object_size_t        size,
 	boolean_t               kill_page,
 	boolean_t               reusable_page,
-	boolean_t               reusable_no_write,
+	boolean_t               kill_no_write,
 	struct pmap             *pmap,
 /* XXX TODO4K: need pmap_page_size here too? */
 	vm_map_offset_t         pmap_offset);

@@ -1,0 +1,85 @@
+#! /bin/sh
+
+. ${tstdir-.}/lib.sh
+. ${tstdir-.}/conf.sh
+
+## test 1
+echo "Test 1"
+rm -rf dir1 dir2 dir3
+# make the copy-from-here tree
+mkdir dir1
+cd dir1
+mkdir foo bar baz notempty
+touch notempty/file
+# make the tree we want to compare to
+mkdir ../dir2
+cd ../dir2
+mkdir notempty
+touch notempty/file
+cd ..
+
+rsync -a --prune-empty-dirs -- dir1/ dir3
+compare_trees dir2 dir3
+
+## test 2
+echo "Test 2"
+rm -rf dir1 dir2 dir3
+# make the copy-from-here tree
+mkdir dir1
+cd dir1
+mkdir foo bar baz notempty
+touch notempty/file
+# make the tree we want to compare to
+mkdir ../dir2
+cd ../dir2
+mkdir notempty
+touch notempty/file
+
+# make the target dir that should be manipulated by rsync
+mkdir ../dir3
+cd ../dir3
+mkdir foo bar baz
+cd ..
+
+rsync -a --prune-empty-dirs --delete -- dir1/ dir3
+compare_trees dir2 dir3
+
+## test3
+echo "Test 3"
+rm -rf dir1 dir2 dir3
+# make the copy-from-here tree
+mkdir dir1
+cd dir1
+mkdir foo
+
+# make the tree we want to compare to
+mkdir ../dir2
+cd ../dir2
+cd ..
+
+rsync -a --prune-empty-dirs -- dir1/foo dir3
+if [ -d dir3 ] ; then
+    compare_trees dir2 dir3
+fi
+
+## test 4
+echo "Test 4"
+rm -rf dir1 dir2 dir3
+# make the copy-from-here tree
+mkdir dir1
+cd dir1
+mkdir foo bar baz notempty
+touch notempty/file
+# make the tree we want to compare to
+mkdir ../dir2
+cd ../dir2
+mkdir foo notempty
+touch notempty/file
+
+mkdir ../dir3
+cd ../dir3
+mkdir foo bar baz
+cd ..
+
+rsync -a --delete --prune-empty-dirs --filter 'protect foo/' -- dir1/ dir3
+compare_trees dir2 dir3

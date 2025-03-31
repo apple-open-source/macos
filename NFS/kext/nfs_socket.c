@@ -2492,7 +2492,7 @@ nfs4_mount_callback_setup(struct nfsmount *nmp)
 	socket_t so = NULL;
 	socket_t so6 = NULL;
 	struct timeval timeo;
-	int error, on = 1;
+	int error = 0, on = 1;
 	in_port_t port;
 
 	lck_mtx_lock(get_lck_mtx(NLM_GLOBAL));
@@ -2508,9 +2508,11 @@ nfs4_mount_callback_setup(struct nfsmount *nmp)
 	nfs4_cb_so_usecount++;
 	TAILQ_INSERT_HEAD(&nfs4_cb_mounts, nmp, nm_cblink);
 
+	NFS_KDBG_ENTRY(NFSDBG_CB4_MOUNT_SETUP, nmp, nmp->nm_cbid, nfs4_cb_so_usecount, nfs_callback_port);
+
 	if (nfs4_cb_so) {
 		lck_mtx_unlock(get_lck_mtx(NLM_GLOBAL));
-		return;
+		goto out;
 	}
 
 	/* IPv4 */
@@ -2637,6 +2639,8 @@ fail:
 	} else {
 		lck_mtx_unlock(get_lck_mtx(NLM_GLOBAL));
 	}
+out:
+	NFS_KDBG_EXIT(NFSDBG_CB4_MOUNT_SETUP, nmp, nfs4_cb_port, nfs4_cb_port6, error);
 }
 
 /*
@@ -2738,16 +2742,19 @@ nfs4_cb_accept(socket_t so, __unused void *arg, __unused int waitflag)
 {
 	socket_t newso = NULL;
 	struct nfs_callback_socket *ncbsp;
-	struct nfsmount *nmp;
+	struct nfsmount *nmp = NULL;
 	struct timeval timeo, now;
-	int error, on = 1, ip;
+	int error = 0, on = 1, ip = 0;
+
+	NFS_KDBG_ENTRY(NFSDBG_CB4_ACCEPT, so, nfs4_cb_so, nfs4_cb_so6);
 
 	if (so == nfs4_cb_so) {
 		ip = 4;
 	} else if (so == nfs4_cb_so6) {
 		ip = 6;
 	} else {
-		return;
+		error = EPFNOSUPPORT;
+		goto out;
 	}
 
 	/* allocate/initialize a new nfs_callback_socket */
@@ -2763,7 +2770,7 @@ nfs4_cb_accept(socket_t so, __unused void *arg, __unused int waitflag)
 	if (error) {
 		log(LOG_INFO, "nfs callback accept: error %d accepting IPv%d socket\n", error, ip);
 		kfree_type(struct nfs_callback_socket, ncbsp);
-		return;
+		goto out;
 	}
 
 	/* set up the new socket */
@@ -2819,6 +2826,9 @@ nfs4_cb_accept(socket_t so, __unused void *arg, __unused int waitflag)
 	}
 
 	lck_mtx_unlock(get_lck_mtx(NLM_GLOBAL));
+
+out:
+	NFS_KDBG_EXIT(NFSDBG_CB4_ACCEPT, so, ip, nmp, error);
 }
 
 /*
@@ -2833,6 +2843,8 @@ nfs4_cb_rcv(socket_t so, void *arg, __unused int waitflag)
 	struct timeval now;
 	mbuf_t m;
 	int error = 0, recv = 1;
+
+	NFS_KDBG_ENTRY(NFSDBG_CB4_RCV, so, ncbsp, ncbsp->ncbs_flags, ncbsp->ncbs_stamp);
 
 	lck_mtx_lock(get_lck_mtx(NLM_GLOBAL));
 	while (ncbsp->ncbs_flags & NCBSOCK_UPCALL) {
@@ -2869,6 +2881,8 @@ nfs4_cb_rcv(socket_t so, void *arg, __unused int waitflag)
 	ncbsp->ncbs_flags &= ~NCBSOCK_UPCALL;
 	lck_mtx_unlock(get_lck_mtx(NLM_GLOBAL));
 	wakeup(ncbsp);
+
+	NFS_KDBG_EXIT(NFSDBG_CB4_RCV, so, ncbsp->ncbs_flags, ncbsp->ncbs_stamp, error);
 }
 
 /*
@@ -2881,7 +2895,7 @@ nfs4_cb_handler(struct nfs_callback_socket *ncbsp, mbuf_t mreq)
 	struct nfsm_chain nmreq, nmrep;
 	mbuf_t mhead = NULL, mrest = NULL, m;
 	struct msghdr msg;
-	struct nfsmount *nmp;
+	struct nfsmount *nmp = NULL;
 	fhandle_t *fh;
 	nfsnode_t np;
 	nfs_stateid stateid;
@@ -2891,6 +2905,8 @@ nfs4_cb_handler(struct nfs_callback_socket *ncbsp, mbuf_t mreq)
 	uint32_t numres, *pnumres;
 	int error = 0, replen, len;
 	size_t sentlen = 0;
+
+	NFS_KDBG_ENTRY(NFSDBG_CB4_HANDLER, ncbsp, ncbsp->ncbs_so, ncbsp->ncbs_flags, ncbsp->ncbs_stamp);
 
 	xid = numops = op = status = procnum = taglen = cbid = 0;
 	fh = zalloc(get_zone(NFS_FILE_HANDLE_ZONE));
@@ -2930,9 +2946,12 @@ nfs4_cb_handler(struct nfs_callback_socket *ncbsp, mbuf_t mreq)
 
 	switch (procnum) {
 	case NFSPROC4_CB_NULL:
+		OSAddAtomic64(1, &nfsclntstats.cbopcntv4[procnum]);
 		status = NFSERR_RETVOID;
+		NFS_KDBG_INFO(NFSDBG_CB4_HANDLER, 0xabc001, ncbsp, ncbsp->ncbs_so, status);
 		break;
 	case NFSPROC4_CB_COMPOUND:
+		OSAddAtomic64(1, &nfsclntstats.cbopcntv4[procnum]);
 		/* tag, minorversion, cb ident, numops, op array */
 		nfsm_chain_get_32(error, &nmreq, taglen);       /* tag length */
 		nfsm_assert(error, (val <= NFS4_OPAQUE_LIMIT), EBADRPC);
@@ -2987,6 +3006,7 @@ nfs4_cb_handler(struct nfs_callback_socket *ncbsp, mbuf_t mreq)
 		if (nmp) {
 			nmp->nm_cbrefs++;
 		}
+		NFS_KDBG_INFO(NFSDBG_CB4_HANDLER, 0xabc002, ncbsp, nmp, nmp ? nmp->nm_cbrefs : 0);
 		lck_mtx_unlock(get_lck_mtx(NLM_GLOBAL));
 		if (!nmp) {
 			/* if no mount match, just drop socket. */
@@ -3002,8 +3022,10 @@ nfs4_cb_handler(struct nfs_callback_socket *ncbsp, mbuf_t mreq)
 			if (error) {
 				break;
 			}
+			NFS_KDBG_INFO(NFSDBG_CB4_HANDLER, 0xabc003, ncbsp, op, numops);
 			switch (op) {
 			case NFS_OP_CB_GETATTR:
+				OSAddAtomic64(1, &nfsclntstats.cbopcntv4[op]);
 				// (FH, BITMAP) -> (STATUS, BITMAP, ATTRS)
 				np = NULL;
 				nfsm_chain_get_fh(error, &nmreq, NFS_VER4, fh);
@@ -3068,6 +3090,7 @@ nfs4_cb_handler(struct nfs_callback_socket *ncbsp, mbuf_t mreq)
 				 */
 				break;
 			case NFS_OP_CB_RECALL:
+				OSAddAtomic64(1, &nfsclntstats.cbopcntv4[op]);
 				// (STATEID, TRUNCATE, FH) -> (STATUS)
 				np = NULL;
 				nfsm_chain_get_stateid(error, &nmreq, &stateid);
@@ -3238,6 +3261,7 @@ out:
 		mbuf_freem(mreq);
 	}
 	NFS_ZFREE(get_zone(NFS_FILE_HANDLE_ZONE), fh);
+	NFS_KDBG_EXIT(NFSDBG_CB4_HANDLER, ncbsp, nmp, sentlen, error);
 	return error;
 }
 #endif /* CONFIG_NFS4 */
@@ -6217,7 +6241,7 @@ int
 nfs_can_squish(struct nfsmount *nmp)
 {
 	uint64_t flags = vfs_flags(nmp->nm_mountp);
-	int softsquish = ((nfs_squishy_flags & NFS_SQUISH_SOFT) & NMFLAG(nmp, SOFT));
+	int softsquish = ((nfs_squishy_flags & NFS_SQUISH_SOFT) && NMFLAG(nmp, SOFT));
 
 	if (!softsquish && (nfs_squishy_flags & NFS_SQUISH_MOBILE_ONLY) && nfs_is_mobile == 0) {
 		return 0;

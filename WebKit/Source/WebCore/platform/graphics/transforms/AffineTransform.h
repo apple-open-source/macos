@@ -207,13 +207,8 @@ public:
         return AffineTransform(scale.width(), 0, 0, scale.height(), 0, 0);
     }
 
-    static AffineTransform makeRotation(double angleInDegrees, FloatPoint center = { })
-    {
-        auto matrix = makeTranslation(toFloatSize(center));
-        matrix.rotate(angleInDegrees);
-        matrix.translate(-toFloatSize(center));
-        return matrix;
-    }
+    WEBCORE_EXPORT static AffineTransform makeRotation(double angleInDegrees, FloatPoint center);
+    WEBCORE_EXPORT static AffineTransform makeRotation(double angleInDegrees);
 
     // decompose the matrix into its component parts
     typedef struct {

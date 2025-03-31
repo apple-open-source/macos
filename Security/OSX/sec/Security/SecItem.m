@@ -469,6 +469,21 @@ SecItemCreateFromAttributeDictionary(CFDictionaryRef refAttributes) {
 
 typedef OSStatus (*secitem_operation)(CFDictionaryRef attributes, CFTypeRef *result);
 
+static OSStatus item_add(CFDictionaryRef attributes, CFTypeRef *result)
+{
+    return SecItemAdd(attributes, result);
+}
+
+static OSStatus item_delete(CFDictionaryRef attributes, __unused CFTypeRef *result)
+{
+    return SecItemDelete(attributes);
+}
+
+static OSStatus item_copymatching(CFDictionaryRef attributes, CFTypeRef *result)
+{
+    return SecItemCopyMatching(attributes, result);
+}
+
 static bool explode_identity(CFDictionaryRef attributes, secitem_operation operation, 
     OSStatus *return_status, CFTypeRef *return_result)
 {
@@ -495,7 +510,7 @@ static bool explode_identity(CFDictionaryRef attributes, secitem_operation opera
                 /* an identity is first and foremost a key, but it can have multiple
                    certs associated with it: so we identify it by the cert */
                 status = operation(partial_query, return_result ? &result : NULL);
-                if ((operation == (secitem_operation)SecItemAdd) &&
+                if ((operation == item_add) &&
                     (status == errSecDuplicateItem)) {
                         duplicate_cert = true;
                         status = errSecSuccess;
@@ -505,7 +520,7 @@ static bool explode_identity(CFDictionaryRef attributes, secitem_operation opera
 					bool skip_key_operation = false;
 	
 					/* if the key is still in use, skip deleting it */
-					if (operation == (secitem_operation)SecItemDelete) {
+					if (operation == item_delete) {
 						// find certs with cert.pkhh == keys.klbl
 						CFDictionaryRef key_dict = NULL, query_dict = NULL;
 						CFDataRef pkhh = NULL;
@@ -535,7 +550,7 @@ static bool explode_identity(CFDictionaryRef attributes, secitem_operation opera
 
 
 	                    status = operation(partial_query, NULL);
-	                    if ((operation == (secitem_operation)SecItemAdd) &&
+	                    if ((operation == item_add) &&
 	                        (status == errSecDuplicateItem) &&
 	                        !duplicate_cert)
 	                            status = errSecSuccess;
@@ -576,7 +591,7 @@ static bool explode_identity(CFDictionaryRef attributes, secitem_operation opera
     } else {
 		value = CFDictionaryGetValue(attributes, kSecClass);
 		if (value && CFEqual(kSecClassIdentity, value) && 
-			(operation == (secitem_operation)SecItemDelete)) {
+			(operation == item_delete)) {
 			CFMutableDictionaryRef dict = CFDictionaryCreateMutableCopy(kCFAllocatorDefault, 0, attributes);
 			CFDictionaryRemoveValue(dict, kSecClass);
 			CFDictionarySetValue(dict, kSecClass, kSecClassCertificate);
@@ -1898,7 +1913,7 @@ OSStatus SecItemAdd(CFDictionaryRef attributes, CFTypeRef *result) {
         os_activity_t activity = os_activity_create("SecItemAdd_ios", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_DEFAULT);
         os_activity_scope(activity);
 
-        require_quiet(!explode_identity(attrs.dictionary, (secitem_operation)SecItemAdd, &status, result), errOut);
+        require_quiet(!explode_identity(attrs.dictionary, item_add, &status, result), errOut);
         infer_cert_label(&attrs);
 
         status = SecOSStatusWith(^bool(CFErrorRef *error) {
@@ -1990,7 +2005,7 @@ OSStatus SecItemCopyMatching(CFDictionaryRef inQuery, CFTypeRef *result) {
         os_activity_t activity = os_activity_create("SecItemCopyMatching_ios", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_DEFAULT);
         os_activity_scope(activity);
 
-        require_quiet(!explode_identity(query.dictionary, (secitem_operation)SecItemCopyMatching, &status, result), errOut);
+        require_quiet(!explode_identity(query.dictionary, item_copymatching, &status, result), errOut);
 
         bool wants_data = cf_bool_value(CFDictionaryGetValue(query.dictionary, kSecReturnData));
         bool wants_attributes = cf_bool_value(CFDictionaryGetValue(query.dictionary, kSecReturnAttributes));
@@ -2212,7 +2227,7 @@ OSStatus SecItemDelete(CFDictionaryRef inQuery) {
         os_activity_scope(activity);
 
         require_noerr_quiet(status = explode_persistent_identity_ref(&query), errOut);
-        require_quiet(!explode_identity(query.dictionary, (secitem_operation)SecItemDelete, &status, NULL), errOut);
+        require_quiet(!explode_identity(query.dictionary, item_delete, &status, NULL), errOut);
 
         status = SecOSStatusWith(^bool(CFErrorRef *error) {
             return SecItemAuthDoQuery(&query, NULL, SecItemDelete, error, ^bool(TKClientTokenSession *tokenSession, CFDictionaryRef query, CFDictionaryRef attributes, CFDictionaryRef auth_params, CFErrorRef *error) {

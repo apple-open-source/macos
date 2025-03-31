@@ -31,8 +31,6 @@
 
 #pragma once
 
-#if ENABLE(DATE_AND_TIME_INPUT_TYPES)
-
 #include "DateTimeChooser.h"
 #include "DateTimeChooserClient.h"
 #include "DateTimeEditElement.h"
@@ -48,8 +46,9 @@ class DateComponents;
 struct DateTimeChooserParameters;
 
 // A super class of date, datetime, datetime-local, month, time, and week types.
-class BaseDateAndTimeInputType : public InputType, private DateTimeChooserClient, private DateTimeEditElementEditControlOwner {
+class BaseDateAndTimeInputType : public InputType, public DateTimeChooserClient, private DateTimeEditElementEditControlOwner {
     WTF_MAKE_TZONE_ALLOCATED(BaseDateAndTimeInputType);
+    WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(BaseDateAndTimeInputType);
 public:
     bool typeMismatchFor(const String&) const final;
     bool valueMissing(const String&) const final;
@@ -144,17 +143,15 @@ private:
 
     // DateTimeChooserClient functions:
     void didChooseValue(StringView) final;
-    void didEndChooser() final;
+    void didEndChooser() final { m_dateTimeChooser = nullptr; }
 
     bool setupDateTimeChooserParameters(DateTimeChooserParameters&);
     void closeDateTimeChooser();
 
     void showPicker() override;
 
-    std::unique_ptr<DateTimeChooser> m_dateTimeChooser;
+    RefPtr<DateTimeChooser> m_dateTimeChooser;
     RefPtr<DateTimeEditElement> m_dateTimeEditElement;
 };
 
 } // namespace WebCore
-
-#endif

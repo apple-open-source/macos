@@ -35,6 +35,27 @@ NS_ASSUME_NONNULL_BEGIN
 
 @class SecLaunchSequence;
 
+extern NSString *kSecSFAErrorDomain;
+typedef NS_ERROR_ENUM(kSecSFAErrorDomain, kSecSFAErrorCode) {
+    kSecSFAErrorsRulesMissing = 1,
+    kSecSFAErrorTypeMissing,
+    kSecSFAErrorRulesInvalidType,
+    kSecSFAErrorMatchMissing,
+    kSecSFAErrorSecondInvalid,
+    kSecSFAErrorActionInvalidType,
+    kSecSFAErrorActionInvalid,
+    kSecSFAErrorRadarInvalidType,
+    kSecSFAErrorTTRAttributeInvalidType,
+    kSecSFAErrorABCAttributeInvalidType,
+    kSecSFAErrorUnknownAction,
+    kSecSFAErrorFailedToEncodeMatchStructure,
+    kSecSFAErrorsPropsMissing,
+    kSecSFAErrorPropsInvalidType,
+    kSecSFAErrorVersionMismatch,
+    kSecSFAErrorVersionMissing,
+};
+
+
 // this sampling interval will cause the sampler to run only at data reporting time
 extern const NSTimeInterval SFAnalyticsSamplerIntervalOncePerReport;
 
@@ -109,6 +130,7 @@ typedef SFAnalyticsMetricsHookActions(^SFAnalyticsMetricsHook)(NSString* eventNa
 
 - (void)logSoftFailureForEventNamed:(NSString*)eventName withAttributes:(NSDictionary* _Nullable)attributes;
 - (void)logSoftFailureForEventNamed:(NSString*)eventName withAttributes:(NSDictionary* _Nullable)attributes timestampBucket:(SFAnalyticsTimestampBucket)timestampBucket;
+- (void)logRockwellFailureForEventNamed:(NSString*)eventName withAttributes:(NSDictionary* _Nullable)attributes;
 
 // or just log an event if it is not failable
 - (void)noteEventNamed:(NSString*)eventName;

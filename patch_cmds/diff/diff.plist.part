@@ -2,11 +2,11 @@
 		<key>OpenSourceProject</key>
 		<string>diff</string>
 		<key>OpenSourceVersion</key>
-		<string>2022-12-13</string>
+		<string>2024-05-20</string>
 		<key>OpenSourceWebsiteURL</key>
-		<string>https://cgit.freebsd.org/src/tree/usr.bin/diff?id=54d65fdd5643f61a816c1d028b53039290ed1d92</string>
+		<string>https://cgit.freebsd.org/src/tree/usr.bin/diff?id=b780b6508b586f52126037fd748fe74dbeb12495</string>
 		<key>OpenSourceImportDate</key>
-		<string>2022-12-13</string>
+		<string>2024-05-20</string>
 		<key>OpenSourceModifications</key>
 		<array>
 			<string>diffreg.c: Add missing include files (82062267)</string>
@@ -20,6 +20,8 @@
 			<string>diff.1, diff.c, diff.h, diffreg.c: POSIX conformant unified diff timestamps (92753335)</string>
 			<string>diffreg.c: clistlen can overflow (93984430)</string>
 			<string>diff.1: correct explanation of diff -e -r behavior (115482996)</string>
+			<string>diff_output.c: implement color output</string>
+			<string>diffreg_new.c: don't mmap on watchOS (137586103)</string>
 		</array>
 		<key>OpenSourceLicense</key>
 		<string>BSD</string>

@@ -40,6 +40,7 @@
 
 @protocol WKBaseScrollViewDelegate <NSObject>
 
+- (BOOL)shouldAllowPanGestureRecognizerToReceiveTouchesInScrollView:(WKBaseScrollView *)scrollView;
 - (UIAxis)axesToPreventScrollingForPanGestureInScrollView:(WKBaseScrollView *)scrollView;
 
 @end

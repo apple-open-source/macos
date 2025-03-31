@@ -14,8 +14,8 @@
 
 #if !UCONFIG_NO_FORMATTING
 
-#include "uhash.h"
 #include "gregoimp.h"  // for Math
+#include "hinducal.h"
 #include "unicode/unistr.h"
 
 U_NAMESPACE_BEGIN
@@ -32,7 +32,7 @@ U_NAMESPACE_BEGIN
  * at a given moment in time.  Accordingly, each <code>CalendarAstronomer</code>
  * object has a <code>time</code> property that determines the date
  * and time for which its calculations are performed.  You can set and
- * retrieve this property with {@link #setDate setDate}, {@link #getDate getDate}
+ * retrieve this property with {@link #setTime setTime}, {@link #getTime getTime}
  * and related methods.
  * <p>
  * Almost all of the calculations performed by this class, or by any
@@ -54,6 +54,59 @@ U_NAMESPACE_BEGIN
  * @author Alan Liu
  * @internal
  */
+
+///////////////////////////////////////////////////////////////
+//   Hindu calendar constants
+///////////////////////////////////////////////////////////////
+
+/**
+ *
+ * Fixed date of start of the Hindu calendar (Kali Yuga).
+ * (julian-date (bce 3102) february 18)
+ */
+static const int32_t HINDU_EPOCH_YEAR = -1132959;
+
+/**
+ * The offset from GMT in milliseconds at which we perform astronomical
+ * computations.
+ */
+static const int32_t HINDU_OFFSET = (int32_t)(5.5 * kOneHour);
+
+/**
+ * The offset from Julian date to R.D. date (Rata Die: Fixed date—elapsed days since the onset of Monday, January 1, 1 (Gregorian)
+ *
+ */
+static const int32_t RD_OFFSET = 1721424;
+
+/**
+ * Value to be added or subtracted from the local days of a new moon to
+ * get close to the next or prior new moon, but not cross it.  Must be
+ * >= 1 and < CalendarAstronomer.SYNODIC_MONTH.
+ */
+static const int32_t SYNODIC_GAP = 25;
+
+static const double HINDU_SIDEREAL_YEAR = 365 + (279457.0 / 1080000.0);
+
+// Define the hindu-lunar-era constant
+static const int32_t HINDU_LUNAR_ERA = 3044;
+static const int32_t HINDU_SOLAR_ERA = 3179;
+
+// Define the fixed date of Hindu creation
+static const double HINDU_CREATION = HINDU_EPOCH_YEAR - 1955880000.0 * HINDU_SIDEREAL_YEAR;
+
+// Define constants for Old Hindu solar year and month
+static const double ARYA_SOLAR_YEAR = 1577917500.0 / 4320000.0;
+static const double ARYA_SOLAR_MONTH = ARYA_SOLAR_YEAR / 12.0;
+
+// Define constants for Old Hindu lunar month and day
+static const double ARYA_LUNAR_MONTH = 1577917500.0 / 53433336.0;
+static const double ARYA_LUNAR_DAY = ARYA_LUNAR_MONTH / 30.0;
+
+static const double HINDU_SIDEREAL_MONTH = 27 + (4644439.0 / 14438334.0);
+static const double HINDU_SYNODIC_MONTH = 29 + (7087771.0 / 13358334.0);
+static const double HINDU_ANOMALISTIC_YEAR = 1577917828000.0 / (4320000000.0 - 387.0);
+static const double HINDU_ANOMALISTIC_MONTH = 1577917828.0 / (57753336.0 - 488199.0);
+
 class U_I18N_API CalendarAstronomer : public UMemory {
 public:
   // some classes
@@ -73,7 +126,6 @@ public:
    * value without worrying about whether other code will modify them.
    *
    * @see CalendarAstronomer.Equatorial
-   * @see CalendarAstronomer.Horizon
    * @internal
    */
   class U_I18N_API Ecliptic : public UMemory {
@@ -142,7 +194,6 @@ public:
    * value without worrying about whether other code will modify them.
    *
    * @see CalendarAstronomer.Ecliptic
-   * @see CalendarAstronomer.Horizon
    * @internal
    */
   class U_I18N_API Equatorial : public UMemory {
@@ -202,66 +253,6 @@ public:
     double declination;
   };
 
-  /**
-   * Represents the position of an  object in the sky relative to
-   * the local horizon.
-   * The <i>Altitude</i> represents the object's elevation above the horizon,
-   * with objects below the horizon having a negative altitude.
-   * The <i>Azimuth</i> is the geographic direction of the object from the
-   * observer's position, with 0 representing north.  The azimuth increases
-   * clockwise from north.
-   * <p>
-   * Note that Horizon objects are immutable and cannot be modified
-   * once they are constructed.  This allows them to be passed and returned by
-   * value without worrying about whether other code will modify them.
-   *
-   * @see CalendarAstronomer.Ecliptic
-   * @see CalendarAstronomer.Equatorial
-   * @internal
-   */
-  class U_I18N_API Horizon : public UMemory {
-  public:
-    /**
-     * Constructs a Horizon coordinate object.
-     * <p>
-     * @param alt  The altitude, measured in radians above the horizon.
-     * @param azim The azimuth, measured in radians clockwise from north.
-     * @internal
-     */
-    Horizon(double alt=0, double azim=0)
-      : altitude(alt), azimuth(azim) { }
-
-    /**
-     * Setter for Ecliptic Coordinate object
-     * @param alt  The altitude, measured in radians above the horizon.
-     * @param azim The azimuth, measured in radians clockwise from north.
-     * @internal
-     */
-    void set(double alt, double azim) {
-      altitude = alt;
-      azimuth = azim;
-    }
-
-    /**
-     * Return a string representation of this object, with the
-     * angles measured in degrees.
-     * @internal
-     */
-    UnicodeString toString() const;
-
-    /**
-     * The object's altitude above the horizon, in radians.
-     * @internal
-     */
-    double altitude;
-
-    /**
-     * The object's direction, in radians clockwise from north.
-     * @internal
-     */
-    double azimuth;
-  };
-
 public:
   //-------------------------------------------------------------------------
   // Assorted private data used for conversions
@@ -301,10 +292,12 @@ public:
    */
   CalendarAstronomer(UDate d);
 
+
+#if APPLE_ICU_CHANGES
+// rdar://100197751 (QFA: Islamic Lunar Calendar Improvements)
   /**
    * Construct a new <code>CalendarAstronomer</code> object with the given
-   * latitude and longitude.  The object's time is set to the current
-   * date and time.
+   * latitude and longitude and that is initialized to the specified date and time.
    * <p>
    * @param longitude The desired longitude, in <em>degrees</em> east of
    *                  the Greenwich meridian.
@@ -315,8 +308,9 @@ public:
    * @see java.util.Date#getTime()
    * @internal
    */
-  CalendarAstronomer(double longitude, double latitude);
-
+  CalendarAstronomer(UDate d, double longitude, double latitude);
+#endif // APPLE_ICU_CHANGES
+    
   /**
    * Destructor
    * @internal
@@ -334,68 +328,17 @@ public:
    * @param aTime the date and time, expressed as the number of milliseconds since
    *              1/1/1970 0:00 GMT (Gregorian).
    *
-   * @see #setDate
    * @see #getTime
    * @internal
    */
   void setTime(UDate aTime);
 
-
-  /**
-   * Set the current date and time of this <code>CalendarAstronomer</code> object.  All
-   * astronomical calculations are performed based on this time setting.
-   *
-   * @param aTime the date and time, expressed as the number of milliseconds since
-   *              1/1/1970 0:00 GMT (Gregorian).
-   *
-   * @see #getTime
-   * @internal
-   */
-  void setDate(UDate aDate) { setTime(aDate); }
-
-  /**
-   * Set the current date and time of this <code>CalendarAstronomer</code> object.  All
-   * astronomical calculations are performed based on this time setting.
-   *
-   * @param jdn   the desired time, expressed as a "julian day number",
-   *              which is the number of elapsed days since
-   *              1/1/4713 BC (Julian), 12:00 GMT.  Note that julian day
-   *              numbers start at <em>noon</em>.  To get the jdn for
-   *              the corresponding midnight, subtract 0.5.
-   *
-   * @see #getJulianDay
-   * @see #JULIAN_EPOCH_MS
-   * @internal
-   */
-  void setJulianDay(double jdn);
-    
-  /**
-   * Set the location of this <code>CalendarAstronomer</code> object.
-   * All astronomical calculations are performed relative to this location.
-   *
-   * @param #latitude
-   * @param #longitude
-   * @internal
-   */
-  void setLocation(double latitude, double longitude);
-
-  /**
-   * Set the location of this <code>CalendarAstronomer</code> object based on region
-   * All astronomical calculations are performed relative to this location.
-   * Location will be chosen as a central place within the country.
-   *
-   * @param #region
-   * @internal
-   */
-  void setLocation(const char* region);
-    
   /**
    * Get the current time of this <code>CalendarAstronomer</code> object,
    * represented as the number of milliseconds since
    * 1/1/1970 AD 0:00 GMT (Gregorian).
    *
    * @see #setTime
-   * @see #getDate
    * @internal
    */
   UDate getTime();
@@ -405,72 +348,12 @@ public:
    * expressed as a "julian day number", which is the number of elapsed
    * days since 1/1/4713 BC (Julian), 12:00 GMT.
    *
-   * @see #setJulianDay
    * @see #JULIAN_EPOCH_MS
    * @internal
    */
   double getJulianDay();
 
-  /**
-   * Return this object's time expressed in julian centuries:
-   * the number of centuries after 1/1/1900 AD, 12:00 GMT
-   *
-   * @see #getJulianDay
-   * @internal
-   */
-  double getJulianCentury();
-
-  /**
-   * Returns the current Greenwich sidereal time, measured in hours
-   * @internal
-   */
-  double getGreenwichSidereal();
-    
-  /**
-   * Returns the longitude of the  location of this object
-   *
-   * @internal
-   */
-  double getLocationLongitude();
-    
-  /**
-   * Returns the latitude of the  location of this object
-   *
-   * @internal
-   */
-  double getLocationLatitude();
-
-private:
-  double getSiderealOffset();
 public:
-  /**
-   * Returns the current local sidereal time, measured in hours
-   * @internal
-   */
-  double getLocalSidereal();
-
-  /**
-   * Converts local sidereal time to Universal Time.
-   *
-   * @param lst   The Local Sidereal Time, in hours since sidereal midnight
-   *              on this object's current date.
-   *
-   * @return      The corresponding Universal Time, in milliseconds since
-   *              1 Jan 1970, GMT.
-   */
-  //private:
-  double lstToUT(double lst);
-
-  /**
-   *
-   * Convert from ecliptic to equatorial coordinates.
-   *
-   * @param ecliptic     The ecliptic
-   * @param result       Fillin result
-   * @return reference to result
-   */
-  Equatorial& eclipticToEquatorial(Equatorial& result, const Ecliptic& ecliptic);
-
   /**
    * Convert from ecliptic to equatorial coordinates.
    *
@@ -481,21 +364,6 @@ public:
    * @internal
    */
   Equatorial& eclipticToEquatorial(Equatorial& result, double eclipLong, double eclipLat);
-
-  /**
-   * Convert from ecliptic longitude to equatorial coordinates.
-   *
-   * @param eclipLong     The ecliptic longitude
-   *
-   * @return              The corresponding point in equatorial coordinates.
-   * @internal
-   */
-  Equatorial& eclipticToEquatorial(Equatorial& result, double eclipLong) ;
-
-  /**
-   * @internal
-   */
-  Horizon& eclipticToHorizon(Horizon& result, double eclipLong) ;
 
   //-------------------------------------------------------------------------
   // The Sun
@@ -513,16 +381,9 @@ public:
    * @internal
    */
   static double adjustSunLongitude(double &theSunLongitude, UDate theTime);
-
-  /**
-   * The longitude of the sun at the time specified by theTime.
-   * This does not result in caching of any of the intermediate computations.
-   * @internal
-   */
-  static double getSunLongitudeForTime(UDate theTime);
 #endif  // APPLE_ICU_CHANGES
 
-  /**
+    /**
    * The longitude of the sun at the time specified by this object.
    * The longitude is measured in radians along the ecliptic
    * from the "first point of Aries," the point at which the ecliptic
@@ -538,46 +399,9 @@ public:
   /**
    * TODO Make this public when the entire class is package-private.
    */
-#if APPLE_ICU_CHANGES
-// rdar://17888673 688c98a2e1.. Speed up Calendar use of chinese: Refactor CalendarAstronomer to provide static
-  /*public*/ static void getSunLongitude(double julianDay, double &longitude, double &meanAnomaly);
-#else
   /*public*/ void getSunLongitude(double julianDay, double &longitude, double &meanAnomaly);
-#endif  // APPLE_ICU_CHANGES
-
-  /**
-   * The position of the sun at this object's current date and time,
-   * in equatorial coordinates.
-   * @param result fillin for the result
-   * @internal
-   */
-  Equatorial& getSunPosition(Equatorial& result);
 
 public:
-  /**
-   * Constant representing the vernal equinox.
-   * For use with {@link #getSunTime getSunTime}.
-   * Note: In this case, "vernal" refers to the northern hemisphere's seasons.
-   * @internal
-   */
-//  static double VERNAL_EQUINOX();
-
-  /**
-   * Constant representing the summer solstice.
-   * For use with {@link #getSunTime getSunTime}.
-   * Note: In this case, "summer" refers to the northern hemisphere's seasons.
-   * @internal
-   */
-  static double SUMMER_SOLSTICE();
-
-  /**
-   * Constant representing the autumnal equinox.
-   * For use with {@link #getSunTime getSunTime}.
-   * Note: In this case, "autumn" refers to the northern hemisphere's seasons.
-   * @internal
-   */
-//  static double AUTUMN_EQUINOX();
-
   /**
    * Constant representing the winter solstice.
    * For use with {@link #getSunTime getSunTime}.
@@ -592,20 +416,6 @@ public:
    * @internal
    */
   UDate getSunTime(double desired, UBool next);
-
-  /**
-   * Returns the time (GMT) of sunrise or sunset on the local date to which
-   * this calendar is currently set.
-   *
-   * NOTE: This method only works well if this object is set to a
-   * time near local noon.  Because of variations between the local
-   * official time zone and the geographic longitude, the
-   * computation can flop over into an adjacent day if this object
-   * is set to a time near local midnight.
-   *
-   * @internal
-   */
-  UDate getSunRiseSet(UBool rise);
 
   //-------------------------------------------------------------------------
   // The Moon
@@ -630,22 +440,6 @@ public:
    */
   double getMoonAge();
 
-  /**
-   * Calculate the phase of the moon at the time set in this object.
-   * The returned phase is a <code>double</code> in the range
-   * <code>0 <= phase < 1</code>, interpreted as follows:
-   * <ul>
-   * <li>0.00: New moon
-   * <li>0.25: First quarter
-   * <li>0.50: Full moon
-   * <li>0.75: Last quarter
-   * </ul>
-   *
-   * @see #getMoonAge
-   * @internal
-   */
-  double getMoonPhase();
-
   class U_I18N_API MoonAge : public UMemory {
   public:
     MoonAge(double l)
@@ -659,28 +453,8 @@ public:
    * For use with {@link #getMoonTime getMoonTime}
    * @internal
    */
-  static const MoonAge NEW_MOON();
+  static MoonAge NEW_MOON();
 
-  /**
-   * Constant representing the moon's first quarter.
-   * For use with {@link #getMoonTime getMoonTime}
-   * @internal
-   */
-//  static const MoonAge FIRST_QUARTER();
-
-  /**
-   * Constant representing a full moon.
-   * For use with {@link #getMoonTime getMoonTime}
-   * @internal
-   */
-  static const MoonAge FULL_MOON();
-
-  /**
-   * Constant representing the moon's last quarter.
-   * For use with {@link #getMoonTime getMoonTime}
-   * @internal
-   */
-//  static const MoonAge LAST_QUARTER();
 
 #if APPLE_ICU_CHANGES
 // rdar://17888673 688c98a2e1.. Speed up Calendar use of chinese: Refactor CalendarAstronomer to provide static
@@ -698,7 +472,7 @@ public:
   static UDate getNewMoonTimeInRange(UDate theTime, UBool next);
 #endif  // APPLE_ICU_CHANGES
 
-  /**
+    /**
    * Find the next or previous time at which the Moon's ecliptic
    * longitude will have the desired value.
    * <p>
@@ -707,21 +481,13 @@ public:
    *                  is desired, <tt>false</tt> for the previous occurrence.
    * @internal
    */
-  UDate getMoonTime(double desired, UBool next);
   UDate getMoonTime(const MoonAge& desired, UBool next);
-
-  /**
-   * Returns the time (GMT) of sunrise or sunset on the local date to which
-   * this calendar is currently set.
-   * @internal
-   */
-  UDate getMoonRiseSet(UBool rise);
 
   //-------------------------------------------------------------------------
   // Interpolation methods for finding the time at which a given event occurs
   //-------------------------------------------------------------------------
 
-  // private
+public:
   class AngleFunc : public UMemory {
   public:
     virtual double eval(CalendarAstronomer&) = 0;
@@ -729,19 +495,9 @@ public:
   };
   friend class AngleFunc;
 
+private:
   UDate timeOfAngle(AngleFunc& func, double desired,
                     double periodDays, double epsilon, UBool next);
-
-  class CoordFunc : public UMemory {
-  public:
-    virtual void eval(Equatorial& result, CalendarAstronomer&) = 0;
-    virtual ~CoordFunc();
-  };
-  friend class CoordFunc;
-
-  double riseOrSet(CoordFunc& func, UBool rise,
-                   double diameter, double refraction,
-                   double epsilon);
 
   //-------------------------------------------------------------------------
   // Other utility methods
@@ -759,6 +515,49 @@ private:
   double eclipticObliquity();
 
   //-------------------------------------------------------------------------
+  // Astronomical helpers and structures for Hindu lunar and solar calendars
+  //-------------------------------------------------------------------------
+public:
+  // Astronomy helpers
+  double hinduSunrise(int32_t date, double longitudeOffset, double latitudeDeg) const; // Sunrise at hindu-location on date.
+  double hinduSunset(int32_t date, double longitudeOffset, double latitudeDeg) const; // Sunset at hindu-location on date.
+  double hinduEquationOfTime(double date) const; // Time from true to mean midnight of date.
+  double hinduAscensionalDifference(double date, double latitudeDeg) const; // Difference between right and oblique ascension of sun on date at location.
+  double hinduSolarSiderealDifference(int32_t date) const; // Difference between solar and sidereal day on date
+  double hinduMeanPosition(double tee, double period) const; // Position in degrees at moment tee in uniform circular orbit of period days
+  double hinduDailyMotion(double date) const; // Sidereal daily motion of sun on date.
+  double hinduTruePosition(double tee, double period, double size, double anomalistic, double change) const; // Longitudinal position at moment tee
+  double hinduSolarLongitude(double tee) const; // Solar longitude at moment tee.
+  double hinduLunarLongitude(double tee) const; // Lunar longitude at moment tee.
+  double hinduRisingSign(double date) const; // Tabulated speed of rising of current zodiacal sign on date
+  double hinduLunarPhase(double tee) const; // Longitudinal distance between the sun and moon at moment tee.
+  double hinduTropicalLongitude(double date) const; // Hindu tropical longitude on fixed date.
+  double hinduNewMoonBefore(double tee) const;   // Approximate moment of last new moon preceding moment tee, close enough to determine zodiacal sign.
+  int32_t hinduLunarDayFromMoment(double tee) const; // Phase of moon (tithi) at moment tee, as an integer in the range 1..30
+  int32_t hinduZodiac(double tee) const;   // Zodiacal sign of the sun, as integer in range 1..12, at moment tee
+  int32_t hinduCalendarYear(double tee) const; // Determine solar year at given moment tee.
+  double hinduSolarLongitudeAtOrAfter(double lambda, double tee) const; // Moment of the first time at or after tee when Hindu solar longitude will be lambda degrees.
+  double hinduLunarDayAtOrAfter(double k, double tee) const;   // Time lunar-day (tithi) number k begins at or after moment tee. k can be fractional (for karanas)
+  int32_t hinduLunarStation(double date, double longitudeOffset, double latitudeDeg) const;   // Hindu lunar station (nakshatra) at sunrise on a given date
+  double hinduStandardFromSundial(double tee, double longitudeOffset, double latitudeDeg) const; // Hindu local time of a temporal moment
+  int32_t fixedFromMoment(double tee) const;  // Fixed-date from moment tee.
+  double timeFromMoment(double tee) const;  // Time from moment tee.
+    
+  // Trigonometry
+  double sinDegrees(const Angle& angle) const;
+  double hinduSineTable(int32_t entry) const; // This simulates the Hindu sine table. entry is an angle given as a multiplier of 225'
+  double hinduSine(double theta) const; // Linear interpolation for theta in Hindu table.
+  double hinduArcsin(double amp) const; // Inverse of Hindu sine function of amp.
+  double angle(int32_t d, int32_t m, double s) const; // Function to calculate an angle in degrees from degrees, arcminutes, and arcseconds
+    
+  // Math and algo helpers
+  double hr(double x) const; // a helper function that take input in hours and gives the result in form of the fraction of a day those hours represent.
+  double modLisp(double a, double b) const;
+  double binarySearch(double l, double u, double tee, double epsilon) const;
+  double invertAngularSolarLongitude(double y, double l, double u) const;
+  double invertAngularLunarPhase(double y, double l, double u) const;
+
+  //-------------------------------------------------------------------------
   // Private data
   //-------------------------------------------------------------------------
 private:
@@ -767,33 +566,19 @@ private:
    * @see java.util.Date#getTime
    */
   UDate fTime;
-
-  /* These aren't used yet, but they'll be needed for sunset calculations
-   * and equatorial to horizon coordinate conversions
-   */
+#if APPLE_ICU_CHANGES
+// rdar://100197751 (QFA: Islamic Lunar Calendar Improvements)
   double fLongitude;
   double fLatitude;
-  double fGmtOffset;
+#endif // APPLE_ICU_CHANGES
 
-  // cache regional locations
-//  UHashtable* fRegionalLocationMap;
-  
-  //
   // The following fields are used to cache calculated results for improved
   // performance.  These values all depend on the current time setting
   // of this object, so the clearCache method is provided.
-  //
-
   double    julianDay;
-  double    julianCentury;
   double    sunLongitude;
   double    meanAnomalySun;
-  double    moonLongitude;
   double    moonEclipLong;
-  double    meanAnomalyMoon;
-  double    eclipObliquity;
-  double    siderealT0;
-  double    siderealTime;
 
   void clearCache();
 
@@ -804,7 +589,10 @@ private:
    * @internal
    */
 //  UDate local(UDate localMillis);
+    
 };
+
+
 
 U_NAMESPACE_END
 

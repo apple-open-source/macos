@@ -45,7 +45,7 @@ WK_HEADER_AUDIT_BEGIN(nullability, sendability)
  @abstract A `_WKWebExtensionSidebar` object encapsulates the properties for a specific web extension sidebar.
  @discussion When this property is `nil`, it indicates that the action is the default action and not associated with a specific tab.
  */
-WK_CLASS_AVAILABLE(macos(WK_MAC_TBA), ios(WK_IOS_TBA), visionos(WK_XROS_TBA))
+WK_CLASS_AVAILABLE(macos(15.2), ios(18.2), visionos(2.2))
 NS_SWIFT_NAME(WKWebExtension.Sidebar)
 @interface _WKWebExtensionSidebar : NSObject
 
@@ -96,9 +96,9 @@ NS_SWIFT_NAME(WKWebExtension.Sidebar)
 
 /*!
  @abstract Indicate that the sidebar will be opened
- @discussion This method should be invoked by the browser when this sidebar will be opened -- i.e., its associated ``WKWebView`` will be
- displayed. If this method is not called before the sidebar is opened, then the ``WKWebView`` associated with this sidebar may not have a
- document loaded.
+ @discussion This method should be invoked by the browser when this sidebar will be opened due to some action by the user. If
+ this method is not called before the sidebar is opened, then the ``WKWebView`` associated with this sidebar may not have a
+ document loaded, and the extension may not receive the `activeTab` permission from this user interaction.
  */
 - (void)willOpenSidebar;
 

@@ -11,10 +11,12 @@
 #ifndef API_UNITS_TIME_DELTA_H_
 #define API_UNITS_TIME_DELTA_H_
 
+#include <cstdint>
 #include <cstdlib>
 #include <string>
 #include <type_traits>
 
+#include "rtc_base/system/rtc_export.h"
 #include "rtc_base/units/unit_base.h"  // IWYU pragma: export
 
 namespace webrtc {
@@ -50,6 +52,9 @@ class TimeDelta final : public rtc_units_impl::RelativeUnit<TimeDelta> {
   }
 
   TimeDelta() = delete;
+
+  template <typename Sink>
+  friend void AbslStringify(Sink& sink, TimeDelta value);
 
   template <typename T = int64_t>
   constexpr T seconds() const {
@@ -88,9 +93,11 @@ class TimeDelta final : public rtc_units_impl::RelativeUnit<TimeDelta> {
   static constexpr bool one_sided = false;
 };
 
-std::string ToString(TimeDelta value);
-inline std::string ToLogString(TimeDelta value) {
-  return ToString(value);
+RTC_EXPORT std::string ToString(TimeDelta value);
+
+template <typename Sink>
+void AbslStringify(Sink& sink, TimeDelta value) {
+  sink.Append(ToString(value));
 }
 
 }  // namespace webrtc

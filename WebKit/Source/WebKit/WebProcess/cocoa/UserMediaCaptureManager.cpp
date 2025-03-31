@@ -34,7 +34,6 @@
 #include "RemoteRealtimeVideoSource.h"
 #include "RemoteVideoFrameObjectHeapProxy.h"
 #include "UserMediaCaptureManagerMessages.h"
-#include "WebCoreArgumentCoders.h"
 #include "WebProcess.h"
 #include <WebCore/AudioMediaStreamTrackRendererUnit.h>
 #include <WebCore/DeprecatedGlobalSettings.h>
@@ -50,9 +49,11 @@ using namespace WebCore;
 WTF_MAKE_TZONE_ALLOCATED_IMPL(UserMediaCaptureManager);
 
 UserMediaCaptureManager::UserMediaCaptureManager(WebProcess& process)
-    : m_audioFactory(*this)
+    : m_process(process)
+    , m_audioFactory(*this)
     , m_videoFactory(*this)
     , m_displayFactory(*this)
+    , m_remoteCaptureSampleManager(*this)
 {
     process.addMessageReceiver(Messages::UserMediaCaptureManager::messageReceiverName(), *this);
 }
@@ -62,8 +63,18 @@ UserMediaCaptureManager::~UserMediaCaptureManager()
     RealtimeMediaSourceCenter::singleton().unsetAudioCaptureFactory(m_audioFactory);
     RealtimeMediaSourceCenter::singleton().unsetDisplayCaptureFactory(m_displayFactory);
     RealtimeMediaSourceCenter::singleton().unsetVideoCaptureFactory(m_videoFactory);
-    WebProcess::singleton().removeMessageReceiver(Messages::UserMediaCaptureManager::messageReceiverName());
+    m_process->removeMessageReceiver(Messages::UserMediaCaptureManager::messageReceiverName());
     m_remoteCaptureSampleManager.stopListeningForIPC();
+}
+
+void UserMediaCaptureManager::ref() const
+{
+    m_process->ref();
+}
+
+void UserMediaCaptureManager::deref() const
+{
+    m_process->deref();
 }
 
 ASCIILiteral UserMediaCaptureManager::supplementName()
@@ -225,7 +236,7 @@ CaptureSourceOrError UserMediaCaptureManager::VideoFactory::createVideoCaptureSo
         return CaptureSourceOrError { "Video capture in GPUProcess is not implemented"_s };
 #endif
     if (m_shouldCaptureInGPUProcess)
-        m_manager.m_remoteCaptureSampleManager.setVideoFrameObjectHeapProxy(&WebProcess::singleton().ensureGPUProcessConnection().videoFrameObjectHeapProxy());
+        m_manager->m_remoteCaptureSampleManager.setVideoFrameObjectHeapProxy(&WebProcess::singleton().ensureGPUProcessConnection().videoFrameObjectHeapProxy());
 
     return RemoteRealtimeVideoSource::create(device, constraints, WTFMove(hashSalts), m_manager, m_shouldCaptureInGPUProcess, pageIdentifier);
 }
@@ -238,7 +249,7 @@ CaptureSourceOrError UserMediaCaptureManager::DisplayFactory::createDisplayCaptu
 #endif
     if (m_shouldCaptureInGPUProcess) {
         Ref videoFrameObjectHeapProxy = WebProcess::singleton().ensureGPUProcessConnection().videoFrameObjectHeapProxy();
-        m_manager.m_remoteCaptureSampleManager.setVideoFrameObjectHeapProxy(WTFMove(videoFrameObjectHeapProxy));
+        m_manager->m_remoteCaptureSampleManager.setVideoFrameObjectHeapProxy(WTFMove(videoFrameObjectHeapProxy));
     }
 
     return RemoteRealtimeVideoSource::create(device, constraints, WTFMove(hashSalts), m_manager, m_shouldCaptureInGPUProcess, pageIdentifier);

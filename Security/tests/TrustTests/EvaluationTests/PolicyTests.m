@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2023 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2016-2024 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -63,6 +63,7 @@
 #import "TrustEvaluationTestCase.h"
 #include "../TestMacroConversions.h"
 #include "../TrustEvaluationTestHelpers.h"
+#include "featureflags/featureflags.h"
 #include "PolicyTests_data.h"
 #include "PolicyTests_BIMI_data.h"
 #include "PolicyTests_Parakeet_data.h"
@@ -257,9 +258,7 @@ errOut:
     // No hostname
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wnonnull"
-#ifndef __clang_analyzer__
-    policy =  SecPolicyCreateSSLWithATSPinning(true, NULL, nsAppTransportSecurityDict);
-#endif
+    [[clang::suppress]] policy =  SecPolicyCreateSSLWithATSPinning(true, NULL, nsAppTransportSecurityDict);
 #pragma clang diagnostic pop
     policyOptions = SecPolicyGetOptions(policy);
     XCTAssertFalse([[(__bridge NSDictionary *)policyOptions allKeys] containsObject:(__bridge NSString*)kSecPolicyCheckCAspkiSHA256]);
@@ -1121,7 +1120,12 @@ exit:
     CFReleaseNull(certs);
 }
 
-- (void)testMDLTerminalAuth
+typedef enum {
+    useConstrainedAnchorSource = (1UL << 0),
+    useBasicX509Policy = (1UL << 1),
+} MDLTestFlags;
+
+- (void)MDLTerminalAuth:(MDLTestFlags)flags expectTrusted:(BOOL)expectTrusted
 {
     OSStatus err;
     CFIndex errcode = errSecSuccess;
@@ -1142,8 +1146,14 @@ exit:
     CFArrayAppendValue(certs, leaf);
     CFArrayAppendValue(certs, ca);
 
-    // check EKU extension value, but don't check for leaf BC extension
-    isnt(policy = SecPolicyCreateMDLTerminalAuth(true, false), NULL, "policy");
+    if (flags & useBasicX509Policy) {
+        // try to use Basic X509 policy instead of the expected policy for this anchor
+        // (implies we will not set the anchor explicitly to trust it, since flags !=0)
+        isnt(policy = SecPolicyCreateBasicX509(), NULL, "policy");
+    } else {
+        // check EKU extension value, but don't check for leaf BC extension
+        isnt(policy = SecPolicyCreateMDLTerminalAuth(true, false), NULL, "policy");
+    }
     if (!policy) { goto exit; }
 
     is(err = SecTrustCreateWithCertificates(certs, policy, &trust), errSecSuccess, "trust");
@@ -1153,7 +1163,9 @@ exit:
     isnt(anchors = CFArrayCreateMutable(kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks), NULL, "anchors");
     if (!anchors) { goto exit; }
     CFArrayAppendValue(anchors, root);
-    is(err = SecTrustSetAnchorCertificates(trust, anchors), errSecSuccess, "set anchors");
+    if (flags == 0) {
+        is(err = SecTrustSetAnchorCertificates(trust, anchors), errSecSuccess, "set anchors");
+    } // else should fetch parent from anchor source without needing to explicitly set it
     if (err != errSecSuccess) { goto exit; }
 
     // set verify date: Apr 15 2023
@@ -1163,15 +1175,29 @@ exit:
     if (err != errSecSuccess) { goto exit; }
 
     isTrusted = SecTrustEvaluateWithError(trust, &error);
-    if (!isTrusted) {
-        if (error) {
-            errcode = CFErrorGetCode(error);
-        } else {
-            errcode = errSecInternalComponent;
+    if (expectTrusted) {
+        if (!isTrusted) {
+            if (error) {
+                errcode = CFErrorGetCode(error);
+            } else {
+                errcode = errSecInternalComponent;
+            }
         }
+        is(errcode, errSecSuccess, "check error code is success");
+        is(isTrusted, true, "check trust result is true");
+    } else {
+        if (isTrusted) {
+            if (error) {
+                errcode = CFErrorGetCode(error);
+            } else {
+                errcode = errSecInternalComponent;
+            }
+        }
+        // we still expect that no error occurred if not trusted
+        is(errcode, errSecSuccess, "check error code is success");
+        // expect a not-trusted result
+        isnt(isTrusted, true, "check trust result is false");
     }
-    is(errcode, errSecSuccess, "check error code is success");
-    is(isTrusted, true, "check trust result is true");
 exit:
     CFReleaseSafe(error);
     CFReleaseSafe(trust);
@@ -1182,6 +1208,25 @@ exit:
     CFReleaseSafe(leaf);
     CFReleaseSafe(ca);
     CFReleaseSafe(root);
+}
+
+- (void)testMDLTerminalAuth
+{
+    MDLTestFlags flags = 0;
+    [self MDLTerminalAuth:flags expectTrusted:YES];
+}
+
+- (void)testMDLTerminalAuthWithConstrainedAnchorSource
+{
+    BOOL expectTrusted = (_SecTrustStoreRootConstraintsEnabled()) ? YES : NO;
+    MDLTestFlags flags = useConstrainedAnchorSource;
+    [self MDLTerminalAuth:flags expectTrusted:expectTrusted];
+}
+
+- (void)testMDLTerminalAuthWithBasicX509Policy
+{
+    MDLTestFlags flags = useBasicX509Policy;
+    [self MDLTerminalAuth:flags expectTrusted:NO];
 }
 
 - (void)testMDLTerminalAuthInvalidKeyUsage

@@ -2648,9 +2648,9 @@ log_kdc_pa_types(krb5_context context, METHOD_DATA *in_md)
 {
     if (_krb5_have_debug(context, 5)) {
 	unsigned i;
-	_krb5_debugx(context, 5, "KDC sent %d patypes", in_md->len);
+	_krb5_debugx(context, 5, "KDC sent %u patypes", in_md->len);
 	for (i = 0; i < in_md->len; i++)
-	    _krb5_debugx(context, 5, "KDC sent PA-DATA type: %d (%s)",
+	    _krb5_debugx(context, 5, "KDC sent PA-DATA type: %u (%s)",
 			 in_md->val[i].padata_type,
 			 get_pa_type_name(in_md->val[i].padata_type));
     }

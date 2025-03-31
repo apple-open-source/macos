@@ -62,14 +62,24 @@ namespace ax = WebCore::Accessibility;
     if (auto* localMainFrame = dynamicDowncast<WebCore::LocalFrame>(page->mainFrame())) {
         if (auto* document = localMainFrame->document())
             return document->axObjectCache();
-    } else if (auto* remoteMainFrame = dynamicDowncast<WebCore::RemoteFrame>(page->mainFrame())) {
-        auto& tree = remoteMainFrame->tree();
-        auto* firstFrame = dynamicDowncast<WebCore::LocalFrame>(tree.firstChild());
-        auto* document = firstFrame ? firstFrame->document() : nullptr;
+    } else if (RefPtr remoteLocalFrame = [self remoteLocalFrame]) {
+        CheckedPtr document = remoteLocalFrame ? remoteLocalFrame->document() : nullptr;
         return document ? document->axObjectCache() : nullptr;
     }
 
     return nullptr;
+}
+
+- (void)enableAccessibilityForAllProcesses
+{
+    // Immediately enable accessibility in the current web process, otherwise this
+    // will happen asynchronously and could break certain flows (e.g., attribute
+    // requests).
+    if (!WebCore::AXObjectCache::accessibilityEnabled())
+        WebCore::AXObjectCache::enableAccessibility();
+
+    if (m_page)
+        m_page->enableAccessibilityForAllProcesses();
 }
 
 - (id)accessibilityPluginObject
@@ -98,7 +108,7 @@ namespace ax = WebCore::Accessibility;
 
     return ax::retrieveAutoreleasedValueFromMainThread<id>([protectedSelf = retainPtr(self)] () -> RetainPtr<id> {
         if (!WebCore::AXObjectCache::accessibilityEnabled())
-            WebCore::AXObjectCache::enableAccessibility();
+            [protectedSelf enableAccessibilityForAllProcesses];
 
         if (protectedSelf.get()->m_hasMainFramePlugin)
             return protectedSelf.get().accessibilityPluginObject;
@@ -152,6 +162,15 @@ namespace ax = WebCore::Accessibility;
     ASSERT(isMainRunLoop());
     m_isolatedTreeRoot = root.get();
 }
+
+- (void)setWindow:(id)window
+{
+    ASSERT(isMainRunLoop());
+#if ENABLE(ACCESSIBILITY_ISOLATED_TREE)
+    Locker lock { m_windowLock };
+#endif // ENABLE(ACCESSIBILITY_ISOLATED_TREE)
+    m_window = window;
+}
 #endif
 
 - (void)setHasMainFramePlugin:(bool)hasPlugin
@@ -174,12 +193,38 @@ namespace ax = WebCore::Accessibility;
 - (void)setRemoteParent:(id)parent
 {
     ASSERT(isMainRunLoop());
+
+#if ENABLE(ACCESSIBILITY_ISOLATED_TREE)
+    Locker lock { m_parentLock };
+#endif // ENABLE(ACCESSIBILITY_ISOLATED_TREE)
     m_parent = parent;
+}
+
+- (void)setFrameIdentifier:(const WebCore::FrameIdentifier&)frameID
+{
+    m_frameID = frameID;
 }
 
 - (id)accessibilityFocusedUIElement
 {
     return [[self accessibilityRootObjectWrapper] accessibilityFocusedUIElement];
+}
+
+- (WebCore::LocalFrame *)remoteLocalFrame
+{
+    if (!m_page)
+        return nullptr;
+
+    RefPtr page = m_page->corePage();
+    if (!page)
+        return nullptr;
+
+    for (auto& rootFrame : page->rootFrames()) {
+        if (rootFrame->frameID() == m_frameID)
+            return rootFrame.ptr();
+    }
+
+    return nullptr;
 }
 
 @end

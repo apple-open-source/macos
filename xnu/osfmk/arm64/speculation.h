@@ -28,7 +28,9 @@
 
 #ifndef _SPECULATION_H_
 #define _SPECULATION_H_
-#include <mach/vm_types.h>
+#include <stddef.h>
+#include <stdint.h>
+#include <stdbool.h>
 
 
 /*
@@ -48,49 +50,43 @@
  * 2. XWW (value is 64-bits, cmp_1 and cmp_2 are 32-bits)
  * 3. WXX (value is 32-bits, cmp_1 and cmp_2 are 64-bits)
  * 4. WWW (value is 32-bits, cmp_1 and cmp_2 are 32-bits)
- *
- * The guard condition must always resolve to true on the non-speculative path.
- * Otherwise, a panic is triggered.
  */
 
 /**
  * Generate the zeroing speculation guard expression
  *
  * out: The output location for the guarded value
+ * out_valid: The condition evaluated true non-speculatively
  * value: The input value to guard
  * cmp_1, cmp_2: The two operands to compare
  * cmp_prefix: The ASM prefix for the registers in the compare instruction. For
  * 64-bit operands, pass an empty string. For 32-bit operands, pass "w"
  * cs_prefix: The ASM prefix for the registers in the select instruction.
  */
-#define SPECULATION_GUARD_ZEROING_GEN(out, value, cmp_1, cmp_2, cc, cmp_prefix, cs_prefix) \
+#define SPECULATION_GUARD_ZEROING_GEN(out, out_valid, value, cmp_1, cmp_2, cc, cmp_prefix, cs_prefix) \
     { \
-	bool speculation_guard_zeroing_out_valid; \
 	__asm__ ( \
 	    "cmp       %" cmp_prefix "[_cmp_1], %" cmp_prefix "[_cmp_2]\n" \
 	    "csel      %" cs_prefix "[_out], %" cs_prefix "[_value], %" cs_prefix "[_zero], " cc "\n" \
-	    "cset      %w[_valid], " cc "\n" \
+	    "cset      %w[_out_valid], " cc "\n" \
 	    "csdb\n" \
-	    : [_out] "=r" (out), [_valid] "=r" (speculation_guard_zeroing_out_valid) \
+	    : [_out] "=r" (out), [_out_valid] "=r" (out_valid) \
 	    : [_cmp_1] "r" (cmp_1), [_cmp_2] "r" (cmp_2), [_value] "r" (value), [_zero] "rz" (0ULL) \
 	    : "cc" \
 	); \
-	if (!speculation_guard_zeroing_out_valid) { \
-	    panic("Speculation guard failed non-spec"); \
-	} \
     }
 
-#define SPECULATION_GUARD_ZEROING_XXX(out, value, cmp_1, cmp_2, cc) \
-    SPECULATION_GUARD_ZEROING_GEN(out, value, cmp_1, cmp_2, cc, "", "")
+#define SPECULATION_GUARD_ZEROING_XXX(out, out_valid, value, cmp_1, cmp_2, cc) \
+    SPECULATION_GUARD_ZEROING_GEN(out, out_valid, value, cmp_1, cmp_2, cc, "", "")
 
-#define SPECULATION_GUARD_ZEROING_XWW(out, value, cmp_1, cmp_2, cc) \
-    SPECULATION_GUARD_ZEROING_GEN(out, value, cmp_1, cmp_2, cc, "w", "")
+#define SPECULATION_GUARD_ZEROING_XWW(out, out_valid, value, cmp_1, cmp_2, cc) \
+    SPECULATION_GUARD_ZEROING_GEN(out, out_valid, value, cmp_1, cmp_2, cc, "w", "")
 
-#define SPECULATION_GUARD_ZEROING_WXX(out, value, cmp_1, cmp_2, cc) \
-    SPECULATION_GUARD_ZEROING_GEN(out, value, cmp_1, cmp_2, cc, "", "w")
+#define SPECULATION_GUARD_ZEROING_WXX(out, out_valid, value, cmp_1, cmp_2, cc) \
+    SPECULATION_GUARD_ZEROING_GEN(out, out_valid, value, cmp_1, cmp_2, cc, "", "w")
 
-#define SPECULATION_GUARD_ZEROING_WWW(out, value, cmp_1, cmp_2, cc) \
-    SPECULATION_GUARD_ZEROING_GEN(out, value, cmp_1, cmp_2, cc, "w", "w")
+#define SPECULATION_GUARD_ZEROING_WWW(out, out_valid, value, cmp_1, cmp_2, cc) \
+    SPECULATION_GUARD_ZEROING_GEN(out, out_valid, value, cmp_1, cmp_2, cc, "w", "w")
 
 /*
  * SPECULATION_GUARD_SELECT_???_CC

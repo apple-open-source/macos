@@ -642,7 +642,7 @@ gsskrb5_acceptor_start(OM_uint32 * minor_status,
 	    char *s = NULL;
 	    if (server)
 		(void)krb5_unparse_name(context, server, &s);
-	    _gss_mg_log(5, "gss-asc: rd_req (server: %s) failed with: %d: %s",
+	    _gss_mg_log(5, "gss-asc: rd_req (server: %s) failed with: %u: %s",
 			s ? s : "<not specified>",
 			ret, e);
 	    krb5_free_error_message(context, e);

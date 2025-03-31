@@ -1,0 +1,63 @@
+#! /bin/sh
+
+. ${tstdir-.}/lib.sh
+. ${tstdir-.}/conf.sh
+
+rm -rf dir1 dir2 dir3
+# make the copy-from-here tree
+mkdir dir1
+cd dir1
+generate_tree_1
+touch -h -d 2024-07-01T12:34:56 */*/*/*/*/* */*/*/*/* */*/*/* */*/* */* * .
+cd ..
+
+cat <<EOT > expected.out
+drwxr-xr-x           4 2024/07/01 12:34:56 dir1
+drwxr-xr-x           6 2024/07/01 12:34:56 dir1/foo
+drwxr-xr-x           3 2024/07/01 12:34:56 dir1/foo/bar
+drwxr-xr-x           7 2024/07/01 12:34:56 dir1/foo/bar/baz
+-rw-r--r--     1048576 2024/07/01 12:34:56 dir1/foo/bar/baz/  two.txt
+-rw-r--r--     1048576 2024/07/01 12:34:56 dir1/foo/bar/baz/one.txt
+-rw-r--r--     1048576 2024/07/01 12:34:56 dir1/foo/bar/baz/one2.txt
+-rw-r--r--     1048576 2024/07/01 12:34:56 dir1/foo/bar/baz/two  2.txt
+-rw-r--r--     1048576 2024/07/01 12:34:56 dir1/foo/bar/baz/two3.txt  
+drwxr-xr-x           3 2024/07/01 12:34:56 dir1/foo/baz
+lrwxr-xr-x          18 2024/07/01 12:34:56 dir1/foo/baz/three.txt -> ../bar/baz/one.txt
+drwxr-xr-x           3 2024/07/01 12:34:56 dir1/foo/five
+drwxr-xr-x           3 2024/07/01 12:34:56 dir1/foo/five/one
+drwxr-xr-x           3 2024/07/01 12:34:56 dir1/foo/five/one/two
+drwxr-xr-x           3 2024/07/01 12:34:56 dir1/foo/five/one/two/five
+-rw-r--r--     1048576 2024/07/01 12:34:56 dir1/foo/five/one/two/five/blah.txt
+drwxr-xr-x           3 2024/07/01 12:34:56 dir1/foo/one
+drwxr-xr-x           3 2024/07/01 12:34:56 dir1/foo/one/two
+drwxr-xr-x           3 2024/07/01 12:34:56 dir1/foo/one/two/five
+-rw-r--r--     1048576 2024/07/01 12:34:56 dir1/foo/one/two/five/blah.txt
+drwxr-xr-x           3 2024/07/01 12:34:56 dir1/one
+drwxr-xr-x           3 2024/07/01 12:34:56 dir1/one/two
+drwxr-xr-x           3 2024/07/01 12:34:56 dir1/one/two/three
+-rw-r--r--     1048576 2024/07/01 12:34:56 dir1/one/two/three/four.txt
+EOT
+
+awk '{print $5}' expected.out > trimmed.out
+
+# Move into another directory so that all of the files aren't 'up to date'.
+# This is the difference between noticing a hang when listing contents vs. a
+# successful run, and we'd prefer to trigger bad behavior if we can.
+mkdir dir3
+cd dir3
+
+rsync -a --list-only -- ../dir1 > rsync.out 2>&1
+awk '{print $5}' rsync.out > generated.out
+diff -ub ../trimmed.out generated.out
+if [ -d dir1 ]; then
+	1>&2 echo "ERROR: Actually transferred files with --list-only"
+	exit 1
+fi
+
+rsync -a -- ../dir1 > rsync2.out 2>&1
+awk '{print $5}' rsync2.out > generated2.out
+diff -ub ../trimmed.out generated2.out
+if [ -d dir1 ]; then
+	1>&2 echo "ERROR: Actually transferred files with implicit --list-only"
+	exit 1
+fi

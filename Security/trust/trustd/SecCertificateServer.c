@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2020 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2017-2024 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -40,10 +40,12 @@
 #include <Security/SecTrustSettingsPriv.h>
 
 #include <utilities/SecIOFormat.h>
+#include <utilities/SecInternalReleasePriv.h>
 #include <utilities/SecCFError.h>
 #include <utilities/SecCFWrappers.h>
 #include <utilities/debugging.h>
 
+#include "featureflags/featureflags.h"
 #include "trust/trustd/policytree.h"
 #include "trust/trustd/SecPolicyServer.h"
 #include "trust/trustd/SecCertificateServer.h"
@@ -62,6 +64,7 @@ struct SecCertificateVC {
     CFArrayRef          usageConstraints;
     CFNumberRef         revocationReason;
     bool                optionallyEV;
+    bool                optionallyQWAC;
     bool                isWeakHash;
     bool                require_revocation_response;
 };
@@ -196,6 +199,19 @@ notEV:
     return isEV;
 }
 
+static bool SecCertificateVCCouldBeQWAC(SecCertificateRef certificate) {
+    bool hasQC = false;
+    CFDictionaryRef qcData = SecCertificateCopyQualifiedCertificateStatements(certificate);
+    if (qcData && _SecTrustQWACValidationEnabled()) {
+        require_quiet(CFDictionaryContainsKey(qcData, kSecQCStatementCompliance), exit);
+        CFSetRef types = CFDictionaryGetValue(qcData, kSecQCStatementType);
+        require_quiet(types, exit);
+        hasQC = CFSetContainsValue(types, kSecQCStatementTypeWeb);
+    }
+exit:
+    CFReleaseNull(qcData);
+    return hasQC;
+}
 
 SecCertificateVCRef SecCertificateVCCreate(SecCertificateRef certificate, CFArrayRef usageConstraints) {
     if (!certificate) { return NULL; }
@@ -208,6 +224,7 @@ SecCertificateVCRef SecCertificateVCCreate(SecCertificateRef certificate, CFArra
     result->certificate = CFRetainSafe(certificate);
     result->isWeakHash = SecCertificateIsWeakHash(certificate);
     result->optionallyEV = SecCertificateVCCouldBeEV(certificate);
+    result->optionallyQWAC = SecCertificateVCCouldBeQWAC(certificate);
 
     CFArrayRef emptyArray = NULL;
     if (!usageConstraints) {
@@ -253,6 +270,7 @@ struct SecCertificatePathVC {
 
     bool                isEV;
     bool                isCT;
+    bool                isQWAC;
     bool                is_allowlisted;
     bool                hasStrongHashes;
 
@@ -1026,9 +1044,23 @@ void SecCertificatePathVCSetIsEV(SecCertificatePathVCRef certificatePath, bool i
     certificatePath->isEV = isEV;
 }
 
+bool SecCertificatePathVCIsQWAC(SecCertificatePathVCRef certificatePath) {
+    if (!certificatePath) { return false; }
+    return certificatePath->isQWAC;
+}
+
+void SecCertificatePathVCSetIsQWAC(SecCertificatePathVCRef certificatePath, bool isQWAC) {
+    certificatePath->isQWAC = isQWAC;
+}
+
 bool SecCertificatePathVCIsOptionallyEV(SecCertificatePathVCRef certificatePath) {
     if (!certificatePath) { return false; }
     return certificatePath->certificates[0]->optionallyEV;
+}
+
+bool SecCertificatePathVCIsOptionallyQWAC(SecCertificatePathVCRef certificatePath) {
+    if (!certificatePath) { return false; }
+    return certificatePath->certificates[0]->optionallyQWAC;
 }
 
 bool SecCertificatePathVCIsCT(SecCertificatePathVCRef certificatePath) {
@@ -1194,6 +1226,11 @@ static bool policy_tree_map_if_match(policy_tree_t node, void *ctx) {
 
     const SecCEPolicyMappings *pm = (const SecCEPolicyMappings *)ctx;
     size_t mapping_ix, mapping_count = pm->numMappings;
+    /* limit the number of mappings we'll apply */
+    if (mapping_count < 0 || mapping_count >= (int)(POLICY_MAPPINGS_MAX )) {
+        return false;
+    }
+
     policy_set_t policy_set = NULL;
     /* Generate the policy_set of sdps for matching idp */
     for (mapping_ix = 0; mapping_ix < mapping_count; ++mapping_ix) {
@@ -1223,6 +1260,11 @@ static bool policy_tree_map_if_any(policy_tree_t node, void *ctx) {
 
     const SecCEPolicyMappings *pm = (const SecCEPolicyMappings *)ctx;
     size_t mapping_ix, mapping_count = pm->numMappings;
+    /* limit the number of mappings we'll apply */
+    if (mapping_count < 0 || mapping_count >= (int)(POLICY_MAPPINGS_MAX )) {
+        return false;
+    }
+
     CFMutableDictionaryRef mappings = NULL;
     CFDataRef idp = NULL;
     CFDataRef sdp = NULL;
@@ -1300,6 +1342,11 @@ static bool policy_tree_map_delete_if_match(policy_tree_t node, void *ctx) {
 
     const SecCEPolicyMappings *pm = (const SecCEPolicyMappings *)ctx;
     size_t mapping_ix, mapping_count = pm->numMappings;
+    /* limit the number of mappings we'll apply */
+    if (mapping_count < 0 || mapping_count >= (int)(POLICY_MAPPINGS_MAX )) {
+        return false;
+    }
+
     /* If this node matches any of the idps, delete it. */
     for (mapping_ix = 0; mapping_ix < mapping_count; ++mapping_ix) {
         const SecCEPolicyMapping *mapping = &pm->mappings[mapping_ix];

@@ -18,7 +18,6 @@
 #include "unicode/uchar.h"
 #include "unicode/uscript.h"
 #include "unicode/uloc.h"
-#include "bytesinkutil.h"
 #include "charstr.h"
 #include "cmemory.h"
 #include "cstring.h"
@@ -27,6 +26,10 @@
 static const UScriptCode JAPANESE[3] = { USCRIPT_KATAKANA, USCRIPT_HIRAGANA, USCRIPT_HAN };
 static const UScriptCode KOREAN[2] = { USCRIPT_HANGUL, USCRIPT_HAN };
 static const UScriptCode HAN_BOPO[2] = { USCRIPT_HAN, USCRIPT_BOPOMOFO };
+#if APPLE_ICU_CHANGES
+// rdar://111419695
+static const UScriptCode MONGOLIAN[2] = { USCRIPT_CYRILLIC, USCRIPT_MONGOLIAN };
+#endif // APPLE_ICU_CHANGES
 
 static int32_t
 setCodes(const UScriptCode *src, int32_t length,
@@ -57,39 +60,38 @@ setOneCode(UScriptCode script, UScriptCode *scripts, int32_t capacity, UErrorCod
 static int32_t
 getCodesFromLocale(const char *locale,
                    UScriptCode *scripts, int32_t capacity, UErrorCode *err) {
-    UErrorCode internalErrorCode = U_ZERO_ERROR;
-    char lang[8] = {0};
-    char script[8] = {0};
-    int32_t scriptLength;
-    if(U_FAILURE(*err)) { return 0; }
+    if (U_FAILURE(*err)) { return 0; }
+    icu::CharString lang;
+    icu::CharString script;
+    ulocimp_getSubtags(locale, &lang, &script, nullptr, nullptr, nullptr, *err);
+    if (U_FAILURE(*err)) { return 0; }
     // Multi-script languages, equivalent to the LocaleScript data
     // that we used to load from locale resource bundles.
-    /*length = */ uloc_getLanguage(locale, lang, UPRV_LENGTHOF(lang), &internalErrorCode);
-    if(U_FAILURE(internalErrorCode) || internalErrorCode == U_STRING_NOT_TERMINATED_WARNING) {
-        return 0;
-    }
-    if(0 == uprv_strcmp(lang, "ja")) {
+    if (lang == "ja") {
         return setCodes(JAPANESE, UPRV_LENGTHOF(JAPANESE), scripts, capacity, err);
     }
-    if(0 == uprv_strcmp(lang, "ko")) {
+    if (lang == "ko") {
         return setCodes(KOREAN, UPRV_LENGTHOF(KOREAN), scripts, capacity, err);
     }
-    scriptLength = uloc_getScript(locale, script, UPRV_LENGTHOF(script), &internalErrorCode);
-    if(U_FAILURE(internalErrorCode) || internalErrorCode == U_STRING_NOT_TERMINATED_WARNING) {
-        return 0;
-    }
-    if(0 == uprv_strcmp(lang, "zh") && 0 == uprv_strcmp(script, "Hant")) {
+    if (lang == "zh" && script == "Hant") {
         return setCodes(HAN_BOPO, UPRV_LENGTHOF(HAN_BOPO), scripts, capacity, err);
     }
+#if APPLE_ICU_CHANGES
+    // rdar://111419695
+    if (lang == "mn" || lang == "mon") {
+      return setCodes(MONGOLIAN, UPRV_LENGTHOF(MONGOLIAN), scripts, capacity, err);
+    }
+#endif // APPLE_ICU_CHANGES
+  
     // Explicit script code.
-    if(scriptLength != 0) {
+    if (!script.isEmpty()) {
 #if APPLE_ICU_CHANGES
 // rdar://47494884 de70bade5d.. For ur and ks, support both Arab and Aran (aliased). Add some localized names for Aran.
-        if (0 == uprv_strcmp(script, "Aran")) {
-            uprv_strcpy(script, "Arab");
+        if (script == "Aran") {
+            script = icu::CharString("Arab", *err);
         }
 #endif // APPLE_ICU_CHANGES
-        UScriptCode scriptCode = (UScriptCode)u_getPropertyValueEnum(UCHAR_SCRIPT, script);
+        UScriptCode scriptCode = static_cast<UScriptCode>(u_getPropertyValueEnum(UCHAR_SCRIPT, script.data()));
         if(scriptCode != USCRIPT_INVALID_CODE) {
             if(scriptCode == USCRIPT_SIMPLIFIED_HAN || scriptCode == USCRIPT_TRADITIONAL_HAN) {
                 scriptCode = USCRIPT_HAN;
@@ -118,12 +120,6 @@ uscript_getCode(const char* nameOrAbbrOrLocale,
         *err = U_ILLEGAL_ARGUMENT_ERROR;
         return 0;
     }
-#if APPLE_ICU_CHANGES
-// rdar://47494884 de70bade5d.. For ur and ks, support both Arab and Aran (aliased). Add some localized names for Aran.
-    if (0 == uprv_strcmp(nameOrAbbrOrLocale, "Aran")) {
-        nameOrAbbrOrLocale = "Arab";
-    }
-#endif // APPLE_ICU_CHANGES
 
     triedCode = false;
     const char* lastSepPtr = uprv_strrchr(nameOrAbbrOrLocale, '-');
@@ -152,11 +148,7 @@ uscript_getCode(const char* nameOrAbbrOrLocale,
     if(U_FAILURE(*err) || length != 0) {
         return length;
     }
-    icu::CharString likely;
-    {
-        icu::CharStringByteSink sink(&likely);
-        ulocimp_addLikelySubtags(nameOrAbbrOrLocale, sink, &internalErrorCode);
-    }
+    icu::CharString likely = ulocimp_addLikelySubtags(nameOrAbbrOrLocale, internalErrorCode);
     if(U_SUCCESS(internalErrorCode) && internalErrorCode != U_STRING_NOT_TERMINATED_WARNING) {
         length = getCodesFromLocale(likely.data(), fillIn, capacity, err);
         if(U_FAILURE(*err) || length != 0) {

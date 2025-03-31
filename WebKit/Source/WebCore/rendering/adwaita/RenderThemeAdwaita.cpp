@@ -43,20 +43,21 @@
 #include "RenderStyleSetters.h"
 #include "ThemeAdwaita.h"
 #include "TimeRanges.h"
+#include "UserAgentScripts.h"
 #include "UserAgentStyleSheets.h"
 #include <wtf/text/Base64.h>
-
-#if PLATFORM(GTK)
-#include <gtk/gtk.h>
-#endif
 
 #if PLATFORM(WIN)
 #include "WebCoreBundleWin.h"
 #include <wtf/FileSystem.h>
 #endif
 
-#if ENABLE(MODERN_MEDIA_CONTROLS)
-#include "UserAgentScripts.h"
+#if PLATFORM(GTK) || PLATFORM(WPE)
+#include "SystemSettings.h"
+#endif
+
+#if USE(GLIB)
+#include <wtf/glib/GSpanExtras.h>
 #endif
 
 namespace WebCore {
@@ -75,9 +76,7 @@ bool RenderThemeAdwaita::canCreateControlPartForRenderer(const RenderObject& ren
     switch (renderer.style().usedAppearance()) {
     case StyleAppearance::Button:
     case StyleAppearance::Checkbox:
-#if ENABLE(INPUT_TYPE_COLOR)
     case StyleAppearance::ColorWell:
-#endif
     case StyleAppearance::DefaultButton:
     case StyleAppearance::InnerSpinButton:
     case StyleAppearance::Menulist:
@@ -204,25 +203,15 @@ String RenderThemeAdwaita::extraDefaultStyleSheet()
 
 Vector<String, 2> RenderThemeAdwaita::mediaControlsScripts()
 {
-#if ENABLE(MODERN_MEDIA_CONTROLS)
     return { StringImpl::createWithoutCopying(ModernMediaControlsJavaScript) };
-#else
-    return { };
-#endif
 }
 
 String RenderThemeAdwaita::mediaControlsStyleSheet()
 {
-#if ENABLE(MODERN_MEDIA_CONTROLS)
     if (m_mediaControlsStyleSheet.isEmpty())
         m_mediaControlsStyleSheet = StringImpl::createWithoutCopying(ModernMediaControlsUserAgentStyleSheet);
     return m_mediaControlsStyleSheet;
-#else
-    return emptyString();
-#endif
 }
-
-#if ENABLE(MODERN_MEDIA_CONTROLS)
 
 String RenderThemeAdwaita::mediaControlsBase64StringForIconNameAndType(const String& iconName, const String& iconType)
 {
@@ -231,7 +220,7 @@ String RenderThemeAdwaita::mediaControlsBase64StringForIconNameAndType(const Str
     auto data = adoptGRef(g_resources_lookup_data(path.latin1().data(), G_RESOURCE_LOOKUP_FLAGS_NONE, nullptr));
     if (!data)
         return emptyString();
-    return base64EncodeToString({ static_cast<const uint8_t*>(g_bytes_get_data(data.get(), nullptr)), g_bytes_get_size(data.get()) });
+    return base64EncodeToString(span(data));
 #elif PLATFORM(WIN)
     auto path = webKitBundlePath(iconName, iconType, "media-controls"_s);
     auto data = FileSystem::readEntireFile(path);
@@ -248,7 +237,6 @@ String RenderThemeAdwaita::mediaControlsFormattedStringForDuration(double durati
     // FIXME: Format this somehow, maybe through GDateTime?
     return makeString(durationInSeconds);
 }
-#endif // ENABLE(MODERN_MEDIA_CONTROLS)
 #endif // ENABLE(VIDEO)
 
 Color RenderThemeAdwaita::systemColor(CSSValueID cssValueID, OptionSet<StyleColorOptions> options) const
@@ -273,7 +261,7 @@ Color RenderThemeAdwaita::systemColor(CSSValueID cssValueID, OptionSet<StyleColo
         return { Color::white, Color::Flags::Semantic };
 
     case CSSValueField:
-#if HAVE(OS_DARK_MODE_SUPPORT)
+#if PLATFORM(COCOA)
     case CSSValueWebkitControlBackground:
 #endif
         if (useDarkAppearance)
@@ -341,8 +329,8 @@ LengthBox RenderThemeAdwaita::popupInternalPaddingBox(const RenderStyle& style) 
         return { };
 
     auto zoomedArrowSize = menuListButtonArrowSize * style.usedZoom();
-    int leftPadding = menuListButtonPadding + (style.direction() == TextDirection::RTL ? zoomedArrowSize : 0);
-    int rightPadding = menuListButtonPadding + (style.direction() == TextDirection::LTR ? zoomedArrowSize : 0);
+    int leftPadding = menuListButtonPadding + (style.writingMode().isBidiRTL() ? zoomedArrowSize : 0);
+    int rightPadding = menuListButtonPadding + (style.writingMode().isBidiLTR() ? zoomedArrowSize : 0);
 
     return { menuListButtonPadding, rightPadding, menuListButtonPadding, leftPadding };
 }
@@ -367,7 +355,6 @@ void RenderThemeAdwaita::adjustSliderThumbSize(RenderStyle& style, const Element
     style.setHeight(Length(sliderThumbSize, LengthType::Fixed));
 }
 
-#if ENABLE(DATALIST_ELEMENT)
 IntSize RenderThemeAdwaita::sliderTickSize() const
 {
     return { 1, 7 };
@@ -386,19 +373,17 @@ void RenderThemeAdwaita::adjustListButtonStyle(RenderStyle& style, const Element
     else
         style.setMarginLeft(Length(-2, LengthType::Fixed));
 }
-#endif // ENABLE(DATALIST_ELEMENT)
 
-#if PLATFORM(GTK)
+#if PLATFORM(GTK) || PLATFORM(WPE)
 std::optional<Seconds> RenderThemeAdwaita::caretBlinkInterval() const
 {
-    gboolean shouldBlink;
-    gint time;
-    g_object_get(gtk_settings_get_default(), "gtk-cursor-blink", &shouldBlink, "gtk-cursor-blink-time", &time, nullptr);
-    if (shouldBlink)
-        return { 500_us * time };
+    auto shouldBlink = SystemSettings::singleton().cursorBlink();
+    auto blinkTime = SystemSettings::singleton().cursorBlinkTime();
+    if (shouldBlink.value_or(true))
+        return { 500_us * blinkTime.value_or(1200) };
     return { };
 }
-#endif
+#endif // PLATFORM(GTK) || PLATFORM(WPE)
 
 void RenderThemeAdwaita::setAccentColor(const Color& color)
 {

@@ -1,0 +1,60 @@
+/F8FF;<Private Use, Last>;Co;0;L;;;;;N;;;;;/ c\
+F7EF;<Private Use, Last>;Co;0;L;;;;;N;;;;;\
+F7F0;<Apple Corporate Use symbols and other, First>;So;0;ON;;;;;N;;;;;\
+F86F;<Apple Corporate Use symbols and other, Last>;So;0;ON;;;;;N;;;;;\
+F870;<Apple Corporate Use transcoding hints, First>;Mn;0;NSM;;;;;N;;;;;\
+F87F;<Apple Corporate Use transcoding hints, Last>;Mn;0;NSM;;;;;N;;;;;\
+F880;Apple Corporate deprecated metrics char;So;0;L;;;;;N;;;;;\
+F881;Apple Corporate deprecated metrics char;So;0;L;;;;;N;;;;;\
+F882;Apple Corporate Arabic ligature;Lo;0;AL;;;;;N;;;;;\
+F883;Apple Corporate deprecated Arabic rial;Sc;0;R;;;;;N;;;;;\
+F884;<Apple Corporate deprecated Thai forms, First>;Mn;0;NSM;;;;;N;;;;;\
+F889;<Apple Corporate deprecated Thai forms, Last>;Mn;0;NSM;;;;;N;;;;;\
+F88A;Apple Corporate deprecated Thai form;Mn;0;NSM;;;;;N;;;;;\
+F88B;Apple Corporate deprecated Thai form;Mn;0;NSM;;;;;N;;;;;\
+F88C;Apple Corporate deprecated Thai form;Mn;0;NSM;;;;;N;;;;;\
+F88D;Apple Corporate deprecated Thai form;Mn;0;NSM;;;;;N;;;;;\
+F88E;Apple Corporate deprecated Thai form;Mn;0;NSM;;;;;N;;;;;\
+F88F;Apple Corporate deprecated Thai form;Mn;0;NSM;;;;;N;;;;;\
+F890;Apple Corporate deprecated Thai form;Mn;0;NSM;;;;;N;;;;;\
+F891;Apple Corporate deprecated Thai form;Mn;0;NSM;;;;;N;;;;;\
+F892;Apple Corporate deprecated Thai form;Mn;0;NSM;;;;;N;;;;;\
+F893;Apple Corporate deprecated Thai form;Mn;0;NSM;;;;;N;;;;;\
+F894;Apple Corporate deprecated Thai form;Mn;0;NSM;;;;;N;;;;;\
+F895;Apple Corporate deprecated Thai form;Mn;0;NSM;;;;;N;;;;;\
+F896;<Apple Corporate deprecated Thai forms, First>;Mn;0;NSM;;;;;N;;;;;\
+F899;<Apple Corporate deprecated Thai forms, Last>;Mn;0;NSM;;;;;N;;;;;\
+F89A;<Apple Corporate mostly deprecated Hebrew misc, First>;Lo;0;R;;;;;N;;;;;\
+F89E;<Apple Corporate mostly deprecated Hebrew misc, Last>;Lo;0;R;;;;;N;;;;;\
+F89F;Apple Corporate deprecated Hebrew misc;Mn;0;NSM;;;;;N;;;;;\
+F8A0;Apple Corporate deprecated Euro;Sc;0;ET;;;;;N;;;;;\
+F8A1;Apple Corporate deprecated Japanese digit zero full stop;No;0;EN;;;0;0;N;;;;;\
+F8A2;Apple Corporate deprecated Japanese roman numeral thirteen;Nl;0;L;;;;13;N;;;;;\
+F8A3;Apple Corporate deprecated Japanese roman numeral fourteen;Nl;0;L;;;;14;N;;;;;\
+F8A4;Apple Corporate deprecated Japanese roman numeral fifteen;Nl;0;L;;;;15;N;;;;;\
+F8A5;Apple Corporate deprecated Japanese small roman numeral thirteen;Nl;0;L;;;;13;N;;;;;\
+F8A6;Apple Corporate deprecated Japanese small roman numeral fourteen;Nl;0;L;;;;14;N;;;;;\
+F8A7;Apple Corporate deprecated Japanese small roman numeral fifteen;Nl;0;L;;;;15;N;;;;;\
+F8A8;<Apple Corporate deprecated Japanese symbols, First>;So;0;L;;;;;N;;;;;\
+F8AC;<Apple Corporate deprecated Japanese symbols, Last>;So;0;L;;;;;N;;;;;\
+F8AD;<Apple Corporate deprecated Japanese arrows, First>;So;0;ON;;;;;N;;;;;\
+F8B1;<Apple Corporate deprecated Japanese arrows, Last>;So;0;ON;;;;;N;;;;;\
+F8B2;Apple Corporate deprecated Japanese symbol;So;0;L;;;;;N;;;;;\
+F8B3;Apple Corporate deprecated Japanese symbol;So;0;L;;;;;N;;;;;\
+F8B4;Apple Corporate deprecated Japanese punct;Pe;0;ON;;;;;N;;;;;\
+F8B5;<Apple Corporate deprecated Japanese punct, First>;Po;0;ON;;;;;N;;;;;\
+F8B7;<Apple Corporate deprecated Japanese punct, Last>;Po;0;ON;;;;;N;;;;;\
+F8B8;Apple Corporate deprecated kana form;Lm;0;L;;;;;N;;;;;\
+F8B9;Apple Corporate deprecated Japanese punct;Pd;0;ON;;;;;N;;;;;\
+F8BA;Apple Corporate deprecated Japanese punct;Pd;0;ON;;;;;N;;;;;\
+F8BB;Apple Corporate deprecated Japanese punct;Po;0;ON;;;;;N;;;;;\
+F8BC;Apple Corporate deprecated Japanese punct;Sm;0;ON;;;;;N;;;;;\
+F8BD;Apple Corporate deprecated Japanese punct;Sm;0;ON;;;;;N;;;;;\
+F8BE;Apple Corporate deprecated Japanese punct;Ps;0;ON;;;;;N;;;;;\
+F8BF;Apple Corporate deprecated Japanese punct;Pe;0;ON;;;;;N;;;;;\
+F8C0;Apple Corporate deprecated Japanese punct;Sm;0;ON;;;;;N;;;;;\
+F8C1;<Apple Corporate deprecated kana forms, First>;Lo;0;L;;;;;N;;;;;\
+F8D6;<Apple Corporate deprecated kana forms, Last>;Lo;0;L;;;;;N;;;;;\
+F8D7;<Apple Corporate deprecated symbols, First>;So;0;ON;;;;;N;;;;;\
+F8FE;<Apple Corporate deprecated symbols, Last>;So;0;ON;;;;;N;;;;;\
+F8FF;Apple Corporate logo;So;0;ON;;;;;N;;;;;

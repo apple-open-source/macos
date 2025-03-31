@@ -37,6 +37,7 @@
 #include <wtf/RefPtr.h>
 #include <wtf/RetainPtr.h>
 #include <wtf/TZoneMalloc.h>
+#include <wtf/WeakRef.h>
 
 #define LOG_TILING 0
 
@@ -54,7 +55,8 @@ public:
     LegacyTileGrid(LegacyTileCache&, const IntSize&);
     ~LegacyTileGrid();
 
-    LegacyTileCache& tileCache() const { return m_tileCache; }
+    LegacyTileCache& tileCache() const { return m_tileCache.get(); }
+    Ref<LegacyTileCache> protectedTileCache() const { return tileCache(); }
 
     CALayer *tileHostLayer() const;
     IntRect bounds() const;
@@ -108,7 +110,7 @@ private:
     bool shouldUseMinimalTileCoverage() const;
 
 private:        
-    LegacyTileCache& m_tileCache;
+    WeakRef<LegacyTileCache> m_tileCache;
     RetainPtr<CALayer> m_tileHostLayer;
 
     IntPoint m_origin;
@@ -116,7 +118,7 @@ private:
 
     float m_scale;
 
-    typedef HashMap<TileIndex, RefPtr<LegacyTileGridTile>> TileMap;
+    typedef UncheckedKeyHashMap<TileIndex, RefPtr<LegacyTileGridTile>> TileMap;
     TileMap m_tiles;
 
     IntRect m_validBounds;

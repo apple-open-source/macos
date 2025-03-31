@@ -30,6 +30,7 @@
 
 #import <CoreGraphics/CGPDFDocument.h>
 #import <JavaScriptCore/RegularExpression.h>
+#import <pal/spi/cg/CoreGraphicsSPI.h>
 #import <wtf/NeverDestroyed.h>
 #import <wtf/OptionSet.h>
 #import <wtf/text/ASCIILiteral.h>
@@ -100,13 +101,12 @@ static bool pdfDocumentContainsPrintScript(RetainPtr<CGPDFDocumentRef> pdfDocume
             continue;
 
         // A JavaScript action must have an action type of "JavaScript".
-        const char* actionType = nullptr;
-        if (!CGPDFDictionaryGetName(javaScriptAction, "S", &actionType) || strcmp(actionType, "JavaScript"))
+        if (CGPDFDictionaryGetNameString(javaScriptAction, "S"_s) != "JavaScript"_s)
             continue;
 
-        auto scriptFromBytes = [](const UInt8* bytes, CFIndex length) {
-            CFStringEncoding encoding = (length > 1 && bytes[0] == 0xFE && bytes[1] == 0xFF) ? kCFStringEncodingUnicode : kCFStringEncodingUTF8;
-            return adoptCF(CFStringCreateWithBytes(kCFAllocatorDefault, bytes, length, encoding, true));
+        auto scriptFromBytes = [](std::span<const uint8_t> bytes) {
+            CFStringEncoding encoding = (bytes.size() > 1 && bytes[0] == 0xFE && bytes[1] == 0xFF) ? kCFStringEncodingUnicode : kCFStringEncodingUTF8;
+            return adoptCF(CFStringCreateWithBytes(kCFAllocatorDefault, bytes.data(), bytes.size(), encoding, true));
         };
 
         auto scriptFromStream = [&] -> RetainPtr<CFStringRef> {
@@ -117,14 +117,14 @@ static bool pdfDocumentContainsPrintScript(RetainPtr<CGPDFDocumentRef> pdfDocume
             RetainPtr<CFDataRef> data = adoptCF(CGPDFStreamCopyData(stream, &format));
             if (!data)
                 return nullptr;
-            return scriptFromBytes(CFDataGetBytePtr(data.get()), CFDataGetLength(data.get()));
+            return scriptFromBytes(span(data.get()));
         };
 
         auto scriptFromString = [&] -> RetainPtr<CFStringRef> {
             CGPDFStringRef string = nullptr;
             if (!CGPDFDictionaryGetString(javaScriptAction, "JS", &string))
                 return nullptr;
-            return scriptFromBytes(CGPDFStringGetBytePtr(string), CGPDFStringGetLength(string));
+            return scriptFromBytes(unsafeMakeSpan(CGPDFStringGetBytePtr(string), CGPDFStringGetLength(string)));
         };
 
         if (RetainPtr<CFStringRef> script = scriptFromStream() ?: scriptFromString(); script && isPrintScript({ script.get() }))

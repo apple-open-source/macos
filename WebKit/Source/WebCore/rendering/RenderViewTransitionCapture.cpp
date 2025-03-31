@@ -30,6 +30,7 @@
 #include "ImageQualityController.h"
 #include "PaintInfo.h"
 #include "RenderBoxModelObjectInlines.h"
+#include "RenderLayer.h"
 #include <wtf/TZoneMallocInlines.h>
 
 namespace WebCore {
@@ -47,7 +48,7 @@ void RenderViewTransitionCapture::setImage(RefPtr<ImageBuffer> oldImage)
 {
     m_oldImage = oldImage;
     if (hasLayer())
-        layer()->contentChanged(ContentChangeType::ImageChanged);
+        layer()->contentChanged(ContentChangeType::Image);
     if (parent())
         repaint();
 }

@@ -26,7 +26,7 @@
 // 8 bit
 ////////////////////////////////////////////////////////////////////////////////
 
-static INLINE void obmc_variance_w8n(const uint8_t *pre, const int pre_stride,
+static inline void obmc_variance_w8n(const uint8_t *pre, const int pre_stride,
                                      const int32_t *wsrc, const int32_t *mask,
                                      unsigned int *const sse, int *const sum,
                                      const int w, const int h) {
@@ -81,7 +81,7 @@ static INLINE void obmc_variance_w8n(const uint8_t *pre, const int pre_stride,
   *sse = (unsigned int)_mm_cvtsi128_si32(_mm_srli_si128(v_d, 4));
 }
 
-static INLINE void obmc_variance_w16n(const uint8_t *pre, const int pre_stride,
+static inline void obmc_variance_w16n(const uint8_t *pre, const int pre_stride,
                                       const int32_t *wsrc, const int32_t *mask,
                                       unsigned int *const sse, int *const sum,
                                       const int w, const int h) {

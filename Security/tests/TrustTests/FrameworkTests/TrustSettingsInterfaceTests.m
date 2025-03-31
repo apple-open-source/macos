@@ -25,15 +25,18 @@
 
 #import <XCTest/XCTest.h>
 #include "OSX/utilities/SecCFWrappers.h"
+#include <Security/SecCertificatePriv.h>
 #include <Security/SecTrustSettings.h>
 #include <Security/SecTrustSettingsPriv.h>
 #include <Security/SecTrust.h>
 #include <Security/SecTrustPriv.h>
 #include <Security/SecFramework.h>
 #include <Security/SecTrustStore.h>
+#include <Security/SecPolicyPriv.h>
 
 #include "../TestMacroConversions.h"
 #include "TrustFrameworkTestCase.h"
+#include "TrustSettingsInterfaceTests_data.h"
 
 @interface TrustSettingsInterfaceTests : TrustFrameworkTestCase
 @end
@@ -44,11 +47,47 @@
 - (void)testCopySystemAnchors {
     CFArrayRef certArray;
     ok_status(SecTrustCopyAnchorCertificates(&certArray), "copy anchors");
+    SecCertificateRef qwac_anchor = SecCertificateCreateWithBytes(NULL, _harica_qwac_anchor, sizeof(_harica_qwac_anchor));
+    XCTAssertFalse(CFArrayContainsValue(certArray, CFRangeMake(0, CFArrayGetCount(certArray)), qwac_anchor));
     CFReleaseSafe(certArray);
+
     ok_status(SecTrustSettingsCopyCertificates(kSecTrustSettingsDomainSystem, &certArray), "copy certificates");
+    XCTAssertFalse(CFArrayContainsValue(certArray, CFRangeMake(0, CFArrayGetCount(certArray)), qwac_anchor));
     CFReleaseSafe(certArray);
+    CFReleaseNull(qwac_anchor);
 }
 #endif
+
+- (void)testTrustStoreCopyAnchors {
+#if TARGET_OS_BRIDGE
+    XCTSkip();
+#endif
+    /* Repeat the evaluation test for the CopyAnchors test with a live trustd (testing that the XPC flow is functional) */
+    SecTrustStoreRef systemTS = SecTrustStoreForDomain(kSecTrustStoreDomainSystem);
+
+    CFArrayRef unconstrainedStore = NULL;
+    XCTAssertEqual(errSecSuccess, SecTrustStoreCopyAll(systemTS, &unconstrainedStore));
+    XCTAssertNotEqual(unconstrainedStore, NULL);
+
+    // Unconstrained system trust store
+    NSArray *anchors = CFBridgingRelease(SecTrustStoreCopyAnchors(systemTS, kSecPolicyAppleX509Basic));
+    XCTAssertNotNil(anchors);
+    XCTAssertEqualObjects(anchors, (__bridge NSArray*)unconstrainedStore);
+
+    // Apple anchors
+    anchors = CFBridgingRelease(SecTrustStoreCopyAnchors(systemTS, kSecPolicyAppleiPhoneApplicationSigning));
+    XCTAssertNotNil(anchors);
+    XCTAssertGreaterThanOrEqual(anchors.count, 3);
+
+    // Constrained anchor policy
+    anchors = CFBridgingRelease(SecTrustStoreCopyAnchors(systemTS, kSecPolicyAppleMDLTerminalAuth));
+    XCTAssertNotNil(anchors);
+    XCTAssertGreaterThanOrEqual(anchors.count, 1);
+
+    // Currently no constrained anchors defined
+    anchors = CFBridgingRelease(SecTrustStoreCopyAnchors(systemTS, kSecPolicyAppleiAP));
+    XCTAssertGreaterThanOrEqual(anchors.count, 0);
+}
 
 - (void)testSetCTExceptions {
 #if TARGET_OS_BRIDGE

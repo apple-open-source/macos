@@ -65,6 +65,12 @@ fi
 echo "Moving AnalyticsSamplingRates.plist"
 plutil -convert binary1 ${SUPPLEMENTALS_DIR}/AnalyticsSamplingRates.plist -o ${ASSET_DATA}/AnalyticsSamplingRates.plist
 
+echo "Moving Anchors"
+ditto ${BUILT_ASSETS_DIR}/Anchors ${ASSET_DATA}/Anchors
+
+echo "Moving Anchors.plist"
+ditto ${BUILT_ASSETS_DIR}/Anchors.plist ${ASSET_DATA}/Anchors.plist
+
 echo "Moving AppleCertificateAuthorities.plist"
 plutil -convert binary1 ${SUPPLEMENTALS_DIR}/AppleCertificateAuthorities.plist -o ${ASSET_DATA}/AppleCertificateAuthorities.plist
 

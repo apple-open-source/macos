@@ -31,13 +31,17 @@
 #include "CredentialRequestCoordinatorClient.h"
 #include "CredentialRequestOptions.h"
 #include "Document.h"
+#include "DocumentInlines.h"
+#include "FrameDestructionObserverInlines.h"
 #include "JSDOMPromiseDeferred.h"
+#include "VisibilityState.h"
 #include <wtf/Logger.h>
 #include <wtf/TZoneMallocInlines.h>
 
 namespace WebCore {
 
 WTF_MAKE_TZONE_ALLOCATED_IMPL(CredentialRequestCoordinator);
+WTF_MAKE_TZONE_ALLOCATED_IMPL(CredentialRequestCoordinatorClient);
 
 CredentialRequestCoordinator::CredentialRequestCoordinator(std::unique_ptr<CredentialRequestCoordinatorClient>&& client)
     : m_client(WTFMove(client))
@@ -46,13 +50,34 @@ CredentialRequestCoordinator::CredentialRequestCoordinator(std::unique_ptr<Crede
 
 void CredentialRequestCoordinator::discoverFromExternalSource(const Document& document, CredentialRequestOptions&& requestOptions, CredentialPromise&& promise)
 {
-    if (!m_client) {
-        LOG_ERROR("No client found");
+    RefPtr window = document.protectedWindow();
+    if (!m_client || !window) {
+        LOG_ERROR("No client or window found");
         promise.reject(Exception { ExceptionCode::UnknownError, "Unknown internal error."_s });
         return;
     }
 
+    if (!document.hasFocus()) {
+        promise.reject(Exception { ExceptionCode::NotAllowedError, "The document is not focused."_s });
+        return;
+    }
+
+    if (document.visibilityState() != VisibilityState::Visible) {
+        promise.reject(Exception { ExceptionCode::NotAllowedError, "The document is not visible."_s });
+        return;
+    }
+
     const auto& options = requestOptions.digital.value();
+
+    if (!options.requests.size()) {
+        promise.reject(Exception { ExceptionCode::TypeError, "Must make at least one request."_s });
+        return;
+    }
+
+    if (!window->consumeTransientActivation()) {
+        promise.reject(Exception { ExceptionCode::NotAllowedError, "Calling get() needs to be triggered by an activation triggering user event."_s });
+        return;
+    }
 
     if (requestOptions.signal) {
         requestOptions.signal->addAlgorithm([this](JSC::JSValue) mutable {

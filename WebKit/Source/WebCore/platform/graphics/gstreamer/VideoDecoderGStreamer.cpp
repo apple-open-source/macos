@@ -20,7 +20,7 @@
 #include "config.h"
 #include "VideoDecoderGStreamer.h"
 
-#if USE(GSTREAMER)
+#if ENABLE(VIDEO) && USE(GSTREAMER)
 
 #include "GStreamerCommon.h"
 #include "GStreamerElementHarness.h"
@@ -39,12 +39,15 @@ GST_DEBUG_CATEGORY(webkit_video_decoder_debug);
 
 static WorkQueue& gstDecoderWorkQueue()
 {
-    static NeverDestroyed<Ref<WorkQueue>> queue(WorkQueue::create("GStreamer VideoDecoder Queue"_s));
+    static std::once_flag onceKey;
+    static LazyNeverDestroyed<Ref<WorkQueue>> queue;
+    std::call_once(onceKey, [] {
+        queue.construct(WorkQueue::create("GStreamer VideoDecoder queue"_s));
+    });
     return queue.get();
 }
 
-class GStreamerInternalVideoDecoder : public ThreadSafeRefCounted<GStreamerInternalVideoDecoder>
-    , public CanMakeWeakPtr<GStreamerInternalVideoDecoder, WeakPtrFactoryInitialization::Eager> {
+class GStreamerInternalVideoDecoder : public ThreadSafeRefCountedAndCanMakeThreadSafeWeakPtr<GStreamerInternalVideoDecoder> {
     WTF_MAKE_TZONE_ALLOCATED_INLINE(GStreamerInternalVideoDecoder);
 
 public:
@@ -89,8 +92,14 @@ void GStreamerVideoDecoder::create(const String& codecName, const Config& config
         GST_DEBUG_CATEGORY_INIT(webkit_video_decoder_debug, "webkitvideodecoder", 0, "WebKit WebCodecs Video Decoder");
     });
 
+    bool usingHardware = config.decoding == VideoDecoder::HardwareAcceleration::Yes;
     auto& scanner = GStreamerRegistryScanner::singleton();
-    auto lookupResult = scanner.isCodecSupported(GStreamerRegistryScanner::Configuration::Decoding, codecName);
+    auto lookupResult = scanner.isCodecSupported(GStreamerRegistryScanner::Configuration::Decoding, codecName, usingHardware);
+    if (usingHardware && !lookupResult) {
+        GST_DEBUG("No hardware decoder found for codec %s, falling back to software", codecName.utf8().data());
+        lookupResult = scanner.isCodecSupported(GStreamerRegistryScanner::Configuration::Decoding, codecName, false);
+    }
+
     if (!lookupResult) {
         GST_WARNING("No decoder found for codec %s", codecName.utf8().data());
         callback(makeUnexpected(makeString("No decoder found for codec "_s, codecName)));
@@ -98,8 +107,8 @@ void GStreamerVideoDecoder::create(const String& codecName, const Config& config
     }
 
     GRefPtr<GstElement> element = gst_element_factory_create(lookupResult.factory.get(), nullptr);
-    auto decoder = makeUniqueRef<GStreamerVideoDecoder>(codecName, config, WTFMove(outputCallback), WTFMove(element));
-    auto internalDecoder = decoder->m_internalDecoder;
+    Ref decoder = adoptRef(*new GStreamerVideoDecoder(codecName, config, WTFMove(outputCallback), WTFMove(element)));
+    Ref internalDecoder = decoder->m_internalDecoder;
     if (!internalDecoder->isConfigured()) {
         GST_WARNING("Internal video decoder failed to configure for codec %s", codecName.utf8().data());
         callback(makeUnexpected(makeString("Internal video decoder failed to configure for codec "_s, codecName)));
@@ -109,7 +118,7 @@ void GStreamerVideoDecoder::create(const String& codecName, const Config& config
     gstDecoderWorkQueue().dispatch([callback = WTFMove(callback), decoder = WTFMove(decoder)]() mutable {
         auto internalDecoder = decoder->m_internalDecoder;
         GST_DEBUG_OBJECT(decoder->m_internalDecoder->harnessedElement(), "Video decoder created");
-        callback(UniqueRef<VideoDecoder> { WTFMove(decoder) });
+        callback(Ref<VideoDecoder> { WTFMove(decoder) });
     });
 }
 
@@ -126,7 +135,7 @@ GStreamerVideoDecoder::~GStreamerVideoDecoder()
 Ref<VideoDecoder::DecodePromise> GStreamerVideoDecoder::decode(EncodedFrame&& frame)
 {
     return invokeAsync(gstDecoderWorkQueue(), [value = Vector<uint8_t> { frame.data }, isKeyFrame = frame.isKeyFrame, timestamp = frame.timestamp, duration = frame.duration, decoder = m_internalDecoder] {
-        return decoder->decode({ value.data(), value.size() }, isKeyFrame, timestamp, duration);
+        return decoder->decode(value.span(), isKeyFrame, timestamp, duration);
     });
 }
 
@@ -208,10 +217,10 @@ GStreamerInternalVideoDecoder::GStreamerInternalVideoDecoder(const String& codec
     } else
         harnessedElement = WTFMove(element);
 
-    m_harness = GStreamerElementHarness::create(WTFMove(harnessedElement), [weakThis = WeakPtr { *this }, this](auto& stream, GRefPtr<GstSample>&& outputSample) {
-        if (!weakThis)
+    m_harness = GStreamerElementHarness::create(WTFMove(harnessedElement), [weakThis = ThreadSafeWeakPtr { *this }, this](auto& stream, GRefPtr<GstSample>&& outputSample) {
+        RefPtr protectedThis = weakThis.get();
+        if (!protectedThis)
             return;
-
         if (m_isClosed)
             return;
 
@@ -230,7 +239,7 @@ GStreamerInternalVideoDecoder::GStreamerInternalVideoDecoder(const String& codec
             timestamp = m_timestamp;
 
         GST_TRACE_OBJECT(m_harness->element(), "Handling decoded frame with PTS: %" GST_TIME_FORMAT " and duration: %" GST_TIME_FORMAT, GST_TIME_ARGS(timestamp), GST_TIME_ARGS(duration));
-        auto videoFrame = VideoFrameGStreamer::create(WTFMove(outputSample), m_presentationSize, fromGstClockTime(timestamp));
+        auto videoFrame = VideoFrameGStreamer::create(WTFMove(outputSample), IntSize(m_presentationSize), fromGstClockTime(timestamp));
         m_outputCallback(VideoDecoder::DecodedFrame { WTFMove(videoFrame), timestamp, duration });
     });
 }
@@ -275,4 +284,4 @@ void GStreamerInternalVideoDecoder::flush()
 
 } // namespace WebCore
 
-#endif // ENABLE(WEB_CODECS) && USE(GSTREAMER)
+#endif // ENABLE(VIDEO) && USE(GSTREAMER)

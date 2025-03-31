@@ -1,6 +1,6 @@
 <dict>
 	<key>OpenSourceImportDate</key>
-	<string>2024-01-12</string>
+	<string>2024-12-10</string>
 	<key>OpenSourceLicense</key>
 	<string>BSD</string>
 	<key>OpenSourceModifications</key>
@@ -11,7 +11,7 @@
 	<key>OpenSourceProject</key>
 	<string>uniq</string>
 	<key>OpenSourceVersion</key>
-	<string>2024-01-12</string>
+	<string>2024-12-09</string>
 	<key>OpenSourceWebsiteURL</key>
-	<string>https://cgit.freebsd.org/src/tree/usr.bin/uniq?id=899837e8f5741f9a847b63d9e7c8b76ccc033ab5</string>
+	<string>https://cgit.freebsd.org/src/tree/usr.bin/uniq?id=c3f8900e696998c410dc16f9bd9d45c24c413e6b</string>
 </dict>

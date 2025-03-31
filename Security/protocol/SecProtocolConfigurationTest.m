@@ -20,6 +20,9 @@
         return (r); \
     }
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+
 typedef struct mock_protocol {
     struct nw_protocol protocol;
     char *name;
@@ -337,6 +340,479 @@ isLocalTLD(NSString *host)
     return false;
 }
 
+#pragma mark - ATS Exceptions Tests
+
+- (void)runATSExceptionTestForHostname:(const char *)hostname
+                         configuration:(sec_protocol_configuration_t)configuration
+                             isAddress:(bool)isAddress
+                              isDirect:(bool)isDirect
+                           atsRequired:(bool)atsRequired
+                         minTLSVersion:(tls_protocol_version_t)minTLSVersion
+                forwardSecrecyRequired:(bool)forwardSecrecyRequired
+{
+    sec_protocol_options_t options = [self create_sec_protocol_options];
+    sec_protocol_options_set_sec_protocol_configuration(options, configuration);
+    sec_protocol_options_t transformed = nil;
+    if (isAddress) {
+        XCTAssertTrue(atsRequired == sec_protocol_configuration_tls_required_for_address(configuration, hostname, isDirect), "TLS should have been required: %d for hostname %s", atsRequired, hostname);
+        transformed = sec_protocol_configuration_copy_transformed_options_for_address(options, hostname, isDirect);
+    } else {
+        XCTAssertTrue(atsRequired == sec_protocol_configuration_tls_required_for_host(configuration, hostname, isDirect), "TLS should have been required: %d for hostname %s", atsRequired, hostname);
+        transformed = sec_protocol_configuration_copy_transformed_options_for_host(options, hostname, isDirect);
+    }
+    (void)sec_protocol_options_access_handle(transformed, ^bool(void *handle) {
+        sec_protocol_options_content_t content = (sec_protocol_options_content_t)handle;
+        SEC_PROTOCOL_METADATA_VALIDATE(content, false);
+        XCTAssertTrue(content->ats_required == atsRequired, "ats_required should have been set to: %d for hostname %s", atsRequired, hostname);
+        XCTAssertTrue(content->min_version == minTLSVersion, "Minimum TLS version should have been set to: %d, instead received: %d for hostname %s", minTLSVersion, content->min_version, hostname);
+        if (forwardSecrecyRequired || content->ats_required) {
+            XCTAssertTrue(content->ciphersuites != nil, "expected ciphersuites to be set for hostname %s since forwardSecrecyRequired = %d, ats_required = %d", hostname, forwardSecrecyRequired, content->ats_required);
+        } else {
+            XCTAssertTrue(content->ciphersuites == nil, "forward secrecy was not required for hostname %s, expected ciphersuites to be nil", hostname);
+        }
+        return true;
+    });
+}
+
+- (void)testExceptionRaisesSecurityRequirements
+{
+    NSDictionary *exampleATS = @{@"NSAllowsArbitraryLoads" : @YES,
+                                 @"NSExceptionDomains" : @{
+                                     @"neverssl.com" : @{
+                                         @"NSExceptionAllowsInsecureHTTPLoads" : @NO,
+                                         @"NSExceptionMinimumTLSVersion" : @"TLSv1.3",
+                                         @"NSExceptionRequiresForwardSecrecy" : @YES
+                                     },
+                                     @"google.com" : @{
+                                         @"NSExceptionAllowsInsecureHTTPLoads" : @YES,
+                                         @"NSExceptionMinimumTLSVersion" : @"TLSv1.3",
+                                         @"NSExceptionRequiresForwardSecrecy" : @YES
+                                     },
+                                     @"youtube.com" : @{
+                                         @"NSExceptionRequiresForwardSecrecy" : @YES
+                                     },
+                                     @"myhost.local" : @{
+                                         @"NSExceptionAllowsInsecureHTTPLoads" : @NO,
+                                         @"NSExceptionRequiresForwardSecrecy" : @YES
+                                     },
+                                 }};
+
+    sec_protocol_configuration_builder_t builder = sec_protocol_configuration_builder_create((__bridge CFDictionaryRef) exampleATS, false);
+    sec_protocol_configuration_t configuration = sec_protocol_configuration_create_with_builder(builder);
+    XCTAssertTrue(configuration != nil, @"failed to build configuration");
+    if (!configuration) {
+        return;
+    }
+    [self runATSExceptionTestForHostname:"example.com" configuration:configuration isAddress:false isDirect:false atsRequired:false minTLSVersion:0 forwardSecrecyRequired:false];
+    [self runATSExceptionTestForHostname:"neverssl.com" configuration:configuration isAddress:false isDirect:false atsRequired:true minTLSVersion:tls_protocol_version_TLSv13 forwardSecrecyRequired:true];
+    [self runATSExceptionTestForHostname:"google.com" configuration:configuration isAddress:false isDirect:false atsRequired:false minTLSVersion:tls_protocol_version_TLSv13 forwardSecrecyRequired:true];
+    [self runATSExceptionTestForHostname:"youtube.com" configuration:configuration isAddress:false isDirect:false atsRequired:true minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:true];
+    [self runATSExceptionTestForHostname:"myhost.local" configuration:configuration isAddress:false isDirect:true atsRequired:true minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:true];
+
+    // Check built in exceptions
+    [self runATSExceptionTestForHostname:"apple.com" configuration:configuration isAddress:false isDirect:false atsRequired:false minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:false];
+    [self runATSExceptionTestForHostname:"csd4.apple.com" configuration:configuration isAddress:false isDirect:false atsRequired:false minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:false];
+    [self runATSExceptionTestForHostname:"setup.icloud.com" configuration:configuration isAddress:false isDirect:false atsRequired:false minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:false];
+    [self runATSExceptionTestForHostname:"ls.apple.com" configuration:configuration isAddress:false isDirect:false atsRequired:false minTLSVersion:tls_protocol_version_TLSv10 forwardSecrecyRequired:false];
+    [self runATSExceptionTestForHostname:"gs.apple.com" configuration:configuration isAddress:false isDirect:false atsRequired:false minTLSVersion:tls_protocol_version_TLSv10 forwardSecrecyRequired:false];
+    [self runATSExceptionTestForHostname:"geo.apple.com" configuration:configuration isAddress:false isDirect:false atsRequired:false minTLSVersion:tls_protocol_version_TLSv10 forwardSecrecyRequired:false];
+    [self runATSExceptionTestForHostname:"is.autonavi.com" configuration:configuration isAddress:false isDirect:false atsRequired:false minTLSVersion:tls_protocol_version_TLSv10 forwardSecrecyRequired:false];
+    [self runATSExceptionTestForHostname:"apple-mapkit.com" configuration:configuration isAddress:false isDirect:false atsRequired:false minTLSVersion:tls_protocol_version_TLSv10 forwardSecrecyRequired:false];
+}
+
+- (void)testBuiltInExceptions
+{
+
+    NSDictionary *exampleATS = @{@"NSAllowsArbitraryLoads" : @NO};
+    sec_protocol_configuration_builder_t builder = sec_protocol_configuration_builder_create((__bridge CFDictionaryRef) exampleATS, false);
+    sec_protocol_configuration_t configuration = sec_protocol_configuration_create_with_builder(builder);
+    XCTAssertTrue(configuration != nil, @"failed to build configuration");
+    if (!configuration) {
+        return;
+    }
+    [self runATSExceptionTestForHostname:"example.com" configuration:configuration isAddress:false isDirect:false atsRequired:true minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:true];
+    [self runATSExceptionTestForHostname:"neverssl.com" configuration:configuration isAddress:false isDirect:false atsRequired:true minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:true];
+    [self runATSExceptionTestForHostname:"myhost.local" configuration:configuration isAddress:false isDirect:true atsRequired:false minTLSVersion:0 forwardSecrecyRequired:false];
+
+    // Check built in exceptions
+    [self runATSExceptionTestForHostname:"apple.com" configuration:configuration isAddress:false isDirect:false atsRequired:false minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:false];
+    [self runATSExceptionTestForHostname:"csd4.apple.com" configuration:configuration isAddress:false isDirect:false atsRequired:false minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:false];
+    [self runATSExceptionTestForHostname:"setup.icloud.com" configuration:configuration isAddress:false isDirect:false atsRequired:false minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:false];
+    [self runATSExceptionTestForHostname:"ls.apple.com" configuration:configuration isAddress:false isDirect:false atsRequired:false minTLSVersion:tls_protocol_version_TLSv10 forwardSecrecyRequired:false];
+    [self runATSExceptionTestForHostname:"gs.apple.com" configuration:configuration isAddress:false isDirect:false atsRequired:false minTLSVersion:tls_protocol_version_TLSv10 forwardSecrecyRequired:false];
+    [self runATSExceptionTestForHostname:"geo.apple.com" configuration:configuration isAddress:false isDirect:false atsRequired:false minTLSVersion:tls_protocol_version_TLSv10 forwardSecrecyRequired:false];
+    [self runATSExceptionTestForHostname:"is.autonavi.com" configuration:configuration isAddress:false isDirect:false atsRequired:false minTLSVersion:tls_protocol_version_TLSv10 forwardSecrecyRequired:false];
+    [self runATSExceptionTestForHostname:"apple-mapkit.com" configuration:configuration isAddress:false isDirect:false atsRequired:false minTLSVersion:tls_protocol_version_TLSv10 forwardSecrecyRequired:false];
+}
+
+- (void)testExceptionOverridesBuiltInException
+{
+    NSDictionary *exampleATS = @{@"NSAllowsArbitraryLoads" : @NO,
+                                 @"NSExceptionDomains" : @{
+                                     @"neverssl.com" : @{
+                                         @"NSExceptionAllowsInsecureHTTPLoads" : @NO,
+                                         @"NSExceptionMinimumTLSVersion" : @"TLSv1.3",
+                                         @"NSExceptionRequiresForwardSecrecy" : @YES
+                                     },
+                                     @"apple.com" : @{
+                                         @"NSExceptionAllowsInsecureHTTPLoads" : @NO,
+                                         @"NSExceptionMinimumTLSVersion" : @"TLSv1.3",
+                                         @"NSIncludesSubdomains" : @NO,
+                                         @"NSExceptionRequiresForwardSecrecy" : @YES
+                                     },
+                                     @"setup.icloud.com" : @{
+                                         @"NSExceptionAllowsInsecureHTTPLoads" : @NO,
+                                         @"NSExceptionMinimumTLSVersion" : @"TLSv1.3",
+                                     },
+                                 }};
+
+    sec_protocol_configuration_builder_t builder = sec_protocol_configuration_builder_create((__bridge CFDictionaryRef) exampleATS, false);
+    sec_protocol_configuration_t configuration = sec_protocol_configuration_create_with_builder(builder);
+    XCTAssertTrue(configuration != nil, @"failed to build configuration");
+    if (!configuration) {
+        return;
+    }
+    [self runATSExceptionTestForHostname:"example.com" configuration:configuration isAddress:false isDirect:false atsRequired:true minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:true];
+    [self runATSExceptionTestForHostname:"neverssl.com" configuration:configuration isAddress:false isDirect:false atsRequired:true minTLSVersion:tls_protocol_version_TLSv13 forwardSecrecyRequired:true];
+    [self runATSExceptionTestForHostname:"google.com" configuration:configuration isAddress:false isDirect:false atsRequired:true minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:true];
+    [self runATSExceptionTestForHostname:"youtube.com" configuration:configuration isAddress:false isDirect:false atsRequired:true minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:true];
+    [self runATSExceptionTestForHostname:"myhost.local" configuration:configuration isAddress:false isDirect:true atsRequired:false minTLSVersion:0 forwardSecrecyRequired:false];
+
+    // Check built in exceptions
+    [self runATSExceptionTestForHostname:"apple.com" configuration:configuration isAddress:false isDirect:false atsRequired:true minTLSVersion:tls_protocol_version_TLSv13 forwardSecrecyRequired:true];
+    [self runATSExceptionTestForHostname:"csd4.apple.com" configuration:configuration isAddress:false isDirect:false atsRequired:true minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:true];
+    [self runATSExceptionTestForHostname:"setup.icloud.com" configuration:configuration isAddress:false isDirect:false atsRequired:true minTLSVersion:tls_protocol_version_TLSv13 forwardSecrecyRequired:true];
+    [self runATSExceptionTestForHostname:"test.setup.icloud.com" configuration:configuration isAddress:false isDirect:false atsRequired:true minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:true];
+    [self runATSExceptionTestForHostname:"ls.apple.com" configuration:configuration isAddress:false isDirect:false atsRequired:false minTLSVersion:tls_protocol_version_TLSv10 forwardSecrecyRequired:false];
+    [self runATSExceptionTestForHostname:"gs.apple.com" configuration:configuration isAddress:false isDirect:false atsRequired:false minTLSVersion:tls_protocol_version_TLSv10 forwardSecrecyRequired:false];
+    [self runATSExceptionTestForHostname:"geo.apple.com" configuration:configuration isAddress:false isDirect:false atsRequired:false minTLSVersion:tls_protocol_version_TLSv10 forwardSecrecyRequired:false];
+    [self runATSExceptionTestForHostname:"is.autonavi.com" configuration:configuration isAddress:false isDirect:false atsRequired:false minTLSVersion:tls_protocol_version_TLSv10 forwardSecrecyRequired:false];
+    [self runATSExceptionTestForHostname:"apple-mapkit.com" configuration:configuration isAddress:false isDirect:false atsRequired:false minTLSVersion:tls_protocol_version_TLSv10 forwardSecrecyRequired:false];
+}
+
+- (void)testIncludesSubdomains
+{
+    NSDictionary *exampleATS = @{@"NSExceptionDomains" : @{
+                                     @"example.com" : @{
+                                         @"NSExceptionAllowsInsecureHTTPLoads" : @YES,
+                                         @"NSIncludesSubdomains" : @YES,
+                                     },
+                                     @"subhostname.example.com" : @{
+                                         @"NSExceptionAllowsInsecureHTTPLoads" : @NO,
+                                         @"NSIncludesSubdomains" : @NO,
+                                         @"NSExceptionMinimumTLSVersion" : @"TLSv1.3",
+                                     },
+                                     @"another.subhostname.example.com" : @{
+                                         @"NSExceptionAllowsInsecureHTTPLoads" : @NO,
+                                         @"NSExceptionMinimumTLSVersion" : @"TLSv1.1",
+                                     },
+                                 }};
+
+    sec_protocol_configuration_builder_t builder = sec_protocol_configuration_builder_create((__bridge CFDictionaryRef) exampleATS, false);
+    sec_protocol_configuration_t configuration = sec_protocol_configuration_create_with_builder(builder);
+    XCTAssertTrue(configuration != nil, @"failed to build configuration");
+    if (!configuration) {
+        return;
+    }
+    [self runATSExceptionTestForHostname:"example.com" configuration:configuration isAddress:false isDirect:false atsRequired:false minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:true];
+    [self runATSExceptionTestForHostname:"subhostname.example.com" configuration:configuration isAddress:false isDirect:false atsRequired:true minTLSVersion:tls_protocol_version_TLSv13 forwardSecrecyRequired:true];
+    [self runATSExceptionTestForHostname:"another.subhostname.example.com" configuration:configuration isAddress:false isDirect:false atsRequired:true minTLSVersion:tls_protocol_version_TLSv11 forwardSecrecyRequired:true];
+    [self runATSExceptionTestForHostname:"test.another.subhostname.example.com" configuration:configuration isAddress:false isDirect:false atsRequired:false minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:true];
+}
+
+- (void)testCIDRExceptions
+{
+    NSDictionary *atsState = @{@"NSExceptionDomains" : @{
+        @"example.com" : @{ @"NSExceptionAllowsInsecureHTTPLoads" : @YES },
+        @"198.51.100.0/24" : @{ @"NSExceptionAllowsInsecureHTTPLoads" : @YES },
+        @"198.51.100.0/27" : @{ @"NSExceptionAllowsInsecureHTTPLoads" : @NO },
+        @"198.51.100.1" : @{ @"NSExceptionAllowsInsecureHTTPLoads" : @YES },
+        @"198.51.100.101" : @{ @"NSExceptionAllowsInsecureHTTPLoads" : @NO },
+        @"2001:db8::/32" : @{ @"NSExceptionAllowsInsecureHTTPLoads" : @YES },
+        @"2001:db8::/64" : @{ @"NSExceptionAllowsInsecureHTTPLoads" : @NO },
+    }};
+
+    sec_protocol_configuration_builder_t builder = sec_protocol_configuration_builder_create((__bridge CFDictionaryRef)atsState, false);
+        sec_protocol_configuration_t configuration = sec_protocol_configuration_create_with_builder(builder);
+    XCTAssertTrue(configuration != nil, @"failed to build configuration");
+    if (!configuration) {
+        return;
+    }
+    [self runATSExceptionTestForHostname:"localhost" configuration:configuration isAddress:false isDirect:true atsRequired:false minTLSVersion:0 forwardSecrecyRequired:false];
+    [self runATSExceptionTestForHostname:"myhost.local" configuration:configuration isAddress:false isDirect:true atsRequired:false minTLSVersion:0 forwardSecrecyRequired:false];
+    [self runATSExceptionTestForHostname:"127.0.0.1" configuration:configuration isAddress:true isDirect:true atsRequired:false minTLSVersion:0 forwardSecrecyRequired:false];
+    [self runATSExceptionTestForHostname:"::1" configuration:configuration isAddress:true isDirect:true atsRequired:false minTLSVersion:0 forwardSecrecyRequired:false];
+    [self runATSExceptionTestForHostname:"example.com" configuration:configuration isAddress:false isDirect:false atsRequired:false minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:true];
+    [self runATSExceptionTestForHostname:"google.com" configuration:configuration isAddress:false isDirect:false atsRequired:true minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:true];
+
+    // External, allowed by exception
+    [self runATSExceptionTestForHostname:"198.51.100.1" configuration:configuration isAddress:true isDirect:false atsRequired:false minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:true];
+    [self runATSExceptionTestForHostname:"198.51.100.100" configuration:configuration isAddress:true isDirect:false atsRequired:false minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:true];
+    [self runATSExceptionTestForHostname:"198.51.100.255" configuration:configuration isAddress:true isDirect:false atsRequired:false minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:true];
+    [self runATSExceptionTestForHostname:"2001:db8:85a3::8a2e:370:7334" configuration:configuration isAddress:true isDirect:false atsRequired:false minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:true];
+
+    // External, no exception
+    [self runATSExceptionTestForHostname:"1.1.1.1" configuration:configuration isAddress:true isDirect:false atsRequired:true minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:true];
+    [self runATSExceptionTestForHostname:"198.51.100.0" configuration:configuration isAddress:true isDirect:false atsRequired:true minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:true];
+    [self runATSExceptionTestForHostname:"198.51.100.101" configuration:configuration isAddress:true isDirect:false atsRequired:true minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:true];
+    [self runATSExceptionTestForHostname:"198.51.101.0" configuration:configuration isAddress:true isDirect:false atsRequired:true minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:true];
+    [self runATSExceptionTestForHostname:"203.0.113.0" configuration:configuration isAddress:true isDirect:false atsRequired:true minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:true];
+    [self runATSExceptionTestForHostname:"255.255.255.0" configuration:configuration isAddress:true isDirect:false atsRequired:true minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:true];
+    [self runATSExceptionTestForHostname:"fe00::" configuration:configuration isAddress:true isDirect:false atsRequired:true minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:true];
+    [self runATSExceptionTestForHostname:"2001:db8::8a2e:370:7334" configuration:configuration isAddress:true isDirect:false atsRequired:true minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:true];
+    [self runATSExceptionTestForHostname:"2001:db80:0000:0000:0000:0000:0000:0000" configuration:configuration isAddress:true isDirect:false atsRequired:true minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:true];
+
+    atsState = @{@"NSExceptionDomains" : @{
+        @"::/0" : @{ @"NSExceptionAllowsInsecureHTTPLoads" : @YES },
+        @"::/1" : @{ @"NSExceptionAllowsInsecureHTTPLoads" : @NO },
+        @"0.0.0.0/0" : @{ @"NSExceptionAllowsInsecureHTTPLoads" : @YES },
+        @"0.0.0.0/1" : @{ @"NSExceptionAllowsInsecureHTTPLoads" : @NO },
+    }};
+
+    builder = sec_protocol_configuration_builder_create((__bridge CFDictionaryRef)atsState, false);
+    configuration = sec_protocol_configuration_create_with_builder(builder);
+    XCTAssertTrue(configuration != nil, @"failed to build configuration");
+    if (!configuration) {
+        return;
+    }
+    [self runATSExceptionTestForHostname:"localhost" configuration:configuration isAddress:false isDirect:true atsRequired:false minTLSVersion:0 forwardSecrecyRequired:false];
+    [self runATSExceptionTestForHostname:"myhost.local" configuration:configuration isAddress:false isDirect:true atsRequired:false minTLSVersion:0 forwardSecrecyRequired:false];
+    [self runATSExceptionTestForHostname:"example.com" configuration:configuration isAddress:false isDirect:false atsRequired:true minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:true];
+
+    // Allowed by exception
+    [self runATSExceptionTestForHostname:"128.0.0.0" configuration:configuration isAddress:true isDirect:false atsRequired:false minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:true];
+    [self runATSExceptionTestForHostname:"198.51.100.1" configuration:configuration isAddress:true isDirect:false atsRequired:false minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:true];
+    [self runATSExceptionTestForHostname:"198.51.100.100" configuration:configuration isAddress:true isDirect:false atsRequired:false minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:true];
+    [self runATSExceptionTestForHostname:"198.51.100.255" configuration:configuration isAddress:true isDirect:false atsRequired:false minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:true];
+    [self runATSExceptionTestForHostname:"198.51.100.0" configuration:configuration isAddress:true isDirect:false atsRequired:false minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:true];
+    [self runATSExceptionTestForHostname:"198.51.100.101" configuration:configuration isAddress:true isDirect:false atsRequired:false minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:true];
+    [self runATSExceptionTestForHostname:"198.51.101.0" configuration:configuration isAddress:true isDirect:false atsRequired:false minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:true];
+    [self runATSExceptionTestForHostname:"203.0.113.0" configuration:configuration isAddress:true isDirect:false atsRequired:false minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:true];
+    [self runATSExceptionTestForHostname:"255.255.255.0" configuration:configuration isAddress:true isDirect:false atsRequired:false minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:true];
+    [self runATSExceptionTestForHostname:"fe00::" configuration:configuration isAddress:true isDirect:false atsRequired:false minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:true];
+
+    // Blocked by exception
+    [self runATSExceptionTestForHostname:"127.0.0.1" configuration:configuration isAddress:true isDirect:true atsRequired:true minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:true];
+    [self runATSExceptionTestForHostname:"::1" configuration:configuration isAddress:true isDirect:true atsRequired:true minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:true];
+    [self runATSExceptionTestForHostname:"1.1.1.1" configuration:configuration isAddress:true isDirect:false atsRequired:true minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:true];
+    [self runATSExceptionTestForHostname:"127.255.255.255" configuration:configuration isAddress:true isDirect:false atsRequired:true minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:true];
+    [self runATSExceptionTestForHostname:"2001:db8::8a2e:370:7334" configuration:configuration isAddress:true isDirect:false atsRequired:true minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:true];
+    [self runATSExceptionTestForHostname:"2001:db8:85a3::8a2e:370:7334" configuration:configuration isAddress:true isDirect:false atsRequired:true minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:true];
+}
+
+- (void)testMinTLSVersionDisallowedStrings
+{
+    NSDictionary *exampleATS = @{@"NSExceptionDomains" : @{
+                                     @"example.com" : @{
+                                         @"NSExceptionMinimumTLSVersion" : @"TLSv1.4",
+                                     },
+                                     @"google.com" : @{
+                                         @"NSExceptionMinimumTLSVersion" : @"TLSV1.3",
+                                     },
+                                     @"neverssl.com" : @{
+                                         @"NSExceptionMinimumTLSVersion" : @"TLSv1.00",
+                                     },
+                                 }};
+
+    sec_protocol_configuration_builder_t builder = sec_protocol_configuration_builder_create((__bridge CFDictionaryRef) exampleATS, false);
+    sec_protocol_configuration_t configuration = sec_protocol_configuration_create_with_builder(builder);
+    XCTAssertTrue(configuration != nil, @"failed to build configuration");
+    if (!configuration) {
+        return;
+    }
+    [self runATSExceptionTestForHostname:"example.com" configuration:configuration isAddress:false isDirect:false atsRequired:true minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:true];
+    [self runATSExceptionTestForHostname:"google.com" configuration:configuration isAddress:false isDirect:false atsRequired:true minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:true];
+    [self runATSExceptionTestForHostname:"neverssl.com" configuration:configuration isAddress:false isDirect:false atsRequired:true minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:true];
+}
+
+#pragma mark - Global Keys Tests
+
+- (void)runGlobalKeysTestForHostname:(const char *)hostname
+                       configuration:(sec_protocol_configuration_t)configuration
+                           isAddress:(bool)isAddress
+                            isDirect:(bool)isDirect
+                         atsRequired:(bool)atsRequired
+{
+    XCTAssertTrue(atsRequired == sec_protocol_configuration_tls_required_for_host(configuration, hostname, isDirect), "ATS should have been required: %d for hostname: %s", atsRequired, hostname);
+    sec_protocol_options_t options = [self create_sec_protocol_options];
+    sec_protocol_options_set_sec_protocol_configuration(options, configuration);
+    sec_protocol_options_t transformed = nil;
+    if (isAddress) {
+        transformed = sec_protocol_configuration_copy_transformed_options_for_address(options, hostname, isDirect);
+    } else {
+        transformed = sec_protocol_configuration_copy_transformed_options_for_host(options, hostname, isDirect);
+    }
+    (void)sec_protocol_options_access_handle(transformed, ^bool(void *handle) {
+        sec_protocol_options_content_t content = (sec_protocol_options_content_t)handle;
+        SEC_PROTOCOL_METADATA_VALIDATE(content, false);
+
+        if (atsRequired) {
+            XCTAssertTrue(content->ats_required == true, "ATS should have been required for hostname: %s", hostname);
+            XCTAssertTrue(content->min_version == tls_protocol_version_TLSv12, "Minimum TLS version should have been 1.2 for hostname: %s", hostname);
+            XCTAssertTrue(content->ciphersuites != nil, "Forward secrecy should have been required for hostname: %s", hostname);
+        } else {
+            XCTAssertTrue(content->ats_required == false, "ATS should not have been required for hostname: %s", hostname);
+            XCTAssertTrue(content->min_version == 0, "Minimum TLS version should not have been set for hostname: %s", hostname);
+            XCTAssertTrue(content->ciphersuites == nil, "Forward secrecy should not have been required for hostname: %s", hostname);
+        }
+        return true;
+    });
+}
+
+- (void)testLocalNetworkingAllowedByDefault
+{
+    NSDictionary *emptyATS = @{};
+
+    sec_protocol_configuration_builder_t builder = sec_protocol_configuration_builder_create((__bridge CFDictionaryRef)emptyATS, false);
+        sec_protocol_configuration_t configuration = sec_protocol_configuration_create_with_builder(builder);
+    XCTAssertTrue(configuration != nil, @"failed to build configuration");
+    if (!configuration) {
+        return;
+    }
+    [self runGlobalKeysTestForHostname:"localhost" configuration:configuration isAddress:false isDirect:true atsRequired:false];
+    [self runGlobalKeysTestForHostname:"myhost.local" configuration:configuration isAddress:false isDirect:true atsRequired:false];
+    [self runGlobalKeysTestForHostname:"example.com" configuration:configuration isAddress:false isDirect:false atsRequired:true];
+    [self runGlobalKeysTestForHostname:"127.0.0.1" configuration:configuration isAddress:true isDirect:true atsRequired:false];
+    [self runGlobalKeysTestForHostname:"203.0.113.1" configuration:configuration isAddress:true isDirect:false atsRequired:true];
+    [self runGlobalKeysTestForHostname:"::1" configuration:configuration isAddress:true isDirect:true atsRequired:false];
+    [self runGlobalKeysTestForHostname:"fe80::1" configuration:configuration isAddress:true isDirect:true atsRequired:false];
+    [self runGlobalKeysTestForHostname:"fe00::1" configuration:configuration isAddress:true isDirect:false atsRequired:true];
+    [self runGlobalKeysTestForHostname:"2001:db8::8a2e:370:7334" configuration:configuration isAddress:true isDirect:false atsRequired:true];
+}
+
+- (void)testLocalNetworkingDisabled
+{
+    NSDictionary *atsState = @{@"NSAllowsLocalNetworking" : @NO};
+
+    sec_protocol_configuration_builder_t builder = sec_protocol_configuration_builder_create((__bridge CFDictionaryRef)atsState, false);
+        sec_protocol_configuration_t configuration = sec_protocol_configuration_create_with_builder(builder);
+    XCTAssertTrue(configuration != nil, @"failed to build configuration");
+    if (!configuration) {
+        return;
+    }
+    [self runGlobalKeysTestForHostname:"localhost" configuration:configuration isAddress:false isDirect:true atsRequired:true];
+    [self runGlobalKeysTestForHostname:"myhost.local" configuration:configuration isAddress:false isDirect:true atsRequired:true];
+    [self runGlobalKeysTestForHostname:"example.com" configuration:configuration isAddress:false isDirect:false atsRequired:true];
+    [self runGlobalKeysTestForHostname:"127.0.0.1" configuration:configuration isAddress:true isDirect:true atsRequired:true];
+    [self runGlobalKeysTestForHostname:"203.0.113.1" configuration:configuration isAddress:true isDirect:false atsRequired:true];
+    [self runGlobalKeysTestForHostname:"::1" configuration:configuration isAddress:true isDirect:true atsRequired:true];
+    [self runGlobalKeysTestForHostname:"fe80::1" configuration:configuration isAddress:true isDirect:true atsRequired:true];
+    [self runGlobalKeysTestForHostname:"fe00::1" configuration:configuration isAddress:true isDirect:false atsRequired:true];
+    [self runGlobalKeysTestForHostname:"2001:db8::8a2e:370:7334" configuration:configuration isAddress:true isDirect:false atsRequired:true];
+}
+
+- (void)testAllowsArbitraryLoads
+{
+    NSDictionary *atsState = @{@"NSAllowsArbitraryLoads" : @YES};
+
+    sec_protocol_configuration_builder_t builder = sec_protocol_configuration_builder_create((__bridge CFDictionaryRef)atsState, false);
+        sec_protocol_configuration_t configuration = sec_protocol_configuration_create_with_builder(builder);
+    XCTAssertTrue(configuration != nil, @"failed to build configuration");
+    if (!configuration) {
+        return;
+    }
+    [self runGlobalKeysTestForHostname:"localhost" configuration:configuration isAddress:false isDirect:true atsRequired:false];
+    [self runGlobalKeysTestForHostname:"myhost.local" configuration:configuration isAddress:false isDirect:true atsRequired:false];
+    [self runGlobalKeysTestForHostname:"example.com" configuration:configuration isAddress:false isDirect:false atsRequired:false];
+    [self runGlobalKeysTestForHostname:"127.0.0.1" configuration:configuration isAddress:true isDirect:true atsRequired:false];
+    [self runGlobalKeysTestForHostname:"203.0.113.1" configuration:configuration isAddress:true isDirect:false atsRequired:false];
+    [self runGlobalKeysTestForHostname:"::1" configuration:configuration isAddress:true isDirect:true atsRequired:false];
+    [self runGlobalKeysTestForHostname:"fe80::1" configuration:configuration isAddress:true isDirect:true atsRequired:false];
+    [self runGlobalKeysTestForHostname:"fe00::1" configuration:configuration isAddress:true isDirect:false atsRequired:false];
+    [self runGlobalKeysTestForHostname:"2001:db8::8a2e:370:7334" configuration:configuration isAddress:true isDirect:false atsRequired:false];
+}
+
+- (void)testAppleBundleExceptionWithNoATSKey
+{
+    sec_protocol_configuration_builder_t builder = sec_protocol_configuration_builder_create(nil, true);
+    sec_protocol_configuration_t configuration = sec_protocol_configuration_create_with_builder(builder);
+    XCTAssertTrue(configuration != nil, @"failed to build configuration");
+    if (!configuration) {
+        return;
+    }
+    [self runGlobalKeysTestForHostname:"localhost" configuration:configuration isAddress:false isDirect:true atsRequired:false];
+    [self runGlobalKeysTestForHostname:"myhost.local" configuration:configuration isAddress:false isDirect:true atsRequired:false];
+    [self runGlobalKeysTestForHostname:"example.com" configuration:configuration isAddress:false isDirect:false atsRequired:false];
+    [self runGlobalKeysTestForHostname:"127.0.0.1" configuration:configuration isAddress:true isDirect:true atsRequired:false];
+    [self runGlobalKeysTestForHostname:"203.0.113.1" configuration:configuration isAddress:true isDirect:false atsRequired:false];
+    [self runGlobalKeysTestForHostname:"::1" configuration:configuration isAddress:true isDirect:true atsRequired:false];
+    [self runGlobalKeysTestForHostname:"fe80::1" configuration:configuration isAddress:true isDirect:true atsRequired:false];
+    [self runGlobalKeysTestForHostname:"fe00::1" configuration:configuration isAddress:true isDirect:false atsRequired:false];
+    [self runGlobalKeysTestForHostname:"2001:db8::8a2e:370:7334" configuration:configuration isAddress:true isDirect:false atsRequired:false];
+}
+
+- (void)runAllowsArbitraryLoadsOverrideTestWithATSDictionary:(NSDictionary *)atsState
+{
+    sec_protocol_configuration_builder_t builder = sec_protocol_configuration_builder_create((__bridge CFDictionaryRef)atsState, false);
+        sec_protocol_configuration_t configuration = sec_protocol_configuration_create_with_builder(builder);
+    XCTAssertTrue(configuration != nil, @"failed to build configuration");
+    if (!configuration) {
+        return;
+    }
+    [self runGlobalKeysTestForHostname:"localhost" configuration:configuration isAddress:false isDirect:true atsRequired:false];
+    [self runGlobalKeysTestForHostname:"myhost.local" configuration:configuration isAddress:false isDirect:true atsRequired:false];
+    [self runGlobalKeysTestForHostname:"example.com" configuration:configuration isAddress:false isDirect:false atsRequired:true];
+    [self runGlobalKeysTestForHostname:"google.com" configuration:configuration isAddress:false isDirect:false atsRequired:true];
+    [self runGlobalKeysTestForHostname:"127.0.0.1" configuration:configuration isAddress:true isDirect:true atsRequired:false];
+    [self runGlobalKeysTestForHostname:"203.0.113.1" configuration:configuration isAddress:true isDirect:false atsRequired:true];
+    [self runGlobalKeysTestForHostname:"::1" configuration:configuration isAddress:true isDirect:true atsRequired:false];
+    [self runGlobalKeysTestForHostname:"fe80::1" configuration:configuration isAddress:true isDirect:true atsRequired:false];
+    [self runGlobalKeysTestForHostname:"fe00::1" configuration:configuration isAddress:true isDirect:false atsRequired:true];
+    [self runGlobalKeysTestForHostname:"2001:db8::8a2e:370:7334" configuration:configuration isAddress:true isDirect:false atsRequired:true];
+}
+
+- (void)testLocalNetworkingKeyOverridesAllowsArbitraryLoads
+{
+    NSDictionary *atsState = @{@"NSAllowsArbitraryLoads" : @YES,
+                               @"NSAllowsLocalNetworking" : @YES};
+
+    [self runAllowsArbitraryLoadsOverrideTestWithATSDictionary:atsState];
+}
+
+- (void)testFalseWebContentKeyOverridesAllowsArbitraryLoads
+{
+    NSDictionary *atsState = @{@"NSAllowsArbitraryLoads" : @YES,
+                               @"NSAllowsArbitraryLoadsInWebContent" : @NO};
+
+    [self runAllowsArbitraryLoadsOverrideTestWithATSDictionary:atsState];
+}
+
+- (void)testTrueWebContentKeyOverridesAllowsArbitraryLoads
+{
+    NSDictionary *atsState = @{@"NSAllowsArbitraryLoads" : @YES,
+                               @"NSAllowsArbitraryLoadsInWebContent" : @YES};
+
+    [self runAllowsArbitraryLoadsOverrideTestWithATSDictionary:atsState];
+}
+
+- (void)testFalseMediaKeyOverridesAllowsArbitraryLoads
+{
+    NSDictionary *atsState = @{@"NSAllowsArbitraryLoads" : @YES,
+                               @"NSAllowsArbitraryLoadsForMedia" : @NO};
+
+    [self runAllowsArbitraryLoadsOverrideTestWithATSDictionary:atsState];
+}
+
+- (void)testTrueMediaKeyOverridesAllowsArbitraryLoads
+{
+    NSDictionary *atsState = @{@"NSAllowsArbitraryLoads" : @YES,
+                               @"NSAllowsArbitraryLoadsForMedia" : @YES};
+
+    [self runAllowsArbitraryLoadsOverrideTestWithATSDictionary:atsState];
+}
+
+- (void)testGarbageValueDisablesAllowsArbitraryLoads
+{
+    NSDictionary *atsState = @{@"NSAllowsArbitraryLoads" : @2};
+    [self runAllowsArbitraryLoadsOverrideTestWithATSDictionary:atsState];
+
+    atsState = @{@"NSAllowsArbitraryLoads" : @"YES"};
+    [self runAllowsArbitraryLoadsOverrideTestWithATSDictionary:atsState];
+
+    atsState = @{@"NSAllowsArbitraryLoads" : @NO};
+    [self runAllowsArbitraryLoadsOverrideTestWithATSDictionary:atsState];
+}
+
 - (void)testExampleFile:(NSURL *)path
 {
     NSData *exampleData = [[NSData alloc] initWithContentsOfURL:path];
@@ -353,7 +829,7 @@ isLocalTLD(NSString *host)
         return;
     }
 
-    __block bool allows_local_networking = false;
+    __block bool allows_local_networking = true;
     [exampleATS enumerateKeysAndObjectsUsingBlock:^(id _key, id _obj, BOOL *stop) {
         NSString *key = (NSString *)_key;
         if ([key isEqualToString:@"NSAllowsLocalNetworking"]) {
@@ -397,15 +873,17 @@ isLocalTLD(NSString *host)
 
                 tls_protocol_version_t minimum_protocol_version = (sec_protocol_configuration_protocol_string_to_version([minimum_tls cStringUsingEncoding:NSUTF8StringEncoding]));
 
+                bool is_direct = isLocalTLD(domain);
                 sec_protocol_options_t options = [self create_sec_protocol_options];
-                sec_protocol_options_t transformed = sec_protocol_configuration_copy_transformed_options_for_host(configuration, options, [domain cStringUsingEncoding:NSUTF8StringEncoding]);
+                sec_protocol_options_set_sec_protocol_configuration(options, configuration);
+                sec_protocol_options_t transformed = sec_protocol_configuration_copy_transformed_options_for_host(options, [domain cStringUsingEncoding:NSUTF8StringEncoding], is_direct);
                 (void)sec_protocol_options_access_handle(transformed, ^bool(void *handle) {
                     sec_protocol_options_content_t content = (sec_protocol_options_content_t)handle;
                     SEC_PROTOCOL_METADATA_VALIDATE(content, false);
 
-                    XCTAssertTrue(content->ats_required == true);
+                    XCTAssertTrue(content->ats_required == !allows_http);
                     XCTAssertTrue(content->min_version == minimum_protocol_version);
-                    if (requires_pfs) {
+                    if (requires_pfs || content->ats_required) {
                         XCTAssertTrue(content->ciphersuites != nil);
                     } else {
                         XCTAssertTrue(content->ciphersuites == nil);
@@ -413,15 +891,11 @@ isLocalTLD(NSString *host)
                     return true;
                 });
 
-                bool is_direct = isLocalTLD(domain);
                 bool tls_required = sec_protocol_configuration_tls_required_for_host(configuration, [domain cStringUsingEncoding:NSUTF8StringEncoding], is_direct);
-                if (is_direct) {
-                    // If the hostname is direct, then we permit it if the NSAllowsLocalNetworking exception is set.
-                    XCTAssertTrue(allows_local_networking != tls_required);
-                } else {
-                    // Otherwise, we require TLS it the NSExceptionAllowsInsecureHTTPLoads flag is set.
-                    XCTAssertTrue(allows_http != tls_required);
-                }
+
+                // If an exception is present for this domain, we require TLS if the NSExceptionAllowsInsecureHTTPLoads flag is not set to true.
+                // This overrides the default local networking behavior
+                XCTAssertTrue(allows_http != tls_required);
             }];
         }
     }];
@@ -505,3 +979,5 @@ isLocalTLD(NSString *host)
 }
 
 @end
+
+#pragma clang diagnostic pop

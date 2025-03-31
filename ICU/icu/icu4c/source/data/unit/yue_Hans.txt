@@ -60,6 +60,11 @@ yue_Hans{
             month{
                 per{"每月 {0}"}
             }
+            night{
+                dnam{"晚"}
+                other{"{0} 晚"}
+                per{"{0}/晚"}
+            }
             quarter{
                 per{"每季 {0}"}
             }
@@ -178,6 +183,10 @@ yue_Hans{
                 dnam{"每小时公里"}
                 other{"{0}公里/小时"}
             }
+            light-speed{
+                dnam{"光速"}
+                other{"{0} 光速"}
+            }
             meter-per-second{
                 dnam{"每秒公尺"}
                 other{"{0}米/秒"}
@@ -243,6 +252,13 @@ yue_Hans{
                 other{"{0}byte"}
             }
         }
+        duration{
+            night{
+                dnam{"晚"}
+                other{"{0}晚"}
+                per{"{0}/晚"}
+            }
+        }
         graphics{
             megapixel{
                 dnam{"MP"}
@@ -287,6 +303,10 @@ yue_Hans{
             kilometer-per-hour{
                 dnam{"公里/小时"}
                 other{"{0}公里/时"}
+            }
+            light-speed{
+                dnam{"光速"}
+                other{"{0}光速"}
             }
             meter-per-second{
                 other{"{0}米/秒"}
@@ -524,6 +544,11 @@ yue_Hans{
             nanosecond{
                 dnam{"奈秒"}
                 other{"{0} 奈秒"}
+            }
+            night{
+                dnam{"晚"}
+                other{"{0} 晚"}
+                per{"{0}/晚"}
             }
             quarter{
                 dnam{"季"}
@@ -916,6 +941,10 @@ yue_Hans{
             knot{
                 dnam{"节"}
                 other{"{0} 节"}
+            }
+            light-speed{
+                dnam{"光速"}
+                other{"{0} 光速"}
             }
             meter-per-second{
                 dnam{"公尺/秒"}

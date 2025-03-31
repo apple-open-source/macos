@@ -31,7 +31,6 @@
 #include "NetworkProcess.h"
 #include "NetworkProcessProxyMessages.h"
 #include "WebCookieManagerMessages.h"
-#include "WebCoreArgumentCoders.h"
 #include <WebCore/Cookie.h>
 #include <WebCore/CookieStorage.h>
 #include <WebCore/HTTPCookieAcceptPolicy.h>
@@ -59,6 +58,16 @@ WebCookieManager::WebCookieManager(NetworkProcess& process)
 }
 
 WebCookieManager::~WebCookieManager() = default;
+
+void WebCookieManager::ref() const
+{
+    m_process->ref();
+}
+
+void WebCookieManager::deref() const
+{
+    m_process->deref();
+}
 
 Ref<NetworkProcess> WebCookieManager::protectedProcess()
 {
@@ -147,8 +156,9 @@ void WebCookieManager::notifyCookiesDidChange(PAL::SessionID sessionID)
 void WebCookieManager::startObservingCookieChanges(PAL::SessionID sessionID)
 {
     if (auto* storageSession = protectedProcess()->storageSession(sessionID)) {
-        WebCore::startObservingCookieChanges(*storageSession, [this, sessionID] {
-            notifyCookiesDidChange(sessionID);
+        WebCore::startObservingCookieChanges(*storageSession, [weakThis = WeakPtr { *this }, sessionID] {
+            if (RefPtr protectedThis = weakThis.get())
+                protectedThis->notifyCookiesDidChange(sessionID);
         });
     }
 }

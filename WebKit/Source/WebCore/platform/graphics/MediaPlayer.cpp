@@ -53,6 +53,7 @@
 #include "VideoFrame.h"
 #include "VideoFrameMetadata.h"
 #include <JavaScriptCore/ArrayBuffer.h>
+#include <wtf/Identified.h>
 #include <wtf/Lock.h>
 #include <wtf/NativePromise.h>
 #include <wtf/NeverDestroyed.h>
@@ -112,10 +113,12 @@ WTF_MAKE_TZONE_ALLOCATED_IMPL(MediaPlayerFactory);
 
 class NullMediaPlayerPrivate final : public MediaPlayerPrivateInterface, public RefCounted<NullMediaPlayerPrivate> {
 public:
+    void ref() const final { RefCounted::ref(); }
+    void deref() const final { RefCounted::deref(); }
+
     static Ref<NullMediaPlayerPrivate> create(MediaPlayer& player) { return adoptRef(*new NullMediaPlayerPrivate(player)); }
 
-    void ref() final { RefCounted<NullMediaPlayerPrivate>::ref(); }
-    void deref() final { RefCounted<NullMediaPlayerPrivate>::deref(); }
+    constexpr MediaPlayerType mediaPlayerType() const final { return MediaPlayerType::Null; }
 
     void load(const String&) final { }
 #if ENABLE(MEDIA_SOURCE)
@@ -199,7 +202,9 @@ static const std::optional<Vector<FourCC>>& nullOptionalFourCCVector()
     return vector;
 }
 
-class NullMediaPlayerClient final : public MediaPlayerClient {
+class NullMediaPlayerClient final
+    : public MediaPlayerClient
+    , public Identified<MediaPlayerClientIdentifier> {
 private:
 #if !RELEASE_LOG_DISABLED
     const Logger& mediaPlayerLogger() final
@@ -230,6 +235,8 @@ private:
     const std::optional<Vector<FourCC>>& allowedMediaVideoCodecIDs() const final { return nullOptionalFourCCVector(); }
     const std::optional<Vector<FourCC>>& allowedMediaAudioCodecIDs() const final { return nullOptionalFourCCVector(); }
     const std::optional<Vector<FourCC>>& allowedMediaCaptionFormatTypes() const final { return nullOptionalFourCCVector(); }
+
+    MediaPlayerClientIdentifier mediaPlayerClientIdentifier() const final { return identifier(); }
 
     class NullMediaResourceLoader final : public PlatformMediaResourceLoader {
         WTF_MAKE_TZONE_ALLOCATED_INLINE(NullMediaResourceLoader);
@@ -372,6 +379,11 @@ const MediaPlayerPrivateInterface* MediaPlayer::playerPrivate() const
 }
 
 MediaPlayerPrivateInterface* MediaPlayer::playerPrivate()
+{
+    return m_private.get();
+}
+
+RefPtr<MediaPlayerPrivateInterface> MediaPlayer::protectedPlayerPrivate()
 {
     return m_private.get();
 }
@@ -538,7 +550,17 @@ bool MediaPlayer::load(const URL& url, const ContentType& contentType, MediaSour
     loadWithNextMediaEngine(nullptr);
     return m_currentMediaEngine;
 }
+
+#if USE(AVFOUNDATION)
+void MediaPlayer::setDecompressionSessionPreferences(bool preferDecompressionSession, bool canFallbackToDecompressionSession)
+{
+    m_preferDecompressionSession = preferDecompressionSession;
+    m_canFallbackToDecompressionSession = canFallbackToDecompressionSession;
+    m_private->setDecompressionSessionPreferences(preferDecompressionSession, canFallbackToDecompressionSession);
+}
 #endif
+
+#endif // ENABLE(MEDIA_SOURCE)
 
 #if ENABLE(MEDIA_STREAM)
 bool MediaPlayer::load(MediaStreamPrivate& mediaStream)
@@ -629,6 +651,9 @@ void MediaPlayer::loadWithNextMediaEngine(const MediaPlayerFactory* current)
         m_private = engine->createMediaEnginePlayer(this);
         if (m_private) {
             client().mediaPlayerEngineUpdated();
+#if USE(AVFOUNDATION)
+            m_private->setDecompressionSessionPreferences(m_preferDecompressionSession, m_canFallbackToDecompressionSession);
+#endif
             if (m_pageIsVisible)
                 m_private->setPageIsVisible(m_pageIsVisible);
             if (m_visibleInViewport)
@@ -726,7 +751,7 @@ void MediaPlayer::setBufferingPolicy(BufferingPolicy policy)
 
 #if ENABLE(LEGACY_ENCRYPTED_MEDIA)
 
-std::unique_ptr<LegacyCDMSession> MediaPlayer::createSession(const String& keySystem, LegacyCDMSessionClient& client)
+RefPtr<LegacyCDMSession> MediaPlayer::createSession(const String& keySystem, LegacyCDMSessionClient& client)
 {
     return m_private->createSession(keySystem, client);
 }
@@ -1172,27 +1197,11 @@ void MediaPlayer::paintCurrentFrameInContext(GraphicsContext& context, const Flo
     m_private->paintCurrentFrameInContext(context, destination);
 }
 
-#if !USE(AVFOUNDATION)
-
-bool MediaPlayer::copyVideoTextureToPlatformTexture(GraphicsContextGL* context, PlatformGLObject texture, GCGLenum target, GCGLint level, GCGLenum internalFormat, GCGLenum format, GCGLenum type, bool premultiplyAlpha, bool flipY)
-{
-    return m_private->copyVideoTextureToPlatformTexture(context, texture, target, level, internalFormat, format, type, premultiplyAlpha, flipY);
-}
-
-#endif
-
 RefPtr<VideoFrame> MediaPlayer::videoFrameForCurrentTime()
 {
     return m_private->videoFrameForCurrentTime();
 }
 
-
-#if PLATFORM(COCOA) && !HAVE(AVSAMPLEBUFFERDISPLAYLAYER_COPYDISPLAYEDPIXELBUFFER)
-void MediaPlayer::willBeAskedToPaintGL()
-{
-    m_private->willBeAskedToPaintGL();
-}
-#endif
 
 RefPtr<NativeImage> MediaPlayer::nativeImageForCurrentTime()
 {
@@ -1358,11 +1367,6 @@ MediaPlayer::MovieLoadType MediaPlayer::movieLoadType() const
 MediaTime MediaPlayer::mediaTimeForTimeValue(const MediaTime& timeValue) const
 {
     return m_private->mediaTimeForTimeValue(timeValue);
-}
-
-double MediaPlayer::maximumDurationToCacheMediaTime() const
-{
-    return m_private->maximumDurationToCacheMediaTime();
 }
 
 unsigned MediaPlayer::decodedFrameCount() const
@@ -1602,9 +1606,12 @@ CachedResourceLoader* MediaPlayer::cachedResourceLoader()
     return client().mediaPlayerCachedResourceLoader();
 }
 
-Ref<PlatformMediaResourceLoader> MediaPlayer::createResourceLoader()
+Ref<PlatformMediaResourceLoader> MediaPlayer::mediaResourceLoader()
 {
-    return client().mediaPlayerCreateResourceLoader();
+    if (!m_mediaResourceLoader)
+        m_mediaResourceLoader = client().mediaPlayerCreateResourceLoader();
+
+    return *m_mediaResourceLoader;
 }
 
 void MediaPlayer::addAudioTrack(AudioTrackPrivate& track)
@@ -1891,7 +1898,7 @@ void MediaPlayer::audioOutputDeviceChanged()
     m_private->audioOutputDeviceChanged();
 }
 
-MediaPlayerIdentifier MediaPlayer::identifier() const
+std::optional<MediaPlayerIdentifier> MediaPlayer::identifier() const
 {
     return m_private->identifier();
 }
@@ -2029,7 +2036,7 @@ const Logger& MediaPlayer::mediaPlayerLogger()
 
 String convertEnumerationToString(MediaPlayer::ReadyState enumerationValue)
 {
-    static const NeverDestroyed<String> values[] = {
+    static const std::array<NeverDestroyed<String>, 5> values {
         MAKE_STATIC_STRING_IMPL("HaveNothing"),
         MAKE_STATIC_STRING_IMPL("HaveMetadata"),
         MAKE_STATIC_STRING_IMPL("HaveCurrentData"),
@@ -2047,7 +2054,7 @@ String convertEnumerationToString(MediaPlayer::ReadyState enumerationValue)
 
 String convertEnumerationToString(MediaPlayer::NetworkState enumerationValue)
 {
-    static const NeverDestroyed<String> values[] = {
+    static const std::array<NeverDestroyed<String>, 7> values {
         MAKE_STATIC_STRING_IMPL("Empty"),
         MAKE_STATIC_STRING_IMPL("Idle"),
         MAKE_STATIC_STRING_IMPL("Loading"),
@@ -2069,7 +2076,7 @@ String convertEnumerationToString(MediaPlayer::NetworkState enumerationValue)
 
 String convertEnumerationToString(MediaPlayer::Preload enumerationValue)
 {
-    static const NeverDestroyed<String> values[] = {
+    static const std::array<NeverDestroyed<String>, 3> values {
         MAKE_STATIC_STRING_IMPL("None"),
         MAKE_STATIC_STRING_IMPL("MetaData"),
         MAKE_STATIC_STRING_IMPL("Auto"),
@@ -2083,7 +2090,7 @@ String convertEnumerationToString(MediaPlayer::Preload enumerationValue)
 
 String convertEnumerationToString(MediaPlayer::SupportsType enumerationValue)
 {
-    static const NeverDestroyed<String> values[] = {
+    static const std::array<NeverDestroyed<String>, 3> values {
         MAKE_STATIC_STRING_IMPL("IsNotSupported"),
         MAKE_STATIC_STRING_IMPL("IsSupported"),
         MAKE_STATIC_STRING_IMPL("MayBeSupported"),
@@ -2113,7 +2120,7 @@ WTF::TextStream& operator<<(TextStream& ts, MediaPlayerEnums::VideoGravity gravi
 
 String convertEnumerationToString(MediaPlayer::BufferingPolicy enumerationValue)
 {
-    static const NeverDestroyed<String> values[] = {
+    static const std::array<NeverDestroyed<String>, 4> values {
         MAKE_STATIC_STRING_IMPL("Default"),
         MAKE_STATIC_STRING_IMPL("LimitReadAhead"),
         MAKE_STATIC_STRING_IMPL("MakeResourcesPurgeable"),

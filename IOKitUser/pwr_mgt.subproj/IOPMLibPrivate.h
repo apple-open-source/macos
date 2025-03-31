@@ -3728,7 +3728,7 @@ typedef enum {
 
 // Async assertions default offload delay
 #if TARGET_OS_IOS
-#define kAsyncAssertionsDefaultOffloadDelay 1 // Delay (in secs) after which assertions are offloaded to powerd
+#define kAsyncAssertionsDefaultOffloadDelay 1000 // Delay (in milli secs) after which assertions are offloaded to powerd
 #else
 #define kAsyncAssertionsDefaultOffloadDelay 0
 #endif

@@ -11,8 +11,8 @@
 #include <string.h>
 
 #include "common/av1_config.h"
+#include "gtest/gtest.h"
 #include "test/util.h"
-#include "third_party/googletest/src/googletest/include/gtest/gtest.h"
 
 namespace {
 

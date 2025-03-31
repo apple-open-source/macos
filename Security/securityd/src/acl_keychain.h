@@ -56,6 +56,7 @@ public:
 	bool selectorFlag(uint32_t flag) const	{ return selectorFlags() & flag; }
 	
 	IFDUMP(void debugDump() const);
+    virtual CFStringRef createACLDebugString() const;
 
     static uint32_t getPromptAttempts();
     void addPromptAttempt(); // Use this only if you're going to call validateExplicitly out of the normal call hierarchy

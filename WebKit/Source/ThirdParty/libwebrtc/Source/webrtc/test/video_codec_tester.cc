@@ -11,6 +11,7 @@
 #include "test/video_codec_tester.h"
 
 #include <algorithm>
+#include <numeric>
 #include <set>
 #include <tuple>
 #include <utility>
@@ -46,10 +47,7 @@
 #include "rtc_base/synchronization/mutex.h"
 #include "rtc_base/task_queue_for_test.h"
 #include "rtc_base/time_utils.h"
-#include "system_wrappers/include/field_trial.h"
 #include "system_wrappers/include/sleep.h"
-#include "test/explicit_key_value_config.h"
-#include "test/scoped_key_value_config.h"
 #include "test/testsupport/file_utils.h"
 #include "test/testsupport/frame_reader.h"
 #include "test/testsupport/video_frame_writer.h"
@@ -164,7 +162,7 @@ class VideoSource {
   // scaling. This value increases by the source frame duration each time a
   // frame is read from the source, and decreases by the output frame duration
   // each time an output frame is delivered.
-  absl::optional<TimeDelta> time_delta_;
+  std::optional<TimeDelta> time_delta_;
 };
 
 // Pacer calculates delay necessary to keep frame encode or decode call spaced
@@ -205,8 +203,8 @@ class Pacer {
   }
 
   PacingSettings settings_;
-  absl::optional<Timestamp> prev_timestamp_;
-  absl::optional<Timestamp> prev_scheduled_;
+  std::optional<Timestamp> prev_timestamp_;
+  std::optional<Timestamp> prev_scheduled_;
   TimeDelta delay_;
 };
 
@@ -363,7 +361,7 @@ class LeakyBucket {
   }
 
  private:
-  absl::optional<VideoCodecStats::Frame> prev_frame_;
+  std::optional<VideoCodecStats::Frame> prev_frame_;
   double level_bits_;
 };
 
@@ -459,7 +457,7 @@ class VideoCodecAnalyzer : public VideoCodecTester::VideoCodecStats {
 
   void FinishDecode(const VideoFrame& decoded_frame,
                     int spatial_idx,
-                    absl::optional<VideoFrame> ref_frame = absl::nullopt) {
+                    std::optional<VideoFrame> ref_frame = std::nullopt) {
     int64_t decode_finished_us = rtc::TimeMicros();
     task_queue_.PostTask([this, timestamp_rtp = decoded_frame.rtp_timestamp(),
                           spatial_idx, width = decoded_frame.width(),
@@ -761,7 +759,7 @@ class VideoCodecAnalyzer : public VideoCodecTester::VideoCodecStats {
   }
 
   DataRate GetTargetBitrate(const EncodingSettings& encoding_settings,
-                            absl::optional<LayerId> layer_id) const {
+                            std::optional<LayerId> layer_id) const {
     int base_spatial_idx;
     if (layer_id.has_value()) {
       bool is_svc =
@@ -792,7 +790,7 @@ class VideoCodecAnalyzer : public VideoCodecTester::VideoCodecStats {
   }
 
   Frequency GetTargetFramerate(const EncodingSettings& encoding_settings,
-                               absl::optional<LayerId> layer_id) const {
+                               std::optional<LayerId> layer_id) const {
     if (layer_id.has_value()) {
       auto layer_settings = encoding_settings.layers_settings.find(
           {.spatial_idx = layer_id->spatial_idx,
@@ -859,7 +857,7 @@ class Decoder : public DecodedImageCallback {
   }
 
   void Decode(const EncodedImage& encoded_frame,
-              absl::optional<VideoFrame> ref_frame = absl::nullopt) {
+              std::optional<VideoFrame> ref_frame = std::nullopt) {
     int spatial_idx = encoded_frame.SpatialIndex().value_or(
         encoded_frame.SimulcastIndex().value_or(0));
     {
@@ -902,7 +900,7 @@ class Decoder : public DecodedImageCallback {
  private:
   int Decoded(VideoFrame& decoded_frame) override {
     int spatial_idx;
-    absl::optional<VideoFrame> ref_frame;
+    std::optional<VideoFrame> ref_frame;
     {
       MutexLock lock(&mutex_);
       spatial_idx = *spatial_idx_;
@@ -932,8 +930,8 @@ class Decoder : public DecodedImageCallback {
   LimitedTaskQueue task_queue_;
   std::unique_ptr<TesterIvfWriter> ivf_writer_;
   std::unique_ptr<TesterY4mWriter> y4m_writer_;
-  absl::optional<VideoCodecType> codec_type_;
-  absl::optional<int> spatial_idx_ RTC_GUARDED_BY(mutex_);
+  std::optional<VideoCodecType> codec_type_;
+  std::optional<int> spatial_idx_ RTC_GUARDED_BY(mutex_);
   std::map<uint32_t, VideoFrame> ref_frames_ RTC_GUARDED_BY(mutex_);
   Mutex mutex_;
 };
@@ -1262,7 +1260,7 @@ class Encoder : public EncodedImageCallback {
   std::unique_ptr<VideoEncoder> encoder_;
   VideoCodecAnalyzer* const analyzer_;
   Pacer pacer_;
-  absl::optional<EncodingSettings> last_encoding_settings_;
+  std::optional<EncodingSettings> last_encoding_settings_;
   std::unique_ptr<VideoBitrateAllocator> bitrate_allocator_;
   LimitedTaskQueue task_queue_;
   std::unique_ptr<TesterY4mWriter> y4m_writer_;
@@ -1270,11 +1268,11 @@ class Encoder : public EncodedImageCallback {
   std::map<uint32_t, int> sidx_ RTC_GUARDED_BY(mutex_);
   std::map<uint32_t, EncodeCallback> callbacks_ RTC_GUARDED_BY(mutex_);
   VideoCodecType codec_type_;
-  absl::optional<Superframe> last_superframe_;
+  std::optional<Superframe> last_superframe_;
   Mutex mutex_;
 };
 
-void ConfigureSimulcast(VideoCodec* vc) {
+void ConfigureSimulcast(const FieldTrialsView& field_trials, VideoCodec* vc) {
   int num_spatial_layers =
       ScalabilityModeToNumSpatialLayers(*vc->GetScalabilityMode());
   int num_temporal_layers =
@@ -1293,7 +1291,6 @@ void ConfigureSimulcast(VideoCodec* vc) {
     return;
   }
 
-  ExplicitKeyValueConfig field_trials(field_trial::GetFieldTrialString());
   VideoEncoderConfig encoder_config;
   encoder_config.codec_type = vc->codecType;
   encoder_config.number_of_streams = num_spatial_layers;
@@ -1424,7 +1421,7 @@ SplitBitrateAndUpdateScalabilityMode(const Environment& env,
       case kVideoCodecVP8:
       case kVideoCodecH264:
       case kVideoCodecH265:
-        ConfigureSimulcast(&vc);
+        ConfigureSimulcast(env.field_trials(), &vc);
         break;
       case kVideoCodecVP9: {
         const std::vector<SpatialLayer> spatialLayers = GetVp9SvcConfig(vc);

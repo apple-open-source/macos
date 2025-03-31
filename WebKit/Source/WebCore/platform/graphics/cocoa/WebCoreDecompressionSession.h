@@ -71,7 +71,6 @@ public:
     void requestMediaDataWhenReady(Function<void()>&&);
     void stopRequestingMediaData();
     void notifyWhenHasAvailableVideoFrame(Function<void()>&&);
-    void decodedFrameWhenAvailable(Function<void(RetainPtr<CMSampleBufferRef>&&)>&&);
 
     RetainPtr<CVPixelBufferRef> decodeSampleSync(CMSampleBufferRef);
 
@@ -155,9 +154,9 @@ private:
     std::atomic<unsigned> m_framesSinceLastQosCheck { 0 };
     double m_decodeRatioMovingAverage { 0 };
 
-    uint32_t m_flushId { 0 };
+    std::atomic<uint32_t> m_flushId { 0 };
     std::atomic<bool> m_isUsingVideoDecoder { true };
-    std::unique_ptr<VideoDecoder> m_videoDecoder WTF_GUARDED_BY_LOCK(m_lock);
+    RefPtr<VideoDecoder> m_videoDecoder WTF_GUARDED_BY_LOCK(m_lock);
     bool m_videoDecoderCreationFailed { false };
     std::atomic<bool> m_decodePending { false };
     struct PendingDecodeData {

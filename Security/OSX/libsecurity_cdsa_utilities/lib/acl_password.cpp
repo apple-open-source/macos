@@ -112,3 +112,8 @@ void PasswordAclSubject::debugDump() const
 }
 
 #endif //DEBUGDUMP
+
+CFStringRef PasswordAclSubject::createACLDebugString() const
+{
+    return CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("<PasswordAclSubject(type:%d)>"), this->type());
+}

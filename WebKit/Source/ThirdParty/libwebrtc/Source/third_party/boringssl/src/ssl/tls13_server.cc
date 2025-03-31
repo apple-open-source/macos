@@ -101,7 +101,7 @@ static int ssl_ext_supported_versions_add_serverhello(SSL_HANDSHAKE *hs,
   CBB contents;
   if (!CBB_add_u16(out, TLSEXT_TYPE_supported_versions) ||
       !CBB_add_u16_length_prefixed(out, &contents) ||
-      !CBB_add_u16(&contents, hs->ssl->version) ||
+      !CBB_add_u16(&contents, hs->ssl->s3->version) ||
       !CBB_flush(out)) {
     return 0;
   }
@@ -152,9 +152,12 @@ static bool add_new_session_tickets(SSL_HANDSHAKE *hs, bool *out_sent_tickets) {
       return false;
     }
     session->ticket_age_add_valid = true;
+    // TODO(crbug.com/42290594): Remove the SSL_is_dtls check once we support
+    // 0-RTT for DTLS 1.3.
     bool enable_early_data =
         ssl->enable_early_data &&
-        (!ssl->quic_method || !ssl->config->quic_early_data_context.empty());
+        (!ssl->quic_method || !ssl->config->quic_early_data_context.empty()) &&
+        !SSL_is_dtls(ssl);
     if (enable_early_data) {
       // QUIC does not use the max_early_data_size parameter and always sets it
       // to a fixed value. See RFC 9001, section 4.6.1.
@@ -175,7 +178,7 @@ static bool add_new_session_tickets(SSL_HANDSHAKE *hs, bool *out_sent_tickets) {
         !CBB_add_u8_length_prefixed(&body, &nonce_cbb) ||
         !CBB_add_bytes(&nonce_cbb, nonce, sizeof(nonce)) ||
         !CBB_add_u16_length_prefixed(&body, &ticket) ||
-        !tls13_derive_session_psk(session.get(), nonce) ||
+        !tls13_derive_session_psk(session.get(), nonce, SSL_is_dtls(ssl)) ||
         !ssl_encrypt_ticket(hs, &ticket, session.get()) ||
         !CBB_add_u16_length_prefixed(&body, &extensions)) {
       return false;
@@ -226,7 +229,12 @@ static bool check_credential(SSL_HANDSHAKE *hs, const SSL_CREDENTIAL *cred,
   // All currently supported credentials require a signature. If |cred| is a
   // delegated credential, this also checks that the peer supports delegated
   // credentials and matched |dc_cert_verify_algorithm|.
-  return tls1_choose_signature_algorithm(hs, cred, out_sigalg);
+  if (!tls1_choose_signature_algorithm(hs, cred, out_sigalg)) {
+    return false;
+  }
+  // Use this credential if it either matches a requested issuer,
+  // or does not require issuer matching.
+  return ssl_credential_matches_requested_issuers(hs, cred);
 }
 
 static enum ssl_hs_wait_t do_select_parameters(SSL_HANDSHAKE *hs) {
@@ -244,9 +252,14 @@ static enum ssl_hs_wait_t do_select_parameters(SSL_HANDSHAKE *hs) {
     ssl_send_alert(ssl, SSL3_AL_FATAL, SSL_AD_ILLEGAL_PARAMETER);
     return ssl_hs_error;
   }
-  OPENSSL_memcpy(hs->session_id, client_hello.session_id,
-                 client_hello.session_id_len);
-  hs->session_id_len = client_hello.session_id_len;
+  // DTLS 1.3 disables compatibility mode, and even if the client advertised a
+  // session ID (for resumption in DTLS 1.2), the server "MUST NOT echo the
+  // 'legacy_session_id' value from the client" (RFC 9147, section 5) as it
+  // would in a TLS 1.3 handshake.
+  if (!SSL_is_dtls(ssl)) {
+    hs->session_id.CopyFrom(
+        MakeConstSpan(client_hello.session_id, client_hello.session_id_len));
+  }
 
   Array<SSL_CREDENTIAL *> creds;
   if (!ssl_get_credential_list(hs, &creds)) {
@@ -555,11 +568,9 @@ static enum ssl_hs_wait_t do_select_session(SSL_HANDSHAKE *hs) {
       ssl_get_handshake_digest(ssl_protocol_version(ssl), hs->new_cipher));
 
   // Set up the key schedule and incorporate the PSK into the running secret.
-  if (!tls13_init_key_schedule(
-          hs, ssl->s3->session_reused
-                  ? MakeConstSpan(hs->new_session->secret,
-                                  hs->new_session->secret_length)
-                  : MakeConstSpan(kZeroes, hash_len)) ||
+  if (!tls13_init_key_schedule(hs, ssl->s3->session_reused
+                                       ? MakeConstSpan(hs->new_session->secret)
+                                       : MakeConstSpan(kZeroes, hash_len)) ||
       !ssl_hash_message(hs, msg)) {
     return ssl_hs_error;
   }
@@ -603,13 +614,14 @@ static enum ssl_hs_wait_t do_send_hello_retry_request(SSL_HANDSHAKE *hs) {
       !CBB_add_u16(&body, TLS1_2_VERSION) ||
       !CBB_add_bytes(&body, kHelloRetryRequest, SSL3_RANDOM_SIZE) ||
       !CBB_add_u8_length_prefixed(&body, &session_id) ||
-      !CBB_add_bytes(&session_id, hs->session_id, hs->session_id_len) ||
+      !CBB_add_bytes(&session_id, hs->session_id.data(),
+                     hs->session_id.size()) ||
       !CBB_add_u16(&body, SSL_CIPHER_get_protocol_id(hs->new_cipher)) ||
       !CBB_add_u8(&body, 0 /* no compression */) ||
       !CBB_add_u16_length_prefixed(&body, &extensions) ||
       !CBB_add_u16(&extensions, TLSEXT_TYPE_supported_versions) ||
       !CBB_add_u16(&extensions, 2 /* length */) ||
-      !CBB_add_u16(&extensions, ssl->version) ||
+      !CBB_add_u16(&extensions, ssl->s3->version) ||
       !CBB_add_u16(&extensions, TLSEXT_TYPE_key_share) ||
       !CBB_add_u16(&extensions, 2 /* length */) ||
       !CBB_add_u16(&extensions, hs->new_session->group_id)) {
@@ -792,15 +804,20 @@ static enum ssl_hs_wait_t do_send_server_hello(SSL_HANDSHAKE *hs) {
     }
   }
 
+  uint16_t server_hello_version = TLS1_2_VERSION;
+  if (SSL_is_dtls(ssl)) {
+    server_hello_version = DTLS1_2_VERSION;
+  }
   Array<uint8_t> server_hello;
   ScopedCBB cbb;
   CBB body, extensions, session_id;
   if (!ssl->method->init_message(ssl, cbb.get(), &body, SSL3_MT_SERVER_HELLO) ||
-      !CBB_add_u16(&body, TLS1_2_VERSION) ||
+      !CBB_add_u16(&body, server_hello_version) ||
       !CBB_add_bytes(&body, ssl->s3->server_random,
                      sizeof(ssl->s3->server_random)) ||
       !CBB_add_u8_length_prefixed(&body, &session_id) ||
-      !CBB_add_bytes(&session_id, hs->session_id, hs->session_id_len) ||
+      !CBB_add_bytes(&session_id, hs->session_id.data(),
+                     hs->session_id.size()) ||
       !CBB_add_u16(&body, SSL_CIPHER_get_protocol_id(hs->new_cipher)) ||
       !CBB_add_u8(&body, 0) ||
       !CBB_add_u16_length_prefixed(&body, &extensions) ||
@@ -843,7 +860,7 @@ static enum ssl_hs_wait_t do_send_server_hello(SSL_HANDSHAKE *hs) {
   if (!tls13_derive_handshake_secrets(hs) ||
       !tls13_set_traffic_key(ssl, ssl_encryption_handshake, evp_aead_seal,
                              hs->new_session.get(),
-                             hs->server_handshake_secret())) {
+                             hs->server_handshake_secret)) {
     return ssl_hs_error;
   }
 
@@ -944,7 +961,7 @@ static enum ssl_hs_wait_t do_send_server_finished(SSL_HANDSHAKE *hs) {
       !tls13_derive_application_secrets(hs) ||
       !tls13_set_traffic_key(ssl, ssl_encryption_application, evp_aead_seal,
                              hs->new_session.get(),
-                             hs->server_traffic_secret_0())) {
+                             hs->server_traffic_secret_0)) {
     return ssl_hs_error;
   }
 
@@ -969,28 +986,27 @@ static enum ssl_hs_wait_t do_send_half_rtt_ticket(SSL_HANDSHAKE *hs) {
     }
 
     size_t finished_len;
-    if (!tls13_finished_mac(hs, hs->expected_client_finished().data(),
+    hs->expected_client_finished.Resize(hs->transcript.DigestLen());
+    if (!tls13_finished_mac(hs, hs->expected_client_finished.data(),
                             &finished_len, false /* client */)) {
       return ssl_hs_error;
     }
 
-    if (finished_len != hs->expected_client_finished().size()) {
+    if (finished_len != hs->expected_client_finished.size()) {
       OPENSSL_PUT_ERROR(SSL, ERR_R_INTERNAL_ERROR);
       return ssl_hs_error;
     }
 
     // Feed the predicted Finished into the transcript. This allows us to derive
     // the resumption secret early and send half-RTT tickets.
-    //
-    // TODO(davidben): This will need to be updated for DTLS 1.3.
     assert(!SSL_is_dtls(hs->ssl));
-    assert(hs->expected_client_finished().size() <= 0xff);
+    assert(hs->expected_client_finished.size() <= 0xff);
     uint8_t header[4] = {
         SSL3_MT_FINISHED, 0, 0,
-        static_cast<uint8_t>(hs->expected_client_finished().size())};
+        static_cast<uint8_t>(hs->expected_client_finished.size())};
     bool unused_sent_tickets;
     if (!hs->transcript.Update(header) ||
-        !hs->transcript.Update(hs->expected_client_finished()) ||
+        !hs->transcript.Update(hs->expected_client_finished) ||
         !tls13_derive_resumption_secret(hs) ||
         !add_new_session_tickets(hs, &unused_sent_tickets)) {
       return ssl_hs_error;
@@ -1001,12 +1017,18 @@ static enum ssl_hs_wait_t do_send_half_rtt_ticket(SSL_HANDSHAKE *hs) {
   return ssl_hs_flush;
 }
 
+static bool uses_end_of_early_data(const SSL *ssl) {
+  // DTLS and QUIC omit the EndOfEarlyData message. See RFC 9001, section 8.3,
+  // and RFC 9147, section 5.6.
+  return ssl->quic_method == nullptr && !SSL_is_dtls(ssl);
+}
+
 static enum ssl_hs_wait_t do_read_second_client_flight(SSL_HANDSHAKE *hs) {
   SSL *const ssl = hs->ssl;
   if (ssl->s3->early_data_accepted) {
     if (!tls13_set_traffic_key(ssl, ssl_encryption_early_data, evp_aead_open,
                                hs->new_session.get(),
-                               hs->early_traffic_secret())) {
+                               hs->early_traffic_secret)) {
       return ssl_hs_error;
     }
     hs->can_early_write = true;
@@ -1014,12 +1036,12 @@ static enum ssl_hs_wait_t do_read_second_client_flight(SSL_HANDSHAKE *hs) {
     hs->in_early_data = true;
   }
 
-  // QUIC doesn't use an EndOfEarlyData message (RFC 9001, section 8.3), so we
-  // switch to client_handshake_secret before the early return.
-  if (ssl->quic_method != nullptr) {
+  // If the EndOfEarlyData message is not used, switch to
+  // client_handshake_secret before the early return.
+  if (!uses_end_of_early_data(ssl)) {
     if (!tls13_set_traffic_key(ssl, ssl_encryption_handshake, evp_aead_open,
                                hs->new_session.get(),
-                               hs->client_handshake_secret())) {
+                               hs->client_handshake_secret)) {
       return ssl_hs_error;
     }
     hs->tls13_state = state13_process_end_of_early_data;
@@ -1035,7 +1057,7 @@ static enum ssl_hs_wait_t do_process_end_of_early_data(SSL_HANDSHAKE *hs) {
   SSL *const ssl = hs->ssl;
   // In protocols that use EndOfEarlyData, we must consume the extra message and
   // switch to client_handshake_secret after the early return.
-  if (ssl->quic_method == nullptr) {
+  if (uses_end_of_early_data(ssl)) {
     // If early data was not accepted, the EndOfEarlyData will be in the
     // discarded early data.
     if (hs->ssl->s3->early_data_accepted) {
@@ -1055,7 +1077,7 @@ static enum ssl_hs_wait_t do_process_end_of_early_data(SSL_HANDSHAKE *hs) {
     }
     if (!tls13_set_traffic_key(ssl, ssl_encryption_handshake, evp_aead_open,
                                hs->new_session.get(),
-                               hs->client_handshake_secret())) {
+                               hs->client_handshake_secret)) {
       return ssl_hs_error;
     }
   }
@@ -1223,7 +1245,7 @@ static enum ssl_hs_wait_t do_read_client_finished(SSL_HANDSHAKE *hs) {
       // evp_aead_seal keys have already been switched.
       !tls13_set_traffic_key(ssl, ssl_encryption_application, evp_aead_open,
                              hs->new_session.get(),
-                             hs->client_traffic_secret_0())) {
+                             hs->client_traffic_secret_0)) {
     return ssl_hs_error;
   }
 
@@ -1256,7 +1278,8 @@ static enum ssl_hs_wait_t do_send_new_session_ticket(SSL_HANDSHAKE *hs) {
   // the case of a small server write buffer. Consumers which don't write data
   // to the client will need to do a zero-byte write if they wish to flush the
   // tickets.
-  if (hs->ssl->quic_method != nullptr && sent_tickets) {
+  if ((hs->ssl->quic_method != nullptr || SSL_is_dtls(hs->ssl)) &&
+      sent_tickets) {
     return ssl_hs_flush;
   }
   return ssl_hs_ok;

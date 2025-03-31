@@ -17,7 +17,7 @@
 
 namespace rx
 {
-class DisplayVk : public DisplayImpl, public vk::Context, public vk::GlobalOps
+class DisplayVk : public DisplayImpl, public vk::ErrorContext, public vk::GlobalOps
 {
   public:
     DisplayVk(const egl::DisplayState &state);
@@ -74,7 +74,6 @@ class DisplayVk : public DisplayImpl, public vk::Context, public vk::GlobalOps
 
     gl::Version getMaxSupportedESVersion() const override;
     gl::Version getMaxConformantESVersion() const override;
-    Optional<gl::Version> getMaxSupportedDesktopVersion() const override;
 
     egl::Error validateImageClientBuffer(const gl::Context *context,
                                          EGLenum target,
@@ -110,6 +109,15 @@ class DisplayVk : public DisplayImpl, public vk::Context, public vk::GlobalOps
     bool isSurfaceFormatColorspacePairSupported(VkSurfaceKHR surface,
                                                 VkFormat format,
                                                 VkColorSpaceKHR colorspace) const;
+
+    void lockVulkanQueue() override;
+    void unlockVulkanQueue() override;
+
+    egl::Error querySupportedCompressionRates(const egl::Config *configuration,
+                                              const egl::AttributeMap &attributes,
+                                              EGLint *rates,
+                                              EGLint rate_size,
+                                              EGLint *num_rates) const override;
 
   protected:
     void generateExtensions(egl::DisplayExtensions *outExtensions) const override;

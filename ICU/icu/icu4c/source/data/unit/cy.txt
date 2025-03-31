@@ -495,6 +495,16 @@ cy{
                 two{"{0} nanoeiliadau"}
                 zero{"{0} nanoeiliadau"}
             }
+            night{
+                dnam{"nosau"}
+                few{"{0} noson"}
+                many{"{0} noson"}
+                one{"{0} noson"}
+                other{"{0} noson"}
+                per{"{0}/noson"}
+                two{"{0} noson"}
+                zero{"{0} noson"}
+            }
             quarter{
                 dnam{"chwarteri"}
                 few{"{0} chw"}
@@ -1233,6 +1243,15 @@ cy{
                 two{"{0} gilometr yr awr"}
                 zero{"{0} cilometr yr awr"}
             }
+            light-speed{
+                dnam{"golau"}
+                few{"golau"}
+                many{"golau"}
+                one{"golau"}
+                other{"{0} golau"}
+                two{"golau"}
+                zero{"golau"}
+            }
             meter-per-second{
                 dnam{"metrau yr eiliad"}
                 few{"{0} metr yr eiliad"}
@@ -1855,6 +1874,16 @@ cy{
                 two{"{0}m"}
                 zero{"{0}m"}
             }
+            night{
+                dnam{"nosau"}
+                few{"{0}noson"}
+                many{"{0}noson"}
+                one{"{0}noson"}
+                other{"{0}noson"}
+                per{"{0}/noson"}
+                two{"{0}noson"}
+                zero{"{0} noson"}
+            }
             quarter{
                 few{"{0} chw"}
                 many{"{0} chw"}
@@ -2448,6 +2477,15 @@ cy{
                 two{"{0}not"}
                 zero{"{0}not"}
             }
+            light-speed{
+                dnam{"golau"}
+                few{"{0} golau"}
+                many{"{0} golau"}
+                one{"{0} golau"}
+                other{"{0} golau"}
+                two{"{0} golau"}
+                zero{"{0} golau"}
+            }
             meter-per-second{
                 dnam{"m/s"}
                 few{"{0}m/s"}
@@ -2977,6 +3015,16 @@ cy{
                 two{"{0} fis"}
                 zero{"{0} mis"}
             }
+            night{
+                dnam{"nosau"}
+                few{"{0} noson"}
+                many{"{0} noson"}
+                one{"{0} noson"}
+                other{"{0} noson"}
+                per{"{0}/noson"}
+                two{"{0} noson"}
+                zero{"{0} noson"}
+            }
             quarter{
                 dnam{"chw"}
                 few{"{0} chw"}
@@ -3283,6 +3331,15 @@ cy{
                 other{"{0} not"}
                 two{"{0} not"}
                 zero{"{0} not"}
+            }
+            light-speed{
+                dnam{"golau"}
+                few{"{0} golau"}
+                many{"{0} golau"}
+                one{"{0} golau"}
+                other{"{0} golau"}
+                two{"{0} golau"}
+                zero{"golau"}
             }
             meter-per-second{
                 dnam{"metrau/eil"}

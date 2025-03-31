@@ -36,6 +36,10 @@
 #import "WKWebExtensionPermission.h"
 #import "WebExtensionControllerProxy.h"
 
+#if ENABLE(INSPECTOR_EXTENSIONS) || ENABLE(WK_WEB_EXTENSIONS_SIDEBAR)
+#import "WebPage.h"
+#endif
+
 namespace WebKit {
 
 bool WebExtensionAPINamespace::isPropertyAllowed(const ASCIILiteral& name, WebPage* page)

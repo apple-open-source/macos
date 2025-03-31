@@ -85,7 +85,7 @@ URL CSSImageValue::reresolvedURL(const Document& document) const
     return document.completeURL(m_location.resolvedURL.string());
 }
 
-RefPtr<StyleImage> CSSImageValue::createStyleImage(Style::BuilderState& state) const
+RefPtr<StyleImage> CSSImageValue::createStyleImage(const Style::BuilderState& state) const
 {
     auto location = makeResolvedURL(reresolvedURL(state.document()));
     if (m_location == location)
@@ -123,7 +123,7 @@ bool CSSImageValue::customTraverseSubresources(const Function<bool(const CachedR
     return m_cachedImage && *m_cachedImage && handler(**m_cachedImage);
 }
 
-void CSSImageValue::customSetReplacementURLForSubresources(const HashMap<String, String>& replacementURLStrings)
+void CSSImageValue::customSetReplacementURLForSubresources(const UncheckedKeyHashMap<String, String>& replacementURLStrings)
 {
     auto replacementURLString = replacementURLStrings.get(m_location.resolvedURL.string());
     if (!replacementURLString.isNull())

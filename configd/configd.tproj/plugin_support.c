@@ -73,7 +73,6 @@
  * - the platform dependent list of allowed bundleIDs
  */
 static const CFStringRef	plugin_allow_list[]	= {
-	PLUGIN_MACOSX("com.apple.SystemConfiguration.ApplicationFirewall")
 	PLUGIN_ALL   ("com.apple.SystemConfiguration.InterfaceNamer")
 	PLUGIN_ALL   ("com.apple.SystemConfiguration.KernelEventMonitor")
 	PLUGIN_ALL   ("com.apple.SystemConfiguration.PreferencesMonitor")

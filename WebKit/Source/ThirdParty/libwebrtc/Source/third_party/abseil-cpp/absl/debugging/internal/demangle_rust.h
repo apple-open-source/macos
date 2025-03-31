@@ -32,13 +32,8 @@ namespace debugging_internal {
 // DemangleRustSymbolEncoding is async-signal-safe and runs in bounded C++
 // call-stack space.  It is suitable for symbolizing stack traces in a signal
 // handler.
-//
-// The demangling logic is under development.  In this version of Abseil,
-// DemangleRustSymbolEncoding parses a few simple kinds of symbol names, but
-// nothing having backreferences in the input or angle brackets in the
-// demangling, and it emits raw Punycode instead of the UTF-8 represented by it.
 bool DemangleRustSymbolEncoding(const char* mangled, char* out,
-                                std::size_t out_size);
+                                size_t out_size);
 
 }  // namespace debugging_internal
 ABSL_NAMESPACE_END

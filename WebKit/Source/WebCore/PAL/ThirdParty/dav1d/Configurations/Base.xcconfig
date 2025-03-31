@@ -1,4 +1,4 @@
-// Copyright (C) 2017-2023 Apple Inc. All rights reserved.
+// Copyright (C) 2017-2024 Apple Inc. All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions
@@ -23,6 +23,7 @@
 
 #include "../../../../../Configurations/CommonBase.xcconfig"
 
+AD_HOC_CODE_SIGNING_ALLOWED = YES;
 CODE_SIGN_IDENTITY = -;
 
 ALWAYS_SEARCH_USER_PATHS = NO;
@@ -78,7 +79,6 @@ GCC_WARN_ABOUT_DEPRECATED_FUNCTIONS = NO;
 GCC_WARN_ABOUT_MISSING_NEWLINE = YES;
 GCC_WARN_ABOUT_MISSING_PROTOTYPES = YES;
 GCC_WARN_ABOUT_RETURN_TYPE = YES;
-GCC_WARN_NON_VIRTUAL_DESTRUCTOR = YES;
 CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
 GCC_WARN_SIGN_COMPARE = YES;
 GCC_WARN_UNINITIALIZED_AUTOS = YES;

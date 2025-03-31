@@ -98,7 +98,7 @@ typedef struct {
  * \param[in]    pb               The second set of parameters to compare
  * \return       Returns 1 if the params are equivalent, 0 otherwise
  */
-static INLINE int aom_check_grain_params_equiv(
+static inline int aom_check_grain_params_equiv(
     const aom_film_grain_t *const pa, const aom_film_grain_t *const pb) {
   if (pa->apply_grain != pb->apply_grain) return 0;
   // Don't compare update_parameters

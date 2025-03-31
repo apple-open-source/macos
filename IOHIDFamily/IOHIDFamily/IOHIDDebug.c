@@ -29,6 +29,7 @@ os_log_t _HIDLogCategory(HIDLogCategory category)
     
     if (!log[0]) {
         log[kHIDLogCategoryDefault] = os_log_create("com.apple.iohid", "default");
+        log[kHIDLogCategoryOversized] = os_log_create("com.apple.iohid", "oversized");
     }
     
     return log[category];

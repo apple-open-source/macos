@@ -6,7 +6,7 @@ malloc_tracing_enabled = false;
 
 malloc_zero_policy_t malloc_zero_policy = MALLOC_ZERO_POLICY_DEFAULT;
 unsigned malloc_zero_on_free_sample_period = 0;
-#if CONFIG_MAGAZINE_PER_CLUSTER
+#if CONFIG_CLUSTER_AWARE
 unsigned int ncpuclusters = 1;
 #endif
 

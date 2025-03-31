@@ -213,9 +213,10 @@
             // Modify the delay by the exponential backoff, unless that exceeds the maximum delay
             self.currentDelay = MIN(self.currentDelay * self.backoff, self.maximumDelay);
         }
+        // To prevent the crash in rdar://73977360, we pass in 1 ns for the interval in case currentDelay is 0.
         dispatch_source_set_timer(self.timer,
                                   dispatch_walltime(NULL, self.currentDelay),
-                                  self.currentDelay,
+                                  (self.currentDelay == 0 ? 1 : self.currentDelay),
                                   50 * NSEC_PER_MSEC);
 
         [self.operationQueue addOperation: dependency];
@@ -298,7 +299,7 @@
         // modifying the delay to be correct for the next time period.
         dispatch_source_set_timer(self.timer,
                                   dispatch_walltime(NULL, actualDelay),
-                                  self.currentDelay,
+                                  (self.currentDelay == 0 ? 1 : self.currentDelay),
                                   50 * NSEC_PER_MSEC);
         dispatch_resume(self.timer);
 

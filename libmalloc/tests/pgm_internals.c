@@ -247,23 +247,27 @@ T_DECL(choose_metadata, "choose_metadata")
 
 T_DECL(choose_offset_on_page, "choose_offset_on_page")
 {
-	uint16_t page_size = 32;
-	expected_upper_bound = 2;
+	uint16_t ps = 32;  // page size
+	uint32_t lap = 10; // left align percentage
+	expected_upper_bound = 100;
 
-	rand_ret_value = 1;
-	T_EXPECT_EQ(choose_offset_on_page(5, 16, page_size), (uint16_t)0, "left-aligned");
+	rand_ret_value = 9;
+	T_EXPECT_EQ(choose_offset_on_page( 5, 16, lap, ps), (uint16_t)0, "left-aligned");
 
-	rand_ret_value = 0;
-	T_EXPECT_EQ(choose_offset_on_page( 0,  1, page_size), (uint16_t)32, "size 0, perfectly right-aligned");
-	T_EXPECT_EQ(choose_offset_on_page( 1,  1, page_size), (uint16_t)31, "size 1, perfectly right-aligned");
-	T_EXPECT_EQ(choose_offset_on_page( 5,  1, page_size), (uint16_t)27, "perfectly right-aligned");
-	T_EXPECT_EQ(choose_offset_on_page( 5,  2, page_size), (uint16_t)26, "right-aligned by 2");
-	T_EXPECT_EQ(choose_offset_on_page( 5,  4, page_size), (uint16_t)24, "right-aligned by 4");
-	T_EXPECT_EQ(choose_offset_on_page( 5,  8, page_size), (uint16_t)24, "right-aligned by 8");
-	T_EXPECT_EQ(choose_offset_on_page( 5, 16, page_size), (uint16_t)16, "right-aligned by 16");
-	T_EXPECT_EQ(choose_offset_on_page( 5, 32, page_size),  (uint16_t)0, "right-aligned by page size");
-	T_EXPECT_EQ(choose_offset_on_page(32,  1, page_size),  (uint16_t)0, "page size allocation w/o alignment");
-	T_EXPECT_EQ(choose_offset_on_page(32,  8, page_size),  (uint16_t)0, "page size allocation w/ alignment");
+	rand_ret_value = 10;
+	T_EXPECT_EQ(choose_offset_on_page( 0,  1, lap, ps), (uint16_t)32, "size 0, perfectly right-aligned");
+	T_EXPECT_EQ(choose_offset_on_page( 1,  1, lap, ps), (uint16_t)31, "size 1, perfectly right-aligned");
+	T_EXPECT_EQ(choose_offset_on_page( 5,  1, lap, ps), (uint16_t)27, "perfectly right-aligned");
+	T_EXPECT_EQ(choose_offset_on_page( 5,  2, lap, ps), (uint16_t)26, "right-aligned by 2");
+	T_EXPECT_EQ(choose_offset_on_page( 5,  4, lap, ps), (uint16_t)24, "right-aligned by 4");
+	T_EXPECT_EQ(choose_offset_on_page( 5,  8, lap, ps), (uint16_t)24, "right-aligned by 8");
+	T_EXPECT_EQ(choose_offset_on_page( 5, 16, lap, ps), (uint16_t)16, "right-aligned by 16");
+	T_EXPECT_EQ(choose_offset_on_page( 5, 32, lap, ps),  (uint16_t)0, "right-aligned by page size");
+	T_EXPECT_EQ(choose_offset_on_page(32,  1, lap, ps),  (uint16_t)0, "page size allocation w/o alignment");
+	T_EXPECT_EQ(choose_offset_on_page(32,  8, lap, ps),  (uint16_t)0, "page size allocation w/ alignment");
+
+	lap = 0; rand_ret_value = 0;
+	T_EXPECT_EQ(choose_offset_on_page( 5, 16,  lap, ps), (uint16_t)16, "right-aligned");
 }
 
 T_DECL(capture_trace, "capture_trace")

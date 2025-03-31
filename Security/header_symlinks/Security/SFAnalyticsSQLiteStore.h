@@ -24,6 +24,7 @@
 #if __OBJC2__
 
 #import <Security/SFSQLite.h>
+
 #import <Security/SFAnalytics.h>
 
 NS_ASSUME_NONNULL_BEGIN
@@ -35,6 +36,7 @@ NS_ASSUME_NONNULL_BEGIN
 @property (readonly, strong) NSArray* rockwells;
 @property (readonly, strong) NSArray* allEvents;
 @property (readonly, strong) NSArray* samples;
+@property (readonly, strong) NSString* databaseBasename;
 @property (readwrite, strong, nullable) NSDate* uploadDate;
 @property (readwrite, strong, nullable) NSString* metricsAccountID;
 
@@ -59,8 +61,12 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (NSDictionary*)summaryCounts;
 
+- (void)streamEventsWithLimit:(NSNumber *_Nullable)limit
+                    fromTable:(NSString *)table
+                 eventHandler:(bool (^)(NSData * _Nonnull event))eventHandler;
+
 @end
 
 NS_ASSUME_NONNULL_END
 
-#endif
+#endif /* __OBJC2__ */

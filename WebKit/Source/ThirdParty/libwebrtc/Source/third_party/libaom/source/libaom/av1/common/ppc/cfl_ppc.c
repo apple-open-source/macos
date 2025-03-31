@@ -32,7 +32,7 @@ typedef vector signed int int32x4_t;           // NOLINT(runtime/int)
 typedef vector unsigned int uint32x4_t;        // NOLINT(runtime/int)
 typedef vector unsigned long long uint64x2_t;  // NOLINT(runtime/int)
 
-static INLINE void subtract_average_vsx(const uint16_t *src_ptr, int16_t *dst,
+static inline void subtract_average_vsx(const uint16_t *src_ptr, int16_t *dst,
                                         int width, int height, int round_offset,
                                         int num_pel_log2) {
   //  int16_t *dst = dst_ptr;

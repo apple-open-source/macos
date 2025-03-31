@@ -2,16 +2,17 @@
 		<key>OpenSourceProject</key>
 		<string>xinstall</string>
 		<key>OpenSourceVersion</key>
-		<string>2022-08-04</string>
+		<string>2024-04-17</string>
 		<key>OpenSourceWebsiteURL</key>
-		<string>https://cgit.freebsd.org/src/tree/usr.bin/xinstall?id=f44e2577120c60cd92f685037bbb63127e0091e4</string>
+		<string>https://cgit.freebsd.org/src/tree/usr.bin/xinstall?id=000a533e6d1db9878296b32d1cc212e11a2cc718</string>
 		<key>OpenSourceImportDate</key>
-		<string>2022-08-04</string>
+		<string>2024-04-18</string>
 		<key>OpenSourceModifications</key>
 		<array>
 			<string>install.1, xinstall.c: remove -N (79294737)</string>
 			<string>xinstall.c: fix build errors (79294737)</string>
 			<string>xinstall.c: copy ACLs (4084028)</string>
+			<string>xinstall.c: detect sandbox and fall back (138344946)</string>
 		</array>
 		<key>OpenSourceLicense</key>
 		<string>bsd</string>

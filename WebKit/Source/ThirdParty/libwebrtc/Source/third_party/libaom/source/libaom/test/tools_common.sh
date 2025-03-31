@@ -17,6 +17,7 @@ AOM_TEST_TOOLS_COMMON_SH=included
 set -e
 devnull='> /dev/null 2>&1'
 AOM_TEST_PREFIX=""
+TOOLS_COMMON_DIR=$(cd "$(dirname "$0")"; pwd)
 
 elog() {
   echo "$@" 1>&2
@@ -90,8 +91,7 @@ cmake_version() {
 # version used by the cmake build when git is unavailable.
 source_version() {
   if git --version > /dev/null 2>&1; then
-    (cd "$(dirname "${0}")"
-    git describe)
+    git -C "${TOOLS_COMMON_DIR}" describe
   else
     cmake_version
   fi

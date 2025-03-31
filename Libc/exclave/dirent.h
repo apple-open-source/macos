@@ -59,7 +59,10 @@
 #define _DIRENT_H_
 
 #include <sys/cdefs.h>
+#include <_bounds.h>
 #include <stdint.h>
+
+_LIBC_SINGLE_BY_DEFAULT()
 
 typedef struct __EXCLAVE_DIR DIR;
 

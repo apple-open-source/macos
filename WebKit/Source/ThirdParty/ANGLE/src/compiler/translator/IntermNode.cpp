@@ -20,6 +20,7 @@
 #include "common/utilities.h"
 #include "compiler/translator/Diagnostics.h"
 #include "compiler/translator/ImmutableString.h"
+#include "compiler/translator/ImmutableStringBuilder.h"
 #include "compiler/translator/IntermNode.h"
 #include "compiler/translator/SymbolTable.h"
 #include "compiler/translator/util.h"
@@ -752,8 +753,7 @@ TPrecision TIntermAggregate::derivePrecision() const
         return mArguments[0]->getAsTyped()->getPrecision();
     }
 
-    // Every possibility must be explicitly handled, except for desktop-GLSL-specific built-ins
-    // for which precision does't matter.
+    // Every possibility must be explicitly handled.
     return EbpUndefined;
 }
 
@@ -1762,28 +1762,35 @@ bool TIntermSwizzle::offsetsMatch(int offset) const
     return mSwizzleOffsets.size() == 1 && mSwizzleOffsets[0] == offset;
 }
 
-void TIntermSwizzle::writeOffsetsAsXYZW(TInfoSinkBase *out) const
+ImmutableString TIntermSwizzle::getOffsetsAsXYZW() const
 {
+    ImmutableStringBuilder offsets(mSwizzleOffsets.size());
     for (const int offset : mSwizzleOffsets)
     {
         switch (offset)
         {
             case 0:
-                *out << "x";
+                offsets << "x";
                 break;
             case 1:
-                *out << "y";
+                offsets << "y";
                 break;
             case 2:
-                *out << "z";
+                offsets << "z";
                 break;
             case 3:
-                *out << "w";
+                offsets << "w";
                 break;
             default:
                 UNREACHABLE();
         }
     }
+    return offsets;
+}
+
+void TIntermSwizzle::writeOffsetsAsXYZW(TInfoSinkBase *out) const
+{
+    *out << getOffsetsAsXYZW();
 }
 
 TQualifier TIntermBinary::GetCommaQualifier(int shaderVersion,
@@ -2504,7 +2511,7 @@ const TConstantUnion *TIntermConstantUnion::FoldBinary(TOperator op,
             resultArray = new TConstantUnion[objectSize];
             for (size_t i = 0; i < objectSize; i++)
             {
-                if (IsFloatDivision(leftType.getBasicType(), rightType.getBasicType()))
+                if (leftType.getBasicType() == EbtFloat)
                 {
                     // Float division requested, possibly with implicit conversion
                     ASSERT(op == EOpDiv);
@@ -4215,20 +4222,6 @@ TConstantUnion *TIntermConstantUnion::FoldAggregateBuiltIn(TIntermAggregate *agg
             return nullptr;
     }
     return resultArray;
-}
-
-bool TIntermConstantUnion::IsFloatDivision(TBasicType t1, TBasicType t2)
-{
-    ImplicitTypeConversion conversion = GetConversion(t1, t2);
-    ASSERT(conversion != ImplicitTypeConversion::Invalid);
-    if (conversion == ImplicitTypeConversion::Same)
-    {
-        if (t1 == EbtFloat)
-            return true;
-        return false;
-    }
-    ASSERT(t1 == EbtFloat || t2 == EbtFloat);
-    return true;
 }
 
 // TIntermPreprocessorDirective implementation.

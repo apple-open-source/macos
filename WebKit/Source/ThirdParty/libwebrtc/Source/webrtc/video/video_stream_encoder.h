@@ -44,6 +44,7 @@
 #include "rtc_base/rate_statistics.h"
 #include "rtc_base/thread_annotations.h"
 #include "video/adaptation/video_stream_encoder_resource_manager.h"
+#include "video/corruption_detection/frame_instrumentation_generator.h"
 #include "video/encoder_bitrate_adjuster.h"
 #include "video/frame_cadence_adapter.h"
 #include "video/frame_encode_metadata_writer.h"
@@ -309,14 +310,13 @@ class VideoStreamEncoder : public VideoStreamEncoderInterface,
   absl::InlinedVector<SetParametersCallback, 2> encoder_configuration_callbacks_
       RTC_GUARDED_BY(encoder_queue_);
 
-  absl::optional<VideoFrameInfo> last_frame_info_
-      RTC_GUARDED_BY(encoder_queue_);
+  std::optional<VideoFrameInfo> last_frame_info_ RTC_GUARDED_BY(encoder_queue_);
   int crop_width_ RTC_GUARDED_BY(encoder_queue_) = 0;
   int crop_height_ RTC_GUARDED_BY(encoder_queue_) = 0;
-  absl::optional<uint32_t> encoder_target_bitrate_bps_
+  std::optional<uint32_t> encoder_target_bitrate_bps_
       RTC_GUARDED_BY(encoder_queue_);
   size_t max_data_payload_length_ RTC_GUARDED_BY(encoder_queue_) = 0;
-  absl::optional<EncoderRateSettings> last_encoder_rate_settings_
+  std::optional<EncoderRateSettings> last_encoder_rate_settings_
       RTC_GUARDED_BY(encoder_queue_);
   bool encoder_paused_and_dropped_frame_ RTC_GUARDED_BY(encoder_queue_) = false;
 
@@ -336,7 +336,7 @@ class VideoStreamEncoder : public VideoStreamEncoderInterface,
   int captured_frame_count_ RTC_GUARDED_BY(encoder_queue_) = 0;
   int dropped_frame_cwnd_pushback_count_ RTC_GUARDED_BY(encoder_queue_) = 0;
   int dropped_frame_encoder_block_count_ RTC_GUARDED_BY(encoder_queue_) = 0;
-  absl::optional<VideoFrame> pending_frame_ RTC_GUARDED_BY(encoder_queue_);
+  std::optional<VideoFrame> pending_frame_ RTC_GUARDED_BY(encoder_queue_);
   int64_t pending_frame_post_time_us_ RTC_GUARDED_BY(encoder_queue_) = 0;
 
   VideoFrame::UpdateRect accumulated_update_rect_
@@ -345,9 +345,9 @@ class VideoStreamEncoder : public VideoStreamEncoderInterface,
 
   FecControllerOverride* fec_controller_override_
       RTC_GUARDED_BY(encoder_queue_) = nullptr;
-  absl::optional<int64_t> last_parameters_update_ms_
+  std::optional<int64_t> last_parameters_update_ms_
       RTC_GUARDED_BY(encoder_queue_);
-  absl::optional<int64_t> last_encode_info_ms_ RTC_GUARDED_BY(encoder_queue_);
+  std::optional<int64_t> last_encode_info_ms_ RTC_GUARDED_BY(encoder_queue_);
 
   VideoEncoder::EncoderInfo encoder_info_ RTC_GUARDED_BY(encoder_queue_);
   VideoCodec send_codec_ RTC_GUARDED_BY(encoder_queue_);
@@ -366,7 +366,7 @@ class VideoStreamEncoder : public VideoStreamEncoderInterface,
 
   // Congestion window frame drop ratio (drop 1 in every
   // cwnd_frame_drop_interval_ frames).
-  absl::optional<int> cwnd_frame_drop_interval_ RTC_GUARDED_BY(encoder_queue_);
+  std::optional<int> cwnd_frame_drop_interval_ RTC_GUARDED_BY(encoder_queue_);
   // Frame counter for congestion window frame drop.
   int cwnd_frame_counter_ RTC_GUARDED_BY(encoder_queue_) = 0;
 
@@ -422,13 +422,14 @@ class VideoStreamEncoder : public VideoStreamEncoderInterface,
   // The quality convergence controller is used to determine if a codec has
   // reached its target quality. This is used for screenshare to determine when
   // there's no need to continue encoding the same repeated frame.
-  QualityConvergenceController quality_convergence_controller_;
+  QualityConvergenceController quality_convergence_controller_
+      RTC_GUARDED_BY(encoder_queue_);
 
   // Enables encoder switching on initialization failures.
   bool switch_encoder_on_init_failures_;
 
-  const absl::optional<int> vp9_low_tier_core_threshold_;
-  const absl::optional<int> experimental_encoder_thread_limit_;
+  const std::optional<int> vp9_low_tier_core_threshold_;
+  const std::optional<int> experimental_encoder_thread_limit_;
 
   // This is a copy of restrictions (glorified max_pixel_count) set by
   // OnVideoSourceRestrictionsUpdated. It is used to scale down encoding
@@ -437,7 +438,7 @@ class VideoStreamEncoder : public VideoStreamEncoderInterface,
   // TODO(webrtc:14451) Split video_source_sink_controller_
   // so that ownership on restrictions/wants is kept on &encoder_queue_, that
   // these extra copies would not be needed.
-  absl::optional<VideoSourceRestrictions> latest_restrictions_
+  std::optional<VideoSourceRestrictions> latest_restrictions_
       RTC_GUARDED_BY(encoder_queue_);
 
   // Used to cancel any potentially pending tasks to the worker thread.
@@ -447,6 +448,10 @@ class VideoStreamEncoder : public VideoStreamEncoderInterface,
   ScopedTaskSafety task_safety_;
 
   std::unique_ptr<TaskQueueBase, TaskQueueDeleter> encoder_queue_;
+
+  //  Required for automatic corruption detection.
+  std::unique_ptr<FrameInstrumentationGenerator>
+      frame_instrumentation_generator_;
 };
 
 }  // namespace webrtc

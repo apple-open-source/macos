@@ -11,7 +11,6 @@ angle_white_box_tests_sources = [
 ]
 angle_white_box_tests_win_sources = [
   "egl_tests/EGLDirectCompositionTest.cpp",
-  "gl_tests/D3D11EmulatedIndexedBufferTest.cpp",
   "gl_tests/D3D11FormatTablesTest.cpp",
   "gl_tests/D3D11InputLayoutCacheTest.cpp",
   "gl_tests/D3DTextureTest.cpp",
@@ -22,6 +21,5 @@ angle_white_box_tests_vulkan_sources = [
   "gl_tests/VulkanFormatTablesTest.cpp",
   "gl_tests/VulkanFramebufferTest.cpp",
   "gl_tests/VulkanMultithreadingTest.cpp",
-  "gl_tests/VulkanSharedFenceTest.cpp",
   "gl_tests/VulkanUniformUpdatesTest.cpp",
 ]

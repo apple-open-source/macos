@@ -1,0 +1,122 @@
+#! /bin/sh
+
+set -e
+set -u
+
+. ${tstdir-.}/lib.sh
+. ${tstdir-.}/conf.sh
+
+# Check that each file in the given dir whose name matches the given pattern
+# has exactly the given link count.  Also check that if the link count
+# is greater than one then all matching files have the same inode.
+#
+check_linkage() {
+    [ $# -eq 3 ]
+    local dir=$1
+    local fnpat=$2
+    local nlinks=$3
+    local inode=0
+
+    find "${dir}" -type f -name "${fnpat}" -exec stat -f '%l %i' {} \; | while read line ; do
+	set -- $line
+	[ $1 -eq ${nlinks} ]
+
+	if [ ${nlinks} -gt 1 ] ; then
+	    if [ ${inode} -eq 0 ] ; then
+		inode=$2
+	    else
+		[ ${inode} -eq $2 ]
+	    fi
+	fi
+    done
+}
+
+rm -rf src dst
+mkdir src
+
+jot 17 5 > src/one-1
+
+for i in $(seq 2 5) ; do
+    ln src/one-1 src/one-$i
+done
+
+touch -A -50 src/one-1
+
+nlinks=$(stat -f %l src/one-1)
+
+
+# Initial archive mode sync without hardlinks:
+#
+echo
+echo 'Test 1: create dest dir without hardlinks'
+
+rsync -ai -- src/ dst/ | tee log
+compare_trees -t src dst
+
+echo "Test 1.1: check linkage"
+check_linkage dst 'one-*' 1
+
+echo "Test 1.2: check itemization"
+X=$(egrep -c '^[ch<>][df]\+{7}' log)
+[ $X -eq $((nlinks + 1)) ]
+
+echo "Test 1.3: check itemization"
+X=$(egrep -c '^hf.* => ' log || true)
+[ $X -eq 0 ]
+
+
+# Resync with hardlinks
+#
+echo
+echo 'Test 2: resync with hardlinks'
+
+rsync -ai -H -- src/ dst/ | tee log
+compare_trees -t src dst
+
+echo "Test 2.1: check linkage"
+check_linkage dst 'one-[1-5]' ${nlinks}
+
+echo "Test 2.2: check itemization flags"
+X=$(egrep -c '^[c<>][f].* one-1$' log || true)
+[ $X -eq 0 ]
+
+echo "Test 2.3: check itemization flags"
+X=$(egrep -c '^hf {7}.* => one-1$' log)
+[ $X -eq $((nlinks - 1)) ]
+
+
+# Remove dest leader:
+#
+echo
+echo 'Test 3: remove dest leader'
+rm dst/one-1
+
+rsync -ai -H -- src/ dst/ | tee log
+compare_trees -t src dst
+
+echo "Test 3.1: check linkage"
+check_linkage dst 'one-[1-5]' ${nlinks}
+
+echo "Test 3.2: check itemization flags"
+X=$(egrep -c '^hf\+{7}.* one-1 => one-2$' log)
+[ $X -eq 1 ]
+
+echo "Test 3.3: check itemization flags"
+X=$(egrep -c '^hf.* => ' log)
+[ $X -eq 1 ]
+
+
+# Resync without hardlinks:
+#
+echo
+echo 'Test 4: resync without hardlinks'
+touch src/*
+rsync -ai -- src/ dst/ | tee log
+compare_trees -t src dst
+
+echo "Test 4.1: check linkage"
+check_linkage dst 'one-[1-5]' 1
+
+echo "Test 4.2: check itemization flags"
+X=$(egrep -c '^[<>][f]\.\.t.* one-[1-5]$' log)
+[ $X -eq ${nlinks} ]

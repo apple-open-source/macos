@@ -43,24 +43,24 @@ static const int32_t gOffsets[] = {
     17,
     27,
     31,
-    332,
-    343,
-    360,
-    364,
-    373,
-    376,
-    380,
-    388,
-    410,
-    414,
-    429,
-    430,
-    436,
-    447,
-    452,
-    456,
-    458,
-    492
+    333,
+    344,
+    362,
+    366,
+    375,
+    378,
+    382,
+    390,
+    412,
+    416,
+    431,
+    432,
+    438,
+    449,
+    455,
+    459,
+    461,
+    495
 };
 
 static const int32_t kCurrencyOffset = 5;
@@ -423,6 +423,7 @@ static const char * const gSubTypes[] = {
     "ZRZ",
     "ZWC",
     "ZWD",
+    "ZWG",
     "ZWL",
     "ZWN",
     "ZWR",
@@ -448,6 +449,7 @@ static const char * const gSubTypes[] = {
     "month",
     "month-person",
     "nanosecond",
+    "night",
     "quarter",
     "second",
     "week",
@@ -544,6 +546,7 @@ static const char * const gSubTypes[] = {
     "beaufort",
     "kilometer-per-hour",
     "knot",
+    "light-speed",
     "meter-per-second",
     "mile-per-hour",
     "celsius",
@@ -1016,52 +1019,60 @@ MeasureUnit MeasureUnit::getNanosecond() {
     return MeasureUnit(7, 10);
 }
 
-MeasureUnit *MeasureUnit::createQuarter(UErrorCode &status) {
+MeasureUnit *MeasureUnit::createNight(UErrorCode &status) {
     return MeasureUnit::create(7, 11, status);
 }
 
-MeasureUnit MeasureUnit::getQuarter() {
+MeasureUnit MeasureUnit::getNight() {
     return MeasureUnit(7, 11);
 }
 
-MeasureUnit *MeasureUnit::createSecond(UErrorCode &status) {
+MeasureUnit *MeasureUnit::createQuarter(UErrorCode &status) {
     return MeasureUnit::create(7, 12, status);
 }
 
-MeasureUnit MeasureUnit::getSecond() {
+MeasureUnit MeasureUnit::getQuarter() {
     return MeasureUnit(7, 12);
 }
 
-MeasureUnit *MeasureUnit::createWeek(UErrorCode &status) {
+MeasureUnit *MeasureUnit::createSecond(UErrorCode &status) {
     return MeasureUnit::create(7, 13, status);
 }
 
-MeasureUnit MeasureUnit::getWeek() {
+MeasureUnit MeasureUnit::getSecond() {
     return MeasureUnit(7, 13);
 }
 
-MeasureUnit *MeasureUnit::createWeekPerson(UErrorCode &status) {
+MeasureUnit *MeasureUnit::createWeek(UErrorCode &status) {
     return MeasureUnit::create(7, 14, status);
 }
 
-MeasureUnit MeasureUnit::getWeekPerson() {
+MeasureUnit MeasureUnit::getWeek() {
     return MeasureUnit(7, 14);
 }
 
-MeasureUnit *MeasureUnit::createYear(UErrorCode &status) {
+MeasureUnit *MeasureUnit::createWeekPerson(UErrorCode &status) {
     return MeasureUnit::create(7, 15, status);
 }
 
-MeasureUnit MeasureUnit::getYear() {
+MeasureUnit MeasureUnit::getWeekPerson() {
     return MeasureUnit(7, 15);
 }
 
-MeasureUnit *MeasureUnit::createYearPerson(UErrorCode &status) {
+MeasureUnit *MeasureUnit::createYear(UErrorCode &status) {
     return MeasureUnit::create(7, 16, status);
 }
 
-MeasureUnit MeasureUnit::getYearPerson() {
+MeasureUnit MeasureUnit::getYear() {
     return MeasureUnit(7, 16);
+}
+
+MeasureUnit *MeasureUnit::createYearPerson(UErrorCode &status) {
+    return MeasureUnit::create(7, 17, status);
+}
+
+MeasureUnit MeasureUnit::getYearPerson() {
+    return MeasureUnit(7, 17);
 }
 
 MeasureUnit *MeasureUnit::createAmpere(UErrorCode &status) {
@@ -1544,14 +1555,6 @@ MeasureUnit MeasureUnit::getKilogram() {
     return MeasureUnit(15, 5);
 }
 
-MeasureUnit *MeasureUnit::createMetricTon(UErrorCode &status) {
-    return MeasureUnit::create(15, 14, status);
-}
-
-MeasureUnit MeasureUnit::getMetricTon() {
-    return MeasureUnit(15, 14);
-}
-
 MeasureUnit *MeasureUnit::createMicrogram(UErrorCode &status) {
     return MeasureUnit::create(15, 6, status);
 }
@@ -1621,6 +1624,14 @@ MeasureUnit *MeasureUnit::createTonne(UErrorCode &status) {
 }
 
 MeasureUnit MeasureUnit::getTonne() {
+    return MeasureUnit(15, 14);
+}
+
+MeasureUnit *MeasureUnit::createMetricTon(UErrorCode &status) {
+    return MeasureUnit::create(15, 14, status);
+}
+
+MeasureUnit MeasureUnit::getMetricTon() {
     return MeasureUnit(15, 14);
 }
 
@@ -1784,20 +1795,28 @@ MeasureUnit MeasureUnit::getKnot() {
     return MeasureUnit(19, 2);
 }
 
-MeasureUnit *MeasureUnit::createMeterPerSecond(UErrorCode &status) {
+MeasureUnit *MeasureUnit::createLightSpeed(UErrorCode &status) {
     return MeasureUnit::create(19, 3, status);
 }
 
-MeasureUnit MeasureUnit::getMeterPerSecond() {
+MeasureUnit MeasureUnit::getLightSpeed() {
     return MeasureUnit(19, 3);
 }
 
-MeasureUnit *MeasureUnit::createMilePerHour(UErrorCode &status) {
+MeasureUnit *MeasureUnit::createMeterPerSecond(UErrorCode &status) {
     return MeasureUnit::create(19, 4, status);
 }
 
-MeasureUnit MeasureUnit::getMilePerHour() {
+MeasureUnit MeasureUnit::getMeterPerSecond() {
     return MeasureUnit(19, 4);
+}
+
+MeasureUnit *MeasureUnit::createMilePerHour(UErrorCode &status) {
+    return MeasureUnit::create(19, 5, status);
+}
+
+MeasureUnit MeasureUnit::getMilePerHour() {
+    return MeasureUnit(19, 5);
 }
 
 MeasureUnit *MeasureUnit::createCelsius(UErrorCode &status) {
@@ -2169,9 +2188,7 @@ MeasureUnit &MeasureUnit::operator=(const MeasureUnit &other) {
     if (this == &other) {
         return *this;
     }
-    if (fImpl != nullptr) {
-        delete fImpl;
-    }
+    delete fImpl;
     if (other.fImpl) {
         ErrorCode localStatus;
         fImpl = new MeasureUnitImpl(other.fImpl->copy(localStatus));
@@ -2192,9 +2209,7 @@ MeasureUnit &MeasureUnit::operator=(MeasureUnit &&other) noexcept {
     if (this == &other) {
         return *this;
     }
-    if (fImpl != nullptr) {
-        delete fImpl;
-    }
+    delete fImpl;
     fImpl = other.fImpl;
     other.fImpl = nullptr;
     fTypeId = other.fTypeId;
@@ -2454,6 +2469,7 @@ MeasureUnit* MeasureUnit::createFromUAMeasureUnit(UAMeasureUnit unit, UErrorCode
         case UAMEASUNIT_DURATION_DAY_PERSON:    munit = MeasureUnit::createDayPerson(*status);   break;
         case UAMEASUNIT_DURATION_DECADE:        munit = MeasureUnit::createDecade(*status);      break;
         case UAMEASUNIT_DURATION_QUARTER:       munit = MeasureUnit::createQuarter(*status);     break;
+        case UAMEASUNIT_DURATION_NIGHT:         munit = MeasureUnit::createNight(*status);       break;
 
         case UAMEASUNIT_LENGTH_METER:           munit = MeasureUnit::createMeter(*status);       break;
         case UAMEASUNIT_LENGTH_CENTIMETER:      munit = MeasureUnit::createCentimeter(*status);  break;
@@ -2517,6 +2533,7 @@ MeasureUnit* MeasureUnit::createFromUAMeasureUnit(UAMeasureUnit unit, UErrorCode
         case UAMEASUNIT_SPEED_MILE_PER_HOUR:      munit = MeasureUnit::createMilePerHour(*status);      break;
         case UAMEASUNIT_SPEED_KNOT:               munit = MeasureUnit::createKnot(*status);      break;
         case UAMEASUNIT_SPEED_BEAUFORT:           munit = MeasureUnit::createBeaufort(*status);         break;
+        case UAMEASUNIT_SPEED_LIGHT_SPEED:        munit = MeasureUnit::createLightSpeed(*status);       break;
 
         case UAMEASUNIT_TEMPERATURE_CELSIUS:    munit = MeasureUnit::createCelsius(*status);     break;
         case UAMEASUNIT_TEMPERATURE_FAHRENHEIT: munit = MeasureUnit::createFahrenheit(*status);  break;
@@ -2695,159 +2712,161 @@ static const UAMeasureUnit indexToUAMeasUnit[] = {
     UAMEASUNIT_DURATION_MONTH,                        // (4 << 8) + 1,   # 50  month
     UAMEASUNIT_DURATION_MONTH_PERSON,                 // (4 << 8) + 12,  # 51  month-person
     UAMEASUNIT_DURATION_NANOSECOND,                   // (4 << 8) + 9,   # 52  nanosecond
-    UAMEASUNIT_DURATION_QUARTER,                      // (4 << 8) + 16,  # 53  quarter
-    UAMEASUNIT_DURATION_SECOND,                       // (4 << 8) + 6,   # 54  second
-    UAMEASUNIT_DURATION_WEEK,                         // (4 << 8) + 2,   # 55  week
-    UAMEASUNIT_DURATION_WEEK_PERSON,                  // (4 << 8) + 13,  # 56  week-person
-    UAMEASUNIT_DURATION_YEAR,                         // (4 << 8) + 0,   # 57  year
-    UAMEASUNIT_DURATION_YEAR_PERSON,                  // (4 << 8) + 11,  # 58  year-person
-    //                                                                   # --- electric (58)
-    UAMEASUNIT_ELECTRIC_AMPERE,                       // (15 << 8) + 0,  # 59  ampere
-    UAMEASUNIT_ELECTRIC_MILLIAMPERE,                  // (15 << 8) + 1,  # 60  milliampere
-    UAMEASUNIT_ELECTRIC_OHM,                          // (15 << 8) + 2,  # 61  ohm
-    UAMEASUNIT_ELECTRIC_VOLT,                         // (15 << 8) + 3,  # 62  volt
-    //                                                                   # --- energy (62)
-    UAMEASUNIT_ENERGY_BRITISH_THERMAL_UNIT,           // (12 << 8) + 7,  # 63  british-thermal-unit
-    UAMEASUNIT_ENERGY_CALORIE,                        // (12 << 8) + 0,  # 64  calorie
-    UAMEASUNIT_ENERGY_ELECTRONVOLT,                   // (12 << 8) + 6,  # 65  electronvolt
-    UAMEASUNIT_ENERGY_FOODCALORIE,                    // (12 << 8) + 1,  # 66  foodcalorie
-    UAMEASUNIT_ENERGY_JOULE,                          // (12 << 8) + 2,  # 67  joule
-    UAMEASUNIT_ENERGY_KILOCALORIE,                    // (12 << 8) + 3,  # 68  kilocalorie
-    UAMEASUNIT_ENERGY_KILOJOULE,                      // (12 << 8) + 4,  # 69  kilojoule
-    UAMEASUNIT_ENERGY_KILOWATT_HOUR,                  // (12 << 8) + 5,  # 70  kilowatt-hour
-    UAMEASUNIT_ENERGY_THERM_US,                       // (12 << 8) + 8,  # 71  therm-us
-    //                                                                   # --- force (7``)
-    UAMEASUNIT_FORCE_KILOWATT_HOUR_PER_100_KILOMETER, // (19 << 8) + 2,  # 72  kilowatt-hour-per-100-kilometer
-    UAMEASUNIT_FORCE_NEWTON,                          // (19 << 8) + 0,  # 73  newton
-    UAMEASUNIT_FORCE_POUND_FORCE,                     // (19 << 8) + 1,  # 74  pound-force
-    //                                                                   # --- frequency (74)
-    UAMEASUNIT_FREQUENCY_GIGAHERTZ,                   // (16 << 8) + 3,  # 75  gigahertz
-    UAMEASUNIT_FREQUENCY_HERTZ,                       // (16 << 8) + 0,  # 76  hertz
-    UAMEASUNIT_FREQUENCY_KILOHERTZ,                   // (16 << 8) + 1,  # 77  kilohertz
-    UAMEASUNIT_FREQUENCY_MEGAHERTZ,                   // (16 << 8) + 2,  # 78  megahertz
-    //                                                                   # --- graphics (78)
-    UAMEASUNIT_GRAPHICS_DOT,                          // (21 << 8) + 7,  # 79  dot
-    UAMEASUNIT_GRAPHICS_DOT_PER_CENTIMETER,           // (21 << 8) + 5,  # 80  dot-per-centimeter
-    UAMEASUNIT_GRAPHICS_DOT_PER_INCH,                 // (21 << 8) + 6,  # 81  dot-per-inch
-    UAMEASUNIT_GRAPHICS_EM,                           // (21 << 8) + 0,  # 82  em
-    UAMEASUNIT_GRAPHICS_MEGAPIXEL,                    // (21 << 8) + 2,  # 83  megapixel
-    UAMEASUNIT_GRAPHICS_PIXEL,                        // (21 << 8) + 1,  # 84  pixel
-    UAMEASUNIT_GRAPHICS_PIXEL_PER_CENTIMETER,         // (21 << 8) + 3,  # 85  pixel-per-centimeter
-    UAMEASUNIT_GRAPHICS_PIXEL_PER_INCH,               // (21 << 8) + 4,  # 86  pixel-per-inch
-    //                                                                   # --- length (86)
-    UAMEASUNIT_LENGTH_ASTRONOMICAL_UNIT,              // (5 << 8) + 16,  # 87  astronomical-unit
-    UAMEASUNIT_LENGTH_CENTIMETER,                     // (5 << 8) + 1,   # 88  centimeter
-    UAMEASUNIT_LENGTH_DECIMETER,                      // (5 << 8) + 10,  # 89  decimeter
-    UAMEASUNIT_LENGTH_EARTH_RADIUS,                   // (5 << 8) + 21,  # 90  earth-radius
-    UAMEASUNIT_LENGTH_FATHOM,                         // (5 << 8) + 14,  # 91  fathom
-    UAMEASUNIT_LENGTH_FOOT,                           // (5 << 8) + 5,   # 92  foot
-    UAMEASUNIT_LENGTH_FURLONG,                        // (5 << 8) + 15,  # 93  furlong
-    UAMEASUNIT_LENGTH_INCH,                           // (5 << 8) + 6,   # 94  inch
-    UAMEASUNIT_LENGTH_KILOMETER,                      // (5 << 8) + 2,   # 95  kilometer
-    UAMEASUNIT_LENGTH_LIGHT_YEAR,                     // (5 << 8) + 9,   # 96  light-year
-    UAMEASUNIT_LENGTH_METER,                          // (5 << 8) + 0,   # 97  meter
-    UAMEASUNIT_LENGTH_MICROMETER,                     // (5 << 8) + 11,  # 98  micrometer
-    UAMEASUNIT_LENGTH_MILE,                           // (5 << 8) + 7,   # 99  mile
-    UAMEASUNIT_LENGTH_MILE_SCANDINAVIAN,              // (5 << 8) + 18,  # 100 mile-scandinavian
-    UAMEASUNIT_LENGTH_MILLIMETER,                     // (5 << 8) + 3,   # 101 millimeter
-    UAMEASUNIT_LENGTH_NANOMETER,                      // (5 << 8) + 12,  # 102 nanometer
-    UAMEASUNIT_LENGTH_NAUTICAL_MILE,                  // (5 << 8) + 13,  # 103 nautical-mile
-    UAMEASUNIT_LENGTH_PARSEC,                         // (5 << 8) + 17,  # 104 parsec
-    UAMEASUNIT_LENGTH_PICOMETER,                      // (5 << 8) + 4,   # 105 picometer
-    UAMEASUNIT_LENGTH_POINT,                          // (5 << 8) + 19,  # 106 point
-    UAMEASUNIT_LENGTH_SOLAR_RADIUS,                   // (5 << 8) + 20,  # 107 solar-radius
-    UAMEASUNIT_LENGTH_YARD,                           // (5 << 8) + 8,   # 108 yard
-    //                                                                   # --- light (108)
-    UAMEASUNIT_LIGHT_CANDELA,                         // (17 << 8) + 2   # 109 candela
-    UAMEASUNIT_LIGHT_LUMEN,                           // (17 << 8) + 3   # 110 lumen
-    UAMEASUNIT_LIGHT_LUX,                             // (17 << 8) + 0,  # 111 lux
-    UAMEASUNIT_LIGHT_SOLAR_LUMINOSITY,                // (17 << 8) + 1,  # 112 solar-luminosity
-    //                                                                   # --- mass (112)
-    UAMEASUNIT_MASS_CARAT,                            // (6 << 8) + 9,   # 113 carat
-    UAMEASUNIT_MASS_DALTON,                           // (6 << 8) + 11,  # 114 dalton
-    UAMEASUNIT_MASS_EARTH_MASS,                       // (6 << 8) + 12,  # 115 earth-mass
-    UAMEASUNIT_MASS_GRAIN,                            // (6 << 8) + 14,  # 116 grain
-    UAMEASUNIT_MASS_GRAM,                             // (6 << 8) + 0,   # 117 gram
-    UAMEASUNIT_MASS_KILOGRAM,                         // (6 << 8) + 1,   # 118 kilogram
-    UAMEASUNIT_MASS_MICROGRAM,                        // (6 << 8) + 5,   # 119 microgram
-    UAMEASUNIT_MASS_MILLIGRAM,                        // (6 << 8) + 6,   # 120 milligram
-    UAMEASUNIT_MASS_OUNCE,                            // (6 << 8) + 2,   # 121 ounce
-    UAMEASUNIT_MASS_OUNCE_TROY,                       // (6 << 8) + 10,  # 122 ounce-troy
-    UAMEASUNIT_MASS_POUND,                            // (6 << 8) + 3,   # 123 pound
-    UAMEASUNIT_MASS_SOLAR_MASS,                       // (6 << 8) + 13,  # 124 solar-mass
-    UAMEASUNIT_MASS_STONE,                            // (6 << 8) + 4,   # 125 stone
-    UAMEASUNIT_MASS_TON,                              // (6 << 8) + 8,   # 126 ton
-    UAMEASUNIT_MASS_TONNE,                            // (6 << 8) + 7,   # 127 tonne
-    //                                                                   # --- none (127)
-    UAMEASUNIT_CONCENTRATION_PERCENT,                 // BOGUS           # 128 base
-    //                                                                   # --- power (128)
-    UAMEASUNIT_POWER_GIGAWATT,                        // (7 << 8) + 5,   # 129 gigawatt
-    UAMEASUNIT_POWER_HORSEPOWER,                      // (7 << 8) + 2,   # 130 horsepower
-    UAMEASUNIT_POWER_KILOWATT,                        // (7 << 8) + 1,   # 131 kilowatt
-    UAMEASUNIT_POWER_MEGAWATT,                        // (7 << 8) + 4,   # 132 megawatt
-    UAMEASUNIT_POWER_MILLIWATT,                       // (7 << 8) + 3,   # 133 milliwatt
-    UAMEASUNIT_POWER_WATT,                            // (7 << 8) + 0,   # 134 watt
-    //                                                                   # --- pressure (134)
-    UAMEASUNIT_PRESSURE_ATMOSPHERE,                   // (8 << 8) + 5,   # 135 atmosphere
-    UAMEASUNIT_PRESSURE_BAR,                          // (8 << 8) + 9,   # 136 bar
-    UAMEASUNIT_PRESSURE_GASOLINE_ENERGY_DENSITY,      // (8 << 8) + 10,  # 137 gasoline-energy-density
-    UAMEASUNIT_PRESSURE_HECTOPASCAL,                  // (8 << 8) + 0,   # 138 hectopascal
-    UAMEASUNIT_PRESSURE_INCH_HG,                      // (8 << 8) + 1,   # 139 inch-ofhg
-    UAMEASUNIT_PRESSURE_KILOPASCAL,                   // (8 << 8) + 6,   # 140 kilopascal
-    UAMEASUNIT_PRESSURE_MEGAPASCAL,                   // (8 << 8) + 7,   # 141 megapascal
-    UAMEASUNIT_PRESSURE_MILLIBAR,                     // (8 << 8) + 2,   # 142 millibar
-    UAMEASUNIT_PRESSURE_MILLIMETER_OF_MERCURY,        // (8 << 8) + 3,   # 143 millimeter-ofhg
-    UAMEASUNIT_PRESSURE_PASCAL,                       // (8 << 8) + 8,   # 144 pascal
-    UAMEASUNIT_PRESSURE_POUND_PER_SQUARE_INCH,        // (8 << 8) + 4,   # 145 pound-force-per-square-inch
-    //                                                                   # --- speed (145)
-    UAMEASUNIT_SPEED_BEAUFORT,                        // (9 << 8) + 4.   $ 146 beaufort
-    UAMEASUNIT_SPEED_KILOMETER_PER_HOUR,              // (9 << 8) + 1,   # 147 kilometer-per-hour
-    UAMEASUNIT_SPEED_KNOT,                            // (9 << 8) + 3,   # 148 knot
-    UAMEASUNIT_SPEED_METER_PER_SECOND,                // (9 << 8) + 0,   # 149 meter-per-second
-    UAMEASUNIT_SPEED_MILE_PER_HOUR,                   // (9 << 8) + 2,   # 150 mile-per-hour
-    //                                                                   # --- temperature (150)
-    UAMEASUNIT_TEMPERATURE_CELSIUS,                   // (10 << 8) + 0,  # 151 celsius
-    UAMEASUNIT_TEMPERATURE_FAHRENHEIT,                // (10 << 8) + 1,  # 152 fahrenheit
-    UAMEASUNIT_TEMPERATURE_GENERIC,                   // (10 << 8) + 3,  # 153 generic
-    UAMEASUNIT_TEMPERATURE_KELVIN,                    // (10 << 8) + 2,  # 154 kelvin
-    //                                                                   # --- torque (154)
-    UAMEASUNIT_TORQUE_NEWTON_METER,                   // (20 << 8) + 0,  # 155 newton-meter
-    UAMEASUNIT_TORQUE_POUND_FOOT,                     // (20 << 8) + 1,  # 156 pound-force-foot
-    //                                                                   # --- volume (156)
-    UAMEASUNIT_VOLUME_ACRE_FOOT,                      // (11 << 8) + 13, # 157 acre-foot
-    UAMEASUNIT_VOLUME_BARREL,                         // (11 << 8) + 26, # 158 barrel
-    UAMEASUNIT_VOLUME_BUSHEL,                         // (11 << 8) + 14, # 159 bushel
-    UAMEASUNIT_VOLUME_CENTILITER,                     // (11 << 8) + 4,  # 160 centiliter
-    UAMEASUNIT_VOLUME_CUBIC_CENTIMETER,               // (11 << 8) + 8,  # 161 cubic-centimeter
-    UAMEASUNIT_VOLUME_CUBIC_FOOT,                     // (11 << 8) + 11, # 162 cubic-foot
-    UAMEASUNIT_VOLUME_CUBIC_INCH,                     // (11 << 8) + 10, # 163 cubic-inch
-    UAMEASUNIT_VOLUME_CUBIC_KILOMETER,                // (11 << 8) + 1,  # 164 cubic-kilometer
-    UAMEASUNIT_VOLUME_CUBIC_METER,                    // (11 << 8) + 9,  # 165 cubic-meter
-    UAMEASUNIT_VOLUME_CUBIC_MILE,                     // (11 << 8) + 2,  # 166 cubic-mile
-    UAMEASUNIT_VOLUME_CUBIC_YARD,                     // (11 << 8) + 12, # 167 cubic-yard
-    UAMEASUNIT_VOLUME_CUP,                            // (11 << 8) + 18, # 168 cup
-    UAMEASUNIT_VOLUME_CUP_METRIC,                     // (11 << 8) + 22, # 169 cup-metric
-    UAMEASUNIT_VOLUME_DECILITER,                      // (11 << 8) + 5,  # 170 deciliter
-    UAMEASUNIT_VOLUME_DESSERT_SPOON,                  // (11 << 8) + 27, # 171 dessert-spoon
-    UAMEASUNIT_VOLUME_DESSERT_SPOON_IMPERIAL,         // (11 << 8) + 28, # 172 dessert-spoon-imperial
-    UAMEASUNIT_VOLUME_DRAM,                           // (11 << 8) + 29, # 173 dram
-    UAMEASUNIT_VOLUME_DROP,                           // (11 << 8) + 30, # 174 drop
-    UAMEASUNIT_VOLUME_FLUID_OUNCE,                    // (11 << 8) + 17, # 175 fluid-ounce
-    UAMEASUNIT_VOLUME_FLUID_OUNCE_IMPERIAL,           // (11 << 8) + 25, # 176 fluid-ounce-imperial
-    UAMEASUNIT_VOLUME_GALLON,                         // (11 << 8) + 21, # 177 gallon
-    UAMEASUNIT_VOLUME_GALLON_IMPERIAL,                // (11 << 8) + 24, # 178 gallon-imperial
-    UAMEASUNIT_VOLUME_HECTOLITER,                     // (11 << 8) + 6,  # 179 hectoliter
-    UAMEASUNIT_VOLUME_JIGGER,                         // (11 << 8) + 31, # 180 jigger
-    UAMEASUNIT_VOLUME_LITER,                          // (11 << 8) + 0,  # 181 liter
-    UAMEASUNIT_VOLUME_MEGALITER,                      // (11 << 8) + 7,  # 182 megaliter
-    UAMEASUNIT_VOLUME_MILLILITER,                     // (11 << 8) + 3,  # 183 milliliter
-    UAMEASUNIT_VOLUME_PINCH,                          // (11 << 8) + 32, # 184 pinch
-    UAMEASUNIT_VOLUME_PINT,                           // (11 << 8) + 19, # 185 pint
-    UAMEASUNIT_VOLUME_PINT_METRIC,                    // (11 << 8) + 23, # 186 pint-metric
-    UAMEASUNIT_VOLUME_QUART,                          // (11 << 8) + 20, # 187 quart
-    UAMEASUNIT_VOLUME_QUART_IMPERIAL,                 // (11 << 8) + 33, # 188 quart-imperial
-    UAMEASUNIT_VOLUME_TABLESPOON,                     // (11 << 8) + 16, # 189 tablespoon
-    UAMEASUNIT_VOLUME_TEASPOON,                       // (11 << 8) + 15, # 190 teaspoon
+    UAMEASUNIT_DURATION_NIGHT,                        // (4 << 8) + 17,  # 53  night
+    UAMEASUNIT_DURATION_QUARTER,                      // (4 << 8) + 16,  # 54  quarter
+    UAMEASUNIT_DURATION_SECOND,                       // (4 << 8) + 6,   # 55  second
+    UAMEASUNIT_DURATION_WEEK,                         // (4 << 8) + 2,   # 56  week
+    UAMEASUNIT_DURATION_WEEK_PERSON,                  // (4 << 8) + 13,  # 57  week-person
+    UAMEASUNIT_DURATION_YEAR,                         // (4 << 8) + 0,   # 58  year
+    UAMEASUNIT_DURATION_YEAR_PERSON,                  // (4 << 8) + 11,  # 59  year-person
+    //                                                                   # --- electric (60)
+    UAMEASUNIT_ELECTRIC_AMPERE,                       // (15 << 8) + 0,  # 60  ampere
+    UAMEASUNIT_ELECTRIC_MILLIAMPERE,                  // (15 << 8) + 1,  # 61  milliampere
+    UAMEASUNIT_ELECTRIC_OHM,                          // (15 << 8) + 2,  # 62  ohm
+    UAMEASUNIT_ELECTRIC_VOLT,                         // (15 << 8) + 3,  # 63  volt
+    //                                                                   # --- energy (64)
+    UAMEASUNIT_ENERGY_BRITISH_THERMAL_UNIT,           // (12 << 8) + 7,  # 64  british-thermal-unit
+    UAMEASUNIT_ENERGY_CALORIE,                        // (12 << 8) + 0,  # 65  calorie
+    UAMEASUNIT_ENERGY_ELECTRONVOLT,                   // (12 << 8) + 6,  # 66  electronvolt
+    UAMEASUNIT_ENERGY_FOODCALORIE,                    // (12 << 8) + 1,  # 67  foodcalorie
+    UAMEASUNIT_ENERGY_JOULE,                          // (12 << 8) + 2,  # 68  joule
+    UAMEASUNIT_ENERGY_KILOCALORIE,                    // (12 << 8) + 3,  # 69  kilocalorie
+    UAMEASUNIT_ENERGY_KILOJOULE,                      // (12 << 8) + 4,  # 70  kilojoule
+    UAMEASUNIT_ENERGY_KILOWATT_HOUR,                  // (12 << 8) + 5,  # 71  kilowatt-hour
+    UAMEASUNIT_ENERGY_THERM_US,                       // (12 << 8) + 8,  # 72  therm-us
+    //                                                                   # --- force (73)
+    UAMEASUNIT_FORCE_KILOWATT_HOUR_PER_100_KILOMETER, // (19 << 8) + 2,  # 73  kilowatt-hour-per-100-kilometer
+    UAMEASUNIT_FORCE_NEWTON,                          // (19 << 8) + 0,  # 74  newton
+    UAMEASUNIT_FORCE_POUND_FORCE,                     // (19 << 8) + 1,  # 75  pound-force
+    //                                                                   # --- frequency (76)
+    UAMEASUNIT_FREQUENCY_GIGAHERTZ,                   // (16 << 8) + 3,  # 76  gigahertz
+    UAMEASUNIT_FREQUENCY_HERTZ,                       // (16 << 8) + 0,  # 77  hertz
+    UAMEASUNIT_FREQUENCY_KILOHERTZ,                   // (16 << 8) + 1,  # 78  kilohertz
+    UAMEASUNIT_FREQUENCY_MEGAHERTZ,                   // (16 << 8) + 2,  # 79  megahertz
+    //                                                                   # --- graphics (80)
+    UAMEASUNIT_GRAPHICS_DOT,                          // (21 << 8) + 7,  # 80  dot
+    UAMEASUNIT_GRAPHICS_DOT_PER_CENTIMETER,           // (21 << 8) + 5,  # 81  dot-per-centimeter
+    UAMEASUNIT_GRAPHICS_DOT_PER_INCH,                 // (21 << 8) + 6,  # 82  dot-per-inch
+    UAMEASUNIT_GRAPHICS_EM,                           // (21 << 8) + 0,  # 83  em
+    UAMEASUNIT_GRAPHICS_MEGAPIXEL,                    // (21 << 8) + 2,  # 84  megapixel
+    UAMEASUNIT_GRAPHICS_PIXEL,                        // (21 << 8) + 1,  # 85  pixel
+    UAMEASUNIT_GRAPHICS_PIXEL_PER_CENTIMETER,         // (21 << 8) + 3,  # 86  pixel-per-centimeter
+    UAMEASUNIT_GRAPHICS_PIXEL_PER_INCH,               // (21 << 8) + 4,  # 87  pixel-per-inch
+    //                                                                   # --- length (88)
+    UAMEASUNIT_LENGTH_ASTRONOMICAL_UNIT,              // (5 << 8) + 16,  # 88  astronomical-unit
+    UAMEASUNIT_LENGTH_CENTIMETER,                     // (5 << 8) + 1,   # 89  centimeter
+    UAMEASUNIT_LENGTH_DECIMETER,                      // (5 << 8) + 10,  # 90  decimeter
+    UAMEASUNIT_LENGTH_EARTH_RADIUS,                   // (5 << 8) + 21,  # 91  earth-radius
+    UAMEASUNIT_LENGTH_FATHOM,                         // (5 << 8) + 14,  # 92  fathom
+    UAMEASUNIT_LENGTH_FOOT,                           // (5 << 8) + 5,   # 93  foot
+    UAMEASUNIT_LENGTH_FURLONG,                        // (5 << 8) + 15,  # 94  furlong
+    UAMEASUNIT_LENGTH_INCH,                           // (5 << 8) + 6,   # 95  inch
+    UAMEASUNIT_LENGTH_KILOMETER,                      // (5 << 8) + 2,   # 96  kilometer
+    UAMEASUNIT_LENGTH_LIGHT_YEAR,                     // (5 << 8) + 9,   # 97  light-year
+    UAMEASUNIT_LENGTH_METER,                          // (5 << 8) + 0,   # 98  meter
+    UAMEASUNIT_LENGTH_MICROMETER,                     // (5 << 8) + 11,  # 99  micrometer
+    UAMEASUNIT_LENGTH_MILE,                           // (5 << 8) + 7,   # 100 mile
+    UAMEASUNIT_LENGTH_MILE_SCANDINAVIAN,              // (5 << 8) + 18,  # 101 mile-scandinavian
+    UAMEASUNIT_LENGTH_MILLIMETER,                     // (5 << 8) + 3,   # 102 millimeter
+    UAMEASUNIT_LENGTH_NANOMETER,                      // (5 << 8) + 12,  # 103 nanometer
+    UAMEASUNIT_LENGTH_NAUTICAL_MILE,                  // (5 << 8) + 13,  # 104 nautical-mile
+    UAMEASUNIT_LENGTH_PARSEC,                         // (5 << 8) + 17,  # 105 parsec
+    UAMEASUNIT_LENGTH_PICOMETER,                      // (5 << 8) + 4,   # 106 picometer
+    UAMEASUNIT_LENGTH_POINT,                          // (5 << 8) + 19,  # 107 point
+    UAMEASUNIT_LENGTH_SOLAR_RADIUS,                   // (5 << 8) + 20,  # 108 solar-radius
+    UAMEASUNIT_LENGTH_YARD,                           // (5 << 8) + 8,   # 109 yard
+    //                                                                   # --- light (110)
+    UAMEASUNIT_LIGHT_CANDELA,                         // (17 << 8) + 2   # 110 candela
+    UAMEASUNIT_LIGHT_LUMEN,                           // (17 << 8) + 3   # 111 lumen
+    UAMEASUNIT_LIGHT_LUX,                             // (17 << 8) + 0,  # 112 lux
+    UAMEASUNIT_LIGHT_SOLAR_LUMINOSITY,                // (17 << 8) + 1,  # 113 solar-luminosity
+    //                                                                   # --- mass (114)
+    UAMEASUNIT_MASS_CARAT,                            // (6 << 8) + 9,   # 114 carat
+    UAMEASUNIT_MASS_DALTON,                           // (6 << 8) + 11,  # 115 dalton
+    UAMEASUNIT_MASS_EARTH_MASS,                       // (6 << 8) + 12,  # 116 earth-mass
+    UAMEASUNIT_MASS_GRAIN,                            // (6 << 8) + 14,  # 117 grain
+    UAMEASUNIT_MASS_GRAM,                             // (6 << 8) + 0,   # 118 gram
+    UAMEASUNIT_MASS_KILOGRAM,                         // (6 << 8) + 1,   # 119 kilogram
+    UAMEASUNIT_MASS_MICROGRAM,                        // (6 << 8) + 5,   # 120 microgram
+    UAMEASUNIT_MASS_MILLIGRAM,                        // (6 << 8) + 6,   # 121 milligram
+    UAMEASUNIT_MASS_OUNCE,                            // (6 << 8) + 2,   # 122 ounce
+    UAMEASUNIT_MASS_OUNCE_TROY,                       // (6 << 8) + 10,  # 123 ounce-troy
+    UAMEASUNIT_MASS_POUND,                            // (6 << 8) + 3,   # 124 pound
+    UAMEASUNIT_MASS_SOLAR_MASS,                       // (6 << 8) + 13,  # 125 solar-mass
+    UAMEASUNIT_MASS_STONE,                            // (6 << 8) + 4,   # 126 stone
+    UAMEASUNIT_MASS_TON,                              // (6 << 8) + 8,   # 127 ton
+    UAMEASUNIT_MASS_TONNE,                            // (6 << 8) + 7,   # 128 tonne
+    //                                                                   # --- none (129)
+    UAMEASUNIT_CONCENTRATION_PERCENT,                 // BOGUS           # 129 base
+    //                                                                   # --- power (130)
+    UAMEASUNIT_POWER_GIGAWATT,                        // (7 << 8) + 5,   # 130 gigawatt
+    UAMEASUNIT_POWER_HORSEPOWER,                      // (7 << 8) + 2,   # 131 horsepower
+    UAMEASUNIT_POWER_KILOWATT,                        // (7 << 8) + 1,   # 132 kilowatt
+    UAMEASUNIT_POWER_MEGAWATT,                        // (7 << 8) + 4,   # 133 megawatt
+    UAMEASUNIT_POWER_MILLIWATT,                       // (7 << 8) + 3,   # 134 milliwatt
+    UAMEASUNIT_POWER_WATT,                            // (7 << 8) + 0,   # 135 watt
+    //                                                                   # --- pressure (136)
+    UAMEASUNIT_PRESSURE_ATMOSPHERE,                   // (8 << 8) + 5,   # 136 atmosphere
+    UAMEASUNIT_PRESSURE_BAR,                          // (8 << 8) + 9,   # 137 bar
+    UAMEASUNIT_PRESSURE_GASOLINE_ENERGY_DENSITY,      // (8 << 8) + 10,  # 138 gasoline-energy-density
+    UAMEASUNIT_PRESSURE_HECTOPASCAL,                  // (8 << 8) + 0,   # 139 hectopascal
+    UAMEASUNIT_PRESSURE_INCH_HG,                      // (8 << 8) + 1,   # 140 inch-ofhg
+    UAMEASUNIT_PRESSURE_KILOPASCAL,                   // (8 << 8) + 6,   # 141 kilopascal
+    UAMEASUNIT_PRESSURE_MEGAPASCAL,                   // (8 << 8) + 7,   # 142 megapascal
+    UAMEASUNIT_PRESSURE_MILLIBAR,                     // (8 << 8) + 2,   # 143 millibar
+    UAMEASUNIT_PRESSURE_MILLIMETER_OF_MERCURY,        // (8 << 8) + 3,   # 144 millimeter-ofhg
+    UAMEASUNIT_PRESSURE_PASCAL,                       // (8 << 8) + 8,   # 145 pascal
+    UAMEASUNIT_PRESSURE_POUND_PER_SQUARE_INCH,        // (8 << 8) + 4,   # 146 pound-force-per-square-inch
+    //                                                                   # --- speed (147)
+    UAMEASUNIT_SPEED_BEAUFORT,                        // (9 << 8) + 4.   $ 147 beaufort
+    UAMEASUNIT_SPEED_KILOMETER_PER_HOUR,              // (9 << 8) + 1,   # 148 kilometer-per-hour
+    UAMEASUNIT_SPEED_KNOT,                            // (9 << 8) + 3,   # 149 knot
+    UAMEASUNIT_SPEED_LIGHT_SPEED,                     // (9 << 8) + 5,   # 150 light-speed
+    UAMEASUNIT_SPEED_METER_PER_SECOND,                // (9 << 8) + 0,   # 151 meter-per-second
+    UAMEASUNIT_SPEED_MILE_PER_HOUR,                   // (9 << 8) + 2,   # 152 mile-per-hour
+    //                                                                   # --- temperature (153)
+    UAMEASUNIT_TEMPERATURE_CELSIUS,                   // (10 << 8) + 0,  # 153 celsius
+    UAMEASUNIT_TEMPERATURE_FAHRENHEIT,                // (10 << 8) + 1,  # 154 fahrenheit
+    UAMEASUNIT_TEMPERATURE_GENERIC,                   // (10 << 8) + 3,  # 155 generic
+    UAMEASUNIT_TEMPERATURE_KELVIN,                    // (10 << 8) + 2,  # 156 kelvin
+    //                                                                   # --- torque (157)
+    UAMEASUNIT_TORQUE_NEWTON_METER,                   // (20 << 8) + 0,  # 157 newton-meter
+    UAMEASUNIT_TORQUE_POUND_FOOT,                     // (20 << 8) + 1,  # 158 pound-force-foot
+    //                                                                   # --- volume (159)
+    UAMEASUNIT_VOLUME_ACRE_FOOT,                      // (11 << 8) + 13, # 159 acre-foot
+    UAMEASUNIT_VOLUME_BARREL,                         // (11 << 8) + 26, # 160 barrel
+    UAMEASUNIT_VOLUME_BUSHEL,                         // (11 << 8) + 14, # 161 bushel
+    UAMEASUNIT_VOLUME_CENTILITER,                     // (11 << 8) + 4,  # 162 centiliter
+    UAMEASUNIT_VOLUME_CUBIC_CENTIMETER,               // (11 << 8) + 8,  # 163 cubic-centimeter
+    UAMEASUNIT_VOLUME_CUBIC_FOOT,                     // (11 << 8) + 11, # 164 cubic-foot
+    UAMEASUNIT_VOLUME_CUBIC_INCH,                     // (11 << 8) + 10, # 165 cubic-inch
+    UAMEASUNIT_VOLUME_CUBIC_KILOMETER,                // (11 << 8) + 1,  # 166 cubic-kilometer
+    UAMEASUNIT_VOLUME_CUBIC_METER,                    // (11 << 8) + 9,  # 167 cubic-meter
+    UAMEASUNIT_VOLUME_CUBIC_MILE,                     // (11 << 8) + 2,  # 168 cubic-mile
+    UAMEASUNIT_VOLUME_CUBIC_YARD,                     // (11 << 8) + 12, # 169 cubic-yard
+    UAMEASUNIT_VOLUME_CUP,                            // (11 << 8) + 18, # 170 cup
+    UAMEASUNIT_VOLUME_CUP_METRIC,                     // (11 << 8) + 22, # 171 cup-metric
+    UAMEASUNIT_VOLUME_DECILITER,                      // (11 << 8) + 5,  # 172 deciliter
+    UAMEASUNIT_VOLUME_DESSERT_SPOON,                  // (11 << 8) + 27, # 173 dessert-spoon
+    UAMEASUNIT_VOLUME_DESSERT_SPOON_IMPERIAL,         // (11 << 8) + 28, # 174 dessert-spoon-imperial
+    UAMEASUNIT_VOLUME_DRAM,                           // (11 << 8) + 29, # 175 dram
+    UAMEASUNIT_VOLUME_DROP,                           // (11 << 8) + 30, # 176 drop
+    UAMEASUNIT_VOLUME_FLUID_OUNCE,                    // (11 << 8) + 17, # 177 fluid-ounce
+    UAMEASUNIT_VOLUME_FLUID_OUNCE_IMPERIAL,           // (11 << 8) + 25, # 178 fluid-ounce-imperial
+    UAMEASUNIT_VOLUME_GALLON,                         // (11 << 8) + 21, # 179 gallon
+    UAMEASUNIT_VOLUME_GALLON_IMPERIAL,                // (11 << 8) + 24, # 180 gallon-imperial
+    UAMEASUNIT_VOLUME_HECTOLITER,                     // (11 << 8) + 6,  # 181 hectoliter
+    UAMEASUNIT_VOLUME_JIGGER,                         // (11 << 8) + 31, # 182 jigger
+    UAMEASUNIT_VOLUME_LITER,                          // (11 << 8) + 0,  # 183 liter
+    UAMEASUNIT_VOLUME_MEGALITER,                      // (11 << 8) + 7,  # 184 megaliter
+    UAMEASUNIT_VOLUME_MILLILITER,                     // (11 << 8) + 3,  # 185 milliliter
+    UAMEASUNIT_VOLUME_PINCH,                          // (11 << 8) + 32, # 186 pinch
+    UAMEASUNIT_VOLUME_PINT,                           // (11 << 8) + 19, # 187 pint
+    UAMEASUNIT_VOLUME_PINT_METRIC,                    // (11 << 8) + 23, # 188 pint-metric
+    UAMEASUNIT_VOLUME_QUART,                          // (11 << 8) + 20, # 189 quart
+    UAMEASUNIT_VOLUME_QUART_IMPERIAL,                 // (11 << 8) + 33, # 190 quart-imperial
+    UAMEASUNIT_VOLUME_TABLESPOON,                     // (11 << 8) + 16, # 191 tablespoon
+    UAMEASUNIT_VOLUME_TEASPOON,                       // (11 << 8) + 15, # 192 teaspoon
 };
 
 UAMeasureUnit MeasureUnit::getUAMeasureUnit() const {

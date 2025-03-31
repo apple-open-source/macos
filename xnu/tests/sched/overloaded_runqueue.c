@@ -165,11 +165,11 @@ save_collected_ktrace(char *trace_path)
 	char *tar_args[] = {"/usr/bin/tar", "-czvf", compressed_path, trace_path, NULL};
 	pid_t tar_pid = dt_launch_tool_pipe(tar_args, false, NULL,
 	    ^bool (__unused char *data, __unused size_t data_size, __unused dt_pipe_data_handler_context_t *context) {
-		return true;
+		return false;
 	},
 	    ^bool (char *data, __unused size_t data_size, __unused dt_pipe_data_handler_context_t *context) {
 		T_LOG("[tar] Error msg: %s", data);
-		return true;
+		return false;
 	},
 	    BUFFER_PATTERN_LINE, NULL);
 

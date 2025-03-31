@@ -33,6 +33,7 @@
 #include "TextIteratorBehavior.h"
 #include <wtf/TZoneMalloc.h>
 #include <wtf/Vector.h>
+#include <wtf/text/StringCommon.h>
 
 namespace WebCore {
 
@@ -47,7 +48,9 @@ WEBCORE_EXPORT SimpleRange resolveCharacterRange(const SimpleRange& scope, Chara
 
 // Text from the text iterator.
 WEBCORE_EXPORT String plainText(const SimpleRange&, TextIteratorBehaviors = { }, bool isDisplayString = false);
-WEBCORE_EXPORT bool hasAnyPlainText(const SimpleRange&, TextIteratorBehaviors = { });
+
+enum class IgnoreCollapsedRanges : bool { No, Yes };
+WEBCORE_EXPORT bool hasAnyPlainText(const SimpleRange&, TextIteratorBehaviors = { }, IgnoreCollapsedRanges = IgnoreCollapsedRanges::No);
 WEBCORE_EXPORT String plainTextReplacingNoBreakSpace(const SimpleRange&, TextIteratorBehaviors = { }, bool isDisplayString = false);
 
 // Find within the document, based on the text from the text iterator.
@@ -74,7 +77,7 @@ private:
 
 class TextIteratorCopyableText {
 public:
-    StringView text() const { return m_singleCharacter ? StringView(span(m_singleCharacter)) : StringView(m_string).substring(m_offset, m_length); }
+    StringView text() const { return m_singleCharacter ? StringView(WTF::span(m_singleCharacter)) : StringView(m_string).substring(m_offset, m_length); }
     void appendToStringBuilder(StringBuilder&) const;
 
     void reset();

@@ -1,5 +1,6 @@
 #include "libmalloc_common.xcconfig"
 
+
 SDKROOT = exclavekit.iphoneos.internal
 SUPPORTED_PLATFORMS = exclavekit.iphoneos exclavekit.macosx exclavekit.appletvos exclavekit.watchos exclavekit.xros
 BUILD_VARIANTS = normal asan debug
@@ -16,6 +17,7 @@ USER_HEADER_SEARCH_PATHS = $(inherited) $(SRCROOT)/private
 SYSTEM_HEADER_SEARCH_PATHS = $(inherited) $(SDKROOT)/System/ExclaveKit/usr/local/standalone/cL4-future/include
 GCC_PREPROCESSOR_DEFINITIONS = $(inherited) L4_CONFIG_PLAT_EXCLAVE_GENERIC
 
+
 SUPPORTS_TEXT_BASED_API = YES
 TAPI_VERIFY_MODE = Pedantic
 
@@ -29,7 +31,7 @@ INSTALLHDRS_COPY_PHASE = YES
 LINK_WITH_STANDARD_LIBRARIES = NO
 LIBRARY_SEARCH_PATHS = $(inherited) $(SDKROOT)/$(SYSTEM_PREFIX)/usr/lib/system
 // `___chkstk_darwin` comes from compiler-rt
-OTHER_LDFLAGS = $(inherited) -fapple-link-rtlib -umbrella System -Wl,-upward-llibc -Wl,-upward-lsystem_blocks -Wl,-upward-lsystem_platform
+OTHER_LDFLAGS = $(inherited) -fapple-link-rtlib -umbrella System -Wl,-upward-llibc -Wl,-upward-llibc_plat -Wl,-upward-lsystem_blocks
 
 // ASan builds need to produce a different file with different build settings
 OTHER_LDFLAGS_asan = $(inherited) -Wl,-image_suffix,_asan

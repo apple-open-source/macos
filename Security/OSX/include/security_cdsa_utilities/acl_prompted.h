@@ -55,7 +55,8 @@ public:
     void exportBlob(Writer &pub, Writer &priv);
 	
 	IFDUMP(void debugDump() const);
-	
+    virtual CFStringRef createACLDebugString() const;
+
 public:
 	class Environment : virtual public AclValidationEnvironment {
 	public:

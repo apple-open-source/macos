@@ -9,6 +9,11 @@ package SecSFA;
 
 option (objc_class_default_visibility) = "hidden";
 
+enum ConfigVersion {
+    version1 = 1;
+    version2 = 2;
+}
+
 message ActionTapToRadar {
     optional string alert = 1;
     optional string radarDescription = 2;
@@ -106,4 +111,6 @@ message Rules {
     optional VersionMatch allowedBuilds = 3;
     // Allowed events, all events are counted, not only allowed events are reported
     repeated EventFilter eventFilter = 4;
+    // tell what version of tool was used to generate this file, diagnostic tool
+    optional ConfigVersion configVersion = 5;
 }

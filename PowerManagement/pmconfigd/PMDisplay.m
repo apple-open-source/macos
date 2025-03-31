@@ -33,6 +33,7 @@
 #import <SkyLight/SLSDisplayPowerControl.h>
 
 #include <libproc.h>
+#include <notify.h>
 #include "PMDisplay.h"
 #include "SystemLoad.h"
 #include "PMConnection.h"
@@ -64,6 +65,8 @@ IOPMAssertionID gDisplayOnAssertionID = kIOPMNullAssertionID;
 IOPMAssertionID gLidOpenAssertionID = kIOPMNullAssertionID;
 IOPMAssertionID gSLInitializeAssertionID = kIOPMNullAssertionID;
 SLSDisplayPowerControlClient *gSLPowerClient = nil;
+
+int clamshellNotifyToken = 0;
 
 struct request_entry {
     SLSDisplayControlRequestUUID uuid;
@@ -206,6 +209,18 @@ __private_extern__ bool isDesktopMode(void)
     }
 }
 
+void postClamshellStateNotification(void) {
+#if (TARGET_OS_OSX && TARGET_CPU_ARM64)
+    if (0 == clamshellNotifyToken) {
+        notify_register_check("com.apple.system.powermanagement.clamshellstate",
+                              &clamshellNotifyToken);
+    }
+    // Post 1 whenever clamshell is closed, 0 otherwise.
+    notify_set_state(clamshellNotifyToken, (uint32_t) gClamshellState == kPMClamshellClosed);
+    notify_post("com.apple.system.powermanagement.clamshellstate");
+#endif
+}
+
 __private_extern__ void evaluateClamshellSleepState(void)
 {
     dispatch_async(_getPMMainQueue(), ^{
@@ -236,6 +251,7 @@ __private_extern__ void updateClamshellState(void *message)
                 CFRelease(description);
             }
         }
+        postClamshellStateNotification();
     }
     INFO_LOG("ClamshellState. Closed : %u. ClamshellSleepState: isSleepDisabled : %d\n", closed, getClamshellSleepState());
 }
@@ -472,10 +488,7 @@ void handleSkylightCheckIn(void)
     } else {
         INFO_LOG("Registered for WindowServer callbacks");
     }
-    if (gClamshellState == kPMClamshellUnknown) {
-        // determine state
-        gClamshellState = rootDomainClamshellState();
-    }
+    initializeClamshellState();
     if (err) {
         [err release];
     }
@@ -635,3 +648,10 @@ uint32_t rootDomainClamshellState(void)
     return result;
 }
 
+void initializeClamshellState(void)
+{
+    if (gClamshellState == kPMClamshellUnknown) {
+        gClamshellState = rootDomainClamshellState();
+        postClamshellStateNotification();
+    }
+}

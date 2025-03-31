@@ -95,6 +95,7 @@ no{
         bjn{"banjar"}
         bkm{"kom"}
         bla{"siksika"}
+        blo{"anii"}
         bm{"bambara"}
         bn{"bengali"}
         bo{"tibetansk"}
@@ -225,7 +226,6 @@ no{
         gmh{"mellomhøytysk"}
         gn{"guarani"}
         goh{"gammelhøytysk"}
-        gom{"goansk konkani"}
         gon{"gondi"}
         gor{"gorontalo"}
         got{"gotisk"}
@@ -336,6 +336,7 @@ no{
         kv{"komi"}
         kw{"kornisk"}
         kwk{"kwak̓wala"}
+        kxv{"kuvi"}
         ky{"kirgisisk"}
         la{"latin"}
         lad{"ladinsk"}
@@ -365,7 +366,6 @@ no{
         lua{"luba-lulua"}
         lui{"luiseno"}
         lun{"lunda"}
-        luo{"luo"}
         lus{"mizo"}
         lut{"lushootseed"}
         luy{"luhya"}
@@ -633,13 +633,13 @@ no{
         ur{"urdu"}
         ur_Arab{"urdu (naskh)"}
         uz{"usbekisk"}
-        vai{"vai"}
         ve{"venda"}
         vec{"venetiansk"}
         vep{"vepsisk"}
         vi{"vietnamesisk"}
         vls{"vestflamsk"}
         vmf{"Main-frankisk"}
+        vmw{"makhuwa"}
         vo{"volapyk"}
         vot{"votisk"}
         vro{"sørestisk"}
@@ -655,6 +655,7 @@ no{
         xal{"kalmukkisk"}
         xh{"xhosa"}
         xmf{"mingrelsk"}
+        xnr{"kangri"}
         xog{"soga"}
         yao{"yao"}
         yap{"yapesisk"}
@@ -946,7 +947,6 @@ no{
             phonebook{"telefonkatalogsortering"}
             phonetic{"fonetisk sortering"}
             pinyin{"pinyinsortering"}
-            reformed{"reformert sortering"}
             search{"generelt søk"}
             searchjl{"Søk etter første konsonant i hangul"}
             standard{"standard sorteringsrekkefølge"}

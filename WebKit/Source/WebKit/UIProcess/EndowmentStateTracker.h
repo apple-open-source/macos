@@ -27,6 +27,7 @@
 
 #if PLATFORM(IOS_FAMILY)
 
+#import <wtf/AbstractRefCountedAndCanMakeWeakPtr.h>
 #import <wtf/RetainPtr.h>
 #import <wtf/TZoneMalloc.h>
 #import <wtf/WeakHashSet.h>
@@ -35,19 +36,10 @@ OBJC_CLASS NSSet;
 OBJC_CLASS RBSProcessMonitor;
 
 namespace WebKit {
-class EndowmentStateTrackerClient;
-}
-
-namespace WTF {
-template<typename T> struct IsDeprecatedWeakRefSmartPointerException;
-template<> struct IsDeprecatedWeakRefSmartPointerException<WebKit::EndowmentStateTrackerClient> : std::true_type { };
-}
-
-namespace WebKit {
 
 class WebPageProxy;
 
-class EndowmentStateTrackerClient : public CanMakeWeakPtr<EndowmentStateTrackerClient> {
+class EndowmentStateTrackerClient : public AbstractRefCountedAndCanMakeWeakPtr<EndowmentStateTrackerClient> {
 public:
     virtual ~EndowmentStateTrackerClient() = default;
     virtual void isUserFacingChanged(bool) { }

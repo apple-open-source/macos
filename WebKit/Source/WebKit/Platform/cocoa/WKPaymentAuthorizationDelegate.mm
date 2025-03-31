@@ -205,13 +205,24 @@
     if (!presenter)
         return [self completePaymentSession:PKPaymentAuthorizationStatusFailure errors:@[ ]];
 
-    presenter->client().presenterDidAuthorizePayment(*presenter, WebCore::Payment(payment));
+    RefPtr client = presenter->protectedClient();
+    if (!client)
+        return [self completePaymentSession:PKPaymentAuthorizationStatusFailure errors:@[ ]];
+
+    client->presenterDidAuthorizePayment(*presenter, WebCore::Payment(payment));
 }
 
 - (void)_didFinish
 {
-    if (auto presenter = _presenter.get())
-        presenter->client().presenterDidFinish(*presenter, { std::exchange(_sessionError, nil) });
+    RefPtr presenter = _presenter.get();
+    if (!presenter)
+        return;
+
+    RefPtr client = presenter->protectedClient();
+    if (!client)
+        return;
+
+    client->presenterDidFinish(*presenter, { std::exchange(_sessionError, nil) });
 }
 
 - (void)_didRequestMerchantSession:(WebKit::DidRequestMerchantSessionCompletion::BlockType)completion
@@ -232,7 +243,13 @@
                 return;
             }
 
-            presenter->client().presenterWillValidateMerchant(*presenter, merchantURL.get());
+            RefPtr client = presenter->protectedClient();
+            if (!client) {
+                _didRequestMerchantSessionCompletion(nil, nil);
+                return;
+            }
+
+            client->presenterWillValidateMerchant(*presenter, merchantURL.get());
         });
     }];
 }
@@ -242,11 +259,15 @@
     ASSERT(!_didSelectPaymentMethodCompletion);
     _didSelectPaymentMethodCompletion = completion;
 
-    auto presenter = _presenter.get();
+    RefPtr presenter = _presenter.get();
     if (!presenter)
         return [self completePaymentMethodSelection:nil];
 
-    presenter->client().presenterDidSelectPaymentMethod(*presenter, WebCore::PaymentMethod(paymentMethod));
+    RefPtr client = presenter->protectedClient();
+    if (!client)
+        return [self completePaymentMethodSelection:nil];
+
+    client->presenterDidSelectPaymentMethod(*presenter, WebCore::PaymentMethod(paymentMethod));
 }
 
 - (void)_didSelectShippingContact:(PKContact *)contact completion:(WebKit::DidSelectShippingContactCompletion::BlockType)completion
@@ -254,11 +275,15 @@
     ASSERT(!_didSelectShippingContactCompletion);
     _didSelectShippingContactCompletion = completion;
 
-    auto presenter = _presenter.get();
+    RefPtr presenter = _presenter.get();
     if (!presenter)
         return [self completeShippingContactSelection:nil];
 
-    presenter->client().presenterDidSelectShippingContact(*presenter, WebCore::PaymentContact(contact));
+    RefPtr client = presenter->protectedClient();
+    if (!client)
+        return [self completeShippingContactSelection:nil];
+
+    client->presenterDidSelectShippingContact(*presenter, WebCore::PaymentContact(contact));
 }
 
 #if HAVE(PASSKIT_SHIPPING_METHOD_DATE_COMPONENTS_RANGE)
@@ -313,11 +338,15 @@ static WebCore::ApplePayShippingMethod toShippingMethod(PKShippingMethod *shippi
     ASSERT(!_didSelectShippingMethodCompletion);
     _didSelectShippingMethodCompletion = completion;
 
-    auto presenter = _presenter.get();
+    RefPtr presenter = _presenter.get();
     if (!presenter)
         return [self completeShippingMethodSelection:nil];
 
-    presenter->client().presenterDidSelectShippingMethod(*presenter, toShippingMethod(shippingMethod, true));
+    RefPtr client = presenter->protectedClient();
+    if (!client)
+        return [self completeShippingMethodSelection:nil];
+
+    client->presenterDidSelectShippingMethod(*presenter, toShippingMethod(shippingMethod, true));
 }
 
 #if HAVE(PASSKIT_COUPON_CODE)
@@ -327,11 +356,15 @@ static WebCore::ApplePayShippingMethod toShippingMethod(PKShippingMethod *shippi
     ASSERT(!_didChangeCouponCodeCompletion);
     _didChangeCouponCodeCompletion = completion;
 
-    auto presenter = _presenter.get();
+    RefPtr presenter = _presenter.get();
     if (!presenter)
         return [self completeCouponCodeChange:nil];
 
-    presenter->client().presenterDidChangeCouponCode(*presenter, couponCode);
+    RefPtr client = presenter->protectedClient();
+    if (!client)
+        return [self completeCouponCodeChange:nil];
+
+    client->presenterDidChangeCouponCode(*presenter, couponCode);
 }
 
 #endif // HAVE(PASSKIT_COUPON_CODE)

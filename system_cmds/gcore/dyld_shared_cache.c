@@ -53,7 +53,7 @@ shared_cache_filename(const uuid_t uu)
 #if TARGET_OS_OSX
         MACOSX_MRM_DYLD_SHARED_CACHE_DIR,
 #elif TARGET_OS_IPHONE
-        IPHONE_DYLD_SHARED_CACHE_DIR,
+        IPHONE_DYLD_SHARED_CACHE_DIR_GCORE,        
 #else
 #error undefined
 #endif

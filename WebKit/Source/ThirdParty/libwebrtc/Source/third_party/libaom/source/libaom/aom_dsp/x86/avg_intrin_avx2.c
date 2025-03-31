@@ -17,7 +17,7 @@
 #include "aom_dsp/x86/synonyms_avx2.h"
 #include "aom_ports/mem.h"
 
-static INLINE void sign_extend_16bit_to_32bit_avx2(__m256i in, __m256i zero,
+static inline void sign_extend_16bit_to_32bit_avx2(__m256i in, __m256i zero,
                                                    __m256i *out_lo,
                                                    __m256i *out_hi) {
   const __m256i sign_bits = _mm256_cmpgt_epi16(zero, in);
@@ -141,7 +141,7 @@ void aom_hadamard_lp_8x8_dual_avx2(const int16_t *src_diff,
                       _mm256_permute2x128_si256(src[6], src[7], 0x31));
 }
 
-static INLINE void hadamard_16x16_avx2(const int16_t *src_diff,
+static inline void hadamard_16x16_avx2(const int16_t *src_diff,
                                        ptrdiff_t src_stride, tran_low_t *coeff,
                                        int is_final) {
   DECLARE_ALIGNED(32, int16_t, temp_coeff[16 * 16]);
@@ -620,7 +620,7 @@ void aom_int_pro_row_avx2(int16_t *hbuf, const uint8_t *ref,
   }
 }
 
-static INLINE void load_from_src_buf(const uint8_t *ref1, __m256i *src,
+static inline void load_from_src_buf(const uint8_t *ref1, __m256i *src,
                                      const int stride) {
   src[0] = _mm256_loadu_si256((const __m256i *)ref1);
   src[1] = _mm256_loadu_si256((const __m256i *)(ref1 + stride));
@@ -642,7 +642,7 @@ static INLINE void load_from_src_buf(const uint8_t *ref1, __m256i *src,
       _mm_add_epi16(results0, _mm_srli_si128(results0, 8));                   \
   _mm_storel_epi64((__m128i *)vbuf, _mm_srli_epi16(results1, norm_factor));
 
-static INLINE void aom_int_pro_col_16wd_avx2(int16_t *vbuf, const uint8_t *ref,
+static inline void aom_int_pro_col_16wd_avx2(int16_t *vbuf, const uint8_t *ref,
                                              const int ref_stride,
                                              const int height,
                                              int norm_factor) {

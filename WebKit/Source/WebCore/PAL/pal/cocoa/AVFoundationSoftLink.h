@@ -29,6 +29,7 @@
 
 #import <AVFoundation/AVFoundation.h>
 #import <wtf/SoftLinking.h>
+#import <wtf/cocoa/TypeCastsCocoa.h>
 
 SOFT_LINK_FRAMEWORK_FOR_HEADER(PAL, AVFoundation)
 
@@ -214,6 +215,10 @@ SOFT_LINK_CONSTANT_FOR_HEADER(PAL, AVFoundation, AVFileTypeMPEG4, NSString *)
 #define AVFileTypeMPEG4 PAL::get_AVFoundation_AVFileTypeMPEG4()
 SOFT_LINK_CONSTANT_FOR_HEADER(PAL, AVFoundation, AVFileTypeQuickTimeMovie, NSString *)
 #define AVFileTypeQuickTimeMovie PAL::get_AVFoundation_AVFileTypeQuickTimeMovie()
+SOFT_LINK_CONSTANT_FOR_HEADER(PAL, AVFoundation, AVFileTypeProfileMPEG4AppleHLS, NSString *)
+#define AVFileTypeProfileMPEG4AppleHLS PAL::get_AVFoundation_AVFileTypeProfileMPEG4AppleHLS()
+SOFT_LINK_CONSTANT_FOR_HEADER(PAL, AVFoundation, AVFileTypeProfileMPEG4CMAFCompliant, NSString *)
+#define AVFileTypeProfileMPEG4CMAFCompliant PAL::get_AVFoundation_AVFileTypeProfileMPEG4CMAFCompliant()
 SOFT_LINK_CONSTANT_FOR_HEADER(PAL, AVFoundation, AVVideoCodecKey, NSString *)
 #define AVVideoCodecKey PAL::get_AVFoundation_AVVideoCodecKey()
 SOFT_LINK_CONSTANT_FOR_HEADER(PAL, AVFoundation, AVVideoCodecTypeJPEG, NSString *)
@@ -329,9 +334,11 @@ SOFT_LINK_CONSTANT_FOR_HEADER(PAL, AVFoundation, AVAudioSessionCategoryAudioProc
 SOFT_LINK_CONSTANT_FOR_HEADER(PAL, AVFoundation, AVAudioSessionModeDefault, NSString *)
 #define AVAudioSessionModeDefault PAL::get_AVFoundation_AVAudioSessionModeDefault()
 SOFT_LINK_CONSTANT_FOR_HEADER(PAL, AVFoundation, AVAudioSessionModeVideoChat, NSString *)
-#define AVAudioSessionModeMoviePlayback PAL::get_AVFoundation_AVAudioSessionModeMoviePlayback()
-SOFT_LINK_CONSTANT_FOR_HEADER(PAL, AVFoundation, AVAudioSessionModeMoviePlayback, NSString *)
 #define AVAudioSessionModeVideoChat PAL::get_AVFoundation_AVAudioSessionModeVideoChat()
+SOFT_LINK_CONSTANT_FOR_HEADER(PAL, AVFoundation, AVAudioSessionModeVoiceChat, NSString *)
+#define AVAudioSessionModeVoiceChat PAL::get_AVFoundation_AVAudioSessionModeVoiceChat()
+SOFT_LINK_CONSTANT_FOR_HEADER(PAL, AVFoundation, AVAudioSessionModeMoviePlayback, NSString *)
+#define AVAudioSessionModeMoviePlayback PAL::get_AVFoundation_AVAudioSessionModeMoviePlayback()
 SOFT_LINK_CONSTANT_FOR_HEADER(PAL, AVFoundation, AVAudioSessionInterruptionNotification, NSString *)
 #define AVAudioSessionInterruptionNotification PAL::get_AVFoundation_AVAudioSessionInterruptionNotification()
 SOFT_LINK_CONSTANT_FOR_HEADER(PAL, AVFoundation, AVAudioSessionInterruptionTypeKey, NSString *)
@@ -395,8 +402,22 @@ SOFT_LINK_CONSTANT_MAY_FAIL_FOR_HEADER(PAL, AVFoundation, AVURLAssetDoNotLogURLs
 #define AVURLAssetDoNotLogURLsKey PAL::get_AVFoundation_AVURLAssetDoNotLogURLsKey()
 
 #if HAVE(AVAUDIOSESSION)
+SOFT_LINK_CONSTANT_FOR_HEADER(PAL, AVFoundation, AVAudioSessionPortBuiltInMic, NSString *)
+#define AVAudioSessionPortBuiltInMic PAL::get_AVFoundation_AVAudioSessionPortBuiltInMic()
+SOFT_LINK_CONSTANT_FOR_HEADER(PAL, AVFoundation, AVAudioSessionPortBuiltInReceiver, NSString *)
+#define AVAudioSessionPortBuiltInReceiver PAL::get_AVFoundation_AVAudioSessionPortBuiltInReceiver()
+SOFT_LINK_CONSTANT_FOR_HEADER(PAL, AVFoundation, AVAudioSessionPortBuiltInSpeaker, NSString *)
+#define AVAudioSessionPortBuiltInSpeaker PAL::get_AVFoundation_AVAudioSessionPortBuiltInSpeaker()
 SOFT_LINK_CONSTANT_FOR_HEADER(PAL, AVFoundation, AVAudioSessionPortCarAudio, NSString *)
 #define AVAudioSessionPortCarAudio PAL::get_AVFoundation_AVAudioSessionPortCarAudio()
+SOFT_LINK_CONSTANT_FOR_HEADER(PAL, AVFoundation, AVAudioSessionPortHeadphones, NSString *)
+#define AVAudioSessionPortHeadphones PAL::get_AVFoundation_AVAudioSessionPortHeadphones()
+SOFT_LINK_CONSTANT_FOR_HEADER(PAL, AVFoundation, AVAudioSessionPortHeadsetMic, NSString *)
+#define AVAudioSessionPortHeadsetMic PAL::get_AVFoundation_AVAudioSessionPortHeadsetMic()
+SOFT_LINK_CONSTANT_FOR_HEADER(PAL, AVFoundation, AVAudioSessionPortLineIn, NSString *)
+#define AVAudioSessionPortLineIn PAL::get_AVFoundation_AVAudioSessionPortLineIn()
+SOFT_LINK_CONSTANT_FOR_HEADER(PAL, AVFoundation, AVAudioSessionPortLineOut, NSString *)
+#define AVAudioSessionPortLineOut PAL::get_AVFoundation_AVAudioSessionPortLineOut()
 SOFT_LINK_CONSTANT_FOR_HEADER(PAL, AVFoundation, AVAudioSessionSpatialPlaybackCapabilitiesChangedNotification, NSString *)
 #define AVAudioSessionSpatialPlaybackCapabilitiesChangedNotification PAL::get_AVFoundation_AVAudioSessionSpatialPlaybackCapabilitiesChangedNotification()
 #endif // HAVE(AVAUDIOSESSION)
@@ -416,5 +437,9 @@ SOFT_LINK_CONSTANT_MAY_FAIL_FOR_HEADER(PAL, AVFoundation, AVSampleBufferDisplayL
 
 SOFT_LINK_FUNCTION_FOR_HEADER(PAL, AVFoundation, AVSampleBufferAttachContentKey, BOOL, (CMSampleBufferRef sbuf, AVContentKey *contentKey, NSError **outError), (sbuf, contentKey, outError))
 #define AVSampleBufferAttachContentKey PAL::softLink_AVFoundation_AVSampleBufferAttachContentKey
+
+SPECIALIZE_OBJC_TYPE_TRAITS(AVSampleBufferAudioRenderer, PAL::getAVSampleBufferAudioRendererClass())
+SPECIALIZE_OBJC_TYPE_TRAITS(AVSampleBufferDisplayLayer, PAL::getAVSampleBufferDisplayLayerClass())
+SPECIALIZE_OBJC_TYPE_TRAITS(AVSampleBufferVideoRenderer, PAL::getAVSampleBufferVideoRendererClass())
 
 #endif // USE(AVFOUNDATION)

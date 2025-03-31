@@ -114,10 +114,10 @@ String codecFromFormatDescription(CMFormatDescriptionRef formatDescription)
     case kCMVideoCodecType_H264:
     case 'cavc':
         {
-            auto sampleExtensionsDict = static_cast<CFDictionaryRef>(PAL::CMFormatDescriptionGetExtension(formatDescription, PAL::get_CoreMedia_kCMFormatDescriptionExtension_SampleDescriptionExtensionAtoms()));
+            auto sampleExtensionsDict = dynamic_cf_cast<CFDictionaryRef>(PAL::CMFormatDescriptionGetExtension(formatDescription, PAL::get_CoreMedia_kCMFormatDescriptionExtension_SampleDescriptionExtensionAtoms()));
             if (!sampleExtensionsDict)
                 return "avc1"_s;
-            auto sampleExtensions = static_cast<CFDataRef>(CFDictionaryGetValue(sampleExtensionsDict, CFSTR("avcC")));
+            auto sampleExtensions = dynamic_cf_cast<CFDataRef>(CFDictionaryGetValue(sampleExtensionsDict, CFSTR("avcC")));
             if (!sampleExtensions)
                 return "avc1"_s;
             auto configurationRecordBuffer = SharedBuffer::create(sampleExtensions);
@@ -130,10 +130,10 @@ String codecFromFormatDescription(CMFormatDescriptionRef formatDescription)
     case kCMVideoCodecType_HEVCWithAlpha:
     case 'chvc':
         {
-            auto sampleExtensionsDict = static_cast<CFDictionaryRef>(PAL::CMFormatDescriptionGetExtension(formatDescription, PAL::get_CoreMedia_kCMFormatDescriptionExtension_SampleDescriptionExtensionAtoms()));
+            auto sampleExtensionsDict = dynamic_cf_cast<CFDictionaryRef>(PAL::CMFormatDescriptionGetExtension(formatDescription, PAL::get_CoreMedia_kCMFormatDescriptionExtension_SampleDescriptionExtensionAtoms()));
             if (!sampleExtensionsDict)
                 return "hvc1"_s;
-            auto sampleExtensions = static_cast<CFDataRef>(CFDictionaryGetValue(sampleExtensionsDict, CFSTR("hvcC")));
+            auto sampleExtensions = dynamic_cf_cast<CFDataRef>(CFDictionaryGetValue(sampleExtensionsDict, CFSTR("hvcC")));
             if (!sampleExtensions)
                 return "hvc1"_s;
             auto configurationRecordBuffer = SharedBuffer::create(sampleExtensions);
@@ -145,10 +145,10 @@ String codecFromFormatDescription(CMFormatDescriptionRef formatDescription)
     case kCMVideoCodecType_DolbyVisionHEVC:
     case 'cdh1':
         {
-            auto sampleExtensionsDict = static_cast<CFDictionaryRef>(PAL::CMFormatDescriptionGetExtension(formatDescription, PAL::get_CoreMedia_kCMFormatDescriptionExtension_SampleDescriptionExtensionAtoms()));
+            auto sampleExtensionsDict = dynamic_cf_cast<CFDictionaryRef>(PAL::CMFormatDescriptionGetExtension(formatDescription, PAL::get_CoreMedia_kCMFormatDescriptionExtension_SampleDescriptionExtensionAtoms()));
             if (!sampleExtensionsDict)
                 return "dvh1"_s;
-            auto sampleExtensions = static_cast<CFDataRef>(CFDictionaryGetValue(sampleExtensionsDict, CFSTR("dvcC")));
+            auto sampleExtensions = dynamic_cf_cast<CFDataRef>(CFDictionaryGetValue(sampleExtensionsDict, CFSTR("dvcC")));
             if (!sampleExtensions)
                 return "dvh1"_s;
             auto configurationRecordBuffer = SharedBuffer::create(sampleExtensions);
@@ -187,10 +187,10 @@ String codecFromFormatDescription(CMFormatDescriptionRef formatDescription)
 #if ENABLE(AV1)
     case kCMVideoCodecType_AV1:
         {
-            auto sampleExtensionsDict = static_cast<CFDictionaryRef>(PAL::CMFormatDescriptionGetExtension(formatDescription, PAL::get_CoreMedia_kCMFormatDescriptionExtension_SampleDescriptionExtensionAtoms()));
+            auto sampleExtensionsDict = dynamic_cf_cast<CFDictionaryRef>(PAL::CMFormatDescriptionGetExtension(formatDescription, PAL::get_CoreMedia_kCMFormatDescriptionExtension_SampleDescriptionExtensionAtoms()));
             if (!sampleExtensionsDict)
                 return "av01"_s;
-            auto sampleExtensions = static_cast<CFDataRef>(CFDictionaryGetValue(sampleExtensionsDict, CFSTR("av1C")));
+            auto sampleExtensions = dynamic_cf_cast<CFDataRef>(CFDictionaryGetValue(sampleExtensionsDict, CFSTR("av1C")));
             if (!sampleExtensions)
                 return "av01"_s;
             auto configurationRecordBuffer = SharedBuffer::create(sampleExtensions);

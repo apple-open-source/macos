@@ -2247,6 +2247,7 @@ public:
 	void start_watchdog_timer( void );
 	void stop_watchdog_timer( void );
 	void start_watchdog_timer(uint64_t deadline);
+	uint64_t get_watchdog_elapsed_time(void);
 	IOReturn registerInterestForNotifier( IONotifier *notify, const OSSymbol * typeOfInterest,
 	    IOServiceInterestHandler handler, void * target, void * ref );
 

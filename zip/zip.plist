@@ -12,13 +12,14 @@
 		<key>OpenSourceModifications</key>
 		<array>
 			<string>Porting fixes for Mac OS X</string>
+                        <string>Modify version message to note that zip was modified by Apple.</string>
 		</array>
 		<key>OpenSourceProject</key>
 		<string>zip</string>
 		<key>OpenSourceSHA1</key>
 		<string>4f244128ee8fa3fc07eedfee3d4ac634dcabd492</string>
 		<key>OpenSourceURL</key>
-		<string>http://superb-east.dl.sourceforge.net/sourceforge/infozip/zip30.zip</string>
+		<string>ftp://ftp.info-zip.org/pub/infozip/src/zip30.zip</string>
 		<key>OpenSourceVersion</key>
 		<string>3.0</string>
 		<key>OpenSourceWebsiteURL</key>
@@ -26,13 +27,14 @@
 	</dict>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2015-7-23</string>
+		<string>2015-07-23</string>
 		<key>OpenSourceLicense</key>
 		<string>Info-ZIP</string>
 		<key>OpenSourceLicenseFile</key>
 		<string>unzip.txt</string>
 		<key>OpenSourceModifications</key>
 		<array>
+			<string>Add quarantine support (6068017)</string>
 			<string>cve-2014-8140-test-compr-eb from Debian</string>
 			<string>cve-2014-8139-crc-overflow from Debian</string>
 			<string>cve-2014-8141-getzip64data from Debian</string>
@@ -42,12 +44,13 @@
 			<string>handle-pkware-verification-bit from Debian</string>
 			<string>initialize-the-symlink-flag from Debian</string>
 			<string>increase-size-of-cfactorstr from Debian</string>
-			<string>Apple-patch</string>
-			<string>patch-quarantine</string>
-			<string>&lt;rdar://problem/25537454&gt; Format string misuse in zip [-Wformat-security]</string>
+			<string>Fix format string misuse (25537454)</string>
 			<string>Remove unsupported MacOS9 options from man page (4126223)</string>
 			<string>Fix CVE-2022-0530 (89134229)</string>
-			<string>CVE-2021-4217 from Ubuntu</string>
+			<string>Fix CVE-2021-4217 (99309977)</string>
+			<string>Fix CVE-2022-0529 (89134214)</string>
+                        <string>Modify version message to note that unzip was modified by Apple.</string>
+                        <string>Refuse to create files (or directories) outside the initial extraction directory.</string>
 		</array>
 		<key>OpenSourceProject</key>
 		<string>unzip</string>

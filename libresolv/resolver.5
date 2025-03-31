@@ -1,42 +1,54 @@
-.\"	$OpenBSD: resolver.5,v 1.2 1997/03/12 10:42:19 downsj Exp $
-.\" Copyright (c) 1986 The Regents of the University of California.
-.\" All rights reserved.
+.\" Copyright (c) 1986, 1991, 1993
+.\"	The Regents of the University of California.  All rights reserved.
 .\"
-.\" Redistribution and use in source and binary forms are permitted
-.\" provided that the above copyright notice and this paragraph are
-.\" duplicated in all such forms and that any documentation,
-.\" advertising materials, and other materials related to such
-.\" distribution and use acknowledge that the software was developed
-.\" by the University of California, Berkeley.  The name of the
-.\" University may not be used to endorse or promote products derived
-.\" from this software without specific prior written permission.
-.\" THIS SOFTWARE IS PROVIDED ``AS IS'' AND WITHOUT ANY EXPRESS OR
-.\" IMPLIED WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED
-.\" WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE.
+.\" Redistribution and use in source and binary forms, with or without
+.\" modification, are permitted provided that the following conditions
+.\" are met:
+.\" 1. Redistributions of source code must retain the above copyright
+.\"    notice, this list of conditions and the following disclaimer.
+.\" 2. Redistributions in binary form must reproduce the above copyright
+.\"    notice, this list of conditions and the following disclaimer in the
+.\"    documentation and/or other materials provided with the distribution.
+.\" 3. Neither the name of the University nor the names of its contributors
+.\"    may be used to endorse or promote products derived from this software
+.\"    without specific prior written permission.
 .\"
-.\" Portions Copyright (c) 2003 by Apple Computer, Inc. 
+.\" THIS SOFTWARE IS PROVIDED BY THE REGENTS AND CONTRIBUTORS ``AS IS'' AND
+.\" ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+.\" IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+.\" ARE DISCLAIMED.  IN NO EVENT SHALL THE REGENTS OR CONTRIBUTORS BE LIABLE
+.\" FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+.\" DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+.\" OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+.\" HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+.\" LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+.\" OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+.\" SUCH DAMAGE.
 .\"
-.\"	@(#)resolver.5	5.9 (Berkeley) 12/14/89
-.\"	$From: resolver.5,v 8.3 1995/12/06 20:34:35 vixie Exp $
+.\" Portions Copyright (c) 2003 by Apple Computer, Inc.
 .\"
-.Dd June 6, 2003
-.Dt resolver 5
-.Os "Mac OS X"
+.\"     @(#)resolver.5	8.1 (Berkeley) 6/5/93
+.\" $FreeBSD$
+.\"
+.Dd November 23, 2022
+.Dt RESOLVER 5
+.Os
 .Sh NAME
 .Nm resolver
 .Nd resolver configuration file format
+.Sh SYNOPSIS
+.Nm resolv.conf
 .Sh DESCRIPTION
 The
-.Nm
-is a set of routines in the C library 
-.Xr resolv(3)
-that provide access to the Internet Domain Name System (DNS).
-A resolver configuration file contains information used to specify parameters
-for a DNS resolver client.
-The file contains a list of keywords with values that provide various types
-of resolver information.
+.Xr resolver 3
+is a set of routines in the C library
+which provide access to the Internet Domain Name System (DNS).
+The resolver configuration file contains information that is read
+by the resolver routines the first time they are invoked by a process.
+The file is designed to be human readable and contains a list of
+keywords with values that provide various types of resolver information.
 .Pp
-Mac OS X supports a DNS search strategy that may involve multiple
+macOS supports a DNS search strategy that may involve multiple
 DNS resolver clients.
 See the
 .Sx SEARCH STRATEGY
@@ -49,31 +61,35 @@ some other system configuration database.
 Note that the 
 .Pa /etc/resolv.conf
 file, which contains configuration for the default (or "primary") DNS resolver client,
-is maintained automatically by Mac OS X and should not be edited manually.
+is maintained automatically by macOS and should not be edited manually.
 Changes to the DNS configuration should be made by using the Network
 Preferences panel.
 .Pp
-The different configuration options are given below.
-.Ss nameserver
-Internet address (in dot notation for IPv4 or in colon notation for IPv6)
-of a name server that the resolver should query.
+The different configuration options are:
+.Bl -tag -width nameserver
+.It Sy nameserver
+IPv4 or IPv6 address of a name server
+that the resolver should query.
 The address may optionally have a trailing dot followed by a port number.
 For example, 
 .Li 10.0.0.17.55
 specifies that the nameserver at 10.0.0.17
 uses port 55.
-.Pp
 Up to
-.Va MAXNS 
+.Dv MAXNS
 (currently 3) name servers may be listed,
 one per keyword.
 If there are multiple servers,
 the resolver library queries them in the order listed.
-The algorithm used is to try a name server, and if the query times out,
+If no
+.Sy nameserver
+entries are present,
+the default is to use the name server on the local machine.
+(The algorithm used is to try a name server, and if the query times out,
 try the next, until out of name servers,
 then repeat trying all the name servers
-until a maximum number of retries are made.
-.Ss port
+until a maximum number of retries are made).
+.It Sy port
 IP port number to be used for this resolver.
 The default port is 53.
 The port number for an individual nameserver may be specified as
@@ -81,9 +97,9 @@ part of the nameserver address (see
 .Sx nameserver 
 above) to override the default 
 or the port number specified as a value for this keyword.
-.Ss domain
+.It Sy domain
 Domain name associated with this resolver configuration.
-This option is normally not required by the Mac OS X DNS search system
+This option is normally not required by the macOS DNS search system
 when the resolver configuration is read from a file in the
 .Pa /etc/resolver
 directory.
@@ -96,12 +112,12 @@ files may not exist having the same name.
 See the 
 .Sx SEARCH STRATEGY
 section for more details.
-.Ss search
+.It Sy search
 Search list for host-name lookup.
 This parameter is only used by the "Super" DNS resolver, which
 manages the DNS search strategy amongst multiple DNS resolver clients.
 Unqualified queries will be attempted using each component
-of the search list in turn until a match is found.
+of the search path in turn until a match is found.
 Note that this process may be slow and will generate a lot of network
 traffic if the servers for the listed domains are not local,
 and that queries will time out if no server is available
@@ -109,7 +125,7 @@ for one of the domains.
 .Pp
 The search list is currently limited to six domains
 with a total of 256 characters.
-.Ss search_order
+.It Sy search_order
 Only required for those clients that share a domain name with other clients.
 Queries will be sent to these clients in order by ascending
 .Sx search_order
@@ -117,60 +133,128 @@ value.
 For example, this allows two clients for the ".local"
 domain, which is used by Apple's multicast DNS, but which may
 also be used at some sites as private DNS domain name.
-.Ss sortlist
+.It Sy sortlist
 Sortlist allows addresses returned by gethostbyname to be sorted.
-A sortlist is specified by IP address netmask pairs. The netmask is
-optional and defaults to the natural netmask of the net. The IP address
-and optional network pairs are separated by slashes. Up to 10 pairs may
-be specified. For example: 
-.Bd -literal -offset indent
- sortlist 130.155.160.0/255.255.240.0 130.155.0.0
-.Ed
-.Ss timeout
+A sortlist is specified by IP address netmask pairs.
+If the netmask is not specified,
+it defaults to the historical Class A/B/C netmask of the net;
+this usage is deprecated.
+The IP address
+and network pairs are separated by slashes.
+Up to 10 pairs may
+be specified.
+E.g.,
+.Pp
+.Dl "sortlist 10.9.1.0/255.255.240.0 10.9.0.0/255.255.0.0"
+.It Sy timeout
 Specifies the total amount of time allowed for a name resolution.
 This time interval is divided by the number of nameservers and the number
 of retries allowed for each nameserver.
-.Ss options
+.It Sy options
 Options allows certain internal resolver variables to be modified.
-The syntax is:
+The syntax is
 .Pp
-options
-.Ar option Li "..."
+\fBoptions\fP \fIoption\fP \fI...\fP
 .Pp
-where 
-.Ar option
+where
+.Sy option
 is one of the following:
-.Bl -tag -width -indent
-.It Ar debug
+.Bl -tag -width no_tld_query
+.It Sy debug
 sets
-.Va RES_DEBUG
-in the resolver options.
-.It Ar timeout:n
-sets the per-retry timeout for resolver queries.
+.Dv RES_DEBUG
+in _res.options.
+.It Sy usevc
+sets
+.Dv RES_USEVC
+to use TCP instead of UDP for queries.
+.It Sy ndots : Ns Ar n
+sets a threshold for the number of dots which must appear in a name given to
+.Fn res_query
+(see
+.Xr resolver 3 )
+before an
+.Em initial absolute query
+will be made.
+The default for
+.Em n
+is
+.Dq 1 ,
+meaning that if there are any dots in a name, the name
+will be tried first as an absolute name before any
+.Em search list
+elements are appended to it.
+.It Sy timeout : Ns Ar n
+sets the initial amount of time the resolver will wait
+for a response from a remote
+name server before retrying the query via a different name server.
 The total timeout allowed for a query depends on the number of retries and the
 number of nameservers.  This value is ignored if a total timeout is specified
 using the
 .Sx timeout
 keyword (see above).
-.It Ar ndots:n
-Sets a threshold for the number of dots which
-must appear in a name given to
-.Sx res_query
-(see 
-.Xr resolver(3))
-before an initial absolute query will be made.  The default for
+The resolver may wait longer during subsequent retries
+of the current query since an exponential back-off is applied to
+the timeout value.
+Measured in seconds, the default is
+.Dv RES_TIMEOUT ,
+the allowed maximum is
+.Dv RES_MAXRETRANS
+(see
+.In resolv.h ) .
+.It Sy attempts : Ns Ar n
+sets the number of times the resolver will send a query to each of
+its name servers
+before giving up and returning an error to the calling application.
+The default is
+.Dv RES_DFLRETRY ,
+the allowed maximum is
+.Dv RES_MAXRETRY
+(see
+.In resolv.h ) .
+.It Sy no_tld_query
+tells the resolver not to attempt to resolve a top level domain name, that
+is, a name that contains no dots.
+Use of this option does not prevent
+the resolver from obeying the standard
+.Sy domain
+and
+.Sy search
+rules with the given name.
+.It Sy reload-period : Ns Ar n
+The resolver checks the modification time of
+.Pa /etc/resolv.conf
+every
 .Ar n
-is ``1'', meaning that if there are any dots in a name, the name
-will be tried first as an absolute name before any 
-.Sx search
-list elements are appended to it.
-.Pp
-The keyword and value must appear on a single line,
-and the keyword must start the line.
-The value follows the keyword, separated by white space.
+seconds.
+If
+.Pa /etc/resolv.conf
+has changed, it is automatically reloaded.
+The default for
+.Ar n
+is two seconds.
+Setting it to zero disables the file check.
 .El
+.Pp
+Options may also be specified as a space or tab separated list using the
+.Dv RES_OPTIONS
+environment variable.
+.El
+.Pp
+The
+.Sy domain
+and
+.Sy search
+keywords are mutually exclusive.
+If more than one instance of these keywords is present,
+the last instance will override.
+.Pp
+The keyword and value must appear on a single line, and the keyword
+.Pq for example, Sy nameserver
+must start the line.
+The value follows the keyword, separated by white space.
 .Sh SEARCH STRATEGY
-Mac OS X uses a DNS search strategy that supports multiple DNS
+macOS uses a DNS search strategy that supports multiple DNS
 client configurations.
 Each DNS client has its own set of nameserver
 addresses and its own set of operational parameters.
@@ -220,6 +304,45 @@ Database.
 Users of the DNS system should make no assumptions about the
 source of the configuration data.
 .Sh FILES
-/etc/resolv.conf, /etc/resolver/*
+.Bl -tag -width /etc/resolv.conf -compact
+.It Pa /etc/resolv.conf
+The file
+.Nm resolv.conf
+resides in
+.Pa /etc .
+.It Pa /etc/resolver/*
+.El
+.Sh EXAMPLES
+A basic resolv.conf file could be in the following form.
+.Bd -literal -offset indent
+# The domain directive is only necessary, if your local
+# router advertises something like localdomain and you have
+# set up your hostnames via an external domain.
+domain localdomain.tld
+
+# In case you a running a local dns server or caching name server
+# like local-unbound(8) for example.
+nameserver 127.0.0.1
+
+# IP address of the local or ISP name service
+nameserver 192.168.2.1
+
+# Fallback nameservers, in this case these from Google.
+nameserver 8.8.8.8
+nameserver 4.4.4.4
+
+# Attach an OPT pseudo-RR for the EDNS0 extension,
+# as specified in RFC 2671.
+options edns0
+.Ed
 .Sh SEE ALSO
-gethostbyname(2), getaddrinfo(3), resolver(3)
+.Xr gethostbyname 3 ,
+.Xr resolver 3 ,
+.Xr hostname 7
+.\".Xr hostname 7 ,
+.\"Xr resolvconf 8
+.Sh HISTORY
+The
+.Nm resolv.conf
+file format appeared in
+.Bx 4.3 .

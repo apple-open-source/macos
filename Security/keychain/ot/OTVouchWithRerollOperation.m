@@ -85,6 +85,10 @@
 
     [self.deps.cuttlefishXPCWrapper fetchRecoverableTLKSharesWithSpecificUser:self.deps.activeAccount
                                                                        peerID:self.peerID
+                                                                      altDSID:self.deps.activeAccount.altDSID
+                                                                       flowID:self.deps.flowID
+                                                              deviceSessionID:self.deps.deviceSessionID
+                                                               canSendMetrics:self.deps.permittedToSendMetrics
                                                                         reply:^(NSArray<CKRecord *> * _Nullable keyHierarchyRecords,
                                                                                 NSError * _Nullable error) {
         STRONGIFY(self);

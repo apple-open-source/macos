@@ -64,6 +64,7 @@
 #include <fcntl.h>
 
 #include "ext.h"
+#include "fsck_msdos_errors.h"
 #include "lib_fsck_msdos.h"
 
 int checkfilesys(const char *fname, check_context *context)
@@ -76,6 +77,7 @@ int checkfilesys(const char *fname, check_context *context)
 						  context->startPhase != NULL && context->endPhase != NULL);
 	unsigned int progressTracker = 0;
 	int finish_dosdirsection = 0;
+    char *shadow_path = NULL;
 	bool close_dosfs = true;
 	int tryOthersAgain = 3;
 	struct bootblock boot;
@@ -104,36 +106,41 @@ int checkfilesys(const char *fname, check_context *context)
 	 * a path of the form "/dev/fd/NUMBER". Just parse NUMBER from the
 	 * fname and use it as FD for the device to check.
 	 */
-	if (fsck_fd() >= 0)
-	{
+	if (fsck_fd() >= 0) {
 		dosfs = fsck_fd();
 		close_dosfs = false;
 	}
-	else if (!strncmp(fname, "/dev/disk", 9))
-	{
-		if (snprintf(raw_path, sizeof(raw_path), "/dev/r%s", &fname[5]) < sizeof(raw_path))
+	else if (!strncmp(fname, "/dev/disk", 9)) {
+		if (snprintf(raw_path, sizeof(raw_path), "/dev/r%s", &fname[5]) < sizeof(raw_path)) {
+			if (context->shadowPrefix != NULL) {
+				asprintf(&shadow_path, "%s/shadow-r%s", context->shadowPrefix, &fname[5]);
+			}
 			fname = raw_path;
-		/* Else we just use the non-raw disk */
+			/* Else we just use the non-raw disk */
+		}
 	}
-	else if (!strncmp(fname, "disk", 4))
-	{
-		if (snprintf(raw_path, sizeof(raw_path), "/dev/r%s", fname) < sizeof(raw_path))
+	else if (!strncmp(fname, "disk", 4)) {
+		if (snprintf(raw_path, sizeof(raw_path), "/dev/r%s", fname) < sizeof(raw_path)) {
+			if (context->shadowPrefix != NULL) {
+				asprintf(&shadow_path, "%s/shadow-r%s", context->shadowPrefix, fname);
+			}
 			fname = raw_path;
-		/* Else the open below is likely to fail */
+			/* Else the open below is likely to fail */
+		}
 	}
-	else if (!strncmp(fname, "/dev/fd/", 8))
-	{
+	else if (!strncmp(fname, "/dev/fd/", 8)) {
 		char *end_ptr;
 		dosfs = (int)strtol(&fname[8], &end_ptr, 10);
-		if (*end_ptr)
-		{
+		if (*end_ptr) {
 			// TODO: is errx or err the right way to report the errors here?
 			fsck_print(fsck_ctx, LOG_CRIT, "Invalid file descriptor path: %s", fname);
 			ret = 8;
 			goto out;
 		}
+		if (context->shadowPrefix != NULL) {
+			asprintf(&shadow_path, "%s/shadow-%d", context->shadowPrefix, dosfs);
+		}
 	}
-
 
 	progressTracker++;
 
@@ -174,7 +181,7 @@ int checkfilesys(const char *fname, check_context *context)
 		dosfs = open(fname, O_RDONLY, 0);
 		close_dosfs = true;
 		if (dosfs >= 0)
-			fsck_print(fsck_ctx, LOG_INFO, "Warning:  (NO WRITE)\n");
+			fsck_print(fsck_ctx, LOG_INFO, "Warning: (NO WRITE)\n");
 		else if (!fsck_preen())
 			fsck_print(fsck_ctx, LOG_INFO, "\n");
 		fsck_set_rdonly(true);
@@ -183,11 +190,27 @@ int checkfilesys(const char *fname, check_context *context)
 	progressTracker++;
 
 	if (context->resource == NULL && dosfs < 0) {
-		fsck_print(fsck_ctx, LOG_CRIT, "%s (%s)\n", "Can't open", strerror(errno));
+		fsck_print(fsck_ctx, LOG_CRIT, "%s (%s)\n", "Can't open\n", strerror(errno));
 		ret = 8;
 		goto out;
 	} else if (context->resource == NULL) {
 		context->resource = &dosfs;
+	}
+
+	if (shadow_path) {
+		context->shadowFD = open(shadow_path, O_RDWR | O_CREAT | O_TRUNC | O_EXCL);
+		if (context->shadowFD < 0 && errno == EEXIST) {
+			int counter = 1;
+			while (counter < 200 && context->shadowFD == -1) {
+				char *new_shadow_path = NULL;
+				asprintf(&new_shadow_path, "%s-%d", shadow_path, counter++);
+				context->shadowFD = open(new_shadow_path, O_RDWR | O_CREAT | O_TRUNC | O_EXCL);
+				free(new_shadow_path);
+			}
+		}
+		if (context->shadowFD < 0) {
+			fsck_print(fsck_ctx, LOG_ERR, "Failed to open shadow file at %s (%d)\n", shadow_path, errno);
+		}
 	}
 
 	progressTracker++;
@@ -204,7 +227,7 @@ int checkfilesys(const char *fname, check_context *context)
 		if (close_dosfs) {
 			close(dosfs);
 		}
-		ret = 8;
+		ret = fsckErrBootRegionInvalid;
 		goto out;
 	}
 	progressTracker++;
@@ -239,7 +262,7 @@ int checkfilesys(const char *fname, check_context *context)
 		}
 		else if (isdirty(&boot, boot.ValidFat >= 0 ? boot.ValidFat : 0, context)) {
 			fsck_print(fsck_ctx, LOG_INFO, "Warning: FILESYSTEM DIRTY; SKIPPING CHECKS\n");
-			ret = FSDIRTY;
+			ret = fsckErrQuickCheckDirty;
 		}
 		else {
 			fsck_print(fsck_ctx, LOG_INFO, "Warning: FILESYSTEM CLEAN; SKIPPING CHECKS\n");
@@ -290,7 +313,7 @@ Again:
 		if (close_dosfs) {
 			close(dosfs);
 		}
-		ret = FSERROR;
+		ret = fsckErrCouldNotInitFAT;
         goto out;
 	}
 	progressTracker++;
@@ -300,15 +323,19 @@ Again:
 
 	mod |= resetDosDirSection(&boot, context);
 	finish_dosdirsection = 1;
-	if (mod & FSFATAL)
+	if (mod & FSFATAL) {
+		ret = fsckErrCouldNotInitRootDir;
 		goto out;
+	}
 	/* delay writing FATs */
 
 	progressTracker++;
 
 	mod |= handleDirTree(dosfs, &boot, fsck_rdonly(), context);
-	if (mod & FSFATAL)
+	if (mod & FSFATAL) {
+		ret = fsckErrCouldNotScanDirs;
 		goto out;
+	}
 
 	if (!fsck_preen() && !fsck_quiet())
 		fsck_print(fsck_ctx, LOG_INFO, "** Phase 3 - Checking for Orphan Clusters\n");
@@ -321,19 +348,20 @@ Again:
 	 * beyond the logical file size (and the file size was not repaired).
 	 */
 	mod |= fat_free_unused(context);
-	if (mod & FSFATAL)
+	if (mod & FSFATAL) {
+		ret = fsckErrCouldNotFreeUnused;
 		goto out;
+	}
 
 	if (fsck_quick()) {
 		if (mod) {
 			fsck_print(fsck_ctx, LOG_INFO, "FILESYSTEM DIRTY\n");
-			ret = FSDIRTY;
+			ret = fsckErrQuickCheckDirty;
 		}
 		else {
 			fsck_print(fsck_ctx, LOG_INFO, "FILESYSTEM CLEAN\n");
 			ret = 0;
 		}
-	} else {
 	}
 
 	if (boot.NumBad)
@@ -371,8 +399,10 @@ Again:
 	progressTracker++;
 
 	/* Don't bother trying multiple times if we're not doing repairs */
-	if (mod && fsck_rdonly())
+	if (mod && fsck_rdonly()) {
+		ret = fsckErrCannotRepairReadOnly;
 		goto out;
+	}
 
 	if (((mod & FSFATAL) && (--tryFatalAgain > 0)) ||
 	    ((mod & FSERROR) && (--tryErrorAgain > 0)) ||
@@ -383,6 +413,8 @@ Again:
 	}
 	if ((mod & (FSFATAL | FSERROR)) == 0) {
 		ret = 0;
+	} else {
+		ret = fsckErrCannotRepairAfterRetry;
 	}
 
 out:
@@ -409,6 +441,16 @@ out:
 	freeUseMap();
 	if (close_dosfs) {
 		close(dosfs);
+	}
+
+	if (context->shadowPrefix) {
+		free(context->shadowPrefix);
+	}
+	if (shadow_path) {
+		free(shadow_path);
+	}
+	if (context->shadowFD > 0) {
+		close(context->shadowFD);
 	}
 
 	if (mod & (FSFATMOD|FSDIRMOD))

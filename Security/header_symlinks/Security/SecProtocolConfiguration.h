@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2018, 2024 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -99,20 +99,42 @@ sec_protocol_configuration_copy_transformed_options(sec_protocol_configuration_t
  *      Transform an existing `sec_protocol_options_t` instance with a `sec_protocol_configuration_t` instance
  *      using a specific host endpoint. Note that the service (port) is omitted from this formula.
  *
- * @param config
- *      A `sec_protocol_configuration_t` instance.
- *
  * @param options
  *      A `sec_protocol_options_t` instance.
  *
  * @param host
  *      A NULL-terminated C string containing the host in question.
  *
+ * @param is_direct
+ *      A flag which indicates if the given hostname is local (direct).
+ *
  * @return The transformed `sec_protocol_options` instance.
  */
-API_AVAILABLE(macos(10.15), ios(13.0), watchos(6.0), tvos(13.0))
+API_AVAILABLE(macos(15.4), ios(18.4), watchos(11.4), tvos(18.4), visionos(2.4))
 SEC_RETURNS_RETAINED __nullable sec_protocol_options_t
-sec_protocol_configuration_copy_transformed_options_for_host(sec_protocol_configuration_t config, sec_protocol_options_t options, const char *host);
+sec_protocol_configuration_copy_transformed_options_for_host(sec_protocol_options_t options, const char *host, bool is_direct);
+
+/*!
+ * @function sec_protocol_configuration_copy_transformed_options_for_address
+ *
+ * @abstract
+ *      Transform an existing `sec_protocol_options_t` instance with a `sec_protocol_configuration_t` instance
+ *      using a specific host endpoint. Note that the service (port) is omitted from this formula.
+ *
+ * @param options
+ *      A `sec_protocol_options_t` instance.
+ *
+ * @param address
+ *      A NULL-terminated C string containing the address in question.
+ *
+ * @param is_direct
+ *      A flag which indicates if the given address is local (direct).
+ *
+ * @return The transformed `sec_protocol_options` instance.
+ */
+API_AVAILABLE(macos(15.4), ios(18.4), watchos(11.4), tvos(18.4), visionos(2.4))
+SEC_RETURNS_RETAINED __nullable sec_protocol_options_t
+sec_protocol_configuration_copy_transformed_options_for_address(sec_protocol_options_t options, const char *address, bool is_direct);
 
 /*!
  * @function sec_protocol_configuration_tls_required
@@ -166,9 +188,11 @@ sec_protocol_configuration_tls_required_for_host(sec_protocol_configuration_t co
  *
  * @return True if connections to the endpoint require TLS, and false otherwise.
  */
-API_AVAILABLE(macos(10.15), ios(13.0), watchos(6.0), tvos(13.0))
+API_AVAILABLE(macos(15.4), ios(18.4), watchos(11.4), tvos(18.4), visionos(2.4))
 bool
-sec_protocol_configuration_tls_required_for_address(sec_protocol_configuration_t config, const char *address);
+sec_protocol_configuration_tls_required_for_address(sec_protocol_configuration_t config, const char *address, bool is_direct);
+
+#define SEC_PROTOCOL_HAS_APP_TRANSPORT_SECURITY_SUPPORT
 
 SEC_ASSUME_NONNULL_END
 

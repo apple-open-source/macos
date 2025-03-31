@@ -208,7 +208,7 @@ http_query(krb5_storage *sp,
     
     if (verbose_flag) {
 	for (i = 0; i < num_headers; i++)
-	    printf("outheader[%d]: %s\n", i, headers[0]);
+	    printf("outheader[%u]: %s\n", i, headers[0]);
     }
 
     storage_printf(sp, "GET %s HTTP/1.1\r\n", page);
@@ -273,7 +273,7 @@ http_query(krb5_storage *sp,
     if (verbose_flag) {
 	printf("response: %s\n", req->response);
 	for (i = 0; i < req->num_headers; i++)
-	    printf("response-header[%d] %s\n", i, req->headers[i]);
+	    printf("response-header[%u] %s\n", i, req->headers[i]);
 	printf("body: %.*s\n", (int)req->body_size, (char *)req->body);
     }
 

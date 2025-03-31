@@ -324,7 +324,9 @@
                                                                   lastFetch:[NSDate date]
                                                                    lastScan:[NSDate date]
                                                                   lastFixup:CKKSCurrentFixupNumber
-                                                         encodedRateLimiter:nil];
+                                                         encodedRateLimiter:nil
+                                                    fetchNewestChangesFirst:YES
+                                                        initialSyncFinished:NO];
     zse.rateLimiter = [[CKKSRateLimiter alloc] init];
 
     CKKSZoneStateEntry* zse2 = [[CKKSZoneStateEntry alloc] initWithContextID:@"other_context"
@@ -336,7 +338,9 @@
                                                                    lastFetch:[NSDate date]
                                                                     lastScan:[NSDate date]
                                                                    lastFixup:1
-                                                          encodedRateLimiter:nil];
+                                                          encodedRateLimiter:nil
+                                                     fetchNewestChangesFirst:NO
+                                                         initialSyncFinished:YES];
 
     CKKSZoneStateEntry* zseClone = [[CKKSZoneStateEntry alloc] initWithContextID:context1
                                                                         zoneName:@"sqltest"
@@ -347,7 +351,9 @@
                                                                        lastFetch:zse.lastFetchTime
                                                                         lastScan:zse.lastLocalKeychainScanTime
                                                                        lastFixup:CKKSCurrentFixupNumber
-                                                              encodedRateLimiter:zse.encodedRateLimiter];
+                                                              encodedRateLimiter:zse.encodedRateLimiter
+                                                         fetchNewestChangesFirst:YES
+                                                             initialSyncFinished:NO];
 
     CKKSZoneStateEntry* zseDifferent = [[CKKSZoneStateEntry alloc] initWithContextID:context1
                                                                             zoneName:@"sqltest"
@@ -358,7 +364,9 @@
                                                                            lastFetch:zse.lastFetchTime
                                                                             lastScan:zse.lastLocalKeychainScanTime
                                                                            lastFixup:CKKSCurrentFixupNumber
-                                                                  encodedRateLimiter:zse.encodedRateLimiter];
+                                                                  encodedRateLimiter:zse.encodedRateLimiter
+                                                             fetchNewestChangesFirst:YES
+                                                                 initialSyncFinished:NO];
     XCTAssertEqualObjects(zse, zseClone, "CKKSZoneStateEntry isEqual of equal objects seems okay");
     XCTAssertNotEqualObjects(zse, zseDifferent, "CKKSZoneStateEntry isEqual of nonequal objects seems okay");
 
@@ -385,6 +393,8 @@
     XCTAssertEqual       (zse.ckzonecreated,      loaded.ckzonecreated,       "ckzonecreated persisted through db save and load");
     XCTAssertEqual       (zse.ckzonesubscribed,   loaded.ckzonesubscribed,    "ckzonesubscribed persisted through db save and load");
     XCTAssertEqualObjects(zse.encodedChangeToken, loaded.encodedChangeToken, "encodedChangeToken persisted through db save and load");
+    XCTAssertEqual       (zse.fetchNewestChangesFirst, loaded.fetchNewestChangesFirst, "fetchNewestChangesFirst persisted through db save and load");
+    XCTAssertEqual       (zse.initialSyncFinished, loaded.initialSyncFinished, "initialSyncFinished persisted through db save and load");
 
     secnotice("ckkstests", "zse.lastFetchTime: %@", zse.lastFetchTime);
     secnotice("ckkstests", "loaded.lastFetchTime: %@", loaded.lastFetchTime);

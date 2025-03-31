@@ -448,6 +448,10 @@ again:
 			/* will return ELOOP on the first symlink to be hit */
 			ndp->ni_flag |= NAMEI_NOFOLLOW_ANY;
 		}
+		if (fmode & O_RESOLVE_BENEATH) {
+			/* will return EACCES if relative path does not reside in the hierarchy beneath the starting directory */
+			ndp->ni_flag |= NAMEI_RESOLVE_BENEATH;
+		}
 
 continue_create_lookup:
 		if ((error = namei(ndp))) {
@@ -565,6 +569,10 @@ continue_create_lookup:
 		if (fmode & O_NOFOLLOW_ANY) {
 			/* will return ELOOP on the first symlink to be hit */
 			ndp->ni_flag |= NAMEI_NOFOLLOW_ANY;
+		}
+		if (fmode & O_RESOLVE_BENEATH) {
+			/* will return EACCES if relative path does not reside in the hierarchy beneath the starting directory */
+			ndp->ni_flag |= NAMEI_RESOLVE_BENEATH;
 		}
 
 		/* Do a lookup, possibly going directly to filesystem for compound operation */

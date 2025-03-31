@@ -196,8 +196,8 @@ class OctagonResetTests: OctagonTestsBase {
         self.fakeCuttlefishServer.resetListener = { [unowned self] request in
             let laterZoneKeys = self.keys![self.limitedPeersAllowedZoneID!] as? ZoneKeys
             XCTAssertNil(laterZoneKeys, "Should not have any zone keys")
-            XCTAssertTrue(request.accountInfo.flags & UInt32(AccountFlags.cdp.rawValue) != 0 , "should be equal to cdp")
-            XCTAssertTrue(request.accountInfo.flags & UInt32(AccountFlags.internal.rawValue) != 0 , "should be equal to internal")
+            XCTAssertTrue(request.accountInfo.flags & UInt32(AccountFlags.cdp.rawValue) != 0, "should be equal to cdp")
+            XCTAssertTrue(request.accountInfo.flags & UInt32(AccountFlags.internal.rawValue) != 0, "should be equal to internal")
 
             self.fakeCuttlefishServer.resetListener = nil
             resetExpectation.fulfill()
@@ -431,8 +431,8 @@ class OctagonResetTests: OctagonTestsBase {
             self.fakeCuttlefishServer.resetListener = nil
             resetExpectation.fulfill()
             XCTAssertEqual(request.resetReason.rawValue, CuttlefishResetReason.unknown.rawValue, "reset reason should be unknown")
-            XCTAssertTrue(request.accountInfo.flags & UInt32(AccountFlags.cdp.rawValue) != 0 , "should be equal to cdp")
-            XCTAssertTrue(request.accountInfo.flags & UInt32(AccountFlags.internal.rawValue) != 0 , "should be equal to internal")
+            XCTAssertTrue(request.accountInfo.flags & UInt32(AccountFlags.cdp.rawValue) != 0, "should be equal to cdp")
+            XCTAssertTrue(request.accountInfo.flags & UInt32(AccountFlags.internal.rawValue) != 0, "should be equal to internal")
             return nil
         }
 
@@ -463,8 +463,8 @@ class OctagonResetTests: OctagonTestsBase {
             self.fakeCuttlefishServer.resetListener = nil
             resetExpectation.fulfill()
             XCTAssertEqual(request.resetReason.rawValue, CuttlefishResetReason.userInitiatedReset.rawValue, "reset reason should be user initiated reset")
-            XCTAssertTrue(request.accountInfo.flags & UInt32(AccountFlags.cdp.rawValue) != 0 , "should be equal to cdp")
-            XCTAssertTrue(request.accountInfo.flags & UInt32(AccountFlags.internal.rawValue) != 0 , "should be equal to internal")
+            XCTAssertTrue(request.accountInfo.flags & UInt32(AccountFlags.cdp.rawValue) != 0, "should be equal to cdp")
+            XCTAssertTrue(request.accountInfo.flags & UInt32(AccountFlags.internal.rawValue) != 0, "should be equal to internal")
             return nil
         }
 
@@ -520,8 +520,8 @@ class OctagonResetTests: OctagonTestsBase {
             self.fakeCuttlefishServer.resetListener = nil
             resetExpectation.fulfill()
             XCTAssertEqual(request.resetReason.rawValue, CuttlefishResetReason.recoveryKey.rawValue, "reset reason should be recovery key")
-            XCTAssertTrue(request.accountInfo.flags & UInt32(AccountFlags.cdp.rawValue) != 0 , "should be equal to cdp")
-            XCTAssertTrue(request.accountInfo.flags & UInt32(AccountFlags.internal.rawValue) != 0 , "should be equal to internal")
+            XCTAssertTrue(request.accountInfo.flags & UInt32(AccountFlags.cdp.rawValue) != 0, "should be equal to cdp")
+            XCTAssertTrue(request.accountInfo.flags & UInt32(AccountFlags.internal.rawValue) != 0, "should be equal to internal")
             return nil
         }
         #else
@@ -573,8 +573,8 @@ class OctagonResetTests: OctagonTestsBase {
             self.fakeCuttlefishServer.resetListener = nil
             resetExpectation.fulfill()
             XCTAssertEqual(request.resetReason.rawValue, CuttlefishResetReason.noBottleDuringEscrowRecovery.rawValue, "reset reason should be no bottle during escrow recovery")
-            XCTAssertTrue(request.accountInfo.flags & UInt32(AccountFlags.cdp.rawValue) != 0 , "should be equal to cdp")
-            XCTAssertTrue(request.accountInfo.flags & UInt32(AccountFlags.internal.rawValue) != 0 , "should be equal to internal")
+            XCTAssertTrue(request.accountInfo.flags & UInt32(AccountFlags.cdp.rawValue) != 0, "should be equal to cdp")
+            XCTAssertTrue(request.accountInfo.flags & UInt32(AccountFlags.internal.rawValue) != 0, "should be equal to internal")
             return nil
         }
 
@@ -627,8 +627,8 @@ class OctagonResetTests: OctagonTestsBase {
             self.fakeCuttlefishServer.resetListener = nil
             resetExpectation.fulfill()
             XCTAssertEqual(request.resetReason.rawValue, CuttlefishResetReason.healthCheck.rawValue, "reset reason should be health check")
-            XCTAssertTrue(request.accountInfo.flags & UInt32(AccountFlags.cdp.rawValue) != 0 , "should be equal to cdp")
-            XCTAssertTrue(request.accountInfo.flags & UInt32(AccountFlags.internal.rawValue) != 0 , "should be equal to internal")
+            XCTAssertTrue(request.accountInfo.flags & UInt32(AccountFlags.cdp.rawValue) != 0, "should be equal to cdp")
+            XCTAssertTrue(request.accountInfo.flags & UInt32(AccountFlags.internal.rawValue) != 0, "should be equal to internal")
             return nil
         }
         self.fakeCuttlefishServer.returnResetOctagonResponse = true
@@ -672,8 +672,8 @@ class OctagonResetTests: OctagonTestsBase {
             self.fakeCuttlefishServer.resetListener = nil
             resetExpectation.fulfill()
             XCTAssertEqual(request.resetReason.rawValue, CuttlefishResetReason.testGenerated.rawValue, "reset reason should be test generated")
-            XCTAssertTrue(request.accountInfo.flags & UInt32(AccountFlags.cdp.rawValue) != 0 , "should be equal to cdp")
-            XCTAssertTrue(request.accountInfo.flags & UInt32(AccountFlags.internal.rawValue) != 0 , "should be equal to internal")
+            XCTAssertTrue(request.accountInfo.flags & UInt32(AccountFlags.cdp.rawValue) != 0, "should be equal to cdp")
+            XCTAssertTrue(request.accountInfo.flags & UInt32(AccountFlags.internal.rawValue) != 0, "should be equal to internal")
             return nil
         }
 
@@ -886,7 +886,7 @@ class OctagonResetTests: OctagonTestsBase {
             XCTAssertTrue(self.cuttlefishContext.checkAllStateCleared(), "all cuttlefish state should be cleared")
             resetExpectation.fulfill()
         }
-        self.wait(for: [resetExpectation], timeout: 10) 
+        self.wait(for: [resetExpectation], timeout: 10)
 
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
     }

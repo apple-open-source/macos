@@ -1,0 +1,39 @@
+.. -*- mode: rst -*-
+.. vim:ft=rst
+
+.. _changelog:
+
+bdist_mpkg Development Changelog
+--------------------------------
+
+A utility to make OSX `mpkg` installers from Python packages via distutils.
+
+The full VCS changelog is available here:
+
+  http://github.com/matthew-brett/bdist_mpkg/commits/master
+
+Releases
+~~~~~~~~
+
+Most of the code comes from the original version by Bob Ippolito.
+
+Ronald Oussoren did some cleanup of Bob's code.
+
+Matthew Brett brought it over to github and ported it to Python 3.
+
+* 0.5.0
+
+  * Added option to install scripts to sys.prefix rather than /usr/local for
+    framework builds.
+  * Add new command ``reown_mpkg`` to recursively change permissions of the
+    installed files in an already-built mpkg installer.  This is useful when
+    doing automated creation of mpkg installers with accounts that do not have
+    administrator permissions.
+  * Python 3 compatibility
+  * Some tests
+  * Minor code cleanups
+  * Don't replace ``-`` with ``_`` in package names (Ralf Gommers)
+
+* 0.4.4
+
+  * Previous released version corresponding to commit ``ed6ec04`

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024 Klara, Inc.
+ * Copyright (c) 2024, Klara, Inc.
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -42,6 +42,12 @@ struct daemon_refused {
 	size_t			 refused_loptsz;
 };
 
+enum daemon_state : unsigned char {
+	DSTATE_INIT,
+	DSTATE_CLIENT_CONTROL,
+	DSTATE_RUNNING,
+};
+
 struct daemon_role {
 	struct role		 role;
 	char			 client_host[NI_MAXHOST]; /* hostname */
@@ -50,6 +56,7 @@ struct daemon_role {
 	char			*auth_user;	/* (f) auth user */
 	const char		*cfg_file;	/* (c) daemon config file */
 	char			*motd_file;	/* (f) client motd */
+	const char		*module;	/* (c) module */
 	const char		*module_path;	/* (c) module path */
 	struct daemon_cfg	*dcfg;		/* (f) daemon config */
 	const char		*pid_file;	/* (c) daemon pidfile path */
@@ -60,15 +67,18 @@ struct daemon_role {
 	id_t			 uid;		/* setuid if root */
 	id_t			 gid;		/* setgid if root */
 	int			 client;
-	bool			 client_control;
+	enum daemon_state	 dstate;
 	bool			 do_setid;	/* do setuid/setgid */
 	struct daemon_refused	 refused;
+	bool			 using_logfile;	/* "log file" specified */
+	bool			 socket_initiator;	/* socket-initiated */
 };
 
 int	daemon_apply_chmod(struct sess *, const char *, struct opts *);
 int	daemon_apply_chrootopts(struct sess *, const char *, struct opts *,
 	    int);
 int	daemon_apply_ignoreopts(struct sess *, const char *, struct opts *);
+int	daemon_apply_xferlog(struct sess *, const char *, struct opts *);
 int	daemon_chuser_setup(struct sess *, const char *);
 int	daemon_chuser(struct sess *, const char *);
 void	daemon_client_error(struct sess *, const char *, ...);
@@ -76,6 +86,7 @@ int	daemon_configure_filters(struct sess *, const char *);
 int	daemon_connection_allowed(struct sess *, const char *);
 int	daemon_connection_limited(struct sess *, const char *);
 int	daemon_do_execcmds(struct sess *, const char *);
+int	daemon_finish_handshake(struct sess *);
 int	daemon_finish_prexfer(struct sess *, const char *, const char *,
 	    size_t);
 int	daemon_fill_hostinfo(struct sess *, const char *,
@@ -84,7 +95,7 @@ int	daemon_install_symlink_filter(struct sess *, const char *, int);
 int	daemon_limit_verbosity(struct sess *, const char *);
 void	daemon_normalize_path(const char *, size_t, char *);
 void	daemon_normalize_paths(const char *, int, char *[]);
-int	daemon_open_logfile(const char *, bool);
+int	daemon_open_logfile(struct sess *, const char *, bool);
 int	daemon_operation_allowed(struct sess *, const struct opts *,
 	    const char *, int);
 int	daemon_parse_refuse(struct sess *, const char *);

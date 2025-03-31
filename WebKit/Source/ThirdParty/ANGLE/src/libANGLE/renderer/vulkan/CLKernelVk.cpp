@@ -5,15 +5,21 @@
 //
 // CLKernelVk.cpp: Implements the class methods for CLKernelVk.
 
-#include "libANGLE/renderer/vulkan/CLKernelVk.h"
+#include "common/PackedEnums.h"
+
 #include "libANGLE/renderer/vulkan/CLContextVk.h"
 #include "libANGLE/renderer/vulkan/CLDeviceVk.h"
+#include "libANGLE/renderer/vulkan/CLKernelVk.h"
+#include "libANGLE/renderer/vulkan/CLMemoryVk.h"
 #include "libANGLE/renderer/vulkan/CLProgramVk.h"
+#include "libANGLE/renderer/vulkan/vk_wrapper.h"
 
+#include "libANGLE/CLBuffer.h"
 #include "libANGLE/CLContext.h"
 #include "libANGLE/CLKernel.h"
 #include "libANGLE/CLProgram.h"
 #include "libANGLE/cl_utils.h"
+#include "spirv/unified1/NonSemanticClspvReflection.h"
 
 namespace rx
 {
@@ -27,7 +33,8 @@ CLKernelVk::CLKernelVk(const cl::Kernel &kernel,
       mContext(&kernel.getProgram().getContext().getImpl<CLContextVk>()),
       mName(name),
       mAttributes(attributes),
-      mArgs(args)
+      mArgs(args),
+      mPODUniformBuffer(nullptr)
 {
     mShaderProgramHelper.setShader(gl::ShaderType::Compute,
                                    mKernel.getProgram().getImpl<CLProgramVk>().getShaderModule());
@@ -35,17 +42,120 @@ CLKernelVk::CLKernelVk(const cl::Kernel &kernel,
 
 CLKernelVk::~CLKernelVk()
 {
-    for (auto &dsLayouts : mDescriptorSetLayouts)
+    mComputePipelineCache.destroy(mContext);
+    mShaderProgramHelper.destroy(mContext->getRenderer());
+
+    if (mPODUniformBuffer)
     {
-        dsLayouts.reset();
+        // mPODUniformBuffer assignment will make newly created buffer
+        // return refcount of 2, so need to release by 1
+        mPODUniformBuffer->release();
+    }
+}
+
+angle::Result CLKernelVk::init()
+{
+    vk::DescriptorSetLayoutDesc &descriptorSetLayoutDesc =
+        mDescriptorSetLayoutDescs[DescriptorSetIndex::KernelArguments];
+    VkPushConstantRange pcRange = mProgram->getDeviceProgramData(mName.c_str())->pushConstRange;
+    mPodBufferSize              = 0;
+
+    bool podFound = false;
+    for (const auto &arg : getArgs())
+    {
+        VkDescriptorType descType = VK_DESCRIPTOR_TYPE_MAX_ENUM;
+        switch (arg.type)
+        {
+            case NonSemanticClspvReflectionArgumentStorageBuffer:
+                descType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+                break;
+            case NonSemanticClspvReflectionArgumentUniform:
+            case NonSemanticClspvReflectionArgumentPointerUniform:
+                descType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+                break;
+            case NonSemanticClspvReflectionArgumentPodUniform:
+            case NonSemanticClspvReflectionArgumentPodStorageBuffer:
+            {
+                uint32_t newPodBufferSize = arg.podStorageBufferOffset + arg.podStorageBufferSize;
+                mPodBufferSize =
+                    newPodBufferSize > mPodBufferSize ? newPodBufferSize : mPodBufferSize;
+                if (podFound)
+                {
+                    continue;
+                }
+                descType = arg.type == NonSemanticClspvReflectionArgumentPodUniform
+                               ? VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER
+                               : VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+                podFound = true;
+                break;
+            }
+            case NonSemanticClspvReflectionArgumentPodPushConstant:
+                // Get existing push constant range and see if we need to update
+                if (arg.pushConstOffset + arg.pushConstantSize > pcRange.offset + pcRange.size)
+                {
+                    pcRange.size = arg.pushConstOffset + arg.pushConstantSize - pcRange.offset;
+                }
+                continue;
+            case NonSemanticClspvReflectionArgumentSampledImage:
+                descType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
+                break;
+            case NonSemanticClspvReflectionArgumentStorageImage:
+                descType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+                break;
+            case NonSemanticClspvReflectionArgumentSampler:
+                descType = VK_DESCRIPTOR_TYPE_SAMPLER;
+                break;
+            case NonSemanticClspvReflectionArgumentStorageTexelBuffer:
+                descType = VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER;
+                break;
+            case NonSemanticClspvReflectionArgumentUniformTexelBuffer:
+                descType = VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER;
+                break;
+            default:
+                continue;
+        }
+        if (descType != VK_DESCRIPTOR_TYPE_MAX_ENUM)
+        {
+            descriptorSetLayoutDesc.addBinding(arg.descriptorBinding, descType, 1,
+                                               VK_SHADER_STAGE_COMPUTE_BIT, nullptr);
+        }
     }
 
-    mPipelineLayout.reset();
-    for (auto &pipelineHelper : mComputePipelineCache)
+    if (usesPrintf())
     {
-        pipelineHelper.destroy(mContext->getDevice());
+        mDescriptorSetLayoutDescs[DescriptorSetIndex::Printf].addBinding(
+            mProgram->getDeviceProgramData(mName.c_str())
+                ->reflectionData.printfBufferStorage.binding,
+            VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr);
     }
-    mShaderProgramHelper.destroy(mContext->getRenderer());
+
+    // Get pipeline layout from cache (creates if missed)
+    // A given kernel need not have resulted in use of all the descriptor sets. Unless the
+    // graphicsPipelineLibrary extension is supported, the pipeline layout need all the descriptor
+    // set layouts to be valide. So set them up in the order of their occurrence.
+    mPipelineLayoutDesc = {};
+    for (DescriptorSetIndex index : angle::AllEnums<DescriptorSetIndex>())
+    {
+        if (!mDescriptorSetLayoutDescs[index].empty())
+        {
+            mPipelineLayoutDesc.updateDescriptorSetLayout(index, mDescriptorSetLayoutDescs[index]);
+        }
+    }
+
+    // push constant setup
+    // push constant size must be multiple of 4
+    pcRange.size = roundUpPow2(pcRange.size, 4u);
+    // set the pod arguments data to this size
+    mPodArgumentsData.resize(pcRange.size);
+
+    // push constant offset must be multiple of 4, round down to ensure this
+    pcRange.offset = roundDownPow2(pcRange.offset, 4u);
+
+    mPipelineLayoutDesc.updatePushConstantRange(pcRange.stageFlags, pcRange.offset, pcRange.size);
+
+    // initialize the descriptor pools
+    // descriptor pools are setup as per their indices
+    return initializeDescriptorPools();
 }
 
 angle::Result CLKernelVk::setArg(cl_uint argIndex, size_t argSize, const void *argValue)
@@ -55,6 +165,47 @@ angle::Result CLKernelVk::setArg(cl_uint argIndex, size_t argSize, const void *a
     {
         arg.handle     = const_cast<void *>(argValue);
         arg.handleSize = argSize;
+
+        // For POD data, copy the contents as the app is free to delete the contents post this call.
+        if (arg.type == NonSemanticClspvReflectionArgumentPodPushConstant && argSize > 0 &&
+            argValue != nullptr)
+        {
+            ASSERT(mPodArgumentsData.size() >= arg.pushConstantSize + arg.pushConstOffset);
+            memcpy(&mPodArgumentsData[arg.pushConstOffset], argValue, argSize);
+        }
+
+        if ((arg.type == NonSemanticClspvReflectionArgumentPodUniform ||
+             arg.type == NonSemanticClspvReflectionArgumentPodStorageBuffer) &&
+            argSize > 0 && argValue != nullptr)
+        {
+            ASSERT(mPodBufferSize >= argSize + arg.podUniformOffset);
+            if (!mPODUniformBuffer)
+            {
+                mPODUniformBuffer =
+                    cl::MemoryPtr(cl::Buffer::Cast(this->mContext->getFrontendObject().createBuffer(
+                        nullptr, cl::MemFlags(CL_MEM_READ_ONLY), mPodBufferSize, nullptr)));
+            }
+            ANGLE_TRY(mPODUniformBuffer->getImpl<CLBufferVk>().copyFrom(
+                argValue, arg.podStorageBufferOffset, argSize));
+        }
+
+        if (arg.type == NonSemanticClspvReflectionArgumentWorkgroup)
+        {
+            mSpecConstants.push_back(
+                KernelSpecConstant{.ID   = arg.workgroupSpecId,
+                                   .data = static_cast<uint32_t>(argSize / arg.workgroupSize)});
+        }
+
+        if (arg.type == NonSemanticClspvReflectionArgumentUniform ||
+            arg.type == NonSemanticClspvReflectionArgumentStorageBuffer ||
+            arg.type == NonSemanticClspvReflectionArgumentStorageImage ||
+            arg.type == NonSemanticClspvReflectionArgumentSampledImage ||
+            arg.type == NonSemanticClspvReflectionArgumentUniformTexelBuffer ||
+            arg.type == NonSemanticClspvReflectionArgumentStorageTexelBuffer)
+        {
+            ASSERT(argSize == sizeof(cl_mem *));
+            arg.handle = *static_cast<const cl_mem *>(argValue);
+        }
     }
 
     return angle::Result::Continue;
@@ -118,71 +269,118 @@ angle::Result CLKernelVk::createInfo(CLKernelImpl::Info *info) const
 angle::Result CLKernelVk::getOrCreateComputePipeline(vk::PipelineCacheAccess *pipelineCache,
                                                      const cl::NDRange &ndrange,
                                                      const cl::Device &device,
-                                                     vk::PipelineHelper **pipelineOut,
-                                                     cl::WorkgroupCount *workgroupCountOut)
+                                                     vk::PipelineHelper **pipelineOut)
 {
-    uint32_t constantDataOffset = 0;
-    angle::FixedVector<size_t, 3> specConstantData;
-    angle::FixedVector<VkSpecializationMapEntry, 3> mapEntries;
     const CLProgramVk::DeviceProgramData *devProgramData =
         getProgram()->getDeviceProgramData(device.getNative());
     ASSERT(devProgramData != nullptr);
 
-    // Start with Workgroup size (WGS) from kernel attribute (if available)
-    cl::WorkgroupSize workgroupSize = devProgramData->getCompiledWorkgroupSize(getKernelName());
-
-    if (workgroupSize == kEmptyWorkgroupSize)
+    // Populate program specialization constants (if any)
+    uint32_t constantDataOffset = 0;
+    std::vector<uint32_t> specConstantData;
+    std::vector<VkSpecializationMapEntry> mapEntries;
+    for (const auto specConstantUsed : devProgramData->reflectionData.specConstantsUsed)
     {
-        if (ndrange.nullLocalWorkSize)
+        switch (specConstantUsed)
         {
-            // NULL value was passed, in which case the OpenCL implementation will determine
-            // how to be break the global work-items into appropriate work-group instances.
-            workgroupSize = device.getImpl<CLDeviceVk>().selectWorkGroupSize(ndrange);
+            case SpecConstantType::WorkDimension:
+                specConstantData.push_back(ndrange.workDimensions);
+                break;
+            case SpecConstantType::WorkgroupSizeX:
+                specConstantData.push_back(ndrange.localWorkSize[0]);
+                break;
+            case SpecConstantType::WorkgroupSizeY:
+                specConstantData.push_back(ndrange.localWorkSize[1]);
+                break;
+            case SpecConstantType::WorkgroupSizeZ:
+                specConstantData.push_back(ndrange.localWorkSize[2]);
+                break;
+            case SpecConstantType::GlobalOffsetX:
+                specConstantData.push_back(ndrange.globalWorkOffset[0]);
+                break;
+            case SpecConstantType::GlobalOffsetY:
+                specConstantData.push_back(ndrange.globalWorkOffset[1]);
+                break;
+            case SpecConstantType::GlobalOffsetZ:
+                specConstantData.push_back(ndrange.globalWorkOffset[2]);
+                break;
+            default:
+                UNIMPLEMENTED();
+                continue;
         }
-        else
-        {
-            // Local work size (LWS) was valid, use that as WGS
-            workgroupSize = ndrange.localWorkSize;
-        }
-
-        // If at least one of the kernels does not use the reqd_work_group_size attribute, the
-        // Vulkan SPIR-V produced by the compiler will contain specialization constants
-        const std::array<uint32_t, 3> &specConstantWorkgroupSizeIDs =
-            devProgramData->reflectionData.specConstantWorkgroupSizeIDs;
-        ASSERT(ndrange.workDimensions <= 3);
-        for (cl_uint i = 0; i < ndrange.workDimensions; ++i)
-        {
-            mapEntries.push_back(
-                VkSpecializationMapEntry{.constantID = specConstantWorkgroupSizeIDs.at(i),
-                                         .offset     = constantDataOffset,
-                                         .size       = sizeof(uint32_t)});
-            constantDataOffset += sizeof(uint32_t);
-            specConstantData.push_back(workgroupSize[i]);
-        }
+        mapEntries.push_back(VkSpecializationMapEntry{
+            .constantID = devProgramData->reflectionData.specConstantIDs[specConstantUsed],
+            .offset     = constantDataOffset,
+            .size       = sizeof(uint32_t)});
+        constantDataOffset += sizeof(uint32_t);
     }
-
-    // Calculate the workgroup count
-    // TODO: Add support for non-uniform WGS
-    // http://angleproject:8631
-    ASSERT(workgroupSize[0] != 0);
-    ASSERT(workgroupSize[1] != 0);
-    ASSERT(workgroupSize[2] != 0);
-    (*workgroupCountOut)[0] = static_cast<uint32_t>((ndrange.globalWorkSize[0] / workgroupSize[0]));
-    (*workgroupCountOut)[1] = static_cast<uint32_t>((ndrange.globalWorkSize[1] / workgroupSize[1]));
-    (*workgroupCountOut)[2] = static_cast<uint32_t>((ndrange.globalWorkSize[2] / workgroupSize[2]));
-
+    // Populate kernel specialization constants (if any)
+    for (const auto &specConstant : mSpecConstants)
+    {
+        specConstantData.push_back(specConstant.data);
+        mapEntries.push_back(VkSpecializationMapEntry{
+            .constantID = specConstant.ID, .offset = constantDataOffset, .size = sizeof(uint32_t)});
+        constantDataOffset += sizeof(uint32_t);
+    }
     VkSpecializationInfo computeSpecializationInfo{
         .mapEntryCount = static_cast<uint32_t>(mapEntries.size()),
         .pMapEntries   = mapEntries.data(),
-        .dataSize      = specConstantData.size() * sizeof(specConstantData[0]),
+        .dataSize      = specConstantData.size() * sizeof(uint32_t),
         .pData         = specConstantData.data(),
     };
 
     // Now get or create (on compute pipeline cache miss) compute pipeline and return it
+    vk::ComputePipelineOptions options = vk::GetComputePipelineOptions(
+        vk::PipelineRobustness::NonRobust, vk::PipelineProtectedAccess::Unprotected);
     return mShaderProgramHelper.getOrCreateComputePipeline(
-        mContext, &mComputePipelineCache, pipelineCache, getPipelineLayout().get(),
-        vk::ComputePipelineOptions{}, PipelineSource::Draw, pipelineOut, mName.c_str(),
-        &computeSpecializationInfo);
+        mContext, &mComputePipelineCache, pipelineCache, getPipelineLayout(), options,
+        PipelineSource::Draw, pipelineOut, mName.c_str(), &computeSpecializationInfo);
 }
 
+bool CLKernelVk::usesPrintf() const
+{
+    return mProgram->getDeviceProgramData(mName.c_str())->getKernelFlags(mName) &
+           NonSemanticClspvReflectionMayUsePrintf;
+}
+
+angle::Result CLKernelVk::initializeDescriptorPools()
+{
+    for (DescriptorSetIndex index : angle::AllEnums<DescriptorSetIndex>())
+    {
+        if (!mDescriptorSetLayoutDescs[index].empty())
+        {
+            ANGLE_TRY(mContext->getMetaDescriptorPool().bindCachedDescriptorPool(
+                mContext, mDescriptorSetLayoutDescs[index], 1,
+                mContext->getDescriptorSetLayoutCache(), &mDynamicDescriptorPools[index]));
+        }
+    }
+    return angle::Result::Continue;
+}
+
+angle::Result CLKernelVk::allocateDescriptorSet(
+    DescriptorSetIndex index,
+    angle::EnumIterator<DescriptorSetIndex> layoutIndex,
+    vk::OutsideRenderPassCommandBufferHelper *computePassCommands)
+{
+    if (mDescriptorSets[index] && mDescriptorSets[index]->valid())
+    {
+        if (mDescriptorSets[index]->usedByCommandBuffer(computePassCommands->getQueueSerial()))
+        {
+            mDescriptorSets[index].reset();
+        }
+        else
+        {
+            return angle::Result::Continue;
+        }
+    }
+
+    if (mDynamicDescriptorPools[index]->valid())
+    {
+        ANGLE_TRY(mDynamicDescriptorPools[index]->allocateDescriptorSet(
+            mContext, *mDescriptorSetLayouts[*layoutIndex], &mDescriptorSets[index]));
+        computePassCommands->retainResource(mDescriptorSets[index].get());
+    }
+
+    return angle::Result::Continue;
+}
 }  // namespace rx

@@ -100,7 +100,7 @@ bool TrackBuffer::updateMinimumUpcomingPresentationTime()
     return true;
 }
 
-bool TrackBuffer::reenqueueMediaForTime(const MediaTime& time, const MediaTime& timeFudgeFactor)
+bool TrackBuffer::reenqueueMediaForTime(const MediaTime& time, const MediaTime& timeFudgeFactor, bool isEnded)
 {
     m_decodeQueue.clear();
 
@@ -108,14 +108,27 @@ bool TrackBuffer::reenqueueMediaForTime(const MediaTime& time, const MediaTime& 
     m_lastEnqueuedDecodeKey = { MediaTime::invalidTime(), MediaTime::invalidTime() };
     m_enqueueDiscontinuityBoundary = time + m_discontinuityTolerance;
 
+    if (m_samples.empty())
+        return false;
+
     // Find the sample which contains the current presentation time.
     auto currentSamplePTSIterator = m_samples.presentationOrder().findSampleContainingPresentationTime(time);
 
-    if (currentSamplePTSIterator == m_samples.presentationOrder().end())
-        currentSamplePTSIterator = m_samples.presentationOrder().findSampleStartingOnOrAfterPresentationTime(time);
+    // Find the next sample, so long as its presentation start time is within the timeFudgeFactor.
+    if (currentSamplePTSIterator == m_samples.presentationOrder().end()) {
+        auto nextSampleIterator = m_samples.presentationOrder().findSampleStartingOnOrAfterPresentationTime(time);
+        if ((nextSampleIterator->first - time) <= timeFudgeFactor)
+            currentSamplePTSIterator = nextSampleIterator;
+    }
 
-    if (currentSamplePTSIterator == m_samples.presentationOrder().end()
-        || (currentSamplePTSIterator->first - time) > timeFudgeFactor)
+    // Find the last sample, so long as the track is ended, and the presentation time is after the last sample.
+    if (currentSamplePTSIterator == m_samples.presentationOrder().end() && isEnded) {
+        auto lastSampleIterator = std::prev(currentSamplePTSIterator);
+        if (time >= lastSampleIterator->second->presentationEndTime())
+            currentSamplePTSIterator = lastSampleIterator;
+    }
+
+    if (currentSamplePTSIterator == m_samples.presentationOrder().end())
         return false;
 
     // Search backward for the previous sync sample.
@@ -398,7 +411,7 @@ void TrackBuffer::setRoundedTimestampOffset(const MediaTime& time, uint32_t time
 }
 
 #if !RELEASE_LOG_DISABLED
-void TrackBuffer::setLogger(const Logger& newLogger, const void* newLogIdentifier)
+void TrackBuffer::setLogger(const Logger& newLogger, uint64_t newLogIdentifier)
 {
     m_logger = &newLogger;
     m_logIdentifier = childLogIdentifier(newLogIdentifier, cryptographicallyRandomNumber<uint32_t>());

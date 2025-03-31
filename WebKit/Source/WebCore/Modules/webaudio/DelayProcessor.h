@@ -46,7 +46,13 @@ public:
     double maxDelayTime() { return delayTime().maxValue(); }
 
 private:
+    Type processorType() const final { return Type::Delay; }
+
     Ref<AudioParam> m_delayTime;
 };
 
 } // namespace WebCore
+
+SPECIALIZE_TYPE_TRAITS_BEGIN(WebCore::DelayProcessor) \
+    static bool isType(const WebCore::AudioProcessor& processor) { return processor.processorType() == WebCore::AudioProcessor::Type::Delay; } \
+SPECIALIZE_TYPE_TRAITS_END()

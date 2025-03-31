@@ -51,7 +51,10 @@ public:
     }
 
     struct const_iterator {
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
         const_iterator& operator++() { ++it; return *this; }
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
+
         auto operator*() const { return transform(*it); }
 
         bool operator==(const const_iterator& other) const { return it == other.it; }
@@ -474,6 +477,40 @@ template<> struct OperatorExecutor<Sign> {
         if (a < 0)
             return -1;
         return a;
+    }
+};
+
+template<> struct OperatorExecutor<Progress> {
+    double operator()(double progress, double from, double to)
+    {
+        // (progress value - start value) / (end value - start value)
+        return (progress - from) / (to - from);
+    }
+};
+
+template<> struct OperatorExecutor<Random> {
+    double operator()(double randomUnitInterval, double min, double max, std::optional<double> step)
+    {
+        if (!std::isfinite(min) || !std::isfinite(max))
+            return std::numeric_limits<double>::quiet_NaN();
+        if (max <= min)
+            return min;
+
+        if (!step)
+            return min + ((max - min) * randomUnitInterval);
+
+        if (std::isnan(*step))
+            return std::numeric_limits<double>::quiet_NaN();
+        if (std::isinf(*step) || *step <= 0)
+            return min;
+
+        auto stepValue = *step;
+        auto multiples = std::floor(((max - min) / stepValue) + 1.0);
+        auto multiplePicked = std::floor(multiples * randomUnitInterval);
+        auto result = min + (multiplePicked * stepValue);
+        if (result > max)
+            return result - stepValue;
+        return result;
     }
 };
 

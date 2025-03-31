@@ -42,6 +42,26 @@ namespace WebCore {
 
 WTF_MAKE_TZONE_ALLOCATED_IMPL(AffineTransform);
 
+AffineTransform AffineTransform::makeRotation(double angleInDegrees, FloatPoint center)
+{
+    if (center.isZero())
+        return makeRotation(angleInDegrees);
+
+    auto centerSize = toFloatSize(center);
+    auto matrix = makeTranslation(centerSize);
+    matrix.rotate(angleInDegrees);
+    matrix.translate(-centerSize);
+    return matrix;
+}
+
+AffineTransform AffineTransform::makeRotation(double angleInDegrees)
+{
+    auto angleInRadians = deg2rad(angleInDegrees);
+    double cosAngle = cos(angleInRadians);
+    double sinAngle = sin(angleInRadians);
+    return AffineTransform { cosAngle, sinAngle, -sinAngle, cosAngle, 0, 0 };
+}
+
 void AffineTransform::makeIdentity()
 {
     setMatrix(1, 0, 0, 1, 0, 0);

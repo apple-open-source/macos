@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2024 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2025 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -69,6 +69,22 @@ S_ifmediareq_get_is_wireless(struct ifmediareq * ifmr_p);
 STATIC link_status_t
 S_ifmediareq_get_link_status(struct ifmediareq * ifmr_p);
 
+STATIC int
+log_level_for_errno(int error)
+{
+    int	level;
+
+    switch (error) {
+    case ENXIO:
+    case EINVAL:
+	level = LOG_DEBUG;
+	break;
+    default:
+	level = LOG_NOTICE;
+	break;
+    }
+    return (level);
+}
 #if !NO_SYSTEMCONFIGURATION
 STATIC uint8_t
 S_interface_get_flags(const char * ifname)
@@ -81,6 +97,13 @@ S_interface_get_flags(const char * ifname)
 					  kCFStringEncodingUTF8);
     netif = _SCNetworkInterfaceCreateWithBSDName(NULL, ifname_cf, 0);
     if (netif != NULL) {
+	CFStringRef	type;
+
+	type = SCNetworkInterfaceGetInterfaceType(netif);
+	if (type != NULL && CFEqual(type, kSCNetworkInterfaceTypeIEEE80211)) {
+	    flags |= kInterfaceTypeFlagIsWireless
+		| kInterfaceTypeFlagIsWiFiInfra;
+	}
 	if (_SCNetworkInterfaceIsTetheredHotspot(netif)) {
 	    flags |= kInterfaceTypeFlagIsTethered;
 	}
@@ -151,72 +174,6 @@ count_ifaddrs(const struct ifaddrs * ifap)
     }
     return (count);
 }
-
-#if NO_SYSTEMCONFIGURATION || NO_WIRELESS
-
-static bool
-is_infra_wifi(const char * if_name)
-{
-    return (false);
-}
-
-#else /* NO_SYSTEMCONFIGURATION || NO_WIRELESS */
-
-#include <IOKit/IOKitLib.h>
-#include <IOKit/IOMessage.h>
-#include <IO80211/Apple80211API.h>
-#include <Kernel/IOKit/apple80211/apple80211_ioctl.h>
-
-static boolean_t
-is_infra_wifi(const char * if_name)
-{
-    CFStringRef		if_name_cf;
-    boolean_t 		is_infra = FALSE;
-    CFStringRef 	key = CFSTR(APPLE80211_REGKEY_INTERFACE_NAME);
-    CFDictionaryRef	match_dict;
-    CFDictionaryRef 	name_dict;
-    CFStringRef		role;
-    io_service_t 	service = MACH_PORT_NULL;
-
-    if_name_cf = CFStringCreateWithCString(NULL, if_name,
-					   kCFStringEncodingUTF8);
-    name_dict = CFDictionaryCreate(NULL,
-				   (const void * *)&key,
-				   (const void * *)&if_name_cf,
-				   1,
-				   &kCFTypeDictionaryKeyCallBacks,
-				   &kCFTypeDictionaryValueCallBacks);
-    CFRelease(if_name_cf);
-    key = CFSTR(kIOPropertyMatchKey);
-    match_dict = CFDictionaryCreate(NULL,
-				    (const void * *)&key,
-				    (const void * *)&name_dict,
-				    1,
-				    &kCFTypeDictionaryKeyCallBacks,
-				    &kCFTypeDictionaryValueCallBacks);
-    CFRelease(name_dict);
-
-    /* match_dict is released by IOServiceGetMatchingService :-( */
-    service = IOServiceGetMatchingService(kIOMainPortDefault, match_dict);
-    if (service == 0) {
-	goto done;
-    }
-    role = IORegistryEntryCreateCFProperty(service,
-					   CFSTR(APPLE80211_REGKEY_IF_ROLE),
-					   kCFAllocatorDefault, 0);
-    if (role != NULL) {
-	is_infra = (isA_CFString(role) != NULL)
-	    && CFEqual(role, CFSTR(APPLE80211_IF_ROLE_STR_INFRA));
-	CFRelease(role);
-    }
-    IOObjectRelease(service);
-
- done:
-    return (is_infra);
-}
-
-
-#endif /* NO_SYSTEMCONFIGURATION || NO_WIRELESS */
 
 #ifdef TEST_INTERFACE_CHANGES
 #include <sys/queue.h>
@@ -389,6 +346,7 @@ S_build_interface_list(interface_list_t * interfaces)
 	  }
 	  case AF_LINK: {
 	      struct sockaddr_dl * dl_p;
+	      uint64_t		eflags;
 	      interface_t *	entry;
 	      struct if_data *	if_data;
 		
@@ -432,34 +390,26 @@ S_build_interface_list(interface_list_t * interfaces)
 	      else {
 		  entry->type = dl_p->sdl_type;
 	      }
+	      eflags = S_get_eflags(s, name);
+	      if ((eflags & IFEF_AWDL) != 0) {
+		  entry->type_flags |= kInterfaceTypeFlagIsAWDL
+		      | kInterfaceTypeFlagIsWireless;
+	      }
+	      entry->is_expensive = (eflags & IFEF_EXPENSIVE) != 0;
 	      if (S_get_ifmediareq(s, name, &ifmr)) {
-		  if (entry->type == IFT_ETHER) {
-		      uint64_t	eflags;
-
-		      eflags = S_get_eflags(s, name);
-		      if ((eflags & IFEF_EXPENSIVE) != 0) {
-			  entry->type_flags |= kInterfaceTypeFlagIsExpensive;
-		      }
-		      if (S_ifmediareq_get_is_wireless(&ifmr)) {
-			  entry->type_flags |= kInterfaceTypeFlagIsWireless;
-			  if ((eflags & IFEF_AWDL) != 0) {
-			      entry->type_flags |= kInterfaceTypeFlagIsAWDL;
-			  }
-			  else if (is_infra_wifi(name)) {
-			      entry->type_flags |= kInterfaceTypeFlagIsWiFiInfra;
-			  }
-		      }
-		      else {
-			  uint8_t	flags;
-
-			  flags = S_interface_get_flags(name);
-			  if (flags != 0) {
-			      entry->type_flags |= flags;
-			  }
-		      }
-		  }
 		  entry->link_status
 		      = S_ifmediareq_get_link_status(&ifmr);
+		  if (S_ifmediareq_get_is_wireless(&ifmr)) {
+		      entry->type_flags |= kInterfaceTypeFlagIsWireless;
+		  }
+	      }
+	      if (entry->type == IFT_ETHER) {
+		  uint8_t	flags;
+
+		  flags = S_interface_get_flags(name);
+		  if (flags != 0) {
+		      entry->type_flags |= flags;
+		  }
 	      }
 	      break;
 	  }
@@ -755,7 +705,7 @@ if_inet_match_subnet(interface_t * if_p, struct in_addr match)
 PRIVATE_EXTERN void
 if_link_copy(interface_t * dest, const interface_t * source)
 {
-    dest->type_flags = source->type_flags;
+    dest->is_expensive = source->is_expensive;
     dest->link_status = source->link_status;
     dest->link_address = source->link_address;
     return;
@@ -918,7 +868,7 @@ if_is_carplay(interface_t * if_p)
 PRIVATE_EXTERN boolean_t
 if_is_expensive(interface_t * if_p)
 {
-    return ((if_p->type_flags & kInterfaceTypeFlagIsExpensive) != 0);
+    return (if_p->is_expensive);
 }
 
 PRIVATE_EXTERN const char *
@@ -1042,17 +992,16 @@ S_get_eflags(int sockfd, const char * name)
     struct ifreq	ifr;
 
     if (siocgifeflags(sockfd, &ifr, name) == -1) {
-	if (errno != ENXIO && errno != EPWROFF && errno != EINVAL) {
-	    my_log(LOG_NOTICE,
-		   "%s: SIOCGIFEFLAGS failed status, %s",
-		   name, strerror(errno));
-	}
+	my_log(log_level_for_errno(errno),
+	       "%s: SIOCGIFEFLAGS failed status, %s",
+	       name, strerror(errno));
     }
     else {
 	eflags = ifr.ifr_eflags;
     }
     return (eflags);
 }
+
 
 PRIVATE_EXTERN link_status_t
 if_link_status_update(interface_t * if_p)
@@ -1062,25 +1011,18 @@ if_link_status_update(interface_t * if_p)
 
     s = socket(AF_INET, SOCK_DGRAM, 0);
     if (s >= 0) {
-	uint16_t	eflags;
+	uint64_t	eflags;
 
 	if (S_get_ifmediareq(s, if_name(if_p), &ifmr) == FALSE) {
-	    if (errno != ENXIO && errno != EPWROFF && errno != EINVAL) {
-		my_log(LOG_NOTICE,
-		       "%s: failed to get media status, %s",
-		       if_name(if_p), strerror(errno));
-	    }
+	    my_log(log_level_for_errno(errno),
+		   "%s: failed to get media status, %s",
+		   if_name(if_p), strerror(errno));
 	}
 	else {
 	    if_p->link_status = S_ifmediareq_get_link_status(&ifmr);
 	}
 	eflags = S_get_eflags(s, if_name(if_p));
-	if ((eflags & IFEF_EXPENSIVE) != 0) {
-	    if_p->type_flags |= kInterfaceTypeFlagIsExpensive;
-	}
-	else {
-	    if_p->type_flags &= ~kInterfaceTypeFlagIsExpensive;
-	}
+	if_p->is_expensive = (eflags & IFEF_EXPENSIVE) != 0;
 	close(s);
     }
     return (if_p->link_status);

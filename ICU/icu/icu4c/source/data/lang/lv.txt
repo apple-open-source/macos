@@ -80,6 +80,7 @@ lv{
         bin{"binu"}
         bkm{"komu"}
         bla{"siksiku"}
+        blo{"anī"}
         bm{"bambaru"}
         bn{"bengāļu"}
         bo{"tibetiešu"}
@@ -295,6 +296,7 @@ lv{
         kv{"komiešu"}
         kw{"korniešu"}
         kwk{"kvakvala"}
+        kxv{"kuvi"}
         ky{"kirgīzu"}
         la{"latīņu"}
         lad{"ladino"}
@@ -305,8 +307,10 @@ lv{
         lez{"lezgīnu"}
         lg{"gandu"}
         li{"limburgiešu"}
+        lij{"ligūriešu"}
         lil{"lilluetu"}
         lkt{"lakotu"}
+        lmo{"lombardiešu"}
         ln{"lingala"}
         lo{"laosiešu"}
         lol{"mongu"}
@@ -319,7 +323,6 @@ lv{
         lua{"lubalulva"}
         lui{"luisenu"}
         lun{"lundu"}
-        luo{"luo"}
         lus{"lušeju"}
         luy{"luhju"}
         lv{"latviešu"}
@@ -338,7 +341,7 @@ lv{
         mfe{"Maurīcijas kreolu"}
         mg{"malagasu"}
         mga{"vidusīru"}
-        mgh{"makua"}
+        mgh{"makua-mīto"}
         mgo{"metu"}
         mh{"māršaliešu"}
         mi{"maoru"}
@@ -502,6 +505,7 @@ lv{
         swb{"komoru"}
         syc{"klasiskā sīriešu"}
         syr{"sīriešu"}
+        szl{"silēziešu"}
         ta{"tamilu"}
         tce{"dienvidtutčonu"}
         te{"telugu"}
@@ -550,7 +554,9 @@ lv{
         uz{"uzbeku"}
         vai{"vaju"}
         ve{"vendu"}
+        vec{"venēciešu"}
         vi{"vjetnamiešu"}
+        vmw{"makua"}
         vo{"volapiks"}
         vot{"votu"}
         vun{"vundžo"}
@@ -564,6 +570,7 @@ lv{
         wuu{"vu ķīniešu"}
         xal{"kalmiku"}
         xh{"khosu"}
+        xnr{"kangri"}
         xog{"sogu"}
         yao{"jao"}
         yap{"japiešu"}
@@ -766,7 +773,6 @@ lv{
             phonebook{"tālruņu grāmatas kārtošanas secība"}
             phonetic{"Fonētiskā kārtošanas secība"}
             pinyin{"piņjiņa kārtošanas secība"}
-            reformed{"Reformētā kārtošanas secība"}
             search{"vispārīga meklēšana"}
             searchjl{"Meklēt pēc Hangul sākuma līdzskaņa"}
             standard{"standarta kārtošanas secība"}

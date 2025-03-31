@@ -137,6 +137,7 @@
                 CKKSZoneStateEntry* ckse = [CKKSZoneStateEntry contextID:self.deps.contextID zoneName:viewState.zoneID.zoneName];
                 ckse.ckzonecreated = NO;
                 ckse.ckzonesubscribed = NO;
+                ckse.initialSyncFinished = NO;
 
                 [ckse saveToDatabase:&error];
                 if(error) {

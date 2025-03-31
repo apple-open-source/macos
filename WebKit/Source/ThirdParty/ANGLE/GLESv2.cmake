@@ -60,6 +60,7 @@ set(libangle_common_headers
     "src/common/matrix_utils.h"
     "src/common/platform.h"
     "src/common/platform_helpers.h"
+    "src/common/span.h"
     "src/common/string_utils.h"
     "src/common/system_utils.h"
     "src/common/tls.h"
@@ -253,15 +254,13 @@ set(libangle_headers
     "src/libANGLE/BlobCache.h"
     "src/libANGLE/Buffer.h"
     "src/libANGLE/Caps.h"
+    "src/libANGLE/CLBitField.h"
+    "src/libANGLE/CLRefPointer.h"
     "src/libANGLE/Compiler.h"
     "src/libANGLE/Config.h"
     "src/libANGLE/Constants.h"
     "src/libANGLE/Context.h"
     "src/libANGLE/Context.inl.h"
-    "src/libANGLE/Context_gl_1_autogen.h"
-    "src/libANGLE/Context_gl_2_autogen.h"
-    "src/libANGLE/Context_gl_3_autogen.h"
-    "src/libANGLE/Context_gl_4_autogen.h"
     "src/libANGLE/Context_gles_1_0_autogen.h"
     "src/libANGLE/Context_gles_2_0_autogen.h"
     "src/libANGLE/Context_gles_3_0_autogen.h"
@@ -327,8 +326,9 @@ set(libangle_headers
     "src/libANGLE/VertexAttribute.inc"
     "src/libANGLE/angletypes.h"
     "src/libANGLE/angletypes.inc"
-    "src/libANGLE/context_private_call_gles_autogen.h"
-    "src/libANGLE/context_private_call_gl_autogen.h"
+    "src/libANGLE/cl_types.h"
+    "src/libANGLE/context_private_call.inl.h"
+    "src/libANGLE/context_private_call_autogen.h"
     "src/libANGLE/entry_points_utils.cpp"
     "src/libANGLE/entry_points_utils.h"
     "src/libANGLE/features.h"
@@ -394,11 +394,8 @@ set(libangle_headers
     "src/libANGLE/validationES3_autogen.h"
     "src/libANGLE/validationESEXT.h"
     "src/libANGLE/validationESEXT_autogen.h"
-    "src/libANGLE/validationGL1_autogen.h"
-    "src/libANGLE/validationGL2_autogen.h"
-    "src/libANGLE/validationGL3_autogen.h"
-    "src/libANGLE/validationGL4_autogen.h"
     "src/common/base/anglebase/trace_event/trace_event.h"
+    "src/common/PackedCLEnums_autogen.h"
 )
 
 set(libangle_sources
@@ -459,10 +456,8 @@ set(libangle_sources
     "src/libANGLE/VertexArray.cpp"
     "src/libANGLE/VertexAttribute.cpp"
     "src/libANGLE/angletypes.cpp"
-    "src/libANGLE/context_private_call_gles.cpp"
     "src/libANGLE/es3_copy_conversion_table_autogen.cpp"
     "src/libANGLE/format_map_autogen.cpp"
-    "src/libANGLE/format_map_desktop.cpp"
     "src/libANGLE/formatutils.cpp"
     "src/libANGLE/gles_extensions_autogen.cpp"
     "src/libANGLE/queryconversions.cpp"
@@ -518,15 +513,6 @@ set(cl_includes
     "include/CL/cl_va_api_media_sharing_intel.h"
     "include/CL/cl_version.h"
     "include/CL/opencl.h"
-)
-
-set(libangle_gl_sources
-    "src/libANGLE/Context_gl.cpp"
-    "src/libANGLE/context_private_call_gl.cpp"
-    "src/libANGLE/validationGL1.cpp"
-    "src/libANGLE/validationGL2.cpp"
-    "src/libANGLE/validationGL3.cpp"
-    "src/libANGLE/validationGL4.cpp"
 )
 
 set(libangle_cl_headers
@@ -598,10 +584,6 @@ list(APPEND libangle_sources
     "src/common/gl_enum_utils_autogen.h"
     "src/libANGLE/capture/FrameCapture.h"
     "src/libANGLE/capture/capture_egl_autogen.h"
-    "src/libANGLE/capture/capture_gl_1_autogen.h"
-    "src/libANGLE/capture/capture_gl_2_autogen.h"
-    "src/libANGLE/capture/capture_gl_3_autogen.h"
-    "src/libANGLE/capture/capture_gl_4_autogen.h"
     "src/libANGLE/capture/capture_gles_1_0_autogen.h"
     "src/libANGLE/capture/capture_gles_2_0_autogen.h"
     "src/libANGLE/capture/capture_gles_3_0_autogen.h"
@@ -614,14 +596,6 @@ list(APPEND libangle_sources
 set(libangle_capture_sources
     "src/libANGLE/capture/FrameCapture.cpp"
     "src/libANGLE/capture/capture_egl_autogen.cpp"
-    "src/libANGLE/capture/capture_gl_1_autogen.cpp"
-    "src/libANGLE/capture/capture_gl_1_params.cpp"
-    "src/libANGLE/capture/capture_gl_2_autogen.cpp"
-    "src/libANGLE/capture/capture_gl_2_params.cpp"
-    "src/libANGLE/capture/capture_gl_3_autogen.cpp"
-    "src/libANGLE/capture/capture_gl_3_params.cpp"
-    "src/libANGLE/capture/capture_gl_4_autogen.cpp"
-    "src/libANGLE/capture/capture_gl_4_params.cpp"
     "src/libANGLE/capture/capture_gles_1_0_autogen.cpp"
     "src/libANGLE/capture/capture_gles_1_0_params.cpp"
     "src/libANGLE/capture/capture_gles_2_0_autogen.cpp"
@@ -667,17 +641,6 @@ set(libglesv2_sources
     "src/libGLESv2/proc_table_egl.h"
     "src/libGLESv2/proc_table_egl_autogen.cpp"
     "src/libGLESv2/resource.h"
-)
-
-set(libglesv2_gl_sources
-    "src/libGLESv2/entry_points_gl_1_autogen.cpp"
-    "src/libGLESv2/entry_points_gl_1_autogen.h"
-    "src/libGLESv2/entry_points_gl_2_autogen.cpp"
-    "src/libGLESv2/entry_points_gl_2_autogen.h"
-    "src/libGLESv2/entry_points_gl_3_autogen.cpp"
-    "src/libGLESv2/entry_points_gl_3_autogen.h"
-    "src/libGLESv2/entry_points_gl_4_autogen.cpp"
-    "src/libGLESv2/entry_points_gl_4_autogen.h"
 )
 
 set(libglesv2_cl_sources

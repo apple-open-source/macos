@@ -68,11 +68,6 @@ routine _DAServerDiskSetAdoption( _session  : mach_port_t;
                                   _adoption : boolean_t;
                  ServerAuditToken _token    : audit_token_t );
 
-routine _DAServerDiskSetEncoding( _session  : mach_port_t;
-                                  _disk     : ___caddr_t;
-                                  _encoding : int32_t;
-                 ServerAuditToken _token    : audit_token_t );
-
 routine _DAServerDiskSetOptions( _session : mach_port_t;
                                  _disk    : ___caddr_t;
                                  _options : int32_t;

@@ -40,6 +40,12 @@
 #define Webgpu_feature_status Preview
 #endif
 
+#if defined(ENABLE_WEBGPU_BY_DEFAULT) && ENABLE_WEBGPU_BY_DEFAULT && defined(ENABLE_WEBGPU_HDR_BY_DEFAULT) && ENABLE_WEBGPU_HDR_BY_DEFAULT
+#define Webgpuhdr_feature_status Stable
+#else
+#define Webgpuhdr_feature_status Preview
+#endif
+
 #if defined(ENABLE_WEBXR_WEBGPU_BY_DEFAULT) && ENABLE_WEBXR_WEBGPU_BY_DEFAULT && PLATFORM(VISION)
 #define Webxr_layers_feature_status Stable
 #else
@@ -52,7 +58,9 @@
 #define Webgpu_webxr_feature_status Unstable
 #endif
 
-#if defined(ENABLE_UNIFIED_PDF_AS_PREVIEW) && ENABLE_UNIFIED_PDF_AS_PREVIEW
+#if defined(ENABLE_UNIFIED_PDF_BY_DEFAULT) && ENABLE_UNIFIED_PDF_BY_DEFAULT
+#define Unifiedpdf_feature_status Mature
+#elif defined(ENABLE_UNIFIED_PDF_AS_PREVIEW) && ENABLE_UNIFIED_PDF_AS_PREVIEW
 #define Unifiedpdf_feature_status Preview
 #else
 #define Unifiedpdf_feature_status Internal
@@ -133,6 +141,8 @@ bool defaultGamepadVibrationActuatorEnabled();
 
 #if PLATFORM(IOS_FAMILY)
 bool defaultAutomaticLiveResizeEnabled();
+bool defaultVisuallyContiguousBidiTextSelectionEnabled();
+bool defaultBidiContentAwarePasteEnabled();
 #endif
 
 bool defaultRunningBoardThrottlingEnabled();
@@ -153,5 +163,13 @@ bool defaultUseSCContentSharingPicker();
 #if USE(LIBWEBRTC)
 bool defaultPeerConnectionEnabledAvailable();
 #endif
+
+#if ENABLE(WEB_PUSH_NOTIFICATIONS)
+bool defaultBuiltInNotificationsEnabled();
+#endif
+
+bool defaultRequiresPageVisibilityForVideoToBeNowPlaying();
+
+bool defaultCookieStoreAPIEnabled();
 
 } // namespace WebKit

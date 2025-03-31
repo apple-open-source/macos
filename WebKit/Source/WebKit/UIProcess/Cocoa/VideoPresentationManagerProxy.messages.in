@@ -21,6 +21,11 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #if ENABLE(VIDEO_PRESENTATION_MODE)
+[
+    DispatchedFrom=WebContent,
+    DispatchedTo=UI,
+    EnabledBy=VideoPresentationManagerEnabled || VideoPresentationModeAPIEnabled
+]
 messages -> VideoPresentationManagerProxy {
     SetHasVideo(WebKit::PlaybackSessionContextIdentifier contextId, bool hasVideo)
     SetDocumentVisibility(WebKit::PlaybackSessionContextIdentifier contextId, bool isDocumentVisible)

@@ -88,7 +88,10 @@ class FramebufferVk : public FramebufferImpl
     angle::Result getSamplePosition(const gl::Context *context,
                                     size_t index,
                                     GLfloat *xy) const override;
-    RenderTargetVk *getDepthStencilRenderTarget() const;
+    RenderTargetVk *getDepthStencilRenderTarget() const
+    {
+        return mRenderTargetCache.getDepthStencil();
+    }
 
     // Internal helper function for readPixels operations.
     angle::Result readPixelsImpl(ContextVk *contextVk,
@@ -99,12 +102,19 @@ class FramebufferVk : public FramebufferImpl
                                  void *pixels);
 
     gl::Extents getReadImageExtents() const;
-    gl::Rectangle getNonRotatedCompleteRenderArea() const;
+    // Return the framebuffer's non-rotated render area.  This is a gl::Rectangle that is based on
+    // the dimensions of the framebuffer, IS NOT rotated, and IS NOT y-flipped
+    gl::Rectangle getNonRotatedCompleteRenderArea() const
+    {
+        const gl::Box &dimensions = mState.getDimensions();
+        return gl::Rectangle(0, 0, dimensions.width, dimensions.height);
+    }
     gl::Rectangle getRotatedCompleteRenderArea(ContextVk *contextVk) const;
     gl::Rectangle getRotatedScissoredRenderArea(ContextVk *contextVk) const;
     // Returns render area with deferred clears in consideration. When deferred clear is used
     // in the render pass, the render area must cover the whole framebuffer.
     gl::Rectangle getRenderArea(ContextVk *contextVk) const;
+    uint32_t getLayerCount() const { return mCurrentFramebufferDesc.getLayerCount(); }
 
     const gl::DrawBufferMask &getEmulatedAlphaAttachmentMask() const;
     RenderTargetVk *getColorDrawRenderTarget(size_t colorIndexGL) const;
@@ -122,9 +132,12 @@ class FramebufferVk : public FramebufferImpl
     angle::Result getFramebuffer(ContextVk *contextVk, vk::RenderPassFramebuffer *framebufferOut);
 
     bool hasDeferredClears() const { return !mDeferredClears.empty(); }
-    angle::Result flushDeferredClears(ContextVk *contextVk);
+    bool hasDeferredDepthClear() const { return mDeferredClears.testDepth(); }
+    bool hasDeferredStencilClear() const { return mDeferredClears.testStencil(); }
+    angle::Result flushDepthStencilDeferredClear(ContextVk *contextVk,
+                                                 VkImageAspectFlagBits aspect);
 
-    void switchToFramebufferFetchMode(ContextVk *contextVk, bool hasFramebufferFetch);
+    void switchToColorFramebufferFetchMode(ContextVk *contextVk, bool hasColorFramebufferFetch);
 
     bool updateLegacyDither(ContextVk *contextVk);
 
@@ -175,7 +188,7 @@ class FramebufferVk : public FramebufferImpl
     // sparse to be placed in |RenderPassFramebuffer|, but the calling function will have to pack
     // them to match the render buffers before creating a framebuffer.
     angle::Result getAttachmentsAndRenderTargets(
-        vk::Context *context,
+        vk::ErrorContext *context,
         vk::FramebufferAttachmentsVector<VkImageView> *unpackedAttachments,
         vk::FramebufferAttachmentsVector<RenderTargetInfo> *packedRenderTargetsInfoOut);
 
@@ -239,6 +252,7 @@ class FramebufferVk : public FramebufferImpl
     void restageDeferredClears(ContextVk *contextVk);
     void restageDeferredClearsForReadFramebuffer(ContextVk *contextVk);
     void restageDeferredClearsImpl(ContextVk *contextVk);
+    angle::Result flushDeferredClears(ContextVk *contextVk);
     void clearWithCommand(ContextVk *contextVk,
                           const gl::Rectangle &scissoredRenderArea,
                           ClearWithCommand behavior,
@@ -247,6 +261,7 @@ class FramebufferVk : public FramebufferImpl
     void updateActiveColorMasks(size_t colorIndex, bool r, bool g, bool b, bool a);
     void updateRenderPassDesc(ContextVk *contextVk);
     angle::Result updateColorAttachment(const gl::Context *context, uint32_t colorIndex);
+    void updateColorAttachmentColorspace(gl::SrgbWriteControlMode srgbWriteControlMode);
     angle::Result updateDepthStencilAttachment(const gl::Context *context);
     void updateDepthStencilAttachmentSerial(ContextVk *contextVk);
     angle::Result flushColorAttachmentUpdates(const gl::Context *context,

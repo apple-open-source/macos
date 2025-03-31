@@ -593,9 +593,19 @@ static const OSSymbol * propagateProps[] = {kIOHIDPropagatePropertyKeys};
 IOReturn IOHIDEventService::setSystemProperties( OSDictionary * properties )
 {
     OSNumber *      number      = NULL;
+    OSString *      hidrmDeviceState      = NULL;
 
     if ( !properties )
         return kIOReturnBadArgument;
+    
+    hidrmDeviceState = OSDynamicCast(OSString, properties->getObject(kIOHIDRMDeviceStateKey));
+    if (hidrmDeviceState) {
+        setProperty(kIOHIDRMDeviceStateKey, hidrmDeviceState);
+        properties->removeObject(kIOHIDRMDeviceStateKey);
+        if(hidrmDeviceState->isEqualTo("Allowed")) {
+            registerService();
+        }
+    }
     
     if ( properties->getObject(kIOHIDDeviceParametersKey) == kOSBooleanTrue ) {
         OSObject *obj = copyProperty(kIOHIDEventServicePropertiesKey);

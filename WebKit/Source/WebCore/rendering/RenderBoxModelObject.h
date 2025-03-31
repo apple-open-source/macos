@@ -34,28 +34,22 @@ namespace WebCore {
 enum LinePositionMode { PositionOnContainingLine, PositionOfInteriorLineBoxes };
 enum LineDirectionMode { HorizontalLine, VerticalLine };
 
-enum BackgroundBleedAvoidance {
-    BackgroundBleedNone,
-    BackgroundBleedShrinkBackground,
-    BackgroundBleedUseTransparencyLayer,
-    BackgroundBleedBackgroundOverBorder
+enum class BleedAvoidance : uint8_t {
+    None,
+    ShrinkBackground,
+    UseTransparencyLayer,
+    BackgroundOverBorder
 };
 
-enum BaseBackgroundColorUsage {
-    BaseBackgroundColorUse,
-    BaseBackgroundColorOnly,
-    BaseBackgroundColorSkip
-};
-
-enum ContentChangeType {
-    ImageChanged,
-    MaskImageChanged,
-    BackgroundImageChanged,
-    CanvasChanged,
-    CanvasPixelsChanged,
-    VideoChanged,
-    FullScreenChanged,
-    ModelChanged
+enum class ContentChangeType : uint8_t {
+    Image,
+    MaskImage,
+    BackgroundIImage,
+    Canvas,
+    CanvasPixels,
+    Video,
+    FullScreen,
+    Model
 };
 
 class BorderEdge;
@@ -174,16 +168,20 @@ public:
     virtual LayoutUnit marginBottom() const = 0;
     virtual LayoutUnit marginLeft() const = 0;
     virtual LayoutUnit marginRight() const = 0;
-    virtual LayoutUnit marginBefore(const RenderStyle* otherStyle = nullptr) const = 0;
-    virtual LayoutUnit marginAfter(const RenderStyle* otherStyle = nullptr) const = 0;
-    virtual LayoutUnit marginStart(const RenderStyle* otherStyle = nullptr) const = 0;
-    virtual LayoutUnit marginEnd(const RenderStyle* otherStyle = nullptr) const = 0;
+    virtual LayoutUnit marginBefore(const WritingMode) const = 0;
+    virtual LayoutUnit marginAfter(const WritingMode) const = 0;
+    virtual LayoutUnit marginStart(const WritingMode) const = 0;
+    virtual LayoutUnit marginEnd(const WritingMode) const = 0;
+    LayoutUnit marginBefore() const { return marginBefore(writingMode()); }
+    LayoutUnit marginAfter() const { return marginAfter(writingMode()); }
+    LayoutUnit marginStart() const { return marginStart(writingMode()); }
+    LayoutUnit marginEnd() const { return marginEnd(writingMode()); }
     LayoutUnit verticalMarginExtent() const { return marginTop() + marginBottom(); }
     LayoutUnit horizontalMarginExtent() const { return marginLeft() + marginRight(); }
     LayoutUnit marginLogicalHeight() const { return marginBefore() + marginAfter(); }
     LayoutUnit marginLogicalWidth() const { return marginStart() + marginEnd(); }
 
-    BorderShape borderShapeForContentClipping(const LayoutRect& borderBoxRect, bool includeLeftEdge = true, bool includeRightEdge = true) const;
+    BorderShape borderShapeForContentClipping(const LayoutRect& borderBoxRect, RectEdges<bool> closedEdges = { true }) const;
 
     inline bool hasInlineDirectionBordersPaddingOrMargin() const;
     inline bool hasInlineDirectionBordersOrPadding() const;
@@ -198,7 +196,7 @@ public:
 
     void setSelectionState(HighlightState) override;
 
-    bool canHaveBoxInfoInFragment() const { return !isFloating() && !isReplacedOrInlineBlock() && !isInline() && !isRenderTableCell() && isRenderBlock() && !isRenderSVGBlock(); }
+    bool canHaveBoxInfoInFragment() const { return !isFloating() && !isReplacedOrAtomicInline() && !isInline() && !isRenderTableCell() && isRenderBlock() && !isRenderSVGBlock(); }
 
     void contentChanged(ContentChangeType);
     bool hasAcceleratedCompositing() const;
@@ -221,14 +219,13 @@ protected:
 
     void willBeDestroyed() override;
 
+    void styleWillChange(StyleDifference, const RenderStyle& newStyle) override;
+
     LayoutPoint adjustedPositionRelativeToOffsetParent(const LayoutPoint&) const;
 
     bool hasVisibleBoxDecorationStyle() const;
     bool borderObscuresBackgroundEdge(const FloatSize& contextScale) const;
     bool borderObscuresBackground() const;
-
-    enum class UpdatePercentageHeightDescendants : bool { No, Yes };
-    bool hasAutoHeightOrContainingBlockWithAutoHeight(UpdatePercentageHeightDescendants = UpdatePercentageHeightDescendants::Yes) const;
 
 public:
     bool fixedBackgroundPaintsInLocalCoordinates() const;

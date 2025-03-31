@@ -48,8 +48,8 @@ GST_DEBUG_CATEGORY(video_encoder_debug);
 #define MAX_WIDTH 4096
 #define MAX_HEIGHT 4096
 
-static GstStaticPadTemplate sinkTemplate = GST_STATIC_PAD_TEMPLATE("sink", GST_PAD_SINK, GST_PAD_ALWAYS, GST_STATIC_CAPS("video/x-raw(ANY)"));
-static GstStaticPadTemplate srcTemplate = GST_STATIC_PAD_TEMPLATE("src", GST_PAD_SRC, GST_PAD_ALWAYS, GST_STATIC_CAPS("video/x-h264;video/x-vp8;video/x-vp9;video/x-h265;video/x-av1"));
+static GstStaticPadTemplate encoderSinkTemplate = GST_STATIC_PAD_TEMPLATE("sink", GST_PAD_SINK, GST_PAD_ALWAYS, GST_STATIC_CAPS("video/x-raw(ANY)"));
+static GstStaticPadTemplate encoderSrcTemplate = GST_STATIC_PAD_TEMPLATE("src", GST_PAD_SRC, GST_PAD_ALWAYS, GST_STATIC_CAPS("video/x-h264;video/x-vp8;video/x-vp9;video/x-h265;video/x-av1"));
 
 // https://www.w3.org/TR/mediastream-recording/#bitratemode
 typedef enum {
@@ -157,7 +157,7 @@ public:
         }
 
         if (parserName) {
-            auto parserFactory = adoptGRef(gst_element_factory_find(parserName));
+            auto parserFactory = adoptGRef(gst_element_factory_find(parserName.characters()));
             if (!parserFactory) {
                 GST_WARNING("Parser %s is required for encoder %s. Skipping registration", parserName.characters(), name.characters());
                 return;
@@ -222,7 +222,6 @@ struct _WebKitVideoEncoderPrivate {
     double scaleResolutionDownBy;
 };
 
-#define webkit_video_encoder_parent_class parent_class
 WEBKIT_DEFINE_TYPE_WITH_CODE(WebKitVideoEncoder, webkit_video_encoder, GST_TYPE_BIN,
     GST_DEBUG_CATEGORY_INIT(video_encoder_debug, "webkitvideoencoderprivate", 0, "WebKit Video Encoder Private"))
 
@@ -251,7 +250,7 @@ static void videoEncoderGetProperty(GObject* object, guint propertyId, GValue* v
     case PROP_KEYFRAME_INTERVAL:
         if (priv->encoder) {
             auto encoder = Encoders::definition(priv->encoderId);
-            g_object_get_property(G_OBJECT(priv->encoder.get()), encoder->keyframeIntervalPropertyName, value);
+            g_object_get_property(G_OBJECT(priv->encoder.get()), encoder->keyframeIntervalPropertyName.characters(), value);
         }
         break;
     case PROP_BITRATE_MODE:
@@ -459,7 +458,7 @@ static bool videoEncoderSetEncoder(WebKitVideoEncoder* self, EncoderId encoderId
     return true;
 }
 
-EncoderId videoEncoderFindForFormat(WebKitVideoEncoder* self, const GRefPtr<GstCaps>& caps)
+EncoderId videoEncoderFindForFormat([[maybe_unused]] WebKitVideoEncoder* self, const GRefPtr<GstCaps>& caps)
 {
     if (!caps)
         return None;
@@ -486,44 +485,23 @@ EncoderId videoEncoderFindForFormat(WebKitVideoEncoder* self, const GRefPtr<GstC
     return candidates[0].first;
 }
 
-EncoderId videoEncoderFindForCodec(WebKitVideoEncoder* self, const String& codecName)
-{
-    ASCIILiteral gstCodec;
-    if (codecName == "vp8"_s || codecName == "vp08"_s)
-        gstCodec = "vp8"_s;
-    else if (codecName.startsWith("vp9"_s) || codecName.startsWith("vp09"_s))
-        gstCodec = "vp9"_s;
-    else if (codecName.startsWith("avc1"_s))
-        gstCodec = "h264"_s;
-    else if (codecName.startsWith("hvc1"_s) || codecName.startsWith("hev1"_s))
-        gstCodec = "h265"_s;
-    else if (codecName.startsWith("av01"_s))
-        gstCodec = "av1"_s;
-
-    if (gstCodec.isNull())
-        return None;
-
-    auto name = makeString("video/x-"_s, gstCodec);
-    auto caps = adoptGRef(gst_caps_new_empty_simple(name.ascii().data()));
-    return videoEncoderFindForFormat(self, caps);
-}
-
 bool videoEncoderSupportsCodec(WebKitVideoEncoder* self, const String& codecName)
 {
-    return videoEncoderFindForCodec(self, codecName) != None;
+    auto [_, outputCaps] = GStreamerCodecUtilities::capsFromCodecString(codecName);
+    return videoEncoderFindForFormat(self, outputCaps) != None;
 }
 
 bool videoEncoderSetCodec(WebKitVideoEncoder* self, const String& codecName, std::optional<IntSize> size, std::optional<double> frameRate)
 {
-    auto encoderId = videoEncoderFindForCodec(self, codecName);
+    auto [inputCaps, outputCaps] = GStreamerCodecUtilities::capsFromCodecString(codecName, size, frameRate);
+    GST_DEBUG_OBJECT(self, "Input caps: %" GST_PTR_FORMAT, inputCaps.get());
+    GST_DEBUG_OBJECT(self, "Output caps: %" GST_PTR_FORMAT, outputCaps.get());
+    auto encoderId = videoEncoderFindForFormat(self, outputCaps);
     if (encoderId == None) {
         GST_ERROR_OBJECT(self, "No encoder found for codec %s", codecName.ascii().data());
         return false;
     }
 
-    auto [inputCaps, outputCaps] = GStreamerCodecUtilities::capsFromCodecString(codecName, size, frameRate);
-    GST_DEBUG_OBJECT(self, "Input caps: %" GST_PTR_FORMAT, inputCaps.get());
-    GST_DEBUG_OBJECT(self, "Output caps: %" GST_PTR_FORMAT, outputCaps.get());
     return videoEncoderSetEncoder(self, encoderId, WTFMove(inputCaps), WTFMove(outputCaps));
 }
 
@@ -565,7 +543,7 @@ static void videoEncoderSetProperty(GObject* object, guint propertyId, const GVa
     case PROP_KEYFRAME_INTERVAL:
         if (priv->encoder) {
             auto encoder = Encoders::definition(priv->encoderId);
-            g_object_set(priv->encoder.get(), encoder->keyframeIntervalPropertyName, g_value_get_uint(value), nullptr);
+            g_object_set(priv->encoder.get(), encoder->keyframeIntervalPropertyName.characters(), g_value_get_uint(value), nullptr);
         }
         break;
     case PROP_BITRATE_MODE:
@@ -594,13 +572,13 @@ static void videoEncoderSetProperty(GObject* object, guint propertyId, const GVa
 static void setBitrateKbitPerSec(GObject* encoder, ASCIILiteral propertyName, int bitrate)
 {
     GST_INFO_OBJECT(encoder, "Setting bitrate to %d Kbits/sec", bitrate);
-    g_object_set(encoder, propertyName, bitrate, nullptr);
+    g_object_set(encoder, propertyName.characters(), bitrate, nullptr);
 }
 
 static void setBitrateBitPerSec(GObject* encoder, ASCIILiteral propertyName, int bitrate)
 {
     GST_INFO_OBJECT(encoder, "Setting bitrate to %d bits/sec", bitrate);
-    g_object_set(encoder, propertyName, bitrate * KBIT_TO_BIT, nullptr);
+    g_object_set(encoder, propertyName.characters(), bitrate * KBIT_TO_BIT, nullptr);
 }
 
 static GRefPtr<GstCaps> createSrcPadTemplateCaps()
@@ -620,7 +598,7 @@ static GRefPtr<GstCaps> createSrcPadTemplateCaps()
 
 static void videoEncoderConstructed(GObject* encoder)
 {
-    GST_CALL_PARENT(G_OBJECT_CLASS, constructed, (encoder));
+    G_OBJECT_CLASS(webkit_video_encoder_parent_class)->constructed(encoder);
 
     auto* self = WEBKIT_VIDEO_ENCODER(encoder);
     self->priv->encoderId = None;
@@ -628,7 +606,7 @@ static void videoEncoderConstructed(GObject* encoder)
     self->priv->bitrateMode = CONSTANT_BITRATE_MODE;
     self->priv->latencyMode = REALTIME_LATENCY_MODE;
 
-    auto* sinkPad = webkitGstGhostPadFromStaticTemplate(&sinkTemplate, "sink", nullptr);
+    auto* sinkPad = webkitGstGhostPadFromStaticTemplate(&encoderSinkTemplate, "sink", nullptr);
     GST_OBJECT_FLAG_SET(sinkPad, GST_PAD_FLAG_NEED_PARENT);
     gst_pad_set_event_function(sinkPad, reinterpret_cast<GstPadEventFunction>(+[](GstPad* pad, GstObject* parent, GstEvent* event) -> gboolean {
         if (GST_EVENT_TYPE(event) == GST_EVENT_CUSTOM_DOWNSTREAM_OOB) {
@@ -668,7 +646,7 @@ static void videoEncoderConstructed(GObject* encoder)
     }));
     gst_element_add_pad(GST_ELEMENT_CAST(self), sinkPad);
 
-    gst_element_add_pad(GST_ELEMENT_CAST(self), webkitGstGhostPadFromStaticTemplate(&srcTemplate, "src", nullptr));
+    gst_element_add_pad(GST_ELEMENT_CAST(self), webkitGstGhostPadFromStaticTemplate(&encoderSrcTemplate, "src", nullptr));
 }
 
 static void setupVaEncoder(WebKitVideoEncoder* self)
@@ -710,9 +688,9 @@ static void webkit_video_encoder_class_init(WebKitVideoEncoderClass* klass)
 
     GstElementClass* elementClass = GST_ELEMENT_CLASS(klass);
     gst_element_class_set_static_metadata(elementClass, "WebKit video encoder", "Codec/Encoder/Video", "Encodes video for streaming", "Igalia");
-    gst_element_class_add_pad_template(elementClass, gst_static_pad_template_get(&sinkTemplate));
+    gst_element_class_add_pad_template(elementClass, gst_static_pad_template_get(&encoderSinkTemplate));
 
-    Encoders::registerEncoder(OmxH264, "omxh264enc"_s, "h264parse"_s, "video/x-h264"_s, "video/x-h264,alignment=au,stream-format=byte-stream,profile=baseline"_s,
+    Encoders::registerEncoder(OmxH264, "omxh264enc"_s, "h264parse"_s, "video/x-h264"_s, "video/x-h264,alignment=au,stream-format=avc,profile=baseline"_s,
         [](WebKitVideoEncoder* self) {
             g_object_set(self->priv->parser.get(), "config-interval", 1, nullptr);
         }, "target-bitrate"_s, setBitrateBitPerSec, "interval-intraframes"_s, [](GstElement* encoder, BitrateMode mode) {
@@ -728,10 +706,21 @@ static void webkit_video_encoder_class_init(WebKitVideoEncoderClass* klass)
             notImplemented();
         });
     Encoders::registerEncoder(X264, "x264enc"_s, "h264parse"_s, "video/x-h264"_s,
-        "video/x-h264,alignment=au,stream-format=byte-stream"_s,
+        "video/x-h264,alignment=au,stream-format=avc"_s,
         [](WebKitVideoEncoder* self) {
             g_object_set(self->priv->encoder.get(), "key-int-max", 15, "threads", NUMBER_OF_THREADS, "b-adapt", FALSE, "vbv-buf-capacity", 120, nullptr);
             g_object_set(self->priv->parser.get(), "config-interval", 1, nullptr);
+
+            const auto& encodedCaps = self->priv->encodedCaps;
+            if (LIKELY(!gst_caps_is_any(encodedCaps.get()) && !gst_caps_is_empty(encodedCaps.get()))) {
+                auto structure = gst_caps_get_structure(encodedCaps.get(), 0);
+                auto profile = gstStructureGetString(structure, "profile"_s);
+
+                if (profile.findIgnoringASCIICase("high"_s) != notFound)
+                    gst_preset_load_preset(GST_PRESET(self->priv->encoder.get()), "Profile High");
+                else if (profile.findIgnoringASCIICase("main"_s) != notFound)
+                    gst_preset_load_preset(GST_PRESET(self->priv->encoder.get()), "Profile Main");
+            }
         }, "bitrate"_s, setBitrateKbitPerSec, "key-int-max"_s, [](GstElement* encoder, BitrateMode mode) {
             switch (mode) {
             case CONSTANT_BITRATE_MODE:
@@ -755,7 +744,7 @@ static void webkit_video_encoder_class_init(WebKitVideoEncoderClass* klass)
             };
         });
     Encoders::registerEncoder(OpenH264, "openh264enc"_s, "h264parse"_s, "video/x-h264"_s,
-        "video/x-h264,alignment=au,stream-format=byte-stream"_s,
+        "video/x-h264,alignment=au,stream-format=avc"_s,
         [](WebKitVideoEncoder* self) {
             g_object_set(self->priv->parser.get(), "config-interval", 1, nullptr);
             g_object_set(self->priv->outputCapsFilter.get(), "caps", self->priv->encodedCaps.get(), nullptr);
@@ -809,7 +798,7 @@ static void webkit_video_encoder_class_init(WebKitVideoEncoderClass* klass)
             g_value_init(&intValue, G_TYPE_INT);
 
             switch (bitRateAllocation.scalabilityMode()) {
-            case VideoEncoder::ScalabilityMode::L1T1:
+            case WebCore::VideoEncoderScalabilityMode::L1T1:
                 numberLayers = 1;
                 scalabilityString = "L1T1"_s;
                 if (auto value = bitRateAllocation.getBitRate(0, 0)) {
@@ -817,12 +806,12 @@ static void webkit_video_encoder_class_init(WebKitVideoEncoderClass* klass)
                     g_value_array_append(bitrates.get(), &intValue);
                 }
                 for (unsigned i = 0; i < 3; i++) {
-                    static const int decimatorValues[] = { 1, 1, 1 };
+                    static const std::array<int, 3> decimatorValues = { 1, 1, 1 };
                     g_value_set_int(&intValue, decimatorValues[i]);
                     g_value_array_append(decimators.get(), &intValue);
                 }
                 break;
-            case VideoEncoder::ScalabilityMode::L1T2:
+            case WebCore::VideoEncoderScalabilityMode::L1T2:
                 numberLayers = 2;
                 scalabilityString = "L1T2"_s;
                 if (auto value = bitRateAllocation.getBitRate(0, 1)) {
@@ -834,12 +823,12 @@ static void webkit_video_encoder_class_init(WebKitVideoEncoderClass* klass)
                     g_value_array_append(bitrates.get(), &intValue);
                 }
                 for (unsigned i = 0; i < 3; i++) {
-                    static const int decimatorValues[] = { 1, 1, 1 };
+                    static const std::array<int, 3> decimatorValues = { 1, 1, 1 };
                     g_value_set_int(&intValue, decimatorValues[i]);
                     g_value_array_append(decimators.get(), &intValue);
                 }
                 for (unsigned i = 0; i < 4; i++) {
-                    static const int layerIdValues[] = { 0, 1, 0, 1 };
+                    static const std::array<int, 4> layerIdValues = { 0, 1, 0, 1 };
                     g_value_set_int(&intValue, layerIdValues[i]);
                     g_value_array_append(layerIds.get(), &intValue);
                 }
@@ -855,7 +844,7 @@ static void webkit_video_encoder_class_init(WebKitVideoEncoderClass* klass)
                     "no-upd-last+no-upd-alt>"_s;
                 layerSyncFlags = { false, true, false, false };
                 break;
-            case VideoEncoder::ScalabilityMode::L1T3:
+            case WebCore::VideoEncoderScalabilityMode::L1T3:
                 numberLayers = 3;
                 scalabilityString = "L1T3"_s;
                 if (auto value = bitRateAllocation.getBitRate(0, 2)) {
@@ -871,12 +860,12 @@ static void webkit_video_encoder_class_init(WebKitVideoEncoderClass* klass)
                     g_value_array_append(bitrates.get(), &intValue);
                 }
                 for (unsigned i = 0; i < 3; i++) {
-                    static const int decimatorValues[] = { 4, 2, 1 };
+                    static const std::array<int, 3> decimatorValues = { 4, 2, 1 };
                     g_value_set_int(&intValue, decimatorValues[i]);
                     g_value_array_append(decimators.get(), &intValue);
                 }
                 for (unsigned i = 0; i < 4; i++) {
-                    static const int layerIdValues[] = { 0, 2, 1, 2 };
+                    static const std::array<int, 4> layerIdValues = { 0, 2, 1, 2 };
                     g_value_set_int(&intValue, layerIdValues[i]);
                     g_value_array_append(layerIds.get(), &intValue);
                 }
@@ -922,7 +911,7 @@ static void webkit_video_encoder_class_init(WebKitVideoEncoderClass* klass)
                 g_object_set_property(G_OBJECT(encoder), "temporal-scalability-layer-sync-flags", &layerSyncFlagsValue);
                 g_value_unset(&layerSyncFlagsValue);
                 g_value_unset(&boolValue);
-                gst_util_set_object_arg(G_OBJECT(encoder), "temporal-scalability-layer-flags", layerFlags);
+                gst_util_set_object_arg(G_OBJECT(encoder), "temporal-scalability-layer-flags", layerFlags.characters());
             }
 
             ALLOW_DEPRECATED_DECLARATIONS_END;

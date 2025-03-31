@@ -686,7 +686,7 @@ done:
     return columnNames;
 }
 
-- (NSArray *)select:(NSArray *)columns from:(NSString *)tableName {
+- (NSArray<NSDictionary*> *)select:(NSArray *)columns from:(NSString *)tableName {
     return [self select:columns from:tableName where:nil bindings:nil];
 }
 
@@ -703,7 +703,7 @@ done:
     return results;
 }
 
-- (NSArray *)select:(NSArray *)columns from:(NSString *)tableName where:(NSString *)whereSQL bindings:(NSArray *)bindings {
+- (NSArray<NSDictionary*>*)select:(NSArray *)columns from:(NSString *)tableName where:(NSString *)whereSQL bindings:(NSArray *)bindings {
     NSMutableArray *results = [[NSMutableArray alloc] init];
     
     NSMutableString *SQL = [NSMutableString stringWithFormat:@"select %@ from %@", [columns componentsJoinedByString:@", "], tableName];

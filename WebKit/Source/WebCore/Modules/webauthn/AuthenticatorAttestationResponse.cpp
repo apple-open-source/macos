@@ -33,6 +33,7 @@
 #include "CryptoAlgorithmECDH.h"
 #include "CryptoKeyEC.h"
 #include "WebAuthenticationUtils.h"
+#include <wtf/text/Base64.h>
 
 namespace WebCore {
 
@@ -60,10 +61,7 @@ static std::optional<cbor::CBORValue> coseKeyForAttestationObject(Ref<ArrayBuffe
         return std::nullopt;
 
     const size_t cosePublicKeyLength = authData.size() - cosePublicKeyOffset;
-    Vector<uint8_t> cosePublicKey;
-    auto beginIt = authData.begin() + cosePublicKeyOffset;
-    cosePublicKey.appendRange(beginIt, beginIt + cosePublicKeyLength);
-
+    Vector<uint8_t> cosePublicKey(authData.subspan(cosePublicKeyOffset, cosePublicKeyLength));
     return cbor::CBORReader::read(cosePublicKey);
 }
 
@@ -181,6 +179,26 @@ RefPtr<ArrayBuffer> AuthenticatorAttestationResponse::getPublicKey() const
     }
 
     return nullptr;
+}
+
+RegistrationResponseJSON::AuthenticatorAttestationResponseJSON AuthenticatorAttestationResponse::toJSON()
+{
+    Vector<String> transports;
+    for (auto transport : getTransports())
+        transports.append(toString(transport));
+    RegistrationResponseJSON::AuthenticatorAttestationResponseJSON value;
+    if (auto clientData = clientDataJSON())
+        value.clientDataJSON = base64URLEncodeToString(clientData->span());
+    value.transports = transports;
+    if (auto authData = getAuthenticatorData())
+        value.authenticatorData = base64URLEncodeToString(authData->span());
+    if (auto publicKey = getPublicKey())
+        value.publicKey = base64URLEncodeToString(publicKey->span());
+    if (auto attestationObj = attestationObject())
+        value.attestationObject = base64URLEncodeToString(attestationObj->span());
+    value.publicKeyAlgorithm = getPublicKeyAlgorithm();
+
+    return value;
 }
 
 } // namespace WebCore

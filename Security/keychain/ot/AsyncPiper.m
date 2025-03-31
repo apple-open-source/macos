@@ -129,7 +129,7 @@ static BOOL g_failXpcFdWrapping = NO;
 
 @end
 
-@implementation AsyncPiperFailPipeForTesting
+@implementation _AsyncPiperForTestingFailPipe
 
 -(instancetype)init {
     g_failPipe = YES;
@@ -143,7 +143,7 @@ static BOOL g_failXpcFdWrapping = NO;
 
 @end
 
-@implementation AsyncPiperFailXpcFdWrappingForTesting
+@implementation _AsyncPiperForTestingFailXpcFdWrapping
 
 -(instancetype)init {
     g_failXpcFdWrapping = YES;

@@ -48,20 +48,22 @@ static void usage(void);
 static int parse_disk_policy(const char *strpolicy);
 static int parse_qos_tier(const char *strpolicy, int parameter);
 static uint64_t parse_qos_clamp(const char *qos_string);
+static posix_spawn_secflag_options parse_sec_transition_shims(const char *sec_trans_shims_string);
 
 int main(int argc, char * argv[])
 {
 	int ch, ret;
 	pid_t pid = 0;
-    posix_spawnattr_t attr;
-    extern char **environ;
+	posix_spawnattr_t attr;
+	extern char **environ;
 	bool flagx = false, flagX = false, flagb = false, flagB = false, flaga = false, flag_s = false;
 	int flagd = -1, flagg = -1;
+	posix_spawn_secflag_options sec_transition_shims = 0;
 	short spawn_flags = POSIX_SPAWN_SETEXEC;
 	struct task_qos_policy qosinfo = { LATENCY_QOS_TIER_UNSPECIFIED, THROUGHPUT_QOS_TIER_UNSPECIFIED };
-    uint64_t qos_clamp = POSIX_SPAWN_PROC_CLAMP_NONE;
+	uint64_t qos_clamp = POSIX_SPAWN_PROC_CLAMP_NONE;
 
-	while ((ch = getopt(argc, argv, "xXbBd:g:c:t:l:p:as")) != -1) {
+	while ((ch = getopt(argc, argv, "xXbBd:g:c:t:l:p:asS:")) != -1) {
 		switch (ch) {
 			case 'x':
 				flagx = true;
@@ -89,13 +91,13 @@ int main(int argc, char * argv[])
 					usage();
 				}
 				break;
-            case 'c':
-                qos_clamp = parse_qos_clamp(optarg);
-                if (qos_clamp == POSIX_SPAWN_PROC_CLAMP_NONE) {
-                    warnx("Could not parse '%s' as a QoS clamp", optarg);
-                    usage();
-                }
-                break;
+			case 'c':
+				qos_clamp = parse_qos_clamp(optarg);
+				if (qos_clamp == POSIX_SPAWN_PROC_CLAMP_NONE) {
+					warnx("Could not parse '%s' as a QoS clamp", optarg);
+					usage();
+				}
+				break;
 			case 't':
 				qosinfo.task_throughput_qos_tier = parse_qos_tier(optarg, QOS_PARAMETER_THROUGHPUT);
 				if (qosinfo.task_throughput_qos_tier == -1) {
@@ -122,6 +124,9 @@ int main(int argc, char * argv[])
 				break;
 			case 's':
 				flag_s = true;
+				break;
+			case 'S':
+				sec_transition_shims = parse_sec_transition_shims(optarg);
 				break;
 			case '?':
 			default:
@@ -241,6 +246,11 @@ int main(int argc, char * argv[])
 		if (ret != 0) errc(EX_NOINPUT, ret, "posix_spawnattr_set_darwin_role_np");
 	}
 
+	if (sec_transition_shims) {
+		ret = posix_spawnattr_set_use_sec_transition_shims_np(&attr, sec_transition_shims);
+		if (ret != 0) errc(EX_NOINPUT, ret, "setting security transition shims");
+	}
+
 	ret = posix_spawnp(&pid, argv[0], NULL, &attr, argv, environ);
 	if (ret != 0) errc(EX_NOINPUT, ret, "posix_spawn");
 
@@ -249,8 +259,8 @@ int main(int argc, char * argv[])
 
 static void usage(void)
 {
-	fprintf(stderr, "Usage: %s [-x|-X] [-d <policy>] [-g policy] [-c clamp] [-b] [-t <tier>]\n"
-                    "                  [-l <tier>] [-a] [-s] <program> [<pargs> [...]]\n", getprogname());
+	fprintf(stderr, "Usage: %s [-x|-X] [-d <policy>] [-g <policy>] [-c <clamp>] [-b] [-t <tier>]\n"
+                    "                  [-l <tier>] [-a] [-s] [-S <shims>] <program> [<pargs> [...]]\n", getprogname());
 	fprintf(stderr, "       %s [-b|-B] [-t <tier>] [-l <tier>] -p pid\n", getprogname());
 	exit(EX_USAGE);
 }
@@ -284,7 +294,8 @@ static int parse_disk_policy(const char *strpolicy)
 	}
 }
 
-static int parse_qos_tier(const char *strtier, int parameter){
+static int parse_qos_tier(const char *strtier, int parameter)
+{
 	long policy;
 	char *endptr = NULL;
 
@@ -319,15 +330,87 @@ static int parse_qos_tier(const char *strtier, int parameter){
 	return -1;
 }
 
-static uint64_t parse_qos_clamp(const char *qos_string) {
+static uint64_t parse_qos_clamp(const char *qos_string)
+{
+	if (0 == strcasecmp(qos_string, "utility") ) {
+		return POSIX_SPAWN_PROC_CLAMP_UTILITY;
+	} else if (0 == strcasecmp(qos_string, "background")) {
+		return POSIX_SPAWN_PROC_CLAMP_BACKGROUND;
+	} else if (0 == strcasecmp(qos_string, "maintenance")) {
+		return POSIX_SPAWN_PROC_CLAMP_MAINTENANCE;
+	} else {
+		return POSIX_SPAWN_PROC_CLAMP_NONE;
+	}
+}
 
-    if (0 == strcasecmp(qos_string, "utility") ) {
-        return POSIX_SPAWN_PROC_CLAMP_UTILITY;
-    } else if (0 == strcasecmp(qos_string, "background")) {
-        return POSIX_SPAWN_PROC_CLAMP_BACKGROUND;
-    } else if (0 == strcasecmp(qos_string, "maintenance")) {
-        return POSIX_SPAWN_PROC_CLAMP_MAINTENANCE;
-    } else {
-        return POSIX_SPAWN_PROC_CLAMP_NONE;
-    }
+static posix_spawn_secflag_options parse_sec_transition_shims(const char *sec_trans_shims_string)
+{
+	char *end = NULL;
+	uint64_t sec_trans_shims = strtoull(sec_trans_shims_string, &end, 0);
+	if (end != sec_trans_shims_string) {
+		return (posix_spawn_secflag_options)sec_trans_shims;
+	}
+
+	const char *cur_shim = sec_trans_shims_string;
+	const char *next_shim = NULL;
+	do {
+		char shim[64] = "";
+		next_shim = strchr(cur_shim, ',');
+		strlcpy(shim, cur_shim, next_shim ? MIN((next_shim - cur_shim) + 1, sizeof(shim)) : sizeof(shim));
+
+		static struct {
+			posix_spawn_secflag_options opt;
+			const char *name;
+		} option_names[] = {
+			{
+				.opt = POSIX_SPAWN_SECFLAG_EXPLICIT_ENABLE,
+				.name = "explicit-enable",
+			}, {
+				.opt = POSIX_SPAWN_SECFLAG_EXPLICIT_DISABLE,
+				.name = "explicit-disable",
+			}, {
+				.opt = POSIX_SPAWN_SECFLAG_EXPLICIT_NEVER_CHECK_ENABLE,
+				.name = "explicit-never-check-enable",
+			}, {
+				.opt = POSIX_SPAWN_SECFLAG_EXPLICIT_NEVER_CHECK_DISABLE,
+				.name = "explicit-never-check-disable",
+			}, {
+				.opt = POSIX_SPAWN_SECFLAG_EXPLICIT_VM_POLICY_BYPASS,
+				.name = "explicit-vm-policy-bypass"
+			}, {
+				.opt = POSIX_SPAWN_SECFLAG_EXPLICIT_VM_POLICY_ENFORCE,
+				.name = "explicit-vm-policy-bypass",
+			}, {
+				.opt = POSIX_SPAWN_SECFLAG_EXPLICIT_CHECK_BYPASS,
+				.name = "explicit-check-bypass",
+			}, {
+				.opt = POSIX_SPAWN_SECFLAG_EXPLICIT_CHECK_ENFORCE,
+				.name = "explicit-check-enforce",
+			}, {
+				.opt = POSIX_SPAWN_SECFLAG_EXPLICIT_DISABLE_INHERIT,
+				.name = "explicit-disable-inherit",
+			}, {
+				.opt = POSIX_SPAWN_SECFLAG_EXPLICIT_ENABLE_INHERIT,
+				.name = "explicit-enable-inherit",
+			},
+		};
+
+		const size_t options_count = sizeof(option_names) /
+				sizeof(option_names[0]);
+		bool found = false;
+		for (size_t i = 0; i < options_count; i++) {
+			if (strcmp(shim, option_names[i].name) == 0) {
+				sec_trans_shims |= option_names[i].opt;
+				found = true;
+				break;
+			}
+		}
+		if (!found) {
+			errx(EX_USAGE, "%s: unknown security transition shim", shim);
+		}
+
+		cur_shim = next_shim ? next_shim + 1 : NULL;
+	} while (cur_shim);
+
+	return (posix_spawn_secflag_options)sec_trans_shims;
 }

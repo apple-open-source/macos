@@ -289,7 +289,7 @@ public:
     static Lock lock;
 
 private:
-    HashSet<String, ASCIICaseInsensitiveHash> m_families;
+    UncheckedKeyHashSet<String, ASCIICaseInsensitiveHash> m_families;
 };
 
 Lock FontCacheAllowlist::lock;
@@ -424,7 +424,7 @@ FontSelectionCapabilities capabilitiesForFontDescriptor(CTFontDescriptorRef font
     }
 
     if (!variationCapabilities.width) {
-        auto value = getCSSAttribute(fontDescriptor, kCTFontCSSWidthAttribute, static_cast<float>(normalStretchValue()));
+        auto value = getCSSAttribute(fontDescriptor, kCTFontCSSWidthAttribute, static_cast<float>(normalWidthValue()));
         variationCapabilities.width = {{ value, value }};
     }
 

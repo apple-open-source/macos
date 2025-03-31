@@ -164,6 +164,7 @@ ExceptionOr<JsonWebKey> CryptoKeyEC::exportJwk() const
         break;
     }
     result.key_ops = usages();
+    result.usages = usagesBitmap();
     result.ext = extractable();
     if (!platformAddFieldElements(result))
         return Exception { ExceptionCode::OperationError };
@@ -231,5 +232,24 @@ auto CryptoKeyEC::algorithm() const -> KeyAlgorithm
 
     return result;
 }
+
+CryptoKey::Data CryptoKeyEC::data() const
+{
+    auto jwkOrException = exportJwk();
+    auto jwk = jwkOrException.hasException() ? std::nullopt : std::optional<JsonWebKey> { jwkOrException.releaseReturnValue() };
+    return CryptoKey::Data {
+        CryptoKeyClass::EC,
+        algorithmIdentifier(),
+        extractable(),
+        usagesBitmap(),
+        std::nullopt,
+        WTFMove(jwk),
+        std::nullopt,
+        namedCurveString(),
+        std::nullopt,
+        type()
+    };
+}
+
 
 } // namespace WebCore

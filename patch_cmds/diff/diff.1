@@ -27,7 +27,7 @@
 .\" OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
 .\" SUCH DAMAGE.
 .\"
-.Dd February 26, 2024
+.Dd March 7, 2024
 .Dt DIFF 1
 .Os
 .Sh NAME
@@ -355,44 +355,38 @@ supports 3 algorithms:
 .Pp
 .Bl -tag -width Ds -compact
 .It Cm myers
-Myers diff algorithm performs a O(ND) comparison between the two files.
-An optimisation is present when worst case files are detected it causes the
-Myers algorithm to bails out and produces correct, but non-optimal diff output.
+The Myers diff algorithm finds the shortest edit which transforms one
+input into the other.
+It generally runs in O(N+D\(S2) time, requiring O(N) space, where N is
+the sum of the lengths of the inputs and D is the length of the
+difference between them, with a theoretical O(N\(pcD) worst case.
+If it encounters worst-case input, the implementation used by
+.Nm
+falls back to a less optimal but faster algorithm.
 .It Cm patience
-The Patience variant of the Myers algorithm, this variant attempts to create
-more aesthetically pleasing diff output by logically grouping lines.
+The Patience variant of the Myers algorithm attempts to create more
+aesthetically pleasing diff output by logically grouping lines.
 .It Cm stone
-The Stone algorithm looks for the longest common subsequence between compared files.
-Stone encounters worst case performance when there are long common subsequences.
+The Stone algorithm (commonly known as Hunt-McIlroy or Hunt-Szymanski)
+looks for the longest common subsequence between compared files.
+Stone encounters worst case performance when there are long common
+subsequences.
 In large files this can lead to a significant performance impact.
 The Stone algorithm is maintained for compatibility.
 .El
 .Pp
-.\"#ifdef __APPLE__
-The default diff algorithm when this flag is not given is
-.Dq Cm myers .
-.Nm
-will fallback to the
-.Dq Cm stone
-algorithm if the
-.Dq Cm myers
-algorithm cannot be supported with the given options and the algorithm has
-not been set explicitly.
-.Pp
-The default
-algorithm is affected by the POSIXLY_CORRECT and POSIX_PEDANTIC environment
-variables.
+The default algorithm is affected by the
+.Ev POSIXLY_CORRECT
+and
+.Ev POSIX_PEDANTIC
+environment variables.
 When either variable is set the default algorithm will be
 .Dq Cm stone .
-.Pp
-If the diff algorithm is selected, but cannot be supported with the given options
+Otherwise, the
 .Nm
-will produce an error.
-.Pp
-.\"#else
-.\"Diff defaults the algorithm to Myers diff, but will fall back to the Stone
-.\"algorithm if the input or output options are not supported by libdiff.
-.\"#endif	/* __APPLE__ */
+utility defaults to the Myers algorithm, but will fall back to the
+Stone algorithm if the input or output options are not supported by
+the Myers implementation.
 .It Fl a -text
 Treat all files as ASCII text.
 Normally
@@ -823,6 +817,17 @@ A
 .Nm
 command appeared in
 .At v6 .
+The
+.Nm
+implementation used in
+.Fx
+was GNU diff until
+.Fx 11.4 .
+This was replaced in
+.Fx 12.0
+by a BSD-licensed implementation written by
+.An Todd Miller .
+Some GNUisms were lost in the process.
 .Pp
 libdiff was imported from the Game of Trees version control system and default
 algorithm was changed to Myers for FreeBSD 15.

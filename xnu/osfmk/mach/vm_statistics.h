@@ -66,6 +66,7 @@
 #ifndef _MACH_VM_STATISTICS_H_
 #define _MACH_VM_STATISTICS_H_
 
+#include <stdbool.h>
 #include <sys/cdefs.h>
 
 #include <mach/machine/vm_types.h>
@@ -360,14 +361,36 @@ typedef struct vm_purgeable_info        *vm_purgeable_info_t;
 #define GUARD_TYPE_VIRT_MEMORY  0x5
 
 /* Reasons for exception for virtual memory */
-enum virtual_memory_guard_exception_codes {
-	kGUARD_EXC_DEALLOC_GAP  = 1u << 0,
-	kGUARD_EXC_RECLAIM_COPYIO_FAILURE = 1u << 1,
-	kGUARD_EXC_RECLAIM_INDEX_FAILURE = 1u << 2,
-	kGUARD_EXC_RECLAIM_DEALLOCATE_FAILURE = 1u << 3,
-};
+__enum_decl(virtual_memory_guard_exception_code_t, uint32_t, {
+	kGUARD_EXC_DEALLOC_GAP  = 1,
+	kGUARD_EXC_RECLAIM_COPYIO_FAILURE = 2,
+	kGUARD_EXC_SEC_LOOKUP_DENIED = 3,
+	kGUARD_EXC_RECLAIM_INDEX_FAILURE = 4,
+	kGUARD_EXC_SEC_RANGE_DENIED = 6,
+	kGUARD_EXC_SEC_ACCESS_FAULT = 7,
+	kGUARD_EXC_RECLAIM_DEALLOCATE_FAILURE = 8,
+	kGUARD_EXC_SEC_COPY_DENIED = 16,
+	kGUARD_EXC_SEC_SHARING_DENIED = 32,
+	kGUARD_EXC_SEC_ASYNC_ACCESS_FAULT = 64,
+});
 
 #ifdef XNU_KERNEL_PRIVATE
+
+static inline bool
+vm_guard_is_sec_access(uint32_t flavor)
+{
+	return flavor == kGUARD_EXC_SEC_ACCESS_FAULT ||
+	       flavor == kGUARD_EXC_SEC_ASYNC_ACCESS_FAULT;
+}
+
+static inline bool
+vm_guard_is_sec_policy(uint32_t flavor)
+{
+	return flavor == kGUARD_EXC_SEC_LOOKUP_DENIED ||
+	       flavor == kGUARD_EXC_SEC_RANGE_DENIED ||
+	       flavor == kGUARD_EXC_SEC_COPY_DENIED ||
+	       flavor == kGUARD_EXC_SEC_SHARING_DENIED;
+}
 
 /*!
  * @enum vm_map_range_id_t
@@ -397,6 +420,9 @@ enum virtual_memory_guard_exception_codes {
  * - OOBs on the allocation is carefully considered and sufficiently
  *   addressed.
  *
+ * @const KMEM_RANGE_ID_IOKIT
+ * Range containing memory mappings belonging to IOKit.
+ *
  * @const KMEM_RANGE_ID_DATA
  * Range containing allocations that are bags of bytes and contain no
  * pointers.
@@ -407,6 +433,7 @@ __enum_decl(vm_map_range_id_t, uint8_t, {
 	KMEM_RANGE_ID_PTR_1,
 	KMEM_RANGE_ID_PTR_2,
 	KMEM_RANGE_ID_SPRAYQTN,
+	KMEM_RANGE_ID_IOKIT,
 	KMEM_RANGE_ID_DATA,
 
 	KMEM_RANGE_ID_FIRST   = KMEM_RANGE_ID_PTR_0,
@@ -493,6 +520,7 @@ typedef union {
 		    vmkf_copy_same_map:1,       /* vm_map_copy to remap in original map */
 		    vmkf_translated_allow_execute:1,    /* allow execute in translated processes */
 		    vmkf_tpro_enforcement_override:1,   /* override TPRO propagation */
+		    vmkf_no_soft_limit:1,       /* override soft allocation size limit */
 
 		/*
 		 * Submap creation, altering vm_map_enter() only
@@ -507,9 +535,10 @@ typedef union {
 		    vmkf_32bit_map_va:1,        /* allocate in low 32-bits range */
 		    vmkf_guard_before:1,        /* guard page before the mapping */
 		    vmkf_last_free:1,           /* find space from the end */
-		    vmkf_range_id:KMEM_RANGE_BITS,      /* kmem range to allocate in */
+		    vmkf_range_id:KMEM_RANGE_BITS;      /* kmem range to allocate in */
 
-		    __vmkf_unused:1;
+		unsigned long long
+		__vmkf_unused2:64;
 	};
 
 	/*
@@ -548,7 +577,7 @@ typedef struct {
 	unsigned int
 	    vmnekf_ledger_tag:3,
 	    vmnekf_ledger_no_footprint:1,
-	    __vmnekf_unused:28;
+	__vmnekf_unused:28;
 } vm_named_entry_kernel_flags_t;
 #define VM_NAMED_ENTRY_KERNEL_FLAGS_NONE (vm_named_entry_kernel_flags_t) {    \
 	.vmnekf_ledger_tag = 0,                                                \
@@ -843,8 +872,9 @@ typedef struct {
 #define VM_KERN_MEMORY_RECOUNT          33
 #define VM_KERN_MEMORY_EXCLAVES         35
 #define VM_KERN_MEMORY_EXCLAVES_SHARED  36
+#define VM_KERN_MEMORY_KALLOC_SHARED    37
 /* add new tags here and adjust first-dynamic value */
-#define VM_KERN_MEMORY_FIRST_DYNAMIC    37
+#define VM_KERN_MEMORY_FIRST_DYNAMIC    38
 
 /* out of tags: */
 #define VM_KERN_MEMORY_ANY              255

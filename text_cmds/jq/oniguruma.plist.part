@@ -1,0 +1,16 @@
+<dict>
+	<key>OpenSourceProject</key>
+	<string>oniguruma</string>
+	<key>OpenSourceVersion</key>
+	<string>2023-07-11</string>
+	<key>OpenSourceWebsiteURL</key>
+	<string>https://github.com/kkos/oniguruma/tree/d2f1a14ced5d5d461acac0da0d477ab240a7ab5f</string>
+	<key>OpenSourceImportDate</key>
+	<string>2024-10-03</string>
+	<key>OpenSourceModifications</key>
+	<array>
+		<string>Build integration fixes.</string>
+	</array>
+	<key>OpenSourceLicense</key>
+	<string>MIT</string>
+</dict>

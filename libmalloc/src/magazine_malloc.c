@@ -1482,7 +1482,7 @@ szone_pressure_relief(szone_t *szone, size_t goal)
 #endif // CONFIG_MEDIUM_ALLOCATOR
 #endif // CONFIG_MADVISE_PRESSURE_RELIEF
 
-#if CONFIG_LARGE_CACHE && !CONFIG_DEFERRED_RECLAIM
+#if CONFIG_LARGE_CACHE && !CONFIG_MAGAZINE_DEFERRED_RECLAIM
 	if (large_cache_enabled && szone->flotsam_enabled) {
 		SZONE_LOCK(szone);
 
@@ -1516,7 +1516,7 @@ szone_pressure_relief(szone_t *szone, size_t goal)
 			total += local_entry_cache[idx].size;
 		}
 	}
-#endif // CONFIG_LARGE_CACHE && !CONFIG_DEFERRED_RECLAIM
+#endif // CONFIG_LARGE_CACHE && !CONFIG_MAGAZINE_DEFERRED_RECLAIM
 
 	MAGMALLOC_PRESSURERELIEFEND((void *)szone, szone->basic_zone.zone_name, (int)goal, (int)total); // DTrace USDT Probe
 	MALLOC_TRACE(TRACE_malloc_memory_pressure | DBG_FUNC_END, (uint64_t)szone, goal, total, 0);

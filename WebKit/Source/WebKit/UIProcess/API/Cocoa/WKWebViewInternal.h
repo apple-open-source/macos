@@ -23,7 +23,13 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#import "WKWebView.h"
+
+#ifdef __cplusplus
+
 #import "PDFPluginIdentifier.h"
+#import "WKIntelligenceReplacementTextEffectCoordinator.h"
+#import "WKIntelligenceSmartReplyTextEffectCoordinator.h"
 #import "WKIntelligenceTextEffectCoordinator.h"
 #import "WKTextAnimationType.h"
 #import <WebKit/WKShareSheet.h>
@@ -40,6 +46,10 @@
 #import <wtf/RetainPtr.h>
 #import <wtf/WeakObjCPtr.h>
 #import <wtf/spi/cocoa/NSObjCRuntimeSPI.h>
+
+#if ENABLE(SCREEN_TIME)
+#import <ScreenTime/STWebpageController.h>
+#endif
 
 #if PLATFORM(IOS_FAMILY)
 #import "DynamicViewportSizeUpdate.h"
@@ -101,13 +111,14 @@ enum class WheelScrollGestureState : uint8_t;
 
 namespace WebKit {
 enum class ContinueUnsafeLoad : bool;
+class BrowsingWarning;
 class IconLoadingDelegate;
 class NavigationState;
+class PointerTouchCompatibilitySimulator;
 class ResourceLoadDelegate;
-class BrowsingWarning;
+class UIDelegate;
 class ViewSnapshot;
 class WebPageProxy;
-class UIDelegate;
 struct PrintInfo;
 #if PLATFORM(MAC)
 class WebViewImpl;
@@ -252,10 +263,15 @@ struct PerWebProcessState {
     RetainPtr<NSMapTable<NSUUID *, WTTextSuggestion *>> _writingToolsTextSuggestions;
     RetainPtr<WTSession> _activeWritingToolsSession;
 
-    RetainPtr<WKIntelligenceTextEffectCoordinator> _intelligenceTextEffectCoordinator;
+    RetainPtr<id<WKIntelligenceTextEffectCoordinating>> _intelligenceTextEffectCoordinator;
 
     NSUInteger _partialIntelligenceTextAnimationCount;
     BOOL _writingToolsTextReplacementsFinished;
+#endif
+
+#if ENABLE(SCREEN_TIME)
+    RetainPtr<STWebpageController> _screenTimeWebpageController;
+    BOOL _isBlockedByScreenTime;
 #endif
 
 #if PLATFORM(MAC)
@@ -269,7 +285,7 @@ struct PerWebProcessState {
 #if PLATFORM(IOS_FAMILY)
     RetainPtr<WKScrollView> _scrollView;
     RetainPtr<WKContentView> _contentView;
-    std::unique_ptr<WebKit::ViewGestureController> _gestureController;
+    RefPtr<WebKit::ViewGestureController> _gestureController;
     Vector<BlockPtr<void ()>> _visibleContentRectUpdateCallbacks;
     RetainPtr<WKWebViewContentProviderRegistry> _contentProviderRegistry;
 #if ENABLE(FULLSCREEN_API)
@@ -373,7 +389,8 @@ struct PerWebProcessState {
     NSUInteger _activeFocusedStateRetainCount;
 
     RetainPtr<NSArray<NSNumber *>> _scrollViewDefaultAllowedTouchTypes;
-#endif
+    std::unique_ptr<WebKit::PointerTouchCompatibilitySimulator> _pointerTouchCompatibilitySimulator;
+#endif // PLATFORM(IOS_FAMILY)
 
 #if PLATFORM(VISION)
     String _defaultSTSLabel;
@@ -410,6 +427,11 @@ struct PerWebProcessState {
 
 #if ENABLE(APP_HIGHLIGHTS)
 - (void)_storeAppHighlight:(const WebCore::AppHighlight&)info;
+#endif
+
+#if ENABLE(SCREEN_TIME)
+- (void)_installScreenTimeWebpageController;
+- (void)_uninstallScreenTimeWebpageController;
 #endif
 
 #if ENABLE(WRITING_TOOLS)
@@ -465,6 +487,10 @@ struct PerWebProcessState {
 
 - (WKPageRef)_pageForTesting;
 - (NakedPtr<WebKit::WebPageProxy>)_page;
+- (RefPtr<WebKit::WebPageProxy>)_protectedPage;
+#if ENABLE(SCREEN_TIME)
+- (STWebpageController *)_screenTimeWebpageController;
+#endif
 
 @property (nonatomic, setter=_setHasActiveNowPlayingSession:) BOOL _hasActiveNowPlayingSession;
 
@@ -490,4 +516,10 @@ RetainPtr<NSError> nsErrorFromExceptionDetails(const WebCore::ExceptionDetails&)
 @interface WKWebView (WKTextExtraction)
 - (void)_requestTextExtractionForSwift:(WKTextExtractionRequest *)context;
 - (void)_requestTextExtraction:(CGRect)rect completionHandler:(void(^)(WKTextExtractionItem *))completionHandler;
+@end
+
+#endif // __cplusplus
+
+@interface WKWebView (NonCpp)
+
 @end

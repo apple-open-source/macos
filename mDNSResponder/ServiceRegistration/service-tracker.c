@@ -62,7 +62,7 @@ struct service_tracker {
     uint64_t id;
     route_state_t *route_state;
     srp_server_t *server_state;
-    cti_connection_t NULLABLE thread_service_context;
+    cti_connection_t *NULLABLE thread_service_context;
 	service_tracker_callback_t *callbacks;
     thread_service_t *NULLABLE thread_services;
     uint16_t rloc16;
@@ -464,7 +464,7 @@ service_tracker_callback_cancel(service_tracker_t *tracker, void *context)
 	}
 }
 
-static int
+int
 service_tracker_get_winning_anycast_sequence_number(service_tracker_t *NULLABLE tracker)
 {
     if (tracker == NULL) {
@@ -474,7 +474,7 @@ service_tracker_get_winning_anycast_sequence_number(service_tracker_t *NULLABLE 
     // Find the sequence number that would win.
     for (thread_service_t *service = tracker->thread_services; service != NULL; service = service->next)
     {
-        if (service->ignore) {
+        if (service->ignore || service->service_type != anycast_service) {
             continue;
         }
         if ((int)service->u.anycast.sequence_number > winning_sequence_number) {
@@ -482,6 +482,23 @@ service_tracker_get_winning_anycast_sequence_number(service_tracker_t *NULLABLE 
         }
     }
     return winning_sequence_number;
+}
+
+// count anycast services with the given sequence_number
+int
+service_tracker_count_anycast_services(service_tracker_t *NULLABLE tracker, int sequence_number)
+{
+    int num_anycast = 0;
+    for (thread_service_t *service = tracker->thread_services; service != NULL; service = service->next)
+    {
+        if (service->ignore || service->service_type != anycast_service) {
+            continue;
+        }
+        if ((int)service->u.anycast.sequence_number == sequence_number) {
+            num_anycast++;
+        }
+    }
+    return num_anycast;
 }
 
 thread_service_t *

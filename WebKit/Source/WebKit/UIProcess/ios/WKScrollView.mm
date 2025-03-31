@@ -32,6 +32,7 @@
 #import "UIKitSPI.h"
 #import "UIKitUtilities.h"
 #import "WKBrowserEngineDefinitions.h"
+#import "WKContentViewInteraction.h"
 #import "WKDeferringGestureRecognizer.h"
 #import "WKWebViewIOS.h"
 #import "WebPage.h"
@@ -547,6 +548,13 @@ static inline bool valuesAreWithinOnePixel(CGFloat a, CGFloat b)
 #endif // PLATFORM(WATCHOS)
     else
         ASSERT_NOT_REACHED();
+}
+
+- (UIView *)hitTest:(CGPoint)point withEvent:(UIEvent *)event
+{
+    auto scope = [_internalDelegate->_contentView makeTextSelectionViewsNonInteractiveForScope];
+
+    return [super hitTest:point withEvent:event];
 }
 
 #if HAVE(PEPPER_UI_CORE)

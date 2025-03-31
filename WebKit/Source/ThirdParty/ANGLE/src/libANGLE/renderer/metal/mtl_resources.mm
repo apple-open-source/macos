@@ -320,7 +320,7 @@ angle::Result Texture::MakeTexture(ContextMtl *context,
     ASSERT(refOut);
     Texture *newTexture =
         new Texture(context, desc, mips, renderTargetOnly, allowFormatView, memoryLess);
-    ANGLE_MTL_CHECK(context, newTexture->valid(), GL_OUT_OF_MEMORY);
+    ANGLE_CHECK_GL_ALLOC(context, newTexture->valid());
     refOut->reset(newTexture);
 
     if (!mtlFormat.hasDepthAndStencilBits())
@@ -349,7 +349,7 @@ angle::Result Texture::MakeTexture(ContextMtl *context,
 
     ASSERT(refOut);
     Texture *newTexture = new Texture(context, desc, surfaceRef, slice, renderTargetOnly);
-    ANGLE_MTL_CHECK(context, newTexture->valid(), GL_OUT_OF_MEMORY);
+    ANGLE_CHECK_GL_ALLOC(context, newTexture->valid());
     refOut->reset(newTexture);
     if (!mtlFormat.hasDepthAndStencilBits())
     {
@@ -980,7 +980,8 @@ TextureRef Texture::getStencilView()
 #if TARGET_OS_OSX || TARGET_OS_MACCATALYST
         case MTLPixelFormatX24_Stencil8:
 #endif
-            return mStencilView = shared_from_this();
+            // This texture is already a stencil texture. Return its ref directly.
+            return shared_from_this();
 #if TARGET_OS_OSX || TARGET_OS_MACCATALYST
         case MTLPixelFormatDepth24Unorm_Stencil8:
             mStencilView = createViewWithDifferentFormat(MTLPixelFormatX24_Stencil8);
@@ -1112,12 +1113,7 @@ angle::Result Buffer::MakeBufferWithStorageMode(ContextMtl *context,
                                                 BufferRef *bufferOut)
 {
     bufferOut->reset(new Buffer(context, storageMode, size, data));
-
-    if (!(*bufferOut) || !(*bufferOut)->get())
-    {
-        ANGLE_MTL_CHECK(context, false, GL_OUT_OF_MEMORY);
-    }
-
+    ANGLE_CHECK_GL_ALLOC(context, *bufferOut && (*bufferOut)->get());
     return angle::Result::Continue;
 }
 

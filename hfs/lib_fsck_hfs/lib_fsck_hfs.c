@@ -14,11 +14,7 @@ void fsck_init_state(void) {
     state.fd = -1;
     state.fsreadfd = -1;
     state.fswritefd = -1;
-#if    !TARGET_OS_IPHONE
     state.embedded = 0;
-#else
-    state.embedded = 1;
-#endif
 }
 
 void fsck_set_context_properties(fsck_hfs_print_msg_type_funct_t print_type,

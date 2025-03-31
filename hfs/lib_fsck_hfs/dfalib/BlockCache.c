@@ -397,7 +397,7 @@ ReleaseFragmentedBlock (SFCB *file, BlockDescriptor *block, int age)
 	buffer = (char*)block->buffer;
 	bufEnd = buffer + file->fcbBlockSize;
 
-	while (bufs[i] != NULL && (buffer < bufEnd)) {
+	while ((buffer < bufEnd) && (bufs[i] != NULL)) {
 		fragSize = bufs[i]->Length;
 		buffer += fragSize;
 		(void) CacheRelease (cache, bufs[i], true);

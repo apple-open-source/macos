@@ -1045,7 +1045,7 @@ arm_vm_page_granular_helper(vm_offset_t start, vm_offset_t _end, vm_offset_t va,
 		/* Apply the desired protections to the specified page range */
 		for (i = 0; i <= (ARM_TT_L3_INDEX_MASK >> ARM_TT_L3_SHIFT); i++) {
 			if ((start <= va) && (va < rounded_end)) {
-				ptmp = pa | ARM_PTE_AF | ARM_PTE_SH(SH_OUTER_MEMORY) | ARM_PTE_TYPE;
+				ptmp = pa | ARM_PTE_AF | ARM_PTE_SH(SH_OUTER_MEMORY) | ARM_PTE_TYPE_VALID;
 				ptmp = ptmp | ARM_PTE_ATTRINDX(CACHE_ATTRINDX_DEFAULT);
 				ptmp = ptmp | ARM_PTE_AP(pte_prot_APX);
 				ptmp = ptmp | ARM_PTE_NX;
@@ -1069,7 +1069,7 @@ arm_vm_page_granular_helper(vm_offset_t start, vm_offset_t _end, vm_offset_t va,
 					/* Do not attempt to reapply the hint bit to an already-active mapping.
 					 * This very likely means we're attempting to change attributes on an already-active mapping,
 					 * which violates the requirement of the hint bit.*/
-					assert(!kva_active || (ppte[i] == ARM_PTE_TYPE_FAULT));
+					assert(!kva_active || (ppte[i] == ARM_PTE_EMPTY));
 				}
 
 #if BTI_ENFORCED
@@ -1087,7 +1087,7 @@ arm_vm_page_granular_helper(vm_offset_t start, vm_offset_t _end, vm_offset_t va,
 				 * to make sure we're not trying to unhint a sub-range of a larger hinted range, which
 				 * could produce a later TLB conflict.
 				 */
-				assert(!kva_active || (ppte[i] == ARM_PTE_TYPE_FAULT) || ((ppte[i] & ARM_PTE_HINT) == (ptmp & ARM_PTE_HINT)));
+				assert(!kva_active || (ppte[i] == ARM_PTE_EMPTY) || ((ppte[i] & ARM_PTE_HINT) == (ptmp & ARM_PTE_HINT)));
 
 				update_or_defer_tte(&ppte[i], ptmp, pa, (vm_map_address_t)ppte, granule, deferred_ttep_pair, deferred_tte_pair);
 			}
@@ -1542,8 +1542,6 @@ arm_vm_physmap_slide(ptov_table_entry *temp_ptov_table, vm_map_address_t orig_va
 }
 
 #if XNU_MONITOR
-
-
 
 SECURITY_READ_ONLY_LATE(static boolean_t) keep_linkedit = FALSE;
 

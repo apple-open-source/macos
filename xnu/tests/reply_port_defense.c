@@ -249,14 +249,15 @@ T_DECL(reply_port_defense,
 	}
 }
 
-
 T_DECL(test_move_provisional_reply_port,
-    "provisional reply ports are immovable",
+    "provisional reply ports are movable",
     T_META_IGNORECRASHES(".*reply_port_defense_client.*"),
-    T_META_CHECK_LEAKS(false)) {
+    T_META_CHECK_LEAKS(false),
+    T_META_ENABLED(TARGET_OS_OSX || TARGET_OS_BRIDGE)) {
 	int test_num = 4;
 	mach_exception_data_type_t expected_exception_code = 0;
 	bool triggers_exception = false;
+
 	reply_port_defense(true, test_num, expected_exception_code, triggers_exception);
 	reply_port_defense(false, test_num, expected_exception_code, triggers_exception);
 }
@@ -339,6 +340,20 @@ T_DECL(kobject_reply_port_defense,
 	mach_exception_data_type_t expected_exception_code = (mach_exception_data_type_t)kGUARD_EXC_SEND_INVALID_REPLY;
 #endif
 	bool triggers_exception = true;
+	reply_port_defense(true, test_num, expected_exception_code, triggers_exception);
+	reply_port_defense(false, test_num, expected_exception_code, triggers_exception);
+}
+
+T_DECL(test_alloc_provisional_reply_port,
+    "1p is not allowed to create provisional reply ports on iOS+",
+    T_META_IGNORECRASHES(".*reply_port_defense_client.*"),
+    T_META_CHECK_LEAKS(false),
+    T_META_ENABLED(!TARGET_OS_OSX && !TARGET_OS_BRIDGE && !TARGET_OS_XR)) {
+	int test_num = 10;
+	mach_exception_data_type_t expected_exception_code = kGUARD_EXC_PROVISIONAL_REPLY_PORT;
+	bool triggers_exception = true;
+
+	/* rdar://136996362 (iOS+ telemetry for restricting 1P usage of provisional reply port) */
 	reply_port_defense(true, test_num, expected_exception_code, triggers_exception);
 	reply_port_defense(false, test_num, expected_exception_code, triggers_exception);
 }

@@ -29,21 +29,6 @@
  * SUCH DAMAGE.
  */
 
-#ifndef lint
-static const char copyright[] =
-"@(#) Copyright (c) 1988, 1993, 1994\n\
-	The Regents of the University of California.  All rights reserved.\n";
-#endif /* not lint */
-
-#if 0
-#ifndef lint
-static char sccsid[] = "@(#)env.c	8.3 (Berkeley) 4/2/94";
-#endif /* not lint */
-#endif
-
-#include <sys/cdefs.h>
-__FBSDID("$FreeBSD$");
-
 #include <sys/types.h>
 
 #include <err.h>
@@ -64,7 +49,7 @@ extern char **environ;
 
 int	 env_verbosity;
 
-static void usage(void);
+static void usage(void) __dead2;
 
 /*
  * Exit codes.
@@ -76,7 +61,7 @@ static void usage(void);
 int
 main(int argc, char **argv)
 {
-	char *altpath, **ep, *p, **parg, term;
+	char *altpath, *altwd, **ep, *p, **parg, term;
 	char *cleanenv[1];
 #ifndef __APPLE__
 	char *login_class, *login_name;
@@ -89,6 +74,7 @@ main(int argc, char **argv)
 	int rtrn;
 
 	altpath = NULL;
+	altwd = NULL;
 #ifndef __APPLE__
 	login_class = NULL;
 	login_name = NULL;
@@ -99,9 +85,9 @@ main(int argc, char **argv)
 	want_clear = 0;
 	term = '\n';
 #ifdef __APPLE__
-	while ((ch = getopt(argc, argv, "-0iP:S:u:v")) != -1)
+	while ((ch = getopt(argc, argv, "-0C:iP:S:u:v")) != -1)
 #else
-	while ((ch = getopt(argc, argv, "-0iL:P:S:U:u:v")) != -1)
+	while ((ch = getopt(argc, argv, "-0C:iL:P:S:U:u:v")) != -1)
 #endif
 		switch(ch) {
 		case '-':
@@ -110,6 +96,9 @@ main(int argc, char **argv)
 			break;
 		case '0':
 			term = '\0';
+			break;
+		case 'C':
+			altwd = optarg;
 			break;
 #ifndef __APPLE__
 		case 'U':
@@ -120,7 +109,7 @@ main(int argc, char **argv)
 			break;
 #endif
 		case 'P':
-			altpath = strdup(optarg);
+			altpath = optarg;
 			break;
 		case 'S':
 			/*
@@ -215,6 +204,9 @@ main(int argc, char **argv)
 	if (*argv) {
 		if (term == '\0')
 			errx(EXIT_CANCELED, "cannot specify command with -0");
+		if (altwd && chdir(altwd) != 0)
+			err(EXIT_CANCELED, "cannot change directory to '%s'",
+			    altwd);
 		if (altpath)
 			search_paths(altpath, argv);
 		if (env_verbosity) {
@@ -228,13 +220,16 @@ main(int argc, char **argv)
 		execvp(*argv, argv);
 		err(errno == ENOENT ? EXIT_ENOENT : EXIT_CANNOT_INVOKE,
 		    "%s", *argv);
+	} else {
+		if (altwd)
+			errx(EXIT_CANCELED, "must specify command with -C");
+		if (altpath)
+			errx(EXIT_CANCELED, "must specify command with -P");
 	}
 	for (ep = environ; *ep; ep++)
 		(void)printf("%s%c", *ep, term);
-#ifdef __APPLE__
-	if (ferror(stdout) != 0 || fflush(stdout) != 0)
+	if (fflush(stdout) != 0)
 		err(1, "stdout");
-#endif
 	exit(0);
 }
 
@@ -243,10 +238,10 @@ usage(void)
 {
 	(void)fprintf(stderr,
 #ifdef __APPLE__
-	    "usage: env [-0iv] [-P utilpath] [-S string] [-u name]\n"
+	    "usage: env [-0iv] [-C workdir] [-P utilpath] [-S string]\n"
 #else
-	    "usage: env [-0iv] [-L|-U user[/class]] [-P utilpath] [-S string] [-u name]\n"
+	    "usage: env [-0iv] [-C workdir] [-L|-U user[/class]] [-P utilpath] [-S string]\n"
 #endif
-	    "           [name=value ...] [utility [argument ...]]\n");
+	    "           [-u name] [name=value ...] [utility [argument ...]]\n");
 	exit(1);
 }

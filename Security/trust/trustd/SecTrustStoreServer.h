@@ -52,7 +52,7 @@ bool _SecTrustStoreContainsCertificate(SecTrustStoreRef source, SecCertificateRe
 
 bool _SecTrustStoreCopyUsageConstraints(SecTrustStoreRef ts, SecCertificateRef cert, CFArrayRef *usageConstraints, CFErrorRef *error);
 
-bool _SecTrustStoreCopyAll(SecTrustStoreRef ts, CFArrayRef *trustStoreContents, CFErrorRef *error);
+bool _SecTrustStoreCopyAll(SecTrustStoreRef ts, CFStringRef policyId, CFArrayRef *trustStoreContents, CFErrorRef *error);
 
 bool _SecTrustStoreMigrateUserStore(CFErrorRef *error);
 

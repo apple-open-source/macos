@@ -331,7 +331,7 @@ _asn1_decode(const struct asn1_template *t, unsigned flags,
 		type++;
 
 	    if (type >= sizeof(asn1_template_prim)/sizeof(asn1_template_prim[0])) {
-		ABORT_ON_ERROR("type larger then asn1_template_prim: %d", type);
+		ABORT_ON_ERROR("type larger then asn1_template_prim: %u", type);
 	    }
 
 	    ret = (asn1_template_prim[type].decode)(p, len, el, &newsize);
@@ -451,7 +451,7 @@ _asn1_decode(const struct asn1_template *t, unsigned flags,
 	    break;
 	}
 	default:
-	    ABORT_ON_ERROR("unknown opcode: %d", (t->tt & A1_OP_MASK));
+		ABORT_ON_ERROR("unknown opcode: %u", (t->tt & A1_OP_MASK));
 	}
 	t++;
 	elements--;
@@ -559,7 +559,7 @@ _asn1_encode(const struct asn1_template *t, unsigned char *p, size_t len, const 
 	    const void *el = DPOC(data, t->offset);
 
 	    if (type > sizeof(asn1_template_prim)/sizeof(asn1_template_prim[0])) {
-		ABORT_ON_ERROR("type larger then asn1_template_prim: %d", type);
+		ABORT_ON_ERROR("type larger then asn1_template_prim: %u", type);
 	    }
 
 	    ret = (asn1_template_prim[type].encode)(p, len, el, &newsize);
@@ -731,7 +731,7 @@ _asn1_encode(const struct asn1_template *t, unsigned char *p, size_t len, const 
 	    break;
 	}
 	default:
-	    ABORT_ON_ERROR("unknown opcode: %d", (t->tt & A1_OP_MASK));
+		ABORT_ON_ERROR("unknown opcode: %u", (t->tt & A1_OP_MASK));
 	}
 	t--;
 	elements--;
@@ -796,7 +796,7 @@ _asn1_length(const struct asn1_template *t, const void *data)
 	    const void *el = DPOC(data, t->offset);
 
 	    if (type > sizeof(asn1_template_prim)/sizeof(asn1_template_prim[0])) {
-		ABORT_ON_ERROR("type larger then asn1_template_prim: %d", type);
+		ABORT_ON_ERROR("type larger then asn1_template_prim: %u", type);
 	    }
 	    ret += (asn1_template_prim[type].length)(el);
 	    break;
@@ -856,7 +856,7 @@ _asn1_length(const struct asn1_template *t, const void *data)
 	    break;
 	}
 	default:
-	    ABORT_ON_ERROR("unknown opcode: %d", (t->tt & A1_OP_MASK));
+		ABORT_ON_ERROR("unknown opcode: %u", (t->tt & A1_OP_MASK));
 	}
 	elements--;
 	t--;
@@ -903,7 +903,7 @@ _asn1_free(const struct asn1_template *t, void *data)
 	    void *el = DPO(data, t->offset);
 
 	    if (type > sizeof(asn1_template_prim)/sizeof(asn1_template_prim[0])) {
-		ABORT_ON_ERROR("type larger then asn1_template_prim: %d", type);
+		ABORT_ON_ERROR("type larger then asn1_template_prim: %u", type);
 	    }
 	    (asn1_template_prim[type].release)(el);
 	    break;
@@ -964,7 +964,7 @@ _asn1_free(const struct asn1_template *t, void *data)
 	    break;
 	}
 	default:
-	    ABORT_ON_ERROR("unknown opcode: %d", (t->tt & A1_OP_MASK));
+		ABORT_ON_ERROR("unknown opcode: %u", (t->tt & A1_OP_MASK));
 	}
 	t++;
 	elements--;
@@ -1035,7 +1035,7 @@ _asn1_copy(const struct asn1_template *t, const void *from, void *to)
 	    void *tel = DPO(to, t->offset);
 
 	    if (type > sizeof(asn1_template_prim)/sizeof(asn1_template_prim[0])) {
-		ABORT_ON_ERROR("type larger then asn1_template_prim: %d", type);
+		ABORT_ON_ERROR("type larger then asn1_template_prim: %u", type);
 	    }
 	    ret = (asn1_template_prim[type].copy)(fel, tel);
 	    if (ret)
@@ -1130,7 +1130,7 @@ _asn1_copy(const struct asn1_template *t, const void *from, void *to)
 	    break;
 	}
 	default:
-	    ABORT_ON_ERROR("unknown opcode: %d", (t->tt & A1_OP_MASK));
+		ABORT_ON_ERROR("unknown opcode: %u", (t->tt & A1_OP_MASK));
 	}
 	t++;
 	elements--;

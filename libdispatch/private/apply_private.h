@@ -43,7 +43,7 @@ DISPATCH_ASSUME_NONNULL_BEGIN
  */
 #define __DISPATCH_APPLY_ATTR_SIZE__ 64
 
-#if defined(__DISPATCH_BUILDING_DISPATCH__) && !defined(__OBJC__)
+#if defined(__DISPATCH_BUILDING_DISPATCH__) && (defined(__cplusplus) || !defined(__OBJC__))
 typedef struct dispatch_apply_attr_s dispatch_apply_attr_s;
 typedef struct dispatch_apply_attr_s *dispatch_apply_attr_t;
 #else

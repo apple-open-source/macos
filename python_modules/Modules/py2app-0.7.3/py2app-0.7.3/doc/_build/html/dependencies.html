@@ -1,0 +1,138 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Dependencies &mdash; py2app 0.7.3 documentation</title>
+    
+    <link rel="stylesheet" href="_static/nature.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '',
+        VERSION:     '0.7.3',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <link rel="top" title="py2app 0.7.3 documentation" href="index.html" />
+    <link rel="next" title="Tutorial" href="tutorial.html" />
+    <link rel="prev" title="Installation" href="install.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="tutorial.html" title="Tutorial"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="install.html" title="Installation"
+             accesskey="P">previous</a> |</li>
+        <li><a href="index.html">py2app 0.7.3 documentation</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="dependencies">
+<h1>Dependencies<a class="headerlink" href="#dependencies" title="Permalink to this headline">¶</a></h1>
+<p>Note that these dependencies should automatically be satisfied by the
+installation procedure and do not need to be acquired separately.</p>
+<dl class="docutils">
+<dt>setuptools:</dt>
+<dd><a class="reference external" href="http://pypi.python.org/pypi/setuptools/">setuptools</a> provides enhancements to <a class="reference external" href="http://docs.python.org/lib/module-distutils.html">distutils</a>, as well as the
+mechanisms for creating and working with <a class="reference external" href="http://peak.telecommunity.com/DevCenter/PythonEggs">Python Eggs</a>. py2app
+is distributed only as a <a class="reference external" href="http://peak.telecommunity.com/DevCenter/PythonEggs">Python Egg</a>.</dd>
+<dt>macholib:</dt>
+<dd><a class="reference external" href="http://pypi.python.org/pypi/macholib/">macholib</a> reads and writes the Mach-O object file format.
+Used by py2app to build a dependency graph of dyld and framework
+dependencies for your application, and then to copy them into your
+application and rewrite their load commands to be <tt class="docutils literal"><span class="pre">&#64;executable_path</span></tt>
+relative. The end result is that your application is going to be
+completely standalone beyond a default install of Mac OS X. You no
+longer have to worry about linking all of your dependencies statically,
+using <a class="reference external" href="x-man-page://1/install_name_tool">install_name_tool</a>, etc. It&#8217;s all taken care of!</dd>
+<dt>modulegraph:</dt>
+<dd><a class="reference external" href="http://pypi.python.org/pypi/modulegraph/">modulegraph</a> is a replacement for the Python standard library
+<a class="reference external" href="http://docs.python.org/lib/module-modulefinder.html">modulefinder</a>. Stores the module dependency tree in a graph data
+structure and allows for advanced filtering and analysis capabilities,
+such as <a class="reference external" href="http://www.research.att.com/sw/tools/graphviz/">GraphViz</a> dot output.</dd>
+<dt>altgraph:</dt>
+<dd><a class="reference external" href="http://pypi.python.org/pypi/altgraph/">altgraph</a> is a fork of <a class="reference external" href="http://www.personal.psu.edu/staff/i/u/iua1/">Istvan Albert</a>&#8216;s graphlib, and it used
+internally by both <a class="reference external" href="http://pypi.python.org/pypi/macholib/">macholib</a> and <a class="reference external" href="http://pypi.python.org/pypi/modulegraph/">modulegraph</a>. It contains
+several small feature and performance enhancements over the original
+graphlib.</dd>
+</dl>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="install.html"
+                        title="previous chapter">Installation</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="tutorial.html"
+                        title="next chapter">Tutorial</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="_sources/dependencies.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="tutorial.html" title="Tutorial"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="install.html" title="Installation"
+             >previous</a> |</li>
+        <li><a href="index.html">py2app 0.7.3 documentation</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2010, Ronald Oussoren, Bob Ippolito.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1.3.
+    </div>
+  </body>
+</html>

@@ -14286,9 +14286,15 @@ smbfs_pack_vap(struct smb_share *share, vnode_t dvp,
         if (fap->fa_max_access & SMB2_FILE_WRITE_DATA) {
             cmn_user_rights |= W_OK;
         }
-        
-        if (fap->fa_max_access & SMB2_FILE_EXECUTE) {
-            cmn_user_rights |= X_OK;
+
+        /*
+         * The effective execute permissions for a directory should be set if the
+         * SMB2_FILE_TRAVERSE or SMB2_FILE_LIST_DIRECTORY bits are enabled, consistent
+         * with how it is handled in vnop_access.
+         */
+        if (((fap->fa_vtype == VDIR) && (fap->fa_max_access & (SMB2_FILE_TRAVERSE | SMB2_FILE_LIST_DIRECTORY))) ||
+            ((fap->fa_vtype != VDIR) && (fap->fa_max_access & SMB2_FILE_EXECUTE))) {
+                cmn_user_rights |= X_OK;
         }
         
         VATTR_RETURN(vap, va_user_access, cmn_user_rights);
@@ -14596,7 +14602,6 @@ smbfs_fetch_new_entries(struct smb_share *share, vnode_t dvp,
     struct timespec	start = {0}, stop = {0};
 	u_quad_t reparse_point_len = 0;
 	int need_refill = 0;
-	off_t saved_d_offset = 0;
 	int32_t dir_cache_max_cnt = g_max_dir_entries_cached;
     struct timespec waittime, now;
     int old_dir = 0;
@@ -14647,7 +14652,6 @@ smbfs_fetch_new_entries(struct smb_share *share, vnode_t dvp,
 		SMB_LOG_DIR_CACHE_LOCK(dnp, "Main cache needs to be refilled <%s> \n",
 							   dnp->n_name);
 		need_refill = 1;
-		saved_d_offset = dnp->d_offset;
 		
 		if (offset > dir_cache_max_cnt) {
             /* Refill main cache with whatever is current on the server */
@@ -14901,7 +14905,7 @@ done:
 
 	if (need_refill == 1) {
 		/* Restore dnp->d_offset */
-		dnp->d_offset = saved_d_offset;
+		dnp->d_offset = dnp->d_main_cache.offset;
 	}
 
     SMB_LOG_KTRACE(SMB_DBG_SMBFS_FETCH_NEW_ENTRIES | DBG_FUNC_END,
@@ -16052,7 +16056,7 @@ smbfs_vnop_getattrlistbulk(struct vnop_getattrlistbulk_args *ap)
     }
     /* We should not need to allocate va_name */
     if (VATTR_IS_ACTIVE(ap->a_vap, va_name)) {
-        SMB_ASSERT(ap->a_vap->va_name != NULL);
+        SMB_ASSERT(ap->a_vap->va_name != NULL, "va_name is NULL");
     }
     /*
      * Lock parent dir that we are enumerating
@@ -16106,9 +16110,15 @@ err_exit:
     return (error);
 }
 
+static int
+smbfs_default_error(__unused void *ap)
+{
+    return ENOTSUP;
+}
+
 vnop_t **smbfs_vnodeop_p;
 static struct vnodeopv_entry_desc smbfs_vnodeop_entries[] = {
-	{ &vnop_default_desc,		(vnop_t *) vn_default_error },
+	{ &vnop_default_desc,		(vnop_t *) smbfs_default_error },
 	{ &vnop_advlock_desc,		(vnop_t *) smbfs_vnop_advlock },
 	{ &vnop_close_desc,			(vnop_t *) smbfs_vnop_close },
 	{ &vnop_create_desc,		(vnop_t *) smbfs_vnop_create },

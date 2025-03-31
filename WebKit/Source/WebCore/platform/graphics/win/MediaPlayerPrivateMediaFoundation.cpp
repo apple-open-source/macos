@@ -42,6 +42,13 @@
 #include <wtf/NeverDestroyed.h>
 #include <wtf/TZoneMallocInlines.h>
 
+#if USE(SKIA)
+#include <skia/core/SkImage.h>
+IGNORE_CLANG_WARNINGS_BEGIN("cast-align")
+#include <skia/core/SkPixmap.h>
+IGNORE_CLANG_WARNINGS_END
+#endif
+
 // MFSamplePresenterSampleCounter
 // Data type: UINT32
 //
@@ -56,10 +63,10 @@ static constexpr uint32_t tenMegahertz = 10000000;
 namespace WebCore {
 
 WTF_MAKE_TZONE_ALLOCATED_IMPL(MediaPlayerPrivateMediaFoundation);
-WTF_MAKE_TZONE_ALLOCATED_IMPL_NESTED(MediaPlayerPrivateMediaFoundationVideoSamplePool, MediaPlayerPrivateMediaFoundation::VideoSamplePool);
-WTF_MAKE_TZONE_ALLOCATED_IMPL_NESTED(MediaPlayerPrivateMediaFoundationVideoScheduler, MediaPlayerPrivateMediaFoundation::VideoScheduler);
-WTF_MAKE_TZONE_ALLOCATED_IMPL_NESTED(MediaPlayerPrivateMediaFoundationDirect3DPresenter, MediaPlayerPrivateMediaFoundation::Direct3DPresenter);
-WTF_MAKE_TZONE_ALLOCATED_IMPL_NESTED(MediaPlayerPrivateMediaFoundationCustomVideoPresenter, MediaPlayerPrivateMediaFoundation::CustomVideoPresenter);
+WTF_MAKE_TZONE_ALLOCATED_IMPL(MediaPlayerPrivateMediaFoundation::VideoSamplePool);
+WTF_MAKE_TZONE_ALLOCATED_IMPL(MediaPlayerPrivateMediaFoundation::VideoScheduler);
+WTF_MAKE_TZONE_ALLOCATED_IMPL(MediaPlayerPrivateMediaFoundation::Direct3DPresenter);
+WTF_MAKE_TZONE_ALLOCATED_IMPL(MediaPlayerPrivateMediaFoundation::CustomVideoPresenter);
 
 class MediaPlayerPrivateMediaFoundation::AsyncCallback : public IMFAsyncCallback {
     WTF_MAKE_TZONE_ALLOCATED_INLINE(MediaPlayerPrivateMediaFoundationAsyncCallback);
@@ -399,11 +406,6 @@ const PlatformTimeRanges& MediaPlayerPrivateMediaFoundation::buffered() const
 bool MediaPlayerPrivateMediaFoundation::didLoadingProgress() const
 {
     return m_loadingProgress;
-}
-
-void MediaPlayerPrivateMediaFoundation::setPresentationSize(const IntSize& size)
-{
-    m_size = size;
 }
 
 void MediaPlayerPrivateMediaFoundation::paint(GraphicsContext& context, const FloatRect& rect)
@@ -884,18 +886,21 @@ void MediaPlayerPrivateMediaFoundation::onBufferingStopped()
 
 void MediaPlayerPrivateMediaFoundation::onSessionStarted()
 {
+    RefPtr<MediaPlayer> player = m_player.get();
+    if (!player)
+        return;
     m_sessionEnded = false;
     if (m_seeking) {
         m_seeking = false;
         if (m_paused)
             m_mediaSession->Pause();
-        if (auto player = m_player.get())
-            player->timeChanged();
+        player->timeChanged();
         return;
     }
 
     if (auto videoDisplay = this->videoDisplay()) {
-        RECT rc = { 0, 0, m_size.width(), m_size.height() };
+        IntSize size = player->presentationSize();
+        RECT rc = { 0, 0, size.width(), size.height() };
         videoDisplay->SetVideoPosition(nullptr, &rc);
     }
 
@@ -1642,6 +1647,9 @@ static MFVideoArea MakeArea(float x, float y, DWORD width, DWORD height)
     area.Area.cy = height;
     return area;
 }
+
+// FIXME: Fix the warnings
+IGNORE_CLANG_WARNINGS_BEGIN("sign-compare")
 
 static HRESULT validateVideoArea(const MFVideoArea& area, UINT32 width, UINT32 height)
 {
@@ -2803,6 +2811,70 @@ HRESULT MediaPlayerPrivateMediaFoundation::Direct3DPresenter::presentSample(IMFS
     return hr;
 }
 
+#if USE(SKIA)
+void MediaPlayerPrivateMediaFoundation::Direct3DPresenter::paintCurrentFrame(GraphicsContext& context, const FloatRect& destRect)
+{
+    int width = m_destRect.right - m_destRect.left;
+    int height = m_destRect.bottom - m_destRect.top;
+
+    if (!width || !height)
+        return;
+
+    Locker<Lock> locker { m_lock };
+
+    if (!m_memSurface)
+        return;
+    D3DSURFACE_DESC desc;
+    if (FAILED(m_memSurface->GetDesc(&desc)))
+        return;
+
+    SkColorType colorType = kUnknown_SkColorType;
+    switch (desc.Format) {
+    case D3DFMT_A8R8G8B8:
+        colorType = kRGBA_8888_SkColorType;
+        break;
+    case D3DFMT_X8R8G8B8:
+        colorType = kRGB_888x_SkColorType;
+        break;
+    default:
+        return;
+    }
+
+    D3DLOCKED_RECT lockedRect;
+    if (FAILED(m_memSurface->LockRect(&lockedRect, nullptr, D3DLOCK_READONLY)))
+        return;
+    auto* data = static_cast<const DWORD*>(lockedRect.pBits);
+
+    int pitchInByte = lockedRect.Pitch;
+    ASSERT(!(pitchInByte % 4));
+    int pitchInDWORD = pitchInByte / 4;
+    auto wholeInput = unsafeMakeSpan(data, pitchInDWORD * height);
+    Vector<byte> buffer(wholeInput.size_bytes());
+    auto wholeOutput = buffer.mutableSpan();
+
+    for (unsigned y = 0; y < height; ++y) {
+        auto lineInput = wholeInput.subspan(pitchInDWORD * y, pitchInDWORD);
+        auto lineOutput = wholeOutput.subspan(pitchInByte * y, pitchInByte);
+        auto output = lineOutput.begin();
+        for (auto d : lineInput) {
+            *output++ = LOBYTE(HIWORD(d));
+            *output++ = HIBYTE(LOWORD(d));
+            *output++ = LOBYTE(LOWORD(d));
+            *output++ = HIBYTE(HIWORD(d));
+        }
+    }
+
+    auto imageInfo = SkImageInfo::Make(width, height, colorType, kUnpremul_SkAlphaType);
+    auto pixmap = SkPixmap(imageInfo, wholeOutput.data(), pitchInByte);
+    auto skImage = SkImages::RasterFromPixmap(pixmap, nullptr, nullptr);
+    auto image = NativeImage::create(WTFMove(skImage));
+    FloatRect srcRect(0, 0, width, height);
+    context.drawNativeImage(*image, destRect, srcRect);
+
+    m_memSurface->UnlockRect();
+}
+#endif
+
 HRESULT MediaPlayerPrivateMediaFoundation::Direct3DPresenter::initializeD3D()
 {
     ASSERT(!m_direct3D9);
@@ -2937,6 +3009,8 @@ HRESULT MediaPlayerPrivateMediaFoundation::Direct3DPresenter::getSwapChainPresen
 
     return S_OK;
 }
+
+IGNORE_CLANG_WARNINGS_END
 
 } // namespace WebCore
 

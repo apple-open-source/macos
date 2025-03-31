@@ -11,7 +11,7 @@
 
 #include <tuple>
 
-#include "third_party/googletest/src/googletest/include/gtest/gtest.h"
+#include "gtest/gtest.h"
 #include "test/hiprec_convolve_test_util.h"
 
 using libaom_test::ACMRandom;

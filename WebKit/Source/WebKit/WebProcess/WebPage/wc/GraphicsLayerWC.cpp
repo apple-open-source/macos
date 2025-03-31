@@ -527,7 +527,7 @@ void GraphicsLayerWC::noteLayerPropertyChanged(OptionSet<WCLayerChange> flags, S
         return;
     bool needsFlush = !m_uncommittedChanges;
     m_uncommittedChanges.add(flags);
-    if (m_isFlushing)
+    if (client().isFlushingLayers())
         return;
     if (needsFlush && scheduleFlush == ScheduleFlush)
         client().notifyFlushRequired(this);
@@ -547,7 +547,6 @@ void GraphicsLayerWC::flushCompositingStateForThisLayerOnly()
 {
     if (!m_uncommittedChanges)
         return;
-    SetForScope<bool> scopedIsFlushing(m_isFlushing, true);
     WCLayerUpdateInfo update {
         .id = *primaryLayerID(),
         .changes = std::exchange(m_uncommittedChanges, { })

@@ -72,6 +72,3 @@ module CUPS_Private [system] {
     export *
   }
 }
-
-module CUPS_Private_Placeholder_NewFile [system] {
-}

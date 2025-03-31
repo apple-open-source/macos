@@ -20,19 +20,22 @@ basename/tests/t_basename.sh	freebsd	contrib/netbsd-tests/usr.bin/basename/t_bas
 chroot/chroot.8	freebsd	usr.sbin/chroot/chroot.8	a40cf4175c90142442d0c6515f6c83956336699b
 chroot/chroot.c	freebsd	usr.sbin/chroot/chroot.c	0634390572b2390cfa8e2a3fd83359a944461f34
 
-date/date.1	freebsd	bin/date/date.1	4148dffadd3b10fa11717cc36263e1d536aaa2f0
-date/date.c	freebsd	bin/date/date.c	c537bf9d5903d0689321f83691341c93b5919172
-date/tests/format_string_test.sh	freebsd	bin/date/tests/format_string_test.sh	2c77ec54190294415c52a8da0c0d9c5a957c03a3
+date/date.1	freebsd	bin/date/date.1	355ebf80b1ed98cf7ca9c51ce7e3e6dcb376853d
+date/date.c	freebsd	bin/date/date.c	a8ddd1926a34fc20970d9ceaad71b31fc414b1c5
+date/vary.c	freebsd	bin/date/vary.c	1d386b48a555f61cb7325543adbbb5c3f3407a66
+date/vary.h	freebsd	bin/date/vary.h	b3e7694832e81d7a904a10f525f8797b753bf0d3
+date/tests/format_string_test.sh	freebsd	bin/date/tests/format_string_test.sh	eeb04a736cb9c07d191af886e25d5f198824658e
 
 dirname/dirname.c	freebsd	usr.bin/dirname/dirname.c	7672a0148f79063eac8f8e0beb0db5350d02d5d4
 dirname/tests/t_dirname.sh	freebsd	contrib/netbsd-tests/usr.bin/dirname/t_dirname.sh	97bb4528d985130fe091155c4e485ff12322b197
 
 echo/tests/echo_test.sh	freebsd	bin/echo/tests/echo_test.sh	f01753c151b6c3c81a83c7039e3d3f9b70f067ed
 
-env/env.1	freebsd	usr.bin/env/env.1	55deb0a5f089c8a27cfc1666655b93881c2b47ae
-env/env.c	freebsd	usr.bin/env/env.c	0c1a5eaae83267365330437adb60f44e1a622a2b
-env/envopts.c	freebsd	usr.bin/env/envopts.c	1de7b4b805ddbf2429da511c053686ac4591ed89
-env/envopts.h	freebsd	usr.bin/env/envopts.h	1de7b4b805ddbf2429da511c053686ac4591ed89
+env/env.1	freebsd	usr.bin/env/env.1	6f6166e49c78f6460732c02bbbba6fcc218221cf
+env/env.c	freebsd	usr.bin/env/env.c	c2d93a803acef634bd0eede6673aeea59e90c277
+env/envopts.c	freebsd	usr.bin/env/envopts.c	1d386b48a555f61cb7325543adbbb5c3f3407a66
+env/envopts.h	freebsd	usr.bin/env/envopts.h	b3e7694832e81d7a904a10f525f8797b753bf0d3
+env/tests/env_test.sh	freebsd	usr.bin/env/tests/env_test.sh	c2d93a803acef634bd0eede6673aeea59e90c277
 
 expr/expr.1	freebsd	bin/expr/expr.1	c5ca929f63a24cbd9907c8d920789d474ee44cc7
 expr/expr.y	freebsd	bin/expr/expr.y	41bd31e656e776866ce3f6d64923913b3cf4a712
@@ -207,7 +210,7 @@ locate/locate/locate.rc	freebsd	usr.bin/locate/locate/locate.rc	af1aec74f59ea428
 locate/locate/locate.updatedb.8	freebsd	usr.bin/locate/locate/locate.updatedb.8	6c7216df785592bb069469113f556dfd1946ed5d
 locate/locate/mklocatedb.sh	freebsd	usr.bin/locate/locate/mklocatedb.sh	1de7b4b805ddbf2429da511c053686ac4591ed89
 locate/locate/pathnames.h	freebsd	usr.bin/locate/locate/pathnames.h	df57947f083046d50552e99b91074927d2458708
-locate/locate/updatedb.sh	freebsd	usr.bin/locate/locate/updatedb.sh	1de7b4b805ddbf2429da511c053686ac4591ed89
+locate/locate/updatedb.sh	freebsd	usr.bin/locate/locate/updatedb.sh	f62c1f3f8e91c78d402e1db4e518e4899a4ba2b9
 locate/locate/util.c	freebsd	usr.bin/locate/locate/util.c	df57947f083046d50552e99b91074927d2458708
 
 lockf/lockf.1	freebsd	usr.bin/lockf/lockf.1	09a7fe0a5523d53ff6c26ddef9a947f293e18c22

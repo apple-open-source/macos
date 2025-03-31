@@ -30,6 +30,8 @@
 #include "Instruction.h"
 #include <wtf/Vector.h>
 
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
+
 namespace JSC {
 
 DECLARE_ALLOCATOR_WITH_HEAP_IDENTIFIER(InstructionStream);
@@ -189,7 +191,7 @@ public:
 
     bool contains(InstructionType* instruction) const
     {
-        const uint8_t* pointer = bitwise_cast<const uint8_t*>(instruction);
+        const uint8_t* pointer = std::bit_cast<const uint8_t*>(instruction);
         return pointer >= m_instructions.data() && pointer < (m_instructions.data() + m_instructions.size());
     }
 
@@ -364,3 +366,5 @@ using JSInstructionStreamWriter = InstructionStreamWriter<JSInstruction>;
 using WasmInstructionStream = InstructionStream<WasmInstruction>;
 
 } // namespace JSC
+
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_END

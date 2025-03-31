@@ -2,7 +2,7 @@
   regversion.c -  Oniguruma (regular expression library)
 **********************************************************************/
 /*-
- * Copyright (c) 2002-2008  K.Kosako  <sndgk393 AT ybb DOT ne DOT jp>
+ * Copyright (c) 2002-2020  K.Kosako
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -27,9 +27,11 @@
  * SUCH DAMAGE.
  */
 
-#include "config.h"
+#ifndef NEED_TO_INCLUDE_STDIO
+#define NEED_TO_INCLUDE_STDIO
+#endif
+
 #include "regint.h"
-#include <stdio.h>
 
 extern const char*
 onig_version(void)
@@ -49,7 +51,7 @@ onig_copyright(void)
   static char s[58];
 
   xsnprintf(s, sizeof(s),
-            "Oniguruma %d.%d.%d : Copyright (C) 2002-2016 K.Kosako",
+            "Oniguruma %d.%d.%d : Copyright (C) 2002-2018 K.Kosako",
             ONIGURUMA_VERSION_MAJOR,
             ONIGURUMA_VERSION_MINOR,
             ONIGURUMA_VERSION_TEENY);

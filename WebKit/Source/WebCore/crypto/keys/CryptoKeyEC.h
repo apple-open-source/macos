@@ -69,7 +69,7 @@ struct JsonWebKey;
 
 class CryptoKeyEC final : public CryptoKey {
 public:
-    enum class NamedCurve {
+    enum class NamedCurve : uint8_t {
         P256,
         P384,
         P521,
@@ -104,8 +104,9 @@ private:
     CryptoKeyEC(CryptoAlgorithmIdentifier, NamedCurve, CryptoKeyType, PlatformECKeyContainer&&, bool extractable, CryptoKeyUsageBitmap);
 
     CryptoKeyClass keyClass() const final { return CryptoKeyClass::EC; }
-
     KeyAlgorithm algorithm() const final;
+    CryptoKey::Data data() const final;
+
     static bool platformSupportedCurve(NamedCurve);
     static std::optional<CryptoKeyPair> platformGeneratePair(CryptoAlgorithmIdentifier, NamedCurve, bool extractable, CryptoKeyUsageBitmap);
     static RefPtr<CryptoKeyEC> platformImportRaw(CryptoAlgorithmIdentifier, NamedCurve, Vector<uint8_t>&& keyData, bool extractable, CryptoKeyUsageBitmap);

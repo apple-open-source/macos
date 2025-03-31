@@ -149,7 +149,7 @@ int shared_region_persistence = 0;      /* no by default */
 TUNABLE_WRITEABLE(int, shared_region_destroy_delay, "vm_shared_region_destroy_delay", 120);
 
 #if DEVELOPMENT || DEBUG
-#define PANIC_ON_DYLD_ISSUE_DEFAULT 1
+#define PANIC_ON_DYLD_ISSUE_DEFAULT 0
 #else /* DEVELOPMENT || DEBUG */
 #define PANIC_ON_DYLD_ISSUE_DEFAULT 0
 #endif /* DEVELOPMENT || DEBUG */

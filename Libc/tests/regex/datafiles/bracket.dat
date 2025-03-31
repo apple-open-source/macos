@@ -148,38 +148,38 @@ BEi	SAME						abc		(1,2)
 BE	SAME						ABC		(1,2)
 BEi	SAME						ABC		(1,2)
 {C	ca_ES.ISO8859-1
-BE$	[a-e][a-e]*					abcde\x{e9}f	(0,6)
-BEi$	SAME						abcde\x{e9}f	(0,6)
-BE$	SAME						ABCDE\x{c9}F	NOMATCH
-BEi$	SAME						ABCDE\x{c9}F	(0,6)
-BE$	[A-E][A-E]*					abcde\x{e9}f	NOMATCH
-BEi$	SAME						abcde\x{e9}f	(0,6)
-BE$	SAME						ABCDE\x{c9}F	(0,6)
-BEi$	SAME						ABCDE\x{c9}F	(0,6)
+BE$	[a-e][a-e]*					abcde\x{e9}f	(0,5)
+BEi$	SAME						abcde\x{e9}f	(0,5)
+?BE$	SAME						ABCDE\x{c9}F	NOMATCH	XFAIL
+BEi$	SAME						ABCDE\x{c9}F	(0,5)
+?BE$	[A-E][A-E]*					abcde\x{e9}f	NOMATCH	XFAIL
+BEi$	SAME						abcde\x{e9}f	(0,5)	XFAIL
+BE$	SAME						ABCDE\x{c9}F	(0,5)
+BEi$	SAME						ABCDE\x{c9}F	(0,5)	XFAIL
 BE$	[^a-d][^a-d]*					a\x{e1}bcde\x{e9}f	(5,8)
 BEi$	SAME						a\x{e1}bcde\x{e9}f	(5,8)
-BE$	SAME						A\x{c1}BCDE\x{c9}F	(0,8)
+?BE$	SAME						A\x{c1}BCDE\x{c9}F	(0,8)	XFAIL
 BEi$	SAME						A\x{c1}BCDE\x{c9}F	(5,8)
-BE$	[^A-D][^A-D]*					a\x{e1}bcde\x{e9}f	(0,8)
+?BE$	[^A-D][^A-D]*					a\x{e1}bcde\x{e9}f	(0,8)	XFAIL
 BEi$	SAME						a\x{e1}bcde\x{e9}f	(5,8)
 BE$	SAME						A\x{c1}BCDE\x{c9}F	(5,8)
 BEi$	SAME						A\x{c1}BCDE\x{c9}F	(5,8)
 BE$	[a-\xe8][a-\xe8]*				abcde\x{e9}f	(0,6)
 BEi$	SAME						abcde\x{e9}f	(0,6)
-BE$	SAME						ABCDE\x{c9}F	NOMATCH
+?BE$	SAME						ABCDE\x{c9}F	NOMATCH	XFAIL
 BEi$	SAME						ABCDE\x{c9}F	(0,6)
-BE$	[A-\xc8][A-\xc8]*				abcde\x{e9}f	NOMATCH
+?BE$	[A-\xc8][A-\xc8]*				abcde\x{e9}f	NOMATCH	XFAIL
 BEi$	SAME						abcde\x{e9}f	(0,6)
 BE$	SAME						ABCDE\x{c9}F	(0,6)
 BEi$	SAME						ABCDE\x{c9}F	(0,6)
-BE$	[^\xe0-d][^\xe0-d]*				a\x{e1}bcde\x{e9}f	(5,8)
-BEi$	SAME						a\x{e1}bcde\x{e9}f	(5,8)
-BE$	SAME						A\x{c1}BCDE\x{c9}F	(0,8)
-BEi$	SAME						A\x{c1}BCDE\x{c9}F	(5,8)
-BE$	[^\xc0-D][^\xc0-D]*				a\x{e1}bcde\x{e9}f	(0,8)
-BEi$	SAME						a\x{e1}bcde\x{e9}f	(5,8)
-BE$	SAME						A\x{c1}BCDE\x{c9}F	(5,8)
-BEi$	SAME						A\x{c1}BCDE\x{c9}F	(5,8)
+BE$	[^\xe0-d][^\xe0-d]*				a\x{e1}bcde\x{e9}f	(0,2)
+BEi$	SAME						a\x{e1}bcde\x{e9}f	(0,2)	XFAIL
+?BE$	SAME						A\x{c1}BCDE\x{c9}F	(0,8)	XFAIL
+BEi$	SAME						A\x{c1}BCDE\x{c9}F	(0,2)	XFAIL
+?BE$	[^\xc0-D][^\xc0-D]*				a\x{e1}bcde\x{e9}f	(0,8)	XFAIL
+BEi$	SAME						a\x{e1}bcde\x{e9}f	(0,2)
+BE$	SAME						A\x{c1}BCDE\x{c9}F	(0,2)
+BEi$	SAME						A\x{c1}BCDE\x{c9}F	(0,2)
 }
 # Single-Character collating symbols
 BE	[a[						x		EBRACK
@@ -345,589 +345,589 @@ BEi	SAME						ABC123		(3,6)
 {C	ca_ES.ISO8859-1
 BE	[a-[.e.]][a-[.e.]]*				abc		(0,3)
 BEi	SAME						abc		(0,3)
-BE	SAME						aBC		(0,1)
+?BE	SAME						aBC		(0,1)	XFAIL
 BEi	SAME						aBC		(0,3)
-BE	SAME						ABC		NOMATCH
+?BE	SAME						ABC		NOMATCH	XFAIL
 BEi	SAME						ABC		(0,3)
 BE$	SAME						ab\x{e7}	(0,3)
 BEi$	SAME						ab\x{e7}	(0,3)
-BE$	SAME						ab\x{c7}	(0,2)
+?BE$	SAME						ab\x{c7}	(0,2)	XFAIL
 BEi$	SAME						ab\x{c7}	(0,3)
-BE$	SAME						aB\x{e7}	(0,1)
+?BE$	SAME						aB\x{e7}	(0,1)	XFAIL
 BEi$	SAME						aB\x{e7}	(0,3)
-BE$	SAME						aB\x{c7}	(0,1)
+?BE$	SAME						aB\x{c7}	(0,1)	XFAIL
 BEi$	SAME						aB\x{c7}	(0,3)
-BE$	SAME						AB\x{c7}	NOMATCH
+?BE$	SAME						AB\x{c7}	NOMATCH	XFAIL
 BEi$	SAME						AB\x{c7}	(0,3)
 BE$	[a-[.\xea.]][a-[.\xea.]]*			abc		(0,3)
 BEi$	SAME						abc		(0,3)
-BE$	SAME						aBC		(0,1)
+?BE$	SAME						aBC		(0,1)	XFAIL
 BEi$	SAME						aBC		(0,3)
-BE$	SAME						ABC		NOMATCH
+?BE$	SAME						ABC		NOMATCH	XFAIL
 BEi$	SAME						ABC		(0,3)
 BE$	SAME						ab\x{e7}	(0,3)
 BEi$	SAME						ab\x{e7}	(0,3)
-BE$	SAME						ab\x{c7}	(0,2)
+?BE$	SAME						ab\x{c7}	(0,2)	XFAIL
 BEi$	SAME						ab\x{c7}	(0,3)
-BE$	SAME						aB\x{e7}	(0,1)
+?BE$	SAME						aB\x{e7}	(0,1)	XFAIL
 BEi$	SAME						aB\x{e7}	(0,3)
-BE$	SAME						aB\x{c7}	(0,1)
+?BE$	SAME						aB\x{c7}	(0,1)	XFAIL
 BEi$	SAME						aB\x{c7}	(0,3)
-BE$	SAME						AB\x{c7}	NOMATCH
+?BE$	SAME						AB\x{c7}	NOMATCH	XFAIL
 BEi$	SAME						AB\x{c7}	(0,3)
-BE$	[\xe0-[.e.]][\xe0-[.e.]]*			abc		(0,3)
-BEi$	SAME						abc		(0,3)
-BE$	SAME						aBC		(0,1)
-BEi$	SAME						aBC		(0,3)
-BE$	SAME						ABC		NOMATCH
-BEi$	SAME						ABC		(0,3)
-BE$	SAME						ab\x{e7}	(0,3)
-BEi$	SAME						ab\x{e7}	(0,3)
-BE$	SAME						ab\x{c7}	(0,2)
-BEi$	SAME						ab\x{c7}	(0,3)
-BE$	SAME						aB\x{e7}	(0,1)
-BEi$	SAME						aB\x{e7}	(0,3)
-BE$	SAME						aB\x{c7}	(0,1)
-BEi$	SAME						aB\x{c7}	(0,3)
-BE$	SAME						AB\x{c7}	NOMATCH
-BEi$	SAME						AB\x{c7}	(0,3)
-BE$	[\xe0-[.\xea.]][\xe0-[.\xea.]]*			abc		(0,3)
-BEi$	SAME						abc		(0,3)
-BE$	SAME						aBC		(0,1)
-BEi$	SAME						aBC		(0,3)
-BE$	SAME						ABC		NOMATCH
-BEi$	SAME						ABC		(0,3)
-BE$	SAME						ab\x{e7}	(0,3)
-BEi$	SAME						ab\x{e7}	(0,3)
-BE$	SAME						ab\x{c7}	(0,2)
-BEi$	SAME						ab\x{c7}	(0,3)
-BE$	SAME						aB\x{e7}	(0,1)
-BEi$	SAME						aB\x{e7}	(0,3)
-BE$	SAME						aB\x{c7}	(0,1)
-BEi$	SAME						aB\x{c7}	(0,3)
-BE$	SAME						AB\x{c7}	NOMATCH
-BEi$	SAME						AB\x{c7}	(0,3)
+BE$	[\xe0-[.e.]][\xe0-[.e.]]*			bbc		(0,3)
+BEi$	SAME						bbc		(0,3)
+?BE$	SAME						bBC		(0,1)	XFAIL
+BEi$	SAME						bBC		(0,3)
+?BE$	SAME						BBC		NOMATCH	XFAIL
+BEi$	SAME						BBC		(0,3)
+BE$	SAME						bb\x{e7}	(0,3)
+BEi$	SAME						bb\x{e7}	(0,3)
+?BE$	SAME						bb\x{c7}	(0,2)	XFAIL
+BEi$	SAME						bb\x{c7}	(0,3)
+?BE$	SAME						bB\x{e7}	(0,1)	XFAIL
+BEi$	SAME						bB\x{e7}	(0,3)
+?BE$	SAME						bB\x{c7}	(0,1)	XFAIL
+BEi$	SAME						bB\x{c7}	(0,3)
+?BE$	SAME						BB\x{c7}	NOMATCH	XFAIL
+BEi$	SAME						BB\x{c7}	(0,3)
+BE$	[\xe0-[.\xea.]][\xe0-[.\xea.]]*			bbc		(0,3)
+BEi$	SAME						bbc		(0,3)
+?BE$	SAME						bBC		(0,1)	XFAIL
+BEi$	SAME						bBC		(0,3)
+?BE$	SAME						BBC		NOMATCH	XFAIL
+BEi$	SAME						BBC		(0,3)
+BE$	SAME						bb\x{e7}	(0,3)
+BEi$	SAME						bb\x{e7}	(0,3)
+?BE$	SAME						bb\x{c7}	(0,2)	XFAIL
+BEi$	SAME						bb\x{c7}	(0,3)
+?BE$	SAME						bB\x{e7}	(0,1)	XFAIL
+BEi$	SAME						bB\x{e7}	(0,3)
+?BE$	SAME						bB\x{c7}	(0,1)	XFAIL
+BEi$	SAME						bB\x{c7}	(0,3)
+?BE$	SAME						BB\x{c7}	NOMATCH	XFAIL
+BEi$	SAME						BB\x{c7}	(0,3)
 BE	[[.a.]-e][[.a.]-e]*				abc		(0,3)
 BEi	SAME						abc		(0,3)
-BE	SAME						aBC		(0,1)
+?BE	SAME						aBC		(0,1)	XFAIL
 BEi	SAME						aBC		(0,3)
-BE	SAME						ABC		NOMATCH
+?BE	SAME						ABC		NOMATCH	XFAIL
 BEi	SAME						ABC		(0,3)
 BE$	SAME						ab\x{e7}	(0,3)
 BEi$	SAME						ab\x{e7}	(0,3)
-BE$	SAME						ab\x{c7}	(0,2)
+?BE$	SAME						ab\x{c7}	(0,2)	XFAIL
 BEi$	SAME						ab\x{c7}	(0,3)
-BE$	SAME						aB\x{e7}	(0,1)
+?BE$	SAME						aB\x{e7}	(0,1)	XFAIL
 BEi$	SAME						aB\x{e7}	(0,3)
-BE$	SAME						aB\x{c7}	(0,1)
+?BE$	SAME						aB\x{c7}	(0,1)	XFAIL
 BEi$	SAME						aB\x{c7}	(0,3)
-BE$	SAME						AB\x{c7}	NOMATCH
+?BE$	SAME						AB\x{c7}	NOMATCH	XFAIL
 BEi$	SAME						AB\x{c7}	(0,3)
 BE$	[[.a.]-\xea][[.a.]-\xea]*			abc		(0,3)
 BEi$	SAME						abc		(0,3)
-BE$	SAME						aBC		(0,1)
+?BE$	SAME						aBC		(0,1)	XFAIL
 BEi$	SAME						aBC		(0,3)
-BE$	SAME						ABC		NOMATCH
+?BE$	SAME						ABC		NOMATCH	XFAIL
 BEi$	SAME						ABC		(0,3)
 BE$	SAME						ab\x{e7}	(0,3)
 BEi$	SAME						ab\x{e7}	(0,3)
-BE$	SAME						ab\x{c7}	(0,2)
+?BE$	SAME						ab\x{c7}	(0,2)	XFAIL
 BEi$	SAME						ab\x{c7}	(0,3)
-BE$	SAME						aB\x{e7}	(0,1)
+?BE$	SAME						aB\x{e7}	(0,1)	XFAIL
 BEi$	SAME						aB\x{e7}	(0,3)
-BE$	SAME						aB\x{c7}	(0,1)
+?BE$	SAME						aB\x{c7}	(0,1)	XFAIL
 BEi$	SAME						aB\x{c7}	(0,3)
-BE$	SAME						AB\x{c7}	NOMATCH
+?BE$	SAME						AB\x{c7}	NOMATCH	XFAIL
 BEi$	SAME						AB\x{c7}	(0,3)
-BE$	[[.\xe0.]-e][[.\xe0.]-e]*			abc		(0,3)
-BEi$	SAME						abc		(0,3)
-BE$	SAME						aBC		(0,1)
-BEi$	SAME						aBC		(0,3)
-BE$	SAME						ABC		NOMATCH
-BEi$	SAME						ABC		(0,3)
-BE$	SAME						ab\x{e7}	(0,3)
-BEi$	SAME						ab\x{e7}	(0,3)
-BE$	SAME						ab\x{c7}	(0,2)
-BEi$	SAME						ab\x{c7}	(0,3)
-BE$	SAME						aB\x{e7}	(0,1)
-BEi$	SAME						aB\x{e7}	(0,3)
-BE$	SAME						aB\x{c7}	(0,1)
-BEi$	SAME						aB\x{c7}	(0,3)
-BE$	SAME						AB\x{c7}	NOMATCH
-BEi$	SAME						AB\x{c7}	(0,3)
-BE$	[[.\xe0.]-\xea][[.\xe0.]-\xea]*			abc		(0,3)
-BEi$	SAME						abc		(0,3)
-BE$	SAME						aBC		(0,1)
-BEi$	SAME						aBC		(0,3)
-BE$	SAME						ABC		NOMATCH
-BEi$	SAME						ABC		(0,3)
-BE$	SAME						ab\x{e7}	(0,3)
-BEi$	SAME						ab\x{e7}	(0,3)
-BE$	SAME						ab\x{c7}	(0,2)
-BEi$	SAME						ab\x{c7}	(0,3)
-BE$	SAME						aB\x{e7}	(0,1)
-BEi$	SAME						aB\x{e7}	(0,3)
-BE$	SAME						aB\x{c7}	(0,1)
-BEi$	SAME						aB\x{c7}	(0,3)
-BE$	SAME						AB\x{c7}	NOMATCH
-BEi$	SAME						AB\x{c7}	(0,3)
-BE	[[.a.]-[.e.]][[.a.]-[.e.]]*			abc		(0,3)
+BE$	[[.\xe0.]-e][[.\xe0.]-e]*			bbc		(0,3)
+BEi$	SAME						bbc		(0,3)
+?BE$	SAME						bBC		(0,1)	XFAIL
+BEi$	SAME						bBC		(0,3)
+?BE$	SAME						BBC		NOMATCH	XFAIL
+BEi$	SAME						BBC		(0,3)
+BE$	SAME						bb\x{e7}	(0,3)
+BEi$	SAME						bb\x{e7}	(0,3)
+?BE$	SAME						bb\x{c7}	(0,2)	XFAIL
+BEi$	SAME						bb\x{c7}	(0,3)
+?BE$	SAME						bB\x{e7}	(0,1)	XFAIL
+BEi$	SAME						bB\x{e7}	(0,3)
+?BE$	SAME						bB\x{c7}	(0,1)	XFAIL
+BEi$	SAME						bB\x{c7}	(0,3)
+?BE$	SAME						BB\x{c7}	NOMATCH	XFAIL
+BEi$	SAME						BB\x{c7}	(0,3)
+BE$	[[.\xe0.]-\xea][[.\xe0.]-\xea]*			bbc		(0,3)
+BEi$	SAME						bbc		(0,3)
+?BE$	SAME						bBC		(0,1)	XFAIL
+BEi$	SAME						bBC		(0,3)
+?BE$	SAME						BBC		NOMATCH	XFAIL
+BEi$	SAME						BBC		(0,3)
+BE$	SAME						bb\x{e7}	(0,3)
+BEi$	SAME						bb\x{e7}	(0,3)
+?BE$	SAME						bb\x{c7}	(0,2)	XFAIL
+BEi$	SAME						bb\x{c7}	(0,3)
+?BE$	SAME						bB\x{e7}	(0,1)	XFAIL
+BEi$	SAME						bB\x{e7}	(0,3)
+?BE$	SAME						bB\x{c7}	(0,1)	XFAIL
+BEi$	SAME						bB\x{c7}	(0,3)
+?BE$	SAME						BB\x{c7}	NOMATCH	XFAIL
+BEi$	SAME						BB\x{c7}	(0,3)
+BE	[[.a.]-[.e.]][[.a.]-[.e.]]*			bbc		(0,3)
 BEi	SAME						abc		(0,3)
-BE$	SAME						aBC		(0,1)
+?BE$	SAME						aBC		(0,1)	XFAIL
 BEi$	SAME						aBC		(0,3)
-BE	SAME						ABC		NOMATCH
+?BE	SAME						ABC		NOMATCH	XFAIL
 BEi	SAME						ABC		(0,3)
 BE$	SAME						ab\x{e7}	(0,3)
 BEi$	SAME						ab\x{e7}	(0,3)
-BE$	SAME						ab\x{c7}	(0,2)
+?BE$	SAME						ab\x{c7}	(0,2)	XFAIL
 BEi$	SAME						ab\x{c7}	(0,3)
-BE$	SAME						aB\x{e7}	(0,1)
+?BE$	SAME						aB\x{e7}	(0,1)	XFAIL
 BEi$	SAME						aB\x{e7}	(0,3)
-BE$	SAME						aB\x{c7}	(0,1)
+?BE$	SAME						aB\x{c7}	(0,1)	XFAIL
 BEi$	SAME						aB\x{c7}	(0,3)
-BE$	SAME						AB\x{c7}	NOMATCH
+?BE$	SAME						AB\x{c7}	NOMATCH	XFAIL
 BEi$	SAME						AB\x{c7}	(0,3)
 BE$	[[.a.]-[.\xea.]][[.a.]-[.\xea.]]*		abc		(0,3)
 BEi$	SAME						abc		(0,3)
-BE$	SAME						aBC		(0,1)
+?BE$	SAME						aBC		(0,1)	XFAIL
 BEi$	SAME						aBC		(0,3)
-BE$	SAME						ABC		NOMATCH
+?BE$	SAME						ABC		NOMATCH	XFAIL
 BEi$	SAME						ABC		(0,3)
 BE$	SAME						ab\x{e7}	(0,3)
 BEi$	SAME						ab\x{e7}	(0,3)
-BE$	SAME						ab\x{c7}	(0,2)
+?BE$	SAME						ab\x{c7}	(0,2)	XFAIL
 BEi$	SAME						ab\x{c7}	(0,3)
-BE$	SAME						aB\x{e7}	(0,1)
+?BE$	SAME						aB\x{e7}	(0,1)	XFAIL
 BEi$	SAME						aB\x{e7}	(0,3)
-BE$	SAME						aB\x{c7}	(0,1)
+?BE$	SAME						aB\x{c7}	(0,1)	XFAIL
 BEi$	SAME						aB\x{c7}	(0,3)
-BE$	SAME						AB\x{c7}	NOMATCH
+?BE$	SAME						AB\x{c7}	NOMATCH	XFAIL
 BEi$	SAME						AB\x{c7}	(0,3)
-BE$	[[.\xe0.]-[.e.]][[.\xe0.]-[.e.]]*		abc		(0,3)
-BEi$	SAME						abc		(0,3)
-BE$	SAME						aBC		(0,1)
-BEi$	SAME						aBC		(0,3)
-BE$	SAME						ABC		NOMATCH
-BEi$	SAME						ABC		(0,3)
-BE$	SAME						ab\x{e7}	(0,3)
-BEi$	SAME						ab\x{e7}	(0,3)
-BE$	SAME						ab\x{c7}	(0,2)
-BEi$	SAME						ab\x{c7}	(0,3)
-BE$	SAME						aB\x{e7}	(0,1)
-BEi$	SAME						aB\x{e7}	(0,3)
-BE$	SAME						aB\x{c7}	(0,1)
-BEi$	SAME						aB\x{c7}	(0,3)
-BE$	SAME						AB\x{c7}	NOMATCH
-BEi$	SAME						AB\x{c7}	(0,3)
-BE$	[[.\xe0.]-[.\xea.]][[.\xe0.]-[.\xea.]]*		abc		(0,3)
-BEi$	SAME						abc		(0,3)
-BE$	SAME						aBC		(0,1)
-BEi$	SAME						aBC		(0,3)
-BE$	SAME						ABC		NOMATCH
-BEi$	SAME						ABC		(0,3)
-BE$	SAME						ab\x{e7}	(0,3)
-BEi$	SAME						ab\x{e7}	(0,3)
-BE$	SAME						ab\x{c7}	(0,2)
-BEi$	SAME						ab\x{c7}	(0,3)
-BE$	SAME						aB\x{e7}	(0,1)
-BEi$	SAME						aB\x{e7}	(0,3)
-BE$	SAME						aB\x{c7}	(0,1)
-BEi$	SAME						aB\x{c7}	(0,3)
-BE$	SAME						AB\x{c7}	NOMATCH
-BEi$	SAME						AB\x{c7}	(0,3)
-BE	[A-[.E.]][A-[.E.]]*				abc		NOMATCH
+BE$	[[.\xe0.]-[.e.]][[.\xe0.]-[.e.]]*		bbc		(0,3)
+BEi$	SAME						bbc		(0,3)
+?BE$	SAME						bBC		(0,1)	XFAIL
+BEi$	SAME						bBC		(0,3)
+?BE$	SAME						BBC		NOMATCH	XFAIL
+BEi$	SAME						BBC		(0,3)
+BE$	SAME						bb\x{e7}	(0,3)
+BEi$	SAME						bb\x{e7}	(0,3)
+?BE$	SAME						bb\x{c7}	(0,2)	XFAIL
+BEi$	SAME						bb\x{c7}	(0,3)
+?BE$	SAME						bB\x{e7}	(0,1)	XFAIL
+BEi$	SAME						bB\x{e7}	(0,3)
+?BE$	SAME						bB\x{c7}	(0,1)	XFAIL
+BEi$	SAME						bB\x{c7}	(0,3)
+?BE$	SAME						BB\x{c7}	NOMATCH	XFAIL
+BEi$	SAME						BB\x{c7}	(0,3)
+BE$	[[.\xe0.]-[.\xea.]][[.\xe0.]-[.\xea.]]*		bbc		(0,3)
+BEi$	SAME						bbc		(0,3)
+?BE$	SAME						bBC		(0,1)	XFAIL
+BEi$	SAME						bBC		(0,3)
+?BE$	SAME						BBC		NOMATCH	XFAIL
+BEi$	SAME						BBC		(0,3)
+BE$	SAME						bb\x{e7}	(0,3)
+BEi$	SAME						bb\x{e7}	(0,3)
+?BE$	SAME						bb\x{c7}	(0,2)	XFAIL
+BEi$	SAME						bb\x{c7}	(0,3)
+?BE$	SAME						bB\x{e7}	(0,1)	XFAIL
+BEi$	SAME						bB\x{e7}	(0,3)
+?BE$	SAME						bB\x{c7}	(0,1)	XFAIL
+BEi$	SAME						bB\x{c7}	(0,3)
+?BE$	SAME						BB\x{c7}	NOMATCH	XFAIL
+BEi$	SAME						BB\x{c7}	(0,3)
+?BE	[A-[.E.]][A-[.E.]]*				abc		NOMATCH	XFAIL
 BEi	SAME						abc		(0,3)
 BE	SAME						aBC		(1,3)
 BEi	SAME						aBC		(0,3)
 BE	SAME						ABC		(0,3)
 BEi	SAME						ABC		(0,3)
-BE$	SAME						ab\x{e7}	NOMATCH
+?BE$	SAME						ab\x{e7}	NOMATCH	XFAIL
 BEi$	SAME						ab\x{e7}	(0,3)
-BE$	SAME						ab\x{c7}	(2,3)
+?BE$	SAME						ab\x{c7}	(2,3)	XFAIL
 BEi$	SAME						ab\x{c7}	(0,3)
-BE$	SAME						aB\x{e7}	(1,2)
+?BE$	SAME						aB\x{e7}	(1,2)	XFAIL
 BEi$	SAME						aB\x{e7}	(0,3)
 BE$	SAME						aB\x{c7}	(1,3)
 BEi$	SAME						aB\x{c7}	(0,3)
 BE$	SAME						AB\x{c7}	(0,3)
 BEi$	SAME						AB\x{c7}	(0,3)
-BE$	[A-[.\xca.]][A-[.\xca.]]*			abc		NOMATCH
+?BE$	[A-[.\xca.]][A-[.\xca.]]*			abc		NOMATCH	XFAIL
 BEi$	SAME						abc		(0,3)
 BE$	SAME						aBC		(1,3)
 BEi$	SAME						aBC		(0,3)
 BE$	SAME						ABC		(0,3)
 BEi$	SAME						ABC		(0,3)
-BE$	SAME						ab\x{e7}	NOMATCH
+?BE$	SAME						ab\x{e7}	NOMATCH	XFAIL
 BEi$	SAME						ab\x{e7}	(0,3)
-BE$	SAME						ab\x{c7}	(2,3)
+?BE$	SAME						ab\x{c7}	(2,3)	XFAIL
 BEi$	SAME						ab\x{c7}	(0,3)
-BE$	SAME						aB\x{e7}	(1,2)
+?BE$	SAME						aB\x{e7}	(1,2)	XFAIL
 BEi$	SAME						aB\x{e7}	(0,3)
 BE$	SAME						aB\x{c7}	(1,3)
 BEi$	SAME						aB\x{c7}	(0,3)
 BE$	SAME						AB\x{c7}	(0,3)
 BEi$	SAME						AB\x{c7}	(0,3)
-BE$	[\xc0-[.E.]][\xc0-[.E.]]*			abc		NOMATCH
-BEi$	SAME						abc		(0,3)
-BE$	SAME						aBC		(1,3)
-BEi$	SAME						aBC		(0,3)
-BE$	SAME						ABC		(0,3)
-BEi$	SAME						ABC		(0,3)
-BE$	SAME						ab\x{e7}	NOMATCH
-BEi$	SAME						ab\x{e7}	(0,3)
-BE$	SAME						ab\x{c7}	(2,3)
-BEi$	SAME						ab\x{c7}	(0,3)
-BE$	SAME						aB\x{e7}	(1,2)
-BEi$	SAME						aB\x{e7}	(0,3)
-BE$	SAME						aB\x{c7}	(1,3)
-BEi$	SAME						aB\x{c7}	(0,3)
-BE$	SAME						AB\x{c7}	(0,3)
-BEi$	SAME						AB\x{c7}	(0,3)
-BE$	[\xc0-[.\xca.]][\xc0-[.\xca.]]*			abc		NOMATCH
-BEi$	SAME						abc		(0,3)
-BE$	SAME						aBC		(1,3)
-BEi$	SAME						aBC		(0,3)
-BE$	SAME						ABC		(0,3)
-BEi$	SAME						ABC		(0,3)
-BE$	SAME						ab\x{e7}	NOMATCH
-BEi$	SAME						ab\x{e7}	(0,3)
-BE$	SAME						ab\x{c7}	(2,3)
-BEi$	SAME						ab\x{c7}	(0,3)
-BE$	SAME						aB\x{e7}	(1,2)
-BEi$	SAME						aB\x{e7}	(0,3)
-BE$	SAME						aB\x{c7}	(1,3)
-BEi$	SAME						aB\x{c7}	(0,3)
-BE$	SAME						AB\x{c7}	(0,3)
-BEi$	SAME						AB\x{c7}	(0,3)
-BE	[[.A.]-E][[.A.]-E]*				abc		NOMATCH
+?BE$	[\xc0-[.E.]][\xc0-[.E.]]*			bbc		NOMATCH	XFAIL
+BEi$	SAME						bbc		(0,3)
+?BE$	SAME						bBC		(1,3)	XFAIL
+BEi$	SAME						bBC		(0,3)
+BE$	SAME						BBC		(0,3)
+BEi$	SAME						BBC		(0,3)
+?BE$	SAME						bb\x{e7}	NOMATCH	XFAIL
+BEi$	SAME						bb\x{e7}	(0,3)
+?BE$	SAME						bb\x{c7}	(2,3)	XFAIL
+BEi$	SAME						bb\x{c7}	(0,3)
+?BE$	SAME						bB\x{e7}	(1,2)	XFAIL
+BEi$	SAME						bB\x{e7}	(0,3)
+?BE$	SAME						bB\x{c7}	(1,3)	XFAIL
+BEi$	SAME						bB\x{c7}	(0,3)
+BE$	SAME						BB\x{c7}	(0,3)
+BEi$	SAME						BB\x{c7}	(0,3)
+?BE$	[\xc0-[.\xca.]][\xc0-[.\xca.]]*			bbc		NOMATCH	XFAIL
+BEi$	SAME						bbc		(0,3)
+?BE$	SAME						bBC		(1,3)	XFAIL
+BEi$	SAME						bBC		(0,3)
+BE$	SAME						BBC		(0,3)
+BEi$	SAME						BBC		(0,3)
+?BE$	SAME						bb\x{e7}	NOMATCH	XFAIL
+BEi$	SAME						bb\x{e7}	(0,3)
+?BE$	SAME						bb\x{c7}	(2,3)	XFAIL
+BEi$	SAME						bb\x{c7}	(0,3)
+?BE$	SAME						bB\x{e7}	(1,2)	XFAIL
+BEi$	SAME						bB\x{e7}	(0,3)
+?BE$	SAME						bB\x{c7}	(1,3)	XFAIL
+BEi$	SAME						bB\x{c7}	(0,3)
+BE$	SAME						BB\x{c7}	(0,3)
+BEi$	SAME						BB\x{c7}	(0,3)
+?BE	[[.A.]-E][[.A.]-E]*				abc		NOMATCH	XFAIL
 BEi	SAME						abc		(0,3)
 BE	SAME						aBC		(1,3)
 BEi	SAME						aBC		(0,3)
 BE	SAME						ABC		(0,3)
 BEi	SAME						ABC		(0,3)
-BE$	SAME						ab\x{e7}	NOMATCH
+?BE$	SAME						ab\x{e7}	NOMATCH	XFAIL
 BEi$	SAME						ab\x{e7}	(0,3)
-BE$	SAME						ab\x{c7}	(2,3)
+?BE$	SAME						ab\x{c7}	(2,3)	XFAIL
 BEi$	SAME						ab\x{c7}	(0,3)
-BE$	SAME						aB\x{e7}	(1,2)
+?BE$	SAME						aB\x{e7}	(1,2)	XFAIL
 BEi$	SAME						aB\x{e7}	(0,3)
 BE$	SAME						aB\x{c7}	(1,3)
 BEi$	SAME						aB\x{c7}	(0,3)
 BE$	SAME						AB\x{c7}	(0,3)
 BEi$	SAME						AB\x{c7}	(0,3)
-BE$	[[.A.]-\xca][[.A.]-\xca]*			abc		NOMATCH
+?BE$	[[.A.]-\xca][[.A.]-\xca]*			abc		NOMATCH	XFAIL
 BEi$	SAME						abc		(0,3)
 BE$	SAME						aBC		(1,3)
 BEi$	SAME						aBC		(0,3)
 BE$	SAME						ABC		(0,3)
 BEi$	SAME						ABC		(0,3)
-BE$	SAME						ab\x{e7}	NOMATCH
+?BE$	SAME						ab\x{e7}	NOMATCH	XFAIL
 BEi$	SAME						ab\x{e7}	(0,3)
-BE$	SAME						ab\x{c7}	(2,3)
+?BE$	SAME						ab\x{c7}	(2,3)	XFAIL
 BEi$	SAME						ab\x{c7}	(0,3)
-BE$	SAME						aB\x{e7}	(1,2)
+?BE$	SAME						aB\x{e7}	(1,2)	XFAIL
 BEi$	SAME						aB\x{e7}	(0,3)
 BE$	SAME						aB\x{c7}	(1,3)
 BEi$	SAME						aB\x{c7}	(0,3)
 BE$	SAME						AB\x{c7}	(0,3)
 BEi$	SAME						AB\x{c7}	(0,3)
-BE$	[[.\xc0.]-E][[.\xc0.]-E]*			abc		NOMATCH
-BEi$	SAME						abc		(0,3)
-BE$	SAME						aBC		(1,3)
-BEi$	SAME						aBC		(0,3)
-BE$	SAME						ABC		(0,3)
-BEi$	SAME						ABC		(0,3)
-BE$	SAME						ab\x{e7}	NOMATCH
-BEi$	SAME						ab\x{e7}	(0,3)
-BE$	SAME						ab\x{c7}	(2,3)
-BEi$	SAME						ab\x{c7}	(0,3)
-BE$	SAME						aB\x{e7}	(1,2)
-BEi$	SAME						aB\x{e7}	(0,3)
-BE$	SAME						aB\x{c7}	(1,3)
-BEi$	SAME						aB\x{c7}	(0,3)
-BE$	SAME						AB\x{c7}	(0,3)
-BEi$	SAME						AB\x{c7}	(0,3)
-BE$	[[.\xc0.]-\xca][[.\xc0.]-\xca]*			abc		NOMATCH
-BEi$	SAME						abc		(0,3)
-BE$	SAME						aBC		(1,3)
-BEi$	SAME						aBC		(0,3)
-BE$	SAME						ABC		(0,3)
-BEi$	SAME						ABC		(0,3)
-BE$	SAME						ab\x{e7}	NOMATCH
-BEi$	SAME						ab\x{e7}	(0,3)
-BE$	SAME						ab\x{c7}	(2,3)
-BEi$	SAME						ab\x{c7}	(0,3)
-BE$	SAME						aB\x{e7}	(1,2)
-BEi$	SAME						aB\x{e7}	(0,3)
-BE$	SAME						aB\x{c7}	(1,3)
-BEi$	SAME						aB\x{c7}	(0,3)
-BE$	SAME						AB\x{c7}	(0,3)
-BEi$	SAME						AB\x{c7}	(0,3)
-BE	[[.A.]-[.E.]][[.A.]-[.E.]]*			abc		NOMATCH
+?BE$	[[.\xc0.]-E][[.\xc0.]-E]*			abc		NOMATCH	XFAIL
+BEi$	SAME						bbc		(0,3)
+?BE$	SAME						bBC		(1,3)	XFAIL
+BEi$	SAME						bBC		(0,3)
+BE$	SAME						BBC		(0,3)
+BEi$	SAME						BBC		(0,3)
+?BE$	SAME						bb\x{e7}	NOMATCH	XFAIL
+BEi$	SAME						bb\x{e7}	(0,3)
+?BE$	SAME						bb\x{c7}	(2,3)	XFAIL
+BEi$	SAME						bb\x{c7}	(0,3)
+?BE$	SAME						bB\x{e7}	(1,2)	XFAIL
+BEi$	SAME						bB\x{e7}	(0,3)
+?BE$	SAME						bB\x{c7}	(1,3)	XFAIL
+BEi$	SAME						bB\x{c7}	(0,3)
+BE$	SAME						BB\x{c7}	(0,3)
+BEi$	SAME						BB\x{c7}	(0,3)
+?BE$	[[.\xc0.]-\xca][[.\xc0.]-\xca]*			bbc		NOMATCH	XFAIL
+BEi$	SAME						bbc		(0,3)
+?BE$	SAME						bBC		(1,3)	XFAIL
+BEi$	SAME						bBC		(0,3)
+BE$	SAME						BBC		(0,3)
+BEi$	SAME						BBC		(0,3)
+?BE$	SAME						bb\x{e7}	NOMATCH	XFAIL
+BEi$	SAME						bb\x{e7}	(0,3)
+?BE$	SAME						bb\x{c7}	(2,3)	XFAIL
+BEi$	SAME						bb\x{c7}	(0,3)
+?BE$	SAME						bB\x{e7}	(1,2)	XFAIL
+BEi$	SAME						bB\x{e7}	(0,3)
+?BE$	SAME						bB\x{c7}	(1,3)	XFAIL
+BEi$	SAME						bB\x{c7}	(0,3)
+BE$	SAME						BB\x{c7}	(0,3)
+BEi$	SAME						BB\x{c7}	(0,3)
+?BE	[[.A.]-[.E.]][[.A.]-[.E.]]*			abc		NOMATCH	XFAIL
 BEi	SAME						abc		(0,3)
 BE	SAME						aBC		(1,3)
 BEi	SAME						aBC		(0,3)
 BE	SAME						ABC		(0,3)
 BEi	SAME						ABC		(0,3)
-BE$	SAME						ab\x{e7}	NOMATCH
+?BE$	SAME						ab\x{e7}	NOMATCH	XFAIL
 BEi$	SAME						ab\x{e7}	(0,3)
-BE$	SAME						ab\x{c7}	(2,3)
+?BE$	SAME						ab\x{c7}	(2,3)	XFAIL
 BEi$	SAME						ab\x{c7}	(0,3)
-BE$	SAME						aB\x{e7}	(1,2)
+?BE$	SAME						aB\x{e7}	(1,2)	XFAIL
 BEi$	SAME						aB\x{e7}	(0,3)
 BE$	SAME						aB\x{c7}	(1,3)
 BEi$	SAME						aB\x{c7}	(0,3)
 BE$	SAME						AB\x{c7}	(0,3)
 BEi$	SAME						AB\x{c7}	(0,3)
-BE$	[[.A.]-[.\xca.]][[.A.]-[.\xca.]]*		abc		NOMATCH
+?BE$	[[.A.]-[.\xca.]][[.A.]-[.\xca.]]*		abc		NOMATCH	XFAIL
 BEi$	SAME						abc		(0,3)
 BE$	SAME						aBC		(1,3)
 BEi$	SAME						aBC		(0,3)
 BE$	SAME						ABC		(0,3)
 BEi$	SAME						ABC		(0,3)
-BE$	SAME						ab\x{e7}	NOMATCH
+?BE$	SAME						ab\x{e7}	NOMATCH	XFAIL
 BEi$	SAME						ab\x{e7}	(0,3)
-BE$	SAME						ab\x{c7}	(2,3)
+?BE$	SAME						ab\x{c7}	(2,3)	XFAIL
 BEi$	SAME						ab\x{c7}	(0,3)
-BE$	SAME						aB\x{e7}	(1,2)
+?BE$	SAME						aB\x{e7}	(1,2)	XFAIL
 BEi$	SAME						aB\x{e7}	(0,3)
 BE$	SAME						aB\x{c7}	(1,3)
 BEi$	SAME						aB\x{c7}	(0,3)
 BE$	SAME						AB\x{c7}	(0,3)
 BEi$	SAME						AB\x{c7}	(0,3)
-BE$	[[.\xc0.]-[.E.]][[.\xc0.]-[.E.]]*		abc		NOMATCH
-BEi$	SAME						abc		(0,3)
-BE$	SAME						aBC		(1,3)
-BEi$	SAME						aBC		(0,3)
-BE$	SAME						ABC		(0,3)
-BEi$	SAME						ABC		(0,3)
-BE$	SAME						ab\x{e7}	NOMATCH
-BEi$	SAME						ab\x{e7}	(0,3)
-BE$	SAME						ab\x{c7}	(2,3)
-BEi$	SAME						ab\x{c7}	(0,3)
-BE$	SAME						aB\x{e7}	(1,2)
-BEi$	SAME						aB\x{e7}	(0,3)
-BE$	SAME						aB\x{c7}	(1,3)
-BEi$	SAME						aB\x{c7}	(0,3)
-BE$	SAME						AB\x{c7}	(0,3)
-BEi$	SAME						AB\x{c7}	(0,3)
-BE$	[[.\xc0.]-[.\xca.]][[.\xc0.]-[.\xca.]]*		abc		NOMATCH
-BEi$	SAME						abc		(0,3)
-BE$	SAME						aBC		(1,3)
-BEi$	SAME						aBC		(0,3)
-BE$	SAME						ABC		(0,3)
-BEi$	SAME						ABC		(0,3)
-BE$	SAME						ab\x{e7}	NOMATCH
-BEi$	SAME						ab\x{e7}	(0,3)
-BE$	SAME						ab\x{c7}	(2,3)
-BEi$	SAME						ab\x{c7}	(0,3)
-BE$	SAME						aB\x{e7}	(1,2)
-BEi$	SAME						aB\x{e7}	(0,3)
-BE$	SAME						aB\x{c7}	(1,3)
-BEi$	SAME						aB\x{c7}	(0,3)
-BE$	SAME						AB\x{c7}	(0,3)
-BEi$	SAME						AB\x{c7}	(0,3)
+?BE$	[[.\xc0.]-[.E.]][[.\xc0.]-[.E.]]*		bbc		NOMATCH	XFAIL
+BEi$	SAME						bbc		(0,3)
+?BE$	SAME						bBC		(1,3)	XFAIL
+BEi$	SAME						bBC		(0,3)
+BE$	SAME						BBC		(0,3)
+BEi$	SAME						BBC		(0,3)
+?BE$	SAME						bb\x{e7}	NOMATCH	XFAIL
+BEi$	SAME						bb\x{e7}	(0,3)
+?BE$	SAME						bb\x{c7}	(2,3)	XFAIL
+BEi$	SAME						bb\x{c7}	(0,3)
+?BE$	SAME						bB\x{e7}	(1,2)	XFAIL
+BEi$	SAME						bB\x{e7}	(0,3)
+?BE$	SAME						bB\x{c7}	(1,3)	XFAIL
+BEi$	SAME						bB\x{c7}	(0,3)
+BE$	SAME						BB\x{c7}	(0,3)
+BEi$	SAME						BB\x{c7}	(0,3)
+?BE$	[[.\xc0.]-[.\xca.]][[.\xc0.]-[.\xca.]]*		bbc		NOMATCH	XFAIL
+BEi$	SAME						bbc		(0,3)
+?BE$	SAME						bBC		(1,3)	XFAIL
+BEi$	SAME						bBC		(0,3)
+BE$	SAME						BBC		(0,3)
+BEi$	SAME						BBC		(0,3)
+?BE$	SAME						bb\x{e7}	NOMATCH	XFAIL
+BEi$	SAME						bb\x{e7}	(0,3)
+?BE$	SAME						bb\x{c7}	(2,3)	XFAIL
+BEi$	SAME						bb\x{c7}	(0,3)
+?BE$	SAME						bB\x{e7}	(1,2)	XFAIL
+BEi$	SAME						bB\x{e7}	(0,3)
+?BE$	SAME						bB\x{c7}	(1,3)	XFAIL
+BEi$	SAME						bB\x{c7}	(0,3)
+BE$	SAME						BB\x{c7}	(0,3)
+BEi$	SAME						BB\x{c7}	(0,3)
 BE	[^a-[.e.]][^a-[.e.]]*				abc		NOMATCH
 BEi	SAME						abc		NOMATCH
-BE	SAME						aBC		(1,3)
+?BE	SAME						aBC		(1,3)	XFAIL
 BEi	SAME						aBC		NOMATCH
-BE	SAME						ABC		(0,3)
+?BE	SAME						ABC		(0,3)	XFAIL
 BEi	SAME						ABC		NOMATCH
 BE$	SAME						ab\x{e7}	NOMATCH
 BEi$	SAME						ab\x{e7}	NOMATCH
-BE$	SAME						ab\x{c7}	(2,3)
+?BE$	SAME						ab\x{c7}	(2,3)	XFAIL
 BEi$	SAME						ab\x{c7}	NOMATCH
-BE$	SAME						aB\x{e7}	(1,2)
+?BE$	SAME						aB\x{e7}	(1,2)	XFAIL
 BEi$	SAME						aB\x{e7}	NOMATCH
-BE$	SAME						aB\x{c7}	(1,3)
+?BE$	SAME						aB\x{c7}	(1,3)	XFAIL
 BEi$	SAME						aB\x{c7}	NOMATCH
-BE$	SAME						AB\x{c7}	(0,3)
+?BE$	SAME						AB\x{c7}	(0,3)	XFAIL
 BEi$	SAME						AB\x{c7}	NOMATCH
 BE$	[^a-[.\xea.]][^a-[.\xea.]]*			abc		NOMATCH
 BEi$	SAME						abc		NOMATCH
-BE$	SAME						aBC		(1,3)
+?BE$	SAME						aBC		(1,3)	XFAIL
 BEi$	SAME						aBC		NOMATCH
-BE$	SAME						ABC		(0,3)
+?BE$	SAME						ABC		(0,3)	XFAIL
 BEi$	SAME						ABC		NOMATCH
 BE$	SAME						ab\x{e7}	NOMATCH
 BEi$	SAME						ab\x{e7}	NOMATCH
-BE$	SAME						ab\x{c7}	(2,3)
+?BE$	SAME						ab\x{c7}	(2,3)	XFAIL
 BEi$	SAME						ab\x{c7}	NOMATCH
-BE$	SAME						aB\x{e7}	(1,2)
+?BE$	SAME						aB\x{e7}	(1,2)	XFAIL
 BEi$	SAME						aB\x{e7}	NOMATCH
-BE$	SAME						aB\x{c7}	(1,3)
+?BE$	SAME						aB\x{c7}	(1,3)	XFAIL
 BEi$	SAME						aB\x{c7}	NOMATCH
-BE$	SAME						AB\x{c7}	(0,3)
+?BE$	SAME						AB\x{c7}	(0,3)	XFAIL
 BEi$	SAME						AB\x{c7}	NOMATCH
-BE$	[^\xe0-[.e.]][^\xe0-[.e.]]*			abc		NOMATCH
-BEi$	SAME						abc		NOMATCH
-BE$	SAME						aBC		(1,3)
-BEi$	SAME						aBC		NOMATCH
-BE$	SAME						ABC		(0,3)
-BEi$	SAME						ABC		NOMATCH
-BE$	SAME						ab\x{e7}	NOMATCH
-BEi$	SAME						ab\x{e7}	NOMATCH
-BE$	SAME						ab\x{c7}	(2,3)
-BEi$	SAME						ab\x{c7}	NOMATCH
-BE$	SAME						aB\x{e7}	(1,2)
-BEi$	SAME						aB\x{e7}	NOMATCH
-BE$	SAME						aB\x{c7}	(1,3)
-BEi$	SAME						aB\x{c7}	NOMATCH
-BE$	SAME						AB\x{c7}	(0,3)
-BEi$	SAME						AB\x{c7}	NOMATCH
-BE$	[^\xe0-[.\xea.]][^\xe0-[.\xea.]]*		abc		NOMATCH
-BEi$	SAME						abc		NOMATCH
-BE$	SAME						aBC		(1,3)
-BEi$	SAME						aBC		NOMATCH
-BE$	SAME						ABC		(0,3)
-BEi$	SAME						ABC		NOMATCH
-BE$	SAME						ab\x{e7}	NOMATCH
-BEi$	SAME						ab\x{e7}	NOMATCH
-BE$	SAME						ab\x{c7}	(2,3)
-BEi$	SAME						ab\x{c7}	NOMATCH
-BE$	SAME						aB\x{e7}	(1,2)
-BEi$	SAME						aB\x{e7}	NOMATCH
-BE$	SAME						aB\x{c7}	(1,3)
-BEi$	SAME						aB\x{c7}	NOMATCH
-BE$	SAME						AB\x{c7}	(0,3)
-BEi$	SAME						AB\x{c7}	NOMATCH
+BE$	[^\xe0-[.e.]][^\xe0-[.e.]]*			bbc		NOMATCH
+BEi$	SAME						bbc		NOMATCH
+?BE$	SAME						bBC		(1,3)	XFAIL
+BEi$	SAME						bBC		NOMATCH
+?BE$	SAME						BBC		(0,3)	XFAIL
+BEi$	SAME						BBC		NOMATCH
+BE$	SAME						bb\x{e7}	NOMATCH
+BEi$	SAME						bb\x{e7}	NOMATCH
+?BE$	SAME						bb\x{c7}	(2,3)	XFAIL
+BEi$	SAME						bb\x{c7}	NOMATCH
+?BE$	SAME						bB\x{e7}	(1,2)	XFAIL
+BEi$	SAME						bB\x{e7}	NOMATCH
+?BE$	SAME						bB\x{c7}	(1,3)	XFAIL
+BEi$	SAME						bB\x{c7}	NOMATCH
+?BE$	SAME						BB\x{c7}	(0,3)	XFAIL
+BEi$	SAME						BB\x{c7}	NOMATCH
+BE$	[^\xe0-[.\xea.]][^\xe0-[.\xea.]]*		bbc		NOMATCH
+BEi$	SAME						bbc		NOMATCH
+?BE$	SAME						bBC		(1,3)	XFAIL
+BEi$	SAME						bBC		NOMATCH
+?BE$	SAME						BBC		(0,3)	XFAIL
+BEi$	SAME						BBC		NOMATCH
+BE$	SAME						bb\x{e7}	NOMATCH
+BEi$	SAME						bb\x{e7}	NOMATCH
+?BE$	SAME						bb\x{c7}	(2,3)	XFAIL
+BEi$	SAME						bb\x{c7}	NOMATCH
+?BE$	SAME						bB\x{e7}	(1,2)	XFAIL
+BEi$	SAME						bB\x{e7}	NOMATCH
+?BE$	SAME						bB\x{c7}	(1,3)	XFAIL
+BEi$	SAME						bB\x{c7}	NOMATCH
+?BE$	SAME						BB\x{c7}	(0,3)	XFAIL
+BEi$	SAME						BB\x{c7}	NOMATCH
 BE	[^[.a.]-e][^[.a.]-e]*				abc		NOMATCH
 BEi	SAME						abc		NOMATCH
-BE	SAME						aBC		(1,3)
+?BE	SAME						aBC		(1,3)	XFAIL
 BEi	SAME						aBC		NOMATCH
-BE	SAME						ABC		(0,3)
+?BE	SAME						ABC		(0,3)	XFAIL
 BEi	SAME						ABC		NOMATCH
 BE$	SAME						ab\x{e7}	NOMATCH
 BEi$	SAME						ab\x{e7}	NOMATCH
-BE$	SAME						ab\x{c7}	(2,3)
+?BE$	SAME						ab\x{c7}	(2,3)	XFAIL
 BEi$	SAME						ab\x{c7}	NOMATCH
-BE$	SAME						aB\x{e7}	(1,2)
+?BE$	SAME						aB\x{e7}	(1,2)	XFAIL
 BEi$	SAME						aB\x{e7}	NOMATCH
-BE$	SAME						aB\x{c7}	(1,3)
+?BE$	SAME						aB\x{c7}	(1,3)	XFAIL
 BEi$	SAME						aB\x{c7}	NOMATCH
-BE$	SAME						AB\x{c7}	(0,3)
+?BE$	SAME						AB\x{c7}	(0,3)	XFAIL
 BEi$	SAME						AB\x{c7}	NOMATCH
 BE$	[^[.a.]-\xea][^[.a.]-\xea]*			abc		NOMATCH
 BEi$	SAME						abc		NOMATCH
-BE$	SAME						aBC		(1,3)
+?BE$	SAME						aBC		(1,3)	XFAIL
 BEi$	SAME						aBC		NOMATCH
-BE$	SAME						ABC		(0,3)
+?BE$	SAME						ABC		(0,3)	XFAIL
 BEi$	SAME						ABC		NOMATCH
 BE$	SAME						ab\x{e7}	NOMATCH
 BEi$	SAME						ab\x{e7}	NOMATCH
-BE$	SAME						ab\x{c7}	(2,3)
+?BE$	SAME						ab\x{c7}	(2,3)	XFAIL
 BEi$	SAME						ab\x{c7}	NOMATCH
-BE$	SAME						aB\x{e7}	(1,2)
+?BE$	SAME						aB\x{e7}	(1,2)	XFAIL
 BEi$	SAME						aB\x{e7}	NOMATCH
-BE$	SAME						aB\x{c7}	(1,3)
+?BE$	SAME						aB\x{c7}	(1,3)	XFAIL
 BEi$	SAME						aB\x{c7}	NOMATCH
-BE$	SAME						AB\x{c7}	(0,3)
+?BE$	SAME						AB\x{c7}	(0,3)	XFAIL
 BEi$	SAME						AB\x{c7}	NOMATCH
-BE$	[^[.\xe0.]-e][^[.\xe0.]-e]*			abc		NOMATCH
-BEi$	SAME						abc		NOMATCH
-BE$	SAME						aBC		(1,3)
-BEi$	SAME						aBC		NOMATCH
-BE$	SAME						ABC		(0,3)
-BEi$	SAME						ABC		NOMATCH
-BE$	SAME						ab\x{e7}	NOMATCH
-BEi$	SAME						ab\x{e7}	NOMATCH
-BE$	SAME						ab\x{c7}	(2,3)
-BEi$	SAME						ab\x{c7}	NOMATCH
-BE$	SAME						aB\x{e7}	(1,2)
-BEi$	SAME						aB\x{e7}	NOMATCH
-BE$	SAME						aB\x{c7}	(1,3)
-BEi$	SAME						aB\x{c7}	NOMATCH
-BE$	SAME						AB\x{c7}	(0,3)
-BEi$	SAME						AB\x{c7}	NOMATCH
-BE$	[^[.\xe0.]-\xea][^[.\xe0.]-\xea]*		abc		NOMATCH
-BEi$	SAME						abc		NOMATCH
-BE$	SAME						aBC		(1,3)
-BEi$	SAME						aBC		NOMATCH
-BE$	SAME						ABC		(0,3)
-BEi$	SAME						ABC		NOMATCH
-BE$	SAME						ab\x{e7}	NOMATCH
-BEi$	SAME						ab\x{e7}	NOMATCH
-BE$	SAME						ab\x{c7}	(2,3)
-BEi$	SAME						ab\x{c7}	NOMATCH
-BE$	SAME						aB\x{e7}	(1,2)
-BEi$	SAME						aB\x{e7}	NOMATCH
-BE$	SAME						aB\x{c7}	(1,3)
-BEi$	SAME						aB\x{c7}	NOMATCH
-BE$	SAME						AB\x{c7}	(0,3)
-BEi$	SAME						AB\x{c7}	NOMATCH
+BE$	[^[.\xe0.]-e][^[.\xe0.]-e]*			bbc		NOMATCH
+BEi$	SAME						bbc		NOMATCH
+?BE$	SAME						bBC		(1,3)	XFAIL
+BEi$	SAME						bBC		NOMATCH
+?BE$	SAME						BBC		(0,3)	XFAIL
+BEi$	SAME						BBC		NOMATCH
+BE$	SAME						bb\x{e7}	NOMATCH
+BEi$	SAME						bb\x{e7}	NOMATCH
+?BE$	SAME						bb\x{c7}	(2,3)	XFAIL
+BEi$	SAME						bb\x{c7}	NOMATCH
+?BE$	SAME						bB\x{e7}	(1,2)	XFAIL
+BEi$	SAME						bB\x{e7}	NOMATCH
+?BE$	SAME						bB\x{c7}	(1,3)	XFAIL
+BEi$	SAME						bB\x{c7}	NOMATCH
+?BE$	SAME						BB\x{c7}	(0,3)	XFAIL
+BEi$	SAME						BB\x{c7}	NOMATCH
+BE$	[^[.\xe0.]-\xea][^[.\xe0.]-\xea]*		bbc		NOMATCH
+BEi$	SAME						bbc		NOMATCH
+?BE$	SAME						bBC		(1,3)	XFAIL
+BEi$	SAME						bBC		NOMATCH
+?BE$	SAME						BBC		(0,3)	XFAIL
+BEi$	SAME						BBC		NOMATCH
+BE$	SAME						bb\x{e7}	NOMATCH
+BEi$	SAME						bb\x{e7}	NOMATCH
+?BE$	SAME						bb\x{c7}	(2,3)	XFAIL
+BEi$	SAME						bb\x{c7}	NOMATCH
+?BE$	SAME						bB\x{e7}	(1,2)	XFAIL
+BEi$	SAME						bB\x{e7}	NOMATCH
+?BE$	SAME						bB\x{c7}	(1,3)	XFAIL
+BEi$	SAME						bB\x{c7}	NOMATCH
+?BE$	SAME						AB\x{c7}	(0,3)	XFAIL
+BEi$	SAME						BB\x{c7}	NOMATCH
 BE	[^[.a.]-[.e.]][^[.a.]-[.e.]]*			abc		NOMATCH
 BEi	SAME						abc		NOMATCH
-BE	SAME						aBC		(1,3)
+?BE	SAME						aBC		(1,3)	XFAIL
 BEi	SAME						aBC		NOMATCH
-BE	SAME						ABC		(0,3)
+?BE	SAME						ABC		(0,3)	XFAIL
 BEi	SAME						ABC		NOMATCH
 BE$	SAME						ab\x{e7}	NOMATCH
 BEi$	SAME						ab\x{e7}	NOMATCH
-BE$	SAME						ab\x{c7}	(2,3)
+?BE$	SAME						ab\x{c7}	(2,3)	XFAIL
 BEi$	SAME						ab\x{c7}	NOMATCH
-BE$	SAME						aB\x{e7}	(1,2)
+?BE$	SAME						aB\x{e7}	(1,2)	XFAIL
 BEi$	SAME						aB\x{e7}	NOMATCH
-BE$	SAME						aB\x{c7}	(1,3)
+?BE$	SAME						aB\x{c7}	(1,3)	XFAIL
 BEi$	SAME						aB\x{c7}	NOMATCH
-BE$	SAME						AB\x{c7}	(0,3)
+?BE$	SAME						AB\x{c7}	(0,3)	XFAIL
 BEi$	SAME						AB\x{c7}	NOMATCH
 BE$	[^[.a.]-[.\xea.]][^[.a.]-[.\xea.]]*		abc		NOMATCH
 BEi$	SAME						abc		NOMATCH
-BE$	SAME						aBC		(1,3)
+?BE$	SAME						aBC		(1,3)	XFAIL
 BEi$	SAME						aBC		NOMATCH
-BE$	SAME						ABC		(0,3)
+?BE$	SAME						ABC		(0,3)	XFAIL
 BEi$	SAME						ABC		NOMATCH
 BE$	SAME						ab\x{e7}	NOMATCH
 BEi$	SAME						ab\x{e7}	NOMATCH
-BE$	SAME						ab\x{c7}	(2,3)
+?BE$	SAME						ab\x{c7}	(2,3)	XFAIL
 BEi$	SAME						ab\x{c7}	NOMATCH
-BE$	SAME						aB\x{e7}	(1,2)
+?BE$	SAME						aB\x{e7}	(1,2)	XFAIL
 BEi$	SAME						aB\x{e7}	NOMATCH
-BE$	SAME						aB\x{c7}	(1,3)
+?BE$	SAME						aB\x{c7}	(1,3)	XFAIL
 BEi$	SAME						aB\x{c7}	NOMATCH
-BE$	SAME						AB\x{c7}	(0,3)
+?BE$	SAME						AB\x{c7}	(0,3)	XFAIL
 BEi$	SAME						AB\x{c7}	NOMATCH
-BE$	[^[.\xe0.]-[.e.]][^[.\xe0.]-[.e.]]*		abc		NOMATCH
-BEi$	SAME						abc		NOMATCH
-BE$	SAME						aBC		(1,3)
-BEi$	SAME						aBC		NOMATCH
-BE$	SAME						ABC		(0,3)
-BEi$	SAME						ABC		NOMATCH
-BE$	SAME						ab\x{e7}	NOMATCH
-BEi$	SAME						ab\x{e7}	NOMATCH
-BE$	SAME						ab\x{c7}	(2,3)
-BEi$	SAME						ab\x{c7}	NOMATCH
-BE$	SAME						aB\x{e7}	(1,2)
-BEi$	SAME						aB\x{e7}	NOMATCH
-BE$	SAME						aB\x{c7}	(1,3)
-BEi$	SAME						aB\x{c7}	NOMATCH
-BE$	SAME						AB\x{c7}	(0,3)
-BEi$	SAME						AB\x{c7}	NOMATCH
-BE$	[^[.\xe0.]-[.\xea.]][^[.\xe0.]-[.\xea.]]*	abc		NOMATCH
-BEi$	SAME						abc		NOMATCH
-BE$	SAME						aBC		(1,3)
-BEi$	SAME						aBC		NOMATCH
-BE$	SAME						ABC		(0,3)
-BEi$	SAME						ABC		NOMATCH
-BE$	SAME						ab\x{e7}	NOMATCH
-BEi$	SAME						ab\x{e7}	NOMATCH
-BE$	SAME						ab\x{c7}	(2,3)
-BEi$	SAME						ab\x{c7}	NOMATCH
-BE$	SAME						aB\x{e7}	(1,2)
-BEi$	SAME						aB\x{e7}	NOMATCH
-BE$	SAME						aB\x{c7}	(1,3)
-BEi$	SAME						aB\x{c7}	NOMATCH
-BE$	SAME						AB\x{c7}	(0,3)
-BEi$	SAME						AB\x{c7}	NOMATCH
-BE	[^A-[.E.]][^A-[.E.]]*				abc		(0,3)
+BE$	[^[.\xe0.]-[.e.]][^[.\xe0.]-[.e.]]*		bbc		NOMATCH
+BEi$	SAME						bbc		NOMATCH
+?BE$	SAME						bBC		(1,3)	XFAIL
+BEi$	SAME						bBC		NOMATCH
+?BE$	SAME						BBC		(0,3)	XFAIL
+BEi$	SAME						BBC		NOMATCH
+BE$	SAME						bb\x{e7}	NOMATCH
+BEi$	SAME						bb\x{e7}	NOMATCH
+?BE$	SAME						bb\x{c7}	(2,3)	XFAIL
+BEi$	SAME						bb\x{c7}	NOMATCH
+?BE$	SAME						bB\x{e7}	(1,2)	XFAIL
+BEi$	SAME						bB\x{e7}	NOMATCH
+?BE$	SAME						bB\x{c7}	(1,3)	XFAIL
+BEi$	SAME						bB\x{c7}	NOMATCH
+?BE$	SAME						BB\x{c7}	(0,3)	XFAIL
+BEi$	SAME						BB\x{c7}	NOMATCH
+BE$	[^[.\xe0.]-[.\xea.]][^[.\xe0.]-[.\xea.]]*	bbc		NOMATCH
+BEi$	SAME						bbc		NOMATCH
+?BE$	SAME						bBC		(1,3)	XFAIL
+BEi$	SAME						bBC		NOMATCH
+?BE$	SAME						BBC		(0,3)	XFAIL
+BEi$	SAME						BBC		NOMATCH
+BE$	SAME						bb\x{e7}	NOMATCH
+BEi$	SAME						bb\x{e7}	NOMATCH
+?BE$	SAME						bb\x{c7}	(2,3)	XFAIL
+BEi$	SAME						bb\x{c7}	NOMATCH
+?BE$	SAME						bB\x{e7}	(1,2)	XFAIL
+BEi$	SAME						bB\x{e7}	NOMATCH
+?BE$	SAME						bB\x{c7}	(1,3)	XFAIL
+BEi$	SAME						bB\x{c7}	NOMATCH
+?BE$	SAME						BB\x{c7}	(0,3)	XFAIL
+BEi$	SAME						BB\x{c7}	NOMATCH
+?BE	[^A-[.E.]][^A-[.E.]]*				abc		(0,3)	XFAIL
 BEi	SAME						abc		NOMATCH
 BE	SAME						aBC		(0,1)
 BEi	SAME						aBC		NOMATCH
 BE	SAME						ABC		NOMATCH
 BEi	SAME						ABC		NOMATCH
-BE$	SAME						ab\x{e7}	(0,3)
+?BE$	SAME						ab\x{e7}	(0,3)	XFAIL
 BEi$	SAME						ab\x{e7}	NOMATCH
-BE$	SAME						ab\x{c7}	(0,2)
+?BE$	SAME						ab\x{c7}	(0,2)	XFAIL
 BEi$	SAME						ab\x{c7}	NOMATCH
 BE$	SAME						aB\x{e7}	(0,1)
 BEi$	SAME						aB\x{e7}	NOMATCH
@@ -935,15 +935,15 @@ BE$	SAME						aB\x{c7}	(0,1)
 BEi$	SAME						aB\x{c7}	NOMATCH
 BE$	SAME						AB\x{c7}	NOMATCH
 BEi$	SAME						AB\x{c7}	NOMATCH
-BE$	[^A-[.\xca.]][^A-[.\xca.]]*			abc		(0,3)
+?BE$	[^A-[.\xca.]][^A-[.\xca.]]*			abc		(0,3)	XFAIL
 BEi$	SAME						abc		NOMATCH
 BE$	SAME						aBC		(0,1)
 BEi$	SAME						aBC		NOMATCH
 BE$	SAME						ABC		NOMATCH
 BEi$	SAME						ABC		NOMATCH
-BE$	SAME						ab\x{e7}	(0,3)
+?BE$	SAME						ab\x{e7}	(0,3)	XFAIL
 BEi$	SAME						ab\x{e7}	NOMATCH
-BE$	SAME						ab\x{c7}	(0,2)
+?BE$	SAME						ab\x{c7}	(0,2)	XFAIL
 BEi$	SAME						ab\x{c7}	NOMATCH
 BE$	SAME						aB\x{e7}	(0,1)
 BEi$	SAME						aB\x{e7}	NOMATCH
@@ -951,47 +951,47 @@ BE$	SAME						aB\x{c7}	(0,1)
 BEi$	SAME						aB\x{c7}	NOMATCH
 BE$	SAME						AB\x{c7}	NOMATCH
 BEi$	SAME						AB\x{c7}	NOMATCH
-BE$	[^\xc0-[.E.]][^\xc0-[.E.]]*			abc		(0,3)
-BEi$	SAME						abc		NOMATCH
-BE$	SAME						aBC		(0,1)
-BEi$	SAME						aBC		NOMATCH
-BE$	SAME						ABC		NOMATCH
-BEi$	SAME						ABC		NOMATCH
-BE$	SAME						ab\x{e7}	(0,3)
-BEi$	SAME						ab\x{e7}	NOMATCH
-BE$	SAME						ab\x{c7}	(0,2)
-BEi$	SAME						ab\x{c7}	NOMATCH
-BE$	SAME						aB\x{e7}	(0,1)
-BEi$	SAME						aB\x{e7}	NOMATCH
-BE$	SAME						aB\x{c7}	(0,1)
-BEi$	SAME						aB\x{c7}	NOMATCH
-BE$	SAME						AB\x{c7}	NOMATCH
-BEi$	SAME						AB\x{c7}	NOMATCH
-BE$	[^\xc0-[.\xca.]][^\xc0-[.\xca.]]*		abc		(0,3)
-BEi$	SAME						abc		NOMATCH
-BE$	SAME						aBC		(0,1)
-BEi$	SAME						aBC		NOMATCH
-BE$	SAME						ABC		NOMATCH
-BEi$	SAME						ABC		NOMATCH
-BE$	SAME						ab\x{e7}	(0,3)
-BEi$	SAME						ab\x{e7}	NOMATCH
-BE$	SAME						ab\x{c7}	(0,2)
-BEi$	SAME						ab\x{c7}	NOMATCH
-BE$	SAME						aB\x{e7}	(0,1)
-BEi$	SAME						aB\x{e7}	NOMATCH
-BE$	SAME						aB\x{c7}	(0,1)
-BEi$	SAME						aB\x{c7}	NOMATCH
-BE$	SAME						AB\x{c7}	NOMATCH
-BEi$	SAME						AB\x{c7}	NOMATCH
-BE	[^[.A.]-E][^[.A.]-E]*				abc		(0,3)
+?BE$	[^\xc0-[.E.]][^\xc0-[.E.]]*			bbc		(0,3)	XFAIL
+BEi$	SAME						bbc		NOMATCH
+?BE$	SAME						bBC		(0,1)	XFAIL
+BEi$	SAME						bBC		NOMATCH
+BE$	SAME						BBC		NOMATCH
+BEi$	SAME						BBC		NOMATCH
+?BE$	SAME						bb\x{e7}	(0,3)	XFAIL
+BEi$	SAME						bb\x{e7}	NOMATCH
+?BE$	SAME						bb\x{c7}	(0,2)	XFAIL
+BEi$	SAME						bb\x{c7}	NOMATCH
+?BE$	SAME						bB\x{e7}	(0,1)	XFAIL
+BEi$	SAME						bB\x{e7}	NOMATCH
+?BE$	SAME						bB\x{c7}	(0,1)	XFAIL
+BEi$	SAME						bB\x{c7}	NOMATCH
+BE$	SAME						BB\x{c7}	NOMATCH
+BEi$	SAME						BB\x{c7}	NOMATCH
+?BE$	[^\xc0-[.\xca.]][^\xc0-[.\xca.]]*		bbc		(0,3)	XFAIL
+BEi$	SAME						bbc		NOMATCH
+?BE$	SAME						bBC		(0,1)	XFAIL
+BEi$	SAME						bBC		NOMATCH
+BE$	SAME						BBC		NOMATCH
+BEi$	SAME						BBC		NOMATCH
+?BE$	SAME						bb\x{e7}	(0,3)	XFAIL
+BEi$	SAME						bb\x{e7}	NOMATCH
+?BE$	SAME						bb\x{c7}	(0,2)	XFAIL
+BEi$	SAME						bb\x{c7}	NOMATCH
+?BE$	SAME						bB\x{e7}	(0,1)	XFAIL
+BEi$	SAME						bB\x{e7}	NOMATCH
+?BE$	SAME						bB\x{c7}	(0,1)	XFAIL
+BEi$	SAME						bB\x{c7}	NOMATCH
+BE$	SAME						BB\x{c7}	NOMATCH
+BEi$	SAME						BB\x{c7}	NOMATCH
+?BE	[^[.A.]-E][^[.A.]-E]*				abc		(0,3)	XFAIL
 BEi	SAME						abc		NOMATCH
 BE	SAME						aBC		(0,1)
 BEi	SAME						aBC		NOMATCH
 BE	SAME						ABC		NOMATCH
 BEi	SAME						ABC		NOMATCH
-BE$	SAME						ab\x{e7}	(0,3)
+?BE$	SAME						ab\x{e7}	(0,3)	XFAIL
 BEi$	SAME						ab\x{e7}	NOMATCH
-BE$	SAME						ab\x{c7}	(0,2)
+?BE$	SAME						ab\x{c7}	(0,2)	XFAIL
 BEi$	SAME						ab\x{c7}	NOMATCH
 BE$	SAME						aB\x{e7}	(0,1)
 BEi$	SAME						aB\x{e7}	NOMATCH
@@ -999,15 +999,15 @@ BE$	SAME						aB\x{c7}	(0,1)
 BEi$	SAME						aB\x{c7}	NOMATCH
 BE$	SAME						AB\x{c7}	NOMATCH
 BEi$	SAME						AB\x{c7}	NOMATCH
-BE$	[^[.A.]-\xca][^[.A.]-\xca]*			abc		(0,3)
+?BE$	[^[.A.]-\xca][^[.A.]-\xca]*			abc		(0,3)	XFAIL
 BEi$	SAME						abc		NOMATCH
 BE$	SAME						aBC		(0,1)
 BEi$	SAME						aBC		NOMATCH
 BE$	SAME						ABC		NOMATCH
 BEi$	SAME						ABC		NOMATCH
-BE$	SAME						ab\x{e7}	(0,3)
+?BE$	SAME						ab\x{e7}	(0,3)	XFAIL
 BEi$	SAME						ab\x{e7}	NOMATCH
-BE$	SAME						ab\x{c7}	(0,2)
+?BE$	SAME						ab\x{c7}	(0,2)	XFAIL
 BEi$	SAME						ab\x{c7}	NOMATCH
 BE$	SAME						aB\x{e7}	(0,1)
 BEi$	SAME						aB\x{e7}	NOMATCH
@@ -1015,47 +1015,47 @@ BE$	SAME						aB\x{c7}	(0,1)
 BEi$	SAME						aB\x{c7}	NOMATCH
 BE$	SAME						AB\x{c7}	NOMATCH
 BEi$	SAME						AB\x{c7}	NOMATCH
-BE$	[^[.\xc0.]-E][^[.\xc0.]-E]*			abc		(0,3)
-BEi$	SAME						abc		NOMATCH
-BE$	SAME						aBC		(0,1)
-BEi$	SAME						aBC		NOMATCH
-BE$	SAME						ABC		NOMATCH
-BEi$	SAME						ABC		NOMATCH
-BE$	SAME						ab\x{e7}	(0,3)
-BEi$	SAME						ab\x{e7}	NOMATCH
-BE$	SAME						ab\x{c7}	(0,2)
-BEi$	SAME						ab\x{c7}	NOMATCH
-BE$	SAME						aB\x{e7}	(0,1)
-BEi$	SAME						aB\x{e7}	NOMATCH
-BE$	SAME						aB\x{c7}	(0,1)
-BEi$	SAME						aB\x{c7}	NOMATCH
-BE$	SAME						AB\x{c7}	NOMATCH
-BEi$	SAME						AB\x{c7}	NOMATCH
-BE$	[^[.\xc0.]-\xca][^[.\xc0.]-\xca]*		abc		(0,3)
-BEi$	SAME						abc		NOMATCH
-BE$	SAME						aBC		(0,1)
-BEi$	SAME						aBC		NOMATCH
-BE$	SAME						ABC		NOMATCH
-BEi$	SAME						ABC		NOMATCH
-BE$	SAME						ab\x{e7}	(0,3)
-BEi$	SAME						ab\x{e7}	NOMATCH
-BE$	SAME						ab\x{c7}	(0,2)
-BEi$	SAME						ab\x{c7}	NOMATCH
-BE$	SAME						aB\x{e7}	(0,1)
-BEi$	SAME						aB\x{e7}	NOMATCH
-BE$	SAME						aB\x{c7}	(0,1)
-BEi$	SAME						aB\x{c7}	NOMATCH
-BE$	SAME						AB\x{c7}	NOMATCH
-BEi$	SAME						AB\x{c7}	NOMATCH
-BE	[^[.A.]-[.E.]][^[.A.]-[.E.]]*			abc		(0,3)
+?BE$	[^[.\xc0.]-E][^[.\xc0.]-E]*			bbc		(0,3)	XFAIL
+BEi$	SAME						bbc		NOMATCH
+?BE$	SAME						bBC		(0,1)	XFAIL
+BEi$	SAME						bBC		NOMATCH
+BE$	SAME						BBC		NOMATCH
+BEi$	SAME						BBC		NOMATCH
+?BE$	SAME						bb\x{e7}	(0,3)	XFAIL
+BEi$	SAME						bb\x{e7}	NOMATCH
+?BE$	SAME						bb\x{c7}	(0,2)	XFAIL
+BEi$	SAME						bb\x{c7}	NOMATCH
+?BE$	SAME						bB\x{e7}	(0,1)	XFAIL
+BEi$	SAME						bB\x{e7}	NOMATCH
+?BE$	SAME						bB\x{c7}	(0,1)	XFAIL
+BEi$	SAME						bB\x{c7}	NOMATCH
+BE$	SAME						BB\x{c7}	NOMATCH
+BEi$	SAME						BB\x{c7}	NOMATCH
+?BE$	[^[.\xc0.]-\xca][^[.\xc0.]-\xca]*		bbc		(0,3)	XFAIL
+BEi$	SAME						bbc		NOMATCH
+?BE$	SAME						bBC		(0,1)	XFAIL
+BEi$	SAME						bBC		NOMATCH
+BE$	SAME						BBC		NOMATCH
+BEi$	SAME						BBC		NOMATCH
+?BE$	SAME						bb\x{e7}	(0,3)	XFAIL
+BEi$	SAME						bb\x{e7}	NOMATCH
+?BE$	SAME						bb\x{c7}	(0,2)	XFAIL
+BEi$	SAME						bb\x{c7}	NOMATCH
+?BE$	SAME						bB\x{e7}	(0,1)	XFAIL
+BEi$	SAME						bB\x{e7}	NOMATCH
+?BE$	SAME						bB\x{c7}	(0,1)	XFAIL
+BEi$	SAME						bB\x{c7}	NOMATCH
+BE$	SAME						BB\x{c7}	NOMATCH
+BEi$	SAME						BB\x{c7}	NOMATCH
+?BE	[^[.A.]-[.E.]][^[.A.]-[.E.]]*			abc		(0,3)	XFAIL
 BEi	SAME						abc		NOMATCH
 BE	SAME						aBC		(0,1)
 BEi	SAME						aBC		NOMATCH
 BE	SAME						ABC		NOMATCH
 BEi	SAME						ABC		NOMATCH
-BE$	SAME						ab\x{e7}	(0,3)
+?BE$	SAME						ab\x{e7}	(0,3)	XFAIL
 BEi$	SAME						ab\x{e7}	NOMATCH
-BE$	SAME						ab\x{c7}	(0,2)
+?BE$	SAME						ab\x{c7}	(0,2)	XFAIL
 BEi$	SAME						ab\x{c7}	NOMATCH
 BE$	SAME						aB\x{e7}	(0,1)
 BEi$	SAME						aB\x{e7}	NOMATCH
@@ -1063,15 +1063,15 @@ BE$	SAME						aB\x{c7}	(0,1)
 BEi$	SAME						aB\x{c7}	NOMATCH
 BE$	SAME						AB\x{c7}	NOMATCH
 BEi$	SAME						AB\x{c7}	NOMATCH
-BE$	[^[.A.]-[.\xca.]][^[.A.]-[.\xca.]]*		abc		(0,3)
+?BE$	[^[.A.]-[.\xca.]][^[.A.]-[.\xca.]]*		abc		(0,3)	XFAIL
 BEi$	SAME						abc		NOMATCH
 BE$	SAME						aBC		(0,1)
 BEi$	SAME						aBC		NOMATCH
 BE$	SAME						ABC		NOMATCH
 BEi$	SAME						ABC		NOMATCH
-BE$	SAME						ab\x{e7}	(0,3)
+?BE$	SAME						ab\x{e7}	(0,3)	XFAIL
 BEi$	SAME						ab\x{e7}	NOMATCH
-BE$	SAME						ab\x{c7}	(0,2)
+?BE$	SAME						ab\x{c7}	(0,2)	XFAIL
 BEi$	SAME						ab\x{c7}	NOMATCH
 BE$	SAME						aB\x{e7}	(0,1)
 BEi$	SAME						aB\x{e7}	NOMATCH
@@ -1079,38 +1079,38 @@ BE$	SAME						aB\x{c7}	(0,1)
 BEi$	SAME						aB\x{c7}	NOMATCH
 BE$	SAME						AB\x{c7}	NOMATCH
 BEi$	SAME						AB\x{c7}	NOMATCH
-BE$	[^[.\xc0.]-[.E.]][^[.\xc0.]-[.E.]]*		abc		(0,3)
-BEi$	SAME						abc		NOMATCH
-BE$	SAME						aBC		(0,1)
-BEi$	SAME						aBC		NOMATCH
-BE$	SAME						ABC		NOMATCH
-BEi$	SAME						ABC		NOMATCH
-BE$	SAME						ab\x{e7}	(0,3)
-BEi$	SAME						ab\x{e7}	NOMATCH
-BE$	SAME						ab\x{c7}	(0,2)
-BEi$	SAME						ab\x{c7}	NOMATCH
-BE$	SAME						aB\x{e7}	(0,1)
-BEi$	SAME						aB\x{e7}	NOMATCH
-BE$	SAME						aB\x{c7}	(0,1)
-BEi$	SAME						aB\x{c7}	NOMATCH
-BE$	SAME						AB\x{c7}	NOMATCH
-BEi$	SAME						AB\x{c7}	NOMATCH
-BE$	[^[.\xc0.]-[.\xca.]][^[.\xc0.]-[.\xca.]]*	abc		(0,3)
-BEi$	SAME						abc		NOMATCH
-BE$	SAME						aBC		(0,1)
-BEi$	SAME						aBC		NOMATCH
-BE$	SAME						ABC		NOMATCH
-BEi$	SAME						ABC		NOMATCH
-BE$	SAME						ab\x{e7}	(0,3)
-BEi$	SAME						ab\x{e7}	NOMATCH
-BE$	SAME						ab\x{c7}	(0,2)
-BEi$	SAME						ab\x{c7}	NOMATCH
-BE$	SAME						aB\x{e7}	(0,1)
-BEi$	SAME						aB\x{e7}	NOMATCH
-BE$	SAME						aB\x{c7}	(0,1)
-BEi$	SAME						aB\x{c7}	NOMATCH
-BE$	SAME						AB\x{c7}	NOMATCH
-BEi$	SAME						AB\x{c7}	NOMATCH
+?BE$	[^[.\xc0.]-[.E.]][^[.\xc0.]-[.E.]]*		bbc		(0,3)	XFAIL
+BEi$	SAME						bbc		NOMATCH
+?BE$	SAME						bBC		(0,1)	XFAIL
+BEi$	SAME						bBC		NOMATCH
+BE$	SAME						BBC		NOMATCH
+BEi$	SAME						BBC		NOMATCH
+?BE$	SAME						bb\x{e7}	(0,3)	XFAIL
+BEi$	SAME						bb\x{e7}	NOMATCH
+?BE$	SAME						bb\x{c7}	(0,2)	XFAIL
+BEi$	SAME						bb\x{c7}	NOMATCH
+?BE$	SAME						bB\x{e7}	(0,1)	XFAIL
+BEi$	SAME						bB\x{e7}	NOMATCH
+?BE$	SAME						bB\x{c7}	(0,1)	XFAIL
+BEi$	SAME						bB\x{c7}	NOMATCH
+BE$	SAME						BB\x{c7}	NOMATCH
+BEi$	SAME						BB\x{c7}	NOMATCH
+?BE$	[^[.\xc0.]-[.\xca.]][^[.\xc0.]-[.\xca.]]*	bbc		(0,3)	XFAIL
+BEi$	SAME						bbc		NOMATCH
+?BE$	SAME						bBC		(0,1)	XFAIL
+BEi$	SAME						bBC		NOMATCH
+BE$	SAME						BBC		NOMATCH
+BEi$	SAME						BBC		NOMATCH
+?BE$	SAME						bb\x{e7}	(0,3)	XFAIL
+BEi$	SAME						bb\x{e7}	NOMATCH
+?BE$	SAME						bb\x{c7}	(0,2)	XFAIL
+BEi$	SAME						bb\x{c7}	NOMATCH
+?BE$	SAME						bB\x{e7}	(0,1)	XFAIL
+BEi$	SAME						bB\x{e7}	NOMATCH
+?BE$	SAME						bB\x{c7}	(0,1)	XFAIL
+BEi$	SAME						bB\x{c7}	NOMATCH
+BE$	SAME						BB\x{c7}	NOMATCH
+BEi$	SAME						BB\x{c7}	NOMATCH
 }
 # Multi-Character collating symbols
 BE	[[.ch.]]					ch		ECOLLATE

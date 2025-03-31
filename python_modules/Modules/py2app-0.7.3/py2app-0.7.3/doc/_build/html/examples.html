@@ -1,0 +1,231 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Example setup.py templates &mdash; py2app 0.7.3 documentation</title>
+    
+    <link rel="stylesheet" href="_static/nature.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '',
+        VERSION:     '0.7.3',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <link rel="top" title="py2app 0.7.3 documentation" href="index.html" />
+    <link rel="next" title="py2app Options" href="options.html" />
+    <link rel="prev" title="Tweaking your Info.plist" href="tweaking.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="options.html" title="py2app Options"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="tweaking.html" title="Tweaking your Info.plist"
+             accesskey="P">previous</a> |</li>
+        <li><a href="index.html">py2app 0.7.3 documentation</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="example-setup-py-templates">
+<h1>Example setup.py templates<a class="headerlink" href="#example-setup-py-templates" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="basic">
+<h2>Basic<a class="headerlink" href="#basic" title="Permalink to this headline">¶</a></h2>
+<p>The simplest possible <tt class="docutils literal"><span class="pre">setup.py</span></tt> script to build a py2app application
+looks like the following:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">py2app build script for MyApplication</span>
+
+<span class="sd">Usage:</span>
+<span class="sd">    python setup.py py2app</span>
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="kn">from</span> <span class="nn">setuptools</span> <span class="kn">import</span> <span class="n">setup</span>
+<span class="n">setup</span><span class="p">(</span>
+    <span class="n">app</span><span class="o">=</span><span class="p">[</span><span class="s">&quot;MyApplication.py&quot;</span><span class="p">],</span>
+<span class="n">setup_requires</span><span class="o">=</span><span class="p">[</span><span class="s">&quot;py2app&quot;</span><span class="p">],</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<p>The <a class="reference internal" href="py2applet.html"><em>py2applet</em></a> script can create <tt class="docutils literal"><span class="pre">setup.py</span></tt> files of this variety
+for you automatically:</p>
+<div class="highlight-python"><pre>$ py2applet --make-setup MyApplication.py</pre>
+</div>
+</div>
+<div class="section" id="self-bootstrapping">
+<h2>Self-bootstrapping<a class="headerlink" href="#self-bootstrapping" title="Permalink to this headline">¶</a></h2>
+<p>For ease of distribution, you may wish to have your <tt class="docutils literal"><span class="pre">setup.py</span></tt> script
+automatically ensure that <a class="reference external" href="http://pypi.python.org/pypi/setuptools/">setuptools</a> is installed. This requires having a
+copy of <tt class="docutils literal"><span class="pre">ez_setup</span></tt> in your project, which can be obtained from here:</p>
+<div class="highlight-python"><pre>http://peak.telecommunity.com/dist/ez_setup.py</pre>
+</div>
+<p>Or it may be referenced from <tt class="docutils literal"><span class="pre">svn:externals</span></tt> as such:</p>
+<div class="highlight-python"><pre>ez_setup svn://svn.eby-sarna.com/svnroot/ez_setup</pre>
+</div>
+<p>If choosing the <tt class="docutils literal"><span class="pre">svn:externals</span></tt> approach you should consider that your
+project&#8217;s source code will depend on a third party, which has reliability
+and security implications. Also note that the <tt class="docutils literal"><span class="pre">ez_setup</span></tt> external uses
+the <tt class="docutils literal"><span class="pre">svn://</span></tt> protocol (TCP port 3690) rather than <tt class="docutils literal"><span class="pre">http://</span></tt> so it is
+somewhat less likely to work behind some firewalls or proxies.</p>
+<p>Once this is done, you simply add the two line <tt class="docutils literal"><span class="pre">ez_setup</span></tt> preamble to the
+very beginning of your <tt class="docutils literal"><span class="pre">setup.py</span></tt>:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">py2app build script for MyApplication.</span>
+
+<span class="sd">Will automatically ensure that all build prerequisites are available</span>
+<span class="sd">via ez_setup.</span>
+
+<span class="sd">Usage:</span>
+<span class="sd">    python setup.py py2app</span>
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="kn">import</span> <span class="nn">ez_setup</span>
+<span class="n">ez_setup</span><span class="o">.</span><span class="n">use_setuptools</span><span class="p">()</span>
+
+<span class="kn">from</span> <span class="nn">setuptools</span> <span class="kn">import</span> <span class="n">setup</span>
+<span class="n">setup</span><span class="p">(</span>
+    <span class="n">app</span><span class="o">=</span><span class="p">[</span><span class="s">&quot;MyApplication.py&quot;</span><span class="p">],</span>
+<span class="n">setup_requires</span><span class="o">=</span><span class="p">[</span><span class="s">&quot;py2app&quot;</span><span class="p">],</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="cross-platform">
+<h2>Cross-platform<a class="headerlink" href="#cross-platform" title="Permalink to this headline">¶</a></h2>
+<p>Cross-platform applications can share a <tt class="docutils literal"><span class="pre">setup.py</span></tt> script for both
+<a class="reference external" href="http://pypi.python.org/pypi/py2exe/">py2exe</a> and py2app. Here is an example <a class="reference internal" href="#self-bootstrapping">Self-bootstrapping</a>
+<tt class="docutils literal"><span class="pre">setup.py</span></tt> that will build an application on Windows or Mac OS X:</p>
+<div class="highlight-python"><pre> """
+ py2app/py2exe build script for MyApplication.
+
+ Will automatically ensure that all build prerequisites are available
+ via ez_setup
+
+ Usage (Mac OS X):
+     python setup.py py2app
+
+ Usage (Windows):
+     python setup.py py2exe
+ """
+ import ez_setup
+ ez_setup.use_setuptools()
+
+ import sys
+ from setuptools import setup
+
+ mainscript = 'MyApplication.py'
+
+ if sys.platform == 'darwin':
+     extra_options = dict(
+         setup_requires=['py2app'],
+         app=[mainscript],
+         # Cross-platform applications generally expect sys.argv to
+         # be used for opening files.
+         options=dict(py2app=dict(argv_emulation=True)),
+     )
+ elif sys.platform == 'win32':
+     extra_options = dict(
+         setup_requires=['py2exe'],
+         app=[mainscript],
+     )
+else:
+     extra_options = dict(
+         # Normally unix-like platforms will use "setup.py install"
+         # and install the main script as such
+         scripts=[mainscript],
+     )
+
+setup(
+    name="MyApplication",
+    **extra_options
+)</pre>
+</div>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">Example setup.py templates</a><ul>
+<li><a class="reference internal" href="#basic">Basic</a></li>
+<li><a class="reference internal" href="#self-bootstrapping">Self-bootstrapping</a></li>
+<li><a class="reference internal" href="#cross-platform">Cross-platform</a></li>
+</ul>
+</li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="tweaking.html"
+                        title="previous chapter">Tweaking your Info.plist</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="options.html"
+                        title="next chapter">py2app Options</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="_sources/examples.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="options.html" title="py2app Options"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="tweaking.html" title="Tweaking your Info.plist"
+             >previous</a> |</li>
+        <li><a href="index.html">py2app 0.7.3 documentation</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2010, Ronald Oussoren, Bob Ippolito.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1.3.
+    </div>
+  </body>
+</html>

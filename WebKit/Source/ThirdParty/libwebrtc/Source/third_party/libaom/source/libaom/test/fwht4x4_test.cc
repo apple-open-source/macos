@@ -15,7 +15,7 @@
 #include <tuple>
 
 #include "aom_dsp/aom_dsp_common.h"
-#include "third_party/googletest/src/googletest/include/gtest/gtest.h"
+#include "gtest/gtest.h"
 
 #include "config/av1_rtcd.h"
 #include "config/aom_dsp_rtcd.h"

@@ -325,7 +325,7 @@ std::optional<Vector<uint8_t>> unwrapCryptoKey(const Vector<uint8_t>& masterKey,
     kek.shrink(kekSize);
 
     size_t tagLength = expectedTagLengthAES;
-    uint8_t actualTag[expectedTagLengthAES] = { 0 };
+    std::array<uint8_t, expectedTagLengthAES> actualTag { };
 
     Vector<uint8_t> key(encryptedKey.size());
 ALLOW_DEPRECATED_DECLARATIONS_BEGIN
@@ -334,14 +334,14 @@ ALLOW_DEPRECATED_DECLARATIONS_BEGIN
         nullptr, 0, // auth data
         encryptedKey.data(), encryptedKey.size(),
         key.data(),
-        actualTag, &tagLength);
+        actualTag.data(), &tagLength);
 ALLOW_DEPRECATED_DECLARATIONS_END
 
     if (status != kCCSuccess)
         return std::nullopt;
     RELEASE_ASSERT(tagLength == expectedTagLengthAES);
 
-    if (constantTimeMemcmp(tag.data(), actualTag, tagLength))
+    if (constantTimeMemcmp(tag, actualTag))
         return std::nullopt;
 
     return key;

@@ -281,6 +281,19 @@ enum
     kIOPCISlotCapabilitiesBitNoCommandCompletedSupport         = (1 << 18)
 };
 
+enum
+{
+	kIOPCISlotStatusAttentionButtonPressed          = (1 << 0),
+	kIOPCISlotStatusPowerFaultDetected              = (1 << 1),
+	kIOPCISlotStatusMRLSensorChanged                = (1 << 2),
+	kIOPCISlotStatusPresenceDetectChanged           = (1 << 3),
+	kIOPCISlotStatusCommandCompleted                = (1 << 4),
+	kIOPCISlotStatusMRLSensorState                  = (1 << 5),
+	kIOPCISlotStatusPresenceDetectState             = (1 << 6),
+	kIOPCISlotStatusElectromechanicalInterlockState = (1 << 7),
+	kIOPCISlotStatusDataLinkLayerStateChanged       = (1 << 8),
+};
+
 // PCIe error bits
 enum
 {

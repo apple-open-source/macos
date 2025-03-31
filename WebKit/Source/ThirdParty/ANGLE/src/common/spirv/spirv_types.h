@@ -36,6 +36,10 @@ class BoxedUint32
     {
         return mValue.value == other.mValue.value;
     }
+    constexpr bool operator!=(const BoxedUint32 &other) const
+    {
+        return mValue.value != other.mValue.value;
+    }
     // Applicable to ids, which cannot be 0.
     constexpr bool valid() const { return static_cast<bool>(mValue.value); }
 
@@ -133,9 +137,8 @@ constexpr uint32_t kVersion_1_4 = 0x00010400;
 // Returns whether SPIR-V is valid.  Useful for ASSERTs.  Automatically generates a warning if
 // SPIR-V is not valid.
 bool Validate(const Blob &blob);
-#if defined(ANGLE_ENABLE_ASSERTS)
 void Print(const Blob &blob);
-#endif
+
 }  // namespace spirv
 }  // namespace angle
 

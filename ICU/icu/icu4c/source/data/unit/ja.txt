@@ -221,6 +221,11 @@ ja{
             nanosecond{
                 other{"{0}ナノ秒"}
             }
+            night{
+                dnam{"泊"}
+                other{"{0} 泊"}
+                per{"{0}/泊"}
+            }
             quarter{
                 other{"{0}四半期"}
                 per{"{0}/四半期"}
@@ -552,6 +557,10 @@ ja{
             }
             knot{
                 other{"{0}ノット"}
+            }
+            light-speed{
+                dnam{"光"}
+                other{"{0} 光"}
             }
             meter-per-second{
                 dnam{"メートル毎秒"}
@@ -898,6 +907,11 @@ ja{
                 dnam{"ns"}
                 other{"{0}ns"}
             }
+            night{
+                dnam{"泊"}
+                other{"{0}泊"}
+                per{"{0}/泊"}
+            }
             quarter{
                 other{"{0}Q"}
                 per{"{0}/Q"}
@@ -1241,6 +1255,10 @@ ja{
             }
             knot{
                 other{"{0}kn"}
+            }
+            light-speed{
+                dnam{"光"}
+                other{"{0}光"}
             }
             meter-per-second{
                 other{"{0}m/s"}
@@ -1587,6 +1605,11 @@ ja{
             nanosecond{
                 dnam{"ナノ秒"}
             }
+            night{
+                dnam{"泊"}
+                other{"{0} 泊"}
+                per{"{0}/泊"}
+            }
             quarter{
                 dnam{"四半期"}
                 other{"{0}四半期"}
@@ -1866,6 +1889,10 @@ ja{
             }
             knot{
                 dnam{"ノット"}
+            }
+            light-speed{
+                dnam{"光"}
+                other{"{0} 光"}
             }
             mile-per-hour{
                 dnam{"マイル毎時"}

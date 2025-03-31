@@ -203,7 +203,7 @@ void NetworkStorageSession::getCredentialFromPersistentStorage(const ProtectionS
             size_t length;
             GRefPtr<SecretValue> secretValue = adoptGRef(secret_item_get_secret(secretItem.get()));
             const char* passwordData = secret_value_get(secretValue.get(), &length);
-            data->completionHandler(Credential(user, String::fromUTF8({ passwordData, length }), CredentialPersistence::Permanent));
+            data->completionHandler(Credential(user, String::fromUTF8(unsafeMakeSpan(passwordData, length)), CredentialPersistence::Permanent));
         }, data.release());
 #else
     UNUSED_PARAM(protectionSpace);
@@ -404,6 +404,11 @@ void NetworkStorageSession::setCookie(const Cookie& cookie)
     soup_cookie_jar_add_cookie(cookieStorage(), cookie.toSoupCookie());
 }
 
+void NetworkStorageSession::setCookie(const Cookie& cookie, const URL&, const URL&)
+{
+    setCookie(cookie);
+}
+
 void NetworkStorageSession::replaceCookies(const Vector<Cookie>& cookies)
 {
     SoupCookieJar* jar = cookieStorage();
@@ -431,7 +436,7 @@ void NetworkStorageSession::deleteCookie(const Cookie& cookie, CompletionHandler
     completionHandler();
 }
 
-void NetworkStorageSession::deleteCookie(const URL& url, const String& name, CompletionHandler<void()>&& completionHandler) const
+void NetworkStorageSession::deleteCookie(const URL&, const URL& url, const String& name, CompletionHandler<void()>&& completionHandler) const
 {
     auto uri = urlToSoupURI(url);
     if (!uri)

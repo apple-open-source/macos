@@ -661,7 +661,7 @@ type task_suspension_token_t = mach_port_move_send_once_t
 
 type vfs_path_t = c_string[4096];
 /*
- * 8K, c.f. FSGETPATH_MAXBUFLEN in bsd/vfs/vfs_syscalls.c.
+ * 8K, c.f. MAXLONGPATHLEN in sys/syslimits.h.
  * These types should NEVER be allocated on the stack.
  */
 type nspace_path_t = c_string[8192];

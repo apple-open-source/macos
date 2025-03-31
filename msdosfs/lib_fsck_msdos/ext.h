@@ -82,6 +82,8 @@ typedef struct check_context_s {
     size_t (*readHelper)(void *resource, void *buffer, size_t nbytes, off_t offset);
     size_t (*writeHelper)(void *resource, void *buffer, size_t nbytes, off_t offset);
     int (*fstatHelper)(void *resource, struct stat *);
+    char *shadowPrefix;
+    int shadowFD;
 } check_context;
 int checkfilesys(const char *fname, check_context *context);
 

@@ -57,7 +57,7 @@ Ref<CSSGridTemplateAreasValue> CSSGridTemplateAreasValue::create(NamedGridAreaMa
 
 static String stringForPosition(const NamedGridAreaMap& gridAreaMap, size_t row, size_t column)
 {
-    HashSet<String> candidates;
+    UncheckedKeyHashSet<String> candidates;
     for (auto& it : gridAreaMap.map) {
         auto& area = it.value;
         if (row >= area.rows.startLine() && row < area.rows.endLine())

@@ -385,6 +385,10 @@ fat_cache_find(uint32_t offset, check_context *context)
 				fsck_print(fsck_ctx, LOG_CRIT, "%s (%s)\n", "Unable to read FAT", strerror(errno));
 				return NULL;
 			}
+			if ((context->shadowFD > 0) &&
+				(pwrite(context->shadowFD, found->buffer + totalRead, length, io_offset + totalRead)) != length) {
+				fsck_print(fsck_ctx, LOG_INFO, "Failed to shadow at offset 0x%llx, length 0x%zx (errno %d)", io_offset + totalRead, length, errno);
+			}
 			nbytes -= length;
             totalRead += length;
 		}
@@ -789,6 +793,10 @@ int isdirty(struct bootblock *boot, int fat, check_context *context)
 		if (context->readHelper(context->resource, buffer + totalRead, length, offset + totalRead) != length) {
 			fsck_print(fsck_ctx, LOG_CRIT, "%s (%s)\n", "Unable to read FAT", strerror(errno));
 			goto ERROR;
+		}
+		if ((context->shadowFD > 0) &&
+			(pwrite(context->shadowFD, buffer + totalRead, length, offset + totalRead) != length)) {
+			fsck_print(fsck_ctx, LOG_INFO, "Failed to shadow at offset 0x%llx, length 0x%zx (errno %d)", offset + totalRead, length, errno);
 		}
 		totalRead += length;
 		nbytes -= length;

@@ -88,7 +88,7 @@ public:
     }
 
     template<typename T, typename MatchFunction>
-    unsigned removeAllOfTypeMatching(const MatchFunction& matchFunction)
+    unsigned removeAllOfTypeMatching(NOESCAPE const MatchFunction& matchFunction)
     {
         return m_elements.removeAllMatching([&] (const RefPtr<Object>& object) -> bool {
             if (object->type() != T::APIType)

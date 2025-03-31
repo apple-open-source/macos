@@ -19,7 +19,7 @@
 #define SET_ERR_STRING(...) \
   if (err_msg) snprintf(err_msg, ARG_ERR_MSG_MAX_LEN, __VA_ARGS__)
 
-struct arg arg_init(char **argv) {
+static struct arg arg_init(char **argv) {
   struct arg a;
 
   a.argv = argv;

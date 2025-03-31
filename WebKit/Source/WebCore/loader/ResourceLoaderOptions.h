@@ -191,7 +191,7 @@ struct ResourceLoaderOptions : public FetchOptions {
         , loadedFromOpaqueSource(LoadedFromOpaqueSource::No)
         , loadedFromPluginElement(LoadedFromPluginElement::No)
         , loadedFromFetch(LoadedFromFetch::No)
-        , fetchPriorityHint(RequestPriority::Auto)
+        , fetchPriority(RequestPriority::Auto)
         , shouldEnableContentExtensionsCheck(ShouldEnableContentExtensionsCheck::Yes)
     { }
 
@@ -216,7 +216,7 @@ struct ResourceLoaderOptions : public FetchOptions {
         , loadedFromOpaqueSource(LoadedFromOpaqueSource::No)
         , loadedFromPluginElement(LoadedFromPluginElement::No)
         , loadedFromFetch(LoadedFromFetch::No)
-        , fetchPriorityHint(RequestPriority::Auto)
+        , fetchPriority(RequestPriority::Auto)
         , shouldEnableContentExtensionsCheck(ShouldEnableContentExtensionsCheck::Yes)
     {
         this->credentials = credentials;
@@ -250,7 +250,7 @@ struct ResourceLoaderOptions : public FetchOptions {
     LoadedFromOpaqueSource loadedFromOpaqueSource : bitWidthOfLoadedFromOpaqueSource;
     LoadedFromPluginElement loadedFromPluginElement : bitWidthOfLoadedFromPluginElement;
     LoadedFromFetch loadedFromFetch : bitWidthOfLoadedFromFetch;
-    RequestPriority fetchPriorityHint : bitWidthOfFetchPriorityHint;
+    RequestPriority fetchPriority : bitWidthOfRequestPriority;
     ShouldEnableContentExtensionsCheck shouldEnableContentExtensionsCheck : bitWidthOfShouldEnableContentExtensionsCheck;
 
     Markable<FetchIdentifier> navigationPreloadIdentifier;

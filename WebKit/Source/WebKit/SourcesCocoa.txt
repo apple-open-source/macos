@@ -21,6 +21,8 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF
 // THE POSSIBILITY OF SUCH DAMAGE.
 
+NetworkProcess/Authentication/cocoa/AuthenticationManagerCocoa.mm
+
 NetworkProcess/cache/NetworkCacheDataCocoa.mm
 NetworkProcess/cache/NetworkCacheIOChannelCocoa.mm
 
@@ -31,10 +33,8 @@ NetworkProcess/cocoa/NetworkSessionCocoa.mm
 NetworkProcess/cocoa/NetworkTaskCocoa.mm
 NetworkProcess/cocoa/WKURLSessionTaskDelegate.mm
 
-NetworkProcess/webtransport/cocoa/NetworkTransportBidirectionalStreamCocoa.mm
-NetworkProcess/webtransport/cocoa/NetworkTransportReceiveStreamCocoa.mm
-NetworkProcess/webtransport/cocoa/NetworkTransportSendStreamCocoa.mm
 NetworkProcess/webtransport/cocoa/NetworkTransportSessionCocoa.mm
+NetworkProcess/webtransport/cocoa/NetworkTransportStreamCocoa.mm
 
 NetworkProcess/Classifier/WebResourceLoadStatisticsStore.cpp
 
@@ -70,11 +70,13 @@ GPUProcess/EntryPoint/Cocoa/XPCService/GPUServiceEntryPoint.mm
 GPUProcess/cocoa/GPUConnectionToWebProcessCocoa.mm
 GPUProcess/cocoa/GPUProcessCocoa.mm
 GPUProcess/graphics/RemoteGraphicsContextGLCocoa.cpp
+GPUProcess/graphics/ScopedRenderingResourcesRequestCocoa.mm @no-unify
 GPUProcess/ios/GPUProcessIOS.mm
 GPUProcess/mac/GPUProcessMac.mm
 GPUProcess/mac/LocalAudioSessionRoutingArbitrator.cpp
 GPUProcess/media/RemoteAudioSourceProviderProxy.cpp
 GPUProcess/media/RemoteImageDecoderAVFProxy.cpp
+GPUProcess/media/RemoteMediaRecorderPrivateWriterManager.cpp
 GPUProcess/media/RemoteVideoFrameObjectHeap.mm
 GPUProcess/media/cocoa/RemoteMediaPlayerManagerProxyCocoa.mm
 GPUProcess/media/cocoa/RemoteMediaPlayerProxyCocoa.mm
@@ -155,11 +157,12 @@ Shared/WebSQLiteDatabaseTracker.cpp
 Shared/cf/CookieStorageUtilsCF.mm
 
 Shared/Authentication/cocoa/AuthenticationChallengeDispositionCocoa.mm
-Shared/Authentication/cocoa/AuthenticationManagerCocoa.mm
 Shared/Authentication/cocoa/ClientCertificateAuthenticationXPCConstants.cpp
 
 Shared/EntryPointUtilities/Cocoa/Daemon/PCMDaemonConnectionSet.mm
 Shared/EntryPointUtilities/Cocoa/Daemon/PCMDaemonEntryPoint.mm
+
+Shared/Extensions/Cocoa/WebExtensionFrameIdentifierCocoa.mm
 
 Shared/Cocoa/APIDataCocoa.mm
 Shared/Cocoa/APIObject.mm
@@ -302,7 +305,9 @@ UIProcess/API/Cocoa/_WKTextManipulationExclusionRule.mm
 UIProcess/API/Cocoa/_WKTextManipulationItem.mm
 UIProcess/API/Cocoa/_WKTextManipulationToken.mm
 UIProcess/API/Cocoa/_WKTextPreview.mm
+UIProcess/API/Cocoa/_WKTextRun.mm
 UIProcess/API/Cocoa/_WKThumbnailView.mm
+UIProcess/API/Cocoa/_WKTouchEventGenerator.mm
 UIProcess/API/Cocoa/_WKUserContentExtensionStore.mm
 UIProcess/API/Cocoa/_WKUserContentFilter.mm
 UIProcess/API/Cocoa/_WKUserContentWorld.mm
@@ -330,6 +335,7 @@ UIProcess/API/Cocoa/WKBrowsingContextController.mm
 UIProcess/API/Cocoa/WKContentRuleList.mm
 UIProcess/API/Cocoa/WKContentRuleListStore.mm
 UIProcess/API/Cocoa/WKContentWorld.mm
+UIProcess/API/Cocoa/WKContentWorldConfiguration.mm
 UIProcess/API/Cocoa/WKContextMenuElementInfo.mm
 UIProcess/API/Cocoa/WKDownload.mm
 UIProcess/API/Cocoa/WKError.mm
@@ -445,7 +451,6 @@ UIProcess/Cocoa/WKTextExtractionUtilities.mm
 UIProcess/Cocoa/WKTextPlaceholder.mm
 UIProcess/Cocoa/WKTextSelectionRect.mm
 UIProcess/Cocoa/WKWebViewContentProviderRegistry.mm
-UIProcess/Cocoa/XPCConnectionTerminationWatchdog.mm
 
 
 UIProcess/Gamepad/cocoa/UIGamepadProviderCocoa.mm
@@ -494,6 +499,7 @@ UIProcess/ios/CompactContextMenuPresenter.mm
 UIProcess/ios/DragDropInteractionState.mm
 UIProcess/ios/GestureRecognizerConsistencyEnforcer.mm
 UIProcess/ios/PageClientImplIOS.mm
+UIProcess/ios/PointerTouchCompatibilitySimulator.mm
 UIProcess/ios/ProcessStateMonitor.mm
 UIProcess/ios/RevealFocusedElementDeferrer.mm
 UIProcess/ios/SmartMagnificationController.mm
@@ -521,6 +527,7 @@ UIProcess/ios/WKModelInteractionGestureRecognizer.mm
 UIProcess/ios/WKModelView.mm
 UIProcess/ios/WKMouseDeviceObserver.mm
 UIProcess/ios/WKMouseInteraction.mm
+UIProcess/ios/WKPageHostedModelView.mm
 UIProcess/ios/WKPasswordView.mm
 UIProcess/ios/WKPDFView.mm
 UIProcess/ios/WKScrollView.mm
@@ -576,6 +583,9 @@ UIProcess/mac/WebViewImpl.mm
 UIProcess/Media/cocoa/AudioSessionRoutingArbitratorProxyCocoa.mm
 UIProcess/Media/cocoa/MediaUsageManagerCocoa.mm
 
+UIProcess/Model/ModelPresentationManagerProxy.mm
+UIProcess/Model/cocoa/ModelProcessProxyCocoa.mm
+
 UIProcess/Network/CustomProtocols/LegacyCustomProtocolManagerProxy.cpp
 
 UIProcess/RemoteLayerTree/cocoa/RemoteLayerTreeLayers.mm
@@ -606,7 +616,6 @@ UIProcess/RemoteLayerTree/RemoteLayerTreeScrollingPerformanceData.mm
 UIProcess/RemoteLayerTree/RemoteScrollingCoordinatorProxy.cpp
 UIProcess/RemoteLayerTree/RemoteScrollingTree.cpp
 
-UIProcess/WebAuthentication/Cocoa/AppAttestInternalSoftLink.mm @no-unify
 UIProcess/WebAuthentication/Cocoa/AuthenticationServicesCoreSoftLink.mm @no-unify
 UIProcess/WebAuthentication/Cocoa/AuthenticatorPresenterCoordinator.mm
 UIProcess/WebAuthentication/Cocoa/CcidConnection.mm
@@ -661,6 +670,7 @@ WebProcess/GPU/media/RemoteAudioSourceProvider.cpp
 WebProcess/GPU/media/RemoteAudioSourceProviderManager.cpp
 WebProcess/GPU/media/RemoteImageDecoderAVF.cpp
 WebProcess/GPU/media/RemoteImageDecoderAVFManager.cpp
+WebProcess/GPU/media/RemoteMediaRecorderPrivateWriter.cpp
 WebProcess/GPU/media/cocoa/MediaPlayerPrivateRemoteCocoa.mm
 WebProcess/GPU/media/cocoa/VideoLayerRemoteCocoa.mm
 WebProcess/GPU/media/ios/RemoteMediaSessionHelper.cpp
@@ -701,6 +711,7 @@ WebProcess/Model/ARKitInlinePreviewModelPlayer.mm
 WebProcess/Model/ios/ARKitInlinePreviewModelPlayerIOS.mm
 WebProcess/Model/mac/ARKitInlinePreviewModelPlayerMac.mm
 
+WebProcess/Plugins/PDF/PDFAnnotationTypeHelpers.mm
 WebProcess/Plugins/PDF/PDFIncrementalLoader.mm
 WebProcess/Plugins/PDF/PDFPlugin.mm
 WebProcess/Plugins/PDF/PDFPluginBase.mm
@@ -772,40 +783,148 @@ WebProcess/WebPage/RemoteLayerTree/RemoteScrollbarsController.mm
 WebProcess/WebPage/RemoteLayerTree/RemoteScrollingCoordinator.mm
 
 // Derived Sources
+AudioSessionRoutingArbitratorProxyMessageReceiver.cpp
+AuthenticationManagerMessageReceiver.cpp
+AuxiliaryProcessMessageReceiver.cpp
+DownloadProxyMessageReceiver.cpp
+DrawingAreaMessageReceiver.cpp
+DrawingAreaProxyMessageReceiver.cpp
+EventDispatcherMessageReceiver.cpp
 GPUConnectionToWebProcessMessageReceiver.cpp
 GPUProcessConnectionMessageReceiver.cpp
-GPUProcessProxyMessageReceiver.cpp
 GPUProcessMessageReceiver.cpp
-LibWebRTCCodecsProxyMessageReceiver.cpp
+GPUProcessProxyMessageReceiver.cpp
+LegacyCustomProtocolManagerMessageReceiver.cpp
+LegacyCustomProtocolManagerProxyMessageReceiver.cpp
 LibWebRTCCodecsMessageReceiver.cpp
+LibWebRTCCodecsProxyMessageReceiver.cpp
+LibWebRTCNetworkMessageReceiver.cpp
+LogStreamMessageReceiver.cpp
 ModelConnectionToWebProcessMessageReceiver.cpp
+MediaPlayerPrivateRemoteMessageReceiver.cpp
+MediaSourcePrivateRemoteMessageReceiverMessageReceiver.cpp
 ModelProcessConnectionMessageReceiver.cpp
-ModelProcessProxyMessageReceiver.cpp
 ModelProcessMessageReceiver.cpp
 ModelProcessModelPlayerProxyMessageReceiver.cpp
+ModelProcessProxyMessageReceiver.cpp
+NetworkConnectionToWebProcessMessageReceiver.cpp
+NetworkContentRuleListManagerMessageReceiver.cpp
+NetworkMDNSRegisterMessageReceiver.cpp
+NetworkProcessConnectionMessageReceiver.cpp
+NetworkProcessMessageReceiver.cpp
+NetworkProcessProxyMessageReceiver.cpp
+NetworkResourceLoaderMessageReceiver.cpp
+NetworkRTCMonitorMessageReceiver.cpp
+NetworkRTCProviderMessageReceiver.cpp
+NetworkSocketChannelMessageReceiver.cpp
+NetworkStorageManagerMessageReceiver.cpp
+NotificationManagerMessageHandlerMessageReceiver.cpp
+PlaybackSessionManagerMessageReceiver.cpp
+PlaybackSessionManagerProxyMessageReceiver.cpp
 RemoteAudioDestinationManagerMessageReceiver.cpp
 RemoteAudioHardwareListenerMessageReceiver.cpp
 RemoteAudioSessionMessageReceiver.cpp
 RemoteAudioSessionProxyMessageReceiver.cpp
 RemoteAudioSourceProviderManagerMessageReceiver.cpp
-RemoteImageDecoderAVFProxyMessageReceiver.cpp
-RemoteImageDecoderAVFManagerMessageReceiver.cpp
-RemoteMediaRecorderMessageReceiver.cpp
-RemoteMediaRecorderManagerMessageReceiver.cpp
-RemoteMediaSessionHelperMessageReceiver.cpp
-RemoteMediaSessionHelperProxyMessageReceiver.cpp
-RemoteMediaSessionCoordinatorMessageReceiver.cpp
-RemoteMediaSessionCoordinatorProxyMessageReceiver.cpp
+RemoteCaptureSampleManagerMessageReceiver.cpp
+RemoteCDMFactoryProxyMessageReceiver.cpp
+RemoteCDMInstanceMessageReceiver.cpp
+RemoteCDMInstanceProxyMessageReceiver.cpp
+RemoteCDMInstanceSessionMessageReceiver.cpp
+RemoteCDMInstanceSessionProxyMessageReceiver.cpp
+RemoteCDMProxyMessageReceiver.cpp
 RemoteImageBufferMessageReceiver.cpp
 RemoteImageBufferProxyMessageReceiver.cpp
-RemoteImageBufferSetProxyMessageReceiver.cpp
 RemoteImageBufferSetMessageReceiver.cpp
+RemoteImageBufferSetProxyMessageReceiver.cpp
+RemoteImageDecoderAVFManagerMessageReceiver.cpp
+RemoteImageDecoderAVFProxyMessageReceiver.cpp
+RemoteLayerTreeDrawingAreaProxyMessageReceiver.cpp
+RemoteLegacyCDMFactoryProxyMessageReceiver.cpp
+RemoteLegacyCDMProxyMessageReceiver.cpp
+RemoteLegacyCDMSessionMessageReceiver.cpp
+RemoteLegacyCDMSessionProxyMessageReceiver.cpp
+RemoteMediaEngineConfigurationFactoryProxyMessageReceiver.cpp
+RemoteMediaPlayerManagerProxyMessageReceiver.cpp
+RemoteMediaPlayerProxyMessageReceiver.cpp
+RemoteMediaRecorderPrivateWriterManagerMessageReceiver.cpp
+RemoteMediaResourceManagerMessageReceiver.cpp
+RemoteMediaSessionCoordinatorMessageReceiver.cpp
+RemoteMediaSessionCoordinatorProxyMessageReceiver.cpp
+RemoteMediaSessionHelperMessageReceiver.cpp
+RemoteMediaSessionHelperProxyMessageReceiver.cpp
+RemoteMediaSourceProxyMessageReceiver.cpp
+RemoteObjectRegistryMessageReceiver.cpp
+RemoteRemoteCommandListenerMessageReceiver.cpp
+RemoteRemoteCommandListenerProxyMessageReceiver.cpp
 RemoteRenderingBackendMessageReceiver.cpp
 RemoteRenderingBackendProxyMessageReceiver.cpp
-RemoteSharedResourceCacheMessageReceiver.cpp
 RemoteSampleBufferDisplayLayerManagerMessageReceiver.cpp
 RemoteSampleBufferDisplayLayerMessageReceiver.cpp
+RemoteScrollingCoordinatorMessageReceiver.cpp
+RemoteSharedResourceCacheMessageReceiver.cpp
+RemoteSourceBufferProxyMessageReceiver.cpp
+RemoteWebInspectorUIMessageReceiver.cpp
+RemoteWebInspectorUIProxyMessageReceiver.cpp
 SampleBufferDisplayLayerMessageReceiver.cpp
+SecItemShimProxyMessageReceiver.cpp
 SerializedTypeInfo.mm
 ServiceWorkerFetchTaskMessageReceiver.cpp
+SmartMagnificationControllerMessageReceiver.cpp
+SourceBufferPrivateRemoteMessageReceiverMessageReceiver.cpp
+SpeechRecognitionRealtimeMediaSourceManagerMessageReceiver.cpp
+SpeechRecognitionRemoteRealtimeMediaSourceManagerMessageReceiver.cpp
+SpeechRecognitionServerMessageReceiver.cpp
+StorageAreaMapMessageReceiver.cpp
 TextCheckingControllerProxyMessageReceiver.cpp
+UserMediaCaptureManagerMessageReceiver.cpp
+UserMediaCaptureManagerProxyMessageReceiver.cpp
+VideoPresentationManagerMessageReceiver.cpp
+VideoPresentationManagerProxyMessageReceiver.cpp
+ViewGestureControllerMessageReceiver.cpp
+ViewGestureGeometryCollectorMessageReceiver.cpp
+ViewUpdateDispatcherMessageReceiver.cpp
+VisitedLinkStoreMessageReceiver.cpp
+VisitedLinkTableControllerMessageReceiver.cpp
+WebAuthenticatorCoordinatorProxyMessageReceiver.cpp
+WebAutomationSessionProxyMessageReceiver.cpp
+WebCookieManagerMessageReceiver.cpp
+WebDeviceOrientationUpdateProviderMessageReceiver.cpp
+WebDeviceOrientationUpdateProviderProxyMessageReceiver.cpp
+WebExtensionContextMessageReceiver.cpp
+WebExtensionContextProxyMessageReceiver.cpp
+WebExtensionControllerMessageReceiver.cpp
+WebExtensionControllerProxyMessageReceiver.cpp
+WebFileSystemStorageConnectionMessageReceiver.cpp
+WebFullScreenManagerMessageReceiver.cpp
+WebFullScreenManagerProxyMessageReceiver.cpp
+WebGeolocationManagerMessageReceiver.cpp
+WebGeolocationManagerProxyMessageReceiver.cpp
+WebIDBConnectionToServerMessageReceiver.cpp
+WebInspectorInterruptDispatcherMessageReceiver.cpp
+WebInspectorMessageReceiver.cpp
+WebInspectorUIExtensionControllerMessageReceiver.cpp
+WebInspectorUIExtensionControllerProxyMessageReceiver.cpp
+WebInspectorUIMessageReceiver.cpp
+WebInspectorUIProxyMessageReceiver.cpp
+WebNotificationManagerMessageReceiver.cpp
+WebPageMessageReceiver.cpp
+WebPageProxyMessageReceiver.cpp
+WebPageTestingMessageReceiver.cpp
+WebPasteboardProxyMessageReceiver.cpp
+WebPaymentCoordinatorMessageReceiver.cpp
+WebPaymentCoordinatorProxyMessageReceiver.cpp
+WebProcessMessageReceiver.cpp
+WebProcessPoolMessageReceiver.cpp
+WebProcessProxyMessageReceiver.cpp
+WebResourceLoaderMessageReceiver.cpp
+WebRTCMonitorMessageReceiver.cpp
+WebRTCResolverMessageReceiver.cpp
+WebSocketChannelMessageReceiver.cpp
+WebSpeechRecognitionConnectionMessageReceiver.cpp
+WebSWClientConnectionMessageReceiver.cpp
+WebSWContextManagerConnectionMessageReceiver.cpp
+WebSWServerConnectionMessageReceiver.cpp
+WebSWServerToContextConnectionMessageReceiver.cpp
+WebUserContentControllerMessageReceiver.cpp
+WebUserContentControllerProxyMessageReceiver.cpp

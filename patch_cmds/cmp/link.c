@@ -1,5 +1,5 @@
 /*-
- * SPDX-License-Identifier: BSD-2-Clause-FreeBSD
+ * SPDX-License-Identifier: BSD-2-Clause
  *
  * Copyright (c) 2005 Brian Somers <brian@FreeBSD.org>
  * All rights reserved.
@@ -26,10 +26,8 @@
  * SUCH DAMAGE.
  */
 
-#include <sys/cdefs.h>
-__FBSDID("$FreeBSD$");
-
 #include <sys/types.h>
+
 #include <err.h>
 #include <limits.h>
 #include <stdbool.h>
@@ -39,24 +37,25 @@ __FBSDID("$FreeBSD$");
 
 #include "extern.h"
 
-void
+int
 c_link(const char *file1, off_t skip1, const char *file2, off_t skip2,
     off_t limit)
 {
 	char buf1[PATH_MAX], *p1;
 	char buf2[PATH_MAX], *p2;
-	int dfound, len1, len2;
+	ssize_t len1, len2;
+	int dfound;
 	off_t byte;
 	u_char ch;
 
-	if ((len1 = (int)readlink(file1, buf1, sizeof(buf1) - 1)) < 0) {
+	if ((len1 = readlink(file1, buf1, sizeof(buf1) - 1)) < 0) {
 		if (!sflag)
 			err(ERR_EXIT, "%s", file1);
 		else
 			exit(ERR_EXIT);
 	}
 
-	if ((len2 = (int)readlink(file2, buf2, sizeof(buf2) - 1)) < 0) {
+	if ((len2 = readlink(file2, buf2, sizeof(buf2) - 1)) < 0) {
 		if (!sflag)
 			err(ERR_EXIT, "%s", file2);
 		else
@@ -88,15 +87,17 @@ c_link(const char *file1, off_t skip1, const char *file2, off_t skip2,
 				else
 					(void)printf("%6lld %3o %3o\n",
 					    (long long)byte, ch, *p2);
-			} else
+			} else {
 				diffmsg(file1, file2, byte, 1, ch, *p2);
-				/* NOTREACHED */
+				return (DIFF_EXIT);
+			}
 		}
 		byte++;
 	}
 
-	if (*p1 || *p2)
+	if (*p1 || *p2) {
 		eofmsg (*p1 ? file2 : file1);
-	if (dfound)
-		exit(DIFF_EXIT);
+		return (DIFF_EXIT);
+	}
+	return (dfound ? DIFF_EXIT : 0);
 }

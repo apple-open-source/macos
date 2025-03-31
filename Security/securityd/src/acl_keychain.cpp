@@ -189,7 +189,15 @@ bool KeychainPromptAclSubject::validateExplicitly(const AclValidationContext &co
 
 		// At this point, we're committed to try to Pop The Question. Now, how?
         Syslog::info("displaying keychain prompt for %s(%d)", process.getPath().c_str(), process.pid());
-        secnotice("kcacl", "displaying keychain prompt for %s(%d)", process.getPath().c_str(), process.pid());
+
+        {
+            CFStringRef aclDebugStr = context.createACLDebugString();
+            secnotice("kcacl", "displaying keychain prompt for %s(%d); ACL: %@", process.getPath().c_str(), process.pid(), aclDebugStr);
+            if(aclDebugStr) {
+                CFRelease(aclDebugStr);
+            }
+            aclDebugStr = NULL;
+        }
 
 		// does the user need to type in the passphrase?
         const Database *db = env->database;
@@ -211,26 +219,76 @@ bool KeychainPromptAclSubject::validateExplicitly(const AclValidationContext &co
 			query.inferHints(Server::process());
             // This is okay because we're in the belongsToSystem case which is true iff KeychainDbCommon which is true iff KeychainDatabase
             const KeychainDatabase& kcdb = dynamic_cast<const KeychainDatabase&>(*db);
-			if (query.performQuery(kcdb, description.c_str(), context.authorization(), NULL) != SecurityAgent::noReason)
-				return false;
+
+            try {
+                SecurityAgent::Reason r = query.performQuery(kcdb, description.c_str(), context.authorization(), NULL);
+                if(r != SecurityAgent::noReason) {
+                    secnotice("kcacl", "(systemdb)user did not approve 'allow' for %s(%d), reason %d", process.getPath().c_str(), process.pid(), (int)r);
+                    return false;
+                }
+            } catch(UnixError ue) {
+                secnotice("kcacl", "(systemdb)user did not approve 'allow' for %s(%d): UnixError: %s", process.getPath().c_str(), process.pid(), ue.what());
+                throw ue;
+            } catch (CssmError cssme) { // user probably clicked "deny"
+                secnotice("kcacl", "(systemdb)user did not approve 'allow' for %s(%d): CssmError: %s", process.getPath().c_str(), process.pid(), cssme.what());
+                throw cssme;
+            } catch (MacOSError macose) {
+                secnotice("kcacl", "(systemdb)user did not approve 'allow' for %s(%d): MacOSError: %s", process.getPath().c_str(), process.pid(), macose.what());
+                throw macose;
+            } catch(...) {
+                secnotice("kcacl", "(systemdb)user did not approve 'allow' for %s(%d): Unknown exception", process.getPath().c_str(), process.pid());
+                throw;
+            }
+
+            secnotice("kcacl", "(systemdb)user approved 'allow' for %s(%d)", process.getPath().c_str(), process.pid());
 			return true;
 		} else {
 			QueryKeychainUse query(needPassphrase, db);
-			query.inferHints(Server::process());
-			query.addHint(AGENT_HINT_CLIENT_VALIDITY, &validation, sizeof(validation));
-			if (query.queryUser(db ? db->dbName() : NULL,
-				description.c_str(), context.authorization()) != SecurityAgent::noReason)
-				return false;
+            query.inferHints(Server::process());
+            query.addHint(AGENT_HINT_CLIENT_VALIDITY, &validation, sizeof(validation));
+
+            try {
+                SecurityAgent::Reason r = (query.queryUser(db ? db->dbName() : NULL,
+                                                           description.c_str(), context.authorization()));
+                if(r != SecurityAgent::noReason) {
+                    secnotice("kcacl", "user did not approve 'allow' for %s(%d), reason %d", process.getPath().c_str(), process.pid(), (int)r);
+                    return false;
+                }
+            } catch(UnixError ue) {
+                secnotice("kcacl", "user did not approve 'allow' for %s(%d): UnixError: %s", process.getPath().c_str(), process.pid(), ue.what());
+                throw ue;
+            } catch (CssmError cssme) { // user probably clicked "deny"
+                secnotice("kcacl", "user did not approve 'allow' for %s(%d): CssmError: %s", process.getPath().c_str(), process.pid(), cssme.what());
+                throw cssme;
+            } catch (MacOSError macose) {
+                secnotice("kcacl", "user did not approve 'allow' for %s(%d): MacOSError: %s", process.getPath().c_str(), process.pid(), macose.what());
+                throw macose;
+            } catch(...) {
+                secnotice("kcacl", "user did not approve 'allow' for %s(%d): Unknown exception", process.getPath().c_str(), process.pid());
+                throw;
+            }
 
 			// process an "always allow..." response
 			if (query.remember && validation != errSecCSStaticCodeNotFound) {
+                secnotice("kcacl", "user approved 'always allow' for %s(%d)", process.getPath().c_str(), process.pid());
 				alwaysAllow();
 			}
 
 			// finally, return the actual user response
+            secnotice("kcacl", "user %s 'allow' for %s(%d)", query.allow ? "approved" : "did not approve", process.getPath().c_str(), process.pid());
 			return query.allow;
 		}
     }
+
+    {
+        CFStringRef aclDebugStr = context.createACLDebugString();
+        secnotice("kcacl", "rejecting prompt attempt; ACL: %@", aclDebugStr);
+        if(aclDebugStr) {
+            CFRelease(aclDebugStr);
+        }
+        aclDebugStr = NULL;
+    }
+
 	return false;        // default to deny without prejudice
 }
 
@@ -360,6 +418,12 @@ void KeychainPromptAclSubject::debugDump() const
 
 #endif //DEBUGDUMP
 
+CFStringRef KeychainPromptAclSubject::createACLDebugString() const
+{
+    return CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("<KeychainPromptAclSubject(flags: 0x%x, desc:%s)>"),
+                                    selector.flags,
+                                    description.c_str());
+}
 
 uint32_t KeychainPromptAclSubject::getPromptAttempts() {
     if (csr_check(CSR_ALLOW_APPLE_INTERNAL)) {

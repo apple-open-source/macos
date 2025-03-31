@@ -53,9 +53,6 @@ headers: "NetworkProcessCreationParameters.h" "AuxiliaryProcessCreationParameter
 
     bool enablePrivateClickMeasurement
     bool ftpEnabled
-#if ENABLE(WEB_PUSH_NOTIFICATIONS)
-    bool builtInNotificationsEnabled
-#endif
 #if PLATFORM(COCOA)
     bool enableModernDownloadProgress
 #endif
@@ -73,3 +70,4 @@ enum class WebKit::PrivateRelayed : bool
 enum class WebKit::ContentAsStringIncludesChildFrames : bool
 enum class WebKit::CallDownloadDidStart : bool
 enum class WebKit::AllowOverwrite : bool
+enum class WebKit::UseDownloadPlaceholder : bool

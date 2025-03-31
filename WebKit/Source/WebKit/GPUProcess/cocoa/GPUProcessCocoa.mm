@@ -43,6 +43,12 @@
 #include <pal/spi/cocoa/LaunchServicesSPI.h>
 #endif
 
+#if PLATFORM(VISION) && ENABLE(MODEL_PROCESS)
+#include "CoreIPCAuditToken.h"
+#include "SharedFileHandle.h"
+#include "WKSharedSimulationConnectionHelper.h"
+#endif
+
 #import <pal/cocoa/AVFoundationSoftLink.h>
 
 namespace WebKit {
@@ -118,6 +124,19 @@ void GPUProcess::platformInitializeGPUProcess(GPUProcessCreationParameters& para
     if (launchServicesExtension)
         launchServicesExtension->revoke();
 #endif // PLATFORM(MAC)
+
+    if (parameters.enableMetalDebugDeviceForTesting) {
+        RELEASE_LOG(Process, "%p - GPUProcess::platformInitializeGPUProcess: enabling Metal debug device", this);
+        setenv("MTL_DEBUG_LAYER", "1", 1);
+    }
+
+    if (parameters.enableMetalShaderValidationForTesting) {
+        RELEASE_LOG(Process, "%p - GPUProcess::platformInitializeGPUProcess: enabling Metal shader validation", this);
+        setenv("MTL_SHADER_VALIDATION", "1", 1);
+        setenv("MTL_SHADER_VALIDATION_ABORT_ON_FAULT", "1", 1);
+        setenv("MTL_SHADER_VALIDATION_REPORT_TO_STDERR", "1", 1);
+    }
+
 #if USE(SANDBOX_EXTENSIONS_FOR_CACHE_AND_TEMP_DIRECTORY_ACCESS) && USE(EXTENSIONKIT)
     MTLSetShaderCachePath(parameters.containerCachesDirectory);
 #endif
@@ -130,6 +149,23 @@ void GPUProcess::resolveBookmarkDataForCacheDirectory(std::span<const uint8_t> b
     BOOL bookmarkIsStale = NO;
     NSError* error = nil;
     [NSURL URLByResolvingBookmarkData:bookmark.get() options:NSURLBookmarkResolutionWithoutUI relativeToURL:nil bookmarkDataIsStale:&bookmarkIsStale error:&error];
+}
+#endif
+
+#if PLATFORM(VISION) && ENABLE(MODEL_PROCESS)
+void GPUProcess::requestSharedSimulationConnection(CoreIPCAuditToken&& modelProcessAuditToken, CompletionHandler<void(std::optional<IPC::SharedFileHandle>)>&& completionHandler)
+{
+    Ref<WKSharedSimulationConnectionHelper> sharedSimulationConnectionHelper = adoptRef(*new WKSharedSimulationConnectionHelper);
+    sharedSimulationConnectionHelper->requestSharedSimulationConnectionForAuditToken(modelProcessAuditToken.auditToken(), [sharedSimulationConnectionHelper, completionHandler = WTFMove(completionHandler)] (RetainPtr<NSFileHandle> sharedSimulationConnection, RetainPtr<id> appService) mutable {
+        if (!sharedSimulationConnection) {
+            RELEASE_LOG_ERROR(ModelElement, "GPUProcess: Shared simulation join request failed");
+            completionHandler(std::nullopt);
+            return;
+        }
+
+        RELEASE_LOG(ModelElement, "GPUProcess: Shared simulation join request succeeded");
+        completionHandler(IPC::SharedFileHandle::create([sharedSimulationConnection fileDescriptor]));
+    });
 }
 #endif
 

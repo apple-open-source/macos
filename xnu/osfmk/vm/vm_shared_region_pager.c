@@ -503,6 +503,7 @@ shared_region_pager_data_request(
 	unsigned int            pl_count;
 	vm_object_t             src_top_object, src_page_object, dst_object;
 	kern_return_t           kr, retval;
+	vm_fault_return_t       vmfr;
 	vm_offset_t             src_vaddr, dst_vaddr;
 	vm_offset_t             cur_offset;
 	vm_offset_t             offset_in_page;
@@ -604,7 +605,7 @@ retry_src_fault:
 		error_code = 0;
 		prot = VM_PROT_READ;
 		src_page = VM_PAGE_NULL;
-		kr = vm_fault_page(src_top_object,
+		vmfr = vm_fault_page(src_top_object,
 		    pager->srp_backing_offset + offset + cur_offset,
 		    VM_PROT_READ,
 		    FALSE,
@@ -616,7 +617,7 @@ retry_src_fault:
 		    &error_code,
 		    FALSE,
 		    &fault_info);
-		switch (kr) {
+		switch (vmfr) {
 		case VM_FAULT_SUCCESS:
 			break;
 		case VM_FAULT_RETRY:
@@ -643,10 +644,9 @@ retry_src_fault:
 				retval = KERN_MEMORY_ERROR;
 			}
 			goto done;
-		default:
-			panic("shared_region_pager_data_request: "
-			    "vm_fault_page() unexpected error 0x%x\n",
-			    kr);
+		case VM_FAULT_BUSY:
+			retval = KERN_ALREADY_WAITING;
+			goto done;
 		}
 		assert(src_page != VM_PAGE_NULL);
 		assert(src_page->vmp_busy);

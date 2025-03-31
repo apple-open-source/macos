@@ -4,18 +4,15 @@
         <key>OpenSourceProject</key>
         <string>bc</string>
         <key>OpenSourceVersion</key>
-        <string>6.5.0</string>
+        <string>6.7.6</string>
         <key>OpenSourceWebsiteURL</key>
         <string>https://git.gavinhoward.com/gavin/bc</string>
         <key>OpenSourceURL</key>
-        <string>https://git.gavinhoward.com/attachments/4e88b652-3fab-4e8e-813a-5c274fdaf368</string>
-        <key>OpenSourceSHA512</key>
-        <string>4f67df8248a9e4bdb74c29bbf2cea8215c33d6e05f25baa17cf193aef0f42a605908d8ba5ba02847b22d5d331ac1499f6193a812dc60b4999aedf8ef741076fa</string>
+        <string>https://git.gavinhoward.com/gavin/bc/commit/a2e1976d048b6d4b503e613af4c7c437f0975ea6</string>
         <key>OpenSourceImportDate</key>
-        <string>2023-03-22</string>
+        <string>2024-07-15</string>
 	<key>OpenSourceModifications</key>
 	<array>
-		<string>Apply upstream fix for crash on I/O error at exit (124127836).</string>
 		<string>vm.c: re-raise signal errors to propagate correct exit status (128142972)</string>
 	</array>
         <key>OpenSourceLicense</key>

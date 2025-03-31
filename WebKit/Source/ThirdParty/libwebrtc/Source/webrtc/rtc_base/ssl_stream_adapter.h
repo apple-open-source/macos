@@ -15,6 +15,7 @@
 #include <stdint.h>
 
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -130,8 +131,8 @@ class SSLStreamAdapter : public StreamInterface {
   // TODO(ekr@rtfm.com): rename this SetRole to reflect its new function
   virtual void SetServerRole(SSLRole role = SSL_SERVER) = 0;
 
-  // Do DTLS or TLS.
-  virtual void SetMode(SSLMode mode) = 0;
+  [[deprecated("Only DTLS is supported by the stream adapter")]] virtual void
+  SetMode(SSLMode mode) = 0;
 
   // Set maximum supported protocol version. The highest version supported by
   // both ends will be used for the connection, i.e. if one party supports
@@ -184,7 +185,10 @@ class SSLStreamAdapter : public StreamInterface {
 
   // Retrieves the IANA registration id of the cipher suite used for the
   // connection (e.g. 0x2F for "TLS_RSA_WITH_AES_128_CBC_SHA").
-  virtual bool GetSslCipherSuite(int* cipher_suite);
+  virtual bool GetSslCipherSuite(int* cipher_suite) const = 0;
+  // Returns the name of the cipher suite used for the DTLS transport,
+  // as defined in the "Description" column of the IANA cipher suite registry.
+  virtual std::optional<absl::string_view> GetTlsCipherSuiteName() const = 0;
 
   // Retrieves the enum value for SSL version.
   // Will return -1 until the version has been negotiated.
@@ -195,30 +199,25 @@ class SSLStreamAdapter : public StreamInterface {
   virtual bool GetSslVersionBytes(int* version) const = 0;
 
   // Key Exporter interface from RFC 5705
-  // Arguments are:
-  // label               -- the exporter label.
-  //                        part of the RFC defining each exporter
-  //                        usage (IN)
-  // context/context_len -- a context to bind to for this connection;
-  //                        optional, can be null, 0 (IN)
-  // use_context         -- whether to use the context value
-  //                        (needed to distinguish no context from
-  //                        zero-length ones).
-  // result              -- where to put the computed value
-  // result_len          -- the length of the computed value
-  virtual bool ExportKeyingMaterial(absl::string_view label,
-                                    const uint8_t* context,
-                                    size_t context_len,
-                                    bool use_context,
-                                    uint8_t* result,
-                                    size_t result_len);
+  virtual bool ExportSrtpKeyingMaterial(
+      rtc::ZeroOnFreeBuffer<uint8_t>& keying_material) = 0;
+  [[deprecated("Use ExportSrtpKeyingMaterial instead")]] virtual bool
+  ExportKeyingMaterial(absl::string_view label,
+                       const uint8_t* context,
+                       size_t context_len,
+                       bool use_context,
+                       uint8_t* result,
+                       size_t result_len) {
+    return false;
+  }
 
   // Returns the signature algorithm or 0 if not applicable.
   virtual uint16_t GetPeerSignatureAlgorithm() const = 0;
 
   // DTLS-SRTP interface
-  virtual bool SetDtlsSrtpCryptoSuites(const std::vector<int>& crypto_suites);
-  virtual bool GetDtlsSrtpCryptoSuite(int* crypto_suite);
+  virtual bool SetDtlsSrtpCryptoSuites(
+      const std::vector<int>& crypto_suites) = 0;
+  virtual bool GetDtlsSrtpCryptoSuite(int* crypto_suite) const = 0;
 
   // Returns true if a TLS connection has been established.
   // The only difference between this and "GetState() == SE_OPEN" is that if
@@ -235,11 +234,6 @@ class SSLStreamAdapter : public StreamInterface {
   // TODO(torbjorng): Consider removing the KeyType argument.
   static bool IsAcceptableCipher(int cipher, KeyType key_type);
   static bool IsAcceptableCipher(absl::string_view cipher, KeyType key_type);
-
-  // TODO(guoweis): Move this away from a static class method. Currently this is
-  // introduced such that any caller could depend on sslstreamadapter.h without
-  // depending on specific SSL implementation.
-  static std::string SslCipherSuiteToName(int cipher_suite);
 
   ////////////////////////////////////////////////////////////////////////////
   // Testing only member functions

@@ -32,8 +32,8 @@
 #include <Security/SecCFAllocator.h>
 #include <Security/SecKeychainPriv.h>
 #include <security_utilities/cfutilities.h>
-#include <libaks.h>
-#include <libaks_smartcard.h>
+#include <AppleKeyStore/libaks.h>
+#include <AppleKeyStore/libaks_smartcard.h>
 
 #import <CryptoTokenKit/CryptoTokenKit_Private.h>
 #import <LocalAuthentication/LocalAuthentication_Private.h>

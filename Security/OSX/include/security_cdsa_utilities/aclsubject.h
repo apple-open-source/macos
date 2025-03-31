@@ -113,7 +113,9 @@ public:
 	// selective match support - not currently implemented
 	virtual void matched(const TypedList *match) const = 0;
 	void matched(const TypedList &match) const { return matched(&match); }
-	
+
+    virtual CFStringRef createACLDebugString() const;
+
 private:
 	void init(ObjectAcl *acl, AclSubject *subject);
 
@@ -193,7 +195,8 @@ public:
 	// debug suupport (dummied out but present for -UDEBUGDUMP)
 	virtual void debugDump() const;
 	IFDUMP(void dump(const char *title) const);
-	
+    virtual CFStringRef createACLDebugString() const;
+
 protected:
 	void version(Version v)	{ mVersion = v; }
     
@@ -238,6 +241,8 @@ public:
     virtual bool validates(const AclValidationContext &ctx) const;
     virtual bool validates(const AclValidationContext &baseCtx,
         const TypedList &sample) const = 0;
+
+    virtual CFStringRef createACLDebugString() const;
 };
 
 

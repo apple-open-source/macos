@@ -7,6 +7,11 @@
 
 #import <Foundation/Foundation.h>
 
+extern NSString* kSecAnchorTypeUndefined;
+extern NSString* kSecAnchorTypeSystem;
+extern NSString* kSecAnchorTypePlatform;
+extern NSString* kSecAnchorTypeCustom;
+
 @interface PSCerts : NSObject
 {
     NSString*       _cert_dir_path;

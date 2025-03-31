@@ -29,6 +29,7 @@
 #include "WebGeolocationPosition.h"
 #include "WebProcessSupplement.h"
 #include <WebCore/RegistrableDomain.h>
+#include <wtf/CheckedRef.h>
 #include <wtf/Forward.h>
 #include <wtf/Noncopyable.h>
 #include <wtf/TZoneMalloc.h>
@@ -51,6 +52,9 @@ class WebGeolocationManager : public WebProcessSupplement, public IPC::MessageRe
 public:
     explicit WebGeolocationManager(WebProcess&);
     ~WebGeolocationManager();
+
+    void ref() const final;
+    void deref() const final;
 
     static ASCIILiteral supplementName();
 
@@ -75,6 +79,7 @@ private:
     bool isUpdating(const PageSets&) const;
     bool isHighAccuracyEnabled(const PageSets&) const;
 
+    CheckedRef<WebProcess> m_process;
     HashMap<WebCore::RegistrableDomain, PageSets> m_pageSets;
     WeakHashMap<WebPage, WebCore::RegistrableDomain> m_pageToRegistrableDomain;
 };

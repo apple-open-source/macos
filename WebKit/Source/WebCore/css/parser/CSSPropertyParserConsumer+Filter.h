@@ -30,6 +30,11 @@
 
 namespace WebCore {
 
+namespace CSS {
+struct AppleColorFilterProperty;
+struct FilterProperty;
+}
+
 class CSSParserTokenRange;
 class CSSValue;
 class Document;
@@ -40,16 +45,22 @@ struct CSSParserContext;
 
 namespace CSSPropertyParserHelpers {
 
-enum class AllowedFilterFunctions : bool { PixelFilters, ColorFilters };
-
 // https://drafts.fxtf.org/filter-effects/#FilterProperty
 
-// MARK: <filter> consuming (CSSValue)
-RefPtr<CSSValue> consumeFilterValueList(CSSParserTokenRange&, const CSSParserContext&, AllowedFilterFunctions);
-RefPtr<CSSValue> consumeFilterValueListOrNone(CSSParserTokenRange&, const CSSParserContext&, AllowedFilterFunctions);
+// MARK: <'filter'> consuming (CSSValue)
+RefPtr<CSSValue> consumeFilter(CSSParserTokenRange&, const CSSParserContext&);
 
-// MARK: <filter> parsing (raw)
-std::optional<FilterOperations> parseFilterValueListOrNoneRaw(const String&, const CSSParserContext&, AllowedFilterFunctions, const Document&, RenderStyle&);
+// MARK: <'-apple-color-filter'> consuming (CSSValue)
+RefPtr<CSSValue> consumeAppleColorFilter(CSSParserTokenRange&, const CSSParserContext&);
+
+// MARK: <'filter'> consuming (unresolved)
+std::optional<CSS::FilterProperty> consumeUnresolvedFilter(CSSParserTokenRange&, const CSSParserContext&);
+
+// MARK: <'apple-color-filter'> consuming (unresolved)
+std::optional<CSS::AppleColorFilterProperty> consumeUnresolvedAppleColorFilter(CSSParserTokenRange&, const CSSParserContext&);
+
+// MARK: <'filter'> parsing (raw)
+std::optional<FilterOperations> parseFilterValueListOrNoneRaw(const String&, const CSSParserContext&, const Document&, RenderStyle&);
 
 } // namespace CSSPropertyParserHelpers
 } // namespace WebCore

@@ -61,7 +61,7 @@ WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(HTMLFormControlElement);
 using namespace HTMLNames;
 
 HTMLFormControlElement::HTMLFormControlElement(const QualifiedName& tagName, Document& document, HTMLFormElement* form)
-    : HTMLElement(tagName, document, { TypeFlag::HasCustomStyleResolveCallbacks, TypeFlag::HasDidMoveToNewDocument } )
+    : HTMLElement(tagName, document, { TypeFlag::IsFormControlElement, TypeFlag::HasCustomStyleResolveCallbacks, TypeFlag::HasDidMoveToNewDocument } )
     , ValidatedFormListedElement(form)
     , m_isRequired(false)
     , m_valueMatchesRenderer(false)
@@ -395,24 +395,29 @@ void HTMLFormControlElement::setPopoverTargetAction(const AtomString& value)
 }
 
 // https://html.spec.whatwg.org/#popover-target-attribute-activation-behavior
-void HTMLFormControlElement::handlePopoverTargetAction() const
+void HTMLFormControlElement::handlePopoverTargetAction(const EventTarget* eventTarget) const
 {
-    RefPtr target = popoverTargetElement();
-    if (!target)
+    RefPtr popover = popoverTargetElement();
+    if (!popover)
         return;
 
-    ASSERT(target->popoverData());
+    ASSERT(popover->popoverData());
+
+    if (RefPtr eventTargetNode = dynamicDowncast<Node>(eventTarget)) {
+        if (popover->containsIncludingShadowDOM(eventTargetNode.get()) && popover->isDescendantOrShadowDescendantOf(this))
+            return;
+    }
 
     auto action = popoverTargetAction();
     bool canHide = action == hideAtom() || action == toggleAtom();
-    bool shouldHide = canHide && target->popoverData()->visibilityState() == PopoverVisibilityState::Showing;
+    bool shouldHide = canHide && popover->popoverData()->visibilityState() == PopoverVisibilityState::Showing;
     bool canShow = action == showAtom() || action == toggleAtom();
-    bool shouldShow = canShow && target->popoverData()->visibilityState() == PopoverVisibilityState::Hidden;
+    bool shouldShow = canShow && popover->popoverData()->visibilityState() == PopoverVisibilityState::Hidden;
 
     if (shouldHide)
-        target->hidePopover();
+        popover->hidePopover();
     else if (shouldShow)
-        target->showPopover(this);
+        popover->showPopoverInternal(this);
 }
 
 RefPtr<Element> HTMLFormControlElement::commandForElement() const

@@ -1,0 +1,223 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Implementation Details &mdash; py2app 0.7.3 documentation</title>
+    
+    <link rel="stylesheet" href="_static/nature.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '',
+        VERSION:     '0.7.3',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <link rel="top" title="py2app 0.7.3 documentation" href="index.html" />
+    <link rel="next" title="py2applet" href="py2applet.html" />
+    <link rel="prev" title="Recipes" href="recipes.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="py2applet.html" title="py2applet"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="recipes.html" title="Recipes"
+             accesskey="P">previous</a> |</li>
+        <li><a href="index.html">py2app 0.7.3 documentation</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="implementation-details">
+<h1>Implementation Details<a class="headerlink" href="#implementation-details" title="Permalink to this headline">¶</a></h1>
+<p>For those interested in the implementation of py2app, here&#8217;s a quick
+rundown of what happens.</p>
+<div class="section" id="argument-parsing">
+<h2>Argument Parsing<a class="headerlink" href="#argument-parsing" title="Permalink to this headline">¶</a></h2>
+<p>When <tt class="docutils literal"><span class="pre">setup.py</span></tt> is run, the normal <a class="reference external" href="http://pypi.python.org/pypi/setuptools/">setuptools</a> / <a class="reference external" href="http://docs.python.org/lib/module-distutils.html">distutils</a>
+<tt class="docutils literal"><span class="pre">sys.argv</span></tt> parsing takes place.</p>
+</div>
+<div class="section" id="run-build-command">
+<h2>Run build command<a class="headerlink" href="#run-build-command" title="Permalink to this headline">¶</a></h2>
+<p>The <tt class="docutils literal"><span class="pre">build</span></tt> command is run to ensure that any extensions specified in the
+<tt class="docutils literal"><span class="pre">setup.py</span></tt> will be built prior to the <tt class="docutils literal"><span class="pre">py2app</span></tt> command. The build
+directory will be added to <tt class="docutils literal"><span class="pre">sys.path</span></tt> so that <tt class="docutils literal"><span class="pre">modulegraph</span></tt> will find
+the extensions built during this command.</p>
+</div>
+<div class="section" id="depdency-resolution-via-modulegraph">
+<h2>Depdency resolution via modulegraph<a class="headerlink" href="#depdency-resolution-via-modulegraph" title="Permalink to this headline">¶</a></h2>
+<p>The main script is compiled to Python bytecode and analyzed by modulegraph
+for <tt class="docutils literal"><span class="pre">import</span></tt> bytecode. It uses this to build a dependency graph of all
+involved Python modules.</p>
+<p>The dependency graph is primed with any <tt class="docutils literal"><span class="pre">--includes</span></tt>, <tt class="docutils literal"><span class="pre">--excludes</span></tt>, or
+<tt class="docutils literal"><span class="pre">--packages</span></tt> options.</p>
+</div>
+<div class="section" id="apply-recipes">
+<h2>Apply recipes<a class="headerlink" href="#apply-recipes" title="Permalink to this headline">¶</a></h2>
+<p>All of the <a class="reference internal" href="recipes.html"><em>Recipes</em></a> will be run in order to find library-specific tweaks
+necessary to build the application properly.</p>
+</div>
+<div class="section" id="apply-filters">
+<h2>Apply filters<a class="headerlink" href="#apply-filters" title="Permalink to this headline">¶</a></h2>
+<p>All filters specified in recipes or otherwise added to the py2app Command
+object will be run to filter out the dependency graph.</p>
+<p>The built-in filter <tt class="docutils literal"><span class="pre">not_system_filter</span></tt> will
+always be run for every application built. This ensures that the contents
+of your Mac OS X installation (<tt class="docutils literal"><span class="pre">/usr/</span></tt>, <tt class="docutils literal"><span class="pre">/System/</span></tt>, excluding
+<tt class="docutils literal"><span class="pre">/usr/local/</span></tt>) will be excluded.</p>
+<p>If the <tt class="docutils literal"><span class="pre">--semi-standalone</span></tt> option is used (forced if a vendor Python is
+being used), then the <tt class="docutils literal"><span class="pre">not_stdlib_filter</span></tt> will be automatically added to
+ensure that the Python standard library is not included.</p>
+</div>
+<div class="section" id="produce-graphs">
+<h2>Produce graphs<a class="headerlink" href="#produce-graphs" title="Permalink to this headline">¶</a></h2>
+<p>If the <tt class="docutils literal"><span class="pre">--xref</span></tt> or <tt class="docutils literal"><span class="pre">--graph</span></tt> option is used, then the <tt class="docutils literal"><span class="pre">modulegraph</span></tt> is
+output to HTML or <a class="reference external" href="http://www.research.att.com/sw/tools/graphviz/">GraphViz</a> respectively. The <tt class="docutils literal"><span class="pre">.html</span></tt> or <tt class="docutils literal"><span class="pre">.dot</span></tt> file
+will be in the <tt class="docutils literal"><span class="pre">dist</span></tt> folder, and will share the application&#8217;s name.</p>
+</div>
+<div class="section" id="create-the-app-bundle">
+<h2>Create the .app bundle<a class="headerlink" href="#create-the-app-bundle" title="Permalink to this headline">¶</a></h2>
+<p>An application bundle will be created with the name of your application.</p>
+<p>The <tt class="docutils literal"><span class="pre">Contents/Info.plist</span></tt> will be created from the <tt class="docutils literal"><span class="pre">dict</span></tt> or filename
+given in the <tt class="docutils literal"><span class="pre">plist</span></tt> option. py2app will fill in any missing keys as
+necessary.</p>
+<p>A <tt class="docutils literal"><span class="pre">__boot__.py</span></tt> script will be created in the <tt class="docutils literal"><span class="pre">Contents/Resources/</span></tt> folder
+of the application bundle. This script runs any prescripts used by the
+application and then your main script.</p>
+<p>If the <tt class="docutils literal"><span class="pre">--alias</span></tt> option is being used, the build procedure is finished.</p>
+<p>The main script of your application will be copied <em>as-is</em> to the
+<tt class="docutils literal"><span class="pre">Contents/Resources/</span></tt> folder of the application bundle. If you want to
+obfuscate anything (by having it as a <tt class="docutils literal"><span class="pre">.pyc</span></tt> in the zip), then you
+<em>must not</em> place it in the main script!</p>
+<p>Packages that were explicitly included with the <tt class="docutils literal"><span class="pre">packages</span></tt> option, or by
+a recipe, will be placed in <tt class="docutils literal"><span class="pre">Contents/Resources/lib/python2.X/</span></tt>.</p>
+<p>A zip file containing all Python dependencies is created at
+<tt class="docutils literal"><span class="pre">Contents/Resources/Python/site-packages.zip</span></tt>.</p>
+<p>Extensions (which can&#8217;t be included in the zip) are copied to the
+<tt class="docutils literal"><span class="pre">Contents/Resources/lib/python2.X/lib-dynload/</span></tt> folder.</p>
+</div>
+<div class="section" id="include-mach-o-dependencies">
+<h2>Include Mach-O dependencies<a class="headerlink" href="#include-mach-o-dependencies" title="Permalink to this headline">¶</a></h2>
+<p><a class="reference external" href="http://pypi.python.org/pypi/macholib/">macholib</a> is used to ensure the application will run on other computers
+without the need to install additional components. All Mach-O
+files (executables, frameworks, bundles, extensions) used by the application
+are located and copied into the application bundle.</p>
+<p>The Mach-O load commands for these Mach-O files are then rewritten to be
+<tt class="docutils literal"><span class="pre">&#64;executable_path/../Frameworks/</span></tt> relative, so that dyld knows to find
+them inside the application bundle.</p>
+<p><tt class="docutils literal"><span class="pre">Python.framework</span></tt> is special-cased here so as to only include the bare
+minimum, otherwise the documentation, entire standard library, etc. would&#8217;ve
+been included. If the <tt class="docutils literal"><span class="pre">--semi-standalone</span></tt> option or a vendor Python is used,
+then the <tt class="docutils literal"><span class="pre">Python.framework</span></tt> is ignored. All other vendor files (those in
+<tt class="docutils literal"><span class="pre">/usr/</span></tt> or <tt class="docutils literal"><span class="pre">/System/</span></tt> excluding <tt class="docutils literal"><span class="pre">/usr/local/</span></tt>) are also excluded.</p>
+</div>
+<div class="section" id="strip-the-result">
+<h2>Strip the result<a class="headerlink" href="#strip-the-result" title="Permalink to this headline">¶</a></h2>
+<p>Unless the <tt class="docutils literal"><span class="pre">--no-strip</span></tt> option is specified, all Mach-O files in the
+application bundle are stripped using the <tt class="docutils literal"><span class="pre">strip</span></tt> tool. This removes
+debugging symbols to make your application smaller.</p>
+</div>
+<div class="section" id="copy-python-configuration">
+<h2>Copy Python configuration<a class="headerlink" href="#copy-python-configuration" title="Permalink to this headline">¶</a></h2>
+<p>This only occurs when not using a vendor Python or using the
+<tt class="docutils literal"><span class="pre">--semi-standalone</span></tt> option.</p>
+<p>The Python configuration, which is used by <tt class="docutils literal"><span class="pre">distutils</span></tt> and <tt class="docutils literal"><span class="pre">pkg_resources</span></tt>
+is copied to <tt class="docutils literal"><span class="pre">Contents/Resources/lib/python2.X/config/</span></tt>. This is needed
+to acquire settings relevant to the way Python was built.</p>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">Implementation Details</a><ul>
+<li><a class="reference internal" href="#argument-parsing">Argument Parsing</a></li>
+<li><a class="reference internal" href="#run-build-command">Run build command</a></li>
+<li><a class="reference internal" href="#depdency-resolution-via-modulegraph">Depdency resolution via modulegraph</a></li>
+<li><a class="reference internal" href="#apply-recipes">Apply recipes</a></li>
+<li><a class="reference internal" href="#apply-filters">Apply filters</a></li>
+<li><a class="reference internal" href="#produce-graphs">Produce graphs</a></li>
+<li><a class="reference internal" href="#create-the-app-bundle">Create the .app bundle</a></li>
+<li><a class="reference internal" href="#include-mach-o-dependencies">Include Mach-O dependencies</a></li>
+<li><a class="reference internal" href="#strip-the-result">Strip the result</a></li>
+<li><a class="reference internal" href="#copy-python-configuration">Copy Python configuration</a></li>
+</ul>
+</li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="recipes.html"
+                        title="previous chapter">Recipes</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="py2applet.html"
+                        title="next chapter">py2applet</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="_sources/implementation.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="py2applet.html" title="py2applet"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="recipes.html" title="Recipes"
+             >previous</a> |</li>
+        <li><a href="index.html">py2app 0.7.3 documentation</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2010, Ronald Oussoren, Bob Ippolito.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1.3.
+    </div>
+  </body>
+</html>

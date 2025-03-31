@@ -35,7 +35,6 @@
 #include "SharedCARingBuffer.h"
 #include "UserMediaCaptureManagerMessages.h"
 #include "UserMediaCaptureManagerProxyMessages.h"
-#include "WebCoreArgumentCoders.h"
 #include "WebProcessProxy.h"
 #include <WebCore/AudioSession.h>
 #include <WebCore/AudioUtilities.h>
@@ -56,15 +55,6 @@
 #define MESSAGE_CHECK_COMPLETION(assertion, completion) MESSAGE_CHECK_COMPLETION_BASE(assertion, m_connectionProxy->connection(), completion)
 
 namespace WebKit {
-class UserMediaCaptureManagerProxySourceProxy;
-}
-
-namespace WTF {
-template<typename T> struct IsDeprecatedWeakRefSmartPointerException;
-template<> struct IsDeprecatedWeakRefSmartPointerException<WebKit::UserMediaCaptureManagerProxySourceProxy> : std::true_type { };
-}
-
-namespace WebKit {
 using namespace WebCore;
 
 class UserMediaCaptureManagerProxySourceProxy final
@@ -79,60 +69,74 @@ public:
     static Ref<UserMediaCaptureManagerProxySourceProxy> create(RealtimeMediaSourceIdentifier id, Ref<IPC::Connection>&& connection, ProcessIdentity&& resourceOwner, Ref<RealtimeMediaSource>&& source, RefPtr<RemoteVideoFrameObjectHeap>&& videoFrameObjectHeap) { return adoptRef(*new UserMediaCaptureManagerProxySourceProxy(id, WTFMove(connection), WTFMove(resourceOwner), WTFMove(source), WTFMove(videoFrameObjectHeap))); }
     ~UserMediaCaptureManagerProxySourceProxy()
     {
-        switch (m_source->type()) {
+        Ref source = m_source;
+        switch (source->type()) {
         case RealtimeMediaSource::Type::Audio:
-            m_source->removeAudioSampleObserver(*this);
+            source->removeAudioSampleObserver(*this);
             break;
         case RealtimeMediaSource::Type::Video:
-            m_source->removeVideoFrameObserver(*this);
+            source->removeVideoFrameObserver(*this);
             break;
         }
-        m_source->removeObserver(*this);
+        source->removeObserver(*this);
     }
 
     void observeMedia()
     {
-        switch (m_source->type()) {
+        Ref source = m_source;
+        switch (source->type()) {
         case RealtimeMediaSource::Type::Audio:
-            m_source->addAudioSampleObserver(*this);
+            source->addAudioSampleObserver(*this);
             break;
         case RealtimeMediaSource::Type::Video:
             if (m_widthConstraint || m_heightConstraint || m_frameRateConstraint)
-                m_source->addVideoFrameObserver(*this, { m_widthConstraint, m_heightConstraint }, m_frameRateConstraint);
+                source->addVideoFrameObserver(*this, { m_widthConstraint, m_heightConstraint }, m_frameRateConstraint);
             else
-                m_source->addVideoFrameObserver(*this);
+                source->addVideoFrameObserver(*this);
             break;
         }
     }
 
-    bool isUsingSource(const RealtimeMediaSource& source) const { return m_source.ptr() == &source; }
+    void whenReady(UserMediaCaptureManagerProxy::CreateSourceCallback&& createCallback)
+    {
+        protectedSource()->whenReady([weakThis = WeakPtr { *this }, createCallback = WTFMove(createCallback)] (auto&& sourceError) mutable {
+            RefPtr protectedThis = weakThis.get();
+            if (!protectedThis) {
+                createCallback(CaptureSourceError { "Source is no longer needed"_s, MediaAccessDenialReason::InvalidAccess }, { }, { });
+                return;
+            }
+            createCallback(sourceError, protectedThis->settings(), protectedThis->protectedSource()->capabilities());
+        });
+    }
 
+    bool isUsingSource(const RealtimeMediaSource& source) const { return m_source.ptr() == &source; }
     Ref<RealtimeMediaSource> protectedSource() { return m_source; }
 
     void audioUnitWillStart() final
     {
-        AudioSession::sharedSession().setCategory(AudioSession::CategoryType::PlayAndRecord, AudioSession::Mode::VideoChat, RouteSharingPolicy::Default);
-        AudioSession::sharedSession().tryToSetActive(true);
+        Ref session = AudioSession::sharedSession();
+        session->setCategory(AudioSession::CategoryType::PlayAndRecord, AudioSession::Mode::VideoChat, RouteSharingPolicy::Default);
+        session->tryToSetActive(true);
     }
 
     void start()
     {
         m_shouldReset = true;
         m_isStopped = false;
-        m_source->start();
+        protectedSource()->start();
     }
 
     void stop()
     {
         m_isStopped = true;
-        m_source->stop();
+        protectedSource()->stop();
     }
 
     void end()
     {
         m_isStopped = true;
         m_isEnded = true;
-        m_source->requestToEnd(*this);
+        protectedSource()->requestToEnd(*this);
     }
 
     void setShouldApplyRotation(bool shouldApplyRotation) { m_shouldApplyRotation = true; }
@@ -147,7 +151,7 @@ public:
     {
         m_videoConstraints = constraints;
 
-        auto resultingConstraints = m_source->extractVideoPresetConstraints(constraints);
+        auto resultingConstraints = protectedSource()->extractVideoPresetConstraints(constraints);
 
         bool didChange = false;
         if (resultingConstraints.width) {
@@ -180,7 +184,8 @@ public:
     {
         ASSERT(isMainRunLoop());
 
-        m_pendingAction = m_pendingAction->isResolved() ? action() : m_pendingAction->whenSettled(RunLoop::main(), WTFMove(action));
+        Ref pendingAction = WTFMove(m_pendingAction);
+        m_pendingAction = pendingAction->isResolved() ? action() : pendingAction->whenSettled(RunLoop::protectedMain(), WTFMove(action));
     }
 
     void applyConstraints(WebCore::MediaConstraints&& constraints, CompletionHandler<void(std::optional<RealtimeMediaSource::ApplyConstraintsError>&&)> callback)
@@ -192,14 +197,15 @@ public:
                 return GenericPromise::createAndResolve();
             }
 
-            if (m_source->type() != RealtimeMediaSource::Type::Video) {
-                m_source->applyConstraints(constraints, WTFMove(callback));
+            Ref source = m_source;
+            if (source->type() != RealtimeMediaSource::Type::Video) {
+                source->applyConstraints(constraints, WTFMove(callback));
                 return GenericPromise::createAndResolve();
             }
 
-            m_source->removeVideoFrameObserver(*this);
+            source->removeVideoFrameObserver(*this);
 
-            m_source->applyConstraints(WTFMove(constraints), [this, weakThis = WTFMove(weakThis), &constraints, callback = WTFMove(callback)](auto&& error) mutable {
+            source->applyConstraints(WTFMove(constraints), [this, weakThis = WTFMove(weakThis), &constraints, callback = WTFMove(callback)](auto&& error) mutable {
                 auto protectedThis = weakThis.get();
                 if (!protectedThis) {
                     callback(RealtimeMediaSource::ApplyConstraintsError { { }, { } });
@@ -211,7 +217,7 @@ public:
                     m_settings = { };
                 }
 
-                m_source->addVideoFrameObserver(*this, { m_widthConstraint, m_heightConstraint }, m_frameRateConstraint);
+                protectedSource()->addVideoFrameObserver(*this, { m_widthConstraint, m_heightConstraint }, m_frameRateConstraint);
 
                 callback(WTFMove(error));
             });
@@ -222,15 +228,16 @@ public:
 
     const WebCore::RealtimeMediaSourceSettings& settings()
     {
-        if (m_source->type() != RealtimeMediaSource::Type::Video)
-            return m_source->settings();
+        Ref source = m_source;
+        if (source->type() != RealtimeMediaSource::Type::Video)
+            return source->settings();
 
         if (!m_settings) {
-            m_settings = m_source->settings();
+            m_settings = source->settings();
             if (m_widthConstraint || m_heightConstraint) {
-                auto desiredSize = m_source->computeResizedVideoFrameSize({ m_widthConstraint, m_heightConstraint }, m_source->intrinsicSize());
+                auto desiredSize = source->computeResizedVideoFrameSize({ m_widthConstraint, m_heightConstraint }, source->intrinsicSize());
 
-                auto videoFrameRotation = m_source->videoFrameRotation();
+                auto videoFrameRotation = source->videoFrameRotation();
                 if (videoFrameRotation == VideoFrameRotation::Left || videoFrameRotation == VideoFrameRotation::Right)
                     desiredSize = desiredSize.transposedSize();
 
@@ -266,7 +273,7 @@ public:
                 return GenericPromise::createAndResolve();
             }
 
-            return m_source->takePhoto(WTFMove(photoSettings))->whenSettled(RunLoop::main(), [takePhotoProducer = WTFMove(takePhotoProducer)] (auto&& result) mutable {
+            return protectedSource()->takePhoto(WTFMove(photoSettings))->whenSettled(RunLoop::protectedMain(), [takePhotoProducer = WTFMove(takePhotoProducer)] (auto&& result) mutable {
                 ASSERT(isMainRunLoop());
 
                 takePhotoProducer.settle(WTFMove(result));
@@ -279,12 +286,12 @@ public:
 
     Ref<RealtimeMediaSource::PhotoCapabilitiesNativePromise> getPhotoCapabilities()
     {
-        return m_source->getPhotoCapabilities();
+        return protectedSource()->getPhotoCapabilities();
     }
 
     Ref<RealtimeMediaSource::PhotoSettingsNativePromise> getPhotoSettings()
     {
-        return m_source->getPhotoSettings();
+        return protectedSource()->getPhotoSettings();
     }
 
 private:
@@ -295,40 +302,42 @@ private:
         , m_source(WTFMove(source))
         , m_videoFrameObjectHeap(WTFMove(videoFrameObjectHeap))
     {
-        m_source->addObserver(*this);
+        protectedSource()->addObserver(*this);
     }
 
     // CheckedPtr interface
-    uint32_t ptrCount() const final { return CanMakeCheckedPtr::ptrCount(); }
-    uint32_t ptrCountWithoutThreadCheck() const final { return CanMakeCheckedPtr::ptrCountWithoutThreadCheck(); }
-    void incrementPtrCount() const final { CanMakeCheckedPtr::incrementPtrCount(); }
-    void decrementPtrCount() const final { CanMakeCheckedPtr::decrementPtrCount(); }
+    uint32_t checkedPtrCount() const final { return CanMakeCheckedPtr::checkedPtrCount(); }
+    uint32_t checkedPtrCountWithoutThreadCheck() const final { return CanMakeCheckedPtr::checkedPtrCountWithoutThreadCheck(); }
+    void incrementCheckedPtrCount() const final { CanMakeCheckedPtr::incrementCheckedPtrCount(); }
+    void decrementCheckedPtrCount() const final { CanMakeCheckedPtr::decrementCheckedPtrCount(); }
 
     void sourceStopped() final
     {
-        m_connection->send(Messages::UserMediaCaptureManager::SourceStopped(m_id, m_source->captureDidFail()), 0);
+        protectedConnection()->send(Messages::UserMediaCaptureManager::SourceStopped(m_id, m_source->captureDidFail()), 0);
     }
 
     void sourceMutedChanged() final
     {
-        m_connection->send(Messages::UserMediaCaptureManager::SourceMutedChanged(m_id, m_source->muted(), m_source->interrupted()), 0);
+        protectedConnection()->send(Messages::UserMediaCaptureManager::SourceMutedChanged(m_id, m_source->muted(), m_source->interrupted()), 0);
     }
 
     void sourceSettingsChanged() final
     {
         m_settings = { };
-        m_connection->send(Messages::UserMediaCaptureManager::SourceSettingsChanged(m_id, settings()), 0);
+        protectedConnection()->send(Messages::UserMediaCaptureManager::SourceSettingsChanged(m_id, settings()), 0);
     }
 
     void sourceConfigurationChanged() final
     {
-        auto deviceType = m_source->deviceType();
+        Ref source = m_source;
+        auto deviceType = source->deviceType();
+
         if ((deviceType == CaptureDevice::DeviceType::Screen || deviceType == CaptureDevice::DeviceType::Window) && m_videoConstraints && updateVideoConstraints(*m_videoConstraints)) {
-            m_source->removeVideoFrameObserver(*this);
-            m_source->addVideoFrameObserver(*this, { m_widthConstraint, m_heightConstraint }, m_frameRateConstraint);
+            source->removeVideoFrameObserver(*this);
+            source->addVideoFrameObserver(*this, { m_widthConstraint, m_heightConstraint }, m_frameRateConstraint);
         }
 
-        m_connection->send(Messages::UserMediaCaptureManager::SourceConfigurationChanged(m_id, m_source->persistentID(), settings(), m_source->capabilities()), 0);
+        protectedConnection()->send(Messages::UserMediaCaptureManager::SourceConfigurationChanged(m_id, source->persistentID(), settings(), source->capabilities()), 0);
     }
 
     // May get called on a background thread.
@@ -344,14 +353,14 @@ private:
             ASSERT(description.platformDescription().type == PlatformDescription::CAAudioStreamBasicType);
             m_description = *std::get<const AudioStreamBasicDescription*>(description.platformDescription().description);
 
-            m_frameChunkSize = std::max(WebCore::AudioUtilities::renderQuantumSize, AudioSession::sharedSession().preferredBufferSize());
+            m_frameChunkSize = std::max(WebCore::AudioUtilities::renderQuantumSize, AudioSession::protectedSharedSession()->preferredBufferSize());
 
             // Allocate a ring buffer large enough to contain 2 seconds of audio.
             auto result = ProducerSharedCARingBuffer::allocate(*m_description, m_description->sampleRate() * 2);
             RELEASE_ASSERT(result); // FIXME(https://bugs.webkit.org/show_bug.cgi?id=262690): Handle allocation failure.
             auto [ringBuffer, handle] = WTFMove(*result);
             m_ringBuffer = WTFMove(ringBuffer);
-            m_connection->send(Messages::RemoteCaptureSampleManager::AudioStorageChanged(m_id, WTFMove(handle), *m_description, *m_captureSemaphore, m_startTime, m_frameChunkSize), 0);
+            protectedConnection()->send(Messages::RemoteCaptureSampleManager::AudioStorageChanged(m_id, WTFMove(handle), *m_description, *m_captureSemaphore, m_startTime, m_frameChunkSize), 0);
         }
 
         m_ringBuffer->store(downcast<WebAudioBufferList>(audioData).list(), numberOfFrames, m_writeOffset);
@@ -380,12 +389,15 @@ private:
             return;
         if (m_resourceOwner)
             videoFrame->setOwnershipIdentity(m_resourceOwner);
-        if (!m_videoFrameObjectHeap) {
-            m_connection->send(Messages::RemoteCaptureSampleManager::VideoFrameAvailableCV(m_id, videoFrame->pixelBuffer(), videoFrame->rotation(), videoFrame->isMirrored(), videoFrame->presentationTime(), metadata), 0);
+
+        RefPtr videoFrameObjectHeap = m_videoFrameObjectHeap;
+        if (!videoFrameObjectHeap) {
+            protectedConnection()->send(Messages::RemoteCaptureSampleManager::VideoFrameAvailableCV(m_id, videoFrame->pixelBuffer(), videoFrame->rotation(), videoFrame->isMirrored(), videoFrame->presentationTime(), metadata), 0);
             return;
         }
-        auto properties = m_videoFrameObjectHeap->add(*videoFrame);
-        m_connection->send(Messages::RemoteCaptureSampleManager::VideoFrameAvailable(m_id, properties, metadata), 0);
+
+        auto properties = videoFrameObjectHeap->add(*videoFrame);
+        protectedConnection()->send(Messages::RemoteCaptureSampleManager::VideoFrameAvailable(m_id, properties, metadata), 0);
     }
 
     RetainPtr<CVPixelBufferRef> rotatePixelBuffer(VideoFrame& videoFrame)
@@ -418,6 +430,8 @@ private:
         return !m_isEnded;
     }
 
+    Ref<IPC::Connection> protectedConnection() const { return m_connection; }
+
     RealtimeMediaSourceIdentifier m_id;
     Ref<IPC::Connection> m_connection;
     ProcessIdentity m_resourceOwner;
@@ -446,6 +460,11 @@ private:
 };
 
 WTF_MAKE_TZONE_ALLOCATED_IMPL(UserMediaCaptureManagerProxy);
+
+Ref<UserMediaCaptureManagerProxy> UserMediaCaptureManagerProxy::create(UniqueRef<ConnectionProxy>&& connectionProxy)
+{
+    return adoptRef(*new UserMediaCaptureManagerProxy(WTFMove(connectionProxy)));
+}
 
 UserMediaCaptureManagerProxy::UserMediaCaptureManagerProxy(UniqueRef<ConnectionProxy>&& connectionProxy)
     : m_connectionProxy(WTFMove(connectionProxy))
@@ -492,11 +511,11 @@ static bool canCaptureFromMultipleCameras()
 CaptureSourceOrError UserMediaCaptureManagerProxy::createCameraSource(const CaptureDevice& device, MediaDeviceHashSalts&& hashSalts, PageIdentifier pageIdentifier)
 {
     auto& perPageSources = m_pageSources.ensure(pageIdentifier, [] { return PageSources { }; }).iterator->value;
-    for (auto& cameraSource : perPageSources.cameraSources) {
+    for (Ref cameraSource : perPageSources.cameraSources) {
         // FIXME: Optimize multiple concurrent cameras.
-        if (cameraSource.persistentID() == device.persistentId() && !cameraSource.isEnded()) {
+        if (cameraSource->persistentID() == device.persistentId() && !cameraSource->isEnded()) {
             // We can reuse the source, let's do it.
-            auto source = cameraSource.clone();
+            auto source = cameraSource->clone();
             perPageSources.cameraSources.add(source.get());
             return source;
         }
@@ -523,7 +542,7 @@ CaptureSourceOrError UserMediaCaptureManagerProxy::createCameraSource(const Capt
 
 void UserMediaCaptureManagerProxy::createMediaSourceForCaptureDeviceWithConstraints(RealtimeMediaSourceIdentifier id, const CaptureDevice& device, WebCore::MediaDeviceHashSalts&& hashSalts, MediaConstraints&& mediaConstraints, bool shouldUseGPUProcessRemoteFrames, PageIdentifier pageIdentifier, CreateSourceCallback&& completionHandler)
 {
-    if (!m_connectionProxy->willStartCapture(device.type())) {
+    if (!m_connectionProxy->willStartCapture(device.type(), pageIdentifier)) {
         completionHandler({ "Request is not allowed"_s, WebCore::MediaAccessDenialReason::PermissionDenied }, { }, { });
         return;
     }
@@ -556,7 +575,7 @@ void UserMediaCaptureManagerProxy::createMediaSourceForCaptureDeviceWithConstrai
 
     auto source = sourceOrError.source();
 #if !RELEASE_LOG_DISABLED
-    source->setLogger(m_connectionProxy->logger(), LoggerHelper::uniqueLogIdentifier());
+    source->setLogger(m_connectionProxy->protectedLogger(), LoggerHelper::uniqueLogIdentifier());
 #endif
 
     ASSERT(!m_proxies.contains(id));
@@ -566,7 +585,7 @@ void UserMediaCaptureManagerProxy::createMediaSourceForCaptureDeviceWithConstrai
     proxy->observeMedia();
 
     auto completeSetup = [](UserMediaCaptureManagerProxySourceProxy& proxy, CreateSourceCallback&& completionHandler) mutable {
-        completionHandler({ }, proxy.settings(), proxy.protectedSource()->capabilities());
+        proxy.whenReady(WTFMove(completionHandler));
     };
 
     if (!constraints || proxy->protectedSource()->type() != RealtimeMediaSource::Type::Video) {
@@ -674,7 +693,7 @@ void UserMediaCaptureManagerProxy::applyConstraints(RealtimeMediaSourceIdentifie
 {
     RefPtr proxy = m_proxies.get(id);
     if (!proxy) {
-        m_connectionProxy->connection().send(Messages::UserMediaCaptureManager::ApplyConstraintsFailed(id, { }, "Unknown source"_s), 0);
+        m_connectionProxy->protectedConnection()->send(Messages::UserMediaCaptureManager::ApplyConstraintsFailed(id, { }, "Unknown source"_s), 0);
         return;
     }
 
@@ -682,7 +701,7 @@ void UserMediaCaptureManagerProxy::applyConstraints(RealtimeMediaSourceIdentifie
     for (const auto& advancedConstraint : constraints.advancedConstraints)
         MESSAGE_CHECK(advancedConstraint.isValid());
 
-    proxy->applyConstraints(WTFMove(constraints), [id, proxy, connection = Ref { m_connectionProxy->connection() }](auto&& result) {
+    proxy->applyConstraints(WTFMove(constraints), [id, proxy, connection = m_connectionProxy->protectedConnection()](auto&& result) {
         if (result) {
             connection->send(Messages::UserMediaCaptureManager::ApplyConstraintsFailed(id, result->invalidConstraint, result->message), 0);
             return;
@@ -718,7 +737,7 @@ void UserMediaCaptureManagerProxy::takePhoto(RealtimeMediaSourceIdentifier sourc
         return;
     }
 
-    proxy->takePhoto(WTFMove(settings))->whenSettled(RunLoop::main(), WTFMove(handler));
+    proxy->takePhoto(WTFMove(settings))->whenSettled(RunLoop::protectedMain(), WTFMove(handler));
 }
 
 
@@ -731,7 +750,7 @@ void UserMediaCaptureManagerProxy::getPhotoCapabilities(RealtimeMediaSourceIdent
         return;
     }
 
-    proxy->getPhotoCapabilities()->whenSettled(RunLoop::main(), WTFMove(handler));
+    proxy->getPhotoCapabilities()->whenSettled(RunLoop::protectedMain(), WTFMove(handler));
 }
 
 void UserMediaCaptureManagerProxy::getPhotoSettings(RealtimeMediaSourceIdentifier sourceID, GetPhotoSettingsCallback&& handler)
@@ -742,7 +761,7 @@ void UserMediaCaptureManagerProxy::getPhotoSettings(RealtimeMediaSourceIdentifie
         return;
     }
 
-    proxy->getPhotoSettings()->whenSettled(RunLoop::main(), [handler = WTFMove(handler)] (auto&& result) mutable {
+    proxy->getPhotoSettings()->whenSettled(RunLoop::protectedMain(), [handler = WTFMove(handler)] (auto&& result) mutable {
         handler(WTFMove(result));
     });
 }
@@ -796,6 +815,12 @@ void UserMediaCaptureManagerProxy::rotationAngleForCaptureDeviceChanged(const St
 bool UserMediaCaptureManagerProxy::hasSourceProxies() const
 {
     return !m_proxies.isEmpty();
+}
+
+std::optional<SharedPreferencesForWebProcess> UserMediaCaptureManagerProxy::sharedPreferencesForWebProcess() const
+{
+    auto& connectionProxy = m_connectionProxy;
+    return connectionProxy->sharedPreferencesForWebProcess();
 }
 
 }

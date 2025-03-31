@@ -263,7 +263,7 @@ static void chunk_init(xzm_chunk_t chunk, xzm_slice_count_t slice_count,
 	chunk->xzc_used = 0;
 	chunk->xzc_bits.xzcb_kind = XZM_SLICE_KIND_SMALL_CHUNK;
 	chunk->xzc_bits.xzcb_is_pristine = true;
-	chunk->xzc_bits.xzcb_enqueued = false;
+	chunk->xzc_bits.xzcb_on_partial_list = false;
 	chunk->xzcs_slice_count = slice_count;
 
 	for (xzm_slice_count_t idx = 1; idx < chunk->xzcs_slice_count; ++idx) {

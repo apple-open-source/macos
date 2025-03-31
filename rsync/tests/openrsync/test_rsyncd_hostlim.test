@@ -1,0 +1,101 @@
+#! /bin/sh
+
+. ${tstdir-.}/daemon.sh
+. ${tstdir-.}/lib.sh
+. ${tstdir-.}/conf.sh
+
+src="$PWD/src"
+dest="$PWD/ftp"
+cfgfile="$PWD/rsyncd.conf"
+
+rm -rf "$dest" "$src"
+
+mkdir "$dest" "$src"
+dd if=/dev/random of="$dest"/file bs=8M count=1
+
+cat <<EOF > "$cfgfile"
+use chroot = no
+
+[hostallow_1]
+	path = $dest
+	# Form #1: addr
+	hosts allow = 127.0.0.1
+[hostallow_2]
+	path = $dest
+	# Form #2: addr/mask
+	hosts allow = 127.0.0.0/24
+[hostallow_3]
+	path = $dest
+	# Form #3: addr/maskaddr
+	hosts allow = 127.0.0.0/255.255.255.0
+[hostallow_4]
+	path = $dest
+	# Form #4: hostname w/ wildcard
+	hosts allow = local*
+[hostallow_5]
+	path = $dest
+	# Form #5: hostname exact
+	hosts allow = localhost
+[hostallow_6]
+	path = $dest
+	# Allowed because we're not 1.1.1.1
+	hosts deny = 1.1.1.1
+[hostdeny_notallowed]
+	path = $dest
+	# Denied because we're not 1.1.1.1
+	hosts allow = 1.1.1.1
+[hostdeny]
+	path = $dest
+	# Denied because we're localhost
+	hosts deny = localhost
+[hostallow_combined]
+	path = $dest
+	# Allowed because we're not in 127.0.0.0/24 - 127.0.0.1
+	hosts allow = 127.0.0.1
+	hosts deny = 127.0.0.0/24
+[hostdeny_combined]
+	path = $dest
+	# Denied because we're in 127.0.0.0/24 - 127.0.0.2
+	hosts allow = 127.0.0.2
+	hosts deny = 127.0.0.0/24
+EOF
+
+rsyncd "$cfgfile"
+dport=$(daemon_port)
+
+set +e
+for tc in hostallow_1 hostallow_2 hostallow_3 hostallow_4 hostallow_5 hostallow_6 \
+    hostallow_combined hostdeny_notallowed hostdeny hostdeny_combined; do
+	1>&2 echo "== $tc =="
+	rm -f "$src"/file
+	command $RSYNC_CLIENT rsync://localhost:$dport/"$tc"/file \
+	    "$src"/file
+	rc=$?
+
+	case "$tc" in
+	hostallow_*)
+		if [ "$rc" -ne 0 ]; then
+			1>&2 echo "Command failed for $tc"
+			exit 1
+		elif [ ! -e "$src"/file ]; then
+			1>&2 echo "Failed to download file for $tc"
+			exit 1
+		fi
+
+		;;
+	hostdeny|hostdeny_*)
+		if [ "$rc" -eq 0 ]; then
+			1>&2 echo "Command should have failed for $tc"
+			exit 1
+		elif [ -e "$src"/file ]; then
+			1>&2 echo "Should have failed to download file for $tc"
+			exit 1
+		fi
+
+		;;
+	*)
+		1>&2 echo "Unhandled test case: $tc"
+		exit 1
+		;;
+	esac
+done

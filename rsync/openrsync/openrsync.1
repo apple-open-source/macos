@@ -21,7 +21,7 @@
 .Nd synchronise local and remote files
 .Sh SYNOPSIS
 .Nm openrsync
-.Op Fl 0468BCDEFHILOPRSTWVabcdghklnopqrtuvxy
+.Op Fl 0468BCDEFHILOPRSTWVabcdefghiklmnopqrtuvxyz
 .Op Fl e Ar program
 .Op Fl f Ar filter
 .Op Fl -address Ns = Ns Ar sourceaddr
@@ -30,7 +30,9 @@
 .Op Fl -bwlimit Ns = Ns limit
 .Op Fl -cache | Fl -no-cache
 .Op Fl -checksum-seed Ns = Ns NUM
+.Op Fl -chmod Ns = Ns MODE
 .Op Fl -compare-dest Ns = Ns Ar directory
+.Op Fl -compress-level Ns = Ns NUM
 .Op Fl -contimeout Ns = Ns Ar seconds
 .Op Fl -copy-dest Ns = Ns Ar directory
 .Op Fl -copy-unsafe-links
@@ -43,6 +45,7 @@
 .Op Fl -delete-excluded
 .Op Fl -exclude Ar pattern
 .Op Fl -exclude-from Ns = Ns Ar file
+.Op Fl --extended-attributes
 .Op Fl -files-from Ns = Ns Ar filespec
 .Op Fl -force
 .Op Fl -ignore-errors
@@ -53,15 +56,20 @@
 .Op Fl -inplace
 .Op Fl -keep-dirlinks
 .Op Fl -link-dest Ns = Ns Ar directory
+.Op Fl -list-only
+.Op Fl -max-delete Ns = Ns MAX
 .Op Fl -max-size Ns = Ns size
 .Op Fl -min-size Ns = Ns size
 .Op Fl -modify-window Ns = Ns sec
+.Op Fl -no-implied-dirs
 .Op Fl -no-motd
 .Op Fl -numeric-ids
 .Op Fl -partial
+.Op Fl -partial-dir Ns = Ns DIR
 .Op Fl -password-file Ns = Ns Ar pwfile
 .Op Fl -port Ns = Ns Ar service
-.Op Fl -progress
+.Op Fl -progress Ns = Ns Ar VER
+.Op Fl -protocol
 .Op Fl -read-batch Ns = Ns Ar file
 .Op Fl -remove-source-files
 .Op Fl -rsync-path Ns = Ns Ar program
@@ -69,6 +77,7 @@
 .Op Fl -size-only
 .Op Fl -sockopts Ns = Ns Ar sockopts
 .Op Fl -specials
+.Op Fl -stats
 .Op Fl -suffix Ns = Ns Ar suffix
 .Op Fl -super
 .Op Fl -timeout Ns = Ns Ar seconds
@@ -125,6 +134,9 @@ to the
 .Fl -rsh
 program if it is named
 .Dq ssh .
+.It Fl 8 , Fl -8-bit-output
+Do not escape high-bit characters in the output
+.Pq which is otherwise the default .
 .It Fl a , -archive
 Shorthand for
 .Fl Dgloprt .
@@ -208,6 +220,27 @@ is randomly generated, but if set to zero directs
 to use
 .Ar time(3)
 as the checksum seed.
+.It Fl -chmod Ns = Ns Ar MODE
+Modify the permissions on files that are transferred, overriding the original source permissions.
+Only has an effect if
+.Fl -perms
+is specified as well.
+The
+.Ar MODE
+string can be a comma separated list of literal
+.Pq 755
+or relative
+.Pq g+w
+permissions.
+.Pp
+.Nm
+also supports two additional extensions to relative permissions, adding a
+.Sq D
+or
+.Sq F
+infront of the relative permissions will apply the changes to only directories
+or files respectively.
+For example: -chmod=Dg+w,Fo-w
 .It Fl -compare-dest Ns = Ns Ar directory
 Use directory as an alternate base directory to compare files against on the
 destination machine.
@@ -220,6 +253,11 @@ directories may be provided.
 If
 .Ar directory
 is a relative path, it is relative to the destination directory.
+.It Fl z , Fl -compress
+Compress file data during transfer to reduce the amount of data transferred.
+.It Fl -compress-level Ns = Ns NUM
+Set the compression level used by
+.Fl -compress .
 .It Fl -contimeout Ns = Ns Ar seconds
 Set the connection timeout in seconds.
 Exit if no connection established within the specified time.
@@ -339,6 +377,15 @@ When used in combination with any one of the above
 options, supplied
 .Fl -exclude
 patterns will not prevent a file from being deleted.
+.It Fl d, -dirs
+Copies directories, which are normally skipped unless
+.Fl -recursive
+is specified.
+Directory contents are not copied, unless the path specified includes a
+trailing slash
+.Po Do dir/ Dc Pc ,
+or is the literal
+.Dq \&. .
 .It Fl -exclude Ar pattern
 Exclude files matching
 .Em pattern .
@@ -349,6 +396,9 @@ and
 .Em rules
 from
 .Em file .
+.It Fl --extended-attributes
+Apple specific option to copy extended attributes, resource forks, and ACLs.
+Requires at least Mac OS X 10.4 or suitably patched rsync.
 .It Fl E , -executability
 Preserve the executability of regular files (i.e., a file is "executable" if
 at least one 'x' mode bit is enabled in its permissions).
@@ -500,6 +550,11 @@ directories may be provided.
 If
 .Ar directory
 is a relative path, it is relative to the destination directory.
+.It Fl -list-only
+Instead of transferring files, only list them.
+This option is implied if there is only a single source argument and no destination argument.
+.It Fl -max-delete Ar MAX
+Once MAX files have been deleted, do not delete any more files.
 .It Fl -max-size Ar size
 Don't transfer any file that is larger than
 .Ar size
@@ -563,6 +618,12 @@ Do not remove partially transferred files if
 .Nm
 is interrupted, which opens up the possibility for them to be easily resumed
 later.
+.It Fl -partial-dir Ns = Ns Ar DIR
+Store all partially transferred files in
+.Ar DIR
+to allow an interrupted transfer to resume without re-transferring files.
+Implies
+.Fl partial .
 .It Fl -password-file Ns = Ns Ar pwfile
 Define a file to read the password from when connecting to an rsync daemon.
 The password should be written on the first line of the file, and may have a
@@ -581,10 +642,22 @@ can be given as a decimal integer or as a name to be looked up in the
 database.
 The default is
 .Dq rsync .
+.It Fl m , -prune-empty-dirs
+Prune empty directories from the file list on the receiver side.
+Empty directories may be excluded from pruning with an exclude or protect filter
+rule.
+A directory wich only contains other empty, non-excluded directories, is also
+considered empty.
 .It Fl q , -quiet
 Suppress all non-error related informational messages.
 .It Fl -progress
 Periodically report file transfer progress.
+.It Fl -protocol Ns = Ns VER
+Force
+.Nm
+to operate using the specified protocol version.
+Normally the protocol version is negotiated automatically, but an older
+protocol version can be forced with this flag.
 .It Fl r , -recursive
 If
 .Ar source
@@ -627,6 +700,14 @@ files will be removed in a larger batch toward the end of the transfer.
 .It Fl R , -relative
 Normally, pathnames on the commandline omit the directory components.
 This option will include the dir components.
+.It Fl -no-implied-dirs
+Changes the default behavior of
+.Fl -relative
+such that implied directories do not have their attributes modified,
+or are created with default attributes, rather than the source attributes,
+if they do not exist.
+This allows the implied directories to differ, including being a symlink on
+one side and a real directory on the other.
 .It Fl -rsync-path Ns = Ns Ar program
 Run
 .Ar program
@@ -667,6 +748,10 @@ May not be available on all systems.
 Attempt to efficiently handle sparse files.
 .It Fl -specials
 Also transfer fifo and unix domain socket files.
+.It Fl -stats
+Print verbose statistics about the transfer at the end of the run.
+Provides details about how much data transfer was saved by
+.Nm .
 .It Fl -suffix Ar suffix
 Sets the suffix to be appended to filenames when creating backups on the
 receiver before replacing files.
@@ -795,7 +880,7 @@ or similar services that hand a socket off to an external program for handling.
 Daemon options that are shared with the non-daemon mode of
 .Nm
 behave as described above.
-Options specified to daemon mode are as follows:
+Options specific to daemon mode are as follows:
 .Bl -tag -width Ds
 .It Fl -config Ns = Ns Ar configfile
 Load daemon configuration from the named
@@ -1121,7 +1206,7 @@ with the local host running
 .Xr rsyncd 5
 .Sh STANDARDS
 .Nm
-is compatible with rsync protocol version 27
+is compatible with rsync protocol versions 27 - 29
 as supported by the samba.org implementation of rsync.
 .Sh HISTORY
 The

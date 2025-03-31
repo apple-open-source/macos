@@ -59,9 +59,9 @@ struct WeakGCSetHash {
 // FIXME: This doesn't currently accept WeakHandleOwners by default... it's probably not hard to add but it's not exactly clear how to handle multiple different handle owners for the same value.
 template<typename ValueArg, typename HashArg = WeakGCSetHash<ValueArg>, typename TraitsArg = WeakGCSetHashTraits<ValueArg>>
 class WeakGCSet final : public WeakGCHashTable {
-    WTF_MAKE_TZONE_ALLOCATED_EXPORT(WeakGCSet, JS_EXPORT_PRIVATE);
+    WTF_MAKE_TZONE_NON_HEAP_ALLOCATABLE(WeakGCSet);
     using ValueType = Weak<ValueArg>;
-    using HashSetType = HashSet<ValueType, HashArg, TraitsArg>;
+    using HashSetType = UncheckedKeyHashSet<ValueType, HashArg, TraitsArg>;
 
 public:
     using AddResult = typename HashSetType::AddResult;

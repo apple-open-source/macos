@@ -274,7 +274,7 @@ kasan_arm64_pte_map(vm_offset_t shadow_base, uint64_t *base, uint8_t options)
 	/* lookup L3 entry */
 	pte = kasan_arm64_lookup_l3(base, shadow_base);
 
-	if (*pte & ARM_PTE_TYPE_VALID) {
+	if ((*pte & ARM_PTE_TYPE_MASK) == ARM_PTE_TYPE_VALID) {
 		bool pte_rona = (*pte & ARM_PTE_APMASK) == ARM_PTE_AP(AP_RONA);
 		if (!pte_rona || static_valid) {
 			return;
@@ -299,7 +299,7 @@ kasan_arm64_pte_map(vm_offset_t shadow_base, uint64_t *base, uint8_t options)
 
 #if CONFIG_SPTM
 	/* Unmap the page first if the valid page was previously mapped */
-	if (*pte & ARM_PTE_TYPE_VALID) {
+	if ((*pte & ARM_PTE_TYPE_MASK) == ARM_PTE_TYPE_VALID) {
 		sptm_unmap_region(root_pt_paddr, vaddr, 1, 0);
 	}
 
@@ -535,7 +535,7 @@ kasan_is_shadow_mapped(uintptr_t shadowp)
 
 	/* lookup L3 entry */
 	pte = kasan_arm64_lookup_l3(base, shadowp);
-	if (!(*pte & ARM_PTE_TYPE_VALID)) {
+	if ((*pte & ARM_PTE_TYPE_MASK) != ARM_PTE_TYPE_VALID) {
 		return false;
 	}
 

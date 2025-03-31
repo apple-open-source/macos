@@ -1,4 +1,5 @@
 #include <err.h>
+#include <libgen.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -17,6 +18,8 @@
 #else
 #include <darwintest.h>
 #endif
+
+#define TEST_PATH "/System/Library"
 
 int fts_find_main(int argc, char *argv[]);
 
@@ -48,8 +51,8 @@ fts_find_main(int argc, char *argv[])
 	optreset = 1;
 
 	int ch;
-	while ((ch = getopt(argc, argv, "lpcdsS")) != -1){
-		switch (ch){
+	while ((ch = getopt(argc, argv, "lpcdsS")) != -1) {
+		switch (ch) {
 			case 'l':
 				fts_options |= FTS_LOGICAL;
 				break;
@@ -70,11 +73,11 @@ fts_find_main(int argc, char *argv[])
 				break;
 			case '?':
 				fprintf(stderr, "Usage: %s (-l|-p) [-c] [-d] [-s|-S] <path> ...\n", argv[0]);
-				exit(EX_USAGE);
+				return EX_USAGE;
 		}
 	}
 
-	if ((fts_options & (FTS_LOGICAL|FTS_PHYSICAL)) == 0){
+	if ((fts_options & (FTS_LOGICAL|FTS_PHYSICAL)) == 0) {
 		fprintf(stderr, "Usage: %s (-l|-p) [-c] [-s|-S] <path> ...\n", argv[0]);
 		exit(EX_USAGE);
 	}
@@ -82,30 +85,28 @@ fts_find_main(int argc, char *argv[])
 	argc -= optind;
 	argv += optind;
 
-	char **args = alloca((size_t)(argc + 1)*sizeof(char*));
-	for (int i = 0; i < argc; i++){
-		args[i] = argv[i];
-	}
-	args[argc] = NULL;
-	fts = fts_open_b(args, fts_options, ^(const FTSENT **a, const FTSENT **b){
+	fts = fts_open_b(argv, fts_options, ^(const FTSENT **a, const FTSENT **b){
 		return strcmp((*a)->fts_name, (*b)->fts_name);
 	});
-	if (!fts) err(EX_DATAERR, "fts_open_b");
+	if (!fts)
+		err(EX_DATAERR, "fts_open_b");
 
 	while ((ftse = fts_read(fts)) != NULL) {
 #ifndef DARWINTEST
-		if (!print_children || (ftse->fts_info & FTS_D)){
+		if (!print_children || (ftse->fts_info & FTS_D)) {
 			printf("%s (%s): 0x%x\n", ftse->fts_path, ftse->fts_name, ftse->fts_info);
-			if (!(fts_options & (FTS_NOSTAT|FTS_NOSTAT_TYPE))) printf("\t\t%s\n", stat_str(ftse->fts_statp));
+			if (!(fts_options & (FTS_NOSTAT|FTS_NOSTAT_TYPE)))
+				printf("\t\t%s\n", stat_str(ftse->fts_statp));
 		}
 #endif // DARWINTEST
-		if (print_children){
+		if (print_children) {
 			FTSENT *child = fts_children(fts, 0);
-			while (child){
+			while (child) {
 #ifndef DARWINTEST
-				if (child->fts_info & FTS_F){
+				if (child->fts_info & FTS_F) {
 					printf("\t%s (%s): 0x%x\n", child->fts_path, child->fts_name, child->fts_info);
-					if (!(fts_options & (FTS_NOSTAT|FTS_NOSTAT_TYPE))) printf("\t\t%s\n", stat_str(child->fts_statp));
+					if (!(fts_options & (FTS_NOSTAT|FTS_NOSTAT_TYPE)))
+						printf("\t\t%s\n", stat_str(child->fts_statp));
 				}
 #endif // DARWINTEST
 				child = child->fts_link;
@@ -118,29 +119,28 @@ fts_find_main(int argc, char *argv[])
 }
 
 #ifdef DARWINTEST
-T_DECL(fts_find, "A find(1) example in fts"){
-	int fts_argc = 3;
-	char *fts_argv[] = {"fts_find", "-lc", "/System", NULL};
-	if (fts_find_main(fts_argc, fts_argv) == 0){
-		T_PASS("fts_find() completed successfully");
-	} else {
-		T_FAIL("fts_find() exited with error");
-	}
+T_DECL(fts_find, "A find(1) example in fts")
+{
+	char *fts_argv[] = { "fts_find", "-lc", TEST_PATH, NULL };
+	int fts_argc = 3, ret;
+	if ((ret = fts_find_main(fts_argc, fts_argv)) != 0)
+		T_ASSERT_FAIL("fts_find() exited with error %d", ret);
+	T_PASS("fts_find() completed successfully");
 }
 
-T_DECL(fts_find_empty_path, "Test result for empty path"){
-	char *paths[] = {"/System", "", NULL};
+T_DECL(fts_find_empty_path, "Test result for empty path")
+{
+	char *paths[] = { TEST_PATH, "", NULL };
+	char *base = basename(paths[0]);
 
 	FTS *fts = fts_open_b(paths, 0, ^(const FTSENT **a, const FTSENT **b){
 		return strcmp((*a)->fts_name, (*b)->fts_name);
 	});
-	if (fts == NULL) {
-		T_FAIL("fts_open() failed");
-		return;
-	}
+	if (fts == NULL)
+		T_ASSERT_FAIL("fts_open() failed");
 
 	// The first entry name should be the empty string, because of the sort
-	// order. The second entry should be "System".
+	// order. The second entry should be the base name of paths[0].
 	FTSENT *entry = fts_read(fts);
 	T_ASSERT_NOTNULL(entry, "First fts_read() returned NULL");
 	T_ASSERT_EQ_STR(entry->fts_name, "", "First entry name is empty");
@@ -149,7 +149,7 @@ T_DECL(fts_find_empty_path, "Test result for empty path"){
 
 	entry = fts_read(fts);
 	T_ASSERT_NOTNULL(entry, "Second fts_read() returned NULL");
-	T_ASSERT_EQ_STR(entry->fts_name, "System", "Second entry name is System");
+	T_ASSERT_EQ_STR(entry->fts_name, base, "Second entry name is %s", base);
 	T_ASSERT_EQ((int)entry->fts_info, FTS_D, "Second fts_info is FTS_D");
 	T_ASSERT_EQ(entry->fts_errno, 0, "Second fts_errno is 0");
 

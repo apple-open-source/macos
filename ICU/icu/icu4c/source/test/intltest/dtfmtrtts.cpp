@@ -13,6 +13,10 @@
 #include "unicode/datefmt.h"
 #include "unicode/smpdtfmt.h"
 #include "unicode/gregocal.h"
+#if APPLE_ICU_CHANGES
+// rdar://17278425 (“पू” (“AM”) “अ” (“PM”) don’t make sense to Hindi users)
+#include "unicode/dtptngen.h"
+#endif
 #include "dtfmtrtts.h"
 #include "caltest.h"
 #include "cstring.h"
@@ -42,7 +46,7 @@ int32_t DateFormatRoundTripTest::SPARSENESS = 0;
 int32_t DateFormatRoundTripTest::TRIALS = 4;
 int32_t DateFormatRoundTripTest::DEPTH = 5;
 
-DateFormatRoundTripTest::DateFormatRoundTripTest() : dateFormat(0) {
+DateFormatRoundTripTest::DateFormatRoundTripTest() : dateFormat(nullptr) {
 }
 
 DateFormatRoundTripTest::~DateFormatRoundTripTest() {
@@ -212,6 +216,14 @@ void DateFormatRoundTripTest::test(const Locale& loc)
 #if !INFINITE
     logln("Locale: " + loc.getDisplayName(temp));
 #endif
+    
+#if APPLE_ICU_CHANGES
+// rdar://17278425 (“पू” (“AM”) “अ” (“PM”) don’t make sense to Hindi users)
+    if (DateTimePatternGenerator::localeUsesLongDayPeriods(loc)) {
+        // date parsing doesn't work with patterns that contain "B"
+        return;
+    }
+#endif
 
     // Total possibilities = 24
     //  4 date
@@ -225,7 +237,7 @@ void DateFormatRoundTripTest::test(const Locale& loc)
     // If we have some sparseness, implement it here.  Sparseness decreases
     // test time by eliminating some tests, up to 23.
     for(i = 0; i < SPARSENESS; ) {
-        int random = (int)(randFraction() * 24);
+        int random = static_cast<int>(randFraction() * 24);
         if (random >= 0 && random < 24 && TEST_TABLE[i]) {
             TEST_TABLE[i] = false;
             ++i;
@@ -236,10 +248,10 @@ void DateFormatRoundTripTest::test(const Locale& loc)
     int32_t style = 0;
     for(style = DateFormat::FULL; style <= DateFormat::SHORT; ++style) {
         if(TEST_TABLE[itable++]) {
-            logln("Testing style " + UnicodeString(styleName((DateFormat::EStyle)style)));
-            DateFormat *df = DateFormat::createDateInstance((DateFormat::EStyle)style, loc);
+            logln("Testing style " + UnicodeString(styleName(static_cast<DateFormat::EStyle>(style))));
+            DateFormat* df = DateFormat::createDateInstance(static_cast<DateFormat::EStyle>(style), loc);
             if(df == nullptr) {
-              errln(UnicodeString("Could not DF::createDateInstance ") + UnicodeString(styleName((DateFormat::EStyle)style)) +      " Locale: " + loc.getDisplayName(temp));
+              errln(UnicodeString("Could not DF::createDateInstance ") + UnicodeString(styleName(static_cast<DateFormat::EStyle>(style))) + " Locale: " + loc.getDisplayName(temp));
             } else {
               test(df, loc);
               delete df;
@@ -249,10 +261,10 @@ void DateFormatRoundTripTest::test(const Locale& loc)
     
     for(style = DateFormat::FULL; style <= DateFormat::SHORT; ++style) {
         if (TEST_TABLE[itable++]) {
-            logln("Testing style " + UnicodeString(styleName((DateFormat::EStyle)style)));
-            DateFormat *df = DateFormat::createTimeInstance((DateFormat::EStyle)style, loc);
+            logln("Testing style " + UnicodeString(styleName(static_cast<DateFormat::EStyle>(style))));
+            DateFormat* df = DateFormat::createTimeInstance(static_cast<DateFormat::EStyle>(style), loc);
             if(df == nullptr) {
-              errln(UnicodeString("Could not DF::createTimeInstance ") + UnicodeString(styleName((DateFormat::EStyle)style)) + " Locale: " + loc.getDisplayName(temp));
+              errln(UnicodeString("Could not DF::createTimeInstance ") + UnicodeString(styleName(static_cast<DateFormat::EStyle>(style))) + " Locale: " + loc.getDisplayName(temp));
             } else {
               test(df, loc, true);
               delete df;
@@ -263,10 +275,10 @@ void DateFormatRoundTripTest::test(const Locale& loc)
     for(int32_t dstyle = DateFormat::FULL; dstyle <= DateFormat::SHORT; ++dstyle) {
         for(int32_t tstyle = DateFormat::FULL; tstyle <= DateFormat::SHORT; ++tstyle) {
             if(TEST_TABLE[itable++]) {
-                logln("Testing dstyle" + UnicodeString(styleName((DateFormat::EStyle)dstyle)) + ", tstyle" + UnicodeString(styleName((DateFormat::EStyle)tstyle)) );
-                DateFormat *df = DateFormat::createDateTimeInstance((DateFormat::EStyle)dstyle, (DateFormat::EStyle)tstyle, loc);
+                logln("Testing dstyle" + UnicodeString(styleName(static_cast<DateFormat::EStyle>(dstyle))) + ", tstyle" + UnicodeString(styleName(static_cast<DateFormat::EStyle>(tstyle))));
+                DateFormat* df = DateFormat::createDateTimeInstance(static_cast<DateFormat::EStyle>(dstyle), static_cast<DateFormat::EStyle>(tstyle), loc);
                 if(df == nullptr) {
-                    dataerrln(UnicodeString("Could not DF::createDateTimeInstance ") + UnicodeString(styleName((DateFormat::EStyle)dstyle)) + ", tstyle" + UnicodeString(styleName((DateFormat::EStyle)tstyle))    + "Locale: " + loc.getDisplayName(temp));
+                    dataerrln(UnicodeString("Could not DF::createDateTimeInstance ") + UnicodeString(styleName(static_cast<DateFormat::EStyle>(dstyle))) + ", tstyle" + UnicodeString(styleName(static_cast<DateFormat::EStyle>(tstyle))) + "Locale: " + loc.getDisplayName(temp));
                 } else {
                     test(df, loc);
                     delete df;
@@ -287,12 +299,12 @@ void DateFormatRoundTripTest::test(DateFormat *fmt, const Locale &origLocale, UB
     UBool isGregorian = false;
     UErrorCode minStatus = U_ZERO_ERROR;
     if(fmt->getCalendar() == nullptr) {
-      errln((UnicodeString)"DateFormatRoundTripTest::test, DateFormat getCalendar() returns null for " + origLocale.getName());
+      errln(UnicodeString("DateFormatRoundTripTest::test, DateFormat getCalendar() returns null for ") + origLocale.getName());
       return;
     } 
     UDate minDate = CalendarTest::minDateOfCalendar(*fmt->getCalendar(), isGregorian, minStatus);
     if(U_FAILURE(minStatus)) {
-      errln((UnicodeString)"Failure getting min date for " + origLocale.getName());
+      errln(UnicodeString("Failure getting min date for ") + origLocale.getName());
       return;
     } 
     //logln(UnicodeString("Min date is ") + fullFormat(minDate)  + " for " + origLocale.getName());
@@ -471,18 +483,32 @@ void DateFormatRoundTripTest::test(DateFormat *fmt, const Locale &origLocale, UB
                   maxSmatch = 3;
                   maxDmatch = 3;
               } else if (timeOnly && uprv_strcmp(origLocale.getName(),"ar_JO@calendar=islamic-civil")==0 &&
-                      logKnownIssue("21049", "ar_JO@calendar=islamic-civil timeOnly roundtrip converges too slowly")) {
+                         logKnownIssue("21049", "ar_JO@calendar=islamic-civil timeOnly roundtrip converges too slowly")) {
                   // For some reason, for time-only tests, ar_JO@calendar=islamic-civil is no
                   // longer converging to a match as fast as expected above. Investigate with
                   // ICU-21022, but meanwhile allow more cycles for convergence.
                   maxSmatch = 2;
                   maxDmatch = 3;
+#if APPLE_ICU_CHANGES
+              } else if (uprv_strncmp(origLocale.getName(), "ml", 2) == 0 && logKnownIssue("rdar://126385002", "Problem with Malayalam day period parsing?")) {
+                  // not sure what's going on here: the sequence is
+                  // 104512151114263.41 -> "5281, നവം 9 രാത്രി 1:05" -> 104512194300000 -> "5281, നവം 9 ഉച്ചയ്ക്ക് 1:05"
+                  //  -> 104512194300000 -> "5281, നവം 9 ഉച്ചയ്ക്ക് 1:05"
+                  // "രാത്രി" is night1 (19:00 to 3:00) and "ഉച്ചയ്ക്ക്" is afternoon1 (12:00 to 14:00)
+                  // so something's switching us from night to afternoon (maybe the problem is that "night1" wraps
+                  // around midnight, making the date ambiguous?)
+                  maxSmatch = 2;
+#endif
               }
             }
 
             // Use @v to see verbose results on successful cases
             UBool fail = (dmatch > maxDmatch || smatch > maxSmatch);
             if (optionv || fail) {
+				if (timeOnly && uprv_strcmp(origLocale.getName(),"hu_HU@calendar=islamic")==0 &&
+                      logKnownIssue("ICU-21049", "hu_HU@calendar=islamic fails round trip")) {
+                  	continue;
+              	}
                 if (fail) {
                     errln(UnicodeString("\nFAIL: Pattern: ") + pat +
                           " in Locale: " + origLocale.getName() +
@@ -517,12 +543,12 @@ void DateFormatRoundTripTest::test(DateFormat *fmt, const Locale &origLocale, UB
 
 const UnicodeString& DateFormatRoundTripTest::fullFormat(UDate d) {
     UErrorCode ec = U_ZERO_ERROR;
-    if (dateFormat == 0) {
-        dateFormat = new SimpleDateFormat((UnicodeString)"EEE MMM dd HH:mm:ss.SSS zzz yyyy G", ec);
-        if (U_FAILURE(ec) || dateFormat == 0) {
+    if (dateFormat == nullptr) {
+        dateFormat = new SimpleDateFormat(UnicodeString("EEE MMM dd HH:mm:ss.SSS zzz yyyy G"), ec);
+        if (U_FAILURE(ec) || dateFormat == nullptr) {
             fgStr = "[FAIL: SimpleDateFormat constructor]";
             delete dateFormat;
-            dateFormat = 0;
+            dateFormat = nullptr;
             return fgStr;
         }
     }
@@ -539,7 +565,7 @@ int32_t DateFormatRoundTripTest::getField(UDate d, int32_t f) {
     UErrorCode status = U_ZERO_ERROR;
     getFieldCal->setTime(d, status);
     failure(status, "getfieldCal->setTime");
-    int32_t ret = getFieldCal->get((UCalendarDateFields)f, status);
+    int32_t ret = getFieldCal->get(static_cast<UCalendarDateFields>(f), status);
     failure(status, "getfieldCal->get");
     return ret;
 }

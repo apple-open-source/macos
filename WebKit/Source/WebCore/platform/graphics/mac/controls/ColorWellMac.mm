@@ -26,14 +26,17 @@
 #import "config.h"
 #import "ColorWellMac.h"
 
-#if PLATFORM(MAC) && ENABLE(INPUT_TYPE_COLOR)
+#if PLATFORM(MAC)
 
 #import "ColorWellPart.h"
 #import "ControlFactoryMac.h"
 #import "FloatRoundedRect.h"
 #import "LocalDefaultSystemAppearance.h"
+#import <wtf/TZoneMallocInlines.h>
 
 namespace WebCore {
+
+WTF_MAKE_TZONE_ALLOCATED_IMPL(ColorWellMac);
 
 ColorWellMac::ColorWellMac(ColorWellPart& owningPart, ControlFactoryMac& controlFactory, NSButtonCell *buttonCell)
     : ButtonControlMac(owningPart, controlFactory, buttonCell)
@@ -55,4 +58,4 @@ void ColorWellMac::draw(GraphicsContext& context, const FloatRoundedRect& border
 
 } // namespace WebCore
 
-#endif // PLATFORM(MAC) && ENABLE(INPUT_TYPE_COLOR)
+#endif // PLATFORM(MAC)

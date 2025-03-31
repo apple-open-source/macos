@@ -63,7 +63,8 @@ public:
 	void add(AclSubject *subject, unsigned beforePosition);
 	
 	IFDUMP(void debugDump() const);
-    
+    virtual CFStringRef createACLDebugString() const;
+
     class Maker : public AclSubject::Maker {
     public:
     	Maker() : AclSubject::Maker(CSSM_ACL_SUBJECT_TYPE_THRESHOLD) { }

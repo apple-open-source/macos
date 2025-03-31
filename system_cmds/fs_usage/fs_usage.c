@@ -413,6 +413,11 @@ void cache_disk_names(void);
 #define BSC_mkdirat		0x040c076c
 #define BSC_getattrlistat	0x040c0770
 
+#define BSC_preadv		0x040c0870
+#define BSC_pwritev		0x040c0874
+#define BSC_preadv_nocancel	0x040c0878
+#define BSC_pwritev_nocancel	0x040c087c
+
 #define BSC_msync_extended	0x040e0104
 #define BSC_pread_extended	0x040e0264
 #define BSC_pwrite_extended	0x040e0268
@@ -470,6 +475,7 @@ void cache_disk_names(void);
 #define FMT_RENAMEAT	46
 #define FMT_IOCTL_SYNCCACHE 47
 #define FMT_GUARDED_OPEN 48
+#define FMT_PREADV 49
 
 #define DBG_FUNC_ALL	(DBG_FUNC_START | DBG_FUNC_END)
 
@@ -480,6 +486,7 @@ bool BC_flag = false;
 bool RAW_flag = false;
 bool wideflag = false;
 bool include_waited_flag = false;
+bool front_end_of_path_flag = false;
 bool want_kernel_task = true;
 dispatch_source_t stop_timer, sigquit_source, sigpipe_source, sighup_source, sigterm_source, sigwinch_source;
 uint64_t mach_time_of_first_event;
@@ -503,7 +510,7 @@ bool show_cachehits = false;
 
 #pragma mark syscall lookup table
 
-#define MAX_BSD_SYSCALL	526
+#define MAX_BSD_SYSCALL	544
 
 struct bsd_syscall {
 	char *sc_name;
@@ -667,6 +674,8 @@ const struct bsd_syscall bsd_syscalls[MAX_BSD_SYSCALL] = {
 	SYSCALL(symlinkat, FMT_AT),
 	SYSCALL(mkdirat, FMT_AT),
 	SYSCALL(getattrlistat, FMT_AT),
+	SYSCALL_WITH_NOCANCEL(preadv, FMT_PREADV),
+	SYSCALL_WITH_NOCANCEL(pwritev, FMT_PREADV),
 };
 
 static void
@@ -756,7 +765,7 @@ main(int argc, char *argv[])
 	(void)ktrace_ignore_process_filter_for_event(s, P_PgOut);
 	(void)ktrace_ignore_process_filter_for_event(s, P_PgIn);
 
-	while ((ch = getopt(argc, argv, "bewf:R:S:E:t:W")) != -1) {
+	while ((ch = getopt(argc, argv, "bewf:R:S:E:t:WF")) != -1) {
 		switch (ch) {
 			case 'e':
 				exclude_pids = true;
@@ -815,6 +824,10 @@ main(int argc, char *argv[])
 
 			case 'E':
 				end_time_ns = NSEC_PER_SEC * atof(optarg);
+				break;
+
+			case 'F':
+				front_end_of_path_flag = true;
 				break;
 
 			default:
@@ -1620,6 +1633,8 @@ print_open(ktrace_event_t event, uint64_t flags)
 		(flags & O_SYMLINK) ? 'S' : '_',
 		(flags & O_EVTONLY) ? 'V' : '_',
 		(flags & O_CLOEXEC) ? 'X' : '_',
+		(flags & O_NOFOLLOW_ANY) ? 'f' : '_',
+		(flags & O_RESOLVE_BENEATH) ? 'B' : '_',
 		'\0',
 	};
 
@@ -2127,6 +2142,13 @@ format_print(th_info_t ti, char *sc_name, ktrace_event_t event,
 							p = "CACHING ON";
 						break;
 
+					case F_NOCACHE_EXT:
+						if (ti->arg3)
+							p = "CACHING OFF (EXTENDED)";
+						else
+							p = "CACHING ON (EXTENDED)";
+						break;
+
 					case F_GLOBAL_NOCACHE:
 						if (ti->arg3)
 							p = "CACHING OFF (GLOBAL)";
@@ -2398,15 +2420,16 @@ format_print(th_info_t ti, char *sc_name, ktrace_event_t event,
 
 			case FMT_LSEEK:
 			case FMT_PREAD:
+			case FMT_PREADV:
 				/*
-				 * pread, pwrite, lseek
+				 * pread, preadv, pwrite, pwritev, lseek
 				 */
 				clen += printf(" F=%-3d", (int)ti->arg1);
 
 				if (event->arg1) {
 					clen += printf("[%3d]  ", (int)event->arg1);
 				} else {
-					if (format == FMT_PREAD)
+					if (format == FMT_PREAD || format == FMT_PREADV)
 						clen += printf("  B=0x%-8" PRIx64 " ", (uint64_t)event->arg2);
 					else
 						clen += printf("  ");
@@ -2414,6 +2437,8 @@ format_print(th_info_t ti, char *sc_name, ktrace_event_t event,
 
 				if (format == FMT_PREAD)
 					offset_reassembled = (((off_t)(unsigned int)(ti->arg3)) << 32) | (unsigned int)(ti->arg4);
+				else if (format == FMT_PREADV)
+					offset_reassembled = (off_t)(ti->arg4);
 				else
 #ifdef __ppc__
 					offset_reassembled = (((off_t)(unsigned int)(arg2)) << 32) | (unsigned int)(arg3);
@@ -2892,12 +2917,21 @@ format_print(th_info_t ti, char *sc_name, ktrace_event_t event,
 	} else if (clen == len) {
 		pathname = buf;
 	} else if ((clen > 0) && (clen < len)) {
-		/*
-		 * This prints the tail end of the pathname
-		 */
-		buf[len-clen] = ' ';
+		if (front_end_of_path_flag) {
+			/*
+			* This prints the front end of the pathname
+			*/
+			buf[clen] = '\0';
 
-		pathname = &buf[len - clen];
+			pathname = buf;
+		} else {
+			/*
+			* This prints the tail end of the pathname
+			*/
+			buf[len-clen] = ' ';
+
+			pathname = &buf[len - clen];
+		}
 	} else {
 		pathname = "";
 	}

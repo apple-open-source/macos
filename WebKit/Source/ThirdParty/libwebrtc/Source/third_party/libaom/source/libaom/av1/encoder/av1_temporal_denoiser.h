@@ -103,7 +103,7 @@ int av1_denoiser_alloc(AV1_COMMON *cm, struct SVC *svc, AV1_DENOISER *denoiser,
 // This function is used by both c and sse2 denoiser implementations.
 // Define it as a static function within the scope where av1_denoiser.h
 // is referenced.
-static INLINE int total_adj_strong_thresh(BLOCK_SIZE bs,
+static inline int total_adj_strong_thresh(BLOCK_SIZE bs,
                                           int increase_denoising) {
   return (1 << num_pels_log2_lookup[bs]) * (increase_denoising ? 3 : 2);
 }

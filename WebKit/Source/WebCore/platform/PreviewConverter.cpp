@@ -48,7 +48,7 @@ bool PreviewConverter::supportsMIMEType(const String& mimeType)
     if (equalLettersIgnoringASCIICase(mimeType, "text/html"_s) || equalLettersIgnoringASCIICase(mimeType, "text/plain"_s))
         return false;
 
-    static NeverDestroyed<HashSet<String, ASCIICaseInsensitiveHash>> supportedMIMETypes = platformSupportedMIMETypes();
+    static NeverDestroyed<UncheckedKeyHashSet<String, ASCIICaseInsensitiveHash>> supportedMIMETypes = platformSupportedMIMETypes();
     return supportedMIMETypes->contains(mimeType);
 }
 

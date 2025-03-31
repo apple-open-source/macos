@@ -37,7 +37,7 @@ struct lexer_param;
 
 %%
 
-"#"[^\r\n]* { /* comments */ }
+"#"[^\n]* { /* comments */ }
 
 "!=" { return NEQ; }
 "==" { return EQ; }
@@ -60,7 +60,7 @@ struct lexer_param;
 "catch" { return CATCH; }
 "label" { return LABEL; }
 "break" { return BREAK; }
-"__loc__" { return LOC; }
+"$__loc__" { return LOC; }
 "|=" { return SETPIPE; }
 "+=" { return SETPLUS; }
 "-=" { return SETMINUS; }
@@ -86,7 +86,7 @@ struct lexer_param;
   yylval->literal = jv_string_sized(yytext + 1, yyleng - 1); return FORMAT;
 }
 
-[0-9.]+([eE][+-]?[0-9]+)? {
+([0-9]+(\.[0-9]*)?|\.[0-9]+)([eE][+-]?[0-9]+)? {
    yylval->literal = jv_parse_sized(yytext, yyleng); return LITERAL;
 }
 
@@ -122,6 +122,7 @@ struct lexer_param;
 
 ([a-zA-Z_][a-zA-Z_0-9]*::)*[a-zA-Z_][a-zA-Z_0-9]*  { yylval->literal = jv_string(yytext); return IDENT;}
 \.[a-zA-Z_][a-zA-Z_0-9]*  { yylval->literal = jv_string(yytext+1); return FIELD;}
+\$([a-zA-Z_][a-zA-Z_0-9]*::)*[a-zA-Z_][a-zA-Z_0-9]*  { yylval->literal = jv_string(yytext+1); return BINDING;}
 
 [ \n\t]+  {}
 

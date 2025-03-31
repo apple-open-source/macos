@@ -1986,7 +1986,6 @@ dp_flow_rx_process(struct nx_flowswitch *fsw, struct flow_entry *fe,
 		pkt->pkt_transport_protocol = fe->fe_transport_protocol;
 		if (pkt->pkt_bufs_cnt > 1) {
 			pkt->pkt_aggr_type = PKT_AGGR_SINGLE_IP;
-			pkt->pkt_seg_cnt = 1;
 		}
 		KPKTQ_ENQUEUE(&transferred_pkts, pkt);
 	}
@@ -3044,7 +3043,6 @@ static void
 classq_qset_enqueue_flow(struct nx_flowswitch *fsw, struct flow_entry *fe,
     bool chain, uint32_t cnt, uint32_t bytes)
 {
-#pragma unused(chain)
 	struct __kern_packet *pkt, *tail;
 	flowadv_idx_t flow_adv_idx;
 	bool flowadv_cap;
@@ -3065,7 +3063,7 @@ classq_qset_enqueue_flow(struct nx_flowswitch *fsw, struct flow_entry *fe,
 	flowadv_cap = ((pkt->pkt_pflags & PKT_F_FLOW_ADV) != 0);
 	flow_adv_token = pkt->pkt_flow_token;
 
-	err = netif_qset_enqueue(fe->fe_qset, pkt, tail, cnt, bytes,
+	err = netif_qset_enqueue(fe->fe_qset, chain, pkt, tail, cnt, bytes,
 	    &flowctl, &dropped);
 
 	if (__improbable(err != 0) && dropped > 0) {
@@ -3185,15 +3183,10 @@ dp_listener_flow_tx_process(struct nx_flowswitch *fsw, struct flow_entry *fe)
 
 static void
 fsw_update_timestamps(struct __kern_packet *pkt, volatile uint64_t *fg_ts,
-    volatile uint64_t *rt_ts, ifnet_t ifp)
+    volatile uint64_t *rt_ts, ifnet_t ifp, uint64_t now)
 {
-	struct timespec now;
-	uint64_t now_nsec = 0;
-
 	if (!(pkt->pkt_pflags & PKT_F_TS_VALID) || pkt->pkt_timestamp == 0) {
-		nanouptime(&now);
-		net_timernsec(&now, &now_nsec);
-		pkt->pkt_timestamp = now_nsec;
+		pkt->pkt_timestamp = now;
 	}
 	pkt->pkt_pflags &= ~PKT_F_TS_VALID;
 
@@ -3218,12 +3211,11 @@ fsw_update_timestamps(struct __kern_packet *pkt, volatile uint64_t *fg_ts,
 }
 
 static bool
-fsw_chain_enqueue_enabled(struct nx_flowswitch *fsw, bool gso_enabled)
+fsw_chain_enqueue_enabled(struct nx_flowswitch *fsw)
 {
 	return fsw_chain_enqueue != 0 &&
 	       fsw->fsw_ifp->if_output_netem == NULL &&
-	       (fsw->fsw_ifp->if_eflags & IFEF_ENQUEUE_MULTI) == 0 &&
-	       gso_enabled;
+	       (fsw->fsw_ifp->if_eflags & IFEF_ENQUEUE_MULTI) == 0;
 }
 
 void
@@ -3231,7 +3223,8 @@ dp_flow_tx_process(struct nx_flowswitch *fsw, struct flow_entry *fe,
     uint32_t flags)
 {
 	struct pktq dropped_pkts;
-	bool chain, gso = ((flags & FLOW_PROC_FLAG_GSO) != 0);
+	bool chain, same_svc = true;
+	bool gso = ((flags & FLOW_PROC_FLAG_GSO) != 0);
 	uint32_t cnt = 0, bytes = 0;
 	volatile struct sk_nexusadv *nxadv = NULL;
 	volatile uint64_t *fg_ts = NULL;
@@ -3239,6 +3232,9 @@ dp_flow_tx_process(struct nx_flowswitch *fsw, struct flow_entry *fe,
 	uint8_t qset_idx = (fe->fe_qset != NULL) ? fe->fe_qset->nqs_idx : 0;
 	drop_reason_t reason = DROP_REASON_UNSPECIFIED;
 	uint16_t line = 0;
+	uint32_t svc = 0;
+	struct timespec now;
+	uint64_t now_nsec = 0;
 
 	KPKTQ_INIT(&dropped_pkts);
 	ASSERT(!KPKTQ_EMPTY(&fe->fe_tx_pktq));
@@ -3255,17 +3251,23 @@ dp_flow_tx_process(struct nx_flowswitch *fsw, struct flow_entry *fe,
 		line = __LINE__;
 		goto done;
 	}
-	chain = fsw_chain_enqueue_enabled(fsw, gso);
+	chain = fsw_chain_enqueue_enabled(fsw) && KPKTQ_LEN(&fe->fe_tx_pktq) > 1;
 	if (chain) {
+		nanouptime(&now);
+		net_timernsec(&now, &now_nsec);
 		nxadv = fsw->fsw_nx->nx_adv.flowswitch_nxv_adv;
 		if (nxadv != NULL) {
 			fg_ts = &nxadv->nxadv_fg_sendts;
 			rt_ts = &nxadv->nxadv_rt_sendts;
 		}
 	}
+
 	struct __kern_packet *pkt, *tpkt;
 	KPKTQ_FOREACH_SAFE(pkt, &fe->fe_tx_pktq, tpkt) {
 		int err = 0;
+		if (svc == 0) {
+			svc = pkt->pkt_svc_class;
+		}
 
 		err = flow_pkt_track(fe, pkt, false);
 		if (__improbable(err != 0)) {
@@ -3299,8 +3301,8 @@ dp_flow_tx_process(struct nx_flowswitch *fsw, struct flow_entry *fe,
 		 * (see ifnet_enqueue_ifclassq()). It's replicated here to avoid
 		 * re-walking the chain later.
 		 */
-		if (chain) {
-			fsw_update_timestamps(pkt, fg_ts, rt_ts, fsw->fsw_ifp);
+		if (chain && (gso || same_svc)) {
+			fsw_update_timestamps(pkt, fg_ts, rt_ts, fsw->fsw_ifp, now_nsec);
 		}
 		/* mark packet tos/svc_class */
 		fsw_qos_mark(fsw, fe, pkt);
@@ -3308,12 +3310,26 @@ dp_flow_tx_process(struct nx_flowswitch *fsw, struct flow_entry *fe,
 		tx_finalize_packet(fsw, pkt);
 		bytes += pkt->pkt_length;
 		cnt++;
+
+		same_svc = (same_svc && (svc == pkt->pkt_svc_class));
+		/*
+		 * we are using the first 4 bytes of flow_id as the AQM flow
+		 * identifier.
+		 */
+		ASSERT(!uuid_is_null(pkt->pkt_flow_id));
+
+		if (__improbable(pkt->pkt_trace_id != 0)) {
+			KDBG(SK_KTRACE_PKT_TX_FSW | DBG_FUNC_END, pkt->pkt_trace_id);
+			KDBG(SK_KTRACE_PKT_TX_AQM | DBG_FUNC_START, pkt->pkt_trace_id);
+		}
 	}
 
 	/* snoop after it's finalized */
 	if (__improbable(pktap_total_tap_count != 0)) {
 		fsw_snoop(fsw, fe, &fe->fe_tx_pktq, false);
 	}
+
+	chain = chain && (gso || same_svc);
 	if (fe->fe_qset != NULL) {
 		classq_qset_enqueue_flow(fsw, fe, chain, cnt, bytes);
 	} else {
@@ -3995,7 +4011,7 @@ dp_gso_pktq(struct nx_flowswitch *fsw, struct pktq *spktq,
 		fe = tx_lookup_flow(fsw, pkt, prev_fe);
 		if (__improbable(fe == NULL)) {
 			FSW_STATS_INC(FSW_STATS_TX_FLOW_NOT_FOUND);
-			dp_drop_pkt_single(fsw, pkt, 1, DROP_REASON_FSW_TX_FRAG_BAD_CONT,
+			dp_drop_pkt_single(fsw, pkt, 1, DROP_REASON_FSW_TX_FLOW_NOT_FOUND,
 			    DROPTAP_FLAG_L2_MISSING);
 			DTRACE_SKYWALK3(lookup__failed,
 			    struct nx_flowswitch *, fsw,

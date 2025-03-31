@@ -36,8 +36,8 @@
 #if ENABLE(OFFSCREEN_CANVAS)
 
 #include "CSSFontSelector.h"
+#include "CSSParserContext.h"
 #include "CSSPropertyParserConsumer+Font.h"
-#include "CSSPropertyParserHelpers.h"
 #include "InspectorInstrumentation.h"
 #include "RenderStyle.h"
 #include "ScriptExecutionContext.h"
@@ -72,16 +72,11 @@ std::unique_ptr<OffscreenCanvasRenderingContext2D> OffscreenCanvasRenderingConte
 }
 
 OffscreenCanvasRenderingContext2D::OffscreenCanvasRenderingContext2D(CanvasBase& canvas, CanvasRenderingContext2DSettings&& settings)
-    : CanvasRenderingContext2DBase(canvas, WTFMove(settings), false)
+    : CanvasRenderingContext2DBase(canvas, Type::Offscreen2D, WTFMove(settings), false)
 {
 }
 
 OffscreenCanvasRenderingContext2D::~OffscreenCanvasRenderingContext2D() = default;
-
-void OffscreenCanvasRenderingContext2D::commit()
-{
-    downcast<OffscreenCanvas>(canvasBase()).commitToPlaceholderCanvas();
-}
 
 void OffscreenCanvasRenderingContext2D::setFont(const String& newFont)
 {
@@ -114,6 +109,11 @@ void OffscreenCanvasRenderingContext2D::setFont(const String& newFont)
     if (auto fontCascade = Style::resolveForUnresolvedFont(*unresolvedFont, WTFMove(fontDescription), context)) {
         ASSERT(context.cssFontSelector());
         modifiableState().font.initialize(*context.cssFontSelector(), *fontCascade);
+
+        String letterSpacing;
+        setLetterSpacing(std::exchange(modifiableState().letterSpacing, letterSpacing));
+        String wordSpacing;
+        setWordSpacing(std::exchange(modifiableState().wordSpacing, wordSpacing));
     }
 }
 

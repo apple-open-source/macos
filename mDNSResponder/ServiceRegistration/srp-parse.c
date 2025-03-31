@@ -166,6 +166,9 @@ make_delete(delete_t **delete_list, delete_t **delete_out, dns_rr_t *rr, dns_nam
     int status = dns_rcode_noerror;
     delete_t *dp, **dpp;
 
+    if (rr->name == NULL) {
+        return dns_rcode_servfail;
+    }
     for (dpp = delete_list; *dpp;) {
         dp = *dpp;
         if (dns_names_equal(dp->name, rr->name)) {

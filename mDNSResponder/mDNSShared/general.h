@@ -1001,4 +1001,29 @@
  */
 #define mdns_max(X, Y)	(((X) > (Y)) ? (X) : (Y))
 
+/*!
+ *	@brief
+ *		Converts the argument to a string literal.
+ *
+ *	@param X
+ *		The argument to convert to a string literal.
+ *
+ *	@discussion
+ *		This macro performs the stringification process described in the "# and ## operators" section of
+ *		<https://en.cppreference.com/w/c/preprocessor/replace>.
+ *
+ *		Note that the argument is not macro-expanded beforehand because the macro body performs a direct stringification
+ *		of the argument (see https://gcc.gnu.org/onlinedocs/cpp/Argument-Prescan.html).
+ */
+#define MDNS_STRINGIFY_NO_EXPANSION(X)	#X
+
+/*!
+ *	@brief
+ *		Like MDNS_STRINGIFY_NO_EXPANSION(), except the argument undergoes complete macro expansion.
+ *
+ *	@param X
+ *		The argument to convert to a string literal.
+ */
+#define MDNS_STRINGIFY(X)	MDNS_STRINGIFY_NO_EXPANSION(X)
+
 #endif	// MDNS_GENERAL_H

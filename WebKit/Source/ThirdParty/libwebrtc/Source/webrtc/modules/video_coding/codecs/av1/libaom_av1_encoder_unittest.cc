@@ -13,10 +13,10 @@
 #include <algorithm>
 #include <limits>
 #include <memory>
+#include <optional>
 #include <utility>
 #include <vector>
 
-#include "absl/types/optional.h"
 #include "api/environment/environment.h"
 #include "api/environment/environment_factory.h"
 #include "api/test/create_frame_generator.h"
@@ -93,7 +93,7 @@ TEST(LibaomAv1EncoderTest, NoBitrateOnTopLayerRefecltedInActiveDecodeTargets) {
       EncodedVideoFrameProducer(*encoder).SetNumInputFrames(1).Encode();
   ASSERT_THAT(encoded_frames, SizeIs(1));
   ASSERT_NE(encoded_frames[0].codec_specific_info.generic_frame_info,
-            absl::nullopt);
+            std::nullopt);
   // Assuming L1T2 structure uses 1st decode target for T0 and 2nd decode target
   // for T0+T1 frames, expect only 1st decode target is active.
   EXPECT_EQ(encoded_frames[0]
@@ -356,10 +356,10 @@ TEST(LibaomAv1EncoderTest, RtpTimestampWrap) {
               Eq(VideoFrameType::kVideoFrameDelta));
 }
 
-TEST(LibaomAv1EncoderTest, TestCaptureTimeId) {
+TEST(LibaomAv1EncoderTest, TestPresentationTimestamp) {
   std::unique_ptr<VideoEncoder> encoder =
       CreateLibaomAv1Encoder(CreateEnvironment());
-  const Timestamp capture_time_id = Timestamp::Micros(2000);
+  const Timestamp presentation_timestamp = Timestamp::Micros(2000);
   VideoCodec codec_settings = DefaultCodecSettings();
   codec_settings.SetScalabilityMode(ScalabilityMode::kL2T1);
   ASSERT_EQ(encoder->InitEncode(&codec_settings, DefaultEncoderSettings()),
@@ -376,17 +376,17 @@ TEST(LibaomAv1EncoderTest, TestCaptureTimeId) {
   std::vector<EncodedVideoFrameProducer::EncodedFrame> encoded_frames =
       EncodedVideoFrameProducer(*encoder)
           .SetNumInputFrames(1)
-          .SetCaptureTimeIdentifier(capture_time_id)
+          .SetPresentationTimestamp(presentation_timestamp)
           .Encode();
   ASSERT_THAT(encoded_frames, SizeIs(2));
   ASSERT_TRUE(
-      encoded_frames[0].encoded_image.CaptureTimeIdentifier().has_value());
+      encoded_frames[0].encoded_image.PresentationTimestamp().has_value());
   ASSERT_TRUE(
-      encoded_frames[1].encoded_image.CaptureTimeIdentifier().has_value());
-  EXPECT_EQ(encoded_frames[0].encoded_image.CaptureTimeIdentifier()->us(),
-            capture_time_id.us());
-  EXPECT_EQ(encoded_frames[1].encoded_image.CaptureTimeIdentifier()->us(),
-            capture_time_id.us());
+      encoded_frames[1].encoded_image.PresentationTimestamp().has_value());
+  EXPECT_EQ(encoded_frames[0].encoded_image.PresentationTimestamp()->us(),
+            presentation_timestamp.us());
+  EXPECT_EQ(encoded_frames[1].encoded_image.PresentationTimestamp()->us(),
+            presentation_timestamp.us());
 }
 
 TEST(LibaomAv1EncoderTest, AdheresToTargetBitrateDespiteUnevenFrameTiming) {
@@ -477,7 +477,7 @@ TEST(LibaomAv1EncoderTest, DisableAutomaticResize) {
   EXPECT_EQ(encoder->InitEncode(&codec_settings, DefaultEncoderSettings()),
             WEBRTC_VIDEO_CODEC_OK);
   EXPECT_EQ(encoder->GetEncoderInfo().scaling_settings.thresholds,
-            absl::nullopt);
+            std::nullopt);
 }
 
 }  // namespace

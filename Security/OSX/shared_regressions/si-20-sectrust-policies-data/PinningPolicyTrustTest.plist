@@ -1024,7 +1024,7 @@
 		<key>MajorTestName</key>
 		<string>TestSMP</string>
 		<key>MinorTestName</key>
-		<string>PositiveTest</string>
+		<string>OldTestCA-ExpectFailure</string>
 		<key>Policies</key>
 		<dict>
 			<key>PolicyIdentifier</key>
@@ -1039,7 +1039,7 @@
 		<key>VerifyDate</key>
 		<date>2014-04-11T19:00:00Z</date>
 		<key>ExpectedResult</key>
-		<integer>4</integer>
+		<integer>5</integer>
 		<key>ChainLength</key>
 		<integer>3</integer>
 	</dict>
@@ -1049,7 +1049,7 @@
 		<key>MajorTestName</key>
 		<string>TestSMP</string>
 		<key>MinorTestName</key>
-		<string>NegativeTest</string>
+		<string>ProdCert</string>
 		<key>Policies</key>
 		<dict>
 			<key>PolicyIdentifier</key>
@@ -1064,7 +1064,7 @@
 		<key>VerifyDate</key>
 		<date>2014-04-11T19:00:00Z</date>
 		<key>ExpectedResult</key>
-		<integer>5</integer>
+		<integer>4</integer>
 	</dict>
 	<dict>
 		<key>CertDirectory</key>
@@ -4626,6 +4626,363 @@
 		<date>2024-09-01T06:00:00Z</date>
 		<key>ExpectedResult</key>
 		<integer>4</integer>
+	</dict>
+	<dict>
+		<key>CertDirectory</key>
+		<string>si-20-sectrust-policies-data</string>
+		<key>MajorTestName</key>
+		<string>TestSMP</string>
+		<key>MinorTestName</key>
+		<string>TestG3-Krypton-32</string>
+		<key>Policies</key>
+		<dict>
+			<key>PolicyIdentifier</key>
+			<string>1.2.840.113635.100.1.32</string>
+		</dict>
+		<key>Leaf</key>
+		<string>ecc-smp-kr</string>
+		<key>Intermediates</key>
+		<string>TestAppleSystemIntegrationCAG3</string>
+		<key>Anchors</key>
+		<string>TestAppleRootCAG3</string>
+		<key>VerifyDate</key>
+		<date>2024-09-23T16:00:00Z</date>
+		<key>ExpectedResult</key>
+		<integer>4</integer>
+		<key>ChainLength</key>
+		<integer>3</integer>
+	</dict>
+	<dict>
+		<key>CertDirectory</key>
+		<string>si-20-sectrust-policies-data</string>
+		<key>MajorTestName</key>
+		<string>TestSMP</string>
+		<key>MinorTestName</key>
+		<string>TestG3-NonProduction-32</string>
+		<key>Policies</key>
+		<dict>
+			<key>PolicyIdentifier</key>
+			<string>1.2.840.113635.100.1.32</string>
+		</dict>
+		<key>Leaf</key>
+		<string>ecc-smp-np</string>
+		<key>Intermediates</key>
+		<string>TestAppleSystemIntegrationCAG3</string>
+		<key>Anchors</key>
+		<string>TestAppleRootCAG3</string>
+		<key>VerifyDate</key>
+		<date>2024-09-23T16:00:00Z</date>
+		<key>ExpectedResult</key>
+		<integer>4</integer>
+		<key>ChainLength</key>
+		<integer>3</integer>
+	</dict>
+	<dict>
+		<key>CertDirectory</key>
+		<string>si-20-sectrust-policies-data</string>
+		<key>MajorTestName</key>
+		<string>TestSMP</string>
+		<key>MinorTestName</key>
+		<string>TestG3-Krypton-31</string>
+		<key>Policies</key>
+		<dict>
+			<key>PolicyIdentifier</key>
+			<string>1.2.840.113635.100.1.31</string>
+		</dict>
+		<key>Leaf</key>
+		<string>ecc-smp-kr</string>
+		<key>Intermediates</key>
+		<string>TestAppleSystemIntegrationCAG3</string>
+		<key>Anchors</key>
+		<string>TestAppleRootCAG3</string>
+		<key>VerifyDate</key>
+		<date>2024-09-23T16:00:00Z</date>
+		<key>ExpectedResult</key>
+		<integer>4</integer>
+		<key>ChainLength</key>
+		<integer>3</integer>
+	</dict>
+	<dict>
+		<key>CertDirectory</key>
+		<string>si-20-sectrust-policies-data</string>
+		<key>MajorTestName</key>
+		<string>TestSMP</string>
+		<key>MinorTestName</key>
+		<string>TestG3-NonProduction-31</string>
+		<key>Policies</key>
+		<dict>
+			<key>PolicyIdentifier</key>
+			<string>1.2.840.113635.100.1.31</string>
+		</dict>
+		<key>Leaf</key>
+		<string>ecc-smp-np</string>
+		<key>Intermediates</key>
+		<string>TestAppleSystemIntegrationCAG3</string>
+		<key>Anchors</key>
+		<string>TestAppleRootCAG3</string>
+		<key>VerifyDate</key>
+		<date>2024-09-23T16:00:00Z</date>
+		<key>ExpectedResult</key>
+		<integer>4</integer>
+		<key>ChainLength</key>
+		<integer>3</integer>
+	</dict>
+	<dict>
+		<key>CertDirectory</key>
+		<string>si-20-sectrust-policies-data</string>
+		<key>MajorTestName</key>
+		<string>TestSMP</string>
+		<key>MinorTestName</key>
+		<string>TestG3-Krypton-39</string>
+		<key>Policies</key>
+		<dict>
+			<key>PolicyIdentifier</key>
+			<string>1.2.840.113635.100.1.39</string>
+		</dict>
+		<key>Leaf</key>
+		<string>ecc-smp-kr</string>
+		<key>Intermediates</key>
+		<string>TestAppleSystemIntegrationCAG3</string>
+		<key>Anchors</key>
+		<string>TestAppleRootCAG3</string>
+		<key>VerifyDate</key>
+		<date>2024-09-23T16:00:00Z</date>
+		<key>ExpectedResult</key>
+		<integer>5</integer>
+		<key>ChainLength</key>
+		<integer>3</integer>
+	</dict>
+	<dict>
+		<key>CertDirectory</key>
+		<string>si-20-sectrust-policies-data</string>
+		<key>MajorTestName</key>
+		<string>TestSMP</string>
+		<key>MinorTestName</key>
+		<string>TestG3-NonProduction-39</string>
+		<key>Policies</key>
+		<dict>
+			<key>PolicyIdentifier</key>
+			<string>1.2.840.113635.100.1.39</string>
+		</dict>
+		<key>Leaf</key>
+		<string>ecc-smp-np</string>
+		<key>Intermediates</key>
+		<string>TestAppleSystemIntegrationCAG3</string>
+		<key>Anchors</key>
+		<string>TestAppleRootCAG3</string>
+		<key>VerifyDate</key>
+		<date>2024-09-23T16:00:00Z</date>
+		<key>ExpectedResult</key>
+		<integer>5</integer>
+		<key>ChainLength</key>
+		<integer>3</integer>
+	</dict>
+	<dict>
+		<key>FeatureFlags</key>
+		<array>
+			<string>QWACValidation</string>
+			<string>RootConstraints</string>
+		</array>
+		<key>CertDirectory</key>
+		<string>si-20-sectrust-policies-data</string>
+		<key>MajorTestName</key>
+		<string>QWAC</string>
+		<key>MinorTestName</key>
+		<string>PositiveTest</string>
+		<key>Policies</key>
+		<dict>
+			<key>PolicyIdentifier</key>
+			<string>1.2.840.113635.100.1.120</string>
+		</dict>
+		<key>Leaf</key>
+		<string>qwac</string>
+		<key>Intermediates</key>
+		<string>harica_qwac_ca</string>
+		<key>Anchors</key>
+		<string>harica_root_2021</string>
+		<key>VerifyDate</key>
+		<date>2024-09-23T16:00:00Z</date>
+		<key>ExpectedResult</key>
+		<integer>4</integer>
+		<key>FFExpectedResult</key>
+		<integer>5</integer>
+		<key>DisableCT</key>
+		<true/>
+	</dict>
+	<dict>
+		<key>FeatureFlags</key>
+		<array>
+			<string>QWACValidation</string>
+			<string>RootConstraints</string>
+		</array>
+		<key>CertDirectory</key>
+		<string>si-20-sectrust-policies-data</string>
+		<key>MajorTestName</key>
+		<string>QWAC</string>
+		<key>MinorTestName</key>
+		<string>PositiveTest</string>
+		<key>Policies</key>
+		<dict>
+			<key>PolicyIdentifier</key>
+			<string>1.2.840.113635.100.1.120</string>
+		</dict>
+		<key>Leaf</key>
+		<string>qwac</string>
+		<key>Anchors</key>
+		<string>harica_qwac_ca</string>
+		<key>VerifyDate</key>
+		<date>2024-09-23T16:00:00Z</date>
+		<key>ExpectedResult</key>
+		<integer>4</integer>
+		<key>FFExpectedResult</key>
+		<integer>5</integer>
+		<key>DisableCT</key>
+		<true/>
+	</dict>
+	<dict>
+		<key>CertDirectory</key>
+		<string>si-20-sectrust-policies-data</string>
+		<key>MajorTestName</key>
+		<string>QWAC</string>
+		<key>MinorTestName</key>
+		<string>NegativeTest</string>
+		<key>Policies</key>
+		<dict>
+			<key>PolicyIdentifier</key>
+			<string>1.2.840.113635.100.1.120</string>
+		</dict>
+		<key>Leaf</key>
+		<string>googleapis</string>
+		<key>Intermediates</key>
+		<string>GoogleTrustServicesCA101</string>
+		<key>Anchors</key>
+		<string>GlobalSignRootCAR2</string>
+		<key>VerifyDate</key>
+		<date>2019-11-14T20:00:00Z</date>
+		<key>ExpectedResult</key>
+		<integer>5</integer>
+		<key>DisableCT</key>
+		<true/>
+	</dict>
+	<dict>
+		<key>CertDirectory</key>
+		<string>si-20-sectrust-policies-data</string>
+		<key>MajorTestName</key>
+		<string>3PMA</string>
+		<key>MinorTestName</key>
+		<string>PositiveTest</string>
+		<key>Policies</key>
+		<dict>
+			<key>PolicyIdentifier</key>
+			<string>1.2.840.113635.100.1.122</string>
+			<key>Properties</key>
+			<dict>
+				<key>SecPolicyName</key>
+				<array>
+					<string>Apple Inc.</string>
+					<string>Test Org</string>
+				</array>
+			</dict>
+		</dict>
+		<key>Leaf</key>
+		<string>test_document_signer</string>
+		<key>Anchors</key>
+		<string>TestDocumentSigningCA</string>
+		<key>VerifyDate</key>
+		<date>2025-02-01T20:00:00Z</date>
+		<key>ExpectedResult</key>
+		<integer>4</integer>
+	</dict>
+	<dict>
+		<key>CertDirectory</key>
+		<string>si-20-sectrust-policies-data</string>
+		<key>MajorTestName</key>
+		<string>3PMA</string>
+		<key>MinorTestName</key>
+		<string>NegativeTest-EKU</string>
+		<key>Policies</key>
+		<dict>
+			<key>PolicyIdentifier</key>
+			<string>1.2.840.113635.100.1.122</string>
+			<key>Properties</key>
+			<dict>
+				<key>SecPolicyName</key>
+				<array>
+					<string>Google LLC</string>
+					<string>Test Org</string>
+				</array>
+			</dict>
+		</dict>
+		<key>Leaf</key>
+		<string>googleapis</string>
+		<key>Intermediates</key>
+		<string>GoogleTrustServicesCA101</string>
+		<key>Anchors</key>
+		<string>GlobalSignRootCAR2</string>
+		<key>VerifyDate</key>
+		<date>2019-11-14T20:00:00Z</date>
+		<key>ExpectedResult</key>
+		<integer>5</integer>
+		<key>DisableCT</key>
+		<true/>
+	</dict>
+	<dict>
+		<key>CertDirectory</key>
+		<string>si-20-sectrust-policies-data</string>
+		<key>MajorTestName</key>
+		<string>3PMA</string>
+		<key>MinorTestName</key>
+		<string>NegativeTest - Org</string>
+		<key>Policies</key>
+		<dict>
+			<key>PolicyIdentifier</key>
+			<string>1.2.840.113635.100.1.122</string>
+			<key>Properties</key>
+			<dict>
+				<key>SecPolicyName</key>
+				<array>
+					<string>Apple</string>
+					<string>Test Org</string>
+				</array>
+			</dict>
+		</dict>
+		<key>Leaf</key>
+		<string>test_document_signer</string>
+		<key>Anchors</key>
+		<string>TestDocumentSigningCA</string>
+		<key>VerifyDate</key>
+		<date>2025-02-01T20:00:00Z</date>
+		<key>ExpectedResult</key>
+		<integer>5</integer>
+	</dict>
+	<dict>
+		<key>CertDirectory</key>
+		<string>si-20-sectrust-policies-data</string>
+		<key>MajorTestName</key>
+		<string>3PMA</string>
+		<key>MinorTestName</key>
+		<string>NegativeTest - Anchor</string>
+		<key>Policies</key>
+		<dict>
+			<key>PolicyIdentifier</key>
+			<string>1.2.840.113635.100.1.122</string>
+			<key>Properties</key>
+			<dict>
+				<key>SecPolicyName</key>
+				<array>
+					<string>Apple Inc.</string>
+					<string>Test Org</string>
+				</array>
+			</dict>
+		</dict>
+		<key>Leaf</key>
+		<string>test_document_signer</string>
+		<key>Intermediates</key>
+		<string>TestDocumentSigningCA</string>
+		<key>VerifyDate</key>
+		<date>2025-02-01T20:00:00Z</date>
+		<key>ExpectedResult</key>
+		<integer>5</integer>
 	</dict>
 </array>
 </plist>

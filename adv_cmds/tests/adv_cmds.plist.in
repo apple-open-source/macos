@@ -15,6 +15,18 @@
 #if TARGET_OS_OSX
 		<dict>
 			<key>TestName</key>
+			<string>adv_cmds.genwrap_sandbox_test.sh</string>
+			<key>Command</key>
+			<array>
+				<string>/AppleInternal/Tests/adv_cmds/genwrap/genwrap_sandbox_test.sh</string>
+			</array>
+			<key>MayRunConcurrently</key>
+			<true/>
+			<key>Timeout</key>
+			<integer>300</integer>
+		</dict>
+		<dict>
+			<key>TestName</key>
 			<string>adv_cmds.genwrap_test.sh.analytics</string>
 			<key>ShellEnv</key>
 			<dict>

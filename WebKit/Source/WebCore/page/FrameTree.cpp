@@ -213,9 +213,9 @@ Frame* FrameTree::child(unsigned index) const
     return result;
 }
 
-Frame* FrameTree::childByFrameID(FrameIdentifier frameID) const
+Frame* FrameTree::descendantByFrameID(FrameIdentifier frameID) const
 {
-    for (auto* child = firstChild(); child; child = child->tree().nextSibling()) {
+    for (auto* child = firstChild(); child; child = child->tree().traverseNext()) {
         if (child->frameID() == frameID)
             return child;
     }
@@ -402,6 +402,24 @@ Frame* FrameTree::nextRenderedSibling() const
             return sibling;
     }
     
+    return nullptr;
+}
+
+LocalFrame* FrameTree::firstLocalDescendant() const
+{
+    for (auto* child = firstChild(); child; child = child->tree().traverseNext()) {
+        if (auto* localChild = dynamicDowncast<LocalFrame>(child))
+            return localChild;
+    }
+    return nullptr;
+}
+
+LocalFrame* FrameTree::nextLocalSibling() const
+{
+    for (auto* sibling = nextSibling(); sibling; sibling = sibling->tree().nextSibling()) {
+        if (auto* localSibling = dynamicDowncast<LocalFrame>(sibling))
+            return localSibling;
+    }
     return nullptr;
 }
 
@@ -606,7 +624,7 @@ static void printFrames(const WebCore::Frame& frame, const WebCore::Frame* targe
         printIndent(indent);
         printf("  document=%p (needs style recalc %d)\n", localFrame->document(), localFrame->document() ? localFrame->document()->childNeedsStyleRecalc() : false);
         printIndent(indent);
-        printf("  uri=%s\n", localFrame->document()->documentURI().utf8().data());
+        SAFE_PRINTF("  uri=%s\n", localFrame->document()->documentURI().utf8());
     }
     for (auto* child = frame.tree().firstChild(); child; child = child->tree().nextSibling())
         printFrames(*child, targetFrame, indent + 1);

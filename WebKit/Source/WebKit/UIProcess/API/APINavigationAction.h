@@ -67,6 +67,7 @@ public:
     WebCore::ShouldOpenExternalURLsPolicy shouldOpenExternalURLsPolicy() const { return m_navigationActionData.shouldOpenExternalURLsPolicy; }
 
     bool isProcessingUserGesture() const { return m_userInitiatedAction; }
+    bool isProcessingUnconsumedUserGesture() const { return m_userInitiatedAction && !m_userInitiatedAction->consumed(); }
     UserInitiatedAction* userInitiatedAction() const { return m_userInitiatedAction.get(); }
 
     Navigation* mainFrameNavigation() const { return m_mainFrameNavigation.get(); }
@@ -113,7 +114,7 @@ private:
 
     RefPtr<UserInitiatedAction> m_userInitiatedAction;
 
-    WebKit::NavigationActionData m_navigationActionData;
+    const WebKit::NavigationActionData m_navigationActionData;
     RefPtr<Navigation> m_mainFrameNavigation;
     std::optional<WebCore::FrameIdentifier> m_mainFrameIDBeforeNavigationDecision;
 };

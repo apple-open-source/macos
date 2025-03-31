@@ -12,7 +12,7 @@
 #include <stdint.h>
 #include <vector>
 
-#include "third_party/googletest/src/googletest/include/gtest/gtest.h"
+#include "gtest/gtest.h"
 
 #include "av1/encoder/block.h"
 #include "av1/encoder/encodemb.h"

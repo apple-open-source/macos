@@ -77,6 +77,7 @@
 #include <mach/mach_error.h>
 #include <libutil.h>
 #include <errno.h>
+#include <assert.h>
 #include <sysexits.h>
 #include <getopt.h>
 #include <malloc/malloc.h>
@@ -105,17 +106,21 @@ __options_decl(kalloc_zone_type, uint32_t, {
     KALLOC_ZONE_DATA            = 0x00000002, /* data.kalloc zone */
     KALLOC_ZONE_KEXT            = 0x00000004, /* kext.kalloc zone */
     KALLOC_ZONE_TYPE            = 0x00000008, /* kalloc.type zone */
-    KALLOC_ZONE_SHARED          = 0x00000010, /* shared.kalloc zone */
-#define KALLOC_ZONE_COUNT       6
+    KALLOC_ZONE_SHARED_DATA     = 0x00000010, /* data_shared.kalloc zone */
+    KALLOC_ZONE_EARLY           = 0x00000020, /* early.kalloc zone */
+#define KALLOC_ZONE_COUNT       7
 });
-const char *kalloc_zone_names[KALLOC_ZONE_COUNT] = {
+const char *kalloc_zone_names[] = {
     "",
     "default.kalloc.",
     "data.kalloc.",
     "kext.kalloc.",
     "kalloc.type",
-    "shared.kalloc."
+    "data_shared.kalloc.",
+    "early.kalloc."
 };
+
+_Static_assert((sizeof(kalloc_zone_names) / sizeof(kalloc_zone_names[0])) == KALLOC_ZONE_COUNT);
 #endif
 
 #define streql(a, b)            (strcmp((a), (b)) == 0)
@@ -315,12 +320,12 @@ main(int argc, char **argv)
 			PrintHeader = FALSE;
         } else if (streql(argv[i], "-k")) {
             CoalesceKalloc |= (KALLOC_ZONE_TYPE | KALLOC_ZONE_KEXT |
-                               KALLOC_ZONE_DATA | KALLOC_ZONE_SHARED);
+                               KALLOC_ZONE_DATA | KALLOC_ZONE_SHARED_DATA | KALLOC_ZONE_EARLY);
         } else if (streql(argv[i], "-kt")) {
             CoalesceKalloc |= (KALLOC_ZONE_TYPE | KALLOC_ZONE_KEXT |
-                               KALLOC_ZONE_SHARED);
+                               KALLOC_ZONE_SHARED_DATA | KALLOC_ZONE_EARLY);
         } else if (streql(argv[i], "-kd")) {
-            CoalesceKalloc |= KALLOC_ZONE_DATA;
+            CoalesceKalloc |= (KALLOC_ZONE_DATA | KALLOC_ZONE_SHARED_DATA);
 		} else if (streql(argv[i], "--")) {
 			i++;
 			break;

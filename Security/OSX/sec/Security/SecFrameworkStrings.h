@@ -141,6 +141,17 @@ __BEGIN_DECLS
 //#define SEC_ACCESS_LOCATION_KEY		SecStringWithDefaultValue("Access Location", "Certificate", 0, "Access Location", "Label of field in authority info access extension")
 #define SEC_AUTH_INFO_ACCESS_KEY	SecStringWithDefaultValue("Authority Information Access", "Certificate", 0, "Authority Information Access", "Authority info access extension label")
 
+/* Qualified certificate statements extension */
+#define SEC_QUAL_CERT_STATMENTS     SecStringWithDefaultValue("Qualified Certificate Statements", "Certificate", 0, "Qualified Certificate Statements", "Qualified Certificate Statements extension label")
+#define SEC_QCS_EU_COMPLIANCE       SecStringWithDefaultValue("Qualified Certificate", "Certificate", 0, "Qualified Certificate", "Label present in qcStatements extension: QCStatement claiming that the certificate is a EU qualified certificate or a certificate being qualified within a defined legal framework from an identified country or set of countries")
+#define SEC_QCS_TYPE                SecStringWithDefaultValue("Qualified Certificate Type", "Certificate", 0, "Qualified Certificate Type", "Label present in qcStatements extension:QCStatement claiming that the certificate is a certificate of a particular type")
+#define SEC_QCS_TYPE_LIMIT_VALUE    SecStringWithDefaultValue("Limit Value", "Certificate", 0, "Limit Value", "Label present in qcStatements extension: Limit Value specifies a maximum monetary value")
+#define SEC_QCS_TYPE_RETENTION      SecStringWithDefaultValue("Retention Period", "Certificate", 0, "Retention Period", "Label present in qcStatements extension: specifies how long to keep data")
+#define SEC_QCS_TYPE_PDS_LOCATION   SecStringWithDefaultValue("Disclosure Location", "Certificate", 0, "Disclosure Location", "Label present in qcStatements extension: URL where disclosures can be found")
+#define SEC_QCS_TYPE_ESEAL          SecStringWithDefaultValue("Electronic Seal", "Certificate", 0, "Electronic Seal", "Label present in qcStatements extension: can be used for an electronic seal")
+#define SEC_QCS_TYPE_ESIGNATURE     SecStringWithDefaultValue("Electronic Signature", "Certificate", 0, "Electronic Signature", "Label present in qcStatements extension: can be used for a signature")
+#define SEC_QCS_TYPE_WEB_AUTH       SecStringWithDefaultValue("Web Authentication", "Certificate", 0, "Web Authentication", "Label present in qcStatements extension: can be used for website authentication")
+
 /* Netscape cert type extension */
 #define SEC_SSL_CLIENT_KEY			SecStringWithDefaultValue("SSL client", "Certificate", 0, "SSL client", "Netscape certificate type usage value")
 #define SEC_SSL_SERVER_KEY			SecStringWithDefaultValue("SSL server", "Certificate", 0, "SSL server", "Netscape certificate type usage value")
@@ -332,6 +343,7 @@ __BEGIN_DECLS
 #define SEC_TRUST_ERROR_EmailProtectionEKU          SecStringWithDefaultValue("Extended key usage does not match certificate usage", "Trust", 0, "Extended key usage does not match certificate usage", "Error for extended key usage mismatch")
 #define SEC_TRUST_ERROR_SinglePurposeChainEKU       SecStringWithDefaultValue("Extended key usage does not match certificate usage", "Trust", 0, "Extended key usage does not match certificate usage", "Error for extended key usage mismatch")
 #define SEC_TRUST_ERROR_MarkRepresentation          SecStringWithDefaultValue("SVG data does not match logotype extension", "Trust", 0, "SVG data does not match logotype extension", "Error for SVG logotype mismatch")
+#define SEC_TRUST_ERROR_QWAC                        SecStringWithDefaultValue("Certificate is not a qualified web certificate", "Trust", 0, "Certificate is not a qualified web certificate", "Error for non-QWAC certs")
 
 __END_DECLS
 

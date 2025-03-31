@@ -18,7 +18,7 @@
 
 @import SystemMigration_Private;
 
-@interface EnergyPrefsMigratorPlugin : SMConfMigratorPlugin
+@interface EnergyPrefsMigratorPlugin : SMSystemRulePlugin
 
 -(void)pruneSettings;
 @end

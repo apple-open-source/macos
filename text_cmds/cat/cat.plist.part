@@ -1,6 +1,6 @@
 <dict>
 	<key>OpenSourceImportDate</key>
-	<string>2021-04-28</string>
+	<string>2024-05-10</string>
 	<key>OpenSourceLicense</key>
 	<string>BSD</string>
 	<key>OpenSourceModifications</key>
@@ -11,7 +11,7 @@
 	<key>OpenSourceProject</key>
 	<string>cat</string>
 	<key>OpenSourceVersion</key>
-	<string>2021-01-20</string>
+	<string>2024-05-10</string>
 	<key>OpenSourceWebsiteURL</key>
-	<string>https://cgit.freebsd.org/src/tree/bin/cat?id=81c3f64110bb76e24d6062eafd7206c10f676d6f</string>
+	<string>https://cgit.freebsd.org/src/tree/bin/cat?id=ad4f3bdf733c1a670021f4db378338f5aaedbfd8</string>
 </dict>

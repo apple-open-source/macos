@@ -29,7 +29,7 @@
 #include "ScriptExecutionContextIdentifier.h"
 #include <span>
 #include <wtf/Function.h>
-#include <wtf/RefCounted.h>
+#include <wtf/RefCountedAndCanMakeWeakPtr.h>
 #include <wtf/TZoneMalloc.h>
 #include <wtf/WeakPtr.h>
 #include <wtf/WorkQueue.h>
@@ -40,7 +40,7 @@ class BlobLoader;
 class FormData;
 class ScriptExecutionContext;
 
-class FormDataConsumer : public RefCounted<FormDataConsumer>, public CanMakeWeakPtr<FormDataConsumer> {
+class FormDataConsumer : public RefCountedAndCanMakeWeakPtr<FormDataConsumer> {
     WTF_MAKE_TZONE_ALLOCATED_EXPORT(FormDataConsumer, WEBCORE_EXPORT);
 public:
     using Callback = Function<bool(ExceptionOr<std::span<const uint8_t>>)>;

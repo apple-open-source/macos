@@ -81,3 +81,10 @@ T_DECL(vm_memory_entry_parent_submap,
 {
 	T_EXPECT_EQ(1ull, run_sysctl_test("vm_memory_entry_parent_submap", 0), "vm_memory_entry_parent_submap");
 }
+
+#ifndef __x86_64__
+T_DECL(vm_page_radix_verify, "verify the vm pages radix tree")
+{
+	T_EXPECT_EQ(1ull, run_sysctl_test("vm_page_radix_verify", 0), "vm_page_radix_verify");
+}
+#endif

@@ -28,6 +28,50 @@
 #include <wtf/Assertions.h>
 #include <wtf/Forward.h>
 
+#if __has_include("WebCoreLogDefinitions.h")
+#include "WebCoreLogDefinitions.h"
+#endif
+
+#define COMMA() ,
+#define OPTIONAL_ARGS(...) __VA_OPT__(COMMA()) __VA_ARGS__
+
+#if ENABLE(LOGD_BLOCKING_IN_WEBCONTENT)
+#include "LogClient.h"
+
+#define RELEASE_LOG_FORWARDABLE(category, logMessage, ...) do { \
+    if (auto& client = logClient()) \
+        client->logMessage(__VA_ARGS__); \
+    else \
+        RELEASE_LOG(category, MESSAGE_##logMessage OPTIONAL_ARGS(__VA_ARGS__)); \
+} while (0)
+
+#define RELEASE_LOG_INFO_FORWARDABLE(category, logMessage, ...) do { \
+    if (auto& client = logClient()) \
+        client->logMessage(__VA_ARGS__); \
+    else \
+        RELEASE_LOG_INFO(category, MESSAGE_##logMessage OPTIONAL_ARGS(__VA_ARGS__)); \
+} while (0)
+
+#define RELEASE_LOG_ERROR_FORWARDABLE(category, logMessage, ...) do { \
+    if (auto& client = logClient()) \
+        client->logMessage(__VA_ARGS__); \
+    else \
+        RELEASE_LOG_ERROR(category, MESSAGE_##logMessage OPTIONAL_ARGS(__VA_ARGS__)); \
+} while (0)
+
+#define RELEASE_LOG_FAULT_FORWARDABLE(category, logMessage, ...) do { \
+    if (auto& client = logClient()) \
+        client->logMessage(__VA_ARGS__); \
+    else \
+        RELEASE_LOG_FAULT(category, MESSAGE_##logMessage OPTIONAL_ARGS(__VA_ARGS__)); \
+} while (0)
+#else
+#define RELEASE_LOG_FORWARDABLE(category, logMessage, ...) RELEASE_LOG(category, MESSAGE_##logMessage OPTIONAL_ARGS(__VA_ARGS__))
+#define RELEASE_LOG_INFO_FORWARDABLE(category, logMessage, ...) RELEASE_LOG_INFO(category, MESSAGE_##logMessage OPTIONAL_ARGS(__VA_ARGS__))
+#define RELEASE_LOG_ERROR_FORWARDABLE(category, logMessage, ...) RELEASE_LOG_ERROR(category, MESSAGE_##logMessage OPTIONAL_ARGS(__VA_ARGS__))
+#define RELEASE_LOG_FAULT_FORWARDABLE(category, logMessage, ...) RELEASE_LOG_FAULT(category, MESSAGE_##logMessage OPTIONAL_ARGS(__VA_ARGS__))
+#endif // ENABLE(LOGD_BLOCKING_IN_WEBCONTENT)
+
 namespace WebCore {
 
 #if !LOG_DISABLED || !RELEASE_LOG_DISABLED
@@ -106,6 +150,7 @@ namespace WebCore {
     M(Progress) \
     M(Push) \
     M(RemoteInspector) \
+    M(RenderBlocking) \
     M(RequestAnimationFrame) \
     M(ResizeObserver) \
     M(ResourceLoading) \
@@ -121,10 +166,12 @@ namespace WebCore {
     M(Services) \
     M(ServiceWorker) \
     M(SharedWorker) \
+    M(SiteIsolation) \
     M(SpellingAndGrammar) \
     M(SQLDatabase) \
     M(Storage) \
     M(StorageAPI) \
+    M(Style) \
     M(StyleSheets) \
     M(SVG) \
     M(TextAutosizing) \

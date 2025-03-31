@@ -16,7 +16,7 @@ install: $(FREETYPEDIR) $(FREETYPEDIR)/darwin
 
 $(FREETYPEDIR):
 	mkdir -p $(FREETYPETOP)
-	tar xjof $(FREETYPENAMEVERS).tar.bz2 -C $(FREETYPETOP)
+	cp -a $(FREETYPESRC)/$(FREETYPENAMEVERS) $(FREETYPETOP)
 	cp $(FREETYPEDIR)/builds/mac/ftmac.c $(FREETYPEDIR)/src/base/ftmac.c
 	ed - $(FREETYPEDIR)/include/freetype/config/ftoption.h < $(FREETYPESRC)/ftoption.h.ed
 	patch -d $(FREETYPEDIR) -p1 < $(FREETYPESRC)/freetype-darwin-no-ansi.patch
@@ -36,6 +36,3 @@ $(FREETYPEDIR)/darwin:
 	make install
 	ed - $(TMPPREFIX)/bin/freetype-config < $(FREETYPESRC)/bin_freetype-config.ed
 	ln -s freetype2/ft2build.h $(TMPPREFIX)/include
-
-afterinstallsrc:
-	@true

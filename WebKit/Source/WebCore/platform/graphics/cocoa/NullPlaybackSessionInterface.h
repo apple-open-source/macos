@@ -54,7 +54,6 @@ public:
 
     PlaybackSessionModel* playbackSessionModel() const { return m_model.get(); }
 
-    void setupFullscreen(UIView&, const FloatRect&, const FloatSize&, UIView*, HTMLMediaElementEnums::VideoFullscreenMode, bool, bool, bool) { }
     void enterFullscreen() { }
     bool exitFullscreen(const FloatRect&) { return false; }
     void cleanupFullscreen() { }
@@ -70,6 +69,7 @@ public:
     void setMode(HTMLMediaElementEnums::VideoFullscreenMode, bool) { }
     bool pictureInPictureWasStartedWhenEnteringBackground() const { return false; }
     AVPlayerViewController *avPlayerViewController() const { return nullptr; }
+    void swapFullscreenModesWith(NullPlaybackSessionInterface&) { }
 
 private:
     NullPlaybackSessionInterface(PlaybackSessionModel& model)
@@ -78,10 +78,10 @@ private:
     }
 
     // CheckedPtr interface
-    uint32_t ptrCount() const final { return CanMakeCheckedPtr::ptrCount(); }
-    uint32_t ptrCountWithoutThreadCheck() const final { return CanMakeCheckedPtr::ptrCountWithoutThreadCheck(); }
-    void incrementPtrCount() const final { CanMakeCheckedPtr::incrementPtrCount(); }
-    void decrementPtrCount() const final { CanMakeCheckedPtr::decrementPtrCount(); }
+    uint32_t checkedPtrCount() const final { return CanMakeCheckedPtr::checkedPtrCount(); }
+    uint32_t checkedPtrCountWithoutThreadCheck() const final { return CanMakeCheckedPtr::checkedPtrCountWithoutThreadCheck(); }
+    void incrementCheckedPtrCount() const final { CanMakeCheckedPtr::incrementCheckedPtrCount(); }
+    void decrementCheckedPtrCount() const final { CanMakeCheckedPtr::decrementCheckedPtrCount(); }
 
     void durationChanged(double) final { }
     void currentTimeChanged(double, double) final { }

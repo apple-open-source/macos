@@ -23,7 +23,7 @@
 
 #if __OBJC2__
 
-#import "SFAnalyticsSQLiteStore.h"
+#import "Analytics/SFAnalyticsSQLiteStore.h"
 #import "SQLite/SFSQLiteStatement.h"
 #import "NSDate+SFAnalytics.h"
 #import "Analytics/SFAnalyticsDefines.h"
@@ -42,10 +42,14 @@ static NSDictionary * _Nullable deserializedRecordFromRow(id<SFSQLiteRow> row) {
     if (index == NSNotFound) {
         return nil;
     }
-    NSError *error;
-    NSDictionary *deserializedRecord = [NSPropertyListSerialization propertyListWithData:[row blobAtIndex:index] options:NSPropertyListMutableContainers format:nil error:&error];
-    if (!deserializedRecord) {
+    NSError *error = nil;
+    NSJSONReadingOptions options = NSJSONReadingMutableContainers | NSJSONReadingMutableLeaves;
+    NSDictionary *deserializedRecord = [NSJSONSerialization JSONObjectWithData:[row blobAtIndex:index]
+                                                                       options:options
+                                                                         error:&error];
+    if (error || ![deserializedRecord isKindOfClass:[NSDictionary class]]) {
         secerror("SFAnalytics: failed to deserialize record: %{public}@", error);
+        deserializedRecord = nil;
     }
     return deserializedRecord;
 }
@@ -107,6 +111,10 @@ NS_ASSUME_NONNULL_END
 - (void)dealloc
 {
     [self close];
+}
+
+- (NSString *)databaseBasename {
+    return self.path.lastPathComponent.pathExtension.stringByDeletingPathExtension;
 }
 
 - (BOOL)tryToOpenDatabase
@@ -288,15 +296,27 @@ NS_ASSUME_NONNULL_END
     if (![self tryToOpenDatabase]) {
         return;
     }
+    
+    if (![NSJSONSerialization isValidJSONObject:eventDict]) {
+        secerror("Couldn't validate json record: %@", eventDict);
+        NSString* originalType = eventDict[SFAnalyticsEventType];
+        if (originalType == nil) {
+            return;
+        }
+        eventDict = @{
+            SFAnalyticsEventType : SFAnalyticsEventTypeErrorEvent,
+            SFAnalyticsEventErrorDestription : [NSString stringWithFormat:@"JSON:%@", originalType],
+        };
+    }
 
     NSTimeInterval timestamp = [[NSDate date] timeIntervalSince1970WithBucket:bucket];
     NSError* error = nil;
-    NSData* serializedRecord = [NSPropertyListSerialization dataWithPropertyList:eventDict format:NSPropertyListBinaryFormat_v1_0 options:0 error:&error];
+    NSData* serializedRecord = [NSJSONSerialization dataWithJSONObject:eventDict options:0 error:&error];
     if(!error && serializedRecord) {
         [self insertOrReplaceInto:table values:@{SFAnalyticsColumnDate : @(timestamp), SFAnalyticsColumnData : serializedRecord}];
     }
     if(error && !serializedRecord) {
-        secerror("Couldn't serialize failure record: %@", error);
+        secerror("Couldn't serialize json record: %@", error);
     }
 }
 
@@ -308,10 +328,14 @@ NS_ASSUME_NONNULL_END
     if (![self tryToOpenDatabase]) {
         return;
     }
+    if (![NSJSONSerialization isValidJSONObject:eventDict]) {
+        secerror("Couldn't json validate rockwell record: %@", eventDict);
+        return;
+    }
 
     NSTimeInterval timestamp = [[NSDate date] timeIntervalSince1970WithBucket:bucket];
     NSError* error = nil;
-    NSData* serializedRecord = [NSPropertyListSerialization dataWithPropertyList:eventDict format:NSPropertyListBinaryFormat_v1_0 options:0 error:&error];
+    NSData* serializedRecord = [NSJSONSerialization dataWithJSONObject:eventDict options:0 error:&error];
     if(!error && serializedRecord) {
         [self insertOrReplaceInto:table values:@{
             SFAnalyticsColumnEventType : eventName,
@@ -320,7 +344,7 @@ NS_ASSUME_NONNULL_END
         }];
     }
     if(error && !serializedRecord) {
-        secerror("Couldn't serialize failure record: %@", error);
+        secerror("Couldn't serialize rockwell record: %@", error);
     }
 }
 
@@ -392,6 +416,33 @@ NS_ASSUME_NONNULL_END
     [self deleteFrom:SFAnalyticsTableSamples where:@"id >= 0" bindings:nil];
     [self deleteFrom:SFAnalyticsTableRockwell where:@"event_type like ?" bindings:@[@"%"]];
 }
+
+- (void)streamEventsWithLimit:(NSNumber *_Nullable)limit
+                    fromTable:(NSString *)table
+                 eventHandler:(bool (^)(NSData * _Nonnull event))eventHandler
+{
+    if (![self tryToOpenDatabase]) {
+        return;
+    }
+    
+    [self select:@[SFAnalyticsColumnData]
+            from:table
+           where:nil
+        bindings:nil
+         orderBy:@[@"timestamp DESC"]
+           limit:limit
+      forEachRow:^void(id<SFSQLiteRow> row, BOOL *stop) {
+        NSUInteger index = [row indexForColumnName:SFAnalyticsColumnData];
+        if (index == NSNotFound) {
+            return;
+        }
+        NSData *event = [row blobAtIndex:index];
+        if (event) {
+            *stop = !eventHandler(event);
+        }
+    }];
+}
+
 
 @end
 

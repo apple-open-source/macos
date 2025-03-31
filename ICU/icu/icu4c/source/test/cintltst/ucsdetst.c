@@ -605,7 +605,7 @@ bail:
 #include <stdio.h>
 // read data from file into a malloc'ed buf, which must be freed by caller.
 // returns NULL if error. Copied from cbiapts.c
-static void* dataBufFromFile(const char* path, long* dataBufSizeP) {
+static void* dataBufFromFile(const char* relative_path, long* dataBufSizeP) {
     FILE * dataFile;
     void * dataBuf;
     long dataBufSize, dataFileRead = 0;
@@ -613,6 +613,22 @@ static void* dataBufFromFile(const char* path, long* dataBufSizeP) {
     if (dataBufSizeP) {
         *dataBufSizeP = 0;
     }
+
+    // The original cintlst's current working directory is
+    // where the cintltst binary is, so we can use a relative path.
+    // However, XCTest's working directory is in /private/tmp,
+    // so we can't use a relative path, and have to construct
+    // an absolute path. rdar://137994165
+    char * build_dir = getenv("ICU_CONFIGURATION_BUILD_DIR");
+    char path[512];
+    if (build_dir != NULL) {
+        strcpy(path, build_dir);
+        strcat(path, "/");
+        strcat(path, relative_path);
+    } else {
+        strcpy(path, relative_path);
+    }
+
     dataFile = fopen(path, "r");
     if (dataFile == NULL) {
         log_data_err("FAIL: for %s, fopen fails\n", path);

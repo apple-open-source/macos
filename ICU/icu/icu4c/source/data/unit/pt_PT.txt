@@ -294,19 +294,18 @@ pt_PT{
                 one{"{0} pt"}
                 other{"{0} pts"}
             }
-            dot-per-inch{
-                dnam{"ppp"}
-                one{"{0} ppp"}
-                other{"{0} ppp"}
-            }
         }
         length{
             foot{
                 dnam{"pés"}
                 per{"{0}/pé"}
             }
+            inch{
+                dnam{"pol."}
+            }
             mile{
-                dnam{"milha"}
+                one{"{0} mi"}
+                other{"{0} mi"}
             }
             parsec{
                 dnam{"pc"}
@@ -330,10 +329,6 @@ pt_PT{
             }
         }
         speed{
-            beaufort{
-                one{"{0} B"}
-                other{"{0} B"}
-            }
             kilometer-per-hour{
                 one{"{0} km/h"}
                 other{"{0} km/h"}

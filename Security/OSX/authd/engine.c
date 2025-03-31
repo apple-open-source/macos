@@ -1227,6 +1227,12 @@ _preevaluate_rule(engine_t engine, rule_t rule, const char **group, bool *sessio
 static rule_t
 _find_rule(engine_t engine, authdb_connection_t dbconn, const char * string, bool exact_match)
 {
+    if (strncmp("com.apple.trust-settings.admin", string,  strlen("com.apple.trust-settings.admin")) == 0) {
+        os_log_debug(AUTHD_LOG, "Using local version of %s", string);
+        
+        return rule_create_trust();
+    }
+
     rule_t r = NULL;
     size_t sLen = strlen(string);
     

@@ -19,13 +19,6 @@
 *   parses them, and builds a binary data file.
 */
 
-#if /*APPLE_ICU_CHANGES*/true // APPLE_ICU_CHANGES is defined in uconfig.h below, but that's too late
-// rdar://121241618 (StarlightE: VideosUI-883.40.54#24 has failed to build in install; cannot initialize a variable of type 'const UChar *' (aka 'const char16_t)
-#ifndef UCHAR_TYPE
-#define UCHAR_TYPE char16_t
-#endif
-#endif // APPLE_ICU_CHANGES
-
 #include "unicode/utypes.h"
 #include "n2builder.h"
 
@@ -85,8 +78,11 @@ static UOption options[]={
     UOPTION_DEF("fast", '\1', UOPT_NO_ARG)
 };
 
-extern "C" int
+U_NAMESPACE_END
+
+int
 main(int argc, char* argv[]) {
+    U_NAMESPACE_USE
     U_MAIN_INIT_ARGS(argc, argv);
 
     /* preset then read command line options */
@@ -235,6 +231,8 @@ main(int argc, char* argv[]) {
 #endif
 }
 
+U_NAMESPACE_BEGIN
+
 #if !UCONFIG_NO_NORMALIZATION
 
 void parseFile(std::ifstream &f, Normalizer2DataBuilder &builder) {
@@ -246,7 +244,7 @@ void parseFile(std::ifstream &f, Normalizer2DataBuilder &builder) {
             continue;  // skip empty lines.
         }
         char *line = &lineString.front();
-        char *comment=(char *)strchr(line, '#');
+        char* comment = strchr(line, '#');
         if(comment!=nullptr) {
             *comment=0;
         }
@@ -283,8 +281,8 @@ void parseFile(std::ifstream &f, Normalizer2DataBuilder &builder) {
                 fprintf(stderr, "gennorm2 error: parsing ccc from %s\n", line);
                 exit(U_PARSE_ERROR);
             }
-            for(UChar32 c=(UChar32)startCP; c<=(UChar32)endCP; ++c) {
-                builder.setCC(c, (uint8_t)value);
+            for (UChar32 c = static_cast<UChar32>(startCP); c <= static_cast<UChar32>(endCP); ++c) {
+                builder.setCC(c, static_cast<uint8_t>(value));
             }
             continue;
         }
@@ -293,7 +291,7 @@ void parseFile(std::ifstream &f, Normalizer2DataBuilder &builder) {
                 fprintf(stderr, "gennorm2 error: parsing remove-mapping %s\n", line);
                 exit(U_PARSE_ERROR);
             }
-            for(UChar32 c=(UChar32)startCP; c<=(UChar32)endCP; ++c) {
+            for (UChar32 c = static_cast<UChar32>(startCP); c <= static_cast<UChar32>(endCP); ++c) {
                 builder.removeMapping(c);
             }
             continue;
@@ -313,9 +311,9 @@ void parseFile(std::ifstream &f, Normalizer2DataBuilder &builder) {
                             line);
                     exit(U_PARSE_ERROR);
                 }
-                builder.setRoundTripMapping((UChar32)startCP, mapping);
+                builder.setRoundTripMapping(static_cast<UChar32>(startCP), mapping);
             } else {
-                for(UChar32 c=(UChar32)startCP; c<=(UChar32)endCP; ++c) {
+                for (UChar32 c = static_cast<UChar32>(startCP); c <= static_cast<UChar32>(endCP); ++c) {
                     builder.setOneWayMapping(c, mapping);
                 }
             }

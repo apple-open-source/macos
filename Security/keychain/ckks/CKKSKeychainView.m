@@ -1595,39 +1595,41 @@
 - (BOOL)allowOutOfBandFetch:(NSError* __autoreleasing*)error
 {
     // Allow Out of Band Fetch if we haven't finished a full fetch cycle.
-    BOOL fetchAllowed = NO;
-    for (CKKSKeychainViewState* viewState in self.operationDependencies.allCKKSManagedViews) {
+    __block BOOL fetchAllowed = NO;
+    [self dispatchSyncWithReadOnlySQLTransaction:^{
+        for (CKKSKeychainViewState* viewState in self.operationDependencies.allCKKSManagedViews) {
 
-        // Has there been a fetch for this zone? If so, have we fully fetched, or are more items coming?
-        CKKSZoneStateEntry* zse = [CKKSZoneStateEntry contextID:self.operationDependencies.contextID zoneName:viewState.zoneName];
-        if ((zse.lastFetchTime == nil) || (zse.moreRecordsInCloudKit)) {
-            fetchAllowed = YES;
-            break;
-        }
-
-        // Do we have any incoming items to process?
-        NSError* localError = nil;
-        NSArray<CKKSIncomingQueueEntry*>* queueEntries = [CKKSIncomingQueueEntry fetch:SecCKKSIncomingQueueItemsAtOnce
-                                      startingAtUUID:nil
-                                               state:SecCKKSStateNew
-                                              action:nil
-                                           contextID:self.operationDependencies.contextID
-                                              zoneID:viewState.zoneID
-                                               error:&localError];
-        if (localError) {
-            ckkserror("ckks", viewState.zoneID, "Error fetching IQEs for zone %@: %@", viewState.zoneName, localError);
-            if (error) {
-                *error = localError;
-                fetchAllowed = NO;
-                break;
-            }
-        } else {
-            if (queueEntries.count != 0) {
+            // Has there been a fetch for this zone? If so, have we fully fetched, or are more items coming?
+            CKKSZoneStateEntry* zse = [CKKSZoneStateEntry contextID:self.operationDependencies.contextID zoneName:viewState.zoneName];
+            if ((zse.lastFetchTime == nil) || (zse.moreRecordsInCloudKit)) {
                 fetchAllowed = YES;
                 break;
             }
+
+            // Do we have any incoming items to process?
+            NSError* localError = nil;
+            NSArray<CKKSIncomingQueueEntry*>* queueEntries = [CKKSIncomingQueueEntry fetch:SecCKKSIncomingQueueItemsAtOnce
+                                                                            startingAtUUID:nil
+                                                                                     state:SecCKKSStateNew
+                                                                                    action:nil
+                                                                                 contextID:self.operationDependencies.contextID
+                                                                                    zoneID:viewState.zoneID
+                                                                                     error:&localError];
+            if (localError) {
+                ckkserror("ckks", viewState.zoneID, "Error fetching IQEs for zone %@: %@", viewState.zoneName, localError);
+                if (error) {
+                    *error = localError;
+                    fetchAllowed = NO;
+                    break;
+                }
+            } else {
+                if (queueEntries.count != 0) {
+                    fetchAllowed = YES;
+                    break;
+                }
+            }
         }
-    }
+    }];
 
     return fetchAllowed;
 }
@@ -2591,6 +2593,10 @@
             [self.cuttlefishAdapter fetchRecoverableTLKShares:account
                                                        peerID:self.accountTracker.octagonPeerID
                                                     contextID:self.operationDependencies.contextID
+                                                      altDSID:self.operationDependencies.activeAccount.altDSID
+                                                       flowID:nil
+                                              deviceSessionID:nil
+                                               canSendMetrics:SecCKKSTestsEnabled()
                                                         reply:^(NSArray<CKKSTLKShareRecord *> * _Nullable tlkShares, NSError * _Nullable fetchTLKSharesError) {
                 if (fetchTLKSharesError || !tlkShares) {
                     ckkserror_global("ckks-oob", "Errored fetching TLK shares, unable to decrypt identities: %@", fetchTLKSharesError);
@@ -2737,6 +2743,10 @@
             [self.cuttlefishAdapter fetchRecoverableTLKShares:account
                                                        peerID:self.accountTracker.octagonPeerID
                                                     contextID:self.operationDependencies.contextID
+                                                      altDSID:self.operationDependencies.activeAccount.altDSID
+                                                       flowID:nil
+                                              deviceSessionID:nil
+                                               canSendMetrics:SecCKKSTestsEnabled()
                                                         reply:^(NSArray<CKKSTLKShareRecord *> * _Nullable tlkShares, NSError * _Nullable fetchTLKSharesError) {
                 if (fetchTLKSharesError || !tlkShares) {
                     ckkserror_global("ckks-oob", "Errored fetching TLK shares: %@", fetchTLKSharesError);
@@ -3490,6 +3500,18 @@
     [self scheduleOperation:pcsMirrorKeysOp];
 }
 
+- (void)initialSyncStatus:(NSString *)viewName reply:(void (^)(BOOL result, NSError * _Nullable))reply {
+    [self dispatchSyncWithReadOnlySQLTransaction:^{
+        NSError* error = nil;
+        CKKSZoneStateEntry* ckse = [CKKSZoneStateEntry fromDatabase:self.operationDependencies.contextID zoneName:viewName error:&error];
+        if (!ckse || error) {
+            reply(NO, error);
+        } else {
+            reply(ckse.initialSyncFinished, nil);
+        }
+    }];
+}
+
 - (void)xpc24HrNotification
 {
     // Called roughly once every 24hrs
@@ -3609,7 +3631,7 @@
     CKKSAccountStatus currentStatus = [self accountStatusFromCKAccountInfo:currentAccountInfo];
 
     if(oldStatus == currentStatus) {
-        ckksnotice("ckkszone", self, "Computed status of new CK account info is same as old status: %@", [CKKSAccountStateTracker stringFromAccountStatus:currentStatus]);
+        ckksnotice("ckkszone", self, "Computed status of new CK account info is same as old status: %@", CKKSAccountStatusToString(currentStatus));
         return;
     }
 
@@ -4230,11 +4252,11 @@
         } else {
             if(!moreComing) {
                 ckksnotice("ckksfetch", self, "Requesting incoming processing for %@", zoneID);
+                BOOL pendingClassCItems = NO;
                 for(CKKSKeychainViewState* viewState in self.operationDependencies.readyAndSyncingViews) {
                     NSDictionary<NSString*, NSNumber*>* iqeCounts = [CKKSIncomingQueueEntry countNewEntriesByKeyWithContextID:self.operationDependencies.contextID
                                                                                                                        zoneID:viewState.zoneID
                                                                                                                         error:NULL];
-                    BOOL pendingClassCItems = NO;
                     for(NSString* keyUUID in iqeCounts) {
                         NSError* keyError = nil;
                         CKKSKey* key = [CKKSKey fromDatabase:keyUUID
@@ -4252,21 +4274,21 @@
                             break;
                         }
                     }
+                }
 
-                    // If the device is locked but we have pending classC items, process them immediately.
-                    if (self.lockStateTracker.isLocked) {
-                        if (pendingClassCItems) {
-                            [self.stateMachine _onqueueHandleFlag:CKKSFlagProcessIncomingQueue];
-                        } else {
-                            // Otherwise, if we only have pending classA items, we should wait for unlock.
-                            ckksnotice("ckksfetch", viewState.zoneID, "Have incoming classA items needing processing, but device is locked");
-                            OctagonPendingFlag* pending = [[OctagonPendingFlag alloc] initWithFlag:CKKSFlagProcessIncomingQueue
-                                                                                        conditions:OctagonPendingConditionsDeviceUnlocked];
-                            [self.stateMachine _onqueueHandlePendingFlagLater:pending];
-                        }
-                    } else {
+                // If the device is locked but we have pending classC items, process them immediately.
+                if (self.lockStateTracker.isLocked) {
+                    if (pendingClassCItems) {
                         [self.stateMachine _onqueueHandleFlag:CKKSFlagProcessIncomingQueue];
+                    } else {
+                        // Otherwise, if we only have pending classA items, we should wait for unlock.
+                        ckksnotice_global("ckksfetch", "Have incoming classA items needing processing, but device is locked");
+                        OctagonPendingFlag* pending = [[OctagonPendingFlag alloc] initWithFlag:CKKSFlagProcessIncomingQueue
+                                                                                    conditions:OctagonPendingConditionsDeviceUnlocked];
+                        [self.stateMachine _onqueueHandlePendingFlagLater:pending];
                     }
+                } else {
+                    [self.stateMachine _onqueueHandleFlag:CKKSFlagProcessIncomingQueue];
                 }
                 // TODO: likely can be removed, once fetching no longer is a complicated upcall dance
             }
@@ -4710,11 +4732,7 @@
                 @"lastCKKSPush":        CKKSNilToNSNull(lastCKKSPush),
                 @"policy":              stringify(self.syncingPolicy),
                 @"viewsFromPolicy":     @"yes",
-                @"ckaccountstatus":     self.accountStatus == CKAccountStatusCouldNotDetermine ? @"could not determine" :
-                    self.accountStatus == CKAccountStatusAvailable         ? @"logged in" :
-                    self.accountStatus == CKAccountStatusRestricted        ? @"restricted" :
-                    self.accountStatus == CKAccountStatusNoAccount         ? @"logged out" : @"unknown",
-
+                @"ckaccountstatus":     CKKSAccountStatusToString(self.accountStatus) ?: @"unknown",
                 @"accounttracker":      stringify(self.accountTracker),
                 @"fetcher":             stringify(self.zoneChangeFetcher),
                 @"ckksstate":           CKKSNilToNSNull(self.stateMachine.currentState),
@@ -4845,6 +4863,7 @@
             @"ckksManaged":         boolstr(viewState.ckksManagedView),
             @"statusError":         [NSNull null],
             @"launchSequence":      CKKSNilToNSNull([viewState.launch eventsByTime]),
+            @"initialSyncFinished": boolstr(ckse.initialSyncFinished),
         };
 }
 

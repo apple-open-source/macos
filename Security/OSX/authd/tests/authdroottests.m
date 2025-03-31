@@ -67,7 +67,7 @@
     
     fprintf(stdout, "authd PID is %d", pid);
     
-    asprintf(&cmd, "leaks %d >/dev/null", pid);
+    asprintf(&cmd, "leaks %d", pid);
     if (cmd) {
         ret = system(cmd);
         free(cmd);

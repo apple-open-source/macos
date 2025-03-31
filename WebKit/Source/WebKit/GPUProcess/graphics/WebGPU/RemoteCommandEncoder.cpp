@@ -37,6 +37,7 @@
 #include "StreamServerConnection.h"
 #include "WebGPUComputePassDescriptor.h"
 #include "WebGPUObjectHeap.h"
+#include <WebCore/WebGPUBuffer.h>
 #include <WebCore/WebGPUCommandEncoder.h>
 #include <wtf/TZoneMallocInlines.h>
 
@@ -54,7 +55,7 @@ RemoteCommandEncoder::RemoteCommandEncoder(GPUConnectionToWebProcess& gpuConnect
     , m_gpuConnectionToWebProcess(gpuConnectionToWebProcess)
     , m_gpu(gpu)
 {
-    m_streamConnection->startReceivingMessages(*this, Messages::RemoteCommandEncoder::messageReceiverName(), m_identifier.toUInt64());
+    Ref { m_streamConnection }->startReceivingMessages(*this, Messages::RemoteCommandEncoder::messageReceiverName(), m_identifier.toUInt64());
 }
 
 RemoteCommandEncoder::~RemoteCommandEncoder() = default;
@@ -74,7 +75,7 @@ void RemoteCommandEncoder::destruct()
 
 void RemoteCommandEncoder::stopListeningForIPC()
 {
-    m_streamConnection->stopReceivingMessages(Messages::RemoteCommandEncoder::messageReceiverName(), m_identifier.toUInt64());
+    Ref { m_streamConnection }->stopReceivingMessages(Messages::RemoteCommandEncoder::messageReceiverName(), m_identifier.toUInt64());
 }
 
 void RemoteCommandEncoder::beginRenderPass(const WebGPU::RenderPassDescriptor& descriptor, WebGPUIdentifier identifier)

@@ -17,7 +17,7 @@
 					   inDir:(FATItem * _Nullable)parentDir
 				  startingAt:(uint32_t)firstCluster
 					withData:(DirEntryData * _Nullable)entryData
-					 andName:(nonnull NSString *)name
+					 andName:(FSFileName *)name
 					  isRoot:(bool)isRoot
 {
 	self = [super initInVolume:volume
@@ -128,7 +128,7 @@
     return (self.isRoot && [self.volume.systemInfo isFAT12Or16]);
 }
 
--(void)lookupDirEntryNamed:(NSString *)lookupName
+-(void)lookupDirEntryNamed:(FSFileName *)lookupName
 			  dirNameCache:(DirNameCache * _Nullable)nameCache
 			  lookupOffset:(uint64_t * _Nullable)lookupOffset
               replyHandler:(void (^)(NSError *error, DirEntryData *dirEntryData))reply
@@ -146,7 +146,7 @@
     }
 
     [self.volume nameToUnistr:lookupName
-                        flags:[Utilities isDotOrDotDot:(char *)lookupName.UTF8String length:lookupName.length] ? 0 : UTF_SFM_CONVERSIONS
+                        flags:[Utilities isDotOrDotDot:(char *)lookupName.data.bytes length:lookupName.data.length] ? 0 : UTF_SFM_CONVERSIONS
                  replyHandler:^(NSError * _Nonnull convertError, struct unistr255 convertedName) {
         if (convertError) {
             iterateDirError = convertError;
@@ -195,7 +195,7 @@
                                                   struct unistr255 * name,
                                                   DirEntryData * _Nullable dirEntryData) {
             if (error) {
-                os_log_error(fskit_std_log(), "%s: iterate dir failed with error = %@.", __FUNCTION__, error);
+                os_log_error(OS_LOG_DEFAULT, "%s: iterate dir failed with error = %@.", __FUNCTION__, error);
                 return iterateDirStop;
             }
             if (result == FATDirEntryFound) {
@@ -231,7 +231,7 @@
                                               struct unistr255 * name,
 											  DirEntryData * _Nullable dirEntryData) {
 		if (error) {
-            os_log_error(fskit_std_log(), "%s: iterate dir failed with error = %@.", __FUNCTION__, error);
+            os_log_error(OS_LOG_DEFAULT, "%s: iterate dir failed with error = %@.", __FUNCTION__, error);
 			iterateDirError = error;
 			return iterateDirStop;
 		}
@@ -250,7 +250,7 @@
         }
 		if (lookupOffset) {
 			/* In case we got a hint to a specific offset, we expect to find the entry on the first iteration. */
-			os_log_fault(fskit_std_log(), "%s: got a wrong offset from hint (%llu).", __FUNCTION__, *lookupOffset);
+			os_log_fault(OS_LOG_DEFAULT, "%s: got a wrong offset from hint (%llu).", __FUNCTION__, *lookupOffset);
             iterateDirError = fs_errorForPOSIXError(EFAULT);
 			return iterateDirStop;
 		}
@@ -280,7 +280,7 @@
                                               struct unistr255 * name,
 											  DirEntryData * _Nullable dirEntryData) {
 		if (error) {
-			os_log_error(fskit_std_log(), "%s: iterate dir failed with error = %@.", __FUNCTION__, error);
+			os_log_error(OS_LOG_DEFAULT, "%s: iterate dir failed with error = %@.", __FUNCTION__, error);
 			blockError = error;
 			return iterateDirStop;
 		}
@@ -288,7 +288,7 @@
 			blockError = [nameCache insertDirEntryNamedUtf16:name
                                                  offsetInDir:dirEntryOffset];
 			if (blockError) {
-				os_log_error(fskit_std_log(), "%s: insert dir entry to name cache failed with error = %@.", __FUNCTION__, error);
+				os_log_error(OS_LOG_DEFAULT, "%s: insert dir entry to name cache failed with error = %@.", __FUNCTION__, error);
 				return iterateDirStop;
 			}
         } else if (result == FATDirEntryEmpty) {
@@ -335,7 +335,7 @@
                                                   struct unistr255 * _Nullable name,
                                                   DirEntryData * _Nullable dirEntryData) {
             if (iterateDirError) {
-                os_log_error(fskit_std_log(), "%s: iterate dir failed with error = %@.", __func__, error);
+                os_log_error(OS_LOG_DEFAULT, "%s: iterate dir failed with error = %@.", __func__, error);
                 error = iterateDirError;
                 return iterateDirStop;
             }
@@ -365,7 +365,7 @@
         }];
         
         if (error) {
-            os_log_error(fskit_std_log(), "%s: Failed iterating the directory. Error = %@.", __func__, error);
+            os_log_error(OS_LOG_DEFAULT, "%s: Failed iterating the directory. Error = %@.", __func__, error);
             return reply(error, 0, true);
         }
     }
@@ -396,7 +396,7 @@
 
     if ([self isFat1216RootDir]) {
         /* In FAT12/16, the root directory cannot be extended. */
-        os_log_error(fskit_std_log(), "%s: Can't extend FAT12/16 root directory.", __func__);
+        os_log_error(OS_LOG_DEFAULT, "%s: Can't extend FAT12/16 root directory.", __func__);
         return reply(fs_errorForPOSIXError(ENOSPC), 0, true);
     }
 
@@ -426,7 +426,7 @@
 		}
 	}];
 	if (error) {
-		os_log_error(fskit_std_log(), "%s: Failed to allocate clusters. Error = %@.", __func__, error);
+		os_log_error(OS_LOG_DEFAULT, "%s: Failed to allocate clusters. Error = %@.", __func__, error);
 		return reply(error, 0, true);
 	}
 
@@ -434,14 +434,14 @@
     error = [self.volume clearNewDirClustersFrom:firstClusterToClear
                                           amount:numClustersToClear];
     if (error) {
-		os_log_error(fskit_std_log(), "%s: Failed to zero-fill clusters. Error = %@.", __func__, error);
+		os_log_error(OS_LOG_DEFAULT, "%s: Failed to zero-fill clusters. Error = %@.", __func__, error);
 		return reply(error, 0, true);
 	}
 
 	return reply(nil, firstEntryFoundOffset, areThereHolesInDir);
 }
 
--(void)createNewDirEntryNamed:(NSString *)name
+-(void)createNewDirEntryNamed:(FSFileName *)name
 						 type:(FSItemType)type
 				   attributes:(FSItemAttributes *)attrs
 			 firstDataCluster:(uint32_t)firstDataCluster
@@ -451,7 +451,7 @@
 	__block NSError *error = nil;
 
     if (![attrs isValid:FSItemAttributeMode] && (type != FSItemTypeDirectory)) {
-		os_log_error(fskit_std_log(), "%s: Trying to create a file/symlink without a valid mode.", __func__);
+		os_log_error(OS_LOG_DEFAULT, "%s: Trying to create a file/symlink without a valid mode.", __func__);
 		return reply(fs_errorForPOSIXError(EINVAL), 0);
 	}
 
@@ -462,13 +462,13 @@
 //	}
 
 	if (firstDataCluster != 0 && ![self.volume.systemInfo isClusterValid:firstDataCluster]) {
-		os_log_error(fskit_std_log(), "%s: got an invalid first cluster (%u).", __func__, firstDataCluster);
+		os_log_error(OS_LOG_DEFAULT, "%s: got an invalid first cluster (%u).", __func__, firstDataCluster);
 		return reply(fs_errorForPOSIXError(EINVAL), 0);
 	}
 
 	// Convert the search name to UTF-16
 	__block struct unistr255 unistrName = {0};
-	[self.volume nameToUnistr:name
+    [self.volume nameToUnistr:name
 						flags:0
                  replyHandler:^(NSError * _Nonnull convertError, struct unistr255 convertedName) {
 		if (convertError) {
@@ -478,7 +478,7 @@
 		}
 	}];
 	if (error) {
-		os_log_error(fskit_std_log(), "%s: Couldn't convert name to unistr. Error = %@.", __func__, error);
+		os_log_error(OS_LOG_DEFAULT, "%s: Couldn't convert name to unistr. Error = %@.", __func__, error);
 		return reply(error, 0);
 	}
 
@@ -494,7 +494,7 @@
 		}
 	}];
 	if (error) {
-		os_log_error(fskit_std_log(), "%s: Couldn't calculate number of dir entries. Error = %@.", __func__, error);
+		os_log_error(OS_LOG_DEFAULT, "%s: Couldn't calculate number of dir entries. Error = %@.", __func__, error);
 		return reply(error, 0);
 	}
 
@@ -519,7 +519,7 @@
 	}
 
     // If the file name starts with ".", make it invisible on Windows.
-    bool hidden = (name.UTF8String[0] == '.');
+    bool hidden = (((char *)name.data.bytes)[0]  == '.');
 	// Create and write the new dir entries to disk.
     __block DirEntryData *newEntryData = nil;
     [self createEntrySetForName:unistrName
@@ -537,7 +537,7 @@
         }
     }];
 	if (error) {
-		os_log_error(fskit_std_log(), "%s: Couldn't create dir entry-set. Error = %@.", __func__, error);
+		os_log_error(OS_LOG_DEFAULT, "%s: Couldn't create dir entry-set. Error = %@.", __func__, error);
 		return reply(error, 0);
 	}
 
@@ -546,7 +546,7 @@
                                    name:unistrName
                         numberOfEntries:numOfDirEntries];
     if (error) {
-        os_log_error(fskit_std_log(), "%s: Couldn't write new dir entries to disk. Error = %@.", __func__, error);
+        os_log_error(OS_LOG_DEFAULT, "%s: Couldn't write new dir entries to disk. Error = %@.", __func__, error);
         return reply(error, 0);
     }
 
@@ -584,7 +584,7 @@
 
     error = [dirBlock readRelativeDirBlockNum:currentDirBlock];
     if (error) {
-        os_log_error(fskit_std_log(), "%s: Couldn't read dir block at idx %u. Error = %@.", __func__, currentDirBlock, error);
+        os_log_error(OS_LOG_DEFAULT, "%s: Couldn't read dir block at idx %u. Error = %@.", __func__, currentDirBlock, error);
         [dirBlock releaseBlock];
         return reply(error, nil);
     }
@@ -602,7 +602,7 @@
         if (((currentOffsetInDir % dirBlockSize) == 0) || (entryIdx == numberOfEntries - 1)) {
             // Make sure offset is not in metadata zone
             if ([self.volume isOffsetInMetadataZone:dirBlock.offsetInVolume]) {
-                os_log_error(fskit_std_log(), "%s: Dir offset (%llu) is within the metadata zone.", __func__, dirBlock.offsetInVolume);
+                os_log_error(OS_LOG_DEFAULT, "%s: Dir offset (%llu) is within the metadata zone.", __func__, dirBlock.offsetInVolume);
                 return reply(fs_errorForPOSIXError(EFAULT), nil);
             }
 
@@ -627,7 +627,7 @@
             error = [dirBlock writeToDisk];
             //#endif /* TARGET_OS_OSX */
             if (error) {
-                os_log_error(fskit_std_log(), "%s: Failed to write the updated entries into the device. Error = %@.", __func__, error);
+                os_log_error(OS_LOG_DEFAULT, "%s: Failed to write the updated entries into the device. Error = %@.", __func__, error);
                 [dirBlock releaseBlock];
                 return reply(error, nil);
             }
@@ -639,7 +639,7 @@
                 // Read dir block to memory.
                 error = [dirBlock readRelativeDirBlockNum:currentDirBlock];
                 if (error) {
-                    os_log_error(fskit_std_log(), "%s: Couldn't read dir block idx (%u). Error = %@.", __func__, currentDirBlock, error);
+                    os_log_error(OS_LOG_DEFAULT, "%s: Couldn't read dir block idx (%u). Error = %@.", __func__, currentDirBlock, error);
                     [dirBlock releaseBlock];
                     return reply(error, nil);
                 }
@@ -654,7 +654,7 @@
     NSError *err = [self markDirEntriesAsDeleted:forItem];
 
     if (err) {
-        os_log_error(fskit_std_log(), "%s: fail to mark enries as deleted", __FUNCTION__);
+        os_log_error(OS_LOG_DEFAULT, "%s: fail to mark enries as deleted", __FUNCTION__);
         return err;
     }
 
@@ -666,7 +666,7 @@
     err = [self updateModificationTimeOnCreateRemove];
     if (err) {
         /* In case the update failed, we still marked the entries as deleted so we silent the error */
-        os_log_error(fskit_std_log(), "%s: update parent dir modification time failed with error = %@.", __FUNCTION__, err);
+        os_log_error(OS_LOG_DEFAULT, "%s: update parent dir modification time failed with error = %@.", __FUNCTION__, err);
         err = nil;
     }
 
@@ -685,7 +685,7 @@
                                               struct unistr255 * _Nullable name,
                                               DirEntryData * _Nullable dirEntryData) {
         if (error) {
-            os_log_error(fskit_std_log(), "%s: iterate dir failed with error = %@.", __FUNCTION__, error);
+            os_log_error(OS_LOG_DEFAULT, "%s: iterate dir failed with error = %@.", __FUNCTION__, error);
             err = error;
             return iterateDirStop;
         }
@@ -695,12 +695,9 @@
                 err = fs_errorForPOSIXError(ENOTEMPTY);
                 return iterateDirStop;
             }
-            NSString *nameString = nil;
             char utf8Name[FAT_MAX_FILENAME_UTF8] = {0};
             CONV_Unistr255ToUTF8(name, utf8Name);
-            nameString = [NSString stringWithUTF8String:utf8Name];
-
-            if ([Utilities isDotOrDotDot:utf8Name length:nameString.length] == false) {
+            if ([Utilities isDotOrDotDot:utf8Name length:strlen(utf8Name)] == false) {
                 err = fs_errorForPOSIXError(ENOTEMPTY);
                 return iterateDirStop;
             }
@@ -735,7 +732,7 @@
                                                   DirEntryData * _Nullable dirEntryData) {
             if (error) {
                 err = error;
-                os_log_error(fskit_std_log(), "%s iterateFromOffset error %d.\n", __FUNCTION__, (int)error.code);
+                os_log_error(OS_LOG_DEFAULT, "%s iterateFromOffset error %d.\n", __FUNCTION__, (int)error.code);
                 return iterateDirStop;
             };
 
@@ -760,7 +757,7 @@
 
 -(void)purgeMetaBlocksFromCache:(void(^)(NSError * _Nullable))reply
 {
-    NSMutableArray<FSMetadataBlockRange *> *rangesToPurge = [NSMutableArray array];
+    NSMutableArray<FSMetadataRange *> *rangesToPurge = [NSMutableArray array];
     size_t clusterSize = self.volume.systemInfo.bytesPerCluster;
     size_t dirBlockSize = self.volume.systemInfo.dirBlockSize;
     size_t dirBlocksPerCluster = clusterSize / dirBlockSize;
@@ -784,7 +781,7 @@
                                                                             uint32_t length,
                                                                             uint32_t nextClusterChainStart) {
                 if (error) {
-                    os_log_error(fskit_std_log(), "%s: Failed to get clusters chain. Error: %@", __func__, error);
+                    os_log_error(OS_LOG_DEFAULT, "%s: Failed to get clusters chain. Error: %@", __func__, error);
                     return reply(error);
                 }
 
@@ -794,13 +791,13 @@
 
             totalNumOfClusters += numOfContigClusters;
             if (totalNumOfClusters > self.numberOfClusters) {
-                os_log_error(fskit_std_log(), "%s: There are more clusters than expected, exiting", __func__);
+                os_log_error(OS_LOG_DEFAULT, "%s: There are more clusters than expected, exiting", __func__);
                 return reply(nil);
             }
 
-            [rangesToPurge addObject:[FSMetadataBlockRange rangeWithOffset:[self.volume.systemInfo offsetForCluster:startCluster]
-                                                               blockLength:(uint32_t)dirBlockSize
-                                                            numberOfBlocks:(uint32_t)(dirBlocksPerCluster * numOfContigClusters)]];
+            [rangesToPurge addObject:[FSMetadataRange rangeWithOffset:[self.volume.systemInfo offsetForCluster:startCluster]
+                                                        segmentLength:(uint32_t)dirBlockSize
+                                                         segmentCount:(uint32_t)(dirBlocksPerCluster * numOfContigClusters)]];
 
             /*
              * If the node is contiguous, nextCluster will be EOF, so it won't
@@ -812,7 +809,7 @@
         error = [Utilities syncMetaPurgeToDevice:self.volume.resource
                            rangesToPurge:rangesToPurge];
         if (error) {
-            os_log_error(fskit_std_log(), "%s: Couldn't purge meta blocks. Error = %@.", __FUNCTION__, error);
+            os_log_error(OS_LOG_DEFAULT, "%s: Couldn't purge meta blocks. Error = %@.", __FUNCTION__, error);
             break;
         }
 

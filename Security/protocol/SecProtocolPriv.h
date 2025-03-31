@@ -723,6 +723,49 @@ API_AVAILABLE(macos(10.15), ios(13.0), watchos(6.0), tvos(13.0))
 void
 sec_protocol_options_set_tls_grease_enabled(sec_protocol_options_t options, bool tls_grease_enabled);
 
+/* `pqtls_mode_t` represents options for `sec_protocol_options_set_pqtls_mode`*/
+typedef CF_ENUM(uint16_t, pqtls_mode_t) {
+    no_pqtls, /* currently the default, PQ-TLS will not be used. */
+    try_pqtls, /* opportunistically opt in to PQ-TLS. */
+    force_pqtls}; /* opt in to PQ-TLS and override stack probabilistic heuristics. */
+
+/*!
+ * @function sec_protocol_options_set_pqtls_mode
+ *
+ * @abstract
+ *      Opportunistically opt the connection into PQ-TLS. It is not guaranteed that
+ *      the connection will use PQ-TLS, only that the TLS stack may attempt to try
+ *      PQ-TLS. By default, the stack will not try PQ-TLS.
+ *
+ * @param options
+ *      A `sec_protocol_options_t` instance.
+ *
+ * @param pqtls_mode
+ *      Indicates whether PQ-TLS should be used and if it should
+ *      override stack probabilistic heuristics to always be used.
+ *
+ * @discussion This is an experimental SPI that defaults to `no_pqtls` for now, but
+ *  will eventually default to `force_pqtls`.
+ *
+ */
+#define SEC_PROTOCOL_HAS_TRY_PQTLS 1
+SPI_AVAILABLE(macos(15.4), ios(18.4), watchos(11.4), tvos(18.4), visionos(2.4))
+void
+sec_protocol_options_set_pqtls_mode(sec_protocol_options_t options, pqtls_mode_t pqtls_mode);
+
+/*!
+ * @function sec_protocol_options_get_pqtls_mode
+ *
+ * @abstract
+ *      Find out what `pqtls_mode` has been selected
+ *
+ * @return A `pqtls_mode_t` indicating which mode was set. 
+ */
+SPI_AVAILABLE(macos(15.4), ios(18.4), watchos(11.4), tvos(18.4), visionos(2.4))
+pqtls_mode_t
+sec_protocol_options_get_pqtls_mode(sec_protocol_options_t options);
+
+
 /*!
  * @function sec_protocol_options_set_allow_unknown_alpn_protos
  *
@@ -837,6 +880,21 @@ sec_protocol_options_apply_config(sec_protocol_options_t options, xpc_object_t c
 API_AVAILABLE(macos(10.15), ios(13.0), watchos(6.0), tvos(13.0))
 const char * __nullable
 sec_protocol_metadata_get_tls_negotiated_group(sec_protocol_metadata_t metadata);
+
+/*!
+ * @function sec_protocol_metadata_get_tls_negotiated_pake
+ *
+ * @abstract
+ *      Get the named PAKE algorithm negotiated.
+ *
+ * @param metadata
+ *      A `sec_protocol_metadata_t` instance.
+ *
+ * @return A 2-byte codepoint for the negotiated PAKE, or 0 if a PAKE was not negotiated.
+ */
+SPI_AVAILABLE(macos(15.4), ios(18.4), watchos(11.4), tvos(18.4), visionos(2.4))
+uint16_t
+sec_protocol_metadata_get_tls_negotiated_pake(sec_protocol_metadata_t metadata);
 
 /*!
  * @function sec_protocol_metadata_get_experiment_identifier
@@ -1329,9 +1387,9 @@ SEC_OBJECT_DECL(sec_protocol_configuration_builder);
  * @abstract
  *      This function is exposed for testing purposes only. It MUST NOT be called by clients.
  */
-API_AVAILABLE(macos(10.15), ios(13.0), watchos(6.0), tvos(13.0))
+API_AVAILABLE(macos(15.4), ios(18.4), watchos(11.4), tvos(18.4), visionos(2.4))
 SEC_RETURNS_RETAINED sec_protocol_configuration_builder_t
-sec_protocol_configuration_builder_create(CFDictionaryRef dictionary, bool is_apple);
+sec_protocol_configuration_builder_create(__nullable CFDictionaryRef dictionary, bool is_apple);
 
 /*!
  * @function sec_protocol_configuration_create_with_builder
@@ -1630,6 +1688,23 @@ SPI_AVAILABLE(macos(14.0), ios(17.0), watchos(10.0), tvos(17.0))
 bool
 sec_protocol_metadata_get_eap_key_material(sec_protocol_metadata_t metadata, uint8_t *key, size_t key_length);
 
+/*!
+ * @function sec_protocol_options_set_sec_protocol_configuration
+ *
+ * @abstract
+ *      Enable App Transport Security by setting the `sec_protocol_configuration_t`,
+ *      which will then be used to transform the options and apply ATS requirements.
+ *
+ * @param options
+ *      A `sec_protocol_options_t` instance.
+ *
+ * @param configuration
+ *      A `sec_protocol_configuration_t` instance.
+ */
+SPI_AVAILABLE(macos(15.4), ios(18.4), watchos(11.4), tvos(18.4), visionos(2.4))
+void
+sec_protocol_options_set_sec_protocol_configuration(sec_protocol_options_t options, sec_protocol_configuration_t configuration);
+
 struct sec_protocol_options_content {
     tls_protocol_version_t min_version;
     tls_protocol_version_t max_version;
@@ -1671,6 +1746,7 @@ struct sec_protocol_options_content {
 #endif
     CFArrayRef _Nullable server_raw_public_key_certificates;
     CFArrayRef _Nullable client_raw_public_key_certificates;
+    sec_protocol_configuration_t sec_protocol_configuration;
     uint8_t new_session_ticket_request;
     uint8_t resumed_session_ticket_request;
 
@@ -1681,6 +1757,7 @@ struct sec_protocol_options_content {
 
     // Non-boolean options
     uint8_t tls_ticket_request_count;
+    pqtls_mode_t pqtls_mode;
 
     // QUIC-specific access block
     sec_protocol_output_handler_access_block_t output_handler_access_block;
@@ -1778,6 +1855,7 @@ struct sec_protocol_metadata_content {
     size_t read_stall_count;
     size_t write_stall_count;
     size_t async_call_count;
+    uint16_t negotiated_pake;
 
     // EAP key material
     uint8_t * _Nullable eap_key_material;

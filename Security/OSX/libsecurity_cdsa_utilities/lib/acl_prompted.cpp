@@ -128,3 +128,8 @@ void PromptedAclSubject::debugDump() const
 }
 
 #endif //DEBUGDUMP
+
+CFStringRef PromptedAclSubject::createACLDebugString() const
+{
+    return CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("<PromptedAclSubject>"));
+}

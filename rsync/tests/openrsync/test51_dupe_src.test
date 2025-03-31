@@ -35,3 +35,115 @@ for dstdir in dst-1 dst-2 dst-3 dst-4; do
 	1>&2 cmp src/foo/a "$dstdir"/a
 	1>&2 cmp src/bar/b "$dstdir"/b
 done
+
+
+# Test from 1-to-n source dirs with a various mix of suffixes:
+#
+SRCDIRS=""
+DSTDIR="dst"
+#DSTDIR="localhost:$PWD/dst"
+
+set --
+
+# Test multiple source dirs that are all effectively named ".",
+# despite sequences of "." and "/":
+#
+for i in $(seq 17) ; do
+	rm -rf src$i dst
+	mkdir -p src$i/dir
+
+	echo src$i > src$i/file
+	echo src$i > src$i/dir/file
+
+	if [ $# -le 0 ] ; then
+		set -- "." "./" "./." ".//." "././" "././." ".////././//" ".//.////./."
+	fi
+
+	SRCDIRS="${SRCDIRS} $1"
+
+	(cd src$i && rsync -av -- ${SRCDIRS} ../${DSTDIR}/)
+
+	[ -d dst ]
+	[ -f dst/file ]
+	[ -d dst/dir ]
+	[ -f dst/dir/file ]
+
+	shift
+done
+
+
+# Test multiple source dirs that are all effectively named "src",
+# despite trailing and/or leading sequences of ".", "/", "./", or "//".
+#
+SRCDIRS=""
+set --
+
+for i in $(seq 17) ; do
+	rm -rf src$i dst
+	mkdir -p src$i/dir
+
+	echo src$i > src$i/file
+	echo src$i > src$i/dir/file
+
+	if [ $# -le 0 ] ; then
+		set -- "" "/" "/." "/////." "/./" "/./." "///././////" "//.//././."
+	fi
+
+	SRCDIRS="${SRCDIRS} src$i$1"
+
+	rsync -av -- ${SRCDIRS} ${DSTDIR}/
+
+	if [ -z "$1" ] ; then
+		diff -r src$i ${DSTDIR}/src$i
+	elif [ "$1" = "/" ] ; then
+		[ -d dst ]
+		[ -f dst/file ]
+		[ -d dst/dir ]
+		[ -f dst/dir/file ]
+	fi
+
+
+	SRCDIRS="${SRCDIRS} ./$1/src$i$1"
+
+	rm -rf dst
+	rsync -av -- ${SRCDIRS} ${DSTDIR}/
+
+	if [ -z "$1" ] ; then
+		diff -r src$i ${DSTDIR}/src$i
+	elif [ "$1" = "/" ] ; then
+		[ -d dst ]
+		[ -f dst/file ]
+		[ -d dst/dir ]
+		[ -f dst/dir/file ]
+	fi
+
+	shift
+done
+
+
+# Test that all empty dirs are handled correctly:
+#
+for i in $(seq 17) ; do
+	mkdir -p src$i/empty
+done
+
+rm -rf dst
+rsync -av -- ${SRCDIRS} ${DSTDIR}
+
+[ -d dst ]
+[ -f dst/file ]
+[ -d dst/dir ]
+[ -f dst/dir/file ]
+[ -d dst/empty ]
+
+
+rm -rf dst
+rsync -av --prune-empty-dirs -- ${SRCDIRS} ${DSTDIR}
+
+[ -d dst ]
+[ -f dst/file ]
+[ -d dst/dir ]
+[ -f dst/dir/file ]
+
+# With rsync2 and rsync3 the empty dir isn't pruned..
+#[ ! -d dst/empty ]

@@ -89,14 +89,14 @@ sa/pdb.c	freebsd	usr.sbin/sa/pdb.c	1de7b4b805ddbf2429da511c053686ac4591ed89
 sa/sa.8	freebsd	usr.sbin/sa/sa.8	8209febbb3d07809890550a0048b2d76363239f9
 sa/usrdb.c	freebsd	usr.sbin/sa/usrdb.c	1de7b4b805ddbf2429da511c053686ac4591ed89
 
-shutdown/shutdown.8	freebsd	sbin/shutdown/shutdown.8	814321a0e85a448b1dd87e7d27e64e4c063e9410
-shutdown/shutdown.c	freebsd	sbin/shutdown/shutdown.c	7d3df1907a893a5195cfab753ca4233c52827a5c
+shutdown/shutdown.8	freebsd	sbin/shutdown/shutdown.8	6c7ec630c24fded12e237b5ffda115cc268b75c2
+shutdown/shutdown.c	freebsd	sbin/shutdown/shutdown.c	d349bd35330d3ec7ce1d3e7d6c2d6fc1f6a95704
 
 sync/sync.8	freebsd	bin/sync/sync.8	fbbd9655e5107c68e4e0146ff22b73d7350475bc
 sync/sync.c	freebsd	bin/sync/sync.c	fbbd9655e5107c68e4e0146ff22b73d7350475bc
 
-sysctl/sysctl.8	freebsd	sbin/sysctl/sysctl.8	f126d349810fdb512c0b01e101342d430b947488
-sysctl/sysctl.c	freebsd	sbin/sysctl/sysctl.c	f126d349810fdb512c0b01e101342d430b947488
+sysctl/sysctl.8	freebsd	sbin/sysctl/sysctl.8	380b7eb309478e1aac1609a3dfe1c28436add1c4
+sysctl/sysctl.c	freebsd	sbin/sysctl/sysctl.c	2e8ad2b698498a1c380d0d6fc5792b2c56926801
 sysctl/tests/sysctl_test.sh	freebsd	sbin/sysctl/tests/sysctl_test.sh	0c428864495af9dc7d2af4d0a5ae21732af9c739
 
 vipw/pw_util.c	freebsd	lib/libutil/pw_util.c	830efe55395a27f0a72812b5a028e323ee3981a6

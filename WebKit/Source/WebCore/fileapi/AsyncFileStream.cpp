@@ -162,10 +162,10 @@ void AsyncFileStream::close()
     });
 }
 
-void AsyncFileStream::read(void* buffer, int length)
+void AsyncFileStream::read(std::span<uint8_t> buffer)
 {
-    perform([buffer, length](FileStream& stream) -> Function<void(FileStreamClient&)> {
-        int bytesRead = stream.read(buffer, length);
+    perform([buffer](FileStream& stream) -> Function<void(FileStreamClient&)> {
+        int bytesRead = stream.read(buffer);
         return [bytesRead](FileStreamClient& client) {
             client.didRead(bytesRead);
         };

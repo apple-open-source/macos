@@ -52,7 +52,7 @@
 #include <wtf/TZoneMallocInlines.h>
 
 #if PLATFORM(IOS_FAMILY)
-#include "RuntimeApplicationChecks.h"
+#include <wtf/RuntimeApplicationChecks.h>
 #endif
 
 namespace WebCore {
@@ -159,7 +159,7 @@ static void mapDataParamToSrc(Vector<AtomString>& paramNames, Vector<AtomString>
 void HTMLObjectElement::parametersForPlugin(Vector<AtomString>& paramNames, Vector<AtomString>& paramValues)
 {
     if (hasAttributes()) {
-        for (const Attribute& attribute : attributesIterator()) {
+        for (auto& attribute : attributes()) {
             paramNames.append(attribute.name().localName());
             paramValues.append(attribute.value());
         }
@@ -293,7 +293,7 @@ void HTMLObjectElement::renderFallbackContent()
         return;
 
     // Before we give up and use fallback content, check to see if this is a MIME type issue.
-    auto* loader = imageLoader();
+    RefPtr loader = imageLoader();
     if (loader && loader->image() && loader->image()->status() != CachedResource::LoadError) {
         m_serviceType = loader->image()->response().mimeType();
         if (!isImageType()) {
@@ -310,10 +310,10 @@ static inline bool preventsParentObjectFromExposure(const Element& child)
 {
     static NeverDestroyed mostKnownTags = [] {
         MemoryCompactLookupOnlyRobinHoodHashSet<QualifiedName> set;
-        auto* tags = HTMLNames::getHTMLTags();
-        set.reserveInitialCapacity(HTMLNames::HTMLTagsCount);
-        for (size_t i = 0; i < HTMLNames::HTMLTagsCount; i++) {
-            auto& tag = *tags[i];
+        auto tags = HTMLNames::getHTMLTags();
+        set.reserveInitialCapacity(tags.size());
+        for (auto* tagPtr : tags) {
+            auto& tag = *tagPtr;
             // Only the param element was explicitly mentioned in the HTML specification rule
             // we were trying to implement, but these are other known HTML elements that we
             // have decided, over the years, to treat as children that do not prevent object
@@ -324,8 +324,9 @@ static inline bool preventsParentObjectFromExposure(const Element& child)
                 || tag == figureTag
                 || tag == paramTag
                 || tag == summaryTag
-                || tag == trackTag)
+                || tag == trackTag) {
                 continue;
+            }
             set.add(tag);
         }
         return set;

@@ -33,8 +33,11 @@
 #import "LocalDefaultSystemAppearance.h"
 #import "MeterPart.h"
 #import <wtf/BlockObjCExceptions.h>
+#import <wtf/TZoneMallocInlines.h>
 
 namespace WebCore {
+
+WTF_MAKE_TZONE_ALLOCATED_IMPL(MeterMac);
 
 MeterMac::MeterMac(MeterPart& owningMeterPart, ControlFactoryMac& controlFactory, NSLevelIndicatorCell* levelIndicatorCell)
     : ControlMac(owningMeterPart, controlFactory)
@@ -49,7 +52,7 @@ void MeterMac::updateCellStates(const FloatRect& rect, const ControlStyle& style
 
     ControlMac::updateCellStates(rect, style);
 
-    [m_levelIndicatorCell setUserInterfaceLayoutDirection:style.states.contains(ControlStyle::State::RightToLeft) ? NSUserInterfaceLayoutDirectionRightToLeft : NSUserInterfaceLayoutDirectionLeftToRight];
+    [m_levelIndicatorCell setUserInterfaceLayoutDirection:style.states.contains(ControlStyle::State::InlineFlippedWritingMode) ? NSUserInterfaceLayoutDirectionRightToLeft : NSUserInterfaceLayoutDirectionLeftToRight];
 
     auto& meterPart = owningMeterPart();
     

@@ -1,0 +1,24 @@
+/FB29          ; Math/ i\
+F8BC          ; Math\
+F8BD          ; Math\
+F8C0          ; Math
+/F900..FA6D    ; Alphabetic/ i\
+F882          ; Alphabetic\
+F89A..F89E    ; Alphabetic\
+F8A2..F8A7    ; Alphabetic\
+F8B8          ; Alphabetic\
+F8C1..F8D6    ; Alphabetic
+/FB1E          ; Case_Ignorable/ i\
+F870..F87F    ; Case_Ignorable\
+F884..F899    ; Case_Ignorable\
+F89F          ; Case_Ignorable\
+F8B8          ; Case_Ignorable
+/FB1E          ; Grapheme_Extend/ i\
+F870..F87F    ; Grapheme_Extend\
+F884..F899    ; Grapheme_Extend\
+F89F          ; Grapheme_Extend
+/F900..FA6D    ; Grapheme_Base/ i\
+F7F3..F84F    ; Grapheme_Base\
+F880..F883    ; Grapheme_Base\
+F89A..F89E    ; Grapheme_Base\
+F8A0..F8FF    ; Grapheme_Base

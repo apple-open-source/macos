@@ -170,6 +170,8 @@ CFMutableDictionaryRef gPendingScheduledWakeLog;
 CFMutableDictionaryRef gCurrentScheduledWakeLog;
 CFAbsoluteTime          leeway = 5.0;
 
+
+
 static io_service_t             rootDomainService = IO_OBJECT_NULL;
 static IOPMCapabilityBits       gCurrentCapabilityBits = kIOPMCapabilityCPU | kIOPMCapabilityDisk 
                                     | kIOPMCapabilityNetwork | kIOPMCapabilityAudio | kIOPMCapabilityVideo;
@@ -287,6 +289,10 @@ static void cleanupResponseWrangler(PMResponseWrangler *reap);
 static void setSystemSleepStateTracking(IOPMCapabilityBits);
 
 IOReturn _smcWritePerfStateSensorExData(bool restrictPerf);
+
+static void updateSleepToS0ResourceHint(bool inProgress);
+
+static void updateEarlyWakeResourceHint(bool inProgress);
 
 static void scheduleSleepServiceCapTimerEnforcer(uint32_t cap_ms);
 
@@ -480,6 +486,8 @@ void PMConnection_prime(void)
     }
     // Make sure we don't get stuck with the VM dark mode enabled.
     setVMDarkwakeMode(false);
+    updateSleepToS0ResourceHint(false);
+    updateEarlyWakeResourceHint(false);
 
     return;
 
@@ -2405,6 +2413,7 @@ static void PMConnectionPowerCallBack(
 
         evaluateADS();
         _clamp_silent_running();
+        updateSleepToS0ResourceHint(true);
 
         responseController = connectionFireNotification(_kSleepStateBits, (long)capArgs->notifyRef);
 
@@ -2738,6 +2747,7 @@ static void PMConnectionPowerCallBack(
         }
 #endif
 
+        updateEarlyWakeResourceHint(false);
         return;
     }
     else if (SYSTEM_WILL_WAKE(capArgs) )
@@ -2760,6 +2770,8 @@ static void PMConnectionPowerCallBack(
            deliverCapabilityBits |= kIOPMCapabilityVideo | kIOPMCapabilityAudio;
 
         sendNoRespNotification( deliverCapabilityBits );
+        updateSleepToS0ResourceHint(false);
+        updateEarlyWakeResourceHint(true);
     }
 
     if (capArgs->notifyRef)
@@ -4128,4 +4140,16 @@ __private_extern__ void getScheduledWake(xpc_object_t remote, xpc_object_t msg) 
     if (reply_msg) {
         xpc_release(reply_msg);
     }
+}
+
+/*
+ * Indicate whether a transition to S0_Sleep is in progress.
+ */
+static void updateSleepToS0ResourceHint(bool inProgress) {
+}
+
+/*
+ * Indicate whether an early wake transition (Wake from S0) is in progress
+ */
+static void updateEarlyWakeResourceHint(bool inProgress) {
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009-2023 Apple Inc. All rights reserved.
+ * Copyright (c) 2009-2024 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -631,7 +631,7 @@ DHCPv6SocketTransmit(DHCPv6SocketRef sock,
     errno_t			error = 0;
     bool			needs_close = false;
 
-    if (S_globals->read_fd == NULL) {
+    if (S_globals->read_fd == NULL && S_globals->cancel_pending) {
 	/*
 	 * The dispatch source was canceled, and we haven't gotten the
 	 * cancel completion callback yet.

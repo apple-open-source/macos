@@ -52,6 +52,10 @@
 #include <wtf/glib/RunLoopSourcePriority.h>
 #endif
 
+#if USE(GRAPHICS_LAYER_TEXTURE_MAPPER)
+#include "LayerTreeHostTextureMapper.h"
+#endif
+
 namespace WebKit {
 using namespace WebCore;
 
@@ -103,7 +107,6 @@ void DrawingAreaCoordinatedGraphics::scroll(const IntRect& scrollRect, const Int
         ASSERT(m_scrollRect.isEmpty());
         ASSERT(m_scrollOffset.isEmpty());
         ASSERT(m_dirtyRegion.isEmpty());
-        m_layerTreeHost->scrollNonCompositedContents(scrollRect);
         return;
     }
 
@@ -153,9 +156,6 @@ void DrawingAreaCoordinatedGraphics::scroll(const IntRect& scrollRect, const Int
 
 void DrawingAreaCoordinatedGraphics::updateRenderingWithForcedRepaint()
 {
-    if (m_inUpdateGeometry)
-        return;
-
     if (!m_layerTreeHost) {
         m_isWaitingForDidUpdate = false;
         m_dirtyRegion = m_webPage->bounds();
@@ -163,29 +163,21 @@ void DrawingAreaCoordinatedGraphics::updateRenderingWithForcedRepaint()
         return;
     }
 
-    if (m_layerTreeStateIsFrozen)
-        return;
-
-    setNeedsDisplay();
-    Ref { m_webPage.get() }->layoutIfNeeded();
-    if (!m_layerTreeHost)
-        return;
-
-    if (m_compositingAccordingToProxyMessages)
+    if (!m_layerTreeStateIsFrozen)
         m_layerTreeHost->forceRepaint();
 }
 
 void DrawingAreaCoordinatedGraphics::updateRenderingWithForcedRepaintAsync(WebPage& page, CompletionHandler<void()>&& completionHandler)
 {
-    if (m_layerTreeStateIsFrozen) {
-        page.updateRenderingWithForcedRepaintWithoutCallback();
+    if (!m_layerTreeHost) {
+        updateRenderingWithForcedRepaint();
         return completionHandler();
     }
 
-    if (m_layerTreeHost)
-        m_layerTreeHost->forceRepaintAsync(WTFMove(completionHandler));
-    else
-        completionHandler();
+    if (m_layerTreeStateIsFrozen)
+        return completionHandler();
+
+    m_layerTreeHost->forceRepaintAsync(WTFMove(completionHandler));
 }
 
 void DrawingAreaCoordinatedGraphics::setLayerTreeStateIsFrozen(bool isFrozen)
@@ -196,7 +188,7 @@ void DrawingAreaCoordinatedGraphics::setLayerTreeStateIsFrozen(bool isFrozen)
     m_layerTreeStateIsFrozen = isFrozen;
 
     if (m_layerTreeHost)
-        m_layerTreeHost->setLayerFlushSchedulingEnabled(!isFrozen);
+        m_layerTreeHost->setLayerTreeStateIsFrozen(isFrozen);
 
     if (isFrozen)
         m_exitCompositingTimer.stop();
@@ -237,25 +229,7 @@ void DrawingAreaCoordinatedGraphics::updatePreferences(const WebPreferencesStore
     }
 }
 
-void DrawingAreaCoordinatedGraphics::mainFrameContentSizeChanged(WebCore::FrameIdentifier, const IntSize& size)
-{
-    if (m_layerTreeHost)
-        m_layerTreeHost->contentsSizeChanged(size);
-}
-
 #if USE(COORDINATED_GRAPHICS) || USE(TEXTURE_MAPPER)
-void DrawingAreaCoordinatedGraphics::deviceOrPageScaleFactorChanged()
-{
-    if (m_layerTreeHost)
-        m_layerTreeHost->deviceOrPageScaleFactorChanged();
-}
-
-void DrawingAreaCoordinatedGraphics::didChangeViewportAttributes(ViewportAttributes&& attrs)
-{
-    if (m_layerTreeHost)
-        m_layerTreeHost->didChangeViewportAttributes(WTFMove(attrs));
-}
-
 bool DrawingAreaCoordinatedGraphics::enterAcceleratedCompositingModeIfNeeded()
 {
     ASSERT(!m_layerTreeHost);
@@ -273,9 +247,10 @@ void DrawingAreaCoordinatedGraphics::backgroundColorDidChange()
 }
 #endif
 
-void DrawingAreaCoordinatedGraphics::setDeviceScaleFactor(float deviceScaleFactor)
+void DrawingAreaCoordinatedGraphics::setDeviceScaleFactor(float deviceScaleFactor, CompletionHandler<void()>&& completionHandler)
 {
     Ref { m_webPage.get() }->setDeviceScaleFactor(deviceScaleFactor);
+    completionHandler();
 }
 
 bool DrawingAreaCoordinatedGraphics::supportsAsyncScrolling() const
@@ -382,21 +357,10 @@ void DrawingAreaCoordinatedGraphics::updateGeometry(const IntSize& size, Complet
     webPage->setSize(size);
     webPage->layoutIfNeeded();
 
-    if (!m_layerTreeHost)
-        m_dirtyRegion = IntRect(IntPoint(), size);
-
-    LayerTreeContext previousLayerTreeContext;
-    if (m_layerTreeHost) {
-        previousLayerTreeContext = m_layerTreeHost->layerTreeContext();
+    if (m_layerTreeHost)
         m_layerTreeHost->sizeDidChange(webPage->size());
-    }
-
-    if (m_layerTreeHost) {
-        auto layerTreeContext = m_layerTreeHost->layerTreeContext();
-        m_layerTreeHost->forceRepaint();
-        if (layerTreeContext != previousLayerTreeContext)
-            send(Messages::DrawingAreaProxy::UpdateAcceleratedCompositingMode(0, layerTreeContext));
-    } else {
+    else {
+        m_dirtyRegion = IntRect(IntPoint(), size);
         UpdateInfo updateInfo;
         if (m_isPaintingSuspended) {
             updateInfo.viewSize = webPage->size();
@@ -426,6 +390,36 @@ void DrawingAreaCoordinatedGraphics::displayDidRefresh()
     // Display if needed. We call displayTimerFired here since it will throttle updates to 60fps.
     displayTimerFired();
 }
+
+#if PLATFORM(GTK) || PLATFORM(WPE)
+void DrawingAreaCoordinatedGraphics::dispatchAfterEnsuringDrawing(IPC::AsyncReplyID callbackID)
+{
+    m_pendingAfterDrawCallbackIDs.append(callbackID);
+    if (m_layerTreeHost) {
+        if (!m_layerTreeStateIsFrozen) {
+            m_layerTreeHost->ensureDrawing();
+            return;
+        }
+    } else {
+        if (!m_isPaintingSuspended) {
+            scheduleDisplay();
+            return;
+        }
+    }
+
+    // We can't ensure drawing, so process pending callbacks.
+    dispatchPendingCallbacksAfterEnsuringDrawing();
+}
+
+void DrawingAreaCoordinatedGraphics::dispatchPendingCallbacksAfterEnsuringDrawing()
+{
+    if (m_pendingAfterDrawCallbackIDs.isEmpty())
+        return;
+
+    send(Messages::DrawingAreaProxy::DispatchPresentationCallbacksAfterFlushingLayers(m_pendingAfterDrawCallbackIDs));
+    m_pendingAfterDrawCallbackIDs.clear();
+}
+#endif
 
 #if PLATFORM(GTK)
 void DrawingAreaCoordinatedGraphics::adjustTransientZoom(double scale, FloatPoint origin)
@@ -551,7 +545,7 @@ void DrawingAreaCoordinatedGraphics::enterAcceleratedCompositingMode(GraphicsLay
     changeWindowScreen();
 #endif
     if (m_layerTreeStateIsFrozen)
-        m_layerTreeHost->setLayerFlushSchedulingEnabled(false);
+        m_layerTreeHost->setLayerTreeStateIsFrozen(true);
     if (m_isPaintingSuspended)
         m_layerTreeHost->pauseRendering();
 
@@ -671,6 +665,10 @@ void DrawingAreaCoordinatedGraphics::display()
         // Don't send an Update message in this case.
         return;
     }
+
+#if PLATFORM(GTK) || PLATFORM(WPE)
+    dispatchPendingCallbacksAfterEnsuringDrawing();
+#endif
 
     if (m_compositingAccordingToProxyMessages) {
         send(Messages::DrawingAreaProxy::ExitAcceleratedCompositingMode(0, WTFMove(updateInfo)));

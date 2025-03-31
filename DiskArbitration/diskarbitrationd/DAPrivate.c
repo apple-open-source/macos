@@ -40,6 +40,8 @@
 #include <sys/wait.h>
 #include <IOKit/IOBSD.h>
 #include <IOKit/storage/IOMedia.h>
+#include <sys/stat.h>
+
 
 static int __DADiskRefreshRemoveMountPoint( void * context )
 {
@@ -81,58 +83,6 @@ static int __DAFileSystemSetAdoption( DAFileSystemRef filesystem, CFURLRef mount
     if ( status )  { goto __DAFileSystemSetAdoptionErr; }
 
 __DAFileSystemSetAdoptionErr:
-
-    if ( path )  free( path );
-
-    return status;
-}
-
-static int __DAFileSystemSetEncoding( DAFileSystemRef filesystem, CFURLRef mountpoint, CFStringEncoding encoding )
-{
-    struct statfs fs     = { 0 };
-    char *        path   = NULL;
-    int           status = 0;
-
-    path = ___CFURLCopyFileSystemRepresentation( mountpoint );
-    if ( path == NULL )  { status = EINVAL; goto __DAFileSystemSetEncodingErr; }
-
-    status = ___statfs( path, &fs, MNT_NOWAIT );
-    if ( status == -1 )  { status = errno; goto __DAFileSystemSetEncodingErr; }
-
-    status = fork( );
-    if ( status == -1 )  { status = errno; goto __DAFileSystemSetEncodingErr; }
-
-    if ( status == 0 )
-    {
-        char option[16];
-
-        snprintf( option, sizeof( option ), "-o-e=%d", ( int ) encoding );
-
-        execle( "/sbin/mount",
-                "/sbin/mount",
-                "-t",
-                fs.f_fstypename,
-                "-u",
-                option,
-                ( fs.f_flags & MNT_NODEV            ) ? "-onodev"    : "-odev",
-                ( fs.f_flags & MNT_NOEXEC           ) ? "-onoexec"   : "-oexec",
-                ( fs.f_flags & MNT_NOSUID           ) ? "-onosuid"   : "-osuid",
-                ( fs.f_flags & MNT_RDONLY           ) ? "-ordonly"   : "-orw",
-                ( fs.f_flags & MNT_IGNORE_OWNERSHIP ) ? "-onoowners" : "-oowners",
-                fs.f_mntfromname,
-                fs.f_mntonname,
-                NULL,
-                NULL );
-
-        exit( EX_OSERR );
-    }
-
-    waitpid( status, &status, 0 );
-
-    status = WIFEXITED( status ) ? ( ( char ) WEXITSTATUS( status ) ) : status;
-    if ( status )  { goto __DAFileSystemSetEncodingErr; }
-
-__DAFileSystemSetEncodingErr:
 
     if ( path )  free( path );
 
@@ -201,13 +151,33 @@ DAReturn _DADiskRefresh( DADiskRef disk )
                 {
                     if ( DADiskCompareDescription( disk, kDADiskDescriptionVolumePathKey, path ) )
                     {
-                        DADiskSetBypath( disk, path );
-
-                        DADiskSetDescription( disk, kDADiskDescriptionVolumePathKey, path );
-
-                        DALogInfo( "volume path changed for %@", disk);
-
-                        CFArrayAppendValue( keys, kDADiskDescriptionVolumePathKey );
+                        bool ignoreMount =  false;
+                        if ( DADiskGetDescription( disk, kDADiskDescriptionVolumeUUIDKey ) )
+                        {
+                            CFURLRef danglingPath  = CFDictionaryGetValue( gDADanglingVolumeList, DADiskGetDescription( disk, kDADiskDescriptionVolumeUUIDKey ) );
+                           
+                            if ( danglingPath )
+                            {
+                                char source[MAXPATHLEN];
+                                if (CFURLGetFileSystemRepresentation( danglingPath, TRUE, ( void * ) source, sizeof( source ) ) )
+                                {
+                                    if (strncmp( mountList[mountListIndex].f_mntonname, source, strlen( source ) ) == 0 )
+                                    {
+                                        DALogInfo("dangling mountpoint present ignore mountpoint %@", disk);
+                                        ignoreMount = true;
+                                    }
+                                }
+                            }
+                        }
+                        if ( ignoreMount == false) {
+                            DADiskSetBypath( disk, path );
+                            
+                            DADiskSetDescription( disk, kDADiskDescriptionVolumePathKey, path );
+                            
+                            DALogInfo( "volume path changed for %@", disk);
+                            
+                            CFArrayAppendValue( keys, kDADiskDescriptionVolumePathKey );
+                        }
                     }
 
 #if TARGET_OS_OSX
@@ -380,67 +350,6 @@ DAReturn _DADiskSetAdoption( DADiskRef disk, Boolean adoption )
     if ( status )  { status = unix_err( status ); goto _DADiskSetAdoptionErr; }
 
 _DADiskSetAdoptionErr:
-
-    return status;
-}
-
-DAReturn _DADiskSetEncoding( DADiskRef disk, CFStringEncoding encoding )
-{
-    CFMutableArrayRef keys   = NULL;
-    CFStringRef       name1  = NULL;
-    CFStringRef       name2  = NULL;
-    CFURLRef          path1  = NULL;
-    CFURLRef          path2  = NULL;
-    DAReturn          status = kDAReturnSuccess;
-
-    path1 = DADiskGetDescription( disk, kDADiskDescriptionVolumePathKey );
-    if ( path1 == NULL )  { status = kDAReturnBadArgument; goto _DADiskSetEncodingErr; }
-
-    status = __DAFileSystemSetEncoding( DADiskGetFileSystem( disk ), path1, encoding );
-    if ( status )  { status = unix_err( status ); goto _DADiskSetEncodingErr; }
-
-    keys = CFArrayCreateMutable( kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks );
-    if ( keys == NULL )  { status = kDAReturnNoResources; goto _DADiskSetEncodingErr; }
-
-    name1 = DADiskGetDescription( disk, kDADiskDescriptionVolumeNameKey );
-    if ( name1 == NULL )  { status = kDAReturnError; goto _DADiskSetEncodingErr; }
-
-    name2 = _DAFileSystemCopyNameAndUUID( DADiskGetFileSystem( disk ), path1, NULL);
-    if ( name2 == NULL )  { status = kDAReturnError; goto _DADiskSetEncodingErr; }
-
-    status = CFEqual( name1, name2 );
-///w:start
-//  if ( status )  { status = kDAReturnSuccess; goto _DADiskSetEncodingErr; }
-///w:stop
-
-    DADiskSetDescription( disk, kDADiskDescriptionVolumeNameKey, name2 );
-
-    CFArrayAppendValue( keys, kDADiskDescriptionVolumeNameKey );
-
-///w:start
-    if ( status == FALSE )
-///w:stop
-    path2 = DAMountCreateMountPointWithAction( disk, kDAMountPointActionMove );
-///w:start
-    status = kDAReturnSuccess;
-///w:stop
-
-    if ( path2 )
-    {
-        DADiskSetBypath( disk, path2 );
-
-        DADiskSetDescription( disk, kDADiskDescriptionVolumePathKey, path2 );
-
-        CFArrayAppendValue( keys, kDADiskDescriptionVolumePathKey );
-    }
-
-    DADiskDescriptionChangedCallback( disk, keys );
-
-_DADiskSetEncodingErr:
-
-    if ( keys  )  CFRelease( keys  );
-    if ( name2 )  CFRelease( name2 );
-    if ( path2 )  CFRelease( path2 );
 
     return status;
 }

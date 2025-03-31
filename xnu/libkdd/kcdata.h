@@ -71,14 +71,14 @@
  *              uint32_t quux;
  *          } __attribute__ ((packed));
  *
- *       Make it look like this:
+ *       Define an evolved structure alongside it like this:
  *
- *          struct foobar {
- *              uint32_t baz;
- *              uint32_t quux;
- *              ///////// end version 1 of foobar.  sizeof(struct foobar) was 8 ////////
- *              uint32_t frozzle;
- *          } __attribute__ ((packed));
+ *           struct foobar_v2 {
+ *               uint32_t baz;
+ *               uint32_t quux;
+ *               ///////// This is where the original structure's layout ended! sizeof(struct foobar) was 8 ////////
+ *               uint32_t frozzle;
+ *           } __attribute__ ((packed));
  *
  *   If you are parsing kcdata formats, you MUST
  *
@@ -126,7 +126,7 @@
  *
  *
  * The type field describes what kind of data is passed. For example type = TASK_CRASHINFO_UUID means the following data is a uuid.
- * These types need to be defined in task_corpses.h for easy consumption by userspace inspection tools.
+ * These types need to be defined in task_corpse.h for easy consumption by userspace inspection tools.
  *
  * Some range of types is reserved for special types like ints, longs etc. A cool new functionality made possible with this
  * extensible data format is that kernel can decide to put more information as required without requiring user space tools to
@@ -223,7 +223,7 @@
  * - kcdata_compression_window_open/close(kcdata_descriptor_t data)
  *   In case the data you are trying to push to the kcdata buffer @data is difficult to predict,
  *   you can open a "compression window". Between an open and a close, no compression will be done.
- *   Once you clsoe the window, the underlying compression algorithm will compress the data into the buffer
+ *   Once you close the window, the underlying compression algorithm will compress the data into the buffer
  *   and automatically rewind the current end marker of the kcdata buffer.
  *   There is an ASCII art in kern_cdata.c to aid the reader in understanding
  *   this.
@@ -562,7 +562,7 @@ struct kcdata_type_definition {
 #define STACKSHOT_KCTYPE_EXCLAVE_ADDRESSSPACE_NAME   0x951u /* exclave component name */
 #define STACKSHOT_KCCONTAINER_EXCLAVE_TEXTLAYOUT     0x952u /* exclave text layout container */
 #define STACKSHOT_KCTYPE_EXCLAVE_TEXTLAYOUT_INFO     0x953u /* struct exclave_textlayout_info */
-#define STACKSHOT_KCTYPE_EXCLAVE_TEXTLAYOUT_SEGMENTS 0x954u /* struct exclave_textlayout_segment */
+#define STACKSHOT_KCTYPE_EXCLAVE_TEXTLAYOUT_SEGMENTS 0x954u /* struct exclave_textlayout_segment_v2 */
 #define STACKSHOT_KCTYPE_KERN_EXCLAVES_CRASH_THREADINFO 0x955u /* struct thread_crash_exclaves_info */
 #define STACKSHOT_KCTYPE_LATENCY_INFO_CPU            0x956u /* struct stackshot_latency_cpu */
 
@@ -1237,16 +1237,29 @@ struct exclave_addressspace_info {
 enum exclave_textlayout_flags : uint64_t {
 	kExclaveTextLayoutLoadAddressesSynthetic = 0x1, /* Load Addresses are synthetic */
 	kExclaveTextLayoutLoadAddressesUnslid = 0x2, /* Load Addresses are accurate and unslid */
+	kExclaveTextLayoutHasSharedCache = 0x4, /* sharedcache_index is valid, refers to entry # in STACKSHOT_KCTYPE_EXCLAVE_TEXTLAYOUT_SEGMENTS array */
 };
 
-struct exclave_textlayout_info {
+struct exclave_textlayout_info_v1 {
 	uint64_t layout_id;
 	uint64_t etl_flags;                     /* A combination of enum exclave_textlayout_flags values */
 } __attribute__((packed));
 
+struct exclave_textlayout_info {
+	uint64_t layout_id;
+	uint64_t etl_flags;                     /* A combination of enum exclave_textlayout_flags values */
+	uint32_t sharedcache_index;             /* index in SEGMENTs, or UINT32_MAX */
+} __attribute__((packed));
+
 struct exclave_textlayout_segment {
 	uuid_t layoutSegment_uuid;
-	uint64_t layoutSegment_loadAddress;     /* Load Address, either synthetic or unslid */
+	uint64_t layoutSegment_loadAddress;     /* Synthetic Load Address */
+} __attribute__((packed));
+
+struct exclave_textlayout_segment_v2 {
+	uuid_t layoutSegment_uuid;
+	uint64_t layoutSegment_loadAddress;     /* Synthetic Load Address */
+	uint64_t layoutSegment_rawLoadAddress;  /* Raw Load Address when unslided */
 } __attribute__((packed));
 
 /**************** definitions for crashinfo *********************/
@@ -1281,6 +1294,12 @@ struct crashinfo_jit_address_range {
 	uint64_t start_address;
 	uint64_t end_address;
 } __attribute__((packed));
+
+struct crashinfo_mb {
+	uint64_t start_address;
+	uint64_t data[64];
+} __attribute__((packed));
+
 
 #define MAX_CRASHINFO_SIGNING_ID_LEN 64
 #define MAX_CRASHINFO_TEAM_ID_LEN 32
@@ -1358,6 +1377,9 @@ struct crashinfo_jit_address_range {
 #define TASK_CRASHINFO_CS_TRUST_LEVEL                           0x83E /* uint32_t */
 #define TASK_CRASHINFO_PROC_CPUTYPE                             0x83F /* cpu_type_t */
 #define TASK_CRASHINFO_JIT_ADDRESS_RANGE                        0x840 /* struct crashinfo_jit_address_range */
+#define TASK_CRASHINFO_MB                                       0x841 /* struct crashinfo_mb */
+#define TASK_CRASHINFO_CS_AUXILIARY_INFO                        0x842 /* uint64_t */
+
 #define TASK_CRASHINFO_END                  KCDATA_TYPE_BUFFER_END
 
 /**************** definitions for backtrace info *********************/

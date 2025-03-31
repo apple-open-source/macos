@@ -1186,6 +1186,84 @@ static CFStringRef SecValidInfoCopyFormatDescription(CFTypeRef cf, CFDictionaryR
     return desc;
 }
 
+static bool SecValidInfoGetPolicyConstraints(CFDataRef data, SecValidPolicy **constraints, CFIndex *count) {
+    /* Check the input policy constraints data, returning pointer and
+     * count values in output arguments. Function result is true if successful.
+     *
+     * The first byte of the policy constraints data contains the number of entries,
+     * followed by an array of 0..n policy constraint values of type SecValidPolicy.
+     * The maximum number of defined policies is not expected to approach 127, i.e.
+     * the largest value which can be expressed in a signed byte.
+     */
+    bool result = false;
+    CFIndex length = 0;
+    SecValidPolicy *p = NULL;
+    if (data) {
+        length = CFDataGetLength(data);
+        p = (SecValidPolicy *)CFDataGetBytePtr(data);
+    }
+    /* Verify that count is 0 or greater, and equal to remaining number of bytes */
+    CFIndex c = (length > 0) ? *p++ : -1;
+    if (c < 0 || c != (length - 1)) {
+        secerror("invalid policy constraints array");
+    } else {
+        if (constraints) {
+            *constraints = p;
+        }
+        if (count) {
+            *count = c;
+        }
+        result = true;
+    }
+    return result;
+}
+
+bool SecValidInfoPolicyConstraintsPermitPolicy(SecValidInfoRef info, CFStringRef policyId) {
+    SecValidPolicy *constraints = NULL;
+    CFIndex count = 0;
+    if (!SecValidInfoGetPolicyConstraints(info->policyConstraints, &constraints, &count)) {
+        return true;
+    }
+
+    if (!constraints || !policyId) {
+        return true; /* nothing to constrain */
+    }
+    SecValidPolicy policyType = kSecValidPolicyAny;
+    /* determine if the policy is a candidate for being constrained */
+    if (CFEqualSafe(policyId, kSecPolicyAppleSSLServer) ||
+               CFEqualSafe(policyId, kSecPolicyAppleEAPServer) ||
+               CFEqualSafe(policyId, kSecPolicyAppleIPSecServer)) {
+        policyType = kSecValidPolicyServerAuthentication;
+    } else if (CFEqualSafe(policyId, kSecPolicyAppleSSLClient) ||
+               CFEqualSafe(policyId, kSecPolicyAppleEAPClient) ||
+               CFEqualSafe(policyId, kSecPolicyAppleIPSecClient)) {
+        policyType = kSecValidPolicyClientAuthentication;
+    } else if (CFEqualSafe(policyId, kSecPolicyNameSMIME)) {
+        policyType = kSecValidPolicyEmailProtection;
+    } else if (CFEqualSafe(policyId, kSecPolicyNameCodeSigning)) {
+        policyType = kSecValidPolicyCodeSigning;
+    } else if (CFEqualSafe(policyId, kSecPolicyNameTimeStamping)) {
+        policyType = kSecValidPolicyTimeStamping;
+    }
+    if (policyType == kSecValidPolicyAny) {
+        return true; /* policy not subject to constraint */
+    }
+    /* policy is subject to constraint; do the constraints allow it? */
+    bool result = false;
+    for (CFIndex ix = 0; ix < count; ix++) {
+        SecValidPolicy allowedPolicy = constraints[ix];
+        if (allowedPolicy == kSecValidPolicyAny ||
+            allowedPolicy == policyType) {
+            result = true;
+            break;
+        }
+    }
+    if (!result) {
+        secnotice("rvc", "%@ not allowed by policy constraints on issuing CA", policyId);
+    }
+    return result;
+}
+
 
 // MARK: -
 // MARK: SecRevocationDb

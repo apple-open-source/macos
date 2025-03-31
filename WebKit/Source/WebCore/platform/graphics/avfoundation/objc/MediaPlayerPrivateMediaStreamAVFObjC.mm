@@ -28,6 +28,7 @@
 
 #if ENABLE(MEDIA_STREAM) && USE(AVFOUNDATION)
 
+#import "AudioMediaStreamTrackRenderer.h"
 #import "AudioTrackPrivateMediaStream.h"
 #import "GraphicsContextCG.h"
 #import "LocalSampleBufferDisplayLayer.h"
@@ -138,6 +139,7 @@ void MediaPlayerPrivateMediaStreamAVFObjC::setNativeImageCreator(NativeImageCrea
 
 MediaPlayerPrivateMediaStreamAVFObjC::MediaPlayerPrivateMediaStreamAVFObjC(MediaPlayer* player)
     : m_player(player)
+    , m_startTime(MediaTime::invalidTime())
     , m_videoRotation { VideoFrameRotation::None }
     , m_logger(player->mediaPlayerLogger())
     , m_logIdentifier(player->mediaPlayerLogIdentifier())
@@ -433,7 +435,7 @@ void MediaPlayerPrivateMediaStreamAVFObjC::layersAreInitialized(IntSize size, bo
 
     scheduleRenderingModeChanged();
 
-    m_sampleBufferDisplayLayer->setLogIdentifier(makeString(hex(reinterpret_cast<uintptr_t>(logIdentifier()))));
+    m_sampleBufferDisplayLayer->setLogIdentifier(makeString(hex(logIdentifier())));
     if (m_storedBounds)
         m_sampleBufferDisplayLayer->updateBoundsAndPosition(*m_storedBounds);
 
@@ -487,7 +489,7 @@ void MediaPlayerPrivateMediaStreamAVFObjC::load(MediaStreamPrivate& stream)
 {
     INFO_LOG(LOGIDENTIFIER);
 
-    m_intrinsicSize = FloatSize();
+    m_intrinsicSize = { };
 
     m_mediaStreamPrivate = &stream;
     m_mediaStreamPrivate->addObserver(*this);
@@ -770,7 +772,7 @@ void MediaPlayerPrivateMediaStreamAVFObjC::characteristicsChanged()
 {
     SizeChanged sizeChanged = SizeChanged::No;
 
-    FloatSize intrinsicSize = m_mediaStreamPrivate->intrinsicSize();
+    IntSize intrinsicSize = m_mediaStreamPrivate->intrinsicSize();
     if (intrinsicSize.isEmpty() || m_intrinsicSize.isEmpty()) {
         if (intrinsicSize.height() != m_intrinsicSize.height() || intrinsicSize.width() != m_intrinsicSize.width()) {
             m_intrinsicSize = intrinsicSize;
@@ -1146,6 +1148,8 @@ void MediaPlayerPrivateMediaStreamAVFObjC::audioOutputDeviceChanged()
     if (!player)
         return;
     auto deviceId = player->audioOutputDeviceId();
+    if (deviceId.isEmpty())
+        deviceId = AudioMediaStreamTrackRenderer::defaultDeviceID();
     for (auto& audioTrack : m_audioTrackMap.values())
         audioTrack->setAudioOutputDevice(deviceId);
 }

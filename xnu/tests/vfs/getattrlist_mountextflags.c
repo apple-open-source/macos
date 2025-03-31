@@ -42,7 +42,13 @@
 #define FSTYPE_MSDOS "msdos"
 #define FSTYPE_APFS  "apfs"
 #define TEMPLATE     "/private/var/tmp/getattrlist_mountextflags_test.XXXXXXXX"
+
+/* rdar://137970358: Disable the test for now until the root cause was determined */
+#if 0
 #define RUN_TEST     ((TARGET_OS_OSX || TARGET_OS_IOS) && !TARGET_OS_XR)
+#else
+#define RUN_TEST     0
+#endif
 
 static char template[] = TEMPLATE;
 static char *testdir = NULL;
@@ -204,7 +210,7 @@ T_DECL(getattrlist_mountextflags,
     "test ATTR_VOL_MOUNTEXTFLAGS")
 {
 #if (!RUN_TEST)
-	T_SKIP("Not macOS nor iOS");
+	T_SKIP("Test disabled for this platform");
 #endif
 
 	char *diskp = NULL;

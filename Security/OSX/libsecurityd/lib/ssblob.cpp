@@ -47,7 +47,7 @@ uint32 CommonBlob::getCurrentVersion() {
             ret = version_MacOS_10_0;
         }
     } else {
-        secnotice("integrity", "global integrity not set, defaulting to on");
+        secinfo("integrity", "global integrity not set, defaulting to on");
         ret = version_partition;
     }
     CFReleaseSafe(integrity);

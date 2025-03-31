@@ -210,26 +210,24 @@ RemoteVideoDecoder::~RemoteVideoDecoder()
     videoDecoderCallbacks().releaseCallback(m_internalDecoder);
 }
 
-void videoDecoderTaskComplete(void* callback, uint32_t timeStamp, uint32_t timeStampRTP, CVPixelBufferRef pixelBuffer)
+void videoDecoderTaskComplete(void* callback, uint32_t timeStampRTP, CVPixelBufferRef pixelBuffer)
 {
     auto videoFrame = VideoFrame::Builder().set_video_frame_buffer(pixelBufferToFrame(pixelBuffer))
         .set_timestamp_rtp(timeStampRTP)
         .set_timestamp_ms(0)
         .set_rotation((VideoRotation)RTCVideoRotation_0)
         .build();
-    videoFrame.set_timestamp(timeStamp);
 
     static_cast<DecodedImageCallback*>(callback)->Decoded(videoFrame);
 }
 
-void videoDecoderTaskComplete(void* callback, uint32_t timeStamp, uint32_t timeStampRTP, void* pointer, GetBufferCallback getBufferCallback, ReleaseBufferCallback releaseBufferCallback, int width, int height)
+void videoDecoderTaskComplete(void* callback, uint32_t timeStampRTP, void* pointer, GetBufferCallback getBufferCallback, ReleaseBufferCallback releaseBufferCallback, int width, int height)
 {
     auto videoFrame = VideoFrame::Builder().set_video_frame_buffer(toWebRTCVideoFrameBuffer(pointer, getBufferCallback, releaseBufferCallback, width, height))
         .set_timestamp_rtp(timeStampRTP)
         .set_timestamp_ms(0)
         .set_rotation((VideoRotation)RTCVideoRotation_0)
         .build();
-    videoFrame.set_timestamp(timeStamp);
 
     static_cast<DecodedImageCallback*>(callback)->Decoded(videoFrame);
 }

@@ -2660,27 +2660,10 @@ exit:
 
 DAReturn _DADiskSetEncoding( DADiskRef disk, UInt32 encoding )
 {
-    DAReturn status;
+    // This is not supported.
+    // Encoding can be changed by unmounting and mounting the volume with the required encoding.
 
-    status = _DAAuthorize( _DADiskGetSession( disk ), _kDAAuthorizeOptionIsOwner, disk, _kDAAuthorizeRightEncode );
-
-    if ( status == kDAReturnSuccess )
-    {
-#if TARGET_OS_IOS
-        DASessionRef session = _DADiskGetSession( disk);
-        if ( _DADiskGetSessionID( disk ) == NULL  && _DASessionIsKeepAlive( session ) )
-        {
-            if ( _DASessionRecreate (session) != kDAReturnSuccess )
-            {
-                status = kDAReturnBadArgument;
-                goto exit;
-            }
-        }
-#endif
-        status = _DAServerDiskSetEncoding( _DADiskGetSessionID( disk ), _DADiskGetID( disk ), encoding );
-    }
-exit:
-    return status;
+    return kDAReturnUnsupported;
 }
 
 void DARegisterIdleCallback( DASessionRef session, DAIdleCallback callback, void * context )

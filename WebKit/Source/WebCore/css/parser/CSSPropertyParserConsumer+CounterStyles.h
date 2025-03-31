@@ -31,6 +31,7 @@
 namespace WebCore {
 
 class CSSParserTokenRange;
+class CSSValue;
 struct CSSParserContext;
 enum CSSValueID : uint16_t;
 
@@ -43,15 +44,15 @@ RefPtr<CSSValue> consumeCounterStyle(CSSParserTokenRange&, const CSSParserContex
 
 // MARK: @counter-style descriptor consumers
 AtomString consumeCounterStyleNameInPrelude(CSSParserTokenRange&, CSSParserMode = CSSParserMode::HTMLStandardMode);
-RefPtr<CSSValue> consumeCounterStyleName(CSSParserTokenRange&);
+RefPtr<CSSValue> consumeCounterStyleName(CSSParserTokenRange&, const CSSParserContext&);
 RefPtr<CSSValue> consumeCounterStyleSymbol(CSSParserTokenRange&, const CSSParserContext&);
 RefPtr<CSSValue> consumeCounterStyleSystem(CSSParserTokenRange&, const CSSParserContext&);
 RefPtr<CSSValue> consumeCounterStyleNegative(CSSParserTokenRange&, const CSSParserContext&);
-RefPtr<CSSValue> consumeCounterStyleRange(CSSParserTokenRange&);
+RefPtr<CSSValue> consumeCounterStyleRange(CSSParserTokenRange&, const CSSParserContext&);
 RefPtr<CSSValue> consumeCounterStylePad(CSSParserTokenRange&, const CSSParserContext&);
 RefPtr<CSSValue> consumeCounterStyleSymbols(CSSParserTokenRange&, const CSSParserContext&);
 RefPtr<CSSValue> consumeCounterStyleAdditiveSymbols(CSSParserTokenRange&, const CSSParserContext&);
-RefPtr<CSSValue> consumeCounterStyleSpeakAs(CSSParserTokenRange&);
+RefPtr<CSSValue> consumeCounterStyleSpeakAs(CSSParserTokenRange&, const CSSParserContext&);
 
 } // namespace CSSPropertyParserHelpers
 } // namespace WebCore

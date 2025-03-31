@@ -303,8 +303,8 @@ firehose_client_drain_one(firehose_client_t fc, mach_port_t port, uint32_t flags
 	if (for_io) {
 		evt = FIREHOSE_EVENT_IO_BUFFER_RECEIVED;
 		sevt = FIREHOSE_SNAPSHOT_EVENT_IO_BUFFER;
-		_Static_assert(FIREHOSE_EVENT_IO_BUFFER_RECEIVED ==
-				FIREHOSE_SNAPSHOT_EVENT_IO_BUFFER, "");
+		_Static_assert((unsigned long)FIREHOSE_EVENT_IO_BUFFER_RECEIVED ==
+				(unsigned long)FIREHOSE_SNAPSHOT_EVENT_IO_BUFFER, "");
 		fbh_ring = fb->fb_header.fbh_io_ring;
 		sent_flushed = (uint16_t)fc->fc_io_sent_flushed_pos;
 		flushed = (uint16_t)fc->fc_io_flushed_pos;
@@ -312,8 +312,8 @@ firehose_client_drain_one(firehose_client_t fc, mach_port_t port, uint32_t flags
 	} else {
 		evt = FIREHOSE_EVENT_MEM_BUFFER_RECEIVED;
 		sevt = FIREHOSE_SNAPSHOT_EVENT_MEM_BUFFER;
-		_Static_assert(FIREHOSE_EVENT_MEM_BUFFER_RECEIVED ==
-				FIREHOSE_SNAPSHOT_EVENT_MEM_BUFFER, "");
+		_Static_assert((unsigned long)FIREHOSE_EVENT_MEM_BUFFER_RECEIVED ==
+				(unsigned long)FIREHOSE_SNAPSHOT_EVENT_MEM_BUFFER, "");
 		fbh_ring = fb->fb_header.fbh_mem_ring;
 		sent_flushed = (uint16_t)fc->fc_mem_sent_flushed_pos;
 		flushed = (uint16_t)fc->fc_mem_flushed_pos;

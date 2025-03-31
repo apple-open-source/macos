@@ -48,10 +48,11 @@
 #import "_WKFrameHandleInternal.h"
 #import "_WKInspectorInternal.h"
 #import <WebCore/NowPlayingInfo.h>
-#import <WebCore/RuntimeApplicationChecks.h>
 #import <WebCore/ScrollingNodeID.h>
 #import <WebCore/ValidationBubble.h>
+#import <pal/spi/cocoa/QuartzCoreSPI.h>
 #import <wtf/RetainPtr.h>
+#import <wtf/RuntimeApplicationChecks.h>
 #import <wtf/TZoneMallocInlines.h>
 #import <wtf/text/MakeString.h>
 
@@ -136,6 +137,11 @@ static void dumpCALayer(TextStream& ts, CALayer *layer, bool traverse)
     if (layer.anchorPointZ)
         ts.dumpProperty("layer anchorPointZ", makeString(layer.anchorPointZ));
 
+#if HAVE(CORE_ANIMATION_SEPARATED_LAYERS)
+    if (layer.separated)
+        ts.dumpProperty("separated", true);
+#endif
+
     if (layer.opacity != 1.0)
         ts.dumpProperty("layer opacity", makeString(layer.opacity));
 
@@ -174,7 +180,7 @@ static void dumpCALayer(TextStream& ts, CALayer *layer, bool traverse)
 
 - (void)_setPageScale:(CGFloat)scale withOrigin:(CGPoint)origin
 {
-    _page->scalePage(scale, WebCore::roundedIntPoint(origin));
+    _page->scalePage(scale, WebCore::roundedIntPoint(origin), [] { });
 }
 
 - (CGFloat)_pageScale
@@ -227,7 +233,7 @@ static void dumpCALayer(TextStream& ts, CALayer *layer, bool traverse)
     }
 
     _page->requestActiveNowPlayingSessionInfo([handler = makeBlockPtr(callback)] (bool registeredAsNowPlayingApplication, WebCore::NowPlayingInfo&& nowPlayingInfo) {
-        handler(nowPlayingInfo.allowsNowPlayingControlsVisibility, registeredAsNowPlayingApplication, nowPlayingInfo.metadata.title, nowPlayingInfo.duration, nowPlayingInfo.currentTime, nowPlayingInfo.uniqueIdentifier.toUInt64());
+        handler(nowPlayingInfo.allowsNowPlayingControlsVisibility, registeredAsNowPlayingApplication, nowPlayingInfo.metadata.title, nowPlayingInfo.duration, nowPlayingInfo.currentTime, nowPlayingInfo.uniqueIdentifier ? nowPlayingInfo.uniqueIdentifier->toUInt64() : 0);
     });
 }
 
@@ -331,12 +337,6 @@ static void dumpCALayer(TextStream& ts, CALayer *layer, bool traverse)
 #endif
 }
 
-- (void)_setDefersLoadingForTesting:(BOOL)defersLoading
-{
-    if (auto* pageForTesting = _page->pageForTesting())
-        pageForTesting->setDefersLoading(defersLoading);
-}
-
 - (void)_setShareSheetCompletesImmediatelyWithResolutionForTesting:(BOOL)resolved
 {
     _resolutionForShareSheetImmediateCompletionForTesting = resolved;
@@ -400,7 +400,7 @@ static void dumpCALayer(TextStream& ts, CALayer *layer, bool traverse)
     if (nsIndex)
         index = nsIndex.unsignedIntValue;
 
-    if (auto* pageForTesting = _page->pageForTesting())
+    if (RefPtr pageForTesting = _page->pageForTesting())
         pageForTesting->setIndexOfGetDisplayMediaDeviceSelectedForTesting(index);
 #endif
 }
@@ -411,7 +411,7 @@ static void dumpCALayer(TextStream& ts, CALayer *layer, bool traverse)
     if (!_page)
         return;
 
-    if (auto* pageForTesting = _page->pageForTesting())
+    if (RefPtr pageForTesting = _page->pageForTesting())
         pageForTesting->setSystemCanPromptForGetDisplayMediaForTesting(!!canPrompt);
 #endif
 }
@@ -444,12 +444,12 @@ static void dumpCALayer(TextStream& ts, CALayer *layer, bool traverse)
 
 + (void)_setApplicationBundleIdentifier:(NSString *)bundleIdentifier
 {
-    WebCore::setApplicationBundleIdentifierOverride(String(bundleIdentifier));
+    setApplicationBundleIdentifierOverride(String(bundleIdentifier));
 }
 
 + (void)_clearApplicationBundleIdentifierTestingOverride
 {
-    WebCore::clearApplicationBundleIdentifierTestingOverride();
+    clearApplicationBundleIdentifierTestingOverride();
 }
 
 - (BOOL)_hasSleepDisabler
@@ -459,15 +459,19 @@ static void dumpCALayer(TextStream& ts, CALayer *layer, bool traverse)
 
 - (NSString*)_scrollbarStateForScrollingNodeID:(uint64_t)scrollingNodeID processID:(uint64_t)processID isVertical:(bool)isVertical
 {
-    if (_page)
-        return _page->scrollbarStateForScrollingNodeID(WebCore::ScrollingNodeID(LegacyNullableObjectIdentifier<WebCore::ScrollingNodeIDType>(scrollingNodeID), LegacyNullableObjectIdentifier<WebCore::ProcessIdentifierType>(processID)), isVertical);
-    return @"";
+    if (!_page || !ObjectIdentifier<WebCore::ProcessIdentifierType>::isValidIdentifier(processID) || !ObjectIdentifier<WebCore::ScrollingNodeIDType>::isValidIdentifier(scrollingNodeID))
+        return @"";
+    return _page->scrollbarStateForScrollingNodeID(WebCore::ScrollingNodeID(ObjectIdentifier<WebCore::ScrollingNodeIDType>(scrollingNodeID), ObjectIdentifier<WebCore::ProcessIdentifierType>(processID)), isVertical);
 }
 
 - (WKWebViewAudioRoutingArbitrationStatus)_audioRoutingArbitrationStatus
 {
 #if ENABLE(ROUTING_ARBITRATION)
-    switch (_page->legacyMainFrameProcess().audioSessionRoutingArbitrator().arbitrationStatus()) {
+    WeakPtr arbitrator = _page->legacyMainFrameProcess().audioSessionRoutingArbitrator();
+    if (!arbitrator)
+        return WKWebViewAudioRoutingArbitrationStatusNone;
+
+    switch (arbitrator->arbitrationStatus()) {
     case WebKit::AudioSessionRoutingArbitratorProxy::ArbitrationStatus::None: return WKWebViewAudioRoutingArbitrationStatusNone;
     case WebKit::AudioSessionRoutingArbitratorProxy::ArbitrationStatus::Pending: return WKWebViewAudioRoutingArbitrationStatusPending;
     case WebKit::AudioSessionRoutingArbitratorProxy::ArbitrationStatus::Active: return WKWebViewAudioRoutingArbitrationStatusActive;
@@ -481,7 +485,11 @@ static void dumpCALayer(TextStream& ts, CALayer *layer, bool traverse)
 - (double)_audioRoutingArbitrationUpdateTime
 {
 #if ENABLE(ROUTING_ARBITRATION)
-    return _page->legacyMainFrameProcess().audioSessionRoutingArbitrator().arbitrationUpdateTime().secondsSinceEpoch().seconds();
+    WeakPtr arbitrator = _page->legacyMainFrameProcess().audioSessionRoutingArbitrator();
+    if (!arbitrator)
+        return 0;
+
+    return arbitrator->arbitrationUpdateTime().secondsSinceEpoch().seconds();
 #else
     return 0;
 #endif
@@ -499,7 +507,7 @@ static void dumpCALayer(TextStream& ts, CALayer *layer, bool traverse)
 
 - (void)_setPrivateClickMeasurementOverrideTimerForTesting:(BOOL)overrideTimer completionHandler:(void(^)(void))completionHandler
 {
-    auto* pageForTesting = _page->pageForTesting();
+    RefPtr pageForTesting = _page->pageForTesting();
     if (!pageForTesting)
         return completionHandler();
 
@@ -510,7 +518,7 @@ static void dumpCALayer(TextStream& ts, CALayer *layer, bool traverse)
 
 - (void)_setPrivateClickMeasurementAttributionReportURLsForTesting:(NSURL *)sourceURL destinationURL:(NSURL *)destinationURL completionHandler:(void(^)(void))completionHandler
 {
-    auto* pageForTesting = _page->pageForTesting();
+    RefPtr pageForTesting = _page->pageForTesting();
     if (!pageForTesting)
         return completionHandler();
 
@@ -521,7 +529,7 @@ static void dumpCALayer(TextStream& ts, CALayer *layer, bool traverse)
 
 - (void)_setPrivateClickMeasurementAttributionTokenPublicKeyURLForTesting:(NSURL *)url completionHandler:(void(^)(void))completionHandler
 {
-    auto* pageForTesting = _page->pageForTesting();
+    RefPtr pageForTesting = _page->pageForTesting();
     if (!pageForTesting)
         return completionHandler();
 
@@ -532,7 +540,7 @@ static void dumpCALayer(TextStream& ts, CALayer *layer, bool traverse)
 
 - (void)_setPrivateClickMeasurementAttributionTokenSignatureURLForTesting:(NSURL *)url completionHandler:(void(^)(void))completionHandler
 {
-    auto* pageForTesting = _page->pageForTesting();
+    RefPtr pageForTesting = _page->pageForTesting();
     if (!pageForTesting)
         return completionHandler();
 
@@ -543,7 +551,7 @@ static void dumpCALayer(TextStream& ts, CALayer *layer, bool traverse)
 
 - (void)_setPrivateClickMeasurementAppBundleIDForTesting:(NSString *)appBundleID completionHandler:(void(^)(void))completionHandler
 {
-    auto* pageForTesting = _page->pageForTesting();
+    RefPtr pageForTesting = _page->pageForTesting();
     if (!pageForTesting)
         return completionHandler();
 
@@ -554,7 +562,7 @@ static void dumpCALayer(TextStream& ts, CALayer *layer, bool traverse)
 
 - (void)_dumpPrivateClickMeasurement:(void(^)(NSString *))completionHandler
 {
-    auto* pageForTesting = _page->pageForTesting();
+    RefPtr pageForTesting = _page->pageForTesting();
     if (!pageForTesting)
         return completionHandler({ });
 
@@ -627,7 +635,7 @@ static void dumpCALayer(TextStream& ts, CALayer *layer, bool traverse)
 
 - (void)_isLayerTreeFrozenForTesting:(void (^)(BOOL frozen))completionHandler
 {
-    auto* pageForTesting = _page->pageForTesting();
+    RefPtr pageForTesting = _page->pageForTesting();
     if (!pageForTesting)
         return completionHandler(false);
 
@@ -639,7 +647,7 @@ static void dumpCALayer(TextStream& ts, CALayer *layer, bool traverse)
 - (void)_computePagesForPrinting:(_WKFrameHandle *)handle completionHandler:(void(^)(void))completionHandler
 {
     WebKit::PrintInfo printInfo;
-    _page->computePagesForPrinting(handle->_frameHandle->frameID(), printInfo, [completionHandler = makeBlockPtr(completionHandler)] (const Vector<WebCore::IntRect>&, double, const WebCore::FloatBoxExtent&) {
+    _page->computePagesForPrinting(*handle->_frameHandle->frameID(), printInfo, [completionHandler = makeBlockPtr(completionHandler)] (const Vector<WebCore::IntRect>&, double, const WebCore::FloatBoxExtent&) {
         completionHandler();
     });
 }
@@ -685,9 +693,7 @@ static void dumpCALayer(TextStream& ts, CALayer *layer, bool traverse)
             return adoptRef(*new WKMediaSessionCoordinatorForTesting(privateCoordinator));
         }
 
-        using WebCore::MediaSessionCoordinatorClient::weakPtrFactory;
-        using WebCore::MediaSessionCoordinatorClient::WeakValueType;
-        using WebCore::MediaSessionCoordinatorClient::WeakPtrImplType;
+        USING_CAN_MAKE_WEAKPTR(WebCore::MediaSessionCoordinatorClient);
 
     private:
         explicit WKMediaSessionCoordinatorForTesting(id <_WKMediaSessionCoordinator> clientCoordinator)
@@ -875,6 +881,39 @@ static void dumpCALayer(TextStream& ts, CALayer *layer, bool traverse)
 - (BOOL)_isLoggerEnabledForTesting
 {
     return _page->logger().enabled();
+}
+
+- (void)_terminateIdleServiceWorkersForTesting
+{
+    Ref protectedProcessProxy = _page->legacyMainFrameProcess();
+    RefPtr store = protectedProcessProxy->websiteDataStore();
+    RefPtr networkProcess = store ? store->networkProcessIfExists() : nullptr;
+    if (networkProcess)
+        networkProcess->terminateIdleServiceWorkers(protectedProcessProxy->coreProcessIdentifier(), [] { });
+}
+
+- (void)_getNotifyStateForTesting:(NSString *)notificationName completionHandler:(void(^)(NSNumber *))completionHandler
+{
+#if ENABLE(NOTIFY_BLOCKING)
+    _page->protectedLegacyMainFrameProcess()->getNotifyStateForTesting(notificationName, [completionHandler = WTFMove(completionHandler)](std::optional<uint64_t> result) mutable {
+        if (!result) {
+            completionHandler(nil);
+            return;
+        }
+        completionHandler(@(result.value()));
+    });
+#else
+    completionHandler(nil);
+#endif
+}
+
+- (BOOL)_hasAccessibilityActivityForTesting
+{
+#if ENABLE(WEB_PROCESS_SUSPENSION_DELAY)
+    return _page->hasAccessibilityActivityForTesting();
+#else
+    return NO;
+#endif
 }
 
 @end

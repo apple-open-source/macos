@@ -21,24 +21,32 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+#import <Foundation/Foundation.h>
 #import "SecTapToRadar.h"
 #import "utilities/debugging.h"
 
-#if TARGET_OS_IOS
-
+#if TARGET_OS_IPHONE
 #import <MobileCoreServices/LSApplicationWorkspace.h>
-#import <CoreFoundation/CFUserNotification.h>
-#import <SoftLinking/SoftLinking.h>
-
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wunused-function"
-SOFT_LINK_FRAMEWORK(Frameworks, MobileCoreServices)
-SOFT_LINK_CLASS(MobileCoreServices, LSApplicationWorkspace);
-#pragma clang diagnostic pop
-
+#endif
+#if TARGET_OS_OSX
+#import <CoreServices/CoreServices.h>
+#import <CoreServices/CoreServicesPriv.h>
 #endif
 
+#import <CoreFoundation/CFUserNotification.h>
+
 #include "utilities/SecInternalReleasePriv.h"
+
+#import <SoftLinking/SoftLinking.h>
+
+#if TARGET_OS_IPHONE
+SOFT_LINK_FRAMEWORK(Frameworks, MobileCoreServices)
+SOFT_LINK_CLASS(MobileCoreServices, LSApplicationWorkspace);
+#elif TARGET_OS_OSX
+SOFT_LINK_FRAMEWORK(Frameworks, CoreServices)
+SOFT_LINK_CLASS(CoreServices, LSApplicationWorkspace);
+#endif
+
 
 static NSString* kSecNextTTRDate = @"NextTTRDate";
 static NSString* kSecPreferenceDomain = @"com.apple.security";
@@ -48,6 +56,7 @@ static NSString* kSecPreferenceDomain = @"com.apple.security";
 @property (readwrite) NSString *radarDescription;
 @property (readwrite) NSString *radarnumber;
 @property (readwrite) dispatch_queue_t queue;
+@property NSDate *created;
 
 @end
 
@@ -69,6 +78,7 @@ static BOOL SecTTRDisabled = NO;
     _radarnumber = radarnumber;
     _queue = dispatch_queue_create("com.apple.security.diagnostic-queue", 0);
     dispatch_set_target_queue(_queue, dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_BACKGROUND, 0));
+    _created = [NSDate date];
 
     _componentName = @"Security";
     _componentVersion = @"all";
@@ -129,54 +139,53 @@ static BOOL SecTTRDisabled = NO;
     secnotice("secttr", "Triggering TTR: %@", ttrRequest.alert);
     dispatch_assert_queue(ttrRequest.queue);
 
-#if TARGET_OS_IOS
-    static dispatch_once_t onceToken;
-    static NSMutableCharacterSet *queryComponent;
-    dispatch_once(&onceToken, ^{
-        queryComponent = [[NSMutableCharacterSet alloc] init];
-        [queryComponent formUnionWithCharacterSet:[NSCharacterSet URLQueryAllowedCharacterSet]];
-        [queryComponent removeCharactersInString:@"&"];
-    });
-
-    Class workspaceCls = getLSApplicationWorkspaceClass();
-    if (workspaceCls == NULL) {
-        return;
-    }
-
     NSString *title = [NSString stringWithFormat:@"SFA: %@ - %@", ttrRequest.alert, ttrRequest.radarnumber];
-    NSString *encodedTitle = [title stringByAddingPercentEncodingWithAllowedCharacters:queryComponent];
 
-    NSString *desc = [NSString stringWithFormat:@"%@\n%@\nRelated radar: rdar://%@",
+    NSString *desc = [NSString stringWithFormat:@"%@\n%@\nRelated radar: rdar://%@\nRequest triggered at: %@",
                       ttrRequest.radarDescription,
                       ttrRequest.reason ?: @"",
-                      ttrRequest.radarnumber];
-    NSString *encodedDesc = [desc stringByAddingPercentEncodingWithAllowedCharacters:queryComponent];
+                      ttrRequest.radarnumber,
+                      ttrRequest.created];
+    
+    NSURLComponents *c = [[NSURLComponents alloc] initWithString: @"tap-to-radar://new"];
+    NSMutableArray<NSURLQueryItem *>* items = [c.queryItems mutableCopy] ?: [NSMutableArray array];
+    
+    [items addObject:[[NSURLQueryItem alloc] initWithName:@"Title" value:title]];
+    [items addObject:[[NSURLQueryItem alloc] initWithName:@"ComponentName" value:ttrRequest.componentName]];
+    [items addObject:[[NSURLQueryItem alloc] initWithName:@"ComponentVersion" value:ttrRequest.componentVersion]];
+    [items addObject:[[NSURLQueryItem alloc] initWithName:@"ComponentID" value:ttrRequest.componentID]];
+    [items addObject:[[NSURLQueryItem alloc] initWithName:@"Reproducibility" value:@"Not Applicable"]];
+    [items addObject:[[NSURLQueryItem alloc] initWithName:@"Classification" value:@"Crash/Hang/Data Loss"]];
+    [items addObject:[[NSURLQueryItem alloc] initWithName:@"Description" value:desc]];
 
-    NSString *url = [NSString stringWithFormat:@"tap-to-radar://new?"
-                     "Title=%@&"
-                     "ComponentName=%@&"
-                     "ComponentVersion=%@&"
-                     "Reproducibility=Not%%20Applicable&"
-                     "ComponentID=%@&"
-                     "Classification=Crash/Hang/Data%%20Loss&"
-                     "Description=%@",
-                     encodedTitle,
-                     [ttrRequest.componentName stringByAddingPercentEncodingWithAllowedCharacters:queryComponent],
-                     [ttrRequest.componentVersion stringByAddingPercentEncodingWithAllowedCharacters:queryComponent],
-                     [ttrRequest.componentID stringByAddingPercentEncodingWithAllowedCharacters:queryComponent],
-                     encodedDesc];
+    [c setQueryItems:items];
 
-    NSURL *tapToRadarURL = [NSURL URLWithString:url];
-    [[workspaceCls defaultWorkspace] openURL:tapToRadarURL configuration:nil completionHandler:^(NSDictionary<NSString *,id> * __unused result, NSError * __unused error) {
+    NSURL *tapToRadarURL = [c URL];
+
+#if TARGET_OS_IPHONE
+    LSApplicationWorkspace *ws = [getLSApplicationWorkspaceClass() defaultWorkspace];
+    [ws openSensitiveURL:tapToRadarURL withOptions:nil];
+#elif TARGET_OS_OSX
+    LSApplicationWorkspace *ws = [getLSApplicationWorkspaceClass() defaultWorkspace];
+    [ws openURL:tapToRadarURL configuration:nil completionHandler:^(NSDictionary<NSString *,id> *result, NSError *error)
+     {
+        if (error) {
+            secerror("ttr failed with: %@", error);
+        }
     }];
 #endif
 }
+
+/*
+ * This assumes sandbox profile allow
+ * iphone: ?
+ * osx: mach-service "com.apple.UNCUserNotification"
+ */
 
 + (BOOL)askUserIfTTR:(SecTapToRadar *)ttrRequest
 {
     BOOL result = NO;
     
-#if TARGET_OS_IOS
     NSDictionary *alertOptions = @{
         (NSString *)kCFUserNotificationDefaultButtonTitleKey : @"Tap-To-Radar",
         (NSString *)kCFUserNotificationAlternateButtonTitleKey : @"Go away",
@@ -198,9 +207,9 @@ static BOOL SecTTRDisabled = NO;
         }
         CFRelease(notification);
     } else {
-        secnotice("SecTTR", "Failed to create notification error %@", @(error));
+        secnotice("SecTTR", "Failed to create notification, error %@", @(error));
     }
-#endif
+
     return result;
 }
 

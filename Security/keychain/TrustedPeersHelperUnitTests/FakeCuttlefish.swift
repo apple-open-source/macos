@@ -308,6 +308,9 @@ class FakeCuttlefishServer: NSObject, ConfiguredCuttlefishAPIAsync {
     var injectLegacyEscrowRecords: Bool = false
     var includeEscrowRecords: Bool = true
 
+    // Checking validity can be expensive. Turn this off if you're trying to diagnose non-Cuttlefish operations.
+    var checkValidityofGraphOnUpdateTrust: Bool = true
+
     var nextFetchErrors: [Error] = []
     var fetchViableBottlesError: [Error] = []
     var nextJoinErrors: [Error] = []
@@ -824,27 +827,44 @@ class FakeCuttlefishServer: NSObject, ConfiguredCuttlefishAPIAsync {
         }
 
         // Will Cuttlefish reject this due to peer graph issues?
-        do {
-            let model = try self.state.model(updating: peer)
-
+        if self.checkValidityofGraphOnUpdateTrust {
             do {
-                guard try model.hasPotentiallyTrustedPeerTestingOnly() else {
-                    completion(.failure(FakeCuttlefishServer.makeCloudKitCuttlefishError(code: .resultGraphHasNoPotentiallyTrustedPeers)))
+                let model = try self.state.model(updating: peer)
+
+                do {
+                    guard try model.hasPotentiallyTrustedPeerTestingOnly() else {
+                        completion(.failure(FakeCuttlefishServer.makeCloudKitCuttlefishError(code: .resultGraphHasNoPotentiallyTrustedPeers)))
+                        return
+                    }
+                } catch {
+                    print("FakeCuttlefish: updateTrust model error determining whether there is a potentially trusted peer: \(error)")
+                    completion(.failure(error))
                     return
                 }
-            } catch {
-                print("FakeCuttlefish: updateTrust model error determining whether there is a potentially trusted peer: \(error)")
-                completion(.failure(error))
-                return
-            }
 
-            if self.state.recoverySigningPubKey != nil && self.state.recoveryEncryptionPubKey != nil {
-                if let recoverySigningPubKey = self.state.recoverySigningPubKey {
+                if self.state.recoverySigningPubKey != nil && self.state.recoveryEncryptionPubKey != nil {
+                    if let recoverySigningPubKey = self.state.recoverySigningPubKey {
+                        do {
+                            if try !model.isRecoveryKeyExcluded(recoverySigningPubKey) {
+                                // if the RK hasn't been explicitly excluded, ensure the resulting model has one trusted peer left
+                                guard try model.allTrustedPeersWithCurrentRecoveryKey().isEmpty == false else {
+                                    completion(.failure(FakeCuttlefishServer.makeCloudKitCuttlefishError(code: .resultGraphHasNoPotentiallyTrustedPeersWithRecoveryKey)))
+                                    return
+                                }
+                            }
+                        } catch {
+                            completion(.failure(error))
+                            return
+                        }
+                    }
+                }
+
+                if self.state.custodianRecoveryKeys.isEmpty == false && peer.hasCustodianRecoveryKeyAndSig {
                     do {
-                        if try !model.isRecoveryKeyExcluded(recoverySigningPubKey) {
-                            // if the RK hasn't been explicitly excluded, ensure the resulting model has one trusted peer left
-                            guard try model.allTrustedPeersWithCurrentRecoveryKey().isEmpty == false else {
-                                completion(.failure(FakeCuttlefishServer.makeCloudKitCuttlefishError(code: .resultGraphHasNoPotentiallyTrustedPeersWithRecoveryKey)))
+                        let untrustedPeerIDs = try model.untrustedPeerIDs()
+                        for crk in (try self.state.custodianRecoveryKeys.values.filter { try !model.isCustodianRecoveryKeyTrusted($0.toCustodianRecoveryKey()!) }) {
+                            guard untrustedPeerIDs.contains(crk.toCustodianRecoveryKey()!.peerID) else {
+                                completion(.failure(FakeCuttlefishServer.makeCloudKitCuttlefishError(code: .resultGraphNotFullyReachable)))
                                 return
                             }
                         }
@@ -853,24 +873,9 @@ class FakeCuttlefishServer: NSObject, ConfiguredCuttlefishAPIAsync {
                         return
                     }
                 }
+            } catch {
+                print("FakeCuttlefish: updateTrust failed to make model: ", String(describing: error))
             }
-
-            if self.state.custodianRecoveryKeys.isEmpty == false && peer.hasCustodianRecoveryKeyAndSig {
-                do {
-                    let untrustedPeerIDs = try model.untrustedPeerIDs()
-                    for crk in (try self.state.custodianRecoveryKeys.values.filter { try !model.isCustodianRecoveryKeyTrusted($0.toCustodianRecoveryKey()!) }) {
-                        guard untrustedPeerIDs.contains(crk.toCustodianRecoveryKey()!.peerID) else {
-                            completion(.failure(FakeCuttlefishServer.makeCloudKitCuttlefishError(code: .resultGraphNotFullyReachable)))
-                            return
-                        }
-                    }
-                } catch {
-                    completion(.failure(error))
-                    return
-                }
-            }
-        } catch {
-            print("FakeCuttlefish: updateTrust failed to make model: ", String(describing: error))
         }
 
         // Cuttlefish has accepted the write.

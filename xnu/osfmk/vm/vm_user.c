@@ -1870,36 +1870,44 @@ vm_region_object_create(
 }
 #endif /* XNU_PLATFORM_MacOSX */
 
+extern boolean_t proc_is_simulated(struct proc *p);
+
 kern_return_t
-mach_vm_deferred_reclamation_buffer_init(
-	task_t            task,
-	mach_vm_offset_ut *address,
-	mach_vm_size_ut   size)
+mach_vm_deferred_reclamation_buffer_allocate(
+	task_t           task,
+	mach_vm_address_ut *address,
+	uint32_t initial_capacity,
+	uint32_t max_capacity)
 {
 #if CONFIG_DEFERRED_RECLAIM
-	return vm_deferred_reclamation_buffer_init_internal(task, address, size);
+	if (task != current_task()) {
+		/* Remote buffer operations are not supported*/
+		return KERN_INVALID_TASK;
+	}
+	struct proc *p = task_get_proc_raw(task);
+	if (proc_is_simulated(p)) {
+		return KERN_NOT_SUPPORTED;
+	}
+	return vm_deferred_reclamation_buffer_allocate_internal(task, address, initial_capacity, max_capacity);
 #else
 	(void) task;
 	(void) address;
 	(void) size;
-	(void) indices;
 	return KERN_NOT_SUPPORTED;
 #endif /* CONFIG_DEFERRED_RECLAIM */
 }
 
 kern_return_t
-mach_vm_deferred_reclamation_buffer_synchronize(
+mach_vm_deferred_reclamation_buffer_flush(
 	task_t task,
-	mach_vm_size_ut num_entries_to_reclaim_u)
+	uint32_t num_entries_to_reclaim)
 {
 #if CONFIG_DEFERRED_RECLAIM
-	/*
-	 * This unwrapping is safe as num_entries_to_reclaim is not to be
-	 * interpreted as the size of range of addresses.
-	 */
-	mach_vm_size_t num_entries_to_reclaim =
-	    VM_SANITIZE_UNSAFE_UNWRAP(num_entries_to_reclaim_u);
-	return vm_deferred_reclamation_buffer_synchronize_internal(task, num_entries_to_reclaim);
+	if (task != current_task()) {
+		/* Remote buffer operations are not supported */
+		return KERN_INVALID_TASK;
+	}
+	return vm_deferred_reclamation_buffer_flush_internal(task, num_entries_to_reclaim);
 #else
 	(void) task;
 	(void) num_entries_to_reclaim;
@@ -1919,10 +1927,31 @@ mach_vm_deferred_reclamation_buffer_update_reclaimable_bytes(
 	 */
 	mach_vm_size_t reclaimable_bytes =
 	    VM_SANITIZE_UNSAFE_UNWRAP(reclaimable_bytes_u);
+	if (task != current_task()) {
+		/* Remote buffer operations are not supported */
+		return KERN_INVALID_TASK;
+	}
 	return vm_deferred_reclamation_buffer_update_reclaimable_bytes_internal(task, reclaimable_bytes);
 #else
 	(void) task;
 	(void) reclaimable_bytes;
+	return KERN_NOT_SUPPORTED;
+#endif /* CONFIG_DEFERRED_RECLAIM */
+}
+
+kern_return_t
+mach_vm_deferred_reclamation_buffer_resize(task_t task,
+    uint32_t capacity)
+{
+#if CONFIG_DEFERRED_RECLAIM
+	if (task != current_task()) {
+		/* Remote buffer operations are not supported */
+		return KERN_INVALID_TASK;
+	}
+	return vm_deferred_reclamation_buffer_resize_internal(task, capacity);
+#else
+	(void) task;
+	(void) size;
 	return KERN_NOT_SUPPORTED;
 #endif /* CONFIG_DEFERRED_RECLAIM */
 }
@@ -2057,7 +2086,7 @@ mach_vm_range_create_v1(
 			return KERN_INVALID_ARGUMENT;
 		}
 
-		static_assert(UMEM_RANGE_ID_FIXED == MACH_VM_RANGE_FIXED);
+		static_assert((int)UMEM_RANGE_ID_FIXED == MACH_VM_RANGE_FIXED);
 		switch (recipe[i].range_tag) {
 		case MACH_VM_RANGE_FIXED:
 			break;

@@ -52,6 +52,11 @@ __FBSDID("$FreeBSD: src/usr.bin/makewhatis/makewhatis.c,v 1.9 2002/09/04 23:29:0
 #include <unistd.h>
 #include <zlib.h>
 
+#ifdef __APPLE__
+#include <System/sys/codesign.h>
+#include <dispatch/dispatch.h>
+#endif /* __APPLE__ */
+
 #define DEFAULT_MANPATH		"/usr/share/man"
 #define LINE_ALLOC		4096
 
@@ -330,6 +335,29 @@ trap_signal(int sig __unused)
 	exit(1);
 }
 
+static inline int
+sanitize_open_flags(int flags)
+{
+#ifdef __APPLE__
+	static int no_follow_links = 0;
+	
+	static dispatch_once_t onceToken;
+	dispatch_once(&onceToken, ^{
+		// When the process has CS_INSTALLER abilities, do not allow it to follow any symlinks within any path components
+		uint32_t cs_flags = 0;
+		if (csops(getpid(), CS_OPS_STATUS, &cs_flags, sizeof(cs_flags)) == 0 && (cs_flags & CS_INSTALLER)) {
+			no_follow_links = 1;
+		}
+	});
+	
+	// rdar://141838073 (makewhatis: Follows untrusted symlinks into SIP protected locations when CS_INSTALLER is present)
+	if (no_follow_links) {
+		flags = (flags | O_NOFOLLOW_ANY) & ~O_NOFOLLOW; // Passing O_NOFOLLOW_ANY with O_NOFOLLOW to open() returns EINVAL
+	}
+#endif /* __APPLE__ */
+	return flags;
+}
+
 /*
  * Attempts to open an output file.  Returns NULL if unsuccessful.
  */
@@ -343,8 +371,8 @@ open_output(char *name, int dir_fd, char *rel_name)
 	whatis_lines = sl_init();
 	if (append) {
 		char line[LINE_ALLOC];
-
-		output_fd = openat(dir_fd, rel_name, O_RDONLY);
+		int o_flags = sanitize_open_flags(O_RDONLY);
+		output_fd = openat(dir_fd, rel_name, o_flags);
 		if (output_fd == -1) {
 			warn("%s", name);
 			exit_code = 1;
@@ -373,7 +401,8 @@ open_output(char *name, int dir_fd, char *rel_name)
 	 * into a random location.
 	 * See rdar://problem/55280616
 	 */
-	output_fd = openat(dir_fd, rel_name, O_WRONLY | O_NOFOLLOW | O_CREAT | O_TRUNC, 0644);
+	int o_flags = sanitize_open_flags(O_WRONLY | O_NOFOLLOW | O_CREAT | O_TRUNC);
+	output_fd = openat(dir_fd, rel_name, o_flags, 0644);
 	if (output_fd == -1) {
 		warn("%s", name);
 		exit_code = 1;
@@ -454,12 +483,12 @@ finish_whatis(FILE *output, char *mandir, int mandir_fd)
  * Tests to see if the given directory has already been visited.
  */
 static int
-already_visited(char *dir)
+already_visited(int dir_fd, char *dir)
 {
 	struct stat st;
 	struct visited_dir *visit;
 
-	if (stat(dir, &st) < 0) {
+	if (fstat(dir_fd, &st) < 0) {
 		warn("%s", dir);
 		exit_code = 1;
 		return 1;
@@ -1038,17 +1067,22 @@ process_mandir(char *dir_name)
 	struct dirent *entry;
 	struct stat st;
 
-	if (already_visited(dir_name))
-		return;
-	if (verbose)
-		fprintf(stderr, "man directory %s\n", dir_name);
-
-	dir_fd = open(dir_name, O_RDONLY | O_DIRECTORY | O_NOFOLLOW);
+	int o_flags = sanitize_open_flags(O_RDONLY | O_DIRECTORY | O_NOFOLLOW);
+	dir_fd = open(dir_name, o_flags);
 	if (dir_fd == -1) {
 		warn("%s", dir_name);
 		exit_code = 1;
 		return;
 	}
+	
+	if (already_visited(dir_fd, dir_name)) {
+		close(dir_fd);
+		return;
+	}
+	if (verbose) {
+		fprintf(stderr, "man directory %s\n", dir_name);
+	}
+	
 	dir = fdopendir(dir_fd);
 	if (dir == NULL) {
 		warn("%s", dir_name);

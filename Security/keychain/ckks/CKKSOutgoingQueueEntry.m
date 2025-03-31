@@ -187,6 +187,15 @@
 
     ckksnotice("ckksitem", zoneID, "Creating a (%@) outgoing queue entry for: " SECDBITEM_FMT, action, item);
 
+    if (SecDbItemIsTombstone(item) && ![action isEqual:SecCKKSActionDelete]) {
+        ckkserror("ckksitem", zoneID, "Rejecting (%@) outgoing queue entry creation for tombstone item: " SECDBITEM_FMT, action, item);
+        NSError* localerror = [NSError errorWithDomain:CKKSErrorDomain code:CKKSErrorNotSupported description:@"Tombstone modification not allowed"];
+        if(error) {
+            *error = localerror;
+        }
+        return nil;
+    }
+
     NSError* keyError = nil;
     key = [self keyForItem:item
                  contextID:contextID

@@ -38,6 +38,10 @@
 #import "keychain/ot/ObjCImprovements.h"
 #import "keychain/ot/OTStates.h"
 
+#import <KeychainCircle/SecurityAnalyticsConstants.h>
+#import <KeychainCircle/SecurityAnalyticsReporterRTC.h>
+#import <KeychainCircle/AAFAnalyticsEvent+Security.h>
+
 @interface OTJoinWithVoucherOperation ()
 @property OTOperationDependencies* deps;
 
@@ -71,13 +75,23 @@
 
 - (void)groupStart
 {
+
+    AAFAnalyticsEventSecurity* event = [[AAFAnalyticsEventSecurity alloc] initWithKeychainCircleMetrics:nil
+                                                                                                altDSID:self.deps.activeAccount.altDSID
+                                                                                                 flowID:self.deps.flowID
+                                                                                        deviceSessionID:self.deps.deviceSessionID
+                                                                                              eventName:kSecurityRTCEventNameJoinWithVoucherOperation
+                                                                                        testsAreEnabled:SecCKKSTestsEnabled()
+                                                                                         canSendMetrics:self.deps.permittedToSendMetrics
+                                                                                               category:kSecurityRTCEventCategoryAccountDataAccessRecovery];
     // Load the voucher from the state handler
     NSError* error = nil;
     OTAccountMetadataClassC* metadata = [self.deps.stateHolder loadOrCreateAccountMetadata:&error];
 
-    if(!metadata.voucher || !metadata.voucherSignature || error) {
+    if (!metadata.voucher || !metadata.voucherSignature || error) {
         secnotice("octagon", "No voucher available: %@", error);
         self.error = error;
+        [SecurityAnalyticsReporterRTC sendMetricWithEvent:event success:NO error:self.error];
         return;
     }
 
@@ -88,19 +102,19 @@
 
     NSArray<CKKSTLKShare*>* newTLKShares = [metadata getTLKSharesPairedWithVoucher];
 
-    [self proceedWithPendingTLKShares:newTLKShares];
+    [self proceedWithPendingTLKShares:newTLKShares event:event];
 }
 
-- (void)proceedWithPendingTLKShares:(NSArray<CKKSTLKShare*>*)pendingTLKShares
+- (void)proceedWithPendingTLKShares:(NSArray<CKKSTLKShare*>*)pendingTLKShares event:(AAFAnalyticsEventSecurity*)event
 {
     WEAKIFY(self);
 
     NSArray<NSData*>* publicSigningSPKIs = nil;
-    if(self.deps.sosAdapter.sosEnabled) {
+    if (self.deps.sosAdapter.sosEnabled) {
         NSError* sosPreapprovalError = nil;
         publicSigningSPKIs = [OTSOSAdapterHelpers peerPublicSigningKeySPKIsForCircle:self.deps.sosAdapter error:&sosPreapprovalError];
 
-        if(publicSigningSPKIs) {
+        if (publicSigningSPKIs) {
             secnotice("octagon-sos", "SOS preapproved keys are %@", publicSigningSPKIs);
         } else {
             secnotice("octagon-sos", "Unable to fetch SOS preapproved keys: %@", sosPreapprovalError);
@@ -125,7 +139,7 @@
                                                            TPSyncingPolicy* _Nullable syncingPolicy,
                                                            NSError * _Nullable error) {
         STRONGIFY(self);
-            if(error){
+            if (error){
                 secerror("octagon: Error joining with voucher: %@", error);
                 [[CKKSAnalytics logger] logRecoverableError:error forEvent:OctagonEventJoinWithVoucher withAttributes:NULL];
 
@@ -140,6 +154,7 @@
                 } else {
                     self.error = error;
                 }
+                [SecurityAnalyticsReporterRTC sendMetricWithEvent:event success:NO error:self.error];
             } else {
                 self.peerID = peerID;
 
@@ -162,9 +177,11 @@
                 if(!persisted || localError) {
                     secnotice("octagon", "Couldn't persist results: %@", localError);
                     self.error = localError;
+                    [SecurityAnalyticsReporterRTC sendMetricWithEvent:event success:NO error:self.error];
                 } else {
                     secerror("octagon: join successful");
                     self.nextState = self.intendedState;
+                    [SecurityAnalyticsReporterRTC sendMetricWithEvent:event success:YES error:nil];
                 }
 
                 // Tell CKKS about our shiny new records!

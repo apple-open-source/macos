@@ -42,8 +42,8 @@ class DownSampler final {
 public:
     explicit DownSampler(size_t inputBlockSize);
 
-    // The destination buffer |destP| is of size sourceFramesToProcess / 2.
-    void process(const float* sourceP, float* destP, size_t sourceFramesToProcess);
+    // The destination buffer |destination| is of size source.size() / 2.
+    void process(std::span<const float> source, std::span<float> destination);
 
     void reset();
 

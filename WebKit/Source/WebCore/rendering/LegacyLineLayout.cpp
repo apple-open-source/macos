@@ -248,8 +248,13 @@ LegacyInlineFlowBox* LegacyLineLayout::createLineBoxes(RenderObject* obj, const 
 
 LegacyRootInlineBox* LegacyLineLayout::constructLine(BidiRunList<BidiRun>& bidiRuns, const LineInfo& lineInfo)
 {
-    ASSERT(bidiRuns.firstRun());
+    if (legacyRootBox()) {
+        // Refuse to create multiple lines for svg content. There should not need to be more than one.
+        ASSERT_NOT_REACHED();
+        return nullptr;
+    }
 
+    ASSERT(bidiRuns.firstRun());
     LegacyInlineFlowBox* parentBox = 0;
     for (BidiRun* r = bidiRuns.firstRun(); r; r = r->next()) {
         if (lineInfo.isEmpty())
@@ -382,7 +387,7 @@ static inline void constructBidiRunsForSegment(InlineBidiResolver& topResolver, 
             determineDirectionality(direction, LegacyInlineIterator(isolatedInline, &isolatedRun.object, 0));
         else {
             ASSERT(unicodeBidi == UnicodeBidi::Isolate || unicodeBidi == UnicodeBidi::IsolateOverride);
-            direction = isolatedInline->style().direction();
+            direction = isolatedInline->writingMode().bidiDirection();
         }
         isolatedResolver.setStatus(BidiStatus(direction, isOverride(unicodeBidi)));
 
@@ -429,22 +434,7 @@ LegacyRootInlineBox* LegacyLineLayout::createLineBoxesFromBidiRuns(unsigned bidi
 
     lineBox->setBidiLevel(bidiLevel);
 
-    bool isSVGRootInlineBox = is<SVGRootInlineBox>(*lineBox);
-    ASSERT(isSVGRootInlineBox);
-
-    // Now we position all of our text runs horizontally.
-
     removeEmptyTextBoxesAndUpdateVisualReordering(lineBox, bidiRuns.firstRun());
-
-    // SVG text layout code computes vertical & horizontal positions on its own.
-    // Note that we still need to execute computeVerticalPositionsForLine() as
-    // it calls LegacyInlineTextBox::positionLineBox(), which tracks whether the box
-    // contains reversed text or not. If we wouldn't do that editing and thus
-    // text selection in RTL boxes would not work as expected.
-    if (isSVGRootInlineBox) {
-        RELEASE_ASSERT_WITH_SECURITY_IMPLICATION(m_flow.isRenderSVGText());
-        downcast<SVGRootInlineBox>(*lineBox).computePerCharacterLayoutInformation();
-    }
 
     GlyphOverflowAndFallbackFontsMap textBoxDataMap;
     lineBox->computeOverflow(lineBox->lineTop(), lineBox->lineBottom(), textBoxDataMap);
@@ -466,7 +456,7 @@ void LegacyLineLayout::layoutRunsAndFloats(bool hasInlineChild)
 {
     m_lineBoxes.deleteLineBoxTree();
 
-    TextDirection direction = style().direction();
+    TextDirection direction = style().writingMode().bidiDirection();
     if (style().unicodeBidi() == UnicodeBidi::Plaintext)
         determineDirectionality(direction, LegacyInlineIterator(&m_flow, firstInlineRendererSkippingEmpty(m_flow), 0));
 
@@ -522,10 +512,10 @@ void LegacyLineLayout::layoutRunsAndFloatsInRange(InlineBidiResolver& resolver)
         ASSERT(end != resolver.position());
 
         if (!lineInfo.isEmpty()) {
-            VisualDirectionOverride override = (styleToUse.rtlOrdering() == Order::Visual ? (styleToUse.direction() == TextDirection::LTR ? VisualLeftToRightOverride : VisualRightToLeftOverride) : NoVisualOverride);
+            VisualDirectionOverride override = (styleToUse.rtlOrdering() == Order::Visual ? (styleToUse.writingMode().isBidiLTR() ? VisualLeftToRightOverride : VisualRightToLeftOverride) : NoVisualOverride);
 
             if (styleToUse.unicodeBidi() == UnicodeBidi::Plaintext && !resolver.context()->parent()) {
-                TextDirection direction = styleToUse.direction();
+                TextDirection direction = styleToUse.writingMode().bidiDirection();
                 determineDirectionality(direction, resolver.position());
                 resolver.setStatus(BidiStatus(direction, isOverride(styleToUse.unicodeBidi())));
             }

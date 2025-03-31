@@ -14,7 +14,7 @@
 
 #include "aom_ports/mem.h"
 
-static INLINE unsigned int sad64xh_avx2(const uint8_t *src_ptr, int src_stride,
+static inline unsigned int sad64xh_avx2(const uint8_t *src_ptr, int src_stride,
                                         const uint8_t *ref_ptr, int ref_stride,
                                         int h) {
   int i;
@@ -42,7 +42,7 @@ static INLINE unsigned int sad64xh_avx2(const uint8_t *src_ptr, int src_stride,
   return res;
 }
 
-static INLINE unsigned int sad32xh_avx2(const uint8_t *src_ptr, int src_stride,
+static inline unsigned int sad32xh_avx2(const uint8_t *src_ptr, int src_stride,
                                         const uint8_t *ref_ptr, int ref_stride,
                                         int h) {
   int i;

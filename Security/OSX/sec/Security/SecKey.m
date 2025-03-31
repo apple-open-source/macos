@@ -499,13 +499,10 @@ static SecKeyRef SecKeyCreatePublicFromDERItem(CFAllocatorRef allocator,
             .parametersLength = algorithmId->params.length,
         };
         publicKey = SecKeyCreateECPublicKey(allocator, (const uint8_t *)&derKey, sizeof(derKey), kSecDERKeyEncoding);
-#if LIBDER_HAS_EDDSA
-        // guard for rdar://106052612
     } else if (DEROidCompare(&algorithmId->oid, &oidEd25519)) {
         publicKey = SecKeyCreateEd25519PublicKey(allocator, keyData->data, keyData->length, kSecKeyEncodingBytes);
     } else if (DEROidCompare(&algorithmId->oid, &oidEd448)) {
         publicKey = SecKeyCreateEd448PublicKey(allocator, keyData->data, keyData->length, kSecKeyEncodingBytes);
-#endif
     } else {
         os_log_debug(SECKEY_LOG, "Unsupported algorithm oid");
     }

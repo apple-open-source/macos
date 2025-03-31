@@ -15,10 +15,34 @@
 #endif
 #endif // !defined(NS_ENUM)
 
+/** protocompiler --arc --outputDir Protobuf --proto SFACollection.proto */
+typedef NS_ENUM(int32_t, SECSFAConfigVersion) {
+    SECSFAConfigVersion_version1 = 1,
+    SECSFAConfigVersion_version2 = 2,
+};
+#ifdef __OBJC__
+NS_INLINE NSString *SECSFAConfigVersionAsString(SECSFAConfigVersion value)
+{
+    switch (value)
+    {
+        case SECSFAConfigVersion_version1: return @"version1";
+        case SECSFAConfigVersion_version2: return @"version2";
+        default: return [NSString stringWithFormat:@"(unknown: %i)", value];
+    }
+}
+#endif /* __OBJC__ */
+#ifdef __OBJC__
+NS_INLINE SECSFAConfigVersion StringAsSECSFAConfigVersion(NSString *value)
+{
+    if ([value isEqualToString:@"version1"]) return SECSFAConfigVersion_version1;
+    if ([value isEqualToString:@"version2"]) return SECSFAConfigVersion_version2;
+    return SECSFAConfigVersion_version1;
+}
+#endif /* __OBJC__ */
 typedef NS_ENUM(int32_t, SECSFAProductName) {
     SECSFAProductName_macOS = 1,
     SECSFAProductName_iphoneOS = 2,
-    SECSFAProductName_xrOS = 3,
+    SECSFAProductName_visionOS = 3,
     SECSFAProductName_watchOS = 4,
     SECSFAProductName_tvOS = 5,
 };
@@ -29,7 +53,7 @@ NS_INLINE NSString *SECSFAProductNameAsString(SECSFAProductName value)
     {
         case SECSFAProductName_macOS: return @"macOS";
         case SECSFAProductName_iphoneOS: return @"iphoneOS";
-        case SECSFAProductName_xrOS: return @"xrOS";
+        case SECSFAProductName_visionOS: return @"visionOS";
         case SECSFAProductName_watchOS: return @"watchOS";
         case SECSFAProductName_tvOS: return @"tvOS";
         default: return [NSString stringWithFormat:@"(unknown: %i)", value];
@@ -41,7 +65,7 @@ NS_INLINE SECSFAProductName StringAsSECSFAProductName(NSString *value)
 {
     if ([value isEqualToString:@"macOS"]) return SECSFAProductName_macOS;
     if ([value isEqualToString:@"iphoneOS"]) return SECSFAProductName_iphoneOS;
-    if ([value isEqualToString:@"xrOS"]) return SECSFAProductName_xrOS;
+    if ([value isEqualToString:@"visionOS"]) return SECSFAProductName_visionOS;
     if ([value isEqualToString:@"watchOS"]) return SECSFAProductName_watchOS;
     if ([value isEqualToString:@"tvOS"]) return SECSFAProductName_tvOS;
     return SECSFAProductName_macOS;

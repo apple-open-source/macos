@@ -1,0 +1,39 @@
+#! /bin/sh
+
+. ${tstdir-.}/daemon.sh
+. ${tstdir-.}/lib.sh
+. ${tstdir-.}/conf.sh
+
+src="$PWD/src"
+dest="$PWD/ftp"
+cfgfile="$PWD/rsyncd.conf"
+
+rm -rf "$dest" "$src"
+
+mkdir "$dest" "$src"
+ln -s /etc/passwd "$src"/link
+
+cat <<EOF > "$cfgfile"
+use chroot = no
+
+[wonly]
+	path = $dest
+	munge symlinks = yes
+	read only = no
+	write only = yes
+EOF
+
+rsyncd "$cfgfile"
+dport=$(daemon_port)
+
+command $RSYNC_CLIENT -l "$src"/link rsync://localhost:$dport/wonly
+if [ ! -L "$dest"/link ]; then
+	1>&2 echo "symlink did not transfer"
+	exit 1
+fi
+
+rm "$src"/link
+if command $RSYNC_CLIENT -l rsync://localhost:$dport/wonly/link "$src" 2>/dev/null; then
+	1>&2 echo "download from write only module did not fail"
+	exit 1
+fi

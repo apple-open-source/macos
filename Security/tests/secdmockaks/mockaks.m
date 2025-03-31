@@ -26,12 +26,12 @@
 
 #import "SecKeybagSupport.h"
 
-#if __has_include(<libaks.h>)
-#import <libaks.h>
+#if __has_include(<AppleKeyStore/libaks.h>)
+#import <AppleKeyStore/libaks.h>
 #endif
 
-#if __has_include(<libaks_ref_key.h>)
-#import <libaks_ref_key.h>
+#if __has_include(<AppleKeyStore/libaks_ref_key.h>)
+#import <AppleKeyStore/libaks_ref_key.h>
 #endif
 
 #if __has_include(<MobileKeyBag/MobileKeyBag.h>)

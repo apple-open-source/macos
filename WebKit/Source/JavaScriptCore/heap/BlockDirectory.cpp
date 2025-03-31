@@ -388,6 +388,7 @@ void BlockDirectory::shrink()
     }
 }
 
+// FIXME: rdar://139998916
 MarkedBlock::Handle* BlockDirectory::findMarkedBlockHandleDebug(MarkedBlock* block)
 {
     for (size_t index = 0; index < m_blocks.size(); ++index) {
@@ -475,14 +476,18 @@ void BlockDirectory::dumpBits(PrintStream& out)
     forEachBitVectorWithName(
         [&](auto vectorRef, const char* name) {
             UNUSED_PARAM(vectorRef);
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
             unsigned length = strlen(name);
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
             maxNameLength = std::max(maxNameLength, length);
         });
     
     forEachBitVectorWithName(
         [&](auto vectorRef, const char* name) {
             out.print("    ", name, ": ");
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
             for (unsigned i = maxNameLength - strlen(name); i--;)
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
                 out.print(" ");
             out.print(vectorRef, "\n");
         });
@@ -491,16 +496,6 @@ void BlockDirectory::dumpBits(PrintStream& out)
 MarkedSpace& BlockDirectory::markedSpace() const
 {
     return m_subspace->space();
-}
-
-bool BlockDirectory::isFreeListedCell(const void* target)
-{
-    bool result = false;
-    m_localAllocators.forEach(
-        [&] (LocalAllocator* allocator) {
-            result |= allocator->isFreeListedCell(target);
-        });
-    return result;
 }
 
 #if ASSERT_ENABLED

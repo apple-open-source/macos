@@ -169,11 +169,31 @@ os_ref_panic_live(void *rc)
 }
 #endif
 
+#if XNU_KERNEL_PRIVATE
+void os_ref_panic_last(void *rc) __abortlike;
+#else
+__abortlike
+static inline void
+os_ref_panic_last(void *rc)
+{
+	panic("os_refcnt: expected release of final reference but rc %p!=0\n", rc);
+	__builtin_unreachable();
+}
+#endif
+
 static inline os_ref_count_t OS_WARN_RESULT
 os_ref_release(struct os_refcnt *rc)
 {
 	return os_ref_release_barrier_internal(&rc->ref_count,
 	           os_ref_if_debug(rc->ref_group, NULL));
+}
+
+static inline void
+os_ref_release_last(struct os_refcnt *rc)
+{
+	if (__improbable(os_ref_release(rc) != 0)) {
+		os_ref_panic_last(rc);
+	}
 }
 
 static inline os_ref_count_t OS_WARN_RESULT

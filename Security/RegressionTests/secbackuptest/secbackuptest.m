@@ -19,7 +19,7 @@ main(void)
 }
 #else
 
-#include <libaks.h>
+#include <AppleKeyStore/libaks.h>
 
 static NSData *keybag = NULL;
 static NSString *keybaguuid = NULL;

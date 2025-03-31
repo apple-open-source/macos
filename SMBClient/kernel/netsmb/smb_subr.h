@@ -240,14 +240,18 @@ extern int smbfs_loglevel;
 
 
 
-#define SMB_ASSERT(a) { \
-	if (!(a)) { \
-		panic("assertion '%s' failed", #a); \
+#define SMB_ASSERT(exp, msg) { \
+	if (!(exp)) { \
+		panic("%s: assertion '%s' failed, msg: <%s>", __FUNCTION__, #exp, msg); \
 	} \
 }
 
 #ifdef SMB_DEBUG
-#define DBG_ASSERT SMB_ASSERT
+#define DBG_ASSERT(a) { \
+    if (!(a)) { \
+        panic("assertion '%s' failed", #a); \
+    } \
+}
 #define DBG_LOCKLIST_ASSERT(lock_cnt, lock_order) { \
 	int jj, kk; \
 	for (jj=0; jj < lock_cnt; jj++) \

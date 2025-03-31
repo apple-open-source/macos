@@ -989,8 +989,7 @@ _dispatch_get_build(void)
 	return _dispatch_build;
 }
 
-#define _dispatch_bug_log_is_repeated() ({ \
-		static void *last_seen; \
+#define _dispatch_bug_log_is_repeated(last_seen) ({ \
 		void *previous = last_seen; \
 		last_seen =__builtin_return_address(0); \
 		last_seen == previous; \
@@ -1023,8 +1022,8 @@ _dispatch_fault(const char *reason, const char *fmt, ...)
 #define _dispatch_fault(reason, fmt, ...)
 #endif // HAVE_OS_FAULT_WITH_PAYLOAD
 
-#define _dispatch_log_fault(reason, fmt, ...)  ({ \
-		if (!_dispatch_bug_log_is_repeated()) { \
+#define _dispatch_log_fault(last_seen, reason, fmt, ...)  ({ \
+		if (!_dispatch_bug_log_is_repeated(last_seen)) { \
 			_dispatch_log(fmt, ##__VA_ARGS__); \
 			_dispatch_fault(reason, fmt, ##__VA_ARGS__); \
 			if (_dispatch_mode & DISPATCH_MODE_STRICT) { \
@@ -1038,7 +1037,8 @@ _dispatch_bug(size_t line, long val)
 {
 	dispatch_once_f(&_dispatch_build_pred, NULL, _dispatch_build_init);
 
-	if (_dispatch_bug_log_is_repeated()) return;
+	static void *db_last_seen;
+	if (_dispatch_bug_log_is_repeated(db_last_seen)) return;
 
 	_dispatch_log("BUG in libdispatch: %s - %lu - 0x%lx",
 			_dispatch_build, (unsigned long)line, val);
@@ -1048,7 +1048,9 @@ _dispatch_bug(size_t line, long val)
 void
 _dispatch_bug_mach_client(const char *msg, mach_msg_return_t kr)
 {
-	_dispatch_log_fault("LIBDISPATCH_STRICT: _dispatch_bug_mach_client",
+	static void *dbmc_last_seen;
+	_dispatch_log_fault(dbmc_last_seen,
+			"LIBDISPATCH_STRICT: _dispatch_bug_mach_client",
 			"BUG in libdispatch client: %s %s - 0x%x", msg,
 			mach_error_string(kr), kr);
 }
@@ -1094,18 +1096,24 @@ _dispatch_bug_kevent_client(const char *msg, const char *filter,
 	}
 
 	if (operation && err) {
-		_dispatch_log_fault("LIBDISPATCH_STRICT: _dispatch_bug_kevent_client",
+		static void *dbkc_last_seen_1;
+		_dispatch_log_fault(dbkc_last_seen_1,
+				"LIBDISPATCH_STRICT: _dispatch_bug_kevent_client",
 				"BUG in libdispatch client: %s %s: \"%s\" - 0x%x "
 				"{ 0x%"PRIx64"[%s], ident: %"PRId64" / 0x%"PRIx64", handler: %p }",
 				msg, operation, strerror(err), err,
 				udata, filter, ident, ident, func);
 	} else if (operation) {
-		_dispatch_log_fault("LIBDISPATCH_STRICT: _dispatch_bug_kevent_client",
+		static void *dbkc_last_seen_2;
+		_dispatch_log_fault(dbkc_last_seen_2,
+				"LIBDISPATCH_STRICT: _dispatch_bug_kevent_client",
 				"BUG in libdispatch client: %s %s"
 				"{ 0x%"PRIx64"[%s], ident: %"PRId64" / 0x%"PRIx64", handler: %p }",
 				msg, operation, udata, filter, ident, ident, func);
 	} else {
-		_dispatch_log_fault("LIBDISPATCH_STRICT: _dispatch_bug_kevent_client",
+		static void *dbkc_last_seen_3;
+		_dispatch_log_fault(dbkc_last_seen_3,
+				"LIBDISPATCH_STRICT: _dispatch_bug_kevent_client",
 				"BUG in libdispatch: %s: \"%s\" - 0x%x"
 				"{ 0x%"PRIx64"[%s], ident: %"PRId64" / 0x%"PRIx64", handler: %p }",
 				msg, strerror(err), err, udata, filter, ident, ident, func);
@@ -1121,7 +1129,9 @@ _dispatch_bug_kevent_client(const char *msg, const char *filter,
 void
 _dispatch_bug_kevent_vanished(dispatch_unote_t du)
 {
-	_dispatch_log_fault("LIBDISPATCH_STRICT: _dispatch_bug_kevent_vanished",
+	static void *dbkv_last_seen;
+	_dispatch_log_fault(dbkv_last_seen,
+			"LIBDISPATCH_STRICT: _dispatch_bug_kevent_vanished",
 			"BUG in libdispatch client: %s, monitored resource vanished before "
 			"the source cancel handler was invoked",
 			dux_type(du._du)->dst_kind);
@@ -1148,7 +1158,9 @@ _dispatch_bug_kevent_vanished(dispatch_unote_t du)
 		break;
 #endif // MACH
 	}
-	_dispatch_log_fault("LIBDISPATCH_STRICT: _dispatch_bug_kevent_vanished",
+	static void *dbkv_last_seen;
+	_dispatch_log_fault(dbkv_last_seen,
+			"LIBDISPATCH_STRICT: _dispatch_bug_kevent_vanished",
 			"BUG in libdispatch client: %s, monitored resource vanished before "
 			"the source cancel handler was invoked "
 #if !defined(_WIN32)
@@ -1167,7 +1179,9 @@ DISPATCH_NOINLINE DISPATCH_WEAK
 void
 _dispatch_bug_deprecated(const char *msg)
 {
-	_dispatch_log_fault("LIBDISPATCH_STRICT: _dispatch_bug_deprecated",
+	static void *dbd_last_seen;
+	_dispatch_log_fault(dbd_last_seen,
+			"LIBDISPATCH_STRICT: _dispatch_bug_deprecated",
 			"DEPRECATED USE in libdispatch client: %s; "
 			"set a breakpoint on _dispatch_bug_deprecated to debug", msg);
 }
@@ -1487,6 +1501,18 @@ _dispatch_temporary_resource_shortage(void)
 	sleep(1);
 	__asm__ __volatile__("");  // prevent tailcall
 }
+
+#if defined(_MALLOC_TYPE_ENABLED) && _MALLOC_TYPE_ENABLED
+void *
+_dispatch_calloc_typed(size_t num_items, size_t size, malloc_type_id_t type_id)
+{
+	void *buf;
+	while (unlikely(!(buf = malloc_type_calloc(num_items, size, type_id)))) {
+		_dispatch_temporary_resource_shortage();
+	}
+	return buf;
+}
+#endif // defined(_MALLOC_TYPE_ENABLED) && _MALLOC_TYPE_ENABLED
 
 void *
 _dispatch_calloc(size_t num_items, size_t size)

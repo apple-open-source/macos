@@ -1,0 +1,193 @@
+#! /bin/sh
+
+# Test that the --out-format option works as expected.
+
+set -e
+set -u
+
+. ${tstdir-.}/lib.sh
+. ${tstdir-.}/conf.sh
+
+# Create the source tree:
+#
+rm -rf src
+mkdir -p src/dir
+shift $#
+for i in $(seq 5) ; do
+    [ $# -le 0 ] && set -- $(id -G)
+    jot $(expr $i \* 1000) $i > src/$i
+    jot $(expr $i \* 1333) $i > src/dir/$i
+    ln -s ../$i src/dir/sym$i
+    chgrp $1 src/$i src/dir/$i
+    mkfifo src/dir/fifo$i
+    ln src/$i src/hlink$i
+    shift
+done
+
+find src | xargs touch -A -03
+
+# Check that common --out-format conversion specifiers
+# are generated as expected:
+#
+for opt in " " "-v" "-vv" "-vvv" "--specials" ; do
+    echo "Test 1 [$opt]"
+    rm -rf dst log
+    rsync -a ${opt} --out-format='OUTFMT: %l %f %U %G %n %b %L' -- src/ dst/ > log 2>&1
+
+    [ "$(grep -c ^OUTFMT log)" -eq "$(find dst | wc -l)" ]
+
+    grep ^OUTFMT log | while read line ; do
+	set -- ${line}
+	echo "Test 1.1 [$opt] [$line]"
+	[ $# -eq 7 -o $# -eq 9 ]
+	[ "$1" = "OUTFMT:" ]
+	SIZE=$2
+	FNLONG=$3
+	XUID=$4
+	XGID=$5
+	FNSHORT=src/$6
+	XFER=$7
+	[ "$(basename ${FNLONG})" = "$(basename ${FNSHORT})" ]
+
+
+	set -- $(stat -f 'X %z %N %u %g' ${FNSHORT})
+	echo "Test 1.2 [$opt] [$@]"
+	[ "X" = "$1" ]
+	[ -d "${FNSHORT}" ] || [ "${SIZE}" -eq "$2" ]
+	[ "${FNSHORT}" = "$3" ]
+	[ "${XUID}" = "DEFAULT" ] || [ "${XUID}" -eq "$4" ]
+	[ "${XGID}" = "DEFAULT" ] || [ "${XGID}" -eq "$5" ]
+
+	# If it's a regular file the transferred size should
+	# be slightly larger than the file size:
+	#
+	[ "${XFER}" -gt 0 ] || continue
+	[ "${XFER}" -gt "$2" ]
+    done
+
+    compare_trees -t src dst
+
+    # If we force rsync to use the differential transfer mode (--no-W)
+    # and the source and dest files contain identical data then the
+    # number of bytes transferred (%b) should be less than the size
+    # of the file.
+    #
+    touch -A -13 $(find dst)
+
+    echo "Test 2 [$opt]"
+    rsync -a ${opt} --no-W --out-format='OUTFMT: %064l %16f %-8b' -- src/ dst/ > log 2>&1
+
+    grep ^OUTFMT log | while read line ; do
+	set -- ${line}
+	echo "Test 2.1 [$opt] [$line]"
+	[ $# -eq 4 ]
+	[ "$1" = "OUTFMT:" ]
+	SIZE=$2
+	XFER=$4
+	[ "${#SIZE}" -eq 64 ]
+
+	# If it's a regular file the transferred size should
+	# be many times smaller than the file size:
+	#
+	[ "${XFER}" -gt 0 ] || continue
+	[ "${SIZE}" -gt "${XFER}" ]
+    done
+
+    compare_trees -t src dst
+
+    # openrsync doesn't yet support --log-file nor --log-file-format
+    # in non-daemon mode.  Remove this comment and the "continue"
+    # when those options become available in non-daemon mode.
+    #
+    continue
+
+    # Check that --log-file-format works as expected:
+    #
+    rm -rf dst log
+
+    echo "Test 3"
+    rsync -a --log-file=log --log-file-format='OUTFMT: %063l %16f %-7b' -- src/ dst/ > /dev/null 2>&1
+
+    [ "$(grep -c OUTFMT log)" -eq "$(find dst -type f | wc -l)" ]
+
+    grep OUTFMT log | while read line ; do
+	set -- ${line}
+	echo "Test 3.1 [$line]"
+	[ $# -eq 7 ]
+	shift 3
+	[ "$1" = "OUTFMT:" ]
+	SIZE=$2
+	XFER=$4
+	[ "${#SIZE}" -eq 63 ]
+
+	# If it's a regular file the transferred size should
+	# be slightly larger than the file size:
+	#
+	[ "${XFER}" -gt 0 ] || continue
+	[ "${XFER}" -gt "$2" ]
+    done
+
+    compare_trees -t src dst
+done
+
+
+# Check for robust handling of out-format:
+#
+rm -rf src dst
+mkdir src
+date > src/file
+
+echo "Test 4"
+rsync -a --out-format='% %% %+ %- %0 %08 %777 %-f %' -- src/ dst/
+compare_trees -t src dst
+
+
+# Test that source paths are normalized:
+#
+rm -rf dst
+DOTDIR="."
+set --
+
+for i in $(seq 9) ; do
+	echo "Test 5 [$i]"
+	jot 3 $i > src/file
+	(cd src && rsync -a --out-format='OUTFMT: %f %n %l' -- ${DOTDIR}/${DOTDIR}/file ../dst/ > ../log 2>&1)
+	compare_trees src dst
+
+	grep ^OUTFMT log | while read line ; do
+		set -- ${line}
+		echo "Test 5.1 [$i] [$line]"
+		[ "$(basename $2)" == "$(basename $3)" ]
+		echo "$2" | fgrep -qv -- './'
+		echo "$3" | fgrep -qv -- './'
+		cmp src/$3 dst/$3
+	done
+
+	echo "Test 6 [$i]"
+	jot 5 $i > src/file
+	(cd src && rsync -a --out-format='OUTFMT: %f %n %l' -- ${DOTDIR} ../dst/ > ../log 2>&1)
+	compare_trees src dst
+
+	grep ^OUTFMT log | while read line ; do
+		set -- ${line}
+		echo "Test 6.1 [$i] [$line]"
+		[ "$(basename $2)" == "$(basename $3)" ]
+		[ -f "dst/$3" ] && echo "$2" | fgrep -qv -- './'
+		[ -f "dst/$3" ] && echo "$3" | fgrep -qv -- './'
+	done
+
+	echo "Test 7 [$i]"
+	jot 7 $i > src/file
+	rsync -a --out-format='OUTFMT: %f %n %l' -- ${DOTDIR}/${DOTDIR}/src/${DOTDIR}/ dst/ > log 2>&1
+	compare_trees src dst
+
+	grep ^OUTFMT log | while read line ; do
+		set -- ${line}
+		echo "Test 7.1 [$i] [$line]"
+		[ "$(basename $2)" == "$(basename $3)" ]
+		[ -f "dst/$3" ] && echo "$2" | fgrep -qv -- './'
+		[ -f "dst/$3" ] && echo "$3" | fgrep -qv -- './'
+	done
+
+	DOTDIR="${DOTDIR}$(jot -n -b/. -s/ $i)$(jot -n -b/ -s/ $i)."
+done

@@ -685,6 +685,14 @@ _dispatch_queue_atomic_flags_set_orig(dispatch_queue_class_t dqu,
 
 DISPATCH_ALWAYS_INLINE
 static inline dispatch_queue_flags_t
+_dispatch_queue_atomic_flags_set_orig_release(dispatch_queue_class_t dqu,
+		dispatch_queue_flags_t bits)
+{
+	return os_atomic_or_orig(&dqu._dq->dq_atomic_flags, bits, release);
+}
+
+DISPATCH_ALWAYS_INLINE
+static inline dispatch_queue_flags_t
 _dispatch_queue_atomic_flags_clear(dispatch_queue_class_t dqu,
 		dispatch_queue_flags_t bits)
 {
@@ -2030,6 +2038,12 @@ attempt_running_slow_head:
 				tq == DISPATCH_QUEUE_WAKEUP_NONE)) {
 			tq = _dispatch_queue_get_current();
 			if (dx_hastypeflag(tq, QUEUE_ROOT) || !owning) {
+				// rdar://122559793: Some invoke targets (e.g.
+				// _dispatch_lane_drain) optimize out certain checks when
+				// invoking the first item. These checks need to be run if the
+				// object is invoked a second time, so we indicate to the
+				// invoke target that it's being invoked again via this flag
+				flags |= DISPATCH_INVOKE_AGAIN;
 				goto attempt_running_slow_head;
 			}
 			DISPATCH_COMPILER_CAN_ASSUME(tq != DISPATCH_QUEUE_WAKEUP_NONE);

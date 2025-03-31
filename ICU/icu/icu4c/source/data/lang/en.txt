@@ -44,7 +44,7 @@ en{
     Languages{
         aa{"Afar"}
         ab{"Abkhazian"}
-        ace{"Achinese"}
+        ace{"Acehnese"}
         ach{"Acoli"}
         ada{"Adangme"}
         ady{"Adyghe"}
@@ -258,7 +258,6 @@ en{
         gmh{"Middle High German"}
         gn{"Guarani"}
         goh{"Old High German"}
-        gom{"Goan Konkani"}
         gon{"Gondi"}
         gor{"Gorontalo"}
         got{"Gothic"}
@@ -430,7 +429,7 @@ en{
         mgo{"Metaʼ"}
         mh{"Marshallese"}
         mi{"Māori"}
-        mic{"Mi'kmaw"}
+        mic{"Mi’kmaw"}
         mid{"Mandaic"}
         min{"Minangkabau"}
         mk{"Macedonian"}
@@ -752,6 +751,7 @@ en{
         hi_Latn{"Hinglish"}
         ii{"Sichuan Yi; Nuosu"}
         ky{"Kirghiz"}
+        mus{"Muscogee"}
         my{"Myanmar Language"}
         ps{"Pushto"}
         ug{"Uighur"}
@@ -801,6 +801,7 @@ en{
         Elba{"Elbasan"}
         Elym{"Elymaic"}
         Ethi{"Ethiopic"}
+        Gara{"Garay"}
         Geok{"Georgian Khutsuri"}
         Geor{"Georgian"}
         Glag{"Glagolitic"}
@@ -810,6 +811,7 @@ en{
         Gran{"Grantha"}
         Grek{"Greek"}
         Gujr{"Gujarati"}
+        Gukh{"Gurung Khema"}
         Guru{"Gurmukhi"}
         Hanb{"Han with Bopomofo"}
         Hang{"Hangul"}
@@ -841,6 +843,7 @@ en{
         Knda{"Kannada"}
         Kore{"Korean"}
         Kpel{"Kpelle"}
+        Krai{"Kirat Rai"}
         Kthi{"Kaithi"}
         Lana{"Lanna"}
         Laoo{"Lao"}
@@ -883,6 +886,7 @@ en{
         Nshu{"Nüshu"}
         Ogam{"Ogham"}
         Olck{"Ol Chiki"}
+        Onao{"Ol Onal"}
         Orkh{"Orkhon"}
         Orya{"Odia"}
         Osge{"Osage"}
@@ -918,6 +922,7 @@ en{
         Sora{"Sora Sompeng"}
         Soyo{"Soyombo"}
         Sund{"Sundanese"}
+        Sunu{"Sunuwar"}
         Sylo{"Syloti Nagri"}
         Syrc{"Syriac"}
         Syre{"Estrangelo Syriac"}
@@ -939,7 +944,9 @@ en{
         Tibt{"Tibetan"}
         Tirh{"Tirhuta"}
         Tnsa{"Tangsa"}
+        Todr{"Todhri"}
         Toto{"Toto"}
+        Tutg{"Tulu-Tigalari"}
         Ugar{"Ugaritic"}
         Vaii{"Vai"}
         Visp{"Visible Speech"}
@@ -1048,7 +1055,6 @@ en{
             phonebook{"Phonebook Sort Order"}
             phonetic{"Phonetic Sort Order"}
             pinyin{"Pinyin Sort Order"}
-            reformed{"Reformed Sort Order"}
             search{"General-Purpose Search"}
             searchjl{"Search By Hangul Initial Consonant"}
             standard{"Standard Sort Order"}
@@ -1225,12 +1231,14 @@ en{
             ethi{"Ethiopic Numerals"}
             finance{"Financial Numerals"}
             fullwide{"Full-Width Digits"}
+            gara{"Garay Digits"}
             geor{"Georgian Numerals"}
             gong{"Gunjala Gondi digits"}
             gonm{"Masaram Gondi digits"}
             grek{"Greek Numerals"}
             greklow{"Greek Lowercase Numerals"}
             gujr{"Gujarati Digits"}
+            gukh{"Gurung Khema Digits"}
             guru{"Gurmukhi Digits"}
             hanidays{"Chinese Calendar Day-of-Month Numerals"}
             hanidec{"Chinese Decimal Numerals"}
@@ -1249,6 +1257,7 @@ en{
             kawi{"Kawi Digits"}
             khmr{"Khmer Digits"}
             knda{"Kannada Digits"}
+            krai{"Kirat Rai Digits"}
             lana{"Tai Tham Hora Digits"}
             lanatham{"Tai Tham Tham Digits"}
             laoo{"Lao Digits"}
@@ -1266,6 +1275,8 @@ en{
             mroo{"Mro Digits"}
             mtei{"Meetei Mayek Digits"}
             mymr{"Myanmar Digits"}
+            mymrepka{"Myanmar Eastern Pwo Karen Digits"}
+            mymrpao{"Myanmar Pao Digits"}
             mymrshan{"Myanmar Shan Digits"}
             mymrtlng{"Myanmar Tai Laing Digits"}
             nagm{"Nag Mundari Digits"}
@@ -1273,8 +1284,10 @@ en{
             newa{"Newa Digits"}
             nkoo{"N’Ko Digits"}
             olck{"Ol Chiki Digits"}
+            onao{"Ol Onal Digits"}
             orya{"Odia Digits"}
             osma{"Osmanya Digits"}
+            outlined{"Outlined Digits"}
             rohg{"Hanifi Rohingya digits"}
             roman{"Roman Numerals"}
             romanlow{"Roman Lowercase Numerals"}
@@ -1285,6 +1298,7 @@ en{
             sinh{"Sinhala Lith Digits"}
             sora{"Sora Sompeng Digits"}
             sund{"Sundanese Digits"}
+            sunu{"Sunuwar Digits"}
             takr{"Takri Digits"}
             talu{"New Tai Lue Digits"}
             taml{"Traditional Tamil Numerals"}

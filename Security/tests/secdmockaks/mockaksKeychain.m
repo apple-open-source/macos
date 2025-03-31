@@ -43,8 +43,8 @@
 #import <XCTest/XCTest.h>
 #import <OCMock/OCMock.h>
 #if USE_KEYSTORE
-#if __has_include(<libaks.h>)
-#import <libaks.h>
+#if __has_include(<AppleKeyStore/libaks.h>)
+#import <AppleKeyStore/libaks.h>
 #endif // aks.h
 #endif
 #import <sqlite3.h>

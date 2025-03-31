@@ -2253,6 +2253,10 @@ key_gather_mbuf(struct mbuf *m, const struct sadb_msghdr *mhp,
 		panic("null pointer passed to key_gather");
 	}
 
+	if (__improbable(nitem <= 0)) {
+		panic("nitem %d in key_gather_mbuf", nitem);
+	}
+
 	for (i = 0; i < nitem; i++) {
 		idx = items[i];
 		if (idx < 0 || idx > SADB_EXT_MAX) {

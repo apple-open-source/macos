@@ -235,12 +235,12 @@ void TileController::setAcceleratesDrawing(bool acceleratesDrawing)
     tileGrid().updateTileLayerProperties();
 }
 
-void TileController::setWantsDeepColorBackingStore(bool wantsDeepColorBackingStore)
+void TileController::setContentsFormat(ContentsFormat contentsFormat)
 {
-    if (m_wantsDeepColorBackingStore == wantsDeepColorBackingStore)
+    if (m_contentsFormat == contentsFormat)
         return;
 
-    m_wantsDeepColorBackingStore = wantsDeepColorBackingStore;
+    m_contentsFormat = contentsFormat;
     tileGrid().updateTileLayerProperties();
 }
 
@@ -706,7 +706,7 @@ void TileController::willRevalidateTiles(TileGrid& tileGrid, TileRevalidationTyp
         m_client->willRevalidateTiles(*this, tileGrid.identifier(), revalidationType);
 }
 
-void TileController::didRevalidateTiles(TileGrid& tileGrid, TileRevalidationType revalidationType, const HashSet<TileIndex>& tilesNeedingDisplay)
+void TileController::didRevalidateTiles(TileGrid& tileGrid, TileRevalidationType revalidationType, const UncheckedKeyHashSet<TileIndex>& tilesNeedingDisplay)
 {
     m_boundsAtLastRevalidate = bounds();
 
@@ -727,10 +727,8 @@ unsigned TileController::blankPixelCountForTiles(const PlatformLayerList& tiles,
 {
     Region paintedVisibleTiles;
 
-    for (PlatformLayerList::const_iterator it = tiles.begin(), end = tiles.end(); it != end; ++it) {
-        const PlatformLayer* tileLayer = it->get();
-
-        FloatRect visiblePart(CGRectOffset(PlatformCALayer::frameForLayer(tileLayer), tileTranslation.x(), tileTranslation.y()));
+    for (auto& tileLayer : tiles) {
+        FloatRect visiblePart(CGRectOffset(PlatformCALayer::frameForLayer(tileLayer.get()), tileTranslation.x(), tileTranslation.y()));
         visiblePart.intersect(visibleRect);
 
         if (!visiblePart.isEmpty())
@@ -860,7 +858,7 @@ Ref<PlatformCALayer> TileController::createTileLayer(const IntRect& tileRect, Ti
     layer->setName(makeString("tile at "_s, tileRect.location().x(), ',', tileRect.location().y()));
     layer->setContentsScale(m_deviceScaleFactor * temporaryScaleFactor);
     layer->setAcceleratesDrawing(m_acceleratesDrawing);
-    layer->setWantsDeepColorBackingStore(m_wantsDeepColorBackingStore);
+    layer->setContentsFormat(m_contentsFormat);
     layer->setNeedsDisplay();
     return layer;
 }

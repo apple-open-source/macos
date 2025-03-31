@@ -1696,6 +1696,18 @@ bool CLASS::endpointPresent(IOPCIConfigEntry * bridge)
 	{
 		return true;
 	}
+
+	// If this is a switch downstream port connected to a slot, check its presence-detect state.
+	uint32_t expressCaps = configRead16(bridge, bridge->expressCapBlock + 0x02);
+	bool isSlotDSP =   (kPCIEPortTypeDownstreamPCIESwitch == (kPCIECapDevicePortType & expressCaps))
+					&& (kPCIECapSlotConnected == (kPCIECapSlotConnected & expressCaps));
+
+	if (   (isSlotDSP)
+		&& (configRead16(bridge, bridge->expressCapBlock + 0x1A) & kIOPCISlotStatusPresenceDetectState))
+	{
+		return true;
+	}
+
 	return false;
 }
 
@@ -2360,8 +2372,6 @@ IOPCIConfigEntry* CLASS::bridgeProbeChild( IOPCIConfigEntry * bridge, IOPCIAddre
 			if (kPCIECapSlotConnected & expressCaps)
 			{
 				slotCaps = configRead32(child, child->expressCapBlock + 0x14);
-				child->commandCompleted = (kSlotCapNoCommandCompleted & slotCaps) == 0;
-				child->powerController = (kSlotCapPowerController & slotCaps) != 0;
 			}
 
 			if ((0x60 == (0xf0 & expressCaps))      // downstream port
@@ -2372,6 +2382,26 @@ IOPCIConfigEntry* CLASS::bridgeProbeChild( IOPCIConfigEntry * bridge, IOPCIAddre
 				{
 					child->linkInterrupts = true;
 				}
+
+				if (kPCIECapSlotConnected & expressCaps)
+				{
+					// PCIe Base Spec Rev 5.0, 6.7.3.2 "Command Completed Events":
+					// All hot-plug capable [downstream] Ports are required to
+					// support hot-plug commands and, if the capability is
+					// reported, command completed events.
+					//
+					// If command completed events are not supported as indicated
+					// by a value of 1b in the No Command Completed Support
+					// field of the Slot Capabilities register, a hot-plug capable
+					// Port must process a write transaction that targets any
+					// portion of the Port’s Slot Control register without any
+					// dependency on previous Slot Control writes. Software is
+					// permitted to issue multiple Slot Control writes in sequence
+					// without any delay between the writes.
+					child->commandCompleted = ((kSlotCapHotplug | kSlotCapNoCommandCompleted) & slotCaps) == kSlotCapHotplug;
+					child->powerController = (kSlotCapPowerController & slotCaps) != 0;
+				}
+
 			}
 	
 			child->expressCaps        = expressCaps;

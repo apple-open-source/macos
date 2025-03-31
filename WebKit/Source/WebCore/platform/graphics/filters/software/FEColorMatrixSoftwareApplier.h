@@ -23,6 +23,7 @@
 #pragma once
 
 #include "FilterEffectApplier.h"
+#include <array>
 #include <wtf/TZoneMalloc.h>
 
 namespace WebCore {
@@ -51,7 +52,7 @@ private:
 
     void applyPlatform(PixelBuffer&) const;
 
-    float m_components[9];
+    std::array<float, 9> m_components;
 };
 
 } // namespace WebCore

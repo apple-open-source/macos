@@ -442,6 +442,7 @@
 		72DCDE4C29A8360F00666DB6 /* PMCoreSmartPowerNapLocationMonitor.m in Sources */ = {isa = PBXBuildFile; fileRef = 7297A8B0293FE0BF008B9D8E /* PMCoreSmartPowerNapLocationMonitor.m */; settings = {COMPILER_FLAGS = "-fobjc-arc"; }; };
 		72DCDE4D29A8381F00666DB6 /* BiomeStreams.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B30EE97027BDC53E00CE2DD6 /* BiomeStreams.framework */; settings = {ATTRIBUTES = (Weak, ); }; };
 		72DCDE4E29A8382A00666DB6 /* BiomeLibrary.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B30EE97227BDC63500CE2DD6 /* BiomeLibrary.framework */; settings = {ATTRIBUTES = (Weak, ); }; };
+		72ACDC1B2D1228A600C696AD /* PowerExperience.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 72ACDC1A2D1228A600C696AD /* PowerExperience.framework */; settings = {ATTRIBUTES = (Weak, ); }; };
 		72DCDE4F29A83C9600666DB6 /* LowPowerMode.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 804E7F5B2447E017001FA751 /* LowPowerMode.framework */; settings = {ATTRIBUTES = (Weak, ); }; };
 		72EA6D1718EA2DE100FCE94F /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 72CEF7E118C16D5400E7B3B4 /* CoreFoundation.framework */; };
 		72EA6D2418EA303700FCE94F /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 72CEF7E318C16D5B00E7B3B4 /* IOKit.framework */; };
@@ -536,7 +537,7 @@
 		B348AB7725D5BA7B0049E73E /* com.apple.powerd.assertiontimeouts.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = B348AB6D25D465920049E73E /* com.apple.powerd.assertiontimeouts.plist */; };
 		B348AB7925D5BABA0049E73E /* powerd.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = B348AB7225D4C7740049E73E /* powerd.plist */; };
 		B34A590A26430B1F001A952C /* Trial.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B34A590926430B1F001A952C /* Trial.framework */; platformFilters = (ios, watchos, xros, ); settings = {ATTRIBUTES = (Weak, ); }; };
-		B34A863B2B72DE7900AD8CF4 /* PowerExperience.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B34A863A2B72DE7900AD8CF4 /* PowerExperience.framework */; platformFilters = (ios, ); settings = {ATTRIBUTES = (Weak, ); }; };
+		B34A863B2B72DE7900AD8CF4 /* PowerExperience.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B34A863A2B72DE7900AD8CF4 /* PowerExperience.framework */; platformFilter = ios; settings = {ATTRIBUTES = (Weak, ); }; };
 		B34DD13C2717581E0069E222 /* _PMSmartPowerNapCallbackProtocol.h in Headers */ = {isa = PBXBuildFile; fileRef = B34DD13B2717575C0069E222 /* _PMSmartPowerNapCallbackProtocol.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		B356E8812863AEBC006B806C /* BacklightServices.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B356E8802863AEBC006B806C /* BacklightServices.framework */; platformFilters = (ios, xros, ); settings = {ATTRIBUTES = (Weak, ); }; };
 		B38EF67229C1194D00740871 /* USBDeviceMode.m in Sources */ = {isa = PBXBuildFile; fileRef = B38EF67029C1194600740871 /* USBDeviceMode.m */; settings = {COMPILER_FLAGS = "-fobjc-arc"; }; };
@@ -893,7 +894,7 @@
 		};
 		11DA8BED1E84C24000664706 /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
+			buildActionMask = 8;
 			dstPath = /usr/share/man/man1/;
 			dstSubfolderSpec = 0;
 			files = (
@@ -922,7 +923,7 @@
 		};
 		1955B423279F38AB00C8FA37 /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
+			buildActionMask = 8;
 			dstPath = /usr/share/man/man1/;
 			dstSubfolderSpec = 0;
 			files = (
@@ -931,7 +932,7 @@
 		};
 		19A52D1626C333A50093874F /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
+			buildActionMask = 8;
 			dstPath = /usr/local/share/man/man1/;
 			dstSubfolderSpec = 0;
 			files = (
@@ -971,7 +972,7 @@
 		};
 		4825363221BE427600A4DB1C /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
+			buildActionMask = 8;
 			dstPath = /usr/local/share/man/man1;
 			dstSubfolderSpec = 0;
 			files = (
@@ -981,7 +982,7 @@
 		};
 		48644FB51B7D5B0500AC7C92 /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
+			buildActionMask = 8;
 			dstPath = /usr/local/share/man/man1;
 			dstSubfolderSpec = 0;
 			files = (
@@ -991,7 +992,7 @@
 		};
 		4896D8452452222300687BC1 /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
+			buildActionMask = 8;
 			dstPath = /System/Library/LaunchDaemons;
 			dstSubfolderSpec = 0;
 			files = (
@@ -1031,7 +1032,7 @@
 		};
 		48D667281C99D6CD0006F1C8 /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
+			buildActionMask = 8;
 			dstPath = /usr/share/man/man1/;
 			dstSubfolderSpec = 0;
 			files = (
@@ -1050,7 +1051,7 @@
 		};
 		720BF5E918DD27D5005621D0 /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
+			buildActionMask = 8;
 			dstPath = /usr/share/man/man1/;
 			dstSubfolderSpec = 0;
 			files = (
@@ -1069,7 +1070,7 @@
 		};
 		725E685918DED0DA005DA3E7 /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
+			buildActionMask = 8;
 			dstPath = /usr/share/man/man1/;
 			dstSubfolderSpec = 0;
 			files = (
@@ -1577,6 +1578,7 @@
 		803BC92B244A307600BA8263 /* PMLowPowerModeService.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = PMLowPowerModeService.m; sourceTree = "<group>"; };
 		803BC936244E2AFB00BA8263 /* FindMyMac.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = FindMyMac.framework; path = System/Library/PrivateFrameworks/FindMyMac.framework; sourceTree = SDKROOT; };
 		803BC938244E3B8F00BA8263 /* FindMyDevice.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = FindMyDevice.framework; path = System/Library/PrivateFrameworks/FindMyDevice.framework; sourceTree = SDKROOT; };
+		72ACDC1A2D1228A600C696AD /* PowerExperience.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = PowerExperience.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS19.0.Internal.sdk/System/Library/PrivateFrameworks/PowerExperience.framework; sourceTree = DEVELOPER_DIR; };
 		803BC949244E551900BA8263 /* CoreDuetContext.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreDuetContext.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS14.0.Internal.sdk/System/Library/PrivateFrameworks/CoreDuetContext.framework; sourceTree = DEVELOPER_DIR; };
 		803BC94A244E551900BA8263 /* CoreDuet.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreDuet.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS14.0.Internal.sdk/System/Library/PrivateFrameworks/CoreDuet.framework; sourceTree = DEVELOPER_DIR; };
 		803BC94D244E594200BA8263 /* AggregateDictionary.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AggregateDictionary.framework; path = System/Library/PrivateFrameworks/AggregateDictionary.framework; sourceTree = SDKROOT; };
@@ -1841,6 +1843,7 @@
 				4878DC7E1E7769E200CF1891 /* CoreFoundation.framework in Frameworks */,
 				72DCDE4E29A8382A00666DB6 /* BiomeLibrary.framework in Frameworks */,
 				72DCDE4D29A8381F00666DB6 /* BiomeStreams.framework in Frameworks */,
+				72ACDC1B2D1228A600C696AD /* PowerExperience.framework in Frameworks */,
 				4878DC7C1E7769DC00CF1891 /* SystemConfiguration.framework in Frameworks */,
 				4878DC7A1E7769D000CF1891 /* IOKit.framework in Frameworks */,
 				4878DC781E7769C900CF1891 /* libbsm.dylib in Frameworks */,
@@ -2351,6 +2354,7 @@
 				B3E63D382405F985009FE961 /* RunningBoardServices.framework */,
 				08196AF723C3FDEB00D48110 /* CPMS.framework */,
 				13B3011D22B9883000FDC1B9 /* SkyLight.framework */,
+				72ACDC1A2D1228A600C696AD /* PowerExperience.framework */,
 				482CA98E22BC1FA10002DC2D /* libIOReport.tbd */,
 				B39F87612228BB91006D4499 /* System.framework */,
 				487BE3FD21B64A790005462B /* libDiagnosticMessagesClient.tbd */,

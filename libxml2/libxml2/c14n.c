@@ -28,6 +28,7 @@
 #include <libxml/c14n.h>
 
 #include "buf.h"
+#include "private/memory.h"
 
 /************************************************************************
  *									*
@@ -320,36 +321,26 @@ xmlC14NVisibleNsStackAdd(xmlC14NVisibleNsStackPtr cur, xmlNsPtr ns, xmlNodePtr n
 	return;
     }
 
-    if ((cur->nsTab == NULL) && (cur->nodeTab == NULL)) {
-        cur->nsTab = (xmlNsPtr*) xmlMalloc(XML_NAMESPACES_DEFAULT * sizeof(xmlNsPtr));
-        cur->nodeTab = (xmlNodePtr*) xmlMalloc(XML_NAMESPACES_DEFAULT * sizeof(xmlNodePtr));
-	if ((cur->nsTab == NULL) || (cur->nodeTab == NULL)) {
-	    xmlC14NErrMemory("adding node to stack");
-	    return;
-	}
-	memset(cur->nsTab, 0 , XML_NAMESPACES_DEFAULT * sizeof(xmlNsPtr));
-	memset(cur->nodeTab, 0 , XML_NAMESPACES_DEFAULT * sizeof(xmlNodePtr));
-        cur->nsMax = XML_NAMESPACES_DEFAULT;
-    } else if(cur->nsMax == cur->nsCurEnd) {
-	void *tmp;
-	int tmpSize;
+    if (cur->nsMax <= cur->nsCurEnd) {
+	xmlNsPtr *tmp1;
+        xmlNodePtr *tmp2;
+	int newSize;
 
-	tmpSize = 2 * cur->nsMax;
-	tmp = xmlRealloc(cur->nsTab, tmpSize * sizeof(xmlNsPtr));
-	if (tmp == NULL) {
-	    xmlC14NErrMemory("adding node to stack");
-	    return;
-	}
-	cur->nsTab = (xmlNsPtr*)tmp;
+        newSize = xmlGrowCapacity(cur->nsMax,
+                                  sizeof(tmp1[0]) + sizeof(tmp2[0]),
+                                  XML_NAMESPACES_DEFAULT, XML_MAX_ITEMS);
 
-	tmp = xmlRealloc(cur->nodeTab, tmpSize * sizeof(xmlNodePtr));
-	if (tmp == NULL) {
-	    xmlC14NErrMemory("adding node to stack");
+	tmp1 = xmlRealloc(cur->nsTab, newSize * sizeof(tmp1[0]));
+	if (tmp1 == NULL)
 	    return;
-	}
-	cur->nodeTab = (xmlNodePtr*)tmp;
+	cur->nsTab = tmp1;
 
-	cur->nsMax = tmpSize;
+	tmp2 = xmlRealloc(cur->nodeTab, newSize * sizeof(tmp2[0]));
+	if (tmp2 == NULL)
+	    return;
+	cur->nodeTab = tmp2;
+
+	cur->nsMax = newSize;
     }
     cur->nsTab[cur->nsCurEnd] = ns;
     cur->nodeTab[cur->nsCurEnd] = node;
@@ -2113,20 +2104,6 @@ xmlC14NDocSave(xmlDocPtr doc, xmlNodeSetPtr nodes,
 }
 
 
-
-/*
- * Macro used to grow the current buffer.
- */
-#define growBufferReentrant() {						\
-    buffer_size *= 2;							\
-    buffer = (xmlChar *)						\
-		xmlRealloc(buffer, buffer_size * sizeof(xmlChar));	\
-    if (buffer == NULL) {						\
-	xmlC14NErrMemory("growing buffer");				\
-	return(NULL);							\
-    }									\
-}
-
 /**
  * xmlC11NNormalizeString:
  * @input:		the input string
@@ -2164,9 +2141,22 @@ xmlC11NNormalizeString(const xmlChar * input,
 
     while (*cur != '\0') {
         if ((out - buffer) > (buffer_size - 10)) {
+            xmlChar *tmp;
             int indx = out - buffer;
+            int newSize;
 
-            growBufferReentrant();
+            newSize = xmlGrowCapacity(buffer_size, 1, 1, XML_MAX_ITEMS);
+            if (newSize < 0) {
+                xmlFree(buffer);
+                return(NULL);
+            }
+            tmp = xmlRealloc(buffer, newSize);
+            if (tmp == NULL) {
+                xmlFree(buffer);
+                return(NULL);
+            }
+            buffer = tmp;
+            buffer_size = newSize;
             out = &buffer[indx];
         }
 

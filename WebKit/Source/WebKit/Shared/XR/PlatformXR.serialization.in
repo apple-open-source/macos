@@ -175,7 +175,7 @@ header: <WebCore/PlatformXR.h>
 
 [Nested] struct PlatformXR::FrameData::InputSource {
     int handle;
-    PlatformXR::XRHandedness handeness;
+    PlatformXR::XRHandedness handedness;
     PlatformXR::XRTargetRayMode targetRayMode;
     Vector<String> profiles;
     PlatformXR::FrameData::InputSourcePose pointerOrigin;

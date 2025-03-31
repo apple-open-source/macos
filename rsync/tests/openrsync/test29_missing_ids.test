@@ -1,5 +1,7 @@
 #! /bin/sh
 
+: ${RSYNC_CLIENT_EXECUTOR=sudo}
+: ${RSYNC_SERVER_EXECUTOR=sudo}
 # atf:require.user=root
 # Test that missing a name without --numeric-ids is non-fatal; we just don't
 # transmit a name, so they won't get remapped on the other side.
@@ -11,57 +13,6 @@ set -u
 . ${tstdir-.}/conf.sh
 
 sudo rm -rf src dst ref
-
-check_id() {
-	local _id
-	local _type
-
-	_id=$1
-	_type=$2
-
-	case "$(uname -s)" in
-	Darwin)
-		local _output
-
-		case "$_type" in
-		uid)
-			_output=$(dscacheutil -q user -a uid "$_id")
-			;;
-		gid)
-			_output=$(dscacheutil -q group -a gid "$_id")
-			;;
-		esac
-		if [ -z "$_output" ]; then
-			return 1
-		else
-			return 0
-		fi
-		;;
-	*)
-		local _db
-
-		_db=""
-		case "$_type" in
-		uid)
-			_db="passwd"
-			;;
-		gid)
-			_db="group"
-			;;
-		esac
-		if [ -z "$_db" ]; then
-			1>&2 echo "Unknown id type $_type"
-			exit 1
-		fi
-
-		getent "$_db" "$_id" >/dev/null
-		return
-		;;
-	esac
-
-	# Shouldn't happen, but they all exist.
-	return 0
-}
 
 _uid=
 _gid=

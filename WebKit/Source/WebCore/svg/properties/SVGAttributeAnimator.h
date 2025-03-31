@@ -27,7 +27,7 @@
 
 #include "CSSPropertyNames.h"
 #include "QualifiedName.h"
-#include <wtf/RefCounted.h>
+#include <wtf/RefCountedAndCanMakeWeakPtr.h>
 #include <wtf/StdLibExtras.h>
 #include <wtf/TZoneMalloc.h>
 #include <wtf/WeakPtr.h>
@@ -53,7 +53,7 @@ enum class CalcMode : uint8_t {
     Spline
 };
 
-class SVGAttributeAnimator : public RefCounted<SVGAttributeAnimator>, public CanMakeWeakPtr<SVGAttributeAnimator> {
+class SVGAttributeAnimator : public RefCountedAndCanMakeWeakPtr<SVGAttributeAnimator> {
     WTF_MAKE_TZONE_ALLOCATED(SVGAttributeAnimator);
 public:
     SVGAttributeAnimator(const QualifiedName& attributeName)

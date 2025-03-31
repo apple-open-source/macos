@@ -38,6 +38,11 @@ inline bool RenderLayer::overlapBoundsIncludeChildren() const { return hasFilter
 inline bool RenderLayer::preserves3D() const { return renderer().style().preserves3D(); }
 inline int RenderLayer::zIndex() const { return renderer().style().usedZIndex(); }
 
+#if HAVE(CORE_MATERIAL)
+inline bool RenderLayer::hasAppleVisualEffect() const { return renderer().hasAppleVisualEffect(); }
+inline bool RenderLayer::hasAppleVisualEffectRequiringBackdropFilter() const { return renderer().hasAppleVisualEffectRequiringBackdropFilter(); }
+#endif
+
 inline bool RenderLayer::hasBlendMode() const { return renderer().hasBlendMode(); } // FIXME: Why ask the renderer this given we have m_blendMode?
 
 inline bool RenderLayer::canUseOffsetFromAncestor() const

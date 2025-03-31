@@ -376,10 +376,6 @@
 }
 
 - (void)testSPKIForEd25519 {
-#ifndef LIBDER_HAS_EDDSA
-    // guard for rdar://106052612
-    XCTSkip();
-#endif
     /* Verify decode/encode with externally generated test data */
     const uint8_t _ed25519_spki[] = {
         0x30,0x2A,0x30,0x05,0x06,0x03,0x2B,0x65,0x70,0x03,0x21,0x00,0x0A,0x41,0x0C,0x8F,

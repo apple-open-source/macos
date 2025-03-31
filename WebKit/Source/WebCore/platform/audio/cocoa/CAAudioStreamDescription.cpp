@@ -38,7 +38,7 @@ CAAudioStreamDescription::CAAudioStreamDescription(const AudioStreamBasicDescrip
 {
 }
 
-CAAudioStreamDescription::CAAudioStreamDescription(double sampleRate, uint32_t numChannels, PCMFormat format, bool isInterleaved)
+CAAudioStreamDescription::CAAudioStreamDescription(double sampleRate, uint32_t numChannels, PCMFormat format, IsInterleaved isInterleaved)
 {
     m_streamDescription.mFormatID = kAudioFormatLinearPCM;
     m_streamDescription.mSampleRate = sampleRate;
@@ -51,8 +51,15 @@ CAAudioStreamDescription::CAAudioStreamDescription(double sampleRate, uint32_t n
 
     int wordsize;
     switch (format) {
+    case Uint8:
+        wordsize = 1;
+        break;
     case Int16:
         wordsize = 2;
+        m_streamDescription.mFormatFlags |= kAudioFormatFlagIsSignedInteger;
+        break;
+    case Int24:
+        wordsize = 3;
         m_streamDescription.mFormatFlags |= kAudioFormatFlagIsSignedInteger;
         break;
     case Int32:
@@ -74,7 +81,7 @@ CAAudioStreamDescription::CAAudioStreamDescription(double sampleRate, uint32_t n
     }
 
     m_streamDescription.mBitsPerChannel = wordsize * 8;
-    if (isInterleaved)
+    if (isInterleaved == IsInterleaved::Yes)
         m_streamDescription.mBytesPerFrame = m_streamDescription.mBytesPerPacket = wordsize * numChannels;
     else {
         m_streamDescription.mFormatFlags |= kAudioFormatFlagIsNonInterleaved;
@@ -122,7 +129,11 @@ AudioStreamDescription::PCMFormat CAAudioStreamDescription::format() const
             format = Int16;
         else if (bytesPerSample == sizeof(int32_t))
             format = Int32;
-    }
+        else if (bytesPerSample == 3)
+            format = Int24;
+    } else if (bytesPerSample == sizeof(uint8_t))
+        format = Uint8;
+
     if (!format)
         return None;
     m_format = *format;

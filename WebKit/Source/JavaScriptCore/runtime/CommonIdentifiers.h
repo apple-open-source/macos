@@ -128,6 +128,7 @@
     macro(exitKind) \
     macro(exports) \
     macro(fallback) \
+    macro(fill) \
     macro(flags) \
     macro(firstDayOfWeek) \
     macro(forEach) \
@@ -177,6 +178,7 @@
     macro(isArray) \
     macro(isEnabled) \
     macro(isPrototypeOf) \
+    macro(isRawJSON) \
     macro(isView) \
     macro(isWatchpoint) \
     macro(isWellFormed) \
@@ -235,10 +237,12 @@
     macro(parse) \
     macro(parseInt) \
     macro(parseFloat) \
+    macro(pluralCategories) \
     macro(profiledBytecodes) \
     macro(propertyIsEnumerable) \
     macro(prototype) \
     macro(raw) \
+    macro(rawJSON) \
     macro(read) \
     macro(region) \
     macro(replace) \
@@ -276,12 +280,15 @@
     macro(timeStyle) \
     macro(timeZone) \
     macro(timeZoneName) \
+    macro(toArray) \
     macro(toExponential) \
     macro(toFixed) \
     macro(toISOString) \
     macro(toJSON) \
     macro(toLocaleString) \
     macro(toPrecision) \
+    macro(toReversed) \
+    macro(toSorted) \
     macro(toString) \
     macro(toTemporalInstant) \
     macro(toWellFormed) \
@@ -300,6 +307,7 @@
     macro(weekday) \
     macro(weeks) \
     macro(weeksDisplay) \
+    macro(with) \
     macro(writable) \
     macro(written) \
     macro(year) \
@@ -319,6 +327,7 @@
     macro(continue) \
     macro(debugger) \
     macro(default) \
+    macro(defer) \
     macro(delete) \
     macro(do) \
     macro(else) \

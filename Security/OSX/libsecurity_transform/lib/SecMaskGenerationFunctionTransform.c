@@ -70,12 +70,10 @@ static SecTransformInstanceBlock MaskGenerationFunctionTransform(CFStringRef nam
                 CFStringRef digestType = SecTranformCustomGetAttribute(ref, kSecDigestTypeAttribute, kSecTransformMetaAttributeValue);
                 SecTransformRef digest0 = transforms_assume(SecDigestTransformCreate(digestType, 0, NULL));
                 int32_t digestLength = 0;
-                {
-                    // we've already asserted that digest0 is non-null, but clang doesn't know that
-#ifndef __clang_analyzer__
+                // we've already asserted that digest0 is non-null, but clang doesn't know that
+                [[clang::suppress]] {
                     CFNumberRef digestLengthAsCFNumber = SecTransformGetAttribute(digest0, kSecDigestLengthAttribute);
                     CFNumberGetValue(transforms_assume(digestLengthAsCFNumber), kCFNumberSInt32Type, &digestLength);
-#endif
                 }
                 (void)transforms_assume(digestLength >= 0);
 

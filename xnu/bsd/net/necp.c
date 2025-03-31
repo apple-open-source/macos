@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2024 Apple Inc. All rights reserved.
+ * Copyright (c) 2013-2025 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  *
@@ -8683,6 +8683,10 @@ necp_application_find_policy_match_internal(proc_t proc,
 					*flags |= NECP_CLIENT_RESULT_FLAG_PROBE_CONNECTIVITY;
 				}
 
+				if (if_link_heuristics_enabled(rt->rt_ifp)) {
+					*flags |= NECP_CLIENT_RESULT_FLAG_LINK_HEURISTICS;
+				}
+
 				if (rt->rt_ifp->if_type == IFT_CELLULAR) {
 					struct if_cellular_status_v1 *ifsr;
 
@@ -8931,6 +8935,7 @@ necp_application_find_policy_match_internal(proc_t proc,
 					*reason = NECP_CLIENT_RESULT_REASON_CONSTRAINED_PROHIBITED;
 				} else if (ultra_constrained_not_allowed) {
 					*reason = NECP_CLIENT_RESULT_REASON_ULTRA_CONSTRAINED_NOT_ALLOWED;
+					necp_send_network_denied_event(pid, application_uuid, NETPOLICY_NETWORKTYPE_ULTRA_CONSTRAINED);
 				}
 			}
 			if (expensive_prohibited || constrained_prohibited || ultra_constrained_not_allowed || interface_type_blocked) {
@@ -9856,7 +9861,7 @@ necp_socket_fillout_info_locked(struct inpcb *inp, struct sockaddr *override_loc
 	    necp_restrict_multicast ||
 	    needs_address_for_signature ||
 	    (necp_kernel_socket_policies_condition_mask & NECP_KERNEL_ADDRESS_TYPE_CONDITIONS) ||
-	    (IS_INET(so) && IS_UDP(so))) {
+	    NEED_DGRAM_FLOW_TRACKING(so)) {
 		if (override_local_addr != NULL) {
 			if (override_local_addr->sa_family == AF_INET6 && override_local_addr->sa_len <= sizeof(struct sockaddr_in6)) {
 				SOCKADDR_COPY(override_local_addr, &info->local_addr, override_local_addr->sa_len);
@@ -9939,8 +9944,8 @@ necp_socket_fillout_info_locked(struct inpcb *inp, struct sockaddr *override_loc
 		}
 	}
 
-	if (IS_INET(so) && IS_UDP(so)) {
-		info->soflow_entry = soflow_get_flow(so, &(info->local_addr.sa), &(info->remote_addr.sa), NULL, 0, override_direction, input_ifindex);
+	if (NEED_DGRAM_FLOW_TRACKING(so)) {
+		info->soflow_entry = soflow_get_flow(so, NULL, &(info->remote_addr.sa), NULL, 0, override_direction, input_ifindex);
 	} else {
 		info->soflow_entry = NULL;
 	}
@@ -9962,7 +9967,7 @@ necp_socket_fillout_info_locked(struct inpcb *inp, struct sockaddr *override_loc
 		if (inp->inp_socket->so_flags1 & SOF1_APPROVED_APP_DOMAIN) {
 			info->client_flags |= NECP_CLIENT_PARAMETER_FLAG_APPROVED_APP_DOMAIN;
 		}
-		if (IS_INET(so) && IS_UDP(so)) {
+		if (NEED_DGRAM_FLOW_TRACKING(so)) {
 			// If the socket has a flow entry for this 4-tuple then check if the flow is outgoing
 			// and set the inbound flag accordingly. Otherwise use the direction to set the inbound flag.
 			if (info->soflow_entry != NULL) {

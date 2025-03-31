@@ -63,7 +63,7 @@ InjectedScript PageAuditAgent::injectedScriptForEval(std::optional<Inspector::Pr
 {
     if (executionContextId)
         return injectedScriptManager().injectedScriptForId(*executionContextId);
-    if (auto* localMainFrame = dynamicDowncast<LocalFrame>(m_inspectedPage.mainFrame()))
+    if (RefPtr localMainFrame = m_inspectedPage->localMainFrame())
         return injectedScriptManager().injectedScriptFor(&mainWorldGlobalObject(*localMainFrame));
     return InjectedScript();
 }

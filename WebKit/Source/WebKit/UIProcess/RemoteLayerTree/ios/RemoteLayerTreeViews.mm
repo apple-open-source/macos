@@ -39,8 +39,10 @@
 #import <WebCore/TouchAction.h>
 #import <WebCore/TransformationMatrix.h>
 #import <WebCore/WebCoreCALayerExtras.h>
+#import <pal/cocoa/CoreMaterialSoftLink.h>
 #import <pal/spi/cocoa/QuartzCoreSPI.h>
 #import <wtf/SoftLinking.h>
+#import <wtf/cocoa/TypeCastsCocoa.h>
 #import <wtf/cocoa/VectorCocoa.h>
 
 namespace WTF {
@@ -377,30 +379,18 @@ static Class scrollViewScrollIndicatorClass()
 
 @end
 
-@implementation WKRemoteView
+#if HAVE(CORE_MATERIAL)
 
-- (instancetype)initWithFrame:(CGRect)frame contextID:(uint32_t)contextID
-{
-    if ((self = [super initWithFrame:frame])) {
-        CALayerHost *layer = (CALayerHost *)self.layer;
-        layer.contextId = contextID;
-#if PLATFORM(MACCATALYST)
-        // When running iOS apps on macOS, kCAContextIgnoresHitTest isn't respected; instead, we avoid
-        // hit-testing to the remote context by disabling hit-testing on its host layer. See
-        // <rdar://problem/40591107> for more details.
-        layer.allowsHitTesting = NO;
-#endif
-    }
-
-    return self;
-}
+@implementation WKMaterialView
 
 + (Class)layerClass
 {
-    return NSClassFromString(@"CALayerHost");
+    return PAL::getMTMaterialLayerClass();
 }
 
 @end
+
+#endif
 
 @implementation WKUIRemoteView
 

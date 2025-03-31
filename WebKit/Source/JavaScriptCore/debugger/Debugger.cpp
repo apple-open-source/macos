@@ -137,9 +137,8 @@ Debugger::~Debugger()
 {
     m_vm.removeDebugger(*this);
 
-    HashSet<JSGlobalObject*>::iterator end = m_globalObjects.end();
-    for (HashSet<JSGlobalObject*>::iterator it = m_globalObjects.begin(); it != end; ++it)
-        (*it)->setDebugger(nullptr);
+    for (auto* globalObject : m_globalObjects)
+        globalObject->setDebugger(nullptr);
 }
 
 void Debugger::attach(JSGlobalObject* globalObject)
@@ -151,7 +150,7 @@ void Debugger::attach(JSGlobalObject* globalObject)
     m_vm.setShouldBuildPCToCodeOriginMapping();
 
     // Call `sourceParsed` after iterating because it will execute JavaScript in Web Inspector.
-    HashSet<RefPtr<SourceProvider>> sourceProviders;
+    UncheckedKeyHashSet<RefPtr<SourceProvider>> sourceProviders;
     {
         JSLockHolder locker(m_vm);
         HeapIterationScope iterationScope(m_vm.heap);

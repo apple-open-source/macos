@@ -35,6 +35,7 @@
 #import "APIHTTPCookieStore.h"
 #import "CocoaHelpers.h"
 #import "WKWebViewConfiguration.h"
+#import "WKWebViewPrivate.h"
 #import "WKWebsiteDataStoreInternal.h"
 #import "WebExtensionContextProxyMessages.h"
 #import "WebExtensionCookieParameters.h"
@@ -108,16 +109,16 @@ void WebExtensionContext::fetchCookies(WebsiteDataStore& dataStore, const URL& u
     };
 
     if (url.isValid())
-        dataStore.cookieStore().cookiesForURL(url.isolatedCopy(), WTFMove(internalCompletionHandler));
+        dataStore.protectedCookieStore()->cookiesForURL(url.isolatedCopy(), WTFMove(internalCompletionHandler));
     else
-        dataStore.cookieStore().cookies(WTFMove(internalCompletionHandler));
+        dataStore.protectedCookieStore()->cookies(WTFMove(internalCompletionHandler));
 }
 
 void WebExtensionContext::cookiesGet(std::optional<PAL::SessionID> sessionID, const String& name, const URL& url, CompletionHandler<void(Expected<std::optional<WebExtensionCookieParameters>, WebExtensionError>&&)>&& completionHandler)
 {
     RefPtr dataStore = websiteDataStore(sessionID);
     if (!dataStore) {
-        completionHandler(toWebExtensionError(@"cookies.get()", nil, @"cookie store not found"));
+        completionHandler(toWebExtensionError(@"cookies.get()", nullString(), @"cookie store not found"));
         return;
     }
 
@@ -149,7 +150,7 @@ void WebExtensionContext::cookiesGetAll(std::optional<PAL::SessionID> sessionID,
 {
     RefPtr dataStore = websiteDataStore(sessionID);
     if (!dataStore) {
-        completionHandler(toWebExtensionError(@"cookies.getAll()", nil, @"cookie store not found"));
+        completionHandler(toWebExtensionError(@"cookies.getAll()", nullString(), @"cookie store not found"));
         return;
     }
 
@@ -162,7 +163,7 @@ void WebExtensionContext::cookiesSet(std::optional<PAL::SessionID> sessionID, co
 {
     RefPtr dataStore = websiteDataStore(sessionID);
     if (!dataStore) {
-        completionHandler(toWebExtensionError(@"cookies.set()", nil, @"cookie store not found"));
+        completionHandler(toWebExtensionError(@"cookies.set()", nullString(), @"cookie store not found"));
         return;
     }
 
@@ -170,7 +171,7 @@ void WebExtensionContext::cookiesSet(std::optional<PAL::SessionID> sessionID, co
 
     requestPermissionToAccessURLs({ url }, nullptr, [this, protectedThis = Ref { *this }, dataStore, url, cookieParameters, completionHandler = WTFMove(completionHandler)](auto&& requestedURLs, auto&& allowedURLs, auto expirationDate) mutable {
         if (!hasPermission(url)) {
-            completionHandler(toWebExtensionError(@"cookies.set()", nil, @"host permissions are missing or not granted"));
+            completionHandler(toWebExtensionError(@"cookies.set()", nullString(), @"host permissions are missing or not granted"));
             return;
         }
 
@@ -184,13 +185,13 @@ void WebExtensionContext::cookiesRemove(std::optional<PAL::SessionID> sessionID,
 {
     RefPtr dataStore = websiteDataStore(sessionID);
     if (!dataStore) {
-        completionHandler(toWebExtensionError(@"cookies.remove()", nil, @"cookie store not found"));
+        completionHandler(toWebExtensionError(@"cookies.remove()", nullString(), @"cookie store not found"));
         return;
     }
 
     requestPermissionToAccessURLs({ url }, nullptr, [this, protectedThis = Ref { *this }, dataStore, name, url, completionHandler = WTFMove(completionHandler)](auto&& requestedURLs, auto&& allowedURLs, auto expirationDate) mutable {
         if (!hasPermission(url)) {
-            completionHandler(toWebExtensionError(@"cookies.remove()", nil, @"host permissions are missing or not granted"));
+            completionHandler(toWebExtensionError(@"cookies.remove()", nullString(), @"host permissions are missing or not granted"));
             return;
         }
 
@@ -223,7 +224,7 @@ void WebExtensionContext::cookiesGetAllCookieStores(CompletionHandler<void(Expec
 {
     HashMap<PAL::SessionID, Vector<WebExtensionTabIdentifier>> stores;
 
-    auto defaultSessionID = extensionController()->configuration().defaultWebsiteDataStore().sessionID();
+    auto defaultSessionID = extensionController()->protectedConfiguration()->defaultWebsiteDataStore().sessionID();
     stores.set(defaultSessionID, Vector<WebExtensionTabIdentifier> { });
 
     for (Ref tab : openTabs()) {

@@ -1,0 +1,79 @@
+#! /bin/sh
+
+. ${tstdir-.}/daemon.sh
+. ${tstdir-.}/lib.sh
+. ${tstdir-.}/conf.sh
+
+dest="$PWD/ftp"
+cfgfile="$PWD/rsyncd.conf"
+excludefile="$PWD/rsyncd.excludes"
+includefile="$PWD/rsyncd.includes"
+
+excluderef="$PWD/exclude-ref"
+includeref="$PWD/include-ref"
+
+rm -rf "$dest" "$excluderef" "$includeref"
+
+mkdir -p "$dest"
+
+:> "$dest"/file
+:> "$dest"/excludeme
+:> "$dest"/includeme.conf
+:> "$dest"/random.conf
+
+# Setup our reference directories
+# The exclude and filter modules will just exclude the one file
+cp -R "$dest" "$excluderef"
+rm "$excluderef"/excludeme
+
+# The include modules will exclude conf files, but we'll include back in just
+# includeme.conf.
+cp -R "$dest" "$includeref"
+rm "$includeref/random.conf"
+
+echo "excludeme" > "$excludefile"
+echo "includeme.conf" > "$includefile"
+
+cat <<EOF > "$cfgfile"
+use chroot = no
+
+[filter]
+	path = $dest
+	filter = - excludeme
+[exclude]
+	path = $dest
+	exclude = excludeme
+[exclude_from]
+	path = $dest
+	exclude from = $excludefile
+[include]
+	path = $dest
+	exclude = *.conf
+	include = includeme.conf
+[include_from]
+	path = $dest
+	exclude = *.conf
+	include from = $includefile
+EOF
+
+rsyncd "$cfgfile"
+dport=$(daemon_port)
+
+do_module() {
+	local module refdir
+
+	module="$1"
+	refdir="$2"
+
+	rm -rf "$PWD/$module"
+	command $RSYNC_CLIENT -a rsync://localhost:$dport/$module \
+	    "$PWD/$module"
+	compare_trees "$refdir" "$PWD/$module"
+}
+
+do_module filter "$excluderef"
+do_module exclude "$excluderef"
+do_module exclude_from "$excluderef"
+
+do_module include "$includeref"
+do_module include_from "$includeref"

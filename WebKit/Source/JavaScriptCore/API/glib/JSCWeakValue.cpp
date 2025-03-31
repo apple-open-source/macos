@@ -59,7 +59,7 @@ struct _JSCWeakValuePrivate {
     JSC::JSWeakValue weakValueRef;
 };
 
-static guint signals[LAST_SIGNAL] = { 0, };
+static std::array<unsigned, LAST_SIGNAL> signals;
 
 WEBKIT_DEFINE_FINAL_TYPE(JSCWeakValue, jsc_weak_value, G_TYPE_OBJECT, GObject)
 

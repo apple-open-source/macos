@@ -33,8 +33,8 @@
 #import "RemoteMediaPlayerManagerProxy.h"
 #import "VideoReceiverEndpointMessage.h"
 #import "XPCEndpoint.h"
-#import <WebCore/RuntimeApplicationChecks.h>
 #import <wtf/RunLoop.h>
+#import <wtf/RuntimeApplicationChecks.h>
 #import <wtf/text/WTFString.h>
 
 namespace WebKit {
@@ -54,35 +54,58 @@ static void handleLaunchServiceDatabaseMessage(xpc_object_t message)
 static void handleVideoReceiverEndpointMessage(xpc_object_t message)
 {
     ASSERT(isMainRunLoop());
-    RELEASE_ASSERT(WebCore::isInGPUProcess());
+    RELEASE_ASSERT(isInGPUProcess());
 
     auto endpointMessage = VideoReceiverEndpointMessage::decode(message);
+    if (!endpointMessage.processIdentifier())
+        return;
 
-    if (RefPtr webProcessConnection = GPUProcess::singleton().webProcessConnection(endpointMessage.processIdentifier()))
+    if (RefPtr webProcessConnection = GPUProcess::singleton().webProcessConnection(*endpointMessage.processIdentifier()))
         webProcessConnection->remoteMediaPlayerManagerProxy().handleVideoReceiverEndpointMessage(endpointMessage);
+}
+
+static void handleVideoReceiverSwapEndpointsMessage(xpc_object_t message)
+{
+    ASSERT(isMainRunLoop());
+    RELEASE_ASSERT(isInGPUProcess());
+
+    auto endpointMessage = VideoReceiverSwapEndpointsMessage::decode(message);
+    if (!endpointMessage.processIdentifier())
+        return;
+
+    if (RefPtr webProcessConnection = GPUProcess::singleton().webProcessConnection(*endpointMessage.processIdentifier()))
+        webProcessConnection->remoteMediaPlayerManagerProxy().handleVideoReceiverSwapEndpointsMessage(endpointMessage);
 }
 #endif
 
-void handleXPCEndpointMessage(xpc_object_t message, const char* messageName)
+void handleXPCEndpointMessage(xpc_object_t message, const String& messageName)
 {
     ASSERT_UNUSED(messageName, messageName);
     RELEASE_ASSERT(xpc_get_type(message) == XPC_TYPE_DICTIONARY);
 
 #if HAVE(LSDATABASECONTEXT)
-    if (!strcmp(messageName, LaunchServicesDatabaseXPCConstants::xpcLaunchServicesDatabaseXPCEndpointMessageName)) {
+    if (messageName == LaunchServicesDatabaseXPCConstants::xpcLaunchServicesDatabaseXPCEndpointMessageName) {
         handleLaunchServiceDatabaseMessage(message);
         return;
     }
 #endif
 
 #if ENABLE(LINEAR_MEDIA_PLAYER)
-    if (!strcmp(messageName, VideoReceiverEndpointMessage::messageName().characters())) {
+    if (messageName == VideoReceiverEndpointMessage::messageName()) {
         RunLoop::main().dispatch([message = OSObjectPtr(message)] {
             handleVideoReceiverEndpointMessage(message.get());
         });
         return;
     }
+
+    if (messageName == VideoReceiverSwapEndpointsMessage::messageName()) {
+        RunLoop::main().dispatch([message = OSObjectPtr(message)] {
+            handleVideoReceiverSwapEndpointsMessage(message.get());
+        });
+        return;
+    }
 #endif
+
 }
 
 } // namespace WebKit

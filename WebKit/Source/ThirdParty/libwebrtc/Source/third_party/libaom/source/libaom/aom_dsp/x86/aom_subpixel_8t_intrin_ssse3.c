@@ -485,7 +485,7 @@ static void aom_filter_block1d16_v4_ssse3(
   }
 }
 
-static INLINE __m128i shuffle_filter_convolve8_8_ssse3(
+static inline __m128i shuffle_filter_convolve8_8_ssse3(
     const __m128i *const s, const int16_t *const filter) {
   __m128i f[4];
   shuffle_filter_ssse3(filter, f);

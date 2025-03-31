@@ -8,7 +8,7 @@ ro{
                 case{
                     genitive{
                         few{"{0} forță g"}
-                        one{"{0} forță g"}
+                        one{"unei forțe g"}
                         other{"{0} forță g"}
                     }
                 }
@@ -353,8 +353,16 @@ ro{
                 other{"{0} de carate"}
             }
             milligram-ofglucose-per-deciliter{
+                case{
+                    genitive{
+                        few{"{0} miligrame pe decilitru"}
+                        one{"unui miligram pe decilitru"}
+                        other{"{0} de miligrame pe decilitru"}
+                    }
+                }
                 dnam{"miligrame pe decilitru"}
                 few{"{0} miligrame pe decilitru"}
+                gender{"neuter"}
                 one{"{0} miligram pe decilitru"}
                 other{"{0} de miligrame pe decilitru"}
             }
@@ -776,6 +784,21 @@ ro{
                 one{"{0} nanosecundă"}
                 other{"{0} de nanosecunde"}
             }
+            night{
+                case{
+                    genitive{
+                        few{"{0} nopți"}
+                        one{"unei nopți"}
+                        other{"{0} de nopți"}
+                    }
+                }
+                dnam{"noapte"}
+                few{"{0} nopți"}
+                gender{"feminine"}
+                one{"{0}/noapte"}
+                other{"{0} de nopți"}
+                per{"{0}/noapte"}
+            }
             quarter{
                 case{
                     genitive{
@@ -940,8 +963,16 @@ ro{
                 other{"{0} de jouli"}
             }
             kilocalorie{
+                case{
+                    genitive{
+                        few{"{0} kilocalorii"}
+                        one{"unei kilocalorii"}
+                        other{"{0} de kilocalorii"}
+                    }
+                }
                 dnam{"kilocalorii"}
                 few{"{0} kilocalorii"}
+                gender{"feminine"}
                 one{"{0} kilocalorie"}
                 other{"{0} de kilocalorii"}
             }
@@ -1094,8 +1125,18 @@ ro{
                 other{"{0} de puncte pe inch"}
             }
             em{
+                case{
+                    genitive{
+                        few{"{0} em"}
+                        one{"unui em"}
+                        other{"{0} de em"}
+                    }
+                }
                 dnam{"em tipografic"}
+                few{"{0} em"}
                 gender{"masculine"}
+                one{"{0} em"}
+                other{"{0} de em"}
             }
             megapixel{
                 case{
@@ -1334,8 +1375,16 @@ ro{
                 other{"{0} de picometri"}
             }
             point{
+                case{
+                    genitive{
+                        few{"{0} puncte tipografice"}
+                        one{"unui punct tipografic"}
+                        other{"{0} de puncte tipografice"}
+                    }
+                }
                 dnam{"puncte"}
                 few{"{0} puncte tipografice"}
+                gender{"neuter"}
                 one{"{0} punct tipografic"}
                 other{"{0} de puncte tipografice"}
             }
@@ -1713,8 +1762,16 @@ ro{
                 other{"{0} de milibari"}
             }
             millimeter-ofhg{
+                case{
+                    genitive{
+                        few{"{0} milimetri coloană de mercur"}
+                        one{"unui milimetru coloană de mercur"}
+                        other{"{0} de milimetri coloană de mercur"}
+                    }
+                }
                 dnam{"milimetri coloană de mercur"}
                 few{"{0} milimetri coloană de mercur"}
+                gender{"masculine"}
                 one{"{0} milimetru coloană de mercur"}
                 other{"{0} de milimetri coloană de mercur"}
             }
@@ -1764,6 +1821,20 @@ ro{
                 few{"{0} noduri"}
                 one{"{0} nod"}
                 other{"{0} de noduri"}
+            }
+            light-speed{
+                case{
+                    genitive{
+                        few{"{0} lumină"}
+                        one{"{0} lumină"}
+                        other{"{0} lumină"}
+                    }
+                }
+                dnam{"lumină"}
+                few{"{0} lumină"}
+                gender{"feminine"}
+                one{"{0} lumină"}
+                other{"{0} lumină"}
             }
             meter-per-second{
                 case{
@@ -2231,6 +2302,13 @@ ro{
                 one{"{0} l"}
                 other{"{0} l"}
             }
+            night{
+                dnam{"nopți"}
+                few{"{0} nopți"}
+                one{"{0} noapte"}
+                other{"{0} de nopți"}
+                per{"{0}/noapte"}
+            }
             week{
                 dnam{"săpt."}
                 few{"{0}săpt"}
@@ -2296,6 +2374,14 @@ ro{
                 few{"{0} mb"}
                 one{"{0} mb"}
                 other{"{0} mb"}
+            }
+        }
+        speed{
+            light-speed{
+                dnam{"lumină"}
+                few{"{0} lumină"}
+                one{"{0} lumină"}
+                other{"{0} lumină"}
             }
         }
         temperature{
@@ -2540,6 +2626,13 @@ ro{
                 other{"{0} luni"}
                 per{"{0}/lună"}
             }
+            night{
+                dnam{"nopți"}
+                few{"{0} nopți"}
+                one{"{0} noapte"}
+                other{"{0} de nopți"}
+                per{"{0}/noapte"}
+            }
             quarter{
                 dnam{"trim."}
                 few{"{0} trim."}
@@ -2725,6 +2818,14 @@ ro{
                 few{"{0} in Hg"}
                 one{"{0} in Hg"}
                 other{"{0} in Hg"}
+            }
+        }
+        speed{
+            light-speed{
+                dnam{"lumină"}
+                few{"{0} lumină"}
+                one{"{0} lumină"}
+                other{"{0} lumină"}
             }
         }
         temperature{

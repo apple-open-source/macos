@@ -394,7 +394,7 @@ hash_region_insert_no_lock(region_t * __counted_by(num_entries) regions, size_t 
  * region, and asking the small region to allocate space for the new list of
  * regions.
  */
-static region_t *
+static region_t * __counted_by(num_entries)
 hash_regions_alloc_no_lock(size_t num_entries)
 {
 	size_t size = num_entries * sizeof(region_t);
@@ -407,19 +407,19 @@ hash_regions_alloc_no_lock(size_t num_entries)
  * the old entries since someone may still be allocating them.
  */
 static MALLOC_INLINE region_t *
-hash_regions_grow_no_lock(region_t * __counted_by(old_size) regions, size_t old_size, size_t *mutable_shift, size_t *new_size)
+hash_regions_grow_no_lock(region_t * __counted_by(old_count) regions, size_t old_count, size_t *mutable_shift, size_t *new_count)
 {
 	// double in size and allocate memory for the regions
-	*new_size = old_size + old_size;
+	*new_count = old_count + old_count;
 	*mutable_shift = *mutable_shift + 1;
-	region_t *new_regions = hash_regions_alloc_no_lock(*new_size);
+	region_t *new_regions = hash_regions_alloc_no_lock(*new_count);
 
 	// rehash the entries into the new list
 	size_t index;
-	for (index = 0; index < old_size; ++index) {
+	for (index = 0; index < old_count; ++index) {
 		region_t r = regions[index];
 		if (r != HASHRING_OPEN_ENTRY && r != HASHRING_REGION_DEALLOCATED) {
-			hash_region_insert_no_lock(new_regions, *new_size, *mutable_shift, r);
+			hash_region_insert_no_lock(new_regions, *new_count, *mutable_shift, r);
 		}
 	}
 	return new_regions;

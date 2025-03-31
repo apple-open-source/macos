@@ -38,7 +38,7 @@ class MemoryObjectStore;
 class MemoryObjectStoreCursor : public MemoryCursor {
     WTF_MAKE_TZONE_ALLOCATED(MemoryObjectStoreCursor);
 public:
-    MemoryObjectStoreCursor(MemoryObjectStore&, const IDBCursorInfo&);
+    MemoryObjectStoreCursor(MemoryObjectStore&, const IDBCursorInfo&, MemoryBackingStoreTransaction&);
 
     void objectStoreCleared();
     void keyDeleted(const IDBKeyData&);
@@ -57,7 +57,7 @@ private:
 
     bool hasValidPosition() const;
 
-    MemoryObjectStore& m_objectStore;
+    WeakRef<MemoryObjectStore> m_objectStore;
 
     IDBKeyRangeData m_remainingRange;
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010-2024 Apple Inc. All rights reserved.
+ * Copyright (c) 2010-2025 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -518,16 +518,15 @@ find_pvd_options(ptrlist_t * options_p, size_t * pvd_id_length,
 }
 
 STATIC const CFArrayRef
-copy_prefixes_array(ptrlist_t * options_p)
+copy_prefixes_array(ptrlist_t * options_p, CFArrayRef *ret_prefix_lengths)
 {
     CFMutableArrayRef prefixes = NULL;
+    CFMutableArrayRef prefix_lengths = NULL;
     bool success = false;
 
     for (int i = 0; i < ptrlist_count(options_p); i++) {
 	const struct nd_opt_prefix_info *pio = NULL;
 	uint8_t opt_len = 0;
-	char ntopbuf[INET6_ADDRSTRLEN];
-	const char *ntop_ret = NULL;
 	CFStringRef prefix_str = NULL;
 
 	pio = (const struct nd_opt_prefix_info *)ptrlist_element(options_p, i);
@@ -541,36 +540,37 @@ copy_prefixes_array(ptrlist_t * options_p)
 	    goto done;
 	}
 	if (prefixes == NULL) {
-	    prefixes = CFArrayCreateMutable(NULL,
-					    1,
+	    prefixes = CFArrayCreateMutable(NULL, 0,
 					    &kCFTypeArrayCallBacks);
-	    if (prefixes == NULL) {
-		goto done;
+	    if (ret_prefix_lengths != NULL) {
+		    prefix_lengths
+			    = CFArrayCreateMutable(NULL, 0,
+						   &kCFTypeArrayCallBacks);
 	    }
 	}
-	ntop_ret = inet_ntop(AF_INET6,
-			     &pio->nd_opt_pi_prefix,
-			     ntopbuf,
-			     sizeof(ntopbuf));
-	if (ntop_ret == NULL) {
-	    goto done;
-	}
-	prefix_str = CFStringCreateWithCString(NULL,
-					       ntop_ret,
-					       kCFStringEncodingUTF8);
-	if (prefix_str == NULL) {
-	    goto done;
-	}
+	prefix_str = my_CFStringCreateWithIPv6Address(&pio->nd_opt_pi_prefix);
 	CFArrayAppendValue(prefixes, prefix_str);
 	my_CFRelease(&prefix_str);
+	if (prefix_lengths != NULL) {
+		CFNumberRef	num;
+		int		prefix_length = pio->nd_opt_pi_prefix_len;
+
+		num = CFNumberCreate(NULL, kCFNumberIntType, &prefix_length);
+		CFArrayAppendValue(prefix_lengths, num);
+		CFRelease(num);
+	}
     }
     success = true;
 
 done:
     if (!success) {
 	my_CFRelease(&prefixes);
+	my_CFRelease(&prefix_lengths);
     }
-    return (CFArrayRef)prefixes;
+    else if (ret_prefix_lengths != NULL) {
+	    *ret_prefix_lengths = prefix_lengths;
+    }
+    return prefixes;
 }
 
 STATIC const uint8_t *
@@ -1030,7 +1030,7 @@ AppendPvDOptionDescription(CFMutableStringRef str,
 		STRING_APPEND_STR(str, "invalid id");
 		goto done;
 	}
-	pvdid = DNSNameStringCreate(pvdid_bytes, pvdid_bytes_len);
+	pvdid = DNSNameStringCreate(pvdid_bytes, pvdid_bytes_len, false);
 	if (pvdid == NULL) {
 		STRING_APPEND_STR(str, "invalid id");
 		goto done;
@@ -1092,7 +1092,6 @@ AppendFlagsExtensionOptionDescription(CFMutableStringRef str,
 		STRING_APPEND_STR(str, "proxy ");
 	}
 	flags_continued = net_uint32_get(scan);
-	scan += sizeof(flags_continued);
 	if ((flags_start & ND_OPT_FLAGS_EXTENSION_BITMASK_RESERVED_START) != 0
 	    || (flags_continued & ND_OPT_FLAGS_EXTENSION_BITMASK_RESERVED_CONT) != 0) {
 		STRING_APPEND_STR(str, "reserved ");
@@ -1329,9 +1328,10 @@ RouterAdvertisementGetSourceLinkAddress(RouterAdvertisementRef ra,
 }
 
 PRIVATE_EXTERN CFArrayRef
-RouterAdvertisementCopyPrefixes(RouterAdvertisementRef ra)
+RouterAdvertisementCopyPrefixes(RouterAdvertisementRef ra,
+				CFArrayRef * lengths)
 {
-    return (copy_prefixes_array(&ra->options));
+	return (copy_prefixes_array(&ra->options, lengths));
 }
 
 PRIVATE_EXTERN uint32_t

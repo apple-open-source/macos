@@ -11,9 +11,9 @@
 #include "modules/rtp_rtcp/source/video_rtp_depacketizer_h264.h"
 
 #include <cstdint>
+#include <optional>
 #include <vector>
 
-#include "absl/types/optional.h"
 #include "api/array_view.h"
 #include "common_video/h264/h264_common.h"
 #include "modules/rtp_rtcp/mocks/mock_rtp_rtcp.h"
@@ -56,7 +56,7 @@ TEST(VideoRtpDepacketizerH264Test, SingleNalu) {
   rtc::CopyOnWriteBuffer rtp_payload(packet);
 
   VideoRtpDepacketizerH264 depacketizer;
-  absl::optional<VideoRtpDepacketizer::ParsedRtpPayload> parsed =
+  std::optional<VideoRtpDepacketizer::ParsedRtpPayload> parsed =
       depacketizer.Parse(rtp_payload);
   ASSERT_TRUE(parsed);
 
@@ -77,7 +77,7 @@ TEST(VideoRtpDepacketizerH264Test, SingleNaluSpsWithResolution) {
   rtc::CopyOnWriteBuffer rtp_payload(packet);
 
   VideoRtpDepacketizerH264 depacketizer;
-  absl::optional<VideoRtpDepacketizer::ParsedRtpPayload> parsed =
+  std::optional<VideoRtpDepacketizer::ParsedRtpPayload> parsed =
       depacketizer.Parse(rtp_payload);
   ASSERT_TRUE(parsed);
 
@@ -112,7 +112,7 @@ TEST(VideoRtpDepacketizerH264Test, StapAKey) {
   rtc::CopyOnWriteBuffer rtp_payload(packet);
 
   VideoRtpDepacketizerH264 depacketizer;
-  absl::optional<VideoRtpDepacketizer::ParsedRtpPayload> parsed =
+  std::optional<VideoRtpDepacketizer::ParsedRtpPayload> parsed =
       depacketizer.Parse(rtp_payload);
   ASSERT_TRUE(parsed);
 
@@ -139,7 +139,7 @@ TEST(VideoRtpDepacketizerH264Test, StapANaluSpsWithResolution) {
   rtc::CopyOnWriteBuffer rtp_payload(packet);
 
   VideoRtpDepacketizerH264 depacketizer;
-  absl::optional<VideoRtpDepacketizer::ParsedRtpPayload> parsed =
+  std::optional<VideoRtpDepacketizer::ParsedRtpPayload> parsed =
       depacketizer.Parse(rtp_payload);
   ASSERT_TRUE(parsed);
 
@@ -260,7 +260,7 @@ TEST(VideoRtpDepacketizerH264Test, StapADelta) {
   rtc::CopyOnWriteBuffer rtp_payload(packet);
 
   VideoRtpDepacketizerH264 depacketizer;
-  absl::optional<VideoRtpDepacketizer::ParsedRtpPayload> parsed =
+  std::optional<VideoRtpDepacketizer::ParsedRtpPayload> parsed =
       depacketizer.Parse(rtp_payload);
   ASSERT_TRUE(parsed);
 
@@ -303,7 +303,7 @@ TEST(VideoRtpDepacketizerH264Test, FuA) {
   const uint8_t kExpected3[] = {0x03};
 
   VideoRtpDepacketizerH264 depacketizer;
-  absl::optional<VideoRtpDepacketizer::ParsedRtpPayload> parsed1 =
+  std::optional<VideoRtpDepacketizer::ParsedRtpPayload> parsed1 =
       depacketizer.Parse(rtc::CopyOnWriteBuffer(packet1));
   ASSERT_TRUE(parsed1);
   // We expect that the first packet is one byte shorter since the FU-A header
@@ -443,7 +443,7 @@ TEST(VideoRtpDepacketizerH264Test, StapASpsPpsMultiSlice) {
   // A STAP-A containing a black 320x192 key frame with multiple slices.
   const uint8_t kPayload[] = {
       // clang-format off
-      0x67, 0x42, 0xc0, 0x15, 0x8c, 0x68, 0x14, 0x19,  // SPS.
+      0x67, 0x42, 0xc0, 0x15, 0x8c, 0x68, 0x14, 0x19,  // STAP-A, SPS.
       0x79, 0xe0, 0x1e, 0x11, 0x08, 0xd4, 0x00, 0x04, 0x68, 0xce, 0x3c, 0x80,
       0x00, 0x2e,  // PPS.
       // Slices.
@@ -476,7 +476,7 @@ TEST(VideoRtpDepacketizerH264Test, StapASpsPpsMultiSlice) {
   };
 
   VideoRtpDepacketizerH264 depacketizer;
-  absl::optional<VideoRtpDepacketizer::ParsedRtpPayload> parsed =
+  std::optional<VideoRtpDepacketizer::ParsedRtpPayload> parsed =
       depacketizer.Parse(rtc::CopyOnWriteBuffer(kPayload));
   ASSERT_TRUE(parsed);
   EXPECT_TRUE(parsed->video_header.is_first_packet_in_frame);
@@ -497,10 +497,59 @@ TEST(VideoRtpDepacketizerH264Test, SecondSliceIdrNalu) {
   };
 
   VideoRtpDepacketizerH264 depacketizer;
-  absl::optional<VideoRtpDepacketizer::ParsedRtpPayload> parsed =
+  std::optional<VideoRtpDepacketizer::ParsedRtpPayload> parsed =
       depacketizer.Parse(rtc::CopyOnWriteBuffer(kPayload));
   ASSERT_TRUE(parsed);
   EXPECT_FALSE(parsed->video_header.is_first_packet_in_frame);
+}
+
+TEST(VideoRtpDepacketizerH264Test, AudSetsFirstPacketInFrame) {
+  const uint8_t kPayload[] = {
+      // clang-format off
+      0x09, 0x10  // AUD.
+      // clang-format on
+  };
+
+  VideoRtpDepacketizerH264 depacketizer;
+  std::optional<VideoRtpDepacketizer::ParsedRtpPayload> parsed =
+      depacketizer.Parse(rtc::CopyOnWriteBuffer(kPayload));
+  ASSERT_TRUE(parsed);
+  EXPECT_TRUE(parsed->video_header.is_first_packet_in_frame);
+}
+
+TEST(VideoRtpDepacketizerH264Test, PpsSetsFirstPacketInFrame) {
+  const uint8_t kPayload[] = {
+      0x08, 0x69, 0xFC, 0x0,  0x0,  0x3, 0x0,
+      0x7,  0xFF, 0xFF, 0xFF, 0xF6, 0x40  // PPS.
+  };
+
+  VideoRtpDepacketizerH264 depacketizer;
+  std::optional<VideoRtpDepacketizer::ParsedRtpPayload> parsed =
+      depacketizer.Parse(rtc::CopyOnWriteBuffer(kPayload));
+  ASSERT_TRUE(parsed);
+  EXPECT_TRUE(parsed->video_header.is_first_packet_in_frame);
+}
+
+TEST(VideoRtpDepacketizerH264Test, SeiSetsFirstPacketInFrame) {
+  const uint8_t kPayload[] = {
+      0x06, 0x05, 0x04, 0xDE, 0xAD, 0xBE, 0xEF, 0x80  // SEI.
+  };
+
+  VideoRtpDepacketizerH264 depacketizer;
+  std::optional<VideoRtpDepacketizer::ParsedRtpPayload> parsed =
+      depacketizer.Parse(rtc::CopyOnWriteBuffer(kPayload));
+  ASSERT_TRUE(parsed);
+  EXPECT_TRUE(parsed->video_header.is_first_packet_in_frame);
+}
+
+TEST(VideoRtpDepacketizerH264Test, EmptyNaluPayload) {
+  const uint8_t kPayload[] = {
+      0x10,  // End of sequence.
+  };
+  VideoRtpDepacketizerH264 depacketizer;
+  std::optional<VideoRtpDepacketizer::ParsedRtpPayload> parsed =
+      depacketizer.Parse(rtc::CopyOnWriteBuffer(kPayload));
+  ASSERT_TRUE(parsed);
 }
 
 }  // namespace

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2018-2024 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,7 +26,7 @@
 #import "config.h"
 #import "WKFormColorControl.h"
 
-#if ENABLE(INPUT_TYPE_COLOR) && PLATFORM(IOS_FAMILY)
+#if PLATFORM(IOS_FAMILY)
 
 #import "FocusedElementInformation.h"
 #import "UIKitSPI.h"
@@ -72,7 +72,6 @@ ALLOW_DEPRECATED_DECLARATIONS_BEGIN
 ALLOW_DEPRECATED_DECLARATIONS_END
 }
 
-#if ENABLE(DATALIST_ELEMENT)
 - (NSArray<UIColor *> *)focusedElementSuggestedColors
 {
     auto& colors = _view.focusedElementInformation.suggestedColors;
@@ -84,15 +83,13 @@ ALLOW_DEPRECATED_DECLARATIONS_END
         return cocoaColor(color);
     }).autorelease();
 }
-#endif
 
 - (void)updateColorPickerState
 {
     [_colorPickerViewController setSelectedColor:cocoaColor(_view.focusedElementInformation.colorValue).get()];
-#if ENABLE(DATALIST_ELEMENT)
+    [_colorPickerViewController setSupportsAlpha:_view.focusedElementInformation.supportsAlpha == WebKit::ColorControlSupportsAlpha::Yes && _view.page->preferences().inputTypeColorEnhancementsEnabled()];
     if ([_colorPickerViewController respondsToSelector:@selector(_setSuggestedColors:)])
         [_colorPickerViewController _setSuggestedColors:[self focusedElementSuggestedColors]];
-#endif
 }
 
 - (void)configurePresentation
@@ -173,10 +170,10 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
 
 - (void)selectColor:(UIColor *)color
 {
-    if ([self.control isKindOfClass:WKColorPicker.class])
-        [(WKColorPicker *)self.control selectColor:color];
+    if (auto *picker = dynamic_objc_cast<WKColorPicker>(self.control))
+        [picker selectColor:color];
 }
 
 @end
 
-#endif // ENABLE(INPUT_TYPE_COLOR) && PLATFORM(IOS_FAMILY)
+#endif // PLATFORM(IOS_FAMILY)

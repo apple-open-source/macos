@@ -13,10 +13,10 @@
 
 #include <stdint.h>
 
+#include <optional>
 #include <vector>
 
 #include "absl/base/attributes.h"
-#include "absl/types/optional.h"
 #include "api/field_trials_view.h"
 #include "api/rtc_event_log/rtc_event_log.h"
 #include "api/transport/network_types.h"
@@ -82,8 +82,11 @@ struct ProbeControllerConfig {
   FieldTrialParameter<TimeDelta> min_probe_delta;
   FieldTrialParameter<double> loss_limited_probe_scale;
   // Don't send a probe if min(estimate, network state estimate) is larger than
-  // this fraction of the set max bitrate.
+  // this fraction of the set max or max allocated bitrate.
   FieldTrialParameter<double> skip_if_estimate_larger_than_fraction_of_max;
+  // Scale factor of the max allocated bitrate. Used when deciding if a probe
+  // can be skiped due to that the estimate is already high enough.
+  FieldTrialParameter<double> skip_probe_max_allocated_scale;
 };
 
 // Reason that bandwidth estimate is limited. Bandwidth estimate can be limited
@@ -138,7 +141,7 @@ class ProbeController {
   // SetBitrates.
   void EnableRepeatedInitialProbing(bool enable);
 
-  void SetAlrStartTimeMs(absl::optional<int64_t> alr_start_time);
+  void SetAlrStartTimeMs(std::optional<int64_t> alr_start_time);
   void SetAlrEndedTimeMs(int64_t alr_end_time);
 
   ABSL_MUST_USE_RESULT std::vector<ProbeClusterConfig> RequestProbe(
@@ -187,12 +190,12 @@ class ProbeController {
   DataRate min_bitrate_to_probe_further_ = DataRate::PlusInfinity();
   Timestamp time_last_probing_initiated_ = Timestamp::MinusInfinity();
   DataRate estimated_bitrate_ = DataRate::Zero();
-  absl::optional<webrtc::NetworkStateEstimate> network_estimate_;
+  std::optional<webrtc::NetworkStateEstimate> network_estimate_;
   DataRate start_bitrate_ = DataRate::Zero();
   DataRate max_bitrate_ = DataRate::PlusInfinity();
   Timestamp last_bwe_drop_probing_time_ = Timestamp::Zero();
-  absl::optional<Timestamp> alr_start_time_;
-  absl::optional<Timestamp> alr_end_time_;
+  std::optional<Timestamp> alr_start_time_;
+  std::optional<Timestamp> alr_end_time_;
   bool enable_periodic_alr_probing_;
   Timestamp time_of_last_large_drop_ = Timestamp::MinusInfinity();
   DataRate bitrate_before_last_large_drop_ = DataRate::Zero();

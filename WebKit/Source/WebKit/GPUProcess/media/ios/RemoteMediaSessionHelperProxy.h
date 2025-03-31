@@ -48,6 +48,10 @@ public:
     void didReceiveMessageFromWebProcess(IPC::Connection& connection, IPC::Decoder& decoder) { didReceiveMessage(connection, decoder); }
 
     void overridePresentingApplicationPIDIfNeeded();
+    std::optional<SharedPreferencesForWebProcess> sharedPreferencesForWebProcess() const;
+
+    void ref() const final;
+    void deref() const final;
 
 private:
     // IPC::MessageReceiver
@@ -56,7 +60,7 @@ private:
     // Messages
     void startMonitoringWirelessRoutes();
     void stopMonitoringWirelessRoutes();
-    void providePresentingApplicationPID(int);
+    void providePresentingApplicationPID(int, WebCore::MediaSessionHelper::ShouldOverride);
 
     // MediaSessionHelperClient
     void applicationWillEnterForeground(SuspendedUnderLock) final;

@@ -262,10 +262,13 @@ std::ostream &FmtHex(std::ostream &os, T value)
 
 // A macro asserting a condition and outputting failures to the debug log
 #if defined(ANGLE_ENABLE_ASSERTS)
-#    define ASSERT(expression)                                                                \
-        (expression ? static_cast<void>(0)                                                    \
-                    : (FATAL() << "\t! Assert failed in " << __FUNCTION__ << " (" << __FILE__ \
-                               << ":" << __LINE__ << "): " << #expression))
+bool AreAssertionsEnabled();
+#    define ASSERT(expression)                                                               \
+        (expression ? static_cast<void>(0)                                                   \
+            : (!AreAssertionsEnabled()                                                       \
+                ? static_cast<void>(0)                                                       \
+                : (FATAL() << "\t! Assert failed in " << __FUNCTION__ << " (" << __FILE__    \
+                    << ":" << __LINE__ << "): " << #expression)))
 #else
 #    define ASSERT(condition) ANGLE_EAT_STREAM_PARAMETERS << !(condition)
 #endif  // defined(ANGLE_ENABLE_ASSERTS)

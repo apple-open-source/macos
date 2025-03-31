@@ -816,11 +816,6 @@ pt_PT{
             }
         }
         quarter-narrow{
-            relative{
-                "-1"{"trim. passado"}
-                "0"{"este trim."}
-                "1"{"próximo trim."}
-            }
             relativeTime{
                 future{
                     one{"+{0} trim."}
@@ -925,10 +920,6 @@ pt_PT{
                 future{
                     one{"dentro de {0} domingo"}
                     other{"dentro de {0} domingos"}
-                }
-                past{
-                    one{"há {0} domingo"}
-                    other{"há {0} domingos"}
                 }
             }
         }

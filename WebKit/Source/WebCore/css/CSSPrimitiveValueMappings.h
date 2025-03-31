@@ -29,6 +29,7 @@
 
 #pragma once
 
+#include "AnchorPositionEvaluator.h"
 #include "CSSCalcSymbolTable.h"
 #include "CSSCalcValue.h"
 #include "CSSFontFaceSrcValue.h"
@@ -39,6 +40,7 @@
 #include "GraphicsTypes.h"
 #include "Length.h"
 #include "ListStyleType.h"
+#include "PositionTryFallback.h"
 #include "RenderStyleConstants.h"
 #include "SVGRenderStyleDefs.h"
 #include "ScrollAxis.h"
@@ -53,6 +55,10 @@
 
 #if ENABLE(APPLE_PAY)
 #include "ApplePayButtonPart.h"
+#endif
+
+#if HAVE(CORE_MATERIAL)
+#include "AppleVisualEffect.h"
 #endif
 
 namespace WebCore {
@@ -78,6 +84,11 @@ public:
     operator const CSSPrimitiveValue&() const
     {
         return downcast<CSSPrimitiveValue>(m_value);
+    }
+
+    operator const CSSValue&() const
+    {
+        return m_value;
     }
 
     operator unsigned short() const
@@ -168,6 +179,25 @@ DEFINE_TO_FROM_CSS_VALUE_ID_FUNCTIONS
 #undef TYPE
 #undef FOR_EACH
 
+#define TYPE BlockStepAlign
+#define FOR_EACH(CASE) CASE(Auto) CASE(Center) CASE(Start) CASE(End)
+DEFINE_TO_FROM_CSS_VALUE_ID_FUNCTIONS
+#undef TYPE
+#undef FOR_EACH
+
+#define TYPE BlockStepInsert
+#define FOR_EACH(CASE) CASE(MarginBox) CASE(PaddingBox) CASE(ContentBox)
+DEFINE_TO_FROM_CSS_VALUE_ID_FUNCTIONS
+#undef TYPE
+#undef FOR_EACH
+
+#define TYPE BlockStepRound
+#define FOR_EACH(CASE) CASE(Up) CASE(Down) CASE(Nearest)
+DEFINE_TO_FROM_CSS_VALUE_ID_FUNCTIONS
+#undef TYPE
+#undef FOR_EACH
+
+
 constexpr CSSValueID toCSSValueID(BorderStyle e)
 {
     switch (e) {
@@ -208,13 +238,6 @@ template<> constexpr OutlineIsAuto fromCSSValueID(CSSValueID valueID)
     if (valueID == CSSValueAuto)
         return OutlineIsAuto::On;
     return OutlineIsAuto::Off;
-}
-
-template<> constexpr BlockStepInsert fromCSSValueID(CSSValueID valueID)
-{
-    if (valueID == CSSValueMargin)
-        return BlockStepInsert::Margin;
-    return BlockStepInsert::Padding;
 }
 
 constexpr CSSValueID toCSSValueID(CompositeOperator e, CSSPropertyID propertyID)
@@ -359,16 +382,12 @@ constexpr CSSValueID toCSSValueID(StyleAppearance e)
     case StyleAppearance::ApplePayButton:
         return CSSValueApplePayButton;
 #endif
-#if ENABLE(INPUT_TYPE_COLOR)
     case StyleAppearance::ColorWell:
-#endif
 #if ENABLE(SERVICE_CONTROLS)
     case StyleAppearance::ImageControlsButton:
 #endif
     case StyleAppearance::InnerSpinButton:
-#if ENABLE(DATALIST_ELEMENT)
     case StyleAppearance::ListButton:
-#endif
     case StyleAppearance::SearchFieldDecoration:
     case StyleAppearance::SearchFieldResultsDecoration:
     case StyleAppearance::SearchFieldResultsButton:
@@ -1447,27 +1466,27 @@ template<> constexpr TextDirection fromCSSValueID(CSSValueID valueID)
     return TextDirection::LTR;
 }
 
-constexpr CSSValueID toCSSValueID(WritingMode e)
+constexpr CSSValueID toCSSValueID(StyleWritingMode e)
 {
     switch (e) {
-    case WritingMode::HorizontalTb:
+    case StyleWritingMode::HorizontalTb:
         return CSSValueHorizontalTb;
-    case WritingMode::VerticalRl:
+    case StyleWritingMode::VerticalRl:
         return CSSValueVerticalRl;
-    case WritingMode::VerticalLr:
+    case StyleWritingMode::VerticalLr:
         return CSSValueVerticalLr;
-    case WritingMode::SidewaysRl:
+    case StyleWritingMode::SidewaysRl:
         return CSSValueSidewaysRl;
-    case WritingMode::SidewaysLr:
+    case StyleWritingMode::SidewaysLr:
         return CSSValueSidewaysLr;
-    case WritingMode::HorizontalBt:
+    case StyleWritingMode::HorizontalBt:
         return CSSValueHorizontalBt;
     }
     ASSERT_NOT_REACHED_UNDER_CONSTEXPR_CONTEXT();
     return CSSValueInvalid;
 }
 
-template<> constexpr WritingMode fromCSSValueID(CSSValueID valueID)
+template<> constexpr StyleWritingMode fromCSSValueID(CSSValueID valueID)
 {
     switch (valueID) {
     case CSSValueHorizontalTb:
@@ -1475,24 +1494,24 @@ template<> constexpr WritingMode fromCSSValueID(CSSValueID valueID)
     case CSSValueLrTb:
     case CSSValueRl:
     case CSSValueRlTb:
-        return WritingMode::HorizontalTb;
+        return StyleWritingMode::HorizontalTb;
     case CSSValueVerticalRl:
     case CSSValueTb:
     case CSSValueTbRl:
-        return WritingMode::VerticalRl;
+        return StyleWritingMode::VerticalRl;
     case CSSValueVerticalLr:
-        return WritingMode::VerticalLr;
+        return StyleWritingMode::VerticalLr;
     case CSSValueSidewaysLr:
-        return WritingMode::SidewaysLr;
+        return StyleWritingMode::SidewaysLr;
     case CSSValueSidewaysRl:
-        return WritingMode::SidewaysRl;
+        return StyleWritingMode::SidewaysRl;
     case CSSValueHorizontalBt:
-        return WritingMode::HorizontalBt;
+        return StyleWritingMode::HorizontalBt;
     default:
         break;
     }
     ASSERT_NOT_REACHED_UNDER_CONSTEXPR_CONTEXT();
-    return WritingMode::HorizontalTb;
+    return StyleWritingMode::HorizontalTb;
 }
 
 constexpr CSSValueID toCSSValueID(TextCombine e)
@@ -1978,6 +1997,84 @@ template<> constexpr ImageRendering fromCSSValueID(CSSValueID valueID)
     return ImageRendering::Auto;
 }
 
+#if HAVE(CORE_MATERIAL)
+
+constexpr CSSValueID toCSSValueID(AppleVisualEffect effect)
+{
+    switch (effect) {
+    case AppleVisualEffect::None:
+        return CSSValueNone;
+    case AppleVisualEffect::BlurUltraThinMaterial:
+        return CSSValueAppleSystemBlurMaterialUltraThin;
+    case AppleVisualEffect::BlurThinMaterial:
+        return CSSValueAppleSystemBlurMaterialThin;
+    case AppleVisualEffect::BlurMaterial:
+        return CSSValueAppleSystemBlurMaterial;
+    case AppleVisualEffect::BlurThickMaterial:
+        return CSSValueAppleSystemBlurMaterialThick;
+    case AppleVisualEffect::BlurChromeMaterial:
+        return CSSValueAppleSystemBlurMaterialChrome;
+    case AppleVisualEffect::VibrancyLabel:
+        return CSSValueAppleSystemVibrancyLabel;
+    case AppleVisualEffect::VibrancySecondaryLabel:
+        return CSSValueAppleSystemVibrancySecondaryLabel;
+    case AppleVisualEffect::VibrancyTertiaryLabel:
+        return CSSValueAppleSystemVibrancyTertiaryLabel;
+    case AppleVisualEffect::VibrancyQuaternaryLabel:
+        return CSSValueAppleSystemVibrancyQuaternaryLabel;
+    case AppleVisualEffect::VibrancyFill:
+        return CSSValueAppleSystemVibrancyFill;
+    case AppleVisualEffect::VibrancySecondaryFill:
+        return CSSValueAppleSystemVibrancySecondaryFill;
+    case AppleVisualEffect::VibrancyTertiaryFill:
+        return CSSValueAppleSystemVibrancyTertiaryFill;
+    case AppleVisualEffect::VibrancySeparator:
+        return CSSValueAppleSystemVibrancySeparator;
+    }
+    ASSERT_NOT_REACHED_UNDER_CONSTEXPR_CONTEXT();
+    return CSSValueInvalid;
+}
+
+template<> constexpr AppleVisualEffect fromCSSValueID(CSSValueID valueID)
+{
+    switch (valueID) {
+    case CSSValueNone:
+        return AppleVisualEffect::None;
+    case CSSValueAppleSystemBlurMaterialUltraThin:
+        return AppleVisualEffect::BlurUltraThinMaterial;
+    case CSSValueAppleSystemBlurMaterialThin:
+        return AppleVisualEffect::BlurThinMaterial;
+    case CSSValueAppleSystemBlurMaterial:
+        return AppleVisualEffect::BlurMaterial;
+    case CSSValueAppleSystemBlurMaterialThick:
+        return AppleVisualEffect::BlurThickMaterial;
+    case CSSValueAppleSystemBlurMaterialChrome:
+        return AppleVisualEffect::BlurChromeMaterial;
+    case CSSValueAppleSystemVibrancyLabel:
+        return AppleVisualEffect::VibrancyLabel;
+    case CSSValueAppleSystemVibrancySecondaryLabel:
+        return AppleVisualEffect::VibrancySecondaryLabel;
+    case CSSValueAppleSystemVibrancyTertiaryLabel:
+        return AppleVisualEffect::VibrancyTertiaryLabel;
+    case CSSValueAppleSystemVibrancyQuaternaryLabel:
+        return AppleVisualEffect::VibrancyQuaternaryLabel;
+    case CSSValueAppleSystemVibrancyFill:
+        return AppleVisualEffect::VibrancyFill;
+    case CSSValueAppleSystemVibrancySecondaryFill:
+        return AppleVisualEffect::VibrancySecondaryFill;
+    case CSSValueAppleSystemVibrancyTertiaryFill:
+        return AppleVisualEffect::VibrancyTertiaryFill;
+    case CSSValueAppleSystemVibrancySeparator:
+        return AppleVisualEffect::VibrancySeparator;
+    default:
+        break;
+    }
+    ASSERT_NOT_REACHED_UNDER_CONSTEXPR_CONTEXT();
+    return AppleVisualEffect::None;
+}
+
+#endif // HAVE(CORE_MATERIAL)
+
 #define TYPE InputSecurity
 #define FOR_EACH(CASE) CASE(Auto) CASE(None)
 DEFINE_TO_FROM_CSS_VALUE_ID_FUNCTIONS
@@ -1991,9 +2088,9 @@ constexpr CSSValueID toCSSValueID(TransformStyle3D e)
         return CSSValueFlat;
     case TransformStyle3D::Preserve3D:
         return CSSValuePreserve3d;
-#if ENABLE(CSS_TRANSFORM_STYLE_OPTIMIZED_3D)
-    case TransformStyle3D::Optimized3D:
-        return CSSValueOptimized3d;
+#if HAVE(CORE_ANIMATION_SEPARATED_LAYERS)
+    case TransformStyle3D::Separated:
+        return CSSValueSeparated;
 #endif
     }
     ASSERT_NOT_REACHED_UNDER_CONSTEXPR_CONTEXT();
@@ -2007,9 +2104,9 @@ template<> constexpr TransformStyle3D fromCSSValueID(CSSValueID valueID)
         return TransformStyle3D::Flat;
     case CSSValuePreserve3d:
         return TransformStyle3D::Preserve3D;
-#if ENABLE(CSS_TRANSFORM_STYLE_OPTIMIZED_3D)
-    case CSSValueOptimized3d:
-        return TransformStyle3D::Optimized3D;
+#if HAVE(CORE_ANIMATION_SEPARATED_LAYERS)
+    case CSSValueSeparated:
+        return TransformStyle3D::Separated;
 #endif
     default:
         break;
@@ -2193,7 +2290,7 @@ template<> constexpr CSSBoxType fromCSSValueID(CSSValueID valueID)
 #define TYPE ItemPosition
 #define FOR_EACH(CASE) CASE(Legacy) CASE(Auto) CASE(Normal) CASE(Stretch) CASE(Baseline) \
     CASE(LastBaseline) CASE(Center) CASE(Start) CASE(End) CASE(SelfStart) CASE(SelfEnd) \
-    CASE(FlexStart) CASE(FlexEnd) CASE(Left) CASE(Right)
+    CASE(FlexStart) CASE(FlexEnd) CASE(Left) CASE(Right) CASE(AnchorCenter)
 DEFINE_TO_FROM_CSS_VALUE_ID_FUNCTIONS
 #undef TYPE
 #undef FOR_EACH
@@ -2544,6 +2641,18 @@ DEFINE_TO_FROM_CSS_VALUE_ID_FUNCTIONS
 
 #define TYPE OverflowContinue
 #define FOR_EACH(CASE) CASE(Auto) CASE(Discard)
+DEFINE_TO_FROM_CSS_VALUE_ID_FUNCTIONS
+#undef TYPE
+#undef FOR_EACH
+
+#define TYPE Style::PositionTryOrder
+#define FOR_EACH(CASE) CASE(Normal) CASE(MostWidth) CASE(MostHeight) CASE(MostBlockSize) CASE(MostInlineSize)
+DEFINE_TO_FROM_CSS_VALUE_ID_FUNCTIONS
+#undef TYPE
+#undef FOR_EACH
+
+#define TYPE PositionTryFallback::Tactic
+#define FOR_EACH(CASE) CASE(FlipBlock) CASE(FlipInline) CASE(FlipStart)
 DEFINE_TO_FROM_CSS_VALUE_ID_FUNCTIONS
 #undef TYPE
 #undef FOR_EACH

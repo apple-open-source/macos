@@ -94,8 +94,11 @@ void SizesCalcParser::appendNumber(const CSSParserToken& token)
 
 bool SizesCalcParser::appendLength(const CSSParserToken& token)
 {
+    auto lengthUnit = CSS::toLengthUnit(token.unitType());
+    if (!lengthUnit)
+        return false;
     SizesCalcValue value;
-    double result = SizesAttributeParser::computeLength(token.numericValue(), token.unitType(), m_document);
+    double result = SizesAttributeParser::computeLength(token.numericValue(), *lengthUnit, m_document);
     value.value = result;
     value.isLength = true;
     m_valueList.append(value);
@@ -122,7 +125,7 @@ bool SizesCalcParser::calcToReversePolishNotation(CSSParserTokenRange range)
             appendNumber(token);
             break;
         case DimensionToken:
-            if (!CSSPrimitiveValue::isLength(token.unitType()) || !appendLength(token))
+            if (!appendLength(token))
                 return false;
             break;
         case DelimiterToken:

@@ -25,13 +25,18 @@
 
 #pragma once
 
-#include "CSSCalcTree.h"
 #include "CSSNumericType.h"
 #include "CSSStyleValue.h"
 #include <variant>
 #include <wtf/HashMap.h>
 
 namespace WebCore {
+
+namespace CSSCalc {
+struct Child;
+struct ChildOrNone;
+struct Tree;
+}
 
 class CSSNumericValue;
 class CSSUnitValue;
@@ -60,11 +65,11 @@ public:
 
     const CSSNumericType& type() const { return m_type; }
     
-    static ExceptionOr<Ref<CSSNumericValue>> parse(String&&);
+    static ExceptionOr<Ref<CSSNumericValue>> parse(Document&, String&&);
     static Ref<CSSNumericValue> rectifyNumberish(CSSNumberish&&);
 
     // https://drafts.css-houdini.org/css-typed-om/#sum-value-value
-    using UnitMap = HashMap<CSSUnitType, int, WTF::IntHash<CSSUnitType>, WTF::StrongEnumHashTraits<CSSUnitType>>;
+    using UnitMap = UncheckedKeyHashMap<CSSUnitType, int, WTF::IntHash<CSSUnitType>, WTF::StrongEnumHashTraits<CSSUnitType>>;
     struct Addend {
         double value;
         UnitMap units;

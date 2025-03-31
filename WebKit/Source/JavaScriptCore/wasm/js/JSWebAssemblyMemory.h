@@ -50,7 +50,7 @@ public:
         return vm.webAssemblyMemorySpace<mode>();
     }
 
-    JS_EXPORT_PRIVATE static JSWebAssemblyMemory* tryCreate(JSGlobalObject*, VM&, Structure*);
+    JS_EXPORT_PRIVATE static JSWebAssemblyMemory* create(VM&, Structure*);
     static Structure* createStructure(VM&, JSGlobalObject*, JSValue);
 
     DECLARE_EXPORT_INFO;

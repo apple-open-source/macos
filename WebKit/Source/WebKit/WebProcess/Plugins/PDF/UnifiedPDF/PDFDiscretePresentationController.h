@@ -77,15 +77,14 @@ private:
     void updateDebugBorders(bool showDebugBorders, bool showRepaintCounters) override;
     void updateForCurrentScrollability(OptionSet<TiledBackingScrollability>) override;
 
-    void repaintForIncrementalLoad() override;
-    void setNeedsRepaintInDocumentRect(OptionSet<RepaintRequirement>, const WebCore::FloatRect& rectInDocumentCoordinates, std::optional<PDFLayoutRow>) override;
+    Vector<LayerCoverage> layerCoveragesForRepaintPageCoverage(RepaintRequirements, const PDFPageCoverage&) override;
 
     void didGeneratePreviewForPage(PDFDocumentLayout::PageIndex) override;
 
     WebCore::GraphicsLayerClient& graphicsLayerClient() override { return *this; }
 
     std::optional<PDFLayoutRow> visibleRow() const override;
-    std::optional<PDFLayoutRow> rowForLayerID(WebCore::PlatformLayerIdentifier) const override;
+    std::optional<PDFLayoutRow> rowForLayer(const WebCore::GraphicsLayer*) const override;
 
     WebCore::FloatSize contentsOffsetForPage(PDFDocumentLayout::PageIndex) const;
 
@@ -145,7 +144,7 @@ private:
 
     void applyWheelEventDelta(FloatSize);
 
-    std::optional<VisiblePDFPosition> pdfPositionForCurrentView(bool preservePosition) const override;
+    std::optional<PDFDocumentLayout::PageIndex> pageIndexForCurrentView(AnchorPoint) const override;
     void restorePDFPosition(const VisiblePDFPosition&) override;
 
     void ensurePageIsVisible(PDFDocumentLayout::PageIndex) override;
@@ -155,13 +154,10 @@ private:
     float pageScaleFactor() const override;
     float deviceScaleFactor() const override;
     std::optional<float> customContentsScale(const WebCore::GraphicsLayer*) const override;
-    bool layerNeedsPlatformContext(const WebCore::GraphicsLayer*) const override;
     void tiledBackingUsageChanged(const WebCore::GraphicsLayer*, bool /*usingTiledBacking*/) override;
     void paintContents(const WebCore::GraphicsLayer*, WebCore::GraphicsContext&, const WebCore::FloatRect&, OptionSet<WebCore::GraphicsLayerPaintBehavior>) override;
 
-#if ENABLE(UNIFIED_PDF_SELECTION_LAYER)
     void paintPDFSelection(const WebCore::GraphicsLayer*, WebCore::GraphicsContext&, const WebCore::FloatRect& clipRect, std::optional<PDFLayoutRow> = { });
-#endif
 
     void paintBackgroundLayerForRow(const WebCore::GraphicsLayer*, WebCore::GraphicsContext&, const WebCore::FloatRect& clipRect, unsigned rowIndex);
 
@@ -197,25 +193,32 @@ private:
         RefPtr<WebCore::GraphicsLayer> leftPageContainerLayer;
         RefPtr<WebCore::GraphicsLayer> rightPageContainerLayer;
         RefPtr<WebCore::GraphicsLayer> contentsLayer;
-#if ENABLE(UNIFIED_PDF_SELECTION_LAYER)
         RefPtr<WebCore::GraphicsLayer> selectionLayer;
-#endif
+
         bool isPageBackgroundLayer(const GraphicsLayer*) const;
 
         RefPtr<WebCore::GraphicsLayer> leftPageBackgroundLayer() const;
         RefPtr<WebCore::GraphicsLayer> rightPageBackgroundLayer() const;
 
         RefPtr<WebCore::GraphicsLayer> backgroundLayerForPageIndex(PDFDocumentLayout::PageIndex) const;
+
+        RefPtr<WebCore::GraphicsLayer> protectedContainerLayer() const { return containerLayer; }
+        RefPtr<WebCore::GraphicsLayer> protectedLeftPageContainerLayer() const { return leftPageContainerLayer; }
+        RefPtr<WebCore::GraphicsLayer> protectedRightPageContainerLayer() const { return rightPageContainerLayer; }
+        RefPtr<WebCore::GraphicsLayer> protectedContentsLayer() const { return contentsLayer; }
+        RefPtr<WebCore::GraphicsLayer> protectedSelectionLayer() const { return selectionLayer; }
     };
 
-    const RowData* rowDataForLayerID(WebCore::PlatformLayerIdentifier) const;
+    const RowData* rowDataForLayer(const WebCore::GraphicsLayer*) const;
     WebCore::FloatPoint positionForRowContainerLayer(const PDFLayoutRow&) const;
     WebCore::FloatSize rowContainerSize(const PDFLayoutRow&) const;
+
+    RefPtr<WebCore::GraphicsLayer> protectedRowsContainerLayer() const { return m_rowsContainerLayer; }
 
     RefPtr<WebCore::GraphicsLayer> m_rowsContainerLayer;
     Vector<RowData> m_rows;
 
-    HashMap<WebCore::PlatformLayerIdentifier, unsigned> m_layerIDToRowIndexMap;
+    HashMap<const WebCore::GraphicsLayer*, unsigned> m_layerToRowIndexMap;
     std::optional<PDFDocumentLayout::DisplayMode> m_displayModeAtLastLayerSetup;
 
     unsigned m_visibleRowIndex { 0 };

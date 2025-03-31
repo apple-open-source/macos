@@ -62,3 +62,11 @@
 ({                                                          \
     NSLog(fmt, ##__VA_ARGS__);                              \
 })
+#define PASS(fmt, ...)                                                      \
+({                                                                          \
+    fprintf(stdout, "[PASS] %s " fmt "\n", __FUNCTION__, ##__VA_ARGS__);    \
+})
+#define FAIL(fmt, ...)                                                      \
+({                                                                          \
+    fprintf(stdout, "[FAIL] %s " fmt "\n", __FUNCTION__, ##__VA_ARGS__);    \
+})

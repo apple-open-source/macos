@@ -86,6 +86,7 @@ static RetainPtr<CFMutableDictionaryRef> createImageSourceOptions()
 #if HAVE(IMAGEIO_CREATE_UNPREMULTIPLIED_PNG)
     CFDictionarySetValue(options.get(), kCGImageSourceCreateUnpremultipliedPNG, kCFBooleanTrue);
 #endif
+
     return options;
 }
 
@@ -549,6 +550,9 @@ bool ImageDecoderCG::fetchFrameMetaDataAtIndex(size_t index, SubsamplingLevel su
     else
         frame.m_densityCorrectedSize = std::nullopt;
 
+    if (frame.hasNativeImage())
+        frame.m_headroom = frame.nativeImage()->headroom();
+
     bool frameIsComplete = frameIsCompleteAtIndex(index);
 
     frame.m_subsamplingLevel = subsamplingLevel;
@@ -620,15 +624,15 @@ String ImageDecoderCG::decodeUTI(CGImageSourceRef imageSource, const SharedBuffe
         return uti;
     }
 
-    static constexpr auto ftypSignature = FourCC("ftyp");
-    static constexpr auto avifBrand = FourCC("avif");
-    static constexpr auto avisBrand = FourCC("avis");
+    static const FourCC ftypSignature = std::span { "ftyp" };
+    static const FourCC avifBrand = std::span { "avif" };
+    static const FourCC avisBrand = std::span { "avis" };
 
     auto boxUnsigned = [span = data.span()](unsigned index) -> unsigned {
         constexpr bool isLittleEndian = false;
-        const unsigned* boxBytes = reinterpret_cast<const unsigned*>(span.data());
+        auto value = reinterpretCastSpanStartTo<const unsigned>(span.subspan(index * sizeof(unsigned)));
         // Numbers in the file are BigEndian.
-        return flipBytesIfLittleEndian(boxBytes[index], isLittleEndian);
+        return flipBytesIfLittleEndian(value, isLittleEndian);
     };
 
     auto checkAVIFBrand = [](unsigned brand) -> std::optional<String> {
@@ -707,18 +711,13 @@ bool ImageDecoderCG::canDecodeType(const String& mimeType)
 }
 
 #if ENABLE(QUICKLOOK_FULLSCREEN)
-bool ImageDecoderCG::isPanoramic() const
+bool ImageDecoderCG::isMaybePanoramic() const
 {
     auto imageSize = FloatSize(frameSizeAtIndex(0));
     auto aspectRatio = imageSize.aspectRatio();
 
     constexpr float panoramicImageAspectRatioThreshold = 2.0;
-    if (aspectRatio <= panoramicImageAspectRatioThreshold)
-        return false;
-
-    constexpr float panoramicImageMinDimension = 800;
-    constexpr float panoramicImageMaxDimension = 30000;
-    return imageSize.minDimension() > panoramicImageMinDimension && imageSize.maxDimension() < panoramicImageMaxDimension;
+    return aspectRatio > panoramicImageAspectRatioThreshold;
 }
 
 bool ImageDecoderCG::isSpatial() const
@@ -732,7 +731,7 @@ bool ImageDecoderCG::isSpatial() const
 
 bool ImageDecoderCG::shouldUseQuickLookForFullscreen() const
 {
-    return isPanoramic() || isSpatial();
+    return isMaybePanoramic() || isSpatial();
 }
 #endif // ENABLE(QUICKLOOK_FULLSCREEN)
 

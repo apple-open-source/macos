@@ -51,22 +51,17 @@ WTF_MAKE_TZONE_ALLOCATED_IMPL(RemoteGPUProxy);
 
 RefPtr<RemoteGPUProxy> RemoteGPUProxy::create(WebGPU::ConvertToBackingContext& convertToBackingContext, WebPage& page)
 {
-    return RemoteGPUProxy::create(convertToBackingContext, page.ensureRemoteRenderingBackendProxy(), Dispatcher { Ref { RunLoop::main() } });
+    return RemoteGPUProxy::create(convertToBackingContext, page.ensureProtectedRemoteRenderingBackendProxy(), RunLoop::protectedMain().get());
 }
 
-RefPtr<RemoteGPUProxy> RemoteGPUProxy::create(WebGPU::ConvertToBackingContext& convertToBackingContext, RemoteRenderingBackendProxy& renderingBackend, WebCore::WorkerOrWorkletThread& thread)
-{
-    return RemoteGPUProxy::create(convertToBackingContext, renderingBackend, Dispatcher { thread });
-}
-
-RefPtr<RemoteGPUProxy> RemoteGPUProxy::create(WebGPU::ConvertToBackingContext& convertToBackingContext, RemoteRenderingBackendProxy& renderingBackend, Dispatcher&& dispatcher)
+RefPtr<RemoteGPUProxy> RemoteGPUProxy::create(WebGPU::ConvertToBackingContext& convertToBackingContext, RemoteRenderingBackendProxy& renderingBackend, SerialFunctionDispatcher& dispatcher)
 {
     constexpr size_t connectionBufferSizeLog2 = 21;
     auto connectionPair = IPC::StreamClientConnection::create(connectionBufferSizeLog2, WebProcess::singleton().gpuProcessTimeoutDuration());
     if (!connectionPair)
         return nullptr;
     auto [clientConnection, serverConnectionHandle] = WTFMove(*connectionPair);
-    Ref instance = adoptRef(*new RemoteGPUProxy(convertToBackingContext, WTFMove(dispatcher)));
+    Ref instance = adoptRef(*new RemoteGPUProxy(convertToBackingContext, dispatcher));
     instance->initializeIPC(WTFMove(clientConnection), renderingBackend.ensureBackendCreated(), WTFMove(serverConnectionHandle));
     // TODO: We must wait until initialized, because at the moment we cannot receive IPC messages
     // during wait while in synchronous stream send. Should be fixed as part of https://bugs.webkit.org/show_bug.cgi?id=217211.
@@ -74,9 +69,10 @@ RefPtr<RemoteGPUProxy> RemoteGPUProxy::create(WebGPU::ConvertToBackingContext& c
     return instance;
 }
 
-RemoteGPUProxy::RemoteGPUProxy(WebGPU::ConvertToBackingContext& convertToBackingContext, Dispatcher&& dispatcher)
+
+RemoteGPUProxy::RemoteGPUProxy(WebGPU::ConvertToBackingContext& convertToBackingContext, SerialFunctionDispatcher& dispatcher)
     : m_convertToBackingContext(convertToBackingContext)
-    , m_dispatcher(WTFMove(dispatcher))
+    , m_dispatcher(dispatcher)
 {
 }
 
@@ -90,9 +86,9 @@ void RemoteGPUProxy::initializeIPC(Ref<IPC::StreamClientConnection>&& streamConn
     m_streamConnection = WTFMove(streamConnection);
     protectedStreamConnection()->open(*this, *this);
     callOnMainRunLoopAndWait([&]() {
-        auto& gpuProcessConnection = WebProcess::singleton().ensureGPUProcessConnection();
-        gpuProcessConnection.createGPU(m_backing, renderingBackend, WTFMove(serverHandle));
-        m_gpuProcessConnection = gpuProcessConnection;
+        Ref gpuProcessConnection = WebProcess::singleton().ensureGPUProcessConnection();
+        gpuProcessConnection->createGPU(m_backing, renderingBackend, WTFMove(serverHandle));
+        m_gpuProcessConnection = gpuProcessConnection.get();
     });
 }
 
@@ -120,6 +116,18 @@ void RemoteGPUProxy::abandonGPUProcess()
 {
     protectedStreamConnection()->invalidate();
     m_lost = true;
+}
+
+void RemoteGPUProxy::dispatch(Function<void()>&& function)
+{
+    if (RefPtr dispatcher = m_dispatcher.get())
+        dispatcher->dispatch(WTFMove(function));
+}
+
+bool RemoteGPUProxy::isCurrent() const
+{
+    RefPtr dispatcher = m_dispatcher.get();
+    return dispatcher && dispatcher->isCurrent();
 }
 
 void RemoteGPUProxy::wasCreated(bool didSucceed, IPC::Semaphore&& wakeUpSemaphore, IPC::Semaphore&& clientWaitSemaphore)
@@ -202,7 +210,9 @@ void RemoteGPUProxy::requestAdapter(const WebCore::WebGPU::RequestAdapterOptions
         response->limits.maxComputeWorkgroupSizeX,
         response->limits.maxComputeWorkgroupSizeY,
         response->limits.maxComputeWorkgroupSizeZ,
-        response->limits.maxComputeWorkgroupsPerDimension
+        response->limits.maxComputeWorkgroupsPerDimension,
+        response->limits.maxStorageBuffersInFragmentStage,
+        response->limits.maxStorageTexturesInFragmentStage
     );
     callback(WebGPU::RemoteAdapterProxy::create(WTFMove(response->name), WTFMove(resultSupportedFeatures), WTFMove(resultSupportedLimits), response->isFallbackAdapter, options.xrCompatible, *this, convertToBackingContext, identifier));
 }
@@ -359,31 +369,6 @@ bool RemoteGPUProxy::isValid(const WebCore::WebGPU::XRProjectionLayer&) const
 bool RemoteGPUProxy::isValid(const WebCore::WebGPU::XRView&) const
 {
     RELEASE_ASSERT_NOT_REACHED();
-}
-
-RemoteGPUProxy::Dispatcher::Dispatcher(InternalDispatcher&& dispatcher)
-    : m_internalDispatcher(WTFMove(dispatcher))
-{
-}
-
-void RemoteGPUProxy::Dispatcher::dispatch(Function<void()>&& function)
-{
-    switchOn(m_internalDispatcher, [&] (Ref<RunLoop>& loop) {
-        loop->dispatch(WTFMove(function));
-    }, [&] (auto& weakDispatcher) {
-        if (RefPtr dispatcher = weakDispatcher.get())
-            dispatcher->dispatch(WTFMove(function));
-    });
-}
-
-bool RemoteGPUProxy::Dispatcher::isCurrent() const
-{
-    return switchOn(m_internalDispatcher, [] (const Ref<RunLoop>& loop) -> bool {
-        return loop->isCurrent();
-    }, [] (const auto& weakDispatcher) -> bool {
-        RefPtr dispatcher = weakDispatcher.get();
-        return dispatcher && dispatcher->isCurrent();
-    });
 }
 
 } // namespace WebKit

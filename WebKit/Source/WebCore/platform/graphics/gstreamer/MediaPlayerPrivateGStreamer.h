@@ -76,8 +76,8 @@ class GraphicsContextGL;
 class IntSize;
 class IntRect;
 
-#if USE(TEXTURE_MAPPER)
-class TextureMapperPlatformLayerProxy;
+#if USE(COORDINATED_GRAPHICS)
+class CoordinatedPlatformLayerBufferProxy;
 #endif
 
 #if ENABLE(WEB_AUDIO)
@@ -89,10 +89,6 @@ class AudioTrackPrivateGStreamer;
 class InbandMetadataTextTrackPrivateGStreamer;
 class InbandTextTrackPrivateGStreamer;
 class VideoTrackPrivateGStreamer;
-
-#if USE(TEXTURE_MAPPER_DMABUF)
-class GBMBufferSwapchain;
-#endif
 
 enum class TextureMapperFlags : uint16_t;
 
@@ -111,8 +107,10 @@ public:
     MediaPlayerPrivateGStreamer(MediaPlayer*);
     virtual ~MediaPlayerPrivateGStreamer();
 
-    void ref() final { ThreadSafeRefCountedAndCanMakeThreadSafeWeakPtr::ref(); }
-    void deref() final { ThreadSafeRefCountedAndCanMakeThreadSafeWeakPtr::deref(); }
+    constexpr MediaPlayerType mediaPlayerType() const override { return MediaPlayerType::GStreamer; }
+
+    void ref() const final { ThreadSafeRefCountedAndCanMakeThreadSafeWeakPtr::ref(); }
+    void deref() const final { ThreadSafeRefCountedAndCanMakeThreadSafeWeakPtr::deref(); }
 
     static void registerMediaEngine(MediaEngineRegistrar);
     static bool supportsKeySystem(const String& keySystem, const String& mimeType);
@@ -128,6 +126,7 @@ public:
 #if ENABLE(MEDIA_STREAM)
     void load(MediaStreamPrivate&) override;
 #endif
+    bool isMediaStreamPlayer() const;
     void cancelLoad() final;
     void prepareToPlay() final;
     void play() override;
@@ -146,7 +145,7 @@ public:
     void setMuted(bool) final;
     MediaPlayer::NetworkState networkState() const final;
     MediaPlayer::ReadyState readyState() const final;
-    void setPageIsVisible(bool visible) final { m_visible = visible; }
+    void setPageIsVisible(bool visible) final { m_pageIsVisible = visible; }
     void setVisibleInViewport(bool isVisible) final;
     void setPresentationSize(const IntSize&) final;
     MediaTime duration() const override;
@@ -175,7 +174,7 @@ public:
 
     GstElement* pipeline() const { return m_pipeline.get(); }
 
-#if USE(TEXTURE_MAPPER)
+#if USE(COORDINATED_GRAPHICS)
     PlatformLayer* platformLayer() const override;
     bool supportsAcceleratedRendering() const override { return true; }
 #endif
@@ -207,15 +206,15 @@ public:
     void triggerRepaint(GRefPtr<GstSample>&&);
     void flushCurrentBuffer();
 
-    void handleTextSample(GRefPtr<GstSample>&&, const String& streamId);
+    void handleTextSample(GRefPtr<GstSample>&&, TrackID streamId);
 
 #if !RELEASE_LOG_DISABLED
     const Logger& logger() const final { return m_logger; }
     ASCIILiteral logClassName() const override { return "MediaPlayerPrivateGStreamer"_s; }
-    const void* logIdentifier() const final { return reinterpret_cast<const void*>(m_logIdentifier); }
+    uint64_t logIdentifier() const final { return m_logIdentifier; }
     WTFLogChannel& logChannel() const override;
 
-    const void* mediaPlayerLogIdentifier() { return logIdentifier(); }
+    uint64_t mediaPlayerLogIdentifier() { return logIdentifier(); }
     const Logger& mediaPlayerLogger() { return logger(); }
 #endif
 
@@ -223,7 +222,20 @@ public:
     // to avoid deadlocks from threads in the playback pipeline waiting for the main thread.
     AbortableTaskQueue& sinkTaskQueue() { return m_sinkTaskQueue; }
 
-    String codecForStreamId(const String& streamId);
+    String codecForStreamId(TrackID streamId);
+    bool shouldDownload() { return m_fillTimer.isActive(); }
+
+    void setQuirkState(const GStreamerQuirk* owner, std::unique_ptr<GStreamerQuirkBase::GStreamerQuirkState>&& state)
+    {
+        m_quirkStates.set(owner, WTFMove(state));
+    }
+
+    GStreamerQuirkBase::GStreamerQuirkState* quirkState(const GStreamerQuirk* owner)
+    {
+        if (!m_quirkStates.contains(owner))
+            return nullptr;
+        return m_quirkStates.get(owner);
+    }
 
 protected:
     enum MainThreadNotification {
@@ -237,13 +249,20 @@ protected:
     };
 
     enum class PlaybackRatePausedState {
-        ManuallyPaused, // Initialization or user explicitly paused. This takes preference over RatePaused. You don't
-                        // transition from Manually to Rate Paused unless there is a play while rate == 0.
-        RatePaused, // Pipeline was playing and rate was set to zero.
-        ShouldMoveToPlaying, // Pipeline was paused because of zero rate and it should be playing. This is not a
-                             // definitive state, just an operational transition from RatePaused to Playing to keep the
-                             // pipeline state changes contained in updateStates.
-        Playing, // Pipeline is playing and it should be.
+        // Initialization. This takes preference over RatePaused. You don't
+        // transition from Initially to Rate Paused unless there is a play while rate == 0.
+        InitiallyPaused,
+        // User explicitly paused. This takes preference over RatePaused. You don't
+        // transition from Manually to Rate Paused unless there is a play while rate == 0.
+        ManuallyPaused,
+        // Pipeline was playing and rate was set to zero.
+        RatePaused,
+        // Pipeline was paused because of zero rate and it should be playing. This is not a
+        // definitive state, just an operational transition from RatePaused to Playing to keep the
+        // pipeline state changes contained in updateStates.
+        ShouldMoveToPlaying,
+        // Pipeline is playing and it should be.
+        Playing,
     };
 
     enum class ChangePipelineStateResult {
@@ -264,18 +283,10 @@ protected:
     void pushNextHolePunchBuffer();
     bool shouldIgnoreIntrinsicSize() final;
 
-#if USE(TEXTURE_MAPPER_DMABUF)
-    GstElement* createVideoSinkDMABuf();
-#endif
-
     GstElement* createVideoSinkGL();
 
-#if USE(TEXTURE_MAPPER)
-    void pushTextureToCompositor();
-#endif
-
-#if USE(TEXTURE_MAPPER_DMABUF)
-    void pushDMABufToCompositor();
+#if USE(COORDINATED_GRAPHICS)
+    void pushTextureToCompositor(bool isDuplicateSample);
 #endif
 
     GstElement* videoSink() const { return m_videoSink.get(); }
@@ -331,6 +342,8 @@ protected:
     bool m_didErrorOccur { false };
     mutable bool m_isEndReached { false };
     mutable std::optional<bool> m_isLiveStream;
+
+    // Must reflect whether the last successfull call to gst_element_set_state() was for PLAYING.
     bool m_isPipelinePlaying = false;
 
     // m_isPaused represents:
@@ -346,7 +359,7 @@ protected:
     // https://bugs.webkit.org/show_bug.cgi?id=260385
     bool m_isPaused { true };
     float m_playbackRate { 1 };
-    PlaybackRatePausedState m_playbackRatePausedState { PlaybackRatePausedState::ManuallyPaused };
+    PlaybackRatePausedState m_playbackRatePausedState { PlaybackRatePausedState::InitiallyPaused };
     GstState m_currentState { GST_STATE_NULL };
     GstState m_oldState { GST_STATE_NULL };
     GstState m_requestedState { GST_STATE_VOID_PENDING };
@@ -356,6 +369,9 @@ protected:
     SeekTarget m_seekTarget;
     GRefPtr<GstElement> m_source { nullptr };
     bool m_areVolumeAndMuteInitialized { false };
+
+    // Reflects whether the pipeline was paused due to the HTMLMediaElement being both muted and invisible in the viewport.
+    bool m_isPausedByViewport { false };
 
 #if USE(TEXTURE_MAPPER)
     OptionSet<TextureMapperFlags> m_textureMapperFlags;
@@ -447,8 +463,6 @@ private:
     GstElement* createAudioSink();
     GstElement* audioSink() const { return m_audioSink.get(); }
 
-    bool isMediaStreamPlayer() const;
-
     friend class MediaPlayerFactoryGStreamer;
     static void getSupportedTypes(HashSet<String>&);
     static MediaPlayer::SupportsType supportsType(const MediaEngineSupportParameters&);
@@ -469,7 +483,7 @@ private:
 
     virtual void updateDownloadBufferingFlag();
     void processBufferingStats(GstMessage*);
-    void updateBufferingStatus(GstBufferingMode, double percentage);
+    void updateBufferingStatus(GstBufferingMode, double percentage, bool resetHistory = false);
     void updateMaxTimeLoaded(double percentage);
 
 #if USE(GSTREAMER_MPEGTS)
@@ -493,6 +507,8 @@ private:
 
     void configureElementPlatformQuirks(GstElement*);
 
+    std::optional<int> queryBufferingPercentage();
+
     void setPlaybinURL(const URL& urlString);
 
     void updateTracks(const GRefPtr<GstObject>& collectionOwner);
@@ -510,8 +526,6 @@ private:
 
     void configureMediaStreamAudioTracks();
     void invalidateCachedPositionOnNextIteration() const;
-
-    void textureMapperPlatformLayerProxyWasInvalidated();
 
     Atomic<bool> m_isPlayerShuttingDown;
     GRefPtr<GstElement> m_textSink;
@@ -532,11 +546,17 @@ private:
     Lock m_drawLock;
     RunLoop::Timer m_drawTimer WTF_GUARDED_BY_LOCK(m_drawLock);
     RunLoop::Timer m_pausedTimerHandler;
-#if USE(TEXTURE_MAPPER)
-    RefPtr<TextureMapperPlatformLayerProxy> m_platformLayer;
+#if USE(COORDINATED_GRAPHICS)
+    RefPtr<CoordinatedPlatformLayerBufferProxy> m_contentsBufferProxy;
 #endif
+
+    // These attributes can ONLY be changed from updateBufferingStatus() in order to keep the
+    // hysteresis level detection consistent between buffer percentage update cycles.
+    bool m_wasBuffering { false };
     bool m_isBuffering { false };
+    int m_previousBufferingPercentage { 0 };
     int m_bufferingPercentage { 0 };
+
     bool m_hasWebKitWebSrcSentEOS { false };
     mutable unsigned long long m_totalBytes { 0 };
     URL m_url;
@@ -547,31 +567,33 @@ private:
 #endif
 
     bool m_isMuted { false };
-    bool m_visible { false };
+
+    // Whether the page containing the HTMLMediaElement is visible, reflects: setPageIsVisible()
+    bool m_pageIsVisible { false };
 
     // playbin3 only:
     bool m_waitingForStreamsSelectedEvent { true };
-    AtomString m_currentAudioStreamId; // Currently playing.
-    AtomString m_currentVideoStreamId;
-    AtomString m_currentTextStreamId;
-    AtomString m_wantedAudioStreamId; // Set in JavaScript.
-    AtomString m_wantedVideoStreamId;
-    AtomString m_wantedTextStreamId;
-    AtomString m_requestedAudioStreamId; // Expected in the next STREAMS_SELECTED message.
-    AtomString m_requestedVideoStreamId;
-    AtomString m_requestedTextStreamId;
+    std::optional<TrackID> m_currentAudioStreamId; // Currently playing.
+    std::optional<TrackID> m_currentVideoStreamId;
+    std::optional<TrackID> m_currentTextStreamId;
+    std::optional<TrackID> m_wantedAudioStreamId; // Set in JavaScript.
+    std::optional<TrackID> m_wantedVideoStreamId;
+    std::optional<TrackID> m_wantedTextStreamId;
+    std::optional<TrackID> m_requestedAudioStreamId; // Expected in the next STREAMS_SELECTED message.
+    std::optional<TrackID> m_requestedVideoStreamId;
+    std::optional<TrackID> m_requestedTextStreamId;
 
 #if ENABLE(WEB_AUDIO)
     RefPtr<AudioSourceProviderGStreamer> m_audioSourceProvider;
 #endif
     GRefPtr<GstElement> m_downloadBuffer;
 
-    HashMap<AtomString, Ref<AudioTrackPrivateGStreamer>> m_audioTracks;
-    HashMap<AtomString, Ref<VideoTrackPrivateGStreamer>> m_videoTracks;
-    HashMap<AtomString, Ref<InbandTextTrackPrivateGStreamer>> m_textTracks;
+    TrackIDHashMap<Ref<AudioTrackPrivateGStreamer>> m_audioTracks;
+    TrackIDHashMap<Ref<VideoTrackPrivateGStreamer>> m_videoTracks;
+    TrackIDHashMap<Ref<InbandTextTrackPrivateGStreamer>> m_textTracks;
     RefPtr<InbandMetadataTextTrackPrivateGStreamer> m_chaptersTrack;
 #if USE(GSTREAMER_MPEGTS)
-    HashMap<AtomString, RefPtr<InbandMetadataTextTrackPrivateGStreamer>> m_metadataTracks;
+    TrackIDHashMap<RefPtr<InbandMetadataTextTrackPrivateGStreamer>> m_metadataTracks;
 #endif
     virtual bool isMediaSource() const { return false; }
 
@@ -592,15 +614,10 @@ private:
     mutable PlatformTimeRanges m_buffered;
 #if !RELEASE_LOG_DISABLED
     Ref<const Logger> m_logger;
-    const void* m_logIdentifier;
+    const uint64_t m_logIdentifier;
 #endif
 
     String m_errorMessage;
-
-#if USE(TEXTURE_MAPPER_DMABUF)
-    HashSet<GRefPtr<GstMemory>> m_dmabufMemory;
-    RefPtr<GBMBufferSwapchain> m_swapchain;
-#endif
 
     GRefPtr<GstStreamCollection> m_streamCollection;
 
@@ -608,23 +625,31 @@ private:
 
     bool m_didTryToRecoverPlayingState { false };
 
-    bool m_isVisibleInViewport { true };
+    // The state the pipeline should be set back to after the player becomes visible in the viewport again.
     GstState m_invisiblePlayerState { GST_STATE_VOID_PENDING };
 
     // Specific to MediaStream playback.
     MediaTime m_startTime;
-    MediaTime m_pausedTime;
+    std::optional<MediaTime> m_pausedTime;
 
     void setupCodecProbe(GstElement*);
     Lock m_codecsLock;
-    HashMap<String, String> m_codecs WTF_GUARDED_BY_LOCK(m_codecsLock);
+    TrackIDHashMap<String> m_codecs WTF_GUARDED_BY_LOCK(m_codecsLock);
 
     bool isSeamlessSeekingEnabled() const { return m_seekFlags & (1 << GST_SEEK_FLAG_SEGMENT); }
 
     Ref<PlatformMediaResourceLoader> m_loader;
 
     RefPtr<GStreamerQuirksManager> m_quirksManagerForTesting;
+    UncheckedKeyHashMap<const GStreamerQuirk*, std::unique_ptr<GStreamerQuirkBase::GStreamerQuirkState>> m_quirkStates;
+
+    MediaTime m_estimatedVideoFrameDuration { MediaTime::zeroTime() };
 };
 
-}
+} // namespace WebCore
+
+SPECIALIZE_TYPE_TRAITS_BEGIN(WebCore::MediaPlayerPrivateGStreamer)
+static bool isType(const WebCore::MediaPlayerPrivateInterface& player) { return player.mediaPlayerType() == WebCore::MediaPlayerType::GStreamer; }
+SPECIALIZE_TYPE_TRAITS_END()
+
 #endif // ENABLE(VIDEO) && USE(GSTREAMER)

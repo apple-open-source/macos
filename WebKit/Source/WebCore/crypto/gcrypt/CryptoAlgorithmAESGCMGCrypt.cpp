@@ -170,7 +170,7 @@ static std::optional<Vector<uint8_t>> gcryptDecrypt(const Vector<uint8_t>& key, 
             return std::nullopt;
         }
 
-        if (constantTimeMemcmp(tag.data(), cipherText.data() + cipherLength, tagLength))
+        if (constantTimeMemcmp(tag.span(), cipherText.subspan(cipherLength)))
             return std::nullopt;
     }
 

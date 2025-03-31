@@ -29,10 +29,12 @@
 #include "CommonCryptoUtilities.h"
 #include "CryptoAlgorithmAesGcmParams.h"
 #include "CryptoKeyAES.h"
+#include <wtf/CryptographicUtilities.h>
+#include <wtf/StdLibExtras.h>
+
 #if HAVE(SWIFT_CPP_INTEROP)
 #include <pal/PALSwift.h>
 #endif
-#include <wtf/CryptographicUtilities.h>
 
 namespace WebCore {
 
@@ -47,7 +49,7 @@ ALLOW_DEPRECATED_DECLARATIONS_BEGIN
 ALLOW_DEPRECATED_DECLARATIONS_END
     if (status)
         return Exception { ExceptionCode::OperationError };
-    memcpy(cipherText.data() + plainText.size(), tag.data(), desiredTagLengthInBytes);
+    memcpySpan(cipherText.mutableSpan().subspan(plainText.size()), tag.span());
 
     return WTFMove(cipherText);
 }
@@ -74,7 +76,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
         return Exception { ExceptionCode::OperationError };
 
     // Using a constant time comparison to prevent timing attacks.
-    if (constantTimeMemcmp(tag.data(), cipherText.data() + offset, desiredTagLengthInBytes))
+    if (constantTimeMemcmp(tag.span(), cipherText.subspan(offset)))
         return Exception { ExceptionCode::OperationError };
 
     plainText.shrink(offset);

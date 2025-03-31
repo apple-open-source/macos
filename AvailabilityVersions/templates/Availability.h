@@ -26,8 +26,8 @@
  /*     
     These macros are for use in OS header files. They enable function prototypes
     and Objective-C methods to be tagged with the OS version in which they
-    were first available; and, if applicable, the OS version in which they 
-    became deprecated.  
+    were first available; and, if applicable, the OS versions in which they
+    became deprecated and obsoleted.
      
     The desktop Mac OS X and iOS each have different version numbers.
     The __OSX_AVAILABLE_STARTING() macro allows you to specify both the desktop
@@ -387,7 +387,9 @@
      * Use to specify the release that a particular API became available.
      *
      * Platform names:
-     *   macos, ios, tvos, watchos
+     *   macos, macOSApplicationExtension, macCatalyst, macCatalystApplicationExtension,
+     *   ios, iOSApplicationExtension, tvos, tvOSApplicationExtension, watchos,
+     *   watchOSApplicationExtension, driverkit, visionos, visionOSApplicationExtension
      *
      * Examples:
      *    __API_AVAILABLE(macos(10.10))
@@ -402,15 +404,17 @@
     /*
      * API Deprecations
      *
-     * Use to specify the release that a particular API became unavailable.
+     * Use to specify the release that a particular API became deprecated.
      *
      * Platform names:
-     *   macos, ios, tvos, watchos
+     *   macos, macOSApplicationExtension, macCatalyst, macCatalystApplicationExtension,
+     *   ios, iOSApplicationExtension, tvos, tvOSApplicationExtension, watchos,
+     *   watchOSApplicationExtension, driverkit, visionos, visionOSApplicationExtension
      *
      * Examples:
      *
-     *    __API_DEPRECATED("No longer supported", macos(10.4, 10.8))
-     *    __API_DEPRECATED("No longer supported", macos(10.4, 10.8), ios(2.0, 3.0), watchos(2.0, 3.0), tvos(9.0, 10.0))
+     *    __API_DEPRECATED("Deprecated", macos(10.4, 10.8))
+     *    __API_DEPRECATED("Deprecated", macos(10.4, 10.8), ios(2.0, 3.0), watchos(2.0, 3.0), tvos(9.0, 10.0))
      *
      *    __API_DEPRECATED_WITH_REPLACEMENT("-setName:", tvos(10.0, 10.4), ios(9.0, 10.0))
      *    __API_DEPRECATED_WITH_REPLACEMENT("SomeClassName", macos(10.4, 10.6), watchos(2.0, 3.0))
@@ -421,6 +425,31 @@
 // @@AVAILABILITY_MACRO_INTERFACE(__API_DEPRECATED,__API_DEPRECATED_BEGIN,argCount=1,scoped_availablity=TRUE)@@
 
 // @@AVAILABILITY_MACRO_INTERFACE(__API_DEPRECATED_WITH_REPLACEMENT,__API_DEPRECATED_WITH_REPLACEMENT_BEGIN,argCount=1,scoped_availablity=TRUE)@@
+
+    /*
+     * API Obsoletions
+     *
+     * Use to specify the release that a particular API became unavailable.
+     *
+     * Platform names:
+     *   macos, macOSApplicationExtension, macCatalyst, macCatalystApplicationExtension,
+     *   ios, iOSApplicationExtension, tvos, tvOSApplicationExtension, watchos,
+     *   watchOSApplicationExtension, bridgeos, driverkit, visionos, visionOSApplicationExtension
+     *
+     * Examples:
+     *
+     *    __API_OBSOLETED("No longer supported", macos(10.4, 10.8, 11.0))
+     *    __API_OBSOLETED("No longer supported", macos(10.4, 10.8, 11.0), ios(2.0, 3.0, 4.0), watchos(2.0, 3.0, 4.0), tvos(9.0, 10.0, 11.0))
+     *
+     *    __API_OBSOLETED_WITH_REPLACEMENT("-setName:", tvos(10.0, 10.4, 12.0), ios(9.0, 10.0, 11.0))
+     *    __API_OBSOLETED_WITH_REPLACEMENT("SomeClassName", macos(10.4, 10.6, 11.0), watchos(2.0, 3.0, 4.0))
+     */
+// @@AVAILABILITY_MACRO_INTERFACE(__API_OBSOLETED,__API_OBSOLETED_MSG,argCount=1)@@
+// @@AVAILABILITY_MACRO_INTERFACE(__API_OBSOLETED_WITH_REPLACEMENT,__API_OBSOLETED_REP,argCount=1)@@
+
+// @@AVAILABILITY_MACRO_INTERFACE(__API_OBSOLETED,__API_OBSOLETED_BEGIN,argCount=1,scoped_availablity=TRUE)@@
+
+// @@AVAILABILITY_MACRO_INTERFACE(__API_OBSOLETED_WITH_REPLACEMENT,__API_OBSOLETED_WITH_REPLACEMENT_BEGIN,argCount=1,scoped_availablity=TRUE)@@
 
     /*
      * API Unavailability
@@ -474,6 +503,30 @@
 
 #ifndef __API_DEPRECATED_WITH_REPLACEMENT_END
   #define __API_DEPRECATED_WITH_REPLACEMENT_END(...)
+#endif
+
+#ifndef __API_OBSOLETED
+  #define __API_OBSOLETED(...)
+#endif
+
+#ifndef __API_OBSOLETED_BEGIN
+  #define __API_OBSOLETED_BEGIN(...)
+#endif
+
+#ifndef __API_OBSOLETED_END
+  #define __API_OBSOLETED_END(...)
+#endif
+
+#ifndef __API_OBSOLETED_WITH_REPLACEMENT
+  #define __API_OBSOLETED_WITH_REPLACEMENT(...)
+#endif
+
+#ifndef __API_OBSOLETED_WITH_REPLACEMENT_BEGIN
+  #define __API_OBSOLETED_WITH_REPLACEMENT_BEGIN(...)
+#endif
+
+#ifndef __API_OBSOLETED_WITH_REPLACEMENT_END
+  #define __API_OBSOLETED_WITH_REPLACEMENT_END(...)
 #endif
 
 #ifndef __API_UNAVAILABLE

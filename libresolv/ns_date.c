@@ -1,31 +1,32 @@
+/*	$NetBSD: ns_date.c,v 1.2 2018/12/13 08:39:34 maya Exp $	*/
+
 /*
+ * Copyright (c) 2004 by Internet Systems Consortium, Inc. ("ISC")
  * Copyright (c) 1999 by Internet Software Consortium.
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
  * copyright notice and this permission notice appear in all copies.
  *
- * THE SOFTWARE IS PROVIDED "AS IS" AND INTERNET SOFTWARE CONSORTIUM DISCLAIMS
- * ALL WARRANTIES WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES
- * OF MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL INTERNET SOFTWARE
- * CONSORTIUM BE LIABLE FOR ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL
- * DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR
- * PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS
- * ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS
- * SOFTWARE.
+ * THE SOFTWARE IS PROVIDED "AS IS" AND ISC DISCLAIMS ALL WARRANTIES
+ * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS.  IN NO EVENT SHALL ISC BE LIABLE FOR
+ * ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+ * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+ * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT
+ * OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-#ifndef __APPLE__
-#ifndef lint
-static const char rcsid[] = "$Id: ns_date.c,v 1.1 2006/03/01 19:01:36 majka Exp $";
-#endif
+#include <sys/cdefs.h>
+#if 0
+static const char rcsid[] = "Id: ns_date.c,v 1.6 2005/04/27 04:56:39 sra Exp ";
+#else
+__RCSID("$NetBSD: ns_date.c,v 1.2 2018/12/13 08:39:34 maya Exp $");
 #endif
 
 /* Import. */
 
-#ifndef __APPLE__
 #include "port_before.h"
-#endif
 
 #include <arpa/nameser.h>
 
@@ -35,15 +36,7 @@ static const char rcsid[] = "$Id: ns_date.c,v 1.1 2006/03/01 19:01:36 majka Exp 
 #include <string.h>
 #include <time.h>
 
-#ifndef __APPLE__
 #include "port_after.h"
-#endif
-
-#ifdef SPRINTF_CHAR
-# define SPRINTF(x) strlen(sprintf/**/x)
-#else
-# define SPRINTF(x) ((size_t)sprintf x)
-#endif
 
 /* Forward. */
 
@@ -51,32 +44,34 @@ static int	datepart(const char *, int, int, int, int *);
 
 /* Public. */
 
-/* Convert a date in ASCII into the number of seconds since
-   1 January 1970 (GMT assumed).  Format is yyyymmddhhmmss, all
-   digits required, no spaces allowed.  */
+/*%
+ * Convert a date in ASCII into the number of seconds since
+ * 1 January 1970 (GMT assumed).  Format is yyyymmddhhmmss, all
+ * digits required, no spaces allowed.
+ */
 
 u_int32_t
 ns_datetosecs(const char *cp, int *errp) {
-	struct tm time;
+	struct tm tim;
 	u_int32_t result;
 	int mdays, i;
 	static const int days_per_month[12] =
 		{31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
 
-	if (strlen(cp) != 14) {
+	if (strlen(cp) != 14U) {
 		*errp = 1;
 		return (0);
 	}
 	*errp = 0;
 
-	memset(&time, 0, sizeof time);
-	time.tm_year  = datepart(cp +  0, 4, 1990, 9999, errp) - 1900;
-	time.tm_mon   = datepart(cp +  4, 2,   01,   12, errp) - 1;
-	time.tm_mday  = datepart(cp +  6, 2,   01,   31, errp);
-	time.tm_hour  = datepart(cp +  8, 2,   00,   23, errp);
-	time.tm_min   = datepart(cp + 10, 2,   00,   59, errp);
-	time.tm_sec   = datepart(cp + 12, 2,   00,   59, errp);
-	if (*errp)		/* Any parse errors? */
+	memset(&tim, 0, sizeof tim);
+	tim.tm_year  = datepart(cp +  0, 4, 1990, 9999, errp) - 1900;
+	tim.tm_mon   = datepart(cp +  4, 2,   01,   12, errp) - 1;
+	tim.tm_mday  = datepart(cp +  6, 2,   01,   31, errp);
+	tim.tm_hour  = datepart(cp +  8, 2,   00,   23, errp);
+	tim.tm_min   = datepart(cp + 10, 2,   00,   59, errp);
+	tim.tm_sec   = datepart(cp + 12, 2,   00,   59, errp);
+	if (*errp)		/*%< Any parse errors? */
 		return (0);
 
 	/* 
@@ -87,32 +82,29 @@ ns_datetosecs(const char *cp, int *errp) {
 #define SECS_PER_DAY    ((u_int32_t)24*60*60)
 #define isleap(y) ((((y) % 4) == 0 && ((y) % 100) != 0) || ((y) % 400) == 0)
 
-	result  = time.tm_sec;				/* Seconds */
-	result += time.tm_min * 60;			/* Minutes */
-	result += time.tm_hour * (60*60);		/* Hours */
-	result += (time.tm_mday - 1) * SECS_PER_DAY;	/* Days */
-
+	result  = tim.tm_sec;				/*%< Seconds */
+	result += tim.tm_min * 60;			/*%< Minutes */
+	result += tim.tm_hour * (60*60);		/*%< Hours */
+	result += (tim.tm_mday - 1) * SECS_PER_DAY;	/*%< Days */
 	/* Months are trickier.  Look without leaping, then leap */
 	mdays = 0;
-	for (i = 0; i < time.tm_mon; i++)
+	for (i = 0; i < tim.tm_mon; i++)
 		mdays += days_per_month[i];
-	result += mdays * SECS_PER_DAY;			/* Months */
-	if (time.tm_mon > 1 && isleap(1900+time.tm_year))
-		result += SECS_PER_DAY;		/* Add leapday for this year */
-
+	result += mdays * SECS_PER_DAY;			/*%< Months */
+	if (tim.tm_mon > 1 && isleap(1900+tim.tm_year))
+		result += SECS_PER_DAY;		/*%< Add leapday for this year */
 	/* First figure years without leapdays, then add them in.  */
 	/* The loop is slow, FIXME, but simple and accurate.  */
-	result += (time.tm_year - 70) * (SECS_PER_DAY*365); /* Years */
-	for (i = 70; i < time.tm_year; i++)
+	result += (tim.tm_year - 70) * (SECS_PER_DAY*365); /*%< Years */
+	for (i = 70; i < tim.tm_year; i++)
 		if (isleap(1900+i))
-			result += SECS_PER_DAY; /* Add leapday for prev year */
-
+			result += SECS_PER_DAY; /*%< Add leapday for prev year */
 	return (result);
 }
 
 /* Private. */
 
-/*
+/*%
  * Parse part of a date.  Set error flag if any error.
  * Don't reset the flag if there is no error.
  */
@@ -132,3 +124,5 @@ datepart(const char *buf, int size, int min, int max, int *errp) {
 		*errp = 1;
 	return (result);
 }
+
+/*! \file */

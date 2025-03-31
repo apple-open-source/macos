@@ -1,4 +1,4 @@
-framework module KeychainCircle [system] {
+framework module KeychainCircle_Private [system] {
   umbrella header "KeychainCircle_Private.h"
 
   export *

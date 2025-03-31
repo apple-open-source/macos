@@ -11,21 +11,38 @@
 #ifndef P2P_BASE_FAKE_ICE_TRANSPORT_H_
 #define P2P_BASE_FAKE_ICE_TRANSPORT_H_
 
+#include <cstddef>
 #include <map>
 #include <memory>
+#include <optional>
 #include <string>
 #include <utility>
 
 #include "absl/algorithm/container.h"
 #include "absl/strings/string_view.h"
-#include "absl/types/optional.h"
+#include "api/candidate.h"
 #include "api/ice_transport_interface.h"
+#include "api/sequence_checker.h"
 #include "api/task_queue/pending_task_safety_flag.h"
+#include "api/transport/enums.h"
 #include "api/units/time_delta.h"
+#include "p2p/base/candidate_pair_interface.h"
+#include "p2p/base/connection.h"
+#include "p2p/base/connection_info.h"
 #include "p2p/base/ice_transport_internal.h"
+#include "p2p/base/port.h"
+#include "p2p/base/transport_description.h"
+#include "rtc_base/async_packet_socket.h"
+#include "rtc_base/checks.h"
 #include "rtc_base/copy_on_write_buffer.h"
+#include "rtc_base/logging.h"
 #include "rtc_base/network/received_packet.h"
+#include "rtc_base/network/sent_packet.h"
+#include "rtc_base/network_route.h"
+#include "rtc_base/socket.h"
 #include "rtc_base/task_queue_for_test.h"
+#include "rtc_base/thread.h"
+#include "rtc_base/thread_annotations.h"
 #include "rtc_base/time_utils.h"
 
 namespace cricket {
@@ -270,12 +287,11 @@ class FakeIceTransport : public IceTransportInternal {
     return true;
   }
 
-  absl::optional<int> GetRttEstimate() override { return absl::nullopt; }
+  std::optional<int> GetRttEstimate() override { return std::nullopt; }
 
   const Connection* selected_connection() const override { return nullptr; }
-  absl::optional<const CandidatePair> GetSelectedCandidatePair()
-      const override {
-    return absl::nullopt;
+  std::optional<const CandidatePair> GetSelectedCandidatePair() const override {
+    return std::nullopt;
   }
 
   // Fake PacketTransportInternal implementation.
@@ -345,11 +361,11 @@ class FakeIceTransport : public IceTransportInternal {
     return last_sent_packet_;
   }
 
-  absl::optional<rtc::NetworkRoute> network_route() const override {
+  std::optional<rtc::NetworkRoute> network_route() const override {
     RTC_DCHECK_RUN_ON(network_thread_);
     return network_route_;
   }
-  void SetNetworkRoute(absl::optional<rtc::NetworkRoute> network_route) {
+  void SetNetworkRoute(std::optional<rtc::NetworkRoute> network_route) {
     RTC_DCHECK_RUN_ON(network_thread_);
     network_route_ = network_route;
     SendTask(network_thread_, [this] {
@@ -402,9 +418,9 @@ class FakeIceTransport : public IceTransportInternal {
   IceParameters remote_ice_parameters_ RTC_GUARDED_BY(network_thread_);
   IceMode remote_ice_mode_ RTC_GUARDED_BY(network_thread_) = ICEMODE_FULL;
   size_t connection_count_ RTC_GUARDED_BY(network_thread_) = 0;
-  absl::optional<webrtc::IceTransportState> transport_state_
+  std::optional<webrtc::IceTransportState> transport_state_
       RTC_GUARDED_BY(network_thread_);
-  absl::optional<IceTransportState> legacy_transport_state_
+  std::optional<IceTransportState> legacy_transport_state_
       RTC_GUARDED_BY(network_thread_);
   IceGatheringState gathering_state_ RTC_GUARDED_BY(network_thread_) =
       kIceGatheringNew;
@@ -413,7 +429,7 @@ class FakeIceTransport : public IceTransportInternal {
   bool receiving_ RTC_GUARDED_BY(network_thread_) = false;
   bool combine_outgoing_packets_ RTC_GUARDED_BY(network_thread_) = false;
   rtc::CopyOnWriteBuffer send_packet_ RTC_GUARDED_BY(network_thread_);
-  absl::optional<rtc::NetworkRoute> network_route_
+  std::optional<rtc::NetworkRoute> network_route_
       RTC_GUARDED_BY(network_thread_);
   std::map<rtc::Socket::Option, int> socket_options_
       RTC_GUARDED_BY(network_thread_);

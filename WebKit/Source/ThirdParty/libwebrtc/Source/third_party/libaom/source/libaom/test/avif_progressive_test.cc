@@ -16,7 +16,7 @@
 #include "aom/aom_codec.h"
 #include "aom/aom_encoder.h"
 #include "aom/aom_image.h"
-#include "third_party/googletest/src/googletest/include/gtest/gtest.h"
+#include "gtest/gtest.h"
 
 namespace {
 

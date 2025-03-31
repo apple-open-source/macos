@@ -405,6 +405,7 @@ loop:
 	TAILQ_INIT(&np->n_opens);
 	TAILQ_INIT(&np->n_lock_owners);
 	TAILQ_INIT(&np->n_locks);
+	np->n_commit.tqe_next = NFSNOLIST;
 	np->n_dlink.tqe_next = NFSNOLIST;
 	np->n_dreturn.tqe_next = NFSNOLIST;
 	np->n_monlink.le_next = NFSNOLIST;
@@ -1079,6 +1080,19 @@ nfs_vnop_reclaim(
 		lck_mtx_lock(&np->n_openlock);
 	}
 	lck_mtx_unlock(&np->n_openlock);
+
+	if (np->n_commit.tqe_next != NFSNOLIST) {
+		lck_mtx_lock(get_lck_mtx(NLM_COMMITD));
+		while (np->n_cflag & NCOMMITINPROG) {
+			struct timespec ts = { .tv_sec = 1, .tv_nsec = 0 };
+			np->n_cflag |= NCOMMITWANT;
+			msleep(&np->n_cflag, get_lck_mtx(NLM_COMMITD), PZERO - 1, "nfswaitcommit", &ts);
+		}
+		if (np->n_monlink.le_next != NFSNOLIST) {
+			nfs_buf_commit_remove(np, !force);
+		}
+		lck_mtx_unlock(get_lck_mtx(NLM_COMMITD));
+	}
 
 	if (np->n_monlink.le_next != NFSNOLIST) {
 		/* Wait for any in-progress getattr to complete, */

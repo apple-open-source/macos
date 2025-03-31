@@ -51,7 +51,6 @@ public:
     GlyphData glyphDataForCharacter(char32_t c) const
     {
         unsigned index = GlyphPage::indexForCodePoint(c);
-        ASSERT_WITH_SECURITY_IMPLICATION(index < GlyphPage::size);
         return { m_glyphs[index], m_fonts[index].get() };
     }
 
@@ -63,13 +62,12 @@ public:
 private:
     void setGlyphDataForIndex(unsigned index, const GlyphData& glyphData)
     {
-        ASSERT_WITH_SECURITY_IMPLICATION(index < GlyphPage::size);
         m_glyphs[index] = glyphData.glyph;
         m_fonts[index] = glyphData.font.get();
     }
 
-    Glyph m_glyphs[GlyphPage::size] { };
-    SingleThreadWeakPtr<const Font> m_fonts[GlyphPage::size] { };
+    std::array<Glyph, GlyphPage::size> m_glyphs = { };
+    std::array<SingleThreadWeakPtr<const Font>, GlyphPage::size> m_fonts = { };
 };
 
 inline FontCascadeFonts::GlyphPageCacheEntry::GlyphPageCacheEntry(RefPtr<GlyphPage>&& singleFont)
@@ -568,6 +566,12 @@ void FontCascadeFonts::pruneSystemFallbacks()
         });
     }
     m_systemFallbackFontSet.clear();
+}
+
+TextStream& operator<<(TextStream& ts, const FontCascadeFonts& fontCascadeFonts)
+{
+    ts << "FontCascadeFonts " << &fontCascadeFonts << " " << ValueOrNull(fontCascadeFonts.fontSelector()) << " generation " << fontCascadeFonts.generation();
+    return ts;
 }
 
 } // namespace WebCore

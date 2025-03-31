@@ -122,6 +122,7 @@ hi_Latn{
             availableFormats{
                 Gy{"G y"}
                 GyMMM{"G y MMM"}
+                GyMMMEEEEd{"G y, dd MMMM, E"}
                 GyMMMEd{"G y, dd MMM, E"}
                 GyMMMd{"G y, d MMM"}
                 MMMMW{

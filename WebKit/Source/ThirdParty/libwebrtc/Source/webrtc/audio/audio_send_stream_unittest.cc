@@ -128,13 +128,13 @@ rtc::scoped_refptr<MockAudioEncoderFactory> SetupEncoderFactoryMock() {
           std::begin(kCodecSpecs), std::end(kCodecSpecs))));
   ON_CALL(*factory, QueryAudioEncoder)
       .WillByDefault(
-          [](const SdpAudioFormat& format) -> absl::optional<AudioCodecInfo> {
+          [](const SdpAudioFormat& format) -> std::optional<AudioCodecInfo> {
             for (const auto& spec : kCodecSpecs) {
               if (format == spec.format) {
                 return spec.info;
               }
             }
-            return absl::nullopt;
+            return std::nullopt;
           });
   ON_CALL(*factory, Create).WillByDefault(WithArg<1>(&SetupAudioEncoderMock));
   return factory;
@@ -183,7 +183,7 @@ struct ConfigHelper {
         CreateEnvironment(&field_trials, time_controller_.GetClock(),
                           time_controller_.GetTaskQueueFactory()),
         stream_config_, audio_state_, &rtp_transport_, &bitrate_allocator_,
-        absl::nullopt,
+        std::nullopt,
         std::unique_ptr<voe::ChannelSendInterface>(channel_send_));
   }
 
@@ -235,7 +235,8 @@ struct ConfigHelper {
   void SetupMockForSetupSendCodec(bool expect_set_encoder_call) {
     if (expect_set_encoder_call) {
       EXPECT_CALL(*channel_send_, SetEncoder)
-          .WillOnce([this](int payload_type, const SdpAudioFormat& format,
+          .WillOnce([this](int /* payload_type */,
+                           const SdpAudioFormat& /* format */,
                            std::unique_ptr<AudioEncoder> encoder) {
             this->audio_encoder_ = std::move(encoder);
             return true;
@@ -560,6 +561,7 @@ TEST(AudioSendStreamTest, AudioNetworkAdaptorReceivesOverhead) {
             }));
     EXPECT_CALL(*helper.rtp_rtcp(), ExpectedPerPacketOverhead)
         .WillRepeatedly(Return(kOverheadPerPacket.bytes<size_t>()));
+    EXPECT_CALL(*helper.channel_send(), RegisterPacketOverhead);
 
     auto send_stream = helper.CreateAudioSendStream();
 
@@ -580,8 +582,8 @@ TEST(AudioSendStreamTest, SendCodecCanApplyVad) {
     helper.config().send_codec_spec->cng_payload_type = 105;
     std::unique_ptr<AudioEncoder> stolen_encoder;
     EXPECT_CALL(*helper.channel_send(), SetEncoder)
-        .WillOnce([&stolen_encoder](int payload_type,
-                                    const SdpAudioFormat& format,
+        .WillOnce([&stolen_encoder](int /* payload_type */,
+                                    const SdpAudioFormat& /* format */,
                                     std::unique_ptr<AudioEncoder> encoder) {
           stolen_encoder = std::move(encoder);
           return true;
@@ -672,6 +674,7 @@ TEST(AudioSendStreamTest, SSBweWithOverhead) {
                                       "WebRTC-Audio-LegacyOverhead/Disabled/");
     EXPECT_CALL(*helper.rtp_rtcp(), ExpectedPerPacketOverhead)
         .WillRepeatedly(Return(kOverheadPerPacket.bytes<size_t>()));
+    EXPECT_CALL(*helper.channel_send(), RegisterPacketOverhead);
     auto send_stream = helper.CreateAudioSendStream();
     const DataRate bitrate =
         DataRate::BitsPerSec(helper.config().max_bitrate_bps) +
@@ -694,6 +697,7 @@ TEST(AudioSendStreamTest, SSBweWithOverheadMinRespected) {
         "WebRTC-Audio-Allocation/min:6kbps,max:64kbps/");
     EXPECT_CALL(*helper.rtp_rtcp(), ExpectedPerPacketOverhead)
         .WillRepeatedly(Return(kOverheadPerPacket.bytes<size_t>()));
+    EXPECT_CALL(*helper.channel_send(), RegisterPacketOverhead);
     auto send_stream = helper.CreateAudioSendStream();
     const DataRate bitrate = DataRate::KilobitsPerSec(6) + kMinOverheadRate;
     EXPECT_CALL(*helper.channel_send(),
@@ -714,6 +718,7 @@ TEST(AudioSendStreamTest, SSBweWithOverheadMaxRespected) {
         "WebRTC-Audio-Allocation/min:6kbps,max:64kbps/");
     EXPECT_CALL(*helper.rtp_rtcp(), ExpectedPerPacketOverhead)
         .WillRepeatedly(Return(kOverheadPerPacket.bytes<size_t>()));
+    EXPECT_CALL(*helper.channel_send(), RegisterPacketOverhead);
     auto send_stream = helper.CreateAudioSendStream();
     const DataRate bitrate = DataRate::KilobitsPerSec(64) + kMaxOverheadRate;
     EXPECT_CALL(*helper.channel_send(),
@@ -796,6 +801,7 @@ TEST(AudioSendStreamTest, OnTransportOverheadChanged) {
 
     // CallEncoder will be called on overhead change.
     EXPECT_CALL(*helper.channel_send(), CallEncoder);
+    EXPECT_CALL(*helper.channel_send(), RegisterPacketOverhead);
 
     const size_t transport_overhead_per_packet_bytes = 333;
     send_stream->SetTransportOverhead(transport_overhead_per_packet_bytes);
@@ -810,6 +816,8 @@ TEST(AudioSendStreamTest, DoesntCallEncoderWhenOverheadUnchanged) {
     ConfigHelper helper(false, true, use_null_audio_processing);
     auto send_stream = helper.CreateAudioSendStream();
     auto new_config = helper.config();
+
+    EXPECT_CALL(*helper.channel_send(), RegisterPacketOverhead).Times(2);
 
     // CallEncoder will be called on overhead change.
     EXPECT_CALL(*helper.channel_send(), CallEncoder);
@@ -832,6 +840,7 @@ TEST(AudioSendStreamTest, AudioOverheadChanged) {
     const size_t audio_overhead_per_packet_bytes = 555;
     EXPECT_CALL(*helper.rtp_rtcp(), ExpectedPerPacketOverhead)
         .WillRepeatedly(Return(audio_overhead_per_packet_bytes));
+    EXPECT_CALL(*helper.channel_send(), RegisterPacketOverhead).Times(2);
     auto send_stream = helper.CreateAudioSendStream();
 
     BitrateAllocationUpdate update;
@@ -862,6 +871,7 @@ TEST(AudioSendStreamTest, OnAudioAndTransportOverheadChanged) {
     const size_t audio_overhead_per_packet_bytes = 555;
     EXPECT_CALL(*helper.rtp_rtcp(), ExpectedPerPacketOverhead)
         .WillRepeatedly(Return(audio_overhead_per_packet_bytes));
+    EXPECT_CALL(*helper.channel_send(), RegisterPacketOverhead).Times(2);
     auto send_stream = helper.CreateAudioSendStream();
     auto new_config = helper.config();
 
@@ -922,6 +932,20 @@ TEST(AudioSendStreamTest, DefaultsHonorsPriorityBitrate) {
           [&](BitrateAllocatorObserver*, MediaStreamAllocationConfig config) {
             EXPECT_EQ(config.priority_bitrate_bps, 20000);
           }));
+  EXPECT_CALL(*helper.channel_send(), StartSend());
+  send_stream->Start();
+  EXPECT_CALL(*helper.channel_send(), StopSend());
+  send_stream->Stop();
+}
+
+TEST(AudioSendStreamTest, DefaultsToContributeUnusedBitrate) {
+  ConfigHelper helper(true, true, true);
+  auto send_stream = helper.CreateAudioSendStream();
+  EXPECT_CALL(
+      *helper.bitrate_allocator(),
+      AddObserver(send_stream.get(),
+                  Field(&MediaStreamAllocationConfig::rate_elasticity,
+                        TrackRateElasticity::kCanContributeUnusedRate)));
   EXPECT_CALL(*helper.channel_send(), StartSend());
   send_stream->Start();
   EXPECT_CALL(*helper.channel_send(), StopSend());

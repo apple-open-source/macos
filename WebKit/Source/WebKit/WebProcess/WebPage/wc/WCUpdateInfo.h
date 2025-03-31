@@ -29,7 +29,6 @@
 
 #include "WCBackingStore.h"
 #include "WCContentBufferIdentifier.h"
-#include "WebCoreArgumentCoders.h"
 #include <WebCore/GraphicsLayer.h>
 #include <WebCore/TextureMapperSparseBackingStore.h>
 #include <optional>

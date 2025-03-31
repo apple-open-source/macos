@@ -39,6 +39,7 @@ fi
 Cleanup()
 {
 	local last_command="${BASH_COMMAND}" return_code=$?
+	trap - EXIT
 	if [ ${return_code} -ne 0 ]; then
 		echo "command \"${last_command}\" exited with code ${return_code}"
 	fi
@@ -49,6 +50,8 @@ Cleanup()
 	if [ -n "${NO_CP_APFS_DISK}" ]; then
 		diskutil eject ${NO_CP_APFS_DISK}
 	fi
+	rm -rf ${TMP}
+	exit $return_code
 }
 trap Cleanup INT TERM EXIT
 
@@ -63,8 +66,8 @@ setclass ${TMP}/data/classC_dir C
 # Create an APFS disk image and attach it, calls to retrieve protection class attrs will succeed but always return the default protection class.
 # This is expected behaviour on an APFS volume that doesn't support CPROTECT
 diskimagetool create -f raw --srcfolder ${TMP}/data --volname mtree_test_apfs ${DISK_IMAGE_APFS}
-attach_output=$(diskutil image attach ${TMP}/disk_image_apfs.dmg)
-NO_CP_APFS_DISK=$(echo "${attach_output}" | egrep -o "/dev/disk[0-9]+(s[0-9]+)?(s[0-9]+)?")
+attach_output=$(diskutil image attach ${DISK_IMAGE_APFS})
+NO_CP_APFS_DISK=$(echo "${attach_output}" | egrep -m1 -o "/dev/disk[0-9]+(s[0-9]+)?(s[0-9]+)?")
 NO_CP_APFS_VOL_PATH="${mountPointPrefix}/mtree_test_apfs"
 
 # Check that we can create and verify a spec with protectionclass

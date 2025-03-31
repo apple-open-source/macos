@@ -90,6 +90,7 @@
 #import "_WKResourceLoadStatisticsThirdPartyInternal.h"
 #import "_WKTargetedElementInfoInternal.h"
 #import "_WKTargetedElementRequestInternal.h"
+#import "_WKTextRunInternal.h"
 #import "_WKUserContentWorldInternal.h"
 #import "_WKUserInitiatedActionInternal.h"
 #import "_WKUserStyleSheetInternal.h"
@@ -307,11 +308,9 @@ ALLOW_DEPRECATED_DECLARATIONS_END
         wrapper = [WKNavigationResponse alloc];
         break;
 
-#if PLATFORM(MAC)
     case Type::OpenPanelParameters:
         wrapper = [WKOpenPanelParameters alloc];
         break;
-#endif
 
     case Type::SecurityOrigin:
         wrapper = [WKSecurityOrigin alloc];
@@ -387,6 +386,10 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 
     case Type::TargetedElementRequest:
         wrapper = [_WKTargetedElementRequest alloc];
+        break;
+
+    case Type::TextRun:
+        wrapper = [_WKTextRun alloc];
         break;
 
     case Type::UserInitiatedAction:
@@ -520,7 +523,8 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     }
 
     Object& object = wrapper._apiObject;
-    object.m_wrapper = (__bridge CFTypeRef)wrapper;
+
+    apiObjectsUnderConstruction().add(&object, (__bridge CFTypeRef)wrapper);
 
     return &object;
 }
@@ -545,7 +549,7 @@ RetainPtr<NSObject<NSSecureCoding>> Object::toNSObject()
 {
     switch (type()) {
     case Object::Type::Dictionary: {
-        auto& dictionary = static_cast<API::Dictionary&>(*this);
+        auto& dictionary = downcast<API::Dictionary>(*this);
         auto result = adoptNS([[NSMutableDictionary alloc] initWithCapacity:dictionary.size()]);
         for (auto& pair : dictionary.map()) {
             if (auto nsObject = pair.value ? pair.value->toNSObject() : RetainPtr<NSObject<NSSecureCoding>>())
@@ -554,7 +558,7 @@ RetainPtr<NSObject<NSSecureCoding>> Object::toNSObject()
         return result;
     }
     case Object::Type::Array: {
-        auto& array = static_cast<API::Array&>(*this);
+        auto& array = downcast<API::Array>(*this);
         auto result = adoptNS([[NSMutableArray alloc] initWithCapacity:array.size()]);
         for (auto& element : array.elements()) {
             if (auto nsObject = element ? element->toNSObject() : RetainPtr<NSObject<NSSecureCoding>>())
@@ -563,17 +567,17 @@ RetainPtr<NSObject<NSSecureCoding>> Object::toNSObject()
         return result;
     }
     case Object::Type::Double:
-        return adoptNS([[NSNumber alloc] initWithDouble:static_cast<API::Double&>(*this).value()]);
+        return adoptNS([[NSNumber alloc] initWithDouble:downcast<API::Double>(*this).value()]);
     case Object::Type::Boolean:
-        return adoptNS([[NSNumber alloc] initWithBool:static_cast<API::Boolean&>(*this).value()]);
+        return adoptNS([[NSNumber alloc] initWithBool:downcast<API::Boolean>(*this).value()]);
     case Object::Type::UInt64:
-        return adoptNS([[NSNumber alloc] initWithUnsignedLongLong:static_cast<API::UInt64&>(*this).value()]);
+        return adoptNS([[NSNumber alloc] initWithUnsignedLongLong:downcast<API::UInt64>(*this).value()]);
     case Object::Type::Int64:
-        return adoptNS([[NSNumber alloc] initWithLongLong:static_cast<API::Int64&>(*this).value()]);
+        return adoptNS([[NSNumber alloc] initWithLongLong:downcast<API::Int64>(*this).value()]);
     case Object::Type::Data:
-        return API::wrapper(static_cast<API::Data&>(*this));
+        return API::wrapper(downcast<API::Data>(*this));
     case Object::Type::String:
-        return (NSString *)static_cast<API::String&>(*this).string();
+        return (NSString *)downcast<API::String>(*this).string();
     default:
         // Other API::Object::Types are intentionally not supported.
         break;
@@ -583,14 +587,13 @@ RetainPtr<NSObject<NSSecureCoding>> Object::toNSObject()
 
 RefPtr<API::Object> Object::fromNSObject(NSObject<NSSecureCoding> *object)
 {
-    if ([object isKindOfClass:NSString.class])
-        return API::String::create((NSString *)object);
-    if ([object isKindOfClass:NSData.class])
-        return API::Data::createWithoutCopying((NSData *)object);
-    if ([object isKindOfClass:NSNumber.class])
-        return API::Double::create([(NSNumber *)object doubleValue]);
-    if ([object isKindOfClass:NSArray.class]) {
-        NSArray *array = (NSArray *)object;
+    if (auto *str = dynamic_objc_cast<NSString>(object))
+        return API::String::create(str);
+    if (auto *data = dynamic_objc_cast<NSData>(object))
+        return API::Data::createWithoutCopying(data);
+    if (auto *number = dynamic_objc_cast<NSNumber>(object))
+        return API::Double::create([number doubleValue]);
+    if (auto *array = dynamic_objc_cast<NSArray>(object)) {
         Vector<RefPtr<API::Object>> result;
         result.reserveInitialCapacity(array.count);
         for (id member in array) {
@@ -599,9 +602,9 @@ RefPtr<API::Object> Object::fromNSObject(NSObject<NSSecureCoding> *object)
         }
         return API::Array::create(WTFMove(result));
     }
-    if ([object isKindOfClass:NSDictionary.class]) {
+    if (auto *dictionary = dynamic_objc_cast<NSDictionary>(object)) {
         __block HashMap<WTF::String, RefPtr<API::Object>> result;
-        [(NSDictionary *)object enumerateKeysAndObjectsUsingBlock:^(NSString *key, id value, BOOL *stop) {
+        [dictionary enumerateKeysAndObjectsUsingBlock:^(NSString *key, id value, BOOL *stop) {
             if (auto valueObject = fromNSObject(value); valueObject && [key isKindOfClass:NSString.class])
                 result.add(key, WTFMove(valueObject));
         }];

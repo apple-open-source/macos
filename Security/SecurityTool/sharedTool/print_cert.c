@@ -169,7 +169,6 @@ void print_plist(CFArrayRef plist) {
 }
 
 void print_cert(SecCertificateRef cert, bool verbose) {
-#if TARGET_OS_IPHONE
     CFArrayRef plist;
     if (verbose)
         plist = SecCertificateCopyProperties(cert);
@@ -188,8 +187,4 @@ void print_cert(SecCertificateRef cert, bool verbose) {
 
     print_plist(plist);
     CFReleaseSafe(plist);
-#else
-    (void)cert;
-    (void)verbose;
-#endif
 }

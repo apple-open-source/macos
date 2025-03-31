@@ -301,6 +301,14 @@ extern OTCliqueCDPContextType OTCliqueCDPContextTypeConfirmPasscodeCyrus;
  */
 - (BOOL)establish:(NSError**)error;
 
+/* *
+ * @abstract Establish a new OT circle
+ * @param   data, behavior of operations performed follow up this operation
+ * @param   error, This will return an error if anything goes wrong
+ * @return YES if establish successfully created a new Octagon circle, NO if something went wrong.
+ */
+- (BOOL)establish:(OTConfigurationContext*)data error:(NSError**)error;
+
 
 /* SOS glue */
 

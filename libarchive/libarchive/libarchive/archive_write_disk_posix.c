@@ -26,7 +26,6 @@
  */
 
 #include "archive_platform.h"
-__FBSDID("$FreeBSD$");
 
 #if !defined(_WIN32) || defined(__CYGWIN__)
 
@@ -408,8 +407,7 @@ static int	set_times_from_entry(struct archive_write_disk *);
 static struct fixup_entry *sort_dir_list(struct fixup_entry *p);
 static ssize_t	write_data_block(struct archive_write_disk *,
 		    const char *, size_t);
-
-static struct archive_vtable *archive_write_disk_vtable(void);
+static void close_file_descriptor(struct archive_write_disk *);
 
 static int	_archive_write_disk_close(struct archive *);
 static int	_archive_write_disk_free(struct archive *);
@@ -527,7 +525,12 @@ lazy_stat(struct archive_write_disk *a)
 	 * XXX At this point, symlinks should not be hit, otherwise
 	 * XXX a race occurred.  Do we want to check explicitly for that?
 	 */
-	if (lstat(a->name, &a->st) == 0) {
+#ifdef HAVE_LSTAT
+	if (lstat(a->name, &a->st) == 0)
+#else
+	if (la_stat(a->name, &a->st) == 0)
+#endif
+	{
 		a->pst = &a->st;
 		return (ARCHIVE_OK);
 	}
@@ -535,25 +538,16 @@ lazy_stat(struct archive_write_disk *a)
 	return (ARCHIVE_WARN);
 }
 
-static struct archive_vtable *
-archive_write_disk_vtable(void)
-{
-	static struct archive_vtable av;
-	static int inited = 0;
-
-	if (!inited) {
-		av.archive_close = _archive_write_disk_close;
-		av.archive_filter_bytes = _archive_write_disk_filter_bytes;
-		av.archive_free = _archive_write_disk_free;
-		av.archive_write_header = _archive_write_disk_header;
-		av.archive_write_finish_entry
-		    = _archive_write_disk_finish_entry;
-		av.archive_write_data = _archive_write_disk_data;
-		av.archive_write_data_block = _archive_write_disk_data_block;
-		inited = 1;
-	}
-	return (&av);
-}
+static const struct archive_vtable
+archive_write_disk_vtable = {
+	.archive_close = _archive_write_disk_close,
+	.archive_filter_bytes = _archive_write_disk_filter_bytes,
+	.archive_free = _archive_write_disk_free,
+	.archive_write_header = _archive_write_disk_header,
+	.archive_write_finish_entry = _archive_write_disk_finish_entry,
+	.archive_write_data = _archive_write_disk_data,
+	.archive_write_data_block = _archive_write_disk_data_block,
+};
 
 static int64_t
 _archive_write_disk_filter_bytes(struct archive *_a, int n)
@@ -1678,12 +1672,12 @@ hfs_write_data_block(struct archive_write_disk *a, const char *buff,
 			    "Seek failed");
 			return (ARCHIVE_FATAL);
 		} else if (a->offset > a->fd_offset) {
-			int64_t skip = a->offset - a->fd_offset;
+			uint64_t skip = a->offset - a->fd_offset;
 			char nullblock[1024];
 
 			memset(nullblock, 0, sizeof(nullblock));
 			while (skip > 0) {
-				if (skip > (int64_t)sizeof(nullblock))
+				if (skip > sizeof(nullblock))
 					bytes_written = hfs_write_decmpfs_block(
 					    a, nullblock, sizeof(nullblock));
 				else
@@ -1798,8 +1792,10 @@ _archive_write_disk_finish_entry(struct archive *_a)
 			else
 				r = hfs_write_data_block(
 				    a, null_d, a->file_remaining_bytes);
-			if (r < 0)
+			if (r < 0) {
+				close_file_descriptor(a);
 				return ((int)r);
+			}
 		}
 #endif
 	} else {
@@ -1808,6 +1804,7 @@ _archive_write_disk_finish_entry(struct archive *_a)
 		    a->filesize == 0) {
 			archive_set_error(&a->archive, errno,
 			    "File size could not be restored");
+			close_file_descriptor(a);
 			return (ARCHIVE_FAILED);
 		}
 #endif
@@ -1817,8 +1814,10 @@ _archive_write_disk_finish_entry(struct archive *_a)
 		 * to see what happened.
 		 */
 		a->pst = NULL;
-		if ((ret = lazy_stat(a)) != ARCHIVE_OK)
-			return (ret);
+        if ((ret = lazy_stat(a)) != ARCHIVE_OK) {
+            close_file_descriptor(a);
+            return (ret);
+        }
 		/* We can use lseek()/write() to extend the file if
 		 * ftruncate didn't work or isn't available. */
 		if (a->st.st_size < a->filesize) {
@@ -1826,11 +1825,13 @@ _archive_write_disk_finish_entry(struct archive *_a)
 			if (lseek(a->fd, a->filesize - 1, SEEK_SET) < 0) {
 				archive_set_error(&a->archive, errno,
 				    "Seek failed");
+				close_file_descriptor(a);
 				return (ARCHIVE_FATAL);
 			}
 			if (write(a->fd, &nul, 1) < 0) {
 				archive_set_error(&a->archive, errno,
 				    "Write to restore size failed");
+				close_file_descriptor(a);
 				return (ARCHIVE_FATAL);
 			}
 			a->pst = NULL;
@@ -2069,7 +2070,7 @@ archive_write_disk_new(void)
 	a->archive.magic = ARCHIVE_WRITE_DISK_MAGIC;
 	/* We're ready to write a header immediately. */
 	a->archive.state = ARCHIVE_STATE_HEADER;
-	a->archive.vtable = archive_write_disk_vtable();
+	a->archive.vtable = &archive_write_disk_vtable;
 	a->start_time = time(NULL);
 	/* Query and restore the umask. */
 	umask(a->user_umask = umask(0));
@@ -2080,6 +2081,8 @@ archive_write_disk_new(void)
 		free(a);
 		return (NULL);
 	}
+	a->path_safe.s[0] = 0;
+
 #ifdef HAVE_ZLIB_H
 	a->decmpfs_compression_level = 5;
 #endif
@@ -2236,7 +2239,11 @@ restore_entry(struct archive_write_disk *a)
 		 * then don't follow it.
 		 */
 		if (r != 0 || !S_ISDIR(a->mode))
+#ifdef HAVE_LSTAT
 			r = lstat(a->name, &a->st);
+#else
+			r = la_stat(a->name, &a->st);
+#endif
 		if (r != 0) {
 			archive_set_error(&a->archive, errno,
 			    "Can't stat existing object");
@@ -2642,7 +2649,12 @@ _archive_write_disk_close(struct archive *_a)
 					goto skip_fixup_entry;
 				} else
 #endif
-				if (lstat(p->name, &st) != 0 ||
+				if (
+#ifdef HAVE_LSTAT
+					lstat(p->name, &st) != 0 ||
+#else
+					la_stat(p->name, &st) != 0 ||
+#endif
 				    la_verify_filetype(st.st_mode,
 				    p->filetype) == 0) {
 					goto skip_fixup_entry;
@@ -2657,7 +2669,12 @@ _archive_write_disk_close(struct archive *_a)
 				goto skip_fixup_entry;
 			} else
 #endif
-			if (lstat(p->name, &st) != 0 ||
+			if (
+#ifdef HAVE_LSTAT
+				lstat(p->name, &st) != 0 ||
+#else
+				la_stat(p->name, &st) != 0 ||
+#endif
 			    la_verify_filetype(st.st_mode,
 			    p->filetype) == 0) {
 				goto skip_fixup_entry;
@@ -2883,8 +2900,8 @@ check_symlinks_fsobj(char *path, int *a_eno, struct archive_string *a_estr,
     !(defined(HAVE_OPENAT) && defined(HAVE_FSTATAT) && defined(HAVE_UNLINKAT))
 	/* Platform doesn't have lstat, so we can't look for symlinks. */
 	(void)path; /* UNUSED */
-	(void)error_number; /* UNUSED */
-	(void)error_string; /* UNUSED */
+	(void)a_eno; /* UNUSED */
+	(void)a_estr; /* UNUSED */
 	(void)flags; /* UNUSED */
 	(void)checking_linkname; /* UNUSED */
 	return (ARCHIVE_OK);
@@ -2967,8 +2984,10 @@ check_symlinks_fsobj(char *path, int *a_eno, struct archive_string *a_estr,
 		/* Check that we haven't hit a symlink. */
 #if !__APPLE__ && defined(HAVE_OPENAT) && defined(HAVE_FSTATAT) && defined(HAVE_UNLINKAT)
 		r = fstatat(chdir_fd, head, &st, AT_SYMLINK_NOFOLLOW);
-#else
+#elif defined(HAVE_LSTAT)
 		r = lstat(head, &st);
+#else
+		r = la_stat(head, &st);
 #endif
 		if (r != 0) {
 			tail[0] = c;
@@ -3678,7 +3697,9 @@ set_time(int fd, int mode, const char *name,
 	(void)fd; /* UNUSED */
 	(void)mode; /* UNUSED */
 	(void)name; /* UNUSED */
+	(void)atime; /* UNUSED */
 	(void)atime_nsec; /* UNUSED */
+	(void)mtime; /* UNUSED */
 	(void)mtime_nsec; /* UNUSED */
 	return (ARCHIVE_WARN);
 #endif
@@ -4526,9 +4547,14 @@ fixup_appledouble(struct archive_write_disk *a, const char *pathname)
 	 */
 	archive_strncpy(&datafork, pathname, p - pathname);
 	archive_strcat(&datafork, p + 2);
-	if (lstat(datafork.s, &st) == -1 ||
-	    ((st.st_mode & AE_IFMT) != AE_IFREG &&
-	     (st.st_mode & AE_IFMT) != AE_IFDIR))
+	if (
+#ifdef HAVE_LSTAT
+		lstat(datafork.s, &st) == -1 ||
+#else
+		la_stat(datafork.s, &st) == -1 ||
+#endif
+	    (((st.st_mode & AE_IFMT) != AE_IFREG) &&
+		((st.st_mode & AE_IFMT) != AE_IFDIR)))
 		goto skip_appledouble;
 
 	/*
@@ -4842,6 +4868,18 @@ archive_write_disk_set_acls(struct archive *a, int fd, const char *name,
 	return (ARCHIVE_OK);
 }
 #endif
+
+/*
+ * Close the file descriptor if one is open.
+ */
+static void close_file_descriptor(struct archive_write_disk* a)
+{
+	if (a->fd >= 0) {
+		close(a->fd);
+		a->fd = -1;
+	}
+}
+
 
 #endif /* !_WIN32 || __CYGWIN__ */
 

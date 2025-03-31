@@ -1,0 +1,33 @@
+#!/bin/sh
+
+# Test that we don't try to read past the end of the file if the receiver
+# happens to have a block past the end of our local copy that would match.
+
+set -e
+
+. ${tstdir-.}/lib.sh
+. ${tstdir-.}/conf.sh
+
+rm -rf src dst
+mkdir -p src dst
+
+filesz=32768
+dd if=/dev/random of=src/file bs="$filesz" count=1
+
+1>&2 echo ">>>> TEST 1: Duplicate contents"
+cat src/file src/file > dst/file
+rsync -z --no-W src/file dst
+cmp -s src/file dst/file
+
+1>&2 echo ">>>> TEST 2: $filesz identical + $filesz random"
+# Try again, but clobbering at least the second half of the destination file.
+dd if=/dev/random of=dst/file bs="$filesz" count=1 seek=1
+rsync -z --no-W src/file dst
+cmp -s src/file dst/file
+
+1>&2 echo ">>>> TEST 3: $filesz random + $filesz identical"
+# Finally, once more but clobbering the first half of the file.
+cat src/file src/file > dst/file
+dd if=/dev/random of=dst/file bs="$filesz" count=1 conv=notrunc
+rsync -z --no-W src/file dst
+cmp -s src/file dst/file

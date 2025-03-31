@@ -71,13 +71,13 @@ mkpath(char *path, mode_t mode)
 			if (stat(path, &sb) == -1) {
 				/* Not there; use mkdir()s errno */
 				errno = mkdir_errno;
-				*slash = '/';
+				*slash = done ? '\0' : '/';
 				return (-1);
 			}
 			if (!S_ISDIR(sb.st_mode)) {
 				/* Is there, but isn't a directory */
 				errno = ENOTDIR;
-				*slash = '/';
+				*slash = done ? '\0' : '/';
 				return (-1);
 			}
 		}

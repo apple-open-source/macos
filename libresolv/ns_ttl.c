@@ -1,31 +1,33 @@
-/*
+/*-
+ * SPDX-License-Identifier: ISC
+ *
+ * Copyright (c) 2004 by Internet Systems Consortium, Inc. ("ISC")
  * Copyright (c) 1996,1999 by Internet Software Consortium.
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
  * copyright notice and this permission notice appear in all copies.
  *
- * THE SOFTWARE IS PROVIDED "AS IS" AND INTERNET SOFTWARE CONSORTIUM DISCLAIMS
- * ALL WARRANTIES WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES
- * OF MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL INTERNET SOFTWARE
- * CONSORTIUM BE LIABLE FOR ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL
- * DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR
- * PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS
- * ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS
- * SOFTWARE.
+ * THE SOFTWARE IS PROVIDED "AS IS" AND ISC DISCLAIMS ALL WARRANTIES
+ * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS.  IN NO EVENT SHALL ISC BE LIABLE FOR
+ * ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+ * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+ * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT
+ * OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-#ifndef __APPLE__
+#ifndef __APPLE__ 
 #ifndef lint
-static const char rcsid[] = "$Id: ns_ttl.c,v 1.1 2006/03/01 19:01:37 majka Exp $";
+static const char rcsid[] = "$Id: ns_ttl.c,v 1.4 2005/07/28 06:51:49 marka Exp $";
 #endif
-#endif
+#endif /* __APPLE__ */
+#include <sys/cdefs.h>
+__FBSDID("$FreeBSD$");
 
 /* Import. */
 
-#ifndef __APPLE__
 #include "port_before.h"
-#endif
 
 #include <arpa/nameser.h>
 
@@ -34,9 +36,7 @@ static const char rcsid[] = "$Id: ns_ttl.c,v 1.1 2006/03/01 19:01:37 majka Exp $
 #include <stdio.h>
 #include <string.h>
 
-#ifndef __APPLE__
 #include "port_after.h"
-#endif
 
 #ifdef SPRINTF_CHAR
 # define SPRINTF(x) strlen(sprintf/**/x)
@@ -64,7 +64,7 @@ ns_format_ttl(u_long src, char *dst, size_t dstlen) {
 	mins = src % 60;   src /= 60;
 	hours = src % 24;  src /= 24;
 	days = src % 7;    src /= 7;
-	weeks = src;       src = 0;
+	weeks = (int)src;  src = 0;
 
 	x = 0;
 	if (weeks) {
@@ -96,7 +96,7 @@ ns_format_ttl(u_long src, char *dst, size_t dstlen) {
 				*p = tolower(ch);
 	}
 
-	return (dst - odst);
+	return (int)(dst - odst);
 }
 
 int
@@ -139,7 +139,8 @@ ns_parse_ttl(const char *src, u_long *dst) {
 			goto einval;
 		else
 			ttl += tmp;
-	}
+	} else if (!dirty)
+		goto einval;
 	*dst = ttl;
 	return (0);
 
@@ -158,8 +159,10 @@ fmt1(int t, char s, char **buf, size_t *buflen) {
 	len = SPRINTF((tmp, "%d%c", t, s));
 	if (len + 1 > *buflen)
 		return (-1);
-	strcpy(*buf, tmp);
+	strlcpy(*buf, tmp, *buflen);
 	*buf += len;
 	*buflen -= len;
 	return (0);
 }
+
+/*! \file */

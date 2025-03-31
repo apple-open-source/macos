@@ -549,14 +549,15 @@ routine PREFIX(KERNEL_SERVER_SUFFIX(vm_remap_new)) (
  */
 #if !defined(LIBSYSCALL_INTERFACE) && !defined(_MACH_VM_PUBLISH_AS_LOCAL_)
 
-routine mach_vm_deferred_reclamation_buffer_init(
+routine mach_vm_deferred_reclamation_buffer_allocate(
 		target_task	: task_t;
-	inout	address	: mach_vm_address_t;
-		size		: mach_vm_size_t);
+	out	address	        : mach_vm_address_t;
+		len             : uint32_t;
+		max_len         : uint32_t);
 
-routine mach_vm_deferred_reclamation_buffer_synchronize(
+routine mach_vm_deferred_reclamation_buffer_flush(
 		target_task		: task_t;
-		num_entries_to_reclaim	: mach_vm_size_t);
+		num_entries_to_reclaim	: uint32_t);
 
 routine mach_vm_deferred_reclamation_buffer_update_reclaimable_bytes(
 		target_task		: task_t;
@@ -573,6 +574,14 @@ routine mach_vm_range_create(
 		target_task	: vm_map_t;
 		flavor		: mach_vm_range_flavor_t;
 		recipes		: mach_vm_range_recipes_raw_t);
+#else
+skip;
+#endif
+
+#if !defined(LIBSYSCALL_INTERFACE) && !defined(_MACH_VM_PUBLISH_AS_LOCAL_)
+routine mach_vm_deferred_reclamation_buffer_resize(
+		target_task	: task_t;
+		size		: uint32_t);
 #else
 skip;
 #endif

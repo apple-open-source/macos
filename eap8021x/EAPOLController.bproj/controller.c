@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2023 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2024 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -145,7 +145,8 @@ typedef struct eapolClient_s {
     struct ether_addr		authenticator_mac;
 #if ! TARGET_OS_IPHONE
     CFDictionaryRef		loginwindow_config;
-    bool			user_cancelled;	
+    bool			user_cancelled;
+    bool 			preboot_auto_detection_handled;
 #endif /* ! TARGET_OS_IPHONE */
 } eapolClient, *eapolClientRef;
 
@@ -590,6 +591,289 @@ eapolClientForceRenew(eapolClientRef client)
     return;
 }
 
+#define kPrefsName	CFSTR("EAPOLController")
+
+static void
+start_eapolclient_with_system_ethernet_configuration(eapolClientRef client);
+
+#pragma mark - functions to access auto-detect status
+
+#if TARGET_OS_OSX
+
+#include <os/boot_mode_private.h>
+#include <limits.h>
+#include <uuid/uuid.h>
+#include <sys/types.h>
+#include <sys/sysctl.h>
+#include <string.h>
+
+static bool
+is_fvunlock_current_boot_mode(void)
+{
+    bool 	result = false;
+    const char *boot_mode = NULL;
+
+    if (os_boot_mode_query(&boot_mode) && boot_mode != NULL) {
+	result = (strcmp(boot_mode, OS_BOOT_MODE_FVUNLOCK) == 0);
+	EAPLOG(LOG_DEBUG, "EAPOLController: %s: boot mode: %s",
+	       __func__, boot_mode);
+    } else {
+	EAPLOG(LOG_DEBUG, "EAPOLController: %s: boot mode unavailable", __func__);
+    }
+    return result;
+}
+
+#define kEAPOLControllerAutoDetectPrefsID		CFSTR("com.apple.network.eapol.auto-detect.plist")
+#define kEAPOLControllerAutoDetectInterfaces		CFSTR("Interfaces") /* dictionary */
+#define kEAPOLControllerAutoDetectBootUUID		CFSTR("BootUUID") /* string */
+#define kEAPOLControllerAutoDetectAuthenticatorMAC	CFSTR("AuthenticatorMAC") /* data */
+#define kEAPOLControllerAutoDetectIdentifier		CFSTR("Identifier") /* number */
+
+/* auto-detect status schema
+ *    {
+ *        "BootUUID" => "EAFD1150-5056-4AE3-BFE4-90DAE1268A3F"
+ *        "Interfaces" => {
+ *                            "en0" => {
+ *			                   "AuthenticatorMAC" => {}
+ *				           "Identifier" => 1
+ *				       },
+ *                            "en1" => {
+ *			                   "AuthenticatorMAC" => {}
+ *				           "Identifier" => 1
+ *				       }
+ *                        }
+ *    }
+ */
+
+static CFStringRef
+get_boot_uuid(void)
+{
+    static dispatch_once_t 	once;
+    static CFStringRef 		boot_uuid;
+
+    dispatch_once(&once, ^{
+	uuid_string_t 	boot_uuid_str;
+	size_t		size = sizeof(boot_uuid_str);
+	int result = sysctlbyname("kern.bootuuid", boot_uuid_str, &size, NULL, 0);
+	if (result != 0) {
+	    EAPLOG(LOG_ERR, "EAPOLController: %s: sysctlbyname failed to read kern.bootuuid %s (%d)",
+		   __func__, strerror(errno), errno);
+	} else {
+	    boot_uuid = CFStringCreateWithCString(NULL, boot_uuid_str, kCFStringEncodingASCII);
+	}
+    });
+    return (boot_uuid);
+}
+
+#ifndef kSCPreferencesOptionUsePrebootVolume
+#define kSCPreferencesOptionUsePrebootVolume 	CFSTR("use-preboot-volume")
+#endif /* kSCPreferencesOptionUsePrebootVolume */
+
+static CFDictionaryRef
+copy_preboot_volume_options(void)
+{
+#ifdef TEST_AUTO_DETECT_STATUS
+    return NULL;
+#else /* TEST_AUTO_DETECT_STATUS */
+    CFStringRef	key = kSCPreferencesOptionUsePrebootVolume;
+    CFTypeRef	value = kCFBooleanTrue;
+    return CFDictionaryCreate(NULL,
+			      (const void **)&key,
+			      (const void **)&value,
+			      1,
+			      &kCFTypeDictionaryKeyCallBacks,
+			      &kCFTypeDictionaryValueCallBacks);
+#endif /* TEST_AUTO_DETECT_STATUS */
+}
+
+static void
+add_interface_to_auto_detect_status(CFStringRef interface, CFDataRef authenticator_mac, CFNumberRef identifier)
+{
+    SCPreferencesRef		prefs = NULL;
+    CFDictionaryRef		options = NULL;
+    CFDictionaryRef 		interfaces = NULL;
+    CFMutableDictionaryRef 	new_interfaces = NULL;
+    CFDictionaryRef		new_interface_info = NULL;
+    CFStringRef 		prefs_boot_uuid = NULL;
+    CFStringRef 		current_boot_uuid = get_boot_uuid();
+
+    if (current_boot_uuid == NULL) {
+	EAPLOG(LOG_DEBUG, "EAPOLController: %s: no current boot uuid found", __func__);
+	return;
+    }
+
+    options = copy_preboot_volume_options();
+    prefs = SCPreferencesCreateWithOptions(NULL, kPrefsName, kEAPOLControllerAutoDetectPrefsID, NULL, options);
+    if (prefs == NULL) {
+	EAPLOG(LOG_ERR, "EAPOLController: %s: SCPreferencesCreateWithOptions() failed for [%@]",
+	       __func__, kEAPOLControllerAutoDetectPrefsID);
+	goto done;
+    }
+
+    interfaces = SCPreferencesGetValue(prefs, kEAPOLControllerAutoDetectInterfaces);
+    if (isA_CFDictionary(interfaces) != NULL) {
+	if (CFDictionaryContainsKey(interfaces, interface)) {
+	    EAPLOG(LOG_DEBUG, "EAPOLController: %s: auto-detect status already has interface info for [%@]",
+		   __func__, interface);
+	    goto done;
+	}
+	new_interfaces = CFDictionaryCreateMutableCopy(NULL, 0, interfaces);
+    } else {
+	new_interfaces = CFDictionaryCreateMutable(NULL, 1, &kCFTypeDictionaryKeyCallBacks,
+						   &kCFTypeDictionaryValueCallBacks);
+    }
+
+    {
+	CFStringRef 	keys[2];
+	CFTypeRef 	vals[2];
+
+	keys[0] = kEAPOLControllerAutoDetectAuthenticatorMAC;
+	vals[0] = authenticator_mac;
+	keys[1] = kEAPOLControllerAutoDetectIdentifier;
+	vals[1] = identifier;
+	new_interface_info = CFDictionaryCreate(NULL,
+					(const void **)keys,
+					(const void **)vals,
+					2,
+					&kCFTypeDictionaryKeyCallBacks,
+					&kCFTypeDictionaryValueCallBacks);
+	CFDictionaryAddValue(new_interfaces, interface, new_interface_info);
+    }
+
+    prefs_boot_uuid = SCPreferencesGetValue(prefs, kEAPOLControllerAutoDetectBootUUID);
+    if (isA_CFString(prefs_boot_uuid) == NULL) {
+	SCPreferencesSetValue(prefs, kEAPOLControllerAutoDetectBootUUID, current_boot_uuid);
+    }
+
+    if (new_interfaces != NULL) {
+	SCPreferencesSetValue(prefs, kEAPOLControllerAutoDetectInterfaces, new_interfaces);
+	SCPreferencesCommitChanges(prefs);
+	EAPLOG(LOG_NOTICE, "EAPOLController: %s: added [%@] in auto-detect status with info %@",
+	       __func__, interface, new_interface_info);
+    }
+
+done:
+    my_CFRelease(&new_interfaces);
+    my_CFRelease(&new_interface_info);
+    my_CFRelease(&options);
+    my_CFRelease(&prefs);
+}
+
+static CFDictionaryRef
+copy_interfaces_from_auto_detect_status(void)
+{
+    SCPreferencesRef	prefs = NULL;
+    CFDictionaryRef	options = NULL;
+    CFDictionaryRef 	interfaces = NULL;
+    CFDictionaryRef 	ret_interfaces = NULL;
+    CFStringRef 	prefs_boot_uuid = NULL;
+    CFStringRef 	current_boot_uuid = get_boot_uuid();
+
+    if (current_boot_uuid == NULL) {
+	EAPLOG(LOG_DEBUG, "EAPOLController: %s: no current boot uuid found", __func__);
+	return NULL;
+    }
+
+    options = copy_preboot_volume_options();
+    prefs = SCPreferencesCreateWithOptions(NULL, kPrefsName, kEAPOLControllerAutoDetectPrefsID, NULL, options);
+    if (prefs == NULL) {
+	EAPLOG(LOG_ERR, "EAPOLController: %s: SCPreferencesCreateWithOptions() failed for [%@]",
+	       __func__, kEAPOLControllerAutoDetectPrefsID);
+	goto done;
+    }
+
+    prefs_boot_uuid = SCPreferencesGetValue(prefs, kEAPOLControllerAutoDetectBootUUID);
+    if (isA_CFString(prefs_boot_uuid) == NULL) {
+	EAPLOG(LOG_DEBUG, "EAPOLController: %s: no BootUUID found", __func__);
+	goto done;
+    }
+
+    if (CFStringCompare(prefs_boot_uuid, current_boot_uuid, kCFCompareCaseInsensitive) != kCFCompareEqualTo) {
+	/* actual boot uuid and and one stored in the prefs are not same
+	 * which means the information in the prefs is stale.
+	 */
+	EAPLOG(LOG_DEBUG, "EAPOLController: %s: boot uuids don't match", __func__);
+	goto done;
+    }
+
+    interfaces = SCPreferencesGetValue(prefs, kEAPOLControllerAutoDetectInterfaces);
+    if (isA_CFDictionary(interfaces) == NULL) {
+	EAPLOG(LOG_DEBUG, "EAPOLController: %s: no interfaces found", __func__);
+	goto done;
+    }
+
+    ret_interfaces = CFDictionaryCreateCopy(NULL, interfaces);
+
+done:
+    my_CFRelease(&options);
+    my_CFRelease(&prefs);
+    return ret_interfaces;
+}
+
+static void
+cleanup_auto_detect_status(void)
+{
+    SCPreferencesRef	prefs = NULL;
+    CFDictionaryRef	options = NULL;
+
+    options = copy_preboot_volume_options();
+    prefs = SCPreferencesCreateWithOptions(NULL, kPrefsName, kEAPOLControllerAutoDetectPrefsID, NULL, options);
+    if (prefs == NULL) {
+	EAPLOG(LOG_ERR, "EAPOLController: %s: SCPreferencesCreateWithOptions() failed for [%@]",
+	       __func__, kEAPOLControllerAutoDetectPrefsID);
+	goto done;
+    }
+    SCPreferencesRemoveValue(prefs, kEAPOLControllerAutoDetectBootUUID);
+    SCPreferencesRemoveValue(prefs, kEAPOLControllerAutoDetectInterfaces);
+    SCPreferencesCommitChanges(prefs);
+
+done:
+    my_CFRelease(&options);
+    my_CFRelease(&prefs);
+}
+
+static bool
+handle_preboot_auto_detected_interface(CFDictionaryRef auto_detected_interfaces, eapolClientRef client)
+{
+    bool 		ret = false;
+    CFDictionaryRef 	interface_info = NULL;
+    CFDataRef 		auth_mac = NULL;
+    CFNumberRef 	pkt_id = NULL;
+
+    if (client->preboot_auto_detection_handled) {
+	/* supplicant was started for this interface once before */
+	goto done;
+    }
+    client->preboot_auto_detection_handled = TRUE;
+    if (CFDictionaryContainsKey(auto_detected_interfaces, client->if_name_cf) == FALSE) {
+	goto done;
+    }
+    interface_info = CFDictionaryGetValue(auto_detected_interfaces, client->if_name_cf);
+    if (isA_CFDictionary(interface_info) == NULL) {
+	goto done;
+    }
+    auth_mac = CFDictionaryGetValue(interface_info, kEAPOLControllerAutoDetectAuthenticatorMAC);
+    pkt_id = CFDictionaryGetValue(interface_info, kEAPOLControllerAutoDetectIdentifier);
+    if (isA_CFData(auth_mac) != NULL && isA_CFNumber(pkt_id) != NULL &&
+	CFDataGetLength(auth_mac) == sizeof(client->authenticator_mac)) {
+	int id_val;
+
+	CFNumberGetValue(pkt_id, kCFNumberIntType, &id_val);
+	CFDataGetBytes(auth_mac, CFRangeMake(0, sizeof(client->authenticator_mac)),
+		       (UInt8 *)&client->authenticator_mac);
+	client->packet_identifier = id_val;
+	if (client->autodetect_can_start_system_mode == TRUE) {
+	    start_eapolclient_with_system_ethernet_configuration(client);
+	}
+	ret = true;
+    }
+
+done:
+    return ret;
+}
+
+#endif /* TARGET_OS_OSX */
+
 /**
  ** 802.1X socket monitoring routines
  **/
@@ -656,6 +940,22 @@ done:
 }
 
 static void
+start_eapolclient_with_system_ethernet_configuration(eapolClientRef client)
+{
+    CFDictionaryRef system_eth_config = copy_system_ethernet_configuration();
+    if (system_eth_config != NULL && client->state == kEAPOLControlStateIdle) {
+	EAPLOG(LOG_DEBUG, "starting 802.1X authentication with system ethernet profile");
+	int status = eapolClientStart(client, 0, 0, system_eth_config, MACH_PORT_NULL, MACH_PORT_NULL);
+	if (status != 0) {
+	    EAPLOG(LOG_ERR, " eapolClientStart (%s) failed %d", client->if_name, status);
+	} else {
+	    client->using_global_system_profile = TRUE;
+	}
+    }
+    my_CFRelease(&system_eth_config);
+}
+
+static void
 monitoring_callback(CFSocketRef s, CFSocketCallBackType type,
 		    CFDataRef address, const void * data, void * info)
 {
@@ -697,20 +997,22 @@ monitoring_callback(CFSocketRef s, CFSocketCallBackType type,
 	SCDynamicStoreNotifyValue(S_store,
 				  kEAPOLControlAutoDetectInformationNotifyKey);
     }
+    if (is_fvunlock_current_boot_mode()) {
+	CFDataRef authenticator_mac = CFDataCreate(NULL, (const UInt8 *)&client->authenticator_mac,
+						   sizeof(client->authenticator_mac));
+	CFNumberRef identifier = CFNumberCreate(NULL, kCFNumberIntType, &client->packet_identifier);
+	if (authenticator_mac != NULL && identifier != NULL) {
+	    EAPLOG(LOG_NOTICE, "EAPOLController: adding [%@] to auto-detect status",
+		   client->if_name_cf);
+	    add_interface_to_auto_detect_status(client->if_name_cf, authenticator_mac, identifier);
+	}
+	my_CFRelease(&authenticator_mac);
+	my_CFRelease(&identifier);
+    }
 #endif /* ! TARGET_OS_IPHONE */
     /* check if we can start system mode */
     if (client->autodetect_can_start_system_mode == TRUE) {
-	CFDictionaryRef system_eth_config = copy_system_ethernet_configuration();
-	if (system_eth_config != NULL && client->state == kEAPOLControlStateIdle) {
-	    EAPLOG(LOG_DEBUG, "starting 802.1X authentication with system ethernet profile");
-	    int status = eapolClientStart(client, 0, 0, system_eth_config, MACH_PORT_NULL, MACH_PORT_NULL);
-	    if (status != 0) {
-		EAPLOG(LOG_ERR, " eapolClientStart (%s) failed %d", client->if_name, status);
-	    } else {
-		client->using_global_system_profile = TRUE;
-	    }
-	}
-	my_CFRelease(&system_eth_config);
+	start_eapolclient_with_system_ethernet_configuration(client);
     }
     return;
 }
@@ -2137,7 +2439,8 @@ eapol_handle_change(SCDynamicStoreRef store, CFArrayRef changes, void * arg)
 		char ifname[IFNAMSIZ];
 		if (CFStringGetCString(cf_if_name, ifname, sizeof(ifname),
 				       kCFStringEncodingASCII) == FALSE) {
-		    return;
+		    CFRelease(cf_if_name);
+		    continue;
 		}
 		if (link_changes == NULL) {
 		    link_changes = CFArrayCreateMutable(NULL,
@@ -2601,6 +2904,11 @@ update_ethernet_interfaces(CFArrayRef configured_ethernet)
     int				i;
     CFRange			range;
     eapolClientRef		scan;
+#if TARGET_OS_OSX
+    CFDictionaryRef 		auto_detected_interfaces = NULL;
+    bool 			fv_unlock_mode = is_fvunlock_current_boot_mode();
+    bool 			is_auto_detected = false;
+#endif /* TARGET_OS_OSX */
 
     /*
      * stop monitoring/authenticating on any interfaces that are no longer
@@ -2616,6 +2924,9 @@ update_ethernet_interfaces(CFArrayRef configured_ethernet)
 				 range,
 				 scan->if_name_cf) == FALSE) {
 	    if (scan->state == kEAPOLControlStateIdle) {
+		EAPLOG(LOG_NOTICE,
+		       "EAPOLController: %s is no longer configured, stopping to monitor",
+		       scan->if_name);
 		eapolClientStopMonitoring(scan);
 	    }
 	    else {
@@ -2626,6 +2937,22 @@ update_ethernet_interfaces(CFArrayRef configured_ethernet)
 	    }
 	}
     }
+
+#if TARGET_OS_OSX
+    if (fv_unlock_mode == false) {
+	auto_detected_interfaces = copy_interfaces_from_auto_detect_status();
+	if (isA_CFDictionary(auto_detected_interfaces) != NULL &&
+	    CFDictionaryGetCount(auto_detected_interfaces) > 0) {
+	    is_auto_detected = true;
+	    EAPLOG(LOG_DEBUG,
+		   "EAPOLController: auto detected interfaces: %@",
+		   auto_detected_interfaces);
+	} else {
+	    EAPLOG(LOG_DEBUG,
+		   "EAPOLController: no auto detected interfaces found");
+	}
+    }
+#endif /* TARGET_OS_OSX */
 
     /* start monitoring any interfaces that are configured */
     for (i = 0; i < range.length; i++) {
@@ -2650,11 +2977,18 @@ update_ethernet_interfaces(CFArrayRef configured_ethernet)
 		}
 	    }
 	    if (client != NULL) {
+#if TARGET_OS_OSX
+		if (is_auto_detected == false ||
+		    handle_preboot_auto_detected_interface(auto_detected_interfaces, client) == false)
+#endif /* TARGET_OS_OSX */
 		eapolClientStartMonitoring(client);
 	    }
 	    free(if_name);
 	}
     }
+#if TARGET_OS_OSX
+    my_CFRelease(&auto_detected_interfaces);
+#endif /* TARGET_OS_OSX */
     return;
 }
 
@@ -2796,7 +3130,6 @@ register_system_ethernet_prefs_change(void)
 	}
 	my_CFRelease(&cfg);
     }
-#define kPrefsName			    CFSTR("EAPOLController")
 #define kEAPOLClientConfigurationPrefsID    CFSTR("com.apple.network.eapolclient.configuration.plist")
     S_eap_prefs = SCPreferencesCreate(NULL, kPrefsName, kEAPOLClientConfigurationPrefsID);
     SCPreferencesSetCallback(S_eap_prefs, system_ethernet_prefs_changed, NULL);
@@ -2815,6 +3148,11 @@ ControllerThread(void * arg)
     register_user_switch();
     EAPWiFiMonitorPowerStatus();
 #endif /* TARGET_OS_IPHONE */
+#if TARGET_OS_OSX
+    if (is_fvunlock_current_boot_mode()) {
+	cleanup_auto_detect_status();
+    }
+#endif /* TARGET_OS_OSX */
     handle_config_changed(start_system_mode);
     register_system_ethernet_prefs_change();
     server_start();
@@ -2906,3 +3244,126 @@ prime()
     ControllerBegin();
     return;
 }
+
+#ifdef TEST_AUTO_DETECT_STATUS
+
+void
+server_start(void)
+{
+}
+
+void
+server_register(void)
+{
+}
+
+void
+server_handle_request(__unused CFMachPortRef port, __unused void *msg, CFIndex size, __unused void *info)
+{
+}
+
+int
+main()
+{
+    CFDictionaryRef auto_detected_interfaces = NULL;
+
+    {
+	SCPrint(TRUE, stdout, CFSTR("cleaning up\n"));
+	cleanup_auto_detect_status();
+    }
+
+
+    {
+	SCPrint(TRUE, stdout, CFSTR("copying auto-detected interfaces\n"));
+	auto_detected_interfaces = copy_interfaces_from_auto_detect_status();
+	if (auto_detected_interfaces != NULL) {
+	    SCPrint(TRUE, stdout, CFSTR("auto_detected_interfaces: %@\n"), auto_detected_interfaces);
+	} else {
+	    SCPrint(TRUE, stdout, CFSTR("no auto-detected interfaces found\n"));
+	}
+	my_CFRelease(&auto_detected_interfaces);
+    }
+
+    {
+	int pkt_id = 1;
+	const struct ether_addr	auth_mac = { {0xBA, 0x38, 0x2E, 0xBD, 0x21, 0x34 } };
+	//u_char auth_mac[ETHER_ADDR_LEN] = {0xBA, 0x38, 0x2E, 0xBD, 0x21, 0x34};
+	CFDataRef mac = CFDataCreate(NULL, (const UInt8 *)&auth_mac, sizeof(auth_mac));
+	CFNumberRef identifier = CFNumberCreate(NULL, kCFNumberIntType, &pkt_id);
+	SCPrint(TRUE, stdout, CFSTR("adding en0\n"));
+	add_interface_to_auto_detect_status(CFSTR("en0"), mac, identifier);
+	my_CFRelease(&mac);
+	my_CFRelease(&identifier);
+    }
+
+    {
+	SCPrint(TRUE, stdout, CFSTR("copying auto-detected interfaces\n"));
+	auto_detected_interfaces = copy_interfaces_from_auto_detect_status();
+	if (auto_detected_interfaces != NULL) {
+	    SCPrint(TRUE, stdout, CFSTR("auto_detected_interfaces: %@\n"), auto_detected_interfaces);
+	} else {
+	    SCPrint(TRUE, stdout, CFSTR("no auto-detected interfaces found\n"));
+	}
+	my_CFRelease(&auto_detected_interfaces);
+    }
+
+    {
+	int pkt_id = 2;
+	const struct ether_addr	auth_mac = { {0xBB, 0x38, 0x2E, 0xBD, 0x21, 0x35 } };
+	CFDataRef mac = CFDataCreate(NULL, (const UInt8 *)&auth_mac, sizeof(auth_mac));
+	CFNumberRef identifier = CFNumberCreate(NULL, kCFNumberIntType, &pkt_id);
+	SCPrint(TRUE, stdout, CFSTR("adding en0\n"));
+	add_interface_to_auto_detect_status(CFSTR("en0"), mac, identifier);
+	my_CFRelease(&mac);
+	my_CFRelease(&identifier);
+    }
+
+    {
+	int pkt_id = 3;
+	const struct ether_addr	auth_mac = { {0xBC, 0x38, 0x2E, 0xBD, 0x21, 0x36 } };
+	CFDataRef mac = CFDataCreate(NULL, (const UInt8 *)&auth_mac, sizeof(auth_mac));
+	CFNumberRef identifier = CFNumberCreate(NULL, kCFNumberIntType, &pkt_id);
+	SCPrint(TRUE, stdout, CFSTR("adding en7\n"));
+	add_interface_to_auto_detect_status(CFSTR("en7"), mac, identifier);
+	my_CFRelease(&mac);
+	my_CFRelease(&identifier);
+    }
+
+    {
+	SCPrint(TRUE, stdout, CFSTR("copying auto-detected interfaces\n"));
+	auto_detected_interfaces = copy_interfaces_from_auto_detect_status();
+	if (auto_detected_interfaces != NULL) {
+	    SCPrint(TRUE, stdout, CFSTR("auto_detected_interfaces: %@\n"), auto_detected_interfaces);
+	} else {
+	    SCPrint(TRUE, stdout, CFSTR("no auto-detected interfaces found\n"));
+	}
+	my_CFRelease(&auto_detected_interfaces);
+    }
+
+    {
+	int pkt_id = 4;
+	const struct ether_addr	auth_mac = { {0xBD, 0x38, 0x2E, 0xBD, 0x21, 0x37 } };
+	CFDataRef mac = CFDataCreate(NULL, (const UInt8 *)&auth_mac, sizeof(auth_mac));
+	CFNumberRef identifier = CFNumberCreate(NULL, kCFNumberIntType, &pkt_id);
+	SCPrint(TRUE, stdout, CFSTR("adding en8\n"));
+	add_interface_to_auto_detect_status(CFSTR("en8"), mac, identifier);
+	my_CFRelease(&mac);
+	my_CFRelease(&identifier);
+    }
+
+    {
+	SCPrint(TRUE, stdout, CFSTR("copying auto-detected interfaces\n"));
+	auto_detected_interfaces = copy_interfaces_from_auto_detect_status();
+	if (auto_detected_interfaces != NULL) {
+	    SCPrint(TRUE, stdout, CFSTR("auto_detected_interfaces: %@\n"), auto_detected_interfaces);
+	} else {
+	    SCPrint(TRUE, stdout, CFSTR("no auto-detected interfaces found\n"));
+	}
+	my_CFRelease(&auto_detected_interfaces);
+    }
+
+    getchar();
+    return 0;
+}
+
+#endif /* TEST_AUTO_DETECT_STATUS */

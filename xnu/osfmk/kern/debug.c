@@ -71,6 +71,7 @@
 #include <kern/misc_protos.h>
 #include <kern/clock.h>
 #include <kern/telemetry.h>
+#include <kern/trap_telemetry.h>
 #include <kern/ecc.h>
 #include <kern/kern_stackshot.h>
 #include <kern/kern_cdata.h>
@@ -149,6 +150,8 @@ extern int vsnprintf(char *, size_t, const char *, va_list);
 
 extern int IODTGetLoaderInfo( const char *key, void **infoAddr, int *infosize );
 extern void IODTFreeLoaderInfo( const char *key, void *infoAddr, int infoSize );
+extern unsigned int debug_boot_arg;
+extern int serial_init(void);
 
 unsigned int    halt_in_debugger = 0;
 unsigned int    current_debugger = 0;
@@ -206,6 +209,7 @@ struct debugger_state {
 	kern_return_t   db_op_return;
 };
 static struct debugger_state PERCPU_DATA(debugger_state);
+struct kernel_panic_reason PERCPU_DATA(panic_reason);
 
 /* __pure2 is correct if this function is called with preemption disabled */
 static inline __pure2 struct debugger_state *
@@ -582,18 +586,14 @@ phys_carveout_init(void)
 
 			kmem_alloc_contig(kernel_map, carveouts[i].va,
 			    temp_carveout_size, PAGE_MASK, 0, 0,
-			    KMA_NOFAIL | KMA_PERMANENT | KMA_NOPAGEWAIT | KMA_DATA,
+			    KMA_NOFAIL | KMA_PERMANENT | KMA_NOPAGEWAIT | KMA_DATA |
+			    KMA_NOSOFTLIMIT,
 			    VM_KERN_MEMORY_DIAG);
 
 			*carveouts[i].pa = kvtophys(*carveouts[i].va);
 			*carveouts[i].allocated_size = temp_carveout_size;
 		}
 	}
-
-#if __arm64__ && (DEVELOPMENT || DEBUG)
-	/* likely panic_trace boot-arg is also set so check and enable tracing if necessary into new carveout */
-	PE_arm_debug_enable_trace(true);
-#endif /* __arm64__ && (DEVELOPMENT || DEBUG) */
 }
 
 boolean_t
@@ -757,22 +757,50 @@ DebuggerTrapWithState(debugger_op db_op, const char *db_message, const char *db_
 }
 
 void __attribute__((noinline))
-Assert(
-	const char      *file,
-	int             line,
-	const char      *expression
-	)
+Assert(const char*file, int line, const char *expression)
 {
-#if CONFIG_NONFATAL_ASSERTS
-	static TUNABLE(bool, mach_assert, "assertions", true);
-
-	if (!mach_assert) {
-		kprintf("%s:%d non-fatal Assertion: %s", file, line, expression);
-		return;
-	}
-#endif
-
 	panic_plain("%s:%d Assertion failed: %s", file, line, expression);
+}
+
+void
+panic_assert_format(char *buf, size_t len, struct mach_assert_hdr *hdr, long a, long b)
+{
+	struct mach_assert_default *adef;
+	struct mach_assert_3x      *a3x;
+
+	static_assert(MACH_ASSERT_TRAP_CODE == XNU_HARD_TRAP_ASSERT_FAILURE);
+
+	switch (hdr->type) {
+	case MACH_ASSERT_DEFAULT:
+		adef = __container_of(hdr, struct mach_assert_default, hdr);
+		snprintf(buf, len, "%s:%d Assertion failed: %s",
+		    hdr->filename, hdr->lineno, adef->expr);
+		break;
+
+	case MACH_ASSERT_3P:
+		a3x = __container_of(hdr, struct mach_assert_3x, hdr);
+		snprintf(buf, len, "%s:%d Assertion failed: "
+		    "%s %s %s (%p %s %p)",
+		    hdr->filename, hdr->lineno, a3x->a, a3x->op, a3x->b,
+		    (void *)a, a3x->op, (void *)b);
+		break;
+
+	case MACH_ASSERT_3S:
+		a3x = __container_of(hdr, struct mach_assert_3x, hdr);
+		snprintf(buf, len, "%s:%d Assertion failed: "
+		    "%s %s %s (0x%lx %s 0x%lx, %ld %s %ld)",
+		    hdr->filename, hdr->lineno, a3x->a, a3x->op, a3x->b,
+		    a, a3x->op, b, a, a3x->op, b);
+		break;
+
+	case MACH_ASSERT_3U:
+		a3x = __container_of(hdr, struct mach_assert_3x, hdr);
+		snprintf(buf, len, "%s:%d Assertion failed: "
+		    "%s %s %s (0x%lx %s 0x%lx, %lu %s %lu)",
+		    hdr->filename, hdr->lineno, a3x->a, a3x->op, a3x->b,
+		    a, a3x->op, b, a, a3x->op, b);
+		break;
+	}
 }
 
 boolean_t
@@ -904,7 +932,12 @@ DebuggerWithContext(unsigned int reason, void *ctx, const char *message,
 	CPUDEBUGGERCOUNT++;
 
 	/* emit a tracepoint as early as possible in case of hang */
-	SOCD_TRACE_XNU(PANIC, PACK_2X32(VALUE(cpu_number()), VALUE(CPUDEBUGGERCOUNT)), VALUE(debugger_options_mask), ADDR(message), ADDR(debugger_caller));
+	SOCD_TRACE_XNU(PANIC,
+	    ((CPUDEBUGGERCOUNT <= 2) ? SOCD_TRACE_MODE_STICKY_TRACEPOINT : SOCD_TRACE_MODE_NONE),
+	    PACK_2X32(VALUE(cpu_number()), VALUE(CPUDEBUGGERCOUNT)),
+	    VALUE(debugger_options_mask),
+	    ADDR(message),
+	    ADDR(debugger_caller));
 
 	/* do max nested panic/debugger check, this will report nesting to the console and spin forever if we exceed a limit */
 	check_and_handle_nested_panic(debugger_options_mask, debugger_caller, message, NULL);
@@ -1205,7 +1238,17 @@ panic_trap_to_debugger(const char *panic_format_str, va_list *panic_args, unsign
 	CPUDEBUGGERCOUNT++;
 
 	/* emit a tracepoint as early as possible in case of hang */
-	SOCD_TRACE_XNU(PANIC, PACK_2X32(VALUE(cpu_number()), VALUE(CPUDEBUGGERCOUNT)), VALUE(panic_options_mask), ADDR(panic_format_str), ADDR(panic_caller));
+	SOCD_TRACE_XNU(PANIC,
+	    ((CPUDEBUGGERCOUNT <= 2) ? SOCD_TRACE_MODE_STICKY_TRACEPOINT : SOCD_TRACE_MODE_NONE),
+	    PACK_2X32(VALUE(cpu_number()), VALUE(CPUDEBUGGERCOUNT)),
+	    VALUE(panic_options_mask),
+	    ADDR(panic_format_str),
+	    ADDR(panic_caller));
+
+	/* enable serial on the first panic if the always-on panic print flag is set */
+	if ((debug_boot_arg & DB_PRT) && (CPUDEBUGGERCOUNT == 1)) {
+		serial_init();
+	}
 
 	/* do max nested panic/debugger check, this will report nesting to the console and spin forever if we exceed a limit */
 	check_and_handle_nested_panic(panic_options_mask, panic_caller, panic_format_str, panic_args);
@@ -1469,7 +1512,7 @@ debugger_collect_diagnostics(unsigned int exception, unsigned int code, unsigned
 		extern uint8_t sptm_supports_local_coredump;
 		bool sptm_interrupted = false;
 		pmap_sptm_percpu_data_t *sptm_pcpu = PERCPU_GET(pmap_sptm_percpu);
-		sptm_get_cpu_state(sptm_pcpu->sptm_cpu_id, CPUSTATE_SPTM_INTERRUPTED, &sptm_interrupted);
+		(void)sptm_get_cpu_state(sptm_pcpu->sptm_cpu_id, CPUSTATE_SPTM_INTERRUPTED, &sptm_interrupted);
 #endif
 		if (!kdp_has_polled_corefile()) {
 			if (debug_boot_arg & (DB_KERN_DUMP_ON_PANIC | DB_KERN_DUMP_ON_NMI)) {
@@ -1523,9 +1566,7 @@ debugger_collect_diagnostics(unsigned int exception, unsigned int code, unsigned
 				 */
 				debugger_safe_to_return = FALSE;
 				begin_panic_transfer();
-				vm_memtag_disable_checking();
 				ret = kern_dump(KERN_DUMP_DISK);
-				vm_memtag_enable_checking();
 				abort_panic_transfer();
 
 #if DEVELOPMENT || DEBUG
@@ -2116,6 +2157,72 @@ telemetry_gather(user_addr_t buffer __unused, uint32_t *length __unused, bool ma
 #include <machine/machine_cpu.h>
 
 TUNABLE(uint32_t, kern_feature_overrides, "validation_disables", 0);
+
+__startup_func
+static void
+kern_feature_override_init(void)
+{
+	/*
+	 * update kern_feature_override based on the serverperfmode=1 boot-arg
+	 * being present, but do not look at the device-tree setting on purpose.
+	 *
+	 * scale_setup() will update serverperfmode=1 based on the DT later.
+	 */
+
+	if (serverperfmode) {
+		kern_feature_overrides |= KF_SERVER_PERF_MODE_OVRD;
+	}
+}
+STARTUP(TUNABLES, STARTUP_RANK_LAST, kern_feature_override_init);
+
+#if MACH_ASSERT
+STATIC_IF_KEY_DEFINE_TRUE(mach_assert);
+#endif
+
+#if SCHED_HYGIENE_DEBUG
+STATIC_IF_KEY_DEFINE_TRUE(sched_debug_pmc);
+STATIC_IF_KEY_DEFINE_TRUE(sched_debug_preemption_disable);
+STATIC_IF_KEY_DEFINE_TRUE(sched_debug_interrupt_disable);
+#endif /* SCHED_HYGIENE_DEBUG */
+
+__static_if_init_func
+static void
+kern_feature_override_apply(const char *args)
+{
+	uint64_t kf_ovrd;
+
+	/*
+	 * Compute the value of kern_feature_override like it will look like
+	 * after kern_feature_override_init().
+	 */
+	kf_ovrd = static_if_boot_arg_uint64(args, "validation_disables", 0);
+	if (static_if_boot_arg_uint64(args, "serverperfmode", 0)) {
+		kf_ovrd |= KF_SERVER_PERF_MODE_OVRD;
+	}
+
+#if DEBUG_RW
+	lck_rw_assert_init(args, kf_ovrd);
+#endif /* DEBUG_RW */
+#if MACH_ASSERT
+	if (kf_ovrd & KF_MACH_ASSERT_OVRD) {
+		static_if_key_disable(mach_assert);
+	}
+#endif /* MACH_ASSERT */
+#if SCHED_HYGIENE_DEBUG
+	if ((int64_t)static_if_boot_arg_uint64(args, "wdt", 0) != -1) {
+		if (kf_ovrd & KF_SCHED_HYGIENE_DEBUG_PMC_OVRD) {
+			static_if_key_disable(sched_debug_pmc);
+		}
+		if (kf_ovrd & KF_PREEMPTION_DISABLED_DEBUG_OVRD) {
+			static_if_key_disable(sched_debug_preemption_disable);
+			if (kf_ovrd & KF_INTERRUPT_MASKED_DEBUG_OVRD) {
+				static_if_key_disable(sched_debug_interrupt_disable);
+			}
+		}
+	}
+#endif /* SCHED_HYGIENE_DEBUG */
+}
+STATIC_IF_INIT(kern_feature_override_apply);
 
 boolean_t
 kern_feature_override(uint32_t fmask)

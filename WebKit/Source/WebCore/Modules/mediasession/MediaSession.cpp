@@ -52,10 +52,10 @@
 
 namespace WebCore {
 
-static const void* nextLogIdentifier()
+static uint64_t nextLogIdentifier()
 {
     static uint64_t logIdentifier = cryptographicallyRandomNumber<uint32_t>();
-    return reinterpret_cast<const void*>(++logIdentifier);
+    return ++logIdentifier;
 }
 
 #if !RELEASE_LOG_DISABLED
@@ -265,6 +265,11 @@ ExceptionOr<void> MediaSession::setActionHandler(MediaSessionAction action, RefP
     if (document && !document->settings().mediaSessionCaptureToggleAPIEnabled() && (action == MediaSessionAction::Togglecamera || action == MediaSessionAction::Togglemicrophone || action == MediaSessionAction::Togglescreenshare || action == MediaSessionAction::Voiceactivity))
         return Exception { ExceptionCode::TypeError, makeString("Argument 1 ('action') to MediaSession.setActionHandler must be a value other than '"_s, convertEnumerationToString(action), "'"_s) };
 
+#if PLATFORM(MAC) && !HAVE(VOICEACTIVITYDETECTION)
+    if (document && action == MediaSessionAction::Voiceactivity)
+        return Exception { ExceptionCode::TypeError, makeString("Argument 1 ('action') to MediaSession.setActionHandler must be a value other than '"_s, convertEnumerationToString(action), "'"_s) };
+#endif
+
     if (action == MediaSessionAction::Voiceactivity) {
         if (RefPtr document = this->document())
             document->setShouldListenToVoiceActivity(!!handler);
@@ -279,7 +284,7 @@ ExceptionOr<void> MediaSession::setActionHandler(MediaSessionAction action, RefP
         }
         auto platformCommand = platformCommandForMediaSessionAction(action);
         if (platformCommand != PlatformMediaSession::RemoteControlCommandType::NoCommand)
-            PlatformMediaSessionManager::sharedManager().addSupportedCommand(platformCommand);
+            PlatformMediaSessionManager::singleton().addSupportedCommand(platformCommand);
     } else {
         bool containedAction;
         {
@@ -289,7 +294,7 @@ ExceptionOr<void> MediaSession::setActionHandler(MediaSessionAction action, RefP
 
         if (containedAction)
             ALWAYS_LOG(LOGIDENTIFIER, "removing ", action);
-        PlatformMediaSessionManager::sharedManager().removeSupportedCommand(platformCommandForMediaSessionAction(action));
+        PlatformMediaSessionManager::singleton().removeSupportedCommand(platformCommandForMediaSessionAction(action));
     }
 
     notifyActionHandlerObservers();
@@ -527,7 +532,7 @@ void MediaSession::updateCaptureState(bool isActive, DOMPromiseDeferred<void>&& 
         return;
     }
 
-    if (isActive && (document->topDocument().hidden() || !UserGestureIndicator::currentUserGesture())) {
+    if (isActive && (document->hidden() || !UserGestureIndicator::currentUserGesture())) {
         promise.reject(Exception { ExceptionCode::InvalidStateError, "Activating capture must be called from a user gesture handler."_s });
         return;
     }

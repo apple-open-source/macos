@@ -501,6 +501,43 @@ int trust_store_show_certificates(int argc, char * const *argv)
     return result;
 }
 
+static CFStringRef policyToConstant(CFStringRef policy, bool client) {
+    if (policy == NULL) {
+        return NULL;
+    } else if (CFEqual(policy, CFSTR("basic"))) {
+        return kSecPolicyAppleX509Basic;
+    } else if (CFEqual(policy, CFSTR("ssl"))) {
+        if (client) {
+            return kSecPolicyAppleSSLClient;
+        }
+        return kSecPolicyAppleSSLServer;
+    } else if (CFEqual(policy, CFSTR("smime"))) {
+        return kSecPolicyAppleSMIME;
+    } else if (CFEqual(policy, CFSTR("eap"))) {
+        if (client) {
+            return kSecPolicyAppleEAPClient;
+        }
+        return kSecPolicyAppleEAPServer;
+    } else if (CFEqual(policy, CFSTR("IPSec"))) {
+        if (client) {
+            return kSecPolicyAppleIPSecClient;
+        }
+        return kSecPolicyAppleIPSecServer;
+    } else if (CFEqual(policy, CFSTR("appleID"))) {
+        return kSecPolicyAppleIDValidation;
+    } else if (CFEqual(policy, CFSTR("codeSign"))) {
+        return kSecPolicyAppleCodeSigning;
+    } else if (CFEqual(policy, CFSTR("timestamping"))) {
+        return kSecPolicyAppleTimeStamping;
+    } else if (CFEqual(policy, CFSTR("revocation"))) {
+        return kSecPolicyAppleRevocation;
+    } else if (CFStringHasPrefix(policy, CFSTR("1.2.840.113635.100.1"))){
+        return CFRetainSafe(policy);
+    } else {
+        return NULL;
+    }
+}
+
 int trust_store_show_pki_certificates(int argc, char * const *argv)
 {
     int ch, result = 0;
@@ -511,13 +548,15 @@ int trust_store_show_pki_certificates(int argc, char * const *argv)
     bool output_finger_print = false;
     bool output_keyid = false;
     bool output_json = false;
+    bool client_policy = false;
     CFArrayRef certs = NULL;
+    CFStringRef policy = NULL;
 
-    while ((ch = getopt(argc, argv, "fpstvkj")) != -1)
+    while ((ch = getopt(argc, argv, "fPstvkjp:C")) != -1)
     {
         switch  (ch)
         {
-            case 'p':
+            case 'P':
                 output_pem = true;
                 break;
             case 's':
@@ -538,14 +577,27 @@ int trust_store_show_pki_certificates(int argc, char * const *argv)
             case 'k':
                 output_keyid = true;
                 break;
+            case 'p':
+                CFReleaseNull(policy);
+                policy = CFStringCreateWithCString(NULL, optarg, kCFStringEncodingUTF8);
+                break;
+            case 'C':
+                client_policy = true;
+                break;
             case '?':
             default:
+                CFReleaseNull(policy);
                 return SHOW_USAGE_MESSAGE;
         }
     }
 
-    if(SecTrustStoreCopyAll(SecTrustStoreForDomain(kSecTrustStoreDomainSystem),
-                             &certs) || !certs) {
+    CFStringRef policyId = policyToConstant(policy, client_policy);
+    CFReleaseNull(policy);
+
+
+    SecTrustStoreRef ts = SecTrustStoreForDomain(kSecTrustStoreDomainSystem);
+    certs = SecTrustStoreCopyAnchors(ts, policyId);
+    if (!certs) {
         fprintf(stderr, "failed to get system trust store contents\n");
         return 1;
     }
@@ -568,15 +620,12 @@ int trust_store_show_pki_certificates(int argc, char * const *argv)
         CFIndex ix, count = (certs) ? CFArrayGetCount(certs) : 0;
         NSMutableArray *digestsArray = [NSMutableArray arrayWithCapacity:count];
         for (ix = 0; ix < count; ix++) {
-            //CFArrayRef certSettingsPair = NULL;
+            CFArrayRef certSettingsPair = NULL;
             CFDataRef certData = NULL;
             SecCertificateRef cert = NULL;
 
-            //certSettingsPair = CFArrayGetValueAtIndex(certs, ix);
-            //certData = (CFDataRef)CFArrayGetValueAtIndex(certSettingsPair, 0);
-            //cert = SecCertificateCreateWithData(kCFAllocatorDefault, certData);
-            //%%% currently this is just the certificates; fix to include settings pair
-            certData = (CFDataRef)CFArrayGetValueAtIndex(certs, ix);
+            certSettingsPair = CFArrayGetValueAtIndex(certs, ix);
+            certData = (CFDataRef)CFArrayGetValueAtIndex(certSettingsPair, 0);
             cert = SecCertificateCreateWithData(kCFAllocatorDefault, certData);
 
             CFDataRef fingerprint = (cert) ? SecCertificateCopySHA256Digest(cert) : NULL;
@@ -611,13 +660,11 @@ int trust_store_show_pki_certificates(int argc, char * const *argv)
         CFDataRef certData = NULL;
         SecCertificateRef cert = NULL;
 
-        //certSettingsPair = CFArrayGetValueAtIndex(certs, ix);
-        //certData = (CFDataRef)CFArrayGetValueAtIndex(certSettingsPair, 0);
-        //cert = SecCertificateCreateWithData(kCFAllocatorDefault, certData);
-        //%%% currently this is just the certificates; fix to include settings pair
-        certData = (CFDataRef)CFArrayGetValueAtIndex(certs, ix);
+        certSettingsPair = CFArrayGetValueAtIndex(certs, ix);
+        certData = (CFDataRef)CFArrayGetValueAtIndex(certSettingsPair, 0);
         cert = SecCertificateCreateWithData(kCFAllocatorDefault, certData);
         if (!cert) {
+            CFReleaseNull(certs);
             fprintf(stderr, "failed to get cert at %ld\n",ix);
             return 1;
         }
@@ -670,6 +717,7 @@ int trust_store_show_pki_certificates(int argc, char * const *argv)
             CFPropertyListRef trust_settings = NULL;
             trust_settings = CFArrayGetValueAtIndex(certSettingsPair, 1);
             if (trust_settings && CFGetTypeID(trust_settings) != CFArrayGetTypeID()) {
+                CFReleaseNull(certs);
                 fprintf(stderr, "failed to get trust settings for cert %ld\n", ix);
                 CFReleaseNull(cert);
                 return 1;

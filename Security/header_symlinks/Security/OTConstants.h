@@ -96,6 +96,9 @@ typedef NS_ERROR_ENUM(OctagonErrorDomain, OctagonError) {
     OctagonErrorInvalidPeerTypeForMaxCapability                 = 75,
     OctagonErrorCKKSLackingTrust                                = 76,
     OctagonErrorAuthKitNoAccountManager                         = 77,
+    OctagonErrorFailedToRecoverWithCDPContext                   = 78,
+    OctagonErrorFailedToRecoverWithInfo                         = 79,
+    OctagonErrorFailedToHandleRecoveryResults                   = 80,
 };
 
 /* used for defaults writes */

@@ -30,6 +30,7 @@
 
 #include <wtf/FastMalloc.h>
 #include <wtf/JSONValues.h>
+#include <wtf/Seconds.h>
 #include <wtf/text/WTFString.h>
 
 #include <cmath>
@@ -61,9 +62,11 @@ public:
     static MediaTime createWithFloat(float floatTime, uint32_t timeScale);
     static MediaTime createWithDouble(double doubleTime);
     static MediaTime createWithDouble(double doubleTime, uint32_t timeScale);
+    static MediaTime createWithSeconds(Seconds seconds) { return createWithDouble(seconds.value()); }
 
     float toFloat() const;
     double toDouble() const;
+    int64_t toMicroseconds() const;
 
     MediaTime& operator=(const MediaTime&) = default;
     MediaTime& operator+=(const MediaTime& rhs) { return *this = *this + rhs; }
@@ -133,6 +136,7 @@ public:
     };
 
     MediaTime toTimeScale(uint32_t, RoundingFlags = RoundingFlags::HalfAwayFromZero) const;
+    MediaTime isolatedCopy() const;
 
 private:
     void setTimeScale(uint32_t, RoundingFlags = RoundingFlags::HalfAwayFromZero);

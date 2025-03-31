@@ -582,7 +582,7 @@ void TY_(FreeDeclaredTags)( TidyDocImpl* doc, UserTagType tagType )
 #if ELEMENT_HASH_LOOKUP
           removeFromHash( &doc->tags, curr->name );
 #endif
-          MemFree( (void*)curr->name );
+          MemFree( curr->name );
           MemFree( curr );
           if ( prev )
             prev->next = next;

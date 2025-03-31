@@ -1817,3 +1817,11 @@ pcap_set_divert_input(pcap_t *pcap, int value)
 	return PCAP_ERROR;
 #endif /* BIOCGDVRTIN */
 }
+
+int
+pcap_get_packet_read_count(pcap_t *pcap, unsigned long *value_ptr)
+{
+	*value_ptr = pcap->packet_read_count;
+
+	return 0;
+}

@@ -94,21 +94,21 @@ typedef NS_ENUM(uint8_t, fatType) {
 -(DirItem *)createDirItemWithParent:(FATItem * _Nullable)parentDir
 					   firstCluster:(uint32_t)firstCluster
 					   dirEntryData:(DirEntryData * _Nullable)dirEntryData
-							   name:(nonnull NSString *)name
+							   name:(FSFileName *)name
 							 isRoot:(bool)isRoot;
 
 -(FileItem *)createFileItemWithParent:(FATItem * _Nullable)parentDir
 						 firstCluster:(uint32_t)firstCluster
 						 dirEntryData:(DirEntryData * _Nullable)dirEntryData
-                                 name:(nonnull NSString *)name;
+                                 name:(FSFileName *)name;
 
 -(SymLinkItem *)createSymlinkItemWithParent:(FATItem * _Nullable)parentDir
 							   firstCluster:(uint32_t)firstCluster
 							   dirEntryData:(DirEntryData * _Nullable)dirEntryData
-                                       name:(nonnull NSString *)name
+                                       name:(FSFileName *)name
                               symlinkLength:(uint16_t)length;
 
--(void)FatMount:(FSTaskParameters *)options
+-(void)FatMount:(FSTaskOptions *)options
    replyHandler:(void (^)(FSItem * _Nullable, NSError * _Nullable))reply;
 
 -(void)getFreeClustersStats:(uint32_t *_Nonnull)freeClusters
@@ -117,7 +117,7 @@ typedef NS_ENUM(uint8_t, fatType) {
 -(void)calcNumOfDirEntriesForName:(struct unistr255)unistrName
                      replyHandler:(void (^)(NSError * _Nullable error, uint32_t numberOfEntries))reply;
 
--(void)nameToUnistr:(NSString *)name
+-(void)nameToUnistr:(FSFileName *)name
 			  flags:(uint32_t)flags
        replyHandler:(void (^)(NSError *error, struct unistr255 unistrName))reply;
 
@@ -136,8 +136,9 @@ typedef NS_ENUM(uint8_t, fatType) {
 @end
 
 
-@interface FATVolume : FSVolume <FSVolumeOperations, FSVolumeKernelOffloadedIOOperations, FSVolumeRenameOperations, FSVolumePreallocateOperations, FATOps>
+@interface FATVolume : FSVolume <FSVolumeOperations, FSVolumeKernelOffloadedIOOperations, FSVolumeRenameOperations, FSVolumePreallocateOperations, FSVolumeItemDeactivation, FATOps>
 
+@property FSItemDeactivationOptions itemDeactivationPolicy;
 @property FSBlockDeviceResource *resource;
 @property DirNameCachePool *nameCachePool;
 @property FileSystemInfo *systemInfo;
@@ -146,19 +147,24 @@ typedef NS_ENUM(uint8_t, fatType) {
 @property DirItem *rootItem;
 
 @property (nonatomic, readonly, getter=GetGMTDiffOffset) int gmtDiffOffset;
-@property NSMutableArray<NSNumber*> *preAllocatedOpenFiles;
-@property NSMutableArray<NSNumber*> *nextAvailableFileID;
-@property NSMutableArray<NSNumber*> *openUnlinkedFiles;
 
 -(instancetype)initWithResource:(FSResource *)resource
                        volumeID:(nonnull FSVolumeIdentifier *)volumeID
                      volumeName:(nonnull NSString *)volumeName;
+
+-(instancetype)init NS_UNAVAILABLE;
 
 -(NSError *)clearNewDirClustersFrom:(uint32_t)firstClusterToClear
 							 amount:(uint32_t)numClustersToClear;
 -(uint64_t)getFileID:(DirEntryData *)entryData;
 -(uint64_t)getNextAvailableFileID;
 - (FSItemGetAttributesRequest *)getAttrRequestForNewDirEntry;
+-(uint64_t)incNumberOfPreallocatedFiles;
+-(uint64_t)decNumberOfPreallocatedFiles;
+-(uint64_t)incNumberOfOpenUnlinkedFiles;
+-(uint64_t)decNumberOfOpenUnlinkedFiles;
+-(uint64_t)getNumberOfPreallocatedFiles;
+-(uint64_t)getNumberOfOpenUnlinkedFiles;
 
 @end
 
@@ -168,6 +174,7 @@ typedef NS_ENUM(uint8_t, fatType) {
 
 @property fatType fatType;
 
+-(instancetype)init NS_UNAVAILABLE;
 -(id)initWithType:(fatType)type;
 
 /*

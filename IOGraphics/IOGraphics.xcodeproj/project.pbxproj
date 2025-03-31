@@ -480,6 +480,7 @@
 		A68335E20D450E6600307FE3 /* Headers */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = Headers; sourceTree = BUILT_PRODUCTS_DIR; };
 		A68335F50D450E6600307FE3 /* IONDRVSupport Headers */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = "IONDRVSupport Headers"; sourceTree = BUILT_PRODUCTS_DIR; };
 		A69F8E8A0E67871700581528 /* IONDRVLibraries.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = IONDRVLibraries.h; sourceTree = "<group>"; };
+		AC792BCB2B7E3A8500590222 /* Version.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; path = Version.xcconfig; sourceTree = "<group>"; };
 		C026C4691E044A820061BD4A /* IOGraphicsDiagnose.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = IOGraphicsDiagnose.h; sourceTree = "<group>"; };
 		C026C46B1E044A9C0061BD4A /* AppleLogo.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = AppleLogo.h; sourceTree = "<group>"; };
 		C026C46C1E044A9C0061BD4A /* AppleLogo2X.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = AppleLogo2X.h; sourceTree = "<group>"; };
@@ -552,6 +553,7 @@
 		015488CD00BAFF6C11CA2A5F = {
 			isa = PBXGroup;
 			children = (
+				AC792BCB2B7E3A8500590222 /* Version.xcconfig */,
 				2486857624A54EA400A95717 /* IOGraphicsSignposts.plist */,
 				A68335990D450E6600307FE3 /* Info-IOGraphicsFamily.plist */,
 				A68335B30D450E6600307FE3 /* Info-IONDRVSupport.plist */,
@@ -1278,6 +1280,7 @@
 /* Begin XCBuildConfiguration section */
 		2D39A48C21E7FC79005D88DF /* Development */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = AC792BCB2B7E3A8500590222 /* Version.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_ANALYZER_NONNULL = YES;
@@ -1347,6 +1350,7 @@
 		};
 		2D39A48D21E7FC79005D88DF /* Deployment */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = AC792BCB2B7E3A8500590222 /* Version.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_ANALYZER_NONNULL = YES;
@@ -1414,6 +1418,7 @@
 		};
 		2D39A48E21E7FC79005D88DF /* Default */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = AC792BCB2B7E3A8500590222 /* Version.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_ANALYZER_NONNULL = YES;
@@ -1481,6 +1486,7 @@
 		};
 		2D4A93AD21C4218600647538 /* Development */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = AC792BCB2B7E3A8500590222 /* Version.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_ANALYZER_NONNULL = YES;
@@ -1543,6 +1549,7 @@
 		};
 		2D4A93AE21C4218600647538 /* Deployment */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = AC792BCB2B7E3A8500590222 /* Version.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_ANALYZER_NONNULL = YES;
@@ -1602,6 +1609,7 @@
 		};
 		2D4A93AF21C4218600647538 /* Default */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = AC792BCB2B7E3A8500590222 /* Version.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_ANALYZER_NONNULL = YES;
@@ -1661,6 +1669,7 @@
 		};
 		2DCE04AE21F7D2B6007FFC9A /* Development */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = AC792BCB2B7E3A8500590222 /* Version.xcconfig */;
 			buildSettings = {
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
@@ -1726,6 +1735,7 @@
 		};
 		2DCE04AF21F7D2B6007FFC9A /* Deployment */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = AC792BCB2B7E3A8500590222 /* Version.xcconfig */;
 			buildSettings = {
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
@@ -1784,6 +1794,7 @@
 		};
 		2DCE04B021F7D2B6007FFC9A /* Default */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = AC792BCB2B7E3A8500590222 /* Version.xcconfig */;
 			buildSettings = {
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
@@ -1842,6 +1853,7 @@
 		};
 		3F8612B61F4CD852005C0C7F /* Development */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = AC792BCB2B7E3A8500590222 /* Version.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_ANALYZER_NONNULL = YES;
@@ -1895,6 +1907,7 @@
 		};
 		3F8612B71F4CD852005C0C7F /* Deployment */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = AC792BCB2B7E3A8500590222 /* Version.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_ANALYZER_NONNULL = YES;
@@ -1945,6 +1958,7 @@
 		};
 		3F8612B81F4CD852005C0C7F /* Default */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = AC792BCB2B7E3A8500590222 /* Version.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_ANALYZER_NONNULL = YES;
@@ -1995,6 +2009,7 @@
 		};
 		A68335490D450E1000307FE3 /* Development */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = AC792BCB2B7E3A8500590222 /* Version.xcconfig */;
 			buildSettings = {
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
 				CLANG_WARN_BOOL_CONVERSION = YES;
@@ -2017,6 +2032,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				HEADER_SEARCH_PATHS = "$(SRCROOT)";
+				INFOPLIST_PREPROCESS = YES;
 				OTHER_CFLAGS = "-ftrivial-auto-var-init=pattern";
 				SDKROOT = macosx.internal;
 			};
@@ -2024,6 +2040,7 @@
 		};
 		A683354A0D450E1000307FE3 /* Deployment */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = AC792BCB2B7E3A8500590222 /* Version.xcconfig */;
 			buildSettings = {
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
 				CLANG_WARN_BOOL_CONVERSION = YES;
@@ -2046,6 +2063,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				HEADER_SEARCH_PATHS = "$(SRCROOT)";
+				INFOPLIST_PREPROCESS = YES;
 				OTHER_CFLAGS = "-ftrivial-auto-var-init=pattern";
 				SDKROOT = macosx.internal;
 			};
@@ -2053,6 +2071,7 @@
 		};
 		A683354B0D450E1000307FE3 /* Default */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = AC792BCB2B7E3A8500590222 /* Version.xcconfig */;
 			buildSettings = {
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
 				CLANG_WARN_BOOL_CONVERSION = YES;
@@ -2075,6 +2094,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				HEADER_SEARCH_PATHS = "$(SRCROOT)";
+				INFOPLIST_PREPROCESS = YES;
 				OTHER_CFLAGS = "-ftrivial-auto-var-init=pattern";
 				SDKROOT = macosx.internal;
 			};
@@ -2082,6 +2102,7 @@
 		};
 		A68335700D450E6600307FE3 /* Development */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = AC792BCB2B7E3A8500590222 /* Version.xcconfig */;
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
 				GCC_DYNAMIC_NO_PIC = NO;
@@ -2104,6 +2125,7 @@
 		};
 		A68335710D450E6600307FE3 /* Deployment */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = AC792BCB2B7E3A8500590222 /* Version.xcconfig */;
 			buildSettings = {
 				COPY_PHASE_STRIP = YES;
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
@@ -2123,6 +2145,7 @@
 		};
 		A68335720D450E6600307FE3 /* Default */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = AC792BCB2B7E3A8500590222 /* Version.xcconfig */;
 			buildSettings = {
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "-lFastCompression-Kernel";
@@ -2139,6 +2162,7 @@
 		};
 		A68335960D450E6600307FE3 /* Development */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = AC792BCB2B7E3A8500590222 /* Version.xcconfig */;
 			buildSettings = {
 				BUILD_VARIANTS = (
 					normal,
@@ -2207,6 +2231,7 @@
 		};
 		A68335970D450E6600307FE3 /* Deployment */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = AC792BCB2B7E3A8500590222 /* Version.xcconfig */;
 			buildSettings = {
 				BUILD_VARIANTS = (
 					normal,
@@ -2263,6 +2288,7 @@
 		};
 		A68335980D450E6600307FE3 /* Default */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = AC792BCB2B7E3A8500590222 /* Version.xcconfig */;
 			buildSettings = {
 				BUILD_VARIANTS = (
 					normal,
@@ -2270,7 +2296,6 @@
 					development,
 				);
 				BUNDLE_STYLE = SHALLOW;
-				SHALLOW_BUNDLE = "YES";
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				FRAMEWORK_SEARCH_PATHS = "";
@@ -2303,6 +2328,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.apple.iokit.IOGraphicsFamily;
 				PRODUCT_NAME = IOGraphicsFamily;
 				SECTORDER_FLAGS = "";
+				SHALLOW_BUNDLE = YES;
 				WARNING_CFLAGS = (
 					"-Wall",
 					"-Wno-four-char-constants",
@@ -2315,6 +2341,7 @@
 		};
 		A68335B00D450E6600307FE3 /* Development */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = AC792BCB2B7E3A8500590222 /* Version.xcconfig */;
 			buildSettings = {
 				BUILD_VARIANTS = (
 					normal,
@@ -2385,6 +2412,7 @@
 		};
 		A68335B10D450E6600307FE3 /* Deployment */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = AC792BCB2B7E3A8500590222 /* Version.xcconfig */;
 			buildSettings = {
 				BUILD_VARIANTS = (
 					normal,
@@ -2436,6 +2464,7 @@
 		};
 		A68335B20D450E6600307FE3 /* Default */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = AC792BCB2B7E3A8500590222 /* Version.xcconfig */;
 			buildSettings = {
 				BUILD_VARIANTS = (
 					normal,
@@ -2484,6 +2513,7 @@
 		};
 		A68335DF0D450E6600307FE3 /* Development */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = AC792BCB2B7E3A8500590222 /* Version.xcconfig */;
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
 				GCC_DYNAMIC_NO_PIC = NO;
@@ -2509,6 +2539,7 @@
 		};
 		A68335E00D450E6600307FE3 /* Deployment */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = AC792BCB2B7E3A8500590222 /* Version.xcconfig */;
 			buildSettings = {
 				COPY_PHASE_STRIP = YES;
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
@@ -2531,6 +2562,7 @@
 		};
 		A68335E10D450E6600307FE3 /* Default */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = AC792BCB2B7E3A8500590222 /* Version.xcconfig */;
 			buildSettings = {
 				INSTALLHDRS_COPY_PHASE = YES;
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks";
@@ -2550,6 +2582,7 @@
 		};
 		A68335F20D450E6600307FE3 /* Development */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = AC792BCB2B7E3A8500590222 /* Version.xcconfig */;
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
 				GCC_DYNAMIC_NO_PIC = NO;
@@ -2575,6 +2608,7 @@
 		};
 		A68335F30D450E6600307FE3 /* Deployment */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = AC792BCB2B7E3A8500590222 /* Version.xcconfig */;
 			buildSettings = {
 				COPY_PHASE_STRIP = YES;
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
@@ -2597,6 +2631,7 @@
 		};
 		A68335F40D450E6600307FE3 /* Default */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = AC792BCB2B7E3A8500590222 /* Version.xcconfig */;
 			buildSettings = {
 				INSTALLHDRS_COPY_PHASE = YES;
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks";
@@ -2616,6 +2651,7 @@
 		};
 		C026C4791E044B550061BD4A /* Development */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = AC792BCB2B7E3A8500590222 /* Version.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_ANALYZER_NONNULL = YES;
@@ -2663,6 +2699,7 @@
 		};
 		C026C47A1E044B550061BD4A /* Deployment */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = AC792BCB2B7E3A8500590222 /* Version.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_ANALYZER_NONNULL = YES;
@@ -2708,6 +2745,7 @@
 		};
 		C026C47B1E044B550061BD4A /* Default */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = AC792BCB2B7E3A8500590222 /* Version.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_ANALYZER_NONNULL = YES;

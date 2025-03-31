@@ -27,8 +27,11 @@
 #include "WGSLShaderModule.h"
 
 #include "WGSL.h"
+#include <wtf/TZoneMallocInlines.h>
 
 namespace WGSL {
+
+WTF_MAKE_TZONE_ALLOCATED_IMPL(ShaderModule);
 
 std::optional<Error> ShaderModule::validateOverrides(const HashMap<String, ConstantValue>& constantValues)
 {

@@ -25,6 +25,7 @@
 
 #pragma once
 
+#include <wtf/NativePromise.h>
 #include <wtf/Ref.h>
 #include <wtf/ThreadSafeRefCounted.h>
 
@@ -35,11 +36,14 @@ class ScriptExecutionContext;
 class ThreadableWebSocketChannel;
 class WebSocketChannelClient;
 class WebTransportSession;
+class WebTransportSessionClient;
+
+using WebTransportSessionPromise = NativePromise<Ref<WebTransportSession>, void>;
 
 class WEBCORE_EXPORT SocketProvider : public ThreadSafeRefCounted<SocketProvider> {
 public:
     virtual RefPtr<ThreadableWebSocketChannel> createWebSocketChannel(Document&, WebSocketChannelClient&) = 0;
-    virtual void initializeWebTransportSession(ScriptExecutionContext&, const URL&, CompletionHandler<void(RefPtr<WebTransportSession>&&)>&&) = 0;
+    virtual Ref<WebTransportSessionPromise> initializeWebTransportSession(ScriptExecutionContext&, WebTransportSessionClient&, const URL&) = 0;
 
     virtual ~SocketProvider() { };
 };

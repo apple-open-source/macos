@@ -260,25 +260,22 @@ CFTypeRef SecTransformExecute(SecTransformRef transformRef, CFErrorRef* errorRef
 
 			releaseTheGroup = true;
 
-#ifdef __clang_analyzer__
-            // we've already asserted that collectTransform is non-NULL, but clang doesn't know that, we skip use of it for the analyzer
-            SecGroupTransformRef connectResult = NULL;
-#else
-			SecGroupTransformRef connectResult =
+                        // we've already asserted that collectTransform is non-NULL, but clang doesn't know that, we skip use of it for the analyzer
+                        [[clang::suppress]] {
+                            SecGroupTransformRef connectResult =
 				SecTransformConnectTransforms(transformRef,
-										  kSecTransformOutputAttributeName,
-										  collectTransform,
-										  kSecTransformInputAttributeName,
-										  theGroup, errorRef);
-#endif
+                                                              kSecTransformOutputAttributeName,
+                                                              collectTransform,
+                                                              kSecTransformInputAttributeName,
+                                                              theGroup, errorRef);
 
-			if (NULL == connectResult)
-			{
-				return (CFTypeRef)NULL;
-			}
+                            if (NULL == connectResult)
+                            {
+                                return (CFTypeRef)NULL;
+                            }
 
-			needConnection = false;
-
+                            needConnection = false;
+                        }
 		}
 		else
 		{
@@ -314,27 +311,25 @@ CFTypeRef SecTransformExecute(SecTransformRef transformRef, CFErrorRef* errorRef
 
 		SecTransformRef outputTransform = myGroup->FindLastTransform();
 
-#ifdef __clang_analyzer__
-        // we've already asserted that collectTransform is non-NULL, but clang doesn't know that, we skip use of it for the analyzer
-        SecGroupTransformRef connectResult = NULL;
-#else
-		SecGroupTransformRef connectResult =
-		SecTransformConnectTransforms(outputTransform,
-									  kSecTransformOutputAttributeName,
-									  collectTransform,
-									  kSecTransformInputAttributeName,
-									  myGroup->GetCFObject(), errorRef);
+                // we've already asserted that collectTransform is non-NULL, but clang doesn't know that, we skip use of it for the analyzer
+                [[clang::suppress]] {
+                    SecGroupTransformRef connectResult =
+                        SecTransformConnectTransforms(outputTransform,
+                                                      kSecTransformOutputAttributeName,
+                                                      collectTransform,
+                                                      kSecTransformInputAttributeName,
+                                                      myGroup->GetCFObject(), errorRef);
 
-		if (NULL == connectResult)
-		{
-			CFReleaseNull(collectTransform);
-			if (releaseTheGroup)
-			{
-				CFReleaseNull(theGroup);
-			}
-			return (CFTypeRef)NULL;
-		}
-#endif // __clang_analyzer__
+                    if (NULL == connectResult)
+                        {
+                            CFReleaseNull(collectTransform);
+                            if (releaseTheGroup)
+                                {
+                                    CFReleaseNull(theGroup);
+                                }
+                            return (CFTypeRef)NULL;
+                        }
+                }
 	}
 
 	__block CFTypeRef myResult = NULL;

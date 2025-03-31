@@ -92,32 +92,36 @@
 - (void)drawForPage:(PDFPage *)page withBox:(CGPDFBox)box active:(BOOL)active inContext:(CGContextRef)context;
 - (PDFPoint)firstCharCenter;
 - (/*nullable*/ NSString *)html;
-- (NSAttributedString *)attributedStringScaled:(CGFloat)scale;
 - (BOOL)isEmpty;
+#if HAVE(PDFSELECTION_ENUMERATE_RECTS_AND_TRANSFORMS)
+- (void)enumerateRectsAndTransformsForPage:(PDFPage *)page usingBlock:(void (^)(CGRect rect, CGAffineTransform transform))block;
+#endif
 @end
 
-#if HAVE(PDFDOCUMENT_ANNOTATIONS_FOR_FIELD_NAME)
-@interface PDFDocument (PDFDocumentPriv)
-- (NSArray *)annotationsForFieldName:(NSString *)fieldname;
-@end
+@interface PDFDocument (Annotations)
+#if HAVE(PDFDOCUMENT_RESET_FORM_FIELDS)
+- (void)resetFormFields:(PDFActionResetForm *)action;
 #endif
+#if HAVE(PDFDOCUMENT_ANNOTATIONS_FOR_FIELD_NAME)
+- (NSArray *)annotationsForFieldName:(NSString *)fieldname;
+#endif
+@end
 
 @interface PDFAction (PDFActionPriv)
 - (NSArray *)nextActions;
 @end
 
-#endif // HAVE(PDFKIT)
-
-#endif // USE(APPLE_INTERNAL_SDK)
-
 #if HAVE(INCREMENTAL_PDF_APIS)
-@interface PDFDocument ()
+@interface PDFDocument (IncrementalLoading)
 -(instancetype)initWithProvider:(CGDataProviderRef)dataProvider;
 -(void)preloadDataOfPagesInRange:(NSRange)range onQueue:(dispatch_queue_t)queue completion:(void (^)(NSIndexSet* loadedPageIndexes))completionBlock;
--(void)resetFormFields:(PDFActionResetForm *) action;
 @property (readwrite, nonatomic) BOOL hasHighLatencyDataProvider;
 @end
 #endif // HAVE(INCREMENTAL_PDF_APIS)
+
+#endif // HAVE(PDFKIT)
+
+#endif // USE(APPLE_INTERNAL_SDK)
 
 #if ENABLE(UNIFIED_PDF)
 @interface PDFDocument (IPI)
@@ -147,18 +151,6 @@
 @end
 #endif
 
-#if HAVE(PDFDOCUMENT_SELECTION_WITH_GRANULARITY)
-typedef NS_ENUM(NSUInteger, PDFSelectionGranularity);
-
-#define PDFSelectionGranularityCharacter 0
-#define PDFSelectionGranularityWord 1
-#define PDFSelectionGranularityLine 2
-
-@interface PDFDocument (Staging_122179178)
-- (/*nullable*/ PDFSelection *)selectionFromPage:(PDFPage *)startPage atPoint:(PDFPoint)startPoint toPage:(PDFPage *)endPage atPoint:(PDFPoint)endPoint withGranularity:(PDFSelectionGranularity)granularity;
-@end
-#endif
-
 #if ENABLE(UNIFIED_PDF_DATA_DETECTION)
 
 #if HAVE(PDFDOCUMENT_ENABLE_DATA_DETECTORS)
@@ -172,14 +164,6 @@ typedef NS_ENUM(NSUInteger, PDFSelectionGranularity);
 - (NSArray *)dataDetectorResults;
 @end
 #endif
-
-#endif
-
-#if HAVE(PDFSELECTION_ENUMERATE_RECTS_AND_TRANSFORMS)
-
-@interface PDFSelection (Staging_125426369)
-- (void)enumerateRectsAndTransformsForPage:(PDFPage *)page usingBlock:(void (^)(CGRect rect, CGAffineTransform transform))block;
-@end
 
 #endif
 
@@ -197,4 +181,8 @@ typedef NS_ENUM(NSUInteger, PDFSelectionGranularity);
 // FIXME: Move this declaration inside the !USE(APPLE_INTERNAL_SDK) block once rdar://problem/118903435 is in builds.
 @interface PDFDocument (AX)
 - (NSArray *)accessibilityChildren:(id)parent;
+@end
+
+@interface PDFAnnotation (AccessibilityPrivate)
+- (id)accessibilityNode;
 @end

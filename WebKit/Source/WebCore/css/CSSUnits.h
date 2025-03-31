@@ -79,7 +79,6 @@ enum class CSSUnitType : uint8_t {
     CSS_URI,
     CSS_IDENT,
     CSS_ATTR,
-    CSS_RGBCOLOR,
 
     CSS_VW,
     CSS_VH,
@@ -137,14 +136,10 @@ enum class CSSUnitType : uint8_t {
     CSS_RIC,
 
     CSS_CALC,
-    CSS_CALC_PERCENTAGE_WITH_NUMBER,
+    CSS_CALC_PERCENTAGE_WITH_ANGLE,
     CSS_CALC_PERCENTAGE_WITH_LENGTH,
 
-    CSS_ANCHOR,
-
     CSS_FONT_FAMILY,
-
-    CSS_UNRESOLVED_COLOR,
 
     CSS_PROPERTY_ID,
     CSS_VALUE_ID,

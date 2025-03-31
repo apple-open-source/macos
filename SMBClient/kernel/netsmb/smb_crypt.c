@@ -2250,6 +2250,11 @@ int smb3_msg_decrypt(struct smb_session *sessionp, mbuf_t *mb)
     
     // Need msglen from tf header for cypher init
     msglen = letohl(tf_hdr->orig_msg_size);
+    if (msglen > kDefaultMaxIOSize) {
+        SMBERROR("msglen<%d> > kDefaultMaxIOSize <%d>", msglen, kDefaultMaxIOSize);
+        error = EIO;
+        goto out;
+    }
     
     // Init the cipher
     switch (sessionp->session_smb3_encrypt_ciper) {
@@ -3154,7 +3159,7 @@ smb2_rq_compress_chunk(struct smb_session *sessionp, uint16_t algorithm,
     /*
      * Any uncompressed data left to check for backwards data pattern?
      */
-    if (RemainingChunkSize) {
+    if (RemainingChunkSize && (write_buffer_len >= 2)) {
         /*
          * Scan for backwards data pattern
          */
@@ -3452,6 +3457,15 @@ smb2_rq_compress_write(struct smb_rq *rqp)
      * Minimum of two for the data pattern checks later on in this code
      */
     write_buffer_len = hdr_write.length;
+    if (write_buffer_len > kDefaultMaxIOSize) {
+        /*
+         * We should only create IO up to kDefaultMaxIOSize
+         */
+        SMBERROR("write_buffer_len<%d> > kDefaultMaxIOSize<%d>\n", write_buffer_len, kDefaultMaxIOSize);
+        error = E2BIG;
+        goto bad;
+    }
+
     if ((write_buffer_len < 2) ||
         (write_buffer_len < sessionp->compression_io_threshold)) {
         /*SMB_LOG_COMPRESS("Write too small to compress %u < %u \n",
@@ -3792,7 +3806,7 @@ smb2_rq_decompress_read(struct smb_session *sessionp, mbuf_t *mpp)
     uint32_t buffer_len = 0, data_len = 0, compress_len = 0;
     uint32_t protocol_id = 0, original_payload_size = 0;
     uint16_t algorithm, flags;
-    size_t actual_len = 0;
+    size_t actual_len = 0, remaining_size = 0;
     struct smb2_header smb2_hdr = {0}, *smb2_hdrp = NULL;
     
 #if COMPRESSION_PERFORMANCE
@@ -3909,6 +3923,12 @@ smb2_rq_decompress_read(struct smb_session *sessionp, mbuf_t *mpp)
             /* Chained compression - Get CompressedDataLength */
             error = md_get_uint32le(&compressed_mdp, &compress_len);
             if (error) {
+                goto bad;
+            }
+            remaining_size = md_get_size(&compressed_mdp);
+            if (compress_len > remaining_size) {
+                SMBERROR("compress_len<%u> larger than remaining_size<%zu>", compress_len, remaining_size);
+                error = E2BIG;
                 goto bad;
             }
             SMB_LOG_COMPRESS("compress_len: %d (0x%x) \n", compress_len, compress_len);

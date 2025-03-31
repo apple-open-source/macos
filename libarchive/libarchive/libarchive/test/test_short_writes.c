@@ -169,8 +169,8 @@ checker_check(struct checker *checker)
 static void
 checker_free(struct checker *checker)
 {
-        archive_free(checker->short_archive);
-        archive_free(checker->full_archive);
+        archive_read_free(checker->short_archive);
+        archive_read_free(checker->full_archive);
         free(checker->shortbuf);
         free(checker->fullbuf);
         free(checker);

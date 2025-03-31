@@ -42,7 +42,7 @@ class OctagonSelfPeerKeys: NSObject, CKKSSelfPeer {
     }
 }
 
-extension TPPeerPermanentInfo: CKKSPeer {
+extension TPPeerPermanentInfo: @retroactive CKKSPeer {
     public var publicEncryptionKey: _SFECPublicKey? {
         return self.encryptionPubKey as? _SFECPublicKey
     }

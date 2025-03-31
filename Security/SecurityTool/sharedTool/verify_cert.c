@@ -31,6 +31,8 @@
 #include <Security/SecPolicy.h>
 #include <Security/SecPolicyPriv.h>
 #include <utilities/fileIo.h>
+#include "trusted_cert_ssl.h"
+#include "trusted_cert_utils.h"
 
 #include <sys/stat.h>
 #include <stdio.h>
@@ -80,66 +82,29 @@ errOut:
 CFStringRef policyToConstant(const char *policy) {
     if (policy == NULL) {
         return NULL;
-    }
-    else if (!strcmp(policy, "basic")) {
+    } else if (!strcmp(policy, "basic")) {
         return kSecPolicyAppleX509Basic;
-    }
-    else if (!strcmp(policy, "ssl")) {
+    } else if (!strcmp(policy, "ssl")) {
         return kSecPolicyAppleSSL;
-    }
-    else if (!strcmp(policy, "smime")) {
+    } else if (!strcmp(policy, "smime")) {
         return kSecPolicyAppleSMIME;
-    }
-    else if (!strcmp(policy, "eap")) {
+    } else if (!strcmp(policy, "eap")) {
         return kSecPolicyAppleEAP;
-    }
-    else if (!strcmp(policy, "IPSec")) {
+    } else if (!strcmp(policy, "IPSec")) {
         return kSecPolicyAppleIPsec;
-    }
-    else if (!strcmp(policy, "appleID")) {
+    } else if (!strcmp(policy, "appleID")) {
         return kSecPolicyAppleIDValidation;
-    }
-    else if (!strcmp(policy, "codeSign")) {
+    } else if (!strcmp(policy, "codeSign")) {
         return kSecPolicyAppleCodeSigning;
-    }
-    else if (!strcmp(policy, "timestamping")) {
+    } else if (!strcmp(policy, "timestamping")) {
         return kSecPolicyAppleTimeStamping;
-    }
-    else if (!strcmp(policy, "revocation")) {
+    } else if (!strcmp(policy, "revocation")) {
         return kSecPolicyAppleRevocation;
-    }
-    else if (!strcmp(policy, "passbook")) {
-        /* Passbook not implemented */
+    } else if (!strcmp(policy, "passbook")) {
+        return NULL; /* Passbook not implemented */
+    } else {
         return NULL;
     }
-    else {
-        return NULL;
-    }
-}
-
-static CFOptionFlags revCheckOptionStringToFlags(
-	const char *revCheckOption)
-{
-	CFOptionFlags result = 0;
-	if(revCheckOption == NULL) {
-		return result;
-	}
-	else if(!strcmp(revCheckOption, "ocsp")) {
-		result |= kSecRevocationOCSPMethod;
-	}
-	else if(!strcmp(revCheckOption, "crl")) {
-		result |= kSecRevocationCRLMethod;
-	}
-	else if(!strcmp(revCheckOption, "require")) {
-		result |= kSecRevocationRequirePositiveResponse;
-	}
-	else if(!strcmp(revCheckOption, "offline")) {
-		result |= kSecRevocationNetworkAccessDisabled;
-	}
-	else if(!strcmp(revCheckOption, "online")) {
-		result |= kSecRevocationOnlineCheck;
-	}
-	return result;
 }
 
 int verify_cert(int argc, char * const *argv) {
@@ -158,26 +123,32 @@ int verify_cert(int argc, char * const *argv) {
 
 	OSStatus ortn;
 	int ourRtn = 0;
+    int verbose = 0;
 	bool quiet = false;
+    bool useTLS = false;
+    bool printPem = false;
+    bool printDetails = false;
+    const char *url = NULL;
 
 	struct tm time;
 	CFGregorianDate gregorianDate;
 	CFDateRef dateRef = NULL;
 
-	CFStringRef policy = NULL;
+	CFStringRef policy = NULL; /* not allocated by us */
+    CFStringRef policyOidString = NULL;
 	SecPolicyRef policyRef = NULL;
 	SecPolicyRef revPolicyRef = NULL;
 	Boolean fetch = true;
 	SecTrustRef trustRef = NULL;
 	SecTrustResultType resultType;
+    CFErrorRef errorRef = NULL;
 
 	if (argc < 2) {
 		return SHOW_USAGE_MESSAGE;
 	}
 
 	optind = 1;
-
-	while ((arg = getopt(argc, argv, "Cc:r:p:d:n:LqR:")) != -1) {
+	while ((arg = getopt(argc, argv, "Cc:r:p:d:n:LPqR:v")) != -1) {
 		switch (arg) {
 			case 'c':
 				/* Can be specified multiple times */
@@ -197,11 +168,20 @@ int verify_cert(int argc, char * const *argv) {
 				break;
 			case 'p':
 				policy = policyToConstant(optarg);
-				if (policy == NULL) {
-					fprintf(stderr, "Policy processing error\n");
-					ourRtn = 2;
-					goto errOut;
-				}
+                if (policy == NULL && optarg != NULL) {
+                    /* input may be a policy oid string */
+                    const char *appleDataSecurityOidArc = "1.2.840.113635.100";
+                    unsigned long cmpLen = strlen(appleDataSecurityOidArc);
+                    if (strlen(optarg) > cmpLen &&
+                        !memcmp(optarg, appleDataSecurityOidArc, cmpLen)) {
+                        policyOidString = CFStringCreateWithCString(NULL, optarg, kCFStringEncodingUTF8);
+                    }
+                }
+                if (policy == NULL && policyOidString == NULL) {
+                    fprintf(stderr, "***unknown policy spec (%s)\n", optarg);
+                    ourRtn = 2;
+                    goto errOut;
+                }
 				break;
 			case 'L':
 				/* Force no network fetch of certs */
@@ -242,6 +222,13 @@ int verify_cert(int argc, char * const *argv) {
 			case 'R':
 				revOptions |= revCheckOptionStringToFlags(optarg);
 				break;
+            case 'P':
+                printPem = true;
+                break;
+            case 'v':
+                printDetails = true;
+                verbose++;
+                break;
 			default:
 				fprintf(stderr, "Usage error\n");
 				ourRtn = 2;
@@ -250,13 +237,25 @@ int verify_cert(int argc, char * const *argv) {
 	}
 
 	if (optind != argc) {
-		ourRtn = 2;
-		goto errOut;
+        if (argc > optind) {
+            url = argv[argc-1];
+        }
+        if (url && *url != '\0') {
+            useTLS = true;
+            ourRtn = evaluate_ssl(url, verbose, &trustRef);
+            goto post_evaluate;
+        } else {
+            ourRtn = 2;
+        }
+        goto errOut;
 	}
 
-	if (policy == NULL) {
+    if (policy == NULL && policyOidString == NULL) {
+        /* default policy is basic if none specified */
 		policy = kSecPolicyAppleX509Basic;
 	}
+    /* use policyID from this point on */
+    CFStringRef policyID = (policyOidString) ? policyOidString : policy;
 
 	if (certs == NULL) {
 		if (roots == NULL) {
@@ -276,7 +275,7 @@ int verify_cert(int argc, char * const *argv) {
 	}
 
 	/* Per-policy options */
-	if (!CFStringCompare(policy, kSecPolicyAppleSSL, 0) || !CFStringCompare(policy, kSecPolicyAppleIPsec, 0)) {
+	if (!CFStringCompare(policyID, kSecPolicyAppleSSL, 0) || !CFStringCompare(policyID, kSecPolicyAppleIPsec, 0)) {
 		dict = CFDictionaryCreateMutable(NULL, 2, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
 
 		if (name == NULL) {
@@ -287,12 +286,12 @@ int verify_cert(int argc, char * const *argv) {
 		CFDictionaryAddValue(dict, kSecPolicyName, name);
 		CFDictionaryAddValue(dict, kSecPolicyClient, client);
 	}
-	else if (!CFStringCompare(policy, kSecPolicyAppleEAP, 0)) {
+	else if (!CFStringCompare(policyID, kSecPolicyAppleEAP, 0)) {
 		dict = CFDictionaryCreateMutable(NULL, 1, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
 
 		CFDictionaryAddValue(dict, kSecPolicyClient, client);
 	}
-	else if (!CFStringCompare(policy, kSecPolicyAppleSMIME, 0)) {
+	else if (!CFStringCompare(policyID, kSecPolicyAppleSMIME, 0)) {
 		dict = CFDictionaryCreateMutable(NULL, 1, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
 
 		if (name == NULL) {
@@ -301,9 +300,20 @@ int verify_cert(int argc, char * const *argv) {
 			goto errOut;
 		}
 		CFDictionaryAddValue(dict, kSecPolicyName, name);
-	}
+    } else {
+        /* all other policy specifiers */
+        dict = CFDictionaryCreateMutable(NULL, 1, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+        if (name != NULL) {
+            CFDictionaryAddValue(dict, kSecPolicyName, name);
+        }
+    }
 
-	policyRef = SecPolicyCreateWithProperties(policy, dict);
+    policyRef = SecPolicyCreateWithProperties(policyID, dict);
+    if (!policyRef) {
+        fprintf(stderr, "*** policy creation failed for ");
+        CFShow(policyID);
+        goto errOut;
+    }
 
 	/* create policies array */
 	policies = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
@@ -351,7 +361,9 @@ int verify_cert(int argc, char * const *argv) {
 	}
 
 	/* Evaluate certs */
-	ortn = SecTrustEvaluate(trustRef, &resultType);
+    (void)SecTrustEvaluateWithError(trustRef, &errorRef);
+post_evaluate:
+    ortn = SecTrustGetTrustResult(trustRef, &resultType);
 	if (ortn) {
 		/* Should never fail - error doesn't mean the cert verified badly */
 		fprintf(stderr, "SecTrustEvaluate\n");
@@ -411,6 +423,40 @@ int verify_cert(int argc, char * const *argv) {
 	if ((ourRtn == 0) && !quiet) {
 		printf("...certificate verification successful.\n");
 	}
+    if (printPem || verbose) {
+        fprintf(stdout, "---\nCertificate chain\n");
+        printCertChain(trustRef, printPem, false);
+    }
+    if (verbose) {
+        printErrorDetails(trustRef);
+    }
+    if (useTLS) {
+        printExtendedResults(trustRef);
+    }
+    if (printDetails) {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+        CFArrayRef properties = SecTrustCopyProperties(trustRef);
+#pragma clang diagnostic pop
+        if (verbose > 1) {
+            fprintf(stderr, "---\nCertificate chain properties\n");
+            CFShow(properties); // output goes to stderr
+        }
+        if (properties) {
+            CFRelease(properties);
+        }
+        CFDictionaryRef result = SecTrustCopyResult(trustRef);
+        if (result) {
+            fprintf(stderr, "---\nTrust evaluation results\n");
+            CFShow(result); // output goes to stderr
+            CFRelease(result);
+        }
+        if (errorRef) {
+            fprintf(stdout, "---\nTrust evaluation errors\n");
+            CFShow(errorRef);
+        }
+    }
+
 errOut:
 	/* Cleanup */
 	CFRELEASE(certs);
@@ -421,6 +467,8 @@ errOut:
 	CFRELEASE(revPolicyRef);
 	CFRELEASE(policyRef);
 	CFRELEASE(trustRef);
+    CFRELEASE(errorRef);
 	CFRELEASE(name);
+    CFRELEASE(policyOidString);
 	return ourRtn;
 }

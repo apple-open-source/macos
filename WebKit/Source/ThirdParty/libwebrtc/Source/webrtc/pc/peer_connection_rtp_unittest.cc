@@ -12,11 +12,11 @@
 
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
 
-#include "absl/types/optional.h"
 #include "api/audio/audio_device.h"
 #include "api/audio/audio_mixer.h"
 #include "api/audio/audio_processing.h"
@@ -959,10 +959,10 @@ TEST_F(PeerConnectionRtpTestUnifiedPlan,
   auto caller = CreatePeerConnection();
 
   auto transceiver = caller->AddTransceiver(cricket::MEDIA_TYPE_AUDIO);
-  EXPECT_EQ(absl::nullopt, transceiver->mid());
+  EXPECT_EQ(std::nullopt, transceiver->mid());
   EXPECT_FALSE(transceiver->stopped());
   EXPECT_EQ(RtpTransceiverDirection::kSendRecv, transceiver->direction());
-  EXPECT_EQ(absl::nullopt, transceiver->current_direction());
+  EXPECT_EQ(std::nullopt, transceiver->current_direction());
 }
 
 // Test that adding a transceiver with the audio kind creates an audio sender
@@ -1781,6 +1781,36 @@ TEST_F(PeerConnectionRtpTestUnifiedPlan, CheckForInvalidEncodingParameters) {
 
   init.send_encodings[0].num_temporal_layers = 5;
   EXPECT_EQ(RTCErrorType::INVALID_RANGE,
+            caller->pc()
+                ->AddTransceiver(cricket::MEDIA_TYPE_VIDEO, init)
+                .error()
+                .type());
+  init.send_encodings = default_send_encodings;
+
+  init.send_encodings[0].scalability_mode = std::nullopt;
+  init.send_encodings[0].codec =
+      cricket::CreateVideoCodec(SdpVideoFormat("VP8", {})).ToCodecParameters();
+  EXPECT_EQ(RTCErrorType::NONE,
+            caller->pc()
+                ->AddTransceiver(cricket::MEDIA_TYPE_VIDEO, init)
+                .error()
+                .type());
+  init.send_encodings = default_send_encodings;
+
+  init.send_encodings[0].scalability_mode = "L1T2";
+  init.send_encodings[0].codec =
+      cricket::CreateVideoCodec(SdpVideoFormat("VP8", {})).ToCodecParameters();
+  EXPECT_EQ(RTCErrorType::NONE,
+            caller->pc()
+                ->AddTransceiver(cricket::MEDIA_TYPE_VIDEO, init)
+                .error()
+                .type());
+  init.send_encodings = default_send_encodings;
+
+  init.send_encodings[0].scalability_mode = "L2T2";
+  init.send_encodings[0].codec =
+      cricket::CreateVideoCodec(SdpVideoFormat("VP8", {})).ToCodecParameters();
+  EXPECT_EQ(RTCErrorType::UNSUPPORTED_OPERATION,
             caller->pc()
                 ->AddTransceiver(cricket::MEDIA_TYPE_VIDEO, init)
                 .error()

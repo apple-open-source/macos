@@ -29,8 +29,11 @@
 #include "IndexingHeader.h"
 #include "JSCJSValueInlines.h"
 #include "JSCell.h"
+#include "ResourceExhaustion.h"
 #include "Structure.h"
 #include "VirtualRegister.h"
+
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
 
 namespace JSC {
 
@@ -62,10 +65,15 @@ public:
         return result;
     }
 
+    static JSImmutableButterfly* tryCreate(VM& vm, IndexingType indexingType, unsigned length)
+    {
+        return tryCreate(vm, vm.immutableButterflyStructures[arrayIndexFromIndexingType(indexingType) - NumberOfIndexingShapes].get(), length);
+    }
+
     static JSImmutableButterfly* create(VM& vm, IndexingType indexingType, unsigned length)
     {
-        auto* array = tryCreate(vm, vm.immutableButterflyStructures[arrayIndexFromIndexingType(indexingType) - NumberOfIndexingShapes].get(), length);
-        RELEASE_ASSERT(array);
+        auto* array = tryCreate(vm, indexingType, length);
+        RELEASE_ASSERT_RESOURCE_AVAILABLE(array, MemoryExhaustion, "Crash intentionally because memory is exhausted.");
         return array;
     }
 
@@ -140,8 +148,8 @@ public:
     unsigned vectorLength() const { return m_header.vectorLength(); }
     unsigned length() const { return m_header.publicLength(); }
 
-    Butterfly* toButterfly() const { return bitwise_cast<Butterfly*>(bitwise_cast<char*>(this) + offsetOfData()); }
-    static JSImmutableButterfly* fromButterfly(Butterfly* butterfly) { return bitwise_cast<JSImmutableButterfly*>(bitwise_cast<char*>(butterfly) - offsetOfData()); }
+    Butterfly* toButterfly() const { return std::bit_cast<Butterfly*>(std::bit_cast<char*>(this) + offsetOfData()); }
+    static JSImmutableButterfly* fromButterfly(Butterfly* butterfly) { return std::bit_cast<JSImmutableButterfly*>(std::bit_cast<char*>(butterfly) - offsetOfData()); }
 
     JSValue get(unsigned index) const
     {
@@ -209,3 +217,5 @@ private:
 };
 
 } // namespace JSC
+
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_END

@@ -31,7 +31,10 @@
 
 #include <sys/time.h>
 #include <mach_debug/zone_info.h>
+#include <sys/param.h>
+#if BSD_KERNEL_PRIVATE
 #include <sys/proc.h>
+#endif /* BSD_KERNEL_PRIVATE */
 #include <sys/reason.h>
 #include <stdbool.h>
 
@@ -100,13 +103,26 @@ enum {
 	kMemorystatusLevelCritical = 3
 };
 
+typedef uint32_t memorystatus_proc_state_t;
+
 typedef struct memorystatus_priority_entry {
 	pid_t pid;
 	int32_t priority;
 	uint64_t user_data;
 	int32_t limit;  /* MB */
-	uint32_t state;
+	memorystatus_proc_state_t state;
 } memorystatus_priority_entry_t;
+
+typedef struct memorystatus_priority_entry_v2 {
+	pid_t    pid;
+	int32_t  priority;
+	uint64_t user_data;
+	int32_t  limit; /* MB */
+	memorystatus_proc_state_t state;
+	uint64_t priority_start_mtime;
+
+	uint8_t  _reserved[96];
+} memorystatus_priority_entry_v2_t;
 
 /*
  * This should be the structure to specify different properties
@@ -128,7 +144,7 @@ typedef struct memorystatus_properties_entry_v1 {
 	int use_probability;
 	uint64_t user_data;
 	int32_t limit;  /* MB */
-	uint32_t state;
+	memorystatus_proc_state_t state;
 	char proc_name[MAXCOMLEN + 1];
 	char __pad1[3];
 } memorystatus_properties_entry_v1_t;
@@ -188,7 +204,7 @@ typedef struct jetsam_snapshot_entry {
 	pid_t    pid;
 	char     name[(2 * MAXCOMLEN) + 1];
 	int32_t  priority;
-	uint32_t state;
+	memorystatus_proc_state_t state;
 	uint32_t fds;
 	memorystatus_freeze_skip_reason_t jse_freeze_skip_reason; /* why wasn't this process frozen? */
 	uint8_t  uuid[16];
@@ -231,33 +247,21 @@ typedef struct jetsam_snapshot {
 /* TODO - deprecate; see <rdar://problem/12969599> */
 #define kMaxSnapshotEntries 192
 
-/*
- * default jetsam snapshot support
- */
-extern memorystatus_jetsam_snapshot_t *memorystatus_jetsam_snapshot;
-extern memorystatus_jetsam_snapshot_t *memorystatus_jetsam_snapshot_copy;
-#if CONFIG_FREEZE
-extern memorystatus_jetsam_snapshot_t *memorystatus_jetsam_snapshot_freezer;
-extern unsigned int memorystatus_jetsam_snapshot_freezer_max;
-extern unsigned int memorystatus_jetsam_snapshot_freezer_size;
-#endif /* CONFIG_FREEZE */
-extern unsigned int memorystatus_jetsam_snapshot_count;
-extern unsigned int memorystatus_jetsam_snapshot_copy_count;
-extern unsigned int memorystatus_jetsam_snapshot_max;
-extern unsigned int memorystatus_jetsam_snapshot_size;
-extern uint64_t memorystatus_jetsam_snapshot_last_timestamp;
-extern uint64_t memorystatus_jetsam_snapshot_timeout;
 #define memorystatus_jetsam_snapshot_list memorystatus_jetsam_snapshot->entries
 #define JETSAM_SNAPSHOT_TIMEOUT_SECS 30
 
 /* State */
-#define kMemorystatusSuspended        0x01
-#define kMemorystatusFrozen           0x02
-#define kMemorystatusWasThawed        0x04
-#define kMemorystatusTracked          0x08
-#define kMemorystatusSupportsIdleExit 0x10
-#define kMemorystatusDirty            0x20
-#define kMemorystatusAssertion        0x40
+#define kMemorystatusSuspended        0x001
+#define kMemorystatusFrozen           0x002
+#define kMemorystatusWasThawed        0x004
+#define kMemorystatusTracked          0x008
+#define kMemorystatusSupportsIdleExit 0x010
+#define kMemorystatusDirty            0x020
+#define kMemorystatusAssertion        0x040
+#define kMemorystatusActive           0x080
+#define kMemorystatusRelaunchLow      0x100
+#define kMemorystatusRelaunchMed      0x200
+#define kMemorystatusRelaunchHigh     0x400
 
 /*
  * Jetsam exit reason definitions - related to memorystatus
@@ -283,7 +287,9 @@ extern uint64_t memorystatus_jetsam_snapshot_timeout;
 #define JETSAM_REASON_LOWSWAP                            13
 #define JETSAM_REASON_MEMORY_SUSTAINED_PRESSURE          14
 #define JETSAM_REASON_MEMORY_VMPAGEOUT_STARVATION        15
-#define JETSAM_REASON_MEMORYSTATUS_MAX  JETSAM_REASON_MEMORY_VMPAGEOUT_STARVATION
+#define JETSAM_REASON_MEMORY_LONGIDLE_EXIT               17 /* Skips 16 on purpose to make room for conclave limit reason */
+#define JETSAM_REASON_MEMORYSTATUS_MAX  JETSAM_REASON_MEMORY_LONGIDLE_EXIT
+
 /* non-memorystatus jetsam reasons */
 #define JETSAM_REASON_CPULIMIT                           100
 typedef uint64_t jetsam_reason_t;
@@ -300,6 +306,7 @@ typedef enum {
 	kMemorystatusKilledPerProcessLimit = JETSAM_REASON_MEMORY_PERPROCESSLIMIT,
 	kMemorystatusKilledDiskSpaceShortage = JETSAM_REASON_MEMORY_DISK_SPACE_SHORTAGE,
 	kMemorystatusKilledIdleExit = JETSAM_REASON_MEMORY_IDLE_EXIT,
+	kMemorystatusKilledLongIdleExit = JETSAM_REASON_MEMORY_LONGIDLE_EXIT,
 	kMemorystatusKilledZoneMapExhaustion = JETSAM_REASON_ZONE_MAP_EXHAUSTION,
 	kMemorystatusKilledVMCompressorThrashing = JETSAM_REASON_MEMORY_VMCOMPRESSOR_THRASHING,
 	kMemorystatusKilledVMCompressorSpaceShortage = JETSAM_REASON_MEMORY_VMCOMPRESSOR_SPACE_SHORTAGE,
@@ -320,7 +327,7 @@ typedef enum {
 /* Memorystatus control */
 #define MEMORYSTATUS_BUFFERSIZE_MAX 65536
 
-#ifndef KERNEL
+#if !KERNEL
 __BEGIN_DECLS
 int memorystatus_get_level(user_addr_t level);
 int memorystatus_control(uint32_t command, int32_t pid, uint32_t flags, void *buffer, size_t buffersize);
@@ -373,6 +380,10 @@ __END_DECLS
 #define MEMORYSTATUS_CMD_GET_JETSAM_ZPRINT_INFO       33   /* Get jetsam snapshot zprint zone info */
 #define MEMORYSTATUS_CMD_GET_JETSAM_ZPRINT_MEMINFO    34   /* Get jetsam snapshot zprint wired memory info */
 
+#define MEMORYSTATUS_CMD_GET_PRIORITY_LIST_V2         35 /* Get priority list with v2 struct */
+
+#define MEMORYSTATUS_CMD_GET_KILL_COUNTS              37 /* Get kill counts */
+
 /* Commands that act on a group of processes */
 #define MEMORYSTATUS_CMD_GRP_SET_PROPERTIES           100
 
@@ -400,6 +411,7 @@ __END_DECLS
 #if PRIVATE
 #define MEMORYSTATUS_FLAGS_SET_TESTING_PID     0x20 /* Only used by xnu unit tests. */
 #define MEMORYSTATUS_FLAGS_UNSET_TESTING_PID   0x40 /* Only used by xnu unit tests. */
+#define MEMORYSTATUS_FLAGS_SET_IMP_TESTING_PID 0x80 /* Only used by xnu tests. */
 #endif /* PRIVATE */
 
 #define MEMORYSTATUS_FLAGS_SNAPSHOT_FREEZER             0x80    /* A snapshot buffer containing app kills since last consumption */
@@ -481,7 +493,15 @@ typedef struct memorystatus_diag_memlimit_properties {
 } memorystatus_diag_memlimit_properties_t;
 
 
-#ifdef XNU_KERNEL_PRIVATE
+/*
+ * For use with MEMORYSTATUS_CMD_GET_KILL_COUNTS
+ */
+
+__options_closed_decl(memstat_get_kill_counts_options_t, int, {
+	MEMORYSTATUS_GET_KILL_COUNTS_CLEAR = 0x1 /* Flag to clear kill counts list */
+});
+
+#ifdef BSD_KERNEL_PRIVATE
 
 /*
  * A process will be killed immediately if it crosses a memory limit marked as fatal.
@@ -532,6 +552,7 @@ typedef struct memorystatus_diag_memlimit_properties {
 #define P_MEMSTAT_SKIP                            0x00080000   /* Process is temporarily ineligible for memory pressure kills. Used only on development & debug kernels to make corpses of buggy processes */
 #define P_MEMSTAT_FROZEN_XPC_SERVICE              0x00100000   /* Process is an XPC service. Only used for freezer telemetry. */
 #define P_MEMSTAT_FROZEN_FOCAL_THAW               0x00200000 /* Process has been thawed while focal in the current freezer interval. Only used for freezer telemetry. */
+#define P_MEMSTAT_TEST_IMP_ASSERTION              0x00400000 /* Used for testing to pretend a process has an importance assertion. */
 
 /*
  * p_memstat_relaunch_flags holds
@@ -657,25 +678,11 @@ int  memorystatus_get_proccnt_upto_priority(int32_t max_bucket_index);
 extern unsigned int memorystatus_swap_all_apps;
 
 /*
- * Synchronous memorystatus kill calls.
- */
-
-boolean_t memorystatus_kill_on_VM_page_shortage(void);
-boolean_t memorystatus_kill_on_vnode_limit(void);
-boolean_t memorystatus_kill_on_sustained_pressure(void);
-
-/*
  * Wake up the memorystatus thread so it can do async kills.
  * The memorystatus thread will keep killing until the system is
  * considered healthy.
  */
 void memorystatus_thread_wake(void);
-
-/*
- * Attempt to kill the specified pid with the given reason.
- * Consumes a reference on the jetsam_reason.
- */
-boolean_t memorystatus_kill_with_jetsam_reason_sync(pid_t pid, os_reason_t jetsam_reason);
 
 void jetsam_on_ledger_cpulimit_exceeded(void);
 
@@ -690,10 +697,6 @@ bool memorystatus_disable_swap(void);
 
 #endif /* CONFIG_JETSAM */
 
-boolean_t memorystatus_kill_on_zone_map_exhaustion(pid_t pid);
-boolean_t memorystatus_kill_on_VM_compressor_space_shortage(boolean_t async);
-void memorystatus_kill_on_vps_starvation(void);
-boolean_t memorystatus_idle_exit_from_VM(void);
 proc_t memorystatus_get_first_proc_locked(unsigned int *bucket_index, boolean_t search);
 proc_t memorystatus_get_next_proc_locked(unsigned int *bucket_index, proc_t p, boolean_t search);
 void memorystatus_get_task_page_counts(task_t task, uint32_t *footprint, uint32_t *max_footprint_lifetime, uint32_t *purgeable_pages);
@@ -714,9 +717,6 @@ extern int memorystatus_send_pressure_note(int pid);
 extern boolean_t memorystatus_is_foreground_locked(proc_t p);
 extern boolean_t memorystatus_bg_pressure_eligible(proc_t p);
 #endif /* CONFIG_MEMORYSTATUS */
-
 #endif /* VM_PRESSURE_EVENTS */
-
-#endif /* XNU_KERNEL_PRIVATE */
-
+#endif /* BSD_KERNEL_PRIVATE */
 #endif /* SYS_MEMORYSTATUS_H */

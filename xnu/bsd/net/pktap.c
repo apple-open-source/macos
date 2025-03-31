@@ -1026,12 +1026,13 @@ pktap_fill_proc_info(struct pktap_header *hdr, protocol_family_t proto,
 				wildcard = 1;
 			}
 			if (pcbinfo != NULL) {
-				inp = in_pcblookup_hash(pcbinfo, faddr, fport,
-				    laddr, lport, wildcard, outgoing ? NULL : ifp);
+				inp = in_pcblookup_hash_try(pcbinfo, faddr,
+				    fport, laddr, lport, wildcard,
+				    outgoing ? NULL : ifp);
 
 				if (inp == NULL && hdr->pth_iftype != IFT_LOOP) {
 					PKTAP_LOG(PKTP_LOG_NOPCB,
-					    "in_pcblookup_hash no pcb %s\n",
+					    "in_pcblookup_hash_try no pcb %s\n",
 					    hdr->pth_ifname);
 				}
 			} else {
@@ -1092,12 +1093,12 @@ pktap_fill_proc_info(struct pktap_header *hdr, protocol_family_t proto,
 				wildcard = 1;
 			}
 			if (pcbinfo != NULL) {
-				inp = in6_pcblookup_hash(pcbinfo, faddr, fport, ip6_input_getdstifscope(m),
+				inp = in6_pcblookup_hash_try(pcbinfo, faddr, fport, ip6_input_getdstifscope(m),
 				    laddr, lport, ip6_input_getsrcifscope(m), wildcard, outgoing ? NULL : ifp);
 
 				if (inp == NULL && hdr->pth_iftype != IFT_LOOP) {
 					PKTAP_LOG(PKTP_LOG_NOPCB,
-					    "in6_pcblookup_hash no pcb %s\n",
+					    "in6_pcblookup_hash_try no pcb %s\n",
 					    hdr->pth_ifname);
 				}
 			} else {

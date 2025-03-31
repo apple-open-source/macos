@@ -855,17 +855,37 @@ done:
 int
 smbfs_is_ancestor(vnode_t potential_ancestor, struct smbnode *np)
 {
-    vnode_t tmp = NULLVP;
-    vnode_t parent_vnode = smbfs_smb_get_parent(np, kShareLock);
+    vnode_t parent_vp = NULLVP;
+    int is_iocount_held = 0;
 
-    while (parent_vnode != NULLVP) {
-        if (parent_vnode == potential_ancestor) {
-            vnode_put(parent_vnode);
+    while (np != NULL) {
+        lck_rw_lock_shared(&np->n_parent_rwlock);
+        if (np->n_parent_vnode == potential_ancestor) {
+            lck_rw_unlock_shared(&np->n_parent_rwlock);
+            if (is_iocount_held) {
+                vnode_put(np->n_vnode);
+            }
             return TRUE;
         }
-        tmp = parent_vnode;
-        parent_vnode = smbfs_smb_get_parent(VTOSMB(parent_vnode), kShareLock);
-        vnode_put(tmp);
+        /*
+         * Get an iocount on the parent so we can move np to it
+         */
+        parent_vp = smbfs_smb_get_parent(np, 0);
+        lck_rw_unlock_shared(&np->n_parent_rwlock);
+        if (is_iocount_held) {
+            /*
+             * decrease the iocount on the current np
+             */
+            vnode_put(np->n_vnode);
+        }
+        if (parent_vp == NULL) {
+            break;
+        }
+        /*
+         * Move np to the parent
+         */
+        np = VTOSMB(parent_vp);
+        is_iocount_held = 1;
     }
     return FALSE;
 }
@@ -972,9 +992,9 @@ smbfs_nget(struct smb_share *share, struct mount *mp,
 			return (0);
         }
 
-        if (((share) && (SS_TO_SESSION(share)->session_flags & SMBV_SMB2) &&
-             (SS_TO_SESSION(share)->session_misc_flags & SMBV_HAS_FILEIDS)) &&
-            (vnode_vtype(*vpp) == VDIR)) {
+        if ((share) && (SS_TO_SESSION(share)->session_flags & SMBV_SMB2) &&
+            (SS_TO_SESSION(share)->session_misc_flags & SMBV_HAS_FILEIDS) &&
+            vnode_isdir(*vpp)) {
             /*
              * rdar://113593179
              * Some servers during an enumeration will auto resolve a symlink
@@ -985,25 +1005,24 @@ smbfs_nget(struct smb_share *share, struct mount *mp,
              * Do as many checks before smbfs_smb_get_parent() and
              * do the ancestor check last to reduce performance overhead
              */
-            parent_vp = smbfs_smb_get_parent(VTOSMB(*vpp), kShareLock);
-            if ((parent_vp && (parent_vp != dnp->n_vnode)) &&
-                smbfs_is_ancestor(*vpp, dnp)) {
+            lck_rw_lock_shared(&VTOSMB(*vpp)->n_parent_rwlock);
+            parent_vp = VTOSMB(*vpp)->n_parent_vnode;
+            lck_rw_unlock_shared(&VTOSMB(*vpp)->n_parent_rwlock);
+            if (parent_vp && dnp && (parent_vp != dnp->n_vnode)) {
                 /*
-                 * if the parent changed, it could mean the directory moved
-                 * but a directory cannot move to an ancestor
+                 * The saved parent is not dnp, this directory moved to dnp?
                  */
-                SMBERROR("found <%s>/<%s> for name <%s>, <%s> is ancestor of <%s> ", dnp->n_name,
-                         VTOSMB(*vpp)->n_name, name, VTOSMB(*vpp)->n_name, dnp->n_name);
-                smbnode_unlock(VTOSMB(*vpp));
-                vnode_put(*vpp);
-                vnode_put(parent_vp);
-                *vpp = NULL;
-                return EIO;
-            } else if (parent_vp) {
-                /*
-                 * smbfs_smb_get_parent() might return NULL
-                 */
-                vnode_put(parent_vp);
+                if (smbfs_is_ancestor(*vpp, dnp)) {
+                    /*
+                     * a directory cannot move to its decendant
+                     */
+                    SMBERROR("found <%s>/<%s> for name <%s>, <%s> is ancestor of <%s> ", dnp->n_name,
+                             VTOSMB(*vpp)->n_name, name, VTOSMB(*vpp)->n_name, dnp->n_name);
+                    smbnode_unlock(VTOSMB(*vpp));
+                    vnode_put(*vpp);
+                    *vpp = NULL;
+                    return EIO;
+                }
             }
         }
 

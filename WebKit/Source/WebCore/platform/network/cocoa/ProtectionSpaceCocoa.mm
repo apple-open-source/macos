@@ -27,7 +27,7 @@
 #import "ProtectionSpaceCocoa.h"
 
 #import <pal/spi/cf/CFNetworkSPI.h>
-#include <WebCore/RuntimeApplicationChecks.h>
+#import <wtf/RuntimeApplicationChecks.h>
 
 namespace WebCore {
 
@@ -39,8 +39,11 @@ static ProtectionSpace::ServerType type(NSURLProtectionSpace *space)
             return ProtectionSpace::ServerType::ProxyHTTP;
         if ([proxyType isEqualToString:NSURLProtectionSpaceHTTPSProxy])
             return ProtectionSpace::ServerType::ProxyHTTPS;
+// FIXME: rdar://144814079
+ALLOW_DEPRECATED_DECLARATIONS_BEGIN
         if ([proxyType isEqualToString:NSURLProtectionSpaceFTPProxy])
             return ProtectionSpace::ServerType::ProxyFTP;
+ALLOW_DEPRECATED_DECLARATIONS_END
         if ([proxyType isEqualToString:NSURLProtectionSpaceSOCKSProxy])
             return ProtectionSpace::ServerType::ProxySOCKS;
 
@@ -77,6 +80,7 @@ static ProtectionSpace::AuthenticationScheme scheme(NSURLProtectionSpace *space)
         return ProtectionSpace::AuthenticationScheme::NTLM;
     if ([method isEqualToString:NSURLAuthenticationMethodNegotiate])
         return ProtectionSpace::AuthenticationScheme::Negotiate;
+// FIXME: rdar://144814079
 #if USE(PROTECTION_SPACE_AUTH_CALLBACK)
     if ([method isEqualToString:NSURLAuthenticationMethodClientCertificate])
         return ProtectionSpace::AuthenticationScheme::ClientCertificateRequested;
@@ -87,7 +91,7 @@ static ProtectionSpace::AuthenticationScheme scheme(NSURLProtectionSpace *space)
         return ProtectionSpace::AuthenticationScheme::OAuth;
 
     ASSERT_NOT_REACHED();
-    return ProtectionSpace::AuthenticationScheme::Unknown;
+    return ProtectionSpace::AuthenticationScheme::Default;
 }
 
 ProtectionSpace::ProtectionSpace(NSURLProtectionSpace *space)
@@ -129,9 +133,12 @@ NSURLProtectionSpace *ProtectionSpace::nsSpace() const
     case ProtectionSpace::ServerType::ProxyHTTPS:
         proxyType = NSURLProtectionSpaceHTTPSProxy;
         break;
+// FIXME: rdar://144814079
+ALLOW_DEPRECATED_DECLARATIONS_BEGIN
     case ProtectionSpace::ServerType::ProxyFTP:
         proxyType = NSURLProtectionSpaceFTPProxy;
         break;
+ALLOW_DEPRECATED_DECLARATIONS_END
     case ProtectionSpace::ServerType::ProxySOCKS:
         proxyType = NSURLProtectionSpaceSOCKSProxy;
         break;

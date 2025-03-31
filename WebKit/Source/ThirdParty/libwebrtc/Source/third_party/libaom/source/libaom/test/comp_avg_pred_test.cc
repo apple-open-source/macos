@@ -14,7 +14,7 @@
 #include "config/aom_dsp_rtcd.h"
 #include "config/av1_rtcd.h"
 
-#include "third_party/googletest/src/googletest/include/gtest/gtest.h"
+#include "gtest/gtest.h"
 #include "test/acm_random.h"
 #include "test/util.h"
 #include "test/register_state_check.h"
@@ -47,9 +47,6 @@ typedef void (*DistWtdCompAvgFunc)(uint8_t *comp_pred, const uint8_t *pred,
 
 typedef std::tuple<distwtdcompavg_func, BLOCK_SIZE> AV1DistWtdCompAvgParam;
 
-typedef std::tuple<distwtdcompavgupsampled_func, BLOCK_SIZE>
-    AV1DistWtdCompAvgUpsampledParam;
-
 typedef std::tuple<int, int, DistWtdCompAvgFunc, int> DistWtdCompAvgParam;
 
 #if CONFIG_AV1_HIGHBITDEPTH
@@ -74,13 +71,6 @@ typedef std::tuple<int, distwtdcompavg_func, BLOCK_SIZE>
                             ::testing::Values(filter),
                             ::testing::Range(BLOCK_4X4, BLOCK_SIZES_ALL));
 }
-
-::testing::internal::ParamGenerator<HighbdDistWtdCompAvgUpsampledParam>
-BuildParams(highbddistwtdcompavgupsampled_func filter) {
-  return ::testing::Combine(::testing::Range(8, 13, 2),
-                            ::testing::Values(filter),
-                            ::testing::Range(BLOCK_4X4, BLOCK_SIZES_ALL));
-}
 #endif  // HAVE_SSE2 || HAVE_NEON
 #endif  // CONFIG_AV1_HIGHBITDEPTH
 
@@ -91,14 +81,6 @@ BuildParams(highbddistwtdcompavgupsampled_func filter) {
                             ::testing::Range(BLOCK_4X4, BLOCK_SIZES_ALL));
 }
 #endif  // HAVE_SSSE3
-
-#if HAVE_SSSE3 || HAVE_NEON
-::testing::internal::ParamGenerator<AV1DistWtdCompAvgUpsampledParam>
-BuildParams(distwtdcompavgupsampled_func filter) {
-  return ::testing::Combine(::testing::Values(filter),
-                            ::testing::Range(BLOCK_4X4, BLOCK_SIZES_ALL));
-}
-#endif  // HAVE_SSSE3 || HAVE_NEON
 
 class AV1DistWtdCompAvgTest
     : public ::testing::TestWithParam<AV1DistWtdCompAvgParam> {
@@ -204,135 +186,6 @@ class AV1DistWtdCompAvgTest
 };  // class AV1DistWtdCompAvgTest
 
 GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(AV1DistWtdCompAvgTest);
-
-class AV1DistWtdCompAvgUpsampledTest
-    : public ::testing::TestWithParam<AV1DistWtdCompAvgUpsampledParam> {
- public:
-  ~AV1DistWtdCompAvgUpsampledTest() override = default;
-  void SetUp() override { rnd_.Reset(ACMRandom::DeterministicSeed()); }
-
- protected:
-  void RunCheckOutput(distwtdcompavgupsampled_func test_impl) {
-    const int w = kMaxSize, h = kMaxSize;
-    const int block_idx = GET_PARAM(1);
-
-    uint8_t pred8[kMaxSize * kMaxSize];
-    uint8_t ref8[kMaxSize * kMaxSize];
-    DECLARE_ALIGNED(16, uint8_t, output[MAX_SB_SQUARE]);
-    DECLARE_ALIGNED(16, uint8_t, output2[MAX_SB_SQUARE]);
-
-    for (int i = 0; i < h; ++i)
-      for (int j = 0; j < w; ++j) {
-        pred8[i * w + j] = rnd_.Rand8();
-        ref8[i * w + j] = rnd_.Rand8();
-      }
-    const int in_w = block_size_wide[block_idx];
-    const int in_h = block_size_high[block_idx];
-
-    DIST_WTD_COMP_PARAMS dist_wtd_comp_params;
-    dist_wtd_comp_params.use_dist_wtd_comp_avg = 1;
-    int sub_x_q3, sub_y_q3;
-    int subpel_search;
-    for (subpel_search = USE_4_TAPS; subpel_search <= USE_8_TAPS;
-         ++subpel_search) {
-      for (sub_x_q3 = 0; sub_x_q3 < 8; ++sub_x_q3) {
-        for (sub_y_q3 = 0; sub_y_q3 < 8; ++sub_y_q3) {
-          for (int ii = 0; ii < 2; ii++) {
-            for (int jj = 0; jj < 4; jj++) {
-              dist_wtd_comp_params.fwd_offset = quant_dist_lookup_table[jj][ii];
-              dist_wtd_comp_params.bck_offset =
-                  quant_dist_lookup_table[jj][1 - ii];
-
-              const int offset_r = 3 + rnd_.PseudoUniform(h - in_h - 7);
-              const int offset_c = 3 + rnd_.PseudoUniform(w - in_w - 7);
-
-              aom_dist_wtd_comp_avg_upsampled_pred_c(
-                  nullptr, nullptr, 0, 0, nullptr, output,
-                  pred8 + offset_r * w + offset_c, in_w, in_h, sub_x_q3,
-                  sub_y_q3, ref8 + offset_r * w + offset_c, in_w,
-                  &dist_wtd_comp_params, subpel_search);
-              test_impl(nullptr, nullptr, 0, 0, nullptr, output2,
-                        pred8 + offset_r * w + offset_c, in_w, in_h, sub_x_q3,
-                        sub_y_q3, ref8 + offset_r * w + offset_c, in_w,
-                        &dist_wtd_comp_params, subpel_search);
-
-              for (int i = 0; i < in_h; ++i) {
-                for (int j = 0; j < in_w; ++j) {
-                  int idx = i * in_w + j;
-                  ASSERT_EQ(output[idx], output2[idx])
-                      << "Mismatch at unit tests for "
-                         "AV1DistWtdCompAvgUpsampledTest\n"
-                      << in_w << "x" << in_h << " Pixel mismatch at index "
-                      << idx << " = (" << i << ", " << j
-                      << "), sub pixel offset = (" << sub_y_q3 << ", "
-                      << sub_x_q3 << ")";
-                }
-              }
-            }
-          }
-        }
-      }
-    }
-  }
-  void RunSpeedTest(distwtdcompavgupsampled_func test_impl) {
-    const int w = kMaxSize, h = kMaxSize;
-    const int block_idx = GET_PARAM(1);
-
-    uint8_t pred8[kMaxSize * kMaxSize];
-    uint8_t ref8[kMaxSize * kMaxSize];
-    DECLARE_ALIGNED(16, uint8_t, output[MAX_SB_SQUARE]);
-    DECLARE_ALIGNED(16, uint8_t, output2[MAX_SB_SQUARE]);
-
-    for (int i = 0; i < h; ++i)
-      for (int j = 0; j < w; ++j) {
-        pred8[i * w + j] = rnd_.Rand8();
-        ref8[i * w + j] = rnd_.Rand8();
-      }
-    const int in_w = block_size_wide[block_idx];
-    const int in_h = block_size_high[block_idx];
-
-    DIST_WTD_COMP_PARAMS dist_wtd_comp_params;
-    dist_wtd_comp_params.use_dist_wtd_comp_avg = 1;
-
-    dist_wtd_comp_params.fwd_offset = quant_dist_lookup_table[0][0];
-    dist_wtd_comp_params.bck_offset = quant_dist_lookup_table[0][1];
-
-    int sub_x_q3 = 0;
-    int sub_y_q3 = 0;
-
-    const int num_loops = 1000000000 / (in_w + in_h);
-    aom_usec_timer timer;
-    aom_usec_timer_start(&timer);
-    int subpel_search = USE_8_TAPS;  // set to USE_4_TAPS to test 4-tap filter.
-
-    for (int i = 0; i < num_loops; ++i)
-      aom_dist_wtd_comp_avg_upsampled_pred_c(
-          nullptr, nullptr, 0, 0, nullptr, output, pred8, in_w, in_h, sub_x_q3,
-          sub_y_q3, ref8, in_w, &dist_wtd_comp_params, subpel_search);
-
-    aom_usec_timer_mark(&timer);
-    const int elapsed_time = static_cast<int>(aom_usec_timer_elapsed(&timer));
-    printf("distwtdcompavgupsampled c_code %3dx%-3d: %7.2f us\n", in_w, in_h,
-           1000.0 * elapsed_time / num_loops);
-
-    aom_usec_timer timer1;
-    aom_usec_timer_start(&timer1);
-
-    for (int i = 0; i < num_loops; ++i)
-      test_impl(nullptr, nullptr, 0, 0, nullptr, output2, pred8, in_w, in_h,
-                sub_x_q3, sub_y_q3, ref8, in_w, &dist_wtd_comp_params,
-                subpel_search);
-
-    aom_usec_timer_mark(&timer1);
-    const int elapsed_time1 = static_cast<int>(aom_usec_timer_elapsed(&timer1));
-    printf("distwtdcompavgupsampled test_code %3dx%-3d: %7.2f us\n", in_w, in_h,
-           1000.0 * elapsed_time1 / num_loops);
-  }
-
-  libaom_test::ACMRandom rnd_;
-};  // class AV1DistWtdCompAvgUpsampledTest
-
-GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(AV1DistWtdCompAvgUpsampledTest);
 
 class DistWtdCompAvgTest
     : public ::testing::WithParamInterface<DistWtdCompAvgParam>,
@@ -646,139 +499,6 @@ class AV1HighBDDistWtdCompAvgTest
 };  // class AV1HighBDDistWtdCompAvgTest
 
 GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(AV1HighBDDistWtdCompAvgTest);
-
-class AV1HighBDDistWtdCompAvgUpsampledTest
-    : public ::testing::TestWithParam<HighbdDistWtdCompAvgUpsampledParam> {
- public:
-  ~AV1HighBDDistWtdCompAvgUpsampledTest() override = default;
-  void SetUp() override { rnd_.Reset(ACMRandom::DeterministicSeed()); }
-
- protected:
-  void RunCheckOutput(highbddistwtdcompavgupsampled_func test_impl) {
-    const int w = kMaxSize, h = kMaxSize;
-    const int block_idx = GET_PARAM(2);
-    const int bd = GET_PARAM(0);
-    uint16_t pred8[kMaxSize * kMaxSize];
-    uint16_t ref8[kMaxSize * kMaxSize];
-    DECLARE_ALIGNED(16, uint16_t, output[kMaxSize * kMaxSize]);
-    DECLARE_ALIGNED(16, uint16_t, output2[kMaxSize * kMaxSize]);
-
-    for (int i = 0; i < h; ++i)
-      for (int j = 0; j < w; ++j) {
-        pred8[i * w + j] = rnd_.Rand16() & ((1 << bd) - 1);
-        ref8[i * w + j] = rnd_.Rand16() & ((1 << bd) - 1);
-      }
-    const int in_w = block_size_wide[block_idx];
-    const int in_h = block_size_high[block_idx];
-
-    DIST_WTD_COMP_PARAMS dist_wtd_comp_params;
-    dist_wtd_comp_params.use_dist_wtd_comp_avg = 1;
-    int sub_x_q3, sub_y_q3;
-    int subpel_search;
-    for (subpel_search = USE_4_TAPS; subpel_search <= USE_8_TAPS;
-         ++subpel_search) {
-      for (sub_x_q3 = 0; sub_x_q3 < 8; ++sub_x_q3) {
-        for (sub_y_q3 = 0; sub_y_q3 < 8; ++sub_y_q3) {
-          for (int ii = 0; ii < 2; ii++) {
-            for (int jj = 0; jj < 4; jj++) {
-              dist_wtd_comp_params.fwd_offset = quant_dist_lookup_table[jj][ii];
-              dist_wtd_comp_params.bck_offset =
-                  quant_dist_lookup_table[jj][1 - ii];
-
-              const int offset_r = 3 + rnd_.PseudoUniform(h - in_h - 7);
-              const int offset_c = 3 + rnd_.PseudoUniform(w - in_w - 7);
-
-              aom_highbd_dist_wtd_comp_avg_upsampled_pred_c(
-                  nullptr, nullptr, 0, 0, nullptr, CONVERT_TO_BYTEPTR(output),
-                  CONVERT_TO_BYTEPTR(pred8) + offset_r * w + offset_c, in_w,
-                  in_h, sub_x_q3, sub_y_q3,
-                  CONVERT_TO_BYTEPTR(ref8) + offset_r * w + offset_c, in_w, bd,
-                  &dist_wtd_comp_params, subpel_search);
-              test_impl(nullptr, nullptr, 0, 0, nullptr,
-                        CONVERT_TO_BYTEPTR(output2),
-                        CONVERT_TO_BYTEPTR(pred8) + offset_r * w + offset_c,
-                        in_w, in_h, sub_x_q3, sub_y_q3,
-                        CONVERT_TO_BYTEPTR(ref8) + offset_r * w + offset_c,
-                        in_w, bd, &dist_wtd_comp_params, subpel_search);
-
-              for (int i = 0; i < in_h; ++i) {
-                for (int j = 0; j < in_w; ++j) {
-                  int idx = i * in_w + j;
-                  ASSERT_EQ(output[idx], output2[idx])
-                      << "Mismatch at unit tests for "
-                         "AV1HighBDDistWtdCompAvgUpsampledTest\n"
-                      << in_w << "x" << in_h << " Pixel mismatch at index "
-                      << idx << " = (" << i << ", " << j
-                      << "), sub pixel offset = (" << sub_y_q3 << ", "
-                      << sub_x_q3 << ")";
-                }
-              }
-            }
-          }
-        }
-      }
-    }
-  }
-  void RunSpeedTest(highbddistwtdcompavgupsampled_func test_impl) {
-    const int w = kMaxSize, h = kMaxSize;
-    const int block_idx = GET_PARAM(2);
-    const int bd = GET_PARAM(0);
-    uint16_t pred8[kMaxSize * kMaxSize];
-    uint16_t ref8[kMaxSize * kMaxSize];
-    DECLARE_ALIGNED(16, uint16_t, output[kMaxSize * kMaxSize]);
-    DECLARE_ALIGNED(16, uint16_t, output2[kMaxSize * kMaxSize]);
-
-    for (int i = 0; i < h; ++i)
-      for (int j = 0; j < w; ++j) {
-        pred8[i * w + j] = rnd_.Rand16() & ((1 << bd) - 1);
-        ref8[i * w + j] = rnd_.Rand16() & ((1 << bd) - 1);
-      }
-    const int in_w = block_size_wide[block_idx];
-    const int in_h = block_size_high[block_idx];
-
-    DIST_WTD_COMP_PARAMS dist_wtd_comp_params;
-    dist_wtd_comp_params.use_dist_wtd_comp_avg = 1;
-
-    dist_wtd_comp_params.fwd_offset = quant_dist_lookup_table[0][0];
-    dist_wtd_comp_params.bck_offset = quant_dist_lookup_table[0][1];
-    int sub_x_q3 = 0;
-    int sub_y_q3 = 0;
-    const int num_loops = 1000000000 / (in_w + in_h);
-    aom_usec_timer timer;
-    aom_usec_timer_start(&timer);
-    int subpel_search = USE_8_TAPS;  // set to USE_4_TAPS to test 4-tap filter.
-    for (int i = 0; i < num_loops; ++i)
-      aom_highbd_dist_wtd_comp_avg_upsampled_pred_c(
-          nullptr, nullptr, 0, 0, nullptr, CONVERT_TO_BYTEPTR(output),
-          CONVERT_TO_BYTEPTR(pred8), in_w, in_h, sub_x_q3, sub_y_q3,
-          CONVERT_TO_BYTEPTR(ref8), in_w, bd, &dist_wtd_comp_params,
-          subpel_search);
-
-    aom_usec_timer_mark(&timer);
-    const int elapsed_time = static_cast<int>(aom_usec_timer_elapsed(&timer));
-    printf("highbddistwtdcompavgupsampled c_code %3dx%-3d: %7.2f us\n", in_w,
-           in_h, 1000.0 * elapsed_time / num_loops);
-
-    aom_usec_timer timer1;
-    aom_usec_timer_start(&timer1);
-
-    for (int i = 0; i < num_loops; ++i)
-      test_impl(nullptr, nullptr, 0, 0, nullptr, CONVERT_TO_BYTEPTR(output2),
-                CONVERT_TO_BYTEPTR(pred8), in_w, in_h, sub_x_q3, sub_y_q3,
-                CONVERT_TO_BYTEPTR(ref8), in_w, bd, &dist_wtd_comp_params,
-                subpel_search);
-
-    aom_usec_timer_mark(&timer1);
-    const int elapsed_time1 = static_cast<int>(aom_usec_timer_elapsed(&timer1));
-    printf("highbddistwtdcompavgupsampled test_code %3dx%-3d: %7.2f us\n", in_w,
-           in_h, 1000.0 * elapsed_time1 / num_loops);
-  }
-
-  libaom_test::ACMRandom rnd_;
-};  // class AV1HighBDDistWtdCompAvgUpsampledTest
-
-GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(
-    AV1HighBDDistWtdCompAvgUpsampledTest);
 #endif  // CONFIG_AV1_HIGHBITDEPTH
 
 TEST_P(AV1DistWtdCompAvgTest, DISABLED_Speed) { RunSpeedTest(GET_PARAM(0)); }
@@ -789,26 +509,6 @@ TEST_P(AV1DistWtdCompAvgTest, CheckOutput) { RunCheckOutput(GET_PARAM(0)); }
 INSTANTIATE_TEST_SUITE_P(SSSE3, AV1DistWtdCompAvgTest,
                          BuildParams(aom_dist_wtd_comp_avg_pred_ssse3));
 #endif
-
-TEST_P(AV1DistWtdCompAvgUpsampledTest, DISABLED_Speed) {
-  RunSpeedTest(GET_PARAM(0));
-}
-
-TEST_P(AV1DistWtdCompAvgUpsampledTest, CheckOutput) {
-  RunCheckOutput(GET_PARAM(0));
-}
-
-#if HAVE_SSSE3
-INSTANTIATE_TEST_SUITE_P(
-    SSSE3, AV1DistWtdCompAvgUpsampledTest,
-    BuildParams(aom_dist_wtd_comp_avg_upsampled_pred_ssse3));
-#endif
-
-#if HAVE_NEON
-INSTANTIATE_TEST_SUITE_P(
-    NEON, AV1DistWtdCompAvgUpsampledTest,
-    BuildParams(aom_dist_wtd_comp_avg_upsampled_pred_neon));
-#endif  // HAVE_NEON
 
 TEST_P(DistWtdCompAvgTest, MaxRef) {
   FillConstant(reference_data_, reference_stride_, mask_);
@@ -959,27 +659,6 @@ INSTANTIATE_TEST_SUITE_P(NEON, AV1HighBDDistWtdCompAvgTest,
                          BuildParams(aom_highbd_dist_wtd_comp_avg_pred_neon,
                                      1));
 #endif
-
-TEST_P(AV1HighBDDistWtdCompAvgUpsampledTest, DISABLED_Speed) {
-  RunSpeedTest(GET_PARAM(1));
-}
-
-TEST_P(AV1HighBDDistWtdCompAvgUpsampledTest, CheckOutput) {
-  RunCheckOutput(GET_PARAM(1));
-}
-
-#if HAVE_SSE2
-INSTANTIATE_TEST_SUITE_P(
-    SSE2, AV1HighBDDistWtdCompAvgUpsampledTest,
-    BuildParams(aom_highbd_dist_wtd_comp_avg_upsampled_pred_sse2));
-#endif
-
-#if HAVE_NEON
-INSTANTIATE_TEST_SUITE_P(
-    NEON, AV1HighBDDistWtdCompAvgUpsampledTest,
-    BuildParams(aom_highbd_dist_wtd_comp_avg_upsampled_pred_neon));
-#endif
-
 #endif  // CONFIG_AV1_HIGHBITDEPTH
 
 }  // namespace

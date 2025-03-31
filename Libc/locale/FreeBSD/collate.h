@@ -173,6 +173,8 @@ __darwin_wchar_t	*__collate_mbstowcs(const char *, locale_t);
 __darwin_wchar_t	*__collate_wcsdup(const __darwin_wchar_t *);
 __darwin_wchar_t	*__collate_substitute(const __darwin_wchar_t *, int, locale_t);
 int	__collate_load_tables(const char *, locale_t);
+void	_collate_lookup(struct xlocale_collate *,const wchar_t *, int *, int *,
+	int, const int **);
 void	__collate_lookup_l(const __darwin_wchar_t *, int *, int *, int *, locale_t);
 void	__collate_lookup_which(const __darwin_wchar_t *, int *, int *, int, locale_t);
 void	__collate_xfrm(const __darwin_wchar_t *, __darwin_wchar_t **, locale_t);

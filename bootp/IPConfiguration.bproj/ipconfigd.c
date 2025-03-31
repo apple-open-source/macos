@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2024 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2025 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -618,7 +618,8 @@ static io_connect_t 		S_power_connection;
 static SCDynamicStoreRef	S_scd_session;
 static CFStringRef		S_setup_service_prefix;
 static CFStringRef		S_state_interface_prefix;
-static char * 			S_computer_name;
+static char * 			S_dhcp_hostname;
+static char *			S_dns_hostname;
 static CFStringRef		S_computer_name_key;
 static CFStringRef		S_hostnames_key;
 static int			S_arp_probe_count = ARP_PROBE_COUNT;
@@ -1214,110 +1215,56 @@ S_copy_neighbor_advert_list(SCDynamicStoreRef store, CFStringRef ifname)
  **/
 
 PRIVATE_EXTERN char *
-computer_name()
+get_dhcp_hostname(void)
 {
-    return (S_computer_name);
+    return (S_dhcp_hostname);
 }
 
-/* 
- *	Try to shorten the length of the string by replacing certain
- *	product names.  If still not short enough, eliminate -'s.
- *	If still not short enough, remove enough of the middle part of
- *	the remaining string to make it 'desired_length'.
- */
-static CFStringRef
-myCFStringCopyShortenedString(CFStringRef computer_name, int desired_length)
+PRIVATE_EXTERN char *
+get_dns_hostname(void)
 {
-    CFMutableStringRef short_name;
-    CFIndex len, delete_len;
-
-#define MINIMUM_SHORTENED_STRING_LENGTH 3 //  Min 3 chars <first part>-<last part>
-
-    
-    if (computer_name == NULL
-	|| desired_length < MINIMUM_SHORTENED_STRING_LENGTH) {
-	return NULL;
-    }
-    short_name  = CFStringCreateMutableCopy(kCFAllocatorDefault, 0, computer_name);
-
-    /*
-     * shorten commonly used long names like MacBook-Pro, MacBook-Air
-     */
-    CFStringFindAndReplace(short_name, CFSTR("macbook-air"), CFSTR("Air"), CFRangeMake(0, CFStringGetLength(computer_name)), kCFCompareCaseInsensitive);
-    CFStringFindAndReplace(short_name, CFSTR("macbook-pro"), CFSTR("MBP"), CFRangeMake(0, CFStringGetLength(computer_name)), kCFCompareCaseInsensitive);
-    CFStringFindAndReplace(short_name, CFSTR("mac-mini"), CFSTR("Mini"), CFRangeMake(0, CFStringGetLength(computer_name)), kCFCompareCaseInsensitive);
-    CFStringFindAndReplace(short_name, CFSTR("mac-pro"), CFSTR("Pro"), CFRangeMake(0, CFStringGetLength(computer_name)), kCFCompareCaseInsensitive);
-    
-    // recompute the new string length
-    len = CFStringGetLength(short_name);
-    if (len <= desired_length) {
-	/* shrinking long names worked */
-	return short_name;
-    }
-
-    CFStringFindAndReplace(short_name, CFSTR("-"), CFSTR(""), CFRangeMake(0, len-1), kCFCompareCaseInsensitive);
-    // recompute the new string length
-    len = CFStringGetLength(short_name);
-
-    if (len <= desired_length) {
-	/* computer name already short due to removal of '-'*/
-	return short_name;
-    }
-	
-    delete_len = len - desired_length;
-    // last option: eliminate the middle string, keep first and last part of the string
-    CFStringDelete(short_name,
-		   CFRangeMake(desired_length / 2, delete_len));
-    
-    return short_name;
-
+    return (S_dns_hostname);
 }
 
 static void
 computer_name_update(SCDynamicStoreRef session)
 {
-    char		buf[256];
+    CFStringRef		dhcp_hostname = NULL;
     CFStringEncoding	encoding;
-    CFStringRef 	name;
+    CFStringRef 	name = NULL;
 
-    if (session == NULL)
+    if (session == NULL) {
 	return;
-
-    if (S_computer_name) {
-	free(S_computer_name);
-	S_computer_name = NULL;
     }
+    MY_FREE(S_dhcp_hostname);
+    MY_FREE(S_dns_hostname);
 
+    /* use the ComputerName if it is DNS clean */
     name = SCDynamicStoreCopyComputerName(session, &encoding);
-    if (name == NULL) {
-	goto done;
+    if (name != NULL && _SC_CFStringIsValidDNSName(name)) {
+	/* DHCP client uses ComputerName without shortening it */
+	dhcp_hostname = CFRetain(name);
     }
-    if (_SC_CFStringIsValidDNSName(name) == FALSE) {
+    else {
+	/* use the LocalHostName if it is DNS clean */
 	my_CFRelease(&name);
 	name = SCDynamicStoreCopyLocalHostName(session);
-	if (name == NULL) {
+	if (name == NULL || !_SC_CFStringIsValidDNSName(name)) {
 	    goto done;
 	}
-	if (_SC_CFStringIsValidDNSName(name) == FALSE) {
-	    goto done;
-	}
-	if (CFStringGetLength(name) > S_dhcp_local_hostname_length_max) {
-	    /* don't exceed the maximum */
-	    CFStringRef short_name = myCFStringCopyShortenedString(name, S_dhcp_local_hostname_length_max);
-	    if (short_name == NULL) {
-		goto done;
-	    }
-	    my_CFRelease(&name);
-    	    name = short_name;
-	}
+	/* DHCP hostname may need to be shortened */
+	dhcp_hostname
+	    = myCopyDHCPSafeHostName(name,
+				     S_dhcp_local_hostname_length_max);
     }
-    if (CFStringGetCString(name, buf, sizeof(buf),
-			   kCFStringEncodingASCII) == FALSE) {
-	goto done;
+    if (dhcp_hostname != NULL) {
+	S_dhcp_hostname = my_CFStringToCString(dhcp_hostname,
+					       kCFStringEncodingUTF8);
     }
-    S_computer_name = strdup(buf);
+    S_dns_hostname = my_CFStringToCString(name, kCFStringEncodingUTF8);
 
  done:
+    my_CFRelease(&dhcp_hostname);
     my_CFRelease(&name);
     return;
 }
@@ -4613,10 +4560,16 @@ service_set_address(ServiceRef service_p,
 		    struct in_addr broadcast)
 {
     interface_t *	if_p = service_interface(service_p);
+    inet_addrinfo_t *	info_p = &service_p->u.v4.info;
     int			ret = 0;
     struct in_addr	netaddr;
     int 		s = inet_dgram_socket();
 
+    if (info_p->addr.s_addr != 0 && info_p->addr.s_addr != addr.s_addr) {
+	my_log(LOG_NOTICE, "%s(%s): address still assigned " IP_FORMAT,
+	       __func__, if_name(if_p), IP_LIST(&info_p->addr));
+	service_remove_address(service_p);
+    }
     if (mask.s_addr == 0) {
 	u_int32_t ipval = ntohl(addr.s_addr);
 
@@ -4647,8 +4600,6 @@ service_set_address(ServiceRef service_p,
 	       if_name(if_p), strerror(errno), errno);
     }
     else {
-	inet_addrinfo_t *	info_p = &service_p->u.v4.info;
-
 	if (inet_aifaddr(s, if_name(if_p), addr, &mask, &broadcast) < 0) {
 	    ret = errno;
 	    my_log(LOG_NOTICE, "service_set_address(%s) "

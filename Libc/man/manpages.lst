@@ -263,7 +263,7 @@ stdarg.3 stdarg.3 va_arg.3 va_copy.3 va_end.3 va_start.3
 stdio.3 stdio.3
 strcasecmp.3 strcasecmp.3 strcasecmp_l.3 strncasecmp.3 strncasecmp_l.3
 strcat.3 strcat.3 strncat.3
-strchr.3 strchr.3 strrchr.3
+strchr.3 strchr.3 strchrnul.3 strrchr.3
 strcmp.3 strcmp.3 strncmp.3
 strcoll.3 strcoll.3 strcoll_l.3
 strcpy.3 strcpy.3 stpcpy.3 stpncpy.3 strncpy.3
@@ -326,7 +326,7 @@ unvis.3 unvis.3 strunvis.3 strunvisx.3
 uselocale.3 uselocale.3
 usleep.3 usleep.3
 utime.3 utime.3
-vis.3 vis.3 nvis.3 strvis.3 strnvis.3 strvisx.3 strnvisx.3 strenvisx.3 svis.3 snvis.3 strsvis.3 strsnvis.3 strsvisx.3 strsnvisx.3 strsenvisx.3
+vis.3 vis.3 nvis.3 strvis.3 stravis.3 strnvis.3 strvisx.3 strnvisx.3 strenvisx.3 svis.3 snvis.3 strsvis.3 strsnvis.3 strsvisx.3 strsnvisx.3 strsenvisx.3
 wcrtomb.3 wcrtomb.3 wcrtomb_l.3
 wcscoll.3 wcscoll.3 wcscoll_l.3
 wcsftime.3 wcsftime.3 wcsftime_l.3

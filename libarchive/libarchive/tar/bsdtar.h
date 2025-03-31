@@ -21,8 +21,6 @@
  * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- *
- * $FreeBSD: src/usr.bin/tar/bsdtar.h,v 1.37 2008/12/06 07:37:14 kientzle Exp $
  */
 
 #ifndef BSDTAR_H_INCLUDED
@@ -129,6 +127,8 @@ struct bsdtar {
 #define	OPTFLAG_FFLAGS		(0x00100000)	/* --fflags */
 #define	OPTFLAG_NO_MAC_METADATA	(0x00200000)	/* --no-mac-metadata */
 #define	OPTFLAG_MAC_METADATA	(0x00400000)	/* --mac-metadata */
+#define	OPTFLAG_NO_READ_SPARSE	(0x00800000)    /* --no-read-sparse */
+#define	OPTFLAG_READ_SPARSE		(0x01000000)    /* --read-sparse */
 
 /* Fake short equivalents for long options that otherwise lack them. */
 enum {
@@ -143,6 +143,7 @@ enum {
 	OPTION_FORMAT,
 	OPTION_GID,
 	OPTION_GNAME,
+	OPTION_GROUP,
 	OPTION_GRZIP,
 	OPTION_HELP,
 	OPTION_HFS_COMPRESSION,
@@ -164,6 +165,7 @@ enum {
 	OPTION_NO_ACLS,
 	OPTION_NO_FFLAGS,
 	OPTION_NO_MAC_METADATA,
+	OPTION_NO_READ_SPARSE,
 	OPTION_NO_SAFE_WRITES,
 	OPTION_NO_SAME_OWNER,
 	OPTION_NO_SAME_PERMISSIONS,
@@ -176,8 +178,10 @@ enum {
 	OPTION_OLDER_MTIME_THAN,
 	OPTION_ONE_FILE_SYSTEM,
 	OPTION_OPTIONS,
+	OPTION_OWNER,
 	OPTION_PASSPHRASE,
 	OPTION_POSIX,
+	OPTION_READ_SPARSE,
 	OPTION_SAFE_WRITES,
 	OPTION_SAME_OWNER,
 	OPTION_STRIP_COMPONENTS,
@@ -204,10 +208,10 @@ void	tar_mode_r(struct bsdtar *bsdtar);
 void	tar_mode_t(struct bsdtar *bsdtar);
 void	tar_mode_u(struct bsdtar *bsdtar);
 void	tar_mode_x(struct bsdtar *bsdtar);
-void	usage(void) __LA_DEAD;
+__LA_NORETURN void	usage(void);
 int	yes(const char *fmt, ...) __LA_PRINTF(1, 2);
 
-#if defined(HAVE_REGEX_H) || defined(HAVE_PCREPOSIX_H)
+#if defined(HAVE_REGEX_H) || defined(HAVE_PCREPOSIX_H) || defined(HAVE_PCRE2POSIX_H)
 void	add_substitution(struct bsdtar *, const char *);
 int	apply_substitution(struct bsdtar *, const char *, char **, int, int);
 void	cleanup_substitution(struct bsdtar *);

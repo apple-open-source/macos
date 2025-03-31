@@ -46,7 +46,7 @@ xpc_object_t                                    connectionEntitlements; \
 boolean_t                                       disableProtectedServices; \
 int                                             filterPriority; \
 uint32_t                                        state; \
-os_unfair_lock                                  notificationsLock; \
+os_unfair_recursive_lock                        notificationsLock; \
 CFMutableDictionaryRef                          virtualServices; \
 uint64_t                                        eventFilterMask; \
 uint32_t                                        eventFilteredCount; \

@@ -472,7 +472,7 @@ void aom_lpf_horizontal_8_quad_avx2(unsigned char *s, int p,
   }
 }
 
-static INLINE void trans_store_16x16_lpf_vert14(unsigned char *in0, int in_p,
+static inline void trans_store_16x16_lpf_vert14(unsigned char *in0, int in_p,
                                                 unsigned char *out, int out_p,
                                                 int is_store_avx2) {
   const __m128i x0 = _mm_loadu_si128((__m128i *)in0);

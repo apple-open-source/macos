@@ -10,19 +10,40 @@
 
 #include "audio/channel_send.h"
 
+#include <cstddef>
+#include <cstdint>
+#include <memory>
+#include <optional>
 #include <utility>
+#include <vector>
 
+#include "api/array_view.h"
 #include "api/audio/audio_frame.h"
+#include "api/audio_codecs/audio_encoder.h"
+#include "api/audio_codecs/audio_encoder_factory.h"
+#include "api/audio_codecs/audio_format.h"
 #include "api/audio_codecs/builtin_audio_encoder_factory.h"
+#include "api/call/bitrate_allocation.h"
+#include "api/call/transport.h"
+#include "api/crypto/crypto_options.h"
 #include "api/environment/environment.h"
 #include "api/environment/environment_factory.h"
+#include "api/frame_transformer_interface.h"
+#include "api/make_ref_counted.h"
+#include "api/rtp_headers.h"
 #include "api/scoped_refptr.h"
 #include "api/test/mock_frame_transformer.h"
 #include "api/test/mock_transformable_audio_frame.h"
+#include "api/transport/bitrate_settings.h"
+#include "api/units/data_rate.h"
 #include "api/units/time_delta.h"
 #include "api/units/timestamp.h"
+#include "call/rtp_transport_config.h"
 #include "call/rtp_transport_controller_send.h"
+#include "modules/rtp_rtcp/include/rtp_rtcp_defines.h"
+#include "modules/rtp_rtcp/source/rtp_packet_received.h"
 #include "rtc_base/gunit.h"
+#include "test/gmock.h"
 #include "test/gtest.h"
 #include "test/mock_transport.h"
 #include "test/scoped_key_value_config.h"
@@ -119,6 +140,7 @@ TEST_F(ChannelSendTest, StopSendShouldResetEncoder) {
   ProcessNextFrame();
   // StopSend should clear the previous audio frame stored in the encoder.
   channel_->StopSend();
+
   channel_->StartSend();
   // The following frame should not trigger a new packet since the encoder
   // needs 20 ms audio.
@@ -131,7 +153,7 @@ TEST_F(ChannelSendTest, IncreaseRtpTimestampByPauseDuration) {
   uint32_t timestamp;
   int sent_packets = 0;
   auto send_rtp = [&](rtc::ArrayView<const uint8_t> data,
-                      const PacketOptions& options) {
+                      const PacketOptions& /* options */) {
     ++sent_packets;
     RtpPacketReceived packet;
     packet.Parse(data);
@@ -164,9 +186,9 @@ TEST_F(ChannelSendTest, FrameTransformerGetsCorrectTimestamp) {
       .WillOnce(SaveArg<0>(&callback));
   EXPECT_CALL(*mock_frame_transformer, UnregisterTransformedFrameCallback);
 
-  absl::optional<uint32_t> sent_timestamp;
+  std::optional<uint32_t> sent_timestamp;
   auto send_rtp = [&](rtc::ArrayView<const uint8_t> data,
-                      const PacketOptions& options) {
+                      const PacketOptions& /* options */) {
     RtpPacketReceived packet;
     packet.Parse(data);
     if (!sent_timestamp) {
@@ -213,7 +235,7 @@ TEST_F(ChannelSendTest, AudioLevelsAttachedToCorrectTransformedFrame) {
 
   std::vector<uint8_t> sent_audio_levels;
   auto send_rtp = [&](rtc::ArrayView<const uint8_t> data,
-                      const PacketOptions& options) {
+                      const PacketOptions& /* options */) {
     RtpPacketReceived packet(&extension_manager);
     packet.Parse(data);
     RTPHeader header;
@@ -276,7 +298,7 @@ TEST_F(ChannelSendTest, AudioLevelsAttachedToInsertedTransformedFrame) {
 
   std::optional<uint8_t> sent_audio_level;
   auto send_rtp = [&](rtc::ArrayView<const uint8_t> data,
-                      const PacketOptions& options) {
+                      const PacketOptions& /* options */) {
     RtpPacketReceived packet(&extension_manager);
     packet.Parse(data);
     RTPHeader header;
@@ -306,6 +328,81 @@ TEST_F(ChannelSendTest, AudioLevelsAttachedToInsertedTransformedFrame) {
   EXPECT_TRUE_WAIT(sent_audio_level, 1000);
   EXPECT_EQ(*sent_audio_level, audio_level);
 }
+
+// Ensure that GetUsedRate returns null if no frames are coded.
+TEST_F(ChannelSendTest, NoUsedRateInitially) {
+  channel_->StartSend();
+  auto used_rate = channel_->GetUsedRate();
+  EXPECT_EQ(used_rate, std::nullopt);
+}
+
+// Ensure that GetUsedRate returns value with one coded frame.
+TEST_F(ChannelSendTest, ValidUsedRateWithOneCodedFrame) {
+  channel_->StartSend();
+  EXPECT_CALL(transport_, SendRtp).Times(1);
+  ProcessNextFrame();
+  ProcessNextFrame();
+  auto used_rate = channel_->GetUsedRate();
+  EXPECT_GT(used_rate.value().bps(), 0);
+}
+
+// Ensure that GetUsedRate returns value with one coded frame.
+TEST_F(ChannelSendTest, UsedRateIsLargerofLastTwoFrames) {
+  channel_->StartSend();
+  channel_->CallEncoder(
+      [&](AudioEncoder* encoder) { encoder->OnReceivedOverhead(72); });
+  DataRate lowrate = DataRate::BitsPerSec(40000);
+  DataRate highrate = DataRate::BitsPerSec(80000);
+  BitrateAllocationUpdate update;
+  update.bwe_period = TimeDelta::Millis(100);
+
+  update.target_bitrate = lowrate;
+  channel_->OnBitrateAllocation(update);
+  EXPECT_CALL(transport_, SendRtp).Times(1);
+  ProcessNextFrame();
+  ProcessNextFrame();
+  // Last two frames have rates [32kbps, -], yielding 32kbps.
+  auto used_rate_1 = channel_->GetUsedRate();
+
+  update.target_bitrate = highrate;
+  channel_->OnBitrateAllocation(update);
+  EXPECT_CALL(transport_, SendRtp).Times(1);
+  ProcessNextFrame();
+  ProcessNextFrame();
+  // Last two frames have rates [54kbps, 32kbps], yielding 54kbps
+  auto used_rate_2 = channel_->GetUsedRate();
+
+  update.target_bitrate = lowrate;
+  channel_->OnBitrateAllocation(update);
+  EXPECT_CALL(transport_, SendRtp).Times(1);
+  ProcessNextFrame();
+  ProcessNextFrame();
+  // Last two frames have rates [32kbps 54kbps], yielding 54kbps
+  auto used_rate_3 = channel_->GetUsedRate();
+
+  EXPECT_GT(used_rate_2, used_rate_1);
+  EXPECT_EQ(used_rate_3, used_rate_2);
+}
+
+// Test that we gracefully handle packets while the congestion control objects
+// are not configured. This can happen during calls
+// AudioSendStream::ConfigureStream
+TEST_F(ChannelSendTest, EnqueuePacketsGracefullyHandlesNonInitializedPacer) {
+  EXPECT_CALL(transport_, SendRtp).Times(1);
+  channel_->StartSend();
+  channel_->ResetSenderCongestionControlObjects();
+  // This should trigger a packet, but congestion control is not configured
+  // so it should be dropped
+  ProcessNextFrame();
+  ProcessNextFrame();
+
+  channel_->RegisterSenderCongestionControlObjects(&transport_controller_);
+  // Now that we reconfigured the congestion control objects the new frame
+  // should be processed
+  ProcessNextFrame();
+  ProcessNextFrame();
+}
+
 }  // namespace
 }  // namespace voe
 }  // namespace webrtc

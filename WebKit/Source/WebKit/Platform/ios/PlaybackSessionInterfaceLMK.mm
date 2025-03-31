@@ -370,7 +370,7 @@ void PlaybackSessionInterfaceLMK::spatialVideoMetadataChanged(const std::optiona
 {
     RetainPtr<WKSLinearMediaSpatialVideoMetadata> spatialVideoMetadata;
     if (metadata && spatialVideoEnabled())
-        spatialVideoMetadata = [allocWKSLinearMediaSpatialVideoMetadataInstance() initWithWidth:metadata->size.width() height:metadata->size.height() horizontalFOVDegrees:metadata->horizontalFOVDegrees baseline:metadata->baseline disparityAdjustment:metadata->disparityAdjustment];
+        spatialVideoMetadata = adoptNS([allocWKSLinearMediaSpatialVideoMetadataInstance() initWithWidth:metadata->size.width() height:metadata->size.height() horizontalFOVDegrees:metadata->horizontalFOVDegrees baseline:metadata->baseline disparityAdjustment:metadata->disparityAdjustment]);
     [m_player setSpatialVideoMetadata:spatialVideoMetadata.get()];
 }
 
@@ -409,9 +409,17 @@ static RetainPtr<NSData> artworkData(const WebCore::NowPlayingMetadata& metadata
 
 void PlaybackSessionInterfaceLMK::nowPlayingMetadataChanged(const WebCore::NowPlayingMetadata& metadata)
 {
-    RetainPtr contentMetadata = [allocWKSLinearMediaContentMetadataInstance() initWithTitle:metadata.title subtitle:metadata.artist];
+    RetainPtr contentMetadata = adoptNS([allocWKSLinearMediaContentMetadataInstance() initWithTitle:metadata.title subtitle:metadata.artist]);
     [m_player setContentMetadata:contentMetadata.get()];
     [m_player setArtwork:artworkData(metadata).get()];
+}
+
+void PlaybackSessionInterfaceLMK::swapFullscreenModesWith(PlaybackSessionInterfaceIOS& otherInterfaceIOS)
+{
+    auto& otherInterface = static_cast<PlaybackSessionInterfaceLMK&>(otherInterfaceIOS);
+    std::swap(m_player, otherInterface.m_player);
+    [m_player setDelegate:m_playerDelegate.get()];
+    [otherInterface.m_player setDelegate:otherInterface.m_playerDelegate.get()];
 }
 
 #if !RELEASE_LOG_DISABLED

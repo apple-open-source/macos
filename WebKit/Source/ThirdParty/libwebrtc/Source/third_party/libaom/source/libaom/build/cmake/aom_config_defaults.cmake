@@ -20,8 +20,6 @@ include("${AOM_ROOT}/build/cmake/util.cmake")
 # in this file.
 #
 
-set_aom_detect_var(INLINE "" "Sets INLINE value for current target.")
-
 # CPUs.
 set_aom_detect_var(AOM_ARCH_AARCH64 0 "Enables AArch64 architecture.")
 set_aom_detect_var(AOM_ARCH_ARM 0 "Enables ARM architecture.")
@@ -77,6 +75,9 @@ set_aom_config_var(CONFIG_GCC 0 "Building with GCC (detect).")
 set_aom_config_var(CONFIG_GCOV 0 "Enable gcov support.")
 set_aom_config_var(CONFIG_GPROF 0 "Enable gprof support.")
 set_aom_config_var(CONFIG_LIBYUV 1 "Enables libyuv scaling/conversion support.")
+# Set CONFIG_SVT_AV1 to 0 to avoid the BSD 3-Clause Clear License used by the
+# code in third_party/SVT-AV1/.
+set_aom_config_var(CONFIG_SVT_AV1 1 "Enables SVT-AV1 AVX2 convolution support.")
 
 set_aom_config_var(CONFIG_AV1_HIGHBITDEPTH 1
                    "Build with high bitdepth support.")
@@ -118,7 +119,6 @@ set_aom_config_var(
   CONFIG_NORMAL_TILE_MODE 0
   "Only enables general decoding (disables large scale tile decoding).")
 set_aom_config_var(CONFIG_SIZE_LIMIT 0 "Limit max decode width/height.")
-set_aom_config_var(CONFIG_SPATIAL_RESAMPLING 1 "Spatial resampling.")
 set_aom_config_var(CONFIG_TUNE_BUTTERAUGLI 0
                    "Enable encoding tuning for Butteraugli.")
 set_aom_config_var(CONFIG_TUNE_VMAF 0 "Enable encoding tuning for VMAF.")

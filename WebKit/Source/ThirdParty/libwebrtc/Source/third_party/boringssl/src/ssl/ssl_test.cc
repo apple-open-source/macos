@@ -92,6 +92,7 @@ static const VersionParam kAllVersions[] = {
     {TLS1_3_VERSION, VersionParam::is_tls, "TLS1_3"},
     {DTLS1_VERSION, VersionParam::is_dtls, "DTLS1"},
     {DTLS1_2_VERSION, VersionParam::is_dtls, "DTLS1_2"},
+    {DTLS1_3_EXPERIMENTAL_VERSION, VersionParam::is_dtls, "DTLS1_3"},
 };
 
 struct ExpectedCipher {
@@ -488,6 +489,10 @@ static const CurveTest kCurveTests[] = {
     "P-256:X25519Kyber768Draft00",
     { SSL_GROUP_SECP256R1, SSL_GROUP_X25519_KYBER768_DRAFT00 },
   },
+  {
+    "P-256:X25519MLKEM768",
+    { SSL_GROUP_SECP256R1, SSL_GROUP_X25519_MLKEM768 },
+  },
 
   {
     "P-256:P-384:P-521:X25519",
@@ -560,74 +565,6 @@ static bool CipherListsEqual(SSL_CTX *ctx,
   }
 
   return true;
-}
-
-TEST(GrowableArrayTest, Resize) {
-  GrowableArray<size_t> array;
-  ASSERT_TRUE(array.empty());
-  EXPECT_EQ(array.size(), 0u);
-
-  ASSERT_TRUE(array.Push(42));
-  ASSERT_TRUE(!array.empty());
-  EXPECT_EQ(array.size(), 1u);
-
-  // Force a resize operation to occur
-  for (size_t i = 0; i < 16; i++) {
-    ASSERT_TRUE(array.Push(i + 1));
-  }
-
-  EXPECT_EQ(array.size(), 17u);
-
-  // Verify that expected values are still contained in array
-  for (size_t i = 0; i < array.size(); i++) {
-    EXPECT_EQ(array[i], i == 0 ? 42 : i);
-  }
-}
-
-TEST(GrowableArrayTest, MoveConstructor) {
-  GrowableArray<size_t> array;
-  for (size_t i = 0; i < 100; i++) {
-    ASSERT_TRUE(array.Push(i));
-  }
-
-  GrowableArray<size_t> array_moved(std::move(array));
-  for (size_t i = 0; i < 100; i++) {
-    EXPECT_EQ(array_moved[i], i);
-  }
-}
-
-TEST(GrowableArrayTest, GrowableArrayContainingGrowableArrays) {
-  // Representative example of a struct that contains a GrowableArray.
-  struct TagAndArray {
-    size_t tag;
-    GrowableArray<size_t> array;
-  };
-
-  GrowableArray<TagAndArray> array;
-  for (size_t i = 0; i < 100; i++) {
-    TagAndArray elem;
-    elem.tag = i;
-    for (size_t j = 0; j < i; j++) {
-      ASSERT_TRUE(elem.array.Push(j));
-    }
-    ASSERT_TRUE(array.Push(std::move(elem)));
-  }
-  EXPECT_EQ(array.size(), static_cast<size_t>(100));
-
-  GrowableArray<TagAndArray> array_moved(std::move(array));
-  EXPECT_EQ(array_moved.size(), static_cast<size_t>(100));
-  size_t count = 0;
-  for (const TagAndArray &elem : array_moved) {
-    // Test the square bracket operator returns the same value as iteration.
-    EXPECT_EQ(&elem, &array_moved[count]);
-
-    EXPECT_EQ(elem.tag, count);
-    EXPECT_EQ(elem.array.size(), count);
-    for (size_t j = 0; j < count; j++) {
-      EXPECT_EQ(elem.array[j], j);
-    }
-    count++;
-  }
 }
 
 TEST(SSLTest, CipherRules) {
@@ -1397,6 +1334,25 @@ static bssl::UniquePtr<X509> GetTestCertificate() {
       "-----END CERTIFICATE-----\n";
   return CertFromPEM(kCertPEM);
 }
+static bssl::UniquePtr<CRYPTO_BUFFER> GetTestCertificateBuffer() {
+  static const char kCertPEM[] =
+      "-----BEGIN CERTIFICATE-----\n"
+      "MIICWDCCAcGgAwIBAgIJAPuwTC6rEJsMMA0GCSqGSIb3DQEBBQUAMEUxCzAJBgNV\n"
+      "BAYTAkFVMRMwEQYDVQQIDApTb21lLVN0YXRlMSEwHwYDVQQKDBhJbnRlcm5ldCBX\n"
+      "aWRnaXRzIFB0eSBMdGQwHhcNMTQwNDIzMjA1MDQwWhcNMTcwNDIyMjA1MDQwWjBF\n"
+      "MQswCQYDVQQGEwJBVTETMBEGA1UECAwKU29tZS1TdGF0ZTEhMB8GA1UECgwYSW50\n"
+      "ZXJuZXQgV2lkZ2l0cyBQdHkgTHRkMIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKB\n"
+      "gQDYK8imMuRi/03z0K1Zi0WnvfFHvwlYeyK9Na6XJYaUoIDAtB92kWdGMdAQhLci\n"
+      "HnAjkXLI6W15OoV3gA/ElRZ1xUpxTMhjP6PyY5wqT5r6y8FxbiiFKKAnHmUcrgfV\n"
+      "W28tQ+0rkLGMryRtrukXOgXBv7gcrmU7G1jC2a7WqmeI8QIDAQABo1AwTjAdBgNV\n"
+      "HQ4EFgQUi3XVrMsIvg4fZbf6Vr5sp3Xaha8wHwYDVR0jBBgwFoAUi3XVrMsIvg4f\n"
+      "Zbf6Vr5sp3Xaha8wDAYDVR0TBAUwAwEB/zANBgkqhkiG9w0BAQUFAAOBgQA76Hht\n"
+      "ldY9avcTGSwbwoiuIqv0jTL1fHFnzy3RHMLDh+Lpvolc5DSrSJHCP5WuK0eeJXhr\n"
+      "T5oQpHL9z/cCDLAKCKRa4uV0fhEdOWBqyR9p8y5jJtye72t6CuFUV5iqcpF4BH4f\n"
+      "j2VNHwsSrJwkD4QUGlUtH7vwnQmyCFxZMmWAJg==\n"
+      "-----END CERTIFICATE-----\n";
+  return BufferFromPEM(kCertPEM);
+}
 
 static bssl::UniquePtr<EVP_PKEY> GetTestKey() {
   static const char kKeyPEM[] =
@@ -1420,7 +1376,7 @@ static bssl::UniquePtr<EVP_PKEY> GetTestKey() {
 
 static bssl::UniquePtr<SSL_CTX> CreateContextWithTestCertificate(
     const SSL_METHOD *method) {
-  bssl::UniquePtr<SSL_CTX> ctx(SSL_CTX_new(TLS_method()));
+  bssl::UniquePtr<SSL_CTX> ctx(SSL_CTX_new(method));
   bssl::UniquePtr<X509> cert = GetTestCertificate();
   bssl::UniquePtr<EVP_PKEY> key = GetTestKey();
   if (!ctx || !cert || !key ||
@@ -1510,6 +1466,31 @@ static bssl::UniquePtr<CRYPTO_BUFFER> GetChainTestIntermediateBuffer() {
       "XFwk8owk9dq/kQGdndGgy3KTEW4ctPX5GNhf3LJ9Q7dLji4ReQ4=\n"
       "-----END CERTIFICATE-----\n";
   return BufferFromPEM(kCertPEM);
+}
+
+static bssl::UniquePtr<CRYPTO_BUFFER> GetChainTestIntermediateIssuerBuffer() {
+  static const char kSubjectPEM[] =
+      "-----BEGIN SUBJECT-----\n"
+      "MBQxEjAQBgNVBAMMCUMgUm9vdCBDQQ==\n"
+      "-----END SUBJECT-----\n";
+  return BufferFromPEM(kSubjectPEM);
+}
+
+static bssl::UniquePtr<CRYPTO_BUFFER> GetTestCertIssuerBuffer() {
+  static const char kSubjectPEM[] =
+      "-----BEGIN SUBJECT-----\n"
+      "MEUxCzAJBgNVBAYTAkFVMRMwEQYDVQQIDApTb21lLVN0YXRlMSEwHwYDVQQKDBhJ\n"
+      "bnRlcm5ldCBXaWRnaXRzIFB0eSBMdGQ=\n"
+      "-----END SUBJECT-----\n";
+  return BufferFromPEM(kSubjectPEM);
+}
+
+static bssl::UniquePtr<CRYPTO_BUFFER> GetBogusIssuerBuffer() {
+  static const char kSubjectPEM[] =
+      "-----BEGIN SUBJECT-----\n"
+      "MBYxFDASBgNVBAMMC0RpZ2lOb3RBRm94\n"
+      "-----END SUBJECT-----\n";
+  return BufferFromPEM(kSubjectPEM);
 }
 
 static bssl::UniquePtr<X509> GetChainTestIntermediate() {
@@ -1639,6 +1620,7 @@ static bool CreateClientAndServer(bssl::UniquePtr<SSL> *out_client,
 
 struct ClientConfig {
   SSL_SESSION *session = nullptr;
+  STACK_OF(CRYPTO_BUFFER) *ca_names = nullptr;
   std::string servername;
   std::string verify_hostname;
   unsigned hostflags = 0;
@@ -1669,6 +1651,10 @@ static bool ConnectClientAndServer(bssl::UniquePtr<SSL> *out_client,
       return false;
     }
     SSL_set_hostflags(client.get(), config.hostflags);
+  }
+
+  if (config.ca_names) {
+    SSL_set0_CA_names(client.get(), config.ca_names);
   }
 
   SSL_set_shed_handshake_config(client.get(), shed_handshake_config);
@@ -2787,6 +2773,11 @@ class SSLVersionTest : public ::testing::TestWithParam<VersionParam> {
 
   uint16_t version() const { return GetParam().version; }
 
+  bool is_tls13() const {
+    return version() == TLS1_3_VERSION ||
+           version() == DTLS1_3_EXPERIMENTAL_VERSION;
+  }
+
   bool is_dtls() const {
     return GetParam().ssl_method == VersionParam::is_dtls;
   }
@@ -2817,15 +2808,26 @@ TEST_P(SSLVersionTest, SequenceNumber) {
   uint64_t server_write_seq = SSL_get_write_sequence(server_.get());
 
   if (is_dtls()) {
-    // Both client and server must be at epoch 1.
-    EXPECT_EQ(EpochFromSequence(client_read_seq), 1);
-    EXPECT_EQ(EpochFromSequence(client_write_seq), 1);
-    EXPECT_EQ(EpochFromSequence(server_read_seq), 1);
-    EXPECT_EQ(EpochFromSequence(server_write_seq), 1);
+    if (version() == DTLS1_3_EXPERIMENTAL_VERSION) {
+      // Both client and server must be at epoch 3 (application data).
+      EXPECT_EQ(EpochFromSequence(client_write_seq), 3);
+      EXPECT_EQ(EpochFromSequence(server_write_seq), 3);
 
-    // The next record to be written should exceed the largest received.
-    EXPECT_GT(client_write_seq, server_read_seq);
-    EXPECT_GT(server_write_seq, client_read_seq);
+      // TODO(crbug.com/42290608): Ideally we would check the read sequence
+      // numbers and compare them against each other, but
+      // |SSL_get_read_sequence| is ill-defined right after DTLS 1.3's key
+      // change. See that function for details.
+    } else {
+      // Both client and server must be at epoch 1.
+      EXPECT_EQ(EpochFromSequence(client_read_seq), 1);
+      EXPECT_EQ(EpochFromSequence(client_write_seq), 1);
+      EXPECT_EQ(EpochFromSequence(server_read_seq), 1);
+      EXPECT_EQ(EpochFromSequence(server_write_seq), 1);
+
+      // The next record to be written should exceed the largest received.
+      EXPECT_GT(client_write_seq, server_read_seq);
+      EXPECT_GT(server_write_seq, client_read_seq);
+    }
   } else {
     // The next record to be written should equal the next to be received.
     EXPECT_EQ(client_write_seq, server_read_seq);
@@ -2836,6 +2838,14 @@ TEST_P(SSLVersionTest, SequenceNumber) {
   uint8_t byte = 0;
   EXPECT_EQ(SSL_write(client_.get(), &byte, 1), 1);
   EXPECT_EQ(SSL_read(server_.get(), &byte, 1), 1);
+
+  if (version() == DTLS1_3_EXPERIMENTAL_VERSION) {
+    // TODO(crbug.com/42290608): Write an appropriate test for incrementing both
+    // sequence number and epoch in the following test. The server read seq was
+    // in epoch 2, but after the write it's in epoch 3, so adding 1 doesn't work
+    // any more.
+    return;
+  }
 
   // The client write and server read sequence numbers should have
   // incremented.
@@ -3639,9 +3649,8 @@ TEST_P(SSLVersionTest, SessionTimeout) {
 
     // We are willing to use a longer lifetime for TLS 1.3 sessions as
     // resumptions still perform ECDHE.
-    const time_t timeout = version() == TLS1_3_VERSION
-                               ? SSL_DEFAULT_SESSION_PSK_DHE_TIMEOUT
-                               : SSL_DEFAULT_SESSION_TIMEOUT;
+    const time_t timeout = is_tls13() ? SSL_DEFAULT_SESSION_PSK_DHE_TIMEOUT
+                                      : SSL_DEFAULT_SESSION_TIMEOUT;
 
     // Both client and server must enforce session timeouts. We configure the
     // other side with a frozen clock so it never expires tickets.
@@ -3701,7 +3710,7 @@ TEST_P(SSLVersionTest, SessionTimeout) {
 
     ASSERT_EQ(session_time, g_current_time.tv_sec);
 
-    if (version() == TLS1_3_VERSION) {
+    if (is_tls13()) {
       // Renewal incorporates fresh key material in TLS 1.3, so we extend the
       // lifetime TLS 1.3.
       g_current_time.tv_sec = new_start_time + timeout - 1;
@@ -3986,14 +3995,23 @@ static const char *GetVersionName(uint16_t version) {
       return "DTLSv1";
     case DTLS1_2_VERSION:
       return "DTLSv1.2";
+    case DTLS1_3_EXPERIMENTAL_VERSION:
+      return "DTLSv1.3";
     default:
       return "???";
   }
 }
 
 TEST_P(SSLVersionTest, Version) {
-  ASSERT_TRUE(Connect());
+  ASSERT_TRUE(CreateClientAndServer(&client_, &server_, client_ctx_.get(),
+                                    server_ctx_.get()));
+  // Before the handshake, |SSL_version| reports some placeholder value.
+  const uint16_t placeholder = is_dtls() ? DTLS1_2_VERSION : TLS1_2_VERSION;
+  EXPECT_EQ(SSL_version(client_.get()), placeholder);
+  EXPECT_EQ(SSL_version(server_.get()), placeholder);
 
+  // After the handshake, |SSL_version| reports the version.
+  ASSERT_TRUE(CompleteHandshakes(client_.get(), server_.get()));
   EXPECT_EQ(SSL_version(client_.get()), version());
   EXPECT_EQ(SSL_version(server_.get()), version());
 
@@ -4009,6 +4027,12 @@ TEST_P(SSLVersionTest, Version) {
       SSL_SESSION_get_version(SSL_get_session(server_.get()));
   EXPECT_EQ(strcmp(version_name, client_name), 0);
   EXPECT_EQ(strcmp(version_name, server_name), 0);
+
+  // |SSL_clear| should reset the |SSL|s to the original state.
+  ASSERT_TRUE(SSL_clear(client_.get()));
+  ASSERT_TRUE(SSL_clear(server_.get()));
+  EXPECT_EQ(SSL_version(client_.get()), placeholder);
+  EXPECT_EQ(SSL_version(server_.get()), placeholder);
 }
 
 // Tests that that |SSL_get_pending_cipher| is available during the ALPN
@@ -4045,7 +4069,7 @@ TEST_P(SSLVersionTest, ALPNCipherAvailable) {
 TEST_P(SSLVersionTest, SSLClearSessionResumption) {
   // Skip this for TLS 1.3. TLS 1.3's ticket mechanism is incompatible with this
   // API pattern.
-  if (version() == TLS1_3_VERSION) {
+  if (is_tls13()) {
     return;
   }
 
@@ -4362,6 +4386,13 @@ TEST_P(SSLVersionTest, SSLWriteRetry) {
 }
 
 TEST_P(SSLVersionTest, RecordCallback) {
+  if (version() == DTLS1_3_EXPERIMENTAL_VERSION) {
+    // The DTLS 1.3 record header is vastly different than the TLS or DTLS < 1.3
+    // header format. Instead of checking that the record header is formatted as
+    // expected here, the runner implementation in dtls.go is strict about what
+    // it accepts.
+    return;
+  }
   for (bool test_server : {true, false}) {
     SCOPED_TRACE(test_server);
     ASSERT_NO_FATAL_FAILURE(ResetContexts());
@@ -4390,11 +4421,12 @@ TEST_P(SSLVersionTest, RecordCallback) {
       uint16_t record_version, length;
       ASSERT_TRUE(CBS_get_u8(&cbs, &type));
       ASSERT_TRUE(CBS_get_u16(&cbs, &record_version));
-      EXPECT_EQ(record_version & 0xff00, version() & 0xff00);
+      EXPECT_EQ(record_version >> 8, is_dtls() ? 0xfe : 0x03);
       if (is_dtls()) {
         uint16_t epoch;
         ASSERT_TRUE(CBS_get_u16(&cbs, &epoch));
-        EXPECT_TRUE(epoch == 0 || epoch == 1) << "Invalid epoch: " << epoch;
+        uint16_t max_epoch = 1;
+        EXPECT_LE(epoch, max_epoch) << "Invalid epoch: " << epoch;
         ASSERT_TRUE(CBS_skip(&cbs, 6));
       }
       ASSERT_TRUE(CBS_get_u16(&cbs, &length));
@@ -4782,14 +4814,23 @@ TEST(SSLTest, OverrideChainAndKey) {
       BuffersEqual(SSL_get0_peer_certificates(client.get()), {leaf2.get()}));
 }
 
-TEST(SSLTest, OverrideCredentialChain) {
+TEST(SSLTest, CredentialChains) {
   bssl::UniquePtr<EVP_PKEY> key = GetChainTestKey();
   ASSERT_TRUE(key);
   bssl::UniquePtr<CRYPTO_BUFFER> leaf = GetChainTestCertificateBuffer();
   ASSERT_TRUE(leaf);
   bssl::UniquePtr<CRYPTO_BUFFER> ca = GetChainTestIntermediateBuffer();
   ASSERT_TRUE(ca);
+  bssl::UniquePtr<CRYPTO_BUFFER> ca_subject =
+      GetChainTestIntermediateIssuerBuffer();
+  ASSERT_TRUE(ca_subject);
 
+  bssl::UniquePtr<CRYPTO_BUFFER> testcert = GetTestCertificateBuffer();
+  ASSERT_TRUE(testcert);
+  bssl::UniquePtr<EVP_PKEY> testkey = GetTestKey();
+  ASSERT_TRUE(testkey);
+
+  std::vector<CRYPTO_BUFFER *> test_chain = {testcert.get()};
   std::vector<CRYPTO_BUFFER *> chain = {leaf.get(), ca.get()};
   std::vector<CRYPTO_BUFFER *> wrong_chain = {leaf.get(), leaf.get(),
                                               leaf.get()};
@@ -4798,20 +4839,118 @@ TEST(SSLTest, OverrideCredentialChain) {
   ASSERT_TRUE(ctx);
   bssl::UniquePtr<SSL_CREDENTIAL> cred(SSL_CREDENTIAL_new_x509());
   ASSERT_TRUE(cred);
+  bssl::UniquePtr<SSL_CREDENTIAL> cred2(SSL_CREDENTIAL_new_x509());
+  ASSERT_TRUE(cred2);
 
   // Configure one chain (including the leaf), then replace it with another.
   ASSERT_TRUE(SSL_CREDENTIAL_set1_cert_chain(cred.get(), wrong_chain.data(),
                                              wrong_chain.size()));
+  CBS ca_subject_cbs, ca_cbs;
+  CRYPTO_BUFFER_init_CBS(ca.get(), &ca_cbs);
+  ASSERT_TRUE(ssl_cert_extract_issuer(&ca_cbs, &ca_subject_cbs));
+  bssl::UniquePtr<CRYPTO_BUFFER> subject_buf(
+      CRYPTO_BUFFER_new_from_CBS(&ca_subject_cbs, nullptr));
+  EXPECT_EQ(Bytes(CRYPTO_BUFFER_data(ca_subject.get()),
+                  CRYPTO_BUFFER_len(ca_subject.get())),
+            Bytes(CRYPTO_BUFFER_data(subject_buf.get()),
+                  CRYPTO_BUFFER_len(subject_buf.get())));
+#if !defined(BORINGSSL_SHARED_LIBRARY)
+  ASSERT_FALSE(cred->ChainContainsIssuer(
+      MakeConstSpan(CRYPTO_BUFFER_data(subject_buf.get()),
+                    CRYPTO_BUFFER_len(subject_buf.get()))));
+#endif
+
   ASSERT_TRUE(
       SSL_CREDENTIAL_set1_cert_chain(cred.get(), chain.data(), chain.size()));
 
+#if !defined(BORINGSSL_SHARED_LIBRARY)
+  ASSERT_TRUE(cred->ChainContainsIssuer(
+      MakeConstSpan(CRYPTO_BUFFER_data(subject_buf.get()),
+                    CRYPTO_BUFFER_len(subject_buf.get()))));
+#endif
+
+  ASSERT_TRUE(SSL_CREDENTIAL_set1_cert_chain(cred2.get(), test_chain.data(),
+                                             test_chain.size()));
+
   ASSERT_TRUE(SSL_CREDENTIAL_set1_private_key(cred.get(), key.get()));
+  ASSERT_TRUE(SSL_CREDENTIAL_set1_private_key(cred2.get(), testkey.get()));
+  SSL_CREDENTIAL_set_must_match_issuer(cred.get());
+  SSL_CREDENTIAL_set_must_match_issuer(cred2.get());
   ASSERT_TRUE(SSL_CTX_add1_credential(ctx.get(), cred.get()));
+  ASSERT_TRUE(SSL_CTX_add1_credential(ctx.get(), cred2.get()));
 
   bssl::UniquePtr<SSL> client, server;
-  ASSERT_TRUE(ConnectClientAndServer(&client, &server, ctx.get(), ctx.get()));
-  EXPECT_TRUE(BuffersEqual(SSL_get0_peer_certificates(client.get()),
+
+  // With no CA requested by client, we should fail with only cred1 and cred2
+  ASSERT_FALSE(ConnectClientAndServer(&client, &server, ctx.get(), ctx.get()));
+
+  //EXPECT_TRUE(BuffersEqual(SSL_get0_peer_certificates(client.get()),
+  //                           {leaf.get(), ca.get()}));
+
+  // Have the client request a bogus name that will not match
+  bssl::UniquePtr<CRYPTO_BUFFER> bogus_subject = GetBogusIssuerBuffer();
+  ASSERT_TRUE(bogus_subject);
+  bssl::UniquePtr<SSL> client2, server2;
+  ClientConfig bogus_subject_config;
+  bssl::UniquePtr<STACK_OF(CRYPTO_BUFFER)> bogus_subjects(
+      sk_CRYPTO_BUFFER_new_null());
+  ASSERT_TRUE(bogus_subjects);
+  ASSERT_TRUE(PushToStack(bogus_subjects.get(), std::move(bogus_subject)));
+  bogus_subject_config.ca_names = bogus_subjects.get();
+  bogus_subjects.release();
+  // A bogus issuer that does not match should fail
+  ASSERT_FALSE(ConnectClientAndServer(&client2, &server2, ctx.get(), ctx.get(),
+                                      bogus_subject_config));
+
+  // Have the client request the name of the chain ca.
+  bssl::UniquePtr<CRYPTO_BUFFER> chain_subject =
+      GetChainTestIntermediateIssuerBuffer();
+  ASSERT_TRUE(chain_subject);
+  bssl::UniquePtr<SSL> client3, server3;
+  ClientConfig chain_subject_config;
+  bssl::UniquePtr<STACK_OF(CRYPTO_BUFFER)> chain_subjects(
+      sk_CRYPTO_BUFFER_new_null());
+  ASSERT_TRUE(chain_subjects);
+  ASSERT_TRUE(PushToStack(chain_subjects.get(), std::move(chain_subject)));
+  chain_subject_config.ca_names = chain_subjects.get();
+  chain_subjects.release();
+  // If we ask for the chain ca subject, we should get it
+  ASSERT_TRUE(ConnectClientAndServer(&client3, &server3, ctx.get(), ctx.get(),
+                                     chain_subject_config));
+  EXPECT_TRUE(BuffersEqual(SSL_get0_peer_certificates(client3.get()),
                            {leaf.get(), ca.get()}));
+
+  // Have the client request the name of the test ca.
+  bssl::UniquePtr<CRYPTO_BUFFER> test_subject = GetTestCertIssuerBuffer();
+  ASSERT_TRUE(test_subject);
+  bssl::UniquePtr<SSL> client4, server4;
+  ClientConfig test_subject_config;
+  bssl::UniquePtr<STACK_OF(CRYPTO_BUFFER)> test_subjects(
+      sk_CRYPTO_BUFFER_new_null());
+  ASSERT_TRUE(test_subjects);
+  ASSERT_TRUE(PushToStack(test_subjects.get(), std::move(test_subject)));
+  test_subject_config.ca_names = test_subjects.get();
+  test_subjects.release();
+  // If we ask for the test ca subject, we should get it
+  ASSERT_TRUE(ConnectClientAndServer(&client4, &server4, ctx.get(), ctx.get(),
+                                     test_subject_config));
+  EXPECT_TRUE(BuffersEqual(SSL_get0_peer_certificates(client4.get()),
+                           {testcert.get()}));
+
+  // Add cred3 to the CTX so we have an ubiquitous credential
+  bssl::UniquePtr<SSL_CREDENTIAL> cred3(SSL_CREDENTIAL_new_x509());
+  ASSERT_TRUE(cred3);
+  ASSERT_TRUE(
+      SSL_CREDENTIAL_set1_cert_chain(cred3.get(), chain.data(), chain.size()));
+  ASSERT_TRUE(SSL_CREDENTIAL_set1_private_key(cred3.get(), key.get()));
+  ASSERT_TRUE(SSL_CTX_add1_credential(ctx.get(), cred3.get()));
+
+  // With no CA sent, we should now succeed.
+  bssl::UniquePtr<SSL> client5, server5;
+  ASSERT_TRUE(ConnectClientAndServer(&client5, &server5, ctx.get(), ctx.get()));
+  EXPECT_TRUE(BuffersEqual(SSL_get0_peer_certificates(client5.get()),
+                           {leaf.get(), ca.get()}));
+
 }
 
 TEST(SSLTest, SetChainAndKeyCtx) {
@@ -5422,8 +5561,7 @@ TEST_P(SSLVersionTest, SessionVersion) {
   EXPECT_EQ(version(), SSL_SESSION_get_protocol_version(session.get()));
 
   // Sessions in TLS 1.3 and later should be single-use.
-  EXPECT_EQ(version() == TLS1_3_VERSION,
-            !!SSL_SESSION_should_be_single_use(session.get()));
+  EXPECT_EQ(is_tls13(), !!SSL_SESSION_should_be_single_use(session.get()));
 
   // Making fake sessions for testing works.
   session.reset(SSL_SESSION_new(client_ctx_.get()));
@@ -5872,7 +6010,7 @@ TEST(SSLTest, SigAlgs) {
       continue;
     }
 
-    ExpectSigAlgsEqual(test.expected, ctx->cert->default_credential->sigalgs);
+    ExpectSigAlgsEqual(test.expected, ctx->cert->legacy_credential->sigalgs);
   }
 }
 
@@ -5930,7 +6068,7 @@ TEST(SSLTest, SigAlgsList) {
       continue;
     }
 
-    ExpectSigAlgsEqual(test.expected, ctx->cert->default_credential->sigalgs);
+    ExpectSigAlgsEqual(test.expected, ctx->cert->legacy_credential->sigalgs);
   }
 }
 
@@ -6086,7 +6224,7 @@ TEST_P(SSLVersionTest, SessionCacheThreads) {
   SSL_CTX_set_session_cache_mode(client_ctx_.get(), SSL_SESS_CACHE_BOTH);
   SSL_CTX_set_session_cache_mode(server_ctx_.get(), SSL_SESS_CACHE_BOTH);
 
-  if (version() == TLS1_3_VERSION) {
+  if (is_tls13()) {
     // Our TLS 1.3 implementation does not support stateful resumption.
     ASSERT_FALSE(CreateClientSession(client_ctx_.get(), server_ctx_.get()));
     return;
@@ -6264,7 +6402,7 @@ TEST(SSLTest, GetCertificateThreads) {
 // performing stateful resumption will share an underlying SSL_SESSION object,
 // potentially across threads.
 TEST_P(SSLVersionTest, SessionPropertiesThreads) {
-  if (version() == TLS1_3_VERSION) {
+  if (is_tls13()) {
     // Our TLS 1.3 implementation does not support stateful resumption.
     ASSERT_FALSE(CreateClientSession(client_ctx_.get(), server_ctx_.get()));
     return;
@@ -6889,6 +7027,13 @@ TEST_F(QUICMethodTest, Basic) {
   ExpectHandshakeSuccess();
   EXPECT_FALSE(SSL_session_reused(client_.get()));
   EXPECT_FALSE(SSL_session_reused(server_.get()));
+
+  // SSL_get_traffic_secrets is not defined for QUIC.
+  Span<const uint8_t> read_secret, write_secret;
+  EXPECT_FALSE(
+      SSL_get_traffic_secrets(client_.get(), &read_secret, &write_secret));
+  EXPECT_FALSE(
+      SSL_get_traffic_secrets(server_.get(), &read_secret, &write_secret));
 
   // The server sent NewSessionTicket messages in the handshake.
   EXPECT_FALSE(g_last_session);
@@ -9446,21 +9591,27 @@ TEST_P(SSLVersionTest, KeyLog) {
   ASSERT_TRUE(Connect());
 
   // Check that we logged the secrets we expected to log.
-  if (version() == TLS1_3_VERSION) {
+  if (is_tls13()) {
     EXPECT_THAT(client_log, ElementsAre(Key("CLIENT_HANDSHAKE_TRAFFIC_SECRET"),
                                         Key("CLIENT_TRAFFIC_SECRET_0"),
                                         Key("EXPORTER_SECRET"),
                                         Key("SERVER_HANDSHAKE_TRAFFIC_SECRET"),
                                         Key("SERVER_TRAFFIC_SECRET_0")));
 
-    // Ideally we'd check the other values, but those are harder to check
-    // without actually decrypting the records.
-    Span<const uint8_t> read_secret, write_secret;
-    ASSERT_TRUE(bssl::SSL_get_traffic_secrets(client_.get(), &read_secret,
-                                              &write_secret));
-    EXPECT_EQ(Bytes(read_secret), Bytes(client_log["SERVER_TRAFFIC_SECRET_0"]));
-    EXPECT_EQ(Bytes(write_secret),
-              Bytes(client_log["CLIENT_TRAFFIC_SECRET_0"]));
+    if (!is_dtls()) {
+      // Ideally we'd check the other values, but those are harder to check
+      // without actually decrypting the records.
+      //
+      // TODO(crbug.com/42290608): Check the secrets in DTLS, once we have an
+      // API for them.
+      Span<const uint8_t> read_secret, write_secret;
+      ASSERT_TRUE(
+          SSL_get_traffic_secrets(client_.get(), &read_secret, &write_secret));
+      EXPECT_EQ(Bytes(read_secret),
+                Bytes(client_log["SERVER_TRAFFIC_SECRET_0"]));
+      EXPECT_EQ(Bytes(write_secret),
+                Bytes(client_log["CLIENT_TRAFFIC_SECRET_0"]));
+    }
   } else {
     EXPECT_THAT(client_log, ElementsAre(Key("CLIENT_RANDOM")));
 
@@ -9475,6 +9626,156 @@ TEST_P(SSLVersionTest, KeyLog) {
 
   // The server should have logged the same secrets as the client.
   EXPECT_EQ(client_log, server_log);
+}
+
+TEST_P(SSLVersionTest, GetTrafficSecrets) {
+  ASSERT_TRUE(Connect());
+
+  Span<const uint8_t> client_read, client_write, server_read, server_write;
+  bool client_ok =
+      SSL_get_traffic_secrets(client_.get(), &client_read, &client_write);
+  bool server_ok =
+      SSL_get_traffic_secrets(server_.get(), &server_read, &server_write);
+  if (!is_dtls() && version() >= TLS1_3_VERSION) {
+    ASSERT_TRUE(client_ok);
+    ASSERT_TRUE(server_ok);
+    EXPECT_EQ(Bytes(client_read), Bytes(server_write));
+    EXPECT_EQ(Bytes(server_read), Bytes(client_write));
+  } else {
+    EXPECT_FALSE(client_ok);
+    EXPECT_FALSE(server_ok);
+  }
+}
+
+TEST_P(SSLVersionTest, GetIVs) {
+  std::vector<const char *> ciphers;
+  if (version() == TLS1_2_VERSION || version() == DTLS1_2_VERSION) {
+    // Try both CBC and AEAD ciphers.
+    ciphers = {"TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA",
+               "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256"};
+  } else {
+    // The defaults are fine to test. In 1.0 and 1.1, all remaining supported
+    // ciphers are CBC. In 1.3, all ciphers are AEADs.
+    ciphers = {"ALL"};
+  }
+
+  for (const char *cipher : ciphers) {
+    SCOPED_TRACE(cipher);
+
+    ASSERT_NO_FATAL_FAILURE(ResetContexts());
+    ASSERT_TRUE(SSL_CTX_set_strict_cipher_list(client_ctx_.get(), cipher));
+    ASSERT_TRUE(SSL_CTX_set_strict_cipher_list(server_ctx_.get(), cipher));
+    ASSERT_TRUE(Connect());
+
+    const uint8_t *client_read_iv, *client_write_iv, *server_read_iv,
+        *server_write_iv;
+    size_t client_iv_len, server_iv_len;
+    bool client_ivs_ok = SSL_get_ivs(client_.get(), &client_read_iv,
+                                     &client_write_iv, &client_iv_len);
+    bool server_ivs_ok = SSL_get_ivs(server_.get(), &server_read_iv,
+                                     &server_write_iv, &server_iv_len);
+
+    // Only TLS 1.0 should support |SSL_get_ivs|. Other cases should cleanly
+    // fail this operation.
+    if (version() == TLS1_VERSION) {
+      ASSERT_TRUE(client_ivs_ok);
+      ASSERT_TRUE(server_ivs_ok);
+      EXPECT_EQ(Bytes(client_write_iv, client_iv_len),
+                Bytes(server_read_iv, server_iv_len));
+      EXPECT_EQ(Bytes(client_read_iv, client_iv_len),
+                Bytes(server_write_iv, server_iv_len));
+    } else {
+      EXPECT_FALSE(client_ivs_ok);
+      EXPECT_FALSE(server_ivs_ok);
+    }
+  }
+}
+
+TEST(SSLTest, EarlyDataVersionMismatch) {
+  bssl::UniquePtr<SSL_CTX> client_ctx(SSL_CTX_new(TLS_method()));
+  ASSERT_TRUE(client_ctx);
+  bssl::UniquePtr<SSL_CTX> server_ctx =
+      CreateContextWithTestCertificate(TLS_method());
+  ASSERT_TRUE(server_ctx);
+  SSL_CTX_set_early_data_enabled(client_ctx.get(), 1);
+  SSL_CTX_set_early_data_enabled(server_ctx.get(), 1);
+  SSL_CTX_set_session_cache_mode(client_ctx.get(), SSL_SESS_CACHE_BOTH);
+  SSL_CTX_set_session_cache_mode(server_ctx.get(), SSL_SESS_CACHE_BOTH);
+
+  bssl::UniquePtr<SSL_SESSION> session =
+      CreateClientSession(client_ctx.get(), server_ctx.get());
+  ASSERT_TRUE(session);
+  EXPECT_TRUE(SSL_SESSION_early_data_capable(session.get()));
+
+  // Turn off TLS 1.3 at the server.
+  SSL_CTX_set_max_proto_version(server_ctx.get(), TLS1_2_VERSION);
+  bssl::UniquePtr<SSL> client, server;
+  ASSERT_TRUE(CreateClientAndServer(&client, &server, client_ctx.get(),
+                                    server_ctx.get()));
+  SSL_set_session(client.get(), session.get());
+
+  // Send the ClientHello. The client should immediately treat the handshake as
+  // successful and offer early data.
+  EXPECT_EQ(1, SSL_do_handshake(client.get()));
+  EXPECT_TRUE(SSL_in_early_data(client.get()));
+
+  // In the early data state, we report the predicted version, so that callers
+  // see self-consistent connection properties.
+  EXPECT_EQ(SSL_version(client.get()), TLS1_3_VERSION);
+  EXPECT_NE(SSL_get0_peer_certificates(client.get()), nullptr);
+
+  // Read the ClientHello and send the ServerHello. The server will (implicitly
+  // by negotiating TLS 1.2) reject early data.
+  EXPECT_EQ(-1, SSL_do_handshake(server.get()));
+  EXPECT_EQ(SSL_ERROR_WANT_READ, SSL_get_error(server.get(), -1));
+
+  // Read the ServerHello. The client will now see the ServerHello and report a
+  // version mismatch. Unlike other 0-RTT rejections, this is fatal, because a
+  // TLS 1.2 server cannot recover from 0-RTT rejection.
+  EXPECT_EQ(-1, SSL_do_handshake(client.get()));
+  EXPECT_EQ(SSL_ERROR_SSL, SSL_get_error(client.get(), -1));
+  EXPECT_TRUE(ErrorEquals(ERR_get_error(), ERR_LIB_SSL,
+                          SSL_R_WRONG_VERSION_ON_EARLY_DATA));
+
+  // |SSL_version| should continue reporting self-consistent state until the
+  // caller calls |SSL_reset_early_data_reject|.
+  //
+  // TLS 1.3 to TLS 1.2 is not the most interesting version-related 0-RTT
+  // rejection because it is fatal to the connection anyway. Once there are two
+  // post-TLS-1.3 versions, or if we implement DTLS 1.3 0-RTT (where a DTLS 1.2
+  // server will skip over early data naturally), those will make for better
+  // tests. In particular, early_data accept is signaled in EncryptedExtensions,
+  // but the new version is learned at ServerHello. Though an implementation
+  // could already infer based on the version that early data will be rejected.
+  EXPECT_EQ(SSL_version(client.get()), TLS1_3_VERSION);
+  EXPECT_NE(SSL_get0_peer_certificates(client.get()), nullptr);
+}
+
+TEST(SSLTest, EarlyDataDisabledInDTLS13) {
+  // Set up some 0-RTT-enabled contexts.
+  bssl::UniquePtr<SSL_CTX> client_ctx(SSL_CTX_new(DTLS_method()));
+  bssl::UniquePtr<SSL_CTX> server_ctx =
+      CreateContextWithTestCertificate(DTLS_method());
+  ASSERT_TRUE(client_ctx);
+  ASSERT_TRUE(server_ctx);
+
+  SSL_CTX_set_early_data_enabled(client_ctx.get(), true);
+  SSL_CTX_set_early_data_enabled(server_ctx.get(), true);
+  SSL_CTX_set_session_cache_mode(client_ctx.get(), SSL_SESS_CACHE_BOTH);
+  SSL_CTX_set_session_cache_mode(server_ctx.get(), SSL_SESS_CACHE_BOTH);
+  ASSERT_TRUE(SSL_CTX_set_min_proto_version(client_ctx.get(),
+                                            DTLS1_3_EXPERIMENTAL_VERSION));
+  ASSERT_TRUE(SSL_CTX_set_max_proto_version(client_ctx.get(),
+                                            DTLS1_3_EXPERIMENTAL_VERSION));
+  ASSERT_TRUE(SSL_CTX_set_min_proto_version(server_ctx.get(),
+                                            DTLS1_3_EXPERIMENTAL_VERSION));
+  ASSERT_TRUE(SSL_CTX_set_max_proto_version(server_ctx.get(),
+                                            DTLS1_3_EXPERIMENTAL_VERSION));
+
+  bssl::UniquePtr<SSL_SESSION> session =
+      CreateClientSession(client_ctx.get(), server_ctx.get());
+  ASSERT_TRUE(session);
+  EXPECT_FALSE(SSL_SESSION_early_data_capable(session.get()));
 }
 
 }  // namespace

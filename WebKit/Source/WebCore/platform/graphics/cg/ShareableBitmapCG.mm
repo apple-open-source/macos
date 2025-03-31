@@ -36,6 +36,7 @@
 #include <pal/spi/cg/CoreGraphicsSPI.h>
 #include <wtf/RetainPtr.h>
 #include <wtf/StdLibExtras.h>
+#include <wtf/cf/VectorCF.h>
 #include <wtf/spi/cocoa/IOSurfaceSPI.h>
 
 namespace WebCore {
@@ -64,14 +65,9 @@ std::optional<DestinationColorSpace> ShareableBitmapConfiguration::validateColor
 #endif
 }
 
-static bool wantsExtendedRange(const DestinationColorSpace& colorSpace)
-{
-    return CGColorSpaceUsesExtendedRange(colorSpace.platformColorSpace());
-}
-
 CheckedUint32 ShareableBitmapConfiguration::calculateBytesPerPixel(const DestinationColorSpace& colorSpace)
 {
-    return wantsExtendedRange(colorSpace) ? 8 : 4;
+    return colorSpace.usesExtendedRange() ? 8 : 4;
 }
 
 CheckedUint32 ShareableBitmapConfiguration::calculateBytesPerRow(const IntSize& size, const DestinationColorSpace& colorSpace)
@@ -90,7 +86,7 @@ CheckedUint32 ShareableBitmapConfiguration::calculateBytesPerRow(const IntSize& 
 CGBitmapInfo ShareableBitmapConfiguration::calculateBitmapInfo(const DestinationColorSpace& colorSpace, bool isOpaque)
 {
     CGBitmapInfo info = 0;
-    if (wantsExtendedRange(colorSpace)) {
+    if (colorSpace.usesExtendedRange()) {
         info |= kCGBitmapFloatComponents | static_cast<CGBitmapInfo>(kCGBitmapByteOrder16Host);
 
         if (isOpaque)
@@ -132,28 +128,26 @@ RefPtr<ShareableBitmap> ShareableBitmap::createFromImagePixels(NativeImage& imag
     if (!pixels)
         return nullptr;
 
-    const auto* bytes = byteCast<uint8_t>(CFDataGetBytePtr(pixels.get()));
-    CheckedUint32 sizeInBytes = CFDataGetLength(pixels.get());
-    if (!bytes || !sizeInBytes || sizeInBytes.hasOverflowed())
+    auto bytes = WTF::span(pixels.get());
+    if (bytes.empty() || CheckedUint32(bytes.size()).hasOverflowed())
         return nullptr;
 
-    if (configuration.sizeInBytes() != sizeInBytes) {
+    if (configuration.sizeInBytes() != bytes.size()) {
         LOG_WITH_STREAM(Images, stream
             << "ShareableBitmap::createFromImagePixels() " << image.platformImage().get()
             << " CGImage size: " << configuration.size()
             << " CGImage bytesPerRow: " << configuration.bytesPerRow()
             << " CGImage sizeInBytes: " << configuration.sizeInBytes()
-            << " CGDataProvider sizeInBytes: " << sizeInBytes
+            << " CGDataProvider sizeInBytes: " << bytes.size()
             << " CGImage and its CGDataProvider disagree about how many bytes are in pixels buffer. CGImage is a sub-image; bailing.");
         return nullptr;
     }
 
-    RefPtr<SharedMemory> sharedMemory = SharedMemory::allocate(sizeInBytes);
+    RefPtr sharedMemory = SharedMemory::allocate(bytes.size());
     if (!sharedMemory)
         return nullptr;
 
-    memcpySpan(sharedMemory->mutableSpan(), std::span { bytes, static_cast<size_t>(sizeInBytes) });
-
+    memcpySpan(sharedMemory->mutableSpan(), bytes);
     return adoptRef(new ShareableBitmap(configuration, sharedMemory.releaseNonNull()));
 }
 

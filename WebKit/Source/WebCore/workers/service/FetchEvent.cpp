@@ -93,8 +93,8 @@ ExceptionOr<void> FetchEvent::respondWith(Ref<DOMPromise>&& promise)
     m_respondPromise = WTFMove(promise);
     addExtendLifetimePromise(*m_respondPromise);
 
-    auto isRegistered = m_respondPromise->whenSettled([this, protectedThis = Ref { *this }] {
-        promiseIsSettled();
+    auto isRegistered = m_respondPromise->whenSettled([protectedThis = Ref { *this }] {
+        protectedThis->promiseIsSettled();
     });
 
     stopPropagation();
@@ -170,6 +170,8 @@ FetchEvent::PreloadResponsePromise& FetchEvent::preloadResponse(ScriptExecutionC
 
 void FetchEvent::navigationPreloadIsReady(ResourceResponse&& response)
 {
+    ASSERT(!response.isRedirected());
+
     auto* globalObject = m_handled->globalObject();
     auto* context = globalObject ? globalObject->scriptExecutionContext() : nullptr;
     if (!context)

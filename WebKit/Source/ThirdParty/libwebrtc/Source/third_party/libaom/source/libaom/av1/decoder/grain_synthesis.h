@@ -32,27 +32,6 @@ extern "C" {
  * Returns 0 for success, -1 for failure
  *
  * \param[in]    grain_params     Grain parameters
- * \param[in]    luma             luma plane
- * \param[in]    cb               cb plane
- * \param[in]    cr               cr plane
- * \param[in]    height           luma plane height
- * \param[in]    width            luma plane width
- * \param[in]    luma_stride      luma plane stride
- * \param[in]    chroma_stride    chroma plane stride
- */
-int av1_add_film_grain_run(const aom_film_grain_t *grain_params, uint8_t *luma,
-                           uint8_t *cb, uint8_t *cr, int height, int width,
-                           int luma_stride, int chroma_stride,
-                           int use_high_bit_depth, int chroma_subsamp_y,
-                           int chroma_subsamp_x, int mc_identity);
-
-/*!\brief Add film grain
- *
- * Add film grain to an image
- *
- * Returns 0 for success, -1 for failure
- *
- * \param[in]    grain_params     Grain parameters
  * \param[in]    src              Source image
  * \param[out]   dst              Resulting image with grain
  */

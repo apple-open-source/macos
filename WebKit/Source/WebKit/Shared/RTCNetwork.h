@@ -32,12 +32,10 @@
 #include <wtf/Forward.h>
 #include <wtf/Vector.h>
 
-ALLOW_COMMA_BEGIN
-
+WTF_IGNORE_WARNINGS_IN_THIRD_PARTY_CODE_BEGIN
 #include <webrtc/rtc_base/socket_address.h>
 #include <webrtc/rtc_base/network.h>
-
-ALLOW_COMMA_END
+WTF_IGNORE_WARNINGS_IN_THIRD_PARTY_CODE_END
 
 namespace WebKit {
 
@@ -62,6 +60,7 @@ struct IPAddress {
     {
     }
 
+    IPAddress isolatedCopy() const { return *this; }
     rtc::IPAddress rtcAddress() const;
 
     bool isUnspecified() const { return std::holds_alternative<UnspecifiedFamily>(value); }
@@ -76,6 +75,7 @@ struct InterfaceAddress {
     }
 
     rtc::InterfaceAddress rtcAddress() const;
+    InterfaceAddress isolatedCopy() const { return *this; }
 
     IPAddress address;
     int ipv6Flags;
@@ -106,6 +106,7 @@ struct RTCNetwork {
 
     RTCNetwork() = default;
     explicit RTCNetwork(Vector<char>&& name, Vector<char>&& description, IPAddress prefix, int prefixLength, int type, uint16_t id, int preference, bool active, bool ignored, int scopeID, Vector<InterfaceAddress>&& ips);
+    RTCNetwork isolatedCopy() const;
 
     rtc::Network value() const;
 

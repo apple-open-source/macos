@@ -29,9 +29,6 @@
  * SUCH DAMAGE.
  */
 
-#include <sys/cdefs.h>
-__FBSDID("$FreeBSD$");
-
 #include <sys/param.h>
 #include <sys/time.h>
 #include <sys/resource.h>
@@ -276,7 +273,7 @@ main(int argc, char **argv)
 	argc -= optind;
 	argv += optind;
 
-	/* Nflag is name only and doesn't make sense to combind with these */
+	/* Nflag is name only and doesn't make sense to combine with these */
 	/* TODO: few other combinations do not make sense but come back later */
 	if (Nflag && (lflag || nflag))
 		usage();
@@ -1121,7 +1118,7 @@ name2oid(const char *name, int *oidp)
 #ifdef __APPLE__
 	return (int)j;
 #else
-	return j;
+	return (j);
 #endif
 }
 
@@ -1251,8 +1248,10 @@ show_info(char *name, const char *sep, int ctltype, char *fmt, int *qoid, int nl
 	bzero(buf, BUFSIZ);
 	j = sizeof(buf);
 	i = sysctl(qoid, nlen + 2, buf, &j, 0, 0);
-	if (i < 0)
+	if (i < 0) {
+		putchar('\n');
 		return (1);
+	}
 	fputs(buf, stdout);
 	return (error);
 }

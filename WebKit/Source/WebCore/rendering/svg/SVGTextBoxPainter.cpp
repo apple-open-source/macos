@@ -46,23 +46,30 @@ LegacySVGTextBoxPainter::LegacySVGTextBoxPainter(const SVGInlineTextBox& textBox
 {
 }
 
+
+ModernSVGTextBoxPainter::ModernSVGTextBoxPainter(const LayoutIntegration::InlineContent& inlineContent, size_t boxIndex, PaintInfo& paintInfo, const LayoutPoint& paintOffset)
+    : SVGTextBoxPainter(InlineIterator::BoxModernPath { inlineContent, boxIndex }, paintInfo, paintOffset)
+{
+}
+
+
 template<typename TextBoxPath>
-SVGTextBoxPainter<TextBoxPath>::SVGTextBoxPainter(TextBoxPath&& path, PaintInfo& paintInfo, const LayoutPoint& paintOffset)
-    : TextBoxPainter<TextBoxPath>(WTFMove(path), paintInfo, paintOffset)
+SVGTextBoxPainter<TextBoxPath>::SVGTextBoxPainter(TextBoxPath&& textBox, PaintInfo& paintInfo, const LayoutPoint& paintOffset)
+    : m_textBox(WTFMove(textBox))
+    , m_renderer(downcast<RenderSVGInlineText>(m_textBox.renderer()))
+    , m_paintInfo(paintInfo)
+    , m_selectableRange(m_textBox.selectableRange())
+    , m_paintOffset(paintOffset)
+    , m_haveSelection(!m_renderer.document().printing() && m_renderer.view().selection().highlightStateForTextBox(m_renderer, m_selectableRange) != RenderObject::HighlightState::None)
 {
 }
 
 template<typename TextBoxPath>
 InlineIterator::SVGTextBoxIterator SVGTextBoxPainter<TextBoxPath>::textBoxIterator() const
 {
-    return { textBox() };
+    return { m_textBox };
 }
 
-template<typename TextBoxPath>
-const RenderSVGInlineText& SVGTextBoxPainter<TextBoxPath>::renderer() const
-{
-    return downcast<RenderSVGInlineText>(m_renderer);
-}
 
 template<typename TextBoxPath>
 const RenderBoxModelObject& SVGTextBoxPainter<TextBoxPath>::parentRenderer() const
@@ -70,15 +77,14 @@ const RenderBoxModelObject& SVGTextBoxPainter<TextBoxPath>::parentRenderer() con
     return textBoxIterator()->parentInlineBox()->renderer();
 }
 
-template<typename TextBoxPath>
-FloatRect SVGTextBoxPainter<TextBoxPath>::selectionRectForTextFragment(const SVGTextFragment& fragment, unsigned startPosition, unsigned endPosition, const RenderStyle& style) const
+FloatRect selectionRectForTextFragment(const RenderSVGInlineText& renderer, TextDirection direction, const SVGTextFragment& fragment, unsigned startPosition, unsigned endPosition, const RenderStyle& style)
 {
     ASSERT(startPosition < endPosition);
 
-    float scalingFactor = renderer().scalingFactor();
+    float scalingFactor = renderer.scalingFactor();
     ASSERT(scalingFactor);
 
-    const FontCascade& scaledFont = renderer().scaledFont();
+    const FontCascade& scaledFont = renderer.scaledFont();
     const FontMetrics& scaledFontMetrics = scaledFont.metricsOfPrimaryFont();
     FloatPoint textOrigin(fragment.x, fragment.y);
     if (scalingFactor != 1)
@@ -87,9 +93,9 @@ FloatRect SVGTextBoxPainter<TextBoxPath>::selectionRectForTextFragment(const SVG
     textOrigin.move(0, -scaledFontMetrics.ascent());
 
     LayoutRect selectionRect { textOrigin, LayoutSize(0, LayoutUnit(fragment.height * scalingFactor)) };
-    TextRun run = constructTextRun(style, fragment);
-    scaledFont.adjustSelectionRectForText(renderer().canUseSimplifiedTextMeasuring().value_or(false), run, selectionRect, startPosition, endPosition);
-    FloatRect snappedSelectionRect = snapRectToDevicePixelsWithWritingDirection(selectionRect, renderer().document().deviceScaleFactor(), run.ltr());
+    TextRun run = constructTextRun(renderer.text(), direction, style, fragment);
+    scaledFont.adjustSelectionRectForText(renderer.canUseSimplifiedTextMeasuring().value_or(false), run, selectionRect, startPosition, endPosition);
+    FloatRect snappedSelectionRect = snapRectToDevicePixelsWithWritingDirection(selectionRect, renderer.document().deviceScaleFactor(), run.ltr());
     if (scalingFactor == 1)
         return snappedSelectionRect;
 
@@ -138,7 +144,7 @@ void SVGTextBoxPainter<TextBoxPath>::paintSelectionBackground()
 
         fragmentStartPosition = startPosition;
         fragmentEndPosition = endPosition;
-        if (!mapStartEndPositionsIntoFragmentCoordinates(fragment, fragmentStartPosition, fragmentEndPosition))
+        if (!mapStartEndPositionsIntoFragmentCoordinates(m_textBox.start(), fragment, fragmentStartPosition, fragmentEndPosition))
             continue;
 
         GraphicsContextStateSaver stateSaver(m_paintInfo.context());
@@ -147,7 +153,7 @@ void SVGTextBoxPainter<TextBoxPath>::paintSelectionBackground()
             m_paintInfo.context().concatCTM(fragmentTransform);
 
         m_paintInfo.context().setFillColor(backgroundColor);
-        m_paintInfo.context().fillRect(selectionRectForTextFragment(fragment, fragmentStartPosition, fragmentEndPosition, style), backgroundColor);
+        m_paintInfo.context().fillRect(selectionRectForTextFragment(renderer(), m_textBox.direction(), fragment, fragmentStartPosition, fragmentEndPosition, style), backgroundColor);
 
         m_paintingResourceMode = { };
     }
@@ -371,10 +377,9 @@ void SVGTextBoxPainter<TextBoxPath>::releaseLegacyPaintingResource(GraphicsConte
     m_legacyPaintingResource = nullptr;
 }
 
-template<typename TextBoxPath>
-bool SVGTextBoxPainter<TextBoxPath>::mapStartEndPositionsIntoFragmentCoordinates(const SVGTextFragment& fragment, unsigned& startPosition, unsigned& endPosition) const
+bool mapStartEndPositionsIntoFragmentCoordinates(unsigned textBoxStart, const SVGTextFragment& fragment, unsigned& startPosition, unsigned& endPosition)
 {
-    unsigned startFragment = fragment.characterOffset - textBox().start();
+    unsigned startFragment = fragment.characterOffset - textBoxStart;
     unsigned endFragment = startFragment + fragment.length;
 
     // Find intersection between the intervals: [startFragment..endFragment) and [startPosition..endPosition)
@@ -631,11 +636,11 @@ void SVGTextBoxPainter<TextBoxPath>::paintText(const RenderStyle& style, const R
     unsigned endPosition = 0;
     if (hasSelection) {
         std::tie(startPosition, endPosition) = selectionStartEnd();
-        hasSelection = mapStartEndPositionsIntoFragmentCoordinates(fragment, startPosition, endPosition);
+        hasSelection = mapStartEndPositionsIntoFragmentCoordinates(m_textBox.start(), fragment, startPosition, endPosition);
     }
 
     // Fast path if there is no selection, just draw the whole chunk part using the regular style
-    TextRun textRun = constructTextRun(style, fragment);
+    TextRun textRun = constructTextRun(renderer().text(), m_textBox.direction(), style, fragment);
     if (!hasSelection || startPosition >= endPosition) {
         paintTextWithShadows(style, textRun, fragment, 0, fragment.length);
         return;
@@ -656,19 +661,24 @@ void SVGTextBoxPainter<TextBoxPath>::paintText(const RenderStyle& style, const R
         paintTextWithShadows(style, textRun, fragment, endPosition, fragment.length);
 }
 
-template<typename TextBoxPath>
-TextRun SVGTextBoxPainter<TextBoxPath>::constructTextRun(const RenderStyle& style, const SVGTextFragment& fragment) const
+TextRun constructTextRun(StringView text, TextDirection direction, const RenderStyle& style, const SVGTextFragment& fragment)
 {
-    TextRun run(StringView(renderer().text()).substring(fragment.characterOffset, fragment.length),
+    TextRun run(text.substring(fragment.characterOffset, fragment.length),
         0, /* xPos, only relevant with allowTabs=true */
         0, /* padding, only relevant for justified text, not relevant for SVG */
         ExpansionBehavior::allowRightOnly(),
-        textBox().direction(),
+        direction,
         style.rtlOrdering() == Order::Visual /* directionalOverride */);
 
     // We handle letter & word spacing ourselves.
     run.disableSpacing();
     return run;
+}
+
+template<typename TextBoxPath>
+std::pair<unsigned, unsigned> SVGTextBoxPainter<TextBoxPath>::selectionStartEnd() const
+{
+    return m_renderer.view().selection().rangeForTextBox(m_renderer, m_selectableRange);
 }
 
 template class SVGTextBoxPainter<InlineIterator::BoxModernPath>;

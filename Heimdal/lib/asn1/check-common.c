@@ -289,7 +289,7 @@ generic_test (const struct test_case *tests,
 	    continue;
 	}
 	if (sz != consumed_sz) {
-	    printf ("different length decoding %s (%ld != %ld)\n",
+	    printf ("different length decoding %s (%lu != %lu)\n",
 		    tests[i].name,
 		    (unsigned long)sz, (unsigned long)consumed_sz);
 	    ++failures;

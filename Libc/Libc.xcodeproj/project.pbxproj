@@ -5452,6 +5452,7 @@
 		CB5A46C72AB22D9900756493 /* quick_exit.c in Sources */ = {isa = PBXBuildFile; fileRef = CB5A46BF2AB22D9900756493 /* quick_exit.c */; };
 		CB5A46C82AB22D9900756493 /* quick_exit.c in Sources */ = {isa = PBXBuildFile; fileRef = CB5A46BF2AB22D9900756493 /* quick_exit.c */; };
 		CB5A46C92AB22D9900756493 /* quick_exit.c in Sources */ = {isa = PBXBuildFile; fileRef = CB5A46BF2AB22D9900756493 /* quick_exit.c */; };
+		CBDCAA292985BE4A00657251 /* strchrnul.c in Sources */ = {isa = PBXBuildFile; fileRef = CBDCAA1E2985BCE200657251 /* strchrnul.c */; };
 		E408425B20B585BF00CC87A7 /* forceLibcToBuild.c in Sources */ = {isa = PBXBuildFile; fileRef = C9D9432A138DB72000FB7ACC /* forceLibcToBuild.c */; };
 		F749336D240DBC2000B709CC /* boot_mode_private.h in Headers */ = {isa = PBXBuildFile; fileRef = F749336C240DBBB100B709CC /* boot_mode_private.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		FC2ED610157D4BE80098EC69 /* inet_ntop.c in Sources */ = {isa = PBXBuildFile; fileRef = FC2ED60E157D4BE70098EC69 /* inet_ntop.c */; };
@@ -5825,6 +5826,7 @@
 		8478AB072A6B57FC00739600 /* _abort.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = _abort.h; sourceTree = "<group>"; };
 		8478AB082A6B942200739600 /* _static_assert.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = _static_assert.h; sourceTree = "<group>"; };
 		847CB4CB2A267A7A006542FC /* _strings.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = _strings.h; sourceTree = "<group>"; };
+		848D15922C953EB500E3DAFA /* _locale_t.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = _locale_t.h; sourceTree = "<group>"; };
 		84D4AC2C2A69D5260019CD3D /* _inttypes.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = _inttypes.h; sourceTree = "<group>"; };
 		84D4AC2D2A69D7C90019CD3D /* _langinfo.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = _langinfo.h; sourceTree = "<group>"; };
 		84D4AC2E2A69D89F0019CD3D /* _monetary.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = _monetary.h; sourceTree = "<group>"; };
@@ -5836,6 +5838,7 @@
 		84D4AC342A6A04150019CD3D /* _ctermid.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = _ctermid.h; sourceTree = "<group>"; };
 		84D4AC352A6A04150019CD3D /* _wctype.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = _wctype.h; sourceTree = "<group>"; };
 		84D4AC362A6A07470019CD3D /* _xlocale.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = _xlocale.h; sourceTree = "<group>"; };
+		89AE50BD2CBF17DA0033218E /* _bounds.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = _bounds.h; sourceTree = "<group>"; };
 		922D0C0821BFA1520072834D /* timespec_get.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = timespec_get.3; sourceTree = "<group>"; };
 		922D0C0921BFA1530072834D /* timespec_get.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = timespec_get.c; sourceTree = "<group>"; };
 		926F73921E03E2A3001E049D /* libsystem_darwin.dylib */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = libsystem_darwin.dylib; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -6996,6 +6999,7 @@
 		CB5A46BE2AB22D9800756493 /* quick_exit.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = quick_exit.3; sourceTree = "<group>"; };
 		CB5A46BF2AB22D9900756493 /* quick_exit.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = quick_exit.c; sourceTree = "<group>"; };
 		CB5A46CA2AB22DB900756493 /* psort.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = psort.3; sourceTree = "<group>"; };
+		CBDCAA1E2985BCE200657251 /* strchrnul.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = strchrnul.c; sourceTree = "<group>"; };
 		E40EA6C01EAA8F9300B2FA36 /* _strings.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = _strings.h; sourceTree = "<group>"; };
 		E41BEA97178E72E100E348BB /* Libc.order */ = {isa = PBXFileReference; lastKnownFileType = text; path = Libc.order; sourceTree = "<group>"; };
 		E464104B224C5EA2001B23EF /* ___wctype.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "___wctype.h"; sourceTree = "<group>"; };
@@ -8016,6 +8020,7 @@
 				C9B53854138D9E990028D27C /* __xlocale.h */,
 				8478AB072A6B57FC00739600 /* _abort.h */,
 				8478AB052A6B56AC00739600 /* _assert.h */,
+				89AE50BD2CBF17DA0033218E /* _bounds.h */,
 				84D4AC342A6A04150019CD3D /* _ctermid.h */,
 				E464104C224C5F19001B23EF /* _ctype.h */,
 				84D4AC2C2A69D5260019CD3D /* _inttypes.h */,
@@ -8977,6 +8982,7 @@
 				C9B53D17138D9E9A0028D27C /* strcasestr.c */,
 				C9B53D19138D9E9A0028D27C /* strcat.3 */,
 				C9B53D1C138D9E9A0028D27C /* strchr.3 */,
+				CBDCAA1E2985BCE200657251 /* strchrnul.c */,
 				C9B53D20138D9E9A0028D27C /* strcmp.3 */,
 				C9B53D24138D9E9A0028D27C /* strcoll.3 */,
 				C9B53D26138D9E9A0028D27C /* strcoll.c */,
@@ -9199,6 +9205,7 @@
 			isa = PBXGroup;
 			children = (
 				FC60BAD116555A4A00033196 /* _intmax_t.h */,
+				848D15922C953EB500E3DAFA /* _locale_t.h */,
 				FC60BAD216555A4A00033196 /* _nl_item.h */,
 				FC60BAD316555A4A00033196 /* _uint16_t.h */,
 				FC60BAD416555A4A00033196 /* _uint32_t.h */,
@@ -11308,6 +11315,7 @@
 				C9258018138E1CD200B3107C /* rindex.c in Sources */,
 				C925801B138E1CD200B3107C /* strcasecmp.c in Sources */,
 				C925801C138E1CD200B3107C /* strcasestr.c in Sources */,
+				CBDCAA292985BE4A00657251 /* strchrnul.c in Sources */,
 				C9258020138E1CD200B3107C /* strcoll.c in Sources */,
 				C9258022138E1CD200B3107C /* strcspn.c in Sources */,
 				C9258023138E1CD200B3107C /* strdup.c in Sources */,

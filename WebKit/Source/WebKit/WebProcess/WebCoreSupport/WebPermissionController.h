@@ -49,6 +49,9 @@ public:
     static Ref<WebPermissionController> create(WebProcess&);
     ~WebPermissionController();
 
+    void ref() const final { WebCore::PermissionController::ref(); }
+    void deref() const final { WebCore::PermissionController::deref(); }
+
     // IPC::MessageReceiver
     void didReceiveMessage(IPC::Connection&, IPC::Decoder&) final;
 

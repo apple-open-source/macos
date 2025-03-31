@@ -24,37 +24,26 @@
 
 #pragma once
 
-#include "CSSParserToken.h"
 #include "CSSPropertyParserConsumer+MetaConsumerDefinitions.h"
-#include "CSSPropertyParserConsumer+Primitives.h"
-#include "CSSPropertyParserConsumer+UnevaluatedCalc.h"
-#include <optional>
-#include <wtf/Brigand.h>
 
 namespace WebCore {
-
-class CSSCalcSymbolsAllowed;
-class CSSParserTokenRange;
-
 namespace CSSPropertyParserHelpers {
 
-std::optional<PercentageRaw> validatedRange(PercentageRaw, CSSPropertyParserOptions);
+struct PercentageValidator {
+    static constexpr std::optional<CSS::PercentageUnit> validate(CSSUnitType unitType, CSSPropertyParserOptions)
+    {
+        return CSS::UnitTraits<CSS::PercentageUnit>::validate(unitType);
+    }
 
-struct PercentageKnownTokenTypeFunctionConsumer {
-    static constexpr CSSParserTokenType tokenType = FunctionToken;
-    static std::optional<UnevaluatedCalc<PercentageRaw>> consume(CSSParserTokenRange&, CSSCalcSymbolsAllowed, CSSPropertyParserOptions);
+    template<auto R, typename V> static bool isValid(CSS::PercentageRaw<R, V> raw, CSSPropertyParserOptions)
+    {
+        return isValidCanonicalValue(raw);
+    }
 };
 
-struct PercentageKnownTokenTypePercentConsumer {
-    static constexpr CSSParserTokenType tokenType = PercentageToken;
-    static std::optional<PercentageRaw> consume(CSSParserTokenRange&, CSSCalcSymbolsAllowed, CSSPropertyParserOptions);
-};
-
-template<> struct ConsumerDefinition<PercentageRaw> {
-    using type = brigand::list<PercentageRaw, UnevaluatedCalc<PercentageRaw>>;
-
-    using FunctionToken = PercentageKnownTokenTypeFunctionConsumer;
-    using PercentageToken = PercentageKnownTokenTypePercentConsumer;
+template<auto R, typename V> struct ConsumerDefinition<CSS::Percentage<R, V>> {
+    using FunctionToken = FunctionConsumerForCalcValues<CSS::Percentage<R, V>>;
+    using PercentageToken = PercentageConsumer<CSS::Percentage<R, V>, PercentageValidator>;
 };
 
 } // namespace CSSPropertyParserHelpers

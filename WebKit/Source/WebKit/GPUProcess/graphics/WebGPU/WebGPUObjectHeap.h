@@ -34,8 +34,8 @@
 #include <variant>
 #include <wtf/HashMap.h>
 #include <wtf/Ref.h>
+#include <wtf/RefCountedAndCanMakeWeakPtr.h>
 #include <wtf/TZoneMalloc.h>
-#include <wtf/WeakPtr.h>
 
 namespace WebCore::WebGPU {
 class Adapter;
@@ -100,7 +100,7 @@ class RemoteXRView;
 
 namespace WebKit::WebGPU {
 
-class ObjectHeap final : public RefCounted<ObjectHeap>, public WebGPU::ConvertFromBackingContext, public CanMakeWeakPtr<ObjectHeap> {
+class ObjectHeap final : public RefCountedAndCanMakeWeakPtr<ObjectHeap>, public WebGPU::ConvertFromBackingContext {
     WTF_MAKE_TZONE_ALLOCATED(ObjectHeap);
 public:
     static Ref<ObjectHeap> create()

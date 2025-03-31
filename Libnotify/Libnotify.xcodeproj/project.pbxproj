@@ -1098,7 +1098,6 @@
 			baseConfigurationReference = 3F999963185C474E00EAD3A0 /* notifyd.xcconfig */;
 			buildSettings = {
 				CLANG_ENABLE_OBJC_WEAK = YES;
-				CODE_SIGN_ENTITLEMENTS = notifyd/entitlements.plist;
 				LIBNOTIFY_UBSAN_DEBUG_CFLAGS = "-fsanitize=signed-integer-overflow,shift,pointer-overflow,float-cast-overflow,bounds,enum -fsanitize-trap=signed-integer-overflow,shift,pointer-overflow,float-cast-overflow,bounds,enum";
 				LIBNOTIFY_UBSAN_NONDEBUG_CFLAGS = "-fsanitize=signed-integer-overflow,shift,pointer-overflow,object-size,float-cast-overflow,bounds,enum -fsanitize-trap=signed-integer-overflow,shift,pointer-overflow,object-size,float-cast-overflow,bounds,enum";
 				OTHER_CFLAGS = (
@@ -1301,7 +1300,6 @@
 			baseConfigurationReference = 3F999963185C474E00EAD3A0 /* notifyd.xcconfig */;
 			buildSettings = {
 				CLANG_ENABLE_OBJC_WEAK = YES;
-				CODE_SIGN_ENTITLEMENTS = notifyd/entitlements.plist;
 				LIBNOTIFY_UBSAN_DEBUG_CFLAGS = "-fsanitize=signed-integer-overflow,shift,pointer-overflow,float-cast-overflow,bounds,enum -fsanitize-trap=signed-integer-overflow,shift,pointer-overflow,float-cast-overflow,bounds,enum";
 				LIBNOTIFY_UBSAN_NONDEBUG_CFLAGS = "-fsanitize=signed-integer-overflow,shift,pointer-overflow,object-size,float-cast-overflow,bounds,enum -fsanitize-trap=signed-integer-overflow,shift,pointer-overflow,object-size,float-cast-overflow,bounds,enum";
 				OTHER_CFLAGS = (

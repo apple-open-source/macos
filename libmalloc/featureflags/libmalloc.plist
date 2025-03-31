@@ -22,6 +22,11 @@
 		<key>Enabled</key>
 		<true/>
 	</dict>
+	<key>AllowInternalSecurityPolicy</key>
+	<dict>
+		<key>DevelopmentPhase</key>
+		<string>UnderDevelopment</string>
+	</dict>
 	<key>SecureAllocator_SingleCluster</key>
 	<dict>
 		<key>DevelopmentPhase</key>
@@ -30,18 +35,22 @@
 	<key>SecureAllocator_Nano</key>
 	<dict>
 		<key>DevelopmentPhase</key>
+#if TARGET_OS_IOS || TARGET_OS_VISION
+		<string>FeatureComplete</string>
+#else
 		<string>UnderDevelopment</string>
+#endif
 	</dict>
 	<key>SecureAllocator_NanoOnXzone</key>
 	<dict>
 		<key>DevelopmentPhase</key>
-#if TARGET_OS_IOS && !defined(MALLOC_IOS_FEATUREFLAG_OVERRIDE)
+		<string>UnderDevelopment</string>
+	</dict>
+	<key>SecureAllocator_ThreadCaching</key>
+	<dict>
+		<key>DevelopmentPhase</key>
+#if TARGET_OS_IOS || TARGET_OS_VISION || TARGET_OS_OSX
 		<string>FeatureComplete</string>
-		<key>Attributes</key>
-		<dict>
-			<key>TargetRelease</key>
-			<string>WWDC2024</string>
-		</dict>
 #else
 		<string>UnderDevelopment</string>
 #endif
@@ -60,7 +69,7 @@
 	</dict>
 #endif
 
-#if TARGET_OS_IOS && !defined(MALLOC_IOS_FEATUREFLAG_OVERRIDE)
+#if TARGET_OS_IOS || TARGET_OS_VISION
 #define HAS_SECURE_ALLOCATOR_PROCESS_FEATURES 1
 #define SECURE_ALLOCATOR_SYSTEMWIDE_ENABLED 1
 #elif TARGET_OS_OSX
@@ -89,10 +98,11 @@
 		<string>state</string> \
 	</dict>
 
-#if TARGET_OS_OSX
-SECURE_ALLOCATOR_PROCESS_FEATURE(MTLCompilerService, UnderDevelopment)
-#else
-SECURE_ALLOCATOR_PROCESS_FEATURE(MTLCompilerService, FeatureComplete)
+#if TARGET_OS_VISION
+SECURE_ALLOCATOR_PROCESS_FEATURE(arkitd, UnderDevelopment)
+SECURE_ALLOCATOR_PROCESS_FEATURE(backboardd, UnderDevelopment)
+SECURE_ALLOCATOR_PROCESS_FEATURE(wakeboardd, UnderDevelopment)
+SECURE_ALLOCATOR_PROCESS_FEATURE(realitycamerad, UnderDevelopment)
 #endif
 
 SECURE_ALLOCATOR_PROCESS_FEATURE(aegirposter, UnderDevelopment)

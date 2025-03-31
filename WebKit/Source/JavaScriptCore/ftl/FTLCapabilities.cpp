@@ -160,6 +160,7 @@ inline CapabilityLevel canCompile(Node* node)
     case PutToArguments:
     case GetArgument:
     case InvalidationPoint:
+    case StringAt:
     case StringCharAt:
     case StringLocaleCompare:
     case CheckIsConstant:
@@ -247,6 +248,7 @@ inline CapabilityLevel canCompile(Node* node)
     case NewArrayWithSize:
     case NewArrayWithConstantSize:
     case NewArrayWithSpecies:
+    case NewArrayWithSizeAndStructure:
     case TryGetById:
     case GetById:
     case GetByIdFlush:
@@ -282,6 +284,7 @@ inline CapabilityLevel canCompile(Node* node)
     case MapIterationEntryKey:
     case MapIterationEntryValue:
     case MapStorage:
+    case MapStorageOrSentinel:
     case MapIteratorNext:
     case MapIteratorKey:
     case MapIteratorValue:
@@ -415,7 +418,7 @@ inline CapabilityLevel canCompile(Node* node)
     case CallDOM:
     case CallDOMGetter:
     case ArraySlice:
-    case ArraySpliceExtract:
+    case ArraySplice:
     case ArrayIndexOf:
     case ArrayPop:
     case ArrayPush:

@@ -230,6 +230,11 @@ ms{
             nanosecond{
                 other{"{0} nanosaat"}
             }
+            night{
+                dnam{"malam"}
+                other{"{0} malam"}
+                per{"{0} setiap malam"}
+            }
             quarter{
                 dnam{"suku"}
                 other{"{0} suku"}
@@ -588,6 +593,10 @@ ms{
                 dnam{"knot"}
                 other{"{0} knot"}
             }
+            light-speed{
+                dnam{"cahaya"}
+                other{"{0} cahaya"}
+            }
             meter-per-second{
                 dnam{"meter sesaat"}
                 other{"{0} meter sesaat"}
@@ -845,8 +854,10 @@ ms{
             month{
                 other{"{0}bln"}
             }
-            quarter{
-                other{"{0}q"}
+            night{
+                dnam{"malam"}
+                other{"{0} malam"}
+                per{"{0}/malam"}
             }
             second{
                 other{"{0}s"}
@@ -1005,6 +1016,10 @@ ms{
         speed{
             kilometer-per-hour{
                 dnam{"km/j"}
+            }
+            light-speed{
+                dnam{"cahaya"}
+                other{"{0} cahaya"}
             }
             meter-per-second{
                 dnam{"m/s"}
@@ -1205,6 +1220,11 @@ ms{
             nanosecond{
                 dnam{"nanosaat"}
             }
+            night{
+                dnam{"malam"}
+                other{"{0} malam"}
+                per{"{0}/malam"}
+            }
             quarter{
                 dnam{"sk"}
                 other{"{0} sk"}
@@ -1394,6 +1414,10 @@ ms{
             kilometer-per-hour{
                 dnam{"km/jam"}
                 other{"{0} kmj"}
+            }
+            light-speed{
+                dnam{"cahaya"}
+                other{"{0} cahaya"}
             }
             meter-per-second{
                 dnam{"meter/saat"}

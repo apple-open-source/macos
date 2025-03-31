@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2021-2022 Apple Inc. All rights reserved.
+ * Copyright (C) 2021-2024 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -36,6 +36,7 @@
 #include <WebCore/ProcessIdentifier.h>
 #include <WebCore/RenderingResourceIdentifier.h>
 #include <wtf/RefCounted.h>
+#include <wtf/URL.h>
 #include <wtf/WeakPtr.h>
 
 #if !LOG_DISABLED
@@ -48,6 +49,7 @@ namespace WebKit {
 class RemoteRenderingBackend;
 class RemoteResourceCache;
 class SharedVideoFrameReader;
+struct SharedPreferencesForWebProcess;
 
 class RemoteDisplayListRecorder : public IPC::StreamMessageReceiver, public CanMakeWeakPtr<RemoteDisplayListRecorder> {
 public:
@@ -86,7 +88,6 @@ public:
     void resetClip();
     void drawGlyphs(WebCore::DisplayList::DrawGlyphs&&);
     void drawDecomposedGlyphs(WebCore::RenderingResourceIdentifier fontIdentifier, WebCore::RenderingResourceIdentifier decomposedGlyphsIdentifier);
-    void drawDisplayListItems(Vector<WebCore::DisplayList::Item>&&, const WebCore::FloatPoint& destination);
     void drawFilteredImageBuffer(std::optional<WebCore::RenderingResourceIdentifier> sourceImageIdentifier, const WebCore::FloatRect& sourceImageRect, Ref<WebCore::Filter>);
     void drawImageBuffer(WebCore::RenderingResourceIdentifier imageBufferIdentifier, const WebCore::FloatRect& destinationRect, const WebCore::FloatRect& srcRect, WebCore::ImagePaintingOptions);
     void drawNativeImage(WebCore::RenderingResourceIdentifier imageIdentifier, const WebCore::FloatRect& destRect, const WebCore::FloatRect& srcRect, WebCore::ImagePaintingOptions);
@@ -142,6 +143,12 @@ public:
     void applyFillPattern();
 #endif
     void applyDeviceScaleFactor(float);
+    std::optional<WebKit::SharedPreferencesForWebProcess> sharedPreferencesForWebProcess() const;
+
+    void beginPage(const WebCore::IntSize& pageSize);
+    void endPage();
+
+    void setURLForRect(const URL&, const WebCore::FloatRect&);
 
 private:
     RemoteDisplayListRecorder(WebCore::ImageBuffer&, WebCore::RenderingResourceIdentifier, RemoteRenderingBackend&);
@@ -150,9 +157,12 @@ private:
 
     RemoteResourceCache& resourceCache() const;
     WebCore::ControlFactory& controlFactory();
-    WebCore::GraphicsContext& drawingContext() { return m_imageBuffer->context(); }
+    Ref<WebCore::ControlFactory> protectedControlFactory() { return controlFactory(); }
+    WebCore::GraphicsContext& drawingContext() { return Ref { m_imageBuffer }->context(); }
     RefPtr<WebCore::ImageBuffer> imageBuffer(WebCore::RenderingResourceIdentifier) const;
     std::optional<WebCore::SourceImage> sourceImage(WebCore::RenderingResourceIdentifier) const;
+
+    RefPtr<RemoteRenderingBackend> protectedRenderingBackend() const { return m_renderingBackend; }
 
     template<typename T, typename ... AdditionalArgs>
     void handleItem(T&& item, AdditionalArgs&&... args)

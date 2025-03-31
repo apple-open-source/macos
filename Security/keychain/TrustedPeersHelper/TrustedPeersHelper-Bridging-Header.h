@@ -79,7 +79,7 @@
 #import <KeychainCircle/AAFAnalyticsEvent+Security.h>
 
 #import <SoftLinking/SoftLinking.h>
-#import "KeychainCircle/MetricsOverrideForTests.h"
+#import <KeychainCircle/MetricsOverrideForTests.h>
 
 #import <dirhelper_priv.h>
 #import <unistd.h>

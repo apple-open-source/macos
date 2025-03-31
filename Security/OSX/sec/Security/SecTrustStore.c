@@ -157,8 +157,7 @@ static bool string_cert_to_bool_bool_error(enum SecXPCOperation op, SecTrustStor
     return status;
 }
 
-Boolean SecTrustStoreContains(SecTrustStoreRef ts,
-	SecCertificateRef certificate) {
+Boolean SecTrustStoreContains(SecTrustStoreRef ts, SecCertificateRef certificate) {
     bool ok = false;
 	__block bool contains = false;
     require(ts, errOut);
@@ -212,7 +211,7 @@ static OSStatus validateConstraint(Boolean isSelfSigned, CFMutableDictionaryRef 
     policy = (SecPolicyRef)CFDictionaryGetValue(trustSettingsDict, kSecTrustSettingsPolicy);
     if (policy) {
         CFStringRef policyOid = NULL, policyName = NULL;
-        policyOid = SecPolicyGetOidString(policy);
+        policyOid = SecPolicyGetCompatibilityOidString(policy);
         policyName = SecPolicyGetName(policy);
         CFDictionarySetValue(trustSettingsDict, kSecTrustSettingsPolicy, policyOid);
         if (policyName) { CFDictionaryAddValue(trustSettingsDict, kSecTrustSettingsPolicyName, policyName); }
@@ -343,9 +342,12 @@ OSStatus SecTrustStoreGetSettingsAssetVersionNumber(SecTrustSettingsAssetVersion
     return status;
 }
 
-static bool string_to_array_error(enum SecXPCOperation op, SecTrustStoreRef ts, CFArrayRef *trustStoreContents, CFErrorRef *error)
+static bool string_string_to_array_error(enum SecXPCOperation op, SecTrustStoreRef ts, CFStringRef policyId, CFArrayRef *trustStoreContents, CFErrorRef *error)
 {
     return securityd_send_sync_and_do(op, error, ^bool(xpc_object_t message, CFErrorRef *blockError) {
+        if (policyId && !SecXPCDictionarySetString(message, kSecTrustPoliciesKey, policyId, blockError)) {
+            return false;
+        }
         return SecXPCDictionarySetString(message, kSecXPCKeyDomain, (CFStringRef)ts, blockError);
     }, ^bool(xpc_object_t response, CFErrorRef *blockError) {
         if (trustStoreContents) {
@@ -366,7 +368,7 @@ OSStatus SecTrustStoreCopyAll(SecTrustStoreRef ts, CFArrayRef *trustStoreContent
     require(ts, errOut);
 
     status = SecOSStatusWith(^bool (CFErrorRef *error) {
-        return TRUSTD_XPC(sec_trust_store_copy_all, string_to_array_error, ts, &results, error);
+        return TRUSTD_XPC(sec_trust_store_copy_all, string_string_to_array_error, ts, NULL, &results, error);
     });
 
     *trustStoreContents = results;
@@ -374,6 +376,26 @@ OSStatus SecTrustStoreCopyAll(SecTrustStoreRef ts, CFArrayRef *trustStoreContent
 errOut:
     os_release(activity);
     return status;
+}
+
+CFArrayRef SecTrustStoreCopyAnchors(SecTrustStoreRef ts, CFStringRef policyId) {
+    __block CFArrayRef results = NULL;
+    OSStatus status = errSecParam;
+
+    os_activity_t activity = os_activity_create("SecTrustStoreCopyAnchors", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_DEFAULT);
+    os_activity_scope(activity);
+    require(ts, errOut);
+
+    status = SecOSStatusWith(^bool (CFErrorRef *error) {
+        return TRUSTD_XPC(sec_trust_store_copy_all, string_string_to_array_error, ts, policyId, &results, error);
+    });
+
+errOut:
+    os_release(activity);
+    if (status == errSecSuccess) {
+        return results;
+    }
+    return NULL;
 }
 
 static bool string_cert_to_array_error(enum SecXPCOperation op, SecTrustStoreRef ts, SecCertificateRef cert, CFArrayRef *usageConstraints, CFErrorRef *error)

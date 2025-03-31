@@ -33,7 +33,6 @@
 #include <sysexits.h>
 
 #include <mach/mach.h>
-
 /*
  * (Another optimization to consider is merging adjacent regions with
  * the same properties.)
@@ -734,7 +733,7 @@ coredump(task_t task, int fd, const struct proc_bsdinfo *__unused pbi)
     uuid_clear(sc_uuid);
 
 	dyld_process_info dpi = NULL;
-	if (opt->extended) {
+	if (opt->extended || opt->skinny) {
 		dpi = get_task_dyld_info(task);
 		if (dpi) {
 			get_sc_uuid(dpi, sc_uuid);
@@ -821,7 +820,23 @@ coredump(task_t task, int fd, const struct proc_bsdinfo *__unused pbi)
 		if (OPTIONS_DEBUG(opt, 1))
 			printf("Mapped file optimization\n");
 		walk_region_list(rhead, label_mapped_files, (void *)pbi);
-	}
+    } 
+
+    if(opt->skinny) {
+        if (OPTIONS_DEBUG(opt, 1)) {
+            printf("Pre-macho headers insertion\n");
+            print_memory_region_header();
+            walk_region_list(rhead, region_print_memory, NULL);
+        }
+
+        create_dyld_header_regions(task,rhead);
+        add_forced_regions(task,rhead);
+        if (OPTIONS_DEBUG(opt, 1)) {
+            printf("Post-macho headers insertion\n");
+            print_memory_region_header();
+            walk_region_list(rhead, region_print_memory, NULL);
+        }
+    }
 
     if (OPTIONS_DEBUG(opt, 1))
         printf("Optimization(s) done\n");
@@ -1073,7 +1088,7 @@ coredump_prepare(task_t task, uuid_t sc_uuid)
         return rhead;
     }
 
-    if (opt->extended) {
+    if (opt->extended || opt->skinny ) {
         /*
          * See if we can replace entire regions with references to the shared cache
          * by looking at the VM meta-data about those regions.

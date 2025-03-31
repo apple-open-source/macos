@@ -33,6 +33,8 @@ extern "C" {
 
 void countLegacyAPI(dispatch_once_t* token, const char* api);
 void setCountLegacyAPIEnabledForThread(bool value);
+void setCountLegacyAPIEnabledForThreadCleanup(bool* value);
+
 bool countLegacyAPIEnabledForThread(void);
 
 void countLegacyMDSPlugin(const char* path, const char* guid);

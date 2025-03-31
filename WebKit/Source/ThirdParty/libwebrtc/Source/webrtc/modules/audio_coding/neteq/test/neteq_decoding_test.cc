@@ -12,9 +12,10 @@
 
 #include "absl/strings/string_view.h"
 #include "api/audio_codecs/builtin_audio_decoder_factory.h"
+#include "api/environment/environment_factory.h"
+#include "api/neteq/default_neteq_factory.h"
 #include "api/rtp_headers.h"
 #include "api/units/timestamp.h"
-#include "modules/audio_coding/neteq/default_neteq_factory.h"
 #include "modules/audio_coding/neteq/test/result_sink.h"
 #include "rtc_base/strings/string_builder.h"
 #include "test/testsupport/file_utils.h"
@@ -77,6 +78,7 @@ const int NetEqDecodingTest::kInitSampleRateHz;
 
 NetEqDecodingTest::NetEqDecodingTest()
     : clock_(0),
+      env_(CreateEnvironment(&clock_)),
       config_(),
       output_sample_rate_(kInitSampleRateHz),
       algorithmic_delay_ms_(0) {
@@ -84,8 +86,8 @@ NetEqDecodingTest::NetEqDecodingTest()
 }
 
 void NetEqDecodingTest::SetUp() {
-  auto decoder_factory = CreateBuiltinAudioDecoderFactory();
-  neteq_ = DefaultNetEqFactory().CreateNetEq(config_, decoder_factory, &clock_);
+  neteq_ = DefaultNetEqFactory().Create(env_, config_,
+                                        CreateBuiltinAudioDecoderFactory());
   NetEqNetworkStatistics stat;
   ASSERT_EQ(0, neteq_->NetworkStatistics(&stat));
   algorithmic_delay_ms_ = stat.current_buffer_size_ms;
@@ -267,7 +269,7 @@ void NetEqDecodingTest::WrapTest(uint16_t start_seq_no,
     ASSERT_EQ(1u, output.num_channels_);
 
     // Expect delay (in samples) to be less than 2 packets.
-    absl::optional<uint32_t> playout_timestamp = neteq_->GetPlayoutTimestamp();
+    std::optional<uint32_t> playout_timestamp = neteq_->GetPlayoutTimestamp();
     ASSERT_TRUE(playout_timestamp);
     EXPECT_LE(timestamp - *playout_timestamp,
               static_cast<uint32_t>(kSamples * 2));
@@ -312,7 +314,7 @@ void NetEqDecodingTest::LongCngWithClockDrift(double drift_factor,
   }
 
   EXPECT_EQ(AudioFrame::kNormalSpeech, out_frame_.speech_type_);
-  absl::optional<uint32_t> playout_timestamp = neteq_->GetPlayoutTimestamp();
+  std::optional<uint32_t> playout_timestamp = neteq_->GetPlayoutTimestamp();
   ASSERT_TRUE(playout_timestamp);
   int32_t delay_before = timestamp - *playout_timestamp;
 
@@ -421,9 +423,8 @@ void NetEqDecodingTestTwoInstances::SetUp() {
 }
 
 void NetEqDecodingTestTwoInstances::CreateSecondInstance() {
-  auto decoder_factory = CreateBuiltinAudioDecoderFactory();
-  neteq2_ =
-      DefaultNetEqFactory().CreateNetEq(config2_, decoder_factory, &clock_);
+  neteq2_ = DefaultNetEqFactory().Create(env_, config2_,
+                                         CreateBuiltinAudioDecoderFactory());
   ASSERT_TRUE(neteq2_);
   LoadDecoders(neteq2_.get());
 }

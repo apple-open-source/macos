@@ -44,11 +44,13 @@ public:
     virtual void iterate(const IDBKeyData&, const IDBKeyData& primaryKey, uint32_t count, IDBGetResult&) = 0;
 
     static MemoryCursor* cursorForIdentifier(const IDBResourceIdentifier&);
+    MemoryBackingStoreTransaction* transaction() const { return m_transaction.get(); }
 
 protected:
-    MemoryCursor(const IDBCursorInfo&);
+    MemoryCursor(const IDBCursorInfo&, MemoryBackingStoreTransaction&);
 
     IDBCursorInfo m_info;
+    WeakPtr<MemoryBackingStoreTransaction> m_transaction;
 };
 
 } // namespace IDBServer

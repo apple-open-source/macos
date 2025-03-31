@@ -13,7 +13,6 @@ LIBF2CNAME = libf2c
 F2CSRC = $(SRCROOT)/tmpprefix/$(F2CNAME)
 F2CTOP = $(OBJROOT)/$(F2CNAME)
 F2CDIR = $(F2CTOP)/$(F2CNAME)
-TARSUFFIX = .tar.gz
 
 install: $(F2CDIR) $(F2CDIR)/$(LIBF2CNAME) buildsrc
 	@set -x && \
@@ -31,7 +30,7 @@ install: $(F2CDIR) $(F2CDIR)/$(LIBF2CNAME) buildsrc
 
 $(F2CDIR):
 	mkdir -p $(F2CTOP)
-	tar xzof $(F2CNAME)-mod$(TARSUFFIX) -C $(F2CTOP)
+	cp -a $(F2CSRC)/$(F2CNAME) $(F2CTOP)
 
 $(F2CDIR)/$(LIBF2CNAME):
 	@set -x && \
@@ -59,7 +58,3 @@ buildsrc:
 	ln -s ../$(LIBF2CNAME)/f2c.h && \
 	( cd $(F2CDIR) ; patch -p1 ) < $(F2CSRC)/103310602-compilier-fixes.diff && \
 	make
-
-afterinstallsrc:
-	perl $(SRCROOT)/tar-remove.pl '^f2c/(?:msdos|mswin)/' $(F2CSRC)/$(F2CNAME)$(TARSUFFIX) $(F2CNAME)-mod$(TARSUFFIX)
-	rm -f $(F2CSRC)/$(F2CNAME)$(TARSUFFIX)

@@ -1,0 +1,40 @@
+#! /bin/sh
+
+. ${tstdir-.}/lib.sh
+. ${tstdir-.}/conf.sh
+
+rm -rf dir1 dir2 dir3
+# make the copy-from-here tree
+mkdir dir1
+cd dir1
+# Need to write a sufficient size so that we don't get smaller
+# than the blocksize for rsync transfers.
+seq -f%015g 262144 > foo
+# make the tree we want to compare to
+mkdir ../dir2
+cd ../dir2
+seq -f%015g 262144 > foo
+
+cd ..
+
+rsync --partial --bwlimit=512 -a -- dir1/ dir3 &
+pid=$!
+sleep 2 # about half of the file
+kill "$pid"
+# need some time to let the signal handler do its thing
+wait
+sleep 1
+ls -la dir[123]
+if [ ! -f dir3/foo ] ; then
+    echo error: --partial did not leave a dir3/foo 1>&2
+    exit 1
+fi
+if [ ! -s dir3/foo ] ; then
+    echo error: --partial left a zero length dir3/foo 1>&2
+    exit 1
+fi
+
+rsync --partial -a -- dir1/ dir3
+
+compare_trees dir2 dir3
+ls -la dir?

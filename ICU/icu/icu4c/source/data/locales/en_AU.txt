@@ -94,7 +94,7 @@ en_AU{
                 "h:mm:ss a z",
                 "h:mm:ss a",
                 "h:mm a",
-                "EEEE d MMMM y",
+                "EEEE, d MMMM y",
                 "d MMMM y",
                 "d MMM y",
                 "d/M/y",
@@ -182,9 +182,7 @@ en_AU{
                         noon{"midday"}
                     }
                     narrow{
-                        am{"am"}
                         noon{"midday"}
-                        pm{"pm"}
                     }
                     wide{
                         noon{"midday"}

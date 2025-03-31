@@ -1028,7 +1028,11 @@ OSStatus SecTrustSettingsCopyCertificates(
     static dispatch_queue_t sCopyCertificatesQueue;
     static dispatch_once_t onceToken;
     dispatch_once(&onceToken, ^{
-        sCopyCertificatesQueue = dispatch_queue_create("copy_certificates_from_keychain", DISPATCH_QUEUE_SERIAL);
+        // USER_INTERACTIVE since this blocks WindowServer (and we don't have a good way to propagate the QOS/priority)
+        dispatch_queue_attr_t attrs = dispatch_queue_attr_make_with_qos_class(DISPATCH_QUEUE_SERIAL,
+                                                                              QOS_CLASS_USER_INTERACTIVE,
+                                                                              0);
+        sCopyCertificatesQueue = dispatch_queue_create("copy_certificates_from_keychain", attrs);
     });
     __block OSStatus result = 0;
     __block CFArrayRef localArray = NULL;

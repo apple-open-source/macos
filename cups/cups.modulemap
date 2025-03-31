@@ -81,6 +81,3 @@ module CUPS [system] {
     export *
   }
 }
-
-module CUPS_Placeholder_NewFile [system] {
-}

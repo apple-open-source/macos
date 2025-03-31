@@ -36,6 +36,7 @@
 
 namespace WebCore {
 
+WTF_MAKE_TZONE_ALLOCATED_IMPL(DeviceMotionClient);
 WTF_MAKE_TZONE_ALLOCATED_IMPL(DeviceMotionController);
 
 DeviceMotionController::DeviceMotionController(DeviceMotionClient& client)
@@ -69,7 +70,7 @@ void DeviceMotionController::didChangeDeviceMotion(DeviceMotionData* deviceMotio
 
 DeviceMotionClient& DeviceMotionController::deviceMotionClient()
 {
-    return static_cast<DeviceMotionClient&>(m_client.get());
+    return downcast<DeviceMotionClient>(m_client.get());
 }
 
 bool DeviceMotionController::hasLastData()

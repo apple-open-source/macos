@@ -37,27 +37,52 @@ static UniquePtr<STACK_OF(CRYPTO_BUFFER)> new_leafless_chain(void) {
 
 bool ssl_get_credential_list(SSL_HANDSHAKE *hs, Array<SSL_CREDENTIAL *> *out) {
   CERT *cert = hs->config->cert.get();
-  // Finish filling in the default credential if needed.
+  // Finish filling in the legacy credential if needed.
   if (!cert->x509_method->ssl_auto_chain_if_needed(hs)) {
     return false;
   }
 
   size_t num_creds = cert->credentials.size();
-  bool include_default = cert->default_credential->IsComplete();
-  if (include_default) {
+  bool include_legacy = cert->legacy_credential->IsComplete();
+  if (include_legacy) {
     num_creds++;
   }
 
-  if (!out->Init(num_creds)) {
+  if (!out->InitForOverwrite(num_creds)) {
     return false;
   }
 
   for (size_t i = 0; i < cert->credentials.size(); i++) {
     (*out)[i] = cert->credentials[i].get();
   }
-  if (include_default) {
-    (*out)[num_creds - 1] = cert->default_credential.get();
+  if (include_legacy) {
+    (*out)[num_creds - 1] = cert->legacy_credential.get();
   }
+  return true;
+}
+
+bool ssl_credential_matches_requested_issuers(SSL_HANDSHAKE *hs,
+                                              const SSL_CREDENTIAL *cred) {
+  if (cred->must_match_issuer) {
+    // If we have names sent by the CA extension, and this
+    // credential matches it, it is good.
+    if (hs->ca_names != nullptr) {
+      for (const CRYPTO_BUFFER *ca_name : hs->ca_names.get()) {
+        if (cred->ChainContainsIssuer(MakeConstSpan(
+                CRYPTO_BUFFER_data(ca_name), CRYPTO_BUFFER_len(ca_name)))) {
+          return true;
+        }
+      }
+    }
+    // TODO(bbe): Other forms of issuer matching go here.
+
+    // If this cred must match a requested issuer and we
+    // get here, we should not use it.
+    return false;
+  }
+
+  // This cred does not need to match a requested issuer, so
+  // it is good to use without a match.
   return true;
 }
 
@@ -211,6 +236,28 @@ void ssl_credential_st::ClearIntermediateCerts() {
   while (sk_CRYPTO_BUFFER_num(chain.get()) > 1) {
     CRYPTO_BUFFER_free(sk_CRYPTO_BUFFER_pop(chain.get()));
   }
+}
+
+bool ssl_credential_st::ChainContainsIssuer(
+    bssl::Span<const uint8_t> dn) const {
+    if (UsesX509()) {
+    // TODO(bbe) This is used for matching a chain by CA name for the CA extension.
+    // If we require a chain to be present, we could remove any remaining parts
+    // of the chain after the found issuer, on the assumption that the peer
+    // sending the CA extension has the issuer in their trust store and does not
+    // need us to waste bytes on the wire.
+    CBS dn_cbs;
+    CBS_init(&dn_cbs, dn.data(), dn.size());
+    for (size_t i = 0; i < sk_CRYPTO_BUFFER_num(chain.get()); i++) {
+      const CRYPTO_BUFFER *cert = sk_CRYPTO_BUFFER_value(chain.get(), i);
+      CBS cert_cbs;
+      CRYPTO_BUFFER_init_CBS(cert, &cert_cbs);
+      if (ssl_cert_matches_issuer(&cert_cbs, &dn_cbs)) {
+        return true;
+      }
+    }
+  }
+  return false;
 }
 
 bool ssl_credential_st::AppendIntermediateCert(UniquePtr<CRYPTO_BUFFER> cert) {
@@ -420,4 +467,16 @@ int SSL_CREDENTIAL_set_ex_data(SSL_CREDENTIAL *cred, int idx, void *arg) {
 
 void *SSL_CREDENTIAL_get_ex_data(const SSL_CREDENTIAL *cred, int idx) {
   return CRYPTO_get_ex_data(&cred->ex_data, idx);
+}
+
+void SSL_CREDENTIAL_set_must_match_issuer(SSL_CREDENTIAL *cred) {
+  cred->must_match_issuer = true;
+}
+
+void SSL_CREDENTIAL_clear_must_match_issuer(SSL_CREDENTIAL *cred) {
+  cred->must_match_issuer = false;
+}
+
+int SSL_CREDENTIAL_must_match_issuer(const SSL_CREDENTIAL *cred) {
+  return cred->must_match_issuer ? 1 : 0;
 }

@@ -675,7 +675,7 @@ class SMRScalableHash(_Hash):
     @property
     def count(self):
         sbv      = self.hash_value.chkGetChildMemberWithName('smrsh_count')
-        addr     = sbv.GetValueAsAddress() | 0x8000000000000000
+        addr     = sbv.GetValueAsAddress()
         target   = sbv.GetTarget()
         ncpus    = target.chkFindFirstGlobalVariable('zpercpu_early_count').xGetValueAsInteger()
         pg_shift = target.chkFindFirstGlobalVariable('page_shift').xGetValueAsInteger()

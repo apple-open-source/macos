@@ -975,8 +975,10 @@ void SetUAVRelatedResourceLimits(D3D_FEATURE_LEVEL featureLevel, gl::Caps *caps)
     // https://docs.microsoft.com/en-us/windows/desktop/direct3d11/overviews-direct3d-11-resources-limits
     // Resource size (in MB) for any of the preceding resources is min(max(128,0.25f * (amount of
     // dedicated VRAM)), 2048) MB. So we set it to 128MB to keep same with GL backend.
-    caps->maxShaderStorageBlockSize =
-        D3D11_REQ_RESOURCE_SIZE_IN_MEGABYTES_EXPRESSION_A_TERM * 1024 * 1024;
+    GLint maxResourceSize = D3D11_REQ_RESOURCE_SIZE_IN_MEGABYTES_EXPRESSION_A_TERM * 1024 * 1024;
+    caps->maxShaderStorageBlockSize = maxResourceSize;
+
+    caps->maxAtomicCounterBufferSize = maxResourceSize;
 
     // Allocate the remaining slots for images and shader storage blocks.
     // The maximum number of fragment shader outputs depends on the current context version, so we
@@ -1233,13 +1235,18 @@ int GetMaximumRenderToBufferWindowSize(D3D_FEATURE_LEVEL featureLevel)
     }
 }
 
-IntelDriverVersion GetIntelDriverVersion(const Optional<LARGE_INTEGER> driverVersion)
+angle::VersionTriple GetIntelDriverVersion(const Optional<LARGE_INTEGER> driverVersion)
 {
     if (!driverVersion.valid())
-        return IntelDriverVersion(0);
+    {
+        return angle::VersionTriple(0, 0, 0);
+    }
 
     DWORD lowPart = driverVersion.value().LowPart;
-    return IntelDriverVersion(HIWORD(lowPart) * 10000 + LOWORD(lowPart));
+
+    // Please refer the details at
+    // http://www.intel.com/content/www/us/en/support/graphics-drivers/000005654.html.
+    return angle::VersionTriple(HIWORD(lowPart), LOWORD(lowPart), 0);
 }
 
 }  // anonymous namespace
@@ -2497,7 +2504,7 @@ void InitializeFeatures(const Renderer11DeviceCaps &deviceCaps,
     bool isAMD             = IsAMD(adapterDesc.VendorId);
     bool isFeatureLevel9_3 = deviceCaps.featureLevel <= D3D_FEATURE_LEVEL_9_3;
 
-    IntelDriverVersion capsVersion = IntelDriverVersion(0);
+    angle::VersionTriple capsVersion;
     if (isIntel)
     {
         capsVersion = d3d11_gl::GetIntelDriverVersion(deviceCaps.driverVersion);
@@ -2514,13 +2521,13 @@ void InitializeFeatures(const Renderer11DeviceCaps &deviceCaps,
         bool driverVersionValid = deviceCaps.driverVersion.valid();
         if (driverVersionValid)
         {
-            WORD part1 = HIWORD(deviceCaps.driverVersion.value().LowPart);
-            WORD part2 = LOWORD(deviceCaps.driverVersion.value().LowPart);
+            angle::VersionTriple driverVersion(HIWORD(deviceCaps.driverVersion.value().LowPart),
+                                               LOWORD(deviceCaps.driverVersion.value().LowPart), 0);
 
             // Disable the workaround to fix a second driver bug on newer NVIDIA.
-            ANGLE_FEATURE_CONDITION(
-                features, depthStencilBlitExtraCopy,
-                (part1 <= 13u && part2 < 6881) && isNvidia && driverVersionValid);
+            ANGLE_FEATURE_CONDITION(features, depthStencilBlitExtraCopy,
+                                    driverVersion < angle::VersionTriple(13, 6881, 0) && isNvidia &&
+                                        driverVersionValid);
         }
         else
         {
@@ -2531,7 +2538,6 @@ void InitializeFeatures(const Renderer11DeviceCaps &deviceCaps,
 
     ANGLE_FEATURE_CONDITION(features, mrtPerfWorkaround, true);
     ANGLE_FEATURE_CONDITION(features, zeroMaxLodWorkaround, isFeatureLevel9_3);
-    ANGLE_FEATURE_CONDITION(features, useInstancedPointSpriteEmulation, isFeatureLevel9_3);
     ANGLE_FEATURE_CONDITION(features, allowES3OnFL100, false);
 
     // TODO(jmadill): Disable workaround when we have a fixed compiler DLL.
@@ -2546,27 +2552,27 @@ void InitializeFeatures(const Renderer11DeviceCaps &deviceCaps,
     ANGLE_FEATURE_CONDITION(features, useSystemMemoryForConstantBuffers, isIntel);
 
     ANGLE_FEATURE_CONDITION(features, callClearTwice,
-                            isIntel && isSkylake && capsVersion >= IntelDriverVersion(160000) &&
-                                capsVersion < IntelDriverVersion(164771));
+                            isIntel && isSkylake && capsVersion >= angle::VersionTriple(16, 0, 0) &&
+                                capsVersion < angle::VersionTriple(16, 4771, 0));
     ANGLE_FEATURE_CONDITION(features, emulateIsnanFloat,
-                            isIntel && isSkylake && capsVersion >= IntelDriverVersion(160000) &&
-                                capsVersion < IntelDriverVersion(164542));
+                            isIntel && isSkylake && capsVersion >= angle::VersionTriple(16, 0, 0) &&
+                                capsVersion < angle::VersionTriple(16, 4542, 0));
     ANGLE_FEATURE_CONDITION(features, rewriteUnaryMinusOperator,
                             isIntel && (isBroadwell || isHaswell) &&
-                                capsVersion >= IntelDriverVersion(150000) &&
-                                capsVersion < IntelDriverVersion(154624));
+                                capsVersion >= angle::VersionTriple(15, 0, 0) &&
+                                capsVersion < angle::VersionTriple(15, 4624, 0));
 
     ANGLE_FEATURE_CONDITION(features, addMockTextureNoRenderTarget,
-                            isIntel && capsVersion >= IntelDriverVersion(160000) &&
-                                capsVersion < IntelDriverVersion(164815));
+                            isIntel && capsVersion >= angle::VersionTriple(16, 0, 0) &&
+                                capsVersion < angle::VersionTriple(16, 4815, 0));
 
     // Haswell/Ivybridge drivers occasionally corrupt (small?) (vertex?) texture data uploads.
     ANGLE_FEATURE_CONDITION(features, setDataFasterThanImageUpload,
                             !(isIvyBridge || isBroadwell || isHaswell));
 
     ANGLE_FEATURE_CONDITION(features, disableB5G6R5Support,
-                            (isIntel && capsVersion >= IntelDriverVersion(150000) &&
-                             capsVersion < IntelDriverVersion(154539)) ||
+                            (isIntel && capsVersion >= angle::VersionTriple(15, 0, 0) &&
+                             capsVersion < angle::VersionTriple(15, 4539, 0)) ||
                                 isAMD);
 
     // TODO(jmadill): Disable when we have a fixed driver version.

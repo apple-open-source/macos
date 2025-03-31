@@ -94,7 +94,8 @@ public:
     void exportBlob(Writer &pub, Writer &priv);
 	
 	IFDUMP(void debugDump() const);
-    
+    virtual CFStringRef createACLDebugString() const;
+
 private:
 	AclAuthorization mAuthTag;		// authorization tag referred to (origin only)
 };
@@ -118,7 +119,8 @@ public:
 	void exportBlob(Writer &pub, Writer &priv);
 	
 	IFDUMP(void debugDump() const);
-	
+    virtual CFStringRef createACLDebugString() const;
+
 private:
 	RefPointer<AclSubject> mSourceSubject;	// subject determining outcome (source only)
 };

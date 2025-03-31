@@ -159,7 +159,7 @@ SecPolicyGetOID(SecPolicyRef policyRef, CSSM_OID* oid)
 	if (!policyRef) {
 		END_SECPOLICYAPI(errSecParam)
 	}
-	CFStringRef oidStr = (CFStringRef) SecPolicyGetOidString(policyRef);
+	CFStringRef oidStr = (CFStringRef) SecPolicyGetCompatibilityOidString(policyRef);
 	if (!oidStr || !oid) {
 		END_SECPOLICYAPI(errSecParam)
 	}
@@ -334,8 +334,8 @@ SecPolicySetValue(SecPolicyRef policyRef, const CSSM_DATA *value)
 		CFEqual(oid, CFSTR("sslClient") /*kSecPolicyOIDSSLClient*/) ||
 		CFEqual(oid, CFSTR("ipsecServer") /*kSecPolicyOIDIPSecServer*/) ||
 		CFEqual(oid, CFSTR("ipsecClient") /*kSecPolicyOIDIPSecClient*/) ||
-		CFEqual(oid, kSecPolicyAppleSSL) ||
-		CFEqual(oid, kSecPolicyAppleIPsec) ||
+        CFEqual(oid, kSecPolicyAppleSSL) || CFEqual(oid, kSecPolicyAppleSSLServer) || CFEqual(oid, kSecPolicyAppleSSLClient) ||
+        CFEqual(oid, kSecPolicyAppleIPsec) || CFEqual(oid, kSecPolicyAppleIPSecServer) || CFEqual(oid, kSecPolicyAppleIPSecClient) ||
 		CFEqual(oid, kSecPolicyAppleIDValidation)
 		) {
 		CSSM_APPLE_TP_SSL_OPTIONS *opts = (CSSM_APPLE_TP_SSL_OPTIONS *)value->Data;
@@ -354,7 +354,7 @@ SecPolicySetValue(SecPolicyRef policyRef, const CSSM_DATA *value)
 	}
 	else if (CFEqual(oid, CFSTR("eapServer") /*kSecPolicyOIDEAPServer*/) ||
 			 CFEqual(oid, CFSTR("eapClient") /*kSecPolicyOIDEAPClient*/) ||
-			 CFEqual(oid, kSecPolicyAppleEAP)
+             CFEqual(oid, kSecPolicyAppleEAP) || CFEqual(oid, kSecPolicyAppleEAPServer) || CFEqual(oid, kSecPolicyAppleEAPClient)
 		) {
 		CSSM_APPLE_TP_SSL_OPTIONS *opts = (CSSM_APPLE_TP_SSL_OPTIONS *)value->Data;
 		if (opts->Version == CSSM_APPLE_TP_SSL_OPTS_VERSION) {

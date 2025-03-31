@@ -37,7 +37,13 @@
 #import "Logging.h"
 #import "WebExtensionAPITabs.h"
 #import "WebExtensionMessageSenderParameters.h"
+#import "WebFrame.h"
+#import <WebCore/LocalFrame.h>
 #import <objc/runtime.h>
+
+#if PLATFORM(IOS_FAMILY)
+#import <UIKit/UIKit.h>
+#endif
 
 namespace WebKit {
 
@@ -291,7 +297,7 @@ bool validateDictionary(NSDictionary<NSString *, id> *dictionary, NSString *sour
         errorString = [NSString stringWithFormat:@"it is missing required keys: %@", formatList(remainingRequiredKeys.allObjects)];
 
     if (errorString && outExceptionString)
-        *outExceptionString = toErrorString(nil, sourceKey, errorString);
+        *outExceptionString = toErrorString(nullString(), sourceKey, errorString);
 
     return !errorString;
 }
@@ -304,54 +310,9 @@ bool validateObject(NSObject *object, NSString *sourceKey, id expectedValueType,
     validate(nil, object, expectedValueType, &errorString);
 
     if (errorString && outExceptionString)
-        *outExceptionString = toErrorString(nil, sourceKey, errorString);
+        *outExceptionString = toErrorString(nullString(), sourceKey, errorString);
 
     return !errorString;
-}
-
-static inline NSString* lowercaseFirst(NSString *input)
-{
-    return input.length ? [[input substringToIndex:1].lowercaseString stringByAppendingString:[input substringFromIndex:1]] : input;
-}
-
-static inline NSString* uppercaseFirst(NSString *input)
-{
-    return input.length ? [[input substringToIndex:1].uppercaseString stringByAppendingString:[input substringFromIndex:1]] : input;
-}
-
-inline NSString* trimTrailingPeriod(NSString *input)
-{
-    return [input hasSuffix:@"."] ? [input substringToIndex:input.length - 1] : input;
-}
-
-NSString *toErrorString(NSString *callingAPIName, NSString *sourceKey, NSString *underlyingErrorString, ...)
-{
-    ASSERT(underlyingErrorString.length);
-
-    va_list arguments;
-    va_start(arguments, underlyingErrorString);
-
-    ALLOW_NONLITERAL_FORMAT_BEGIN
-    NSString *formattedUnderlyingErrorString = [[NSString alloc] initWithFormat:trimTrailingPeriod(underlyingErrorString) arguments:arguments];
-    ALLOW_NONLITERAL_FORMAT_END
-
-    va_end(arguments);
-
-    if (UNLIKELY(callingAPIName.length && sourceKey.length && [formattedUnderlyingErrorString containsString:@"value is invalid"])) {
-        ASSERT_NOT_REACHED_WITH_MESSAGE("Overly nested error string, use a `nil` sourceKey for this call instead.");
-        sourceKey = nil;
-    }
-
-    if (callingAPIName.length && sourceKey.length)
-        return [NSString stringWithFormat:@"Invalid call to %@. The '%@' value is invalid, because %@.", callingAPIName, sourceKey, lowercaseFirst(formattedUnderlyingErrorString)];
-
-    if (!callingAPIName.length && sourceKey.length)
-        return [NSString stringWithFormat:@"The '%@' value is invalid, because %@.", sourceKey, lowercaseFirst(formattedUnderlyingErrorString)];
-
-    if (callingAPIName.length)
-        return [NSString stringWithFormat:@"Invalid call to %@. %@.", callingAPIName, uppercaseFirst(formattedUnderlyingErrorString)];
-
-    return formattedUnderlyingErrorString;
 }
 
 JSObjectRef toJSError(JSContextRef context, NSString *callingAPIName, NSString *sourceKey, NSString *underlyingErrorString)
@@ -368,12 +329,15 @@ JSObjectRef toJSRejectedPromise(JSContextRef context, NSString *callingAPIName, 
 
 NSString *toWebAPI(NSLocale *locale)
 {
-    if (!locale.languageCode)
-        return nil;
+    if (!locale.languageCode.length)
+        return @"und";
 
+    NSMutableString *result = [locale.languageCode mutableCopy];
+    if (locale.scriptCode.length)
+        [result appendFormat:@"-%@", locale.scriptCode];
     if (locale.countryCode.length)
-        return [NSString stringWithFormat:@"%@-%@", locale.languageCode, locale.countryCode];
-    return locale.languageCode;
+        [result appendFormat:@"-%@", locale.countryCode];
+    return [result copy];
 }
 
 size_t storageSizeOf(NSString *keyOrValue)
@@ -414,6 +378,36 @@ bool anyItemsExceedQuota(NSDictionary *items, size_t quota, NSString **outKeyWit
         *outKeyWithError = keyWithError;
 
     return itemExceededQuota;
+}
+
+Markable<WTF::UUID> toDocumentIdentifier(WebFrame& frame)
+{
+    RefPtr coreFrame = frame.coreLocalFrame();
+    RefPtr document = coreFrame ? coreFrame->document() : nullptr;
+    if (!document)
+        return { };
+    return document->identifier().object();
+}
+
+Vector<double> availableScreenScales()
+{
+    Vector<double> screenScales;
+
+#if USE(APPKIT)
+    for (NSScreen *screen in NSScreen.screens)
+        screenScales.append(screen.backingScaleFactor);
+#else
+    ALLOW_DEPRECATED_DECLARATIONS_BEGIN
+    for (UIScreen *screen in UIScreen.screens)
+        screenScales.append(screen.scale);
+    ALLOW_DEPRECATED_DECLARATIONS_END
+#endif
+
+    if (screenScales.size())
+        return screenScales;
+
+    // Assume 1x if we got no results. This can happen on headless devices (bots).
+    return { 1.0 };
 }
 
 } // namespace WebKit

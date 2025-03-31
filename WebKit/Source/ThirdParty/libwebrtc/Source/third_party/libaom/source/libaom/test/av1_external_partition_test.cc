@@ -18,7 +18,7 @@
 #include "aom/aom_external_partition.h"
 #include "av1/common/blockd.h"
 #include "av1/encoder/encodeframe_utils.h"
-#include "third_party/googletest/src/googletest/include/gtest/gtest.h"
+#include "gtest/gtest.h"
 #include "test/codec_factory.h"
 #include "test/encode_test_driver.h"
 #include "test/y4m_video_source.h"

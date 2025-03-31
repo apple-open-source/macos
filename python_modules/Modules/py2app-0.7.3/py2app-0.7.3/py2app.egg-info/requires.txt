@@ -1,0 +1,3 @@
+altgraph>=0.10.1
+modulegraph>=0.10.3
+macholib>=1.5

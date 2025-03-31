@@ -38,12 +38,12 @@ extern const SCAN_ORDER av1_scan_orders[TX_SIZES_ALL][TX_TYPES];
 
 void av1_deliver_eob_threshold(const AV1_COMMON *cm, MACROBLOCKD *xd);
 
-static INLINE const SCAN_ORDER *get_default_scan(TX_SIZE tx_size,
+static inline const SCAN_ORDER *get_default_scan(TX_SIZE tx_size,
                                                  TX_TYPE tx_type) {
   return &av1_scan_orders[tx_size][tx_type];
 }
 
-static INLINE const SCAN_ORDER *get_scan(TX_SIZE tx_size, TX_TYPE tx_type) {
+static inline const SCAN_ORDER *get_scan(TX_SIZE tx_size, TX_TYPE tx_type) {
   return get_default_scan(tx_size, tx_type);
 }
 

@@ -14,7 +14,7 @@
 
 #include "aom_ports/bitops.h"
 #include "av1/common/entropymode.h"
-#include "third_party/googletest/src/googletest/include/gtest/gtest.h"
+#include "gtest/gtest.h"
 
 TEST(Log2Test, GetMsb) {
   // Test small numbers exhaustively.

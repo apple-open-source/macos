@@ -55,6 +55,15 @@ static const char tzAmericaLosAngeles[] = "America/Los_Angeles"; // rdar://99978
 #define Date200101012200 1546322400000.0 /* 2001-Jan-01 2200 in US/Pacific */
 #define Date202208302200 1661922030000.0 /* 2022-Aug-30 2200 in America/Los_Angeles */ // rdar://99978866
 #define Date202208312200 1662008430000.0 /* 2022-Aug-31 2200 in America/Los_Angeles */ // rdar://99978866
+#define Date201806071700 1528416000000.0 /* 2018-Jun-07 1700 in America/Los_Angeles */ // rdar://51847194
+#define Date201806151700 1529107200000.0 /* 2018-Jun-15 1700 in America/Los_Angeles */ // rdar://51847194
+#define Date201807131700 1531526400000.0 /* 2018-Jul-13 1700 in America/Los_Angeles */ // rdar://51847194
+#define Date201712291600 1514592000000.0 /* 2017-Dec-29 1600 in America/Los_Angeles */ // rdar://51847194
+#define Date201802271600 1519776000000.0 /* 2018-Feb-27 1600 in America/Los_Angeles */ // rdar://51847194
+#define Date201509011700 1441152000000.0 /* 2015-Sep-01 1700 in America/Los_Angeles */ // rdar://51847194
+#define Date201510011700 1443744000000.0 /* 2015-Oct-01 1700 in America/Los_Angeles */ // rdar://51847194
+#define Date202307180940 1689698400000.0 /* 2023-Jul-18 0940 in America/Los_Angeles */ // rdar://51847194 + rdar://103558581
+#define Date202307201040 1689874800000.0 /* 2023-Jul-20 1040 in America/Los_Angeles */ // rdar://51847194 + rdar://103558581
 #else
 #define Date201103021030 1299090600000.0 /* 2011-Mar-02 1030 in US/Pacific, 2011-Mar-03 0330 in Asia/Tokyo */
 #define Date201009270800 1285599629000.0 /* 2010-Sep-27 0800 in US/Pacific */
@@ -212,7 +221,16 @@ static const DateIntervalFormatTestItem testItems[] = {
     { "ru",    "yMMMMd",    CAP_NONE,  MIN_NONE,   tzAmericaLosAngeles, Date201103021030,      Date201712300900,              u"2 марта 2011 — 30 декабря 2017 г." },
     { "ru",    "yMEd",      CAP_NONE,  MIN_NONE,   tzAmericaLosAngeles, Date201103021030,      Date201712300900,              u"Ср, 02.03.2011 — Сб, 30.12.2017" },
     { "ru",    "GyMd",      CAP_NONE,  MIN_NONE,   tzAmericaLosAngeles, Date201103021030,      Date201712300900,              u"02.03.2011—30.12.2017 н. э." },
+    
+    // rdar://144406882 Bidi controls in Urdu time interval formats
+    { "ur@ldpn=no", "hm",   CAP_NONE,  MIN_NONE,   tzAmericaLosAngeles, Date202208312200,      Date202208312200 + 1.0*_HOUR,              u"\u200e10:00\u201311:00 PM" },
 
+    // rdar://51847194 (more spaces for Russian)
+    { "ru",    "MMMMd",     CAP_NONE,  MIN_NONE,   tzAmericaLosAngeles, Date201806071700,      Date201806151700,              u"7—15 июня" },
+    { "ru",    "yMMMMd",    CAP_NONE,  MIN_NONE,   tzAmericaLosAngeles, Date201806071700,      Date201807131700,              u"7 июня — 13 июля 2018 г." },
+    { "ru",    "yMMMd",     CAP_NONE,  MIN_NONE,   tzAmericaLosAngeles, Date201712291600,      Date201802271600,              u"29 дек. 2017 — 27 февр. 2018 г." },
+    { "ru",    "yMMM",      CAP_NONE,  MIN_NONE,   tzAmericaLosAngeles, Date201509011700,      Date201510011700,              u"сент. — окт. 2015 г." },
+    { "ru",    "HHmmMMMdE", CAP_NONE,  MIN_NONE,   tzAmericaLosAngeles, Date202307180940,      Date202307201040,              u"Вт, 18 июля, 09:40 — Чт, 20 июля, 10:40"}, // rdar://51847194 + rdar://103558581
 
     { NULL,    NULL,        CAP_NONE,  MIN_NONE,   NULL,        0,                             0,                             NULL }
 };
@@ -250,7 +268,7 @@ enum {
     kFormatBufLen = 128
 };
 
-static void TestDateIntervalFormat()
+static void TestDateIntervalFormat(void)
 {
     const DateIntervalFormatTestItem * testItemPtr;
     UErrorCode status = U_ZERO_ERROR;
@@ -551,7 +569,7 @@ static const LocaleAndSkeletonItem locSkelItems[] = {
 
 enum { kSizeUBuf = 96, kSizeBBuf = 192 };
 
-static void TestFPos_SkelWithSeconds()
+static void TestFPos_SkelWithSeconds(void)
 {
 	const LocaleAndSkeletonItem * locSkelItemPtr;
 	for (locSkelItemPtr = locSkelItems; locSkelItemPtr->locale != NULL; locSkelItemPtr++) {
@@ -593,7 +611,7 @@ static void TestFPos_SkelWithSeconds()
     }
 }
 
-static void TestFormatToResult() {
+static void TestFormatToResult(void) {
     UErrorCode ec = U_ZERO_ERROR;
     UDateIntervalFormat* fmt = udtitvfmt_open("de", u"dMMMMyHHmm", -1, zoneGMT, -1, &ec);
     UFormattedDateInterval* fdi = udtitvfmt_openResult(&ec);
@@ -654,7 +672,7 @@ static void TestFormatToResult() {
     udtitvfmt_closeResult(fdi);
 }
 
-static void TestFormatCalendarToResult() {
+static void TestFormatCalendarToResult(void) {
     UErrorCode ec = U_ZERO_ERROR;
     UCalendar* ucal1 = ucal_open(zoneGMT, -1, "de", UCAL_DEFAULT, &ec);
     ucal_setMillis(ucal1, Date201009270800, &ec);

@@ -116,6 +116,7 @@ private:
     {
         switch (reason) {
         case ProcessTerminationReason::Crash:
+        case ProcessTerminationReason::NonMainFrameWebContentProcessCrash:
             webkitWebViewWebProcessTerminated(m_webView, WEBKIT_WEB_PROCESS_CRASHED);
             return true;
         case ProcessTerminationReason::ExceededMemoryLimit:

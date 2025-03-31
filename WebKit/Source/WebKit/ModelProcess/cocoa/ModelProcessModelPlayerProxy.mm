@@ -35,7 +35,6 @@
 #import "ModelProcessModelPlayerMessages.h"
 #import "RealityKitBridging.h"
 #import "WKModelProcessModelLayer.h"
-#import "WebKitSwiftSoftLink.h"
 #import <RealitySystemSupport/RealitySystemSupport.h>
 #import <SurfBoardServices/SurfBoardServices.h>
 #import <WebCore/Color.h>
@@ -51,11 +50,145 @@
 #import <pal/spi/cocoa/QuartzCoreSPI.h>
 #import <wtf/BlockPtr.h>
 #import <wtf/MathExtras.h>
+#import <wtf/NakedPtr.h>
+#import <wtf/NakedRef.h>
 #import <wtf/RetainPtr.h>
 #import <wtf/TZoneMallocInlines.h>
 #import <wtf/text/TextStream.h>
 
+#import "WebKitSwiftSoftLink.h"
+
+@interface WKModelProcessModelPlayerProxyObjCAdapter : NSObject<WKSRKEntityDelegate>
+- (instancetype)initWithModelProcessModelPlayerProxy:(NakedRef<WebKit::ModelProcessModelPlayerProxy>)modelProcessModelPlayerProxy;
+@end
+
+@implementation WKModelProcessModelPlayerProxyObjCAdapter {
+    NakedPtr<WebKit::ModelProcessModelPlayerProxy> _modelProcessModelPlayerProxy;
+}
+
+- (instancetype)initWithModelProcessModelPlayerProxy:(NakedRef<WebKit::ModelProcessModelPlayerProxy>)modelProcessModelPlayerProxy
+{
+    if (!(self = [super init]))
+        return nil;
+
+    _modelProcessModelPlayerProxy = modelProcessModelPlayerProxy.ptr();
+    return self;
+}
+
+- (void)entityAnimationPlaybackStateDidUpdate:(id)entity
+{
+    _modelProcessModelPlayerProxy->animationPlaybackStateDidUpdate();
+}
+
+@end
+
 namespace WebKit {
+
+class RKModelUSD final : public WebCore::REModel {
+public:
+    static Ref<RKModelUSD> create(Ref<Model> model, RetainPtr<WKSRKEntity> entity)
+    {
+        return adoptRef(*new RKModelUSD(WTFMove(model), WTFMove(entity)));
+    }
+
+    virtual ~RKModelUSD() = default;
+
+private:
+    RKModelUSD(Ref<Model> model, RetainPtr<WKSRKEntity> entity)
+        : m_model { WTFMove(model) }
+        , m_entity { WTFMove(entity) }
+    {
+    }
+
+    // REModel overrides.
+    const Model& modelSource() const final
+    {
+        return m_model;
+    }
+
+    REEntityRef rootEntity() const final
+    {
+        return nullptr;
+    }
+
+    RetainPtr<WKSRKEntity> rootRKEntity() const final
+    {
+        return m_entity;
+    }
+
+    Ref<Model> m_model;
+    RetainPtr<WKSRKEntity> m_entity;
+};
+
+class RKModelLoaderUSD final : public WebCore::REModelLoader, public CanMakeWeakPtr<RKModelLoaderUSD> {
+public:
+    static Ref<RKModelLoaderUSD> create(Model& model, REModelLoaderClient& client)
+    {
+        return adoptRef(*new RKModelLoaderUSD(model, client));
+    }
+
+    virtual ~RKModelLoaderUSD() = default;
+
+    void load();
+
+    bool isCanceled() const { return m_canceled; }
+
+private:
+    RKModelLoaderUSD(Model& model, REModelLoaderClient& client)
+        : m_canceled { false }
+        , m_model { model }
+        , m_client { client }
+    {
+    }
+
+    // REModelLoader overrides.
+    void cancel() final
+    {
+        m_canceled = true;
+    }
+
+    void didFinish(RetainPtr<WKSRKEntity> entity)
+    {
+        if (m_canceled)
+            return;
+
+        if (auto strongClient = m_client.get())
+            strongClient->didFinishLoading(*this, RKModelUSD::create(WTFMove(m_model), entity));
+    }
+
+    void didFail(ResourceError error)
+    {
+        if (m_canceled)
+            return;
+
+        if (auto strongClient = m_client.get())
+            strongClient->didFailLoading(*this, WTFMove(error));
+    }
+
+    bool m_canceled { false };
+
+    Ref<Model> m_model;
+    WeakPtr<REModelLoaderClient> m_client;
+};
+
+void RKModelLoaderUSD::load()
+{
+    [getWKSRKEntityClass() loadFromData:m_model->data()->createNSData().get() completionHandler:makeBlockPtr([weakThis = WeakPtr { *this }] (WKSRKEntity *entity) mutable {
+        if (RefPtr protectedThis = weakThis.get())
+            protectedThis->didFinish(entity);
+    }).get()];
+}
+
+static Ref<REModelLoader> loadREModelUsingRKUSDLoader(Model& model, REModelLoaderClient& client)
+{
+    auto loader = RKModelLoaderUSD::create(model, client);
+
+    dispatch_async(dispatch_get_main_queue(), [loader] () mutable {
+        loader->load();
+    });
+
+    return loader;
+}
 
 WTF_MAKE_TZONE_ALLOCATED_IMPL(ModelProcessModelPlayerProxy);
 
@@ -70,6 +203,7 @@ ModelProcessModelPlayerProxy::ModelProcessModelPlayerProxy(ModelProcessModelPlay
     , m_manager(manager)
 {
     RELEASE_LOG(ModelElement, "%p - ModelProcessModelPlayerProxy initialized id=%" PRIu64, this, identifier.toUInt64());
+    m_objCAdapter = adoptNS([[WKModelProcessModelPlayerProxyObjCAdapter alloc] initWithModelProcessModelPlayerProxy:*this]);
 }
 
 ModelProcessModelPlayerProxy::~ModelProcessModelPlayerProxy()
@@ -78,6 +212,14 @@ ModelProcessModelPlayerProxy::~ModelProcessModelPlayerProxy()
         m_loader->cancel();
 
     RELEASE_LOG(ModelElement, "%p - ModelProcessModelPlayerProxy deallocated id=%" PRIu64, this, m_id.toUInt64());
+}
+
+std::optional<SharedPreferencesForWebProcess> ModelProcessModelPlayerProxy::sharedPreferencesForWebProcess() const
+{
+    if (RefPtr strongManager = m_manager.get())
+        return strongManager->sharedPreferencesForWebProcess();
+
+    return std::nullopt;
 }
 
 bool ModelProcessModelPlayerProxy::transformSupported(const simd_float4x4& transform)
@@ -104,6 +246,7 @@ bool ModelProcessModelPlayerProxy::transformSupported(const simd_float4x4& trans
 void ModelProcessModelPlayerProxy::invalidate()
 {
     RELEASE_LOG(ModelElement, "%p - ModelProcessModelPlayerProxy invalidated id=%" PRIu64, this, m_id.toUInt64());
+    [m_layer setPlayer:nullptr];
 }
 
 template<typename T>
@@ -121,13 +264,12 @@ void ModelProcessModelPlayerProxy::createLayer()
 
     m_layer = adoptNS([[WKModelProcessModelLayer alloc] init]);
     [m_layer setName:@"WKModelProcessModelLayer"];
-    [m_layer setValue:@YES forKeyPath:@"separatedOptions.isPortal"];
     [m_layer setValue:@YES forKeyPath:@"separatedOptions.updates.transform"];
     [m_layer setValue:@YES forKeyPath:@"separatedOptions.updates.collider"];
     [m_layer setValue:@YES forKeyPath:@"separatedOptions.updates.mesh"];
     [m_layer setValue:@YES forKeyPath:@"separatedOptions.updates.material"];
     [m_layer setValue:@YES forKeyPath:@"separatedOptions.updates.texture"];
-    [m_layer setValue:@YES forKeyPath:@"separatedOptions.updates.clippingPrimitive"];
+    updatePortalAndClipping();
     updateBackgroundColor();
 
     [m_layer setPlayer:RefPtr { this }];
@@ -227,7 +369,7 @@ void ModelProcessModelPlayerProxy::computeTransform()
         return;
 
     // FIXME: Use the value of the 'object-fit' property here to compute an appropriate SRT.
-    RESRT newSRT = computeSRT(m_layer.get(), m_originalBoundingBoxExtents, m_originalBoundingBoxCenter, m_pitch, m_yaw, true, effectivePointsPerMeter(m_layer.get()));
+    RESRT newSRT = computeSRT(m_layer.get(), m_originalBoundingBoxExtents, m_originalBoundingBoxCenter, m_pitch, m_yaw, m_hasPortal, effectivePointsPerMeter(m_layer.get()));
     m_transformSRT = newSRT;
 
     simd_float4x4 matrix = RESRTMatrix(m_transformSRT);
@@ -251,14 +393,41 @@ void ModelProcessModelPlayerProxy::updateOpacity()
     [m_modelRKEntity setOpacity:[m_layer opacity]];
 }
 
+void ModelProcessModelPlayerProxy::updatePortalAndClipping()
+{
+    if (!m_layer)
+        return;
+
+    if (m_hasPortal) {
+        [m_layer setValue:@YES forKeyPath:@"separatedOptions.isPortal"];
+        [m_layer setValue:@YES forKeyPath:@"separatedOptions.updates.clippingPrimitive"];
+    } else {
+        [m_layer setValue:nil forKeyPath:@"separatedOptions.isPortal"];
+        [m_layer setValue:@NO forKeyPath:@"separatedOptions.updates.clippingPrimitive"];
+    }
+
+    // FIXME: rdar://141457267 (Remove clipping when <model> doesn't have a portal)
+}
+
 void ModelProcessModelPlayerProxy::startAnimating()
 {
     if (!m_model || !m_layer)
         return;
 
-    [m_modelRKEntity startAnimating];
+    [m_modelRKEntity setUpAnimationWithAutoPlay:m_autoplay];
+    [m_modelRKEntity setLoop:m_loop];
+    [m_modelRKEntity setPlaybackRate:m_playbackRate];
 }
 
+void ModelProcessModelPlayerProxy::animationPlaybackStateDidUpdate()
+{
+    bool isPaused = paused();
+    float playbackRate = [m_modelRKEntity playbackRate];
+    NSTimeInterval duration = this->duration();
+    NSTimeInterval currentTime = this->currentTime().seconds();
+    RELEASE_LOG_DEBUG(ModelElement, "%p - ModelProcessModelPlayerProxy: did update animation playback state: paused: %d, playbackRate: %f, duration: %f, currentTime: %f", this, isPaused, playbackRate, duration, currentTime);
+    send(Messages::ModelProcessModelPlayer::DidUpdateAnimationPlaybackState(isPaused, playbackRate, Seconds(duration), Seconds(currentTime), MonotonicTime::now()));
+}
 // MARK: - WebCore::RELoaderClient
 
 static RECALayerService *webDefaultLayerService(void)
@@ -271,10 +440,15 @@ void ModelProcessModelPlayerProxy::didFinishLoading(WebCore::REModelLoader& load
     dispatch_assert_queue(dispatch_get_main_queue());
     ASSERT(&loader == m_loader.get());
 
+    bool canLoadWithRealityKit = [getWKSRKEntityClass() isLoadFromDataAvailable];
+
     m_loader = nullptr;
     m_model = WTFMove(model);
-    if (m_model->rootEntity())
+    if (canLoadWithRealityKit)
+        m_modelRKEntity = m_model->rootRKEntity();
+    else if (m_model->rootEntity())
         m_modelRKEntity = adoptNS([allocWKSRKEntityInstance() initWithCoreEntity:m_model->rootEntity()]);
+    [m_modelRKEntity setDelegate:m_objCAdapter.get()];
 
     m_originalBoundingBoxExtents = [m_modelRKEntity boundingBoxExtents];
     m_originalBoundingBoxCenter = [m_modelRKEntity boundingBoxCenter];
@@ -293,7 +467,10 @@ void ModelProcessModelPlayerProxy::didFinishLoading(WebCore::REModelLoader& load
     auto clientComponent = RECALayerGetCALayerClientComponent(m_layer.get());
     auto clientComponentEntity = REComponentGetEntity(clientComponent);
     REEntitySetName(clientComponentEntity, "WebKit:ClientComponentEntity");
-    REEntitySetName(m_model->rootEntity(), "WebKit:ModelRootEntity");
+    if (canLoadWithRealityKit)
+        [m_model->rootRKEntity() setName:@"WebKit:ModelRootEntity"];
+    else
+        REEntitySetName(m_model->rootEntity(), "WebKit:ModelRootEntity");
 
     // FIXME: Clipping workaround for rdar://125188888 (blocked by rdar://123516357 -> rdar://124718417).
     // containerEntity is required to add a clipping primitive that is independent from model's rootEntity.
@@ -303,7 +480,10 @@ void ModelProcessModelPlayerProxy::didFinishLoading(WebCore::REModelLoader& load
     REEntitySetName(containerEntity.get(), "WebKit:ContainerEntity");
 
     REEntitySetParent(containerEntity.get(), clientComponentEntity);
-    REEntitySetParent(m_model->rootEntity(), containerEntity.get());
+    if (canLoadWithRealityKit)
+        [m_model->rootRKEntity() setParentCoreEntity:containerEntity.get()];
+    else
+        REEntitySetParent(m_model->rootEntity(), containerEntity.get());
 
     REEntitySubtreeAddNetworkComponentRecursive(containerEntity.get());
 
@@ -316,13 +496,16 @@ void ModelProcessModelPlayerProxy::didFinishLoading(WebCore::REModelLoader& load
     REClippingPrimitiveComponentClipToBox(clipComponent, clipBounds);
 
     RENetworkMarkEntityMetadataDirty(clientComponentEntity);
-    RENetworkMarkEntityMetadataDirty(m_model->rootEntity());
+    if (!canLoadWithRealityKit)
+        RENetworkMarkEntityMetadataDirty(m_model->rootEntity());
 
     updateBackgroundColor();
     computeTransform();
     updateTransform();
     updateOpacity();
     startAnimating();
+
+    applyEnvironmentMapDataAndRelease();
 
     send(Messages::ModelProcessModelPlayer::DidFinishLoading(WebCore::FloatPoint3D(m_originalBoundingBoxCenter.x, m_originalBoundingBoxCenter.y, m_originalBoundingBoxCenter.z), WebCore::FloatPoint3D(m_originalBoundingBoxExtents.x, m_originalBoundingBoxExtents.y, m_originalBoundingBoxExtents.z)));
 }
@@ -350,7 +533,10 @@ void ModelProcessModelPlayerProxy::load(WebCore::Model& model, WebCore::LayoutSi
 
     WKREEngine::shared().runWithSharedScene([this, protectedThis = Ref { *this }, model = Ref { model }] (RESceneRef scene) {
         m_scene = scene;
-        m_loader = WebCore::loadREModel(model.get(), *this);
+        if ([getWKSRKEntityClass() isLoadFromDataAvailable])
+            m_loader = loadREModelUsingRKUSDLoader(model.get(), *this);
+        else
+            m_loader = WebCore::loadREModel(model.get(), *this);
     });
 }
 
@@ -475,6 +661,85 @@ void ModelProcessModelPlayerProxy::setIsMuted(bool isMuted, CompletionHandler<vo
 Vector<RetainPtr<id>> ModelProcessModelPlayerProxy::accessibilityChildren()
 {
     return { };
+}
+
+void ModelProcessModelPlayerProxy::setAutoplay(bool autoplay)
+{
+    m_autoplay = autoplay;
+}
+
+void ModelProcessModelPlayerProxy::setLoop(bool loop)
+{
+    m_loop = loop;
+    [m_modelRKEntity setLoop:m_loop];
+}
+
+void ModelProcessModelPlayerProxy::setPlaybackRate(double playbackRate, CompletionHandler<void(double effectivePlaybackRate)>&& completionHandler)
+{
+    m_playbackRate = playbackRate;
+    [m_modelRKEntity setPlaybackRate:m_playbackRate];
+    completionHandler(m_modelRKEntity ? [m_modelRKEntity playbackRate] : 1.0);
+}
+
+double ModelProcessModelPlayerProxy::duration() const
+{
+    return [m_modelRKEntity duration];
+}
+
+bool ModelProcessModelPlayerProxy::paused() const
+{
+    return [m_modelRKEntity paused];
+}
+
+void ModelProcessModelPlayerProxy::setPaused(bool paused, CompletionHandler<void(bool succeeded)>&& completionHandler)
+{
+    [m_modelRKEntity setPaused:paused];
+    completionHandler(paused == [m_modelRKEntity paused]);
+}
+
+Seconds ModelProcessModelPlayerProxy::currentTime() const
+{
+    return Seconds([m_modelRKEntity currentTime]);
+}
+
+void ModelProcessModelPlayerProxy::setCurrentTime(Seconds currentTime, CompletionHandler<void()>&& completionHandler)
+{
+    [m_modelRKEntity setCurrentTime:currentTime.seconds()];
+    completionHandler();
+}
+
+void ModelProcessModelPlayerProxy::setEnvironmentMap(Ref<WebCore::SharedBuffer>&& data)
+{
+    m_transientEnvironmentMapData = WTFMove(data);
+    if (m_modelRKEntity)
+        applyEnvironmentMapDataAndRelease();
+}
+
+void ModelProcessModelPlayerProxy::applyEnvironmentMapDataAndRelease()
+{
+    if (m_transientEnvironmentMapData) {
+        if (m_transientEnvironmentMapData->size() > 0) {
+            [m_modelRKEntity applyIBLData:m_transientEnvironmentMapData->createNSData().get() withCompletion:^(BOOL succeeded) {
+                send(Messages::ModelProcessModelPlayer::DidFinishEnvironmentMapLoading(succeeded));
+            }];
+        } else {
+            [m_modelRKEntity removeIBL];
+            send(Messages::ModelProcessModelPlayer::DidFinishEnvironmentMapLoading(true));
+        }
+        m_transientEnvironmentMapData = nullptr;
+    }
+}
+
+void ModelProcessModelPlayerProxy::setHasPortal(bool hasPortal)
+{
+    if (m_hasPortal == hasPortal)
+        return;
+
+    m_hasPortal = hasPortal;
+
+    updatePortalAndClipping();
+    computeTransform();
+    updateTransform();
 }
 
 } // namespace WebKit

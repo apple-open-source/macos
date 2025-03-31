@@ -54,7 +54,7 @@
 
 namespace WebCore {
 
-using ScrollbarSet = HashSet<SingleThreadWeakRef<Scrollbar>>;
+using ScrollbarSet = UncheckedKeyHashSet<SingleThreadWeakRef<Scrollbar>>;
 
 static ScrollbarSet& scrollbarMap()
 {
@@ -126,13 +126,13 @@ ScrollbarTheme& ScrollbarTheme::nativeTheme()
 }
 
 // FIXME: Get these numbers from CoreUI.
-static const int cRealButtonLength[] = { 28, 21 };
-static const int cButtonHitInset[] = { 3, 2 };
+static constexpr std::array cRealButtonLength { 28, 21 };
+static constexpr std::array cButtonHitInset { 3, 2 };
 // cRealButtonLength - cButtonInset
-static const int cButtonLength[] = { 14, 10 };
+static constexpr std::array cButtonLength { 14, 10 };
 
-static const int cOuterButtonLength[] = { 16, 14 }; // The outer button in a double button pair is a bit bigger.
-static const int cOuterButtonOverlap = 2;
+static constexpr std::array cOuterButtonLength { 16, 14 }; // The outer button in a double button pair is a bit bigger.
+static constexpr int cOuterButtonOverlap = 2;
 
 static bool gJumpOnTrackClick = false;
 static bool gUsesOverlayScrollbars = false;
@@ -221,10 +221,10 @@ void ScrollbarThemeMac::preferencesChanged()
     usesOverlayScrollbarsChanged();
 }
 
-int ScrollbarThemeMac::scrollbarThickness(ScrollbarWidth scrollbarWidth, ScrollbarExpansionState expansionState)
+int ScrollbarThemeMac::scrollbarThickness(ScrollbarWidth scrollbarWidth, ScrollbarExpansionState expansionState, OverlayScrollbarSizeRelevancy overlayRelevancy)
 {
     BEGIN_BLOCK_OBJC_EXCEPTIONS
-    if (scrollbarWidth == ScrollbarWidth::None)
+    if (scrollbarWidth == ScrollbarWidth::None || (usesOverlayScrollbars() && overlayRelevancy == OverlayScrollbarSizeRelevancy::IgnoreOverlayScrollbarSize))
         return 0;
     NSScrollerImp *scrollerImp = [NSScrollerImp scrollerImpWithStyle:ScrollerStyle::recommendedScrollerStyle() controlSize:nsControlSizeFromScrollbarWidth(scrollbarWidth) horizontal:NO replacingScrollerImp:nil];
     [scrollerImp setExpanded:(expansionState == ScrollbarExpansionState::Expanded)];

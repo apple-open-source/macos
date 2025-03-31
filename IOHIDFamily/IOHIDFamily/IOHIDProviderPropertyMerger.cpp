@@ -25,18 +25,19 @@
 #include <libkern/OSAtomic.h>
 #include <libkern/c++/OSDictionary.h>
 #include <IOKit/IOLib.h>
+#include <IOKit/IOProviderPropertyMerger.h>
 
 #include "IOHIDProviderPropertyMerger.h"
 
-#define super IOService
+#define super IOProviderPropertyMerger
 
-OSDefineMetaClassAndStructors(IOHIDProviderPropertyMerger, IOService);
+OSDefineMetaClassAndStructors(IOHIDProviderPropertyMerger, IOProviderPropertyMerger);
 
 IOService * IOHIDProviderPropertyMerger::probe(IOService *provider, SInt32 * score __unused)
 {
     OSObject * properties = NULL;
 
-    properties = copyProperty("IOProviderMergeProperties");
+    properties = copyProperty(kIOProviderMergePropertiesKey);
     mergeProperties(provider, OSDynamicCast(OSDictionary, properties));
     OSSafeReleaseNULL(properties);
 

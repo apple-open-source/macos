@@ -183,3 +183,4 @@ _archive_allow_entitlement_filter
 _archive_entitlement_cleanup
 _archive_write_disk_set_quarantine
 _archive_read_get_quarantine_from_fd
+___archive_read_register_bidder

@@ -11,7 +11,7 @@
 
 #include <string>
 #include <vector>
-#include "third_party/googletest/src/googletest/include/gtest/gtest.h"
+#include "gtest/gtest.h"
 #include "test/codec_factory.h"
 #include "test/encode_test_driver.h"
 #include "test/md5_helper.h"
@@ -470,7 +470,7 @@ AV1_INSTANTIATE_TEST_SUITE(AVxEncoderThreadRTTest,
 
 // The AVxEncoderThreadTestLarge takes up ~14% of total run-time of the
 // Valgrind long tests. Exclude it; the smaller tests are still run.
-#if !AOM_VALGRIND_BUILD
+#if !defined(AOM_VALGRIND_BUILD)
 class AVxEncoderThreadTestLarge : public AVxEncoderThreadTest {};
 
 TEST_P(AVxEncoderThreadTestLarge, EncoderResultTest) {
@@ -486,7 +486,7 @@ AV1_INSTANTIATE_TEST_SUITE(AVxEncoderThreadTestLarge,
                            ::testing::Values(0, 1, 3, 5),
                            ::testing::Values(1, 6), ::testing::Values(1, 6),
                            ::testing::Values(0, 1));
-#endif  // !AOM_VALGRIND_BUILD
+#endif  // !defined(AOM_VALGRIND_BUILD)
 
 TEST_P(AVxEncoderThreadTest, EncoderResultTest) {
   cfg_.large_scale_tile = 0;
@@ -570,7 +570,7 @@ TEST_P(AVxEncoderThreadLSTest, EncoderResultTest) {
 // AVxEncoderThreadLSTestLarge takes up about 2% of total run-time of
 // the Valgrind long tests. Since we already run AVxEncoderThreadLSTest,
 // skip this one for Valgrind.
-#if !CONFIG_REALTIME_ONLY && !AOM_VALGRIND_BUILD
+#if !CONFIG_REALTIME_ONLY && !defined(AOM_VALGRIND_BUILD)
 class AVxEncoderThreadLSTestLarge : public AVxEncoderThreadLSTest {};
 
 TEST_P(AVxEncoderThreadLSTestLarge, EncoderResultTest) {
@@ -585,5 +585,5 @@ AV1_INSTANTIATE_TEST_SUITE(AVxEncoderThreadLSTestLarge,
                                              ::libaom_test::kOnePassGood),
                            ::testing::Values(1, 3), ::testing::Values(0, 6),
                            ::testing::Values(0, 6), ::testing::Values(1));
-#endif  // !CONFIG_REALTIME_ONLY && !AOM_VALGRIND_BUILD
+#endif  // !CONFIG_REALTIME_ONLY && !defined(AOM_VALGRIND_BUILD)
 }  // namespace

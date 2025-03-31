@@ -65,6 +65,7 @@ public:
     static NSMutableArray* cameraCaptureDeviceTypes();
 
     WEBCORE_EXPORT static VideoCaptureFactory& factory();
+    WEBCORE_EXPORT static void setUseAVCaptureDeviceRotationCoordinatorAPI(bool);
 
     void captureSessionBeginInterruption(RetainPtr<NSNotification>);
     void captureSessionEndInterruption(RetainPtr<NSNotification>);
@@ -77,6 +78,8 @@ public:
     void captureOutputDidOutputSampleBufferFromConnection(AVCaptureOutput*, CMSampleBufferRef, AVCaptureConnection*);
     void captureDeviceSuspendedDidChange();
     void captureOutputDidFinishProcessingPhoto(RetainPtr<AVCapturePhotoOutput>, RetainPtr<AVCapturePhoto>, RetainPtr<NSError>);
+
+    void configurationChanged();
 
 private:
     AVVideoCaptureSource(AVCaptureDevice*, const CaptureDevice&, MediaDeviceHashSalts&&, std::optional<PageIdentifier>);
@@ -196,10 +199,11 @@ private:
     bool m_shouldCallNotifyMutedChange { false };
     std::unique_ptr<Timer> m_startupTimer;
 #endif
-    Timer m_verifyCapturingTimer;
+    std::unique_ptr<Timer> m_verifyCapturingTimer;
     uint64_t m_framesCount { 0 };
     uint64_t m_lastFramesCount { 0 };
     int64_t m_defaultTorchMode { 0 };
+    OptionSet<RealtimeMediaSourceSettings::Flag> m_pendingSettingsChanges;
     bool m_useSensorAndDeviceOrientation { true };
 };
 

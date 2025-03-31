@@ -181,6 +181,40 @@ done:
 }
 
 rule_t
+rule_create_trust()
+{
+    rule_t delegate_entitled = _rule_create();
+    auth_items_set_int64(delegate_entitled->data, RULE_TYPE, RT_RULE);
+    auth_items_set_string(delegate_entitled->data, RULE_NAME, "hardcoded-entitled");
+    auth_items_set_int64(delegate_entitled->data, RULE_CLASS, RC_MECHANISM);
+    auth_items_set_int64(delegate_entitled->data, RULE_TRIES, 1);
+    auth_items_set_int64(delegate_entitled->data, RULE_FLAGS, RuleFlagShared);
+    mechanism_t mech = mechanism_create_with_string("builtin:entitled,privileged", NULL);
+    CFArrayAppendValue(delegate_entitled->mechanisms, mech);
+    CFReleaseNull(mech);
+
+    rule_t delegate_admin = _rule_create();
+    auth_items_set_int64(delegate_admin->data, RULE_TYPE, RT_RULE);
+    auth_items_set_string(delegate_admin->data, RULE_NAME, "hardcoded-admin");
+    auth_items_set_int64(delegate_admin->data, RULE_CLASS, RC_USER);
+    auth_items_set_int64(delegate_admin->data, RULE_TRIES, 1);
+    auth_items_set_int64(delegate_admin->data, RULE_FLAGS, RuleFlagShared | RuleFlagAuthenticateUser);
+    auth_items_set_string(delegate_admin->data, RULE_GROUP, "admin");
+
+    rule_t retval = _rule_create();
+    auth_items_set_int64(retval->data, RULE_TYPE, RT_RIGHT);
+    auth_items_set_string(retval->data, RULE_NAME, "com.apple.trust-settings.admin");
+    auth_items_set_int64(retval->data, RULE_CLASS, RC_RULE);
+    auth_items_set_int64(retval->data, RULE_KOFN, 1);
+    CFArrayAppendValue(retval->delegations, delegate_entitled);
+    CFArrayAppendValue(retval->delegations, delegate_admin);
+    CFReleaseNull(delegate_entitled);
+    CFReleaseNull(delegate_admin);
+
+    return retval;
+}
+
+rule_t
 rule_create_with_string(const char * str, authdb_connection_t dbconn)
 {
     rule_t rule = NULL;

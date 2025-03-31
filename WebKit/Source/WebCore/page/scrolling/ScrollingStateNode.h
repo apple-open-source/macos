@@ -242,8 +242,7 @@ enum class ScrollingStateNodeProperty : uint64_t {
     FooterLayer                                 = 1LLU << 43, // Not serialized
     BehaviorForFixedElements                    = FooterHeight << 1,
     TopContentInset                             = BehaviorForFixedElements << 1,
-    FixedElementsLayoutRelativeToFrame          = TopContentInset << 1,
-    VisualViewportIsSmallerThanLayoutViewport   = FixedElementsLayoutRelativeToFrame << 1,
+    VisualViewportIsSmallerThanLayoutViewport   = TopContentInset << 1,
     AsyncFrameOrOverflowScrollingEnabled        = VisualViewportIsSmallerThanLayoutViewport << 1,
     WheelEventGesturesBecomeNonBlocking         = AsyncFrameOrOverflowScrollingEnabled << 1,
     ScrollingPerformanceTestingEnabled          = WheelEventGesturesBecomeNonBlocking << 1,
@@ -315,7 +314,7 @@ public:
 
     RefPtr<ScrollingStateNode> parent() const { return m_parent.get(); }
     void setParent(RefPtr<ScrollingStateNode>&& parent) { m_parent = parent; }
-    ScrollingNodeID parentNodeID() const;
+    std::optional<ScrollingNodeID> parentNodeID() const;
 
     Vector<Ref<ScrollingStateNode>>& children() { return m_children; }
     const Vector<Ref<ScrollingStateNode>>& children() const { return m_children; }
@@ -363,11 +362,11 @@ private:
     LayerRepresentation m_layer;
 };
 
-inline ScrollingNodeID ScrollingStateNode::parentNodeID() const
+inline std::optional<ScrollingNodeID> ScrollingStateNode::parentNodeID() const
 {
     auto parent = m_parent.get();
     if (!parent)
-        return { };
+        return std::nullopt;
     return parent->scrollingNodeID();
 }
 

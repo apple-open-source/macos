@@ -48,10 +48,11 @@ public:
     };
     static void create(Type, const Config&, CreateCallback&&, OutputCallback&&);
 
-    LibWebRTCVPXVideoDecoder(Type, const Config&, OutputCallback&&);
     ~LibWebRTCVPXVideoDecoder();
 
 private:
+    LibWebRTCVPXVideoDecoder(Type, const Config&, OutputCallback&&);
+
     Ref<DecodePromise> decode(EncodedFrame&&) final;
     Ref<GenericPromise> flush() final;
     void reset() final;

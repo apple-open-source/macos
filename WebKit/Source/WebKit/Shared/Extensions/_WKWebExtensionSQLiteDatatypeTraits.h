@@ -163,8 +163,10 @@ public:
 
         const char* objCType = [value objCType];
 
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
         if (!strcmp(objCType, @encode(double)) || !strcmp(objCType, @encode(float)))
             return sqlite3_bind_double(statement, index, value.doubleValue);
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
 
         return sqlite3_bind_int64(statement, index, value.longLongValue);
     }

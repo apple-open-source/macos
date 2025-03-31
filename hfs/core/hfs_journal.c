@@ -1208,7 +1208,6 @@ restart_replay:
 	printf("jnl: %s: replay_journal: from: %lld to: %lld (joffset 0x%llx)\n",
 	       jnl->jdev_name, jnl->jhdr->start, jnl->jhdr->end, jnl->jdev_offset);
 
-	block_ptr = hfs_malloc_data(max_bsize);
 	while (check_past_jnl_end || jnl->jhdr->start != jnl->jhdr->end) {
 		offset = blhdr_offset = jnl->jhdr->start;
 

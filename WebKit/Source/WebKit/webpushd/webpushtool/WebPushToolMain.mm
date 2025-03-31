@@ -37,6 +37,8 @@
 
 using WebKit::WebPushD::PushMessageForTesting;
 
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
+
 __attribute__((__noreturn__))
 static void printUsageAndTerminate(NSString *message)
 {
@@ -72,6 +74,8 @@ static void printUsageAndTerminate(NSString *message)
 
     exitProcess(-1);
 }
+
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
 
 static std::unique_ptr<PushMessageForTesting> pushMessageFromArguments(NSEnumerator<NSString *> *enumerator)
 {
@@ -174,6 +178,7 @@ public:
         pushMessage.targetAppCodeSigningIdentifier = connection.bundleIdentifier();
         pushMessage.pushPartitionString = connection.pushPartition();
 
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
         connection.sendPushMessage(WTFMove(pushMessage), [this, bundleIdentifier = connection.bundleIdentifier(), webClipIdentifier = connection.pushPartition()](String error) mutable {
             if (error.isEmpty())
                 printf("Successfully injected push message %s for [bundleID = %s, webClipIdentifier = %s, scope = %s]\n", m_pushMessage.payload.utf8().data(), bundleIdentifier.utf8().data(), webClipIdentifier.utf8().data(), m_pushMessage.registrationURL.string().utf8().data());
@@ -181,6 +186,7 @@ public:
                 printf("Injected push message with error: %s\n", error.utf8().data());
             done();
         });
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
     }
 
 private:
@@ -288,7 +294,7 @@ int WebPushToolMain(int, char **)
 
     auto connection = WebPushTool::Connection::create(preferTestService, bundleIdentifier.get(), pushPartition.get());
     connection->connectToService(host ? WebPushTool::WaitForServiceToExist::No : WebPushTool::WaitForServiceToExist::Yes);
-    verb->run(*connection);
+    verb->run(connection.get());
 
     CFRunLoopRun();
     return 0;

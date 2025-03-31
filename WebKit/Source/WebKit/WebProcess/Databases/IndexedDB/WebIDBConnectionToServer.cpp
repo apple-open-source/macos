@@ -30,7 +30,6 @@
 #include "NetworkConnectionToWebProcessMessages.h"
 #include "NetworkProcessConnection.h"
 #include "NetworkStorageManagerMessages.h"
-#include "WebCoreArgumentCoders.h"
 #include "WebIDBResult.h"
 #include "WebProcess.h"
 #include <WebCore/IDBConnectionToServer.h>
@@ -51,21 +50,19 @@
 namespace WebKit {
 using namespace WebCore;
 
-Ref<WebIDBConnectionToServer> WebIDBConnectionToServer::create()
+Ref<WebIDBConnectionToServer> WebIDBConnectionToServer::create(PAL::SessionID sessionID)
 {
-    return adoptRef(*new WebIDBConnectionToServer());
+    return adoptRef(*new WebIDBConnectionToServer(sessionID));
 }
 
-WebIDBConnectionToServer::WebIDBConnectionToServer()
-    : m_connectionToServer(IDBClient::IDBConnectionToServer::create(*this))
-{
-}
-
-WebIDBConnectionToServer::~WebIDBConnectionToServer()
+WebIDBConnectionToServer::WebIDBConnectionToServer(PAL::SessionID sessionID)
+    : m_connectionToServer(IDBClient::IDBConnectionToServer::create(*this, sessionID))
 {
 }
 
-IDBConnectionIdentifier WebIDBConnectionToServer::identifier() const
+WebIDBConnectionToServer::~WebIDBConnectionToServer() = default;
+
+std::optional<IDBConnectionIdentifier> WebIDBConnectionToServer::identifier() const
 {
     return Process::identifier();
 }
@@ -135,7 +132,7 @@ void WebIDBConnectionToServer::deleteIndex(const IDBRequestData& requestData, We
     send(Messages::NetworkStorageManager::DeleteIndex(requestData, objectStoreIdentifier, indexName));
 }
 
-void WebIDBConnectionToServer::renameIndex(const IDBRequestData& requestData, WebCore::IDBObjectStoreIdentifier objectStoreIdentifier, uint64_t indexIdentifier, const String& newName)
+void WebIDBConnectionToServer::renameIndex(const IDBRequestData& requestData, WebCore::IDBObjectStoreIdentifier objectStoreIdentifier, WebCore::IDBIndexIdentifier indexIdentifier, const String& newName)
 {
     send(Messages::NetworkStorageManager::RenameIndex(requestData, objectStoreIdentifier, indexIdentifier, newName));
 }

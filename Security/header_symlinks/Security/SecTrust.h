@@ -135,6 +135,15 @@ extern const CFStringRef kSecPropertyTypeError
         field is meant to be displayed to the user as the validated
         name of the company or entity that owns the certificate if the
         kSecTrustExtendedValidation key is present.
+    @constant kSecTrustQCStatements
+        This key will be present and have a value of CFStringRef if
+        the leaf certificate contains qualified certificate statements.
+        The string can be displayed to the user as a representation
+        of a qualified certificate's purpose.
+    @constant kSecTrustQWACValidation
+        This key will be present and have a value of kCFBooleanTrue
+        if this chain was successfully validated as a Qualified Website
+        Authentication Certificate.
     @constant kSecTrustResultValue
         This key will be present if a trust evaluation has been performed.
         Its value is a CFNumberRef representing the SecTrustResultType result
@@ -181,6 +190,10 @@ extern const CFStringRef kSecTrustCertificateTransparency
     __OSX_AVAILABLE_STARTING(__MAC_10_11, __IPHONE_9_0);
 extern const CFStringRef kSecTrustCertificateTransparencyWhiteList
     __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_12, __MAC_10_13, __IPHONE_10_0, __IPHONE_11_0);
+extern const CFStringRef kSecTrustQCStatements
+    API_AVAILABLE(macos(15.4), ios(18.4), tvos(18.4), watchos(11.4));
+extern const CFStringRef kSecTrustQWACValidation
+    API_AVAILABLE(macos(15.4), ios(18.4), tvos(18.4), watchos(11.4));
 
 #ifdef __BLOCKS__
 /*!

@@ -217,6 +217,11 @@ protected:
 	mach_port_t fValidPort;
     OSSet       *_pending;
     bool fClientSuspended;
+
+    UInt32 fSetReportCnt;
+    UInt32 fSetReportErrCnt;
+    UInt32 fGetReportCnt;
+    UInt32 fGetReportErrCnt;
 	
 	void * fValidMessage;
 	

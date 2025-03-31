@@ -137,18 +137,19 @@ int	verbose = 0;
 int	showrtref = 0;
 #endif /* (TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR) */
 int	printkeys = 0;		/* Print keying material for interfaces. */
+bool is_regex = false;
 
-static	int ifconfig(int argc, char *const *argv, int iscreate,
+static int ifconfig(int argc, char *const *argv, int iscreate,
 		const struct afswtch *afp);
-static	void status(const struct afswtch *afp, const struct sockaddr_dl *sdl,
+static void status(const struct afswtch *afp, const struct sockaddr_dl *sdl,
 		struct ifaddrs *ifa);
 static char *bytes_to_str(unsigned long long bytes);
 static char *bps_to_str(unsigned long long rate);
 static char *ns_to_str(unsigned long long nsec);
-static	void tunnel_status(int s);
+static void tunnel_status(int s);
 static void clat46_addr(int s, char *name);
 static void nat64_status(int s, char *name);
-static	void usage(void);
+static void usage(void);
 static char *sched2str(unsigned int s);
 static char *tl2str(unsigned int s);
 static char *ift2str(unsigned int t, unsigned int f, unsigned int sf);
@@ -197,6 +198,44 @@ usage(void)
 	exit(1);
 }
 
+static void
+print_command_args(const char *name, int argc, char *argv[], const struct afswtch *afp)
+{
+	const size_t max_size = LINE_MAX;
+	static char line[max_size];
+	size_t len = 0;
+	int retval;
+	int i;
+	size_t remaining_size = max_size;
+
+	retval = snprintf(line + len, remaining_size, "ifconfig %s", name);
+	if (retval >= remaining_size) {
+		goto done;
+	}
+	len += retval;
+	remaining_size -= len;
+
+	if (afp != NULL) {
+		retval = snprintf(line + len, remaining_size, " %s", afp->af_name);
+		if (retval >= remaining_size) {
+			goto done;
+		}
+		len += retval;
+		remaining_size -= len;
+	}
+
+	for (i = 0; i < argc && len < max_size; i++) {
+		retval = snprintf(line + len, remaining_size, " %s", argv[i]);
+		if (retval >= remaining_size) {
+			break;
+		}
+		len += retval;
+		remaining_size -= len;
+	}
+done:
+	printf("%s\n", line);
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -210,7 +249,6 @@ main(int argc, char *argv[])
 	const char *ifname = NULL;
 	struct option *p;
 	size_t iflen;
-	bool is_regex = false;
 	regex_t if_reg = {};
 
 	all = downonly = uponly = namesonly = noload = 0;
@@ -219,7 +257,12 @@ main(int argc, char *argv[])
 	strlcpy(options, "X:abdf:lmruv", sizeof(options));
 	for (p = opts; p != NULL; p = p->next)
 		strlcat(options, p->opt, sizeof(options));
-	while ((c = getopt(argc, argv, options)) != -1) {
+
+	/*
+	 * There is no valid option after -X, only command name that may
+	 * start with '-'
+	 */
+	while ((c = getopt(argc, argv, options)) != -1 && is_regex == false) {
 		switch (c) {
 #ifdef __APPLE__
 		case 'X':
@@ -300,7 +343,7 @@ main(int argc, char *argv[])
 	}
 
 	/* -a and -l allow an address family arg to limit the output */
-	if (all || namesonly || is_regex) {
+	if (all || namesonly) {
 		if (argc > 1)
 			usage();
 
@@ -312,7 +355,7 @@ main(int argc, char *argv[])
 				argc--, argv++;
 			/* leave with afp non-zero */
 		}
-	} else {
+	} else if (!is_regex) {
 		/* not listing, need an argument */
 		if (argc < 1)
 			usage();
@@ -395,11 +438,17 @@ main(int argc, char *argv[])
 			fputs(name, stdout);
 			continue;
 		}
-
-		if (argc > 0)
+		/*
+		 * Print each command except when listing all or by address family
+		 */
+		if (is_regex && argc > 0) {
+			print_command_args(name, argc, argv, afp);
+		}
+		if (argc > 0) {
 			ifconfig(argc, argv, 0, afp);
-		else
+		} else {
 			status(afp, sdl, ifa);
+		}
 	}
 	if (namesonly)
 		printf("\n");
@@ -1771,6 +1820,34 @@ setlinkqualitymetric(const char *val, int dummy __unused, int s,
 		Perror("ioctl SIOCSIFINTERFACESTATE");
 }
 
+void
+setlinkcongested(const char *val, int dummy __unused, int s,
+    const struct afswtch *afp)
+{
+#ifdef SIOCGIFCONGESTEDLINK
+	char *endptr = NULL;
+
+	strlcpy(ifr.ifr_name, name, sizeof(ifr.ifr_name));
+
+	if (val == NULL) {
+		if (ioctl(s, SIOCGIFCONGESTEDLINK, &ifr) != -1) {
+			printf("congested link: %d\n", ifr.ifr_intval);
+			return;
+		}
+	}
+
+	ifr.ifr_intval = (int)strtol(val, &endptr, 0);
+	if (*endptr != 0) {
+		fprintf(stderr, "# invalid value '%s'\n", val);
+		exit(EX_USAGE);
+	}
+
+	if (ioctl(s, SIOCSIFCONGESTEDLINK, (caddr_t)&ifr) < 0) {
+		Perror("ioctl SIOCSIFCONGESTEDLINK");
+	}
+#endif /* SIOCGIFCONGESTEDLINK */
+}
+
 struct str2num {
 	const char *str;
 	uint32_t num;
@@ -1987,13 +2064,11 @@ status(const struct afswtch *afp, const struct sockaddr_dl *sdl,
 		if (ifindex != 0)
 			printf(" index %u", ifindex);
 	}
-#ifdef SIOCGIFCONSTRAINED
     // Constrained is stored in if_xflags which isn't exposed directly
     if (ioctl(s, SIOCGIFCONSTRAINED, (caddr_t)&ifr) == 0 &&
         ifr.ifr_constrained != 0) {
         printf(" constrained");
     }
-#endif
 	putchar('\n');
 
 	if (verbose && ioctl(s, SIOCGIFEFLAGS, (caddr_t)&ifr) != -1 &&
@@ -2077,11 +2152,9 @@ status(const struct afswtch *afp, const struct sockaddr_dl *sdl,
 	if (!verbose)
 		goto done;
 
-#ifdef SIOCGIFGENERATIONID
 	if (ioctl(s, SIOCGIFGENERATIONID, &ifr) != -1) {
 		printf("\tgeneration id: %llu\n", ifr.ifr_creation_generation_id);
 	}
-#endif /* SIOCGIFGENERATIONID */
 
 	if (ioctl(s, SIOCGIFTYPE, &ifr) != -1) {
 		char *c = ift2str(ifr.ifr_type.ift_type,
@@ -2661,10 +2734,8 @@ static struct cmd basic_cmds[] = {
 	DEF_CMD("-cl2k",	0,		setcl2k),
 	DEF_CMD("expensive",	1,		setexpensive),
 	DEF_CMD("-expensive",	0,		setexpensive),
-#ifdef SIOCSIFCONSTRAINED
     DEF_CMD("constrained",  1,      setconstrained),
     DEF_CMD("-constrained", 0,      setconstrained),
-#endif
 	DEF_CMD("timestamp",	1,		settimestamp),
 	DEF_CMD("-timestamp",	0,		settimestamp),
 	DEF_CMD_ARG("ecn",			setecnmode),
@@ -2690,6 +2761,7 @@ static struct cmd basic_cmds[] = {
 	DEF_CMD("disableinput", 1,      setdisableinput),
 	DEF_CMD("-disableinput", 0,      setdisableinput),
 	DEF_CMD_OPTARG("lqm", setlinkqualitymetric),
+	DEF_CMD_OPTARG("linkcongested", setlinkcongested),
 };
 
 static __constructor void

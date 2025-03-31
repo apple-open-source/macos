@@ -1487,11 +1487,17 @@ void IOHIDManagerCancel(IOHIDManagerRef manager)
         CFSetGetCount(manager->devices) &&
         manager->cancelCount) {
         __ApplyToDevices(manager, kDeviceApplierCancel);
-    } else if (manager->cancelHandler) {
-        (manager->cancelHandler)();
-        Block_release(manager->cancelHandler);
-        manager->cancelHandler = NULL;
-        _IOHIDObjectInternalRelease(manager);
+    } else {
+        _IOHIDObjectInternalRetain(manager);
+        dispatch_async(manager->dispatchQueue, ^{
+            if (manager->cancelHandler) {
+                (manager->cancelHandler)();
+                Block_release(manager->cancelHandler);
+                manager->cancelHandler = NULL;
+                _IOHIDObjectInternalRelease(manager);
+            }
+            _IOHIDObjectInternalRelease(manager);
+        });
     }
     os_unfair_recursive_lock_unlock(&manager->managerLock);
 }

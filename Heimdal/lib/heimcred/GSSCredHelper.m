@@ -86,7 +86,7 @@ os_log_t GSSHelperOSLog(void)
     NSDictionary *attributes = CFBridgingRelease(_CFXPCCreateCFObjectFromXPCObject(xpcattrs));
     if (attributes==nil)
     {
-	os_log_error(GSSHelperOSLog(), "unable to acquire credential without attributes %d", peer.session);
+	os_log_error(GSSHelperOSLog(), "unable to acquire credential without attributes %u", peer.session);
 	ret = KRB5_FCC_INTERNAL;
 	goto out;
     }
@@ -98,7 +98,7 @@ os_log_t GSSHelperOSLog(void)
     
     CFUUIDRef cacheID = CFBridgingRetain(attributes[(__bridge id _Nonnull)kHEIMAttrParentCredential]);
     if (cacheID == NULL) {
-	os_log_error(GSSHelperOSLog(), "unable to acquire credential without cache uuid %d", peer.session);
+	os_log_error(GSSHelperOSLog(), "unable to acquire credential without cache uuid %u", peer.session);
 	ret = KRB5_FCC_INTERNAL;
 	goto out;
     } else {
@@ -110,7 +110,7 @@ os_log_t GSSHelperOSLog(void)
 
     passwordData = attributes[(__bridge id _Nonnull)kHEIMAttrData];
     if (passwordData==nil) {
-	os_log_error(GSSHelperOSLog(), "unable to acquire credential without password %d", peer.session);
+	os_log_error(GSSHelperOSLog(), "unable to acquire credential without password %u", peer.session);
 	ret = KRB5_FCC_INTERNAL;
 	goto out;
     }
@@ -119,13 +119,13 @@ os_log_t GSSHelperOSLog(void)
     
     ret = krb5_cc_resolve_by_uuid(context, "XCACHE", &ccache, cacheUUID);
     if (ret) {
-	os_log_error(GSSHelperOSLog(), "unable to find cache %d, %d", peer.session, ret);
+	os_log_error(GSSHelperOSLog(), "unable to find cache %u, %d", peer.session, ret);
 	goto out;
     }
     
     ret = krb5_cc_get_principal(context, ccache, &principal);
     if (ret) {
-	os_log_error(GSSHelperOSLog(), "unable to retrieve principal %d, %d", peer.session, ret);
+	os_log_error(GSSHelperOSLog(), "unable to retrieve principal %u, %d", peer.session, ret);
 	goto out;
     }
 
@@ -142,14 +142,14 @@ os_log_t GSSHelperOSLog(void)
 
     ret = krb5_init_creds_init(context, principal, NULL, NULL, 0, opt, &ctx);
     if (ret) {
-	os_log_error(GSSHelperOSLog(), "unable to init cred context %d, %d", peer.session, ret);
+	os_log_error(GSSHelperOSLog(), "unable to init cred context %u, %d", peer.session, ret);
 	goto out;
     }
 
     ret = krb5_init_creds_set_password(context, ctx, [passwordString UTF8String]);
     passwordString = nil;
     if (ret) {
-	os_log_error(GSSHelperOSLog(), "unable to set password %d, %d", peer.session, ret);
+	os_log_error(GSSHelperOSLog(), "unable to set password %u, %d", peer.session, ret);
 	goto out;
     }
 
@@ -167,7 +167,7 @@ os_log_t GSSHelperOSLog(void)
     }
     if (ret) {
 	const char *msg = krb5_get_error_message(context, ret);
-	os_log_error(GSSHelperOSLog(), "Failed to store credentials for cache %d: %s", peer.session, msg);
+	os_log_error(GSSHelperOSLog(), "Failed to store credentials for cache %u: %s", peer.session, msg);
 	krb5_free_error_message(context, msg);
 	goto out;
     }
@@ -241,7 +241,7 @@ os_log_t GSSHelperOSLog(void)
     NSDictionary *attributes = CFBridgingRelease(_CFXPCCreateCFObjectFromXPCObject(xpcattrs));
     if (attributes==nil)
     {
-	os_log_error(GSSHelperOSLog(), "unable to acquire credential without attributes: %d", peer.session);
+	os_log_error(GSSHelperOSLog(), "unable to acquire credential without attributes: %u", peer.session);
 	ret = KRB5_FCC_INTERNAL;
 	goto out;
     }
@@ -253,7 +253,7 @@ os_log_t GSSHelperOSLog(void)
     
     CFUUIDRef cacheID = CFBridgingRetain(attributes[(__bridge id _Nonnull)kHEIMAttrParentCredential]);
     if (cacheID == NULL) {
-	os_log_error(GSSHelperOSLog(), "unable to acquire credential without cache uuid %d", peer.session);
+	os_log_error(GSSHelperOSLog(), "unable to acquire credential without cache uuid %u", peer.session);
 	ret = KRB5_FCC_INTERNAL;
 	goto out;
     } else {
@@ -265,7 +265,7 @@ os_log_t GSSHelperOSLog(void)
     
     clientName = attributes[(__bridge id _Nonnull)kHEIMAttrClientName];
     if (clientName==nil) {
-	os_log_error(GSSHelperOSLog(), "unable to acquire credential without principal: %d", peer.session);
+	os_log_error(GSSHelperOSLog(), "unable to acquire credential without principal: %u", peer.session);
 	ret = KRB5_FCC_INTERNAL;
 	goto out;
     } else {
@@ -420,7 +420,7 @@ os_log_t GSSHelperOSLog(void)
     //store the new cred in the "real" cache.  it is stored instead of moved from the other cache to prevent false default cred elections and to retain the stored config and labels in the original cache.
     ret = krb5_cc_store_cred(context, ccache, out);
     if (ret) {
-	os_log_error(GSSHelperOSLog(), "unable to save cred in cache: %d, %d", peer.session, ret);
+	os_log_error(GSSHelperOSLog(), "unable to save cred in cache: %u, %d", peer.session, ret);
     }
 
     expire = out->times.endtime;

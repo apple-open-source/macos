@@ -1,0 +1,517 @@
+#! /bin/sh
+
+# Test that the --itemize-changes option works as expected.
+
+set -e
+set -u
+
+. ${tstdir-.}/lib.sh
+. ${tstdir-.}/conf.sh
+
+# Cleanup from previous run:
+#
+rm -rf src dst log
+
+# Create the source tree:
+#
+mkdir -p src/dir/dir
+
+for i in 1 2 3  ; do
+	jot $(expr $i \* 1000) $i > src/1-file$i
+	jot $(expr $i \* 1333) $i > src/dir/dir/1-file$i
+	ln src/1-file$i src/2-hlink$i
+	mkfifo src/3-fifo$i
+	ln src/1-file$i src/4-hlink$i
+	ln -s 1-file$i src/5-sym$i
+	ln src/1-file$i src/6-hlink$i
+done
+
+ln -s dir src/symdir
+ln -s file src/symfile
+
+find src | xargs touch -h -A -55
+
+cat <<- EOF > rsync2-1.log
+cd+++++++ ./
+>f+++++++ 1-file1
+>f+++++++ 1-file2
+>f+++++++ 1-file3
+>f+++++++ 2-hlink1
+>f+++++++ 2-hlink2
+>f+++++++ 2-hlink3
+cS+++++++ 3-fifo1
+cS+++++++ 3-fifo2
+cS+++++++ 3-fifo3
+>f+++++++ 4-hlink1
+>f+++++++ 4-hlink2
+>f+++++++ 4-hlink3
+cL+++++++ 5-sym1 -> 1-file1
+cL+++++++ 5-sym2 -> 1-file2
+cL+++++++ 5-sym3 -> 1-file3
+>f+++++++ 6-hlink1
+>f+++++++ 6-hlink2
+>f+++++++ 6-hlink3
+cL+++++++ symdir -> dir
+cL+++++++ symfile -> file
+cd+++++++ dir/
+cd+++++++ dir/dir/
+>f+++++++ dir/dir/1-file1
+>f+++++++ dir/dir/1-file2
+>f+++++++ dir/dir/1-file3
+EOF
+
+[ -n "${RSYNC_PREFIX_DEST}" ] && sed -i .orig 's/^>/</' rsync2-1.log
+
+# Check for expected itemize output.  Use --no-v because -i with
+# one -v yields different output than with two -v's.
+#
+for opt in "--specials" "" ; do
+    	echo "Test 1 [$opt] nonexistent dest"
+	1>&2 echo "Test 1 [$opt] nonexistent dest"
+	rm -rf dst
+	rsync -a --no-v -i ${opt} -- src/ dst/ | tee log
+	grep '^[ch><.][dfSL]' log > ilog
+	diff rsync2-1.log ilog
+done
+
+
+# Test various metadata changes to source files with existing dest:
+#
+cat <<-EOF > rsync2-2.log
+.d..t.... ./
+>f..tp... 1-file1
+>f.st.... 1-file3
+>f..tp... 2-hlink1
+>f.st.... 2-hlink3
+>f..tp... 4-hlink1
+>f.st.... 4-hlink3
+>f..tp... 6-hlink1
+>f.st.... 6-hlink3
+>f+++++++ file
+.L..t.... symfile -> file
+.d...p... dir/dir/
+>f..t.... dir/dir/1-file3
+EOF
+
+[ -n "${RSYNC_PREFIX_DEST}" ] && sed -i .orig 's/^>/</' rsync2-2.log
+
+date >> src/file
+chmod 600 src/1-file1
+date >> src/1-file3
+chmod 711 src/dir/dir
+touch -h -A -45 src src/file src/symfile src/1-file[13] src/dir/dir/1-file3
+
+echo "Test 2 (-i) existing dest, src != dst"
+2>&1 echo "Test 2 (-i) existing dest, src != dst"
+rsync -a --no-v -i -- src/ dst/ | tee log
+grep '^[ch><.][dfSL]' log > ilog
+
+# xlog should be empty, but rsync2 fails to detect the time change
+# on the symlink (rsync3 and openrsync do better).
+#
+diff rsync2-2.log ilog > xlog || true
+[ ! -s xlog ] || grep -q symfile xlog
+
+
+# Same as above but with --super:
+#
+cat <<-EOF > rsync2-3.log
+.d..t.... ./
+>f..tp... 1-file1
+>f.st.... 1-file3
+>f..tp... 2-hlink1
+>f.st.... 2-hlink3
+>f..tp... 4-hlink1
+>f.st.... 4-hlink3
+>f..tp... 6-hlink1
+>f.st.... 6-hlink3
+>f.st.... file
+.L..t.... symdir -> dir
+.d..tp... dir/dir/
+EOF
+
+[ -n "${RSYNC_PREFIX_DEST}" ] && sed -i .orig 's/^>/</' rsync2-3.log
+
+date >> src/file
+chmod 640 src/1-file1
+date >> src/1-file3
+chmod 751 src/dir/dir
+touch -h -A -35 src src/file src/symdir src/1-file[13] src/dir/dir
+
+echo "Test 3 (-i --super) existing dest, src != dst"
+2>&1 echo "Test 3 (-i --super) existing dest, src != dst"
+rsync -a --no-v -i --super -- src/ dst/ | tee log || [ $? -eq 23 ]
+grep '^[ch><.][dfSL]' log > ilog
+
+# xlog should be empty, but rsync2 fails to detect the time change
+# on the symlink (rsync3 and openrsync do better).
+#
+diff rsync2-3.log ilog > xlog || true
+[ ! -s xlog ] || grep -q symdir xlog
+
+# Test cumulative metadata changes to one source file:
+#
+cat <<-EOF > rsync2-4.log
+>f.stp... file
+EOF
+
+[ -n "${RSYNC_PREFIX_DEST}" ] && sed -i .orig 's/^>/</' rsync2-4.log
+
+date >> src/file
+chmod 660 src/file
+
+echo "Test 4 (-i -n) existing dest, src != dst"
+2>&1 echo "Test 4 (-i -n) existing dest, src != dst"
+rsync -a --no-v -i -n -- src/ dst/ | tee log
+grep '^[ch><.][dfSL]' log > ilog
+diff rsync2-4.log ilog
+
+
+# Test -ii and -ivv, which should emit all files:
+#
+cat <<-EOF > rsync2-5.log
+.d        ./
+.f        1-file1
+.f        1-file2
+.f        1-file3
+.f        2-hlink1
+.f        2-hlink2
+.f        2-hlink3
+.S        3-fifo1
+.S        3-fifo2
+.S        3-fifo3
+.f        4-hlink1
+.f        4-hlink2
+.f        4-hlink3
+.L        5-sym1 -> 1-file1
+.L        5-sym2 -> 1-file2
+.L        5-sym3 -> 1-file3
+.f        6-hlink1
+.f        6-hlink2
+.f        6-hlink3
+>f.stp... file
+.L        symdir -> dir
+.L        symfile -> file
+.d        dir/
+.d        dir/dir/
+.f        dir/dir/1-file1
+.f        dir/dir/1-file2
+.f        dir/dir/1-file3
+EOF
+
+[ -n "${RSYNC_PREFIX_DEST}" ] && sed -i .orig 's/^>/</' rsync2-5.log
+
+echo "Test 5 (-ii -n) existing dest, src != dst"
+2>&1 echo "Test 5 (-ii -n) existing dest, src != dst"
+rsync -a --no-v -ii -n -- src/ dst/ | tee log
+grep '^[ch><.][dfSL]' log > ilog
+diff rsync2-5.log ilog
+
+echo "Test 5.1 (-i -n -vv) existing dest, src != dst"
+2>&1 echo "Test 5.1 (-i -n -vv) existing dest, src != dst"
+rsync -a --no-v -i -n -vv -- src/ dst/ | tee log
+grep '^[ch><.][dfSL]' log > ilog
+diff rsync2-5.log ilog
+
+
+# Test -ii --copy_links:
+#
+cat <<-EOF > rsync2-6.log
+.d        ./
+.f        1-file1
+.f        1-file2
+.f        1-file3
+.f        2-hlink1
+.f        2-hlink2
+.f        2-hlink3
+.S        3-fifo1
+.S        3-fifo2
+.S        3-fifo3
+.f        4-hlink1
+.f        4-hlink2
+.f        4-hlink3
+>f+++++++ 5-sym1
+>f+++++++ 5-sym2
+>f+++++++ 5-sym3
+.f        6-hlink1
+.f        6-hlink2
+.f        6-hlink3
+>f.stp... file
+>f+++++++ symfile
+.d        dir/
+.d        dir/dir/
+.f        dir/dir/1-file1
+.f        dir/dir/1-file2
+.f        dir/dir/1-file3
+cd+++++++ symdir/
+cd+++++++ symdir/dir/
+>f+++++++ symdir/dir/1-file1
+>f+++++++ symdir/dir/1-file2
+>f+++++++ symdir/dir/1-file3
+EOF
+
+[ -n "${RSYNC_PREFIX_DEST}" ] && sed -i .orig 's/^>/</' rsync2-6.log
+
+echo "Test 6 (-ii -n --super -L) existing dest, src != dst"
+2>&1 echo "Test 6 (-ii -n --super -L) existing dest, src != dst"
+rsync -a --no-v -ii -n --super -L -- src/ dst/ | tee log
+grep '^[ch><.][dfSL]' log > ilog
+diff rsync2-6.log ilog
+
+
+# Test a file that should have an owner and group different than $USER:
+#
+SRC_PATH="/usr/bin/stat"
+
+if [ -f "${SRC_PATH}" ] ; then
+	SRC_BASENAME=$(basename "${SRC_PATH}")
+
+	cat <<-EOF > rsync2-7.log
+	>f+++++++ ${SRC_BASENAME}
+	EOF
+
+	[ -n "${RSYNC_PREFIX_DEST}" ] && sed -i .orig 's/^>/</' rsync2-7.log
+
+	echo "Test 7 (-ii) existing dest, ${SRC_PATH}"
+	2>&1 echo "Test 7 (-ii) existing dest, ${SRC_PATH}"
+	rsync -a --no-v -ii -- "${SRC_PATH}" dst/ | tee log
+	grep '^[ch><.][dfSL]' log > ilog
+	diff rsync2-7.log ilog
+	stat -x dst/${SRC_BASENAME}
+
+
+	cat <<-EOF > rsync2-7.log
+	.f        ${SRC_BASENAME}
+	EOF
+
+	echo "Test 7.1 (-ii) existing dest, ${SRC_PATH}"
+	2>&1 echo "Test 7.1 (-ii) existing dest, ${SRC_PATH}"
+	rsync -a --no-v -ii -- "${SRC_PATH}" dst/ | tee log
+	grep '^[ch><.][dfSL]' log > ilog
+	diff rsync2-7.log ilog
+
+
+	UBIT=o
+	GBIT=g
+
+	[ $(stat -f %u "${SRC_PATH}") -eq $(stat -f %u "dst/${SRC_BASENAME}") ] && UBIT=.
+	[ $(stat -f %g "${SRC_PATH}") -eq $(stat -f %g "dst/${SRC_BASENAME}") ] && GBIT=.
+
+	cat <<-EOF > rsync2-7.log
+	>fcstp${UBIT}${GBIT}. ${SRC_BASENAME}
+	EOF
+
+	[ -n "${RSYNC_PREFIX_DEST}" ] && sed -i .orig 's/^>/</' rsync2-7.log
+
+	chmod u+w,o-rwx "dst/${SRC_BASENAME}"
+	date >> "dst/${SRC_BASENAME}"
+	touch "dst/${SRC_BASENAME}"
+
+	echo "Test 7.2 (-ii -n --super -c) existing dest, ${SRC_PATH}"
+	2>&1 echo "Test 7.2 (-ii -n --super -c) existing dest, ${SRC_PATH}"
+	rsync -a --no-v -ii -n --super -c -- "${SRC_PATH}" dst/ | tee log
+	grep '^[ch><.][dfSL]' log > ilog
+	diff rsync2-7.log ilog
+fi
+
+
+# Test that if the source and dest are the same that
+# rsync -i emits nothing and rsync -ii emits all files.
+#
+find src -type p -exec rm {} \;
+rm -rf dst
+cp -a src dst
+
+echo "Test 8 (-i -n) existing dest, src == dst"
+2>&1 echo "Test 8 (-i -n) existing dest, src == dst"
+rsync -a --no-v -i -n -- src/ dst/ | tee log
+compare_trees src dst
+if [ -s log ] ; then
+    grep '^[ch><.][dfSL]' log || true > ilog
+    [ ! -s ilog ]
+fi
+
+cat <<-EOF > rsync2-8.log
+.d        ./
+.f        1-file1
+.f        1-file2
+.f        1-file3
+.f        2-hlink1
+.f        2-hlink2
+.f        2-hlink3
+.f        4-hlink1
+.f        4-hlink2
+.f        4-hlink3
+.L        5-sym1 -> 1-file1
+.L        5-sym2 -> 1-file2
+.L        5-sym3 -> 1-file3
+.f        6-hlink1
+.f        6-hlink2
+.f        6-hlink3
+.f        file
+.L        symdir -> dir
+.L        symfile -> file
+.d        dir/
+.d        dir/dir/
+.f        dir/dir/1-file1
+.f        dir/dir/1-file2
+.f        dir/dir/1-file3
+EOF
+
+echo "Test 8.1 (-ii -n) existing dest, src == dst"
+2>&1 echo "Test 8.1 (-ii -n) existing dest, src == dst"
+rsync -a --no-v -ii -n -- src/ dst/ | tee log
+grep '^[ch><.][dfSL]' log > ilog
+diff rsync2-8.log ilog
+
+echo "Test 8.2 (-i -vv -n) existing dest, src == dst"
+2>&1 echo "Test 8.2 (-i -vv -n) existing dest, src == dst"
+rsync -a --no-v -i -vv -n -- src/ dst/ | tee log
+grep '^[ch><.][dfSL]' log > ilog
+diff rsync2-8.log ilog
+
+
+# Test with removed source file and --delete:
+#
+cat <<-EOF > rsync2-9.log
+*deleting file
+.d..t.... ./
+EOF
+
+rm src/file
+touch -A -30 src
+
+echo "Test 9 (-i --delete)"
+2>&1 echo "Test 9 (-i --delete)"
+rsync -a --no-v -i --delete -n -- src/ dst/ | tee log
+grep '^[ch><.*][dfSL]' log > ilog
+diff rsync2-9.log ilog || sh -c '2>&1 echo Found unexpected diff; echo output:; cat log; false'
+[ -f dst/file ]
+
+echo "Test 9.1 (-i --delete)"
+2>&1 echo "Test 9.1 (-i --delete)"
+rsync -a --no-v -i --delete -- src/ dst/ | tee log
+grep '^[ch><.*][dfSL]' log > ilog
+diff rsync2-9.log ilog
+[ ! -f dst/file ]
+
+
+# TODO: Openrsync as receiver currently fails past this point.
+exit
+
+
+# Test hard links with initial transfer:
+#
+cat <<-EOF > rsync2-hardlinks-1.log
+cd+++++++ ./
+cL+++++++ 5-sym1 -> 1-file1
+cL+++++++ 5-sym2 -> 1-file2
+cL+++++++ 5-sym3 -> 1-file3
+>f+++++++ 6-hlink1
+>f+++++++ 6-hlink2
+>f+++++++ 6-hlink3
+>f+++++++ file
+cL+++++++ symdir -> dir
+cL+++++++ symfile -> file
+cd+++++++ dir/
+cd+++++++ dir/dir/
+>f+++++++ dir/dir/1-file1
+>f+++++++ dir/dir/1-file2
+>f+++++++ dir/dir/1-file3
+hf+++++++ 1-file1 => 6-hlink1
+hf+++++++ 2-hlink1 => 6-hlink1
+hf+++++++ 4-hlink1 => 6-hlink1
+hf+++++++ 1-file2 => 6-hlink2
+hf+++++++ 2-hlink2 => 6-hlink2
+hf+++++++ 4-hlink2 => 6-hlink2
+hf+++++++ 1-file3 => 6-hlink3
+hf+++++++ 2-hlink3 => 6-hlink3
+hf+++++++ 4-hlink3 => 6-hlink3
+EOF
+
+[ -n "${RSYNC_PREFIX_DEST}" ] && sed -i .orig 's/^>/</' rsync2-hardlinks-1.log
+
+date > src/file
+touch -A -25 src/file
+
+rm -rf dst log
+
+echo "Test 10 (-i -H, nonexistent dest)"
+2>&1 echo "Test 10 (-i -H, nonexistent dest)"
+rsync -a --no-v -i -H -- src/ dst/ | tee log
+compare_trees -t src dst
+grep '^[ch><.][dfSL]' log > ilog
+diff rsync2-hardlinks-1.log ilog
+
+
+# Test hard links with updated source file:
+#
+cat <<-EOF > rsync2-hardlinks-2.log
+.d..t.... ./
+>f..tp... 1-file1
+>f.st.... 1-file3
+>f.st.... file
+.d..tp... dir/dir/
+hf..tp... 2-hlink1 => 1-file1
+hf..tp... 4-hlink1 => 1-file1
+hf..tp... 6-hlink1 => 1-file1
+hf.st.... 2-hlink3 => 1-file3
+hf.st.... 4-hlink3 => 1-file3
+hf.st.... 6-hlink3 => 1-file3
+EOF
+
+[ -n "${RSYNC_PREFIX_DEST}" ] && sed -i .orig 's/^>/</' rsync2-hardlinks-2.log
+
+date >> src/file
+chmod 664 src/1-file1
+date >> src/1-file3
+chmod 755 src/dir/dir
+touch -A -20 src src/file src/1-file[13] src/dir/dir
+
+echo "Test 11 (-i -H)"
+2>&1 echo "Test 11 (-i -H)"
+rsync -a --no-v -i -H -- src/ dst/ | tee log
+grep '^[ch><.][dfSL]' log > ilog
+diff rsync2-hardlinks-2.log ilog
+
+
+# Test hard links with several missing destination files:
+#
+cat <<-EOF > rsync2-hardlinks-3.log
+.d..t.... ./
+hf+++++++ 1-file2 => 2-hlink2
+hf+++++++ 4-hlink1 => 1-file1
+EOF
+
+rm dst/1-file2 dst/4-hlink1
+touch -A -15 src
+
+echo "Test 12 (-i -H)"
+2>&1 echo "Test 12 (-i -H)"
+rsync -a --no-v -i -H -- src/ dst/ | tee log
+grep '^[ch><.][dfSL]' log > ilog
+diff rsync2-hardlinks-3.log ilog
+
+
+# Remove the first and last of four hardlinks by sort order:
+#
+cat <<-EOF > rsync2-hardlinks-4.log
+*deleting 6-hlink3
+*deleting 1-file3
+*deleting dir/dir/1-file3
+.d..t.... ./
+>f..t.... 2-hlink3
+.d..t.... dir/dir/
+hf..t.... 4-hlink3 => 2-hlink3
+EOF
+
+[ -n "${RSYNC_PREFIX_DEST}" ] && sed -i .orig 's/^>/</' rsync2-hardlinks-4.log
+
+rm src/1-file3 src/6-hlink3 src/dir/dir/1-file3
+touch -A -10 src src/4-hlink3 src/dir/dir
+
+echo "Test 13 (-i -H --delete)"
+2>&1 echo "Test 13 (-i -H --delete)"
+rsync -a --no-v -i -H --delete -- src/ dst/ | tee log
+grep '^[ch><.*][dfSL]' log > ilog
+diff rsync2-hardlinks-4.log ilog

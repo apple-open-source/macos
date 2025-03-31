@@ -28,6 +28,7 @@
 #include <mach/vm_map.h>
 #include <mach/mach_vm.h>
 #include <mach/vm_reclaim.h>
+#include <mach/vm_reclaim_private.h>
 #include <mach/mach_types.h>
 #include <mach/mach_host.h>
 #include <mach/memory_object.h>
@@ -3320,6 +3321,14 @@ create_map(mach_vm_address_t map_start, mach_vm_address_t map_end)
 	vm_map_t map = vm_map_create_options(pmap, map_start, map_end, VM_MAP_CREATE_PAGEABLE);
 	assert(map);
 
+	/*
+	 * Normally, we would vm_map_setup a task's map, but since we're breaking the assumed
+	 * 1:1 correspondence between map and task here, we must manually set up the map's
+	 * back pointer, without repeating any one-time task setup (e.g. registering reclaim
+	 * buffers)
+	 */
+	map->owning_task = current_task();
+
 	return map;
 }
 
@@ -3347,20 +3356,27 @@ cleanup_map(vm_map_t *map)
 #endif
 
 // Allocate with an address hint.
-// Important for kernel tests' empty vm_maps
-// to avoid allocating near address 0 and ~0.
 static kern_return_t
-allocate_away_from_zero(
+allocate_after(
 	MAP_T               map,
 	mach_vm_address_t  *address,
 	mach_vm_size_t      size,
 	mach_vm_size_t      align_mask,
 	int                 additional_map_flags)
 {
-	*address = 2ull * 1024 * 1024 * 1024; // 2 GB address hint
 	return mach_vm_map(map, address, size, align_mask,
 	           VM_FLAGS_ANYWHERE | additional_map_flags, 0, 0, 0,
 	           VM_PROT_DEFAULT, VM_PROT_ALL, VM_INHERIT_DEFAULT);
+}
+
+static inline mach_vm_address_t
+default_allocation_address_hint(void)
+{
+	/*
+	 * Try to allocate after address 2 GB. It is important in
+	 * in-kernel tests of empty maps to avoid addresses near 0 and ~0.
+	 */
+	return 2ull * 1024 * 1024 * 1024;
 }
 
 // allocate a purgeable VM region with size and permissions
@@ -3372,6 +3388,12 @@ allocate_away_from_zero(
 // and deallocate it at end of scope
 #define SMART_ALLOCATE_VM(map, size, perm)                              \
     __attribute__((cleanup(cleanup_allocation))) = create_allocation(map, size, 0, perm, false, 0)
+
+// allocate a VM region with size and permissions
+// and an address hint to allocate after
+// and deallocate it at end of scope
+#define SMART_ALLOCATE_VM_AFTER(map, address_hint, size, perm)          \
+    __attribute__((cleanup(cleanup_allocation))) = create_allocation_after(map, address_hint, size, 0, perm, false, 0)
 
 // allocate a VM region with size and permissions and alignment
 // and deallocate it at end of scope
@@ -3397,7 +3419,7 @@ typedef struct {
 } allocation_t;
 
 static allocation_t
-create_allocation(MAP_T new_map, mach_vm_address_t new_size, mach_vm_size_t align_mask,
+create_allocation_after(MAP_T new_map, mach_vm_address_t address_hint, mach_vm_address_t new_size, mach_vm_size_t align_mask,
     vm_prot_t perm, bool allow_failure, int additional_map_flags)
 {
 	// allocations in address order:
@@ -3424,7 +3446,7 @@ create_allocation(MAP_T new_map, mach_vm_address_t new_size, mach_vm_size_t alig
 	}
 	assert(result.size != 0);
 
-	mach_vm_address_t allocated_base;
+	mach_vm_address_t allocated_base = address_hint;
 	mach_vm_size_t allocated_size = result.size;
 	if (__builtin_add_overflow(result.size, result.guard_size * 4, &allocated_size)) {
 		if (allow_failure) {
@@ -3435,7 +3457,7 @@ create_allocation(MAP_T new_map, mach_vm_address_t new_size, mach_vm_size_t alig
 	}
 
 	kern_return_t kr;
-	kr = allocate_away_from_zero(result.map, &allocated_base, allocated_size,
+	kr = allocate_after(result.map, &allocated_base, allocated_size,
 	    align_mask, additional_map_flags);
 	if (kr != 0 && allow_failure) {
 		return (allocation_t){new_map, 0, 0, 0, 0, 0, 0, 0};
@@ -3460,6 +3482,14 @@ create_allocation(MAP_T new_map, mach_vm_address_t new_size, mach_vm_size_t alig
 	assert(kr == 0);
 
 	return result;
+}
+
+static allocation_t
+create_allocation(MAP_T new_map, mach_vm_address_t new_size, mach_vm_size_t align_mask,
+    vm_prot_t perm, bool allow_failure, int additional_map_flags)
+{
+	mach_vm_address_t address_hint = default_allocation_address_hint();
+	return create_allocation_after(new_map, address_hint, new_size, align_mask, perm, allow_failure, additional_map_flags);
 }
 
 // Mark this allocation as deallocated by something else.
@@ -3492,6 +3522,12 @@ cleanup_allocation(allocation_t *allocation)
 	__attribute__((cleanup(cleanup_unallocation))) = create_unallocation(map, size)
 
 // unallocate a VM region with size
+// and an address hint to allocate above
+// and deallocate it at end of scope
+#define SMART_UNALLOCATE_VM_AFTER(map, address_hint, size)              \
+	__attribute__((cleanup(cleanup_unallocation))) = create_unallocation_after(map, address_hint, size, false)
+
+// unallocate a VM region with size
 // and deallocate it at end of scope
 // If no such region could be allocated, return {.addr = 0}
 #define SMART_TRY_UNALLOCATE_VM(map, size)                                  \
@@ -3508,7 +3544,7 @@ typedef struct {
 } unallocation_t;
 
 static unallocation_t __attribute__((overloadable))
-create_unallocation(MAP_T new_map, mach_vm_address_t new_size, bool allow_failure)
+create_unallocation_after(MAP_T new_map, mach_vm_address_t address_hint, mach_vm_address_t new_size, bool allow_failure)
 {
 	// allocations in address order:
 	// 16K guard_prefix (allocated, prot none)
@@ -3529,7 +3565,7 @@ create_unallocation(MAP_T new_map, mach_vm_address_t new_size, bool allow_failur
 	}
 	assert(result.size != 0);
 
-	mach_vm_address_t allocated_base;
+	mach_vm_address_t allocated_base = address_hint;
 	mach_vm_size_t allocated_size = result.size;
 	if (__builtin_add_overflow(result.size, result.guard_size * 2, &allocated_size)) {
 		if (allow_failure) {
@@ -3539,7 +3575,7 @@ create_unallocation(MAP_T new_map, mach_vm_address_t new_size, bool allow_failur
 		}
 	}
 	kern_return_t kr;
-	kr = allocate_away_from_zero(result.map, &allocated_base, allocated_size, 0, 0);
+	kr = allocate_after(result.map, &allocated_base, allocated_size, 0, 0);
 	if (kr != 0 && allow_failure) {
 		return (unallocation_t){new_map, 0, 0, 0, 0, 0};
 	}
@@ -3560,6 +3596,13 @@ create_unallocation(MAP_T new_map, mach_vm_address_t new_size, bool allow_failur
 }
 
 static unallocation_t __attribute__((overloadable))
+create_unallocation(MAP_T new_map, mach_vm_address_t new_size, bool allow_failure)
+{
+	mach_vm_address_t address_hint = default_allocation_address_hint();
+	return create_unallocation_after(new_map, address_hint, new_size, allow_failure);
+}
+
+static unallocation_t __attribute__((overloadable))
 create_unallocation(MAP_T new_map, mach_vm_address_t new_size)
 {
 	return create_unallocation(new_map, new_size, false /*allow_failure*/);
@@ -3575,12 +3618,14 @@ cleanup_unallocation(unallocation_t *unallocation)
 	}
 }
 
-
+// TODO: re-enable deferred reclaim tests (rdar://136157720)
+#if 0
 // vm_deferred_reclamation_buffer_init_internal tests
 typedef struct {
 	task_t task;
 	mach_vm_address_t address;
-	mach_vm_size_t size;
+	mach_vm_reclaim_count_t initial_capacity;
+	mach_vm_reclaim_count_t max_capacity;
 	char *name;
 } reclamation_buffer_init_trial_t;
 
@@ -3592,19 +3637,12 @@ typedef struct {
 
 TRIALS_IMPL(reclamation_buffer_init)
 
-#define RECLAMATION_BUFFER_INIT_TRIAL(new_task, new_address, new_size, new_name) \
+#define RECLAMATION_BUFFER_INIT_TRIAL(new_task, new_address, new_initial_capacity, new_max_capacity, new_name) \
 (reclamation_buffer_init_trial_t){ .task = (task_t)(new_task), \
 	    .address = (mach_vm_address_t)(new_address), \
-	    .size = (mach_vm_size_t)(new_size), \
+	    .initial_capacity= (mach_vm_reclaim_count_t)(new_initial_capacity), \
+	    .max_capacity= (mach_vm_reclaim_count_t)(new_max_capacity), \
 	    .name = new_name }
-
-/* fixme reclaim struct declarations unavailable outside __LP64__ */
-#if __LP64__
-#define VM_TEST_RECLAIM_BUFFER_SIZE sizeof(struct mach_vm_reclaim_buffer_v1_s) + 2 * sizeof(struct mach_vm_reclaim_entry_v1_s)
-#else
-#define VM_TEST_RECLAIM_BUFFER_SIZE     64
-#endif
-/* __LP64__ */
 
 #define RECLAMATION_BUFFER_INIT_EXTRA_TRIALS   7
 
@@ -3617,18 +3655,19 @@ generate_reclamation_buffer_init_trials(void)
 	reclamation_buffer_init_trials_t *trials = allocate_reclamation_buffer_init_trials(addr_trials->count + RECLAMATION_BUFFER_INIT_EXTRA_TRIALS);
 	for (size_t i = 0; i < addr_trials->count; i++) {
 		char *buf;
-		mach_vm_size_t size = VM_TEST_RECLAIM_BUFFER_SIZE * i * PAGE_SIZE;
+		mach_vm_size_t size = i * 512;
 		kasprintf(&buf, "%s, size: 0x%llu", addr_trials->list[i].name, size);
-		append_trial(trials, RECLAMATION_BUFFER_INIT_TRIAL(current_task(), addr_trials->list[i].addr, size, buf));
+		append_trial(trials, RECLAMATION_BUFFER_INIT_TRIAL(current_task(), addr_trials->list[i].addr, size, size, buf));
 	}
 
-	append_trial(trials, RECLAMATION_BUFFER_INIT_TRIAL(current_task(), base.addr, 0, "size: 0"));
-	append_trial(trials, RECLAMATION_BUFFER_INIT_TRIAL(current_task(), base.addr, UINT64_MAX - 1, "size: UINT64_MAX - 1"));
-	append_trial(trials, RECLAMATION_BUFFER_INIT_TRIAL(current_task(), base.addr, UINT64_MAX, "size: UINT64_MAX"));
-	append_trial(trials, RECLAMATION_BUFFER_INIT_TRIAL(current_task(), base.addr, UINT64_MAX - PAGE_SIZE + 1, "size: UINT64_MAX - PAGE_SIZE + 1"));
-	append_trial(trials, RECLAMATION_BUFFER_INIT_TRIAL(NULL, NULL, 0, "null task, null address, size: 0"));
-	append_trial(trials, RECLAMATION_BUFFER_INIT_TRIAL(current_task(), NULL, 0, "null address, size: 0"));
-	append_trial(trials, RECLAMATION_BUFFER_INIT_TRIAL(current_task(), base.addr, VM_TEST_RECLAIM_BUFFER_SIZE, "valid arguments to test KERN_NOT_SUPPORTED"));
+	append_trial(trials, RECLAMATION_BUFFER_INIT_TRIAL(current_task(), base.addr, 0, 0, "size: 0"));
+	append_trial(trials, RECLAMATION_BUFFER_INIT_TRIAL(current_task(), base.addr, VM_RECLAIM_MAX_CAPACITY - 1, VM_RECLAIM_MAX_CAPACITY - 1, "size: MAX - 1"));
+	append_trial(trials, RECLAMATION_BUFFER_INIT_TRIAL(current_task(), base.addr, VM_RECLAIM_MAX_CAPACITY, VM_RECLAIM_MAX_CAPACITY, "size: MAX"));
+	append_trial(trials, RECLAMATION_BUFFER_INIT_TRIAL(current_task(), base.addr, UINT32_MAX, UINT32_MAX, "size: UINT32_MAX"));
+	append_trial(trials, RECLAMATION_BUFFER_INIT_TRIAL(current_task(), base.addr, 2, 1, "size: max < initial"));
+	append_trial(trials, RECLAMATION_BUFFER_INIT_TRIAL(NULL, NULL, 0, 0, "null task, null address, size: 0"));
+	append_trial(trials, RECLAMATION_BUFFER_INIT_TRIAL(current_task(), NULL, 0, 0, "null address, size: 0"));
+	append_trial(trials, RECLAMATION_BUFFER_INIT_TRIAL(current_task(), base.addr, 1024, 1024, "valid arguments to test KERN_NOT_SUPPORTED"));
 
 	return trials;
 }
@@ -3647,16 +3686,16 @@ cleanup_reclamation_buffer_init_trials(reclamation_buffer_init_trials_t **trials
 }
 
 static kern_return_t
-call_mach_vm_deferred_reclamation_buffer_init(task_t task, mach_vm_address_t address, mach_vm_size_t size)
+call_mach_vm_deferred_reclamation_buffer_init(task_t task, mach_vm_address_t address, mach_vm_reclaim_count_t initial_capacity, mach_vm_reclaim_count_t max_capacity)
 {
 	kern_return_t kr = 0;
 	mach_vm_address_t saved_address = address;
-	if (task && size > 0 && address == 0) {
+	if (task && max_capacity > 0 && address == 0) {
 		// prevent assert3u(*address, !=, 0)
 		return PANIC;
 	}
 
-	kr = mach_vm_deferred_reclamation_buffer_init(task, &address, size);
+	kr = mach_vm_deferred_reclamation_buffer_allocate(task, &address, initial_capacity, max_capacity);
 
 	//Out-param validation, failure shouldn't change inout address.
 	if (kr != KERN_SUCCESS && saved_address != address) {
@@ -3668,6 +3707,7 @@ call_mach_vm_deferred_reclamation_buffer_init(task_t task, mach_vm_address_t add
 
 	return kr;
 }
+#endif // 0
 
 
 // mach_vm_remap_external/vm_remap_external/vm32_remap/mach_vm_remap_new_external infra
@@ -4863,8 +4903,23 @@ test_allocated_src_unallocated_dst_size(kern_return_t (*func)(MAP_T map, mach_vm
 	results_t *results = alloc_results(testname, eSMART_SRC_DST_SIZE_TRIALS, trials->count);
 
 	for (unsigned i = 0; i < trials->count; i++) {
+		/*
+		 * Require src < dst. Some tests may get different error codes if src > dst.
+		 *
+		 * Example: size == -dst-1 for functions like vm_remap where dst
+		 * is a hint (i.e. dst + size overflow is ok) (rdar://132099195).
+		 * If src > dst then src + size overflows and the
+		 *   function returns KERN_INVALID_ARGUMENT.
+		 * If src < dst then src + size does not overflow and the
+		 *   function fails and returns KERN_INVALID_ADDRESS because
+		 *   [src, src + size) is an unreasonable address range.
+		 *
+		 * TODO: test both src < dst and src > dst.
+		 */
 		src_dst_size_trial_t trial = trials->list[i];
-		unallocation_t dst_base SMART_UNALLOCATE_VM(map, TEST_ALLOC_SIZE);
+		unallocation_t dst_base SMART_UNALLOCATE_VM_AFTER(map, src_base.addr, TEST_ALLOC_SIZE);
+		assert(src_base.addr < dst_base.addr);
+
 		trial = slide_trial_src(trial, src_base.addr);
 		trial = slide_trial_dst(trial, dst_base.addr);
 		int ret = func(map, trial.src, trial.size, trial.dst);

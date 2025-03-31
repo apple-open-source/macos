@@ -128,7 +128,7 @@ static int haar_ac_sad_8x8_uint8_input(const uint8_t *input, int stride,
                                        int hbd) {
   tran_low_t output[64];
 
-  av1_fdwt8x8_uint8_input_c(input, output, stride, hbd);
+  av1_fdwt8x8_uint8_input(input, output, stride, hbd);
   return haar_ac_sad(output, 8, 8, 8);
 }
 

@@ -193,7 +193,7 @@ void SecurityServerAcl::validatePartition(SecurityServerEnvironment& env, bool p
             secnotice("integrity", "no partition ACL - database is recoding; skipping add");
             // let this pass as well
         } else {
-            secnotice("integrity", "no partition ACL - adding");
+            secnotice("integrity", "no partition ACL - adding %s", env.database->process().partitionId().c_str());
             env.acl.instantiateAcl();
             this->createClientPartitionID(env.database->process());
             env.acl.changedAcl();
@@ -223,16 +223,26 @@ bool SecurityServerAcl::extendPartition(SecurityServerEnvironment& env)
 	if (kcSubject) {
 		BaseValidationContext ctx(NULL, CSSM_ACL_AUTHORIZATION_PARTITION_ID, &env);
         kcSubject->addPromptAttempt();
-		return kcSubject->validateExplicitly(ctx, ^{
-            secnotice("integrity", "adding partition to list");
+
+        secnotice("integrity", "asking user about XARA partition for '%s'", env.database->process().partitionId().c_str());
+        bool ret = kcSubject->validateExplicitly(ctx, ^{
+            secnotice("integrity", "adding XARA partition '%s' to list", env.database->process().partitionId().c_str());
             env.acl.instantiateAcl();
-			this->addClientPartitionID(env.database->process());
-			env.acl.changedAcl();
-			// trigger a special notification code on (otherwise successful) return
-			Server::connection().overrideReturn(CSSMERR_CSP_APPLE_ADD_APPLICATION_ACL_SUBJECT);
-		});
+            this->addClientPartitionID(env.database->process());
+            env.acl.changedAcl();
+            // trigger a special notification code on (otherwise successful) return
+            Server::connection().overrideReturn(CSSMERR_CSP_APPLE_ADD_APPLICATION_ACL_SUBJECT);
+        });
+
+        if(ret) {
+            secnotice("integrity", "user approved XARA access for '%s'", env.database->process().partitionId().c_str());
+        } else {
+            secnotice("integrity", "user rejected XARA access for '%s'", env.database->process().partitionId().c_str());
+        }
+
+        return ret;
 	}
-    secnotice("integrity", "failure extending partition");
+    secnotice("integrity", "failure extending XARA partition for '%s'", env.database->process().partitionId().c_str());
 	return false;
 }
 

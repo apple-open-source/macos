@@ -28,10 +28,10 @@
 #if ENABLE(VIDEO) && USE(AVFOUNDATION)
 
 #include "MediaPlayerPrivateAVFoundation.h"
+#include "SharedBuffer.h"
 #include "VideoFrameMetadata.h"
 #include <CoreMedia/CMTime.h>
-#include <wtf/CompletionHandler.h>
-#include <wtf/Function.h>
+#include <wtf/Forward.h>
 #include <wtf/MainThreadDispatcher.h>
 #include <wtf/Observer.h>
 #include <wtf/RobinHoodHashMap.h>
@@ -74,7 +74,6 @@ class MediaPlaybackTarget;
 class MediaSelectionGroupAVFObjC;
 class PixelBufferConformerCV;
 class QueuedVideoOutput;
-class SharedBuffer;
 class VideoLayerManagerObjC;
 class VideoTrackPrivateAVFObjC;
 class WebCoreAVFResourceLoader;
@@ -278,7 +277,7 @@ private:
 
 #if ENABLE(LEGACY_ENCRYPTED_MEDIA)
     void keyAdded() final;
-    std::unique_ptr<LegacyCDMSession> createSession(const String& keySystem, LegacyCDMSessionClient&) final;
+    RefPtr<LegacyCDMSession> createSession(const String& keySystem, LegacyCDMSessionClient&) final;
 #endif
 
     String languageOfPrimaryAudioTrack() const final;
@@ -299,7 +298,7 @@ private:
 #endif
 
     void setCurrentTextTrack(InbandTextTrackPrivateAVF*) final;
-    InbandTextTrackPrivateAVF* currentTextTrack() const final { return m_currentTextTrack; }
+    ThreadSafeWeakPtr<InbandTextTrackPrivateAVF> currentTextTrack() const final { return m_currentTextTrack; }
 
     void updateAudioTracks();
     void updateVideoTracks();
@@ -418,7 +417,7 @@ private:
     std::unique_ptr<PixelBufferConformerCV> m_pixelBufferConformer;
 
     friend class WebCoreAVFResourceLoader;
-    HashMap<RetainPtr<CFTypeRef>, RefPtr<WebCoreAVFResourceLoader>> m_resourceLoaderMap;
+    UncheckedKeyHashMap<RetainPtr<CFTypeRef>, RefPtr<WebCoreAVFResourceLoader>> m_resourceLoaderMap;
     RetainPtr<WebCoreAVFLoaderDelegate> m_loaderDelegate;
     MemoryCompactRobinHoodHashMap<String, RetainPtr<AVAssetResourceLoadingRequest>> m_keyURIToRequestMap;
     MemoryCompactRobinHoodHashMap<String, RetainPtr<AVAssetResourceLoadingRequest>> m_sessionIDToRequestMap;
@@ -429,8 +428,7 @@ private:
     Vector<RefPtr<VideoTrackPrivateAVFObjC>> m_videoTracks;
     RefPtr<MediaSelectionGroupAVFObjC> m_audibleGroup;
     RefPtr<MediaSelectionGroupAVFObjC> m_visualGroup;
-
-    InbandTextTrackPrivateAVF* m_currentTextTrack { nullptr };
+    ThreadSafeWeakPtr<InbandTextTrackPrivateAVF> m_currentTextTrack;
 
 #if ENABLE(DATACUE_VALUE)
     RefPtr<InbandMetadataTextTrackPrivateAVF> m_metadataTrack;
@@ -516,7 +514,7 @@ private:
     ProcessIdentity m_resourceOwner;
     PlatformTimeRanges m_buffered;
     TrackID m_currentTextTrackID { 0 };
-    Ref<RefCountedSerialFunctionDispatcher> m_targetDispatcher { MainThreadDispatcher::singleton() };
+    Ref<GuaranteedSerialFunctionDispatcher> m_targetDispatcher { MainThreadDispatcher::singleton() };
 #if HAVE(SPATIAL_TRACKING_LABEL)
     String m_defaultSpatialTrackingLabel;
     String m_spatialTrackingLabel;

@@ -44,13 +44,14 @@ class SVGRenderStyle;
 // which are stored in the SVGInlineTextBox objects.
 
 class SVGTextLayoutEngine {
-    WTF_MAKE_NONCOPYABLE(SVGTextLayoutEngine);
 public:
     SVGTextLayoutEngine(Vector<SVGTextLayoutAttributes*>&);
+    SVGTextLayoutEngine(SVGTextLayoutEngine&&) = default;
+    SVGTextLayoutEngine(const SVGTextLayoutEngine&) = delete;
 
     Vector<SVGTextLayoutAttributes*>& layoutAttributes() { return m_layoutAttributes; }
 
-    void beginTextPathLayout(RenderSVGTextPath&, SVGTextLayoutEngine& lineLayout);
+    void beginTextPathLayout(const RenderSVGTextPath&, SVGTextLayoutEngine& lineLayout);
     void endTextPathLayout();
 
     void layoutInlineTextBox(InlineIterator::SVGTextBoxIterator);
@@ -82,10 +83,10 @@ private:
     Vector<InlineIterator::SVGTextBoxIterator> m_pathLayoutBoxes;
 
     // Output.
-    HashMap<InlineIterator::SVGTextBox::Key, Vector<SVGTextFragment>> m_fragmentMap;
+    UncheckedKeyHashMap<InlineIterator::SVGTextBox::Key, Vector<SVGTextFragment>> m_fragmentMap;
 
     SVGTextChunkBuilder m_chunkLayoutBuilder;
-    HashSet<InlineIterator::SVGTextBox::Key> m_lineLayoutChunkStarts;
+    UncheckedKeyHashSet<InlineIterator::SVGTextBox::Key> m_lineLayoutChunkStarts;
 
     SVGTextFragment m_currentTextFragment;
     unsigned m_layoutAttributesPosition { 0 };

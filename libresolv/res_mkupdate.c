@@ -1,40 +1,45 @@
-/*
+/*-
+ * SPDX-License-Identifier: ISC
+ *
+ * Copyright (c) 2004 by Internet Systems Consortium, Inc. ("ISC")
  * Copyright (c) 1996-1999 by Internet Software Consortium.
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
  * copyright notice and this permission notice appear in all copies.
  *
- * THE SOFTWARE IS PROVIDED "AS IS" AND INTERNET SOFTWARE CONSORTIUM DISCLAIMS
- * ALL WARRANTIES WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES
- * OF MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL INTERNET SOFTWARE
- * CONSORTIUM BE LIABLE FOR ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL
- * DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR
- * PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS
- * ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS
- * SOFTWARE.
+ * THE SOFTWARE IS PROVIDED "AS IS" AND ISC DISCLAIMS ALL WARRANTIES
+ * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS.  IN NO EVENT SHALL ISC BE LIABLE FOR
+ * ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+ * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+ * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT
+ * OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-/*
+/*! \file
+ * \brief
  * Based on the Dynamic DNS reference implementation by Viraj Bais
- * <viraj_bais@ccm.fm.intel.com>
+ * &lt;viraj_bais@ccm.fm.intel.com>
  */
 
 #ifndef __APPLE__
 #if !defined(lint) && !defined(SABER)
-static const char rcsid[] = "$Id: res_mkupdate.c,v 1.1 2006/03/01 19:01:38 majka Exp $";
+static const char rcsid[] = "$Id: res_mkupdate.c,v 1.10 2008/12/11 09:59:00 marka Exp $";
 #endif /* not lint */
-#endif
+#endif /* ! __APPLE__ */
+#include <sys/cdefs.h>
+__FBSDID("$FreeBSD$");
 
-#ifndef __APPLE__
 #include "port_before.h"
-#endif
 
-#include <sys/types.h>
 #include <sys/param.h>
 
 #include <netinet/in.h>
 #include <arpa/nameser.h>
+#ifdef __APPLE__
+#include <arpa/nameser_compat.h>
+#endif
 #include <arpa/inet.h>
 
 #include <errno.h>
@@ -48,14 +53,17 @@ static const char rcsid[] = "$Id: res_mkupdate.c,v 1.1 2006/03/01 19:01:38 majka
 #include <unistd.h>
 #include <ctype.h>
 
-#include "res_private.h"
-
-#ifndef __APPLE__
-#include "port_after.h"
+#ifdef _LIBC
+#include <isc/list.h>
 #endif
 
+#include "port_after.h"
+
+#ifdef __APPLE__
+#define nitems(x)       (sizeof((x)) / sizeof((x)[0]))
+#endif /* __APPLE__ */
+
 /* Options.  Leave them on. */
-#define DEBUG
 #define MAXPORT 1024
 
 static int getnum_str(u_char **, u_char *);
@@ -67,69 +75,77 @@ static int getstr_str(char *, int, u_char **, u_char *);
 
 /* Forward. */
 
-#ifdef __APPLE__
+#if defined(_LIBC) || defined(__APPLE__)
 static
 #endif
 int res_protocolnumber(const char *);
-#ifdef __APPLE__
+#if defined(_LIBC) || defined(__APPLE__)
 static
 #endif
 int res_servicenumber(const char *);
 
-/*
+/*%
  * Form update packets.
  * Returns the size of the resulting packet if no error
+ *
  * On error,
- *	returns -1 if error in reading a word/number in rdata
+ *	returns 
+ *\li              -1 if error in reading a word/number in rdata
  *		   portion for update packets
- *		-2 if length of buffer passed is insufficient
- *		-3 if zone section is not the first section in
+ *\li		-2 if length of buffer passed is insufficient
+ *\li		-3 if zone section is not the first section in
  *		   the linked list, or section order has a problem
- *		-4 on a number overflow
- *		-5 unknown operation or no records
+ *\li		-4 on a number overflow
+ *\li		-5 unknown operation or no records
  */
+#ifdef __APPLE__
+__attribute__((__visibility__("hidden")))
+#endif	/* __APPLE__ */
 int
 res_nmkupdate(res_state statp, ns_updrec *rrecp_in, u_char *buf, int buflen) {
 	ns_updrec *rrecp_start = rrecp_in;
 	HEADER *hp;
-	u_char *cp, *sp1, *sp2, *startp, *endp;
+	u_char *cp, *sp2, *startp, *endp;
 	int n, i, soanum, multiline;
 	ns_updrec *rrecp;
 	struct in_addr ina;
 	struct in6_addr in6a;
-        char buf2[NS_MAXDNAME];
-	u_char buf3[NS_MAXDNAME];
+        char buf2[MAXDNAME];
+	u_char buf3[MAXDNAME];
 	int section, numrrs = 0, counts[ns_s_max];
 	u_int16_t rtype, rclass;
 	u_int32_t n1, rttl;
 	u_char *dnptrs[20], **dpp, **lastdnptr;
-	int siglen, keylen, certlen;
+#ifndef _LIBC
+	int siglen;
+#endif
+	int keylen, certlen;
 
 	/*
 	 * Initialize header fields.
 	 */
-	if ((buf == NULL) || (buflen < NS_HFIXEDSZ))
+	if ((buf == NULL) || (buflen < HFIXEDSZ))
 		return (-1);
-	memset(buf, 0, NS_HFIXEDSZ);
+	memset(buf, 0, HFIXEDSZ);
 	hp = (HEADER *) buf;
+	statp->id = res_nrandomid(statp);
 #ifdef __APPLE__
 	hp->id = res_randomid();
 #else
-	hp->id = htons(++statp->id);
-#endif
+	hp->id = htons(statp->id);
+#endif /* __APPLE__ */
 	hp->opcode = ns_o_update;
-	hp->rcode = ns_r_noerror;
-	sp1 = buf + 2*NS_INT16SZ;  /* save pointer to zocount */
-	cp = buf + NS_HFIXEDSZ;
-	buflen -= NS_HFIXEDSZ;
+	hp->rcode = NOERROR;
+	cp = buf + HFIXEDSZ;
+	buflen -= HFIXEDSZ;
 	dpp = dnptrs;
 	*dpp++ = buf;
 	*dpp++ = NULL;
-	lastdnptr = dnptrs + sizeof dnptrs / sizeof dnptrs[0];
+	lastdnptr = dnptrs + nitems(dnptrs);
 
 	if (rrecp_start == NULL)
 		return (-5);
-	else if (rrecp_start->r_section != ns_s_zn)
+	else if (rrecp_start->r_section != S_ZONE)
 		return (-3);
 
 	memset(counts, 0, sizeof counts);
@@ -146,26 +162,26 @@ res_nmkupdate(res_state statp, ns_updrec *rrecp_in, u_char *buf, int buflen) {
 		rclass = rrecp->r_class;
 		rttl = rrecp->r_ttl;
 		/* overload class and type */
-		if (section == ns_s_pr) {
+		if (section == S_PREREQ) {
 			rttl = 0;
 			switch (rrecp->r_opcode) {
-			case ns_r_yxdomain:
-				rclass = ns_c_any;
-				rtype = ns_t_any;
+			case YXDOMAIN:
+				rclass = C_ANY;
+				rtype = T_ANY;
 				rrecp->r_size = 0;
 				break;
-			case ns_r_nxdomain:
-				rclass = ns_c_none;
-				rtype = ns_t_any;
+			case NXDOMAIN:
+				rclass = C_NONE;
+				rtype = T_ANY;
 				rrecp->r_size = 0;
 				break;
-			case ns_r_nxrrset:
-				rclass = ns_c_none;
+			case NXRRSET:
+				rclass = C_NONE;
 				rrecp->r_size = 0;
 				break;
-			case ns_r_yxrrset:
+			case YXRRSET:
 				if (rrecp->r_size == 0)
-					rclass = ns_c_any;
+					rclass = C_ANY;
 				break;
 			default:
 				fprintf(stderr,
@@ -174,12 +190,12 @@ res_nmkupdate(res_state statp, ns_updrec *rrecp_in, u_char *buf, int buflen) {
 				fflush(stderr);
 				return (-1);
 			}
-		} else if (section == ns_s_ud) {
+		} else if (section == S_UPDATE) {
 			switch (rrecp->r_opcode) {
-			case ns_uop_delete:
-				rclass = rrecp->r_size == 0 ? ns_c_any : ns_c_none;
+			case DELETE:
+				rclass = rrecp->r_size == 0 ? C_ANY : C_NONE;
 				break;
-			case ns_uop_add:
+			case ADD:
 				break;
 			default:
 				fprintf(stderr,
@@ -198,23 +214,23 @@ res_nmkupdate(res_state statp, ns_updrec *rrecp_in, u_char *buf, int buflen) {
 				 lastdnptr)) < 0)
 			return (-1);
 		cp += n;
-		ShrinkBuffer(n + 2*NS_INT16SZ);
-		NS_PUT16(rtype, cp);
-		NS_PUT16(rclass, cp);
-		if (section == ns_s_zn) {
-			if (numrrs != 1 || rrecp->r_type != ns_t_soa)
+		ShrinkBuffer(n + 2*INT16SZ);
+		PUTSHORT(rtype, cp);
+		PUTSHORT(rclass, cp);
+		if (section == S_ZONE) {
+			if (numrrs != 1 || rrecp->r_type != T_SOA)
 				return (-3);
 			continue;
 		}
-		ShrinkBuffer(NS_INT32SZ + NS_INT16SZ);
-		NS_PUT32(rttl, cp);
-		sp2 = cp;  /* save pointer to length byte */
-		cp += NS_INT16SZ;
+		ShrinkBuffer(INT32SZ + INT16SZ);
+		PUTLONG(rttl, cp);
+		sp2 = cp;  /*%< save pointer to length byte */
+		cp += INT16SZ;
 		if (rrecp->r_size == 0) {
-			if (section == ns_s_ud && rclass != ns_c_any)
+			if (section == S_UPDATE && rclass != C_ANY)
 				return (-1);
 			else {
-				NS_PUT16(0, sp2);
+				PUTSHORT(0, sp2);
 				continue;
 			}
 		}
@@ -222,21 +238,22 @@ res_nmkupdate(res_state statp, ns_updrec *rrecp_in, u_char *buf, int buflen) {
 		endp = startp + rrecp->r_size - 1;
 		/* XXX this should be done centrally. */
 		switch (rrecp->r_type) {
-		case ns_t_a:
+		case T_A:
 			if (!getword_str(buf2, sizeof buf2, &startp, endp))
 				return (-1);
 			if (!inet_aton(buf2, &ina))
 				return (-1);
 			n1 = ntohl(ina.s_addr);
-			ShrinkBuffer(NS_INT32SZ);
-			NS_PUT32(n1, cp);
+			ShrinkBuffer(INT32SZ);
+			PUTLONG(n1, cp);
 			break;
-		case ns_t_cname:
-		case ns_t_mb:
-		case ns_t_mg:
-		case ns_t_mr:
-		case ns_t_ns:
-		case ns_t_ptr:
+		case T_CNAME:
+		case T_MB:
+		case T_MG:
+		case T_MR:
+		case T_NS:
+		case T_PTR:
+		case ns_t_dname:
 			if (!getword_str(buf2, sizeof buf2, &startp, endp))
 				return (-1);
 			n = dn_comp(buf2, cp, buflen, dnptrs, lastdnptr);
@@ -245,9 +262,9 @@ res_nmkupdate(res_state statp, ns_updrec *rrecp_in, u_char *buf, int buflen) {
 			cp += n;
 			ShrinkBuffer(n);
 			break;
-		case ns_t_minfo:
-		case ns_t_soa:
-		case ns_t_rp:
+		case T_MINFO:
+		case T_SOA:
+		case T_RP:
 			for (i = 0; i < 2; i++) {
 				if (!getword_str(buf2, sizeof buf2, &startp,
 						 endp))
@@ -259,8 +276,8 @@ res_nmkupdate(res_state statp, ns_updrec *rrecp_in, u_char *buf, int buflen) {
 				cp += n;
 				ShrinkBuffer(n);
 			}
-			if (rrecp->r_type == ns_t_soa) {
-				ShrinkBuffer(5 * NS_INT32SZ);
+			if (rrecp->r_type == T_SOA) {
+				ShrinkBuffer(5 * INT32SZ);
 				while (isspace(*startp) || !*startp)
 					startp++;
 				if (*startp == '(') {
@@ -273,7 +290,7 @@ res_nmkupdate(res_state statp, ns_updrec *rrecp_in, u_char *buf, int buflen) {
 					soanum = getnum_str(&startp, endp);
 					if (soanum < 0)
 						return (-1);
-					NS_PUT32(soanum, cp);
+					PUTLONG(soanum, cp);
 				}
 				if (multiline) {
 					while (isspace(*startp) || !*startp)
@@ -283,14 +300,14 @@ res_nmkupdate(res_state statp, ns_updrec *rrecp_in, u_char *buf, int buflen) {
 				}
 			}
 			break;
-		case ns_t_mx:
-		case ns_t_afsdb:
-		case ns_t_rt:
+		case T_MX:
+		case T_AFSDB:
+		case T_RT:
 			n = getnum_str(&startp, endp);
 			if (n < 0)
 				return (-1);
-			ShrinkBuffer(NS_INT16SZ);
-			NS_PUT16(n, cp);
+			ShrinkBuffer(INT16SZ);
+			PUTSHORT(n, cp);
 			if (!getword_str(buf2, sizeof buf2, &startp, endp))
 				return (-1);
 			n = dn_comp(buf2, cp, buflen, dnptrs, lastdnptr);
@@ -299,39 +316,39 @@ res_nmkupdate(res_state statp, ns_updrec *rrecp_in, u_char *buf, int buflen) {
 			cp += n;
 			ShrinkBuffer(n);
 			break;
-		case ns_t_srv:
+		case T_SRV:
 			n = getnum_str(&startp, endp);
 			if (n < 0)
 				return (-1);
-			ShrinkBuffer(NS_INT16SZ);
-			NS_PUT16(n, cp);
+			ShrinkBuffer(INT16SZ);
+			PUTSHORT(n, cp);
 
 			n = getnum_str(&startp, endp);
 			if (n < 0)
 				return (-1);
-			ShrinkBuffer(NS_INT16SZ);
-			NS_PUT16(n, cp);
+			ShrinkBuffer(INT16SZ);
+			PUTSHORT(n, cp);
 
 			n = getnum_str(&startp, endp);
 			if (n < 0)
 				return (-1);
-			ShrinkBuffer(NS_INT16SZ);
-			NS_PUT16(n, cp);
+			ShrinkBuffer(INT16SZ);
+			PUTSHORT(n, cp);
 
 			if (!getword_str(buf2, sizeof buf2, &startp, endp))
 				return (-1);
-			n = dn_comp(buf2, cp, buflen, dnptrs, lastdnptr);
+			n = dn_comp(buf2, cp, buflen, NULL, NULL);
 			if (n < 0)
 				return (-1);
 			cp += n;
 			ShrinkBuffer(n);
 			break;
-		case ns_t_px:
+		case T_PX:
 			n = getnum_str(&startp, endp);
 			if (n < 0)
 				return (-1);
-			NS_PUT16(n, cp);
-			ShrinkBuffer(NS_INT16SZ);
+			PUTSHORT(n, cp);
+			ShrinkBuffer(INT16SZ);
 			for (i = 0; i < 2; i++) {
 				if (!getword_str(buf2, sizeof buf2, &startp,
 						 endp))
@@ -344,7 +361,7 @@ res_nmkupdate(res_state statp, ns_updrec *rrecp_in, u_char *buf, int buflen) {
 				ShrinkBuffer(n);
 			}
 			break;
-		case ns_t_wks: {
+		case T_WKS: {
 			char bm[MAXPORT/8];
 			unsigned int maxbm = 0;
 
@@ -353,8 +370,8 @@ res_nmkupdate(res_state statp, ns_updrec *rrecp_in, u_char *buf, int buflen) {
 			if (!inet_aton(buf2, &ina))
 				return (-1);
 			n1 = ntohl(ina.s_addr);
-			ShrinkBuffer(NS_INT32SZ);
-			NS_PUT32(n1, cp);
+			ShrinkBuffer(INT32SZ);
+			PUTLONG(n1, cp);
 
 			if (!getword_str(buf2, sizeof buf2, &startp, endp))
 				return (-1);
@@ -367,13 +384,13 @@ res_nmkupdate(res_state statp, ns_updrec *rrecp_in, u_char *buf, int buflen) {
 				bm[i] = 0;
 
 			while (getword_str(buf2, sizeof buf2, &startp, endp)) {
-				if ((n1 = res_servicenumber(buf2)) <= 0)
+				if ((n = res_servicenumber(buf2)) <= 0)
 					return (-1);
 
-				if (n1 < MAXPORT) {
-					bm[n1/8] |= (0x80>>(n1%8));
-					if (n1 > maxbm)
-						maxbm = n1;
+				if (n < MAXPORT) {
+					bm[n/8] |= (0x80>>(n%8));
+					if ((unsigned)n > maxbm)
+						maxbm = n;
 				} else
 					return (-1);
 			}
@@ -383,7 +400,7 @@ res_nmkupdate(res_state statp, ns_updrec *rrecp_in, u_char *buf, int buflen) {
 			cp += maxbm;
 			break;
 		}
-		case ns_t_hinfo:
+		case T_HINFO:
 			for (i = 0; i < 2; i++) {
 				if ((n = getstr_str(buf2, sizeof buf2,
 						&startp, endp)) < 0)
@@ -396,11 +413,11 @@ res_nmkupdate(res_state statp, ns_updrec *rrecp_in, u_char *buf, int buflen) {
 				cp += n;
 			}
 			break;
-		case ns_t_txt:
-			while (1) {
+		case T_TXT:
+			for (;;) {
 				if ((n = getstr_str(buf2, sizeof buf2,
 						&startp, endp)) < 0) {
-					if (cp != (sp2 + NS_INT16SZ))
+					if (cp != (sp2 + INT16SZ))
 						break;
 					return (-1);
 				}
@@ -412,8 +429,8 @@ res_nmkupdate(res_state statp, ns_updrec *rrecp_in, u_char *buf, int buflen) {
 				cp += n;
 			}
 			break;
-		case ns_t_x25:
-			/* RFC 1183 */
+		case T_X25:
+			/* RFC1183 */
 			if ((n = getstr_str(buf2, sizeof buf2, &startp,
 					 endp)) < 0)
 				return (-1);
@@ -424,8 +441,8 @@ res_nmkupdate(res_state statp, ns_updrec *rrecp_in, u_char *buf, int buflen) {
 			memcpy(cp, buf2, n);
 			cp += n;
 			break;
-		case ns_t_isdn:
-			/* RFC 1183 */
+		case T_ISDN:
+			/* RFC1183 */
 			if ((n = getstr_str(buf2, sizeof buf2, &startp,
 					 endp)) < 0)
 				return (-1);
@@ -445,7 +462,7 @@ res_nmkupdate(res_state statp, ns_updrec *rrecp_in, u_char *buf, int buflen) {
 			memcpy(cp, buf2, n);
 			cp += n;
 			break;
-		case ns_t_nsap:
+		case T_NSAP:
 			if ((n = inet_nsap_addr((char *)startp, (u_char *)buf2, sizeof(buf2))) != 0) {
 				ShrinkBuffer(n);
 				memcpy(cp, buf2, n);
@@ -454,7 +471,7 @@ res_nmkupdate(res_state statp, ns_updrec *rrecp_in, u_char *buf, int buflen) {
 				return (-1);
 			}
 			break;
-		case ns_t_loc:
+		case T_LOC:
 			if ((n = loc_aton((char *)startp, (u_char *)buf2)) != 0) {
 				ShrinkBuffer(n);
 				memcpy(cp, buf2, n);
@@ -463,6 +480,9 @@ res_nmkupdate(res_state statp, ns_updrec *rrecp_in, u_char *buf, int buflen) {
 				return (-1);
 			break;
 		case ns_t_sig:
+#ifdef _LIBC
+			return (-1);
+#else
 		    {
 			int sig_type, success, dateerror;
 			u_int32_t exptime, timesigned;
@@ -474,8 +494,8 @@ res_nmkupdate(res_state statp, ns_updrec *rrecp_in, u_char *buf, int buflen) {
 			sig_type = sym_ston(__p_type_syms, buf2, &success);
 			if (!success || sig_type == ns_t_any)
 				return (-1);
-			ShrinkBuffer(NS_INT16SZ);
-			NS_PUT16(sig_type, cp);
+			ShrinkBuffer(INT16SZ);
+			PUTSHORT(sig_type, cp);
 			/* alg */
 			n = getnum_str(&startp, endp);
 			if (n < 0)
@@ -493,18 +513,20 @@ res_nmkupdate(res_state statp, ns_updrec *rrecp_in, u_char *buf, int buflen) {
 				return (-1);
 			exptime = ns_datetosecs(buf2, &dateerror);
 			if (!dateerror) {
-				ShrinkBuffer(NS_INT32SZ);
-				NS_PUT32(rttl, cp);
+				ShrinkBuffer(INT32SZ);
+				PUTLONG(rttl, cp);
 			}
 			else {
 				char *ulendp;
-				u_int32_t ottl;
+				u_long ottl;
 
+				errno = 0;
 				ottl = strtoul(buf2, &ulendp, 10);
-				if (ulendp != NULL && *ulendp != '\0')
+				if (errno != 0 ||
+				    (ulendp != NULL && *ulendp != '\0'))
 					return (-1);
-				ShrinkBuffer(NS_INT32SZ);
-				NS_PUT32(ottl, cp);
+				ShrinkBuffer(INT32SZ);
+				PUTLONG(ottl, cp);
 				if (!getword_str(buf2, sizeof buf2, &startp,
 						 endp))
 					return (-1);
@@ -513,15 +535,15 @@ res_nmkupdate(res_state statp, ns_updrec *rrecp_in, u_char *buf, int buflen) {
 					return (-1);
 			}
 			/* expire */
-			ShrinkBuffer(NS_INT32SZ);
-			NS_PUT32(exptime, cp);
+			ShrinkBuffer(INT32SZ);
+			PUTLONG(exptime, cp);
 			/* timesigned */
 			if (!getword_str(buf2, sizeof buf2, &startp, endp))
 				return (-1);
 			timesigned = ns_datetosecs(buf2, &dateerror);
 			if (!dateerror) {
-				ShrinkBuffer(NS_INT32SZ);
-				NS_PUT32(timesigned, cp);
+				ShrinkBuffer(INT32SZ);
+				PUTLONG(timesigned, cp);
 			}
 			else
 				return (-1);
@@ -529,8 +551,8 @@ res_nmkupdate(res_state statp, ns_updrec *rrecp_in, u_char *buf, int buflen) {
 			n = getnum_str(&startp, endp);
 			if (n < 0)
 				return (-1);
-			ShrinkBuffer(NS_INT16SZ);
-			NS_PUT16(n, cp);
+			ShrinkBuffer(INT16SZ);
+			PUTSHORT(n, cp);
 			/* signer name */
 			if (!getword_str(buf2, sizeof buf2, &startp, endp))
 				return (-1);
@@ -551,13 +573,14 @@ res_nmkupdate(res_state statp, ns_updrec *rrecp_in, u_char *buf, int buflen) {
 			cp += siglen;
 			break;
 		    }
+#endif
 		case ns_t_key:
 			/* flags */
 			n = gethexnum_str(&startp, endp);
 			if (n < 0)
 				return (-1);
-			ShrinkBuffer(NS_INT16SZ);
-			NS_PUT16(n, cp);
+			ShrinkBuffer(INT16SZ);
+			PUTSHORT(n, cp);
 			/* proto */
 			n = getnum_str(&startp, endp);
 			if (n < 0)
@@ -590,14 +613,14 @@ res_nmkupdate(res_state statp, ns_updrec *rrecp_in, u_char *buf, int buflen) {
 			/* next name */
 			if (!getword_str(buf2, sizeof buf2, &startp, endp))
 				return (-1);
-			n = dn_comp(buf2, cp, buflen, dnptrs, lastdnptr);
+			n = dn_comp(buf2, cp, buflen, NULL, NULL);
 			if (n < 0)
 				return (-1);
 			cp += n;
 			ShrinkBuffer(n);
 			maxtype = 0;
 			memset(data, 0, sizeof data);
-			while (1) {
+			for (;;) {
 				if (!getword_str(buf2, sizeof buf2, &startp,
 						 endp))
 					break;
@@ -620,14 +643,14 @@ res_nmkupdate(res_state statp, ns_updrec *rrecp_in, u_char *buf, int buflen) {
 			n = getnum_str(&startp, endp);
 			if (n < 0)
 				return (-1);
-			ShrinkBuffer(NS_INT16SZ);
-			NS_PUT16(n, cp);
+			ShrinkBuffer(INT16SZ);
+			PUTSHORT(n, cp);
 			/* key tag */
 			n = getnum_str(&startp, endp);
 			if (n < 0)
 				return (-1);
-			ShrinkBuffer(NS_INT16SZ);
-			NS_PUT16(n, cp);
+			ShrinkBuffer(INT16SZ);
+			PUTSHORT(n, cp);
 			/* alg */
 			n = getnum_str(&startp, endp);
 			if (n < 0)
@@ -654,21 +677,77 @@ res_nmkupdate(res_state statp, ns_updrec *rrecp_in, u_char *buf, int buflen) {
 			memcpy(cp, &in6a, NS_IN6ADDRSZ);
 			cp += NS_IN6ADDRSZ;
 			break;
+		case ns_t_naptr:
+			/* Order Preference Flags Service Replacement Regexp */
+			/* Order */
+			n = getnum_str(&startp, endp);
+			if (n < 0 || n > 65535)
+				return (-1);
+			ShrinkBuffer(INT16SZ);
+			PUTSHORT(n, cp);
+			/* Preference */
+			n = getnum_str(&startp, endp);
+			if (n < 0 || n > 65535)
+				return (-1);
+			ShrinkBuffer(INT16SZ);
+			PUTSHORT(n, cp);
+			/* Flags */
+			if ((n = getstr_str(buf2, sizeof buf2,
+					&startp, endp)) < 0) {
+				return (-1);
+			}
+			if (n > 255)
+				return (-1);
+			ShrinkBuffer(n+1);
+			*cp++ = n;
+			memcpy(cp, buf2, n);
+			cp += n;
+			/* Service Classes */
+			if ((n = getstr_str(buf2, sizeof buf2,
+					&startp, endp)) < 0) {
+				return (-1);
+			}
+			if (n > 255)
+				return (-1);
+			ShrinkBuffer(n+1);
+			*cp++ = n;
+			memcpy(cp, buf2, n);
+			cp += n;
+			/* Pattern */
+			if ((n = getstr_str(buf2, sizeof buf2,
+					&startp, endp)) < 0) {
+				return (-1);
+			}
+			if (n > 255)
+				return (-1);
+			ShrinkBuffer(n+1);
+			*cp++ = n;
+			memcpy(cp, buf2, n);
+			cp += n;
+			/* Replacement */
+			if (!getword_str(buf2, sizeof buf2, &startp, endp))
+				return (-1);
+			n = dn_comp(buf2, cp, buflen, NULL, NULL);
+			if (n < 0)
+				return (-1);
+			cp += n;
+			ShrinkBuffer(n);
+			break;
 		default:
 			return (-1);
 		} /*switch*/
-		n = (u_int16_t)((cp - sp2) - NS_INT16SZ);
-		NS_PUT16(n, sp2);
+		n = (u_int16_t)((cp - sp2) - INT16SZ);
+		PUTSHORT(n, sp2);
 	} /*for*/
 		
 	hp->qdcount = htons(counts[0]);
 	hp->ancount = htons(counts[1]);
 	hp->nscount = htons(counts[2]);
 	hp->arcount = htons(counts[3]);
-	return (cp - buf);
+	return (int)(cp - buf);
 }
 
-/*
+/*%
  * Get a whitespace delimited word from a string (not file)
  * into buf. modify the start pointer to point after the
  * word in the string.
@@ -681,9 +760,9 @@ getword_str(char *buf, int size, u_char **startpp, u_char *endp) {
         for (cp = buf; *startpp <= endp; ) {
                 c = **startpp;
                 if (isspace(c) || c == '\0') {
-                        if (cp != buf) /* trailing whitespace */
+                        if (cp != buf) /*%< trailing whitespace */
                                 break;
-                        else { /* leading whitespace */
+                        else { /*%< leading whitespace */
                                 (*startpp)++;
                                 continue;
                         }
@@ -697,9 +776,9 @@ getword_str(char *buf, int size, u_char **startpp, u_char *endp) {
         return (cp != buf);
 }
 
-/*
+/*%
  * get a white spae delimited string from memory.  Process quoted strings
- * and \DDD escapes.  Return length or -1 on error.  Returned string may
+ * and \\DDD escapes.  Return length or -1 on error.  Returned string may
  * contain nulls.
  */
 static char digits[] = "0123456789";
@@ -754,7 +833,7 @@ getstr_str(char *buf, int size, u_char **startpp, u_char *endp) {
 				case '8':
 				case '9':
 					c1 = c1 * 10 + 
-						(strchr(digits, c) - digits);
+						(int)(strchr(digits, c) - digits);
 
 					if (++dig == 3) {
 						c = c1 &0xff;
@@ -774,9 +853,10 @@ getstr_str(char *buf, int size, u_char **startpp, u_char *endp) {
 	}
  done:
 	*cp = '\0';
-	return ((cp == buf)?  (seen_quote? 0: -1): (cp - buf));
+	return ((cp == buf)?  (seen_quote? 0: -1): (int)(cp - buf));
 }
-/*
+
+/*%
  * Get a whitespace delimited base 16 number from a string (not file) into buf
  * update the start pointer to point after the number in the string.
  */
@@ -792,9 +872,9 @@ gethexnum_str(u_char **startpp, u_char *endp) {
         for (n = 0; *startpp <= endp; ) {
                 c = **startpp;
                 if (isspace(c) || c == '\0') {
-                        if (seendigit) /* trailing whitespace */
+                        if (seendigit) /*%< trailing whitespace */
                                 break;
-                        else { /* leading whitespace */
+                        else { /*%< leading whitespace */
                                 (*startpp)++;
                                 continue;
                         }
@@ -824,8 +904,8 @@ gethexnum_str(u_char **startpp, u_char *endp) {
         return (n + m);
 }
 
-/*
- * Get a whitespace delimited base 16 number from a string (not file) into buf
+/*%
+ * Get a whitespace delimited base 10 number from a string (not file) into buf
  * update the start pointer to point after the number in the string.
  */
 static int
@@ -837,9 +917,9 @@ getnum_str(u_char **startpp, u_char *endp) {
         for (n = 0; *startpp <= endp; ) {
                 c = **startpp;
                 if (isspace(c) || c == '\0') {
-                        if (seendigit) /* trailing whitespace */
+                        if (seendigit) /*%< trailing whitespace */
                                 break;
-                        else { /* leading whitespace */
+                        else { /*%< leading whitespace */
                                 (*startpp)++;
                                 continue;
                         }
@@ -866,9 +946,12 @@ getnum_str(u_char **startpp, u_char *endp) {
         return (n + m);
 }
 
-/*
+/*%
  * Allocate a resource record buffer & save rr info.
  */
+#ifdef __APPLE__
+__attribute__((__visibility__("hidden")))
+#endif	/* __APPLE__ */
 ns_updrec *
 res_mkupdrec(int section, const char *dname,
 	     u_int class, u_int type, u_long ttl) {
@@ -881,16 +964,19 @@ res_mkupdrec(int section, const char *dname,
 	}
 	INIT_LINK(rrecp, r_link);
 	INIT_LINK(rrecp, r_glink);
- 	rrecp->r_class = class;
-	rrecp->r_type = type;
-	rrecp->r_ttl = ttl;
-	rrecp->r_section = section;
+ 	rrecp->r_class = (ns_class)class;
+	rrecp->r_type = (ns_type)type;
+	rrecp->r_ttl = (uint32_t)ttl;
+	rrecp->r_section = (ns_sect)section;
 	return (rrecp);
 }
 
-/*
+/*%
  * Free a resource record buffer created by res_mkupdrec.
  */
+#ifdef __APPLE__
+__attribute__((__visibility__("hidden")))
+#endif	/* __APPLE__ */
 void
 res_freeupdrec(ns_updrec *rrecp) {
 	/* Note: freeing r_dp is the caller's responsibility. */
@@ -909,7 +995,7 @@ struct valuelist {
 static struct valuelist *servicelist, *protolist;
 
 static void
-res_buildservicelist() {
+res_buildservicelist(void) {
 	struct servent *sp;
 	struct valuelist *slp;
 
@@ -930,7 +1016,7 @@ res_buildservicelist() {
 			free(slp);
 			break;
 		}
-		slp->port = ntohs((u_int16_t)sp->s_port);  /* host byt order */
+		slp->port = ntohs((u_int16_t)sp->s_port);  /*%< host byt order */
 		slp->next = servicelist;
 		slp->prev = NULL;
 		if (servicelist)
@@ -940,8 +1026,9 @@ res_buildservicelist() {
 	endservent();
 }
 
+#ifndef _LIBC
 void
-res_destroyservicelist() {
+res_destroyservicelist(void) {
 	struct valuelist *slp, *slp_next;
 
 	for (slp = servicelist; slp != NULL; slp = slp_next) {
@@ -952,7 +1039,11 @@ res_destroyservicelist() {
 	}
 	servicelist = (struct valuelist *)0;
 }
+#endif
 
+#ifdef _LIBC
+static
+#endif
 void
 res_buildprotolist(void) {
 	struct protoent *pp;
@@ -972,7 +1063,7 @@ res_buildprotolist(void) {
 			free(slp);
 			break;
 		}
-		slp->port = pp->p_proto;	/* host byte order */
+		slp->port = pp->p_proto;	/*%< host byte order */
 		slp->next = protolist;
 		slp->prev = NULL;
 		if (protolist)
@@ -982,6 +1073,7 @@ res_buildprotolist(void) {
 	endprotoent();
 }
 
+#ifndef _LIBC
 void
 res_destroyprotolist(void) {
 	struct valuelist *plp, *plp_next;
@@ -993,6 +1085,7 @@ res_destroyprotolist(void) {
 	}
 	protolist = (struct valuelist *)0;
 }
+#endif
 
 static int
 findservice(const char *s, struct valuelist **list) {
@@ -1009,17 +1102,17 @@ findservice(const char *s, struct valuelist **list) {
 				lp->next = *list;
 				*list = lp;
 			}
-			return (lp->port);	/* host byte order */
+			return (lp->port);	/*%< host byte order */
 		}
 	if (sscanf(s, "%d", &n) != 1 || n <= 0)
 		n = -1;
 	return (n);
 }
 
-/*
+/*%
  * Convert service name or (ascii) number to int.
  */
-#ifdef __APPLE__
+#ifdef _LIBC
 static
 #endif
 int
@@ -1029,10 +1122,10 @@ res_servicenumber(const char *p) {
 	return (findservice(p, &servicelist));
 }
 
-/*
+/*%
  * Convert protocol name or (ascii) number to int.
  */
-#ifdef __APPLE__
+#ifdef _LIBC
 static
 #endif
 int
@@ -1042,15 +1135,16 @@ res_protocolnumber(const char *p) {
 	return (findservice(p, &protolist));
 }
 
+#ifndef _LIBC
 static struct servent *
-cgetservbyport(u_int16_t port, const char *proto) {	/* Host byte order. */
+cgetservbyport(u_int16_t port, const char *proto) {	/*%< Host byte order. */
 	struct valuelist **list = &servicelist;
 	struct valuelist *lp = *list;
 	static struct servent serv;
 
 	port = ntohs(port);
 	for (; lp != NULL; lp = lp->next) {
-		if (port != (u_int16_t)lp->port)	/* Host byte order. */
+		if (port != (u_int16_t)lp->port)	/*%< Host byte order. */
 			continue;
 		if (strcasecmp(lp->proto, proto) == 0) {
 			if (lp != *list) {
@@ -1071,13 +1165,13 @@ cgetservbyport(u_int16_t port, const char *proto) {	/* Host byte order. */
 }
 
 static struct protoent *
-cgetprotobynumber(int proto) {				/* Host byte order. */
+cgetprotobynumber(int proto) {				/*%< Host byte order. */
 	struct valuelist **list = &protolist;
 	struct valuelist *lp = *list;
 	static struct protoent prot;
 
 	for (; lp != NULL; lp = lp->next)
-		if (lp->port == proto) {		/* Host byte order. */
+		if (lp->port == proto) {		/*%< Host byte order. */
 			if (lp != *list) {
 				lp->prev->next = lp->next;
 				if (lp->next)
@@ -1087,7 +1181,7 @@ cgetprotobynumber(int proto) {				/* Host byte order. */
 				*list = lp;
 			}
 			prot.p_name = lp->name;
-			prot.p_proto = lp->port;	/* Host byte order. */
+			prot.p_proto = lp->port;	/*%< Host byte order. */
 			return (&prot);
 		}
 	return (0);
@@ -1101,7 +1195,7 @@ res_protocolname(int num) {
 	if (protolist == (struct valuelist *)0)
 		res_buildprotolist();
 	pp = cgetprotobynumber(num);
-	if (pp == 0)  {
+	if (pp == NULL)  {
 		(void) sprintf(number, "%d", num);
 		return (number);
 	}
@@ -1109,16 +1203,17 @@ res_protocolname(int num) {
 }
 
 const char *
-res_servicename(u_int16_t port, const char *proto) {	/* Host byte order. */
+res_servicename(u_int16_t port, const char *proto) {	/*%< Host byte order. */
 	static char number[8];
 	struct servent *ss;
 
 	if (servicelist == (struct valuelist *)0)
 		res_buildservicelist();
 	ss = cgetservbyport(htons(port), proto);
-	if (ss == 0)  {
+	if (ss == NULL)  {
 		(void) sprintf(number, "%d", port);
 		return (number);
 	}
 	return (ss->s_name);
 }
+#endif

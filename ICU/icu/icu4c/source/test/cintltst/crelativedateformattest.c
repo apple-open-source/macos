@@ -199,13 +199,13 @@ static const FieldsDat en_attrDef_long_midSent_min[kNumOffsets*2] = {
 static const char* en_dec0_long_midSent_tues[kNumOffsets*2] = {
 /*  text                    numeric */
     "5 Tuesdays ago",       "5 Tuesdays ago",     /* -5   */
-    ""/*no data */,         ""/*no data */,       /* -2.2 */
+    "2.2 Tuesdays ago",     "2.2 Tuesdays ago",   /* -2.2 */
     "2 Tuesdays ago",       "2 Tuesdays ago",     /* -2   */
     "last Tuesday",         "1 Tuesday ago",      /* -1   */
-    ""/*no data */,         ""/*no data */,       /* -0.7 */
+    "0.7 Tuesdays ago",     "0.7 Tuesdays ago",   /* -0.7 */
     "this Tuesday",         "0 Tuesdays ago",     /* -0   */
     "this Tuesday",         "in 0 Tuesdays",      /*  0   */
-    ""/*no data */,         ""/*no data */,       /*  0.7 */
+    "in 0.7 Tuesdays",      "in 0.7 Tuesdays",    /*  0.7 */
     "next Tuesday",         "in 1 Tuesday",       /*  1   */
     "in 2 Tuesdays",        "in 2 Tuesdays",      /*  2   */
     "in 5 Tuesdays",        "in 5 Tuesdays",      /*  5   */
@@ -214,16 +214,16 @@ static const char* en_dec0_long_midSent_tues[kNumOffsets*2] = {
 static const FieldsDat en_attr0_long_midSent_tues[kNumOffsets*2] = {
 /*  text           numeric           text                    numeric */
     {UDAT_REL_NUMERIC_FIELD,  0,  1}, {UDAT_REL_NUMERIC_FIELD,  0,  1}, /* "5 Tuesdays ago",       "5 Tuesdays ago",      -5   */
-    { -1, -1, -1},                    { -1, -1, -1},                    /* ""            ,         ""            ,        -2.2 */
+    {UDAT_REL_NUMERIC_FIELD,  0,  3}, {UDAT_REL_NUMERIC_FIELD,  0,  3}, /* "2.2 Tuesdays ago",     "2.2 Tuesdays ago",    -2.2 */
     {UDAT_REL_NUMERIC_FIELD,  0,  1}, {UDAT_REL_NUMERIC_FIELD,  0,  1}, /* "2 Tuesdays ago",       "2 Tuesdays ago",      -2   */
     { -1, -1, -1},                    {UDAT_REL_NUMERIC_FIELD,  0,  1}, /* "last Tuesday",         "1 Tuesday ago",       -1   */
-    { -1, -1, -1},                    { -1, -1, -1},                    /* ""            ,         ""            ,        -0.7 */
+    {UDAT_REL_NUMERIC_FIELD,  0,  3}, {UDAT_REL_NUMERIC_FIELD,  0,  3}, /* "0.7 Tuesdays ago",     "0.7 Tuesdays ago",    -0.7 */
     { -1, -1, -1},                    {UDAT_REL_NUMERIC_FIELD,  0,  1}, /* "this Tuesday",         "0 Tuesdays ago",      -0   */
     { -1, -1, -1},                    {UDAT_REL_NUMERIC_FIELD,  3,  4}, /* "this Tuesday",         "in 0 Tuesdays",        0   */
-    { -1, -1, -1},                    { -1, -1, -1},                    /* ""            ,         ""            ,         0.7 */
+    {UDAT_REL_NUMERIC_FIELD,  3,  6}, {UDAT_REL_NUMERIC_FIELD,  3,  6}, /* "in 0.7 Tuesdays",      "in 0.7 Tuesdays",      0.7 */
     { -1, -1, -1},                    {UDAT_REL_NUMERIC_FIELD,  3,  4}, /* "next Tuesday",         "in 1 Tuesday",         1   */
-    {UDAT_REL_NUMERIC_FIELD,  0,  1}, {UDAT_REL_NUMERIC_FIELD,  3,  4}, /* "in 2 Tuesdays",        "in 2 Tuesdays",        2   */
-    {UDAT_REL_NUMERIC_FIELD,  0,  1}, {UDAT_REL_NUMERIC_FIELD,  3,  4}, /* "in 5 Tuesdays",        "in 5 Tuesdays",        5   */
+    {UDAT_REL_NUMERIC_FIELD,  3,  4}, {UDAT_REL_NUMERIC_FIELD,  3,  4}, /* "in 2 Tuesdays",        "in 2 Tuesdays",        2   */
+    {UDAT_REL_NUMERIC_FIELD,  3,  4}, {UDAT_REL_NUMERIC_FIELD,  3,  4}, /* "in 5 Tuesdays",        "in 5 Tuesdays",        5   */
 };
 
 static const char* fr_decDef_long_midSent_day[kNumOffsets*2] = {
@@ -258,46 +258,46 @@ static const FieldsDat fr_attrDef_long_midSent_day[kNumOffsets*2] = {
 
 static const char* ak_decDef_long_stdAlon_sec[kNumOffsets*2] = { // falls back to root
 /*  text                    numeric */
-    "-5 s",                 "-5 s",               /* -5   */
-    "-2.2 s",               "-2.2 s",             /* -2.2 */
-    "-2 s",                 "-2 s",               /* -2   */
-    "-1 s",                 "-1 s",               /* -1   */
-    "-0.7 s",               "-0.7 s",             /* -0.7 */
-    "now",                  "-0 s",               /*  -0  */
-    "now",                  "+0 s",               /*  0   */
-    "+0.7 s",               "+0.7 s",             /*  0.7 */
-    "+1 s",                 "+1 s",               /*  1   */
-    "+2 s",                 "+2 s",               /*  2   */
-    "+5 s",                 "+5 s",               /*  5   */
+    "nnibuo 5 a atwam",     "nnibuo 5 a atwam",               /* -5   */
+    "nnibuo 2.2 a atwam",   "nnibuo 2.2 a atwam",             /* -2.2 */
+    "nnibuo 2 a atwam",     "nnibuo 2 a atwam",               /* -2   */
+    "anibuo 1 a atwam",     "anibuo 1 a atwam",               /* -1   */
+    "nnibuo 0.7 a atwam",   "nnibuo 0.7 a atwam",             /* -0.7 */
+    "seesei",               "anibuo 0 a atwam",               /*  -0  */
+    "seesei",               "anibuo 0 mu",               /*  0   */
+    "nnibuo 0.7 mu",        "nnibuo 0.7 mu",             /*  0.7 */
+    "anibuo 1 mu",          "anibuo 1 mu",               /*  1   */
+    "nnibuo 2 mu",          "nnibuo 2 mu",               /*  2   */
+    "nnibuo 5 mu",          "nnibuo 5 mu",               /*  5   */
 };
 
 static const FieldsDat ak_attrDef_long_stdAlon_sec[kNumOffsets*2] = {
-    {UDAT_REL_NUMERIC_FIELD, 1, 2}, {UDAT_REL_NUMERIC_FIELD, 1, 2},
-    {UDAT_REL_NUMERIC_FIELD, 1, 4}, {UDAT_REL_NUMERIC_FIELD, 1, 4},
-    {UDAT_REL_NUMERIC_FIELD, 1, 2}, {UDAT_REL_NUMERIC_FIELD, 1, 2},
-    {UDAT_REL_NUMERIC_FIELD, 1, 2}, {UDAT_REL_NUMERIC_FIELD, 1, 2},
-    {UDAT_REL_NUMERIC_FIELD, 1, 4}, {UDAT_REL_NUMERIC_FIELD, 1, 4},
-    { -1, -1, -1},                  {UDAT_REL_NUMERIC_FIELD, 1, 2},
-    { -1, -1, -1},                  {UDAT_REL_NUMERIC_FIELD, 1, 2},
-    {UDAT_REL_NUMERIC_FIELD, 1, 4}, {UDAT_REL_NUMERIC_FIELD, 1, 4},
-    {UDAT_REL_NUMERIC_FIELD, 1, 2}, {UDAT_REL_NUMERIC_FIELD, 1, 2},
-    {UDAT_REL_NUMERIC_FIELD, 1, 2}, {UDAT_REL_NUMERIC_FIELD, 1, 2},
-    {UDAT_REL_NUMERIC_FIELD, 1, 2}, {UDAT_REL_NUMERIC_FIELD, 1, 2},
+    {UDAT_REL_NUMERIC_FIELD, 7, 8}, {UDAT_REL_NUMERIC_FIELD, 7, 8},
+    {UDAT_REL_NUMERIC_FIELD, 7, 10}, {UDAT_REL_NUMERIC_FIELD, 7, 10},
+    {UDAT_REL_NUMERIC_FIELD, 7, 8}, {UDAT_REL_NUMERIC_FIELD, 7, 8},
+    {UDAT_REL_NUMERIC_FIELD, 7, 8}, {UDAT_REL_NUMERIC_FIELD, 7, 8},
+    {UDAT_REL_NUMERIC_FIELD, 7, 10}, {UDAT_REL_NUMERIC_FIELD, 7, 10},
+    { -1, -1, -1},                  {UDAT_REL_NUMERIC_FIELD, 7, 8},
+    { -1, -1, -1},                  {UDAT_REL_NUMERIC_FIELD, 7, 8},
+    {UDAT_REL_NUMERIC_FIELD, 7, 10}, {UDAT_REL_NUMERIC_FIELD, 7, 10},
+    {UDAT_REL_NUMERIC_FIELD, 7, 8}, {UDAT_REL_NUMERIC_FIELD, 7, 8},
+    {UDAT_REL_NUMERIC_FIELD, 7, 8}, {UDAT_REL_NUMERIC_FIELD, 7, 8},
+    {UDAT_REL_NUMERIC_FIELD, 7, 8}, {UDAT_REL_NUMERIC_FIELD, 7, 8},
 };
 
 static const char* enIN_decDef_short_midSent_weds[kNumOffsets*2] = {
 /*  text                    numeric */
-    "5 Wed. ago",           "5 Wed. ago",         /* -5   */
-    "2.2 Wed. ago",         "2.2 Wed. ago",       /* -2.2 */
-    "2 Wed. ago",           "2 Wed. ago",         /* -2   */
-    "last Wed",             "1 Wed. ago",         /* -1   */
-    "0.7 Wed. ago",         "0.7 Wed. ago",       /* -0.7 */
-    "this Wed",             "0 Wed. ago",         /*  -0  */
-    "this Wed",             "in 0 Wed.",          /*  0   */
-    "in 0.7 Wed.",          "in 0.7 Wed.",        /*  0.7 */
+    "5 Wed ago",            "5 Wed ago",          /* -5   */
+    "2.2 Wed ago",          "2.2 Wed ago",        /* -2.2 */
+    "2 Wed ago",            "2 Wed ago",          /* -2   */
+    "last Wed",             "1 Wed ago",          /* -1   */
+    "0.7 Wed ago",          "0.7 Wed ago",        /* -0.7 */
+    "this Wed",             "0 Wed ago",          /*  -0  */
+    "this Wed",             "in 0 Wed",           /*  0   */
+    "in 0.7 Wed",           "in 0.7 Wed",         /*  0.7 */
     "next Wed",             "in 1 Wed",           /*  1   */ // in 1 Wed. missing in logical group
-    "in 2  Wed.",           "in 2 Wed.",          /*  2   */
-    "in 5  Wed.",           "in 5 Wed."           /*  5   */
+    "in 2 Wed",             "in 2 Wed",           /*  2   */
+    "in 5 Wed",             "in 5 Wed"            /*  5   */
 };
 
 static const FieldsDat enIN_attrDef_short_midSent_weds[kNumOffsets*2] = {
@@ -364,6 +364,261 @@ static const FieldsDat hu_attrDef_narrow_midSent_min[kNumOffsets*2] = {
     {UDAT_REL_NUMERIC_FIELD,  0,  1}, {UDAT_REL_NUMERIC_FIELD,  0,  1}, /* "2 perc múlva",     "2 perc múlva",             2   */
     {UDAT_REL_NUMERIC_FIELD,  0,  1}, {UDAT_REL_NUMERIC_FIELD,  0,  1}, /* "5 perc múlva",     "5 perc múlva"              5   */
 };
+
+// BEGIN Apple additions for rdar://135027393
+static const char* ta_decDef_long_midSent_hr[kNumOffsets*2] = {
+/*  text                    numeric */
+    "5 \\u0bae\\u0ba3\\u0bbf\\u0ba8\\u0bc7\\u0bb0\\u0bae\\u0bcd \\u0bae\\u0bc1\\u0ba9\\u0bcd",              "5 \\u0bae\\u0ba3\\u0bbf\\u0ba8\\u0bc7\\u0bb0\\u0bae\\u0bcd \\u0bae\\u0bc1\\u0ba9\\u0bcd",   /* -5   */
+    "2.2 \\u0bae\\u0ba3\\u0bbf\\u0ba8\\u0bc7\\u0bb0\\u0bae\\u0bcd \\u0bae\\u0bc1\\u0ba9\\u0bcd",              "2.2 \\u0bae\\u0ba3\\u0bbf\\u0ba8\\u0bc7\\u0bb0\\u0bae\\u0bcd \\u0bae\\u0bc1\\u0ba9\\u0bcd",   /* -2.2   */
+    "2 \\u0bae\\u0ba3\\u0bbf\\u0ba8\\u0bc7\\u0bb0\\u0bae\\u0bcd \\u0bae\\u0bc1\\u0ba9\\u0bcd",              "2 \\u0bae\\u0ba3\\u0bbf\\u0ba8\\u0bc7\\u0bb0\\u0bae\\u0bcd \\u0bae\\u0bc1\\u0ba9\\u0bcd",   /* -2   */
+    "1 \\u0bae\\u0ba3\\u0bbf\\u0ba8\\u0bc7\\u0bb0\\u0bae\\u0bcd",              "1 \\u0bae\\u0ba3\\u0bbf\\u0ba8\\u0bc7\\u0bb0\\u0bae\\u0bcd",   /* -1   */
+    "0.7 \\u0bae\\u0ba3\\u0bbf\\u0ba8\\u0bc7\\u0bb0\\u0bae\\u0bcd \\u0bae\\u0bc1\\u0ba9\\u0bcd",              "0.7 \\u0bae\\u0ba3\\u0bbf\\u0ba8\\u0bc7\\u0bb0\\u0bae\\u0bcd \\u0bae\\u0bc1\\u0ba9\\u0bcd",   /* -0.7   */
+    "\\u0b87\\u0ba8\\u0bcd\\u0ba4 \\u0b92\\u0bb0\\u0bc1 \\u0bae\\u0ba3\\u0bbf\\u0ba8\\u0bc7\\u0bb0\\u0ba4\\u0bcd\\u0ba4\\u0bbf\\u0bb2\\u0bcd",      "0 \\u0bae\\u0ba3\\u0bbf\\u0ba8\\u0bc7\\u0bb0\\u0bae\\u0bcd \\u0bae\\u0bc1\\u0ba9\\u0bcd",   /* -0   */
+    "\\u0b87\\u0ba8\\u0bcd\\u0ba4 \\u0b92\\u0bb0\\u0bc1 \\u0bae\\u0ba3\\u0bbf\\u0ba8\\u0bc7\\u0bb0\\u0ba4\\u0bcd\\u0ba4\\u0bbf\\u0bb2\\u0bcd",      "0 \\u0bae\\u0ba3\\u0bbf\\u0ba8\\u0bc7\\u0bb0\\u0ba4\\u0bcd\\u0ba4\\u0bbf\\u0bb2\\u0bcd",   /* 0   */
+    "0.7 \\u0bae\\u0ba3\\u0bbf\\u0ba8\\u0bc7\\u0bb0\\u0ba4\\u0bcd\\u0ba4\\u0bbf\\u0bb2\\u0bcd", "0.7 \\u0bae\\u0ba3\\u0bbf\\u0ba8\\u0bc7\\u0bb0\\u0ba4\\u0bcd\\u0ba4\\u0bbf\\u0bb2\\u0bcd",      /*  0.7 */
+    "1 \\u0bae\\u0ba3\\u0bbf\\u0ba8\\u0bc7\\u0bb0\\u0ba4\\u0bcd\\u0ba4\\u0bbf\\u0bb2\\u0bcd", "1 \\u0bae\\u0ba3\\u0bbf\\u0ba8\\u0bc7\\u0bb0\\u0ba4\\u0bcd\\u0ba4\\u0bbf\\u0bb2\\u0bcd",      /*  1 */
+    "2 \\u0bae\\u0ba3\\u0bbf\\u0ba8\\u0bc7\\u0bb0\\u0ba4\\u0bcd\\u0ba4\\u0bbf\\u0bb2\\u0bcd", "2 \\u0bae\\u0ba3\\u0bbf\\u0ba8\\u0bc7\\u0bb0\\u0ba4\\u0bcd\\u0ba4\\u0bbf\\u0bb2\\u0bcd",      /*  2 */
+    "5 \\u0bae\\u0ba3\\u0bbf\\u0ba8\\u0bc7\\u0bb0\\u0ba4\\u0bcd\\u0ba4\\u0bbf\\u0bb2\\u0bcd", "5 \\u0bae\\u0ba3\\u0bbf\\u0ba8\\u0bc7\\u0bb0\\u0ba4\\u0bcd\\u0ba4\\u0bbf\\u0bb2\\u0bcd",      /*  5 */
+};
+static const FieldsDat ta_attrDef_long_midSent_hr[kNumOffsets*2] = {
+/*  text           numeric           text                    numeric */
+    {UDAT_REL_NUMERIC_FIELD,  0,  1}, {UDAT_REL_NUMERIC_FIELD,  0,  1},
+    {UDAT_REL_NUMERIC_FIELD,  0,  3}, {UDAT_REL_NUMERIC_FIELD,  0,  3},
+    {UDAT_REL_NUMERIC_FIELD,  0,  1}, {UDAT_REL_NUMERIC_FIELD,  0,  1},
+    {UDAT_REL_NUMERIC_FIELD,  0,  1}, {UDAT_REL_NUMERIC_FIELD,  0,  1},
+    {UDAT_REL_NUMERIC_FIELD,  0,  3}, {UDAT_REL_NUMERIC_FIELD,  0,  3},
+    {-1,  -1,  -1},                   {UDAT_REL_NUMERIC_FIELD,  0,  1},
+    {-1,  -1,  -1},                   {UDAT_REL_NUMERIC_FIELD,  0,  1},
+    {UDAT_REL_NUMERIC_FIELD,  0,  3}, {UDAT_REL_NUMERIC_FIELD,  0,  3},
+    {UDAT_REL_NUMERIC_FIELD,  0,  1}, {UDAT_REL_NUMERIC_FIELD,  0,  1},
+    {UDAT_REL_NUMERIC_FIELD,  0,  1}, {UDAT_REL_NUMERIC_FIELD,  0,  1},
+    {UDAT_REL_NUMERIC_FIELD,  0,  1}, {UDAT_REL_NUMERIC_FIELD,  0,  1},
+};
+static const char* ta_decDef_long_midSent_min[kNumOffsets*2] = {
+/*  text                    numeric */
+    "5 \\u0ba8\\u0bbf\\u0bae\\u0bbf\\u0b9f\\u0b99\\u0bcd\\u0b95\\u0bb3\\u0bcd \\u0bae\\u0bc1\\u0ba9\\u0bcd",              "5 \\u0ba8\\u0bbf\\u0bae\\u0bbf\\u0b9f\\u0b99\\u0bcd\\u0b95\\u0bb3\\u0bcd \\u0bae\\u0bc1\\u0ba9\\u0bcd",   /* -5   */
+    "2.2 \\u0ba8\\u0bbf\\u0bae\\u0bbf\\u0b9f\\u0b99\\u0bcd\\u0b95\\u0bb3\\u0bcd \\u0bae\\u0bc1\\u0ba9\\u0bcd",            "2.2 \\u0ba8\\u0bbf\\u0bae\\u0bbf\\u0b9f\\u0b99\\u0bcd\\u0b95\\u0bb3\\u0bcd \\u0bae\\u0bc1\\u0ba9\\u0bcd", /* -2.2 */
+    "2 \\u0ba8\\u0bbf\\u0bae\\u0bbf\\u0b9f\\u0b99\\u0bcd\\u0b95\\u0bb3\\u0bcd \\u0bae\\u0bc1\\u0ba9\\u0bcd",              "2 \\u0ba8\\u0bbf\\u0bae\\u0bbf\\u0b9f\\u0b99\\u0bcd\\u0b95\\u0bb3\\u0bcd \\u0bae\\u0bc1\\u0ba9\\u0bcd",   /* -2   */
+    "1 \\u0ba8\\u0bbf\\u0bae\\u0bbf\\u0b9f\\u0bae\\u0bcd \\u0bae\\u0bc1\\u0ba9\\u0bcd",              "1 \\u0ba8\\u0bbf\\u0bae\\u0bbf\\u0b9f\\u0bae\\u0bcd \\u0bae\\u0bc1\\u0ba9\\u0bcd",   /* -1   */
+    "0.7 \\u0ba8\\u0bbf\\u0bae\\u0bbf\\u0b9f\\u0b99\\u0bcd\\u0b95\\u0bb3\\u0bcd \\u0bae\\u0bc1\\u0ba9\\u0bcd",            "0.7 \\u0ba8\\u0bbf\\u0bae\\u0bbf\\u0b9f\\u0b99\\u0bcd\\u0b95\\u0bb3\\u0bcd \\u0bae\\u0bc1\\u0ba9\\u0bcd", /* -0.7 */
+    "\\u0b87\\u0ba8\\u0bcd\\u0ba4 \\u0b92\\u0bb0\\u0bc1 \\u0ba8\\u0bbf\\u0bae\\u0bbf\\u0b9f\\u0ba4\\u0bcd\\u0ba4\\u0bbf\\u0bb2\\u0bcd",      "0 \\u0ba8\\u0bbf\\u0bae\\u0bbf\\u0b9f\\u0b99\\u0bcd\\u0b95\\u0bb3\\u0bcd \\u0bae\\u0bc1\\u0ba9\\u0bcd",   /* -0   */
+    "\\u0b87\\u0ba8\\u0bcd\\u0ba4 \\u0b92\\u0bb0\\u0bc1 \\u0ba8\\u0bbf\\u0bae\\u0bbf\\u0b9f\\u0ba4\\u0bcd\\u0ba4\\u0bbf\\u0bb2\\u0bcd",      "0 \\u0ba8\\u0bbf\\u0bae\\u0bbf\\u0b9f\\u0b99\\u0bcd\\u0b95\\u0bb3\\u0bbf\\u0bb2\\u0bcd",        /*  0   */
+    "0.7 \\u0ba8\\u0bbf\\u0bae\\u0bbf\\u0b9f\\u0b99\\u0bcd\\u0b95\\u0bb3\\u0bbf\\u0bb2\\u0bcd", "0.7 \\u0ba8\\u0bbf\\u0bae\\u0bbf\\u0b9f\\u0b99\\u0bcd\\u0b95\\u0bb3\\u0bbf\\u0bb2\\u0bcd",      /*  0.7 */
+    "1 \\u0ba8\\u0bbf\\u0bae\\u0bbf\\u0b9f\\u0ba4\\u0bcd\\u0ba4\\u0bbf\\u0bb2\\u0bcd",   "1 \\u0ba8\\u0bbf\\u0bae\\u0bbf\\u0b9f\\u0ba4\\u0bcd\\u0ba4\\u0bbf\\u0bb2\\u0bcd",        /*  1   */
+    "2 \\u0ba8\\u0bbf\\u0bae\\u0bbf\\u0b9f\\u0b99\\u0bcd\\u0b95\\u0bb3\\u0bbf\\u0bb2\\u0bcd",   "2 \\u0ba8\\u0bbf\\u0bae\\u0bbf\\u0b9f\\u0b99\\u0bcd\\u0b95\\u0bb3\\u0bbf\\u0bb2\\u0bcd",        /*  2   */
+    "5 \\u0ba8\\u0bbf\\u0bae\\u0bbf\\u0b9f\\u0b99\\u0bcd\\u0b95\\u0bb3\\u0bbf\\u0bb2\\u0bcd",   "5 \\u0ba8\\u0bbf\\u0bae\\u0bbf\\u0b9f\\u0b99\\u0bcd\\u0b95\\u0bb3\\u0bbf\\u0bb2\\u0bcd"         /*  5   */
+};
+static const FieldsDat ta_attrDef_long_midSent_min[kNumOffsets*2] = {
+/*  text           numeric           text                    numeric */
+    {UDAT_REL_NUMERIC_FIELD,  0,  1}, {UDAT_REL_NUMERIC_FIELD,  0,  1},
+    {UDAT_REL_NUMERIC_FIELD,  0,  3}, {UDAT_REL_NUMERIC_FIELD,  0,  3},
+    {UDAT_REL_NUMERIC_FIELD,  0,  1}, {UDAT_REL_NUMERIC_FIELD,  0,  1},
+    {UDAT_REL_NUMERIC_FIELD,  0,  1}, {UDAT_REL_NUMERIC_FIELD,  0,  1},
+    {UDAT_REL_NUMERIC_FIELD,  0,  3}, {UDAT_REL_NUMERIC_FIELD,  0,  3},
+    {-1,  -1,  -1},                   {UDAT_REL_NUMERIC_FIELD,  0,  1},
+    {-1,  -1,  -1},                   {UDAT_REL_NUMERIC_FIELD,  0,  1},
+    {UDAT_REL_NUMERIC_FIELD,  0,  3}, {UDAT_REL_NUMERIC_FIELD,  0,  3},
+    {UDAT_REL_NUMERIC_FIELD,  0,  1}, {UDAT_REL_NUMERIC_FIELD,  0,  1},
+    {UDAT_REL_NUMERIC_FIELD,  0,  1}, {UDAT_REL_NUMERIC_FIELD,  0,  1},
+    {UDAT_REL_NUMERIC_FIELD,  0,  1}, {UDAT_REL_NUMERIC_FIELD,  0,  1},
+};
+static const char* ta_decDef_long_midSent_sec[kNumOffsets*2] = {
+/*  text                    numeric */
+    "5 \\u0bb5\\u0bbf\\u0ba8\\u0bbe\\u0b9f\\u0bbf\\u0b95\\u0bb3\\u0bcd \\u0bae\\u0bc1\\u0ba9\\u0bcd",              "5 \\u0bb5\\u0bbf\\u0ba8\\u0bbe\\u0b9f\\u0bbf\\u0b95\\u0bb3\\u0bcd \\u0bae\\u0bc1\\u0ba9\\u0bcd",   /* -5   */
+    "2.2 \\u0bb5\\u0bbf\\u0ba8\\u0bbe\\u0b9f\\u0bbf\\u0b95\\u0bb3\\u0bcd \\u0bae\\u0bc1\\u0ba9\\u0bcd",            "2.2 \\u0bb5\\u0bbf\\u0ba8\\u0bbe\\u0b9f\\u0bbf\\u0b95\\u0bb3\\u0bcd \\u0bae\\u0bc1\\u0ba9\\u0bcd", /* -2.2 */
+    "2 \\u0bb5\\u0bbf\\u0ba8\\u0bbe\\u0b9f\\u0bbf\\u0b95\\u0bb3\\u0bcd \\u0bae\\u0bc1\\u0ba9\\u0bcd",              "2 \\u0bb5\\u0bbf\\u0ba8\\u0bbe\\u0b9f\\u0bbf\\u0b95\\u0bb3\\u0bcd \\u0bae\\u0bc1\\u0ba9\\u0bcd",   /* -2   */
+    "1 \\u0bb5\\u0bbf\\u0ba8\\u0bbe\\u0b9f\\u0bbf \\u0bae\\u0bc1\\u0ba9\\u0bcd",              "1 \\u0bb5\\u0bbf\\u0ba8\\u0bbe\\u0b9f\\u0bbf \\u0bae\\u0bc1\\u0ba9\\u0bcd",   /* -1   */
+    "0.7 \\u0bb5\\u0bbf\\u0ba8\\u0bbe\\u0b9f\\u0bbf\\u0b95\\u0bb3\\u0bcd \\u0bae\\u0bc1\\u0ba9\\u0bcd",            "0.7 \\u0bb5\\u0bbf\\u0ba8\\u0bbe\\u0b9f\\u0bbf\\u0b95\\u0bb3\\u0bcd \\u0bae\\u0bc1\\u0ba9\\u0bcd", /* -0.7 */
+    "\\u0b87\\u0baa\\u0bcd\\u0baa\\u0bcb\\u0ba4\\u0bc1",      "0 \\u0bb5\\u0bbf\\u0ba8\\u0bbe\\u0b9f\\u0bbf\\u0b95\\u0bb3\\u0bcd \\u0bae\\u0bc1\\u0ba9\\u0bcd",   /* -0   */
+    "\\u0b87\\u0baa\\u0bcd\\u0baa\\u0bcb\\u0ba4\\u0bc1",      "0 \\u0bb5\\u0bbf\\u0ba8\\u0bbe\\u0b9f\\u0bbf\\u0b95\\u0bb3\\u0bbf\\u0bb2\\u0bcd",        /*  0   */
+    "0.7 \\u0bb5\\u0bbf\\u0ba8\\u0bbe\\u0b9f\\u0bbf\\u0b95\\u0bb3\\u0bbf\\u0bb2\\u0bcd", "0.7 \\u0bb5\\u0bbf\\u0ba8\\u0bbe\\u0b9f\\u0bbf\\u0b95\\u0bb3\\u0bbf\\u0bb2\\u0bcd",      /*  0.7 */
+    "1 \\u0bb5\\u0bbf\\u0ba8\\u0bbe\\u0b9f\\u0bbf\\u0baf\\u0bbf\\u0bb2\\u0bcd",   "1 \\u0bb5\\u0bbf\\u0ba8\\u0bbe\\u0b9f\\u0bbf\\u0baf\\u0bbf\\u0bb2\\u0bcd",        /*  1   */
+    "2 \\u0bb5\\u0bbf\\u0ba8\\u0bbe\\u0b9f\\u0bbf\\u0b95\\u0bb3\\u0bbf\\u0bb2\\u0bcd",   "2 \\u0bb5\\u0bbf\\u0ba8\\u0bbe\\u0b9f\\u0bbf\\u0b95\\u0bb3\\u0bbf\\u0bb2\\u0bcd",        /*  2   */
+    "5 \\u0bb5\\u0bbf\\u0ba8\\u0bbe\\u0b9f\\u0bbf\\u0b95\\u0bb3\\u0bbf\\u0bb2\\u0bcd",   "5 \\u0bb5\\u0bbf\\u0ba8\\u0bbe\\u0b9f\\u0bbf\\u0b95\\u0bb3\\u0bbf\\u0bb2\\u0bcd"         /*  5   */
+};
+static const FieldsDat ta_attrDef_long_midSent_sec[kNumOffsets*2] = {
+/*  text           numeric           text                    numeric */
+    {UDAT_REL_NUMERIC_FIELD,  0,  1}, {UDAT_REL_NUMERIC_FIELD,  0,  1},
+    {UDAT_REL_NUMERIC_FIELD,  0,  3}, {UDAT_REL_NUMERIC_FIELD,  0,  3},
+    {UDAT_REL_NUMERIC_FIELD,  0,  1}, {UDAT_REL_NUMERIC_FIELD,  0,  1},
+    {UDAT_REL_NUMERIC_FIELD,  0,  1}, {UDAT_REL_NUMERIC_FIELD,  0,  1},
+    {UDAT_REL_NUMERIC_FIELD,  0,  3}, {UDAT_REL_NUMERIC_FIELD,  0,  3},
+    {-1,  -1,  -1},                   {UDAT_REL_NUMERIC_FIELD,  0,  1},
+    {-1,  -1,  -1},                   {UDAT_REL_NUMERIC_FIELD,  0,  1},
+    {UDAT_REL_NUMERIC_FIELD,  0,  3}, {UDAT_REL_NUMERIC_FIELD,  0,  3},
+    {UDAT_REL_NUMERIC_FIELD,  0,  1}, {UDAT_REL_NUMERIC_FIELD,  0,  1},
+    {UDAT_REL_NUMERIC_FIELD,  0,  1}, {UDAT_REL_NUMERIC_FIELD,  0,  1},
+    {UDAT_REL_NUMERIC_FIELD,  0,  1}, {UDAT_REL_NUMERIC_FIELD,  0,  1},
+};
+static const char* ta_decDef_short_midSent_hr[kNumOffsets*2] = {
+/*  text                    numeric */
+    "5 \\u0bae. \\u0bae\\u0bc1\\u0ba9\\u0bcd",              "5 \\u0bae. \\u0bae\\u0bc1\\u0ba9\\u0bcd",   /* -5   */
+    "2.2 \\u0bae. \\u0bae\\u0bc1\\u0ba9\\u0bcd",            "2.2 \\u0bae. \\u0bae\\u0bc1\\u0ba9\\u0bcd", /* -2.2 */
+    "2 \\u0bae. \\u0bae\\u0bc1\\u0ba9\\u0bcd",              "2 \\u0bae. \\u0bae\\u0bc1\\u0ba9\\u0bcd",   /* -2   */
+    "1 \\u0bae. \\u0bae\\u0bc1\\u0ba9\\u0bcd",              "1 \\u0bae. \\u0bae\\u0bc1\\u0ba9\\u0bcd",   /* -1   */
+    "0.7 \\u0bae. \\u0bae\\u0bc1\\u0ba9\\u0bcd",            "0.7 \\u0bae. \\u0bae\\u0bc1\\u0ba9\\u0bcd", /* -0.7 */
+    "\\u0b87\\u0ba8\\u0bcd\\u0ba4 \\u0b92\\u0bb0\\u0bc1 \\u0bae\\u0ba3\\u0bbf\\u0ba8\\u0bc7\\u0bb0\\u0ba4\\u0bcd\\u0ba4\\u0bbf\\u0bb2\\u0bcd",      "0 \\u0bae. \\u0bae\\u0bc1\\u0ba9\\u0bcd",   /* -0   */
+    "\\u0b87\\u0ba8\\u0bcd\\u0ba4 \\u0b92\\u0bb0\\u0bc1 \\u0bae\\u0ba3\\u0bbf\\u0ba8\\u0bc7\\u0bb0\\u0ba4\\u0bcd\\u0ba4\\u0bbf\\u0bb2\\u0bcd",      "0 \\u0bae.",        /*  0   */
+    "0.7 \\u0bae.", "0.7 \\u0bae.",      /*  0.7 */
+    "1 \\u0bae.",   "1 \\u0bae.",        /*  1   */
+    "2 \\u0bae.",   "2 \\u0bae.",        /*  2   */
+    "5 \\u0bae.",   "5 \\u0bae."         /*  5   */
+};
+static const FieldsDat ta_attrDef_short_midSent_hr[kNumOffsets*2] = {
+/*  text           numeric           text                    numeric */
+    {UDAT_REL_NUMERIC_FIELD,  0,  1}, {UDAT_REL_NUMERIC_FIELD,  0,  1},
+    {UDAT_REL_NUMERIC_FIELD,  0,  3}, {UDAT_REL_NUMERIC_FIELD,  0,  3},
+    {UDAT_REL_NUMERIC_FIELD,  0,  1}, {UDAT_REL_NUMERIC_FIELD,  0,  1},
+    {UDAT_REL_NUMERIC_FIELD,  0,  1}, {UDAT_REL_NUMERIC_FIELD,  0,  1},
+    {UDAT_REL_NUMERIC_FIELD,  0,  3}, {UDAT_REL_NUMERIC_FIELD,  0,  3},
+    {-1,  -1,  -1},                   {UDAT_REL_NUMERIC_FIELD,  0,  1},
+    {-1,  -1,  -1},                   {UDAT_REL_NUMERIC_FIELD,  0,  1},
+    {UDAT_REL_NUMERIC_FIELD,  0,  3}, {UDAT_REL_NUMERIC_FIELD,  0,  3},
+    {UDAT_REL_NUMERIC_FIELD,  0,  1}, {UDAT_REL_NUMERIC_FIELD,  0,  1},
+    {UDAT_REL_NUMERIC_FIELD,  0,  1}, {UDAT_REL_NUMERIC_FIELD,  0,  1},
+    {UDAT_REL_NUMERIC_FIELD,  0,  1}, {UDAT_REL_NUMERIC_FIELD,  0,  1},
+};
+static const char* ta_decDef_short_midSent_min[kNumOffsets*2] = {
+/*  text                    numeric */
+    "5 \\u0ba8\\u0bbf\\u0bae\\u0bbf. \\u0bae\\u0bc1\\u0ba9\\u0bcd",              "5 \\u0ba8\\u0bbf\\u0bae\\u0bbf. \\u0bae\\u0bc1\\u0ba9\\u0bcd",   /* -5   */
+    "2.2 \\u0ba8\\u0bbf\\u0bae\\u0bbf. \\u0bae\\u0bc1\\u0ba9\\u0bcd",            "2.2 \\u0ba8\\u0bbf\\u0bae\\u0bbf. \\u0bae\\u0bc1\\u0ba9\\u0bcd", /* -2.2 */
+    "2 \\u0ba8\\u0bbf\\u0bae\\u0bbf. \\u0bae\\u0bc1\\u0ba9\\u0bcd",              "2 \\u0ba8\\u0bbf\\u0bae\\u0bbf. \\u0bae\\u0bc1\\u0ba9\\u0bcd",   /* -2   */
+    "1 \\u0ba8\\u0bbf\\u0bae\\u0bbf. \\u0bae\\u0bc1\\u0ba9\\u0bcd",              "1 \\u0ba8\\u0bbf\\u0bae\\u0bbf. \\u0bae\\u0bc1\\u0ba9\\u0bcd",   /* -1   */
+    "0.7 \\u0ba8\\u0bbf\\u0bae\\u0bbf. \\u0bae\\u0bc1\\u0ba9\\u0bcd",            "0.7 \\u0ba8\\u0bbf\\u0bae\\u0bbf. \\u0bae\\u0bc1\\u0ba9\\u0bcd", /* -0.7 */
+    "\\u0b87\\u0ba8\\u0bcd\\u0ba4 \\u0b92\\u0bb0\\u0bc1 \\u0ba8\\u0bbf\\u0bae\\u0bbf\\u0b9f\\u0ba4\\u0bcd\\u0ba4\\u0bbf\\u0bb2\\u0bcd",      "0 \\u0ba8\\u0bbf\\u0bae\\u0bbf. \\u0bae\\u0bc1\\u0ba9\\u0bcd",   /* -0   */
+    "\\u0b87\\u0ba8\\u0bcd\\u0ba4 \\u0b92\\u0bb0\\u0bc1 \\u0ba8\\u0bbf\\u0bae\\u0bbf\\u0b9f\\u0ba4\\u0bcd\\u0ba4\\u0bbf\\u0bb2\\u0bcd",      "0 \\u0ba8\\u0bbf\\u0bae\\u0bbf.",        /*  0   */
+    "0.7 \\u0ba8\\u0bbf\\u0bae\\u0bbf.", "0.7 \\u0ba8\\u0bbf\\u0bae\\u0bbf.",      /*  0.7 */
+    "1 \\u0ba8\\u0bbf\\u0bae\\u0bbf.",   "1 \\u0ba8\\u0bbf\\u0bae\\u0bbf.",        /*  1   */
+    "2 \\u0ba8\\u0bbf\\u0bae\\u0bbf.",   "2 \\u0ba8\\u0bbf\\u0bae\\u0bbf.",        /*  2   */
+    "5 \\u0ba8\\u0bbf\\u0bae\\u0bbf.",   "5 \\u0ba8\\u0bbf\\u0bae\\u0bbf."         /*  5   */
+};
+static const FieldsDat ta_attrDef_short_midSent_min[kNumOffsets*2] = {
+/*  text           numeric           text                    numeric */
+    {UDAT_REL_NUMERIC_FIELD,  0,  1}, {UDAT_REL_NUMERIC_FIELD,  0,  1},
+    {UDAT_REL_NUMERIC_FIELD,  0,  3}, {UDAT_REL_NUMERIC_FIELD,  0,  3},
+    {UDAT_REL_NUMERIC_FIELD,  0,  1}, {UDAT_REL_NUMERIC_FIELD,  0,  1},
+    {UDAT_REL_NUMERIC_FIELD,  0,  1}, {UDAT_REL_NUMERIC_FIELD,  0,  1},
+    {UDAT_REL_NUMERIC_FIELD,  0,  3}, {UDAT_REL_NUMERIC_FIELD,  0,  3},
+    {-1,  -1,  -1},                   {UDAT_REL_NUMERIC_FIELD,  0,  1},
+    {-1,  -1,  -1},                   {UDAT_REL_NUMERIC_FIELD,  0,  1},
+    {UDAT_REL_NUMERIC_FIELD,  0,  3}, {UDAT_REL_NUMERIC_FIELD,  0,  3},
+    {UDAT_REL_NUMERIC_FIELD,  0,  1}, {UDAT_REL_NUMERIC_FIELD,  0,  1},
+    {UDAT_REL_NUMERIC_FIELD,  0,  1}, {UDAT_REL_NUMERIC_FIELD,  0,  1},
+    {UDAT_REL_NUMERIC_FIELD,  0,  1}, {UDAT_REL_NUMERIC_FIELD,  0,  1},
+};
+static const char* ta_decDef_short_midSent_sec[kNumOffsets*2] = {
+/*  text                    numeric */
+    "5 \\u0bb5\\u0bbf. \\u0bae\\u0bc1\\u0ba9\\u0bcd",              "5 \\u0bb5\\u0bbf. \\u0bae\\u0bc1\\u0ba9\\u0bcd",   /* -5   */
+    "2.2 \\u0bb5\\u0bbf. \\u0bae\\u0bc1\\u0ba9\\u0bcd",            "2.2 \\u0bb5\\u0bbf. \\u0bae\\u0bc1\\u0ba9\\u0bcd", /* -2.2 */
+    "2 \\u0bb5\\u0bbf. \\u0bae\\u0bc1\\u0ba9\\u0bcd",              "2 \\u0bb5\\u0bbf. \\u0bae\\u0bc1\\u0ba9\\u0bcd",   /* -2   */
+    "1 \\u0bb5\\u0bbf. \\u0bae\\u0bc1\\u0ba9\\u0bcd",              "1 \\u0bb5\\u0bbf. \\u0bae\\u0bc1\\u0ba9\\u0bcd",   /* -1   */
+    "0.7 \\u0bb5\\u0bbf. \\u0bae\\u0bc1\\u0ba9\\u0bcd",            "0.7 \\u0bb5\\u0bbf. \\u0bae\\u0bc1\\u0ba9\\u0bcd", /* -0.7 */
+    "\\u0b87\\u0baa\\u0bcd\\u0baa\\u0bcb\\u0ba4\\u0bc1",      "0 \\u0bb5\\u0bbf. \\u0bae\\u0bc1\\u0ba9\\u0bcd",   /* -0   */
+    "\\u0b87\\u0baa\\u0bcd\\u0baa\\u0bcb\\u0ba4\\u0bc1",      "0 \\u0bb5\\u0bbf.",        /*  0   */
+    "0.7 \\u0bb5\\u0bbf.", "0.7 \\u0bb5\\u0bbf.",      /*  0.7 */
+    "1 \\u0bb5\\u0bbf.",   "1 \\u0bb5\\u0bbf.",        /*  1   */
+    "2 \\u0bb5\\u0bbf.",   "2 \\u0bb5\\u0bbf.",        /*  2   */
+    "5 \\u0bb5\\u0bbf.",   "5 \\u0bb5\\u0bbf."         /*  5   */
+};
+static const FieldsDat ta_attrDef_short_midSent_sec[kNumOffsets*2] = {
+/*  text           numeric           text                    numeric */
+    {UDAT_REL_NUMERIC_FIELD,  0,  1}, {UDAT_REL_NUMERIC_FIELD,  0,  1},
+    {UDAT_REL_NUMERIC_FIELD,  0,  3}, {UDAT_REL_NUMERIC_FIELD,  0,  3},
+    {UDAT_REL_NUMERIC_FIELD,  0,  1}, {UDAT_REL_NUMERIC_FIELD,  0,  1},
+    {UDAT_REL_NUMERIC_FIELD,  0,  1}, {UDAT_REL_NUMERIC_FIELD,  0,  1},
+    {UDAT_REL_NUMERIC_FIELD,  0,  3}, {UDAT_REL_NUMERIC_FIELD,  0,  3},
+    {-1,  -1,  -1},                   {UDAT_REL_NUMERIC_FIELD,  0,  1},
+    {-1,  -1,  -1},                   {UDAT_REL_NUMERIC_FIELD,  0,  1},
+    {UDAT_REL_NUMERIC_FIELD,  0,  3}, {UDAT_REL_NUMERIC_FIELD,  0,  3},
+    {UDAT_REL_NUMERIC_FIELD,  0,  1}, {UDAT_REL_NUMERIC_FIELD,  0,  1},
+    {UDAT_REL_NUMERIC_FIELD,  0,  1}, {UDAT_REL_NUMERIC_FIELD,  0,  1},
+    {UDAT_REL_NUMERIC_FIELD,  0,  1}, {UDAT_REL_NUMERIC_FIELD,  0,  1},
+};
+static const char* ta_decDef_narrow_midSent_hr[kNumOffsets*2] = {
+/*  text                    numeric */
+    "5 \\u0bae. \\u0bae\\u0bc1\\u0ba9\\u0bcd",              "5 \\u0bae. \\u0bae\\u0bc1\\u0ba9\\u0bcd",   /* -5   */
+    "2.2 \\u0bae. \\u0bae\\u0bc1\\u0ba9\\u0bcd",            "2.2 \\u0bae. \\u0bae\\u0bc1\\u0ba9\\u0bcd", /* -2.2 */
+    "2 \\u0bae. \\u0bae\\u0bc1\\u0ba9\\u0bcd",              "2 \\u0bae. \\u0bae\\u0bc1\\u0ba9\\u0bcd",   /* -2   */
+    "1 \\u0bae. \\u0bae\\u0bc1\\u0ba9\\u0bcd",              "1 \\u0bae. \\u0bae\\u0bc1\\u0ba9\\u0bcd",   /* -1   */
+    "0.7 \\u0bae. \\u0bae\\u0bc1\\u0ba9\\u0bcd",            "0.7 \\u0bae. \\u0bae\\u0bc1\\u0ba9\\u0bcd", /* -0.7 */
+    "\\u0b87\\u0ba8\\u0bcd\\u0ba4 \\u0b92\\u0bb0\\u0bc1 \\u0bae\\u0ba3\\u0bbf\\u0ba8\\u0bc7\\u0bb0\\u0ba4\\u0bcd\\u0ba4\\u0bbf\\u0bb2\\u0bcd",      "0 \\u0bae. \\u0bae\\u0bc1\\u0ba9\\u0bcd",   /* -0   */
+    "\\u0b87\\u0ba8\\u0bcd\\u0ba4 \\u0b92\\u0bb0\\u0bc1 \\u0bae\\u0ba3\\u0bbf\\u0ba8\\u0bc7\\u0bb0\\u0ba4\\u0bcd\\u0ba4\\u0bbf\\u0bb2\\u0bcd",      "0 \\u0bae.",        /*  0   */
+    "0.7 \\u0bae.", "0.7 \\u0bae.",      /*  0.7 */
+    "1 \\u0bae.",   "1 \\u0bae.",        /*  1   */
+    "2 \\u0bae.",   "2 \\u0bae.",        /*  2   */
+    "5 \\u0bae.",   "5 \\u0bae."         /*  5   */
+};
+static const FieldsDat ta_attrDef_narrow_midSent_hr[kNumOffsets*2] = {
+/*  text           numeric           text                    numeric */
+    {UDAT_REL_NUMERIC_FIELD,  0,  1}, {UDAT_REL_NUMERIC_FIELD,  0,  1},
+    {UDAT_REL_NUMERIC_FIELD,  0,  3}, {UDAT_REL_NUMERIC_FIELD,  0,  3},
+    {UDAT_REL_NUMERIC_FIELD,  0,  1}, {UDAT_REL_NUMERIC_FIELD,  0,  1},
+    {UDAT_REL_NUMERIC_FIELD,  0,  1}, {UDAT_REL_NUMERIC_FIELD,  0,  1},
+    {UDAT_REL_NUMERIC_FIELD,  0,  3}, {UDAT_REL_NUMERIC_FIELD,  0,  3},
+    {-1,  -1,  -1},                   {UDAT_REL_NUMERIC_FIELD,  0,  1},
+    {-1,  -1,  -1},                   {UDAT_REL_NUMERIC_FIELD,  0,  1},
+    {UDAT_REL_NUMERIC_FIELD,  0,  3}, {UDAT_REL_NUMERIC_FIELD,  0,  3},
+    {UDAT_REL_NUMERIC_FIELD,  0,  1}, {UDAT_REL_NUMERIC_FIELD,  0,  1},
+    {UDAT_REL_NUMERIC_FIELD,  0,  1}, {UDAT_REL_NUMERIC_FIELD,  0,  1},
+    {UDAT_REL_NUMERIC_FIELD,  0,  1}, {UDAT_REL_NUMERIC_FIELD,  0,  1},
+};
+static const char* ta_decDef_narrow_midSent_min[kNumOffsets*2] = {
+/*  text                    numeric */
+    "5 \\u0ba8\\u0bbf. \\u0bae\\u0bc1\\u0ba9\\u0bcd",              "5 \\u0ba8\\u0bbf. \\u0bae\\u0bc1\\u0ba9\\u0bcd",   /* -5   */
+    "2.2 \\u0ba8\\u0bbf. \\u0bae\\u0bc1\\u0ba9\\u0bcd",            "2.2 \\u0ba8\\u0bbf. \\u0bae\\u0bc1\\u0ba9\\u0bcd", /* -2.2 */
+    "2 \\u0ba8\\u0bbf. \\u0bae\\u0bc1\\u0ba9\\u0bcd",              "2 \\u0ba8\\u0bbf. \\u0bae\\u0bc1\\u0ba9\\u0bcd",   /* -2   */
+    "1 \\u0ba8\\u0bbf. \\u0bae\\u0bc1\\u0ba9\\u0bcd",              "1 \\u0ba8\\u0bbf. \\u0bae\\u0bc1\\u0ba9\\u0bcd",   /* -1   */
+    "0.7 \\u0ba8\\u0bbf. \\u0bae\\u0bc1\\u0ba9\\u0bcd",            "0.7 \\u0ba8\\u0bbf. \\u0bae\\u0bc1\\u0ba9\\u0bcd", /* -0.7 */
+    "\\u0b87\\u0ba8\\u0bcd\\u0ba4 \\u0b92\\u0bb0\\u0bc1 \\u0ba8\\u0bbf\\u0bae\\u0bbf\\u0b9f\\u0ba4\\u0bcd\\u0ba4\\u0bbf\\u0bb2\\u0bcd",      "0 \\u0ba8\\u0bbf. \\u0bae\\u0bc1\\u0ba9\\u0bcd",   /* -0   */
+    "\\u0b87\\u0ba8\\u0bcd\\u0ba4 \\u0b92\\u0bb0\\u0bc1 \\u0ba8\\u0bbf\\u0bae\\u0bbf\\u0b9f\\u0ba4\\u0bcd\\u0ba4\\u0bbf\\u0bb2\\u0bcd",      "0 \\u0ba8\\u0bbf.",        /*  0   */
+    "0.7 \\u0ba8\\u0bbf.", "0.7 \\u0ba8\\u0bbf.",      /*  0.7 */
+    "1 \\u0ba8\\u0bbf.",   "1 \\u0ba8\\u0bbf.",        /*  1   */
+    "2 \\u0ba8\\u0bbf.",   "2 \\u0ba8\\u0bbf.",        /*  2   */
+    "5 \\u0ba8\\u0bbf.",   "5 \\u0ba8\\u0bbf."         /*  5   */
+};
+static const FieldsDat ta_attrDef_narrow_midSent_min[kNumOffsets*2] = {
+/*  text           numeric           text                    numeric */
+    {UDAT_REL_NUMERIC_FIELD,  0,  1}, {UDAT_REL_NUMERIC_FIELD,  0,  1},
+    {UDAT_REL_NUMERIC_FIELD,  0,  3}, {UDAT_REL_NUMERIC_FIELD,  0,  3},
+    {UDAT_REL_NUMERIC_FIELD,  0,  1}, {UDAT_REL_NUMERIC_FIELD,  0,  1},
+    {UDAT_REL_NUMERIC_FIELD,  0,  1}, {UDAT_REL_NUMERIC_FIELD,  0,  1},
+    {UDAT_REL_NUMERIC_FIELD,  0,  3}, {UDAT_REL_NUMERIC_FIELD,  0,  3},
+    {-1,  -1,  -1},                   {UDAT_REL_NUMERIC_FIELD,  0,  1},
+    {-1,  -1,  -1},                   {UDAT_REL_NUMERIC_FIELD,  0,  1},
+    {UDAT_REL_NUMERIC_FIELD,  0,  3}, {UDAT_REL_NUMERIC_FIELD,  0,  3},
+    {UDAT_REL_NUMERIC_FIELD,  0,  1}, {UDAT_REL_NUMERIC_FIELD,  0,  1},
+    {UDAT_REL_NUMERIC_FIELD,  0,  1}, {UDAT_REL_NUMERIC_FIELD,  0,  1},
+    {UDAT_REL_NUMERIC_FIELD,  0,  1}, {UDAT_REL_NUMERIC_FIELD,  0,  1},
+};
+static const char* ta_decDef_narrow_midSent_sec[kNumOffsets*2] = {
+/*  text                    numeric */
+    "5 \\u0bb5\\u0bbf. \\u0bae\\u0bc1\\u0ba9\\u0bcd",              "5 \\u0bb5\\u0bbf. \\u0bae\\u0bc1\\u0ba9\\u0bcd",   /* -5   */
+    "2.2 \\u0bb5\\u0bbf. \\u0bae\\u0bc1\\u0ba9\\u0bcd",            "2.2 \\u0bb5\\u0bbf. \\u0bae\\u0bc1\\u0ba9\\u0bcd", /* -2.2 */
+    "2 \\u0bb5\\u0bbf. \\u0bae\\u0bc1\\u0ba9\\u0bcd",              "2 \\u0bb5\\u0bbf. \\u0bae\\u0bc1\\u0ba9\\u0bcd",   /* -2   */
+    "1 \\u0bb5\\u0bbf. \\u0bae\\u0bc1\\u0ba9\\u0bcd",              "1 \\u0bb5\\u0bbf. \\u0bae\\u0bc1\\u0ba9\\u0bcd",   /* -1   */
+    "0.7 \\u0bb5\\u0bbf. \\u0bae\\u0bc1\\u0ba9\\u0bcd",            "0.7 \\u0bb5\\u0bbf. \\u0bae\\u0bc1\\u0ba9\\u0bcd", /* -0.7 */
+    "\\u0b87\\u0baa\\u0bcd\\u0baa\\u0bcb\\u0ba4\\u0bc1",      "0 \\u0bb5\\u0bbf. \\u0bae\\u0bc1\\u0ba9\\u0bcd",   /* -0   */
+    "\\u0b87\\u0baa\\u0bcd\\u0baa\\u0bcb\\u0ba4\\u0bc1",      "0 \\u0bb5\\u0bbf.",        /*  0   */
+    "0.7 \\u0bb5\\u0bbf.", "0.7 \\u0bb5\\u0bbf.",      /*  0.7 */
+    "1 \\u0bb5\\u0bbf.",   "1 \\u0bb5\\u0bbf.",        /*  1   */
+    "2 \\u0bb5\\u0bbf.",   "2 \\u0bb5\\u0bbf.",        /*  2   */
+    "5 \\u0bb5\\u0bbf.",   "5 \\u0bb5\\u0bbf."         /*  5   */
+};
+static const FieldsDat ta_attrDef_narrow_midSent_sec[kNumOffsets*2] = {
+/*  text           numeric           text                    numeric */
+    {UDAT_REL_NUMERIC_FIELD,  0,  1}, {UDAT_REL_NUMERIC_FIELD,  0,  1},
+    {UDAT_REL_NUMERIC_FIELD,  0,  3}, {UDAT_REL_NUMERIC_FIELD,  0,  3},
+    {UDAT_REL_NUMERIC_FIELD,  0,  1}, {UDAT_REL_NUMERIC_FIELD,  0,  1},
+    {UDAT_REL_NUMERIC_FIELD,  0,  1}, {UDAT_REL_NUMERIC_FIELD,  0,  1},
+    {UDAT_REL_NUMERIC_FIELD,  0,  3}, {UDAT_REL_NUMERIC_FIELD,  0,  3},
+    {-1,  -1,  -1},                   {UDAT_REL_NUMERIC_FIELD,  0,  1},
+    {-1,  -1,  -1},                   {UDAT_REL_NUMERIC_FIELD,  0,  1},
+    {UDAT_REL_NUMERIC_FIELD,  0,  3}, {UDAT_REL_NUMERIC_FIELD,  0,  3},
+    {UDAT_REL_NUMERIC_FIELD,  0,  1}, {UDAT_REL_NUMERIC_FIELD,  0,  1},
+    {UDAT_REL_NUMERIC_FIELD,  0,  1}, {UDAT_REL_NUMERIC_FIELD,  0,  1},
+    {UDAT_REL_NUMERIC_FIELD,  0,  1}, {UDAT_REL_NUMERIC_FIELD,  0,  1},
+};
+// END Apple additions for rdar://135027393
 #endif  // APPLE_ICU_CHANGES
 
 typedef struct {
@@ -395,6 +650,8 @@ static const RelDateTimeFormatTestItem fmtTestItems[] = {
       ak_decDef_long_stdAlon_sec,   ak_attrDef_long_stdAlon_sec},
     { "en_IN", -1, UDAT_STYLE_SHORT, UDISPCTX_CAPITALIZATION_FOR_MIDDLE_OF_SENTENCE, UDAT_REL_UNIT_WEDNESDAY,
       enIN_decDef_short_midSent_weds, enIN_attrDef_short_midSent_weds},
+    { "en@calendar=iso8601", -1, UDAT_STYLE_LONG,  UDISPCTX_CAPITALIZATION_FOR_MIDDLE_OF_SENTENCE, UDAT_REL_UNIT_SECOND,
+      en_decDef_long_midSent_sec,   en_attrDef_long_midSent_sec },
 #if APPLE_ICU_CHANGES
 // rdar://
     //add suitable entry for nb
@@ -402,16 +659,32 @@ static const RelDateTimeFormatTestItem fmtTestItems[] = {
     // Apple addition (rdar://80742319)
     { "hu", -1, UDAT_STYLE_NARROW,  UDISPCTX_CAPITALIZATION_FOR_MIDDLE_OF_SENTENCE, UDAT_REL_UNIT_MINUTE,
       hu_decDef_narrow_midSent_min,   hu_attrDef_narrow_midSent_min},
-    // test for rdar://121455212
-    { "en@calendar=iso8601", -1, UDAT_STYLE_LONG,  UDISPCTX_CAPITALIZATION_FOR_MIDDLE_OF_SENTENCE, UDAT_REL_UNIT_SECOND,
-      en_decDef_long_midSent_sec,   en_attrDef_long_midSent_sec },
+    // lots of tests for rdar://135027393
+    { "ta", -1, UDAT_STYLE_LONG,  UDISPCTX_CAPITALIZATION_FOR_MIDDLE_OF_SENTENCE, UDAT_REL_UNIT_HOUR,
+      ta_decDef_long_midSent_hr,    ta_attrDef_long_midSent_hr },
+    { "ta", -1, UDAT_STYLE_LONG,  UDISPCTX_CAPITALIZATION_FOR_MIDDLE_OF_SENTENCE, UDAT_REL_UNIT_MINUTE,
+      ta_decDef_long_midSent_min,   ta_attrDef_long_midSent_min },
+    { "ta", -1, UDAT_STYLE_LONG,  UDISPCTX_CAPITALIZATION_FOR_MIDDLE_OF_SENTENCE, UDAT_REL_UNIT_SECOND,
+      ta_decDef_long_midSent_sec,   ta_attrDef_long_midSent_sec },
+    { "ta", -1, UDAT_STYLE_SHORT,  UDISPCTX_CAPITALIZATION_FOR_MIDDLE_OF_SENTENCE, UDAT_REL_UNIT_HOUR,
+      ta_decDef_short_midSent_hr,   ta_attrDef_short_midSent_hr },
+    { "ta", -1, UDAT_STYLE_SHORT,  UDISPCTX_CAPITALIZATION_FOR_MIDDLE_OF_SENTENCE, UDAT_REL_UNIT_MINUTE,
+      ta_decDef_short_midSent_min,   ta_attrDef_short_midSent_min },
+    { "ta", -1, UDAT_STYLE_SHORT,  UDISPCTX_CAPITALIZATION_FOR_MIDDLE_OF_SENTENCE, UDAT_REL_UNIT_SECOND,
+      ta_decDef_short_midSent_sec,   ta_attrDef_short_midSent_sec },
+    { "ta", -1, UDAT_STYLE_NARROW,  UDISPCTX_CAPITALIZATION_FOR_MIDDLE_OF_SENTENCE, UDAT_REL_UNIT_HOUR,
+      ta_decDef_narrow_midSent_hr,   ta_attrDef_narrow_midSent_hr },
+    { "ta", -1, UDAT_STYLE_NARROW,  UDISPCTX_CAPITALIZATION_FOR_MIDDLE_OF_SENTENCE, UDAT_REL_UNIT_MINUTE,
+      ta_decDef_narrow_midSent_min,   ta_attrDef_narrow_midSent_min },
+    { "ta", -1, UDAT_STYLE_NARROW,  UDISPCTX_CAPITALIZATION_FOR_MIDDLE_OF_SENTENCE, UDAT_REL_UNIT_SECOND,
+      ta_decDef_narrow_midSent_sec,   ta_attrDef_narrow_midSent_sec },
 #endif  // APPLE_ICU_CHANGES
     { NULL,  0, (UDateRelativeDateTimeFormatterStyle)0, (UDisplayContext)0, (URelativeDateTimeUnit)0, NULL, NULL } /* terminator */
 };
 
 enum { kUBufMax = 64, kBBufMax = 256 };
 
-static void TestRelDateFmt()
+static void TestRelDateFmt(void)
 {
     const RelDateTimeFormatTestItem *itemPtr;
     log_verbose("\nTesting ureldatefmt_open(), ureldatefmt_format(), ureldatefmt_formatNumeric() with various parameters\n");
@@ -443,10 +716,6 @@ static void TestRelDateFmt()
             UChar ubufget[kUBufMax];
             int32_t ulenget;
 
-            if (itemPtr->unit >= UDAT_REL_UNIT_SUNDAY && offsets[iOffset] != -1.0 && offsets[iOffset] != 0.0 && offsets[iOffset] != 1.0) {
-                continue; /* we do not currently have data for this */
-            }
-
             status = U_ZERO_ERROR;
             ulenget = ureldatefmt_format(reldatefmt, offsets[iOffset], itemPtr->unit, ubufget, kUBufMax, &status);
             if ( U_FAILURE(status) ) {
@@ -463,10 +732,6 @@ static void TestRelDateFmt()
                         itemPtr->locale, itemPtr->decPlaces, (int)itemPtr->width, (int)itemPtr->capContext,
                         offsets[iOffset], (int)itemPtr->unit, itemPtr->expectedResults[iOffset*2], bbufget );
                 }
-            }
-
-            if (itemPtr->unit >= UDAT_REL_UNIT_SUNDAY) {
-                continue; /* we do not currently have numeric-style data for this */
             }
 
             status = U_ZERO_ERROR;
@@ -492,7 +757,7 @@ static void TestRelDateFmt()
     }
 }
 
-static void TestNumericField()
+static void TestNumericField(void)
 {
     const RelDateTimeFormatTestItem *itemPtr;
     log_verbose("\nTesting ureldatefmt_open(), ureldatefmt_formatForFields(), ureldatefmt_formatNumericForFields() with various parameters\n");
@@ -521,10 +786,6 @@ static void TestNumericField()
         }
 
         for (iOffset = 0; iOffset < kNumOffsets; iOffset++) {
-            if (itemPtr->unit >= UDAT_REL_UNIT_SUNDAY && offsets[iOffset] != -1.0 && offsets[iOffset] != 0.0 && offsets[iOffset] != 1.0) {
-                continue; /* we do not currently have data for this */
-            }
-
             /* Depend on the next one to verify the data */
             status = U_ZERO_ERROR;
             UFormattedRelativeDateTime* fv = ureldatefmt_openResult(&status);
@@ -578,11 +839,6 @@ static void TestNumericField()
                     }
                 }
                 ucfpos_close(cfpos);
-            }
-
-            if (itemPtr->unit >= UDAT_REL_UNIT_SUNDAY) {
-                ureldatefmt_closeResult(fv);
-                continue; /* we do not currently have numeric-style data for this */
             }
 
             /* Depend on the next one to verify the data */
@@ -664,7 +920,7 @@ static const CombineDateTimeTestItem combTestItems[] = {
     { NULL,  (UDateRelativeDateTimeFormatterStyle)0, (UDisplayContext)0, NULL, NULL, NULL } /* terminator */
 };
 
-static void TestCombineDateTime()
+static void TestCombineDateTime(void)
 {
     const CombineDateTimeTestItem *itemPtr;
     log_verbose("\nTesting ureldatefmt_combineDateAndTime() with various parameters\n");
@@ -718,7 +974,7 @@ static void TestCombineDateTime()
     }
 }
 
-static void TestFields() {
+static void TestFields(void) {
     UErrorCode ec = U_ZERO_ERROR;
     URelativeDateTimeFormatter* fmt = ureldatefmt_open(
         "en-us",

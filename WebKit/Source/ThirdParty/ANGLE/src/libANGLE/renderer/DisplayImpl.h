@@ -97,8 +97,6 @@ class DisplayImpl : public EGLImplFactory, public angle::Subject
     virtual egl::Error waitNative(const gl::Context *context, EGLint engine) = 0;
     virtual gl::Version getMaxSupportedESVersion() const                     = 0;
     virtual gl::Version getMaxConformantESVersion() const                    = 0;
-    // If desktop GL is not supported in any capacity for a given backend, this returns None.
-    virtual Optional<gl::Version> getMaxSupportedDesktopVersion() const = 0;
     const egl::Caps &getCaps() const;
 
     virtual void setBlobCacheFuncs(EGLSetBlobFuncANDROID set, EGLGetBlobFuncANDROID get) {}
@@ -119,6 +117,9 @@ class DisplayImpl : public EGLImplFactory, public angle::Subject
 
     virtual egl::Error waitUntilWorkScheduled();
 
+    virtual void lockVulkanQueue() { UNREACHABLE(); }
+    virtual void unlockVulkanQueue() { UNREACHABLE(); }
+
     virtual angle::NativeWindowSystem getWindowSystem() const;
 
     virtual bool supportsDmaBufFormat(EGLint format) const;
@@ -128,6 +129,12 @@ class DisplayImpl : public EGLImplFactory, public angle::Subject
                                             EGLuint64KHR *modifiers,
                                             EGLBoolean *external_only,
                                             EGLint *num_modifiers);
+
+    virtual egl::Error querySupportedCompressionRates(const egl::Config *configuration,
+                                                      const egl::AttributeMap &attributes,
+                                                      EGLint *rates,
+                                                      EGLint rate_size,
+                                                      EGLint *num_rates) const;
 
   protected:
     const egl::DisplayState &mState;

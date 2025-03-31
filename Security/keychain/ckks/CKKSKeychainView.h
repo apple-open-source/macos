@@ -298,6 +298,9 @@ NS_ASSUME_NONNULL_BEGIN
                            reply:(void (^)(NSDictionary<NSNumber*,NSArray<NSData*>*>* _Nullable result,
                                            NSError* _Nullable error))reply;
 
+- (void)initialSyncStatus:(NSString*)viewName
+                    reply:(void(^)(BOOL result, NSError* _Nullable error))reply;
+
 // NSOperation Helpers
 - (void)scheduleOperation:(NSOperation*)op;
 

@@ -62,7 +62,7 @@ int xattr_options = XATTR_NOFOLLOW | XATTR_SHOWCOMPRESSION;
 int cflag, dflag, eflag, iflag, nflag, qflag, rflag, sflag, uflag, Uflag, wflag, mflag, tflag, xflag;
 int insert_mod, insert_birth, insert_access, insert_change, insert_parent;
 struct timespec ts;
-u_int keys;
+u_int64_t keys;
 char fullpath[MAXPATHLEN];
 CFMutableDictionaryRef dict;
 char *filepath;

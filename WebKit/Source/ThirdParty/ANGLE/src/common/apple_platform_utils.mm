@@ -5,8 +5,11 @@
 //
 
 #include "common/apple_platform_utils.h"
-#include "common/debug.h"
 
+#include "common/debug.h"
+#include "common/system_utils.h"
+
+#include <Foundation/Foundation.h>
 #include <Metal/Metal.h>
 
 namespace angle
@@ -73,6 +76,24 @@ bool IsMetalRendererAvailable()
     }
 #endif
 
+#if defined(ANGLE_PLATFORM_MACOS) && defined(__aarch64__)
+    NSOperatingSystemVersion systemVersion = [[NSProcessInfo processInfo] operatingSystemVersion];
+    if (systemVersion.majorVersion == 15 && systemVersion.minorVersion == 0)
+    {
+        // On ARM64 MacOS 15.0.x, Metal Shader with newLibraryWithSource didn't work,
+        // if the executable path contains non-ASCII characters.
+        // Bug: https://issues.chromium.org/issues/389559087
+        std::string executableName = GetExecutablePath();
+        for (char c : executableName)
+        {
+            if (static_cast<unsigned char>(c) > 127)
+            {
+                return false;
+            }
+        }
+    }
+#endif
+
     static bool gpuFamilySufficient = []() -> bool {
         ANGLE_APPLE_OBJC_SCOPE
         {
@@ -97,16 +118,13 @@ bool IsMetalRendererAvailable()
     return gpuFamilySufficient;
 }
 
+#if defined(ANGLE_PLATFORM_MACOS) || defined(ANGLE_PLATFORM_MACCATALYST)
 bool GetMacosMachineModel(std::string *outMachineModel)
 {
-#if defined(ANGLE_PLATFORM_MACOS) || defined(ANGLE_PLATFORM_MACCATALYST)
-#    if HAVE_MAIN_PORT_DEFAULT
-    const mach_port_t mainPort = kIOMainPortDefault;
-#    else
-#        pragma clang diagnostic push
-#        pragma clang diagnostic ignored "-Wdeprecated-declarations"
+#    if TARGET_OS_OSX && __MAC_OS_X_VERSION_MIN_REQUIRED < 120000
     const mach_port_t mainPort = kIOMasterPortDefault;
-#        pragma clang diagnostic pop
+#    else
+    const mach_port_t mainPort = kIOMainPortDefault;
 #    endif
     io_service_t platformExpert =
         IOServiceGetMatchingService(mainPort, IOServiceMatching("IOPlatformExpertDevice"));
@@ -130,9 +148,6 @@ bool GetMacosMachineModel(std::string *outMachineModel)
     CFRelease(modelData);
 
     return true;
-#else
-    return false;
-#endif
 }
 
 bool ParseMacMachineModel(const std::string &identifier,
@@ -174,5 +189,6 @@ bool ParseMacMachineModel(const std::string &identifier,
 
     return true;
 }
+#endif
 
 }  // namespace angle

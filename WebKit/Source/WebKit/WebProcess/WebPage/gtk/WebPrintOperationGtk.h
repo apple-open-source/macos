@@ -36,11 +36,13 @@
 #if USE(CAIRO)
 #include <WebCore/RefPtrCairo.h>
 #elif USE(SKIA)
+WTF_IGNORE_WARNINGS_IN_THIRD_PARTY_CODE_BEGIN
 #include <skia/core/SkCanvas.h>
 #include <skia/core/SkDocument.h>
 #include <skia/core/SkPicture.h>
 #include <skia/core/SkPictureRecorder.h>
 #include <skia/core/SkStream.h>
+WTF_IGNORE_WARNINGS_IN_THIRD_PARTY_CODE_END
 #endif
 
 typedef struct _GtkPrintSettings GtkPrintSettings;

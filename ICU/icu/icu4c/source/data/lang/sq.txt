@@ -54,6 +54,7 @@ sq{
         bi{"bislamisht"}
         bin{"binisht"}
         bla{"siksikaisht"}
+        blo{"anisht"}
         bm{"bambarisht"}
         bn{"bengalisht"}
         bo{"tibetisht"}
@@ -160,6 +161,7 @@ sq{
         hax{"haidaishte jugore"}
         he{"hebraisht"}
         hi{"indisht"}
+        hi_Latn{"hindisht (latine)"}
         hil{"hiligajnonisht"}
         hmn{"hmongisht"}
         hr{"kroatisht"}
@@ -228,6 +230,7 @@ sq{
         kv{"komisht"}
         kw{"kornisht"}
         kwk{"kuakualaisht"}
+        kxv{"kuvisht"}
         ky{"kirgizisht"}
         la{"latinisht"}
         lad{"ladinoisht"}
@@ -397,6 +400,7 @@ sq{
         sw_CD{"suahilishte kongoleze"}
         swb{"kamorianisht"}
         syr{"siriakisht"}
+        szl{"silesisht"}
         ta{"tamilisht"}
         tce{"tatshonishte jugore"}
         te{"teluguisht"}
@@ -439,6 +443,7 @@ sq{
         ve{"vendaisht"}
         vec{"venetisht"}
         vi{"vietnamisht"}
+        vmw{"makuvaisht"}
         vo{"volapykisht"}
         vun{"vunxhoisht"}
         wa{"ualunisht"}
@@ -450,6 +455,7 @@ sq{
         wuu{"kinezishte vu"}
         xal{"kalmikisht"}
         xh{"xhosaisht"}
+        xnr{"kangrisht"}
         xog{"sogisht"}
         yav{"jangbenisht"}
         ybb{"jembaisht"}
@@ -457,6 +463,7 @@ sq{
         yo{"jorubaisht"}
         yrl{"nejengatuisht"}
         yue{"kantonezisht"}
+        za{"zhuangisht"}
         zgh{"tamaziatishte standarde marokene"}
         zh{"kinezisht"}
         zh_Hans{"kinezishte e thjeshtuar"}
@@ -478,6 +485,9 @@ sq{
         az{"azerisht"}
         en_GB{"anglishte e Mbretërisë së Bashkuar"}
         en_US{"anglishte e SHBA-së"}
+    }
+    Languages%variant{
+        hi_Latn{"hinglisht"}
     }
     Scripts{
         Adlm{"adlam"}
@@ -675,6 +685,7 @@ sq{
             indian{"Kalendari Kombëtar Indian"}
             islamic{"kalendar islam"}
             islamic-civil{"kalendar islam (tabelor, epoka civile)"}
+            islamic-rgsa{"kalendar islamik (Arabi Saudite, shikim)"}
             islamic-tbla{"kalendar islam (tabelor, epoka astronomike)"}
             islamic-umalqura{"kalendar islam (um al-qura)"}
             iso8601{"kalendar ISO-8601"}
@@ -696,7 +707,6 @@ sq{
             gb2312han{"Radhitje e kinezishtes së thjeshtësuar - GB2312"}
             phonebook{"Radhitje libri telefonik"}
             pinyin{"Radhitje pinini"}
-            reformed{"Radhitje e reformuar"}
             search{"kërkim i përgjithshëm"}
             searchjl{"kërkim sipas bashkëtingëllores fillestare hangul"}
             standard{"radhitje standarde"}

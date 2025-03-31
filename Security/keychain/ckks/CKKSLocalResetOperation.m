@@ -65,6 +65,7 @@
         ckse.moreRecordsInCloudKit = NO;
         ckse.lastFetchTime = nil;
         ckse.lastLocalKeychainScanTime = nil;
+        ckse.initialSyncFinished = NO;
 
         [ckse saveToDatabase:&localerror];
         if(localerror && self.error == nil) {

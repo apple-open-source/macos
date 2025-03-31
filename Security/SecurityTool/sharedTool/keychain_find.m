@@ -89,6 +89,12 @@ static bool isPrintableString(CFStringRef theString){
     return !result;
 }
 
+static CFComparisonResult
+compare(const void *val1, const void *val2, void * __unused context)
+{
+    return CFStringCompare(val1, val2, 0);
+}
+
 static void display_item(const void *v_item, void *context) {
     CFDictionaryRef item = (CFDictionaryRef)v_item;
     CFIndex dict_count, key_ix, key_count;
@@ -100,8 +106,7 @@ static void display_item(const void *v_item, void *context) {
         &kCFTypeArrayCallBacks);
     CFDictionaryApplyFunction(item, add_key, keys);
     key_count = CFArrayGetCount(keys);
-    CFArraySortValues(keys, CFRangeMake(0, key_count),
-        (CFComparatorFunction)CFStringCompare, 0);
+    CFArraySortValues(keys, CFRangeMake(0, key_count), compare, 0);
 
     for (key_ix = 0; key_ix < key_count; ++key_ix) {
         CFStringRef key = (CFStringRef)CFArrayGetValueAtIndex(keys, key_ix);

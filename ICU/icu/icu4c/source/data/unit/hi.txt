@@ -241,7 +241,14 @@ hi{
                 other{"{0} कैरट"}
             }
             milligram-ofglucose-per-deciliter{
+                case{
+                    oblique{
+                        one{"{0} मिलिग्राम प्रति डेसीलीटर"}
+                        other{"{0} मिलिग्राम प्रति डेसीलीटर"}
+                    }
+                }
                 dnam{"मिलिग्राम प्रति डेसीलीटर"}
+                gender{"masculine"}
                 one{"{0} मिलिग्राम प्रति डेसीलीटर"}
                 other{"{0} मिलिग्राम प्रति डेसीलीटर"}
             }
@@ -581,6 +588,19 @@ hi{
                 gender{"masculine"}
                 one{"{0} नैनोसेकंड"}
                 other{"{0} नैनोसेकंड"}
+            }
+            night{
+                case{
+                    oblique{
+                        one{"{0} रात"}
+                        other{"{0} रातें"}
+                    }
+                }
+                dnam{"रातें"}
+                gender{"feminine"}
+                one{"{0} रात"}
+                other{"{0} रातें"}
+                per{"{0} प्रति रात"}
             }
             quarter{
                 case{
@@ -1018,6 +1038,7 @@ hi{
             }
             point{
                 dnam{"पॉइंट"}
+                gender{"masculine"}
                 one{"{0} पॉइंट"}
                 other{"{0} पॉइंट"}
             }
@@ -1361,7 +1382,14 @@ hi{
                 other{"{0} मिलीबार"}
             }
             millimeter-ofhg{
+                case{
+                    oblique{
+                        one{"{0} मर्क्यूरी मिलीमीटर"}
+                        other{"{0} मर्क्यूरी मिलीमीटर"}
+                    }
+                }
                 dnam{"मर्क्यूरी मिलीमीटर"}
+                gender{"feminine"}
                 one{"{0} मर्क्यूरी मिलीमीटर"}
                 other{"{0} मर्क्यूरी मिलीमीटर"}
             }
@@ -1395,6 +1423,18 @@ hi{
                 gender{"masculine"}
                 one{"{0} किलोमीटर प्रति घंटा"}
                 other{"{0} किलोमीटर प्रति घंटा"}
+            }
+            light-speed{
+                case{
+                    oblique{
+                        one{"{0} लाइट"}
+                        other{"{0} लाइट"}
+                    }
+                }
+                dnam{"लाइट"}
+                gender{"feminine"}
+                one{"{0} लाइट"}
+                other{"{0} लाइट"}
             }
             meter-per-second{
                 case{
@@ -1901,6 +1941,12 @@ hi{
                 one{"{0} नैनो से"}
                 other{"{0} नैनो से"}
             }
+            night{
+                dnam{"रातें"}
+                one{"{0}रात"}
+                other{"{0}रातें"}
+                per{"{0}/रात"}
+            }
             second{
                 dnam{"सेकंड"}
                 one{"{0} से॰"}
@@ -2100,6 +2146,11 @@ hi{
             kilometer-per-hour{
                 one{"{0} कि॰मी॰/घं॰"}
                 other{"{0} कि॰मी॰/घं॰"}
+            }
+            light-speed{
+                dnam{"लाइट"}
+                one{"{0} लाइट"}
+                other{"{0} लाइट"}
             }
             meter-per-second{
                 dnam{"मी॰/से॰"}
@@ -2506,6 +2557,12 @@ hi{
                 one{"{0} नै॰से॰"}
                 other{"{0} नै॰से॰"}
             }
+            night{
+                dnam{"रातें"}
+                one{"{0} रात"}
+                other{"{0} रातें"}
+                per{"{0}/रात"}
+            }
             quarter{
                 dnam{"तिमा"}
                 one{"{0} तिमा"}
@@ -2875,6 +2932,11 @@ hi{
                 dnam{"नॉट"}
                 one{"{0} नॉट"}
                 other{"{0} नॉट"}
+            }
+            light-speed{
+                dnam{"लाइट"}
+                one{"{0} लाइट"}
+                other{"{0} लाइट"}
             }
             meter-per-second{
                 dnam{"मीटर/से॰"}

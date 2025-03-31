@@ -79,6 +79,9 @@ public:
     virtual double latencyTime() const = 0;
     virtual bool requiresTailProcessing() const = 0;
 
+    enum class Type : uint8_t { Biquad, Delay, IIR, WaveShaper };
+    virtual Type processorType() const = 0;
+
 protected:
     bool m_initialized;
     unsigned m_numberOfChannels;

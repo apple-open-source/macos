@@ -33,7 +33,9 @@
 #include "GraphicsContext.h"
 #include "ImageBuffer.h"
 #include "NativeImage.h"
+WTF_IGNORE_WARNINGS_IN_THIRD_PARTY_CODE_BEGIN // GLib/Win ports
 #include <skia/core/SkCanvas.h>
+WTF_IGNORE_WARNINGS_IN_THIRD_PARTY_CODE_END
 #include <wtf/TZoneMallocInlines.h>
 
 namespace WebCore {

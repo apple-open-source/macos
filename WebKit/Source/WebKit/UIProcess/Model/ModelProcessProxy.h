@@ -35,10 +35,17 @@
 #include <WebCore/PageIdentifier.h>
 #include <memory>
 #include <pal/SessionID.h>
+#include <wtf/CompletionHandler.h>
 #include <wtf/TZoneMalloc.h>
 
 #if HAVE(VISIBILITY_PROPAGATION_VIEW)
 #include "LayerHostingContext.h"
+#endif
+
+#if PLATFORM(VISION) && ENABLE(GPU_PROCESS)
+namespace IPC {
+class SharedFileHandle;
+}
 #endif
 
 namespace WebKit {
@@ -47,6 +54,7 @@ class WebProcessProxy;
 class WebsiteDataStore;
 struct ModelProcessConnectionParameters;
 struct ModelProcessCreationParameters;
+struct SharedPreferencesForWebProcess;
 
 class ModelProcessProxy final : public AuxiliaryProcessProxy {
     WTF_MAKE_TZONE_ALLOCATED(ModelProcessProxy);
@@ -58,6 +66,7 @@ public:
     ~ModelProcessProxy();
 
     void createModelProcessConnection(WebProcessProxy&, IPC::Connection::Handle&& connectionIdentifier, ModelProcessConnectionParameters&&);
+    void sharedPreferencesForWebProcessDidChange(WebProcessProxy&, SharedPreferencesForWebProcess&&, CompletionHandler<void()>&&);
 
     void updateProcessAssertion();
 
@@ -90,7 +99,7 @@ private:
     void sendProcessDidResume(ResumeReason) final;
 
     // ProcessLauncher::Client
-    void didFinishLaunching(ProcessLauncher*, IPC::Connection::Identifier) override;
+    void didFinishLaunching(ProcessLauncher*, IPC::Connection::Identifier&&) override;
 
     // IPC::Connection::Client
     void didReceiveMessage(IPC::Connection&, IPC::Decoder&) override;
@@ -106,11 +115,19 @@ private:
     void didCreateContextForVisibilityPropagation(WebPageProxyIdentifier, WebCore::PageIdentifier, LayerHostingContextID);
 #endif
 
+#if PLATFORM(VISION) && ENABLE(GPU_PROCESS)
+    void requestSharedSimulationConnection(WebCore::ProcessIdentifier, CompletionHandler<void(std::optional<IPC::SharedFileHandle>)>&&);
+#endif
+
     ModelProcessCreationParameters processCreationParameters();
 
-    ProcessThrottler::ActivityVariant m_activityFromWebProcesses;
+    RefPtr<ProcessThrottler::Activity> m_activityFromWebProcesses;
 
     HashSet<PAL::SessionID> m_sessionIDs;
+
+#if PLATFORM(VISION) && ENABLE(GPU_PROCESS)
+    bool m_didInitializeSharedSimulationConnection { false };
+#endif
 };
 
 } // namespace WebKit

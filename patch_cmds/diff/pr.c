@@ -24,9 +24,6 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <sys/cdefs.h>
-__FBSDID("$FreeBSD$");
-
 #ifndef __APPLE__
 #include <sys/procdesc.h>
 #endif
@@ -117,7 +114,7 @@ start_pr(char *file1, char *file2)
 void
 stop_pr(struct pr *pr)
 {
-	intptr_t wstatus;
+	int wstatus;
 
 	if (pr == NULL)
 		return;

@@ -2,11 +2,11 @@
 		<key>OpenSourceProject</key>
 		<string>date</string>
 		<key>OpenSourceVersion</key>
-		<string>2022-06-27</string>
+		<string>2024-09-10</string>
 		<key>OpenSourceWebsiteURL</key>
-		<string>https://cgit.freebsd.org/src/tree/bin/date?id=4148dffadd3b10fa11717cc36263e1d536aaa2f0</string>
+		<string>https://cgit.freebsd.org/src/tree/bin/date?id=355ebf80b1ed98cf7ca9c51ce7e3e6dcb376853d</string>
 		<key>OpenSourceImportDate</key>
-		<string>2022-07-14</string>
+		<string>2024-09-11</string>
 		<key>OpenSourceModifications</key>
 		<array>
 			<string>date.1: discuss conformance changes</string>

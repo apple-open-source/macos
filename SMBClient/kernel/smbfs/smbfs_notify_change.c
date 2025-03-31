@@ -968,7 +968,7 @@ process_notify_items(struct smbfs_notify_change *notify, vfs_context_t context)
  * Notify thread main routine.
  */
 static void 
-notify_main(void *arg)
+notify_main(void *arg, __unused wait_result_t wr)
 {
 	struct smbfs_notify_change	*notify = arg;
 	vfs_context_t		context;

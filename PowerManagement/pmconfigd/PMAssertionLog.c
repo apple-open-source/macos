@@ -195,7 +195,9 @@ static void logAssertionActivity(assertLogAction  action,
         // Re-use object
         entry = (CFMutableDictionaryRef)CFArrayGetValueAtIndex(activity.log, (activity.idx % AA_MAX_ENTRIES));
         CFRetain(entry);
-        CFDictionaryRemoveAllValues(entry);
+        if (isA_CFType(entry, CFDictionaryGetTypeID())) {
+            CFDictionaryRemoveAllValues(entry);
+        }
     } else {
         // Holds 16 Key-Value pairs max. Some fixed number helps with fragmentation by avoiding
         // re-hashing and since this is a high traffic path.

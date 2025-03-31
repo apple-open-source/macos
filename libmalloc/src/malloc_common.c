@@ -163,6 +163,17 @@ malloc_zone_pressure_relief_fallback(malloc_zone_t *zone, size_t goal)
 	return 0;
 }
 
+
+MALLOC_NOEXPORT MALLOC_NOINLINE
+void
+___BUG_IN_CLIENT_OF_LIBMALLOC_POINTER_BEING_FREED_WAS_NOT_ALLOCATED(
+		int flags, void *__unsafe_indexable ptr)
+{
+
+	malloc_report(flags, "*** error for object %p: "
+		"pointer being freed was not allocated\n", ptr);
+}
+
 #if !MALLOC_TARGET_EXCLAVES && !MALLOC_TARGET_EXCLAVES_INTROSPECTOR
 
 #if CONFIG_CHECK_PLATFORM_BINARY
@@ -182,22 +193,34 @@ _malloc_is_platform_binary(void)
 	return (flags & CS_PLATFORM_BINARY);
 }
 
-#if CONFIG_CHECK_SECURITY_POLICY
 bool malloc_internal_security_policy = false;
-#endif // CONFIG_CHECK_SECURITY_POLICY
 
 bool
-_malloc_allow_internal_security_policy(void)
+_malloc_allow_internal_security_policy(const char *envp[])
 {
-#if TARGET_OS_SIMULATOR
-	return true;
-#elif defined(_COMM_PAGE_DEV_FIRM)
-	return !!*((uint32_t *)_COMM_PAGE_DEV_FIRM);
-#else
-	// For backwards compatibility on x86, where we don't have that comm page
-	// bit, keep parsing the environment variables as we did before
-	return true;
+#if !TARGET_OS_SIMULATOR && defined(_COMM_PAGE_DEV_FIRM)
+	if (!*((uint32_t *)_COMM_PAGE_DEV_FIRM)) {
+		return false;
+	}
 #endif
+
+#if CONFIG_FEATUREFLAGS_SIMPLE
+	if (os_feature_enabled_simple(libmalloc, AllowInternalSecurityPolicy,
+			false)) {
+		return true;
+	}
+#endif
+
+	const char *flag = _simple_getenv(envp, "MallocAllowInternalSecurity");
+	if (flag) {
+		const char *endp;
+		long value = malloc_common_convert_to_long(flag, &endp);
+		if (!*endp && endp != flag && (value == 0 || value == 1)) {
+			return (bool)value;
+		}
+	}
+
+	return false;
 }
 
 #endif // !MALLOC_TARGET_EXCLAVES && !MALLOC_TARGET_EXCLAVES_INTROSPECTOR

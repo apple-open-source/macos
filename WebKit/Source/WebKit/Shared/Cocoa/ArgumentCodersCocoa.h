@@ -59,6 +59,7 @@ OBJC_CLASS PKContact;
 OBJC_CLASS PKDateComponentsRange;
 OBJC_CLASS PKPayment;
 OBJC_CLASS PKPaymentMerchantSession;
+OBJC_CLASS PKPaymentSetupFeature;
 OBJC_CLASS PKPaymentMethod;
 OBJC_CLASS PKPaymentToken;
 OBJC_CLASS PKShippingMethod;
@@ -74,6 +75,27 @@ namespace IPC {
 enum class NSType : uint8_t {
     Array,
     Color,
+#if USE(PASSKIT)
+    PKPaymentMethod,
+    PKPaymentMerchantSession,
+    PKPaymentSetupFeature,
+    PKContact,
+    PKSecureElementPass,
+    PKPayment,
+    PKPaymentToken,
+    PKShippingMethod,
+    PKDateComponentsRange,
+    CNContact,
+    CNPhoneNumber,
+    CNPostalAddress,
+#endif
+#if ENABLE(DATA_DETECTION) && HAVE(WK_SECURE_CODING_DATA_DETECTORS)
+    DDScannerResult,
+#if PLATFORM(MAC)
+    WKDDActionContext,
+#endif
+#endif
+    NSDateComponents,
     Data,
     Date,
     Error,
@@ -82,7 +104,9 @@ enum class NSType : uint8_t {
     Locale,
     Number,
     Null,
+#if !HAVE(WK_SECURE_CODING_NSURLREQUEST)
     SecureCoding,
+#endif
     String,
     URL,
     NSValue,
@@ -130,6 +154,7 @@ template<> Class getClass<CNPhoneNumber>();
 template<> Class getClass<CNPostalAddress>();
 template<> Class getClass<PKContact>();
 template<> Class getClass<PKPaymentMerchantSession>();
+template<> Class getClass<PKPaymentSetupFeature>();
 template<> Class getClass<PKPayment>();
 template<> Class getClass<PKPaymentToken>();
 template<> Class getClass<PKShippingMethod>();
@@ -193,6 +218,7 @@ template<typename T> struct ArgumentCoder<T *> {
     }
 };
 
+#if !HAVE(WK_SECURE_CODING_NSURLREQUEST)
 template<typename T> struct ArgumentCoder<CoreIPCRetainPtr<T>> {
     template<typename U = T>
     static void encode(Encoder& encoder, const CoreIPCRetainPtr<U>& object)
@@ -212,6 +238,7 @@ template<typename T> struct ArgumentCoder<CoreIPCRetainPtr<T>> {
         return decodeObjectDirectlyRequiringAllowedClasses<U>(decoder);
     }
 };
+#endif // !HAVE(WK_SECURE_CODING_NSURLREQUEST)
 
 template<typename T> struct ArgumentCoder<RetainPtr<T>> {
     template<typename U = T, typename = IsObjCObject<U>>

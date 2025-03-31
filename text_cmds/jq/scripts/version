@@ -1,10 +1,18 @@
 #!/bin/sh
-set -e
-cd `dirname "$0"`
-if git rev-parse --verify -q jq-1.0 > /dev/null 2>&1; then
-    git describe --tags --match 'jq-*' --dirty | sed 's/^jq-//'
+set -eu
+
+#ifdef __APPLE__
+# EDIT THIS WHEN UPDATING
+echo 1.7.1-apple
+exit 0
+#endif
+cd "$(dirname "$0")/../"
+test -d .git || exit 1
+
+if git describe --tags --match 'jq-*' >/dev/null 2>&1; then
+  git describe --tags --match 'jq-*' --dirty | sed 's/^jq-//'
 else
-    b=`git rev-parse --abbrev-ref HEAD`
-    c=`git describe --always --dirty`
-    echo "${b}-${c}"
+  branch=$(git rev-parse --abbrev-ref HEAD)
+  commit=$(git describe --always --dirty)
+  echo "${branch}-${commit}"
 fi

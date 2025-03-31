@@ -1624,6 +1624,9 @@ pl{
                 }
             }
         }
+        week-narrow{
+            relativePeriod{"tydz. {0}"}
+        }
         week-short{
             dn{"tydz."}
             relative{
@@ -1631,6 +1634,7 @@ pl{
                 "0"{"w tym tyg."}
                 "1"{"w przyszłym tyg."}
             }
+            relativePeriod{"tydz. {0}"}
             relativeTime{
                 future{
                     few{"za {0} tyg."}
@@ -1752,10 +1756,10 @@ pl{
                 "[%％﹪ ٪]",
                 "[‰ ؉]",
                 "[\$＄﹩]",
-                "[£ ₤]",
+                "[£￡ ₤]",
                 "[¥￥]",
                 "[₩￦]",
-                "[₹ ₨ {Rp} {Rs}]",
+                "[₹ {Rp} {Rs}₨]",
             }
         }
         number{

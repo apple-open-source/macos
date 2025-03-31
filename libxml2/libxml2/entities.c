@@ -29,6 +29,10 @@
 
 #include "save.h"
 
+#ifndef SIZE_MAX
+  #define SIZE_MAX ((size_t) -1)
+#endif
+
 /*
  * The XML predefined entities.
  */
@@ -551,6 +555,7 @@ xmlGetDocEntity(const xmlDoc *doc, const xmlChar *name) {
  */
 #define growBufferReentrant() {						\
     xmlChar *tmp;                                                       \
+    if (buffer_size > SIZE_MAX / 2) goto mem_error;                     \
     size_t new_size = buffer_size * 2;                                  \
     if (new_size < buffer_size) goto mem_error;                         \
     tmp = (xmlChar *) xmlRealloc(buffer, new_size);	                \
@@ -598,7 +603,6 @@ xmlEncodeEntitiesInternal(xmlDocPtr doc, const xmlChar *input, int attr) {
     while (*cur != '\0') {
         size_t indx = out - buffer;
         if (indx + 100 > buffer_size) {
-
 	    growBufferReentrant();
 	    out = &buffer[indx];
 	}

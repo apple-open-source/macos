@@ -287,7 +287,7 @@ lex_error_message (const char *format, ...)
     va_list args;
 
     va_start (args, format);
-    fprintf (stderr, "%s:%d: ", get_filename(), lineno);
+    fprintf (stderr, "%s:%u: ", get_filename(), lineno);
     vfprintf (stderr, format, args);
     va_end (args);
     error_flag++;
@@ -296,5 +296,5 @@ lex_error_message (const char *format, ...)
 static void
 unterminated(const char *type, unsigned start_lineno)
 {
-    lex_error_message("unterminated %s, possibly started on line %d\n", type, start_lineno);
+    lex_error_message("unterminated %s, possibly started on line %u\n", type, start_lineno);
 }

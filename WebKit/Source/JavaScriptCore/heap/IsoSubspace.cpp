@@ -88,13 +88,12 @@ void IsoSubspace::didBeginSweepingToFreeList(MarkedBlock::Handle* block)
 void* IsoSubspace::tryAllocatePreciseOrLowerTierPrecise(size_t size)
 {
     auto revive = [&] (PreciseAllocation* allocation) {
-        allocation->setIndexInSpace(m_space.m_preciseAllocations.size());
-        allocation->m_hasValidCell = true;
-        m_space.m_preciseAllocations.append(allocation);
-        if (auto* set = m_space.preciseAllocationSet())
-            set->add(allocation->cell());
-        ASSERT(allocation->indexInSpace() == m_space.m_preciseAllocations.size() - 1);
+        // Lower-tier cells never report capacity. This is intentional since it will not be freed until VM dies.
+        // Whether we will do GC or not does not affect on the used memory by lower-tier cells. So we should not
+        // count them in capacity since it is not interesting to decide whether we should do GC.
         m_preciseAllocations.append(allocation);
+        m_space.registerPreciseAllocation(allocation, /* isNewAllocation */ false);
+        ASSERT(allocation->indexInSpace() == m_space.m_preciseAllocations.size() - 1);
         return allocation->cell();
     };
 

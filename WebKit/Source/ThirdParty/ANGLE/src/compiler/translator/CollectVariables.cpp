@@ -746,7 +746,9 @@ void CollectVariablesTraverser::setFieldOrVariableProperties(const TType &type,
     {
         // Structures use a NONE type that isn't exposed outside ANGLE.
         variableOut->type = GL_NONE;
-        if (structure->symbolType() != SymbolType::Empty)
+        // Anonymous structs are given name from AngleInternal namespace.
+        if (structure->symbolType() != SymbolType::Empty &&
+            structure->symbolType() != SymbolType::AngleInternal)
         {
             variableOut->structOrBlockName = structure->name().data();
         }
@@ -791,7 +793,7 @@ void CollectVariablesTraverser::setFieldOrVariableProperties(const TType &type,
         variableOut->precision = GLVariablePrecision(type);
     }
 
-    const TSpan<const unsigned int> &arraySizes = type.getArraySizes();
+    const angle::Span<const unsigned int> &arraySizes = type.getArraySizes();
     if (!arraySizes.empty())
     {
         variableOut->arraySizes.assign(arraySizes.begin(), arraySizes.end());

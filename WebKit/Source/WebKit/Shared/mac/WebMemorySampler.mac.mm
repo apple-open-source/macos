@@ -49,11 +49,11 @@ struct SystemMallocStats {
 
 SystemMallocStats WebMemorySampler::sampleSystemMalloc() const
 {
-    static constexpr auto defaultMallocZoneName = "DefaultMallocZone"_s;
-    static constexpr auto dispatchContinuationMallocZoneName = "DispatchContinuations"_s;
-    static constexpr auto purgeableMallocZoneName = "DefaultPurgeableMallocZone"_s;
+    static constexpr auto defaultMallocZoneName = "DefaultMallocZone"_span;
+    static constexpr auto dispatchContinuationMallocZoneName = "DispatchContinuations"_span;
+    static constexpr auto purgeableMallocZoneName = "DefaultPurgeableMallocZone"_span;
     SystemMallocStats mallocStats;
-    vm_address_t* zones;
+    vm_address_t* rawZones;
     unsigned count;
     
     // Zero out the structures in case a zone is missing
@@ -66,19 +66,20 @@ SystemMallocStats WebMemorySampler::sampleSystemMalloc() const
     mallocStats.dispatchContinuationMallocZoneStats = stats;
     mallocStats.purgeableMallocZoneStats = stats;
     
-    malloc_get_all_zones(mach_task_self(), 0, &zones, &count);
-    for (unsigned i = 0; i < count; i++) {
-        if (const char* name = malloc_get_zone_name(reinterpret_cast<malloc_zone_t*>(zones[i]))) {
+    malloc_get_all_zones(mach_task_self(), 0, &rawZones, &count);
+    auto zones = unsafeMakeSpan(rawZones, count);
+    for (auto& zone : zones) {
+        if (auto name = unsafeSpan(malloc_get_zone_name(reinterpret_cast<malloc_zone_t*>(zone))); name.data()) {
             stats.blocks_in_use = 0;
             stats.size_in_use = 0;
             stats.max_size_in_use = 0;
             stats.size_allocated = 0;
-            malloc_zone_statistics(reinterpret_cast<malloc_zone_t*>(zones[i]), &stats);
-            if (!strcmp(name, defaultMallocZoneName))
+            malloc_zone_statistics(reinterpret_cast<malloc_zone_t*>(zone), &stats);
+            if (equalSpans(name, defaultMallocZoneName))
                 mallocStats.defaultMallocZoneStats = stats;
-            else if (!strcmp(name, dispatchContinuationMallocZoneName))
+            else if (equalSpans(name, dispatchContinuationMallocZoneName))
                 mallocStats.dispatchContinuationMallocZoneStats = stats;
-            else if (!strcmp(name, purgeableMallocZoneName))
+            else if (equalSpans(name, purgeableMallocZoneName))
                 mallocStats.purgeableMallocZoneStats = stats;
         }
     }

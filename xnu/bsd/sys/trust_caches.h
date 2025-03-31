@@ -36,9 +36,8 @@
 /* Availability macros to check for support */
 #define XNU_HAS_TRUST_CACHE_LOADING 1
 #define XNU_HAS_TRUST_CACHE_CHECK_RUNTIME_FOR_UUID 1
-#if kLibTrustCacheHasQueryForREM
 #define XNU_HAS_TRUST_CACHE_QUERY_FOR_REM 1
-#endif
+#define XNU_HAS_TRUST_CACHE_UNLOADING 1
 
 #ifdef XNU_PLATFORM_BridgeOS
 #define XNU_HAS_LEGACY_TRUST_CACHE_LOADING 1
@@ -51,6 +50,11 @@
 __BEGIN_DECLS
 
 #if XNU_KERNEL_PRIVATE
+
+/* Common variables which represent the number of loaded trust caches */
+extern uint32_t num_static_trust_caches;
+extern uint32_t num_engineering_trust_caches;
+extern uint32_t num_loadable_trust_caches;
 
 /* Temporary definition until we get a proper shared one */
 typedef struct DTTrustCacheRange {
@@ -104,6 +108,14 @@ static_trust_cache_capabilities(
 kern_return_t
 check_trust_cache_runtime_for_uuid(
 	const uint8_t check_uuid[kUUIDSize]);
+
+/**
+ * Unload a trust cache from the system given a UUID. Depending on the implementation, this
+ * may eiher genuinely unload the trust cache from the system, or it may simply tombstone
+ * the trust cache such that it can't be used any more.
+ */
+kern_return_t
+unload_trust_cache(uuid_t uuid);
 
 /**
  * Load an image4 trust cache. Since the type of trust cache isn't specified, this interface

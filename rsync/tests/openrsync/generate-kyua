@@ -1,5 +1,7 @@
 #! /bin/sh
 
+scriptdir=$(realpath $(dirname "$0"))
+
 test_counter=10000
 
 shebang=""
@@ -20,6 +22,8 @@ doit ()
     printf "#! %s\n\n" "$shebang"
 
 cat <<EOF
+trap '' USR1
+
 setup_sshkey()
 {
 	local ssh_authfile ssh_keydir ssh_keyfile ssh_keyname ssh_lockfile
@@ -78,15 +82,16 @@ EOF
 
     trap 'rm -f $requiref' EXIT
     requiref=$(mktemp -t rsync.test)
-    for file in test[0-9]*.test ; do
+    for testf in "$scriptdir"/test*.test ; do
         test_counter=$(($test_counter + 1))
         # name needs to conform to sh function identifier rules
-        name=`echo $file | sed 's/[- ]/_/g'`
+        file=$(basename "$testf")
+	name=$(echo "$file" | sed 's/[- ]/_/g')
         name=${name%%.*}
         names="$names $name"
 	requires=""
 	sed -nE 's/.*[[:space:]]atf:([^=]+)=([^[:space:]]+)/\1\t\2\n/g p' \
-	    "$file" > "$requiref"
+	    "$testf" > "$requiref"
 
 	# Collect "kyua:var=value" specs from the file
 	while read var value; do

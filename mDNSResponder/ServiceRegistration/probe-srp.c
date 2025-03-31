@@ -235,6 +235,11 @@ probe_srp_disconnected(comm_t *UNUSED connection, void *context, int UNUSED erro
     if (probe_state->service != NULL) {
         probe_srp_done(context, false);
     }
+
+    if (probe_state->wakeup != NULL) {
+        ioloop_cancel_wake_event(probe_state->wakeup);
+    }
+
     // Once we've gotten the connection disconnect event, we should not get any more callbacks from the connection
     // object.
     if (probe_state->connection != NULL) {

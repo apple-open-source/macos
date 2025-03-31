@@ -40,9 +40,11 @@
 #include "JSDOMFormData.h"
 #include "JSDOMPromiseDeferred.h"
 #include "TextResourceDecoder.h"
+#include <wtf/StdLibExtras.h>
 #include <wtf/StringExtras.h>
 #include <wtf/URLParser.h>
 #include <wtf/text/MakeString.h>
+#include <wtf/text/ParsingUtilities.h>
 
 namespace WebCore {
 
@@ -141,13 +143,15 @@ FetchBodyConsumer& FetchBodyConsumer::operator=(FetchBodyConsumer&&) = default;
 // https://fetch.spec.whatwg.org/#concept-body-package-data
 RefPtr<DOMFormData> FetchBodyConsumer::packageFormData(ScriptExecutionContext* context, const String& contentType, std::span<const uint8_t> data)
 {
+    static constexpr auto oneNewLine = "\r\n"_s;
     auto parseMultipartPart = [context] (std::span<const uint8_t> part, DOMFormData& form) -> bool {
-        auto* headerEnd = static_cast<const uint8_t*>(memmem(part.data(), part.size(), "\r\n\r\n", 4));
-        if (!headerEnd)
+        static constexpr auto twoNewLines = "\r\n\r\n"_span;
+        size_t headerEnd = find(part, twoNewLines);
+        if (headerEnd == notFound)
             return false;
-        auto headerBytes = part.first(static_cast<size_t>(headerEnd - part.data()));
+        auto headerBytes = part.first(headerEnd);
 
-        auto body = part.subspan(headerBytes.size() + strlen("\r\n\r\n"));
+        auto body = part.subspan(headerBytes.size() + twoNewLines.size());
 
         auto header = String::fromUTF8(headerBytes);
 
@@ -155,7 +159,8 @@ RefPtr<DOMFormData> FetchBodyConsumer::packageFormData(ScriptExecutionContext* c
         size_t contentDispositionBegin = header.findIgnoringASCIICase(contentDispositionCharacters);
         if (contentDispositionBegin == notFound)
             return false;
-        size_t contentDispositionEnd = header.find("\r\n"_s, contentDispositionBegin);
+
+        size_t contentDispositionEnd = header.find(oneNewLine, contentDispositionBegin);
         size_t contentDispositionParametersBegin = header.find(';', contentDispositionBegin + contentDispositionCharacters.length());
         if (contentDispositionParametersBegin != notFound)
             contentDispositionParametersBegin++;
@@ -174,7 +179,7 @@ RefPtr<DOMFormData> FetchBodyConsumer::packageFormData(ScriptExecutionContext* c
             size_t contentTypePrefixLength = contentTypeCharacters.length();
             size_t contentTypeBegin = header.findIgnoringASCIICase(contentTypeCharacters);
             if (contentTypeBegin != notFound) {
-                size_t contentTypeEnd = header.find("\r\n"_s, contentTypeBegin);
+                size_t contentTypeEnd = header.find(oneNewLine, contentTypeBegin);
                 contentType = StringView(header).substring(contentTypeBegin + contentTypePrefixLength, contentTypeEnd - contentTypeBegin - contentTypePrefixLength).trim(isASCIIWhitespaceWithoutFF<UChar>).toString();
             }
 
@@ -201,14 +206,15 @@ RefPtr<DOMFormData> FetchBodyConsumer::packageFormData(ScriptExecutionContext* c
         CString boundary = boundaryWithDashes.utf8();
         size_t boundaryLength = boundary.length();
 
-        auto* currentBoundary = static_cast<const uint8_t*>(memmem(data.data(), data.size(), boundary.data(), boundaryLength));
-        if (!currentBoundary)
+        size_t currentBoundaryIndex = find(data, boundary.span());
+        if (currentBoundaryIndex == notFound)
             return nullptr;
-        auto* nextBoundary = static_cast<const uint8_t*>(memmem(currentBoundary + boundaryLength, data.size() - (currentBoundary + boundaryLength - data.data()), boundary.data(), boundaryLength));
-        while (nextBoundary) {
-            parseMultipartPart(std::span { currentBoundary + boundaryLength, nextBoundary - currentBoundary - boundaryLength - strlen("\r\n") }, form.get());
-            currentBoundary = nextBoundary;
-            nextBoundary = static_cast<const uint8_t*>(memmem(nextBoundary + boundaryLength, data.size() - (nextBoundary + boundaryLength - data.data()), boundary.data(), boundaryLength));
+        skip(data, currentBoundaryIndex + boundaryLength);
+        size_t nextBoundaryIndex;
+        while ((nextBoundaryIndex = find(data, boundary.span())) != notFound) {
+            parseMultipartPart(data.first(nextBoundaryIndex - oneNewLine.length()), form.get());
+            currentBoundaryIndex = nextBoundaryIndex;
+            skip(data, nextBoundaryIndex + boundaryLength);
         }
     } else if (mimeType && equalLettersIgnoringASCIICase(mimeType->type, "application"_s) && equalLettersIgnoringASCIICase(mimeType->subtype, "x-www-form-urlencoded"_s)) {
         auto dataString = String::fromUTF8(data);

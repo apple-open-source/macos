@@ -110,6 +110,7 @@ public:
 	
 	// debug dump support (always there but stubbed out unless DEBUGDUMP)
 	virtual void debugDump(const char *what = NULL) const;
+    virtual CFStringRef createACLDebugString() const;
 
 public:
     class Entry {
@@ -194,6 +195,7 @@ public:
         void importBlob(Reader &pub, Reader &priv);
 		
 		IFDUMP(void debugDump() const);
+        CFStringRef createACLDebugString() const;
     };
 	
 public:

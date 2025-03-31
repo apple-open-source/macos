@@ -38,7 +38,7 @@ using namespace JSC;
 
 WTF_MAKE_TZONE_ALLOCATED_IMPL(IdentifierRep);
 
-typedef HashSet<IdentifierRep*> IdentifierSet;
+typedef UncheckedKeyHashSet<IdentifierRep*> IdentifierSet;
 
 static IdentifierSet& identifierSet()
 {
@@ -46,7 +46,7 @@ static IdentifierSet& identifierSet()
     return identifierSet;
 }
     
-typedef HashMap<int, IdentifierRep*> IntIdentifierMap;
+using IntIdentifierMap = HashMap<int, IdentifierRep*>;
 
 static IntIdentifierMap& intIdentifierMap()
 {
@@ -57,13 +57,13 @@ static IntIdentifierMap& intIdentifierMap()
 IdentifierRep* IdentifierRep::get(int intID)
 {
     if (intID == 0 || intID == -1) {
-        static IdentifierRep* negativeOneAndZeroIdentifiers[2];
+        static NeverDestroyed<std::array<IdentifierRep*, 2>> negativeOneAndZeroIdentifiers;
 
-        IdentifierRep* identifier = negativeOneAndZeroIdentifiers[intID + 1];
+        auto* identifier = negativeOneAndZeroIdentifiers.get()[intID + 1];
         if (!identifier) {
             identifier = new IdentifierRep(intID);
 
-            negativeOneAndZeroIdentifiers[intID + 1] = identifier;
+            negativeOneAndZeroIdentifiers.get()[intID + 1] = identifier;
         }
         
         return identifier;
@@ -80,7 +80,7 @@ IdentifierRep* IdentifierRep::get(int intID)
     return result.iterator->value;
 }
 
-typedef HashMap<RefPtr<StringImpl>, IdentifierRep*> StringIdentifierMap;
+using StringIdentifierMap = HashMap<RefPtr<StringImpl>, IdentifierRep*>;
 
 static StringIdentifierMap& stringIdentifierMap()
 {
@@ -94,7 +94,7 @@ IdentifierRep* IdentifierRep::get(const char* name)
     if (!name)
         return nullptr;
   
-    String string = String::fromUTF8WithLatin1Fallback(span(name));
+    String string = String::fromUTF8WithLatin1Fallback(unsafeSpan(name));
     StringIdentifierMap::AddResult result = stringIdentifierMap().add(string.impl(), nullptr);
     if (result.isNewEntry) {
         ASSERT(!result.iterator->value);

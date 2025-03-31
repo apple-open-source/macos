@@ -85,7 +85,7 @@ private:
     void handleGesture(WPEEvent*);
 
     GRefPtr<WPEView> m_wpeView;
-    std::unique_ptr<WebKit::AcceleratedBackingStoreDMABuf> m_backingStore;
+    RefPtr<WebKit::AcceleratedBackingStoreDMABuf> m_backingStore;
     uint32_t m_displayID { 0 };
     unsigned long m_bufferRenderedID { 0 };
     CompletionHandler<void()> m_nextPresentationUpdateCallback;

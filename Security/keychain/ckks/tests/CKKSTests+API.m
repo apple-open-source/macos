@@ -28,6 +28,7 @@
 #import <OCMock/OCMock.h>
 
 #include <Security/SecItemPriv.h>
+#include <Security/SecItemInternal.h>
 #include "OSX/sec/Security/SecItemShim.h"
 
 #include <Security/SecEntitlements.h>
@@ -138,6 +139,45 @@
 }
 @end
 
+@interface CloudKitKeychainSyncingAPITestsWithNoAccessGroups : CloudKitKeychainSyncingTestsBase
+@end
+
+static NSArray *savedAccessGroups;
+
+@implementation CloudKitKeychainSyncingAPITestsWithNoAccessGroups
++ (void)setUp {
+    savedAccessGroups = [NSArray arrayWithArray:(__bridge NSArray*)SecAccessGroupsGetCurrent()];
+    SecAccessGroupsSetCurrent(NULL);
+    [super setUp];
+}
+
++ (void)tearDown {
+    [super tearDown];
+    SecAccessGroupsSetCurrent((__bridge CFArrayRef)savedAccessGroups);
+}
+
+- (void)testAddAndNotifyOnSyncNoAccessGroups {
+    NSMutableDictionary* query = [@{
+                                    (id)kSecClass : (id)kSecClassGenericPassword,
+                                    (id)kSecAttrAccessGroup : @"com.apple.security.ckks",
+                                    (id)kSecAttrAccessible: (id)kSecAttrAccessibleAfterFirstUnlock,
+                                    (id)kSecAttrAccount : @"testaccount",
+                                    (id)kSecAttrSynchronizable : (id)kCFBooleanTrue,
+                                    (id)kSecAttrSyncViewHint : self.keychainView.zoneName,
+                                    (id)kSecValueData : (id) [@"asdf" dataUsingEncoding:NSUTF8StringEncoding],
+                                    } mutableCopy];
+
+    XCTestExpectation* blockExpectation = [self expectationWithDescription: @"callback occurs"];
+    blockExpectation.inverted = true;
+
+    XCTAssertEqual(errSecMissingEntitlement, _SecItemAddAndNotifyOnSync((__bridge CFDictionaryRef) query, NULL, ^(bool didSync, CFErrorRef error) {
+        [blockExpectation fulfill];
+    }), @"_SecItemAddAndNotifyOnSync failed");
+
+    [self waitForExpectationsWithTimeout:5.0 handler:nil];
+}
+@end
+
 @interface CloudKitKeychainSyncingAPITests : CloudKitKeychainSyncingTestsBase
 @end
 
@@ -188,6 +228,7 @@
     XCTestExpectation* blockExpectation = [self expectationWithDescription: @"callback occurs"];
 
     XCTAssertEqual(errSecSuccess, _SecItemAddAndNotifyOnSync((__bridge CFDictionaryRef) query, NULL, ^(bool didSync, CFErrorRef error) {
+
         XCTAssertTrue(didSync, "Item synced properly");
         XCTAssertNil((__bridge NSError*)error, "No error syncing item");
 
@@ -195,6 +236,69 @@
     }), @"_SecItemAddAndNotifyOnSync succeeded");
 
     OCMVerifyAllWithDelay(self.mockDatabase, 10);
+
+    [self waitForExpectationsWithTimeout:5.0 handler:nil];
+}
+
+- (void)testAddAndNotifyOnSyncBadAttribute {
+    NSMutableDictionary* query = [@{
+                                    (id)kSecClass : (id)kSecClassGenericPassword,
+                                    (id)kSecAttrAccessGroup : @"com.apple.security.ckks",
+                                    (id)kSecAttrAccessible: (id)kSecAttrAccessibleAfterFirstUnlock,
+                                    (id)kSecAttrAccount : @"testaccount",
+                                    (id)kSecAttrSynchronizable : (id)kCFBooleanTrue,
+                                    (id)kSecAttrSyncViewHint : self.keychainView.zoneName,
+                                    (id)kSecValueData : (id) [@"asdf" dataUsingEncoding:NSUTF8StringEncoding],
+                                    (__bridge NSString*)kSecAttrAppClipItem: @"does-not-matter",
+                                    } mutableCopy];
+
+    XCTestExpectation* blockExpectation = [self expectationWithDescription: @"callback occurs"];
+    blockExpectation.inverted = true;
+
+    XCTAssertEqual(errSecParam, _SecItemAddAndNotifyOnSync((__bridge CFDictionaryRef) query, NULL, ^(bool didSync, CFErrorRef error) {
+        [blockExpectation fulfill];
+    }), @"_SecItemAddAndNotifyOnSync failed");
+
+    [self waitForExpectationsWithTimeout:5.0 handler:nil];
+}
+
+- (void)testAddAndNotifyOnSyncNoClass {
+    NSMutableDictionary* query = [@{
+                                    (id)kSecAttrAccessGroup : @"com.apple.security.ckks",
+                                    (id)kSecAttrAccessible: (id)kSecAttrAccessibleAfterFirstUnlock,
+                                    (id)kSecAttrAccount : @"testaccount",
+                                    (id)kSecAttrSynchronizable : (id)kCFBooleanTrue,
+                                    (id)kSecAttrSyncViewHint : self.keychainView.zoneName,
+                                    (id)kSecValueData : (id) [@"asdf" dataUsingEncoding:NSUTF8StringEncoding],
+                                    } mutableCopy];
+
+    XCTestExpectation* blockExpectation = [self expectationWithDescription: @"callback occurs"];
+    blockExpectation.inverted = true;
+
+    XCTAssertEqual(errSecParam, _SecItemAddAndNotifyOnSync((__bridge CFDictionaryRef) query, NULL, ^(bool didSync, CFErrorRef error) {
+        [blockExpectation fulfill];
+    }), @"_SecItemAddAndNotifyOnSync failed");
+
+    [self waitForExpectationsWithTimeout:5.0 handler:nil];
+}
+
+- (void)testAddAndNotifyOnSyncExplicitAccessGroup {
+    NSMutableDictionary* query = [@{
+                                    (id)kSecClass : (id)kSecClassGenericPassword,
+                                    (id)kSecAttrAccessGroup : @"com.example.some.access.group",
+                                    (id)kSecAttrAccessible: (id)kSecAttrAccessibleAfterFirstUnlock,
+                                    (id)kSecAttrAccount : @"testaccount",
+                                    (id)kSecAttrSynchronizable : (id)kCFBooleanTrue,
+                                    (id)kSecAttrSyncViewHint : self.keychainView.zoneName,
+                                    (id)kSecValueData : (id) [@"asdf" dataUsingEncoding:NSUTF8StringEncoding],
+                                    } mutableCopy];
+
+    XCTestExpectation* blockExpectation = [self expectationWithDescription: @"callback occurs"];
+    blockExpectation.inverted = true;
+
+    XCTAssertEqual(errSecMissingEntitlement, _SecItemAddAndNotifyOnSync((__bridge CFDictionaryRef) query, NULL, ^(bool didSync, CFErrorRef error) {
+        [blockExpectation fulfill];
+    }), @"_SecItemAddAndNotifyOnSync failed");
 
     [self waitForExpectationsWithTimeout:5.0 handler:nil];
 }
@@ -2139,6 +2243,224 @@
 
     [self waitForExpectations:@[statusCallbackOccurs, rpcFetchCallbackOccurs] timeout:20];
     OCMVerifyAllWithDelay(self.mockDatabase, 20);
+}
+
+- (void)testInitialSyncNotFinished {
+    [self putFakeKeyHierarchyInCloudKit:self.keychainZoneID];
+    [self putSelfTLKSharesInCloudKit:self.keychainZoneID];
+
+    [self holdCloudKitFetches];
+    [self startCKKSSubsystem];
+    
+    XCTestExpectation* initialSyncStatusExpectation = [self expectationWithDescription: @"initialSyncStatus callback occured"];
+    [self.ckksControl initialSyncStatus:self.keychainZoneID.zoneName reply:^(BOOL result, NSError * _Nullable error) {
+        XCTAssertFalse(result, "Should not have completed initial sync");
+        [initialSyncStatusExpectation fulfill];
+    }];
+
+    [self waitForExpectations:@[initialSyncStatusExpectation] timeout:5];
+}
+
+- (void)testInitialSyncQueryWhileMoreComing {
+    [self putFakeKeyHierarchyInCloudKit:self.keychainZoneID];
+    [self putSelfTLKSharesInCloudKit:self.keychainZoneID];
+
+    [self.keychainZone addToZone: [self createFakeRecord: self.keychainZoneID recordName:@"7B598D31-0000-0000-0000-5A507ACB2D00" withAccount:@"account0"]];
+    FakeCKServerChangeToken* ck1 = self.keychainZone.currentChangeToken;
+    [self.keychainZone addToZone: [self createFakeRecord: self.keychainZoneID recordName:@"7B598D31-0000-0000-0000-5A507ACB2D01" withAccount:@"account1"]];
+
+    self.keychainZone.limitFetchTo = ck1;
+
+    self.silentFetchesAllowed = false;
+    [self expectCKFetchWithFilter:^BOOL(FakeCKFetchRecordZoneChangesOperation * _Nonnull) {
+        return YES;
+    } runBeforeFinished:^{
+        // Client asks for initial sync status before next fetch occurs.
+        XCTestExpectation* initialSyncStatusFailsExpectation = [self expectationWithDescription: @"initialSyncStatus callback occured"];
+        [self.ckksControl initialSyncStatus:self.keychainZoneID.zoneName reply:^(BOOL result, NSError * _Nullable error) {
+            XCTAssertFalse(result, "Should not have completed initial sync");
+            [initialSyncStatusFailsExpectation fulfill];
+        }];
+        [self waitForExpectations:@[initialSyncStatusFailsExpectation] timeout:5];
+    }];
+
+    [self startCKKSSubsystem];
+    
+    // Now, we get the second half of the fetch.
+    [self expectCKFetchWithFilter:^BOOL(FakeCKFetchRecordZoneChangesOperation * _Nonnull frzco) {
+        FakeCKServerChangeToken* changeToken = [FakeCKServerChangeToken decodeCKServerChangeToken:frzco.configurationsByRecordZoneID[self.keychainZoneID].previousServerChangeToken];
+        if(changeToken && [changeToken.token isEqual:ck1.token]) {
+            return YES;
+        } else {
+            return NO;
+        }
+    } runBeforeFinished:^{}];
+
+    OCMVerifyAllWithDelay(self.mockDatabase, 10);
+    [self.defaultCKKS waitForFetchAndIncomingQueueProcessing];
+    
+    XCTestExpectation* initialSyncStatusExpectation = [self expectationWithDescription: @"initialSyncStatus callback occured"];
+    [self.ckksControl initialSyncStatus:self.keychainZoneID.zoneName reply:^(BOOL result, NSError * _Nullable error) {
+        XCTAssertTrue(result, "Should have completed initial sync");
+        [initialSyncStatusExpectation fulfill];
+    }];
+
+    [self waitForExpectations:@[initialSyncStatusExpectation] timeout:5];
+
+}
+
+- (void)testInitialSyncZoneStateEntryNotFound {
+    [self putFakeKeyHierarchyInCloudKit:self.keychainZoneID];
+    [self putSelfTLKSharesInCloudKit:self.keychainZoneID];
+    
+    [self startCKKSSubsystem];
+    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:10*NSEC_PER_SEC], @"Key state should have arrived at ready");
+    XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateReady] wait:10*NSEC_PER_SEC], @"CKKS state machine should enter ready");
+
+    XCTestExpectation* initialSyncStatusExpectation = [self expectationWithDescription: @"initialSyncStatus callback occured"];
+    [self.ckksControl initialSyncStatus:@"VIEW-DNE" reply:^(BOOL result, NSError * _Nullable error) {
+        XCTAssertFalse(result, "Should not have completed initial sync");
+        XCTAssertNotNil(error);
+        XCTAssertEqual(error.code, errSecItemNotFound, "Should not have found CKZSE for non-existent view");
+        [initialSyncStatusExpectation fulfill];
+    }];
+
+    [self waitForExpectations:@[initialSyncStatusExpectation] timeout:5];
+}
+
+- (void)testInitialSyncStatusPendingClassAEntries {
+    [self putFakeKeyHierarchyInCloudKit:self.keychainZoneID];
+    [self putSelfTLKSharesInCloudKit:self.keychainZoneID];
+    
+    [self.keychainZone addToZone:[self createFakeRecord:self.keychainZoneID recordName:@"7B598D31-F9C5-481E-98AC-5A507ACB2D85" withAccount:@"classCItem" key:self.keychainZoneKeys.classC]];
+    [self.keychainZone addToZone:[self createFakeRecord:self.keychainZoneID recordName:@"7B598D31-FFFF-FFFF-FFFF-5A507ACB2D85" withAccount:@"classAItem" key:self.keychainZoneKeys.classA]];
+    
+    [self holdCloudKitFetches];
+    [self startCKKSSubsystem];
+
+    // 'Lock' the keybag
+    self.aksLockState = true;
+    [self.lockStateTracker recheck];
+
+    [self releaseCloudKitFetchHold];
+
+    // Now wait for initial fetch
+    [self.defaultCKKS waitForFetchAndIncomingQueueProcessing];
+
+    // Key hierarchy should be 'waitforunlock' after remote key processing
+    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateWaitForUnlock] wait:20*NSEC_PER_SEC], "Key state should be 'waitforunlock'");
+    XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateReady] wait:20*NSEC_PER_SEC], "CKKS state machine should enter ready");
+
+    XCTestExpectation* initialSyncStatusExpectation = [self expectationWithDescription: @"initialSyncStatus callback occured"];
+    [self.ckksControl initialSyncStatus:self.keychainZoneID.zoneName reply:^(BOOL result, NSError * _Nullable error) {
+        XCTAssertFalse(result, "Should not have completed initial sync");
+        [initialSyncStatusExpectation fulfill];
+    }];
+    [self waitForExpectations:@[initialSyncStatusExpectation] timeout:5];
+    
+    // Unlock the keybag
+    self.aksLockState = false;
+    [self.lockStateTracker recheck];
+
+    // Wait for CKKS to try processing the incoming queue again.
+    XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateProcessIncomingQueue] wait:10*NSEC_PER_SEC], @"CKKS state machine should enter 'processincomingqueue'");
+    [self.defaultCKKS waitForFetchAndIncomingQueueProcessing];
+    
+    XCTestExpectation* initialSyncStatusCompletedExpectation = [self expectationWithDescription: @"initialSyncStatus callback occured"];
+    [self.ckksControl initialSyncStatus:self.keychainZoneID.zoneName reply:^(BOOL result, NSError * _Nullable error) {
+        XCTAssertTrue(result, "Should have completed initial sync");
+        [initialSyncStatusCompletedExpectation fulfill];
+    }];
+    [self waitForExpectations:@[initialSyncStatusCompletedExpectation] timeout:5];
+}
+
+- (void)testInitialSyncStatusOnLocalReset {
+    // Test starts with nothing in database, but one in our fake CloudKit.
+    [self putFakeKeyHierarchyInCloudKit:self.keychainZoneID];
+    [self expectCKKSTLKSelfShareUpload:self.keychainZoneID];
+    [self saveTLKMaterialToKeychainSimulatingSOS:self.keychainZoneID];
+
+    // Spin up CKKS subsystem.
+    [self startCKKSSubsystem];
+
+    // We expect a single record to be uploaded
+    [self expectCKModifyItemRecords: 1 currentKeyPointerRecords: 1 zoneID:self.keychainZoneID checkItem: [self checkClassCBlock:self.keychainZoneID message:@"Object was encrypted under class C key in hierarchy"]];
+    [self addGenericPassword: @"data" account: @"account-delete-me"];
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
+
+    // Normally, we'd fetch after a local reset. What happens if we don't let that fetch happen?
+    [self holdCloudKitFetches];
+
+    // Wait for local reset to happen
+    XCTestExpectation* resetExpectation = [self expectationWithDescription: @"local reset callback occurs"];
+    [self.injectedManager rpcResetLocal:nil reply:^(NSError* result) {
+        XCTAssertNil(result, "no error resetting local");
+        [resetExpectation fulfill];
+    }];
+    [self waitForExpectations:@[resetExpectation] timeout:20];
+
+    // Check initialSyncStatus
+    XCTestExpectation* initialSyncStatusExpectation = [self expectationWithDescription: @"initialSyncStatus callback occured"];
+    [self.ckksControl initialSyncStatus:self.keychainZoneID.zoneName reply:^(BOOL result, NSError * _Nullable error) {
+        XCTAssertFalse(result, "Should not have completed initial sync");
+        [initialSyncStatusExpectation fulfill];
+    }];
+    [self waitForExpectations:@[initialSyncStatusExpectation] timeout:5];
+
+    // Let fetch go through
+    [self releaseCloudKitFetchHold];
+    // We'll wait for CKKS to try processing the incoming queue again.
+    XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateProcessIncomingQueue] wait:10*NSEC_PER_SEC], @"CKKS state machine should enter 'processincomingqueue'");
+    [self.defaultCKKS waitForFetchAndIncomingQueueProcessing];
+    
+    XCTestExpectation* initialSyncStatusCompletesExpectation = [self expectationWithDescription: @"initialSyncStatus callback occured"];
+    [self.ckksControl initialSyncStatus:self.keychainZoneID.zoneName reply:^(BOOL result, NSError * _Nullable error) {
+        XCTAssertTrue(result, "Should have completed initial sync");
+        [initialSyncStatusCompletesExpectation fulfill];
+    }];
+    [self waitForExpectations:@[initialSyncStatusCompletesExpectation] timeout:5];
+
+}
+
+- (void)testInitialSyncStatusOnCKLogOut {
+    // Test starts with local TLK and key hierarchy in our fake cloudkit
+    [self putFakeKeyHierarchyInCloudKit:self.keychainZoneID];
+    [self saveTLKMaterialToKeychainSimulatingSOS:self.keychainZoneID];
+    self.silentFetchesAllowed = false;
+
+    // Spin up CKKS subsystem. It should fetch once.
+    [self expectCKFetch];
+    XCTAssertNotEqual(0, [self.defaultCKKS.accountStateKnown wait:50*NSEC_PER_MSEC], "CKKS shouldn't know the account state");
+    [self.defaultCKKS.stateMachine testPauseStateMachineAfterEntering:CKKSStateFetch];
+    [self startCKKSSubsystem];
+
+    // Wait till we're fully logged in
+    XCTAssertEqual(0, [self.defaultCKKS.loggedIn wait:2000*NSEC_PER_MSEC], "Should have been told of a 'login'");
+    XCTAssertNotEqual(0, [self.defaultCKKS.loggedOut wait:100*NSEC_PER_MSEC], "'logout' event should be reset");
+    XCTAssertEqual(0, [self.defaultCKKS.accountStateKnown wait:50*NSEC_PER_MSEC], "CKKS should know the account state");
+
+    // Simulate a cloudkit logout and NSNotification callback
+    self.accountStatus = CKAccountStatusNoAccount;
+    [self.accountStateTracker notifyCKAccountStatusChangeAndWaitForSignal];
+    self.mockSOSAdapter.circleStatus = kSOSCCNotInCircle;
+    [self.accountStateTracker notifyCircleStatusChangeAndWaitForSignal];
+    [self endSOSTrustedOperationForAllViews];
+
+    // Log out event should be occurring
+    XCTAssertEqual(0,    [self.defaultCKKS.loggedOut wait:2000*NSEC_PER_MSEC], "Should have been told of a 'logout'");
+    XCTAssertNotEqual(0, [self.defaultCKKS.loggedIn wait:100*NSEC_PER_MSEC], "'login' event should be reset");
+    XCTAssertEqual(0,    [self.defaultCKKS.accountStateKnown wait:50*NSEC_PER_MSEC], "CKKS should know the account state");
+
+    [self.defaultCKKS.stateMachine testReleaseStateMachinePause:CKKSStateFetch];
+
+    // Check initialSyncStatus
+    XCTestExpectation* initialSyncStatusExpectation = [self expectationWithDescription: @"initialSyncStatus callback occured"];
+    [self.ckksControl initialSyncStatus:self.keychainZoneID.zoneName reply:^(BOOL result, NSError * _Nullable error) {
+        XCTAssertFalse(result, "Should not have completed initial sync");
+        [initialSyncStatusExpectation fulfill];
+    }];
+    [self waitForExpectations:@[initialSyncStatusExpectation] timeout:5];
+
 }
 
 @end

@@ -24,7 +24,10 @@
 #ifndef __SUBSYSTEM_H__
 #define __SUBSYSTEM_H__
 
+#include <_bounds.h>
 #include <sys/stat.h>
+
+_LIBC_SINGLE_BY_DEFAULT()
 
 __BEGIN_DECLS
 /*

@@ -32,6 +32,7 @@
 #include "WebExtensionAPIWindowsEvent.h"
 #include "WebExtensionWindow.h"
 #include "WebExtensionWindowIdentifier.h"
+#include "WebPageProxyIdentifier.h"
 
 OBJC_CLASS NSDictionary;
 OBJC_CLASS NSString;
@@ -52,8 +53,8 @@ public:
 
     void createWindow(NSDictionary *data, Ref<WebExtensionCallbackHandler>&&, NSString **outExceptionString);
 
-    void get(WebPage&, double windowID, NSDictionary *info, Ref<WebExtensionCallbackHandler>&&, NSString **outExceptionString);
-    void getCurrent(WebPage&, NSDictionary *info, Ref<WebExtensionCallbackHandler>&&, NSString **outExceptionString);
+    void get(WebPageProxyIdentifier, double windowID, NSDictionary *info, Ref<WebExtensionCallbackHandler>&&, NSString **outExceptionString);
+    void getCurrent(WebPageProxyIdentifier, NSDictionary *info, Ref<WebExtensionCallbackHandler>&&, NSString **outExceptionString);
     void getLastFocused(NSDictionary *info, Ref<WebExtensionCallbackHandler>&&, NSString **outExceptionString);
     void getAll(NSDictionary *info, Ref<WebExtensionCallbackHandler>&&, NSString **outExceptionString);
 

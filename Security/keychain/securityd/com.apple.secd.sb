@@ -31,6 +31,8 @@
     (preference-domain "com.apple.facetime.bag"))
 (allow user-preference-read user-preference-write
     (preference-domain "com.apple.security.sosaccount"))
+(allow user-preference-write
+    (preference-domain "com.apple.security"))
 
 (allow distributed-notification-post)
 
@@ -69,6 +71,9 @@
         (global-name "com.apple.keychainsharingmessagingd")
         (global-name "com.apple.AuthenticationServices.CredentialSharingGroups")
         (global-name "com.apple.mobile.usermanagerd.xpc")
+        (global-name "com.apple.coreservices.quarantine-resolver")
+        (global-name "com.apple.lsd.mapdb")
+        (global-name "com.apple.UNCUserNotification")
 )
 
 ;; Used to send logs for MoiC.
@@ -82,3 +87,6 @@
 
 (allow network-outbound)
 (allow system-socket)
+
+(with-filter (system-attribute apple-internal)
+    (allow lsopen))

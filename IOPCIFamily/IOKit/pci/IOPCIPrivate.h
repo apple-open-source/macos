@@ -166,6 +166,9 @@ struct IOPCIDeviceExpansionData
 
 	bool hardwareResetNeeded;
 	bool clientCrashed;
+
+	uint8_t linkDepth;
+	uint64_t linkUpTimestamp;
 };
 
 enum
@@ -712,8 +715,10 @@ public:
     uint16_t           _aspmDefault;
     uint32_t           _l1ssOverride;
 	bool               systemActive(void);
+	bool               systemWaking(void);
 private:
 	uint32_t           _systemActive;
+	uint32_t           _systemWaking;
 	IOTimerEventSource*     _powerAssertionTimer;
 	IOPMDriverAssertionID   _powerAssertion;
 

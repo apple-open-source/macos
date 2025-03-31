@@ -19,7 +19,7 @@
 #include "aom_ports/mem.h"
 #include "config/av1_rtcd.h"
 
-static INLINE void diffwtd_mask_highbd_neon(uint8_t *mask, bool inverse,
+static inline void diffwtd_mask_highbd_neon(uint8_t *mask, bool inverse,
                                             const uint16_t *src0,
                                             int src0_stride,
                                             const uint16_t *src1,

@@ -49,7 +49,8 @@ T_DECL(allocate, "allocate", T_META_TAG_VM_PREFERRED)
 	zone.max_allocations = 2; // is_full
 	zone.num_slots = 2; zone.rr_slot_index = 1; // choose_available_slot
 	zone.max_metadata = 4; zone.num_metadata = 2; // choose_metadata
-	expected_upper_bound = 2; rand_ret_value = false; // choose_offset_on_page
+	zone.left_align_pct = 10; // choose_offset_on_page
+	expected_upper_bound = 100; rand_ret_value = 10; // choose_offset_on_page
 	expected_trace_buffers[0] = metadata[2].trace_buffer; // capture_trace
 	expected_trace_sizes[0] = 216; collect_trace_ret_value = 88;
 	zone.begin = 640000; // page_addr
@@ -110,7 +111,8 @@ T_DECL(reallocate_guarded_to_sampled, "reallocate: guarded -> sampled", T_META_T
 	slots[0] = (slot_t){ .state = ss_allocated, .metadata = 1, .size = 5 }; // lookup_size
 	zone.max_allocations = 2; // is_full
 	zone.num_slots = 2; // allocate
-	expected_upper_bound = 2; rand_ret_value = true; // allocate -> choose_offset_on_page
+	zone.left_align_pct = 10; // allocate -> choose_offset_on_page
+	expected_upper_bound = 100; rand_ret_value = 9; // allocate -> choose_offset_on_page
 	zone.max_metadata = 1; // allocate -> choose_metadata
 	expected_trace_buffers[0] = metadata[0].trace_buffer; // allocate -> capture_trace
 	expected_trace_sizes[0] = 216;
@@ -129,7 +131,8 @@ T_DECL(reallocate_unguarded_to_sampled, "reallocate: unguarded -> sampled", T_ME
 	expected_size_ptr = 1337; size_ret_value = 5; // wrapped_size
 	zone.max_allocations = 2; // is_full
 	zone.num_slots = 2; // allocate
-	expected_upper_bound = 2; rand_ret_value = true; // allocate -> choose_offset_on_page
+	zone.left_align_pct = 10; // allocate -> choose_offset_on_page
+	expected_upper_bound = 100; rand_ret_value = 9; // allocate -> choose_offset_on_page
 	zone.max_metadata = 1; // allocate -> choose_metadata
 	expected_trace_buffers[0] = metadata[0].trace_buffer; // allocate -> capture_trace
 	expected_trace_sizes[0] = 216;

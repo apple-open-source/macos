@@ -1,0 +1,99 @@
+#! /bin/sh
+
+. ${tstdir-.}/daemon.sh
+. ${tstdir-.}/lib.sh
+. ${tstdir-.}/conf.sh
+
+dest="$PWD/ftp"
+cfgfile="$PWD/rsyncd.conf"
+scratch="$PWD/scratch"
+
+rm -rf "$dest" "$scratch"
+
+mkdir "$dest"
+
+:> "$dest"/permissive
+chmod ugo=rwx "$dest"/permissive
+
+cat <<EOF > "$cfgfile"
+use chroot = no
+read only = no
+
+[none]
+	path = $dest
+[incoming]
+	path = $dest
+	incoming chmod = ugo=r
+[outgoing]
+	path = $dest
+	outgoing chmod = ugo=r
+[both]
+	path = $dest
+	incoming chmod = ugo=r
+	outgoing chmod = ugo=r
+EOF
+
+rsyncd "$cfgfile"
+dport=$(daemon_port)
+
+check_perms() {
+	local mode chkfile
+
+	mode="$1"
+	chkfile="$2"
+
+	if ! find "$chkfile" -perm "$mode" | grep -q '.'; then
+		return 1
+	fi
+}
+
+mkdir -p "$scratch"
+
+# Test neither
+command $RSYNC_CLIENT -p rsync://localhost:$dport/none/permissive \
+    "$scratch"
+if ! check_perms ugo=rwx "$scratch"/permissive; then
+	1>&2 echo "Bad permissions on non-chmod module"
+	1>&2 ls -l "$scratch"
+	exit 1
+fi
+
+rm "$scratch"/permissive
+
+# Test incoming
+command $RSYNC_CLIENT -p "$dest"/permissive \
+    rsync://localhost:$dport/incoming/permissive.incoming
+if ! check_perms ugo=r "$dest"/permissive.incoming; then
+	1>&2 echo "Bad permissions on incoming module"
+	1>&2 ls -l "$dest"
+	exit 1
+fi
+
+rm -f "$dest"/permissive.incoming
+
+# Test outgoing
+command $RSYNC_CLIENT -p rsync://localhost:$dport/outgoing/permissive \
+    "$scratch"/permissive.outgoing
+if ! check_perms ugo=r "$scratch"/permissive.outgoing; then
+	1>&2 echo "Bad permissions on outgoing module"
+	1>&2 ls -l "$scratch"
+	exit 1
+fi
+
+rm -f "$scratch"/permissive.outgoing
+
+# Test both
+command $RSYNC_CLIENT -p "$dest"/permissive \
+    rsync://localhost:$dport/both/permissive.incoming
+if ! check_perms ugo=r "$dest"/permissive.incoming; then
+	1>&2 echo "Bad permissions on both module, incoming"
+	1>&2 ls -l "$dest"
+	exit 1
+fi
+command $RSYNC_CLIENT -p rsync://localhost:$dport/both/permissive \
+    "$scratch"/permissive.outgoing
+if ! check_perms ugo=r "$scratch"/permissive.outgoing; then
+	1>&2 echo "Bad permissions on both module, outgoing"
+	1>&2 ls -l "$scratch"
+	exit 1
+fi

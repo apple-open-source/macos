@@ -127,8 +127,8 @@
 NSString* OTCuttlefishContextErrorDomain = @"otcuttlefish";
 static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
 static dispatch_time_t OctagonStateTransitionTimeoutForTests = 20*NSEC_PER_SEC;
-static dispatch_time_t OctagonStateTransitionTimeoutForLongOps = 120*NSEC_PER_SEC;
-static dispatch_time_t OctagonStateTransitionTimeoutForLongOpsSlowDevices = 240*NSEC_PER_SEC;
+static dispatch_time_t OctagonStateTransitionTimeoutForLongOps = 500*NSEC_PER_SEC;
+static dispatch_time_t OctagonStateTransitionTimeoutForLongOpsSlowDevices = 1000*NSEC_PER_SEC;
 static dispatch_time_t OctagonNFSOneHour = 3600*NSEC_PER_SEC;
 static dispatch_time_t OctagonNFSTwoSeconds = 2*NSEC_PER_SEC;
 
@@ -780,8 +780,6 @@ static dispatch_time_t OctagonNFSTwoSeconds = 2*NSEC_PER_SEC;
     BOOL internal = SecIsInternalRelease();
 
     [self.cuttlefishXPCWrapper performCKServerUnreadableDataRemovalWithSpecificUser:self.activeAccount
-                                                                    internalAccount:internal
-                                                                        demoAccount:isAccountDemo
                                                                               reply:^(NSError * _Nullable removeError) {
         if (removeError) {
             secerror("octagon-perform-ckserver-unreadable-data-removal: failed with error: %@", removeError);
@@ -3015,7 +3013,7 @@ static dispatch_time_t OctagonNFSTwoSeconds = 2*NSEC_PER_SEC;
     __block bool accountStatusKnown = false;
     dispatch_sync(self.queue, ^{
         accountStatusKnown = (self.cloudKitAccountInfo != nil);
-        haveAccount = (self.cloudKitAccountInfo != nil) && self.cloudKitAccountInfo.accountStatus == CKKSAccountStatusAvailable;
+        haveAccount = (self.cloudKitAccountInfo != nil) && self.cloudKitAccountInfo.accountStatus == CKAccountStatusAvailable;
     });
 
     if(!accountStatusKnown || !haveAccount) {
@@ -3029,7 +3027,7 @@ static dispatch_time_t OctagonNFSTwoSeconds = 2*NSEC_PER_SEC;
         // After the above call finishes, we should have a fresh value in self.cloudKitAccountInfo
         dispatch_sync(self.queue, ^{
             accountStatusKnown = (self.cloudKitAccountInfo != nil);
-            haveAccount = (self.cloudKitAccountInfo != nil) && self.cloudKitAccountInfo.accountStatus == CKKSAccountStatusAvailable;
+            haveAccount = (self.cloudKitAccountInfo != nil) && self.cloudKitAccountInfo.accountStatus == CKAccountStatusAvailable;
         });
         secnotice("octagon-ck", "After refetch, CK account status(%@) is %@", self.contextID, haveAccount ? @"present" : @"missing");
     }

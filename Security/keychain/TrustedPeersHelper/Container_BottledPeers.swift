@@ -19,6 +19,10 @@ extension Container {
     }
 
     func preflightVouchWithBottle(bottleID: String,
+                                  altDSID: String?,
+                                  flowID: String?,
+                                  deviceSessionID: String?,
+                                  canSendMetrics: Bool,
                                   reply: @escaping (String?, TPSyncingPolicy?, Bool, Error?) -> Void) {
         let sem = self.grabSemaphore()
         let reply: (String?, TPSyncingPolicy?, Bool, Error?) -> Void = {
@@ -28,8 +32,18 @@ extension Container {
         }
 
         self.moc.performAndWait {
+            let eventS = AAFAnalyticsEventSecurity(keychainCircleMetrics: nil,
+                                                   altDSID: altDSID,
+                                                   flowID: flowID,
+                                                   deviceSessionID: deviceSessionID,
+                                                   eventName: kSecurityRTCEventNamePreflightVouchWithBottle,
+                                                   testsAreEnabled: soft_MetricsOverrideTestsAreEnabled(),
+                                                   canSendMetrics: canSendMetrics,
+                                                   category: kSecurityRTCEventCategoryAccountDataAccessRecovery)
+
             do {
                 let (_, peerID, syncingPolicy) = try self.onMOCQueuePerformPreflight(bottleID: bottleID)
+                SecurityAnalyticsReporterRTC.sendMetric(withEvent: eventS, success: true, error: nil)
                 reply(peerID, syncingPolicy, false, nil)
             } catch {
                 logger.info("preflightVouchWithBottle failed; forcing refetch and retrying: \(String(describing: error), privacy: .public)")
@@ -37,6 +51,7 @@ extension Container {
                 self.fetchAndPersistChanges { fetchError in
                     guard fetchError == nil else {
                         logger.info("preflightVouchWithBottle unable to fetch current peers: \(String(describing: fetchError), privacy: .public)")
+                        SecurityAnalyticsReporterRTC.sendMetric(withEvent: eventS, success: false, error: fetchError)
                         reply(nil, nil, true, fetchError)
                         return
                     }
@@ -47,6 +62,7 @@ extension Container {
                             return try self.model.allPolicyVersions()
                         } catch {
                             logger.error("Error fetching all policy versions: \(error, privacy: .public)")
+                            SecurityAnalyticsReporterRTC.sendMetric(withEvent: eventS, success: false, error: error)
                             reply(nil, nil, true, error)
                             return nil
                         }
@@ -57,6 +73,7 @@ extension Container {
                     self.fetchPolicyDocumentsWithSemaphore(versions: allPolicyVersions) { _, fetchPolicyDocumentsError in
                         guard fetchPolicyDocumentsError == nil else {
                             logger.info("preflightVouchWithBottle unable to fetch policy documents: \(String(describing: fetchPolicyDocumentsError), privacy: .public)")
+                            SecurityAnalyticsReporterRTC.sendMetric(withEvent: eventS, success: false, error: fetchPolicyDocumentsError)
                             reply(nil, nil, true, fetchPolicyDocumentsError)
                             return
                         }
@@ -64,6 +81,7 @@ extension Container {
                         self.fetchViableBottlesWithSemaphore(from: .default, flowID: nil, deviceSessionID: nil) { _, _, fetchBottlesError in
                             guard fetchBottlesError == nil else {
                                 logger.info("preflightVouchWithBottle unable to fetch viable bottles: \(String(describing: fetchPolicyDocumentsError), privacy: .public)")
+                                SecurityAnalyticsReporterRTC.sendMetric(withEvent: eventS, success: false, error: fetchBottlesError)
                                 reply(nil, nil, true, fetchBottlesError)
                                 return
                             }
@@ -72,9 +90,11 @@ extension Container {
                             self.moc.performAndWait {
                                 do {
                                     let (_, peerID, syncingPolicy) = try self.onMOCQueuePerformPreflight(bottleID: bottleID)
+                                    SecurityAnalyticsReporterRTC.sendMetric(withEvent: eventS, success: true, error: nil)
                                     reply(peerID, syncingPolicy, true, nil)
                                 } catch {
                                     logger.error("preflightVouchWithBottle failed after refetches: \(String(describing: error), privacy: .public)")
+                                    SecurityAnalyticsReporterRTC.sendMetric(withEvent: eventS, success: false, error: error)
                                     reply(nil, nil, true, error)
                                 }
                             }

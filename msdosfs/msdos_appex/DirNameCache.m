@@ -156,7 +156,7 @@ NS_ASSUME_NONNULL_BEGIN
 
     /* Check we're not exceeding capacity */
     if (_numHashValues == MAX_HASH_VALUES) {
-        os_log_debug(fskit_std_log(), "%s: Name cache full (%u/%u)", __func__, _numHashValues, MAX_HASH_VALUES);
+        os_log_debug(OS_LOG_DEFAULT, "%s: Name cache full (%u/%u)", __func__, _numHashValues, MAX_HASH_VALUES);
         err = ENOSPC;
         goto out_err;
     }
@@ -178,7 +178,7 @@ NS_ASSUME_NONNULL_BEGIN
         /* Make sure the offset is not already present */
         for (int i = 0; i < currentBucket.currCount; i++) {
             if (currentBucket->elements[i].indexInDir == indexInDir) {
-                os_log_fault(fskit_std_log(), "%s: Dir index %u is already in the cache", __func__, indexInDir);
+                os_log_fault(OS_LOG_DEFAULT, "%s: Dir index %u is already in the cache", __func__, indexInDir);
                 err = EINVAL;
                 goto out_err;
             }
@@ -187,7 +187,7 @@ NS_ASSUME_NONNULL_BEGIN
 
     /* Add the new entry */
     if ([currentBucket addEntry:newEntry]) {
-        os_log_error(fskit_std_log(), "%s: Failed to add to bucket", __func__);
+        os_log_error(OS_LOG_DEFAULT, "%s: Failed to add to bucket", __func__);
         goto out_err;
     }
     _numHashValues++;
@@ -345,7 +345,7 @@ out_err:
     }
 
     if (!entryToRemove) {
-        os_log_error(fskit_std_log(), "%s: No free entries", __func__);
+        os_log_error(OS_LOG_DEFAULT, "%s: No free entries", __func__);
     }
 
     return entryToRemove;
@@ -359,7 +359,7 @@ out_err:
 {
     /* The pool has <size> available slots, we need to hold onto one of them. */
     if (dispatch_semaphore_wait(_poolSemaphore, DISPATCH_TIME_NOW)) {
-        os_log_debug(fskit_std_log(), "%s: dispatch_semaphore_wait timed out", __func__);
+        os_log_debug(OS_LOG_DEFAULT, "%s: dispatch_semaphore_wait timed out", __func__);
         return reply(nil, nil, false);
     }
 
@@ -388,7 +388,7 @@ out_err:
                 /* Need to find the LRU one which is not in use */
                 entry = [self getAvailableEntry];
                 if (entry == nil) {
-                    os_log_fault(fskit_std_log(), "%s: No available entry", __func__);
+                    os_log_fault(OS_LOG_DEFAULT, "%s: No available entry", __func__);
                     dispatch_semaphore_signal(_poolSemaphore);
                     return reply(fs_errorForPOSIXError(EFAULT), nil, false);
                 }
@@ -404,7 +404,7 @@ out_err:
         if (entry.dnc.isInUse) {
             /* This shouldn't happen! Signal the semaphore and report an error. */
             dispatch_semaphore_signal(_poolSemaphore);
-            os_log_fault(fskit_std_log(), "%s: DNC for current dir is in use (%u)", __func__, dir.firstCluster);
+            os_log_fault(OS_LOG_DEFAULT, "%s: DNC for current dir is in use (%u)", __func__, dir.firstCluster);
             return reply(fs_errorForPOSIXError(EFAULT), nil, false);
         }
         entry.dnc.isInUse = true; /* Will be cleared when doneWithNameCacheForDir:reply is called */
@@ -434,12 +434,12 @@ out_err:
         DNCPoolEntry *entry = [self getDNCEntryByKey:dir.firstCluster];
 
         if (!entry) {
-            os_log_error(fskit_std_log(), "%s: Entry for key %u not found", __func__, dir.firstCluster);
+            os_log_error(OS_LOG_DEFAULT, "%s: Entry for key %u not found", __func__, dir.firstCluster);
             return;
         }
         if (!entry.dnc.isInUse) {
             /* This shouldn't have happened */
-            os_log_error(fskit_std_log(), "%s: Entry for key %u is already set as not in use", __func__, dir.firstCluster);
+            os_log_error(OS_LOG_DEFAULT, "%s: Entry for key %u is already set as not in use", __func__, dir.firstCluster);
         }
         entry.dnc.isInUse = false;
         dispatch_semaphore_signal(_poolSemaphore);
@@ -449,7 +449,7 @@ out_err:
 -(void)check
 {
     for (DNCPoolEntry *entry in _pool) {
-        os_log(fskit_std_log(), "Key %d, timestamp %@", entry.cacheKey, entry.timestamp);
+        os_log(OS_LOG_DEFAULT, "Key %d, timestamp %@", entry.cacheKey, entry.timestamp);
     }
 }
 

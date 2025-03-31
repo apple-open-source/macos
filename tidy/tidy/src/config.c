@@ -762,7 +762,7 @@ Bool TIDY_CALL tidyFileExists( ctmbstr filename )
   exists = ( fin != NULL );
 #endif
   if ( fname != filename )
-      MemFree( (tmbstr) fname );
+      MemFree( fname );
   return exists;
 }
 

@@ -54,13 +54,15 @@ bool PublicSuffixStore::platformIsPublicSuffix(StringView domain) const
 
 String PublicSuffixStore::platformTopPrivatelyControlledDomain(StringView host) const
 {
-    size_t separatorPosition;
-    for (unsigned labelStart = 0; (separatorPosition = host.find('.', labelStart)) != notFound; labelStart = separatorPosition + 1) {
-        if (isPublicSuffix(host.substring(separatorPosition + 1)))
-            return host.substring(labelStart).toString();
-    }
+    @autoreleasepool {
+        size_t separatorPosition;
+        for (unsigned labelStart = 0; (separatorPosition = host.find('.', labelStart)) != notFound; labelStart = separatorPosition + 1) {
+            if (isPublicSuffix(host.substring(separatorPosition + 1)))
+                return host.substring(labelStart).toString();
+        }
 
-    return { };
+        return { };
+    }
 }
 
 void PublicSuffixStore::enablePublicSuffixCache()
@@ -69,7 +71,7 @@ void PublicSuffixStore::enablePublicSuffixCache()
 
     Locker locker { m_publicSuffixCacheLock };
     ASSERT(!m_publicSuffixCache);
-    m_publicSuffixCache = HashSet<PublicSuffix> { };
+    m_publicSuffixCache = UncheckedKeyHashSet<PublicSuffix> { };
 }
 
 void PublicSuffixStore::addPublicSuffix(const PublicSuffix& publicSuffix)

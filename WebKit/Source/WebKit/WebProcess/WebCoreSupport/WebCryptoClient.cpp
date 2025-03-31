@@ -51,6 +51,19 @@ std::optional<Vector<uint8_t>> WebCryptoClient::wrapCryptoKey(const Vector<uint8
     return wrappedKey;
 }
 
+std::optional<Vector<uint8_t>> WebCryptoClient::serializeAndWrapCryptoKey(WebCore::CryptoKeyData&& keyData) const
+{
+    if (m_pageIdentifier) {
+        auto sendResult = WebProcess::singleton().parentProcessConnection()->sendSync(Messages::WebPageProxy::SerializeAndWrapCryptoKey(WTFMove(keyData)), *m_pageIdentifier);
+        auto [wrappedKey] = sendResult.takeReplyOr(std::nullopt);
+        return wrappedKey;
+    }
+    auto sendResult = WebProcess::singleton().parentProcessConnection()->sendSync(Messages::WebProcessProxy::SerializeAndWrapCryptoKey(WTFMove(keyData)), 0);
+
+    auto [wrappedKey] = sendResult.takeReplyOr(std::nullopt);
+    return wrappedKey;
+}
+
 std::optional<Vector<uint8_t>> WebCryptoClient::unwrapCryptoKey(const Vector<uint8_t>& wrappedKey) const
 {
     auto deserializedKey = WebCore::readSerializedCryptoKey(wrappedKey);

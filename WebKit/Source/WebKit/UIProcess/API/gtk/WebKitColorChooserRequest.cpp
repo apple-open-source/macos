@@ -31,10 +31,8 @@
 #include <glib/gi18n-lib.h>
 #include <wtf/glib/WTFGType.h>
 
-#if ENABLE(INPUT_TYPE_COLOR)
 using namespace WebKit;
 using namespace WebCore;
-#endif // ENABLE(INPUT_TYPE_COLOR)
 
 /**
  * WebKitColorChooserRequest:
@@ -63,7 +61,7 @@ enum {
     N_PROPERTIES,
 };
 
-static GParamSpec* sObjProperties[N_PROPERTIES] = { nullptr, };
+static std::array<GParamSpec*, N_PROPERTIES> sObjProperties;
 
 enum {
     FINISHED,
@@ -72,14 +70,12 @@ enum {
 };
 
 struct _WebKitColorChooserRequestPrivate {
-#if ENABLE(INPUT_TYPE_COLOR)
     WebKitColorChooser* colorChooser;
-#endif // ENABLE(INPUT_TYPE_COLOR)
     GdkRGBA rgba;
     bool handled;
 };
 
-static guint signals[LAST_SIGNAL] = { 0, };
+static std::array<unsigned, LAST_SIGNAL> signals;
 
 WEBKIT_DEFINE_FINAL_TYPE(WebKitColorChooserRequest, webkit_color_chooser_request, G_TYPE_OBJECT, GObject)
 
@@ -138,7 +134,7 @@ static void webkit_color_chooser_request_class_init(WebKitColorChooserRequestCla
             GDK_TYPE_RGBA,
             static_cast<GParamFlags>(WEBKIT_PARAM_READWRITE | G_PARAM_CONSTRUCT));
 
-    g_object_class_install_properties(objectClass, N_PROPERTIES, sObjProperties);
+    g_object_class_install_properties(objectClass, N_PROPERTIES, sObjProperties.data());
 
     /**
      * WebKitColorChooserRequest::finished:
@@ -214,11 +210,7 @@ void webkit_color_chooser_request_get_element_rectangle(WebKitColorChooserReques
     g_return_if_fail(WEBKIT_IS_COLOR_CHOOSER_REQUEST(request));
     g_return_if_fail(rect);
 
-#if ENABLE(INPUT_TYPE_COLOR)
     *rect = request->priv->colorChooser->elementRect();
-#else
-    g_assert_not_reached();
-#endif // ENABLE(INPUT_TYPE_COLOR)
 }
 
 /**
@@ -267,13 +259,10 @@ void webkit_color_chooser_request_cancel(WebKitColorChooserRequest* request)
         return;
 
     request->priv->handled = true;
-#if ENABLE(INPUT_TYPE_COLOR)
     request->priv->colorChooser->cancel();
-#endif // ENABLE(INPUT_TYPE_COLOR)
     g_signal_emit(request, signals[FINISHED], 0);
 }
 
-#if ENABLE(INPUT_TYPE_COLOR)
 WebKitColorChooserRequest* webkitColorChooserRequestCreate(WebKitColorChooser* colorChooser)
 {
     WebKitColorChooserRequest* request = WEBKIT_COLOR_CHOOSER_REQUEST(
@@ -281,4 +270,3 @@ WebKitColorChooserRequest* webkitColorChooserRequestCreate(WebKitColorChooser* c
     request->priv->colorChooser = colorChooser;
     return request;
 }
-#endif // ENABLE(INPUT_TYPE_COLOR)

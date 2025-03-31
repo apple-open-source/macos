@@ -1,0 +1,91 @@
+
+Python interface to Apple's Bonjour
+--------------------------------------
+Bonjour provides service advertising and discovery on the 
+local network via multicast DNS.  These files use SWIG to 
+provide a Python interface for use by applications to interact 
+with Bonjour. 
+
+Requirements for build
+----------------------
+- Swig 1.3 (earlier versions may work, too)
+- Bonjour (http://developer.apple.com/bonjour)
+    OSX - Included in 10.3 and later
+    Windows - Install two packages: 
+                Bonjour for Windows
+                Bonjour SDK for Windows 
+    Linux - Build and install the mDNSResponder project from cvs.
+            
+    
+Building
+--------
+
+To build and install the python module, simply:
+
+python setup.py install
+
+You need to have swig in your path.  On Windows, you'll need to be 
+running in a VisualStudio command-shell, or have the relevant environment
+variables set.  If you're using a VisualStudio newer than that which was 
+used to build Python, you should set the MSVC_VERSION environment variable
+to your version number (e.g., 7.1).
+
+Operation
+---------
+
+You must have the mdns responder running in order for tests and general operation to work.  
+
+- OSX - Included in OS, nothing to do.
+- Windows - The "Apple mDNSResponder" service will be installed and started by the Technology Preview installation.
+- Linux - mdns script will be installed with package.  It should be started, or preferably made to start at boot.
+
+
+Test
+----
+
+- test.py 
+registers a service, and then browses for services of that type, succeeding
+when it finds the one it registered.
+
+- register.py
+standalone service registration
+
+- browse.py
+standalone service browsing
+
+- query.py
+standalone service meta query (discover all advertised service types)
+
+- wxBrowse.py
+GUI service browser
+
+
+About Bonjour
+-------------
+
+Information about Bonjour is available from the Apple website:
+
+http://developer.apple.com/bonjour/
+
+
+About the Python interface to Bonjour
+-------------------------------------
+
+The code for the Python interfaces is available online from:
+
+http://www.mcs.anl.gov/fl/research/accessgrid/bonjour-py
+
+The CVS repository is browsable here:
+
+http://fl-cvs.mcs.anl.gov/viewcvs/viewcvs.cgi/bonjour
+
+This module is distributed under the Access Grid Toolkit Public
+License, a copy of which is included with this module in COPYING.txt
+and can also be found online at:
+http://www.mcs.anl.gov/fl/research/accessgrid/about/COPYING.txt
+
+
+Tom Uram
+turam@mcs.anl.gov
+
+

@@ -128,10 +128,322 @@ option to
 The following keys may be assigned within module sections declared in
 .Nm :
 .Bl -tag -width Ds
+.It Dq auth users
+Names the users and/or groups authorized to authenticate and use the module,
+along with an optional policy option per entry.
+If a name entry begins with a
+.Dq @ ,
+then the entry describes a group and the username presented must be a member of
+the named group on the system.
+An optional policy option may be specified by appending a
+.Dq ":"
+followed by one of
+.Dq deny ,
+.Dq rw ,
+or
+.Dq ro .
+The latter two options will override the
+.Dq read only
+option described later, if specified.
+The first rule matched is used, so care must be taken to ensure that entries
+appear in the order of desired precedence.
+.Pp
+When a username is presented, the
+.Dq secrets file
+is consulted for the secret to authenticate with.
+.It Dq comment
+Comment to use when a module listing is requested.
+.It Dq dont compress
+This option is accepted for compatibility with the reference rsync, but it has
+no effect in openrsync.
+Traditionally, the value of
+.Dq dont compress
+is a space delimited list of patterns describing filenames that should not be
+compressed.
+.Pp
+In earlier versions of rsync, only zlib is supported for compression and
+per-file compression levels cannot be set.
+The first file matching a pattern in this list could inadvertently disable
+compression for the entire transfer rather than just the already-compressed
+files.
+This implementation chose to favor lower bandwidth over potentially wasted
+CPU cycles for the time being.
+.It Do exclude Dc , Do exclude from Dc , Do filter Dc , Do include Dc , \
+Do include from Dc
+These options correspond to the
+.Xr rsync
+command-line option equivalents.
+The
+.Dq exclude ,
+.Dq filter ,
+and
+.Dq include
+values are space-separated, and may contain a leading
+.Dq "- "
+or
+.Dq "+ "
+to specify the rule and, e.g., get rule ordering correct.
+These rules take precedence over any client-specified rules.
+.It Do gid Dc , Do uid Dc
+The group and user names or IDs to use for transfer processes.
+Once a client connected, privileges are dropped as soon as we possibly can
+before the transfer begins.
+.It Do hosts allow Dc , Do hosts deny Dc
+Specifies a list of host patterns that are either allowed or denied from using
+the module.
+Incoming connections must match at least one of the
+.Dq hosts allow
+patterns, if specified.
+Conversely, incoming connections must not match any
+.Dq hosts deny
+pattern, if specified.
+If both options are specified, then the
+.Dq hosts allow
+rule is processed first, followed by a potential rejection if the allowed host
+matches one of the
+.Dq hosts deny
+patterns.
+.Pp
+The pattern may be:
+.Bl -bullet
+.It
+A single IPv4 or IPv6 address
+.It
+address/<mask> or address/<mask address> notation
+.It
+Hostname with optional wildcards, which are processed with the internal pattern
+matching engine that functions much like
+.Xr fnmatch 3 .
+Hostnames are matched against a reverse lookup of the client when it initially
+connects.
+.El
+.It Dq ignore errors
+Functionally equivalent to the
+.Fl -ignore-errors
+option to
+.Xr rsync 1 .
+.It Dq ignore nonreadable
+Instructs
+.Xr rsync 1
+to completely ignore files that it can't read from the module path.
+This may be useful for, e.g., a public archive that has mixed ownership.
+.It Do incoming chmod Dc , Do outgoing chmod Dc
+Functionally equivalent to splitting the
+.Fl -chmod
+option to
+.Xr rsync 1
+into sender and receiver chmod options.
+Resulting incoming or outgoing files are given the requested mode.
+.It Dq list
+Indicates if the module will be named when a listing is requested.
+This defaults to true, making all modules visible to any connected rsync client
+that requests a listing.
+.It Dq lock file
+Names the path on the filesystem that
+.Xr rsync 1
+will use for counting connections towards the
+.It Dq log file
+Names a path on the filesystem to use instead of syslog for logging.
+If the value is not set, empty, or we fail to open the logfile, then
+.Xr rsync 1
+will fallback to using syslog anyways.
+.It Dq log format
+Functionally equivalent to the
+.Fl -out-format
+option to
+.Xr rsync 1 .
+.Dq max connections
+limit.
+Segments of this file will be rangelocked with
+.Xr fcntl 2
+.Va F_SETLK
+as needed to determine if we have any connection slots left open to grant.
+.It Dq max connections
+Limit number of connections to the module at any given time to the named
+number.
+This is enforced using a range lock on the
+.Dq lock file .
+.It Dq max verbosity
+Specifies the max amount of verbosity that a client can request when it
+connects.
+Defaults to 1, to allow at most a single
+.Fl v .
+.It Dq munge symlinks
+Munges symlinks received or sent by the daemon as appropriate to render them
+safe to follow.
+If this option is enabled, then
+.Xr rsync 1
+will prepend
+.Pa /rsyncd-munge/
+to the target of any symlink received.
+For symlinks sent, it will strip the
+.Pa /rsyncd-munge/
+prefix to restore the symlink's target.
+.Pp
+If this option is disabled and
+.Dq chroot
+is also disabled, then symlinks may be irreversibly damaged to render them safe
+for the daemon.
+Notably, any path components that may cause
+.Xr rsync 1
+to traverse outside of the module path will be stripped.
+.Pp
+This option is enabled by default when
+.Dq chroot
+is disabled.
+.It Dq numeric ids
+Nearly functionally equivalent to the
+.Fl -numeric-ids
+option to
+.Xr rsync 1 .
+When operating in a chroot,
+.Dq numeric ids
+will be silently enabled on the daemon-side.
 .It Dq path
 Names the path on the filesystem that
 .Xr rsync 1
 will serve files for this module from.
+.It Do pre-xfer exec Dc , Dq post-xfer exec
+Commands to execute before and after the transfer.
+.Xr rsync 1
+will not do any word-splitting of these options.
+The following environment variables will be available to the execution
+environment:
+.Bl -tag -width Ds
+.It Ev RSYNC_MODULE_NAME
+The name of the requested module.
+.It Ev RSYNC_MODULE_PATH
+The
+.Dq path
+for the requested module.
+.It Ev RSYNC_HOST_ADDR
+The client's network address.
+.It Ev RSYNC_HOST_NAME
+The client's host name, as determined from a reverse DNS lookup.
+.It Ev RSYNC_USER_NAME
+The username the client has sent along for authentication purposes.
+.It Ev RSYNC_PID
+The PID of the process that will be handling or did handle the transfer.
+.It Ev RSYNC_ARG#
+Only available for
+.Dq pre-xfer exec ,
+each of the arguments provided by the client are passed in via the environment.
+.Ev RSYNC_ARG0
+will be set to
+.Dq rsyncd
+by convention.
+Options are terminated by a single
+.Dq . ,
+after which paths will be present.
+Paths will have the module/ part stripped.
+.It Ev RSYNC_REQUEST
+Only available for
+.Dq pre-xfer exec ,
+this essentially contains the entirety of the path portion of the arguments as
+they were sent by the client, with the module/ prefix left intact if provided.
+.It Ev RSYNC_RAW_STATUS
+Only available for
+.Dq post-xfer exec ,
+the raw numeric exit status of the process that handled the transfer.
+This includes any flag bits set that may indicate, e.g., that the process was
+terminated by signal.
+.It Ev RSYNC_EXIT_STATUS
+Only available for
+.Dq post-xfer exec ,
+this is the exit status of the child if it did terminate normally.
+For abnormal termination,
+.Dv -1
+will be passed as the exit status.
+.El
+.It Dq read only
+Indicates whether the module is read only or not.
+This is only checked when a client attempts to send a file to the
+.Xr rsync 1
+daemon.
+This is enabled by default.
+.It Dq refuse options
+Options to refuse from the client, if provided.
+Refused options cause the
+.Xr rsync 1
+daemon to abort the operation before any files are transferred.
+Options are provided as a space delimited list of patterns to refuse.
+These patterns, like those used in filter rules and the above
+.Dq hosts allow
+and
+.Dq hosts deny ,
+are simple patterns that support globbing as in
+.Xr fnmatch 3 .
+The pattern may match either the short option name or the long option name for a
+given option
+.Pp
+Refusing the
+.Fl a
+option will refuse all of the options that make up the
+.Fl a
+option, unless the option is matched by wildcard.
+Refusing any component of
+.Fl a
+will also refuse the
+.Fl a
+option.
+.Pp
+Refusing
+.Dq delete
+will also implicitly refuse
+.Fl -remove-source-files .
+.It Dq secrets file
+Names the path on the filesystem that
+.Xr rsync 1
+will use to authenticate users if
+.Dq auth users
+is set.
+The secrets file consists of
+.Dq username:password
+pairs, one per line, and supports comments on lines starting with
+.Dq "#" .
+The
+.Va username
+specified in the secrets file may also start with a
+.Dq @
+to name a group.
+.Pp
+Note that
+.Xr rsync 1
+will ensure that the file is not other-readable, unless
+.Dq strict modes
+is disabled.
+Strict mode violations, along with syntax errors, will effectively disable a
+module that has set
+.Dq auth users .
+.It Dq strict modes
+Instructs
+.Xr rsync 1
+to enforce stricter modes on the secrets file.
+Namely, the secrets file must not be other-readable.
+This is enabled by default.
+.It Dq syslog facility
+The syslog facility to use when
+.Xr rsync 1
+writes to the syslog.
+Defaults to
+.Dq daemon .
+.It Dq timeout
+Functionally equivalent to the
+.Fl -timeout
+option to
+.Xr rsync 1 .
+.It Dq transfer logging
+Enable FTP-style logging of the transactions that take place during this
+transfer.
+The relevant log lines honor the format specified by the
+.Dq log format
+option, which defaults to
+.Dq %o %h [%a] %m (%u) %f %l
+for
+.Dq transfer logging
+purposes.
+.Pp
+This option is disabled by default.
 .It Dq use chroot
 Boolean value describing whether
 .Xr rsync 1
@@ -151,6 +463,12 @@ This fallback does not happen if
 is explicitly set to true
 in
 .Nm .
+.It Dq write only
+Indicates whether the module is write only or not.
+This is only checked when a client attempts to send a file to the
+.Xr rsync 1
+daemon.
+This is disabled by default.
 .El
 .Pp
 .Dq path

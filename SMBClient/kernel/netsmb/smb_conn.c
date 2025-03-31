@@ -41,6 +41,7 @@
 
 #include <sys/smb_apple.h>
 #include <sys/kauth.h>
+#include <netinet/in.h>
 
 #include <netsmb/smb.h>
 #include <netsmb/smb_2.h>
@@ -67,7 +68,7 @@ SYSCTL_DECL(_net_smb);
 SYSCTL_NODE(_net, OID_AUTO, smb, CTLFLAG_RW, NULL, "SMB protocol");
 
 static void smb_co_put(struct smb_connobj *cp, vfs_context_t context);
-static void smb_session_lease_thread(void *arg);
+static void smb_session_lease_thread(void *arg, wait_result_t wr);
 
 /*
  * The smb_co_lock, smb_co_unlock, smb_co_ref, smb_co_rel and smb_co_put deal
@@ -292,7 +293,7 @@ void smb_sm_lock_session_list(void)
 	 * The smb_session_list never goes away so there is no way for smb_co_lock
 	 * to fail in this case. 
 	 */	
-	KASSERT((smb_co_lock(&smb_session_list) == 0), ("smb_sm_lock_session_list: lock failed"));
+    SMB_ASSERT((smb_co_lock(&smb_session_list) == 0), "smb_sm_lock_session_list: lock failed");
 }
 
 void smb_sm_unlock_session_list(void)
@@ -1812,7 +1813,7 @@ int smb_session_reconnect_ref(struct smb_session *sessionp, vfs_context_t contex
  * Called from a thread that is not the main iod thread. Prevents us from
  * getting into a deadlock.
  */
-static void smb_reconnect_rel_thread(void *arg) 
+static void smb_reconnect_rel_thread(void *arg, __unused wait_result_t wr)
 {
 	struct smbiod *iod = arg;
 	
@@ -1982,6 +1983,8 @@ int
 smb2_sockaddr_to_str(struct sockaddr *addr, char *str, uint32_t max_str_len)
 {
     uint32_t str_len = 0;
+    struct sockaddr_in6 *addr_in6 = NULL;
+    char ipv6_str[INET6_ADDRSTRLEN] = {0};
 
     if (!addr) {
         /* This should never happen */
@@ -2021,24 +2024,12 @@ smb2_sockaddr_to_str(struct sockaddr *addr, char *str, uint32_t max_str_len)
                 str_len = snprintf(str, max_str_len, "IPv6[Invalid sa_len]:%u", port);
 
             } else {
-                str_len = snprintf(str, max_str_len, "IPv6[%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x]:%u",
-                         (uint8_t)addr->sa_data[6],
-                         (uint8_t)addr->sa_data[7],
-                         (uint8_t)addr->sa_data[8],
-                         (uint8_t)addr->sa_data[9],
-                         (uint8_t)addr->sa_data[10],
-                         (uint8_t)addr->sa_data[11],
-                         (uint8_t)addr->sa_data[12],
-                         (uint8_t)addr->sa_data[13],
-                         (uint8_t)addr->sa_data[14],
-                         (uint8_t)addr->sa_data[15],
-                         (uint8_t)addr->sa_data[16],
-                         (uint8_t)addr->sa_data[17],
-                         (uint8_t)addr->sa_data[18],
-                         (uint8_t)addr->sa_data[19],
-                         (uint8_t)addr->sa_data[20],
-                         (uint8_t)addr->sa_data[21],
-                         port);
+                addr_in6 = (struct sockaddr_in6*)addr;
+                if (inet_ntop(AF_INET6, &(addr_in6->sin6_addr), ipv6_str, sizeof(ipv6_str)) == NULL) {
+                    SMBERROR("inet_ntop failed for IPv6 address.\n");
+                    return 0;
+                }
+                str_len = snprintf(str, max_str_len, "IPv6[%s]:%u", ipv6_str, port);
             }
             break;
 
@@ -2187,7 +2178,7 @@ eagain:
 }
 
 static void
-smb_session_lease_thread(void *arg)
+smb_session_lease_thread(void *arg, __unused wait_result_t wr)
 {
     vfs_context_t context;
     struct smb_session *sessionp = arg;

@@ -65,14 +65,20 @@ public:
     void cancelConnectToTransientLocalStorageArea(IPC::Connection::UniqueID);
     void disconnectFromStorageArea(IPC::Connection::UniqueID, StorageAreaIdentifier);
 
+    HashMap<String, String> fetchStorageMap() const;
+    bool setStorageMap(WebCore::ClientOrigin, HashMap<String, String>&&, Ref<WorkQueue>&&);
+
 private:
     void connectionClosedForLocalStorageArea(IPC::Connection::UniqueID);
     void connectionClosedForTransientStorageArea(IPC::Connection::UniqueID);
 
+    StorageAreaBase& ensureLocalStorageArea(const WebCore::ClientOrigin&, Ref<WorkQueue>&&);
+    MemoryStorageArea& ensureTransientLocalStorageArea(const WebCore::ClientOrigin&);
+
     String m_path;
     CheckedRef<StorageAreaRegistry> m_registry;
-    std::unique_ptr<MemoryStorageArea> m_transientStorageArea;
-    std::unique_ptr<StorageAreaBase> m_localStorageArea;
+    RefPtr<MemoryStorageArea> m_transientStorageArea;
+    RefPtr<StorageAreaBase> m_localStorageArea;
 };
 
 } // namespace WebKit

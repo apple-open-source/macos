@@ -57,7 +57,7 @@ public:
     virtual ~AudioDSPKernel() { };
 
     // Subclasses must override process() to do the processing and reset() to reset DSP state.
-    virtual void process(const float* source, float* destination, size_t framesToProcess) = 0;
+    virtual void process(std::span<const float> source, std::span<float> destination) = 0;
 
     // Subclasses that have AudioParams must override this to process the AudioParams.
     virtual void processOnlyAudioParams(size_t) { }

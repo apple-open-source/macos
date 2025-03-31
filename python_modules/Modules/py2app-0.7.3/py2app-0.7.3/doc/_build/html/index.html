@@ -1,0 +1,233 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>py2app - Create standalone Mac OS X applications with Python &mdash; py2app 0.7.3 documentation</title>
+    
+    <link rel="stylesheet" href="_static/nature.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '',
+        VERSION:     '0.7.3',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <link rel="top" title="py2app 0.7.3 documentation" href="#" />
+    <link rel="next" title="Installation" href="install.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="install.html" title="Installation"
+             accesskey="N">next</a> |</li>
+        <li><a href="#">py2app 0.7.3 documentation</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="py2app-create-standalone-mac-os-x-applications-with-python">
+<h1>py2app - Create standalone Mac OS X applications with Python<a class="headerlink" href="#py2app-create-standalone-mac-os-x-applications-with-python" title="Permalink to this headline">¶</a></h1>
+<p>py2app is a Python <a class="reference external" href="http://pypi.python.org/pypi/setuptools/">setuptools</a> command which will allow you
+to make standalone application bundles and plugins from Python
+scripts. py2app is similar in purpose and design to <a class="reference external" href="http://pypi.python.org/pypi/py2exe/">py2exe</a> for
+Windows.</p>
+<p>This documentation corresponds to version 0.4.2 of py2app.</p>
+<div class="section" id="online-resources">
+<h2>Online Resources<a class="headerlink" href="#online-resources" title="Permalink to this headline">¶</a></h2>
+<p>There are several online resources to help you get along with py2app.</p>
+<dl class="docutils">
+<dt>Mailing list:</dt>
+<dd><a class="reference external" href="http://www.python.org/community/sigs/current/pythonmac-sig/">http://www.python.org/community/sigs/current/pythonmac-sig/</a></dd>
+<dt>Issue tracker:</dt>
+<dd><a class="reference external" href="http://bitbucket.org/ronaldoussoren/py2app/issues">http://bitbucket.org/ronaldoussoren/py2app/issues</a></dd>
+<dt>Source code repository:</dt>
+<dd><a class="reference external" href="https://bitbucket.org/ronaldoussoren/py2app/src">https://bitbucket.org/ronaldoussoren/py2app/src</a></dd>
+<dt>PyPI Entry:</dt>
+<dd><a class="reference external" href="http://pypi.python.org/pypi/py2app/">http://pypi.python.org/pypi/py2app/</a></dd>
+</dl>
+<p>If you&#8217;re looking for help, pay special attention to the <tt class="docutils literal"><span class="pre">examples</span></tt>
+folder in the source, which demonstrates many common use cases.</p>
+</div>
+<div class="section" id="license">
+<h2>License<a class="headerlink" href="#license" title="Permalink to this headline">¶</a></h2>
+<p>py2app may be distributed under the <a class="reference external" href="http://www.opensource.org/licenses/mit-license.php">MIT</a> or <a class="reference external" href="http://www.python.org/psf/license.html">PSF</a> open source
+licenses.</p>
+<p>Copyright (c) 2004-2006 Bob Ippolito &lt;bob at redivi.com&gt;.</p>
+<p>Copyright (c) 2010-2011 Ronald Oussoren &lt;ronaldoussoren at mac.com&gt;.</p>
+<p>Contents:</p>
+<div class="toctree-wrapper compound">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="install.html">Installation</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="install.html#installing-with-easy-install">Installing with easy_install</a></li>
+<li class="toctree-l2"><a class="reference internal" href="install.html#installing-from-source">Installing from source</a></li>
+<li class="toctree-l2"><a class="reference internal" href="install.html#upgrade-notes">Upgrade Notes</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="dependencies.html">Dependencies</a></li>
+<li class="toctree-l1"><a class="reference internal" href="tutorial.html">Tutorial</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="tutorial.html#create-a-setup-py-file">Create a setup.py file</a></li>
+<li class="toctree-l2"><a class="reference internal" href="tutorial.html#clean-up-your-build-directories">Clean up your build directories</a></li>
+<li class="toctree-l2"><a class="reference internal" href="tutorial.html#development-with-alias-mode">Development with alias mode</a></li>
+<li class="toctree-l2"><a class="reference internal" href="tutorial.html#running-your-application">Running your application</a></li>
+<li class="toctree-l2"><a class="reference internal" href="tutorial.html#building-for-deployment">Building for deployment</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="tweaking.html">Tweaking your Info.plist</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="tweaking.html#commonly-customized-keys">Commonly customized keys</a></li>
+<li class="toctree-l2"><a class="reference internal" href="tweaking.html#specifying-customizations">Specifying customizations</a></li>
+<li class="toctree-l2"><a class="reference internal" href="tweaking.html#universal-binaries">Universal Binaries</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="examples.html">Example setup.py templates</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="examples.html#basic">Basic</a></li>
+<li class="toctree-l2"><a class="reference internal" href="examples.html#self-bootstrapping">Self-bootstrapping</a></li>
+<li class="toctree-l2"><a class="reference internal" href="examples.html#cross-platform">Cross-platform</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="options.html">py2app Options</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="options.html#option-reference">Option Reference</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="recipes.html">Recipes</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="recipes.html#common-causes-for-incompatibility">Common causes for incompatibility</a></li>
+<li class="toctree-l2"><a class="reference internal" href="recipes.html#built-in-recipes">Built-in recipes</a></li>
+<li class="toctree-l2"><a class="reference internal" href="recipes.html#developing-recipes">Developing Recipes</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="implementation.html">Implementation Details</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="implementation.html#argument-parsing">Argument Parsing</a></li>
+<li class="toctree-l2"><a class="reference internal" href="implementation.html#run-build-command">Run build command</a></li>
+<li class="toctree-l2"><a class="reference internal" href="implementation.html#depdency-resolution-via-modulegraph">Depdency resolution via modulegraph</a></li>
+<li class="toctree-l2"><a class="reference internal" href="implementation.html#apply-recipes">Apply recipes</a></li>
+<li class="toctree-l2"><a class="reference internal" href="implementation.html#apply-filters">Apply filters</a></li>
+<li class="toctree-l2"><a class="reference internal" href="implementation.html#produce-graphs">Produce graphs</a></li>
+<li class="toctree-l2"><a class="reference internal" href="implementation.html#create-the-app-bundle">Create the .app bundle</a></li>
+<li class="toctree-l2"><a class="reference internal" href="implementation.html#include-mach-o-dependencies">Include Mach-O dependencies</a></li>
+<li class="toctree-l2"><a class="reference internal" href="implementation.html#strip-the-result">Strip the result</a></li>
+<li class="toctree-l2"><a class="reference internal" href="implementation.html#copy-python-configuration">Copy Python configuration</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="py2applet.html">py2applet</a></li>
+<li class="toctree-l1"><a class="reference internal" href="changelog.html">Release history</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="changelog.html#py2app-0-7-3">py2app 0.7.3</a></li>
+<li class="toctree-l2"><a class="reference internal" href="changelog.html#py2app-0-7-2">py2app 0.7.2</a></li>
+<li class="toctree-l2"><a class="reference internal" href="changelog.html#py2app-0-7-1">py2app 0.7.1</a></li>
+<li class="toctree-l2"><a class="reference internal" href="changelog.html#py2app-0-7">py2app 0.7</a></li>
+<li class="toctree-l2"><a class="reference internal" href="changelog.html#py2app-0-6-4">py2app 0.6.4</a></li>
+<li class="toctree-l2"><a class="reference internal" href="changelog.html#py2app-0-6-3">py2app 0.6.3</a></li>
+<li class="toctree-l2"><a class="reference internal" href="changelog.html#py2app-0-6-2">py2app 0.6.2</a></li>
+<li class="toctree-l2"><a class="reference internal" href="changelog.html#py2app-0-6-1">py2app 0.6.1</a></li>
+<li class="toctree-l2"><a class="reference internal" href="changelog.html#py2app-0-6">py2app 0.6</a></li>
+<li class="toctree-l2"><a class="reference internal" href="changelog.html#py2app-0-5-2">py2app 0.5.2</a></li>
+<li class="toctree-l2"><a class="reference internal" href="changelog.html#py2app-0-5-1">py2app 0.5.1</a></li>
+<li class="toctree-l2"><a class="reference internal" href="changelog.html#py2app-0-5">py2app 0.5</a></li>
+<li class="toctree-l2"><a class="reference internal" href="changelog.html#py2app-0-4-3">py2app 0.4.3</a></li>
+<li class="toctree-l2"><a class="reference internal" href="changelog.html#py2app-0-4-2">py2app 0.4.2</a></li>
+<li class="toctree-l2"><a class="reference internal" href="changelog.html#py2app-0-4-0">py2app 0.4.0</a></li>
+<li class="toctree-l2"><a class="reference internal" href="changelog.html#py2app-0-3-6">py2app 0.3.6</a></li>
+<li class="toctree-l2"><a class="reference internal" href="changelog.html#py2app-0-3-5">py2app 0.3.5</a></li>
+<li class="toctree-l2"><a class="reference internal" href="changelog.html#py2app-0-3-4">py2app 0.3.4</a></li>
+<li class="toctree-l2"><a class="reference internal" href="changelog.html#py2app-0-3-3">py2app 0.3.3</a></li>
+<li class="toctree-l2"><a class="reference internal" href="changelog.html#py2app-0-3-2">py2app 0.3.2</a></li>
+<li class="toctree-l2"><a class="reference internal" href="changelog.html#py2app-0-3-1">py2app 0.3.1</a></li>
+<li class="toctree-l2"><a class="reference internal" href="changelog.html#py2app-0-3-0">py2app 0.3.0</a></li>
+<li class="toctree-l2"><a class="reference internal" href="changelog.html#py2app-0-2-1">py2app 0.2.1</a></li>
+<li class="toctree-l2"><a class="reference internal" href="changelog.html#py2app-0-2-0">py2app 0.2.0</a></li>
+<li class="toctree-l2"><a class="reference internal" href="changelog.html#py2app-0-1-9">py2app 0.1.9</a></li>
+<li class="toctree-l2"><a class="reference internal" href="changelog.html#py2app-0-1-8">py2app 0.1.8</a></li>
+<li class="toctree-l2"><a class="reference internal" href="changelog.html#py2app-0-1-7">py2app 0.1.7</a></li>
+<li class="toctree-l2"><a class="reference internal" href="changelog.html#py2app-0-1-6">py2app 0.1.6</a></li>
+<li class="toctree-l2"><a class="reference internal" href="changelog.html#py2app-0-1-5">py2app 0.1.5</a></li>
+<li class="toctree-l2"><a class="reference internal" href="changelog.html#py2app-0-1-4">py2app 0.1.4</a></li>
+<li class="toctree-l2"><a class="reference internal" href="changelog.html#py2app-0-1-3">py2app 0.1.3</a></li>
+<li class="toctree-l2"><a class="reference internal" href="changelog.html#py2app-0-1-2">py2app 0.1.2</a></li>
+<li class="toctree-l2"><a class="reference internal" href="changelog.html#py2app-0-1-1">py2app 0.1.1</a></li>
+<li class="toctree-l2"><a class="reference internal" href="changelog.html#py2app-0-1">py2app 0.1</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="#">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">py2app - Create standalone Mac OS X applications with Python</a><ul>
+<li><a class="reference internal" href="#online-resources">Online Resources</a></li>
+<li><a class="reference internal" href="#license">License</a><ul>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+  <h4>Next topic</h4>
+  <p class="topless"><a href="install.html"
+                        title="next chapter">Installation</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="_sources/index.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="install.html" title="Installation"
+             >next</a> |</li>
+        <li><a href="#">py2app 0.7.3 documentation</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2010, Ronald Oussoren, Bob Ippolito.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1.3.
+    </div>
+  </body>
+</html>

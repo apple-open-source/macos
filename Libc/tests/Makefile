@@ -1,7 +1,7 @@
 PROJECT := Libc
 TEST_DIR := tests/
 
-CUSTOM_TARGETS += osvariantutil subsystem_test_helper
+CUSTOM_TARGETS += osvariantutil subsystem_test_helper thread_stack_pcs_helper
 
 ifeq ($(DEVELOPER_DIR),)
     DEVELOPER_DIR := $(shell xcode-select -p)
@@ -34,7 +34,8 @@ ASAN_DYLIB_PATH := /usr/appleinternal/lib/sanitizers/
 
 OTHER_LDFLAGS := -umbrella System -L/usr/lib/system -lsystem_collections
 
-assumes_fbounds_safety: OTHER_CFLAGS += -fbounds-safety
+fbounds_safety_assumes: OTHER_CFLAGS += -fbounds-safety
+fbounds_safety_includes: OTHER_CFLAGS += -fbounds-safety -D__LIBC_STAGED_BOUNDS_SAFETY_ATTRIBUTES
 abort_tests: OTHER_CFLAGS += -fstack-check
 strtod: OTHER_CFLAGS += -Wno-float-equal -Wno-ignored-pragmas
 strtof: OTHER_CFLAGS += -Wno-float-equal -Wno-ignored-pragmas
@@ -59,6 +60,7 @@ osvariantutil: OTHER_CFLAGS += -Wno-gnu-statement-expression -Wno-covered-switch
 
 ifeq ($(PLATFORM),MacOSX)
 include $(SRCROOT)/FreeBSD/gen/Makefile.targets
+include $(SRCROOT)/FreeBSD/string/Makefile.targets
 endif
 include $(SRCROOT)/regex/Makefile.targets
 
@@ -66,6 +68,7 @@ include $(DEVELOPER_DIR)/AppleInternal/Makefiles/darwintest/Makefile.targets
 
 ifeq ($(PLATFORM),MacOSX)
 include $(SRCROOT)/FreeBSD/gen/Makefile
+include $(SRCROOT)/FreeBSD/string/Makefile
 endif
 include $(SRCROOT)/regex/Makefile
 
@@ -86,5 +89,16 @@ install-subsystem_test_helper: subsystem_test_helper
 	cp $(SYMROOT)/subsystem_test_helper $(INSTALLDIR)/
 ifeq ($(DWARF_DSYM_FILE_SHOULD_ACCOMPANY_PRODUCT),YES)
 	cp -R $(SYMROOT)/subsystem_test_helper.dSYM $(INSTALLDIR)/
+endif
+
+thread_stack_pcs: CODE_SIGN_ENTITLEMENTS=get_task_allow_entitlement.plist
+
+thread_stack_pcs_helper: OTHER_LDFLAGS += -dynamiclib
+
+install-thread_stack_pcs_helper: thread_stack_pcs_helper
+	mkdir -p $(INSTALLDIR)
+	cp $(SYMROOT)/thread_stack_pcs_helper $(INSTALLDIR)/
+ifeq ($(DWARF_DSYM_FILE_SHOULD_ACCOMPANY_PRODUCT),YES)
+	cp -R $(SYMROOT)/thread_stack_pcs_helper.dSYM $(INSTALLDIR)/
 endif
 

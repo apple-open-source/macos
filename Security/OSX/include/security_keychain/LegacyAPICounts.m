@@ -81,6 +81,12 @@ static void setup(void) {
 
 #pragma mark - SPI
 
+void setCountLegacyAPIEnabledForThreadCleanup(bool* value) {
+    if(value != NULL) {
+        setCountLegacyAPIEnabledForThread(*value);
+    }
+}
+
 void setCountLegacyAPIEnabledForThread(bool value) {
     [[NSThread currentThread] threadDictionary][@"countLegacyAPIEnabled"] = value ? @YES : @NO;
 }

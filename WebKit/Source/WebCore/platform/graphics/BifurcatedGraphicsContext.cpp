@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2021-2022 Apple Inc. All rights reserved.
+ * Copyright (C) 2021-2024 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -530,10 +530,10 @@ FloatSize BifurcatedGraphicsContext::drawText(const FontCascade& cascade, const 
     return size;
 }
 
-void BifurcatedGraphicsContext::drawGlyphs(const Font& font, const GlyphBufferGlyph* glyphs, const GlyphBufferAdvance* advances, unsigned numGlyphs, const FloatPoint& point, FontSmoothingMode fontSmoothingMode)
+void BifurcatedGraphicsContext::drawGlyphs(const Font& font, std::span<const GlyphBufferGlyph> glyphs, std::span<const GlyphBufferAdvance> advances, const FloatPoint& point, FontSmoothingMode fontSmoothingMode)
 {
-    m_primaryContext.drawGlyphs(font, glyphs, advances, numGlyphs, point, fontSmoothingMode);
-    m_secondaryContext.drawGlyphs(font, glyphs, advances, numGlyphs, point, fontSmoothingMode);
+    m_primaryContext.drawGlyphs(font, glyphs, advances, point, fontSmoothingMode);
+    m_secondaryContext.drawGlyphs(font, glyphs, advances, point, fontSmoothingMode);
 
     VERIFY_STATE_SYNCHRONIZATION();
 }
@@ -574,6 +574,22 @@ void BifurcatedGraphicsContext::drawDotsForDocumentMarker(const FloatRect& rect,
 {
     m_primaryContext.drawDotsForDocumentMarker(rect, markerStyle);
     m_secondaryContext.drawDotsForDocumentMarker(rect, markerStyle);
+
+    VERIFY_STATE_SYNCHRONIZATION();
+}
+
+void BifurcatedGraphicsContext::beginPage(const IntSize& pageSize)
+{
+    m_primaryContext.beginPage(pageSize);
+    m_secondaryContext.beginPage(pageSize);
+
+    VERIFY_STATE_SYNCHRONIZATION();
+}
+
+void BifurcatedGraphicsContext::endPage()
+{
+    m_primaryContext.endPage();
+    m_secondaryContext.endPage();
 
     VERIFY_STATE_SYNCHRONIZATION();
 }

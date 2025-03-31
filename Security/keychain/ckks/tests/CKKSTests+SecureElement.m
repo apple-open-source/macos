@@ -780,6 +780,8 @@
             XCTAssertNotNil(ptaState, "PTA Zone should be re-initializing");
             ckksnotice_global("ckks-test", "waiting for view to re-initialize");
             XCTAssertEqual(0, [ptaState.keyHierarchyConditions[SecCKKSZoneKeyStateInitialized] wait:10*NSEC_PER_SEC], "Key state should be re-initialized");
+            // Make sure CKKS has fully finished creating the views.
+            XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateInitialized] wait:10*NSEC_PER_SEC], @"CKKS state machine should have initialized");
         }];
         [self.defaultCKKS.zoneChangeFetcher holdFetchesUntil:waitForKeyState];
 

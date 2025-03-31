@@ -46,8 +46,9 @@ class IOPCIHostBridgeData;
 
 enum
 {
-	kCheckLinkParents  = 0x00000001,
-	kCheckLinkForPower = 0x00000002,
+	kCheckLinkParents    = 0x00000001,
+	kCheckLinkForPower   = 0x00000002,
+	kCheckLinkInTraining = 0x00000004,
 };
 
 enum {
@@ -190,6 +191,7 @@ protected:
         atomic_bool readyToProbe;
         bool commandCompletedSupport;
         bool commandSent;
+        AbsoluteTime commandSentTimestamp;
         bool childrenInReset;
     };
 
@@ -653,6 +655,7 @@ public:
 private:
 	IOReturn setPowerStateGated(unsigned long *_powerState,
 								IOService *whatDevice);
+	void detectLinkPartner(void);
 };
 __exported_pop
 

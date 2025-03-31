@@ -17,7 +17,7 @@ typedef void (*overlappable_nb_visitor_t)(MACROBLOCKD *xd, int rel_mi_row,
                                           int dir, MB_MODE_INFO *nb_mi,
                                           void *fun_ctxt, const int num_planes);
 
-static INLINE void foreach_overlappable_nb_above(const AV1_COMMON *cm,
+static inline void foreach_overlappable_nb_above(const AV1_COMMON *cm,
                                                  MACROBLOCKD *xd, int nb_max,
                                                  overlappable_nb_visitor_t fun,
                                                  void *fun_ctxt) {
@@ -54,7 +54,7 @@ static INLINE void foreach_overlappable_nb_above(const AV1_COMMON *cm,
   }
 }
 
-static INLINE void foreach_overlappable_nb_left(const AV1_COMMON *cm,
+static inline void foreach_overlappable_nb_left(const AV1_COMMON *cm,
                                                 MACROBLOCKD *xd, int nb_max,
                                                 overlappable_nb_visitor_t fun,
                                                 void *fun_ctxt) {

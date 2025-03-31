@@ -25,18 +25,13 @@
 
 #pragma once
 
-#if USE(NICOSIA)
-namespace Nicosia {
-class CompositionLayer;
-}
-#else
 #include "PlatformLayer.h"
-#endif
 
 namespace WebCore {
 
-#if USE(NICOSIA)
-using ScrollingPlatformLayer = Nicosia::CompositionLayer;
+#if USE(COORDINATED_GRAPHICS)
+class CoordinatedPlatformLayer;
+using ScrollingPlatformLayer = CoordinatedPlatformLayer;
 #else
 using ScrollingPlatformLayer = PlatformLayer;
 #endif

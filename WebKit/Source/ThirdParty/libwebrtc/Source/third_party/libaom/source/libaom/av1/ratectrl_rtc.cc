@@ -17,6 +17,7 @@
 #include "aom/aomcx.h"
 #include "aom/aom_encoder.h"
 #include "aom_mem/aom_mem.h"
+#include "aom_dsp/aom_dsp_common.h"
 #include "av1/encoder/encoder.h"
 #include "av1/encoder/encoder_utils.h"
 #include "av1/encoder/pickcdef.h"
@@ -40,7 +41,7 @@ AV1RateControlRtcConfig::AV1RateControlRtcConfig() {
   max_intra_bitrate_pct = 50;
   max_inter_bitrate_pct = 0;
   frame_drop_thresh = 0;
-  max_consec_drop = 0;
+  max_consec_drop_ms = 0;
   framerate = 30.0;
   ss_number_layers = 1;
   ts_number_layers = 1;
@@ -127,7 +128,10 @@ bool AV1RateControlRTC::InitRateControl(const AV1RateControlRtcConfig &rc_cfg) {
   oxcf->q_cfg.aq_mode = rc_cfg.aq_mode ? CYCLIC_REFRESH_AQ : NO_AQ;
   oxcf->tune_cfg.content = AOM_CONTENT_DEFAULT;
   oxcf->rc_cfg.drop_frames_water_mark = rc_cfg.frame_drop_thresh;
-  rc->max_consec_drop = rc_cfg.max_consec_drop;
+  if (rc_cfg.max_consec_drop_ms > 0) {
+    rc->max_consec_drop = saturate_cast_double_to_int(
+        ceil(cpi_->framerate * rc_cfg.max_consec_drop_ms / 1000));
+  }
   cpi_->svc.framedrop_mode = AOM_FULL_SUPERFRAME_DROP;
   oxcf->tool_cfg.bit_depth = AOM_BITS_8;
   oxcf->tool_cfg.superblock_size = AOM_SUPERBLOCK_SIZE_DYNAMIC;
@@ -190,7 +194,10 @@ bool AV1RateControlRTC::UpdateRateControl(
   oxcf->rc_cfg.under_shoot_pct = rc_cfg.undershoot_pct;
   oxcf->rc_cfg.over_shoot_pct = rc_cfg.overshoot_pct;
   oxcf->rc_cfg.drop_frames_water_mark = rc_cfg.frame_drop_thresh;
-  rc->max_consec_drop = rc_cfg.max_consec_drop;
+  if (rc_cfg.max_consec_drop_ms > 0) {
+    rc->max_consec_drop = saturate_cast_double_to_int(
+        ceil(cpi_->framerate * rc_cfg.max_consec_drop_ms / 1000));
+  }
   oxcf->rc_cfg.max_intra_bitrate_pct = rc_cfg.max_intra_bitrate_pct;
   oxcf->rc_cfg.max_inter_bitrate_pct = rc_cfg.max_inter_bitrate_pct;
   cpi_->framerate = rc_cfg.framerate;

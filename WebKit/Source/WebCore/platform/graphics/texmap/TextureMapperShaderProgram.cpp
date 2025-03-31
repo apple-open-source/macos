@@ -151,6 +151,9 @@ static const char* vertexTemplateCommon =
     GLSL_DIRECTIVE(ifdef ENABLE_TextureExternalOES) \
         GLSL_DIRECTIVE(extension GL_OES_EGL_image_external : require) \
         GLSL_DIRECTIVE(define SamplerExternalOESType samplerExternalOES) \
+        STRINGIFY( \
+            precision mediump samplerExternalOES;\n \
+        ) \
     GLSL_DIRECTIVE(else) \
         GLSL_DIRECTIVE(define SamplerExternalOESType sampler2D) \
     GLSL_DIRECTIVE(endif)
@@ -533,7 +536,7 @@ Ref<TextureMapperShaderProgram> TextureMapperShaderProgram::create(TextureMapper
 {
 #define SET_APPLIER_FROM_OPTIONS(Applier) \
     optionsApplierBuilder.append(\
-        (options & TextureMapperShaderProgram::Applier) ? span(ENABLE_APPLIER(Applier)) : span(DISABLE_APPLIER(Applier)))
+        (options & TextureMapperShaderProgram::Applier) ? unsafeSpan(ENABLE_APPLIER(Applier)) : unsafeSpan(DISABLE_APPLIER(Applier)))
 
     unsigned glVersion = GLContext::current()->version();
 
@@ -571,10 +574,10 @@ Ref<TextureMapperShaderProgram> TextureMapperShaderProgram::create(TextureMapper
     vertexShaderBuilder.append(optionsApplierBuilder.toString());
 
     // Append the appropriate input/output variable definitions.
-    vertexShaderBuilder.append(span(vertexTemplateLT320Vars));
+    vertexShaderBuilder.append(unsafeSpan(vertexTemplateLT320Vars));
 
     // Append the common code.
-    vertexShaderBuilder.append(span(vertexTemplateCommon));
+    vertexShaderBuilder.append(unsafeSpan(vertexTemplateCommon));
 
     StringBuilder fragmentShaderBuilder;
 
@@ -582,18 +585,18 @@ Ref<TextureMapperShaderProgram> TextureMapperShaderProgram::create(TextureMapper
     fragmentShaderBuilder.append(optionsApplierBuilder.toString());
 
     if (glVersion >= 300)
-        fragmentShaderBuilder.append(span(GLSL_DIRECTIVE(define GaussianKernelHalfSize u_gaussianKernelHalfSize)));
+        fragmentShaderBuilder.append(unsafeSpan(GLSL_DIRECTIVE(define GaussianKernelHalfSize u_gaussianKernelHalfSize)));
     else
-        fragmentShaderBuilder.append(span(GLSL_DIRECTIVE(define GaussianKernelHalfSize GAUSSIAN_KERNEL_MAX_HALF_SIZE)));
+        fragmentShaderBuilder.append(unsafeSpan(GLSL_DIRECTIVE(define GaussianKernelHalfSize GAUSSIAN_KERNEL_MAX_HALF_SIZE)));
 
     // Append the common header.
-    fragmentShaderBuilder.append(span(fragmentTemplateHeaderCommon));
+    fragmentShaderBuilder.append(unsafeSpan(fragmentTemplateHeaderCommon));
 
     // Append the appropriate input/output variable definitions.
-    fragmentShaderBuilder.append(span(fragmentTemplateLT320Vars));
+    fragmentShaderBuilder.append(unsafeSpan(fragmentTemplateLT320Vars));
 
     // Append the common code.
-    fragmentShaderBuilder.append(span(fragmentTemplateCommon));
+    fragmentShaderBuilder.append(unsafeSpan(fragmentTemplateCommon));
 
     return adoptRef(*new TextureMapperShaderProgram(vertexShaderBuilder.toString(), fragmentShaderBuilder.toString()));
 }

@@ -1,31 +1,51 @@
 dnl Process this file with autoconf to produce a configure script.
-AC_INIT(onig, 6.1.3)
+AC_INIT(onig, 6.9.8)
 
 AC_CONFIG_MACRO_DIR([m4])
 
-AM_INIT_AUTOMAKE([-Wno-portability 1.14])
-AC_CONFIG_HEADER(src/config.h)
+AM_INIT_AUTOMAKE([-Wno-portability])
+AC_CONFIG_HEADERS([src/config.h])
 
 
-dnl default value for STATISTICS
-STATISTICS=""
-AC_ARG_WITH(statistics,
-	[  --with-statistics       take matching time statistical data], 
-	[ STATISTICS=-DONIG_DEBUG_STATISTICS ])
-AC_SUBST(STATISTICS)
+AC_ARG_WITH([statistics],
+  [AS_HELP_STRING([--with-statistics],
+    [take matching time statistical data])],
+  AS_VAR_APPEND([CFLAGS], [" -DONIG_DEBUG_STATISTICS"]))
 
-dnl check for COMBINATION_EXPLOSION
-AC_ARG_ENABLE(combination-explosion-check,
-	[  --enable-combination-explosion-check   enable combination explosion check],
-	[comb_expl_check=$enableval])
-if test "${comb_expl_check}" = yes; then
-  AC_DEFINE(USE_COMBINATION_EXPLOSION_CHECK,1,[Define if combination explosion check])
-fi
+
+dnl check for POSIX API
+AC_ARG_ENABLE([posix-api],
+  [AS_HELP_STRING([--enable-posix-api],
+    [turn on to include POSIX API [default=no]])],
+[\
+case "${enableval}" in
+ yes) enable_posix_api=yes ;;
+ no)  enable_posix_api=no ;;
+ *)   AC_MSG_ERROR(bad value for --enable-posix-api) ;;
+esac],
+enable_posix_api=no)
+
+dnl check for Binary compatible POSIX API
+AC_ARG_ENABLE([binary-compatible-posix-api],
+  [AS_HELP_STRING([--enable-binary-compatible-posix-api],
+    [turn on to Binary compatible POSIX API [default=no]])],
+[\
+case "${enableval}" in
+ yes) enable_binary_compatible_posix_api=yes; enable_posix_api=yes ;;
+ no)  enable_binary_compatible_posix_api=no ;;
+ *)   AC_MSG_ERROR(bad value for --enable-binary-compatible-posix-api) ;;
+esac],
+enable_binary_compatible_posix_api=no)
+
+AM_CONDITIONAL(ENABLE_BINARY_COMPATIBLE_POSIX_API, test x"${enable_binary_compatible_posix_api}" = xyes)
+AM_CONDITIONAL(ENABLE_POSIX_API, test x"${enable_posix_api}" = xyes)
+
 
 dnl check for CRNL_AS_LINE_TERMINATOR
-AC_ARG_ENABLE(crnl-as-line-terminator,
-	[  --enable-crnl-as-line-terminator   enable CR+NL as line terminator],
-	[crnl_as_line_terminator=$enableval])
+AC_ARG_ENABLE([crnl-as-line-terminator],
+  [AS_HELP_STRING([--enable-crnl-as-line-terminator],
+    [deprecated])],
+  [crnl_as_line_terminator=$enableval])
 if test "${crnl_as_line_terminator}" = yes; then
   AC_DEFINE(USE_CRNL_AS_LINE_TERMINATOR,1,[Define if enable CR+NL as line terminator])
 fi
@@ -33,8 +53,8 @@ fi
 
 dnl Checks for programs.
 AC_PROG_CC
-AM_PROG_LIBTOOL
-LTVERSION="4:0:0"
+LT_INIT
+LTVERSION="8:0:3"
 AC_SUBST(LTVERSION)
 
 AC_PROG_INSTALL
@@ -43,45 +63,36 @@ AC_PROG_MAKE_SET
 dnl Checks for libraries.
 
 dnl Checks for header files.
-AC_HEADER_STDC
-AC_CHECK_HEADERS(stdlib.h string.h strings.h sys/time.h unistd.h sys/times.h)
+AC_CHECK_HEADERS(sys/time.h unistd.h sys/times.h)
 
 dnl Checks for typedefs, structures, and compiler characteristics.
-AC_CHECK_SIZEOF(int, 4)
-AC_CHECK_SIZEOF(short, 2)
-AC_CHECK_SIZEOF(long, 4)
-AC_C_CONST
-AC_HEADER_TIME
+AC_CHECK_SIZEOF([int])
+AC_CHECK_SIZEOF([long])
+AC_CHECK_SIZEOF([long long])
+AC_CHECK_SIZEOF([void*])
 
 dnl Checks for library functions.
 AC_FUNC_ALLOCA
-AC_FUNC_MEMCMP
 
-AC_CACHE_CHECK(for prototypes, _cv_have_prototypes,
-  [AC_TRY_COMPILE([int foo(int x) { return 0; }], [return foo(10);],
-	_cv_have_prototypes=yes,
-	_cv_have_prototypes=no)])
-if test "$_cv_have_prototypes" = yes; then
-  AC_DEFINE(HAVE_PROTOTYPES,1,[Define if compilerr supports prototypes])
-fi
+AC_CONFIG_FILES([Makefile src/Makefile test/Makefile sample/Makefile onig-config])
+AC_CONFIG_COMMANDS([default],[chmod +x onig-config],[])
 
-AC_CACHE_CHECK(for variable length prototypes and stdarg.h, _cv_stdarg,
-  [AC_TRY_COMPILE([
-#include <stdarg.h>
-int foo(int x, ...) {
-	va_list va;
-	va_start(va, x);
-	va_arg(va, int);
-	va_arg(va, char *);
-	va_arg(va, double);
-	return 0;
-}
-], [return foo(10, "", 3.14);],
-	_cv_stdarg=yes,
-	_cv_stdarg=no)])
-if test "$_cv_stdarg" = yes; then
-  AC_DEFINE(HAVE_STDARG_PROTOTYPES,1,[Define if compiler supports stdarg prototypes])
-fi
+# for Issue #220
+LIBONIG_DEF_FILE=
+FIX_TO_LDFLAGS=
+case $host_os in
+  cygwin* | mingw* )
+    if test X"$enable_shared" = Xyes; then
+      LIBONIG_DEF_FILE=libonig.def
+      FIX_TO_LDFLAGS="-no-undefined"
+    fi
+    ;;
+esac
 
+EXTRA_LIBONIG_LDFLAGS="$EXTRA_LIBONIG_LDFLAGS $FIX_TO_LDFLAGS"
+AC_SUBST(EXTRA_LIBONIG_LDFLAGS)
 
-AC_OUTPUT([Makefile src/Makefile test/Makefile sample/Makefile onig-config], [chmod +x onig-config])
+AM_CONDITIONAL(USE_LIBONIG_DEF_FILE, test -n "${LIBONIG_DEF_FILE}")
+AC_SUBST(LIBONIG_DEF_FILE)
+
+AC_OUTPUT

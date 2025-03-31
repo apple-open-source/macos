@@ -30,6 +30,9 @@
 
 #include "RemoteQueueMessages.h"
 #include "WebGPUConvertToBackingContext.h"
+#include "WebProcess.h"
+#include <WebCore/NativeImage.h>
+#include <WebCore/WebCodecsVideoFrame.h>
 #include <wtf/TZoneMallocInlines.h>
 
 namespace WebKit::WebGPU {
@@ -41,6 +44,14 @@ RemoteQueueProxy::RemoteQueueProxy(RemoteAdapterProxy& parent, ConvertToBackingC
     , m_convertToBackingContext(convertToBackingContext)
     , m_parent(parent)
 {
+#if ENABLE(VIDEO) && PLATFORM(COCOA) && ENABLE(WEB_CODECS)
+    RefPtr<RemoteVideoFrameObjectHeapProxy> videoFrameObjectHeapProxy;
+    callOnMainRunLoopAndWait([&videoFrameObjectHeapProxy] {
+        videoFrameObjectHeapProxy = WebProcess::singleton().ensureProtectedGPUProcessConnection()->protectedVideoFrameObjectHeapProxy();
+    });
+
+    m_videoFrameObjectHeapProxy = videoFrameObjectHeapProxy;
+#endif
 }
 
 RemoteQueueProxy::~RemoteQueueProxy()
@@ -49,13 +60,10 @@ RemoteQueueProxy::~RemoteQueueProxy()
     UNUSED_VARIABLE(sendResult);
 }
 
-void RemoteQueueProxy::submit(Vector<std::reference_wrapper<WebCore::WebGPU::CommandBuffer>>&& commandBuffers)
+void RemoteQueueProxy::submit(Vector<Ref<WebCore::WebGPU::CommandBuffer>>&& commandBuffers)
 {
     auto convertedCommandBuffers = WTF::compactMap(commandBuffers, [&](auto& commandBuffer) -> std::optional<WebGPUIdentifier> {
         auto convertedCommandBuffer = protectedConvertToBackingContext()->convertToBacking(commandBuffer);
-        ASSERT(convertedCommandBuffer);
-        if (!convertedCommandBuffer)
-            return std::nullopt;
         return convertedCommandBuffer;
     });
 
@@ -79,9 +87,6 @@ void RemoteQueueProxy::writeBuffer(
     std::optional<WebCore::WebGPU::Size64> size)
 {
     auto convertedBuffer = protectedConvertToBackingContext()->convertToBacking(buffer);
-    ASSERT(convertedBuffer);
-    if (!convertedBuffer)
-        return;
 
     auto sharedMemory = WebCore::SharedMemory::copySpan(source.subspan(dataOffset, static_cast<size_t>(size.value_or(source.size() - dataOffset))));
     std::optional<WebCore::SharedMemoryHandle> handle;
@@ -167,6 +172,25 @@ Ref<ConvertToBackingContext> RemoteQueueProxy::protectedConvertToBackingContext(
 {
     return m_convertToBackingContext;
 }
+
+RefPtr<WebCore::NativeImage> RemoteQueueProxy::getNativeImage(WebCore::VideoFrame& videoFrame)
+{
+    RefPtr<WebCore::NativeImage> nativeImage;
+#if ENABLE(VIDEO) && PLATFORM(COCOA) && ENABLE(WEB_CODECS)
+    callOnMainRunLoopAndWait([&nativeImage, videoFrame = Ref { videoFrame }, videoFrameHeap = protectedVideoFrameObjectHeapProxy()] {
+        nativeImage = videoFrameHeap->getNativeImage(videoFrame);
+    });
+#endif
+    return nativeImage;
+}
+
+#if ENABLE(VIDEO)
+RefPtr<RemoteVideoFrameObjectHeapProxy> RemoteQueueProxy::protectedVideoFrameObjectHeapProxy() const
+{
+    return m_videoFrameObjectHeapProxy;
+}
+#endif
+
 
 } // namespace WebKit::WebGPU
 

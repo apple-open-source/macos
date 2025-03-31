@@ -192,6 +192,7 @@ es{
             }
             milligram-ofglucose-per-deciliter{
                 dnam{"miligramos por decilitro"}
+                gender{"masculine"}
                 one{"{0} miligramo por decilitro"}
                 other{"{0} miligramos por decilitro"}
             }
@@ -390,6 +391,13 @@ es{
                 gender{"masculine"}
                 one{"{0} nanosegundo"}
                 other{"{0} nanosegundos"}
+            }
+            night{
+                dnam{"noches"}
+                gender{"feminine"}
+                one{"{0} noche"}
+                other{"{0} noches"}
+                per{"{0} por noche"}
             }
             quarter{
                 dnam{"trimestres"}
@@ -706,6 +714,7 @@ es{
             }
             point{
                 dnam{"puntos"}
+                gender{"masculine"}
                 one{"{0} punto"}
                 other{"{0} puntos"}
             }
@@ -922,6 +931,7 @@ es{
             }
             millimeter-ofhg{
                 dnam{"milímetros de mercurio"}
+                gender{"masculine"}
                 one{"{0} milímetro de mercurio"}
                 other{"{0} milímetros de mercurio"}
             }
@@ -940,6 +950,7 @@ es{
         speed{
             beaufort{
                 dnam{"Beaufort"}
+                gender{"feminine"}
                 one{"Beaufort {0}"}
                 other{"Beaufort {0}"}
             }
@@ -953,6 +964,12 @@ es{
                 dnam{"nudos"}
                 one{"{0} nudo"}
                 other{"{0} nudos"}
+            }
+            light-speed{
+                dnam{"luz"}
+                gender{"feminine"}
+                one{"{0} luz"}
+                other{"{0} luz"}
             }
             meter-per-second{
                 dnam{"metros por segundo"}
@@ -1446,6 +1463,12 @@ es{
                 one{"{0}ns"}
                 other{"{0}ns"}
             }
+            night{
+                dnam{"noches"}
+                one{"{0}noche"}
+                other{"{0}noches"}
+                per{"{0}/noche"}
+            }
             quarter{
                 dnam{"trim"}
                 one{"{0}trim"}
@@ -1847,6 +1870,11 @@ es{
                 one{"{0}kn"}
                 other{"{0}kn"}
             }
+            light-speed{
+                dnam{"luz"}
+                one{"{0}luz"}
+                other{"{0}luz"}
+            }
             meter-per-second{
                 one{"{0}m/s"}
                 other{"{0}m/s"}
@@ -2143,6 +2171,12 @@ es{
                 other{"{0} m."}
                 per{"{0}/m."}
             }
+            night{
+                dnam{"noches"}
+                one{"{0} noche"}
+                other{"{0} noches"}
+                per{"{0}/noche"}
+            }
             quarter{
                 dnam{"trim."}
                 one{"{0} trim."}
@@ -2295,6 +2329,13 @@ es{
                 dnam{"mmHg"}
                 one{"{0} mmHg"}
                 other{"{0} mmHg"}
+            }
+        }
+        speed{
+            light-speed{
+                dnam{"luz"}
+                one{"{0} luz"}
+                other{"{0} luz"}
             }
         }
         temperature{

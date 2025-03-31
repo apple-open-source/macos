@@ -14,6 +14,7 @@
 #include <functional>
 #include <iterator>
 #include <map>
+#include <optional>
 #include <set>
 #include <string>
 #include <utility>
@@ -21,7 +22,6 @@
 
 #include "absl/algorithm/container.h"
 #include "absl/strings/string_view.h"
-#include "absl/types/optional.h"
 #include "api/array_view.h"
 #include "net/dcsctp/common/math.h"
 #include "net/dcsctp/common/sequence_numbers.h"
@@ -46,9 +46,6 @@ namespace dcsctp {
 namespace {
 using ::webrtc::TimeDelta;
 using ::webrtc::Timestamp;
-
-// Allow sending only slightly less than an MTU, to account for headers.
-constexpr float kMinBytesRequiredToSendFactor = 0.9;
 }  // namespace
 
 RetransmissionQueue::RetransmissionQueue(
@@ -65,7 +62,6 @@ RetransmissionQueue::RetransmissionQueue(
     bool use_message_interleaving)
     : callbacks_(*callbacks),
       options_(options),
-      min_bytes_required_to_send_(options.mtu * kMinBytesRequiredToSendFactor),
       partial_reliability_(supports_partial_reliability),
       log_prefix_(log_prefix),
       data_chunk_header_size_(use_message_interleaving
@@ -110,7 +106,7 @@ void RetransmissionQueue::MaybeExitFastRecovery(
     RTC_DLOG(LS_VERBOSE) << log_prefix_
                          << "exit_point=" << *fast_recovery_exit_tsn_->Wrap()
                          << " reached - exiting fast recovery";
-    fast_recovery_exit_tsn_ = absl::nullopt;
+    fast_recovery_exit_tsn_ = std::nullopt;
   }
 }
 
@@ -434,11 +430,11 @@ RetransmissionQueue::GetChunksForFastRetransmit(size_t bytes_in_packet) {
   rtx_bytes_count_ += bytes_retransmitted;
 
   RTC_DLOG(LS_VERBOSE) << log_prefix_ << "Fast-retransmitting TSN "
-                       << StrJoin(to_be_sent, ",",
-                                  [&](rtc::StringBuilder& sb,
-                                      const std::pair<TSN, Data>& c) {
-                                    sb << *c.first;
-                                  })
+                       << webrtc::StrJoin(to_be_sent, ",",
+                                          [&](rtc::StringBuilder& sb,
+                                              const std::pair<TSN, Data>& c) {
+                                            sb << *c.first;
+                                          })
                        << " - " << bytes_retransmitted
                        << " bytes. unacked_bytes=" << unacked_bytes() << " ("
                        << old_unacked_bytes << ")";
@@ -479,7 +475,7 @@ std::vector<std::pair<TSN, Data>> RetransmissionQueue::GetChunksToSend(
 
   while (max_bytes > data_chunk_header_size_) {
     RTC_DCHECK(IsDivisibleBy4(max_bytes));
-    absl::optional<SendQueue::DataToSend> chunk_opt =
+    std::optional<SendQueue::DataToSend> chunk_opt =
         send_queue_.Produce(now, max_bytes - data_chunk_header_size_);
     if (!chunk_opt.has_value()) {
       break;
@@ -489,7 +485,7 @@ std::vector<std::pair<TSN, Data>> RetransmissionQueue::GetChunksToSend(
     max_bytes -= chunk_size;
     rwnd_ -= chunk_size;
 
-    absl::optional<UnwrappedTSN> tsn = outstanding_data_.Insert(
+    std::optional<UnwrappedTSN> tsn = outstanding_data_.Insert(
         chunk_opt->message_id, chunk_opt->data, now,
         partial_reliability_ ? chunk_opt->max_retransmissions
                              : MaxRetransmits::NoLimit(),
@@ -515,11 +511,11 @@ std::vector<std::pair<TSN, Data>> RetransmissionQueue::GetChunksToSend(
       t3_rtx_.Start();
     }
     RTC_DLOG(LS_VERBOSE) << log_prefix_ << "Sending TSN "
-                         << StrJoin(to_be_sent, ",",
-                                    [&](rtc::StringBuilder& sb,
-                                        const std::pair<TSN, Data>& c) {
-                                      sb << *c.first;
-                                    })
+                         << webrtc::StrJoin(to_be_sent, ",",
+                                            [&](rtc::StringBuilder& sb,
+                                                const std::pair<TSN, Data>& c) {
+                                              sb << *c.first;
+                                            })
                          << " - "
                          << absl::c_accumulate(
                                 to_be_sent, 0,
@@ -532,11 +528,6 @@ std::vector<std::pair<TSN, Data>> RetransmissionQueue::GetChunksToSend(
   }
   RTC_DCHECK(IsConsistent());
   return to_be_sent;
-}
-
-bool RetransmissionQueue::can_send_data() const {
-  return cwnd_ < options_.avoid_fragmentation_cwnd_mtus * options_.mtu ||
-         max_bytes_to_send() >= min_bytes_required_to_send_;
 }
 
 bool RetransmissionQueue::ShouldSendForwardTsn(Timestamp now) {

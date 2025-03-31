@@ -30,7 +30,7 @@
 #include <WebCore/SecurityOriginData.h>
 #include <wtf/ListHashSet.h>
 #include <wtf/Noncopyable.h>
-#include <wtf/WeakPtr.h>
+#include <wtf/RefCountedAndCanMakeWeakPtr.h>
 #include <wtf/text/WTFString.h>
 
 #if HAVE(IOSURFACE)
@@ -52,7 +52,7 @@ class WebPageProxy;
 
 enum class ForceSoftwareCapturingViewportSnapshot : bool { No, Yes };
 
-class ViewSnapshot : public RefCounted<ViewSnapshot>, public CanMakeWeakPtr<ViewSnapshot> {
+class ViewSnapshot : public RefCountedAndCanMakeWeakPtr<ViewSnapshot> {
 public:
 #if HAVE(IOSURFACE)
     static Ref<ViewSnapshot> create(std::unique_ptr<WebCore::IOSurface>);

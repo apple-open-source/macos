@@ -40,6 +40,7 @@
 #include "IntRect.h"
 #include "NoiseInjectionPolicy.h"
 #include "RenderElement.h"
+#include "ScriptTelemetryCategory.h"
 #include "StyleCanvasImage.h"
 #include "WebCoreOpaqueRoot.h"
 #include "WorkerClient.h"
@@ -48,6 +49,7 @@
 #include <JavaScriptCore/JSLock.h>
 #include <atomic>
 #include <wtf/Vector.h>
+#include <wtf/WeakRandom.h>
 #include <wtf/text/MakeString.h>
 
 namespace WebCore {
@@ -55,9 +57,18 @@ namespace WebCore {
 constexpr InterpolationQuality defaultInterpolationQuality = InterpolationQuality::Low;
 static std::optional<size_t> maxCanvasAreaForTesting;
 
-CanvasBase::CanvasBase(IntSize size, const ScriptExecutionContext& context)
-    : m_size(size)
-    , m_canvasNoiseHashSalt(context.noiseInjectionPolicies().contains(NoiseInjectionPolicy::Minimal) ? context.noiseInjectionHashSalt() : std::nullopt)
+static std::optional<uint64_t> canvasNoiseHashSaltIfNeeded(ScriptExecutionContext& context)
+{
+    auto policies = context.noiseInjectionPolicies();
+    if (policies.contains(NoiseInjectionPolicy::Minimal)
+        || (policies.contains(NoiseInjectionPolicy::Enhanced) && context.requiresScriptExecutionTelemetry(ScriptTelemetryCategory::Canvas)))
+        return context.noiseInjectionHashSalt();
+    return { };
+}
+
+CanvasBase::CanvasBase(IntSize size, ScriptExecutionContext& context)
+    : m_size { size }
+    , m_canvasNoiseHashSalt { canvasNoiseHashSaltIfNeeded(context) }
 {
 }
 
@@ -200,9 +211,9 @@ void CanvasBase::notifyObserversCanvasDisplayBufferPrepared()
         observer.canvasDisplayBufferPrepared(*this);
 }
 
-HashSet<Element*> CanvasBase::cssCanvasClients() const
+UncheckedKeyHashSet<Element*> CanvasBase::cssCanvasClients() const
 {
-    HashSet<Element*> cssCanvasClients;
+    UncheckedKeyHashSet<Element*> cssCanvasClients;
     for (auto& observer : m_observers) {
         auto* image = dynamicDowncast<StyleCanvasImage>(observer);
         if (!image)
@@ -299,17 +310,18 @@ RefPtr<ImageBuffer> CanvasBase::allocateImageBuffer() const
     }
 
     auto* context = renderingContext();
-    auto colorSpace = context ? context->colorSpace() : DestinationColorSpace::SRGB();
-    auto pixelFormat = context ? context->pixelFormat() : ImageBufferPixelFormat::BGRA8;
     bool willReadFrequently = context ? context->willReadFrequently() : false;
 
-    OptionSet<ImageBufferOptions> bufferOptions;
-    if (!willReadFrequently && shouldAccelerate(area))
-        bufferOptions.add(ImageBufferOptions::Accelerated);
-    if (context)
-        bufferOptions = context->adjustImageBufferOptionsForTesting(bufferOptions);
+    RenderingMode renderingMode;
+    if (auto renderingModeForTesting = context ? context->renderingModeForTesting() : std::nullopt)
+        renderingMode = *renderingModeForTesting;
+    else
+        renderingMode = !willReadFrequently && shouldAccelerate(area) ? RenderingMode::Accelerated : RenderingMode::Unaccelerated;
 
-    return ImageBuffer::create(size(), RenderingPurpose::Canvas, 1, colorSpace, pixelFormat, bufferOptions, scriptExecutionContext()->graphicsClient());
+    auto colorSpace = context ? context->colorSpace() : DestinationColorSpace::SRGB();
+    auto pixelFormat = context ? context->pixelFormat() : ImageBufferPixelFormat::BGRA8;
+
+    return ImageBuffer::create(size(), renderingMode, RenderingPurpose::Canvas, 1, colorSpace, pixelFormat, scriptExecutionContext()->graphicsClient());
 }
 
 bool CanvasBase::shouldInjectNoiseBeforeReadback() const
@@ -354,6 +366,29 @@ bool CanvasBase::postProcessPixelBufferResults(Ref<PixelBuffer>&& pixelBuffer) c
     if (m_canvasNoiseHashSalt)
         return m_canvasNoiseInjection.postProcessPixelBufferResults(std::forward<Ref<PixelBuffer>>(pixelBuffer), *m_canvasNoiseHashSalt);
     return false;
+}
+
+RefPtr<ImageBuffer> CanvasBase::createImageForNoiseInjection() const
+{
+    RefPtr context = canvasBaseScriptExecutionContext();
+    if (!context)
+        return { };
+
+    auto seed = static_cast<unsigned>(context->noiseInjectionHashSalt().value_or(0));
+    auto buffer = ImageBuffer::create(size(), RenderingMode::Unaccelerated, RenderingPurpose::Unspecified, 1, DestinationColorSpace::SRGB(), ImageBufferPixelFormat::BGRA8);
+    if (!buffer)
+        return { };
+
+    auto componentValues = WeakRandom { seed }.getUint32();
+    auto fillColor = SRGBA<uint8_t> {
+        static_cast<uint8_t>((componentValues >> 24) & 0xFF),
+        static_cast<uint8_t>((componentValues >> 16) & 0xFF),
+        static_cast<uint8_t>((componentValues >> 8) & 0xFF),
+        static_cast<uint8_t>(componentValues & 0xFF),
+    };
+    buffer->context().setFillColor(fillColor);
+    buffer->context().fillRect({ IntPoint { }, size() });
+    return buffer;
 }
 
 void CanvasBase::resetGraphicsContextState() const

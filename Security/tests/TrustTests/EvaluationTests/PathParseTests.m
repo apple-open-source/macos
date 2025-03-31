@@ -33,6 +33,7 @@
 #include "PathParseTests_data.h"
 
 const NSString *kSecTestPathFailureResources = @"si-18-certificate-parse/PathFailureCerts";
+const NSString *kSecTestPathPolicyMappingResources = @"si-18-certificate-parse/PolicyMappingFailureCerts";
 
 @interface PathParseTests : TrustEvaluationTestCase
 
@@ -116,6 +117,39 @@ errOut:
     CFReleaseNull(leaf);
 }
 
+- (void)testExcessivePolicyMappings {
+    SecCertificateRef root = nil;
+    CFAbsoluteTime startTime, finishTime;
+
+    NSURL *rootURL = [[NSBundle bundleForClass:[self class]]URLForResource:@"policy_mapping_root" withExtension:@".cer" subdirectory:@"si-18-certificate-parse"];
+    XCTAssert(root = SecCertificateCreateWithData(NULL, (__bridge CFDataRef)[NSData dataWithContentsOfURL:rootURL]), "Unable to create root cert");
+
+    NSMutableArray *certs = [NSMutableArray array];
+    for(int ix = 13; ix > 0; ix--) {
+        NSString *filename = [NSString stringWithFormat:@"policy_mapping_subCA%d", ix];
+        id cert = [self SecCertificateCreateFromResource:filename subdirectory:(NSString*)kSecTestPathPolicyMappingResources];
+        XCTAssertNotNil(cert);
+        [certs addObject:cert];
+    }
+
+    SecTrustRef trust = NULL;
+    SecPolicyRef policy = SecPolicyCreateBasicX509();
+
+    XCTAssertEqual(errSecSuccess, SecTrustCreateWithCertificates((__bridge CFArrayRef)certs, policy, &trust));
+    XCTAssertEqual(errSecSuccess, SecTrustSetAnchorCertificates(trust, (__bridge CFArrayRef)[NSArray arrayWithObject:(__bridge id)root]));
+    XCTAssertEqual(errSecSuccess, SecTrustSetVerifyDate(trust, (__bridge CFDateRef)[NSDate dateWithTimeIntervalSince1970:1738034573]));
+
+    /* Verify that the trust evaluation fails and also takes less than a second */
+    startTime = CFAbsoluteTimeGetCurrent();
+    XCTAssertFalse(SecTrustEvaluateWithError(trust, NULL));
+    finishTime = CFAbsoluteTimeGetCurrent();
+    XCTAssert(finishTime >= startTime && ((finishTime - startTime) <= 1));
+
+    CFReleaseNull(trust);
+    CFReleaseNull(policy);
+    CFReleaseNull(root);
+}
+
 // NSTask is only supported on these platforms
 #if TARGET_OS_OSX || (defined(TARGET_OS_MACCATALYST) && TARGET_OS_MACCATALYST)
 #define PLATFORM_HAS_NS_TASK 1
@@ -162,6 +196,17 @@ static int _runEvaluateCommand(NSString *path, NSString **result) {
     task.launchPath = @"/usr/local/bin/security";
 #endif
     task.arguments = @[ @"verify-cert", @"-c", path ];
+    return _runTask(task, result);
+}
+
+static int _runEvaluateCommandWithPolicy(NSString *policy, NSString *path, NSString **result) {
+    NSTask *task = [[NSTask alloc] init];
+#if TARGET_OS_OSX
+    task.launchPath = @"/usr/bin/security";
+#else
+    task.launchPath = @"/usr/local/bin/security";
+#endif
+    task.arguments = @[ @"verify-cert", @"-p", policy, @"-c", path ];
     return _runTask(task, result);
 }
 
@@ -230,5 +275,21 @@ static void _evaluateTrustForCertificate(NSURL *certURL, bool local) {
     return;
 }
 
+- (void)testSecurityCommandVerifyCertWithPolicy {
+#if !PLATFORM_HAS_NS_TASK
+    XCTSkip("Does not have NSTask");
+#else
+    NSURL *certURL = [[NSBundle bundleForClass:[self class]] URLForResource:@"DigiCertGlobalRootG3" withExtension:@".cer" subdirectory:@"si-20-sectrust-policies-data"];
+    NSString *certPath = [certURL path];
+    NSString *basicPolicyID = @"1.2.840.113635.100.1.2";
+    NSString *mdlPolicyID = @"1.2.840.113635.100.1.108";
+
+    // we expect this to pass the basic policy
+    XCTAssertEqual(0, _runEvaluateCommandWithPolicy(basicPolicyID, certPath, nil));
+    // but not the mDL policy
+    XCTAssertEqual(1, _runEvaluateCommandWithPolicy(mdlPolicyID, certPath, nil));
+#endif
+    return;
+}
 
 @end

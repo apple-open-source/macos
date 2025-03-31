@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2024 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2025 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -95,15 +95,15 @@ typedef struct {
 #define kInterfaceTypeFlagIsWireless	0x01
 #define kInterfaceTypeFlagIsAWDL	0x02
 #define kInterfaceTypeFlagIsTethered	0x04
-#define kInterfaceTypeFlagIsExpensive	0x08
-#define kInterfaceTypeFlagIsWiFiInfra	0x10
-#define kInterfaceTypeFlagIsCarPlay	0x20
+#define kInterfaceTypeFlagIsWiFiInfra	0x08
+#define kInterfaceTypeFlagIsCarPlay	0x10
 
 typedef struct {
     char 		name[IFNAMSIZ]; /* eg. en0 */
     uint16_t		flags;	/* IFF flags */
     uint8_t		type;	/* e.g. IFT_ETHER */
     uint8_t		type_flags; /* kInterfaceTypeFlag* bits */
+    boolean_t		is_expensive;
     dynarray_t		inet;
     link_addr_t		link_address;
     uint32_t		user_defined;

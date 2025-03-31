@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2019 Kristaps Dzonsons <kristaps@bsd.lv>
+ * Copyright (c) 2024, Klara, Inc.
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -27,6 +28,91 @@
 #endif
 
 #include "extern.h"
+
+/*
+ * Print time as hh:mm:ss
+ */
+static void
+print_time(FILE *f, double time)
+{
+	int i = time;
+	fprintf(f, "   %02d:%02d:%02d",
+	    i / 3600, (i - i / 3600 * 3600) / 60,
+	    (i - i / 60 * 60));
+}
+
+/*
+ * Maybe print progress in current file.
+ */
+void
+rsync_progress(struct sess *sess, uint64_t total_bytes, uint64_t so_far,
+    bool finished, size_t idx, size_t totalidx)
+{
+	struct timeval tv;
+	double delta, now, remaining_time, rate;
+
+	if (!sess->opts->progress || sess->opts->server)
+		return;
+
+	gettimeofday(&tv, NULL);
+	now = tv.tv_sec + (double)tv.tv_usec / 1000000.0;
+
+	/*
+	 * Print progress.
+	 * This calculates from previous transfer.
+	 */
+	if (sess->xferstat.last_time == 0) {
+		sess->xferstat.count++;
+		sess->xferstat.start_time = sess->xferstat.last_time = now;
+		assert(sess->xferstat.last_bytes == 0);
+		return;
+	}
+	if ((now - sess->xferstat.last_time) < 0.5 && !finished)
+		return;
+	printf(" %14llu", (long long unsigned)so_far);
+	printf(" %3.0f%%", (double)so_far /
+	    (double)total_bytes * 100.0);
+
+	/*
+	 * Once we've finished, displaying 00:00:00 for all entries isn't really
+	 * useful for anyone; switch to the total time taken for all of our
+	 * stats.
+	 */
+	if (finished) {
+		delta = (now - sess->xferstat.start_time);
+		rate = (double)so_far / delta;
+	} else {
+		delta = (now - sess->xferstat.last_time);
+		rate = (double)(so_far - sess->xferstat.last_bytes) / delta;
+	}
+
+	if (rate > 1024.0 * 1024.0 * 1024.0) {
+		printf(" %7.2fGB/s", rate / 1024.0 / 1024.0 / 1024.0);
+	} else if (rate > 1024.0 * 1024.0) {
+		printf(" %7.2fMB/s", rate / 1024.0 / 1024.0);
+	} else if (rate > 1024.0) {
+		printf(" %7.2fKB/s", rate / 1024.0);
+	}
+
+	if (finished)
+		remaining_time = delta;
+	else
+		remaining_time = (total_bytes - so_far) / rate;
+	print_time(stdout, remaining_time);
+
+	if (finished) {
+		printf(" (xfer#%zu, to-check=%d/%d)\n",
+		    sess->xferstat.count, idx, totalidx);
+		sess->xferstat.start_time = sess->xferstat.last_time = 0;
+		sess->xferstat.last_bytes = 0;
+	} else {
+		printf("\r");
+		sess->xferstat.last_time = now;
+		sess->xferstat.last_bytes = so_far;
+	}
+	fflush(stdout);
+}
+
 
 /*
  * The rsync client runs on the operator's local machine.
@@ -60,10 +146,15 @@ rsync_client(struct cleanup_ctx *cleanup_ctx, const struct opts *opts,
 	if (sess.opts->chmod != NULL)
 		chmod_parse(sess.opts->chmod, &sess);
 
+	log_format_init(&sess);
+
+	LOG4("Printing(%d): itemize %d late %d", getpid(), sess.itemize, sess.lateprint);
+
 	cleanup_set_session(cleanup_ctx, &sess);
 	cleanup_release(cleanup_ctx);
 
-	if (!io_write_int(&sess, fd, sess.lver)) {
+	if (sess.opts->read_batch == NULL &&
+	    !io_write_int(&sess, fd, sess.lver)) {
 		ERRX1("io_write_int");
 		goto out;
 	} else if (!io_read_int(&sess, fd, &sess.rver)) {
@@ -85,7 +176,7 @@ rsync_client(struct cleanup_ctx *cleanup_ctx, const struct opts *opts,
 		sess.protocol = sess.rver;
 	}
 
-	LOG2("client detected client version %d, server version %d, "
+	LOG3("client detected client version %d, server version %d, "
 	    "negotiated protocol version %d, seed %d",
 	    sess.lver, sess.rver, sess.protocol, sess.seed);
 
@@ -102,12 +193,19 @@ rsync_client(struct cleanup_ctx *cleanup_ctx, const struct opts *opts,
 	 */
 	if (sess.opts->filesfrom_host && f->mode == FARGS_SENDER)
 		sess.filesfrom_fd = fd;
+	else if (sess.opts->filesfrom && sess.opts->server &&
+		 strcmp(sess.opts->filesfrom, "-") == 0 &&
+		 f->mode == FARGS_SENDER)
+		sess.filesfrom_fd = fd;
 	else
 		sess.mplex_reads = 1;
 
 	assert(sess.opts->whole_file != -1);
-	LOG2("Delta transmission %s for this transfer",
-	    sess.opts->whole_file ? "disabled" : "enabled");
+
+	if (verbose > 1 && f->mode == FARGS_RECEIVER) {
+		LOG0("Delta transmission %s for this transfer",
+		    sess.opts->whole_file ? "disabled" : "enabled");
+	}
 
 	/*
 	 * Now we need to get our list of files.
@@ -115,16 +213,21 @@ rsync_client(struct cleanup_ctx *cleanup_ctx, const struct opts *opts,
 	 */
 
 	if (f->mode != FARGS_RECEIVER) {
-		LOG2("client starting sender: %s",
+		LOG3("client starting sender: %s",
 		    f->host == NULL ? "(local)" : f->host);
+
+		sess.lreceiver = (f->host == NULL);
+
 		if (!rsync_sender(&sess, fd, fd, f->sourcesz,
 		    f->sources)) {
 			ERRX1("rsync_sender");
 			goto out;
 		}
 	} else {
-		LOG2("client starting receiver: %s",
+		LOG3("client starting receiver: %s",
 		    f->host == NULL ? "(local)" : f->host);
+
+		sess.lreceiver = true;
 
 		/*
 		 * The client traditionally doesn't multiplex writes, but it
@@ -151,15 +254,18 @@ rsync_client(struct cleanup_ctx *cleanup_ctx, const struct opts *opts,
 	 */
 	rc = 0;
 	if (!io_read_close(&sess, fd)) {
-		ERRX1("data remains in read pipe");
+		if (sess.mplex_read_remain > 0)
+			ERRX1("data remains in read pipe");
 		rc = ERR_IPC;
 	} else if (sess.err_del_limit) {
-		assert(sess.total_deleted >= sess.opts->max_delete);
+		assert(sess.total_deleted >= sess.opts->max_delete ||
+		    sess.opts->dry_run);
 		rc = ERR_DEL_LIMIT;
 	} else if (sess.total_errors > 0) {
 		rc = ERR_PARTIAL;
 	}
 out:
 	batch_close(&sess, f, rc);
+	sess_cleanup(&sess);
 	return rc;
 }

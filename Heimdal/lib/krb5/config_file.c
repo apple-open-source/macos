@@ -562,7 +562,7 @@ free_binding (krb5_context context, krb5_config_binding *b)
 	else if (b->type == krb5_config_list)
 	    free_binding (context, b->u.list);
 	else
-	    krb5_abortx(context, "unknown binding type (%d) in free_binding",
+	    krb5_abortx(context, "unknown binding type (%u) in free_binding",
 			b->type);
 	next_b = b->next;
 	free (b);

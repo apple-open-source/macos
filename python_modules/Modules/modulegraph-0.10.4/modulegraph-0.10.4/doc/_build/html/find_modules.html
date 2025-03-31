@@ -1,0 +1,184 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>modulegraph.find_modules — High-level module dependency finding interface &mdash; modulegraph 0.10.4 documentation</title>
+    
+    <link rel="stylesheet" href="_static/nature.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '',
+        VERSION:     '0.10.4',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <link rel="top" title="modulegraph 0.10.4 documentation" href="index.html" />
+    <link rel="next" title="modulegraph.util — Utilies functions" href="util.html" />
+    <link rel="prev" title="modulegraph.modulegraph — Find modules used by a script" href="modulegraph.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="util.html" title="modulegraph.util — Utilies functions"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="modulegraph.html" title="modulegraph.modulegraph — Find modules used by a script"
+             accesskey="P">previous</a> |</li>
+        <li><a href="index.html">modulegraph 0.10.4 documentation</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="module-modulegraph.find_modules">
+<span id="modulegraph-find-modules-high-level-module-dependency-finding-interface"></span><h1><a class="reference internal" href="#module-modulegraph.find_modules" title="modulegraph.find_modules: High-level module dependency finding interface"><tt class="xref py py-mod docutils literal"><span class="pre">modulegraph.find_modules</span></tt></a> &#8212; High-level module dependency finding interface<a class="headerlink" href="#module-modulegraph.find_modules" title="Permalink to this headline">¶</a></h1>
+<p>This module provides a high-level interface to the functionality of
+the modulegraph package.</p>
+<dl class="function">
+<dt id="modulegraph.find_modules.find_modules">
+<tt class="descclassname">modulegraph.find_modules.</tt><tt class="descname">find_modules</tt><big>(</big><span class="optional">[</span><em>scripts</em><span class="optional">[</span>, <em>includes</em><span class="optional">[</span>, <em>packages</em><span class="optional">[</span>, <em>excludes</em><span class="optional">[</span>, <em>path</em><span class="optional">[</span>, <em>debug</em><span class="optional">]</span><span class="optional">]</span><span class="optional">]</span><span class="optional">]</span><span class="optional">]</span><span class="optional">]</span><big>)</big><a class="headerlink" href="#modulegraph.find_modules.find_modules" title="Permalink to this definition">¶</a></dt>
+<dd><p>High-level interface, takes iterables for: scripts, includes, packages, excludes</p>
+<p>And returns a <a class="reference internal" href="modulegraph.html#modulegraph.modulegraph.ModuleGraph" title="modulegraph.modulegraph.ModuleGraph"><tt class="xref py py-class docutils literal"><span class="pre">modulegraph.modulegraph.ModuleGraph</span></tt></a> instance,
+python_files, and extensions</p>
+<p>python_files is a list of pure python dependencies as modulegraph.Module objects,</p>
+<p>extensions is a list of platform-specific C extension dependencies as modulegraph.Module objects</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="modulegraph.find_modules.parse_mf_results">
+<tt class="descclassname">modulegraph.find_modules.</tt><tt class="descname">parse_mf_results</tt><big>(</big><em>mf</em><big>)</big><a class="headerlink" href="#modulegraph.find_modules.parse_mf_results" title="Permalink to this definition">¶</a></dt>
+<dd><p>Return two lists: the first one contains the python files in the graph,
+the second the C extensions.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>mf</strong> &#8211; a <a class="reference internal" href="modulegraph.html#modulegraph.modulegraph.ModuleGraph" title="modulegraph.modulegraph.ModuleGraph"><tt class="xref py py-class docutils literal"><span class="pre">modulegraph.modulegraph.ModuleGraph</span></tt></a> instance</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<div class="section" id="lower-level-functionality">
+<h2>Lower-level functionality<a class="headerlink" href="#lower-level-functionality" title="Permalink to this headline">¶</a></h2>
+<p>The functionality in this section is much lower level and should probably
+not be used. It&#8217;s mostly documented as a convenience for maintainers.</p>
+<dl class="function">
+<dt id="modulegraph.find_modules.get_implies">
+<tt class="descclassname">modulegraph.find_modules.</tt><tt class="descname">get_implies</tt><big>(</big><big>)</big><a class="headerlink" href="#modulegraph.find_modules.get_implies" title="Permalink to this definition">¶</a></dt>
+<dd><p>Return a mapping of implied dependencies. The key is a, possibly dotted,
+module name and the value a list of dependencies.</p>
+<p>This contains hardcoded list of hard dependencies, for example for C
+extensions in the standard libary that perform imports in C code, which
+the generic dependency finder cannot locate.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="modulegraph.find_modules.plat_prepare">
+<tt class="descclassname">modulegraph.find_modules.</tt><tt class="descname">plat_prepare</tt><big>(</big><em>includes</em>, <em>packages</em>, <em>excludes</em><big>)</big><a class="headerlink" href="#modulegraph.find_modules.plat_prepare" title="Permalink to this definition">¶</a></dt>
+<dd><p>Updates the lists of includes, packages and excludes for the current
+platform. This will add items to these lists based on hardcoded platform
+information.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="modulegraph.find_modules.find_needed_modules">
+<tt class="descclassname">modulegraph.find_modules.</tt><tt class="descname">find_needed_modules</tt><big>(</big><span class="optional">[</span><em>mf</em><span class="optional">[</span>, <em>scripts</em><span class="optional">[</span>, <em>includes</em><span class="optional">[</span>, <em>packages</em><span class="optional">[</span>, <em>warn</em><span class="optional">]</span><span class="optional">]</span><span class="optional">]</span><span class="optional">]</span><span class="optional">]</span><big>)</big><a class="headerlink" href="#modulegraph.find_modules.find_needed_modules" title="Permalink to this definition">¶</a></dt>
+<dd><p>Feeds the given <tt class="xref py py-class docutils literal"><span class="pre">ModuleGraph</span></tt>  with
+the <em>scripts</em>, <em>includes</em> and <em>packages</em> and returns the resulting
+graph. This function will create a new graph when <em>mf</em> is not specified
+or <tt class="docutils literal"><span class="pre">None</span></tt>.</p>
+</dd></dl>
+
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#"><tt class="docutils literal"><span class="pre">modulegraph.find_modules</span></tt> &#8212; High-level module dependency finding interface</a><ul>
+<li><a class="reference internal" href="#lower-level-functionality">Lower-level functionality</a></li>
+</ul>
+</li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="modulegraph.html"
+                        title="previous chapter"><tt class="docutils literal docutils literal"><span class="pre">modulegraph.modulegraph</span></tt> &#8212; Find modules used by a script</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="util.html"
+                        title="next chapter"><tt class="docutils literal"><span class="pre">modulegraph.util</span></tt> &#8212; Utilies functions</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="_sources/find_modules.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="util.html" title="modulegraph.util — Utilies functions"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="modulegraph.html" title="modulegraph.modulegraph — Find modules used by a script"
+             >previous</a> |</li>
+        <li><a href="index.html">modulegraph 0.10.4 documentation</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2010, Ronald Oussoren.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1.3.
+    </div>
+  </body>
+</html>

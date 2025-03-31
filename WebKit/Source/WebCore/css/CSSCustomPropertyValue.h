@@ -53,7 +53,7 @@ public:
         bool operator==(const TransformSyntaxValue& other) const { return transform.get() == other.transform.get(); }
     };
 
-    using SyntaxValue = std::variant<Length, NumericSyntaxValue, StyleColor, RefPtr<StyleImage>, URL, String, TransformSyntaxValue>;
+    using SyntaxValue = std::variant<Length, NumericSyntaxValue, Style::Color, RefPtr<StyleImage>, URL, String, TransformSyntaxValue>;
 
     struct SyntaxValueList {
         Vector<SyntaxValue> values;

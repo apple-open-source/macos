@@ -1601,24 +1601,31 @@ int hfs_vnop_setattr( vnode_t vp, const UVFSFileAttributes *attr )
     /*
      * Timestamp updates.
      */
-    if ( attr->fa_validmask & UVFS_FA_VALID_ATIME )
+    if ((attr->fa_validmask & UVFS_FA_VALID_ATIME)     ||
+        (attr->fa_validmask & UVFS_FA_VALID_BIRTHTIME) ||
+        (attr->fa_validmask & UVFS_FA_VALID_MTIME))
     {
-        cp->c_atime = attr->fa_atime.tv_sec;
-        cp->c_touch_acctime = FALSE;
-    }
+        if ( attr->fa_validmask & UVFS_FA_VALID_ATIME )
+        {
+            cp->c_atime = attr->fa_atime.tv_sec;
+            cp->c_touch_acctime = FALSE;
+        }
 
-    if ( attr->fa_validmask & UVFS_FA_VALID_BIRTHTIME )
-    {
-        cp->c_itime = attr->fa_birthtime.tv_sec;
-    }
+        if ( attr->fa_validmask & UVFS_FA_VALID_BIRTHTIME )
+        {
+            cp->c_itime = attr->fa_birthtime.tv_sec;
+        }
 
-    if ( attr->fa_validmask & UVFS_FA_VALID_MTIME )
-    {
-        cp->c_mtime = attr->fa_mtime.tv_sec;
-        cp->c_touch_modtime = FALSE;
-        cp->c_touch_chgtime = TRUE;
+        if ( attr->fa_validmask & UVFS_FA_VALID_MTIME )
+        {
+            cp->c_mtime = attr->fa_mtime.tv_sec;
+            cp->c_touch_modtime = FALSE;
+            cp->c_touch_chgtime = TRUE;
 
-        hfs_clear_might_be_dirty_flag(cp);
+            hfs_clear_might_be_dirty_flag(cp);
+        }
+
+        cp->c_flag |= C_MINOR_MOD;
     }
 
     err = hfs_update(vp, 0);

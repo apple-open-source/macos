@@ -71,6 +71,7 @@ typedef enum {
 	NLG_OPEN_OWNERS,
 	NLG_DELEGATIONS,
 	NLG_SEND_STATE,
+	NLG_COMMITD,
 	NLG_NUM_GROUPS
 } nfs_lck_group_kind_t;
 
@@ -83,6 +84,7 @@ typedef enum {
 	NLM_LOCK,
 	NLM_BUF,
 	NLM_XID,
+	NLM_COMMITD,
 	NLM_NUM_MUTEXES
 } nfs_lck_mtx_kind_t;
 

@@ -30,6 +30,12 @@
 #include <WebCore/PlatformLayer.h>
 #include <wtf/TZoneMalloc.h>
 
+#if ENABLE(MODEL_PROCESS)
+namespace WebCore {
+class ModelContext;
+}
+#endif
+
 namespace WebKit {
 
 class RemoteLayerTreeContext;
@@ -50,7 +56,9 @@ private:
 
     Ref<WebCore::PlatformCALayer> createPlatformCALayer(WebCore::PlatformCALayer::LayerType, WebCore::PlatformCALayerClient* owner) override;
     Ref<WebCore::PlatformCALayer> createPlatformCALayer(PlatformLayer*, WebCore::PlatformCALayerClient* owner) override;
-    Ref<WebCore::PlatformCALayer> createPlatformCALayer(WebCore::LayerHostingContextIdentifier, WebCore::PlatformCALayerClient* owner) override;
+#if ENABLE(MODEL_PROCESS)
+    Ref<WebCore::PlatformCALayer> createPlatformCALayer(Ref<WebCore::ModelContext>, WebCore::PlatformCALayerClient* owner) override;
+#endif
 #if ENABLE(MODEL_ELEMENT)
     Ref<WebCore::PlatformCALayer> createPlatformCALayer(Ref<WebCore::Model>, WebCore::PlatformCALayerClient* owner) override;
 #endif

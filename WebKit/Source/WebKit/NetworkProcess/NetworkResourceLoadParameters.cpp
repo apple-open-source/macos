@@ -26,14 +26,13 @@
 #include "config.h"
 #include "NetworkResourceLoadParameters.h"
 
-#include "WebCoreArgumentCoders.h"
 
 namespace WebKit {
 using namespace WebCore;
 
 NetworkResourceLoadParameters::NetworkResourceLoadParameters(
     NetworkLoadParameters&& networkLoadParameters
-    , WebCore::ResourceLoaderIdentifier identifier
+    , std::optional<WebCore::ResourceLoaderIdentifier> identifier
     , RefPtr<WebCore::FormData>&& httpBody
     , std::optional<Vector<SandboxExtension::Handle>>&& sandboxExtensionIfHttpBody
     , std::optional<SandboxExtension::Handle>&& sandboxExtensionIflocalFile

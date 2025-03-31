@@ -443,7 +443,11 @@ statf(int indent, FTSENT *p)
 		uint32_t protection = get_protection_class(p->fts_accpath);
 		output(indent, &offset, "protectionclass=%u", protection);
 	}
-	
+	if (keys & F_PURGEABLE) {
+		uint64_t purgeable_flags = get_purgeable_flags(p->fts_accpath);
+		output(indent, &offset, "purgeable=%llu", purgeable_flags);
+	}
+
 	(void)putchar('\n');
 }
 

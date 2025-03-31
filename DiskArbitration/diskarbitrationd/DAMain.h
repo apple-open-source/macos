@@ -55,6 +55,7 @@ extern CFMutableArrayRef      gDAMountMapList1;
 extern CFMutableArrayRef      gDAMountMapList2;
 extern CFMutableDictionaryRef gDAPreferenceList;
 extern CFMutableArrayRef      gDAMountPointList;
+extern CFMutableDictionaryRef gDADanglingVolumeList;
 extern pid_t                  gDAProcessID;
 extern char *                 gDAProcessName;
 extern char *                 gDAProcessNameID;

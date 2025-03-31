@@ -467,7 +467,8 @@ enum class ItemPosition : uint8_t {
     FlexStart,
     FlexEnd,
     Left,
-    Right
+    Right,
+    AnchorCenter,
 };
 
 enum class OverflowAlignment : uint8_t {
@@ -889,8 +890,8 @@ enum class PointerEvents : uint8_t {
 enum class TransformStyle3D : uint8_t {
     Flat,
     Preserve3D,
-#if ENABLE(CSS_TRANSFORM_STYLE_OPTIMIZED_3D)
-    Optimized3D
+#if HAVE(CORE_ANIMATION_SEPARATED_LAYERS)
+    Separated
 #endif
 };
 
@@ -960,12 +961,6 @@ enum class TextUnderlinePosition : uint8_t {
     Right    = 1 << 3
 };
 
-enum class TextOrientation : uint8_t {
-    Mixed,
-    Upright,
-    Sideways
-};
-
 enum class TextOverflow : bool {
     Clip,
     Ellipsis
@@ -989,16 +984,6 @@ enum class ImageRendering : uint8_t {
     OptimizeQuality,
     CrispEdges,
     Pixelated
-};
-
-enum class ImageResolutionSource : bool {
-    Specified,
-    FromImage
-};
-
-enum class ImageResolutionSnap : bool {
-    None,
-    Pixels
 };
 
 enum class Order : bool {
@@ -1047,14 +1032,12 @@ enum class RubyOverhang : bool {
     None
 };
 
-#if ENABLE(DARK_MODE_CSS)
 enum class ColorScheme : uint8_t {
     Light = 1 << 0,
     Dark = 1 << 1
 };
 
 constexpr size_t ColorSchemeBits = 2;
-#endif
 
 constexpr size_t GridAutoFlowBits = 4;
 enum InternalGridAutoFlow : uint8_t {
@@ -1212,9 +1195,23 @@ enum class ContentVisibility : uint8_t {
     Hidden,
 };
 
-enum class BlockStepInsert : bool {
-    Margin,
-    Padding
+enum class BlockStepAlign : uint8_t {
+    Auto,
+    Center,
+    Start,
+    End
+};
+
+enum class BlockStepInsert : uint8_t {
+    MarginBox,
+    PaddingBox,
+    ContentBox
+};
+
+enum class BlockStepRound : uint8_t {
+    Up,
+    Down,
+    Nearest
 };
 
 enum class FieldSizing : bool {
@@ -1231,7 +1228,9 @@ WTF::TextStream& operator<<(WTF::TextStream&, AnimationPlayState);
 WTF::TextStream& operator<<(WTF::TextStream&, AspectRatioType);
 WTF::TextStream& operator<<(WTF::TextStream&, AutoRepeatType);
 WTF::TextStream& operator<<(WTF::TextStream&, BackfaceVisibility);
+WTF::TextStream& operator<<(WTF::TextStream&, BlockStepAlign);
 WTF::TextStream& operator<<(WTF::TextStream&, BlockStepInsert);
+WTF::TextStream& operator<<(WTF::TextStream&, BlockStepRound);
 WTF::TextStream& operator<<(WTF::TextStream&, BorderCollapse);
 WTF::TextStream& operator<<(WTF::TextStream&, BorderStyle);
 WTF::TextStream& operator<<(WTF::TextStream&, BoxAlignment);
@@ -1312,6 +1311,7 @@ WTF::TextStream& operator<<(WTF::TextStream&, ScrollSnapStop);
 WTF::TextStream& operator<<(WTF::TextStream&, ScrollSnapStrictness);
 WTF::TextStream& operator<<(WTF::TextStream&, SpeakAs);
 WTF::TextStream& operator<<(WTF::TextStream&, StyleDifference);
+WTF::TextStream& operator<<(WTF::TextStream&, StyleDifferenceContextSensitiveProperty);
 WTF::TextStream& operator<<(WTF::TextStream&, TableLayoutType);
 WTF::TextStream& operator<<(WTF::TextStream&, TextAlignMode);
 WTF::TextStream& operator<<(WTF::TextStream&, TextAlignLast);
@@ -1324,7 +1324,6 @@ WTF::TextStream& operator<<(WTF::TextStream&, TextEmphasisMark);
 WTF::TextStream& operator<<(WTF::TextStream&, TextEmphasisPosition);
 WTF::TextStream& operator<<(WTF::TextStream&, TextGroupAlign);
 WTF::TextStream& operator<<(WTF::TextStream&, TextJustify);
-WTF::TextStream& operator<<(WTF::TextStream&, TextOrientation);
 WTF::TextStream& operator<<(WTF::TextStream&, TextOverflow);
 WTF::TextStream& operator<<(WTF::TextStream&, TextSecurity);
 WTF::TextStream& operator<<(WTF::TextStream&, TextTransform);

@@ -55,11 +55,13 @@ struct WebProcessDataStoreParameters {
     SandboxExtension::Handle modelElementCacheDirectoryExtensionHandle;
 #endif
 #if PLATFORM(IOS_FAMILY)
-    std::optional<SandboxExtension::Handle> cookieStorageDirectoryExtensionHandle;
     std::optional<SandboxExtension::Handle> containerCachesDirectoryExtensionHandle;
     std::optional<SandboxExtension::Handle> containerTemporaryDirectoryExtensionHandle;
 #endif
     bool trackingPreventionEnabled { false };
+#if HAVE(ALLOW_ONLY_PARTITIONED_COOKIES)
+    bool isOptInCookiePartitioningEnabled { false };
+#endif
 };
 
 } // namespace WebKit

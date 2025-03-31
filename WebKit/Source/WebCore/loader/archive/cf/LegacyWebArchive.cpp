@@ -110,7 +110,7 @@ static String getFileNameFromURIComponent(StringView input)
     return result.toString();
 }
 
-static String generateValidFileName(const URL& url, const HashSet<String>& existingFileNames, const String& extension = { })
+static String generateValidFileName(const URL& url, const UncheckedKeyHashSet<String>& existingFileNames, const String& extension = { })
 {
     String suffix = extension.isEmpty() ? emptyString() : makeString('.', extension);
     auto extractedFileName = getFileNameFromURIComponent(url.lastPathComponent());
@@ -584,7 +584,7 @@ static void addSubresourcesForAttachmentElementsIfNecessary(LocalFrame& frame, c
 
 #endif
 
-static HashMap<RefPtr<CSSStyleSheet>, String> addSubresourcesForCSSStyleSheetsIfNecessary(LocalFrame& frame, const String& subresourcesDirectoryName, HashSet<String>& uniqueFileNames, HashMap<String, String>& uniqueSubresources, Vector<Ref<ArchiveResource>>& subresources)
+static UncheckedKeyHashMap<RefPtr<CSSStyleSheet>, String> addSubresourcesForCSSStyleSheetsIfNecessary(LocalFrame& frame, const String& subresourcesDirectoryName, UncheckedKeyHashSet<String>& uniqueFileNames, UncheckedKeyHashMap<String, String>& uniqueSubresources, Vector<Ref<ArchiveResource>>& subresources)
 {
     if (subresourcesDirectoryName.isEmpty())
         return { };
@@ -593,8 +593,8 @@ static HashMap<RefPtr<CSSStyleSheet>, String> addSubresourcesForCSSStyleSheetsIf
     if (!document)
         return { };
 
-    HashMap<RefPtr<CSSStyleSheet>, String> uniqueCSSStyleSheets;
-    HashMap<RefPtr<CSSStyleSheet>, String> relativeUniqueCSSStyleSheets;
+    UncheckedKeyHashMap<RefPtr<CSSStyleSheet>, String> uniqueCSSStyleSheets;
+    UncheckedKeyHashMap<RefPtr<CSSStyleSheet>, String> relativeUniqueCSSStyleSheets;
     Ref documentStyleSheets = document->styleSheets();
     for (unsigned index = 0; index < documentStyleSheets->length(); ++index) {
         RefPtr cssStyleSheet = dynamicDowncast<CSSStyleSheet>(documentStyleSheets->item(index));
@@ -604,7 +604,7 @@ static HashMap<RefPtr<CSSStyleSheet>, String> addSubresourcesForCSSStyleSheetsIf
         if (uniqueCSSStyleSheets.contains(cssStyleSheet.get()))
             continue;
 
-        HashSet<RefPtr<CSSStyleSheet>> cssStyleSheets;
+        UncheckedKeyHashSet<RefPtr<CSSStyleSheet>> cssStyleSheets;
         cssStyleSheets.add(cssStyleSheet.get());
         cssStyleSheet->getChildStyleSheets(cssStyleSheets);
         for (auto& currentCSSStyleSheet : cssStyleSheets) {
@@ -640,7 +640,7 @@ static HashMap<RefPtr<CSSStyleSheet>, String> addSubresourcesForCSSStyleSheetsIf
     }
 
     auto frameName = frame.tree().uniqueName();
-    HashMap<String, String> relativeUniqueSubresources;
+    UncheckedKeyHashMap<String, String> relativeUniqueSubresources;
     for (auto& [urlString, path] : uniqueSubresources) {
         // The style sheet files are stored in the same directory as other subresources.
         relativeUniqueSubresources.add(urlString, FileSystem::lastComponentOfPathIgnoringTrailingSlash(path));
@@ -671,8 +671,8 @@ RefPtr<LegacyWebArchive> LegacyWebArchive::create(const String& markupString, Lo
 
     Vector<Ref<LegacyWebArchive>> subframeArchives;
     Vector<Ref<ArchiveResource>> subresources;
-    HashMap<String, String> uniqueSubresources;
-    HashSet<String> uniqueFileNames;
+    UncheckedKeyHashMap<String, String> uniqueSubresources;
+    UncheckedKeyHashSet<String> uniqueFileNames;
     String subresourcesDirectoryName = mainFrameFilePath.isNull() ? String { } : makeString(mainFrameFilePath, "_files"_s);
 
     for (auto& node : nodes) {
@@ -794,7 +794,7 @@ RefPtr<LegacyWebArchive> LegacyWebArchive::createFromSelection(LocalFrame* frame
     builder.append(documentTypeString(*document));
 
     Vector<Ref<Node>> nodeList;
-    builder.append(serializePreservingVisualAppearance(frame->selection().selection(), ResolveURLs::No, SerializeComposedTree::Yes, IgnoreUserSelectNone::Yes, PreserveBaseElement::Yes, &nodeList));
+    builder.append(serializePreservingVisualAppearance(frame->selection().selection(), ResolveURLs::No, SerializeComposedTree::Yes, IgnoreUserSelectNone::Yes, PreserveBaseElement::Yes, PreserveDirectionForInlineText::Yes, &nodeList));
 
     auto archive = create(builder.toString(), *frame, WTFMove(nodeList), nullptr);
     if (!archive)

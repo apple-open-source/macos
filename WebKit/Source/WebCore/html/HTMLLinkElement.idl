@@ -36,13 +36,12 @@
     [CEReactions=NotNeeded, Reflect] attribute DOMString type;
     [CEReactions=NotNeeded] attribute [AtomString] DOMString as;
     [CEReactions=NotNeeded] attribute [AtomString] DOMString? crossOrigin;
-    [CEReactions=NotNeeded, Reflect, EnabledBySetting=LinkPreloadResponsiveImagesEnabled] attribute DOMString imageSrcset;
-    [CEReactions=NotNeeded, Reflect, EnabledBySetting=LinkPreloadResponsiveImagesEnabled] attribute DOMString imageSizes;
+    [CEReactions=NotNeeded, Reflect] attribute DOMString imageSrcset;
+    [CEReactions=NotNeeded, Reflect] attribute DOMString imageSizes;
     [CEReactions=NotNeeded, ImplementedAs=referrerPolicyForBindings] attribute [AtomString] DOMString referrerPolicy;
     [PutForwards=value] readonly attribute DOMTokenList blocking;
-    [CEReactions=NotNeeded, EnabledBySetting=FetchPriorityEnabled, ImplementedAs=fetchPriorityForBindings] attribute [AtomString] DOMString fetchPriority;
+    [CEReactions=NotNeeded, ImplementedAs=fetchPriorityForBindings] attribute [AtomString] DOMString fetchPriority;
 
-    // DOM Level 2 Style
     readonly attribute StyleSheet sheet;
 
     [PutForwards=value] readonly attribute DOMTokenList relList;

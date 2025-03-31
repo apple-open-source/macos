@@ -3127,9 +3127,24 @@ execute_builtin (builtin, words, flags, subshell)
      eval builtin is being called, and we're supposed to ignore the exit
      value of the command, we turn the -e flag off ourselves, then
      restore it when the command completes. */
+#ifdef __APPLE__
+  /*
+     Ditto the above for the command builtin, which would need the current flag
+     set to propagate the CMD_IGNORE_RETURN through to execute_command(). */
+  if (subshell == 0 && (builtin == command_builtin || builtin == eval_builtin) &&
+    (flags & CMD_IGNORE_RETURN))
+#else
   if (subshell == 0 && builtin == eval_builtin && (flags & CMD_IGNORE_RETURN))
+#endif
     {
+#ifdef __APPLE__
+      if (builtin == eval_builtin)
+        begin_unwind_frame ("eval_builtin");
+      else
+        begin_unwind_frame ("command_builtin");
+#else
       begin_unwind_frame ("eval_builtin");
+#endif
       unwind_protect_int (exit_immediately_on_error);
       exit_immediately_on_error = 0;
       eval_unwind = 1;
@@ -3181,7 +3196,14 @@ execute_builtin (builtin, words, flags, subshell)
   if (eval_unwind)
     {
       exit_immediately_on_error += old_e_flag;
+#ifdef __APPLE__
+      if (builtin == eval_builtin)
+        discard_unwind_frame ("eval_builtin");
+      else
+        discard_unwind_frame ("command_builtin");
+#else
       discard_unwind_frame ("eval_builtin");
+#endif
     }
 
   return (result);

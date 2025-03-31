@@ -262,6 +262,12 @@ az{
                 one{"{0} nanosaniyə"}
                 other{"{0} nanosaniyə"}
             }
+            night{
+                dnam{"gecə"}
+                one{"{0} gecə"}
+                other{"{0} gecə"}
+                per{"{0}/gecə"}
+            }
             second{
                 one{"{0} saniyə"}
                 other{"{0} saniyə"}
@@ -623,6 +629,11 @@ az{
                 one{"{0} kilometr/saat"}
                 other{"{0} kilometr/saat"}
             }
+            light-speed{
+                dnam{"işıq"}
+                one{"{0} işıq"}
+                other{"{0} işıq"}
+            }
             meter-per-second{
                 one{"{0} metr/saniyə"}
                 other{"{0} metr/saniyə"}
@@ -854,6 +865,12 @@ az{
             minute{
                 dnam{"dəq"}
             }
+            night{
+                dnam{"gecə"}
+                one{"{0}gecə"}
+                other{"{0}gecə"}
+                per{"{0}/gecə"}
+            }
             second{
                 dnam{"san"}
             }
@@ -986,6 +1003,11 @@ az{
             }
         }
         speed{
+            light-speed{
+                dnam{"işıq"}
+                one{"{0}işıq"}
+                other{"{0}işıq"}
+            }
             meter-per-second{
                 dnam{"m/s"}
             }
@@ -1267,6 +1289,12 @@ az{
                 one{"{0} nsan"}
                 other{"{0} nsan"}
             }
+            night{
+                dnam{"gecə"}
+                one{"{0} gecə"}
+                other{"{0} gecə"}
+                per{"{0}/gecə"}
+            }
             quarter{
                 dnam{"rüb"}
                 one{"{0} r"}
@@ -1527,6 +1555,11 @@ az{
                 dnam{"kilometr/saat"}
                 one{"{0} km/saat"}
                 other{"{0} km/saat"}
+            }
+            light-speed{
+                dnam{"işıq"}
+                one{"{0} işıq"}
+                other{"{0} işıq"}
             }
             meter-per-second{
                 dnam{"metr/saniyə"}

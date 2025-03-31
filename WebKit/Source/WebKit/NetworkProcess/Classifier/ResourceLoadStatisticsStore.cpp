@@ -937,11 +937,11 @@ void ResourceLoadStatisticsStore::migrateDataToPCMDatabaseIfNecessary()
             if (!networkSession)
                 return;
 
-            auto& manager = networkSession->privateClickMeasurement();
+            Ref manager = networkSession->privateClickMeasurement();
             for (auto&& pcm : WTFMove(attributed))
-                manager.migratePrivateClickMeasurementFromLegacyStorage(WTFMove(pcm), PrivateClickMeasurementAttributionType::Attributed);
+                manager->migratePrivateClickMeasurementFromLegacyStorage(WTFMove(pcm), PrivateClickMeasurementAttributionType::Attributed);
             for (auto&& pcm : WTFMove(unattributed))
-                manager.migratePrivateClickMeasurementFromLegacyStorage(WTFMove(pcm), PrivateClickMeasurementAttributionType::Unattributed);
+                manager->migratePrivateClickMeasurementFromLegacyStorage(WTFMove(pcm), PrivateClickMeasurementAttributionType::Unattributed);
         });
 
     }
@@ -2542,9 +2542,13 @@ void ResourceLoadStatisticsStore::clear(CompletionHandler<void()>&& completionHa
     updateCookieBlockingForDomains(WTFMove(domainsToBlock), [callbackAggregator] { });
 }
 
-bool ResourceLoadStatisticsStore::areAllThirdPartyCookiesBlockedUnder(const TopFrameDomain& topFrameDomain)
+bool ResourceLoadStatisticsStore::areAllUnpartitionedThirdPartyCookiesBlockedUnder(const TopFrameDomain& topFrameDomain)
 {
+#if HAVE(ALLOW_ONLY_PARTITIONED_COOKIES)
+    if (thirdPartyCookieBlockingMode() == ThirdPartyCookieBlockingMode::All || thirdPartyCookieBlockingMode() == ThirdPartyCookieBlockingMode::AllExceptPartitioned)
+#else
     if (thirdPartyCookieBlockingMode() == ThirdPartyCookieBlockingMode::All)
+#endif
         return true;
 
     if (thirdPartyCookieBlockingMode() == ThirdPartyCookieBlockingMode::AllOnSitesWithoutUserInteraction && !hasHadUserInteraction(topFrameDomain, OperatingDatesWindow::Long))
@@ -2567,7 +2571,7 @@ CookieAccess ResourceLoadStatisticsStore::cookieAccess(const SubResourceDomain& 
     bool isPrevalent = !hasNoEntry && !!statement->columnInt(0);
     bool hadUserInteraction = !hasNoEntry && statement->columnInt(1);
 
-    if (!areAllThirdPartyCookiesBlockedUnder(topFrameDomain) && !isPrevalent)
+    if (!areAllUnpartitionedThirdPartyCookiesBlockedUnder(topFrameDomain) && !isPrevalent)
         return CookieAccess::BasedOnCookiePolicy;
 
     if (canRequestStorageAccessWithoutUserInteraction == CanRequestStorageAccessWithoutUserInteraction::No && !hadUserInteraction)

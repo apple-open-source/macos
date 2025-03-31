@@ -255,6 +255,7 @@ void av1_convolve_2d_scale_sse4_1(const uint8_t *src, int src_stride,
            filter_params_y, conv_params, 8);
 }
 
+#if CONFIG_AV1_HIGHBITDEPTH
 // A specialised version of hfilter, the horizontal filter for
 // av1_highbd_convolve_2d_scale_sse4_1. This version only supports 8 tap
 // filters.
@@ -496,3 +497,4 @@ void av1_highbd_convolve_2d_scale_sse4_1(
   highbd_vfilter8(tmp, im_h, dst, dst_stride, w, h, subpel_y_qn, y_step_qn,
                   filter_params_y, conv_params, bd);
 }
+#endif  // CONFIG_AV1_HIGHBITDEPTH

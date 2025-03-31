@@ -2,17 +2,18 @@
 		<key>OpenSourceProject</key>
 		<string>shutdown</string>
 		<key>OpenSourceVersion</key>
-		<string>2021-10-31</string>
+		<string>2024-08-09</string>
 		<key>OpenSourceWebsiteURL</key>
-		<string>https://cgit.freebsd.org/src/tree/sbin/shutdown?id=814321a0e85a448b1dd87e7d27e64e4c063e9410</string>
+		<string>https://cgit.freebsd.org/src/tree/sbin/shutdown?id=d349bd35330d3ec7ce1d3e7d6c2d6fc1f6a95704</string>
 		<key>OpenSourceImportDate</key>
-		<string>2021-11-09</string>
+		<string>2024-08-09</string>
 		<key>OpenSourceModifications</key>
 		<array>
 			<string>shutdown.c: audit support (3903178)</string>
 			<string>shutdown.c: add the sleep flag (4108344)</string>
 			<string>shutdown.c: add ups flag (4576409)</string>
 			<string>shutdown.c: don't error if wall missing (5169504)</string>
+			<string>shutdown.c: shim out boottrace support (133545389)</string>
 		</array>
 		<key>OpenSourceLicense</key>
 		<string>bsd</string>

@@ -168,7 +168,7 @@ tls_handshake_advance_write_callback(tls_handshake_ctx_t ctx)
     SSLContext *myCtx = (SSLContext *)ctx;
     sslDebugLog("%p\n", myCtx);
     //FIXME: need to filter on cipher too - require missing coretls ciphersuite header */
-    bool split = (myCtx->oneByteRecordEnable && (myCtx->negProtocolVersion<=TLS_Version_1_0));
+    bool split = (myCtx->oneByteRecordEnable && (myCtx->negProtocolVersion<=tls_protocol_version_TLSv10));
     myCtx->recFuncs->setOption(myCtx->recCtx, kSSLRecordOptionSendOneByteRecord, split);
     return myCtx->recFuncs->advanceWriteCipher(myCtx->recCtx);
 }

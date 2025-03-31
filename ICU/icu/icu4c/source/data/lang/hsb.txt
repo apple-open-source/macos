@@ -54,6 +54,7 @@ hsb{
         bi{"bislamšćina"}
         bin{"binišćina"}
         bla{"siksikášćina"}
+        blo{"aniišćina"}
         bm{"bambara"}
         bn{"bengalšćina"}
         bo{"tibetšćina"}
@@ -175,6 +176,7 @@ hsb{
         iba{"ibanšćina"}
         ibb{"ibibiošćina"}
         id{"indonešćina"}
+        ie{"interlinguešćina"}
         ig{"igbo"}
         ii{"sichuan yi"}
         ik{"inupiak"}
@@ -229,6 +231,7 @@ hsb{
         kv{"komišćina"}
         kw{"kornišćina"}
         kwk{"kwakʼwalašćina"}
+        kxv{"kuvišćina"}
         ky{"kirgišćina"}
         la{"łaćonšćina"}
         lad{"ladinšćina"}
@@ -237,8 +240,10 @@ hsb{
         lez{"lezgianšćina"}
         lg{"gandšćina"}
         li{"limburšćina"}
+        lij{"ligurianšćina"}
         lil{"lillooetšćina"}
         lkt{"lakota"}
+        lmo{"lombardšćina"}
         ln{"lingala"}
         lo{"laošćina"}
         lou{"Louisiana kreolšćina"}
@@ -249,7 +254,6 @@ hsb{
         lu{"luba-katanga"}
         lua{"luba-luluašćina"}
         lun{"lundašćina"}
-        luo{"luo"}
         lus{"mizošćina"}
         luy{"luhya"}
         lv{"letišćina"}
@@ -393,6 +397,7 @@ hsb{
         sw_CD{"kongoska suahelšćina"}
         swb{"comorianšćina"}
         syr{"syriacšćina"}
+        szl{"šlezišćina"}
         ta{"tamilšćina"}
         tce{"južna tutchonšćina"}
         te{"telugu"}
@@ -432,9 +437,10 @@ hsb{
         und{"njeznata rěč"}
         ur{"urdušćina"}
         uz{"uzbekšćina"}
-        vai{"vai"}
         ve{"vendašćina"}
+        vec{"venetišćina"}
         vi{"vietnamšćina"}
+        vmw{"makhuwašćina"}
         vo{"volapük"}
         vun{"vunjo"}
         wa{"walonšćina"}
@@ -445,6 +451,7 @@ hsb{
         wuu{"wu chinšćina"}
         xal{"kalmykšćina"}
         xh{"xhosa"}
+        xnr{"kangrišćina"}
         xog{"soga"}
         yav{"yangben"}
         ybb{"yembašćina"}

@@ -268,15 +268,19 @@ healthcheck_deadline(uint64_t *deadline, uint64_t *leeway)
 }
 
 /*
- * Do a healthcheck status call if the sensor has been started.
+ * Do a healthcheck status call. The status call may be skipped if certain conditions are met.
+ * Returns false is status call was skipped.
  */
 static bool
 do_healthcheck(exclaves_sensor_t *sensor)
 {
 	LCK_MTX_ASSERT(&sensor->s_mutex, LCK_MTX_ASSERT_OWNED);
 
-	/* The sensor isn't started. */
-	if (sensor->s_startcount == 0) {
+	/*
+	 * If the sensor has not started, and the min on-time has been processed,
+	 * skip health check.
+	 */
+	if (sensor->s_startcount == 0 && sensor->s_stop_abs == 0) {
 		return false;
 	}
 
@@ -310,7 +314,7 @@ do_min_on_time(exclaves_sensor_t *sensor, uint64_t *deadline,
 	nanoseconds_to_absolutetime(EXCLAVES_EIC_MIN_SENSOR_TIME, &min_time);
 	nanoseconds_to_absolutetime(50 * NSEC_PER_MSEC, leeway);
 
-	*deadline = sensor->s_start_abs + min_time;
+	*deadline = sensor->s_stop_abs + min_time;
 
 	if (*deadline <= mach_absolute_time()) {
 		/* The minimum on-time has been hit. Call status. */
@@ -331,7 +335,7 @@ do_min_on_time(exclaves_sensor_t *sensor, uint64_t *deadline,
  * every started sensor. Re-arms itself so it runs at a frequency set by the
  * display healthcheck rate. Exits when there are no longer any started sensors.
  * A sensor has a minimum on-time. For stopped sensors, call back into exclaves
- * after this minimum time has been reached.
+ * until this minimum time has been reached.
  */
 static void
 exclaves_sensor_healthcheck(__unused void *param0, __unused void *param1)

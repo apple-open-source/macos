@@ -126,6 +126,19 @@ class TextureVk : public TextureImpl, public angle::ObserverInterface
     angle::Result copyCompressedTexture(const gl::Context *context,
                                         const gl::Texture *source) override;
 
+    angle::Result clearImage(const gl::Context *context,
+                             GLint level,
+                             GLenum format,
+                             GLenum type,
+                             const uint8_t *data) override;
+
+    angle::Result clearSubImage(const gl::Context *context,
+                                GLint level,
+                                const gl::Box &area,
+                                GLenum format,
+                                GLenum type,
+                                const uint8_t *data) override;
+
     angle::Result setStorage(const gl::Context *context,
                              gl::TextureType type,
                              size_t levels,
@@ -178,6 +191,13 @@ class TextureVk : public TextureImpl, public angle::ObserverInterface
                                         const gl::Extents &size,
                                         bool fixedSampleLocations) override;
 
+    angle::Result setStorageAttribs(const gl::Context *context,
+                                    gl::TextureType type,
+                                    size_t levels,
+                                    GLint internalFormat,
+                                    const gl::Extents &size,
+                                    const GLint *attribList) override;
+
     angle::Result initializeContents(const gl::Context *context,
                                      GLenum binding,
                                      const gl::ImageIndex &imageIndex) override;
@@ -215,20 +235,19 @@ class TextureVk : public TextureImpl, public angle::ObserverInterface
 
     void releaseOwnershipOfImage(const gl::Context *context);
 
-    const vk::ImageView &getReadImageView(vk::Context *context,
-                                          GLenum srgbDecode,
+    const vk::ImageView &getReadImageView(GLenum srgbDecode,
                                           bool texelFetchStaticUse,
                                           bool samplerExternal2DY2YEXT) const;
 
-    angle::Result getBufferViewAndRecordUse(vk::Context *context,
-                                            const vk::Format *imageUniformFormat,
-                                            const gl::SamplerBinding *samplerBinding,
-                                            bool isImage,
-                                            const vk::BufferView **viewOut);
+    angle::Result getBufferView(vk::ErrorContext *context,
+                                const vk::Format *imageUniformFormat,
+                                const gl::SamplerBinding *samplerBinding,
+                                bool isImage,
+                                const vk::BufferView **viewOut);
 
     // A special view used for texture copies that shouldn't perform swizzle.
     const vk::ImageView &getCopyImageView() const;
-    angle::Result getStorageImageView(vk::Context *context,
+    angle::Result getStorageImageView(vk::ErrorContext *context,
                                       const gl::ImageUnit &binding,
                                       const vk::ImageView **imageViewOut);
 
@@ -236,11 +255,11 @@ class TextureVk : public TextureImpl, public angle::ObserverInterface
     {
         if (isSamplerExternalY2Y)
         {
-            ASSERT(mY2YSampler.valid());
-            return mY2YSampler.get();
+            ASSERT(mY2YSampler->valid());
+            return *mY2YSampler.get();
         }
-        ASSERT(mSampler.valid());
-        return mSampler.get();
+        ASSERT(mSampler->valid());
+        return *mSampler.get();
     }
 
     void resetSampler()
@@ -253,17 +272,25 @@ class TextureVk : public TextureImpl, public angle::ObserverInterface
     angle::Result ensureImageInitialized(ContextVk *contextVk, ImageMipLevels mipLevels);
 
     vk::ImageOrBufferViewSubresourceSerial getImageViewSubresourceSerial(
-        const gl::SamplerState &samplerState) const
+        const gl::SamplerState &samplerState,
+        bool staticTexelFetchAccess) const
     {
-        if (samplerState.getSRGBDecode() == GL_DECODE_EXT)
+        ASSERT(mImage != nullptr);
+        gl::SrgbDecode srgbDecode = (samplerState.getSRGBDecode() == GL_SKIP_DECODE_EXT)
+                                        ? gl::SrgbDecode::Skip
+                                        : gl::SrgbDecode::Default;
+        mImageView.updateSrgbDecode(*mImage, srgbDecode);
+        mImageView.updateStaticTexelFetch(*mImage, staticTexelFetchAccess);
+
+        if (mImageView.getColorspaceForRead() == vk::ImageViewColorspace::SRGB)
         {
-            ASSERT(getImageViewSubresourceSerialImpl(GL_DECODE_EXT) ==
+            ASSERT(getImageViewSubresourceSerialImpl(vk::ImageViewColorspace::SRGB) ==
                    mCachedImageViewSubresourceSerialSRGBDecode);
             return mCachedImageViewSubresourceSerialSRGBDecode;
         }
         else
         {
-            ASSERT(getImageViewSubresourceSerialImpl(GL_SKIP_DECODE_EXT) ==
+            ASSERT(getImageViewSubresourceSerialImpl(vk::ImageViewColorspace::Linear) ==
                    mCachedImageViewSubresourceSerialSkipDecode);
             return mCachedImageViewSubresourceSerialSkipDecode;
         }
@@ -297,14 +324,27 @@ class TextureVk : public TextureImpl, public angle::ObserverInterface
     {
         return mState.getBuffer();
     }
-    vk::BufferHelper *getPossiblyEmulatedTextureBuffer(vk::Context *context) const;
+    vk::BufferHelper *getPossiblyEmulatedTextureBuffer(vk::ErrorContext *context) const;
 
     bool isSRGBOverrideEnabled() const
     {
         return mState.getSRGBOverride() != gl::SrgbOverride::Default;
     }
 
-    angle::Result ensureMutable(ContextVk *contextVk);
+    angle::Result updateSrgbDecodeState(ContextVk *contextVk, const gl::SamplerState &samplerState)
+    {
+        ASSERT(mImage != nullptr && mImage->valid());
+        gl::SrgbDecode srgbDecode = (samplerState.getSRGBDecode() == GL_SKIP_DECODE_EXT)
+                                        ? gl::SrgbDecode::Skip
+                                        : gl::SrgbDecode::Default;
+        mImageView.updateSrgbDecode(*mImage, srgbDecode);
+        if (mImageView.hasColorspaceOverrideForRead(*mImage))
+        {
+            ANGLE_TRY(ensureMutable(contextVk));
+        }
+        return angle::Result::Continue;
+    }
+
     angle::Result ensureRenderable(ContextVk *contextVk, TextureUpdateResult *updateResultOut);
 
     bool getAndResetImmutableSamplerDirtyState()
@@ -324,6 +364,12 @@ class TextureVk : public TextureImpl, public angle::ObserverInterface
     // Check if the texture is consistently specified. Used for flushing mutable textures.
     bool isMutableTextureConsistentlySpecifiedForFlush();
     bool isMipImageDescDefined(gl::TextureTarget textureTarget, size_t level);
+
+    GLint getImageCompressionRate(const gl::Context *context) override;
+    GLint getFormatSupportedCompressionRates(const gl::Context *context,
+                                             GLenum internalformat,
+                                             GLsizei bufSize,
+                                             GLint *rates) override;
 
   private:
     // Transform an image index from the frontend into one that can be used on the backing
@@ -393,6 +439,21 @@ class TextureVk : public TextureImpl, public angle::ObserverInterface
                                   gl::Buffer *unpackBuffer,
                                   const uint8_t *pixels,
                                   const vk::Format &vkFormat);
+
+    // Used to clear a texture to a given value in part or whole.
+    angle::Result clearSubImageImpl(const gl::Context *context,
+                                    GLint level,
+                                    const gl::Box &clearArea,
+                                    vk::ClearTextureMode clearMode,
+                                    GLenum format,
+                                    GLenum type,
+                                    const uint8_t *data);
+
+    angle::Result ensureImageInitializedIfUpdatesNeedStageOrFlush(ContextVk *contextVk,
+                                                                  gl::LevelIndex level,
+                                                                  const vk::Format &vkFormat,
+                                                                  vk::ApplyImageUpdate applyUpdate,
+                                                                  bool usesBufferForUpdate);
 
     angle::Result copyImageDataToBufferAndGetData(ContextVk *contextVk,
                                                   gl::LevelIndex sourceLevelGL,
@@ -496,15 +557,13 @@ class TextureVk : public TextureImpl, public angle::ObserverInterface
                                               gl::LevelIndex level,
                                               GLuint layerIndex,
                                               GLuint layerCount);
-    angle::Result getLevelLayerImageView(vk::Context *context,
+    angle::Result getLevelLayerImageView(vk::ErrorContext *context,
                                          gl::LevelIndex levelGL,
                                          size_t layer,
                                          const vk::ImageView **imageViewOut);
 
     // Flush image's staged updates for all levels and layers.
     angle::Result flushImageStagedUpdates(ContextVk *contextVk);
-
-    angle::Result performImageQueueTransferIfNecessary(ContextVk *contextVk);
 
     // For various reasons, the underlying image may need to be respecified.  For example because
     // base/max level changed, usage/create flags have changed, the format needs modification to
@@ -547,10 +606,8 @@ class TextureVk : public TextureImpl, public angle::ObserverInterface
                                                     : VK_IMAGE_TILING_OPTIMAL;
     }
 
+    angle::Result ensureMutable(ContextVk *contextVk);
     angle::Result refreshImageViews(ContextVk *contextVk);
-    bool shouldDecodeSRGB(vk::Context *contextVk,
-                          GLenum srgbDecode,
-                          bool texelFetchStaticUse) const;
     void initImageUsageFlags(ContextVk *contextVk, angle::FormatID actualFormatID);
     void handleImmutableSamplerTransition(const vk::ImageHelper *previousImage,
                                           const vk::ImageHelper *nextImage);
@@ -560,7 +617,7 @@ class TextureVk : public TextureImpl, public angle::ObserverInterface
     void stageSelfAsSubresourceUpdates(ContextVk *contextVk);
 
     vk::ImageOrBufferViewSubresourceSerial getImageViewSubresourceSerialImpl(
-        GLenum srgbDecode) const;
+        vk::ImageViewColorspace colorspace) const;
 
     void updateCachedImageViewSerials();
 
@@ -572,6 +629,15 @@ class TextureVk : public TextureImpl, public angle::ObserverInterface
     bool isCompressedFormatEmulated(const gl::Context *context,
                                     const gl::TextureTarget target,
                                     GLint level);
+
+    angle::Result setStorageImpl(ContextVk *contextVk,
+                                 gl::TextureType type,
+                                 const vk::Format &format);
+
+    GLint getFormatSupportedCompressionRatesImpl(vk::Renderer *renderer,
+                                                 const vk::Format &format,
+                                                 GLsizei bufSize,
+                                                 GLint *rates);
 
     bool mOwnsImage;
     // Generated from ImageVk if EGLImage target, or from throw-away generator if Surface target.
@@ -641,10 +707,10 @@ class TextureVk : public TextureImpl, public angle::ObserverInterface
 
     // |mSampler| contains the relevant Vulkan sampler states representing the OpenGL Texture
     // sampling states for the Texture.
-    vk::SamplerBinding mSampler;
+    vk::SharedSamplerPtr mSampler;
     // |mY2YSampler| contains a version of mSampler that is meant for use with
     // __samplerExternal2DY2YEXT (i.e., skipping conversion of YUV to RGB).
-    vk::SamplerBinding mY2YSampler;
+    vk::SharedSamplerPtr mY2YSampler;
 
     // The created vkImage usage flag.
     VkImageUsageFlags mImageUsageFlags;

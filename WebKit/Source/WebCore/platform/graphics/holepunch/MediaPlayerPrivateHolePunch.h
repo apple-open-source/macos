@@ -31,7 +31,7 @@
 
 namespace WebCore {
 
-class TextureMapperPlatformLayerProxy;
+class CoordinatedPlatformLayerBufferProxy;
 
 class MediaPlayerPrivateHolePunch
     : public MediaPlayerPrivateInterface
@@ -40,11 +40,13 @@ class MediaPlayerPrivateHolePunch
 {
     WTF_MAKE_TZONE_ALLOCATED(MediaPlayerPrivateHolePunch);
 public:
+    void ref() const final { RefCounted::ref(); }
+    void deref() const final { RefCounted::deref(); }
+
     MediaPlayerPrivateHolePunch(MediaPlayer*);
     ~MediaPlayerPrivateHolePunch();
 
-    void ref() final { RefCounted::ref(); }
-    void deref() final { RefCounted::deref(); }
+    constexpr MediaPlayerType mediaPlayerType() const final { return MediaPlayerType::HolePunch; }
 
     static void registerMediaEngine(MediaEngineRegistrar);
 
@@ -60,7 +62,9 @@ public:
     void play() final { };
     void pause() final { };
 
+#if USE(COORDINATED_GRAPHICS)
     PlatformLayer* platformLayer() const final;
+#endif
 
     FloatSize naturalSize() const final;
 
@@ -106,8 +110,8 @@ private:
     IntSize m_size;
     RunLoop::Timer m_readyTimer;
     MediaPlayer::NetworkState m_networkState;
-#if USE(TEXTURE_MAPPER)
-    RefPtr<TextureMapperPlatformLayerProxy> m_platformLayer;
+#if USE(COORDINATED_GRAPHICS)
+    RefPtr<CoordinatedPlatformLayerBufferProxy> m_contentsBufferProxy;
 #endif
 
 };

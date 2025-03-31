@@ -62,7 +62,7 @@ CaptureSourceOrError MockRealtimeVideoSource::create(String&& deviceID, AtomStri
         return CaptureSourceOrError({ "No mock camera device"_s , MediaAccessDenialReason::PermissionDenied });
 #endif
 
-    Ref<RealtimeMediaSource> source = adoptRef(*new MockRealtimeVideoSourceMac(WTFMove(deviceID), WTFMove(name), WTFMove(hashSalts), pageIdentifier));
+    Ref<RealtimeMediaSource> source = MockRealtimeVideoSourceMac::create(WTFMove(deviceID), WTFMove(name), WTFMove(hashSalts), pageIdentifier);
     if (constraints) {
         if (auto error = source->applyConstraints(*constraints))
             return CaptureSourceOrError(CaptureSourceError { error->invalidConstraint });
@@ -78,7 +78,6 @@ Ref<MockRealtimeVideoSource> MockRealtimeVideoSourceMac::createForMockDisplayCap
 
 MockRealtimeVideoSourceMac::MockRealtimeVideoSourceMac(String&& deviceID, AtomString&& name, MediaDeviceHashSalts&& hashSalts, std::optional<PageIdentifier> pageIdentifier)
     : MockRealtimeVideoSource(WTFMove(deviceID), WTFMove(name), WTFMove(hashSalts), pageIdentifier)
-    , m_workQueue(WorkQueue::create("MockRealtimeVideoSource Render Queue"_s, WorkQueue::QOS::UserInteractive))
 {
 }
 
@@ -86,6 +85,8 @@ MockRealtimeVideoSourceMac::~MockRealtimeVideoSourceMac() = default;
 
 void MockRealtimeVideoSourceMac::updateSampleBuffer()
 {
+    ASSERT(!isMainThread());
+
     RefPtr imageBuffer = this->imageBufferInternal();
     if (!imageBuffer)
         return;
@@ -103,18 +104,18 @@ void MockRealtimeVideoSourceMac::updateSampleBuffer()
     auto videoFrame = m_imageTransferSession->createVideoFrame(platformImage.get(), presentationTime, size(), videoFrameRotation());
     if (!videoFrame) {
         static const size_t MaxPixelGenerationFailureCount = 150;
-        if (++m_pixelGenerationFailureCount > MaxPixelGenerationFailureCount)
-            captureFailed();
+        if (++m_pixelGenerationFailureCount > MaxPixelGenerationFailureCount) {
+            callOnMainThread([protectedThis = Ref { *this }] {
+                protectedThis->captureFailed();
+            });
+        }
         return;
     }
 
     m_pixelGenerationFailureCount = 0;
-    auto captureTime = MonotonicTime::now().secondsSinceEpoch();
-    m_workQueue->dispatch([this, protectedThis = Ref { *this }, videoFrame = WTFMove(videoFrame), captureTime]() mutable {
-        VideoFrameTimeMetadata metadata;
-        metadata.captureTime = captureTime;
-        dispatchVideoFrameToObservers(*videoFrame, metadata);
-    });
+    VideoFrameTimeMetadata metadata;
+    metadata.captureTime = MonotonicTime::now().secondsSinceEpoch();
+    dispatchVideoFrameToObservers(*videoFrame, metadata);
 }
 
 } // namespace WebCore

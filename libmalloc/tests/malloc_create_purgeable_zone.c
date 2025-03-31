@@ -79,13 +79,13 @@ T_DECL(malloc_purgeable_zone_helper,
 	void *large_ptr = malloc_zone_malloc(purgeable_zone, KiB(64));
 	T_ASSERT_NOTNULL(large_ptr, NULL);
 
-	T_ASSERT_EQ(purgeable_zone->size(purgeable_zone, small_ptr), 0,
+	T_ASSERT_EQ(purgeable_zone->size(purgeable_zone, small_ptr), 0ul,
 			"Purgeable zone doesn't claim small allocation");
-	T_ASSERT_NE(default_zone->size(default_zone, small_ptr), 0,
+	T_ASSERT_NE(default_zone->size(default_zone, small_ptr), 0ul,
 			"Default zone claims small allocation");
-	T_ASSERT_NE(purgeable_zone->size(purgeable_zone, large_ptr), 0,
+	T_ASSERT_NE(purgeable_zone->size(purgeable_zone, large_ptr), 0ul,
 			"Purgeable zone claims large allocation");
-	T_ASSERT_EQ(default_zone->size(default_zone, large_ptr), 0,
+	T_ASSERT_EQ(default_zone->size(default_zone, large_ptr), 0ul,
 			"Default zone doesn't claim large allocation");
 
 	free(small_ptr);
@@ -195,7 +195,7 @@ T_DECL(purgeable_aligned_alloc,
 	void *ptr = malloc_zone_memalign(malloc_default_purgeable_zone(), KiB(64),
 			KiB(32));
 	T_ASSERT_NOTNULL(ptr, "Aligned allocation");
-	T_ASSERT_GE(malloc_size(ptr), KiB(32), "Allocation is large enough");
+	T_ASSERT_GE(malloc_size(ptr), (size_t)KiB(32), "Allocation is large enough");
 	malloc_zone_free(malloc_default_purgeable_zone(), ptr);
 }
 

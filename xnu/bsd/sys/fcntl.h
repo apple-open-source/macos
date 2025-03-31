@@ -127,8 +127,10 @@
 #define O_CREAT         0x00000200      /* create if nonexistant */
 #define O_TRUNC         0x00000400      /* truncate to zero length */
 #define O_EXCL          0x00000800      /* error if already exists */
+#define O_RESOLVE_BENEATH 0x00001000    /* only for open(2), same value as FMARK */
+
 #ifdef KERNEL
-#define FMARK           0x00001000      /* mark during gc() */
+#define FMARK           0x00001000      /* mark during gc(), same value as O_RESOLVE_BENEATH */
 #define FDEFER          0x00002000      /* defer for next gc pass */
 #define FWASLOCKED      0x00004000      /* has or has had an advisory fcntl lock */
 #define FHASLOCK        FWASLOCKED      /* obsolete compatibility name */

@@ -26,8 +26,8 @@ bintrans/uudecode.c	freebsd	usr.bin/bintrans/uudecode.c	5cb28f7979773715615cc213
 bintrans/uuencode.c	freebsd	usr.bin/bintrans/uuencode.c	5cb28f7979773715615cc2131fe40e0c5879ed1d
 bintrans/uuencode.format.5	freebsd	usr.bin/bintrans/uuencode.format.5	bdcbfde31e8e9b343f113a1956384bdf30d1ed62
 
-cat/cat.1	freebsd	bin/cat/cat.1	f3aff7c91bd451d300ffd37ddce5a1fdbe802123
-cat/cat.c	freebsd	bin/cat/cat.c	0614d7396798a268bd9efb103dffdeb0ad4a066c
+cat/cat.1	freebsd	bin/cat/cat.1	ad4f3bdf733c1a670021f4db378338f5aaedbfd8
+cat/cat.c	freebsd	bin/cat/cat.c	05f530f4d2bb15fda3d258b3bd92d4515d9ef39f
 cat/tests/d_align.in	freebsd	contrib/netbsd-tests/bin/cat/d_align.in	640235e2c2ba32947f7c59d168437ffa1280f1e6
 cat/tests/d_align.out	freebsd	contrib/netbsd-tests/bin/cat/d_align.out	640235e2c2ba32947f7c59d168437ffa1280f1e6
 cat/tests/d_b_output.in	freebsd	contrib/netbsd-tests/bin/cat/d_b_output.in	7c91b65f5406aaf4d7e351ad7c12b85913aa99a1
@@ -966,9 +966,9 @@ unvis/unvis.c	freebsd	contrib/unvis/unvis.c	f1f890804985a1043da42a5def13c79dc005
 
 unexpand/unexpand.c	freebsd	usr.bin/unexpand/unexpand.c	8a16b7a18f5d0b031f09832fd7752fba717e2a97
 
-uniq/uniq.1	freebsd	usr.bin/uniq/uniq.1	11715600e626cf6cc4b4f564af97f6ae1e5fb0be
-uniq/uniq.c	freebsd	usr.bin/uniq/uniq.c	899837e8f5741f9a847b63d9e7c8b76ccc033ab5
-uniq/tests/uniq_test.sh	freebsd	usr.bin/uniq/tests/uniq_test.sh	899837e8f5741f9a847b63d9e7c8b76ccc033ab5
+uniq/uniq.1	freebsd	usr.bin/uniq/uniq.1	b93791f5e7b0246b121dd98c10d6563298d6b2b0
+uniq/uniq.c	freebsd	usr.bin/uniq/uniq.c	c3f8900e696998c410dc16f9bd9d45c24c413e6b
+uniq/tests/uniq_test.sh	freebsd	usr.bin/uniq/tests/uniq_test.sh	c3f8900e696998c410dc16f9bd9d45c24c413e6b
 
 vis/extern.h	freebsd	contrib/vis/extern.h	0fcefb433d1265c4e6d4275eae7478cda1bf6a34
 vis/foldit.c	freebsd	contrib/vis/foldit.c	f1f890804985a1043da42a5def13c79dc005f5e9

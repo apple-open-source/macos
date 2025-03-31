@@ -59,13 +59,13 @@ static void tests(void)
     CFReleaseNull(acl);
 
     // ACL with flags only (not allowed)
-#ifndef __clang_analyzer__
+    [[clang::suppress]] {
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wnonnull"
-    // NULL passed as 'protection' newly generates a warning, we need to suppress it in order to compile
-    acl = SecAccessControlCreateWithFlags(allocator, NULL, kSecAccessControlUserPresence, &error);
+        // NULL passed as 'protection' newly generates a warning, we need to suppress it in order to compile
+        acl = SecAccessControlCreateWithFlags(allocator, NULL, kSecAccessControlUserPresence, &error);
 #pragma clang diagnostic pop
-#endif // __clang_analyzer__
+    }
     ok(acl == NULL, "SecAccessControlCreateWithFlags");
     CFReleaseNull(error);
     CFReleaseNull(acl);

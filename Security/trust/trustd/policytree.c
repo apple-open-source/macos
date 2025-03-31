@@ -120,8 +120,6 @@ policy_tree_t policy_tree_create(const oid_t *p_oid, policy_qualifier_t p_q) {
     return node;
 }
 
-#define POLICY_TREE_DEPTH_MAX 15
-
 /* Walk the nodes in a tree at depth and invoke callback for each one. */
 bool policy_tree_walk_depth(policy_tree_t root, int depth, bool(*callback)(policy_tree_t, void *), void *ctx) {
     if (depth < 0 || depth >= (int)(POLICY_TREE_DEPTH_MAX)) {

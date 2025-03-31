@@ -460,6 +460,7 @@ struct ip6_out_args {
 #define IP6OAF_REDO_QOSMARKING_POLICY   0x00002000      /* Re-evaluate QOS marking policy */
 #define IP6OAF_R_IFDENIED               0x00004000      /* return flag: denied access to interface */
 #define IP6OAF_MANAGEMENT_ALLOWED       0x00008000      /* access to management interfaces */
+#define IP6OAF_ULTRA_CONSTRAINED_ALLOWED 0x00010000     /* access to ultra constrained interfaces */
 	int             ip6oa_sotc;             /* traffic class for Fastlane DSCP mapping */
 	int             ip6oa_netsvctype;
 	int32_t         qos_marking_gencount;

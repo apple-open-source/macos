@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011 Apple Inc.  All rights reserved.
+ * Copyright (C) 2011-2024 Apple Inc.  All rights reserved.
  * Copyright (C) 2017 Sony Interactive Entertainment Inc.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -27,12 +27,11 @@
 #pragma once
 
 #include <memory>
-#include <wtf/TZoneMallocInlines.h>
 
 namespace PAL {
 
 class Clock {
-    WTF_MAKE_TZONE_ALLOCATED_INLINE(Clock);
+    WTF_MAKE_TZONE_NON_HEAP_ALLOCATABLE(Clock);
 public:
     static std::unique_ptr<Clock> create();
     virtual ~Clock() = default;

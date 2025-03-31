@@ -110,23 +110,23 @@ static const CFRuntimeClass __DAFileSystemClass =
 
 static CFTypeID __kDAFileSystemTypeID = _kCFRuntimeNotATypeID;
 
-const CFStringRef kDAFileSystemMountArgumentForce       = CFSTR( "force"    );
-const CFStringRef kDAFileSystemMountArgumentNoDevice    = CFSTR( "nodev"    );
-const CFStringRef kDAFileSystemMountArgumentDevice      = CFSTR( "dev"    );
-const CFStringRef kDAFileSystemMountArgumentNoExecute   = CFSTR( "noexec"   );
-const CFStringRef kDAFileSystemMountArgumentNoOwnership = CFSTR( "noowners" );
-const CFStringRef kDAFileSystemMountArgumentOwnership   = CFSTR( "owners" );
-const CFStringRef kDAFileSystemMountArgumentNoSetUserID = CFSTR( "nosuid"   );
-const CFStringRef kDAFileSystemMountArgumentSetUserID   = CFSTR( "suid"   );
-const CFStringRef kDAFileSystemMountArgumentNoWrite     = CFSTR( "rdonly"   );
-const CFStringRef kDAFileSystemMountArgumentUnion       = CFSTR( "union"    );
-const CFStringRef kDAFileSystemMountArgumentUpdate      = CFSTR( "update"   );
-const CFStringRef kDAFileSystemMountArgumentNoBrowse    = CFSTR( "nobrowse" );
-const CFStringRef kDAFileSystemMountArgumentSnapshot    = CFSTR( "-s=" );
-const CFStringRef kDAFileSystemMountArgumentNoFollow    = CFSTR( "nofollow"   );
+const CFStringRef kDAFileSystemMountArgumentForce        = CFSTR( "force"    );
+const CFStringRef kDAFileSystemMountArgumentNoDevice     = CFSTR( "nodev"    );
+const CFStringRef kDAFileSystemMountArgumentDevice       = CFSTR( "dev"    );
+const CFStringRef kDAFileSystemMountArgumentNoExecute    = CFSTR( "noexec"   );
+const CFStringRef kDAFileSystemMountArgumentNoOwnership  = CFSTR( "noowners" );
+const CFStringRef kDAFileSystemMountArgumentNoPermission = CFSTR( "noperm" );
+const CFStringRef kDAFileSystemMountArgumentOwnership    = CFSTR( "owners" );
+const CFStringRef kDAFileSystemMountArgumentNoSetUserID  = CFSTR( "nosuid"   );
+const CFStringRef kDAFileSystemMountArgumentSetUserID    = CFSTR( "suid"   );
+const CFStringRef kDAFileSystemMountArgumentNoWrite      = CFSTR( "rdonly"   );
+const CFStringRef kDAFileSystemMountArgumentUnion        = CFSTR( "union"    );
+const CFStringRef kDAFileSystemMountArgumentUpdate       = CFSTR( "update"   );
+const CFStringRef kDAFileSystemMountArgumentNoBrowse     = CFSTR( "nobrowse" );
+const CFStringRef kDAFileSystemMountArgumentSnapshot     = CFSTR( "-s=" );
+const CFStringRef kDAFileSystemMountArgumentNoFollow     = CFSTR( "nofollow"   );
 
-
-const CFStringRef kDAFileSystemUnmountArgumentForce     = CFSTR( "force" );
+const CFStringRef kDAFileSystemUnmountArgumentForce      = CFSTR( "force" );
 
 static void __DAFileSystemProbeCallbackStage1( int status, CFDataRef output, void * context );
 static void __DAFileSystemProbeCallbackStage2( int status, CFDataRef output, void * context );

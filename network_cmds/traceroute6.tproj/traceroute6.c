@@ -629,8 +629,8 @@ main(argc, argv)
 	}
 
 	/* revoke privs */
-	seteuid(getuid());
-	setuid(getuid());
+	if (setuid(getuid()) != 0)
+		err(1, "setuid() failed");
 
 	if (tclass != -1) {
 		if (setsockopt(sndsock, IPPROTO_IPV6, IPV6_TCLASS, &tclass,

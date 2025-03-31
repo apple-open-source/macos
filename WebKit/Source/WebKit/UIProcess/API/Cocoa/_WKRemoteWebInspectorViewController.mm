@@ -78,7 +78,7 @@ public:
     
     Ref<API::InspectorConfiguration> configurationForRemoteInspector(RemoteWebInspectorUIProxy& inspector) override
     {
-        return static_cast<API::InspectorConfiguration&>([m_controller.configuration _apiObject]);
+        return downcast<API::InspectorConfiguration>([m_controller.configuration _apiObject]);
     }
 
 private:
@@ -125,7 +125,7 @@ private:
 
 - (void)loadForDebuggable:(_WKInspectorDebuggableInfo *)debuggableInfo backendCommandsURL:(NSURL *)backendCommandsURL
 {
-    m_remoteInspectorProxy->initialize(static_cast<API::DebuggableInfo&>([debuggableInfo _apiObject]), backendCommandsURL.absoluteString);
+    m_remoteInspectorProxy->initialize(downcast<API::DebuggableInfo>([debuggableInfo _apiObject]), backendCommandsURL.absoluteString);
 }
 
 - (void)close

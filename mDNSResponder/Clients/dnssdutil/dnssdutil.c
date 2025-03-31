@@ -21,6 +21,7 @@
 #include <dns_sd_private.h>
 #include <mdns/DNSMessage.h>
 #include <mdns/dns_relay.h>
+#include <mdns/fnv1a_hash.h>
 #include <mdns/pf.h>
 #include <mdns/security.h>
 #include <mdns/signed_result.h>
@@ -1690,7 +1691,7 @@ static const char		kMDNSReplierInfoText_TXT[] =
 	"        RDATA:    <one or more strings with an aggregate length of L octets>\n"
 	"\n"
 	"The RDATA of each TXT record is exactly L octets and consists of a repeating series of the 15-byte string\n"
-	"\"hash=0x<32-bit FNV-1 hash of the record name as an 8-character hexadecimal string>\". The last instance of\n"
+	"\"hash=0x<32-bit FNV-1a hash of the record name as an 8-character hexadecimal string>\". The last instance of\n"
 	"the string may be truncated to satisfy the TXT record data's size requirement.\n";
 
 static const char		kMDNSReplierInfoText_A[] =
@@ -3263,7 +3264,6 @@ static Boolean
 		const char **	outSrc );
 static void *	_memdup( const void *inPtr, size_t inLen );
 static int		_memicmp( const void *inP1, const void *inP2, size_t inLen );
-static uint32_t	_FNV1( const void *inData, size_t inSize );
 static OSStatus	_UInt32FromArgString( const char *inArgStr, const char *inArgName, uint32_t *outValue );
 static char *	_UnixTimeToDateAndTimeString( int64_t inTimeSecs, char *inBufPtr, size_t inBufLen );
 static char *	_DNSSDSourceVersionToCString( uint32_t inVersion, char *inBufPtr, size_t inBufLen );
@@ -14579,7 +14579,7 @@ static OSStatus	_MDNSReplierCreateTXTRecord( const uint8_t *inRecordName, size_t
 	txt = (uint8_t *) malloc( inSize );
 	require_action( txt, exit, err = kNoMemoryErr );
 	
-	hash = _FNV1( inRecordName, DomainNameLength( inRecordName ) );
+	hash = mdns_fnv1a_32_hash( inRecordName, DomainNameLength( inRecordName ) );
 	
 	txtStr[ 0 ] = 15;
 	n = MemPrintF( &txtStr[ 1 ], 15, "hash=0x%08X", hash );
@@ -17507,7 +17507,7 @@ static Boolean	_MDNSDiscoveryTestTXTRecordIsValid( const uint8_t *inRecordName, 
 	
 	if( inTXTLen == 0 ) return( false );
 	
-	hash = _FNV1( inRecordName, DomainNameLength( inRecordName ) );
+	hash = mdns_fnv1a_32_hash( inRecordName, DomainNameLength( inRecordName ) );
 	
 	txtStr[ 0 ] = 15;
 	n = MemPrintF( &txtStr[ 1 ], 15, "hash=0x%08X", hash );
@@ -40707,27 +40707,6 @@ static int	_memicmp( const void *inP1, const void *inP2, size_t inLen )
 		if( c1 > c2 ) return(  1 );
 	}
 	return( 0 );
-}
-
-//===========================================================================================================================
-//	_FNV1
-//
-//	Note: This was copied from CoreUtils because it's currently not exported in the framework.
-//===========================================================================================================================
-
-static uint32_t	_FNV1( const void *inData, size_t inSize )
-{
-	const uint8_t *				src = (const uint8_t *) inData;
-	const uint8_t * const		end = src + inSize;
-	uint32_t					hash;
-	
-	hash = 0x811c9dc5U;
-	while( src != end )
-	{
-		hash *= 0x01000193;
-		hash ^= *src++;
-	}
-	return( hash );
 }
 
 //===========================================================================================================================

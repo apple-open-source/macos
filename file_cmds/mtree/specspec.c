@@ -47,7 +47,7 @@ __FBSDID("$FreeBSD: src/usr.sbin/mtree/specspec.c,v 1.6 2005/03/29 11:44:17 tobe
 	(((a)->flags & (c)) && ((b)->flags & (c)) && memcmp(&(a)->d,&(b)->d, sizeof (a)->d))
 
 static void
-shownode(NODE *n, int f, char const *path)
+shownode(NODE *n, u_int64_t f, char const *path)
 {
 	struct group *gr;
 	struct passwd *pw;
@@ -113,12 +113,14 @@ shownode(NODE *n, int f, char const *path)
 		printf(" dataless=%lu", n->st_flags & SF_DATALESS);
 	if (f & F_PROTECTION_CLASS)
 		printf(" protectionclass=%d", n->protection_class);
-	
+	if (f & F_PURGEABLE)
+		printf(" purgeable=%llu", n->purgeable);
+
 	printf("\n");
 }
 
 static int
-mismatch(NODE *n1, NODE *n2, uint differ, char const *path)
+mismatch(NODE *n1, NODE *n2, uint64_t differ, char const *path)
 {
 
 	if (n2 == NULL) {
@@ -140,8 +142,8 @@ mismatch(NODE *n1, NODE *n2, uint differ, char const *path)
 static int
 compare_nodes(NODE *n1, NODE *n2, char const *path)
 {
-	u_int differs = 0;
-	
+	u_int64_t differs = 0;
+
 	if (n1 != NULL && n1->type == F_LINK)
 		n1->flags &= ~F_MODE;
 	if (n2 != NULL && n2->type == F_LINK)
@@ -217,7 +219,9 @@ compare_nodes(NODE *n1, NODE *n2, char const *path)
 		differs |= F_DATALESS;
 	if (FF(n1, n2, F_PROTECTION_CLASS, protection_class))
 		differs |= F_PROTECTION_CLASS;
-	
+	if (FF(n1, n2, F_PURGEABLE, purgeable))
+		differs |= F_PURGEABLE;
+
 	if (differs) {
 		RECORD_FAILURE(114, WARN_MISMATCH);
 		mismatch(n1, n2, differs, path);

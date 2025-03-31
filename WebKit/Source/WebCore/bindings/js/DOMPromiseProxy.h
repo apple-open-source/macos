@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017-2021 Apple Inc. All rights reserved.
+ * Copyright (C) 2017-2024 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -29,14 +29,13 @@
 #include "JSDOMGlobalObject.h"
 #include "JSDOMPromiseDeferred.h"
 #include <wtf/Function.h>
-#include <wtf/TZoneMallocInlines.h>
 #include <wtf/Vector.h>
 
 namespace WebCore {
 
 template<typename IDLType>
 class DOMPromiseProxy {
-    WTF_MAKE_TZONE_ALLOCATED_INLINE(DOMPromiseProxy);
+    WTF_MAKE_TZONE_ALLOCATED_TEMPLATE(DOMPromiseProxy);
 public:
     using Value = typename IDLType::StorageType;
 
@@ -60,9 +59,11 @@ private:
     Vector<Ref<DeferredPromise>, 1> m_deferredPromises;
 };
 
+WTF_MAKE_TZONE_ALLOCATED_TEMPLATE_IMPL(template<typename IDLType>, DOMPromiseProxy<IDLType>);
+
 template<>
 class DOMPromiseProxy<IDLUndefined> {
-    WTF_MAKE_TZONE_ALLOCATED_INLINE(DOMPromiseProxy);
+    WTF_MAKE_TZONE_ALLOCATED_TEMPLATE(DOMPromiseProxy);
 public:
     DOMPromiseProxy() = default;
     ~DOMPromiseProxy() = default;
@@ -87,7 +88,7 @@ private:
 // FontFace and FontFaceSet.
 template<typename IDLType>
 class DOMPromiseProxyWithResolveCallback {
-    WTF_MAKE_TZONE_ALLOCATED_INLINE(DOMPromiseProxyWithResolveCallback);
+    WTF_MAKE_TZONE_ALLOCATED_TEMPLATE(DOMPromiseProxyWithResolveCallback);
 public:
     using ResolveCallback = Function<typename IDLType::ParameterType()>;
 
@@ -111,6 +112,8 @@ private:
     std::optional<ExceptionOr<void>> m_valueOrException;
     Vector<Ref<DeferredPromise>, 1> m_deferredPromises;
 };
+
+WTF_MAKE_TZONE_ALLOCATED_TEMPLATE_IMPL(template<typename IDLType>, DOMPromiseProxyWithResolveCallback<IDLType>);
 
 // MARK: - DOMPromiseProxy<IDLType> generic implementation
 

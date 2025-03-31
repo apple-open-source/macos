@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016-2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2016-2024 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -43,6 +43,7 @@ namespace JSC { namespace Wasm {
 constexpr unsigned numberOfLLIntCalleeSaveRegisters = 2;
 constexpr unsigned numberOfIPIntCalleeSaveRegisters = 3;
 constexpr unsigned numberOfLLIntInternalRegisters = 2;
+constexpr unsigned numberOfIPIntInternalRegisters = 2;
 
 struct ArgumentLocation {
 #if USE(JSVALUE32_64)
@@ -110,6 +111,7 @@ struct CallInformation {
     bool argumentsIncludeI64 : 1 { false };
     bool resultsIncludeI64 : 1 { false };
     bool argumentsOrResultsIncludeV128 : 1 { false };
+    bool argumentsOrResultsIncludeExnref : 1 { false };
     ArgumentLocation thisArgument;
     Vector<ArgumentLocation, 8> params;
     Vector<ArgumentLocation, 1> results;
@@ -170,6 +172,7 @@ private:
         case TypeKind::I32:
         case TypeKind::I64:
         case TypeKind::Funcref:
+        case TypeKind::Exn:
         case TypeKind::Externref:
         case TypeKind::Ref:
         case TypeKind::RefNull:
@@ -196,6 +199,7 @@ public:
             switch (signature.returnType(i).kind) {
             case TypeKind::I32:
             case TypeKind::I64:
+            case TypeKind::Exn:
             case TypeKind::Externref:
             case TypeKind::Funcref:
             case TypeKind::RefNull:
@@ -221,6 +225,7 @@ public:
             case TypeKind::Arrayref:
             case TypeKind::Eqref:
             case TypeKind::Anyref:
+            case TypeKind::Nullexn:
             case TypeKind::Nullref:
             case TypeKind::Nullfuncref:
             case TypeKind::Nullexternref:
@@ -245,6 +250,7 @@ public:
             switch (signature.argumentType(i).kind) {
             case TypeKind::I32:
             case TypeKind::I64:
+            case TypeKind::Exn:
             case TypeKind::Externref:
             case TypeKind::Funcref:
             case TypeKind::RefNull:
@@ -270,6 +276,7 @@ public:
             case TypeKind::Arrayref:
             case TypeKind::Eqref:
             case TypeKind::Anyref:
+            case TypeKind::Nullexn:
             case TypeKind::Nullref:
             case TypeKind::Nullfuncref:
             case TypeKind::Nullexternref:
@@ -298,7 +305,6 @@ public:
     {
         bool argumentsIncludeI64 = false;
         bool resultsIncludeI64 = false;
-        bool argumentsOrResultsIncludeV128 = false;
         size_t gpArgumentCount = 0;
         size_t fpArgumentCount = 0;
         size_t headerSize = headerSizeInBytes;
@@ -312,7 +318,6 @@ public:
         Vector<ArgumentLocation, 8> params(signature.argumentCount());
         for (size_t i = 0; i < signature.argumentCount(); ++i) {
             argumentsIncludeI64 |= signature.argumentType(i).isI64();
-            argumentsOrResultsIncludeV128 |= signature.argumentType(i).isV128();
             params[i] = marshallLocation(role, signature.argumentType(i), gpArgumentCount, fpArgumentCount, argStackOffset);
         }
         uint32_t stackArgs = argStackOffset - headerSize;
@@ -325,14 +330,14 @@ public:
         Vector<ArgumentLocation, 1> results(signature.returnCount());
         for (size_t i = 0; i < signature.returnCount(); ++i) {
             resultsIncludeI64 |= signature.returnType(i).isI64();
-            argumentsOrResultsIncludeV128 |= signature.returnType(i).isV128();
             results[i] = marshallLocation(role, signature.returnType(i), gpArgumentCount, fpArgumentCount, resultStackOffset);
         }
 
         CallInformation result(thisArgument, WTFMove(params), WTFMove(results), std::max(argStackOffset, resultStackOffset));
         result.argumentsIncludeI64 = argumentsIncludeI64;
         result.resultsIncludeI64 = resultsIncludeI64;
-        result.argumentsOrResultsIncludeV128 = argumentsOrResultsIncludeV128;
+        result.argumentsOrResultsIncludeV128 = signature.argumentsOrResultsIncludeV128();
+        result.argumentsOrResultsIncludeExnref = signature.argumentsOrResultsIncludeExnref();
         return result;
     }
 
@@ -375,6 +380,7 @@ private:
         case TypeKind::I32:
         case TypeKind::I64:
         case TypeKind::Funcref:
+        case TypeKind::Exn:
         case TypeKind::Externref:
         case TypeKind::Ref:
         case TypeKind::RefNull:
@@ -389,7 +395,8 @@ private:
     }
 
 public:
-    CallInformation callInformationFor(const TypeDefinition& signature, CallRole role = CallRole::Callee) const
+    CallInformation callInformationFor(const TypeDefinition& signature, CallRole role = CallRole::Callee) const { return callInformationFor(*signature.as<FunctionSignature>(), role); }
+    CallInformation callInformationFor(const FunctionSignature& signature, CallRole role = CallRole::Callee) const
     {
         size_t gpArgumentCount = 0;
         size_t fpArgumentCount = 0;
@@ -401,8 +408,8 @@ public:
         stackOffset += sizeof(Register);
 
         Vector<ArgumentLocation, 8> params;
-        for (size_t i = 0; i < signature.as<FunctionSignature>()->argumentCount(); ++i)
-            params.append(marshallLocation(role, signature.as<FunctionSignature>()->argumentType(i), gpArgumentCount, fpArgumentCount, stackOffset));
+        for (size_t i = 0; i < signature.argumentCount(); ++i)
+            params.append(marshallLocation(role, signature.argumentType(i), gpArgumentCount, fpArgumentCount, stackOffset));
 
         Vector<ArgumentLocation, 1> results { ArgumentLocation { ValueLocation { JSRInfo::returnValueJSR }, Width64 } };
         return CallInformation(thisArgument, WTFMove(params), WTFMove(results), stackOffset);
@@ -477,6 +484,7 @@ private:
         switch (valueType.kind) {
         case TypeKind::I64:
         case TypeKind::Funcref:
+        case TypeKind::Exn:
         case TypeKind::Externref:
         case TypeKind::RefNull:
         case TypeKind::Ref:
@@ -504,6 +512,7 @@ public:
             switch (signature.returnType(i).kind) {
             case TypeKind::I64:
             case TypeKind::Funcref:
+            case TypeKind::Exn:
             case TypeKind::Externref:
             case TypeKind::RefNull:
             case TypeKind::Ref:
@@ -544,6 +553,7 @@ public:
             switch (signature.argumentType(i).kind) {
             case TypeKind::I64:
             case TypeKind::Funcref:
+            case TypeKind::Exn:
             case TypeKind::Externref:
             case TypeKind::RefNull:
             case TypeKind::Ref:

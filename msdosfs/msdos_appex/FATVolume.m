@@ -16,6 +16,20 @@
 #import "DirItem.h"
 #import <FSKit/NSError+FSKitAdditions.h>
 
+@interface FATVolume() {
+    _Atomic(uint64_t) _preAllocatedOpenFiles;
+    uint64_t _nextAvailableFileID;
+    _Atomic(uint64_t) _openUnlinkedFiles;
+}
+@end
+
+@interface FATVolume ()
+
+@property (nullable,retain) dispatch_queue_t globalWorkQueue;
+@property NSNumber *fileIDSyncObject;
+
+@end
+
 @implementation FATVolume
 
 bool calculatedOffset = false;
@@ -46,8 +60,9 @@ int gmtOffset = 0;
                        volumeID:(nonnull FSVolumeIdentifier *)volumeID
                      volumeName:(nonnull NSString *)volumeName
 {
+    NSString *fixedVolumeName = volumeName == nil ? @"" : volumeName;
     self = [super initWithVolumeID:volumeID
-                        volumeName:[FSFileName nameWithString:volumeName]];
+                        volumeName:[FSFileName nameWithString:fixedVolumeName]];
 
     if (!self) {
         goto exit;
@@ -58,9 +73,12 @@ int gmtOffset = 0;
         _resource                       = (FSBlockDeviceResource *)resource;
     }
     _nameCachePool                  = [DirNameCachePool new];
-    _nextAvailableFileID            = [[NSMutableArray alloc] initWithObjects:[NSNumber numberWithUnsignedLongLong:INITIAL_ZERO_LENGTH_FILEID], nil];
-    _preAllocatedOpenFiles          = [[NSMutableArray alloc] initWithObjects:[NSNumber numberWithUnsignedLongLong:0], nil];
-    _openUnlinkedFiles              = [[NSMutableArray alloc] initWithObjects:[NSNumber numberWithUnsignedLongLong:0], nil];
+    _nextAvailableFileID            = INITIAL_ZERO_LENGTH_FILEID;
+    _preAllocatedOpenFiles          = ATOMIC_VAR_INIT(0);
+    _openUnlinkedFiles              = ATOMIC_VAR_INIT(0);
+    _globalWorkQueue                = dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_HIGH, 0);
+    _fileIDSyncObject               = [NSNumber numberWithInt:42];
+    self.itemDeactivationPolicy     = FSItemDeactivationForRemovedItems | FSItemDeactivationForPreallocatedItems;
 
 exit:
     return self;
@@ -87,17 +105,47 @@ exit:
 -(uint64_t)getNextAvailableFileID
 {
     uint64_t fileid = FSItemIDInvalid;
-    // Counter for file ids of zero-length files (starts at 0xFFFFFFFFFFFFFFFF and is decremented until wrapping around at 0xFFFFFFFF00000000)
-    @synchronized (_nextAvailableFileID) {
-        fileid = [[_nextAvailableFileID objectAtIndex:0] unsignedLongLongValue];
-        if (fileid == WRAPAROUND_ZERO_LENGTH_FILEID) {
-            [_nextAvailableFileID replaceObjectAtIndex:0 withObject:[NSNumber numberWithUnsignedLongLong:INITIAL_ZERO_LENGTH_FILEID]];
+    @synchronized (_fileIDSyncObject) {
+        fileid = _nextAvailableFileID;
+        // Counter for file ids of zero-length files (starts at 0xFFFFFFFFFFFFFFFF and is decremented until wrapping around at 0xFFFFFFFF00000000)
+        if (_nextAvailableFileID == WRAPAROUND_ZERO_LENGTH_FILEID) {
+            _nextAvailableFileID = INITIAL_ZERO_LENGTH_FILEID;
         } else {
-            [_nextAvailableFileID replaceObjectAtIndex:0 withObject:[NSNumber numberWithUnsignedLongLong:(fileid - 1)]];
+            _nextAvailableFileID -= 1;
         }
     }
-    
+
     return fileid;
+}
+
+-(uint64_t)incNumberOfPreallocatedFiles
+{
+    return atomic_fetch_add(&_preAllocatedOpenFiles, 1);
+}
+
+-(uint64_t)decNumberOfPreallocatedFiles
+{
+    return atomic_fetch_sub(&_preAllocatedOpenFiles, 1);
+}
+
+-(uint64_t)getNumberOfPreallocatedFiles
+{
+    return atomic_load(&_preAllocatedOpenFiles);
+}
+
+-(uint64_t)incNumberOfOpenUnlinkedFiles
+{
+    return atomic_fetch_add(&_openUnlinkedFiles, 1);
+}
+
+-(uint64_t)decNumberOfOpenUnlinkedFiles
+{
+    return atomic_fetch_sub(&_openUnlinkedFiles, 1);
+}
+
+-(uint64_t)getNumberOfOpenUnlinkedFiles
+{
+    return atomic_load(&_openUnlinkedFiles);
 }
 
 - (NSError *)writeSymlinkClusters:(uint32_t)firstCluster
@@ -135,7 +183,7 @@ exit:
         }];
 
         if (err) {
-            os_log_error(fskit_std_log(), "%s: getContigClusterChainLengthStartingAt Failed", __FUNCTION__);
+            os_log_error(OS_LOG_DEFAULT, "%s: getContigClusterChainLengthStartingAt Failed", __FUNCTION__);
             break;
         }
 
@@ -146,7 +194,7 @@ exit:
                                 startingAt:offset
                                     length:writeLength];
         if (err) {
-            os_log_error(fskit_std_log(), "%s: Failed to write link content into the device", __FUNCTION__);
+            os_log_error(OS_LOG_DEFAULT, "%s: Failed to write link content into the device", __FUNCTION__);
             break;
         }
 
@@ -209,7 +257,7 @@ exit:
         }
 
         if (err) {
-            os_log_error(fskit_std_log(), "%s: Failed to read link content", __FUNCTION__);
+            os_log_error(OS_LOG_DEFAULT, "%s: Failed to read link content", __FUNCTION__);
             return reply(false, nil);
         }
 
@@ -232,7 +280,7 @@ exit:
 }
 
 -(FATItem *)createFATItemWithParent:(DirItem *)parentDirItem
-                               name:(NSString *)name
+                               name:(FSFileName *)name
                        dirEntryData:(DirEntryData *)dirEntryData
 {
     __block bool isSymlink = false;
@@ -265,7 +313,7 @@ exit:
                                  dirEntryData:dirEntryData
                                          name:name];
     } else {
-        os_log_error(fskit_std_log(), "%s: got itemTypeUnknown.", __func__);
+        os_log_error(OS_LOG_DEFAULT, "%s: got itemTypeUnknown.", __func__);
         return nil;
     }
 }
@@ -290,7 +338,7 @@ exit:
 	size_t dirBlockSize = self.systemInfo.dirBlockSize;
 	size_t clusterSize = self.systemInfo.bytesPerCluster;
 	size_t dirBlocksPerCluster = clusterSize / dirBlockSize;
-	NSMutableArray<FSMetadataBlockRange *> *rangesToClear = [NSMutableArray array];
+	NSMutableArray<FSMetadataRange *> *rangesToClear = [NSMutableArray array];
 
 	/*
 	 * The inner loop goes through the allocated clusters,
@@ -312,25 +360,25 @@ exit:
 				}
 			}];
 			if (error) {
-				os_log_error(fskit_std_log(), "%s: Failed to get the next cluster(s). Error = %@.", __func__, error);
+				os_log_error(OS_LOG_DEFAULT, "%s: Failed to get the next cluster(s). Error = %@.", __func__, error);
 				return error;
 			}
 			totalNumberOfClusters += numContigClusters;
 			if (totalNumberOfClusters > numClustersToClear) {
-				os_log_error(fskit_std_log(), "%s: There are more clusters in this cluster chain than expected. Exiting.", __func__);
+				os_log_error(OS_LOG_DEFAULT, "%s: There are more clusters in this cluster chain than expected. Exiting.", __func__);
 				return fs_errorForPOSIXError(EFAULT);
 			}
 
-            [rangesToClear addObject:[FSMetadataBlockRange rangeWithOffset:[self.systemInfo offsetForCluster:startCluster]
-                                                               blockLength:(uint32_t)dirBlockSize
-                                                            numberOfBlocks:(uint32_t)(dirBlocksPerCluster * numContigClusters)]];
+            [rangesToClear addObject:[FSMetadataRange rangeWithOffset:[self.systemInfo offsetForCluster:startCluster]
+                                                        segmentLength:(uint32_t)dirBlockSize
+                                                         segmentCount:(uint32_t)(dirBlocksPerCluster * numContigClusters)]];
 			startCluster = nextCluster;
 		}
 
 		error = [Utilities syncMetaClearToDevice:self.resource
 								   rangesToClear:rangesToClear];
 		if (error) {
-			os_log_error(fskit_std_log(), "%s: Failed to clear clusters. Error = %@.", __func__, error);
+			os_log_error(OS_LOG_DEFAULT, "%s: Failed to clear clusters. Error = %@.", __func__, error);
 			return error;
 		}
 
@@ -358,8 +406,8 @@ exit:
  * The following are arbitrary values and should be properly implemented by the
  * implementing file system.
  */
-- (BOOL)isChownRestricted {
-    return 0; //TODO: Verify this
+- (BOOL)restrictsOwnershipChanges {
+    return YES;
 }
 
 - (NSInteger)maximumFileSizeInBits {
@@ -375,7 +423,7 @@ exit:
 }
 
 - (BOOL)truncatesLongNames {
-    return false;
+    return NO;
 }
 
 - (NSInteger)maximumXattrSizeInBits {
@@ -396,20 +444,28 @@ exit:
              attributes:(nonnull FSItemSetAttributesRequest *)newAttributes
            replyHandler:(nonnull void (^)(FSItem * _Nullable, FSFileName * _Nullable, NSError * _Nullable))reply
 {
-    /* Verify item type */
-    if (type != FSItemTypeDirectory && type != FSItemTypeFile) {
-        os_log_error(fskit_std_log(), "%s: got an invalid type (%ld).", __func__, type);
+    DirItem *parentDirItem = [DirItem dynamicCast:directory];
+
+    if (parentDirItem == nil) {
         return reply(nil, nil, fs_errorForPOSIXError(EINVAL));
     }
 
-    [self createItemNamed:name
-                     type:type
-              inDirectory:directory
-               attributes:newAttributes
-                  content:nil
-             replyHandler:^(FSItem * _Nullable newItem, FSFileName * _Nullable newItemName, NSError * _Nullable error) {
-        return reply(newItem, newItemName, error);
-    }];
+    /* Verify item type */
+    if (type != FSItemTypeDirectory && type != FSItemTypeFile) {
+        os_log_error(OS_LOG_DEFAULT, "%s: got an invalid type (%ld).", __func__, type);
+        return reply(nil, nil, fs_errorForPOSIXError(EINVAL));
+    }
+
+    dispatch_async(parentDirItem.queue, ^{
+        [self createItemNamed:name
+                         type:type
+                  inDirectory:directory
+                   attributes:newAttributes
+                      content:nil
+                 replyHandler:^(FSItem * _Nullable newItem, FSFileName * _Nullable newItemName, NSError * _Nullable error) {
+            return reply(newItem, newItemName, error);
+        }];
+    });
 }
 
 - (void)createItemNamed:(FSFileName *)name
@@ -439,7 +495,7 @@ exit:
 
     DirItem *parentDirItem = [DirItem dynamicCast:directory];
     if (!parentDirItem) {
-        os_log_error(fskit_std_log(), "%s: got an invalid directory", __func__);
+        os_log_error(OS_LOG_DEFAULT, "%s: got an invalid directory", __func__);
         return reply(nil, nil, fs_errorForPOSIXError(ENOTDIR));
     }
 
@@ -449,7 +505,7 @@ exit:
 
     /* Verify attributes contain mode for FSItemTypeFile and FSItemTypeSymlink*/
     if (((type == FSItemTypeFile) || (type == FSItemTypeSymlink)) && (![newAttributes isValid:FSItemAttributeMode])) {
-        os_log_error(fskit_std_log(), "%s: attributes don't contain a valid mode.", __func__);
+        os_log_error(OS_LOG_DEFAULT, "%s: attributes don't contain a valid mode.", __func__);
         return reply(nil, nil, fs_errorForPOSIXError(EINVAL));
     }
 
@@ -458,7 +514,7 @@ exit:
     if (type == FSItemTypeFile) {
         error = [self verifyFileSize:fileSize];
         if (error) {
-            os_log_error(fskit_std_log(), "%s: file size is invalid. Error = %@.", __func__, error);
+            os_log_error(OS_LOG_DEFAULT, "%s: file size is invalid. Error = %@.", __func__, error);
             return reply(nil, nil, error);
         }
     }
@@ -468,7 +524,7 @@ exit:
                          replyHandler:^(NSError * _Nullable fatError) {
         if (fatError) {
             /* Don't fail the creation. Just log the error. */
-            os_log_error(fskit_std_log(), "%s: Couldn't set the dirty bit. Error = %@.", __func__, fatError);
+            os_log_error(OS_LOG_DEFAULT, "%s: Couldn't set the dirty bit. Error = %@.", __func__, fatError);
         }
     }];
 
@@ -481,7 +537,7 @@ exit:
                                 cachedOnly:false
                               replyHandler:^(NSError * _Nullable poolError, DirNameCache * _Nullable cache, bool isNew) {
         if (poolError) {
-            os_log_error(fskit_std_log(), "%s: Couldn't get dir name cache. Error = %@.", __func__, poolError);
+            os_log_error(OS_LOG_DEFAULT, "%s: Couldn't get dir name cache. Error = %@.", __func__, poolError);
         } else if (cache) {
             nameCache = cache;
             nameCaheIsNew = isNew;
@@ -492,13 +548,13 @@ exit:
     if (nameCache && nameCaheIsNew) {
         error = [parentDirItem fillNameCache:nameCache];
         if (error) {
-            os_log_error(fskit_std_log(), "%s: Couldn't fill dir name cache. Error = %@.", __func__, error);
+            os_log_error(OS_LOG_DEFAULT, "%s: Couldn't fill dir name cache. Error = %@.", __func__, error);
             error = nil;
         }
     }
 
     __block bool itemExists = false;
-    [parentDirItem lookupDirEntryNamed:name.string
+    [parentDirItem lookupDirEntryNamed:name
                           dirNameCache:nameCache
                           lookupOffset:nil
                           replyHandler:^(NSError * _Nonnull lookupError,
@@ -510,12 +566,12 @@ exit:
         }
     }];
     if (itemExists) {
-        os_log_debug(fskit_std_log(), "%s: item named %@ already exists.", __func__, name);
+        os_log_debug(OS_LOG_DEFAULT, "%s: item named %@ already exists.", __func__, name);
         error = fs_errorForPOSIXError(EEXIST);
         goto exit;
     }
     if (error) {
-        os_log_error(fskit_std_log(), "%s: lookup in dir failed with error = %@.", __func__, error);
+        os_log_error(OS_LOG_DEFAULT, "%s: lookup in dir failed with error = %@.", __func__, error);
         goto exit;
     }
 
@@ -545,7 +601,7 @@ exit:
                 error = allocationError;
             } else if (numAllocated != numClustersToAlloc) {
                 /* Shouldn't happen, just a sanity check. */
-                os_log_fault(fskit_std_log(), "%s: %u clusters were allocated, while asked for %u. (allowPartial = false).",
+                os_log_fault(OS_LOG_DEFAULT, "%s: %u clusters were allocated, while asked for %u. (allowPartial = false).",
                              __func__, numAllocated, numClustersToAlloc);
                 error = fs_errorForPOSIXError(EFAULT);
             } else {
@@ -554,7 +610,7 @@ exit:
             }
         }];
         if (error) {
-            os_log_error(fskit_std_log(), "%s: allocate clusters failed with error = %@.", __func__, error);
+            os_log_error(OS_LOG_DEFAULT, "%s: allocate clusters failed with error = %@.", __func__, error);
             goto exit;
         }
     }
@@ -564,7 +620,7 @@ exit:
 		error = [self clearNewDirClustersFrom:firstCluster
 									   amount:numOfClusters];
 		if (error) {
-			os_log_error(fskit_std_log(), "%s: clear dir clusters failed with error = %@.", __func__, error);
+			os_log_error(OS_LOG_DEFAULT, "%s: clear dir clusters failed with error = %@.", __func__, error);
 		}
 	}
 
@@ -572,13 +628,13 @@ exit:
         error = [self writeSymlinkClusters:firstCluster
                                withContent:contents.data];
         if (error) {
-            os_log_error(fskit_std_log(), "%s: writeSymlinkClusters ended with error  %@.", __func__, error);
+            os_log_error(OS_LOG_DEFAULT, "%s: writeSymlinkClusters ended with error  %@.", __func__, error);
         }
     }
 
     if (error == nil) {
         /* Create dir entry in the parent directory. */
-        [parentDirItem createNewDirEntryNamed:name.string
+        [parentDirItem createNewDirEntryNamed:name
                                          type:type
                                    attributes:newAttributes
                              firstDataCluster:firstCluster
@@ -591,13 +647,13 @@ exit:
             }
         }];
         if (error) {
-            os_log_error(fskit_std_log(), "%s: create new entry failed with error = %@.", __func__, error);
+            os_log_error(OS_LOG_DEFAULT, "%s: create new entry failed with error = %@.", __func__, error);
         }
     }
 
     if (error == nil) {
         /* Lookup for the new file. */
-        [parentDirItem lookupDirEntryNamed:name.string
+        [parentDirItem lookupDirEntryNamed:name
                               dirNameCache:nil
                               lookupOffset:&newEntryOffsetInDir
                               replyHandler:^(NSError *lookupError,
@@ -606,12 +662,12 @@ exit:
                 error = lookupError;
             } else {
                 newItem = [self createFATItemWithParent:parentDirItem
-                                                   name:name.string
+                                                   name:name
                                            dirEntryData:dirEntryData];
             }
         }];
         if (error) {
-            os_log_error(fskit_std_log(), "%s: lookup for new item failed with error = %@.", __func__, error);
+            os_log_error(OS_LOG_DEFAULT, "%s: lookup for new item failed with error = %@.", __func__, error);
         }
     }
 
@@ -621,7 +677,7 @@ exit:
             DirItem *newDirItem = [DirItem dynamicCast:newItem];
             error = [newDirItem createDotEntriesWithAttrs:newAttributes];
             if (error) {
-                os_log_error(fskit_std_log(), "%s: failed to create '.' and '..' entries in the new dir. Error = %@.", __func__, error);
+                os_log_error(OS_LOG_DEFAULT, "%s: failed to create '.' and '..' entries in the new dir. Error = %@.", __func__, error);
             }
         }
     }
@@ -633,7 +689,7 @@ exit:
                             replyHandler:^(NSError * _Nullable freeClustersError) {
             if (freeClustersError) {
                 /* We don't have what to do with this error except for log it. */
-                os_log_error(fskit_std_log(), "%s: free clusters of the new item failed with error = %@.", __func__, freeClustersError);
+                os_log_error(OS_LOG_DEFAULT, "%s: free clusters of the new item failed with error = %@.", __func__, freeClustersError);
             }
         }];
         goto exit;
@@ -648,7 +704,7 @@ exit:
     error = [parentDirItem updateModificationTimeOnCreateRemove];
     if (error) {
         /* In case the update failed, we still want the create to succeed. */
-        os_log_error(fskit_std_log(), "%s: update parent dir modification time failed with error = %@.", __func__, error);
+        os_log_error(OS_LOG_DEFAULT, "%s: update parent dir modification time failed with error = %@.", __func__, error);
     }
 
     if (nameCache) {
@@ -659,8 +715,9 @@ exit:
         if (error) {
             /* In case the insert failed, we still want the create to succeed.
              so we just log, and mark the name cache as incomplete. */
-            os_log_error(fskit_std_log(), "%s: insert the new item to name cache failed with error = %@.", __func__, error);
+            os_log_error(OS_LOG_DEFAULT, "%s: insert the new item to name cache failed with error = %@.", __func__, error);
             nameCache.isIncomplete = true;
+            error = nil;
         }
     }
 
@@ -687,13 +744,13 @@ exit:
         [self.nameCachePool doneWithNameCacheForDir:parentDirItem];
     }
 
-	return reply(newItem, nil, error);
+	return reply(newItem, name, error);
 }
 
 -(void)createFileNamed:(FSFileName *)name
            inDirectory:(FSItem *)directory
             attributes:(FSItemSetAttributesRequest *)newAttributes
-           usingPacker:(FSExtentPacker)packer
+                packer:(FSExtentPacker *)packer
           replyHandler:(void (^)(FSItem * _Nullable, FSFileName * _Nullable, NSError * _Nullable))reply
 {
     // Return zero extents for now.
@@ -721,21 +778,25 @@ exit:
                    linkContents:(nonnull FSFileName *)contents
                    replyHandler:(nonnull void (^)(FSItem * _Nullable, FSFileName * _Nullable, NSError * _Nullable))reply
 {
-    if ((contents == nil) || (contents.data.length == 0) || (contents.data.length > SYMLINK_LINK_MAX)) {
-        os_log_error(fskit_std_log(), "%s: got an invalid contents", __func__);
+    DirItem *dirItem = [DirItem dynamicCast:directory];
+
+    if ((dirItem == nil) || (contents == nil) || (contents.data.length == 0) || (contents.data.length > SYMLINK_LINK_MAX)) {
+        os_log_error(OS_LOG_DEFAULT, "%s: got an invalid contents", __func__);
         return reply(nil, nil, fs_errorForPOSIXError(EINVAL));
     }
 
-    [self createItemNamed:name
-                     type:FSItemTypeSymlink
-              inDirectory:directory
-               attributes:newAttributes
-                  content:contents
-             replyHandler:^(FSItem * _Nullable newItem,
-                            FSFileName * _Nullable newItemName,
-                            NSError * _Nullable error) {
-        return reply(newItem, newItemName, error);
-    }];
+    dispatch_async(dirItem.queue, ^{
+        [self createItemNamed:name
+                         type:FSItemTypeSymlink
+                  inDirectory:directory
+                   attributes:newAttributes
+                      content:contents
+                 replyHandler:^(FSItem * _Nullable newItem,
+                                FSFileName * _Nullable newItemName,
+                                NSError * _Nullable error) {
+            return reply(newItem, newItemName, error);
+        }];
+    });
 }
 
 - (void)adjustCookieIndex:(uint32_t *)cookieIndex
@@ -763,12 +824,12 @@ exit:
           startingAtCookie:(FSDirectoryCookie)cookie
                   verifier:(FSDirectoryVerifier)verifier
        providingAttributes:(FSItemGetAttributesRequest * _Nullable)attributes
-               usingPacker:(nonnull FSDirectoryEntryPacker)packer
+               usingPacker:(nonnull FSDirectoryEntryPacker *)packer
               replyHandler:(nonnull void (^)(FSDirectoryVerifier, NSError * _Nullable))reply
 {
     DirItem *dirItem = [DirItem dynamicCast:directory];
     if (!dirItem) {
-        os_log_error(fskit_std_log(), "%s: got an invalid item", __FUNCTION__);
+        os_log_error(OS_LOG_DEFAULT, "%s: got an invalid item", __FUNCTION__);
         return reply(0, fs_errorForPOSIXError(ENOTDIR));
     }
 
@@ -776,174 +837,187 @@ exit:
         return reply(0, nil);
     }
 
-    bool provideAttributes = (attributes != nil);
-    __block bool synthesizeDot = false;
-    __block bool synthesizeDotDot = false;
-    __block NSError *err = nil;
-    __block uint32_t cookieOffset = OFFSET_FROM_COOKIE(cookie);
-    __block uint32_t cookieIndex = INDEX_FROM_COOKIE(cookie);
-    __block uint32_t nextCookieOffset = 0;
+    dispatch_sync(dirItem.queue, ^{
+        __block uint32_t cookieOffset = OFFSET_FROM_COOKIE(cookie);
+        __block uint32_t cookieIndex = INDEX_FROM_COOKIE(cookie);
+        bool provideAttributes = (attributes != nil);
+        __block uint32_t nextCookieOffset = 0;
+        __block bool synthesizeDotDot = false;
+        __block bool synthesizeDot = false;
+        __block NSError *err = nil;
 
-    if (dirItem.isRoot && !provideAttributes) {
-        if ((cookieOffset == DOT_COOKIE) || (cookieOffset == DOT_DOT_COOKIE )) {
-            synthesizeDot = (cookieOffset == DOT_COOKIE);
-            synthesizeDotDot = true;
-            cookieOffset = 0;
+        if (dirItem.isRoot && !provideAttributes) {
+            if ((cookieOffset == DOT_COOKIE) || (cookieOffset == DOT_DOT_COOKIE )) {
+                synthesizeDot = (cookieOffset == DOT_COOKIE);
+                synthesizeDotDot = true;
+                cookieOffset = 0;
+            } else {
+                cookieOffset -= SYNTHESIZE_ROOT_DOTS_SIZE;
+            }
+            nextCookieOffset = SYNTHESIZE_ROOT_DOTS_SIZE;
         }
-        else {
-            cookieOffset -= SYNTHESIZE_ROOT_DOTS_SIZE;
+
+        if ((cookieOffset % [dirItem dirEntrySize]) != 0) {
+            // Something is really wrong if we get here so log fault
+            os_log_fault(OS_LOG_DEFAULT, "%s: cookieOffset [%u] not aligned with dirEntrySize [%u]",
+                         __FUNCTION__, cookieOffset, [dirItem dirEntrySize]);
+            err = fs_errorForPOSIXError(EINVAL);
         }
-        nextCookieOffset = SYNTHESIZE_ROOT_DOTS_SIZE;
-    }
 
-    if ((cookieOffset % [dirItem dirEntrySize]) != 0) {
-        // Something is really wrong if we get here so log fault
-        os_log_fault(fskit_std_log(), "%s: cookieOffset [%u] not aligned with dirEntrySize [%u]",
-                     __FUNCTION__, cookieOffset, [dirItem dirEntrySize]);
-        err = fs_errorForPOSIXError(EINVAL);
-    }
+        /*
+         * In case the dir version has been changed, we suspect that the cookie-offset
+         * may be invalid. Therefore we perform some more checks in this case. We skip the
+         * checks if we are still synthesizing dir entries.
+         * In case the dir version hasn't been changed, we won't check the validity to not
+         * return an error, because we want to do our best enumerating corrupted directories.
+         * We would just try to skip the corrupted dir entries if we encounter any.
+         * In case the dir version has been changed, we do check the validity, because
+         * dir entries may have been added/removed during the enumeration, so in case
+         * the offset is invalid we ignore the given offset and calculate a new one
+         * using the cookie-index.
+         */
+        if ((dirItem.dirVersion != verifier) && (!synthesizeDot) && (!synthesizeDotDot)) {
+            err = (err) ? err : [dirItem verifyCookieOffset:cookieOffset];
+            if (err) {
+                __block bool eof;
+                // The cookie-offset doesn't point to a valid dir entry.
+                // We continue anyway by fetching the offset of the desired entry,
+                // using the cookie-index which holds the desired dir-entry index.
+                os_log_error(OS_LOG_DEFAULT, "%s: Failed to verifyCookieOffset, calling get dir entry by index.", __FUNCTION__);
+                [self adjustCookieIndex:&cookieIndex dirItem:dirItem provideAttributes:provideAttributes];
+                [dirItem getDirEntryOffsetByIndex:cookieIndex
+                                     replyHandler:^(NSError * _Nullable error, uint64_t offset, bool reachedEOF) {
+                    err = error;
+                    cookieOffset = (uint32_t)offset;
+                    eof = reachedEOF;
+                    if (dirItem.isRoot && !provideAttributes && ((cookieOffset == DOT_COOKIE) || (cookieOffset == DOT_DOT_COOKIE ))) {
+                        /* cookieOffset has been changed, need to re-think if we need to synthesize DOT and DOTDOT*/
+                        synthesizeDot = (cookieOffset == DOT_COOKIE);
+                        synthesizeDotDot = true;
+                    }
+                }];
 
-    /*
-     * In case the dir version has been changed, we suspect that the cookie-offset
-     * may be invalid. Therefore we perform some more checks in this case. We skip the
-     * checks if we are still synthesizing dir entries.
-     * In case the dir version hasn't been changed, we won't check the validity to not
-     * return an error, because we want to do our best enumerating corrupted directories.
-     * We would just try to skip the corrupted dir entries if we encounter any.
-     * In case the dir version has been changed, we do check the validity, because
-     * dir entries may have been added/removed during the enumeration, so in case
-     * the offset is invalid we ignore the given offset and calculate a new one
-     * using the cookie-index.
-     */
-    if ((dirItem.dirVersion != verifier) && (!synthesizeDot) && (!synthesizeDotDot)) {
-        err = (err) ? err : [dirItem verifyCookieOffset:cookieOffset];
-        if (err) {
-            __block bool eof;
-            // The cookie-offset doesn't point to a valid dir entry.
-            // We continue anyway by fetching the offset of the desired entry,
-            // using the cookie-index which holds the desired dir-entry index.
-            os_log_error(fskit_std_log(), "%s: Failed to verifyCookieOffset, calling get dir entry by index.", __FUNCTION__);
-            [self adjustCookieIndex:&cookieIndex dirItem:dirItem provideAttributes:provideAttributes];
-            [dirItem getDirEntryOffsetByIndex:cookieIndex
-                                 replyHandler:^(NSError * _Nullable error, uint64_t offset, bool reachedEOF) {
-                err = error;
-                cookieOffset = (uint32_t)offset;
-                eof = reachedEOF;
-                if (dirItem.isRoot && !provideAttributes && ((cookieOffset == DOT_COOKIE) || (cookieOffset == DOT_DOT_COOKIE ))) {
-                    /* cookieOffset has been changed, need to re-think if we need to synthesize DOT and DOTDOT*/
-                    synthesizeDot = (cookieOffset == DOT_COOKIE);
-                    synthesizeDotDot = true;
+                if (err || eof) {
+                    return reply(0, err);
                 }
-            }];
+            }
+        } else if (err) {
+            /* We got one bad cookie here */
+            os_log_error(OS_LOG_DEFAULT, "%s: Bad cookie", __FUNCTION__);
+            err = [NSError errorWithDomain:FSKitErrorDomain
+                                      code:FSErrorInvalidDirectoryCookie
+                                  userInfo:nil];
+        }
 
-            if (err || eof) {
-                return reply(0, err);
+        if (err) {
+            return reply(0, err);
+        }
+
+        __block FSFileName *nameToPack = nil;
+        __block FSItemAttributes *attrToPack = nil;
+        __block FSItemType typeToPack;
+        __block uint64_t idToPack;
+
+        if (synthesizeDot) {
+            // We know that every directory must have '.' and '..' so the '.' is NOT the last dir entry to pack
+            cookieIndex++;
+            BOOL packRes = [packer packEntryWithName:[FSFileName nameWithCString:"."]
+                                            itemType:FSItemTypeDirectory
+                                              itemID:[dirItem getFileID]
+                                          nextCookie:COOKIE_FROM_OFFSET_AND_INDEX(DOT_DOT_COOKIE, cookieIndex)
+                                          attributes:nil];
+            if (packRes == NO) {
+                return reply(dirItem.dirVersion, err);
             }
         }
-    } else if (err) {
-        /* We got one bad cookie here */
-        os_log_error(fskit_std_log(), "%s: Bad cookie", __FUNCTION__);
-        err = [NSError errorWithDomain:FSVolumeErrorDomain
-                                  code:FSVolumeErrorBadDirectoryCookie
-                              userInfo:nil];
-    }
 
-    if (err) {
-        return reply(0, err);
-    }
-
-    __block NSString *nameToPack = nil;
-    __block FSItemAttributes *attrToPack = nil;
-    __block FSItemType typeToPack;
-    __block uint64_t idToPack;
-
-    if (synthesizeDot) {
-        // We know that every directory must have '.' and '..' so the '.' is NOT the last dir entry to pack
-        cookieIndex++;
-        int packRes = packer([FSFileName nameWithCString:"."], FSItemTypeDirectory,  [dirItem getFileID] , COOKIE_FROM_OFFSET_AND_INDEX(DOT_DOT_COOKIE, cookieIndex), nil, false);
-        if (packRes) {
-            return reply(dirItem.dirVersion, err);
-        }
-    }
-
-    // From this point we will only know if the entry we are about to pack is the last entry, when we finish
-    // iterating the directory. That is why we always keep the information about the what we want to pack
-    // but we actually pack it after we know that this is not the last entry in the directory.
-    if (synthesizeDotDot) {
-        nameToPack = [[NSString alloc] initWithUTF8String:".."];
-        typeToPack = FSItemTypeDirectory;
-        idToPack = [dirItem isRoot] ? [self getNextAvailableFileID] : [dirItem.parentDir getFileID];
-    }
-
-    __block NSMutableData *utf8Data = [NSMutableData dataWithLength:FAT_MAX_FILENAME_UTF8];
-    [dirItem iterateFromOffset:cookieOffset
-                       options:0
-                  replyHandler:^iterateDirStatus(NSError * _Nonnull error,
-                                                 dirEntryType result,
-                                                 uint64_t dirEntryOffset,
-                                                 struct unistr255 * _Nullable utf16Name,
-                                                 DirEntryData * _Nullable dirEntryData) {
-        if (error) {
-            err = error;
-            os_log_error(fskit_std_log(), "%s iterateFromOffset error %d.\n", __FUNCTION__, (int)error.code);
-            return iterateDirStop;
+        // From this point we will only know if the entry we are about to pack is the last entry, when we finish
+        // iterating the directory. That is why we always keep the information about the what we want to pack
+        // but we actually pack it after we know that this is not the last entry in the directory.
+        if (synthesizeDotDot) {
+            nameToPack = [[FSFileName alloc] initWithCString:".."];
+            typeToPack = FSItemTypeDirectory;
+            idToPack = [dirItem isRoot] ? [self getNextAvailableFileID] : [dirItem.parentDir getFileID];
         }
 
-        if (result == FATDirEntryFound) {
-            int packerRes = 0;
-
-            if (nameToPack) {
-                uint64_t cookie = nextCookieOffset + dirEntryOffset;
-                cookieIndex++;
-                cookie = COOKIE_FROM_OFFSET_AND_INDEX(cookie, cookieIndex);
-                packerRes = packer([FSFileName nameWithString:nameToPack], typeToPack, idToPack, cookie, attrToPack, false);
-                nameToPack = nil;
-            }
-
-            if (packerRes) {
+        __block NSMutableData *utf8Data = [NSMutableData dataWithLength:FAT_MAX_FILENAME_UTF8];
+        [dirItem iterateFromOffset:cookieOffset
+                           options:0
+                      replyHandler:^iterateDirStatus(NSError * _Nonnull error,
+                                                     dirEntryType result,
+                                                     uint64_t dirEntryOffset,
+                                                     struct unistr255 * _Nullable utf16Name,
+                                                     DirEntryData * _Nullable dirEntryData) {
+            if (error) {
+                err = error;
+                os_log_error(OS_LOG_DEFAULT, "%s iterateFromOffset error %d.\n", __FUNCTION__, (int)error.code);
                 return iterateDirStop;
             }
-            CONV_Unistr255ToUTF8(utf16Name, utf8Data.mutableBytes);
-            NSString *name = [NSString stringWithUTF8String:utf8Data.mutableBytes];
-            if ((name == nil) ||
-                (name.length == 0)) {
-                /* We don't want to pack a nameless direntry */
-                return iterateDirContinue;
-            }
-            if (provideAttributes) {
-                if ([Utilities isDotOrDotDot:(char*)name.UTF8String length:name.length]) {
-                    return iterateDirContinue;
+
+            if (result == FATDirEntryFound) {
+                BOOL packerRes = YES;
+
+                if (nameToPack) {
+                    uint64_t cookie = nextCookieOffset + dirEntryOffset;
+                    cookieIndex++;
+                    cookie = COOKIE_FROM_OFFSET_AND_INDEX(cookie, cookieIndex);
+                    packerRes = [packer packEntryWithName:nameToPack
+                                                 itemType:typeToPack
+                                                   itemID:idToPack
+                                               nextCookie:cookie
+                                               attributes:attrToPack];
+                    nameToPack = nil;
                 }
 
-                FATItem *tmpItem = [self createFATItemWithParent:dirItem
-                                                   name:name
-                                           dirEntryData:dirEntryData];
-                attrToPack = [tmpItem getAttributes:attributes];
-                typeToPack = attrToPack.type;
-            } else if (dirEntryData.type == FSItemTypeDirectory) {
-                typeToPack = FSItemTypeDirectory;
-            } else {
-                [self isSymLink:dirEntryData
-                   replyHandler:^(bool isSymbolicLink, NSString * _Nullable linkStr) {
-                    typeToPack = isSymbolicLink ? FSItemTypeSymlink : FSItemTypeFile;
-                }];
+                if (packerRes == NO) {
+                    return iterateDirStop;
+                }
+                CONV_Unistr255ToUTF8(utf16Name, utf8Data.mutableBytes);
+                FSFileName *name = [[FSFileName alloc] initWithCString:utf8Data.mutableBytes];
+                if ((name == nil) ||
+                    (name.data.length == 0)) {
+                    /* We don't want to pack a nameless direntry */
+                    return iterateDirContinue;
+                }
+                if (provideAttributes) {
+                    if ([Utilities isDotOrDotDot:(char*)name.data.bytes length:name.data.length]) {
+                        return iterateDirContinue;
+                    }
+
+                    FATItem *tmpItem = [self createFATItemWithParent:dirItem
+                                                       name:name
+                                               dirEntryData:dirEntryData];
+                    attrToPack = [tmpItem getAttributes:attributes];
+                    typeToPack = attrToPack.type;
+                } else if (dirEntryData.type == FSItemTypeDirectory) {
+                    typeToPack = FSItemTypeDirectory;
+                } else {
+                    [self isSymLink:dirEntryData
+                       replyHandler:^(bool isSymbolicLink, NSString * _Nullable linkStr) {
+                        typeToPack = isSymbolicLink ? FSItemTypeSymlink : FSItemTypeFile;
+                    }];
+                }
+
+                nameToPack = name;
+                idToPack = [self getFileID:dirEntryData];
+            } else if (result == FATDirEntryEmpty) {
+                return iterateDirStop;
             }
 
-            nameToPack = name;
-            idToPack = [self getFileID:dirEntryData];
-        } else if (result == FATDirEntryEmpty) {
-            return iterateDirStop;
+            return iterateDirContinue;
+        }];
+
+        if (nameToPack) {
+            // If we still have something to pack it is the last entry in the directory.
+            [packer packEntryWithName:nameToPack
+                             itemType:typeToPack
+                               itemID:idToPack
+                           nextCookie:0
+                           attributes:attrToPack];
         }
 
-        return iterateDirContinue;
-    }];
-
-    if (nameToPack) {
-        // If we still have something to pack it is the last entry in the directory.
-        packer([FSFileName nameWithString:nameToPack], typeToPack, idToPack, 0, attrToPack, true);
-    }
-
-    return reply(dirItem.dirVersion, err);
+        return reply(dirItem.dirVersion, err);
+    });
 }
 
 - (void)getAttributes:(FSItemGetAttributesRequest *)desiredAttributes
@@ -951,117 +1025,115 @@ exit:
          replyHandler:(void (^)(FSItemAttributes * _Nullable, NSError * _Nullable))reply
 {
     FATItem *fatItem = [FATItem dynamicCast:item];
-    
+
     if (!fatItem) {
-        os_log_error(fskit_std_log(), "%s: got an invalid item.", __FUNCTION__);
+        os_log_error(OS_LOG_DEFAULT, "%s: got an invalid item.", __FUNCTION__);
         return reply(nil, fs_errorForPOSIXError(EINVAL));
     }
-    
-    FSItemAttributes *attrs = [fatItem getAttributes:desiredAttributes];
 
-    return reply(attrs, nil);
-    
+    dispatch_async(fatItem.queue, ^{
+        FSItemAttributes *attrs = [fatItem getAttributes:desiredAttributes];
+        return reply(attrs, nil);
+    });
 }
 
 - (void)lookupItemNamed:(FSFileName *)name
             inDirectory:(nonnull FSItem *)directory
            replyHandler:(nonnull void (^)(FSItem * _Nullable, FSFileName * _Nullable, NSError * _Nullable))reply
 {
+    __block DirItem *dirItem = [DirItem dynamicCast:directory];
 	__block NSError *error = nil;
 
-    /* Sanity:  Some encoding can end up in a nil name */
-    if (name == nil) {
-        os_log_error(fskit_std_log(), "%s: name is nil", __FUNCTION__);
-        return reply(nil, nil, fs_errorForPOSIXError(EINVAL));
+    if (dirItem == nil) {
+        os_log_error(OS_LOG_DEFAULT, "%s: got an invalid directory item.", __FUNCTION__);
+        return reply(nil, nil, fs_errorForPOSIXError(ENOTDIR));
     }
 
-	DirItem *dirItem = [DirItem dynamicCast:directory];
-	if (!dirItem) {
-		os_log_error(fskit_std_log(), "%s: got an invalid directory item.", __FUNCTION__);
-		return reply(nil, nil, fs_errorForPOSIXError(ENOTDIR));
-	}
-
-    if (name == nil || name.string == nil) {
-        return reply(nil, nil, fs_errorForPOSIXError(EINVAL));
-    }
-
-    if (dirItem.isDeleted) {
-        return reply(nil, nil, fs_errorForPOSIXError(ENOENT));
-    }
-
-    if ([Utilities isDotOrDotDot:(char *)name.data.bytes length:name.data.length]) {
-        /* Lookup for '.' or '..' is not allowed. */
-        return reply(nil, nil, fs_errorForPOSIXError(EPERM));
-    }
-
-    // Try to get a name cache for the parent directory. If there is no cache object available
-    // at the moment, just continue without a cache and let future create/lookup try again.
-    __block DirNameCache *nameCache = nil;
-    __block bool nameCaheIsNew;
-
-    [self.nameCachePool getNameCacheForDir:dirItem
-                                cachedOnly:false
-                              replyHandler:^(NSError * _Nullable poolError, DirNameCache * _Nullable cache, bool isNew) {
-        if (poolError) {
-            os_log_error(fskit_std_log(), "%s: Couldn't get dir name cache. Error = %@.", __func__, poolError);
-        } else if (cache) {
-            nameCache = cache;
-            nameCaheIsNew = isNew;
+    dispatch_async(dirItem.queue, ^{
+        /* Sanity:  Some encoding can end up in a nil name */
+        if (name == nil) {
+            os_log_error(OS_LOG_DEFAULT, "%s: name is nil", __FUNCTION__);
+            return reply(nil, nil, fs_errorForPOSIXError(EINVAL));
         }
-    }];
 
-    // Fill the cache only if it is new (empty)
-    if (nameCache && nameCaheIsNew) {
-        error = [dirItem fillNameCache:nameCache];
-        if (error) {
-            os_log_error(fskit_std_log(), "%s: Couldn't fill dir name cache. Error = %@.", __func__, error);
-            error = nil;
+        if (dirItem.isDeleted) {
+            return reply(nil, nil, fs_errorForPOSIXError(ENOENT));
         }
-    }
 
-	__block FATItem *resItem = nil;
-	[dirItem lookupDirEntryNamed:name.string
-					dirNameCache:nameCache
-					lookupOffset:nil
-                    replyHandler:^(NSError * _Nonnull dirLookupError,
-								   DirEntryData * _Nonnull dirEntryData) {
-		if (dirLookupError) {
-			error = dirLookupError;
-		} else {
-            resItem = [self createFATItemWithParent:dirItem
-                                               name:name.string
-                                       dirEntryData:dirEntryData];
-		}
-	}];
+        if ([Utilities isDotOrDotDot:(char *)name.data.bytes length:name.data.length]) {
+            /* Lookup for '.' or '..' is not allowed. */
+            return reply(nil, nil, fs_errorForPOSIXError(EPERM));
+        }
 
-	if (nameCache) {
-		[self.nameCachePool doneWithNameCacheForDir:dirItem];
-	}
+        // Try to get a name cache for the parent directory. If there is no cache object available
+        // at the moment, just continue without a cache and let future create/lookup try again.
+        __block DirNameCache *nameCache = nil;
+        __block bool nameCaheIsNew;
 
-    if (resItem != nil) {
-        /* Insert to the item cache */
-        [_itemCache insertItem:resItem
-                  replyHandler:^(FATItem * _Nullable cachedItem,
-                                 NSError * _Nullable innerError) {
-            if (innerError) {
-                error = innerError;
-            } else {
-                resItem = cachedItem;
+        [self.nameCachePool getNameCacheForDir:dirItem
+                                    cachedOnly:false
+                                  replyHandler:^(NSError * _Nullable poolError, DirNameCache * _Nullable cache, bool isNew) {
+            if (poolError) {
+                os_log_error(OS_LOG_DEFAULT, "%s: Couldn't get dir name cache. Error = %@.", __func__, poolError);
+            } else if (cache) {
+                nameCache = cache;
+                nameCaheIsNew = isNew;
             }
         }];
-    }
 
-    if (resItem == nil && error == nil) {
-        /* We don't want to reply a nil object without some error */
-        error = fs_errorForPOSIXError(EINVAL);
-    }
+        // Fill the cache only if it is new (empty)
+        if (nameCache && nameCaheIsNew) {
+            error = [dirItem fillNameCache:nameCache];
+            if (error) {
+                os_log_error(OS_LOG_DEFAULT, "%s: Couldn't fill dir name cache. Error = %@.", __func__, error);
+                error = nil;
+            }
+        }
 
-	return reply(resItem, nil, error);
+        __block FATItem *resItem = nil;
+        [dirItem lookupDirEntryNamed:name
+                        dirNameCache:nameCache
+                        lookupOffset:nil
+                        replyHandler:^(NSError * _Nonnull dirLookupError,
+                                       DirEntryData * _Nonnull dirEntryData) {
+            if (dirLookupError) {
+                error = dirLookupError;
+            } else {
+                resItem = [self createFATItemWithParent:dirItem
+                                                   name:name
+                                           dirEntryData:dirEntryData];
+            }
+        }];
+
+        if (nameCache) {
+            [self.nameCachePool doneWithNameCacheForDir:dirItem];
+        }
+
+        if (resItem != nil) {
+            /* Insert to the item cache */
+            [self.itemCache insertItem:resItem
+                      replyHandler:^(FATItem * _Nullable cachedItem,
+                                     NSError * _Nullable innerError) {
+                if (innerError) {
+                    error = innerError;
+                } else {
+                    resItem = cachedItem;
+                }
+            }];
+        }
+
+        if (resItem == nil && error == nil) {
+            /* We don't want to reply a nil object without some error */
+            error = fs_errorForPOSIXError(EINVAL);
+        }
+
+        return reply(resItem, name, error);
+    });
 }
 
 -(void)lookupItemNamed:(FSFileName *)name
            inDirectory:(FSItem *)directory
-           usingPacker:(FSExtentPacker)packer
+                packer:(FSExtentPacker *)packer
           replyHandler:(void (^)(FSItem * _Nullable,
                                  FSFileName * _Nullable,
                                  NSError * _Nullable)) reply
@@ -1078,7 +1150,7 @@ exit:
                                   replyHandler:^(NSError * _Nullable fetchError) {
                     if (fetchError) {
                         // Just log the error. Don't fail the lookup operation.
-                        os_log_error(fskit_std_log(), "%s: Failed to fetch extents for file named %@. Error = %@.", __FUNCTION__, name, fetchError);
+                        os_log_error(OS_LOG_DEFAULT, "%s: Failed to fetch extents for file named %@. Error = %@.", __FUNCTION__, name, fetchError);
                     }
                 }];
             }
@@ -1089,7 +1161,7 @@ exit:
 
 -(FSStatFSResult *)volumeStatistics
 {
-    FSStatFSResult *result = [[FSStatFSResult alloc] initWithFSTypeName:self.systemInfo.fsTypeName];
+    FSStatFSResult *result = [[FSStatFSResult alloc] initWithFileSystemTypeName:self.systemInfo.fsTypeName];
     result.blockSize = self.systemInfo.bytesPerCluster;
     result.ioSize = 32 * 1024; // Size (in bytes) of the optimal transfer block size
     result.totalBlocks = self.systemInfo.maxValidCluster;
@@ -1107,7 +1179,7 @@ exit:
 {
     FSVolumeSupportedCapabilities *capabilities         = [FSVolumeSupportedCapabilities new];
     capabilities.supportsSymbolicLinks                  = YES;
-    capabilities.caseSensitivity                        = FSVolumeCaseSensitivityCasePreservingOnly;
+    capabilities.caseFormat                             = FSVolumeCaseFormatInsensitiveCasePreserving;
     capabilities.supportsHiddenFiles                    = YES;
     capabilities.doesNotSupportRootTimes                = YES;
     capabilities.doesNotSupportSettingFilePermissions   = YES;
@@ -1122,47 +1194,49 @@ exit:
     SymLinkItem *symlinkItem = [SymLinkItem dynamicCast:item];
 
     if (symlinkItem == nil) {
-        os_log_error(fskit_std_log(), "%s: got an invalid type", __func__);
+        os_log_error(OS_LOG_DEFAULT, "%s: got an invalid type", __func__);
         return reply(nil, fs_errorForPOSIXError(EINVAL));
     }
 
-    uint64_t roundedSymlinkLength = ROUND_UP(sizeof(struct symlink), self.systemInfo.bytesPerSector);
-    NSMutableData *linkContent = [[NSMutableData alloc] initWithLength:roundedSymlinkLength];
-    __block int sizeLeftToRead = (int)roundedSymlinkLength;
-    __block uint64_t accReadLength = 0;
-    __block uint64_t readLength = 0;
-    __block NSError *error = nil;
+    dispatch_async(symlinkItem.queue, ^{
+        uint64_t roundedSymlinkLength = ROUND_UP(sizeof(struct symlink), self.systemInfo.bytesPerSector);
+        NSMutableData *linkContent = [[NSMutableData alloc] initWithLength:roundedSymlinkLength];
+        __block int sizeLeftToRead = (int)roundedSymlinkLength;
+        __block uint64_t accReadLength = 0;
+        __block uint64_t readLength = 0;
+        __block NSError *error = nil;
 
-    [self.fatManager iterateClusterChainOfItem:(FATItem*)item
-                                  replyHandler:^iterateClustersResult(NSError * _Nullable err, uint32_t startCluster, uint32_t numOfContigClusters) {
-        if (err) {
+        [self.fatManager iterateClusterChainOfItem:(FATItem*)item
+                                      replyHandler:^iterateClustersResult(NSError * _Nullable err, uint32_t startCluster, uint32_t numOfContigClusters) {
+            if (err) {
+                error = err;
+                return iterateClustersStop;
+            }
+
+            uint64_t availableLength = self.systemInfo.bytesPerCluster * numOfContigClusters;
+            readLength = MIN(availableLength, sizeLeftToRead);
+            error = [Utilities syncMetaReadFromDevice:self.resource
+                                                 into:(void*)((char*)linkContent.mutableBytes + accReadLength)
+                                           startingAt:[self.systemInfo offsetForCluster:startCluster]
+                                               length:readLength];
+            if (error) {
+                return iterateClustersStop;
+            }
+
+            accReadLength += readLength;
+            sizeLeftToRead -= readLength;
+            return (sizeLeftToRead > 0) ? iterateClustersContinue : iterateClustersStop;
+        }];
+
+        __block NSString *linkString = nil;
+        [SymLinkItem verifyAndGetLink:linkContent
+                         replyHandler:^(NSError * _Nullable err, NSString * _Nullable linkStr) {
             error = err;
-            return iterateClustersStop;
-        }
+            linkString = linkStr;
+        }];
 
-        uint64_t availableLength = self.systemInfo.bytesPerCluster * numOfContigClusters;
-        readLength = MIN(availableLength, sizeLeftToRead);
-        error = [Utilities syncMetaReadFromDevice:self.resource
-                                             into:(void*)((char*)linkContent.mutableBytes + accReadLength)
-                                       startingAt:[self.systemInfo offsetForCluster:startCluster]
-                                           length:readLength];
-        if (error) {
-            return iterateClustersStop;
-        }
-
-        accReadLength += readLength;
-        sizeLeftToRead -= readLength;
-        return (sizeLeftToRead > 0) ? iterateClustersContinue : iterateClustersStop;
-    }];
-
-    __block NSString *linkString = nil;
-    [SymLinkItem verifyAndGetLink:linkContent
-                     replyHandler:^(NSError * _Nullable err, NSString * _Nullable linkStr) {
-        error = err;
-        linkString = linkStr;
-    }];
-
-    return reply([FSFileName nameWithString:linkString], error);
+        return reply([FSFileName nameWithString:linkString], error);
+    });
 }
 
 - (void)reclaimItem:(nonnull FSItem *)item
@@ -1171,11 +1245,13 @@ exit:
     FATItem *reclaimedItem = [FATItem dynamicCast:item];
 
     if (!reclaimedItem) {
-        os_log_error(fskit_std_log(), "%s: got an invalid item.", __func__);
+        os_log_error(OS_LOG_DEFAULT, "%s: got an invalid item.", __func__);
         return reply(fs_errorForPOSIXError(EINVAL));
     }
 
-    return reply([reclaimedItem reclaim]);
+    dispatch_async(reclaimedItem.queue, ^{
+        return reply([reclaimedItem reclaim:false]);
+    });
 }
 
 - (void)removeItem:(nonnull FSItem *)item
@@ -1185,21 +1261,26 @@ exit:
 {
     FATItem *victimItem = [FATItem dynamicCast:item];
     DirItem *dirItem = [DirItem dynamicCast:directory];
-    DirItem *dirVictimItem = nil;
+    __block DirItem *dirVictimItem = nil;
     __block NSError *err = nil;
 
     if (!victimItem) {
-        os_log_error(fskit_std_log(), "%s: got an invalid item.", __FUNCTION__);
+        os_log_error(OS_LOG_DEFAULT, "%s: got an invalid item.", __FUNCTION__);
         return reply(fs_errorForPOSIXError(EINVAL));
     }
 
     if (!dirItem) {
-        os_log_error(fskit_std_log(), "%s: got an invalid directory item.", __FUNCTION__);
+        os_log_error(OS_LOG_DEFAULT, "%s: got an invalid directory item.", __FUNCTION__);
+        return reply(fs_errorForPOSIXError(EINVAL));
+    }
+
+    if (dirItem == victimItem) {
+        os_log_error(OS_LOG_DEFAULT, "%s: victim item and its directory can't be the same item", __FUNCTION__);
         return reply(fs_errorForPOSIXError(EINVAL));
     }
 
     if (name == nil) {
-        os_log_error(fskit_std_log(), "%s: got an invalid name.", __FUNCTION__);
+        os_log_error(OS_LOG_DEFAULT, "%s: got an invalid name.", __FUNCTION__);
         return reply(fs_errorForPOSIXError(EINVAL));
     }
 
@@ -1212,72 +1293,76 @@ exit:
         return reply(nil);
     }
 
-    if (victimItem.entryData.type == FSItemTypeDirectory) {
-         dirVictimItem = [DirItem dynamicCast:victimItem];
+    dispatch_async(dirItem.queue, ^{
+        dispatch_sync(victimItem.queue, ^{
+            if (victimItem.entryData.type == FSItemTypeDirectory) {
+                dirVictimItem = [DirItem dynamicCast:victimItem];
 
-        if (!dirVictimItem) {
-            os_log_error(fskit_std_log(), "%s: got an invalid item.", __FUNCTION__);
-            return reply(fs_errorForPOSIXError(EINVAL));
-        }
+                if (!dirVictimItem) {
+                    os_log_error(OS_LOG_DEFAULT, "%s: got an invalid item.", __FUNCTION__);
+                    return reply(fs_errorForPOSIXError(EINVAL));
+                }
 
-        err = [dirVictimItem checkIfEmpty];
-        if (err) {
-            return reply(err);
-        }
-    }
-
-    /*
-     * Purge first, because if this fails, we can't write these clusters
-     * to disk, as we free them later on.
-     */
-    if (dirVictimItem) {
-        [dirVictimItem purgeMetaBlocksFromCache:^(NSError * _Nullable error) {
-            if (error) {
-                os_log_fault(fskit_std_log(), "%s: Failed to purge dir's metadata blocks, error %@", __func__, error);
-                return reply(error);
+                err = [dirVictimItem checkIfEmpty];
+                if (err) {
+                    return reply(err);
+                }
             }
-        }];
-    }
 
-    // Mark all node directory entries as deleted
-    err = [dirItem markDirEntriesAsDeletedAndUpdateMtime:victimItem];
+            /*
+             * Purge first, because if this fails, we can't write these clusters
+             * to disk, as we free them later on.
+             */
+            if (dirVictimItem) {
+                [dirVictimItem purgeMetaBlocksFromCache:^(NSError * _Nullable error) {
+                    if (error) {
+                        os_log_fault(OS_LOG_DEFAULT, "%s: Failed to purge dir's metadata blocks, error %@", __func__, error);
+                        return reply(error);
+                    }
+                }];
+            }
 
-    if (err) {
-        return reply(err);
-    }
+            // Mark all node directory entries as deleted
+            err = [dirItem markDirEntriesAsDeletedAndUpdateMtime:victimItem];
 
-    __block DirNameCache *dirNameCache = nil;
+            if (err) {
+                return reply(err);
+            }
 
-    [self.nameCachePool getNameCacheForDir:dirItem
-                                cachedOnly:true
-                              replyHandler:^(NSError * _Nullable poolError, DirNameCache * _Nullable cache, bool isNew) {
-        // We do not need to do anything if we did not get a name cache for any reason
-        dirNameCache = cache;
-    }];
+            __block DirNameCache *dirNameCache = nil;
 
-    if (dirNameCache) {
-        [dirNameCache removeDirEntryNamed:(char *)name.data.bytes
-                                 ofLength:name.data.length
-                              offsetInDir:victimItem.entryData.firstEntryOffsetInDir];
-        [self.nameCachePool doneWithNameCacheForDir:dirItem];
-    }
+            [self.nameCachePool getNameCacheForDir:dirItem
+                                        cachedOnly:true
+                                      replyHandler:^(NSError * _Nullable poolError, DirNameCache * _Nullable cache, bool isNew) {
+                // We do not need to do anything if we did not get a name cache for any reason
+                dirNameCache = cache;
+            }];
 
-    [self.itemCache removeItem:victimItem];
+            if (dirNameCache) {
+                [dirNameCache removeDirEntryNamed:(char *)name.data.bytes
+                                         ofLength:name.data.length
+                                      offsetInDir:victimItem.entryData.firstEntryOffsetInDir];
+                [self.nameCachePool doneWithNameCacheForDir:dirItem];
+            }
 
-    dirItem.dirVersion++;
-    // TBD - Remove from HT only if it exist, do not create a new one just to remove an item
+            [self.itemCache removeItem:victimItem];
 
-    if (dirVictimItem) {
-        [dirItem.volume.fatManager freeClusters:dirVictimItem.numberOfClusters
-                                         ofItem:dirVictimItem
-                                   replyHandler:^(NSError * _Nullable error) {
-            err = error;
-        }];
-    }
+            dirItem.dirVersion++;
+            // TBD - Remove from HT only if it exist, do not create a new one just to remove an item
 
-    [victimItem setDeleted];
+            if (dirVictimItem) {
+                [dirItem.volume.fatManager freeClusters:dirVictimItem.numberOfClusters
+                                                 ofItem:dirVictimItem
+                                           replyHandler:^(NSError * _Nullable error) {
+                    err = error;
+                }];
+            }
 
-    return reply(err);
+            [victimItem setDeleted];
+
+            return reply(err);
+        });
+    });
 }
 
 - (void)renameItem:(nonnull FSItem *)sourceItem
@@ -1288,16 +1373,8 @@ exit:
           overItem:(FSItem * _Nullable)overItem
       replyHandler:(nonnull void (^)(FSFileName * _Nullable, NSError * _Nullable))reply
 {
-    __block uint64_t newEntryOffset = 0;
-    __block NSError *err = nil;
+    __block FATItem *sourceFatItem = [FATItem dynamicCast:sourceItem];
     __block FATItem *overFatItem = nil;
-    __block DirEntryData *newDirEntryData = nil;
-    __block DirEntryData *dotDotEntryData = nil;
-    DirEntryData *sourceDirEntryData = nil;;
-    DirEntryData *toDirEntryData = nil;;
-    DirItem *dirFromItem = nil;;
-    DirItem *overDirItem = nil;;
-    bool isFromSymlink;
 
     if ((sourceItem == nil)                     ||
         (sourceDirectory == nil)                ||
@@ -1306,18 +1383,16 @@ exit:
         (destinationName == nil)                ||
         ([Utilities isDotOrDotDot:(char *)sourceName.data.bytes length:sourceName.data.length])  ||
         ([Utilities isDotOrDotDot:(char *)destinationName.data.bytes length:destinationName.data.length])) {
-        os_log_error(fskit_std_log(), "%s: invalid argument", __FUNCTION__);
+        os_log_error(OS_LOG_DEFAULT, "%s: invalid argument", __FUNCTION__);
         return reply(nil, fs_errorForPOSIXError(EINVAL));
     }
 
     if ((sourceDirectory == destinationDirectory) &&
         ([sourceName.string isEqualToString:destinationName.string])) {
-        os_log_debug(fskit_std_log(), "%s: source and destination are the same", __FUNCTION__);
+        os_log_debug(OS_LOG_DEFAULT, "%s: source and destination are the same", __FUNCTION__);
         // Nothing to do if names are the same
         return reply(nil, nil);
     }
-
-    FATItem *sourceFatItem = [FATItem dynamicCast:sourceItem];
 
     if (!sourceFatItem || sourceFatItem.isDeleted) {
         return reply(nil, fs_errorForPOSIXError(EINVAL));
@@ -1333,376 +1408,397 @@ exit:
         return reply(nil, fs_errorForPOSIXError(ENOTDIR));
     }
 
-    if (![[sourceFatItem.name lowercaseString] isEqualToString:[sourceName.string lowercaseString]]) {
+    if (![[sourceFatItem.name.string lowercaseString] isEqualToString:[sourceName.string lowercaseString]]) {
         return reply(nil, fs_errorForPOSIXError(ENOENT));
     }
 
-    sourceDirEntryData = sourceFatItem.entryData;
-    if (sourceDirEntryData.type == FSItemTypeDirectory) {
-        /*
-         * Make sure we're not trying to move a directory into one of its
-         * subdirectories. For this we'll iterate up the parents hierarchy
-         * up to the root node to verify.
-         */
-        DirItem *tmp = [DirItem dynamicCast:dstDirItem.parentDir];
-        while (tmp != nil) {
-            if (tmp.firstCluster == sourceFatItem.firstCluster) {
-                os_log_error(fskit_std_log(), "%s: Can't move a directory into its subdirectory", __FUNCTION__);
-                return reply(nil, fs_errorForPOSIXError(EINVAL));
-            }
-            tmp = [DirItem dynamicCast:tmp.parentDir];
-        }
-    }
+    dispatch_sync(sourceFatItem.queue, ^{
+        DirEntryData *sourceDirEntryData = sourceFatItem.entryData;
+        __block DirEntryData *newDirEntryData = nil;
+        __block DirEntryData *dotDotEntryData = nil;
+        __block DirEntryData *toDirEntryData = nil;
+        __block uint64_t newEntryOffset = 0;
+        __block NSError *err = nil;
+        DirItem *overDirItem = nil;
+        DirItem *dirFromItem = nil;
+        bool isFromSymlink;
 
-    /* Set the dirty bit */
-    [self.fatManager setDirtyBitValue:dirtyBitDirty
-                         replyHandler:^(NSError * _Nullable fatError) {
-        if (fatError) {
-            /* Don't fail the rename. Just log the error. */
-            os_log_error(fskit_std_log(), "%s: Couldn't set the dirty bit. Error = %@.", __func__, fatError);
-        }
-    }];
-
-    // Get source attributes needed for creating a new directory entry
-    FSItemGetAttributesRequest *getAttr = [self getAttrRequestForNewDirEntry];
-    FSItemAttributes *sourceAttr = [sourceFatItem getAttributes:getAttr];
-
-    __block DirNameCache *srcNameCache = nil;
-    __block DirNameCache *dstNameCache = nil;
-
-    [self.nameCachePool getNameCacheForDir:dstDirItem
-                                cachedOnly:true
-                              replyHandler:^(NSError * _Nullable poolError, DirNameCache * _Nullable cache, bool isNew) {
-        // We do not need to do anything if we did not get a name cache for any reason
-        dstNameCache = cache;
-    }];
-
-    /*
-     * If the source and destination children are the same, then it is a rename
-     * that may be changing the case of the name. For that, we pretend like
-     * there was no destination child (so we don't try to remove it before
-     * constructing the destination's directory entry set).
-     */
-    if (sourceItem != overItem) {
-        if (overItem != nil) {
-            overFatItem = [FATItem dynamicCast:overItem];
-            if (!overFatItem || overFatItem.isDeleted) {
-                err = fs_errorForPOSIXError(EINVAL);
-                goto exit;
-                
-            }
-            
-        } else {
-            // Get overItem if exist.
-            [dstDirItem lookupDirEntryNamed:destinationName.string
-                               dirNameCache:dstNameCache
-                               lookupOffset:nil
-                               replyHandler:^(NSError * _Nonnull dirLookupError,
-                                              DirEntryData * _Nonnull dirEntryData) {
-                if (dirLookupError) {
-                    err = dirLookupError;
-                } else {
-                    overFatItem = [self createFATItemWithParent:dstDirItem
-                                                           name:destinationName.string
-                                                   dirEntryData:dirEntryData];
+        if (sourceDirEntryData.type == FSItemTypeDirectory) {
+            /*
+             * Make sure we're not trying to move a directory into one of its
+             * subdirectories. For this we'll iterate up the parents hierarchy
+             * up to the root node to verify.
+             */
+            DirItem *tmp = [DirItem dynamicCast:dstDirItem.parentDir];
+            while (tmp != nil) {
+                if (tmp.firstCluster == sourceFatItem.firstCluster) {
+                    os_log_error(OS_LOG_DEFAULT, "%s: Can't move a directory into its subdirectory", __FUNCTION__);
+                    return reply(nil, fs_errorForPOSIXError(EINVAL));
                 }
-            }];
-
-            if (err) {
-                if (err.code != ENOENT) {
-                    os_log_error(fskit_std_log(), "%s: lookupName destinationName returned an error %@", __FUNCTION__, err);
+                tmp = [DirItem dynamicCast:tmp.parentDir];
+            }
+        }
+        
+        /* Set the dirty bit */
+        [self.fatManager setDirtyBitValue:dirtyBitDirty
+                             replyHandler:^(NSError * _Nullable fatError) {
+            if (fatError) {
+                /* Don't fail the rename. Just log the error. */
+                os_log_error(OS_LOG_DEFAULT, "%s: Couldn't set the dirty bit. Error = %@.", __func__, fatError);
+            }
+        }];
+        
+        // Get source attributes needed for creating a new directory entry
+        FSItemGetAttributesRequest *getAttr = [self getAttrRequestForNewDirEntry];
+        FSItemAttributes *sourceAttr = [sourceFatItem getAttributes:getAttr];
+        
+        __block DirNameCache *srcNameCache = nil;
+        __block DirNameCache *dstNameCache = nil;
+        
+        [self.nameCachePool getNameCacheForDir:dstDirItem
+                                    cachedOnly:true
+                                  replyHandler:^(NSError * _Nullable poolError, DirNameCache * _Nullable cache, bool isNew) {
+            // We do not need to do anything if we did not get a name cache for any reason
+            dstNameCache = cache;
+        }];
+        
+        /*
+         * If the source and destination children are the same, then it is a rename
+         * that may be changing the case of the name. For that, we pretend like
+         * there was no destination child (so we don't try to remove it before
+         * constructing the destination's directory entry set).
+         */
+        if (sourceItem != overItem) {
+            if (overItem != nil) {
+                overFatItem = [FATItem dynamicCast:overItem];
+                if (!overFatItem || overFatItem.isDeleted) {
+                    err = fs_errorForPOSIXError(EINVAL);
+                    goto exit;
+                    
+                }
+                
+            } else {
+                // Get overItem if exist.
+                [dstDirItem lookupDirEntryNamed:destinationName
+                                   dirNameCache:dstNameCache
+                                   lookupOffset:nil
+                                   replyHandler:^(NSError * _Nonnull dirLookupError,
+                                                  DirEntryData * _Nonnull dirEntryData) {
+                    if (dirLookupError) {
+                        err = dirLookupError;
+                    } else {
+                        overFatItem = [self createFATItemWithParent:dstDirItem
+                                                               name:destinationName
+                                                       dirEntryData:dirEntryData];
+                    }
+                }];
+                
+                if (err) {
+                    if (err.code != ENOENT) {
+                        os_log_error(OS_LOG_DEFAULT, "%s: lookupName destinationName returned an error %@", __FUNCTION__, err);
+                        goto exit;
+                    }
+                    err = nil;
+                }
+            }
+        }
+        
+        if (overFatItem) {
+            // In case we are going to override existing item, we need to remove it before performing the actual rename
+            toDirEntryData = overFatItem.entryData;
+            // ensure the objects are compatible
+            if (sourceDirEntryData.type != toDirEntryData.type) {
+                if (sourceDirEntryData.type == FSItemTypeDirectory) {
+                    os_log_error(OS_LOG_DEFAULT, "%s: 'To' is not a directory", __FUNCTION__);
+                    err = fs_errorForPOSIXError(ENOTDIR);
+                    goto exit;
+                } else if (toDirEntryData.type == FSItemTypeDirectory) {
+                    os_log_error(OS_LOG_DEFAULT, "%s: 'To' is a directory", __FUNCTION__);
+                    err = fs_errorForPOSIXError(EISDIR);
                     goto exit;
                 }
-                err = nil;
             }
-        }
-    }
-
-    if (overFatItem) {
-        // In case we are going to override existing item, we need to remove it before performing the actual rename
-        toDirEntryData = overFatItem.entryData;
-        // ensure the objects are compatible
-        if (sourceDirEntryData.type != toDirEntryData.type) {
-            if (sourceDirEntryData.type == FSItemTypeDirectory) {
-                os_log_error(fskit_std_log(), "%s: 'To' is not a directory", __FUNCTION__);
-                err = fs_errorForPOSIXError(ENOTDIR);
-                goto exit;
-            } else if (toDirEntryData.type == FSItemTypeDirectory) {
-                os_log_error(fskit_std_log(), "%s: 'To' is a directory", __FUNCTION__);
-                err = fs_errorForPOSIXError(EISDIR);
-                goto exit;
+            
+            // In case of directory rename - check that destination directory is empty
+            if (toDirEntryData.type == FSItemTypeDirectory) {
+                overDirItem = [DirItem dynamicCast:overFatItem];
+                if (!overDirItem) {
+                    os_log_error(OS_LOG_DEFAULT, "%s: could not cast to DirItem", __FUNCTION__);
+                    err = fs_errorForPOSIXError(EIO);
+                    goto exit;
+                }
+                
+                err = [overDirItem checkIfEmpty];
+                
+                if (err) {
+                    os_log_error(OS_LOG_DEFAULT, "%s: overDirItem checkIfEmpty %@", __FUNCTION__, err);
+                    goto exit;
+                }
             }
-        }
-
-        // In case of directory rename - check that destination directory is empty
-        if (toDirEntryData.type == FSItemTypeDirectory) {
-            overDirItem = [DirItem dynamicCast:overFatItem];
-            if (!overDirItem) {
-                os_log_error(fskit_std_log(), "%s: could not cast to DirItem", __FUNCTION__);
-                err = fs_errorForPOSIXError(EIO);
-                goto exit;
-            }
-
-            err = [overDirItem checkIfEmpty];
-
+            
+            // Update directory version.
+            dstDirItem.dirVersion++;
+            
+            // Mark all node directory entries as deleted
+            err = [dstDirItem markDirEntriesAsDeletedAndUpdateMtime:overFatItem];
+            
             if (err) {
-                os_log_error(fskit_std_log(), "%s: overDirItem checkIfEmpty %@", __FUNCTION__, err);
+                os_log_error(OS_LOG_DEFAULT, "%s: unable to remove 'toItem' %@", __FUNCTION__, err);
                 goto exit;
             }
-        }
-
-        // Update directory version.
-        dstDirItem.dirVersion++;
-
-        // Mark all node directory entries as deleted
-        err = [dstDirItem markDirEntriesAsDeletedAndUpdateMtime:overFatItem];
-
-        if (err) {
-            os_log_error(fskit_std_log(), "%s: unable to remove 'toItem' %@", __FUNCTION__, err);
-            goto exit;
-        }
-        [_itemCache removeItem:overFatItem];
-
-        if (dstNameCache) {
-            [dstNameCache removeDirEntryNamed:(char *)destinationName.data.bytes
-                                     ofLength:destinationName.data.length
-                                  offsetInDir:overFatItem.entryData.firstEntryOffsetInDir];
-        }
-
-        /*
-         * Release clusters only if the node is unlinked i.e a overItem wasn't
-         * passed but the internal lookup above returned overFatItem.
-         * o.w mark it as deleted for reclaim to handle freeing the clusters later.
-         */
-        if (overItem != NULL) {
-            [overFatItem setDeleted];
-        } else if (overFatItem.firstCluster != 0) {
-            // TBD - rdar://115106714 (Invalidate the dir's metadata blocks from cache when removing dir item)
-            // Tomer - potential plugin bug?
-            [dstDirItem.volume.fatManager freeClusters:overFatItem.numberOfClusters
-                                                ofItem:overFatItem
-                                          replyHandler:^(NSError * _Nullable error) {
-                err = error;
-            }];
-
-            if (err) {
-                os_log_error(fskit_std_log(), "%s: unable to free toItem clusters %@", __FUNCTION__, err);
-                goto exit;
+            [_itemCache removeItem:overFatItem];
+            
+            if (dstNameCache) {
+                [dstNameCache removeDirEntryNamed:(char *)destinationName.data.bytes
+                                         ofLength:destinationName.data.length
+                                      offsetInDir:overFatItem.entryData.firstEntryOffsetInDir];
+            }
+            
+            /*
+             * Release clusters only if the node is unlinked i.e a overItem wasn't
+             * passed but the internal lookup above returned overFatItem.
+             * o.w mark it as deleted for reclaim to handle freeing the clusters later.
+             */
+            if (overItem != NULL) {
+                [overFatItem setDeleted];
+            } else if (overFatItem.firstCluster != 0) {
+                // TBD - rdar://115106714 (Invalidate the dir's metadata blocks from cache when removing dir item)
+                // Tomer - potential plugin bug?
+                [dstDirItem.volume.fatManager freeClusters:overFatItem.numberOfClusters
+                                                    ofItem:overFatItem
+                                              replyHandler:^(NSError * _Nullable error) {
+                    err = error;
+                }];
+                
+                if (err) {
+                    os_log_error(OS_LOG_DEFAULT, "%s: unable to free toItem clusters %@", __FUNCTION__, err);
+                    goto exit;
+                }
             }
         }
-    }
-
-    // Perform the switch
-    // write new entry in destination directory
-    isFromSymlink = [SymLinkItem dynamicCast:sourceItem] ? true : false;
-    /* Create dir entry in the destination directory. */
-    [dstDirItem createNewDirEntryNamed:destinationName.string
-                                  type:(isFromSymlink) ? FSItemTypeSymlink : sourceDirEntryData.type
-                            attributes:sourceAttr
-                      firstDataCluster:sourceFatItem.firstCluster
-                          replyHandler:^(NSError * _Nullable error,
-                                         uint64_t offsetInDir) {
-        if (error) {
-            err = error;
-        } else {
-            newEntryOffset = offsetInDir;
-        }
-    }];
-
-    if (err) {
-        os_log_error(fskit_std_log(), "%s: create new entry failed with error = %@.", __FUNCTION__, err);
-        goto exit;
-    }
-
-    [_itemCache removeItem:sourceFatItem];
-
-    // Update the necessary fields of source item
-    // Get the new direcory entries
-    [dstDirItem lookupDirEntryNamed:destinationName.string
-                          dirNameCache:nil
-                          lookupOffset:&newEntryOffset
-                          replyHandler:^(NSError *error,
-                                         DirEntryData *dirEntryData) {
-        if (error) {
-            err = error;
-        } else {
-            newDirEntryData = dirEntryData;
-        }
-    }];
-
-    if (err) {
-        os_log_error(fskit_std_log(), "%s: lookup new entry failed with error = %@.", __FUNCTION__, err);
-        goto exit;
-    }
-
-    //Copy the new Name
-    sourceFatItem.name = destinationName.string;
-    // Switching dirNode pointer to toDirNode
-    sourceFatItem.parentDir = dstDirItem;
-
-    if (dstNameCache) {
-        [dstNameCache insertDirEntryNamed:(char *)destinationName.data.bytes
-                                 ofLength:destinationName.data.length
-                              offsetInDir:newDirEntryData.firstEntryOffsetInDir];
-        [self.nameCachePool doneWithNameCacheForDir:dstDirItem];
-        dstNameCache = nil;
-    }
-
-    /*
-     * WE ARE NOW COMMITTED TO THE RENAME -- IT CAN NO LONGER FAIL, UNLESS WE
-     * UNWIND THE ENTIRE TRANSACTION.
-     */
-    [self.nameCachePool getNameCacheForDir:sourceDirItem
-                                cachedOnly:true
-                              replyHandler:^(NSError * _Nullable poolError, DirNameCache * _Nullable cache, bool isNew) {
-        // We do not need to do anything if we did not get a name cache for any reason
-        srcNameCache = cache;
-    }];
-
-    // remove old entry from source directory
-    err = [sourceDirItem markDirEntriesAsDeletedAndUpdateMtime:sourceFatItem];
-    if (err) {
-        os_log_error(fskit_std_log(), "%s: unable to remove old file / directory entry %@", __FUNCTION__, err);
-    }
-    
-    if (srcNameCache) {
-        [srcNameCache removeDirEntryNamed:(char *)sourceName.data.bytes
-                                 ofLength:sourceName.data.length
-                              offsetInDir:sourceFatItem.entryData.firstEntryOffsetInDir];
-        [self.nameCachePool doneWithNameCacheForDir:sourceDirItem];
-    }
-
-    sourceFatItem.entryData = newDirEntryData;
-
-    /* Insert the new item to the items cache */
-    [_itemCache insertItem:sourceFatItem replyHandler:^(FATItem * _Nullable cachedItem,
-                                                        NSError * _Nullable error) {
-        if (error) {
-            err = error;
-        }
-        // TODO: Do we check if the cachedItem != sourceFatItem? If so, what do we do?
-    }];
-
-    // In case of directory rename - we need to update '..' with the new parent cluster
-    if ((sourceDirEntryData.type == FSItemTypeDirectory) && (sourceDirectory != destinationDirectory)) {
-        // Get the '..' entry of 'To' Directory
-        dirFromItem = [DirItem dynamicCast:sourceFatItem];
-        [dirFromItem lookupDirEntryNamed:@".."
-                            dirNameCache:nil
-                            lookupOffset:nil
-                            replyHandler:^(NSError *error,
-                                           DirEntryData *dirEntryData) {
+        
+        // Perform the switch
+        // write new entry in destination directory
+        isFromSymlink = [SymLinkItem dynamicCast:sourceItem] ? true : false;
+        /* Create dir entry in the destination directory. */
+        [dstDirItem createNewDirEntryNamed:destinationName
+                                      type:(isFromSymlink) ? FSItemTypeSymlink : sourceDirEntryData.type
+                                attributes:sourceAttr
+                          firstDataCluster:sourceFatItem.firstCluster
+                              replyHandler:^(NSError * _Nullable error,
+                                             uint64_t offsetInDir) {
             if (error) {
                 err = error;
             } else {
-                dotDotEntryData = dirEntryData;
+                newEntryOffset = offsetInDir;
             }
         }];
         
         if (err) {
-            os_log_error(fskit_std_log(), "%s: unable to lookup .. %@", __FUNCTION__, err);
-        } else {
-            [dotDotEntryData setFirstCluster:dstDirItem.firstCluster
-                              fileSystemInfo:self.systemInfo];
+            os_log_error(OS_LOG_DEFAULT, "%s: create new entry failed with error = %@.", __FUNCTION__, err);
+            goto exit;
         }
-    }
-
-    //Update Directory version
-    sourceDirItem.dirVersion++;
-exit:
-    if (dstNameCache) {
-        [self.nameCachePool doneWithNameCacheForDir:dstDirItem];
-    }
-    return reply(nil, err);
+        
+        [_itemCache removeItem:sourceFatItem];
+        
+        // Update the necessary fields of source item
+        // Get the new direcory entries
+        [dstDirItem lookupDirEntryNamed:destinationName
+                           dirNameCache:nil
+                           lookupOffset:&newEntryOffset
+                           replyHandler:^(NSError *error,
+                                          DirEntryData *dirEntryData) {
+            if (error) {
+                err = error;
+            } else {
+                newDirEntryData = dirEntryData;
+            }
+        }];
+        
+        if (err) {
+            os_log_error(OS_LOG_DEFAULT, "%s: lookup new entry failed with error = %@.", __FUNCTION__, err);
+            goto exit;
+        }
+        
+        //Copy the new Name
+        sourceFatItem.name = destinationName;
+        // Switching dirNode pointer to toDirNode
+        sourceFatItem.parentDir = dstDirItem;
+        
+        if (dstNameCache) {
+            [dstNameCache insertDirEntryNamed:(char *)destinationName.data.bytes
+                                     ofLength:destinationName.data.length
+                                  offsetInDir:newDirEntryData.firstEntryOffsetInDir];
+            [self.nameCachePool doneWithNameCacheForDir:dstDirItem];
+            dstNameCache = nil;
+        }
+        
+        /*
+         * WE ARE NOW COMMITTED TO THE RENAME -- IT CAN NO LONGER FAIL, UNLESS WE
+         * UNWIND THE ENTIRE TRANSACTION.
+         */
+        [self.nameCachePool getNameCacheForDir:sourceDirItem
+                                    cachedOnly:true
+                                  replyHandler:^(NSError * _Nullable poolError, DirNameCache * _Nullable cache, bool isNew) {
+            // We do not need to do anything if we did not get a name cache for any reason
+            srcNameCache = cache;
+        }];
+        
+        // remove old entry from source directory
+        err = [sourceDirItem markDirEntriesAsDeletedAndUpdateMtime:sourceFatItem];
+        if (err) {
+            os_log_error(OS_LOG_DEFAULT, "%s: unable to remove old file / directory entry %@", __FUNCTION__, err);
+        }
+        
+        if (srcNameCache) {
+            [srcNameCache removeDirEntryNamed:(char *)sourceName.data.bytes
+                                     ofLength:sourceName.data.length
+                                  offsetInDir:sourceFatItem.entryData.firstEntryOffsetInDir];
+            [self.nameCachePool doneWithNameCacheForDir:sourceDirItem];
+        }
+        
+        sourceFatItem.entryData = newDirEntryData;
+        
+        /* Insert the new item to the items cache */
+        [_itemCache insertItem:sourceFatItem replyHandler:^(FATItem * _Nullable cachedItem,
+                                                            NSError * _Nullable error) {
+            if (error) {
+                err = error;
+            }
+            // TODO: Do we check if the cachedItem != sourceFatItem? If so, what do we do?
+        }];
+        
+        // In case of directory rename - we need to update '..' with the new parent cluster
+        if ((sourceDirEntryData.type == FSItemTypeDirectory) && (sourceDirectory != destinationDirectory)) {
+            // Get the '..' entry of 'To' Directory
+            dirFromItem = [DirItem dynamicCast:sourceFatItem];
+            [dirFromItem lookupDirEntryNamed:[[FSFileName alloc] initWithCString:".."]
+                                dirNameCache:nil
+                                lookupOffset:nil
+                                replyHandler:^(NSError *error,
+                                               DirEntryData *dirEntryData) {
+                if (error) {
+                    err = error;
+                } else {
+                    dotDotEntryData = dirEntryData;
+                }
+            }];
+            
+            if (err) {
+                os_log_error(OS_LOG_DEFAULT, "%s: unable to lookup .. %@", __FUNCTION__, err);
+            } else {
+                [dotDotEntryData setFirstCluster:dstDirItem.firstCluster
+                                  fileSystemInfo:self.systemInfo];
+            }
+        }
+        
+        //Update Directory version
+        sourceDirItem.dirVersion++;
+    exit:
+        if (dstNameCache) {
+            [self.nameCachePool doneWithNameCacheForDir:dstDirItem];
+        }
+        return reply(destinationName, err);
+    });
 }
 
 - (void)setAttributes:(FSItemSetAttributesRequest *)newAttributes
                onItem:(FSItem *)item
          replyHandler:(void (^)(FSItemAttributes * _Nullable, NSError * _Nullable))reply
 {
-    FSItemGetAttributesRequest *getAttrsReq = [[FSItemGetAttributesRequest alloc] init];
     FATItem *theItem = [FATItem dynamicCast:item];
-    FSItemAttributes *itemAttrs = nil;
-    NSError *error = nil;
 
     if (theItem == nil) {
-        os_log_error(fskit_std_log(), "%s: Received an invalid item", __func__);
+        os_log_error(OS_LOG_DEFAULT, "%s: Received an invalid item", __func__);
     }
 
-    /* Check we're not attempting to change read-only fields */
-    if ([Utilities containsReadOnlyAttributes:newAttributes]) {
-        return reply(nil, fs_errorForPOSIXError(EINVAL));
-    }
+    dispatch_async(theItem.queue, ^{
+        FSItemGetAttributesRequest *getAttrsReq = [[FSItemGetAttributesRequest alloc] init];
+        FSItemAttributes *itemAttrs = nil;
+        NSError *error = nil;
 
-    [self.fatManager setDirtyBitValue:true replyHandler:^(NSError * _Nullable error) {
-        if (error) {
-            os_log_error(fskit_std_log(), "%s: Failed to set dirty bit", __func__);
+        /* Check we're not attempting to change read-only fields */
+        if ([Utilities containsReadOnlyAttributes:newAttributes]) {
+            return reply(nil, fs_errorForPOSIXError(EINVAL));
         }
-    }];
-
-    error = [theItem setAttributes:newAttributes];
-    if (error) {
-        return reply(nil, error);
-    }
-
-    /* Initialize the getAttr bits */
-    getAttrsReq.wantedAttributes = FSItemAttributeGID | FSItemAttributeUID |
-                                   FSItemAttributeMode | FSItemAttributeSize |
-                                   FSItemAttributeAllocSize | FSItemAttributeType |
-                                   FSItemAttributeFileID | FSItemAttributeParentID |
-                                   FSItemAttributeFlags | FSItemAttributeLinkCount |
-                                   FSItemAttributeAccessTime | FSItemAttributeBirthTime |
-                                   FSItemAttributeModifyTime | FSItemAttributeChangeTime;
-    itemAttrs = [theItem getAttributes:getAttrsReq];
-    return reply(itemAttrs, nil);
+        
+        [self.fatManager setDirtyBitValue:true replyHandler:^(NSError * _Nullable error) {
+            if (error) {
+                os_log_error(OS_LOG_DEFAULT, "%s: Failed to set dirty bit", __func__);
+            }
+        }];
+        
+        error = [theItem setAttributes:newAttributes];
+        if (error) {
+            return reply(nil, error);
+        }
+        
+        /* Initialize the getAttr bits */
+        getAttrsReq.wantedAttributes = FSItemAttributeGID | FSItemAttributeUID |
+        FSItemAttributeMode | FSItemAttributeSize |
+        FSItemAttributeAllocSize | FSItemAttributeType |
+        FSItemAttributeFileID | FSItemAttributeParentID |
+        FSItemAttributeFlags | FSItemAttributeLinkCount |
+        FSItemAttributeAccessTime | FSItemAttributeBirthTime |
+        FSItemAttributeModifyTime | FSItemAttributeChangeTime;
+        itemAttrs = [theItem getAttributes:getAttrsReq];
+        return reply(itemAttrs, nil);
+    });
 }
 
 - (void)synchronizeWithFlags:(FSSyncFlags)flags
                 replyHandler:(nonnull void (^)(NSError * _Nullable))reply
 {
-    NSError *err = nil;
+    dispatch_sync(_globalWorkQueue, ^{
+        NSError *err = nil;
 
-    err = [self sync];
-    if (err) {
-        os_log_error(fskit_std_log(), "%s: sync failed, error %@", __func__, err);
-    }
+        err = [self sync];
+        if (err) {
+            os_log_error(OS_LOG_DEFAULT, "%s: sync failed, error %@", __func__, err);
+        }
 
-    /* If there are no open preallocated / unlinked files, clear dirty bit */
-    if (([[self.preAllocatedOpenFiles objectAtIndex:0] unsignedLongLongValue] == 0) &&
-        ([[self.openUnlinkedFiles objectAtIndex:0] unsignedLongLongValue] == 0)) {
-        [self.fatManager setDirtyBitValue:dirtyBitClean
-                             replyHandler:^(NSError * _Nullable error) {
-            if (error) {
-                return reply(error);
-            }
-        }];
-    }
+        /* If there are no open preallocated / unlinked files, clear dirty bit */
+        if (([self getNumberOfPreallocatedFiles] == 0) &&
+            ([self getNumberOfOpenUnlinkedFiles] == 0)) {
+            [self.fatManager setDirtyBitValue:dirtyBitClean
+                                 replyHandler:^(NSError * _Nullable error) {
+                if (error) {
+                    return reply(error);
+                }
+            }];
+        }
 
-    err = (flags & FSSyncFlagsNoWait) ? [self.resource asynchronousMetadataFlush] : [self.resource metadataFlush];
-    if (err) {
-        os_log_error(fskit_std_log(), "%s: Metadata flush failed (%d), flags 0x%lx", __FUNCTION__, (int)err.fs_posixCode, flags);
-    }
+        if (flags & FSSyncFlagsNoWait) {
+            [self.resource asynchronousMetadataFlushWithError:&err];
+        } else {
+            [self.resource metadataFlushWithError:&err];
+        }
 
-    return reply(err);
+        if (err) {
+            os_log_error(OS_LOG_DEFAULT, "%s: Metadata flush failed (%d), flags 0x%lx", __FUNCTION__, (int)err.fs_posixCode, flags);
+        }
+
+        return reply(err);
+    });
 }
 
--(void)activateWithOptions:(FSTaskParameters *)options
+-(void)activateWithOptions:(FSTaskOptions *)options
               replyHandler:(void (^)(FSItem * _Nullable rootItem,
                                      NSError * _Nullable err))reply
 {
-    os_log_debug(fskit_std_log(), "%s:start", __FUNCTION__);
+    os_log_debug(OS_LOG_DEFAULT, "%s:start", __FUNCTION__);
     [self FatMount:options replyHandler:^(FSItem * _Nullable rootItem,
                                           NSError * _Nullable error) {
         return reply(rootItem, error);
     }];
     _itemCache = [[ItemCache alloc] initWithVolume:self];
-    os_log_debug(fskit_std_log(), "%s:end", __FUNCTION__);
+    os_log_debug(OS_LOG_DEFAULT, "%s:end", __FUNCTION__);
 }
 
 -(void)deactivateWithOptions:(FSDeactivateOptions)options
                 replyHandler:(void (^)(NSError * _Nullable err))reply
 {
-    os_log_debug(fskit_std_log(), "%s:start", __FUNCTION__);
+    os_log_debug(OS_LOG_DEFAULT, "%s:start", __FUNCTION__);
     __block NSError *err;
     // Should we do this sync call or FSKit should take care of it?
     [self synchronizeWithFlags:FSSyncFlagsWait
@@ -1715,41 +1811,39 @@ exit:
             return;
         }];
     }
-    os_log_debug(fskit_std_log(), "%s:end:%@", __FUNCTION__, err);
+    os_log_debug(OS_LOG_DEFAULT, "%s:end:%@", __FUNCTION__, err);
     return reply(nil);
 }
 
-- (void)mountWithOptions:(FSTaskParameters *)options
-            replyHandler:(nonnull void (^)(FSItem * _Nullable rootItem,
-                                           NSError * _Nullable err))reply
+- (void)mountWithOptions:(FSTaskOptions *)options
+            replyHandler:(nonnull void (^)(NSError * _Nullable err))reply
 {
-    [self FatMount:options replyHandler:^(FSItem * _Nullable rootItem,
-                                          NSError * _Nullable error) {
-        return reply(rootItem, error);
-    }];
-    _itemCache = [[ItemCache alloc] initWithVolume:self]; //TODO: do we keep both mount and activate?
+    return reply(nil);
 }
 
 - (void)unmountWithReplyHandler:(nonnull void (^)(void))reply
 {
-#if TARGET_OS_OSX
-    /* For MacOS, flush writes to disk before unmounting */
-    NSError *error = [self.resource metadataFlush];
-    if (error) {
-        os_log_error(fskit_std_log(), "%s: Failed to meta flush, error %@", __func__, error);
-    }
-#endif
-
-    /* Verify FS is clean, log if dirty */
-    [self.fatManager getDirtyBitValue:^(NSError * _Nullable error, dirtyBitValue value) {
+    dispatch_sync(_globalWorkQueue, ^{
+    #if TARGET_OS_OSX
+        /* For MacOS, flush writes to disk before unmounting */
+        NSError *error;
+        [self.resource metadataFlushWithError:&error];
         if (error) {
-            os_log_error(fskit_std_log(), "%s: Failed to read dirty bit value, error %@", __func__, error);
-        } else if ((value == dirtyBitDirty) || (value == dirtyBitUnknown)) {
-            os_log_error(fskit_std_log(), "%s: unmounting, file system state is %s", __func__, value == dirtyBitDirty ? "dirty" : "unknown");
+            os_log_error(OS_LOG_DEFAULT, "%s: Failed to meta flush, error %@", __func__, error);
         }
-    }];
+    #endif
 
-    return reply();
+        /* Verify FS is clean, log if dirty */
+        [self.fatManager getDirtyBitValue:^(NSError * _Nullable error, dirtyBitValue value) {
+            if (error) {
+                os_log_error(OS_LOG_DEFAULT, "%s: Failed to read dirty bit value, error %@", __func__, error);
+            } else if ((value == dirtyBitDirty) || (value == dirtyBitUnknown)) {
+                os_log_error(OS_LOG_DEFAULT, "%s: unmounting, file system state is %s", __func__, value == dirtyBitDirty ? "dirty" : "unknown");
+            }
+        }];
+
+        return reply();
+    });
 }
 
 - (void)close:(nonnull FSItem *)item
@@ -1766,57 +1860,59 @@ replyHandler:(nonnull void (^)(NSError * _Nullable))reply
     reply(fs_errorForPOSIXError(ENOTSUP));
 }
 
--(void)blockmapFile:(FSItem *)item 
-              range:(NSRange)theRange
-            startIO:(BOOL)firstIO
-              flags:(FSBlockmapFlags)flags
-        operationID:(uint64_t)operationID
-        usingPacker:(FSExtentPacker)packer
-       replyHandler:(void (^)(NSError * _Nullable))reply
+- (void)blockmapFile:(nonnull FSItem *)file
+              offset:(off_t)offset
+              length:(size_t)length
+               flags:(FSBlockmapFlags)flags
+         operationID:(FSOperationID)operationID
+              packer:(nonnull FSExtentPacker *)packer
+        replyHandler:(nonnull void (^)(NSError * _Nullable))reply
 {
-    FileItem *fileItem = [FileItem dynamicCast:item];
+    FileItem *fileItem = [FileItem dynamicCast:file];
 
     if (!fileItem) {
-        os_log_error(fskit_std_log(), "%s: got an invalid item.", __func__);
+        os_log_error(OS_LOG_DEFAULT, "%s: got an invalid item.", __func__);
         return reply(fs_errorForPOSIXError(EINVAL));
     }
 
-    __block NSError *error = nil;
-
-    [fileItem blockmapRange:theRange
-                    startIO:firstIO
-                      flags:flags
-                operationID:operationID
-                usingBlocks:packer
-               replyHandler:^(NSError *blockmapError) {
-        if (blockmapError) {
-            os_log_error(fskit_std_log(), "%s: couldn't blockmap file. Error = %@.", __func__, blockmapError);
-            error = blockmapError;
-        }
-    }];
-
-    return reply(error);
+    dispatch_async(fileItem.queue, ^{
+        [fileItem blockmapOffset:offset
+                          length:length
+                          flags:flags
+                    operationID:operationID
+                         packer:packer
+                   replyHandler:^(NSError *blockmapError) {
+            if (blockmapError) {
+                os_log_error(OS_LOG_DEFAULT, "%s: couldn't blockmap file. Error = %@.", __func__, blockmapError);
+            }
+            return reply(blockmapError);
+        }];
+    });
 }
 
-- (void)endIO:(nonnull FSItem *)item
-        range:(NSRange)range
-       status:(NSError *)ioStatus
-        flags:(FSBlockmapFlags)flags
-  operationID:(uint64_t)operationID
- replyHandler:(nonnull void (^)(NSError * _Nullable))reply
+- (void)completeIOForFile:(nonnull FSItem *)file
+                   offset:(off_t)offset
+                   length:(size_t)length
+                   status:(NSError *)ioStatus
+                    flags:(FSCompleteIOFlags)flags
+              operationID:(FSOperationID)operationID
+             replyHandler:(nonnull void (^)(NSError * _Nullable))reply
 {
-    FileItem *fileItem = [FileItem dynamicCast:item];
+    FileItem *fileItem = [FileItem dynamicCast:file];
 
     if (!fileItem) {
-        os_log_error(fskit_std_log(), "%s: got an invalid item.", __func__);
+        os_log_error(OS_LOG_DEFAULT, "%s: got an invalid item.", __func__);
         return reply(fs_errorForPOSIXError(EINVAL));
     }
 
-    NSError *error = [fileItem endIOOfRange:range
-                                     status:ioStatus == nil ? 0 : (int)ioStatus.code
-                                      flags:flags
-                                operationID:operationID];
-    return reply(error);
+    dispatch_async(fileItem.queue, ^{
+        NSError *error = [fileItem completeIOAtOffset:offset
+                                               length:length
+                                              status:ioStatus == nil ? 0 : (int)ioStatus.code
+                                               flags:flags
+                                         operationID:operationID];
+        return reply(error);
+    });
 }
 
 
@@ -1825,7 +1921,7 @@ replyHandler:(nonnull void (^)(NSError * _Nullable))reply
 -(DirItem *)createDirItemWithParent:(FATItem * _Nullable)parentDir
 					   firstCluster:(uint32_t)firstCluster
 					   dirEntryData:(DirEntryData * _Nullable)dirEntryData
-							   name:(nonnull NSString *)name
+							   name:(FSFileName *)name
 							 isRoot:(bool)isRoot;
 {
 	return nil; // sub-classes should implement.
@@ -1834,7 +1930,7 @@ replyHandler:(nonnull void (^)(NSError * _Nullable))reply
 -(FileItem *)createFileItemWithParent:(FATItem * _Nullable)parentDir
 						 firstCluster:(uint32_t)firstCluster
 						 dirEntryData:(DirEntryData * _Nullable)dirEntryData
-								 name:(nonnull NSString *)name
+								 name:(FSFileName *)name
 {
 	return nil; // sub-classes should implement.
 }
@@ -1842,13 +1938,13 @@ replyHandler:(nonnull void (^)(NSError * _Nullable))reply
 -(SymLinkItem *)createSymlinkItemWithParent:(FATItem * _Nullable)parentDir
 							   firstCluster:(uint32_t)firstCluster
 							   dirEntryData:(DirEntryData * _Nullable)dirEntryData
-									   name:(nonnull NSString *)name
+									   name:(FSFileName *)name
                               symlinkLength:(uint16_t)length
 {
 	return nil; // sub-classes should implement.
 }
 
-- (void)FatMount:(FSTaskParameters *)options
+- (void)FatMount:(FSTaskOptions *)options
     replyHandler:(nonnull void (^)(FSItem * _Nullable, NSError * _Nullable))reply
 {
     reply(nil, fs_errorForPOSIXError(ENOTSUP)); // sub-classes should implement.
@@ -1866,7 +1962,7 @@ replyHandler:(nonnull void (^)(NSError * _Nullable))reply
     reply(fs_errorForPOSIXError(ENOTSUP), 0);
 }
 
--(void)nameToUnistr:(NSString *)name
+-(void)nameToUnistr:(FSFileName *)name
               flags:(uint32_t)flags
        replyHandler:(void (^)(NSError * _Nullable, struct unistr255))reply {
     struct unistr255 mock = {0};
@@ -1900,90 +1996,130 @@ replyHandler:(nonnull void (^)(NSError * _Nullable))reply
          replyHandler:(void (^)(FSFileName * newName,
                                 NSError *error))reply
 {
-    __block FSFileName *volumeName = nil;
-    __block NSError *error = nil;
-    [self setVolumeLabel:name.data
-                 rootDir:self.rootItem
-            replyHandler:^(FSFileName * _Nullable newVolumeName,
-                           NSError * _Nullable volumeLabelError) {
-        error = volumeLabelError;
-        if (!error) {
-            volumeName = newVolumeName;
+    dispatch_sync(_globalWorkQueue, ^{
+        __block FSFileName *volumeName = nil;
+        __block NSError *error = nil;
+        [self setVolumeLabel:name.data
+                     rootDir:self.rootItem
+                replyHandler:^(FSFileName * _Nullable newVolumeName,
+                               NSError * _Nullable volumeLabelError) {
+            error = volumeLabelError;
+            if (!error) {
+                volumeName = newVolumeName;
+            }
+        }];
+        if (error) {
+            return reply(nil, error);
         }
-    }];
-    if (error) {
-        return reply(nil, error);
-    }
-    return reply(volumeName, nil);
+        return reply(volumeName, nil);
+    });
 }
 
-- (void)preallocateSpaceForItem:(FSItem *)item
-                         offset:(uint64_t)offset
+- (void)preallocateSpaceForFile:(FSItem *)item
+                       atOffset:(off_t)offset
                          length:(size_t)length
                           flags:(FSPreallocateFlags)flags
-                    usingPacker:(FSExtentPacker)packer
+                         packer:(FSExtentPacker *)packer
                    replyHandler:(void (^)(size_t bytesAllocated,
                                           NSError * error))reply
 {
+    uint64_t curAllocatedSize = 0;
 
-    __block NSError* err = nil;
-
-    __block uint64_t bytesAllocated = 0;
-
-    /* Cannot change size of a directory or symlink! */
     FileItem *fileItem = [FileItem dynamicCast:item];
-    if (!fileItem) {
-        os_log_error(fskit_std_log(), "%s: Cannot change size of a directory or symlink", __FUNCTION__);
-        return reply(0, fs_errorForPOSIXError(EPERM));
+    if (fileItem) {
+        /* In case this item is not a file, preallocateSpaceForItem will exit with EPERM. */
+        curAllocatedSize = fileItem.numberOfClusters * self.systemInfo.bytesPerCluster;
     }
 
-    if (flags & FSPreallocateFromVol) {
-        os_log_error(fskit_std_log(), "%s: Not supporting FSPreallocateFromVol mode", __FUNCTION__);
-        return reply(0, fs_errorForPOSIXError(ENOTSUP));
+    [self preallocateSpaceForItem:item
+                         atOffset:offset
+                           length:length
+                            flags:flags
+                     replyHandler:^(size_t bytesAllocated,
+                                    NSError * _Nullable error) {
+        if (!error) {
+            [fileItem fetchFileExtentsFrom:curAllocatedSize
+                                        to:curAllocatedSize + bytesAllocated
+                               usingBlocks:packer
+                              replyHandler:^(NSError * _Nullable fetchError) {
+                if (fetchError) {
+                    /* Don't fail the preallocate operation, just log the error. */
+                    os_log_error(OS_LOG_DEFAULT, "%s: Couldn't fetch extents in range [%llu, %llu]. Error = %@.", __func__, curAllocatedSize, curAllocatedSize + bytesAllocated, fetchError);
+                };
+            }];
+        }
+        return reply(bytesAllocated, error);
+    }];
+}
+
+- (void)preallocateSpaceForItem:(FSItem *)item
+                       atOffset:(off_t)offset
+                         length:(size_t)length
+                          flags:(FSPreallocateFlags)flags
+                   replyHandler:(void (^)(size_t bytesAllocated,
+                                          NSError * error))reply
+{
+    FileItem *fileItem = [FileItem dynamicCast:item];
+
+    /* Cannot change size of a directory or symlink! */
+    if (!fileItem) {
+        os_log_error(OS_LOG_DEFAULT, "%s: Cannot change size of a directory or symlink", __FUNCTION__);
+        return reply(0, fs_errorForPOSIXError(EPERM));
     }
 
     if (offset != 0) {
         /*
          * Offset relative to EOF, this is the only valid value in
-         * FSPreallocateFromEOF, which is the only preallocation
+         * FSPreallocateFlagsFromEOF, which is the only preallocation
          * method we support.
          */
-        os_log_error(fskit_std_log(), "%s: offset given wasn't 0 - %lld", __FUNCTION__, offset);
+        os_log_error(OS_LOG_DEFAULT, "%s: offset given wasn't 0 - %lld", __FUNCTION__, offset);
         return reply(0, fs_errorForPOSIXError(EINVAL));
     }
 
-    [self.fatManager setDirtyBitValue:dirtyBitDirty
-                         replyHandler:^(NSError * _Nullable fatError) {
-        if (fatError) {
-            /* Log the error, keep going */
-            os_log_error(fskit_std_log(), "%s: Couldn't set the dirty bit. Error = %@.", __FUNCTION__, fatError);
-        }
-    }];
+    dispatch_async(fileItem.queue, ^{
+        __block uint64_t bytesAllocated = 0;
+        __block NSError* err = nil;
 
-    uint64_t curAllocatedSize = fileItem.numberOfClusters * self.systemInfo.bytesPerCluster;
-
-    /*
-     * Always ignore the FSPreallocateContig flag and do best effort. The volume cluster allocation algorithm
-     * will always try to truncate the file contiguously from its last cluster, but only if it is possible.
-     */
-    [fileItem preallocate:length
-             allowPartial:!(flags & FSPreallocateAll)
-             mustBeContig:false
-             replyHandler:^(NSError * _Nullable error, uint64_t AllocatedBytes) {
-        err = error;
-        bytesAllocated = AllocatedBytes;
-    }];
-
-    if (!err) {
-        [fileItem fetchFileExtentsFrom:curAllocatedSize
-                                    to:(length + curAllocatedSize)
-                           usingBlocks:packer
-                          replyHandler:^(NSError * _Nullable fetchError) {
-            err = fetchError;
+        [self.fatManager setDirtyBitValue:dirtyBitDirty
+                             replyHandler:^(NSError * _Nullable fatError) {
+            if (fatError) {
+                /* Log the error, keep going */
+                os_log_error(OS_LOG_DEFAULT, "%s: Couldn't set the dirty bit. Error = %@.", __FUNCTION__, fatError);
+            }
         }];
+
+        /*
+         * Always ignore the FSPreallocateFlagsContig flag and do best effort. The volume cluster allocation algorithm
+         * will always try to truncate the file contiguously from its last cluster, but only if it is possible.
+         */
+        [fileItem preallocate:length
+                 allowPartial:!(flags & FSPreallocateFlagsAll)
+                 mustBeContig:false
+                 replyHandler:^(NSError * _Nullable error, uint64_t AllocatedBytes) {
+            err = error;
+            bytesAllocated = AllocatedBytes;
+        }];
+
+        return reply(bytesAllocated, err);
+    });
+}
+
+- (void)deactivateItem:(nonnull FSItem *)item
+          replyHandler:(nonnull void (^)(NSError * _Nullable))reply
+{
+    FATItem *inactiveItem = [FATItem dynamicCast:item];
+
+    if (!inactiveItem) {
+        os_log_error(OS_LOG_DEFAULT, "%s: got an invalid item.", __func__);
+        return reply(fs_errorForPOSIXError(EINVAL));
     }
 
-    return reply(bytesAllocated, err);
+    dispatch_async(inactiveItem.queue, ^{
+        return reply([inactiveItem reclaim:true]);
+    });
+
+    return;
 }
 
 @end

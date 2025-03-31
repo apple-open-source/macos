@@ -92,8 +92,16 @@ const uint8_t *
 RouterAdvertisementGetSourceLinkAddress(RouterAdvertisementRef ra,
 					int * ret_len);
 
+/*
+ * Function: RouterAdvertisementCopyPrefixes
+ * Returns:
+ *    If successful, non-NULL CFArray[CFString] of IPv6 prefixes, and if
+ *    `ret_prefix_lengths` is non-NULL, parallel CFArray[CFNumber] of
+ *    prefix lengths.
+ */
 CFArrayRef
-RouterAdvertisementCopyPrefixes(RouterAdvertisementRef ra);
+RouterAdvertisementCopyPrefixes(RouterAdvertisementRef ra,
+				CFArrayRef * ret_prefix_lengths);
 
 uint32_t
 RouterAdvertisementGetPrefixLifetimes(RouterAdvertisementRef ra,

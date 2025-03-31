@@ -226,6 +226,7 @@ struct nfs_funcs {
 	int     (*nf_read_rpc_async)(nfsnode_t, off_t, size_t, thread_t, kauth_cred_t, struct nfsreq_cbinfo *, struct nfsreq **);
 	int     (*nf_read_rpc_async_finish)(nfsnode_t, struct nfsreq *, uio_t, size_t *, int *);
 	int     (*nf_readlink_rpc)(nfsnode_t, char *, size_t *, vfs_context_t);
+	int     (*nf_readdir_rpc)(nfsnode_t, struct nfsbuf *, vfs_context_t);
 	int     (*nf_write_rpc_async)(nfsnode_t, uio_t, size_t, thread_t, kauth_cred_t, int, struct nfsreq_cbinfo *, struct nfsreq **);
 	int     (*nf_write_rpc_async_finish)(nfsnode_t, struct nfsreq *, int *, size_t *, uint64_t *);
 	int     (*nf_commit_rpc)(nfsnode_t, uint64_t, uint64_t, kauth_cred_t, uint64_t);

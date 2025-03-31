@@ -148,7 +148,7 @@ bool ShuffleCustom::isValidForm(Inst& inst)
     // - Closed loops. These loops consist of nodes that have one successor and one predecessor, so
     //   there is no way to "get into" the loop from outside of it. These can be executed using swaps
     //   or by saving one of the Args to a scratch register and executing it as a shift.
-    HashSet<Arg> dsts;
+    UncheckedKeyHashSet<Arg> dsts;
 
     for (unsigned i = 0; i < inst.args.size(); ++i) {
         Arg arg = inst.args[i];
@@ -219,7 +219,7 @@ bool WasmBoundsCheckCustom::isValidForm(Inst& inst)
 MacroAssembler::Jump WasmBoundsCheckCustom::generate(Inst& inst, CCallHelpers& jit, GenerationContext& context)
 {
     WasmBoundsCheckValue* value = inst.origin->as<WasmBoundsCheckValue>();
-    MacroAssembler::Jump outOfBounds = Inst(Air::Branch64, value, Arg::relCond(MacroAssembler::AboveOrEqual), inst.args[0], inst.args[1]).generate(jit, context);
+    MacroAssembler::Jump outOfBounds = Inst((is32Bit() ? Air::Branch32 : Air::Branch64), value, Arg::relCond(MacroAssembler::AboveOrEqual), inst.args[0], inst.args[1]).generate(jit, context);
 
     context.latePaths.append(createSharedTask<GenerationContext::LatePathFunction>(
         [outOfBounds, value] (CCallHelpers& jit, Air::GenerationContext& context) {

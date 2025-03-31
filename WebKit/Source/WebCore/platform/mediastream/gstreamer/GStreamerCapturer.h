@@ -49,7 +49,7 @@ public:
     virtual void captureEnded() { }
 };
 
-class GStreamerCapturer : public ThreadSafeRefCounted<GStreamerCapturer> {
+class GStreamerCapturer : public ThreadSafeRefCountedAndCanMakeThreadSafeWeakPtr<GStreamerCapturer> {
 public:
     GStreamerCapturer(GStreamerCaptureDevice&&, GRefPtr<GstCaps>&&);
     GStreamerCapturer(const char* sourceFactory, GRefPtr<GstCaps>&&, CaptureDevice::DeviceType);
@@ -64,7 +64,10 @@ public:
     void setupPipeline();
     void start();
     void stop();
+    bool isStopped() const;
     WARN_UNUSED_RETURN GRefPtr<GstCaps> caps();
+
+    std::pair<GstClockTime, GstClockTime> queryLatency();
 
     GstElement* makeElement(const char* factoryName);
     virtual GstElement* createSource();

@@ -37,11 +37,11 @@ enum {
   MV_JOINT_HNZVNZ = 3, /* Both components nonzero */
 } UENUM1BYTE(MV_JOINT_TYPE);
 
-static INLINE int mv_joint_vertical(MV_JOINT_TYPE type) {
+static inline int mv_joint_vertical(MV_JOINT_TYPE type) {
   return type == MV_JOINT_HZVNZ || type == MV_JOINT_HNZVNZ;
 }
 
-static INLINE int mv_joint_horizontal(MV_JOINT_TYPE type) {
+static inline int mv_joint_horizontal(MV_JOINT_TYPE type) {
   return type == MV_JOINT_HNZVZ || type == MV_JOINT_HNZVNZ;
 }
 

@@ -82,6 +82,11 @@ class RbnfRoundTripTest : public IntlTest {
    * Perform an exhaustive round-trip test on the Portuguese spellout rules
    */
   virtual void TestPortugueseSpelloutRT();
+  
+  /**
+   * Perform an exhaustive round-trip test on the Gujarati spellout rules
+   */
+  virtual void TestGujaratiSpelloutRT();
 
  protected:
   void doTest(const RuleBasedNumberFormat* formatter,  double lowLimit, double highLimit);

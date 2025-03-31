@@ -16,6 +16,7 @@
 #include <iostream>
 #include <map>
 #include <memory>
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -27,7 +28,6 @@
 #include "absl/flags/usage_config.h"
 #include "absl/strings/match.h"
 #include "absl/strings/string_view.h"
-#include "absl/types/optional.h"
 #include "api/neteq/neteq.h"
 #include "api/units/time_delta.h"
 #include "logging/rtc_event_log/rtc_event_log_parser.h"
@@ -116,8 +116,6 @@ ABSL_FLAG(bool,
           list_plots,
           false,
           "List of registered plots (for use with the --plot flag)");
-
-using webrtc::Plot;
 
 namespace {
 std::vector<std::string> StrSplit(const std::string& s,
@@ -324,7 +322,7 @@ int main(int argc, char* argv[]) {
   //  * cache the simulation results between different plots
   //  * open and read files
   //  * dont have a 1-to-1 mapping between IDs and charts.
-  absl::optional<webrtc::NetEqStatsGetterMap> neteq_stats;
+  std::optional<webrtc::NetEqStatsGetterMap> neteq_stats;
   if (absl::c_find(plot_names, "simulated_neteq_expand_rate") !=
       plot_names.end()) {
     if (!neteq_stats) {

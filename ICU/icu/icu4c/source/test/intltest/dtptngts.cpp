@@ -48,9 +48,11 @@ void IntlTestDateTimePatternGeneratorAPI::runIndexedTest( int32_t index, UBool e
         TESTCASE(12, testBestPattern);
         TESTCASE(13, testDateTimePatterns);
         TESTCASE(14, testRegionOverride);
+        TESTCASE(15, testISO8601);
 #if APPLE_ICU_CHANGES
 // rdar://
-        TESTCASE(15, testHorizontalInheritance);
+        TESTCASE(16, testHorizontalInheritance);
+        TESTCASE(17, testPunjabiPattern);
 #endif  // APPLE_ICU_CHANGES
         default: name = ""; break;
     }
@@ -214,19 +216,9 @@ void IntlTestDateTimePatternGeneratorAPI::testAPI(/*char *par*/)
         UnicodeString("1.1999"),                              // 00: yM (fixed expected result per ticket:6626:)
         UnicodeString("tammi 1999"),                          // 01: yMMM
         UnicodeString("13.1.1999"),                           // 02: yMd
-#if APPLE_ICU_CHANGES
-// rdar://
         UnicodeString("13.1.1999"),                           // 03: yMMMd
-#else
-        UnicodeString("13. tammik. 1999"),                    // 03: yMMMd
-#endif  // APPLE_ICU_CHANGES
         UnicodeString("13.1."),                               // 04: Md
-#if APPLE_ICU_CHANGES
-// rdar://
         UnicodeString("13.1."),                               // 05: MMMd
-#else
-        UnicodeString("13. tammik."),                         // 05: MMMd
-#endif  // APPLE_ICU_CHANGES
         UnicodeString("13. tammikuuta"),                      // 06: MMMMd
         UnicodeString("1. nelj. 1999"),                       // 07: yQQQ
         UnicodeString(u"11.58\u202Fip.", -1),                // 08: hhmm
@@ -234,12 +226,7 @@ void IntlTestDateTimePatternGeneratorAPI::testAPI(/*char *par*/)
         UnicodeString("23.58"),                               // 10: jjmm
         UnicodeString("58.59"),                               // 11: mmss
         UnicodeString("tammikuu 1999"),                       // 12: yyyyMMMM
-#if APPLE_ICU_CHANGES
-// rdar://
-        UnicodeString("ke 13.1."),                            // 13: MMMEd -> EEE d.M.
-#else
-        UnicodeString("ke 13. tammik."),                      // 13: MMMEd -> EEE d. MMM
-#endif  // APPLE_ICU_CHANGES
+        UnicodeString("ke 13.1."),                            // 13: MMMEd -> EEE d. MMM
         UnicodeString("ke 13."),                              // 14: Ed    -> ccc d.
         UnicodeString("23.58.59,123"),                        // 15: jmmssSSS -> "H.mm.ss,SSS"
         UnicodeString("23.58"),                               // 16: JJmm
@@ -374,25 +361,30 @@ void IntlTestDateTimePatternGeneratorAPI::testAPI(/*char *par*/)
         CharsToUnicodeString("1\\u670813\\u65E5"),                        // 05: MMMd  ->M\u6708d\u65E5
         CharsToUnicodeString("1\\u670813\\u65E5"),                        // 06: MMMMd  ->M\u6708d\u65E5
 #if APPLE_ICU_CHANGES
-// rdar://
+// unknown Radar, later altered by rdar://17278425
         CharsToUnicodeString("\\u6C11\\u570B 88\\u5E741\\u5B63"),         // 07: yQQQ  -> G yQQQ
+        CharsToUnicodeString("\\u665a\\u4e0a11:58"),                      // 08: hhmm  ->
+        UnicodeString("23:58"),                                           // 09: HHmm  ->
+        CharsToUnicodeString("\\u665a\\u4e0a11:58"),                      // 10: jjmm
 #else
         CharsToUnicodeString("\\u6C11\\u570B88\\u5E74\\u7B2C1\\u5B63"),   // 07: yQQQ  -> Gy QQQ
-#endif  // APPLE_ICU_CHANGES
         CharsToUnicodeString("\\u4E0B\\u534811:58"),                      // 08: hhmm  ->
         UnicodeString("23:58"),                                           // 09: HHmm  ->
         CharsToUnicodeString("\\u4E0B\\u534811:58"),                      // 10: jjmm
+#endif  // APPLE_ICU_CHANGES
         UnicodeString("58:59"),                                           // 11: mmss  ->
 #if APPLE_ICU_CHANGES
 // rdar://
         CharsToUnicodeString("\\u6C11\\u570B 88\\u5E741\\u6708"),         // 12: yyyyMMMM  -> G y\u5E74M\u670
         CharsToUnicodeString("1\\u670813\\u65E5 \\u9031\\u4E09"),         // 13: MMMEd -> M\u6708d\u65E5 E
+        CharsToUnicodeString("13 \\u9031\\u4E09"),                        // 14: Ed    -> d E
+        CharsToUnicodeString("\\u665a\\u4e0a11:58:59.123"),               // 15: jmmssSSS -> "ah:mm:ss.SSS"
 #else
         CharsToUnicodeString("\\u6C11\\u570B88\\u5E741\\u6708"),          // 12: yyyyMMMM  -> Gy\u5E74M\u670
         CharsToUnicodeString("1\\u670813\\u65E5\\u9031\\u4E09"),          // 13: MMMEd -> M\u6708d\u65E5EEE
-#endif  // APPLE_ICU_CHANGES
         CharsToUnicodeString("13 \\u9031\\u4E09"),                        // 14: Ed    -> d E
         CharsToUnicodeString("\\u4E0B\\u534811:58:59.123"),               // 15: jmmssSSS -> "ah:mm:ss.SSS"
+#endif  // APPLE_ICU_CHANGES
         UnicodeString("11:58"),                                           // 16: JJmm
     };
 
@@ -944,7 +936,7 @@ void IntlTestDateTimePatternGeneratorAPI::testAPI(/*char *par*/)
             resultDate.remove();
             resultDate = sdf.format(testDate, resultDate);
             if ( resultDate != patternResults[localeIndex][resultIndex] ) {
-                auto* calendar = sdf.getCalendar();
+                const auto* calendar = sdf.getCalendar();
                 errln(UnicodeString("\nERROR: Test various skeletons[") + (dataIndex-1) + UnicodeString("], localeIndex ") + localeIndex +
                       u". Got: \"" + resultDate +
                       u"\" with calendar " + calendar->getType() +
@@ -1015,7 +1007,7 @@ void IntlTestDateTimePatternGeneratorAPI::testAPI(/*char *par*/)
         UnicodeString randomSkeleton;
         int32_t len = rand() % 20;
         for (int32_t j=0; j<len; ++j ) {
-            while ((newChar = (char16_t)(rand()%0x7f))>=(char16_t)0x20) {
+            while ((newChar = static_cast<char16_t>(rand() % 0x7f)) >= static_cast<char16_t>(0x20)) {
                 randomSkeleton += newChar;
             }
         }
@@ -1581,7 +1573,13 @@ void IntlTestDateTimePatternGeneratorAPI::testGetFieldDisplayNames() {
     }
 }
 
-static const char16_t timeCycleChars[] = { (char16_t)0x0048, (char16_t)0x0068, (char16_t)0x004B, (char16_t)0x006B, (char16_t)0 };
+static const char16_t timeCycleChars[] = {
+    static_cast<char16_t>(0x0048),
+    static_cast<char16_t>(0x0068),
+    static_cast<char16_t>(0x004B),
+    static_cast<char16_t>(0x006B),
+    static_cast<char16_t>(0)
+};
 
 void IntlTestDateTimePatternGeneratorAPI::testJjMapping() {
     UErrorCode status = U_ZERO_ERROR;
@@ -1636,7 +1634,8 @@ void IntlTestDateTimePatternGeneratorAPI::testJjMapping() {
             continue;
         }
         // Now check that shortPattern and jPattern use the same hour cycle
-        if ((uprv_strncmp(localeID, "csw", 3) == 0 || uprv_strncmp(localeID, "kxv_", 4) == 0) && logKnownIssue("CLDR-17199", "Need timeFormats with h for csw, kxv_Xxxx")) {
+        if ((uprv_strncmp(localeID, "yue_Hant_CN", 11) == 0) 
+        		&& logKnownIssue("CLDR-17979", "Need timeFormats with h for yue_Hant_CN")) {
             continue;
         }
 #if APPLE_ICU_CHANGES
@@ -1652,7 +1651,7 @@ void IntlTestDateTimePatternGeneratorAPI::testJjMapping() {
             continue;
         }
         const char16_t* charPtr = timeCycleChars;
-        for (; *charPtr != (char16_t)0; charPtr++) {
+        for (; *charPtr != static_cast<char16_t>(0); charPtr++) {
              if (jPatSkeleton.indexOf(*charPtr) >= 0) {
                  if (shortPatSkeleton.indexOf(*charPtr) < 0) {
                      char jcBuf[2], spBuf[32], jpBuf[32];
@@ -1686,7 +1685,7 @@ void IntlTestDateTimePatternGeneratorAPI::test20640_HourCyclArsEnNH() {
 // rdar://
         {"ars", u"h\u00A0a", u"h:mm\u00A0a", UDAT_HOUR_CYCLE_12},
 #else
-        {"ars", u"h a", u"h:mm a", UDAT_HOUR_CYCLE_12},
+        {"ars", u"h\u202Fa", u"h:mm a", UDAT_HOUR_CYCLE_12},
 #endif  // APPLE_ICU_CHANGES
         // en_NH is interesting because NH is a deprecated region code;
         // formerly New Hebrides, now Vanuatu => VU => h.
@@ -1697,7 +1696,7 @@ void IntlTestDateTimePatternGeneratorAPI::test20640_HourCyclArsEnNH() {
         {"ja_TRADITIONAL", u"H時", u"H:mm", UDAT_HOUR_CYCLE_23},
     };
 
-    for (auto& cas : cases) {
+    for (const auto& cas : cases) {
         status.setScope(cas.localeName);
 
         Locale loc(cas.localeName);
@@ -2025,7 +2024,7 @@ void IntlTestDateTimePatternGeneratorAPI::testDateTimePatterns() {
         // Test normal getting and setting
         for (int32_t patStyle = 0; patStyle < kNumDateTimePatterns; patStyle++) {
             status = U_ZERO_ERROR;
-            const UnicodeString& dtFormat1 = dtpg->getDateTimeFormat((UDateFormatStyle)patStyle, status);
+            const UnicodeString& dtFormat1 = dtpg->getDateTimeFormat(static_cast<UDateFormatStyle>(patStyle), status);
             if (U_FAILURE(status)) {
                 errln("FAIL: getDateTimeFormat for en before mod, style %d, get %s", patStyle, u_errorName(status));
             } else  if (dtFormat1 != enDTPatterns[patStyle]) {
@@ -2035,11 +2034,11 @@ void IntlTestDateTimePatternGeneratorAPI::testDateTimePatterns() {
                         patStyle, bExpect, bGet);
             }
             status = U_ZERO_ERROR;
-            dtpg->setDateTimeFormat((UDateFormatStyle)patStyle, modDTPatterns[patStyle], status);
+            dtpg->setDateTimeFormat(static_cast<UDateFormatStyle>(patStyle), modDTPatterns[patStyle], status);
             if (U_FAILURE(status)) {
                 errln("FAIL: setDateTimeFormat for en, style %d, get %s", patStyle, u_errorName(status));
             } else {
-                const UnicodeString& dtFormat2 = dtpg->getDateTimeFormat((UDateFormatStyle)patStyle, status);
+                const UnicodeString& dtFormat2 = dtpg->getDateTimeFormat(static_cast<UDateFormatStyle>(patStyle), status);
                 if (U_FAILURE(status)) {
                     errln("FAIL: getDateTimeFormat for en after  mod, style %d, get %s", patStyle, u_errorName(status));
                 } else if (dtFormat2 != modDTPatterns[patStyle]) {
@@ -2063,7 +2062,7 @@ void IntlTestDateTimePatternGeneratorAPI::testDateTimePatterns() {
         modDTPatterns[UDAT_SHORT].extract(0, modDTPatterns[UDAT_SHORT].length(), bExpect, 64);
         for (int32_t patStyle = 0; patStyle < kNumDateTimePatterns; patStyle++) {
             status = U_ZERO_ERROR;
-            const UnicodeString& dtFormat4 = dtpg->getDateTimeFormat((UDateFormatStyle)patStyle, status);
+            const UnicodeString& dtFormat4 = dtpg->getDateTimeFormat(static_cast<UDateFormatStyle>(patStyle), status);
             if (U_FAILURE(status)) {
                 errln("FAIL: getDateTimeFormat for en after second mod, style %d, get %s", patStyle, u_errorName(status));
             } else if (dtFormat4 != modDTPatterns[UDAT_SHORT]) {
@@ -2099,6 +2098,31 @@ void IntlTestDateTimePatternGeneratorAPI::testRegionOverride() {
                 assertEquals("Wrong hour cycle", testCases[i].expectedHourCycle, actualHourCycle);
                 assertEquals("Wrong pattern", testCases[i].expectedPattern, actualPattern);
             }
+        }
+    }
+}
+
+// Test for ICU-21839: Make sure ISO8601 patterns/symbols are inherited from Gregorian
+void IntlTestDateTimePatternGeneratorAPI::testISO8601() {
+    const char* localeIDs[] = {
+        "de-AT-u-ca-iso8601",
+        "de-CH-u-ca-iso8601",
+    };
+    const UChar* skeleton = u"jms";
+
+    for (int32_t i = 0; i < UPRV_LENGTHOF(localeIDs); i++) {
+        UErrorCode err = U_ZERO_ERROR;
+        LocalPointer<DateTimePatternGenerator> dtpg(DateTimePatternGenerator::createInstance(Locale::forLanguageTag(localeIDs[i], err), err));
+        UnicodeString pattern = dtpg->getBestPattern(skeleton, err);
+        if (pattern.indexOf(UnicodeString(u"├")) >= 0 || pattern.indexOf(UnicodeString(u"Minute")) >= 0) {
+            errln(UnicodeString("ERROR: locale ") + localeIDs[i] + UnicodeString(", skeleton ") + skeleton + UnicodeString(", bad pattern: ") + pattern);
+        }
+
+        LocalPointer<DateFormat> df(DateFormat::createTimeInstance(DateFormat::MEDIUM, Locale::forLanguageTag(localeIDs[i], err)));
+        UnicodeString format;
+        df->format(ucal_getNow(), format, err);
+        if (format.indexOf(UnicodeString(u"├")) >= 0 || format.indexOf(UnicodeString(u"Minute")) >= 0) {
+            errln(UnicodeString("ERROR: locale ") + localeIDs[i] + UnicodeString(", MEDIUM, bad format: ") + format);
         }
     }
 }
@@ -2194,6 +2218,37 @@ void IntlTestDateTimePatternGeneratorAPI::testHorizontalInheritance() {
         }
     }
 }
+
+// rdar://139506314
+void IntlTestDateTimePatternGeneratorAPI::testPunjabiPattern() {
+  UErrorCode status = U_ZERO_ERROR;
+  UnicodeString resultDate;
+  UDate testDate= LocaleTest::date(99, 0, 13, 23, 58, 59) + 123.0;
+  UnicodeString bestPattern;
+  Locale loc("pa");
+      
+  DateTimePatternGenerator *patGen=DateTimePatternGenerator::createInstance(loc, status);
+  if(U_FAILURE(status)) {
+    dataerrln("ERROR: Could not create DateTimePatternGenerator with locale pa\n");
+    return;
+  }
+          
+  bestPattern = patGen->getBestPattern("MMMMd", status);
+          
+  SimpleDateFormat sdf(bestPattern, loc, status);
+  resultDate.remove();
+  resultDate = sdf.format(testDate, resultDate);
+  UnicodeString expectedResult = CharsToUnicodeString("13 \\u0A1c\\u0A28\\u0A35\\u0A30\\u0A40");
+  if ( resultDate != expectedResult ) {
+    errln(UnicodeString("\nERROR: Testing MMMMd for pa locale; ") +
+                    u". Got: \"" + resultDate +
+                    u" Expected: \"" + expectedResult + u"\"");
+  }
+
+    delete patGen;
+}
+
+
 #endif  // APPLE_ICU_CHANGES
 
 #endif /* #if !UCONFIG_NO_FORMATTING */

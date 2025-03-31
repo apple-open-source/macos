@@ -603,7 +603,11 @@ cc_library(
         "locbased.cpp",
         "locid.cpp",
         "loclikely.cpp",
+# APPLE REMOVAL for rdar://121488288
+#       "loclikelysubtags.cpp",
         "locmap.cpp",
+# APPLE REMOVAL for rdar://121488288
+#       "lsr.cpp",
         "resbund.cpp",
         "resource.cpp",
         "uloc.cpp",

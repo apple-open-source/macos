@@ -119,3 +119,9 @@ void ProtectedPasswordAclSubject::debugDump() const
 }
 
 #endif //DEBUGDUMP
+
+CFStringRef ProtectedPasswordAclSubject::createACLDebugString() const
+{
+    // Explicitly do not include any of the password data
+    return CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("<ProtectedPasswordAclSubject>"));
+}

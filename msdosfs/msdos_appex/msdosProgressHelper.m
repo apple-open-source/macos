@@ -27,7 +27,7 @@
 {
     if (_childProgress != nil) {
         // We are in the middle a phase - expect it to end before starting a new one.
-        os_log_fault(fskit_std_log(), "%s missing endPhase call for %@", __FUNCTION__, _parentProgress.localizedDescription);
+        os_log_fault(OS_LOG_DEFAULT, "%s missing endPhase call for %@", __FUNCTION__, _parentProgress.localizedDescription);
         return fs_errorForPOSIXError(EINVAL);
     }
 

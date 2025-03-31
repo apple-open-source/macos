@@ -36,7 +36,6 @@ enum class ProcessTerminationReason : uint8_t {
     IdleExit,
     Unresponsive,
     Crash,
-    // Those below only relevant for the WebContent process.
     ExceededProcessCountLimit,
     NavigationSwap,
     RequestedByNetworkProcess,
@@ -44,6 +43,7 @@ enum class ProcessTerminationReason : uint8_t {
     RequestedByModelProcess,
     GPUProcessCrashedTooManyTimes,
     ModelProcessCrashedTooManyTimes,
+    NonMainFrameWebContentProcessCrash,
 };
 
 ASCIILiteral processTerminationReasonToString(ProcessTerminationReason);

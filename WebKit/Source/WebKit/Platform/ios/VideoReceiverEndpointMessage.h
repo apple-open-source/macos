@@ -31,6 +31,7 @@
 #include <WebCore/MediaPlayerIdentifier.h>
 #include <WebCore/ProcessIdentifier.h>
 #include <WebCore/VideoReceiverEndpoint.h>
+#include <wtf/Markable.h>
 #include <wtf/OSObjectPtr.h>
 #include <wtf/text/ASCIILiteral.h>
 
@@ -38,25 +39,48 @@ namespace WebKit {
 
 class VideoReceiverEndpointMessage {
 public:
-    VideoReceiverEndpointMessage(WebCore::ProcessIdentifier, WebCore::HTMLMediaElementIdentifier, WebCore::MediaPlayerIdentifier, WebCore::VideoReceiverEndpoint);
+    VideoReceiverEndpointMessage(std::optional<WebCore::ProcessIdentifier>, WebCore::HTMLMediaElementIdentifier, std::optional<WebCore::MediaPlayerIdentifier>, WebCore::VideoReceiverEndpoint, WebCore::VideoReceiverEndpointIdentifier);
 
     static ASCIILiteral messageName() { return "video-receiver-endpoint"_s; }
     static VideoReceiverEndpointMessage decode(xpc_object_t);
     OSObjectPtr<xpc_object_t> encode() const;
 
-    const WebCore::ProcessIdentifier& processIdentifier() const { return m_processIdentifier; }
-    const WebCore::HTMLMediaElementIdentifier& mediaElementIdentifier() const { return m_mediaElementIdentifier; }
-    const WebCore::MediaPlayerIdentifier& playerIdentifier() const { return m_playerIdentifier; }
+    std::optional<WebCore::ProcessIdentifier> processIdentifier() const { return m_processIdentifier; }
+    WebCore::HTMLMediaElementIdentifier mediaElementIdentifier() const { return m_mediaElementIdentifier; }
+    std::optional<WebCore::MediaPlayerIdentifier> playerIdentifier() const { return m_playerIdentifier; }
     const WebCore::VideoReceiverEndpoint& endpoint() const { return m_endpoint; }
+    WebCore::VideoReceiverEndpointIdentifier endpointIdentifier() const { return m_endpointIdentifier; }
 
 private:
-    VideoReceiverEndpointMessage() = default;
-
-    WebCore::ProcessIdentifier m_processIdentifier;
+    Markable<WebCore::ProcessIdentifier> m_processIdentifier;
     WebCore::HTMLMediaElementIdentifier m_mediaElementIdentifier;
-    WebCore::MediaPlayerIdentifier m_playerIdentifier;
+    Markable<WebCore::MediaPlayerIdentifier> m_playerIdentifier;
     WebCore::VideoReceiverEndpoint m_endpoint;
+    WebCore::VideoReceiverEndpointIdentifier m_endpointIdentifier;
 };
+
+class VideoReceiverSwapEndpointsMessage {
+public:
+    VideoReceiverSwapEndpointsMessage(std::optional<WebCore::ProcessIdentifier>, WebCore::HTMLMediaElementIdentifier, std::optional<WebCore::MediaPlayerIdentifier>, WebCore::HTMLMediaElementIdentifier, std::optional<WebCore::MediaPlayerIdentifier>);
+
+    static ASCIILiteral messageName() { return "video-receiver-swap-endpoint"_s; }
+    static VideoReceiverSwapEndpointsMessage decode(xpc_object_t);
+    OSObjectPtr<xpc_object_t> encode() const;
+
+    std::optional<WebCore::ProcessIdentifier> processIdentifier() const { return m_processIdentifier; }
+    WebCore::HTMLMediaElementIdentifier sourceMediaElementIdentifier() const { return m_sourceMediaElementIdentifier; }
+    std::optional<WebCore::MediaPlayerIdentifier> sourceMediaPlayerIdentifier() const { return m_sourcePlayerIdentifier; }
+    WebCore::HTMLMediaElementIdentifier destinationMediaElementIdentifier() const { return m_destinationMediaElementIdentifier; }
+    std::optional<WebCore::MediaPlayerIdentifier> destinationMediaPlayerIdentifier() const { return m_destinationPlayerIdentifier; }
+
+private:
+    Markable<WebCore::ProcessIdentifier> m_processIdentifier;
+    WebCore::HTMLMediaElementIdentifier m_sourceMediaElementIdentifier;
+    Markable<WebCore::MediaPlayerIdentifier> m_sourcePlayerIdentifier;
+    WebCore::HTMLMediaElementIdentifier m_destinationMediaElementIdentifier;
+    Markable<WebCore::MediaPlayerIdentifier> m_destinationPlayerIdentifier;
+};
+
 
 } // namespace WebKit
 

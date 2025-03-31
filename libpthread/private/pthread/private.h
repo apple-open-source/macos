@@ -32,6 +32,8 @@
 #include <sys/types.h>
 #include <pthread/tsd_private.h>
 
+__BEGIN_DECLS
+
 __API_AVAILABLE(macos(10.9), ios(7.0))
 pthread_t pthread_main_thread_np(void);
 
@@ -150,7 +152,9 @@ int pthread_self_is_exiting_np(void);
 #error "unknown configuration"
 #endif
 #else
+__END_DECLS
 #include <pthread/pthread.h> // for pthread_threadid_np
+__BEGIN_DECLS
 #endif // !TARGET_OS_SIMULATOR
 
 /* N.B. DO NOT USE UNLESS YOU ARE REBUILT AS PART OF AN OS TRAIN WORLDBUILD */
@@ -215,5 +219,7 @@ _pthread_yield_to_enqueuer_4dispatch(unsigned long slot, void *expected_val,
 	unsigned int timeout_ms);
 
 #endif
+
+__END_DECLS
 
 #endif // __PTHREAD_PRIVATE_H__

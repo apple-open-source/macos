@@ -106,7 +106,7 @@ public:
 private:
     void reset();
 
-    HashSet<RefPtr<Text>> m_autoSizedNodes;
+    UncheckedKeyHashSet<RefPtr<Text>> m_autoSizedNodes;
 };
 
 struct TextAutoSizingTraits : HashTraits<TextAutoSizingKey> {
@@ -125,7 +125,7 @@ public:
     void reset();
 
 private:
-    HashMap<TextAutoSizingKey, std::unique_ptr<TextAutoSizingValue>, TextAutoSizingHash, TextAutoSizingTraits> m_textNodes;
+    UncheckedKeyHashMap<TextAutoSizingKey, std::unique_ptr<TextAutoSizingValue>, TextAutoSizingHash, TextAutoSizingTraits> m_textNodes;
 };
 
 } // namespace WebCore

@@ -26,9 +26,9 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-#include <utilities/SecFileLocations.h>
-#include <utilities/debugging.h>
-#include <Security/SecItemInternal.h>
+#import "utilities/SecFileLocations.h"
+#import "utilities/debugging.h"
+#import "ipc/securityd_client.h"
 
 #include "OTATrustUtilities.h"
 #include "trustdFileLocations.h"

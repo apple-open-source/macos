@@ -81,7 +81,7 @@ namespace JSC {
         inline uint32_t offset() const
         {
 #if ENABLE(JIT_SIGN_ASSEMBLER_BUFFER)
-            return static_cast<uint32_t>(untagInt(m_offset, bitwise_cast<PtrTag>(this)));
+            return static_cast<uint32_t>(untagInt(m_offset, std::bit_cast<PtrTag>(this)));
 #else
             return m_offset;
 #endif
@@ -91,7 +91,7 @@ namespace JSC {
         inline void setOffset(uint32_t offset)
         {
 #if ENABLE(JIT_SIGN_ASSEMBLER_BUFFER)
-            m_offset = tagInt(static_cast<uint64_t>(offset), bitwise_cast<PtrTag>(this));
+            m_offset = tagInt(static_cast<uint64_t>(offset), std::bit_cast<PtrTag>(this));
 #else
             m_offset = offset;
 #endif
@@ -439,9 +439,11 @@ namespace JSC {
             template<typename IntegralType>
             void putIntegralUnchecked(IntegralType value)
             {
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
                 ASSERT(m_index + sizeof(IntegralType) <= m_buffer.m_storage.capacity());
                 WTF::unalignedStore<IntegralType>(m_storageBuffer + m_index, value);
                 m_index += sizeof(IntegralType);
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
             }
             AssemblerBuffer& m_buffer;
             char* m_storageBuffer;
@@ -474,6 +476,7 @@ namespace JSC {
         template<typename IntegralType>
         void putIntegralUnchecked(IntegralType value)
         {
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
 #if CPU(ARM64)
             static_assert(sizeof(value) == 4);
 #if ENABLE(JIT_SIGN_ASSEMBLER_BUFFER)
@@ -484,6 +487,7 @@ namespace JSC {
             ASSERT(isAvailable(sizeof(IntegralType)));
             WTF::unalignedStore<IntegralType>(m_storage.buffer() + m_index, value);
             m_index += sizeof(IntegralType);
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
         }
 
     private:

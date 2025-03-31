@@ -161,10 +161,10 @@ unsigned int phys_ncpus;
 MALLOC_NOEXPORT
 unsigned int logical_ncpus;
 
-#if CONFIG_MAGAZINE_PER_CLUSTER
+#if CONFIG_CLUSTER_AWARE
 MALLOC_NOEXPORT
 unsigned int ncpuclusters;
-#endif // CONFIG_MAGAZINE_PER_CLUSTER
+#endif // CONFIG_CLUSTER_AWARE
 
 MALLOC_NOEXPORT
 unsigned int hyper_shift;
@@ -511,10 +511,27 @@ _malloc_check_process_identity(const char *apple[])
 		{ "wifip2pd",            MALLOC_PROCESS_WIFIP2PD, },
 		{ "wifianalyticsd",      MALLOC_PROCESS_WIFIANALYTICSD, },
 
-		{ "mds_stores",          MALLOC_PROCESS_MDS_STORES },
+#if TARGET_OS_VISION
+		{ "presenced",           MALLOC_PROCESS_PRESENCED, },
+		{ "FaceTime",            MALLOC_PROCESS_FACETIME, },
+		{ "managedassetsd",      MALLOC_PROCESS_MANAGEDASSETSD },
+		{ "polarisd",            MALLOC_PROCESS_POLARISD },
+		{ "arkitd",              MALLOC_PROCESS_ARKITD, },
+		{ "backboardd",          MALLOC_PROCESS_BACKBOARDD, },
+		{ "wakeboardd",          MALLOC_PROCESS_WAKEBOARDD, },
+		{ "realitycamerad",      MALLOC_PROCESS_REALITYCAMERAD, },
+#endif // TARGET_OS_VISION
 
 		{ "AegirPoster",         MALLOC_PROCESS_AEGIRPOSTER, },
 		{ "CollectionsPoster",   MALLOC_PROCESS_COLLECTIONSPOSTER, },
+
+#if TARGET_OS_OSX
+		{ "GroupSessionService", MALLOC_PROCESS_GROUPSESSIONSERVICE, },
+		{ "IMTranscoderAgent", MALLOC_PROCESS_IMTRANSCODERAGENT, },
+		{ "Messages", MALLOC_PROCESS_MESSAGES, },
+		{ "Screen Sharing", MALLOC_PROCESS_SCREENSHARING, },
+		{ "keychainsharingmessagingd", MALLOC_PROCESS_KEYCHAINSHARINGMESSAGINGD, },
+#endif // TARGET_OS_OSX
 	};
 
 	if (getpid() == 1) {
@@ -559,10 +576,11 @@ _malloc_check_process_identity(const char *apple[])
 #endif
 
 static bool
-_malloc_check_secure_allocator_process_enablement(void)
+_malloc_check_secure_allocator_process_enablement(
+		malloc_process_identity_t identity)
 {
 	// launchd is special because the feature flag check can't work for it
-	if (malloc_process_identity == MALLOC_PROCESS_LAUNCHD) {
+	if (identity == MALLOC_PROCESS_LAUNCHD) {
 		return MALLOC_SECURE_ALLOCATOR_LAUNCHD_ENABLED_DEFAULT;
 	}
 
@@ -575,7 +593,7 @@ _malloc_check_secure_allocator_process_enablement(void)
 					(darwin_default), (simulator_default))
 
 
-	switch (malloc_process_identity) {
+	switch (identity) {
 	ENABLEMENT_CASE(LOGD, true);
 	ENABLEMENT_CASE(NOTIFYD, true);
 
@@ -600,11 +618,7 @@ _malloc_check_secure_allocator_process_enablement(void)
 	ENABLEMENT_CASE(QUICKLOOK_PREVIEW, true);
 	ENABLEMENT_CASE(QUICKLOOK_THUMBNAIL, true);
 
-#if TARGET_OS_OSX
-	ENABLEMENT_CASE_FF(MTLCOMPILERSERVICE, MTLCompilerService, false, false);
-#else
 	ENABLEMENT_CASE(MTLCOMPILERSERVICE, true);
-#endif
 
 	ENABLEMENT_CASE(CALLSERVICESD, true);
 	ENABLEMENT_CASE(MAILD, true);
@@ -631,14 +645,32 @@ _malloc_check_secure_allocator_process_enablement(void)
 	ENABLEMENT_CASE(SAFARI_SUPPORT, true);
 #endif
 
+#if TARGET_OS_VISION
+	ENABLEMENT_CASE(PRESENCED, true);
+	ENABLEMENT_CASE(FACETIME, true);
+	ENABLEMENT_CASE(MANAGEDASSETSD, true);
+	ENABLEMENT_CASE(POLARISD, true);
+
+	ENABLEMENT_CASE_FF(ARKITD, arkitd, false, false);
+	ENABLEMENT_CASE_FF(BACKBOARDD, backboardd, false, false);
+	ENABLEMENT_CASE_FF(WAKEBOARDD, wakeboardd, false, false);
+	ENABLEMENT_CASE_FF(REALITYCAMERAD, realitycamerad, false, false);
+#endif
+
 	ENABLEMENT_CASE_FF(AEGIRPOSTER, aegirposter, false, false);
 	ENABLEMENT_CASE_FF(COLLECTIONSPOSTER, CollectionsPoster, false, false);
 
 #if TARGET_OS_OSX
-	ENABLEMENT_CASE(VTDECODERXPCSERVICE, true);
+	ENABLEMENT_CASE(GROUPSESSIONSERVICE, true);
+	ENABLEMENT_CASE(IMTRANSCODERAGENT, true);
+	ENABLEMENT_CASE(KEYCHAINSHARINGMESSAGINGD, true);
+	ENABLEMENT_CASE(MESSAGES, true);
+	ENABLEMENT_CASE(SCREENSHARING, true);
 #endif
 
-	ENABLEMENT_CASE(MDS_STORES, true);
+#if TARGET_OS_OSX
+	ENABLEMENT_CASE(VTDECODERXPCSERVICE, true);
+#endif
 
 	default:
 		return false;
@@ -662,17 +694,18 @@ _malloc_init_featureflags(void)
 	bool secure_allocator = false;
 #if CONFIG_MALLOC_PROCESS_IDENTITY
 	if (malloc_process_identity != MALLOC_PROCESS_NONE) {
-		secure_allocator = _malloc_check_secure_allocator_process_enablement();
+		secure_allocator =
+				_malloc_check_secure_allocator_process_enablement(malloc_process_identity);
 	} else
 #endif // CONFIG_MALLOC_PROCESS_IDENTITY
 	{
-#if MALLOC_TARGET_IOS_ONLY
+#if MALLOC_TARGET_IOS_ONLY || TARGET_OS_VISION
 		secure_allocator = malloc_secure_feature_enabled(
 				SecureAllocator_SystemWide, true, true);
 #else
 		secure_allocator = malloc_secure_feature_enabled(
 				SecureAllocator_SystemWide, false, false);
-#endif	// MALLOC_TARGET_IOS_ONLY
+#endif	// MALLOC_TARGET_IOS_ONLY || TARGET_OS_VISION
 	}
 
 #if TARGET_OS_OSX && !TARGET_CPU_ARM64
@@ -736,12 +769,13 @@ __malloc_init(const char *apple[])
 	}
 #endif
 
-#if CONFIG_CHECK_SECURITY_POLICY
-	bool allow_internal_security = _malloc_allow_internal_security_policy();
+	// TODO: envp should be passed down from Libsystem
+	const char **envp = (const char **)*_NSGetEnviron();
+
+	bool allow_internal_security = _malloc_allow_internal_security_policy(envp);
 	if (allow_internal_security != malloc_internal_security_policy) {
 		malloc_internal_security_policy = allow_internal_security;
 	}
-#endif
 
 #if CONFIG_MALLOC_PROCESS_IDENTITY
 	_malloc_check_process_identity(apple);
@@ -763,13 +797,13 @@ __malloc_init(const char *apple[])
 		if (strstr(*p, LIBMALLOC_EXPERIMENT_FACTORS_KEY) == *p) {
 			malloc_experiments = *p;
 		}
-#if CONFIG_DEFERRED_RECLAIM
+#if CONFIG_MAGAZINE_DEFERRED_RECLAIM
 		if (strstr(*p, LIBMALLOC_DEFERRED_RECLAIM_ENABLE) == *p) {
 			// Turn on the large cache which will place
 			// its free entries in the deferred reclaim buffer
 			large_cache_enabled = 1;
 		}
-#endif /* CONFIG_DEFERRED_RECLAIM */
+#endif /* CONFIG_MAGAZINE_DEFERRED_RECLAIM */
 	}
 	if (!_malloc_entropy_initialized) {
 		getentropy((void*)malloc_entropy, sizeof(malloc_entropy));
@@ -1322,11 +1356,11 @@ _malloc_initialize(const char *apple[], const char *bootargs)
 {
 	phys_ncpus = *(uint8_t *)(uintptr_t)_COMM_PAGE_PHYSICAL_CPUS;
 	logical_ncpus = *(uint8_t *)(uintptr_t)_COMM_PAGE_LOGICAL_CPUS;
-#if CONFIG_MAGAZINE_PER_CLUSTER
+#if CONFIG_CLUSTER_AWARE
 	{
 		ncpuclusters = *(uint8_t *)(uintptr_t)_COMM_PAGE_CPU_CLUSTERS;
 	}
-#endif // CONFIG_MAGAZINE_PER_CLUSTER
+#endif // CONFIG_CLUSTER_AWARE
 
 	if (0 != (logical_ncpus % phys_ncpus)) {
 		MALLOC_REPORT_FATAL_ERROR(logical_ncpus % phys_ncpus,
@@ -1365,7 +1399,7 @@ _malloc_initialize(const char *apple[], const char *bootargs)
 
 	// Don't enable for pre-AMP iOS hardware, which we identify as "iOS, plain
 	// arm64"
-#if CONFIG_MAGAZINE_PER_CLUSTER && \
+#if CONFIG_XZM_CLUSTER_AWARE && \
 		(MALLOC_TARGET_IOS_ONLY || MALLOC_TARGET_DK_IOS) && \
 		defined(__arm64__) && !defined(__arm64e__)
 	if (ncpuclusters == 1) {
@@ -1388,15 +1422,20 @@ _malloc_initialize(const char *apple[], const char *bootargs)
 
 	set_flags_from_environment();
 
+	if (malloc_report_config) {
+		malloc_report(ASL_LEVEL_INFO, "Internal Security Policy: %d\n",
+				malloc_internal_security_policy);
+	}
+
 
 #if CONFIG_SANITIZER
 	malloc_sanitizer_enabled = sanitizer_should_enable();
 #endif
 	
-#if CONFIG_NANOZONE
 	// TODO: envp should be passed down from Libsystem
 	const char **envp = (const char **)*_NSGetEnviron();
-	
+
+#if CONFIG_NANOZONE
 	// Disable nano when:
 	// - sanitizer is enabled, to avoid speculative out-of-bounds
 	//   use-after-free reads that nano/nanov2 performs, OR
@@ -1408,6 +1447,8 @@ _malloc_initialize(const char *apple[], const char *bootargs)
 			!malloc_zero_on_free_sample_period) {
 		nano_common_init(envp, apple, bootargs);
 	}
+#else // CONFIG_NANOZONE
+	(void)envp;
 #endif // CONFIG_NANOZONE
 
 	bool nano_on_xzone = false;
@@ -1457,21 +1498,27 @@ _malloc_initialize(const char *apple[], const char *bootargs)
 
 	initial_num_zones = malloc_num_zones;
 
-#if CONFIG_DEFERRED_RECLAIM
-	kern_return_t vmdr_kr = KERN_SUCCESS;
+#if CONFIG_MAGAZINE_DEFERRED_RECLAIM
+	mach_vm_reclaim_error_t vmdr_kr = VM_RECLAIM_SUCCESS;
 	if (large_cache_enabled) {
-		if (initial_xzone_zone) {
+		const bool xzone_deferred_reclaim =
+				CONFIG_XZM_DEFERRED_RECLAIM && initial_xzone_zone;
+		if (xzone_deferred_reclaim) {
 			// xzone_malloc will own the deferred_reclaim buffer
 			large_cache_enabled = false;
 		} else {
 			vmdr_kr = mvm_deferred_reclaim_init();
-			if (vmdr_kr != KERN_SUCCESS) {
+			if (vmdr_kr != VM_RECLAIM_SUCCESS) {
 				large_cache_enabled = false;
-				malloc_report(ASL_LEVEL_ERR, "Unable to set up reclaim buffer (%d) - disabling large cache\n", vmdr_kr);
+				malloc_report(ASL_LEVEL_ERR, "Unable to set up "
+						"reclaim buffer, disabling "
+						"large cache [%d] %s\n",
+						err_get_code(vmdr_kr),
+						mach_error_string(vmdr_kr));
 			}
 		}
 	}
-#endif /* CONFIG_DEFERRED_RECLAIM */
+#endif // CONFIG_MAGAZINE_DEFERRED_RECLAIM
 
 	if (malloc_report_config && initial_scalable_zone) {
 		bool scribble = !!(malloc_debug_flags & MALLOC_DO_SCRIBBLE);
@@ -1479,15 +1526,15 @@ _malloc_initialize(const char *apple[], const char *bootargs)
 				"\tMax Magazines: %d\n"
 				"\tMedium Enabled: %d\n"
 				"\tAggressive Madvise: %d\n"
-#if CONFIG_DEFERRED_RECLAIM
+#if CONFIG_MAGAZINE_DEFERRED_RECLAIM
 				"\tLarge Cache: %d%s\n"
-#endif // CONFIG_DEFERRED_RECLAIM
+#endif // CONFIG_MAGAZINE_DEFERRED_RECLAIM
 				"\tScribble: %d\n",
 				max_magazines, magazine_medium_enabled,
 				aggressive_madvise_enabled,
-#if CONFIG_DEFERRED_RECLAIM
+#if CONFIG_MAGAZINE_DEFERRED_RECLAIM
 				vmdr_kr ?: large_cache_enabled, vmdr_kr ? " (ERROR)" : "",
-#endif // CONFIG_DEFERRED_RECLAIM
+#endif // CONFIG_MAGAZINE_DEFERRED_RECLAIM
 				scribble);
 	}
 
@@ -2776,8 +2823,7 @@ find_zone_and_free(void *ptr, bool known_non_default)
 		if ((malloc_debug_flags & (MALLOC_ABORT_ON_CORRUPTION | MALLOC_ABORT_ON_ERROR))) {
 			flags = MALLOC_REPORT_CRASH | MALLOC_REPORT_NOLOG;
 		}
-		malloc_report(flags,
-				"*** error for object %p: pointer being freed was not allocated\n", ptr);
+		malloc_report_pointer_was_not_allocated(flags, ptr);
 	} else if (zone->version >= 6 && zone->free_definite_size) {
 		malloc_zone_free_definite_size(zone, ptr, size);
 	} else {
@@ -2882,8 +2928,7 @@ _realloc(void *in_ptr, size_t new_size)
 			if (malloc_debug_flags & abort_flags) {
 				flags = MALLOC_REPORT_CRASH | MALLOC_REPORT_NOLOG;
 			}
-			malloc_report(flags, "*** error for object %p: "
-					"pointer being realloc'd was not allocated\n", in_ptr);
+			malloc_report_pointer_was_not_allocated(flags, in_ptr);
 		} else {
 			retval = _malloc_zone_realloc(zone, in_ptr, new_size,
 					malloc_callsite_fallback_type_descriptor());
@@ -3094,6 +3139,16 @@ _malloc_zone_malloc_with_options_np_outlined(malloc_zone_t *zone, size_t align,
 		// There's no reasonable way to have the fallback callsite type
 		// descriptor work here.  That's okay, as it's uncommon and SPI, so its
 		// callers should be built with TMO.
+		const malloc_options_np_t known_options = MALLOC_NP_OPTION_CLEAR
+				;
+		if (options & ~known_options) {
+			malloc_zone_error(MALLOC_ABORT_ON_ERROR, true,
+					"malloc_zone_malloc_with_options: unsupported options 0x%llx\n",
+					options);
+			__builtin_trap();
+		}
+
+
 		if (align) {
 			ptr = malloc_zone_memalign(zone, align, size);
 			if (ptr && (options & MALLOC_NP_OPTION_CLEAR)) {
@@ -3104,6 +3159,7 @@ _malloc_zone_malloc_with_options_np_outlined(malloc_zone_t *zone, size_t align,
 		} else {
 			ptr = malloc_zone_malloc(zone, size);
 		}
+
 	} else {
 		MALLOC_TRACE(TRACE_malloc_options | DBG_FUNC_START, (uintptr_t)zone,
 				align, size, 0);
@@ -3273,11 +3329,11 @@ malloc_enter_process_memory_limit_warn_mode(void)
 void
 malloc_memory_event_handler(unsigned long event)
 {
-#if CONFIG_MADVISE_PRESSURE_RELIEF || (CONFIG_LARGE_CACHE && !CONFIG_DEFERRED_RECLAIM)
+#if CONFIG_MADVISE_PRESSURE_RELIEF || (CONFIG_LARGE_CACHE && !CONFIG_MAGAZINE_DEFERRED_RECLAIM)
 	if (event & MALLOC_MEMORYSTATUS_MASK_PRESSURE_RELIEF) {
 		malloc_zone_pressure_relief(0, 0);
 	}
-#endif /* CONFIG_MADVISE_PRESSURE_RELIEF || (CONFIG_LARGE_CACHE && !CONFIG_DEFERRED_RECLAIM) */
+#endif /* CONFIG_MADVISE_PRESSURE_RELIEF || (CONFIG_LARGE_CACHE && !CONFIG_MAGAZINE_DEFERRED_RECLAIM) */
 
 	if ((event & NOTE_MEMORYSTATUS_MSL_STATUS) != 0 && (event & ~NOTE_MEMORYSTATUS_MSL_STATUS) == 0) {
 		malloc_register_stack_logger();
@@ -3837,6 +3893,12 @@ malloc_variant_is_debug_4test(void)
 #endif
 }
 
+bool
+malloc_allows_internal_security_4test(void)
+{
+	return malloc_internal_security_policy;
+}
+
 /*****************	OBSOLETE ENTRY POINTS	********************/
 
 #ifndef PHASE_OUT_OLD_MALLOC
@@ -3879,13 +3941,6 @@ malloc_debug(int level)
 #pragma mark -
 #pragma mark Malloc Thread Options
 
-typedef union {
-	malloc_thread_options_t options;
-	void *storage;
-} th_opts_t;
-
-MALLOC_STATIC_ASSERT(sizeof(th_opts_t) == sizeof(void *), "Options fit into pointer bits");
-
 malloc_thread_options_t
 malloc_get_thread_options(void)
 {
@@ -3896,6 +3951,12 @@ malloc_get_thread_options(void)
 void
 malloc_set_thread_options(malloc_thread_options_t opts)
 {
+	if (os_unlikely(opts.ReservedFlag)) {
+		malloc_zone_error(MALLOC_ABORT_ON_ERROR, true,
+				"malloc_zone_malloc_with_options: reserved TSD bit set\n");
+		__builtin_trap();
+	}
+
 	// Canonicalize options
 	if (opts.DisableExpensiveDebuggingOptions) {
 		opts.DisableProbabilisticGuardMalloc = true;
@@ -3904,8 +3965,7 @@ malloc_set_thread_options(malloc_thread_options_t opts)
 
 	pgm_thread_set_disabled(opts.DisableProbabilisticGuardMalloc);
 
-	th_opts_t x = {.options = opts};
-	_pthread_setspecific_direct(__TSD_MALLOC_THREAD_OPTIONS, x.storage);
+	_malloc_set_thread_options(opts);
 }
 
 #pragma mark -

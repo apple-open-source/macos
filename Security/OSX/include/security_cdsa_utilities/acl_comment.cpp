@@ -152,3 +152,8 @@ void CommentAclSubject::debugDump() const
 }
 
 #endif //DEBUGDUMP
+
+CFStringRef CommentAclSubject::createACLDebugString() const
+{
+    return CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("<CommentAclSubject>"));
+}

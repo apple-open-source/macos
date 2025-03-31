@@ -719,7 +719,11 @@ for command in commands {
         tpHelper.establish(with: specificUser,
                            ckksKeys: [],
                            tlkShares: [],
-                           preapprovedKeys: preapprovedKeys ?? []) { peerID, _, _, error in
+                           preapprovedKeys: preapprovedKeys ?? [],
+                           altDSID: account.aa_altDSID,
+                           flowID: "tpctl-flowID",
+                           deviceSessionID: "tpctl-deviceSessionID",
+                           canSendMetrics: false) { peerID, _, _, error in
                             guard error == nil else {
                                 print("Error establishing:", error!)
                                 return
@@ -961,7 +965,11 @@ for command in commands {
                                  bottleID: bottleID,
                                  entropy: entropy,
                                  bottleSalt: salt,
-                                 tlkShares: []) { voucher, voucherSig, _, _, error in
+                                 tlkShares: [],
+                                 altDSID: account.aa_altDSID,
+                                 flowID: "tpctl-flowID-" + NSUUID().uuidString,
+                                 deviceSessionID: "tpctl-deviceSessionID-" + NSUUID().uuidString,
+                                 canSendMetrics: false) { voucher, voucherSig, _, _, error in
                                     guard error == nil else {
                                         print("Error during vouchWithBottle", error!)
                                         return
@@ -977,7 +985,11 @@ for command in commands {
     case let .fetchRecoverableTLKShares(peerID):
         logger.log("fetching recoverable TLKShares for (\(container), \(context))")
         tpHelper.fetchRecoverableTLKShares(with: specificUser,
-                                           peerID: peerID) { records, error in
+                                           peerID: peerID,
+                                           altDSID: account.aa_altDSID,
+                                           flowID: "tpctl-flowID-" + NSUUID().uuidString,
+                                           deviceSessionID: "tpctl-deviceSessionID-" + NSUUID().uuidString,
+                                           canSendMetrics: false) { records, error in
             guard error == nil else {
                 print("Error during fetchRecoverableTLKShares", error!)
                 return

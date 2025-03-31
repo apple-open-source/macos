@@ -762,6 +762,8 @@ pcap_offline_read(pcap_t *p, int cnt, pcap_handler callback, u_char *user)
 			return (status);
 		}
 
+		p->packet_read_count += 1;
+
 		if ((fcode = p->fcode.bf_insns) == NULL ||
 		    pcap_filter(fcode, data, h.len, h.caplen)) {
 			(*callback)(user, &h, data);

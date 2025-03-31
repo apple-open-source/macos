@@ -42,10 +42,9 @@ using namespace WebCore;
 struct _WebKitTextSinkPrivate {
     GRefPtr<GstElement> appSink;
     ThreadSafeWeakPtr<MediaPlayerPrivateGStreamer> mediaPlayerPrivate;
-    GUniquePtr<char> streamId;
+    std::optional<TrackID> streamId;
 };
 
-#define webkit_text_sink_parent_class parent_class
 WEBKIT_DEFINE_TYPE_WITH_CODE(WebKitTextSink, webkit_text_sink, GST_TYPE_BIN,
     GST_DEBUG_CATEGORY_INIT(webkitTextSinkDebug, "webkittextsink", 0, "webkit text sink"))
 
@@ -54,7 +53,7 @@ static void webkitTextSinkHandleSample(WebKitTextSink* self, GRefPtr<GstSample>&
     auto* priv = self->priv;
     if (!priv->streamId) {
         auto pad = adoptGRef(gst_element_get_static_pad(priv->appSink.get(), "sink"));
-        priv->streamId.reset(gst_pad_get_stream_id(pad.get()));
+        priv->streamId = getStreamIdFromPad(pad.get());
     }
 
     if (UNLIKELY(!priv->streamId)) {
@@ -65,7 +64,7 @@ static void webkitTextSinkHandleSample(WebKitTextSink* self, GRefPtr<GstSample>&
     // Player private methods that interact with WebCore must run from the main thread. Things can
     // be destroyed before that code runs, including the text sink and priv, so pass everything in a
     // safe way.
-    callOnMainThread([mediaPlayerPrivate = ThreadSafeWeakPtr<MediaPlayerPrivateGStreamer>(priv->mediaPlayerPrivate), streamId = String::fromUTF8(priv->streamId.get()), sample = WTFMove(sample)]() mutable {
+    callOnMainThread([mediaPlayerPrivate = ThreadSafeWeakPtr<MediaPlayerPrivateGStreamer>(priv->mediaPlayerPrivate), streamId = priv->streamId.value(), sample = WTFMove(sample)]() mutable {
         RefPtr player = mediaPlayerPrivate.get();
         if (!player)
             return;
@@ -75,7 +74,7 @@ static void webkitTextSinkHandleSample(WebKitTextSink* self, GRefPtr<GstSample>&
 
 static void webkitTextSinkConstructed(GObject* object)
 {
-    GST_CALL_PARENT(G_OBJECT_CLASS, constructed, (object));
+    G_OBJECT_CLASS(webkit_text_sink_parent_class)->constructed(object);
 
     auto* sink = WEBKIT_TEXT_SINK(object);
     auto* priv = sink->priv;
@@ -112,7 +111,7 @@ static gboolean webkitTextSinkQuery(GstElement* element, GstQuery* query)
         // Ignore duration and position because we don't want the seek bar to be based on where the cues are.
         return false;
     default:
-        return GST_CALL_PARENT_WITH_DEFAULT(GST_ELEMENT_CLASS, query, (element, query), FALSE);
+        return GST_ELEMENT_CLASS(webkit_text_sink_parent_class)->query(element, query);
     }
 }
 

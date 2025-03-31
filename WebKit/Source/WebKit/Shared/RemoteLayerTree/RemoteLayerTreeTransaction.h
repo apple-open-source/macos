@@ -60,6 +60,10 @@
 #include <WebCore/Model.h>
 #endif
 
+#if ENABLE(MODEL_PROCESS)
+#include <WebCore/ModelContext.h>
+#endif
+
 namespace WebKit {
 
 struct LayerProperties;
@@ -97,6 +101,9 @@ public:
             CustomData, // PlatformCALayerRemoteCustom
 #if ENABLE(MODEL_ELEMENT)
             Ref<WebCore::Model>, // PlatformCALayerRemoteModelHosting
+#if ENABLE(MODEL_PROCESS)
+            Ref<WebCore::ModelContext>, // PlatformCALayerRemoteCustom
+#endif
 #endif
             WebCore::LayerHostingContextIdentifier // PlatformCALayerRemoteHost
         >;
@@ -115,6 +122,10 @@ public:
         uint32_t hostingContextID() const;
         bool preservesFlip() const;
         float hostingDeviceScaleFactor() const;
+
+#if ENABLE(MODEL_PROCESS)
+        RefPtr<WebCore::ModelContext> modelContext() const;
+#endif
     };
 
     explicit RemoteLayerTreeTransaction();

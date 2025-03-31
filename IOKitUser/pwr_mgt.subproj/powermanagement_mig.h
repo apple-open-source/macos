@@ -101,6 +101,7 @@ enum {
 #define kAssertionWasCoalesced      "assertionWasCoalesced"
 #define kAssertionInitialConnKey    "assertionInitialConnection"
 #define kAssertionFeatureSupportKey  "assertionFeatureSupported"
+#define kAssertionAsyncOffloadDelay "assertionAsyncOffloadDelay"
 #define kAssertionCopyActivityUpdateRefCntKey "assertionActivityUpdateRefCnt"
 #define kAssertionCopyActivityUpdateOverflowKey "assertionActivityUpdateOverflow"
 #define kAssertionCopyActivityUpdateDataKey     "assertionActivityUpdateData"

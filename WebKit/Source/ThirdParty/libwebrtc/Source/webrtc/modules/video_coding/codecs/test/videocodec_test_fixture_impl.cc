@@ -16,6 +16,7 @@
 #include <algorithm>
 #include <cmath>
 #include <memory>
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -23,7 +24,6 @@
 #include "absl/strings/match.h"
 #include "absl/strings/str_replace.h"
 #include "absl/strings/string_view.h"
-#include "absl/types/optional.h"
 #include "api/array_view.h"
 #include "api/environment/environment.h"
 #include "api/environment/environment_factory.h"
@@ -178,7 +178,7 @@ SdpVideoFormat CreateSdpVideoFormat(
     CodecParameterMap codec_params = {
         {cricket::kH264FmtpProfileLevelId,
          *H264ProfileLevelIdToString(H264ProfileLevelId(
-             config.h264_codec_settings.profile, H264Level::kLevel4_2))},
+             config.h264_codec_settings.profile, H264Level::kLevel3_1))},
         {cricket::kH264FmtpPacketizationMode, packetization_mode},
         {cricket::kH264FmtpLevelAsymmetryAllowed, "1"}};
 

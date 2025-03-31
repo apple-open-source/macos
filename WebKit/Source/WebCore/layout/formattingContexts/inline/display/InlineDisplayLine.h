@@ -107,6 +107,7 @@ public:
     void setIsFirstAfterPageBreak() { m_isFirstAfterPageBreak = true; }
     void setInkOverflow(const FloatRect inkOverflowRect) { m_inkOverflow = inkOverflowRect; }
     void setScrollableOverflow(const FloatRect scrollableOverflow) { m_scrollableOverflow = scrollableOverflow; }
+    void setLineBoxRectForSVGText(const FloatRect&);
 
 private:
     // FIXME: Move these to a side structure.
@@ -188,6 +189,17 @@ inline FloatRect Line::visibleRectIgnoringBlockDirection() const
     }
     auto visibleLineBoxLeft = std::max(m_lineBoxRect.x(), m_ellipsis->visualRect.x());
     return { FloatPoint { visibleLineBoxLeft, m_lineBoxRect.y() }, FloatPoint { m_lineBoxRect.maxX(), m_lineBoxRect.maxY() } };
+}
+
+inline void Line::setLineBoxRectForSVGText(const FloatRect& rect)
+{
+    m_lineBoxRect = rect;
+    m_scrollableOverflow = rect;
+    m_contentOverflow = rect;
+    m_inkOverflow = rect;
+    m_lineBoxLogicalRect = m_isHorizontal ? rect : rect.transposedRect();
+    m_enclosingLogicalTopAndBottom.top = m_lineBoxLogicalRect.y();
+    m_enclosingLogicalTopAndBottom.bottom = m_lineBoxLogicalRect.maxY();
 }
 
 }

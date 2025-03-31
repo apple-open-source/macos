@@ -338,8 +338,18 @@ _dispatch_kevent_has_machmsg_rcv_error(dispatch_kevent_t ke)
 {
 #define MACH_ERROR_RCV_SUB 0x1
 	mach_error_t kr = (mach_error_t) ke->fflags;
-	return ((kr & system_emask) == err_mach_ipc) &&
-			(err_get_sub(kr) == MACH_ERROR_RCV_SUB);
+	if (kr == MACH_MSG_SUCCESS) {
+		return false;
+	} else if (((kr & system_emask) == err_mach_ipc) &&
+			(err_get_sub(kr) == MACH_ERROR_RCV_SUB)) {
+		return true;
+	} else {
+		uintptr_t crash_reason = ke->fflags;
+#if __LP64__
+		crash_reason |= (uintptr_t)ke->flags << 32;
+#endif
+		DISPATCH_INTERNAL_CRASH(crash_reason, "Unexpected error from mach recv");
+	}
 #undef MACH_ERROR_RCV_SUB
 }
 
@@ -436,6 +446,16 @@ _dispatch_kevent_merge_ev_flags(dispatch_unote_t du, uint32_t flags)
 		// and the kernel is about to deliver an event, it can acknowledge
 		// our wish by delivering the event as a (EV_DELETE | EV_ONESHOT)
 		// event and dropping the knote at once.
+		//
+		// We clear the wlh from the du_state here to indicate that the knote
+		// is gone and doesn't need to be deleted. However, the unote still
+		// holds an sref on the wlh. Ideally we would drop that in
+		// _dispatch_unote_unregister_direct, but we don't have another bit to
+		// indicate the knote being gone and the sref still held. As such, drop
+		// the reference here.
+		dispatch_wlh_t wlh = _dispatch_unote_wlh(du);
+		_dispatch_wlh_release(wlh);
+
 		_dispatch_unote_state_set(du, DU_STATE_NEEDS_DELETE);
 	} else if (flags & (EV_ONESHOT | EV_VANISHED)) {
 		// EV_VANISHED events if re-enabled will produce another EV_VANISHED

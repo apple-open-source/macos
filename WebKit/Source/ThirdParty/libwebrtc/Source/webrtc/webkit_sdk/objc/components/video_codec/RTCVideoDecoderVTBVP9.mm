@@ -48,7 +48,7 @@
 
 extern const CFStringRef kCMFormatDescriptionExtension_SampleDescriptionExtensionAtoms;
 
-static uint8_t convertSubsampling(absl::optional<webrtc::Vp9YuvSubsampling> value)
+static uint8_t convertSubsampling(std::optional<webrtc::Vp9YuvSubsampling> value)
 {
     if (!value)
         return 1;

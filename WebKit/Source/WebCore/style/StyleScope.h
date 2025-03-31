@@ -86,7 +86,6 @@ public:
     void addStyleSheetCandidateNode(Node&, bool createdByParser);
     void removeStyleSheetCandidateNode(Node&);
 
-    String preferredStylesheetSetName() const { return m_preferredStylesheetSetName; }
     void setPreferredStylesheetSetName(const String&);
 
     void addPendingSheet(const Element&);
@@ -148,10 +147,7 @@ public:
     static Scope* forOrdinal(Element&, ScopeOrdinal);
 
     struct QueryContainerUpdateContext {
-        // FIXME: Switching to a WeakHashSet causes fast/dom/Node/Node-destruction-crash.html
-        // to time out. Scope::updateQueryContainerState() seems to rely on this container
-        // containing stale pointers.
-        HashSet<Element*> invalidatedContainers;
+        UncheckedKeyHashSet<CheckedRef<Element>> invalidatedContainers;
     };
     bool updateQueryContainerState(QueryContainerUpdateContext&);
 
@@ -160,9 +156,8 @@ public:
     const CSSCounterStyleRegistry& counterStyleRegistry() const { return m_counterStyleRegistry.get(); }
     CSSCounterStyleRegistry& counterStyleRegistry() { return m_counterStyleRegistry.get(); }
 
-    WeakHashSet<Element, WeakPtrImplWithEventTargetData>& anchorElements() { return m_anchorElements; }
     AnchorPositionedStates& anchorPositionedStates() { return m_anchorPositionedStates; }
-    AnchorsForAnchorName& anchorsForAnchorName() { return m_anchorsForAnchorName; }
+    const AnchorPositionedStates& anchorPositionedStates() const { return m_anchorPositionedStates; }
     void clearAnchorPositioningState();
 
 private:
@@ -175,7 +170,7 @@ private:
     void updateActiveStyleSheets(UpdateType);
     void scheduleUpdate(UpdateType);
 
-    using ResolverScopes = HashMap<Ref<Resolver>, Vector<WeakPtr<Scope>>>;
+    using ResolverScopes = UncheckedKeyHashMap<Ref<Resolver>, Vector<WeakPtr<Scope>>>;
     ResolverScopes collectResolverScopes();
     template <typename TestFunction> void evaluateMediaQueries(TestFunction&&);
 
@@ -229,7 +224,7 @@ private:
 
     Timer m_pendingUpdateTimer;
 
-    mutable HashSet<SingleThreadWeakRef<const CSSStyleSheet>> m_weakCopyOfActiveStyleSheetListForFastLookup;
+    mutable UncheckedKeyHashSet<SingleThreadWeakRef<const CSSStyleSheet>> m_weakCopyOfActiveStyleSheetListForFastLookup;
 
     // Track the currently loading top-level stylesheets needed for rendering.
     // Sheets loaded using the @import directive are not included in this count.
@@ -258,10 +253,8 @@ private:
     UniqueRef<CSSCounterStyleRegistry> m_counterStyleRegistry;
 
     // FIXME: These (and some things above) are only relevant for the root scope.
-    HashMap<ResolverSharingKey, Ref<Resolver>> m_sharedShadowTreeResolvers;
+    UncheckedKeyHashMap<ResolverSharingKey, Ref<Resolver>> m_sharedShadowTreeResolvers;
 
-    WeakHashSet<Element, WeakPtrImplWithEventTargetData> m_anchorElements;
-    AnchorsForAnchorName m_anchorsForAnchorName;
     AnchorPositionedStates m_anchorPositionedStates;
 };
 

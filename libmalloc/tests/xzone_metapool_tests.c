@@ -5,12 +5,10 @@
 
 #if CONFIG_XZONE_MALLOC
 
-#if MALLOC_TARGET_EXCLAVES
-#include <vas/vas.h>
-#else
+#if !MALLOC_TARGET_EXCLAVES
 #include <mach/mach_init.h>
 #include <mach/vm_map.h>
-#endif // MALLOC_TARGET_EXCLAVES
+#endif // !MALLOC_TARGET_EXCLAVES
 
 static void *
 test_mvm_allocate_plat(uintptr_t addr, size_t size, int flags,
@@ -18,8 +16,9 @@ test_mvm_allocate_plat(uintptr_t addr, size_t size, int flags,
 {
 #if MALLOC_TARGET_EXCLAVES
 	const _liblibc_map_type_t type = LIBLIBC_MAP_TYPE_PRIVATE |
-			((flags & VM_FLAGS_ANYWHERE) ? 0 : LIBLIBC_MAP_TYPE_FIXED) |
-			((debug_flags & MALLOC_NO_POPULATE) ? LIBLIBC_MAP_TYPE_NOCOMMIT : 0);
+			((debug_flags & MALLOC_CAN_FAULT) ? LIBLIBC_MAP_TYPE_FAULTABLE : LIBLIBC_MAP_TYPE_NONE) |
+			((debug_flags & MALLOC_NO_POPULATE) ? LIBLIBC_MAP_TYPE_NOCOMMIT : LIBLIBC_MAP_TYPE_NONE) |
+			((flags & VM_FLAGS_ANYWHERE) ? 0 : LIBLIBC_MAP_TYPE_FIXED);
 	return mmap_plat(map_out, addr, size,
 			LIBLIBC_MAP_PERM_READ | LIBLIBC_MAP_PERM_WRITE, type, 0,
 			(unsigned)vm_page_label);
@@ -96,10 +95,10 @@ T_DECL(xzone_metapool_metadata,
 	const size_t data_slab_size = KiB(512);
 	const size_t num_data_blocks = data_slab_size / data_size;
 
-	xzm_metapool_init(&metadata_pool, 1, metadata_slab_size, metadata_size,
-			metadata_size, NULL);
-	xzm_metapool_init(&data_pool, 1, data_slab_size, data_size,
-			data_size, &metadata_pool);
+	xzm_metapool_init(&metadata_pool, 1, VM_MEMORY_MALLOC, metadata_slab_size,
+			metadata_size, metadata_size, NULL);
+	xzm_metapool_init(&data_pool, 1, VM_MEMORY_MALLOC, data_slab_size,
+			data_size, data_size, &metadata_pool);
 
 	// Allocate a full slab of data blocks, ensure that they all came from the
 	// same slab, dirty all of their pages, and then free them all. After

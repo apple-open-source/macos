@@ -145,7 +145,7 @@ extern void doexception(int exc, mach_exception_code_t code,
     mach_exception_subcode_t sub);
 
 static void stop(proc_t, proc_t);
-static int cansignal_nomac(proc_t, kauth_cred_t, proc_t, int);
+int cansignal_nomac(proc_t, kauth_cred_t, proc_t, int);
 int cansignal(proc_t, kauth_cred_t, proc_t, int);
 int killpg1(proc_t, int, int, int, int);
 kern_return_t do_bsdexception(int, int, int);
@@ -297,7 +297,7 @@ signal_setast(thread_t sig_actthread)
 	act_set_astbsd(sig_actthread);
 }
 
-static int
+int
 cansignal_nomac(proc_t src, kauth_cred_t uc_src, proc_t dst, int signum)
 {
 	/* you can signal yourself */
@@ -363,7 +363,8 @@ int
 cansignal(proc_t src, kauth_cred_t uc_src, proc_t dst, int signum)
 {
 #if CONFIG_MACF
-	if (mac_proc_check_signal(src, dst, signum)) {
+	struct proc_ident dst_ident = proc_ident(dst);
+	if (mac_proc_check_signal(src, NULL, &dst_ident, signum)) {
 		return 0;
 	}
 #endif

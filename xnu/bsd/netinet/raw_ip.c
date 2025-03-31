@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2023 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2024 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  *
@@ -512,6 +512,9 @@ rip_output(
 	}
 	if (INP_MANAGEMENT_ALLOWED(inp)) {
 		ipoa.ipoa_flags |=  IPOAF_MANAGEMENT_ALLOWED;
+	}
+	if (INP_ULTRA_CONSTRAINED_ALLOWED(inp)) {
+		ipoa.ipoa_flags |=  IPOAF_ULTRA_CONSTRAINED_ALLOWED;
 	}
 	ipoa.ipoa_sotc = sotc;
 	ipoa.ipoa_netsvctype = netsvctype;
@@ -1139,6 +1142,10 @@ rip_send(struct socket *so, int flags, struct mbuf *m, struct sockaddr *nam,
 		}
 		goto bad;
 	}
+
+	in_pcb_check_management_entitled(inp);
+	in_pcb_check_ultra_constrained_entitled(inp);
+
 	so_update_tx_data_stats(so, 1, m->m_pkthdr.len);
 
 	if (nam != NULL) {

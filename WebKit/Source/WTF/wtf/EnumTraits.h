@@ -59,6 +59,7 @@
 #include <algorithm>
 #include <span>
 #include <type_traits>
+#include <wtf/Compiler.h>
 
 namespace WTF {
 
@@ -85,36 +86,26 @@ template<typename T, typename E> struct EnumValueChecker;
 
 template<typename T, typename E, E e, E... es>
 struct EnumValueChecker<T, EnumValues<E, e, es...>> {
-    static constexpr bool isValidEnum(T t)
+    static constexpr bool isValidEnumForPersistence(T t)
     {
-        return (static_cast<T>(e) == t) ? true : EnumValueChecker<T, EnumValues<E, es...>>::isValidEnum(t);
+        return (static_cast<T>(e) == t) ? true : EnumValueChecker<T, EnumValues<E, es...>>::isValidEnumForPersistence(t);
     }
 };
 
 template<typename T, typename E>
 struct EnumValueChecker<T, EnumValues<E>> {
-    static constexpr bool isValidEnum(T)
+    static constexpr bool isValidEnumForPersistence(T)
     {
         return false;
     }
 };
 
-template<typename E, typename = std::enable_if_t<!std::is_same_v<std::underlying_type_t<E>, bool>>>
-bool isValidEnum(std::underlying_type_t<E> t)
-{
-    return EnumValueChecker<std::underlying_type_t<E>, typename EnumTraits<E>::values>::isValidEnum(t);
-}
-
-template<typename E, typename = std::enable_if_t<std::is_same_v<std::underlying_type_t<E>, bool>>>
-constexpr bool isValidEnum(bool t)
-{
-    return !t || t == 1;
-}
+template<typename E> bool isValidEnum(std::underlying_type_t<E>);
 
 template<typename E, typename = std::enable_if_t<!std::is_same_v<std::underlying_type_t<E>, bool>>>
 bool isValidEnumForPersistence(std::underlying_type_t<E> t)
 {
-    return EnumValueChecker<std::underlying_type_t<E>, typename EnumTraitsForPersistence<E>::values>::isValidEnum(t);
+    return EnumValueChecker<std::underlying_type_t<E>, typename EnumTraitsForPersistence<E>::values>::isValidEnumForPersistence(t);
 }
 
 template<typename E, typename = std::enable_if_t<std::is_same_v<std::underlying_type_t<E>, bool>>>
@@ -198,13 +189,13 @@ constexpr std::span<const char> enumNameImpl()
 #if COMPILER(CLANG)
     const size_t prefix = sizeof("std::span<const char> WTF::enumNameImpl() [V = ") - 1;
     const size_t suffix = sizeof("]") - 1;
-    std::span<const char> name { __PRETTY_FUNCTION__ + prefix, sizeof(__PRETTY_FUNCTION__) - prefix - suffix - 1 };
+    auto name = std::span { __PRETTY_FUNCTION__ }.subspan(prefix, sizeof(__PRETTY_FUNCTION__) - prefix - suffix - 1);
     if (name[0] == '(' || name[0] == '-' || ('0' <= name[0] && name[0] <= '9'))
         return { };
 #elif COMPILER(GCC)
     const size_t prefix = sizeof("constexpr std::span<const char> WTF::enumNameImpl() [with auto V = ") - 1;
     const size_t suffix = sizeof("]") - 1;
-    std::span<const char> name { __PRETTY_FUNCTION__ + prefix, sizeof(__PRETTY_FUNCTION__) - prefix - suffix - 1 };
+    std::span<const char> name = std::span { __PRETTY_FUNCTION__ }.subspan(prefix, sizeof(__PRETTY_FUNCTION__) - prefix - suffix - 1);
     if (name[0] == '(')
         name = { };
 #else

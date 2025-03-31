@@ -1,0 +1,78 @@
+#! /bin/sh
+
+. ${tstdir-.}/daemon.sh
+. ${tstdir-.}/lib.sh
+. ${tstdir-.}/conf.sh
+
+src="$PWD/src"
+dest="$PWD/ftp"
+cfgfile="$PWD/rsyncd.conf"
+lockfile="$PWD/rsyncd.lock"
+
+rm -rf "$dest" "$src" "$lockfile"
+
+mkdir "$dest" "$src"
+dd if=/dev/random of="$dest"/file bs=8M count=1
+
+cat <<EOF > "$cfgfile"
+use chroot = no
+
+[maxconn]
+	path = $dest
+	max connections = 1
+	lock file = $lockfile
+EOF
+
+rsyncd "$cfgfile"
+dport=$(daemon_port)
+
+# This one's ratelimited enough that it will take at least ten seconds to finish
+# the transfer, making sure that rsyncd is holding a lock on the [0, 4) range in
+# the $lockfile while we try to initiate a second connection below.
+command $RSYNC_CLIENT --bwlimit=512 \
+    rsync://localhost:$dport/maxconn/file "$src"/file-1 &
+cpid=$!
+
+# Wait up to two seconds for the lock file to appear
+tmo=20
+iter=0
+while [ ! -e "$lockfile" ]; do
+	sleep 0.1
+	iter=$((iter + 1))
+
+	[ "$iter" -lt "$tmo" ] || break
+done
+
+if [ ! -e "$lockfile" ]; then
+	1>&2 echo "Timed out waiting for $lockfile to appear"
+	exit 1
+fi
+
+# The first client should still be running as it transfers an 8MB file
+# ratelimited down to 512KB/s.  rsyncd will attempt to find a range in the
+# $lockfile that it can lock for *this* connection, but with
+# max connections == 1 it can't search beyond the first 4-byte segment of the
+# file for a lockable range.  This connection should thus get rejected.
+set +e
+command $RSYNC_CLIENT --bwlimit=512 \
+    rsync://localhost:$dport/maxconn/file "$src"/file-2
+rc=$?
+set -e
+
+if [ "$rc" -eq 0 ]; then
+	1>&2 echo "Second connection attempt did not fail"
+	exit 1
+elif [ -f "$src"/file-2 ]; then
+	1>&2 echo "Second connection attempt created the file unexpectedly"
+	exit 1
+fi
+
+# We'll let the first connection finish so that we can confirm that it did
+# in-fact win the connection from rsyncd, rather than having been rejected
+# for some other reason since it was running in the background.
+wait "$cpid"
+
+if [ ! -f "$src"/file-1 ]; then
+	1>&2 echo "First connection attempt did not create the file"
+	exit 1
+fi

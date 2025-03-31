@@ -462,8 +462,34 @@ dump_ctype(void)
 				ctn->ctype |= _ISPRINT;
 			if (strchr(" \f\n\r\t\v", (char)wc) != NULL)
 				ctn->ctype |= _ISSPACE;
+#ifdef __APPLE__
+			if (strchr("0123456789ABCDEFabcdef", (char)wc) != NULL) {
+				ctn->ctype |= _ISXDIGIT;
+
+				/*
+				 * For the trivial portable bits, make sure that
+				 * digittoint() can work.  Libc expects that we
+				 * encoded the value in the lower byte.
+				 */
+				switch (wc) {
+				case '0' ... '9':
+					ctn->ctype |= wc - '0';
+					break;
+				case 'A' ... 'F':
+					ctn->ctype |= (wc - 'A') + 10;
+					break;
+				case 'a' ... 'f':
+					ctn->ctype |= (wc - 'a') + 10;
+					break;
+				default:
+					/* UNREACHABLE */
+					break;
+				}
+			}
+#else
 			if (strchr("0123456789ABCDEFabcdef", (char)wc) != NULL)
 				ctn->ctype |= _ISXDIGIT;
+#endif
 			if (strchr(" \t", (char)wc))
 				ctn->ctype |= _ISBLANK;
 

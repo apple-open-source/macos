@@ -30,9 +30,11 @@
 #include <Security/SecPolicyPriv.h>
 #include <Security/SecBasePriv.h>
 #include <Security/SecTrustSettings.h>
+#if TARGET_OS_OSX
 #include <Security/cssmapple.h>
 #include <Security/oidsalg.h>
 #include <utilities/fileIo.h>
+#endif
 #include <utilities/SecCFRelease.h>
 #include <security_cdsa_utils/cuPem.h>
 
@@ -229,6 +231,7 @@ void printKeyUsage(
 	printf(" >");
 }
 
+#if TARGET_OS_OSX
 /* print a CFNumber as CSSM_RETURN string */
 void printCssmErr(
 	CFNumberRef cfNum)
@@ -448,6 +451,7 @@ const CSSM_OID *policyStringToOid(
 	}
 	return NULL;
 }
+#endif
 
 CFOptionFlags revCheckOptionStringToFlags(
 	const char *revCheckOption)

@@ -33,7 +33,6 @@
 #include "NetworkLoad.h"
 #include "NetworkProcess.h"
 #include "NetworkSession.h"
-#include "WebCoreArgumentCoders.h"
 #include <WebCore/LocalFrameLoaderClient.h>
 #include <wtf/TZoneMallocInlines.h>
 
@@ -43,7 +42,7 @@ using namespace WebCore;
 WTF_MAKE_TZONE_ALLOCATED_IMPL(PendingDownload);
 
 PendingDownload::PendingDownload(IPC::Connection* parentProcessConnection, NetworkLoadParameters&& parameters, DownloadID downloadID, NetworkSession& networkSession, const String& suggestedName, FromDownloadAttribute fromDownloadAttribute, std::optional<WebCore::ProcessIdentifier> webProcessID)
-    : m_networkLoad(makeUnique<NetworkLoad>(*this, WTFMove(parameters), networkSession))
+    : m_networkLoad(NetworkLoad::create(*this, WTFMove(parameters), networkSession))
     , m_parentProcessConnection(parentProcessConnection)
     , m_fromDownloadAttribute(fromDownloadAttribute)
     , m_webProcessID(webProcessID)
@@ -58,7 +57,7 @@ PendingDownload::PendingDownload(IPC::Connection* parentProcessConnection, Netwo
     send(Messages::DownloadProxy::DidStart(m_networkLoad->currentRequest(), suggestedName));
 }
 
-PendingDownload::PendingDownload(IPC::Connection* parentProcessConnection, std::unique_ptr<NetworkLoad>&& networkLoad, ResponseCompletionHandler&& completionHandler, DownloadID downloadID, const ResourceRequest& request, const ResourceResponse& response)
+PendingDownload::PendingDownload(IPC::Connection* parentProcessConnection, Ref<NetworkLoad>&& networkLoad, ResponseCompletionHandler&& completionHandler, DownloadID downloadID, const ResourceRequest& request, const ResourceResponse& response)
     : m_networkLoad(WTFMove(networkLoad))
     , m_parentProcessConnection(parentProcessConnection)
 {
@@ -101,7 +100,6 @@ void PendingDownload::willSendRedirectedRequest(WebCore::ResourceRequest&&, WebC
 
 void PendingDownload::cancel(CompletionHandler<void(std::span<const uint8_t>)>&& completionHandler)
 {
-    ASSERT(m_networkLoad);
     m_networkLoad->cancel();
     completionHandler({ });
 }
@@ -125,14 +123,14 @@ void PendingDownload::publishProgress(const URL& url, SandboxExtension::Handle&&
 }
 #endif
 
-void PendingDownload::didBecomeDownload(const std::unique_ptr<Download>& download)
+void PendingDownload::didBecomeDownload(Download& download)
 {
     if (!m_progressURL.isValid())
         return;
 #if HAVE(MODERN_DOWNLOADPROGRESS)
-    download->publishProgress(m_progressURL, m_bookmarkData, m_useDownloadPlaceholder, m_activityAccessToken);
+    download.publishProgress(m_progressURL, m_bookmarkData, m_useDownloadPlaceholder, m_activityAccessToken);
 #else
-    download->publishProgress(m_progressURL, WTFMove(m_progressSandboxExtension));
+    download.publishProgress(m_progressURL, WTFMove(m_progressSandboxExtension));
 #endif
 }
 #endif // PLATFORM(COCOA)

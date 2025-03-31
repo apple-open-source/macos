@@ -64,7 +64,6 @@ diff_output_lines(struct diff_output_info *outinfo, FILE *dest,
 		  unsigned int count)
 {
 	struct diff_atom *atom;
-	size_t err;
 	off_t outoff = 0, *offp;
 	uint8_t *typep;
 	int rc;
@@ -90,11 +89,11 @@ diff_output_lines(struct diff_output_info *outinfo, FILE *dest,
 	foreach_diff_atom(atom, start_atom, count) {
 		off_t outlen = 0;
 		int i, ch, nbuf = 0;
-		unsigned int len = (unsigned int)atom->len;
-		unsigned char buf[DIFF_OUTPUT_BUF_SIZE + 1 /* '\n' */];
+		size_t len = atom->len, wlen;
+		char buf[DIFF_OUTPUT_BUF_SIZE + 1 /* '\n' */];
 		size_t n;
 
-		n = strlcpy((char *)buf, prefix, sizeof(buf));
+		n = strlcpy(buf, prefix, sizeof(buf));
 		if (n >= DIFF_OUTPUT_BUF_SIZE) { /* leave room for '\n' */
 			rc = ENOBUFS;
 			goto out;
@@ -107,13 +106,6 @@ diff_output_lines(struct diff_output_info *outinfo, FILE *dest,
 				goto out;
 			if (ch == '\n')
 				len--;
-			if (len) {
-				rc = get_atom_byte(&ch, atom, len - 1);
-				if (rc)
-					goto out;
-				if (ch == '\r')
-					len--;
-			}
 		}
 
 		for (i = 0; i < len; i++) {
@@ -121,23 +113,23 @@ diff_output_lines(struct diff_output_info *outinfo, FILE *dest,
 			if (rc)
 				goto out;
 			if (nbuf >= DIFF_OUTPUT_BUF_SIZE) {
-				err = fwrite(buf, 1, nbuf, dest);
-				if (err != nbuf) {
+				wlen = fwrite(buf, 1, nbuf, dest);
+				if (wlen != nbuf) {
 					rc = errno;
 					goto out;
 				}
-				outlen += err;
+				outlen += wlen;
 				nbuf = 0;
 			}
 			buf[nbuf++] = ch;
 		}
 		buf[nbuf++] = '\n';
-		err = fwrite(buf, 1, nbuf, dest);
-		if (err != nbuf) {
+		wlen = fwrite(buf, 1, nbuf, dest);
+		if (wlen != nbuf) {
 			rc = errno;
 			goto out;
 		}
-		outlen += err;
+		outlen += wlen;
 		if (outinfo) {
 			ARRAYLIST_ADD(offp, outinfo->line_offsets);
 			if (offp == NULL) {
@@ -154,7 +146,6 @@ diff_output_lines(struct diff_output_info *outinfo, FILE *dest,
 			*typep = *prefix == ' ' ? DIFF_LINE_CONTEXT :
 			    *prefix == '-' ? DIFF_LINE_MINUS :
 			    *prefix == '+' ? DIFF_LINE_PLUS : DIFF_LINE_NONE;
-
 		}
 	}
 
@@ -162,11 +153,9 @@ diff_output_lines(struct diff_output_info *outinfo, FILE *dest,
 out:
 	if (colored)
 		printf("\033[m");
-
 	return rc;
 }
 
-#ifndef __APPLE__
 int
 diff_output_chunk_left_version(struct diff_output_info **output_info,
 			       FILE *dest,
@@ -237,7 +226,6 @@ diff_output_chunk_right_version(struct diff_output_info **output_info,
 	return DIFF_RC_OK;
 }
 
-#endif  /* ! __APPLE__ */
 int
 diff_output_trailing_newline_msg(struct diff_output_info *outinfo, FILE *dest,
 				 const struct diff_chunk *c)
@@ -293,10 +281,10 @@ diff_output_trailing_newline_msg(struct diff_output_info *outinfo, FILE *dest,
 }
 
 static bool
-is_function_prototype(unsigned char ch)
+is_function_prototype(char ch)
 {
-	return (isalpha(ch) || ch == '_' || ch == '$' ||
-		ch == '-' || ch == '+');
+	return (isalpha((unsigned char)ch) || ch == '_' || ch == '$' ||
+	    ch == '-' || ch == '+');
 }
 
 #define begins_with(s, pre) (strncmp(s, pre, sizeof(pre)-1) == 0)
@@ -304,19 +292,17 @@ is_function_prototype(unsigned char ch)
 int
 diff_output_match_function_prototype(char *prototype, size_t prototype_size,
     int *last_prototype_idx, const struct diff_result *result,
-    const struct diff_chunk_context *cc, unsigned int ncontext)
+    int chunk_start_line)
 {
 	struct diff_atom *start_atom, *atom;
 	const struct diff_data *data;
-	unsigned char buf[DIFF_FUNCTION_CONTEXT_SIZE];
+	char buf[DIFF_FUNCTION_CONTEXT_SIZE];
 	const char *state = NULL;
-	int rc, i, ch, idx;
+	int rc, i, ch;
 
-	idx = MIN(cc->left.start + (ncontext ? ncontext : 0), cc->left.end - 1);
-
-	if (result->left->atoms.len > 0 && cc->left.start > 0) {
+	if (result->left->atoms.len > 0 && chunk_start_line > 0) {
 		data = result->left;
-		start_atom = &data->atoms.head[idx];
+		start_atom = &data->atoms.head[chunk_start_line - 1];
 	} else
 		return DIFF_RC_OK;
 
@@ -327,7 +313,7 @@ diff_output_match_function_prototype(char *prototype, size_t prototype_size,
 		rc = get_atom_byte(&ch, atom, 0);
 		if (rc)
 			return rc;
-		buf[0] = (unsigned char)ch;
+		buf[0] = ch;
 		if (!is_function_prototype(buf[0]))
 			continue;
 		for (i = 1; i < atom->len && i < sizeof(buf) - 1; i++) {
@@ -336,22 +322,22 @@ diff_output_match_function_prototype(char *prototype, size_t prototype_size,
 				return rc;
 			if (ch == '\n')
 				break;
-			buf[i] = (unsigned char)ch;
+			buf[i] = ch;
 		}
 		buf[i] = '\0';
-		if (begins_with((char *)buf, "private:")) {
+		if (begins_with(buf, "private:")) {
 			if (!state)
 				state = " (private)";
-		} else if (begins_with((char *)buf, "protected:")) {
+		} else if (begins_with(buf, "protected:")) {
 			if (!state)
 				state = " (protected)";
-		} else if (begins_with((char *)buf, "public:")) {
+		} else if (begins_with(buf, "public:")) {
 			if (!state)
 				state = " (public)";
 		} else {
 			if (state)  /* don't care about truncation */
-				strlcat((char *)buf, state, sizeof(buf));
-			strlcpy(prototype, (char *)buf, prototype_size);
+				strlcat(buf, state, sizeof(buf));
+			strlcpy(prototype, buf, prototype_size);
 			break;
 		}
 	}

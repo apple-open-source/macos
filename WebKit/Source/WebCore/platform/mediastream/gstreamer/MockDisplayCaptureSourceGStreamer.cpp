@@ -89,6 +89,8 @@ const RealtimeMediaSourceCapabilities& MockDisplayCaptureSourceGStreamer::capabi
         capabilities.setHeight({ 1, 1080 });
         capabilities.setFrameRate({ .01, 30.0 });
 
+        capabilities.setDeviceId(hashedId());
+
         m_capabilities = WTFMove(capabilities);
     }
     return m_capabilities.value();

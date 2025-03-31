@@ -41,11 +41,13 @@ MacroProps NumberPropertyMapper::oldToNew(const DecimalFormatProperties& propert
                                           DecimalFormatWarehouse& warehouse,
                                           DecimalFormatProperties* exportedProperties,
                                           UErrorCode& status) {
-#if APPLE_ICU_CHANGES // rdar://131077611
-    MacroProps macros {};
-#else
+// TODO(rtg): "macros {}" no longer compiles because the various sub-objects now have private default constructors.
+// Not sure if the underlying problem that caused Coverity to complain was fixed at the same time.
+//#if APPLE_ICU_CHANGES // rdar://131077611
+//    MacroProps macros {};
+//#else
     MacroProps macros;
-#endif
+//#endif
     Locale locale = symbols.getLocale();
 
     /////////////

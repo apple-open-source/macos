@@ -47,7 +47,7 @@ WorkerDebuggerAgent::WorkerDebuggerAgent(WorkerAgentContext& context)
     : WebDebuggerAgent(context)
     , m_globalScope(context.globalScope)
 {
-    ASSERT(context.globalScope.isContextThread());
+    ASSERT(context.globalScope->isContextThread());
 }
 
 WorkerDebuggerAgent::~WorkerDebuggerAgent() = default;

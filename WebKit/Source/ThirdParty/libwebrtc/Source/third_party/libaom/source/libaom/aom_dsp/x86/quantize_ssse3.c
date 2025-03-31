@@ -19,7 +19,7 @@
 #include "aom/aom_integer.h"
 #include "aom_dsp/x86/quantize_x86.h"
 
-static INLINE void calculate_qcoeff_64x64(__m128i *coeff, const __m128i round,
+static inline void calculate_qcoeff_64x64(__m128i *coeff, const __m128i round,
                                           const __m128i quant,
                                           const __m128i *shift) {
   __m128i tmp, qcoeff, tmp1;
@@ -33,7 +33,7 @@ static INLINE void calculate_qcoeff_64x64(__m128i *coeff, const __m128i round,
   *coeff = _mm_or_si128(tmp, tmp1);
 }
 
-static INLINE void calculate_dqcoeff_and_store_64x64(const __m128i qcoeff,
+static inline void calculate_dqcoeff_and_store_64x64(const __m128i qcoeff,
                                                      const __m128i dequant,
                                                      const __m128i zero,
                                                      tran_low_t *dqcoeff) {

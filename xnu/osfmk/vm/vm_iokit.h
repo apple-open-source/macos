@@ -101,7 +101,11 @@ extern kern_return_t vm_map_range_physical_size(
 
 
 #if defined(__arm64__)
-extern void vm_panic_hibernate_write_image_failed(int err);
+extern void vm_panic_hibernate_write_image_failed(
+	int err,
+	uint64_t file_size_min,
+	uint64_t file_size_max,
+	uint64_t file_size);
 #endif /* __arm64__ */
 
 

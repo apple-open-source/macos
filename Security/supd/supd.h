@@ -25,6 +25,8 @@
 #import "supdProtocol.h"
 #import "trust/trustd/trustdFileLocations.h"
 
+NS_ASSUME_NONNULL_BEGIN
+
 @class SFAnalyticsSQLiteStore;
 
 @interface SFAnalyticsClient: NSObject
@@ -77,16 +79,29 @@
 @property NSString *internalTopicName;
 @property NSUInteger uploadSizeLimit;
 
+@property BOOL allowHTTPSplunkServerForTests;
+@property BOOL allowInsecureSplunkCert;
+
 @property NSArray<SFAnalyticsClient*>* topicClients;
 
 // --------------------------------
 // Things below are for unit testing
 - (instancetype)initWithDictionary:(NSDictionary *)dictionary name:(NSString *)topicName samplingRates:(NSDictionary *)rates;
 - (BOOL)haveEligibleClients;
-- (NSArray<NSDictionary *> *)createChunkedLoggingJSON:(NSArray<NSDictionary *> *)healthSummaries failures:(NSArray<NSDictionary *> *)failures error:(NSError **)error;
-- (NSArray<NSArray *> *)chunkFailureSet:(size_t)sizeCapacity events:(NSArray<NSDictionary *> *)events error:(NSError **)error;
+- (NSArray<NSDictionary *> *_Nullable)createChunkedLoggingJSON:(NSArray<NSDictionary *> *)healthSummaries failures:(NSArray<NSDictionary *> *)failures error:(NSError **)error;
+- (NSArray<NSArray *> *_Nullable)chunkFailureSet:(size_t)sizeCapacity events:(NSArray<NSDictionary *> *)events error:(NSError **)error;
 - (size_t)serializedEventSize:(NSObject *)event error:(NSError**)error;
 - (BOOL)ckDeviceAccountApprovedTopic:(NSString *)topic;
+
+
+- (NSMutableDictionary*_Nullable)healthSummaryWithName:(SFAnalyticsClient*)client
+                                                 store:(SFAnalyticsSQLiteStore*)store
+                                                  uuid:(NSUUID *_Nullable)uuid
+                                             timestamp:(NSNumber*_Nullable)timestamp
+                                        lastUploadTime:(NSNumber*_Nullable)lastUploadTime;
+- (NSDictionary *_Nullable)appleInternalStatus;
+
+- (NSData *_Nullable)applyFilterLogic:(NSData *)data linkedID:(NSString *)linkedUUID;
 
 + (NSString*)databasePathForCKKS;
 + (NSString*)databasePathForSOS;
@@ -102,10 +117,12 @@
 + (NSString*)databasePathForRootTrust;
 + (NSString*)databasePathForRootNetworking;
 #endif
+
 @end
 
 @interface SFAnalyticsReporter : NSObject
-- (BOOL)saveReport:(NSData *)reportData fileName:(NSString *)fileName;
+- (BOOL)saveReportNamed:(NSString *)fileName reportData:(NSData *)reportData;
+- (BOOL)saveReportNamed:(NSString *)fileName intoFileHandle:(void(^)(NSFileHandle *fileHandle))block;
 @end
 
 extern NSString* const SupdErrorDomain;
@@ -118,16 +135,21 @@ typedef NS_ERROR_ENUM(SupdErrorDomain, SupdError) {
 
 @interface supd : NSObject <supdProtocol, TrustdFileHelper_protocol>
 - (instancetype)init NS_UNAVAILABLE;
-- (instancetype)initWithConnection:(NSXPCConnection *)connection;
+- (instancetype)initWithConnection:(NSXPCConnection *_Nullable)connection;
 - (void)performRegularlyScheduledUpload;
+
+- (BOOL)filebasedUploadAnalytics:(BOOL)force error:(NSError**)error;
+
 // --------------------------------
 // Things below are for unit testing
 @property (readonly) NSArray<SFAnalyticsTopic*>* analyticsTopics;
 @property (readonly) SFAnalyticsReporter *reporter;
 - (void)sendNotificationForOncePerReportSamplers;
 - (instancetype)initWithConnection:(NSXPCConnection *)connection reporter:(SFAnalyticsReporter *)reporter;
-+ (NSData *)serializeLoggingEvent:(NSDictionary *)event
-                            error:(NSError **)error;
++ (NSData *_Nullable)serializeLoggingEvent:(NSDictionary *)event
+                                     error:(NSError **)error;
++ (void)writeURL:(NSURL *)url intoFileHandle:(NSFileHandle *)fileHandle;
+
 @end
 
 // --------------------------------
@@ -137,3 +159,5 @@ extern BOOL deviceAnalyticsOverride;
 extern BOOL deviceAnalyticsEnabled;
 extern BOOL iCloudAnalyticsOverride;
 extern BOOL iCloudAnalyticsEnabled;
+
+NS_ASSUME_NONNULL_END

@@ -35,11 +35,13 @@ extern "C" {
 
 typedef struct __DAFileSystem * DAFileSystemRef;
 typedef struct __DAFileSystemContext __DAFileSystemContext;
+// When adding filesystem argument strings, remember to check for them in DAMountContainsArgument()
 extern const CFStringRef kDAFileSystemMountArgumentForce;
 extern const CFStringRef kDAFileSystemMountArgumentNoDevice;
 extern const CFStringRef kDAFileSystemMountArgumentDevice;
 extern const CFStringRef kDAFileSystemMountArgumentNoExecute;
 extern const CFStringRef kDAFileSystemMountArgumentNoOwnership;
+extern const CFStringRef kDAFileSystemMountArgumentNoPermission;
 extern const CFStringRef kDAFileSystemMountArgumentOwnership;
 extern const CFStringRef kDAFileSystemMountArgumentNoSetUserID;
 extern const CFStringRef kDAFileSystemMountArgumentSetUserID;

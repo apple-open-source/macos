@@ -25,14 +25,17 @@
 #ifndef _LIBC_THREAD_STACK_PCS_H
 #define _LIBC_THREAD_STACK_PCS_H
 
+#include <_bounds.h>
 #include <sys/cdefs.h>
 #include <mach/vm_statistics.h>
 #include <mach/vm_types.h>
 
+_LIBC_SINGLE_BY_DEFAULT()
+
 __BEGIN_DECLS
 
-extern int thread_stack_pcs(vm_address_t *buffer, unsigned max, unsigned *num);
-extern int thread_stack_async_pcs(vm_address_t *buffer, unsigned max, unsigned *num);
+extern int thread_stack_pcs(vm_address_t *_LIBC_COUNT(max) buffer, unsigned max, unsigned *num);
+extern int thread_stack_async_pcs(vm_address_t *_LIBC_COUNT(max) buffer, unsigned max, unsigned *num);
 
 __END_DECLS
 

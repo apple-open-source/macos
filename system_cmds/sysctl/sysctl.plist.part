@@ -2,11 +2,11 @@
 		<key>OpenSourceProject</key>
 		<string>sysctl</string>
 		<key>OpenSourceVersion</key>
-		<string>2021-05-01</string>
+		<string>2024-02-13</string>
 		<key>OpenSourceWebsiteURL</key>
-		<string>https://cgit.freebsd.org/src/tree/sbin/sysctl?id=f1957db43d28dbae1f82905304bab5be51942342</string>
+		<string>https://cgit.freebsd.org/src/tree/sbin/sysctl?id=2e8ad2b698498a1c380d0d6fc5792b2c56926801</string>
 		<key>OpenSourceImportDate</key>
-		<string>2021-10-20</string>
+		<string>2024-05-22</string>
 		<key>OpenSourceModifications</key>
 		<array>
 			<string>sysctl.8: document Darwin sysctls (5214548, 5223855)</string>

@@ -13,7 +13,7 @@
 
 #include "config/aom_dsp_rtcd.h"
 
-static INLINE void copy_128(const uint8_t *src, uint8_t *dst) {
+static inline void copy_128(const uint8_t *src, uint8_t *dst) {
   __m128i s[8];
   s[0] = _mm_loadu_si128((__m128i *)(src + 0 * 16));
   s[1] = _mm_loadu_si128((__m128i *)(src + 1 * 16));
@@ -143,7 +143,8 @@ void aom_convolve_copy_sse2(const uint8_t *src, ptrdiff_t src_stride,
   }
 }
 
-static INLINE void highbd_copy_64(const uint16_t *src, uint16_t *dst) {
+#if CONFIG_AV1_HIGHBITDEPTH
+static inline void highbd_copy_64(const uint16_t *src, uint16_t *dst) {
   __m128i s[8];
   s[0] = _mm_loadu_si128((__m128i *)(src + 0 * 8));
   s[1] = _mm_loadu_si128((__m128i *)(src + 1 * 8));
@@ -163,7 +164,7 @@ static INLINE void highbd_copy_64(const uint16_t *src, uint16_t *dst) {
   _mm_store_si128((__m128i *)(dst + 7 * 8), s[7]);
 }
 
-static INLINE void highbd_copy_128(const uint16_t *src, uint16_t *dst) {
+static inline void highbd_copy_128(const uint16_t *src, uint16_t *dst) {
   __m128i s[16];
   s[0] = _mm_loadu_si128((__m128i *)(src + 0 * 8));
   s[1] = _mm_loadu_si128((__m128i *)(src + 1 * 8));
@@ -311,3 +312,4 @@ void aom_highbd_convolve_copy_sse2(const uint16_t *src, ptrdiff_t src_stride,
     } while (h);
   }
 }
+#endif  // CONFIG_AV1_HIGHBITDEPTH

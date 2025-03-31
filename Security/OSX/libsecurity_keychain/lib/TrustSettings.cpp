@@ -45,6 +45,7 @@
 #include <security_utilities/alloc.h>
 #include <security_utilities/casts.h>
 #include <utilities/SecCFRelease.h>
+#include <utilities/SecCFWrappers.h>
 #include <Security/Authorization.h>
 #include <Security/cssmapplePriv.h>
 #include <Security/oidscert.h>
@@ -1391,7 +1392,7 @@ CFArrayRef TrustSettings::validateApiTrustSettings(
 			ortn = SecPolicyGetOID(certPolicy, &oid);
 			if (ortn) {
 				/* newer policies don't have CSSM OIDs but they do have string OIDs */
-				oidData = CFRetain(SecPolicyGetOidString(certPolicy));
+				oidData = CFRetain(SecPolicyGetCompatibilityOidString(certPolicy));
 			} else {
 				oidData = CFDataCreate(NULL, oid.Data, oid.Length);
 			}
@@ -1558,7 +1559,7 @@ bool TrustSettings::validateTrustSettingsArray(
 			return false;
 		}
 		CFDataRef certPolicy = (CFDataRef)CFDictionaryGetValue(ucDict, kSecTrustSettingsPolicy);
-		if((certPolicy != NULL) && (CFGetTypeID(certPolicy) != CFDataGetTypeID())) {
+        if((certPolicy != NULL) && !isData(certPolicy) && !isString(certPolicy)) {
 			trustSettingsDbg("validateAppPolicyArray: malformed certPolicy");
 			return false;
 		}

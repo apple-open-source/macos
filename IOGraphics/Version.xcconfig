@@ -1,0 +1,2 @@
+// Increases with each submission to B&I, will be 999 for non-B&I buildit builds or xcodebuilds, tag version for B&I
+CURRENT_PROJECT_VERSION = $(RC_ProjectSourceVersion:default=999)

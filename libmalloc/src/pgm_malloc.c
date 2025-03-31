@@ -84,6 +84,7 @@ typedef struct {
 	uint32_t max_allocations;
 	uint32_t max_metadata;
 	uint32_t sample_counter_range;
+	uint32_t left_align_pct;
 	bool debug;
 	uint64_t debug_log_throttle_ms;
 
@@ -366,12 +367,17 @@ choose_metadata(pgm_zone_t *zone, uint32_t slot)
 }
 
 static uint16_t
-choose_offset_on_page(size_t size, size_t alignment, uint16_t page_size) {
+choose_offset_on_page(size_t size,
+		size_t alignment,
+		uint32_t left_align_pct,
+		uint16_t page_size)
+{
 	MALLOC_ASSERT(size <= page_size);
 	MALLOC_ASSERT(alignment <= page_size && is_power_of_2(alignment));
 	MALLOC_ASSERT(is_power_of_2(page_size));
-	boolean_t left_align = rand_uniform(2);
-	if (left_align) {
+	MALLOC_ASSERT(left_align_pct <= 100);
+
+	if (rand_uniform(100) < left_align_pct) {
 		return 0;
 	}
 	size_t mask = ~(alignment - 1);
@@ -435,7 +441,8 @@ allocate(pgm_zone_t *zone, size_t size, size_t alignment)
 	size = block_size(size);
 	uint32_t slot = choose_available_slot(zone);
 	uint32_t metadata = choose_metadata(zone, slot);
-	uint16_t offset = choose_offset_on_page(size, alignment, PAGE_SIZE);
+	uint16_t offset = choose_offset_on_page(
+			size, alignment, zone->left_align_pct, PAGE_SIZE);
 
 	// Mark page writable before updating metadata.  Ensures metadata is correct
 	// whenever a fault could be triggered.
@@ -751,7 +758,8 @@ check_configuration(const pgm_zone_t *zone)
 			(zone->max_allocations <= zone->max_metadata / 2) &&  // choose_metadata() relies on max_allocations << max_metadata
 			(zone->max_metadata <= zone->num_slots) &&
 			(zone->num_slots <= k_max_slots) &&
-			(zone->sample_counter_range > 0);
+			(zone->sample_counter_range > 0) &&
+			(0 <= zone->left_align_pct && zone->left_align_pct <= 100);
 }
 
 static bool
@@ -1291,6 +1299,7 @@ configure_zone(pgm_zone_t *zone)
 	uint32_t sample_rate = env_uint("MallocProbGuardSampleRate", choose_sample_rate());
 	// Approximate a (1 / sample_rate) chance for sampling; 1 means "always sample".
 	zone->sample_counter_range = (sample_rate != 1) ? (2 * sample_rate) : 1;
+	zone->left_align_pct = env_uint("MallocProbGuardLeftAlignPercentage", 10);
 	zone->debug = env_bool("MallocProbGuardDebug");
 	zone->debug_log_throttle_ms = env_uint("MallocProbGuardDebugLogThrottleInMillis", 1000);
 

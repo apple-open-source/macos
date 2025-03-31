@@ -57,6 +57,9 @@ public:
     }
     ~ServiceWorkerDownloadTask();
 
+    void ref() const final { NetworkDataTask::ref(); }
+    void deref() const final { NetworkDataTask::deref(); }
+
     WebCore::FetchIdentifier fetchIdentifier() const { return m_fetchIdentifier; }
     void contextClosed() { cancel(); }
     void start();
@@ -65,6 +68,8 @@ public:
 private:
     ServiceWorkerDownloadTask(NetworkSession&, NetworkDataTaskClient&, WebSWServerToContextConnection&, WebCore::ServiceWorkerIdentifier, WebCore::SWServerConnectionIdentifier, WebCore::FetchIdentifier, const WebCore::ResourceRequest&, const WebCore::ResourceResponse& response, DownloadID);
     void startListeningForIPC();
+
+    Ref<NetworkProcess> protectedNetworkProcess() const;
 
     // IPC Message
     void didReceiveData(const IPC::SharedBufferReference&, uint64_t encodedDataLength);

@@ -15,10 +15,10 @@
 #include <cstdint>
 #include <deque>
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 
-#include "absl/types/optional.h"
 #include "api/array_view.h"
 #include "api/candidate.h"
 #include "api/rtc_event_log/rtc_event.h"
@@ -227,8 +227,9 @@ ConvertIceCandidatePairEventType(IceCandidatePairEventType type) {
 
 }  // namespace
 
-std::string RtcEventLogEncoderLegacy::EncodeLogStart(int64_t timestamp_us,
-                                                     int64_t utc_time_us) {
+std::string RtcEventLogEncoderLegacy::EncodeLogStart(
+    int64_t timestamp_us,
+    int64_t /* utc_time_us */) {
   rtclog::Event rtclog_event;
   rtclog_event.set_timestamp_us(timestamp_us);
   rtclog_event.set_type(rtclog::Event::LOG_START);

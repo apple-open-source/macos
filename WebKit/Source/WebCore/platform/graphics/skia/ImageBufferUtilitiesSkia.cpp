@@ -30,16 +30,17 @@
 #include "GLContext.h"
 #include "MIMETypeRegistry.h"
 #include "PlatformDisplay.h"
+
+WTF_IGNORE_WARNINGS_IN_THIRD_PARTY_CODE_BEGIN
 #include <skia/core/SkData.h>
 #include <skia/core/SkImage.h>
 #include <skia/core/SkStream.h>
 #include <skia/encode/SkJpegEncoder.h>
-#include <wtf/text/WTFString.h>
-
-IGNORE_CLANG_WARNINGS_BEGIN("cast-align")
 #include <skia/encode/SkPngEncoder.h>
 #include <skia/encode/SkWebpEncoder.h>
-IGNORE_CLANG_WARNINGS_END
+WTF_IGNORE_WARNINGS_IN_THIRD_PARTY_CODE_END
+
+#include <wtf/text/WTFString.h>
 
 namespace WebCore {
 
@@ -52,7 +53,7 @@ public:
 
     bool write(const void* data, size_t length) override
     {
-        m_vector.append(std::span { static_cast<const uint8_t*>(data), length });
+        m_vector.append(unsafeMakeSpan(static_cast<const uint8_t*>(data), length));
         return true;
     }
 
@@ -123,7 +124,7 @@ Vector<uint8_t> encodeData(SkImage* image, const String& mimeType, std::optional
         if (!data)
             return { };
 
-        return std::span<const uint8_t> { reinterpret_cast<const uint8_t*>(data->data()), data->size() };
+        return unsafeMakeSpan(reinterpret_cast<const uint8_t*>(data->data()), data->size());
     }
 
     SkPixmap pixmap;

@@ -178,6 +178,7 @@ On failure, the callback should invoke
 '''archive_set_error'''() 
 to register an error code and message and 
 return 
+'''ARCHIVE_FATAL'''. 
 <ul> 
 <li> 
 ''typedef int'' 

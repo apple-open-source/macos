@@ -260,6 +260,67 @@ TEST_P(ShaderStorageBufferTest31, ExceedMaxCombinedShaderStorageBlocks)
     EXPECT_EQ(0u, program);
 }
 
+// Linking should not fail if block size in shader equals to GL_MAX_SHADER_STORAGE_BLOCK_SIZE.
+// Linking should fail if block size in shader exceeds GL_MAX_SHADER_STORAGE_BLOCK_SIZE.
+TEST_P(ShaderStorageBufferTest31, ExceedMaxShaderStorageBlockSize)
+{
+    GLint maxShaderStorageBlockSize = 0;
+    glGetIntegerv(GL_MAX_SHADER_STORAGE_BLOCK_SIZE, &maxShaderStorageBlockSize);
+    EXPECT_GL_NO_ERROR();
+
+    // Linking should not fail if block size in shader equals to GL_MAX_SHADER_STORAGE_BLOCK_SIZE.
+    std::ostringstream blockArraySize;
+    blockArraySize << (maxShaderStorageBlockSize / 4);
+    const std::string &computeShaderSource =
+        "#version 310 es\n"
+        "layout (local_size_x = 1) in;\n"
+        "layout(std430) buffer FullSizeBlock\n"
+        "{\n"
+        "uint data[" +
+        blockArraySize.str() +
+        "];\n"
+        "};\n"
+        "void main()\n"
+        "{\n"
+        "for (int i=0; i<" +
+        blockArraySize.str() +
+        "; i++)\n"
+        "{\n"
+        "data[i] = uint(0);\n"
+        "};\n"
+        "}\n";
+
+    GLuint ComputeProgram = CompileComputeProgram(computeShaderSource.c_str(), true);
+    EXPECT_NE(0u, ComputeProgram);
+    glDeleteProgram(ComputeProgram);
+
+    // Linking should fail if block size in shader exceeds GL_MAX_SHADER_STORAGE_BLOCK_SIZE.
+    std::ostringstream exceedBlockArraySize;
+    exceedBlockArraySize << (maxShaderStorageBlockSize / 4 + 1);
+    const std::string &exceedComputeShaderSource =
+        "#version 310 es\n"
+        "layout (local_size_x = 1) in;\n"
+        "layout(std430) buffer FullSizeBlock\n"
+        "{\n"
+        "uint data[" +
+        exceedBlockArraySize.str() +
+        "];\n"
+        "};\n"
+        "void main()\n"
+        "{\n"
+        "for (int i=0; i<" +
+        exceedBlockArraySize.str() +
+        "; i++)\n"
+        "{\n"
+        "data[i] = uint(0);\n"
+        "};\n"
+        "}\n";
+
+    GLuint exceedComputeProgram = CompileComputeProgram(exceedComputeShaderSource.c_str(), true);
+    EXPECT_EQ(0u, exceedComputeProgram);
+    glDeleteProgram(exceedComputeProgram);
+}
+
 // Test shader storage buffer read write.
 TEST_P(ShaderStorageBufferTest31, ShaderStorageBufferReadWrite)
 {
@@ -3044,6 +3105,53 @@ void main() {
 
     EXPECT_EQ(static_cast<const GLfloat *>(bufferData)[0], 123.0f);
     EXPECT_EQ(static_cast<const GLint *>(bufferData)[1], 321);
+
+    glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
+
+    EXPECT_GL_NO_ERROR();
+}
+
+// Test that certain floating-point values are unchanged after constant folding.
+TEST_P(ShaderStorageBufferTest31, ConstantFoldingPrecision)
+{
+    constexpr char kCS[] = R"(#version 310 es
+
+layout(std430, binding = 0) buffer block {
+    float f;
+} instance;
+
+layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+void main() {
+    instance.f = intBitsToFloat(0x0da5cc2f);
+})";
+
+    ANGLE_GL_COMPUTE_PROGRAM(program, kCS);
+
+    glUseProgram(program);
+
+    constexpr size_t kSize = sizeof(GLfloat);
+
+    // Create shader storage buffer
+    GLBuffer shaderStorageBuffer;
+
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, shaderStorageBuffer);
+    glBufferData(GL_SHADER_STORAGE_BUFFER, kSize, nullptr, GL_STATIC_DRAW);
+
+    // Bind shader storage buffer
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, shaderStorageBuffer);
+
+    glDispatchCompute(1, 1, 1);
+
+    glMemoryBarrier(GL_BUFFER_UPDATE_BARRIER_BIT | GL_SHADER_STORAGE_BARRIER_BIT);
+
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, shaderStorageBuffer);
+    const void *bufferData = glMapBufferRange(GL_SHADER_STORAGE_BUFFER, 0, kSize, GL_MAP_READ_BIT);
+
+    int32_t result = static_cast<const int32_t *>(bufferData)[0];
+
+    // Compare against the int32_t representation of the float passed to
+    // intBitsToFloat() in the shader.
+    EXPECT_EQ(result, 0x0da5cc2f);
 
     glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
 

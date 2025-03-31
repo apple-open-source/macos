@@ -34,14 +34,15 @@
 
 WTF_MAKE_TZONE_ALLOCATED_IMPL(WebPaymentCoordinatorClient);
 
-// FIXME: Why is this distinct from EmptyPaymentCoordinatorClient?
-WebPaymentCoordinatorClient::WebPaymentCoordinatorClient()
+Ref<WebPaymentCoordinatorClient> WebPaymentCoordinatorClient::create()
 {
+    return adoptRef(*new WebPaymentCoordinatorClient);
 }
 
-WebPaymentCoordinatorClient::~WebPaymentCoordinatorClient()
-{
-}
+// FIXME: Why is this distinct from EmptyPaymentCoordinatorClient?
+WebPaymentCoordinatorClient::WebPaymentCoordinatorClient() = default;
+
+WebPaymentCoordinatorClient::~WebPaymentCoordinatorClient() = default;
 
 std::optional<String> WebPaymentCoordinatorClient::validatedPaymentNetwork(const String&) const
 {

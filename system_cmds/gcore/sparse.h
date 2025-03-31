@@ -13,6 +13,7 @@ struct subregion {
     native_segment_command_t s_segcmd;
     const struct libent *s_libent;
     bool s_isuuidref;
+    bool s_isshared_dyld;
 };
 
 #define S_RANGE(s)	(&(s)->s_range)

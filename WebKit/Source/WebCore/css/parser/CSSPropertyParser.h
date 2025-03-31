@@ -23,8 +23,8 @@
 #pragma once
 
 #include "CSSCustomPropertySyntax.h"
+#include "CSSParserContext.h"
 #include "CSSParserTokenRange.h"
-#include "CSSPropertyParserHelpers.h"
 #include "StyleRuleType.h"
 #include <wtf/text/StringView.h>
 
@@ -92,6 +92,9 @@ private:
     // @view-transition descriptors.
     bool parseViewTransitionDescriptor(CSSPropertyID);
 
+    // @position-try descriptors.
+    bool parsePositionTryDescriptor(CSSPropertyID, bool important);
+
     void addProperty(CSSPropertyID longhand, CSSPropertyID shorthand, RefPtr<CSSValue>&&, bool important, bool implicit = false);
     void addExpandedProperty(CSSPropertyID shorthand, RefPtr<CSSValue>&&, bool important, bool implicit = false);
 
@@ -119,6 +122,8 @@ private:
 
     bool consumeAlignShorthand(const StylePropertyShorthand&, bool important);
 
+    bool consumeBlockStepShorthand(bool important);
+
     bool consumeFont(bool important);
     bool consumeTextDecorationSkip(bool important);
     bool consumeFontVariantShorthand(bool important);
@@ -128,6 +133,7 @@ private:
 
     // CSS3 Parsing Routines (for properties specific to CSS3)
     bool consumeBorderImage(CSSPropertyID, bool important);
+    bool consumeBorderRadius(CSSPropertyID, bool important);
 
     bool consumeFlex(bool important);
 
@@ -145,6 +151,7 @@ private:
     bool consumeContainerShorthand(bool important);
     bool consumeContainIntrinsicSizeShorthand(bool important);
 
+    bool consumeAnimationRangeShorthand(bool important);
     bool consumeScrollTimelineShorthand(bool important);
     bool consumeViewTimelineShorthand(bool important);
 

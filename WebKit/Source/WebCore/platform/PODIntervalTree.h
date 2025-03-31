@@ -41,7 +41,7 @@ struct PODIntervalNodeUpdater;
 // supports efficient (O(lg n)) insertion, removal and querying of
 // intervals in the tree.
 template<typename T, typename UserData> class PODIntervalTree final : public PODRedBlackTree<PODInterval<T, UserData>, PODIntervalNodeUpdater> {
-    WTF_MAKE_TZONE_ALLOCATED_INLINE(PODIntervalTree);
+    WTF_MAKE_TZONE_ALLOCATED_TEMPLATE(PODIntervalTree);
 public:
     using IntervalType = PODInterval<T, UserData>;
     class OverlapsSearchAdapter;
@@ -177,6 +177,14 @@ private:
 #endif
 
 };
+
+#define TZONE_TEMPLATE_PARAMS template<typename T, typename UserData>
+#define TZONE_TYPE PODIntervalTree<T, UserData>
+
+WTF_MAKE_TZONE_ALLOCATED_TEMPLATE_IMPL_WITH_MULTIPLE_OR_SPECIALIZED_PARAMETERS();
+
+#undef TZONE_TEMPLATE_PARAMS
+#undef TZONE_TYPE
 
 template<typename T, typename UserData> class PODIntervalTree<T, UserData>::OverlapsSearchAdapter {
 public:

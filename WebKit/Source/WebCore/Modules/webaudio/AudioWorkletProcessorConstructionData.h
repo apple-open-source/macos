@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2020 Apple Inc. All rights reserved.
+ * Copyright (C) 2020-2024 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -32,13 +32,12 @@
 
 #include "MessagePort.h"
 #include <wtf/Ref.h>
-#include <wtf/TZoneMallocInlines.h>
 #include <wtf/text/WTFString.h>
 
 namespace WebCore {
 
 class AudioWorkletProcessorConstructionData {
-    WTF_MAKE_TZONE_ALLOCATED_INLINE(AudioWorkletProcessorConstructionData);
+    WTF_MAKE_TZONE_ALLOCATED(AudioWorkletProcessorConstructionData);
 public:
     AudioWorkletProcessorConstructionData(String&& name, Ref<MessagePort>&& port)
         : m_name(WTFMove(name))

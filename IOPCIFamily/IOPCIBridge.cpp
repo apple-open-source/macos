@@ -225,6 +225,7 @@ bool IOPCIHostBridgeData::init(void)
 		_l1ssOverride = debug & 0xF;
 
 	_systemActive = true;
+	_systemWaking = false;
 
     IOService::getPMRootDomain()->registerInterest(gIOPriorityPowerStateInterest, &IOPCIHostBridgeData::systemPowerChange, 0, this);
 
@@ -764,6 +765,12 @@ bool IOPCIHostBridgeData::systemActive(void)
 	return _systemActive;
 }
 
+// Returns true if the system is waking
+bool IOPCIHostBridgeData::systemWaking(void)
+{
+	return _systemWaking;
+}
+
 IOReturn IOPCIHostBridgeData::systemPowerChange(void * target, void * refCon,
 										UInt32 messageType, IOService * service,
 										void * messageArgument, vm_size_t argSize)
@@ -783,6 +790,7 @@ IOReturn IOPCIHostBridgeData::systemPowerChange(void * target, void * refCon,
 					 (params->toCapabilities   & kIOPMSystemCapabilityCPU))
 				{
 					self->finishMachineState(0);
+					self->_systemWaking = false;
 					self->_systemActive = true;
 				}
 #if !ACPI_SUPPORT
@@ -795,6 +803,12 @@ IOReturn IOPCIHostBridgeData::systemPowerChange(void * target, void * refCon,
 #endif
 			}
 
+			// CPU capability will change from off to on
+			if (   (params->changeFlags & kIOPMSystemCapabilityWillChange)
+				&& ((params->fromCapabilities & kIOPMSystemCapabilityCPU))
+				&& ((params->toCapabilities   & kIOPMSystemCapabilityCPU) == 0)) {
+				self->_systemWaking = true;
+			}
 			// CPU capability will change from on to off
 			if (   (params->changeFlags & kIOPMSystemCapabilityWillChange)
 				&& ((params->fromCapabilities & kIOPMSystemCapabilityCPU))
@@ -1646,8 +1660,11 @@ void IOPCIBridge::slotControlWrite(IOPCIDevice *device,
 	// 1. Wait for up to 1s for the previous command, if any, to complete.
 	if (reserved->commandCompletedSupport && reserved->commandSent)
 	{
-		int i, bound = 1000;
-		for (i = 0; i < bound; i++)
+		uint64_t deltaNS = 0;
+
+		absolutetime_to_nanoseconds(mach_absolute_time() - reserved->commandSentTimestamp, &deltaNS);
+
+		while (deltaNS < NSEC_PER_SEC)
 		{
 			uint16_t slotStatus = device->configRead16(device->reserved->expressCapability + 0x1a);
 
@@ -1655,10 +1672,12 @@ void IOPCIBridge::slotControlWrite(IOPCIDevice *device,
 			{
 				break;
 			}
-			IOSleep(1);
+			IOSleepWithLeeway(1, 1);
+
+			absolutetime_to_nanoseconds(mach_absolute_time() - reserved->commandSentTimestamp, &deltaNS);
 		}
 
-		if (i == bound)
+		if (!(deltaNS < NSEC_PER_SEC))
 		{
 			IOLog("[%s()] Timed out waiting for command completed to be set for %s\n", __func__, device->getName());
 		}
@@ -1677,6 +1696,7 @@ void IOPCIBridge::slotControlWrite(IOPCIDevice *device,
 	device->configWrite16(device->reserved->expressCapability + 0x18, slotCtrl);
 
 	reserved->commandSent = true;
+	clock_get_uptime(&reserved->commandSentTimestamp);
 }
 
 static inline void saveConfigReg16( IOPCIConfigSave *save, IOPCIDevice *device, uint16_t offset)
@@ -1902,6 +1922,7 @@ static inline void restoreConfigReg32( IOPCIConfigSave *save, IOPCIDevice *devic
 IOReturn IOPCIBridge::_restoreDeviceState(IOPCIDevice * device, IOOptionBits options)
 {
 	AbsoluteTime deadline, start, now = 0;
+	bool retriedLinkCheck = false;
 	IOPCIConfigShadow * shadow;
 	IOPCIConfigSave   * saved;
 	uint32_t     retries;
@@ -1938,12 +1959,71 @@ IOReturn IOPCIBridge::_restoreDeviceState(IOPCIDevice * device, IOOptionBits opt
 	dead = device->reserved->dead;
 	if (!dead)
 	{
+#if ACPI_SUPPORT
 		ret = device->parent->checkLink();
+#else
+		// "Following a Conventional Reset of a device, within 1.0s the device
+		// must be able to receive a Configuration Request and return a
+		// Successful Completion if the Request is valid."
+		//
+		// When the system wakes, allow each link 1s to finish training.
+		// Because we don't know exactly when link training starts (except for
+		// the root link), we assume that device's link begins training when
+		// its upstream link finishes training. That timestamp is recorded in
+		// the upstream-facing port's nub's linkUpTimestamp member variable.
+		if (vars->systemWaking() && !device->isDownstreamFacing() && device->reserved->linkDepth > 0)
+		{
+			IOPCIDevice *upstreamNub = NULL;
+			IOPCIDevice *parentNub = NULL;
+			uint64_t elapsedTimeNS = 0;
+
+			// By virtue of device's linkDepth, there must be 2+ IOPCIDevice nubs above this one.
+			parentNub = OSDynamicCast(IOPCIDevice, device->getParentEntry(gIODTPlane));
+			assert(parentNub);
+			upstreamNub = OSDynamicCast(IOPCIDevice, parentNub->getParentEntry(gIODTPlane));
+			assert(upstreamNub);
+
+			assert(mach_absolute_time() > upstreamNub->reserved->linkUpTimestamp);
+
+			do {
+				absolutetime_to_nanoseconds(mach_absolute_time() - upstreamNub->reserved->linkUpTimestamp, &elapsedTimeNS);
+				ret = device->parent->checkLink(kCheckLinkInTraining);
+				if (kIOReturnSuccess != ret)
+				{
+					retriedLinkCheck = true;
+				}
+			} while ((kIOReturnSuccess != ret) && (elapsedTimeNS / NSEC_PER_SEC) < 1);
+		}
+
+		if (kIOReturnSuccess != ret)
+		{
+			// Final check without kCheckLinkInTraining, which permits ::checkLink()
+			// to update software state to indicate when the link partner is no
+			// longer present.
+			ret = device->parent->checkLink();
+		}
+#endif
+
 		if (kIOReturnSuccess != ret)
 		{
 			IOLog("%s(%u:%u:%u): pci restore no link\n", device->getName(), PCI_ADDRESS_TUPLE(device));
 			dead = true;
 			data = ret;
+		}
+	}
+
+	if (!dead)
+	{
+		if (!device->isDownstreamFacing())
+		{
+			device->reserved->linkUpTimestamp = mach_absolute_time();
+		}
+
+		if (retriedLinkCheck == true)
+		{
+			// The link just finished training, so wait 100 ms after link up before
+			// making any configuration requests (PCI Express Base 5.0 - 6.6.1)
+			IOSleep(100);
 		}
 	}
 
@@ -2130,6 +2210,10 @@ IOReturn IOPCIBridge::_restoreDeviceState(IOPCIDevice * device, IOOptionBits opt
 	if (!(kIOPCIConfigShadowPermanent & flags))
 	{
 		device->reserved->dead = dead;
+	}
+
+	if (dead)
+	{
 		device->setProperty(kIOPCIDeviceDeadOnRestoreKey, kOSBooleanTrue);
 	}
 
@@ -3225,6 +3309,7 @@ void IOPCIBridge::probeBusGated( probeBusParams *params )
     IORegistryEntry *  found;
     OSDictionary *     propTable;
     IOPCIDevice *      nub = 0;
+    IOPCIDevice *      bridgeNub = 0;
     OSIterator *       kidsIter;
     IOService *        provider = params->provider;
     uint8_t            busNum = params->busNum;
@@ -3250,6 +3335,8 @@ void IOPCIBridge::probeBusGated( probeBusParams *params )
     // find and copy over any devices from the device tree
     OSArray * nubs = OSArray::withCapacity(0x10);
     assert(nubs);
+
+	bridgeNub = OSDynamicCast(IOPCIDevice, getParentEntry(gIOServicePlane));
 
     if (kidsIter) {
         kidsIter->reset();
@@ -3315,6 +3402,46 @@ void IOPCIBridge::probeBusGated( probeBusParams *params )
                 {
                     nub->reserved->expressCapability = capa;
                     nub->reserved->expressCapabilities = nub->configRead16(capa + 0x02);
+
+					// Calculate the the nub's link's depth in the hierarchy. '0' is the root
+					// port's link, '1' is the next set of links, etc.
+					/*
+                    |------------------------------------------------|
+					|      Depth 0        Depth 1         Depth 2    |
+                    |      -------        -------         -------    |
+                    |                               /-----|          |
+                    |                              /  |DSP|          |
+					|              /-----|        |---|---|     |--| |
+					|             /  |DSP|<------>|USP|DSP|<--->|EP| |
+					|   |--|     |---|---|        |---|---|     |--| |
+					|   |RP|<--->|USP|DSP|         \  |DSP|          |
+					|   |--|     |---|---|     |--| \-|---|          |
+					|             \  |DSP|<--->|EP|                  |
+					|              \-----|     |--|                  |
+                    |                                                |
+                    |------------------------------------------------|
+					*/
+					if (bridgeNub == NULL)
+					{
+						nub->reserved->linkDepth = 0;
+					}
+					else
+					{
+						if (!nub->isDownstreamFacing())
+						{
+							nub->reserved->linkDepth = bridgeNub->reserved->linkDepth;
+						}
+						else
+						{
+							nub->reserved->linkDepth = bridgeNub->reserved->linkDepth + 1;
+						}
+					}
+
+					DLOG("[%s()] nub %s@%u:%u:%u has link depth %u\n",
+						__func__,
+						nub->getName(),
+						PCI_ADDRESS_TUPLE(nub),
+						nub->reserved->linkDepth);
 				}
 
                 capa = 0;
@@ -3327,13 +3454,12 @@ void IOPCIBridge::probeBusGated( probeBusParams *params )
 					// have the L1 PM capability)
 					if (!nub->isDownstreamFacing())
 					{
-						IOPCIDevice *linkPartner = OSDynamicCast(IOPCIDevice, getParentEntry(gIOServicePlane));
-						assert(linkPartner);
+						assert(bridgeNub);
 
-						if (linkPartner->reserved->l1pmCapability)
+						if (bridgeNub->reserved->l1pmCapability)
 						{
-							calculateL1PMParameters(nub, linkPartner);
-							calculateL1PMParameters(linkPartner, nub);
+							calculateL1PMParameters(nub, bridgeNub);
+							calculateL1PMParameters(bridgeNub, nub);
 						}
 					}
                 }
@@ -4265,6 +4391,16 @@ IOReturn IOPCI2PCIBridge::checkLink(uint32_t options)
 		return (kIOReturnNoDevice);
 
 	present = (0 != ((1 << 13) & linkStatus));
+
+	// The kCheckLinkInTraining flag denotes that the link may still be training, so
+	// don't conclude whether the link partner is present or not (i.e. update
+	// fPresenceInt and potentially zero the bridge config registers). The caller
+	// should retry without the flag on the last check attempt.
+	if (!present && (kCheckLinkInTraining & options))
+	{
+		return kIOReturnOffline;
+	}
+
 	if (fPresenceInt != present)
 	{
 		fPresenceInt = present;
@@ -4671,7 +4807,7 @@ IOReturn IOPCI2PCIBridge::busProbe(IOPCIDevice *device, uint32_t options)
 
 
 			// If a prior termination, publish, or pause is in progress, defer the probe for 10ms
-			if (   ((fPresence == true || !fHotPlugInts) && getBusyState() != 0)
+			if (   ((fPresence == true) && getBusyState() != 0)
 				|| (vars->_publishSet->getCount() > 0)
 				|| (vars->_waitingPauseSet->getCount() > 0)
 				|| (vars->_pausedSet->getCount() > 0))
@@ -4686,7 +4822,7 @@ IOReturn IOPCI2PCIBridge::busProbe(IOPCIDevice *device, uint32_t options)
 			// If our link partner is no longer present, probe the bus to
 			// initiate termination. Otherwise, if a system power state
 			// transition is in progress, defer the probe 1s.
-			if ((fPresence == true || !fHotPlugInts) && (!vars->systemActive() || (kIOPCIDeviceOnState != fPowerState)))
+			if ((fPresence == true) && (!vars->systemActive() || (kIOPCIDeviceOnState != fPowerState)))
 			{
 				DLOG("%s: resetting probe timeout due to power state transition\n", fLogName);
 				fNeedProbe = true;
@@ -4942,6 +5078,11 @@ bool IOPCI2PCIBridge::configure( IOService * provider )
     }
     while(false);
 
+	if (!fHotPlugInts)
+	{
+		fPresence = true;
+	}
+
     saveBridgeState();
     if (fBridgeDevice->savedConfig)
     {
@@ -5075,6 +5216,12 @@ void IOPCI2PCIBridge::startBootDefer(IOService * provider)
 	DLOG("%s: start boot deferred\n", provider->getName());
 	provider->removeProperty(kIOPCITunnelBootDeferKey);
 	startBridgeInterrupts(provider);
+
+	if (!fHotPlugInts)
+	{
+		fPresence = true;
+	}
+
     if (fBridgeInterruptEnablePending)
     {
         // enable int source
@@ -5113,15 +5260,106 @@ IOReturn IOPCI2PCIBridge::requestProbe( IOOptionBits options )
     return (super::requestProbe(options));
 }
 
+void IOPCI2PCIBridge::detectLinkPartner(void)
+{
+	OSIterator *childIter = getChildIterator(gIOServicePlane);
+	AbsoluteTime deadline, start, now = 0;
+	bool needRescan = false;
+	OSObject *obj = NULL;
+
+	clock_get_uptime(&start);
+
+	// some devices take 600ms+ to be available rdar://problem/58030724
+	clock_interval_to_deadline(2000, kMillisecondScale, &deadline);
+
+	while (    (childIter != NULL)
+			&& ((obj = childIter->getNextObject()) != NULL))
+	{
+		IOPCIDevice *child = OSDynamicCast(IOPCIDevice, obj);
+		uint32_t retries = 0, data = 0;
+		bool ok = false;
+
+		if (!child || !child->getProperty("terminate-on-restore-failure"))
+		{
+			continue;
+		}
+
+		do
+		{
+			if (retries) IOSleep(2);
+			data = child->configRead32(kIOPCIConfigVendorID);
+			// Section 2.3.2 of PCIe spec. If the root complex implements Configuration Request Retry Status
+			// "For a Configuration Read Request that includes both bytes of the VendorID field of a device Function's
+			// Configuration Space Header, the Root Complex must complete the Request to the host by returning a
+			// read-data value of 0001h for the Vendor ID field and all '1's for any additional bytes included in the request."
+			ok = (data && (data != 0xFFFFFFFF) && (data != 0xffff0001));
+			if (data != child->savedConfig[kIOPCIConfigVendorID >> 2])
+			{
+				// A device in the process of loading their configuration from EEPROM could return
+				// an incorrect VID/DID. Just in case, retry (until the timeout).
+				DLOG("%s(%u:%u:%u): pci restore invalid deviceid 0x%08x (expected 0x%08x)\n", child->getName(), PCI_ADDRESS_TUPLE(child), data, child->savedConfig[kIOPCIConfigVendorID >> 2]);
+				ok = false;
+			}
+			if (ok) break;
+			retries++;
+			clock_get_uptime(&now);
+		}
+		while (AbsoluteTime_to_scalar(&now) < AbsoluteTime_to_scalar(&deadline));
+
+		if (!ok)
+		{
+			needRescan = true;
+		}
+	}
+
+	OSSafeReleaseNULL(childIter);
+
+	if (needRescan)
+	{
+		const uint64_t waitQuietTimeoutNS = 1000;
+
+		// Either the link is down or the function(s) are unresponsive;
+		// functionally, it's no longer present.
+		fPresence = false;
+
+		DLOG("[%s()] Requesting rescan of %u:%u:%u\n", __func__, PCI_ADDRESS_TUPLE(fBridgeDevice));
+
+		// Rescan the hierarchy to trigger termination(s)
+		fBridgeDevice->kernelRequestProbe(kIOPCIProbeOptionDone | kIOPCIProbeOptionNeedsScan);
+
+		DLOG("[%s()] Done probing\n", __func__);
+
+		while (kIOReturnTimeout == fBridgeDevice->waitQuiet(waitQuietTimeoutNS));
+
+		DLOG("[%s()] Done waiting for %u:%u:%u's busy count to go to zero\n", __func__, PCI_ADDRESS_TUPLE(fBridgeDevice));
+	}
+}
+
 IOReturn IOPCI2PCIBridge::setPowerState( unsigned long powerState,
                                             IOService * whatDevice )
 {
 #if ACPI_SUPPORT
 	return setPowerStateGated(&powerState, whatDevice);
 #else
-    return getConfiguratorWorkLoop()->runAction(
+    IOReturn ret = getConfiguratorWorkLoop()->runAction(
                 OSMemberFunctionCast(IOCommandGate::Action, this, &IOPCI2PCIBridge::setPowerStateGated),
                 this, &powerState, whatDevice);
+
+
+	if (powerState == kIOPCIDeviceOnState && fBridgeDevice->isDownstreamFacing())
+	{
+		// If this downstream port's link partner opted in to termination on
+		// restore failure, check whether endpoint VID/DID reads are successful.
+		// This duplicates logic in IOPCIBridge::_restoreDeviceState(), but
+		// termination must take place before the nub's IOPM callout executes.
+		//
+		// Check this outside of the workloop so termination does not deadlock
+		// attempting to acquire the workloop mutex.
+
+		detectLinkPartner();
+	}
+
+	return ret;
 #endif
 }
 
@@ -6287,6 +6525,55 @@ IOPCIBridge::childClientCrashRecoveryGated(IOPCIDevice *child)
 		// occurs during termination.
 		temporaryPowerClampOn();
 	}
+
+	// If the nub's BARs are not programmed correctly, restore them. They can get wiped out
+	// if a dext crashes in the middle of a reset.
+    OSArray *deviceMemoryArray = OSDynamicCast(OSArray, child->getProperty(gIODeviceMemoryKey));
+
+    if (kPCIHeaderType0 == child->reserved->headerType && deviceMemoryArray != NULL)
+	{
+		for (unsigned int i = 0; i < deviceMemoryArray->getCount(); i++)
+		{
+		    IOMemoryDescriptor *memoryDescriptor = OSDynamicCast(IOMemoryDescriptor, deviceMemoryArray->getObject(static_cast<uint32_t>(i)));
+		    if (memoryDescriptor == NULL)
+		    {
+		        continue;
+		    }
+
+		    IOPCIAddressSpace addressSpace = { .bits = static_cast<uint32_t>(memoryDescriptor->getTag()) };
+			uint8_t barIndex = (addressSpace.s.registerNum - kIOPCIConfigBaseAddress0) >> 2;
+
+			IOPCIRange *range = child->reserved->configEntry->ranges[barIndex];
+
+			uint32_t bar = child->configRead32(addressSpace.s.registerNum) & ~0xF;
+
+			if (bar != (range->start & 0xFFFFFFFF))
+			{
+				DLOG("[%s()] BAR%u (0x%x) does not match expected value (0x%x)\n", __func__, barIndex, bar, range->start & 0xFFFFFFFF);
+
+				child->configWrite32(addressSpace.s.registerNum, range->start & 0xFFFFFFFF);
+
+				savedConfigWrite32(&configShadow(child)->configSave, addressSpace.s.registerNum, range->start & 0xFFFFFFFF);
+			}
+
+			if (barIndex == kIOPCIRangeExpansionROM || !(kIOPCIRangeFlagBar64 & range->flags))
+			{
+				// Not a 64-bit BAR, continue
+				continue;
+			}
+
+			bar = child->configRead32(addressSpace.s.registerNum + 4) & ~0xF;
+
+			if (bar != (range->start >> 32))
+			{
+				DLOG("[%s()] BAR%u (0x%x) does not match expected value (0x%x)\n", __func__, barIndex + 1, bar, range->start >> 32);
+
+				child->configWrite32(addressSpace.s.registerNum + 4, range->start >> 32);
+
+				savedConfigWrite32(&configShadow(child)->configSave, addressSpace.s.registerNum + 4, range->start >> 32);
+			}
+		}
+    }
 
     OSIterator* peerIterator = getChildIterator(gIOServicePlane);
     OSObject*   peer         = NULL;

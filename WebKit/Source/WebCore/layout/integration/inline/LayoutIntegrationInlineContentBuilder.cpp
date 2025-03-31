@@ -29,7 +29,6 @@
 #include "InlineDamage.h"
 #include "InlineDisplayBox.h"
 #include "LayoutBoxGeometry.h"
-#include "LayoutIntegrationBoxTree.h"
 #include "LayoutIntegrationInlineContent.h"
 #include "LayoutState.h"
 #include "RenderBlockFlowInlines.h"
@@ -93,134 +92,30 @@ static std::tuple<float, float> glyphOverflowInInlineDirection(size_t firstTextB
     return { leadingOverflow(), trailingOverflow() };
 }
 
-InlineContentBuilder::InlineContentBuilder(const RenderBlockFlow& blockFlow, BoxTree& boxTree)
+InlineContentBuilder::InlineContentBuilder(const RenderBlockFlow& blockFlow)
     : m_blockFlow(blockFlow)
-    , m_boxTree(boxTree)
 {
 }
 
 FloatRect InlineContentBuilder::build(Layout::InlineLayoutResult&& layoutResult, InlineContent& inlineContent, const Layout::InlineDamage* lineDamage) const
 {
     inlineContent.releaseCaches();
-    computeIsFirstIsLastBoxAndBidiReorderingForInlineContent(layoutResult.displayContent.boxes);
+    auto damageRect = FloatRect { };
 
     if (layoutResult.range == Layout::InlineLayoutResult::Range::Full) {
-        auto damagedRect = FloatRect { };
-
         for (auto& line : inlineContent.displayContent().lines)
-            damagedRect.unite(line.inkOverflow());
+            damageRect.unite(line.inkOverflow());
 
         inlineContent.displayContent().set(WTFMove(layoutResult.displayContent));
         adjustDisplayLines(inlineContent, 0);
 
         for (auto& line : inlineContent.displayContent().lines)
-            damagedRect.unite(line.inkOverflow());
-        return damagedRect;
-    }
+            damageRect.unite(line.inkOverflow());
+    } else
+        damageRect = handlePartialDisplayContentUpdate(WTFMove(layoutResult), inlineContent, lineDamage);
 
-    auto handlePartialDisplayContentUpdate = [&]() -> FloatRect {
-
-        auto firstDamagedLineIndex = [&]() -> std::optional<size_t> {
-            auto& displayContentFromPreviousLayout = inlineContent.displayContent();
-            if (!lineDamage || !lineDamage->layoutStartPosition() || !displayContentFromPreviousLayout.lines.size())
-                return { };
-            auto canidateLineIndex = lineDamage->layoutStartPosition()->lineIndex;
-            if (canidateLineIndex >= displayContentFromPreviousLayout.lines.size()) {
-                ASSERT_NOT_REACHED();
-                return { };
-            }
-            if (layoutResult.displayContent.boxes.size() && canidateLineIndex > layoutResult.displayContent.boxes[0].lineIndex()) {
-                // We should never generate lines _before_ the damaged line.
-                ASSERT_NOT_REACHED();
-                return { };
-            }
-            return { canidateLineIndex };
-        }();
-
-        auto firstDamagedBoxIndex = [&]() -> std::optional<size_t> {
-            auto& displayContentFromPreviousLayout = inlineContent.displayContent();
-            return firstDamagedLineIndex ? std::make_optional(displayContentFromPreviousLayout.lines[*firstDamagedLineIndex].firstBoxIndex()) : std::nullopt;
-        }();
-
-        auto numberOfDamagedLines = [&]() -> std::optional<size_t> {
-            if (!firstDamagedLineIndex)
-                return { };
-            auto& displayContentFromPreviousLayout = inlineContent.displayContent();
-            ASSERT(layoutResult.range != Layout::InlineLayoutResult::Range::Full);
-            auto canidateLineCount = layoutResult.range == Layout::InlineLayoutResult::Range::FullFromDamage
-                ? displayContentFromPreviousLayout.lines.size() - *firstDamagedLineIndex
-                : layoutResult.displayContent.lines.size();
-
-            if (*firstDamagedLineIndex + canidateLineCount > displayContentFromPreviousLayout.lines.size()) {
-                ASSERT_NOT_REACHED();
-                return { };
-            }
-            return { canidateLineCount };
-        }();
-
-        auto numberOfDamagedBoxes = [&]() -> std::optional<size_t> {
-            if (!firstDamagedLineIndex || !numberOfDamagedLines || !firstDamagedBoxIndex)
-                return { };
-            auto& displayContentFromPreviousLayout = inlineContent.displayContent();
-            ASSERT(*firstDamagedLineIndex + *numberOfDamagedLines <= displayContentFromPreviousLayout.lines.size());
-            size_t boxCount = 0;
-            for (size_t i = 0; i < *numberOfDamagedLines; ++i)
-                boxCount += displayContentFromPreviousLayout.lines[*firstDamagedLineIndex + i].boxCount();
-            ASSERT(boxCount);
-            return { boxCount };
-        }();
-
-        if (!firstDamagedLineIndex || !numberOfDamagedLines || !firstDamagedBoxIndex || !numberOfDamagedBoxes) {
-            ASSERT_NOT_REACHED();
-            return { };
-        }
-
-        auto numberOfNewLines = layoutResult.displayContent.lines.size();
-        auto numberOfNewBoxes = layoutResult.displayContent.boxes.size();
-
-        auto damagedRect = FloatRect { };
-        auto adjustDamagedRectWithLineRange = [&](size_t firstLineIndex, size_t lineCount) {
-            auto& lines = inlineContent.displayContent().lines;
-            ASSERT(firstLineIndex + lineCount <= lines.size());
-            for (size_t i = 0; i < lineCount; ++i)
-                damagedRect.unite(lines[firstLineIndex + i].inkOverflow());
-        };
-
-        // Repaint the damaged content boundary.
-        adjustDamagedRectWithLineRange(*firstDamagedLineIndex, *numberOfDamagedLines);
-
-        if (layoutResult.range == Layout::InlineLayoutResult::Range::FullFromDamage) {
-            auto& displayContent = inlineContent.displayContent();
-            displayContent.remove(*firstDamagedLineIndex, *numberOfDamagedLines, *firstDamagedBoxIndex, *numberOfDamagedBoxes);
-            displayContent.append(WTFMove(layoutResult.displayContent));
-        } else if (layoutResult.range == Layout::InlineLayoutResult::Range::PartialFromDamage) {
-            auto& displayContent = inlineContent.displayContent();
-            displayContent.remove(*firstDamagedLineIndex, *numberOfDamagedLines, *firstDamagedBoxIndex, *numberOfDamagedBoxes);
-            displayContent.insert(WTFMove(layoutResult.displayContent), *firstDamagedLineIndex, *firstDamagedBoxIndex);
-
-            auto adjustCachedBoxIndexesIfNeeded = [&] {
-                if (numberOfNewBoxes == *numberOfDamagedBoxes)
-                    return;
-                auto firstCleanLineIndex = *firstDamagedLineIndex + *numberOfDamagedLines;
-                auto offset = numberOfNewBoxes - *numberOfDamagedBoxes;
-                auto& lines = displayContent.lines;
-                for (size_t cleanLineIndex = firstCleanLineIndex; cleanLineIndex < lines.size(); ++cleanLineIndex) {
-                    ASSERT(lines[cleanLineIndex].firstBoxIndex() + offset > 0);
-                    auto adjustedFirstBoxIndex = std::max<size_t>(0, lines[cleanLineIndex].firstBoxIndex() + offset);
-                    lines[cleanLineIndex].setFirstBoxIndex(adjustedFirstBoxIndex);
-                }
-            };
-            adjustCachedBoxIndexesIfNeeded();
-        } else
-            ASSERT_NOT_REACHED();
-
-        adjustDisplayLines(inlineContent, *firstDamagedLineIndex);
-        // Repaint the new content boundary.
-        adjustDamagedRectWithLineRange(*firstDamagedLineIndex, numberOfNewLines);
-
-        return damagedRect;
-    };
-    return handlePartialDisplayContentUpdate();
+    computeIsFirstIsLastBoxAndBidiReorderingForInlineContent(inlineContent.displayContent().boxes);
+    return damageRect;
 }
 
 void InlineContentBuilder::updateLineOverflow(InlineContent& inlineContent) const
@@ -236,7 +131,7 @@ void InlineContentBuilder::adjustDisplayLines(InlineContent& inlineContent, size
     size_t boxIndex = !startIndex ? 0 : lines[startIndex - 1].lastBoxIndex() + 1;
     auto& rootBoxStyle = m_blockFlow.style();
     auto isLeftToRightInlineDirection = rootBoxStyle.isLeftToRightDirection();
-    auto isHorizontalWritingMode = rootBoxStyle.isHorizontalWritingMode();
+    auto isHorizontalWritingMode = rootBoxStyle.writingMode().isHorizontal();
 
     for (size_t lineIndex = startIndex; lineIndex < lines.size(); ++lineIndex) {
         auto& line = lines[lineIndex];
@@ -286,11 +181,11 @@ void InlineContentBuilder::adjustDisplayLines(InlineContent& inlineContent, size
             if (box.isAtomicInlineBox()) {
                 auto& renderer = downcast<RenderBox>(*box.layoutBox().rendererForIntegration());
                 if (!renderer.hasSelfPaintingLayer()) {
-                    auto childInkOverflow = renderer.logicalVisualOverflowRectForPropagation(&renderer.parent()->style());
+                    auto childInkOverflow = renderer.logicalVisualOverflowRectForPropagation(renderer.parent()->writingMode());
                     childInkOverflow.move(box.left(), box.top());
                     inkOverflowRect.unite(childInkOverflow);
                 }
-                auto childScrollableOverflow = renderer.layoutOverflowRectForPropagation(&renderer.parent()->style());
+                auto childScrollableOverflow = renderer.layoutOverflowRectForPropagation(renderer.parent()->writingMode());
                 childScrollableOverflow.move(box.left(), box.top());
                 scrollableOverflowRect.unite(childScrollableOverflow);
                 continue;
@@ -310,7 +205,7 @@ void InlineContentBuilder::adjustDisplayLines(InlineContent& inlineContent, size
         line.setScrollableOverflow(scrollableOverflowRect);
         line.setInkOverflow(inkOverflowRect);
         line.setFirstBoxIndex(firstBoxIndex);
-        line.setBoxCount(boxIndex - firstBoxIndex);
+        ASSERT(line.boxCount() == boxIndex - firstBoxIndex);
 
         if (lineIndex) {
             auto& lastInkOverflow = lines[lineIndex - 1].inkOverflow();
@@ -329,7 +224,7 @@ void InlineContentBuilder::computeIsFirstIsLastBoxAndBidiReorderingForInlineCont
         return;
     }
 
-    HashMap<const Layout::Box*, size_t> lastDisplayBoxForLayoutBoxIndexes;
+    UncheckedKeyHashMap<const Layout::Box*, size_t> lastDisplayBoxForLayoutBoxIndexes;
     lastDisplayBoxForLayoutBoxIndexes.reserveInitialCapacity(boxes.size() - 1);
 
     ASSERT(boxes[0].isRootInlineBox());
@@ -353,6 +248,116 @@ void InlineContentBuilder::computeIsFirstIsLastBoxAndBidiReorderingForInlineCont
         boxes[index].setIsLastForLayoutBox(true);
 
     boxes[lastRootInlineBoxIndex].setIsLastForLayoutBox(true);
+}
+
+FloatRect InlineContentBuilder::handlePartialDisplayContentUpdate(Layout::InlineLayoutResult&& layoutResult, InlineContent& inlineContent, const Layout::InlineDamage* lineDamage) const
+{
+    auto firstDamagedLineIndex = [&]() -> std::optional<size_t> {
+        auto& displayContentFromPreviousLayout = inlineContent.displayContent();
+        if (!lineDamage || !lineDamage->layoutStartPosition() || !displayContentFromPreviousLayout.lines.size())
+            return { };
+        auto canidateLineIndex = lineDamage->layoutStartPosition()->lineIndex;
+        if (canidateLineIndex >= displayContentFromPreviousLayout.lines.size()) {
+            ASSERT_NOT_REACHED();
+            return { };
+        }
+        if (layoutResult.displayContent.boxes.size() && canidateLineIndex > layoutResult.displayContent.boxes[0].lineIndex()) {
+            // We should never generate lines _before_ the damaged line.
+            ASSERT_NOT_REACHED();
+            return { };
+        }
+        return { canidateLineIndex };
+    }();
+
+    auto firstDamagedBoxIndex = [&]() -> std::optional<size_t> {
+        auto& displayContentFromPreviousLayout = inlineContent.displayContent();
+        return firstDamagedLineIndex ? std::make_optional(displayContentFromPreviousLayout.lines[*firstDamagedLineIndex].firstBoxIndex()) : std::nullopt;
+    }();
+
+    auto numberOfDamagedLines = [&]() -> std::optional<size_t> {
+        if (!firstDamagedLineIndex)
+            return { };
+        auto& displayContentFromPreviousLayout = inlineContent.displayContent();
+        ASSERT(layoutResult.range != Layout::InlineLayoutResult::Range::Full);
+        auto canidateLineCount = layoutResult.range == Layout::InlineLayoutResult::Range::FullFromDamage
+            ? displayContentFromPreviousLayout.lines.size() - *firstDamagedLineIndex
+            : layoutResult.displayContent.lines.size();
+
+        if (*firstDamagedLineIndex + canidateLineCount > displayContentFromPreviousLayout.lines.size()) {
+            ASSERT_NOT_REACHED();
+            return { };
+        }
+        return { canidateLineCount };
+    }();
+
+    auto numberOfDamagedBoxes = [&]() -> std::optional<size_t> {
+        if (!firstDamagedLineIndex || !numberOfDamagedLines || !firstDamagedBoxIndex)
+            return { };
+        auto& displayContentFromPreviousLayout = inlineContent.displayContent();
+        ASSERT(*firstDamagedLineIndex + *numberOfDamagedLines <= displayContentFromPreviousLayout.lines.size());
+        size_t boxCount = 0;
+        for (size_t i = 0; i < *numberOfDamagedLines; ++i)
+            boxCount += displayContentFromPreviousLayout.lines[*firstDamagedLineIndex + i].boxCount();
+        ASSERT(boxCount);
+        return { boxCount };
+    }();
+
+    if (!firstDamagedLineIndex || !numberOfDamagedLines || !firstDamagedBoxIndex || !numberOfDamagedBoxes) {
+        ASSERT_NOT_REACHED();
+        return { };
+    }
+
+    auto numberOfNewLines = layoutResult.displayContent.lines.size();
+    auto numberOfNewBoxes = layoutResult.displayContent.boxes.size();
+
+    auto damagedRect = FloatRect { };
+    auto adjustDamagedRectWithLineRange = [&](size_t firstLineIndex, size_t lineCount) {
+        auto& lines = inlineContent.displayContent().lines;
+        ASSERT(firstLineIndex + lineCount <= lines.size());
+        for (size_t i = 0; i < lineCount; ++i)
+            damagedRect.unite(lines[firstLineIndex + i].inkOverflow());
+    };
+
+    // Repaint the damaged content boundary.
+    adjustDamagedRectWithLineRange(*firstDamagedLineIndex, *numberOfDamagedLines);
+
+    switch (layoutResult.range) {
+    case Layout::InlineLayoutResult::Range::FullFromDamage: {
+        auto& displayContent = inlineContent.displayContent();
+        displayContent.remove(*firstDamagedLineIndex, *numberOfDamagedLines, *firstDamagedBoxIndex, *numberOfDamagedBoxes);
+        displayContent.append(WTFMove(layoutResult.displayContent));
+        break;
+    }
+    case Layout::InlineLayoutResult::Range::PartialFromDamage: {
+        auto& displayContent = inlineContent.displayContent();
+        displayContent.remove(*firstDamagedLineIndex, *numberOfDamagedLines, *firstDamagedBoxIndex, *numberOfDamagedBoxes);
+        displayContent.insert(WTFMove(layoutResult.displayContent), *firstDamagedLineIndex, *firstDamagedBoxIndex);
+
+        auto adjustCachedBoxIndexesIfNeeded = [&] {
+            if (numberOfNewBoxes == *numberOfDamagedBoxes)
+                return;
+            auto firstCleanLineIndex = *firstDamagedLineIndex + *numberOfDamagedLines;
+            auto offset = numberOfNewBoxes - *numberOfDamagedBoxes;
+            auto& lines = displayContent.lines;
+            for (size_t cleanLineIndex = firstCleanLineIndex; cleanLineIndex < lines.size(); ++cleanLineIndex) {
+                ASSERT(lines[cleanLineIndex].firstBoxIndex() + offset > 0);
+                auto adjustedFirstBoxIndex = std::max<size_t>(0, lines[cleanLineIndex].firstBoxIndex() + offset);
+                lines[cleanLineIndex].setFirstBoxIndex(adjustedFirstBoxIndex);
+            }
+        };
+        adjustCachedBoxIndexesIfNeeded();
+        break;
+    }
+    case Layout::InlineLayoutResult::Range::Full:
+    default:
+        ASSERT_NOT_REACHED();
+    }
+
+    adjustDisplayLines(inlineContent, *firstDamagedLineIndex);
+    // Repaint the new content boundary.
+    adjustDamagedRectWithLineRange(*firstDamagedLineIndex, numberOfNewLines);
+
+    return damagedRect;
 }
 
 }

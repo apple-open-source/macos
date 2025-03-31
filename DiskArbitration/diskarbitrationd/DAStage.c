@@ -41,6 +41,8 @@
 #include <sysexits.h>
 #include <os/transaction_private.h>
 #include <MediaKit/GPTTypes.h>
+#include <sys/stat.h>
+
 
 ///w:start
 void ___os_transaction_begin( void );
@@ -234,6 +236,24 @@ static void __DAStageDispatch( void * info )
                     continue;
                 }
 
+                if ( DADiskGetDescription( disk, kDADiskDescriptionVolumeUUIDKey ) )
+                {
+                    CFURLRef danglingPath  = CFDictionaryGetValue( gDADanglingVolumeList, DADiskGetDescription( disk, kDADiskDescriptionVolumeUUIDKey ) );
+                    struct statfs fs     = { 0 };
+                    char source[MAXPATHLEN];
+                    if ( danglingPath )
+                    {
+                        if (CFURLGetFileSystemRepresentation( danglingPath, TRUE, ( void * ) source, sizeof( source ) ) )
+                        {
+                            int status = statfs( source, &fs );
+                            if (status == 0 && strncmp( fs.f_mntonname, kDAMainDataVolumeMountPointFolder, strlen( kDAMainDataVolumeMountPointFolder ) ) == 0 )
+                            {
+                                DALogInfo("dangling mountpoint present ignore mountpoint %@", disk);
+                                continue;
+                            }
+                        }
+                    }
+                }
                 /*
                  * We stall the "mount" stage if the conditions are not right.
                  */
@@ -848,6 +868,12 @@ static void __DAStageProbeCallback( int             status,
                 /*
                  * We have determined that the disk is mounted.
                  */
+                if ( DADiskGetDescription( disk, kDADiskDescriptionVolumeUUIDKey ) &&
+                    CFDictionaryGetValue( gDADanglingVolumeList, DADiskGetDescription( disk, kDADiskDescriptionVolumeUUIDKey ) ) )
+                {
+                    DALogInfo("dangling device present ignore mountpoint %@", DADiskGetDescription( disk, kDADiskDescriptionVolumeUUIDKey ));
+                    continue;
+                }
 
                 CFURLRef path;
 

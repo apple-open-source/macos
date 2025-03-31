@@ -269,6 +269,9 @@ public:
         RELEASE_ASSERT_NOT_REACHED();
     }
 
+    constexpr static bool abortedDueToError() { return false; }
+    constexpr static JSC::Yarr::ErrorCode abortErrorCode() { return JSC::Yarr::ErrorCode::NoError; }
+
 private:
     bool hasError() const
     {

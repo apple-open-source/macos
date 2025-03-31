@@ -1,4 +1,0 @@
-extern module CUPS_Private "../cups_private.modulemap"
-
-module CUPS_Private_Placeholder_OldFile [system] {
-}

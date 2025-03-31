@@ -8,6 +8,8 @@
 #import <Foundation/Foundation.h>
 #import <Security/Security.h>
 
+#include <os/feature_private.h>
+
 #include <utilities/SecInternalReleasePriv.h>
 #include <utilities/SecCFRelease.h>
 #include <utilities/SecCFWrappers.h>
@@ -32,6 +34,8 @@
 @property NSMutableArray *policies;
 @property BOOL enableTestCertificates;
 @property BOOL disableCT;
+@property BOOL featureFlagsNotEnabled;
+@property NSNumber *expectedFFResult;
 @end
 
 @implementation TestTrustEvaluation
@@ -160,6 +164,13 @@ const NSString *kSecTrustTestEnableTestCerts= @"EnableTestCertificates"; /* Opti
 const NSString *kSecTrustTestDisableBridgeOS= @"BridgeOSDisable";   /* Optional; value: boolean */
 const NSString *kSecTrustTestDisableCT      = @"DisableCT";         /* Optional; value: boolean */
 const NSString *kSecTrustTestDirectory      = @"CertDirectory";     /* Required; value: string */
+
+/* Feature flags
+ * If feature flags are provided in the test dictionary, the behavior of the test will change if the FFs
+ * are *not* enabled. If FFExpectedResult is set, the expected result is changed when any of the FFs is
+ * not enabled. If FFExpectedResult is not provided, the test is skipped if any of the FFs is not enabled. */
+const NSString *kSecTrustTestFeatureFlags   = @"FeatureFlags";      /* Optional: value: array of FF strings */
+const NSString *kSecTrustTestFFExpectedResult = @"FFExpectedResult"; /* Optional: value: number */
 
 /* Key Constants for Policies Dictionaries */
 const NSString *kSecTrustTestPolicyOID      = @"PolicyIdentifier";  /* Required; value: string */
@@ -346,7 +357,10 @@ errOut:
     require_string([self addThirdPartyPinningPolicyChecks:properties policy:policy], errOut, "failed to parse properties for third-party-pinning policy checks");
 
     if (self.disableCT) {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
         SecPolicySetOptionsValue(policy, kSecPolicyCheckSystemTrustedCTRequired, kCFBooleanFalse);
+#pragma clang diagnostic pop
     }
 
     [self.policies addObject:(__bridge id)policy];
@@ -429,6 +443,21 @@ errOut:
     /* We need to skip CT checks on some of these to prevent needing to replace test certs regularly (see rdar://132272332) */
     self.disableCT = [testDict[kSecTrustTestDisableCT] boolValue];
 
+    /* Indicate that the required feature flags are not enabled */
+    NSArray *ffs = testDict[kSecTrustTestFeatureFlags];
+    if ([ffs isKindOfClass:[NSArray class]]) {
+        for (NSString *ff in ffs) {
+            if ([ff isKindOfClass:[NSString class]]) {
+                const char *ff_string = [ff cStringUsingEncoding:NSUTF8StringEncoding];
+                if (!_os_feature_enabled_impl("Security", ff_string)) {
+                    self.featureFlagsNotEnabled = true;
+                }
+            }
+        }
+    }
+
+
+
     /* Test name, for documentation purposes */
     majorTestName = testDict[kSecTrustTestMajorTestName];
     minorTestName = testDict[kSecTrustTestMinorTestName];
@@ -490,6 +519,7 @@ errOut:
     /* Set expected results */
     self.expectedResult = testDict[kSecTrustTestExpectedResult];
     self.expectedChainLength = testDict[kSecTrustTestChainLength];
+    self.expectedFFResult = testDict[kSecTrustTestFFExpectedResult];
 
 #if DEBUG
     fprintf(stderr, "END trust creation for %s\n", [self.fullTestName cStringUsingEncoding:NSUTF8StringEncoding]);
@@ -520,6 +550,17 @@ errOut:
         return false;
     }
 
+    /* Necessary Feature Flags are not enabled and no expected result provided so we skip */
+    if (self.featureFlagsNotEnabled && !self.expectedFFResult) {
+        return true;
+    }
+
+    /* Change expected result if FFs not enabled */
+    NSNumber *expectedResult = self.expectedResult;
+    if (self.featureFlagsNotEnabled && self.expectedFFResult) {
+        expectedResult = self.expectedFFResult;
+    }
+
     SecTrustResultType trustResult = kSecTrustResultInvalid;
     if (errSecSuccess != SecTrustGetTrustResult(self.trust, &trustResult)) {
         if (outError) {
@@ -534,22 +575,23 @@ errOut:
     bool result = false;
 
     /* If we enabled test certificates on a non-internal device, expect a failure instead of success. */
-    if (self.enableTestCertificates && !SecIsInternalRelease() && ([self.expectedResult unsignedIntValue] == 4)) {
+    if (self.enableTestCertificates && !SecIsInternalRelease() && ([expectedResult unsignedIntValue] == 4)) {
         if (trustResult == kSecTrustResultRecoverableTrustFailure) {
             result = true;
         }
-    } else if (trustResult == [self.expectedResult unsignedIntValue]) {
+    } else if (trustResult == [expectedResult unsignedIntValue]) {
         result = true;
     }
 
     if (!result) {
         NSString *failureDescription = CFBridgingRelease(SecTrustCopyFailureDescription(self.trust));
         if (outError) {
-            NSString *errorDescription = [NSString stringWithFormat:@"Test %@: Expected result %@ %s does not match actual result %u %s with eval failure %@",
-                                          self.fullTestName, self.expectedResult,
+            NSString *errorDescription = [NSString stringWithFormat:@"Test %@: Expected result %@ %s does not match actual result %u %s %s with eval failure %@",
+                                          self.fullTestName, expectedResult,
                                           (self.enableTestCertificates ? "for test cert" : ""),
                                           trustResult,
                                           SecIsInternalRelease() ? "" : "on prod device",
+                                          self.featureFlagsNotEnabled ? "with feature flags disabled" : "",
                                           failureDescription];
             *outError = [NSError errorWithDomain:@"TrustTestsError" code:(-3)
                                         userInfo:@{ NSLocalizedFailureReasonErrorKey : errorDescription}];

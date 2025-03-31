@@ -13,7 +13,7 @@
 
 #include "av1/common/common.h"
 #include "av1/encoder/firstpass.h"
-#include "third_party/googletest/src/googletest/include/gtest/gtest.h"
+#include "gtest/gtest.h"
 
 namespace {
 

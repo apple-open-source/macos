@@ -727,7 +727,7 @@ IOReturn IOHIDLibUserClient::close()
 {
     IOHIDBlockedReport * report = NULL;
 
-    HIDLibUserClientLogInfo("close");
+    HIDLibUserClientLogInfo("close (set reports:%d(err:%d), get reports:%d(err:%d))", fSetReportCnt, fSetReportErrCnt, fGetReportCnt, fGetReportErrCnt);
 
     require_quiet(fNub && fClientOpened, exit);
 
@@ -1031,6 +1031,30 @@ bool IOHIDLibUserClient::serializeDebugState(void *ref __unused, OSSerialize *se
     num = OSNumber::withNumber(fReportLimit, 32);
     if (num) {
         debugDict->setObject("MaxEnqueueReportSize", num);
+        num->release();
+    }
+
+    num = OSNumber::withNumber(fSetReportCnt, 32);
+    if (num) {
+        debugDict->setObject("SetReportCnt", num);
+        num->release();
+    }
+
+    num = OSNumber::withNumber(fSetReportErrCnt, 32);
+    if (num) {
+        debugDict->setObject("SetReportErrCnt", num);
+        num->release();
+    }
+
+    num = OSNumber::withNumber(fGetReportCnt, 32);
+    if (num) {
+        debugDict->setObject("GetReportCnt", num);
+        num->release();
+    }
+
+    num = OSNumber::withNumber(fGetReportErrCnt, 32);
+    if (num) {
+        debugDict->setObject("GetReportErrCnt", num);
         num->release();
     }
 
@@ -1873,6 +1897,13 @@ IOReturn IOHIDLibUserClient::getReport(IOMemoryDescriptor * mem, uint32_t * pOut
     }
 
 exit:
+
+    if (ret == kIOReturnSuccess) {
+        ++fGetReportCnt;
+    }
+    else {
+        ++fGetReportErrCnt;
+    }
     return ret;
 }
 
@@ -1991,6 +2022,13 @@ IOReturn IOHIDLibUserClient::setReport(IOMemoryDescriptor * mem, IOHIDReportType
 exit:
     OSSafeReleaseNULL(obj);
     OSSafeReleaseNULL(itr);
+
+    if (ret == kIOReturnSuccess) {
+        ++fSetReportCnt;
+    }
+    else {
+        ++fSetReportErrCnt;
+    }
     return ret;
 }
 

@@ -430,3 +430,14 @@ get_protection_class(const char *path)
 	}
 	return attrs.prot_class;
 }
+
+uint64_t
+get_purgeable_flags(const char *path)
+{
+	uint64_t flags = 0;
+	int error = fsctl(path, APFSIOC_GET_PURGEABLE_FILE_FLAGS, &flags, 0);
+	if (error) {
+		err(errno, "get_purgeable_flags: fsctl failed for path <%s>", path);
+	}
+	return flags & APFS_PURGEABLE_FLAGS_MASK;
+}

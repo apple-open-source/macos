@@ -2,7 +2,7 @@
 //  PSCert.m
 //  CertificateTool
 //
-//  Copyright (c) 2012-2017 Apple Inc. All Rights Reserved.
+//  Copyright (c) 2012-2017,2024 Apple Inc. All Rights Reserved.
 //
 
 #import "PSCert.h"
@@ -56,10 +56,17 @@ static CFDataRef GetSubjectKeyID(SecCertificateRef cert)
 @synthesize certificate_hash = _certificate_hash;
 @synthesize certificate_sha256_hash = _certificate_sha256_hash;
 @synthesize public_key_hash = _public_key_hash;
+@synthesize spki_hash = _spki_hash;
 @synthesize file_path = _file_path;
 @synthesize auth_key_id = _auth_key_id;
 @synthesize subj_key_id = _subj_key_id;
 @synthesize flags = _flags;
+@synthesize anchor_type = _anchor_type;
+
+static NSString* kSecAnchorTypeUndefined = @"none";
+static NSString* kSecAnchorTypeSystem = @"system";
+static NSString* kSecAnchorTypePlatform = @"platform";
+static NSString* kSecAnchorTypeCustom = @"custom";
 
 
 - (id)initWithCertFilePath:(NSString *)filePath withFlags:(NSNumber*)flags
@@ -88,9 +95,19 @@ static CFDataRef GetSubjectKeyID(SecCertificateRef cert)
         _public_key_hash = nil;
         _auth_key_id = nil;
         _subj_key_id = nil;
-        _certificate_sha256_hash = nil;
-
         _certificate_hash = [self getCertificateHash];
+        _certificate_sha256_hash = [self getCertificateSHA256Hash];
+        _spki_hash = [self getSPKIHash:certRef];
+
+        if (isSystem & assetFlags) {
+            _anchor_type = kSecAnchorTypeSystem;
+        } else if (isPlatform & assetFlags) {
+            _anchor_type = kSecAnchorTypePlatform;
+        } else if (isCustom & assetFlags) {
+            _anchor_type = kSecAnchorTypeCustom;
+        } else {
+            _anchor_type = kSecAnchorTypeUndefined;
+        }
 
         if (isAnchor & assetFlags)
         {
@@ -238,6 +255,11 @@ extern CFDataRef SecCertificateCopyPublicKeySHA1DigestFromCertificateData(CFAllo
     }
 
     return result;
+}
+
+- (NSData *)getSPKIHash:(SecCertificateRef)cert_ref
+{
+    return CFBridgingRelease(SecCertificateCopySubjectPublicKeyInfoSHA256Digest(cert_ref));
 }
 
 - (NSString *)getKeyIDString:(SecCertificateRef)cert_ref forAuthKey:(BOOL)auth_key

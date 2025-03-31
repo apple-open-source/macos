@@ -29,15 +29,6 @@
  * SUCH DAMAGE.
  */
 
-#if 0
-#ifndef lint
-static char sccsid[] = "@(#)misc.c	8.3 (Berkeley) 4/2/94";
-#endif
-#endif
-
-#include <sys/cdefs.h>
-__FBSDID("$FreeBSD$");
-
 #include <sys/types.h>
 
 #include <err.h>
@@ -52,17 +43,15 @@ eofmsg(const char *file)
 {
 	if (!sflag)
 		warnx("EOF on %s", file);
-	exit(DIFF_EXIT);
 }
 
 void
 diffmsg(const char *file1, const char *file2, off_t byte, off_t line,
     int b1, int b2)
 {
-	if (sflag)
-		goto out;
-
-	if (bflag) {
+	if (sflag) {
+		/* nothing */
+	} else if (bflag) {
 		(void)printf("%s %s differ: char %lld, line %lld is %3o %c %3o %c\n",
 		    file1, file2, (long long)byte, (long long)line, b1, b1,
 		    b2, b2);
@@ -70,6 +59,4 @@ diffmsg(const char *file1, const char *file2, off_t byte, off_t line,
 		(void)printf("%s %s differ: char %lld, line %lld\n",
 		    file1, file2, (long long)byte, (long long)line);
 	}
-out:
-	exit(DIFF_EXIT);
 }

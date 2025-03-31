@@ -3,7 +3,7 @@
  *
  * SPDX-License-Identifier: BSD-2-Clause
  *
- * Copyright (c) 2018-2023 Gavin D. Howard and contributors.
+ * Copyright (c) 2018-2024 Gavin D. Howard and contributors.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -215,6 +215,26 @@ bc_num_zeroDigits(const BcDig* n)
 }
 
 /**
+ * Returns the power of 10 that the least significant limb should be multiplied
+ * by to put its digits in the right place. For example, if the scale only
+ * reaches 8 places into the limb, this will return 1 (because it should be
+ * multiplied by 10^1) to put the number in the correct place.
+ * @param scale  The scale.
+ * @return       The power of 10 that the least significant limb should be
+ *               multiplied by
+ */
+static inline size_t
+bc_num_leastSigPow(size_t scale)
+{
+	size_t digs;
+
+	digs = scale % BC_BASE_DIGS;
+	digs = digs != 0 ? BC_BASE_DIGS - digs : 0;
+
+	return bc_num_pow10[digs];
+}
+
+/**
  * Return the total number of integer digits in a number. This is the opposite
  * of scale, like bc_num_int() is the opposite of rdx.
  * @param n  The number.
@@ -252,6 +272,33 @@ bc_num_nonZeroLen(const BcNum* restrict n)
 	assert(i + 1 > 0);
 
 	return i + 1;
+}
+
+/**
+ * Returns the power of 10 that a number with an absolute value less than 1
+ * needs to be multiplied by in order to be greater than 1 or less than -1.
+ * @param n  The number.
+ * @return   The power of 10 that a number greater than 1 and less than -1 must
+ *           be multiplied by to be greater than 1 or less than -1.
+ */
+static size_t
+bc_num_negPow10(const BcNum* restrict n)
+{
+	// Figure out how many limbs after the decimal point is zero.
+	size_t i, places, idx = bc_num_nonZeroLen(n) - 1;
+
+	places = 1;
+
+	// Figure out how much in the last limb is zero.
+	for (i = BC_BASE_DIGS - 1; i < BC_BASE_DIGS; --i)
+	{
+		if (bc_num_pow10[i] > (BcBigDig) n->num[idx]) places += 1;
+		else break;
+	}
+
+	// Calculate the combination of zero limbs and zero digits in the last
+	// limb.
+	return places + (BC_NUM_RDX_VAL(n) - (idx + 1)) * BC_BASE_DIGS;
 }
 
 /**
@@ -547,10 +594,8 @@ bc_num_truncate(BcNum* restrict n, size_t places)
 		size_t pow;
 
 		// This calculates how many decimal digits are in the least significant
-		// limb.
-		pow = n->scale % BC_BASE_DIGS;
-		pow = pow ? BC_BASE_DIGS - pow : 0;
-		pow = bc_num_pow10[pow];
+		// limb, then gets the power for that.
+		pow = bc_num_leastSigPow(n->scale);
 
 		n->len -= places_rdx;
 
@@ -1911,6 +1956,9 @@ bc_num_d(BcNum* a, BcNum* b, BcNum* restrict c, size_t scale)
 	// actual algorithm easier to understand because it can assume a lot of
 	// things. Thus, you should view all of this setup code as establishing
 	// assumptions for bc_num_d_long(), where the actual division happens.
+	//
+	// But in short, this setup makes it so bc_num_d_long() can pretend the
+	// numbers are integers.
 	if (cpardx == cpa.len) cpa.len = bc_num_nonZeroLen(&cpa);
 	if (BC_NUM_RDX_VAL_NP(cpb) == cpb.len) cpb.len = bc_num_nonZeroLen(&cpb);
 	cpb.scale = 0;
@@ -2860,21 +2908,11 @@ bc_num_printExponent(const BcNum* restrict n, bool eng, bool newline)
 	// number is all fractional or not, obviously.
 	if (neg)
 	{
-		// Figure out how many limbs after the decimal point is zero.
-		size_t i, idx = bc_num_nonZeroLen(n) - 1;
+		// Figure out the negative power of 10.
+		places = bc_num_negPow10(n);
 
-		places = 1;
-
-		// Figure out how much in the last limb is zero.
-		for (i = BC_BASE_DIGS - 1; i < BC_BASE_DIGS; --i)
-		{
-			if (bc_num_pow10[i] > (BcBigDig) n->num[idx]) places += 1;
-			else break;
-		}
-
-		// Calculate the combination of zero limbs and zero digits in the last
-		// limb.
-		places += (nrdx - (idx + 1)) * BC_BASE_DIGS;
+		// Figure out how many digits mod 3 there are (important for
+		// engineering mode).
 		mod = places % 3;
 
 		// Calculate places if we are in engineering mode.
@@ -2929,14 +2967,14 @@ exit:
 #endif // BC_ENABLE_EXTRA_MATH
 
 /**
- * Converts a number from limbs with base BC_BASE_POW to base @a pow, where
- * @a pow is obase^N.
+ * Takes a number with limbs with base BC_BASE_POW and converts the limb at the
+ * given index to base @a pow, where @a pow is obase^N.
  * @param n    The number to convert.
  * @param rem  BC_BASE_POW - @a pow.
  * @param pow  The power of obase we will convert the number to.
  * @param idx  The index of the number to start converting at. Doing the
  *             conversion is O(n^2); we have to sweep through starting at the
- *             least significant limb
+ *             least significant limb.
  */
 static void
 bc_num_printFixup(BcNum* restrict n, BcBigDig rem, BcBigDig pow, size_t idx)
@@ -2998,8 +3036,8 @@ bc_num_printFixup(BcNum* restrict n, BcBigDig rem, BcBigDig pow, size_t idx)
 }
 
 /**
- * Prepares a number for printing in a base that is not a divisor of
- * BC_BASE_POW. This basically converts the number from having limbs of base
+ * Prepares a number for printing in a base that does not have BC_BASE_POW as a
+ * power. This basically converts the number from having limbs of base
  * BC_BASE_POW to limbs of pow, where pow is obase^N.
  * @param n    The number to prepare for printing.
  * @param rem  The remainder of BC_BASE_POW when divided by a power of the base.
@@ -3207,12 +3245,30 @@ bc_num_printNum(BcNum* restrict n, BcBigDig base, size_t len,
 		assert(ptr != NULL);
 
 		// While the first three arguments should be self-explanatory, the last
-		// needs explaining. I don't want to print a newline when the last digit
-		// to be printed could take the place of the backslash rather than being
-		// pushed, as a single character, to the next line. That's what that
-		// last argument does for bc.
+		// needs explaining. I don't want to print a backslash+newline when the
+		// last digit to be printed could take the place of the backslash rather
+		// than being pushed, as a single character, to the next line. That's
+		// what that last argument does for bc.
+		//
+		// First, it needs to check if newlines are completely disabled. If they
+		// are not disabled, it needs to check the next part.
+		//
+		// If the number has a scale, then because we are printing just the
+		// integer part, there will be at least two more characters (a radix
+		// point plus at least one digit). So if there is a scale, a backslash
+		// is necessary.
+		//
+		// Finally, the last condition checks to see if we are at the end of the
+		// stack. If we are *not* (i.e., the index is not one less than the
+		// stack length), then a backslash is necessary because there is at
+		// least one more character for at least one more digit). Otherwise, if
+		// the index is equal to one less than the stack length, we want to
+		// disable backslash printing.
+		//
+		// The function that prints bases 17 and above will take care of not
+		// printing a backslash in the right case.
 		print(*ptr, len, false,
-		      !newline || (n->scale != 0 || i == stack.len - 1));
+		      !newline || (n->scale != 0 || i < stack.len - 1));
 	}
 
 	// We are done if there is no fractional part.
@@ -3515,8 +3571,9 @@ bc_num_print(BcNum* restrict n, BcBigDig base, bool newline)
 		// Print the sign.
 		if (BC_NUM_NEG(n)) bc_num_putchar('-', true);
 
-		// Print the leading zero if necessary.
-		if (BC_Z && BC_NUM_RDX_VAL(n) == n->len)
+		// Print the leading zero if necessary. We don't print when using
+		// scientific or engineering modes.
+		if (BC_Z && BC_NUM_RDX_VAL(n) == n->len && base != 0 && base != 1)
 		{
 			bc_num_printHex(0, 1, false, !newline);
 		}
@@ -3815,7 +3872,7 @@ void
 bc_num_irand(BcNum* restrict a, BcNum* restrict b, BcRNG* restrict rng)
 {
 	BcNum atemp;
-	size_t i, len;
+	size_t i;
 
 	assert(a != b);
 
@@ -3835,24 +3892,76 @@ bc_num_irand(BcNum* restrict a, BcNum* restrict b, BcRNG* restrict rng)
 	assert(atemp.num != NULL);
 	assert(atemp.len);
 
-	len = atemp.len - 1;
-
-	// Just generate a random number for each limb.
-	for (i = 0; i < len; ++i)
+	if (atemp.len > 2)
 	{
-		b->num[i] = (BcDig) bc_rand_bounded(rng, BC_BASE_POW);
+		size_t len;
+
+		len = atemp.len - 2;
+
+		// Just generate a random number for each limb.
+		for (i = 0; i < len; i += 2)
+		{
+			BcRand dig;
+
+			dig = bc_rand_bounded(rng, BC_BASE_RAND_POW);
+
+			b->num[i] = (BcDig) (dig % BC_BASE_POW);
+			b->num[i + 1] = (BcDig) (dig / BC_BASE_POW);
+		}
+	}
+	else
+	{
+		// We need this set.
+		i = 0;
 	}
 
-	// Do the last digit explicitly because the bound must be right. But only
-	// do it if the limb does not equal 1. If it does, we have already hit the
-	// limit.
-	if (atemp.num[i] != 1)
+	// This will be true if there's one full limb after the two limb groups.
+	if (i == atemp.len - 2)
 	{
-		b->num[i] = (BcDig) bc_rand_bounded(rng, (BcRand) atemp.num[i]);
-		b->len = atemp.len;
+		// Increment this for easy use.
+		i += 1;
+
+		// If the last digit is not one, we need to set a bound for it
+		// explicitly. Since there's still an empty limb, we need to fill that.
+		if (atemp.num[i] != 1)
+		{
+			BcRand dig;
+			BcRand bound;
+
+			// Set the bound to the bound of the last limb times the amount
+			// needed to fill the second-to-last limb as well.
+			bound = ((BcRand) atemp.num[i]) * BC_BASE_POW;
+
+			dig = bc_rand_bounded(rng, bound);
+
+			// Fill the last two.
+			b->num[i - 1] = (BcDig) (dig % BC_BASE_POW);
+			b->num[i] = (BcDig) (dig / BC_BASE_POW);
+
+			// Ensure that the length will be correct. If the last limb is zero,
+			// then the length needs to be one less than the bound.
+			b->len = atemp.len - (b->num[i] == 0);
+		}
+		// Here the last limb *is* one, which means the last limb does *not*
+		// need to be filled. Also, the length needs to be one less because the
+		// last limb is 0.
+		else
+		{
+			b->num[i - 1] = (BcDig) bc_rand_bounded(rng, BC_BASE_POW);
+			b->len = atemp.len - 1;
+		}
 	}
-	// We want 1 less len in the case where we skip the last limb.
-	else b->len = len;
+	// Here, there is only one limb to fill.
+	else
+	{
+		// See above for how this works.
+		if (atemp.num[i] != 1)
+		{
+			b->num[i] = (BcDig) bc_rand_bounded(rng, (BcRand) atemp.num[i]);
+			b->len = atemp.len - (b->num[i] == 0);
+		}
+		else b->len = atemp.len - 1;
+	}
 
 	bc_num_clean(b);
 
@@ -4038,13 +4147,14 @@ bc_num_sqrt(BcNum* restrict a, BcNum* restrict b, size_t scale)
 
 	// Square root needs half of the length of the parameter.
 	req = bc_vm_growSize(BC_MAX(rdx, BC_NUM_RDX_VAL(a)), len >> 1);
+	req = bc_vm_growSize(req, 1);
 
 	BC_SIG_LOCK;
 
 	// Unlike the binary operators, this function is the only single parameter
 	// function and is expected to initialize the result. This means that it
 	// expects that b is *NOT* preallocated. We allocate it here.
-	bc_num_init(b, bc_vm_growSize(req, 1));
+	bc_num_init(b, req);
 
 	BC_SIG_UNLOCK;
 
@@ -4077,13 +4187,12 @@ bc_num_sqrt(BcNum* restrict a, BcNum* restrict b, size_t scale)
 	bc_num_init(&num2, len);
 	bc_num_setup(&half, half_digs, sizeof(half_digs) / sizeof(BcDig));
 
-	// There is a division by two in the formula. We setup a number that's 1/2
+	// There is a division by two in the formula. We set up a number that's 1/2
 	// so that we can use multiplication instead of heavy division.
-	bc_num_one(&half);
+	bc_num_setToZero(&half, 1);
 	half.num[0] = BC_BASE_POW / 2;
 	half.len = 1;
 	BC_NUM_RDX_SET_NP(half, 1);
-	half.scale = 1;
 
 	bc_num_init(&f, len);
 	bc_num_init(&fprime, len);
@@ -4103,8 +4212,9 @@ bc_num_sqrt(BcNum* restrict a, BcNum* restrict b, size_t scale)
 	pow = bc_num_intDigits(a);
 
 	// The code in this if statement calculates the initial estimate. First, if
-	// a is less than 0, then 0 is a good estimate. Otherwise, we want something
-	// in the same ballpark. That ballpark is pow.
+	// a is less than 1, then 0 is a good estimate. Otherwise, we want something
+	// in the same ballpark. That ballpark is half of pow because the result
+	// will have half the digits.
 	if (pow)
 	{
 		// An odd number is served by starting with 2^((pow-1)/2), and an even

@@ -86,27 +86,6 @@
         <true/>
         <key>SupportsExternalPrebootObjects</key>
         <true/>
-        <key>OtherRequiredPaths</key>
-        <array>
-            <dict>
-                <key>SourcePath</key>
-                <string>./Library/Preferences/SystemConfiguration/com.apple.Boot.plist</string>
-                <key>DestinationPath</key>
-                <string>./Library/Preferences/SystemConfiguration/com.apple.Boot.plist</string>
-            </dict>
-            <dict>
-                <key>SourcePath</key>
-                <string>./System/Library/CoreServices/PlatformSupport.plist</string>
-                <key>DestinationPath</key>
-                <string>./System/Library/CoreServices/PlatformSupport.plist</string>
-            </dict>
-            <dict>
-                <key>SourcePath</key>
-                <string>./System/Library/CoreServices/SystemVersion.plist</string>
-                <key>DestinationPath</key>
-                <string>./System/Library/CoreServices/SystemVersion.plist</string>
-            </dict>
-        </array>
         <key>BootObjects</key>
         <dict>
             <key>KernelCache</key>
@@ -133,21 +112,21 @@
             <key>Ap,ANE1</key>
             <dict>
                 <key>DestinationPath</key>
-                <string>./usr/standalone/firmware/FUD/ANE1.img4</string>
+                <string>./usr/standalone/firmware/FUD/Ap,ANE1.img4</string>
                 <key>ManifestRule</key>
                 <integer>1</integer>
             </dict>
             <key>Ap,ANE2</key>
             <dict>
                 <key>DestinationPath</key>
-                <string>./usr/standalone/firmware/FUD/ANE2.img4</string>
+                <string>./usr/standalone/firmware/FUD/Ap,ANE2.img4</string>
                 <key>ManifestRule</key>
                 <integer>1</integer>
             </dict>
             <key>Ap,ANE3</key>
             <dict>
                 <key>DestinationPath</key>
-                <string>./usr/standalone/firmware/FUD/ANE3.img4</string>
+                <string>./usr/standalone/firmware/FUD/Ap,ANE3.img4</string>
                 <key>ManifestRule</key>
                 <integer>1</integer>
             </dict>
@@ -162,6 +141,13 @@
             <dict>
                 <key>DestinationPath</key>
                 <string>./usr/standalone/firmware/FUD/AOP.img4</string>
+                <key>ManifestRule</key>
+                <integer>1</integer>
+            </dict>
+            <key>AOP2</key>
+            <dict>
+                <key>DestinationPath</key>
+                <string>./usr/standalone/firmware/FUD/AOP2.img4</string>
                 <key>ManifestRule</key>
                 <integer>1</integer>
             </dict>
@@ -358,6 +344,20 @@
             <dict>
                 <key>DestinationPath</key>
                 <string>./usr/standalone/firmware/FUD/Ap,SCodec.img4</string>
+                <key>ManifestRule</key>
+                <integer>1</integer>
+            </dict>
+            <key>Ap,MSRFirmware</key>
+            <dict>
+                <key>DestinationPath</key>
+                <string>./usr/standalone/firmware/FUD/Ap,MSRFirmware.img4</string>
+                <key>ManifestRule</key>
+                <integer>1</integer>
+            </dict>
+            <key>Ap,SecureM3Firmware</key>
+            <dict>
+                <key>DestinationPath</key>
+                <string>./usr/standalone/firmware/FUD/Ap,SecureM3Firmware.img4</string>
                 <key>ManifestRule</key>
                 <integer>1</integer>
             </dict>

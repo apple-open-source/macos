@@ -164,10 +164,12 @@ invoke_tool_from_fskit(fskit_command_t operation, int flags,
                     // Next!
                     return;
                 }
-                if ([optarg isEqualToString:@"ro"]
-                        || [optarg isEqualToString:@"rdonly"]) {
+                NSArray<NSString *> *oOptions   = [optarg componentsSeparatedByString:@","];
+                NSSet<NSString *>   *oSet       = [[NSSet alloc] initWithArray:oOptions];
+
+                if ([oSet containsObject:@"ro"] || [oSet containsObject:@"rdonly"]) {
                     writable = false;
-                } else if ([optarg isEqualToString:@"rw"]) {
+                } else if ([oSet containsObject:@"rw"]) {
                     writable = true;
                 }
             }];

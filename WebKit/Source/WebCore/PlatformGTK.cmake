@@ -51,6 +51,7 @@ list(APPEND WebCore_PRIVATE_FRAMEWORK_HEADERS
     accessibility/atspi/AccessibilityRootAtspi.h
 
     platform/glib/ApplicationGLib.h
+    platform/glib/SystemSettings.h
 
     platform/graphics/egl/PlatformDisplayDefault.h
     platform/graphics/egl/PlatformDisplaySurfaceless.h
@@ -72,8 +73,6 @@ list(APPEND WebCore_PRIVATE_FRAMEWORK_HEADERS
 
     platform/text/enchant/TextCheckerEnchant.h
 )
-
-set(CSS_VALUE_PLATFORM_DEFINES "HAVE_OS_DARK_MODE_SUPPORT=1")
 
 list(APPEND WebCore_LIBRARIES
     ${ENCHANT_LIBRARIES}
@@ -118,15 +117,6 @@ endif ()
 
 if (ENABLE_BUBBLEWRAP_SANDBOX)
     list(APPEND WebCore_LIBRARIES Libseccomp::Libseccomp)
-endif ()
-
-if (ENABLE_SPEECH_SYNTHESIS)
-    list(APPEND WebCore_SYSTEM_INCLUDE_DIRECTORIES
-        ${Flite_INCLUDE_DIRS}
-    )
-    list(APPEND WebCore_LIBRARIES
-        ${Flite_LIBRARIES}
-    )
 endif ()
 
 if (USE_SKIA)

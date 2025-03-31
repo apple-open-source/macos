@@ -342,6 +342,12 @@ en{
                 one{"{0} nanosecond"}
                 other{"{0} nanoseconds"}
             }
+            night{
+                dnam{"nights"}
+                one{"{0} night"}
+                other{"{0} nights"}
+                per{"{0} per night"}
+            }
             quarter{
                 dnam{"quarters"}
                 one{"{0} quarter"}
@@ -841,6 +847,11 @@ en{
                 dnam{"knots"}
                 one{"{0} knot"}
                 other{"{0} knots"}
+            }
+            light-speed{
+                dnam{"light"}
+                one{"{0} light"}
+                other{"{0} light"}
             }
             meter-per-second{
                 dnam{"meters per second"}
@@ -1405,6 +1416,12 @@ en{
                 one{"{0}ns"}
                 other{"{0}ns"}
             }
+            night{
+                dnam{"nights"}
+                one{"{0}night"}
+                other{"{0}nights"}
+                per{"{0}/night"}
+            }
             quarter{
                 dnam{"qtr"}
                 one{"{0}q"}
@@ -1904,6 +1921,11 @@ en{
                 dnam{"kn"}
                 one{"{0}kn"}
                 other{"{0}kn"}
+            }
+            light-speed{
+                dnam{"light"}
+                one{"{0}light"}
+                other{"{0}light"}
             }
             meter-per-second{
                 dnam{"m/s"}
@@ -2468,6 +2490,12 @@ en{
                 one{"{0} ns"}
                 other{"{0} ns"}
             }
+            night{
+                dnam{"nights"}
+                one{"{0} night"}
+                other{"{0} nights"}
+                per{"{0}/night"}
+            }
             quarter{
                 dnam{"qtr"}
                 one{"{0} qtr"}
@@ -2967,6 +2995,11 @@ en{
                 dnam{"kn"}
                 one{"{0} kn"}
                 other{"{0} kn"}
+            }
+            light-speed{
+                dnam{"light"}
+                one{"{0} light"}
+                other{"{0} light"}
             }
             meter-per-second{
                 dnam{"meters/sec"}

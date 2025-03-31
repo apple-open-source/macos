@@ -27,7 +27,7 @@
 
 #include <wtf/CompletionHandler.h>
 #include <wtf/Ref.h>
-#include <wtf/RefCounted.h>
+#include <wtf/RefCountedAndCanMakeWeakPtr.h>
 #include <wtf/WeakPtr.h>
 #include <wtf/text/WTFString.h>
 
@@ -44,15 +44,15 @@ namespace WebCore::WebGPU {
 struct CanvasConfiguration;
 class Texture;
 
-class PresentationContext : public RefCounted<PresentationContext>, public CanMakeWeakPtr<PresentationContext> {
+class PresentationContext : public RefCountedAndCanMakeWeakPtr<PresentationContext> {
 public:
     virtual ~PresentationContext() = default;
 
     WARN_UNUSED_RETURN virtual bool configure(const CanvasConfiguration&) = 0;
     virtual void unconfigure() = 0;
-    virtual void present(bool = false) = 0;
+    virtual void present(uint32_t frameIndex, bool = false) = 0;
 
-    virtual RefPtr<Texture> getCurrentTexture() = 0;
+    virtual RefPtr<Texture> getCurrentTexture(uint32_t) = 0;
     virtual RefPtr<WebCore::NativeImage> getMetalTextureAsNativeImage(uint32_t bufferIndex, bool& isIOSurfaceSupportedFormat) = 0;
 
 protected:

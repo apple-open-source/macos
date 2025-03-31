@@ -141,6 +141,8 @@ public:
         RequirePlaybackToControlControlsManager = 1 << 14,
         RequireUserGestureForVideoDueToLowPowerMode = 1 << 15,
         RequirePageVisibilityToPlayAudio = 1 << 16,
+        RequireUserGestureForVideoDueToAggressiveThermalMitigation = 1 << 17,
+        RequirePageVisibilityForVideoToBeNowPlaying = 1 << 18,
         AllRestrictions = ~NoRestrictions,
     };
     typedef unsigned BehaviorRestrictions;
@@ -242,7 +244,7 @@ private:
     Timer m_clientDataBufferingTimer;
 
 #if !RELEASE_LOG_DISABLED
-    const void* m_logIdentifier;
+    uint64_t m_logIdentifier { 0 };
 #endif
 
 #if ENABLE(MEDIA_USAGE)

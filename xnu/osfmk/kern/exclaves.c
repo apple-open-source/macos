@@ -1008,7 +1008,7 @@ exclaves_update_timebase(exclaves_clock_type_t type, uint64_t offset)
 #if CONFIG_EXCLAVES
 	exclaves_clock_t *clock = &exclaves_clock[type];
 	uint64_t latest_offset = os_atomic_load(&clock->a_u64.latest_offset, relaxed);
-	while (latest_offset < offset) {
+	while (latest_offset != offset) {
 		/* Update the latest offset with the new offset. If this fails, then a
 		 * concurrent update occurred and our offset may be stale. */
 		if (os_atomic_cmpxchgv(&clock->a_u64.latest_offset, latest_offset,
@@ -1614,7 +1614,7 @@ handle_response_wait(const XrtHosted_Wait_t *wait)
 	assert3u(wait->waiterHostId, ==, ctid);
 
 	/* The exclaves inspection thread should never wait. */
-	if ((thread->th_exclaves_state & TH_EXCLAVES_INSPECTION_NOINSPECT) != 0) {
+	if ((os_atomic_load(&thread->th_exclaves_inspection_state, relaxed) & TH_EXCLAVES_INSPECTION_NOINSPECT) != 0) {
 		panic("Exclaves inspection thread tried to wait\n");
 	}
 
@@ -1893,6 +1893,9 @@ handle_response_pmm_early_alloc(const XrtHosted_PmmEarlyAlloc_t *pmm_early_alloc
 	const uint32_t npages = (uint32_t)pmm_early_alloc->a;
 	const uint64_t flags = pmm_early_alloc->b;
 
+	exclaves_memory_pagekind_t kind = EXCLAVES_MEMORY_PAGEKIND_ROOTDOMAIN;
+	exclaves_memory_page_flags_t alloc_flags = EXCLAVES_MEMORY_PAGE_FLAGS_NONE;
+
 	exclaves_debug_printf(show_progress,
 	    "exclaves: scheduler: pmm early alloc, npages: %u, flags: %llu\n",
 	    npages, flags);
@@ -1911,6 +1914,7 @@ handle_response_pmm_early_alloc(const XrtHosted_PmmEarlyAlloc_t *pmm_early_alloc
 		return KERN_NO_SPACE;
 	}
 
+
 	/*
 	 * As npages must be relatively small (<= EXCLAVES_MEMORY_MAX_REQUEST),
 	 * stack allocation is sufficient and fast. If
@@ -1918,7 +1922,7 @@ handle_response_pmm_early_alloc(const XrtHosted_PmmEarlyAlloc_t *pmm_early_alloc
 	 * to the heap.
 	 */
 	uint32_t page[EXCLAVES_MEMORY_MAX_REQUEST];
-	exclaves_memory_alloc(npages, page, EXCLAVES_MEMORY_PAGEKIND_ROOTDOMAIN);
+	exclaves_memory_alloc(npages, page, kind, alloc_flags);
 
 	/* Now copy the list of pages into the first page. */
 	uint64_t first_page_pa = ptoa(page[0]);

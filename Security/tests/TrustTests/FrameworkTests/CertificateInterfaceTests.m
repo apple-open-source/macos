@@ -31,6 +31,7 @@
 #include <Security/SecTrustSettings.h>
 #include <Security/SecTrustSettingsPriv.h>
 #include "OSX/sec/Security/SecFramework.h"
+#include "OSX/sec/Security/SecCertificateInternal.h"
 #include "OSX/utilities/SecCFWrappers.h"
 #include "trust/trustd/OTATrustUtilities.h"
 #include <stdlib.h>
@@ -711,12 +712,7 @@ errOut:
                                                                  subdirectory:@"si-18-certificate-parse/KeySuccessCerts"];
     XCTAssertNotEqual(NULL, cert);
     alg = SecCertificateGetSignatureHashAlgorithm(cert);
-#if LIBDER_HAS_EDDSA
-    // guard for rdar://106052612
     XCTAssertEqual(alg, kSecSignatureHashAlgorithmSHA512);
-#else
-    XCTAssertEqual(alg, kSecSignatureHashAlgorithmUnknown);
-#endif
     CFReleaseNull(cert);
 }
 
@@ -766,6 +762,25 @@ errOut:
     for (id cert in roots) {
         XCTAssertEqual(CFGetTypeID((__bridge CFTypeRef)cert), SecCertificateGetTypeID());
     }
+}
+
+- (void)testCopyQualifiedCertificateStatements {
+    SecCertificateRef cert = SecCertificateCreateWithBytes(NULL, _qwac_leaf, sizeof(_qwac_leaf));
+    XCTAssertNotEqual(NULL, cert);
+    NSDictionary *qcs = CFBridgingRelease(SecCertificateCopyQualifiedCertificateStatements(cert));
+    XCTAssertNotNil(qcs);
+
+    XCTAssertNotNil(qcs[(__bridge NSString*)kSecQCStatementCompliance]);
+    XCTAssert([qcs[(__bridge NSString*)kSecQCStatementCompliance] boolValue]);
+    XCTAssertNotNil(qcs[(__bridge NSString*)kSecQCStatementType]);
+
+    NSSet *types = qcs[(__bridge NSString*)kSecQCStatementType];
+    XCTAssert([types containsObject:(__bridge NSString*)kSecQCStatementTypeWeb]);
+
+    NSArray *properties = CFBridgingRelease(SecCertificateCopyProperties(cert));
+    XCTAssertNotNil(properties);
+
+    CFReleaseNull(cert);
 }
 
 @end

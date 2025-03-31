@@ -143,6 +143,8 @@ typedef enum UDateTimePatternMatchOptions {
     UADATPG_FORCE_24_HOUR_CYCLE = 1 << 30,
     /** @internal, Apple-specific for now */
     UADATPG_FORCE_HOUR_CYCLE_MASK = 3 << 29,
+    /** @internal, Apple-specific for now */
+    UDATPG_DONT_ADJUST_HOUR_CYCLE = 1 << 28,
 #endif  // APPLE_ICU_CHANGES
 } UDateTimePatternMatchOptions;
 

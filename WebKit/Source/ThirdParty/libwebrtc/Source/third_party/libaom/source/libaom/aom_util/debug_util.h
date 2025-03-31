@@ -21,7 +21,7 @@ extern "C" {
 #endif
 
 void aom_bitstream_queue_set_frame_write(int frame_idx);
-int aom_bitstream_queue_get_frame_writee(void);
+int aom_bitstream_queue_get_frame_write(void);
 void aom_bitstream_queue_set_frame_read(int frame_idx);
 int aom_bitstream_queue_get_frame_read(void);
 

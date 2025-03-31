@@ -212,6 +212,12 @@ static WorkQueue& photoQueue()
     return queue.get();
 }
 
+static bool s_useAVCaptureDeviceRotationCoordinatorAPI = false;
+void AVVideoCaptureSource::setUseAVCaptureDeviceRotationCoordinatorAPI(bool value)
+{
+    s_useAVCaptureDeviceRotationCoordinatorAPI = value;
+}
+
 CaptureSourceOrError AVVideoCaptureSource::create(const CaptureDevice& device, MediaDeviceHashSalts&& hashSalts, const MediaConstraints* constraints, std::optional<PageIdentifier> pageIdentifier)
 {
     auto *avDevice = [PAL::getAVCaptureDeviceClass() deviceWithUniqueID:device.persistentId()];
@@ -243,10 +249,10 @@ AVVideoCaptureSource::AVVideoCaptureSource(AVCaptureDevice* avDevice, const Capt
     , m_objcObserver(adoptNS([[WebCoreAVVideoCaptureSourceObserver alloc] initWithCaptureSource:this]))
     , m_device(avDevice)
     , m_zoomScaleFactor(cameraZoomScaleFactor([avDevice deviceType]))
-    , m_verifyCapturingTimer(*this, &AVVideoCaptureSource::verifyIsCapturing)
     , m_defaultTorchMode((int64_t)[m_device torchMode])
 {
     [m_device addObserver:m_objcObserver.get() forKeyPath:@"suspended" options:NSKeyValueObservingOptionNew context:(void *)nil];
+    [m_device addObserver:m_objcObserver.get() forKeyPath:@"portraitEffectActive" options:NSKeyValueObservingOptionNew context:(void *)nil];
 }
 
 AVVideoCaptureSource::~AVVideoCaptureSource()
@@ -255,6 +261,7 @@ AVVideoCaptureSource::~AVVideoCaptureSource()
 
     [m_objcObserver disconnect];
     [m_device removeObserver:m_objcObserver.get() forKeyPath:@"suspended"];
+    [m_device removeObserver:m_objcObserver.get() forKeyPath:@"portraitEffectActive"];
 
     if (!m_session)
         return;
@@ -271,21 +278,24 @@ void AVVideoCaptureSource::verifyIsCapturing()
         return;
     }
 
-    RELEASE_LOG_ERROR(WebRTC, "AVVideoCaptureSource::verifyIsCapturing - no frame received in %d seconds, failing", static_cast<int>(m_verifyCapturingTimer.repeatInterval().value()));
+    RELEASE_LOG_ERROR(WebRTC, "AVVideoCaptureSource::verifyIsCapturing - no frame received in %d seconds, failing", static_cast<int>(verifyCaptureInterval.seconds()));
     captureFailed();
 }
 
 void AVVideoCaptureSource::updateVerifyCapturingTimer()
 {
     if (!m_isRunning || m_interrupted) {
-        m_verifyCapturingTimer.stop();
+        if (m_verifyCapturingTimer)
+            m_verifyCapturingTimer->stop();
         return;
     }
 
-    if (m_verifyCapturingTimer.isActive())
+    if (m_verifyCapturingTimer && m_verifyCapturingTimer->isActive())
         return;
 
-    m_verifyCapturingTimer.startRepeating(verifyCaptureInterval);
+    if (!m_verifyCapturingTimer)
+        m_verifyCapturingTimer = makeUnique<Timer>(*this, &AVVideoCaptureSource::verifyIsCapturing);
+    m_verifyCapturingTimer->startRepeating(verifyCaptureInterval);
     m_framesCount = 0;
     m_lastFramesCount = 0;
 }
@@ -413,6 +423,7 @@ void AVVideoCaptureSource::settingsDidChange(OptionSet<RealtimeMediaSourceSettin
     if (!whiteBalanceModeChanged && !torchChanged)
         return;
 
+    m_pendingSettingsChanges = settings;
     scheduleDeferredTask([this, whiteBalanceModeChanged, torchChanged] {
         startApplyingConstraints();
         if (whiteBalanceModeChanged)
@@ -420,6 +431,17 @@ void AVVideoCaptureSource::settingsDidChange(OptionSet<RealtimeMediaSourceSettin
         if (torchChanged)
             updateTorch();
         endApplyingConstraints();
+        m_pendingSettingsChanges = { };
+    });
+}
+
+void AVVideoCaptureSource::configurationChanged()
+{
+    m_currentSettings = { };
+    m_capabilities = { };
+
+    forEachObserver([](auto& observer) {
+        observer.sourceConfigurationChanged();
     });
 }
 
@@ -468,7 +490,7 @@ const RealtimeMediaSourceSettings& AVVideoCaptureSource::settings()
     settings.setWidth(size.width());
     settings.setHeight(size.height());
     settings.setDeviceId(hashedId());
-    settings.setGroupId(captureDevice().groupId());
+    settings.setGroupId(hashedGroupId());
     settings.setBackgroundBlur(!!device().portraitEffectActive);
 
     RealtimeMediaSourceSupportedConstraints supportedConstraints;
@@ -488,12 +510,14 @@ const RealtimeMediaSourceSettings& AVVideoCaptureSource::settings()
 
     if (!supportedWhiteBalanceModes(device()).isEmpty()) {
         supportedConstraints.setSupportsWhiteBalanceMode(true);
-        settings.setWhiteBalanceMode(meteringModeFromAVCaptureWhiteBalanceMode([device() whiteBalanceMode]));
+        auto value = m_pendingSettingsChanges.contains(RealtimeMediaSourceSettings::Flag::WhiteBalanceMode) ? whiteBalanceMode() : meteringModeFromAVCaptureWhiteBalanceMode([device() whiteBalanceMode]);
+        settings.setWhiteBalanceMode(value);
     }
 
     if ([device() hasTorch]) {
         supportedConstraints.setSupportsTorch(true);
-        settings.setTorch([device() torchMode] == AVCaptureTorchModeOn);
+        auto value = m_pendingSettingsChanges.contains(RealtimeMediaSourceSettings::Flag::Torch) ? torch() : [device() torchMode] == AVCaptureTorchModeOn;
+        settings.setTorch(value);
     }
 
 #if PLATFORM(IOS_FAMILY)
@@ -515,6 +539,7 @@ const RealtimeMediaSourceCapabilities& AVVideoCaptureSource::capabilities()
 
     RealtimeMediaSourceCapabilities capabilities(settings().supportedConstraints());
     capabilities.setDeviceId(hashedId());
+    capabilities.setGroupId(hashedGroupId());
 
     AVCaptureDevice *videoDevice = device();
     if ([videoDevice position] == AVCaptureDevicePositionFront)
@@ -816,10 +841,12 @@ void AVVideoCaptureSource::applyFrameRateAndZoomWithPreset(double requestedFrame
 #if PLATFORM(IOS_FAMILY)
     // Updating the device configuration may switch off the torch. We reenable torch asynchronously if needed.
     if (torch()) {
+        m_pendingSettingsChanges = { RealtimeMediaSourceSettings::Flag::Torch };
         scheduleDeferredTask([this] {
             startApplyingConstraints();
             updateTorch();
             endApplyingConstraints();
+            m_pendingSettingsChanges = { };
         });
     }
 #endif
@@ -982,6 +1009,7 @@ void AVVideoCaptureSource::updateWhiteBalanceMode()
     }
 
     [device unlockForConfiguration];
+    m_currentSettings = std::nullopt;
 }
 
 void AVVideoCaptureSource::updateTorch()
@@ -1012,6 +1040,7 @@ void AVVideoCaptureSource::updateTorch()
     }
 
     [device unlockForConfiguration];
+    m_currentSettings = std::nullopt;
 }
 
 IntDegrees AVVideoCaptureSource::sensorOrientationFromVideoOutput()
@@ -1127,6 +1156,16 @@ bool AVVideoCaptureSource::setupCaptureSession()
         return false;
     }
     [session() addOutput:m_videoOutput.get()];
+
+#if PLATFORM(IOS_FAMILY)
+    if (s_useAVCaptureDeviceRotationCoordinatorAPI) {
+        AVCaptureConnection* connection = [m_videoOutput connectionWithMediaType:AVMediaTypeVideo];
+        if ([connection isVideoRotationAngleSupported:0]) {
+            RELEASE_LOG(WebRTC, "Setting AVVideoCaptureSource connection angle to 0");
+            [connection setVideoRotationAngle:0];
+        }
+    }
+#endif
 
     setSessionSizeFrameRateAndZoom();
     m_needsTorchReconfiguration = m_needsTorchReconfiguration || torch();
@@ -1457,6 +1496,8 @@ void AVVideoCaptureSource::deviceDisconnected(RetainPtr<NSNotification> notifica
         source->captureSessionIsRunningDidChange([newValue boolValue]);
     if ([keyPath isEqualToString:@"suspended"])
         source->captureDeviceSuspendedDidChange();
+    if ([keyPath isEqualToString:@"portraitEffectActive"])
+        source->configurationChanged();
 }
 
 - (void)deviceConnectedDidChange:(NSNotification*)notification

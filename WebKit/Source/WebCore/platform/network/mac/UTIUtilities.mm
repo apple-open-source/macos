@@ -52,9 +52,9 @@ String MIMETypeFromUTI(const String& uti)
     return type.get().preferredMIMEType;
 }
 
-HashSet<String> RequiredMIMETypesFromUTI(const String& uti)
+UncheckedKeyHashSet<String> RequiredMIMETypesFromUTI(const String& uti)
 {
-    HashSet<String> mimeTypes;
+    UncheckedKeyHashSet<String> mimeTypes;
 
     auto mainMIMEType = MIMETypeFromUTI(uti);
     if (!mainMIMEType.isEmpty())
@@ -99,26 +99,29 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     return nullptr;
 }
 
-static NSString *UTIFromUnknownMIMEType(StringView mimeType)
+static NSString *UTIFromPotentiallyUnknownMIMEType(StringView mimeType)
 {
     static constexpr std::pair<ComparableLettersLiteral, NSString *> typesArray[] = {
-        { "model/usd", @"com.pixar.universal-scene-description-mobile" },
-        { "model/vnd.pixar.usd", @"com.pixar.universal-scene-description-mobile" },
-        { "model/vnd.reality", @"com.apple.reality" },
-        { "model/vnd.usdz+zip", @"com.pixar.universal-scene-description-mobile" },
+        { "model/usd"_s, @"com.pixar.universal-scene-description-mobile" },
+        { "model/vnd.pixar.usd"_s, @"com.pixar.universal-scene-description-mobile" },
+        { "model/vnd.reality"_s, @"com.apple.reality" },
+        { "model/vnd.usdz+zip"_s, @"com.pixar.universal-scene-description-mobile" },
     };
     static constexpr SortedArrayMap typesMap { typesArray };
-    return typesMap.get(mimeType, @"");
+    return typesMap.get(mimeType, nil);
 }
 
 struct UTIFromMIMETypeCachePolicy : TinyLRUCachePolicy<String, RetainPtr<NSString>> {
 public:
     static RetainPtr<NSString> createValueForKey(const String& mimeType)
     {
+        if (auto type = UTIFromPotentiallyUnknownMIMEType(mimeType))
+            return type;
+
         if (RetainPtr type = [UTType typeWithMIMEType:mimeType])
             return type.get().identifier;
 
-        return UTIFromUnknownMIMEType(mimeType);
+        return @"";
     }
 
     static String createKeyForStorage(const String& key) { return key.isolatedCopy(); }
@@ -146,8 +149,14 @@ bool isDeclaredUTI(const String& UTI)
 void setImageSourceAllowableTypes(const Vector<String>& supportedImageTypes)
 {
 #if HAVE(CGIMAGESOURCE_WITH_SET_ALLOWABLE_TYPES)
-    auto allowableTypes = createNSArray(supportedImageTypes);
-    CGImageSourceSetAllowableTypes((__bridge CFArrayRef)allowableTypes.get());
+    // A WebPage might be reinitialized. So restrict ImageIO to the default and
+    // the additional supported image formats only once.
+    static std::once_flag onceFlag;
+    std::call_once(onceFlag, [supportedImageTypes] {
+        auto allowableTypes = createNSArray(supportedImageTypes);
+        auto status = CGImageSourceSetAllowableTypes((__bridge CFArrayRef)allowableTypes.get());
+        RELEASE_ASSERT_WITH_MESSAGE(supportedImageTypes.isEmpty() || status == noErr, "CGImageSourceSetAllowableTypes() returned error: %d.", status);
+    });
 #else
     UNUSED_PARAM(supportedImageTypes);
 #endif

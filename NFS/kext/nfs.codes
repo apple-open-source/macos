@@ -51,6 +51,10 @@
 0x315022c NFS_vnop4_getnamedstream
 0x3150230 NFS_vnop4_makenamedstream
 0x3150234 NFS_vnop4_removenamedstream
+0x3150258 NFS_cb4_handler
+0x315025c NFS_cb4_rcv
+0x3150260 NFS_cb4_accept
+0x3150264 NFS_cb4_mount_setup
 0x3150280 NFS_bio_upl_setup
 0x3150284 NFS_bio_upl_check
 0x3150288 NFS_bio_page_inval

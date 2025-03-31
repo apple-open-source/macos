@@ -60,11 +60,10 @@ class ObjCVideoDecoder : public VideoDecoder {
       VideoFrame videoFrame =
           VideoFrame::Builder()
               .set_video_frame_buffer(buffer)
-              .set_timestamp_rtp((uint32_t)(frame.timeStampNs / rtc::kNumNanosecsPerMicrosec))
+              .set_timestamp_rtp(frame.timeStamp)
               .set_timestamp_ms(0)
               .set_rotation((VideoRotation)frame.rotation)
               .build();
-      videoFrame.set_timestamp(frame.timeStamp);
 
       callback->Decoded(videoFrame);
     }];

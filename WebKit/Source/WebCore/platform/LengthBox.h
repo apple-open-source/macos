@@ -75,6 +75,16 @@ inline LayoutBoxExtent toLayoutBoxExtent(const IntBoxExtent& extent)
     return { extent.top(), extent.right(), extent.bottom(), extent.left() };
 }
 
+inline FloatBoxExtent toFloatBoxExtent(const IntBoxExtent& extent)
+{
+    return {
+        static_cast<float>(extent.top()),
+        static_cast<float>(extent.right()),
+        static_cast<float>(extent.bottom()),
+        static_cast<float>(extent.left()),
+    };
+}
+
 WTF::TextStream& operator<<(WTF::TextStream&, const LengthBox&);
 WTF::TextStream& operator<<(WTF::TextStream&, const IntBoxExtent&);
 WEBCORE_EXPORT WTF::TextStream& operator<<(WTF::TextStream&, const FloatBoxExtent&);

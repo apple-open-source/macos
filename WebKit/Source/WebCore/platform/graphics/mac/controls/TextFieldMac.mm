@@ -32,8 +32,11 @@
 #import "GraphicsContext.h"
 #import "LocalDefaultSystemAppearance.h"
 #import "TextFieldPart.h"
+#import <wtf/TZoneMallocInlines.h>
 
 namespace WebCore {
+
+WTF_MAKE_TZONE_ALLOCATED_IMPL(TextFieldMac);
 
 TextFieldMac::TextFieldMac(TextFieldPart& owningPart, ControlFactoryMac& controlFactory, NSTextFieldCell* textFieldCell)
     : ControlMac(owningPart, controlFactory)
@@ -87,9 +90,7 @@ void TextFieldMac::draw(GraphicsContext& context, const FloatRoundedRect& border
         drawCell(context, paintRect, deviceScaleFactor, styleForDrawing, m_textFieldCell.get(), true);
     }
 
-#if ENABLE(DATALIST_ELEMENT)
     drawListButton(context, borderRect.rect(), deviceScaleFactor, style);
-#endif
 }
 
 } // namespace WebCore

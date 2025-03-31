@@ -35,16 +35,15 @@ namespace WebCore {
 
 class VideoFrame;
 
-class VideoDecoder {
+class VideoDecoder : public ThreadSafeRefCounted<VideoDecoder> {
 public:
-    WEBCORE_EXPORT VideoDecoder();
     WEBCORE_EXPORT virtual ~VideoDecoder();
 
     enum class HardwareAcceleration : bool { No, Yes };
     enum class HardwareBuffer : bool { No, Yes };
     enum class TreatNoOutputAsError : bool { No, Yes };
     struct Config {
-        std::span<const uint8_t> description;
+        Vector<uint8_t> description;
         uint64_t width { 0 };
         uint64_t height { 0 };
         std::optional<PlatformVideoColorSpace> colorSpace;
@@ -66,14 +65,17 @@ public:
         std::optional<uint64_t> duration;
     };
 
+    static bool isVPXSupported();
+
     using OutputCallback = Function<void(Expected<DecodedFrame, String>&&)>;
-    using CreateResult = Expected<UniqueRef<VideoDecoder>, String>;
+    using CreateResult = Expected<Ref<VideoDecoder>, String>;
+    using CreatePromise = NativePromise<Ref<VideoDecoder>, String>;
     using CreateCallback = Function<void(CreateResult&&)>;
 
     using CreatorFunction = void(*)(const String&, const Config&, CreateCallback&&, OutputCallback&&);
     WEBCORE_EXPORT static void setCreatorCallback(CreatorFunction&&);
 
-    static void create(const String&, const Config&, CreateCallback&&, OutputCallback&&);
+    static Ref<CreatePromise> create(const String&, const Config&, OutputCallback&&);
     WEBCORE_EXPORT static void createLocalDecoder(const String&, const Config&, CreateCallback&&, OutputCallback&&);
 
     using DecodePromise = NativePromise<void, String>;
@@ -86,6 +88,9 @@ public:
     static String fourCCToCodecString(uint32_t fourCC);
 
     static CreatorFunction s_customCreator;
+protected:
+    WEBCORE_EXPORT VideoDecoder();
+
 };
 
 }

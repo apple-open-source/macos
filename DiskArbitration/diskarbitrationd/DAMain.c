@@ -88,6 +88,7 @@ CFMutableArrayRef      gDAMountMapList1                = NULL;
 CFMutableArrayRef      gDAMountMapList2                = NULL;
 CFMutableDictionaryRef gDAPreferenceList               = NULL;
 CFMutableArrayRef      gDAMountPointList               = NULL;
+CFMutableDictionaryRef gDADanglingVolumeList           = NULL;
 pid_t                  gDAProcessID                    = 0;
 char *                 gDAProcessName                  = NULL;
 char *                 gDAProcessNameID                = NULL;
@@ -425,8 +426,9 @@ static void __DAMain( void *__unused context )
      */
 
     gDAMountPointList = CFArrayCreateMutable( kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks );
-
+    gDADanglingVolumeList = CFDictionaryCreateMutable( kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks );
     assert( gDAMountPointList );
+    assert( gDADanglingVolumeList );
 
     /*
      * Create the request list.

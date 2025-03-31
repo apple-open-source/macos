@@ -315,6 +315,12 @@ chr{
                 one{"{0} ᎾᏃᎠᏎᏢ"}
                 other{"{0} ᎾᏃᏗᏎᏢ"}
             }
+            night{
+                dnam{"ᏚᎵᏏᏂᏒ"}
+                one{"{0} ᎤᏒ"}
+                other{"{0} ᏚᎵᏏᏂᏒ"}
+                per{"{0}/ᎤᏒ"}
+            }
             quarter{
                 dnam{"ᎯᎸᏍᎩ ᎩᏄᏘᏗ"}
                 one{"{0} ᎩᏄᏘᏗ"}
@@ -765,6 +771,11 @@ chr{
                 one{"{0} ᎠᎧᏁᎲ"}
                 other{"{0} ᏓᎧᏁᎲ"}
             }
+            light-speed{
+                dnam{"ᎠᏨᏍᏗ"}
+                one{"{0} ᎠᏨᏍᏗ"}
+                other{"{0} ᎠᏨᏍᏗ"}
+            }
             meter-per-second{
                 dnam{"ᏗᏟᎶᏗ ᎠᏎᏢ ᎢᏳᏓᎵ"}
                 one{"{0} ᎠᏟᎶᏗ ᎠᏎᏢ ᎢᏳᏓᎵ"}
@@ -1209,6 +1220,12 @@ chr{
                 one{"{0}ᎾᏃ"}
                 other{"{0}ᎾᏃ"}
             }
+            night{
+                dnam{"ᏚᎵᏏᏂᏒ"}
+                one{"{0}ᎤᏒ"}
+                other{"{0}ᏚᎵᏏᏂᏒ"}
+                per{"{0}/ᎤᏒ"}
+            }
             quarter{
                 one{"{0}Ꭿ"}
                 other{"{0}Ꭿ"}
@@ -1627,6 +1644,11 @@ chr{
                 one{"{0}kn"}
                 other{"{0}kn"}
             }
+            light-speed{
+                dnam{"ᎠᏨᏍᏗ"}
+                one{"{0}ᎠᏨᏍᏗ"}
+                other{"{0}ᎠᏨᏍᏗ"}
+            }
             meter-per-second{
                 dnam{"m/s"}
                 one{"{0}m/s"}
@@ -2027,6 +2049,12 @@ chr{
                 one{"{0} ᎾᏃ"}
                 other{"{0} ᎾᏃ"}
             }
+            night{
+                dnam{"ᏚᎵᏏᏂᏒ"}
+                one{"{0} ᎤᏒ"}
+                other{"{0} ᏚᎵᏏᏂᏒ"}
+                per{"{0}/ᎤᏒ"}
+            }
             quarter{
                 dnam{"ᎯᎸᏍᎩ"}
                 one{"{0} ᎯᎸᏍᎩ"}
@@ -2237,6 +2265,11 @@ chr{
         speed{
             kilometer-per-hour{
                 dnam{"km/ᏑᏟᎶᏓ"}
+            }
+            light-speed{
+                dnam{"ᎠᏨᏍᏗ"}
+                one{"{0} ᎠᏨᏍᏗ"}
+                other{"{0} ᎠᏨᏍᏗ"}
             }
             meter-per-second{
                 dnam{"ᏗᏟᎶᏗ/ᎠᏎ"}

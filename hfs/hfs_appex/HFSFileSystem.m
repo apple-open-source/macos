@@ -34,10 +34,10 @@
     u_int32_t startBlock = 0;
     u_int32_t blockCount = 0;
     u_char volnameUTF8[kHFSPlusMaxFileNameBytes];
-    
+
     mdbPtr = (HFSMasterDirectoryBlock *) masterBlock;
     volHdrPtr = (HFSPlusVolumeHeader *) masterBlock;
-    
+
     // Get classic HFS volume name (from MDB)
     if (OSSwapBigToHostInt16(mdbPtr->drSigWord) == kHFSSigWord &&
         OSSwapBigToHostInt16(mdbPtr->drEmbedSigWord) != kHFSPlusSigWord) {
@@ -48,7 +48,7 @@
                (OSSwapBigToHostInt16(mdbPtr->drSigWord) == kHFSSigWord &&
                 OSSwapBigToHostInt16(mdbPtr->drEmbedSigWord) == kHFSPlusSigWord)) {
         off_t startOffset;
-        
+
         if (OSSwapBigToHostInt16(volHdrPtr->signature) == kHFSSigWord) {
             // Embedded volume, first find offset
             if (OSSwapBigToHostInt16(mdbPtr->drSigWord) != kHFSSigWord) {
@@ -72,7 +72,7 @@
         } else {
             startOffset = 0;
         }
-        
+
         result = hfs_GetNameFromHFSPlusVolumeStartingAt(fd, startOffset, volnameUTF8, OSSwapBigToHostInt32(volHdrPtr->blockSize));
     } else {
         result = FSMatchNotRecognized;
@@ -84,22 +84,6 @@ exit:
         result = FSMatchUsable;
     }
     reply(result, volName);
-}
-
-- (void)didFinishLoading
-{
-    os_log_info(fskit_std_log(), "%s: Finished loading", __FUNCTION__);
-}
-
--(void)didFinishLaunching
-{
-    os_log_info(fskit_std_log(), "%s: Finished launching", __FUNCTION__);
-}
-
--(void)loadVolume:(FSResource *)device
-            reply:(nonnull void (^)(FSVolume * _Nullable, NSError * _Nullable))reply
-{
-    return (void)reply(nil, fs_errorForPOSIXError(ENOTSUP));
 }
 
 -(void)probeResource:(FSResource *)resource
@@ -117,7 +101,7 @@ exit:
     FSMatchResult match = FSMatchNotRecognized;
     FSBlockDeviceResource *device;
     HFSMasterDirectoryBlock *masterBlock = NULL;
-    
+
     device = [FSBlockDeviceResource dynamicCast:resource];
     if (device == nil) {
         os_log_fault(fskit_std_log(), "%s: Given device is not a block device", __FUNCTION__);
@@ -125,16 +109,16 @@ exit:
                                                 name:nil
                                          containerID:nil], nil);
     }
-    
+
     masterBlock = malloc(kMDBSize);
     if ( masterBlock == NULL ) {
         error = fs_errorForPOSIXError(ENOMEM);
         os_log(fskit_std_log(), "%s: Failed to allocate masterBlock", __FUNCTION__);
         goto exit;
     }
-    
+
     blockSize = device.blockSize;
-    
+
     if (blockSize == 0 || blockSize > kMaxLogicalBlockSize) {
         error = fs_errorForPOSIXError(ENXIO);
         os_log(fskit_std_log(), "%s: Invalid block size (%lu)", __FUNCTION__, blockSize);
@@ -151,25 +135,23 @@ exit:
     } else {
         masterBlockBuffer = (void*) masterBlock;
     }
-    
+
     // Read VolumeHeader from offset 1024
     off_t   uVolHdrOffset  = 1024;
     off_t   uBlockNum      = uVolHdrOffset / blockSize;
     off_t   uOffsetInBlock = uVolHdrOffset % blockSize;
-    
-    [device synchronousReadInto:masterBlockBuffer
-                     startingAt:uBlockNum * blockSize
-                         length:blockSize
-                          reply:^(size_t actuallyRead, NSError * _Nullable innerError) {
-        if (innerError) {
-            error = innerError;
-            os_log(fskit_std_log(), "%s: Falied to read Master Directory Block, error (%ld)", __FUNCTION__, (long)innerError.code);
-        } else if (actuallyRead < uOffsetInBlock + kMDBSize) {
-            error = fs_errorForPOSIXError(EIO);
-            os_log_error(fskit_std_log(), "%s: Expected to read %lld bytes, read %lu", __FUNCTION__, kMDBSize + uOffsetInBlock, actuallyRead);
-        }
-    }];
-     
+
+    size_t actuallyRead =  [device readInto:masterBlockBuffer
+                                 startingAt:uBlockNum * blockSize
+                                     length:blockSize
+                                      error:&error];
+    if (error) {
+        os_log(fskit_std_log(), "%s: Falied to read Master Directory Block, error (%ld)", __FUNCTION__, (long)error.code);
+    } else if (actuallyRead < uOffsetInBlock + kMDBSize) {
+        error = fs_errorForPOSIXError(EIO);
+        os_log_error(fskit_std_log(), "%s: Expected to read %lld bytes, read %lu", __FUNCTION__, kMDBSize + uOffsetInBlock, actuallyRead);
+    }
+
     if (error) {
         goto exit;
     }
@@ -177,7 +159,7 @@ exit:
     if (blockSize > kMDBSize) {
         memcpy(masterBlock, masterBlockBuffer + uOffsetInBlock, kMDBSize);
     }
-    
+
     // Validate Signature
     uint32_t drSigWord = SWAP_BE16(masterBlock->drSigWord);
     if ((drSigWord != kHFSPlusSigWord) &&
@@ -185,7 +167,7 @@ exit:
         os_log(fskit_std_log(), "%s: Invalid volume signature", __FUNCTION__);
         goto exit;
     }
-    
+
     // Get Volume UUID
     volUUID_t sVolUUID;
     result = hfs_GetVolumeUUIDRaw(device.fileDescriptor, &sVolUUID, (int)device.blockSize);
@@ -194,7 +176,7 @@ exit:
         os_log_error(fskit_std_log(), "%s: Failed to get volume UUID", __FUNCTION__);
         goto exit;
     }
-    
+
     // Get Volume name
     [self getVolumeName:device.fileDescriptor
             masterBlock:masterBlock
@@ -207,19 +189,19 @@ exit:
             os_log_error(fskit_std_log(), "%s: Failed to read volume name", __FUNCTION__);
         }
     }];
-    
+
     if (!nameReadSucc) {
         goto exit;
     }
-    
+
     volUUID = [volUUID initWithUUIDBytes:sVolUUID.uuid];
     match = FSMatchUsable;
-    
+
 exit:
     if (blockSize > kMDBSize) {
         free(masterBlockBuffer);
     }
-    
+
     if (masterBlock) {
         free(masterBlock);
     }
@@ -230,24 +212,20 @@ exit:
     return reply(probeResult, error);
 }
 
--(void)checkResource:(FSResource *)resource
-             options:(FSTaskOptionsBundle *)options
-          connection:(FSMessageConnection *)connection
-              taskID:(NSUUID *)taskID
-            progress:(NSProgress *)progress
-        replyHandler:(void (^)(NSError * _Nullable))reply
+- (void)loadResource:(nonnull FSResource *)resource
+             options:(nonnull FSTaskOptions *)options
+        replyHandler:(nonnull void (^)(FSVolume * _Nullable, NSError * _Nullable))replyHandler
 {
-    reply(fs_errorForPOSIXError(ENOTSUP));
+    return replyHandler(nil, fs_errorForPOSIXError(ENOTSUP));
 }
 
--(void)formatResource:(FSResource *)resource
-              options:(FSTaskOptionsBundle *)options
-           connection:(FSMessageConnection *)connection
-               taskID:(NSUUID *)taskID
-             progress:(NSProgress *)progress
-         replyHandler:(void (^)(NSError * _Nullable))reply
+
+- (void)unloadResource:(nonnull FSResource *)resource
+               options:(nonnull FSTaskOptions *)options
+          replyHandler:(nonnull void (^)(NSError * _Nullable))reply
 {
-    reply(fs_errorForPOSIXError(ENOTSUP));
+    return reply(nil);
 }
+
 
 @end

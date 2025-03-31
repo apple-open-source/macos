@@ -1,0 +1,106 @@
+diff --git a/CXX/Python2/Objects.hxx b/CXX/Python2/Objects.hxx
+index 286293e..c0f01c5 100644
+--- a/CXX/Python2/Objects.hxx
++++ b/CXX/Python2/Objects.hxx
+@@ -50,6 +50,101 @@
+ #include <utility>
+ #include <typeinfo>
+ 
++// Added for compatibility with newer libc++ where `char_traits` for arbitrary types is no logner supported.
++// Taken from llvm: https://github.com/llvm/llvm-project/blob/6009708b4367171ccdbf4b5905cb6a803753fe18/libcxx/include/__string/char_traits.h#L78-L172
++namespace std {
++template <>
++    struct char_traits<Py_UNICODE>
++{
++    using char_type  = Py_UNICODE;
++    using int_type   = int;
++    using off_type   = std::streamoff;
++    using pos_type   = std::streampos;
++    using state_type = std::mbstate_t;
++
++    static inline void
++        assign(char_type& c1, const char_type& c2)  {c1 = c2;}
++    static inline bool eq(char_type c1, char_type c2)
++        {return c1 == c2;}
++    static inline bool lt(char_type c1, char_type c2)
++        {return c1 < c2;}
++
++    static
++    int compare(const char_type* s1, const char_type* s2, size_t n) {
++        for (; n; --n, ++s1, ++s2)
++        {
++            if (lt(*s1, *s2))
++                return -1;
++            if (lt(*s2, *s1))
++                return 1;
++        }
++        return 0;
++    }
++    static
++    size_t length(const char_type* s) {
++        size_t len = 0;
++        for (; !eq(*s, char_type(0)); ++s)
++            ++len;
++        return len;
++    }
++    static
++    const char_type* find(const char_type* s, size_t n, const char_type& a) {
++        for (; n; --n)
++        {
++            if (eq(*s, a))
++                return s;
++            ++s;
++        }
++        return nullptr;
++    }
++    static
++    char_type*       move(char_type* s1, const char_type* s2, size_t n) {
++        if (n == 0) return s1;
++        char_type* r = s1;
++        if (s1 < s2)
++        {
++            for (; n; --n, ++s1, ++s2)
++                assign(*s1, *s2);
++        }
++        else if (s2 < s1)
++        {
++            s1 += n;
++            s2 += n;
++            for (; n; --n)
++                assign(*--s1, *--s2);
++        }
++        return r;
++    }
++
++    static
++    char_type*       copy(char_type* s1, const char_type* s2, size_t n) {
++        char_type* r = s1;
++        for (; n; --n, ++s1, ++s2)
++            assign(*s1, *s2);
++        return r;
++    }
++    static
++    char_type*       assign(char_type* s, size_t n, char_type a) {
++        char_type* r = s;
++        for (; n; --n, ++s)
++            assign(*s, a);
++        return r;
++    }
++
++    static inline int_type  not_eof(int_type c)
++        {return eq_int_type(c, eof()) ? ~eof() : c;}
++    static inline char_type to_char_type(int_type c)
++        {return char_type(c);}
++    static inline int_type  to_int_type(char_type c)
++        {return int_type(c);}
++    static inline  bool      eq_int_type(int_type c1, int_type c2)
++        {return c1 == c2;}
++    static inline int_type  eof()
++        {return int_type(EOF);}
++};
++} // namespace std
++
++
+ namespace Py
+ {
+     typedef int sequence_index_type;    // type of an index into a sequence

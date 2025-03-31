@@ -2,7 +2,7 @@
 //  PSAssetConstants.h
 //  CertificateTool
 //
-//  Copyright (c) 2013-2015 Apple Inc. All Rights Reserved.
+//  Copyright (c) 2013-2015,2024 Apple Inc. All Rights Reserved.
 //
 
 #ifndef _PSAssetConstants_h
@@ -17,7 +17,10 @@ enum
     isGrayListed = (1UL << 2),
     hasFullCert = (1UL << 3),
     hasCertHash = (1UL << 4),
-    isAllowListed = (1UL << 5)
+    isAllowListed = (1UL << 5),
+    isSystem = (1UL << 6),
+    isPlatform = (1UL << 7),
+    isCustom = (1UL << 8),
 };
 
 typedef unsigned long PSAssetFlags;

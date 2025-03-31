@@ -412,6 +412,10 @@
                                                                   ckksKeys:viewKeySets
                                                                  tlkShares:pendingTLKShares
                                                            preapprovedKeys:self.peerPreapprovedSPKIs
+                                                                   altDSID:self.deps.activeAccount.altDSID
+                                                                    flowID:self.deps.flowID
+                                                           deviceSessionID:self.deps.deviceSessionID
+                                                            canSendMetrics:self.deps.permittedToSendMetrics
                                                                      reply:^(NSString * _Nullable peerID,
                                                                              NSArray<CKRecord*>* keyHierarchyRecords,
                                                                              TPSyncingPolicy* _Nullable syncingPolicy,

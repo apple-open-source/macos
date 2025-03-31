@@ -33,6 +33,7 @@
 #import <JavaScriptCore/JSGlobalObjectInlines.h>
 #import <JavaScriptCore/JSLock.h>
 #import <wtf/Assertions.h>
+#import <wtf/cocoa/TypeCastsCocoa.h>
 
 #if !defined(_C_LNG_LNG)
 #define _C_LNG_LNG 'q'
@@ -193,8 +194,8 @@ JSValue convertObjcValueToValue(JSGlobalObject* lexicalGlobalObject, void* buffe
     switch (type) {
         case ObjcObjectType: {
             id obj = *(const id*)buffer;
-            if ([obj isKindOfClass:[NSString class]])
-                return convertNSStringToString(lexicalGlobalObject, (NSString *)obj);
+            if (auto *str = dynamic_objc_cast<NSString>(obj))
+                return convertNSStringToString(lexicalGlobalObject, str);
             if ([obj isKindOfClass:webUndefinedClass()])
                 return jsUndefined();
             if ((__bridge CFBooleanRef)obj == kCFBooleanTrue)
@@ -250,13 +251,11 @@ JSValue convertObjcValueToValue(JSGlobalObject* lexicalGlobalObject, void* buffe
     return jsUndefined();
 }
 
-ObjcValueType objcValueTypeForType(const char *type)
+ObjcValueType objcValueTypeForType(const char* rawType)
 {
-    int typeLength = strlen(type);
     ObjcValueType objcValueType = ObjcInvalidType;
 
-    for (int i = 0; i < typeLength; ++i) {
-        char typeChar = type[i];
+    for (char typeChar : unsafeSpan(rawType)) {
         switch (typeChar) {
             case _C_CONST:
             case _C_BYCOPY:

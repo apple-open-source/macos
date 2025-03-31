@@ -72,6 +72,7 @@ public:
     Allocator &allocator;
 	
 	IFDUMP(void debugDump() const);
+    // Note: SecretAclSubject is not a full class, and so doesn't override createACLDebugString. Subclasses should override that as appropriate.
 
 public:
 	class Environment : virtual public AclValidationEnvironment {

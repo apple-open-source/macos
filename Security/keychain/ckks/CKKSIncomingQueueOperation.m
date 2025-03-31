@@ -32,6 +32,7 @@
 #import "keychain/ckks/CKKSKeychainView.h"
 #import "keychain/ckks/CKKSMemoryKeyCache.h"
 #import "keychain/ckks/CKKSOutgoingQueueEntry.h"
+#import "keychain/ckks/CKKSZoneStateEntry.h"
 #import "keychain/ckks/CKKSStates.h"
 #import "keychain/ckks/CKKSViewManager.h"
 #import "keychain/ckks/CloudKitCategories.h"
@@ -416,9 +417,14 @@
     [self.deps.overallLaunch addEvent:@"incoming-processing-begin"];
 
     long totalQueueEntries = 0;
+    long totalSuccessfulItemsProcessed = 0;
+    long totalErrorItemsProcessed = 0;
     
     for(CKKSKeychainViewState* viewState in viewsToProcess) {
         [viewState.launch addEvent:@"incoming-processing-begin"];
+
+        self.successfulItemsProcessed = 0;
+        self.errorItemsProcessed = 0;
 
         // First, process all item deletions.
         // Then, process all modifications and additions.
@@ -479,8 +485,21 @@
                 }
             }
 
+            NSError* localError = nil;
+            CKKSZoneStateEntry* ckse = [CKKSZoneStateEntry fromDatabase:self.deps.contextID zoneName:viewState.zoneName error:&localError];
+            if (!ckse.initialSyncFinished && (self.errorItemsProcessed == 0)) {
+                ckse.initialSyncFinished = YES;
+                [ckse saveToDatabase:&localError];
+            }
+            if (localError) {
+                ckkserror("ckksincoming", viewState.zoneID, "Couldn't save CKKSZoneStateEntry(%@): %@", ckse, localError);
+            }
+
             return CKKSDatabaseTransactionCommit;
         }];
+
+        totalErrorItemsProcessed += self.errorItemsProcessed;
+        totalSuccessfulItemsProcessed += self.successfulItemsProcessed;
 
     }
 
@@ -545,15 +564,15 @@
         }
     }
 
-    int avgSuccessfulItemsProcessedPerView = (self.deps.activeManagedViews.count == 0) ? 0 : (int)self.successfulItemsProcessed / self.deps.activeManagedViews.count;
-    int avgErrorItemsProcessedPerView = (self.deps.activeManagedViews.count == 0) ? 0 : (int)self.errorItemsProcessed / self.deps.activeManagedViews.count;
-    
+    int avgSuccessfulItemsProcessedPerView = (self.deps.activeManagedViews.count == 0) ? 0 : (int)totalSuccessfulItemsProcessed / self.deps.activeManagedViews.count;
+    int avgErrorItemsProcessedPerView = (self.deps.activeManagedViews.count == 0) ? 0 : (int)totalErrorItemsProcessed / self.deps.activeManagedViews.count;
+
     [eventS addMetrics:@{kSecurityRTCFieldPendingClassA: @(self.pendingClassAEntries),
                          kSecurityRTCFieldMissingKey: @(self.missingKey),
                          kSecurityRTCFieldAvgSuccessfulItemsProcessed: @(avgSuccessfulItemsProcessedPerView),
                          kSecurityRTCFieldAvgErrorItemsProcessed: @(avgErrorItemsProcessedPerView),
-                         kSecurityRTCFieldSuccessfulItemsProcessed: @(self.successfulItemsProcessed),
-                         kSecurityRTCFieldErrorItemsProcessed: @(self.errorItemsProcessed)
+                         kSecurityRTCFieldSuccessfulItemsProcessed: @(totalSuccessfulItemsProcessed),
+                         kSecurityRTCFieldErrorItemsProcessed: @(totalErrorItemsProcessed)
                        }];
     [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:!(self.pendingClassAEntries || self.missingKey) error:self.error];
 
@@ -851,7 +870,7 @@
 
     ok = kc_with_dbt(true, &cferror, ^(SecDbConnectionRef dbt){
         bool replaceok = SecDbItemInsertOrReplace(item, dbt, &cferror, ^(SecDbItemRef olditem, SecDbItemRef *replace) {
-            // If the UUIDs do not match, then check to be sure that the local item is known to CKKS. If not, accept the cloud value.
+            // If the UUIDs do not match, then check to be sure that the local item is live and known to CKKS. If not, accept the cloud value.
             // Otherwise, when the UUIDs do not match, then select the item with the 'lower' UUID, and tell CKKS to
             //   delete the item with the 'higher' UUID.
             // Otherwise, the cloud wins.
@@ -893,9 +912,9 @@
 
             CFComparisonResult compare = CFStringCompare(itemUUID, olditemUUID, 0);
             CKKSOutgoingQueueEntry* oqe = nil;
-            if (compare == kCFCompareGreaterThan && (ckme || ckmeError)) {
+            if (compare == kCFCompareGreaterThan && (ckme || ckmeError) && (!SecDbItemIsTombstone(olditem))) {
                 // olditem wins; don't change olditem; delete incoming item; re-affirm existence of olditem
-                ckksnotice("ckksincoming", viewState.zoneID, "Primary key conflict; deleting incoming CK item (%@)" SECDBITEM_FMT "in favor of old item (%@)" SECDBITEM_FMT , itemUUID, item, olditemUUID, olditem);
+                ckksnotice("ckksincoming", viewState.zoneID, "Primary key conflict; deleting incoming CK item (%@)" SECDBITEM_FMT " in favor of old item (%@)" SECDBITEM_FMT , itemUUID, item, olditemUUID, olditem);
                 oqe = [CKKSOutgoingQueueEntry withItem:item
                                                 action:SecCKKSActionDelete
                                              contextID:self.deps.contextID
@@ -915,7 +934,7 @@
                 [oldItemOQE saveToDatabase: &error];
                 keptOldItem = YES;
             } else {
-                // item wins, either due to the new UUID winning or the olditem not being in CKKS yet
+                // item wins, either due to the new UUID winning or the olditem not being in CKKS yet or the olditem being a TB
                 ckksnotice("ckksincoming", viewState.zoneID, "Primary key conflict; replacing %@ with CK item",
                            ckme ? @"" : @"non-onboarded");
                 if(replace) {
@@ -924,7 +943,10 @@
                 }
                 // delete olditem if UUID differs (same UUID is the normal update case)
                 if (compare != kCFCompareEqualTo) {
-                    ckksnotice("ckksincoming", viewState.zoneID, "UUID of olditem (%@) is higher than UUID of incoming item (%@), issuing deletion of olditem: " SECDBITEM_FMT, olditemUUID, itemUUID, olditem);
+                    if (compare == kCFCompareLessThan) {
+                        ckksnotice("ckksincoming", viewState.zoneID, "UUID of olditem (%@) is higher than UUID of incoming item (%@)", olditemUUID, itemUUID);
+                    }
+                    ckksnotice("ckksincoming", viewState.zoneID, "Issuing deletion of olditem: " SECDBITEM_FMT, olditem);
                     oqe = [CKKSOutgoingQueueEntry withItem:olditem
                                                     action:SecCKKSActionDelete
                                                  contextID:self.deps.contextID

@@ -136,7 +136,8 @@ public:
         case BackingStoreFlushStart:
         case BuildTransactionStart:
         case WaitForCompositionCompletionStart:
-        case FrameCompositionStart:
+        case RenderLayerTreeStart:
+        case FlushPendingLayerChangesStart:
         case LayerFlushStart:
         case SyncMessageStart:
         case SyncTouchEventStart:
@@ -157,7 +158,7 @@ public:
         case WebXRCPFrameStartSubmissionStart:
         case WebXRCPFrameEndSubmissionStart:
         case WakeUpAndApplyDisplayListStart:
-            beginMark(nullptr, tracePointCodeName(code).spanIncludingNullTerminator(), "%s", "");
+            beginMark(nullptr, tracePointCodeName(code).unsafeSpanIncludingNullTerminator(), "%s", "");
             break;
 
         case VMEntryScopeEnd:
@@ -194,7 +195,8 @@ public:
         case WebHTMLViewPaintEnd:
         case BackingStoreFlushEnd:
         case WaitForCompositionCompletionEnd:
-        case FrameCompositionEnd:
+        case RenderLayerTreeEnd:
+        case FlushPendingLayerChangesEnd:
         case LayerFlushEnd:
         case BuildTransactionEnd:
         case SyncMessageEnd:
@@ -216,7 +218,7 @@ public:
         case WebXRCPFrameStartSubmissionEnd:
         case WebXRCPFrameEndSubmissionEnd:
         case WakeUpAndApplyDisplayListEnd:
-            endMark(nullptr, tracePointCodeName(code).spanIncludingNullTerminator(), "%s", "");
+            endMark(nullptr, tracePointCodeName(code).unsafeSpanIncludingNullTerminator(), "%s", "");
             break;
 
         case DisplayRefreshDispatchingToMainThread:
@@ -226,7 +228,7 @@ public:
         case SyntheticMomentumEvent:
         case RemoteLayerTreeScheduleRenderingUpdate:
         case DisplayLinkUpdate:
-            instantMark(tracePointCodeName(code).spanIncludingNullTerminator(), "%s", "");
+            instantMark(tracePointCodeName(code).unsafeSpanIncludingNullTerminator(), "%s", "");
             break;
 
         case WTFRange:
@@ -438,12 +440,15 @@ private:
         case WakeUpAndApplyDisplayListEnd:
             return "WakeUpAndApplyDisplayList"_s;
 
+        case FlushPendingLayerChangesStart:
+        case FlushPendingLayerChangesEnd:
+            return "FlushPendingLayerChanges"_s;
         case WaitForCompositionCompletionStart:
         case WaitForCompositionCompletionEnd:
             return "WaitForCompositionCompletion"_s;
-        case FrameCompositionStart:
-        case FrameCompositionEnd:
-            return "FrameComposition"_s;
+        case RenderLayerTreeStart:
+        case RenderLayerTreeEnd:
+            return "RenderLayerTree"_s;
         case LayerFlushStart:
         case LayerFlushEnd:
             return "LayerFlush"_s;
@@ -471,7 +476,7 @@ private:
 
     ASCIILiteral m_processName;
     Lock m_lock;
-    HashMap<RawPointerPair, TimestampAndString> m_ongoingMarks WTF_GUARDED_BY_LOCK(m_lock);
+    UncheckedKeyHashMap<RawPointerPair, TimestampAndString> m_ongoingMarks WTF_GUARDED_BY_LOCK(m_lock);
     static SysprofAnnotator* s_annotator;
 };
 

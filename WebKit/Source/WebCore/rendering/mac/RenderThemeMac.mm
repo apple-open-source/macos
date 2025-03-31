@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005-2023 Apple Inc. All rights reserved.
+ * Copyright (C) 2005-2025 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -23,10 +23,13 @@
 #if PLATFORM(MAC)
 
 #import "BitmapImage.h"
+#import "CSSPropertyNames.h"
 #import "CSSValueKeywords.h"
 #import "CSSValueList.h"
 #import "Color.h"
+#import "ColorBlending.h"
 #import "ColorMac.h"
+#import "ColorSerialization.h"
 #import "Document.h"
 #import "ElementInlines.h"
 #import "FileList.h"
@@ -48,6 +51,7 @@
 #import "LocalFrame.h"
 #import "LocalFrameView.h"
 #import "LocalizedStrings.h"
+#import "Logging.h"
 #import "PaintInfo.h"
 #import "PathUtilities.h"
 #import "RenderAttachment.h"
@@ -146,9 +150,7 @@ bool RenderThemeMac::canPaint(const PaintInfo& paintInfo, const Settings&, Style
 #endif
     case StyleAppearance::Button:
     case StyleAppearance::Checkbox:
-#if ENABLE(INPUT_TYPE_COLOR)
     case StyleAppearance::ColorWell:
-#endif
     case StyleAppearance::DefaultButton:
 #if ENABLE(SERVICE_CONTROLS)
     case StyleAppearance::ImageControlsButton:
@@ -194,9 +196,7 @@ bool RenderThemeMac::canCreateControlPartForRenderer(const RenderObject& rendere
 #if ENABLE(APPLE_PAY)
         || type == StyleAppearance::ApplePayButton
 #endif
-#if ENABLE(INPUT_TYPE_COLOR)
         || type == StyleAppearance::ColorWell
-#endif
         || type == StyleAppearance::DefaultButton
 #if ENABLE(SERVICE_CONTROLS)
         || type == StyleAppearance::ImageControlsButton
@@ -403,8 +403,8 @@ ALLOW_DEPRECATED_DECLARATIONS_BEGIN
 ALLOW_DEPRECATED_DECLARATIONS_END
     }
 
-    NSUInteger pixel[4];
-    [offscreenRep getPixel:pixel atX:0 y:0];
+    std::array<NSUInteger, 4> pixel;
+    [offscreenRep getPixel:pixel.data() atX:0 y:0];
 
     return makeFromComponentsClamping<SRGBA<uint8_t>>(pixel[0], pixel[1], pixel[2], pixel[3]);
 }
@@ -691,7 +691,7 @@ bool RenderThemeMac::usesTestModeFocusRingColor() const
 
 bool RenderThemeMac::searchFieldShouldAppearAsTextField(const RenderStyle& style) const
 {
-    return !style.isHorizontalWritingMode();
+    return !style.writingMode().isHorizontal();
 }
 
 bool RenderThemeMac::isControlStyled(const RenderStyle& style, const RenderStyle& userAgentStyle) const
@@ -705,13 +705,13 @@ bool RenderThemeMac::isControlStyled(const RenderStyle& style, const RenderStyle
     // adjustment time so that will just have to stay broken.  We can however detect that we're zooming.  If zooming
     // is in effect we treat it like the control is styled. Additionally, treat the control like it is styled when
     // using a vertical writing mode, since the AppKit control is not height resizable.
-    if (appearance == StyleAppearance::Menulist && (style.usedZoom() != 1.0f || !style.isHorizontalWritingMode()))
+    if (appearance == StyleAppearance::Menulist && (style.usedZoom() != 1.0f || !style.writingMode().isHorizontal()))
         return true;
 
     return RenderTheme::isControlStyled(style, userAgentStyle);
 }
 
-static FloatRect inflateRect(const FloatRect& rect, const IntSize& size, const int* margins, float zoomLevel)
+static FloatRect inflateRect(const FloatRect& rect, const IntSize& size, std::span<const int, 4> margins, float zoomLevel)
 {
     // Only do the inflation if the available width/height are too small. Otherwise try to
     // fit the glow/check space into the available box's width/height.
@@ -729,7 +729,7 @@ static FloatRect inflateRect(const FloatRect& rect, const IntSize& size, const i
     return result;
 }
 
-static NSControlSize controlSizeFromPixelSize(const IntSize* sizes, const IntSize& minSize, float zoomLevel)
+static NSControlSize controlSizeFromPixelSize(std::span<const IntSize, 4> sizes, const IntSize& minSize, float zoomLevel)
 {
     if (ThemeMac::supportsLargeFormControls()
         && minSize.width() >= static_cast<int>(sizes[NSControlSizeLarge].width() * zoomLevel)
@@ -747,39 +747,36 @@ static NSControlSize controlSizeFromPixelSize(const IntSize* sizes, const IntSiz
     return NSControlSizeMini;
 }
 
-static const int* popupButtonMargins(NSControlSize size)
+static std::span<const int, 4> popupButtonMargins(NSControlSize size)
 {
-    static const int margins[4][4] =
-    {
-        { 0, 3, 1, 3 },
-        { 0, 3, 2, 3 },
-        { 0, 1, 0, 1 },
-        { 0, 6, 2, 6 },
+    static constexpr std::array margins {
+        std::array { 0, 3, 1, 3 },
+        std::array { 0, 3, 2, 3 },
+        std::array { 0, 1, 0, 1 },
+        std::array { 0, 6, 2, 6 },
     };
     return margins[size];
 }
 
-static const IntSize* popupButtonSizes()
+static std::span<const IntSize, 4> popupButtonSizes()
 {
-    static const IntSize sizes[4] = { IntSize(0, 21), IntSize(0, 18), IntSize(0, 15), IntSize(0, 24) };
+    static constexpr std::array sizes { IntSize(0, 21), IntSize(0, 18), IntSize(0, 15), IntSize(0, 24) };
     return sizes;
 }
 
-static const int* popupButtonPadding(NSControlSize size, bool isRTL)
+static std::span<const int, 4> popupButtonPadding(NSControlSize size, bool isRTL)
 {
-    static const int paddingLTR[4][4] =
-    {
-        { 2, 26, 3, 8 },
-        { 2, 23, 3, 8 },
-        { 2, 22, 3, 10 },
-        { 2, 26, 3, 8 },
+    static constexpr std::array paddingLTR {
+        std::array { 2, 26, 3, 8 },
+        std::array { 2, 23, 3, 8 },
+        std::array { 2, 22, 3, 10 },
+        std::array { 2, 26, 3, 8 },
     };
-    static const int paddingRTL[4][4] =
-    {
-        { 2, 8, 3, 26 },
-        { 2, 8, 3, 23 },
-        { 2, 8, 3, 22 },
-        { 2, 8, 3, 26 },
+    static constexpr std::array paddingRTL {
+        std::array { 2, 8, 3, 26 },
+        std::array { 2, 8, 3, 23 },
+        std::array { 2, 8, 3, 22 },
+        std::array { 2, 8, 3, 26 },
     };
     return isRTL ? paddingRTL[size] : paddingLTR[size];
 }
@@ -796,7 +793,7 @@ void RenderThemeMac::inflateRectForControlRenderer(const RenderObject& renderer,
     case StyleAppearance::PushButton:
     case StyleAppearance::Radio:
     case StyleAppearance::Switch:
-        ThemeMac::inflateControlPaintRect(renderer.style().usedAppearance(), rect, renderer.style().usedZoom(), !renderer.style().isHorizontalWritingMode());
+        ThemeMac::inflateControlPaintRect(renderer.style().usedAppearance(), rect, renderer.style().usedZoom(), !renderer.writingMode().isHorizontal());
         break;
     case StyleAppearance::Menulist: {
         auto zoomLevel = renderer.style().usedZoom();
@@ -862,7 +859,7 @@ static NSControlSize controlSizeForFont(const RenderStyle& style)
     return NSControlSizeMini;
 }
 
-static IntSize sizeForFont(const RenderStyle& style, const IntSize* sizes)
+static IntSize sizeForFont(const RenderStyle& style, std::span<const IntSize, 4> sizes)
 {
     if (style.usedZoom() != 1.0f) {
         IntSize result = sizes[controlSizeForFont(style)];
@@ -871,7 +868,7 @@ static IntSize sizeForFont(const RenderStyle& style, const IntSize* sizes)
     return sizes[controlSizeForFont(style)];
 }
 
-static IntSize sizeForSystemFont(const RenderStyle& style, const IntSize* sizes)
+static IntSize sizeForSystemFont(const RenderStyle& style, std::span<const IntSize, 4> sizes)
 {
     if (style.usedZoom() != 1.0f) {
         IntSize result = sizes[controlSizeForSystemFont(style)];
@@ -880,7 +877,7 @@ static IntSize sizeForSystemFont(const RenderStyle& style, const IntSize* sizes)
     return sizes[controlSizeForSystemFont(style)];
 }
 
-static void setSizeFromFont(RenderStyle& style, const IntSize* sizes)
+static void setSizeFromFont(RenderStyle& style, std::span<const IntSize, 4> sizes)
 {
     // FIXME: Check is flawed, since it doesn't take min-width/max-width into account.
     IntSize size = sizeForFont(style, sizes);
@@ -902,20 +899,14 @@ static void setFontFromControlSize(RenderStyle& style, NSControlSize controlSize
 
     // Reset line height
     style.setLineHeight(RenderStyle::initialLineHeight());
-
-    if (style.setFontDescription(WTFMove(fontDescription)))
-        style.fontCascade().update(nullptr);
+    style.setFontDescription(WTFMove(fontDescription));
 }
-
-#if ENABLE(DATALIST_ELEMENT)
 
 void RenderThemeMac::adjustListButtonStyle(RenderStyle& style, const Element*) const
 {
     // Add a margin to place the button at end of the input field.
     style.setMarginEnd(Length(-4, LengthType::Fixed));
 }
-
-#endif
 
 #if ENABLE(SERVICE_CONTROLS)
 void RenderThemeMac::adjustImageControlsButtonStyle(RenderStyle& style, const Element*) const
@@ -940,6 +931,27 @@ bool RenderThemeMac::supportsMeter(StyleAppearance appearance) const
     return appearance == StyleAppearance::Meter;
 }
 
+void RenderThemeMac::createColorWellSwatchSubtree(HTMLElement& swatch)
+{
+    Ref document = swatch.document();
+    Ref div = HTMLDivElement::create(document);
+    swatch.appendChild(ContainerNode::ChildChange::Source::Parser, div);
+    div->setInlineStyleProperty(CSSPropertyHeight, "100%"_s);
+    div->setInlineStyleProperty(CSSPropertyWidth, "100%"_s);
+    div->setInlineStyleProperty(CSSPropertyClipPath, "polygon(0 0, 100% 0, 0 100%)"_s);
+}
+
+void RenderThemeMac::setColorWellSwatchBackground(HTMLElement& swatch, Color color)
+{
+    Ref swatchChild = *downcast<HTMLElement>(swatch.protectedFirstChild());
+
+    auto backgroundColor = color.isOpaque() ? color : blendSourceOver(Color::white, color);
+    auto foregroundColor = color.isOpaque() ? Color::transparentBlack : blendSourceOver(Color::black, color);
+
+    swatch.setInlineStyleProperty(CSSPropertyBackgroundColor, serializationForHTML(backgroundColor));
+    swatchChild->setInlineStyleProperty(CSSPropertyBackgroundColor, serializationForHTML(foregroundColor));
+}
+
 IntRect RenderThemeMac::progressBarRectForBounds(const RenderProgress& renderProgress, const IntRect& bounds) const
 {
     auto* control = const_cast<RenderProgress&>(renderProgress).ensureControlPartForRenderer();
@@ -960,9 +972,9 @@ const int styledPopupPaddingLeft = 8;
 const int styledPopupPaddingTop = 1;
 const int styledPopupPaddingBottom = 2;
 
-static const IntSize* menuListButtonSizes()
+static std::span<const IntSize, 4> menuListButtonSizes()
 {
-    static const IntSize sizes[4] = { IntSize(0, 21), IntSize(0, 18), IntSize(0, 15), IntSize(0, 28) };
+    static constexpr std::array sizes { IntSize(0, 21), IntSize(0, 18), IntSize(0, 15), IntSize(0, 28) };
     return sizes;
 }
 
@@ -995,7 +1007,7 @@ void RenderThemeMac::adjustMenuListStyle(RenderStyle& style, const Element* e) c
 LengthBox RenderThemeMac::popupInternalPaddingBox(const RenderStyle& style) const
 {
     if (style.usedAppearance() == StyleAppearance::Menulist) {
-        const int* padding = popupButtonPadding(controlSizeForFont(style), style.direction() == TextDirection::RTL);
+        auto padding = popupButtonPadding(controlSizeForFont(style), style.writingMode().isBidiRTL());
         return { static_cast<int>(padding[topPadding] * style.usedZoom()),
             static_cast<int>(padding[rightPadding] * style.usedZoom()),
             static_cast<int>(padding[bottomPadding] * style.usedZoom()),
@@ -1006,7 +1018,7 @@ LengthBox RenderThemeMac::popupInternalPaddingBox(const RenderStyle& style) cons
         float arrowWidth = baseArrowWidth * (style.computedFontSize() / baseFontSize);
         float rightPadding = ceilf(arrowWidth + (arrowPaddingBefore + arrowPaddingAfter + paddingBeforeSeparator) * style.usedZoom());
         float leftPadding = styledPopupPaddingLeft * style.usedZoom();
-        if (style.direction() == TextDirection::RTL)
+        if (style.writingMode().isBidiRTL())
             std::swap(rightPadding, leftPadding);
         return { static_cast<int>(styledPopupPaddingTop * style.usedZoom()),
             static_cast<int>(rightPadding),
@@ -1047,9 +1059,9 @@ void RenderThemeMac::adjustMenuListButtonStyle(RenderStyle& style, const Element
     style.setLineHeight(RenderStyle::initialLineHeight());
 }
 
-const IntSize* RenderThemeMac::menuListSizes() const
+std::span<const IntSize, 4> RenderThemeMac::menuListSizes() const
 {
-    static const IntSize sizes[4] = { IntSize(9, 0), IntSize(5, 0), IntSize(0, 0), IntSize(13, 0) };
+    static constexpr std::array sizes { IntSize(9, 0), IntSize(5, 0), IntSize(0, 0), IntSize(13, 0) };
     return sizes;
 }
 
@@ -1069,9 +1081,9 @@ void RenderThemeMac::adjustSliderThumbStyle(RenderStyle& style, const Element* e
     style.setBoxShadow(nullptr);
 }
 
-const IntSize* RenderThemeMac::searchFieldSizes() const
+std::span<const IntSize, 4> RenderThemeMac::searchFieldSizes() const
 {
-    static const IntSize sizes[4] = { IntSize(0, 22), IntSize(0, 19), IntSize(0, 17), IntSize(0, 30) };
+    static constexpr std::array sizes { IntSize(0, 22), IntSize(0, 19), IntSize(0, 17), IntSize(0, 30) };
     return sizes;
 }
 
@@ -1117,9 +1129,9 @@ void RenderThemeMac::adjustSearchFieldStyle(RenderStyle& style, const Element*) 
     style.setBoxShadow(nullptr);
 }
 
-const IntSize* RenderThemeMac::cancelButtonSizes() const
+std::span<const IntSize, 4> RenderThemeMac::cancelButtonSizes() const
 {
-    static const IntSize sizes[4] = { IntSize(22, 22), IntSize(19, 19), IntSize(15, 15), IntSize(22, 22) };
+    static constexpr std::array sizes { IntSize(22, 22), IntSize(19, 19), IntSize(15, 15), IntSize(22, 22) };
     return sizes;
 }
 
@@ -1131,10 +1143,10 @@ void RenderThemeMac::adjustSearchFieldCancelButtonStyle(RenderStyle& style, cons
     style.setBoxShadow(nullptr);
 }
 
-const int resultsArrowWidth = 5;
-const IntSize* RenderThemeMac::resultsButtonSizes() const
+constexpr int resultsArrowWidth = 5;
+std::span<const IntSize, 4> RenderThemeMac::resultsButtonSizes() const
 {
-    static const IntSize sizes[4] = { IntSize(19, 22), IntSize(17, 19), IntSize(17, 15), IntSize(19, 22) };
+    static constexpr std::array sizes { IntSize(19, 22), IntSize(17, 19), IntSize(17, 15), IntSize(19, 22) };
     return sizes;
 }
 
@@ -1144,7 +1156,7 @@ void RenderThemeMac::adjustSearchFieldDecorationPartStyle(RenderStyle& style, co
     IntSize size = sizeForSystemFont(style, resultsButtonSizes());
     int widthOffset = 0;
     int heightOffset = 0;
-    if (style.isHorizontalWritingMode())
+    if (style.writingMode().isHorizontal())
         widthOffset = emptyResultsOffset;
     else
         heightOffset = emptyResultsOffset;
@@ -1169,7 +1181,6 @@ void RenderThemeMac::adjustSearchFieldResultsButtonStyle(RenderStyle& style, con
     style.setBoxShadow(nullptr);
 }
 
-#if ENABLE(DATALIST_ELEMENT)
 IntSize RenderThemeMac::sliderTickSize() const
 {
     return IntSize(1, 3);
@@ -1179,7 +1190,6 @@ int RenderThemeMac::sliderTickOffsetFromTrackCenter() const
 {
     return -9;
 }
-#endif
 
 // FIXME (<rdar://problem/80870479>): Ideally, this constant should be obtained from AppKit using -[NSSliderCell knobThickness].
 // However, the method currently returns an incorrect value, both with and without a control view associated with the cell.
@@ -1232,13 +1242,19 @@ LayoutSize RenderThemeMac::attachmentIntrinsicSize(const RenderAttachment& attac
 
 static RefPtr<Icon> iconForAttachment(const String& fileName, const String& attachmentType, const String& title)
 {
+// FIXME: Remove after rdar://136373445 is fixed.
+#define LOG_ATTACHMENT(fmt, ...) RELEASE_LOG(Editing, "iconForAttachment(type='%s') " fmt, attachmentType.utf8().data(), ##__VA_ARGS__);
+
     if (!attachmentType.isEmpty() && !equalLettersIgnoringASCIICase(attachmentType, "public.data"_s)) {
         if (equalLettersIgnoringASCIICase(attachmentType, "public.directory"_s) || equalLettersIgnoringASCIICase(attachmentType, "multipart/x-folder"_s) || equalLettersIgnoringASCIICase(attachmentType, "application/vnd.apple.folder"_s)) {
 ALLOW_DEPRECATED_DECLARATIONS_BEGIN
             auto type = kUTTypeFolder;
 ALLOW_DEPRECATED_DECLARATIONS_END
-            if (auto icon = Icon::createIconForUTI(type))
+            if (auto icon = Icon::createIconForUTI(type)) {
+                LOG_ATTACHMENT("-> Got icon for kUTTypeFolder");
                 return icon;
+            }
+            LOG_ATTACHMENT("-> No icon for kUTTypeFolder! Will fallback to filename or title...");
         } else {
             String type;
             if (isDeclaredUTI(attachmentType))
@@ -1246,23 +1262,34 @@ ALLOW_DEPRECATED_DECLARATIONS_END
             else
                 type = UTIFromMIMEType(attachmentType);
 
-            if (auto icon = Icon::createIconForUTI(type))
+            if (auto icon = Icon::createIconForUTI(type)) {
+                LOG_ATTACHMENT("-> Got icon for %s '%s'", type == attachmentType ? "declared UTI" : "UTI-from-MIMEtype", type.utf8().data());
                 return icon;
+            }
+            LOG_ATTACHMENT("-> No icon for %s '%s'! Will fallback to filename or title...", type == attachmentType ? "declared UTI" : "UTI-from-MIMEtype", type.utf8().data());
         }
     }
 
     if (!fileName.isEmpty()) {
-        if (auto icon = Icon::createIconForFiles({ fileName }))
+        if (auto icon = Icon::createIconForFiles({ fileName })) {
+            LOG_ATTACHMENT("-> Got icon for filename");
             return icon;
+        }
+        LOG_ATTACHMENT("-> No icon for filename! Will fallback to title...");
     }
 
     NSString *cocoaTitle = title;
     if (auto fileExtension = cocoaTitle.pathExtension; fileExtension.length) {
-        if (auto icon = Icon::createIconForFileExtension(fileExtension))
+        if (auto icon = Icon::createIconForFileExtension(fileExtension)) {
+            LOG_ATTACHMENT("-> Got icon for title file extension '%s'", String(fileExtension).utf8().data());
             return icon;
-    }
+        }
+        LOG_ATTACHMENT("-> No icon for title file extension '%s'! Will fallback to public.data icon", String(fileExtension).utf8().data());
+    } else
+        LOG_ATTACHMENT("-> No file extension in title! Will fallback to public.data icon");
 
     return Icon::createIconForUTI("public.data"_s);
+#undef LOG_ATTACHMENT
 }
 
 RetainPtr<NSImage> RenderThemeMac::iconForAttachment(const String& fileName, const String& attachmentType, const String& title)

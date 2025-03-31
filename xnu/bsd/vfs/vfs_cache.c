@@ -1133,7 +1133,7 @@ vnode_update_identity(vnode_t vp, vnode_t dvp, const char *name, int name_len, u
 	}
 
 	if (flags & VNODE_UPDATE_PARENT) {
-		if (dvp && vnode_ref(dvp) != 0) {
+		if (dvp && (vnode_ref_ext(dvp, 0, ((flags & VNODE_UPDATE_FORCE_PARENT_REF) ? VNODE_REF_FORCE : 0)) != 0)) {
 			dvp = NULLVP;
 		}
 		/* Don't count a stream's parent ref during unmounts */
@@ -1988,6 +1988,10 @@ skiprsrcfork:
 			vp = dp;
 			vvid = vid;
 		} else if ((cnp->cn_flags & ISDOTDOT)) {
+			/* if dp is the starting directory and RESOLVE_BENEATH, we should break */
+			if ((ndp->ni_flag & NAMEI_RESOLVE_BENEATH) && (dp == ndp->ni_usedvp)) {
+				break;
+			}
 			/*
 			 * If this is a chrooted process, we need to check if
 			 * the process is trying to break out of its chrooted

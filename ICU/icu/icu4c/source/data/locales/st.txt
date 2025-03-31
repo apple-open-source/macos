@@ -5,19 +5,20 @@ st{
     AuxExemplarCharacters{"[c v x z]"}
     ExemplarCharacters{"[a b d e f g h i j k l m n o p q r s t u w y]"}
     ExemplarCharactersIndex{"[A B C D E F G H I J K L M N O P Q R S T U V W X Y Z]"}
+    ExemplarCharactersPunctuation{"[\\- ‐‑ – — , ; \\: ! ? . … '‘’ \u0022“” ( ) \\[ \\] § @ * / \\& # † ‡ ′ ″]"}
     NumberElements{
         latn{
             patterns{
                 currencyFormat{"¤#,##0.00"}
             }
-            symbols{
-                decimal{","}
-                group{" "}
-            }
         }
     }
     calendar{
         gregorian{
+            AmPmMarkers{
+                "Hoseng",
+                "Thapama",
+            }
             availableFormats{
                 Ehm{"E h:mm a"}
                 Ehms{"E h:mm:ss a"}
@@ -44,11 +45,11 @@ st{
                     }
                     wide{
                         "Sontaha",
-                        "Mmantaha",
+                        "Mantaha",
                         "Labobedi",
-                        "Laboraru",
+                        "Laboraro",
                         "Labone",
-                        "Labohlane",
+                        "Labohlano",
                         "Moqebelo",
                     }
                 }
@@ -134,17 +135,17 @@ st{
                         "Tsh",
                     }
                     wide{
-                        "Phesekgong",
+                        "Pherekgong",
                         "Hlakola",
                         "Hlakubele",
-                        "Mmese",
+                        "Mmesa",
                         "Motsheanong",
                         "Phupjane",
                         "Phupu",
-                        "Phata",
-                        "Leotshe",
+                        "Phato",
+                        "Lwetse",
                         "Mphalane",
-                        "Pundungwane",
+                        "Pudungwana",
                         "Tshitwe",
                     }
                 }

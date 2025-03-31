@@ -90,6 +90,12 @@ sec_action_perform(sec_action_t source)
 #pragma mark -
 
 static void
+resume(void *ctx)
+{
+    dispatch_resume(ctx);
+}
+
+static void
 _sec_action_event(void *ctx)
 {
 	struct sec_action_context_s *context = (struct sec_action_context_s *)ctx;
@@ -100,7 +106,7 @@ _sec_action_event(void *ctx)
 
 	// Suspend the source; resume after specified interval.
 	dispatch_suspend(context->source);
-	dispatch_after_f(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(context->interval * NSEC_PER_SEC)), context->queue, context->source, (dispatch_function_t)dispatch_resume);
+	dispatch_after_f(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(context->interval * NSEC_PER_SEC)), context->queue, context->source, resume);
 }
 
 static void

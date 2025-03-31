@@ -1,12 +1,30 @@
-README  2016/05/06
+README  2018/04/05
 
-Oniguruma  ----   (C) K.Kosako <kkosako0@gmail.com>
+Oniguruma  ----   (C) K.Kosako
 
 https://github.com/kkos/oniguruma
 
-Oniguruma is a regular expressions library.
-The characteristics of this library is that different character encoding
-for every regular expression object can be specified.
+FIXED Security Issues (in Oniguruma 6.3.0):
+  CVE-2017-9224, CVE-2017-9225, CVE-2017-9226
+  CVE-2017-9227, CVE-2017-9228, CVE-2017-9229
+
+---
+Oniguruma is a modern and flexible regular expressions library. It
+encompasses features from different regular expression implementations
+that traditionally exist in different languages. It comes close to
+being a complete superset of all regular expression features found
+in other regular expression implementations.
+
+Its features include:
+* Character encoding can be specified per regular expression object.
+* Several regular expression types are supported:
+  * POSIX
+  * Grep
+  * GNU Regex
+  * Perl
+  * Java
+  * Ruby
+  * Emacs
 
 Supported character encodings:
 
@@ -28,7 +46,15 @@ License
 
 Install
 
- Case 1: Unix and Cygwin platform
+ Case 1: Linux distribution packages
+
+   * Fedora:         dnf install oniguruma-devel
+   * RHEL/CentOS:    yum install oniguruma
+   * Debian/Ubuntu:  apt install libonig5
+   * Arch:           pacman -S oniguruma
+   * openSUSE:       zypper install oniguruma
+
+ Case 2: Manual compilation on Linux, Unix, and Cygwin platform
 
    1. autoreconf -vfi   (* case: configure script is not found.)
 
@@ -49,7 +75,7 @@ Install
 
 
 
- Case 2: Windows 64/32bit platform (Visual Studio)
+ Case 3: Windows 64/32bit platform (Visual Studio)
 
    execute make_win64 or make_win32
 
@@ -76,7 +102,7 @@ Usage
   See doc/API for Oniguruma API.
 
   If you want to disable UChar type (== unsigned char) definition
-  in oniguruma.h, define ONIG_ESCAPE_UCHAR_COLLISION and then 
+  in oniguruma.h, define ONIG_ESCAPE_UCHAR_COLLISION and then
   include oniguruma.h.
 
   If you want to disable regex_t type definition in oniguruma.h,
@@ -174,16 +200,4 @@ Source Files
   win32/config.h     config.h for Win32
 
 
-
-ToDo
-
-  ? case fold flag: Katakana <-> Hiragana.
-  ? add ONIG_OPTION_NOTBOS/NOTEOS. (\A, \z, \Z)
- ?? \X (== \PM\pM*)
- ?? implement syntax behavior ONIG_SYN_CONTEXT_INDEP_ANCHORS.
- ?? transmission stopper. (return ONIG_STOP from match_at())
-
 and I'm thankful to Akinori MUSHA.
-
-
-Mail Address: K.Kosako <kkosako0@gmail.com>

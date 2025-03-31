@@ -134,7 +134,7 @@ void RenderMenuList::adjustInnerStyle()
     }
 
     auto paddingBox = theme().popupInternalPaddingBox(style());
-    if (!style().isHorizontalWritingMode())
+    if (!writingMode().isHorizontal())
         paddingBox = LengthBox(paddingBox.left().value(), paddingBox.top().value(), paddingBox.right().value(), paddingBox.bottom().value());
 
     innerStyle.setPaddingBox(WTFMove(paddingBox));
@@ -147,17 +147,17 @@ void RenderMenuList::adjustInnerStyle()
         innerStyle.setDirection(direction);
 #if PLATFORM(IOS_FAMILY)
     } else if (document().page()->chrome().selectItemAlignmentFollowsMenuWritingDirection()) {
-        innerStyle.setTextAlign(style().direction() == TextDirection::LTR ? TextAlignMode::Left : TextAlignMode::Right);
+        innerStyle.setTextAlign(writingMode().isBidiLTR() ? TextAlignMode::Left : TextAlignMode::Right);
         TextDirection direction;
         UnicodeBidi unicodeBidi;
         if (multiple() && selectedOptionCount(*this) != 1) {
             direction = (m_buttonText && m_buttonText->text().defaultWritingDirection() == U_RIGHT_TO_LEFT) ? TextDirection::RTL : TextDirection::LTR;
             unicodeBidi = UnicodeBidi::Normal;
         } else if (m_optionStyle) {
-            direction = m_optionStyle->direction();
+            direction = m_optionStyle->writingMode().bidiDirection();
             unicodeBidi = m_optionStyle->unicodeBidi();
         } else {
-            direction = style().direction();
+            direction = style().writingMode().bidiDirection();
             unicodeBidi = style().unicodeBidi();
         }
 
@@ -166,10 +166,11 @@ void RenderMenuList::adjustInnerStyle()
     }
 #else
     } else if (m_optionStyle && document().page()->chrome().selectItemAlignmentFollowsMenuWritingDirection()) {
-        if ((m_optionStyle->direction() != innerStyle.direction() || m_optionStyle->unicodeBidi() != innerStyle.unicodeBidi()))
+        if ((m_optionStyle->writingMode().bidiDirection() != innerStyle.writingMode().bidiDirection()
+            || m_optionStyle->unicodeBidi() != innerStyle.unicodeBidi()))
             m_innerBlock->setNeedsLayoutAndPrefWidthsRecalc();
-        innerStyle.setTextAlign(style().isLeftToRightDirection() ? TextAlignMode::Left : TextAlignMode::Right);
-        innerStyle.setDirection(m_optionStyle->direction());
+        innerStyle.setTextAlign(writingMode().isBidiLTR() ? TextAlignMode::Left : TextAlignMode::Right);
+        innerStyle.setDirection(m_optionStyle->writingMode().bidiDirection());
         innerStyle.setUnicodeBidi(m_optionStyle->unicodeBidi());
     }
 #endif // !PLATFORM(IOS_FAMILY)
@@ -203,7 +204,7 @@ void RenderMenuList::styleDidChange(StyleDifference diff, const RenderStyle* old
     if (m_innerBlock) // RenderBlock handled updating the anonymous block's style.
         adjustInnerStyle();
 
-    bool fontChanged = !oldStyle || oldStyle->fontCascade() != style().fontCascade();
+    bool fontChanged = !oldStyle || !oldStyle->fontCascadeEqual(style());
     if (fontChanged) {
         updateOptionsWidth();
         m_needsOptionsWidthUpdate = false;
@@ -222,7 +223,7 @@ void RenderMenuList::updateOptionsWidth()
             continue;
 
         String text = option->textIndentedToRespectGroupLabel();
-        text = applyTextTransform(style(), text, ' ');
+        text = applyTextTransform(style(), text);
         if (theme().popupOptionSupportsTextIndent()) {
             // Add in the option's text indent.  We can't calculate percentage values for now.
             float optionWidth = 0;
@@ -323,14 +324,14 @@ LayoutRect RenderMenuList::controlClipRect(const LayoutPoint& additionalOffset) 
     // This will leave room for the arrows which sit in the inner box padding,
     // and if the inner box ever spills out of the outer box, that will get clipped too.
     LayoutRect outerBox(additionalOffset.x() + borderLeft() + paddingLeft(), 
-                   additionalOffset.y() + borderTop() + paddingTop(),
-                   contentWidth(), 
-                   contentHeight());
+        additionalOffset.y() + borderTop() + paddingTop(),
+        contentBoxWidth(),
+        contentBoxHeight());
     
     LayoutRect innerBox(additionalOffset.x() + m_innerBlock->x() + m_innerBlock->paddingLeft(), 
-                   additionalOffset.y() + m_innerBlock->y() + m_innerBlock->paddingTop(),
-                   m_innerBlock->contentWidth(), 
-                   m_innerBlock->contentHeight());
+        additionalOffset.y() + m_innerBlock->y() + m_innerBlock->paddingTop(),
+        m_innerBlock->contentBoxWidth(),
+        m_innerBlock->contentBoxHeight());
 
     return intersection(outerBox, innerBox);
 }
@@ -370,7 +371,7 @@ void RenderMenuList::computePreferredLogicalWidths()
     else
         computeIntrinsicLogicalWidths(m_minPreferredLogicalWidth, m_maxPreferredLogicalWidth);
 
-    RenderBox::computePreferredLogicalWidths(style().logicalMinWidth(), style().logicalMaxWidth(), style().isHorizontalWritingMode() ? horizontalBorderAndPaddingExtent() : verticalBorderAndPaddingExtent());
+    RenderBox::computePreferredLogicalWidths(style().logicalMinWidth(), style().logicalMaxWidth(), writingMode().isHorizontal() ? horizontalBorderAndPaddingExtent() : verticalBorderAndPaddingExtent());
 
     setPreferredLogicalWidthsDirty(false);
 }
@@ -469,7 +470,7 @@ String RenderMenuList::itemText(unsigned listIndex) const
     else if (auto* option = dynamicDowncast<HTMLOptionElement>(element))
         itemString = option->textIndentedToRespectGroupLabel();
 
-    return applyTextTransform(style(), itemString, ' ');
+    return applyTextTransform(style(), itemString);
 }
 
 String RenderMenuList::itemLabel(unsigned) const
@@ -543,7 +544,7 @@ PopupMenuStyle RenderMenuList::itemStyle(unsigned listIndex) const
         return menuStyle();
 
     return PopupMenuStyle(style->visitedDependentColorWithColorFilter(CSSPropertyColor), itemBackgroundColor, style->fontCascade(), style->visibility() == Visibility::Visible,
-        style->display() == DisplayType::None, true, style->textIndent(), style->direction(), isOverride(style->unicodeBidi()),
+        style->display() == DisplayType::None, true, style->textIndent(), style->writingMode().bidiDirection(), isOverride(style->unicodeBidi()),
         itemHasCustomBackgroundColor ? PopupMenuStyle::CustomBackgroundColor : PopupMenuStyle::DefaultBackgroundColor);
 }
 
@@ -586,7 +587,7 @@ PopupMenuStyle RenderMenuList::menuStyle() const
     return PopupMenuStyle(styleToUse.visitedDependentColorWithColorFilter(CSSPropertyColor), styleToUse.visitedDependentColorWithColorFilter(CSSPropertyBackgroundColor),
         styleToUse.fontCascade(), styleToUse.usedVisibility() == Visibility::Visible, styleToUse.display() == DisplayType::None,
         style().hasUsedAppearance() && style().usedAppearance() == StyleAppearance::Menulist, styleToUse.textIndent(),
-        style().direction(), isOverride(style().unicodeBidi()), PopupMenuStyle::DefaultBackgroundColor,
+        style().writingMode().bidiDirection(), isOverride(style().unicodeBidi()), PopupMenuStyle::DefaultBackgroundColor,
         PopupMenuStyle::SelectPopup, theme().popupMenuSize(styleToUse, absBounds));
 }
 
@@ -617,7 +618,7 @@ const int endOfLinePadding = 2;
 
 LayoutUnit RenderMenuList::clientPaddingLeft() const
 {
-    if ((style().usedAppearance() == StyleAppearance::Menulist || style().usedAppearance() == StyleAppearance::MenulistButton) && style().direction() == TextDirection::RTL) {
+    if ((style().usedAppearance() == StyleAppearance::Menulist || style().usedAppearance() == StyleAppearance::MenulistButton) && writingMode().isBidiRTL()) {
         // For these appearance values, the theme applies padding to leave room for the
         // drop-down button. But leaving room for the button inside the popup menu itself
         // looks strange, so we return a small default padding to avoid having a large empty
@@ -631,7 +632,7 @@ LayoutUnit RenderMenuList::clientPaddingLeft() const
 
 LayoutUnit RenderMenuList::clientPaddingRight() const
 {
-    if ((style().usedAppearance() == StyleAppearance::Menulist || style().usedAppearance() == StyleAppearance::MenulistButton) && style().direction() == TextDirection::LTR)
+    if ((style().usedAppearance() == StyleAppearance::Menulist || style().usedAppearance() == StyleAppearance::MenulistButton) && style().writingMode().isBidiLTR())
         return endOfLinePadding;
 
     return paddingRight() + m_innerBlock->paddingRight();

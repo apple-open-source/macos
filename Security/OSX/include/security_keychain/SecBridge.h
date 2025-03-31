@@ -50,7 +50,7 @@ using namespace KeychainCore;
 //
 #define BEGIN_SECAPI \
 	OSStatus __secapiresult = errSecSuccess; \
-	bool __countlegacyapi = countLegacyAPIEnabledForThread(); \
+	bool __countlegacyapi __attribute__((cleanup(setCountLegacyAPIEnabledForThreadCleanup))) = countLegacyAPIEnabledForThread(); \
 	static dispatch_once_t countToken; \
 	countLegacyAPI(&countToken, __FUNCTION__); \
 	setCountLegacyAPIEnabledForThread(false); \
@@ -60,14 +60,12 @@ using namespace KeychainCore;
 	catch (const CommonError &err) { __secapiresult=SecKeychainErrFromOSStatus(err.osStatus()); } \
 	catch (const std::bad_alloc &) { __secapiresult=errSecAllocate; } \
 	catch (...) { __secapiresult=errSecInternalComponent; } \
-	setCountLegacyAPIEnabledForThread(__countlegacyapi); \
 	return __secapiresult;
 #define END_SECAPI1(BAD_RETURN_VAL) }\
 	catch (...) { __secapiresult=BAD_RETURN_VAL; } \
-	setCountLegacyAPIEnabledForThread(__countlegacyapi); \
 	return __secapiresult;
 #define END_SECAPI0 }\
-	catch (...) { setCountLegacyAPIEnabledForThread(__countlegacyapi); return; }
+	catch (...) { return; }
 
 
 //
@@ -76,7 +74,7 @@ using namespace KeychainCore;
 //
 #define BEGIN_SECKCITEMAPI \
 	OSStatus __secapiresult=errSecSuccess; \
-	bool __countlegacyapi = countLegacyAPIEnabledForThread(); \
+	bool __countlegacyapi __attribute__((cleanup(setCountLegacyAPIEnabledForThreadCleanup))) = countLegacyAPIEnabledForThread(); \
 	static dispatch_once_t countToken; \
 	countLegacyAPI(&countToken, __FUNCTION__); \
 	setCountLegacyAPIEnabledForThread(false); \
@@ -107,7 +105,6 @@ using namespace KeychainCore;
 	catch (const std::bad_alloc &) { __secapiresult=errSecAllocate; } \
 	catch (...) { __secapiresult=errSecInternalComponent; } \
 	if (__itemImplRef) { CFRelease(__itemImplRef); } \
-	setCountLegacyAPIEnabledForThread(__countlegacyapi); \
 	return __secapiresult;
 
 
@@ -117,7 +114,7 @@ using namespace KeychainCore;
 //
 #define BEGIN_SECCERTAPI \
 	OSStatus __secapiresult=errSecSuccess; \
-	bool __countlegacyapi = countLegacyAPIEnabledForThread(); \
+	bool __countlegacyapi __attribute__((cleanup(setCountLegacyAPIEnabledForThreadCleanup))) = countLegacyAPIEnabledForThread(); \
 	static dispatch_once_t countToken; \
 	countLegacyAPI(&countToken, __FUNCTION__); \
 	setCountLegacyAPIEnabledForThread(false); \
@@ -137,7 +134,6 @@ using namespace KeychainCore;
 	catch (const std::bad_alloc &) { __secapiresult=errSecAllocate; } \
 	catch (...) { __secapiresult=errSecInternalComponent; } \
 	if (__itemImplRef) { CFRelease(__itemImplRef); } \
-	setCountLegacyAPIEnabledForThread(__countlegacyapi); \
 	return __secapiresult;
 
 
@@ -146,7 +142,7 @@ using namespace KeychainCore;
 //
 #define BEGIN_SECKEYAPI(resultType, resultInit) \
 	resultType result = resultInit; \
-	bool __countlegacyapi = countLegacyAPIEnabledForThread(); \
+	bool __countlegacyapi __attribute__((cleanup(setCountLegacyAPIEnabledForThreadCleanup))) = countLegacyAPIEnabledForThread(); \
 	static dispatch_once_t countToken; \
 	countLegacyAPI(&countToken, __FUNCTION__); \
 	setCountLegacyAPIEnabledForThread(false); \
@@ -168,7 +164,6 @@ extern "C" bool SecError(OSStatus status, CFErrorRef *error, CFStringRef format,
 	} \
 	catch (const std::bad_alloc &) { SecError(errSecAllocate, error, CFSTR("allocation failed")); result = NULL; } \
 	catch (...) { SecError(errSecInternalComponent, error, CFSTR("internal error")); result = NULL; } \
-	setCountLegacyAPIEnabledForThread(__countlegacyapi); \
 	return result;
 
 
@@ -178,7 +173,7 @@ extern "C" bool SecError(OSStatus status, CFErrorRef *error, CFStringRef format,
 // for use with API implementations that only call other 'C' APIs.
 //
 #define BEGIN_SECPOLICYAPI \
-	bool __countlegacyapi = countLegacyAPIEnabledForThread(); \
+	bool __countlegacyapi __attribute__((cleanup(setCountLegacyAPIEnabledForThreadCleanup))) = countLegacyAPIEnabledForThread(); \
 	static dispatch_once_t countToken; \
 	countLegacyAPI(&countToken, __FUNCTION__); \
 	setCountLegacyAPIEnabledForThread(false);
@@ -187,7 +182,6 @@ extern "C" bool SecError(OSStatus status, CFErrorRef *error, CFStringRef format,
 // END_SECPOLICYAPI
 //
 #define END_SECPOLICYAPI(RETURN_VAL) \
-	setCountLegacyAPIEnabledForThread(__countlegacyapi); \
 	return RETURN_VAL;
 
 
@@ -197,7 +191,7 @@ extern "C" bool SecError(OSStatus status, CFErrorRef *error, CFStringRef format,
 // for use with API implementations that only call other 'C' APIs.
 //
 #define BEGIN_SECTRUSTAPI \
-	bool __countlegacyapi = countLegacyAPIEnabledForThread(); \
+	bool __countlegacyapi __attribute__((cleanup(setCountLegacyAPIEnabledForThreadCleanup))) = countLegacyAPIEnabledForThread(); \
 	static dispatch_once_t countToken; \
 	countLegacyAPI(&countToken, __FUNCTION__); \
 	setCountLegacyAPIEnabledForThread(false);
@@ -206,7 +200,6 @@ extern "C" bool SecError(OSStatus status, CFErrorRef *error, CFStringRef format,
 // END_SECTRUSTAPI
 //
 #define END_SECTRUSTAPI(RETURN_VAL) \
-	setCountLegacyAPIEnabledForThread(__countlegacyapi); \
 	return RETURN_VAL;
 
 

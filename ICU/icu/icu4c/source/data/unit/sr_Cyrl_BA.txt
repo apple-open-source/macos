@@ -133,6 +133,29 @@ sr_Cyrl_BA{
                 one{"B {0}"}
                 other{"B {0}"}
             }
+            light-speed{
+                case{
+                    accusative{
+                        few{"{0} свјетла"}
+                        one{"{0} свјетло"}
+                        other{"{0} свјетла"}
+                    }
+                    genitive{
+                        few{"{0} свјетла"}
+                        one{"{0} свјетла"}
+                        other{"{0} свјетала"}
+                    }
+                    instrumental{
+                        few{"{0} свјетла"}
+                        one{"{0} свјетлом"}
+                        other{"{0} свјетала"}
+                    }
+                }
+                dnam{"свјетло"}
+                few{"{0} свјетла"}
+                one{"{0} свјетло"}
+                other{"{0} свјетла"}
+            }
         }
         volume{
             acre-foot{
@@ -183,6 +206,12 @@ sr_Cyrl_BA{
                 few{"B {0}"}
                 one{"B {0}"}
                 other{"B {0}"}
+            }
+            light-speed{
+                dnam{"свјетло"}
+                few{"{0} свјетла"}
+                one{"{0} свјетло"}
+                other{"{0} свјетала"}
             }
         }
         volume{
@@ -237,6 +266,12 @@ sr_Cyrl_BA{
                 few{"B {0}"}
                 one{"B {0}"}
                 other{"Б {0}"}
+            }
+            light-speed{
+                dnam{"свјетло"}
+                few{"{0} свјетла"}
+                one{"{0} свјетло"}
+                other{"{0} свјетала"}
             }
         }
     }

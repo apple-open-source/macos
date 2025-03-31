@@ -1567,7 +1567,7 @@ void MDSSession::DbFilesInfo::removeOutdatedPlugins()
     // The clang analyzer does not understand that DataGetNext fills in theAttrs with malloc'ed pointers,
     // through a chain of structs, pointers, and confusing names. Then, it has false-positive use-after-free
     // warnings. So, disable the analyzer for this function.
-#ifndef __clang_analyzer__
+    [[clang::suppress]] {
 	
 	/* 
 	 * First, scan object directory. All we need are the path and GUID attributes. 
@@ -1703,7 +1703,7 @@ void MDSSession::DbFilesInfo::removeOutdatedPlugins()
 	for(size_t i=0; i<numRecords; i++) {
 		delete tbdRecords[i];
 	}
-#endif
+    }
 
     // don't count plugins again for the lifetime of this program
     countPlugins = false;

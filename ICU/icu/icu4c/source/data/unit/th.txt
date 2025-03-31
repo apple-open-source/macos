@@ -173,6 +173,11 @@ th{
             nanosecond{
                 other{"{0} นาโนวินาที"}
             }
+            night{
+                dnam{"คืน"}
+                other{"{0} คืน"}
+                per{"{0}/คืน"}
+            }
             second{
                 other{"{0} วินาที"}
                 per{"{0} ต่อวินาที"}
@@ -414,6 +419,10 @@ th{
             kilometer-per-hour{
                 dnam{"กิโลเมตรต่อชั่วโมง"}
                 other{"{0} กิโลเมตรต่อชั่วโมง"}
+            }
+            light-speed{
+                dnam{"แสง"}
+                other{"{0} แสง"}
             }
             meter-per-second{
                 other{"{0} เมตรต่อวินาที"}
@@ -710,6 +719,11 @@ th{
             nanosecond{
                 dnam{"นาโนวิ"}
                 other{"{0}นาโนวิ"}
+            }
+            night{
+                dnam{"คืน"}
+                other{"{0}คืน"}
+                per{"{0}/คืน"}
             }
             quarter{
                 other{"{0}ไตรมาส"}
@@ -1021,6 +1035,10 @@ th{
             }
             knot{
                 other{"{0}นอต"}
+            }
+            light-speed{
+                dnam{"แสง"}
+                other{"{0}แสง"}
             }
             meter-per-second{
                 dnam{"ม./วิ"}
@@ -1383,6 +1401,11 @@ th{
                 dnam{"นาโนวินาที"}
                 other{"{0} นาโนวิ"}
             }
+            night{
+                dnam{"คืน"}
+                other{"{0} คืน"}
+                per{"{0}/คืน"}
+            }
             quarter{
                 dnam{"ไตรมาส"}
                 other{"{0} ไตรมาส"}
@@ -1704,6 +1727,10 @@ th{
             knot{
                 dnam{"นอต"}
                 other{"{0} นอต"}
+            }
+            light-speed{
+                dnam{"แสง"}
+                other{"{0} แสง"}
             }
             meter-per-second{
                 dnam{"เมตรต่อวินาที"}

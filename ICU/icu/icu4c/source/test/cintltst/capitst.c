@@ -40,6 +40,9 @@ static void TestAttribute(void);
 static void TestDefault(void);
 static void TestDefaultKeyword(void);
 static void TestBengaliSortKey(void);
+#if APPLE_ICU_CHANGES
+static void TestTamilSortKey(void); // rdar://142540307
+#endif // APPLE_ICU_CHANGES
 
 
 static char* U_EXPORT2 ucol_sortKeyToString(const UCollator *coll, const uint8_t *sortkey, char *buffer, uint32_t len) {
@@ -90,6 +93,9 @@ void addCollAPITest(TestNode** root)
     addTest(root, &TestDefaultKeyword, "tscoll/capitst/TestDefaultKeyword");
     addTest(root, &TestOpenVsOpenRules, "tscoll/capitst/TestOpenVsOpenRules");
     addTest(root, &TestBengaliSortKey, "tscoll/capitst/TestBengaliSortKey");
+#if APPLE_ICU_CHANGES
+    addTest(root, &TestTamilSortKey, "tscoll/capitst/TestTamilSortKey"); // rdar://142540307
+#endif // APPLE_ICU_CHANGES
     addTest(root, &TestGetKeywordValuesForLocale, "tscoll/capitst/TestGetKeywordValuesForLocale");
     addTest(root, &TestStrcollNull, "tscoll/capitst/TestStrcollNull");
     addTest(root, &TestLocaleIDWithUnderscoreAndExtension, "tscoll/capitst/TestLocaleIDWithUnderscoreAndExtension");
@@ -271,7 +277,7 @@ void TestGetDefaultRules(){
 /* Collator Properties
  ucol_open, ucol_strcoll,  getStrength/setStrength
  getDecomposition/setDecomposition, getDisplayName*/
-void TestProperty()
+void TestProperty(void)
 {
     UCollator *col, *ruled;
     const UChar *rules;
@@ -486,7 +492,7 @@ void TestProperty()
 }
 
 /* Test RuleBasedCollator and getRules*/
-void TestRuleBasedColl()
+void TestRuleBasedColl(void)
 {
     UCollator *col1, *col2, *col3, *col4;
     UCollationElements *iter1, *iter2;
@@ -599,7 +605,7 @@ void TestRuleBasedColl()
     ucol_close(col1);
 }
 
-void TestCompare()
+void TestCompare(void)
 {
     UErrorCode status = U_ZERO_ERROR;
     UCollator *col;
@@ -649,7 +655,7 @@ void TestCompare()
 ---------------------------------------------
  tests decomposition setting
 */
-void TestDecomposition() {
+void TestDecomposition(void) {
     UErrorCode status = U_ZERO_ERROR;
     UCollator *en_US, *el_GR, *vi_VN;
     en_US = ucol_open("en_US", &status);
@@ -688,7 +694,7 @@ void TestDecomposition() {
 
 #define CLONETEST_COLLATOR_COUNT 4
 
-void TestSafeClone() {
+void TestSafeClone(void) {
     UChar test1[6];
     UChar test2[6];
     static const UChar umlautUStr[] = {0x00DC, 0};
@@ -845,7 +851,7 @@ void TestSafeClone() {
     }
 }
 
-void TestClone() {
+void TestClone(void) {
     UChar test1[6];
     UChar test2[6];
     static const UChar umlautUStr[] = {0x00DC, 0};
@@ -963,7 +969,7 @@ void TestClone() {
     }
 }
 
-void TestCloneBinary(){
+void TestCloneBinary(void){
     UErrorCode err = U_ZERO_ERROR;
     UCollator * col = ucol_open("en_US", &err);
     UCollator * c;
@@ -1078,12 +1084,66 @@ static void TestBengaliSortKey(void)
   ucol_close(c2);
 
 }
+    
+
+#if APPLE_ICU_CHANGES
+// rdar://142540307
+void TestTamilSortKey(void) {
+    UErrorCode status = U_ZERO_ERROR;
+
+    UCollator *collator = ucol_open("ta", &status);
+    if (U_FAILURE(status)) {
+        log_err("ERROR: Collation creation failed with status: %s\n", myErrorName(status));
+        return;
+    }
+
+    ucol_setAttribute(collator, UCOL_NORMALIZATION_MODE, UCOL_ON, &status);
+    if (U_FAILURE(status)) {
+        log_err("ERROR: Setting the normalization mode failed with status: %s\n", myErrorName(status));
+    }
+
+    const struct {
+        const UChar *str1;
+        const UChar *str2;
+    } stringPairs[] = {
+        {u"க", u"க்"}, {u"ங", u"ங்"}, {u"ச", u"ச்"}, {u"ஞ", u"ஞ்"},
+        {u"ட", u"ட்"}, {u"ண", u"ண்"}, {u"த", u"த்"}, {u"ந", u"ந்"},
+        {u"ப", u"ப்"}, {u"ம", u"ம்"}, {u"ய", u"ய்"}, {u"ர", u"ர்"},
+        {u"ல", u"ல்"}, {u"வ", u"வ்"}, {u"ழ", u"ழ்"}, {u"ள", u"ள்"},
+        {u"ற", u"ற்"}, {u"ன", u"ன்"}, {u"ஜ", u"ஜ்"}, {u"ஶ", u"ஶ்"},
+        {u"ஷ", u"ஷ்"}, {u"ஸ", u"ஸ்"}, {u"ஹ", u"ஹ்"}, {u"க்ஷ", u"க்ஷ்"},
+        {NULL, NULL}
+    };
+
+    uint8_t sortKey1[128];
+    uint8_t sortKey2[128];
+    int32_t keyLen1;
+    int32_t keyLen2;
+    int i = 0;
+    while (stringPairs[i].str1 != NULL) {
+        const UChar *str1 = stringPairs[i].str1;
+        const UChar *str2 = stringPairs[i].str2;
+
+        keyLen1 = ucol_getSortKey(collator, str1, -1, sortKey1, 128);
+        keyLen2 = ucol_getSortKey(collator, str2, -1, sortKey2, 128);
+
+        // make sure str2 would sort after str1
+        if((keyLen1 == keyLen2) && memcmp(sortKey1, sortKey2, keyLen1) > 0) {
+            log_err("ERROR: sort keys out of order for pair #%d\n", i + 1);
+        }
+
+        i++;
+    }
+    ucol_close(collator);
+}
+#endif  // APPLE_ICU_CHANGES
+
 
 /*
     TestOpenVsOpenRules ensures that collators from ucol_open and ucol_openRules
     will generate identical sort keys
 */
-void TestOpenVsOpenRules(){
+void TestOpenVsOpenRules(void){
 
     /* create an array of all the locales */
     int32_t numLocales = uloc_countAvailable();
@@ -1226,7 +1286,7 @@ void TestOpenVsOpenRules(){
 ----------------------------------------------------------------------------
  ctor -- Tests the getSortKey
 */
-void TestSortKey()
+void TestSortKey(void)
 {
     uint8_t *sortk1 = NULL, *sortk2 = NULL, *sortk3 = NULL, *sortkEmpty = NULL;
     int32_t sortklen, osortklen;
@@ -1319,8 +1379,8 @@ void TestSortKey()
 
       for(i=0;i<sortklen;i++)
         {
-          snprintf(junk2+strlen(junk2), sizeof(junk2)-strlen(junk2), "%02X ",(int)( 0xFF & sortk2[i]));
-          snprintf(junk3+strlen(junk3), sizeof(junk3)-strlen(junk3), "%02X ",(int)( 0xFF & sortk3[i]));
+          snprintf(junk2 + strlen(junk2), sizeof(junk2) - strlen(junk2), "%02X ", (0xFF & sortk2[i]));
+          snprintf(junk3 + strlen(junk3), sizeof(junk3) - strlen(junk3), "%02X ", (0xFF & sortk3[i]));
         }
 
       log_verbose("%s\n", junk2);
@@ -1371,7 +1431,7 @@ void TestSortKey()
     free(sortk2);
 
 }
-void TestHashCode()
+void TestHashCode(void)
 {
     uint8_t *sortk1, *sortk2, *sortk3;
     int32_t sortk1len, sortk2len, sortk3len;
@@ -1425,7 +1485,7 @@ void TestHashCode()
  * Tests the UCollatorElements API.
  *
  */
-void TestElemIter()
+void TestElemIter(void)
 {
     int32_t offset;
     int32_t order1, order2, order3;
@@ -1555,7 +1615,7 @@ doAssert( (ucol_tertiaryOrder(order1) != ucol_tertiaryOrder(order3)), "The terti
     log_verbose("testing CollationElementIterator ends...\n");
 }
 
-void TestGetLocale() {
+void TestGetLocale(void) {
   UErrorCode status = U_ZERO_ERROR;
   const char *rules = "&a<x<y<z";
   UChar rlz[256] = {0};
@@ -1656,7 +1716,7 @@ void TestGetLocale() {
 }
 
 
-void TestGetAll()
+void TestGetAll(void)
 {
     int32_t i, count;
     count=ucol_countAvailable();
@@ -1683,7 +1743,7 @@ static int compare_teststruct(const void *string1, const void *string2) {
     return(strcmp((const char *)((struct teststruct *)string1)->key, (const char *)((struct teststruct *)string2)->key));
 }
 
-void TestBounds() {
+void TestBounds(void) {
     UErrorCode status = U_ZERO_ERROR;
 
     UCollator *coll = ucol_open("sh", &status);
@@ -1898,7 +1958,7 @@ void TestSortKeyBufferOverrun(void) {
     ucol_close(coll);
 }
 
-static void TestAttribute()
+static void TestAttribute(void)
 {
     UErrorCode error = U_ZERO_ERROR;
     UCollator *coll = ucol_open(NULL, &error);
@@ -2001,7 +2061,7 @@ static void TestAttribute()
     ucol_close(coll);
 }
 
-void TestGetTailoredSet() {
+void TestGetTailoredSet(void) {
   struct {
     const char *rules;
     const char *tests[20];

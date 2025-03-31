@@ -38,6 +38,7 @@
 #include "WebExtensionDataType.h"
 #include "WebExtensionError.h"
 #include "WebExtensionFrameIdentifier.h"
+#include "WebExtensionStorageSQLiteStore.h"
 #include "WebExtensionURLSchemeHandler.h"
 #include "WebProcessProxy.h"
 #include "WebUserContentControllerProxy.h"
@@ -52,7 +53,6 @@
 OBJC_CLASS NSError;
 OBJC_CLASS NSMenu;
 OBJC_CLASS _WKWebExtensionControllerHelper;
-OBJC_CLASS _WKWebExtensionStorageSQLiteStore;
 OBJC_PROTOCOL(WKWebExtensionControllerDelegatePrivate);
 
 #ifdef __OBJC__
@@ -73,6 +73,7 @@ class WebPageProxy;
 class WebProcessPool;
 class WebsiteDataStore;
 struct WebExtensionControllerParameters;
+struct WebExtensionFrameParameters;
 
 #if ENABLE(INSPECTOR_EXTENSIONS)
 class WebInspectorUIProxy;
@@ -83,7 +84,10 @@ class WebExtensionController : public API::ObjectImpl<API::Object::Type::WebExte
 
 public:
     static Ref<WebExtensionController> create(Ref<WebExtensionControllerConfiguration> configuration) { return adoptRef(*new WebExtensionController(configuration)); }
-    static WebExtensionController* get(WebExtensionControllerIdentifier);
+    static RefPtr<WebExtensionController> get(WebExtensionControllerIdentifier);
+
+    void ref() const final { API::ObjectImpl<API::Object::Type::WebExtensionController>::ref(); }
+    void deref() const final { API::ObjectImpl<API::Object::Type::WebExtensionController>::deref(); }
 
     explicit WebExtensionController(Ref<WebExtensionControllerConfiguration>);
     ~WebExtensionController();
@@ -95,7 +99,7 @@ public:
     using WebExtensionContextBaseURLMap = HashMap<String, Ref<WebExtensionContext>>;
     using WebExtensionURLSchemeHandlerMap = HashMap<String, Ref<WebExtensionURLSchemeHandler>>;
 
-    using WebProcessProxySet = WeakHashSet<WebProcessProxy>;
+    using WebProcessProxySet = HashSet<Ref<WebProcessProxy>>;
     using WebProcessPoolSet = WeakHashSet<WebProcessPool>;
     using WebPageProxySet = WeakHashSet<WebPageProxy>;
     using UserContentControllerProxySet = WeakHashSet<WebUserContentControllerProxy>;
@@ -104,6 +108,7 @@ public:
     enum class ForPrivateBrowsing { No, Yes };
 
     WebExtensionControllerConfiguration& configuration() const { return m_configuration.get(); }
+    Ref<WebExtensionControllerConfiguration> protectedConfiguration() const { return m_configuration; }
     WebExtensionControllerParameters parameters() const;
 
     bool operator==(const WebExtensionController& other) const { return (this == &other); }
@@ -117,8 +122,8 @@ public:
     void getDataRecord(OptionSet<WebExtensionDataType>, WebExtensionContext&, CompletionHandler<void(RefPtr<WebExtensionDataRecord>)>&&);
     void removeData(OptionSet<WebExtensionDataType>, const Vector<Ref<WebExtensionDataRecord>>&, CompletionHandler<void()>&&);
 
-    void calculateStorageSize(_WKWebExtensionStorageSQLiteStore *, WebExtensionDataType, CompletionHandler<void(Expected<size_t, WebExtensionError>&&)>&&);
-    void removeStorage(_WKWebExtensionStorageSQLiteStore *, WebExtensionDataType, CompletionHandler<void(Expected<void, WebExtensionError>&&)>&&);
+    void calculateStorageSize(RefPtr<WebExtensionStorageSQLiteStore>, WebExtensionDataType, CompletionHandler<void(Expected<size_t, WebExtensionError>&&)>&&);
+    void removeStorage(RefPtr<WebExtensionStorageSQLiteStore>, WebExtensionDataType, CompletionHandler<void(Expected<void, WebExtensionError>&&)>&&);
 
     bool hasLoadedContexts() const { return !m_extensionContexts.isEmpty(); }
     bool isFreshlyCreated() const { return m_freshlyCreated; }
@@ -204,46 +209,57 @@ private:
     String storageDirectory(WebExtensionContext&) const;
 
     String stateFilePath(const String& uniqueIdentifier) const;
-    _WKWebExtensionStorageSQLiteStore* sqliteStore(const String& storageDirectory, WebExtensionDataType, RefPtr<WebExtensionContext>);
+    RefPtr<WebExtensionStorageSQLiteStore> sqliteStore(const String& storageDirectory, WebExtensionDataType, RefPtr<WebExtensionContext>);
 
-    void didStartProvisionalLoadForFrame(WebPageProxyIdentifier, WebExtensionFrameIdentifier, WebExtensionFrameIdentifier parentFrameID, const URL&, WallTime);
-    void didCommitLoadForFrame(WebPageProxyIdentifier, WebExtensionFrameIdentifier, WebExtensionFrameIdentifier parentFrameID, const URL&, WallTime);
-    void didFinishLoadForFrame(WebPageProxyIdentifier, WebExtensionFrameIdentifier, WebExtensionFrameIdentifier parentFrameID, const URL&, WallTime);
-    void didFailLoadForFrame(WebPageProxyIdentifier, WebExtensionFrameIdentifier, WebExtensionFrameIdentifier parentFrameID, const URL&, WallTime);
+    void didStartProvisionalLoadForFrame(WebPageProxyIdentifier, const WebExtensionFrameParameters&, WallTime);
+    void didCommitLoadForFrame(WebPageProxyIdentifier, const WebExtensionFrameParameters&, WallTime);
+    void didFinishLoadForFrame(WebPageProxyIdentifier, const WebExtensionFrameParameters&, WallTime);
+    void didFailLoadForFrame(WebPageProxyIdentifier, const WebExtensionFrameParameters&, WallTime);
 
     void purgeOldMatchedRules();
 
     // Test APIs
     void testResult(bool result, String message, String sourceURL, unsigned lineNumber);
     void testEqual(bool result, String expected, String actual, String message, String sourceURL, unsigned lineNumber);
-    void testMessage(String message, String sourceURL, unsigned lineNumber);
-    void testYielded(String message, String sourceURL, unsigned lineNumber);
+    void testLogMessage(String message, String sourceURL, unsigned lineNumber);
+    void testSentMessage(String message, String argument, String sourceURL, unsigned lineNumber);
     void testFinished(bool result, String message, String sourceURL, unsigned lineNumber);
 
     class HTTPCookieStoreObserver : public API::HTTPCookieStoreObserver {
         WTF_MAKE_TZONE_ALLOCATED_INLINE(HTTPCookieStoreObserver);
 
     public:
+        static RefPtr<HTTPCookieStoreObserver> create(WebExtensionController& extensionController)
+        {
+            return adoptRef(new HTTPCookieStoreObserver(extensionController));
+        }
+
+    private:
         explicit HTTPCookieStoreObserver(WebExtensionController& extensionController)
             : m_extensionController(extensionController)
         {
         }
 
-    private:
         void cookiesDidChange(API::HTTPCookieStore& cookieStore) final
         {
             // FIXME: <https://webkit.org/b/267514> Add support for changeInfo.
 
+#if PLATFORM(COCOA)
             if (RefPtr extensionController = m_extensionController.get())
                 extensionController->cookiesDidChange(cookieStore);
+#endif
         }
 
         WeakPtr<WebExtensionController> m_extensionController;
     };
 
+    RefPtr<HTTPCookieStoreObserver> protectedCookieStoreObserver() { return m_cookieStoreObserver; }
+
     Ref<WebExtensionControllerConfiguration> m_configuration;
 
+#if PLATFORM(COCOA)
     RetainPtr<_WKWebExtensionControllerHelper> m_webExtensionControllerHelper;
+#endif
     WebExtensionContextSet m_extensionContexts;
     WebExtensionContextBaseURLMap m_extensionContextBaseURLMap;
     WebPageProxySet m_pages;
@@ -263,15 +279,15 @@ private:
     bool m_showingActionPopup { false };
 
     std::unique_ptr<RunLoop::Timer> m_purgeOldMatchedRulesTimer;
-    std::unique_ptr<HTTPCookieStoreObserver> m_cookieStoreObserver;
+    RefPtr<HTTPCookieStoreObserver> m_cookieStoreObserver;
 };
 
 template<typename T, typename RawValue>
 void WebExtensionController::sendToAllProcesses(const T& message, const ObjectIdentifierGenericBase<RawValue>& destinationID)
 {
-    for (auto& process : allProcesses()) {
-        if (process.canSendMessage())
-            process.send(T(message), destinationID);
+    for (Ref process : allProcesses()) {
+        if (process->canSendMessage())
+            process->send(T(message), destinationID);
     }
 }
 

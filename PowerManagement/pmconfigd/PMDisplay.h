@@ -58,6 +58,7 @@ void handleSkylightCheckIn(void);
 #endif
 void handleDesktopMode(void);
 uint32_t rootDomainClamshellState(void);
+void initializeClamshellState(void);
 
 #if XCTEST
 void xctSetDesktopMode(bool);

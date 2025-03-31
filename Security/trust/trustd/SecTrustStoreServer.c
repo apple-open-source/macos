@@ -64,6 +64,8 @@
 #include "trust/trustd/SecCertificateSource.h"
 #include "trust/trustd/trustdFileLocations.h"
 #include "trust/trustd/trustdVariants.h"
+#include "trust/trustd/SecAnchorCache.h"
+#include "trust/trustd/SecRevocationDb.h"
 
 
 static dispatch_once_t kSecTrustStoreUserOnce;
@@ -744,7 +746,7 @@ bool _SecTrustStoreContainsCertificate(SecTrustStoreRef ts, SecCertificateRef ce
     if (ts && ts->domain == kSecTrustStoreDomainSystem) {
         // For the system domain, use the system anchor source
         if (contains) {
-            *contains = SecCertificateSourceContains(kSecSystemAnchorSource, cert);
+            *contains = SecCertificateSourceContains(kSecSystemAnchorSource, cert, NULL);
         }
         return true;
     }
@@ -770,7 +772,66 @@ bool _SecTrustStoreCopyUsageConstraints(SecTrustStoreRef ts, SecCertificateRef c
 #endif // !TARGET_OS_IPHONE
 }
 
-bool _SecTrustStoreCopyAll(SecTrustStoreRef ts, CFArrayRef *trustStoreContents, CFErrorRef *error) {
+
+static bool _SecSystemTrustStoreCopyAll(CFStringRef policyId, CFArrayRef *trustStoreContents, CFErrorRef *error) {
+    __block CFMutableArrayRef CertsAndSettings = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
+    CFArrayRef certs = NULL;
+    if (policyId == NULL) { // Use basic policy to get default system anchors
+        policyId = kSecPolicyAppleX509Basic;
+    }
+    // Assume server policies if unspecified
+    if (CFEqual(policyId, kSecPolicyAppleSSL)) {
+        policyId = kSecPolicyAppleSSLServer;
+    } else if (CFEqual(policyId, kSecPolicyAppleEAP)) {
+        policyId = kSecPolicyAppleEAPServer;
+    } else if (CFEqual(policyId, kSecPolicyAppleIPsec)) {
+        policyId = kSecPolicyAppleIPSecServer;
+    }
+    certs = SecAnchorCacheCopyAnchors(policyId);
+    if (!certs) { // No anchors specified
+        return true;
+    }
+    CFArrayForEach(certs, ^(const void *value) {
+        /* Skip anchors that are blocked */
+        SecCertificateRef cert = (SecCertificateRef)value;
+        SecValidInfoRef validInfo = SecRevocationDbCopyMatching(cert, cert); // ??? Not all anchors are self-signed so this only works for roots
+        if (validInfo && SecValidInfoIsRevoked(validInfo) && SecValidInfoIsDefinitive(validInfo)) {
+            return;
+        }
+        /* Skip anchors that are not permitted for this policy */
+        if (validInfo && !SecValidInfoPolicyConstraintsPermitPolicy(validInfo, policyId)) {
+            return;
+        }
+
+        /* Get constraints */
+        CFArrayRef constraints = SecSystemConstrainedAnchorSourceCopyUsageConstraints(NULL, cert);
+        if (!constraints) {
+            // All anchors should either specify no constraints or policy constraints;
+            // not returning an array is a security_certificates config error
+            return;
+        }
+        CFDataRef certData = SecCertificateCopyData(cert);
+        const void *pair[] = { certData , constraints };
+        CFArrayRef certSettingsPair = CFArrayCreate(NULL, pair, 2, &kCFTypeArrayCallBacks);
+        CFArrayAppendValue(CertsAndSettings, certSettingsPair);
+        CFReleaseNull(certData);
+        CFReleaseNull(constraints);
+        CFReleaseNull(certSettingsPair);
+    });
+    CFReleaseNull(certs);
+    if (CFArrayGetCount(CertsAndSettings) > 0) {
+        *trustStoreContents = CFRetainSafe(CertsAndSettings);
+    }
+    CFReleaseNull(CertsAndSettings);
+    return true;
+}
+
+bool _SecTrustStoreCopyAll(SecTrustStoreRef ts, CFStringRef policyId, CFArrayRef *trustStoreContents, CFErrorRef *error) {
+    /* Get system-trusted anchors permitted for this policyId */
+    if (ts && ts->domain == kSecTrustStoreDomainSystem) {
+        return _SecSystemTrustStoreCopyAll(policyId, trustStoreContents, error);
+    }
+    /* Now for the other trust stores which differ by platform */
 #if TARGET_OS_IPHONE
     __block bool ok = true;
     __block CFMutableArrayRef CertsAndSettings = NULL;
@@ -778,21 +839,6 @@ bool _SecTrustStoreCopyAll(SecTrustStoreRef ts, CFArrayRef *trustStoreContents, 
     require(CertsAndSettings = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks), errOutNotLocked);
     require_action_quiet(trustStoreContents, errOutNotLocked, ok = SecError(errSecParam, error, CFSTR("trustStoreContents is NULL")));
     require_action_quiet(ts, errOutNotLocked, ok = SecError(errSecParam, error, CFSTR("ts is NULL")));
-#if NO_SYSTEM_STORE
-    require_action_quiet(ts->domain != kSecTrustStoreDomainSystem, errOutNotLocked, ok = SecError(errSecUnimplemented, error, CFSTR("Cannot copy system trust store contents"))); // Not allowing system trust store enumeration
-#else
-    if (ts->domain == kSecTrustStoreDomainSystem) {
-        CFArrayRef certs = SecSystemAnchorSourceCopyCertificates();
-        if (certs && CFArrayGetCount(certs) > 0) {
-            //%%% need to return as CertsAndSettings instead of just certs
-            *trustStoreContents = CFRetainSafe(certs);
-        }
-        CFReleaseNull(certs);
-        CFReleaseNull(CertsAndSettings);
-        CFReleaseNull(uuid);
-        return ok;
-    }
-#endif // NO_SYSTEM_STORE
     require_action_quiet(ts->s3h, errOutNotLocked, ok = SecError(errSecParam, error, CFSTR("ts DB is NULL")));
     require_action_quiet(uuid, errOutNotLocked, ok = SecError(errSecInternal, error, CFSTR("uuid is NULL")));
     dispatch_sync(ts->queue, ^{
@@ -859,19 +905,7 @@ errOutNotLocked:
     CFReleaseNull(uuid);
     return ok;
 #else // !TARGET_OS_IPHONE
-    if (ts && ts->domain == kSecTrustStoreDomainSystem) {
-#if NO_SYSTEM_STORE
-        return SecError(errSecUnimplemented, error, CFSTR("Cannot copy system trust store contents"));
-#else
-        CFArrayRef certs = SecSystemAnchorSourceCopyCertificates();
-        if (certs && CFArrayGetCount(certs) > 0) {
-            //%%% need to return as CertsAndSettings instead of just certs
-            *trustStoreContents = CFRetainSafe(certs);
-        }
-        CFReleaseNull(certs);
-        return true;
-#endif // NO_SYSTEM_STORE
-    }
+    // TrustStore only handles Corporate roots on macOS for now
     CFMutableArrayRef CertsAndSettings = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
     if (CertsAndSettings) {
         *trustStoreContents = CertsAndSettings;

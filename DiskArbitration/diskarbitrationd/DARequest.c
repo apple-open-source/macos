@@ -1475,6 +1475,14 @@ static void __DARequestUnmountCallback( int status, void * context )
     
     disk = DARequestGetDisk( request );
 
+    if (  DADiskGetDescription( disk, kDADiskDescriptionVolumeUUIDKey ) &&
+        CFDictionaryGetValue( gDADanglingVolumeList, DADiskGetDescription( disk, kDADiskDescriptionVolumeUUIDKey ) ) )
+    {
+        DALogInfo( "removed volume from danglingVolumeList, id = %@, success.", DADiskGetDescription( disk, kDADiskDescriptionVolumeUUIDKey ) );
+
+        CFDictionaryRemoveValue( gDADanglingVolumeList, DADiskGetDescription( disk, kDADiskDescriptionVolumeUUIDKey ) );
+    }
+    
     if ( status )
     {
         /*
@@ -1558,7 +1566,8 @@ handleumount:
         {
             DAMountRemoveMountPoint( mountpoint );
         }
-
+        
+      
         DADiskSetBypath( disk, NULL );
 
         DALogInfo( "unmounted disk, id = %@, success.", disk );

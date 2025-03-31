@@ -29,7 +29,7 @@
 #include <wtf/Function.h>
 #include <wtf/MonotonicTime.h>
 #include <wtf/Noncopyable.h>
-#include <wtf/RefCounted.h>
+#include <wtf/RefCountedAndCanMakeWeakPtr.h>
 #include <wtf/TZoneMalloc.h>
 #include <wtf/UUID.h>
 #include <wtf/Vector.h>
@@ -46,7 +46,7 @@ enum class IsProcessingUserGesture : uint8_t { No, Yes, Potentially };
 enum class CanRequestDOMPaste : bool { No, Yes };
 enum class UserGestureType : uint8_t { EscapeKey, ActivationTriggering, Other };
 
-class UserGestureToken : public RefCounted<UserGestureToken>, public CanMakeWeakPtr<UserGestureToken> {
+class UserGestureToken : public RefCountedAndCanMakeWeakPtr<UserGestureToken> {
 public:
     static constexpr Seconds maximumIntervalForUserGestureForwarding { 1_s }; // One second matches Gecko.
     static const Seconds& maximumIntervalForUserGestureForwardingForFetch();

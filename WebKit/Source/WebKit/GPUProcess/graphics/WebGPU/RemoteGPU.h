@@ -83,7 +83,7 @@ public:
         return result;
     }
 
-    const SharedPreferencesForWebProcess& sharedPreferencesForWebProcess() const { return m_sharedPreferencesForWebProcess; }
+    std::optional<SharedPreferencesForWebProcess> sharedPreferencesForWebProcess() const { return m_sharedPreferencesForWebProcess; }
 
     virtual ~RemoteGPU();
 
@@ -113,7 +113,10 @@ private:
     template<typename T>
     IPC::Error send(T&& message) const
     {
-        return m_streamConnection->send(std::forward<T>(message), m_identifier);
+        // FIXME: Remove this suppression once https://github.com/llvm/llvm-project/pull/119336 is merged.
+IGNORE_CLANG_STATIC_ANALYZER_WARNINGS_BEGIN("alpha.webkit.UncountedCallArgsChecker")
+        return Ref { *m_streamConnection }->send(std::forward<T>(message), m_identifier);
+IGNORE_CLANG_STATIC_ANALYZER_WARNINGS_END
     }
 
     void didReceiveStreamMessage(IPC::StreamServerConnection&, IPC::Decoder&) final;

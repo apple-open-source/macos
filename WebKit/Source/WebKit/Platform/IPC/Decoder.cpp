@@ -30,22 +30,21 @@
 #include "Logging.h"
 #include "MessageFlags.h"
 #include <stdio.h>
+#include <wtf/MallocSpan.h>
 #include <wtf/ObjectIdentifier.h>
 #include <wtf/StdLibExtras.h>
 #include <wtf/TZoneMallocInlines.h>
 
 namespace IPC {
 
-static uint8_t* copyBuffer(std::span<const uint8_t> buffer)
+static MallocSpan<uint8_t> copyBuffer(std::span<const uint8_t> buffer)
 {
-    uint8_t* bufferCopy;
-    const size_t bufferSize = buffer.size_bytes();
-    if (!tryFastMalloc(bufferSize).getValue(bufferCopy)) {
-        RELEASE_LOG_FAULT(IPC, "Decoder::copyBuffer: tryFastMalloc(%lu) failed", bufferSize);
-        return nullptr;
+    auto bufferCopy = MallocSpan<uint8_t>::tryMalloc(buffer.size());
+    if (!bufferCopy) {
+        RELEASE_LOG_FAULT(IPC, "Decoder::copyBuffer: tryMalloc(%lu) failed", buffer.size());
+        return { };
     }
-
-    memcpy(bufferCopy, buffer.data(), bufferSize);
+    memcpySpan(bufferCopy.mutableSpan(), buffer);
     return bufferCopy;
 }
 
@@ -53,7 +52,9 @@ WTF_MAKE_TZONE_ALLOCATED_IMPL(Decoder);
 
 std::unique_ptr<Decoder> Decoder::create(std::span<const uint8_t> buffer, Vector<Attachment>&& attachments)
 {
-    return Decoder::create({ copyBuffer(buffer), buffer.size() }, [](auto buffer) { fastFree(const_cast<uint8_t*>(buffer.data())); }, WTFMove(attachments)); // NOLINT
+    auto bufferCopy = copyBuffer(buffer);
+    auto bufferCopySpan = bufferCopy.span();
+    return Decoder::create(bufferCopySpan, [bufferCopy = WTFMove(bufferCopy)](auto) { }, WTFMove(attachments)); // NOLINT
 }
 
 std::unique_ptr<Decoder> Decoder::create(std::span<const uint8_t> buffer, BufferDeallocator&& bufferDeallocator, Vector<Attachment>&& attachments)
@@ -100,6 +101,12 @@ Decoder::Decoder(std::span<const uint8_t> buffer, BufferDeallocator&& bufferDeal
         return;
     }
     m_destinationID = WTFMove(*destinationID);
+    if (messageIsSync(m_messageName)) {
+        auto syncRequestID = decode<SyncRequestID>();
+        if (UNLIKELY(!syncRequestID))
+            return;
+        m_syncRequestID = syncRequestID;
+    }
 }
 
 Decoder::Decoder(std::span<const uint8_t> stream, uint64_t destinationID)
@@ -118,6 +125,12 @@ Decoder::Decoder(std::span<const uint8_t> stream, uint64_t destinationID)
     if (UNLIKELY(!messageName))
         return;
     m_messageName = WTFMove(*messageName);
+    if (messageIsSync(m_messageName)) {
+        auto syncRequestID = decode<SyncRequestID>();
+        if (UNLIKELY(!syncRequestID))
+            return;
+        m_syncRequestID = syncRequestID;
+    }
 }
 
 Decoder::~Decoder()
@@ -145,13 +158,6 @@ bool Decoder::shouldMaintainOrderingWithAsyncMessages() const
 {
     return m_messageFlags.contains(MessageFlags::MaintainOrderingWithAsyncMessages);
 }
-
-#if ENABLE(IPC_TESTING_API)
-bool Decoder::hasSyncMessageDeserializationFailure() const
-{
-    return m_messageFlags.contains(MessageFlags::SyncMessageDeserializationFailure);
-}
-#endif
 
 #if PLATFORM(MAC)
 void Decoder::setImportanceAssertion(ImportanceAssertion&& assertion)

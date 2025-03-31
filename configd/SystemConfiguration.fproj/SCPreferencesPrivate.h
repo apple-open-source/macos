@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2005, 2007-2009, 2011, 2012, 2017-2021 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2005, 2007-2009, 2011, 2012, 2017-2021, 2024 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -73,6 +73,13 @@
 		file should be removed when/if all keys have been removed.
  */
 #define kSCPreferencesOptionRemoveWhenEmpty		CFSTR("remove-when-empty")	// CFBooleanRef
+
+/*!
+	@defined kSCPreferencesOptionUsePrebootVolume
+	@abstract The SCPreferences "option" used to indicate that the .plist
+		file should be accessed on preboot volume.
+ */
+#define kSCPreferencesOptionUsePrebootVolume		CFSTR("use-preboot-volume")	// CFBooleanRef
 
 /*!
 	@defined kSCPreferencesAuthorizationRight_network_set

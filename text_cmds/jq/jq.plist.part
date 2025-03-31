@@ -1,0 +1,16 @@
+<dict>
+	<key>OpenSourceProject</key>
+	<string>jq</string>
+	<key>OpenSourceVersion</key>
+	<string>2023-12-13</string>
+	<key>OpenSourceWebsiteURL</key>
+	<string>https://github.com/jqlang/jq/tree/71c2ab509a8628dbbad4bc7b3f98a64aa90d3297</string>
+	<key>OpenSourceImportDate</key>
+	<string>2024-10-03</string>
+	<key>OpenSourceModifications</key>
+	<array>
+		<string>Build integration fixes.</string>
+	</array>
+	<key>OpenSourceLicense</key>
+	<string>MIT</string>
+</dict>

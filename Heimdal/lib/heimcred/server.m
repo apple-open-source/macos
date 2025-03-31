@@ -515,7 +515,7 @@ static void GSSCred_event_handler(xpc_connection_t peerconn)
 	}
 	heim_assert(peer->session != NULL, "out of memory");
 
-	os_log_debug(GSSOSLog(), "new connection from %@, asid: %d",  peer->callingAppBundleID, peer->session->session);
+	os_log_debug(GSSOSLog(), "new connection from %@, asid: %u",  peer->callingAppBundleID, peer->session->session);
 
 	peer->needsManagedAppCheck = true;
 	peer->isManagedApp = false;

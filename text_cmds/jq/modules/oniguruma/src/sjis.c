@@ -2,7 +2,7 @@
   sjis.c -  Oniguruma (regular expression library)
 **********************************************************************/
 /*-
- * Copyright (c) 2002-2016  K.Kosako  <sndgk393 AT ybb DOT ne DOT jp>
+ * Copyright (c) 2002-2020  K.Kosako
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -85,11 +85,11 @@ is_valid_mbc_string(const UChar* p, const UChar* end)
     }
     else if (*p < 0xa1) {
       if (*p == 0xa0 || *p == 0x80)
-	return FALSE;
+        return FALSE;
       p++;
       if (p >= end) return FALSE;
       if (*p < 0x40 || *p > 0xfc || *p == 0x7f)
-	return FALSE;
+        return FALSE;
       p++;
     }
     else if (*p < 0xe0) {
@@ -99,7 +99,7 @@ is_valid_mbc_string(const UChar* p, const UChar* end)
       p++;
       if (p >= end) return FALSE;
       if (*p < 0x40 || *p > 0xfc || *p == 0x7f)
-	return FALSE;
+        return FALSE;
       p++;
     }
     else
@@ -115,14 +115,13 @@ code_to_mbclen(OnigCodePoint code)
   if (code < 256) {
     if (EncLen_SJIS[(int )code] == 1)
       return 1;
-    else
-      return 0;
   }
-  else if (code <= 0xffff) {
-    return 2;
+  else if (code < 0x10000) {
+    if (EncLen_SJIS[(int )(code >>  8) & 0xff] == 2)
+      return 2;
   }
-  else
-    return ONIGERR_INVALID_CODE_POINT_VALUE;
+
+  return ONIGERR_INVALID_CODE_POINT_VALUE;
 }
 
 static OnigCodePoint
@@ -152,16 +151,12 @@ code_to_mbc(OnigCodePoint code, UChar *buf)
   if ((code & 0xff00) != 0) *p++ = (UChar )(((code >>  8) & 0xff));
   *p++ = (UChar )(code & 0xff);
 
-#if 0
-  if (enclen(ONIG_ENCODING_SJIS, buf) != (p - buf))
-    return REGERR_INVALID_CODE_POINT_VALUE;
-#endif
-  return p - buf;
+  return (int )(p - buf);
 }
 
 static int
 mbc_case_fold(OnigCaseFoldType flag ARG_UNUSED,
-	      const UChar** pp, const UChar* end ARG_UNUSED, UChar* lower)
+              const UChar** pp, const UChar* end ARG_UNUSED, UChar* lower)
 {
   const UChar* p = *pp;
 
@@ -182,32 +177,6 @@ mbc_case_fold(OnigCaseFoldType flag ARG_UNUSED,
   }
 }
 
-#if 0
-static int
-is_mbc_ambiguous(OnigCaseFoldType flag,
-		 const UChar** pp, const UChar* end)
-{
-  return onigenc_mbn_is_mbc_ambiguous(ONIG_ENCODING_SJIS, flag, pp, end);
-                                      
-}
-#endif
-
-#if 0
-static int
-is_code_ctype(OnigCodePoint code, unsigned int ctype)
-{
-  if (code < 128)
-    return ONIGENC_IS_ASCII_CODE_CTYPE(code, ctype);
-  else {
-    if (CTYPE_IS_WORD_GRAPH_PRINT(ctype)) {
-      return (code_to_mbclen(code) > 1 ? TRUE : FALSE);
-    }
-  }
-
-  return FALSE;
-}
-#endif
-
 static UChar*
 left_adjust_char_head(const UChar* start, const UChar* s)
 {
@@ -220,10 +189,10 @@ left_adjust_char_head(const UChar* start, const UChar* s)
   if (SJIS_ISMB_TRAIL(*p)) {
     while (p > start) {
       if (! SJIS_ISMB_FIRST(*--p)) {
-	p++;
-	break;
+        p++;
+        break;
       }
-    } 
+    }
   }
   len = enclen(ONIG_ENCODING_SJIS, p);
   if (p + len > s) return (UChar* )p;
@@ -262,13 +231,13 @@ static int
 property_name_to_ctype(OnigEncoding enc, UChar* p, UChar* end)
 {
   struct PropertyNameCtype* pc;
-  int len = end - p;
+  int len = (int )(end - p);
   char q[32];
 
   if (len < sizeof(q) - 1) {
     xmemcpy(q, p, (size_t )len);
     q[len] = '\0';
-    pc = euc_jp_lookup_property_name(q, len);
+    pc = onigenc_sjis_lookup_property_name(q, len);
     if (pc != 0)
       return pc->ctype;
   }
@@ -284,7 +253,7 @@ is_code_ctype(OnigCodePoint code, unsigned int ctype)
       return ONIGENC_IS_ASCII_CODE_CTYPE(code, ctype);
     else {
       if (CTYPE_IS_WORD_GRAPH_PRINT(ctype)) {
-	return (code_to_mbclen(code) > 1 ? TRUE : FALSE);
+        return (code_to_mbclen(code) > 1 ? TRUE : FALSE);
       }
     }
   }
@@ -301,7 +270,7 @@ is_code_ctype(OnigCodePoint code, unsigned int ctype)
 
 static int
 get_ctype_code_range(OnigCtype ctype, OnigCodePoint* sb_out,
-		     const OnigCodePoint* ranges[])
+                     const OnigCodePoint* ranges[])
 {
   if (ctype <= ONIGENC_MAX_STD_CTYPE) {
     return ONIG_NO_SUPPORT_CONFIG;
@@ -321,8 +290,8 @@ get_ctype_code_range(OnigCtype ctype, OnigCodePoint* sb_out,
 OnigEncodingType OnigEncodingSJIS = {
   mbc_enc_len,
   "Shift_JIS",   /* name */
-  2,             /* max byte length */
-  1,             /* min byte length */
+  2,             /* max enc length */
+  1,             /* min enc length */
   onigenc_is_mbc_newline_0x0a,
   mbc_to_code,
   code_to_mbclen,
@@ -337,5 +306,7 @@ OnigEncodingType OnigEncodingSJIS = {
   is_allowed_reverse_match,
   NULL, /* init */
   NULL, /* is_initialized */
-  is_valid_mbc_string
+  is_valid_mbc_string,
+  ENC_FLAG_ASCII_COMPATIBLE|ENC_FLAG_SKIP_OFFSET_1_OR_0,
+  0, 0
 };

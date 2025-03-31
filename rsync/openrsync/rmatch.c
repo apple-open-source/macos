@@ -302,6 +302,14 @@ rmatch(const char *pattern, const char *string, int leading_dir)
 	const char *segend, *segnext, *mismatch = NULL;
 	int wild, starstar;
 
+	/*
+	 * Empty strings can still match a wildcard or starstar pattern.
+	 */
+	if (*string == '\0' && *pattern != '\0') {
+		if (strcmp(pattern, "*") == 0 || strcmp(pattern, "**") == 0)
+			return 0;
+	}
+
 	while (*pattern && *string) {
 
 		/* handle leading '/' first */

@@ -297,48 +297,29 @@ bool ValidateTexImageFormatCombination(const Context *context,
                                        GLenum format,
                                        GLenum type)
 {
-    // Different validation if on desktop api
-    if (context->getClientType() == EGL_OPENGL_API)
+    // The type and format are valid if any supported internal format has that type and format.
+    // ANGLE_texture_external_yuv_sampling extension adds support for YUV formats
+    if (gl::IsYuvFormat(format))
     {
-        // The type and format are valid if any supported internal format has that type and format
-        if (!ValidDesktopFormat(format))
+        if (!context->getExtensions().yuvInternalFormatANGLE)
         {
             ANGLE_VALIDATION_ERROR(GL_INVALID_ENUM, kInvalidFormat);
-            return false;
-        }
-
-        if (!ValidDesktopType(type))
-        {
-            ANGLE_VALIDATION_ERROR(GL_INVALID_ENUM, kInvalidType);
             return false;
         }
     }
     else
     {
-        // The type and format are valid if any supported internal format has that type and format.
-        // ANGLE_texture_external_yuv_sampling extension adds support for YUV formats
-        if (gl::IsYuvFormat(format))
+        if (!ValidES3Format(format))
         {
-            if (!context->getExtensions().yuvInternalFormatANGLE)
-            {
-                ANGLE_VALIDATION_ERROR(GL_INVALID_ENUM, kInvalidFormat);
-                return false;
-            }
-        }
-        else
-        {
-            if (!ValidES3Format(format))
-            {
-                ANGLE_VALIDATION_ERROR(GL_INVALID_ENUM, kInvalidFormat);
-                return false;
-            }
-        }
-
-        if (!ValidES3Type(type) || (type == GL_HALF_FLOAT_OES && context->isWebGL()))
-        {
-            ANGLE_VALIDATION_ERROR(GL_INVALID_ENUM, kInvalidType);
+            ANGLE_VALIDATION_ERROR(GL_INVALID_ENUM, kInvalidFormat);
             return false;
         }
+    }
+
+    if (!ValidES3Type(type) || (type == GL_HALF_FLOAT_OES && context->isWebGL()))
+    {
+        ANGLE_VALIDATION_ERROR(GL_INVALID_ENUM, kInvalidType);
+        return false;
     }
 
     // For historical reasons, glTexImage2D and glTexImage3D pass in their internal format as a
@@ -356,16 +337,20 @@ bool ValidateTexImageFormatCombination(const Context *context,
     // texture image specification commands only if target is TEXTURE_2D, TEXTURE_2D_ARRAY, or
     // TEXTURE_CUBE_MAP.Using these formats in conjunction with any other target will result in an
     // INVALID_OPERATION error.
-    if (target == TextureType::_3D && (format == GL_DEPTH_COMPONENT || format == GL_DEPTH_STENCIL))
+    //
+    // Similar language exists in OES_texture_stencil8.
+    if (target == TextureType::_3D &&
+        (format == GL_DEPTH_COMPONENT || format == GL_DEPTH_STENCIL || format == GL_STENCIL_INDEX))
     {
         ANGLE_VALIDATION_ERROR(GL_INVALID_OPERATION, k3DDepthStencil);
         return false;
     }
 
-    if (context->getClientType() == EGL_OPENGL_API)
+    // Check if this is a valid format combination to load texture data
+    // ANGLE_texture_external_yuv_sampling extension adds support for YUV formats
+    if (gl::IsYuvFormat(format))
     {
-        // Check if this is a valid format combination to load texture data
-        if (!ValidDesktopFormatCombination(format, type, internalFormat))
+        if (type != GL_UNSIGNED_BYTE)
         {
             ANGLE_VALIDATION_ERROR(GL_INVALID_OPERATION, kInvalidFormatCombination);
             return false;
@@ -373,19 +358,40 @@ bool ValidateTexImageFormatCombination(const Context *context,
     }
     else
     {
-        // Check if this is a valid format combination to load texture data
-        // ANGLE_texture_external_yuv_sampling extension adds support for YUV formats
-        if (gl::IsYuvFormat(format))
+        if (!ValidES3FormatCombination(format, type, internalFormat))
         {
-            if (type != GL_UNSIGNED_BYTE)
+            bool extensionFormatsAllowed = false;
+            switch (internalFormat)
             {
-                ANGLE_VALIDATION_ERROR(GL_INVALID_OPERATION, kInvalidFormatCombination);
-                return false;
+                case GL_LUMINANCE4_ALPHA4_OES:
+                    if (context->getExtensions().requiredInternalformatOES &&
+                        type == GL_UNSIGNED_BYTE && format == GL_LUMINANCE_ALPHA)
+                    {
+                        extensionFormatsAllowed = true;
+                    }
+                    break;
+                case GL_DEPTH_COMPONENT32_OES:
+                    if ((context->getExtensions().requiredInternalformatOES &&
+                         context->getExtensions().depth32OES) &&
+                        type == GL_UNSIGNED_INT && format == GL_DEPTH_COMPONENT)
+                    {
+                        extensionFormatsAllowed = true;
+                    }
+                    break;
+                case GL_RGB10_EXT:
+                case GL_RGB8_OES:
+                case GL_RGB565_OES:
+                    if (context->getExtensions().requiredInternalformatOES &&
+                        context->getExtensions().textureType2101010REVEXT &&
+                        type == GL_UNSIGNED_INT_2_10_10_10_REV_EXT && format == GL_RGB)
+                    {
+                        extensionFormatsAllowed = true;
+                    }
+                    break;
+                default:
+                    break;
             }
-        }
-        else
-        {
-            if (!ValidES3FormatCombination(format, type, internalFormat))
+            if (!extensionFormatsAllowed)
             {
                 ANGLE_VALIDATION_ERROR(GL_INVALID_OPERATION, kInvalidFormatCombination);
                 return false;
@@ -1556,6 +1562,19 @@ bool ValidateES3TexStorageParametersFormat(const Context *context,
         }
     }
 
+    // From the ES 3.0 spec section 3.8.3:
+    // Textures with a base internal format of DEPTH_COMPONENT or DEPTH_STENCIL are supported by
+    // texture image specification commands only if target is TEXTURE_2D, TEXTURE_2D_ARRAY, or
+    // TEXTURE_CUBE_MAP.Using these formats in conjunction with any other target will result in an
+    // INVALID_OPERATION error.
+    //
+    // Similar language exists in OES_texture_stencil8.
+    if (target == TextureType::_3D && formatInfo.isDepthOrStencil())
+    {
+        ANGLE_VALIDATION_ERROR(GL_INVALID_OPERATION, k3DDepthStencil);
+        return false;
+    }
+
     return true;
 }
 
@@ -2414,12 +2433,6 @@ bool ValidateClearBufferiv(const Context *context,
     switch (buffer)
     {
         case GL_COLOR:
-            if (!ValidateDrawBufferIndexIfActivePLS(context->getPrivateState(),
-                                                    context->getMutableErrorSetForValidation(),
-                                                    entryPoint, drawbuffer, "drawbuffer"))
-            {
-                return false;
-            }
             if (drawbuffer < 0 || drawbuffer >= context->getCaps().maxDrawBuffers)
             {
                 ANGLE_VALIDATION_ERROR(GL_INVALID_VALUE, kIndexExceedsMaxDrawBuffer);
@@ -2475,12 +2488,6 @@ bool ValidateClearBufferuiv(const Context *context,
     switch (buffer)
     {
         case GL_COLOR:
-            if (!ValidateDrawBufferIndexIfActivePLS(context->getPrivateState(),
-                                                    context->getMutableErrorSetForValidation(),
-                                                    entryPoint, drawbuffer, "drawbuffer"))
-            {
-                return false;
-            }
             if (drawbuffer < 0 || drawbuffer >= context->getCaps().maxDrawBuffers)
             {
                 ANGLE_VALIDATION_ERROR(GL_INVALID_VALUE, kIndexExceedsMaxDrawBuffer);
@@ -2528,12 +2535,6 @@ bool ValidateClearBufferfv(const Context *context,
     switch (buffer)
     {
         case GL_COLOR:
-            if (!ValidateDrawBufferIndexIfActivePLS(context->getPrivateState(),
-                                                    context->getMutableErrorSetForValidation(),
-                                                    entryPoint, drawbuffer, "drawbuffer"))
-            {
-                return false;
-            }
             if (drawbuffer < 0 || drawbuffer >= context->getCaps().maxDrawBuffers)
             {
                 ANGLE_VALIDATION_ERROR(GL_INVALID_VALUE, kIndexExceedsMaxDrawBuffer);
@@ -3263,11 +3264,8 @@ bool ValidateIndexedStateQuery(const Context *context,
         case GL_BLEND_EQUATION_RGB:
         case GL_BLEND_EQUATION_ALPHA:
         case GL_COLOR_WRITEMASK:
-            if (!context->getExtensions().drawBuffersIndexedAny())
-            {
-                ANGLE_VALIDATION_ERROR(GL_INVALID_ENUM, kDrawBuffersIndexedExtensionNotAvailable);
-                return false;
-            }
+            ASSERT(context->getClientVersion() >= ES_3_2 ||
+                   context->getExtensions().drawBuffersIndexedAny());
             if (index >= static_cast<GLuint>(caps.maxDrawBuffers))
             {
                 ANGLE_VALIDATION_ERROR(GL_INVALID_VALUE, kIndexExceedsMaxDrawBuffer);
@@ -3296,6 +3294,7 @@ bool ValidateIndexedStateQuery(const Context *context,
 
         case GL_MAX_COMPUTE_WORK_GROUP_SIZE:
         case GL_MAX_COMPUTE_WORK_GROUP_COUNT:
+            ASSERT(context->getClientVersion() >= ES_3_1);
             if (index >= 3u)
             {
                 ANGLE_VALIDATION_ERROR(GL_INVALID_VALUE, kIndexExceedsMaxWorkgroupDimensions);
@@ -3306,11 +3305,7 @@ bool ValidateIndexedStateQuery(const Context *context,
         case GL_ATOMIC_COUNTER_BUFFER_START:
         case GL_ATOMIC_COUNTER_BUFFER_SIZE:
         case GL_ATOMIC_COUNTER_BUFFER_BINDING:
-            if (context->getClientVersion() < ES_3_1)
-            {
-                ANGLE_VALIDATION_ERROR(GL_INVALID_ENUM, kEnumRequiresGLES31);
-                return false;
-            }
+            ASSERT(context->getClientVersion() >= ES_3_1);
             if (index >= static_cast<GLuint>(caps.maxAtomicCounterBufferBindings))
             {
                 ANGLE_VALIDATION_ERROR(GL_INVALID_VALUE,
@@ -3322,11 +3317,7 @@ bool ValidateIndexedStateQuery(const Context *context,
         case GL_SHADER_STORAGE_BUFFER_START:
         case GL_SHADER_STORAGE_BUFFER_SIZE:
         case GL_SHADER_STORAGE_BUFFER_BINDING:
-            if (context->getClientVersion() < ES_3_1)
-            {
-                ANGLE_VALIDATION_ERROR(GL_INVALID_ENUM, kEnumRequiresGLES31);
-                return false;
-            }
+            ASSERT(context->getClientVersion() >= ES_3_1);
             if (index >= static_cast<GLuint>(caps.maxShaderStorageBufferBindings))
             {
                 ANGLE_VALIDATION_ERROR(GL_INVALID_VALUE, kExceedsMaxShaderStorageBufferBindings);
@@ -3338,11 +3329,7 @@ bool ValidateIndexedStateQuery(const Context *context,
         case GL_VERTEX_BINDING_DIVISOR:
         case GL_VERTEX_BINDING_OFFSET:
         case GL_VERTEX_BINDING_STRIDE:
-            if (context->getClientVersion() < ES_3_1)
-            {
-                ANGLE_VALIDATION_ERROR(GL_INVALID_ENUM, kEnumRequiresGLES31);
-                return false;
-            }
+            ASSERT(context->getClientVersion() >= ES_3_1);
             if (index >= static_cast<GLuint>(caps.maxVertexAttribBindings))
             {
                 ANGLE_VALIDATION_ERROR(GL_INVALID_VALUE, kExceedsMaxVertexAttribBindings);
@@ -3350,11 +3337,8 @@ bool ValidateIndexedStateQuery(const Context *context,
             }
             break;
         case GL_SAMPLE_MASK_VALUE:
-            if (context->getClientVersion() < ES_3_1)
-            {
-                ANGLE_VALIDATION_ERROR(GL_INVALID_ENUM, kEnumRequiresGLES31);
-                return false;
-            }
+            ASSERT(context->getClientVersion() >= ES_3_1 ||
+                   context->getExtensions().textureMultisampleANGLE);
             if (index >= static_cast<GLuint>(caps.maxSampleMaskWords))
             {
                 ANGLE_VALIDATION_ERROR(GL_INVALID_VALUE, kInvalidSampleMaskNumber);
@@ -3367,11 +3351,7 @@ bool ValidateIndexedStateQuery(const Context *context,
         case GL_IMAGE_BINDING_LAYER:
         case GL_IMAGE_BINDING_ACCESS:
         case GL_IMAGE_BINDING_FORMAT:
-            if (context->getClientVersion() < ES_3_1)
-            {
-                ANGLE_VALIDATION_ERROR(GL_INVALID_ENUM, kEnumRequiresGLES31);
-                return false;
-            }
+            ASSERT(context->getClientVersion() >= ES_3_1);
             if (index >= static_cast<GLuint>(caps.maxImageUnits))
             {
                 ANGLE_VALIDATION_ERROR(GL_INVALID_VALUE, kExceedsMaxImageUnits);
@@ -3379,7 +3359,7 @@ bool ValidateIndexedStateQuery(const Context *context,
             }
             break;
         default:
-            ANGLE_VALIDATION_ERRORF(GL_INVALID_ENUM, kEnumNotSupported, pname);
+            UNREACHABLE();
             return false;
     }
 
@@ -5183,12 +5163,9 @@ bool ValidateGetTexLevelParameterfvANGLE(const Context *context,
                                          GLenum pname,
                                          const GLfloat *params)
 {
-    if (!context->getExtensions().textureMultisampleANGLE &&
-        !context->getExtensions().getTexLevelParameterANGLE)
+    if (!context->getExtensions().getTexLevelParameterANGLE)
     {
-        ANGLE_VALIDATION_ERROR(
-            GL_INVALID_OPERATION,
-            kMultisampleTextureExtensionOrGetTexLevelParameterExtensionOrES31Required);
+        ANGLE_VALIDATION_ERROR(GL_INVALID_OPERATION, kExtensionNotEnabled);
         return false;
     }
 
@@ -5202,12 +5179,9 @@ bool ValidateGetTexLevelParameterivANGLE(const Context *context,
                                          GLenum pname,
                                          const GLint *params)
 {
-    if (!context->getExtensions().textureMultisampleANGLE &&
-        !context->getExtensions().getTexLevelParameterANGLE)
+    if (!context->getExtensions().getTexLevelParameterANGLE)
     {
-        ANGLE_VALIDATION_ERROR(
-            GL_INVALID_OPERATION,
-            kMultisampleTextureExtensionOrGetTexLevelParameterExtensionOrES31Required);
+        ANGLE_VALIDATION_ERROR(GL_INVALID_OPERATION, kExtensionNotEnabled);
         return false;
     }
 
@@ -5243,37 +5217,5 @@ bool ValidateSampleMaskiANGLE(const PrivateState &state,
     }
 
     return ValidateSampleMaskiBase(state, errors, entryPoint, maskNumber, mask);
-}
-
-bool ValidateDrawBufferIndexIfActivePLS(const PrivateState &state,
-                                        ErrorSet *errors,
-                                        angle::EntryPoint entryPoint,
-                                        GLuint drawBufferIdx,
-                                        const char *argumentName)
-{
-    int numPLSPlanes = state.getPixelLocalStorageActivePlanes();
-    if (numPLSPlanes != 0)
-    {
-        // INVALID_OPERATION is generated ... if any of the following are true:
-        //
-        //   <drawBufferIdx> >= MAX_COLOR_ATTACHMENTS_WITH_ACTIVE_PIXEL_LOCAL_STORAGE_ANGLE
-        //   <drawBufferIdx> >= (MAX_COMBINED_DRAW_BUFFERS_AND_PIXEL_LOCAL_STORAGE_PLANES_ANGLE -
-        //                       ACTIVE_PIXEL_LOCAL_STORAGE_PLANES_ANGLE)
-        //
-        if (drawBufferIdx >= state.getCaps().maxColorAttachmentsWithActivePixelLocalStorage)
-        {
-            errors->validationErrorF(entryPoint, GL_INVALID_OPERATION,
-                                     kPLSDrawBufferExceedsAttachmentLimit, argumentName);
-            return false;
-        }
-        if (drawBufferIdx >=
-            state.getCaps().maxCombinedDrawBuffersAndPixelLocalStoragePlanes - numPLSPlanes)
-        {
-            errors->validationErrorF(entryPoint, GL_INVALID_OPERATION,
-                                     kPLSDrawBufferExceedsCombinedAttachmentLimit, argumentName);
-            return false;
-        }
-    }
-    return true;
 }
 }  // namespace gl

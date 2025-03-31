@@ -354,6 +354,7 @@ const Flag<TestConfig> *FindFlag(const char *name) {
         BoolFlag("-implicit-handshake", &TestConfig::implicit_handshake),
         BoolFlag("-use-early-callback", &TestConfig::use_early_callback),
         BoolFlag("-fail-early-callback", &TestConfig::fail_early_callback),
+        BoolFlag("-fail-early-callback-ech-rewind", &TestConfig::fail_early_callback_ech_rewind),
         BoolFlag("-install-ddos-callback", &TestConfig::install_ddos_callback),
         BoolFlag("-fail-ddos-callback", &TestConfig::fail_ddos_callback),
         BoolFlag("-fail-cert-callback", &TestConfig::fail_cert_callback),
@@ -374,6 +375,8 @@ const Flag<TestConfig> *FindFlag(const char *name) {
                  &TestConfig::expect_reject_early_data),
         BoolFlag("-expect-no-offer-early-data",
                  &TestConfig::expect_no_offer_early_data),
+        BoolFlag("-expect-no-server-name",
+                 &TestConfig::expect_no_server_name),
         BoolFlag("-use-ticket-callback", &TestConfig::use_ticket_callback),
         BoolFlag("-renew-ticket", &TestConfig::renew_ticket),
         BoolFlag("-enable-early-data", &TestConfig::enable_early_data),
@@ -475,6 +478,7 @@ const Flag<TestConfig> *FindFlag(const char *name) {
                 &TestConfig::early_write_after_message),
         BoolFlag("-fips-202205", &TestConfig::fips_202205),
         BoolFlag("-wpa-202304", &TestConfig::wpa_202304),
+        BoolFlag("-cnsa-202407", &TestConfig::cnsa_202407),
         BoolFlag("-no-check-client-certificate-type",
                  &TestConfig::no_check_client_certificate_type),
         BoolFlag("-no-check-ecdsa-curve", &TestConfig::no_check_ecdsa_curve),
@@ -482,7 +486,7 @@ const Flag<TestConfig> *FindFlag(const char *name) {
                 &TestConfig::expect_selected_credential),
         // Credential flags are stateful. First, use one of the
         // -new-*-credential flags to introduce a new credential. Then the flags
-        // below switch from acting on the default credential to the newly-added
+        // below switch from acting on the legacy credential to the newly-added
         // one. Repeat this process to continue adding them.
         NewCredentialFlag("-new-x509-credential", CredentialConfigType::kX509),
         NewCredentialFlag("-new-delegated-credential",
@@ -749,9 +753,13 @@ static void MessageCallback(int is_write, int version, int content_type,
   }
 
   if (content_type == SSL3_RT_HEADER) {
-    size_t header_len =
-        config->is_dtls ? DTLS1_RT_HEADER_LENGTH : SSL3_RT_HEADER_LENGTH;
-    if (len != header_len) {
+    if (config->is_dtls) {
+      if (len > DTLS1_RT_MAX_HEADER_LENGTH) {
+        fprintf(stderr, "DTLS record header is too long: %zu.\n", len);
+      }
+      return;
+    }
+    if (len != SSL3_RT_HEADER_LENGTH) {
       fprintf(stderr, "Incorrect length for record header: %zu.\n", len);
       state->msg_callback_ok = false;
     }
@@ -1581,9 +1589,23 @@ static enum ssl_select_cert_result_t SelectCertificateCallback(
   TestState *test_state = GetTestState(ssl);
   test_state->early_callback_called = true;
 
+  // Invoke the rewind before we sanity check SNI because we will
+  // end up calling the select_cert_cb twice with two different SNIs.
+  if (SSL_ech_accepted(ssl) && config->fail_early_callback_ech_rewind) {
+      return ssl_select_cert_disable_ech;
+  }
+
+  const char *server_name =
+      SSL_get_servername(ssl, TLSEXT_NAMETYPE_host_name);
+
+  if (config->expect_no_server_name && server_name != nullptr) {
+    fprintf(stderr,
+            "Expected no server name but got %s.\n",
+            server_name);
+    return ssl_select_cert_error;
+  }
+
   if (!config->expect_server_name.empty()) {
-    const char *server_name =
-        SSL_get_servername(ssl, TLSEXT_NAMETYPE_host_name);
     if (server_name == nullptr ||
         std::string(server_name) != config->expect_server_name) {
       fprintf(stderr,
@@ -2075,7 +2097,9 @@ bssl::UniquePtr<SSL> TestConfig::NewSSL(
   if (enable_ech_grease) {
     SSL_set_enable_ech_grease(ssl.get(), 1);
   }
-  if (static_cast<int>(fips_202205) + static_cast<int>(wpa_202304) > 1) {
+  if (static_cast<int>(fips_202205) + static_cast<int>(wpa_202304) +
+          static_cast<int>(cnsa_202407) >
+      1) {
     fprintf(stderr, "Multiple policy options given\n");
     return nullptr;
   }
@@ -2086,6 +2110,11 @@ bssl::UniquePtr<SSL> TestConfig::NewSSL(
   }
   if (wpa_202304 && !SSL_set_compliance_policy(
                          ssl.get(), ssl_compliance_policy_wpa3_192_202304)) {
+    fprintf(stderr, "SSL_set_compliance_policy failed\n");
+    return nullptr;
+  }
+  if (cnsa_202407 && !SSL_set_compliance_policy(
+                         ssl.get(), ssl_compliance_policy_cnsa_202407)) {
     fprintf(stderr, "SSL_set_compliance_policy failed\n");
     return nullptr;
   }
@@ -2182,6 +2211,10 @@ bssl::UniquePtr<SSL> TestConfig::NewSSL(
   }
   if (min_version != 0 &&
       !SSL_set_min_proto_version(ssl.get(), min_version)) {
+    return nullptr;
+  }
+  if (is_dtls && max_version == 0 &&
+      !SSL_set_max_proto_version(ssl.get(), DTLS1_3_EXPERIMENTAL_VERSION)) {
     return nullptr;
   }
   if (max_version != 0 &&

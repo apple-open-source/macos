@@ -36,7 +36,7 @@ namespace WebCore {
 
 class PlatformRawAudioData;
 
-class AudioDecoder {
+class AudioDecoder : public ThreadSafeRefCounted<AudioDecoder> {
 public:
     WEBCORE_EXPORT AudioDecoder();
     WEBCORE_EXPORT virtual ~AudioDecoder();
@@ -44,7 +44,7 @@ public:
     static bool isCodecSupported(const StringView&);
 
     struct Config {
-        std::span<const uint8_t> description;
+        Vector<uint8_t> description;
         uint64_t sampleRate { 0 };
         uint64_t numberOfChannels { 0 };
     };
@@ -60,13 +60,14 @@ public:
     };
 
     using OutputCallback = Function<void(Expected<DecodedData, String>&&)>;
-    using CreateResult = Expected<UniqueRef<AudioDecoder>, String>;
+    using CreateResult = Expected<Ref<AudioDecoder>, String>;
+    using CreatePromise = NativePromise<Ref<AudioDecoder>, String>;
     using CreateCallback = Function<void(CreateResult&&)>;
 
     using CreatorFunction = void(*)(const String&, const Config&, CreateCallback&&, OutputCallback&&);
     WEBCORE_EXPORT static void setCreatorCallback(CreatorFunction&&);
 
-    static void create(const String&, const Config&, CreateCallback&&, OutputCallback&&);
+    static Ref<CreatePromise> create(const String&, const Config&, OutputCallback&&);
 
     using DecodePromise = NativePromise<void, String>;
     virtual Ref<DecodePromise> decode(EncodedData&&) = 0;

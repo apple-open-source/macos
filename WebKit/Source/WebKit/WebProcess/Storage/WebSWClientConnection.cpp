@@ -33,7 +33,6 @@
 #include "NetworkProcessConnection.h"
 #include "NetworkProcessMessages.h"
 #include "SharedBufferReference.h"
-#include "WebCoreArgumentCoders.h"
 #include "WebMessagePortChannelProvider.h"
 #include "WebPage.h"
 #include "WebPageProxyMessages.h"
@@ -172,8 +171,11 @@ void WebSWClientConnection::matchRegistration(SecurityOriginData&& topOrigin, co
         return;
     }
 
-    runOrDelayTaskForImport([this, callback = WTFMove(callback), topOrigin = WTFMove(topOrigin), clientURL]() mutable {
-        sendWithAsyncReply(Messages::WebSWServerConnection::MatchRegistration { topOrigin, clientURL }, WTFMove(callback));
+    CompletionHandlerWithFinalizer<void(std::optional<ServiceWorkerRegistrationData>)> completionHandler(WTFMove(callback), [] (auto& callback) {
+        callback(std::nullopt);
+    });
+    runOrDelayTaskForImport([this, completionHandler = WTFMove(completionHandler), topOrigin = WTFMove(topOrigin), clientURL]() mutable {
+        sendWithAsyncReply(Messages::WebSWServerConnection::MatchRegistration { topOrigin, clientURL }, WTFMove(completionHandler));
     });
 }
 
@@ -297,6 +299,7 @@ void WebSWClientConnection::getPushPermissionState(WebCore::ServiceWorkerRegistr
     });
 }
 
+#if ENABLE(NOTIFICATION_EVENT)
 void WebSWClientConnection::getNotifications(const URL& registrationURL, const String& tag, GetNotificationsCallback&& callback)
 {
 #if ENABLE(WEB_PUSH_NOTIFICATIONS)
@@ -314,6 +317,7 @@ void WebSWClientConnection::getNotifications(const URL& registrationURL, const S
 
     WebProcess::singleton().parentProcessConnection()->sendWithAsyncReply(Messages::WebProcessProxy::GetNotifications { registrationURL, tag }, WTFMove(callback));
 }
+#endif
 
 void WebSWClientConnection::enableNavigationPreload(WebCore::ServiceWorkerRegistrationIdentifier registrationIdentifier, ExceptionOrVoidCallback&& callback)
 {

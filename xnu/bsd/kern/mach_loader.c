@@ -3240,12 +3240,12 @@ set_signature_error(
 
 		if (mc_error != KERN_SUCCESS) {
 			printf("load_code_signature: %s: failed to copy reason string "
-			    "(kcdata_memcpy error: %d, length: %ld)\n",
+			    "(kcdata_memcpy error: %d, length: %lu)\n",
 			    path, mc_error, fatal_failure_desc_len);
 		}
 	} else {
 		printf("load_code_signature: %s: failed to allocate space for reason string "
-		    "(os_reason_alloc_buffer error: %d, kcdata error: %d, length: %ld)\n",
+		    "(os_reason_alloc_buffer error: %d, kcdata error: %d, length: %lu)\n",
 		    path, reason_error, kcdata_error, fatal_failure_desc_len);
 	}
 out:

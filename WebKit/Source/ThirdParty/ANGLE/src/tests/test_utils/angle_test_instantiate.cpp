@@ -49,8 +49,7 @@ bool IsEGLConfigSupported(const PlatformParameters &param,
         angle::OpenSharedLibrary(ANGLE_EGL_LIBRARY_NAME, angle::SearchType::ModuleDir));
 #endif
 
-    EGLWindow *eglWindow =
-        EGLWindow::New(param.clientType, param.majorVersion, param.minorVersion, param.profileMask);
+    EGLWindow *eglWindow = EGLWindow::New(param.majorVersion, param.minorVersion);
     ConfigParameters configParams;
     bool result =
         eglWindow->initializeGL(osWindow, eglLibrary.get(), angle::GLESDriverType::AngleEGL,
@@ -76,8 +75,7 @@ bool IsSystemWGLConfigSupported(const PlatformParameters &param, OSWindow *osWin
     std::unique_ptr<angle::Library> openglLibrary(
         angle::OpenSharedLibrary("opengl32", angle::SearchType::SystemDir));
 
-    WGLWindow *wglWindow =
-        WGLWindow::New(param.clientType, param.majorVersion, param.minorVersion, param.profileMask);
+    WGLWindow *wglWindow = WGLWindow::New(param.majorVersion, param.minorVersion);
     ConfigParameters configParams;
     bool result =
         wglWindow->initializeGL(osWindow, openglLibrary.get(), angle::GLESDriverType::SystemWGL,
@@ -98,8 +96,7 @@ bool IsSystemEGLConfigSupported(const PlatformParameters &param, OSWindow *osWin
     eglLibrary.reset(OpenSharedLibraryWithExtension(GetNativeEGLLibraryNameWithExtension(),
                                                     SearchType::SystemDir));
 
-    EGLWindow *eglWindow =
-        EGLWindow::New(param.clientType, param.majorVersion, param.minorVersion, param.profileMask);
+    EGLWindow *eglWindow = EGLWindow::New(param.majorVersion, param.minorVersion);
     ConfigParameters configParams;
     bool result =
         eglWindow->initializeGL(osWindow, eglLibrary.get(), angle::GLESDriverType::SystemEGL,
@@ -198,11 +195,6 @@ bool IsConfigSelected()
 #if !defined(ANGLE_PLATFORM_APPLE)
 // For Apple platform, see angle_test_instantiate_apple.mm
 bool IsMetalTextureSwizzleAvailable()
-{
-    return false;
-}
-
-bool IsMetalCompressedTexture3DAvailable()
 {
     return false;
 }
@@ -382,8 +374,9 @@ bool IsNVIDIA()
 
 bool IsQualcomm()
 {
-    return HasSystemVendorID(kVendorID_Qualcomm) || IsNexus5X() || IsNexus9() || IsPixelXL() ||
-           IsPixel2() || IsPixel2XL() || IsPixel4() || IsPixel4XL();
+    return HasSystemVendorID(kVendorID_Qualcomm) || HasSystemVendorID(kVendorID_Qualcomm_DXGI) ||
+           IsNexus5X() || IsNexus9() || IsPixelXL() || IsPixel2() || IsPixel2XL() || IsPixel4() ||
+           IsPixel4XL();
 }
 
 bool HasMesa()
@@ -428,14 +421,6 @@ bool IsConfigAllowlisted(const SystemInfo &systemInfo, const PlatformParameters 
             return false;
         }
     }
-
-// Skip test configs that target the desktop OpenGL frontend when it's not enabled.
-#if !defined(ANGLE_ENABLE_GL_DESKTOP_FRONTEND)
-    if (param.isDesktopOpenGLFrontend())
-    {
-        return false;
-    }
-#endif
 
     if (param.driver == GLESDriverType::AngleVulkanSecondariesEGL)
     {
@@ -507,6 +492,11 @@ bool IsConfigAllowlisted(const SystemInfo &systemInfo, const PlatformParameters 
         switch (param.getRenderer())
         {
             case EGL_PLATFORM_ANGLE_TYPE_OPENGL_ANGLE:
+                if (IsIOS())
+                {
+                    // OpenGL backend has been deprecated on iOS.
+                    return false;
+                }
                 // ES 3.1+ back-end is not supported properly.
                 if (param.majorVersion == 3 && param.minorVersion > 0)
                 {
@@ -586,17 +576,13 @@ bool IsConfigAllowlisted(const SystemInfo &systemInfo, const PlatformParameters 
     {
         ASSERT(param.driver == GLESDriverType::AngleEGL);
 
-        // Currently we support the OpenGL and Vulkan back-ends on Linux.
+        // Currently we support the OpenGL, Vulkan and WebGPU back-ends on Linux.
         switch (param.getRenderer())
         {
             case EGL_PLATFORM_ANGLE_TYPE_OPENGL_ANGLE:
-                return true;
             case EGL_PLATFORM_ANGLE_TYPE_WEBGPU_ANGLE:
-                return true;
             case EGL_PLATFORM_ANGLE_TYPE_VULKAN_ANGLE:
-                // http://issuetracker.google.com/173004081
-                return !IsIntel() || !param.isEnableRequested(Feature::AsyncCommandQueue) ||
-                       param.isDisableRequested(Feature::AsyncCommandQueue);
+                return true;
             default:
                 return false;
         }

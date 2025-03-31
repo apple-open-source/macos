@@ -961,7 +961,7 @@ static void FreeDeclaredAttributes( TidyDocImpl* doc )
 #if ATTRIBUTE_HASH_LOOKUP
         removeFromHash( &doc->attribs, dict->name );
 #endif
-        MemFree( (void*)dict->name );
+        MemFree( dict->name );
         MemFree( dict );
     }
 }

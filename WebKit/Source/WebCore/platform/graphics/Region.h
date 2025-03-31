@@ -91,13 +91,8 @@ public:
         bool isRect() const { return m_spans.size() <= 2 && m_segments.size() <= 2; }
         unsigned gridSize() const { return m_spans.size() * m_segments.size(); }
 
-        typedef const Span* SpanIterator;
-        SpanIterator spans_begin() const;
-        SpanIterator spans_end() const;
-
-        typedef const int* SegmentIterator;
-        SegmentIterator segments_begin(SpanIterator) const;
-        SegmentIterator segments_end(SpanIterator) const;
+        std::span<const Span> spans() const { return m_spans.span(); }
+        std::span<const int> segments(std::span<const Span>) const;
 
         static Shape unionShapes(const Shape& shape1, const Shape& shape2);
         static Shape intersectShapes(const Shape& shape1, const Shape& shape2);
@@ -125,16 +120,16 @@ public:
         static Shape shapeOperation(const Shape& shape1, const Shape& shape2);
 
         void appendSpan(int y);
-        void appendSpan(int y, SegmentIterator begin, SegmentIterator end);
-        void appendSpans(const Shape&, SpanIterator begin, SpanIterator end);
+        void appendSpan(int y, std::span<const int> segments);
+        void appendSpans(const Shape&, std::span<const Span> spans);
 
-        bool canCoalesce(SegmentIterator begin, SegmentIterator end);
+        bool canCoalesce(std::span<const int> segments);
 
         Vector<int, 32> m_segments;
         Vector<Span, 16> m_spans;
         friend struct IPC::ArgumentCoder<WebCore::Region::Shape, void>;
         friend bool operator==(const Shape&, const Shape&) = default;
-        friend WTF::TextStream& operator<<(WTF::TextStream&, const Shape&);
+        WEBCORE_EXPORT friend WTF::TextStream& operator<<(WTF::TextStream&, const Shape&);
     };
     static Region createForTesting(Shape&& shape) { return Region { WTFMove(shape) }; }
     Shape dataForTesting() const { return data(); }

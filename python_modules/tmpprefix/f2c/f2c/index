@@ -1,0 +1,45 @@
+file	f2c/changes
+
+file	f2c/f2c.1
+lang	man page
+
+file	f2c/f2c.1t
+lang	troff -man source for man page
+
+file	f2c/f2c.h
+
+file	f2c/f2c.ps
+lang	Postscript
+
+file	f2c/f2c.pdf
+
+file	f2c/fc
+lang	Bourne shell script
+
+file	f2c/getopt.c
+for	Source for "getopt" command used by fc (for systems lacking getopt)
+
+file	f2c/index
+
+file	f2c/libf77
+lang	C (bundle of source)
+
+file	f2c/libi77
+lang	C (bundle of source)
+
+file	f2c/libf2c.zip
+for	combined libf77, libi77, with several makefile variants
+size	102 KB
+#	DO NOT REQUEST BY EMAIL, USE FTP!
+
+lib	f2c/msdos
+for	MS-DOS f2c binaries (ftp only)
+
+lib	f2c/mswin
+for	Win32 f2c binaries (ftp only)
+
+lib	f2c/src
+for	f2c source
+
+file	f2c/README
+

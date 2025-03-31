@@ -32,9 +32,9 @@
 #import "ControlFactoryMac.h"
 #import "FloatRoundedRect.h"
 #import "GraphicsContextCG.h"
+#import "ImageBuffer.h"
 #import "LocalCurrentGraphicsContext.h"
 #import "LocalDefaultSystemAppearance.h"
-#import "RuntimeApplicationChecks.h"
 #import "WebControlView.h"
 #import <pal/spi/cocoa/NSButtonCellSPI.h>
 #import <pal/spi/mac/CoreUISPI.h>
@@ -43,8 +43,12 @@
 #import <pal/spi/mac/NSGraphicsSPI.h>
 #import <pal/spi/mac/NSViewSPI.h>
 #import <wtf/BlockObjCExceptions.h>
+#import <wtf/RuntimeApplicationChecks.h>
+#import <wtf/TZoneMallocInlines.h>
 
 namespace WebCore {
+
+WTF_MAKE_TZONE_ALLOCATED_IMPL(ControlMac);
 
 ControlMac::ControlMac(ControlPart& owningPart, ControlFactoryMac& controlFactory)
     : PlatformControl(owningPart)
@@ -374,7 +378,6 @@ void ControlMac::drawCell(GraphicsContext& context, const FloatRect& rect, float
     context.drawConsumingImageBuffer(WTFMove(imageBuffer), rect.location() - focusRingPadding);
 }
 
-#if ENABLE(DATALIST_ELEMENT)
 void ControlMac::drawListButton(GraphicsContext& context, const FloatRect& rect, float deviceScaleFactor, const ControlStyle& style)
 {
     if (!style.states.contains(ControlStyle::State::ListButton))
@@ -426,7 +429,7 @@ void ControlMac::drawListButton(GraphicsContext& context, const FloatRect& rect,
 
     FloatPoint listButtonLocation;
     float listButtonLogicalTop = logicalRect.center().y() - desiredComboBoxButtonLogicalSize.height() / 2;
-    if (style.states.contains(ControlStyle::State::RightToLeft))
+    if (style.states.contains(ControlStyle::State::InlineFlippedWritingMode))
         listButtonLocation = { logicalRect.x() + desiredComboBoxInset, listButtonLogicalTop };
     else
         listButtonLocation = { logicalRect.maxX() - desiredComboBoxButtonLogicalSize.width() - desiredComboBoxInset, listButtonLogicalTop };
@@ -436,7 +439,6 @@ void ControlMac::drawListButton(GraphicsContext& context, const FloatRect& rect,
 
     context.drawConsumingImageBuffer(WTFMove(comboBoxButtonImageBuffer), listButtonLocation);
 }
-#endif
 
 } // namespace WebCore
 

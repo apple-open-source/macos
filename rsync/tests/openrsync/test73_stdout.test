@@ -1,0 +1,111 @@
+#! /bin/sh
+
+# Test that error output goes to stderr and non-error output
+# goes to stdout.  The general idea is to generate as many
+# log messages as possible to test that the comingling of
+# log messages with data messages is handled correctly.
+
+set -e
+set -u
+
+. ${tstdir-.}/lib.sh
+. ${tstdir-.}/conf.sh
+
+# Cleanup from previous run:
+#
+chmod -R u+rwX dst 2>/dev/null || true
+rm -rf src dst
+
+# Create the source tree:
+#
+mkdir -p src
+jot 990000 1 > src/file1
+for i in $(seq 10) ; do
+    jot 11 $i > src/file1-$i
+done
+
+jot 880000 2 > src/file2
+for i in $(seq 10) ; do
+    jot 22 $i > src/file2-$i
+done
+
+jot 770000 3 > src/file3
+for i in $(seq 10) ; do
+    jot 33 $i > src/file3-$i
+done
+
+
+echo "Test 1 (stdout)"
+rm -rf dst test.stdout test.stderr
+rsync --no-W -B 131072 -avvvvv -- src/ dst/ >test.stdout 2>test.stderr
+compare_trees src dst
+
+# Both "file1" and "file2" should appear in test.stdout:
+#
+X=$(grep -c '^file[123]' test.stdout)
+echo "Test 1.1 $X"
+[ $X -eq 33 ]
+
+# If not interop testing then ensure we test the server as sender
+# as that's the mode in which data and log messages are comingled
+# over the data channel back to the client:
+#
+if [ -z "${RSYNC_PREFIX_SRC}${RSYNC_PREFIX_DEST}" ] ; then
+    echo "Test 2 (stdout, creceiver)"
+    rm -rf dst test.stdout test.stderr
+    rsync --no-W -B 131072 -avvvvv -- localhost:$PWD/src/ dst/ >test.stdout 2>test.stderr
+    compare_trees src dst
+
+    X=$(grep -c '^file[123]' test.stdout)
+    echo "Test 2.1 $X"
+    [ $X -eq 33 ]
+fi
+
+# Change dst/file2 to a directory so that src/file2 will fail to transfer:
+#
+rm dst/file2
+mkdir dst/file2
+date > dst/file2/file2
+chmod 0 dst/file2
+
+date >> src/file1
+date >> src/file2
+date >> src/file3
+
+echo "Test 3 (stderr)"
+rm -rf test.stdout test.stderr
+rsync --no-W -avvvvv -- src/ dst/ >test.stdout 2>test.stderr || [ $? -eq 23 ]
+
+# Only "file1" and "file3" should appear in test.stdout:
+#
+X=$(grep -c '^file[123]$' test.stdout)
+echo "Test 3.1 $X"
+[ $X -eq 2 ]
+
+X=$(grep -c '^file[13]$' test.stdout)
+echo "Test 3.2 $X"
+[ $X -eq 2 ]
+
+# All others should be up-to-date:
+#
+X=$(grep -c '^file[123].*uptodate' test.stdout)
+echo "Test 3.3 $X"
+[ $X -eq 30 ]
+
+
+# Only "file2" should appear in test.stderr:
+#
+Y=$(egrep 'fail|error' test.stderr | grep -c 'file[123]')
+echo "Test 3.5 $Y"
+[ $Y -eq 1 ]
+
+Y=$(egrep 'fail|error' test.stderr | grep -c 'file2')
+echo "Test 3.6 $Y"
+[ $Y -eq 1 ]
+
+echo "Test done (cleaning up)"
+
+# Make cleanup easier for next test:
+#
+chmod -R u+rwX dst 2>/dev/null || true
+rm -rf src dst

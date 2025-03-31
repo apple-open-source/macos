@@ -8,7 +8,7 @@ fa{
                 "[import und-u-co-search]"
                 "[import fa-u-co-standard]"
             }
-            Version{"44.1"}
+            Version{"46"}
         }
         standard{
             Sequence{
@@ -23,7 +23,7 @@ fa{
                 "&ۏ<ه<<ە<<ہ<<ة<<ۃ<<ۀ<<ھ"
                 "&ی<<*ىےيېۑۍێ"
             }
-            Version{"44.1"}
+            Version{"46"}
         }
     }
 }

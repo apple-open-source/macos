@@ -480,9 +480,11 @@ void RenderTreeBuilder::attachToRenderElementInternal(RenderElement& parent, Ren
                 // in order to compute static position for out of flow boxes, the parent has to run normal flow layout as well (as opposed to simplified)
                 if (newChild->containingBlock() != &parent)
                     return false;
+#if ENABLE(VIDEO)
                 // FIXME: RenderVideo's setNeedsLayout pattern does not play well with this optimization: see webkit.org/b/276253
                 if (is<RenderVideo>(*newChild))
                     return false;
+#endif
                 // Since we can't actually run static position only layout for a block container (RenderBlockFlow::layoutBlock() does not have such fine grained layout flow)
                 // floats get rebuilt which assumes (see intruding floats) parent block containers do the same.
                 if (auto* renderBlock = dynamicDowncast<RenderBlock>(parent))
@@ -649,7 +651,7 @@ void RenderTreeBuilder::normalizeTreeAfterStyleChange(RenderElement& renderer, R
             }
             auto movingOutOfMulticolumn = !wasOutOfFlowPositioned && isOutOfFlowPositioned;
             if (movingOutOfMulticolumn) {
-                multiColumnBuilder().restoreColumnSpannersForContainer(renderer, *enclosingFragmentedFlow);
+                multiColumnBuilder().restoreColumnSpannersForContainer(*enclosingFragmentedFlow, renderer);
                 return;
             }
 
@@ -664,7 +666,7 @@ void RenderTreeBuilder::normalizeTreeAfterStyleChange(RenderElement& renderer, R
             for (auto& containingBlock : spannerContainingBlockSet) {
                 if (!oldEnclosingFragmentedFlow)
                     break;
-                multiColumnBuilder().restoreColumnSpannersForContainer(containingBlock, *oldEnclosingFragmentedFlow);
+                multiColumnBuilder().restoreColumnSpannersForContainer(*oldEnclosingFragmentedFlow, containingBlock);
             }
         }
     };
@@ -723,7 +725,7 @@ void RenderTreeBuilder::createAnonymousWrappersForInlineContent(RenderBlock& par
     // means that we cannot coalesce inlines before |insertionPoint| with inlines following
     // |insertionPoint|, because the new child is going to be inserted in between the inlines,
     // splitting them.
-    ASSERT(parent.isInlineBlockOrInlineTable() || !parent.isInline());
+    ASSERT(parent.isNonReplacedAtomicInline() || !parent.isInline());
     ASSERT(!insertionPoint || insertionPoint->parent() == &parent);
 
     parent.setChildrenInline(false);

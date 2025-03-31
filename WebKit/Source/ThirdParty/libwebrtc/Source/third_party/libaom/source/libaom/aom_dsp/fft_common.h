@@ -52,11 +52,6 @@ void aom_fft1d_4_float(const float *input, float *output, int stride);
 void aom_fft1d_8_float(const float *input, float *output, int stride);
 void aom_fft1d_16_float(const float *input, float *output, int stride);
 void aom_fft1d_32_float(const float *input, float *output, int stride);
-void aom_ifft1d_2_float(const float *input, float *output, int stride);
-void aom_ifft1d_4_float(const float *input, float *output, int stride);
-void aom_ifft1d_8_float(const float *input, float *output, int stride);
-void aom_ifft1d_16_float(const float *input, float *output, int stride);
-void aom_ifft1d_32_float(const float *input, float *output, int stride);
 
 /**\!brief Function pointer for transposing a matrix of floats.
  *

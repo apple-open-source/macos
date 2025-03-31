@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003-2023 Apple Inc. All rights reserved.
+ * Copyright (C) 2003-2024 Apple Inc. All rights reserved.
  * Copyright (C) 2008 Eric Seidel <eric@webkit.org>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -194,6 +194,8 @@ static RenderingMode renderingModeForCGContext(CGContextRef cgContext, GraphicsC
     auto type = CGContextGetType(cgContext);
     if (type == kCGContextTypeIOSurface || (source == GraphicsContextCG::CGContextFromCALayer && type == kCGContextTypeUnknown))
         return RenderingMode::Accelerated;
+    if (type == kCGContextTypePDF)
+        return RenderingMode::PDFDocument;
     return RenderingMode::Unaccelerated;
 }
 
@@ -328,8 +330,6 @@ void GraphicsContextCG::drawNativeImageInternal(NativeImage& nativeImage, const 
     CGContextStateSaver stateSaver(context, false);
     auto transform = CGContextGetCTM(context);
 
-    convertToDestinationColorSpaceIfNeeded(image);
-
     auto subImage = image;
 
     auto adjustedDestRect = normalizedDestRect;
@@ -374,6 +374,12 @@ void GraphicsContextCG::drawNativeImageInternal(NativeImage& nativeImage, const 
     auto oldBlendMode = blendMode();
     setCGBlendMode(context, options.compositeOperator(), options.blendMode());
 
+#if HAVE(HDR_SUPPORT)
+    auto oldHeadroom = CGContextGetEDRTargetHeadroom(context);
+    if (auto headroom = options.headroom(); headroom > 1)
+        CGContextSetEDRTargetHeadroom(context, headroom);
+#endif
+
     // Make the origin be at adjustedDestRect.location()
     CGContextTranslateCTM(context, adjustedDestRect.x(), adjustedDestRect.y());
     adjustedDestRect.setLocation(FloatPoint::zero());
@@ -400,6 +406,9 @@ void GraphicsContextCG::drawNativeImageInternal(NativeImage& nativeImage, const 
         CGContextSetShouldAntialias(context, wasAntialiased);
 #endif
         setCGBlendMode(context, oldCompositeOperator, oldBlendMode);
+#if HAVE(HDR_SUPPORT)
+        CGContextSetEDRTargetHeadroom(context, oldHeadroom);
+#endif
     }
 
     LOG_WITH_STREAM(Images, stream << "GraphicsContextCG::drawNativeImageInternal " << image.get() << " size " << imageSize << " into " << destRect << " took " << (MonotonicTime::now() - startTime).milliseconds() << "ms");
@@ -1131,11 +1140,10 @@ void GraphicsContextCG::setCGStyle(const std::optional<GraphicsStyle>& style, bo
         },
         [&] (const GraphicsColorMatrix& colorMatrix) {
 #if HAVE(CGSTYLE_COLORMATRIX_BLUR)
-            CGColorMatrixStyle colorMatrixStyle = { 1, { 0 } };
-            for (size_t i = 0; i < colorMatrix.values.size(); ++i)
-                colorMatrixStyle.matrix[i] = colorMatrix.values[i];
-
-            auto style = adoptCF(CGStyleCreateColorMatrix(&colorMatrixStyle));
+            CGColorMatrixStyle cgColorMatrix = { 1, { 0 } };
+            for (auto [dst, src] : zippedRange(cgColorMatrix.matrix, colorMatrix.values))
+                dst = src;
+            auto style = adoptCF(CGStyleCreateColorMatrix(&cgColorMatrix));
             CGContextSetStyle(context, style.get());
 #else
             ASSERT_NOT_REACHED();
@@ -1507,6 +1515,37 @@ void GraphicsContextCG::strokeEllipse(const FloatRect& ellipse)
 
     CGContextRef context = platformContext();
     CGContextStrokeEllipseInRect(context, ellipse);
+}
+
+void GraphicsContextCG::beginPage(const IntSize& pageSize)
+{
+    CGContextRef context = platformContext();
+
+    if (CGContextGetType(context) != kCGContextTypePDF) {
+        ASSERT_NOT_REACHED();
+        return;
+    }
+
+    auto mediaBox = CGRectMake(0, 0, pageSize.width(), pageSize.height());
+    auto mediaBoxData = adoptCF(CFDataCreate(nullptr, (const UInt8 *)&mediaBox, sizeof(CGRect)));
+
+    const void* key = kCGPDFContextMediaBox;
+    const void* value = mediaBoxData.get();
+    auto pageInfo = adoptCF(CFDictionaryCreate(kCFAllocatorDefault, &key, &value, 1, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks));
+
+    CGPDFContextBeginPage(context, pageInfo.get());
+}
+
+void GraphicsContextCG::endPage()
+{
+    CGContextRef context = platformContext();
+
+    if (CGContextGetType(context) != kCGContextTypePDF) {
+        ASSERT_NOT_REACHED();
+        return;
+    }
+
+    CGPDFContextEndPage(context);
 }
 
 bool GraphicsContextCG::supportsInternalLinks() const

@@ -231,6 +231,12 @@ ne{
                 one{"{0} न्यानोसेकेन्ड"}
                 other{"{0} न्यानोसेकेन्ड"}
             }
+            night{
+                dnam{"रात"}
+                one{"{0} रात"}
+                other{"{0} रात"}
+                per{"{0} प्रति रात"}
+            }
             quarter{
                 dnam{"qtr"}
                 one{"{0} क्वाटर"}
@@ -580,6 +586,11 @@ ne{
                 one{"{0}नट"}
                 other{"{0}नट्स"}
             }
+            light-speed{
+                dnam{"प्रकाश"}
+                one{"प्रकाश"}
+                other{"{0} प्रकाश"}
+            }
             meter-per-second{
                 one{"{0} मिटर प्रति सेकेण्ड"}
                 other{"{0} मिटर प्रति सेकेण्ड"}
@@ -885,6 +896,12 @@ ne{
                 one{"{0}मि.से."}
                 other{"{0}मि.से."}
             }
+            night{
+                dnam{"रात"}
+                one{"{0}रात"}
+                other{"{0}रात"}
+                per{"{0}/रात"}
+            }
             quarter{
                 per{"{0} /q"}
             }
@@ -1131,6 +1148,11 @@ ne{
             kilometer-per-hour{
                 one{"{0} km/h"}
                 other{"{0} km/h"}
+            }
+            light-speed{
+                dnam{"प्रकाश"}
+                one{"{0}प्रकाश"}
+                other{"{0}प्रकाशा"}
             }
             mile-per-hour{
                 one{"{0} mi/h"}
@@ -1419,6 +1441,12 @@ ne{
                 dnam{"न्यानोसेकेन्ड"}
                 one{"{0} न.से."}
                 other{"{0} न.से."}
+            }
+            night{
+                dnam{"रात"}
+                one{"{0} रात"}
+                other{"{0} रात"}
+                per{"{0}/रात"}
             }
             quarter{
                 dnam{"क्वा"}
@@ -1724,6 +1752,11 @@ ne{
                 dnam{"किलोमिटर प्रति घण्टा"}
                 one{"{0} kph"}
                 other{"{0} kph"}
+            }
+            light-speed{
+                dnam{"प्रकाश"}
+                one{"{0} प्रकाश"}
+                other{"{0} प्रकाश"}
             }
             meter-per-second{
                 dnam{"मिटर प्रति सेकेण्ड"}

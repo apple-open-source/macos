@@ -1,0 +1,3 @@
+include LICENSE AUTHOR MANIFEST.in
+include Changelog
+recursive-include bdist_mpkg/tests *

@@ -11,6 +11,7 @@
 #ifdef LIBXML_HTML_ENABLED
 
 #include <string.h>
+#include <limits.h>
 #ifdef HAVE_CTYPE_H
 #include <ctype.h>
 #endif
@@ -46,8 +47,10 @@
 
 #include "buf.h"
 #include "enc.h"
+#include "private/memory.h"
 
 #define HTML_MAX_NAMELEN 1000
+#define HTML_MAX_ATTRS 100000000 /* 100 million */
 #define HTML_PARSER_BIG_BUFFER_SIZE 1000
 #define HTML_PARSER_BUFFER_SIZE 100
 
@@ -177,20 +180,28 @@ htmlnamePush(htmlParserCtxtPtr ctxt, const xmlChar * value)
     if ((ctxt->html < 10) && (xmlStrEqual(value, BAD_CAST "body")))
         ctxt->html = 10;
     if (ctxt->nameNr >= ctxt->nameMax) {
-        ctxt->nameMax *= 2;
-        ctxt->nameTab = (const xmlChar * *)
-                         xmlRealloc((xmlChar * *)ctxt->nameTab,
-                                    ctxt->nameMax *
-                                    sizeof(ctxt->nameTab[0]));
-        if (ctxt->nameTab == NULL) {
-            htmlErrMemory(ctxt, NULL);
+        const xmlChar **tmp;
+        int newSize;
+
+        newSize = xmlGrowCapacity(ctxt->nameMax, sizeof(tmp[0]),
+                                  10, XML_MAX_ITEMS);
+        if (newSize < 0) {
+            htmlErrMemory(ctxt, "Could not allocation new memory.");
             return (0);
         }
+        tmp = xmlRealloc(ctxt->nameTab, newSize * sizeof(tmp[0]));
+        if (tmp == NULL) {
+            htmlErrMemory(ctxt, "Could not re-allocate new memory.");
+            return(0);
+        }
+        ctxt->nameTab = tmp;
+        ctxt->nameMax = newSize;
     }
     ctxt->nameTab[ctxt->nameNr] = value;
     ctxt->name = value;
     return (ctxt->nameNr++);
 }
+
 /**
  * htmlnamePop:
  * @ctxt: an HTML parser context
@@ -231,17 +242,22 @@ static int
 htmlNodeInfoPush(htmlParserCtxtPtr ctxt, htmlParserNodeInfo *value)
 {
     if (ctxt->nodeInfoNr >= ctxt->nodeInfoMax) {
-        if (ctxt->nodeInfoMax == 0)
-                ctxt->nodeInfoMax = 5;
-        ctxt->nodeInfoMax *= 2;
-        ctxt->nodeInfoTab = (htmlParserNodeInfo *)
-                         xmlRealloc((htmlParserNodeInfo *)ctxt->nodeInfoTab,
-                                    ctxt->nodeInfoMax *
-                                    sizeof(ctxt->nodeInfoTab[0]));
-        if (ctxt->nodeInfoTab == NULL) {
-            htmlErrMemory(ctxt, NULL);
+        xmlParserNodeInfo *tmp;
+        int newSize;
+
+        newSize = xmlGrowCapacity(ctxt->nodeInfoMax, sizeof(tmp[0]),
+                                  5, XML_MAX_ITEMS);
+        if (newSize < 0) {
+            htmlErrMemory(ctxt, "Could not allocate new memory.");
             return (0);
         }
+        tmp = xmlRealloc(ctxt->nodeInfoTab, newSize * sizeof(tmp[0]));
+        if (tmp == NULL) {
+            htmlErrMemory(ctxt, "Could not re-allocate new memory.");
+            return (0);
+        }
+        ctxt->nodeInfoTab = tmp;
+        ctxt->nodeInfoMax = newSize;
     }
     ctxt->nodeInfoTab[ctxt->nodeInfoNr] = *value;
     ctxt->nodeInfo = &ctxt->nodeInfoTab[ctxt->nodeInfoNr];
@@ -2112,17 +2128,32 @@ static const htmlEntityDesc  html40EntitiesTable[] = {
 /*
  * Macro used to grow the current buffer.
  */
-#define growBuffer(buffer) {						\
-    xmlChar *tmp;							\
-    buffer##_size *= 2;							\
-    tmp = (xmlChar *) xmlRealloc(buffer, buffer##_size * sizeof(xmlChar)); \
-    if (tmp == NULL) {						\
-	htmlErrMemory(ctxt, "growing buffer\n");			\
-	xmlFree(buffer);						\
-	return(NULL);							\
-    }									\
-    buffer = tmp;							\
-}
+#define growBuffer(buffer) do {                                                   \
+    xmlChar *tmp;                                                                 \
+    int new_size;                                                                 \
+                                                                                  \
+    if ((buffer##_size) <= 0 || (buffer##_size) > (INT_MAX / 2)) {                \
+        htmlErrMemory(ctxt, "buffer size overflow\n");                            \
+        xmlFree(buffer);                                                          \
+        return(NULL);                                                             \
+    }                                                                             \
+                                                                                  \
+    new_size = (buffer##_size) * 2;                                               \
+    if (new_size > (INT_MAX / (int)sizeof(xmlChar))) {                            \
+        htmlErrMemory(ctxt, "buffer allocation size too large\n");                \
+        xmlFree(buffer);                                                          \
+        return(NULL);                                                             \
+    }                                                                             \
+                                                                                  \
+    (buffer##_size) = new_size;                                                   \
+    tmp = (xmlChar *) xmlRealloc((buffer), new_size * sizeof(xmlChar));           \
+    if (tmp == NULL) {                                                            \
+        htmlErrMemory(ctxt, "growing buffer\n");                                  \
+        xmlFree(buffer);                                                          \
+        return(NULL);                                                             \
+    }                                                                             \
+    (buffer) = tmp;                                                               \
+} while(0)
 
 /**
  * htmlEntityLookup:
@@ -4084,70 +4115,72 @@ htmlParseStartTag(htmlParserCtxtPtr ctxt) {
 	   ((CUR != '/') || (NXT(1) != '>'))) {
 	GROW;
 	attname = htmlParseAttribute(ctxt, &attvalue);
-        if (attname != NULL) {
+    if (attname != NULL) {
+        /*
+        * Well formedness requires at most one declaration of an attribute
+        */
+        for (i = 0; i < nbatts;i += 2) {
+            if (xmlStrEqual(atts[i], attname)) {
+                htmlParseErr(ctxt, XML_ERR_ATTRIBUTE_REDEFINED,
+                                "Attribute %s redefined\n", attname, NULL);
+                goto failed;
+            }
+        }
+        /*
+        * Add the pair to atts
+        */
+        if (atts == NULL) {
+            maxatts = 22; /* allow for 10 attrs by default */
+            atts = (const xmlChar **)
+                xmlMalloc(maxatts * sizeof(xmlChar *));
+            if (atts == NULL) {
+                htmlErrMemory(ctxt, NULL);
+                goto failed;
+            }
+            ctxt->atts = atts;
+            ctxt->maxatts = maxatts;
+        } else if (nbatts + 4 > maxatts) {
+            const xmlChar **n;
+            int newSize;
 
-	    /*
-	     * Well formedness requires at most one declaration of an attribute
-	     */
-	    for (i = 0; i < nbatts;i += 2) {
-	        if (xmlStrEqual(atts[i], attname)) {
-		    htmlParseErr(ctxt, XML_ERR_ATTRIBUTE_REDEFINED,
-		                 "Attribute %s redefined\n", attname, NULL);
-		    if (attvalue != NULL)
-			xmlFree(attvalue);
-		    goto failed;
-		}
-	    }
-
-	    /*
-	     * Add the pair to atts
-	     */
-	    if (atts == NULL) {
-	        maxatts = 22; /* allow for 10 attrs by default */
-	        atts = (const xmlChar **)
-		       xmlMalloc(maxatts * sizeof(xmlChar *));
-		if (atts == NULL) {
-		    htmlErrMemory(ctxt, NULL);
-		    if (attvalue != NULL)
-			xmlFree(attvalue);
-		    goto failed;
-		}
-		ctxt->atts = atts;
-		ctxt->maxatts = maxatts;
-	    } else if (nbatts + 4 > maxatts) {
-	        const xmlChar **n;
-
-	        maxatts *= 2;
-	        n = (const xmlChar **) xmlRealloc((void *) atts,
-					     maxatts * sizeof(const xmlChar *));
-		if (n == NULL) {
-		    htmlErrMemory(ctxt, NULL);
-		    if (attvalue != NULL)
-			xmlFree(attvalue);
-		    goto failed;
-		}
-		atts = n;
-		ctxt->atts = atts;
-		ctxt->maxatts = maxatts;
-	    }
-	    atts[nbatts++] = attname;
-	    atts[nbatts++] = attvalue;
-	    atts[nbatts] = NULL;
-	    atts[nbatts + 1] = NULL;
-	}
-	else {
-	    if (attvalue != NULL)
-	        xmlFree(attvalue);
-	    /* Dump the bogus attribute string up to the next blank or
-	     * the end of the tag. */
-	    while ((CUR != 0) &&
-	           !(IS_BLANK_CH(CUR)) && (CUR != '>') &&
-		   ((CUR != '/') || (NXT(1) != '>')))
-		NEXT;
-	}
+            newSize = xmlGrowCapacity(maxatts, sizeof(xmlChar *) * 2, 11, HTML_MAX_ATTRS);
+            if (newSize < 0) {
+                htmlErrMemory(ctxt, NULL);
+                goto failed;
+            }
+        #ifdef FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION
+            if (newSize < 2)
+                newSize = 2;
+        #endif
+            n = (const xmlChar **) xmlRealloc(atts, newSize * sizeof(xmlChar *) * 2);
+            if (n == NULL) {
+                htmlErrMemory(ctxt, NULL);
+                goto failed;
+            }
+            atts = n;
+            ctxt->atts = atts;
+            maxatts = newSize * 2;
+            ctxt->maxatts = maxatts;
+        }
+        atts[nbatts++] = attname;
+        atts[nbatts++] = attvalue;
+        atts[nbatts] = NULL;
+        atts[nbatts + 1] = NULL;
+        attvalue = NULL;
+    }
+    else {
+        /* Dump the bogus attribute string up to the next blank or
+         * the end of the tag. */
+        while ((CUR != 0) &&
+               !(IS_BLANK_CH(CUR)) && (CUR != '>') &&
+           ((CUR != '/') || (NXT(1) != '>')))
+        NEXT;
+    }
 
 failed:
-	SKIP_BLANKS;
+    if (attvalue != NULL)
+        xmlFree(attvalue);
+    SKIP_BLANKS;
     }
 
     /*

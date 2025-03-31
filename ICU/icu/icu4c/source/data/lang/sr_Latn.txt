@@ -66,6 +66,7 @@ sr_Latn{
         be{"beloruski"}
         bej{"bedža"}
         bem{"bemba"}
+        bew{"betavi"}
         bez{"bena"}
         bg{"bugarski"}
         bgc{"harijanski"}
@@ -75,6 +76,7 @@ sr_Latn{
         bik{"bikol"}
         bin{"bini"}
         bla{"sisika"}
+        blo{"anii"}
         bm{"bambara"}
         bn{"bengalski"}
         bo{"tibetanski"}
@@ -82,6 +84,7 @@ sr_Latn{
         bra{"braj"}
         brx{"bodo"}
         bs{"bosanski"}
+        bss{"akose"}
         bua{"burjatski"}
         bug{"bugijski"}
         byn{"blinski"}
@@ -105,6 +108,7 @@ sr_Latn{
         chp{"čipevjanski"}
         chr{"čeroki"}
         chy{"čejenski"}
+        cic{"čikaso"}
         ckb{"centralni kurdski"}
         clc{"čilkotin"}
         co{"korzikanski"}
@@ -211,6 +215,7 @@ sr_Latn{
         hil{"hiligajnonski"}
         hit{"hetitski"}
         hmn{"hmonški"}
+        hnj{"hmong ndžua"}
         ho{"hiri motu"}
         hr{"hrvatski"}
         hsb{"gornjolužičkosrpski"}
@@ -288,6 +293,7 @@ sr_Latn{
         kv{"komi"}
         kw{"kornvolski"}
         kwk{"kvakvala"}
+        kxv{"kuvi"}
         ky{"kirgiski"}
         la{"latinski"}
         lad{"ladino"}
@@ -298,6 +304,7 @@ sr_Latn{
         lez{"lezginski"}
         lg{"ganda"}
         li{"limburški"}
+        lij{"ligurski"}
         lil{"lilut"}
         lkt{"lakota"}
         lmo{"lombard"}
@@ -479,7 +486,7 @@ sr_Latn{
         ssy{"saho"}
         st{"sesoto"}
         str{"streicsališ"}
-        su{"sundanski"}
+        su{"sundski"}
         suk{"sukuma"}
         sus{"susu"}
         sux{"sumerski"}
@@ -489,6 +496,7 @@ sr_Latn{
         swb{"komorski"}
         syc{"sirijački"}
         syr{"sirijski"}
+        szl{"siležanski"}
         ta{"tamilski"}
         tce{"južni tačon"}
         te{"telugu"}
@@ -537,7 +545,9 @@ sr_Latn{
         uz{"uzbečki"}
         vai{"vai"}
         ve{"venda"}
+        vec{"venecijanski"}
         vi{"vijetnamski"}
+        vmw{"makuva"}
         vo{"volapik"}
         vot{"vodski"}
         vun{"vundžo"}
@@ -551,6 +561,7 @@ sr_Latn{
         wuu{"vu kineski"}
         xal{"kalmički"}
         xh{"kosa"}
+        xnr{"kangri"}
         xog{"soga"}
         yao{"jao"}
         yap{"japski"}
@@ -801,7 +812,6 @@ sr_Latn{
             phonebook{"sortiranje kao telefonski imenik"}
             phonetic{"fonetski redosled sortiranja"}
             pinyin{"pinjin sortiranje"}
-            reformed{"reformisani redosled sortiranja"}
             search{"pretraga opšte namene"}
             searchjl{"Pretraga prema hangul početnom suglasniku"}
             standard{"standardni redosled sortiranja"}

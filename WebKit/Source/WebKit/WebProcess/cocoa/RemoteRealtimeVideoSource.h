@@ -53,7 +53,6 @@ private:
     RemoteRealtimeVideoSource(RemoteRealtimeMediaSourceProxy&&, WebCore::MediaDeviceHashSalts&&, UserMediaCaptureManager&, std::optional<WebCore::PageIdentifier>);
 
     Ref<RealtimeMediaSource> clone() final;
-    void endProducingData() final;
     bool setShouldApplyRotation(bool) final;
     double observedFrameRate() const final { return m_observedFrameRate; }
 

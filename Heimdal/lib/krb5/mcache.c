@@ -248,7 +248,7 @@ mcc_close_internal(krb5_context context,
 {
     HEIMDAL_MUTEX_lock(&mcc_mutex);  //this lock is in case the cache is dead.  if so, we free it before it can be resolved or allocated again.
     HEIMDAL_MUTEX_lock(&m->mutex);
-    _krb5_debugx(context, 20, "mcc_close_internal: %s, %d\n", m->name, m->refcnt);
+    _krb5_debugx(context, 20, "mcc_close_internal: %s, %u\n", m->name, m->refcnt);
     if (--m->refcnt == 0 && MISDEAD(m)) {
 	_krb5_debugx(context, 20, "mcc_close_internal, dead: %s\n", m->name);
 	HEIMDAL_MUTEX_unlock(&m->mutex);

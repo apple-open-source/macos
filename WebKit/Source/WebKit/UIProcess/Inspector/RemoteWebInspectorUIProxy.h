@@ -85,6 +85,9 @@ public:
 
     ~RemoteWebInspectorUIProxy();
 
+    void ref() const final { RefCounted::ref(); }
+    void deref() const final { RefCounted::deref(); }
+
     void setClient(RemoteWebInspectorUIProxyClient* client) { m_client = client; }
 
     bool isUnderTest() const { return false; }
@@ -130,6 +133,10 @@ public:
 private:
     RemoteWebInspectorUIProxy();
     RefPtr<WebPageProxy> protectedInspectorPage();
+
+#if ENABLE(INSPECTOR_EXTENSIONS)
+    RefPtr<WebInspectorUIExtensionControllerProxy> protectedExtensionController();
+#endif
 
     // IPC::MessageReceiver
     void didReceiveMessage(IPC::Connection&, IPC::Decoder&) override;

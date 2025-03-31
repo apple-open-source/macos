@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022 Apple Inc. All rights reserved.
+ * Copyright (c) 2022-2024 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -962,15 +962,20 @@ CategoryManagerServerInformationAckSync(CFArrayRef info)
 /**
  ** API
  **/
+STATIC xpc_connection_t S_server_connection;
+
 PRIVATE_EXTERN Boolean
 CategoryManagerServerStart(CFRunLoopRef runloop, CFRunLoopSourceRef rls)
 {
-	xpc_connection_t	connection;
-
 #define _SERVER_NAME	kNetworkCategoryManagerServerName
+	if (S_server_connection != NULL) {
+		my_log(LOG_ERR,
+		       "CategoryManagerServer: server already started");
+		return (FALSE);
+	}
 	SetNotificationInfo(runloop, rls);
-	connection = CategoryManagerServerCreate(_SERVER_NAME);
-	if (connection == NULL) {
+	S_server_connection = CategoryManagerServerCreate(_SERVER_NAME);
+	if (S_server_connection == NULL) {
 		SetNotificationInfo(NULL, NULL);
 		my_log(LOG_ERR,
 		       "CategoryManagerServer: failed to create server");

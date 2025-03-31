@@ -12,7 +12,7 @@
 #include <tuple>
 #include <vector>
 
-#include "third_party/googletest/src/googletest/include/gtest/gtest.h"
+#include "gtest/gtest.h"
 
 #include "config/av1_rtcd.h"
 
@@ -34,6 +34,16 @@ using libaom_test::ACMRandom;
 using std::make_tuple;
 using std::tuple;
 
+// Inverse of av1_calculate_scaled_superres_size(): calculates the original
+// dimensions from the given scaled dimensions and the scale denominator.
+void calculate_unscaled_superres_size(int *width, int denom) {
+  if (denom != SCALE_NUMERATOR) {
+    // Note: av1_calculate_scaled_superres_size() rounds *up* after division
+    // when the resulting dimensions are odd. So here, we round *down*.
+    *width = *width * denom / SCALE_NUMERATOR;
+  }
+}
+
 template <typename Pixel>
 class TestImage {
  public:
@@ -47,7 +57,7 @@ class TestImage {
     assert(0 <= x0_ && x0_ <= RS_SCALE_SUBPEL_MASK);
 
     w_dst_ = w_src_;
-    av1_calculate_unscaled_superres_size(&w_dst_, nullptr, superres_denom);
+    calculate_unscaled_superres_size(&w_dst_, superres_denom);
 
     src_stride_ = ALIGN_POWER_OF_TWO(w_src_ + 2 * kHPad, 4);
     dst_stride_ = ALIGN_POWER_OF_TWO(w_dst_ + 2 * kHPad, 4);

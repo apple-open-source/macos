@@ -398,6 +398,7 @@ static void print_entry(id k, id v, int ind)
             NSString* ckksManaged = pop(status,@"ckksManaged", NSString);
             NSString* zoneCreated = pop(status,@"zoneCreated", NSString);
             NSString* zoneSubscribed = pop(status,@"zoneSubscribed", NSString);
+            NSString* initialSync = pop(status,@"initialSyncFinished", NSString);
             NSString* zoneInitializeScheduler = pop(status,@"zoneInitializeScheduler", NSString);
             NSString* keystate = pop(status,@"keystate", NSString);
             NSString* statusError = pop(status,@"statusError", NSString);
@@ -456,6 +457,7 @@ static void print_entry(id k, id v, int ind)
 
             if(printCKKSInfo) {
                 printf("Item syncing:          %s\n", [[itemSyncEnabled description] UTF8String]);
+                printf("Initial sync finished: %s\n", [[initialSync description] UTF8String]);
                 printf("Outgoing Queue counts: %s\n", [[oqe description] UTF8String]);
                 printf("Incoming Queue counts: %s\n", [[iqe description] UTF8String]);
                 printf("Key counts: %s\n", [[keys description] UTF8String]);

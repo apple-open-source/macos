@@ -497,6 +497,7 @@
 		2EA0DF3B260966D40074A51D /* ssh-ed25519-sk.c in Sources */ = {isa = PBXBuildFile; fileRef = 2EA0DF39260966D40074A51D /* ssh-ed25519-sk.c */; };
 		2EA0DF402609679C0074A51D /* ssh-sk-client.c in Sources */ = {isa = PBXBuildFile; fileRef = 2EA0DF3C260966FF0074A51D /* ssh-sk-client.c */; };
 		2EA0DF42260967E30074A51D /* sshbuf-io.c in Sources */ = {isa = PBXBuildFile; fileRef = 2EA0DF41260967E30074A51D /* sshbuf-io.c */; };
+		2EAC48662D2D8664003A76D0 /* kexmlkem768x25519.c in Sources */ = {isa = PBXBuildFile; fileRef = 2EAC48652D2D8664003A76D0 /* kexmlkem768x25519.c */; };
 		2EE91B532999B72200B1FAB8 /* sftp-usergroup.c in Sources */ = {isa = PBXBuildFile; fileRef = 2EE91B522999B72200B1FAB8 /* sftp-usergroup.c */; };
 		2EE940BB28790749009B239A /* bsd-pselect.c in Sources */ = {isa = PBXBuildFile; fileRef = 2EE940BA28790749009B239A /* bsd-pselect.c */; };
 		2EE940BD2879076A009B239A /* port-prngd.c in Sources */ = {isa = PBXBuildFile; fileRef = 2EE940BC2879076A009B239A /* port-prngd.c */; };
@@ -1748,6 +1749,7 @@
 		2EA0DF41260967E30074A51D /* sshbuf-io.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = "sshbuf-io.c"; path = "openssh/sshbuf-io.c"; sourceTree = "<group>"; };
 		2EA91B552AF6A33200EB3CEC /* base.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = base.xcconfig; path = xcconfigs/base.xcconfig; sourceTree = "<group>"; };
 		2EA91B562AF6A33200EB3CEC /* openssh.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = openssh.xcconfig; path = xcconfigs/openssh.xcconfig; sourceTree = "<group>"; };
+		2EAC48652D2D8664003A76D0 /* kexmlkem768x25519.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = kexmlkem768x25519.c; path = openssh/kexmlkem768x25519.c; sourceTree = "<group>"; };
 		2ED47D9A2942634B00788311 /* CoreAnalytics.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreAnalytics.framework; path = System/Library/PrivateFrameworks/CoreAnalytics.framework; sourceTree = SDKROOT; };
 		2EDA892925CCCD8400EC1639 /* install-files.sh */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; path = "install-files.sh"; sourceTree = "<group>"; };
 		2EDA892A25CCCD8400EC1639 /* include.sh */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; path = include.sh; sourceTree = "<group>"; };
@@ -2907,6 +2909,7 @@
 		FE996A811C7D90BA006637D5 /* OpenSSH */ = {
 			isa = PBXGroup;
 			children = (
+				2EAC48652D2D8664003A76D0 /* kexmlkem768x25519.c */,
 				2E699D082C45D8A300D554D4 /* kex-names.c */,
 				2E699CF52C45D71400D554D4 /* platform-listen.c */,
 				2E699CF22C45D6DC00D554D4 /* auth2-methods.c */,
@@ -4431,6 +4434,7 @@
 				739A2F871B5D85FA0073A9BC /* bitmap.c in Sources */,
 				1C6B2F960FEFF7F1004F1935 /* canohost.c in Sources */,
 				73452E2E1A9A6FFF00633C3B /* chacha.c in Sources */,
+				2EAC48662D2D8664003A76D0 /* kexmlkem768x25519.c in Sources */,
 				1C6B2F970FEFF7F1004F1935 /* channels.c in Sources */,
 				1C6B2F990FEFF7F1004F1935 /* cipher-aes.c in Sources */,
 				2EA0DF1F260964140074A51D /* cipher-chachapoly-libcrypto.c in Sources */,

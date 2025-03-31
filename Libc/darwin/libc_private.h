@@ -24,10 +24,13 @@
 #ifndef __LIBC_PRIVATE_H__
 #define __LIBC_PRIVATE_H__
 
+#include <_bounds.h>
 #include <mach/vm_types.h>
 #include <os/availability.h>
 #include <sys/cdefs.h>
 #include <stddef.h>
+
+_LIBC_SINGLE_BY_DEFAULT()
 
 __BEGIN_DECLS
 
@@ -64,8 +67,8 @@ API_AVAILABLE(macos(12.3), ios(15.4), tvos(15.4), watchos(8.5))
 extern void environ_unlock_np(void);
 
 
-typedef void (*backtrace_get_pcs_func_t)(vm_address_t *buffer, unsigned max,
-               unsigned *nb, unsigned skip, void *startfp);
+typedef void (*backtrace_get_pcs_func_t)(vm_address_t *_LIBC_COUNT(max) buffer,
+               unsigned max, unsigned *nb, unsigned skip, void *startfp);
 
 API_AVAILABLE(macos(13.3), ios(16.4), tvos(16.4), watchos(9.5))
 extern void backtrace_set_pcs_func(backtrace_get_pcs_func_t func);

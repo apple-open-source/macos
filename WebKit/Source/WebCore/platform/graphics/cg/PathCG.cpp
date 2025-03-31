@@ -29,12 +29,12 @@
 
 #if USE(CG)
 
+#include "CGUtilities.h"
 #include "GraphicsContextCG.h"
 #include "PathStream.h"
 #include <wtf/NeverDestroyed.h>
 #include <wtf/RetainPtr.h>
 #include <wtf/TZoneMallocInlines.h>
-
 
 namespace WebCore {
 
@@ -256,7 +256,7 @@ static void addUnevenCornersRoundedRect(PlatformPathPtr platformPath, const Floa
         TopLeft
     };
 
-    CGSize corners[4] = {
+    std::array<CGSize, 4> corners {
         roundedRect.radii().bottomLeft(),
         roundedRect.radii().bottomRight(),
         roundedRect.radii().topRight(),
@@ -273,7 +273,7 @@ static void addUnevenCornersRoundedRect(PlatformPathPtr platformPath, const Floa
     corners[BottomLeft].height = std::min(corners[BottomLeft].height, rectHeight - corners[TopLeft].height);
     corners[BottomRight].height = std::min(corners[BottomRight].height, rectHeight - corners[TopRight].height);
 
-    CGPathAddUnevenCornersRoundedRect(platformPath, nullptr, rectToDraw, corners);
+    CGPathAddUnevenCornersRoundedRect(platformPath, nullptr, rectToDraw, corners.data());
 }
 #endif
 
@@ -338,7 +338,7 @@ void PathCG::addPath(const PathCG& path, const AffineTransform& transform)
 static void pathElementApplierCallback(void* info, const CGPathElement* element)
 {
     const auto& applier = *(PathElementApplier*)info;
-    auto* cgPoints = element->points;
+    auto cgPoints = pointsSpan(element);
 
     switch (element->type) {
     case kCGPathElementMoveToPoint:
@@ -389,7 +389,7 @@ bool PathCG::transform(const AffineTransform& transform)
 static void copyClosingSubpathsApplierFunction(void* info, const CGPathElement* element)
 {
     CGMutablePathRef path = static_cast<CGMutablePathRef>(info);
-    CGPoint* points = element->points;
+    auto points = pointsSpan(element);
 
     switch (element->type) {
     case kCGPathElementMoveToPoint:

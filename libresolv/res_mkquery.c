@@ -1,7 +1,26 @@
-/*
+/*-
+ * SPDX-License-Identifier: (ISC AND BSD-3-Clause)
+ *
+ * Portions Copyright (C) 2004, 2005, 2008  Internet Systems Consortium, Inc. ("ISC")
+ * Portions Copyright (C) 1996, 1997, 1988, 1999, 2001, 2003  Internet Software Consortium.
+ *
+ * Permission to use, copy, modify, and/or distribute this software for any
+ * purpose with or without fee is hereby granted, provided that the above
+ * copyright notice and this permission notice appear in all copies.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS" AND ISC DISCLAIMS ALL WARRANTIES WITH
+ * REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY
+ * AND FITNESS.  IN NO EVENT SHALL ISC BE LIABLE FOR ANY SPECIAL, DIRECT,
+ * INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM
+ * LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE
+ * OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
+ * PERFORMANCE OF THIS SOFTWARE.
+ */
+
+/*-
  * Copyright (c) 1985, 1993
  *    The Regents of the University of California.  All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
  * are met:
@@ -10,14 +29,10 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- * 	This product includes software developed by the University of
- * 	California, Berkeley and its contributors.
- * 4. Neither the name of the University nor the names of its contributors
+ * 3. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE REGENTS AND CONTRIBUTORS ``AS IS'' AND
  * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -33,14 +48,14 @@
 
 /*
  * Portions Copyright (c) 1993 by Digital Equipment Corporation.
- * 
+ *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
  * copyright notice and this permission notice appear in all copies, and that
  * the name of Digital Equipment Corporation not be used in advertising or
  * publicity pertaining to distribution of the document or software without
  * specific, written prior permission.
- * 
+ *
  * THE SOFTWARE IS PROVIDED "AS IS" AND DIGITAL EQUIPMENT CORP. DISCLAIMS ALL
  * WARRANTIES WITH REGARD TO THIS SOFTWARE, INCLUDING ALL IMPLIED WARRANTIES
  * OF MERCHANTABILITY AND FITNESS.   IN NO EVENT SHALL DIGITAL EQUIPMENT
@@ -51,155 +66,137 @@
  * SOFTWARE.
  */
 
-/*
- * Portions Copyright (c) 1996-1999 by Internet Software Consortium.
- *
- * Permission to use, copy, modify, and distribute this software for any
- * purpose with or without fee is hereby granted, provided that the above
- * copyright notice and this permission notice appear in all copies.
- *
- * THE SOFTWARE IS PROVIDED "AS IS" AND INTERNET SOFTWARE CONSORTIUM DISCLAIMS
- * ALL WARRANTIES WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES
- * OF MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL INTERNET SOFTWARE
- * CONSORTIUM BE LIABLE FOR ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL
- * DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR
- * PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS
- * ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS
- * SOFTWARE.
- */
-
+#ifndef __APPLE__
 #if defined(LIBC_SCCS) && !defined(lint)
 static const char sccsid[] = "@(#)res_mkquery.c	8.1 (Berkeley) 6/4/93";
-static const char rcsid[] = "$Id: res_mkquery.c,v 1.1 2006/03/01 19:01:38 majka Exp $";
+static const char rcsid[] = "$Id: res_mkquery.c,v 1.10 2008/12/11 09:59:00 marka Exp $";
 #endif /* LIBC_SCCS and not lint */
+#endif /* ! __APPLE__ */
+#include <sys/cdefs.h>
+__FBSDID("$FreeBSD$");
 
-#ifndef __APPLE__
 #include "port_before.h"
-#endif
-#include <sys/types.h>
 #include <sys/param.h>
 #include <netinet/in.h>
 #include <arpa/nameser.h>
+#ifdef __APPLE__
+#include <arpa/nameser_compat.h>
+#endif
 #include <netdb.h>
 #include <resolv.h>
 #include <stdio.h>
 #include <string.h>
-#include "res_private.h"
-#ifndef __APPLE__
 #include "port_after.h"
-#endif
 
-/* Options.  Leave them on. */
-#define DEBUG
+#ifdef __APPLE__
+#define nitems(x)       (sizeof((x)) / sizeof((x)[0]))
+#endif /* __APPLE__ */
 
-extern const char *__res_opcodes[];
+#include "res_debug.h"
 
-/*
+extern const char *_res_opcodes[];
+
+/*%
  * Form all types of queries.
  * Returns the size of the result or -1.
  */
 int
 res_nmkquery(res_state statp,
-	     int op,			/* opcode of query */
-	     const char *dname,		/* domain name */
-	     int class, int type,	/* class and type of query */
-	     const u_char *data,	/* resource record data */
-	     int datalen,		/* length of data */
-	     const u_char *newrr_in,	/* new rr for modify or append */
-	     u_char *buf,		/* buffer to put query */
-	     int buflen)		/* size of buffer */
+	     int op,			/*!< opcode of query  */
+	     const char *dname,		/*!< domain name  */
+	     int class, int type,	/*!< class and type of query  */
+	     const u_char *data,	/*!< resource record data  */
+	     int datalen,		/*!< length of data  */
+	     const u_char *newrr_in,	/*!< new rr for modify or append  */
+	     u_char *buf,		/*!< buffer to put query  */
+	     int buflen)		/*!< size of buffer  */
 {
-	register HEADER *hp;
-	register u_char *cp;
-	register int n;
+	HEADER *hp;
+	u_char *cp, *ep;
+	int n;
 	u_char *dnptrs[20], **dpp, **lastdnptr;
 
-#ifdef __APPLE__
-	n = 0;
-#else
 	UNUSED(newrr_in);
-#endif
 
-#ifdef DEBUG
-	if (statp->options & RES_DEBUG)
-		printf(";; res_nmkquery(%s, %s, %s, %s)\n",
-		       __res_opcodes[op], dname, p_class(class), p_type(type));
-#endif
+	Dprint(";; res_nmkquery(%s, %s, %s, %s)",
+	       _res_opcodes[op], dname, p_class(class), p_type(type));
 	/*
 	 * Initialize header fields.
 	 */
-	if ((buf == NULL) || (buflen < NS_HFIXEDSZ))
+	if ((buf == NULL) || (buflen < HFIXEDSZ))
 		return (-1);
-	memset(buf, 0, NS_HFIXEDSZ);
+	memset(buf, 0, HFIXEDSZ);
 	hp = (HEADER *) buf;
+	statp->id = res_nrandomid(statp);
 #ifdef __APPLE__
 	hp->id = res_randomid();
 #else
-	hp->id = htons(++statp->id);
-#endif
+	hp->id = htons(statp->id);
+#endif /* __APPLE__ */
 	hp->opcode = op;
-	hp->rd = (statp->options & RES_RECURSE) != 0;
-	hp->rcode = ns_r_noerror;
-	cp = buf + NS_HFIXEDSZ;
-	buflen -= NS_HFIXEDSZ;
+	hp->rd = (statp->options & RES_RECURSE) != 0U;
+	hp->rcode = NOERROR;
+	cp = buf + HFIXEDSZ;
+	ep = buf + buflen;
 	dpp = dnptrs;
 	*dpp++ = buf;
 	*dpp++ = NULL;
-	lastdnptr = dnptrs + sizeof dnptrs / sizeof dnptrs[0];
+	lastdnptr = dnptrs + nitems(dnptrs);
 	/*
 	 * perform opcode specific processing
 	 */
 	switch (op) {
-	case ns_o_query:	/*FALLTHROUGH*/
-	case ns_o_update:
-		if ((buflen -= NS_QFIXEDSZ) < 0)
+	case QUERY:	/*FALLTHROUGH*/
+	case NS_NOTIFY_OP:
+		if (ep - cp < QFIXEDSZ)
 			return (-1);
-		if ((n = dn_comp(dname, cp, buflen, dnptrs, lastdnptr)) < 0)
+		if ((n = dn_comp(dname, cp, (int)(ep - cp - QFIXEDSZ), dnptrs,
+		    lastdnptr)) < 0)
 			return (-1);
 		cp += n;
-		buflen -= n;
-		putshort(type, cp);
-		cp += NS_INT16SZ;
-		putshort(class, cp);
-		cp += NS_INT16SZ;
+		ns_put16(type, cp);
+		cp += INT16SZ;
+		ns_put16(class, cp);
+		cp += INT16SZ;
 		hp->qdcount = htons(1);
-		if (op == ns_o_query || data == NULL)
+		if (op == QUERY || data == NULL)
 			break;
 		/*
 		 * Make an additional record for completion domain.
 		 */
-		buflen -= NS_RRFIXEDSZ;
-		n = dn_comp((const char *)data, cp, buflen, dnptrs, lastdnptr);
+		if ((ep - cp) < RRFIXEDSZ)
+			return (-1);
+		n = dn_comp((const char *)data, cp, (int)(ep - cp - RRFIXEDSZ),
+			    dnptrs, lastdnptr);
 		if (n < 0)
 			return (-1);
 		cp += n;
-		buflen -= n;
-		putshort(ns_t_null, cp);
-		cp += NS_INT16SZ;
-		putshort(class, cp);
-		cp += NS_INT16SZ;
-		putlong(0, cp);
-		cp += NS_INT32SZ;
-		putshort(0, cp);
-		cp += NS_INT16SZ;
+		ns_put16(T_NULL, cp);
+		cp += INT16SZ;
+		ns_put16(class, cp);
+		cp += INT16SZ;
+		ns_put32(0, cp);
+		cp += INT32SZ;
+		ns_put16(0, cp);
+		cp += INT16SZ;
 		hp->arcount = htons(1);
 		break;
 
-	case ns_o_iquery:
+	case IQUERY:
 		/*
 		 * Initialize answer section
 		 */
-		if (buflen < 1 + NS_RRFIXEDSZ + datalen)
+		if (ep - cp < 1 + RRFIXEDSZ + datalen)
 			return (-1);
-		*cp++ = '\0';	/* no domain name */
-		putshort(type, cp);
-		cp += NS_INT16SZ;
-		putshort(class, cp);
-		cp += NS_INT16SZ;
-		putlong(0, cp);
-		cp += NS_INT32SZ;
-		putshort(datalen, cp);
-		cp += NS_INT16SZ;
+		*cp++ = '\0';	/*%< no domain name */
+		ns_put16(type, cp);
+		cp += INT16SZ;
+		ns_put16(class, cp);
+		cp += INT16SZ;
+		ns_put32(0, cp);
+		cp += INT32SZ;
+		ns_put16(datalen, cp);
+		cp += INT16SZ;
 		if (datalen) {
 			memcpy(cp, data, datalen);
 			cp += datalen;
@@ -210,62 +207,99 @@ res_nmkquery(res_state statp,
 	default:
 		return (-1);
 	}
-	return (cp - buf);
+	return (int)(cp - buf);
 }
 
 #ifdef RES_USE_EDNS0
 /* attach OPT pseudo-RR, as documented in RFC2671 (EDNS0). */
-#ifndef T_OPT
-#define T_OPT	41
-#endif
 
 int
-res_nopt(statp, n0, buf, buflen, anslen)
-	res_state statp;
-	int n0;
-	u_char *buf;		/* buffer to put query */
-	int buflen;		/* size of buffer */
-	int anslen;		/* answer buffer length */
+res_nopt(res_state statp,
+	 int n0,		/*%< current offset in buffer */
+	 u_char *buf,		/*%< buffer to put query */
+	 int buflen,		/*%< size of buffer */
+	 int anslen)		/*%< UDP answer buffer size */
 {
-	register HEADER *hp;
-	register u_char *cp;
+	HEADER *hp;
+	u_char *cp, *ep;
 	u_int16_t flags = 0;
 
-#ifdef DEBUG
-	if ((statp->options & RES_DEBUG) != 0)
-		printf(";; res_nopt()\n");
-#endif
+	Dprint(";; res_nopt()");
 
 	hp = (HEADER *) buf;
 	cp = buf + n0;
-	buflen -= n0;
+	ep = buf + buflen;
 
-	if (buflen < 1 + NS_RRFIXEDSZ)
-		return -1;
+	if ((ep - cp) < 1 + RRFIXEDSZ)
+		return (-1);
 
-	*cp++ = 0;	/* "." */
-	buflen--;
+	*cp++ = 0;				/*%< "." */
+	ns_put16(ns_t_opt, cp);			/*%< TYPE */
+	cp += INT16SZ;
+	if (anslen > 0xffff)
+		anslen = 0xffff;		/* limit to 16bit value */
+	ns_put16(anslen & 0xffff, cp);		/*%< CLASS = UDP payload size */
+	cp += INT16SZ;
+	*cp++ = NOERROR;			/*%< extended RCODE */
+	*cp++ = 0;				/*%< EDNS version */
 
-	putshort(T_OPT, cp);	/* TYPE */
-	cp += NS_INT16SZ;
-	putshort(anslen & 0xffff, cp);	/* CLASS = UDP payload size */
-	cp += NS_INT16SZ;
-	*cp++ = ns_r_noerror;	/* extended RCODE */
-	*cp++ = 0;		/* EDNS version */
 	if (statp->options & RES_USE_DNSSEC) {
-#ifdef DEBUG
-		if (statp->options & RES_DEBUG)
-			printf(";; res_opt()... ENDS0 DNSSEC\n");
-#endif
+		Dprint(";; res_opt()... ENDS0 DNSSEC");
 		flags |= NS_OPT_DNSSEC_OK;
 	}
-	putshort(flags, cp);
-	cp += NS_INT16SZ;
-	putshort(0, cp);	/* RDLEN */
-	cp += NS_INT16SZ;
-	hp->arcount = htons(ntohs(hp->arcount) + 1);
-	buflen -= NS_RRFIXEDSZ;
+	ns_put16(flags, cp);
+	cp += INT16SZ;
 
-	return cp - buf;
+	ns_put16(0U, cp);			/*%< RDLEN */
+	cp += INT16SZ;
+
+	hp->arcount = htons(ntohs(hp->arcount) + 1);
+
+	return (int)(cp - buf);
+}
+
+/*
+ * Construct variable data (RDATA) block for OPT pseudo-RR, append it
+ * to the buffer, then update the RDLEN field (previously set to zero by
+ * res_nopt()) with the new RDATA length.
+ */
+int
+res_nopt_rdata(res_state statp,
+	  int n0,	 	/*%< current offset in buffer */
+	  u_char *buf,	 	/*%< buffer to put query */
+	  int buflen,		/*%< size of buffer */
+	  u_char *rdata,	/*%< ptr to start of opt rdata */
+	  u_short code,		/*%< OPTION-CODE */
+	  u_short len,		/*%< OPTION-LENGTH */
+	  u_char *data)		/*%< OPTION_DATA */
+{
+	register u_char *cp, *ep;
+
+	Dprint(";; res_nopt_rdata()");
+
+	cp = buf + n0;
+	ep = buf + buflen;
+
+	if ((ep - cp) < (4 + len))
+		return (-1);
+
+	if (rdata < (buf + 2) || rdata >= ep)
+		return (-1);
+
+	ns_put16(code, cp);
+	cp += INT16SZ;
+
+	ns_put16(len, cp);
+	cp += INT16SZ;
+
+	memcpy(cp, data, len);
+	cp += len;
+
+	len = cp - rdata;
+	ns_put16(len, rdata - 2);	/* Update RDLEN field */
+
+	return (int)(cp - buf);
 }
 #endif
+
+/*! \file */

@@ -131,20 +131,10 @@ private:
             }
 
             NSFileManager *fileManager = [NSFileManager defaultManager];
-            if (![fileManager fileExistsAtPath:[destination URLByDeletingLastPathComponent].path]) {
-                RunLoop::main().dispatch([download] {
-                    download->didFail([NSError errorWithDomain:NSURLErrorDomain code:NSURLErrorCannotCreateFile userInfo:nil], { });
-                });
-                completionHandler(WebKit::AllowOverwrite::No, { });
-                return;
-            }
-            if ([fileManager fileExistsAtPath:destination.path]) {
-                RunLoop::main().dispatch([download] {
-                    download->didFail([NSError errorWithDomain:NSURLErrorDomain code:NSURLErrorCannotCreateFile userInfo:nil], { });
-                });
-                completionHandler(WebKit::AllowOverwrite::No, { });
-                return;
-            }
+            if (![fileManager fileExistsAtPath:[destination URLByDeletingLastPathComponent].path])
+                return completionHandler(WebKit::AllowOverwrite::No, { });
+            if ([fileManager fileExistsAtPath:destination.path])
+                return completionHandler(WebKit::AllowOverwrite::No, { });
 
             wrapper(download.get()).progress.fileURL = destination;
 

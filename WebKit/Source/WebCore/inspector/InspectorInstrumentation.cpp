@@ -863,7 +863,7 @@ void InspectorInstrumentation::accessibilitySettingsDidChangeImpl(InstrumentingA
         inspectorPageAgent->accessibilitySettingsDidChange();
 }
 
-#if ENABLE(DARK_MODE_CSS) || HAVE(OS_DARK_MODE_SUPPORT)
+#if ENABLE(DARK_MODE_CSS)
 void InspectorInstrumentation::defaultAppearanceDidChangeImpl(InstrumentingAgents& instrumentingAgents)
 {
     if (auto* inspectorPageAgent = instrumentingAgents.enabledPageAgent())

@@ -78,14 +78,19 @@ WTF_MAKE_TZONE_ALLOCATED_IMPL(RemoteLayerTreeDisplayLinkClient);
 // This is called off the main thread.
 void RemoteLayerTreeDisplayLinkClient::displayLinkFired(WebCore::PlatformDisplayID /* displayID */, WebCore::DisplayUpdate /* displayUpdate */, bool /* wantsFullSpeedUpdates */, bool /* anyObserverWantsCallback */)
 {
-    RunLoop::main().dispatch([pageIdentifier = m_pageIdentifier]() {
+    RunLoop::protectedMain()->dispatch([pageIdentifier = m_pageIdentifier]() {
         auto page = WebProcessProxy::webPage(pageIdentifier);
         if (!page)
             return;
 
-        if (auto* drawingArea = dynamicDowncast<RemoteLayerTreeDrawingAreaProxy>(page->drawingArea()))
+        if (RefPtr drawingArea = dynamicDowncast<RemoteLayerTreeDrawingAreaProxy>(page->drawingArea()))
             drawingArea->didRefreshDisplay();
     });
+}
+
+Ref<RemoteLayerTreeDrawingAreaProxyMac> RemoteLayerTreeDrawingAreaProxyMac::create(WebPageProxy& page, WebProcessProxy& webProcessProxy)
+{
+    return adoptRef(*new RemoteLayerTreeDrawingAreaProxyMac(page, webProcessProxy));
 }
 
 RemoteLayerTreeDrawingAreaProxyMac::RemoteLayerTreeDrawingAreaProxyMac(WebPageProxy& pageProxy, WebProcessProxy& webProcessProxy)
@@ -111,22 +116,26 @@ DelegatedScrollingMode RemoteLayerTreeDrawingAreaProxyMac::delegatedScrollingMod
 
 std::unique_ptr<RemoteScrollingCoordinatorProxy> RemoteLayerTreeDrawingAreaProxyMac::createScrollingCoordinatorProxy() const
 {
-    return makeUnique<RemoteScrollingCoordinatorProxyMac>(protectedWebPageProxy());
+    return makeUnique<RemoteScrollingCoordinatorProxyMac>(*protectedWebPageProxy());
 }
 
 DisplayLink* RemoteLayerTreeDrawingAreaProxyMac::existingDisplayLink()
 {
     if (!m_displayID)
         return nullptr;
-    
-    return m_webPageProxy->configuration().processPool().displayLinks().existingDisplayLinkForDisplay(*m_displayID);
+
+    RefPtr page = m_webPageProxy.get();
+    if (!page)
+        return nullptr;
+
+    return page->protectedConfiguration()->processPool().displayLinks().existingDisplayLinkForDisplay(*m_displayID);
 }
 
 DisplayLink& RemoteLayerTreeDrawingAreaProxyMac::displayLink()
 {
     ASSERT(m_displayID);
 
-    auto& displayLinks = m_webPageProxy->configuration().processPool().displayLinks();
+    auto& displayLinks = protectedWebPageProxy()->protectedConfiguration()->processPool().displayLinks();
     return displayLinks.displayLinkForDisplay(*m_displayID);
 }
 
@@ -143,8 +152,12 @@ void RemoteLayerTreeDrawingAreaProxyMac::removeObserver(std::optional<DisplayLin
 
 void RemoteLayerTreeDrawingAreaProxyMac::layoutBannerLayers(const RemoteLayerTreeTransaction& transaction)
 {
-    auto* headerBannerLayer = m_webPageProxy->headerBannerLayer();
-    auto* footerBannerLayer = m_webPageProxy->footerBannerLayer();
+    RefPtr webPageProxy = m_webPageProxy.get();
+    if (!webPageProxy)
+        return;
+
+    auto* headerBannerLayer = webPageProxy->headerBannerLayer();
+    auto* footerBannerLayer = webPageProxy->footerBannerLayer();
     if (!headerBannerLayer && !footerBannerLayer)
         return;
 
@@ -160,8 +173,8 @@ void RemoteLayerTreeDrawingAreaProxyMac::layoutBannerLayers(const RemoteLayerTre
         [CATransaction commit];
     };
 
-    float topContentInset = m_webPageProxy->scrollingCoordinatorProxy()->topContentInset();
-    auto scrollPosition = m_webPageProxy->scrollingCoordinatorProxy()->currentMainFrameScrollPosition();
+    float topContentInset = webPageProxy->scrollingCoordinatorProxy()->topContentInset();
+    auto scrollPosition = webPageProxy->scrollingCoordinatorProxy()->currentMainFrameScrollPosition();
     
     if (headerBannerLayer) {
         auto headerHeight = headerBannerLayer.frame.size.height;
@@ -180,6 +193,11 @@ void RemoteLayerTreeDrawingAreaProxyMac::layoutBannerLayers(const RemoteLayerTre
 
 void RemoteLayerTreeDrawingAreaProxyMac::didCommitLayerTree(IPC::Connection&, const RemoteLayerTreeTransaction& transaction, const RemoteScrollingCoordinatorTransaction&)
 {
+    if (!transaction.isMainFrameProcessTransaction())
+        return;
+
+    RefPtr page = m_webPageProxy.get();
+
     m_pageScalingLayerID = transaction.pageScalingLayerID();
     m_pageScrollingLayerID = transaction.scrolledContentsLayerID();
 
@@ -189,7 +207,7 @@ void RemoteLayerTreeDrawingAreaProxyMac::didCommitLayerTree(IPC::Connection&, co
         removeTransientZoomFromLayer();
         m_transactionIDAfterEndingTransientZoom = { };
     }
-    auto usesOverlayScrollbars = m_webPageProxy->scrollingCoordinatorProxy()->overlayScrollbarsEnabled();
+    auto usesOverlayScrollbars = page->scrollingCoordinatorProxy()->overlayScrollbarsEnabled();
     auto newScrollbarStyle = usesOverlayScrollbars ? ScrollbarStyle::Overlay : ScrollbarStyle::AlwaysVisible;
     if (!m_scrollbarStyle || m_scrollbarStyle != newScrollbarStyle) {
         m_scrollbarStyle = newScrollbarStyle;
@@ -201,10 +219,10 @@ void RemoteLayerTreeDrawingAreaProxyMac::didCommitLayerTree(IPC::Connection&, co
         [NSScrollerImpPair _updateAllScrollerImpPairsForNewRecommendedScrollerStyle:style];
     }
 
-    protectedWebPageProxy()->setScrollPerformanceDataCollectionEnabled(m_webPageProxy->scrollingCoordinatorProxy()->scrollingPerformanceTestingEnabled());
+    page->setScrollPerformanceDataCollectionEnabled(page->scrollingCoordinatorProxy()->scrollingPerformanceTestingEnabled());
     
     if (transaction.createdLayers().size() > 0) {
-        if (WebKit::RemoteLayerTreeScrollingPerformanceData* scrollPerfData = m_webPageProxy->scrollingPerformanceData())
+        if (WebKit::RemoteLayerTreeScrollingPerformanceData* scrollPerfData = page->scrollingPerformanceData())
             scrollPerfData->didCommitLayerTree(LayoutRect(transaction.scrollPosition(),  transaction.baseLayoutViewportSize()));
     }
 
@@ -280,20 +298,24 @@ void RemoteLayerTreeDrawingAreaProxyMac::adjustTransientZoom(double scale, Float
 
 void RemoteLayerTreeDrawingAreaProxyMac::commitTransientZoom(double scale, FloatPoint origin)
 {
-    auto visibleContentRect = m_webPageProxy->scrollingCoordinatorProxy()->computeVisibleContentRect();
+    RefPtr page = m_webPageProxy.get();
+    if (!page)
+        return;
+
+    auto visibleContentRect = page->scrollingCoordinatorProxy()->computeVisibleContentRect();
     
     auto constrainedOrigin = visibleContentRect.location();
     constrainedOrigin.moveBy(-origin);
 
-    IntSize scaledTotalContentsSize = roundedIntSize(m_webPageProxy->scrollingCoordinatorProxy()->totalContentsSize());
-    scaledTotalContentsSize.scale(scale / m_webPageProxy->scrollingCoordinatorProxy()->mainFrameScaleFactor());
+    IntSize scaledTotalContentsSize = roundedIntSize(page->scrollingCoordinatorProxy()->totalContentsSize());
+    scaledTotalContentsSize.scale(scale / page->scrollingCoordinatorProxy()->mainFrameScaleFactor());
 
-    LOG_WITH_STREAM(ViewGestures, stream << "RemoteLayerTreeDrawingAreaProxyMac::commitTransientZoom constrainScrollPositionForOverhang - constrainedOrigin: " << constrainedOrigin << " visibleContentRect: " << visibleContentRect << " scaledTotalContentsSize: " << scaledTotalContentsSize << " scrollOrigin:" << m_webPageProxy->scrollingCoordinatorProxy()->scrollOrigin() << " headerHeight:" << m_webPageProxy->scrollingCoordinatorProxy()->headerHeight() << " footerHeight: " << m_webPageProxy->scrollingCoordinatorProxy()->footerHeight());
+    LOG_WITH_STREAM(ViewGestures, stream << "RemoteLayerTreeDrawingAreaProxyMac::commitTransientZoom constrainScrollPositionForOverhang - constrainedOrigin: " << constrainedOrigin << " visibleContentRect: " << visibleContentRect << " scaledTotalContentsSize: " << scaledTotalContentsSize << " scrollOrigin:" << page->scrollingCoordinatorProxy()->scrollOrigin() << " headerHeight:" << page->scrollingCoordinatorProxy()->headerHeight() << " footerHeight: " << page->scrollingCoordinatorProxy()->footerHeight());
 
     // Scaling may have exposed the overhang area, so we need to constrain the final
     // layer position exactly like scrolling will once it's committed, to ensure that
     // scrolling doesn't make the view jump.
-    constrainedOrigin = ScrollableArea::constrainScrollPositionForOverhang(roundedIntRect(visibleContentRect), scaledTotalContentsSize, roundedIntPoint(constrainedOrigin), m_webPageProxy->scrollingCoordinatorProxy()->scrollOrigin(), m_webPageProxy->scrollingCoordinatorProxy()->headerHeight(), m_webPageProxy->scrollingCoordinatorProxy()->footerHeight());
+    constrainedOrigin = ScrollableArea::constrainScrollPositionForOverhang(roundedIntRect(visibleContentRect), scaledTotalContentsSize, roundedIntPoint(constrainedOrigin), page->scrollingCoordinatorProxy()->scrollOrigin(), page->scrollingCoordinatorProxy()->headerHeight(), page->scrollingCoordinatorProxy()->footerHeight());
     constrainedOrigin.moveBy(-visibleContentRect.location());
     constrainedOrigin = -constrainedOrigin;
     
@@ -302,8 +324,9 @@ void RemoteLayerTreeDrawingAreaProxyMac::commitTransientZoom(double scale, Float
     auto transientZoomScale = std::exchange(m_transientZoomScale, { });
     auto transientZoomOrigin = std::exchange(m_transientZoomOrigin, { });
 
-    auto rootScrollingNodeID = m_webPageProxy->scrollingCoordinatorProxy()->rootScrollingNodeID();
-    m_webPageProxy->scrollingCoordinatorProxy()->deferWheelEventTestCompletionForReason(rootScrollingNodeID, WheelEventTestMonitorDeferReason::CommittingTransientZoom);
+    auto rootScrollingNodeID = page->scrollingCoordinatorProxy()->rootScrollingNodeID();
+    if (rootScrollingNodeID)
+        page->scrollingCoordinatorProxy()->deferWheelEventTestCompletionForReason(rootScrollingNodeID, WheelEventTestMonitorDeferReason::CommittingTransientZoom);
 
     if (transientZoomScale == scale && roundedIntPoint(*transientZoomOrigin) == roundedIntPoint(constrainedOrigin)) {
         // We're already at the right scale and position, so we don't need to animate.
@@ -331,12 +354,12 @@ void RemoteLayerTreeDrawingAreaProxyMac::commitTransientZoom(double scale, Float
     [scrollPositionOverrideAnimation setToValue:pointValue];
     [layerForPageScrolling addAnimation:scrollPositionOverrideAnimation.get() forKey:transientZoomScrollPositionOverrideAnimationKey];
 
-    [CATransaction setCompletionBlock:[scale, constrainedOrigin, rootScrollingNodeID, protectedWebPageProxy = this->protectedWebPageProxy()] () {
-        if (auto* drawingArea = static_cast<RemoteLayerTreeDrawingAreaProxyMac*>(protectedWebPageProxy->drawingArea()))
+    [CATransaction setCompletionBlock:[scale, constrainedOrigin, rootScrollingNodeID, protectedWebPageProxy = page] () {
+        if (RefPtr drawingArea = downcast<RemoteLayerTreeDrawingAreaProxyMac>(protectedWebPageProxy->drawingArea()))
             drawingArea->sendCommitTransientZoom(scale, constrainedOrigin, rootScrollingNodeID);
 
         protectedWebPageProxy->callAfterNextPresentationUpdate([protectedWebPageProxy] {
-            auto* drawingArea = static_cast<RemoteLayerTreeDrawingAreaProxyMac*>(protectedWebPageProxy->drawingArea());
+            RefPtr drawingArea = downcast<RemoteLayerTreeDrawingAreaProxyMac>(protectedWebPageProxy->drawingArea());
             if (!drawingArea)
                 return;
 
@@ -360,13 +383,19 @@ void RemoteLayerTreeDrawingAreaProxyMac::commitTransientZoom(double scale, Float
     END_BLOCK_OBJC_EXCEPTIONS
 }
 
-void RemoteLayerTreeDrawingAreaProxyMac::sendCommitTransientZoom(double scale, FloatPoint origin, WebCore::ScrollingNodeID rootNodeID)
+void RemoteLayerTreeDrawingAreaProxyMac::sendCommitTransientZoom(double scale, FloatPoint origin, std::optional<WebCore::ScrollingNodeID> rootNodeID)
 {
     updateZoomTransactionID();
 
-    Ref webPageProxy = page();
+    RefPtr webPageProxy = m_webPageProxy.get();
+    if (!webPageProxy)
+        return;
 
     webPageProxy->scalePageRelativeToScrollPosition(scale, roundedIntPoint(origin));
+
+    if (!rootNodeID)
+        return;
+
     webPageProxy->callAfterNextPresentationUpdate([rootNodeID, webPageProxy]() {
         if (auto* scrollingCoordinatorProxy = webPageProxy->scrollingCoordinatorProxy())
             scrollingCoordinatorProxy->removeWheelEventTestCompletionDeferralForReason(rootNodeID, WheelEventTestMonitorDeferReason::CommittingTransientZoom);
@@ -389,8 +418,11 @@ void RemoteLayerTreeDrawingAreaProxyMac::scheduleDisplayRefreshCallbacks()
     m_displayRefreshObserverID = DisplayLinkObserverID::generate();
     displayLink.addObserver(*m_displayLinkClient, *m_displayRefreshObserverID, m_clientPreferredFramesPerSecond);
     if (m_shouldLogNextObserverChange) {
-        RELEASE_LOG(ViewState, "%p [pageProxyID=%" PRIu64 ", webPageID=%" PRIu64 ", PID=%i, DisplayID=%u] RemoteLayerTreeDrawingAreaProxyMac::scheduleDisplayRefreshCallbacks",
-            this, m_webPageProxy->identifier().toUInt64(), m_webPageProxy->webPageIDInMainFrameProcess().toUInt64(), m_webPageProxy->legacyMainFrameProcessID(), m_displayID ? *m_displayID : 0);
+        RefPtr webPageProxy = m_webPageProxy.get();
+        if (webPageProxy) {
+            RELEASE_LOG(ViewState, "%p [pageProxyID=%" PRIu64 ", webPageID=%" PRIu64 ", PID=%i, DisplayID=%u] RemoteLayerTreeDrawingAreaProxyMac::scheduleDisplayRefreshCallbacks",
+                this, webPageProxy->identifier().toUInt64(), webPageProxy->webPageIDInMainFrameProcess().toUInt64(), webPageProxy->legacyMainFrameProcessID(), m_displayID ? *m_displayID : 0);
+        }
         m_shouldLogNextObserverChange = false;
     }
 }
@@ -401,8 +433,12 @@ void RemoteLayerTreeDrawingAreaProxyMac::pauseDisplayRefreshCallbacks()
     removeObserver(m_displayRefreshObserverID);
 }
 
-void RemoteLayerTreeDrawingAreaProxyMac::setPreferredFramesPerSecond(WebCore::FramesPerSecond preferredFramesPerSecond)
+void RemoteLayerTreeDrawingAreaProxyMac::setPreferredFramesPerSecond(IPC::Connection& connection,  WebCore::FramesPerSecond preferredFramesPerSecond)
 {
+    // FIXME(site-isolation): This currently ignores throttling requests from remote subframes (as would also happen for in-process subframes). We have the opportunity to do better, and allow throttling on a per-process level.
+    if (!m_webProcessProxy->hasConnection() || &m_webProcessProxy->connection() != &connection)
+        return;
+
     m_clientPreferredFramesPerSecond = preferredFramesPerSecond;
 
     if (!m_displayID) {
@@ -444,13 +480,15 @@ void RemoteLayerTreeDrawingAreaProxyMac::windowScreenDidChange(PlatformDisplayID
 
     pauseDisplayRefreshCallbacks();
 
-    if (m_displayID)
-        m_webPageProxy->scrollingCoordinatorProxy()->windowScreenWillChange();
+    RefPtr page = m_webPageProxy.get();
+    if (m_displayID && page)
+        page->scrollingCoordinatorProxy()->windowScreenWillChange();
 
     m_displayID = displayID;
     m_displayNominalFramesPerSecond = displayNominalFramesPerSecond();
 
-    m_webPageProxy->scrollingCoordinatorProxy()->windowScreenDidChange(displayID, m_displayNominalFramesPerSecond);
+    if (page)
+        page->scrollingCoordinatorProxy()->windowScreenDidChange(displayID, m_displayNominalFramesPerSecond);
 
     scheduleDisplayRefreshCallbacks();
     if (hadFullSpeedOberver) {
@@ -481,13 +519,17 @@ std::optional<WebCore::FramesPerSecond> RemoteLayerTreeDrawingAreaProxyMac::disp
 
 void RemoteLayerTreeDrawingAreaProxyMac::didRefreshDisplay()
 {
+    RefPtr page = m_webPageProxy.get();
     if (m_shouldLogNextDisplayRefresh) {
-        RELEASE_LOG(ViewState, "%p [pageProxyID=%" PRIu64 ", webPageID=%" PRIu64 ", PID=%i, DisplayID=%u] RemoteLayerTreeDrawingAreaProxyMac::didRefreshDisplay",
-            this, m_webPageProxy->identifier().toUInt64(), m_webPageProxy->webPageIDInMainFrameProcess().toUInt64(), m_webPageProxy->legacyMainFrameProcessID(), m_displayID ? *m_displayID : 0);
+        if (page) {
+            RELEASE_LOG(ViewState, "%p [pageProxyID=%" PRIu64 ", webPageID=%" PRIu64 ", PID=%i, DisplayID=%u] RemoteLayerTreeDrawingAreaProxyMac::didRefreshDisplay",
+                this, page->identifier().toUInt64(), page->webPageIDInMainFrameProcess().toUInt64(), page->legacyMainFrameProcessID(), m_displayID ? *m_displayID : 0);
+        }
         m_shouldLogNextDisplayRefresh = false;
     }
     // FIXME: Need to pass WebCore::DisplayUpdate here and filter out non-relevant displays.
-    m_webPageProxy->scrollingCoordinatorProxy()->displayDidRefresh(m_displayID.value_or(0));
+    if (page)
+        page->scrollingCoordinatorProxy()->displayDidRefresh(m_displayID.value_or(0));
     RemoteLayerTreeDrawingAreaProxy::didRefreshDisplay();
 }
 
@@ -497,14 +539,27 @@ void RemoteLayerTreeDrawingAreaProxyMac::didChangeViewExposedRect()
     updateDebugIndicatorPosition();
 }
 
+void RemoteLayerTreeDrawingAreaProxyMac::dispatchSetTopContentInset()
+{
+    if (RefPtr page = m_webPageProxy.get())
+        page->dispatchSetTopContentInset();
+}
+
 void RemoteLayerTreeDrawingAreaProxyMac::colorSpaceDidChange()
 {
-    send(Messages::DrawingArea::SetColorSpace(m_webPageProxy->colorSpace()));
+    forEachProcessState([&](ProcessState& state, WebProcessProxy& webProcess) {
+        if (RefPtr page = m_webPageProxy.get())
+            webProcess.send(Messages::DrawingArea::SetColorSpace(page->colorSpace()), identifier());
+    });
 }
 
 MachSendRight RemoteLayerTreeDrawingAreaProxyMac::createFence()
 {
-    RetainPtr<CAContext> rootLayerContext = [m_webPageProxy->acceleratedCompositingRootLayer() context];
+    RefPtr page = m_webPageProxy.get();
+    if (!page)
+        return MachSendRight();
+
+    RetainPtr<CAContext> rootLayerContext = [page->acceleratedCompositingRootLayer() context];
     if (!rootLayerContext)
         return MachSendRight();
 
@@ -538,7 +593,7 @@ MachSendRight RemoteLayerTreeDrawingAreaProxyMac::createFence()
 
 void RemoteLayerTreeDrawingAreaProxyMac::updateZoomTransactionID()
 {
-    m_transactionIDAfterEndingTransientZoom = nextLayerTreeTransactionID();
+    m_transactionIDAfterEndingTransientZoom = nextMainFrameLayerTreeTransactionID();
 }
 
 

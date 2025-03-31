@@ -18,19 +18,13 @@
 # @APPLE_APACHE_LICENSE_HEADER_END@
 #
 
-__MergedGlobals
-__dispatch_bug.last_seen
-__dispatch_bug_deprecated.last_seen
-__dispatch_bug_kevent_client.last_seen
-#if defined(__x86_64__)
-__dispatch_bug_kevent_client.last_seen.45
-__dispatch_bug_kevent_client.last_seen.47
-#else
-__dispatch_bug_kevent_client.last_seen.38
-__dispatch_bug_kevent_client.last_seen.40
-#endif
-__dispatch_bug_kevent_vanished.last_seen
-__dispatch_bug_mach_client.last_seen
+__dispatch_bug.db_last_seen
+__dispatch_bug_deprecated.dbd_last_seen
+__dispatch_bug_kevent_client.dbkc_last_seen_1
+__dispatch_bug_kevent_client.dbkc_last_seen_2
+__dispatch_bug_kevent_client.dbkc_last_seen_3
+__dispatch_bug_kevent_vanished.dbkv_last_seen
+__dispatch_bug_mach_client.dbmc_last_seen
 
 __dispatch_build_pred
 __dispatch_build

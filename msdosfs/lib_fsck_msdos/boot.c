@@ -74,7 +74,7 @@ readboot(struct bootblock *boot, check_context *context)
 	u_int32_t result = 0;
     size_t res = 0;
 	int ret = FSOK;
-	
+
 	/*
 	 * [2734381] Some devices have sector sizes greater than 512 bytes.  These devices
 	 * tend to return errors if you try to read less than a sector, so we try reading
@@ -84,6 +84,12 @@ readboot(struct bootblock *boot, check_context *context)
     if (res != MAX_SECTOR_SIZE) {
         fsck_print(fsck_ctx, LOG_CRIT, "%s (%s)\n", "could not read boot block", strerror(errno));
         return FSFATAL;
+    }
+
+    /* If needed, write the boot sector to the shadow file */
+    if ((context->shadowFD > 0) &&
+        (pwrite(context->shadowFD, block, MAX_SECTOR_SIZE, 0) != MAX_SECTOR_SIZE)) {
+        fsck_print(fsck_ctx, LOG_INFO, "Failed to shadow offset 0, length 0x%x (errno: %d)", MAX_SECTOR_SIZE, errno);
     }
 
 	/* [2699033]
@@ -98,8 +104,7 @@ readboot(struct bootblock *boot, check_context *context)
 	* Windows doesn't actually check the third byte if the first byte is 0xEB,
 	* so we don't either
 	*/
-	if (block[0] != 0xE9 && block[0] != 0xEB)
-	{
+	if (block[0] != 0xE9 && block[0] != 0xEB) {
 		fsck_print(fsck_ctx, LOG_CRIT, "Invalid BS_jmpBoot in boot block: %02x%02x%02x\n", block[0], block[1], block[2]);
 		return FSFATAL;
 	}
@@ -129,12 +134,11 @@ readboot(struct bootblock *boot, check_context *context)
 	 * 512..MAX_SECTOR_SIZE.
 	 */
 	if (boot->BytesPerSec < DOSBOOTBLOCKSIZE || boot->BytesPerSec > MAX_SECTOR_SIZE ||
-		(boot->BytesPerSec & (boot->BytesPerSec - 1)) != 0)
-	{
+		(boot->BytesPerSec & (boot->BytesPerSec - 1)) != 0) {
 		fsck_print(fsck_ctx, LOG_CRIT, "Invalid sector size: %u\n", boot->BytesPerSec);
 		return FSFATAL;
 	}
-	
+
 	/*
 	 * Make sure the sectors per cluster is reasonable.  It must be a
 	 * non-zero power of two.
@@ -144,14 +148,14 @@ readboot(struct bootblock *boot, check_context *context)
 	 * but we don't actually enforce that here.
 	 */
 	if (boot->SecPerClust == 0 ||
-		(boot->SecPerClust & (boot->SecPerClust - 1)) != 0)
-	{
+		(boot->SecPerClust & (boot->SecPerClust - 1)) != 0) {
 		fsck_print(fsck_ctx, LOG_CRIT, "Invalid sectors per cluster: %u\n", boot->SecPerClust);
 		return FSFATAL;
 	}
 
-	if (!boot->RootDirEnts)
-		boot->flags |= FAT32;
+    if (!boot->RootDirEnts) {
+        boot->flags |= FAT32;
+    }
 	if (boot->flags & FAT32) {
 		boot->FATsecs = block[36] + (block[37] << 8)
 				+ (block[38] << 16) + (block[39] << 24);
@@ -174,6 +178,11 @@ readboot(struct bootblock *boot, check_context *context)
         if (context->readHelper(context->resource, fsinfo, boot->BytesPerSec, boot->FSInfo * boot->BytesPerSec) != boot->BytesPerSec) {
             fsck_print(fsck_ctx, LOG_CRIT, "%s (%s)\n", "could not read fsinfo block", strerror(errno));
             return FSFATAL;
+        }
+
+        if ((context->shadowFD > 0) &&
+            (pwrite(context->shadowFD, fsinfo, boot->BytesPerSec, boot->FSInfo * boot->BytesPerSec) != boot->BytesPerSec)) {
+            fsck_print(fsck_ctx, LOG_INFO, "Failed to shadow offset 0x%x, length 0x%x (errno %d)", boot->FSInfo * boot->BytesPerSec, boot->BytesPerSec, errno);
         }
 
 		if (memcmp(fsinfo, "RRaA", 4)
@@ -266,6 +275,10 @@ readboot(struct bootblock *boot, check_context *context)
 		fsck_print(fsck_ctx, LOG_CRIT, "Filesystem too big (%u clusters) for non-FAT32 partition\n", boot->NumClusters-2);
 		return FSFATAL;
 	}
+
+    if ((context->shadowFD > 0) && (ftruncate(context->shadowFD, (off_t)boot->NumSectors * boot->BytesPerSec))) {
+        fsck_print(fsck_ctx, LOG_INFO, "Failed to truncate shadow file to size 0x%x (errno %d)", boot->Sectors * boot->BytesPerSec, errno);
+    }
 
 	result = 0;
 

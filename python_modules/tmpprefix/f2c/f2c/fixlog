@@ -1,0 +1,4 @@
+Sun Oct  8 02:45:04 MDT 2006
+  putpcc.c: fix glitch in subscripting complex variables:  subscripts
+of type integer*8 were converted to integer*4, which causes trouble
+when 32-bit addressing does not suffice.

@@ -35,7 +35,6 @@
 #include "ModelProcessConnectionParameters.h"
 #include "ModelProcessModelPlayerManager.h"
 #include "ModelProcessModelPlayerMessages.h"
-#include "WebCoreArgumentCoders.h"
 #include "WebPage.h"
 #include "WebPageCreationParameters.h"
 #include "WebPageMessages.h"
@@ -71,7 +70,7 @@ RefPtr<ModelProcessConnection> ModelProcessConnection::create(IPC::Connection& p
 }
 
 ModelProcessConnection::ModelProcessConnection(IPC::Connection::Identifier&& connectionIdentifier)
-    : m_connection(IPC::Connection::createServerConnection(connectionIdentifier))
+    : m_connection(IPC::Connection::createServerConnection(WTFMove(connectionIdentifier)))
 {
     m_connection->open(*this);
 }

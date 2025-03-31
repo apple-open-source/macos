@@ -54,7 +54,7 @@ public:
     static constexpr OptionSet<PropertyType> normalProperties() { return { PropertyType::NonInherited,  PropertyType::Inherited }; }
     static constexpr OptionSet<PropertyType> startingStyleProperties() { return normalProperties() | PropertyType::StartingStyle; }
 
-    PropertyCascade(const MatchResult&, CascadeLevel, OptionSet<PropertyType> includedProperties, const HashSet<AnimatableCSSProperty>* = nullptr);
+    PropertyCascade(const MatchResult&, CascadeLevel, OptionSet<PropertyType> includedProperties, const UncheckedKeyHashSet<AnimatableCSSProperty>* = nullptr);
     PropertyCascade(const PropertyCascade&, CascadeLevel, std::optional<ScopeOrdinal> rollbackScope = { }, std::optional<CascadeLayerPriority> maximumCascadeLayerPriorityForRollback = { });
 
     ~PropertyCascade();
@@ -66,6 +66,7 @@ public:
         CascadeLayerPriority cascadeLayerPriority;
         FromStyleAttribute fromStyleAttribute;
         std::array<CSSValue*, 3> cssValue; // Values for link match states MatchDefault, MatchLink and MatchVisited
+        std::array<CascadeLevel, 3> cascadeLevels;
     };
 
     bool isEmpty() const { return m_propertyIsPresent.isEmpty() && !m_seenLogicalGroupPropertyCount; }
@@ -75,15 +76,15 @@ public:
 
     bool hasLogicalGroupProperty(CSSPropertyID) const;
     const Property& logicalGroupProperty(CSSPropertyID) const;
-    const Property* lastPropertyResolvingLogicalPropertyPair(CSSPropertyID, TextDirection, WritingMode) const;
+    const Property* lastPropertyResolvingLogicalPropertyPair(CSSPropertyID, WritingMode) const;
 
     bool hasCustomProperty(const AtomString&) const;
     const Property& customProperty(const AtomString&) const;
 
     std::span<const CSSPropertyID> logicalGroupPropertyIDs() const;
-    const HashMap<AtomString, Property>& customProperties() const { return m_customProperties; }
+    const UncheckedKeyHashMap<AtomString, Property>& customProperties() const { return m_customProperties; }
 
-    const HashSet<AnimatableCSSProperty> overriddenAnimatedProperties() const;
+    const UncheckedKeyHashSet<AnimatableCSSProperty> overriddenAnimatedProperties() const;
 
     PropertyBitSet& propertyIsPresent() { return m_propertyIsPresent; }
     const PropertyBitSet& propertyIsPresent() const { return m_propertyIsPresent; }
@@ -112,10 +113,10 @@ private:
     const std::optional<CascadeLayerPriority> m_maximumCascadeLayerPriorityForRollback;
 
     struct AnimationLayer {
-        AnimationLayer(const HashSet<AnimatableCSSProperty>&);
+        AnimationLayer(const UncheckedKeyHashSet<AnimatableCSSProperty>&);
 
-        const HashSet<AnimatableCSSProperty>& properties;
-        HashSet<AnimatableCSSProperty> overriddenProperties;
+        const UncheckedKeyHashSet<AnimatableCSSProperty>& properties;
+        UncheckedKeyHashSet<AnimatableCSSProperty> overriddenProperties;
         bool hasCustomProperties { false };
         bool hasFontSize { false };
         bool hasLineHeight { false };
@@ -142,7 +143,7 @@ private:
     CSSPropertyID m_lowestSeenLogicalGroupProperty { lastLogicalGroupProperty };
     CSSPropertyID m_highestSeenLogicalGroupProperty { firstLogicalGroupProperty };
 
-    HashMap<AtomString, Property> m_customProperties;
+    UncheckedKeyHashMap<AtomString, Property> m_customProperties;
 };
 
 inline bool PropertyCascade::hasNormalProperty(CSSPropertyID id) const
@@ -184,7 +185,7 @@ inline const PropertyCascade::Property& PropertyCascade::logicalGroupProperty(CS
 
 inline std::span<const CSSPropertyID> PropertyCascade::logicalGroupPropertyIDs() const
 {
-    return { m_logicalGroupPropertyIDs.data(), m_seenLogicalGroupPropertyCount };
+    return std::span { m_logicalGroupPropertyIDs }.first(m_seenLogicalGroupPropertyCount);
 }
 
 inline bool PropertyCascade::hasCustomProperty(const AtomString& name) const
@@ -198,5 +199,5 @@ inline const PropertyCascade::Property& PropertyCascade::customProperty(const At
     return m_customProperties.find(name)->value;
 }
 
-}
-}
+} // namespace Style
+} // namespace WebCore

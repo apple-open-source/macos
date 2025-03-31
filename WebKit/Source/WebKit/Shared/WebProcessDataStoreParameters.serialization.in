@@ -39,9 +39,11 @@
     WebKit::SandboxExtensionHandle modelElementCacheDirectoryExtensionHandle;
 #endif
 #if PLATFORM(IOS_FAMILY)
-    std::optional<WebKit::SandboxExtensionHandle> cookieStorageDirectoryExtensionHandle;
     std::optional<WebKit::SandboxExtensionHandle> containerCachesDirectoryExtensionHandle;
     std::optional<WebKit::SandboxExtensionHandle> containerTemporaryDirectoryExtensionHandle;
 #endif
     bool trackingPreventionEnabled;
+#if HAVE(ALLOW_ONLY_PARTITIONED_COOKIES)
+    bool isOptInCookiePartitioningEnabled;
+#endif
 };

@@ -37,6 +37,10 @@ bool AnyAclSubject::validates(const AclValidationContext &) const
 	return true;
 }
 
+CFStringRef AnyAclSubject::createACLDebugString() const
+{
+    return CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("AnyAclSubject"));
+}
 
 //
 // The CSSM_LIST version is trivial. It has no private part to omit.

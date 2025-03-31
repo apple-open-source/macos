@@ -39,10 +39,15 @@ static constexpr auto SharedJSContextWKMaxIdleTime = 10_s;
 
 class SharedJSContextWK {
 public:
-    SharedJSContextWK()
-        : m_timer(RunLoop::main(), this, &SharedJSContextWK::releaseContextIfNecessary)
+    static SharedJSContextWK& singleton()
     {
+        static MainThreadNeverDestroyed<SharedJSContextWK> sharedContext;
+        return sharedContext.get();
     }
+
+    // Do nothing since this is a singleton.
+    void ref() const { }
+    void deref() const { }
 
     JSRetainPtr<JSGlobalContextRef> ensureContext()
     {
@@ -80,16 +85,17 @@ public:
     }
 
 private:
+    friend class NeverDestroyed<SharedJSContextWK, MainThreadAccessTraits>;
+
+    SharedJSContextWK()
+        : m_timer(RunLoop::main(), this, &SharedJSContextWK::releaseContextIfNecessary)
+    {
+    }
+
     JSRetainPtr<JSGlobalContextRef> m_context;
     RunLoop::Timer m_timer;
     MonotonicTime m_lastUseTime;
 };
-
-static SharedJSContextWK& sharedContext()
-{
-    static MainThreadNeverDestroyed<SharedJSContextWK> sharedContext;
-    return sharedContext.get();
-}
 
 static WKRetainPtr<WKTypeRef> valueToWKObject(JSContextRef context, JSValueRef value)
 {
@@ -149,7 +155,7 @@ static WKRetainPtr<WKTypeRef> valueToWKObject(JSContextRef context, JSValueRef v
 WKRetainPtr<WKTypeRef> SerializedScriptValue::deserializeWK(WebCore::SerializedScriptValue& serializedScriptValue)
 {
     ASSERT(RunLoop::isMain());
-    JSRetainPtr context = sharedContext().ensureContext();
+    JSRetainPtr context = SharedJSContextWK::singleton().ensureContext();
     ASSERT(context);
 
     JSValueRef value = serializedScriptValue.deserialize(context.get(), nullptr);
@@ -157,6 +163,15 @@ WKRetainPtr<WKTypeRef> SerializedScriptValue::deserializeWK(WebCore::SerializedS
         return nullptr;
 
     return valueToWKObject(context.get(), value);
+}
+
+Vector<uint8_t> SerializedScriptValue::serializeCryptoKey(const WebCore::CryptoKey& key)
+{
+    ASSERT(RunLoop::isMain());
+    JSRetainPtr context = SharedJSContextWK::singleton().ensureContext();
+    ASSERT(context);
+
+    return WebCore::SerializedScriptValue::serializeCryptoKey(context.get(), key);
 }
 
 } // API

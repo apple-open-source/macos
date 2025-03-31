@@ -12,6 +12,7 @@
 
 #include <memory>
 
+#include "api/priority.h"
 #include "pc/peer_connection_internal.h"
 #include "pc/sctp_data_channel.h"
 #include "pc/test/mock_peer_connection_internal.h"
@@ -31,7 +32,10 @@ class MockDataChannelTransport : public DataChannelTransportInterface {
  public:
   ~MockDataChannelTransport() override {}
 
-  MOCK_METHOD(RTCError, OpenChannel, (int channel_id), (override));
+  MOCK_METHOD(RTCError,
+              OpenChannel,
+              (int channel_id, PriorityValue priority),
+              (override));
   MOCK_METHOD(RTCError,
               SendData,
               (int channel_id,
@@ -155,8 +159,8 @@ TEST_F(DataChannelControllerTest, MaxChannels) {
   int channel_id = 0;
 
   ON_CALL(*pc_, GetSctpSslRole_n).WillByDefault([&]() {
-    return absl::optional<rtc::SSLRole>((channel_id & 1) ? rtc::SSL_SERVER
-                                                         : rtc::SSL_CLIENT);
+    return std::optional<rtc::SSLRole>((channel_id & 1) ? rtc::SSL_SERVER
+                                                        : rtc::SSL_CLIENT);
   });
 
   DataChannelControllerForTest dcc(pc_.get(), &transport);

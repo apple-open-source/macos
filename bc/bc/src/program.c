@@ -3,7 +3,7 @@
  *
  * SPDX-License-Identifier: BSD-2-Clause
  *
- * Copyright (c) 2018-2023 Gavin D. Howard and contributors.
+ * Copyright (c) 2018-2024 Gavin D. Howard and contributors.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -2703,12 +2703,21 @@ bc_program_globalSetting(BcProgram* p, uchar inst)
 	assert(inst >= BC_INST_LINE_LENGTH && inst <= BC_INST_LEADING_ZERO);
 #endif // DC_ENABLED
 
-	if (inst == BC_INST_LINE_LENGTH) val = (BcBigDig) vm->line_len;
+	if (inst == BC_INST_LINE_LENGTH)
+	{
+		val = (BcBigDig) vm->line_len;
+	}
 #if BC_ENABLED
-	else if (inst == BC_INST_GLOBAL_STACKS) val = (BC_G != 0);
+	else if (inst == BC_INST_GLOBAL_STACKS)
+	{
+		val = (BC_G != 0);
+	}
 #endif // BC_ENABLED
 #if DC_ENABLED
-	else if (inst == BC_INST_EXTENDED_REGISTERS) val = (DC_X != 0);
+	else if (inst == BC_INST_EXTENDED_REGISTERS)
+	{
+		val = (DC_X != 0);
+	}
 #endif // DC_ENABLED
 	else val = (BC_Z != 0);
 
@@ -3771,7 +3780,7 @@ bc_program_printStr(const BcProgram* p, const char* restrict code,
 	size_t idx = bc_program_index(code, bgn);
 	char* s;
 
-	s = *((char**) bc_vec_item(p->strs, idx));
+	s = *((char**) bc_vec_item(&p->strs, idx));
 
 	bc_vm_printf(" (\"%s\") ", s);
 }
@@ -3794,7 +3803,7 @@ bc_program_printInst(const BcProgram* p, const char* restrict code,
 	else if (inst == BC_INST_NUM)
 	{
 		size_t idx = bc_program_index(code, bgn);
-		BcConst* c = bc_vec_item(p->consts, idx);
+		BcConst* c = bc_vec_item(&p->consts, idx);
 		bc_vm_printf("(%s)", c->val);
 	}
 	else if (inst == BC_INST_CALL ||

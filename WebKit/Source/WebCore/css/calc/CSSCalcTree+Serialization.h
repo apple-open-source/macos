@@ -24,18 +24,26 @@
 
 #pragma once
 
-#include "CSSCalcTree.h"
+#include "CSSPrimitiveNumericRange.h"
 #include <wtf/Forward.h>
 
 namespace WebCore {
 namespace CSSCalc {
 
-// https://drafts.csswg.org/css-values-4/#serialize-a-math-function
-void serializationForCSS(StringBuilder&, const Tree&);
-String serializationForCSS(const Tree&);
+struct Child;
+struct Tree;
 
-void serializationForCSS(StringBuilder&, const Child&);
-String serializationForCSS(const Child&);
+struct SerializationOptions {
+    // `range` represents the allowed numeric range for the calculated result.
+    CSS::Range range;
+};
+
+// https://drafts.csswg.org/css-values-4/#serialize-a-math-function
+void serializationForCSS(StringBuilder&, const Tree&, const SerializationOptions&);
+String serializationForCSS(const Tree&, const SerializationOptions&);
+
+void serializationForCSS(StringBuilder&, const Child&, const SerializationOptions&);
+String serializationForCSS(const Child&, const SerializationOptions&);
 
 } // namespace CSSCalc
 } // namespace WebCore

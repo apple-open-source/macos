@@ -30,6 +30,7 @@
 #if !UCONFIG_NO_FORMATTING
 
 #include <stdbool.h>
+#include <stdio.h> // for sprintf()
 
 #include "unicode/udat.h"
 #include "unicode/udatpg.h"
@@ -56,6 +57,7 @@ static void TestGetDefaultHourCycleOnEmptyInstance(void);
 static void TestEras(void);
 static void TestDateTimePatterns(void);
 static void TestRegionOverride(void);
+static void TestISO8601(void);
 #if APPLE_ICU_CHANGES
 // rdar://
 static void TestJapaneseCalendarItems(void); // rdar://52042600
@@ -64,11 +66,12 @@ static void TestAdlam(void);    // rdar://80593890
 static void TestForce24(void); // rdar://96019833
 static void TestCloneAllowedHourFormats(void); // rdar://97391281
 static void TestRgSubtag(void); // rdar://106566783
-static void TestISO8601(void); // rdar://121454761
 static void TestPolishMonth(void); // rdar://119515016
+static void TestLongDayPeriodDefaults(void); // rdar://116185298
 static void TestLongLocaleID(void); // rdar://134431716
 #endif  // APPLE_ICU_CHANGES
 
+    
 void addDateTimePatternGeneratorTest(TestNode** root) {
     TESTCASE(TestOpenClose);
     TESTCASE(TestUsage);
@@ -80,6 +83,7 @@ void addDateTimePatternGeneratorTest(TestNode** root) {
     TESTCASE(TestEras);
     TESTCASE(TestDateTimePatterns);
     TESTCASE(TestRegionOverride);
+    TESTCASE(TestISO8601);
 #if APPLE_ICU_CHANGES
 // rdar://
     TESTCASE(TestJapaneseCalendarItems);
@@ -88,8 +92,8 @@ void addDateTimePatternGeneratorTest(TestNode** root) {
     TESTCASE(TestForce24);
     TESTCASE(TestCloneAllowedHourFormats);
     TESTCASE(TestRgSubtag);
-    TESTCASE(TestISO8601); // rdar://121454761
     TESTCASE(TestPolishMonth); // rdar://119515016
+    TESTCASE(TestLongDayPeriodDefaults); // rdar://116185298
     TESTCASE(TestLongLocaleID); // rdar://134431716
 #endif  // APPLE_ICU_CHANGES
 }
@@ -116,7 +120,7 @@ static const UChar sampleFormatted[] = {0x31, 0x30, 0x20, 0x6A, 0x75, 0x69, 0x6C
 static const UChar skeleton[]= {0x4d, 0x4d, 0x4d, 0x64, 0};  /* MMMd */
 static const UChar timeZoneGMT[] = { 0x0047, 0x004d, 0x0054, 0x0000 };  /* "GMT" */
 
-static void TestOpenClose() {
+static void TestOpenClose(void) {
     UErrorCode errorCode=U_ZERO_ERROR;
     UDateTimePatternGenerator *dtpg, *dtpg2;
     const UChar *s;
@@ -172,7 +176,7 @@ static const AppendItemNameData appendItemNameData[] = { /* for Finnish */
     { UDATPG_FIELD_COUNT,   {0}        }  /* terminator */
 };
 
-static void TestUsage() {
+static void TestUsage(void) {
     UErrorCode errorCode=U_ZERO_ERROR;
     UDateTimePatternGenerator *dtpg;
     const AppendItemNameData * appItemNameDataPtr;
@@ -283,7 +287,7 @@ static void TestUsage() {
     udatpg_close(dtpg);
 }
 
-static void TestBuilder() {
+static void TestBuilder(void) {
     UErrorCode errorCode=U_ZERO_ERROR;
     UDateTimePatternGenerator *dtpg;
     UDateTimePatternConflict conflict;
@@ -450,7 +454,7 @@ static const UChar patn_mmcsspSS[]= u"mm:ss.SS";
 static const UChar patn_Mdrhmm_a[] = u"M/d/r, h:mm\u202Fa"; // rdar://122117069
 #endif  // APPLE_ICU_CHANGES
 
-static void TestOptions() {
+static void TestOptions(void) {
     const DTPtnGenOptionsData testData[] = {
         /*loc   skel       options                       expectedPattern */
         { "en", skel_Hmm,  UDATPG_MATCH_NO_OPTIONS,        patn_HHcmm   },
@@ -465,24 +469,33 @@ static void TestOptions() {
         { "da", skel_Hmm,  UDATPG_MATCH_HOUR_FIELD_LENGTH, patn_Hpmm    },
         { "da", skel_HHmm, UDATPG_MATCH_HOUR_FIELD_LENGTH, patn_HHpmm   },
         { "da", skel_hhmm, UDATPG_MATCH_HOUR_FIELD_LENGTH, patn_hhpmm_a },
-        { "da", skel_Hmm,  UDATPG_MATCH_HOUR_FIELD_LENGTH, patn_Hpmm    },
-        { "da", skel_HHmm, UDATPG_MATCH_HOUR_FIELD_LENGTH, patn_HHpmm   },
-        { "da", skel_hhmm, UDATPG_MATCH_HOUR_FIELD_LENGTH, patn_hhpmm_a },
 #if APPLE_ICU_CHANGES
 // rdar://
+        // additional tests for rdar://121284009 (results also altered by rdar://17278425)
+        // (see also ICU-22669)
+        { "zh_TW",           u"jjm",  UDATPG_MATCH_NO_OPTIONS,        u"Bh:mm" },
+        { "zh_TW",           u"jjm",  UDATPG_MATCH_ALL_FIELDS_LENGTH, u"Bhh:mm" },
+        { "zh_TW",           u"jjms", UDATPG_MATCH_NO_OPTIONS,        u"Bh:mm:ss" },
+        { "zh_TW",           u"jjms", UDATPG_MATCH_ALL_FIELDS_LENGTH, u"Bhh:mm:ss" },
+        { "zh_TW@hours=h23", u"jjm",  UDATPG_MATCH_NO_OPTIONS,        u"HH:mm" },
+        { "zh_TW@hours=h23", u"jjm",  UDATPG_MATCH_ALL_FIELDS_LENGTH, u"HH:mm" },
+        { "zh_TW@hours=h23", u"jjms", UDATPG_MATCH_NO_OPTIONS,        u"HH:mm:ss" },
+        { "zh_TW@hours=h23", u"jjms", UDATPG_MATCH_ALL_FIELDS_LENGTH, u"HH:mm:ss" },
+        
         { "en_JP@calendar=japanese", skel_mmss, UDATPG_MATCH_NO_OPTIONS, patn_mmcss },
         { "en_JP@calendar=japanese", skel_mmssSS, UDATPG_MATCH_NO_OPTIONS, patn_mmcsspSS },
         { "en@calendar=chinese", skel_yMdjm, UDATPG_MATCH_NO_OPTIONS, patn_Mdrhmm_a }, // rdar://122117069
-        // additional tests for rdar://121284009
+        { "da",              u"jm",   UDATPG_MATCH_ALL_FIELDS_LENGTH, u"HH.mm" },
+#else
+        // tests for ICU-22669
         { "zh_TW",           u"jjm",  UDATPG_MATCH_NO_OPTIONS,        u"ah:mm" },
         { "zh_TW",           u"jjm",  UDATPG_MATCH_ALL_FIELDS_LENGTH, u"ahh:mm" },
         { "zh_TW",           u"jjms", UDATPG_MATCH_NO_OPTIONS,        u"ah:mm:ss" },
         { "zh_TW",           u"jjms", UDATPG_MATCH_ALL_FIELDS_LENGTH, u"ahh:mm:ss" },
         { "zh_TW@hours=h23", u"jjm",  UDATPG_MATCH_NO_OPTIONS,        u"HH:mm" },
-        { "zh_TW@hours=h23", u"jjm",  UDATPG_MATCH_ALL_FIELDS_LENGTH, u"HH:mm" },
+        { "zh_TW@hours=h23", u"jjm",  UDATPG_MATCH_ALL_FIELDS_LENGTH, u"HH:mm" }, // (without the fix, we get "HH:m" here)
         { "zh_TW@hours=h23", u"jjms", UDATPG_MATCH_NO_OPTIONS,        u"HH:mm:ss" },
         { "zh_TW@hours=h23", u"jjms", UDATPG_MATCH_ALL_FIELDS_LENGTH, u"HH:mm:ss" },
-        { "da",              u"jm",   UDATPG_MATCH_ALL_FIELDS_LENGTH, u"HH.mm" },
 #endif  // APPLE_ICU_CHANGES
     };
 
@@ -521,7 +534,7 @@ typedef struct FieldDisplayNameData {
 } FieldDisplayNameData;
 enum { kFieldDisplayNameMax = 32, kFieldDisplayNameBytesMax  = 64};
 
-static void TestGetFieldDisplayNames() {
+static void TestGetFieldDisplayNames(void) {
     const FieldDisplayNameData testData[] = {
         /*loc      field                              width               expectedName */
         { "de",    UDATPG_QUARTER_FIELD,              UDATPG_WIDE,        "Quartal" },
@@ -588,7 +601,7 @@ typedef struct HourCycleData {
     UDateFormatHourCycle   expected;
 } HourCycleData;
 
-static void TestGetDefaultHourCycle() {
+static void TestGetDefaultHourCycle(void) {
     const HourCycleData testData[] = {
         /*loc      expected */
         { "ar_EG",    UDAT_HOUR_CYCLE_12 },
@@ -626,7 +639,7 @@ static void TestGetDefaultHourCycle() {
 }
 
 // Ensure that calling udatpg_getDefaultHourCycle on an empty instance doesn't call UPRV_UNREACHABLE_EXIT/abort.
-static void TestGetDefaultHourCycleOnEmptyInstance() {
+static void TestGetDefaultHourCycleOnEmptyInstance(void) {
     UErrorCode status = U_ZERO_ERROR;
     UDateTimePatternGenerator * dtpgen = udatpg_openEmpty(&status);
 
@@ -994,7 +1007,7 @@ static void TestCountryFallback(void) {
         u"ar_US", u"yMEd", u"EEE, M/d/y", // result changed by rdar://116185298
         // Tests for situations where the original locale ID specifies a script:
         u"sr_Cyrl_SA", u"yMEd", u"EEE, d.M.y. GGGGG",
-        u"ru_Cyrl_BA", u"yMEd", u"EEE, d.M.y.", // now comes from bs[_Latn]
+        u"ru_Cyrl_BA", u"yMEd", u"EEE, d. M. y.", // now comes from bs[_Latn]
         // And these are just a few additional arbitrary combinations:
         u"ja_US", u"yMEd", u"EEE, M/d/y",
         u"fr_DE", u"yMEd", u"EEE d.M.y",
@@ -1216,42 +1229,47 @@ static void TestRgSubtag(void) {
     }
 }
 
-// Test for rdar://121454761
 static void TestISO8601(void) {
     typedef struct TestCase {
         const char* locale;
         const UChar* skeleton;
         const UChar* expectedPattern;
     } TestCase;
-    
-    const TestCase testCases[] = {
-        { "en_GB@calendar=iso8601;rg=uszzzz", u"EEEEyMMMMdjmm", u"EEEE d MMMM y 'at' h:mm a" },
-        { "en_GB@calendar=iso8601;rg=uszzzz", u"EEEEyMMMMdHmm", u"EEEE d MMMM y 'at' HH:mm" },
-        { "en_GB@calendar=iso8601;rg=uszzzz", u"Edjmm",         u"EEE d, h:mm a" },
-        { "en_GB@calendar=iso8601;rg=uszzzz", u"EdHmm",         u"EEE d, HH:mm" },
 
-        { "en_US@calendar=iso8601",           u"EEEEyMMMMdjmm", u"EEEE, MMMM d, y 'at' h:mm a" },
-        { "en_US@calendar=iso8601",           u"EEEEyMMMMdHmm", u"EEEE, MMMM d, y 'at' HH:mm" },
-        { "en_US@calendar=iso8601",           u"Edjmm",         u"EEE d, h:mm a" },
-        { "en_US@calendar=iso8601",           u"EdHmm",         u"EEE d, HH:mm" },
+    const TestCase testCases[] = {
+        { "en_GB@calendar=iso8601;rg=uszzzz", u"EEEEyMMMMdjmm", u"y MMMM d, EEEE 'at' h:mm a" },
+        { "en_GB@calendar=iso8601;rg=uszzzz", u"EEEEyMMMMdHmm", u"y MMMM d, EEEE 'at' HH:mm" },
+        { "en_GB@calendar=iso8601;rg=uszzzz", u"Edjmm",         u"d, EEE, h:mm a" },
+        { "en_GB@calendar=iso8601;rg=uszzzz", u"EdHmm",         u"d, EEE, HH:mm" },
+
+        { "en_US@calendar=iso8601",           u"EEEEyMMMMdjmm", u"y MMMM d, EEEE 'at' h:mm a" },
+        { "en_US@calendar=iso8601",           u"EEEEyMMMMdHmm", u"y MMMM d, EEEE 'at' HH:mm" },
+        { "en_US@calendar=iso8601",           u"Edjmm",         u"d, EEE, h:mm a" },
+        { "en_US@calendar=iso8601",           u"EdHmm",         u"d, EEE, HH:mm" },
 
         { "en_US",                            u"EEEEyMMMMdjmm", u"EEEE, MMMM d, y 'at' h:mm a" },
         { "en_US",                            u"EEEEyMMMMdHmm", u"EEEE, MMMM d, y 'at' HH:mm" },
+#if APPLE_ICU_CHANGES
+// rdar://
         { "en_US",                            u"Edjmm",         u"EEE d, h:mm a" },
         { "en_US",                            u"EdHmm",         u"EEE d, HH:mm" },
+#else
+        { "en_US",                            u"Edjmm",         u"d EEE, h:mm a" },
+        { "en_US",                            u"EdHmm",         u"d EEE, HH:mm" },
+#endif
     };
     
     for (int32_t i = 0; i < UPRV_LENGTHOF(testCases); i++) {
         UErrorCode err = U_ZERO_ERROR;
         UDateTimePatternGenerator* dtpg = udatpg_open(testCases[i].locale, &err);
-        
+
         if (assertSuccess("Error creating dtpg", &err)) {
             UChar actualPattern[200];
-            
-            udatpg_getBestPatternWithOptions(dtpg, testCases[i].skeleton, -1, 0, actualPattern, 200, &err);
+
+            udatpg_getBestPatternWithOptions(dtpg, testCases[i].skeleton, -1, 0, actualPattern, UPRV_LENGTHOF(actualPattern), &err);
             if (assertSuccess("Error getting best pattern", &err)) {
                 char errorMessage[200];
-                snprintf(errorMessage, 200, "Wrong pattern for %s and %s", testCases[i].locale, austrdup(testCases[i].skeleton));
+                snprintf(errorMessage, UPRV_LENGTHOF(errorMessage), "Wrong pattern for %s and %s", testCases[i].locale, austrdup(testCases[i].skeleton));
                 assertUEquals(errorMessage, testCases[i].expectedPattern, actualPattern);
             }
         }
@@ -1289,6 +1307,80 @@ static void TestPolishMonth(void) {
                 char errorMessage[200];
                 snprintf(errorMessage, 200, "Wrong pattern for %s and %s", testCases[i].locale, austrdup(testCases[i].skeleton));
                 assertUEquals(errorMessage, testCases[i].expectedPattern, actualPattern);
+            }
+        }
+        udatpg_close(dtpg);
+    }
+}
+
+// Test for rdar://17278425
+static void TestLongDayPeriodDefaults(void) {
+    typedef struct TestCase {
+        const char* locale;
+        const UChar* skeleton;
+        const UChar* expectedPattern;
+        const UChar* expectedPatternWithOptOut;
+    } TestCase;
+    
+    const TestCase testCases[] = {
+        // Hindi should always use long day periods, unless the caller opts out
+        { "hi",      u"jmm", u"B h:mm", u"a h:mm" },
+        { "hi",      u"Cmm", u"B h:mm", u"B h:mm" },
+        { "hi",      u"hmm", u"B h:mm", u"a h:mm" },
+        
+        // This should also be true even with the US region
+        { "hi_US",   u"jmm", u"B h:mm", u"a h:mm" },
+        { "hi_US",   u"Cmm", u"a h:mm", u"a h:mm" }, // C *doesn't* give you B because C bases its decision on the REGION
+        { "hi_US",   u"hmm", u"B h:mm", u"a h:mm" },
+
+        // Same with zh_TW/zh_Hant
+        { "zh_Hant", u"jmm", u"Bh:mm",  u"ah:mm"  },
+        { "zh_Hant", u"Cmm", u"Bh:mm",  u"Bh:mm"  },
+        { "zh_Hant", u"hmm", u"Bh:mm",  u"ah:mm"  },
+        
+        // double-check that zh_TW and zh_Hant_TW work the same as zh_Hant, but that zh_HK doesn't
+        { "zh_TW",      u"jmm", u"Bh:mm",  u"ah:mm"  },
+        { "zh_Hant_TW", u"jmm", u"Bh:mm",  u"ah:mm"  },
+        { "zh_HK",      u"jmm", u"ah:mm",  u"ah:mm"  },
+
+        // Regular zh uses 24-hour time, but if we ask for 12-hour time, we still want short day periods
+        { "zh",      u"jmm", u"HH:mm",  u"HH:mm"  },
+        { "zh",      u"Cmm", u"HH:mm",  u"HH:mm"  },
+        { "zh",      u"hmm", u"ah:mm",  u"ah:mm"  },
+        
+        // And US English uses 12-hour time, but never uses long day periods
+        { "en_US",   u"jmm", u"h:mm a", u"h:mm a" },
+        { "en_US",   u"Cmm", u"h:mm a", u"h:mm a" },
+        { "en_US",   u"hmm", u"h:mm a", u"h:mm a" },
+        
+        // Make sure that using capital J to suppress the day-period field still works properly in all these cases
+        // (The double h's here are questionsable, but that was the existing behavior before rdar://17278425)
+        { "hi",      u"Jmm", u"hh:mm",  u"hh:mm" },
+        { "hi_US",   u"Jmm", u"hh:mm",  u"hh:mm" },
+        { "zh_Hant", u"Jmm", u"hh:mm",  u"hh:mm"  },
+        { "zh",      u"Jmm", u"HH:mm",  u"HH:mm"  },
+        { "en_US",   u"Jmm", u"hh:mm",  u"hh:mm" },
+    };
+    
+    for (int32_t i = 0; i < UPRV_LENGTHOF(testCases); i++) {
+        UErrorCode err = U_ZERO_ERROR;
+        UDateTimePatternGenerator* dtpg = udatpg_open(testCases[i].locale, &err);
+        
+        if (assertSuccess("Error creating dtpg", &err)) {
+            UChar actualPattern[200];
+            
+            udatpg_getBestPatternWithOptions(dtpg, testCases[i].skeleton, -1, 0, actualPattern, 200, &err);
+            if (assertSuccess("Error getting best pattern", &err)) {
+                char errorMessage[200];
+                snprintf(errorMessage, 200, "Wrong pattern for %s and %s", testCases[i].locale, austrdup(testCases[i].skeleton));
+                assertUEquals(errorMessage, testCases[i].expectedPattern, actualPattern);
+            }
+            
+            udatpg_getBestPatternWithOptions(dtpg, testCases[i].skeleton, -1, UDATPG_DONT_ADJUST_HOUR_CYCLE, actualPattern, 200, &err);
+            if (assertSuccess("Error getting best pattern with UDATPG_DONT_ADJUST_HOUR_CYCLE", &err)) {
+                char errorMessage[200];
+                snprintf(errorMessage, 200, "Wrong pattern for %s and %s and UDATPG_DONT_ADJUST_HOUR_CYCLE", testCases[i].locale, austrdup(testCases[i].skeleton));
+                assertUEquals(errorMessage, testCases[i].expectedPatternWithOptOut, actualPattern);
             }
         }
         udatpg_close(dtpg);

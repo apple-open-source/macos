@@ -196,8 +196,10 @@ __enum_closed_decl(vm_sanitize_caller_id_t, uint32_t, {
  * @const VM_SANITIZE_FLAGS_CHECK_ALIGNED_SIZE
  * Checks that the size is aligned to map page size.
  *
- * @const VM_SANITIZE_FLAGS_CHECK_BASE_ADDR_RANGE
- * Checks that end address is inside the TTBR base address range.
+ * @const VM_SANITIZE_FLAGS_CHECK_ADDR_RANGE
+ * Checks that computing values within the range [start, end) does not overflow
+ * into bits above the supported VA bits for the system. These bits may be used
+ * by the kernel or hardware to store additional values.
  */
 
 __options_closed_decl(vm_sanitize_flags_t, uint32_t, {
@@ -211,7 +213,7 @@ __options_closed_decl(vm_sanitize_flags_t, uint32_t, {
 	VM_SANITIZE_FLAGS_CHECK_USER_MEM_MAP_FLAGS = 0x00000040,
 	VM_SANITIZE_FLAGS_CANONICALIZE             = 0x00000080,
 	VM_SANITIZE_FLAGS_CHECK_ALIGNED_SIZE       = 0x00000100,
-	VM_SANITIZE_FLAGS_CHECK_BASE_ADDR_RANGE    = 0x00000200,
+	VM_SANITIZE_FLAGS_CHECK_ADDR_RANGE         = 0x00000200,
 });
 
 #define __vm_sanitize_bits_one_of(flags) \

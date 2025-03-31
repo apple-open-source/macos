@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2024 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2025 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -1170,7 +1170,7 @@ PvDEntityCreateWithInfo(ipv6_info_t * info_p)
 	my_log(LOG_INFO, "Ignoring PvD option with R flag");
 	goto done;
     }
-    pvdid_str = DNSNameStringCreate(pvd_id, pvd_id_length);
+    pvdid_str = DNSNameStringCreate(pvd_id, pvd_id_length, false);
     if (pvdid_str == NULL) {
 	CFMutableStringRef bytes_str = NULL;
 

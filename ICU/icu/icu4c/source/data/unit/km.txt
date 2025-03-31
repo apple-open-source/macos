@@ -215,6 +215,11 @@ km{
             nanosecond{
                 other{"{0} ណាណូវិនាទី"}
             }
+            night{
+                dnam{"យប់"}
+                other{"{0} យប់"}
+                per{"{0} ក្នុងមួយយប់"}
+            }
             second{
                 per{"{0} ក្នុង​មួយ​វិនាទី"}
             }
@@ -531,6 +536,10 @@ km{
                 dnam{"ណត់"}
                 other{"{0} ណត់"}
             }
+            light-speed{
+                dnam{"ពន្លឺ"}
+                other{"{0} ពន្លឺ"}
+            }
             meter-per-second{
                 dnam{"ម៉ែត្រ​ក្នុង​មួយ​វិនាទី"}
                 other{"{0} ម៉ែត្រ​ក្នុង​មួយ​វិនាទី"}
@@ -716,8 +725,10 @@ km{
             }
         }
         duration{
-            decade{
-                other{"{0} ទ.វ."}
+            night{
+                dnam{"យប់"}
+                other{"{0} យប់"}
+                per{"{0}/យប់"}
             }
             quarter{
                 other{"{0} ត្រី"}
@@ -790,6 +801,10 @@ km{
             }
         }
         speed{
+            light-speed{
+                dnam{"ពន្លឺ"}
+                other{"{0} ពន្លឺ"}
+            }
             meter-per-second{
                 other{"{0} ម./វិ."}
             }
@@ -928,6 +943,11 @@ km{
             }
             nanosecond{
                 dnam{"ណាណូវិនាទី"}
+            }
+            night{
+                dnam{"យប់"}
+                other{"{0} យប់"}
+                per{"{0}/យប់"}
             }
             quarter{
                 dnam{"ត្រីមាស"}
@@ -1075,6 +1095,10 @@ km{
         speed{
             kilometer-per-hour{
                 other{"{0} kph"}
+            }
+            light-speed{
+                dnam{"ពន្លឺ"}
+                other{"{0} ពន្លឺ"}
             }
             meter-per-second{
                 dnam{"ម៉ែត្រ​/​វិនាទី"}

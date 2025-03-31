@@ -27,6 +27,3 @@ module ICU [system] {
 
   link "icucore"
 }
-
-module ICU_Placeholder_NewFile [system] {
-}

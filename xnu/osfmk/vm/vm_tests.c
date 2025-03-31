@@ -29,8 +29,10 @@
 #include <mach_assert.h>
 
 #include <mach/mach_types.h>
+#include <mach/mach_vm.h>
 #include <mach/memory_object.h>
 #include <mach/vm_map.h>
+#include <mach/vm_statistics.h>
 #include <mach/vm32_map_server.h>
 #include <mach/mach_host.h>
 #include <mach/host_priv.h>
@@ -41,6 +43,7 @@
 #include <device/device_port.h>
 #include <vm/memory_object_internal.h>
 #include <vm/vm_fault.h>
+#include <vm/vm_fault_internal.h>
 #include <vm/vm_map_internal.h>
 #include <vm/vm_object_internal.h>
 #include <vm/vm_pageout_xnu.h>
@@ -51,15 +54,15 @@
 #include <vm/vm_iokit.h>
 #include <vm/vm_page_internal.h>
 #include <vm/vm_shared_region_xnu.h>
+#include <vm/vm_far.h>
 
 #include <kern/zalloc.h>
 #include <kern/zalloc_internal.h>
 
-#include <mach/mach_vm.h>
-
 #include <sys/errno.h> /* for the sysctl tests */
 
 #include <tests/xnupost.h> /* for testing-related functions and macros */
+
 
 extern ledger_template_t        task_ledger_template;
 
@@ -403,7 +406,8 @@ vm_test_kernel_object_fault(void)
 		printf("VM_TEST_KERNEL_OBJECT_FAULT: FAIL\n");
 	}
 
-	kmem_free(kernel_map, stack, kernel_stack_size + ptoa(2));
+	kmem_free_guard(kernel_map, stack, kernel_stack_size + ptoa(2),
+	    KMF_GUARD_FIRST | KMF_GUARD_LAST, KMEM_GUARD_NONE);
 	stack = 0;
 }
 #else /* __arm64__ && VM_TEST_KERNEL_OBJECT_FAULT */
@@ -1343,10 +1347,6 @@ vm_test_physical_size_overflow(void)
 #define PTR_TAG_SHIFT 56
 #define PTR_BITS_MASK (((1ULL << PTR_TAG_SHIFT) - 1) | (0xfULL << PTR_UPPER_SHIFT))
 
-static inline vm_map_t
-create_map(mach_vm_address_t map_start, mach_vm_address_t map_end);
-static inline void
-cleanup_map(vm_map_t *map);
 
 __attribute__((noinline))
 static void
@@ -1354,6 +1354,7 @@ vm_test_address_canonicalization(void)
 {
 	T_SKIP("System not designed to support this test, skipping...");
 }
+
 
 kern_return_t
 vm_tests(void)
@@ -1880,17 +1881,36 @@ vm_memory_entry_pgz_test(__unused int64_t in, int64_t *out)
 
 SYSCTL_TEST_REGISTER(vm_memory_entry_pgz, vm_memory_entry_pgz_test);
 
+
+static int
+vm_map_copyio_test(__unused int64_t in, int64_t *out)
+{
+	/* Test is not supported */
+	*out = ENOTSUP;
+	return 0;
+}
+SYSCTL_TEST_REGISTER(vm_map_copyio, vm_map_copyio_test);
+
+static int
+vm_page_relocate_test(__unused int64_t in, int64_t *out)
+{
+	/* Test is not supported */
+	*out = ENOTSUP;
+	return 0;
+}
+SYSCTL_TEST_REGISTER(vm_page_relocate, vm_page_relocate_test);
+
 #define PAGE_SHIFT_4K 12
 #define PAGE_SHIFT_16K 14
 static int
 vm_map_copy_entry_subrange_test(__unused int64_t in, int64_t *out)
 {
 	mach_vm_size_t size_4kb, size_16kb;
-	mach_vm_size_t mapped_size;
 	vm_map_t map_4k, map_16k;
 	mach_vm_address_t alloced_addr, mapped_addr;
 	mach_vm_size_t entry_size;
 	mach_port_t entry_handle;
+	mach_vm_size_t mapped_size;
 	vm_region_basic_info_data_64_t region_info;
 	mach_msg_type_number_t region_info_count;
 
@@ -2199,3 +2219,39 @@ vm_memory_entry_parent_submap_tests(__unused int64_t in, int64_t *out)
 	return 0;
 }
 SYSCTL_TEST_REGISTER(vm_memory_entry_parent_submap, vm_memory_entry_parent_submap_tests);
+
+static int
+vm_cpu_map_pageout_test(int64_t in, int64_t *out)
+{
+	/* Test is not supported */
+	(void)in;
+	*out = ENOTSUP;
+	return 0;
+}
+SYSCTL_TEST_REGISTER(vm_cpu_map_pageout, vm_cpu_map_pageout_test);
+
+static int
+vm_get_wimg_mode(int64_t in, int64_t *out)
+{
+	mach_vm_offset_t addr = (mach_vm_offset_t)in;
+	vm_map_entry_t entry;
+	vm_map_t map = current_map();
+	vm_map_lock_read(map);
+	bool map_contains_addr = vm_map_lookup_entry(map, addr, &entry);
+	if (!map_contains_addr) {
+		vm_map_unlock_read(map);
+		return EINVAL;
+	}
+
+	if (entry->is_sub_map) {
+		vm_map_unlock_read(map);
+		return ENOTSUP;
+	}
+
+	vm_object_t obj = VME_OBJECT(entry);
+	*out = obj->wimg_bits;
+
+	vm_map_unlock_read(map);
+	return 0;
+}
+SYSCTL_TEST_REGISTER(vm_get_wimg_mode, vm_get_wimg_mode);

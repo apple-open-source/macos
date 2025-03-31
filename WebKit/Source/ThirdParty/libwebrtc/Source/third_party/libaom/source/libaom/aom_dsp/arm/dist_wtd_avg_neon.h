@@ -17,7 +17,7 @@
 #include "aom_dsp/aom_dsp_common.h"
 #include "av1/common/enums.h"
 
-static INLINE uint8x8_t dist_wtd_avg_u8x8(uint8x8_t a, uint8x8_t b,
+static inline uint8x8_t dist_wtd_avg_u8x8(uint8x8_t a, uint8x8_t b,
                                           uint8x8_t wta, uint8x8_t wtb) {
   uint16x8_t wtd_sum = vmull_u8(a, wta);
 
@@ -26,7 +26,7 @@ static INLINE uint8x8_t dist_wtd_avg_u8x8(uint8x8_t a, uint8x8_t b,
   return vrshrn_n_u16(wtd_sum, DIST_PRECISION_BITS);
 }
 
-static INLINE uint16x4_t dist_wtd_avg_u16x4(uint16x4_t a, uint16x4_t b,
+static inline uint16x4_t dist_wtd_avg_u16x4(uint16x4_t a, uint16x4_t b,
                                             uint16x4_t wta, uint16x4_t wtb) {
   uint32x4_t wtd_sum = vmull_u16(a, wta);
 
@@ -35,7 +35,7 @@ static INLINE uint16x4_t dist_wtd_avg_u16x4(uint16x4_t a, uint16x4_t b,
   return vrshrn_n_u32(wtd_sum, DIST_PRECISION_BITS);
 }
 
-static INLINE uint8x16_t dist_wtd_avg_u8x16(uint8x16_t a, uint8x16_t b,
+static inline uint8x16_t dist_wtd_avg_u8x16(uint8x16_t a, uint8x16_t b,
                                             uint8x16_t wta, uint8x16_t wtb) {
   uint16x8_t wtd_sum_lo = vmull_u8(vget_low_u8(a), vget_low_u8(wta));
   uint16x8_t wtd_sum_hi = vmull_u8(vget_high_u8(a), vget_high_u8(wta));
@@ -49,7 +49,7 @@ static INLINE uint8x16_t dist_wtd_avg_u8x16(uint8x16_t a, uint8x16_t b,
   return vcombine_u8(wtd_avg_lo, wtd_avg_hi);
 }
 
-static INLINE uint16x8_t dist_wtd_avg_u16x8(uint16x8_t a, uint16x8_t b,
+static inline uint16x8_t dist_wtd_avg_u16x8(uint16x8_t a, uint16x8_t b,
                                             uint16x8_t wta, uint16x8_t wtb) {
   uint32x4_t wtd_sum_lo = vmull_u16(vget_low_u16(a), vget_low_u16(wta));
   uint32x4_t wtd_sum_hi = vmull_u16(vget_high_u16(a), vget_high_u16(wta));

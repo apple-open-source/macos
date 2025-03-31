@@ -416,6 +416,36 @@ bool Device::supportsImageDimensions(const ImageDescriptor &desc) const
     return false;
 }
 
+bool Device::hasDeviceEnqueueCaps() const
+{
+    return mInfo.queueOnDeviceMaxSize > 0;
+}
+
+bool Device::supportsNonUniformWorkGroups() const
+{
+    cl_bool support = false;
+
+    if (getPlatform().isVersionOrNewer(3, 0))
+    {
+        if (IsError(mImpl->getInfoUInt(DeviceInfo::NonUniformWorkGroupSupport, &support)))
+        {
+            UNREACHABLE();
+        }
+    }
+    else
+    {
+        // Check older platforms support via device extension
+        // TODO(aannestrand) Boolean-ify these extension strings rather than string compare
+        // http://anglebug.com/381335059
+        if (getInfo().extensions.find("cl_arm_non_uniform_work_group_size") != std::string::npos)
+        {
+            support = true;
+        }
+    }
+
+    return support;
+}
+
 Device::Device(Platform &platform,
                Device *parent,
                DeviceType type,

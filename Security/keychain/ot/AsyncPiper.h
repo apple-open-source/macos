@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2024 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -40,15 +40,22 @@ NS_ASSUME_NONNULL_BEGIN
 
 @end
 
-// create one of these to force `pipe` in [AsynePiper init] to fail
-@interface AsyncPiperFailPipeForTesting : NSObject
+// Helper for later macros
+#define AsyncPiperForTestingFailHelper(X) _AsyncPiperForTestingFail##X * failWrapping __attribute__((objc_precise_lifetime)) = [[_AsyncPiperForTestingFail##X alloc] init]
+
+// Use this macro to force `pipe` in [AsyncPiper init] to fail for the scope in which the macro is invoked
+#define AsyncPiperForTestingFailPipe AsyncPiperForTestingFailHelper(Pipe)
+
+@interface _AsyncPiperForTestingFailPipe : NSObject
 
 -(instancetype)init;
 
 @end
 
-// create one of these to force `xpc_fd_create` in [AsynePiper init] to fail
-@interface AsyncPiperFailXpcFdWrappingForTesting : NSObject
+// Use this macro to force `xpc_fd_create` in [AsyncPiper init] to fail for the scope in which the macro is invoked
+#define AsyncPiperForTestingFailXpcFdWrapping AsyncPiperForTestingFailHelper(XpcFdWrapping)
+
+@interface _AsyncPiperForTestingFailXpcFdWrapping : NSObject
 
 -(instancetype)init;
 

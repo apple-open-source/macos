@@ -37,7 +37,7 @@
 #include "WebGPURenderPassEncoder.h"
 #include <optional>
 #include <wtf/Ref.h>
-#include <wtf/RefCounted.h>
+#include <wtf/RefCountedAndCanMakeWeakPtr.h>
 #include <wtf/WeakPtr.h>
 #include <wtf/text/WTFString.h>
 
@@ -46,7 +46,7 @@ namespace WebCore::WebGPU {
 class Buffer;
 class QuerySet;
 
-class CommandEncoder : public RefCounted<CommandEncoder>, public CanMakeWeakPtr<CommandEncoder> {
+class CommandEncoder : public RefCountedAndCanMakeWeakPtr<CommandEncoder> {
 public:
     virtual ~CommandEncoder() = default;
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2012-2016 Apple Inc. All rights reserved.
+ * Copyright (C) 2012-2024 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -48,6 +48,7 @@ namespace WebKit {
 
 class RemoteLayerTreeNode;
 
+enum class ColorControlSupportsAlpha : bool;
 enum class UndoOrRedo : bool;
 
 class PageClientImpl final : public PageClientImplCocoa
@@ -55,13 +56,17 @@ class PageClientImpl final : public PageClientImplCocoa
     , public WebFullScreenManagerProxyClient
 #endif
     {
+    WTF_MAKE_FAST_ALLOCATED;
+#if ENABLE(FULLSCREEN_API)
+    WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(PageClientImpl);
+#endif
 public:
     PageClientImpl(WKContentView *, WKWebView *);
     virtual ~PageClientImpl();
     
 private:
     // PageClient
-    std::unique_ptr<DrawingAreaProxy> createDrawingAreaProxy(WebProcessProxy&) override;
+    Ref<DrawingAreaProxy> createDrawingAreaProxy(WebProcessProxy&) override;
     void setViewNeedsDisplay(const WebCore::Region&) override;
     void requestScroll(const WebCore::FloatPoint& scrollPosition, const WebCore::IntPoint& scrollOrigin, WebCore::ScrollIsAnimated) override;
     WebCore::FloatPoint viewScrollPosition() override;
@@ -106,12 +111,11 @@ private:
     void didChangeContentSize(const WebCore::IntSize&) override;
     void setCursor(const WebCore::Cursor&) override;
     void setCursorHiddenUntilMouseMoves(bool) override;
-    void didChangeViewportProperties(const WebCore::ViewportAttributes&) override;
     void registerEditCommand(Ref<WebEditCommandProxy>&&, UndoOrRedo) override;
     void clearAllEditCommands() override;
     bool canUndoRedo(UndoOrRedo) override;
     void executeUndoRedo(UndoOrRedo) override;
-    void accessibilityWebProcessTokenReceived(std::span<const uint8_t>, WebCore::FrameIdentifier, pid_t) override;
+    void accessibilityWebProcessTokenReceived(std::span<const uint8_t>, pid_t) override;
     bool executeSavedCommandBySelector(const String& selector) override;
     void updateSecureInputState() override;
     void resetSecureInputState() override;
@@ -121,6 +125,7 @@ private:
     WebCore::FloatRect convertToDeviceSpace(const WebCore::FloatRect&) override;
     WebCore::FloatRect convertToUserSpace(const WebCore::FloatRect&) override;
     WebCore::IntPoint screenToRootView(const WebCore::IntPoint&) override;
+    WebCore::IntPoint rootViewToScreen(const WebCore::IntPoint&) override;
     WebCore::IntRect rootViewToScreen(const WebCore::IntRect&) override;
     WebCore::IntPoint accessibilityScreenToRootView(const WebCore::IntPoint&) override;
     WebCore::IntRect rootViewToAccessibilityScreen(const WebCore::IntRect&) override;
@@ -142,19 +147,13 @@ private:
     RefPtr<WebPopupMenuProxy> createPopupMenuProxy(WebPageProxy&) override;
     Ref<WebCore::ValidationBubble> createValidationBubble(const String& message, const WebCore::ValidationBubble::Settings&) final;
 
-#if ENABLE(INPUT_TYPE_COLOR)
-    RefPtr<WebColorPicker> createColorPicker(WebPageProxy*, const WebCore::Color& initialColor, const WebCore::IntRect&, Vector<WebCore::Color>&&) final;
-#endif
+    RefPtr<WebColorPicker> createColorPicker(WebPageProxy&, const WebCore::Color& initialColor, const WebCore::IntRect&, ColorControlSupportsAlpha, Vector<WebCore::Color>&&) final { return nullptr; }
 
-#if ENABLE(DATALIST_ELEMENT)
     RefPtr<WebDataListSuggestionsDropdown> createDataListSuggestionsDropdown(WebPageProxy&) final;
-#endif
 
     WebCore::DataOwnerType dataOwnerForPasteboard(PasteboardAccessIntent) const final;
 
-#if ENABLE(DATE_AND_TIME_INPUT_TYPES)
-    RefPtr<WebDateTimePicker> createDateTimePicker(WebPageProxy&) final;
-#endif
+    RefPtr<WebDateTimePicker> createDateTimePicker(WebPageProxy&) final { return nullptr; }
 
     void setTextIndicator(Ref<WebCore::TextIndicator>, WebCore::TextIndicatorLifetime) override;
     void clearTextIndicator(WebCore::TextIndicatorDismissalAnimation) override;
@@ -193,10 +192,12 @@ private:
 
     void elementDidFocus(const FocusedElementInformation&, bool userIsInteracting, bool blurPreviousNode, OptionSet<WebCore::ActivityState> activityStateChanges, API::Object* userData) override;
     void updateInputContextAfterBlurringAndRefocusingElement() final;
+    void didProgrammaticallyClearFocusedElement(WebCore::ElementContext&&) final;
     void updateFocusedElementInformation(const FocusedElementInformation&) final;
     void elementDidBlur() override;
     void focusedElementDidChangeInputMode(WebCore::InputMode) override;
     void didUpdateEditorState() override;
+    void reconcileEnclosingScrollViewContentOffset(EditorState&) final;
     bool isFocusingElement() override;
     void selectionDidChange() override;
     bool interpretKeyEvent(const NativeWebKeyboardEvent&, bool isCharEvent) override;
@@ -228,21 +229,21 @@ private:
 
     void scrollingNodeScrollViewWillStartPanGesture(WebCore::ScrollingNodeID) override;
     void scrollingNodeScrollViewDidScroll(WebCore::ScrollingNodeID) override;
-    void scrollingNodeScrollWillStartScroll(WebCore::ScrollingNodeID) override;
-    void scrollingNodeScrollDidEndScroll(WebCore::ScrollingNodeID) override;
+    void scrollingNodeScrollWillStartScroll(std::optional<WebCore::ScrollingNodeID>) override;
+    void scrollingNodeScrollDidEndScroll(std::optional<WebCore::ScrollingNodeID>) override;
         
     void requestScrollToRect(const WebCore::FloatRect& targetRect, const WebCore::FloatPoint& origin) override;
-        
-    // Auxiliary Client Creation
-#if ENABLE(FULLSCREEN_API)
-    WebFullScreenManagerProxyClient& fullScreenManagerProxyClient() override;
-#endif
 
 #if ENABLE(FULLSCREEN_API)
+    WebFullScreenManagerProxyClient& fullScreenManagerProxyClient() override;
+
     // WebFullScreenManagerProxyClient
     void closeFullScreenManager() override;
     bool isFullScreen() override;
-    void enterFullScreen(WebCore::FloatSize mediaDimensions) override;
+    void enterFullScreen(WebCore::FloatSize mediaDimensions, CompletionHandler<void(bool)>&&) override;
+#if ENABLE(QUICKLOOK_FULLSCREEN)
+    void updateImageSource() override;
+#endif
     void exitFullScreen() override;
     void beganEnterFullScreen(const WebCore::IntRect& initialFrame, const WebCore::IntRect& finalFrame) override;
     void beganExitFullScreen(const WebCore::IntRect& initialFrame, const WebCore::IntRect& finalFrame) override;
@@ -320,6 +321,8 @@ private:
     void handleAsynchronousCancelableScrollEvent(WKBaseScrollView *, WKBEScrollViewScrollUpdate *, void (^completion)(BOOL handled)) final;
 #endif
 
+    bool isSimulatingCompatibilityPointerTouches() const final;
+
     WebCore::Color contentViewBackgroundColor() final;
     WebCore::Color insertionPointColor() final;
     bool isScreenBeingCaptured() final;
@@ -343,15 +346,19 @@ private:
     void didCleanupFullscreen() final;
 #endif
 
-#if PLATFORM(IOS_FAMILY)
     UIViewController *presentingViewController() const final;
-#endif
+
+    bool isPotentialTapInProgress() const final;
 
     WebCore::FloatPoint webViewToRootView(const WebCore::FloatPoint&) const final;
     WebCore::FloatRect rootViewToWebView(const WebCore::FloatRect&) const final;
 
 #if HAVE(SPATIAL_TRACKING_LABEL)
     const String& spatialTrackingLabel() const final;
+#endif
+
+#if ENABLE(PDF_PLUGIN)
+    void pluginDidInstallPDFDocument(double initialScale) final;
 #endif
 
     void scheduleVisibleContentRectUpdate() final;

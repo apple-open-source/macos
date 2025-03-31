@@ -196,3 +196,26 @@ void CodeSignatureAclSubject::debugDump() const
 }
 
 #endif //DEBUGDUMP
+
+CFStringRef CodeSignatureAclSubject::createACLDebugString() const
+{
+    CFRef<CFStringRef> reqHex;
+    if (requirement()) {
+        // Don't check the return status here; best effort
+        SecRequirementCopyString(requirement(), kSecCSDefaultFlags, &reqHex.aref());
+    }
+
+    // Legacy hashes are direct SHA1 bytes, but returned as a C string. Use this format to turn it into hex.
+    CFRef<CFMutableStringRef> hashHex = CFStringCreateMutable(kCFAllocatorDefault, 2*SHA1::digestLength);
+    const unsigned char * hash = legacyHash();
+    if(hash) {
+        for(size_t i = 0; i < SHA1::digestLength; i++) {
+            CFStringAppendFormat(hashHex, NULL, CFSTR("%02x"), hash[i]);
+        }
+    }
+
+    return CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("<CodeSignatureAclSubject[legacyHash:%@][path:%s][requirement:%@]>"),
+                                               hashHex.get(),
+                                               path().c_str(),
+                                               reqHex.get());
+}

@@ -38,7 +38,7 @@ class SVGPaintServerHandling;
 struct SVGTextFragment;
 
 template<typename TextBoxPath>
-class SVGTextBoxPainter : public TextBoxPainter<TextBoxPath> {
+class SVGTextBoxPainter {
 public:
     SVGTextBoxPainter(TextBoxPath&&, PaintInfo&, const LayoutPoint& paintOffset);
     ~SVGTextBoxPainter() = default;
@@ -47,21 +47,12 @@ public:
     void paintSelectionBackground();
 
 private:
-    using TextBoxPainter<TextBoxPath>::textBox;
-    using TextBoxPainter<TextBoxPath>::m_selectableRange;
-    using TextBoxPainter<TextBoxPath>::m_paintInfo;
-    using TextBoxPainter<TextBoxPath>::m_paintOffset;
-    using TextBoxPainter<TextBoxPath>::m_renderer;
-    using TextBoxPainter<TextBoxPath>::m_haveSelection;
-    using TextBoxPainter<TextBoxPath>::selectionStartEnd;
-
     InlineIterator::SVGTextBoxIterator textBoxIterator() const;
 
-    const RenderSVGInlineText& renderer() const; // { return downcast<RenderSVGInlineText>(m_renderer); }
+    const RenderSVGInlineText& renderer() const { return m_renderer; }
     const RenderBoxModelObject& parentRenderer() const;
     OptionSet<RenderSVGResourceMode> paintingResourceMode() const { return m_paintingResourceMode; }
 
-    FloatRect selectionRectForTextFragment(const SVGTextFragment&, unsigned startPosition, unsigned endPosition, const RenderStyle&) const;
     void paintDecoration(OptionSet<TextDecorationLine>, const SVGTextFragment&);
     void paintDecorationWithStyle(OptionSet<TextDecorationLine>, const SVGTextFragment&, const RenderBoxModelObject&);
     void paintTextWithShadows(const RenderStyle&, TextRun&, const SVGTextFragment&, unsigned startPosition, unsigned endPosition);
@@ -73,9 +64,14 @@ private:
     bool acquireLegacyPaintingResource(GraphicsContext*&, float scalingFactor, RenderBoxModelObject&, const RenderStyle&);
     void releaseLegacyPaintingResource(GraphicsContext*&, const Path*);
 
-    bool mapStartEndPositionsIntoFragmentCoordinates(const SVGTextFragment&, unsigned& startPosition, unsigned& endPosition) const;
+    std::pair<unsigned, unsigned> selectionStartEnd() const;
 
-    TextRun constructTextRun(const RenderStyle&, const SVGTextFragment&) const;
+    const TextBoxPath m_textBox;
+    const RenderSVGInlineText& m_renderer;
+    PaintInfo& m_paintInfo;
+    const TextBoxSelectableRange m_selectableRange;
+    const LayoutPoint m_paintOffset;
+    const bool m_haveSelection;
 
     OptionSet<RenderSVGResourceMode> m_paintingResourceMode;
     LegacyRenderSVGResource* m_legacyPaintingResource { nullptr };
@@ -85,5 +81,14 @@ class LegacySVGTextBoxPainter : public SVGTextBoxPainter<InlineIterator::BoxLega
 public:
     LegacySVGTextBoxPainter(const SVGInlineTextBox&, PaintInfo&, const LayoutPoint& paintOffset);
 };
+
+class ModernSVGTextBoxPainter : public SVGTextBoxPainter<InlineIterator::BoxModernPath> {
+public:
+    ModernSVGTextBoxPainter(const LayoutIntegration::InlineContent&, size_t boxIndex, PaintInfo&, const LayoutPoint& paintOffset);
+};
+
+TextRun constructTextRun(StringView, TextDirection, const RenderStyle&, const SVGTextFragment&);
+FloatRect selectionRectForTextFragment(const RenderSVGInlineText&, TextDirection, const SVGTextFragment&, unsigned startPosition, unsigned endPosition, const RenderStyle&);
+bool mapStartEndPositionsIntoFragmentCoordinates(unsigned textBoxStart, const SVGTextFragment&, unsigned& startPosition, unsigned& endPosition);
 
 }

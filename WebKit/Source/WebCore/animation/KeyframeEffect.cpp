@@ -26,16 +26,16 @@
 #include "config.h"
 #include "KeyframeEffect.h"
 
-#include "Animation.h"
+#include "AnimationTimelinesController.h"
 #include "CSSAnimation.h"
 #include "CSSKeyframeRule.h"
+#include "CSSParserContext.h"
 #include "CSSPropertyAnimation.h"
 #include "CSSPropertyNames.h"
 #include "CSSPropertyParser.h"
-#include "CSSPropertyParserConsumer+TimingFunction.h"
+#include "CSSPropertyParserConsumer+Easing.h"
 #include "CSSSelector.h"
 #include "CSSStyleDeclaration.h"
-#include "CSSTimingFunctionValue.h"
 #include "CSSTransition.h"
 #include "CSSValue.h"
 #include "CSSValueKeywords.h"
@@ -77,7 +77,7 @@
 
 #if ENABLE(THREADED_ANIMATION_RESOLUTION)
 #include "AcceleratedEffect.h"
-#include "AcceleratedTimeline.h"
+#include "AcceleratedEffectStackUpdater.h"
 #endif
 
 namespace WebCore {
@@ -94,8 +94,12 @@ KeyframeEffect::ParsedKeyframe::~ParsedKeyframe() = default;
 
 static inline void invalidateElement(const std::optional<const Styleable>& styleable)
 {
-    if (styleable)
-        styleable->element.invalidateStyleForAnimation();
+    if (!styleable)
+        return;
+
+    auto& element = styleable->element;
+    if (!element.document().inStyleRecalc())
+        element.invalidateStyleForAnimation();
 }
 
 String KeyframeEffect::CSSPropertyIDToIDLAttributeName(CSSPropertyID property)
@@ -127,6 +131,10 @@ static inline CSSPropertyID IDLAttributeNameToAnimationPropertyName(const AtomSt
     // 3. If attribute is the string "cssOffset", then return an animation property representing the CSS offset property.
     if (idlAttributeName == "cssOffset"_s)
         return CSSPropertyOffset;
+
+    // If the attribute is the string "fontStretch" return the CSS font-width property that it aliases.
+    if (idlAttributeName == "fontStretch"_s)
+        return CSSPropertyFontWidth;
 
     // 4. Otherwise, return the result of applying the IDL attribute to CSS property algorithm [CSSOM] to attribute.
     auto cssPropertyId = CSSStyleDeclaration::getCSSPropertyIDFromJavaScriptPropertyName(idlAttributeName);
@@ -273,7 +281,7 @@ static inline ExceptionOr<KeyframeEffect::KeyframeLikeObject> processKeyframeLik
         auto cssProperty = IDLAttributeNameToAnimationPropertyName(inputProperty.string());
         if (!isExposed(cssProperty, &document.settings()))
             cssProperty = CSSPropertyInvalid;
-        auto resolvedCSSProperty = CSSProperty::resolveDirectionAwareProperty(cssProperty, RenderStyle::initialDirection(), RenderStyle::initialWritingMode());
+        auto resolvedCSSProperty = CSSProperty::resolveDirectionAwareProperty(cssProperty, WritingMode());
         if (CSSPropertyAnimation::isPropertyAnimatable(resolvedCSSProperty)) {
             if (isDirectionAwareShorthand(cssProperty))
                 logicalShorthands.append(inputProperty);
@@ -596,8 +604,12 @@ ExceptionOr<Ref<KeyframeEffect>> KeyframeEffect::create(JSGlobalObject& lexicalG
             if (setPseudoElementResult.hasException())
                 return setPseudoElementResult.releaseException();
 
+            auto convertedDuration = keyframeEffectOptions.durationAsDoubleOrString();
+            if (!convertedDuration)
+                return Exception { ExceptionCode::TypeError };
+
             timing = {
-                keyframeEffectOptions.duration,
+                *convertedDuration,
                 keyframeEffectOptions.iterations,
                 keyframeEffectOptions.delay,
                 keyframeEffectOptions.endDelay,
@@ -667,14 +679,13 @@ void KeyframeEffect::copyPropertiesFromSource(Ref<KeyframeEffect>&& source)
     m_parsedKeyframes = WTFMove(parsedKeyframes);
 
     setFill(source->fill());
-    setDelay(source->delay());
-    setEndDelay(source->endDelay());
+    setDelay(source->specifiedDelay());
+    setEndDelay(source->specifiedEndDelay());
     setDirection(source->direction());
     setIterations(source->iterations());
     setTimingFunction(source->timingFunction());
     setIterationStart(source->iterationStart());
-    setIterationDuration(source->iterationDuration());
-    updateStaticTimingProperties();
+    setIterationDuration(source->specifiedIterationDuration());
 
     BlendingKeyframes blendingKeyframes(m_keyframesName);
     blendingKeyframes.copyKeyframes(source->m_blendingKeyframes);
@@ -743,7 +754,7 @@ auto KeyframeEffect::getKeyframes() -> Vector<ComputedKeyframe>
     };
 
     auto styleProperties = MutableStyleProperties::create();
-    if (m_animationType == WebAnimationType::CSSAnimation) {
+    if (m_animationType == WebAnimationType::CSSAnimation && m_target->isConnected()) {
         auto matchingRules = m_target->styleResolver().pseudoStyleRulesForElement(target, m_pseudoElementIdentifier, Style::Resolver::AllCSSRules);
         for (auto& matchedRule : matchingRules)
             styleProperties->mergeAndOverrideOnConflict(matchedRule->properties());
@@ -924,7 +935,9 @@ ExceptionOr<void> KeyframeEffect::processKeyframes(JSGlobalObject& lexicalGlobal
         // Let the timing function of frame be the result of parsing the “easing” property on frame using the CSS syntax
         // defined for the easing property of the AnimationEffectTiming interface.
         // If parsing the “easing” property fails, throw a TypeError and abort this procedure.
-        auto timingFunctionResult = CSSPropertyParserHelpers::parseTimingFunction(keyframe.easing, parserContext);
+
+        // FIXME: Determine the how calc() and relative units should be resolved and switch to the non-deprecated parsing function.
+        auto timingFunctionResult = CSSPropertyParserHelpers::parseEasingFunctionDeprecated(keyframe.easing, parserContext);
         if (!timingFunctionResult)
             return Exception { ExceptionCode::TypeError };
         keyframe.timingFunction = WTFMove(timingFunctionResult);
@@ -934,7 +947,8 @@ ExceptionOr<void> KeyframeEffect::processKeyframes(JSGlobalObject& lexicalGlobal
     //    AnimationEffectTiming interface, and if any of the values fail to parse, throw a TypeError
     //    and abort this procedure.
     for (auto& easing : unusedEasings) {
-        auto timingFunctionResult = CSSPropertyParserHelpers::parseTimingFunction(easing, parserContext);
+        // FIXME: Determine the how calc() and relative units should be resolved and switch to the non-deprecated parsing function.
+        auto timingFunctionResult = CSSPropertyParserHelpers::parseEasingFunctionDeprecated(easing, parserContext);
         if (!timingFunctionResult)
             return Exception { ExceptionCode::TypeError };
     }
@@ -983,7 +997,7 @@ void KeyframeEffect::updateBlendingKeyframes(RenderStyle& elementStyle, const St
     setBlendingKeyframes(WTFMove(blendingKeyframes));
 }
 
-const HashSet<AnimatableCSSProperty>& KeyframeEffect::animatedProperties()
+const UncheckedKeyHashSet<AnimatableCSSProperty>& KeyframeEffect::animatedProperties()
 {
     if (!m_blendingKeyframes.isEmpty())
         return m_blendingKeyframes.properties();
@@ -1205,14 +1219,34 @@ void KeyframeEffect::computeStackingContextImpact()
     }
 }
 
-void KeyframeEffect::animationTimelineDidChange(AnimationTimeline* timeline)
+void KeyframeEffect::updateIsAssociatedWithProgressBasedTimeline()
 {
+    auto wasAssociatedWithProgressBasedTimeline = m_isAssociatedWithProgressBasedTimeline;
+
+    m_isAssociatedWithProgressBasedTimeline = [&] {
+        if (RefPtr animation = this->animation()) {
+            if (RefPtr timeline = animation->timeline())
+                return timeline->isProgressBased();
+        }
+        return false;
+    }();
+
+    if (wasAssociatedWithProgressBasedTimeline != m_isAssociatedWithProgressBasedTimeline)
+        updateAcceleratedAnimationIfNecessary();
+}
+
+void KeyframeEffect::animationTimelineDidChange(const AnimationTimeline* timeline)
+{
+    AnimationEffect::animationTimelineDidChange(timeline);
+
+    updateIsAssociatedWithProgressBasedTimeline();
+
     auto target = targetStyleable();
     if (!target)
         return;
 
 #if ENABLE(THREADED_ANIMATION_RESOLUTION)
-    StackMembershipMutationScope stackMembershipMutationScope(this);
+    StackMembershipMutationScope stackMembershipMutationScope(*this);
 #endif
 
     if (timeline)
@@ -1241,7 +1275,7 @@ void KeyframeEffect::updateEffectStackMembership()
         return;
 
 #if ENABLE(THREADED_ANIMATION_RESOLUTION)
-    StackMembershipMutationScope stackMembershipMutationScope(this);
+    StackMembershipMutationScope stackMembershipMutationScope(*this);
 #endif
 
     bool isRelevant = animation() && animation()->isRelevant();
@@ -1254,12 +1288,17 @@ void KeyframeEffect::updateEffectStackMembership()
 void KeyframeEffect::setAnimation(WebAnimation* animation)
 {
     bool animationChanged = animation != this->animation();
+
     AnimationEffect::setAnimation(animation);
-    if (animationChanged) {
-        if (m_animationType == WebAnimationType::CSSAnimation)
-            clearBlendingKeyframes();
-        updateEffectStackMembership();
-    }
+
+    if (!animationChanged)
+        return;
+
+    if (m_animationType == WebAnimationType::CSSAnimation)
+        clearBlendingKeyframes();
+    updateEffectStackMembership();
+
+    updateIsAssociatedWithProgressBasedTimeline();
 }
 
 const std::optional<const Styleable> KeyframeEffect::targetStyleable() const
@@ -1333,7 +1372,7 @@ void KeyframeEffect::didChangeTargetStyleable(const std::optional<const Styleabl
     invalidateElement(previousTargetStyleable);
 
 #if ENABLE(THREADED_ANIMATION_RESOLUTION)
-    StackMembershipMutationScope stackMembershipMutationScope(this);
+    StackMembershipMutationScope stackMembershipMutationScope(*this);
 #endif
 
     if (previousTargetStyleable)
@@ -1407,7 +1446,7 @@ bool KeyframeEffect::isRunningAcceleratedAnimationForProperty(CSSPropertyID prop
     return CSSPropertyAnimation::animationOfPropertyIsAccelerated(property, document()->settings()) && m_blendingKeyframes.properties().contains(property);
 }
 
-static bool propertiesContainTransformRelatedProperty(const HashSet<AnimatableCSSProperty>& properties)
+static bool propertiesContainTransformRelatedProperty(const UncheckedKeyHashSet<AnimatableCSSProperty>& properties)
 {
     return properties.contains(CSSPropertyTranslate)
         || properties.contains(CSSPropertyScale)
@@ -1660,6 +1699,9 @@ bool KeyframeEffect::canBeAccelerated() const
     if (m_acceleratedPropertiesState == AcceleratedProperties::None)
         return false;
 
+    if (m_isAssociatedWithProgressBasedTimeline)
+        return false;
+
     if (m_hasAcceleratedPropertyOverriddenByCascadeProperty)
         return false;
 
@@ -1877,8 +1919,7 @@ std::optional<KeyframeEffect::RecomputationReason> KeyframeEffect::recomputeKeyf
         if (!previousUnanimatedStyle)
             return false;
 
-        if (previousUnanimatedStyle->direction() == unanimatedStyle.direction()
-            && previousUnanimatedStyle->writingMode() == unanimatedStyle.writingMode())
+        if (previousUnanimatedStyle->writingMode() == unanimatedStyle.writingMode())
             return false;
 
         if (!m_blendingKeyframes.isEmpty())
@@ -1894,7 +1935,9 @@ std::optional<KeyframeEffect::RecomputationReason> KeyframeEffect::recomputeKeyf
         return false;
     }();
 
-    if (logicalPropertyChanged || fontSizeChanged() || fontWeightChanged() || cssVariableChanged() || hasPropertyExplicitlySetToInherit() || propertySetToCurrentColorChanged()) {
+    auto usesAnchorFunctions = m_blendingKeyframes.usesAnchorFunctions();
+
+    if (logicalPropertyChanged || fontSizeChanged() || fontWeightChanged() || cssVariableChanged() || hasPropertyExplicitlySetToInherit() || propertySetToCurrentColorChanged() || usesAnchorFunctions) {
         switch (m_animationType) {
         case WebAnimationType::CSSTransition:
             ASSERT_NOT_REACHED();
@@ -2028,8 +2071,12 @@ void KeyframeEffect::applyPendingAcceleratedActions()
     auto pendingAcceleratedActions = m_pendingAcceleratedActions;
     m_pendingAcceleratedActions.clear();
 
-    // To simplify the code we use a default of 0s for an unresolved current time since for a Stop action that is acceptable.
-    auto timeOffset = animation()->currentTime().value_or(0_s).seconds() - delay().seconds();
+    auto timeOffset = [&] {
+        // To simplify the code we use a default of 0s for an unresolved current time since for a Stop action that is acceptable.
+        auto cssNumberishTimeOffset = animation()->currentTime().value_or(0_s) - delay();
+        ASSERT(cssNumberishTimeOffset.time());
+        return cssNumberishTimeOffset.time()->seconds();
+    };
 
     auto startAnimation = [&]() -> RunningAccelerated {
         if (isRunningAccelerated())
@@ -2047,7 +2094,7 @@ void KeyframeEffect::applyPendingAcceleratedActions()
             return RunningAccelerated::Prevented;
 
         if (!m_hasImplicitKeyframeForAcceleratedProperty)
-            return renderer->startAnimation(timeOffset, backingAnimationForCompositedRenderer(), m_blendingKeyframes) ? RunningAccelerated::Yes : RunningAccelerated::Failed;
+            return renderer->startAnimation(timeOffset(), backingAnimationForCompositedRenderer(), m_blendingKeyframes) ? RunningAccelerated::Yes : RunningAccelerated::Failed;
 
         // We need to resolve all animations up to this point to ensure any forward-filling
         // effect is accounted for when computing the "from" value for the accelerated animation.
@@ -2068,7 +2115,7 @@ void KeyframeEffect::applyPendingAcceleratedActions()
         BlendingKeyframes explicitKeyframes(m_blendingKeyframes.animationName());
         explicitKeyframes.copyKeyframes(m_blendingKeyframes);
         explicitKeyframes.fillImplicitKeyframes(*this, *underlyingStyle);
-        return renderer->startAnimation(timeOffset, backingAnimationForCompositedRenderer(), explicitKeyframes) ? RunningAccelerated::Yes : RunningAccelerated::Failed;
+        return renderer->startAnimation(timeOffset(), backingAnimationForCompositedRenderer(), explicitKeyframes) ? RunningAccelerated::Yes : RunningAccelerated::Failed;
     };
 
     for (const auto& action : pendingAcceleratedActions) {
@@ -2082,13 +2129,13 @@ void KeyframeEffect::applyPendingAcceleratedActions()
             }
             break;
         case AcceleratedAction::Pause:
-            renderer->animationPaused(timeOffset, m_blendingKeyframes.animationName());
+            renderer->animationPaused(timeOffset(), m_blendingKeyframes.animationName());
             break;
         case AcceleratedAction::UpdateProperties:
             m_runningAccelerated = startAnimation();
             LOG_WITH_STREAM(Animations, stream << "KeyframeEffect " << this << " applyPendingAcceleratedActions " << m_blendingKeyframes.animationName() << " UpdateProperties, started accelerated: " << isRunningAccelerated());
             if (animation()->playState() == WebAnimation::PlayState::Paused)
-                renderer->animationPaused(timeOffset, m_blendingKeyframes.animationName());
+                renderer->animationPaused(timeOffset(), m_blendingKeyframes.animationName());
             break;
         case AcceleratedAction::Stop:
             ASSERT(document());
@@ -2104,15 +2151,15 @@ void KeyframeEffect::applyPendingAcceleratedActions()
     }
 }
 
-Ref<const Animation> KeyframeEffect::backingAnimationForCompositedRenderer() const
+Ref<const Animation> KeyframeEffect::backingAnimationForCompositedRenderer()
 {
     auto effectAnimation = animation();
 
     // FIXME: The iterationStart and endDelay AnimationEffectTiming properties do not have
     // corresponding Animation properties.
     auto animation = Animation::create();
-    animation->setDuration(iterationDuration().seconds());
-    animation->setDelay(delay().seconds());
+    animation->setDuration(iterationDuration().time()->seconds());
+    animation->setDelay(delay().time()->seconds());
     animation->setIterationCount(iterations());
     animation->setTimingFunction(timingFunction()->clone());
     animation->setPlaybackRate(effectAnimation->playbackRate());
@@ -2378,7 +2425,7 @@ bool KeyframeEffect::ticksContinuouslyWhileActive() const
     return true;
 }
 
-Seconds KeyframeEffect::timeToNextTick(const BasicEffectTiming& timing) const
+Seconds KeyframeEffect::timeToNextTick(const BasicEffectTiming& timing)
 {
     // CSS Animations need to trigger "animationiteration" events even if there is no need to
     // update styles while animating, so if we're dealing with one we must wait until the next iteration.
@@ -2479,9 +2526,9 @@ void KeyframeEffect::computeHasImplicitKeyframeForAcceleratedProperty()
             // We keep three property lists, one which contains all properties seen across keyframes
             // which will be filtered eventually to only contain implicit properties, one containing
             // properties seen on the 0% keyframe and one containing properties seen on the 100% keyframe.
-            HashSet<CSSPropertyID> implicitProperties;
-            HashSet<CSSPropertyID> explicitZeroProperties;
-            HashSet<CSSPropertyID> explicitOneProperties;
+            UncheckedKeyHashSet<CSSPropertyID> implicitProperties;
+            UncheckedKeyHashSet<CSSPropertyID> explicitZeroProperties;
+            UncheckedKeyHashSet<CSSPropertyID> explicitOneProperties;
             auto styleProperties = keyframe.style;
             for (auto propertyReference : styleProperties.get()) {
                 auto property = propertyReference.id();
@@ -2790,13 +2837,12 @@ bool KeyframeEffect::preventsAnimationReadiness() const
 }
 
 #if ENABLE(THREADED_ANIMATION_RESOLUTION)
-KeyframeEffect::StackMembershipMutationScope::StackMembershipMutationScope(KeyframeEffect* effect)
-    : m_effect(effect)
+KeyframeEffect::StackMembershipMutationScope::StackMembershipMutationScope(KeyframeEffect& effect)
+    : m_effect(&effect)
 {
-    ASSERT(effect);
-    if (m_effect->m_target) {
-        m_originalTarget = m_effect->m_target;
-        m_originalPseudoElementIdentifier = m_effect->m_pseudoElementIdentifier;
+    if (effect.m_target) {
+        m_originalTarget = effect.m_target;
+        m_originalPseudoElementIdentifier = effect.m_pseudoElementIdentifier;
     }
 }
 
@@ -2808,10 +2854,11 @@ KeyframeEffect::StackMembershipMutationScope::~StackMembershipMutationScope()
         return std::nullopt;
     }();
 
-    if (m_effect->isRunningAccelerated()) {
-        if (originalTargetStyleable != m_effect->targetStyleable())
-            m_effect->updateAssociatedThreadedEffectStack(originalTargetStyleable);
-        m_effect->updateAssociatedThreadedEffectStack();
+    RefPtr effect = m_effect;
+    if (effect->isRunningAccelerated()) {
+        if (originalTargetStyleable != effect->targetStyleable())
+            effect->updateAssociatedThreadedEffectStack(originalTargetStyleable);
+        effect->updateAssociatedThreadedEffectStack();
     }
 }
 
@@ -2830,11 +2877,12 @@ void KeyframeEffect::updateAssociatedThreadedEffectStack(const std::optional<con
     if (!document()->page())
         return;
 
-    auto& acceleratedTimeline = document()->acceleratedTimeline();
+    ASSERT(document()->timelinesController());
+    auto& acceleratedEffectStackUpdater = CheckedPtr { document()->timelinesController() }->acceleratedEffectStackUpdater();
     if (previousTarget)
-        acceleratedTimeline.updateEffectStackForTarget(*previousTarget);
+        acceleratedEffectStackUpdater.updateEffectStackForTarget(*previousTarget);
     if (auto currentTarget = targetStyleable())
-        acceleratedTimeline.updateEffectStackForTarget(*currentTarget);
+        acceleratedEffectStackUpdater.updateEffectStackForTarget(*currentTarget);
 
     if (auto* animation = this->animation())
         animation->acceleratedStateDidChange();

@@ -111,7 +111,7 @@ _dispatch_source_xref_dispose(dispatch_source_t ds)
 intptr_t
 dispatch_source_testcancel(dispatch_source_t ds)
 {
-	return (bool)(ds->dq_atomic_flags & DSF_CANCELED);
+	return (bool)(os_atomic_load(&ds->dq_atomic_flags, acquire) & DSF_CANCELED);
 }
 
 uintptr_t
@@ -488,6 +488,11 @@ _dispatch_source_cancel_callout(dispatch_source_t ds, dispatch_queue_t cq,
 				dc->dc_ctxt = ds->do_ctxt;
 			}
 			_dispatch_trace_source_callout_entry(ds, DS_CANCEL_HANDLER, cq, dc);
+
+			// rdar://130788727: This acquire barrier pairs with the release in
+			// dispatch_source_cancel to let the cancellation handler observe
+			// writes that the client made before cancelling the source
+			os_atomic_thread_fence(acquire);
 
 			//
 			// Make sure _dispatch_continuation_pop() will not
@@ -1055,7 +1060,10 @@ dispatch_source_cancel(dispatch_source_t ds)
 	// need to therefore retain/release before setting the bit
 	_dispatch_retain_2(ds);
 
-	if (_dispatch_queue_atomic_flags_set_orig(ds, DSF_CANCELED) & DSF_CANCELED){
+	// Set the flag with release to publish other memory writes that the client
+	// could have made and wants visible in the cancellation handler
+	if (_dispatch_queue_atomic_flags_set_orig_release(ds, DSF_CANCELED) &
+			DSF_CANCELED) {
 		_dispatch_release_2_tailcall(ds);
 	} else {
 		dx_wakeup(ds, 0, DISPATCH_WAKEUP_MAKE_DIRTY | DISPATCH_WAKEUP_CONSUME_2);

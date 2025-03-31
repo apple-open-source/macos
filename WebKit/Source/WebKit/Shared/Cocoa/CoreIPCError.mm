@@ -27,6 +27,7 @@
 #import "CoreIPCError.h"
 
 #import <wtf/TZoneMallocInlines.h>
+#import <wtf/URL.h>
 #import <wtf/cocoa/TypeCastsCocoa.h>
 
 namespace WebKit {

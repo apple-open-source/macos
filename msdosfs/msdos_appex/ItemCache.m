@@ -30,7 +30,7 @@ NS_ASSUME_NONNULL_BEGIN
     _itemsHash = [[NSMutableDictionary alloc]init];
 
     if (!_itemsHash) {
-        os_log_error(fskit_std_log(), "%s: Failed to initialize queue / hash", __func__);
+        os_log_error(OS_LOG_DEFAULT, "%s: Failed to initialize queue / hash", __func__);
         return nil;
     }
 
@@ -100,7 +100,7 @@ NS_ASSUME_NONNULL_BEGIN
 
     /* Make sure the item is not deleted */
     if (item.isDeleted) {
-        os_log_fault(fskit_std_log(), "%s: Item is deleted", __func__);
+        os_log_fault(OS_LOG_DEFAULT, "%s: Item is deleted", __func__);
         return reply(nil, fs_errorForPOSIXError(EINVAL));
     }
 
@@ -118,7 +118,7 @@ NS_ASSUME_NONNULL_BEGIN
                 itemToReturn = item;
             } else {
                 itemToReturn = existingItem;
-                os_log_debug(fskit_std_log(), "%s: Item already cached", __func__);
+                os_log_debug(OS_LOG_DEFAULT, "%s: Item already cached", __func__);
             }
         } else {
             /* Item is not in the cache. Insert it. */
@@ -140,7 +140,7 @@ NS_ASSUME_NONNULL_BEGIN
         cachedItem = [_itemsHash objectForKey:key];
         if (cachedItem == nil) {
             /* TODO: Do we want to fault here? */
-            os_log_fault(fskit_std_log(), "%s: item for key %@ not found", __func__, key);
+            os_log_fault(OS_LOG_DEFAULT, "%s: item for key %@ not found", __func__, key);
         } else {
             [_itemsHash removeObjectForKey:key];
         }

@@ -173,6 +173,15 @@ addTest(TestNode** root,
 T_CTEST_API void T_CTEST_EXPORT2
 cleanUpTestTree(TestNode *tn);
 
+#if APPLE_ICU_CHANGES
+// rdar://137994165
+/**
+ * Resets REPEAT_TESTS_INIT and  REPEAT_TESTS for use in XCTest.
+ */
+T_CTEST_API void T_CTEST_EXPORT2
+resetRepeat(void);
+#endif
+
 /**
  * Retrieve a specific subtest. (subtree).
  *

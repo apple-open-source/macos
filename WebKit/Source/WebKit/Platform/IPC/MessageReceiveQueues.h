@@ -29,6 +29,7 @@
 #include "MessageReceiveQueue.h"
 #include "WorkQueueMessageReceiver.h"
 #include <wtf/TZoneMallocInlines.h>
+#include <wtf/WeakRef.h>
 
 namespace IPC {
 
@@ -44,13 +45,13 @@ public:
 
     void enqueueMessage(Connection& connection, UniqueRef<Decoder>&& message) final
     {
-        m_dispatcher.dispatch([connection = Ref { connection }, message = WTFMove(message), &receiver = m_receiver]() mutable {
+        m_dispatcher.dispatch([connection = Ref { connection }, message = WTFMove(message), receiver = Ref { m_receiver.get() }]() mutable {
             connection->dispatchMessageReceiverMessage(receiver, WTFMove(message));
         });
     }
 private:
     FunctionDispatcher& m_dispatcher;
-    MessageReceiver& m_receiver;
+    WeakRef<MessageReceiver> m_receiver;
 };
 
 class WorkQueueMessageReceiverQueue final : public MessageReceiveQueue {

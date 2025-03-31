@@ -39,14 +39,32 @@ typedef struct {
     simd_float3 translation;
 } WKEntityTransform;
 
+@protocol WKSRKEntityDelegate <NSObject>
+@optional
+- (void)entityAnimationPlaybackStateDidUpdate:(id)entity;
+@end
+
 @interface WKSRKEntity : NSObject
+@property (nonatomic, weak) id <WKSRKEntityDelegate> delegate;
+@property (nonatomic, copy, nullable) NSString *name;
+
 @property (nonatomic, readonly) simd_float3 boundingBoxExtents;
 @property (nonatomic, readonly) simd_float3 boundingBoxCenter;
 @property (nonatomic) WKEntityTransform transform;
 @property (nonatomic) float opacity;
+@property (nonatomic, readonly) NSTimeInterval duration;
+@property (nonatomic) bool loop;
+@property (nonatomic) float playbackRate;
+@property (nonatomic) bool paused;
+@property (nonatomic) NSTimeInterval currentTime;
 
++ (bool)isLoadFromDataAvailable;
++ (void)loadFromData:(NSData *)data completionHandler:(void (^)(WKSRKEntity * _Nullable entity))completionHandler;
 - (instancetype)initWithCoreEntity:(REEntityRef)coreEntity;
-- (void)startAnimating;
+- (void)setParentCoreEntity:(REEntityRef)parentCoreEntity;
+- (void)setUpAnimationWithAutoPlay:(BOOL)autoPlay;
+- (void)applyIBLData:(NSData *)data withCompletion:(void (^)(BOOL success))completion;
+- (void)removeIBL;
 @end
 
 NS_ASSUME_NONNULL_END

@@ -53,7 +53,12 @@ namespace WebCore {
 
 WTF_MAKE_TZONE_ALLOCATED_IMPL(PaymentCoordinator);
 
-PaymentCoordinator::PaymentCoordinator(UniqueRef<PaymentCoordinatorClient>&& client)
+Ref<PaymentCoordinator> PaymentCoordinator::create(Ref<PaymentCoordinatorClient>&& client)
+{
+    return adoptRef(*new PaymentCoordinator(WTFMove(client)));
+}
+
+PaymentCoordinator::PaymentCoordinator(Ref<PaymentCoordinatorClient>&& client)
     : m_client(WTFMove(client))
 {
 }

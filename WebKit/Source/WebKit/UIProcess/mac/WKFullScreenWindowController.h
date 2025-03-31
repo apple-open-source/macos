@@ -26,6 +26,7 @@
 #if ENABLE(FULLSCREEN_API) && PLATFORM(MAC)
 
 #import <AppKit/AppKit.h>
+#import <wtf/CompletionHandler.h>
 #import <wtf/NakedPtr.h>
 #import <wtf/NakedRef.h>
 #import <wtf/RetainPtr.h>
@@ -74,7 +75,7 @@ typedef enum FullScreenState : NSInteger FullScreenState;
 
 - (BOOL)isFullScreen;
 
-- (void)enterFullScreen:(NSScreen *)screen;
+- (void)enterFullScreen:(NSScreen *)screen completionHandler:(CompletionHandler<void(bool)>&&)completionHandler;
 - (void)exitFullScreen;
 - (void)exitFullScreenImmediately;
 - (void)requestExitFullScreen;

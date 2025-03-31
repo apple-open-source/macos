@@ -59,6 +59,11 @@
     (require-all
       (extension-class "com.apple.app-sandbox.read" "com.apple.app-sandbox.read-write")
       cache-path-filter)))
+      
+;; Read/write access to a temporary directory.
+(allow file-read* file-write*
+    (subpath (param "_TMPDIR"))
+    (subpath (param "_DARWIN_CACHE_DIR")))
 
 (allow mach-lookup
     (global-name "com.apple.securityd.ckks")

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003, 2008, 2009 Apple Inc. All rights reserved.
+ * Copyright (C) 2003-2024 Apple Inc. All rights reserved.
  * Copyright 2010, The Android Open Source Project
  *
  * Redistribution and use in source and binary forms, with or without
@@ -26,8 +26,8 @@
 
 #pragma once
 
-#include "Bridge.h"
 #include <JavaScriptCore/JSString.h>
+#include <wtf/Noncopyable.h>
 #include <wtf/RefCounted.h>
 #include <wtf/TZoneMalloc.h>
 #include <wtf/Vector.h>
@@ -54,6 +54,16 @@ public:
     virtual bool setValueToInstance(JSGlobalObject*, const Instance*, JSValue) const = 0;
 
     virtual ~Field() = default;
+};
+
+class Method {
+    WTF_MAKE_TZONE_ALLOCATED(Method);
+    WTF_MAKE_NONCOPYABLE(Method);
+public:
+    Method() = default;
+    virtual int numParameters() const = 0;
+
+    virtual ~Method() = default;
 };
 
 class Class {

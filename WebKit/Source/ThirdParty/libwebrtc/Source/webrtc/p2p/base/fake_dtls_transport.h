@@ -11,6 +11,7 @@
 #ifndef P2P_BASE_FAKE_DTLS_TRANSPORT_H_
 #define P2P_BASE_FAKE_DTLS_TRANSPORT_H_
 
+#include <cstring>
 #include <memory>
 #include <string>
 #include <utility>
@@ -152,7 +153,7 @@ class FakeDtlsTransport : public DtlsTransportInternal {
   webrtc::RTCError SetRemoteParameters(absl::string_view alg,
                                        const uint8_t* digest,
                                        size_t digest_len,
-                                       absl::optional<rtc::SSLRole> role) {
+                                       std::optional<rtc::SSLRole> role) {
     if (role) {
       SetDtlsRole(*role);
     }
@@ -194,7 +195,7 @@ class FakeDtlsTransport : public DtlsTransportInternal {
     *version = 0x0102;
     return true;
   }
-  bool GetSrtpCryptoSuite(int* crypto_suite) override {
+  bool GetSrtpCryptoSuite(int* crypto_suite) const override {
     if (!do_dtls_) {
       return false;
     }
@@ -203,15 +204,19 @@ class FakeDtlsTransport : public DtlsTransportInternal {
   }
   void SetSrtpCryptoSuite(int crypto_suite) { crypto_suite_ = crypto_suite; }
 
-  bool GetSslCipherSuite(int* cipher_suite) override {
+  bool GetSslCipherSuite(int* cipher_suite) const override {
     if (ssl_cipher_suite_) {
       *cipher_suite = *ssl_cipher_suite_;
       return true;
     }
     return false;
   }
-  void SetSslCipherSuite(absl::optional<int> cipher_suite) {
+  void SetSslCipherSuite(std::optional<int> cipher_suite) {
     ssl_cipher_suite_ = cipher_suite;
+  }
+
+  std::optional<absl::string_view> GetTlsCipherSuiteName() const override {
+    return "FakeTlsCipherSuite";
   }
   uint16_t GetSslPeerSignatureAlgorithm() const override { return 0; }
   rtc::scoped_refptr<rtc::RTCCertificate> GetLocalCertificate() const override {
@@ -223,17 +228,12 @@ class FakeDtlsTransport : public DtlsTransportInternal {
     }
     return std::make_unique<rtc::SSLCertChain>(remote_cert_->Clone());
   }
-  bool ExportKeyingMaterial(absl::string_view label,
-                            const uint8_t* context,
-                            size_t context_len,
-                            bool use_context,
-                            uint8_t* result,
-                            size_t result_len) override {
-    if (!do_dtls_) {
-      return false;
+  bool ExportSrtpKeyingMaterial(
+      rtc::ZeroOnFreeBuffer<uint8_t>& keying_material) override {
+    if (do_dtls_) {
+      std::memset(keying_material.data(), 0xff, keying_material.size());
     }
-    memset(result, 0xff, result_len);
-    return true;
+    return do_dtls_;
   }
   void set_ssl_max_protocol_version(rtc::SSLProtocolVersion version) {
     ssl_max_version_ = version;
@@ -266,7 +266,7 @@ class FakeDtlsTransport : public DtlsTransportInternal {
   }
   int GetError() override { return ice_transport_->GetError(); }
 
-  absl::optional<rtc::NetworkRoute> network_route() const override {
+  std::optional<rtc::NetworkRoute> network_route() const override {
     return ice_transport_->network_route();
   }
 
@@ -295,7 +295,7 @@ class FakeDtlsTransport : public DtlsTransportInternal {
     SignalWritableState(this);
   }
 
-  void OnNetworkRouteChanged(absl::optional<rtc::NetworkRoute> network_route) {
+  void OnNetworkRouteChanged(std::optional<rtc::NetworkRoute> network_route) {
     SignalNetworkRouteChanged(network_route);
   }
 
@@ -309,9 +309,9 @@ class FakeDtlsTransport : public DtlsTransportInternal {
   bool do_dtls_ = false;
   rtc::SSLProtocolVersion ssl_max_version_ = rtc::SSL_PROTOCOL_DTLS_12;
   rtc::SSLFingerprint dtls_fingerprint_;
-  absl::optional<rtc::SSLRole> dtls_role_;
+  std::optional<rtc::SSLRole> dtls_role_;
   int crypto_suite_ = rtc::kSrtpAes128CmSha1_80;
-  absl::optional<int> ssl_cipher_suite_;
+  std::optional<int> ssl_cipher_suite_;
 
   webrtc::DtlsTransportState dtls_state_ = webrtc::DtlsTransportState::kNew;
 

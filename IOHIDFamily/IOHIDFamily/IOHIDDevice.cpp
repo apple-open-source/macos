@@ -815,8 +815,6 @@ bool IOHIDDevice::matchPropertyTable(OSDictionary * table, SInt32 * score)
     return match;
 }
 
-
-
 //---------------------------------------------------------------------------
 // Fetch and publish HID properties to the registry.
 
@@ -847,6 +845,8 @@ bool IOHIDDevice::publishProperties(IOService * provider __unused)
         OSDictionary *  primaryUsagePair;
         OSNumber *      primaryUsage;
         OSNumber *      primaryUsagePage;
+        OSDictionary *  dict = OSDictionary::withCapacity(13);
+        OSSerialize *   s = OSSerialize::withCapacity(1);
         IOService *     service = OSDynamicCast(IOService, services->getObject(i));
         if (!service)
             continue;
@@ -901,9 +901,37 @@ bool IOHIDDevice::publishProperties(IOService * provider __unused)
         SET_PROP_FROM_VALUE(    kIOHIDReportDescriptorKey,      copyProperty(kIOHIDReportDescriptorKey));
         SET_PROP_FROM_VALUE(    kIOHIDProtectedAccessKey,       newIsAccessProtected());
 
-        if ( getProvider() )
-        {
-
+        static const char * logPropKeys[] = {kIOHIDTransportKey, kIOHIDVendorIDKey, kIOHIDVendorIDSourceKey, kIOHIDProductIDKey, kIOHIDVersionNumberKey, kIOHIDManufacturerKey, kIOHIDProductKey, kIOHIDLocationIDKey, kIOHIDCountryCodeKey, kIOHIDSerialNumberKey, kIOHIDReportDescriptorKey};
+        
+        if(dict) {
+            const OSNumber * registryID = OSNumber::withNumber(getRegistryEntryID(), 64);
+            if(registryID) {
+                dict->setObject(kIORegistryEntryIDKey, registryID);
+                registryID->release();
+            }
+            const OSSymbol * name = copyName();
+            if(name) {
+                dict->setObject("IOName", name);
+                name->release();
+            }
+            for (const char * key : logPropKeys) {
+                const OSObject * prop = copyProperty(key);
+                if (prop) {
+                    dict->setObject(key, prop);
+                    prop->release();
+                }
+            }
+            bool success = dict->serialize(s);
+            if(success){
+                HIDOversizedLog("%s", s->text());
+            } else {
+                HIDDeviceLogError("XML serialization failed");
+            }
+        }
+        OSSafeReleaseNULL(dict);
+        OSSafeReleaseNULL(s);
+        
+        if ( getProvider() ) {
             SET_PROP_FROM_VALUE("BootProtocol", getProvider()->copyProperty("bInterfaceProtocol"));
             SET_PROP_FROM_VALUE("HIDDefaultBehavior", copyProperty("HIDDefaultBehavior"));
             SET_PROP_FROM_VALUE(kIOHIDAuthenticatedDeviceKey, copyProperty(kIOHIDAuthenticatedDeviceKey));

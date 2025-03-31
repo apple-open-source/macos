@@ -25,17 +25,17 @@
 
 #pragma once
 
-#include "IdentityRequestProvider.h"
+#include "DigitalCredentialRequest.h"
 #include <wtf/RefCounted.h>
 #include <wtf/RefPtr.h>
 #include <wtf/Vector.h>
 
 namespace WebCore {
 
-struct IdentityRequestProvider;
+struct DigitalCredentialRequest;
 
 struct DigitalCredentialRequestOptions {
-    Vector<IdentityRequestProvider> providers;
+    Vector<DigitalCredentialRequest> requests;
 };
 
 } // namespace WebCore

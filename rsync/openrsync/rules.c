@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2021 Claudio Jeker <claudio@openbsd.org>
+ * Copyright (c) 2024, Klara, Inc.
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -315,11 +316,17 @@ parse_pattern(struct rule *r, char *pattern)
 	 * check for / at start and end of pattern both are special and
 	 * can bypass full path matching.
 	 */
+	plen = strlen(pattern);
 	if (*pattern == '/') {
-		pattern++;
+		/*
+		 * Note that it's anchored and omit the leading slash.  We have
+		 * to keep `pattern` intact as it's allocated memory.
+		 */
+		plen--;
+		memmove(pattern, pattern + 1, plen + 1 /* NUL */);
 		r->anchored = 1;
 	}
-	plen = strlen(pattern);
+
 	/*
 	 * check for patterns ending in '/' and '/'+'***' and handle them
 	 * specially. Because of this and the check above pattern will never
@@ -342,7 +349,7 @@ parse_pattern(struct rule *r, char *pattern)
 	r->numseg = nseg;
 
 	/* check if this pattern only matches against the basename */
-	if (nseg == 1 && !r->anchored)
+	if (nseg == 1 && !r->anchored && !r->leadingdir)
 		r->fileonly = 1;
 
 	if (strpbrk(pattern, "*?[") == NULL) {
@@ -372,6 +379,10 @@ modifiers_valid(enum rule_type rule, unsigned int *modifiers)
 		break;
 	case RULE_EXCLUDE:
 	case RULE_INCLUDE:
+	case RULE_SHOW:
+	case RULE_HIDE:
+	case RULE_RISK:
+	case RULE_PROTECT:
 		valid_mask = MOD_VALID_MASK & ~MOD_MERGE_MASK;
 		break;
 	default:
@@ -422,6 +433,13 @@ rule_modified(enum rule_type rule, unsigned int *modifiers)
 			rule = RULE_PROTECT;
 		}
 
+		/* FALLTHROUGH */
+	case RULE_HIDE:
+	case RULE_PROTECT:
+		/*
+		 * For all of the include/exclude rules, send/recv modifiers
+		 * don't make any sense and should be stripped.
+		 */
 		mod &= ~MOD_SENDRECV_MASK;
 		break;
 	case RULE_INCLUDE:
@@ -433,6 +451,9 @@ rule_modified(enum rule_type rule, unsigned int *modifiers)
 			rule = RULE_RISK;
 		}
 
+		/* FALLTHROUGH */
+	case RULE_SHOW:
+	case RULE_RISK:
 		mod &= ~MOD_SENDRECV_MASK;
 		break;
 	case RULE_MERGE:
@@ -895,6 +916,14 @@ send_rules(struct sess *sess, int fd)
 	const char *postfix;
 	struct rule *r;
 	size_t cmdlen, len, postlen, i;
+	int batch_saved = sess->wbatch_fd;
+
+	/*
+	 * Don't send rules to the batch file, they are transfered
+	 * via the batch shell script that is created beside the
+	 * batch file.
+	 */
+	sess->wbatch_fd = -1;
 
 	for (i = 0; i < global_ruleset.numrules; i++) {
 		r = &global_ruleset.rules[i];
@@ -925,6 +954,8 @@ send_rules(struct sess *sess, int fd)
 
 	if (!io_write_int(sess, fd, 0))
 		err(ERR_SOCK_IO, "send rules");
+
+	sess->wbatch_fd = batch_saved;
 }
 
 /*
@@ -1155,8 +1186,17 @@ rule_match_action_xfer(struct rule *r, const char *path,
 {
 	const char *p = NULL;
 
-	if (r->onlydir && !ctx->isdir)
+	if (r->onlydir && !ctx->isdir) {
+		/*
+		 * Normally we take a neutral stance if the rule was meant for
+		 * a directory but we're not matching against a directory, but
+		 * if the rule is to be negated then we inherently do not match
+		 * it because of the type mismatch.
+		 */
+		if ((r->modifiers & MOD_NEGATE) != 0)
+			return rule_matched(r);
 		return 0;
+	}
 
 	if ((r->modifiers & MOD_ABSOLUTE) != 0) {
 		if (ctx->abspath[0] == '\0')
@@ -1170,23 +1210,27 @@ rule_match_action_xfer(struct rule *r, const char *path,
 		if (r->fileonly) {
 			if (rule_pattern_matched(r, ctx->basename))
 				return rule_matched(r);
+		} else if (r->leadingdir) {
+			size_t plen = strlen(r->pattern);
+
+			p = strstr(path, r->pattern);
+
+			/*
+			 * Match from start or dir boundary and also
+			 * match to end or to dir boundary.  If we were
+			 * anchored, then the start must be at the start.
+			 */
+			if (r->anchored && p != path)
+				return 0;
+			if (p != NULL && (p == path || p[-1] == '/') &&
+			    (p[plen] == '\0' || p[plen] == '/'))
+				return rule_matched(r);
 		} else if (r->anchored) {
 			/*
 			 * assumes that neither path nor pattern
 			 * start with a '/'.
 			 */
 			if (rule_pattern_matched(r, path))
-				return rule_matched(r);
-		} else if (r->leadingdir) {
-			size_t plen = strlen(r->pattern);
-
-			p = strstr(path, r->pattern);
-			/*
-			 * match from start or dir boundary also
-			 * match to end or to dir boundary
-			 */
-			if (p != NULL && (p == path || p[-1] == '/') &&
-			    (p[plen] == '\0' || p[plen] == '/'))
 				return rule_matched(r);
 		} else {
 			size_t len = strlen(path);
@@ -1200,6 +1244,40 @@ rule_match_action_xfer(struct rule *r, const char *path,
 					return rule_matched(r);
 			}
 		}
+	} else if (r->leadingdir && !r->anchored) {
+		/*
+		 * For ***, we'll start at numsegs + 1 elements from the end
+		 * and continue until we've failed to match the whole string.
+		 *
+		 * Anchored *** is handled below instead, since we'll just do
+		 * a standard full path match.
+		 */
+		short nseg = r->numseg - 1;
+
+		p = &path[strlen(path)];
+		do {
+			p--;
+			if (*p == '/' || p == path) {
+				const char *search = p;
+
+				if (nseg > 0) {
+					nseg--;
+					continue;
+				}
+
+				/*
+				 * Once we've hit the number of segments we
+				 * need, we can start matching against all other
+				 * delimiters we hit.
+				 */
+				if (*search == '/')
+					search++;
+				if (rmatch(r->pattern, search, 1) != 0)
+					continue;
+
+				return rule_matched(r);
+			}
+		} while (p != path);
 	} else {
 		if (r->fileonly) {
 			p = ctx->basename;

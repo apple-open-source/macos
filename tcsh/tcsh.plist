@@ -13,6 +13,7 @@
 		<string>Patch host.defs for x86_64</string>
 		<string>Do not define SAVESIGVEC</string>
 		<string>define KAI to avoid log builtin</string>
+		<string>Check for APPLE_PKGKIT_ESCALATING_ROOT before loading user configs (#129368709)</string>
 	</array>
 	<key>OpenSourceProject</key>
 	<string>tcsh</string>

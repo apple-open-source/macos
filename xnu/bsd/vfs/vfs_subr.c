@@ -107,7 +107,7 @@
 #include <sys/kauth.h>
 #include <sys/user.h>
 #include <sys/systm.h>
-#include <sys/kern_memorystatus.h>
+#include <sys/kern_memorystatus_xnu.h>
 #include <sys/lockf.h>
 #include <sys/reboot.h>
 #include <miscfs/fifofs/fifo.h>
@@ -2291,6 +2291,10 @@ vget_internal(vnode_t vp, int vid, int vflags)
 	int error = 0;
 
 	vnode_lock_spin(vp);
+
+	if ((vflags & VNODE_WITHREF) && (vp->v_usecount == 0) && (vp->v_iocount == 0)) {
+		panic("Expected to have usecount or iocount on vnode");
+	}
 
 	if ((vflags & VNODE_WRITEABLE) && (vp->v_writecount == 0)) {
 		/*
@@ -5503,7 +5507,7 @@ vn_laundry_continue(void)
 				    "%ld free, %ld dead, %ld async, %d rage\n",
 				    desiredvnodes, numvnodes, freevnodes, deadvnodes, async_work_vnodes, ragevnodes);
 
-				memorystatus_kill_on_vnode_limit();
+				memorystatus_kill_on_vnode_exhaustion();
 
 				continue;
 			}
@@ -5920,7 +5924,7 @@ retry:
 		 * Running out of vnodes tends to make a system unusable. Start killing
 		 * processes that jetsam knows are killable.
 		 */
-		if (memorystatus_kill_on_vnode_limit() == FALSE
+		if (!memorystatus_kill_on_vnode_exhaustion()
 #if DEVELOPMENT || DEBUG
 		    || bootarg_no_vnode_jetsam
 #endif
@@ -6331,10 +6335,15 @@ vnode_getwithref(vnode_t vp)
 	return vget_internal(vp, 0, 0);
 }
 
+/*
+ * This is not a noblock variant of vnode_getwithref, this also returns an error
+ * if the vnode is dead. It should only be called if the calling context already
+ * has a usecount or iocount.
+ */
 int
 vnode_getwithref_noblock(vnode_t vp)
 {
-	return vget_internal(vp, 0, VNODE_NOBLOCK);
+	return vget_internal(vp, 0, (VNODE_NOBLOCK | VNODE_NODEAD | VNODE_WITHREF));
 }
 
 __private_extern__ int
@@ -12564,8 +12573,8 @@ vnode_trace_path_callback(struct vnode *vp, void *vctx)
 		path_len = (size_t)getpath_len;
 
 		assert(path_len <= sizeof(ctx->path));
-		kdebug_vfs_lookup(ctx->path, (int)path_len, vp,
-		    KDBG_VFS_LOOKUP_FLAG_LOOKUP | KDBG_VFS_LOOKUP_FLAG_NOPROCFILT);
+		kdebug_vfs_lookup((const char *)ctx->path, path_len, vp,
+		    KDBG_VFSLKUP_LOOKUP | KDBG_VFS_LOOKUP_FLAG_NOPROCFILT);
 
 		if (++(ctx->count) == 1000) {
 			thread_yield_to_preemption();

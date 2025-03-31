@@ -95,6 +95,7 @@ sv{
         bjn{"banjariska"}
         bkm{"bamekon"}
         bla{"siksika"}
+        blo{"anii"}
         bm{"bambara"}
         bn{"bengali"}
         bo{"tibetanska"}
@@ -228,7 +229,7 @@ sv{
         gay{"gayo"}
         gba{"gbaya"}
         gbz{"zoroastrisk dari"}
-        gd{"skotsk gäliska"}
+        gd{"skotsk gaeliska"}
         gez{"etiopiska"}
         gil{"gilbertiska"}
         gl{"galiciska"}
@@ -236,7 +237,6 @@ sv{
         gmh{"medelhögtyska"}
         gn{"guaraní"}
         goh{"fornhögtyska"}
-        gom{"Goa-konkani"}
         gon{"gondi"}
         gor{"gorontalo"}
         got{"gotiska"}
@@ -348,6 +348,7 @@ sv{
         kv{"kome"}
         kw{"korniska"}
         kwk{"kwakʼwala"}
+        kxv{"kuvi"}
         ky{"kirgiziska"}
         la{"latin"}
         lad{"ladino"}
@@ -377,7 +378,6 @@ sv{
         lua{"luba-lulua"}
         lui{"luiseño"}
         lun{"lunda"}
-        luo{"luo"}
         lus{"lushai"}
         lut{"lushootseed"}
         luy{"luhya"}
@@ -654,6 +654,7 @@ sv{
         vi{"vietnamesiska"}
         vls{"västflamländska"}
         vmf{"Main-frankiska"}
+        vmw{"makua"}
         vo{"volapük"}
         vot{"votiska"}
         vro{"võru"}
@@ -669,6 +670,7 @@ sv{
         xal{"kalmuckiska"}
         xh{"xhosa"}
         xmf{"mingrelianska"}
+        xnr{"kangri"}
         xog{"lusoga"}
         yao{"kiyao"}
         yap{"japetiska"}
@@ -973,7 +975,6 @@ sv{
             phonebook{"telefonkatalogssorteringsordning"}
             phonetic{"fonetisk sorteringsordning"}
             pinyin{"pinyin-sorteringsordning"}
-            reformed{"reformerad sorteringsordning"}
             search{"allmän sökning"}
             searchjl{"söksorteringsordning för att söka på inledande Hangul-konsonant"}
             standard{"normal sorteringsordning"}

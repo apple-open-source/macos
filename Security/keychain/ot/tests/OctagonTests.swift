@@ -352,6 +352,8 @@ class OctagonTestsBase: CloudKitKeychainSyncingMockXCTest {
     var otFollowUpController: OTMockFollowUpController!
     var rpcTimeoutScalingFactor: UInt64 = 1
 
+    var logger: Logger!
+
     override static func setUp() {
         UserDefaults.standard.register(defaults: ["com.apple.CoreData.ConcurrencyDebug": 1])
 
@@ -369,6 +371,8 @@ class OctagonTestsBase: CloudKitKeychainSyncingMockXCTest {
     override func setUp() {
         // Create directories first so that anything that writes files will happen in this test's temporary directory.
         self.setUpDirectories()
+
+        self.logger = Logger(subsystem: "com.apple.security.octagontests", category: "test-output")
 
         // Set the global CKKS bool to TRUE
         SecCKKSEnable()
@@ -1490,17 +1494,10 @@ class OctagonTestsBase: CloudKitKeychainSyncingMockXCTest {
             let initiatorIdentityPacket = self.sendPairingExpectingReply(channel: initiatorPairingChannel, packet: sponsorEpochPacket, reason: "initiator identity")
             self.wait(for: [ucvStatusChangeNotificationExpectation], timeout: 10)
 
-            let sponsorVoucherPacket = self.sendPairingExpectingReply(channel: sponsorPairingChannel, packet: initiatorIdentityPacket, reason: "sponsor voucher")
+            let sponsorVoucherPacket = self.sendPairingExpectingCompletionAndReply(channel: sponsorPairingChannel, packet: initiatorIdentityPacket, reason: "sponsor voucher")
 
             let cliqueChangedNotificationExpectation = XCTNSNotificationExpectation(name: NSNotification.Name(rawValue: OTCliqueChanged))
-            let initiatorThirdPacket = self.sendPairingExpectingReply(channel: initiatorPairingChannel, packet: sponsorVoucherPacket, reason: "initiator third packet")
-
-            sponsorPairingChannel.setDSIDForTest("123456")
-            let sponsorThirdPacket = self.sendPairingExpectingReply(channel: sponsorPairingChannel, packet: initiatorThirdPacket, reason: "sponsor third packet")
-
-            let initiatorFourthPacket = self.sendPairingExpectingCompletionAndReply(channel: initiatorPairingChannel, packet: sponsorThirdPacket, reason: "initiator fourth packet and completes")
-
-            self.sendPairingExpectingCompletion(channel: sponsorPairingChannel, packet: initiatorFourthPacket, reason: "sponsor completes")
+            self.sendPairingExpectingCompletion(channel: initiatorPairingChannel, packet: sponsorVoucherPacket, reason: "initiator third packet")
 
             self.assertEnters(context: joiningContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC, file: file, line: line)
             self.assertConsidersSelfTrusted(context: joiningContext, file: file, line: line)
@@ -4192,10 +4189,10 @@ class OctagonTestsOverrideModelBase: OctagonTestsBase {
     }
 
     override func setUp() {
-#if SEC_XR
+#if os(visionOS)
         TPSetBecomeiPadOverride(false)
 #endif
-#if TARGET_OS_TV
+#if os(tvOS)
         TPSetBecomeAppleTVOverride(false)
 #endif
         TPClearBecomeiProdOverride()
@@ -4203,10 +4200,10 @@ class OctagonTestsOverrideModelBase: OctagonTestsBase {
     }
 
     override func tearDown() {
-#if SEC_XR
+#if os(visionOS)
         TPClearBecomeiPadOverride()
 #endif
-#if TARGET_OS_TV
+#if os(tvOS)
         TPClearBecomeAppleTVOverride()
 #endif
         super.tearDown()

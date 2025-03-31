@@ -424,6 +424,24 @@
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 		};
+		D12A839E1FFCC4CE00A02A42 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 7;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D77EE2421F69585600DB5C41 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /usr/share/man/man1/;
+			dstSubfolderSpec = 0;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
@@ -506,6 +524,7 @@
 		90D1EC4C2AADB50A003AF95A /* DirNameCache.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = DirNameCache.m; sourceTree = "<group>"; };
 		90D1EC4D2AADB50B003AF95A /* DirNameCache.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = DirNameCache.h; sourceTree = "<group>"; };
 		9A5C2B8B2AA8A10A00D489DF /* DirItem.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = DirItem.h; sourceTree = "<group>"; };
+		9A644C612CB3D76F000F713F /* fsck_msdos_errors.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = fsck_msdos_errors.h; sourceTree = "<group>"; };
 		9A772CD4286DBC5200978E45 /* UVFSPluginTesting.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; path = UVFSPluginTesting.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		9A772CD6286DBC5D00978E45 /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator16.0.sdk/System/Library/Frameworks/CoreFoundation.framework; sourceTree = DEVELOPER_DIR; };
 		9A8879772A8B65EE00B40217 /* DirItem.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = DirItem.m; sourceTree = "<group>"; };
@@ -955,6 +974,7 @@
 		D3FC07C428BC979D0083E343 /* lib_fsck_msdos */ = {
 			isa = PBXGroup;
 			children = (
+				9A644C612CB3D76F000F713F /* fsck_msdos_errors.h */,
 				4D3DCF0508E0BBF700C78A0B /* boot.c */,
 				4D3DCF0608E0BBF700C78A0B /* check.c */,
 				4D3DCF0708E0BBF700C78A0B /* dir.c */,
@@ -1527,6 +1547,10 @@
 			buildActionMask = 2147483647;
 			files = (
 			);
+			inputPaths = (
+			);
+			outputPaths = (
+			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi\n";
@@ -1536,6 +1560,10 @@
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+			);
+			inputPaths = (
+			);
+			outputPaths = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
@@ -2004,7 +2032,6 @@
 				WARNING_CFLAGS = (
 					"-Wall",
 					"-Wno-format-y2k",
-					"-W",
 					"-Wstrict-prototypes",
 					"-Wmissing-prototypes",
 					"-Wpointer-arith",
@@ -2041,7 +2068,6 @@
 				WARNING_CFLAGS = (
 					"-Wall",
 					"-Wno-format-y2k",
-					"-W",
 					"-Wstrict-prototypes",
 					"-Wmissing-prototypes",
 					"-Wpointer-arith",
@@ -2379,7 +2405,6 @@
 				WARNING_CFLAGS = (
 					"-Wall",
 					"-Wno-format-y2k",
-					"-W",
 					"-Wstrict-prototypes",
 					"-Wmissing-prototypes",
 					"-Wpointer-arith",
@@ -2492,11 +2517,12 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = msdos_appex/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = "msdos module";
+				INFOPLIST_KEY_CFBundleDisplayName = msdos;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/ExtensionKit/Extensions";
+				IPHONEOS_DEPLOYMENT_TARGET = 18.4;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks @executable_path/../../../../Frameworks";
-				MACOSX_DEPLOYMENT_TARGET = 15.0;
+				MACOSX_DEPLOYMENT_TARGET = 15.4;
 				MARKETING_VERSION = 1.0;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
@@ -2542,11 +2568,12 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = msdos_appex/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = "msdos module";
+				INFOPLIST_KEY_CFBundleDisplayName = msdos;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/ExtensionKit/Extensions";
+				IPHONEOS_DEPLOYMENT_TARGET = 18.4;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks @executable_path/../../../../Frameworks";
-				MACOSX_DEPLOYMENT_TARGET = 15.0;
+				MACOSX_DEPLOYMENT_TARGET = 15.4;
 				MARKETING_VERSION = 1.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
@@ -2593,11 +2620,12 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = msdos_appex/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = "msdos module";
+				INFOPLIST_KEY_CFBundleDisplayName = msdos;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/ExtensionKit/Extensions";
+				IPHONEOS_DEPLOYMENT_TARGET = 18.4;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks @executable_path/../../../../Frameworks";
-				MACOSX_DEPLOYMENT_TARGET = 15.0;
+				MACOSX_DEPLOYMENT_TARGET = 15.4;
 				MARKETING_VERSION = 1.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
@@ -3001,8 +3029,8 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GENERATE_INFOPLIST_FILE = YES;
 				HEADER_SEARCH_PATHS = "${SRCROOT}/msdos_appex";
-				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
-				MACOSX_DEPLOYMENT_TARGET = 15.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.4;
+				MACOSX_DEPLOYMENT_TARGET = 15.4;
 				MARKETING_VERSION = 1.0;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
@@ -3053,8 +3081,8 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GENERATE_INFOPLIST_FILE = YES;
 				HEADER_SEARCH_PATHS = "${SRCROOT}/msdos_appex";
-				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
-				MACOSX_DEPLOYMENT_TARGET = 15.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.4;
+				MACOSX_DEPLOYMENT_TARGET = 15.4;
 				MARKETING_VERSION = 1.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
@@ -3106,8 +3134,8 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GENERATE_INFOPLIST_FILE = YES;
 				HEADER_SEARCH_PATHS = "${SRCROOT}/msdos_appex";
-				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
-				MACOSX_DEPLOYMENT_TARGET = 15.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.4;
+				MACOSX_DEPLOYMENT_TARGET = 15.4;
 				MARKETING_VERSION = 1.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;

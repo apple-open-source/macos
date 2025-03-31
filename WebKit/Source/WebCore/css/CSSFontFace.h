@@ -31,6 +31,7 @@
 #include "Settings.h"
 #include "TextFlags.h"
 #include <memory>
+#include <wtf/AbstractRefCountedAndCanMakeWeakPtr.h>
 #include <wtf/Forward.h>
 #include <wtf/HashSet.h>
 #include <wtf/WeakHashSet.h>
@@ -76,7 +77,7 @@ public:
     void setFamilies(CSSValueList&);
     void setStyle(CSSValue&);
     void setWeight(CSSValue&);
-    void setStretch(CSSValue&);
+    void setWidth(CSSValue&);
     void setSizeAdjust(CSSValue&);
     void setUnicodeRange(CSSValueList&);
     void setFeatureSettings(CSSValue&);
@@ -85,7 +86,7 @@ public:
     String family() const;
     String style() const;
     String weight() const;
-    String stretch() const;
+    String width() const;
     String unicodeRange() const;
     String featureSettings() const;
     String display() const;
@@ -204,15 +205,13 @@ private:
     Timer m_timeoutTimer;
 };
 
-class CSSFontFaceClient : public CanMakeWeakPtr<CSSFontFaceClient> {
+class CSSFontFaceClient : public AbstractRefCountedAndCanMakeWeakPtr<CSSFontFaceClient> {
 public:
     virtual ~CSSFontFaceClient() = default;
     virtual void fontLoaded(CSSFontFace&) { }
     virtual void fontStateChanged(CSSFontFace&, CSSFontFace::Status /*oldState*/, CSSFontFace::Status /*newState*/) { }
     virtual void fontPropertyChanged(CSSFontFace&, CSSValueList* /*oldFamilies*/ = nullptr) { }
     virtual void updateStyleIfNeeded(CSSFontFace&) { }
-    virtual void ref() const = 0;
-    virtual void deref() const = 0;
 };
 
 }

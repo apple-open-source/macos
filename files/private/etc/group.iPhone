@@ -110,4 +110,5 @@ _modelmanagerd:*:301:_modelmanagerd
 _reportsystemmemory:*:302:_reportsystemmemory
 _swtransparencyd:*:303:_swtransparencyd
 _naturallanguaged:*:304:_naturallanguaged
+_diagnosticservicesd:*:307:_diagnosticservicesd
 mobile:*:501:mobile

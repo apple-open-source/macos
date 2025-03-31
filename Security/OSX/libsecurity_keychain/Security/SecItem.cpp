@@ -5186,6 +5186,8 @@ SecItemCopyMatching_osx(
 	else
 		*result = NULL;
 
+    bool __countlegacyapi __attribute__((cleanup(setCountLegacyAPIEnabledForThreadCleanup))) = countLegacyAPIEnabledForThread();
+    // Turn off the legacy API collection for this thread. We'll handle reporting SecItemCopyMatching_osx below (if __countlegacyapi is true)
     setCountLegacyAPIEnabledForThread(false);
 
 	CFAllocatorRef allocator = CFGetAllocator(query);
@@ -5225,14 +5227,23 @@ SecItemCopyMatching_osx(
 	if (status == errSecSuccess)
 		status = (matchCount > 0) ? errSecSuccess : errSecItemNotFound;
 
+    // SecItemCopyMatching_osx is very easy to call on macOS (it happens on every call to SecItemCopyMatching without special instructions)
+    // Only record this as a "real" call if any results are returned
+    if(matchCount > 0) {
+        static dispatch_once_t countToken;
+        setCountLegacyAPIEnabledForThread(__countlegacyapi);
+        countLegacyAPI(&countToken, __FUNCTION__);
+
+        // Turn off legacy API accounting again, in case the function epilogue calls anything
+        setCountLegacyAPIEnabledForThread(false);
+    }
+
 error_exit:
 	if (status != errSecSuccess && result != NULL && *result != NULL) {
 		CFRelease(*result);
 		*result = NULL;
 	}
 	_FreeSecItemParams(itemParams);
-
-    setCountLegacyAPIEnabledForThread(true);
 
 	return status;
 }
@@ -5247,6 +5258,10 @@ SecItemAdd_osx(
 	else if (result)
 		*result = NULL;
 
+    bool __countlegacyapi __attribute__((cleanup(setCountLegacyAPIEnabledForThreadCleanup))) = countLegacyAPIEnabledForThread();
+    // SecItemAdd to the legacy keychain counts as legacy API. Collect it.
+    static dispatch_once_t countToken;
+    countLegacyAPI(&countToken, __FUNCTION__);
     setCountLegacyAPIEnabledForThread(false);
 
 	CFAllocatorRef allocator = CFGetAllocator(attributes);
@@ -5382,7 +5397,6 @@ error_exit:
 		*result = NULL;
 	}
 	_FreeSecItemParams(itemParams);
-    setCountLegacyAPIEnabledForThread(true);
 
 	return status;
 }
@@ -5410,6 +5424,13 @@ SecItemUpdate_osx(
 		CFRelease(results);
 	}
 
+    bool __countlegacyapi __attribute__((cleanup(setCountLegacyAPIEnabledForThreadCleanup))) = countLegacyAPIEnabledForThread();
+    // Updating an item in the legacy keychain is legacy API. Collect it.
+    // Execution shouldn't reach this point if there aren't any such items, but double-check.
+    static dispatch_once_t countToken;
+    if(CFArrayGetCount(items) > 0) {
+        countLegacyAPI(&countToken, __FUNCTION__);
+    }
     setCountLegacyAPIEnabledForThread(false);
 
 	OSStatus result = errSecSuccess;
@@ -5421,8 +5442,6 @@ SecItemUpdate_osx(
 			result = _UpdateAggregateStatus(status, result, errSecSuccess);
 		}
 	}
-
-    setCountLegacyAPIEnabledForThread(true);
 
 	if (items) {
 		CFRelease(items);
@@ -5436,6 +5455,10 @@ SecItemDelete_osx(
 {
 	if (!query)
 		return errSecParam;
+
+    // Ensure we don't collect a use of SecItemCopyMatching_osx 'just' from calling SecItemDelete_osx
+    bool __countlegacyapi __attribute__((cleanup(setCountLegacyAPIEnabledForThreadCleanup))) = countLegacyAPIEnabledForThread();
+    setCountLegacyAPIEnabledForThread(false);
 
 	// run the provided query to get a list of items to delete
 	CFTypeRef results = NULL;
@@ -5451,6 +5474,17 @@ SecItemDelete_osx(
 		items = CFArrayCreate(NULL, &results, 1, &kCFTypeArrayCallBacks);
 		CFRelease(results);
 	}
+
+    // If this is a top-level API call, collect SecItemDelete_osx
+    setCountLegacyAPIEnabledForThread(__countlegacyapi);
+
+    // Deleting items out of the legacy keychain is not necessarily legacy API; it's the correct thing to do after moving to the Data Protection keychain.
+    // However, let's collect it anyway to keep track of what migrations are still not finished.
+    static dispatch_once_t countToken;
+    // Execution shouldn't reach this point if there aren't any such items, but double-check.
+    if(CFArrayGetCount(items) > 0) {
+        countLegacyAPI(&countToken, __FUNCTION__);
+    }
 
     setCountLegacyAPIEnabledForThread(false);
 
@@ -5468,8 +5502,6 @@ SecItemDelete_osx(
 			result = _UpdateAggregateStatus(status, result, errSecSuccess);
 		}
 	}
-
-    setCountLegacyAPIEnabledForThread(true);
 
 	if (items)
 		CFRelease(items);

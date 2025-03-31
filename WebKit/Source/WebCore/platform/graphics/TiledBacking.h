@@ -30,7 +30,6 @@
 #include "TileGridIdentifier.h"
 #include <wtf/CheckedRef.h>
 #include <wtf/MonotonicTime.h>
-#include <wtf/TZoneMallocInlines.h>
 #include <wtf/WeakPtr.h>
 
 namespace WebCore {
@@ -85,7 +84,7 @@ public:
 
     // The client will not receive `willRepaintTile()` for tiles needing display as part of a revalidation.
     virtual void willRevalidateTiles(TiledBacking&, TileGridIdentifier, TileRevalidationType) = 0;
-    virtual void didRevalidateTiles(TiledBacking&, TileGridIdentifier, TileRevalidationType, const HashSet<TileIndex>& tilesNeedingDisplay) = 0;
+    virtual void didRevalidateTiles(TiledBacking&, TileGridIdentifier, TileRevalidationType, const UncheckedKeyHashSet<TileIndex>& tilesNeedingDisplay) = 0;
 
     virtual void didAddGrid(TiledBacking&, TileGridIdentifier) = 0;
     virtual void willRemoveGrid(TiledBacking&, TileGridIdentifier) = 0;
@@ -98,7 +97,7 @@ public:
 
 
 class TiledBacking : public CanMakeCheckedPtr<TiledBacking> {
-    WTF_MAKE_TZONE_ALLOCATED_INLINE(TiledBacking);
+    WTF_MAKE_TZONE_ALLOCATED(TiledBacking);
     WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(TiledBacking);
 public:
     virtual ~TiledBacking() = default;

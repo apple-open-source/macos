@@ -43,9 +43,109 @@
 #include "IOSCSIParallelControllerCharacteristics.h"
 #endif
 
+/*
+
+Below section describes the usage of bundled parallel task APIs:
+
+- UserMapBundledParallelTaskCommandAndResponseBuffers
+- UserProcessBundledParallelTasks
+- BundledParallelTaskCompletion
+- UserCompleteBundledParallelTask
+
+To optimize the interaction between the framework and dext, framework
+allocates command and response buffers which can be mapped in the dext
+address space when framework calls UserMapBundledParallelTaskCommandAndResponseBuffers.
+The bundled I/O APIs allow exchange of multiple commands or responses in one
+call. And due to shared command and response buffers, it avoids copying the payload
+during the interaction between the framework and dext.
+
+Dext can choose to not map these buffers and return kIOReturnFailure
+in UserMapBundledParallelTaskCommandAndResponseBuffers, and then framework
+will use UserProcessParallelTask and UserCompleteParallelTask to process I/Os.
+But if dext returns kIOReturnSuccess, then framework will use
+UserProcessBundledParallelTasks and UserCompleteBundledParallelTask to process
+the I/Os.
+
+Framework creates contiguous command and response buffers which can be mapped in
+dext address sapce and passes the buffer slot indices in the bundled task APIs.
+These APIs can handle upto kMaxBundledParallelTasks commands or responses in one
+invocation.  Dext can use the buffer slot number to index into the mapped command
+and response regions to access the corresonding payload. There is one to one
+mapping between command and response buffers, i.e. if framework assigns
+buffer slot number 12 to a command, then dext should use slot number 12
+in the mapped response buffers during I/O completion.
+
+When dext starts, all the shared command and response buffers ownership
+is with the framework. Dext should access command and response buffers in
+any slot only when it has the ownership of that slot. Framework passes the
+ownership of a slot to dext via UserProcessBundledParallelTasks and
+dext passes the ownership back to the framework via UserCompleteBundledParallelTask.
+
+Below example demonstrates bundled parallel task API flow and buffer ownership:
+
+
+[ Framework ]                                        [ Dext ]
+-------------                                        --------
+
+  .
+  .
+  ReportMaximumTaskCount -->
+                                                      <-- 128 Max Tasks
+  .
+  .
+  UserMapBundledParallelTaskCommandAndResponseBuffers -->
+                                                      <-- kIOReturnSuccess
+  .
+  .
+  UserStartController -->
+                                                      <-- kIOReturnSuccess
+  .
+  .
+  .
+  UserProcessBundledParallelTasks -->
+  [ parallelRequestSlotIndices = (0) parallelRequestSlotIndicesCount = (1) ]
+
+
+  UserProcessBundledParallelTasks -->
+  [ parallelRequestSlotIndices = (2,5,18) parallelRequestSlotIndicesCount = (3) ]
+
+  .
+
+                                     <-- UserCompleteBundledParallelTask
+                                        [ parallelResponseSlotIndices = (0) parallelResponseSlotIndicesCount = (1) ]
+
+
+                                     <-- UserCompleteBundledParallelTask
+                                        [ parallelResponseSlotIndices = (2,5) parallelResponseSlotIndicesCount = (2) ]
+
+
+  .
+  .
+
+  UserProcessBundledParallelTasks -->
+  [ parallelRequestSlotIndices = (0,10,11,12,15) parallelRequestSlotIndicesCount = (5) ]
+
+  .
+
+                                     <-- UserCompleteBundledParallelTask
+                                        [ parallelResponseSlotIndices = (18,0) parallelResponseSlotIndicesCount = (2) ]
+  .
+  .
+
+                                     <-- UserCompleteBundledParallelTask
+                                        [ parallelResponseSlotIndices = (10,11,12) parallelResponseSlotIndicesCount = (3) ]
+  .
+  .
+
+                                     <-- UserCompleteBundledParallelTask
+                                        [ parallelResponseSlotIndices = (15) parallelResponseSlotIndicesCount = (1) ]
+
+*/
+
 
 #define kMaxSenseBufferSize				256
 #define kIOServicePowerCapabilityPause	0x1000
+#define kMaxBundledParallelTasks        32
 
 typedef enum SCSIUserParallelTaskVersion
 {
@@ -128,6 +228,7 @@ class KERNEL IOUserSCSIParallelInterfaceController : public IOService
 	
 public:
 	
+
     /*!
 		@function ParallelTaskCompletion
 		@abstract Type definition for asynchronous completion routines.
@@ -142,6 +243,7 @@ public:
     ParallelTaskCompletion     ( OSAction *					action TARGET,
 								 SCSIUserParallelResponse	response ) = 0;
     
+
     /*!
 		@function UserTargetPresentForID
 		@abstract Checks if a specific target is present.
@@ -562,6 +664,96 @@ protected:
 	virtual kern_return_t
 	UserCallMediaParametersHaveChanged ( void );
 
+
+	/*!
+		@function UserMapBundledParallelTaskCommandAndResponseBuffers
+		@abstract Called by the framework to map the shared command and response
+		buffers in the dext address space.
+		@discussion To optimize the interaction with dext class, framework allocates
+		contiguous command and response buffers to hold maximum number of tasks
+		reported by UserReportMaximumTaskCount. The framework will call this method before
+		UserStartController, so that dext class can map these buffers in the dext address space.
+        The framework uses the shared buffers to pass command and response payloads.
+		There is one to one mapping between command and response buffers and dext should
+		use same slot number for related command and response payloads; example if framework
+        assigns buffer slot number 12 to a command, then dext should use slot number 12 in
+        the mapped response buffers during I/O completion.
+
+		The shared buffer slots for both command and response are owned by the framework
+		till it passes the ownership to the dext via UserProcessBundledParallelTasks.
+		And dext has the ownership of both command and response buffers slots
+		till it hands over the ownership back to the framework via BundledParallelTaskCompletion.
+        Dext shouldn't access a command and response buffer slot unless framework has passed
+        the ownership to the dext.
+
+        If a dext doesn't want to use the shared buffers, it could choose to return
+        kIOReturnFailure and continue to use UserProcessParallelTask and UserCompleteParallelTask
+        to process the I/Os.
+        If dext returns kIOReturnSuccess, framework expects the dext to use UserProcessBundledParallelTasks
+        and UserCompleteBundledParallelTask.
+
+		@param parallelCommandIOMemoryDescriptor The memory descriptor corresponding
+		to the command buffers.
+		@param parallelResponseIOMemoryDescriptor The memory descriptor corresponding
+		to the response buffers.
+		@result kIOReturnSuccess on success and kIOReturnFailure on failure.
+	*/
+	virtual kern_return_t
+	UserMapBundledParallelTaskCommandAndResponseBuffers ( IOBufferMemoryDescriptor *    parallelCommandIOMemoryDescriptor,
+														  IOBufferMemoryDescriptor *    parallelResponseIOMemoryDescriptor ) = 0;
+
+
+	/*!
+		@function BundledParallelTaskCompletion
+		@abstract Type definition for asynchronous completion routine.
+		@discussion Dext class should use this method to complete one or more requests it
+        received via UserProcessBundledParallelTasks method.
+		Dext class should populate SCSIUserParallelResponse for each request to be
+		completed and make it available in the shared response buffers, and pass the response
+        buffer slot indices in parameter parallelResponseSlotIndices.
+		There is one to one mapping between command and response buffers and dext should
+		use same slot number for related command and response payloads.
+		@param action Pointer to the OSAction object of the async request specified
+		in UserProcessBundledParallelTasks
+		@param parallelResponseSlotIndices Contains indices of the shared response buffer
+        slots containing SCSIUserParallelResponse for each task to be completed.
+		@param parallelResponseSlotIndicesCount The number of tasks to be completed. The
+        entries from zero to ( parallelResponseSlotIndicesCount - 1) in parameter
+        parallelResponseSlotIndices should have valid indices.
+		@result void
+	*/
+	virtual void
+	BundledParallelTaskCompletion ( OSAction *					        action TARGET,
+									const uint16_t                      parallelResponseSlotIndices[kMaxBundledParallelTasks],
+									uint16_t                            parallelResponseSlotIndicesCount ) = 0;
+    
+
+	/*!
+		@function UserProcessBundledParallelTasks
+		@abstract Called by the framework to process one or more parallel tasks.
+		@discussion This method is called to process one or more parallel tasks (i.e. put
+		the commands on the bus ). The framework will populate SCSIUserParallelTask for each
+		task and make it available in the shared command buffers which can be accessed by the
+		command buffer slot indices passed in parallelRequestSlotIndices parameter.
+		If dext is unable to process any commands, it should invoke BundledParallelTaskCompletion for
+		such commands and the framework will complete those commands with the response provided
+		by the dext.
+        This method is called only when the dext has mapped command and response buffers in the dext
+        address space succesfully in UserMapBundledParallelTaskCommandAndResponseBuffers.
+		
+		@param parallelRequestSlotIndices Contains indices of shared command buffer slots for
+        the tasks to be processed. Entries from zero to ( parallelRequestSlotIndicesCount - 1 )
+        have valid indices.
+		@param parallelRequestSlotIndicesCount The number of tasks to be processed.
+		@param completion OSAction object that the dext class should use to complete tasks.
+		@result void
+	*/
+
+	virtual void
+	UserProcessBundledParallelTasks ( const uint16_t	parallelRequestSlotIndices[kMaxBundledParallelTasks],
+									  uint16_t			parallelRequestSlotIndicesCount,
+									  OSAction *		completion TYPE ( BundledParallelTaskCompletion ) ) = 0;
+
 };
 
 
@@ -577,7 +769,19 @@ class EXTENDS ( IOUserSCSIParallelInterfaceController ) IOUserSCSIParallelInterf
 							 KERNEL
                              TYPE(IOUserSCSIParallelInterfaceController::ParallelTaskCompletion);
     
-	
+
+	// Kernel implementation of the asynchronous completion routine of type BundledParallelTaskCompletion.
+	// Used to process completion of multiple parallel tasks.
+    // Should be used if dext has mapped shared command and response buffers in dext address space successfully in
+    // UserMapBundledParallelTaskCommandAndResponseBuffers.
+	virtual void
+	UserCompleteBundledParallelTask ( OSAction *                            action,
+									  const uint16_t                        parallelResponseSlotIndices[kMaxBundledParallelTasks],
+									  uint16_t                              parallelResponseSlotIndicesCount )
+									  KERNEL
+									  TYPE(IOUserSCSIParallelInterfaceController::BundledParallelTaskCompletion);
+
+    
 };
 
 #endif /* IOUserSCSIParallelInterfaceController_h */

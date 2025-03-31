@@ -93,6 +93,7 @@ typedef struct {
 	uint64_t opaque[2];
 } plat_map_exclaves_t;
 #if !MALLOC_TARGET_EXCLAVES
+# include <mach/error.h>
 # include <mach/mach.h>
 # include <mach/mach_init.h>
 # include <mach/mach_time.h>
@@ -104,6 +105,7 @@ typedef struct {
 # include <mach/vm_page_size.h>
 # include <mach/vm_param.h>
 # include <mach/vm_reclaim.h>
+# include <mach/vm_reclaim_private.h>
 # include <mach/vm_statistics.h>
 # include <machine/cpu_capabilities.h>
 
@@ -124,6 +126,7 @@ typedef plat_map_exclaves_t plat_map_t;
 # define vm_page_size PAGE_SIZE
 # define PAGE_MASK (PAGE_SIZE-1)
 
+typedef uint64_t mach_vm_reclaim_id_t;
 # define mach_vm_round_page(x) (((mach_vm_offset_t)(x) + PAGE_MASK) & ~((signed)PAGE_MASK))
 # define round_page(x) (((vm_offset_t)(x) + PAGE_MASK) & ~((vm_offset_t)PAGE_MASK))
 
@@ -170,6 +173,7 @@ _Static_assert(sizeof(plat_map_exclaves_t) == sizeof(plat_map_t),
 # include <pthread/private.h>  // _pthread_threadid_self_np_direct()
 # include <pthread/tsd_private.h>  // TSD keys
 #else
+# include <platform/platform.h>
 # include <pthread.h>
 #endif // !MALLOC_TARGET_EXCLAVES
 
@@ -237,7 +241,7 @@ _Static_assert(sizeof(plat_map_exclaves_t) == sizeof(plat_map_t),
 # define __TSD_MALLOC_ZERO_CORRUPTION_COUNTER   __PTK_LIBMALLOC_KEY1
 # define __TSD_MALLOC_THREAD_OPTIONS            __PTK_LIBMALLOC_KEY2
 # define __TSD_MALLOC_TYPE_DESCRIPTOR           __PTK_LIBMALLOC_KEY3
-# define __TSD_MALLOC_UNUSED4                   __PTK_LIBMALLOC_KEY4
+# define __TSD_MALLOC_XZONE_THREAD_CACHE        __PTK_LIBMALLOC_KEY4
 #else
 # include "liblibc_overrides.h"
 # define __TSD_MALLOC_TYPE_DESCRIPTOR           __LIBLIBC_XZONE_TSS_KEY
@@ -258,8 +262,8 @@ _Static_assert(sizeof(plat_map_exclaves_t) == sizeof(plat_map_t),
 #endif // !MALLOC_TARGET_EXCLAVES
 #include "malloc/malloc.h"
 #include "early_malloc.h"
+#include "instrumentation.h"
 #if !MALLOC_TARGET_EXCLAVES
-# include "instrumentation.h"
 # include "frozen_malloc.h"
 # include "legacy_malloc.h"
 # include "magazine_malloc.h"
@@ -305,11 +309,11 @@ _Static_assert(sizeof(plat_map_exclaves_t) == sizeof(plat_map_t),
  *  - freed pages are not aggressively madvised by default
  *  - the large cache is enabled (and not enrolled in deferred reclamation)
  */
-#if CONFIG_MADVISE_PRESSURE_RELIEF || (CONFIG_LARGE_CACHE && !CONFIG_DEFERRED_RECLAIM)
+#if CONFIG_MADVISE_PRESSURE_RELIEF || (CONFIG_LARGE_CACHE && !CONFIG_MAGAZINE_DEFERRED_RECLAIM)
 #define MALLOC_MEMORYSTATUS_MASK_PRESSURE_RELIEF ( \
 		NOTE_MEMORYSTATUS_PRESSURE_WARN | \
 		NOTE_MEMORYSTATUS_PRESSURE_NORMAL)
-#else /* CONFIG_MADVISE_PRESSURE_RELIEF || (CONFIG_LARGE_CACHE && !CONFIG_DEFERRED_RECLAIM) */
+#else /* CONFIG_MADVISE_PRESSURE_RELIEF || (CONFIG_LARGE_CACHE && !CONFIG_MAGAZINE_DEFERRED_RECLAIM) */
 #define MALLOC_MEMORYSTATUS_MASK_PRESSURE_RELIEF 0
 #endif
 
@@ -476,7 +480,23 @@ _malloc_cpu_number(void)
 #endif // TARGET_OS_SIMULATOR
 }
 
-#if CONFIG_MAGAZINE_PER_CLUSTER
+#if !MALLOC_TARGET_EXCLAVES
+typedef union {
+	malloc_thread_options_t options;
+	void *storage;
+} th_opts_t;
+
+MALLOC_STATIC_ASSERT(sizeof(th_opts_t) == sizeof(void *), "Options fit into pointer bits");
+
+static inline void
+_malloc_set_thread_options(malloc_thread_options_t opts)
+{
+	th_opts_t x = {.options = opts};
+	_pthread_setspecific_direct(__TSD_MALLOC_THREAD_OPTIONS, x.storage);
+}
+#endif // MALLOC_TARGET_EXCLAVES
+
+#if CONFIG_CLUSTER_AWARE
 
 static inline unsigned int
 _malloc_cpu_cluster_number(void)
@@ -498,7 +518,7 @@ _malloc_get_cluster_from_cpu(unsigned int cpu_number)
 #endif
 }
 
-#endif // CONFIG_MAGAZINE_PER_CLUSTER
+#endif // CONFIG_CLUSTER_AWARE
 
 // Gets the allocation size for a calloc(). Multiples size by num_items and adds
 // extra_size, storing the result in *total_size. Returns 0 on success, -1 (with
@@ -570,14 +590,11 @@ yield(void)
 #if TARGET_OS_SIMULATOR
 #define malloc_secure_feature_enabled(name, fallback, simulator_default) \
 	(simulator_default)
-#elif CONFIG_CHECK_SECURITY_POLICY
+#else
 // TODO: Do we want the secure fallback to be the same as the no-ff fallback?
 #define malloc_secure_feature_enabled(name, fallback, simulator_default) \
 	(malloc_internal_security_policy ? \
 			os_feature_enabled_simple(libmalloc, name, fallback) : (fallback))
-#else
-#define malloc_secure_feature_enabled(name, fallback, simulator_default) \
-	os_feature_enabled_simple(libmalloc, name, fallback)
 #endif // TARGET_OS_SIMULATOR
 #endif // CONFIG_FEATUREFLAGS_SIMPLE
 

@@ -279,7 +279,7 @@ static void ScalePlaneDown4(int src_width,
   if (TestCpuFlag(kCpuHasNEON)) {
     ScaleRowDown4 =
         filtering ? ScaleRowDown4Box_Any_NEON : ScaleRowDown4_Any_NEON;
-    if (IS_ALIGNED(dst_width, 8)) {
+    if (IS_ALIGNED(dst_width, 16)) {
       ScaleRowDown4 = filtering ? ScaleRowDown4Box_NEON : ScaleRowDown4_NEON;
     }
   }
@@ -407,7 +407,11 @@ static void ScalePlaneDown34(int src_width,
   }
 #if defined(HAS_SCALEROWDOWN34_NEON)
   if (TestCpuFlag(kCpuHasNEON)) {
+#if defined(__aarch64__)
     if (dst_width % 48 == 0) {
+#else
+    if (dst_width % 24 == 0) {
+#endif
       if (!filtering) {
         ScaleRowDown34_0 = ScaleRowDown34_NEON;
         ScaleRowDown34_1 = ScaleRowDown34_NEON;

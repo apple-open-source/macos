@@ -116,12 +116,6 @@ const NSString *kSecTrustKnownExtensionResources = @"si-18-certificate-parse/Kno
             require_action(cert, blockOut,
                            fail("Failed to parse cert with SPKI error: %@", url));
             pubkey = SecCertificateCopyKey(cert);
-#ifndef LIBDER_HAS_EDDSA
-            // guard for rdar://106052612
-            if ([url.lastPathComponent hasPrefix:@"ed"]) {
-                goto blockOut;
-            }
-#endif
             isnt(pubkey, NULL, "Failed to parse cert with good SPKI: %@", url);
 
         blockOut:

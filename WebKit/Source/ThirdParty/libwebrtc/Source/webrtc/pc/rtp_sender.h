@@ -19,13 +19,15 @@
 #include <stdint.h>
 
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 
-#include "absl/types/optional.h"
 #include "api/crypto/frame_encryptor_interface.h"
 #include "api/dtls_transport_interface.h"
 #include "api/dtmf_sender_interface.h"
+#include "api/environment/environment.h"
+#include "api/field_trials_view.h"
 #include "api/frame_transformer_interface.h"
 #include "api/media_stream_interface.h"
 #include "api/media_types.h"
@@ -103,6 +105,9 @@ class RtpSenderInternal : public RtpSenderInterface {
   // Used by the owning transceiver to inform the sender on the currently
   // selected codecs.
   virtual void SetSendCodecs(std::vector<cricket::Codec> send_codecs) = 0;
+  virtual std::vector<cricket::Codec> GetSendCodecs() const = 0;
+
+  virtual void NotifyFirstPacketSent() = 0;
 };
 
 // Shared implementation for RtpSenderInternal interface.
@@ -223,12 +228,19 @@ class RtpSenderBase : public RtpSenderInternal, public ObserverInterface {
   void SetSendCodecs(std::vector<cricket::Codec> send_codecs) override {
     send_codecs_ = send_codecs;
   }
+  std::vector<cricket::Codec> GetSendCodecs() const override {
+    return send_codecs_;
+  }
+
+  void NotifyFirstPacketSent() override;
+  void SetObserver(RtpSenderObserverInterface* observer) override;
 
  protected:
   // If `set_streams_observer` is not null, it is invoked when SetStreams()
   // is called. `set_streams_observer` is not owned by this object. If not
   // null, it must be valid at least until this sender becomes stopped.
-  RtpSenderBase(rtc::Thread* worker_thread,
+  RtpSenderBase(const Environment& env,
+                rtc::Thread* worker_thread,
                 const std::string& id,
                 SetStreamsObserver* set_streams_observer);
   // TODO(bugs.webrtc.org/8694): Since SSRC == 0 is technically valid, figure
@@ -249,6 +261,7 @@ class RtpSenderBase : public RtpSenderInternal, public ObserverInterface {
   virtual void AddTrackToStats() {}
   virtual void RemoveTrackFromStats() {}
 
+  const Environment env_;
   rtc::Thread* const signaling_thread_;
   rtc::Thread* const worker_thread_;
   uint32_t ssrc_ = 0;
@@ -276,10 +289,12 @@ class RtpSenderBase : public RtpSenderInternal, public ObserverInterface {
   // As such, it is used for internal verification and is not observable by the
   // the client. It is marked as mutable to enable `GetParameters` to be a
   // const method.
-  mutable absl::optional<std::string> last_transaction_id_;
+  mutable std::optional<std::string> last_transaction_id_;
   std::vector<std::string> disabled_rids_;
 
   SetStreamsObserver* set_streams_observer_ = nullptr;
+  RtpSenderObserverInterface* observer_ = nullptr;
+  bool sent_first_packet_ = false;
 
   rtc::scoped_refptr<FrameTransformerInterface> frame_transformer_;
   std::unique_ptr<VideoEncoderFactory::EncoderSelectorInterface>
@@ -305,7 +320,7 @@ class LocalAudioSinkAdapter : public AudioTrackSinkInterface,
               int sample_rate,
               size_t number_of_channels,
               size_t number_of_frames,
-              absl::optional<int64_t> absolute_capture_timestamp_ms) override;
+              std::optional<int64_t> absolute_capture_timestamp_ms) override;
 
   // AudioSinkInterface implementation.
   void OnData(const void* audio_data,
@@ -315,7 +330,7 @@ class LocalAudioSinkAdapter : public AudioTrackSinkInterface,
               size_t number_of_frames) override {
     OnData(audio_data, bits_per_sample, sample_rate, number_of_channels,
            number_of_frames,
-           /*absolute_capture_timestamp_ms=*/absl::nullopt);
+           /*absolute_capture_timestamp_ms=*/std::nullopt);
   }
 
   // AudioSinkInterface implementation.
@@ -340,6 +355,7 @@ class AudioRtpSender : public DtmfProviderInterface, public RtpSenderBase {
   // is called. `set_streams_observer` is not owned by this object. If not
   // null, it must be valid at least until this sender becomes stopped.
   static rtc::scoped_refptr<AudioRtpSender> Create(
+      const Environment& env,
       rtc::Thread* worker_thread,
       const std::string& id,
       LegacyStatsCollectorInterface* stats,
@@ -364,7 +380,8 @@ class AudioRtpSender : public DtmfProviderInterface, public RtpSenderBase {
   RTCError GenerateKeyFrame(const std::vector<std::string>& rids) override;
 
  protected:
-  AudioRtpSender(rtc::Thread* worker_thread,
+  AudioRtpSender(const Environment& env,
+                 rtc::Thread* worker_thread,
                  const std::string& id,
                  LegacyStatsCollectorInterface* legacy_stats,
                  SetStreamsObserver* set_streams_observer);
@@ -405,6 +422,7 @@ class VideoRtpSender : public RtpSenderBase {
   // is called. `set_streams_observer` is not owned by this object. If not
   // null, it must be valid at least until this sender becomes stopped.
   static rtc::scoped_refptr<VideoRtpSender> Create(
+      const Environment& env,
       rtc::Thread* worker_thread,
       const std::string& id,
       SetStreamsObserver* set_streams_observer);
@@ -424,7 +442,8 @@ class VideoRtpSender : public RtpSenderBase {
   RTCError GenerateKeyFrame(const std::vector<std::string>& rids) override;
 
  protected:
-  VideoRtpSender(rtc::Thread* worker_thread,
+  VideoRtpSender(const Environment& env,
+                 rtc::Thread* worker_thread,
                  const std::string& id,
                  SetStreamsObserver* set_streams_observer);
 

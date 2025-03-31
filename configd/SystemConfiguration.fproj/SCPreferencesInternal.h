@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2001, 2003-2005, 2007-2011, 2013-2022 Apple Inc. All rights reserved.
+ * Copyright (c) 2000, 2001, 2003-2005, 2007-2011, 2013-2022, 2024 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -177,7 +177,8 @@ __SCPSignatureFromStatbuf		(const struct stat	*statBuf);
 
 char *
 __SCPreferencesPath			(CFAllocatorRef		allocator,
-					 CFStringRef		prefsID);
+					 CFStringRef		prefsID,
+					 Boolean 		usePrebootVolume);
 
 off_t
 __SCPreferencesPrefsSize		(SCPreferencesRef	prefs);

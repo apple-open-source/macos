@@ -59,7 +59,7 @@ WTF_MAKE_TZONE_ALLOCATED_IMPL(RemoteGPU);
 
 RemoteGPU::RemoteGPU(WebGPUIdentifier identifier, GPUConnectionToWebProcess& gpuConnectionToWebProcess, RemoteRenderingBackend& renderingBackend, Ref<IPC::StreamServerConnection>&& streamConnection)
     : m_gpuConnectionToWebProcess(gpuConnectionToWebProcess)
-    , m_sharedPreferencesForWebProcess(gpuConnectionToWebProcess.sharedPreferencesForWebProcess())
+    , m_sharedPreferencesForWebProcess(gpuConnectionToWebProcess.sharedPreferencesForWebProcessValue())
     , m_workQueue(IPC::StreamConnectionWorkQueue::create("WebGPU work queue"_s))
     , m_streamConnection(WTFMove(streamConnection))
     , m_objectHeap(WebGPU::ObjectHeap::create())
@@ -101,8 +101,9 @@ void RemoteGPU::workQueueInitialize()
 {
     assertIsCurrent(workQueue());
     Ref workQueue = m_workQueue;
-    m_streamConnection->open(workQueue);
-    m_streamConnection->startReceivingMessages(*this, Messages::RemoteGPU::messageReceiverName(), m_identifier.toUInt64());
+    RefPtr streamConnection = m_streamConnection;
+    streamConnection->open(workQueue);
+    streamConnection->startReceivingMessages(*this, Messages::RemoteGPU::messageReceiverName(), m_identifier.toUInt64());
 
 #if HAVE(WEBGPU_IMPLEMENTATION)
     // BEWARE: This is a retain cycle.
@@ -119,7 +120,7 @@ void RemoteGPU::workQueueInitialize()
 #endif
     if (backing) {
         m_backing = backing.releaseNonNull();
-        send(Messages::RemoteGPUProxy::WasCreated(true, workQueue->wakeUpSemaphore(), m_streamConnection->clientWaitSemaphore()));
+        send(Messages::RemoteGPUProxy::WasCreated(true, workQueue->wakeUpSemaphore(), streamConnection->clientWaitSemaphore()));
     } else
         send(Messages::RemoteGPUProxy::WasCreated(false, { }, { }));
 }
@@ -127,8 +128,9 @@ void RemoteGPU::workQueueInitialize()
 void RemoteGPU::workQueueUninitialize()
 {
     assertIsCurrent(workQueue());
-    m_streamConnection->stopReceivingMessages(Messages::RemoteGPU::messageReceiverName(), m_identifier.toUInt64());
-    m_streamConnection->invalidate();
+    RefPtr streamConnection = m_streamConnection;
+    streamConnection->stopReceivingMessages(Messages::RemoteGPU::messageReceiverName(), m_identifier.toUInt64());
+    streamConnection->invalidate();
     m_streamConnection = nullptr;
     Ref { m_objectHeap }->clear();
     m_backing = nullptr;
@@ -193,6 +195,8 @@ void RemoteGPU::requestAdapter(const WebGPU::RequestAdapterOptions& options, Web
             limits->maxComputeWorkgroupSizeY(),
             limits->maxComputeWorkgroupSizeZ(),
             limits->maxComputeWorkgroupsPerDimension(),
+            limits->maxStorageBuffersInFragmentStage(),
+            limits->maxStorageTexturesInFragmentStage(),
         }, adapter->isFallbackAdapter() } });
     });
 }

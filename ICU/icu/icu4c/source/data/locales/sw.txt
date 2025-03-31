@@ -419,6 +419,7 @@ sw{
                 yMMMM{"MMMM y"}
                 yMMMd{"d MMM y"}
                 yMd{"d/M/y"}
+                yQQQ{"QQQ y"}
                 yQQQQ{"QQQQ y"}
                 yw{
                     one{"'wiki' w 'ya' Y"}
@@ -1115,10 +1116,10 @@ sw{
                 "[%％﹪ ٪]",
                 "[‰ ؉]",
                 "[\$＄﹩]",
-                "[£ ₤]",
+                "[£￡ ₤]",
                 "[¥￥]",
                 "[₩￦]",
-                "[₹ ₨ {Rp} {Rs}]",
+                "[₹ {Rp} {Rs}₨]",
             }
         }
         number{

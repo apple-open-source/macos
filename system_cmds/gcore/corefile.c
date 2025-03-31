@@ -1202,7 +1202,7 @@ rop_sparse_pwrite(const struct region *r, struct write_segment_data *wsd)
     for (unsigned i = 0; i < r->r_nsubregions; i++) {
         const struct subregion *s = r->r_subregions[i];
 
-        if (s->s_isuuidref)
+        if ((!opt->skinny && s->s_isuuidref) || (opt->skinny && s->s_isshared_dyld))
             step = make_fileref_subregion_command(r, s, wsd);
         else {
             /* Write this one out as real data */
@@ -1314,7 +1314,7 @@ size_sparse_region(const struct region *r, struct size_core *sc_sparse, struct s
     unsigned long entry_total = sc_sparse->count + sc_fileref->count;
     for (unsigned i = 0; i < r->r_nsubregions; i++) {
         const struct subregion *s = r->r_subregions[i];
-        if (s->s_isuuidref)
+        if ((!opt->skinny && s->s_isuuidref) || (opt->skinny && s->s_isshared_dyld))
             size_fileref_subregion(s, sc_fileref);
         else
             size_sparse_subregion(s, sc_sparse);

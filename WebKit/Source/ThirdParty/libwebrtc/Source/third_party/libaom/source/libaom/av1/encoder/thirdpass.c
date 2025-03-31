@@ -329,7 +329,7 @@ static void get_current_gop_end(THIRD_PASS_DEC_CTX *ctx, int max_num,
 }
 #endif
 
-static AOM_INLINE void read_gop_frames(THIRD_PASS_DEC_CTX *ctx) {
+static inline void read_gop_frames(THIRD_PASS_DEC_CTX *ctx) {
   int cur_idx = 0;
   while (cur_idx < ctx->gop_info.num_frames) {
     assert(cur_idx < MAX_THIRD_PASS_BUF);

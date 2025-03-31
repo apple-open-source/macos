@@ -1731,7 +1731,7 @@ OSStatus SecKeychainStoreUnlockKeyWithPubKeyHashAndPassword(CFDataRef pubKeyHash
 			return result;
 		}
 	} else {
-		pwd.take(keychainPassword);
+		pwd = keychainPassword;
 	}
 
 	if (!pwd) {

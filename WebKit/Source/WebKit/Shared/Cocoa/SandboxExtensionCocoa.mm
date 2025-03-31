@@ -29,7 +29,6 @@
 #if ENABLE(SANDBOX_EXTENSIONS)
 
 #import "Logging.h"
-#import "WebCoreArgumentCoders.h"
 #import <string.h>
 #import <wtf/FileSystem.h>
 #import <wtf/spi/darwin/SandboxSPI.h>
@@ -44,22 +43,29 @@ std::unique_ptr<SandboxExtensionImpl> SandboxExtensionImpl::create(const char* p
         return nullptr;
     if (!impl->m_token[0]) // Make sure strlen is > 0 without iterating the whole string.
         return nullptr;
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
     ASSERT(strlen(impl->m_token));
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
     return impl;
 }
 
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
 SandboxExtensionImpl::SandboxExtensionImpl(std::span<const uint8_t> serializedFormat)
     : m_token { strndup(byteCast<char>(serializedFormat.data()), serializedFormat.size()) }
 {
     ASSERT(!serializedFormat.empty());
 }
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
 
 SandboxExtensionImpl::~SandboxExtensionImpl()
 {
     if (!m_token)
         return;
+
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
     auto length = strlen(m_token);
     memset_s(m_token, length, 0, length);
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
     free(m_token);
 }
 
@@ -85,8 +91,10 @@ bool SandboxExtensionImpl::invalidate()
 std::span<const uint8_t> SandboxExtensionImpl::getSerializedFormat()
 {
     ASSERT(m_token);
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
     ASSERT(strlen(m_token));
-    return span8(m_token);
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
+    return unsafeSpan8(m_token);
 }
 
 char* SandboxExtensionImpl::sandboxExtensionForType(const char* path, SandboxExtension::Type type, std::optional<audit_token_t> auditToken, OptionSet<SandboxExtension::Flags> flags)
@@ -238,7 +246,7 @@ auto SandboxExtension::createHandleForTemporaryFile(StringView prefix, Type type
         return std::nullopt;
     
     // Shrink the vector.   
-    path.shrink(strlen(path.data()));
+    path.shrink(strlenSpan(path.span()));
 
     ASSERT(path.last() == '/');
 
@@ -312,7 +320,7 @@ auto SandboxExtension::createHandlesForMachLookup(std::span<const ASCIILiteral> 
 
 auto SandboxExtension::createHandlesForMachLookup(std::initializer_list<const ASCIILiteral> services, std::optional<audit_token_t> auditToken, MachBootstrapOptions machBootstrapOptions, OptionSet<Flags> flags) -> Vector<Handle>
 {
-    return createHandlesForMachLookup(std::span(services.begin(), services.size()), auditToken, machBootstrapOptions, flags);
+    return createHandlesForMachLookup(std::span { services }, auditToken, machBootstrapOptions, flags);
 }
 
 auto SandboxExtension::createHandleForReadByAuditToken(StringView path, audit_token_t auditToken) -> std::optional<Handle>

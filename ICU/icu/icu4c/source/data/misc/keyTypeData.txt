@@ -74,6 +74,7 @@ keyTypeData:table(nofallback){
         deprecated{
             co{
                 direct{"true"}
+                reformed{"true"}
             }
         }
     }
@@ -445,6 +446,7 @@ keyTypeData:table(nofallback){
             xbc{""}
             xbd{""}
             xcd{""}
+            xcg{""}
             xdr{""}
             xeu{""}
             xfo{""}
@@ -471,6 +473,7 @@ keyTypeData:table(nofallback){
             zrn{""}
             zrz{""}
             zwd{""}
+            zwg{""}
             zwl{""}
             zwr{""}
         }
@@ -642,12 +645,14 @@ keyTypeData:table(nofallback){
             ethi{""}
             finance{""}
             fullwide{""}
+            gara{""}
             geor{""}
             gong{""}
             gonm{""}
             grek{""}
             greklow{""}
             gujr{""}
+            gukh{""}
             guru{""}
             hanidays{""}
             hanidec{""}
@@ -666,6 +671,7 @@ keyTypeData:table(nofallback){
             kawi{""}
             khmr{""}
             knda{""}
+            krai{""}
             lana{""}
             lanatham{""}
             laoo{""}
@@ -683,6 +689,8 @@ keyTypeData:table(nofallback){
             mroo{""}
             mtei{""}
             mymr{""}
+            mymrepka{""}
+            mymrpao{""}
             mymrshan{""}
             mymrtlng{""}
             nagm{""}
@@ -690,8 +698,10 @@ keyTypeData:table(nofallback){
             newa{""}
             nkoo{""}
             olck{""}
+            onao{""}
             orya{""}
             osma{""}
+            outlined{""}
             rohg{""}
             roman{""}
             romanlow{""}
@@ -702,6 +712,7 @@ keyTypeData:table(nofallback){
             sinh{""}
             sora{""}
             sund{""}
+            sunu{""}
             takr{""}
             talu{""}
             taml{""}

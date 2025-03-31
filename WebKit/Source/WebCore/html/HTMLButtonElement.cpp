@@ -42,6 +42,10 @@
 #include "ImageControlsMac.h"
 #endif
 
+#if ENABLE(SPATIAL_IMAGE_CONTROLS)
+#include "SpatialImageControls.h"
+#endif
+
 namespace WebCore {
 
 WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(HTMLButtonElement);
@@ -136,6 +140,10 @@ void HTMLButtonElement::defaultEventHandler(Event& event)
     if (ImageControlsMac::handleEvent(*this, event))
         return;
 #endif
+#if ENABLE(SPATIAL_IMAGE_CONTROLS)
+    if (SpatialImageControls::handleEvent(*this, event))
+        return;
+#endif
     auto& eventNames = WebCore::eventNames();
     if (event.type() == eventNames.DOMActivateEvent && !isDisabledFormControl()) {
         RefPtr<HTMLFormElement> protectedForm(form());
@@ -164,7 +172,7 @@ void HTMLButtonElement::defaultEventHandler(Event& event)
         }
 
         if (!(protectedForm && m_type == SUBMIT))
-            handlePopoverTargetAction();
+            handlePopoverTargetAction(event.target());
 
     }
 

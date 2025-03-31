@@ -113,8 +113,7 @@ static WebCore::CocoaFont *fontOfSize(WarningTextSize size)
 
 static WebCore::CocoaColor *colorForItem(WarningItem item, ViewType *warning)
 {
-    ASSERT([warning isKindOfClass:[_WKWarningView class]]);
-    _WKWarningView *warningView = (_WKWarningView *)warning;
+    auto *warningView = checked_objc_cast<_WKWarningView>(warning);
 #if PLATFORM(MAC)
 
     auto colorNamed = [] (NSString *name) -> WebCore::CocoaColor * {
@@ -440,7 +439,7 @@ static RetainPtr<ViewType> makeLabel(NSAttributedString *attributedString)
     ButtonType *showDetails = box.subviews.lastObject;
     [showDetails removeFromSuperview];
 
-    auto text = adoptNS([_warning->details() mutableCopy]);
+    auto text = adoptNS([self._protectedWarning->details() mutableCopy]);
     [text addAttributes:@{ NSFontAttributeName:fontOfSize(WarningTextSize::Body) } range:NSMakeRange(0, [text length])];
     auto details = adoptNS([[_WKWarningViewTextView alloc] initWithAttributedString:text.get() forWarning:self]);
     _details = details.get();
@@ -595,6 +594,11 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 - (BOOL)forMainFrameNavigation
 {
     return _warning->forMainFrameNavigation();
+}
+
+- (RefPtr<const WebKit::BrowsingWarning>)_protectedWarning
+{
+    return _warning;
 }
 
 @end

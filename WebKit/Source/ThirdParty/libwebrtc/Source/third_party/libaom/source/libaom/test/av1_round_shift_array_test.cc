@@ -19,9 +19,9 @@
 #include "aom_mem/aom_mem.h"
 #include "aom_ports/aom_timer.h"
 #include "aom_ports/mem.h"
+#include "gtest/gtest.h"
 #include "test/acm_random.h"
 #include "test/util.h"
-#include "third_party/googletest/src/googletest/include/gtest/gtest.h"
 
 namespace AV1CompRoundShift {
 

@@ -32,8 +32,8 @@
 #include <WebCore/ServiceWorkerTypes.h>
 #include <WebCore/Timer.h>
 #include <pal/SessionID.h>
+#include <wtf/RefCountedAndCanMakeWeakPtr.h>
 #include <wtf/TZoneMalloc.h>
-#include <wtf/WeakPtr.h>
 
 namespace WebCore {
 class ResourceError;
@@ -61,7 +61,7 @@ class ServiceWorkerNavigationPreloader;
 class WebSWServerConnection;
 class WebSWServerToContextConnection;
 
-class ServiceWorkerFetchTask : public RefCounted<ServiceWorkerFetchTask>, public CanMakeWeakPtr<ServiceWorkerFetchTask> {
+class ServiceWorkerFetchTask : public RefCountedAndCanMakeWeakPtr<ServiceWorkerFetchTask> {
     WTF_MAKE_TZONE_ALLOCATED(ServiceWorkerFetchTask);
 public:
     static RefPtr<ServiceWorkerFetchTask> fromNavigationPreloader(WebSWServerConnection&, NetworkResourceLoader&, const WebCore::ResourceRequest&, NetworkSession*);
@@ -79,7 +79,7 @@ public:
     void continueFetchTaskWith(WebCore::ResourceRequest&&);
 
     WebCore::FetchIdentifier fetchIdentifier() const { return m_fetchIdentifier; }
-    WebCore::ServiceWorkerIdentifier serviceWorkerIdentifier() const { return m_serviceWorkerIdentifier; }
+    std::optional<WebCore::ServiceWorkerIdentifier> serviceWorkerIdentifier() const { return m_serviceWorkerIdentifier; }
 
     WebCore::ResourceRequest takeRequest() { return WTFMove(m_currentRequest); }
 
@@ -120,7 +120,7 @@ private:
 
     void workerClosed();
 
-    template<typename Message> bool sendToServiceWorker(Message&&);
+    RefPtr<IPC::Connection> serviceWorkerConnection();
     template<typename Message> bool sendToClient(Message&&);
 
     RefPtr<NetworkResourceLoader> protectedLoader() const;
@@ -130,8 +130,8 @@ private:
     WeakPtr<NetworkResourceLoader> m_loader;
     WeakPtr<WebSWServerToContextConnection> m_serviceWorkerConnection;
     WebCore::FetchIdentifier m_fetchIdentifier;
-    WebCore::SWServerConnectionIdentifier m_serverConnectionIdentifier;
-    WebCore::ServiceWorkerIdentifier m_serviceWorkerIdentifier;
+    Markable<WebCore::SWServerConnectionIdentifier> m_serverConnectionIdentifier;
+    Markable<WebCore::ServiceWorkerIdentifier> m_serviceWorkerIdentifier;
     WebCore::ResourceRequest m_currentRequest;
     std::unique_ptr<WebCore::Timer> m_timeoutTimer;
     Markable<WebCore::ServiceWorkerRegistrationIdentifier> m_serviceWorkerRegistrationIdentifier;

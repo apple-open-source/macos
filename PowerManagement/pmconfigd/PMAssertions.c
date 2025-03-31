@@ -224,7 +224,6 @@ CFDictionaryRef                     gSystemAssertionTimeoutList = NULL;
 CFDictionaryRef                     gAssertionCategoriesDict = NULL;
 
 bool                                gAssertionOptimizationEnabled = false;
-
 #if (TARGET_OS_OSX && TARGET_CPU_ARM64)
 // store previous wake time
 static CFAbsoluteTime previousWakeTime = 0.0;

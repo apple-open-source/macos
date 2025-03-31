@@ -92,6 +92,15 @@ NS_ASSUME_NONNULL_BEGIN
 - (nullable HIDEvent *)eventMatching:(nullable NSDictionary *)matching;
 
 /*!
+ * @method registerWithSystem
+ *
+ * @abstract
+ *  Triggers matching for a service with the current set of active clients
+ *  Intended for use with "unregistered" services (through the kIOHIDServiceUnregisteredKey)
+ */
+- (void)registerWithSystem;
+
+/*!
  * @property serviceID
  *
  * @abstract

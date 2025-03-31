@@ -91,7 +91,7 @@ extern uint16_t tcp_log_port;
 
 #define TLEF_MASK_DST (TLEF_DST_LOOPBACK | TLEF_DST_LOCAL | TLEF_DST_GW)
 
-extern void tcp_log_connection_summary(struct tcpcb *tp);
+extern void tcp_log_connection_summary(const char *func_name, int line_no, struct tcpcb *tp);
 extern void tcp_log_th_flags(void *hdr, struct tcphdr *th, struct tcpcb *tp, bool outgoing, struct ifnet *ifp);
 extern void tcp_log_connection(struct tcpcb *tp, const char *event, int error);
 extern void tcp_log_listen(struct tcpcb *tp, int error);
@@ -103,9 +103,16 @@ extern void tcp_log_rtt_change(const char *func_name, int line_no, struct tcpcb 
 extern void tcp_log_keepalive(const char *func_name, int line_no, struct tcpcb *tp, int32_t idle_time);
 extern void tcp_log_message(const char *func_name, int line_no, struct tcpcb *tp, const char *format, ...) __printflike(4, 5);
 extern void tcp_log_fsw_flow(const char *func_name, int line_no, struct tcpcb *tp, const char *format, ...) __printflike(4, 5);
-extern void tcp_log_state_change(struct tcpcb *tp, int new_state);
+extern void tcp_log_state_change(const char *func_name, int line_no, struct tcpcb *tp, int new_state);
 extern void tcp_log_output(const char *func_name, int line_no, struct tcpcb *tp, const char *format, ...) __printflike(4, 5);
 extern void tcp_log_bind(struct inpcb *inp, const char *event, int error);
+
+
+#define IN6_IS_ADDR_V4MAPPED_LOOPBACK(a) \
+	((*(const __uint32_t *)(const void *)(&(a)->s6_addr[0]) == 0) && \
+	(*(const __uint32_t *)(const void *)(&(a)->s6_addr[4]) == 0) && \
+	(*(const __uint32_t *)(const void *)(&(a)->s6_addr[8]) == ntohl(0x0000ffff)) && \
+	(*(const __uint32_t *)(const void *)(&(a)->s6_addr[12]) == ntohl(INADDR_LOOPBACK)))
 
 static inline bool
 tcp_is_log_enabled(struct tcpcb *tp, uint32_t req_flags)
@@ -125,24 +132,36 @@ tcp_is_log_enabled(struct tcpcb *tp, uint32_t req_flags)
 	/*
 	 * First find out the kind of destination
 	 */
-	if (inp->inp_log_flags == 0) {
-		if (tp->t_inpcb->inp_vflag & INP_IPV6) {
+	if ((inp->inp_log_flags & TLEF_MASK_DST) == 0) {
+		if ((inp->inp_vflag & INP_IPV6) != 0) {
 			if (IN6_IS_ADDR_LOOPBACK(&tp->t_inpcb->in6p_laddr) ||
-			    IN6_IS_ADDR_LOOPBACK(&tp->t_inpcb->in6p_faddr)) {
-				inp->inp_log_flags |= TLEF_DST_LOOPBACK;
+			    IN6_IS_ADDR_LOOPBACK(&tp->t_inpcb->in6p_faddr) ||
+			    IN6_IS_ADDR_V4MAPPED_LOOPBACK(&tp->t_inpcb->in6p_laddr) ||
+			    IN6_IS_ADDR_V4MAPPED_LOOPBACK(&tp->t_inpcb->in6p_faddr)) {
+				inp->inp_log_flags = TLEF_DST_LOOPBACK;
+			} else if (!IN6_IS_ADDR_UNSPECIFIED(&tp->t_inpcb->in6p_laddr) ||
+			    !IN6_IS_ADDR_UNSPECIFIED(&tp->t_inpcb->in6p_faddr)) {
+				if (tp->t_flags & TF_LOCAL) {
+					inp->inp_log_flags |= TLEF_DST_LOCAL;
+				} else {
+					inp->inp_log_flags |= TLEF_DST_GW;
+				}
 			}
 		} else {
-			if (ntohl(tp->t_inpcb->inp_laddr.s_addr) == INADDR_LOOPBACK ||
-			    ntohl(tp->t_inpcb->inp_faddr.s_addr) == INADDR_LOOPBACK) {
+			if (ntohl(inp->inp_laddr.s_addr) == INADDR_LOOPBACK ||
+			    ntohl(inp->inp_faddr.s_addr) == INADDR_LOOPBACK) {
 				inp->inp_log_flags |= TLEF_DST_LOOPBACK;
-			}
-		}
-		if (inp->inp_log_flags == 0) {
-			if (tp->t_flags & TF_LOCAL) {
+			} else if (tp->t_flags & TF_LOCAL) {
 				inp->inp_log_flags |= TLEF_DST_LOCAL;
-			} else {
+			} else if (ntohl(inp->inp_laddr.s_addr) != INADDR_ANY) {
 				inp->inp_log_flags |= TLEF_DST_GW;
 			}
+		}
+		if (tp->t_state == TCPS_LISTEN && (inp->inp_log_flags & TLEF_MASK_DST) == 0) {
+			/*
+			 * Unspecified address means all scopes
+			 */
+			inp->inp_log_flags = TLEF_DST_LOOPBACK | TLEF_DST_LOCAL | TLEF_DST_GW;
 		}
 	}
 	/*
@@ -153,6 +172,7 @@ tcp_is_log_enabled(struct tcpcb *tp, uint32_t req_flags)
 	       (tcp_log_enable_flags & (req_flags & ~TLEF_MASK_DST));
 }
 
+#undef IN6_IS_ADDR_V4MAPPED_LOOPBACK
 
 static inline bool
 tcp_log_summary_needed(struct tcpcb *tp)
@@ -192,7 +212,7 @@ tcp_log_summary_needed(struct tcpcb *tp)
     tcp_log_connection((tp), "accept", (error))
 
 #define TCP_LOG_CONNECTION_SUMMARY(tp) if (tcp_log_summary_needed(tp)) \
-    tcp_log_connection_summary((tp))
+    tcp_log_connection_summary(__func__, __LINE__, (tp))
 
 #define TCP_LOG_DROP_NECP(hdr, th, tp, outgoing) if (tcp_is_log_enabled(tp, TLEF_DROP_NECP)) \
     tcp_log_drop_pcb((hdr), (th), (tp), (outgoing), "NECP")
@@ -216,7 +236,7 @@ tcp_log_summary_needed(struct tcpcb *tp)
     tcp_log_message(__func__, __LINE__, tp, format, ## __VA_ARGS__)
 
 #define TCP_LOG_STATE(tp, new_state) if (tcp_is_log_enabled(tp, TLEF_STATE)) \
-    tcp_log_state_change((tp), (new_state))
+    tcp_log_state_change(__func__, __LINE__, (tp), (new_state))
 
 #define TCP_LOG_OUTPUT(tp, format, ...) if (tcp_is_log_enabled(tp, TLEF_OUTPUT)) \
     tcp_log_output(__func__, __LINE__, tp, format, ## __VA_ARGS__)

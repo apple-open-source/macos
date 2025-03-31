@@ -1,34 +1,36 @@
-#ifndef __APPLE__
-#if !defined(lint) && !defined(SABER)
-static const char rcsid[] = "$Id: res_update.c,v 1.1 2006/03/01 19:01:39 majka Exp $";
+#if !defined(lint) && !defined(SABER) && !defined(__APPLE__)
+static const char rcsid[] = "$Id: res_update.c,v 1.13 2005/04/27 04:56:43 sra Exp $";
 #endif /* not lint */
-#endif
 
-/*
+/*-
+ * SPDX-License-Identifier: ISC
+ *
+ * Copyright (c) 2004 by Internet Systems Consortium, Inc. ("ISC")
  * Copyright (c) 1996-1999 by Internet Software Consortium.
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
  * copyright notice and this permission notice appear in all copies.
  *
- * THE SOFTWARE IS PROVIDED "AS IS" AND INTERNET SOFTWARE CONSORTIUM DISCLAIMS
- * ALL WARRANTIES WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES
- * OF MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL INTERNET SOFTWARE
- * CONSORTIUM BE LIABLE FOR ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL
- * DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR
- * PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS
- * ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS
- * SOFTWARE.
+ * THE SOFTWARE IS PROVIDED "AS IS" AND ISC DISCLAIMS ALL WARRANTIES
+ * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS.  IN NO EVENT SHALL ISC BE LIABLE FOR
+ * ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+ * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+ * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT
+ * OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-/*
+/*! \file
+ * \brief
  * Based on the Dynamic DNS reference implementation by Viraj Bais
- * <viraj_bais@ccm.fm.intel.com>
+ * &lt;viraj_bais@ccm.fm.intel.com>
  */
 
-#ifndef __APPLE__
+#include <sys/cdefs.h>
+__FBSDID("$FreeBSD$");
+
 #include "port_before.h"
-#endif
 
 #include <sys/param.h>
 #include <sys/socket.h>
@@ -37,6 +39,9 @@ static const char rcsid[] = "$Id: res_update.c,v 1.1 2006/03/01 19:01:39 majka E
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <arpa/nameser.h>
+#ifdef __APPLE__
+#include <arpa/nameser_compat.h>
+#endif
 
 #include <errno.h>
 #include <limits.h>
@@ -47,15 +52,18 @@ static const char rcsid[] = "$Id: res_update.c,v 1.1 2006/03/01 19:01:39 majka E
 #include <stdlib.h>
 #include <string.h>
 
-#include <resolv.h>
-
 #ifndef __APPLE__
 #include <isc/list.h>
-#include "port_after.h"
 #endif
+#include <resolv.h>
+
+#include "port_after.h"
 #include "res_private.h"
 
-/*
+#define RES_DEBUG_PREFIX ";; res_nupdate: "
+#include "res_debug.h"
+
+/*%
  * Separate a linked list of records into groups so that all records
  * in a group will belong to a single zone on the nameserver.
  * Create a dynamic update packet for each zone and send it to the
@@ -70,7 +78,7 @@ static const char rcsid[] = "$Id: res_update.c,v 1.1 2006/03/01 19:01:39 majka E
  */
 
 struct zonegrp {
-	char			z_origin[NS_MAXDNAME];
+	char			z_origin[MAXDNAME];
 	ns_class		z_class;
 	union res_sockaddr_union z_nsaddrs[MAXNS];
 	int			z_nscount;
@@ -81,29 +89,26 @@ struct zonegrp {
 
 #define ZG_F_ZONESECTADDED	0x0001
 
-/* Forward. */
-
-static void	res_dprintf(const char *, ...) __printflike(1, 2);
-
-/* Macros. */
-
-#define DPRINTF(x) do {\
-		int save_errno = errno; \
-		if ((statp->options & RES_DEBUG) != 0) res_dprintf x; \
-		errno = save_errno; \
-	} while (0)
-
 /* Public. */
 
+#ifdef __APPLE__
+__attribute__((__visibility__("hidden")))
+#endif	/* __APPLE__ */
 int
 res_nupdate(res_state statp, ns_updrec *rrecp_in, ns_tsig_key *key) {
 	ns_updrec *rrecp;
-	u_char answer[NS_PACKETSZ], packet[2*NS_PACKETSZ];
+	u_char answer[PACKETSZ];
+	u_char *packet;
 	struct zonegrp *zptr, tgrp;
 	LIST(struct zonegrp) zgrps;
 	int nzones = 0, nscount = 0, n;
 	union res_sockaddr_union nsaddrs[MAXNS];
 
+	packet = malloc(NS_MAXMSG);
+	if (packet == NULL) {
+		Dprint("malloc failed");
+		return (0);
+	}
 	/* Thread all of the updates onto a list of groups. */
 	INIT_LIST(zgrps);
 	memset(&tgrp, 0, sizeof (tgrp));
@@ -117,7 +122,7 @@ res_nupdate(res_state statp, ns_updrec *rrecp_in, ns_tsig_key *key) {
 					 sizeof tgrp.z_origin, 
 					 tgrp.z_nsaddrs, MAXNS);
 		if (nscnt <= 0) {
-			DPRINTF(("res_findzonecut failed (%d)", nscnt));
+			Dprint("res_findzonecut failed (%d)", nscnt);
 			goto done;
 		}
 		tgrp.z_nscount = nscnt;
@@ -130,7 +135,7 @@ res_nupdate(res_state statp, ns_updrec *rrecp_in, ns_tsig_key *key) {
 		if (zptr == NULL) {
 			zptr = malloc(sizeof *zptr);
 			if (zptr == NULL) {
-				DPRINTF(("malloc failed"));
+				Dprint("malloc failed");
 				goto done;
 			}
 			*zptr = tgrp;
@@ -148,7 +153,7 @@ res_nupdate(res_state statp, ns_updrec *rrecp_in, ns_tsig_key *key) {
 		rrecp = res_mkupdrec(ns_s_zn, zptr->z_origin,
 				     zptr->z_class, ns_t_soa, 0);
 		if (rrecp == NULL) {
-			DPRINTF(("res_mkupdrec failed"));
+			Dprint("res_mkupdrec failed");
 			goto done;
 		}
 		PREPEND(zptr->z_rrlist, rrecp, r_glink);
@@ -156,8 +161,8 @@ res_nupdate(res_state statp, ns_updrec *rrecp_in, ns_tsig_key *key) {
 
 		/* Marshall the update message. */
 		n = res_nmkupdate(statp, HEAD(zptr->z_rrlist),
-				  packet, sizeof packet);
-		DPRINTF(("res_mkupdate -> %d", n));
+				  packet, NS_MAXMSG);
+		Dprint("res_mkupdate -> %d", n);
 		if (n < 0)
 			goto done;
 
@@ -166,17 +171,23 @@ res_nupdate(res_state statp, ns_updrec *rrecp_in, ns_tsig_key *key) {
 		res_setservers(statp, zptr->z_nsaddrs, zptr->z_nscount);
 
 		/* Send the update and remember the result. */
-		if (key != NULL)
+		if (key != NULL) {
+#ifdef _LIBC
+			Dprint("TSIG is not supported");
+			RES_SET_H_ERRNO(statp, NO_RECOVERY);
+			goto done;
+#else
 			n = res_nsendsigned(statp, packet, n, key,
 					    answer, sizeof answer);
-		else
+#endif
+		} else
 			n = res_nsend(statp, packet, n, answer, sizeof answer);
 		if (n < 0) {
-			DPRINTF(("res_nsend: send error, n=%d (%s)\n",
-				 n, strerror(errno)));
+			Dprint("res_nsend: send error, n=%d (%s)",
+			       n, strerror(errno));
 			goto done;
 		}
-		if (((HEADER *)answer)->rcode == ns_r_noerror)
+		if (((HEADER *)answer)->rcode == NOERROR)
 			nzones++;
 
 		/* Restore resolver's nameserver set. */
@@ -194,18 +205,6 @@ res_nupdate(res_state statp, ns_updrec *rrecp_in, ns_tsig_key *key) {
 	if (nscount != 0)
 		res_setservers(statp, nsaddrs, nscount);
 
+	free(packet);
 	return (nzones);
-}
-
-/* Private. */
-
-static void
-res_dprintf(const char *fmt, ...) {
-	va_list ap;
-
-	va_start(ap, fmt);
-	fputs(";; res_nupdate: ", stderr);
-	vfprintf(stderr, fmt, ap);
-	fputc('\n', stderr);
-	va_end(ap);
 }

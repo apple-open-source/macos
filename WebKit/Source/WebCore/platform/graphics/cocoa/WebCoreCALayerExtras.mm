@@ -155,8 +155,9 @@ void collectDescendantLayersAtPoint(Vector<LayerAndPoint, 16>& layersAtPoint, CA
     if (parent.mask && ![parent _web_maskContainsPoint:point])
         return;
 
-    for (CALayer *layer in [parent sublayers]) {
-        CALayer *layerWithResolvedAnimations = layer;
+    RetainPtr sublayers = adoptNS([[parent sublayers] copy]);
+    for (CALayer* layer : sublayers.get()) {
+        RetainPtr layerWithResolvedAnimations = layer;
 
         if ([[layer animationKeys] count])
             layerWithResolvedAnimations = [layer presentationLayer];
@@ -188,7 +189,7 @@ void collectDescendantLayersAtPoint(Vector<LayerAndPoint, 16>& layersAtPoint, CA
     };
 }
 
-Vector<LayerAndPoint, 16> layersAtPointToCheckForScrolling(std::function<bool(CALayer*, CGPoint)> layerEventRegionContainsPoint, std::function<uint64_t(CALayer*)> scrollingNodeIDForLayer, CALayer* layer, const FloatPoint& point, bool& hasAnyNonInteractiveScrollingLayers)
+Vector<LayerAndPoint, 16> layersAtPointToCheckForScrolling(std::function<bool(CALayer*, CGPoint)> layerEventRegionContainsPoint, std::function<std::optional<ScrollingNodeID>(CALayer*)> scrollingNodeIDForLayer, CALayer* layer, const FloatPoint& point, bool& hasAnyNonInteractiveScrollingLayers)
 {
     Vector<LayerAndPoint, 16> layersAtPoint;
     collectDescendantLayersAtPoint(layersAtPoint, layer, point, [&] (auto layer, auto point) {

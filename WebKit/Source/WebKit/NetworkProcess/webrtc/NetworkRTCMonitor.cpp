@@ -39,6 +39,7 @@
 #include <wtf/NeverDestroyed.h>
 #include <wtf/RetainPtr.h>
 #include <wtf/Scope.h>
+#include <wtf/StdLibExtras.h>
 #include <wtf/WeakHashSet.h>
 #include <wtf/WorkQueue.h>
 
@@ -209,9 +210,9 @@ static HashMap<String, RTCNetwork> gatherNetworkMap()
 
         auto prefixLength = rtc::CountIPMaskBits(address->second.rtcAddress());
 
-        auto name = span(iterator->ifa_name);
+        auto name = unsafeSpan(iterator->ifa_name);
         auto prefixString = address->second.rtcAddress().ToString();
-        auto networkKey = makeString(StringView { name }, "-"_s, prefixLength, "-"_s, StringView { std::span(prefixString.c_str(), prefixString.length()) });
+        auto networkKey = makeString(name, "-"_s, prefixLength, "-"_s, std::span { prefixString });
 
         networkMap.ensure(networkKey, [&] {
             return RTCNetwork { name, networkKey.utf8().span(), address->second, prefixLength, interfaceAdapterType(iterator->ifa_name), 0, 0, true, false, scopeID, { } };
@@ -228,7 +229,7 @@ static bool connectToRemoteAddress(int socket, bool useIPv4)
     const int publicPort = 53;
 
     sockaddr_storage remoteAddressStorage;
-    memset(&remoteAddressStorage, 0, sizeof(sockaddr_storage));
+    zeroBytes(remoteAddressStorage);
     size_t remoteAddressStorageLength = 0;
     if (useIPv4) {
         auto& remoteAddress = *reinterpret_cast<sockaddr_in*>(&remoteAddressStorage);
@@ -266,7 +267,7 @@ static bool connectToRemoteAddress(int socket, bool useIPv4)
 static std::optional<RTCNetwork::IPAddress> getSocketLocalAddress(int socket, bool useIPv4)
 {
     sockaddr_storage localAddressStorage;
-    memset(&localAddressStorage, 0, sizeof(sockaddr_storage));
+    zeroBytes(localAddressStorage);
     socklen_t localAddressStorageLength = sizeof(sockaddr_storage);
     if (::getsockname(socket, reinterpret_cast<sockaddr*>(&localAddressStorage), &localAddressStorageLength) < 0) {
         RELEASE_LOG_ERROR(WebRTC, "getDefaultIPAddress getsockname failed, useIPv4=%d", useIPv4);
@@ -306,17 +307,18 @@ void NetworkManager::updateNetworks()
     auto aggregator = CallbackAggregator::create([] (auto&& ipv4, auto&& ipv6, auto&& networkList) mutable {
         networkManager().onGatheredNetworks(WTFMove(ipv4), WTFMove(ipv6), WTFMove(networkList));
     });
-    m_queue->dispatch([aggregator] {
+    Ref protectedQueue = m_queue;
+    protectedQueue->dispatch([aggregator] {
         bool useIPv4 = true;
         if (auto address = getDefaultIPAddress(useIPv4))
             aggregator->setIPv4(WTFMove(*address));
     });
-    m_queue->dispatch([aggregator] {
+    protectedQueue->dispatch([aggregator] {
         bool useIPv4 = false;
         if (auto address = getDefaultIPAddress(useIPv4))
             aggregator->setIPv6(WTFMove(*address));
     });
-    m_queue->dispatch([aggregator] {
+    protectedQueue->dispatch([aggregator] {
         aggregator->setNetworkMap(gatherNetworkMap());
     });
 }
@@ -336,14 +338,10 @@ static bool isEqual(const Vector<RTCNetwork::InterfaceAddress>& a, const Vector<
     if (a.size() != b.size())
         return false;
 
-    auto iteratorA = a.begin();
-    auto iteratorB = b.begin();
-
-    while (iteratorA != a.end()) {
-        if (!isEqual(*iteratorA++, *iteratorB++))
+    for (size_t i = 0; i < a.size(); ++i) {
+        if (!isEqual(a[i], b[i]))
             return false;
     }
-
     return true;
 }
 
@@ -363,7 +361,7 @@ static bool sortNetworks(const RTCNetwork& a, const RTCNetwork& b)
     if (precedenceA != precedenceB)
         return precedenceA < precedenceB;
 
-    return codePointCompare(StringView { std::span(a.description.data(), a.description.size()) }, StringView { std::span(b.description.data(), b.description.size()) }) < 0;
+    return codePointCompare(StringView { a.description.span() }, StringView { b.description.span() }) < 0;
 }
 
 void NetworkManager::onGatheredNetworks(RTCNetwork::IPAddress&& ipv4, RTCNetwork::IPAddress&& ipv6, HashMap<String, RTCNetwork>&& networkMap)

@@ -216,11 +216,11 @@ LinkImageLayout::LinkImageLayout(URL& url, const String& titleString)
     CGFloat maximumUsedTextWidth = 0;
 
     auto buildLines = [this, maximumAvailableWidth, &maximumUsedTextWidth, &currentY] (NSString *text, NSColor *color, NSFont *font, CFIndex maximumLines, CTLineBreakMode lineBreakMode) {
-        CTParagraphStyleSetting paragraphStyleSettings[1];
-        paragraphStyleSettings[0].spec = kCTParagraphStyleSpecifierLineBreakMode;
-        paragraphStyleSettings[0].valueSize = sizeof(CTLineBreakMode);
-        paragraphStyleSettings[0].value = &lineBreakMode;
-        RetainPtr<CTParagraphStyleRef> paragraphStyle = adoptCF(CTParagraphStyleCreate(paragraphStyleSettings, 1));
+        CTParagraphStyleSetting paragraphStyleSettings;
+        paragraphStyleSettings.spec = kCTParagraphStyleSpecifierLineBreakMode;
+        paragraphStyleSettings.valueSize = sizeof(CTLineBreakMode);
+        paragraphStyleSettings.value = &lineBreakMode;
+        RetainPtr<CTParagraphStyleRef> paragraphStyle = adoptCF(CTParagraphStyleCreate(&paragraphStyleSettings, 1));
 
         NSDictionary *textAttributes = @{
             (id)kCTFontAttributeName: font,

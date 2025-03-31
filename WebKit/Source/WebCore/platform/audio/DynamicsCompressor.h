@@ -89,13 +89,16 @@ protected:
     unsigned m_numberOfChannels;
 
     // m_parameters holds the tweakable compressor parameters.
-    float m_parameters[ParamLast];
+    std::array<float, ParamLast> m_parameters;
     void initializeParameters();
+
+    std::span<std::span<const float>> sourceChannels() const { return unsafeMakeSpan(m_sourceChannels.get(), m_numberOfChannels); }
+    std::span<std::span<float>> destinationChannels() const { return unsafeMakeSpan(m_destinationChannels.get(), m_numberOfChannels); }
 
     float m_sampleRate;
 
-    UniqueArray<const float*> m_sourceChannels;
-    UniqueArray<float*> m_destinationChannels;
+    UniqueArray<std::span<const float>> m_sourceChannels;
+    UniqueArray<std::span<float>> m_destinationChannels;
 
     // The core compressor.
     DynamicsCompressorKernel m_compressor;

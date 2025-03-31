@@ -1,0 +1,34 @@
+(version 1)
+
+;; We specifically want to keep file-read-metadata denied by default, along with
+;; process-exec.  The former will be used to confirm that being denied the
+;; ability to readlink(2) in /var/select won't stop us from executing the
+;; default application, and the latter will be used to confirm that we can
+;; fallback to another choice if we were denied the application we wanted to
+;; execute.
+(deny default)
+
+;; Odds and ends required for basic functionality that doesn't open us up to
+;; accidentally being able to exec $ALLOWED_BINARY_PATH
+(import "system.sb")
+
+;; The binaries we want to restrict will never be in our test install directory,
+;; so we'll at least allow that to avoid having to mess with this profile any
+;; further if we want to expand the test somehow.
+(allow file-read* process-exec
+	(subpath "/AppleInternal/Tests/adv_cmds/genwrap"))
+
+;; The $ALLOWED_BINARY_PATH will be a shell script, so also make sure we can
+;; exec its interpreter.
+(allow file-read* process-exec
+	(literal "/bin/sh")
+	(literal "/bin/bash"))
+(allow file-read-metadata
+	(literal "/private/var/select/sh"))
+
+;; Finally, allow the wrapper to read $PWD
+(allow file-read* file-test-existence
+	(literal (param "PWD")))
+
+(allow file-read* process-exec
+	(literal (param "ALLOWED_BINARY_PATH")))

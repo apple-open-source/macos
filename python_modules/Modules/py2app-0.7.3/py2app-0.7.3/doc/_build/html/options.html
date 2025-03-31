@@ -1,0 +1,201 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>py2app Options &mdash; py2app 0.7.3 documentation</title>
+    
+    <link rel="stylesheet" href="_static/nature.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '',
+        VERSION:     '0.7.3',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <link rel="top" title="py2app 0.7.3 documentation" href="index.html" />
+    <link rel="next" title="Recipes" href="recipes.html" />
+    <link rel="prev" title="Example setup.py templates" href="examples.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="recipes.html" title="Recipes"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="examples.html" title="Example setup.py templates"
+             accesskey="P">previous</a> |</li>
+        <li><a href="index.html">py2app 0.7.3 documentation</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="py2app-options">
+<h1>py2app Options<a class="headerlink" href="#py2app-options" title="Permalink to this headline">¶</a></h1>
+<p>Options can be specified to py2app to influence the build procedure in three
+different ways:</p>
+<p>At the command line:</p>
+<div class="highlight-python"><pre>$ python setup.py py2app --argv-emulation</pre>
+</div>
+<p>In your <tt class="docutils literal"><span class="pre">setup.py</span></tt>:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="n">setup</span><span class="p">(</span>
+    <span class="n">app</span><span class="o">=</span><span class="p">[</span><span class="s">&#39;MyApplication.py&#39;</span><span class="p">],</span>
+    <span class="n">options</span><span class="o">=</span><span class="nb">dict</span><span class="p">(</span><span class="n">py2app</span><span class="o">=</span><span class="nb">dict</span><span class="p">(</span>
+        <span class="n">argv_emulation</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+    <span class="p">)),</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<p>In a <tt class="docutils literal"><span class="pre">setup.cfg</span></tt> file:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="p">[</span><span class="n">py2app</span><span class="p">]</span>
+<span class="n">argv</span><span class="o">-</span><span class="n">emulation</span><span class="o">=</span><span class="mi">1</span>
+</pre></div>
+</div>
+<p>Note that when translating command-line options for use in <tt class="docutils literal"><span class="pre">setup.py</span></tt>, you
+must replace hyphens (<tt class="docutils literal"><span class="pre">-</span></tt>) with underscores (<tt class="docutils literal"><span class="pre">_</span></tt>). <tt class="docutils literal"><span class="pre">setup.cfg</span></tt> files
+may use either hyphens or underscores, but command-line options must always
+use the hyphens.</p>
+<div class="section" id="option-reference">
+<h2>Option Reference<a class="headerlink" href="#option-reference" title="Permalink to this headline">¶</a></h2>
+<p>To enumerate the options that py2app supports, use the following command:</p>
+<div class="highlight-python"><pre>$ python setup.py py2app --help</pre>
+</div>
+<p>Options for &#8216;py2app&#8217; command:</p>
+<div class="highlight-python"><pre>--optimize (-O)         optimization level: -O1 for "python -O", -O2 for
+                        "python -OO", and -O0 to disable [default: -O0]
+--includes (-i)         comma-separated list of modules to include
+--packages (-p)         comma-separated list of packages to include
+--iconfile              Icon file to use
+--excludes (-e)         comma-separated list of modules to exclude
+--dylib-excludes (-E)   comma-separated list of frameworks or dylibs to
+                        exclude
+--datamodels            xcdatamodels to be compiled and copied into
+                        Resources
+--resources (-r)        comma-separated list of additional data files and
+                        folders to include (not for code!)
+--frameworks (-f)       comma-separated list of additional frameworks and
+                        dylibs to include
+--plist (-P)            Info.plist template file, dict, or plistlib.Plist
+--extension             Bundle extension [default:.app for app, .plugin for
+                        plugin]
+--graph (-g)            output module dependency graph
+--xref (-x)             output module cross-reference as html
+--no-strip              do not strip debug and local symbols from output
+--no-chdir (-C)         do not change to the data directory
+                        (Contents/Resources) [forced for plugins]
+--semi-standalone (-s)  depend on an existing installation of Python
+--alias (-A)            Use an alias to current source file (for development
+                        only!)
+--argv-emulation (-a)   Use argv emulation [disabled for plugins]. Does not work with python 3.x
+--argv-inject           Inject some commands into the argv
+--use-pythonpath        Allow PYTHONPATH to effect the interpreter's
+                        environment
+--bdist-base (-b)       base directory for build library (default is build)
+--dist-dir (-d)         directory to put final built distributions in
+                        (default is dist)
+--site-packages         include the system and user site-packages into
+                        sys.path
+--strip (-S)            strip debug and local symbols from output (on by
+                        default, for compatibility)
+--prefer-ppc            Force application to run translated on i386
+                        (LSPrefersPPC=True)
+--debug-modulegraph     Drop to pdb console after the module finding phase
+                        is complete
+--debug-skip-macholib   skip macholib phase (app will not be standalone!)
+--emulate-shell-environment emulate the shell environment in a Terminal window
+--qt-plugins            comma-separated list of Qt plugins to include in a
+                        application using PyQt4.
+--matplotlib-backends   comma-separated list of matplotlib backends to include
+                        in an application using that library. The default is
+                        to include all of matplotlib. Use '*' to include all
+                        backends, and '-' to only include backends that are
+                        explicitly imported.
+--extra-scripts         comma-separated list of additional scripts to include
+                        in an application or plugin.</pre>
+</div>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">py2app Options</a><ul>
+<li><a class="reference internal" href="#option-reference">Option Reference</a></li>
+</ul>
+</li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="examples.html"
+                        title="previous chapter">Example setup.py templates</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="recipes.html"
+                        title="next chapter">Recipes</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="_sources/options.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="recipes.html" title="Recipes"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="examples.html" title="Example setup.py templates"
+             >previous</a> |</li>
+        <li><a href="index.html">py2app 0.7.3 documentation</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2010, Ronald Oussoren, Bob Ippolito.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1.3.
+    </div>
+  </body>
+</html>

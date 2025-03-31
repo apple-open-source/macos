@@ -13,7 +13,7 @@
 
 #include "cs_helpers.h"
 
-#define MAX_TEST_NUM 10
+#define MAX_TEST_NUM 11
 
 #if __arm64__
 #define machine_thread_state_t          arm_thread_state64_t
@@ -304,6 +304,12 @@ kobject_reply_port_defense(void)
 	printf("kobject call did not crash: %d\n", kr);
 }
 
+static void
+test_alloc_provisional_reply_port(void)
+{
+	mach_port_t __unused reply_port = alloc_provisional_reply_port();
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -328,6 +334,7 @@ main(int argc, char *argv[])
 		unentitled_set_exception_ports_pass,
 		exception_ports_crash, /* 8 */
 		kobject_reply_port_defense, /* 9 */
+		test_alloc_provisional_reply_port, /* 10 */
 	};
 
 	if (argc < 2) {

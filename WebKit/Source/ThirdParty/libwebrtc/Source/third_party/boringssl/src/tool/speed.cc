@@ -38,18 +38,19 @@
 #include <openssl/ecdsa.h>
 #include <openssl/err.h>
 #include <openssl/evp.h>
-#define OPENSSL_UNSTABLE_EXPERIMENTAL_DILITHIUM
-#include <openssl/experimental/dilithium.h>
 #define OPENSSL_UNSTABLE_EXPERIMENTAL_KYBER
 #include <openssl/experimental/kyber.h>
 #define OPENSSL_UNSTABLE_EXPERIMENTAL_SPX
 #include <openssl/experimental/spx.h>
 #include <openssl/hrss.h>
 #include <openssl/mem.h>
+#include <openssl/mldsa.h>
+#include <openssl/mlkem.h>
 #include <openssl/nid.h>
 #include <openssl/rand.h>
 #include <openssl/rsa.h>
 #include <openssl/siphash.h>
+#include <openssl/slhdsa.h>
 #include <openssl/trust_token.h>
 
 #if defined(OPENSSL_WINDOWS)
@@ -71,6 +72,7 @@ OPENSSL_MSVC_PRAGMA(warning(pop))
 #include "../crypto/ec_extra/internal.h"
 #include "../crypto/fipsmodule/ec/internal.h"
 #include "../crypto/internal.h"
+#include "../crypto/mldsa/internal.h"
 #include "../crypto/trust_token/internal.h"
 #include "internal.h"
 
@@ -311,6 +313,7 @@ static bool SpeedRSA(const std::string &selected) {
     const size_t key_len;
   } kRSAKeys[] = {
       {"RSA 2048", kDERRSAPrivate2048, kDERRSAPrivate2048Len},
+      {"RSA 3072", kDERRSAPrivate3072, kDERRSAPrivate3072Len},
       {"RSA 4096", kDERRSAPrivate4096, kDERRSAPrivate4096Len},
   };
 
@@ -752,8 +755,7 @@ static bool SpeedECDHCurve(const std::string &name, const EC_GROUP *group,
   }
 
   bssl::UniquePtr<EC_KEY> peer_key(EC_KEY_new());
-  if (!peer_key ||
-      !EC_KEY_set_group(peer_key.get(), group) ||
+  if (!peer_key || !EC_KEY_set_group(peer_key.get(), group) ||
       !EC_KEY_generate_key(peer_key.get())) {
     return false;
   }
@@ -810,8 +812,7 @@ static bool SpeedECDSACurve(const std::string &name, const EC_GROUP *group,
   }
 
   bssl::UniquePtr<EC_KEY> key(EC_KEY_new());
-  if (!key ||
-      !EC_KEY_set_group(key.get(), group) ||
+  if (!key || !EC_KEY_set_group(key.get(), group) ||
       !EC_KEY_generate_key(key.get())) {
     return false;
   }
@@ -1132,113 +1133,214 @@ static bool SpeedKyber(const std::string &selected) {
   return true;
 }
 
-static bool SpeedDilithium(const std::string &selected) {
-  if (!selected.empty() && selected != "Dilithium") {
+static bool SpeedMLDSA(const std::string &selected) {
+  if (!selected.empty() && selected != "ML-DSA") {
     return true;
   }
 
   TimeResults results;
 
   auto encoded_public_key =
-      std::make_unique<uint8_t[]>(DILITHIUM_PUBLIC_KEY_BYTES);
-  auto priv = std::make_unique<DILITHIUM_private_key>();
+      std::make_unique<uint8_t[]>(MLDSA65_PUBLIC_KEY_BYTES);
+  auto priv = std::make_unique<MLDSA65_private_key>();
   if (!TimeFunctionParallel(&results, [&]() -> bool {
-        if (!DILITHIUM_generate_key(encoded_public_key.get(), priv.get())) {
-          fprintf(stderr, "Failure in DILITHIUM_generate_key.\n");
+        uint8_t seed[MLDSA_SEED_BYTES];
+        if (!MLDSA65_generate_key(encoded_public_key.get(), seed, priv.get())) {
+          fprintf(stderr, "Failure in MLDSA65_generate_key.\n");
           return false;
         }
         return true;
       })) {
-    fprintf(stderr, "Failed to time DILITHIUM_generate_key.\n");
+    fprintf(stderr, "Failed to time MLDSA65_generate_key.\n");
     return false;
   }
 
-  results.Print("Dilithium key generation");
+  results.Print("MLDSA key generation");
 
   auto encoded_private_key =
-      std::make_unique<uint8_t[]>(DILITHIUM_PRIVATE_KEY_BYTES);
+      std::make_unique<uint8_t[]>(MLDSA65_PRIVATE_KEY_BYTES);
   CBB cbb;
-  CBB_init_fixed(&cbb, encoded_private_key.get(), DILITHIUM_PRIVATE_KEY_BYTES);
-  DILITHIUM_marshal_private_key(&cbb, priv.get());
+  CBB_init_fixed(&cbb, encoded_private_key.get(), MLDSA65_PRIVATE_KEY_BYTES);
+  MLDSA65_marshal_private_key(&cbb, priv.get());
 
   if (!TimeFunctionParallel(&results, [&]() -> bool {
         CBS cbs;
-        CBS_init(&cbs, encoded_private_key.get(), DILITHIUM_PRIVATE_KEY_BYTES);
-        if (!DILITHIUM_parse_private_key(priv.get(), &cbs)) {
-          fprintf(stderr, "Failure in DILITHIUM_parse_private_key.\n");
+        CBS_init(&cbs, encoded_private_key.get(), MLDSA65_PRIVATE_KEY_BYTES);
+        if (!MLDSA65_parse_private_key(priv.get(), &cbs)) {
+          fprintf(stderr, "Failure in MLDSA65_parse_private_key.\n");
           return false;
         }
         return true;
       })) {
-    fprintf(stderr, "Failed to time DILITHIUM_parse_private_key.\n");
+    fprintf(stderr, "Failed to time MLDSA65_parse_private_key.\n");
     return false;
   }
 
-  results.Print("Dilithium parse (valid) private key");
+  results.Print("MLDSA parse (valid) private key");
 
   const char *message = "Hello world";
   size_t message_len = strlen(message);
   auto out_encoded_signature =
-      std::make_unique<uint8_t[]>(DILITHIUM_SIGNATURE_BYTES);
+      std::make_unique<uint8_t[]>(MLDSA65_SIGNATURE_BYTES);
   if (!TimeFunctionParallel(&results, [&]() -> bool {
-        if (!DILITHIUM_sign(out_encoded_signature.get(), priv.get(),
-                            (const uint8_t *)message, message_len)) {
-          fprintf(stderr, "Failure in DILITHIUM_sign.\n");
+        if (!MLDSA65_sign(out_encoded_signature.get(), priv.get(),
+                          (const uint8_t *)message, message_len, nullptr, 0)) {
+          fprintf(stderr, "Failure in MLDSA65_sign.\n");
           return false;
         }
         return true;
       })) {
-    fprintf(stderr, "Failed to time DILITHIUM_sign.\n");
+    fprintf(stderr, "Failed to time MLDSA65_sign.\n");
     return false;
   }
 
-  results.Print("Dilithium sign (randomized)");
+  results.Print("MLDSA sign (randomized)");
 
-  auto pub = std::make_unique<DILITHIUM_public_key>();
+  auto pub = std::make_unique<MLDSA65_public_key>();
 
   if (!TimeFunctionParallel(&results, [&]() -> bool {
         CBS cbs;
-        CBS_init(&cbs, encoded_public_key.get(), DILITHIUM_PUBLIC_KEY_BYTES);
-        if (!DILITHIUM_parse_public_key(pub.get(), &cbs)) {
-          fprintf(stderr, "Failure in DILITHIUM_parse_public_key.\n");
+        CBS_init(&cbs, encoded_public_key.get(), MLDSA65_PUBLIC_KEY_BYTES);
+        if (!MLDSA65_parse_public_key(pub.get(), &cbs)) {
+          fprintf(stderr, "Failure in MLDSA65_parse_public_key.\n");
           return false;
         }
         return true;
       })) {
-    fprintf(stderr, "Failed to time DILITHIUM_parse_public_key.\n");
+    fprintf(stderr, "Failed to time MLDSA65_parse_public_key.\n");
     return false;
   }
 
-  results.Print("Dilithium parse (valid) public key");
+  results.Print("MLDSA parse (valid) public key");
 
   if (!TimeFunctionParallel(&results, [&]() -> bool {
-        if (!DILITHIUM_verify(pub.get(), out_encoded_signature.get(),
-                              (const uint8_t *)message, message_len)) {
-          fprintf(stderr, "Failed to verify Dilithium signature.\n");
+        if (!MLDSA65_verify(pub.get(), out_encoded_signature.get(),
+                            MLDSA65_SIGNATURE_BYTES, (const uint8_t *)message,
+                            message_len, nullptr, 0)) {
+          fprintf(stderr, "Failed to verify MLDSA signature.\n");
           return false;
         }
         return true;
       })) {
-    fprintf(stderr, "Failed to time DILITHIUM_verify.\n");
+    fprintf(stderr, "Failed to time MLDSA65_verify.\n");
     return false;
   }
 
-  results.Print("Dilithium verify (valid signature)");
+  results.Print("MLDSA verify (valid signature)");
 
   out_encoded_signature[42] ^= 0x42;
   if (!TimeFunctionParallel(&results, [&]() -> bool {
-        if (DILITHIUM_verify(pub.get(), out_encoded_signature.get(),
-                             (const uint8_t *)message, message_len)) {
-          fprintf(stderr, "Dilithium signature unexpectedly verified.\n");
+        if (MLDSA65_verify(pub.get(), out_encoded_signature.get(),
+                           MLDSA65_SIGNATURE_BYTES, (const uint8_t *)message,
+                           message_len, nullptr, 0)) {
+          fprintf(stderr, "MLDSA signature unexpectedly verified.\n");
           return false;
         }
         return true;
       })) {
-    fprintf(stderr, "Failed to time DILITHIUM_verify.\n");
+    fprintf(stderr, "Failed to time MLDSA65_verify.\n");
     return false;
   }
 
-  results.Print("Dilithium verify (invalid signature)");
+  results.Print("MLDSA verify (invalid signature)");
+
+  return true;
+}
+
+static bool SpeedMLKEM(const std::string &selected) {
+  if (!selected.empty() && selected != "ML-KEM-768") {
+    return true;
+  }
+
+  TimeResults results;
+
+  uint8_t ciphertext[MLKEM768_CIPHERTEXT_BYTES];
+  // This ciphertext is nonsense, but decap is constant-time so, for the
+  // purposes of timing, it's fine.
+  memset(ciphertext, 42, sizeof(ciphertext));
+  if (!TimeFunctionParallel(&results, [&]() -> bool {
+        MLKEM768_private_key priv;
+        uint8_t encoded_public_key[MLKEM768_PUBLIC_KEY_BYTES];
+        MLKEM768_generate_key(encoded_public_key, nullptr, &priv);
+        uint8_t shared_secret[MLKEM_SHARED_SECRET_BYTES];
+        MLKEM768_decap(shared_secret, ciphertext, sizeof(ciphertext), &priv);
+        return true;
+      })) {
+    fprintf(stderr, "Failed to time MLKEM768_generate_key + MLKEM768_decap.\n");
+    return false;
+  }
+
+  results.Print("ML-KEM-768 generate + decap");
+
+  MLKEM768_private_key priv;
+  uint8_t encoded_public_key[MLKEM768_PUBLIC_KEY_BYTES];
+  MLKEM768_generate_key(encoded_public_key, nullptr, &priv);
+  MLKEM768_public_key pub;
+  if (!TimeFunctionParallel(&results, [&]() -> bool {
+        CBS encoded_public_key_cbs;
+        CBS_init(&encoded_public_key_cbs, encoded_public_key,
+                 sizeof(encoded_public_key));
+        if (!MLKEM768_parse_public_key(&pub, &encoded_public_key_cbs)) {
+          return false;
+        }
+        uint8_t shared_secret[MLKEM_SHARED_SECRET_BYTES];
+        MLKEM768_encap(ciphertext, shared_secret, &pub);
+        return true;
+      })) {
+    fprintf(stderr, "Failed to time MLKEM768_encap.\n");
+    return false;
+  }
+
+  results.Print("ML-KEM-768 parse + encap");
+
+  return true;
+}
+
+static bool SpeedMLKEM1024(const std::string &selected) {
+  if (!selected.empty() && selected != "ML-KEM-1024") {
+    return true;
+  }
+
+  TimeResults results;
+
+  uint8_t ciphertext[MLKEM1024_CIPHERTEXT_BYTES];
+  auto priv = std::make_unique<MLKEM1024_private_key>();
+  // This ciphertext is nonsense, but decap is constant-time so, for the
+  // purposes of timing, it's fine.
+  memset(ciphertext, 42, sizeof(ciphertext));
+  if (!TimeFunctionParallel(&results, [&]() -> bool {
+        uint8_t encoded_public_key[MLKEM1024_PUBLIC_KEY_BYTES];
+        MLKEM1024_generate_key(encoded_public_key, nullptr, priv.get());
+        uint8_t shared_secret[MLKEM_SHARED_SECRET_BYTES];
+        MLKEM1024_decap(shared_secret, ciphertext, sizeof(ciphertext),
+                        priv.get());
+        return true;
+      })) {
+    fprintf(stderr, "Failed to time MLKEM768_generate_key + MLKEM768_decap.\n");
+    return false;
+  }
+
+  results.Print("ML-KEM-1024 generate + decap");
+
+  uint8_t encoded_public_key[MLKEM1024_PUBLIC_KEY_BYTES];
+  MLKEM1024_generate_key(encoded_public_key, nullptr, priv.get());
+  MLKEM1024_public_key pub;
+  if (!TimeFunctionParallel(&results, [&]() -> bool {
+        CBS encoded_public_key_cbs;
+        CBS_init(&encoded_public_key_cbs, encoded_public_key,
+                 sizeof(encoded_public_key));
+        if (!MLKEM1024_parse_public_key(&pub, &encoded_public_key_cbs)) {
+          return false;
+        }
+        uint8_t shared_secret[MLKEM_SHARED_SECRET_BYTES];
+        MLKEM1024_encap(ciphertext, shared_secret, &pub);
+        return true;
+      })) {
+    fprintf(stderr, "Failed to time MLKEM768_encap.\n");
+    return false;
+  }
+
+  results.Print("ML-KEM-1024 parse + encap");
 
   return true;
 }
@@ -1285,6 +1387,57 @@ static bool SpeedSpx(const std::string &selected) {
   }
 
   results.Print("SPHINCS+-SHA2-128s verify");
+
+  return true;
+}
+
+static bool SpeedSLHDSA(const std::string &selected) {
+  if (!selected.empty() && selected.find("SLH-DSA") == std::string::npos) {
+    return true;
+  }
+
+  TimeResults results;
+  if (!TimeFunctionParallel(&results, []() -> bool {
+        uint8_t public_key[SLHDSA_SHA2_128S_PUBLIC_KEY_BYTES],
+            private_key[SLHDSA_SHA2_128S_PRIVATE_KEY_BYTES];
+        SLHDSA_SHA2_128S_generate_key(public_key, private_key);
+        return true;
+      })) {
+    return false;
+  }
+
+  results.Print("SLHDSA-SHA2-128s key generation");
+
+  uint8_t public_key[SLHDSA_SHA2_128S_PUBLIC_KEY_BYTES],
+      private_key[SLHDSA_SHA2_128S_PRIVATE_KEY_BYTES];
+  SLHDSA_SHA2_128S_generate_key(public_key, private_key);
+  static const uint8_t kMessage[] = {0, 1, 2, 3, 4, 5};
+
+  if (!TimeFunctionParallel(&results, [&private_key]() -> bool {
+        uint8_t out[SLHDSA_SHA2_128S_SIGNATURE_BYTES];
+        SLHDSA_SHA2_128S_sign(out, private_key, kMessage, sizeof(kMessage),
+                              nullptr, 0);
+        return true;
+      })) {
+    return false;
+  }
+
+  results.Print("SLHDSA-SHA2-128s signing");
+
+  uint8_t signature[SLHDSA_SHA2_128S_SIGNATURE_BYTES];
+  SLHDSA_SHA2_128S_sign(signature, private_key, kMessage, sizeof(kMessage),
+                        nullptr, 0);
+
+  if (!TimeFunctionParallel(&results, [&public_key, &signature]() -> bool {
+        return SLHDSA_SHA2_128S_verify(signature, sizeof(signature), public_key,
+                                       kMessage, sizeof(kMessage), nullptr,
+                                       0) == 1;
+      })) {
+    fprintf(stderr, "SLHDSA-SHA2-128s verify failed.\n");
+    return false;
+  }
+
+  results.Print("SLHDSA-SHA2-128s verify");
 
   return true;
 }
@@ -1768,18 +1921,21 @@ bool Speed(const std::vector<std::string> &args) {
       !SpeedHash(EVP_sha256(), "SHA-256", selected) ||
       !SpeedHash(EVP_sha512(), "SHA-512", selected) ||
       !SpeedHash(EVP_blake2b256(), "BLAKE2b-256", selected) ||
-      !SpeedRandom(selected) ||      //
-      !SpeedECDH(selected) ||        //
-      !SpeedECDSA(selected) ||       //
-      !Speed25519(selected) ||       //
-      !SpeedSPAKE2(selected) ||      //
-      !SpeedScrypt(selected) ||      //
-      !SpeedRSAKeyGen(selected) ||   //
-      !SpeedHRSS(selected) ||        //
-      !SpeedKyber(selected) ||       //
-      !SpeedDilithium(selected) ||   //
-      !SpeedSpx(selected) ||         //
-      !SpeedHashToCurve(selected) || //
+      !SpeedRandom(selected) ||       //
+      !SpeedECDH(selected) ||         //
+      !SpeedECDSA(selected) ||        //
+      !Speed25519(selected) ||        //
+      !SpeedSPAKE2(selected) ||       //
+      !SpeedScrypt(selected) ||       //
+      !SpeedRSAKeyGen(selected) ||    //
+      !SpeedHRSS(selected) ||         //
+      !SpeedKyber(selected) ||        //
+      !SpeedMLDSA(selected) ||        //
+      !SpeedMLKEM(selected) ||        //
+      !SpeedMLKEM1024(selected) ||    //
+      !SpeedSpx(selected) ||          //
+      !SpeedSLHDSA(selected) ||       //
+      !SpeedHashToCurve(selected) ||  //
       !SpeedTrustToken("TrustToken-Exp1-Batch1", TRUST_TOKEN_experiment_v1(), 1,
                        selected) ||
       !SpeedTrustToken("TrustToken-Exp1-Batch10", TRUST_TOKEN_experiment_v1(),
@@ -1792,7 +1948,7 @@ bool Speed(const std::vector<std::string> &args) {
                        TRUST_TOKEN_experiment_v2_pmb(), 1, selected) ||
       !SpeedTrustToken("TrustToken-Exp2PMB-Batch10",
                        TRUST_TOKEN_experiment_v2_pmb(), 10, selected) ||
-      !SpeedBase64(selected) || //
+      !SpeedBase64(selected) ||  //
       !SpeedSipHash(selected)) {
     return false;
   }

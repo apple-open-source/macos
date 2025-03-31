@@ -5,15 +5,15 @@
 	<key>OpenSourceProject</key>
 	<string>libarchive</string>
 	<key>OpenSourceVersion</key>
-	<string>3.5.3</string>
+	<string>3.7.4</string>
 	<key>OpenSourceWebsiteURL</key>
 	<string>https://www.libarchive.org</string>
 	<key>OpenSourceURL</key>
-	<string>https://github.com/libarchive/libarchive/releases/download/3.5.3/libarchive-3.5.3.tar.xz</string>
-	<key>OpenSourceSHA1</key>
-	<string>57c0608db646a969aeb05ae7f4a2c2e92612deb4</string>
+	<string>https://github.com/libarchive/libarchive/releases/download/v3.7.4/libarchive-3.7.4.tar.xz</string>
+	<key>OpenSourceSHA256</key>
+	<string>f887755c434a736a609cbd28d87ddbfbe9d6a3bb5b703c22c02f6af80a802735</string>
 	<key>OpenSourceImportDate</key>
-	<string>2022-05-03</string>
+	<string>2024-07-08</string>
 	<key>OpenSourceModifications</key>
 	<array>
 		<string>tar/read.c: add support for quarantine</string>
@@ -48,8 +48,13 @@
 		<string>Patch for special header size (108529089)</string>
 		<string>libarchive/archive_write_disk_posix.c patch to fix symlink issue (112604343)</string>
 		<string>libarchive/libarchive/archive_read_support_format_rar.c to path oob access(129148071)</string>
+		<string>libarchive/... Apply edbb1fd452dc8f5ea05a3ceb8614128ebe199ccc to fix memory leaks</string>
 		<string>libarchive/... Apply 1382d671a4bc32155cbb52a60cf9937120f56028 to fix integer overflow</string>
 		<string>libarchive/archive_platform.h Don't use readdir_r(), it is unsafe (133228511)</string>
+		<string>libarchive/archive_read_support_format_rar.c: Backport patch to add boundary checks (142994908)</string>
+		<string>libarchive/archive_read_support_format_rar.c: Backport fix for CVE-2024-26256 (142994908)</string>
+		<string>libarchive/archive_read_support_format_rar.c: Backport fix for CVE-2024-48957 (142994908)</string>
+		<string>libarchive/archive_read_support_format_rar.c: Backport fix for CVE-2024-48958 (142994908)</string>
 	</array>
 	<key>OpenSourceLicense</key>
 	<string>BSD</string>

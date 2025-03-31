@@ -1,0 +1,366 @@
+#! /bin/sh
+
+# NOTE: you may need to adjust the references to /usr/local/... below
+#	(or remove them if they're not needed on your system).
+#	You may need to add something like "-Olimit 2000" to the -O
+#	processing below or change it to something more suitable for your
+#	system.  See also the comments starting with ### below.
+
+#	Note that with some shells, invocations of the form
+#		CFLAGS='system-specific stuff' fc ...
+#	may be useful as way to pass system-specific stuff to the C compiler.
+#	The script below simply appends to the initial CFLAGS value.
+
+PATH=/usr/local/bin:/bin:/usr/bin
+
+# f77-style shell script to compile and load fortran, C, and assembly codes
+
+#	usage:	f77 [options] files [-l library]
+
+#	Options:
+
+#		-o objfile	Override default executable name a.out.
+
+#		-a		use automatic variable storage (on the stack)
+#				by default -- rather than static storage
+
+#		-c		Do not call linker, leave relocatables in *.o.
+
+#		-C		Check that subscripts are in bounds.
+
+#		-S		leave assembler output on file.s
+
+#		-L libdir	(passed to ld)
+
+#		-l library	(passed to ld)
+
+#		-u		complain about undeclared variables
+
+#		-w		omit all warning messages
+
+#		-w66		omit Fortran 66 compatibility warning messages
+
+#		files		FORTRAN source files ending in .f .
+#				FORTRAN with cpp preprocessor directives
+#					ending in .F .
+#				C source files ending in .c .
+#				Assembly language files ending in .s .
+#				efl source files ending in .e .
+#				RATFOR files ending in .r .
+#				Object files ending in .o .
+#				Shared libraries ending in .so .
+
+#				f2c prototype files ending in .P ; such
+#				files only affect subsequent files.
+
+#		-D def		passed to C compiler (for .c files)
+#				or to cpp (for .F files)
+
+#		-I includepath	passed to C compiler (for .c files)
+#				or to cpp (for .F files), and to f2c
+
+#		-m xxx		passed to C compiler as -mxxx
+
+#		-N tnnn		allow nnn entries in table t
+
+#		-P		emit .P files
+
+#		-r8		promote real to double precision and
+#				complex to double complex
+
+#		-s		strip executable
+
+#		-trapuv		Initialize floating-point variables to
+#				signaling NaNs (on machines with IEEE
+#				arithmetic) unless they appear in save,
+#				common, or data statements.  Initialize
+#				other kinds of variables to values that
+#				may attract attention if used without
+#				being assigned proper values.
+
+#		-U def		passed to C compiler (for .c files)
+#				or to cpp (for .F files) to remove def
+
+#		-v		show current f2c version
+#		--version	same as -v
+
+s=/tmp/stderr_$$
+t=/tmp/f77_$$.o
+### On some systems (e.g., IRIX), -common prevents complaints
+### about multiple definitions of COMMON blocks.
+#CC=${CC_f2c:-'cc -common'}
+CC=${CC_f2c:-'cc'}
+EFL=${EFL:-efl}
+EFLFLAGS=${EFLFLAGS:-'system=portable deltastno=10'}
+RATFOR=${RATFOR:-ratfor}
+RFLAGS=${RFLAGS:-'-6&'}
+F2C=${F2C:-/usr/local/bin/f2c}
+show_fc_help=0
+case $1 in
+	--help)		show_fc_help=1;;
+	--version)	show_fc_help=2;;
+	'-?')		show_fc_help=1;;
+	-h)		show_fc_help=1;;
+	-v)		show_fc_help=2;;
+	esac
+case $show_fc_help in
+	1)
+	echo 'f77 script based on f2c'
+	echo 'For usage details, see comments at the beginning of' $0 .
+	echo 'For pointers to f2c documentation, invoke' $F2C --help
+	exit 0;;
+	2)
+	echo $0 'script based on f2c:'; $F2C -v
+	exit 0;;
+	esac
+F2CFLAGS=${F2CFLAGS:='-ARw8 -Nn802 -Nq300 -Nx400'}
+CPP=${CPP:-/lib/cpp}
+rc=0
+trap "rm -f $s $t; exit \$rc" 0
+OUTF=a.out
+OUTO=
+cOPT=1
+set -- `getopt acCD:gI:L:m:N:O:U:o:r:sSt:uw6 "$@"`
+case $? in 0);; *) rc=$?; exit;; esac
+CPPFLAGS=${CPPFLAGS:-'-I/usr/local/include'}
+CFLAGSF2C=${CFLAGSF2C:-'-I/usr/local/include'}
+OFILES=
+trapuv=
+strip=
+LIBS="-lf2c -lm"
+while
+	test X"$1" != X--
+do
+	case "$1"
+	in
+	-a)	F2CFLAGS="$F2CFLAGS -a"
+		shift;;
+
+	-C)	F2CFLAGS="$F2CFLAGS -C"
+		shift;;
+
+	-c)	cOPT=0
+		shift
+		;;
+
+	-D)	CPPFLAGS="$CPPFLAGS -D$2"
+		shift 2
+		;;
+
+	-g)	CFLAGS="$CFLAGS -g"
+		F2CFLAGS="$F2CFLAGS -g"
+		shift;;
+
+	-I)	CPPFLAGS="$CPPFLAGS -I$2"
+		F2CFLAGS="$F2CFLAGS -I$2"
+		shift 2
+		;;
+
+	-m)	CC="$CC -m$2"
+		shift 2
+		;;
+
+	-U)	CPPFLAGS="$CPPFLAGS -U$2"
+		shift 2
+		;;
+
+	-o)	OUTF=$2
+		OUTO=$2
+		shift 2
+		;;
+
+	-O)	case $2 in 1) O=-O1;; 2) O=-O2;; 3) O=-O3;; *) O=-O;; esac
+		case $O in -O);; *) shift;; esac
+		CFLAGS="$CFLAGS $O"
+#		CFLAGS="$CFLAGS $O -Olimit 2000"
+		shift
+		;;
+
+	-r)	case $2 in 8) F2CFLAGS="$F2CFLAGS -r8";;
+			*) echo "Ignoring -r$2";; esac
+		shift; shift
+		;;
+
+	-s)	strip=1
+		shift
+		;;
+
+	-u)	F2CFLAGS="$F2CFLAGS -u"
+		shift
+		;;
+
+	-w)	F2CFLAGS="$F2CFLAGS -w"
+		case $2 in -6) F2CFLAGS="$F2CFLAGS"66; shift
+			case $2 in -6) shift;; esac;; esac
+		shift
+		;;
+
+	-L)	OFILES="$OFILES $1$2"
+		shift 2
+		case $cOPT in 1) cOPT=2;; esac
+		;;
+
+	-L*)	OFILES="$OFILES $1"
+		shift
+		case $cOPT in 1) cOPT=2;; esac
+		;;
+
+	-N)	F2CFLAGS="$F2CFLAGS $1""$2"
+		shift 2
+		;;
+
+	-P)	F2CFLAGS="$F2CFLAGS $1"
+		shift
+		;;
+
+
+	-S)	CFLAGS="$CFLAGS -S"
+		cOPT=0
+		shift
+		;;
+
+	-t)
+		case $2 in
+			rapuv)
+				F2CFLAGS="$F2CFLAGS -trapuv"
+				trapuv=1
+#				LIBS="$LIBS -lfpe"
+				shift 2;;
+			*)
+				echo "invalid parameter $1" 1>&2
+				shift;;
+			esac
+		;;
+
+	'')	echo $0: 'unexpected null argument'; exit 1;;
+
+	*)
+		echo "invalid parameter $1" 1>&2
+		shift
+		;;
+	esac
+done
+shift
+case $cOPT in 0) case $OUTO in '');; *) CFLAGS="$CFLAGS -o $OUTO";; esac;; esac
+while
+	test -n "$1"
+do
+	case "$1"
+	in
+	*.[fF])
+		case "$1" in *.f) f=".f";; *.F) f=".F";; esac
+		case "$1" in
+			*.f)	b=`basename $1 .f`
+				$F2C $F2CFLAGS $1
+				rc=$?
+				;;
+			*.F)	b=`basename $1 .F`
+				$CPP $CPPFLAGS $1 >$b.i
+				rc=$?
+				case $rc in 0)
+					$F2C $F2CFLAGS <$b.i >$b.c
+					rc=$?
+					;;esac
+				rm $b.i
+				;;
+			esac
+		case $rc in 0);; *) exit;; esac
+                $CC -c $CFLAGSF2C $CFLAGS $b.c 2>$s
+		rc=$?
+		sed '/parameter .* is not referenced/d;/warning: too many parameters/d' $s 1>&2
+		case $rc in 0);; *) exit;; esac
+		OFILES="$OFILES $b.o"
+		rm $b.c
+		case $cOPT in 1) cOPT=2;; esac
+		shift
+		;;
+	*.e)
+		b=`basename $1 .e`
+		$EFL $EFLFLAGS $1 >$b.f
+		case $? in 0);; *) rc=$?; exit;; esac
+		$F2C $F2CFLAGS $b.f
+		case $? in 0);; *) rc=$?; exit;; esac
+                $CC -c $CFLAGSF2C $CFLAGS $b.c
+		case $? in 0);; *) rc=$?; exit;; esac
+		OFILES="$OFILES $b.o"
+		rm $b.[cf]
+		case $cOPT in 1) cOPT=2;; esac
+		shift
+		;;
+	*.r)
+		b=`basename $1 .r`
+		$RATFOR $RFLAGS $1 >$b.f
+		case $? in 0);; *) rc=$?; exit;; esac
+		$F2C $F2CFLAGS $b.f
+		case $? in 0);; *) rc=$?; exit;; esac
+		$CC -c $CFLAGSF2C $CFLAGS $b.c
+		case $? in 0);; *) rc=$?; exit;; esac
+		OFILES="$OFILES $b.o"
+		rm $b.[cf]
+		case $cOPT in 1) cOPT=2;; esac
+		shift
+		;;
+	*.s)
+		echo $1: 1>&2
+		OFILE=`basename $1 .s`.o
+		${AS:-as} -o $OFILE $AFLAGS $1
+		case $? in 0);; *) rc=$?; exit;; esac
+		OFILES="$OFILES $OFILE"
+		case $cOPT in 1) cOPT=2;; esac
+		shift
+		;;
+	*.c)
+		echo $1: 1>&2
+		OFILE=`basename $1 .c`.o
+                $CC -c $CFLAGSF2C $CPPFLAGS $CFLAGS $1
+		rc=$?; case $rc in 0);; *) rc=$?; exit;; esac
+		OFILES="$OFILES $OFILE"
+		case $cOPT in 1) cOPT=2;; esac
+		shift
+		;;
+	*.o)
+		OFILES="$OFILES $1"
+		case $cOPT in 1) cOPT=2;; esac
+		shift
+		;;
+	*.so)
+		OFILES="$OFILES $1"
+		case $cOPT in 1) cOPT=2;; esac
+		shift
+		;;
+	-[lL])
+		OFILES="$OFILES $1$2"
+		shift 2
+		case $cOPT in 1) cOPT=2;; esac
+		;;
+	-[lL]*)
+		OFILES="$OFILES $1"
+		shift
+		case $cOPT in 1) cOPT=2;; esac
+		;;
+	-o)
+		case $cOPT in 0) CFLAGS="$CFLAGS -o $2";; *) OUTF=$2;; esac
+		shift 2;;
+	*.P)
+		F2CFLAGS="$F2CFLAGS $1"
+		shift
+		;;
+	*)
+		OFILES="$OFILES $1"
+		shift
+		case $cOPT in 1) cOPT=2;; esac
+		;;
+	esac
+done
+
+### On some (IRIX) systems, -Wl,-dont_warn_unused prevents complaints
+### about unnecessary -l options.
+
+case $cOPT in 2)
+#	case $trapuv in 1) OFILES="$OFILES -lfpe";; esac
+#	$CC -Wl,-dont_warn_unused -o $OUTF -u MAIN__ -L/usr/local/lib $OFILES $LIBS
+	$CC -o $OUTF -u MAIN__ -L/usr/local/lib $OFILES $LIBS
+	case $strip in 1) strip $OUTF;; esac
+	;; esac
+rc=$?
+exit $rc

@@ -1313,7 +1313,7 @@ kill_all_frozen_processes(uint64_t max_band, bool suspended_only, os_reason_t je
 
 		/* memorystatus_kill_with_jetsam_reason_sync drops a reference. */
 		os_reason_ref(jetsam_reason);
-		retval = memorystatus_kill_with_jetsam_reason_sync(pid, jetsam_reason);
+		retval = memstat_kill_with_jetsam_reason_sync(pid, jetsam_reason);
 		if (retval) {
 			killed = true;
 			memory_reclaimed += footprint;

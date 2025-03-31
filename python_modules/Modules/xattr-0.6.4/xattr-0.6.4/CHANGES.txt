@@ -1,0 +1,15 @@
+Version 0.6.4 released 2012-02-01
+
+* Updated README.txt to match setup.py description
+  https://github.com/xattr/xattr/issues/5
+* Bug fixes for Solaris port
+   https://github.com/xattr/xattr/pull/2
+
+Version 0.6.3 released 2012-01-23
+
+* Fix tests for Linux, allow xattr on symlinks
+  https://github.com/xattr/xattr/pull/4
+
+Version 0.6.2 released 2011-08-17
+
+* Bug fix in Solaris support

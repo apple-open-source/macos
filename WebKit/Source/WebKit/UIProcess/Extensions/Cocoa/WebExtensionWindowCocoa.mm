@@ -143,7 +143,11 @@ bool WebExtensionWindow::matches(const WebExtensionTabQueryParameters& parameter
         return false;
 
     if (parameters.currentWindow || isCurrent(parameters.windowIdentifier)) {
-        auto currentWindow = extensionContext()->getWindow(WebExtensionWindowConstants::CurrentIdentifier, webPageProxyIdentifier);
+        RefPtr extensionContext = this->extensionContext();
+        if (!extensionContext)
+            return false;
+
+        auto currentWindow = extensionContext->getWindow(WebExtensionWindowConstants::CurrentIdentifier, webPageProxyIdentifier);
         if (!currentWindow)
             return false;
 
@@ -165,7 +169,11 @@ WebExtensionWindow::TabVector WebExtensionWindow::tabs(SkipValidation skipValida
     if (!isValid() || !m_respondsToTabs || !m_respondsToActiveTab)
         return { };
 
-    auto *tabs = [m_delegate tabsForWebExtensionContext:m_extensionContext->wrapper()];
+    RefPtr extensionContext = m_extensionContext.get();
+    if (!extensionContext)
+        return { };
+
+    auto *tabs = [m_delegate tabsForWebExtensionContext:extensionContext->wrapper()];
     THROW_UNLESS([tabs isKindOfClass:NSArray.class], @"Object returned by tabsForWebExtensionContext: is not an array");
 
     if (!tabs.count)
@@ -175,7 +183,7 @@ WebExtensionWindow::TabVector WebExtensionWindow::tabs(SkipValidation skipValida
     result.reserveInitialCapacity(tabs.count);
 
     for (id tab in tabs)
-        result.append(m_extensionContext->getOrCreateTab(tab));
+        result.append(extensionContext->getOrCreateTab(tab));
 
     if (skipValidation == SkipValidation::No) {
         // SkipValidation::Yes is needed to avoid reentry, since activeTab() calls tabs().
@@ -195,11 +203,15 @@ RefPtr<WebExtensionTab> WebExtensionWindow::activeTab(SkipValidation skipValidat
     if (!isValid() || !m_respondsToActiveTab || !m_respondsToTabs)
         return nullptr;
 
-    auto activeTab = [m_delegate activeTabForWebExtensionContext:m_extensionContext->wrapper()];
+    RefPtr extensionContext = m_extensionContext.get();
+    if (!extensionContext)
+        return nullptr;
+
+    auto activeTab = [m_delegate activeTabForWebExtensionContext:extensionContext->wrapper()];
     if (!activeTab)
         return nullptr;
 
-    Ref result = m_extensionContext->getOrCreateTab(activeTab);
+    Ref result = extensionContext->getOrCreateTab(activeTab);
 
     if (skipValidation == SkipValidation::No) {
         // SkipValidation::Yes is needed to avoid reentry, since tabs() calls activeTab().
@@ -295,14 +307,14 @@ void WebExtensionWindow::setState(WebExtensionWindow::State state, CompletionHan
     static NSString * const apiName = @"windows.update()";
 
     if (!isValid() || !m_respondsToSetWindowState || !m_respondsToWindowState) {
-        completionHandler(toWebExtensionError(apiName, nil, @"it is not implemented for 'state'"));
+        completionHandler(toWebExtensionError(apiName, nullString(), @"it is not implemented for 'state'"));
         return;
     }
 
     [m_delegate setWindowState:toAPI(state) forWebExtensionContext:m_extensionContext->wrapper() completionHandler:makeBlockPtr([protectedThis = Ref { *this }, completionHandler = WTFMove(completionHandler)](NSError *error) mutable {
         if (error) {
             RELEASE_LOG_ERROR(Extensions, "Error for setWindowState: %{public}@", privacyPreservingDescription(error));
-            completionHandler(toWebExtensionError(apiName, nil, error.localizedDescription));
+            completionHandler(toWebExtensionError(apiName, nullString(), error.localizedDescription));
             return;
         }
 
@@ -320,7 +332,11 @@ bool WebExtensionWindow::isFocused() const
     if (!isValid())
         return false;
 
-    return this == m_extensionContext->focusedWindow();
+    RefPtr extensionContext = m_extensionContext.get();
+    if (!extensionContext)
+        return false;
+
+    return this == extensionContext->focusedWindow();
 }
 
 bool WebExtensionWindow::isFrontmost() const
@@ -328,7 +344,11 @@ bool WebExtensionWindow::isFrontmost() const
     if (!isValid())
         return false;
 
-    return this == m_extensionContext->frontmostWindow();
+    RefPtr extensionContext = m_extensionContext.get();
+    if (!extensionContext)
+        return false;
+
+    return this == extensionContext->frontmostWindow();
 }
 
 void WebExtensionWindow::focus(CompletionHandler<void(Expected<void, WebExtensionError>&&)>&& completionHandler)
@@ -336,14 +356,14 @@ void WebExtensionWindow::focus(CompletionHandler<void(Expected<void, WebExtensio
     static NSString * const apiName = @"windows.update()";
 
     if (!isValid() || !m_respondsToFocus) {
-        completionHandler(toWebExtensionError(apiName, nil, @"it is not implemented for 'focused'"));
+        completionHandler(toWebExtensionError(apiName, nullString(), @"it is not implemented for 'focused'"));
         return;
     }
 
     [m_delegate focusForWebExtensionContext:m_extensionContext->wrapper() completionHandler:makeBlockPtr([protectedThis = Ref { *this }, completionHandler = WTFMove(completionHandler)](NSError *error) mutable {
         if (error) {
             RELEASE_LOG_ERROR(Extensions, "Error for window focus: %{public}@", privacyPreservingDescription(error));
-            completionHandler(toWebExtensionError(apiName, nil, error.localizedDescription));
+            completionHandler(toWebExtensionError(apiName, nullString(), error.localizedDescription));
             return;
         }
 
@@ -399,7 +419,7 @@ void WebExtensionWindow::setFrame(CGRect frame, CompletionHandler<void(Expected<
     if (!isValid() || !m_respondsToSetFrame || !m_respondsToFrame)
 #endif
     {
-        completionHandler(toWebExtensionError(apiName, nil, @"it is not implemented for 'top', 'left', 'width', and 'height'"));
+        completionHandler(toWebExtensionError(apiName, nullString(), @"it is not implemented for 'top', 'left', 'width', and 'height'"));
         return;
     }
 
@@ -410,7 +430,7 @@ void WebExtensionWindow::setFrame(CGRect frame, CompletionHandler<void(Expected<
     [m_delegate setFrame:frame forWebExtensionContext:m_extensionContext->wrapper() completionHandler:makeBlockPtr([protectedThis = Ref { *this }, completionHandler = WTFMove(completionHandler)](NSError *error) mutable {
         if (error) {
             RELEASE_LOG_ERROR(Extensions, "Error for setFrame: %{public}@", privacyPreservingDescription(error));
-            completionHandler(toWebExtensionError(apiName, nil, error.localizedDescription));
+            completionHandler(toWebExtensionError(apiName, nullString(), error.localizedDescription));
             return;
         }
 
@@ -433,14 +453,14 @@ void WebExtensionWindow::close(CompletionHandler<void(Expected<void, WebExtensio
     static NSString * const apiName = @"windows.remove()";
 
     if (!isValid() || !m_respondsToClose) {
-        completionHandler(toWebExtensionError(apiName, nil, @"it is not implemented"));
+        completionHandler(toWebExtensionError(apiName, nullString(), @"it is not implemented"));
         return;
     }
 
     [m_delegate closeForWebExtensionContext:m_extensionContext->wrapper() completionHandler:makeBlockPtr([protectedThis = Ref { *this }, completionHandler = WTFMove(completionHandler)](NSError *error) mutable {
         if (error) {
             RELEASE_LOG_ERROR(Extensions, "Error for window close: %{public}@", privacyPreservingDescription(error));
-            completionHandler(toWebExtensionError(apiName, nil, error.localizedDescription));
+            completionHandler(toWebExtensionError(apiName, nullString(), error.localizedDescription));
             return;
         }
 

@@ -44,6 +44,10 @@
 #include "dns_private.h"
 #include "res_private.h"
 
+#ifdef __APPLE__
+#include <arpa/inet.h>
+#endif
+
 #define INET_NTOP_AF_INET_OFFSET 4
 #define INET_NTOP_AF_INET6_OFFSET 8
 
@@ -73,7 +77,7 @@ static pthread_mutex_t dns_control_lock = PTHREAD_MUTEX_INITIALIZER;
 extern uint32_t notify_monitor_file(int token, const char *name, int flags);
 
 extern void res_client_close(res_state res);
-extern res_state res_state_new();
+extern res_state res_state_new(void);
 extern int res_nquery_soa_min(res_state statp, const char *name, int class, int type, u_char *answer, int anslen, struct sockaddr *from, int *fromlen, int *min);
 extern int res_nsearch_2(res_state statp, const char *name, int class, int type, u_char *answer, int anslen, struct sockaddr *from, uint32_t *fromlen);
 extern int __res_nsearch_list_2(res_state statp, const char *name,	int class, int type,  u_char *answer, int anslen, struct sockaddr *from, uint32_t *fromlen, int nsearch, char **search);
@@ -86,7 +90,7 @@ extern int res_build_sortlist(res_state res, struct in_addr addr, struct in_addr
 static void
 _pdns_set_name(pdns_handle_t *pdns, const char *name)
 {
-	int n;
+	size_t n;
 
 	if (pdns == NULL) return;
 	if (name == NULL) return;
@@ -940,7 +944,8 @@ static uint32_t
 _pdns_get_handles_for_name(sdns_handle_t *sdns, const char *name, pdns_handle_t ***pdns)
 {
 	char *p, *vname;
-	int i, j, k, count;
+	int j, k, count;
+	size_t i;
 
 	if (sdns == NULL) return 0;
 	if (pdns == NULL) return 0;
@@ -1170,7 +1175,14 @@ dns_open(const char *name)
 		return NULL;
 	}
 
-	dns_set_debug((dns_handle_t)dns, dns_control_debug);
+	/* For the plain resolver, if the original config (e.g. a file on disk)
+	 * had debug enabled, keep it enabled even if our control configuration has
+	 * it off.
+	 * That way one can easily add a line in e.g. /etc/resolv.conf to turn it on.
+	 */
+	int config_had_debug = ((dns->pdns->res->options & RES_DEBUG) != 0);
+	dns_set_debug((dns_handle_t)dns, config_had_debug || dns_control_debug);
+
 	return (dns_handle_t)dns;
 }
 
@@ -1365,7 +1377,7 @@ _pdns_delay(sdns_handle_t *sdns)
 		 * Subsequent threads sleep for the remaining duration.
 		 * We add one to round up the interval since our granularity is coarse.
 		 */
-		snooze = 1 + (sdns->dns_delay - tick);
+		snooze = 1 + (int)(sdns->dns_delay - tick);
 		if (snooze < 0) snooze = 0;
 	}
 
@@ -1443,7 +1455,7 @@ _pdns_search(sdns_handle_t *sdns, pdns_handle_t *pdns, const char *name, uint32_
 		if (pdns->search_count > 0) append = 0;
 	}
 
-	if ((append == 1) && (pdns->res->defdname != NULL) && (pdns->res->defdname[0] != '\0')) append = 0;
+	if ((append == 1) && (pdns->res->defdname[0] != '\0')) append = 0;
 
 	status = -1;
 	if (append == 0)

@@ -118,6 +118,7 @@ struct TestConfig {
   bool implicit_handshake = false;
   bool use_early_callback = false;
   bool fail_early_callback = false;
+  bool fail_early_callback_ech_rewind = false;
   bool install_ddos_callback = false;
   bool fail_ddos_callback = false;
   bool fail_cert_callback = false;
@@ -134,6 +135,7 @@ struct TestConfig {
   bool expect_accept_early_data = false;
   bool expect_reject_early_data = false;
   bool expect_no_offer_early_data = false;
+  bool expect_no_server_name = false;
   bool use_ticket_callback = false;
   bool renew_ticket = false;
   bool enable_early_data = false;
@@ -212,6 +214,7 @@ struct TestConfig {
   int early_write_after_message = 0;
   bool fips_202205 = false;
   bool wpa_202304 = false;
+  bool cnsa_202407 = false;
   bool no_check_client_certificate_type = false;
   bool no_check_ecdsa_curve = false;
   int expect_selected_credential = -1;

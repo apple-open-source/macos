@@ -43,6 +43,7 @@
 #import "Sampler.h"
 #import "ShaderModule.h"
 #import "Texture.h"
+#import "XRSubImage.h"
 #import <algorithm>
 #import <notify.h>
 #import <wtf/StdLibExtras.h>
@@ -127,6 +128,101 @@ int GPUFrameCapture::maxSubmitCallsToCapture = 1;
 
 WTF_MAKE_TZONE_ALLOCATED_IMPL(Device);
 
+GPUShaderValidation Device::shaderValidationState() const
+{
+#if ENABLE(WEBGPU_BY_DEFAULT)
+    static MTLShaderValidation shaderValidationState = MTLShaderValidationDefault;
+    static std::once_flag onceFlag;
+    std::call_once(onceFlag, [] {
+        int captureFirstFrameToken;
+        notify_register_dispatch("com.apple.WebKit.WebGPU.ToggleShaderValidationState", &captureFirstFrameToken, dispatch_get_main_queue(), ^(int) {
+            shaderValidationState = (shaderValidationState == MTLShaderValidationEnabled ? MTLShaderValidationDefault : MTLShaderValidationEnabled);
+        });
+    });
+
+    return shaderValidationState;
+#else
+    return 0;
+#endif
+}
+
+bool Device::enableEncoderTimestamps() const
+{
+    static bool enable = false;
+    static std::once_flag onceFlag;
+    std::call_once(onceFlag, [] {
+        int token;
+        notify_register_dispatch("com.apple.WebKit.WebGPU.EnableEncoderTimestamps", &token, dispatch_get_main_queue(), ^(int) {
+            enable = !enable;
+            WTFLogAlways("Encoder timestamps are %s", enable ? "ENABLED" : "DISABLED");
+        });
+    });
+
+    return enable;
+}
+
+id<MTLCounterSampleBuffer> Device::timestampsBuffer(id<MTLCommandBuffer> commandBuffer, size_t timestampCount)
+{
+#if !PLATFORM(WATCHOS)
+    MTLCounterSampleBufferDescriptor* sampleBufferDesc = [MTLCounterSampleBufferDescriptor new];
+    sampleBufferDesc.sampleCount = timestampCount;
+    sampleBufferDesc.storageMode = MTLStorageModeShared;
+    sampleBufferDesc.counterSet = m_capabilities.baseCapabilities.timestampCounterSet;
+
+    NSError* error = nil;
+    id<MTLCounterSampleBuffer> buffer = [m_device newCounterSampleBufferWithDescriptor:sampleBufferDesc error:&error];
+    if (error) {
+        WTFLogAlways("newCounterSamplerBufferWithDescriptor failed %@", error.localizedDescription);
+        return nil;
+    }
+
+    trackTimestampsBuffer(commandBuffer, buffer);
+
+    return buffer;
+#else
+    UNUSED_PARAM(commandBuffer);
+    UNUSED_PARAM(timestampCount);
+    return nil;
+#endif
+}
+
+void Device::resolveTimestampsForBuffer(id<MTLCommandBuffer> commandBuffer)
+{
+    if (!enableEncoderTimestamps())
+        return;
+
+    NSMutableArray<id<MTLCounterSampleBuffer>>* sampleBufferArray = [m_sampleCounterBuffers objectForKey:commandBuffer];
+    if (!sampleBufferArray)
+        return;
+
+    [m_sampleCounterBuffers removeObjectForKey:commandBuffer];
+    for (id<MTLCounterSampleBuffer> sampleBuffer in sampleBufferArray) {
+        id<MTLBlitCommandEncoder> blitCommandEncoder = [commandBuffer blitCommandEncoder];
+        auto timestampCount = sampleBuffer.sampleCount;
+        id<MTLBuffer> counterDataBuffer = safeCreateBuffer(sizeof(MTLCounterResultTimestamp) * timestampCount);
+        [blitCommandEncoder resolveCounters:sampleBuffer inRange:NSMakeRange(0, timestampCount) destinationBuffer:counterDataBuffer destinationOffset:0];
+        [blitCommandEncoder endEncoding];
+        NSMutableArray<id<MTLBuffer>>* resolvedBuffers = [m_resolvedSampleCounterBuffers objectForKey:commandBuffer];
+        if (!resolvedBuffers) {
+            resolvedBuffers = [NSMutableArray arrayWithObject:counterDataBuffer];
+            [m_resolvedSampleCounterBuffers setObject:resolvedBuffers forKey:commandBuffer];
+        } else
+            [resolvedBuffers addObject:counterDataBuffer];
+
+        [commandBuffer addCompletedHandler:^(id<MTLCommandBuffer> completedCommandBuffer) {
+            for (id<MTLBuffer> buffer in resolvedBuffers) {
+                auto timestamps = unsafeMakeSpan(static_cast<MTLCounterResultTimestamp*>(buffer.contents), buffer.length);
+                WTFLogAlways("Timestamps for buffer %@", buffer.label); // NOLINT
+                for (size_t i = 0, timestampCount = buffer.length / sizeof(MTLCounterResultTimestamp); (i + 1) < timestampCount; i += 2) {
+                    auto timeDifference = timestamps[i + 1].timestamp - timestamps[i].timestamp;
+                    WTFLogAlways("\tencoder time %f", timeDifference / 100000.0f); // NOLINT
+                }
+            }
+            [m_resolvedSampleCounterBuffers removeObjectForKey:completedCommandBuffer];
+        }];
+    }
+}
+
 bool Device::shouldStopCaptureAfterSubmit()
 {
     return GPUFrameCapture::shouldStopCaptureAfterSubmit();
@@ -152,12 +248,38 @@ Ref<Device> Device::create(id<MTLDevice> device, String&& deviceLabel, HardwareC
     return adoptRef(*new Device(device, commandQueue, WTFMove(capabilities), adapter));
 }
 
+static uint32_t computeMaxCountForDevice(id<MTLDevice> device)
+{
+    size_t result = 200 * MB;
+#if ENABLE(WEBGPU_BY_DEFAULT)
+    if ([device supportsFamily:MTLGPUFamilyApple9])
+        result = 300 * MB;
+    else if ([device supportsFamily:MTLGPUFamilyApple8])
+        result = 275 * MB;
+    else
+#endif
+    if ([device supportsFamily:MTLGPUFamilyApple7])
+        result = 250 * MB;
+    else if ([device supportsFamily:MTLGPUFamilyApple6])
+        result = 225 * MB;
+    else if ([device supportsFamily:MTLGPUFamilyApple5])
+        result = 200 * MB;
+    else if ([device supportsFamily:MTLGPUFamilyApple4])
+        result = 200 * MB;
+    else if ([device supportsFamily:MTLGPUFamilyMac2])
+        result = 300 * MB;
+
+    return result;
+}
+
 Device::Device(id<MTLDevice> device, id<MTLCommandQueue> defaultQueue, HardwareCapabilities&& capabilities, Adapter& adapter)
     : m_device(device)
-    , m_defaultQueue(Queue::create(defaultQueue, *this))
+    , m_defaultQueue(Queue::create(defaultQueue, adapter, *this))
+    , m_xrSubImage(XRSubImage::create(*this))
     , m_capabilities(WTFMove(capabilities))
     , m_adapter(adapter)
     , m_instance(adapter.weakInstance())
+    , m_maxVerticesPerDrawCall(computeMaxCountForDevice(device))
 {
 #if PLATFORM(MAC)
     auto devices = MTLCopyAllDevicesWithObserver(&m_deviceObserver, [weakThis = ThreadSafeWeakPtr { *this }](id<MTLDevice> device, MTLDeviceNotificationName) {
@@ -212,10 +334,12 @@ Device::Device(id<MTLDevice> device, id<MTLCommandQueue> defaultQueue, HardwareC
     desc.pixelFormat = MTLPixelFormatDepth32Float_Stencil8;
     desc.storageMode = MTLStorageModePrivate;
     m_placeholderDepthStencilTexture = [m_device newTextureWithDescriptor:desc];
+    m_sampleCounterBuffers = [NSMapTable weakToStrongObjectsMapTable];
+    m_resolvedSampleCounterBuffers = [NSMapTable weakToStrongObjectsMapTable];
 }
 
 Device::Device(Adapter& adapter)
-    : m_defaultQueue(Queue::createInvalid(*this))
+    : m_defaultQueue(Queue::createInvalid(adapter, *this))
     , m_adapter(adapter)
     , m_instance(adapter.weakInstance())
 {
@@ -239,18 +363,16 @@ Device::~Device()
     }
 }
 
-RefPtr<XRSubImage> Device::getXRViewSubImage(WGPUXREye eye)
+RefPtr<XRSubImage> Device::getXRViewSubImage(XRProjectionLayer& projectionLayer)
 {
-    if (m_xrSubImages.size() < 2)
-        return nullptr;
-
-    return eye == WGPUXREye_Right ? m_xrSubImages[1] : m_xrSubImages[0];
+    RefPtr { m_xrSubImage }->update(projectionLayer.colorTexture(), projectionLayer.depthTexture(), projectionLayer.reusableTextureIndex(), projectionLayer.completionEvent());
+    return m_xrSubImage;
 }
 
 void Device::makeInvalid()
 {
     m_device = nil;
-    m_defaultQueue->makeInvalid();
+    protectedQueue()->makeInvalid();
 }
 
 void Device::loseTheDevice(WGPUDeviceLostReason reason)
@@ -264,7 +386,7 @@ void Device::loseTheDevice(WGPUDeviceLostReason reason)
         m_deviceLostCallback = nullptr;
     }
 
-    m_defaultQueue->makeInvalid();
+    protectedQueue()->makeInvalid();
     m_isLost = true;
 }
 
@@ -315,19 +437,9 @@ bool Device::getLimits(WGPUSupportedLimits& limits)
     return true;
 }
 
-id<MTLBuffer> Device::placeholderBuffer() const
-{
-    return m_placeholderBuffer;
-}
-
 id<MTLTexture> Device::placeholderTexture(WGPUTextureFormat format) const
 {
     return Texture::isDepthOrStencilFormat(format) ? m_placeholderDepthStencilTexture : m_placeholderTexture;
-}
-
-Queue& Device::getQueue()
-{
-    return m_defaultQueue;
 }
 
 bool Device::hasFeature(WGPUFeatureName feature) const
@@ -346,11 +458,18 @@ auto Device::currentErrorScope(WGPUErrorFilter type) -> ErrorScope*
     return nullptr;
 }
 
+void Device::generateAValidationError(NSString * message)
+{
+    generateAValidationError(String { message });
+}
+
 void Device::generateAValidationError(String&& message)
 {
+    if (m_supressAllErrors)
+        return;
+
     // https://gpuweb.github.io/gpuweb/#abstract-opdef-generate-a-validation-error
     auto* scope = currentErrorScope(WGPUErrorFilter_Validation);
-
     if (scope) {
         if (!scope->error)
             scope->error = Error { WGPUErrorType_Validation, WTFMove(message) };
@@ -365,6 +484,9 @@ void Device::generateAValidationError(String&& message)
 
 void Device::generateAnOutOfMemoryError(String&& message)
 {
+    if (m_supressAllErrors)
+        return;
+
     // https://gpuweb.github.io/gpuweb/#abstract-opdef-generate-an-out-of-memory-error
 
     auto* scope = currentErrorScope(WGPUErrorFilter_OutOfMemory);
@@ -383,6 +505,9 @@ void Device::generateAnOutOfMemoryError(String&& message)
 
 void Device::generateAnInternalError(String&& message)
 {
+    if (m_supressAllErrors)
+        return;
+
     // https://gpuweb.github.io/gpuweb/#abstract-opdef-generate-an-internal-error
 
     auto* scope = currentErrorScope(WGPUErrorFilter_Internal);
@@ -397,28 +522,6 @@ void Device::generateAnInternalError(String&& message)
         m_uncapturedErrorCallback(WGPUErrorType_Internal, WTFMove(message));
         m_uncapturedErrorCallback = nullptr;
     }
-}
-
-uint32_t Device::maxBuffersPlusVertexBuffersForVertexStage() const
-{
-    ASSERT(m_capabilities.limits.maxBindGroupsPlusVertexBuffers > 0);
-    return m_capabilities.limits.maxBindGroupsPlusVertexBuffers;
-}
-
-uint32_t Device::maxBuffersForFragmentStage() const
-{
-    return m_capabilities.limits.maxBindGroups;
-}
-
-uint32_t Device::maxBuffersForComputeStage() const
-{
-    return m_capabilities.limits.maxBindGroups;
-}
-
-uint32_t Device::vertexBufferIndexForBindGroup(uint32_t groupIndex) const
-{
-    ASSERT(maxBuffersPlusVertexBuffersForVertexStage() > 0);
-    return WGSL::vertexBufferIndexForBindGroup(groupIndex, maxBuffersPlusVertexBuffersForVertexStage() - 1);
 }
 
 id<MTLBuffer> Device::newBufferWithBytes(const void* pointer, size_t length, MTLResourceOptions options) const
@@ -504,11 +607,6 @@ void Device::setDeviceLostCallback(Function<void(WGPUDeviceLostReason, String&&)
         loseTheDevice(WGPUDeviceLostReason_Undefined);
 }
 
-bool Device::isValid() const
-{
-    return m_device;
-}
-
 void Device::setUncapturedErrorCallback(Function<void(WGPUErrorType, String&&)>&& callback)
 {
     if (m_uncapturedErrorCallback)
@@ -564,14 +662,16 @@ id<MTLRenderPipelineState> Device::copyIndexIndirectArgsPipeline(NSUInteger rast
 
     static id<MTLFunction> function = nil;
     NSError *error = nil;
-    if (!function) {
+    static std::once_flag onceFlag;
+    std::call_once(onceFlag, [&] {
         MTLCompileOptions* options = [MTLCompileOptions new];
         ALLOW_DEPRECATED_DECLARATIONS_BEGIN
         options.fastMathEnabled = YES;
         ALLOW_DEPRECATED_DECLARATIONS_END
         /* NOLINT */ id<MTLLibrary> library = [m_device newLibraryWithSource:@R"(
     using namespace metal;
-    [[vertex]] void vs(device MTLDrawIndexedPrimitivesIndirectArguments& indexedOutput [[buffer(0)]], constant const MTLDrawIndexedPrimitivesIndirectArguments& indirectArguments [[buffer(1)]], const constant uint* instanceCount [[buffer(2)]]) {
+    [[vertex]] void vsCopyIndexedIndirect(device MTLDrawIndexedPrimitivesIndirectArguments& indexedOutput [[buffer(0)]], constant const MTLDrawIndexedPrimitivesIndirectArguments& indirectArguments [[buffer(1)]], const constant uint* instanceCount [[buffer(2)]])
+    {
         bool condition = indirectArguments.baseInstance + indirectArguments.instanceCount > instanceCount[0] || indirectArguments.baseInstance >= instanceCount[0];
         indexedOutput.indexCount = metal::select(indirectArguments.indexCount, 0u, condition);
         indexedOutput.instanceCount = metal::select(indirectArguments.instanceCount, 0u, condition);
@@ -579,14 +679,13 @@ id<MTLRenderPipelineState> Device::copyIndexIndirectArgsPipeline(NSUInteger rast
         indexedOutput.baseVertex = indirectArguments.baseVertex;
         indexedOutput.baseInstance = indirectArguments.baseInstance;
     })" /* NOLINT */ options:options error:&error];
-        if (error) {
+        if (error)
             WTFLogAlways("%@", error);
-            return nil;
-        }
 
-        function = [library newFunctionWithName:@"vs"];
-    }
+        function = [library newFunctionWithName:@"vsCopyIndexedIndirect"];
+    });
 
+    RELEASE_ASSERT(function);
     MTLRenderPipelineDescriptor* mtlRenderPipelineDescriptor = [MTLRenderPipelineDescriptor new];
     mtlRenderPipelineDescriptor.vertexFunction = function;
     mtlRenderPipelineDescriptor.rasterizationEnabled = false;
@@ -619,7 +718,8 @@ id<MTLRenderPipelineState> Device::indexBufferClampPipeline(MTLIndexType indexTy
     static id<MTLFunction> function = nil;
     static id<MTLFunction> functionUshort = nil;
     NSError *error = nil;
-    if (!function) {
+    static std::once_flag onceFlag;
+    std::call_once(onceFlag, [&] {
         MTLCompileOptions* options = [MTLCompileOptions new];
         ALLOW_DEPRECATED_DECLARATIONS_BEGIN
         options.fastMathEnabled = YES;
@@ -628,25 +728,34 @@ id<MTLRenderPipelineState> Device::indexBufferClampPipeline(MTLIndexType indexTy
 #define vertexCount 0
 #define primitiveRestart 1
     using namespace metal;
-    [[vertex]] void vsUshort(device const ushort* indexBuffer [[buffer(0)]], device MTLDrawIndexedPrimitivesIndirectArguments& indexedOutput [[buffer(1)]], const constant uint* data [[buffer(2)]], uint indexId [[vertex_id]]) {
-        ushort vertexIndex = data[primitiveRestart] + indexBuffer[indexId];
-        if (vertexIndex + indexedOutput.baseVertex >= data[vertexCount] + data[primitiveRestart])
+    [[vertex]] void vsUshortIndexClamp(device const ushort* indexBuffer [[buffer(0)]], device MTLDrawIndexedPrimitivesIndirectArguments& indexedOutput [[buffer(1)]], const constant uint* data [[buffer(2)]], uint indexId [[vertex_id]])
+    {
+        ushort indexBufferValue = indexBuffer[indexId];
+        ushort vertexIndex = data[primitiveRestart] + indexBufferValue;
+        bool negativeCondition = indexedOutput.baseVertex + data[primitiveRestart] < indexedOutput.baseVertex;
+        if (negativeCondition || (vertexIndex + indexedOutput.baseVertex >= data[vertexCount] + data[primitiveRestart])) {
             indexedOutput.indexCount = 0u;
-    }
-    [[vertex]] void vsUint(device const uint* indexBuffer [[buffer(0)]], device MTLDrawIndexedPrimitivesIndirectArguments& indexedOutput [[buffer(1)]], const constant uint* data [[buffer(2)]], uint indexId [[vertex_id]]) {
-        uint vertexIndex = data[primitiveRestart] + indexBuffer[indexId];
-        if (vertexIndex + indexedOutput.baseVertex >= data[vertexCount] + data[primitiveRestart])
-            indexedOutput.indexCount = 0u;
-    })" /* NOLINT */ options:options error:&error];
-        if (error) {
-            WTFLogAlways("%@", error);
-            return nil;
+            *(&indexedOutput.baseInstance + 1) = 1;
         }
-
-        function = [library newFunctionWithName:@"vsUint"];
-        functionUshort = [library newFunctionWithName:@"vsUshort"];
     }
+    [[vertex]] void vsUintIndexClamp(device const uint* indexBuffer [[buffer(0)]], device MTLDrawIndexedPrimitivesIndirectArguments& indexedOutput [[buffer(1)]], const constant uint* data [[buffer(2)]], uint indexId [[vertex_id]])
+    {
+        uint indexBufferValue = indexBuffer[indexId];
+        uint vertexIndex = data[primitiveRestart] + indexBufferValue;
+        bool negativeCondition = indexedOutput.baseVertex + data[primitiveRestart] < indexedOutput.baseVertex;
+        if (negativeCondition || (vertexIndex + indexedOutput.baseVertex >= data[vertexCount] + data[primitiveRestart])) {
+            indexedOutput.indexCount = 0u;
+            *(&indexedOutput.baseInstance + 1) = 1;
+        }
+    })" /* NOLINT */ options:options error:&error];
+        if (error)
+            WTFLogAlways("%@", error);
 
+        function = [library newFunctionWithName:@"vsUintIndexClamp"];
+        functionUshort = [library newFunctionWithName:@"vsUshortIndexClamp"];
+    });
+
+    RELEASE_ASSERT(function && functionUshort);
     MTLRenderPipelineDescriptor* mtlRenderPipelineDescriptor = [MTLRenderPipelineDescriptor new];
     mtlRenderPipelineDescriptor.vertexFunction = isUint16 ? functionUshort : function;
     mtlRenderPipelineDescriptor.rasterizationEnabled = false;
@@ -684,16 +793,22 @@ id<MTLRenderPipelineState> Device::indexedIndirectBufferClampPipeline(NSUInteger
 
     static id<MTLFunction> function = nil;
     NSError *error = nil;
-    if (!function) {
+    static std::once_flag onceFlag;
+    std::call_once(onceFlag, [&] {
         MTLCompileOptions* options = [MTLCompileOptions new];
         ALLOW_DEPRECATED_DECLARATIONS_BEGIN
         options.fastMathEnabled = YES;
         ALLOW_DEPRECATED_DECLARATIONS_END
-        /* NOLINT */ id<MTLLibrary> library = [m_device newLibraryWithSource:@R"(
+        /* NOLINT */ id<MTLLibrary> library = [m_device newLibraryWithSource:[NSString stringWithFormat:@R"(
     using namespace metal;
-    [[vertex]] void vs(device const MTLDrawIndexedPrimitivesIndirectArguments& input [[buffer(0)]], device MTLDrawIndexedPrimitivesIndirectArguments& indexedOutput [[buffer(1)]], device MTLDrawPrimitivesIndirectArguments& output [[buffer(2)]], const constant uint* indexBufferCount [[buffer(3)]]) {
-
-        bool condition = input.indexCount + input.indexStart > indexBufferCount[0] || input.instanceCount + input.baseInstance > indexBufferCount[1] || input.baseInstance >= indexBufferCount[1];
+    [[vertex]] void vsIndexedIndirect(device const MTLDrawIndexedPrimitivesIndirectArguments& input [[buffer(0)]], device MTLDrawIndexedPrimitivesIndirectArguments& indexedOutput [[buffer(1)]], device MTLDrawPrimitivesIndirectArguments& output [[buffer(2)]], const constant uint* indexBufferCount [[buffer(3)]])
+    {
+        bool lostCondition = input.indexCount > %u || input.instanceCount > %u || input.indexCount * input.instanceCount > %u;
+        bool condition = lostCondition
+            || input.indexCount + input.indexStart > indexBufferCount[0]
+            || input.indexStart >= indexBufferCount[0]
+            || input.instanceCount + input.baseInstance > indexBufferCount[1]
+            || input.baseInstance >= indexBufferCount[1];
 
         indexedOutput.indexCount = metal::select(input.indexCount, 0u, condition);
         indexedOutput.instanceCount = input.instanceCount;
@@ -705,15 +820,16 @@ id<MTLRenderPipelineState> Device::indexedIndirectBufferClampPipeline(NSUInteger
         output.instanceCount = 1;
         output.vertexStart = input.indexStart;
         output.baseInstance = 0;
-    })" /* NOLINT */ options:options error:&error];
-        if (error) {
+        if (lostCondition)
+            *(&output.baseInstance + 1) = 1;
+    })", m_maxVerticesPerDrawCall, m_maxVerticesPerDrawCall, m_maxVerticesPerDrawCall] /* NOLINT */ options:options error:&error];
+        if (error)
             WTFLogAlways("%@", error);
-            return nil;
-        }
 
-        function = [library newFunctionWithName:@"vs"];
-    }
+        function = [library newFunctionWithName:@"vsIndexedIndirect"];
+    });
 
+    RELEASE_ASSERT(function);
     MTLRenderPipelineDescriptor* mtlRenderPipelineDescriptor = [MTLRenderPipelineDescriptor new];
     mtlRenderPipelineDescriptor.vertexFunction = function;
     mtlRenderPipelineDescriptor.rasterizationEnabled = false;
@@ -744,30 +860,37 @@ id<MTLRenderPipelineState> Device::indirectBufferClampPipeline(NSUInteger raster
 
     static id<MTLFunction> function = nil;
     NSError *error = nil;
-    if (!function) {
+    static std::once_flag onceFlag;
+    std::call_once(onceFlag, [&] {
         MTLCompileOptions* options = [MTLCompileOptions new];
         ALLOW_DEPRECATED_DECLARATIONS_BEGIN
         options.fastMathEnabled = YES;
         ALLOW_DEPRECATED_DECLARATIONS_END
-        /* NOLINT */ id<MTLLibrary> library = [m_device newLibraryWithSource:@R"(
+        /* NOLINT */ id<MTLLibrary> library = [m_device newLibraryWithSource:[NSString stringWithFormat:@R"(
     using namespace metal;
-    [[vertex]] void vs(device const MTLDrawPrimitivesIndirectArguments& input [[buffer(0)]], device MTLDrawPrimitivesIndirectArguments& output [[buffer(1)]], const constant uint* minCounts [[buffer(2)]]) {
-        bool vertexCondition = input.vertexCount + input.vertexStart > minCounts[0] || input.vertexStart >= minCounts[0];
+    [[vertex]] void vsIndirect(device const MTLDrawPrimitivesIndirectArguments& input [[buffer(0)]], device MTLDrawPrimitivesIndirectArguments& output [[buffer(1)]], const constant uint* minCounts [[buffer(2)]])
+    {
+        bool lostCondition = input.vertexCount > %u || input.instanceCount > %u || input.vertexCount * input.instanceCount > %u;
+        bool vertexCondition = lostCondition
+            || input.vertexCount + input.vertexStart > minCounts[0]
+            || input.vertexStart >= minCounts[0];
         bool instanceCondition = input.baseInstance + input.instanceCount > minCounts[1] || input.baseInstance >= minCounts[1];
-        bool condition = vertexCondition || instanceCondition;
-        output.vertexCount = metal::select(input.vertexCount, 0u, condition);
-        output.instanceCount = input.instanceCount;
+        auto minVertexCountMinusVertexStart = minCounts[0] > input.vertexStart ? (minCounts[0] - input.vertexStart) : 0u;
+        output.vertexCount = metal::select(input.vertexCount, minVertexCountMinusVertexStart, vertexCondition);
+        auto minInstanceCountMinusInstanceStart = minCounts[1] > input.baseInstance ? (minCounts[1] - input.baseInstance) : 0u;
+        output.instanceCount = metal::select(input.instanceCount, minInstanceCountMinusInstanceStart, instanceCondition);
         output.vertexStart = input.vertexStart;
         output.baseInstance = input.baseInstance;
-    })" /* NOLINT */ options:options error:&error];
-        if (error) {
+        if (lostCondition)
+            *(&output.baseInstance + 1) = 1;
+    })", m_maxVerticesPerDrawCall, m_maxVerticesPerDrawCall, m_maxVerticesPerDrawCall] /* NOLINT */ options:options error:&error];
+        if (error)
             WTFLogAlways("%@", error);
-            return nil;
-        }
 
-        function = [library newFunctionWithName:@"vs"];
-    }
+        function = [library newFunctionWithName:@"vsIndirect"];
+    });
 
+    RELEASE_ASSERT(function);
     MTLRenderPipelineDescriptor* mtlRenderPipelineDescriptor = [MTLRenderPipelineDescriptor new];
     mtlRenderPipelineDescriptor.vertexFunction = function;
     mtlRenderPipelineDescriptor.rasterizationEnabled = false;
@@ -826,7 +949,10 @@ id<MTLRenderPipelineState> Device::icbCommandClampPipeline(MTLIndexType indexTyp
 
 int Device::bufferIndexForICBContainer() const
 {
-    return 1;
+#define DEVICE_BUFFER_INDEX_FOR_ICB_CONTAINER 1
+#define OBJC_STRINGIFYHELPER(x) @#x
+#define OBJC_STRINGIFY(x) OBJC_STRINGIFYHELPER(x)
+    return DEVICE_BUFFER_INDEX_FOR_ICB_CONTAINER;
 }
 
 id<MTLFunction> Device::icbCommandClampFunction(MTLIndexType indexType)
@@ -834,7 +960,8 @@ id<MTLFunction> Device::icbCommandClampFunction(MTLIndexType indexType)
     static id<MTLFunction> function = nil;
     static id<MTLFunction> functionUshort = nil;
     NSError *error = nil;
-    if (!function) {
+    static std::once_flag onceFlag;
+    std::call_once(onceFlag, [&] {
         MTLCompileOptions* options = [MTLCompileOptions new];
         ALLOW_DEPRECATED_DECLARATIONS_BEGIN
         options.fastMathEnabled = YES;
@@ -842,7 +969,8 @@ id<MTLFunction> Device::icbCommandClampFunction(MTLIndexType indexType)
         /* NOLINT */ id<MTLLibrary> library = [m_device newLibraryWithSource:@R"(
     using namespace metal;
     struct ICBContainer {
-        command_buffer commandBuffer [[ id(0) ]];
+        device uint* outOfBoundsRead [[ id(0) ]];
+        command_buffer commandBuffer [[ id(1) ]];
     };
     struct IndexDataUshort {
         uint64_t renderCommand { 0 };
@@ -869,14 +997,17 @@ id<MTLFunction> Device::icbCommandClampFunction(MTLIndexType indexType)
         primitive_type primitiveType { primitive_type::triangle };
     };
 
-    [[vertex]] void vs(device const IndexDataUint* indexData [[buffer(0)]],
-        device ICBContainer *icb_container [[buffer(1)]], // <-- must match Device::bufferIndexForICBContainer()
-        uint indexId [[vertex_id]]) {
-
+    [[vertex]] void vsICB(device const IndexDataUint* indexData [[buffer(0)]],
+        device ICBContainer *icb_container [[buffer()" OBJC_STRINGIFY(DEVICE_BUFFER_INDEX_FOR_ICB_CONTAINER) @R"()]],
+        uint indexId [[vertex_id]])
+    {
         device const IndexDataUint& data = *indexData;
         uint32_t k = (data.primitiveType == primitive_type::triangle_strip || data.primitiveType == primitive_type::line_strip) ? 1 : 0;
-        uint32_t vertexIndex = data.indexBuffer[indexId] + k;
-        if (data.baseVertex + vertexIndex >= data.minVertexCount + k) {
+        uint32_t indexBufferValue = data.indexBuffer[indexId + data.firstIndex];
+        uint32_t vertexIndex = indexBufferValue + k;
+        bool negativeCondition = data.baseVertex + k < data.baseVertex;
+        if (negativeCondition || (data.baseVertex + vertexIndex >= data.minVertexCount + k)) {
+            *icb_container->outOfBoundsRead = 1;
             render_command cmd(icb_container->commandBuffer, data.renderCommand);
             cmd.draw_indexed_primitives(data.primitiveType,
                 0u,
@@ -887,14 +1018,17 @@ id<MTLFunction> Device::icbCommandClampFunction(MTLIndexType indexType)
         }
     }
 
-    [[vertex]] void vsUshort(device const IndexDataUshort* indexData [[buffer(0)]],
-        device ICBContainer *icb_container [[buffer(1)]], // <-- must match Device::bufferIndexForICBContainer()
-        uint indexId [[vertex_id]]) {
-
+    [[vertex]] void vsUshortICB(device const IndexDataUshort* indexData [[buffer(0)]],
+        device ICBContainer *icb_container [[buffer()" OBJC_STRINGIFY(DEVICE_BUFFER_INDEX_FOR_ICB_CONTAINER) @R"()]],
+        uint indexId [[vertex_id]])
+    {
         device const IndexDataUshort& data = *indexData;
         uint32_t k = (data.primitiveType == primitive_type::triangle_strip || data.primitiveType == primitive_type::line_strip) ? 1 : 0;
-        ushort vertexIndex = data.indexBuffer[indexId] + k;
-        if (data.baseVertex + vertexIndex >= data.minVertexCount + k) {
+        ushort indexBufferValue = data.indexBuffer[indexId + data.firstIndex];
+        ushort vertexIndex = indexBufferValue + k;
+        bool negativeCondition = data.baseVertex + k < data.baseVertex;
+        if (negativeCondition || (data.baseVertex + vertexIndex >= data.minVertexCount + k)) {
+            *icb_container->outOfBoundsRead = 1;
             render_command cmd(icb_container->commandBuffer, data.renderCommand);
             cmd.draw_indexed_primitives(data.primitiveType,
                 0u,
@@ -905,16 +1039,41 @@ id<MTLFunction> Device::icbCommandClampFunction(MTLIndexType indexType)
         }
 
     })" /* NOLINT */ options:options error:&error];
-        if (error) {
+        if (error)
             WTFLogAlways("%@", error);
-            return nil;
-        }
 
-        function = [library newFunctionWithName:@"vs"];
-        functionUshort = [library newFunctionWithName:@"vsUshort"];
-    }
+        function = [library newFunctionWithName:@"vsICB"];
+        functionUshort = [library newFunctionWithName:@"vsUshortICB"];
+    });
+#undef DEVICE_BUFFER_INDEX_FOR_ICB_CONTAINER
+#undef OBJC_STRINGIFY
+#undef OBJC_STRINGIFYHELPER
 
+    RELEASE_ASSERT(function && functionUshort);
     return indexType == MTLIndexTypeUInt16 ? functionUshort : function;
+}
+
+void Device::pauseErrorReporting(bool pauseReporting)
+{
+    m_supressAllErrors = pauseReporting;
+}
+
+id<MTLSharedEvent> Device::resolveTimestampsSharedEvent()
+{
+    if (!m_resolveTimestampsSharedEvent)
+        m_resolveTimestampsSharedEvent = [m_device newSharedEvent];
+
+    return m_resolveTimestampsSharedEvent;
+}
+
+void Device::trackTimestampsBuffer(id<MTLCommandBuffer> commandBuffer, id<MTLCounterSampleBuffer> counterSampleBuffer)
+{
+    NSMutableArray<id<MTLCounterSampleBuffer>>* sampleBufferArray = [m_sampleCounterBuffers objectForKey:commandBuffer];
+    if (!sampleBufferArray) {
+        sampleBufferArray = [NSMutableArray array];
+        [m_sampleCounterBuffers setObject:sampleBufferArray forKey:commandBuffer];
+    }
+    [sampleBufferArray addObject:counterSampleBuffer];
 }
 
 } // namespace WebGPU
@@ -933,163 +1092,168 @@ void wgpuDeviceRelease(WGPUDevice device)
 
 WGPUBindGroup wgpuDeviceCreateBindGroup(WGPUDevice device, const WGPUBindGroupDescriptor* descriptor)
 {
-    return WebGPU::releaseToAPI(WebGPU::fromAPI(device).createBindGroup(*descriptor));
+    return WebGPU::releaseToAPI(WebGPU::protectedFromAPI(device)->createBindGroup(*descriptor));
 }
 
 WGPUBindGroupLayout wgpuDeviceCreateBindGroupLayout(WGPUDevice device, const WGPUBindGroupLayoutDescriptor* descriptor)
 {
-    return WebGPU::releaseToAPI(WebGPU::fromAPI(device).createBindGroupLayout(*descriptor));
+    return WebGPU::releaseToAPI(WebGPU::protectedFromAPI(device)->createBindGroupLayout(*descriptor));
 }
 
 WGPUXRBinding wgpuDeviceCreateXRBinding(WGPUDevice device)
 {
-    return WebGPU::releaseToAPI(WebGPU::fromAPI(device).createXRBinding());
+    return WebGPU::releaseToAPI(WebGPU::protectedFromAPI(device)->createXRBinding());
 }
 
 WGPUBuffer wgpuDeviceCreateBuffer(WGPUDevice device, const WGPUBufferDescriptor* descriptor)
 {
-    return WebGPU::releaseToAPI(WebGPU::fromAPI(device).createBuffer(*descriptor));
+    return WebGPU::releaseToAPI(WebGPU::protectedFromAPI(device)->createBuffer(*descriptor));
 }
 
 WGPUCommandEncoder wgpuDeviceCreateCommandEncoder(WGPUDevice device, const WGPUCommandEncoderDescriptor* descriptor)
 {
-    return WebGPU::releaseToAPI(WebGPU::fromAPI(device).createCommandEncoder(*descriptor));
+    return WebGPU::releaseToAPI(WebGPU::protectedFromAPI(device)->createCommandEncoder(*descriptor));
 }
 
 WGPUComputePipeline wgpuDeviceCreateComputePipeline(WGPUDevice device, const WGPUComputePipelineDescriptor* descriptor)
 {
-    return WebGPU::releaseToAPI(WebGPU::fromAPI(device).createComputePipeline(*descriptor).first);
+    return WebGPU::releaseToAPI(WebGPU::protectedFromAPI(device)->createComputePipeline(*descriptor).first);
+}
+
+void wgpuDevicePauseErrorReporting(WGPUDevice device, WGPUBool pauseErrors)
+{
+    WebGPU::protectedFromAPI(device)->pauseErrorReporting(!!pauseErrors);
 }
 
 void wgpuDeviceCreateComputePipelineAsync(WGPUDevice device, const WGPUComputePipelineDescriptor* descriptor, WGPUCreateComputePipelineAsyncCallback callback, void* userdata)
 {
-    WebGPU::fromAPI(device).createComputePipelineAsync(*descriptor, [callback, userdata](WGPUCreatePipelineAsyncStatus status, Ref<WebGPU::ComputePipeline>&& pipeline, String&& message) {
+    WebGPU::protectedFromAPI(device)->createComputePipelineAsync(*descriptor, [callback, userdata](WGPUCreatePipelineAsyncStatus status, Ref<WebGPU::ComputePipeline>&& pipeline, String&& message) {
         callback(status, WebGPU::releaseToAPI(WTFMove(pipeline)), WTFMove(message), userdata);
     });
 }
 
 void wgpuDeviceCreateComputePipelineAsyncWithBlock(WGPUDevice device, WGPUComputePipelineDescriptor const * descriptor, WGPUCreateComputePipelineAsyncBlockCallback callback)
 {
-    WebGPU::fromAPI(device).createComputePipelineAsync(*descriptor, [callback = WebGPU::fromAPI(WTFMove(callback))](WGPUCreatePipelineAsyncStatus status, Ref<WebGPU::ComputePipeline>&& pipeline, String&& message) {
+    WebGPU::protectedFromAPI(device)->createComputePipelineAsync(*descriptor, [callback = WebGPU::fromAPI(WTFMove(callback))](WGPUCreatePipelineAsyncStatus status, Ref<WebGPU::ComputePipeline>&& pipeline, String&& message) {
         callback(status, WebGPU::releaseToAPI(WTFMove(pipeline)), WTFMove(message));
     });
 }
 
 WGPUPipelineLayout wgpuDeviceCreatePipelineLayout(WGPUDevice device, const WGPUPipelineLayoutDescriptor* descriptor)
 {
-    return WebGPU::releaseToAPI(WebGPU::fromAPI(device).createPipelineLayout(*descriptor, !descriptor->bindGroupLayouts));
+    return WebGPU::releaseToAPI(WebGPU::protectedFromAPI(device)->createPipelineLayout(*descriptor, !descriptor->bindGroupLayouts));
 }
 
 WGPUQuerySet wgpuDeviceCreateQuerySet(WGPUDevice device, const WGPUQuerySetDescriptor* descriptor)
 {
-    return WebGPU::releaseToAPI(WebGPU::fromAPI(device).createQuerySet(*descriptor));
+    return WebGPU::releaseToAPI(WebGPU::protectedFromAPI(device)->createQuerySet(*descriptor));
 }
 
 WGPURenderBundleEncoder wgpuDeviceCreateRenderBundleEncoder(WGPUDevice device, const WGPURenderBundleEncoderDescriptor* descriptor)
 {
-    return WebGPU::releaseToAPI(WebGPU::fromAPI(device).createRenderBundleEncoder(*descriptor));
+    return WebGPU::releaseToAPI(WebGPU::protectedFromAPI(device)->createRenderBundleEncoder(*descriptor));
 }
 
 WGPURenderPipeline wgpuDeviceCreateRenderPipeline(WGPUDevice device, const WGPURenderPipelineDescriptor* descriptor)
 {
-    return WebGPU::releaseToAPI(WebGPU::fromAPI(device).createRenderPipeline(*descriptor).first);
+    return WebGPU::releaseToAPI(WebGPU::protectedFromAPI(device)->createRenderPipeline(*descriptor).first);
 }
 
 void wgpuDeviceCreateRenderPipelineAsync(WGPUDevice device, const WGPURenderPipelineDescriptor* descriptor, WGPUCreateRenderPipelineAsyncCallback callback, void* userdata)
 {
-    WebGPU::fromAPI(device).createRenderPipelineAsync(*descriptor, [callback, userdata](WGPUCreatePipelineAsyncStatus status, Ref<WebGPU::RenderPipeline>&& pipeline, String&& message) {
+    WebGPU::protectedFromAPI(device)->createRenderPipelineAsync(*descriptor, [callback, userdata](WGPUCreatePipelineAsyncStatus status, Ref<WebGPU::RenderPipeline>&& pipeline, String&& message) {
         callback(status, WebGPU::releaseToAPI(WTFMove(pipeline)), WTFMove(message), userdata);
     });
 }
 
 void wgpuDeviceCreateRenderPipelineAsyncWithBlock(WGPUDevice device, WGPURenderPipelineDescriptor const * descriptor, WGPUCreateRenderPipelineAsyncBlockCallback callback)
 {
-    WebGPU::fromAPI(device).createRenderPipelineAsync(*descriptor, [callback = WebGPU::fromAPI(WTFMove(callback))](WGPUCreatePipelineAsyncStatus status, Ref<WebGPU::RenderPipeline>&& pipeline, String&& message) {
+    WebGPU::protectedFromAPI(device)->createRenderPipelineAsync(*descriptor, [callback = WebGPU::fromAPI(WTFMove(callback))](WGPUCreatePipelineAsyncStatus status, Ref<WebGPU::RenderPipeline>&& pipeline, String&& message) {
         callback(status, WebGPU::releaseToAPI(WTFMove(pipeline)), WTFMove(message));
     });
 }
 
 WGPUSampler wgpuDeviceCreateSampler(WGPUDevice device, const WGPUSamplerDescriptor* descriptor)
 {
-    return WebGPU::releaseToAPI(WebGPU::fromAPI(device).createSampler(*descriptor));
+    return WebGPU::releaseToAPI(WebGPU::protectedFromAPI(device)->createSampler(*descriptor));
 }
 
 WGPUExternalTexture wgpuDeviceImportExternalTexture(WGPUDevice device, const WGPUExternalTextureDescriptor* descriptor)
 {
-    return WebGPU::releaseToAPI(WebGPU::fromAPI(device).createExternalTexture(*descriptor));
+    return WebGPU::releaseToAPI(WebGPU::protectedFromAPI(device)->createExternalTexture(*descriptor));
 }
 
 WGPUShaderModule wgpuDeviceCreateShaderModule(WGPUDevice device, const WGPUShaderModuleDescriptor* descriptor)
 {
-    return WebGPU::releaseToAPI(WebGPU::fromAPI(device).createShaderModule(*descriptor));
+    return WebGPU::releaseToAPI(WebGPU::protectedFromAPI(device)->createShaderModule(*descriptor));
 }
 
 WGPUSwapChain wgpuDeviceCreateSwapChain(WGPUDevice device, WGPUSurface surface, const WGPUSwapChainDescriptor* descriptor)
 {
-    return WebGPU::releaseToAPI(WebGPU::fromAPI(device).createSwapChain(WebGPU::fromAPI(surface), *descriptor));
+    return WebGPU::releaseToAPI(WebGPU::protectedFromAPI(device)->createSwapChain(WebGPU::protectedFromAPI(surface), *descriptor));
 }
 
 WGPUTexture wgpuDeviceCreateTexture(WGPUDevice device, const WGPUTextureDescriptor* descriptor)
 {
-    return WebGPU::releaseToAPI(WebGPU::fromAPI(device).createTexture(*descriptor));
+    return WebGPU::releaseToAPI(WebGPU::protectedFromAPI(device)->createTexture(*descriptor));
 }
 
 void wgpuDeviceDestroy(WGPUDevice device)
 {
-    WebGPU::fromAPI(device).destroy();
+    WebGPU::protectedFromAPI(device)->destroy();
 }
 
 size_t wgpuDeviceEnumerateFeatures(WGPUDevice device, WGPUFeatureName* features)
 {
-    return WebGPU::fromAPI(device).enumerateFeatures(features);
+    return WebGPU::protectedFromAPI(device)->enumerateFeatures(features);
 }
 
 WGPUBool wgpuDeviceGetLimits(WGPUDevice device, WGPUSupportedLimits* limits)
 {
-    return WebGPU::fromAPI(device).getLimits(*limits);
+    return WebGPU::protectedFromAPI(device)->getLimits(*limits);
 }
 
 WGPUQueue wgpuDeviceGetQueue(WGPUDevice device)
 {
-    return &WebGPU::fromAPI(device).getQueue();
+    return &WebGPU::protectedFromAPI(device)->getQueue();
 }
 
 WGPUBool wgpuDeviceHasFeature(WGPUDevice device, WGPUFeatureName feature)
 {
-    return WebGPU::fromAPI(device).hasFeature(feature);
+    return WebGPU::protectedFromAPI(device)->hasFeature(feature);
 }
 
 void wgpuDevicePopErrorScope(WGPUDevice device, WGPUErrorCallback callback, void* userdata)
 {
-    WebGPU::fromAPI(device).popErrorScope([callback, userdata](WGPUErrorType type, String&& message) {
+    WebGPU::protectedFromAPI(device)->popErrorScope([callback, userdata](WGPUErrorType type, String&& message) {
         callback(type, message.utf8().data(), userdata);
     });
 }
 
 void wgpuDevicePopErrorScopeWithBlock(WGPUDevice device, WGPUErrorBlockCallback callback)
 {
-    WebGPU::fromAPI(device).popErrorScope([callback = WebGPU::fromAPI(WTFMove(callback))](WGPUErrorType type, String&& message) {
+    WebGPU::protectedFromAPI(device)->popErrorScope([callback = WebGPU::fromAPI(WTFMove(callback))](WGPUErrorType type, String&& message) {
         callback(type, message.utf8().data());
     });
 }
 
 void wgpuDevicePushErrorScope(WGPUDevice device, WGPUErrorFilter filter)
 {
-    WebGPU::fromAPI(device).pushErrorScope(filter);
+    WebGPU::protectedFromAPI(device)->pushErrorScope(filter);
 }
 
 void wgpuDeviceClearDeviceLostCallback(WGPUDevice device)
 {
-    return WebGPU::fromAPI(device).setDeviceLostCallback(nullptr);
+    return WebGPU::protectedFromAPI(device)->setDeviceLostCallback(nullptr);
 }
 void wgpuDeviceClearUncapturedErrorCallback(WGPUDevice device)
 {
-    return WebGPU::fromAPI(device).setUncapturedErrorCallback(nullptr);
+    return WebGPU::protectedFromAPI(device)->setUncapturedErrorCallback(nullptr);
 }
 
 void wgpuDeviceSetDeviceLostCallback(WGPUDevice device, WGPUDeviceLostCallback callback, void* userdata)
 {
-    return WebGPU::fromAPI(device).setDeviceLostCallback([callback, userdata](WGPUDeviceLostReason reason, String&& message) {
+    return WebGPU::protectedFromAPI(device)->setDeviceLostCallback([callback, userdata](WGPUDeviceLostReason reason, String&& message) {
         if (callback)
             callback(reason, message.utf8().data(), userdata);
     });
@@ -1097,7 +1261,7 @@ void wgpuDeviceSetDeviceLostCallback(WGPUDevice device, WGPUDeviceLostCallback c
 
 void wgpuDeviceSetDeviceLostCallbackWithBlock(WGPUDevice device, WGPUDeviceLostBlockCallback callback)
 {
-    return WebGPU::fromAPI(device).setDeviceLostCallback([callback = WebGPU::fromAPI(WTFMove(callback))](WGPUDeviceLostReason reason, String&& message) {
+    return WebGPU::protectedFromAPI(device)->setDeviceLostCallback([callback = WebGPU::fromAPI(WTFMove(callback))](WGPUDeviceLostReason reason, String&& message) {
         if (callback)
             callback(reason, message.utf8().data());
     });
@@ -1105,7 +1269,7 @@ void wgpuDeviceSetDeviceLostCallbackWithBlock(WGPUDevice device, WGPUDeviceLostB
 
 void wgpuDeviceSetUncapturedErrorCallback(WGPUDevice device, WGPUErrorCallback callback, void* userdata)
 {
-    return WebGPU::fromAPI(device).setUncapturedErrorCallback([callback, userdata](WGPUErrorType type, String&& message) {
+    return WebGPU::protectedFromAPI(device)->setUncapturedErrorCallback([callback, userdata](WGPUErrorType type, String&& message) {
         if (callback)
             callback(type, message.utf8().data(), userdata);
     });
@@ -1113,7 +1277,7 @@ void wgpuDeviceSetUncapturedErrorCallback(WGPUDevice device, WGPUErrorCallback c
 
 void wgpuDeviceSetUncapturedErrorCallbackWithBlock(WGPUDevice device, WGPUErrorBlockCallback callback)
 {
-    return WebGPU::fromAPI(device).setUncapturedErrorCallback([callback = WebGPU::fromAPI(WTFMove(callback))](WGPUErrorType type, String&& message) {
+    return WebGPU::protectedFromAPI(device)->setUncapturedErrorCallback([callback = WebGPU::fromAPI(WTFMove(callback))](WGPUErrorType type, String&& message) {
         if (callback)
             callback(type, message.utf8().data());
     });
@@ -1121,5 +1285,5 @@ void wgpuDeviceSetUncapturedErrorCallbackWithBlock(WGPUDevice device, WGPUErrorB
 
 void wgpuDeviceSetLabel(WGPUDevice device, const char* label)
 {
-    WebGPU::fromAPI(device).setLabel(WebGPU::fromAPI(label));
+    WebGPU::protectedFromAPI(device)->setLabel(WebGPU::fromAPI(label));
 }

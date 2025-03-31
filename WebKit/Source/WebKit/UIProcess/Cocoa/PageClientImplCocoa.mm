@@ -26,9 +26,9 @@
 #import "config.h"
 #import "PageClientImplCocoa.h"
 
-
 #import "WKTextAnimationType.h"
 #import "WKWebViewInternal.h"
+#import "WebFullScreenManagerProxy.h"
 #import <WebCore/AlternativeTextUIController.h>
 #import <WebCore/TextAnimationTypes.h>
 #import <WebCore/WritingToolsTypes.h>
@@ -38,6 +38,10 @@
 #import <wtf/Vector.h>
 #import <wtf/cocoa/VectorCocoa.h>
 #import <wtf/text/WTFString.h>
+
+#if ENABLE(SCREEN_TIME)
+#import <pal/cocoa/ScreenTimeSoftLink.h>
+#endif
 
 namespace WebKit {
 
@@ -57,17 +61,11 @@ void PageClientImplCocoa::topContentInsetDidChange()
 void PageClientImplCocoa::themeColorWillChange()
 {
     [m_webView willChangeValueForKey:@"themeColor"];
-
-    // FIXME: Remove old `-[WKWebView _themeColor]` SPI <rdar://76662644>
-    [m_webView willChangeValueForKey:@"_themeColor"];
 }
 
 void PageClientImplCocoa::themeColorDidChange()
 {
     [m_webView didChangeValueForKey:@"themeColor"];
-
-    // FIXME: Remove old `-[WKWebView _themeColor]` SPI <rdar://76662644>
-    [m_webView didChangeValueForKey:@"_themeColor"];
 }
 
 void PageClientImplCocoa::underPageBackgroundColorWillChange()
@@ -78,18 +76,6 @@ void PageClientImplCocoa::underPageBackgroundColorWillChange()
 void PageClientImplCocoa::underPageBackgroundColorDidChange()
 {
     [m_webView didChangeValueForKey:@"underPageBackgroundColor"];
-}
-
-void PageClientImplCocoa::pageExtendedBackgroundColorWillChange()
-{
-    // FIXME: Remove old `-[WKWebView _pageExtendedBackgroundColor]` SPI <rdar://77789732>
-    [m_webView willChangeValueForKey:@"_pageExtendedBackgroundColor"];
-}
-
-void PageClientImplCocoa::pageExtendedBackgroundColorDidChange()
-{
-    // FIXME: Remove old `-[WKWebView _pageExtendedBackgroundColor]` SPI <rdar://77789732>
-    [m_webView didChangeValueForKey:@"_pageExtendedBackgroundColor"];
 }
 
 void PageClientImplCocoa::sampledPageTopColorWillChange()
@@ -191,7 +177,7 @@ void PageClientImplCocoa::modelProcessDidExit()
 }
 #endif
 
-WebCore::DictationContext PageClientImplCocoa::addDictationAlternatives(PlatformTextAlternatives *alternatives)
+std::optional<WebCore::DictationContext> PageClientImplCocoa::addDictationAlternatives(PlatformTextAlternatives *alternatives)
 {
     return m_alternativeTextUIController->addAlternatives(alternatives);
 }
@@ -321,6 +307,36 @@ void PageClientImplCocoa::removeTextAnimationForAnimationID(const WTF::UUID& uui
 
 #endif
 
+#if ENABLE(SCREEN_TIME)
+void PageClientImplCocoa::installScreenTimeWebpageController()
+{
+    [m_webView _installScreenTimeWebpageController];
+}
+
+void PageClientImplCocoa::didChangeScreenTimeWebpageControllerURL()
+{
+    updateScreenTimeWebpageControllerURL(webView().get());
+}
+
+void PageClientImplCocoa::updateScreenTimeWebpageControllerURL(WKWebView *webView)
+{
+    if (!PAL::isScreenTimeFrameworkAvailable())
+        return;
+
+    RetainPtr screenTimeWebpageController = [webView _screenTimeWebpageController];
+    if (!screenTimeWebpageController)
+        return;
+
+    NakedPtr<WebKit::WebPageProxy> pageProxy = [webView _page];
+    if (pageProxy && !pageProxy->preferences().screenTimeEnabled()) {
+        [webView _uninstallScreenTimeWebpageController];
+        return;
+    }
+
+    [screenTimeWebpageController setURL:[webView _mainFrameURL]];
+}
+#endif
+
 #if ENABLE(GAMEPAD)
 void PageClientImplCocoa::setGamepadsRecentlyAccessed(GamepadsRecentlyAccessed gamepadsRecentlyAccessed)
 {
@@ -358,5 +374,18 @@ CocoaWindow *PageClientImplCocoa::platformWindow() const
 {
     return [m_webView window];
 }
+
+void PageClientImplCocoa::processDidUpdateThrottleState()
+{
+    [m_webView willChangeValueForKey:@"_webProcessState"];
+    [m_webView didChangeValueForKey:@"_webProcessState"];
+}
+
+#if ENABLE(FULLSCREEN_API)
+void PageClientImplCocoa::setFullScreenClientForTesting(std::unique_ptr<WebFullScreenManagerProxyClient>&& client)
+{
+    m_fullscreenClientForTesting = WTFMove(client);
+}
+#endif
 
 } // namespace WebKit

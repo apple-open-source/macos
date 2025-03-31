@@ -72,6 +72,8 @@ public:
     void mapAnimationTimingFunction(Animation&, const CSSValue&);
     static void mapAnimationCompositeOperation(Animation&, const CSSValue&);
     static void mapAnimationAllowsDiscreteTransitions(Animation&, const CSSValue&);
+    void mapAnimationRangeStart(Animation&, const CSSValue&);
+    void mapAnimationRangeEnd(Animation&, const CSSValue&);
 
     void mapNinePieceImage(const CSSValue*, NinePieceImage&);
     void mapNinePieceImageSlice(const CSSValue&, NinePieceImage&);
@@ -82,7 +84,6 @@ public:
     static void mapNinePieceImageRepeat(const CSSValue&, NinePieceImage&);
 
 private:
-    RenderStyle* style() const;
     RefPtr<StyleImage> styleImage(const CSSValue&);
     LengthBox mapNinePieceImageQuad(const Quad&);
     Length mapNinePieceImageSide(const CSSValue&);

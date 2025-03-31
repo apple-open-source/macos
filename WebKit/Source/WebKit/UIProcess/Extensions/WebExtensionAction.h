@@ -28,8 +28,12 @@
 #if ENABLE(WK_WEB_EXTENSIONS)
 
 #include "APIObject.h"
-#include "CocoaImage.h"
+#include "WebExtensionTab.h"
+#include "WebExtensionWindow.h"
+#include <WebCore/FloatSize.h>
+#include <WebCore/Icon.h>
 #include <wtf/Forward.h>
+#include <wtf/JSONValues.h>
 #include <wtf/WeakPtr.h>
 #include <wtf/text/WTFString.h>
 
@@ -51,8 +55,6 @@ OBJC_CLASS _WKWebExtensionActionPopover;
 
 namespace WebKit {
 
-class WebExtensionContext;
-class WebExtensionTab;
 class WebExtensionWindow;
 
 class WebExtensionAction : public API::ObjectImpl<API::Object::Type::WebExtensionAction>, public CanMakeWeakPtr<WebExtensionAction> {
@@ -78,18 +80,22 @@ public:
     bool operator==(const WebExtensionAction&) const;
 
     WebExtensionContext* extensionContext() const;
-    RefPtr<WebExtensionTab> tab() const;
-    RefPtr<WebExtensionWindow> window() const;
+    RefPtr<WebExtensionTab> tab() const { return m_tab.value_or(nullptr).get(); }
+    RefPtr<WebExtensionWindow> window() const { return m_window.value_or(nullptr).get(); }
+
+    bool isTabAction() const { return !!m_tab; }
+    bool isWindowAction() const { return !!m_window; }
+    bool isDefaultAction() const { return !m_tab && !m_window; }
 
     void clearCustomizations();
     void clearBlockedResourceCount();
 
     void propertiesDidChange();
 
-    CocoaImage *icon(CGSize);
-    void setIcons(NSDictionary *);
+    RefPtr<WebCore::Icon> icon(WebCore::FloatSize idealSize);
+    void setIcons(RefPtr<JSON::Object>);
 #if ENABLE(WK_WEB_EXTENSIONS_ICON_VARIANTS)
-    void setIconVariants(NSArray *);
+    void setIconVariants(RefPtr<JSON::Array>);
 #endif
 
     String label(FallbackWhenEmpty = FallbackWhenEmpty::Yes) const;
@@ -126,8 +132,10 @@ public:
     void setPopupPopoverAppearance(Appearance);
 #endif
 
+#if PLATFORM(COCOA)
     WKWebView *popupWebView();
     bool hasPopupWebView() const { return !!m_popupWebView; }
+#endif
 
     bool presentsPopupWhenReady() const { return m_presentsPopupWhenReady; }
     bool popupPresented() const { return m_popupPresented; }
@@ -166,18 +174,20 @@ private:
     Appearance m_popoverAppearance { Appearance::Default };
 #endif
 
+#if PLATFORM(COCOA)
     RetainPtr<_WKWebExtensionActionWebView> m_popupWebView;
     RetainPtr<_WKWebExtensionActionWebViewDelegate> m_popupWebViewDelegate;
+#endif
     String m_customPopupPath;
     String m_popupWebViewInspectionName;
 
-    RetainPtr<CocoaImage> m_cachedIcon;
-    RetainPtr<NSSet> m_cachedIconScales;
-    CGSize m_cachedIconIdealSize { CGSizeZero };
+    RefPtr<WebCore::Icon> m_cachedIcon;
+    Vector<double> m_cachedIconScales;
+    WebCore::FloatSize m_cachedIconIdealSize;
 
-    RetainPtr<NSDictionary> m_customIcons;
+    RefPtr<JSON::Object> m_customIcons;
 #if ENABLE(WK_WEB_EXTENSIONS_ICON_VARIANTS)
-    RetainPtr<NSArray> m_customIconVariants;
+    RefPtr<JSON::Array> m_customIconVariants;
 #endif
     String m_customLabel;
     String m_customBadgeText;
@@ -186,6 +196,7 @@ private:
     std::optional<bool> m_hasUnreadBadgeText;
     bool m_presentsPopupWhenReady : 1 { false };
     bool m_popupPresented : 1 { false };
+    bool m_updatePending : 1 { false };
 };
 
 } // namespace WebKit

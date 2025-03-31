@@ -201,9 +201,8 @@ bool SecIsEduMode(void)
             if (valuePresent && CFEqual(value, getkMKBDeviceModeSharedIPad())) {
                 result = true;
             }
-#ifndef __clang_analyzer__ // because SOFT_LINK_FUNCTION doesn't like CF_RETURNS_RETAINED decoration
-            CFReleaseNull(deviceMode);
-#endif
+            // because SOFT_LINK_FUNCTION doesn't like CF_RETURNS_RETAINED decoration
+            [[clang::suppress]] CFReleaseNull(deviceMode);
         } else {
             secnotice("edumode", "Cannot determine because deviceMode is NULL");
         }

@@ -15,6 +15,9 @@
 #include <vector>
 
 #include "api/environment/environment.h"
+#include "api/video_codecs/scalability_mode.h"
+#include "api/video_codecs/sdp_video_format.h"
+#include "api/video_codecs/video_encoder.h"
 #include "modules/video_coding/codecs/h264/include/h264.h"
 
 namespace webrtc {
@@ -30,8 +33,8 @@ struct OpenH264EncoderTemplateAdapter {
   }
 
   static std::unique_ptr<VideoEncoder> CreateEncoder(
-      const Environment& env,
-      const SdpVideoFormat& format) {
+      [[maybe_unused]] const Environment& env,
+      [[maybe_unused]] const SdpVideoFormat& format) {
 #if defined(WEBRTC_USE_H264)
     return CreateH264Encoder(env, H264EncoderSettings::Parse(format));
 #else
@@ -39,7 +42,8 @@ struct OpenH264EncoderTemplateAdapter {
 #endif
   }
 
-  static bool IsScalabilityModeSupported(ScalabilityMode scalability_mode) {
+  static bool IsScalabilityModeSupported(
+      [[maybe_unused]] ScalabilityMode scalability_mode) {
 #if defined(WEBRTC_USE_H264)
     return H264Encoder::SupportsScalabilityMode(scalability_mode);
 #else

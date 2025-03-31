@@ -26,8 +26,6 @@
 
 #include "archive_platform.h"
 
-__FBSDID("$FreeBSD$");
-
 #ifdef HAVE_UNISTD_H
 #include <unistd.h>
 #endif
@@ -104,11 +102,16 @@ static int lzop_bidder_bid(struct archive_read_filter_bidder *,
     struct archive_read_filter *);
 static int lzop_bidder_init(struct archive_read_filter *);
 
+static const struct archive_read_filter_bidder_vtable
+lzop_bidder_vtable = {
+	.bid = lzop_bidder_bid,
+	.init = lzop_bidder_init,
+};
+
 int
 archive_read_support_filter_lzop(struct archive *_a)
 {
 	struct archive_read *a = (struct archive_read *)_a;
-	struct archive_read_filter_bidder *reader;
 
 #ifdef __APPLE__
 	if (!archive_allow_entitlement_filter("lzop")) {
@@ -117,17 +120,10 @@ archive_read_support_filter_lzop(struct archive *_a)
 	}
 #endif
 
-	archive_check_magic(_a, ARCHIVE_READ_MAGIC,
-	    ARCHIVE_STATE_NEW, "archive_read_support_filter_lzop");
-
-	if (__archive_read_get_bidder(a, &reader) != ARCHIVE_OK)
+	if (__archive_read_register_bidder(a, NULL, NULL,
+				&lzop_bidder_vtable) != ARCHIVE_OK)
 		return (ARCHIVE_FATAL);
 
-	reader->data = NULL;
-	reader->bid = lzop_bidder_bid;
-	reader->init = lzop_bidder_init;
-	reader->options = NULL;
-	reader->free = NULL;
 	/* Signal the extent of lzop support with the return value here. */
 #if defined(HAVE_LZO_LZOCONF_H) && defined(HAVE_LZO_LZO1X_H)
 	return (ARCHIVE_OK);
@@ -181,6 +177,13 @@ lzop_bidder_init(struct archive_read_filter *self)
 	return (r);
 }
 #else
+
+static const struct archive_read_filter_vtable
+lzop_reader_vtable = {
+	.read = lzop_filter_read,
+	.close = lzop_filter_close
+};
+
 /*
  * Initialize the filter object.
  */
@@ -192,7 +195,7 @@ lzop_bidder_init(struct archive_read_filter *self)
 	self->code = ARCHIVE_FILTER_LZOP;
 	self->name = "lzop";
 
-	state = (struct read_lzop *)calloc(sizeof(*state), 1);
+	state = (struct read_lzop *)calloc(1, sizeof(*state));
 	if (state == NULL) {
 		archive_set_error(&self->archive->archive, ENOMEM,
 		    "Can't allocate data for lzop decompression");
@@ -200,9 +203,7 @@ lzop_bidder_init(struct archive_read_filter *self)
 	}
 
 	self->data = state;
-	self->read = lzop_filter_read;
-	self->skip = NULL; /* not supported */
-	self->close = lzop_filter_close;
+	self->vtable = &lzop_reader_vtable;
 
 	return (ARCHIVE_OK);
 }
@@ -289,8 +290,10 @@ consume_header(struct archive_read_filter *self)
 		checksum = crc32(crc32(0, NULL, 0), p, len);
 	else
 		checksum = adler32(adler32(0, NULL, 0), p, len);
+#ifndef DONT_FAIL_ON_CRC_ERROR
 	if (archive_be32dec(p + len) != checksum)
 		goto corrupted;
+#endif
 	__archive_read_filter_consume(self->upstream, len + 4);
 	if (flags & EXTRA_FIELD) {
 		/* Skip extra field */

@@ -2,7 +2,7 @@
 
 SPDX-License-Identifier: BSD-2-Clause
 
-Copyright (c) 2018-2023 Gavin D. Howard and contributors.
+Copyright (c) 2018-2024 Gavin D. Howard and contributors.
 
 Redistribution and use in source and binary forms, with or without
 modification, are permitted provided that the following conditions are met:
@@ -688,6 +688,9 @@ The operators will be described in more detail below.
 :   The **boolean not** operator returns **1** if the expression is **0**, or
     **0** otherwise.
 
+    **Warning**: This operator has a **different precedence** than the
+    equivalent operator in GNU bc(1) and other bc(1) implementations!
+
     This is a **non-portable extension**.
 
 **\^**
@@ -892,7 +895,7 @@ like any other expression that is printed.
 
 ## Stream Statement
 
-The "expressions in a **stream** statement may also be strings.
+The expressions in a **stream** statement may also be strings.
 
 If a **stream** statement is given a string, it prints the string as though the
 string had appeared as its own statement. In other words, the **stream**

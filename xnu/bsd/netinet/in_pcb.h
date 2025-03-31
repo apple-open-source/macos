@@ -862,6 +862,9 @@ extern struct inpcb *in_pcblookup_local_and_cleanup(struct inpcbinfo *,
     struct in_addr, u_int, int);
 extern struct inpcb *in_pcblookup_hash(struct inpcbinfo *, struct in_addr,
     u_int, struct in_addr, u_int, int, struct ifnet *);
+extern struct inpcb *in_pcblookup_hash_try(struct inpcbinfo *pcbinfo,
+    struct in_addr faddr, u_int fport_arg, struct in_addr laddr,
+    u_int lport_arg, int wildcard, struct ifnet *ifp);
 extern int in_pcblookup_hash_exists(struct inpcbinfo *, struct in_addr,
     u_int, struct in_addr, u_int, int, uid_t *, gid_t *, struct ifnet *);
 extern void in_pcbnotifyall(struct inpcbinfo *, struct in_addr, int,

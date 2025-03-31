@@ -186,13 +186,13 @@ public:
         encodeObject(key, *object, std::forward<F>(function));
     }
 
-    template<typename T, typename F>
-    void encodeObjects(const String& key, T begin, T end, F&& function)
+    template<typename CollectionType, typename F>
+    void encodeObjects(const String& key, const CollectionType& collection, F&& function)
     {
         beginArray(key);
-        for (T it = begin; it != end; ++it) {
+        for (auto& item : collection) {
             beginArrayElement();
-            function(*this, *it);
+            function(*this, item);
             endArrayElement();
         }
         endArray();

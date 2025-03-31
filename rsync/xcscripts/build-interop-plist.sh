@@ -41,6 +41,17 @@ EOF
 			destprefix=""
 			sendmacro=""
 			rcvmacro=""
+			if [ "$client" = "samba" -a "$client" = "$server" -a "$crole" = "receiver" ]; then
+				cat <<EOF >> "$outplist"
+			<!-- OMITTED: $crole -->
+EOF
+				continue
+			fi
+			cat <<EOF >> "$outplist"
+
+			<!-- ROLE: $crole -->
+EOF
+
 			case "$crole" in
 			sender)
 				destprefix="local@localhost:"
@@ -65,9 +76,9 @@ EOF
 			cat <<EOF | sed -f - "$inplist" >> "$outplist"
 /ATF_SH/i\\
 				<key>RSYNC_CLIENT</key>\\
-				<string>/usr/libexec/rsync/rsync.$client</string>\\
+				<string>/AppleInternal/Tests/rsync/rsync.$client</string>\\
 				<key>RSYNC_SERVER</key>\\
-				<string>/usr/libexec/rsync/rsync.$server</string>\\
+				<string>/AppleInternal/Tests/rsync/rsync.$server</string>\\
 				<key>RSYNC_PREFIX_SRC</key>\\
 				<string>$srcprefix</string>\\
 				<key>RSYNC_PREFIX_DEST</key>\\
@@ -81,11 +92,12 @@ n
 s,</string>,__$suffix</string>,
 }
 EOF
+
+			echo "#undef ${sendmacro}" >> "$outplist"
+			echo "#undef ${rcvmacro}" >> "$outplist"
+			echo "#undef RSYNC_CLIENT_ROLE" >> "$outplist"
 		done
 
-		echo "#undef ${sendmacro}" >> "$outplist"
-		echo "#undef ${rcvmacro}" >> "$outplist"
-		echo "#undef RSYNC_CLIENT_ROLE" >> "$outplist"
 		echo "#undef RSYNC_SERVER_${userver}" >> "$outplist"
 	done
 	echo "#undef RSYNC_CLIENT_${uclient}" >> "$outplist"

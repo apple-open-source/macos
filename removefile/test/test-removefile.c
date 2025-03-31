@@ -13,6 +13,7 @@
 #include <sys/param.h>
 #include <sys/stat.h>
 #include <sys/time.h>
+#include <sys/resource_private.h>
 #include <unistd.h>
 
 #if __APPLE__
@@ -332,6 +333,52 @@ static void mklargedir(void) {
 	free(cwd);
 }
 
+static void remove_long_canonical_path(void) {
+	char *test_top_dir = "/tmp/removefile-test";
+
+	char large_dir_buf[NAME_MAX];
+	char *cwd = getcwd(NULL, 0);
+	size_t total_len = 0;
+
+	start_timer("Creating long directory structure");
+	assert(mkdir(test_top_dir, 0755) == 0);
+	total_len += sizeof(test_top_dir);
+	assert(chdir(test_top_dir) == 0);
+	memset_pattern8(large_dir_buf, "cutiepie", NAME_MAX);
+	large_dir_buf[NAME_MAX - 1] = 0;
+
+	// repeatedly create directories so that the total path
+	// of the deepest directory is > PATH_MAX.
+	int depth = 0;
+	while (total_len <= PATH_MAX) {
+		assert(mkdir(large_dir_buf, 0755) == 0);
+		total_len += NAME_MAX;
+		assert(chdir(large_dir_buf) == 0);
+		depth++;
+	}
+
+	stop_timer();
+
+	// The canonical path for the leaf is > PATH_MAX. With the long paths i/o policy on,
+	// getattrlist in removefile will succeed and return a truncated path.
+	// This shouldn't be an issue and removefile should still succeed
+
+	assert(setiopolicy_np(IOPOL_TYPE_VFS_SUPPORT_LONG_PATHS, IOPOL_SCOPE_PROCESS, IOPOL_VFS_SUPPORT_LONG_PATHS_ON) == 0);
+
+	start_timer("Removing from the leaf up");
+	while (--depth >= 0) {
+		assert(chdir("..") == 0);
+		assert(removefile(large_dir_buf, NULL, REMOVEFILE_RECURSIVE) == 0);
+	}
+
+	stop_timer();
+	assert(setiopolicy_np(IOPOL_TYPE_VFS_SUPPORT_LONG_PATHS, IOPOL_SCOPE_PROCESS, IOPOL_VFS_SUPPORT_LONG_PATHS_DEFAULT) == 0);
+	assert(removefile(test_top_dir, NULL, REMOVEFILE_RECURSIVE) == 0);
+
+	chdir(cwd);
+	free(cwd);
+}
+
 static void mkdirs(bool mark_purgeable) {
 	start_timer("Creating directory structure");
 	assert(mkdir("/tmp/removefile-test", 0755) == 0);
@@ -404,7 +451,7 @@ int main(int argc, char *argv[]) {
 	assert(removefile("/tmp/removefile-test", NULL, REMOVEFILE_SECURE_1_PASS | REMOVEFILE_RECURSIVE) == 0);
 	stop_timer();
 
-	// This makes a very long path that is (including NUL) PATH_MAX length,
+	// This makes a path that is (including NUL) PATH_MAX length,
 	// while each component is no longer than NAME_MAX.
 	// (This should be a valid path name, even if it's not present on disk.)
 	char longpathname[PATH_MAX + 2] = {0};
@@ -428,6 +475,28 @@ int main(int argc, char *argv[]) {
 	start_timer("removefile(PATH_MAX+1)");
 	assert(removefile(longpathname, NULL, REMOVEFILE_RECURSIVE) == -1 && errno == ENAMETOOLONG);
 	stop_timer();
+
+	// See that pathname is invalid even if we enable the long paths i/o policy
+	assert(setiopolicy_np(IOPOL_TYPE_VFS_SUPPORT_LONG_PATHS, IOPOL_SCOPE_PROCESS, IOPOL_VFS_SUPPORT_LONG_PATHS_ON) == 0);
+	start_timer("removefile(PATH_MAX+1), long paths i/o policy");
+	assert(removefile(longpathname, NULL, REMOVEFILE_RECURSIVE) == -1 && errno == ENAMETOOLONG);
+	stop_timer();
+	assert(setiopolicy_np(IOPOL_TYPE_VFS_SUPPORT_LONG_PATHS, IOPOL_SCOPE_PROCESS, IOPOL_VFS_SUPPORT_LONG_PATHS_DEFAULT) == 0);
+
+	// See that pathname is invalid if we are accepting long paths
+	// but didn't enable the long paths i/o policy
+	start_timer("removefile(PATH_MAX+1), allow long paths, no long paths i/o policy");
+	assert(removefile(longpathname, NULL, REMOVEFILE_RECURSIVE | REMOVEFILE_ALLOW_LONG_PATHS) == -1 && errno == ENAMETOOLONG);
+	stop_timer();
+
+	// See that pathname is valid iff we allow long paths and enable the long paths i/o policy
+	assert(setiopolicy_np(IOPOL_TYPE_VFS_SUPPORT_LONG_PATHS, IOPOL_SCOPE_PROCESS, IOPOL_VFS_SUPPORT_LONG_PATHS_ON) == 0);
+	start_timer("removefile(PATH_MAX+1), allow long paths, long paths i/o policy");
+	assert(removefile(longpathname, NULL, REMOVEFILE_RECURSIVE | REMOVEFILE_ALLOW_LONG_PATHS) == -1 && errno == ENOENT);
+	stop_timer();
+	assert(setiopolicy_np(IOPOL_TYPE_VFS_SUPPORT_LONG_PATHS, IOPOL_SCOPE_PROCESS, IOPOL_VFS_SUPPORT_LONG_PATHS_DEFAULT) == 0);
+
+	remove_long_canonical_path();
 
 	mkdirs(false);
 	assert((state = removefile_state_alloc()) != NULL);
@@ -503,8 +572,17 @@ int main(int argc, char *argv[]) {
 	assert(removefileat(fd, path, NULL, REMOVEFILE_SECURE_1_PASS | REMOVEFILE_RECURSIVE) == -1 && errno == ENAMETOOLONG);
 	assert(removefileat(AT_FDCWD, "/tmp/removefile-test", NULL, REMOVEFILE_SECURE_1_PASS | REMOVEFILE_RECURSIVE) == 0);
 	stop_timer();
-
 	close(fd);
+
+	mkdirs(true);
+	start_timer("removefile(slim)");
+	assert(removefile("/tmp/removefile-test", NULL, REMOVEFILE_RECURSIVE_SLIM | REMOVEFILE_CLEAR_PURGEABLE | REMOVEFILE_KEEP_PARENT) == 0);
+	stop_timer();
+	// check that the parent wasn't removed
+	assert((fd = open("/tmp/removefile-test", O_RDONLY | O_DIRECTORY)) != -1);
+	close(fd);
+	assert(removefile("/tmp/removefile-test", NULL, REMOVEFILE_RECURSIVE_SLIM | REMOVEFILE_CLEAR_PURGEABLE) == 0);
+
 	printf("Success!\n");
 
 	if (fsevents_paths) {

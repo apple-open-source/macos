@@ -132,14 +132,28 @@ typedef void *vpx_rc_model_t;
  */
 #define VPX_DEFAULT_RDMULT -1
 
+/*!\brief Superblock quantization parameters
+ * Store the superblock quantiztaion parameters
+ */
+typedef struct sb_parameters {
+  int q_index; /**< Quantizer step index [0..255]*/
+  int rdmult;  /**< Superblock level Lagrangian multiplier*/
+} sb_params;
+
 /*!\brief Encode frame decision made by the external rate control model
  *
  * The encoder will receive the decision from the external rate control model
  * through vpx_rc_funcs_t::get_encodeframe_decision().
  */
 typedef struct vpx_rc_encodeframe_decision {
-  int q_index; /**< Quantizer step index [0..255]*/
-  int rdmult;  /**< Frame level Lagrangian multiplier*/
+  int q_index; /**< Required: Quantizer step index [0..255]*/
+  int rdmult;  /**< Required: Frame level Lagrangian multiplier*/
+  /*!
+   * Optional: Superblock quantization parameters
+   * It is zero initialized by default. It will be set for key and ARF frames
+   * but not leaf frames.
+   */
+  sb_params *sb_params_list;
 } vpx_rc_encodeframe_decision_t;
 
 /*!\brief Information for the frame to be encoded.
@@ -186,9 +200,7 @@ typedef struct vpx_rc_encodeframe_info {
  * vpx_rc_funcs_t::update_encodeframe_result().
  */
 typedef struct vpx_rc_encodeframe_result {
-  int64_t sse;         /**< sum of squared error of the reconstructed frame */
-  int64_t bit_count;   /**< number of bits spent on coding the frame*/
-  int64_t pixel_count; /**< number of pixels in YUV planes of the frame*/
+  int64_t bit_count;          /**< number of bits spent on coding the frame*/
   int actual_encoding_qindex; /**< the actual qindex used to encode the frame*/
 } vpx_rc_encodeframe_result_t;
 
@@ -370,6 +382,8 @@ typedef struct vpx_rc_config {
   vpx_ext_rc_mode_t rc_mode; /**< Q mode or VBR mode */
   int overshoot_percent;     /**< for VBR mode only */
   int undershoot_percent;    /**< for VBR mode only */
+  int min_base_q_index;      /**< for VBR mode only */
+  int max_base_q_index;      /**< for VBR mode only */
   int base_qp;               /**< base QP for leaf frames, 0-255 */
 } vpx_rc_config_t;
 

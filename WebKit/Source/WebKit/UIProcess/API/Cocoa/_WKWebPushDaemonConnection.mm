@@ -30,6 +30,7 @@
 #import "APIWebPushSubscriptionData.h"
 #import "WKError.h"
 #import "WKSecurityOriginInternal.h"
+#import "WebPushDaemonConnectionConfiguration.h"
 #import "_WKNotificationDataInternal.h"
 #import "_WKWebPushSubscriptionDataInternal.h"
 #import <WebCore/ExceptionData.h>
@@ -37,6 +38,7 @@
 #import <wtf/BlockPtr.h>
 #import <wtf/CompletionHandler.h>
 #import <wtf/RetainPtr.h>
+#import <wtf/StdLibExtras.h>
 #import <wtf/cocoa/VectorCocoa.h>
 
 @implementation _WKWebPushDaemonConnectionConfiguration
@@ -64,7 +66,21 @@
     if (!(self = [super init]))
         return nil;
 
-    API::Object::constructInWrapper<API::WebPushDaemonConnection>(self, configuration.machServiceName, configuration.partition, configuration.bundleIdentifier);
+    WebKit::WebPushD::WebPushDaemonConnectionConfiguration connectionConfiguration {
+        { },
+        configuration.bundleIdentifierOverrideForTesting,
+        configuration.partition,
+        { },
+    };
+
+#if !USE(EXTENSIONKIT)
+    auto hostAppAuditToken = configuration.hostApplicationAuditToken;
+    Vector<uint8_t> hostAppAuditTokenData(sizeof(hostAppAuditToken));
+    memcpySpan(hostAppAuditTokenData.mutableSpan(), asByteSpan(hostAppAuditToken));
+    connectionConfiguration.hostAppAuditTokenData = WTFMove(hostAppAuditTokenData);
+#endif
+
+    API::Object::constructInWrapper<API::WebPushDaemonConnection>(self, configuration.machServiceName, WTFMove(connectionConfiguration));
 
     return self;
 }
@@ -85,14 +101,14 @@ static _WKWebPushPermissionState toWKPermissionsState(WebCore::PushPermissionSta
 
 - (void)getPushPermissionStateForOrigin:(NSURL *)originURL completionHandler:(void (^)(_WKWebPushPermissionState))completionHandler
 {
-    _connection->getPushPermissionState(originURL, [completionHandlerCopy = makeBlockPtr(completionHandler)](auto result) {
+    self._protectedConnection->getPushPermissionState(originURL, [completionHandlerCopy = makeBlockPtr(completionHandler)](auto result) {
         completionHandlerCopy(toWKPermissionsState(result));
     });
 }
 
 - (void)requestPushPermissionForOrigin:(NSURL *)originURL completionHandler:(void (^)(BOOL))completionHandler
 {
-    _connection->requestPushPermission(originURL, [completionHandlerCopy = makeBlockPtr(completionHandler)] (bool result) {
+    self._protectedConnection->requestPushPermission(originURL, [completionHandlerCopy = makeBlockPtr(completionHandler)] (bool result) {
         completionHandlerCopy(result);
     });
 }
@@ -100,13 +116,13 @@ static _WKWebPushPermissionState toWKPermissionsState(WebCore::PushPermissionSta
 - (void)setAppBadge:(NSUInteger *)badge origin:(NSURL *)originURL
 {
     std::optional<uint64_t> badgeValue = badge ? std::optional<uint64_t> { (uint64_t)badge } : std::nullopt;
-    _connection->setAppBadge(originURL, badgeValue);
+    self._protectedConnection->setAppBadge(originURL, badgeValue);
 }
 
 - (void)subscribeToPushServiceForScope:(NSURL *)scopeURL applicationServerKey:(NSData *)applicationServerKey completionHandler:(void (^)(_WKWebPushSubscriptionData *, NSError *))completionHandler
 {
     auto key = makeVector(applicationServerKey);
-    _connection->subscribeToPushService(scopeURL, WTFMove(key), [completionHandlerCopy = makeBlockPtr(completionHandler)] (auto result) {
+    self._protectedConnection->subscribeToPushService(scopeURL, WTFMove(key), [completionHandlerCopy = makeBlockPtr(completionHandler)] (auto result) {
         if (result)
             return completionHandlerCopy(wrapper(API::WebPushSubscriptionData::create(WTFMove(result.value()))).get(), nil);
 
@@ -118,7 +134,7 @@ static _WKWebPushPermissionState toWKPermissionsState(WebCore::PushPermissionSta
 
 - (void)unsubscribeFromPushServiceForScope:(NSURL *)scopeURL completionHandler:(void (^)(BOOL unsubscribed, NSError *))completionHandler
 {
-    _connection->unsubscribeFromPushService(scopeURL, [completionHandlerCopy = makeBlockPtr(completionHandler)] (auto result) {
+    self._protectedConnection->unsubscribeFromPushService(scopeURL, [completionHandlerCopy = makeBlockPtr(completionHandler)] (auto result) {
         if (result)
             return completionHandlerCopy(result.value(), nil);
 
@@ -129,7 +145,7 @@ static _WKWebPushPermissionState toWKPermissionsState(WebCore::PushPermissionSta
 
 - (void)getSubscriptionForScope:(NSURL *)scopeURL completionHandler:(void (^)(_WKWebPushSubscriptionData *, NSError *))completionHandler
 {
-    _connection->getPushSubscription(scopeURL, [completionHandlerCopy = makeBlockPtr(completionHandler)] (auto result) {
+    self._protectedConnection->getPushSubscription(scopeURL, [completionHandlerCopy = makeBlockPtr(completionHandler)] (auto result) {
         if (result) {
             if (auto data = result.value())
                 return completionHandlerCopy(wrapper(API::WebPushSubscriptionData::create(WTFMove(*data))).get(), nil);
@@ -144,7 +160,7 @@ static _WKWebPushPermissionState toWKPermissionsState(WebCore::PushPermissionSta
 
 - (void)getNextPendingPushMessage:(void (^)(_WKWebPushMessage *))completionHandler
 {
-    _connection->getNextPendingPushMessage([completionHandlerCopy = makeBlockPtr(completionHandler)] (auto result) {
+    self._protectedConnection->getNextPendingPushMessage([completionHandlerCopy = makeBlockPtr(completionHandler)] (auto result) {
         if (!result)
             return completionHandlerCopy(nil);
 
@@ -155,14 +171,14 @@ static _WKWebPushPermissionState toWKPermissionsState(WebCore::PushPermissionSta
 
 - (void)showNotification:(_WKNotificationData *)notificationData completionHandler:(void (^)())completionHandler
 {
-    _connection->showNotification([notificationData _getCoreData], [completionHandlerCopy = makeBlockPtr(completionHandler)] () {
+    self._protectedConnection->showNotification([notificationData _getCoreData], [completionHandlerCopy = makeBlockPtr(completionHandler)] () {
         completionHandlerCopy();
     });
 }
 
 - (void)getNotifications:(NSURL *)scopeURL tag:(NSString *)tag completionHandler:(void (^)(NSArray<_WKNotificationData *> *, NSError *))completionHandler
 {
-    _connection->getNotifications(scopeURL, tag, [completionHandlerCopy = makeBlockPtr(completionHandler)] (auto result) {
+    self._protectedConnection->getNotifications(scopeURL, tag, [completionHandlerCopy = makeBlockPtr(completionHandler)] (auto result) {
         if (result) {
             NSMutableArray<_WKNotificationData *> *nsResult = [NSMutableArray arrayWithCapacity:result.value().size()];
             for (auto& data : result.value())
@@ -179,10 +195,15 @@ static _WKWebPushPermissionState toWKPermissionsState(WebCore::PushPermissionSta
 - (void)cancelNotification:(NSURL *)securityOriginURL uuid:(NSUUID *)notificationIdentifier
 {
     // UUID::fromNSUUID only fails if the passed in NSUUID is nil, which would be a crash-worthy misuse of this API
-    _connection->cancelNotification(securityOriginURL, *WTF::UUID::fromNSUUID(notificationIdentifier));
+    self._protectedConnection->cancelNotification(securityOriginURL, *WTF::UUID::fromNSUUID(notificationIdentifier));
 }
 
 - (API::Object&)_apiObject
+{
+    return *_connection;
+}
+
+- (Ref<API::WebPushDaemonConnection>)_protectedConnection
 {
     return *_connection;
 }

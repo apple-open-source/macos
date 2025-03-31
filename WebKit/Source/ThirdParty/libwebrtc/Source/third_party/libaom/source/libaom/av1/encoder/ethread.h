@@ -118,8 +118,6 @@ void av1_write_tile_obu_mt(
     unsigned int *max_tile_size, uint32_t *const obu_header_size,
     uint8_t **tile_data_start, const int num_workers);
 
-int av1_compute_num_enc_workers(const AV1_COMP *cpi, int max_workers);
-
 int av1_compute_num_fp_contexts(AV1_PRIMARY *ppi, AV1EncoderConfig *oxcf);
 
 int av1_check_fpmt_config(AV1_PRIMARY *const ppi,

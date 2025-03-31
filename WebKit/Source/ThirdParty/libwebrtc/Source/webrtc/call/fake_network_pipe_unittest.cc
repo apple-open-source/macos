@@ -10,9 +10,14 @@
 
 #include "call/fake_network_pipe.h"
 
+#include <cstddef>
+#include <cstdint>
+#include <cstring>
 #include <memory>
 #include <utility>
+#include <vector>
 
+#include "api/test/simulated_network.h"
 #include "api/units/data_rate.h"
 #include "api/units/time_delta.h"
 #include "api/units/timestamp.h"
@@ -20,6 +25,7 @@
 #include "modules/rtp_rtcp/source/rtp_header_extensions.h"
 #include "modules/rtp_rtcp/source/rtp_packet_received.h"
 #include "rtc_base/checks.h"
+#include "rtc_base/copy_on_write_buffer.h"
 #include "system_wrappers/include/clock.h"
 #include "test/gmock.h"
 #include "test/gtest.h"
@@ -48,9 +54,9 @@ class MockReceiver : public PacketReceiver {
 class ReorderTestReceiver : public MockReceiver {
  public:
   void DeliverRtpPacket(
-      MediaType media_type,
+      MediaType /* media_type */,
       RtpPacketReceived packet,
-      OnUndemuxablePacketHandler undemuxable_packet_handler) override {
+      OnUndemuxablePacketHandler /* undemuxable_packet_handler */) override {
     RTC_DCHECK_GE(packet.size(), sizeof(int));
     delivered_sequence_numbers_.push_back(packet.SequenceNumber());
   }

@@ -48,6 +48,10 @@
 #include "StyleColorScheme.h"
 #endif
 
+namespace WTF {
+class TextStream;
+}
+
 namespace WebCore {
 
 class CursorList;
@@ -67,7 +71,11 @@ public:
     Ref<StyleRareInheritedData> copy() const;
     ~StyleRareInheritedData();
 
-    bool operator==(const StyleRareInheritedData& o) const;
+    bool operator==(const StyleRareInheritedData&) const;
+
+#if !LOG_DISABLED
+    void dumpDifferences(TextStream&, const StyleRareInheritedData&) const;
+#endif
 
     bool hasColorFilters() const;
 
@@ -75,18 +83,18 @@ public:
 
     RefPtr<StyleImage> listStyleImage;
 
-    StyleColor textStrokeColor;
-    StyleColor textFillColor;
-    StyleColor textEmphasisColor;
+    Style::Color textStrokeColor;
+    Style::Color textFillColor;
+    Style::Color textEmphasisColor;
     
-    StyleColor visitedLinkTextStrokeColor;
-    StyleColor visitedLinkTextFillColor;
-    StyleColor visitedLinkTextEmphasisColor;
+    Style::Color visitedLinkTextStrokeColor;
+    Style::Color visitedLinkTextFillColor;
+    Style::Color visitedLinkTextEmphasisColor;
 
-    StyleColor caretColor;
-    StyleColor visitedLinkCaretColor;
+    Style::Color caretColor;
+    Style::Color visitedLinkCaretColor;
 
-    StyleColor accentColor;
+    Style::Color accentColor;
 
     std::unique_ptr<ShadowData> textShadow;
     
@@ -120,11 +128,10 @@ public:
     unsigned colorSpace : 1; // ColorSpace
     unsigned speakAs : 4 { 0 }; // OptionSet<SpeakAs>
     unsigned hyphens : 2; // Hyphens
-    unsigned textCombine : 1; // text-combine-upright
+    unsigned textCombine : 1; // TextCombine
     unsigned textEmphasisFill : 1; // TextEmphasisFill
     unsigned textEmphasisMark : 3; // TextEmphasisMark
     unsigned textEmphasisPosition : 4; // TextEmphasisPosition
-    unsigned textOrientation : 2; // TextOrientation
     unsigned textIndentLine : 1; // TextIndentLine
     unsigned textIndentType : 1; // TextIndentType
     unsigned textUnderlinePosition : 4; // TextUnderlinePosition
@@ -149,7 +156,7 @@ public:
     unsigned touchCalloutEnabled : 1;
 #endif
 
-    unsigned hangingPunctuation : 4;
+    unsigned hangingPunctuation : 4; // OptionSet<HangingPunctuation>
 
     unsigned paintOrder : 3; // PaintOrder
     unsigned capStyle : 2; // LineCap
@@ -157,7 +164,7 @@ public:
     unsigned hasSetStrokeWidth : 1;
     unsigned hasSetStrokeColor : 1;
 
-    unsigned mathStyle : 1;
+    unsigned mathStyle : 1; // MathStyle
 
     unsigned hasAutoCaretColor : 1;
     unsigned hasVisitedLinkAutoCaretColor : 1;
@@ -176,8 +183,8 @@ public:
     OptionSet<EventListenerRegionType> eventListenerRegionTypes;
 
     Length strokeWidth;
-    StyleColor strokeColor;
-    StyleColor visitedLinkStrokeColor;
+    Style::Color strokeColor;
+    Style::Color visitedLinkStrokeColor;
 
     AtomString hyphenationString;
     short hyphenationLimitBefore { -1 };
@@ -185,7 +192,7 @@ public:
     short hyphenationLimitLines { -1 };
 
 #if ENABLE(DARK_MODE_CSS)
-    StyleColorScheme colorScheme;
+    Style::ColorScheme colorScheme;
 #endif
 
     AtomString textEmphasisCustomMark;
@@ -200,7 +207,7 @@ public:
 #endif
 
 #if ENABLE(TOUCH_EVENTS)
-    StyleColor tapHighlightColor;
+    Style::Color tapHighlightColor;
 #endif
 
     ListStyleType listStyleType;

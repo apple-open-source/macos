@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2019 Kristaps Dzonsons <kristaps@bsd.lv>
+ * Copyright (c) 2024, Klara, Inc.
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -28,12 +29,12 @@
 #include <syslog.h>
 #include <time.h>
 #include <unistd.h>
-#include <libutil.h>
 #ifdef __APPLE__
 #include <usbuf.h>
 #else
 #include <sys/sbuf.h>
 #endif
+#include <sys/param.h>
 #include <sys/stat.h>
 
 #include "extern.h"
@@ -44,6 +45,12 @@
 
 #define	RSYNCD_SYSLOG_IDENT	"openrsyncd"
 #define	RSYNCD_SYSLOG_OPTIONS	(LOG_PID | LOG_NDELAY)
+
+#define LOG_FORMAT_SUCCESS	(1 << 0)
+#define LOG_FORMAT_ITEMIZE	(1 << 1)
+#define LOG_FORMAT_LATEPRINT	(1 << 2)
+#define LOG_FORMAT_OPERATION	(1 << 3)
+#define LOG_FORMAT_ITEMIZE_I	(1 << 4)
 
 extern int verbose;
 
@@ -82,6 +89,7 @@ const struct syslog_facility {
 };
 
 static FILE *log_file;
+static struct sess *log_sess;
 static int log_facility = LOG_DAEMON;
 
 int
@@ -107,7 +115,7 @@ rsync_logfile_changed(FILE *old_logfile, FILE *new_logfile)
 {
 
 	/* We're the last reference to the log file; close it. */
-	if (old_logfile != stderr && old_logfile != NULL)
+	if (old_logfile != stdout && old_logfile != stderr && old_logfile != NULL)
 		fclose(old_logfile);
 
 	if (old_logfile != NULL && new_logfile == NULL) {
@@ -120,12 +128,23 @@ rsync_logfile_changed(FILE *old_logfile, FILE *new_logfile)
 }
 
 void
-rsync_set_logfile(FILE *new_logfile)
+rsync_set_logfile(FILE *new_logfile, struct sess *sess)
 {
 	FILE *prev_logfile;
 
+	/* Only the server should supply a non-null sess argument,
+	 * which causes log_vwritef() to send log messages to
+	 * the client via the multiplexed return channel.
+	 */
+	if (sess != NULL) {
+		assert(new_logfile == stdout);
+		assert(sess->opts->server);
+		assert(sess->mplex_writes);
+	}
+
 	prev_logfile = log_file;
 	log_file = new_logfile;
+	log_sess = sess;
 
 	rsync_logfile_changed(prev_logfile, new_logfile);
 }
@@ -133,17 +152,80 @@ rsync_set_logfile(FILE *new_logfile)
 static void __printflike(2, 0)
 log_vwritef(int priority, const char *fmt, va_list ap)
 {
+	int pri;
 
-	if (log_file == NULL)
+	if (log_file == NULL) {
 		vsyslog(priority, fmt, ap);
-	else
+		return;
+	}
+
+	pri = LOG_PRI(priority);
+
+	if (log_sess != NULL) {
+		char msgbuf[BIGPATH_MAX];
+		int32_t tag;
+		int n;
+
+		assert(log_sess->opts->server);
+		assert(log_sess->mplex_writes);
+
+		n = vsnprintf(msgbuf, sizeof(msgbuf), fmt, ap);
+		if (n < 1)
+			return;
+
+		if ((size_t)n > sizeof(msgbuf))
+			n = sizeof(msgbuf);
+
+		tag = (pri == LOG_ERR) ? IT_ERROR_XFER : IT_INFO;
+
+		if (log_sess->wbufp == NULL) {
+			io_write_buf_tagged(log_sess, fileno(log_file), msgbuf, n, tag);
+		} else {
+			size_t *wbufszp = log_sess->wbufszp;
+			size_t pos = *log_sess->wbufszp;
+			void **wbufp = log_sess->wbufp;
+			int32_t	tagbuf;
+
+			assert(log_sess->opts->sender);
+
+			if (!io_lowbuffer_alloc(log_sess, wbufp, wbufszp,
+			    log_sess->wbufmaxp, n))
+				return;
+
+			tagbuf = htole32(((tag + IOTAG_OFFSET) << 24) + n);
+
+			io_buffer_int(*wbufp, &pos, *wbufszp, tagbuf);
+			io_buffer_buf(*wbufp, &pos, *wbufszp, msgbuf, n);
+		}
+
+		return;
+	}
+
+	if (log_file == stdout && pri != LOG_INFO) {
+		fflush(stdout);
+		vfprintf(stderr, fmt, ap);
+	} else {
 		vfprintf(log_file, fmt, ap);
+	}
 }
 
 static void __printflike(2, 3)
 log_writef(int priority, const char *fmt, ...)
 {
 	va_list ap;
+
+	va_start(ap, fmt);
+	log_vwritef(priority, fmt, ap);
+	va_end(ap);
+}
+
+void
+rsync_log_tag(enum iotag tag, const char *fmt, ...)
+{
+	int priority;
+	va_list ap;
+
+	priority = (tag == IT_ERROR_XFER) ? LOG_WARNING : LOG_INFO;
 
 	va_start(ap, fmt);
 	log_vwritef(priority, fmt, ap);
@@ -176,8 +258,8 @@ rsync_log(int level, const char *fmt, ...)
 	if (level <= 0 && buf != NULL)
 		log_writef(LOG_INFO, "%s\n", buf);
 	else if (level > 0)
-		log_writef(LOG_INFO, "%s: %s%s\n", getprogname(),
-		    (buf != NULL) ? ": " : "",
+		log_writef(LOG_INFO, "%s(%d): %s%s\n", getprogname(),
+		    getpid(), (buf != NULL) ? ": " : "",
 		    (buf != NULL) ? buf : "");
 	free(buf);
 }
@@ -201,8 +283,8 @@ rsync_errx(const char *fmt, ...)
 		va_end(ap);
 	}
 
-	log_writef(LOG_ERR, "%s: error%s%s\n", getprogname(),
-	   (buf != NULL) ? ": " : "",
+	log_writef(LOG_ERR, "%s(%d): error%s%s\n", getprogname(),
+	   getpid(), (buf != NULL) ? ": " : "",
 	   (buf != NULL) ? buf : "");
 	free(buf);
 }
@@ -227,8 +309,8 @@ rsync_err(const char *fmt, ...)
 		va_end(ap);
 	}
 
-	log_writef(LOG_ERR, "%s: error%s%s: %s\n", getprogname(),
-	   (buf != NULL) ? ": " : "",
+	log_writef(LOG_ERR, "%s(%d): error%s%s: %s\n", getprogname(),
+	   getpid(), (buf != NULL) ? ": " : "",
 	   (buf != NULL) ? buf : "", strerror(er));
 	free(buf);
 }
@@ -255,8 +337,8 @@ rsync_errx1(const char *fmt, ...)
 		va_end(ap);
 	}
 
-	log_writef(LOG_ERR, "%s: error%s%s\n", getprogname(),
-	   (buf != NULL) ? ": " : "",
+	log_writef(LOG_ERR, "%s(%d): error%s%s\n", getprogname(),
+	   getpid(), (buf != NULL) ? ": " : "",
 	   (buf != NULL) ? buf : "");
 	free(buf);
 }
@@ -282,8 +364,8 @@ rsync_warnx1(const char *fmt, ...)
 		va_end(ap);
 	}
 
-	log_writef(LOG_WARNING, "%s: warning%s%s\n", getprogname(),
-	   (buf != NULL) ? ": " : "",
+	log_writef(LOG_WARNING, "%s(%d): warning%s%s\n", getprogname(),
+	   getpid(), (buf != NULL) ? ": " : "",
 	   (buf != NULL) ? buf : "");
 	free(buf);
 }
@@ -306,8 +388,8 @@ rsync_warnx(const char *fmt, ...)
 		va_end(ap);
 	}
 
-	log_writef(LOG_WARNING, "%s: warning%s%s\n", getprogname(),
-	   (buf != NULL) ? ": " : "",
+	log_writef(LOG_WARNING, "%s(%d): warning%s%s\n", getprogname(),
+	   getpid(), (buf != NULL) ? ": " : "",
 	   (buf != NULL) ? buf : "");
 	free(buf);
 }
@@ -335,8 +417,8 @@ rsync_warn(int level, const char *fmt, ...)
 		va_end(ap);
 	}
 
-	log_writef(LOG_WARNING, "%s: warning%s%s: %s\n", getprogname(),
-	   (buf != NULL) ? ": " : "",
+	log_writef(LOG_WARNING, "%s(%d): warning%s%s: %s\n", getprogname(),
+	   getpid(), (buf != NULL) ? ": " : "",
 	   (buf != NULL) ? buf : "", strerror(er));
 	free(buf);
 }
@@ -372,56 +454,105 @@ isit_human(char *s1, const char *s2)
 	return count;
 }
 
-void __printflike(2, 0)
-print_7_or_8_bit(const struct sess *sess, const char *fmt, const char *s)
+/*
+ * Do the 8-bit escaping as needed for `s`.  If `sbuf` is NULL, then the result
+ * will be written to the log file -- otherwise, it'll be stashed in the sbuf
+ * passed in as requested.
+ *
+ * TODO: We used to print the names of items to be updated with a mix of calls
+ * to LOG1() and print_7_or_8_bit().  With the former, embedded control
+ * characters were not correctly escaped, but all other characters were printed
+ * as if --8-bit-output were in effect (hence unicode characters were preserved).
+ * Conversely, with the latter, unicode characters outside the portable set were
+ * all treated as control characters and hence incorrectly escaped.
+ *
+ * We now call log_item() to print each item, which ends up calling this
+ * function, which now handles control characters correctly and partially
+ * deals with some range of unicode characters (e.g. c2xx-dfxx) that we get
+ * with the C.UTF-8 locale.
+ *
+ * The correct fix seems to be to use iconv() where available, and print all
+ * chars outside the portable set as if --8-bit-output were in effect.
+ */
+int __printflike(2, 0)
+print_7_or_8_bit(const struct sess *sess, const char *fmt, const char *s,
+    struct sbuf *sbuf)
 {
 	const char *p;
+	struct sbuf *innerbuf;
 
-	if (sess->opts->bit8) {
-		fprintf(sess->opts->outfile, fmt, s);
-		return;
+	innerbuf = sbuf_new_auto();
+	if (innerbuf == NULL) {
+		ERR("sbuf_new_auto");
+		return 0;
 	}
-	struct sbuf *sbuf;
-	sbuf = sbuf_new_auto();
 
 	for (p = s; *p; p++) {
-		if (isprint(*(unsigned char*)p) || *p == '\t') {
-			sbuf_putc(sbuf, *p);
+		unsigned char c = *(unsigned char *)p;
+
+		if (isprint(c) || c == '\t' || c == 0x7f) {
+			if (c == '\\' &&
+			    *(unsigned char *)(p + 1) == '#' &&
+			    isdigit(*(unsigned char *)(p + 2)) &&
+			    isdigit(*(unsigned char *)(p + 3)) &&
+			    isdigit(*(unsigned char *)(p + 4))) {
+				sbuf_printf(innerbuf, "\\#%03o", '\\');
+			} else {
+				sbuf_putc(innerbuf, c);
+			}
+		} else if (c < ' ') {
+                        sbuf_printf(innerbuf, "\\#%03o", c);
+		} else if (sess->opts->bit8) {
+                        sbuf_putc(innerbuf, c);
+		} else if (c >= 0xc2 && c <= 0xdf) {
+			unsigned char c2 = *(unsigned char *)(p + 1);
+
+			/* TODO: Use iconv() */
+			if (c2 >= 0x80 && c2 <= 0xdf) {
+				sbuf_putc(innerbuf, c);
+				sbuf_putc(innerbuf, c2);
+				p++;
+			} else {
+				sbuf_printf(innerbuf, "\\#%03o", c);
+			}
 		} else {
-			sbuf_printf(sbuf, "\\#%03o", *(unsigned char*)p);
+			sbuf_printf(innerbuf, "\\#%03o", c);
 		}
 	}
-	sbuf_finish(sbuf);
-	fprintf(sess->opts->outfile, fmt, sbuf_data(sbuf));
 
-	sbuf_delete(sbuf);
+	if (sbuf_finish(innerbuf) != 0) {
+		ERR("sbuf_finish");
+		sbuf_delete(innerbuf);
+		return 0;
+	}
+
+	if (sbuf != NULL)
+		sbuf_printf(sbuf, fmt, sbuf_data(innerbuf));
+	else
+		log_writef(LOG_INFO, fmt, sbuf_data(innerbuf));
+	sbuf_delete(innerbuf);
+
+	return 1;
 }
 
 /*
  * rval is filled with whether there is any argument that requires
- * late printing or whether itemization is requested.
- * 0 = neither
- * 1 = itemize
- * 2 = late print
- * 3 = both
+ * late printing or whether itemization is requested.  See the
+ * LOG_FORMAT_* flags.
  *
  * rval is expected to be initialized to zero before the first call.
  */
 static const char * __printflike(1, 0)
-printf_doformat(const char *fmt, int *rval, const struct sess *sess,
-    const struct flist *fl, int do_print)
+printf_doformat(const char *fmt, int *rval, struct sess *sess,
+    const struct flist *fl, struct sbuf *sbuf)
 {
 	static const char skip1[] = "'-+ 0";
+	const char *fmt_orig = fmt;
 	char convch;
-	char start[strlen(fmt) + 1];
-	char *dptr;
 	size_t l;
 	char widthstring[8192];
 	int humanlevel = 0;
-
-	dptr = start;
-	*dptr++ = '%';
-	*dptr = 0;
+	char buf[8192];
 
 	fmt++;
 
@@ -449,80 +580,108 @@ printf_doformat(const char *fmt, int *rval, const struct sess *sess,
 
 	/* skip to field width */
 	while (*fmt && strchr(skip1, *fmt) != NULL) {
-		*dptr++ = *fmt++;
-		*dptr = 0;
+		fmt++;
 	}
-	if (!*fmt) {
-		ERRX("missing format character");
-		return NULL;
+	if (*fmt == '\0') {
+		if (sbuf != NULL) {
+			sbuf_putc(sbuf, fmt_orig[0]);
+			fmt = fmt_orig + 1;
+		}
+		return fmt_orig + 1;
 	}
 	while (isdigit(*fmt)) {
-		*dptr++ = *fmt++;
-		*dptr = 0;
+		fmt++;
 	}
 
-	*dptr++ = *fmt;
-	*dptr = 0;
 	convch = *fmt;
 	fmt++;
 
 	switch (convch) {
-	case 'a': {
-		/* TODO: server address */
+	case 'a':	/* Server address (daemon) */
+	case 'h': {	/* Remote host (daemon) */
+		if (!sess->opts->daemon)
+			break;	/* Nop in non-daemon mode. */
+		/* FALLTHROUGH */
+	}
+	case 'm':	/* Module */
+	case 'P':	/* Module path */
+	case 'u': {	/* Auth username */
+		const char *rolestr = NULL;
+
+		/*
+		 * These are also effectively daemon-only, but we'll still
+		 * render a blank string for clients.  All of them are delegated
+		 * to the role.
+		 */
+		if (sess->role->role_fetch_outfmt != NULL) {
+			rolestr = sess->role->role_fetch_outfmt(sess,
+			    sess->role->role_fetch_outfmt_cookie, convch);
+		}
+		if (rolestr == NULL)
+			rolestr = "";
+
+		if (sbuf != NULL) {
+			widthstring[l + 1] = 's';
+			widthstring[l + 2] = '\0';
+			sbuf_printf(sbuf, widthstring, rolestr);
+		}
+
 		break;
 	}
 	case 'b': {
-		char foo[8192];
-		uint64_t bytes_transferred;
-		*rval |= 2;
+		uint64_t bytes_transferred = 0;
 
-		bytes_transferred = sess->total_read - sess->total_read_lf +
-			sess->total_write - sess->total_write_lf;
+		*rval |= LOG_FORMAT_LATEPRINT;
 
-		if (do_print) {
-			switch (humanlevel) {
-			case 0:
-				widthstring[l + 1] = 'l';
-				widthstring[l + 2] = 'd';
-				widthstring[l + 3] = '\0';
-				fprintf(sess->opts->outfile, widthstring,
+		if (sbuf == NULL)
+			break;
+
+		if (!sess->opts->dry_run) {
+			bytes_transferred = sess->total_read - sess->total_read_lf;
+			bytes_transferred += sess->total_write - sess->total_write_lf;
+		}
+
+		switch (humanlevel) {
+		case 0:
+			widthstring[l + 1] = 'l';
+			widthstring[l + 2] = 'd';
+			widthstring[l + 3] = '\0';
+			sbuf_printf(sbuf, widthstring,
 				    bytes_transferred);
-				break;
-			case 1:
-				widthstring[l + 1] = 'l';
-				widthstring[l + 2] = 'd';
-				widthstring[l + 3] = '\0';
-				fprintf(sess->opts->outfile, widthstring,
+			break;
+		case 1:
+			widthstring[l + 1] = 'l';
+			widthstring[l + 2] = 'd';
+			widthstring[l + 3] = '\0';
+			sbuf_printf(sbuf, widthstring,
 				    bytes_transferred);
-				break;
-			case 2:
-				humanize_number(foo, 5, bytes_transferred,
-				    "", HN_AUTOSCALE, HN_DECIMAL|HN_NOSPACE);
-				widthstring[l + 1] = 's';
-				widthstring[l + 2] = '\0';
-				fprintf(sess->opts->outfile, widthstring, foo);
-				break;
-			case 3:
-				humanize_number(foo, 5, bytes_transferred, "",
-				    HN_AUTOSCALE,
-				    HN_DECIMAL|HN_NOSPACE|HN_DIVISOR_1000);
-				widthstring[l + 1] = 's';
-				widthstring[l + 2] = '\0';
-				fprintf(sess->opts->outfile, widthstring, foo);
-				break;
-			}
+			break;
+		case 2:
+			humanize_number(buf, 5, bytes_transferred,
+					"", HN_AUTOSCALE, HN_DECIMAL|HN_NOSPACE);
+			widthstring[l + 1] = 's';
+			widthstring[l + 2] = '\0';
+			sbuf_printf(sbuf, widthstring, buf);
+			break;
+		case 3:
+			humanize_number(buf, 5, bytes_transferred, "",
+					HN_AUTOSCALE,
+					HN_DECIMAL|HN_NOSPACE|HN_DIVISOR_1000);
+			widthstring[l + 1] = 's';
+			widthstring[l + 2] = '\0';
+			sbuf_printf(sbuf, widthstring, buf);
+			break;
 		}
 		break;
 	}
 	case 'B': {
 		/* Print mode human-readable */
-		char buf[12]; /* Documented size of all strmode calls */
 
-		if (do_print) {
+		if (sbuf != NULL) {
 			our_strmode(fl->st.mode, buf);
 			widthstring[l + 1] = 's';
 			widthstring[l + 2] = '\0';
-			fprintf(sess->opts->outfile, widthstring, buf);
+			sbuf_printf(sbuf, widthstring, buf);
 		}
 		break;
 	}
@@ -533,7 +692,7 @@ printf_doformat(const char *fmt, int *rval, const struct sess *sess,
 		 * I don't think smb rsync implements what it says in the
 		 * manpage.
 		 */
-		*rval |= 2;
+		*rval |= LOG_FORMAT_LATEPRINT;
 		break;
 	}
 #if 0
@@ -559,48 +718,158 @@ printf_doformat(const char *fmt, int *rval, const struct sess *sess,
 		/*
 		 * "the filename (long form on sender; no trailing "/")"
 		 */
-		if (do_print) {
+		if (sbuf != NULL) {
+			const char *path = fl->path;
+
+			if (sess->opts->relative)
+				path = fl->wpath;
+
+			while (*path == '/')
+				path++;
+
 			widthstring[l + 1] = 's';
 			widthstring[l + 2] = '\0';
-			print_7_or_8_bit(sess, widthstring, fl->path);
+			if (!print_7_or_8_bit(sess, widthstring, path, sbuf)) {
+				ERRX("print_7_or_8_bit");
+				return NULL;
+			}
 		}
 		break;
 	}
 	case 'G': {
 		/* FIXME this is incorrect since gid 0 is also root */
-		if (do_print) {
+		if (sbuf != NULL) {
 			if (fl->st.gid) {
 				widthstring[l + 1] = 'd';
 				widthstring[l + 2] = '\0';
-				fprintf(sess->opts->outfile, widthstring, fl->st.gid);
+				sbuf_printf(sbuf, widthstring, fl->st.gid);
 			} else {
 				widthstring[l + 1] = 's';
 				widthstring[l + 2] = '\0';
-				fprintf(sess->opts->outfile, widthstring, "DEFAULT");
+				sbuf_printf(sbuf, widthstring, "DEFAULT");
 			}
 		}
 		break;
 	}
-	case 'h': {
-		/* TODO Remote host name, when daemon */
+	case 'I':
+		*rval |= LOG_FORMAT_ITEMIZE_I;
 		break;
-	}
 	case 'i': {
-		/* TODO itemize string */
-		*rval |= 1;
+		/* itemize string YXcstpogz */
+		int32_t ifl;
+
+		*rval |= LOG_FORMAT_ITEMIZE;
+		if (sbuf != NULL) {
+			ifl = fl->iflags;
+			if (ifl & IFLAG_DELETED) {
+				/* Handled by flist_gen_dels() */
+				break;
+			}
+
+			/*
+			 * We only use 10 bytes from buf[], but buf is very
+			 * large so only zero the first few bytes.
+			 */
+			assert(sizeof(buf) >= 16);
+			bzero(buf, 16);
+
+			buf[0] = '.';
+			if (ifl & IFLAG_LOCAL_CHANGE) {
+				buf[0] = (ifl & IFLAG_HLINK_FOLLOWS) ? 'h' : 'c';
+			} else if (ifl & IFLAG_TRANSFER) {
+				buf[0] = sess->lreceiver ? '>' : '<';
+			}
+
+			if (S_ISDIR(fl->st.mode))
+				buf[1] = 'd';
+			if (S_ISLNK(fl->st.mode))
+				buf[1] = 'L';
+			if (S_ISSOCK(fl->st.mode) || S_ISFIFO(fl->st.mode))
+				buf[1] = 'S';
+			if (S_ISBLK(fl->st.mode) || S_ISCHR(fl->st.mode))
+				buf[1] = 'D';
+			if (buf[1] == '\0')
+				buf[1] = 'f';
+
+			if (ifl & IFLAG_CHECKSUM)
+				buf[2] = 'c';
+			else
+				buf[2] = '.';
+
+			if (ifl & IFLAG_SIZE)
+				buf[3] = 's';
+			else
+				buf[3] = '.';
+
+			buf[4] = '.';
+			if (ifl & IFLAG_TIME) {
+				if (!sess->opts->preserve_times ||
+				    S_ISLNK(fl->st.mode)) {
+					buf[4] = 'T';
+				} else {
+					buf[4] = 't';
+				}
+			}
+
+			if (ifl & IFLAG_PERMS)
+				buf[5] = 'p';
+			else
+				buf[5] = '.';
+
+			if (ifl & IFLAG_OWNER)
+				buf[6] = 'o';
+			else
+				buf[6] = '.';
+
+			if (ifl & IFLAG_GROUP)
+				buf[7] = 'g';
+			else
+				buf[7] = '.';
+
+			buf[8] = '.';
+
+			if (ifl & IFLAG_MISSING_DATA || ifl & IFLAG_NEW) {
+				char c;
+
+				if (ifl & IFLAG_NEW)
+					c = '+';
+				else
+					c = '?';
+				buf[2] = c; buf[3] = c; buf[4] = c;
+				buf[5] = c; buf[6] = c; buf[7] = c;
+				buf[8] = c;
+			} else {
+				int i;
+
+				if (buf[0] == '.' || buf[0] == 'h' ||
+				    (buf[0] == 'c' && buf[1] == 'f')) {
+					for (i = 2; buf[i]; ++i) {
+						if (buf[i] != '.')
+							break;
+					}
+					if (buf[i] == '\0') {
+						for (i = 2; buf[i]; ++i)
+							buf[i] = ' ';
+					}
+				}
+			}
+
+			widthstring[l + 1] = 's';
+			widthstring[l + 2] = '\0';
+			sbuf_printf(sbuf, widthstring, buf);
+		}
 		break;
 	}
 	case 'l': {
 		/* File length */
-		char foo[8192];
 
-		if (do_print) {
+		if (sbuf != NULL) {
 			switch (humanlevel) {
 			case 0:
 				widthstring[l + 1] = 'l';
 				widthstring[l + 2] = 'd';
 				widthstring[l + 3] = '\0';
-				fprintf(sess->opts->outfile, widthstring, fl->st.size);
+				sbuf_printf(sbuf, widthstring, fl->st.size);
 				break;
 			case 1:
 				/* TODO for 3.x: use a printf with "'" */
@@ -608,147 +877,183 @@ printf_doformat(const char *fmt, int *rval, const struct sess *sess,
 				widthstring[l + 2] = 'l';
 				widthstring[l + 3] = 'd';
 				widthstring[l + 4] = '\0';
-				fprintf(sess->opts->outfile, widthstring, fl->st.size);
+				sbuf_printf(sbuf, widthstring, fl->st.size);
 				break;
 			case 2:
-				humanize_number(foo, 5, fl->st.size,
+				humanize_number(buf, 5, fl->st.size,
 				    "", HN_AUTOSCALE, HN_DECIMAL|HN_NOSPACE);
 				widthstring[l + 1] = 's';
 				widthstring[l + 2] = '\0';
-				fprintf(sess->opts->outfile, widthstring, foo);
+				sbuf_printf(sbuf, widthstring, buf);
 				break;
 			case 3:
-				humanize_number(foo, 5, fl->st.size, "", HN_AUTOSCALE,
+				humanize_number(buf, 5, fl->st.size, "", HN_AUTOSCALE,
 				    HN_DECIMAL|HN_NOSPACE|HN_DIVISOR_1000);
 				widthstring[l + 1] = 's';
 				widthstring[l + 2] = '\0';
-				fprintf(sess->opts->outfile, widthstring, foo);
+				sbuf_printf(sbuf, widthstring, buf);
 				break;
 			}
 		}
 		break;
 	}
 	case 'L': {
-		/* TODO: hardlinks */
-		char buf[8192];
+#if 0
+		/*
+		 * Use "late print" here.  Theoretically late print is
+		 * only needed when hardlink printing is requested.
+		 * But with just the format string we can't tell
+		 * whether there will ever be hardlinks.
+		 */
+		*rval |= LOG_FORMAT_LATEPRINT;
+#endif
 
-		if (do_print) {
-			if (fl->link != NULL) {
-				snprintf(buf, sizeof(buf), "-> %s", fl->link);
+		if (sbuf != NULL) {
+			if (fl->link != NULL &&
+			    (fl->iflags & IFLAG_BASIS_FOLLOWS) == 0) {
+				const char *fmt = " -> %s";
+
+				if ((fl->iflags & IFLAG_HLINK_FOLLOWS) != 0)
+					fmt = " => %s";
+
+				snprintf(buf, sizeof(buf), fmt, fl->link);
 				widthstring[l + 1] = 's';
 				widthstring[l + 2] = '\0';
-				print_7_or_8_bit(sess, widthstring, buf);
+				if (!print_7_or_8_bit(sess, widthstring, buf,
+				    sbuf)) {
+					ERRX("print_7_or_8_bit");
+					return NULL;
+				}
 			}
 		}
-#if 0
-		/* TODO */
-		if (hardlinkstuff)
-			*rval |= 2;
-#endif
-		break;
-	}
-	case 'm': {
-		/* TODO: module name.  Even in client mode */
 		break;
 	}
 	case 'M': {
 		/* Modification time of item */
-		char buf[8192];
 
-		if (do_print) {
+		if (sbuf != NULL) {
 			/* 2024/01/30-16:23:29 */
 			strftime(buf, sizeof(buf), "%Y/%m/%d-%H:%M:%S",
 			    localtime(&fl->st.mtime));
 			widthstring[l + 1] = 's';
 			widthstring[l + 2] = '\0';
-			fprintf(sess->opts->outfile, widthstring, buf);
+			sbuf_printf(sbuf, widthstring, buf);
 		}
 		break;
 	}
 	case 'n': {
 		/* Alternate file name print */
-		char buf[8192];
 
-		if (do_print) {
+		if (sbuf != NULL) {
+			const char *path = fl->wpath;
+
+			if (sess->opts->relative)
+				path = fl->path;
+
 			widthstring[l + 1] = 's';
 			widthstring[l + 2] = '\0';
 			/* "(short form; trailing "/" on dir)" */
-			if (S_ISDIR(fl->st.mode))
-				snprintf(buf, sizeof(buf), "%s/", fl->wpath);
-			else
-				snprintf(buf, sizeof(buf), "%s", fl->wpath);
-			print_7_or_8_bit(sess, widthstring, buf);
-		}
-		break;
-	}
-	case 'o': {
-		/* the operation, which is "send", "recv", or "del." (the
-		   latter includes the trailing period) */
-		break;
-	}
-	case 'p': {
-		/* PID as a number */
-		if (do_print) {
-			widthstring[l + 1] = 'd';
-			widthstring[l + 2] = '\0';
-			/* TODO: capture top-level pid in main() */
-			fprintf(sess->opts->outfile, widthstring, getpid());
-		}
-		break;
-	}
-	case 'P': {
-		/* TODO: module path */
-		break;
-	}
-	case 't': {
-		/* Current machine time */
-		char buf[8192];
-		time_t now;
-
-		if (do_print) {
-			time(&now);
-			strftime(buf, sizeof(buf), "%Y/%m/%d-%H:%M:%S", localtime(&now));
-			widthstring[l + 1] = 's';
-			widthstring[l + 2] = '\0';
-			fprintf(sess->opts->outfile, widthstring, buf);
-		}
-		break;
-	}
-	case 'u': {
-		/* TODO: auth username */
-		break;
-	}
-	case 'U': {
-		/* FIXME this is incorrect since uid 0 is also root */
-		if (do_print) {
-			if (fl->st.uid) {
-				widthstring[l + 1] = 'd';
-				widthstring[l + 2] = '\0';
-				fprintf(sess->opts->outfile, widthstring, fl->st.uid);
-			} else {
-				widthstring[l + 1] = 's';
-				widthstring[l + 2] = '\0';
-				fprintf(sess->opts->outfile, widthstring, "DEFAULT");
+			if (S_ISDIR(fl->st.mode)) {
+				snprintf(buf, sizeof(buf), "%s/", path);
+				path = buf;
+			}
+			if (!print_7_or_8_bit(sess, widthstring, path, sbuf)) {
+				ERRX("print_7_or_8_bit");
+				return NULL;
 			}
 		}
 		break;
 	}
+	case 'o': {
+		*rval |= LOG_FORMAT_OPERATION;
+
+		/*
+		 * "the operation, which is "send", "recv", or "del." (the
+		 * latter includes the trailing period)"
+		 */
+		if (sbuf != NULL) {
+			widthstring[l + 1] = 's';
+			widthstring[l + 2] = '\0';
+			if (!print_7_or_8_bit(sess, widthstring,
+			    sess->opts->sender ? "send" : "recv", sbuf)) {
+				ERRX("print_7_or_8_bit");
+				return NULL;
+			}
+		}
+		break;
+	}
+	case 'p': {
+		/* PID as a number */
+		if (sbuf != NULL) {
+			widthstring[l + 1] = 'd';
+			widthstring[l + 2] = '\0';
+			/* TODO: capture top-level pid in main() */
+			sbuf_printf(sbuf, widthstring, getpid());
+		}
+		break;
+	}
+	case 't': {
+		/* Current machine time */
+		time_t now;
+
+		if (sbuf != NULL) {
+			time(&now);
+			strftime(buf, sizeof(buf), "%Y/%m/%d-%H:%M:%S",
+			    localtime(&now));
+			widthstring[l + 1] = 's';
+			widthstring[l + 2] = '\0';
+			sbuf_printf(sbuf, widthstring, buf);
+		}
+		break;
+	}
+	case 'U': {
+		/* FIXME this is incorrect since uid 0 is also root */
+		if (sbuf != NULL) {
+			if (fl->st.uid) {
+				widthstring[l + 1] = 'd';
+				widthstring[l + 2] = '\0';
+				sbuf_printf(sbuf, widthstring, fl->st.uid);
+			} else {
+				widthstring[l + 1] = 's';
+				widthstring[l + 2] = '\0';
+				sbuf_printf(sbuf, widthstring, "DEFAULT");
+			}
+		}
+		break;
+	}
+	default:
+		if (sbuf != NULL) {
+			sbuf_putc(sbuf, fmt_orig[0]);
+			fmt = fmt_orig + 1;
+		}
+		break;
 	}
 	return fmt;
 }
 
-int
-output(struct sess *sess, const struct flist *fl, int do_print)
+static int
+log_format(struct sess *sess, const char *format, const struct flist *fl)
 {
+	const bool do_print = (fl != NULL);
 	size_t len;
 	int end, rval = 0;
 	const char *start;
-	const char *fmt, *format;
+	const char *fmt;
+	struct sbuf *sbuf;
 
-	if (sess->opts->outformat == NULL)
+	if (format == NULL)
 		return 0;
 
-	fmt = format = sess->opts->outformat;
+	sbuf = NULL;
+	if (do_print) {
+		sbuf = sbuf_new_auto();
+		if (sbuf == NULL) {
+			ERR("sbuf_new_auto");
+			return 0;
+		}
+	}
+
+	fmt = format;
 	len = strlen(fmt);
 	rval = end = 0;
 
@@ -757,18 +1062,17 @@ output(struct sess *sess, const struct flist *fl, int do_print)
 		while (fmt < format + len) {
 			if (fmt[0] == '%') {
 				if (do_print)
-					fwrite(start, 1, fmt - start,
-					    sess->opts->outfile);
+					sbuf_bcat(sbuf, start, fmt - start);
 				if (fmt[1] == '%') {
 					/* %% prints a % */
 					if (do_print)
-						fputc('%', sess->opts->outfile);
+						sbuf_putc(sbuf, '%');
 					fmt += 2;
 				} else {
 					fmt = printf_doformat(fmt, &rval, sess,
-					    fl, do_print);
+					    fl, sbuf);
 					if (fmt == NULL || *fmt == '\0')
-						return rval;
+						goto out;
 					end = 0;
 				}
 				start = fmt;
@@ -777,18 +1081,55 @@ output(struct sess *sess, const struct flist *fl, int do_print)
 		}
 		if (end == 1) {
 			ERRX("missing format character");
-			return rval;
+			if (sbuf != NULL)
+				sbuf_delete(sbuf);
+			return 0;
 		}
 		if (do_print)
-			fwrite(start, 1, fmt - start, sess->opts->outfile);
+			sbuf_bcat(sbuf, start, fmt - start);
 	}
-	if (do_print)
-		fputc('\n', sess->opts->outfile);
 
-	sess->total_read_lf = sess->total_read;
-	sess->total_write_lf = sess->total_write;
-	return rval;
+out:
+	if (do_print) {
+		sbuf_putc(sbuf, '\n');
+
+		if (sbuf_finish(sbuf) != 0) {
+			ERR("sbuf_finish");
+			sbuf_delete(sbuf);
+			return 0;
+		}
+
+		log_writef(LOG_INFO, "%s", sbuf_data(sbuf));
+		sbuf_delete(sbuf);
+	} else {
+		assert(sbuf == NULL);
+	}
+
+	return rval | LOG_FORMAT_SUCCESS;
 }
+
+void
+log_format_init(struct sess *sess)
+{
+	int flags = log_format(sess, sess->opts->outformat, NULL);
+	bool itemize_I;
+
+	if ((flags & LOG_FORMAT_SUCCESS) == 0)
+		return;
+
+	sess->itemize_i = (flags & LOG_FORMAT_ITEMIZE) != 0;
+	sess->itemize_o = (flags & LOG_FORMAT_OPERATION) != 0;
+	sess->lateprint = (flags & LOG_FORMAT_LATEPRINT) != 0;
+
+	itemize_I = (flags & LOG_FORMAT_ITEMIZE_I) != 0;
+
+	sess->itemize = sess->itemize_i + itemize_I;
+	if (sess->itemize == 1) {
+		if (sess->opts->itemize > 1 || verbose > 1)
+			sess->itemize++;
+	}
+}
+
 
 /*
  * Print a number into the provided buffer depending on the current
@@ -798,7 +1139,7 @@ output(struct sess *sess, const struct flist *fl, int do_print)
 int
 rsync_humanize(struct sess *sess, char *buf, size_t len, int64_t val)
 {
-	size_t res;
+	size_t res = 0;
 	char tbuf[32];
 
 	switch (sess->opts->human_readable) {
@@ -823,4 +1164,104 @@ rsync_humanize(struct sess *sess, char *buf, size_t len, int64_t val)
 	}
 
 	return 0;
+}
+
+int
+log_item_impl(struct sess *sess, const struct flist *f)
+{
+	const char *outformat = sess->opts->outformat;
+
+	if (sess->itemize) {
+		if (sess->protocol >= 29)
+			return log_format(sess, outformat, f);
+
+		if (sess->lreceiver && (f->iflags != 0 || verbose > 1)) {
+			if (sess->opts->server)
+				outformat = "%i %n%L";
+
+			return log_format(sess, outformat, f);
+		}
+	}
+
+	if (verbose > 1 && f->iflags == 0) {
+		if (S_ISDIR(f->st.mode))
+			return 1;
+
+		return print_7_or_8_bit(sess, "%s is uptodate\n", f->wpath, NULL);
+	}
+
+	if (sess->itemize) {
+		if (f->iflags != 0) {
+			if (S_ISREG(f->st.mode))
+				return log_format(sess, "%i %n", f);
+
+			if (verbose > 1 ||
+			    (verbose > 0 && !S_ISLNK(f->st.mode)))
+				return log_format(sess, "%n", f);
+		}
+
+		return 1;
+	}
+
+	if (outformat)
+		return log_format(sess, outformat, f);
+
+	if (verbose > 1 || (verbose > 0 && f->iflags != 0) ||
+	    sess->opts->progress)
+		return log_format(sess, "%n%L", f);
+
+	return 1;
+}
+
+int
+log_item(struct sess *sess, const struct flist *f)
+{
+	/*
+	 * We don't generally log if we are the server, but there are
+	 * exceptions.  If a custom outformat is set, then we should
+	 * generate logs, except if the outformat is being overridden
+	 * by using itemize that sets the outformat to include %i or %o.
+	 */
+	if (sess->opts->server && (sess->itemize ||
+	    (!sess->opts->outformat || !*sess->opts->outformat))) {
+		bool sig = (f->iflags & SIGNIFICANT_IFLAGS) != 0;
+
+		if (log_file == stdout || sess->opts->dry_run)
+			return 1;
+
+		if (!(sess->itemize && (sig || verbose > 1)))
+			return 1;
+	}
+
+	return log_item_impl(sess, f);
+}
+
+const char *
+iflags_decode(uint32_t iflags)
+{
+	static const char *namev[] = {
+		"atime", "cksum", "size", "time",
+		"perms", "owner", "group", "acl",
+		"xattr", "bad9", "bad10", "basis",
+		"hlink", "new", "local", "transfer",
+		"missing", "deleted", "hadbasis"
+	};
+	static char buf[256];
+	char *bufp = buf;
+
+	bufp += snprintf(buf, sizeof(buf), "0x%x", iflags);
+
+	if (iflags) {
+		assert((iflags & ((1u << (sizeof(namev) / sizeof((namev)[0]))) - 1)));
+
+		for (size_t i = 0; iflags; ++i) {
+			if (iflags & 1) {
+				bufp += strlcat(bufp, ",", sizeof(buf) - (bufp - buf));
+				bufp += strlcat(bufp, namev[i], sizeof(buf) - (bufp - buf));
+			}
+			iflags >>= 1;
+		}
+	}
+
+	return buf;
 }

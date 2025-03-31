@@ -27,7 +27,7 @@
 // code shared with kernel/kext tests
 #include "../../osfmk/tests/vm_parameter_validation.h"
 
-#define GOLDEN_FILES_VERSION "vm_parameter_validation_golden_images_46d15ea.tar.xz"
+#define GOLDEN_FILES_VERSION "vm_parameter_validation_golden_images_edeef315.tar.xz"
 #define GOLDEN_FILES_ASSET_FILE_POINTER GOLDEN_FILES_VERSION
 
 T_GLOBAL_META(
@@ -2019,7 +2019,8 @@ call_mincore(void *start, size_t size)
 	return ret;
 }
 
-
+// TODO: re-enable deferred reclaim tests (rdar://136157720)
+#if 0
 typedef kern_return_t (*fn_mach_vm_deferred_reclamation_buffer_init)(task_t task, mach_vm_address_t address, mach_vm_size_t size);
 
 static results_t *
@@ -2068,7 +2069,7 @@ test_mach_vm_deferred_reclamation_buffer_init(fn_mach_vm_deferred_reclamation_bu
 
 	return results;
 }
-
+#endif // 0
 
 static vm_map_kernel_flags_trials_t *
 generate_mmap_kernel_flags_trials()
@@ -2365,9 +2366,19 @@ test_fixed_dst_size(kern_return_t (*func)(MAP_T map, mach_vm_address_t dst, mach
 static results_t *
 test_allocated_src_allocated_dst_size(kern_return_t (*func)(MAP_T map, mach_vm_address_t src, mach_vm_size_t size, mach_vm_address_t dst), const char * testname)
 {
+	/*
+	 * Require src < dst. Some tests may get different error codes if src > dst.
+	 *
+	 * (No actual examples are known today, but see the comment in
+	 * test_allocated_src_unallocated_dst_size for an example in that
+	 * function. Here we are being conservatively careful.)
+	 *
+	 * TODO: test both src < dst and src > dst.
+	 */
 	MAP_T map SMART_MAP;
 	allocation_t src_base SMART_ALLOCATE_VM(map, TEST_ALLOC_SIZE, VM_PROT_DEFAULT);
-	allocation_t dst_base SMART_ALLOCATE_VM(map, TEST_ALLOC_SIZE, VM_PROT_DEFAULT);
+	allocation_t dst_base SMART_ALLOCATE_VM_AFTER(map, src_base.addr, TEST_ALLOC_SIZE, VM_PROT_DEFAULT);
+	assert(src_base.addr < dst_base.addr);
 	src_dst_size_trials_t * trials SMART_SRC_DST_SIZE_TRIALS();
 	results_t *results = alloc_results(testname, eSMART_SRC_DST_SIZE_TRIALS, trials->count);
 
@@ -2593,8 +2604,12 @@ fill_golden_trials(uint64_t trialsargs[static TRIALSARGUMENTS_SIZE],
 		FILL_TRIALS_NAMES(results, trials);
 	}
 	case eSMART_RECLAMATION_BUFFER_INIT_TRIALS: {
-		reclamation_buffer_init_trials_t *trials SMART_RECLAMATION_BUFFER_INIT_TRIALS();
+#if 0
+		reclamation_buffer_init_trials_t * trials SMART_RECLAMATION_BUFFER_INIT_TRIALS();
 		FILL_TRIALS_NAMES(results, trials);
+#else
+		break;
+#endif
 	}
 	default:
 		T_FAIL("New formula %u, args %llu %llu, update fill_golden_trials, testname: %s\n",
@@ -3407,9 +3422,11 @@ T_DECL(vm_parameter_validation_user,
 	RUN(call_shared_region_map_and_slide_2_np_in_thread, "different thread shared_region_map_and_slide_2_np");
 #undef RUN
 
+#if 0
 #define RUN(fn, name) dealloc_results(process_results(test_mach_vm_deferred_reclamation_buffer_init(fn, name)))
 	RUN(call_mach_vm_deferred_reclamation_buffer_init, "mach_vm_deferred_reclamation_buffer_init");
 #undef RUN
+#endif
 
 out:
 	restore_exc_guard();

@@ -46,7 +46,6 @@ WTF_MAKE_TZONE_ALLOCATED_IMPL(WebContextMenuClient);
 void WebContextMenuClient::downloadURL(const URL&)
 {
     // This is handled in the UI process.
-    ASSERT_NOT_REACHED();
 }
 
 #if !PLATFORM(COCOA)

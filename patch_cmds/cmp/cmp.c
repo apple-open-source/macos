@@ -29,21 +29,6 @@
  * SUCH DAMAGE.
  */
 
-#ifndef lint
-static const char copyright[] =
-"@(#) Copyright (c) 1987, 1990, 1993, 1994\n\
-	The Regents of the University of California.  All rights reserved.\n";
-#endif
-
-#if 0
-#ifndef lint
-static char sccsid[] = "@(#)cmp.c	8.3 (Berkeley) 4/2/94";
-#endif
-#endif
-
-#include <sys/cdefs.h>
-__FBSDID("$FreeBSD$");
-
 #include <sys/types.h>
 #include <sys/stat.h>
 
@@ -55,11 +40,9 @@ __FBSDID("$FreeBSD$");
 #include <fcntl.h>
 #include <getopt.h>
 #include <nl_types.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
-#ifdef __APPLE__
-#include <stdbool.h>
-#endif
 #include <string.h>
 #include <unistd.h>
 
@@ -72,9 +55,8 @@ __FBSDID("$FreeBSD$");
  * rdar://problem/91903190 - XNU uses ELOOP where FreeBSD uses EMLINK to
  * indicate that the target is a symbolic link.
  */
-#define	ELINKERR	ELOOP
-#else
-#define	ELINKERR	EMLINK
+#undef EMLINK
+#define EMLINK ELOOP
 #endif
 
 bool	bflag, lflag, sflag, xflag, zflag;
@@ -90,7 +72,17 @@ static const struct option long_opts[] =
 	{NULL,		no_argument,		NULL, 0}
 };
 
-static void usage(void);
+#ifdef SIGINFO
+volatile sig_atomic_t info;
+
+static void
+siginfo(int signo)
+{
+	info = signo;
+}
+#endif
+
+static void usage(void) __dead2;
 
 static bool
 parse_iskipspec(char *spec, off_t *skip1, off_t *skip2)
@@ -119,8 +111,9 @@ main(int argc, char *argv[])
 	int ch, fd1, fd2, oflag;
 	bool special;
 	const char *file1, *file2;
+	int ret;
 
-	limit = skip1 = skip2 = 0;
+	limit = skip1 = skip2 = ret = 0;
 	oflag = O_RDONLY;
 	while ((ch = getopt_long(argc, argv, "+bhi:ln:sxz", long_opts, NULL)) != -1)
 		switch (ch) {
@@ -185,7 +178,7 @@ main(int argc, char *argv[])
 		special = true;
 		fd1 = STDIN_FILENO;
 		file1 = "stdin";
-	} else if ((fd1 = open(file1, oflag, 0)) < 0 && errno != ELINKERR) {
+	} else if ((fd1 = open(file1, oflag, 0)) < 0 && errno != EMLINK) {
 		if (!sflag)
 			err(ERR_EXIT, "%s", file1);
 		else
@@ -198,7 +191,7 @@ main(int argc, char *argv[])
 		special = true;
 		fd2 = STDIN_FILENO;
 		file2 = "stdin";
-	} else if ((fd2 = open(file2, oflag, 0)) < 0 && errno != ELINKERR) {
+	} else if ((fd2 = open(file2, oflag, 0)) < 0 && errno != EMLINK) {
 		if (!sflag)
 			err(ERR_EXIT, "%s", file2);
 		else
@@ -220,8 +213,8 @@ main(int argc, char *argv[])
 
 	if (fd1 == -1) {
 		if (fd2 == -1) {
-			c_link(file1, skip1, file2, skip2, limit);
-			exit(0);
+			ret = c_link(file1, skip1, file2, skip2, limit);
+			goto end;
 		} else if (!sflag)
 			errx(ERR_EXIT, "%s: Not a symbolic link", file2);
 		else
@@ -259,19 +252,26 @@ main(int argc, char *argv[])
 		}
 	}
 
-	if (special)
-		c_special(fd1, file1, skip1, fd2, file2, skip2, limit);
-	else {
+#ifdef SIGINFO
+	(void)signal(SIGINFO, siginfo);
+#endif
+	if (special) {
+		ret = c_special(fd1, file1, skip1, fd2, file2, skip2, limit);
+	} else {
 		if (zflag && sb1.st_size != sb2.st_size) {
 			if (!sflag)
-				(void) printf("%s %s differ: size\n",
+				(void)printf("%s %s differ: size\n",
 				    file1, file2);
-			exit(DIFF_EXIT);
+			ret = DIFF_EXIT;
+		} else {
+			ret = c_regular(fd1, file1, skip1, sb1.st_size,
+			    fd2, file2, skip2, sb2.st_size, limit);
 		}
-		c_regular(fd1, file1, skip1, sb1.st_size,
-		    fd2, file2, skip2, sb2.st_size, limit);
 	}
-	exit(0);
+end:
+	if (!sflag && fflush(stdout) != 0)
+		err(ERR_EXIT, "stdout");
+	exit(ret);
 }
 
 static void

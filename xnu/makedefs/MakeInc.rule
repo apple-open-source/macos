@@ -178,31 +178,6 @@ if [ $$RETURN -ne 0 ]; then \
 fi;
 endef
 
-# Verifier to ensure no UBSan runtime calls generated in a file
-# Compile with -fsanitize=... and WITHOUT -fsanitize-trap
-#
-# On failure, the build will fail and any offending symbols will be printed
-# along with a partial disassembly. A full disassembly of the object file may
-# also be useful, e.g.:
-# $ objdump -dSrl BUILD/obj/DEVELOPMENT_.../osfmk/DEVELOPMENT/vm_sanitize.o
-#
-# Note that objdump will not work on builds with LTO enabled, since the
-# intermediate files are LLVM bitcode instead of traditional object files.
-#
-# $(1) is the name of the .o file to be verified
-define VERIFIER_NO_UBSAN_CHECKS
-MATCHES="$$($(NM) -j '$(1)' | $(GREP) '^___ubsan')"; \
-if [[ ! -z "$$MATCHES" ]]; then \
-	$(ECHO) 1>&2 'UBSan verifier failure for $<:'; \
-	DISASM="$$($(OBJDUMP) -dSrl '$(1)' | $(GREP) -E '___ubsan|^;' | $(GREP) -B2 '___ubsan')"; \
-	if [[ -z "$$DISASM" ]]; then \
-		$(ECHO) 1>&2 "Failed to disassemble intermediate object file. It may be a bitcode file if LTO is enabled."; \
-	else \
-		$(ECHO) 1>&2 "$$($(SED) -e '/^--$$/d' -e 's/^/    /' <<< "$$DISASM")"; \
-	fi; \
-	exit 1; \
-fi;
-endef
 
 #
 # Empty the install lists of non-host and non-exclave headers if building the
@@ -492,42 +467,40 @@ do_installhdrs_md: $(INSTALL_MD_INC_FILES) $(INSTALL_MD_INC_GEN_FILES) $(INSTALL
 #
 # Generic Export rules
 #
-EXPORT_MI_INC_FILES = $(addprefix $(OBJROOT)/$(EXPDIR)/$(EXPORT_MI_DIR)/, $(EXPORT_MI_LIST))
-EXPORT_MI_GEN_INC_FILES = $(addprefix $(OBJROOT)/$(EXPDIR)/$(EXPORT_MI_DIR)/, $(EXPORT_MI_GEN_LIST))
+EXP_MI_INC_DIR = $(OBJROOT)/$(EXPDIR)/$(EXPORT_MI_DIR)
+EXPORT_MI_INC_FILES = $(addprefix $(EXP_MI_INC_DIR)/, $(EXPORT_MI_LIST))
+EXPORT_MI_GEN_INC_FILES = $(addprefix $(EXP_MI_INC_DIR)/, $(EXPORT_MI_GEN_LIST))
 
-.PHONY: EXP_MI_INC_DIR
+$(EXP_MI_INC_DIR)::
+	$(_v)$(MKDIR) $@
 
-EXP_MI_INC_DIR:
-	$(_v)$(MKDIR) $(OBJROOT)/$(EXPDIR)/$(EXPORT_MI_DIR)
-
-$(EXPORT_MI_GEN_INC_FILES): $(OBJROOT)/$(EXPDIR)/$(EXPORT_MI_DIR)/% : % | EXP_MI_INC_DIR
+$(EXPORT_MI_GEN_INC_FILES): $(EXP_MI_INC_DIR)/% : % | $(EXP_MI_INC_DIR)
 	$(_v)$(INSTALL) $(DATA_INSTALL_FLAGS_RO) $< $@
 
-$(EXPORT_MI_INC_FILES): $(OBJROOT)/$(EXPDIR)/$(EXPORT_MI_DIR)/% : $(SOURCE)/% | EXP_MI_INC_DIR
+$(EXPORT_MI_INC_FILES): $(EXP_MI_INC_DIR)/% : $(SOURCE)/% | $(EXP_MI_INC_DIR)
 	$(_v)$(INSTALL) $(DATA_INSTALL_FLAGS_RO) $< $@
 
-EXPORT_MD_INC_FILES = $(addprefix $(OBJROOT)/$(EXPDIR)/$(EXPORT_MD_DIR)/, $(EXPORT_MD_LIST))
-EXPORT_MD_GEN_INC_FILES = $(addprefix $(OBJROOT)/$(EXPDIR)/$(EXPORT_MD_DIR)/, $(EXPORT_MD_GEN_LIST))
+EXP_MD_INC_DIR = $(OBJROOT)/$(EXPDIR)/$(EXPORT_MD_DIR)
+EXPORT_MD_INC_FILES = $(addprefix $(EXP_MD_INC_DIR)/, $(EXPORT_MD_LIST))
+EXPORT_MD_GEN_INC_FILES = $(addprefix $(EXP_MD_INC_DIR)/, $(EXPORT_MD_GEN_LIST))
 
-.PHONY: EXP_MD_INC_DIR
+$(EXP_MD_INC_DIR)::
+	$(_v)$(MKDIR) $@
 
-EXP_MD_INC_DIR:
-	$(_v)$(MKDIR) $(OBJROOT)/$(EXPDIR)/$(EXPORT_MD_DIR)
-
-$(EXPORT_MD_GEN_INC_FILES): $(OBJROOT)/$(EXPDIR)/$(EXPORT_MD_DIR)/% : % | EXP_MD_INC_DIR
+$(EXPORT_MD_GEN_INC_FILES): $(EXP_MD_INC_DIR)/% : % | $(EXP_MD_INC_DIR)
 	$(_v)$(INSTALL) $(DATA_INSTALL_FLAGS_RO) $< $@
 
-$(EXPORT_MD_INC_FILES): $(OBJROOT)/$(EXPDIR)/$(EXPORT_MD_DIR)/% : $(SOURCE)/% | EXP_MD_INC_DIR
+$(EXPORT_MD_INC_FILES): $(EXP_MD_INC_DIR)/% : $(SOURCE)/% | $(EXP_MD_INC_DIR)
 	$(_v)$(INSTALL) $(DATA_INSTALL_FLAGS_RO) $< $@
 
 .PHONY: do_exporthdrs_mi
 
-do_exporthdrs_mi: $(EXPORT_MI_GEN_INC_FILES) $(EXPORT_MI_INC_FILES)
+do_exporthdrs_mi: $(EXPORT_MI_GEN_INC_FILES) $(EXPORT_MI_INC_FILES) | $(EXP_MI_INC_DIR)
 	@:
 
 .PHONY: do_exporthdrs_md
 
-do_exporthdrs_md: $(EXPORT_MD_GEN_INC_FILES)  $(EXPORT_MD_INC_FILES)
+do_exporthdrs_md: $(EXPORT_MD_GEN_INC_FILES)  $(EXPORT_MD_INC_FILES) | $(EXP_MD_INC_DIR)
 	@:
 
 #
@@ -550,9 +523,9 @@ C_RULE_0=@$(LOG_CC) "$@"
 C_RULE_1A=$(_v)$(KCC) -c $(filter-out $($@_CFLAGS_RM), $(CFLAGS) $(CWARNFLAGS)) -MD -MF $(@:o=d) -MJ $(@:o=o.json) -MP $($@_CFLAGS_ADD) $($@_CWARNFLAGS_ADD) $(INCFLAGS) $($@_INCFLAGS)
 C_RULE_1B=$(<F)
 C_RULE_2=
+C_RULE_3=
+C_RULE_4=
 
-C_RULE_3=@$(if $($@_VERIFIER), $(LOG_VERIFIER) "$@")
-C_RULE_4=@$(if $($@_VERIFIER), $(call VERIFY,$($@_VERIFIER),$@))
 
 #
 # Compilation rules to generate .o from .c for driver files

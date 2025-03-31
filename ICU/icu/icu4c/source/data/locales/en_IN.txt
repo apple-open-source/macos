@@ -6,7 +6,7 @@ en_IN{
     NumberElements{
         latn{
             patterns{
-                currencyFormat{"¤ #,##,##0.00"}
+                currencyFormat{"¤#,##,##0.00"}
                 decimalFormat{"#,##,##0.###"}
                 percentFormat{"#,##,##0%"}
             }
@@ -183,12 +183,15 @@ en_IN{
                 Ehm{"E, h:mm a"}
                 Ehms{"E, h:mm:ss a"}
                 GyMMM{"MMM, y G"}
+                GyMMMEEEEd{"EEEE, d MMM y G"}
                 MEd{"E, d/M"}
-                MMMEEEEd{"EEEE d MMM"}
-                MMMMEEEEd{"EEEE d MMMM"}
+                MMMEEEEd{"EEEE, d MMM"}
+                MMMMEEEEd{"EEEE, d MMMM"}
                 Md{"d/M"}
                 yyyyM{"M/y GGGGG"}
                 yyyyMEd{"E, d/M/y GGGGG"}
+                yyyyMMMEEEEd{"EEEE, d MMM y G"}
+                yyyyMMMMEEEEd{"EEEE, d MMMM y G"}
                 yyyyMd{"d/M/y G"}
             }
             intervalFormats{
@@ -280,19 +283,13 @@ en_IN{
                 EHms{"E, HH:mm:ss"}
                 Ehm{"E, h:mm a"}
                 Ehms{"E, h:mm:ss a"}
-                GyMMMEEEEd{"EEEE d MMM, y G"}
-                MMMMEEEEd{"EEEE d MMMM"}
+                GyMMMEEEEd{"EEEE, d MMM y G"}
+                MMMEEEEd{"EEEE, d MMM"}
+                MMMMEEEEd{"EEEE, d MMMM"}
                 yMEd{"E, d/M/y"}
-                yMMMMEEEEd{"EEEE d MMMM, y"}
+                yMMMEEEEd{"EEEE, d MMM y"}
+                yMMMMEEEEd{"EEEE, d MMMM y"}
                 yMd{"d/M/y"}
-            }
-            dayPeriod{
-                stand-alone{
-                    narrow{
-                        am{"am"}
-                        pm{"pm"}
-                    }
-                }
             }
             intervalFormats{
                 GyMMMEEEEd{

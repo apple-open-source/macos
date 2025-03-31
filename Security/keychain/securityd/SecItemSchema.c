@@ -306,6 +306,173 @@ SECDB_ATTR(v12_8_sharingLastWrittenWithSchemaVersion, "lwsv", Number, SecDbFlags
 
 SECDB_ATTR(v12_8suggestDeletion, "suggestDeletion", Number, SecDbFlags( ,L, , , , , , , , , , , , ,  , ), NULL, NULL);
 
+/* Used to track direction of changeToken in fetching from CK */
+SECDB_ATTR(v12_9fetchNewestChangesFirst,    "fetchNewestChangesFirst",    Number,   SecDbFlags( ,L, , , , , , , , , , , , ,  , ), NULL, NULL);
+/* Add an index on alias column*/
+SECDB_ATTR(v12_10alis, "alis", Blob,           SecDbFlags( ,L,I,S,A, , ,C,H, , , , , ,  ,Y), NULL, NULL);
+
+/* Tracks whether initial sync has happened */
+SECDB_ATTR(v12_11initialSyncFinished,    "initialSyncFinished",    Number,   SecDbFlags( ,L, , , , , , , , , , , , ,  , ), NULL, NULL);
+
+
+const SecDbClass v12_11_ckstate_class = {
+    .name = CFSTR("ckstate"),
+    .itemclass = false,
+    .attrs = {
+        &v10ckzone,
+        &v10ckzonecreated,
+        &v10ckzonesubscribed,
+        &v10lastfetchtime,
+        &v10changetoken,
+        &v10ratelimiter,
+        &v10_4lastFixup,
+        &v11_6moreComing,
+        &v11_9_lastscan,
+        &v11_9_extra,
+        &v12_2contextID,
+        &v12_9fetchNewestChangesFirst,
+        &v12_11initialSyncFinished,
+        0
+    }
+};
+
+// Adds an indexed alias column
+const SecDbClass v12_10_keys_class = {
+    .name = CFSTR("keys"),
+    .itemclass = true,
+    .attrs = {
+        &v6rowid,
+        &v6cdat,
+        &v6mdat,
+        &v6kcls,
+        &v6labl,
+        &v12_10alis,
+        &v6perm,
+        &v6priv,
+        &v6modi,
+        &v6klbl,
+        &v6atag,
+        &v6keycrtr,
+        &v6keytype,
+        &v6bsiz,
+        &v6esiz,
+        &v6sdat,
+        &v6edat,
+        &v6sens,
+        &v6asen,
+        &v6extr,
+        &v6next,
+        &v6encr,
+        &v6decr,
+        &v6drve,
+        &v6sign,
+        &v6vrfy,
+        &v6snrc,
+        &v6vyrc,
+        &v6wrap,
+        &v6unwp,
+        &v6data,
+        &v6agrp,
+        &v6pdmn,
+        &v6sync,
+        &v6tomb,
+        &v6sha1,
+        &v7vwht,
+        &v7tkid,
+        &v6v_Data,
+        &v6v_pk,
+        &v6accc,
+        &v7utomb,
+        &v8musr,
+        &v10itemuuid,
+        &v10sysbound,
+        &v10_1pcsservice,
+        &v10_1pcspublickey,
+        &v10_1pcspublicidentity,
+        &v10_1itempersistentref,
+        &v11_7appclip,
+        &v12_ggrp,
+        0
+    }
+};
+
+// Adds an indexed alias column
+const SecDbClass v12_10_inet_class = {
+    .name = CFSTR("inet"),
+    .itemclass = true,
+    .attrs = {
+        &v6rowid,
+        &v6cdat,
+        &v6mdat,
+        &v6desc,
+        &v6icmt,
+        &v6crtr,
+        &v6type,
+        &v6scrp,
+        &v6labl,
+        &v12_10alis,
+        &v6invi,
+        &v6nega,
+        &v6cusi,
+        &v6prot,
+        &v6acct,
+        &v6sdmn,
+        &v6srvr,
+        &v6ptcl,
+        &v6atyp,
+        &v6port,
+        &v6path,
+        &v6data,
+        &v6agrp,
+        &v6pdmn,
+        &v6sync,
+        &v6tomb,
+        &v6sha1,
+        &v7vwht,
+        &v7tkid,
+        &v6v_Data,
+        &v6v_pk,
+        &v6accc,
+        &v7utomb,
+        &v8musr,
+        &v10itemuuid,
+        &v10sysbound,
+        &v10_1pcsservice,
+        &v10_1pcspublickey,
+        &v10_1pcspublicidentity,
+        &v10_1itempersistentref,
+        &v11_7appclip,
+        &v11_8_bin_notes,
+        &v11_8_bin_history,
+        &v11_8_bin_client0,
+        &v11_8_bin_client1,
+        &v11_8_bin_client2,
+        &v11_8_bin_client3,
+        &v12_ggrp,
+        0
+    },
+};
+
+const SecDbClass v12_9_ckstate_class = {
+    .name = CFSTR("ckstate"),
+    .itemclass = false,
+    .attrs = {
+        &v10ckzone,
+        &v10ckzonecreated,
+        &v10ckzonesubscribed,
+        &v10lastfetchtime,
+        &v10changetoken,
+        &v10ratelimiter,
+        &v10_4lastFixup,
+        &v11_6moreComing,
+        &v11_9_lastscan,
+        &v11_9_extra,
+        &v12_2contextID,
+        &v12_9fetchNewestChangesFirst,
+        0
+    }
+};
+
 const SecDbClass v12_8_ckmirror_class = {
     .name = CFSTR("ckmirror"),
     .itemclass = false,
@@ -500,6 +667,7 @@ const SecDbClass v12_2_tlkshare_class = {
         0
     }
 };
+
 
 const SecDbClass v12_keys_class = {
     .name = CFSTR("keys"),
@@ -2129,6 +2297,126 @@ const SecDbClass v12_1_sharing_outgoing_queue_class = {
         &v6v_Data,
         &v6v_pk,
         &v6accc,
+        0
+    }
+};
+
+/*
+ * Version 12.11
+ * Add whether initial sync has finished for a view
+*/
+
+const SecDbSchema v12_11_schema = {
+    .majorVersion = 12,
+    .minorVersion = 11,
+    .classes = {
+        &v12_genp_class,
+        &v12_10_inet_class,
+        &v12_cert_class,
+        &v12_10_keys_class,
+        &v10_0_tversion_class,
+        &v12_2_outgoing_queue_class,
+        &v12_2_incoming_queue_class,
+        &v12_2_sync_key_class,
+        &v12_8_ckmirror_class,
+        &v12_2_current_key_class,
+        &v12_11_ckstate_class,
+        &v10_0_item_backup_class,
+        &v10_0_backup_keybag_class,
+        &v10_2_ckmanifest_class,
+        &v10_2_pending_manifest_class,
+        &v10_1_ckmanifest_leaf_class,
+        &v10_1_backup_keyarchive_class,
+        &v10_1_current_keyarchive_class,
+        &v10_1_current_archived_keys_class,
+        &v10_1_pending_manifest_leaf_class,
+        &v12_2_current_item_class,
+        &v12_2_ckdevicestate_class,
+        &v12_2_tlkshare_class,
+        &v11_2_metadatakeys_class,
+        &v12_8_sharing_incoming_queue_class,
+        &v12_8_sharing_mirror_class,
+        &v12_8_sharing_outgoing_queue_class,
+        0
+    }
+};
+
+
+/*
+ * Version 12.10
+ * Add index on alias column for keys, and inet class
+*/
+
+const SecDbSchema v12_10_schema = {
+    .majorVersion = 12,
+    .minorVersion = 10,
+    .classes = {
+        &v12_genp_class,
+        &v12_10_inet_class,
+        &v12_cert_class,
+        &v12_10_keys_class,
+        &v10_0_tversion_class,
+        &v12_2_outgoing_queue_class,
+        &v12_2_incoming_queue_class,
+        &v12_2_sync_key_class,
+        &v12_8_ckmirror_class,
+        &v12_2_current_key_class,
+        &v12_9_ckstate_class,
+        &v10_0_item_backup_class,
+        &v10_0_backup_keybag_class,
+        &v10_2_ckmanifest_class,
+        &v10_2_pending_manifest_class,
+        &v10_1_ckmanifest_leaf_class,
+        &v10_1_backup_keyarchive_class,
+        &v10_1_current_keyarchive_class,
+        &v10_1_current_archived_keys_class,
+        &v10_1_pending_manifest_leaf_class,
+        &v12_2_current_item_class,
+        &v12_2_ckdevicestate_class,
+        &v12_2_tlkshare_class,
+        &v11_2_metadatakeys_class,
+        &v12_8_sharing_incoming_queue_class,
+        &v12_8_sharing_mirror_class,
+        &v12_8_sharing_outgoing_queue_class,
+        0
+    }
+};
+
+/*
+ * Version 12.9
+ * Add fetchNewestChangesFirst to ckstate class.
+ */
+const SecDbSchema v12_9_schema = {
+    .majorVersion = 12,
+    .minorVersion = 9,
+    .classes = {
+        &v12_genp_class,
+        &v12_inet_class,
+        &v12_cert_class,
+        &v12_keys_class,
+        &v10_0_tversion_class,
+        &v12_2_outgoing_queue_class,
+        &v12_2_incoming_queue_class,
+        &v12_2_sync_key_class,
+        &v12_8_ckmirror_class,
+        &v12_2_current_key_class,
+        &v12_9_ckstate_class,
+        &v10_0_item_backup_class,
+        &v10_0_backup_keybag_class,
+        &v10_2_ckmanifest_class,
+        &v10_2_pending_manifest_class,
+        &v10_1_ckmanifest_leaf_class,
+        &v10_1_backup_keyarchive_class,
+        &v10_1_current_keyarchive_class,
+        &v10_1_current_archived_keys_class,
+        &v10_1_pending_manifest_leaf_class,
+        &v12_2_current_item_class,
+        &v12_2_ckdevicestate_class,
+        &v12_2_tlkshare_class,
+        &v11_2_metadatakeys_class,
+        &v12_8_sharing_incoming_queue_class,
+        &v12_8_sharing_mirror_class,
+        &v12_8_sharing_outgoing_queue_class,
         0
     }
 };
@@ -4232,6 +4520,9 @@ static const SecDbSchema v5_schema = {
 SecDbSchema const * const * kc_schemas = NULL;
 
 const SecDbSchema *v10_kc_schemas[] = {
+    &v12_11_schema,
+    &v12_10_schema,
+    &v12_9_schema,
     &v12_8_schema,
     &v12_7_schema,
     &v12_6_schema,

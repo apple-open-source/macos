@@ -34,6 +34,7 @@
 
 #include <netdissect-stdinc.h>
 
+
 #define __APPLE_PCAP_NG_API
 #include <net/pktap.h>
 #include <pcap.h>
@@ -43,11 +44,16 @@
 #include <pcap/pcap-util.h>
 #endif /* DLT_PCAPNG */
 
+#include <sys/queue.h>
+
+#include <err.h>
 #include <signal.h>
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
-#include <sys/queue.h>
+#include <sysexits.h>
+
+#include <os/log.h>
 
 #include "netdissect.h"
 #include "interface.h"
@@ -279,5 +285,87 @@ svc2str(uint32_t svc)
 	}
 }
 
+bool os_log_inited = false;
+
+struct nt_fun_cookie {
+	FILE *fun_file;
+	FILE *fun_old_file;
+	char fun_buf[BUFSIZ];
+};
+
+struct nt_fun_cookie fun_err = {
+	.fun_file = NULL,
+	.fun_old_file = NULL,
+};
+
+static int
+nt_fun_write(void *cookie, const char *buf, const int buflen)
+{
+	struct nt_fun_cookie *nt_fun_cookie = (struct nt_fun_cookie *)cookie;
+	int consumed = 0;
+
+	/*
+	 * Use os_log first as only stdio cares about truncation
+	 */
+	if (buf != nt_fun_cookie->fun_buf) {
+		__stderrp = fun_err.fun_old_file;
+		err(EX_SOFTWARE, "nt_fun_write: buf %p != fun_buf %p", buf, nt_fun_cookie->fun_buf);
+	}
+
+	/* we don't care if the string has been truncated */
+	char *eol_ptr = strchr(nt_fun_cookie->fun_buf, '\n');
+	if (eol_ptr != NULL) {
+		char saved = *eol_ptr;
+		*eol_ptr = '\0';
+		consumed = buflen;
+		os_log(OS_LOG_DEFAULT, "%s", nt_fun_cookie->fun_buf);
+		*eol_ptr = saved;
+	}
+
+	ssize_t n = write(STDERR_FILENO, buf, buflen);
+	if (n > 0) {
+		consumed = n < buflen ? buflen - (int)n : buflen;
+	}
+	return consumed;
+}
+
+static int
+nt_fun_close(void *cookie)
+{
+	struct nt_fun_cookie *nt_fun_cookie = (struct nt_fun_cookie *)cookie;
+
+	if (nt_fun_cookie->fun_old_file != NULL) {
+		__stderrp = nt_fun_cookie->fun_old_file;
+		nt_fun_cookie->fun_old_file = NULL;
+	}
+
+	nt_fun_cookie->fun_file = NULL;
+
+	return 0;
+}
+
+bool
+darwin_log_init(void)
+{
+	if (os_log_inited == false) {
+		fun_err.fun_file = funopen(&fun_err, NULL, nt_fun_write, NULL, nt_fun_close);
+		if (fun_err.fun_file == NULL) {
+			warn("%s: funopen() failed", __func__);
+			goto  failed;
+		}
+		setvbuf(fun_err.fun_file, fun_err.fun_buf, _IOLBF, sizeof(fun_err.fun_buf));
+
+		fun_err.fun_old_file = __stderrp;
+		__stderrp = fun_err.fun_file;
+
+		os_log_inited = true;
+	}
+	return true;
+failed:
+	if (fun_err.fun_file != NULL) {
+		fclose(fun_err.fun_file);
+	}
+	return false;
+}
 
 #endif /* __APPLE__ */

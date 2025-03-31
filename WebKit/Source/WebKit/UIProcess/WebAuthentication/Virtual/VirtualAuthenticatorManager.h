@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2018-2024 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -30,23 +30,14 @@
 #include "AuthenticatorManager.h"
 #include "VirtualAuthenticatorConfiguration.h"
 #include "VirtualCredential.h"
-#include <wtf/WeakPtr.h>
-
-namespace WebKit {
-class VirtualAuthenticatorManager;
-}
-
-namespace WTF {
-template<typename T> struct IsDeprecatedWeakRefSmartPointerException;
-template<> struct IsDeprecatedWeakRefSmartPointerException<WebKit::VirtualAuthenticatorManager> : std::true_type { };
-}
 
 namespace WebKit {
 struct VirtualCredential;
 
 class VirtualAuthenticatorManager final : public AuthenticatorManager {
+    WTF_MAKE_TZONE_ALLOCATED(VirtualAuthenticatorManager);
 public:
-    explicit VirtualAuthenticatorManager();
+    static Ref<VirtualAuthenticatorManager> create();
 
     String createAuthenticator(const VirtualAuthenticatorConfiguration& /*config/*/);
     bool removeAuthenticator(const String& /*authenticatorId*/);
@@ -62,7 +53,9 @@ protected:
     
     
 private:
-    UniqueRef<AuthenticatorTransportService> createService(WebCore::AuthenticatorTransport, AuthenticatorTransportServiceObserver&) const final;
+    VirtualAuthenticatorManager();
+
+    Ref<AuthenticatorTransportService> createService(WebCore::AuthenticatorTransport, AuthenticatorTransportServiceObserver&) const final;
     void runPanel() override;
     void filterTransports(TransportSet&) const override { };
 
@@ -71,5 +64,9 @@ private:
 };
 
 } // namespace WebKit
+
+SPECIALIZE_TYPE_TRAITS_BEGIN(WebKit::VirtualAuthenticatorManager)
+static bool isType(const WebKit::AuthenticatorManager& manager) { return manager.isVirtual(); }
+SPECIALIZE_TYPE_TRAITS_END()
 
 #endif // ENABLE(WEB_AUTHN)

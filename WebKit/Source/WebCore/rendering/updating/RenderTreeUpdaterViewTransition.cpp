@@ -33,14 +33,13 @@
 #include "RenderTreeUpdater.h"
 #include "RenderView.h"
 #include "RenderViewTransitionCapture.h"
-#include "RenderViewTransitionRoot.h"
 #include "StyleTreeResolver.h"
 #include "ViewTransition.h"
 #include <wtf/TZoneMallocInlines.h>
 
 namespace WebCore {
 
-WTF_MAKE_TZONE_ALLOCATED_IMPL_NESTED(RenderTreeUpdaterViewTransition, RenderTreeUpdater::ViewTransition);
+WTF_MAKE_TZONE_ALLOCATED_IMPL(RenderTreeUpdater::ViewTransition);
 
 RenderTreeUpdater::ViewTransition::ViewTransition(RenderTreeUpdater& updater)
     : m_updater(updater)
@@ -81,7 +80,7 @@ void RenderTreeUpdater::ViewTransition::updatePseudoElementTree(RenderElement& d
     if (viewTransitionRoot)
         viewTransitionRoot->setStyle(WTFMove(newRootStyle), minimalStyleDifference);
     else {
-        auto newViewTransitionRoot = WebCore::createRenderer<RenderViewTransitionRoot>(documentElementRenderer.document(), WTFMove(newRootStyle));
+        auto newViewTransitionRoot = WebCore::createRenderer<RenderBlockFlow>(RenderObject::Type::BlockFlow, document, WTFMove(newRootStyle));
         newViewTransitionRoot->initializeStyle();
         documentElementRenderer.view().setViewTransitionRoot(*newViewTransitionRoot.get());
         viewTransitionRoot = newViewTransitionRoot.get();
@@ -100,7 +99,7 @@ void RenderTreeUpdater::ViewTransition::updatePseudoElementTree(RenderElement& d
         if (currentGroup && name == currentGroup->style().pseudoElementNameArgument()) {
             auto style = documentElementRenderer.getCachedPseudoStyle({ PseudoId::ViewTransitionGroup, name }, &documentElementRenderer.style());
             if (!style || style->display() == DisplayType::None) {
-                documentElementRenderer.view().viewTransitionRoot()->removeChildGroup(name);
+                documentElementRenderer.view().removeViewTransitionGroup(name);
                 descendantsToDelete.append(currentGroup);
             } else
                 updatePseudoElementGroup(*style, downcast<RenderElement>(*currentGroup), documentElementRenderer, minimalStyleDifference);
@@ -138,7 +137,7 @@ static RenderPtr<RenderBox> createRendererIfNeeded(RenderElement& documentElemen
         rendererViewTransition->setCapturedSize(capturedElement->oldSize, capturedElement->oldOverflowRect, capturedElement->oldLayerToLayoutOffset);
         renderer = WTFMove(rendererViewTransition);
     } else
-        renderer = WebCore::createRenderer<RenderBlockFlow>(RenderObject::Type::BlockFlow, document, RenderStyle::clone(*style), RenderObject::BlockFlowFlag::IsViewTransitionContainer);
+        renderer = WebCore::createRenderer<RenderBlockFlow>(RenderObject::Type::BlockFlow, document, RenderStyle::clone(*style));
 
     renderer->initializeStyle();
     return renderer;
@@ -162,7 +161,7 @@ void RenderTreeUpdater::ViewTransition::buildPseudoElementGroup(const AtomString
         m_updater.m_builder.attach(*viewTransitionGroup, WTFMove(viewTransitionImagePair));
 
     if (viewTransitionGroup) {
-        documentElementRenderer.view().viewTransitionRoot()->addChildGroup(name, *downcast<RenderBlockFlow>(viewTransitionGroup.get()));
+        documentElementRenderer.view().addViewTransitionGroup(name, *viewTransitionGroup.get());
         m_updater.m_builder.attach(*documentElementRenderer.view().viewTransitionRoot(), WTFMove(viewTransitionGroup), beforeChild);
     }
 }

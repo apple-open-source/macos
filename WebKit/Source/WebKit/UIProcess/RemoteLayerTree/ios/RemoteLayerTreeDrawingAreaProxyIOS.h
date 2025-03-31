@@ -38,7 +38,7 @@ class RemoteLayerTreeDrawingAreaProxyIOS final : public RemoteLayerTreeDrawingAr
     WTF_MAKE_NONCOPYABLE(RemoteLayerTreeDrawingAreaProxyIOS);
     WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(RemoteLayerTreeDrawingAreaProxyIOS);
 public:
-    RemoteLayerTreeDrawingAreaProxyIOS(WebPageProxy&, WebProcessProxy&);
+    static Ref<RemoteLayerTreeDrawingAreaProxyIOS> create(WebPageProxy&, WebProcessProxy&);
     virtual ~RemoteLayerTreeDrawingAreaProxyIOS();
 
     bool isRemoteLayerTreeDrawingAreaProxyIOS() const final { return true; }
@@ -47,11 +47,13 @@ public:
     void pauseDisplayRefreshCallbacksForAnimation();
 
 private:
+    RemoteLayerTreeDrawingAreaProxyIOS(WebPageProxy&, WebProcessProxy&);
+
     WebCore::DelegatedScrollingMode delegatedScrollingMode() const override;
 
     std::unique_ptr<RemoteScrollingCoordinatorProxy> createScrollingCoordinatorProxy() const override;
 
-    void setPreferredFramesPerSecond(WebCore::FramesPerSecond) override;
+    void setPreferredFramesPerSecond(IPC::Connection&, WebCore::FramesPerSecond) override;
     void scheduleDisplayRefreshCallbacks() override;
     void pauseDisplayRefreshCallbacks() override;
 
@@ -68,5 +70,9 @@ private:
 };
 
 } // namespace WebKit
+
+SPECIALIZE_TYPE_TRAITS_BEGIN(WebKit::RemoteLayerTreeDrawingAreaProxyIOS)
+    static bool isType(const WebKit::DrawingAreaProxy& proxy) { return proxy.isRemoteLayerTreeDrawingAreaProxyIOS(); }
+SPECIALIZE_TYPE_TRAITS_END()
 
 #endif // PLATFORM(IOS_FAMILY)

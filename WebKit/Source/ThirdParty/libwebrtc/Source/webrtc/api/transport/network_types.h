@@ -12,13 +12,16 @@
 #define API_TRANSPORT_NETWORK_TYPES_H_
 #include <stdint.h>
 
+#include <cmath>
+#include <optional>
 #include <vector>
 
-#include "absl/types/optional.h"
+#include "api/transport/ecn_marking.h"
 #include "api/units/data_rate.h"
 #include "api/units/data_size.h"
 #include "api/units/time_delta.h"
 #include "api/units/timestamp.h"
+#include "rtc_base/system/rtc_export.h"
 
 namespace webrtc {
 
@@ -45,17 +48,17 @@ struct RTC_EXPORT StreamsConfig {
   StreamsConfig(const StreamsConfig&);
   ~StreamsConfig();
   Timestamp at_time = Timestamp::PlusInfinity();
-  absl::optional<bool> requests_alr_probing;
+  std::optional<bool> requests_alr_probing;
   // If `enable_repeated_initial_probing` is set to true, Probes are sent
   // periodically every 1s during the first 5s after the network becomes
   // available. The probes ignores max_total_allocated_bitrate.
-  absl::optional<bool> enable_repeated_initial_probing;
-  absl::optional<double> pacing_factor;
+  std::optional<bool> enable_repeated_initial_probing;
+  std::optional<double> pacing_factor;
 
   // TODO(srte): Use BitrateAllocationLimits here.
-  absl::optional<DataRate> min_total_allocated_bitrate;
-  absl::optional<DataRate> max_padding_rate;
-  absl::optional<DataRate> max_total_allocated_bitrate;
+  std::optional<DataRate> min_total_allocated_bitrate;
+  std::optional<DataRate> max_padding_rate;
+  std::optional<DataRate> max_total_allocated_bitrate;
 };
 
 struct RTC_EXPORT TargetRateConstraints {
@@ -63,11 +66,11 @@ struct RTC_EXPORT TargetRateConstraints {
   TargetRateConstraints(const TargetRateConstraints&);
   ~TargetRateConstraints();
   Timestamp at_time = Timestamp::PlusInfinity();
-  absl::optional<DataRate> min_data_rate;
-  absl::optional<DataRate> max_data_rate;
+  std::optional<DataRate> min_data_rate;
+  std::optional<DataRate> max_data_rate;
   // The initial bandwidth estimate to base target rate on. This should be used
   // as the basis for initial OnTargetTransferRate and OnPacerConfig callbacks.
-  absl::optional<DataRate> starting_rate;
+  std::optional<DataRate> starting_rate;
 };
 
 // Send side information
@@ -166,6 +169,7 @@ struct RTC_EXPORT PacketResult {
 
   SentPacket sent_packet;
   Timestamp receive_time = Timestamp::PlusInfinity();
+  EcnMarking ecn = EcnMarking::kNotEct;
 };
 
 struct RTC_EXPORT TransportPacketsFeedback {
@@ -244,16 +248,16 @@ struct RTC_EXPORT NetworkControlUpdate {
            !probe_cluster_configs.empty() || target_rate.has_value();
   }
 
-  absl::optional<DataSize> congestion_window;
-  absl::optional<PacerConfig> pacer_config;
+  std::optional<DataSize> congestion_window;
+  std::optional<PacerConfig> pacer_config;
   std::vector<ProbeClusterConfig> probe_cluster_configs;
-  absl::optional<TargetTransferRate> target_rate;
+  std::optional<TargetTransferRate> target_rate;
 };
 
 // Process control
 struct RTC_EXPORT ProcessInterval {
   Timestamp at_time = Timestamp::PlusInfinity();
-  absl::optional<DataSize> pacer_queue;
+  std::optional<DataSize> pacer_queue;
 };
 
 // Under development, subject to change without notice.

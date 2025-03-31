@@ -86,7 +86,7 @@ static ExceptionOr<bool> platformVerifyCC(const CryptoKeyHMAC& key, const Vector
 
     auto expectedSignature = calculateHMACSignature(*algorithm, key.key(), data.span());
     // Using a constant time comparison to prevent timing attacks.
-    return signature.size() == expectedSignature.size() && !constantTimeMemcmp(expectedSignature.data(), signature.data(), expectedSignature.size());
+    return signature.size() == expectedSignature.size() && !constantTimeMemcmp(expectedSignature.span(), signature.span());
 }
 
 ExceptionOr<Vector<uint8_t>> CryptoAlgorithmHMAC::platformSign(const CryptoKeyHMAC& key, const Vector<uint8_t>& data)

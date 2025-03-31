@@ -37,6 +37,7 @@
 #import "WebAccessibilityObjectWrapperMac.h"
 #import <pal/spi/cocoa/NSAccessibilitySPI.h>
 #import <pal/spi/mac/HIServicesSPI.h>
+#import <wtf/StdLibExtras.h>
 #import <wtf/cocoa/TypeCastsCocoa.h>
 
 #if ENABLE(ACCESSIBILITY_ISOLATED_TREE)
@@ -328,29 +329,29 @@ void AXObjectCache::postPlatformNotification(AccessibilityObject& object, AXNoti
     // Some notifications are unique to Safari and do not have NSAccessibility equivalents.
     NSString *macNotification;
     switch (notification) {
-    case AXActiveDescendantChanged:
+    case AXNotification::ActiveDescendantChanged:
         macNotification = @"AXActiveElementChanged";
         break;
-    case AXAutocorrectionOccured:
+    case AXNotification::AutocorrectionOccured:
         macNotification = @"AXAutocorrectionOccurred";
         break;
-    case AXCurrentStateChanged:
+    case AXNotification::CurrentStateChanged:
         macNotification = NSAccessibilityCurrentStateChangedNotification;
         break;
-    case AXFocusedUIElementChanged:
+    case AXNotification::FocusedUIElementChanged:
         macNotification = NSAccessibilityFocusedUIElementChangedNotification;
         break;
-    case AXImageOverlayChanged:
+    case AXNotification::ImageOverlayChanged:
         macNotification = @"AXImageOverlayChanged";
         break;
-    case AXLayoutComplete:
+    case AXNotification::LayoutComplete:
         macNotification = @"AXLayoutComplete";
         break;
-    case AXLabelChanged:
+    case AXNotification::LabelChanged:
         macNotification = NSAccessibilityTitleChangedNotification;
         break;
-    case AXLoadComplete:
-    case AXFrameLoadComplete:
+    case AXNotification::LoadComplete:
+    case AXNotification::FrameLoadComplete:
         macNotification = @"AXLoadComplete";
         // Frame loading events are handled by the UIProcess on macOS to improve reliability.
         // On macOS, before notifications are allowed by AppKit to be sent to clients, you need to have a client (e.g. VoiceOver)
@@ -358,84 +359,84 @@ void AXObjectCache::postPlatformNotification(AccessibilityObject& object, AXNoti
         // miss AXLoadComplete notifications. By moving them to the UIProcess, we can eliminate that issue.
         skipSystemNotification = true;
         break;
-    case AXInvalidStatusChanged:
+    case AXNotification::InvalidStatusChanged:
         macNotification = @"AXInvalidStatusChanged";
         break;
-    case AXSelectedChildrenChanged:
+    case AXNotification::SelectedChildrenChanged:
         if (object.isTable() && object.isExposable())
             macNotification = NSAccessibilitySelectedRowsChangedNotification;
         else
             macNotification = NSAccessibilitySelectedChildrenChangedNotification;
         break;
-    case AXSelectedCellsChanged:
+    case AXNotification::SelectedCellsChanged:
         macNotification = NSAccessibilitySelectedCellsChangedNotification;
         break;
-    case AXSelectedTextChanged:
+    case AXNotification::SelectedTextChanged:
         macNotification = NSAccessibilitySelectedTextChangedNotification;
         break;
-    case AXCheckedStateChanged:
-    case AXValueChanged:
+    case AXNotification::CheckedStateChanged:
+    case AXNotification::ValueChanged:
         macNotification = NSAccessibilityValueChangedNotification;
         break;
-    case AXLiveRegionCreated:
+    case AXNotification::LiveRegionCreated:
         macNotification = NSAccessibilityLiveRegionCreatedNotification;
         break;
-    case AXLiveRegionChanged:
+    case AXNotification::LiveRegionChanged:
         macNotification = NSAccessibilityLiveRegionChangedNotification;
         break;
-    case AXRowCountChanged:
+    case AXNotification::RowCountChanged:
         macNotification = NSAccessibilityRowCountChangedNotification;
         break;
-    case AXRowExpanded:
+    case AXNotification::RowExpanded:
         macNotification = NSAccessibilityRowExpandedNotification;
         break;
-    case AXRowCollapsed:
+    case AXNotification::RowCollapsed:
         macNotification = NSAccessibilityRowCollapsedNotification;
         break;
-    case AXElementBusyChanged:
+    case AXNotification::ElementBusyChanged:
         macNotification = @"AXElementBusyChanged";
         break;
-    case AXExpandedChanged:
+    case AXNotification::ExpandedChanged:
         macNotification = @"AXExpandedChanged";
         break;
-    case AXSortDirectionChanged:
+    case AXNotification::SortDirectionChanged:
         macNotification = @"AXSortDirectionChanged";
         break;
-    case AXMenuClosed:
+    case AXNotification::MenuClosed:
         macNotification = (id)kAXMenuClosedNotification;
         break;
-    case AXMenuListItemSelected:
-    case AXMenuListValueChanged:
+    case AXNotification::MenuListItemSelected:
+    case AXNotification::MenuListValueChanged:
         macNotification = (id)kAXMenuItemSelectedNotification;
         break;
-    case AXPressDidSucceed:
+    case AXNotification::PressDidSucceed:
         macNotification = @"AXPressDidSucceed";
         break;
-    case AXPressDidFail:
+    case AXNotification::PressDidFail:
         macNotification = @"AXPressDidFail";
         break;
-    case AXMenuOpened:
+    case AXNotification::MenuOpened:
         macNotification = (id)kAXMenuOpenedNotification;
         break;
-    case AXDraggingStarted:
+    case AXNotification::DraggingStarted:
         macNotification = (id)kAXDraggingSourceDragBeganNotification;
         break;
-    case AXDraggingEnded:
+    case AXNotification::DraggingEnded:
         macNotification = (id)kAXDraggingSourceDragEndedNotification;
         break;
-    case AXDraggingEnteredDropZone:
+    case AXNotification::DraggingEnteredDropZone:
         macNotification = (id)kAXDraggingDestinationDropAllowedNotification;
         break;
-    case AXDraggingDropped:
+    case AXNotification::DraggingDropped:
         macNotification = (id)kAXDraggingDestinationDragAcceptedNotification;
         break;
-    case AXDraggingExitedDropZone:
+    case AXNotification::DraggingExitedDropZone:
         macNotification = (id)kAXDraggingDestinationDragNotAcceptedNotification;
         break;
-    case AXTextCompositionBegan:
+    case AXNotification::TextCompositionBegan:
         macNotification = NSAccessibilityTextInputMarkingSessionBeganNotification;
         break;
-    case AXTextCompositionEnded:
+    case AXNotification::TextCompositionEnded:
         macNotification = NSAccessibilityTextInputMarkingSessionEndedNotification;
         break;
     default:
@@ -711,15 +712,15 @@ void AXObjectCache::frameLoadingEventPlatformNotification(AccessibilityObject* a
     if (!axFrameObject)
         return;
 
-    if (loadingEvent == AXLoadingFinished) {
+    if (loadingEvent == AXLoadingEvent::Finished) {
         if (axFrameObject->document() == axFrameObject->topDocument())
-            postNotification(axFrameObject, axFrameObject->document(), AXLoadComplete);
+            postNotification(axFrameObject, axFrameObject->document(), AXNotification::LoadComplete);
         else
-            postNotification(axFrameObject, axFrameObject->document(), AXFrameLoadComplete);
+            postNotification(axFrameObject, axFrameObject->document(), AXNotification::FrameLoadComplete);
     }
 }
 
-void AXObjectCache::platformHandleFocusedUIElementChanged(Node*, Node*)
+void AXObjectCache::platformHandleFocusedUIElementChanged(Element*, Element*)
 {
     NSAccessibilityHandleFocusChanged();
     // AXFocusChanged is a test specific notification name and not something a real AT will be listening for
@@ -863,7 +864,7 @@ static TextMarkerData getBytesFromAXTextMarker(AXTextMarkerRef textMarker)
     if (AXTextMarkerGetLength(textMarker) != sizeof(textMarkerData))
         return { };
 
-    memcpy(&textMarkerData, AXTextMarkerGetBytePtr(textMarker), sizeof(textMarkerData));
+    memcpySpan(asMutableByteSpan(textMarkerData), AXTextMarkerGetByteSpan(textMarker));
     return textMarkerData;
 }
 

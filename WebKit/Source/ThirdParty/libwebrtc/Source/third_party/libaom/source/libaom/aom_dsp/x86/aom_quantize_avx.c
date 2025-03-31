@@ -16,7 +16,7 @@
 #include "aom_dsp/x86/bitdepth_conversion_sse2.h"
 #include "aom_dsp/x86/quantize_x86.h"
 
-static INLINE void calculate_dqcoeff_and_store(__m128i qcoeff, __m128i dequant,
+static inline void calculate_dqcoeff_and_store(__m128i qcoeff, __m128i dequant,
                                                tran_low_t *dqcoeff) {
   const __m128i low = _mm_mullo_epi16(qcoeff, dequant);
   const __m128i high = _mm_mulhi_epi16(qcoeff, dequant);

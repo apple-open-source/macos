@@ -502,6 +502,9 @@ rip6_output(
 	if (INP_MANAGEMENT_ALLOWED(in6p)) {
 		ip6oa.ip6oa_flags |= IP6OAF_MANAGEMENT_ALLOWED;
 	}
+	if (INP_ULTRA_CONSTRAINED_ALLOWED(in6p)) {
+		ip6oa.ip6oa_flags |= IP6OAF_ULTRA_CONSTRAINED_ALLOWED;
+	}
 
 	dst = &dstsock->sin6_addr;
 	if (control) {

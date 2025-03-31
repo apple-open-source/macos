@@ -19,7 +19,7 @@
 #include "aom_dsp/x86/synonyms.h"
 #include "aom_dsp/x86/variance_impl_ssse3.h"
 
-static INLINE void compute_dist_wtd_avg(__m128i *p0, __m128i *p1,
+static inline void compute_dist_wtd_avg(__m128i *p0, __m128i *p1,
                                         const __m128i *w, const __m128i *r,
                                         void *const result) {
   __m128i p_lo = _mm_unpacklo_epi8(*p0, *p1);

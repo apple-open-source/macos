@@ -125,7 +125,7 @@ def ShowThreadUserStack(cmd_args=None):
     """ Show user stack for a given thread.
         Syntax: (lldb) showthreaduserstack <thread_ptr>
     """
-    if not cmd_args:
+    if cmd_args is None or len(cmd_args) == 0:
         raise ArgumentError("Insufficient arguments")
 
     thread = kern.GetValueFromAddress(ArgumentStringToInt(cmd_args[0]), 'thread *')
@@ -151,7 +151,7 @@ def PrintUserspaceData(cmd_args=None, cmd_options={}):
             -O <file path>: Save data to file 
     """
 
-    if not cmd_args or len(cmd_args) < 3:
+    if cmd_args is None or len(cmd_args) < 3:
         raise ArgumentError("Insufficient arguments")
     task = kern.GetValueFromAddress(cmd_args[0], 'task *')
     uspace_addr = ArgumentStringToInt(cmd_args[1])
@@ -193,7 +193,7 @@ def ShowTaskUserArgs(cmd_args=None, cmd_options={}):
         params:
             <task_t> : pointer to task
     """
-    if not cmd_args or len(cmd_args) != 1:
+    if cmd_args is None or len(cmd_args) != 1:
         raise ArgumentError("Insufficient arguments")
 
     task = kern.GetValueFromAddress(cmd_args[0], 'task *')
@@ -563,7 +563,7 @@ def ShowTaskUserLibraries(cmd_args=None):
         Note: the address ranges are approximations. Also the list may not be completely accurate. This command expects memory read failures
         and hence will skip a library if unable to read information. Please use your good judgement and not take the output as accurate
     """
-    if not cmd_args:
+    if cmd_args is None or len(cmd_args) == 0:
         raise ArgumentError("Insufficient arguments")
 
     #reset the found_images array
@@ -669,10 +669,8 @@ def ShowTaskUserDyldInfo(cmd_args=None):
     """ Inspect the dyld global info for the given user task & print out all fields including error messages
         Syntax: (lldb)showtaskuserdyldinfo <task_t>
     """
-    if cmd_args is None or len(cmd_args) < 1:
-        print("No arguments passed")
-        print(ShowTaskUserDyldInfo.__doc__.strip())
-        return
+    if cmd_args is None or len(cmd_args) == 0:
+        raise ArgumentError()
 
     out_str = ""
     task = kern.GetValueFromAddress(cmd_args[0], 'task_t')
@@ -851,7 +849,7 @@ def SaveKCDataToFile(cmd_args=None, cmd_options={}):
             -O: <output file path> path to file to save data. default: /tmp/kcdata.<timestamp>.bin
         Usage: (lldb) savekcdata <kcdata_descriptor_t> -T <task_t> -O /path/to/outputfile.bin
     """
-    if not cmd_args:
+    if cmd_args is None or len(cmd_args) == 0:
         raise ArgumentError('Please provide the kcdata descriptor.')
 
     kcdata = kern.GetValueFromAddress(cmd_args[0], 'kcdata_descriptor_t')

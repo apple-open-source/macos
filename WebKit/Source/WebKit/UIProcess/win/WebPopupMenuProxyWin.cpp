@@ -36,7 +36,6 @@
 #include "WebView.h"
 #include <WebCore/BitmapInfo.h>
 #include <WebCore/GDIUtilities.h>
-#include <WebCore/GraphicsContextCairo.h>
 #include <WebCore/HWndDC.h>
 #include <WebCore/PlatformMouseEvent.h>
 #include <WebCore/ScrollbarTheme.h>
@@ -45,6 +44,17 @@
 #include <wtf/TZoneMallocInlines.h>
 #include <wtf/text/MakeString.h>
 #include <wtf/text/StringBuilder.h>
+
+#if USE(CAIRO)
+#include <WebCore/GraphicsContextCairo.h>
+#endif
+
+#if USE(SKIA)
+#include <WebCore/GraphicsContextSkia.h>
+IGNORE_CLANG_WARNINGS_BEGIN("cast-align")
+#include <skia/core/SkSurface.h>
+IGNORE_CLANG_WARNINGS_END
+#endif
 
 namespace WebKit {
 using namespace WebCore;
@@ -179,6 +189,9 @@ WebPopupMenuProxyWin::~WebPopupMenuProxyWin()
     if (m_scrollbar)
         m_scrollbar->setParent(0);
 }
+
+// FIXME: Fix the warnings
+IGNORE_CLANG_WARNINGS_BEGIN("sign-compare")
 
 void WebPopupMenuProxyWin::showPopupMenu(const IntRect& rect, TextDirection, double pageScaleFactor, const Vector<WebPopupItem>& items, const PlatformPopupMenuData& data, int32_t selectedIndex)
 {
@@ -354,9 +367,9 @@ void WebPopupMenuProxyWin::hidePopupMenu()
 
 void WebPopupMenuProxyWin::calculatePositionAndSize(const IntRect& rect)
 {
-    float deviceScaleFactor = m_webView->page()->deviceScaleFactor();
+    float intrinsicDeviceScaleFactor = m_webView->page()->intrinsicDeviceScaleFactor();
     IntRect rectInScreenCoords(rect);
-    rectInScreenCoords.scale(m_scaleFactor * deviceScaleFactor);
+    rectInScreenCoords.scale(m_scaleFactor * intrinsicDeviceScaleFactor);
 
     POINT location(rectInScreenCoords.location());
     if (!::ClientToScreen(m_webView->window(), &location))
@@ -365,9 +378,9 @@ void WebPopupMenuProxyWin::calculatePositionAndSize(const IntRect& rect)
 
     int itemCount = m_items.size();
     m_itemHeight = m_data.m_itemHeight;
-    int itemHeightInDevicePixel = m_itemHeight * deviceScaleFactor;
+    int itemHeightInDevicePixel = m_itemHeight * intrinsicDeviceScaleFactor;
     int naturalHeight = itemHeightInDevicePixel * itemCount;
-    int maxPopupHeightInDevicePixel = maxPopupHeight * deviceScaleFactor * m_scaleFactor;
+    int maxPopupHeightInDevicePixel = maxPopupHeight * intrinsicDeviceScaleFactor * m_scaleFactor;
     int popupHeight = std::min(maxPopupHeightInDevicePixel, naturalHeight);
     int popupWidth = m_data.m_popupWidth;
     IntRect popupRect(0, rectInScreenCoords.maxY(), popupWidth, popupHeight);
@@ -408,9 +421,9 @@ void WebPopupMenuProxyWin::calculatePositionAndSize(const IntRect& rect)
     // Check that we need room for a scrollbar
     if (popupRect.height() < naturalHeight)
         popupWidth += ScrollbarTheme::theme().scrollbarThickness(ScrollbarWidth::Thin);
-    popupWidth *= deviceScaleFactor;
-    int clientInsetLeftInDevicePixel = m_data.m_clientInsetLeft * deviceScaleFactor;
-    int clientInsetRightInDevicePixel = m_data.m_clientInsetRight * deviceScaleFactor;
+    popupWidth *= intrinsicDeviceScaleFactor;
+    int clientInsetLeftInDevicePixel = m_data.m_clientInsetLeft * intrinsicDeviceScaleFactor;
+    int clientInsetRightInDevicePixel = m_data.m_clientInsetRight * intrinsicDeviceScaleFactor;
     // The popup should be at least as wide as the control on the page
     popupWidth = std::max(rectInScreenCoords.width() - clientInsetLeftInDevicePixel - clientInsetRightInDevicePixel, popupWidth);
     popupRect.setWidth(popupWidth);
@@ -443,9 +456,9 @@ void WebPopupMenuProxyWin::invalidateItem(int index)
     if (!m_popup)
         return;
 
-    float deviceScaleFactor = m_webView->page()->deviceScaleFactor();
+    float intrinsicDeviceScaleFactor = m_webView->page()->intrinsicDeviceScaleFactor();
     IntRect damageRect(clientRect());
-    float itemHeightInDevicePixel = m_itemHeight * deviceScaleFactor;
+    float itemHeightInDevicePixel = m_itemHeight * intrinsicDeviceScaleFactor;
     damageRect.setY(itemHeightInDevicePixel * (index - m_scrollOffset));
     damageRect.setHeight(ceil(itemHeightInDevicePixel));
 
@@ -473,8 +486,8 @@ IntSize WebPopupMenuProxyWin::visibleSize() const
 
 WebCore::IntSize WebPopupMenuProxyWin::contentsSize() const
 {
-    float deviceScaleFactor = m_webView->page()->deviceScaleFactor();
-    FloatSize scaledSize(m_windowRect.width() / deviceScaleFactor, m_scrollbar ? m_scrollbar->totalSize() : m_windowRect.height() / deviceScaleFactor);
+    float intrinsicDeviceScaleFactor = m_webView->page()->intrinsicDeviceScaleFactor();
+    FloatSize scaledSize(m_windowRect.width() / intrinsicDeviceScaleFactor, m_scrollbar ? m_scrollbar->totalSize() : m_windowRect.height() / intrinsicDeviceScaleFactor);
     return expandedIntSize(scaledSize);
 }
 
@@ -511,17 +524,17 @@ void WebPopupMenuProxyWin::scrollTo(int offset)
 #endif
 
     IntRect listRect = clientRect();
-    float deviceScaleFactor = m_webView->page()->deviceScaleFactor();
+    float intrinsicDeviceScaleFactor = m_webView->page()->intrinsicDeviceScaleFactor();
     if (m_scrollbar) {
-        listRect.setWidth(listRect.width() - m_scrollbar->size().width() * deviceScaleFactor);
+        listRect.setWidth(listRect.width() - m_scrollbar->size().width() * intrinsicDeviceScaleFactor);
         if (m_data.m_isRTL)
-            listRect.setX(m_scrollbar->size().width() * deviceScaleFactor);
+            listRect.setX(m_scrollbar->size().width() * intrinsicDeviceScaleFactor);
     }
     RECT r = listRect;
-    ::ScrollWindowEx(m_popup, 0, ceil(scrolledLines * m_itemHeight * deviceScaleFactor), &r, 0, 0, 0, flags);
+    ::ScrollWindowEx(m_popup, 0, ceil(scrolledLines * m_itemHeight * intrinsicDeviceScaleFactor), &r, 0, 0, 0, flags);
     if (m_scrollbar) {
         IntRect scrollRect = m_scrollbar->frameRect();
-        scrollRect.scale(deviceScaleFactor);
+        scrollRect.scale(intrinsicDeviceScaleFactor);
         r = scrollRect;
         ::InvalidateRect(m_popup, &r, TRUE);
     }
@@ -532,7 +545,7 @@ void WebPopupMenuProxyWin::invalidateScrollbarRect(Scrollbar& scrollbar, const I
 {
     IntRect scrollRect = rect;
     scrollRect.move(scrollbar.x(), scrollbar.y());
-    scrollRect.scale(m_webView->page()->deviceScaleFactor());
+    scrollRect.scale(m_webView->page()->intrinsicDeviceScaleFactor());
     RECT r = scrollRect;
     ::InvalidateRect(m_popup, &r, false);
 }
@@ -552,8 +565,8 @@ LRESULT WebPopupMenuProxyWin::onSize(HWND hWnd, UINT message, WPARAM, LPARAM lPa
         return 0;
 
     IntSize size(LOWORD(lParam), HIWORD(lParam));
-    float deviceScaleFactor = m_webView->page()->deviceScaleFactor();
-    IntSize scaledSize(ceil(size.width() / deviceScaleFactor), ceil(size.height() / deviceScaleFactor));
+    float intrinsicDeviceScaleFactor = m_webView->page()->intrinsicDeviceScaleFactor();
+    IntSize scaledSize(ceil(size.width() / intrinsicDeviceScaleFactor), ceil(size.height() / intrinsicDeviceScaleFactor));
     int scrollbarX = m_data.m_isRTL ? 0 : scaledSize.width() - m_scrollbar->width();
     m_scrollbar->setFrameRect(IntRect(scrollbarX, 0, m_scrollbar->width(), scaledSize.height()));
 
@@ -659,9 +672,9 @@ LRESULT WebPopupMenuProxyWin::onMouseMove(HWND hWnd, UINT message, WPARAM wParam
 {
     handled = true;
 
-    float deviceScaleFactor = m_webView->page()->deviceScaleFactor();
+    float intrinsicDeviceScaleFactor = m_webView->page()->intrinsicDeviceScaleFactor();
     IntPoint mousePoint(MAKEPOINTS(lParam));
-    mousePoint.scale(1 / deviceScaleFactor);
+    mousePoint.scale(1 / intrinsicDeviceScaleFactor);
     if (m_scrollbar) {
         IntPoint scrollbarMousePoint(mousePoint);
         IntRect scrollBarRect = m_scrollbar->frameRect();
@@ -680,7 +693,7 @@ LRESULT WebPopupMenuProxyWin::onMouseMove(HWND hWnd, UINT message, WPARAM wParam
     RECT bounds;
     ::GetClientRect(m_popup, &bounds);
     FloatRect scaledBounds(bounds);
-    scaledBounds.scale(1 / deviceScaleFactor);
+    scaledBounds.scale(1 / intrinsicDeviceScaleFactor);
     bounds = enclosingIntRect(scaledBounds);
     if (!::PtInRect(&bounds, mousePoint) && !(wParam & MK_LBUTTON)) {
         // When the mouse is not inside the popup menu and the left button isn't down, just
@@ -705,9 +718,9 @@ LRESULT WebPopupMenuProxyWin::onLButtonDown(HWND hWnd, UINT message, WPARAM wPar
 {
     handled = true;
 
-    float deviceScaleFactor = m_webView->page()->deviceScaleFactor();
+    float intrinsicDeviceScaleFactor = m_webView->page()->intrinsicDeviceScaleFactor();
     IntPoint mousePoint(MAKEPOINTS(lParam));
-    mousePoint.scale((1/ deviceScaleFactor));
+    mousePoint.scale((1/ intrinsicDeviceScaleFactor));
     if (m_scrollbar) {
         IntRect scrollBarRect = m_scrollbar->frameRect();
         if (scrollBarRect.contains(mousePoint)) {
@@ -725,7 +738,7 @@ LRESULT WebPopupMenuProxyWin::onLButtonDown(HWND hWnd, UINT message, WPARAM wPar
     RECT bounds;
     ::GetClientRect(m_popup, &bounds);
     FloatRect scaledBounds(bounds);
-    scaledBounds.scale(1 / deviceScaleFactor);
+    scaledBounds.scale(1 / intrinsicDeviceScaleFactor);
     bounds = enclosingIntRect(scaledBounds);
     if (::PtInRect(&bounds, mousePoint)) {
         setFocusedIndex(listIndexAtPoint(mousePoint), true);
@@ -741,9 +754,9 @@ LRESULT WebPopupMenuProxyWin::onLButtonUp(HWND hWnd, UINT message, WPARAM wParam
 {
     handled = true;
 
-    float deviceScaleFactor = m_webView->page()->deviceScaleFactor();
+    float intrinsicDeviceScaleFactor = m_webView->page()->intrinsicDeviceScaleFactor();
     IntPoint mousePoint(MAKEPOINTS(lParam));
-    mousePoint.scale(1 / deviceScaleFactor);
+    mousePoint.scale(1 / intrinsicDeviceScaleFactor);
     if (m_scrollbar) {
         IntRect scrollBarRect = m_scrollbar->frameRect();
         if (scrollbarCapturingMouse() || scrollBarRect.contains(mousePoint)) {
@@ -753,7 +766,7 @@ LRESULT WebPopupMenuProxyWin::onLButtonUp(HWND hWnd, UINT message, WPARAM wParam
             PlatformMouseEvent event(hWnd, message, wParam, makeScaledPoint(mousePoint, m_scaleFactor));
             m_scrollbar->mouseUp(event);
             // FIXME: This is a hack to work around Scrollbar not invalidating correctly when it doesn't have a parent widget
-            scrollBarRect.scale(deviceScaleFactor);
+            scrollBarRect.scale(intrinsicDeviceScaleFactor);
             RECT r = scrollBarRect;
             ::InvalidateRect(m_popup, &r, TRUE);
             return 0;
@@ -763,7 +776,7 @@ LRESULT WebPopupMenuProxyWin::onLButtonUp(HWND hWnd, UINT message, WPARAM wParam
     RECT bounds;
     ::GetClientRect(m_popup, &bounds);
     FloatRect scaledBounds(bounds);
-    scaledBounds.scale(1 / deviceScaleFactor);
+    scaledBounds.scale(1 / intrinsicDeviceScaleFactor);
     bounds = enclosingIntRect(scaledBounds);
     if (::PtInRect(&bounds, mousePoint)) {
         hide();
@@ -860,6 +873,7 @@ void WebPopupMenuProxyWin::paint(const IntRect& damageRect, HDC hdc)
     if (!m_popup)
         return;
 
+#if USE(CAIRO)
     if (!m_DC) {
         m_DC = adoptGDIObject(::CreateCompatibleDC(HWndDC(m_popup)));
         if (!m_DC)
@@ -885,40 +899,70 @@ void WebPopupMenuProxyWin::paint(const IntRect& damageRect, HDC hdc)
     }
 
     GraphicsContextCairo context(m_DC.get());
+#elif USE(SKIA)
+    if (m_surface) {
+        if (!(WebCore::IntSize { m_surface->width(), m_surface->height() } == m_clientSize))
+            m_surface.reset();
+    }
+    if (!m_surface) {
+        auto info = SkImageInfo::MakeN32Premul(m_clientSize.width(), m_clientSize.height(), SkColorSpace::MakeSRGB());
+        m_surface = SkSurfaces::Raster(info);
+        RELEASE_ASSERT(m_surface);
+    }
+    SkCanvas* canvas = m_surface->getCanvas();
+    if (!canvas)
+        return;
+    WebCore::GraphicsContextSkia context(*canvas, WebCore::RenderingMode::Unaccelerated, WebCore::RenderingPurpose::ShareableLocalSnapshot);
+#endif
+    float deviceScaleFactor = m_webView->page()->deviceScaleFactor();
+    float intrinsicDeviceScaleFactor = m_webView->page()->intrinsicDeviceScaleFactor();
+
+    context.save();
+    context.applyDeviceScaleFactor(intrinsicDeviceScaleFactor / deviceScaleFactor);
 
     int moveX = 0;
     int selectedBackingStoreWidth = m_data.m_selectedBackingStore->size().width();
     if (m_data.m_isRTL)
-        moveX = selectedBackingStoreWidth - clientRect().width();
+        moveX = selectedBackingStoreWidth - clientRect().width() * deviceScaleFactor / intrinsicDeviceScaleFactor;
 
-    float deviceScaleFactor = m_webView->page()->deviceScaleFactor();
-    float itemHeightInDevicePixel = m_itemHeight * deviceScaleFactor;
+    float itemHeightInBackingStore = m_itemHeight * deviceScaleFactor;
 
-    IntRect translatedDamageRect = damageRect;
-    translatedDamageRect.move(IntSize(moveX, m_scrollOffset * itemHeightInDevicePixel));
-    m_data.m_notSelectedBackingStore->paint(context, damageRect.location(), translatedDamageRect);
+    IntRect damageRectInBackingStore = damageRect;
+    damageRectInBackingStore.scale(deviceScaleFactor / intrinsicDeviceScaleFactor);
+    IntPoint damagePositionInBackingStore { damageRectInBackingStore.location() };
+    damageRectInBackingStore.move(IntSize(moveX, m_scrollOffset * itemHeightInBackingStore));
+    m_data.m_notSelectedBackingStore->paint(context, damagePositionInBackingStore, damageRectInBackingStore);
 
-    IntRect selectedIndexRectInBackingStore(moveX, focusedIndex() * itemHeightInDevicePixel, selectedBackingStoreWidth - moveX, itemHeightInDevicePixel);
+    IntRect selectedIndexRectInBackingStore(moveX, focusedIndex() * itemHeightInBackingStore, selectedBackingStoreWidth - moveX, itemHeightInBackingStore);
     IntPoint selectedIndexDstPoint = selectedIndexRectInBackingStore.location();
-    selectedIndexDstPoint.move(-moveX, -m_scrollOffset * itemHeightInDevicePixel);
+    selectedIndexDstPoint.move(-moveX, -m_scrollOffset * itemHeightInBackingStore);
 
     m_data.m_selectedBackingStore->paint(context, selectedIndexDstPoint, selectedIndexRectInBackingStore);
+    context.restore();
 
     if (m_scrollbar) {
         context.save();
-        context.applyDeviceScaleFactor(deviceScaleFactor);
+        context.applyDeviceScaleFactor(intrinsicDeviceScaleFactor);
 
         IntRect scaledDamageRect = damageRect;
-        scaledDamageRect.scale(1 / deviceScaleFactor);
+        scaledDamageRect.scale(1 / intrinsicDeviceScaleFactor);
         m_scrollbar->paint(context, scaledDamageRect);
 
         context.restore();
     }
 
+#if USE(CAIRO)
     HWndDC hWndDC;
     HDC localDC = hdc ? hdc : hWndDC.setHWnd(m_popup);
 
     ::BitBlt(localDC, damageRect.x(), damageRect.y(), damageRect.width(), damageRect.height(), m_DC.get(), damageRect.x(), damageRect.y(), SRCCOPY);
+#elif USE(SKIA)
+    SkPixmap pixmap;
+    if (m_surface->peekPixels(&pixmap)) {
+        auto bitmapInfo = WebCore::BitmapInfo::createBottomUp(m_clientSize);
+        SetDIBitsToDevice(hdc, 0, 0, m_clientSize.width(), m_clientSize.height(), 0, 0, 0, m_clientSize.height(), pixmap.addr(), &bitmapInfo, DIB_RGB_COLORS);
+    }
+#endif
 }
 
 bool WebPopupMenuProxyWin::setFocusedIndex(int i, bool hotTracking)
@@ -944,9 +988,11 @@ bool WebPopupMenuProxyWin::setFocusedIndex(int i, bool hotTracking)
     return true;
 }
 
+IGNORE_CLANG_WARNINGS_END
+
 int WebPopupMenuProxyWin::visibleItems() const
 {
-    return clientRect().height() / (m_itemHeight * m_webView->page()->deviceScaleFactor());
+    return clientRect().height() / (m_itemHeight * m_webView->page()->intrinsicDeviceScaleFactor());
 }
 
 int WebPopupMenuProxyWin::listIndexAtPoint(const IntPoint& point) const

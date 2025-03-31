@@ -31,6 +31,7 @@
 #include "PixelBuffer.h"
 #include "TaskSource.h"
 #include <atomic>
+#include <wtf/AbstractRefCountedAndCanMakeWeakPtr.h>
 #include <wtf/HashSet.h>
 #include <wtf/TypeCasts.h>
 #include <wtf/WeakHashSet.h>
@@ -72,14 +73,9 @@ public:
     virtual void canvasDisplayBufferPrepared(CanvasBase&) = 0;
 };
 
-class CanvasBase {
+class CanvasBase : public AbstractRefCountedAndCanMakeWeakPtr<CanvasBase> {
 public:
     virtual ~CanvasBase();
-
-    virtual void refCanvasBase() const = 0;
-    virtual void derefCanvasBase() const = 0;
-    void ref() const { refCanvasBase(); }
-    void deref() const { derefCanvasBase(); }
 
     virtual bool isHTMLCanvasElement() const { return false; }
     virtual bool isOffscreenCanvas() const { return false; }
@@ -122,7 +118,7 @@ public:
     void notifyObserversCanvasDisplayBufferPrepared();
     bool hasDisplayBufferObservers() const { return !m_displayBufferObservers.isEmptyIgnoringNullReferences(); }
 
-    HashSet<Element*> cssCanvasClients() const;
+    UncheckedKeyHashSet<Element*> cssCanvasClients() const;
 
     // !rect means caller knows the full canvas is invalidated previously.
     void didDraw(const std::optional<FloatRect>& rect) { return didDraw(rect, ShouldApplyPostProcessingToDirtyRect::Yes); }
@@ -154,8 +150,10 @@ public:
     void setHasCreatedImageBuffer(bool hasCreatedImageBuffer) { m_hasCreatedImageBuffer = hasCreatedImageBuffer; }
     bool hasCreatedImageBuffer() const { return m_hasCreatedImageBuffer; }
 
+    RefPtr<ImageBuffer> createImageForNoiseInjection() const;
+
 protected:
-    explicit CanvasBase(IntSize, const ScriptExecutionContext&);
+    explicit CanvasBase(IntSize, ScriptExecutionContext&);
 
     virtual ScriptExecutionContext* canvasBaseScriptExecutionContext() const = 0;
 

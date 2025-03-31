@@ -318,7 +318,11 @@ static OSSharedPtr<const OSSymbol>         gIOPMPSPostDishargeWaitSecondsKey;
 // Minimum time in milliseconds after AP wake that we allow idle timer to expire.
 // We impose this minimum to avoid race conditions in the AP wake path where
 // userspace clients are not able to acquire power assertions before the idle timer expires.
+#if XNU_TARGET_OS_IOS
+#define kMinimumTimeBeforeIdleSleep     3000
+#else
 #define kMinimumTimeBeforeIdleSleep     1000
+#endif
 
 #define DISPLAY_WRANGLER_PRESENT    (!NO_KERNEL_HID)
 
@@ -4241,6 +4245,9 @@ IOPMrootDomain::willNotifyPowerChildren( IOPMPowerStateIndex newPowerState )
 		IOHibernateIOKitSleep();
 #endif
 #if defined(__arm64__) && HIBERNATION
+		if (gIOHibernateState == kIOHibernateStateInactive) {
+			setProperty(kIOPMSystemSleepTypeKey, kIOPMSleepTypeDeepIdle, 32);
+		}
 		// On AS, hibernation cannot be aborted. Resetting RTC to 1s during hibernation upon detecting
 		// user activity is pointless (we are likely to spend >1s hibernating). It also clears existing
 		// alarms, which can mess with cycler tools.
@@ -10685,7 +10692,7 @@ IOPMrootDomain::acquireDriverKitMatchingAssertion()
 		        _driverKitMatchingAssertionCount++;
 		        return kIOReturnSuccess;
 		} else {
-		        if (kSystemTransitionSleep == _systemTransitionType) {
+		        if (kSystemTransitionSleep == _systemTransitionType && !idleSleepRevertible) {
 		                // system going to sleep
 		                return kIOReturnBusy;
 			} else {
@@ -12255,18 +12262,20 @@ IOPMrootDomain::getFailureData(thread_t *thread, char *failureStr, size_t strLen
 
 	const void *            callMethod = NULL;
 	const char *            objectName = NULL;
-	uint32_t                timeout = getWatchdogTimeout();
 	const char *            phaseString = NULL;
 	const char *            phaseDescription = NULL;
+	uint64_t                delta;
 
 	IOPMServiceInterestNotifier *notifier = OSDynamicCast(IOPMServiceInterestNotifier, notifierObject.get());
 	uint32_t tracePhase = pmTracer->getTracePhase();
 
 	*thread = NULL;
+
+	delta = get_watchdog_elapsed_time();
 	if ((tracePhase < kIOPMTracePointSystemSleep) || (tracePhase == kIOPMTracePointDarkWakeEntry)) {
-		snprintf(failureStr, strLen, "Sleep transition timed out after %d seconds", timeout);
+		snprintf(failureStr, strLen, "Sleep transition timed out after %qd seconds", delta);
 	} else {
-		snprintf(failureStr, strLen, "Wake transition timed out after %d seconds", timeout);
+		snprintf(failureStr, strLen, "Wake transition timed out after %qd seconds", delta);
 	}
 	tracePhase2String(tracePhase, &phaseString, &phaseDescription);
 

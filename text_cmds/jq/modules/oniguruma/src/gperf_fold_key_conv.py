@@ -1,16 +1,18 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
+# gperf_fold_key_conv.py
+# Copyright (c) 2016-2018  K.Kosako
 
 import sys
 import re
 
 REG_LINE_GPERF = re.compile('#line .+gperf"')
-REG_HASH_FUNC = re.compile('hash\s*\(register\s+const\s+char\s*\*\s*str,\s*register\s+unsigned\s+int\s+len\s*\)')
+REG_HASH_FUNC = re.compile('hash\s*\(register\s+const\s+char\s*\*\s*str,\s*register\s+size_t\s+len\s*\)')
 REG_STR_AT = re.compile('str\[(\d+)\]')
-REG_RETURN_TYPE = re.compile('^const\s+int\s*\*')
-REG_FOLD_KEY = re.compile('unicode_fold(\d)_key\s*\(register\s+const\s+char\s*\*\s*str,\s*register\s+unsigned\s+int\s+len\)')
+REG_RETURN_TYPE = re.compile('^const\s+short\s+int\s*\*')
+REG_FOLD_KEY = re.compile('unicode_fold(\d)_key\s*\(register\s+const\s+char\s*\*\s*str,\s*register\s+size_t\s+len\)')
 REG_ENTRY = re.compile('\{".*?",\s*(-?\d+)\s*\}')
-REG_IF_LEN = re.compile('if\s*\(\s*len\s*<=\s*MAX_WORD_LENGTH.+')
+REG_IF_LEN = re.compile('\s*if\s*\(\s*len\s*<=\s*MAX_WORD_LENGTH.+')
 REG_GET_HASH = re.compile('(?:register\s+)?(?:unsigned\s+)?int\s+key\s*=\s*hash\s*\(str,\s*len\);')
 REG_GET_CODE = re.compile('(?:register\s+)?const\s+char\s*\*\s*s\s*=\s*wordlist\[key\]\.name;')
 REG_CODE_CHECK = re.compile('if\s*\(\*str\s*==\s*\*s\s*&&\s*!strncmp.+\)')
@@ -32,7 +34,7 @@ def parse_line(s, key_len):
     if r != s: return r
     r = re.sub(REG_ENTRY, '\\1', s)
     if r != s: return r
-    r = re.sub(REG_IF_LEN, 'if (0 == 0)', s)
+    r = re.sub(REG_IF_LEN, '', s)
     if r != s: return r
     r = re.sub(REG_GET_HASH, 'int key = hash(codes);', s)
     if r != s: return r
@@ -52,11 +54,13 @@ def parse_line(s, key_len):
 def parse_file(f, key_len):
     print "/* This file was converted by gperf_fold_key_conv.py\n      from gperf output file. */"
 
-    line = f.readline()
-    while line:
+    while True:
+        line = f.readline()
+        if not line:
+            break
+
         s = parse_line(line, key_len)
         print s
-        line = f.readline()
 
 
 # main

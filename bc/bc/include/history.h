@@ -3,7 +3,7 @@
  *
  * SPDX-License-Identifier: BSD-2-Clause
  *
- * Copyright (c) 2018-2023 Gavin D. Howard and contributors.
+ * Copyright (c) 2018-2024 Gavin D. Howard and contributors.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -172,10 +172,6 @@ typedef struct BcHistory
 #include <status.h>
 #include <vector.h>
 #include <read.h>
-
-#if BC_DEBUG_CODE
-#include <file.h>
-#endif // BC_DEBUG_CODE
 
 /// Default columns.
 #define BC_HIST_DEF_COLS (80)

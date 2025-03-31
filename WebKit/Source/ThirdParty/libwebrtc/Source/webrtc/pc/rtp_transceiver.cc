@@ -17,6 +17,7 @@
 #include <functional>
 #include <iterator>
 #include <memory>
+#include <optional>
 #include <set>
 #include <string>
 #include <utility>
@@ -24,7 +25,6 @@
 
 #include "absl/algorithm/container.h"
 #include "absl/strings/string_view.h"
-#include "absl/types/optional.h"
 #include "api/array_view.h"
 #include "api/audio_codecs/audio_codec_pair_id.h"
 #include "api/audio_options.h"
@@ -97,26 +97,11 @@ RTCError VerifyCodecPreferences(
           return codec.MatchesRtpCodec(codec_preference);
         });
     if (!is_recv_codec) {
-      if (!field_trials.IsDisabled(
-              "WebRTC-SetCodecPreferences-ReceiveOnlyFilterInsteadOfThrow")) {
         LOG_AND_RETURN_ERROR(
             RTCErrorType::INVALID_MODIFICATION,
             std::string(
                 "Invalid codec preferences: invalid codec with name \"") +
                 codec_preference.name + "\".");
-      } else {
-        // Killswitch behavior: filter out any codec not in receive codecs.
-        codecs.erase(std::remove_if(
-            codecs.begin(), codecs.end(),
-            [&recv_codecs](const RtpCodecCapability& codec) {
-              return codec.IsMediaCodec() &&
-                     !absl::c_any_of(
-                         recv_codecs,
-                         [&codec](const cricket::Codec& recv_codec) {
-                           return recv_codec.MatchesRtpCodec(codec);
-                         });
-            }));
-      }
     }
   }
 
@@ -356,6 +341,7 @@ void RtpTransceiver::SetChannel(
   context()->network_thread()->BlockingCall([&]() {
     if (channel_) {
       channel_->SetFirstPacketReceivedCallback(nullptr);
+      channel_->SetFirstPacketSentCallback(nullptr);
       channel_->SetRtpTransport(nullptr);
       channel_to_delete = std::move(channel_);
     }
@@ -367,6 +353,11 @@ void RtpTransceiver::SetChannel(
         [thread = thread_, flag = signaling_thread_safety_, this]() mutable {
           thread->PostTask(
               SafeTask(std::move(flag), [this]() { OnFirstPacketReceived(); }));
+        });
+    channel_->SetFirstPacketSentCallback(
+        [thread = thread_, flag = signaling_thread_safety_, this]() mutable {
+          thread->PostTask(
+              SafeTask(std::move(flag), [this]() { OnFirstPacketSent(); }));
         });
   });
   PushNewMediaChannelAndDeleteChannel(nullptr);
@@ -392,6 +383,7 @@ void RtpTransceiver::ClearChannel() {
   context()->network_thread()->BlockingCall([&]() {
     if (channel_) {
       channel_->SetFirstPacketReceivedCallback(nullptr);
+      channel_->SetFirstPacketSentCallback(nullptr);
       channel_->SetRtpTransport(nullptr);
       channel_to_delete = std::move(channel_);
     }
@@ -513,13 +505,19 @@ cricket::MediaType RtpTransceiver::media_type() const {
   return media_type_;
 }
 
-absl::optional<std::string> RtpTransceiver::mid() const {
+std::optional<std::string> RtpTransceiver::mid() const {
   return mid_;
 }
 
 void RtpTransceiver::OnFirstPacketReceived() {
   for (const auto& receiver : receivers_) {
     receiver->internal()->NotifyFirstPacketReceived();
+  }
+}
+
+void RtpTransceiver::OnFirstPacketSent() {
+  for (const auto& sender : senders_) {
+    sender->internal()->NotifyFirstPacketSent();
   }
 }
 
@@ -550,7 +548,7 @@ void RtpTransceiver::set_current_direction(RtpTransceiverDirection direction) {
 }
 
 void RtpTransceiver::set_fired_direction(
-    absl::optional<RtpTransceiverDirection> direction) {
+    std::optional<RtpTransceiverDirection> direction) {
   fired_direction_ = direction;
 }
 
@@ -591,7 +589,7 @@ RTCError RtpTransceiver::SetDirectionWithError(
   return RTCError::OK();
 }
 
-absl::optional<RtpTransceiverDirection> RtpTransceiver::current_direction()
+std::optional<RtpTransceiverDirection> RtpTransceiver::current_direction()
     const {
   if (unified_plan_ && stopped())
     return RtpTransceiverDirection::kStopped;
@@ -599,8 +597,7 @@ absl::optional<RtpTransceiverDirection> RtpTransceiver::current_direction()
   return current_direction_;
 }
 
-absl::optional<RtpTransceiverDirection> RtpTransceiver::fired_direction()
-    const {
+std::optional<RtpTransceiverDirection> RtpTransceiver::fired_direction() const {
   return fired_direction_;
 }
 
@@ -684,7 +681,7 @@ void RtpTransceiver::StopTransceiverProcedure() {
 
   // 3. Set transceiver.[[Receptive]] to false.
   // 4. Set transceiver.[[CurrentDirection]] to null.
-  current_direction_ = absl::nullopt;
+  current_direction_ = std::nullopt;
 }
 
 RTCError RtpTransceiver::SetCodecPreferences(

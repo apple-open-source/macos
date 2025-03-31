@@ -179,3 +179,26 @@ void ThresholdAclSubject::debugDump() const
 }
 
 #endif //DEBUGDUMP
+
+CFStringRef ThresholdAclSubject::createACLDebugString() const
+{
+    CFMutableStringRef authStr = CFStringCreateMutable(kCFAllocatorDefault, 0);
+    CFStringAppendFormat(authStr, NULL,  CFSTR("<ThresholdAclSubject(%u of %u)"),
+                         minimumNeeded,
+                         totalSubjects);
+
+    for (size_t i = 0; i < elements.size(); i++) {
+        if(elements[i] != NULL) {
+            CFStringRef s = elements[i]->createACLDebugString();
+            CFStringAppendFormat(authStr, NULL, CFSTR("[%@]"), s);
+            if(s) {
+                CFRelease(s);
+            }
+        } else {
+            CFStringAppendFormat(authStr, NULL, CFSTR("[null]"));
+        }
+    }
+
+    CFStringAppend(authStr, CFSTR(">"));
+    return authStr;
+}

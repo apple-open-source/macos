@@ -156,3 +156,12 @@ void ProcessAclSubject::debugDump() const
 }
 
 #endif //DEBUGDUMP
+
+CFStringRef ProcessAclSubject::createACLDebugString() const
+{
+    return CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("<ProcessAclSubject(v:0x%x, m:0x%x, uid:0x%x, gid:0x%x)>"),
+                                    select.version,
+                                    select.mask,
+                                    select.uid,
+                                    select.gid);
+}

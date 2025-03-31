@@ -1,0 +1,94 @@
+#! /bin/sh
+
+# Test that the --ipv4/--ipv6 options are passed
+# to the server and exercise them.
+
+set -e
+set -u
+
+. ${tstdir-.}/lib.sh
+. ${tstdir-.}/conf.sh
+
+# Create the source tree:
+rm -rf src
+mkdir src
+date >> src/file
+
+OPTLIST="--ipv4 --ipv6 -4 -6"
+
+
+# Exercise various combinations of IPvX flags:
+#
+for arg in ${OPTLIST} ; do
+    rm -rf dst
+    rsync -a ${arg} -- src/ dst/
+done
+
+rm -rf dst
+rsync -a ${OPTLIST} -- src/ dst/
+
+
+# Do not perform interop testing past this point.
+#
+[ -n "${RSYNC_SERVER}" ] && exit
+
+
+# Exercise various combinations of IPvX flags:
+#
+for arg in ${OPTLIST} ; do
+    rm -rf dst
+    rsync -a ${arg} -- src/ localhost:$PWD/dst/
+
+    rm -rf dst
+    rsync -a ${arg} -- localhost:$PWD/src/ dst/
+done
+
+rm -rf dst
+rsync -a ${OPTLIST} -- src/ localhost:$PWD/dst/
+
+rm -rf dst
+rsync -a ${OPTLIST} -- localhost:$PWD/src/ dst/
+
+
+# TODO: The following tests fail with openrsync due to:
+#
+# https://gitlab.klara.systems/prettybsd/documentation/-/issues/139
+#
+# It also fails with rsync269 (but succeeds with rsync327)
+
+
+# Create an ssh executable that we can use to capture
+# the arguments passed to the server:
+#
+cat <<- EOF > ssh
+	#!/bin/sh
+
+	dir="\$1"
+	shift
+
+	echo "\$@" > "\$dir"/ssh_args
+EOF
+
+chmod 755 ssh
+
+for arg in ${OPTLIST} ; do
+    rm -rf dst ssh_args
+    rsync -a --rsh "$PWD/ssh $PWD" ${arg} -- localhost:$PWD/src/ dst/ || true
+
+    set -- $(cat ssh_args)
+
+    case ${arg} in
+    --ipv4) arg="-4" ;;
+    --ipv6) arg="-6" ;;
+    esac
+
+    # Look for the ${arg} option in the ssh command line:
+    #
+    while [ $# -gt 0 ] ; do
+        [ "$1" == "${arg}" ] && break;
+        [ "$1" == "localhost" ] && exit 1
+	shift
+    done
+
+    [ "$1" == ${arg} ] || exit 1
+done

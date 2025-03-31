@@ -21,14 +21,14 @@ scan_callback(int n, int r, OnigRegion* region, void* arg)
 }
 
 static int
-scan(regex_t* reg, unsigned char* str, unsigned char* end)
+scan(regex_t* reg, OnigOptionType options, unsigned char* str, unsigned char* end)
 {
   int r;
   OnigRegion *region;
 
   region = onig_region_new();
 
-  r = onig_scan(reg, str, end, region, ONIG_OPTION_NONE, scan_callback, NULL);
+  r = onig_scan(reg, str, end, region, options, scan_callback, NULL);
   if (r >= 0) {
     fprintf(stdout, "total: %d match\n", r);
   }
@@ -36,6 +36,7 @@ scan(regex_t* reg, unsigned char* str, unsigned char* end)
     char s[ONIG_MAX_ERROR_MESSAGE_LEN];
     onig_error_code_to_str((OnigUChar* )s, r);
     fprintf(stderr, "ERROR: %s\n", s);
+    onig_region_free(region, 1 /* 1:free self, 0:free contents only */);
     return -1;
   }
 
@@ -44,7 +45,7 @@ scan(regex_t* reg, unsigned char* str, unsigned char* end)
 }
 
 static int
-exec(OnigEncoding enc, OnigOptionType options, char* apattern, char* astr)
+exec(OnigEncoding enc, OnigOptionType options, OnigOptionType runtime_options, char* apattern, char* astr)
 {
   int r;
   unsigned char *end;
@@ -63,11 +64,12 @@ exec(OnigEncoding enc, OnigOptionType options, char* apattern, char* astr)
     char s[ONIG_MAX_ERROR_MESSAGE_LEN];
     onig_error_code_to_str((OnigUChar* )s, r, &einfo);
     fprintf(stderr, "ERROR: %s\n", s);
+    onig_end();
     return -1;
   }
 
   end = str + onigenc_str_bytelen_null(enc, str);
-  r = scan(reg, str, end);
+  r = scan(reg, runtime_options, str, end);
 
   onig_free(reg);
   onig_end();
@@ -77,11 +79,23 @@ exec(OnigEncoding enc, OnigOptionType options, char* apattern, char* astr)
 
 extern int main(int argc, char* argv[])
 {
-  exec(ONIG_ENCODING_UTF8, ONIG_OPTION_NONE,
+  exec(ONIG_ENCODING_UTF8, ONIG_OPTION_NONE, ONIG_OPTION_NONE,
        "\\Ga+\\s*", "a aa aaa baaa");
-
   fprintf(stdout, "\n");
-  exec(ONIG_ENCODING_UTF8, ONIG_OPTION_NONE,
+
+  exec(ONIG_ENCODING_UTF8, ONIG_OPTION_NONE, ONIG_OPTION_NOT_BEGIN_POSITION,
+       "\\Ga+\\s*", "a aa aaa baaa");
+  fprintf(stdout, "\n");
+
+  exec(ONIG_ENCODING_UTF8, ONIG_OPTION_NONE, ONIG_OPTION_NONE,
+       "(?!\\G)a+\\s*", "a aa aaa baaa");
+  fprintf(stdout, "\n");
+
+  exec(ONIG_ENCODING_UTF8, ONIG_OPTION_NONE, ONIG_OPTION_NOT_BEGIN_POSITION,
+       "(?!\\G)a+\\s*", "a aa aaa baaa");
+  fprintf(stdout, "\n");
+
+  exec(ONIG_ENCODING_UTF8, ONIG_OPTION_NONE, ONIG_OPTION_NONE,
        "a+\\s*", "a aa aaa baaa");
 
   return 0;

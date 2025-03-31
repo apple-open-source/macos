@@ -95,6 +95,8 @@ int nfsbuffreecnt, nfsbuffreemetacnt, nfsbufdelwricnt, nfsneedbuffer;
 int nfs_nbdwrite;
 int nfs_buf_timer_on = 0;
 thread_t nfsbufdelwrithd = NULL;
+thread_t nfsbufcommitthd = NULL;
+TAILQ_HEAD(, nfsnode) nfscommitq;
 
 #define NFSBUF_FREE_PERIOD      30      /* seconds */
 #define NFSBUF_LRU_STALE        120
@@ -215,6 +217,7 @@ nfs_nbinit(void)
 	TAILQ_INIT(&nfsbuffree);
 	TAILQ_INIT(&nfsbuffreemeta);
 	TAILQ_INIT(&nfsbufdelwri);
+	TAILQ_INIT(&nfscommitq);
 }
 
 void
@@ -758,6 +761,102 @@ nfs_buf_delwri_push(int locked)
 	if (!locked) {
 		lck_mtx_unlock(get_lck_mtx(NLM_BUF));
 	}
+}
+
+/*
+ * remove entry from the global queue and call nfs_flushcommits
+ * (must be called with NLM_COMMITD mutex held)
+ */
+void
+nfs_buf_commit_remove(nfsnode_t np, int flush)
+{
+	TAILQ_REMOVE(&nfscommitq, np, n_commit);
+	np->n_commit.tqe_next = NFSNOLIST;
+
+	if (flush && np->n_needcommitcnt) {
+		np->n_cflag |= NCOMMITINPROG;
+		lck_mtx_unlock(get_lck_mtx(NLM_COMMITD));
+		nfs_flushcommits(np, 1);
+		lck_mtx_lock(get_lck_mtx(NLM_COMMITD));
+		np->n_cflag &= ~NCOMMITINPROG;
+	}
+
+	if (np->n_cflag & NCOMMITWANT) {
+		np->n_cflag &= ~NCOMMITWANT;
+		wakeup(&np->n_cflag);
+	}
+}
+
+/*
+ * process some entries on the commit queue
+ * (must be called with NLM_COMMITD mutex held)
+ */
+void
+nfs_buf_commit_service(void)
+{
+	nfsnode_t np;
+
+	while ((np = TAILQ_FIRST(&nfscommitq)) != NULL) {
+		nfs_buf_commit_remove(np, 1);
+	}
+}
+
+void
+nfs_buf_commit_thread_wakeup(void)
+{
+	/* wake up the commit service thread */
+	if (nfsbufcommitthd) {
+		wakeup(&nfsbufcommitthd);
+	}
+}
+
+/*
+ * thread to service the commit queue when asked
+ */
+void
+nfs_buf_commit_thread(__unused void *arg, __unused wait_result_t wr)
+{
+	struct timespec ts = { .tv_sec = 30, .tv_nsec = 0 };
+	int error = 0;
+
+	lck_mtx_lock(get_lck_mtx(NLM_COMMITD));
+	while (!error && !unload_in_progress) {
+		nfs_buf_commit_service();
+		error = msleep(&nfsbufcommitthd, get_lck_mtx(NLM_COMMITD), 0, "nfsbufcommit", &ts);
+	}
+	nfsbufcommitthd = NULL;
+	lck_mtx_unlock(get_lck_mtx(NLM_COMMITD));
+	thread_terminate(nfsbufcommitthd);
+}
+
+/*
+ * try to push out some commits
+ */
+void
+nfs_buf_commit_push(nfsnode_t np)
+{
+	if ((np->n_needcommitcnt < NFS_A_LOT_OF_NEEDCOMMITS) || (np->n_commit.tqe_next != NFSNOLIST)) {
+		return;
+	}
+
+	lck_mtx_lock(get_lck_mtx(NLM_COMMITD));
+
+	if ((np->n_needcommitcnt >= NFS_A_LOT_OF_NEEDCOMMITS) && np->n_commit.tqe_next == NFSNOLIST) {
+		TAILQ_INSERT_TAIL(&nfscommitq, np, n_commit);
+
+		/* wake up the delayed write service thread */
+		if (nfsbufcommitthd) {
+			wakeup(&nfsbufcommitthd);
+		} else if (kernel_thread_start(nfs_buf_commit_thread, NULL, &nfsbufcommitthd) == KERN_SUCCESS) {
+			thread_deallocate(nfsbufcommitthd);
+		}
+		/* otherwise, try to do some of the work ourselves */
+		if (!nfsbufcommitthd) {
+			nfs_buf_commit_service();
+		}
+	}
+
+	lck_mtx_unlock(get_lck_mtx(NLM_COMMITD));
 }
 
 /*
@@ -2736,6 +2835,12 @@ nfs_buf_write(struct nfsbuf *bp)
 			lastpg = (dend - 1) / PAGE_SIZE;
 			/* calculate mask for that page range */
 			nfs_buf_pgs_set_pages_between(&pagemask, firstpg, lastpg + 1);
+		} else if (dend < doff) {
+			NP(np, "nfs_buf_write: got invalid offsets! dend %lld, doff %lld, lblkno %lld, n_size %lld", dend, doff, bp->nb_lblkno, np->n_size);
+			SET(bp->nb_flags, NB_ERROR);
+			bp->nb_error = error = EIO;
+			nfs_buf_iodone(bp);
+			goto out;
 		} else {
 			NBPGS_ERASE(&pagemask);
 		}
@@ -3078,12 +3183,12 @@ nfs_buf_write_rpc(struct nfsbuf *bp, int iomode, thread_t thd, kauth_cred_t cred
 		return error;
 	}
 
-	if (length == 0) {
+	if (length <= 0) {
 		/* We should never get here  */
 #if DEVELOPMENT
-		printf("nfs_buf_write_rpc: Got request with zero length. np 0x%lx, bp 0x%lx, offset %lld\n", nfs_kernel_hideaddr(np), nfs_kernel_hideaddr(bp), offset);
+		printf("nfs_buf_write_rpc: Got request with invalid length %lld np 0x%lx, bp 0x%lx, offset %lld\n", length, nfs_kernel_hideaddr(np), nfs_kernel_hideaddr(bp), offset);
 #else
-		printf("nfs_buf_write_rpc: Got request with zero length.\n");
+		printf("nfs_buf_write_rpc: Got request with invalid length %lld\n", length);
 #endif /* DEVELOPMENT */
 		nfs_buf_iodone(bp);
 		return 0;
@@ -3404,10 +3509,6 @@ out:
 
 	if (IS_VALID_CRED(cred)) {
 		kauth_cred_unref(&cred);
-	}
-
-	if (cb.rcb_func && np->n_needcommitcnt >= NFS_A_LOT_OF_NEEDCOMMITS) {
-		nfs_flushcommits(np, 1);
 	}
 }
 
@@ -4385,14 +4486,8 @@ nfs_buf_readdir(struct nfsbuf *bp, vfs_context_t ctx)
 		return ENXIO;
 	}
 
-	if (nmp->nm_vers < NFS_VER4) {
-		error = nfs3_readdir_rpc(np, bp, ctx);
-	}
-#if CONFIG_NFS4
-	else {
-		error = nfs4_readdir_rpc(np, bp, ctx);
-	}
-#endif
+	error = nmp->nm_funcs->nf_readdir_rpc(np, bp, ctx);
+
 	if (error && (error != NFSERR_DIRBUFDROPPED)) {
 		SET(bp->nb_flags, NB_ERROR);
 		bp->nb_error = error;

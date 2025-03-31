@@ -79,6 +79,9 @@ public:
     static RefPtr<StreamServerConnection> tryCreate(Handle&&, const StreamServerConnectionParameters&);
     ~StreamServerConnection() final;
 
+    void ref() const final { ThreadSafeRefCounted::ref(); }
+    void deref() const final { ThreadSafeRefCounted::deref(); }
+
     void startReceivingMessages(StreamMessageReceiver&, ReceiverName, uint64_t destinationID);
     // Stops the message receipt. Note: already received messages might still be delivered.
     void stopReceivingMessages(ReceiverName, uint64_t destinationID);
@@ -91,6 +94,7 @@ public:
         HasMoreMessages
     };
     DispatchResult dispatchStreamMessages(size_t messageLimit);
+    void markCurrentlyDispatchedMessageAsInvalid();
 
     void open(StreamConnectionWorkQueue&);
     void invalidate();
@@ -100,7 +104,8 @@ public:
     void sendSyncReply(Connection::SyncRequestID, Arguments&&...);
 
 #if ENABLE(IPC_TESTING_API)
-    void sendDeserializationErrorSyncReply(Connection::SyncRequestID);
+    void setIgnoreInvalidMessageForTesting() { m_connection->setIgnoreInvalidMessageForTesting(); }
+    bool ignoreInvalidMessageForTesting() const { return m_connection->ignoreInvalidMessageForTesting(); }
 #endif
 
     template<typename T, typename... Arguments>
@@ -120,9 +125,10 @@ private:
     void didClose(Connection&) final;
     void didReceiveInvalidMessage(Connection&, MessageName, int32_t indexOfObjectFailingDecoding) final;
 
-    bool processSetStreamDestinationID(Decoder&&, RefPtr<StreamMessageReceiver>& currentReceiver);
-    bool dispatchStreamMessage(Decoder&&, StreamMessageReceiver&);
-    bool dispatchOutOfStreamMessage(Decoder&&);
+    bool processSetStreamDestinationID(Decoder&, RefPtr<StreamMessageReceiver>& currentReceiver);
+    bool processStreamMessage(Decoder&, StreamMessageReceiver&);
+    bool processOutOfStreamMessage(Decoder&);
+    bool dispatchStreamMessage(Decoder&, StreamMessageReceiver&);
 
     RefPtr<StreamConnectionWorkQueue> protectedWorkQueue() const;
 
@@ -134,13 +140,14 @@ private:
     Lock m_outOfStreamMessagesLock;
     Deque<UniqueRef<Decoder>> m_outOfStreamMessages WTF_GUARDED_BY_LOCK(m_outOfStreamMessagesLock);
 
-    bool m_isDispatchingStreamMessage { false };
+    bool m_isProcessingStreamMessage { false };
     std::unique_ptr<IPC::Encoder> m_syncReplyToDispatch;
     Lock m_receiversLock;
     using ReceiversMap = HashMap<std::pair<uint8_t, uint64_t>, Ref<StreamMessageReceiver>>;
     ReceiversMap m_receivers WTF_GUARDED_BY_LOCK(m_receiversLock);
     uint64_t m_currentDestinationID { 0 };
     Semaphore m_clientWaitSemaphore;
+    bool m_didReceiveInvalidMessage { false };
 
     friend class StreamConnectionWorkQueue;
 };
@@ -155,19 +162,19 @@ template<typename T, typename... Arguments>
 void StreamServerConnection::sendSyncReply(Connection::SyncRequestID syncRequestID, Arguments&&... arguments)
 {
     if constexpr(T::isReplyStreamEncodable) {
-        if (m_isDispatchingStreamMessage) {
+        if (m_isProcessingStreamMessage) {
             auto span = m_buffer.acquireAll();
             {
-                StreamConnectionEncoder messageEncoder { MessageName::SyncMessageReply, span.data(), span.size() };
+                StreamConnectionEncoder messageEncoder { MessageName::SyncMessageReply, span };
                 if ((messageEncoder << ... << arguments))
                     return;
             }
-            StreamConnectionEncoder outOfStreamEncoder { MessageName::ProcessOutOfStreamMessage, span.data(), span.size() };
+            StreamConnectionEncoder outOfStreamEncoder { MessageName::ProcessOutOfStreamMessage, span };
         }
     }
     auto encoder = makeUniqueRef<Encoder>(MessageName::SyncMessageReply, syncRequestID.toUInt64());
     (encoder.get() << ... << std::forward<Arguments>(arguments));
-    if (m_isDispatchingStreamMessage) {
+    if (m_isProcessingStreamMessage) {
         // Send sync reply only after releasing the buffer. Otherwise client might receive the message before server
         // releases the buffer. Client would the send a new message, and release would happen only after.
         m_syncReplyToDispatch = encoder.moveToUniquePtr();
@@ -181,9 +188,7 @@ void StreamServerConnection::sendSyncReply(Connection::SyncRequestID syncRequest
 template<typename T, typename... Arguments>
 void StreamServerConnection::sendAsyncReply(AsyncReplyID asyncReplyID, Arguments&&... arguments)
 {
-    auto encoder = makeUniqueRef<Encoder>(T::asyncMessageReplyName(), asyncReplyID.toUInt64());
-    (encoder.get() << ... << std::forward<Arguments>(arguments));
-    m_connection->sendSyncReply(WTFMove(encoder));
+    m_connection->sendAsyncReply<T>(asyncReplyID, std::forward<Arguments>(arguments)...);
 }
 
 }

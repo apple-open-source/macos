@@ -2,7 +2,7 @@
  * Copyright (C) 2000 Lars Knoll (knoll@kde.org)
  *           (C) 2000 Antti Koivisto (koivisto@kde.org)
  *           (C) 2000 Dirk Mueller (mueller@kde.org)
- * Copyright (C) 2003-2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2003-2024 Apple Inc. All rights reserved.
  * Copyright (C) 2006 Graham Dennis (graham.dennis@gmail.com)
  *
  * This library is free software; you can redistribute it and/or
@@ -33,6 +33,7 @@
 #include "NinePieceImage.h"
 #include "OffsetRotation.h"
 #include "PathOperation.h"
+#include "PositionTryFallback.h"
 #include "RotateTransformOperation.h"
 #include "ScaleTransformOperation.h"
 #include "ScopedName.h"
@@ -47,15 +48,22 @@
 #include "StyleSelfAlignmentData.h"
 #include "StyleTextEdge.h"
 #include "TextDecorationThickness.h"
+#include "TimelineScope.h"
 #include "TouchAction.h"
 #include "TranslateTransformOperation.h"
 #include "ViewTimeline.h"
 #include "ViewTransitionName.h"
+#include "WebAnimationTypes.h"
 #include "WillChangeData.h"
 #include <memory>
 #include <wtf/DataRef.h>
+#include <wtf/Markable.h>
 #include <wtf/OptionSet.h>
 #include <wtf/Vector.h>
+
+namespace WTF {
+class TextStream;
+}
 
 namespace WebCore {
 
@@ -99,23 +107,33 @@ public:
     
     bool operator==(const StyleRareNonInheritedData&) const;
 
+#if !LOG_DISABLED
+    void dumpDifferences(TextStream&, const StyleRareNonInheritedData&) const;
+#endif
+
     LengthPoint perspectiveOrigin() const { return { perspectiveOriginX, perspectiveOriginY }; }
 
     bool hasBackdropFilters() const;
 
     OptionSet<Containment> usedContain() const;
 
-    std::optional<Length> containIntrinsicWidth;
-    std::optional<Length> containIntrinsicHeight;
+    Markable<Length> containIntrinsicWidth;
+    Markable<Length> containIntrinsicHeight;
 
     Length perspectiveOriginX;
     Length perspectiveOriginY;
 
     LineClampValue lineClamp; // An Apple extension.
-    
+
+    float zoom;
+
     size_t maxLines { 0 };
 
     OverflowContinue overflowContinue { OverflowContinue::Auto };
+
+    OptionSet<TouchAction> touchActions;
+    OptionSet<MarginTrimType> marginTrim;
+    OptionSet<Containment> contain;
 
     IntSize initialLetter;
 
@@ -148,10 +166,10 @@ public:
 
     RefPtr<PathOperation> clipPath;
 
-    StyleColor textDecorationColor;
+    Style::Color textDecorationColor;
 
     DataRef<StyleCustomPropertyData> customProperties;
-    HashSet<AtomString> customPaintWatchedProperties;
+    UncheckedKeyHashSet<AtomString> customPaintWatchedProperties;
 
     RefPtr<RotateTransformOperation> rotate;
     RefPtr<ScaleTransformOperation> scale;
@@ -173,14 +191,6 @@ public:
 
     TextDecorationThickness textDecorationThickness;
 
-    OptionSet<TouchAction> touchActions;
-    OptionSet<MarginTrimType> marginTrim;
-    OptionSet<Containment> contain;
-
-    ScrollSnapType scrollSnapType;
-    ScrollSnapAlign scrollSnapAlign;
-    ScrollSnapStop scrollSnapStop { ScrollSnapStop::Normal };
-
     Vector<Ref<ScrollTimeline>> scrollTimelines;
     Vector<ScrollAxis> scrollTimelineAxes;
     Vector<AtomString> scrollTimelineNames;
@@ -190,17 +200,24 @@ public:
     Vector<ViewTimelineInsets> viewTimelineInsets;
     Vector<AtomString> viewTimelineNames;
 
-    ScrollbarGutter scrollbarGutter;
-    ScrollbarWidth scrollbarWidth { ScrollbarWidth::Auto };
+    TimelineScope timelineScope;
 
-    float zoom;
+    ScrollbarGutter scrollbarGutter;
+
+    ScrollSnapType scrollSnapType;
+    ScrollSnapAlign scrollSnapAlign;
+    ScrollSnapStop scrollSnapStop { ScrollSnapStop::Normal };
+
     AtomString pseudoElementNameArgument;
 
-    Vector<AtomString> anchorNames;
-    AtomString positionAnchor;
+    Vector<Style::ScopedName> anchorNames;
+    std::optional<Style::ScopedName> positionAnchor;
+    Vector<PositionTryFallback> positionTryFallbacks;
 
     std::optional<Length> blockStepSize;
-    unsigned blockStepInsert : 1; // BlockStepInsert
+    unsigned blockStepAlign : 2; // BlockStepAlign
+    unsigned blockStepInsert : 2; // BlockStepInsert
+    unsigned blockStepRound : 2; // BlockStepRound
 
     unsigned overscrollBehaviorX : 2; // OverscrollBehavior
     unsigned overscrollBehaviorY : 2; // OverscrollBehavior
@@ -218,19 +235,19 @@ public:
 
     unsigned contentVisibility : 2; // ContentVisibility
 
-    unsigned effectiveBlendMode: 5; // EBlendMode
+    unsigned effectiveBlendMode: 5; // BlendMode
     unsigned isolation : 1; // Isolation
 
+    unsigned inputSecurity : 1; // InputSecurity
+
 #if ENABLE(APPLE_PAY)
-    unsigned applePayButtonStyle : 2;
-    unsigned applePayButtonType : 4;
+    unsigned applePayButtonStyle : 2; // ApplePayButtonStyle
+    unsigned applePayButtonType : 4; // ApplePayButtonType
 #endif
 
     unsigned breakBefore : 4; // BreakBetween
-    unsigned breakAfter : 4;
+    unsigned breakAfter : 4; // BreakBetween
     unsigned breakInside : 3; // BreakInside
-
-    unsigned inputSecurity : 1; // InputSecurity
 
     unsigned containIntrinsicWidthType : 2; // ContainIntrinsicSizeType
     unsigned containIntrinsicHeightType : 2; // ContainIntrinsicSizeType
@@ -239,11 +256,21 @@ public:
 
     unsigned textBoxTrim : 2; // TextBoxTrim
 
-    unsigned overflowAnchor : 1; // Scroll Anchoring- OverflowAnchor
+    unsigned overflowAnchor : 1; // Scroll Anchoring - OverflowAnchor
 
     bool hasClip : 1;
 
-    FieldSizing fieldSizing { FieldSizing::Fixed };
+    unsigned positionTryOrder : 3; // Style::PositionTryOrder; 5 values so 3 bits.
+
+    unsigned fieldSizing : 1; // FieldSizing
+
+    unsigned nativeAppearanceDisabled : 1;
+
+#if HAVE(CORE_MATERIAL)
+    unsigned appleVisualEffect : 4; // AppleVisualEffect
+#endif
+
+    unsigned scrollbarWidth : 2; // ScrollbarWidth
 
 private:
     StyleRareNonInheritedData();

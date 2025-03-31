@@ -300,8 +300,14 @@ errOut:
 
         NSError *testError = nil;
         XCTAssert([testObj evaluateForExpectedResults:&testError], "Test %@ failed: %@", testObj.fullTestName, testError);
-        NSString *failDesc = CFBridgingRelease(SecTrustCopyFailureDescription([testObj trust]));
-        XCTAssert([failDesc containsString:(id)kSecPolicyCheckNameConstraints]);
+        SecTrustResultType expectedResult = [testObj.expectedResult unsignedIntValue];
+        if (expectedResult == kSecTrustResultRecoverableTrustFailure ||
+            expectedResult == kSecTrustResultFatalTrustFailure ||
+            expectedResult == kSecTrustResultOtherError ||
+            expectedResult == kSecTrustResultInvalid) {
+            NSString *failDesc = CFBridgingRelease(SecTrustCopyFailureDescription([testObj trust]));
+            XCTAssert([failDesc containsString:(id)kSecPolicyCheckNameConstraints]);
+        }
     }];
 }
 

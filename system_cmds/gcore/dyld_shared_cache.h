@@ -10,6 +10,7 @@
 #ifndef _DYLD_SHARED_CACHE_H
 #define _DYLD_SHARED_CACHE_H
 
+#define IPHONE_DYLD_SHARED_CACHE_DIR_GCORE "/System/Cryptexes/OS/System/Library/Caches/com.apple.dyld/"
 /*
  * Guilty knowledge of dyld shared cache internals, used to verify shared cache
  */

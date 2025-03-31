@@ -12,6 +12,7 @@ align
 alink
 allow
 allowfullscreen
+alpha
 alt
 archive
 aria-activedescendant
@@ -103,12 +104,12 @@ code
 codebase
 codetype
 color
+colorspace
 cols
 colspan
 command
 commandfor
 compact
-composite
 content
 contenteditable
 controls
@@ -134,6 +135,7 @@ dropzone
 enctype
 end
 enterkeyhint
+environmentmap
 event
 expanded
 exportparts
@@ -198,6 +200,7 @@ name
 nohref
 nomodule
 nonce
+noportal
 noresize
 noshade
 novalidate

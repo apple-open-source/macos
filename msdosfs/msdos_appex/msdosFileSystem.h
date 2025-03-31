@@ -13,11 +13,13 @@ NS_ASSUME_NONNULL_BEGIN
 
 int wipeFSCallback(newfs_client_ctx_t ctx, WipeFSProperties wipeFSProps);
 
-@interface msdosFileSystem : FSUnaryFileSystem <FSUnaryFileSystemOperations, FSBlockDeviceOperations, FSManageableResourceMaintenanceOperations>
+@interface msdosFileSystem : FSUnaryFileSystem <FSUnaryFileSystemOperations, FSManageableResourceMaintenanceOperations>
 
 @property msdosVolume            * _Nullable volume;
 @property FSBlockDeviceResource  * _Nullable resource;
 
 @end
+
+typedef NSArray <NSString *> taskParameters;
 
 NS_ASSUME_NONNULL_END

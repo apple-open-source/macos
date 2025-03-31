@@ -42,6 +42,7 @@
 #import "WebNSAttributedStringExtras.h"
 #import <pal/spi/cg/CoreGraphicsSPI.h>
 #import <pal/spi/mac/HIServicesSPI.h>
+#import <wtf/MallocSpan.h>
 #import <wtf/ProcessPrivilege.h>
 #import <wtf/RetainPtr.h>
 #import <wtf/StdLibExtras.h>
@@ -442,7 +443,7 @@ void Pasteboard::read(PasteboardWebContentReader& reader, WebContentReadingPolic
 {
     auto& strategy = *platformStrategies()->pasteboardStrategy();
     auto platformTypesFromItems = [](const Vector<PasteboardItemInfo>& items) {
-        HashSet<String> types;
+        UncheckedKeyHashSet<String> types;
         for (auto& item : items) {
             for (auto& type : item.platformTypesByFidelity)
                 types.add(type);
@@ -450,7 +451,7 @@ void Pasteboard::read(PasteboardWebContentReader& reader, WebContentReadingPolic
         return types;
     };
 
-    HashSet<String> nonTranscodedTypes;
+    UncheckedKeyHashSet<String> nonTranscodedTypes;
     Vector<String> types;
     if (itemIndex) {
         if (auto itemInfo = strategy.informationForItemAtIndex(*itemIndex, m_pasteboardName, m_changeCount, context())) {
@@ -741,20 +742,19 @@ Vector<String> Pasteboard::readFilePaths()
 #if ENABLE(DRAG_SUPPORT)
 static void flipImageSpec(CoreDragImageSpec* imageSpec)
 {
-    unsigned char* tempRow = (unsigned char*)fastMalloc(imageSpec->bytesPerRow);
+    auto tempRow = MallocSpan<uint8_t>::malloc(imageSpec->bytesPerRow);
     int planes = imageSpec->isPlanar ? imageSpec->samplesPerPixel : 1;
-
-    for (int p = 0; p < planes; ++p) {
-        unsigned char* topRow = const_cast<unsigned char*>(imageSpec->data[p]);
-        unsigned char* botRow = topRow + (imageSpec->pixelsHigh - 1) * imageSpec->bytesPerRow;
-        for (int i = 0; i < imageSpec->pixelsHigh / 2; ++i, topRow += imageSpec->bytesPerRow, botRow -= imageSpec->bytesPerRow) {
-            bcopy(topRow, tempRow, imageSpec->bytesPerRow);
-            bcopy(botRow, topRow, imageSpec->bytesPerRow);
-            bcopy(tempRow, botRow, imageSpec->bytesPerRow);
+    for (auto* plane : std::span { imageSpec->data }.first(planes)) {
+        auto planeSpan = unsafeMakeSpan(const_cast<uint8_t*>(plane), imageSpec->bytesPerRow * imageSpec->pixelsHigh);
+        for (int i = 0; i < imageSpec->pixelsHigh / 2; ++i) {
+            auto topRow = planeSpan.first(imageSpec->bytesPerRow);
+            auto bottomRow = planeSpan.last(imageSpec->bytesPerRow);
+            memmoveSpan(tempRow.mutableSpan(), topRow);
+            memmoveSpan(topRow, bottomRow);
+            memmoveSpan(bottomRow, tempRow.span());
+            planeSpan = planeSpan.subspan(imageSpec->bytesPerRow, planeSpan.size() - 2 * imageSpec->bytesPerRow);
         }
     }
-
-    fastFree(tempRow);
 }
 
 static void setDragImageImpl(NSImage *image, NSPoint offset)
@@ -762,16 +762,17 @@ static void setDragImageImpl(NSImage *image, NSPoint offset)
     bool flipImage;
     NSSize imageSize = image.size;
     CGRect imageRect = CGRectMake(0, 0, imageSize.width, imageSize.height);
-    NSImageRep *imageRep = [image bestRepresentationForRect:NSRectFromCGRect(imageRect) context:nil hints:nil];
+    NSRect convertedRect = NSRectFromCGRect(imageRect);
+    NSImageRep *imageRep = [image bestRepresentationForRect:convertedRect context:nil hints:nil];
     RetainPtr<NSBitmapImageRep> bitmapImage;
     if (!imageRep || ![imageRep isKindOfClass:[NSBitmapImageRep class]] || !NSEqualSizes(imageRep.size, imageSize)) {
         [image lockFocus];
 ALLOW_DEPRECATED_DECLARATIONS_BEGIN
-        bitmapImage = adoptNS([[NSBitmapImageRep alloc] initWithFocusedViewRect:*(NSRect*)&imageRect]);
+        bitmapImage = adoptNS([[NSBitmapImageRep alloc] initWithFocusedViewRect:convertedRect]);
 ALLOW_DEPRECATED_DECLARATIONS_END
         [image unlockFocus];
-        
-        // we may have to flip the bits we just read if the image was flipped since it means the cache was also
+
+        // We may have to flip the bits we just read if the image was flipped since it means the cache was also
         // and CoreDragSetImage can't take a transform for rendering.
 ALLOW_DEPRECATED_DECLARATIONS_BEGIN
         flipImage = image.isFlipped;

@@ -39,19 +39,15 @@ WorkerWorkerAgent::WorkerWorkerAgent(WorkerAgentContext& context)
     : InspectorWorkerAgent(context)
     , m_globalScope(context.globalScope)
 {
-    ASSERT(context.globalScope.isContextThread());
+    ASSERT(context.globalScope->isContextThread());
 }
 
 WorkerWorkerAgent::~WorkerWorkerAgent() = default;
 
 void WorkerWorkerAgent::connectToAllWorkerInspectorProxies()
 {
-    for (Ref proxy : WorkerInspectorProxy::allWorkerInspectorProxiesCopy()) {
-        if (auto* globalScope = dynamicDowncast<WorkerOrWorkletGlobalScope>(proxy->scriptExecutionContext())) {
-            if (globalScope == &m_globalScope)
-                connectToWorkerInspectorProxy(proxy);
-        }
-    }
+    for (Ref proxy : WorkerInspectorProxy::proxiesForWorkerGlobalScope(m_globalScope.identifier()))
+        connectToWorkerInspectorProxy(proxy);
 }
 
 } // namespace Inspector

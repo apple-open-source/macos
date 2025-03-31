@@ -1,0 +1,6 @@
+include             LICENSE MANIFEST.in *.rst tox.ini .coveragerc
+exclude             codecov.yml
+recursive-include   tests           *.py
+recursive-include   doc             *
+prune               doc/_build
+prune               .travis

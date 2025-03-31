@@ -88,6 +88,7 @@ ca{
         bin{"edo"}
         bkm{"kom"}
         bla{"blackfoot"}
+        blo{"anii"}
         bm{"bambara"}
         bn{"bengalí"}
         bo{"tibetà"}
@@ -221,7 +222,6 @@ ca{
         gmh{"alt alemany mitjà"}
         gn{"guaraní"}
         goh{"alt alemany antic"}
-        gom{"concani de Goa"}
         gon{"gondi"}
         gor{"gorontalo"}
         got{"gòtic"}
@@ -326,6 +326,7 @@ ca{
         kv{"komi"}
         kw{"còrnic"}
         kwk{"kwak’wala"}
+        kxv{"kuvi"}
         ky{"kirguís"}
         la{"llatí"}
         lad{"judeocastellà"}
@@ -352,7 +353,6 @@ ca{
         lua{"luba-lulua"}
         lui{"luisenyo"}
         lun{"lunda"}
-        luo{"luo"}
         lus{"mizo"}
         lut{"lushootseed"}
         luy{"luyia"}
@@ -605,12 +605,12 @@ ca{
         ur{"urdú"}
         ur_Arab{"urdú (naskh)"}
         uz{"uzbek"}
-        vai{"vai"}
         ve{"venda"}
         vec{"vènet"}
         vep{"vepse"}
         vi{"vietnamita"}
         vls{"flamenc occidental"}
+        vmw{"makua"}
         vo{"volapük"}
         vot{"vòtic"}
         vun{"vunjo"}
@@ -625,6 +625,7 @@ ca{
         xal{"calmuc"}
         xh{"xosa"}
         xmf{"mingrelià"}
+        xnr{"kangri"}
         xog{"soga"}
         yao{"yao"}
         yap{"yapeà"}
@@ -916,7 +917,6 @@ ca{
             phonebook{"ordre de la guia telefònica"}
             phonetic{"ordre fonètic"}
             pinyin{"ordre pinyin"}
-            reformed{"ordre reformat"}
             search{"cerca de propòsit general"}
             searchjl{"cerca per consonant inicial del hangul"}
             standard{"ordre estàndard"}

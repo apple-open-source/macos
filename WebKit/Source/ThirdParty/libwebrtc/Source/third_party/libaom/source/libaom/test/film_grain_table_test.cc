@@ -10,7 +10,7 @@
  */
 
 #include <string>
-#include "third_party/googletest/src/googletest/include/gtest/gtest.h"
+#include "gtest/gtest.h"
 #include "aom_dsp/grain_table.h"
 #include "aom/internal/aom_codec_internal.h"
 #include "av1/encoder/grain_test_vectors.h"

@@ -63,6 +63,7 @@ public:
 	};
 	
 	IFDUMP(void debugDump() const);
+    virtual CFStringRef createACLDebugString() const;
 };
 
 } // end namespace Security

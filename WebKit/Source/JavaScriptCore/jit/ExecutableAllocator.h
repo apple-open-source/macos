@@ -26,6 +26,7 @@
 #pragma once
 
 #include <bit>
+#include "AssemblerCommon.h"
 #include "ExecutableMemoryHandle.h"
 #include "FastJITPermissions.h"
 #include "JITCompilationEffort.h"
@@ -99,13 +100,13 @@ JS_EXPORT_PRIVATE void* endOfFixedExecutableMemoryPoolImpl();
 template<typename T = void*>
 T startOfFixedExecutableMemoryPool()
 {
-    return bitwise_cast<T>(startOfFixedExecutableMemoryPoolImpl());
+    return std::bit_cast<T>(startOfFixedExecutableMemoryPoolImpl());
 }
 
 template<typename T = void*>
 T endOfFixedExecutableMemoryPool()
 {
-    return bitwise_cast<T>(endOfFixedExecutableMemoryPoolImpl());
+    return std::bit_cast<T>(endOfFixedExecutableMemoryPoolImpl());
 }
 
 ALWAYS_INLINE bool isJITPC(void* pc)
@@ -205,6 +206,8 @@ static NEVER_INLINE NO_RETURN_DUE_TO_CRASH NOT_TAIL_CALLED void dieByJumpingInto
     } while (false)
 #endif // ENABLE(JIT_SCAN_ASSEMBLER_BUFFER_FOR_ZEROES)
 
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
+
 static ALWAYS_INLINE void* performJITMemcpy(void *dst, const void *src, size_t n)
 {
 #if CPU(ARM64)
@@ -214,10 +217,12 @@ static ALWAYS_INLINE void* performJITMemcpy(void *dst, const void *src, size_t n
 #endif
     if (isJITPC(dst)) {
         RELEASE_ASSERT(!Gigacage::contains(src));
-        RELEASE_ASSERT(reinterpret_cast<uint8_t*>(dst) + n <= endOfFixedExecutableMemoryPool());
+        RELEASE_ASSERT(static_cast<uint8_t*>(dst) + n <= endOfFixedExecutableMemoryPool());
 
 #if ENABLE(JIT_SCAN_ASSEMBLER_BUFFER_FOR_ZEROES)
         auto checkForZeroes = [dst, src, n] () {
+            if (UNLIKELY(Options::zeroExecutableMemoryOnFree()))
+                return;
             // On x86-64, the maximum immediate size is 8B, no opcodes/prefixes have 0x00
             // On other architectures this could be smaller
             constexpr size_t maxZeroByteRunLength = 16;
@@ -270,7 +275,7 @@ static ALWAYS_INLINE void* performJITMemcpy(void *dst, const void *src, size_t n
 
         if (g_jscConfig.useFastJITPermissions) {
             threadSelfRestrict<MemoryRestriction::kRwxToRw>();
-            memcpy(dst, src, n);
+            memcpyAtomicIfPossible(dst, src, n);
             threadSelfRestrict<MemoryRestriction::kRwxToRx>();
 #if ENABLE(JIT_SCAN_ASSEMBLER_BUFFER_FOR_ZEROES)
             checkForZeroes();
@@ -292,19 +297,22 @@ static ALWAYS_INLINE void* performJITMemcpy(void *dst, const void *src, size_t n
         }
 #endif
 
-        auto ret = memcpy(dst, src, n);
+        auto ret = memcpyAtomicIfPossible(dst, src, n);
 #if ENABLE(JIT_SCAN_ASSEMBLER_BUFFER_FOR_ZEROES)
         checkForZeroes();
 #endif
         return ret;
     }
 
-    // Use regular memcpy for writes outside the JIT region.
-    return memcpy(dst, src, n);
+    return memcpyAtomicIfPossible(dst, src, n);
 }
 
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
+
 class ExecutableAllocator : private ExecutableAllocatorBase {
-    WTF_MAKE_TZONE_ALLOCATED(ExecutableAllocator);
+    // This does not need to be TZONE_ALLOCATED because it is only used as a singleton, and
+    // is only allocated once long before any script is executed.
+    WTF_MAKE_FAST_ALLOCATED(ExecutableAllocator);
 public:
     using Base = ExecutableAllocatorBase;
 
@@ -353,7 +361,9 @@ private:
 #else
 
 class ExecutableAllocator : public ExecutableAllocatorBase {
-    WTF_MAKE_TZONE_ALLOCATED(ExecutableAllocator);
+    // This does not need to be TZONE_ALLOCATED because it is only used as a singleton, and
+    // is only allocated once long before any script is executed.
+    WTF_MAKE_FAST_ALLOCATED(ExecutableAllocator);
 public:
     static ExecutableAllocator& singleton();
     static void initialize();

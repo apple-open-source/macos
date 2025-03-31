@@ -111,3 +111,13 @@ void PartitionAclSubject::exportBlob(Writer &pub, Writer &)
 {
 	pub.countedData(this->payload);
 }
+
+CFStringRef PartitionAclSubject::createACLDebugString() const
+{
+    CFDictionaryRef d = this->createDictionaryPayload();
+    CFStringRef s = CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("<PartitionAclSubject(%@)>"), d);
+    if(d) {
+        CFRelease(d);
+    }
+    return s;
+}

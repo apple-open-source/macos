@@ -336,8 +336,17 @@ _citrus_VIQR_wcrtomb_priv(_VIQREncodingInfo * __restrict ei,
 	int ch = 0;
 
 	switch (psenc->chlen) {
+#ifdef __APPLE__
+	case 0:
+		break;
+	case 1:
+		if (n-- < 1)
+			goto e2big;
+		break;
+#else
 	case 0: case 1:
 		break;
+#endif
 	default:
 		return (EINVAL);
 	}
@@ -346,8 +355,10 @@ _citrus_VIQR_wcrtomb_priv(_VIQREncodingInfo * __restrict ei,
 		p = mnemonic_rfc1456[wc & 0xFF];
 		if (p != NULL)
 			goto mnemonic_found;
+#ifdef __APPLE__
 		if (n-- < 1)
 			goto e2big;
+#endif
 		ch = (unsigned int)wc;
 		m = ei->mroot;
 		if (psenc->chlen > 0) {

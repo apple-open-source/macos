@@ -215,10 +215,10 @@ ta{
     calendar{
         chinese{
             DateTimePatterns{
-                "a h:mm:ss zzzz",
-                "a h:mm:ss z",
-                "a h:mm:ss",
-                "a h:mm",
+                "h:mm:ss a zzzz",
+                "h:mm:ss a z",
+                "h:mm:ss a",
+                "h:mm a",
                 "U MMMM d, EEEE",
                 "U, d MMMM",
                 "U, d MMM",
@@ -363,10 +363,10 @@ ta{
         }
         generic{
             DateTimePatterns{
-                "a h:mm:ss zzzz",
-                "a h:mm:ss z",
-                "a h:mm:ss",
-                "a h:mm",
+                "h:mm:ss a zzzz",
+                "h:mm:ss a z",
+                "h:mm:ss a",
+                "h:mm a",
                 "EEEE, d MMMM, y G",
                 "d MMMM, y G",
                 "d MMM, y G",
@@ -378,8 +378,8 @@ ta{
                 "{1}, {0}",
             }
             DateTimePatterns%atTime{
-                "{1} அன்று {0}",
-                "{1} அன்று {0}",
+                "{1}, {0}",
+                "{1}, {0}",
                 "{1}, {0}",
                 "{1}, {0}",
             }
@@ -400,8 +400,6 @@ ta{
                 EBhm{"E B h:mm"}
                 EBhms{"E B h:mm:ss"}
                 Ed{"d E"}
-                Ehm{"E a h:mm"}
-                Ehms{"E a h:mm:ss"}
                 Gy{"y G"}
                 GyMMM{"MMM y G"}
                 GyMMMEd{"E, d MMM, y G"}
@@ -413,9 +411,6 @@ ta{
                 MMMd{"d MMM"}
                 MMdd{"dd-MM"}
                 Md{"d/M"}
-                h{"a h"}
-                hm{"a h:mm"}
-                hms{"a h:mm:ss"}
                 y{"y G"}
                 yyyy{"y G"}
                 yyyyM{"M/y G"}
@@ -457,22 +452,22 @@ ta{
                 }
                 fallback{"{0} – {1}"}
                 h{
-                    a{"a h – a h"}
-                    h{"a h–h"}
+                    a{"h a – h a"}
+                    h{"h–h a"}
                 }
                 hm{
-                    a{"a h:mm – a h:mm"}
-                    h{"a h:mm–h:mm"}
-                    m{"a h:mm–h:mm"}
+                    a{"h:mm a – h:mm a"}
+                    h{"h:mm–h:mm a"}
+                    m{"h:mm–h:mm a"}
                 }
                 hmv{
-                    a{"a h:mm – a h:mm v"}
-                    h{"a h:mm–h:mm v"}
-                    m{"a h:mm–h:mm v"}
+                    a{"h:mm – h:mm a v"}
+                    h{"h:mm–h:mm a v"}
+                    m{"h:mm–h:mm a v"}
                 }
                 hv{
-                    a{"a h – a h v"}
-                    h{"a h–h v"}
+                    a{"h a – h a v"}
+                    h{"h–h a v"}
                 }
                 y{
                     y{"y – y G"}
@@ -512,19 +507,11 @@ ta{
             }
         }
         gregorian{
-            AmPmMarkersAbbr{
-                "AM",
-                "பிற்பகல்",
-            }
-            AmPmMarkersNarrow{
-                "மு.ப",
-                "பி.ப",
-            }
             DateTimePatterns{
-                "a h:mm:ss zzzz",
-                "a h:mm:ss z",
-                "a h:mm:ss",
-                "a h:mm",
+                "h:mm:ss a zzzz",
+                "h:mm:ss a z",
+                "h:mm:ss a",
+                "h:mm a",
                 "EEEE, d MMMM, y",
                 "d MMMM, y",
                 "d MMM, y",
@@ -536,8 +523,8 @@ ta{
                 "{1}, {0}",
             }
             DateTimePatterns%atTime{
-                "{1} அன்று {0}",
-                "{1} அன்று {0}",
+                "{1}, {0}",
+                "{1}, {0}",
                 "{1}, {0}",
                 "{1}, {0}",
             }
@@ -558,8 +545,6 @@ ta{
                 EBhm{"E B h:mm"}
                 EBhms{"E B h:mm:ss"}
                 Ed{"d E"}
-                Ehm{"E a h:mm"}
-                Ehms{"E a h:mm:ss"}
                 GyMd{"d/M/y G"}
                 MEd{"dd-MM, E"}
                 MMMMW{
@@ -567,13 +552,9 @@ ta{
                     other{"MMMM W -ஆம் வாரம்"}
                 }
                 MMMMd{"d MMMM"}
+                MMMd{"d MMM"}
                 MMdd{"dd-MM"}
                 Md{"d/M"}
-                h{"a h"}
-                hm{"a h:mm"}
-                hms{"a h:mm:ss"}
-                hmsv{"a h:mm:ss v"}
-                hmv{"a h:mm v"}
                 yM{"M/y"}
                 yMEd{"E, d/M/y"}
                 yMM{"MM-y"}
@@ -657,14 +638,9 @@ ta{
                     }
                 }
                 stand-alone{
-                    abbreviated{
-                        am{"முற்பகல்"}
-                        pm{"பிற்பகல்"}
-                    }
                     narrow{
                         afternoon1{"மதி."}
                         afternoon2{"பிற்."}
-                        am{"மு.ப"}
                         evening1{"மா."}
                         evening2{"அந்தி மா."}
                         midnight{"நள்."}
@@ -672,11 +648,6 @@ ta{
                         morning2{"கா."}
                         night1{"இ."}
                         noon{"நண்."}
-                        pm{"பி.ப"}
-                    }
-                    wide{
-                        am{"முற்பகல்"}
-                        pm{"பிற்பகல்"}
                     }
                 }
             }
@@ -732,23 +703,12 @@ ta{
                     d{"d/M – d/M"}
                 }
                 fallback{"{0} – {1}"}
-                h{
-                    a{"a h – a h"}
-                    h{"a h–h"}
-                }
-                hm{
-                    a{"a h:mm – a h:mm"}
-                    h{"a h:mm–h:mm"}
-                    m{"a h:mm–h:mm"}
-                }
                 hmv{
-                    a{"a h:mm – a h:mm v"}
-                    h{"a h:mm – h:mm v"}
-                    m{"a h:mm – h:mm v"}
+                    h{"h:mm – h:mm a v"}
+                    m{"h:mm – h:mm a v"}
                 }
                 hv{
-                    a{"a h – a h v"}
-                    h{"a h – h v"}
+                    h{"h – h a v"}
                 }
                 y{
                     y{"y – y"}
@@ -837,13 +797,27 @@ ta{
             quarters{
                 format{
                     abbreviated{
-                        "காலா.1",
-                        "காலா.2",
-                        "காலா.3",
-                        "காலா.4",
+                        "கா.1",
+                        "கா.2",
+                        "கா.3",
+                        "கா.4",
                     }
                     wide{
-                        "ஒன்றாம் காலாண்டு",
+                        "முதல் காலாண்டு",
+                        "இரண்டாம் காலாண்டு",
+                        "மூன்றாம் காலாண்டு",
+                        "நான்காம் காலாண்டு",
+                    }
+                }
+                stand-alone{
+                    abbreviated{
+                        "கா.1",
+                        "கா.2",
+                        "கா.3",
+                        "கா.4",
+                    }
+                    wide{
+                        "முதல் காலாண்டு",
                         "இரண்டாம் காலாண்டு",
                         "மூன்றாம் காலாண்டு",
                         "நான்காம் காலாண்டு",
@@ -1191,7 +1165,7 @@ ta{
                     other{"{0} மணிநேரத்தில்"}
                 }
                 past{
-                    one{"{0} மணிநேரம் முன்"}
+                    one{"{0} மணிநேரம்"}
                     other{"{0} மணிநேரம் முன்"}
                 }
             }
@@ -1210,15 +1184,15 @@ ta{
             }
         }
         hour-short{
-            dn{"மணி."}
+            dn{"ம."}
             relativeTime{
                 future{
-                    one{"{0} மணி."}
-                    other{"{0} மணி."}
+                    one{"{0} ம."}
+                    other{"{0} ம."}
                 }
                 past{
-                    one{"{0} மணி. முன்"}
-                    other{"{0} மணி. முன்"}
+                    one{"{0} ம. முன்"}
+                    other{"{0} ம. முன்"}
                 }
             }
         }
@@ -1233,8 +1207,8 @@ ta{
                     other{"{0} நிமிடங்களில்"}
                 }
                 past{
-                    one{"{0} நிமிடத்திற்கு முன்"}
-                    other{"{0} நிமிடங்களுக்கு முன்"}
+                    one{"{0} நிமிடம் முன்"}
+                    other{"{0} நிமிடங்கள் முன்"}
                 }
             }
         }
@@ -1430,8 +1404,8 @@ ta{
                     other{"{0} விநாடிகளில்"}
                 }
                 past{
-                    one{"{0} விநாடிக்கு முன்"}
-                    other{"{0} விநாடிகளுக்கு முன்"}
+                    one{"{0} விநாடி முன்"}
+                    other{"{0} விநாடிகள் முன்"}
                 }
             }
         }
@@ -1449,15 +1423,15 @@ ta{
             }
         }
         second-short{
-            dn{"விநா."}
+            dn{"வி."}
             relativeTime{
                 future{
-                    one{"{0} விநா."}
-                    other{"{0} விநா."}
+                    one{"{0} வி."}
+                    other{"{0} வி."}
                 }
                 past{
-                    one{"{0} விநா. முன்"}
-                    other{"{0} விநா. முன்"}
+                    one{"{0} வி. முன்"}
+                    other{"{0} வி. முன்"}
                 }
             }
         }
@@ -1773,10 +1747,10 @@ ta{
                 "[%％﹪ ٪]",
                 "[‰ ؉]",
                 "[\$＄﹩]",
-                "[£ ₤]",
+                "[£￡ ₤]",
                 "[¥￥]",
                 "[₩￦]",
-                "[₹ ₨ {Rp} {Rs}]",
+                "[₹ {Rp} {Rs}₨]",
             }
         }
         number{

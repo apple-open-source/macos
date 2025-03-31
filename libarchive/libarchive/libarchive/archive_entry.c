@@ -25,7 +25,6 @@
  */
 
 #include "archive_platform.h"
-__FBSDID("$FreeBSD: head/lib/libarchive/archive_entry.c 201096 2009-12-28 02:41:27Z kientzle $");
 
 #ifdef HAVE_SYS_STAT_H
 #include <sys/stat.h>
@@ -372,6 +371,12 @@ archive_entry_filetype(struct archive_entry *entry)
 	return (AE_IFMT & entry->acl.mode);
 }
 
+int
+archive_entry_filetype_is_set(struct archive_entry *entry)
+{
+	return (entry->ae_set & AE_SET_FILETYPE);
+}
+
 void
 archive_entry_fflags(struct archive_entry *entry,
     unsigned long *set, unsigned long *clear)
@@ -423,6 +428,12 @@ la_int64_t
 archive_entry_gid(struct archive_entry *entry)
 {
 	return (entry->ae_stat.aest_gid);
+}
+
+int
+archive_entry_gid_is_set(struct archive_entry *entry)
+{
+	return (entry->ae_set & AE_SET_GID);
 }
 
 const char *
@@ -568,6 +579,13 @@ archive_entry_nlink(struct archive_entry *entry)
 	return (entry->ae_stat.aest_nlink);
 }
 
+/* Instead, our caller could have chosen a specific encoding
+ * (archive_mstring_get_mbs, archive_mstring_get_utf8,
+ * archive_mstring_get_wcs).  So we should try multiple
+ * encodings.  Try mbs first because of history, even though
+ * utf8 might be better for pathname portability.
+ * Also omit wcs because of type mismatch (char * versus wchar *)
+ */
 const char *
 archive_entry_pathname(struct archive_entry *entry)
 {
@@ -575,6 +593,13 @@ archive_entry_pathname(struct archive_entry *entry)
 	if (archive_mstring_get_mbs(
 	    entry->archive, &entry->ae_pathname, &p) == 0)
 		return (p);
+#if HAVE_EILSEQ  /*{*/
+    if (errno == EILSEQ) {
+	    if (archive_mstring_get_utf8(
+	        entry->archive, &entry->ae_pathname, &p) == 0)
+		    return (p);
+    }
+#endif  /*}*/
 	if (errno == ENOMEM)
 		__archive_errx(1, "No memory");
 	return (NULL);
@@ -615,6 +640,12 @@ __LA_MODE_T
 archive_entry_perm(struct archive_entry *entry)
 {
 	return (~AE_IFMT & entry->acl.mode);
+}
+
+int
+archive_entry_perm_is_set(struct archive_entry *entry)
+{
+	return (entry->ae_set & AE_SET_PERM);
 }
 
 dev_t
@@ -745,6 +776,12 @@ archive_entry_uid(struct archive_entry *entry)
 	return (entry->ae_stat.aest_uid);
 }
 
+int
+archive_entry_uid_is_set(struct archive_entry *entry)
+{
+	return (entry->ae_set & AE_SET_UID);
+}
+
 const char *
 archive_entry_uname(struct archive_entry *entry)
 {
@@ -813,6 +850,7 @@ archive_entry_set_filetype(struct archive_entry *entry, unsigned int type)
 	entry->stat_valid = 0;
 	entry->acl.mode &= ~AE_IFMT;
 	entry->acl.mode |= AE_IFMT & type;
+	entry->ae_set |= AE_SET_FILETYPE;
 }
 
 void
@@ -850,6 +888,7 @@ archive_entry_set_gid(struct archive_entry *entry, la_int64_t g)
 	}
 	entry->stat_valid = 0;
 	entry->ae_stat.aest_gid = g;
+	entry->ae_set |= AE_SET_GID;
 }
 
 void
@@ -1140,6 +1179,7 @@ archive_entry_set_mode(struct archive_entry *entry, mode_t m)
 {
 	entry->stat_valid = 0;
 	entry->acl.mode = m;
+	entry->ae_set |= AE_SET_PERM | AE_SET_FILETYPE;
 }
 
 void
@@ -1215,6 +1255,7 @@ archive_entry_set_perm(struct archive_entry *entry, mode_t p)
 	entry->stat_valid = 0;
 	entry->acl.mode &= AE_IFMT;
 	entry->acl.mode |= ~AE_IFMT & p;
+	entry->ae_set |= AE_SET_PERM;
 }
 
 void
@@ -1355,6 +1396,7 @@ archive_entry_set_uid(struct archive_entry *entry, la_int64_t u)
 	}
 	entry->stat_valid = 0;
 	entry->ae_stat.aest_uid = u;
+	entry->ae_set |= AE_SET_UID;
 }
 
 void

@@ -241,7 +241,7 @@ copyStapledTicketInBundle(const std::string& path)
 	secinfo("notarization", "Extracting ticket from bundle: %s", path.c_str());
 
 	fd =  open(ticketLocation.c_str(), O_RDONLY);
-	if (fd <= 0) {
+	if (fd < 0) {
 		// Only print an error if the file exists, otherwise its an expected early exit case.
 		if (errno != ENOENT) {
 			secerror("cannot open stapled file for reading: %d", errno);

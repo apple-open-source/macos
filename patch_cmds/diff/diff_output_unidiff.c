@@ -30,6 +30,18 @@
 #include "diff_internal.h"
 #include "diff_debug.h"
 
+off_t
+diff_chunk_get_left_start_pos(const struct diff_chunk *c)
+{
+	return c->left_start->pos;
+}
+
+off_t
+diff_chunk_get_right_start_pos(const struct diff_chunk *c)
+{
+	return c->right_start->pos;
+}
+
 bool
 diff_chunk_context_empty(const struct diff_chunk_context *cc)
 {
@@ -225,7 +237,7 @@ output_unidiff_chunk(struct diff_output_info *outinfo, FILE *dest,
 		     const struct diff_input_info *info,
 		     const struct diff_result *result,
 		     bool print_header, bool show_function_prototypes,
-		     const struct diff_chunk_context *cc, unsigned int ncontext)
+		     const struct diff_chunk_context *cc)
 {
 	int rc, left_start, left_len, right_start, right_len;
 	off_t outoff = 0, *offp;
@@ -289,10 +301,21 @@ output_unidiff_chunk(struct diff_output_info *outinfo, FILE *dest,
 	else
 		right_start = cc->right.start + 1;
 
+	/* Got the absolute line numbers where to start printing, and the index
+	 * of the interesting (non-context) chunk.
+	 * To print context lines above the interesting chunk, nipping on the
+	 * previous chunk index may be necessary.
+	 * It is guaranteed to be only context lines where left == right, so it
+	 * suffices to look on the left. */
+	const struct diff_chunk *first_chunk;
+	int chunk_start_line;
+	first_chunk = &result->chunks.head[cc->chunk.start];
+	chunk_start_line = diff_atom_root_idx(result->left,
+					      first_chunk->left_start);
 	if (show_function_prototypes) {
 		rc = diff_output_match_function_prototype(state->prototype,
 		    sizeof(state->prototype), &state->last_prototype_idx,
-		    result, cc, ncontext);
+		    result, chunk_start_line);
 		if (rc)
 			return rc;
 	}
@@ -332,17 +355,6 @@ output_unidiff_chunk(struct diff_output_info *outinfo, FILE *dest,
 		*typep = DIFF_LINE_HUNK;
 	}
 
-	/* Got the absolute line numbers where to start printing, and the index
-	 * of the interesting (non-context) chunk.
-	 * To print context lines above the interesting chunk, nipping on the
-	 * previous chunk index may be necessary.
-	 * It is guaranteed to be only context lines where left == right, so it
-	 * suffices to look on the left. */
-	const struct diff_chunk *first_chunk;
-	int chunk_start_line;
-	first_chunk = &result->chunks.head[cc->chunk.start];
-	chunk_start_line = diff_atom_root_idx(result->left,
-					      first_chunk->left_start);
 	if (cc->left.start < chunk_start_line) {
 		rc = diff_output_lines(outinfo, dest, " ",
 				  &result->left->atoms.head[cc->left.start],
@@ -392,10 +404,12 @@ output_unidiff_chunk(struct diff_output_info *outinfo, FILE *dest,
 		if (rc)
 			return rc;
 
-		rc = diff_output_trailing_newline_msg(outinfo, dest,
-				&result->chunks.head[result->chunks.len - 1]);
-		if (rc != DIFF_RC_OK)
-			return rc;
+		if (cc->left.end == result->left->atoms.len) {
+			rc = diff_output_trailing_newline_msg(outinfo, dest,
+			    &result->chunks.head[result->chunks.len - 1]);
+			if (rc != DIFF_RC_OK)
+				return rc;
+		}
 	}
 
 	return DIFF_RC_OK;
@@ -421,7 +435,7 @@ diff_output_unidiff_chunk(struct diff_output_info **output_info, FILE *dest,
 	}
 
 	return output_unidiff_chunk(outinfo, dest, state, info,
-	    result, false, show_function_prototypes, cc, 0);
+	    result, false, show_function_prototypes, cc);
 }
 
 int
@@ -574,7 +588,7 @@ diff_output_unidiff(struct diff_output_info **output_info,
 		      " print left %d-%d right %d-%d\n",
 		      cc.left.start, cc.left.end, cc.right.start, cc.right.end);
 		output_unidiff_chunk(outinfo, dest, state, info, result,
-		    true, show_function_prototypes, &cc, context_lines);
+		    true, show_function_prototypes, &cc);
 		cc = next;
 		debug("new unprinted chunk is left %d-%d right %d-%d\n",
 		      cc.left.start, cc.left.end, cc.right.start, cc.right.end);
@@ -582,7 +596,7 @@ diff_output_unidiff(struct diff_output_info **output_info,
 
 	if (!diff_chunk_context_empty(&cc))
 		output_unidiff_chunk(outinfo, dest, state, info, result,
-		    true, show_function_prototypes, &cc, context_lines);
+		    true, show_function_prototypes, &cc);
 	diff_output_unidiff_state_free(state);
 	return DIFF_RC_OK;
 }

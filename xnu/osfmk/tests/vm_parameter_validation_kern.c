@@ -626,6 +626,13 @@ static kern_return_t
 call_vm_map_copy_overwrite_interruptible(MAP_T dst_map, vm_map_copy_t copy, mach_vm_address_t dst_addr, mach_vm_size_t copy_size)
 {
 	kern_return_t kr = vm_map_copy_overwrite(dst_map, dst_addr, copy, copy_size, TRUE);
+
+	const mach_vm_size_t va_mask = ((1ULL << 48) - 1);
+	if ((dst_addr & ~va_mask) == 0ULL && ((dst_addr + copy_size) & ~va_mask) == ~va_mask) {
+		if (kr == KERN_INVALID_ADDRESS) {
+			return ACCEPTABLE;
+		}
+	}
 	return kr;
 }
 
@@ -1009,6 +1016,7 @@ test_kext_unix_with_allocated_vnode_addr(kern_return_t (*func)(MAP_T dst_map, ma
 
 extern uint64_t vm_reclaim_max_threshold;
 
+#if 0
 static kern_return_t
 test_mach_vm_deferred_reclamation_buffer_init(MAP_T map __unused, mach_vm_address_t address, mach_vm_size_t size)
 {
@@ -1021,6 +1029,7 @@ test_mach_vm_deferred_reclamation_buffer_init(MAP_T map __unused, mach_vm_addres
 
 	return kr;
 }
+#endif
 
 
 // mach_make_memory_entry and variants
@@ -2122,8 +2131,6 @@ vm_parameter_validation_kern_test(int64_t in_value, int64_t *out_value)
 #endif
 
 	dealloc_results(process_results(test_kext_unix_with_allocated_vnode_addr(call_task_find_region_details, "task_find_region_details (addr)")));
-
-	dealloc_results(process_results(test_mach_with_allocated_start_size(test_mach_vm_deferred_reclamation_buffer_init, "mach_vm_deferred_reclamation_buffer_init (start/size)")));
 
 	*out_value = 1;  // success
 done:

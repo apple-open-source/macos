@@ -1,0 +1,6 @@
+Installing
+==========
+
+From the xattr source directory, type:
+
+    sudo python setup.py install

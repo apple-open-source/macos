@@ -2089,8 +2089,13 @@ xmlParserAddNodeInfo(xmlParserCtxtPtr ctxt,
 
             if (ctxt->node_seq.maximum == 0)
                 ctxt->node_seq.maximum = 2;
+            if (ctxt->node_seq.maximum > UINT_MAX / 2 / sizeof(*ctxt->node_seq.buffer)) {
+                xmlErrMemory(ctxt, "detected unsigned wraparound \n");
+                return;
+            }
             byte_size = (sizeof(*ctxt->node_seq.buffer) *
 			(2 * ctxt->node_seq.maximum));
+
 
             if (ctxt->node_seq.buffer == NULL)
                 tmp_buffer = (xmlParserNodeInfo *) xmlMalloc(byte_size);

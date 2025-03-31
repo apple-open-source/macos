@@ -88,6 +88,19 @@ CFDictionaryRef SecOTAPKICopyEVPolicyToAnchorMapping(SecOTAPKIRef otapkiRef);
 CF_EXPORT
 CFDictionaryRef SecOTAPKICopyAnchorLookupTable(SecOTAPKIRef otapkiRef);
 
+// Accessor to retrieve the dictionary of normalized subject hash to
+// certs and constraint info.
+// Caller is responsible for releasing the returned CFDictionaryRef
+CF_EXPORT
+CFDictionaryRef SecOTAPKICopyConstrainedAnchorLookupTable(SecOTAPKIRef otapkiRef);
+
+// Accessor to retrieve the data of an anchor certificate specified by
+// its SHA256 hash as a hex string. This retrieves the contents of a file
+// in the Anchors directory whose name is <anchorHash>.cer.
+// Caller is responsible for releasing the returned CFDataRef
+CF_EXPORT
+CFDataRef SecOTAPKICopyConstrainedAnchorData(SecOTAPKIRef otapkiRef, CFStringRef anchorHash);
+
 // Accessor to retrieve the pointer to the top of the anchor certs file.
 // Caller should NOT free the returned pointer.  The caller should hold
 // a reference to the SecOTAPKIRef object until finished with

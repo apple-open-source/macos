@@ -1643,6 +1643,34 @@
                                 <string>/bin/sh</string>
                                 <string>/AppleInternal/Tests/bc/tests/test.sh</string>
                                 <string>bc</string>
+                                <string>rand_limits</string>
+                                <string>0</string>
+                                <string>0</string>
+                                <string>bc</string>
+                        </array>
+                        <key>ShellEnv</key>
+                        <dict>
+                                <key>BC_TEST_OUTPUT_DIR</key>
+                                <string>/tmp/bc.test</string>
+                        </dict>
+                        <key>TestName</key>
+                        <string>test_bc.bc.rand_limits</string>
+                        <key>Timeout</key>
+                        <integer>300</integer>
+                        <key>WhenToRun</key>
+                        <array>
+                                <string>PRESUBMISSION</string>
+                                <string>NIGHTLY</string>
+                        </array>
+                        <key>WorkingDirectory</key>
+                        <string>/AppleInternal/Tests/bc</string>
+                </dict>
+                <dict>
+                        <key>Command</key>
+                        <array>
+                                <string>/bin/sh</string>
+                                <string>/AppleInternal/Tests/bc/tests/test.sh</string>
+                                <string>bc</string>
                                 <string>recursive_arrays</string>
                                 <string>0</string>
                                 <string>0</string>
@@ -2129,6 +2157,36 @@
                                 <string>/bin/sh</string>
                                 <string>/AppleInternal/Tests/bc/tests/script.sh</string>
                                 <string>bc</string>
+                                <string>print2.bc</string>
+                                <string>1</string>
+                                <string>1</string>
+                                <string>0</string>
+                                <string>0</string>
+                                <string>bc</string>
+                        </array>
+                        <key>ShellEnv</key>
+                        <dict>
+                                <key>BC_TEST_OUTPUT_DIR</key>
+                                <string>/tmp/bc.test</string>
+                        </dict>
+                        <key>TestName</key>
+                        <string>test_bc.bc.script_print2</string>
+                        <key>Timeout</key>
+                        <integer>300</integer>
+                        <key>WhenToRun</key>
+                        <array>
+                                <string>PRESUBMISSION</string>
+                                <string>NIGHTLY</string>
+                        </array>
+                        <key>WorkingDirectory</key>
+                        <string>/AppleInternal/Tests/bc</string>
+                </dict>
+                <dict>
+                        <key>Command</key>
+                        <array>
+                                <string>/bin/sh</string>
+                                <string>/AppleInternal/Tests/bc/tests/script.sh</string>
+                                <string>bc</string>
                                 <string>parse.bc</string>
                                 <string>1</string>
                                 <string>1</string>
@@ -2593,6 +2651,36 @@
                         </dict>
                         <key>TestName</key>
                         <string>test_bc.bc.script_afl1</string>
+                        <key>Timeout</key>
+                        <integer>300</integer>
+                        <key>WhenToRun</key>
+                        <array>
+                                <string>PRESUBMISSION</string>
+                                <string>NIGHTLY</string>
+                        </array>
+                        <key>WorkingDirectory</key>
+                        <string>/AppleInternal/Tests/bc</string>
+                </dict>
+                <dict>
+                        <key>Command</key>
+                        <array>
+                                <string>/bin/sh</string>
+                                <string>/AppleInternal/Tests/bc/tests/script.sh</string>
+                                <string>bc</string>
+                                <string>i2rand.bc</string>
+                                <string>1</string>
+                                <string>1</string>
+                                <string>0</string>
+                                <string>0</string>
+                                <string>bc</string>
+                        </array>
+                        <key>ShellEnv</key>
+                        <dict>
+                                <key>BC_TEST_OUTPUT_DIR</key>
+                                <string>/tmp/bc.test</string>
+                        </dict>
+                        <key>TestName</key>
+                        <string>test_bc.bc.script_i2rand</string>
                         <key>Timeout</key>
                         <integer>300</integer>
                         <key>WhenToRun</key>

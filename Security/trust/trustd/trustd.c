@@ -223,10 +223,12 @@ static bool SecXPCTrustStoreRemoveCertificate(SecurityClient * __unused client, 
 static bool SecXPCTrustStoreCopyAll(SecurityClient * __unused client, xpc_object_t event,
                                     xpc_object_t reply, CFErrorRef *error) {
     bool result = false;
+    CFStringRef policyId = NULL;
     SecTrustStoreRef ts = SecXPCDictionaryGetTrustStore(event, kSecXPCKeyDomain, error);
+    SecXPCDictionaryCopyStringOptional(event, kSecTrustPoliciesKey, &policyId, error);
     if (ts) {
         CFArrayRef trustStoreContents = NULL;
-        if(_SecTrustStoreCopyAll(ts, &trustStoreContents, error) && trustStoreContents) {
+        if(_SecTrustStoreCopyAll(ts, policyId, &trustStoreContents, error) && trustStoreContents) {
             SecXPCDictionarySetPList(reply, kSecXPCKeyResult, trustStoreContents, error);
             CFReleaseNull(trustStoreContents);
             result = true;

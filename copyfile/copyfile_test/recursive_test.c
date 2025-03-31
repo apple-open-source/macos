@@ -11,12 +11,14 @@
 #include <sys/fcntl.h>
 #include <sys/stat.h>
 #include <fts.h>
+#include <dirent.h>
 
 #include "test_utils.h"
 
 REGISTER_TEST(recursive_symlink_overwrite, false, TIMEOUT_MIN(1));
 REGISTER_TEST(recursive_with_symlink, false, TIMEOUT_MIN(1));
 REGISTER_TEST(recursive_symlink_root, false, TIMEOUT_MIN(1));
+REGISTER_TEST(path_input, false, TIMEOUT_MIN(1));
 
 bool do_recursive_symlink_overwrite_test(const char *apfs_test_directory, __unused size_t block_size) {
 	int file_src_fd, test_file_id;
@@ -335,6 +337,84 @@ bool do_recursive_symlink_root_test(const char *apfs_test_directory, __unused si
 	(void)removefile(exterior_src, NULL, REMOVEFILE_RECURSIVE);
 	(void)removefile(exterior_real_src, NULL, REMOVEFILE_RECURSIVE);
 	(void)removefile(exterior_dst, NULL, REMOVEFILE_RECURSIVE);
+
+	return success ? EXIT_SUCCESS : EXIT_FAILURE;
+}
+
+static int num_entries_in_dir(const char *dir_path) {
+	DIR *d;
+	struct dirent *dir;
+	int num_entries = 0;
+
+	d = opendir(dir_path);
+	assert(d);
+
+	while ((dir = readdir(d)) != NULL) {
+		if ((strcmp(dir->d_name, ".") == 0) || (strcmp(dir->d_name, "..") == 0)) {
+			// don't count DOT and DOTDOT
+			continue;
+		}
+		num_entries++;
+	}
+
+	closedir(d);
+	return num_entries;
+}
+
+
+bool do_path_input_test(const char *apfs_test_directory, __unused size_t block_size) {
+	bool success = true;
+	char source[BSIZE_B];
+	char source_inner[BSIZE_B];
+	char dest[BSIZE_B];
+
+	// Construct our source layout:
+	//
+	// apfs_test_directory
+	//   top
+	//     dir1
+	//
+	// We will copy `src` recursively twice, once with `/` at the end and once without.
+	// This is a regression test from rdar://129075575
+	//
+	assert_with_errno(snprintf(source, BSIZE_B, "%s/top", apfs_test_directory) > 0);
+	assert_with_errno(snprintf(source_inner, BSIZE_B, "%s/dir1", source) > 0);
+	assert_with_errno(snprintf(dest, BSIZE_B, "%s/dst", apfs_test_directory) > 0);
+
+	assert_no_err(mkdir(source, DEFAULT_MKDIR_PERM));
+	assert_no_err(mkdir(source_inner, DEFAULT_MKDIR_PERM));
+
+	//perform the copy, we should create dest dir as well
+	assert_no_err(copyfile(source, dest, NULL, COPYFILE_ALL | COPYFILE_EXCL | COPYFILE_NOFOLLOW | COPYFILE_RECURSE_DIR | COPYFILE_RECURSIVE));
+	assert(num_entries_in_dir(apfs_test_directory) == 2); /* we expect two - one for src and one for dst */
+
+	// remove dest to re-create it again
+	assert_no_err(removefile(dest, NULL, REMOVEFILE_RECURSIVE));
+
+	// now do the copy again with `/` at the end of the path
+	assert_with_errno(snprintf(source, BSIZE_B, "%s/top/", apfs_test_directory) > 0);
+	assert_no_err(copyfile(source, dest, NULL, COPYFILE_ALL | COPYFILE_EXCL | COPYFILE_NOFOLLOW | COPYFILE_RECURSE_DIR | COPYFILE_RECURSIVE));
+	assert(num_entries_in_dir(apfs_test_directory) == 2); /* we expect two - one for src and one for dst */
+
+	// remove dest to re-create it again
+	assert_no_err(removefile(dest, NULL, REMOVEFILE_RECURSIVE));
+
+	// now do the copy again with two `/` at the end of the path
+	assert_with_errno(snprintf(source, BSIZE_B, "%s/top//", apfs_test_directory) > 0);
+	assert_no_err(copyfile(source, dest, NULL, COPYFILE_ALL | COPYFILE_EXCL | COPYFILE_NOFOLLOW | COPYFILE_RECURSE_DIR | COPYFILE_RECURSIVE));
+	assert(num_entries_in_dir(apfs_test_directory) == 2); /* we expect two - one for src and one for dst */
+
+	// remove dest to re-create it again
+	assert_no_err(removefile(dest, NULL, REMOVEFILE_RECURSIVE));
+
+	// now do the copy again with more than two `/` at the end of the path
+	assert_with_errno(snprintf(source, BSIZE_B, "%s/top///", apfs_test_directory) > 0);
+	assert_no_err(copyfile(source, dest, NULL, COPYFILE_ALL | COPYFILE_EXCL | COPYFILE_NOFOLLOW | COPYFILE_RECURSE_DIR | COPYFILE_RECURSIVE));
+	assert(num_entries_in_dir(apfs_test_directory) == 2); /* we expect two - one for src and one for dst */
+
+	// cleanup the test
+	assert_no_err(removefile(source, NULL, REMOVEFILE_RECURSIVE));
+	assert_no_err(removefile(dest, NULL, REMOVEFILE_RECURSIVE));
 
 	return success ? EXIT_SUCCESS : EXIT_FAILURE;
 }

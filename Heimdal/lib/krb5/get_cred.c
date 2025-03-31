@@ -1281,7 +1281,7 @@ krb5_get_creds(krb5_context context,
 	char *princ;
 	ret = krb5_unparse_name(context, inprinc, &princ);
 	if (ret == 0) {
-	    _krb5_debugx(context, 5, "krb5_get_creds: %s: opt: %d", princ, opt ? opt->options : 0);
+	    _krb5_debugx(context, 5, "krb5_get_creds: %s: opt: %u", princ, opt ? opt->options : 0);
 	    krb5_xfree(princ);
 	}
     }

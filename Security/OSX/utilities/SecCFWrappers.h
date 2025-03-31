@@ -42,8 +42,6 @@
 
 #include <corecrypto/ccdigest.h>
 
-#include <libaks.h>
-
 #if __has_feature(objc_arc)
 #define __SECBRIDGE  __bridge
 #else
@@ -297,19 +295,6 @@ bool CFErrorPropagate(CFErrorRef possibleError CF_CONSUMED, CFErrorRef *error) {
         return false;
     }
     return true;
-}
-
-static inline bool CFErrorIsMalfunctioningKeybagError(CFErrorRef error){
-    switch(CFErrorGetCode(error))
-    {
-        case(kAKSReturnError):
-        case(kAKSReturnBusy):
-        case(kAKSReturnNoPermission):
-            break;
-        default:
-            return false;
-    }
-    return CFEqualSafe(CFErrorGetDomain(error), kSecKernDomain);
 }
 
 //

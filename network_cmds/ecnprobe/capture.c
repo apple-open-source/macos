@@ -145,7 +145,7 @@ void CaptureInit(u_int32_t sourceIP, u_int16_t sourcePort,
   strlcpy(target, InetAddress(targetIP), sizeof(target));
 
   /* Setup initial filter */
-  sprintf(filtercmds,
+  snprintf(filtercmds, sizeof(filtercmds),
     "(host %s && host %s && port %d) || icmp\n",
     source, target, targetPort);
 

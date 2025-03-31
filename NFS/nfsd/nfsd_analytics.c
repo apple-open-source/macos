@@ -67,6 +67,37 @@
 #include "common.h"
 #include "nfsd_analytics.h"
 
+#define DISABLE_NFSD_ANALYTICS 1
+
+#if DISABLE_NFSD_ANALYTICS
+
+void
+nfsd_analytics_config_send(void)
+{
+};
+void
+nfsd_analytics_mount_send(__unused SVCXPRT *transp, __unused int mountver)
+{
+};
+void
+nfsd_analytics_statistics_send(void)
+{
+};
+void
+nfsd_analytics_statistics_regsiter(void)
+{
+};
+void
+nfsd_analytics_statistics_unregsiter(void)
+{
+};
+void
+nfsd_analytics_exports_send(__unused int hostcount, __unused int hostcount_non_loopback, __unused int opt_flags)
+{
+};
+
+#else /* DISABLE_NFSD_ANALYTICS */
+
 #ifndef ARRAY_SIZE
 #define ARRAY_SIZE(A) (sizeof(A) / sizeof(A[0]))
 #endif
@@ -478,3 +509,5 @@ nfsd_analytics_exports_send(int hostcount, int hostcount_non_loopback, int opt_f
 		return dict;
 	});
 }
+
+#endif /* DISABLE_NFSD_ANALYTICS */

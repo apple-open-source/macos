@@ -29,6 +29,10 @@
 
 #include <CoreFoundation/CoreFoundation.h>
 #include <Security/SecCertificate.h>
+#include "trust/trustd/SecTrustServer.h"
+#ifndef SecPVCRef
+typedef struct OpaqueSecPVC *SecPVCRef;
+#endif
 
 /********************************************************
  ************ SecCertificateSource object ***************
@@ -45,7 +49,8 @@ typedef CFArrayRef(*CopyConstraints)(SecCertificateSourceRef source,
                                      SecCertificateRef certificate);
 
 typedef bool(*Contains)(SecCertificateSourceRef source,
-                        SecCertificateRef certificate);
+                        SecCertificateRef certificate,
+                        SecPVCRef pvc);
 
 struct SecCertificateSource {
     CopyParents		copyParents;
@@ -61,7 +66,8 @@ CFArrayRef SecCertificateSourceCopyUsageConstraints(SecCertificateSourceRef sour
                                                     SecCertificateRef certificate);
 
 bool SecCertificateSourceContains(SecCertificateSourceRef source,
-                                  SecCertificateRef certificate);
+                                  SecCertificateRef certificate,
+                                  SecPVCRef pvc);
 
 /********************************************************
  ********************** Sources *************************
@@ -74,6 +80,11 @@ void SecItemCertificateSourceDestroy(SecCertificateSourceRef source);
 /* SecMemoryCertificateSource*/
 SecCertificateSourceRef SecMemoryCertificateSourceCreate(CFArrayRef certificates);
 void SecMemoryCertificateSourceDestroy(SecCertificateSourceRef source);
+
+/* SecSystemConstrainedAnchorSource */
+bool SecSystemConstrainedAnchorSourceContainsAnchor(SecCertificateRef certificate);
+CFArrayRef SecSystemConstrainedAnchorSourceCopyUsageConstraints(SecCertificateSourceRef source, SecCertificateRef certificate);
+extern const SecCertificateSourceRef kSecSystemConstrainedAnchorSource;
 
 /* SecSystemAnchorSource */
 CFArrayRef SecSystemAnchorSourceCopyCertificates(void);

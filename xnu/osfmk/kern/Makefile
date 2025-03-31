@@ -37,6 +37,7 @@ PRIVATE_DATAFILES = $(sort \
 	cambria_layout.h \
 	cs_blobs.h \
 	debug.h \
+	panic_call.h \
 	ecc.h \
 	lock_stat.h \
 	monotonic.h \
@@ -106,6 +107,7 @@ EXPORT_FILES = \
 	task.h \
 	task_ref.h \
 	telemetry.h \
+	trap_telemetry.h \
 	thread.h \
 	thread_call.h \
 	thread_group.h \
@@ -139,6 +141,7 @@ XNU_ONLY_EXPORTS = \
 	iotrace.h \
 	ipc_kobject.h \
 	lock_ptr.h \
+	mpsc_ring.h \
 	recount.h \
 	sched_hygiene.h \
 	sync_sema.h \
@@ -152,7 +155,7 @@ INSTALL_MI_LIST = ${DATAFILES}
 
 INSTALL_MODULEMAP_MI_LIST = ${MODULEMAPFILES}
 
-INSTALL_MI_LCL_LIST = $(sort cs_blobs.h debug.h ext_paniclog.h ${EXTRA_PRIVATE_DATAFILES})
+INSTALL_MI_LCL_LIST = $(sort cs_blobs.h debug.h panic_call.h ext_paniclog.h ${EXTRA_PRIVATE_DATAFILES})
 
 INSTALL_MODULEMAP_MI_LCL_LIST = ${PRIVATE_MODULEMAPFILES}
 
@@ -173,7 +176,6 @@ EXPORT_MI_DIR = kern
 ifeq ($(XNU_CONFIG_TIGHTBEAM),1)
 TIGHTBEAM_FILES := \
 	exclaves_conclave_launcher.tightbeam \
-	exclaves_eic.tightbeam \
 	exclaves_log.tightbeam \
 	exclaves_upcalls.tightbeam \
 	exclaves_upcalls_v2.tightbeam \
@@ -181,6 +183,7 @@ TIGHTBEAM_FILES := \
 	exclaves_xnuproxy.tightbeam
 
 TIGHTBEAM_MODULES := \
+	ExclaveIndicatorController.tbmodule \
 	StackshotTypes.tbmodule \
 	Stackshot.tbmodule \
 	SharedMemoryBase.tbmodule \

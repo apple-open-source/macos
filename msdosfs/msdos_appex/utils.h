@@ -125,10 +125,10 @@ typedef NS_ENUM(uint8_t, volumeLabelSrc) {
                                  length:(size_t)nbyte;
 
 +(NSError * _Nullable)syncMetaClearToDevice:(FSBlockDeviceResource *)device
-							  rangesToClear:(NSArray<FSMetadataBlockRange *> *)rangesToClear;
+                              rangesToClear:(NSArray<FSMetadataRange *> *)rangesToClear;
 
 +(NSError * _Nullable)syncMetaPurgeToDevice:(FSBlockDeviceResource *)device
-                              rangesToPurge:(NSArray<FSMetadataBlockRange *> *)rangesToPurge;
+                              rangesToPurge:(NSArray<FSMetadataRange *> *)rangesToPurge;
 
 +(NSData *)getMD5Digest:(uint32_t)length
                 forData:(const char *)data

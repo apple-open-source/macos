@@ -15,7 +15,7 @@
 
 #include "aom/aom_integer.h"
 
-static AOM_INLINE __m128i reduce_sum_epi64(__m128i reg) {
+static inline __m128i reduce_sum_epi64(__m128i reg) {
   __m128i reg_hi = _mm_srli_si128(reg, 8);
   reg = _mm_add_epi64(reg, reg_hi);
 

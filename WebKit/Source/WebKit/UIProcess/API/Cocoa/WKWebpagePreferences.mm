@@ -397,7 +397,7 @@ static _WKWebsiteDeviceOrientationAndMotionAccessPolicy toWKWebsiteDeviceOrienta
 {
     Vector<WebCore::CustomHeaderFields> vector(fields.count, [fields](size_t i) {
         _WKCustomHeaderFields *element = fields[i];
-        return static_cast<API::CustomHeaderFields&>([element _apiObject]).coreFields();
+        return downcast<API::CustomHeaderFields>([element _apiObject]).coreFields();
     });
     _websitePolicies->setCustomHeaderFields(WTFMove(vector));
 }

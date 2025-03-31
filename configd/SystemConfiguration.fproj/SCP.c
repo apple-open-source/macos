@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2001, 2003-2005, 2007-2009, 2011, 2014-2022 Apple Inc. All rights reserved.
+ * Copyright (c) 2000, 2001, 2003-2005, 2007-2009, 2011, 2014-2022, 2024 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -138,32 +138,31 @@ get_preboot_path(void)
 	return (path);
 }
 
-/*
- * get_preboot_path_prefix
- * - when in the FVUnlock/Migration Basesystem environment, retrieve the path to the
- *   Preboot folder, which contains these two SCPreferences-managed files:
- *	Library/Preferences/SystemConfiguration/preferences.plist
- *	Library/Preferences/SystemConfiguration/NetworkInterfaces.plist
- */
-static const char *
-get_preboot_path_prefix(void)
+static bool
+is_preboot_environment(void)
 {
+	bool 		is_preboot = false;
 	const char *	mode;
-	const char *	path = NULL;
 
 	mode = get_boot_mode();
 	if (mode != NULL
 	    && (strcmp(mode, OS_BOOT_MODE_FVUNLOCK) == 0
 		|| strcmp(mode, OS_BOOT_MODE_MIGRATION) == 0)) {
-		path = get_preboot_path();
+		is_preboot = true;
 	}
-	return (path);
+	return (is_preboot);
 }
 
 #else	// TARGET_OS_OSX
 
+static bool
+is_preboot_environment(void)
+{
+	return (false);
+}
+
 static const char *
-get_preboot_path_prefix(void)
+get_preboot_path(void)
 {
 	return (NULL);
 }
@@ -172,17 +171,21 @@ get_preboot_path_prefix(void)
 
 __private_extern__ char *
 __SCPreferencesPath(CFAllocatorRef	allocator,
-		    CFStringRef		prefsID)
+		    CFStringRef		prefsID,
+		    Boolean 		usePrebootVolume)
 {
-	CFStringRef	path		= NULL;
-	char		*pathStr;
+	CFStringRef	path = NULL;
+	char		*pathStr = NULL;
 
 	if (prefsID == NULL) {
-		const char *	prefix;
-		const char *	preboot_path;
+		const char *	prefix = NULL;
 
-		preboot_path = get_preboot_path_prefix();
-		prefix = (preboot_path != NULL)? preboot_path : "";
+		if (is_preboot_environment() || usePrebootVolume) {
+			prefix = get_preboot_path();
+		}
+		if (prefix == NULL) {
+			prefix = "";
+		}
 		/* default preference ID */
 		path = CFStringCreateWithFormat(allocator,
 						NULL,
@@ -190,26 +193,26 @@ __SCPreferencesPath(CFAllocatorRef	allocator,
 						prefix,
 						PREFS_DEFAULT_DIR,
 						PREFS_DEFAULT_CONFIG);
-		if (preboot_path != NULL) {
-			SC_log(LOG_DEBUG,
-			       "SCPreferences using path '%@'",
-			       path);
-		}
+
+		SC_log(LOG_DEBUG,
+		       "SCPreferences using path '%@'",
+		       path);
+
 	} else if (CFStringHasPrefix(prefsID, CFSTR("/"))) {
 		/* if absolute path */
 		path = CFStringCreateCopy(allocator, prefsID);
 	} else {
 		/* prefsID using default directory */
-		const char *	prefix;
-		const char *	preboot_path;
+		const char *	prefix = NULL;
 
-		if (CFEqual(prefsID, PREFS_DEFAULT_CONFIG) ||
-		    CFEqual(prefsID, INTERFACES_DEFAULT_CONFIG)) {
-			preboot_path = get_preboot_path_prefix();
-		} else {
-			preboot_path = NULL;
+		if (usePrebootVolume ||
+		    ((CFEqual(prefsID, PREFS_DEFAULT_CONFIG) ||
+		      CFEqual(prefsID, INTERFACES_DEFAULT_CONFIG)) && is_preboot_environment())) {
+			prefix = get_preboot_path();
 		}
-		prefix = (preboot_path != NULL)? preboot_path : "";
+		if (prefix == NULL) {
+			prefix = "";
+		}
 		path = CFStringCreateWithFormat(allocator,
 						NULL,
 						CFSTR("%s%@/%@"),
@@ -226,11 +229,9 @@ __SCPreferencesPath(CFAllocatorRef	allocator,
 			CFRelease(path);
 			path = newPath;
 		}
-		if (preboot_path != NULL) {
-			SC_log(LOG_DEBUG,
-			       "SCPreferences using path '%@'",
-			       path);
-		}
+		SC_log(LOG_DEBUG,
+		       "SCPreferences using path '%@'",
+		       path);
 	}
 
 	/*
@@ -248,11 +249,9 @@ __SCPreferencesPath(CFAllocatorRef	allocator,
 			pathStr = NULL;
 		}
 	}
-
 	CFRelease(path);
 	return pathStr;
 }
-
 
 __private_extern__
 Boolean
@@ -307,7 +306,7 @@ __SCPreferencesUsingDefaultPrefs(SCPreferencesRef prefs)
 	if (curPath != NULL) {
 		char*	defPath;
 
-		defPath = __SCPreferencesPath(NULL, NULL);
+		defPath = __SCPreferencesPath(NULL, NULL, FALSE);
 		if (defPath != NULL) {
 			if (strcmp(curPath, defPath) == 0) {
 				isDefault = TRUE;
@@ -359,7 +358,7 @@ _SCPNotificationKey(CFAllocatorRef	allocator,
 			return NULL;
 	}
 
-	path = __SCPreferencesPath(allocator, prefsID);
+	path = __SCPreferencesPath(allocator, prefsID, FALSE);
 	if (path == NULL) {
 		return NULL;
 	}

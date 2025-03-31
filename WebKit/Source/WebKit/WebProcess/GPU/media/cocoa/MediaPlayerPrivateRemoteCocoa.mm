@@ -31,7 +31,6 @@
 #import "RemoteAudioSourceProvider.h"
 #import "RemoteMediaPlayerProxyMessages.h"
 #import "VideoLayerRemote.h"
-#import "WebCoreArgumentCoders.h"
 #import <WebCore/ColorSpaceCG.h>
 #import <WebCore/VideoLayerManager.h>
 #import <pal/spi/cocoa/QuartzCoreSPI.h>

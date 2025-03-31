@@ -1588,6 +1588,7 @@ IOService::handleAcknowledgePowerChange( IOPMRequest * request )
 			// make sure we're expecting this ack
 			if (informee->timer != 0) {
 				SOCD_TRACE_XNU(PM_INFORM_POWER_CHANGE_ACK,
+				    SOCD_TRACE_MODE_NONE,
 				    ADDR(informee->whatObject->getMetaClass()),
 				    ADDR(this->getMetaClass()),
 				    PACK_2X32(VALUE(this->getRegistryEntryID()), VALUE(informee->whatObject->getRegistryEntryID())),
@@ -1726,6 +1727,7 @@ IOService::handleAcknowledgeSetPowerState( IOPMRequest * request __unused)
 		}
 
 		SOCD_TRACE_XNU(PM_SET_POWER_STATE_ACK,
+		    SOCD_TRACE_MODE_NONE,
 		    ADDR(controllingDriverMetaClass),
 		    ADDR(this->getMetaClass()),
 		    PACK_2X32(VALUE(this->getRegistryEntryID()), VALUE(controllingDriverRegistryEntryID)),
@@ -5701,6 +5703,7 @@ IOService::start_watchdog_timer( void )
 	IOLockLock(fWatchdogLock);
 
 	timeout = getPMRootDomain()->getWatchdogTimeout();
+
 	clock_interval_to_deadline(timeout, kSecondScale, &deadline);
 	start_watchdog_timer(deadline);
 	IOLockUnlock(fWatchdogLock);
@@ -5710,6 +5713,8 @@ void
 IOService::start_watchdog_timer(uint64_t deadline)
 {
 	IOLockAssert(fWatchdogLock, kIOLockAssertOwned);
+
+	fWatchdogStart = mach_absolute_time();
 	fWatchdogDeadline = deadline;
 
 	if (!thread_call_isactive(fWatchdogTimer)) {
@@ -5839,6 +5844,16 @@ IOService::reset_watchdog_timer(int timeout)
 exit:
 	IOLockUnlock(fWatchdogLock);
 }
+
+uint64_t
+IOService::get_watchdog_elapsed_time(void)
+{
+	uint64_t delta;
+	absolutetime_to_nanoseconds(mach_absolute_time() - fWatchdogStart, &delta);
+	delta /= kSecondScale;
+	return delta;
+}
+
 
 //*********************************************************************************
 // [static] watchdog_timer_expired
@@ -8112,6 +8127,15 @@ IOService::actionPMWorkQueueInvoke( IOPMRequest * request, IOPMWorkQueue * queue
 		case kIOPM_OurChangeTellPriorityClientsPowerDown:
 			// PMRD:     LastCallBeforeSleep notify done
 			// Non-PMRD: tellChangeDown/kNotifyApps done
+
+			// Root domain might self cancel due to assertions.
+			if (IS_ROOT_DOMAIN) {
+				bool cancel = (bool) fDoNotPowerDown;
+				getPMRootDomain()->askChangeDownDone(
+					&fHeadNoteChangeFlags, &cancel);
+				fDoNotPowerDown = cancel;
+			}
+
 			if (fDoNotPowerDown) {
 				OUR_PMLog(kPMLogIdleCancel, (uintptr_t) this, fMachineState);
 				PM_ERROR("%s: idle revert, state %u\n", fName, fMachineState);

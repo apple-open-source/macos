@@ -26,12 +26,13 @@
 #pragma once
 
 #include "APIObject.h"
-#include "Site.h"
 #include "WebPreferencesDefaultValues.h"
 #include "WebURLSchemeHandler.h"
 #include <WebCore/ContentSecurityPolicy.h>
 #include <WebCore/FrameIdentifier.h>
 #include <WebCore/ShouldRelaxThirdPartyCookieBlocking.h>
+#include <WebCore/Site.h>
+#include <WebCore/WindowFeatures.h>
 #include <WebCore/WritingToolsTypes.h>
 #include <wtf/Forward.h>
 #include <wtf/GetPtr.h>
@@ -51,6 +52,11 @@ OBJC_PROTOCOL(_UIClickInteractionDriving);
 #if PLATFORM(VISION) && ENABLE(GAMEPAD)
 #include <WebCore/ShouldRequireExplicitConsentForGamepadAccess.h>
 #endif
+
+namespace WebCore {
+enum class SandboxFlag : uint16_t;
+using SandboxFlags = OptionSet<SandboxFlag>;
+}
 
 namespace WebKit {
 class BrowsingContextGroup;
@@ -105,14 +111,26 @@ public:
 
     struct OpenerInfo {
         Ref<WebKit::WebProcessProxy> process;
-        WebKit::Site site;
         WebCore::FrameIdentifier frameID;
         bool operator==(const OpenerInfo&) const;
     };
     const std::optional<OpenerInfo>& openerInfo() const;
     void setOpenerInfo(std::optional<OpenerInfo>&&);
 
+    const WebCore::Site& openedSite() const;
+    void setOpenedSite(const WebCore::Site&);
+
+    const WTF::String& openedMainFrameName() const;
+    void setOpenedMainFrameName(const WTF::String&);
+
+    WebCore::SandboxFlags initialSandboxFlags() const { return m_data.initialSandboxFlags; }
+    void setInitialSandboxFlags(WebCore::SandboxFlags);
+
+    const std::optional<WebCore::WindowFeatures>& windowFeatures() const;
+    void setWindowFeatures(WebCore::WindowFeatures&&);
+
     WebKit::WebProcessPool& processPool() const;
+    Ref<WebKit::WebProcessPool> protectedProcessPool() const;
     void setProcessPool(RefPtr<WebKit::WebProcessPool>&&);
 
     WebKit::WebUserContentControllerProxy& userContentController() const;
@@ -136,7 +154,7 @@ public:
     void setPreferences(RefPtr<WebKit::WebPreferences>&&);
 
     WebKit::WebPageProxy* relatedPage() const;
-    void setRelatedPage(WeakPtr<WebKit::WebPageProxy>&&);
+    void setRelatedPage(WeakPtr<WebKit::WebPageProxy>&& relatedPage) { m_data.relatedPage = WTFMove(relatedPage); }
 
     WebKit::WebPageProxy* pageToCloneSessionStorageFrom() const;
     void setPageToCloneSessionStorageFrom(WeakPtr<WebKit::WebPageProxy>&&);
@@ -251,9 +269,6 @@ public:
     HashSet<WTF::String> maskedURLSchemes() const;
     void setMaskedURLSchemes(HashSet<WTF::String>&& schemes) { m_data.maskedURLSchemesWasSet = true; m_data.maskedURLSchemes = WTFMove(schemes); }
 
-    bool userScriptsShouldWaitUntilNotification() const { return m_data.userScriptsShouldWaitUntilNotification; }
-    void setUserScriptsShouldWaitUntilNotification(bool value) { m_data.userScriptsShouldWaitUntilNotification = value; }
-
     bool crossOriginAccessControlCheckEnabled() const { return m_data.crossOriginAccessControlCheckEnabled; }
     void setCrossOriginAccessControlCheckEnabled(bool enabled) { m_data.crossOriginAccessControlCheckEnabled = enabled; }
 
@@ -307,8 +322,8 @@ public:
 #endif
 
 #if ENABLE(APPLE_PAY)
-    bool applePayEnabled() const { return m_data.applePayEnabled; }
-    void setApplePayEnabled(bool enabled) { m_data.applePayEnabled = enabled; }
+    bool applePayEnabled() const;
+    void setApplePayEnabled(bool);
 #endif
 
 #if ENABLE(APP_HIGHLIGHTS)
@@ -434,15 +449,17 @@ public:
     void setGamepadAccessRequiresExplicitConsent(WebCore::ShouldRequireExplicitConsentForGamepadAccess value) { m_data.gamepadAccessRequiresExplicitConsent = value; }
 #endif // ENABLE(GAMEPAD)
 
-#if ENABLE(OVERLAY_REGIONS_IN_EVENT_REGION)
-    bool overlayRegionsEnabled() const { return m_data.overlayRegionsEnabled; }
-    void setOverlayRegionsEnabled(bool value) { m_data.overlayRegionsEnabled = value; }
-#endif // ENABLE(OVERLAY_REGIONS_IN_EVENT_REGION)
+#if HAVE(CORE_ANIMATION_SEPARATED_LAYERS)
+    bool cssTransformStyleSeparatedEnabled() const { return m_data.cssTransformStyleSeparatedEnabled; }
+    void setCSSTransformStyleSeparatedEnabled(bool value) { m_data.cssTransformStyleSeparatedEnabled = value; }
+#endif
 
 #endif // PLATFORM(VISION)
 
 private:
     struct Data {
+        Data();
+
         template<typename T, Ref<T>(*initializer)()> class LazyInitializedRef {
         public:
             LazyInitializedRef() = default;
@@ -488,6 +505,10 @@ private:
         RefPtr<WebKit::WebPageGroup> pageGroup;
         WeakPtr<WebKit::WebPageProxy> relatedPage;
         std::optional<OpenerInfo> openerInfo;
+        WebCore::Site openedSite;
+        WTF::String openedMainFrameName;
+        std::optional<WebCore::WindowFeatures> windowFeatures;
+        WebCore::SandboxFlags initialSandboxFlags;
         WeakPtr<WebKit::WebPageProxy> pageToCloneSessionStorageFrom;
         WeakPtr<WebKit::WebPageProxy> alternateWebViewForNavigationGestures;
 
@@ -544,7 +565,6 @@ private:
         Vector<WTF::String> corsDisablingPatterns;
         HashSet<WTF::String> maskedURLSchemes;
         bool maskedURLSchemesWasSet { false };
-        bool userScriptsShouldWaitUntilNotification { true };
         bool crossOriginAccessControlCheckEnabled { true };
         WTF::String processDisplayName;
         bool loadsSubresources { true };
@@ -569,7 +589,7 @@ private:
         WebCore::UserInterfaceDirectionPolicy userInterfaceDirectionPolicy { WebCore::UserInterfaceDirectionPolicy::Content };
 #endif
 #if ENABLE(APPLE_PAY)
-        bool applePayEnabled { DEFAULT_VALUE_FOR_ApplePayEnabled };
+        std::optional<bool> applePayEnabledOverride;
 #endif
 #if ENABLE(APP_HIGHLIGHTS)
         bool appHighlightsEnabled { DEFAULT_VALUE_FOR_AppHighlightsEnabled };
@@ -608,8 +628,8 @@ private:
         WebCore::ShouldRequireExplicitConsentForGamepadAccess gamepadAccessRequiresExplicitConsent { WebCore::ShouldRequireExplicitConsentForGamepadAccess::No };
 #endif // ENABLE(GAMEPAD)
 
-#if ENABLE(OVERLAY_REGIONS_IN_EVENT_REGION)
-        bool overlayRegionsEnabled { false };
+#if HAVE(CORE_ANIMATION_SEPARATED_LAYERS)
+        bool cssTransformStyleSeparatedEnabled { false };
 #endif
 
 #endif // PLATFORM(VISION)

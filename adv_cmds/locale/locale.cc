@@ -155,7 +155,9 @@ void list_all_valid_locales() {
 			}
 			closedir(ld);
 
-			if (cnt == LAST(expected) - expected) {
+			// The C.UTF-8 locale likely won't be complete, but we want to
+			// output it anyways.
+			if (cnt == LAST(expected) - expected || lname == "C.UTF-8") {
 				cout << lname << endl;
 				if (lname == "C") {
 					found_C = true;

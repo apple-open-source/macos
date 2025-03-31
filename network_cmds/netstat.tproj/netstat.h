@@ -173,6 +173,7 @@ extern void	print_extbkidle_stats(uint32_t, char *, int);
 extern void	print_nstat_stats(uint32_t, char *, int);
 extern void	print_net_api_stats(uint32_t, char *, int);
 extern void	print_if_ports_used_stats(uint32_t, char *, int);
+extern void	print_if_link_heuristics_stats(char *);
 
 extern void bpf_stats(char *);
 extern void bpf_help(void);

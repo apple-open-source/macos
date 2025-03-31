@@ -37,6 +37,11 @@ static Bool tabs = false;
  mechanisms up provides for greater flexibility and allows
  out of memory conditions to be detected in one place.
 */
+#ifdef __APPLE__
+#define MemAlloc(size) malloc(size)
+#define MemRealloc(ptr, size) realloc(ptr, size)
+#define MemFree(ptr) (free((void*)ptr), (ptr) = NULL)
+#else
 static void *MemAlloc(size_t size)
 {
     void *p;
@@ -72,24 +77,34 @@ static void MemFree(void *p)
     free(p);
     p = NULL;
 }
+#endif
 
 static Stream *NewStream(FILE *fp)
 {
     Stream *in;
 
+#ifdef __APPLE__
+    in = (Stream *)calloc(1, sizeof(Stream));
+    if (!in)
+    {
+        fprintf(stderr, "***** Out of memory! *****\n");
+        exit(1);
+    }
+#else
     in = (Stream *)MemAlloc(sizeof(Stream));
 
     memset(in, 0, sizeof(Stream));
+#endif
     in->fp = fp;
     return in;
 }
 
-static void FreeStream(Stream *in)
+static void FreeStream(Stream **in)
 {
-    if (in->buf)
-        MemFree(in->buf);
+    if ((*in)->buf)
+        MemFree((*in)->buf);
 
-    MemFree(in);
+    MemFree(*in);
 }
 
 static void AddByte(Stream *in, uint c)
@@ -105,6 +120,12 @@ static void AddByte(Stream *in, uint c)
         }
 
         in->buf = (char *)MemRealloc(in->buf, in->length*sizeof(char));
+#ifdef __APPLE__
+        if (!in->buf) {
+            fprintf(stderr, "***** Out of memory! *****\n");
+            exit(1);
+        }
+#endif
     }
 
     in->buf[in->size++] = (char)c;
@@ -345,7 +366,7 @@ int main(int argc, char **argv)
             else
                 fprintf(stderr, "%s - can't open \"%s\" for writing\n", prog, outfile);
 
-            FreeStream(in);
+            FreeStream(&in);
         }
         else
             fprintf(stderr, "%s - can't open \"%s\" for reading\n", prog, infile);

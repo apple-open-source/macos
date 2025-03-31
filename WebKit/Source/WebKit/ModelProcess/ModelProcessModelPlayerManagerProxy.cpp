@@ -47,6 +47,14 @@ ModelProcessModelPlayerManagerProxy::~ModelProcessModelPlayerManagerProxy()
     clear();
 }
 
+std::optional<SharedPreferencesForWebProcess> ModelProcessModelPlayerManagerProxy::sharedPreferencesForWebProcess() const
+{
+    if (!m_modelConnectionToWebProcess)
+        return std::nullopt;
+
+    return m_modelConnectionToWebProcess->sharedPreferencesForWebProcess();
+}
+
 void ModelProcessModelPlayerManagerProxy::clear()
 {
     auto proxies = std::exchange(m_proxies, { });
@@ -79,7 +87,6 @@ void ModelProcessModelPlayerManagerProxy::deleteModelPlayer(WebCore::ModelPlayer
 void ModelProcessModelPlayerManagerProxy::didReceivePlayerMessage(IPC::Connection& connection, IPC::Decoder& decoder)
 {
     ASSERT(RunLoop::isMain());
-    MESSAGE_CHECK_BASE(WebCore::ModelPlayerIdentifier::isValidIdentifier(decoder.destinationID()), connection);
     if (auto* player = m_proxies.get(WebCore::ModelPlayerIdentifier(decoder.destinationID())))
         player->didReceiveMessage(connection, decoder);
 }

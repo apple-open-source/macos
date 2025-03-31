@@ -50,6 +50,7 @@
 #define BATS_UTD_Disabled_SecStaticCodeAPITestUnsigned _TRUE_
 #define BATS_UTD_Disabled_SecLegacyCodeRegressions _TRUE_
 #define BATS_UTD_Disabled_SecCodeSignerAPITest _TRUE_
+#define BATS_UTD_Disabled_SecTaskAPITest _TRUE_
 #define BATS_UTD_Disabled_SecurityUnitTests _TRUE_
 #define BATS_UTD_Disabled_SecurityUnitTestsMacOS _TRUE_
 #define BATS_UTD_Disabled_CodesigningUnitTests _TRUE_
@@ -74,6 +75,7 @@
 #define BATS_UTD_Disabled_SecStaticCodeAPITestUnsigned _FALSE_
 #define BATS_UTD_Disabled_SecLegacyCodeRegressions _FALSE_
 #define BATS_UTD_Disabled_SecCodeSignerAPITest _FALSE_
+#define BATS_UTD_Disabled_SecTaskAPITest _FALSE_
 #define BATS_UTD_Disabled_SecurityUnitTests _TRUE_
 #define BATS_UTD_Disabled_SecurityUnitTestsMacOS _FALSE_
 #define BATS_UTD_Disabled_CodesigningUnitTests _FALSE_
@@ -97,6 +99,7 @@
 #define BATS_UTD_Disabled_SecStaticCodeAPITestUnsigned _TRUE_
 #define BATS_UTD_Disabled_SecLegacyCodeRegressions _TRUE_
 #define BATS_UTD_Disabled_SecCodeSignerAPITest _TRUE_
+#define BATS_UTD_Disabled_SecTaskAPITest _TRUE_
 #define BATS_UTD_Disabled_SecurityUnitTests _FALSE_
 #define BATS_UTD_Disabled_SecurityUnitTestsMacOS _TRUE_
 #define BATS_UTD_Disabled_CodesigningUnitTests _TRUE_
@@ -120,6 +123,7 @@
 #define BATS_UTD_Disabled_SecStaticCodeAPITestUnsigned _TRUE_
 #define BATS_UTD_Disabled_SecLegacyCodeRegressions _TRUE_
 #define BATS_UTD_Disabled_SecCodeSignerAPITest _TRUE_
+#define BATS_UTD_Disabled_SecTaskAPITest _TRUE_
 #define BATS_UTD_Disabled_SecurityUnitTests _FALSE_
 #define BATS_UTD_Disabled_SecurityUnitTestsMacOS _TRUE_
 #define BATS_UTD_Disabled_CodesigningUnitTests _TRUE_
@@ -144,6 +148,7 @@
 #define BATS_UTD_Disabled_SecStaticCodeAPITestUnsigned _TRUE_
 #define BATS_UTD_Disabled_SecLegacyCodeRegressions _TRUE_
 #define BATS_UTD_Disabled_SecCodeSignerAPITest _FALSE_
+#define BATS_UTD_Disabled_SecTaskAPITest _TRUE_
 #define BATS_UTD_Disabled_SecurityUnitTests _FALSE_
 #define BATS_UTD_Disabled_SecurityUnitTestsMacOS _TRUE_
 #define BATS_UTD_Disabled_CodesigningUnitTests _FALSE_

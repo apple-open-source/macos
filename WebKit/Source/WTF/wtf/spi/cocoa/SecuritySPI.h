@@ -124,6 +124,8 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 #if PLATFORM(COCOA)
 CF_RETURNS_RETAINED CFDataRef SecTrustSerialize(SecTrustRef, CFErrorRef *);
 CF_RETURNS_RETAINED SecTrustRef SecTrustDeserialize(CFDataRef serializedTrust, CFErrorRef *);
+CF_RETURNS_RETAINED CFPropertyListRef SecTrustCopyPropertyListRepresentation(SecTrustRef, CFErrorRef *);
+CF_RETURNS_RETAINED SecTrustRef SecTrustCreateFromPropertyListRepresentation(CFPropertyListRef trustPlist, CFErrorRef *);
 #endif
 
 CF_RETURNS_RETAINED CFDictionaryRef SecTrustCopyInfo(SecTrustRef);

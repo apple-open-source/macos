@@ -72,6 +72,8 @@ public:
     void setSpatialVideoEnabled(bool enabled) { m_spatialVideoEnabled = enabled; }
     bool spatialVideoEnabled() const { return m_spatialVideoEnabled; }
 
+    void swapFullscreenModesWith(PlaybackSessionInterfaceIOS&);
+
 private:
     PlaybackSessionInterfaceLMK(WebCore::PlaybackSessionModel&);
 
@@ -79,6 +81,7 @@ private:
     RetainPtr<WKLinearMediaPlayerDelegate> m_playerDelegate;
     WebCore::NowPlayingMetadataObserver m_nowPlayingMetadataObserver;
     bool m_spatialVideoEnabled { false };
+    WebCore::VideoReceiverEndpoint m_videoReceiverEndpoint;
 };
 
 } // namespace WebKit

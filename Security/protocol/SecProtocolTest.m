@@ -14,6 +14,7 @@
 
 #import "SecProtocolConfiguration.h"
 #import "SecProtocolPriv.h"
+#import "SecProtocolTypesPriv.h"
 #import "SecProtocolInternal.h"
 
 #import <nw/private.h> // Needed for the mock protocol
@@ -335,11 +336,11 @@ mock_protocol_copy_definition(void)
 - (sec_protocol_metadata_t)create_sec_protocol_metadata {
     uuid_t identifier;
     uuid_generate(identifier);
-    
+
     static void *libnetworkImage = NULL;
     static dispatch_once_t onceToken;
     static sec_protocol_metadata_t (*_nw_protocol_metadata_create)(nw_protocol_definition_t, _Nonnull uuid_t) = NULL;
-    
+
     dispatch_once(&onceToken, ^{
         libnetworkImage = dlopen("/usr/lib/libnetwork.dylib", RTLD_LAZY | RTLD_LOCAL);
         if (NULL != libnetworkImage) {
@@ -351,11 +352,11 @@ mock_protocol_copy_definition(void)
             os_log_error(OS_LOG_DEFAULT, "dlopen libnetwork");
         }
     });
-    
+
     if (_nw_protocol_metadata_create == NULL) {
         return nil;
     }
-    
+
     return (sec_protocol_metadata_t)_nw_protocol_metadata_create(mock_protocol_copy_definition(), identifier);
 }
 
@@ -372,8 +373,8 @@ mock_protocol_copy_definition(void)
         return true;
     });
 
-    XCTAssertTrue(SSLConnectionStrengthStrong == sec_protocol_metadata_get_connection_strength(metadata), 
-        "Expected SSLConnectionStrengthStrong for TLS 1.2 with a strong ciphersuite, got %d", (int)sec_protocol_metadata_get_connection_strength(metadata));
+    XCTAssertTrue(SSLConnectionStrengthStrong == sec_protocol_metadata_get_connection_strength(metadata),
+                  "Expected SSLConnectionStrengthStrong for TLS 1.2 with a strong ciphersuite, got %d", (int)sec_protocol_metadata_get_connection_strength(metadata));
 }
 
 - (void)test_sec_protocol_metadata_get_connection_strength_tls12_weak_ciphersuite {
@@ -382,15 +383,15 @@ mock_protocol_copy_definition(void)
         (void)sec_protocol_metadata_access_handle(metadata, ^bool(void *handle) {
             sec_protocol_metadata_content_t content = (sec_protocol_metadata_content_t)handle;
             SEC_PROTOCOL_METADATA_VALIDATE(content, false);
-            
+
             content->negotiated_ciphersuite = TLS_DHE_RSA_WITH_AES_256_GCM_SHA384;
             content->negotiated_protocol_version = tls_protocol_version_TLSv12;
-            
+
             return true;
         });
-        
-        XCTAssertTrue(SSLConnectionStrengthWeak == sec_protocol_metadata_get_connection_strength(metadata), 
-            "Expected SSLConnectionStrengthWeak for TLS 1.2 with a weak ciphersuite, got %d", (int)sec_protocol_metadata_get_connection_strength(metadata));
+
+        XCTAssertTrue(SSLConnectionStrengthWeak == sec_protocol_metadata_get_connection_strength(metadata),
+                      "Expected SSLConnectionStrengthWeak for TLS 1.2 with a weak ciphersuite, got %d", (int)sec_protocol_metadata_get_connection_strength(metadata));
     }
 }
 
@@ -400,18 +401,18 @@ mock_protocol_copy_definition(void)
         (void)sec_protocol_metadata_access_handle(metadata, ^bool(void *handle) {
             sec_protocol_metadata_content_t content = (sec_protocol_metadata_content_t)handle;
             SEC_PROTOCOL_METADATA_VALIDATE(content, false);
-            
+
             content->negotiated_ciphersuite = TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256;
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
             content->negotiated_protocol_version = tls_protocol_version_TLSv11;
 #pragma clang diagnostic pop
-            
+
             return true;
         });
-        
-        XCTAssertTrue(SSLConnectionStrengthWeak == sec_protocol_metadata_get_connection_strength(metadata), 
-            "Expected SSLConnectionStrengthWeak for TLS 1.1, got %d", (int)sec_protocol_metadata_get_connection_strength(metadata));
+
+        XCTAssertTrue(SSLConnectionStrengthWeak == sec_protocol_metadata_get_connection_strength(metadata),
+                      "Expected SSLConnectionStrengthWeak for TLS 1.1, got %d", (int)sec_protocol_metadata_get_connection_strength(metadata));
     }
 }
 
@@ -421,18 +422,18 @@ mock_protocol_copy_definition(void)
         (void)sec_protocol_metadata_access_handle(metadata, ^bool(void *handle) {
             sec_protocol_metadata_content_t content = (sec_protocol_metadata_content_t)handle;
             SEC_PROTOCOL_METADATA_VALIDATE(content, false);
-            
+
             content->negotiated_ciphersuite = TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256;
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
             content->negotiated_protocol_version = tls_protocol_version_TLSv10;
 #pragma clang diagnostic pop
-            
+
             return true;
         });
-        
-        XCTAssertTrue(SSLConnectionStrengthWeak == sec_protocol_metadata_get_connection_strength(metadata), 
-            "Expected SSLConnectionStrengthWeak for TLS 1.0, got %d", (int)sec_protocol_metadata_get_connection_strength(metadata));
+
+        XCTAssertTrue(SSLConnectionStrengthWeak == sec_protocol_metadata_get_connection_strength(metadata),
+                      "Expected SSLConnectionStrengthWeak for TLS 1.0, got %d", (int)sec_protocol_metadata_get_connection_strength(metadata));
     }
 }
 
@@ -531,9 +532,9 @@ _sec_protocol_test_metadata_session_exporter(void *handle)
     xpc_object_t dictionary = sec_protocol_metadata_serialize_with_options(metadata, options);
     XCTAssertTrue(dictionary != NULL);
     XCTAssertTrue(xpc_dictionary_get_uint64(dictionary, SEC_PROTOCOL_METADATA_KEY_FAILURE_STACK_ERROR) == 0x00,
-        "Expected 0x%x, got 0x%llx", 0x00, xpc_dictionary_get_int64(dictionary, SEC_PROTOCOL_METADATA_KEY_FAILURE_STACK_ERROR));
+                  "Expected 0x%x, got 0x%llx", 0x00, xpc_dictionary_get_int64(dictionary, SEC_PROTOCOL_METADATA_KEY_FAILURE_STACK_ERROR));
     XCTAssertTrue(xpc_dictionary_get_uint64(dictionary, SEC_PROTOCOL_METADATA_KEY_CIPHERSUITE) == TLS_AES_256_GCM_SHA384,
-        "Expected 0x%x, got 0x%llx", TLS_AES_256_GCM_SHA384, xpc_dictionary_get_int64(dictionary, SEC_PROTOCOL_METADATA_KEY_CIPHERSUITE));
+                  "Expected 0x%x, got 0x%llx", TLS_AES_256_GCM_SHA384, xpc_dictionary_get_int64(dictionary, SEC_PROTOCOL_METADATA_KEY_CIPHERSUITE));
 }
 
 - (void)test_sec_protocol_metadata_serialize_failure {
@@ -816,6 +817,15 @@ _sec_protocol_test_metadata_session_exporter(void *handle)
     sec_protocol_options_set_tls_grease_enabled(optionsB, true);
     XCTAssertTrue(sec_protocol_options_are_equal(optionsA, optionsB));
 
+    sec_protocol_options_set_pqtls_mode(optionsA, no_pqtls);
+    XCTAssertTrue(sec_protocol_options_are_equal(optionsA, optionsB));
+    sec_protocol_options_set_pqtls_mode(optionsA, try_pqtls);
+    XCTAssertFalse(sec_protocol_options_are_equal(optionsA, optionsB));
+    sec_protocol_options_set_pqtls_mode(optionsA, force_pqtls);
+    XCTAssertFalse(sec_protocol_options_are_equal(optionsA, optionsB));
+    sec_protocol_options_set_pqtls_mode(optionsB, force_pqtls);
+    XCTAssertTrue(sec_protocol_options_are_equal(optionsA, optionsB));
+
     sec_protocol_options_set_tls_delegated_credentials_enabled(optionsA, true);
     XCTAssertFalse(sec_protocol_options_are_equal(optionsA, optionsB));
     sec_protocol_options_set_tls_delegated_credentials_enabled(optionsB, false);
@@ -872,11 +882,11 @@ _sec_protocol_test_metadata_session_exporter(void *handle)
     XCTAssertTrue(sec_protocol_options_are_equal(optionsA, optionsB));
 
     const char *application_protocolB = "h3";
-	sec_protocol_options_add_transport_specific_application_protocol(optionsA, application_protocolB,
-																	 sec_protocol_transport_quic);
+    sec_protocol_options_add_transport_specific_application_protocol(optionsA, application_protocolB,
+                                                                     sec_protocol_transport_quic);
     XCTAssertFalse(sec_protocol_options_are_equal(optionsA, optionsB));
-	sec_protocol_options_add_transport_specific_application_protocol(optionsB, application_protocolB,
-																	 sec_protocol_transport_quic);
+    sec_protocol_options_add_transport_specific_application_protocol(optionsB, application_protocolB,
+                                                                     sec_protocol_transport_quic);
     XCTAssertTrue(sec_protocol_options_are_equal(optionsA, optionsB));
 
     sec_protocol_options_set_quic_use_legacy_codepoint(optionsA, true);
@@ -1090,6 +1100,7 @@ _sec_protocol_test_metadata_session_exporter(void *handle)
     sec_protocol_options_set_min_tls_protocol_version(options, tls_protocol_version_TLSv13);
     sec_protocol_options_set_tls_early_data_enabled(options, true);
     sec_protocol_options_set_quic_use_legacy_codepoint(options, false);
+    sec_protocol_options_set_pqtls_mode(options, force_pqtls);
     xpc_object_t config = sec_protocol_options_create_config(options);
     XCTAssertTrue(config != NULL);
     if (config != NULL) {
@@ -1190,6 +1201,17 @@ _sec_protocol_test_metadata_session_exporter(void *handle)
     XCTAssertTrue(sec_protocol_options_get_enable_encrypted_client_hello(options), "ECH still disabled after set to true");
     sec_protocol_options_set_enable_encrypted_client_hello(options, false);
     XCTAssertFalse(sec_protocol_options_get_enable_encrypted_client_hello(options), "ECH still enabled after changed back to false");
+}
+
+- (void)test_pqtls_mode {
+    sec_protocol_options_t options = [self create_sec_protocol_options];
+    XCTAssertTrue(sec_protocol_options_get_pqtls_mode(options) == no_pqtls, "pqtls_mode initially not equal to no_pqtls");
+    sec_protocol_options_set_pqtls_mode(options, try_pqtls);
+    XCTAssertTrue(sec_protocol_options_get_pqtls_mode(options) == try_pqtls, "pqtls_mode not equal to try_pqtls after set");
+    sec_protocol_options_set_pqtls_mode(options, force_pqtls);
+    XCTAssertTrue(sec_protocol_options_get_pqtls_mode(options) == force_pqtls, "pqtls_mode not equal to force_pqtls after set");
+    sec_protocol_options_set_pqtls_mode(options, no_pqtls);
+    XCTAssertTrue(sec_protocol_options_get_pqtls_mode(options) == no_pqtls, "pqtls_mode not equal to no_pqtls after set");
 }
 
 - (void)test_quic_use_legacy_codepoint {
@@ -1383,6 +1405,395 @@ _sec_protocol_test_metadata_session_exporter(void *handle)
         XCTAssertTrue(content->allow_unknown_alpn_protos_override);
         return true;
     });
+}
+
+// Assigns NULL to CF. Releases the value stored at CF unless it was NULL.  Always returns NULL, for your convenience
+#define CFReleaseNull(CF) ({ __typeof__(CF) *const _pcf = &(CF), _cf = *_pcf; (_cf ? (*_pcf) = ((__typeof__(CF))0), (CFRelease(_cf), ((__typeof__(CF))0)) : _cf); })
+
+#if TARGET_OS_OSX
+static NSString *letters = @"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+
+static NSString *
+generate_random_string(size_t length)
+{
+    NSMutableString *randomString = [NSMutableString stringWithCapacity:length];
+    for (size_t i = 0; i < length; i++) {
+        [randomString appendFormat:@"%C", [letters characterAtIndex:arc4random_uniform([letters length])]];
+    }
+    return randomString;
+}
+
+static SecKeychainRef
+createKeychain(void)
+{
+    CFArrayRef cfSearchList = NULL;
+    NSMutableArray *oldSearchList = NULL, *newSearchList = NULL;
+    SecKeychainRef localKeychain = NULL;
+
+    // Create path for keychain in our sandbox
+    NSString *prefix = [[NSProcessInfo processInfo] globallyUniqueString];
+    NSString *keychain_name =
+        [NSString stringWithFormat:@"%@_%@_boringssl_tmp.keychain", prefix, generate_random_string(32)];
+    NSString *base_path = NSTemporaryDirectory();
+    NSURL *fileURL = [[NSURL fileURLWithPath:base_path isDirectory:YES] URLByAppendingPathComponent:keychain_name];
+
+    // Create keychain and add to search list (for automatic lookup)
+    if (SecKeychainCopySearchList(&cfSearchList) != errSecSuccess) {
+        fprintf(stderr, "SecKeychainCopySearchList failed");
+        return NULL;
+    }
+
+    oldSearchList = CFBridgingRelease(cfSearchList);
+    newSearchList = [NSMutableArray arrayWithArray:oldSearchList];
+
+    if (SecKeychainCreate([fileURL fileSystemRepresentation], 8, "password", false, NULL,
+            &localKeychain) != errSecSuccess) {
+        fprintf(stderr, "SecKeychainCreate failed");
+        return NULL;
+    }
+
+    if (localKeychain != NULL) {
+        [newSearchList addObject:(__bridge id)localKeychain];
+        if (SecKeychainSetSearchList((__bridge CFArrayRef)newSearchList) != errSecSuccess) {
+            fprintf(stderr, "SecKeychainSetSearchList failed");
+            return NULL;
+        }
+    }
+
+    return localKeychain;
+}
+#endif // TARGET_OS_OSX
+
+/*!
+ * The keychain reference is static so that unit tests finish in a reasonable amount of time. Otherwise,
+ * the change+compile+test loop takes too long to be useful.
+ */
+#if TARGET_OS_OSX
+static SecKeychainRef keychain;
+#endif
+
+static SecIdentityRef parse_sec_identity_from_pkcs12(NSData *pkcs12data)
+{
+  NSDictionary *options = @{
+          (__bridge NSString *)kSecImportExportPassphrase : @("password"),
+#ifndef TARGET_OS_BRIDGE
+          (__bridge NSString *)kSecImportToMemoryOnly: @(TRUE),
+#endif // TARGET_OS_BRIDGE
+      };
+    if (options == nil) {
+        fprintf(stderr, "Failed to create the SecImport options");
+        return NULL;
+    }
+
+    CFArrayRef legacyImportedItems = NULL;
+#if TARGET_OS_OSX
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        keychain = createKeychain();
+    });
+
+    SecExternalFormat sef = kSecFormatPKCS12;
+    SecItemImportExportKeyParameters keyParams = {
+        .passphrase = CFSTR("password"),
+        .flags = kSecKeyNoAccessControl,
+    };
+
+    OSStatus securityError =
+        SecItemImport((__bridge CFDataRef)pkcs12data, NULL, &sef, NULL, 0, &keyParams, keychain, &legacyImportedItems);
+    if (securityError != errSecSuccess || legacyImportedItems == NULL) {
+        fprintf(stderr, "[OSX ONLY] SecItemImport failed: %d %p %p", (int)securityError, pkcs12data, keychain);
+        return NULL;
+    }
+
+    if (CFGetTypeID(CFArrayGetValueAtIndex(legacyImportedItems, 0)) != SecIdentityGetTypeID()) {
+        CFShow(CFArrayGetValueAtIndex(legacyImportedItems, 0));
+        fprintf(stderr, "[OSX ONLY] Failed to load a SecIdentityRef from the local PKCS12 data\n");
+        return NULL;
+    }
+
+    SecIdentityRef identity = (SecIdentityRef)CFArrayGetValueAtIndex(legacyImportedItems, 0);
+    CFRetain(identity);
+    CFReleaseNull(legacyImportedItems);
+    return identity;
+#else // !TARGET_OS_OSX
+    OSStatus securityError =
+        SecPKCS12Import((__bridge CFDataRef)pkcs12data, (__bridge CFDictionaryRef)options, &legacyImportedItems);
+    if (securityError != errSecSuccess || legacyImportedItems == NULL) {
+        fprintf(stderr, "SecPKCS12Import failed: %d", (int)securityError);
+        return NULL;
+    }
+
+    NSArray *importedItems = (__bridge_transfer NSArray *)legacyImportedItems;
+    legacyImportedItems = NULL;
+    if (importedItems == nil || ![importedItems isKindOfClass:[NSArray class]] || importedItems.count == 0) {
+        fprintf(stderr, "importedItems is NULL");
+        return NULL;
+    }
+
+    NSDictionary *dict = importedItems[0];
+    SecIdentityRef local_identity = (__bridge SecIdentityRef)dict[(__bridge NSString *)kSecImportItemIdentity];
+
+    CFRetain(local_identity);
+    CFReleaseNull(legacyImportedItems);
+    return local_identity;
+#endif // !TARGET_OS_OSX
+}
+
+- (void)test_sec_identity_type {
+    unsigned char prime256v1_server_leaf_p12[] = {
+      0x30, 0x82, 0x04, 0xa2, 0x02, 0x01, 0x03, 0x30, 0x82, 0x04, 0x68, 0x06, 0x09, 0x2a, 0x86, 0x48,
+      0x86, 0xf7, 0x0d, 0x01, 0x07, 0x01, 0xa0, 0x82, 0x04, 0x59, 0x04, 0x82, 0x04, 0x55, 0x30, 0x82,
+      0x04, 0x51, 0x30, 0x82, 0x03, 0x47, 0x06, 0x09, 0x2a, 0x86, 0x48, 0x86, 0xf7, 0x0d, 0x01, 0x07,
+      0x06, 0xa0, 0x82, 0x03, 0x38, 0x30, 0x82, 0x03, 0x34, 0x02, 0x01, 0x00, 0x30, 0x82, 0x03, 0x2d,
+      0x06, 0x09, 0x2a, 0x86, 0x48, 0x86, 0xf7, 0x0d, 0x01, 0x07, 0x01, 0x30, 0x1c, 0x06, 0x0a, 0x2a,
+      0x86, 0x48, 0x86, 0xf7, 0x0d, 0x01, 0x0c, 0x01, 0x06, 0x30, 0x0e, 0x04, 0x08, 0x5c, 0xd3, 0x24,
+      0x0e, 0xea, 0x91, 0xb2, 0xfb, 0x02, 0x02, 0x08, 0x00, 0x80, 0x82, 0x03, 0x00, 0x3c, 0xbc, 0x54,
+      0xa7, 0x77, 0xab, 0x55, 0x9d, 0x4f, 0x27, 0xae, 0x64, 0xc7, 0x23, 0x8c, 0x06, 0x44, 0xfe, 0xf7,
+      0x6e, 0xe7, 0x5b, 0xc4, 0x1e, 0x0f, 0xee, 0x7c, 0x3f, 0x41, 0x73, 0x6a, 0x5e, 0xfa, 0xc1, 0x03,
+      0xe3, 0x81, 0xcc, 0x9f, 0x20, 0x6c, 0x3f, 0x2b, 0xb9, 0x69, 0x8e, 0x50, 0xb2, 0xe6, 0xf9, 0x23,
+      0xcd, 0x74, 0xd9, 0x2a, 0x87, 0xc6, 0xda, 0xb7, 0x9e, 0x3f, 0x72, 0xa0, 0xf0, 0xe8, 0xc9, 0x1b,
+      0xeb, 0xb1, 0xd9, 0xd3, 0x8f, 0x9d, 0xf0, 0xd2, 0xd5, 0x42, 0x3d, 0x5b, 0x52, 0x57, 0x03, 0xd5,
+      0xeb, 0x76, 0x7b, 0x37, 0xa7, 0xe2, 0xfb, 0x3c, 0xcf, 0x93, 0x17, 0x4f, 0x90, 0x0e, 0x8e, 0x84,
+      0xdb, 0x81, 0xa5, 0x5f, 0x79, 0xd0, 0x16, 0x75, 0x1b, 0x08, 0x54, 0xc4, 0x14, 0xfc, 0x04, 0xec,
+      0xd4, 0x25, 0xed, 0x8b, 0x3f, 0xef, 0x88, 0x85, 0x04, 0x20, 0xba, 0xd1, 0x66, 0x3f, 0x01, 0xb7,
+      0x12, 0x25, 0xf7, 0xc8, 0x85, 0x76, 0xae, 0xa3, 0x48, 0x35, 0x26, 0xad, 0x29, 0x79, 0x86, 0xdb,
+      0x22, 0xe4, 0x4a, 0xe3, 0xad, 0xd3, 0xdd, 0xb9, 0x09, 0xd6, 0xa2, 0x04, 0xc0, 0xf9, 0xfd, 0x0c,
+      0x30, 0xec, 0x7d, 0xf3, 0x29, 0x94, 0xde, 0xac, 0x56, 0x03, 0xd4, 0xac, 0x2f, 0x2b, 0x72, 0x4c,
+      0x89, 0xe5, 0x92, 0x48, 0x24, 0xaa, 0xb6, 0x59, 0xa4, 0x28, 0xe0, 0x4b, 0x78, 0x2b, 0xbb, 0x3b,
+      0x59, 0xc3, 0x96, 0x7d, 0x40, 0xac, 0xc8, 0x13, 0xe5, 0x47, 0x9a, 0xd0, 0x5b, 0xad, 0x9b, 0x39,
+      0xe2, 0xa7, 0xe4, 0x15, 0xeb, 0x24, 0xbc, 0x30, 0x85, 0xaf, 0x92, 0xbd, 0x78, 0x0f, 0x47, 0xd5,
+      0x9f, 0x94, 0x10, 0xce, 0x4c, 0xf0, 0x6c, 0x10, 0x40, 0x24, 0xa3, 0xac, 0x55, 0x3e, 0xa8, 0x95,
+      0xcf, 0x2c, 0x90, 0xaa, 0x43, 0xe7, 0x03, 0xf1, 0xcd, 0x07, 0x63, 0x9d, 0x2d, 0xeb, 0x82, 0x74,
+      0x18, 0x43, 0x8f, 0x9d, 0xcc, 0x2c, 0xa2, 0xa5, 0xb1, 0x57, 0x4f, 0x9e, 0x33, 0xe7, 0x20, 0x5f,
+      0x7e, 0xb7, 0xb2, 0x32, 0x60, 0xab, 0x62, 0x77, 0x8b, 0xe4, 0xe2, 0x99, 0xa6, 0xd9, 0xb2, 0x3b,
+      0x6c, 0xbb, 0x0d, 0x63, 0xec, 0x14, 0x17, 0xe9, 0xc8, 0x58, 0xa6, 0x75, 0xf4, 0xfa, 0xeb, 0x9b,
+      0x9f, 0x10, 0x12, 0x67, 0x7e, 0xbe, 0x43, 0xfb, 0xe6, 0x01, 0xa3, 0x67, 0xc9, 0xe7, 0xc1, 0xf4,
+      0x86, 0x1a, 0x21, 0x2e, 0x38, 0xd3, 0xa4, 0xfa, 0x15, 0xfb, 0x1a, 0xf0, 0xaf, 0x7e, 0x35, 0xe2,
+      0xc2, 0x96, 0x6d, 0xad, 0x25, 0x81, 0xd0, 0x2d, 0xd0, 0xf8, 0x8b, 0x43, 0x28, 0xc7, 0x46, 0x23,
+      0x20, 0x0f, 0xb0, 0xd9, 0xd0, 0x73, 0xe5, 0xa4, 0xf9, 0x04, 0x01, 0x9e, 0x9b, 0x38, 0x8b, 0x04,
+      0x20, 0x7b, 0x81, 0xf0, 0x0d, 0x61, 0x00, 0x39, 0x4c, 0xb6, 0x53, 0x67, 0x5e, 0xa4, 0xee, 0x49,
+      0x82, 0xff, 0x23, 0x18, 0xae, 0x37, 0x22, 0x36, 0xe7, 0xfa, 0x16, 0x3d, 0x46, 0x74, 0x99, 0xda,
+      0x73, 0x4f, 0xab, 0x76, 0xbb, 0x32, 0x32, 0xa7, 0x41, 0x08, 0x9e, 0xbe, 0x43, 0x98, 0xef, 0xd4,
+      0xc6, 0xc9, 0x72, 0x1b, 0xa8, 0x5f, 0x74, 0x48, 0x95, 0xa2, 0x8b, 0xf7, 0xd0, 0x6a, 0x38, 0xc1,
+      0xf2, 0xdb, 0xe0, 0xb1, 0xe4, 0xb6, 0xf4, 0xc3, 0xe4, 0x05, 0x4c, 0xb8, 0xc8, 0xfd, 0x61, 0x72,
+      0xa6, 0x39, 0x11, 0xe9, 0x5e, 0x71, 0x5f, 0xac, 0x39, 0x23, 0xea, 0x95, 0xa8, 0x61, 0x6d, 0x9c,
+      0x42, 0xab, 0x0d, 0x93, 0x69, 0xd1, 0x22, 0x1a, 0x42, 0x5c, 0xf8, 0xbe, 0x44, 0xcf, 0x93, 0x98,
+      0x31, 0x75, 0x40, 0xf7, 0xab, 0x1b, 0x26, 0xef, 0x68, 0x00, 0x93, 0x42, 0x42, 0x56, 0x75, 0x0a,
+      0x7d, 0x2c, 0xbb, 0x1f, 0xc4, 0xd0, 0xe9, 0x2f, 0x20, 0xe9, 0xe0, 0xed, 0x58, 0xc9, 0x8c, 0xba,
+      0x04, 0x03, 0x83, 0xd4, 0xfd, 0xf9, 0x68, 0xda, 0x67, 0x79, 0x92, 0x0c, 0xce, 0xdb, 0x4e, 0x1c,
+      0x62, 0x2d, 0x8f, 0x9c, 0xe9, 0xd7, 0x48, 0xd3, 0xec, 0xd4, 0x72, 0x26, 0x56, 0xa0, 0xfc, 0x48,
+      0x56, 0xb1, 0xd1, 0xb4, 0x94, 0xc1, 0x80, 0x98, 0x5e, 0x8d, 0x58, 0x61, 0x74, 0x12, 0xa8, 0x97,
+      0x7e, 0x42, 0x19, 0x65, 0xc0, 0x2d, 0xde, 0x04, 0x78, 0x9e, 0x2d, 0xfb, 0xdd, 0xe8, 0xc9, 0x5b,
+      0xa2, 0xc3, 0x3b, 0x33, 0xec, 0x57, 0x8d, 0x12, 0x88, 0x9f, 0x30, 0x3a, 0x78, 0x5c, 0x4d, 0x62,
+      0x85, 0x44, 0x47, 0xf6, 0x34, 0xb8, 0x19, 0x6f, 0x53, 0x44, 0x52, 0x1e, 0x5f, 0x12, 0xcc, 0x81,
+      0x32, 0x82, 0xb7, 0x5e, 0x45, 0x33, 0x0e, 0x80, 0x13, 0x24, 0x73, 0x9a, 0xb7, 0x59, 0x14, 0x1a,
+      0xa5, 0xdc, 0x37, 0x89, 0x35, 0x34, 0x02, 0x3c, 0x49, 0x81, 0x8e, 0xd2, 0x73, 0x31, 0x75, 0x8e,
+      0x2c, 0x7c, 0x55, 0x90, 0xa1, 0x7d, 0x19, 0x65, 0xd0, 0xc7, 0xbe, 0x5d, 0x43, 0xe4, 0x60, 0x1f,
+      0x91, 0xf5, 0x79, 0xfe, 0x7e, 0x37, 0x8c, 0xa5, 0x1e, 0x0b, 0x2b, 0x17, 0x52, 0x1b, 0x92, 0x24,
+      0xd6, 0xac, 0x4e, 0x9d, 0x56, 0x5a, 0xd9, 0x88, 0x47, 0x0b, 0x82, 0xd4, 0x16, 0xc2, 0x90, 0x29,
+      0xf4, 0xc1, 0x02, 0x75, 0xdf, 0x7f, 0x92, 0xac, 0xa7, 0xde, 0x47, 0x4c, 0x79, 0xfb, 0x33, 0xa4,
+      0xbc, 0x8d, 0xfd, 0x8e, 0xce, 0xae, 0x55, 0xac, 0x97, 0xd6, 0x6b, 0xec, 0x98, 0x35, 0x01, 0x7a,
+      0x33, 0xd0, 0xa0, 0x11, 0xe1, 0x6c, 0x0a, 0x96, 0x9d, 0x4c, 0x2e, 0xbb, 0xcf, 0xf3, 0x0b, 0x06,
+      0x41, 0xdb, 0x5f, 0x82, 0x5e, 0x1c, 0x52, 0xfc, 0xc5, 0x11, 0xd7, 0x54, 0x3a, 0xb1, 0x7c, 0x10,
+      0x87, 0x92, 0x68, 0xab, 0x67, 0x14, 0x77, 0x7b, 0x33, 0x08, 0x84, 0x4a, 0x24, 0x30, 0x82, 0x01,
+      0x02, 0x06, 0x09, 0x2a, 0x86, 0x48, 0x86, 0xf7, 0x0d, 0x01, 0x07, 0x01, 0xa0, 0x81, 0xf4, 0x04,
+      0x81, 0xf1, 0x30, 0x81, 0xee, 0x30, 0x81, 0xeb, 0x06, 0x0b, 0x2a, 0x86, 0x48, 0x86, 0xf7, 0x0d,
+      0x01, 0x0c, 0x0a, 0x01, 0x02, 0xa0, 0x81, 0xb4, 0x30, 0x81, 0xb1, 0x30, 0x1c, 0x06, 0x0a, 0x2a,
+      0x86, 0x48, 0x86, 0xf7, 0x0d, 0x01, 0x0c, 0x01, 0x03, 0x30, 0x0e, 0x04, 0x08, 0x2c, 0xe3, 0xa1,
+      0x25, 0x5b, 0x67, 0x91, 0xc4, 0x02, 0x02, 0x08, 0x00, 0x04, 0x81, 0x90, 0x34, 0x8a, 0xec, 0x22,
+      0xe4, 0xa4, 0x3b, 0xd0, 0xc8, 0x35, 0x65, 0x74, 0xb2, 0xe6, 0x54, 0x2b, 0xb1, 0xdf, 0xf3, 0x52,
+      0x13, 0x4f, 0xa5, 0xde, 0xbd, 0x2a, 0xe4, 0x67, 0x7a, 0x09, 0xb1, 0x09, 0x28, 0x17, 0x0c, 0xf0,
+      0x79, 0xdf, 0x03, 0x23, 0x54, 0xe2, 0xc1, 0x7a, 0xef, 0x01, 0x08, 0xc7, 0xe5, 0xf2, 0xc6, 0xd0,
+      0xd3, 0xc5, 0x78, 0xa2, 0xcb, 0x0a, 0x43, 0x9f, 0x9b, 0x90, 0xd5, 0xdf, 0x11, 0xed, 0x0c, 0x7e,
+      0xf3, 0x4e, 0x81, 0x03, 0x7f, 0x54, 0xea, 0xab, 0x74, 0xb2, 0xc9, 0x26, 0xcd, 0x41, 0xaf, 0x91,
+      0xc3, 0x4f, 0x71, 0xe6, 0x54, 0x71, 0x48, 0xe4, 0xb1, 0xe0, 0x6b, 0x20, 0xb5, 0x3c, 0x40, 0x1f,
+      0x83, 0xc7, 0xe5, 0xba, 0x4a, 0xa6, 0x4b, 0x50, 0x97, 0x52, 0xa6, 0xc6, 0xa8, 0xa3, 0xab, 0x72,
+      0xdb, 0x17, 0x1a, 0x7f, 0x55, 0x65, 0x8f, 0x5a, 0x16, 0xe6, 0x86, 0x43, 0x9b, 0xb7, 0xc0, 0xcf,
+      0x11, 0x44, 0x24, 0xcb, 0x55, 0x62, 0x9b, 0x08, 0x6f, 0x9d, 0x35, 0x45, 0x31, 0x25, 0x30, 0x23,
+      0x06, 0x09, 0x2a, 0x86, 0x48, 0x86, 0xf7, 0x0d, 0x01, 0x09, 0x15, 0x31, 0x16, 0x04, 0x14, 0x85,
+      0xd8, 0xba, 0xad, 0xc3, 0x15, 0xde, 0x7d, 0x82, 0x0b, 0xa5, 0xe7, 0xb0, 0x68, 0xaa, 0x3d, 0x40,
+      0xd6, 0x1e, 0x57, 0x30, 0x31, 0x30, 0x21, 0x30, 0x09, 0x06, 0x05, 0x2b, 0x0e, 0x03, 0x02, 0x1a,
+      0x05, 0x00, 0x04, 0x14, 0x28, 0x7f, 0x97, 0xe6, 0x1f, 0x31, 0x71, 0xb5, 0x59, 0x35, 0x38, 0xa0,
+      0xbf, 0x6a, 0xa3, 0x78, 0xd3, 0x3d, 0xf6, 0xf5, 0x04, 0x08, 0x0c, 0x88, 0x7c, 0xca, 0xcf, 0x50,
+      0xff, 0x53, 0x02, 0x02, 0x08, 0x00
+    };
+
+    SecIdentityRef sec_identity = parse_sec_identity_from_pkcs12([[NSData alloc] initWithBytes:prime256v1_server_leaf_p12 length:sizeof(prime256v1_server_leaf_p12)]);
+    sec_identity_t cert_identity = sec_identity_create(sec_identity);
+    XCTAssertNotNil(cert_identity);
+    XCTAssertEqual(sec_identity_copy_type(cert_identity), SEC_PROTOCOL_IDENTITY_TYPE_CERTIFICATE);
+
+    uint8_t context[32];
+    dispatch_data_t context_data = dispatch_data_create(context, sizeof(context), NULL, DISPATCH_DATA_DESTRUCTOR_DEFAULT);
+    uint8_t client_identity[32];
+    dispatch_data_t client_identity_data = dispatch_data_create(client_identity, sizeof(client_identity), NULL, DISPATCH_DATA_DESTRUCTOR_DEFAULT);
+    uint8_t server_identity[32];
+    dispatch_data_t server_identity_data = dispatch_data_create(server_identity, sizeof(server_identity), NULL, DISPATCH_DATA_DESTRUCTOR_DEFAULT);
+
+    uint8_t client_verifier[SEC_PROTOCOL_SPAKE2PLUSV1_INPUT_PASSWORD_VERIFIER_NBYTES];
+    dispatch_data_t client_verifier_data = dispatch_data_create(client_verifier, sizeof(client_verifier), NULL, DISPATCH_DATA_DESTRUCTOR_DEFAULT);
+
+    sec_identity_t pake_identity = sec_identity_create_client_SPAKE2PLUSV1_identity_internal(context_data, client_identity_data, server_identity_data, client_verifier_data);
+    XCTAssertNotNil(pake_identity);
+    XCTAssertEqual(sec_identity_copy_type(pake_identity), SEC_PROTOCOL_IDENTITY_TYPE_SPAKE2PLUSV1);
+}
+
+- (void)test_sec_identity_pake_verifier_creation {
+    uint8_t buffer[SEC_PROTOCOL_SPAKE2PLUSV1_INPUT_PASSWORD_VERIFIER_NBYTES];
+    dispatch_data_t input_verifier = dispatch_data_create(buffer, sizeof(buffer) - 1, NULL, DISPATCH_DATA_DESTRUCTOR_DEFAULT);
+    dispatch_data_t registration_record = sec_identity_create_SPAKE2PLUSV1_registration_record(input_verifier);
+    XCTAssertNil(registration_record);
+
+    dispatch_data_t client_verifier = sec_identity_create_SPAKE2PLUSV1_client_password_verifier(input_verifier);
+    XCTAssertNil(client_verifier);
+
+    dispatch_data_t server_verifier = sec_identity_create_SPAKE2PLUSV1_server_password_verifier(input_verifier);
+    XCTAssertNil(server_verifier);
+
+    input_verifier = dispatch_data_create(buffer, sizeof(buffer), NULL, DISPATCH_DATA_DESTRUCTOR_DEFAULT);
+
+    registration_record = sec_identity_create_SPAKE2PLUSV1_registration_record(input_verifier);
+    XCTAssertNotNil(registration_record);
+    XCTAssertEqual(dispatch_data_get_size(registration_record), SEC_PROTOCOL_SPAKE2PLUSV1_REGISTRATION_RECORD_NBYTES);
+
+    client_verifier = sec_identity_create_SPAKE2PLUSV1_client_password_verifier(input_verifier);
+    XCTAssertNotNil(client_verifier);
+    XCTAssertEqual(dispatch_data_get_size(client_verifier), SEC_PROTOCOL_SPAKE2PLUSV1_CLIENT_PASSWORD_VERIFIER_NBYTES);
+
+    server_verifier = sec_identity_create_SPAKE2PLUSV1_server_password_verifier(input_verifier);
+    XCTAssertNotNil(server_verifier);
+    XCTAssertEqual(dispatch_data_get_size(server_verifier), SEC_PROTOCOL_SPAKE2PLUSV1_SERVER_PASSWORD_VERIFIER_NBYTES);
+}
+
+- (void)test_sec_identity_pake_creation_internal {
+    uint8_t context[32];
+    dispatch_data_t context_data = dispatch_data_create(context, sizeof(context), NULL, DISPATCH_DATA_DESTRUCTOR_DEFAULT);
+
+    uint8_t client_identity[32];
+    dispatch_data_t client_identity_data = dispatch_data_create(client_identity, sizeof(client_identity), NULL, DISPATCH_DATA_DESTRUCTOR_DEFAULT);
+
+    uint8_t server_identity[32];
+    dispatch_data_t server_identity_data = dispatch_data_create(server_identity, sizeof(server_identity), NULL, DISPATCH_DATA_DESTRUCTOR_DEFAULT);
+
+    uint8_t buffer[SEC_PROTOCOL_SPAKE2PLUSV1_INPUT_PASSWORD_VERIFIER_NBYTES];
+    dispatch_data_t input_verifier = dispatch_data_create(buffer, sizeof(buffer), NULL, DISPATCH_DATA_DESTRUCTOR_DEFAULT);
+
+    dispatch_data_t registration_record = sec_identity_create_SPAKE2PLUSV1_registration_record(input_verifier);
+    XCTAssertNotNil(registration_record);
+
+    dispatch_data_t client_verifier_data = sec_identity_create_SPAKE2PLUSV1_client_password_verifier(input_verifier);
+    XCTAssertNotNil(client_verifier_data);
+
+    dispatch_data_t server_verifier_data = sec_identity_create_SPAKE2PLUSV1_server_password_verifier(input_verifier);
+    XCTAssertNotNil(server_verifier_data);
+
+    sec_identity_t client_pake_identity = sec_identity_create_client_SPAKE2PLUSV1_identity_internal(context_data, client_identity_data, server_identity_data, input_verifier);
+    XCTAssertNotNil(client_pake_identity);
+    XCTAssertEqual(sec_identity_copy_type(client_pake_identity), SEC_PROTOCOL_IDENTITY_TYPE_SPAKE2PLUSV1);
+
+    dispatch_data_t other_client_verifier_data = sec_identity_copy_SPAKE2PLUSV1_client_password_verifier(client_pake_identity);
+    XCTAssertTrue(sec_protocol_helper_dispatch_data_equal(client_verifier_data, other_client_verifier_data));
+    dispatch_data_t other_registration_record = sec_identity_copy_SPAKE2PLUSV1_registration_record(client_pake_identity);
+    XCTAssertTrue(sec_protocol_helper_dispatch_data_equal(registration_record, other_registration_record));
+    dispatch_data_t other_server_verifier_data = sec_identity_copy_SPAKE2PLUSV1_server_password_verifier(client_pake_identity);
+    XCTAssertTrue(sec_protocol_helper_dispatch_data_equal(server_verifier_data, other_server_verifier_data));
+
+    sec_identity_t server_pake_identity = sec_identity_create_server_SPAKE2PLUSV1_identity(context_data, client_identity_data, server_identity_data, server_verifier_data, registration_record);
+    XCTAssertNotNil(server_pake_identity);
+    XCTAssertEqual(sec_identity_copy_type(server_pake_identity), SEC_PROTOCOL_IDENTITY_TYPE_SPAKE2PLUSV1);
+
+    other_registration_record = sec_identity_copy_SPAKE2PLUSV1_registration_record(server_pake_identity);
+    XCTAssertTrue(sec_protocol_helper_dispatch_data_equal(registration_record, other_registration_record));
+    other_server_verifier_data = sec_identity_copy_SPAKE2PLUSV1_server_password_verifier(server_pake_identity);
+    XCTAssertTrue(sec_protocol_helper_dispatch_data_equal(server_verifier_data, other_server_verifier_data));
+    other_client_verifier_data = sec_identity_copy_SPAKE2PLUSV1_client_password_verifier(server_pake_identity);
+    XCTAssertNil(other_client_verifier_data);
+}
+
+- (void)test_sec_identity_pake_creation {
+    uint8_t context[32];
+    dispatch_data_t context_data = dispatch_data_create(context, sizeof(context), NULL, DISPATCH_DATA_DESTRUCTOR_DEFAULT);
+
+    uint8_t client_identity[32];
+    dispatch_data_t client_identity_data = dispatch_data_create(client_identity, sizeof(client_identity), NULL, DISPATCH_DATA_DESTRUCTOR_DEFAULT);
+
+    uint8_t server_identity[32];
+    dispatch_data_t server_identity_data = dispatch_data_create(server_identity, sizeof(server_identity), NULL, DISPATCH_DATA_DESTRUCTOR_DEFAULT);
+
+    uint8_t password[32];
+    dispatch_data_t password_data = dispatch_data_create(password, sizeof(password), NULL, DISPATCH_DATA_DESTRUCTOR_DEFAULT);
+
+    sec_identity_t client_pake_identity = sec_identity_create_client_SPAKE2PLUSV1_identity(context_data, client_identity_data, server_identity_data, password_data, PAKE_PBKDF_PARAMS_SCRYPT_DEFAULT);
+    XCTAssertNotNil(client_pake_identity);
+    XCTAssertEqual(sec_identity_copy_type(client_pake_identity), SEC_PROTOCOL_IDENTITY_TYPE_SPAKE2PLUSV1);
+
+    dispatch_data_t client_verifier_data = sec_identity_copy_SPAKE2PLUSV1_client_password_verifier(client_pake_identity);
+    XCTAssertNotNil(client_verifier_data);
+
+    dispatch_data_t registration_record = sec_identity_copy_SPAKE2PLUSV1_registration_record(client_pake_identity);
+    XCTAssertNotNil(registration_record);
+
+    dispatch_data_t server_verifier_data = sec_identity_copy_SPAKE2PLUSV1_server_password_verifier(client_pake_identity);
+    XCTAssertNotNil(server_verifier_data);
+
+    sec_identity_t server_pake_identity = sec_identity_create_server_SPAKE2PLUSV1_identity(context_data, client_identity_data, server_identity_data, server_verifier_data, registration_record);
+    XCTAssertNotNil(server_pake_identity);
+    XCTAssertEqual(sec_identity_copy_type(server_pake_identity), SEC_PROTOCOL_IDENTITY_TYPE_SPAKE2PLUSV1);
+
+    dispatch_data_t other_client_verifier_data = sec_identity_copy_SPAKE2PLUSV1_client_password_verifier(server_pake_identity);
+    XCTAssertNil(other_client_verifier_data);
+    dispatch_data_t other_registration_record = sec_identity_copy_SPAKE2PLUSV1_registration_record(server_pake_identity);
+    XCTAssertTrue(sec_protocol_helper_dispatch_data_equal(registration_record, other_registration_record));
+    dispatch_data_t other_server_verifier_data = sec_identity_copy_SPAKE2PLUSV1_server_password_verifier(server_pake_identity);
+    XCTAssertTrue(sec_protocol_helper_dispatch_data_equal(server_verifier_data, other_server_verifier_data));
+}
+
+- (void)test_sec_identity_pake_option_equality {
+    uint8_t context[] = "test context";
+    dispatch_data_t context_data = dispatch_data_create(context, sizeof(context), NULL, DISPATCH_DATA_DESTRUCTOR_DEFAULT);
+
+    uint8_t client_identity[] = "client_identity";
+    dispatch_data_t client_identity_data = dispatch_data_create(client_identity, sizeof(client_identity), NULL, DISPATCH_DATA_DESTRUCTOR_DEFAULT);
+
+    uint8_t server_identity[] = "server_identity";
+    dispatch_data_t server_identity_data = dispatch_data_create(server_identity, sizeof(server_identity), NULL, DISPATCH_DATA_DESTRUCTOR_DEFAULT);
+
+    uint8_t password[] = "password";
+    dispatch_data_t password_data = dispatch_data_create(password, sizeof(password), NULL, DISPATCH_DATA_DESTRUCTOR_DEFAULT);
+
+    sec_identity_t client_pake_identity = sec_identity_create_client_SPAKE2PLUSV1_identity(context_data, client_identity_data, server_identity_data, password_data, PAKE_PBKDF_PARAMS_SCRYPT_DEFAULT);
+    XCTAssertNotNil(client_pake_identity);
+
+    dispatch_data_t registration_record = sec_identity_copy_SPAKE2PLUSV1_registration_record(client_pake_identity);
+    XCTAssertNotNil(registration_record);
+
+    dispatch_data_t server_verifier_data = sec_identity_copy_SPAKE2PLUSV1_server_password_verifier(client_pake_identity);
+    XCTAssertNotNil(server_verifier_data);
+
+    sec_protocol_options_t client_optionsA = [self create_sec_protocol_options];
+    sec_protocol_options_t client_optionsB = [self create_sec_protocol_options];
+    sec_protocol_options_set_local_identity(client_optionsA, client_pake_identity);
+    XCTAssertFalse(sec_protocol_options_are_equal(client_optionsA, client_optionsB));
+    sec_protocol_options_set_local_identity(client_optionsB, client_pake_identity);
+    XCTAssertTrue(sec_protocol_options_are_equal(client_optionsA, client_optionsB));
+
+    sec_identity_t server_pake_identity = sec_identity_create_server_SPAKE2PLUSV1_identity(context_data, client_identity_data, server_identity_data, server_verifier_data, registration_record);
+    XCTAssertNotNil(server_pake_identity);
+
+    // Initialize a different PAKE identity with different context
+    sec_identity_t other_server_pake_identity = sec_identity_create_server_SPAKE2PLUSV1_identity(client_identity_data, client_identity_data, server_identity_data, server_verifier_data, registration_record);
+    XCTAssertNotNil(other_server_pake_identity);
+
+    sec_protocol_options_t server_optionsA = [self create_sec_protocol_options];
+    sec_protocol_options_t server_optionsB = [self create_sec_protocol_options];
+    sec_protocol_options_set_local_identity(server_optionsA, server_pake_identity);
+    XCTAssertFalse(sec_protocol_options_are_equal(server_optionsA, server_optionsB));
+    sec_protocol_options_set_local_identity(server_optionsB, client_pake_identity);
+    XCTAssertFalse(sec_protocol_options_are_equal(server_optionsA, server_optionsB));
+    sec_protocol_options_set_local_identity(server_optionsB, other_server_pake_identity);
+    XCTAssertFalse(sec_protocol_options_are_equal(server_optionsA, server_optionsB));
+    sec_protocol_options_set_local_identity(server_optionsB, server_pake_identity);
+    XCTAssertTrue(sec_protocol_options_are_equal(server_optionsA, server_optionsB));
 }
 
 @end

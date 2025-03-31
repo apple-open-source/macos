@@ -50,8 +50,9 @@ void RtpPacketHistory::StoredPacket::IncrementTimesRetransmitted() {
   ++times_retransmitted_;
 }
 
-RtpPacketHistory::RtpPacketHistory(Clock* clock, PaddingMode padding_mode)
-    : clock_(clock),
+RtpPacketHistory::RtpPacketHistory(const Environment& env,
+                                   PaddingMode padding_mode)
+    : clock_(&env.clock()),
       padding_mode_(padding_mode),
       number_to_store_(0),
       mode_(StorageMode::kDisabled),
@@ -309,7 +310,7 @@ void RtpPacketHistory::Clear() {
 
 void RtpPacketHistory::Reset() {
   packet_history_.clear();
-  large_payload_packet_ = absl::nullopt;
+  large_payload_packet_ = std::nullopt;
 }
 
 void RtpPacketHistory::CullOldPackets() {

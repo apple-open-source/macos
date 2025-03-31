@@ -134,7 +134,6 @@ auto TextAutoSizingValue::adjustTextNodeSizes() -> StillHasNodes
         auto fontDescription = style.fontDescription();
         fontDescription.setComputedSize(averageSize);
         style.setFontDescription(FontCascadeDescription { fontDescription });
-        style.fontCascade().update(&node->document().fontSelector());
         parentRenderer->setStyle(WTFMove(style));
 
         if (parentRenderer->isAnonymousBlock())
@@ -144,7 +143,6 @@ auto TextAutoSizingValue::adjustTextNodeSizes() -> StillHasNodes
         if (auto* listMarkerRenderer = dynamicDowncast<RenderListMarker>(*parentRenderer->firstChild())) {
             auto style = cloneRenderStyleWithState(listMarkerRenderer->style());
             style.setFontDescription(FontCascadeDescription { fontDescription });
-            style.fontCascade().update(&node->document().fontSelector());
             listMarkerRenderer->setStyle(WTFMove(style));
         }
 
@@ -167,7 +165,6 @@ auto TextAutoSizingValue::adjustTextNodeSizes() -> StillHasNodes
         newParentStyle.setLineHeight(lineHeightLength.isNormal() ? Length(lineHeightLength) : Length(lineHeight, LengthType::Fixed));
         newParentStyle.setSpecifiedLineHeight(Length { lineHeightLength });
         newParentStyle.setFontDescription(WTFMove(fontDescription));
-        newParentStyle.fontCascade().update(&node->document().fontSelector());
         parentRenderer->setStyle(WTFMove(newParentStyle));
 
         builder.updateAfterDescendants(*parentRenderer);
@@ -192,7 +189,6 @@ auto TextAutoSizingValue::adjustTextNodeSizes() -> StillHasNodes
             auto fontDescription = firstLetterStyle->fontDescription();
             fontDescription.setComputedSize(averageSize * fontDescription.specifiedSize() / parentStyle.fontDescription().specifiedSize());
             firstLetterStyle->setFontDescription(FontCascadeDescription { fontDescription });
-            firstLetterStyle->fontCascade().update(&node->document().fontSelector());
         }
 
         builder.updateAfterDescendants(*block);
@@ -224,7 +220,6 @@ void TextAutoSizingValue::reset()
             fontDescription.setComputedSize(originalSize);
             auto style = cloneRenderStyleWithState(renderer->style());
             style.setFontDescription(FontCascadeDescription { fontDescription });
-            style.fontCascade().update(&node->document().fontSelector());
             parentRenderer->setStyle(WTFMove(style));
         }
 
@@ -240,7 +235,6 @@ void TextAutoSizingValue::reset()
         auto newParentStyle = cloneRenderStyleWithState(parentStyle);
         newParentStyle.setLineHeight(Length { originalLineHeight });
         newParentStyle.setFontDescription(WTFMove(fontDescription));
-        newParentStyle.fontCascade().update(&node->document().fontSelector());
         parentRenderer->setStyle(WTFMove(newParentStyle));
     }
 }

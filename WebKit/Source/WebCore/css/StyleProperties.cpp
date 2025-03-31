@@ -23,13 +23,13 @@
 #include "config.h"
 #include "StyleProperties.h"
 
+#include "CSSColorValue.h"
 #include "CSSCustomPropertyValue.h"
 #include "CSSParser.h"
 #include "CSSPendingSubstitutionValue.h"
 #include "CSSPrimitiveValue.h"
 #include "CSSPropertyNames.h"
 #include "CSSPropertyParserConsumer+Font.h"
-#include "CSSPropertyParserHelpers.h"
 #include "CSSValueKeywords.h"
 #include "CSSValueList.h"
 #include "Color.h"
@@ -109,7 +109,8 @@ std::optional<Color> StyleProperties::propertyAsColor(CSSPropertyID property) co
     auto value = getPropertyCSSValue(property);
     if (!value)
         return std::nullopt;
-    return value->isColor() ? value->color()
+    return value->isColor()
+        ? CSSColorValue::absoluteColor(*value)
         : CSSParser::parseColorWithoutContext(WebCore::serializeLonghandValue(property, *value));
 }
 
@@ -365,7 +366,7 @@ bool StyleProperties::mayDependOnBaseURL() const
     return false;
 }
 
-void StyleProperties::setReplacementURLForSubresources(const HashMap<String, String>& replacementURLStrings)
+void StyleProperties::setReplacementURLForSubresources(const UncheckedKeyHashMap<String, String>& replacementURLStrings)
 {
     for (auto property : *this)
         property.value()->setReplacementURLForSubresources(replacementURLStrings);
@@ -412,7 +413,7 @@ CSSStyleDeclaration& MutableStyleProperties::ensureCSSStyleDeclaration()
         ASSERT(!m_cssomWrapper->parentElement());
         return *m_cssomWrapper;
     }
-    m_cssomWrapper = makeUnique<PropertySetCSSStyleDeclaration>(*this);
+    m_cssomWrapper = makeUniqueWithoutRefCountedCheck<PropertySetCSSStyleDeclaration>(*this);
     return *m_cssomWrapper;
 }
 
@@ -431,7 +432,7 @@ static_assert(sizeof(StyleProperties) == sizeof(SameSizeAsStyleProperties), "sty
 #ifndef NDEBUG
 void StyleProperties::showStyle()
 {
-    fprintf(stderr, "%s\n", asText().ascii().data());
+    SAFE_FPRINTF(stderr, "%s\n", asText().ascii());
 }
 #endif
 

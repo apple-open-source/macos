@@ -44,7 +44,4 @@ install:
 installhdrs:
 	@echo $(Project) has no headers to install
 
-installsrc:
-	ditto . $(SRCROOT)
-
 clean:

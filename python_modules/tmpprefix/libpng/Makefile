@@ -5,10 +5,8 @@
 # Set RC_CFLAGS to build multiple architectures.
 
 PNGNAME = libpng
-PNGVERSORIG = 1.6.36
-PNGVERS = $(PNGVERSORIG)-nocontrib
+PNGVERS = 1.6.36
 PNGNAMEVERS = $(PNGNAME)-$(PNGVERS)
-PNGNAMEVERSORIG = $(PNGNAME)-$(PNGVERSORIG)
 
 PNGSRC = $(SRCROOT)/tmpprefix/$(PNGNAME)
 PNGTOP = $(OBJROOT)/$(PNGNAME)
@@ -18,9 +16,9 @@ install: $(PNGDIR) $(PNGDIR)/darwin
 
 $(PNGDIR):
 	mkdir -p $(PNGTOP)
-	tar xzof $(PNGNAMEVERS).tar.gz -C $(PNGTOP)
-	cp -f $(PNGDIR)/LICENSE $(OSL)/$(PNGNAMEVERSORIG).txt
-	cp -f $(PNGSRC)/$(PNGNAME).partial $(OSV)/$(PNGNAMEVERSORIG).partial
+	cp -a $(PNGSRC)/$(PNGNAMEVERS) $(PNGTOP)
+	cp -f $(PNGDIR)/LICENSE $(OSL)/$(PNGNAMEVERS).txt
+	cp -f $(PNGSRC)/$(PNGNAME).partial $(OSV)/$(PNGNAMEVERS).partial
 
 $(PNGDIR)/darwin:
 	@set -x && \
@@ -34,11 +32,3 @@ $(PNGDIR)/darwin:
 	make install-pkgincludeHEADERS pkgincludedir="$(TMPPREFIX)/include" && \
 	make install-libLTLIBRARIES && \
 	cp "$(TMPPREFIX)/lib/libpng16.a" "$(TMPPREFIX)/lib/libpng.a"
-
-afterinstallsrc:
-	tar xozf $(PNGNAMEVERSORIG).tar.gz
-	rm -rf $(PNGNAMEVERSORIG)/contrib
-	mv $(PNGNAMEVERSORIG) $(PNGNAMEVERS)
-	tar czf $(PNGNAMEVERS).tar.gz $(PNGNAMEVERS)
-	rm -f $(PNGNAMEVERSORIG).tar.gz
-	rm -rf $(PNGNAMEVERS)

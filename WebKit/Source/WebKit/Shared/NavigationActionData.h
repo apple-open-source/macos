@@ -45,6 +45,8 @@
 namespace WebKit {
 
 struct NavigationActionData {
+    WTF_MAKE_STRUCT_FAST_ALLOCATED;
+
     WebCore::NavigationType navigationType { WebCore::NavigationType::Other };
     OptionSet<WebEventModifier> modifiers;
     WebMouseEventButton mouseButton { WebMouseEventButton::None };
@@ -62,6 +64,7 @@ struct NavigationActionData {
     bool openedByDOMWithOpener { false };
     bool hasOpener { false };
     bool isPerformingHTTPFallback { false };
+    String openedMainFrameName;
     WebCore::SecurityOriginData requesterOrigin;
     WebCore::SecurityOriginData requesterTopOrigin;
     std::optional<WebCore::BackForwardItemIdentifier> targetBackForwardItemIdentifier;

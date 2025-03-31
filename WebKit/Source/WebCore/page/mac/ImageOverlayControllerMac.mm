@@ -28,6 +28,8 @@
 
 #if PLATFORM(MAC)
 
+#import "Chrome.h"
+#import "ChromeClient.h"
 #import "DataDetection.h"
 #import "DataDetectionResultsStorage.h"
 #import "DataDetectorElementInfo.h"
@@ -42,6 +44,7 @@
 #import "LocalFrameView.h"
 #import "Page.h"
 #import "PlatformMouseEvent.h"
+#import "ShadowRoot.h"
 #import "SimpleRange.h"
 #import "TypedElementDescendantIteratorInlines.h"
 #import <QuartzCore/QuartzCore.h>
@@ -67,7 +70,7 @@ void ImageOverlayController::updateDataDetectorHighlights(const HTMLElement& ove
             dataDetectorResultElements.append(child);
     }
 
-    HashSet<Ref<HTMLElement>> dataDetectorResultElementsWithHighlights;
+    UncheckedKeyHashSet<Ref<HTMLElement>> dataDetectorResultElementsWithHighlights;
     for (auto& containerAndHighlight : m_dataDetectorContainersAndHighlights) {
         if (containerAndHighlight.first)
             dataDetectorResultElementsWithHighlights.add(*containerAndHighlight.first);

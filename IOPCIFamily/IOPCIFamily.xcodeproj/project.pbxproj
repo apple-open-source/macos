@@ -49,6 +49,7 @@
 			buildPhases = (
 			);
 			dependencies = (
+				26427FEE2BC08D18000D02D8 /* PBXTargetDependency */,
 				9874FC47234E750200096401 /* PBXTargetDependency */,
 			);
 			name = IOPCIFamily_watchOS;
@@ -60,6 +61,7 @@
 			buildPhases = (
 			);
 			dependencies = (
+				26427FEB2BC08D13000D02D8 /* PBXTargetDependency */,
 				9874FC49234E752E00096401 /* PBXTargetDependency */,
 			);
 			name = IOPCIFamily_bridgeOS;
@@ -162,6 +164,20 @@
 			proxyType = 1;
 			remoteGlobalIDString = A613B2750D46AA65007BA726;
 			remoteInfo = IOPCIFamily;
+		};
+		26427FEA2BC08D13000D02D8 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 089C1669FE841209C02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 983EB31824A5BC0600557323;
+			remoteInfo = ApplePIODMA;
+		};
+		26427FED2BC08D18000D02D8 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 089C1669FE841209C02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 983EB31824A5BC0600557323;
+			remoteInfo = ApplePIODMA;
 		};
 		98063B3A24F43C68006FD023 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -968,6 +984,16 @@
 			isa = PBXTargetDependency;
 			target = A613B2750D46AA65007BA726 /* IOPCIFamily */;
 			targetProxy = 260E65112A1C4C53007BA0B1 /* PBXContainerItemProxy */;
+		};
+		26427FEB2BC08D13000D02D8 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 983EB31824A5BC0600557323 /* ApplePIODMA */;
+			targetProxy = 26427FEA2BC08D13000D02D8 /* PBXContainerItemProxy */;
+		};
+		26427FEE2BC08D18000D02D8 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 983EB31824A5BC0600557323 /* ApplePIODMA */;
+			targetProxy = 26427FED2BC08D18000D02D8 /* PBXContainerItemProxy */;
 		};
 		98063B3B24F43C68006FD023 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
@@ -2547,11 +2573,11 @@
 				CLANG_WARN_SUSPICIOUS_IMPLICIT_CONVERSION = NO;
 				COPY_PHASE_STRIP = NO;
 				EXCLUDED_SOURCE_FILE_NAMES = "*.iig";
+				"EXCLUDED_SOURCE_FILE_NAMES[sdk=appletvos*]" = "";
 				"EXCLUDED_SOURCE_FILE_NAMES[sdk=iphoneos*.internal]" = "";
 				"EXCLUDED_SOURCE_FILE_NAMES[sdk=macosx*]" = "";
-				"EXCLUDED_SOURCE_FILE_NAMES[sdk=xros*]" = "";
 				"EXCLUDED_SOURCE_FILE_NAMES[sdk=watchos*]" = "";
-				"EXCLUDED_SOURCE_FILE_NAMES[sdk=appletvos*]" = "";
+				"EXCLUDED_SOURCE_FILE_NAMES[sdk=xros*]" = "";
 				EXPORTED_SYMBOLS_FILE = "";
 				FRAMEWORK_SEARCH_PATHS = "$(SDK_DIR)/System/Library/PrivateFrameworks/";
 				GCC_DYNAMIC_NO_PIC = NO;
@@ -2614,11 +2640,11 @@
 				CLANG_WARN_SUSPICIOUS_IMPLICIT_CONVERSION = NO;
 				COPY_PHASE_STRIP = YES;
 				EXCLUDED_SOURCE_FILE_NAMES = "*.iig";
+				"EXCLUDED_SOURCE_FILE_NAMES[sdk=appletvos*]" = "";
 				"EXCLUDED_SOURCE_FILE_NAMES[sdk=iphoneos*.internal]" = "";
 				"EXCLUDED_SOURCE_FILE_NAMES[sdk=macosx*]" = "";
-				"EXCLUDED_SOURCE_FILE_NAMES[sdk=xros*]" = "";
 				"EXCLUDED_SOURCE_FILE_NAMES[sdk=watchos*]" = "";
-				"EXCLUDED_SOURCE_FILE_NAMES[sdk=appletvos*]" = "";
+				"EXCLUDED_SOURCE_FILE_NAMES[sdk=xros*]" = "";
 				EXPORTED_SYMBOLS_FILE = "";
 				FRAMEWORK_SEARCH_PATHS = "$(SDK_DIR)/System/Library/PrivateFrameworks/";
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
@@ -2677,11 +2703,11 @@
 				CLANG_CXX_LANGUAGE_STANDARD = "compiler-default";
 				CLANG_WARN_SUSPICIOUS_IMPLICIT_CONVERSION = NO;
 				EXCLUDED_SOURCE_FILE_NAMES = "*.iig";
+				"EXCLUDED_SOURCE_FILE_NAMES[sdk=appletvos*]" = "";
 				"EXCLUDED_SOURCE_FILE_NAMES[sdk=iphoneos*.internal]" = "";
 				"EXCLUDED_SOURCE_FILE_NAMES[sdk=macosx*]" = "";
-				"EXCLUDED_SOURCE_FILE_NAMES[sdk=xros*]" = "";
 				"EXCLUDED_SOURCE_FILE_NAMES[sdk=watchos*]" = "";
-				"EXCLUDED_SOURCE_FILE_NAMES[sdk=appletvos*]" = "";
+				"EXCLUDED_SOURCE_FILE_NAMES[sdk=xros*]" = "";
 				EXPORTED_SYMBOLS_FILE = "";
 				FRAMEWORK_SEARCH_PATHS = "$(SDK_DIR)/System/Library/PrivateFrameworks/";
 				GCC_SYMBOLS_PRIVATE_EXTERN = YES;
@@ -2778,11 +2804,11 @@
 				CLANG_WARN_SUSPICIOUS_IMPLICIT_CONVERSION = NO;
 				COPY_PHASE_STRIP = NO;
 				EXCLUDED_SOURCE_FILE_NAMES = "*.iig";
+				"EXCLUDED_SOURCE_FILE_NAMES[sdk=appletvos*]" = "";
 				"EXCLUDED_SOURCE_FILE_NAMES[sdk=iphoneos*.internal]" = "";
 				"EXCLUDED_SOURCE_FILE_NAMES[sdk=macosx*]" = "";
-				"EXCLUDED_SOURCE_FILE_NAMES[sdk=xros*]" = "";
 				"EXCLUDED_SOURCE_FILE_NAMES[sdk=watchos*]" = "";
-				"EXCLUDED_SOURCE_FILE_NAMES[sdk=appletvos*]" = "";
+				"EXCLUDED_SOURCE_FILE_NAMES[sdk=xros*]" = "";
 				EXPORTED_SYMBOLS_FILE = "";
 				FRAMEWORK_SEARCH_PATHS = "$(SDK_DIR)/System/Library/PrivateFrameworks/";
 				GCC_DYNAMIC_NO_PIC = NO;
@@ -2866,11 +2892,11 @@
 				CLANG_CXX_LANGUAGE_STANDARD = "compiler-default";
 				CLANG_WARN_SUSPICIOUS_IMPLICIT_CONVERSION = NO;
 				EXCLUDED_SOURCE_FILE_NAMES = "*.iig";
+				"EXCLUDED_SOURCE_FILE_NAMES[sdk=appletvos*]" = "";
 				"EXCLUDED_SOURCE_FILE_NAMES[sdk=iphoneos*.internal]" = "";
 				"EXCLUDED_SOURCE_FILE_NAMES[sdk=macosx*]" = "";
-				"EXCLUDED_SOURCE_FILE_NAMES[sdk=xros*]" = "";
 				"EXCLUDED_SOURCE_FILE_NAMES[sdk=watchos*]" = "";
-				"EXCLUDED_SOURCE_FILE_NAMES[sdk=appletvos*]" = "";
+				"EXCLUDED_SOURCE_FILE_NAMES[sdk=xros*]" = "";
 				EXPORTED_SYMBOLS_FILE = "";
 				FRAMEWORK_SEARCH_PATHS = "$(SDK_DIR)/System/Library/PrivateFrameworks/";
 				GCC_SYMBOLS_PRIVATE_EXTERN = YES;

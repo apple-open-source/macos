@@ -62,7 +62,7 @@ struct node_type_tracker {
     void (*reconnect_callback)(route_state_t *route_state);
     route_state_t *route_state;
     srp_server_t *server_state;
-    cti_connection_t NULLABLE thread_context;
+    cti_connection_t *NULLABLE thread_context;
 	node_type_tracker_callback_t *callbacks;
 	uint64_t last_thread_network_node_type_change;
 	thread_node_type_t current_node_type, previous_node_type;

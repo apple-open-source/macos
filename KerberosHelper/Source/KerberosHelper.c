@@ -1663,6 +1663,8 @@ KRBDecodeNegTokenInit(CFAllocatorRef alloc, CFDataRef data)
 	NegotiationToken rfc2478;
 	NegotiationTokenWin win;
     } u;
+    memset(&u, 0, sizeof(u));
+    
     int win = 0;
     MechTypeList *mechtypes;
     char *hintsname = NULL;
@@ -1677,7 +1679,6 @@ KRBDecodeNegTokenInit(CFAllocatorRef alloc, CFDataRef data)
     if (junk)
 	goto out;
 
-    memset(&u, 0, sizeof(u));
     ret = decode_NegotiationToken(output_buffer.value, output_buffer.length, &u.rfc2478, NULL);
     if (ret == 0) {
 	if (u.rfc2478.element != choice_NegotiationToken_negTokenInit)

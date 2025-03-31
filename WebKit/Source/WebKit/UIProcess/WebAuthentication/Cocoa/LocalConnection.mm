@@ -36,7 +36,6 @@
 #import <wtf/TZoneMallocInlines.h>
 #import <wtf/cocoa/SpanCocoa.h>
 
-#import "AppAttestInternalSoftLink.h"
 #import "LocalAuthenticationSoftLink.h"
 
 #if USE(APPLE_INTERNAL_SDK)
@@ -58,6 +57,11 @@ static inline String bundleName()
 } // namespace
 
 WTF_MAKE_TZONE_ALLOCATED_IMPL(LocalConnection);
+
+Ref<LocalConnection> LocalConnection::create()
+{
+    return adoptRef(*new LocalConnection);
+}
 
 LocalConnection::~LocalConnection()
 {
@@ -81,7 +85,7 @@ void LocalConnection::verifyUser(const String& rpId, ClientDataType type, SecAcc
     }
 #endif
 
-    m_context = [allocLAContextInstance() init];
+    m_context = adoptNS([allocLAContextInstance() init]);
 
     auto options = adoptNS([[NSMutableDictionary alloc] init]);
 #if HAVE(UNIFIED_ASC_AUTH_UI)
@@ -176,7 +180,7 @@ RetainPtr<SecKeyRef> LocalConnection::createCredentialPrivateKey(LAContext *cont
     RetainPtr privateKeyAttributes = @{
         (id)kSecAttrAccessControl: (id)accessControlRef,
         (id)kSecAttrIsPermanent: @YES,
-        (id)kSecAttrAccessGroup: @(LocalAuthenticatorAccessGroup),
+        (id)kSecAttrAccessGroup: LocalAuthenticatorAccessGroup,
         (id)kSecAttrLabel: secAttrLabel,
         (id)kSecAttrApplicationTag: secAttrApplicationTag,
     };
@@ -210,9 +214,8 @@ RetainPtr<NSArray> LocalConnection::getExistingCredentials(const String& rpId)
     // Search Keychain for existing credential matched the RP ID.
     NSDictionary *query = @{
         (id)kSecClass: (id)kSecClassKey,
-        (id)kSecAttrKeyClass: (id)kSecAttrKeyClassPrivate,
         (id)kSecAttrSynchronizable: (id)kSecAttrSynchronizableAny,
-        (id)kSecAttrAccessGroup: @(LocalAuthenticatorAccessGroup),
+        (id)kSecAttrAccessGroup: LocalAuthenticatorAccessGroup,
         (id)kSecAttrLabel: rpId,
         (id)kSecReturnAttributes: @YES,
         (id)kSecMatchLimit: (id)kSecMatchLimitAll,

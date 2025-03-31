@@ -37,6 +37,7 @@
 #include "trust/trustd/SecTrustLoggingServer.h"
 #include "trust/trustd/SecRevocationDb.h"
 #include "trust/trustd/SecPinningDb.h"
+#include "trust/trustd/SecAnchorCache.h"
 #include "trust/trustd/SecTrustExceptionResetCount.h"
 #include "trust/trustd/trustdVariants.h"
 #include "trustd_spi.h"
@@ -115,6 +116,7 @@ void trustd_init_server(void) {
     SecPolicyServerInitialize();    // set up callbacks for policy checks
     SecRevocationDbInitialize();    // set up revocation database if it doesn't already exist, or needs to be replaced
     SecPinningDbInitialize();       // set up the pinning database
+    SecAnchorCacheInitialize();     // set up the anchor cache
 #if TARGET_OS_OSX
     SecTrustLegacySourcesListenForKeychainEvents(); // set up the legacy keychain event listeners (for cache invalidation)
 #endif

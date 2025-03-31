@@ -76,6 +76,8 @@ Run the program with the resource management policies given to applications.
 Run the program with an initial suspended state by calling
 .Xr posix_spawnattr_setflags 3
 with POSIX_SPAWN_START_SUSPENDED.
+.It Fl S
+Run the program with security transition shims in effect.
 .El
 .Sh SEE ALSO
 .Xr setpriority 2 ,

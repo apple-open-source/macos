@@ -319,6 +319,13 @@ bool ValidateClearTexImageCommon(const Context *context,
             const ImageIndex index = it.next();
             TextureTarget target   = index.getTarget();
             const Extents extents  = tex->getExtents(target, level);
+
+            if (!tex->getState().getImageDesc(index).format.valid())
+            {
+                ANGLE_VALIDATION_ERROR(GL_INVALID_OPERATION, kDestinationLevelNotDefined);
+                return false;
+            }
+
             if (area.has_value() &&
                 (area->x + area->width > extents.width || area->y + area->height > extents.height))
             {
@@ -337,6 +344,13 @@ bool ValidateClearTexImageCommon(const Context *context,
     {
         TextureTarget target  = NonCubeTextureTypeToTarget(tex->getType());
         const Extents extents = tex->getExtents(target, level);
+
+        if (!tex->getState().getImageDesc(target, level).format.valid())
+        {
+            ANGLE_VALIDATION_ERROR(GL_INVALID_OPERATION, kDestinationLevelNotDefined);
+            return false;
+        }
+
         if (area.has_value() &&
             (area->x + area->width > extents.width || area->y + area->height > extents.height ||
              area->z + area->depth > extents.depth))
@@ -923,6 +937,29 @@ bool ValidateReadnPixelsKHR(const Context *context,
 
     return ValidateReadPixelsBase(context, entryPoint, x, y, width, height, format, type, bufSize,
                                   nullptr, nullptr, nullptr, data);
+}
+
+bool ValidateBlendEquationOES(const PrivateState &state,
+                              ErrorSet *errors,
+                              angle::EntryPoint entryPoint,
+                              GLenum mode)
+{
+    if (!state.getExtensions().blendSubtractOES)
+    {
+        errors->validationError(entryPoint, GL_INVALID_OPERATION, kExtensionNotEnabled);
+        return false;
+    }
+
+    switch (mode)
+    {
+        case GL_FUNC_ADD_OES:
+        case GL_FUNC_SUBTRACT_OES:
+        case GL_FUNC_REVERSE_SUBTRACT_OES:
+            return true;
+        default:
+            errors->validationError(entryPoint, GL_INVALID_ENUM, kInvalidBlendEquation);
+            return false;
+    }
 }
 
 bool ValidateBlendEquationSeparateiEXT(const PrivateState &state,
@@ -2278,7 +2315,7 @@ bool ValidateFramebufferMemorylessPixelLocalStorageANGLE(const Context *context,
                                                          GLint plane,
                                                          GLenum internalformat)
 {
-    if (!ValidatePLSCommon(context, entryPoint, plane, PLSExpectedStatus::Inactive))
+    if (!ValidatePLSCommon(context, entryPoint, plane, PLSExpectedStatus::Any))
     {
         return false;
     }
@@ -2303,7 +2340,7 @@ bool ValidateFramebufferTexturePixelLocalStorageANGLE(const Context *context,
                                                       GLint level,
                                                       GLint layer)
 {
-    if (!ValidatePLSCommon(context, entryPoint, plane, PLSExpectedStatus::Inactive))
+    if (!ValidatePLSCommon(context, entryPoint, plane, PLSExpectedStatus::Any))
     {
         return false;
     }
@@ -3220,6 +3257,27 @@ bool ValidatePrimitiveBoundingBoxOES(const PrivateState &state,
     return true;
 }
 
+// GL_OES_texture_storage_multisample_2d_array
+bool ValidateTexStorage3DMultisampleOES(const Context *context,
+                                        angle::EntryPoint entryPoint,
+                                        TextureType target,
+                                        GLsizei samples,
+                                        GLenum internalformat,
+                                        GLsizei width,
+                                        GLsizei height,
+                                        GLsizei depth,
+                                        GLboolean fixedsamplelocations)
+{
+    if (!context->getExtensions().textureStorageMultisample2dArrayOES)
+    {
+        ANGLE_VALIDATION_ERROR(GL_INVALID_OPERATION, kExtensionNotEnabled);
+        return false;
+    }
+
+    return ValidateTexStorage3DMultisampleBase(context, entryPoint, target, samples, internalformat,
+                                               width, height, depth);
+}
+
 // GL_EXT_separate_shader_objects
 bool ValidateActiveShaderProgramEXT(const Context *context,
                                     angle::EntryPoint entryPoint,
@@ -4038,11 +4096,34 @@ bool ValidateEGLImageTargetTexStorageEXT(const Context *context,
         return false;
     }
 
-    // attrib list validation
-    if (attrib_list != nullptr && attrib_list[0] != GL_NONE)
+    if (attrib_list != nullptr)
     {
-        ANGLE_VALIDATION_ERROR(GL_INVALID_VALUE, kAttributeListNotNull);
-        return false;
+        for (const GLint *attrib = attrib_list; attrib[0] != GL_NONE; attrib += 2)
+        {
+            switch (attrib[0])
+            {
+                case GL_SURFACE_COMPRESSION_EXT:
+                    switch (attrib[1])
+                    {
+                        case GL_SURFACE_COMPRESSION_FIXED_RATE_NONE_EXT:
+                            if (imageObject->isFixedRatedCompression(context))
+                            {
+                                ANGLE_VALIDATION_ERROR(GL_INVALID_OPERATION, kAttributeNotMatch);
+                                return false;
+                            }
+                            break;
+                        case GL_SURFACE_COMPRESSION_FIXED_RATE_DEFAULT_EXT:
+                            break;
+                        default:
+                            ANGLE_VALIDATION_ERROR(GL_INVALID_VALUE, kAttributeNotValid);
+                            return false;
+                    }
+                    break;
+                default:
+                    ANGLE_VALIDATION_ERROR(GL_INVALID_VALUE, kAttributeNotValid);
+                    return false;
+            }
+        }
     }
 
     GLsizei levelCount    = imageObject->getLevelCount();
@@ -4672,6 +4753,108 @@ bool ValidateStartTilingQCOM(const Context *context,
 
     // preserveMask does not need to be validated. The bitfield covers the entire 32 bits of
     // GLbitfield and unbound attachments are siliently ignored like in glClear
+
+    return true;
+}
+
+bool ValidateTexStorageAttribs(const GLint *attrib_list)
+{
+    if (nullptr != attrib_list && GL_NONE != *attrib_list)
+    {
+        attrib_list++;
+        if (nullptr == attrib_list)
+        {
+            return false;
+        }
+
+        if (*attrib_list == GL_SURFACE_COMPRESSION_FIXED_RATE_NONE_EXT ||
+            *attrib_list == GL_SURFACE_COMPRESSION_FIXED_RATE_DEFAULT_EXT)
+        {
+            return true;
+        }
+        else if (*attrib_list >= GL_SURFACE_COMPRESSION_FIXED_RATE_1BPC_EXT &&
+                 *attrib_list <= GL_SURFACE_COMPRESSION_FIXED_RATE_12BPC_EXT)
+        {
+            return true;
+        }
+        else
+        {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+bool ValidateTexStorageAttribs2DEXT(const Context *context,
+                                    angle::EntryPoint entryPoint,
+                                    GLenum target,
+                                    GLsizei levels,
+                                    GLenum internalformat,
+                                    GLsizei width,
+                                    GLsizei height,
+                                    const GLint *attrib_list)
+{
+    gl::TextureType targetType = FromGLenum<TextureType>(target);
+    if (!context->getExtensions().textureStorageCompressionEXT)
+    {
+        ANGLE_VALIDATION_ERROR(GL_INVALID_OPERATION, kExtensionNotEnabled);
+        return false;
+    }
+
+    if (ValidateTexStorageAttribs(attrib_list) == false)
+    {
+        ANGLE_VALIDATION_ERROR(GL_INVALID_VALUE, kInvalidAttribList);
+    }
+
+    if (context->getClientMajorVersion() < 3)
+    {
+        return ValidateES2TexStorageParametersBase(context, entryPoint, targetType, levels,
+                                                   internalformat, width, height);
+    }
+
+    if (context->getClientMajorVersion() >= 3)
+    {
+        return ValidateES3TexStorage2DParameters(context, entryPoint, targetType, levels,
+                                                 internalformat, width, height, 1);
+    }
+
+    return true;
+}
+
+bool ValidateTexStorageAttribs3DEXT(const Context *context,
+                                    angle::EntryPoint entryPoint,
+                                    GLenum target,
+                                    GLsizei levels,
+                                    GLenum internalformat,
+                                    GLsizei width,
+                                    GLsizei height,
+                                    GLsizei depth,
+                                    const GLint *attrib_list)
+{
+    gl::TextureType targetType = FromGLenum<TextureType>(target);
+    if (!context->getExtensions().textureStorageCompressionEXT)
+    {
+        ANGLE_VALIDATION_ERROR(GL_INVALID_OPERATION, kExtensionNotEnabled);
+        return false;
+    }
+
+    if (ValidateTexStorageAttribs(attrib_list) == false)
+    {
+        ANGLE_VALIDATION_ERROR(GL_INVALID_VALUE, kInvalidAttribList);
+    }
+
+    if (context->getClientMajorVersion() < 3)
+    {
+        return ValidateES2TexStorageParametersBase(context, entryPoint, targetType, levels,
+                                                   internalformat, width, height);
+    }
+
+    if (context->getClientMajorVersion() >= 3)
+    {
+        return ValidateES3TexStorage3DParameters(context, entryPoint, targetType, levels,
+                                                 internalformat, width, height, depth);
+    }
 
     return true;
 }

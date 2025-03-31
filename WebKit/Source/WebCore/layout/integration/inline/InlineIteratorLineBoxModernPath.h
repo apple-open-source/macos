@@ -63,25 +63,31 @@ public:
 
     float contentLogicalTopAdjustedForPrecedingLineBox() const
     {
-        if (isFlippedLinesWritingMode(formattingContextRoot().style().writingMode()) || !m_lineIndex)
+        if (formattingContextRoot().writingMode().isLineInverted() || !m_lineIndex)
             return contentLogicalTop();
         return LineBoxIteratorModernPath { *m_inlineContent, m_lineIndex - 1 }.contentLogicalBottom();
     }
     float contentLogicalBottomAdjustedForFollowingLineBox() const
     {
-        if (!isFlippedLinesWritingMode(formattingContextRoot().style().writingMode()) || m_lineIndex == lines().size() - 1)
+        if (!formattingContextRoot().writingMode().isLineInverted() || m_lineIndex == lines().size() - 1)
             return contentLogicalBottom();
         return LineBoxIteratorModernPath { *m_inlineContent, m_lineIndex + 1 }.contentLogicalTop();
     }
 
-    float contentLogicalLeft() const { return line().lineBoxLeft() + line().contentLogicalLeftIgnoringInlineDirection(); }
+    float contentLogicalLeft() const
+    {
+        auto writingMode = formattingContextRoot().writingMode();
+        if (writingMode.isLogicalLeftLineLeft())
+            return line().lineBoxLeft() + line().contentLogicalLeftIgnoringInlineDirection();
+        ASSERT(writingMode.isVertical()); // Currently only sideways-lr gets this far.
+        return line().bottom() - (line().contentLogicalLeftIgnoringInlineDirection() + line().contentLogicalWidth());
+    }
     float contentLogicalRight() const { return contentLogicalLeft() + line().contentLogicalWidth(); }
     bool isHorizontal() const { return line().isHorizontal(); }
     FontBaseline baselineType() const { return line().baselineType(); }
 
     const RenderBlockFlow& formattingContextRoot() const { return m_inlineContent->formattingContextRoot(); }
 
-    RenderFragmentContainer* containingFragment() const { return nullptr; }
     bool isFirstAfterPageBreak() const { return line().isFirstAfterPageBreak(); }
 
     size_t lineIndex() const { return m_lineIndex; }
@@ -115,7 +121,7 @@ public:
             return { *m_inlineContent };
         auto runIterator = BoxModernPath { *m_inlineContent, line().firstBoxIndex() };
         if (runIterator.box().isInlineBox())
-            runIterator.traverseNextOnLine();
+            runIterator.traverseNextLeafOnLine();
         return runIterator;
     }
 
@@ -126,7 +132,7 @@ public:
             return { *m_inlineContent };
         auto runIterator = BoxModernPath { *m_inlineContent, line().firstBoxIndex() + boxCount - 1 };
         if (runIterator.box().isInlineBox())
-            runIterator.traversePreviousOnLine();
+            runIterator.traversePreviousLeafOnLine();
         return runIterator;
     }
 

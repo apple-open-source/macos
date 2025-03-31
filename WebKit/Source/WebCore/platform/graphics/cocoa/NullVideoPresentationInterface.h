@@ -29,6 +29,7 @@
 
 #include "NullPlaybackSessionInterface.h"
 #include "VideoFullscreenCaptions.h"
+#include "VideoPresentationLayerProvider.h"
 #include "VideoPresentationModel.h"
 #include <wtf/TZoneMallocInlines.h>
 
@@ -38,6 +39,7 @@ class NullVideoPresentationInterface final
     : public VideoPresentationModelClient
     , public PlaybackSessionModelClient
     , public VideoFullscreenCaptions
+    , public VideoPresentationLayerProvider
     , public RefCounted<NullVideoPresentationInterface>
     , public CanMakeCheckedPtr<NullVideoPresentationInterface> {
     WTF_MAKE_TZONE_ALLOCATED_INLINE(NullVideoPresentationInterface);
@@ -54,7 +56,7 @@ public:
 
     void setSpatialVideoMetadata(const std::optional<SpatialVideoMetadata>&) { }
     void setVideoPresentationModel(VideoPresentationModel* model) { m_videoPresentationModel = model; }
-    void setupFullscreen(UIView&, const FloatRect&, const FloatSize&, UIView*, HTMLMediaElementEnums::VideoFullscreenMode, bool, bool, bool) { }
+    void setupFullscreen(const FloatRect&, const FloatSize&, UIView*, HTMLMediaElementEnums::VideoFullscreenMode, bool, bool, bool) { }
     void enterFullscreen() { }
     bool exitFullscreen(const FloatRect& finalRect) { return false; }
     void exitFullscreenWithoutAnimationToMode(HTMLMediaElementEnums::VideoFullscreenMode) { }
@@ -86,6 +88,8 @@ public:
     // PlaybackSessionModelClient
     void externalPlaybackChanged(bool, PlaybackSessionModel::ExternalPlaybackTargetType, const String&) final { }
 
+    void swapFullscreenModesWith(NullVideoPresentationInterface&) { }
+
 private:
     NullVideoPresentationInterface(NullPlaybackSessionInterface& playbackSessionInterface)
         : m_playbackSessionInterface(playbackSessionInterface)
@@ -93,10 +97,10 @@ private:
     }
 
     // CheckedPtr interface
-    uint32_t ptrCount() const final { return CanMakeCheckedPtr::ptrCount(); }
-    uint32_t ptrCountWithoutThreadCheck() const final { return CanMakeCheckedPtr::ptrCountWithoutThreadCheck(); }
-    void incrementPtrCount() const final { CanMakeCheckedPtr::incrementPtrCount(); }
-    void decrementPtrCount() const final { CanMakeCheckedPtr::decrementPtrCount(); }
+    uint32_t checkedPtrCount() const final { return CanMakeCheckedPtr::checkedPtrCount(); }
+    uint32_t checkedPtrCountWithoutThreadCheck() const final { return CanMakeCheckedPtr::checkedPtrCountWithoutThreadCheck(); }
+    void incrementCheckedPtrCount() const final { CanMakeCheckedPtr::incrementCheckedPtrCount(); }
+    void decrementCheckedPtrCount() const final { CanMakeCheckedPtr::decrementCheckedPtrCount(); }
 
     Ref<NullPlaybackSessionInterface> m_playbackSessionInterface;
     ThreadSafeWeakPtr<VideoPresentationModel> m_videoPresentationModel;

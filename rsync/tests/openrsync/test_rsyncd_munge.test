@@ -1,0 +1,50 @@
+#! /bin/sh
+
+. ${tstdir-.}/daemon.sh
+. ${tstdir-.}/lib.sh
+. ${tstdir-.}/conf.sh
+
+src="$PWD/src"
+dest="$PWD/ftp"
+cfgfile="$PWD/rsyncd.conf"
+
+rm -rf "$dest" "$src"
+
+mkdir "$dest" "$src"
+ln -s /etc/passwd "$src"/link
+
+cat <<EOF > "$cfgfile"
+[munger]
+	path = $dest
+	use chroot = no
+	munge symlinks = yes
+	read only = no
+EOF
+
+rsyncd "$cfgfile"
+dport=$(daemon_port)
+
+command $RSYNC_CLIENT -l "$src"/link rsync://localhost:$dport/munger
+if [ ! -L "$dest"/link ]; then
+	1>&2 echo "symlink did not transfer"
+	exit 1
+fi
+
+if ! readlink "$dest"/link | grep -q '^/rsyncd-munged/'; then
+	1>&2 echo "symlink did not get munged"
+	1>&2 ls -l "$dest"/link
+	exit 1
+fi
+
+rm "$src"/link
+command $RSYNC_CLIENT -l rsync://localhost:$dport/munger/link "$src"
+if [ ! -L "$src"/link ]; then
+	1>&2 echo "symlink did not transfer"
+	exit 1
+fi
+
+if readlink "$src"/link | grep -q '^/rsyncd-munged/'; then
+	1>&2 echo "symlink did not get de-munged"
+	1>&2 ls -l "$src"/link
+	exit 1
+fi

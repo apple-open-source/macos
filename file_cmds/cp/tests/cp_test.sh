@@ -493,16 +493,37 @@ link_perms_body()
 
 	# First do a test with a manually copied dst/
 	mkdir dst
-	cp -p src/file dst/file
+	atf_check cp -p src/file dst/file
 
 	atf_check -o inline:"100444\n" stat -f '%p' dst/file
-	cp -P src/link dst
+	atf_check cp -P src/link dst
 	atf_check -o inline:"100444\n" stat -f '%p' dst/file
 
 	# Then construct a ref/ with `cp -a` and sanity check it
 	cp -a src ref
 	atf_check -o inline:"100444\n" stat -f '%p' ref/file
 	atf_check -o inline:"120777\n" stat -f '%p' ref/link
+}
+
+atf_test_case link_attr
+link_attr_head()
+{
+	atf_set "descr" "Verifying that cp -p preserves symlink's attributes, " \
+			"rather than the attributes of the symlink's target."
+}
+link_attr_body()
+{
+	mkdir src
+	touch src/target
+	mkdir src/link_dir
+	# Create symlink (must use relative path for the failure to occur)
+	atf_check ln -s ../target src/link_dir/link
+	# cp (with attribute preservation) the test dir containing both the
+	# target and the link (in a subdirectory) to a new dir.
+	# Prior to 69452380, this failed because we followed the symlink to
+	# try and preserve attributes for a non-existing file, instead of
+	# preserving the attributes of the symlink itself.
+	atf_check cp -R -P -p src dst
 }
 
 atf_test_case link_dir cleanup
@@ -565,6 +586,7 @@ atf_init_test_cases()
 	atf_add_test_case cflag
 	atf_add_test_case Sflag
 	atf_add_test_case link_perms
+	atf_add_test_case link_attr
 	atf_add_test_case link_dir
 #endif
 }

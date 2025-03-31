@@ -12,13 +12,17 @@
 # OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
 # CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
-# When publishing to BCR, replace the version field below with
-# 0.0.0-YYYYMMDD-HASH, e.g. "0.0.0-20240126-22d349c".
+# When tagging a new periodic snapshot, bump the version here and then tag at
+# the revision where we bump the version.
 module(
     name = "boringssl",
-    version = "0.0.0-dev",
+    version = "0.20241024.0",
     compatibility_level = 2,
 )
+
+# Periodically update the following dependencies to their latest versions
+# listed on https://registry.bazel.build/. When doing so, run
+# `bazelisk test ...` to update the hashes in MODULE.bazel.lock.
 
 # In principle, googletest is only needed for tests and could be a
 # dev_dependency. But it would then be impossible for downstream modules to run
@@ -26,7 +30,8 @@ module(
 # need to request they run tests when triaging issues. If
 # https://github.com/bazelbuild/bazel/issues/22187 is ever fixed, we can change
 # this.
-bazel_dep(name = "googletest", version = "1.14.0.bcr.1")
+bazel_dep(name = "googletest", version = "1.15.2")
 
-bazel_dep(name = "platforms", version = "0.0.9")
-bazel_dep(name = "rules_cc", version = "0.0.9")
+bazel_dep(name = "platforms", version = "0.0.10")
+bazel_dep(name = "rules_cc", version = "0.0.10")
+bazel_dep(name = "rules_license", version = "1.0.0")

@@ -27,7 +27,6 @@
 
 #include "IntDegrees.h"
 #include <wtf/CheckedRef.h>
-#include <wtf/TZoneMallocInlines.h>
 #include <wtf/Vector.h>
 
 namespace WebCore {
@@ -35,7 +34,7 @@ namespace WebCore {
 enum class VideoFrameRotation : uint16_t;
 
 class OrientationNotifier final : public CanMakeCheckedPtr<OrientationNotifier> {
-    WTF_MAKE_TZONE_ALLOCATED_INLINE(OrientationNotifier);
+    WTF_MAKE_TZONE_ALLOCATED(OrientationNotifier);
     WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(OrientationNotifier);
 public:
     explicit OrientationNotifier(IntDegrees orientation) { m_orientation = orientation; }

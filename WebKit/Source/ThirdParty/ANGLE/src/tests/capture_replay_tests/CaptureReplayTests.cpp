@@ -15,6 +15,11 @@
 #include "util/EGLWindow.h"
 #include "util/OSWindow.h"
 #include "util/shader_utils.h"
+#include "util/test_utils.h"
+
+#if defined(ANGLE_PLATFORM_ANDROID)
+#    include "util/android/AndroidWindow.h"
+#endif
 
 #include <stdint.h>
 #include <string.h>
@@ -233,13 +238,8 @@ class CaptureReplayTests
 
         if (!mEGLWindow)
         {
-            // TODO: to support desktop OpenGL traces, capture the client api and profile mask in
-            // TraceInfo
-            const EGLenum testClientAPI  = EGL_OPENGL_ES_API;
-            const EGLint testProfileMask = 0;
-
-            mEGLWindow = EGLWindow::New(testClientAPI, traceInfo.contextClientMajorVersion,
-                                        traceInfo.contextClientMinorVersion, testProfileMask);
+            mEGLWindow = EGLWindow::New(traceInfo.contextClientMajorVersion,
+                                        traceInfo.contextClientMinorVersion);
         }
 
         ConfigParameters configParams;
@@ -293,8 +293,12 @@ class CaptureReplayTests
         }
 #endif
 
+        std::string baseDir = "";
+#if defined(ANGLE_TRACE_EXTERNAL_BINARIES)
+        baseDir += AndroidWindow::GetApplicationDirectory() + "/angle_traces/";
+#endif
         // Load trace
-        mTraceLibrary.reset(new angle::TraceLibrary(traceInfo.name, traceInfo));
+        mTraceLibrary.reset(new angle::TraceLibrary(traceInfo.name, traceInfo, baseDir));
         if (!mTraceLibrary->valid())
         {
             std::cout << "Failed to load trace library: " << traceInfo.name << "\n";
@@ -441,6 +445,9 @@ int main(int argc, char **argv)
         printf("Usage: capture_replay_tests {trace_label}\n");
         return -1;
     }
+    angle::CrashCallback crashCallback = []() {};
+    angle::InitCrashHandler(&crashCallback);
+
     CaptureReplayTests app;
     return app.run(argv[1]);
 }

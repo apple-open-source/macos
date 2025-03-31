@@ -26,17 +26,17 @@
 
 #import "SFAnalytics+Internal.h"
 #import "SFAnalyticsCollection.h"
-#import "SECSFARules.h"
-#import "SECSFAEventRule.h"
-#import "SECSFAAction.h"
-#import "SECSFAActionAutomaticBugCapture.h"
-#import "SECSFAActionTapToRadar.h"
-#import "SECSFAActionDropEvent.h"
-#import "SECSFAVersionMatch.h"
-#import "SECSFAEventFilter.h"
-#import "SECSFAVersion.h"
-#import "SecABC.h"
-#import "SecTapToRadar.h"
+#import "Analytics/Protobuf/SECSFARules.h"
+#import "Analytics/Protobuf/SECSFAEventRule.h"
+#import "Analytics/Protobuf/SECSFAAction.h"
+#import "Analytics/Protobuf/SECSFAActionAutomaticBugCapture.h"
+#import "Analytics/Protobuf/SECSFAActionTapToRadar.h"
+#import "Analytics/Protobuf/SECSFAActionDropEvent.h"
+#import "Analytics/Protobuf/SECSFAVersionMatch.h"
+#import "Analytics/Protobuf/SECSFAEventFilter.h"
+#import "Analytics/Protobuf/SECSFAVersion.h"
+#import "utilities/SecABC.h"
+#import "utilities/SecTapToRadar.h"
 
 #include <os/feature_private.h>
 
@@ -428,8 +428,8 @@ static NSString* SFCollectionConfig = @"SFCollectionConfig";
         version.productName = SECSFAProductName_iphoneOS;
     } else if ([platform isEqual:@"Apple TVOS"]) {
         version.productName = SECSFAProductName_tvOS;
-    } else if ([platform isEqual:@"xrOS"]) {
-        version.productName = SECSFAProductName_xrOS;
+    } else if ([platform isEqual:@"visionOS"] || [platform isEqual:@"xrOS"]) {
+        version.productName = SECSFAProductName_visionOS;
     } else if ([platform isEqual:@"Watch OS"]) {
         version.productName = SECSFAProductName_watchOS;
     } else {
@@ -456,63 +456,42 @@ static NSString* SFCollectionConfig = @"SFCollectionConfig";
     return version;
 }
 
+// compare if its same platform, and version is same or newer
++ (BOOL)isVersionSameOrNewer:(SECSFAVersion *)v1 than:(SECSFAVersion *)v2 {
+    if (v1.productName != v2.productName) {
+        return NO;
+    }
+    if (v1.major > v2.major) {
+        return YES;
+    }
+    if (v1.major < v2.major) {
+        return NO;
+    }
+    if (v1.minor > v2.minor) {
+        return YES;
+    }
+    if (v1.minor < v2.minor) {
+        return NO;
+    }
+    if (v1.build < v2.build) {
+        return NO;
+    }
+    return YES;
+}
 
 - (void)dealloc {
     [self onQueue_stopMetricCollection];
 }
 
-- (BOOL)matchRuleWithSelf:(SECSFAVersionMatch*)match {
-    if (os_feature_enabled("Security", "AllowAllMetrics")) {
-        return YES;
-    }
-    if (match.versionsCount == 0) {
-        return YES;
-    }
-    for (SECSFAVersion *v in match.versions) {
-        if (v.productName != self.selfVersion.productName) {
-            continue;
-        }
-        if (v.major > self.selfVersion.major) {
-            continue;
-        }
-        // almost a match, if we are on same minor, check build
-        // otherwise, make sure minor is less then self.
-        if (v.minor == self.selfVersion.minor) {
-            if (v.build < self.selfVersion.build) {
-                return NO;
-            }
-            return YES;
-        } else if (v.minor < self.selfVersion.minor) {
-            return YES;
-        }
-        return NO;
-    }
-    return NO;
-}
-
-// exact match on platform
-// self version >= allowed version
+// is the self version newer then match, allowed if there is no matches
 - (BOOL)allowedVersionsWithSelf:(SECSFAVersionMatch*)match {
-    if (os_feature_enabled("Security", "AllowAllMetrics")) {
-        return YES;
-    }
     if (match.versionsCount == 0) {
         return YES;
     }
     for (SECSFAVersion *v in match.versions) {
-        if (v.productName != self.selfVersion.productName) {
-            continue;
-        }
-        if (v.major <= self.selfVersion.major) {
+        if ([[self class] isVersionSameOrNewer:self.selfVersion than:v]) {
             return YES;
         }
-        if (v.minor < self.selfVersion.minor) {
-            return YES;
-        }
-        if (v.minor == self.selfVersion.minor && v.build <= self.selfVersion.build) {
-            return YES;
-        }
-        return NO;
     }
     return NO;
 }
@@ -531,42 +510,50 @@ static NSString* SFCollectionConfig = @"SFCollectionConfig";
     
     SecSFAParsedCollection *parsed = [[SecSFAParsedCollection alloc] init];
 
-    parsed.excludedVersion = ![self allowedVersionsWithSelf:rules.allowedBuilds];
-    if (parsed.excludedVersion) {
-        return parsed;
+    if (rules.allowedBuilds.versionsCount > 0) {
+        parsed.excludedVersion = ![self allowedVersionsWithSelf:rules.allowedBuilds];
+        if (parsed.excludedVersion) {
+            return parsed;
+        }
     }
     
     NSNumber *zero = @0;
 
-    parsed.allowedEvents = [NSMutableDictionary dictionary];
-    for (SECSFAEventFilter* rule in rules.eventFilters) {
-        NSNumber *dropRate = nil;
-        if (rule.dropRate == 0) {
-            dropRate = zero;
-        } else if (rule.dropRate > 0 && rule.dropRate <= 100) {
-            dropRate = @(rule.dropRate);
+    if (rules.eventFilters.count > 0) {
+        parsed.allowedEvents = [NSMutableDictionary dictionary];
+        for (SECSFAEventFilter* rule in rules.eventFilters) {
+            NSNumber *dropRate = nil;
+            if (rule.dropRate == 0) {
+                dropRate = zero;
+            } else if (rule.dropRate > 0 && rule.dropRate <= 100) {
+                dropRate = @(rule.dropRate);
+            }
+            parsed.allowedEvents[rule.event] = dropRate;
         }
-        parsed.allowedEvents[rule.event] = dropRate;
     }
-
-    parsed.matchingRules = [NSMutableDictionary dictionary];
-
-    for (SECSFAEventRule* rule in rules.eventRules) {
-        if (rule.versions != nil && ![self matchRuleWithSelf:rule.versions]) {
-            continue;
-        }
-        NSMutableSet<SFAnalyticsMatchingRule *>* r = parsed.matchingRules[rule.eventType];
-        if (r == NULL) {
-            r = [NSMutableSet set];
-            parsed.matchingRules[rule.eventType] = r;
-        }
-        SFAnalyticsMatchingRule *mr = [[SFAnalyticsMatchingRule alloc] initWithSFARule:rule logger:logger];
-        if (mr) {
-            [r addObject:mr];
-        }
+    
+    if (rules.eventRules.count > 0) {
+        parsed.matchingRules = [NSMutableDictionary dictionary];
         
-        // allow filtered events
-        parsed.allowedEvents[rule.eventType] = zero;
+        for (SECSFAEventRule* rule in rules.eventRules) {
+
+            // Check if this rule apply to this version
+            if (rule.versions != nil && ![self allowedVersionsWithSelf:rule.versions]) {
+                continue;
+            }
+            NSMutableSet<SFAnalyticsMatchingRule *>* r = parsed.matchingRules[rule.eventType];
+            if (r == NULL) {
+                r = [NSMutableSet set];
+                parsed.matchingRules[rule.eventType] = r;
+            }
+            SFAnalyticsMatchingRule *mr = [[SFAnalyticsMatchingRule alloc] initWithSFARule:rule logger:logger];
+            if (mr) {
+                [r addObject:mr];
+            }
+            
+            // allow filtered events
+            parsed.allowedEvents[rule.eventType] = zero;
+        }
     }
     
     return parsed;
@@ -591,15 +578,24 @@ static NSString* SFCollectionConfig = @"SFCollectionConfig";
             if (strongLogger == nil || strongSelf == nil) {
                 return 0;
             }
+            if (os_feature_enabled(Security, AllowAllMetrics)) {
+                return 0;
+            }
+            
+            // if this version is excluded, stop sending events
             if (strongSelf.excludedVersion) {
                 return SFAnalyticsMetricsHookExcludeEvent;
             }
-            NSNumber *dropRate = strongSelf.allowedEvents[eventName];
-            if (dropRate == nil) {
-                return SFAnalyticsMetricsHookExcludeEvent;
-            } else if ([dropRate integerValue] > 0) {
-                if ([dropRate integerValue] > arc4random_uniform(100)) {
+
+            // if there is an allow list, apply it
+            if (strongSelf.allowedEvents) {
+                NSNumber *dropRate = strongSelf.allowedEvents[eventName];
+                if (dropRate == nil) {
                     return SFAnalyticsMetricsHookExcludeEvent;
+                } else if ([dropRate integerValue] > 0) {
+                    if ([dropRate integerValue] > arc4random_uniform(100)) {
+                        return SFAnalyticsMetricsHookExcludeEvent;
+                    }
                 }
             }
             
@@ -648,6 +644,10 @@ static NSString* SFCollectionConfig = @"SFCollectionConfig";
 - (void)loadCollection:(SFAnalytics *)logger
 {
     NSData *data = [logger dataPropertyForKey:SFCollectionConfig];
+    if (data == nil) {
+        os_log(getOSLog(), "No rules, not setting up collection");
+        return;
+    }
     SecSFAParsedCollection * newRules = [self parseCollection:data logger:logger];
     dispatch_sync(self.queue, ^{
         self.matchingRules = newRules.matchingRules;

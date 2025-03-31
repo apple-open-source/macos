@@ -1240,6 +1240,7 @@ pcap_ng_next_internal(pcap_t *p, struct pcap_pkthdr *hdr, u_char **data, int pkt
 				t = ((uint64_t)epbp->timestamp_high) << 32 |
 				    epbp->timestamp_low;
 			}
+			p->packet_read_count += 1;
 			goto found;
 
 		case BT_SPB:
@@ -1276,6 +1277,7 @@ pcap_ng_next_internal(pcap_t *p, struct pcap_pkthdr *hdr, u_char **data, int pkt
 			if (hdr->caplen > (bpf_u_int32)p->snapshot)
 				hdr->caplen = p->snapshot;
 			t = 0;	/* no time stamps */
+			p->packet_read_count += 1;
 			goto found;
 
 		case BT_PB:
@@ -1305,6 +1307,7 @@ pcap_ng_next_internal(pcap_t *p, struct pcap_pkthdr *hdr, u_char **data, int pkt
 				t = ((uint64_t)pbp->timestamp_high) << 32 |
 				    pbp->timestamp_low;
 			}
+			p->packet_read_count += 1;
 			goto found;
 
 		case BT_IDB:

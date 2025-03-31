@@ -30,7 +30,6 @@
 #import "Logging.h"
 #import "WebPreferencesDefaultValues.h"
 #import "XPCUtilities.h"
-#import <WebCore/RuntimeApplicationChecks.h>
 #import <crt_externs.h>
 #import <mach-o/dyld.h>
 #import <mach/mach_error.h>
@@ -45,6 +44,7 @@
 #import <wtf/FileSystem.h>
 #import <wtf/MachSendRight.h>
 #import <wtf/RunLoop.h>
+#import <wtf/RuntimeApplicationChecks.h>
 #import <wtf/SoftLinking.h>
 #import <wtf/Threading.h>
 #import <wtf/cocoa/RuntimeApplicationChecksCocoa.h>
@@ -302,9 +302,9 @@ void ProcessLauncher::launchProcess()
         });
     };
 
-    launchWithExtensionKit(*this, m_launchOptions.processType, m_client, WTFMove(handler));
+    launchWithExtensionKit(*this, m_launchOptions.processType, m_client.get(), WTFMove(handler));
 #else
-    auto name = serviceName(m_launchOptions, m_client);
+    auto name = serviceName(m_launchOptions, m_client.get());
     m_xpcConnection = adoptOSObject(xpc_connection_create(name, nullptr));
     finishLaunchingProcess(name);
 #endif
@@ -398,7 +398,7 @@ void ProcessLauncher::finishLaunchingProcess(ASCIILiteral name)
     xpc_dictionary_set_mach_send(bootstrapMessage.get(), "server-port", listeningPort);
 
     xpc_dictionary_set_string(bootstrapMessage.get(), "client-identifier", !clientIdentifier.isEmpty() ? clientIdentifier.utf8().data() : *_NSGetProgname());
-    xpc_dictionary_set_string(bootstrapMessage.get(), "client-bundle-identifier", WebCore::applicationBundleIdentifier().utf8().data());
+    xpc_dictionary_set_string(bootstrapMessage.get(), "client-bundle-identifier", applicationBundleIdentifier().utf8().data());
     xpc_dictionary_set_string(bootstrapMessage.get(), "process-identifier", String::number(m_launchOptions.processIdentifier.toUInt64()).utf8().data());
     RetainPtr processName = [&] {
 #if PLATFORM(MAC)
@@ -411,7 +411,11 @@ void ProcessLauncher::finishLaunchingProcess(ASCIILiteral name)
     xpc_dictionary_set_string(bootstrapMessage.get(), "service-name", name);
 
     if (m_launchOptions.processType == ProcessLauncher::ProcessType::Web) {
+#if ENABLE(REMOVE_XPC_AND_MACH_SANDBOX_EXTENSIONS_IN_WEBCONTENT)
+        bool disableLogging = true;
+#else
         bool disableLogging = m_client->shouldEnableLockdownMode();
+#endif
         xpc_dictionary_set_bool(bootstrapMessage.get(), "disable-logging", disableLogging);
     }
 
@@ -421,7 +425,7 @@ void ProcessLauncher::finishLaunchingProcess(ASCIILiteral name)
     }
     
     auto sdkBehaviors = sdkAlignedBehaviors();
-    xpc_dictionary_set_data(bootstrapMessage.get(), "client-sdk-aligned-behaviors", sdkBehaviors.storage(), sdkBehaviors.storageLengthInBytes());
+    xpc_dictionary_set_data(bootstrapMessage.get(), "client-sdk-aligned-behaviors", sdkBehaviors.storage().data(), sdkBehaviors.storageLengthInBytes());
 
     auto extraInitializationData = adoptOSObject(xpc_dictionary_create(nullptr, nullptr, 0));
 
@@ -445,7 +449,7 @@ void ProcessLauncher::finishLaunchingProcess(ASCIILiteral name)
 #endif
 
         if (event)
-            LOG_ERROR("Error while launching %s: %s", logName.data(), xpc_dictionary_get_string(event, XPC_ERROR_KEY_DESCRIPTION));
+            LOG_ERROR("Error while launching %s: %s", logName.data(), xpc_dictionary_get_wtfstring(event, xpcErrorDescriptionKey).utf8().data());
         else
             LOG_ERROR("Error while launching %s: No xpc_object_t event available.", logName.data());
 
@@ -504,7 +508,7 @@ void ProcessLauncher::finishLaunchingProcess(ASCIILiteral name)
         // launching and we already took care of cleaning things up.
         if (isLaunching() && xpc_get_type(reply) != XPC_TYPE_ERROR) {
             ASSERT(xpc_get_type(reply) == XPC_TYPE_DICTIONARY);
-            ASSERT(!strcmp(xpc_dictionary_get_string(reply, "message-name"), "process-finished-launching"));
+            ASSERT(xpc_dictionary_get_wtfstring(reply, "message-name"_s) == "process-finished-launching"_s);
 
 #if ASSERT_ENABLED
             mach_port_urefs_t sendRightCount = 0;

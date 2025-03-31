@@ -31,7 +31,7 @@
 #include <optional>
 #include <wtf/CompletionHandler.h>
 #include <wtf/Ref.h>
-#include <wtf/RefCounted.h>
+#include <wtf/RefCountedAndCanMakeWeakPtr.h>
 #include <wtf/WeakPtr.h>
 #include <wtf/text/WTFString.h>
 
@@ -39,7 +39,7 @@ namespace WebCore::WebGPU {
 
 class Device;
 
-class Adapter : public RefCounted<Adapter>, public CanMakeWeakPtr<Adapter> {
+class Adapter : public RefCountedAndCanMakeWeakPtr<Adapter> {
 public:
     virtual ~Adapter() = default;
 

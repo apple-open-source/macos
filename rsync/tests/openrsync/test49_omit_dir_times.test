@@ -1,0 +1,75 @@
+#! /bin/sh
+
+# Test that the --omit-dir-times option works as expected.
+
+set -e
+set -u
+
+. ${tstdir-.}/lib.sh
+. ${tstdir-.}/conf.sh
+
+# Create the source tree:
+#
+rm -rf src
+mkdir -p src/dir/dir/dir
+
+# rsync -a --omit-dir-times should use the current
+# time when updating the mtime on both existing and
+# non-existing directories on the destination:
+#
+rm -rf dst
+
+for i in $(seq 3) ; do
+    for c in a b y z ; do
+        date >> src/${c}file
+	ln -sf ${c}file src/${c}sym
+        date >> src/dir/${c}file
+	ln -sf ${c}file src/dir/${c}sym
+        date >> src/dir/dir/${c}file
+	ln -sf ${c}file src/dir/dir/${c}sym
+        date >> src/dir/dir/dir/${c}file
+	ln -sf ${c}file src/dir/dir/dir/${c}sym
+    done
+
+    # Roll back the mtime on the source dirs so that
+    # we can easily detect if the mtime on the dest
+    # dirs is set correctly:
+    #
+    touch -t 201701020304.0$i $(find src -type d)
+    touch ref
+
+    # Use compare_trees() to ensure all the files
+    # have been updated correctly:
+    #
+    rsync -a --omit-dir-times -- src/ dst/
+    compare_trees src dst
+
+    find src -type d | while read sdir ; do
+        ddir=$(echo ${sdir} | sed 's/^src/dst/')
+        S=$(stat -f %m ${sdir})
+        D=$(stat -f %m ${ddir})
+        R=$(stat -f %m ref)
+
+	# The mtime of the source dir should be much
+	# older than that of the reference file:
+	#
+        [ "$S" -lt "$R" ]
+
+	# The mtime of the dest dir should be the same
+	# or slightly younger than the mtime of the
+	# reference file:
+	#
+	# Note: This fails with openrsync due to:
+	#
+	# https://gitlab.klara.systems/prettybsd/documentation/-/issues/138
+	#
+        [ "$D" -ge "$R" ]
+    done
+done
+
+
+# rsync -a should use the mtime from the source dir
+# when updating directories on the destination:
+#
+rsync -a -- src/ dst/
+compare_trees -t src dst

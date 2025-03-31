@@ -121,7 +121,7 @@
 /* Begin PBXFileReference section */
 		FD91BA300FC2311E00643D04 /* doc_cmds.txt */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = doc_cmds.txt; sourceTree = "<group>"; };
 		FD91BA3D0FC2311E00643D04 /* makewhatis.8 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = makewhatis.8; sourceTree = "<group>"; };
-		FD91BA3E0FC2311E00643D04 /* makewhatis.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = makewhatis.c; sourceTree = "<group>"; };
+		FD91BA3E0FC2311E00643D04 /* makewhatis.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = makewhatis.c; sourceTree = "<group>"; usesTabs = 1; };
 		FD91BA3F0FC2311E00643D04 /* makewhatis.local.8 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = makewhatis.local.8; sourceTree = "<group>"; };
 		FD91BA400FC2311E00643D04 /* makewhatis.local.sh */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; path = makewhatis.local.sh; sourceTree = "<group>"; };
 		FD91BA440FC2316200643D04 /* intro.1 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.man; path = intro.1; sourceTree = "<group>"; };
@@ -259,7 +259,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 			shellPath = /bin/sh;
-			shellScript = "set -x\n/bin/mv ${SCRIPT_INPUT_FILE_0} ${SCRIPT_OUTPUT_FILE_0}\n/bin/chmod +x ${SCRIPT_OUTPUT_FILE_0}";
+			shellScript = "set -x\n/bin/mv ${SCRIPT_INPUT_FILE_0} ${SCRIPT_OUTPUT_FILE_0}\n/bin/chmod +x ${SCRIPT_OUTPUT_FILE_0}\n";
 			showEnvVarsInLog = 0;
 		};
 /* End PBXShellScriptBuildPhase section */
@@ -326,6 +326,7 @@
 				GCC_PREPROCESSOR_DEFINITIONS = "__FBSDID=__RCSID";
 				INSTALL_PATH = /usr/libexec;
 				PRODUCT_NAME = makewhatis;
+				SDKROOT = macosx.internal;
 			};
 			name = Release;
 		};

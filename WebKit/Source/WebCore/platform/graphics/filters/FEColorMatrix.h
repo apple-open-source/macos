@@ -47,8 +47,8 @@ public:
     const Vector<float>& values() const { return m_values; }
     bool setValues(const Vector<float>&);
 
-    static void calculateSaturateComponents(float* components, float value);
-    static void calculateHueRotateComponents(float* components, float value);
+    static void calculateSaturateComponents(std::span<float, 9> components, float value);
+    static void calculateHueRotateComponents(std::span<float, 9> components, float value);
     static Vector<float> normalizedFloats(const Vector<float>& values);
 
 private:

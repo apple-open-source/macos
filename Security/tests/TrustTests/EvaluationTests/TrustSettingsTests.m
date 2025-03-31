@@ -151,9 +151,12 @@ static SecPolicyRef sslFrameworkPolicy = NULL;
     SecKeychainRef kcRef = NULL;
     CFArrayRef certRef = NULL;
     NSDictionary *attrs = nil;
-    SecCertificateRef frameworkCert =  NULL;
+    SecCertificateRef frameworkCert = NULL;
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
     SecKeychainOpen(kSystemLoginKeychainPath, &kcRef);
+#pragma clang diagnostic pop
     if (!kcRef) {
         return;
     }
@@ -718,6 +721,7 @@ static SecPolicyRef sslFrameworkPolicy = NULL;
     SecTrustStoreRef systemTS = SecTrustStoreForDomain(kSecTrustStoreDomainSystem);
     id appleRoot = [self SecCertificateCreateFromResource:@"AppleRootCA" subdirectory:@"si-20-sectrust-policies-data"];
     SecCertificateRef root = SecCertificateCreateWithBytes(NULL, _trustSettingsRoot, sizeof(_trustSettingsRoot));
+    id mdlAuthRoot = [self SecCertificateCreateFromResource:@"TSA_NPE_Root_CA" subdirectory:@"si-20-sectrust-policies-data"];
 
     /* system trust store is read-only */
     XCTAssertEqual(errSecReadOnly, SecTrustStoreSetTrustSettings(systemTS, root, NULL));
@@ -727,7 +731,14 @@ static SecPolicyRef sslFrameworkPolicy = NULL;
     CFArrayRef store = NULL;
     XCTAssertEqual(errSecSuccess, SecTrustStoreCopyAll(systemTS, &store));
     XCTAssert(store != NULL);
-    CFReleaseNull(store);
+
+    NSArray *allSystemAnchors = CFBridgingRelease(store);
+    for(NSArray *anchorRecord in allSystemAnchors) {
+        XCTAssert([anchorRecord isKindOfClass:[NSArray class]]);
+        XCTAssertEqual(anchorRecord.count, 2);
+        XCTAssert([anchorRecord[1] isKindOfClass:[NSArray class]]);
+        XCTAssertNotEqualObjects(anchorRecord[0], mdlAuthRoot); // Make sure one of the constrained roots is not returned
+    }
 
     /* returns correct results for contains */
     XCTAssert(SecTrustStoreContains(systemTS, (__bridge SecCertificateRef)appleRoot));
@@ -741,6 +752,7 @@ static SecPolicyRef sslFrameworkPolicy = NULL;
     CFReleaseNull(usageConstraints);
     CFReleaseNull(root);
     CFReleaseSafe((__bridge CFTypeRef)appleRoot);
+    CFReleaseSafe((__bridge CFTypeRef)mdlAuthRoot);
 }
 
 - (void)testRemoveAll
@@ -815,6 +827,36 @@ static SecPolicyRef sslFrameworkPolicy = NULL;
     is(CFArrayGetCount(usageConstraints), 1, "one constraints");
     CFReleaseNull(usageConstraints);
     removeTS(cert0);
+}
+
+- (void)testCopyAnchors {
+#if TARGET_OS_BRIDGE
+    XCTSkip();
+#endif
+    SecTrustStoreRef systemTS = SecTrustStoreForDomain(kSecTrustStoreDomainSystem);
+
+    CFArrayRef unconstrainedStore = NULL;
+    XCTAssertEqual(errSecSuccess, SecTrustStoreCopyAll(systemTS, &unconstrainedStore));
+    XCTAssertNotEqual(unconstrainedStore, NULL);
+
+    // Unconstrained system trust store
+    NSArray *anchors = CFBridgingRelease(SecTrustStoreCopyAnchors(systemTS, kSecPolicyAppleX509Basic));
+    XCTAssertNotNil(anchors);
+    XCTAssertEqualObjects(anchors, (__bridge NSArray*)unconstrainedStore);
+
+    // Apple anchors
+    anchors = CFBridgingRelease(SecTrustStoreCopyAnchors(systemTS, kSecPolicyAppleiPhoneApplicationSigning));
+    XCTAssertNotNil(anchors);
+    XCTAssertGreaterThanOrEqual(anchors.count, 3);
+
+    // Constrained anchor policy
+    anchors = CFBridgingRelease(SecTrustStoreCopyAnchors(systemTS, kSecPolicyAppleMDLTerminalAuth));
+    XCTAssertNotNil(anchors);
+    XCTAssertGreaterThanOrEqual(anchors.count, 1);
+
+    // Currently no constrained anchors defined
+    anchors = CFBridgingRelease(SecTrustStoreCopyAnchors(systemTS, kSecPolicyAppleiAP));
+    XCTAssertGreaterThanOrEqual(anchors.count, 0);
 }
 
 @end

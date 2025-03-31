@@ -27,7 +27,7 @@
 
 #if ENABLE(WEB_RTC)
 
-#include "Document.h"
+#include "DocumentInlines.h"
 #include "RTCNetworkManager.h"
 #include "RTCPeerConnection.h"
 #include "WebRTCProvider.h"
@@ -35,6 +35,10 @@
 #if USE(LIBWEBRTC)
 #include "LibWebRTCLogSink.h"
 #include "LibWebRTCUtils.h"
+#endif
+
+#if USE(GSTREAMER_WEBRTC)
+#include "GStreamerWebRTCLogSink.h"
 #endif
 
 #endif
@@ -70,9 +74,9 @@ void RTCController::remove(RTCPeerConnection& connection)
 
 static inline bool matchDocumentOrigin(Document& document, SecurityOrigin& topOrigin, SecurityOrigin& clientOrigin)
 {
-    if (topOrigin.isSameOriginAs(document.securityOrigin()))
+    if (topOrigin.isSameOriginAs(document.protectedSecurityOrigin()))
         return true;
-    return topOrigin.isSameOriginAs(document.topOrigin()) && clientOrigin.isSameOriginAs(document.securityOrigin());
+    return topOrigin.isSameOriginAs(document.protectedTopOrigin()) && clientOrigin.isSameOriginAs(document.protectedSecurityOrigin());
 }
 
 bool RTCController::shouldDisableICECandidateFiltering(Document& document)
@@ -185,7 +189,19 @@ void RTCController::startGatheringLogs(Document& document, LogCallback&& callbac
         m_logSink = makeUnique<LibWebRTCLogSink>([weakThis = WeakPtr { *this }] (auto&& logLevel, auto&& logMessage) {
             ensureOnMainThread([weakThis, logMessage = fromStdString(logMessage).isolatedCopy(), logLevel] () mutable {
                 if (auto protectedThis = weakThis.get())
-                    protectedThis->m_callback("logs"_s, WTFMove(logMessage), toWebRTCLogLevel(logLevel), nullptr);
+                    protectedThis->m_callback("backend-logs"_s, WTFMove(logMessage), toWebRTCLogLevel(logLevel), nullptr);
+            });
+        });
+        m_logSink->start();
+    }
+#endif
+
+#if USE(GSTREAMER_WEBRTC)
+    if (!m_logSink) {
+        m_logSink = makeUnique<GStreamerWebRTCLogSink>([weakThis = WeakPtr { *this }](const auto& logLevel, const auto& logMessage) {
+            ensureOnMainThread([weakThis, logMessage = logMessage.isolatedCopy(), logLevel = logLevel.isolatedCopy()]() mutable {
+                if (auto protectedThis = weakThis.get())
+                    protectedThis->m_callback("backend-logs"_s, WTFMove(logMessage), WTFMove(logLevel), nullptr);
             });
         });
         m_logSink->start();
@@ -203,7 +219,7 @@ void RTCController::stopGatheringLogs()
     for (Ref connection : m_peerConnections)
         connection->stopGatheringStatLogs();
 
-    stopLoggingLibWebRTCLogs();
+    stopLoggingWebRTCLogs();
 }
 
 void RTCController::startGatheringStatLogs(RTCPeerConnection& connection)
@@ -214,9 +230,9 @@ void RTCController::startGatheringStatLogs(RTCPeerConnection& connection)
     });
 }
 
-void RTCController::stopLoggingLibWebRTCLogs()
+void RTCController::stopLoggingWebRTCLogs()
 {
-#if USE(LIBWEBRTC)
+#if USE(LIBWEBRTC) || USE(GSTREAMER_WEBRTC)
     if (!m_logSink)
         return;
 

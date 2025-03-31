@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2003-2022 Apple Inc. All rights reserved.
+ *  Copyright (C) 2003-2024 Apple Inc. All rights reserved.
  *  Copyright (C) 2007 Eric Seidel <eric@webkit.org>
  *
  *  This library is free software; you can redistribute it and/or
@@ -28,6 +28,8 @@
 #include "MarkedSpaceInlines.h"
 #include <wtf/ListDump.h>
 #include <wtf/SimpleStats.h>
+
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
 
 namespace JSC {
 
@@ -225,6 +227,24 @@ void MarkedSpace::sweepBlocks()
         });
 }
 
+void MarkedSpace::registerPreciseAllocation(PreciseAllocation* allocation, bool isNewAllocation)
+{
+    // FIXME: This is a bit of a mess we should really consolidate setting all the bits to here.
+    allocation->setIndexInSpace(m_preciseAllocations.size());
+    allocation->m_hasValidCell = true;
+    ASSERT(allocation->isNewlyAllocated());
+    ASSERT(!allocation->isMarked());
+    m_preciseAllocations.append(allocation);
+    if (auto* set = preciseAllocationSet())
+        set->add(allocation->cell());
+    if (isNewAllocation) {
+        // Existing code's ordering is calling `didAllocate` and increasing capacity.
+        size_t size = allocation->cellSize();
+        heap().didAllocate(size);
+        m_capacity += size;
+    }
+}
+
 void MarkedSpace::sweepPreciseAllocations()
 {
     RELEASE_ASSERT(m_preciseAllocationsNurseryOffset == m_preciseAllocations.size());
@@ -268,7 +288,7 @@ void MarkedSpace::prepareForAllocation()
 
 void MarkedSpace::enablePreciseAllocationTracking()
 {
-    m_preciseAllocationSet = makeUnique<HashSet<HeapCell*>>();
+    m_preciseAllocationSet = makeUnique<UncheckedKeyHashSet<HeapCell*>>();
     for (auto* allocation : m_preciseAllocations)
         m_preciseAllocationSet->add(allocation->cell());
 }
@@ -358,7 +378,7 @@ bool MarkedSpace::isPagedOut()
     return pagedOutPagesStats.mean() > pagedOutPagesStats.count() * bailoutPercentage;
 }
 
-// Don't forget to remove this once we're done debugging (rdar://136782494)
+// FIXME: rdar://139998916
 MarkedBlock::Handle* MarkedSpace::findMarkedBlockHandleDebug(MarkedBlock* block)
 {
     MarkedBlock::Handle* result = nullptr;
@@ -591,3 +611,5 @@ void MarkedSpace::addBlockDirectory(const AbstractLocker&, BlockDirectory* direc
 }
 
 } // namespace JSC
+
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_END

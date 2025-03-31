@@ -1359,6 +1359,26 @@ dispatch_once_t globalZoneStateQueueOnce;
     [view pcsMirrorKeysForServices:services reply:reply];
 }
 
+- (void)initialSyncStatus:(NSString *)viewName reply:(void (^)(BOOL result, NSError * _Nullable))reply {
+    NSError* findViewError = nil;
+    CKKSKeychainView* view = [[OTManager manager] ckksForClientRPC:[[OTControlArguments alloc] init]
+                                                   createIfMissing:YES
+                                           allowNonPrimaryAccounts:YES
+                                                             error:&findViewError];
+
+    if (!view || findViewError) {
+        ckksnotice_global("ckks", "No CKKS view for %@, %@, error: %@", SecCKKSContainerName, OTDefaultContext, findViewError);
+        if (findViewError) {
+            reply(NO, findViewError);
+        } else {
+            reply(NO, [self defaultViewError]);
+        }
+        return;
+    }
+
+    [view initialSyncStatus:viewName reply:reply];
+}
+
 -(void)xpc24HrNotification {
     // XPC has poked us and said we should do some cleanup!
     ckksnotice_global("ckks", "Received a 24hr notification from XPC");

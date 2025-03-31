@@ -57,13 +57,11 @@ enum class FontTechnology : uint8_t;
 template <typename T> class FontTaggedSettings;
 typedef FontTaggedSettings<int> FontFeatureSettings;
 
-#if USE(CORE_TEXT)
 struct FontCustomPlatformSerializedData {
-    Vector<uint8_t> fontFaceData;
+    Ref<SharedBuffer> fontFaceData;
     String itemInCollection;
     RenderingResourceIdentifier renderingResourceIdentifier;
 };
-#endif
 
 struct FontCustomPlatformData : public RefCounted<FontCustomPlatformData> {
     WTF_MAKE_TZONE_ALLOCATED_INLINE(FontCustomPlatformData);
@@ -72,7 +70,7 @@ public:
     WEBCORE_EXPORT static RefPtr<FontCustomPlatformData> create(SharedBuffer&, const String&);
     WEBCORE_EXPORT static RefPtr<FontCustomPlatformData> createMemorySafe(SharedBuffer&, const String&);
 
-#if PLATFORM(WIN)
+#if PLATFORM(WIN) && USE(CAIRO)
     FontCustomPlatformData(const String& name, FontPlatformData::CreationData&&);
 #elif USE(CORE_TEXT)
     FontCustomPlatformData(CTFontDescriptorRef fontDescriptor, FontPlatformData::CreationData&& creationData)
@@ -90,14 +88,13 @@ public:
 
     FontPlatformData fontPlatformData(const FontDescription&, bool bold, bool italic, const FontCreationContext&);
 
-#if USE(CORE_TEXT)
     WEBCORE_EXPORT FontCustomPlatformSerializedData serializedData() const;
     WEBCORE_EXPORT static std::optional<Ref<FontCustomPlatformData>> tryMakeFromSerializationData(FontCustomPlatformSerializedData&&, bool);
-#endif
+
     static bool supportsFormat(const String&);
     static bool supportsTechnology(const FontTechnology&);
 
-#if PLATFORM(WIN)
+#if PLATFORM(WIN) && USE(CAIRO)
     String name;
 #elif USE(CORE_TEXT)
     RetainPtr<CTFontDescriptorRef> fontDescriptor;
@@ -110,5 +107,10 @@ public:
 
     RenderingResourceIdentifier m_renderingResourceIdentifier;
 };
+
+inline RefPtr<const FontCustomPlatformData> FontPlatformData::protectedCustomPlatformData() const
+{
+    return m_customPlatformData.get();
+}
 
 } // namespace WebCore

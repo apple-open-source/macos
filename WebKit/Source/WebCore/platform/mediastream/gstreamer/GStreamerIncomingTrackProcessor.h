@@ -38,7 +38,7 @@ public:
     ~GStreamerIncomingTrackProcessor() = default;
 
     void configure(ThreadSafeWeakPtr<GStreamerMediaEndpoint>&&, GRefPtr<GstPad>&&);
-    GstPad* pad() const { return m_pad.get(); }
+    const GRefPtr<GstPad>& pad() const { return m_pad; }
 
     GstElement* bin() const { return m_bin.get(); }
 
@@ -57,7 +57,7 @@ private:
     GRefPtr<GstElement> incomingTrackProcessor();
     GRefPtr<GstElement> createParser();
 
-    void installRtpBufferPadProbe(GRefPtr<GstPad>&&);
+    void installRtpBufferPadProbe(const GRefPtr<GstPad>&);
 
     void trackReady();
 

@@ -31,6 +31,7 @@
 
 #include "AbortSignal.h"
 #include "CredentialCreationOptions.h"
+#include "CredentialRequestCoordinator.h"
 #include "CredentialRequestOptions.h"
 #include "DigitalCredential.h"
 #include "DigitalCredentialRequestOptions.h"
@@ -56,6 +57,11 @@ void CredentialsContainer::get(CredentialRequestOptions&& options, CredentialPro
         return;
     }
 
+    if (options.digital) {
+        document()->page()->credentialRequestCoordinator().discoverFromExternalSource(*document(), WTFMove(options), WTFMove(promise));
+        return;
+    }
+
     document()->page()->authenticatorCoordinator().discoverFromExternalSource(*document(), WTFMove(options), WTFMove(promise));
 }
 
@@ -66,8 +72,6 @@ void CredentialsContainer::store(const BasicCredential&, CredentialPromise&& pro
 
 void CredentialsContainer::isCreate(CredentialCreationOptions&& options, CredentialPromise&& promise)
 {
-    // The following implements https://www.w3.org/TR/credential-management-1/#algorithm-create as of 4 August 2017
-    // with enhancement from 14 November 2017 Editor's Draft.
     if (!performCommonChecks(options, promise))
         return;
 
@@ -77,12 +81,17 @@ void CredentialsContainer::isCreate(CredentialCreationOptions&& options, Credent
         return;
     }
 
-    document()->page()->authenticatorCoordinator().create(*document(), WTFMove(options), WTFMove(options.signal), WTFMove(promise));
+    if (options.publicKey) {
+        document()->page()->authenticatorCoordinator().create(*document(), WTFMove(options), WTFMove(options.signal), WTFMove(promise));
+        return;
+    }
+
+    promise.resolve(nullptr);
 }
 
 void CredentialsContainer::preventSilentAccess(DOMPromiseDeferred<void>&& promise) const
 {
-    if (document() && !document()->isFullyActive()) {
+    if (RefPtr document = this->document(); !document->isFullyActive()) {
         promise.reject(Exception { ExceptionCode::InvalidStateError, "The document is not fully active."_s });
         return;
     }
@@ -109,7 +118,7 @@ bool CredentialsContainer::performCommonChecks(const Options& options, Credentia
     }
 
     if (options.signal && options.signal->aborted()) {
-        promise.reject(Exception { ExceptionCode::AbortError, "Aborted by AbortSignal."_s });
+        promise.rejectType<IDLAny>(options.signal->reason().getValue());
         return false;
     }
 

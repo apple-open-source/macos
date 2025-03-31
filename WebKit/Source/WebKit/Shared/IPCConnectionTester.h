@@ -48,6 +48,9 @@ public:
     static Ref<IPCConnectionTester> create(IPC::Connection&, IPCConnectionTesterIdentifier, IPC::Connection::Handle&&);
     void stopListeningForIPC(Ref<IPCConnectionTester>&& refFromConnection);
 
+    void ref() const final { RefCounted::ref(); }
+    void deref() const final { RefCounted::deref(); }
+
     void sendAsyncMessages(uint32_t messageCount);
 private:
     IPCConnectionTester(Ref<IPC::Connection>&&, IPCConnectionTesterIdentifier, IPC::Connection::Handle&&);

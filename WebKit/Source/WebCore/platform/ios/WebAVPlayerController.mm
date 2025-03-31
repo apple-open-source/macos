@@ -35,6 +35,7 @@
 #import "TimeRanges.h"
 #import <AVFoundation/AVTime.h>
 #import <pal/spi/cocoa/AVKitSPI.h>
+#import <wtf/ObjCRuntimeExtras.h>
 #import <wtf/text/CString.h>
 #import <wtf/text/WTFString.h>
 
@@ -127,19 +128,14 @@ static double WebAVPlayerControllerLiveStreamSeekableTimeRangeMinimumDuration = 
     if (!propertyNameFromKeyPath.length)
         return target;
 
-    unsigned count;
-    objc_property_t *properties = class_copyPropertyList([_playerController class], &count);
-
-    for (unsigned i = 0; i < count; i++) {
-        objc_property_t property = properties[i];
+    auto properties = class_copyPropertyListSpan([_playerController class]);
+    for (auto& property : properties.span()) {
         NSString *propertyName = [NSString stringWithUTF8String:property_getName(property)];
         if ([propertyNameFromKeyPath isEqualToString:propertyName]) {
             target = _playerController.get();
             break;
         }
     }
-
-    free(properties);
     return target;
 }
 
@@ -157,22 +153,19 @@ static Class createWebAVPlayerControllerForwarderClass()
     objc_registerClassPair(newClass);
 
     // Remove all of AVPlayerController's methods.
-    unsigned methodCount = 0;
-    Method *methods = class_copyMethodList(superClass, &methodCount);
+    auto methods = class_copyMethodListSpan(superClass);
     IMP unknownMethodImp = class_getMethodImplementation(superClass, NSSelectorFromString(@"_web_unknownMethod"));
-    for (unsigned i = 0; i < methodCount; i++)
-        class_addMethod(newClass, method_getName(methods[i]), unknownMethodImp, method_getTypeEncoding(methods[i]));
-    free(methods);
+    for (auto& method : methods.span())
+        class_addMethod(newClass, method_getName(method), unknownMethodImp, method_getTypeEncoding(method));
 
     // Copy methods from WebAVPlayerControllerForwarder.
-    methods = class_copyMethodList(implClass, &methodCount);
-    for (unsigned i = 0; i < methodCount; i++) {
-        SEL selector = method_getName(methods[i]);
+    methods = class_copyMethodListSpan(implClass);
+    for (auto& method : methods.span()) {
+        SEL selector = method_getName(method);
         if ([NSStringFromSelector(selector) hasPrefix:@"."])
             continue;
-        class_replaceMethod(newClass, selector, method_getImplementation(methods[i]), method_getTypeEncoding(methods[i]));
+        class_replaceMethod(newClass, selector, method_getImplementation(method), method_getTypeEncoding(method));
     }
-    free(methods);
 
     class_addIvar(newClass, "_playerController", sizeof(RetainPtr<WebAVPlayerController>), log2(sizeof(RetainPtr<WebAVPlayerController>)), @encode(RetainPtr<WebAVPlayerController>));
 

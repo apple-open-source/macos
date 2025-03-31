@@ -6,12 +6,13 @@
 #define BSSL_PKI_CERT_ISSUER_SOURCE_STATIC_H_
 
 #include <unordered_map>
+#include <vector>
 
 #include <openssl/base.h>
 
 #include "cert_issuer_source.h"
 
-namespace bssl {
+BSSL_NAMESPACE_BEGIN
 
 // Synchronously returns issuers from a pre-supplied set.
 class OPENSSL_EXPORT CertIssuerSourceStatic : public CertIssuerSource {
@@ -30,6 +31,9 @@ class OPENSSL_EXPORT CertIssuerSourceStatic : public CertIssuerSource {
   // Clears the set of certificates.
   void Clear();
 
+  // Returns a vector containing all the certificates added to this source.
+  std::vector<std::shared_ptr<const ParsedCertificate>> Certs() const;
+
   size_t size() const { return intermediates_.size(); }
 
   // CertIssuerSource implementation:
@@ -46,6 +50,6 @@ class OPENSSL_EXPORT CertIssuerSourceStatic : public CertIssuerSource {
       intermediates_;
 };
 
-}  // namespace bssl
+BSSL_NAMESPACE_END
 
 #endif  // BSSL_PKI_CERT_ISSUER_SOURCE_STATIC_H_

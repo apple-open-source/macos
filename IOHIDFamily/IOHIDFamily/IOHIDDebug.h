@@ -13,6 +13,7 @@
 
 typedef enum {
     kHIDLogCategoryDefault,
+    kHIDLogCategoryOversized,
     kHIDLogCategoryCount
 } HIDLogCategory;
 
@@ -32,6 +33,9 @@ __END_DECLS
 #define HIDServiceLog(fmt, ...)        HIDLog("%s:0x%llx " fmt "\n", getName(), getRegistryEntryID(), ##__VA_ARGS__)
 #define HIDServiceLogInfo(fmt, ...)    HIDLogInfo("%s:0x%llx " fmt "\n", getName(), getRegistryEntryID(), ##__VA_ARGS__)
 #define HIDServiceLogDebug(fmt, ...)   HIDLogDebug("%s:0x%llx " fmt "\n", getName(), getRegistryEntryID(), ##__VA_ARGS__)
+
+#define HIDOversizedLog(fmt, ...)     os_log(_HIDLogCategory(kHIDLogCategoryOversized), fmt "\n", ##__VA_ARGS__)
+#define HIDOversizedLogInfo(fmt, ...) os_log_info(_HIDLogCategory(kHIDLogCategoryOversized), fmt "\n", ##__VA_ARGS__)
 
 #endif /* IOHIDDebug_h */
 

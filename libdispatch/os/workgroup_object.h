@@ -62,7 +62,7 @@ OS_WORKGROUP_DECL(os_workgroup, WorkGroup);
  * Pointer to an opaque structure for describing attributes that can be
  * configured on a workgroup at creation.
  */
-#if defined(__DISPATCH_BUILDING_DISPATCH__) && !defined(__OBJC__)
+#if defined(__DISPATCH_BUILDING_DISPATCH__) && (defined(__cplusplus) || !defined(__OBJC__))
 typedef struct os_workgroup_attr_s os_workgroup_attr_s;
 typedef struct os_workgroup_attr_s *os_workgroup_attr_t;
 #else
@@ -154,7 +154,7 @@ os_workgroup_create_with_workgroup(const char * OS_WORKGROUP_UNSAFE_INDEXABLE _N
  * An opaque join token which the client needs to pass to os_workgroup_join
  * and os_workgroup_leave
  */
-#if defined(__DISPATCH_BUILDING_DISPATCH__) && !defined(__OBJC__)
+#if defined(__DISPATCH_BUILDING_DISPATCH__) && (defined(__cplusplus) || !defined(__OBJC__))
 typedef struct os_workgroup_join_token_s os_workgroup_join_token_s;
 typedef struct os_workgroup_join_token_s *os_workgroup_join_token_t;
 #else

@@ -35,10 +35,27 @@
 #include "diff_internal.h"
 #include "diff_debug.h"
 
+inline enum diff_chunk_type
+diff_chunk_type(const struct diff_chunk *chunk)
+{
+	if (!chunk->left_count && !chunk->right_count)
+		return CHUNK_EMPTY;
+	if (!chunk->solved)
+		return CHUNK_ERROR;
+	if (!chunk->right_count)
+		return CHUNK_MINUS;
+	if (!chunk->left_count)
+		return CHUNK_PLUS;
+	if (chunk->left_count != chunk->right_count)
+		return CHUNK_ERROR;
+	return CHUNK_SAME;
+}
+
 static int
 read_at(FILE *f, off_t at_pos, unsigned char *buf, size_t len)
 {
-	size_t r;
+	ssize_t r;
+
 	if (fseeko(f, at_pos, SEEK_SET) == -1)
 		return errno;
 	r = fread(buf, sizeof(char), len, f);
@@ -62,11 +79,11 @@ buf_cmp(const unsigned char *left, size_t left_len,
 			unsigned char cl = left[il];
 			unsigned char cr = right[ir];
 
-			if (isspace(cl) && il < left_len) {
+			if (isspace((unsigned char)cl) && il < left_len) {
 				il++;
 				continue;
 			}
-			if (isspace(cr) && ir < right_len) {
+			if (isspace((unsigned char)cr) && ir < right_len) {
 				ir++;
 				continue;
 			}
@@ -80,12 +97,12 @@ buf_cmp(const unsigned char *left, size_t left_len,
 		}
 		while (il < left_len) {
 			unsigned char cl = left[il++];
-			if (!isspace(cl))
+			if (!isspace((unsigned char)cl))
 				return 1;
 		}
 		while (ir < right_len) {
 			unsigned char cr = right[ir++];
-			if (!isspace(cr))
+			if (!isspace((unsigned char)cr))
 				return -1;
 		}
 
@@ -634,8 +651,9 @@ diff_result_contains_printable_chunks(struct diff_result *result)
 {
 	struct diff_chunk *c;
 	enum diff_chunk_type t;
+	int i;
 
-	for (int i = 0; i < result->chunks.len; i++) {
+	for (i = 0; i < result->chunks.len; i++) {
 		c = &result->chunks.head[i];
 		t = diff_chunk_type(c);
 		if (t == CHUNK_MINUS || t == CHUNK_PLUS)

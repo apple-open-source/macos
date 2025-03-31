@@ -1,0 +1,84 @@
+#! /bin/sh
+
+. ${tstdir-.}/daemon.sh
+. ${tstdir-.}/lib.sh
+. ${tstdir-.}/conf.sh
+
+# Fire up the rsync daemon.  For this one, we'll just start it on port 9876 and
+# hope for the best.
+dport="9876"
+
+dest="$PWD/ftp"
+cfgfile="$PWD/rsyncd.conf"
+
+rm -rf "$dest" from-*
+
+mkdir "$dest"
+echo "captured" > "$dest"/flag
+
+cat <<EOF > "$cfgfile"
+use chroot = no
+# We insert trailing spaces in some key points to make sure that the config
+# parser hasn't accidentally become sensitive to it.
+port = $dport 
+
+[ftp]
+	path = $dest 
+[allowed]
+	hosts allow = localhost
+	path = $dest 
+[denied]
+	hosts deny = localhost
+	path = $dest 
+[allowdenied]
+	hosts allow = otherhost
+	path = $dest 
+EOF
+
+# For this one, we override to run the $RSYNC_SERVER we're testing against
+# directly.  All other tests will instead use netwrap to avoid port conflicts,
+# which is what the stock daemon_run() does.
+daemon_run() {
+	command $RSYNC_SERVER --daemon "$@" --sockopts=SO_REUSEADDR
+}
+
+rsyncd "$cfgfile"
+
+command $RSYNC_CLIENT rsync://localhost:$dport/ftp/flag from-ftp
+cmp -s "from-ftp" "$dest/flag"
+
+command $RSYNC_CLIENT rsync://localhost:$dport/allowed/flag from-allowed
+cmp -s "from-allowed" "$dest/flag"
+
+set +e
+command $RSYNC_CLIENT rsync://localhost:$dport/denied/flag from-denied 2>/dev/null
+rc=$?
+set -e
+
+if [ "$rc" -eq 0 -o -f "from-denied" ]; then
+	1>&2 echo "Transferred file from module that should have denied it."
+	exit 1
+fi
+
+set +e
+command $RSYNC_CLIENT rsync://localhost:$dport/allowdenied/flag from-denied 2>/dev/null
+rc=$?
+set -e
+
+if [ "$rc" -eq 0 -o -f "from-denied" ]; then
+	1>&2 echo "Transferred file from module that should have denied it."
+	exit 1
+fi
+
+daemon_kill
+
+boundcfg="$cfgfile.bound"
+(echo "address = localhost"; cat $cfgfile) > "$boundcfg"
+rsyncd "$boundcfg"
+
+rm -f from-ftp
+command $RSYNC_CLIENT rsync://localhost:$dport/ftp/flag from-ftp
+if ! cmp -s "from-ftp" "$dest/flag"; then
+	1>&2 echo" Failed to bind to localhost:$dport"
+	exit 1
+fi

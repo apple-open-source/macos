@@ -29,16 +29,21 @@
 #if ENABLE(WEB_AUTHN)
 
 #include <VirtualService.h>
+#include <wtf/TZoneMallocInlines.h>
 #include <wtf/UUID.h>
 
 namespace WebKit {
 
+WTF_MAKE_TZONE_ALLOCATED_IMPL(VirtualAuthenticatorManager);
+
 struct VirtualCredential;
 
-VirtualAuthenticatorManager::VirtualAuthenticatorManager()
-    : AuthenticatorManager()
+Ref<VirtualAuthenticatorManager> VirtualAuthenticatorManager::create()
 {
+    return adoptRef(*new VirtualAuthenticatorManager);
 }
+
+VirtualAuthenticatorManager::VirtualAuthenticatorManager() = default;
 
 String VirtualAuthenticatorManager::createAuthenticator(const VirtualAuthenticatorConfiguration& config)
 {
@@ -71,7 +76,7 @@ Vector<VirtualCredential> VirtualAuthenticatorManager::credentialsMatchingList(c
     return matching;
 }
 
-UniqueRef<AuthenticatorTransportService> VirtualAuthenticatorManager::createService(WebCore::AuthenticatorTransport transport, AuthenticatorTransportServiceObserver& observer) const
+Ref<AuthenticatorTransportService> VirtualAuthenticatorManager::createService(WebCore::AuthenticatorTransport transport, AuthenticatorTransportServiceObserver& observer) const
 {
     Vector<std::pair<String, VirtualAuthenticatorConfiguration>> configs;
     for (auto& id : m_virtualAuthenticators.keys()) {

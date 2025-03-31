@@ -47,7 +47,6 @@
 #include "LegacySchemeRegistry.h"
 #include "LocalFrame.h"
 #include "OriginAccessPatterns.h"
-#include "ParsingUtilities.h"
 #include "PingLoader.h"
 #include "Report.h"
 #include "ReportingClient.h"
@@ -66,6 +65,7 @@
 #include <wtf/SetForScope.h>
 #include <wtf/TZoneMallocInlines.h>
 #include <wtf/text/MakeString.h>
+#include <wtf/text/ParsingUtilities.h>
 #include <wtf/text/StringBuilder.h>
 #include <wtf/text/StringParsingBuffer.h>
 #include <wtf/text/TextPosition.h>
@@ -810,9 +810,24 @@ bool ContentSecurityPolicy::allowMissingTrustedTypesForSinkGroup(const String& s
 
             String consoleMessage = makeString(policy->isReportOnly() ? "[Report Only] "_s : ""_s,
                 "This requires a "_s, stringContext, " value else it violates the following Content Security Policy directive: \"require-trusted-types-for 'script'\""_s);
+            StringView sample = source;
 
-            String sample = makeString(sink, '|', source.left(40));
-            reportViolation("require-trusted-types-for"_s, *policy, "trusted-types-sink"_s, consoleMessage, nullString(), sample, TextPosition(OrdinalNumber::beforeFirst(), OrdinalNumber()), nullptr);
+            if (sink == "Function"_s) {
+                constexpr std::array<ASCIILiteral, 4> prefixes = {
+                    "function anonymous"_s,
+                    "async function anonymous"_s,
+                    "function* anonymous"_s,
+                    "async function* anonymous"_s
+                };
+                for (auto prefix : prefixes) {
+                    if (sample.startsWith(prefix)) {
+                        sample = sample.substring(prefix.length());
+                        break;
+                    }
+                }
+            }
+            String violationSample = makeString(sink, '|', sample.left(40));
+            reportViolation("require-trusted-types-for"_s, *policy, "trusted-types-sink"_s, consoleMessage, nullString(), violationSample, TextPosition(OrdinalNumber::beforeFirst(), OrdinalNumber()), nullptr);
         }
         return isAllowed;
     });
@@ -893,7 +908,7 @@ void ContentSecurityPolicy::reportViolation(const String& effectiveViolatedDirec
     info.sample = violatedDirectiveList.shouldReportSample(effectiveViolatedDirective) ? sourceContent.toString() : emptyString();
 
     if (!m_client) {
-        RefPtrAllowingPartiallyDestroyed<Document> document = dynamicDowncast<Document>(m_scriptExecutionContext.get());
+        RefPtr<Document> document = dynamicDowncast<Document>(m_scriptExecutionContext.get());
         if (!document || !document->frame())
             return;
 
@@ -1164,14 +1179,26 @@ void ContentSecurityPolicy::inheritInsecureNavigationRequestsToUpgradeFromOpener
     m_insecureNavigationRequestsToUpgrade.add(other.m_insecureNavigationRequestsToUpgrade.begin(), other.m_insecureNavigationRequestsToUpgrade.end());
 }
 
-HashSet<SecurityOriginData> ContentSecurityPolicy::takeNavigationRequestsToUpgrade()
+UncheckedKeyHashSet<SecurityOriginData> ContentSecurityPolicy::takeNavigationRequestsToUpgrade()
 {
     return WTFMove(m_insecureNavigationRequestsToUpgrade);
 }
 
-void ContentSecurityPolicy::setInsecureNavigationRequestsToUpgrade(HashSet<SecurityOriginData>&& insecureNavigationRequests)
+void ContentSecurityPolicy::setInsecureNavigationRequestsToUpgrade(UncheckedKeyHashSet<SecurityOriginData>&& insecureNavigationRequests)
 {
     m_insecureNavigationRequestsToUpgrade = WTFMove(insecureNavigationRequests);
 }
 
+const HashAlgorithmSetCollection& ContentSecurityPolicy::hashesToReport()
+{
+    if (m_hashesToReport.isEmpty()) {
+        Vector<std::pair<HashAlgorithmSet, FixedVector<String>>> hashesToReport;
+        for (auto& policy : m_policies) {
+            if (auto hash = policy->reportHash())
+                hashesToReport.append(std::make_pair(hash, policy->reportToTokens()));
+        }
+        m_hashesToReport = WTFMove(hashesToReport);
+    }
+    return m_hashesToReport;
+}
 }

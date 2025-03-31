@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2020 Apple Inc. All rights reserved.
+ * Copyright (C) 2008-2024 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -47,6 +47,7 @@
 #endif
 
 #if PLATFORM(COCOA)
+#include <wtf/cocoa/Entitlements.h>
 #include <wtf/darwin/LibraryPathDiagnostics.h>
 #endif
 
@@ -113,9 +114,9 @@ static std::optional<size_t> stackSize(ThreadType threadType)
 #if PLATFORM(PLAYSTATION)
     if (threadType == ThreadType::JavaScript)
         return 512 * KB;
-#elif OS(DARWIN) && ASAN_ENABLED
+#elif OS(DARWIN) && (ASAN_ENABLED || ASSERT_ENABLED)
     if (threadType == ThreadType::Compiler)
-        return 1 * MB; // ASan needs more stack space (especially on Debug builds).
+        return 1 * MB; // ASan / Debug build needs more stack space.
 #elif OS(WINDOWS)
     // WebGL conformance tests need more stack space <https://webkit.org/b/261297>
     if (threadType == ThreadType::Graphics)
@@ -172,9 +173,9 @@ public:
 #endif
 };
 
-HashSet<Thread*>& Thread::allThreads()
+UncheckedKeyHashSet<Thread*>& Thread::allThreads()
 {
-    static LazyNeverDestroyed<HashSet<Thread*>> allThreads;
+    static LazyNeverDestroyed<UncheckedKeyHashSet<Thread*>> allThreads;
     static std::once_flag onceKey;
     std::call_once(onceKey, [&] {
         allThreads.construct();
@@ -210,7 +211,6 @@ const char* Thread::normalizeThreadName(const char* threadName)
         result = result.right(kLinuxThreadNameLimit);
 #endif
     auto characters = result.span8();
-    ASSERT(characters[characters.size()] == '\0');
     return byteCast<char>(characters.data());
 #endif
 }
@@ -496,14 +496,29 @@ void Thread::dump(PrintStream& out) const
 ThreadSpecificKey Thread::s_key = InvalidThreadSpecificKey;
 #endif
 
+#if USE(TZONE_MALLOC)
+#if PLATFORM(COCOA)
+static bool hasDisableTZoneEntitlement()
+{
+    return processHasEntitlement("webkit.tzone.disable"_s);
+}
+#endif
+#endif
+
 void initialize()
 {
     static std::once_flag onceKey;
     std::call_once(onceKey, [] {
+#if ENABLE(CONJECTURE_ASSERT)
+        wtfConjectureAssertIsEnabled = !!getenv("ENABLE_WEBKIT_CONJECTURE_ASSERT");
+#endif
         setPermissionsOfConfigPage();
         Config::initialize();
 #if USE(TZONE_MALLOC)
-        bmalloc::api::TZoneHeapManager::singleton(); // Force initialization.
+#if PLATFORM(COCOA)
+        bmalloc::api::TZoneHeapManager::setHasDisableTZoneEntitlementCallback(hasDisableTZoneEntitlement);
+#endif
+        bmalloc::api::TZoneHeapManager::ensureSingleton(); // Force initialization.
 #endif
         Gigacage::ensureGigacage();
         Config::AssertNotFrozenScope assertScope;

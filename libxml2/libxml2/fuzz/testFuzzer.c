@@ -12,11 +12,6 @@
 #include <libxml/xmlstring.h>
 #include "fuzz.h"
 
-size_t
-LLVMFuzzerMutate(uint8_t *data, size_t size, size_t maxSize) {
-    return size;
-}
-
 #ifdef HAVE_HTML_FUZZER
   #define LLVMFuzzerCustomMutator fuzzHtmlMutator
   #define LLVMFuzzerInitialize fuzzHtmlInit

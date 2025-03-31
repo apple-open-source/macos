@@ -79,6 +79,7 @@ function mac_process_gpu_entitlements()
 {
     plistbuddy Add :com.apple.security.fatal-exceptions array
     plistbuddy Add :com.apple.security.fatal-exceptions:0 string jit
+
     if [[ "${WK_USE_RESTRICTED_ENTITLEMENTS}" == YES ]]
     then
         if (( "${TARGET_MAC_OS_X_VERSION_MAJOR}" >= 101400 ))
@@ -128,6 +129,7 @@ function mac_process_gpu_entitlements()
         plistbuddy Add :com.apple.rootless.storage.WebKitGPUSandbox bool YES
         plistbuddy Add :com.apple.QuartzCore.webkit-end-points bool YES
         plistbuddy Add :com.apple.private.coremedia.allow-fps-attachment bool YES
+        plistbuddy Add :com.apple.developer.hardened-process bool YES
     fi
 }
 
@@ -135,6 +137,7 @@ function mac_process_network_entitlements()
 {
     plistbuddy Add :com.apple.security.fatal-exceptions array
     plistbuddy Add :com.apple.security.fatal-exceptions:0 string jit
+
     if [[ "${WK_USE_RESTRICTED_ENTITLEMENTS}" == YES ]]
     then
         if (( "${TARGET_MAC_OS_X_VERSION_MAJOR}" >= 101500 ))
@@ -177,6 +180,7 @@ function mac_process_network_entitlements()
         plistbuddy Add :com.apple.symptom_analytics.configure bool YES
         plistbuddy Add :com.apple.private.webkit.adattributiond bool YES
         plistbuddy Add :com.apple.private.webkit.webpush bool YES
+        plistbuddy Add :com.apple.developer.hardened-process bool YES
     fi
 }
 
@@ -188,11 +192,23 @@ function webcontent_sandbox_entitlements()
     plistbuddy Add :com.apple.private.security.mutable-state-flags:2 string local:WebContentProcessLaunched
     plistbuddy Add :com.apple.private.security.mutable-state-flags:3 string EnableQuickLookSandboxResources
     plistbuddy Add :com.apple.private.security.mutable-state-flags:4 string ParentProcessCanEnableQuickLookStateFlag
+    plistbuddy Add :com.apple.private.security.mutable-state-flags:5 string BlockOpenDirectoryInWebContentSandbox
+    plistbuddy Add :com.apple.private.security.mutable-state-flags:6 string BlockMobileAssetInWebContentSandbox
+    plistbuddy Add :com.apple.private.security.mutable-state-flags:7 string BlockMobileGestaltInWebContentSandbox
+    plistbuddy Add :com.apple.private.security.mutable-state-flags:8 string BlockWebInspectorInWebContentSandbox
+    plistbuddy Add :com.apple.private.security.mutable-state-flags:9 string BlockIconServicesInWebContentSandbox
+    plistbuddy Add :com.apple.private.security.mutable-state-flags:10 string BlockFontServiceInWebContentSandbox
     plistbuddy Add :com.apple.private.security.enable-state-flags array
     plistbuddy Add :com.apple.private.security.enable-state-flags:0 string EnableExperimentalSandbox
     plistbuddy Add :com.apple.private.security.enable-state-flags:1 string BlockIOKitInWebContentSandbox
     plistbuddy Add :com.apple.private.security.enable-state-flags:2 string local:WebContentProcessLaunched
     plistbuddy Add :com.apple.private.security.enable-state-flags:3 string ParentProcessCanEnableQuickLookStateFlag
+    plistbuddy Add :com.apple.private.security.enable-state-flags:4 string BlockOpenDirectoryInWebContentSandbox
+    plistbuddy Add :com.apple.private.security.enable-state-flags:5 string BlockMobileAssetInWebContentSandbox
+    plistbuddy Add :com.apple.private.security.enable-state-flags:6 string BlockMobileGestaltInWebContentSandbox
+    plistbuddy Add :com.apple.private.security.enable-state-flags:7 string BlockWebInspectorInWebContentSandbox
+    plistbuddy Add :com.apple.private.security.enable-state-flags:8 string BlockIconServicesInWebContentSandbox
+    plistbuddy Add :com.apple.private.security.enable-state-flags:9 string BlockFontServiceInWebContentSandbox
 }
 
 function extract_notification_names() {
@@ -259,6 +275,8 @@ function mac_process_webcontent_shared_entitlements()
         then
             plistbuddy Add :com.apple.private.xpc.domain-extension bool YES
         fi
+
+        plistbuddy Add :com.apple.developer.hardened-process bool YES
     fi
 
     if [[ "${WK_XPC_SERVICE_VARIANT}" == Development ]]
@@ -522,6 +540,11 @@ fi
     plistbuddy Add :com.apple.private.attribution.explicitly-assumed-identities:0:type string wildcard
 
     plistbuddy add :com.apple.coreaudio.allow-vorbis-decode bool YES
+
+if [[ "${WK_PLATFORM_NAME}" == xros ]]; then
+    plistbuddy Add :com.apple.surfboard.application-service-client bool YES
+    plistbuddy Add :com.apple.surfboard.shared-simulation-connection-request bool YES
+fi
 }
 
 function ios_family_process_model_entitlements()
@@ -531,10 +554,9 @@ function ios_family_process_model_entitlements()
     plistbuddy add :com.apple.QuartzCore.webkit-limited-types bool YES
     plistbuddy Add :com.apple.private.memorystatus bool YES
     plistbuddy Add :com.apple.runningboard.assertions.webkit bool YES
-    plistbuddy Add :com.apple.private.pac.exception bool YES
     plistbuddy Add :com.apple.private.sandbox.profile string com.apple.WebKit.Model
-    plistbuddy Add :com.apple.surfboard.application-service-client bool YES
-    plistbuddy Add :com.apple.surfboard.shared-simulation-connection-request bool YES
+    plistbuddy Add :com.apple.private.pac.exception bool YES
+    plistbuddy Add :com.apple.pac.shared_region_id string WebKitModel
 }
 
 function ios_family_process_adattributiond_entitlements()

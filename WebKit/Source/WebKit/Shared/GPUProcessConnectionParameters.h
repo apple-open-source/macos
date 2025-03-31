@@ -28,12 +28,12 @@
 #if ENABLE(GPU_PROCESS)
 
 #include "SharedPreferencesForWebProcess.h"
-#include "WebCoreArgumentCoders.h"
 #include <WebCore/ProcessIdentity.h>
 #include <wtf/MachSendRight.h>
 
 #if HAVE(AUDIT_TOKEN)
 #include "CoreIPCAuditToken.h"
+#include <WebCore/PageIdentifier.h>
 #endif
 
 namespace WebKit {
@@ -46,7 +46,7 @@ struct GPUProcessConnectionParameters {
     bool ignoreInvalidMessageForTesting { false };
 #endif
 #if HAVE(AUDIT_TOKEN)
-    std::optional<CoreIPCAuditToken> presentingApplicationAuditToken;
+    HashMap<WebCore::PageIdentifier, CoreIPCAuditToken> presentingApplicationAuditTokens;
 #endif
 #if PLATFORM(COCOA)
     String applicationBundleIdentifier;

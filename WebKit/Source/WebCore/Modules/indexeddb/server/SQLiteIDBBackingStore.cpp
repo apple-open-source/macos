@@ -256,7 +256,7 @@ static IDBError createOrMigrateRecordsTableIfNecessary(SQLiteDatabase& database)
     String tableStatement = database.tableSQL("Records"_s);
     if (tableStatement.isEmpty()) {
         if (!database.executeCommand(v3RecordsTableSchema()))
-            return IDBError { ExceptionCode::UnknownError, makeString("Error creating Records table ("_s, database.lastError(), ") - "_s, span(database.lastErrorMsg())) };
+            return IDBError { ExceptionCode::UnknownError, makeString("Error creating Records table ("_s, database.lastError(), ") - "_s, unsafeSpan(database.lastErrorMsg())) };
 
         return IDBError { };
     }
@@ -276,16 +276,16 @@ static IDBError createOrMigrateRecordsTableIfNecessary(SQLiteDatabase& database)
 
     // Create a temporary table with the correct schema and migrate all existing content over.
     if (!database.executeCommand(v3RecordsTableSchemaTemp()))
-        return IDBError { ExceptionCode::UnknownError, makeString("Error creating temporary Records table ("_s, database.lastError(), ") - "_s, span(database.lastErrorMsg())) };
+        return IDBError { ExceptionCode::UnknownError, makeString("Error creating temporary Records table ("_s, database.lastError(), ") - "_s, unsafeSpan(database.lastErrorMsg())) };
 
     if (!database.executeCommand("INSERT INTO _Temp_Records (objectStoreID, key, value) SELECT objectStoreID, CAST(key AS TEXT), value FROM Records"_s))
-        return IDBError { ExceptionCode::UnknownError, makeString("Error migrating Records table ("_s, database.lastError(), ") - "_s, span(database.lastErrorMsg())) };
+        return IDBError { ExceptionCode::UnknownError, makeString("Error migrating Records table ("_s, database.lastError(), ") - "_s, unsafeSpan(database.lastErrorMsg())) };
 
     if (!database.executeCommand("DROP TABLE Records"_s))
-        return IDBError { ExceptionCode::UnknownError, makeString("Error dropping Records table ("_s, database.lastError(), ") - "_s, span(database.lastErrorMsg())) };
+        return IDBError { ExceptionCode::UnknownError, makeString("Error dropping Records table ("_s, database.lastError(), ") - "_s, unsafeSpan(database.lastErrorMsg())) };
 
     if (!database.executeCommand("ALTER TABLE _Temp_Records RENAME TO Records"_s))
-        return IDBError { ExceptionCode::UnknownError, makeString("Error renaming temporary Records table ("_s, database.lastError(), ") - "_s, span(database.lastErrorMsg())) };
+        return IDBError { ExceptionCode::UnknownError, makeString("Error renaming temporary Records table ("_s, database.lastError(), ") - "_s, unsafeSpan(database.lastErrorMsg())) };
 
     transaction.commit();
 
@@ -300,7 +300,7 @@ IDBError SQLiteIDBBackingStore::ensureValidBlobTables()
     String recordsTableStatement = m_sqliteDB->tableSQL("BlobRecords"_s);
     if (recordsTableStatement.isEmpty()) {
         if (!m_sqliteDB->executeCommand(blobRecordsTableSchema()))
-            return IDBError { ExceptionCode::UnknownError, makeString("Error creating BlobRecords table ("_s, m_sqliteDB->lastError(), ") - "_s, span(m_sqliteDB->lastErrorMsg())) };
+            return IDBError { ExceptionCode::UnknownError, makeString("Error creating BlobRecords table ("_s, m_sqliteDB->lastError(), ") - "_s, unsafeSpan(m_sqliteDB->lastErrorMsg())) };
 
         recordsTableStatement = blobRecordsTableSchema();
     }
@@ -310,7 +310,7 @@ IDBError SQLiteIDBBackingStore::ensureValidBlobTables()
     String filesTableStatement = m_sqliteDB->tableSQL("BlobFiles"_s);
     if (filesTableStatement.isEmpty()) {
         if (!m_sqliteDB->executeCommand(blobFilesTableSchema()))
-            return IDBError { ExceptionCode::UnknownError, makeString("Error creating BlobFiles table ("_s, m_sqliteDB->lastError(), ") - "_s, span(m_sqliteDB->lastErrorMsg())) };
+            return IDBError { ExceptionCode::UnknownError, makeString("Error creating BlobFiles table ("_s, m_sqliteDB->lastError(), ") - "_s, unsafeSpan(m_sqliteDB->lastErrorMsg())) };
 
         filesTableStatement = blobFilesTableSchema();
     }
@@ -331,7 +331,7 @@ IDBError SQLiteIDBBackingStore::ensureValidRecordsTable()
     // Whether the updated records table already existed or if it was just created and the data migrated over,
     // make sure the uniqueness index exists.
     if (!m_sqliteDB->executeCommand("CREATE UNIQUE INDEX IF NOT EXISTS RecordsIndex ON Records (objectStoreID, key);"_s))
-        error = IDBError { ExceptionCode::UnknownError, makeString("Error creating RecordsIndex on Records table ("_s, m_sqliteDB->lastError(), ") - "_s, span(m_sqliteDB->lastErrorMsg())) };
+        error = IDBError { ExceptionCode::UnknownError, makeString("Error creating RecordsIndex on Records table ("_s, m_sqliteDB->lastError(), ") - "_s, unsafeSpan(m_sqliteDB->lastErrorMsg())) };
 
     return error;
 }
@@ -344,7 +344,7 @@ IDBError SQLiteIDBBackingStore::ensureValidIndexRecordsTable()
     String tableStatement = m_sqliteDB->tableSQL("IndexRecords"_s);
     if (tableStatement.isEmpty()) {
         if (!m_sqliteDB->executeCommand(v3IndexRecordsTableSchema()))
-            return IDBError { ExceptionCode::UnknownError, makeString("Error creating IndexRecords table ("_s, m_sqliteDB->lastError(), ") - "_s, span(m_sqliteDB->lastErrorMsg())) };
+            return IDBError { ExceptionCode::UnknownError, makeString("Error creating IndexRecords table ("_s, m_sqliteDB->lastError(), ") - "_s, unsafeSpan(m_sqliteDB->lastErrorMsg())) };
 
         return IDBError { };
     }
@@ -360,16 +360,16 @@ IDBError SQLiteIDBBackingStore::ensureValidIndexRecordsTable()
 
     // Create a temporary table with the correct schema and migrate all existing content over.
     if (!m_sqliteDB->executeCommand(v3IndexRecordsTableSchemaTemp()))
-        return IDBError { ExceptionCode::UnknownError, makeString("Error creating temporary IndexRecords table ("_s, m_sqliteDB->lastError(), ") - "_s, span(m_sqliteDB->lastErrorMsg())) };
+        return IDBError { ExceptionCode::UnknownError, makeString("Error creating temporary IndexRecords table ("_s, m_sqliteDB->lastError(), ") - "_s, unsafeSpan(m_sqliteDB->lastErrorMsg())) };
 
     if (!m_sqliteDB->executeCommand("INSERT INTO _Temp_IndexRecords SELECT IndexRecords.indexID, IndexRecords.objectStoreID, IndexRecords.key, IndexRecords.value, Records.rowid FROM IndexRecords INNER JOIN Records ON Records.key = IndexRecords.value AND Records.objectStoreID = IndexRecords.objectStoreID"_s))
-        return IDBError { ExceptionCode::UnknownError, makeString("Error migrating IndexRecords table ("_s, m_sqliteDB->lastError(), ") - "_s, span(m_sqliteDB->lastErrorMsg())) };
+        return IDBError { ExceptionCode::UnknownError, makeString("Error migrating IndexRecords table ("_s, m_sqliteDB->lastError(), ") - "_s, unsafeSpan(m_sqliteDB->lastErrorMsg())) };
 
     if (!m_sqliteDB->executeCommand("DROP TABLE IndexRecords"_s))
-        return IDBError { ExceptionCode::UnknownError, makeString("Error dropping IndexRecords table ("_s, m_sqliteDB->lastError(), ") - "_s, span(m_sqliteDB->lastErrorMsg())) };
+        return IDBError { ExceptionCode::UnknownError, makeString("Error dropping IndexRecords table ("_s, m_sqliteDB->lastError(), ") - "_s, unsafeSpan(m_sqliteDB->lastErrorMsg())) };
 
     if (!m_sqliteDB->executeCommand("ALTER TABLE _Temp_IndexRecords RENAME TO IndexRecords"_s))
-        return IDBError { ExceptionCode::UnknownError, makeString("Error renaming temporary IndexRecords table ("_s, m_sqliteDB->lastError(), ") - "_s, span(m_sqliteDB->lastErrorMsg())) };
+        return IDBError { ExceptionCode::UnknownError, makeString("Error renaming temporary IndexRecords table ("_s, m_sqliteDB->lastError(), ") - "_s, unsafeSpan(m_sqliteDB->lastErrorMsg())) };
 
     transaction.commit();
 
@@ -386,10 +386,10 @@ IDBError SQLiteIDBBackingStore::ensureValidIndexRecordsIndex()
         return IDBError { };
     
     if (!m_sqliteDB->executeCommand("DROP INDEX IF EXISTS IndexRecordsIndex"_s))
-        return IDBError { ExceptionCode::UnknownError, makeString("Error dropping IndexRecordsIndex index ("_s, m_sqliteDB->lastError(), ") - "_s, span(m_sqliteDB->lastErrorMsg())) };
+        return IDBError { ExceptionCode::UnknownError, makeString("Error dropping IndexRecordsIndex index ("_s, m_sqliteDB->lastError(), ") - "_s, unsafeSpan(m_sqliteDB->lastErrorMsg())) };
 
     if (!m_sqliteDB->executeCommand(IndexRecordsIndexSchema))
-        return IDBError { ExceptionCode::UnknownError, makeString("Error creating IndexRecordsIndex index ("_s, m_sqliteDB->lastError(), ") - "_s, span(m_sqliteDB->lastErrorMsg())) };
+        return IDBError { ExceptionCode::UnknownError, makeString("Error creating IndexRecordsIndex index ("_s, m_sqliteDB->lastError(), ") - "_s, unsafeSpan(m_sqliteDB->lastErrorMsg())) };
 
     return IDBError { };
 }
@@ -404,10 +404,10 @@ IDBError SQLiteIDBBackingStore::ensureValidIndexRecordsRecordIndex()
         return IDBError { };
     
     if (!m_sqliteDB->executeCommand("DROP INDEX IF EXISTS IndexRecordsRecordIndex"_s))
-        return IDBError { ExceptionCode::UnknownError, makeString("Error dropping IndexRecordsRecordIndex index ("_s, m_sqliteDB->lastError(), ") - "_s, span(m_sqliteDB->lastErrorMsg())) };
+        return IDBError { ExceptionCode::UnknownError, makeString("Error dropping IndexRecordsRecordIndex index ("_s, m_sqliteDB->lastError(), ") - "_s, unsafeSpan(m_sqliteDB->lastErrorMsg())) };
 
     if (!m_sqliteDB->executeCommand(v1IndexRecordsRecordIndexSchema))
-        return IDBError { ExceptionCode::UnknownError, makeString("Error creating IndexRecordsRecordIndex index ("_s, m_sqliteDB->lastError(), ") - "_s, span(m_sqliteDB->lastErrorMsg())) };
+        return IDBError { ExceptionCode::UnknownError, makeString("Error creating IndexRecordsRecordIndex index ("_s, m_sqliteDB->lastError(), ") - "_s, unsafeSpan(m_sqliteDB->lastErrorMsg())) };
 
     return IDBError { };
 }
@@ -527,7 +527,7 @@ std::optional<IsSchemaUpgraded> SQLiteIDBBackingStore::ensureValidObjectStoreInf
     return { IsSchemaUpgraded::Yes };
 }
 
-bool SQLiteIDBBackingStore::migrateIndexInfoTableForIDUpdate(const HashMap<std::pair<IDBObjectStoreIdentifier, uint64_t>, uint64_t>& indexIDMap)
+bool SQLiteIDBBackingStore::migrateIndexInfoTableForIDUpdate(const HashMap<std::pair<IDBObjectStoreIdentifier, IDBIndexIdentifier>, IDBIndexIdentifier>& indexIDMap)
 {
     SQLiteDatabase& database = *m_sqliteDB;
     SQLiteTransaction transaction(database);
@@ -547,17 +547,17 @@ bool SQLiteIDBBackingStore::migrateIndexInfoTableForIDUpdate(const HashMap<std::
 
         int result = statement->step();
         while (result == SQLITE_ROW) {
-            uint64_t id = statement->columnInt64(0);
+            IDBIndexIdentifier id { static_cast<uint64_t>(statement->columnInt64(0)) };
             String name = statement->columnText(1);
             IDBObjectStoreIdentifier objectStoreID { static_cast<uint64_t>(statement->columnInt64(2)) };
-            uint64_t newID = indexIDMap.get({ objectStoreID, id });
+            auto newID = indexIDMap.get({ objectStoreID, id });
             auto keyPathBufferSpan = statement->columnBlobAsSpan(3);
             bool unique = statement->columnInt(4);
             bool multiEntry = statement->columnInt(5);
 
             auto sql = cachedStatement(SQL::CreateTempIndexInfo, "INSERT INTO _Temp_IndexInfo VALUES (?, ?, ?, ?, ?, ?);"_s);
             if (!sql
-                || sql->bindInt64(1, newID) != SQLITE_OK
+                || sql->bindInt64(1, newID->toRawValue()) != SQLITE_OK
                 || sql->bindText(2, name) != SQLITE_OK
                 || sql->bindInt64(3, objectStoreID.toRawValue()) != SQLITE_OK
                 || sql->bindBlob(4, keyPathBufferSpan) != SQLITE_OK
@@ -591,7 +591,7 @@ bool SQLiteIDBBackingStore::migrateIndexInfoTableForIDUpdate(const HashMap<std::
     return true;
 }
 
-bool SQLiteIDBBackingStore::migrateIndexRecordsTableForIDUpdate(const HashMap<std::pair<IDBObjectStoreIdentifier, uint64_t>, uint64_t>& indexIDMap)
+bool SQLiteIDBBackingStore::migrateIndexRecordsTableForIDUpdate(const HashMap<std::pair<IDBObjectStoreIdentifier, IDBIndexIdentifier>, IDBIndexIdentifier>& indexIDMap)
 {
     SQLiteDatabase& database = *m_sqliteDB;
     SQLiteTransaction transaction(database);
@@ -611,16 +611,16 @@ bool SQLiteIDBBackingStore::migrateIndexRecordsTableForIDUpdate(const HashMap<st
 
         int result = statement->step();
         while (result == SQLITE_ROW) {
-            uint64_t id = statement->columnInt64(0);
+            IDBIndexIdentifier id { static_cast<uint64_t>(statement->columnInt64(0)) };
             IDBObjectStoreIdentifier objectStoreID { static_cast<uint64_t>(statement->columnInt64(1)) };
-            uint64_t newID = indexIDMap.get({ objectStoreID, id });
+            auto newID = indexIDMap.get({ objectStoreID, id });
             auto keyBufferSpan = statement->columnBlobAsSpan(2);
             auto valueBufferSpan = statement->columnBlobAsSpan(3);
             uint64_t recordID = statement->columnInt64(4);
 
             auto sql = cachedStatement(SQL::PutTempIndexRecord, "INSERT INTO _Temp_IndexRecords VALUES (?, ?, CAST(? AS TEXT), CAST(? AS TEXT), ?);"_s);
             if (!sql
-                || sql->bindInt64(1, newID) != SQLITE_OK
+                || sql->bindInt64(1, newID->toRawValue()) != SQLITE_OK
                 || sql->bindInt64(2, objectStoreID.toRawValue()) != SQLITE_OK
                 || sql->bindBlob(3, keyBufferSpan) != SQLITE_OK
                 || sql->bindBlob(4, valueBufferSpan) != SQLITE_OK
@@ -653,7 +653,7 @@ bool SQLiteIDBBackingStore::migrateIndexRecordsTableForIDUpdate(const HashMap<st
     return true;
 }
 
-bool SQLiteIDBBackingStore::removeExistingIndex(uint64_t indexID)
+bool SQLiteIDBBackingStore::removeExistingIndex(IDBIndexIdentifier indexID)
 {
     SQLiteTransaction transaction(*m_sqliteDB);
     transaction.begin();
@@ -661,7 +661,7 @@ bool SQLiteIDBBackingStore::removeExistingIndex(uint64_t indexID)
     {
         auto sql = cachedStatement(SQL::RemoveIndexInfo, "DELETE FROM IndexInfo WHERE id = ?;"_s);
         if (!sql
-            || sql->bindInt64(1, indexID) != SQLITE_OK
+            || sql->bindInt64(1, indexID.toRawValue()) != SQLITE_OK
             || sql->step() != SQLITE_DONE) {
             LOG_ERROR("Unable to remove existing index from IndexInfo table (%i) - %s", m_sqliteDB->lastError(), m_sqliteDB->lastErrorMsg());
             return false;
@@ -671,7 +671,7 @@ bool SQLiteIDBBackingStore::removeExistingIndex(uint64_t indexID)
     {
         auto sql = cachedStatement(SQL::DeleteIndexRecords, "DELETE FROM IndexRecords WHERE indexID = ?;"_s);
         if (!sql
-            || sql->bindInt64(1, indexID) != SQLITE_OK
+            || sql->bindInt64(1, indexID.toRawValue()) != SQLITE_OK
             || sql->step() != SQLITE_DONE) {
             LOG_ERROR("Unable to remove existing index from IndexRecords table (%i) - %s", m_sqliteDB->lastError(), m_sqliteDB->lastErrorMsg());
             return false;
@@ -696,7 +696,7 @@ bool SQLiteIDBBackingStore::addExistingIndex(IDBObjectStoreInfo& objectStoreInfo
     {
         auto sql = cachedStatement(SQL::CreateIndexInfo, "INSERT INTO IndexInfo VALUES (?, ?, ?, ?, ?, ?);"_s);
         if (!sql
-            || sql->bindInt64(1, info.identifier()) != SQLITE_OK
+            || sql->bindInt64(1, info.identifier().toRawValue()) != SQLITE_OK
             || sql->bindText(2, info.name()) != SQLITE_OK
             || sql->bindInt64(3, info.objectStoreIdentifier().toRawValue()) != SQLITE_OK
             || sql->bindBlob(4, keyPathBlob->span()) != SQLITE_OK
@@ -745,7 +745,7 @@ bool SQLiteIDBBackingStore::addExistingIndex(IDBObjectStoreInfo& objectStoreInfo
     return true;
 }
 
-bool SQLiteIDBBackingStore::handleDuplicateIndexIDs(const HashMap<uint64_t, Vector<IDBIndexInfo>>& indexInfoMap, IDBDatabaseInfo& databaseInfo)
+bool SQLiteIDBBackingStore::handleDuplicateIndexIDs(const HashMap<IDBIndexIdentifier, Vector<IDBIndexInfo>>& indexInfoMap, IDBDatabaseInfo& databaseInfo)
 {
     for (auto& iter : indexInfoMap) {
         if (iter.value.size() == 1)
@@ -841,8 +841,8 @@ std::unique_ptr<IDBDatabaseInfo> SQLiteIDBBackingStore::extractExistingDatabaseI
     }
 
     uint64_t maxIndexID = 0;
-    HashMap<std::pair<IDBObjectStoreIdentifier, uint64_t>, uint64_t> indexIDMap;
-    HashMap<uint64_t, Vector<IDBIndexInfo>> indexInfoMap;
+    HashMap<std::pair<IDBObjectStoreIdentifier, IDBIndexIdentifier>, IDBIndexIdentifier> indexIDMap;
+    HashMap<IDBIndexIdentifier, Vector<IDBIndexInfo>> indexInfoMap;
     {
         auto sql = m_sqliteDB->prepareStatement("SELECT id, name, objectStoreID, keyPath, isUnique, multiEntry FROM IndexInfo;"_s);
         if (!sql) {
@@ -852,7 +852,7 @@ std::unique_ptr<IDBDatabaseInfo> SQLiteIDBBackingStore::extractExistingDatabaseI
 
         int result = sql->step();
         while (result == SQLITE_ROW) {
-            uint64_t indexID = sql->columnInt64(0);
+            IDBIndexIdentifier indexID { static_cast<uint64_t>(sql->columnInt64(0)) };
             String indexName = sql->columnText(1);
             IDBObjectStoreIdentifier objectStoreID { static_cast<uint64_t>(sql->columnInt64(2)) };
             auto keyPathBufferSpan = sql->columnBlobAsSpan(3);
@@ -872,13 +872,13 @@ std::unique_ptr<IDBDatabaseInfo> SQLiteIDBBackingStore::extractExistingDatabaseI
 
             auto objectStore = databaseInfo->infoForExistingObjectStore(objectStoreID);
             if (!objectStore) {
-                LOG_ERROR("Found index referring to a non-existant object store");
+                LOG_ERROR("Found index referring to a non-existent object store");
                 return nullptr;
             }
 
             if (shouldUpdateIndexID) {
-                indexIDMap.set({ objectStoreID, indexID }, ++maxIndexID);
-                indexID = maxIndexID;
+                indexIDMap.set({ objectStoreID, indexID }, IDBIndexIdentifier { ++maxIndexID });
+                indexID = IDBIndexIdentifier { maxIndexID };
             }
 
             auto indexInfo = IDBIndexInfo { indexID, objectStoreID, indexName, WTFMove(indexKeyPath.value()), unique, multiEntry };
@@ -890,7 +890,7 @@ std::unique_ptr<IDBDatabaseInfo> SQLiteIDBBackingStore::extractExistingDatabaseI
             }
 
             objectStore->addExistingIndex(indexInfo);
-            maxIndexID = maxIndexID < indexID ? indexID : maxIndexID;
+            maxIndexID = maxIndexID < indexID.toRawValue() ? indexID.toRawValue() : maxIndexID;
 
             result = sql->step();
         }
@@ -994,7 +994,7 @@ IDBError SQLiteIDBBackingStore::getOrEstablishDatabaseInfo(IDBDatabaseInfo& info
     m_sqliteDB->enableAutomaticWALTruncation();
 
     m_sqliteDB->setCollationFunction("IDBKEY"_s, [](int aLength, const void* a, int bLength, const void* b) {
-        return idbKeyCollate(std::span { static_cast<const uint8_t*>(a), static_cast<size_t>(aLength) }, std::span { static_cast<const uint8_t*>(b), static_cast<size_t>(bLength) });
+        return idbKeyCollate(unsafeMakeSpan(static_cast<const uint8_t*>(a), aLength), unsafeMakeSpan(static_cast<const uint8_t*>(b), bLength));
     });
 
     IDBError error = ensureValidRecordsTable();
@@ -1362,7 +1362,7 @@ IDBError SQLiteIDBBackingStore::clearObjectStore(const IDBResourceIdentifier& tr
 
 IDBError SQLiteIDBBackingStore::createIndex(const IDBResourceIdentifier& transactionIdentifier, const IDBIndexInfo& info)
 {
-    LOG(IndexedDB, "SQLiteIDBBackingStore::createIndex - ObjectStore %" PRIu64 ", Index %" PRIu64, info.objectStoreIdentifier().toRawValue(), info.identifier());
+    LOG(IndexedDB, "SQLiteIDBBackingStore::createIndex - ObjectStore %" PRIu64 ", Index %" PRIu64, info.objectStoreIdentifier().toRawValue(), info.identifier().toRawValue());
     ASSERT(m_sqliteDB);
     ASSERT(m_sqliteDB->isOpen());
 
@@ -1384,7 +1384,7 @@ IDBError SQLiteIDBBackingStore::createIndex(const IDBResourceIdentifier& transac
     {
         auto sql = cachedStatement(SQL::CreateIndexInfo, "INSERT INTO IndexInfo VALUES (?, ?, ?, ?, ?, ?);"_s);
         if (!sql
-            || sql->bindInt64(1, info.identifier()) != SQLITE_OK
+            || sql->bindInt64(1, info.identifier().toRawValue()) != SQLITE_OK
             || sql->bindText(2, info.name()) != SQLITE_OK
             || sql->bindInt64(3, info.objectStoreIdentifier().toRawValue()) != SQLITE_OK
             || sql->bindBlob(4, keyPathBlob->span()) != SQLITE_OK
@@ -1398,7 +1398,7 @@ IDBError SQLiteIDBBackingStore::createIndex(const IDBResourceIdentifier& transac
 
     // Write index records for any records that already exist in this object store.
 
-    auto cursor = transaction->maybeOpenBackingStoreCursor(info.objectStoreIdentifier(), 0, IDBKeyRangeData::allKeys());
+    auto cursor = transaction->maybeOpenBackingStoreCursor(info.objectStoreIdentifier(), std::nullopt, IDBKeyRangeData::allKeys());
 
     if (!cursor) {
         LOG_ERROR("Cannot open cursor to populate indexes in database");
@@ -1418,7 +1418,7 @@ IDBError SQLiteIDBBackingStore::createIndex(const IDBResourceIdentifier& transac
         if (!error.isNull()) {
             auto sql = cachedStatement(SQL::DeleteIndexInfo, "DELETE FROM IndexInfo WHERE id = ? AND objectStoreID = ?;"_s);
             if (!sql
-                || sql->bindInt64(1, info.identifier()) != SQLITE_OK
+                || sql->bindInt64(1, info.identifier().toRawValue()) != SQLITE_OK
                 || sql->bindInt64(2, info.objectStoreIdentifier().toRawValue()) != SQLITE_OK
                 || sql->step() != SQLITE_DONE) {
                 LOG_ERROR("Index creation failed due to uniqueness constraint failure, but there was an error deleting the Index record from the database");
@@ -1443,7 +1443,7 @@ IDBError SQLiteIDBBackingStore::createIndex(const IDBResourceIdentifier& transac
     auto* objectStore = m_databaseInfo->infoForExistingObjectStore(info.objectStoreIdentifier());
     ASSERT(objectStore);
     objectStore->addExistingIndex(info);
-    m_databaseInfo->setMaxIndexID(info.identifier());
+    m_databaseInfo->setMaxIndexID(info.identifier().toRawValue());
 
     return IDBError { };
 }
@@ -1460,7 +1460,7 @@ IDBError SQLiteIDBBackingStore::uncheckedHasIndexRecord(const IDBIndexInfo& info
 
     auto sql = cachedStatement(SQL::HasIndexRecord, "SELECT rowid FROM IndexRecords WHERE indexID = ? AND key = CAST(? AS TEXT);"_s);
     if (!sql
-        || sql->bindInt64(1, info.identifier()) != SQLITE_OK
+        || sql->bindInt64(1, info.identifier().toRawValue()) != SQLITE_OK
         || sql->bindBlob(2, indexKeyBuffer->span()) != SQLITE_OK) {
         LOG_ERROR("Error checking for index record in database");
         return IDBError { ExceptionCode::UnknownError, "Error checking for index record in database"_s };
@@ -1482,7 +1482,7 @@ IDBError SQLiteIDBBackingStore::uncheckedHasIndexRecord(const IDBIndexInfo& info
 
 IDBError SQLiteIDBBackingStore::uncheckedPutIndexKey(const IDBIndexInfo& info, const IDBKeyData& key, const IndexKey& indexKey, int64_t recordID)
 {
-    LOG(IndexedDB, "SQLiteIDBBackingStore::uncheckedPutIndexKey - (%" PRIu64 ") %s, %s", info.identifier(), key.loggingString().utf8().data(), indexKey.asOneKey().loggingString().utf8().data());
+    LOG(IndexedDB, "SQLiteIDBBackingStore::uncheckedPutIndexKey - (%" PRIu64 ") %s, %s", info.identifier().toRawValue(), key.loggingString().utf8().data(), indexKey.asOneKey().loggingString().utf8().data());
 
     Vector<IDBKeyData> indexKeys;
     if (info.multiEntry())
@@ -1517,7 +1517,7 @@ IDBError SQLiteIDBBackingStore::uncheckedPutIndexKey(const IDBIndexInfo& info, c
     return IDBError { };
 }
 
-IDBError SQLiteIDBBackingStore::uncheckedPutIndexRecord(IDBObjectStoreIdentifier objectStoreID, int64_t indexID, const WebCore::IDBKeyData& keyValue, const WebCore::IDBKeyData& indexKey, int64_t recordID)
+IDBError SQLiteIDBBackingStore::uncheckedPutIndexRecord(IDBObjectStoreIdentifier objectStoreID, IDBIndexIdentifier indexID, const WebCore::IDBKeyData& keyValue, const WebCore::IDBKeyData& indexKey, int64_t recordID)
 {
     LOG(IndexedDB, "SQLiteIDBBackingStore::uncheckedPutIndexRecord - %s, %s", keyValue.loggingString().utf8().data(), indexKey.loggingString().utf8().data());
 
@@ -1536,13 +1536,13 @@ IDBError SQLiteIDBBackingStore::uncheckedPutIndexRecord(IDBObjectStoreIdentifier
     {
         auto sql = cachedStatement(SQL::PutIndexRecord, "INSERT INTO IndexRecords VALUES (?, ?, CAST(? AS TEXT), CAST(? AS TEXT), ?);"_s);
         if (!sql
-            || sql->bindInt64(1, indexID) != SQLITE_OK
+            || sql->bindInt64(1, indexID.toRawValue()) != SQLITE_OK
             || sql->bindInt64(2, objectStoreID.toRawValue()) != SQLITE_OK
             || sql->bindBlob(3, indexKeyBuffer->span()) != SQLITE_OK
             || sql->bindBlob(4, valueBuffer->span()) != SQLITE_OK
             || sql->bindInt64(5, recordID) != SQLITE_OK
             || sql->step() != SQLITE_DONE) {
-            LOG_ERROR("Could not put index record for index %" PRIi64 " in object store %" PRIi64 " in Records table (%i) - %s", indexID, objectStoreID.toRawValue(), m_sqliteDB->lastError(), m_sqliteDB->lastErrorMsg());
+            LOG_ERROR("Could not put index record for index %" PRIi64 " in object store %" PRIi64 " in Records table (%i) - %s", indexID.toRawValue(), objectStoreID.toRawValue(), m_sqliteDB->lastError(), m_sqliteDB->lastErrorMsg());
             return IDBError { ExceptionCode::UnknownError, "Error putting index record into database"_s };
         }
     }
@@ -1551,7 +1551,7 @@ IDBError SQLiteIDBBackingStore::uncheckedPutIndexRecord(IDBObjectStoreIdentifier
 }
 
 
-IDBError SQLiteIDBBackingStore::deleteIndex(const IDBResourceIdentifier& transactionIdentifier, IDBObjectStoreIdentifier objectStoreIdentifier, uint64_t indexIdentifier)
+IDBError SQLiteIDBBackingStore::deleteIndex(const IDBResourceIdentifier& transactionIdentifier, IDBObjectStoreIdentifier objectStoreIdentifier, IDBIndexIdentifier indexIdentifier)
 {
     LOG(IndexedDB, "SQLiteIDBBackingStore::deleteIndex - object store %" PRIu64, objectStoreIdentifier.toRawValue());
 
@@ -1570,7 +1570,7 @@ IDBError SQLiteIDBBackingStore::deleteIndex(const IDBResourceIdentifier& transac
     {
         auto sql = cachedStatement(SQL::DeleteIndexInfo, "DELETE FROM IndexInfo WHERE id = ? AND objectStoreID = ?;"_s);
         if (!sql
-            || sql->bindInt64(1, indexIdentifier) != SQLITE_OK
+            || sql->bindInt64(1, indexIdentifier.toRawValue()) != SQLITE_OK
             || sql->bindInt64(2, objectStoreIdentifier.toRawValue()) != SQLITE_OK
             || sql->step() != SQLITE_DONE) {
             LOG_ERROR("Could not delete index id %" PRIi64 " from IndexInfo table (%i) - %s", objectStoreIdentifier.toRawValue(), m_sqliteDB->lastError(), m_sqliteDB->lastErrorMsg());
@@ -1581,9 +1581,9 @@ IDBError SQLiteIDBBackingStore::deleteIndex(const IDBResourceIdentifier& transac
     {
         auto sql = cachedStatement(SQL::DeleteIndexRecords, "DELETE FROM IndexRecords WHERE indexID = ?;"_s);
         if (!sql
-            || sql->bindInt64(1, indexIdentifier) != SQLITE_OK
+            || sql->bindInt64(1, indexIdentifier.toRawValue()) != SQLITE_OK
             || sql->step() != SQLITE_DONE) {
-            LOG_ERROR("Could not delete index records for index id %" PRIi64 " from IndexRecords table (%i) - %s", indexIdentifier, m_sqliteDB->lastError(), m_sqliteDB->lastErrorMsg());
+            LOG_ERROR("Could not delete index records for index id %" PRIi64 " from IndexRecords table (%i) - %s", indexIdentifier.toRawValue(), m_sqliteDB->lastError(), m_sqliteDB->lastErrorMsg());
             return IDBError { ExceptionCode::UnknownError, "Error deleting index records from database"_s };
         }
     }
@@ -1595,9 +1595,9 @@ IDBError SQLiteIDBBackingStore::deleteIndex(const IDBResourceIdentifier& transac
     return IDBError { };
 }
 
-IDBError SQLiteIDBBackingStore::renameIndex(const IDBResourceIdentifier& transactionIdentifier, IDBObjectStoreIdentifier objectStoreIdentifier, uint64_t indexIdentifier, const String& newName)
+IDBError SQLiteIDBBackingStore::renameIndex(const IDBResourceIdentifier& transactionIdentifier, IDBObjectStoreIdentifier objectStoreIdentifier, IDBIndexIdentifier indexIdentifier, const String& newName)
 {
-    LOG(IndexedDB, "SQLiteIDBBackingStore::renameIndex - object store %" PRIu64 ", index %" PRIu64, objectStoreIdentifier.toRawValue(), indexIdentifier);
+    LOG(IndexedDB, "SQLiteIDBBackingStore::renameIndex - object store %" PRIu64 ", index %" PRIu64, objectStoreIdentifier.toRawValue(), indexIdentifier.toRawValue());
 
     ASSERT(m_sqliteDB);
     ASSERT(m_sqliteDB->isOpen());
@@ -1624,9 +1624,9 @@ IDBError SQLiteIDBBackingStore::renameIndex(const IDBResourceIdentifier& transac
         if (!sql
             || sql->bindText(1, newName) != SQLITE_OK
             || sql->bindInt64(2, objectStoreIdentifier.toRawValue()) != SQLITE_OK
-            || sql->bindInt64(3, indexIdentifier) != SQLITE_OK
+            || sql->bindInt64(3, indexIdentifier.toRawValue()) != SQLITE_OK
             || sql->step() != SQLITE_DONE) {
-            LOG_ERROR("Could not update name for index id (%" PRIi64 ", %" PRIi64 ") in IndexInfo table (%i) - %s", objectStoreIdentifier.toRawValue(), indexIdentifier, m_sqliteDB->lastError(), m_sqliteDB->lastErrorMsg());
+            LOG_ERROR("Could not update name for index id (%" PRIi64 ", %" PRIi64 ") in IndexInfo table (%i) - %s", objectStoreIdentifier.toRawValue(), indexIdentifier.toRawValue(), m_sqliteDB->lastError(), m_sqliteDB->lastErrorMsg());
             return IDBError { ExceptionCode::UnknownError, "Could not rename index"_s };
         }
     }
@@ -1843,7 +1843,7 @@ IDBError SQLiteIDBBackingStore::deleteRange(const IDBResourceIdentifier& transac
         return IDBError { };
     }
 
-    auto cursor = transaction->maybeOpenBackingStoreCursor(objectStoreID, 0, keyRange);
+    auto cursor = transaction->maybeOpenBackingStoreCursor(objectStoreID, std::nullopt, keyRange);
     if (!cursor) {
         LOG_ERROR("Cannot open cursor to delete range of records from the database");
         return IDBError { ExceptionCode::UnknownError, "Cannot open cursor to delete range of records from the database"_s };
@@ -2390,7 +2390,7 @@ IDBError SQLiteIDBBackingStore::getAllIndexRecords(const IDBResourceIdentifier& 
     return IDBError { };
 }
 
-IDBError SQLiteIDBBackingStore::getIndexRecord(const IDBResourceIdentifier& transactionIdentifier, IDBObjectStoreIdentifier objectStoreID, uint64_t indexID, IndexedDB::IndexRecordType type, const IDBKeyRangeData& range, IDBGetResult& getResult)
+IDBError SQLiteIDBBackingStore::getIndexRecord(const IDBResourceIdentifier& transactionIdentifier, IDBObjectStoreIdentifier objectStoreID, IDBIndexIdentifier indexID, IndexedDB::IndexRecordType type, const IDBKeyRangeData& range, IDBGetResult& getResult)
 {
     LOG(IndexedDB, "SQLiteIDBBackingStore::getIndexRecord - %s", range.loggingString().utf8().data());
 
@@ -2430,7 +2430,7 @@ IDBError SQLiteIDBBackingStore::getIndexRecord(const IDBResourceIdentifier& tran
     return IDBError { };
 }
 
-IDBError SQLiteIDBBackingStore::uncheckedGetIndexRecordForOneKey(int64_t indexID, IDBObjectStoreIdentifier objectStoreID, IndexedDB::IndexRecordType type, const IDBKeyData& key, IDBGetResult& getResult)
+IDBError SQLiteIDBBackingStore::uncheckedGetIndexRecordForOneKey(IDBIndexIdentifier indexID, IDBObjectStoreIdentifier objectStoreID, IndexedDB::IndexRecordType type, const IDBKeyData& key, IDBGetResult& getResult)
 {
     LOG(IndexedDB, "SQLiteIDBBackingStore::uncheckedGetIndexRecordForOneKey");
 
@@ -2445,7 +2445,7 @@ IDBError SQLiteIDBBackingStore::uncheckedGetIndexRecordForOneKey(int64_t indexID
     auto sql = cachedStatement(SQL::GetIndexRecordForOneKey, "SELECT IndexRecords.value, Records.value, Records.recordID FROM Records INNER JOIN IndexRecords ON Records.objectStoreID = IndexRecords.objectStoreID AND Records.recordID = IndexRecords.objectStoreRecordID WHERE IndexRecords.indexID = ? AND IndexRecords.key = CAST(? AS TEXT) ORDER BY IndexRecords.key, IndexRecords.value"_s);
 
     if (!sql
-        || sql->bindInt64(1, indexID) != SQLITE_OK
+        || sql->bindInt64(1, indexID.toRawValue()) != SQLITE_OK
         || sql->bindBlob(2, buffer->span()) != SQLITE_OK) {
         LOG_ERROR("Unable to lookup index record in database");
         return IDBError { ExceptionCode::UnknownError, "Unable to lookup index record in database"_s };
@@ -2488,7 +2488,7 @@ IDBError SQLiteIDBBackingStore::uncheckedGetIndexRecordForOneKey(int64_t indexID
     return IDBError { };
 }
 
-IDBError SQLiteIDBBackingStore::getCount(const IDBResourceIdentifier& transactionIdentifier, IDBObjectStoreIdentifier objectStoreIdentifier, uint64_t indexIdentifier, const IDBKeyRangeData& range, uint64_t& outCount)
+IDBError SQLiteIDBBackingStore::getCount(const IDBResourceIdentifier& transactionIdentifier, IDBObjectStoreIdentifier objectStoreIdentifier, std::optional<IDBIndexIdentifier> indexIdentifier, const IDBKeyRangeData& range, uint64_t& outCount)
 {
     LOG(IndexedDB, "SQLiteIDBBackingStore::getCount - object store %" PRIu64, objectStoreIdentifier.toRawValue());
     ASSERT(m_sqliteDB);
@@ -2544,10 +2544,10 @@ IDBError SQLiteIDBBackingStore::getCount(const IDBResourceIdentifier& transactio
             statement = cachedStatement(SQL::CountIndexRecordsLowerClosedUpperClosed, "SELECT COUNT(*) FROM IndexRecords WHERE indexID = ? AND key >= CAST(? AS TEXT) AND key <= CAST(? AS TEXT);"_s);
 
         if (!statement
-            || statement->bindInt64(1, indexIdentifier) != SQLITE_OK
+            || statement->bindInt64(1, indexIdentifier->toRawValue()) != SQLITE_OK
             || statement->bindBlob(2, lowerBuffer->span()) != SQLITE_OK
             || statement->bindBlob(3, upperBuffer->span()) != SQLITE_OK) {
-            LOG_ERROR("Could not count records with index %" PRIi64 " from IndexRecords table (%i) - %s", indexIdentifier, m_sqliteDB->lastError(), m_sqliteDB->lastErrorMsg());
+            LOG_ERROR("Could not count records with index %" PRIi64 " from IndexRecords table (%i) - %s", indexIdentifier->toRawValue(), m_sqliteDB->lastError(), m_sqliteDB->lastErrorMsg());
             return IDBError { ExceptionCode::UnknownError, "Unable to count records for index due to binding failure"_s };
         }
     }

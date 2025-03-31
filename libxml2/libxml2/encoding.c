@@ -51,6 +51,7 @@
 
 #include "buf.h"
 #include "enc.h"
+#include "private/memory.h"
 
 #ifdef __APPLE__
 #include "xmlversionInternal.h"
@@ -1083,6 +1084,7 @@ int
 xmlAddEncodingAlias(const char *name, const char *alias) {
     int i;
     char upper[100];
+    char *nameCopy, *aliasCopy;
 
     if ((name == NULL) || (alias == NULL))
 	return(-1);
@@ -1093,19 +1095,21 @@ xmlAddEncodingAlias(const char *name, const char *alias) {
     }
     upper[i] = 0;
 
-    if (xmlCharEncodingAliases == NULL) {
-	xmlCharEncodingAliasesNb = 0;
-	xmlCharEncodingAliasesMax = 20;
-	xmlCharEncodingAliases = (xmlCharEncodingAliasPtr)
-	      xmlMalloc(xmlCharEncodingAliasesMax * sizeof(xmlCharEncodingAlias));
-	if (xmlCharEncodingAliases == NULL)
-	    return(-1);
-    } else if (xmlCharEncodingAliasesNb >= xmlCharEncodingAliasesMax) {
-	xmlCharEncodingAliasesMax *= 2;
-	xmlCharEncodingAliases = (xmlCharEncodingAliasPtr)
-	      xmlRealloc(xmlCharEncodingAliases,
-		         xmlCharEncodingAliasesMax * sizeof(xmlCharEncodingAlias));
+    if (xmlCharEncodingAliasesNb >= xmlCharEncodingAliasesMax) {
+        xmlCharEncodingAliasPtr tmp;
+        int newSize;
+
+        newSize = xmlGrowCapacity(xmlCharEncodingAliasesMax, sizeof(tmp[0]),
+                                  20, XML_MAX_ITEMS);
+        if (newSize < 0)
+            return(-1);
+        tmp = xmlRealloc(xmlCharEncodingAliases, newSize * sizeof(tmp[0]));
+        if (tmp == NULL)
+            return(-1);
+        xmlCharEncodingAliases = tmp;
+        xmlCharEncodingAliasesMax = newSize;
     }
+
     /*
      * Walk down the list looking for a definition of the alias
      */
@@ -1114,16 +1118,27 @@ xmlAddEncodingAlias(const char *name, const char *alias) {
 	    /*
 	     * Replace the definition.
 	     */
+	    nameCopy = xmlMemStrdup(name);
+            if (nameCopy == NULL)
+                return(-1);
 	    xmlFree((char *) xmlCharEncodingAliases[i].name);
-	    xmlCharEncodingAliases[i].name = xmlMemStrdup(name);
+	    xmlCharEncodingAliases[i].name = nameCopy;
 	    return(0);
 	}
     }
     /*
      * Add the definition
      */
-    xmlCharEncodingAliases[xmlCharEncodingAliasesNb].name = xmlMemStrdup(name);
-    xmlCharEncodingAliases[xmlCharEncodingAliasesNb].alias = xmlMemStrdup(upper);
+    nameCopy = xmlMemStrdup(name);
+    if (nameCopy == NULL)
+        return(-1);
+    aliasCopy = xmlMemStrdup(upper);
+    if (aliasCopy == NULL) {
+        xmlFree(nameCopy);
+        return(-1);
+    }
+    xmlCharEncodingAliases[xmlCharEncodingAliasesNb].name = nameCopy;
+    xmlCharEncodingAliases[xmlCharEncodingAliasesNb].alias = aliasCopy;
     xmlCharEncodingAliasesNb++;
     return(0);
 }

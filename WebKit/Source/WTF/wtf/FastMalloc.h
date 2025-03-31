@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2005-2018 Apple Inc. All rights reserved.
+ *  Copyright (C) 2005-2024 Apple Inc. All rights reserved.
  *
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Library General Public
@@ -25,21 +25,61 @@
 #include <wtf/DebugHeap.h>
 #include <wtf/StdLibExtras.h>
 
+#if !USE(SYSTEM_MALLOC)
+#include <bmalloc/BPlatform.h>
+// Enable USE(LIBPAS)
+// FIXME: Replaces uses of `#if !USE(SYSTEM_MALLOC) \n #if BUSE(LIBPAS)` with `#if USE(LIBPAS)`
+#if BUSE(LIBPAS)
+#define USE_LIBPAS 1
+#endif
+#endif
+
 namespace WTF {
 
 // There are several malloc-related macros to annotate class / struct. If these annotations are attached,
 // allocation is handled by libpas or bmalloc, depending on which if any of these memory allocators is available.
 //
 // TLDR; Here is a quick guidance.
-//   1. If your class / struct is derived from a base class which uses WTF_MAKE_TZONE_ALLOCATED / WTF_MAKE_TZONE_ALLOCATED_EXPORT,
-//      you must use WTF_MAKE_TZONE_ALLOCATED / WTF_MAKE_TZONE_ALLOCATED_EXPORT.
-//   2. If your class / struct is derived from a base class which uses WTF_MAKE_TZONE_OR_ISO_ALLOCATED / WTF_MAKE_TZONE_OR_ISO_ALLOCATED_EXPORT,
-//      you must use WTF_MAKE_TZONE_OR_ISO_ALLOCATED / WTF_MAKE_TZONE_OR_ISO_ALLOCATED_EXPORT.
-//   3. If your class / struct is a DOM object, use WTF_MAKE_TZONE_OR_ISO_ALLOCATED.
-//   4. If your class / struct is particularly memory consuming and if you think tracking footprint of your class is helpful for memory-reduction work,
-//      use WTF_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER / WTF_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER.
-//   5. For classes / structs that are fixed sized, use WTF_MAKE_TZONE_ALLOCATED / WTF_MAKE_TZONE_ALLOCATED_EXPORT.
+//   1. If your class / struct /template is derived from a base class which uses:
+//          WTF_MAKE_TZONE_ALLOCATED
+//          WTF_MAKE_TZONE_ALLOCATED_EXPORT
+//          WTF_MAKE_STRUCT_TZONE_ALLOCATED
+//          WTF_MAKE_TZONE_ALLOCATED_TEMPLATE
+//          WTF_MAKE_TZONE_ALLOCATED_TEMPLATE_EXPORT
+//          WTF_MAKE_COMPACT_TZONE_ALLOCATED
+//          WTF_MAKE_COMPACT_TZONE_ALLOCATED_EXPORT
+//      then you must use the same TZONE_ALLOCATED annotation as well. If your class is a template, use one of
+//      the template forms (WTF_MAKE_TZONE_ALLOCATED_TEMPLATE or WTF_MAKE_TZONE_ALLOCATED_TEMPLATE_EXPORT).
+//      If your class is not a template, use one of the non-template forms.
+//
+//   2. If your class / struct is derived from a base class which uses:
+//          WTF_MAKE_TZONE_OR_ISO_ALLOCATED
+//          WTF_MAKE_TZONE_OR_ISO_ALLOCATED_EXPORT
+//          WTF_MAKE_TZONE_OR_ISO_ALLOCATED_TEMPLATE
+//          WTF_MAKE_COMPACT_TZONE_OR_ISO_ALLOCATED
+//          WTF_MAKE_COMPACT_TZONE_OR_ISO_ALLOCATED_EXPORT
+//      then you must use the same TZONE_OR_ISO_ALLOCATED annotation as well. If your class is a template, use the
+//      template forms (WTF_MAKE_TZONE_OR_ISO_ALLOCATED_TEMPLATE). If your class is not a template, use one of the
+//      non-template forms.
+//
+//   3. If your class / struct / template is a DOM object, use a TZONE_OR_ISO_ALLOCATED annotation.
+//
+//   4. If your class / struct is particularly memory consuming and if you think tracking footprint of your class
+//      is helpful for memory-reduction work, use WTF_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER /
+//      WTF_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER.
+//
+//   5. For classes / structs that are fixed sized, use a TZONE_ALLOCATED annotation
+//
 //   6. Otherwise, use WTF_MAKE_FAST_ALLOCATED / WTF_MAKE_STRUCT_FAST_ALLOCATED.
+//
+//   7. If your template uses a WTF_MAKE_TZONE_ALLOCATED_TEMPLATE or WTF_MAKE_TZONE_ALLOCATED_TEMPLATE_EXPORT
+//      annotation, then you must use WTF_MAKE_TZONE_ALLOCATED_TEMPLATE_IMPL or
+//      WTF_MAKE_TZONE_ALLOCATED_TEMPLATE_IMPL_WITH_MULTIPLE_OR_SPECIALIZED_PARAMETERS after the template definition
+//      (in the header file as well if that's there the template is defined).
+//
+//   8. If your template uses a WTF_MAKE_COMPACT_TZONE_OR_ISO_ALLOCATED or WTF_MAKE_COMPACT_TZONE_OR_ISO_ALLOCATED_EXPORT
+//      annotation, then you must use WTF_MAKE_TZONE_OR_ISO_ALLOCATED_TEMPLATE_IMPL after the template definition
+//      (in the header file as well if that's there the template is defined).
 //
 // Let's explain the differences in detail.
 //
@@ -63,17 +103,33 @@ namespace WTF {
 //
 // - WTF_MAKE_TZONE_ALLOCATED(ClassName)
 // - WTF_MAKE_TZONE_ALLOCATED_EXPORT(ClassName, exportMacro)
-//     class / struct is allocated from a fixed set of shared libpas heaps with the same size and alignment. Each set of shared heaps is know as a
-//     TZoneTypeBuckets. The particular bucket, is selected using SHA 256 hashing using a process startup value along with particulars of the class / struct
-//     being allocated. This sharing provides protections from type confusion and use-after-free bugs, but with less memory address space overhead of
+// - WTF_MAKE_STRUCT_TZONE_ALLOCATED(ClassName)
+// - WTF_MAKE_TZONE_ALLOCATED_TEMPLATE(ClassName)
+// - WTF_MAKE_TZONE_ALLOCATED_TEMPLATE_EXPORT(ClassName, exportMacro)
+// - WTF_MAKE_COMPACT_TZONE_ALLOCATED(ClassName)
+// - WTF_MAKE_COMPACT_TZONE_ALLOCATED_EXPORT(ClassName, exportMacro)
+//     class / struct / template is allocated from a fixed set of shared libpas heaps with the same size and alignment. Each set of shared heaps is
+//     known as a TZoneTypeBuckets. The particular bucket is selected using SHA 256 hashing on a process startup value along with particulars of the
+//     class / struct being allocated. This sharing provides protections from type confusion and use-after-free bugs, but with less memory overhead of
 //     IsoHeap allocated objects. This is the preferred allocation method.
 //     For example, if Event is annotated with WTF_MAKE_TZONE_ALLOCATED(Event), all derived classes of Event must be annotated with
 //     WTF_MAKE_TZONE_ALLOCATED(XXX). When you annotate a class with WTF_MAKE_TZONE_ALLOCATED(XXX), you need to add WTF_MAKE_TZONE_ALLOCATED_IMPL(XXX)
 //     in cpp file side.
-//     Because WTF_MAKE_TZONE_ALLOCATED_IMPL defines functions in cpp side, you sometimes need to annotate these functions with export macros when your
+//     Because WTF_MAKE_TZONE_ALLOCATED_IMPL defines functions on the cpp side, you sometimes need to annotate these functions with export macros when your
 //     class is used outside of the component defining your class (e.g. your class is in WebCore and it is also used in WebKit). In this case,
 //     you can use WTF_MAKE_TZONE_ALLOCATED_EXPORT(XXX). to annotate these functions with appropriate export macros:
 //        e.g. WTF_MAKE_TZONE_ALLOCATED_EXPORT(Special, JS_EXPORT_PRIVATE)).
+//
+//     WTF_MAKE_STRUCT_TZONE_ALLOCATED is the same as WTF_MAKE_TZONE_ALLOCATED, but for structs.
+//
+//     WTF_MAKE_TZONE_ALLOCATED_TEMPLATE and WTF_MAKE_TZONE_ALLOCATED_TEMPLATE_EXPORT are the template analogs of WTF_MAKE_TZONE_ALLOCATED and
+//     WTF_MAKE_TZONE_ALLOCATED_EXPORT. Templates definitions annotated with these macros must be followed by WTF_MAKE_TZONE_ALLOCATED_TEMPLATE_IMPL
+//     or WTF_MAKE_TZONE_ALLOCATED_TEMPLATE_IMPL_WITH_MULTIPLE_OR_SPECIALIZED_PARAMETERS to provide the instantiation of statics used by the allocator.
+//
+//     WTF_MAKE_COMPACT_TZONE_ALLOCATED and WTF_MAKE_COMPACT_TZONE_ALLOCATED_EXPORT are analogs of WTF_MAKE_TZONE_ALLOCATED and
+//     WTF_MAKE_TZONE_ALLOCATED_EXPORT, but or special classes whose object pointers need to be stored in some custom scheme e.g. in CompactPtrs.
+//     An example of this is the StringImpl class.
+//
 //     The WTF_MAKE_TZONE_OR_ISO_ALLOCATED family of macros is just like WTF_MAKE_TZONE_ALLOCATED, except they will fall back to WTF_MAKE_ISO_ALLOCATED,
 //     when TZone allocation is disabled, but IsoHeap allocation is enabled.
 //
@@ -157,7 +213,8 @@ WTF_EXPORT_PRIVATE void fastEnableMiniMode();
 
 WTF_EXPORT_PRIVATE void fastDisableScavenger();
 
-WTF_EXPORT_PRIVATE void forceEnablePGM();
+// allocate with guard pages at a rate of 1/guardMallocRate
+WTF_EXPORT_PRIVATE void forceEnablePGM(uint16_t guardMallocRate);
 
 class ForbidMallocUseForCurrentThreadScope {
 public:
@@ -278,7 +335,7 @@ struct FastMalloc {
             return realResult;
         return nullptr;
     }
-    
+
     static void* realloc(void* p, size_t size) { return fastRealloc(p, size); }
 
     static void* tryRealloc(void* p, size_t size)
@@ -296,6 +353,12 @@ struct FastMalloc {
     {
         return capacity + capacity / 4 + 1;
     }
+};
+
+struct FastAlignedMalloc {
+    static void* alignedMalloc(size_t alignment, size_t size) { return fastAlignedMalloc(alignment, size); }
+    static void* tryAlignedMalloc(size_t alignment, size_t size) { return tryFastAlignedMalloc(alignment, size); }
+    static void free(void* p) { fastAlignedFree(p); }
 };
 
 struct FastCompactMalloc {
@@ -404,6 +467,7 @@ inline constexpr std::enable_if_t<!WTF::IsTypeComplete<std::remove_pointer_t<T>>
 }
 
 using WTF::DisableMallocRestrictionsForCurrentThreadScope;
+using WTF::FastAlignedMalloc;
 using WTF::FastAllocator;
 using WTF::FastMalloc;
 using WTF::FastCompactMalloc;
@@ -627,10 +691,10 @@ using __thisIsHereToForceASemicolonAfterThisMacro UNUSED_TYPE_ALIAS = int
 // Note: WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR must be declared in every subclass.
 #define WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR_IMPL(T) \
 void operator delete(T* object, std::destroying_delete_t, size_t size) { \
-    ASSERT(sizeof(T) == size); \
+    ASSERT_UNUSED(size, sizeof(T) == size); \
     object->T::~T(); \
-    if (UNLIKELY(object->ptrCountWithoutThreadCheck())) { \
-        memset(static_cast<void*>(object), 0, size); \
+    if (UNLIKELY(object->checkedPtrCountWithoutThreadCheck())) { \
+        zeroBytes(object); \
         return; \
     } \
     T::operator delete(object); \

@@ -35,6 +35,7 @@ enum class Change : uint8_t {
     None,
     NonInherited,
     FastPathInherited,
+    NonInheritedAndFastPathInherited,
     Inherited,
     Descendants,
     Renderer

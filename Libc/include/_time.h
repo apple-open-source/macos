@@ -65,6 +65,7 @@
 
 #include <_types.h>
 #include <sys/cdefs.h>
+#include <_bounds.h>
 #include <Availability.h>
 #ifndef UNIFDEF_DRIVERKIT
 #include <sys/_types/_clock_t.h>
@@ -72,6 +73,8 @@
 #include <sys/_types/_size_t.h>
 #include <sys/_types/_time_t.h>
 #include <sys/_types/_timespec.h>
+
+_LIBC_SINGLE_BY_DEFAULT()
 
 struct tm {
 	int	tm_sec;		/* seconds after the minute [0-60] */
@@ -84,7 +87,7 @@ struct tm {
 	int	tm_yday;	/* days since January 1 [0-365] */
 	int	tm_isdst;	/* Daylight Savings Time flag */
 	long	tm_gmtoff;	/* offset from UTC in seconds */
-	char	*tm_zone;	/* timezone abbreviation */
+	char	*_LIBC_CSTR	tm_zone;	/* timezone abbreviation */
 };
 
 #if __DARWIN_UNIX03
@@ -96,7 +99,7 @@ struct tm {
 #endif /* __DARWIN_UNIX03 */
 
 #ifndef _ANSI_SOURCE
-extern char *tzname[];
+extern char *_LIBC_CSTR	tzname[_LIBC_COUNT(2)];
 #endif
 
 extern int getdate_err;
@@ -118,7 +121,7 @@ extern int daylight;
 
 __BEGIN_DECLS
 #ifndef UNIFDEF_DRIVERKIT
-char *asctime(const struct tm *);
+char *_LIBC_CSTR	asctime(const struct tm *);
 //Begin-Libc
 #ifndef LIBC_ALIAS_CLOCK
 //End-Libc
@@ -128,7 +131,7 @@ clock_t clock(void) __DARWIN_ALIAS(clock);
 clock_t clock(void) LIBC_ALIAS(clock);
 #endif /* !LIBC_ALIAS_CLOCK */
 //End-Libc
-char *ctime(const time_t *);
+char *_LIBC_CSTR	ctime(const time_t *);
 double difftime(time_t, time_t);
 struct tm *getdate(const char *);
 struct tm *gmtime(const time_t *);
@@ -145,19 +148,19 @@ time_t mktime(struct tm *) LIBC_ALIAS(mktime);
 //Begin-Libc
 #ifndef LIBC_ALIAS_STRFTIME
 //End-Libc
-size_t strftime(char * __restrict, size_t, const char * __restrict, const struct tm * __restrict) __DARWIN_ALIAS(strftime);
+size_t strftime(char *_LIBC_COUNT(__maxsize) __restrict, size_t __maxsize, const char * __restrict, const struct tm * __restrict) __DARWIN_ALIAS(strftime);
 //Begin-Libc
 #else /* LIBC_ALIAS_STRFTIME */
-size_t strftime(char * __restrict, size_t, const char * __restrict, const struct tm * __restrict) LIBC_ALIAS(strftime);
+size_t strftime(char *_LIBC_COUNT(__maxsize) __restrict, size_t __maxsize, const char * __restrict, const struct tm * __restrict) LIBC_ALIAS(strftime);
 #endif /* !LIBC_ALIAS_STRFTIME */
 //End-Libc
 //Begin-Libc
 #ifndef LIBC_ALIAS_STRPTIME
 //End-Libc
-char *strptime(const char * __restrict, const char * __restrict, struct tm * __restrict) __DARWIN_ALIAS(strptime);
+char *_LIBC_CSTR	strptime(const char * __restrict, const char * __restrict, struct tm * __restrict) __DARWIN_ALIAS(strptime);
 //Begin-Libc
 #else /* LIBC_ALIAS_STRPTIME */
-char *strptime(const char * __restrict, const char * __restrict, struct tm * __restrict) LIBC_ALIAS(strptime);
+char *_LIBC_CSTR	strptime(const char * __restrict, const char * __restrict, struct tm * __restrict) LIBC_ALIAS(strptime);
 #endif /* !LIBC_ALIAS_STRPTIME */
 //End-Libc
 time_t time(time_t *);
@@ -167,15 +170,15 @@ void tzset(void);
 #endif /* not ANSI */
 
 /* [TSF] Thread safe functions */
-char *asctime_r(const struct tm * __restrict, char * __restrict);
-char *ctime_r(const time_t *, char *);
+char *_LIBC_CSTR asctime_r(const struct tm * __restrict, char * __restrict _LIBC_COUNT(26));
+char *_LIBC_CSTR ctime_r(const time_t *, char *_LIBC_COUNT(26));
 struct tm *gmtime_r(const time_t * __restrict, struct tm * __restrict);
 struct tm *localtime_r(const time_t * __restrict, struct tm * __restrict);
 
 #if !defined(_ANSI_SOURCE) && (!defined(_POSIX_C_SOURCE) || defined(_DARWIN_C_SOURCE))
 time_t posix2time(time_t);
 #if !__DARWIN_UNIX03
-char *timezone(int, int);
+char *_LIBC_CSTR timezone(int, int);
 #endif /* !__DARWIN_UNIX03 */
 void tzsetwall(void);
 time_t time2posix(time_t);

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008-2022 Apple Inc. All rights reserved.
+ * Copyright (c) 2008-2025 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -1058,8 +1058,9 @@ _mdns_parse_domain_name(const uint8_t *data, uint32_t datalen)
 			domain[j++] = datalen ? '.' : '\0';
 		}
 
-		while ((len-- > 0) && (0 != datalen--))
+		while ((len-- > 0) && (datalen > 0))
 		{
+			datalen--;
 			if (data[i] == '.')
 			{
 				/* special case: escape the '.' with a '\' */
@@ -1233,6 +1234,8 @@ _mdns_make_query(const char* name, int class, int type, uint8_t *buf, uint32_t b
 	if (n < 0) return -1;
 
 	len += n;
+	if (buflen < (len + NS_QFIXEDSZ)) return -1;
+	
 	uint16_t word;
 	word = htons(type);
 	memcpy(&buf[len], &word, sizeof(word));

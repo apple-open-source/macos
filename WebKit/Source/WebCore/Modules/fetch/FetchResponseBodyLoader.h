@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2023 Apple Inc. All rights reserved.
+ * Copyright (C) 2023-2024 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -25,14 +25,12 @@
 
 #pragma once
 
-#include <wtf/TZoneMallocInlines.h>
-
 namespace WebCore {
 
 class FetchResponse;
 
 class FetchResponseBodyLoader {
-    WTF_MAKE_TZONE_ALLOCATED_INLINE(FetchResponseBodyLoader);
+    WTF_MAKE_TZONE_ALLOCATED(FetchResponseBodyLoader);
 public:
     explicit FetchResponseBodyLoader(FetchResponse&);
     virtual ~FetchResponseBodyLoader() = default;

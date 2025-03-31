@@ -124,6 +124,7 @@ size_t zlib_decode_torture(uint8_t* dst_buffer, size_t dst_size,
   // Handle edge cases
   if (dst_size > UINT32_MAX) dst_size = UINT32_MAX;
   if (src_size > UINT32_MAX) return 0;
+  if (src_size == 0) return 0;
   
   // Setup stream
   bzero(&z, sizeof(z));
@@ -131,13 +132,13 @@ size_t zlib_decode_torture(uint8_t* dst_buffer, size_t dst_size,
   if (status != Z_OK) return 0; // Failed
   
   // Decode step by step
-  for (;;)
+  for (int eof = 0;;)
   {
     // Use small random input/output buffers
     z.avail_in  = (uint32_t)(src_size - z.total_in);
     z.avail_out = (uint32_t)(dst_size - z.total_out);
-    z.avail_in  %= (rand() % tmp_size) + 1;
-    z.avail_out %= (rand() % tmp_size) + 1;
+    if (z.avail_in ) { z.avail_in  %= (rand() % tmp_size) + 1; if (z.avail_in  == 0) z.avail_in++ ; }
+    if (z.avail_out) { z.avail_out %= (rand() % tmp_size) + 1; if (z.avail_out == 0) z.avail_out++; }
     z.next_in  = rand() & 1 ? tmp0 : tmp0 + tmp_size - z.avail_in;  // Randomly align the start/end
     z.next_out = rand() & 1 ? tmp1 : tmp1 + tmp_size - z.avail_out; // Randomly align the start/end
     
@@ -160,14 +161,13 @@ size_t zlib_decode_torture(uint8_t* dst_buffer, size_t dst_size,
     
     // Are we done?
     if (status == Z_STREAM_END) break;
-    
-    // One more try?
-    if ((status == Z_BUF_ERROR) &&
-        ((src_size - z.total_in > 0) || (dst_size - z.total_out >= 258))) continue;
+
+    // Try a couple of times before giving up?
+    if ((status == Z_BUF_ERROR) && (++eof < 8)) continue;
     
     // Something wrong!
     {
-      PLOG("status = %d, msg = %s\n", status, z.msg);
+      //PLOG("status = %d, msg = %s\n", status, z.msg);
       ok = 0;
       break;
     }

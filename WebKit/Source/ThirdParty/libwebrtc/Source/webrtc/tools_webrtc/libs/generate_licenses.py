@@ -61,6 +61,7 @@ LIB_TO_LICENSES_DICT = {
     'libunwind': ['third_party/libunwind/src/LICENSE.TXT'],
     'libvpx': ['third_party/libvpx/source/libvpx/LICENSE'],
     'libyuv': ['third_party/libyuv/LICENSE'],
+    'llvm-libc': ['third_party/llvm-libc/src/LICENSE.TXT'],
     'nasm': ['third_party/nasm/LICENSE'],
     'opus': ['third_party/opus/src/COPYING'],
     'pffft': ['third_party/pffft/LICENSE'],
@@ -97,6 +98,10 @@ LIB_REGEX_TO_LICENSES_DICT = {
     'android_deps:android_support_annotations.*': [
         'third_party/android_deps/libs/' +
         'com_android_support_support_annotations/LICENSE'
+    ],
+
+    'android_build_tools.*': [
+        'third_party/android_build_tools/bundletool/LICENSE'
     ],
 
     # Internal dependencies, licenses are already included by other deps.

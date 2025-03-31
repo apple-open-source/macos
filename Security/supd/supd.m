@@ -24,12 +24,13 @@
 #import "supd.h"
 #import <Foundation/NSXPCConnection_Private.h>
 
-#import "SFAnalyticsDefines.h"
-#import "SFAnalyticsSQLiteStore.h"
+#import "Analytics/SFAnalyticsDefines.h"
+#import "Analytics/SFAnalyticsSQLiteStore.h"
 #import <Security/SFAnalytics.h>
+#import <CoreFoundation/CFPriv.h>
 #import <OSAnalytics/OSAnalytics.h>
 
-#include <utilities/SecFileLocations.h>
+#import "utilities/SecFileLocations.h"
 #import "utilities/debugging.h"
 #import <os/lock.h>
 #import <os/lock_private.h>
@@ -37,7 +38,6 @@
 #import <xpc/xpc.h>
 #include <notify.h>
 #import "keychain/ckks/CKKSControl.h"
-#import <zlib.h>
 
 #import <AuthKit/AKAppleIDAuthenticationContext.h>
 #import <AuthKit/AKAppleIDAuthenticationController.h>
@@ -66,6 +66,12 @@
 
 #import "utilities/simulatecrash_assert.h"
 #import "trust/trustd/trustdFileHelper/trustdFileHelper.h"
+
+#if __has_include("securityuploadd-Swift.h")
+#import "securityuploadd-Swift.h"
+#elif __has_include("KeychainAnalyticsTests-Swift.h")
+#import "KeychainAnalyticsTests-Swift.h"
+#endif
 
 NSString* const SFAnalyticsSplunkTopic = @"topic";
 NSString* const SFAnalyticsClientId = @"clientId";
@@ -103,7 +109,17 @@ NSUInteger const secondsBetweenUploadsSeed = (60 * 60 * 24);
 #endif // SFANALYTICS_SPLUNK_DEV
 
 @implementation SFAnalyticsReporter
-- (BOOL)saveReport:(NSData *)reportData fileName:(NSString *)fileName
+
+
+- (BOOL)saveReportNamed:(NSString *)name reportData:(NSData *)reportData
+{
+    return [self saveReportNamed:name intoFileHandle:^(NSFileHandle * _Nonnull fileHandle) {
+        [fileHandle writeData:reportData];
+    }];
+}
+
+- (BOOL)saveReportNamed:(NSString *)name
+         intoFileHandle:(void(^)(NSFileHandle *fileHandle))block
 {
     BOOL writtenToLog = NO;
 #if !TARGET_OS_SIMULATOR
@@ -115,14 +131,15 @@ NSUInteger const secondsBetweenUploadsSeed = (60 * 60 * 24);
 
 
     secdebug("saveReport", "calling out to `OSAWriteLogForSubmission`");
-    writtenToLog = OSAWriteLogForSubmission(@OS_CRASH_TRACER_LOG_BUG_TYPE, fileName,
+    writtenToLog = OSAWriteLogForSubmission(@OS_CRASH_TRACER_LOG_BUG_TYPE, name,
                                             nil, optionsDictionary, ^(NSFileHandle *fileHandle) {
-                                                secnotice("OSAWriteLogForSubmission", "Writing log data to report: %@", fileName);
-                                                [fileHandle writeData:reportData];
-                                            });
+        secnotice("OSAWriteLogForSubmission", "Writing log data to report: %@", name);
+        block(fileHandle);
+    });
 #endif // !TARGET_OS_SIMULATOR
     return writtenToLog;
 }
+
 @end
 
 #define DEFAULT_SPLUNK_MAX_EVENTS_TO_REPORT 1000
@@ -302,6 +319,7 @@ _anyValueFromDictionary(NSDictionary *dictionary)
 }
 @end
 
+
 @interface SFAnalyticsClient ()
 
 - (instancetype)initWithStore:(SFAnalyticsSQLiteStore *)store
@@ -471,7 +489,6 @@ static NSMutableDictionary<NSString *, NSMutableDictionary<NSString *, SFAnalyti
 @interface SFAnalyticsTopic ()
 @property NSURL* _splunkUploadURL;
 
-@property BOOL allowInsecureSplunkCert;
 @property BOOL ignoreServersMessagesTellingUsToGoAway;
 @property BOOL disableUploads;
 @property BOOL disableClientId;
@@ -675,7 +692,11 @@ static NSMutableDictionary<NSString *, NSMutableDictionary<NSString *, SFAnalyti
     return postSession;
 }
 
-- (BOOL)postJSON:(NSData*)json toEndpoint:(NSURL*)endpoint postSession:(NSURLSession*)postSession error:(NSError**)error
+- (BOOL)postJSONFile:(NSURL*)jsonURL
+          toEndpoint:(NSURL*)endpoint
+         eventLinkId:(NSString *)eventLinkId
+         postSession:(NSURLSession*)postSession
+               error:(NSError**)error
 {
     if (!endpoint) {
         if (error) {
@@ -689,7 +710,7 @@ static NSMutableDictionary<NSString *, NSMutableDictionary<NSString *, SFAnalyti
     NSMutableURLRequest* postRequest = [[NSMutableURLRequest alloc] init];
     postRequest.URL = endpoint;
     postRequest.HTTPMethod = @"POST";
-    postRequest.HTTPBody = [json supd_gzipDeflate];
+    postRequest.HTTPBody = [[NSData dataWithContentsOfURL:jsonURL] supd_gzipDeflate];
     [postRequest setValue:@"gzip" forHTTPHeaderField:@"Content-Encoding"];
 
     /*
@@ -709,10 +730,12 @@ static NSMutableDictionary<NSString *, NSMutableDictionary<NSString *, SFAnalyti
             if(httpResponse.statusCode >= 200 && httpResponse.statusCode < 300) {
                 /* Success */
                 uploadSuccess = YES;
-                secnotice("upload", "Splunk upload success for %@", self->_internalTopicName);
+                secnotice("upload", "Splunk upload success for %@ with linkID: %@",
+                          self->_internalTopicName,
+                          eventLinkId);
             } else {
-                secnotice("upload", "Splunk upload for %@ unexpected status to URL: %@ -- status: %d",
-                          self->_internalTopicName, endpoint, (int)(httpResponse.statusCode));
+                secnotice("upload", "Splunk upload for %@ unexpected status to URL: %@ -- status: %d %@",
+                          self->_internalTopicName, endpoint, (int)(httpResponse.statusCode), httpResponse.allHeaderFields);
             }
         }
         dispatch_semaphore_signal(sem);
@@ -722,6 +745,7 @@ static NSMutableDictionary<NSString *, NSMutableDictionary<NSString *, SFAnalyti
     dispatch_semaphore_wait(sem, dispatch_time(DISPATCH_TIME_NOW, (uint64_t)(5 * 60 * NSEC_PER_SEC)));
     return uploadSuccess;
 }
+
 
 - (BOOL)eventIsBlacklisted:(NSMutableDictionary*)event {
     return _blacklistedEvents ? [_blacklistedEvents containsObject:event[SFAnalyticsEventType]] : NO;
@@ -740,6 +764,33 @@ static NSMutableDictionary<NSString *, NSMutableDictionary<NSString *, SFAnalyti
         }
     }];
 }
+
+- (NSData *_Nullable)applyFilterLogic:(NSData *)data linkedID:(NSString *)linkedUUID
+{
+    @autoreleasepool {
+        NSMutableDictionary *event = [NSJSONSerialization JSONObjectWithData:data
+                                                                     options:NSJSONReadingMutableContainers
+                                                                       error:nil];
+        if (![event isKindOfClass:[NSDictionary class]]) {
+            return nil;
+        }
+        if ([self eventIsBlacklisted:event]) {
+            return nil;
+        }
+        [self removeBlacklistedFieldsFromEvent:event];
+        [self addRequiredFieldsToEvent:event];
+        if (_disableClientId) {
+            event[SFAnalyticsClientId] = @0;
+        }
+        event[SFAnalyticsSplunkTopic] = self->_splunkTopicName ?: [NSNull null];
+        if (linkedUUID) {
+            event[SFAnalyticsEventCorrelationID] = linkedUUID;
+        }
+        
+        return [NSJSONSerialization dataWithJSONObject:event options:0 error:nil];
+    }
+}
+
 
 - (BOOL)prepareEventForUpload:(NSMutableDictionary*)event
                    linkedUUID:(NSUUID *)linkedUUID {
@@ -1165,6 +1216,27 @@ static NSMutableDictionary<NSString *, NSMutableDictionary<NSString *, SFAnalyti
     return [topics containsObject:topic];
 }
 
+- (NSDictionary *_Nullable)appleInternalStatus {
+    NSMutableDictionary *status = nil;
+    if ([self ckDeviceAccountApprovedTopic:_internalTopicName]) {
+        status = [NSMutableDictionary dictionary];
+        
+        status[SFAnalyticsDeviceID] = [self askSecurityForCKDeviceID];
+        status[SFAnalyticsAltDSID] = accountAltDSID();
+        NSDictionary *carryStatus = [self carryStatus];
+        if (carryStatus) {
+            [status addEntriesFromDictionary:carryStatus];
+        }
+        NSString *appleUser = [self appleUser];
+        status[SFAnalyticsIsAppleUser] = appleUser != nil ? @YES : @NO;
+
+        secnotice("getLoggingJSON", "including deviceID for internal user");
+    } else {
+        secnotice("getLoggingJSON", "no deviceID for internal user");
+    }
+    return status;
+}
+
 - (BOOL)copyEvents:(NSMutableArray<NSDictionary *> *)healthSummaries
           failures:(NSMutableArray<NSDictionary *> *)failures
          forUpload:(BOOL)upload
@@ -1177,20 +1249,8 @@ participatingClients:(NSMutableArray<SFAnalyticsClient*>*)clients
     NSMutableArray<NSArray*> *rockwells = [NSMutableArray array];
     NSMutableArray<NSArray*> *hardFailures = [NSMutableArray array];
     NSMutableArray<NSArray*> *softFailures = [NSMutableArray array];
-    NSString *ckdeviceID = nil;
-    NSString *accountID = nil;
-    NSString *appleUser = nil;
-    NSDictionary *carryStatus = nil;
 
-    if ([self ckDeviceAccountApprovedTopic:_internalTopicName]) {
-        ckdeviceID = [self askSecurityForCKDeviceID];
-        accountID = accountAltDSID();
-        appleUser = [self appleUser];
-        carryStatus = [self carryStatus];
-        secnotice("getLoggingJSON", "including deviceID for internal user");
-    } else {
-        secnotice("getLoggingJSON", "no deviceID for internal user");
-    }
+    NSDictionary *appleStatus = [self appleInternalStatus];
     
     NSNumber* timestamp = @([[NSDate date] timeIntervalSince1970] * 1000);
     for (SFAnalyticsClient* client in self->_topicClients) {
@@ -1228,17 +1288,8 @@ participatingClients:(NSMutableArray<SFAnalyticsClient*>*)clients
 
             NSMutableDictionary* healthSummary = [self healthSummaryWithName:client store:store uuid:linkedUUID timestamp:timestamp lastUploadTime:lastUploadTime];
             if (healthSummary) {
-                if (ckdeviceID) {
-                    healthSummary[SFAnalyticsDeviceID] = ckdeviceID;
-                }
-                if (accountID) {
-                    healthSummary[SFAnalyticsAltDSID] = accountID;
-                }
-                if (carryStatus) {
-                    [healthSummary addEntriesFromDictionary:carryStatus];
-                }
-                if (appleUser) {
-                    healthSummary[SFAnalyticsIsAppleUser] = appleUser != nil ? @YES : @NO;
+                if (appleStatus) {
+                    [healthSummary addEntriesFromDictionary:appleStatus];
                 }
                 [healthSummaries addObject:healthSummary];
             }
@@ -1470,7 +1521,7 @@ participatingClients:(NSMutableArray<SFAnalyticsClient*>*)clients
                         NSString* endpoint = [metricsEndpoint stringByAppendingFormat:@"/2/%@", strongSelf->_splunkTopicName];
                         secnotice("upload", "got metrics endpoint %@ for %@", endpoint, self->_internalTopicName);
                         NSURL* endpointURL = [NSURL URLWithString:endpoint];
-                        if([endpointURL.scheme isEqualToString:@"https"]) {
+                        if([endpointURL.scheme isEqualToString:@"https"] || self.allowHTTPSplunkServerForTests) {
                             result = endpointURL;
                         }
                     }
@@ -1773,6 +1824,7 @@ static bool ShouldInitializeWithAsset(NSBundle *trustStoreBundle, NSURL *directo
         _reporter = reporter;
         [self setupSamplingRates];
         [self setupTopics];
+        [self deleteDataFromOlderVersionsToAvoidDataMixing];
 
         static dispatch_once_t onceToken;
         dispatch_once(&onceToken, ^{
@@ -1788,6 +1840,7 @@ static bool ShouldInitializeWithAsset(NSBundle *trustStoreBundle, NSURL *directo
             });
 #pragma clang diagnostic pop
         });
+                
     }
     return self;
 }
@@ -1795,6 +1848,34 @@ static bool ShouldInitializeWithAsset(NSBundle *trustStoreBundle, NSURL *directo
 - (instancetype)initWithConnection:(NSXPCConnection *)connection {
     SFAnalyticsReporter *reporter = [[SFAnalyticsReporter alloc] init];
     return [self initWithConnection:connection reporter:reporter];
+}
+
+// if database contains content from the the version
+// clean it out, this because we don't want to mix data from two versions
+// since that just confuses those that have to analyze the result
+- (void)deleteDataFromOlderVersionsToAvoidDataMixing {
+    NSDictionary *version = CFBridgingRelease(_CFCopySystemVersionDictionary());
+    NSString *build = nil;
+    if (version) {
+        build = version[(__bridge NSString *)_kCFSystemVersionBuildVersionKey];
+    }
+    if (build == nil) {
+        return;
+    }
+
+    for (SFAnalyticsTopic *topic in _analyticsTopics) {
+        for (SFAnalyticsClient* client in topic.topicClients) {
+            [client withStore:^(SFAnalyticsSQLiteStore *store){
+                static NSString *SFABuild = @"SFABuild";
+                NSString *storeBuild = [store propertyForKey:SFABuild];
+                if (storeBuild == nil || ![build isEqual:storeBuild]) {
+                    [store clearAllData];
+                }
+                [store setProperty:build forKey:SFABuild];
+            }];
+        }
+    }
+
 }
 
 - (void)sendNotificationForOncePerReportSamplers
@@ -1806,7 +1887,7 @@ static bool ShouldInitializeWithAsset(NSBundle *trustStoreBundle, NSURL *directo
 - (void)performRegularlyScheduledUpload {
     secnotice("upload", "Starting uploads in response to regular trigger");
     NSError *error = nil;
-    if ([self uploadAnalyticsWithError:&error force:NO]) {
+    if ([self filebasedUploadAnalytics:NO error:&error]) {
         secnotice("upload", "Regularly scheduled upload successful");
     } else {
         secerror("upload: Failed to complete regularly scheduled upload: %@", error);
@@ -1840,92 +1921,114 @@ static bool ShouldInitializeWithAsset(NSBundle *trustStoreBundle, NSURL *directo
     return nil;
 }
 
-- (BOOL)uploadAnalyticsWithError:(NSError**)error force:(BOOL)force {
++ (void)writeURL:(NSURL *)url intoFileHandle:(NSFileHandle *)fileHandle {
+    secinfo("saveReport", "starting writing data");
+
+    dispatch_queue_t queue = dispatch_queue_create("saveReport", DISPATCH_QUEUE_SERIAL);
+    dispatch_group_t group = dispatch_group_create();
+    
+    dispatch_io_t io_read = dispatch_io_create_with_path(DISPATCH_IO_STREAM,
+                                                         url.path.UTF8String,
+                                                         O_RDONLY,
+                                                         0,
+                                                         queue,
+                                                         ^(int){});
+    dispatch_io_set_high_water(io_read, 50 * 1024);
+    dispatch_group_enter(group);
+    __block off_t totalsize = 0;
+    
+    dispatch_io_read(io_read, 0, SIZE_MAX, queue, ^(bool done, dispatch_data_t data, int readError) {
+        if (data) {
+            dispatch_data_apply(data, ^bool(dispatch_data_t  _Nonnull region, size_t offset, const void * _Nonnull buffer, size_t size) {
+                [fileHandle writeData:[NSData dataWithBytesNoCopy:(void * _Nonnull)buffer length:size freeWhenDone:NO] error:nil];
+                totalsize += size;
+                return true;
+            });
+        }
+        if (done || readError) {
+            dispatch_group_leave(group);
+        }
+    });
+
+    dispatch_group_wait(group, DISPATCH_TIME_FOREVER);
+    
+    secinfo("saveReport", "wrote %lld bytes from file %@", (unsigned long long)totalsize, url);
+}
+
+- (BOOL)filebasedUploadAnalytics:(BOOL)force error:(NSError**)error {
     [self sendNotificationForOncePerReportSamplers];
     
-    BOOL result = NO;
-    NSError* localError = nil;
-    NSURLSession* postSession = nil;
-    for (SFAnalyticsTopic *topic in _analyticsTopics) {
-        @autoreleasepool { // The logging JSONs get quite large. Ensure they're deallocated between topics.
-            if (postSession == nil) {
-                postSession = [topic getSession];
-            }
+    unsigned int eventQuota = 1000;
+    char buf[PATH_MAX] = "";
 
-            __block NSURL* endpoint = [topic splunkUploadURL:force urlSession:postSession];   // has side effects!
-
-            if (!endpoint) {
-                secnotice("upload", "Skipping upload for %@ because no endpoint", [topic internalTopicName]);
-                continue;
-            }
-
-            if ([topic disableUploads]) {
-                secnotice("upload", "Aborting upload task for %@ because uploads are disabled", [topic internalTopicName]);
-                continue;
-            }
-
-            NSMutableArray<SFAnalyticsClient*>* clients = [NSMutableArray array];
-            NSArray<NSDictionary *> *jsonEvents = [topic createChunkedLoggingJSON:false
-                                                                        forUpload:YES
-                                                             participatingClients:clients
-                                                                            force:force
-                                                                            error:&localError];
-            if (!jsonEvents || localError) {
-                if ([[localError domain] isEqualToString:SupdErrorDomain] && [localError code] == SupdInvalidJSONError) {
-                    // Pretend this was a success because at least we'll get rid of bad data.
-                    // If someone keeps logging bad data and we only catch it here then
-                    // this causes sustained data loss for the entire topic.
-                    [topic updateUploadDateForClients:clients date:[NSDate date] clearData:YES];
-                }
-                secerror("upload: failed to create chunked log events for logging topic %@: %@", [topic internalTopicName], localError);
-                continue;
-            }
-
-
-            if ([topic isSampledUpload]) {
-                bool failed = false;
-                for (NSDictionary* event in jsonEvents) {
-                    // make sure we don't hold on to each NSURL related in each autorelease pool
-                    @autoreleasepool {
-                        NSData *serializedEvent = [supd serializeLoggingEvent:event error:&localError];
-                        if (!serializedEvent || localError) {
-                            if ([[localError domain] isEqualToString:SupdErrorDomain] && [localError code] == SupdInvalidJSONError) {
-                                // Pretend this was a success because at least we'll get rid of bad data.
-                                // If someone keeps logging bad data and we only catch it here then
-                                // this causes sustained data loss for the entire topic.
-                                failed = true;
-                                [topic updateUploadDateForClients:clients date:[NSDate date] clearData:YES];
-                            }
-                            secerror("upload: failed to serialized chunked log events for logging topic %@: %@", [topic internalTopicName], localError);
-                            break;
-                        }
-                        
-                        if (![self->_reporter saveReport:serializedEvent fileName:[topic internalTopicName]]) {
-                            secerror("upload: failed to write analytics data to log");
-                        }
-                        if ([topic postJSON:serializedEvent toEndpoint:endpoint postSession:postSession error:&localError]) {
-                            secnotice("upload", "Successfully posted JSON for %@", [topic internalTopicName]);
-                            result = YES;
-                        } else {
-                            secerror("upload: Failed to post JSON for %@: %@", [topic internalTopicName], localError);
-                        }
-                    }
-                }
-                if (failed == false) {
-                    [topic updateUploadDateForClients:clients date:[NSDate date] clearData:YES];
-                }
-            } else {
-                /* If we didn't sample this report, update date to prevent trying to upload again sooner
-                 * than we should. Clear data so that per-day calculations remain consistent. */
-                secnotice("upload", "skipping unsampled upload for %@ and clearing data", [topic internalTopicName]);
-                [topic updateUploadDateForClients:clients date:[NSDate date] clearData:YES];
-            }
-        }
-        if (error && localError) {
-            *error = localError;
-        }
+    size_t userTempLen = confstr(_CS_DARWIN_USER_TEMP_DIR, buf, sizeof(buf));
+    if (userTempLen == 0) {
+        secerror("Skipping upload for because no temp dir");
+        return NO;
     }
-    return result;
+    NSURL *outputDirectory = [NSURL fileURLWithPath:[NSString stringWithCString:buf encoding:NSUTF8StringEncoding] isDirectory:YES];
+    if (outputDirectory == nil) {
+        secerror("Skipping upload for because no temp dir");
+        return NO;
+    }
+
+    for (SFAnalyticsTopic *topic in _analyticsTopics) {
+        NSURLSession* postSession = [topic getSession];
+        NSUUID *uuid = [NSUUID UUID];
+        
+        __block NSURL* endpoint = [topic splunkUploadURL:force urlSession:postSession];   // has side effects!
+        if (!endpoint) {
+            secnotice("upload", "Skipping upload for %@ because no endpoint", [topic internalTopicName]);
+            continue;
+        }
+        if ([topic disableUploads]) {
+            secnotice("upload", "Aborting upload task for %@ because uploads are disabled", [topic internalTopicName]);
+            continue;
+        }
+        
+        if (![topic isSampledUpload]) {
+            [topic updateUploadDateForClients:topic.topicClients date:[NSDate date] clearData:YES];
+            continue;
+        }
+        
+        SFAnalyticsTopicGenerator *gen = [[SFAnalyticsTopicGenerator alloc] initWithTopic:topic];
+
+        for (SFAnalyticsClient* client in topic.topicClients) {
+            
+            [gen generateWithTopicClient:client
+                         outputDirectory:outputDirectory
+                         uploadSizeLimit:topic.uploadSizeLimit
+                              eventQuota:eventQuota
+                                    uuid:uuid
+                                   error:error];
+            
+            NSArray<NSURL*>* urls = [gen uploadFilesWithTopicClient:client];
+            
+            NSString *filename = [NSString stringWithFormat:@"SFA-%@.json", client.name];
+            [self->_reporter saveReportNamed:filename intoFileHandle:^(NSFileHandle * _Nonnull fileHandle) {
+                for (NSURL *url in urls) {
+                    [[self class] writeURL:url intoFileHandle:fileHandle];
+                }
+            }];
+            
+            for (NSURL *url in urls) {
+                NSError *localError = nil;
+
+                if ([topic postJSONFile:url
+                             toEndpoint:endpoint
+                            eventLinkId:uuid.UUIDString
+                            postSession:postSession
+                                  error:&localError] == NO) {
+                    secerror("upload filed for topic %{public}@ for file %@ with error: %{public}@",
+                             [topic internalTopicName], url, localError);
+                }
+                [gen confirmUploadFileWithTopicClient:client url:url];
+            }
+        }
+        [topic updateUploadDateForClients:topic.topicClients date:[NSDate date] clearData:YES];
+    }
+ 
+    return YES;
 }
 
 - (NSString*)sysdiagnoseStringForEventRecord:(NSDictionary*)eventRecord
@@ -2091,7 +2194,7 @@ static bool ShouldInitializeWithAsset(NSBundle *trustStoreBundle, NSURL *directo
 
     secnotice("upload", "Performing upload in response to rpc message");
     NSError* error = nil;
-    BOOL result = [self uploadAnalyticsWithError:&error force:YES];
+    BOOL result = [self filebasedUploadAnalytics:YES error:&error];
     secnotice("upload", "Result of manually triggered upload: %@, error: %@", result ? @"success" : @"failure", error);
     reply(result, error);
 }

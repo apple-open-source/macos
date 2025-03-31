@@ -27,6 +27,7 @@
 
 #include "MessageReceiver.h"
 #include <WebCore/PageIdentifier.h>
+#include <wtf/RefCounted.h>
 #include <wtf/TZoneMalloc.h>
 
 namespace IPC {
@@ -34,29 +35,33 @@ class Connection;
 class Decoder;
 }
 
-namespace WebCore {
-class IntPoint;
-}
-
 namespace WebKit {
 
 class WebPage;
 
-class WebPageTesting : public IPC::MessageReceiver {
+class WebPageTesting : public IPC::MessageReceiver, public RefCounted<WebPageTesting> {
     WTF_MAKE_TZONE_ALLOCATED(WebPageTesting);
     WTF_MAKE_NONCOPYABLE(WebPageTesting);
 public:
-    explicit WebPageTesting(WebPage&);
+    static Ref<WebPageTesting> create(WebPage&);
     virtual ~WebPageTesting();
 
+    void ref() const final { RefCounted::ref(); }
+    void deref() const final { RefCounted::deref(); }
+
 private:
+    explicit WebPageTesting(WebPage&);
+
     void didReceiveMessage(IPC::Connection&, IPC::Decoder&) override;
     bool didReceiveSyncMessage(IPC::Connection&, IPC::Decoder&, UniqueRef<IPC::Encoder>&) override;
 
-    void setDefersLoading(bool);
     void isLayerTreeFrozen(CompletionHandler<void(bool)>&&);
     void setPermissionLevel(const String& origin, bool allowed);
     void isEditingCommandEnabled(const String& commandName, CompletionHandler<void(bool)>&&);
+    void resetStateBetweenTests();
+    void clearCachedBackForwardListCounts(CompletionHandler<void()>&&);
+    void setTracksRepaints(bool, CompletionHandler<void()>&&);
+    void displayAndTrackRepaints(CompletionHandler<void()>&&);
 
 #if ENABLE(NOTIFICATIONS)
     void clearNotificationPermissionState();
@@ -64,12 +69,10 @@ private:
 
     void setTopContentInset(float, CompletionHandler<void()>&&);
 
-    void setPageScaleFactor(double scale, WebCore::IntPoint origin, CompletionHandler<void()>&&);
-
     void clearWheelEventTestMonitor();
-    Ref<WebPage> protectedPage() const;
 
-    WeakRef<WebPage> m_page;
+    WeakPtr<WebPage> m_page;
+    WebCore::PageIdentifier m_pageIdentifier;
 };
 
 } // namespace WebKit

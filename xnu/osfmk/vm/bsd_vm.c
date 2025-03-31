@@ -296,6 +296,11 @@ memory_object_control_uiomove(
 				xsize = io_requested;
 			}
 
+			/* Such phyiscal pages should never be restricted pages */
+			if (vm_page_is_restricted(dst_page)) {
+				panic("%s: cannot uiomove64 into restricted page", __func__);
+			}
+
 			if ((retval = uiomove64((addr64_t)(((addr64_t)(VM_PAGE_GET_PHYS_PAGE(dst_page)) << PAGE_SHIFT) + start_offset), xsize, uio))) {
 				break;
 			}

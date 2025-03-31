@@ -48,6 +48,7 @@
 #define SEC_PROTOCOL_OPTIONS_KEY_eddsa_enabled "eddsa_enabled"
 #define SEC_PROTOCOL_OPTIONS_KEY_tls_delegated_credentials_enabled "tls_delegated_credentials_enabled"
 #define SEC_PROTOCOL_OPTIONS_KEY_tls_grease_enabled "tls_grease_enabled"
+#define SEC_PROTOCOL_OPTIONS_KEY_pqtls_mode "pqtls_mode"
 #define SEC_PROTOCOL_OPTIONS_KEY_tls_ticket_request_count "tls_ticket_request_count"
 #define SEC_PROTOCOL_OPTIONS_KEY_ciphersuites "ciphersuites"
 
@@ -146,6 +147,33 @@ sec_protocol_metadata_access_handle(sec_protocol_metadata_t options,
     return _nw_protocol_metadata_access_handle(options, access_block);
 }
 
+sec_protocol_options_t
+sec_protocol_options_copy(sec_protocol_options_t options)
+{
+    static void *libnetworkImage = NULL;
+    static dispatch_once_t onceToken;
+    static void *(*_nw_protocol_options_copy)(void *) = NULL;
+
+    dispatch_once(&onceToken, ^{
+        libnetworkImage = dlopen("/usr/lib/libnetwork.dylib", RTLD_LAZY | RTLD_LOCAL);
+        if (NULL != libnetworkImage) {
+            _nw_protocol_options_copy = (__typeof(_nw_protocol_options_copy))dlsym(libnetworkImage,
+                                                                                   "nw_protocol_options_copy");
+            if (NULL == _nw_protocol_options_copy) {
+                os_log_error(OS_LOG_DEFAULT, "dlsym libnetwork nw_protocol_options_copy");
+            }
+        } else {
+            os_log_error(OS_LOG_DEFAULT, "dlopen libnetwork");
+        }
+    });
+
+    if (_nw_protocol_options_copy == NULL) {
+        return NULL;
+    }
+
+    return _nw_protocol_options_copy(options);
+}
+
 #define SEC_PROTOCOL_OPTIONS_VALIDATE(o,r)                                   \
     if (o == NULL) {                                                         \
         return r;                                                            \
@@ -208,6 +236,7 @@ sec_protocol_options_contents_compare(sec_protocol_options_content_t contentA,
     CHECK_FIELD(eddsa_enabled);
     CHECK_FIELD(tls_delegated_credentials_enabled);
     CHECK_FIELD(tls_grease_enabled);
+    CHECK_FIELD(pqtls_mode);
     CHECK_FIELD(allow_unknown_alpn_protos);
 
 #undef CHECK_FIELD
@@ -306,15 +335,54 @@ sec_protocol_options_contents_compare(sec_protocol_options_content_t contentA,
     }
 
     if (optionsA->identity && optionsB->identity) {
-        SecIdentityRef identityA = sec_identity_copy_ref((sec_identity_t)optionsA->identity);
-        SecIdentityRef identityB = sec_identity_copy_ref((sec_identity_t)optionsB->identity);
+        if (sec_identity_copy_type(optionsA->identity) == sec_identity_copy_type(optionsB->identity)) {
+            switch (sec_identity_copy_type(optionsA->identity)) {
+                case SEC_PROTOCOL_IDENTITY_TYPE_INVALID:
+                    break;
+                case SEC_PROTOCOL_IDENTITY_TYPE_CERTIFICATE: {
+                    SecIdentityRef identityA = sec_identity_copy_ref((sec_identity_t)optionsA->identity);
+                    SecIdentityRef identityB = sec_identity_copy_ref((sec_identity_t)optionsB->identity);
 
-        if (false == CFEqual(identityA, identityB)) {
+                    bool are_equal = CFEqual(identityA, identityB);
+                    CFRelease(identityA);
+                    CFRelease(identityB);
+                    if (!are_equal) {
+                        return false;
+                    }
+                    break;
+                }
+                case SEC_PROTOCOL_IDENTITY_TYPE_SPAKE2PLUSV1: {
+#define CHECK_DISPATCH_DATA_THEN_RELEASE(dataA, dataB) \
+    { \
+        if (dataA && dataB) { \
+            if (false == sec_protocol_helper_dispatch_data_equal(dataA, dataB)) { \
+                dispatch_release(dataA); \
+                dispatch_release(dataB); \
+                return false; \
+            } \
+        } else if (dataA || dataB) { \
+            if (dataA) dispatch_release(dataA); \
+            if (dataB) dispatch_release(dataB); \
+            return false; \
+        } \
+    }
+
+                    CHECK_DISPATCH_DATA_THEN_RELEASE(sec_identity_copy_SPAKE2PLUSV1_context(optionsA->identity), sec_identity_copy_SPAKE2PLUSV1_context(optionsB->identity));
+                    CHECK_DISPATCH_DATA_THEN_RELEASE(sec_identity_copy_SPAKE2PLUSV1_client_identity(optionsA->identity), sec_identity_copy_SPAKE2PLUSV1_client_identity(optionsB->identity));
+                    CHECK_DISPATCH_DATA_THEN_RELEASE(sec_identity_copy_SPAKE2PLUSV1_server_identity(optionsA->identity), sec_identity_copy_SPAKE2PLUSV1_server_identity(optionsB->identity));
+                    CHECK_DISPATCH_DATA_THEN_RELEASE(sec_identity_copy_SPAKE2PLUSV1_server_password_verifier(optionsA->identity), sec_identity_copy_SPAKE2PLUSV1_server_password_verifier(optionsB->identity));
+                    CHECK_DISPATCH_DATA_THEN_RELEASE(sec_identity_copy_SPAKE2PLUSV1_client_password_verifier(optionsA->identity), sec_identity_copy_SPAKE2PLUSV1_client_password_verifier(optionsB->identity));
+                    CHECK_DISPATCH_DATA_THEN_RELEASE(sec_identity_copy_SPAKE2PLUSV1_registration_record(optionsA->identity), sec_identity_copy_SPAKE2PLUSV1_registration_record(optionsB->identity));
+
+#undef CHECK_DISPATCH_DATA_THEN_RELEASE
+                    break;
+                }
+                default:
+                    break;
+            }
+        } else {
             return false;
         }
-
-        CFRelease(identityA);
-        CFRelease(identityB);
     } else if (optionsA->identity || optionsB->identity) {
         return false;
     }
@@ -324,6 +392,10 @@ sec_protocol_options_contents_compare(sec_protocol_options_content_t contentA,
             return false;
         }
     } else if (optionsA->output_handler_access_block || optionsB->output_handler_access_block) {
+        return false;
+    }
+
+    if (optionsA->sec_protocol_configuration != optionsB->sec_protocol_configuration) {
         return false;
     }
 
@@ -479,6 +551,12 @@ sec_protocol_options_set_min_tls_protocol_version(sec_protocol_options_t options
     });
 }
 
+static void
+_set_min_tls_protocol_version(sec_protocol_options_t options, uint64_t version)
+{
+    sec_protocol_options_set_min_tls_protocol_version(options, (tls_protocol_version_t)version);
+}
+
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
 tls_protocol_version_t
@@ -517,6 +595,15 @@ sec_protocol_options_set_max_tls_protocol_version(sec_protocol_options_t options
     });
 }
 
+
+
+static void
+_set_max_tls_protocol_version(sec_protocol_options_t options, uint64_t version)
+{
+    sec_protocol_options_set_max_tls_protocol_version(options, version);
+}
+
+
 tls_protocol_version_t
 sec_protocol_options_get_default_max_tls_protocol_version(void)
 {
@@ -545,6 +632,24 @@ sec_protocol_options_get_enable_encrypted_client_hello(sec_protocol_options_t op
     });
 
     return enable_ech;
+}
+
+pqtls_mode_t
+sec_protocol_options_get_pqtls_mode(sec_protocol_options_t options) {
+    SEC_PROTOCOL_OPTIONS_VALIDATE(options, false);
+
+    __block pqtls_mode_t pqtls_mode = no_pqtls;
+
+    (void)sec_protocol_options_access_handle(options, ^bool(void *handle) {
+        sec_protocol_options_content_t content = (sec_protocol_options_content_t)handle;
+        SEC_PROTOCOL_OPTIONS_VALIDATE(content, false);
+
+        pqtls_mode = content->pqtls_mode;
+
+        return true;
+    });
+
+    return pqtls_mode;
 }
 
 bool
@@ -1215,6 +1320,40 @@ sec_protocol_options_set_quic_transport_parameters(sec_protocol_options_t option
     });
 }
 
+sec_protocol_configuration_t
+sec_protocol_options_copy_sec_protocol_configuration(sec_protocol_options_t options)
+{
+    SEC_PROTOCOL_OPTIONS_VALIDATE(options, NULL);
+
+    __block sec_protocol_configuration_t configuration = NULL;
+    (void)sec_protocol_options_access_handle(options, ^bool(void *handle) {
+        sec_protocol_options_content_t content = (sec_protocol_options_content_t)handle;
+        SEC_PROTOCOL_OPTIONS_VALIDATE(content, false);
+
+        if (content->sec_protocol_configuration != NULL) {
+            configuration = content->sec_protocol_configuration;
+        }
+        return true;
+    });
+
+    return configuration;
+}
+
+void
+sec_protocol_options_set_sec_protocol_configuration(sec_protocol_options_t options, sec_protocol_configuration_t configuration)
+{
+    SEC_PROTOCOL_OPTIONS_VALIDATE(options,);
+
+    (void)sec_protocol_options_access_handle(options, ^bool(void *handle) {
+        sec_protocol_options_content_t content = (sec_protocol_options_content_t)handle;
+        SEC_PROTOCOL_OPTIONS_VALIDATE(content, false);
+
+        content->sec_protocol_configuration = configuration;
+        sec_retain(content->sec_protocol_configuration);
+        return true;
+    });
+}
+
 void
 sec_protocol_options_set_ats_required(sec_protocol_options_t options, bool required)
 {
@@ -1243,6 +1382,12 @@ sec_protocol_options_set_minimum_rsa_key_size(sec_protocol_options_t options, si
     });
 }
 
+static void
+_set_minimum_rsa_key_size(sec_protocol_options_t options, uint64_t minimum_key_size)
+{
+    sec_protocol_options_set_minimum_rsa_key_size(options, minimum_key_size);
+}
+
 void
 sec_protocol_options_set_minimum_ecdsa_key_size(sec_protocol_options_t options, size_t minimum_key_size)
 {
@@ -1257,6 +1402,13 @@ sec_protocol_options_set_minimum_ecdsa_key_size(sec_protocol_options_t options, 
     });
 }
 
+static void
+_set_minimum_ecdsa_key_size(sec_protocol_options_t options, uint64_t minimum_key_size)
+{
+    sec_protocol_options_set_minimum_ecdsa_key_size(options, minimum_key_size);
+}
+
+
 void
 sec_protocol_options_set_minimum_signature_algorithm(sec_protocol_options_t options, SecSignatureHashAlgorithm algorithm)
 {
@@ -1269,6 +1421,12 @@ sec_protocol_options_set_minimum_signature_algorithm(sec_protocol_options_t opti
         content->minimum_signature_algorithm = algorithm;
         return true;
     });
+}
+
+static void
+_set_minimum_signature_algorithm(sec_protocol_options_t options, uint64_t algorithm)
+{
+    sec_protocol_options_set_minimum_signature_algorithm(options, (SecSignatureHashAlgorithm)algorithm);
 }
 
 void
@@ -1440,6 +1598,26 @@ sec_protocol_options_set_tls_grease_enabled(sec_protocol_options_t options, bool
 }
 
 void
+sec_protocol_options_set_pqtls_mode(sec_protocol_options_t options, pqtls_mode_t pqtls_mode)
+{
+    SEC_PROTOCOL_OPTIONS_VALIDATE(options,);
+
+    (void)sec_protocol_options_access_handle(options, ^bool(void *handle) {
+        sec_protocol_options_content_t content = (sec_protocol_options_content_t)handle;
+        SEC_PROTOCOL_OPTIONS_VALIDATE(content, false);
+
+        content->pqtls_mode = pqtls_mode;
+        return true;
+    });
+}
+
+static void
+_set_pqtls_mode(sec_protocol_options_t options, uint64_t pqtls_mode)
+{
+    sec_protocol_options_set_pqtls_mode(options, pqtls_mode);
+}
+
+void
 sec_protocol_options_set_allow_unknown_alpn_protos(sec_protocol_options_t options, bool allow_unknown_alpn_protos)
 {
     SEC_PROTOCOL_OPTIONS_VALIDATE(options,);
@@ -1501,6 +1679,12 @@ sec_protocol_options_set_tls_ticket_request_count(sec_protocol_options_t options
         content->tls_ticket_request_count = tls_ticket_request_count;
         return true;
     });
+}
+
+static void
+_set_tls_ticket_request_count(sec_protocol_options_t options, uint64_t tls_ticket_request_count)
+{
+    sec_protocol_options_set_tls_ticket_request_count(options, tls_ticket_request_count);
 }
 
 void
@@ -2401,6 +2585,7 @@ static const char *_options_uint64_keys[] = {
     SEC_PROTOCOL_OPTIONS_KEY_minimum_ecdsa_key_size,
     SEC_PROTOCOL_OPTIONS_KEY_minimum_signature_algorithm,
     SEC_PROTOCOL_OPTIONS_KEY_tls_ticket_request_count,
+    SEC_PROTOCOL_OPTIONS_KEY_pqtls_mode,
 };
 static const size_t _options_uint64_keys_len = sizeof(_options_uint64_keys) / sizeof(_options_uint64_keys[0]);
 
@@ -2427,7 +2612,6 @@ static const char *_options_bool_keys[] = {
     SEC_PROTOCOL_OPTIONS_KEY_eddsa_enabled,
     SEC_PROTOCOL_OPTIONS_KEY_tls_delegated_credentials_enabled,
     SEC_PROTOCOL_OPTIONS_KEY_tls_grease_enabled,
-
 };
 static const size_t _options_bool_keys_len = sizeof(_options_bool_keys) / sizeof(_options_bool_keys[0]);
 
@@ -2497,6 +2681,7 @@ _serialize_options(xpc_object_t dictionary, sec_protocol_options_content_t optio
     xpc_dictionary_set_uint64(dictionary, EXPAND_PARAMETER(minimum_ecdsa_key_size));
     xpc_dictionary_set_uint64(dictionary, EXPAND_PARAMETER(minimum_signature_algorithm));
     xpc_dictionary_set_uint64(dictionary, EXPAND_PARAMETER(tls_ticket_request_count));
+    xpc_dictionary_set_uint64(dictionary, EXPAND_PARAMETER(pqtls_mode));
 
     xpc_dictionary_set_bool(dictionary, EXPAND_PARAMETER(ats_required));
     xpc_dictionary_set_bool(dictionary, EXPAND_PARAMETER(ats_minimum_tls_version_allowed));
@@ -2627,28 +2812,32 @@ static struct _options_uint64_key_setter {
 } _options_uint64_key_setters[] = {
     {
         .key = SEC_PROTOCOL_OPTIONS_KEY_min_version,
-        .setter_pointer = (void (*)(sec_protocol_options_t, uint64_t))sec_protocol_options_set_min_tls_protocol_version
+        .setter_pointer = _set_min_tls_protocol_version,
     },
     {
         .key = SEC_PROTOCOL_OPTIONS_KEY_max_version,
-        .setter_pointer = (void (*)(sec_protocol_options_t, uint64_t))sec_protocol_options_set_max_tls_protocol_version
+        .setter_pointer = _set_max_tls_protocol_version,
     },
     {
         .key = SEC_PROTOCOL_OPTIONS_KEY_minimum_rsa_key_size,
-        .setter_pointer = (void (*)(sec_protocol_options_t, uint64_t))sec_protocol_options_set_minimum_rsa_key_size,
+        .setter_pointer = _set_minimum_rsa_key_size,
     },
     {
         .key = SEC_PROTOCOL_OPTIONS_KEY_minimum_ecdsa_key_size,
-        .setter_pointer = (void (*)(sec_protocol_options_t, uint64_t))sec_protocol_options_set_minimum_ecdsa_key_size,
+        .setter_pointer = _set_minimum_ecdsa_key_size,
     },
     {
         .key = SEC_PROTOCOL_OPTIONS_KEY_minimum_signature_algorithm,
-        .setter_pointer = (void (*)(sec_protocol_options_t, uint64_t))sec_protocol_options_set_minimum_signature_algorithm,
+        .setter_pointer = _set_minimum_signature_algorithm,
     },
     {
         .key = SEC_PROTOCOL_OPTIONS_KEY_tls_ticket_request_count,
-        .setter_pointer = (void (*)(sec_protocol_options_t, uint64_t))sec_protocol_options_set_tls_ticket_request_count,
+        .setter_pointer = _set_tls_ticket_request_count,
     },
+    {
+        .key = SEC_PROTOCOL_OPTIONS_KEY_pqtls_mode,
+        .setter_pointer = _set_pqtls_mode,
+    }
 };
 static const size_t _options_uint64_key_setters_len = sizeof(_options_uint64_key_setters) / sizeof(_options_uint64_key_setters[0]);
 
@@ -2934,6 +3123,22 @@ sec_protocol_metadata_get_tls_negotiated_group(sec_protocol_metadata_t metadata)
     });
 
     return negotiated_curve;
+}
+
+uint16_t
+sec_protocol_metadata_get_tls_negotiated_pake(sec_protocol_metadata_t metadata)
+{
+    SEC_PROTOCOL_METADATA_VALIDATE(metadata, 0);
+
+    __block uint16_t negotiated_pake = 0;
+    (void)sec_protocol_metadata_access_handle(metadata, ^bool(void *handle) {
+        sec_protocol_metadata_content_t content = (sec_protocol_metadata_content_t)handle;
+        SEC_PROTOCOL_METADATA_VALIDATE(content, false);
+        negotiated_pake = content->negotiated_pake;
+        return true;
+    });
+
+    return negotiated_pake;
 }
 
 void *

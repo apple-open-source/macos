@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2023 Apple Inc. All rights reserved.
+ * Copyright (C) 2008-2024 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -28,6 +28,7 @@
 
 #include "Microtasks.h"
 #include "ScriptExecutionContext.h"
+#include <wtf/RefCountedAndCanMakeWeakPtr.h>
 #include <wtf/TZoneMallocInlines.h>
 
 namespace WebCore {
@@ -36,8 +37,8 @@ WTF_MAKE_TZONE_ALLOCATED_IMPL(EventLoopTask);
 WTF_MAKE_TZONE_ALLOCATED_IMPL(EventLoopTimerHandle);
 WTF_MAKE_TZONE_ALLOCATED_IMPL(EventLoopTaskGroup);
 
-class EventLoopTimer final : public RefCounted<EventLoopTimer>, public TimerBase, public CanMakeWeakPtr<EventLoopTimer> {
-    WTF_MAKE_TZONE_ALLOCATED_INLINE(EventLoopTimer);
+class EventLoopTimer final : public RefCountedAndCanMakeWeakPtr<EventLoopTimer>, public TimerBase {
+    WTF_MAKE_TZONE_ALLOCATED(EventLoopTimer);
 public:
     enum class Type : bool { OneShot, Repeating };
     static Ref<EventLoopTimer> create(Type type, std::unique_ptr<EventLoopTask>&& task) { return adoptRef(*new EventLoopTimer(type, WTFMove(task))); }
@@ -152,6 +153,8 @@ private:
     bool m_suspended { false };
     bool m_savedIsActive { false };
 };
+
+WTF_MAKE_TZONE_ALLOCATED_IMPL(EventLoopTimer);
 
 EventLoopTimerHandle::EventLoopTimerHandle() = default;
 
@@ -464,7 +467,7 @@ void EventLoopTaskGroup::queueTask(std::unique_ptr<EventLoopTask>&& task)
 }
 
 class EventLoopFunctionDispatchTask : public EventLoopTask {
-    WTF_MAKE_TZONE_ALLOCATED_INLINE(EventLoopFunctionDispatchTask);
+    WTF_MAKE_TZONE_ALLOCATED(EventLoopFunctionDispatchTask);
 public:
     EventLoopFunctionDispatchTask(TaskSource source, EventLoopTaskGroup& group, EventLoop::TaskFunction&& function)
         : EventLoopTask(source, group)
@@ -477,6 +480,8 @@ public:
 private:
     EventLoop::TaskFunction m_function;
 };
+
+WTF_MAKE_TZONE_ALLOCATED_IMPL(EventLoopFunctionDispatchTask);
 
 void EventLoopTaskGroup::queueTask(TaskSource source, EventLoop::TaskFunction&& function)
 {

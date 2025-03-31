@@ -34,6 +34,7 @@
 #include "U2fAuthenticator.h"
 #include <WebCore/AuthenticationExtensionsClientOutputs.h>
 #include <WebCore/AuthenticatorAttachment.h>
+#include <WebCore/CredentialPropertiesOutput.h>
 #include <WebCore/CryptoKeyAES.h>
 #include <WebCore/CryptoKeyHMAC.h>
 #include <WebCore/DeviceRequestConverter.h>
@@ -88,7 +89,7 @@ bool isPinError(const CtapDeviceResponseCode& error)
 
 } // namespace
 
-CtapAuthenticator::CtapAuthenticator(std::unique_ptr<CtapDriver>&& driver, AuthenticatorGetInfoResponse&& info)
+CtapAuthenticator::CtapAuthenticator(Ref<CtapDriver>&& driver, AuthenticatorGetInfoResponse&& info)
     : FidoAuthenticator(WTFMove(driver))
     , m_info(WTFMove(info))
 {
@@ -102,6 +103,10 @@ void CtapAuthenticator::makeCredential()
     auto& options = std::get<PublicKeyCredentialCreationOptions>(requestData().options);
     auto internalUVAvailability = m_info.options().userVerificationAvailability();
     auto residentKeyAvailability = m_info.options().residentKeyAvailability();
+    if (options.authenticatorSelection && options.authenticatorSelection->userVerification == UserVerificationRequirement::Required && !isUVSetup()) {
+        performAuthenticatorSelectionForSetupPin();
+        return;
+    }
     Vector<String> authenticatorSupportedExtensions;
     if (m_isKeyStoreFull || (m_info.remainingDiscoverableCredentials() && !m_info.remainingDiscoverableCredentials())) {
         if (options.authenticatorSelection && (options.authenticatorSelection->requireResidentKey || options.authenticatorSelection->residentKey == ResidentKeyRequirement::Required)) {
@@ -118,6 +123,8 @@ void CtapAuthenticator::makeCredential()
     else
         cborCmd = encodeMakeCredentialRequestAsCBOR(requestData().hash, options, internalUVAvailability, residentKeyAvailability, authenticatorSupportedExtensions);
     CTAP_RELEASE_LOG("makeCredential: Sending %s", base64EncodeToString(cborCmd).utf8().data());
+    if (m_info.maxMsgSize() && cborCmd.size() >= *m_info.maxMsgSize())
+        CTAP_RELEASE_LOG("CtapAuthenticator::makeCredential cmdSize = %lu maxMsgSize = %u", cborCmd.size(), *m_info.maxMsgSize());
     driver().transact(WTFMove(cborCmd), [weakThis = WeakPtr { *this }](Vector<uint8_t>&& data) {
         ASSERT(RunLoop::isMain());
         if (!weakThis)
@@ -170,7 +177,7 @@ void CtapAuthenticator::continueMakeCredentialAfterResponseReceived(Vector<uint8
         
         auto rkSupported = m_info.options().residentKeyAvailability() == AuthenticatorSupportedOptions::ResidentKeyAvailability::kSupported;
         auto rkRequested = options.authenticatorSelection && ((options.authenticatorSelection->residentKey && options.authenticatorSelection->residentKey != ResidentKeyRequirement::Discouraged) || options.authenticatorSelection->requireResidentKey);
-        extensionOutputs.credProps = AuthenticationExtensionsClientOutputs::CredentialPropertiesOutput { rkSupported && rkRequested && !m_isKeyStoreFull };
+        extensionOutputs.credProps = CredentialPropertiesOutput { rkSupported && rkRequested && !m_isKeyStoreFull };
         response->setExtensions(WTFMove(extensionOutputs));
     }
     receiveRespond(response.releaseNonNull());
@@ -183,6 +190,7 @@ void CtapAuthenticator::getAssertion()
     auto& options = std::get<PublicKeyCredentialRequestOptions>(requestData().options);
     auto internalUVAvailability = m_info.options().userVerificationAvailability();
     Vector<String> authenticatorSupportedExtensions;
+    CTAP_RELEASE_LOG("getAssertion uv: %hhu internalUvAvailability %d", options.userVerification, internalUVAvailability);
     // If UV is required, then either built-in uv or a pin will work.
     if (internalUVAvailability == UVAvailability::kSupportedAndConfigured && options.userVerification != UserVerificationRequirement::Discouraged && m_pinAuth.isEmpty())
         cborCmd = encodeGetAssertionRequestAsCBOR(requestData().hash, options, internalUVAvailability, authenticatorSupportedExtensions);
@@ -190,6 +198,8 @@ void CtapAuthenticator::getAssertion()
         cborCmd = encodeGetAssertionRequestAsCBOR(requestData().hash, options, internalUVAvailability, authenticatorSupportedExtensions, PinParameters { pin::kProtocolVersion, m_pinAuth });
     else
         cborCmd = encodeGetAssertionRequestAsCBOR(requestData().hash, options, internalUVAvailability, authenticatorSupportedExtensions);
+    if (m_info.maxMsgSize() && cborCmd.size() >= *m_info.maxMsgSize())
+        CTAP_RELEASE_LOG("getAssertion cmdSize = %lu maxMsgSize = %u", cborCmd.size(), *m_info.maxMsgSize());
     CTAP_RELEASE_LOG("getAssertion: Sending %s", base64EncodeToString(cborCmd).utf8().data());
     driver().transact(WTFMove(cborCmd), [weakThis = WeakPtr { *this }](Vector<uint8_t>&& data) {
         ASSERT(RunLoop::isMain());
@@ -263,7 +273,7 @@ void CtapAuthenticator::continueGetNextAssertionAfterResponseReceived(Vector<uin
     CTAP_RELEASE_LOG("continueGetNextAssertionAfterResponseReceived: Remaining responses: %lu", m_remainingAssertionResponses);
 
     if (!m_remainingAssertionResponses) {
-        if (auto* observer = this->observer()) {
+        if (RefPtr observer = this->observer()) {
             observer->selectAssertionResponse(Vector { m_assertionResponses }, WebAuthenticationSource::External, [this, weakThis = WeakPtr { *this }] (AuthenticatorAssertionResponse* response) {
                 RELEASE_ASSERT(RunLoop::isMain());
                 if (!weakThis)
@@ -333,7 +343,7 @@ void CtapAuthenticator::continueRequestPinAfterGetKeyAgreement(Vector<uint8_t>&&
         return;
     }
 
-    if (auto* observer = this->observer()) {
+    if (RefPtr observer = this->observer()) {
         CTAP_RELEASE_LOG("continueRequestPinAfterGetKeyAgreement: Requesting pin from observer.");
         observer->requestPin(retries, [weakThis = WeakPtr { *this }, this, keyAgreement = WTFMove(*keyAgreement)] (const String& pin) {
             RELEASE_ASSERT(RunLoop::isMain());
@@ -356,7 +366,7 @@ void CtapAuthenticator::continueGetPinTokenAfterRequestPin(const String& pin, co
     auto pinUTF8 = pin::validateAndConvertToUTF8(pin);
     if (!pinUTF8) {
         // Fake a pin invalid response from the authenticator such that clients could show some error to the user.
-        if (auto* observer = this->observer())
+        if (RefPtr observer = this->observer())
             observer->authenticatorStatusUpdated(WebAuthenticationStatus::PinInvalid);
         tryRestartPin(CtapDeviceResponseCode::kCtap2ErrPinInvalid);
         return;
@@ -371,10 +381,11 @@ void CtapAuthenticator::continueGetPinTokenAfterRequestPin(const String& pin, co
     CTAP_RELEASE_LOG("continueGetPinTokenAfterRequestPin: Sending %s", base64EncodeToString(cborCmd).utf8().data());
     driver().transact(WTFMove(cborCmd), [weakThis = WeakPtr { *this }, this, tokenRequest = WTFMove(*tokenRequest)] (Vector<uint8_t>&& data) {
         ASSERT(RunLoop::isMain());
-        if (!weakThis)
+        RefPtr protectedThis = weakThis.get();
+        if (!protectedThis)
             return;
         CTAP_RELEASE_LOG("continueGetPinTokenAfterRequestPin: Response %s", base64EncodeToString(data).utf8().data());
-        weakThis->continueRequestAfterGetPinToken(WTFMove(data), tokenRequest);
+        protectedThis->continueRequestAfterGetPinToken(WTFMove(data), tokenRequest);
     });
 }
 
@@ -386,7 +397,7 @@ void CtapAuthenticator::continueRequestAfterGetPinToken(Vector<uint8_t>&& data, 
         auto error = getResponseCode(data);
 
         if (isPinError(error)) {
-            if (auto* observer = this->observer())
+            if (RefPtr observer = this->observer())
                 observer->authenticatorStatusUpdated(toStatus(error));
             if (tryRestartPin(error))
                 return;
@@ -454,6 +465,126 @@ String CtapAuthenticator::aaguidForDebugging() const
 {
     return WTF::UUID { std::span<const uint8_t, 16> { m_info.aaguid() } }.toString();
 }
+
+bool CtapAuthenticator::isUVSetup() const
+{
+    return m_info.options().clientPinAvailability() == AuthenticatorSupportedOptions::ClientPinAvailability::kSupportedAndPinSet || m_info.options().userVerificationAvailability() == AuthenticatorSupportedOptions::UserVerificationAvailability::kSupportedAndConfigured;
+}
+
+void CtapAuthenticator::continueSetupPinAfterCommand(Vector<uint8_t>&& data, const String& pin, Ref<WebCore::CryptoKeyEC> peerKey)
+{
+    auto error = getResponseCode(data);
+    if (error != fido::CtapDeviceResponseCode::kSuccess) {
+        CTAP_RELEASE_LOG("continueSetupPinAfterCommand: Response of setPin was not successful: %s", base64EncodeToString(data).utf8().data());
+        observer()->authenticatorStatusUpdated(WebAuthenticationStatus::PinInvalid);
+        return;
+    }
+    m_info.mutableOptions().setClientPinAvailability(AuthenticatorSupportedOptions::ClientPinAvailability::kSupportedAndPinSet);
+    auto pinUTF8 = pin::validateAndConvertToUTF8(pin);
+    if (!pinUTF8) {
+        CTAP_RELEASE_LOG("continueSetupPinAfterCommand: Unable to convert PIN, although it was successfully set.");
+        observer()->authenticatorStatusUpdated(WebAuthenticationStatus::PinInvalid);
+        return;
+    }
+    auto tokenRequest = pin::TokenRequest::tryCreate(*pinUTF8, peerKey);
+    if (!tokenRequest) {
+        CTAP_RELEASE_LOG("continueSetupPinAfterCommand: Failed to create TokenRequest.");
+        receiveRespond(ExceptionData { ExceptionCode::UnknownError, "Cannot create a TokenRequest."_s });
+        return;
+    }
+
+    auto cborCmd = encodeAsCBOR(*tokenRequest);
+    CTAP_RELEASE_LOG("continueSetupPinAfterCommand: Sending %s", base64EncodeToString(cborCmd).utf8().data());
+    driver().transact(WTFMove(cborCmd), [weakThis = WeakPtr { *this }, this, tokenRequest = WTFMove(*tokenRequest)] (Vector<uint8_t>&& data) {
+        ASSERT(RunLoop::isMain());
+        RefPtr protectedThis = weakThis.get();
+        if (!protectedThis)
+            return;
+        CTAP_RELEASE_LOG("continueGetPinTokenAfterRequestPin: Response %s", base64EncodeToString(data).utf8().data());
+        protectedThis->continueRequestAfterGetPinToken(WTFMove(data), tokenRequest);
+    });
+}
+
+
+void CtapAuthenticator::continueSetupPinAfterGetKeyAgreement(Vector<uint8_t>&& data, const String& pin)
+{
+    auto keyAgreement = pin::KeyAgreementResponse::parse(data);
+    if (!keyAgreement) {
+        auto error = getResponseCode(data);
+        receiveRespond(ExceptionData { ExceptionCode::UnknownError, makeString("Unknown internal error. Error code: "_s, static_cast<uint8_t>(error)) });
+        return;
+    }
+    auto setPinRequest = pin::SetPinRequest::tryCreate(pin, keyAgreement->peerKey);
+    if (!setPinRequest) {
+        receiveRespond(ExceptionData { ExceptionCode::UnknownError, "Cannot create a SetPinRequest."_s });
+        return;
+    }
+    m_pinAuth = setPinRequest->pinAuth();
+    auto cborCmd = encodeAsCBOR(*setPinRequest);
+    driver().transact(WTFMove(cborCmd), [weakThis = WeakPtr { *this }, pin, peerKey = WTFMove( keyAgreement->peerKey)](Vector<uint8_t>&& response) {
+        RefPtr protectedThis = weakThis.get();
+        if (!protectedThis)
+            return;
+        protectedThis->continueSetupPinAfterCommand(WTFMove(response), pin,  WTFMove(peerKey));
+    });
+}
+
+void CtapAuthenticator::setupPin()
+{
+    if (!observer())
+        return;
+    CTAP_RELEASE_LOG("setupPin: Requesting new pin from delegate");
+    uint64_t minLength = m_info.minPINLength().value_or(4);
+    observer()->requestNewPin(minLength, [weakThis = WeakPtr { *this }, this] (const String& pin) {
+        ASSERT(RunLoop::isMain());
+        RefPtr protectedThis = weakThis.get();
+        if (!protectedThis)
+            return;
+        if (auto minPINLength = protectedThis->m_info.minPINLength(); pin.length() < (minPINLength ? *minPINLength : 4)) {
+            protectedThis->observer()->authenticatorStatusUpdated(WebAuthenticationStatus::PINTooShort); // PINTooShort
+            protectedThis->performAuthenticatorSelectionForSetupPin();
+            return;
+        }
+        if (pin.sizeInBytes() > kPINMaxSizeInBytes) {
+            protectedThis->observer()->authenticatorStatusUpdated(WebAuthenticationStatus::PINTooLong); // PINTooLong
+            protectedThis->performAuthenticatorSelectionForSetupPin();
+            return;
+        }
+        auto cborCmd = encodeAsCBOR(pin::KeyAgreementRequest { });
+        CTAP_RELEASE_LOG("setupPin: Sending %s", base64EncodeToString(cborCmd).utf8().data());
+        driver().transact(WTFMove(cborCmd), [weakThis = WTFMove(weakThis), this, pin] (Vector<uint8_t>&& data) {
+            ASSERT(RunLoop::isMain());
+            RefPtr protectedThis = weakThis.get();
+            if (!protectedThis)
+                return;
+            CTAP_RELEASE_LOG("setupPin: Response %s", base64EncodeToString(data).utf8().data());
+            protectedThis->continueSetupPinAfterGetKeyAgreement(WTFMove(data), pin);
+        });
+    });
+}
+
+void CtapAuthenticator::performAuthenticatorSelectionForSetupPin()
+{
+    CTAP_RELEASE_LOG("performAuthenticatorSelectionForSetupPin: Requesting gesture for authenticator selection");
+    if (m_info.versions().contains(ProtocolVersion::kCtap21) || m_info.versions().contains(ProtocolVersion::kCtap21Pre)) {
+        // We should perform the authenticatorSelector command
+        driver().transact(encodeEmptyAuthenticatorRequest(CtapRequestCommand::kAuthenticatorAuthenticatorSelection), [weakThis = WeakPtr { *this }, weakDriver = WeakPtr { driver() }] (Vector<uint8_t>&& response) mutable {
+            ASSERT(RunLoop::isMain());
+            if (RefPtr protectedThis = weakThis.get())
+                protectedThis->setupPin();
+        });
+    } else {
+        auto zeroLengthPinAuth = encodeBogusRequestForAuthenticatorSelection();
+        // We should send a zeroLength pinAuth
+        driver().transact(WTFMove(zeroLengthPinAuth), [weakThis = WeakPtr { *this }, weakDriver = WeakPtr { driver() }] (Vector<uint8_t>&& response) mutable {
+            ASSERT(RunLoop::isMain());
+            if (RefPtr protectedThis = weakThis.get())
+                protectedThis->setupPin();
+        });
+    }
+}
+
+
 
 } // namespace WebKit
 

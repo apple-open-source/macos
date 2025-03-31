@@ -1,0 +1,13 @@
+Metadata-Version: 1.1
+Name: python-dateutil
+Version: 2.1
+Summary: Extensions to the standard Python datetime module
+Home-page: http://labix.org/python-dateutil
+Author: Tomi Pievilaeinen
+Author-email: tomi.pievilainen@iki.fi
+License: Simplified BSD
+Description: The dateutil module provides powerful extensions to the 
+        datetime module available in the Python standard library.
+        
+Platform: UNKNOWN
+Requires: six

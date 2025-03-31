@@ -169,6 +169,7 @@ struct protox ipcprotox[] = {
 struct protox kernprotox[] = {
 	{ NULL,		print_net_api_stats,	NULL,	"net_api", 0 },
 	{ NULL,		print_if_ports_used_stats,	NULL,	"if_ports_used", 0 },
+	{ NULL,		NULL,	print_if_link_heuristics_stats,	"link_heuristics", 0 },
 	{ NULL,		NULL,		NULL,	NULL,	0 }
 };
 

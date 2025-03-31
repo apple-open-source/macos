@@ -170,18 +170,12 @@ static void dumpSeparatedLayerProperties(TextStream&, CALayer *) { }
 
 - (void)_selectDataListOption:(int)optionIndex
 {
-#if ENABLE(DATALIST_ELEMENT)
     [_contentView _selectDataListOption:optionIndex];
-#endif
 }
 
 - (BOOL)_isShowingDataListSuggestions
 {
-#if ENABLE(DATALIST_ELEMENT)
     return [_contentView isShowingDataListSuggestions];
-#else
-    return NO;
-#endif
 }
 
 - (NSString *)textContentTypeForTesting
@@ -202,20 +196,20 @@ static void dumpSeparatedLayerProperties(TextStream&, CALayer *) { }
 static String allowListedClassToString(UIView *view)
 {
     static constexpr ComparableASCIILiteral allowedClassesArray[] = {
-        "UIView",
-        "WKBackdropView",
-        "WKCompositingView",
-        "WKContentView",
-        "WKModelView",
-        "WKRemoteView",
-        "WKScrollView",
-        "WKSeparatedModelView",
-        "WKShapeView",
-        "WKSimpleBackdropView",
-        "WKTransformView",
-        "WKUIRemoteView",
-        "WKWebView",
-        "_UILayerHostView",
+        "UIView"_s,
+        "WKBackdropView"_s,
+        "WKCompositingView"_s,
+        "WKContentView"_s,
+        "WKModelView"_s,
+        "WKScrollView"_s,
+        "WKSeparatedImageView"_s,
+        "WKSeparatedModelView"_s,
+        "WKShapeView"_s,
+        "WKSimpleBackdropView"_s,
+        "WKTransformView"_s,
+        "WKUIRemoteView"_s,
+        "WKWebView"_s,
+        "_UILayerHostView"_s,
     };
     static constexpr SortedArraySet allowedClasses { allowedClassesArray };
 
@@ -225,6 +219,23 @@ static String allowListedClassToString(UIView *view)
 
     return "<class not in allowed list of classes>"_s;
 }
+
+#if HAVE(CORE_ANIMATION_SEPARATED_LAYERS)
+static bool shouldDumpSeparatedDetails(UIView *view)
+{
+    static constexpr ComparableASCIILiteral deniedClassesArray[] = {
+        "WKCompositingView"_s,
+        "WKSeparatedImageView"_s,
+    };
+    static constexpr SortedArraySet deniedClasses { deniedClassesArray };
+
+    String classString { NSStringFromClass(view.class) };
+    if (deniedClasses.contains(classString))
+        return false;
+
+    return true;
+}
+#endif
 
 static void dumpUIView(TextStream& ts, UIView *view)
 {
@@ -268,11 +279,15 @@ static void dumpUIView(TextStream& ts, UIView *view)
     if (view.layer.anchorPointZ != 0)
         ts.dumpProperty("layer anchorPointZ", makeString(view.layer.anchorPointZ));
 
+    if (view.layer.cornerRadius != 0.0)
+        ts.dumpProperty("layer cornerRadius", makeString(view.layer.cornerRadius));
+
 #if HAVE(CORE_ANIMATION_SEPARATED_LAYERS)
     if (view.layer.separated) {
         TextStream::GroupScope scope(ts);
         ts << "separated";
-        dumpSeparatedLayerProperties(ts, view.layer);
+        if (shouldDumpSeparatedDetails(view))
+            dumpSeparatedLayerProperties(ts, view.layer);
     }
 #endif
 
@@ -299,9 +314,13 @@ static void dumpUIView(TextStream& ts, UIView *view)
     return ts.release();
 }
 
-- (NSString *)_scrollbarState:(unsigned long long)scrollingNodeID processID:(unsigned long long)processID isVertical:(bool)isVertical
+- (NSString *)_scrollbarState:(unsigned long long)rawScrollingNodeID processID:(unsigned long long)processID isVertical:(bool)isVertical
 {
-    if (_page->scrollingCoordinatorProxy()->rootScrollingNodeID() == WebCore::ScrollingNodeID(LegacyNullableObjectIdentifier<WebCore::ScrollingNodeIDType>(scrollingNodeID), LegacyNullableObjectIdentifier<WebCore::ProcessIdentifierType>(processID))) {
+    std::optional<WebCore::ScrollingNodeID> scrollingNodeID;
+    if (ObjectIdentifier<WebCore::ProcessIdentifierType>::isValidIdentifier(processID) && ObjectIdentifier<WebCore::ScrollingNodeIDType>::isValidIdentifier(rawScrollingNodeID))
+        scrollingNodeID = WebCore::ScrollingNodeID(ObjectIdentifier<WebCore::ScrollingNodeIDType>(rawScrollingNodeID), ObjectIdentifier<WebCore::ProcessIdentifierType>(processID));
+
+    if (_page->scrollingCoordinatorProxy()->rootScrollingNodeID() == scrollingNodeID) {
         TextStream ts(TextStream::LineMode::MultipleLine);
         {
             TextStream::GroupScope scope(ts);
@@ -309,7 +328,7 @@ static void dumpUIView(TextStream& ts, UIView *view)
         }
         return ts.release();
     }
-    return _page->scrollbarStateForScrollingNodeID(WebCore::ScrollingNodeID(LegacyNullableObjectIdentifier<WebCore::ScrollingNodeIDType>(scrollingNodeID), LegacyNullableObjectIdentifier<WebCore::ProcessIdentifierType>(processID)), isVertical);
+    return _page->scrollbarStateForScrollingNodeID(scrollingNodeID, isVertical);
 }
 
 - (NSNumber *)_stableStateOverride

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2007-2023 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2007-2024 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -75,11 +75,17 @@ SEC_CONST_DECL (kSecPolicyCheckRevocationCRL, "CRL");
 SEC_CONST_DECL (kSecPolicyCheckRevocationAny, "AnyRevocationMethod");
 
 /* Public policy oids. */
-#define POLICYMACRO(NAME, OID, ISPUBLIC, INTNAME, IN_NAME, IN_PROPERTIES, FUNCTION) \
+#define POLICYMACRO(NAME, OID, ISPUBLIC, ANCHOR_STORE, INTNAME, IN_NAME, IN_PROPERTIES, FUNCTION) \
 const CFStringRef kSecPolicyApple##NAME = CFSTR("1.2.840.113635.100.1."#OID);
 #include "SecPolicy.list"
 //Some naming exceptions
 SEC_CONST_DECL(kSecPolicyMacAppStoreReceipt, "1.2.840.113635.100.1.19")
+SEC_CONST_DECL(kSecPolicyAppleSSLServer, "1.2.840.113635.100.1.3.1")
+SEC_CONST_DECL(kSecPolicyAppleSSLClient, "1.2.840.113635.100.1.3.2")
+SEC_CONST_DECL(kSecPolicyAppleEAPServer, "1.2.840.113635.100.1.9.1")
+SEC_CONST_DECL(kSecPolicyAppleEAPClient, "1.2.840.113635.100.1.9.2")
+SEC_CONST_DECL(kSecPolicyAppleIPSecServer, "1.2.840.113635.100.1.11.1")
+SEC_CONST_DECL(kSecPolicyAppleIPSecClient, "1.2.840.113635.100.1.11.2")
 
 SEC_CONST_DECL (kSecPolicyOid, "SecPolicyOid");
 SEC_CONST_DECL (kSecPolicyName, "SecPolicyName");
@@ -108,7 +114,7 @@ SEC_CONST_DECL (kSecPolicyKU_DecipherOnly, "CE_KU_DecipherOnly");
 #define __P_DO_DECLARE_E(NAME, INTNAME) static CFStringRef kSecPolicyName##NAME = CFSTR(#INTNAME);
 #define __P_DO_DECLARE_P(NAME, INTNAME) const CFStringRef kSecPolicyNameApple##NAME = CFSTR(#INTNAME);
 #define __P_DO_DECLARE_I(NAME, INTNAME) const CFStringRef kSecPolicyName##NAME = CFSTR(#INTNAME);
-#define POLICYMACRO(NAME, OID, ISPUBLIC, INTNAME, IN_NAME, IN_PROPERTIES, FUNCTION) \
+#define POLICYMACRO(NAME, OID, ISPUBLIC, ANCHOR_STORE, INTNAME, IN_NAME, IN_PROPERTIES, FUNCTION) \
 __P_DO_DECLARE_##ISPUBLIC(NAME, INTNAME)
 #include "SecPolicy.list"
 //Some naming exceptions
@@ -141,6 +147,7 @@ SEC_CONST_DECL (kSecPolicyNameApplePushCertPortal, "PushCertPortal");
 SEC_CONST_DECL (kSecPolicyNameApplePotluckService, "Potluck");
 SEC_CONST_DECL (kSecPolicyNameAppleMacOSSoftwareUpdate, "MacSoftwareUpdate");
 SEC_CONST_DECL (kSecPolicyNameAppleIssued, "AppleIssued");
+SEC_CONST_DECL (kSecPolicyNameAppleIssuedTransparent, "AppleIssuedTransparent");
 
 #define kSecPolicySHA256Size CC_SHA256_DIGEST_LENGTH
 
@@ -221,6 +228,49 @@ errOut:
     return result;
 }
 
+bool SecPolicyUsesConstrainedAnchors(CFStringRef policyId) {
+    if (!policyId) {
+        return false;
+    }
+#undef POLICYMACRO
+#define _P_ANCHOR_STORE_C true
+#define _P_ANCHOR_STORE_S false
+#define _P_ANCHOR_STORE_A true
+#define POLICYMACRO(NAME, OID, ISPUBLIC, ANCHOR_STORE, INTNAME, IN_NAME, IN_PROPERTIES, FUNCTION) \
+    else if (CFEqual(kSecPolicyApple##NAME, policyId)) { \
+        return _P_ANCHOR_STORE_##ANCHOR_STORE; \
+    }
+#include "SecPolicy.list"
+    else if (CFEqual(kSecPolicyAppleSSLServer, policyId) ||
+             CFEqual(kSecPolicyAppleSSLClient, policyId) ||
+             CFEqual(kSecPolicyAppleEAPServer, policyId) ||
+             CFEqual(kSecPolicyAppleEAPClient, policyId) ||
+             CFEqual(kSecPolicyAppleIPSecServer, policyId) ||
+             CFEqual(kSecPolicyAppleIPSecClient, policyId)) {
+        return false;
+    }
+    return false;
+}
+
+#undef POLICYMACRO
+#undef _P_ANCHOR_STORE_C
+#undef _P_ANCHOR_STORE_S
+#undef _P_ANCHOR_STORE_A
+bool SecPolicyUsesAppleAnchors(CFStringRef policyId) {
+    if (!policyId) {
+        return false;
+    }
+#define _P_ANCHOR_STORE_C false
+#define _P_ANCHOR_STORE_S false
+#define _P_ANCHOR_STORE_A true
+#define POLICYMACRO(NAME, OID, ISPUBLIC, ANCHOR_STORE, INTNAME, IN_NAME, IN_PROPERTIES, FUNCTION) \
+    else if (CFEqual(kSecPolicyApple##NAME, policyId)) { \
+        return _P_ANCHOR_STORE_##ANCHOR_STORE; \
+    }
+#include "SecPolicy.list"
+    return false;
+}
+
 #if TARGET_OS_OSX
 static void set_ku_from_properties(SecPolicyRef policy, CFDictionaryRef properties);
 #endif
@@ -255,18 +305,35 @@ SecPolicyRef SecPolicyCreateWithProperties(CFTypeRef policyIdentifier,
 		rootDigest = CFDictionaryGetValue(properties, kSecPolicyRootDigest);
 	}
 
-	/* only the EAP policy allows a non-string name */
-	if (name && !isString(name) && !CFEqual(policyIdentifier, kSecPolicyAppleEAP)) {
+	/* only the EAP and 3PMA policies allow a non-string name */
+	if (name && !isString(name) &&
+        !(CFEqual(policyIdentifier, kSecPolicyAppleEAP) ||
+          CFEqual(policyIdentifier, kSecPolicyApple3PMobileAsset))) {
 		secerror("policy \"%@\" requires a string value for the %@ key", policyIdentifier, kSecPolicyName);
 		goto errOut;
 	}
 
+    /* certain policy identitifers override the client option */
+    if (CFEqual(policyIdentifier, kSecPolicyAppleSSLClient) ||
+        CFEqual(policyIdentifier, kSecPolicyAppleEAPClient) ||
+        CFEqual(policyIdentifier, kSecPolicyAppleIPSecClient)) {
+        client = true;
+    } else if (CFEqual(policyIdentifier, kSecPolicyAppleSSLServer) ||
+               CFEqual(policyIdentifier, kSecPolicyAppleEAPServer) ||
+               CFEqual(policyIdentifier, kSecPolicyAppleIPSecServer)) {
+        client = false;
+    }
+
     /* What follows are all the exceptional functions that do not match the macro below */
-    if (CFEqual(policyIdentifier, kSecPolicyAppleSSL)) {
+    if (CFEqual(policyIdentifier, kSecPolicyAppleSSL) ||
+        CFEqual(policyIdentifier, kSecPolicyAppleSSLServer) ||
+        CFEqual(policyIdentifier, kSecPolicyAppleSSLClient)) {
         policy = SecPolicyCreateSSL(!client, name);
     } else if (CFEqual(policyIdentifier, kSecPolicyAppleSMIME)) {
         policy = SecPolicyCreateSMIME(kSecSignSMIMEUsage | kSecAnyEncryptSMIME, name);
-    } else if (CFEqual(policyIdentifier, kSecPolicyAppleEAP)) {
+    } else if (CFEqual(policyIdentifier, kSecPolicyAppleEAP) ||
+               CFEqual(policyIdentifier, kSecPolicyAppleEAPClient) ||
+               CFEqual(policyIdentifier, kSecPolicyAppleEAPServer)) {
         CFArrayRef array = NULL;
         if (isString(name)) {
             array = CFArrayCreate(kCFAllocatorDefault, (const void **)&name, 1, &kCFTypeArrayCallBacks);
@@ -275,7 +342,9 @@ SecPolicyRef SecPolicyCreateWithProperties(CFTypeRef policyIdentifier,
         }
         policy = SecPolicyCreateEAP(!client, array);
         CFReleaseSafe(array);
-    } else if (CFEqual(policyIdentifier, kSecPolicyAppleIPsec)) {
+    } else if (CFEqual(policyIdentifier, kSecPolicyAppleIPsec) ||
+               CFEqual(policyIdentifier, kSecPolicyAppleIPSecServer) ||
+               CFEqual(policyIdentifier, kSecPolicyAppleIPSecClient)) {
         policy = SecPolicyCreateIPSec(!client, name);
     } else if (CFEqual(policyIdentifier, kSecPolicyMacAppStoreReceipt)) {
         policy = SecPolicyCreateMacAppStoreReceipt();
@@ -375,6 +444,18 @@ SecPolicyRef SecPolicyCreateWithProperties(CFTypeRef policyIdentifier,
         } else {
             secerror("policy \"%@\" requires kSecPolicyName input", policyIdentifier);
         }
+    } else if (CFEqual(policyIdentifier, kSecPolicyApple3PMobileAsset)) {
+        CFArrayRef array = NULL;
+        if (isString(name)) {
+            array = CFArrayCreate(kCFAllocatorDefault, (const void **)&name, 1, &kCFTypeArrayCallBacks);
+            policy = SecPolicyCreate3PMobileAsset(array);
+        } else if (isArray(name)) {
+            array = CFArrayCreateCopy(NULL, name);
+            policy = SecPolicyCreate3PMobileAsset(array);
+        } else {
+            secerror("policy \"%@\" requires kSecPolicyName input", policyIdentifier);
+        }
+        CFReleaseSafe(array);
     }
     /* For a couple of common patterns we use the macro, but some of the
      * policies are deprecated (or not yet available), so we need to ignore the warning. */
@@ -388,7 +469,7 @@ SecPolicyRef SecPolicyCreateWithProperties(CFTypeRef policyIdentifier,
     policy = SecPolicyCreate##FUNCTION(_P_OPTION_##IN_NAME); \
 }
 #undef POLICYMACRO
-#define POLICYMACRO(NAME, OID, ISPUBLIC, INTNAME, IN_NAME, IN_PROPERTIES, FUNCTION) \
+#define POLICYMACRO(NAME, OID, ISPUBLIC, ANCHOR_STORE, INTNAME, IN_NAME, IN_PROPERTIES, FUNCTION) \
 _P_PROPERTIES_##IN_PROPERTIES(NAME, IN_NAME, FUNCTION)
 #include "SecPolicy.list"
 	else {
@@ -441,7 +522,14 @@ CFDictionaryRef SecPolicyCopyProperties(SecPolicyRef policyRef) {
         }
     }
 
-	// Set kSecPolicyOid
+	// Set kSecPolicyOid, fixing client/server variants to maintain ABI
+    if (CFEqual(oid, kSecPolicyAppleSSLClient) || CFEqual(oid, kSecPolicyAppleSSLServer)) {
+        oid = kSecPolicyAppleSSL;
+    } else if (CFEqual(oid, kSecPolicyAppleEAPClient) || CFEqual(oid, kSecPolicyAppleEAPServer)) {
+        oid = kSecPolicyAppleEAP;
+    } else if (CFEqual(oid, kSecPolicyAppleIPSecClient) || CFEqual(oid, kSecPolicyAppleIPSecServer)) {
+        oid = kSecPolicyAppleIPsec;
+    }
 	CFDictionarySetValue(properties, (const void *)kSecPolicyOid,
 		(const void *)oid);
 
@@ -487,6 +575,20 @@ void SecPolicySetName(SecPolicyRef policy, CFStringRef policyName) {
 
 CFStringRef SecPolicyGetOidString(SecPolicyRef policy) {
 	return policy->_oid;
+}
+
+CFStringRef SecPolicyGetCompatibilityOidString(SecPolicyRef policy) {
+    CFStringRef oid = policy->_oid;
+    if (CFEqual(oid, kSecPolicyAppleSSL) || CFEqual(oid, kSecPolicyAppleSSLServer) || CFEqual(oid, kSecPolicyAppleSSLClient)) {
+        return kSecPolicyAppleSSL;
+    }
+    else if (CFEqual(oid, kSecPolicyAppleIPsec) || CFEqual(oid, kSecPolicyAppleIPSecServer) || CFEqual(oid, kSecPolicyAppleIPSecClient)) {
+        return kSecPolicyAppleIPsec;
+    }
+    else if (CFEqual(oid, kSecPolicyAppleEAP) || CFEqual(oid, kSecPolicyAppleEAPServer) || CFEqual(oid, kSecPolicyAppleEAPClient)) {
+        return kSecPolicyAppleEAP;
+    }
+    return oid;
 }
 
 CFStringRef SecPolicyGetName(SecPolicyRef policy) {
@@ -546,14 +648,14 @@ OSStatus SecPolicySetProperties(SecPolicyRef policyRef, CFDictionaryRef properti
 	if (CFDictionaryGetValueIfPresent(properties, (const void *)kSecPolicyName,
 		(const void **)&name) && name) {
 		CFTypeID typeID = CFGetTypeID(name);
-		if (CFEqual(oid, kSecPolicyAppleSSL) ||
-			CFEqual(oid, kSecPolicyAppleIPsec)) {
+        if (CFEqual(oid, kSecPolicyAppleSSL) || CFEqual(oid, kSecPolicyAppleSSLServer) || CFEqual(oid, kSecPolicyAppleSSLClient) ||
+			CFEqual(oid, kSecPolicyAppleIPsec) || CFEqual(oid, kSecPolicyAppleIPSecServer) || CFEqual(oid, kSecPolicyAppleIPSecClient)) {
 			if (CFStringGetTypeID() == typeID) {
 				SecPolicySetOptionsValue_internal(policyRef, kSecPolicyCheckSSLHostname, name);
 			}
 			else result = errSecParam;
 		}
-		else if (CFEqual(oid, kSecPolicyAppleEAP)) {
+        else if (CFEqual(oid, kSecPolicyAppleEAP) || CFEqual(oid, kSecPolicyAppleEAPServer) || CFEqual(oid, kSecPolicyAppleEAPClient)) {
 			if ((CFStringGetTypeID() == typeID) ||
 				(CFArrayGetTypeID() == typeID)) {
 				SecPolicySetOptionsValue_internal(policyRef, kSecPolicyCheckEAPTrustedServerNames, name);
@@ -576,7 +678,8 @@ OSStatus SecPolicySetProperties(SecPolicyRef policyRef, CFDictionaryRef properti
 			result = errSecParam;
 		}
 		else if (CFEqual(client, kCFBooleanTrue)) {
-			if (CFEqual(oid, kSecPolicyAppleSSL)) {
+            if (CFEqual(oid, kSecPolicyAppleSSL) || CFEqual(oid, kSecPolicyAppleSSLServer) || CFEqual(oid, kSecPolicyAppleSSLClient)) {
+                SecPolicySetOid(policyRef, kSecPolicyAppleSSLClient);
 				SecPolicySetName(policyRef, kSecPolicyNameSSLClient);
 				/* Set EKU checks for clients */
 				CFMutableDictionaryRef newOptions = CFDictionaryCreateMutableCopy(NULL, 0, policyRef->_options);
@@ -584,10 +687,12 @@ OSStatus SecPolicySetProperties(SecPolicyRef policyRef, CFDictionaryRef properti
 				CFReleaseSafe(policyRef->_options);
 				policyRef->_options = newOptions;
 			}
-			else if (CFEqual(oid, kSecPolicyAppleIPsec)) {
+			else if (CFEqual(oid, kSecPolicyAppleIPsec) || CFEqual(oid, kSecPolicyAppleIPSecServer) || CFEqual(oid, kSecPolicyAppleIPSecClient)) {
+                SecPolicySetOid(policyRef, kSecPolicyAppleIPSecClient);
 				SecPolicySetName(policyRef, kSecPolicyNameIPSecClient);
 			}
-			else if (CFEqual(oid, kSecPolicyNameEAPServer)) {
+            else if (CFEqual(oid, kSecPolicyAppleEAP) || CFEqual(oid, kSecPolicyAppleEAPServer) || CFEqual(oid, kSecPolicyAppleEAPClient)) {
+                SecPolicySetOid(policyRef, kSecPolicyAppleEAPClient);
 				SecPolicySetName(policyRef, kSecPolicyNameEAPClient);
 				/* Set EKU checks for clients */
 				CFMutableDictionaryRef newOptions = CFDictionaryCreateMutableCopy(NULL, 0, policyRef->_options);
@@ -597,7 +702,8 @@ OSStatus SecPolicySetProperties(SecPolicyRef policyRef, CFDictionaryRef properti
 			}
 		}
 		else {
-			if (CFEqual(oid, kSecPolicyAppleSSL)) {
+			if (CFEqual(oid, kSecPolicyAppleSSL) || CFEqual(oid, kSecPolicyAppleSSLServer) || CFEqual(oid, kSecPolicyAppleSSLClient)) {
+                SecPolicySetOid(policyRef, kSecPolicyAppleSSLServer);
 				SecPolicySetName(policyRef, kSecPolicyNameSSLServer);
 				/* Set EKU checks for servers */
 				CFMutableDictionaryRef newOptions = CFDictionaryCreateMutableCopy(NULL, 0, policyRef->_options);
@@ -605,10 +711,12 @@ OSStatus SecPolicySetProperties(SecPolicyRef policyRef, CFDictionaryRef properti
 				CFReleaseSafe(policyRef->_options);
 				policyRef->_options = newOptions;
 			}
-			else if (CFEqual(oid, kSecPolicyAppleIPsec)) {
+			else if (CFEqual(oid, kSecPolicyAppleIPsec) || CFEqual(oid, kSecPolicyAppleIPSecServer) || CFEqual(oid, kSecPolicyAppleIPSecClient)) {
+                SecPolicySetOid(policyRef, kSecPolicyAppleIPSecServer);
 				SecPolicySetName(policyRef, kSecPolicyNameIPSecServer);
 			}
-			else if (CFEqual(oid, kSecPolicyAppleEAP)) {
+			else if (CFEqual(oid, kSecPolicyAppleEAP) || CFEqual(oid, kSecPolicyAppleEAPServer) || CFEqual(oid, kSecPolicyAppleEAPClient)) {
+                SecPolicySetOid(policyRef, kSecPolicyAppleEAPServer);
 				SecPolicySetName(policyRef, kSecPolicyNameEAPServer);
 				/* Set EKU checks for servers */
 				CFMutableDictionaryRef newOptions = CFDictionaryCreateMutableCopy(NULL, 0, policyRef->_options);
@@ -1755,9 +1863,10 @@ static SecPolicyRef SecPolicyCreateSSL_internal(Boolean server, CFStringRef host
     set_ssl_ekus(options, server);
     add_ats_options_from_dict(options, hostname, nsAppTransportSecurityDict);
 
-    require(result = SecPolicyCreate(kSecPolicyAppleSSL,
-                server ? kSecPolicyNameSSLServer : kSecPolicyNameSSLClient,
-                options), errOut);
+    require(result = SecPolicyCreate(server ? kSecPolicyAppleSSLServer : kSecPolicyAppleSSLClient,
+                                     server ? kSecPolicyNameSSLServer : kSecPolicyNameSSLClient,
+                                     options),
+            errOut);
 
 errOut:
     CFReleaseSafe(options);
@@ -2124,9 +2233,10 @@ SecPolicyRef SecPolicyCreateEAP(Boolean server, CFArrayRef trustedServerNames) {
     /* We need to check for EKU per rdar://22206018 */
     set_ssl_ekus(options, server);
 
-	require(result = SecPolicyCreate(kSecPolicyAppleEAP,
-				server ? kSecPolicyNameEAPServer : kSecPolicyNameEAPClient,
-				options), errOut);
+    require(result = SecPolicyCreate(server ? kSecPolicyAppleEAPServer : kSecPolicyAppleEAPClient,
+                                     server ? kSecPolicyNameEAPServer : kSecPolicyNameEAPClient,
+                                     options),
+            errOut);
 
 errOut:
 	CFReleaseSafe(options);
@@ -2161,9 +2271,10 @@ SecPolicyRef SecPolicyCreateIPSec(Boolean server, CFStringRef hostname) {
     //add_eku(options, &oidAnyExtendedKeyUsage);
     //add_eku(options, &oidExtendedKeyUsageIPSec);
 
-	require(result = SecPolicyCreate(kSecPolicyAppleIPsec,
-		server ? kSecPolicyNameIPSecServer : kSecPolicyNameIPSecClient,
-		options), errOut);
+    require(result = SecPolicyCreate(server ? kSecPolicyAppleIPSecServer: kSecPolicyAppleIPSecClient,
+                                     server ? kSecPolicyNameIPSecServer : kSecPolicyNameIPSecClient,
+                                     options),
+            errOut);
 
 errOut:
 	CFReleaseSafe(options);
@@ -3173,11 +3284,11 @@ errOut:
 
 /*!
  @function SecPolicyCreateAppleSMPEncryption
- @abstract Check for intermediate certificate 'Apple System Integration CA - G3' by name,
-    and root certificate 'Apple Root CA - G3' by hash.
+ @abstract Check for Apple production anchor certificate with chain length of 3.
     Leaf cert must have Key Encipherment usage.
     Leaf cert must have Apple SMP Encryption marker OID (1.2.840.113635.100.6.30).
-    Intermediate must have marker OID (1.2.840.113635.100.6.2.13).
+    Intermediate must have ASI G3 marker OID (1.2.840.113635.100.6.2.13).
+    Revocation is checked.
  */
 SecPolicyRef SecPolicyCreateAppleSMPEncryption(void)
 {
@@ -3211,18 +3322,19 @@ errOut:
 	return result;
 }
 
-/* subject:/CN=Test Apple Root CA - ECC/OU=Certification Authority/O=Apple Inc./C=US */
-/* issuer :/CN=Test Apple Root CA - ECC/OU=Certification Authority/O=Apple Inc./C=US */
-const uint8_t kTestAppleRootCA_ECC_SHA256[CC_SHA256_DIGEST_LENGTH] = {
-    0xe8, 0x6a, 0xd6, 0x5c, 0x74, 0x60, 0x21, 0x14, 0x47, 0xc6, 0x6a, 0xd7, 0x5f, 0xf8, 0x06, 0x7b,
-    0xec, 0xb5, 0x52, 0x7e, 0x4e, 0xa1, 0xac, 0x48, 0xcf, 0x3c, 0x53, 0x8f, 0x4d, 0x2b, 0x20, 0xa9
+/* subject:/CN=Test Apple Root CA - G3/OU=Apple Certification Authority/O=Apple Inc./C=US */
+const uint8_t kTestAppleRootCA_G3_SHA256[CC_SHA256_DIGEST_LENGTH] = {
+    0xbe, 0x9f, 0x7d, 0x2b, 0x62, 0x81, 0x8b, 0xb0, 0xce, 0x6d, 0x7d, 0x73, 0x65, 0xcc, 0x9f, 0xbc,
+    0xbe, 0xa4, 0x1b, 0x5a, 0xe1, 0xd4, 0xe9, 0xdd, 0xd5, 0x4c, 0x1b, 0x34, 0x9e, 0x7a, 0x2d, 0xa6
 };
 
 /*!
  @function SecPolicyCreateTestAppleSMPEncryption
- @abstract Check for intermediate certificate 'Test Apple System Integration CA - ECC' by name,
-    and root certificate 'Test Apple Root CA - ECC' by hash.
-    Leaf cert must have Key Encipherment usage. Other checks TBD.
+ @abstract Check for Test Apple Root CA - G3 with chain length of 3.
+ Leaf cert must have Key Encipherment key usage.
+ Leaf cert must have Apple SMP Encryption marker OID (1.2.840.113635.100.6.30).
+ Intermediate must have ASI G3 marker OID (1.2.840.113635.100.6.2.13).
+ Revocation is checked.
  */
 SecPolicyRef SecPolicyCreateTestAppleSMPEncryption(void)
 {
@@ -3233,12 +3345,20 @@ SecPolicyRef SecPolicyCreateTestAppleSMPEncryption(void)
 	                                              &kCFTypeDictionaryValueCallBacks), errOut);
 	SecPolicyAddBasicCertOptions(options);
 
-	SecPolicyAddAnchorSHA256Options(options, kTestAppleRootCA_ECC_SHA256);
-	require(SecPolicyAddChainLengthOptions(options, 3), errOut);
+    /* Anchored to Apple roots */
+    require(SecPolicyAddAppleAnchorOptions(options, kSecPolicyNameSMPEncryption),
+            errOut);
 
-	CFDictionaryAddValue(options, kSecPolicyCheckIssuerCommonName,
-			CFSTR("Test Apple System Integration CA - ECC"));
+    // Chain length must be 3
+    require(SecPolicyAddChainLengthOptions(options, 3), errOut);
 
+    /* Intermediate must contain ASI marker OID (1.2.840.113635.100.6.2.13) */
+    add_element(options, kSecPolicyCheckIntermediateMarkerOid, CFSTR("1.2.840.113635.100.6.2.13"));
+
+    /* Leaf must contain Apple SMP Encryption marker OID (1.2.840.113635.100.6.30) */
+    add_leaf_marker_string(options, CFSTR("1.2.840.113635.100.6.30"));
+
+    /* Key usage must allow encipherment */
 	add_ku(options, kSecKeyUsageKeyEncipherment);
 
 	// Ensure that revocation is checked (OCSP)
@@ -5279,7 +5399,9 @@ SecPolicyRef SecPolicyCreateVerifiedMark(CFStringRef hostname, CFDataRef markRep
     CFDictionaryAddValue(digests, CFSTR("sha256"), sha256Digest);
     add_element(options, kSecPolicyCheckMarkRepresentation, digests);
 
-    require(result = SecPolicyCreate(kSecPolicyAppleVerifiedMark, hostname, options), errOut);
+    require(result = SecPolicyCreate(kSecPolicyAppleVerifiedMark,
+                                     kSecPolicyNameVerifiedMark,
+                                     options), errOut);
 
 errOut:
     CFReleaseSafe(options);
@@ -5437,6 +5559,45 @@ SecPolicyRef SecPolicyCreateDCAttestation(void) {
 
     require(result = SecPolicyCreate(kSecPolicyAppleDCAttestation,
                                      kSecPolicyNameDCAttestation, options), errOut);
+
+errOut:
+    CFReleaseNull(options);
+    return result;
+}
+
+SecPolicyRef SecPolicyCreateQWAC(void) {
+    CFMutableDictionaryRef options = NULL;
+    SecPolicyRef result = NULL;
+
+    require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
+                                                &kCFTypeDictionaryKeyCallBacks,
+                                                &kCFTypeDictionaryValueCallBacks), errOut);
+
+    SecPolicyAddBasicX509Options(options);
+    add_element(options, kSecPolicyCheckQWAC, kCFBooleanTrue);
+
+    require(result = SecPolicyCreate(kSecPolicyAppleQWAC,
+                                     kSecPolicyNameQWAC, options), errOut);
+
+errOut:
+    CFReleaseNull(options);
+    return result;
+}
+
+SecPolicyRef SecPolicyCreate3PMobileAsset(CFArrayRef organizations) {
+    CFMutableDictionaryRef options = NULL;
+    SecPolicyRef result = NULL;
+
+    require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
+                                                &kCFTypeDictionaryKeyCallBacks,
+                                                &kCFTypeDictionaryValueCallBacks), errOut);
+
+    SecPolicyAddBasicCertOptions(options);
+    add_eku_string(options, CFSTR("1.3.6.1.5.5.7.3.36")); // RFC 9336 document signing EKU
+    CFDictionaryAddValue(options, kSecPolicyCheckSubjectOrganization, organizations);
+
+    require(result = SecPolicyCreate(kSecPolicyApple3PMobileAsset,
+                                     kSecPolicyName3PMobileAsset, options), errOut);
 
 errOut:
     CFReleaseNull(options);

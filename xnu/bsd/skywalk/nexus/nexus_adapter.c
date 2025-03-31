@@ -748,11 +748,31 @@ na_schema_alloc(struct kern_channel *ch)
 	struct skmem_arena_nexus *arn;
 	mach_vm_offset_t roff[SKMEM_REGIONS];
 	struct __kern_channel_ring *__single kr;
-	struct __user_channel_schema *__single csm;
+	struct __user_channel_schema *csm;
 	struct skmem_obj_info csm_oi, ring_oi, ksd_oi, usd_oi;
 	mach_vm_offset_t base;
 	uint32_t i, j, k, n[NR_ALL];
 	enum txrx t;
+	/* -fbounds-safety */
+	struct {
+		uint32_t tx_rings;
+		uint32_t rx_rings;
+		uint32_t allocator_ring_pairs;
+		uint32_t num_event_rings;
+		uint32_t large_buf_alloc_rings;
+	} ring_counts;
+#define ASSERT_COUNT_TYPES_MATCH(FIELD_NAME) \
+	_Static_assert(__builtin_types_compatible_p( \
+	                typeof(ring_counts . FIELD_NAME), \
+	                typeof(((struct __user_channel_schema*)0)->csm_ ## FIELD_NAME)), \
+	        "type for " # FIELD_NAME "doesn't match")
+
+	ASSERT_COUNT_TYPES_MATCH(tx_rings);
+	ASSERT_COUNT_TYPES_MATCH(rx_rings);
+	ASSERT_COUNT_TYPES_MATCH(allocator_ring_pairs);
+	ASSERT_COUNT_TYPES_MATCH(num_event_rings);
+	ASSERT_COUNT_TYPES_MATCH(large_buf_alloc_rings);
+#undef ASSERT_COUNT_TYPES_MATCH
 
 	/* see comments for struct __user_channel_schema */
 	_CASSERT(offsetof(struct __user_channel_schema, csm_ver) == 0);
@@ -774,23 +794,56 @@ na_schema_alloc(struct kern_channel *ch)
 		n[t] = 0;
 	}
 
+	for_rx_tx(t) {
+		ASSERT((ch->ch_last[t] > 0) || (ch->ch_first[t] == 0));
+		n[t] = ch->ch_last[t] - ch->ch_first[t];
+		ASSERT(n[t] == 0 || n[t] <= na_get_nrings(na, t));
+	}
+
+	/* return total number of tx and rx rings for this channel */
+	ring_counts.tx_rings = n[NR_TX];
+	ring_counts.rx_rings = n[NR_RX];
+
+	if (ch->ch_flags & CHANF_USER_PACKET_POOL) {
+		ring_counts.allocator_ring_pairs = na->na_num_allocator_ring_pairs;
+		n[NR_A] = n[NR_F] = na->na_num_allocator_ring_pairs;
+		ASSERT(n[NR_A] != 0 && n[NR_A] <= na_get_nrings(na, NR_A));
+		ASSERT(n[NR_A] == (ch->ch_last[NR_A] - ch->ch_first[NR_A]));
+		ASSERT(n[NR_F] == (ch->ch_last[NR_F] - ch->ch_first[NR_F]));
+
+		n[NR_LBA] = na->na_num_large_buf_alloc_rings;
+		if (n[NR_LBA] != 0) {
+			ring_counts.large_buf_alloc_rings = n[NR_LBA];
+			ASSERT(n[NR_LBA] == (ch->ch_last[NR_LBA] - ch->ch_first[NR_LBA]));
+		}
+	}
+
+	if (ch->ch_flags & CHANF_EVENT_RING) {
+		n[NR_EV] = ch->ch_last[NR_EV] - ch->ch_first[NR_EV];
+		ASSERT(n[NR_EV] != 0 && n[NR_EV] <= na_get_nrings(na, NR_EV));
+		ring_counts.num_event_rings = n[NR_EV];
+	}
+
 	csm = skmem_cache_alloc(arn->arn_schema_cache, SKMEM_NOSLEEP);
 	if (csm == NULL) {
 		return ENOMEM;
 	}
-
 	skmem_cache_get_obj_info(arn->arn_schema_cache, csm, &csm_oi, NULL);
 	bzero(__unsafe_forge_bidi_indexable(void *, csm, SKMEM_OBJ_SIZE(&csm_oi)),
 	    SKMEM_OBJ_SIZE(&csm_oi));
+
+	csm->csm_tx_rings = ring_counts.tx_rings;
+	csm->csm_rx_rings = ring_counts.rx_rings;
+	csm->csm_allocator_ring_pairs = ring_counts.allocator_ring_pairs;
+	csm->csm_large_buf_alloc_rings = ring_counts.large_buf_alloc_rings;
+	csm->csm_num_event_rings = ring_counts.num_event_rings;
 
 	*(uint32_t *)(uintptr_t)&csm->csm_ver = CSM_CURRENT_VERSION;
 
 	/* kernel version and executable UUID */
 	_CASSERT(sizeof(csm->csm_kern_name) == _SYS_NAMELEN);
 
-	(void) strlcpy(csm->csm_kern_name,
-	    __unsafe_forge_null_terminated(const char *, version),
-	    sizeof(csm->csm_kern_name));
+	(void) strlcpy(csm->csm_kern_name, version, sizeof(csm->csm_kern_name));
 
 #if !XNU_TARGET_OS_OSX
 	(void) memcpy((void *)csm->csm_kern_uuid, kernelcache_uuid, sizeof(csm->csm_kern_uuid));
@@ -799,37 +852,6 @@ na_schema_alloc(struct kern_channel *ch)
 		(void) memcpy((void *)csm->csm_kern_uuid, kernel_uuid, sizeof(csm->csm_kern_uuid));
 	}
 #endif /* XNU_TARGET_OS_OSX */
-
-	for_rx_tx(t) {
-		ASSERT((ch->ch_last[t] > 0) || (ch->ch_first[t] == 0));
-		n[t] = ch->ch_last[t] - ch->ch_first[t];
-		ASSERT(n[t] == 0 || n[t] <= na_get_nrings(na, t));
-	}
-
-	/* return total number of tx and rx rings for this channel */
-	*(uint32_t *)(uintptr_t)&csm->csm_tx_rings = n[NR_TX];
-	*(uint32_t *)(uintptr_t)&csm->csm_rx_rings = n[NR_RX];
-
-	if (ch->ch_flags & CHANF_USER_PACKET_POOL) {
-		*(uint32_t *)(uintptr_t)&csm->csm_allocator_ring_pairs =
-		    na->na_num_allocator_ring_pairs;
-		n[NR_A] = n[NR_F] = na->na_num_allocator_ring_pairs;
-		ASSERT(n[NR_A] != 0 && n[NR_A] <= na_get_nrings(na, NR_A));
-		ASSERT(n[NR_A] == (ch->ch_last[NR_A] - ch->ch_first[NR_A]));
-		ASSERT(n[NR_F] == (ch->ch_last[NR_F] - ch->ch_first[NR_F]));
-
-		n[NR_LBA] = na->na_num_large_buf_alloc_rings;
-		if (n[NR_LBA] != 0) {
-			*(uint32_t *)(uintptr_t)&csm->csm_large_buf_alloc_rings = n[NR_LBA];
-			ASSERT(n[NR_LBA] == (ch->ch_last[NR_LBA] - ch->ch_first[NR_LBA]));
-		}
-	}
-
-	if (ch->ch_flags & CHANF_EVENT_RING) {
-		n[NR_EV] = ch->ch_last[NR_EV] - ch->ch_first[NR_EV];
-		ASSERT(n[NR_EV] != 0 && n[NR_EV] <= na_get_nrings(na, NR_EV));
-		*(uint32_t *)(uintptr_t)&csm->csm_num_event_rings = n[NR_EV];
-	}
 
 	bzero(&roff, sizeof(roff));
 	for (i = 0; i < SKMEM_REGIONS; i++) {

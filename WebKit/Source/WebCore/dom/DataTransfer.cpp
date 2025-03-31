@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006-2022 Apple Inc. All rights reserved.
+ * Copyright (C) 2006-2024 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -33,6 +33,7 @@
 #include "DataTransferItemList.h"
 #include "DeprecatedGlobalSettings.h"
 #include "DocumentFragment.h"
+#include "DocumentInlines.h"
 #include "DragData.h"
 #include "Editor.h"
 #include "FileList.h"
@@ -44,6 +45,7 @@
 #include "Page.h"
 #include "PagePasteboardContext.h"
 #include "Pasteboard.h"
+#include "Quirks.h"
 #include "Settings.h"
 #include "StaticPasteboard.h"
 #include "WebContentReader.h"
@@ -57,8 +59,9 @@ namespace WebCore {
 
 #if ENABLE(DRAG_SUPPORT)
 
-class DragImageLoader final : private CachedImageClient {
-    WTF_MAKE_TZONE_ALLOCATED_INLINE(DragImageLoader);
+class DragImageLoader final : public CachedImageClient {
+    WTF_MAKE_TZONE_ALLOCATED(DragImageLoader);
+    WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(DragImageLoader);
     WTF_MAKE_NONCOPYABLE(DragImageLoader);
 public:
     explicit DragImageLoader(DataTransfer&);
@@ -70,6 +73,8 @@ private:
     void imageChanged(CachedImage*, const IntRect*) override;
     WeakRef<DataTransfer> m_dataTransfer;
 };
+
+WTF_MAKE_TZONE_ALLOCATED_IMPL(DragImageLoader);
 
 #endif
 
@@ -317,17 +322,17 @@ DataTransferItemList& DataTransfer::items(Document& document)
     return *m_itemList;
 }
 
-Vector<String> DataTransfer::types() const
+Vector<String> DataTransfer::types(Document& document) const
 {
-    return types(AddFilesType::Yes);
+    return types(document, AddFilesType::Yes);
 }
 
-Vector<String> DataTransfer::typesForItemList() const
+Vector<String> DataTransfer::typesForItemList(Document& document) const
 {
-    return types(AddFilesType::No);
+    return types(document, AddFilesType::No);
 }
 
-Vector<String> DataTransfer::types(AddFilesType addFilesType) const
+Vector<String> DataTransfer::types(Document& document, AddFilesType addFilesType) const
 {
     if (!canReadTypes())
         return { };
@@ -349,8 +354,11 @@ Vector<String> DataTransfer::types(AddFilesType addFilesType) const
     auto fileContentState = m_pasteboard->fileContentState();
     if (hasFileBackedItem || fileContentState != Pasteboard::FileContentState::NoFileOrImageData) {
         Vector<String> types;
-        if (!hideFilesType && addFilesType == AddFilesType::Yes)
+        if (!hideFilesType && addFilesType == AddFilesType::Yes) {
             types.append("Files"_s);
+            if (document.quirks().needsMozillaFileTypeForDataTransfer())
+                types.append("application/x-moz-file"_s);
+        }
 
         if (fileContentState != Pasteboard::FileContentState::MayContainFilePaths) {
             types.appendVector(WTFMove(safeTypes));
@@ -425,7 +433,7 @@ struct PasteboardFileTypeReader final : PasteboardFileReader {
         types.add(type);
     }
 
-    HashSet<String, ASCIICaseInsensitiveHash> types;
+    UncheckedKeyHashSet<String, ASCIICaseInsensitiveHash> types;
 };
 
 bool DataTransfer::hasFileOfType(const String& type)
@@ -436,11 +444,11 @@ bool DataTransfer::hasFileOfType(const String& type)
     return reader.types.contains(type);
 }
 
-bool DataTransfer::hasStringOfType(const String& type)
+bool DataTransfer::hasStringOfType(Document& document, const String& type)
 {
     ASSERT_WITH_SECURITY_IMPLICATION(canReadTypes());
 
-    return !type.isNull() && types().contains(type);
+    return !type.isNull() && types(document).contains(type);
 }
 
 Ref<DataTransfer> DataTransfer::createForInputEvent(const String& plainText, const String& htmlText)

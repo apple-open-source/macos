@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024 Klara, Inc.
+ * Copyright (c) 2024, Klara, Inc.
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -36,6 +36,8 @@
 _Static_assert(sizeof(id_t) <= INT_MAX, "{u,g}id_t larger than expected");
 
 static int daemon_rangelock(struct sess *, const char *, const char *, int);
+
+#define	RSYNCD_LOG_FILE_PREFIX	"%t [%p]"
 
 /* Compatible with smb rsync, just in case. */
 #define	CONNLOCK_START(conn)	((conn) * 4)
@@ -143,6 +145,82 @@ daemon_apply_ignoreopts(struct sess *sess, const char *module, struct opts *opts
 	return 1;
 }
 
+static const char *
+daemon_fetch_outfmt(const struct sess *sess, void *cookie, char field)
+{
+	struct daemon_role *role;
+
+	role = cookie;
+	switch (field) {
+	case 'a':
+		return role->client_addr;
+	case 'h':
+		return role->client_host;
+	case 'm':
+		return role->module;
+	case 'P':
+		return role->module_path;
+	case 'u':
+		return role->auth_user;
+	default:
+		break;
+	}
+
+	return NULL;
+}
+
+int
+daemon_apply_xferlog(struct sess *sess, const char *module, struct opts *opts)
+{
+	struct daemon_role *role;
+	int logging;
+
+	role = (void *)sess->role;
+	if (cfg_param_bool(role->dcfg, module, "transfer logging",
+	    &logging) != 0) {
+		daemon_client_error(sess, "%s: 'transfer logging' invalid",
+		    module);
+		return 0;
+	}
+
+	if (!logging) {
+		opts->outformat = NULL;
+	} else if (opts->outformat == NULL) {
+		const char *cfgformat;
+		int rc;
+
+		rc = cfg_param_str(role->dcfg, module, "log format", &cfgformat);
+		assert(rc == 0);
+
+		opts->outformat = strdup(cfgformat);
+		if (opts->outformat == NULL) {
+			daemon_client_error(sess, "%s: out of memory", module);
+			return 0;
+		}
+	}
+
+	if (role->using_logfile && opts->outformat != NULL) {
+		char *newformat;
+
+		if (asprintf(&newformat, "%s %s", RSYNCD_LOG_FILE_PREFIX,
+		    opts->outformat) == -1) {
+			daemon_client_error(sess, "%s: out of memory", module);
+			return 0;
+		}
+
+		free((void *)opts->outformat);
+		opts->outformat = newformat;
+	}
+
+	if (opts->outformat != NULL) {
+		log_format_init(sess);
+
+		sess->role->role_fetch_outfmt = daemon_fetch_outfmt;
+		sess->role->role_fetch_outfmt_cookie = sess->role;
+	}
+	return 1;
+}
+
 static int
 daemon_chuser_resolve_name(const char *name, bool is_gid, id_t *oid)
 {
@@ -199,15 +277,32 @@ daemon_chuser_setup(struct sess *sess, const char *module)
 		return 0;
 	}
 
-	rc = cfg_param_str(role->dcfg, module, "gid", &gidstr);
-	assert(rc == 0);
-	if (!daemon_chuser_resolve_name(gidstr, true, &role->gid)) {
-		daemon_client_error(sess, "%s: gid '%s' invalid",
-		    module, gidstr);
-		return 0;
+	if (cfg_has_param(role->dcfg, module, "gid")) {
+		/* Group specified - it must resolve. */
+		rc = cfg_param_str(role->dcfg, module, "gid", &gidstr);
+		assert(rc == 0);
+		if (!daemon_chuser_resolve_name(gidstr, true, &role->gid)) {
+			daemon_client_error(sess, "%s: gid '%s' invalid",
+			    module, gidstr);
+			return 0;
+		}
+
+		return 1;
 	}
 
-	return 1;
+	/*
+	 * No group specified; try "nobody", then "nogroup", before erroring
+	 * out.
+	 */
+	if (daemon_chuser_resolve_name("nobody", true, &role->gid))
+		return 1;
+	else if (daemon_chuser_resolve_name("nogroup", true, &role->gid))
+		return 1;
+
+	daemon_client_error(sess, "%s: no gid specified, cannot find one to use",
+	    module);
+
+	return 0;
 }
 
 int
@@ -245,13 +340,29 @@ daemon_client_error(struct sess *sess, const char *fmt, ...)
 
 	va_start(ap, fmt);
 	if ((msgsz = vasprintf(&msg, fmt, ap)) != -1) {
-		if (!sess->mplex_writes) {
+		switch (role->dstate) {
+		case DSTATE_INIT:
 			if (!io_write_buf(sess, role->client, "@ERROR ",
 			    sizeof("@ERROR ") - 1) ||
 			    !io_write_line(sess, role->client, msg)) {
 				ERR("io_write");
 			}
-		} else {
+
+			break;
+		case DSTATE_CLIENT_CONTROL:
+			/*
+			 * Need to terminate the handshake so that we can send
+			 * the error along.
+			 */
+			if (!daemon_finish_handshake(sess)) {
+				ERR("daemon_finish_handshake");
+			} else {
+				assert(sess->mplex_writes);
+				assert(role->dstate == DSTATE_RUNNING);
+			}
+
+			/* FALLTHROUGH */
+		case DSTATE_RUNNING:
 			if (!io_write_buf_tagged(sess, role->client, msg,
 			    msgsz, IT_ERROR_XFER)) {
 				ERR("io_write");
@@ -259,7 +370,12 @@ daemon_client_error(struct sess *sess, const char *fmt, ...)
 			    1, IT_ERROR_XFER)) {
 				ERR("io_write");
 			}
+
+			break;
+		default:
+			assert(0 && "Unreachable");
 		}
+
 		free(msg);
 	}
 	va_end(ap);
@@ -730,7 +846,7 @@ daemon_do_execcmds_pre(struct sess *sess, const char *module, const char *cmd)
 	 * why.  We'll keep the transfer process's environment clean to match
 	 * the post-xfer exec handling until we come up with a compelling reason
 	 * to do otherwise (e.g., config vars that might expect RSYNC_PID to be
-	 * populated -- this version of rsync deos not yet do var expansion).
+	 * populated -- this version of rsync does not yet do var expansion).
 	 */
 	daemon_do_execcmds_num_env("RSYNC_PID", ppid);
 	daemon_do_execcmds_common_env(role, module);
@@ -1189,9 +1305,11 @@ daemon_normalize_paths(const char *module, int argc, char *argv[])
 }
 
 int
-daemon_open_logfile(const char *logfile, bool printerr)
+daemon_open_logfile(struct sess *sess, const char *logfile, bool printerr)
 {
+	struct daemon_role *role;
 
+	role = (void *)sess->role;
 	if (logfile != NULL && *logfile == '\0')
 		logfile = NULL;
 	if (logfile != NULL) {
@@ -1208,9 +1326,18 @@ daemon_open_logfile(const char *logfile, bool printerr)
 		 * Logging infrastructure will take the FILE and close it if we
 		 * switch away later.
 		 */
-		rsync_set_logfile(fp);
+		rsync_set_logfile(fp, NULL);
 	} else {
-		rsync_set_logfile(NULL);
+#ifdef __APPLE__
+		if (!role->socket_initiator) {
+			fprintf(stderr,
+			    "The syslog(3) facility is not currently available in the standalone rsyncd.\n"
+			    "Falling back to logging to stdout.\n");
+			rsync_set_logfile(stdout, NULL);
+			return 1;
+		}
+#endif
+		rsync_set_logfile(NULL, NULL);
 	}
 
 	return 1;
@@ -1496,10 +1623,15 @@ daemon_parse_refuse(struct sess *sess, const char *module)
 			 */
 			for (const char *shoptchk = "rlptgoD"; *shoptchk != '\0';
 			    shoptchk++) {
+				if (strchr(shopts, *shoptchk) == NULL)
+					continue;
+
 				rc = daemon_add_short_refuse(sess, &shopts,
 				    &shoptlen, &shoptsz,  'a');
 
 				assert(rc != 0);
+				/* We only need to refuse -a once */
+				break;
 			}
 		}
 
@@ -1597,9 +1729,10 @@ daemon_setup_logfile(struct sess *sess, const char *module)
 	if (logfile == NULL || *logfile == '\0')
 		return 1;
 
-	if (!daemon_open_logfile(logfile, false)) {
+	role->using_logfile = true;
+	if (!daemon_open_logfile(sess, logfile, false)) {
 		/* Just fallback to syslog on error. */
-		if (!daemon_open_logfile(NULL, false))
+		if (!daemon_open_logfile(sess, NULL, false))
 			return 0;
 
 		syslog = true;

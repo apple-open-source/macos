@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2018-2024 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -33,14 +33,17 @@
 namespace WebKit {
 
 class MockAuthenticatorManager final : public AuthenticatorManager {
+    WTF_MAKE_TZONE_ALLOCATED(MockAuthenticatorManager);
 public:
-    explicit MockAuthenticatorManager(WebCore::MockWebAuthenticationConfiguration&&);
+    static Ref<MockAuthenticatorManager> create(WebCore::MockWebAuthenticationConfiguration&&);
 
     bool isMock() const final { return true; }
     void setTestConfiguration(WebCore::MockWebAuthenticationConfiguration&& configuration) { m_testConfiguration = WTFMove(configuration); }
 
 private:
-    UniqueRef<AuthenticatorTransportService> createService(WebCore::AuthenticatorTransport, AuthenticatorTransportServiceObserver&) const final;
+    explicit MockAuthenticatorManager(WebCore::MockWebAuthenticationConfiguration&&);
+
+    Ref<AuthenticatorTransportService> createService(WebCore::AuthenticatorTransport, AuthenticatorTransportServiceObserver&) const final;
     void respondReceivedInternal(Respond&&) final;
     void filterTransports(TransportSet&) const;
     void runPresenterInternal(const TransportSet&) final { }
@@ -49,5 +52,9 @@ private:
 };
 
 } // namespace WebKit
+
+SPECIALIZE_TYPE_TRAITS_BEGIN(WebKit::MockAuthenticatorManager)
+static bool isType(const WebKit::AuthenticatorManager& manager) { return manager.isMock(); }
+SPECIALIZE_TYPE_TRAITS_END()
 
 #endif // ENABLE(WEB_AUTHN)

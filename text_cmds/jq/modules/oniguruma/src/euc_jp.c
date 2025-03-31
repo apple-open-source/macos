@@ -2,7 +2,7 @@
   euc_jp.c -  Oniguruma (regular expression library)
 **********************************************************************/
 /*-
- * Copyright (c) 2002-2016  K.Kosako  <sndgk393 AT ybb DOT ne DOT jp>
+ * Copyright (c) 2002-2020  K.Kosako
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -114,50 +114,46 @@ static int
 code_to_mbclen(OnigCodePoint code)
 {
   if (ONIGENC_IS_CODE_ASCII(code)) return 1;
-  else if ((code & 0xff0000) != 0) return 3;
-  else if ((code &   0xff00) != 0) return 2;
-  else
-    return ONIGERR_INVALID_CODE_POINT_VALUE;
-}
-
-#if 0
-static int
-code_to_mbc_first(OnigCodePoint code)
-{
-  int first;
-
-  if ((code & 0xff0000) != 0) {
-    first = (code >> 16) & 0xff;
+  else if ((code & 0xff0000) != 0) {
+    if (EncLen_EUCJP[(int )(code >> 16) & 0xff] == 3)
+      return 3;
   }
   else if ((code & 0xff00) != 0) {
-    first = (code >> 8) & 0xff;
+    if (EncLen_EUCJP[(int )(code >> 8) & 0xff] == 2)
+      return 2;
   }
-  else {
-    return (int )code;
+  else if (code < 256) {
+    if (EncLen_EUCJP[(int )(code & 0xff)] == 1)
+      return 1;
   }
-  return first;
+
+  return ONIGERR_INVALID_CODE_POINT_VALUE;
 }
-#endif
 
 static int
 code_to_mbc(OnigCodePoint code, UChar *buf)
 {
   UChar *p = buf;
 
-  if ((code & 0xff0000) != 0) *p++ = (UChar )(((code >> 16) & 0xff));
-  if ((code &   0xff00) != 0) *p++ = (UChar )(((code >>  8) & 0xff));
+  if ((code & 0xff0000) != 0) {
+    *p++ = (UChar )(((code >> 16) & 0xff));
+    *p++ = (UChar )(((code >>  8) & 0xff));
+  }
+  else if ((code & 0xff00) != 0)
+    *p++ = (UChar )(((code >>  8) & 0xff));
+
   *p++ = (UChar )(code & 0xff);
 
 #if 1
   if (enclen(ONIG_ENCODING_EUC_JP, buf) != (p - buf))
     return ONIGERR_INVALID_CODE_POINT_VALUE;
-#endif  
-  return p - buf;
+#endif
+  return (int )(p - buf);
 }
 
 static int
 mbc_case_fold(OnigCaseFoldType flag ARG_UNUSED,
-	      const UChar** pp, const UChar* end ARG_UNUSED, UChar* lower)
+              const UChar** pp, const UChar* end ARG_UNUSED, UChar* lower)
 {
   int len;
   const UChar* p = *pp;
@@ -230,13 +226,13 @@ static int
 property_name_to_ctype(OnigEncoding enc, UChar* p, UChar* end)
 {
   struct PropertyNameCtype* pc;
-  int len = end - p;
+  int len = (int )(end - p);
   char q[32];
 
   if (len < sizeof(q) - 1) {
     xmemcpy(q, p, (size_t )len);
     q[len] = '\0';
-    pc = euc_jp_lookup_property_name(q, len);
+    pc = onigenc_euc_jp_lookup_property_name(q, len);
     if (pc != 0)
       return pc->ctype;
   }
@@ -252,7 +248,7 @@ is_code_ctype(OnigCodePoint code, unsigned int ctype)
       return ONIGENC_IS_ASCII_CODE_CTYPE(code, ctype);
     else {
       if (CTYPE_IS_WORD_GRAPH_PRINT(ctype)) {
-	return (code_to_mbclen(code) > 1 ? TRUE : FALSE);
+        return (code_to_mbclen(code) > 1 ? TRUE : FALSE);
       }
     }
   }
@@ -269,7 +265,7 @@ is_code_ctype(OnigCodePoint code, unsigned int ctype)
 
 static int
 get_ctype_code_range(OnigCtype ctype, OnigCodePoint* sb_out,
-		     const OnigCodePoint* ranges[])
+                     const OnigCodePoint* ranges[])
 {
   if (ctype <= ONIGENC_MAX_STD_CTYPE) {
     return ONIG_NO_SUPPORT_CONFIG;
@@ -306,5 +302,7 @@ OnigEncodingType OnigEncodingEUC_JP = {
   is_allowed_reverse_match,
   NULL, /* init */
   NULL, /* is_initialized */
-  is_valid_mbc_string
+  is_valid_mbc_string,
+  ENC_FLAG_ASCII_COMPATIBLE|ENC_FLAG_SKIP_OFFSET_1_OR_0,
+  0, 0
 };

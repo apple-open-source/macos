@@ -65,6 +65,10 @@ public:
     explicit GStreamerPeerConnectionBackend(RTCPeerConnection&);
     ~GStreamerPeerConnectionBackend();
 
+    GStreamerRtpSenderBackend& backendFromRTPSender(RTCRtpSender&);
+
+    void dispatchSenderBitrateRequest(const GRefPtr<GstWebRTCDTLSTransport>&, uint32_t bitrate);
+
 private:
     void close() final;
     void doCreateOffer(RTCOfferOptions&&) final;
@@ -89,9 +93,14 @@ private:
 
     std::optional<bool> canTrickleIceCandidates() const final;
 
+    void startGatheringStatLogs(Function<void(String&&)>&&) final;
+    void stopGatheringStatLogs() final;
+    void provideStatLogs(String&&);
+    friend class RtcEventLogOutput;
+
     friend class GStreamerMediaEndpoint;
     friend class GStreamerRtpSenderBackend;
-    RTCPeerConnection& connection() { return m_peerConnection; }
+    RTCPeerConnection& connection();
 
     void getStatsSucceeded(const DeferredPromise&, Ref<RTCStatsReport>&&);
 
@@ -101,7 +110,7 @@ private:
     ExceptionOr<Ref<RTCRtpTransceiver>> addTransceiver(const String&, const RTCRtpTransceiverInit&, IgnoreNegotiationNeededFlag) final;
     ExceptionOr<Ref<RTCRtpTransceiver>> addTransceiver(Ref<MediaStreamTrack>&&, const RTCRtpTransceiverInit&) final;
 
-    GStreamerRtpSenderBackend::Source createLinkedSourceForTrack(MediaStreamTrack&);
+    GStreamerRtpSenderBackend::Source createSourceForTrack(MediaStreamTrack&);
 
     RTCRtpTransceiver* existingTransceiver(WTF::Function<bool(GStreamerRtpTransceiverBackend&)>&&);
     RTCRtpTransceiver& newRemoteTransceiver(std::unique_ptr<GStreamerRtpTransceiverBackend>&&, RealtimeMediaSource::Type, String&&);
@@ -128,6 +137,8 @@ private:
     bool m_isRemoteDescriptionSet { false };
 
     bool m_isReconfiguring { false };
+
+    Function<void(String&&)> m_rtcStatsLogCallback;
 };
 
 } // namespace WebCore

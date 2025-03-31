@@ -118,6 +118,12 @@ static void TestEnumList(void) {
     expectInList("VED", UCURR_NON_DEPRECATED, true);
 
     expectInList("EQE", UCURR_ALL, false);
+
+    // CLDR 45 and ICU-22726
+    expectInList("XCG", UCURR_ALL, true);
+
+    // CLDR 46 and ICU-22935
+    expectInList("ZWG", UCURR_ALL, true);
 }
 
 static void TestEnumListReset(void) {
@@ -314,7 +320,7 @@ static const DisplayNameTestEntry DISPLAY_NAME_TESTDATA[]  = {
     { "en",    u"CAD", UCURR_NARROW_SYMBOL_NAME, u"$" },
     { "en_CA", u"CAD", UCURR_SYMBOL_NAME,        u"$" },
     { "en_CA", u"USD", UCURR_SYMBOL_NAME,        u"US$" },
-    { "en_CA", u"USD", UCURR_NARROW_SYMBOL_NAME, u"US$" },
+    { "en_CA", u"USD", UCURR_NARROW_SYMBOL_NAME, u"$" },
     { "en_NZ", u"CAD", UCURR_SYMBOL_NAME,        u"CA$" },
     { "en_NZ", u"USD", UCURR_SYMBOL_NAME,        u"US$" },
     { "en",    u"USX", UCURR_SYMBOL_NAME,        u"USX" },

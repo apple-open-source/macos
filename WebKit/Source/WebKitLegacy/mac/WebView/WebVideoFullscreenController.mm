@@ -29,7 +29,7 @@
 
 #import <AVFoundation/AVPlayer.h>
 #import <WebCore/HTMLVideoElement.h>
-#import <WebCore/PlaybackSessionInterfaceAVKit.h>
+#import <WebCore/PlaybackSessionInterfaceAVKitLegacy.h>
 #import <WebCore/PlaybackSessionModelMediaElement.h>
 #import <WebCore/WebAVPlayerController.h>
 #import <WebCore/WebCoreFullScreenWindow.h>
@@ -130,10 +130,10 @@ static WebAVPlayerView *allocWebAVPlayerViewInstance()
     RefPtr<WebCore::PlaybackSessionModelMediaElement> _playbackModel;
     RefPtr<WebCore::PlaybackSessionInterfaceIOS> _playbackInterface;
     RetainPtr<NSView> _contentOverlay;
+    RetainPtr<WebAVPlayerView> _playerView;
     BOOL _isFullScreen;
 }
 @property (readonly) WebCoreFullScreenWindow* fullscreenWindow;
-@property (readonly) WebAVPlayerView* playerView;
 @end
 
 @implementation WebVideoFullscreenController
@@ -148,7 +148,7 @@ static WebAVPlayerView *allocWebAVPlayerViewInstance()
     if (!self)
         return nil;
     _playbackModel = WebCore::PlaybackSessionModelMediaElement::create();
-    _playbackInterface = WebCore::PlaybackSessionInterfaceAVKit::create(*_playbackModel);
+    _playbackInterface = WebCore::PlaybackSessionInterfaceAVKitLegacy::create(*_playbackModel);
     _contentOverlay = adoptNS([[NSView alloc] initWithFrame:NSZeroRect]);
     _contentOverlay.get().layerContentsRedrawPolicy = NSViewLayerContentsRedrawNever;
     _contentOverlay.get().layer = adoptNS([[WebVideoFullscreenOverlayLayer alloc] init]).get();
@@ -162,9 +162,14 @@ static WebAVPlayerView *allocWebAVPlayerViewInstance()
 {
     ASSERT(!_backgroundFullscreenWindow);
     ASSERT(!_fadeAnimation);
-    _playerView.webDelegate = nil;
+    _playerView.get().webDelegate = nil;
     _playbackModel = nil;
     [super dealloc];
+}
+
+- (WebAVPlayerView *)playerView
+{
+    return _playerView.get();
 }
 
 - (WebCoreFullScreenWindow *)fullscreenWindow
@@ -179,14 +184,14 @@ static WebAVPlayerView *allocWebAVPlayerViewInstance()
     [window setHasShadow:YES]; // This is nicer with a shadow.
     [window setLevel:NSPopUpMenuWindowLevel-1];
 
-    _playerView = [allocWebAVPlayerViewInstance() initWithFrame:window.contentLayoutRect];
-    _playerView.controlsStyle = AVPlayerViewControlsStyleNone;
-    _playerView.showsFullScreenToggleButton = YES;
-    _playerView.showsAudioOnlyIndicatorView = NO;
-    _playerView.webDelegate = self;
-    window.contentView = _playerView;
-    [_contentOverlay setFrame:_playerView.contentOverlayView.bounds];
-    [_playerView.contentOverlayView addSubview:_contentOverlay.get()];
+    _playerView = adoptNS([allocWebAVPlayerViewInstance() initWithFrame:window.contentLayoutRect]);
+    _playerView.get().controlsStyle = AVPlayerViewControlsStyleNone;
+    _playerView.get().showsFullScreenToggleButton = YES;
+    _playerView.get().showsAudioOnlyIndicatorView = NO;
+    _playerView.get().webDelegate = self;
+    window.contentView = _playerView.get();
+    [_contentOverlay setFrame:_playerView.get().contentOverlayView.bounds];
+    [_playerView.get().contentOverlayView addSubview:_contentOverlay.get()];
 
     [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(applicationDidResignActive:) name:NSApplicationDidResignActiveNotification object:NSApp];
 }
@@ -307,7 +312,7 @@ static WebAVPlayerView *allocWebAVPlayerViewInstance()
 
 - (void)windowDidEnterFullScreen:(NSNotification *)notification
 {
-    _playerView.controlsStyle = AVPlayerViewControlsStyleFloating;
+    _playerView.get().controlsStyle = AVPlayerViewControlsStyleFloating;
     [_playerView willChangeValueForKey:@"isFullScreen"];
     _isFullScreen = YES;
     [_playerView didChangeValueForKey:@"isFullScreen"];
@@ -317,7 +322,7 @@ static WebAVPlayerView *allocWebAVPlayerViewInstance()
 
 - (void)windowWillExitFullScreen:(NSNotification *)notification
 {
-    _playerView.controlsStyle = AVPlayerViewControlsStyleNone;
+    _playerView.get().controlsStyle = AVPlayerViewControlsStyleNone;
 }
 
 - (void)windowDidExitFullScreen:(NSNotification *)notification

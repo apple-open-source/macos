@@ -55,6 +55,7 @@ INC_INSTHDRS=(
 	__xlocale.h
 	_abort.h
 	_assert.h
+	_bounds.h
 	_ctype.h
 	_inttypes.h
 	_langinfo.h
@@ -210,6 +211,7 @@ PRIV_MODULEMAPS=(
 
 TYPES_INSTHDRS=(
 	${SRCROOT}/include/_types/_intmax_t.h
+	${SRCROOT}/include/_types/_locale_t.h
 	${SRCROOT}/include/_types/_nl_item.h
 	${SRCROOT}/include/_types/_uint16_t.h
 	${SRCROOT}/include/_types/_uint32_t.h
@@ -264,6 +266,7 @@ INC_INSTHDRS=(
 	__wctype.h
 	_abort.h
 	_assert.h
+	_bounds.h
 	_ctype.h
 	_inttypes.h
 	_locale.h
@@ -298,6 +301,7 @@ INC_INSTHDRS=(
 
 TYPES_INSTHDRS=(
 	${SRCROOT}/include/_types/_intmax_t.h
+	${SRCROOT}/include/_types/_locale_t.h
 	${SRCROOT}/include/_types/_uint16_t.h
 	${SRCROOT}/include/_types/_uint32_t.h
 	${SRCROOT}/include/_types/_uint64_t.h

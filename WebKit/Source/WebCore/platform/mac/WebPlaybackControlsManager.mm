@@ -37,7 +37,7 @@
 
 IGNORE_WARNINGS_BEGIN("nullability-completeness")
 
-SOFT_LINK_FRAMEWORK(AVKit)
+SOFT_LINK_FRAMEWORK_FOR_SOURCE(WebCore, AVKit)
 SOFT_LINK_CLASS_OPTIONAL(AVKit, AVTouchBarMediaSelectionOption)
 
 using WebCore::MediaSelectionOption;

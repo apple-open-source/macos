@@ -32,6 +32,7 @@ typedef malloc_zone_t *xzm_malloc_zone_t;
 typedef uint8_t xzm_segment_group_id_t;
 typedef uint8_t xzm_xzone_bucket_t;
 extern malloc_zone_t **malloc_zones;
+union xzm_bucketing_keys_u;
 
 #if defined(__LP64__)
 extern const struct malloc_introspection_t xzm_malloc_zone_introspect;

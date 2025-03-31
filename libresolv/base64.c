@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1996-1999 by Internet Software Consortium.
+ * Copyright (c) 1996, 1998 by Internet Software Consortium.
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -40,17 +40,9 @@
  * IF IBM IS APPRISED OF THE POSSIBILITY OF SUCH DAMAGES.
  */
 
-#ifndef __APPLE__
-#if !defined(LINT) && !defined(CODECENTER)
-static const char rcsid[] = "$Id: base64.c,v 1.1 2006/03/01 19:01:34 majka Exp $";
-#endif /* not lint */
-#endif
+#include <sys/cdefs.h>
+__FBSDID("$FreeBSD$");
 
-#ifndef __APPLE__
-#include "port_before.h"
-#endif
-
-#include <sys/types.h>
 #include <sys/param.h>
 #include <sys/socket.h>
 
@@ -63,10 +55,6 @@ static const char rcsid[] = "$Id: base64.c,v 1.1 2006/03/01 19:01:34 majka Exp $
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-
-#ifndef __APPLE__
-#include "port_after.h"
-#endif
 
 #define Assert(Cond) if (!(Cond)) abort()
 
@@ -122,9 +110,9 @@ static const char Pad64 = '=';
    end of the data is performed using the '=' character.
 
    Since all base64 input is an integral number of octets, only the
-         -------------------------------------------------                       
+         -------------------------------------------------
    following cases can arise:
-   
+
        (1) the final quantum of encoding input is an integral
            multiple of 24 bits; here, the final unit of encoded
 	   output will be an integral multiple of 4 characters
@@ -166,14 +154,14 @@ b64_ntop(u_char const *src, size_t srclength, char *target, size_t targsize) {
 		target[datalength++] = Base64[output[2]];
 		target[datalength++] = Base64[output[3]];
 	}
-    
+
 	/* Now we worry about padding. */
 	if (0 != srclength) {
 		/* Get what's left. */
 		input[0] = input[1] = input[2] = '\0';
 		for (i = 0; i < srclength; i++)
 			input[i] = *src++;
-	
+
 		output[0] = input[0] >> 2;
 		output[1] = ((input[0] & 0x03) << 4) + (input[1] >> 4);
 		output[2] = ((input[1] & 0x0f) << 2) + (input[2] >> 6);
@@ -194,7 +182,7 @@ b64_ntop(u_char const *src, size_t srclength, char *target, size_t targsize) {
 	if (datalength >= targsize)
 		return (-1);
 	target[datalength] = '\0';	/* Returned value doesn't count \0. */
-	return (datalength);
+	return (int)(datalength);
 }
 
 /* skips all whitespace anywhere.
@@ -204,26 +192,24 @@ b64_ntop(u_char const *src, size_t srclength, char *target, size_t targsize) {
  */
 
 int
-b64_pton(src, target, targsize)
-	char const *src;
-	u_char *target;
-	size_t targsize;
+b64_pton(const char *src, u_char *target, size_t targsize)
 {
 	int tarindex, state, ch;
+	u_char nextbyte;
 	char *pos;
 
 	state = 0;
 	tarindex = 0;
 
 	while ((ch = *src++) != '\0') {
-		if (isspace(ch))	/* Skip whitespace anywhere. */
+		if (isspace((unsigned char)ch))        /* Skip whitespace anywhere. */
 			continue;
 
 		if (ch == Pad64)
 			break;
 
 		pos = strchr(Base64, ch);
-		if (pos == 0) 		/* A non-base64 character. */
+		if (pos == NULL)		/* A non-base64 character. */
 			return (-1);
 
 		switch (state) {
@@ -237,22 +223,28 @@ b64_pton(src, target, targsize)
 			break;
 		case 1:
 			if (target) {
-				if ((size_t)tarindex + 1 >= targsize)
+				if ((size_t)tarindex >= targsize)
 					return (-1);
 				target[tarindex]   |=  (pos - Base64) >> 4;
-				target[tarindex+1]  = ((pos - Base64) & 0x0f)
-							<< 4 ;
+				nextbyte = ((pos - Base64) & 0x0f) << 4;
+				if ((size_t)tarindex + 1 < targsize)
+					target[tarindex + 1] = nextbyte;
+				else if (nextbyte)
+					return (-1);
 			}
 			tarindex++;
 			state = 2;
 			break;
 		case 2:
 			if (target) {
-				if ((size_t)tarindex + 1 >= targsize)
+				if ((size_t)tarindex >= targsize)
 					return (-1);
 				target[tarindex]   |=  (pos - Base64) >> 2;
-				target[tarindex+1]  = ((pos - Base64) & 0x03)
-							<< 6;
+				nextbyte = ((pos - Base64) & 0x03) << 6;
+				if ((size_t)tarindex + 1 < targsize)
+					target[tarindex + 1] = nextbyte;
+				else if (nextbyte)
+					return (-1);
 			}
 			tarindex++;
 			state = 3;
@@ -286,7 +278,7 @@ b64_pton(src, target, targsize)
 		case 2:		/* Valid, means one byte of info */
 			/* Skip any number of spaces. */
 			for ((void)NULL; ch != '\0'; ch = *src++)
-				if (!isspace(ch))
+				if (!isspace((unsigned char)ch))
 					break;
 			/* Make sure there is another trailing = sign. */
 			if (ch != Pad64)
@@ -301,7 +293,7 @@ b64_pton(src, target, targsize)
 			 * whitespace after it?
 			 */
 			for ((void)NULL; ch != '\0'; ch = *src++)
-				if (!isspace(ch))
+				if (!isspace((unsigned char)ch))
 					return (-1);
 
 			/*
@@ -310,7 +302,8 @@ b64_pton(src, target, targsize)
 			 * zeros.  If we don't check them, they become a
 			 * subliminal channel.
 			 */
-			if (target && target[tarindex] != 0)
+			if (target && (size_t)tarindex < targsize &&
+			    target[tarindex] != 0)
 				return (-1);
 		}
 	} else {

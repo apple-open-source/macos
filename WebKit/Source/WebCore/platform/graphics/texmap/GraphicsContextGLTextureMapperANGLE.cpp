@@ -35,6 +35,7 @@
 #include "Logging.h"
 #include "PixelBuffer.h"
 #include "PlatformDisplay.h"
+#include <wtf/StdLibExtras.h>
 
 #if ENABLE(MEDIA_STREAM) || ENABLE(WEB_CODECS)
 #include "VideoFrame.h"
@@ -45,9 +46,8 @@
 
 #if USE(COORDINATED_GRAPHICS)
 #include "CoordinatedPlatformLayerBufferRGB.h"
-#include "GraphicsLayerContentsDisplayDelegateTextureMapper.h"
+#include "GraphicsLayerContentsDisplayDelegateCoordinated.h"
 #include "TextureMapperFlags.h"
-#include "TextureMapperPlatformLayerProxyGL.h"
 #else
 #include "PlatformLayerDisplayDelegate.h"
 #include "TextureMapperGCGLPlatformLayer.h"
@@ -55,7 +55,6 @@
 
 #if USE(GBM)
 #include "GraphicsContextGLTextureMapperGBM.h"
-#include "GraphicsLayerContentsDisplayDelegateGBM.h"
 #endif
 
 #if PLATFORM(GTK) || PLATFORM(WPE)
@@ -137,7 +136,7 @@ RefPtr<GraphicsContextGL> createWebProcessGraphicsContextGL(const GraphicsContex
     if (display.type() == PlatformDisplay::Type::GBM && display.eglExtensions().KHR_image_base && display.eglExtensions().EXT_image_dma_buf_import) {
         static const char* disableGBM = getenv("WEBKIT_WEBGL_DISABLE_GBM");
         if (!disableGBM || *disableGBM == '0') {
-            RefPtr delegate = GraphicsLayerContentsDisplayDelegateGBM::create(!attributes.alpha);
+            RefPtr delegate = GraphicsLayerContentsDisplayDelegateCoordinated::create();
             if (auto context = GraphicsContextGLTextureMapperGBM::create(GraphicsContextGLAttributes { attributes }, WTFMove(delegate)))
                 return context;
             WTFLogAlways("Failed to create a graphics context for WebGL using GBM, falling back to textures");
@@ -162,11 +161,6 @@ GraphicsContextGLTextureMapperANGLE::GraphicsContextGLTextureMapperANGLE(Graphic
 
 GraphicsContextGLTextureMapperANGLE::~GraphicsContextGLTextureMapperANGLE()
 {
-#if USE(COORDINATED_GRAPHICS)
-    if (m_layerContentsDisplayDelegate)
-        static_cast<GraphicsLayerContentsDisplayDelegateTextureMapper*>(m_layerContentsDisplayDelegate.get())->proxy().setSwapBuffersFunction(nullptr);
-#endif
-
     if (m_compositorTexture) {
         if (!makeContextCurrent())
             return;
@@ -180,7 +174,7 @@ RefPtr<GraphicsLayerContentsDisplayDelegate> GraphicsContextGLTextureMapperANGLE
 }
 
 #if ENABLE(VIDEO)
-bool GraphicsContextGLTextureMapperANGLE::copyTextureFromMedia(MediaPlayer&, PlatformGLObject, GCGLenum, GCGLint, GCGLenum, GCGLenum, GCGLenum, bool, bool)
+bool GraphicsContextGLTextureMapperANGLE::copyTextureFromVideoFrame(VideoFrame&, PlatformGLObject, GCGLenum, GCGLint, GCGLenum, GCGLenum, GCGLenum, bool, bool)
 {
     // FIXME: Implement copy-free (or at least, software copy-free) texture transfer.
     return false;
@@ -275,7 +269,7 @@ bool GraphicsContextGLTextureMapperANGLE::platformInitializeContext()
     eglContextAttributes.append(0);
 #endif
 
-    if (strstr(displayExtensions, "EGL_ANGLE_power_preference")) {
+    if (contains(unsafeSpan(displayExtensions), "EGL_ANGLE_power_preference"_span)) {
         eglContextAttributes.append(EGL_POWER_PREFERENCE_ANGLE);
         // EGL_LOW_POWER_ANGLE is the default. Change to
         // EGL_HIGH_POWER_ANGLE if desired.
@@ -299,28 +293,14 @@ bool GraphicsContextGLTextureMapperANGLE::platformInitializeContext()
 bool GraphicsContextGLTextureMapperANGLE::platformInitialize()
 {
 #if USE(COORDINATED_GRAPHICS)
-    auto proxy = TextureMapperPlatformLayerProxyGL::create(TextureMapperPlatformLayerProxy::ContentType::WebGL);
-    proxy->setSwapBuffersFunction([this](TextureMapperPlatformLayerProxy& proxy) mutable {
-        if (!m_isCompositorTextureInitialized)
-            return;
-
-        OptionSet<TextureMapperFlags> flags = TextureMapperFlags::ShouldFlipTexture;
-        if (contextAttributes().alpha)
-            flags.add(TextureMapperFlags::ShouldBlend);
-
-        auto fboSize = getInternalFramebufferSize();
-        Locker locker { proxy.lock() };
-        auto layerBuffer = CoordinatedPlatformLayerBufferRGB::create(m_compositorTextureID, fboSize, flags, WTFMove(m_frameFence));
-        downcast<TextureMapperPlatformLayerProxyGL>(proxy).pushNextBuffer(WTFMove(layerBuffer));
-    });
-    m_layerContentsDisplayDelegate = GraphicsLayerContentsDisplayDelegateTextureMapper::create(WTFMove(proxy));
+    m_layerContentsDisplayDelegate = GraphicsLayerContentsDisplayDelegateCoordinated::create();
 #else
     m_texmapLayer = makeUnique<TextureMapperGCGLPlatformLayer>(*this);
     m_layerContentsDisplayDelegate = PlatformLayerDisplayDelegate::create(m_texmapLayer.get());
 #endif
 
     GLenum textureTarget = drawingBufferTextureTarget();
-#if USE(NICOSIA)
+#if USE(COORDINATED_GRAPHICS) && USE(LIBEPOXY)
     GL_BindTexture(textureTarget, m_texture);
     m_textureID = setupCurrentTexture();
 #endif
@@ -331,7 +311,7 @@ bool GraphicsContextGLTextureMapperANGLE::platformInitialize()
     GL_TexParameteri(textureTarget, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     GL_TexParameteri(textureTarget, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     GL_TexParameteri(textureTarget, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-#if USE(NICOSIA)
+#if USE(COORDINATED_GRAPHICS) && USE(LIBEPOXY)
     m_compositorTextureID = setupCurrentTexture();
 #endif
     GL_BindTexture(textureTarget, 0);
@@ -342,7 +322,7 @@ bool GraphicsContextGLTextureMapperANGLE::platformInitialize()
 void GraphicsContextGLTextureMapperANGLE::swapCompositorTexture()
 {
     std::swap(m_texture, m_compositorTexture);
-#if USE(NICOSIA)
+#if USE(COORDINATED_GRAPHICS) && USE(LIBEPOXY)
     std::swap(m_textureID, m_compositorTextureID);
 #endif
     m_isCompositorTextureInitialized = true;
@@ -395,8 +375,12 @@ void GraphicsContextGLTextureMapperANGLE::prepareForDisplay()
     prepareTexture();
     swapCompositorTexture();
 
-#if PLATFORM(GTK) || PLATFORM(WPE)
-    m_frameFence = GLFence::create();
+#if USE(COORDINATED_GRAPHICS)
+    OptionSet<TextureMapperFlags> flags = TextureMapperFlags::ShouldFlipTexture;
+    if (contextAttributes().alpha)
+        flags.add(TextureMapperFlags::ShouldBlend);
+    auto fboSize = getInternalFramebufferSize();
+    m_layerContentsDisplayDelegate->setDisplayBuffer(CoordinatedPlatformLayerBufferRGB::create(m_compositorTextureID, fboSize, flags, GLFence::create()));
 #endif
 }
 

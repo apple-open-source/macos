@@ -166,7 +166,7 @@ void GCController::dumpHeapForVM(VM& vm)
 
     FileSystem::writeToFile(fileHandle, utf8String.span());
     FileSystem::closeFile(fileHandle);
-    WTFLogAlways("Dumped GC heap to %s%s", tempFilePath.utf8().data(), isMainThread() ? ""_s : " for Worker");
+    WTFLogAlways("Dumped GC heap to %s%s", tempFilePath.utf8().data(), isMainThread() ? "" : " for Worker");
 }
 
 void GCController::dumpHeap()

@@ -69,10 +69,11 @@ Change determineChange(const RenderStyle& s1, const RenderStyle& s2)
     if (!s1.nonFastPathInheritedEqual(s2))
         return Change::Inherited;
 
+    bool nonInheritedEqual = s1.nonInheritedEqual(s2);
     if (!s1.fastPathInheritedEqual(s2))
-        return Change::FastPathInherited;
+        return nonInheritedEqual ? Change::FastPathInherited : Change::NonInheritedAndFastPathInherited;
 
-    if (s1 != s2)
+    if (!nonInheritedEqual)
         return Change::NonInherited;
 
     return Change::None;

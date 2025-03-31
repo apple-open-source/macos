@@ -99,7 +99,7 @@ void RenderTextControlSingleLine::layout()
     //   the inner elements when the field has a strong password button.
     //
     // We don't honor padding and borders for textfields without decorations
-    // and type=search if the text height is taller than the contentHeight()
+    // and type=search if the text height is taller than the contentBoxHeight()
     // because of compability.
 
     RenderTextControlInnerBlock* innerTextRenderer = innerTextElement() ? innerTextElement()->renderer() : nullptr;
@@ -156,7 +156,7 @@ void RenderTextControlSingleLine::layout()
         LayoutUnit containerLogicalHeight = containerRenderer->logicalHeight();
 
         CheckedPtr autoFillStrongPasswordButtonRenderer = [&]() -> RenderBox* {
-            if (!inputElement().hasAutoFillStrongPasswordButton())
+            if (!inputElement().hasAutofillStrongPasswordButton())
                 return nullptr;
 
             RefPtr autoFillButtonElement = inputElement().autoFillButtonElement();
@@ -178,8 +178,8 @@ void RenderTextControlSingleLine::layout()
         } else if (containerLogicalHeight > logicalHeightLimit) {
             containerRenderer->mutableStyle().setLogicalHeight(Length(logicalHeightLimit, LengthType::Fixed));
             setNeedsLayout(MarkOnlyThis);
-        } else if (containerRenderer->logicalHeight() < contentLogicalHeight()) {
-            containerRenderer->mutableStyle().setLogicalHeight(Length(contentLogicalHeight(), LengthType::Fixed));
+        } else if (containerRenderer->logicalHeight() < contentBoxLogicalHeight()) {
+            containerRenderer->mutableStyle().setLogicalHeight(Length(contentBoxLogicalHeight(), LengthType::Fixed));
             setNeedsLayout(MarkOnlyThis);
         } else
             containerRenderer->mutableStyle().setLogicalHeight(Length(containerLogicalHeight, LengthType::Fixed));
@@ -191,7 +191,7 @@ void RenderTextControlSingleLine::layout()
 
     // Fix up the y-position of the container as it may have been flexed when the strong password or strong
     // confirmation password button wraps to the next line.
-    if (inputElement().hasAutoFillStrongPasswordButton() && containerRenderer)
+    if (inputElement().hasAutofillStrongPasswordButton() && containerRenderer)
         containerRenderer->setLogicalTop(oldContainerLogicalTop);
 
     // Center the child block in the block progression direction (vertical centering for horizontal text fields).
@@ -203,7 +203,7 @@ void RenderTextControlSingleLine::layout()
             }
             return renderer.logicalHeight();
         }();
-        auto contentBoxHeight = contentLogicalHeight();
+        auto contentBoxHeight = contentBoxLogicalHeight();
         if (contentBoxHeight == height)
             return;
         renderer.setLogicalTop(renderer.logicalTop() + (contentBoxHeight / 2 - height / 2));
@@ -478,7 +478,7 @@ bool RenderTextControlSingleLine::logicalScroll(ScrollLogicalDirection direction
 {
     auto* layer = innerTextElement()->renderer()->layer();
     auto* scrollableArea = layer ? layer->scrollableArea() : nullptr;
-    if (scrollableArea && scrollableArea->scroll(logicalToPhysical(direction, style().isHorizontalWritingMode(), style().isFlippedBlocksWritingMode()), granularity, stepCount))
+    if (scrollableArea && scrollableArea->scroll(logicalToPhysical(direction, writingMode().isHorizontal(), writingMode().isBlockFlipped()), granularity, stepCount))
         return true;
     return RenderBlockFlow::logicalScroll(direction, granularity, stepCount, stopElement);
 }

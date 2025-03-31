@@ -114,6 +114,16 @@ bool ObjectAcl::validates(AclValidationContext &ctx)
         return;
 #endif //ACL_OMNIPOTENT_OWNER
 
+    // Only create the debug string if we're actually going to log it
+    if(secinfoenabled("acleval")) {
+        CFStringRef dbg = this->createACLDebugString();
+        secnotice("acleval", "Evaluating ObjectAcl: %@", dbg);
+        if(dbg != NULL) {
+            CFRelease(dbg);
+        }
+        dbg = NULL;
+    }
+
     // try applicable ACLs
     pair<EntryMap::const_iterator, EntryMap::const_iterator> range;
     if (getRange(ctx.s_credTag(), range) == 0) {
@@ -136,20 +146,49 @@ bool ObjectAcl::validates(AclValidationContext &ctx)
 		}
     }
 	IFDUMPING("acleval", Debug::dump(">FAIL>>\n"));
+
 	return false;	// no joy
 }
 
 void ObjectAcl::validate(AclAuthorization auth, const AccessCredentials *cred,
 	AclValidationEnvironment *env)
 {
-	if (!validates(auth, cred, env))
-		CssmError::throwMe(CSSM_ERRCODE_OPERATION_AUTH_DENIED);
+    try {
+        if (!validates(auth, cred, env)) {
+            CssmError::throwMe(CSSM_ERRCODE_OPERATION_AUTH_DENIED);
+        }
+    } catch (...) {
+        // This ACL rejected access or some other thing went wrong. Log the debug string.
+        {
+            CFStringRef dbg = this->createACLDebugString();
+            secnotice("acleval", "ObjectAcl REJECTS access using ACL: %@", dbg);
+            if(dbg != NULL) {
+                CFRelease(dbg);
+            }
+            dbg = NULL;
+        }
+        throw;
+    }
 }
 
 void ObjectAcl::validate(AclValidationContext &ctx)
 {
-	if (!validates(ctx))
-		CssmError::throwMe(CSSM_ERRCODE_OPERATION_AUTH_DENIED);
+    try {
+        if (!validates(ctx)) {
+            CssmError::throwMe(CSSM_ERRCODE_OPERATION_AUTH_DENIED);
+        }
+    } catch (...) {
+        // This ACL rejected access or some other thing went wrong. Log the debug string.
+        {
+            CFStringRef dbg = this->createACLDebugString();
+            secnotice("acleval", "ObjectAcl(ctx) REJECTS access using ACL: %@", dbg);
+            if(dbg != NULL) {
+                CFRelease(dbg);
+            }
+            dbg = NULL;
+        }
+        throw;
+    }
 }
 
 
@@ -165,8 +204,33 @@ void ObjectAcl::validateOwner(AclValidationContext &ctx)
     instantiateAcl();
     
     ctx.init(this, mOwner.subject);
-    if (mOwner.validates(ctx))
-        return;
+    try {
+        if (mOwner.validates(ctx)) {
+            return;
+        }
+    } catch (...) {
+        // This ACL rejected access or some other thing went wrong. Log the debug string.
+        {
+            CFStringRef dbg = this->createACLDebugString();
+            secnotice("acleval", "ObjectAcl mOwner REJECTS access using ACL(exception): %@", dbg);
+            if(dbg != NULL) {
+                CFRelease(dbg);
+            }
+            dbg = NULL;
+        }
+        throw;
+    }
+
+    // This ACL rejected access, but did not throw. Log the debug string before throwing AUTH_DENIED.
+    {
+        CFStringRef dbg =  mOwner.subject != NULL ? mOwner.subject->createACLDebugString() : CFSTR("missing subject");
+        secnotice("acleval", "ObjectAcl mOwner REJECTS access using ACL: %@", dbg);
+        if(dbg != NULL) {
+            CFRelease(dbg);
+        }
+        dbg = NULL;
+    }
+
     CssmError::throwMe(CSSM_ERRCODE_OPERATION_AUTH_DENIED);
 }
 
@@ -663,6 +727,35 @@ void ObjectAcl::debugDump(const char *what) const
 #endif //DEBUGDUMP
 }
 
+CFStringRef ObjectAcl::createACLDebugString() const
+{
+    if(mEntries.size() == 0) {
+        return CFSTR("ObjectAcl[empty]");
+    }
+
+    CFMutableStringRef str = CFStringCreateMutable(kCFAllocatorDefault, 0);
+
+    CFStringAppend(str, CFSTR("<ObjectAcl["));
+
+    // describe each entry in turn
+    for (EntryMap::const_iterator it = mEntries.begin(); it != mEntries.end(); it++) {
+        const string& tag = it->first;
+        const AclEntry &slot = it->second;
+
+        CFStringRef s = slot.createACLDebugString();
+        if(s != NULL) {
+            CFStringAppendFormat(str, NULL, CFSTR("ENTRY(%s)[%@] "), tag.c_str(), s);
+            CFRelease(s);
+        } else {
+            CFStringAppendFormat(str, NULL, CFSTR("ENTRY(%s)[missing] "), tag.c_str());
+        }
+        s = NULL;
+    }
+
+    CFStringAppend(str, CFSTR("]>"));
+    return str;
+}
+
 #if defined(DEBUGDUMP)
 
 void ObjectAcl::Entry::debugDump() const
@@ -698,3 +791,31 @@ void ObjectAcl::AclEntry::debugDump() const
 }
 
 #endif //DEBUGDUMP
+
+CFStringRef ObjectAcl::AclEntry::createACLDebugString() const
+{
+    CFMutableStringRef authStr = CFStringCreateMutable(kCFAllocatorDefault, 0);
+    CFStringAppendFormat(authStr, NULL, CFSTR("<AclEntry[tag:%s]"), this->tag.c_str());
+
+    if(this->authorizesAnything) {
+        CFStringAppend(authStr, CFSTR("AUTH[all]"));
+    }
+
+    AclAuthorizationSet::iterator it;
+    for(it = this->authorizations.begin(); it != this->authorizations.end(); it++) {
+        CFStringAppendFormat(authStr, NULL, CFSTR("AUTH[%d]"), *it);
+    }
+
+    if(subject != NULL) {
+        CFStringRef subject = this->subject->createACLDebugString();
+
+        CFStringAppendFormat(authStr, NULL, CFSTR("SUBJECT[%@]"), subject);
+        if(subject) {
+            CFRelease(subject);
+            subject = NULL;
+        }
+    }
+
+    CFStringAppend(authStr, CFSTR(">"));
+    return authStr;
+}

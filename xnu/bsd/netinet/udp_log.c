@@ -89,7 +89,7 @@ SYSCTL_PROC(_net_inet_udp_log, OID_AUTO, local_port_excluded,
     CTLFLAG_RW | CTLFLAG_LOCKED,
     &udp_log_local_port_excluded, 0, &sysctl_udp_log_port, "I", "");
 
-uint16_t udp_log_remote_port_excluded = 0;
+int udp_log_remote_port_excluded = 0;
 SYSCTL_PROC(_net_inet_udp_log, OID_AUTO, remote_port_excluded,
     CTLFLAG_RW | CTLFLAG_LOCKED,
     &udp_log_remote_port_excluded, 0, &sysctl_udp_log_port, "I", "");
@@ -450,6 +450,140 @@ udp_log_message(const char *func_name, int line_no, struct inpcb *inp, const cha
 #undef UDP_LOG_MESSAGE_ARGS
 }
 
+static bool
+udp_log_pkt_addresses(void *hdr, bool outgoing,
+    char *__sized_by(lbuflen) lbuf, socklen_t lbuflen,
+    char *__sized_by(fbuflen) fbuf, socklen_t fbuflen)
+{
+	bool isipv6;
+
+	isipv6 = (((struct ip *)hdr)->ip_v == 6);
+
+	if (isipv6) {
+		struct ip6_hdr *ip6 = (struct ip6_hdr *)hdr;
+		struct in6_addr src_addr6 = ip6->ip6_src;
+		struct in6_addr dst_addr6 = ip6->ip6_dst;
+
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Waddress-of-packed-member"
+		if (memcmp(&src_addr6, &in6addr_loopback, sizeof(struct in6_addr)) == 0 ||
+		    memcmp(&dst_addr6, &in6addr_loopback, sizeof(struct in6_addr)) == 0) {
+			if (!(udp_log_enable_flags & ULEF_DST_LOOPBACK)) {
+				return false;
+			}
+		}
+#pragma clang diagnostic pop
+
+		if (IN6_IS_ADDR_LINKLOCAL(&src_addr6)) {
+			src_addr6.s6_addr16[1] = 0;
+		}
+		if (IN6_IS_ADDR_LINKLOCAL(&dst_addr6)) {
+			dst_addr6.s6_addr16[1] = 0;
+		}
+
+		if (inp_log_privacy != 0) {
+			strlcpy(lbuf, "<IPv6-redacted>", lbuflen);
+			strlcpy(fbuf, "<IPv6-redacted>", fbuflen);
+		} else if (outgoing) {
+			inet_ntop(AF_INET6, &src_addr6, lbuf, lbuflen);
+			inet_ntop(AF_INET6, &dst_addr6, fbuf, fbuflen);
+		} else {
+			inet_ntop(AF_INET6, &dst_addr6, lbuf, lbuflen);
+			inet_ntop(AF_INET6, &src_addr6, fbuf, fbuflen);
+		}
+	} else {
+		struct ip *ip = (struct ip *)hdr;
+
+		if (ntohl(ip->ip_src.s_addr) == INADDR_LOOPBACK ||
+		    ntohl(ip->ip_dst.s_addr) == INADDR_LOOPBACK) {
+			if (!(udp_log_enable_flags & ULEF_DST_LOOPBACK)) {
+				return false;
+			}
+		}
+
+		if (inp_log_privacy != 0) {
+			strlcpy(lbuf, "<IPv4-redacted>", lbuflen);
+			strlcpy(fbuf, "<IPv4-redacted>", fbuflen);
+		} else if (outgoing) {
+			inet_ntop(AF_INET, (void *)&ip->ip_src.s_addr, lbuf, lbuflen);
+			inet_ntop(AF_INET, (void *)&ip->ip_dst.s_addr, fbuf, fbuflen);
+		} else {
+			inet_ntop(AF_INET, (void *)&ip->ip_dst.s_addr, lbuf, lbuflen);
+			inet_ntop(AF_INET, (void *)&ip->ip_src.s_addr, fbuf, fbuflen);
+		}
+	}
+	return true;
+}
+
+__attribute__((noinline))
+void
+udp_log_drop_pcb(void *hdr, struct udphdr *uh, struct inpcb *inp, bool outgoing, const char *reason)
+{
+	struct socket *so;
+	struct ifnet *ifp;
+	char laddr_buf[ADDRESS_STR_LEN];
+	char faddr_buf[ADDRESS_STR_LEN];
+	in_port_t local_port;
+	in_port_t foreign_port;
+	const char *direction = "";
+
+	if (inp == NULL) {
+		return;
+	}
+	so = inp->inp_socket;
+	if (so == NULL) {
+		return;
+	}
+
+	/* Do not log common drops after the connection termination is logged */
+	if ((inp->inp_flags2 & INP2_LOGGED_SUMMARY) && ((so->so_state & SS_NOFDREF) ||
+	    (so->so_flags & SOF_DEFUNCT) || (so->so_state & SS_CANTRCVMORE))) {
+		return;
+	}
+
+	/* Do not log too much */
+	if (udp_log_is_rate_limited()) {
+		return;
+	}
+
+	/* Use the packet addresses when in the data path */
+	if (hdr != NULL && uh != NULL) {
+		if (outgoing) {
+			local_port = uh->uh_sport;
+			foreign_port = uh->uh_dport;
+			direction = "outgoing ";
+		} else {
+			local_port = uh->uh_dport;
+			foreign_port = uh->uh_sport;
+			direction = "incoming ";
+		}
+		(void) udp_log_pkt_addresses(hdr, outgoing, laddr_buf, sizeof(laddr_buf), faddr_buf, sizeof(faddr_buf));
+	} else {
+		local_port = inp->inp_lport;
+		foreign_port = inp->inp_fport;
+		inp_log_addresses(inp, laddr_buf, sizeof(laddr_buf), faddr_buf, sizeof(faddr_buf));
+	}
+
+	ifp = inp->inp_last_outifp != NULL ? inp->inp_last_outifp :
+	    inp->inp_boundifp != NULL ? inp->inp_boundifp : NULL;
+
+#define UDP_LOG_DROP_PCB_FMT \
+	    "udp drop %s" \
+	    UDP_LOG_COMMON_PCB_FMT \
+	    "so_error: %d " \
+	    "reason: %s"
+
+#define UDP_LOG_DROP_PCB_ARGS \
+	    direction, \
+	    UDP_LOG_COMMON_PCB_ARGS, \
+	    so->so_error, \
+	    reason
+
+	os_log(OS_LOG_DEFAULT, UDP_LOG_DROP_PCB_FMT,
+	    UDP_LOG_DROP_PCB_ARGS);
+#undef UDP_LOG_DROP_PCB_FMT
+#undef UDP_LOG_DROP_PCB_ARGS
+}
 static int
 sysctl_udp_log_port SYSCTL_HANDLER_ARGS
 {

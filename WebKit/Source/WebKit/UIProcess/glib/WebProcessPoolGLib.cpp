@@ -34,10 +34,15 @@
 #include "WebMemoryPressureHandler.h"
 #include "WebProcessCreationParameters.h"
 #include <WebCore/PlatformDisplay.h>
+#include <WebCore/SystemSettings.h>
 #include <wtf/FileSystem.h>
 #include <wtf/NeverDestroyed.h>
 #include <wtf/glib/Application.h>
 #include <wtf/glib/Sandbox.h>
+
+#if USE(ATSPI)
+#include <wtf/UUID.h>
+#endif
 
 #if ENABLE(REMOTE_INSPECTOR)
 #include <JavaScriptCore/RemoteInspector.h>
@@ -58,7 +63,6 @@
 #if PLATFORM(GTK)
 #include "AcceleratedBackingStoreDMABuf.h"
 #include "Display.h"
-#include "GtkSettingsManager.h"
 #endif
 
 #if PLATFORM(WPE) && ENABLE(WPE_PLATFORM)
@@ -66,7 +70,9 @@
 #endif
 
 #if !USE(SYSTEM_MALLOC) && OS(LINUX)
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN // GTK/WPE port
 #include <bmalloc/valgrind.h>
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
 #endif
 
 namespace WebKit {
@@ -109,21 +115,21 @@ void WebProcessPool::platformInitializeWebProcess(const WebProcessProxy& process
 #endif
 
 #if PLATFORM(GTK)
-    parameters.dmaBufRendererBufferMode = AcceleratedBackingStoreDMABuf::rendererBufferMode();
+    parameters.rendererBufferTransportMode = AcceleratedBackingStoreDMABuf::rendererBufferTransportMode();
 #elif PLATFORM(WPE) && ENABLE(WPE_PLATFORM)
     if (usingWPEPlatformAPI) {
 #if USE(GBM)
         if (!parameters.renderDeviceFile.isEmpty())
-            parameters.dmaBufRendererBufferMode.add(DMABufRendererBufferMode::Hardware);
+            parameters.rendererBufferTransportMode.add(RendererBufferTransportMode::Hardware);
 #endif
-        parameters.dmaBufRendererBufferMode.add(DMABufRendererBufferMode::SharedMemory);
+        parameters.rendererBufferTransportMode.add(RendererBufferTransportMode::SharedMemory);
     }
 #endif
 
 #if PLATFORM(WPE)
     parameters.isServiceWorkerProcess = process.isRunningServiceWorkers();
 
-    if (!parameters.isServiceWorkerProcess && parameters.dmaBufRendererBufferMode.isEmpty()) {
+    if (!parameters.isServiceWorkerProcess && parameters.rendererBufferTransportMode.isEmpty()) {
         parameters.hostClientFileDescriptor = UnixFileDescriptor { wpe_renderer_host_create_client(), UnixFileDescriptor::Adopt };
         parameters.implementationLibraryName = FileSystem::fileSystemRepresentation(String::fromLatin1(wpe_loader_get_loaded_implementation_library_name()));
     }
@@ -161,10 +167,13 @@ void WebProcessPool::platformInitializeWebProcess(const WebProcessProxy& process
         parameters.accessibilityBusAddress = String::fromUTF8(address);
     else
         parameters.accessibilityBusAddress = m_sandboxEnabled && shouldUseBubblewrap() ? sandboxedAccessibilityBusAddress() : accessibilityBusAddress();
+
+    parameters.accessibilityBusName = accessibilityBusName();
 #endif
 
+    parameters.systemSettings = WebCore::SystemSettings::singleton().settingsState();
+
 #if PLATFORM(GTK)
-    parameters.gtkSettings = GtkSettingsManager::singleton().settingsState();
     parameters.screenProperties = ScreenManager::singleton().collectScreenProperties();
 #endif
 
@@ -201,9 +210,11 @@ void WebProcessPool::setSandboxEnabled(bool enabled)
         return;
     }
 
-#if !USE(SYSTEM_MALLOC)
+#if !USE(SYSTEM_MALLOC) && defined(RUNNING_ON_VALGRIND)
+    WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN // GTK/WPE port
     if (RUNNING_ON_VALGRIND)
         return;
+    WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
 #endif
 
     if (const char* disableSandbox = getenv("WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS")) {
@@ -271,10 +282,26 @@ const String& WebProcessPool::accessibilityBusAddress() const
     return m_accessibilityBusAddress.value();
 }
 
+const String& WebProcessPool::accessibilityBusName() const
+{
+    RELEASE_ASSERT(m_accessibilityBusName.has_value());
+    return m_accessibilityBusName.value();
+}
+
 const String& WebProcessPool::sandboxedAccessibilityBusAddress() const
 {
     return m_sandboxedAccessibilityBusAddress;
 }
+
+const String& WebProcessPool::generateNextAccessibilityBusName()
+{
+    m_accessibilityBusName = makeString(String::fromUTF8(WTF::applicationID().span()), ".Sandboxed.WebProcess-"_s, WTF::UUID::createVersion4());
+    RELEASE_ASSERT(g_dbus_is_name(m_accessibilityBusName.value().utf8().data()));
+    RELEASE_ASSERT(!g_dbus_is_unique_name(m_accessibilityBusName.value().utf8().data()));
+
+    return accessibilityBusName();
+}
+
 #endif
 
 } // namespace WebKit

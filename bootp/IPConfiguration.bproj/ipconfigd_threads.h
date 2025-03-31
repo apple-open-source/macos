@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2024 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2025 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -128,7 +128,8 @@ ip_valid(struct in_addr ip)
 extern void *
 find_option_with_length(dhcpol_t * options, dhcptag_t tag, int min_length);
 
-extern char *	computer_name();
+extern char *	get_dhcp_hostname(void);
+extern char *	get_dns_hostname(void);
 
 void
 linklocal_service_change(ServiceRef parent_service_p, boolean_t allocate);

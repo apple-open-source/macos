@@ -378,9 +378,8 @@ uameasfmt_getUnitsForUsage( const char*     locale,
     Locale tempLocale(locale);
     lb.setLocale(tempLocale);
     if (uprv_strlen(tempLocale.getCountry()) == 0) {
-        char regionBuf[8];
-        ulocimp_getRegionForSupplementalData(locale, true, regionBuf, 8, status);
-        lb.setRegion(regionBuf);
+        CharString region = ulocimp_getRegionForSupplementalData(locale, true, *status);
+        lb.setRegion(region.data());
     }
     tempLocale = lb.build(*status);
     

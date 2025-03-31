@@ -20,7 +20,6 @@
 #include "aom_dsp/aom_dsp_common.h"
 #include "aom_mem/aom_mem.h"
 #include "aom_ports/aom_timer.h"
-#include "aom_scale/aom_scale.h"
 #include "aom_util/aom_pthread.h"
 #include "aom_util/aom_thread.h"
 

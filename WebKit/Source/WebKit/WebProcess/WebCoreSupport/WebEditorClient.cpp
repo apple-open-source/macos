@@ -33,7 +33,6 @@
 #include "SharedBufferReference.h"
 #include "UndoOrRedo.h"
 #include "WKBundlePageEditorClient.h"
-#include "WebCoreArgumentCoders.h"
 #include "WebFrame.h"
 #include "WebPage.h"
 #include "WebPageProxy.h"
@@ -605,10 +604,6 @@ void WebEditorClient::willChangeSelectionForAccessibility()
 void WebEditorClient::didChangeSelectionForAccessibility()
 {
     m_page->didChangeSelectionForAccessibility();
-}
-
-void WebEditorClient::willSetInputMethodState()
-{
 }
 
 void WebEditorClient::setInputMethodState(Element* element)

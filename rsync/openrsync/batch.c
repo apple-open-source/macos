@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024 Klara, Inc.
+ * Copyright (c) 2024, Klara, Inc.
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -217,6 +217,14 @@ rsync_batch(struct cleanup_ctx *cleanup_ctx, struct opts *opts,
 	}
 
 	rc = 0;
+
+	if (sess.err_del_limit) {
+		assert(sess.total_deleted >= sess.opts->max_delete);
+		rc = ERR_DEL_LIMIT;
+	} else if (sess.total_errors > 0) {
+		rc = ERR_PARTIAL;
+	}
+
 out:
 
 	close(batch_fd);
@@ -331,7 +339,7 @@ batch_close(struct sess *sess, const struct fargs *f, int rc)
 
 	free(args);
 
-	if (*rules != NULL) {
+	if (rules != NULL) {
 		if (!protocol_newbatch)
 			fprintf(fp, "--exclude-from=- ");
 		else
@@ -340,7 +348,7 @@ batch_close(struct sess *sess, const struct fargs *f, int rc)
 
 	fprintf(fp, "${1-%s}", batchf.sink);
 
-	if (*rules != NULL) {
+	if (rules != NULL) {
 		fprintf(fp, " <<@REOF@\n");
 
 		for (const char **rule = (const char **)rules; *rule != NULL;

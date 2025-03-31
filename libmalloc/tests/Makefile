@@ -33,9 +33,11 @@ OTHER_CFLAGS += \
 	-DDARWINTEST \
 	-DOS_ATOMIC_CONFIG_MEMORY_ORDER_DEPENDENCY=1 \
 	-DT_META_TAG_XZONE_AND_PGM=T_META_TAG\(\"xzone_and_pgm\"\) \
+	-DT_META_TAG_NO_ALLOCATOR_OVERRIDE=T_META_TAG\(\"no_allocator_override\"\) \
 	-DT_META_TAG_XZONE=T_META_TAG\(\"xzone\"\) \
 	-DT_META_TAG_XZONE_ONLY=T_META_TAG\(\"xzone_only\"\) \
 	-DT_META_TAG_NANO_ON_XZONE=T_META_TAG\(\"nano_on_xzone\"\) \
+	-DT_META_TAG_DISABLE_SANITIZERS_TRACES=T_META_TAG\(\"disable_sanitizers_traces\"\) \
 	-I$(SDKROOT)/System/Library/Frameworks/System.framework/PrivateHeaders \
 	-I$(SRCROOT)/../private \
 	-I$(SRCROOT)/../include \
@@ -50,7 +52,7 @@ INSTALLPATH := System/ExclaveKit/usr/local/bin
 OTHER_CFLAGS += -DL4_CONFIG_PLAT_EVP
 OTHER_CFLAGS += -isystem $(SDKROOT)/System/ExclaveKit/usr/local/standalone/cL4-future/include
 OTHER_LDFLAGS += -L $(SDKROOT)/System/ExclaveKit/usr/local/lib
-OTHER_LDFLAGS += -lc++
+OTHER_LDFLAGS += -lc++ -lobjc
 
 # FIXME: This should be inherited from SDKSettings.json, but Xcode doesn't
 # invoke the darwintests target once for each variant in BUILD_VARIANTS
@@ -81,11 +83,7 @@ OTHER_LDFLAGS += \
 	-llibc \
 	-llibc_plat_cl4_standalone_malloc \
 	-lm \
-	-lmalloc \
-	-lpmm \
-	-lvas \
-	-lvas-core \
-	-lxrt
+	-lmalloc
 
 # FIXME: This should be inherited from SDKSettings.json, but Xcode doesn't
 # invoke the darwintests target once for each variant in BUILD_VARIANTS
@@ -155,7 +153,8 @@ EXCLUDED_SOURCES += \
 	tsan.c \
 	memory_pressure.c \
 	malloc_msl.c \
-	madvise.c
+	madvise.c \
+	security_policy.c
 
 # Exclaves don't support dispatch_apply, which this perf test relies on
 EXCLUDED_SOURCES += basic_malloc_free_perf.c
@@ -225,7 +224,6 @@ madvise: OTHER_CFLAGS += -I../src
 malloc_claimed_address_tests: OTHER_CFLAGS += -I../src
 scribble_tests: OTHER_CFLAGS += -I../src
 malloc_size_test: OTHER_CFLAGS += -I../src
-
 xzone: OTHER_LDFLAGS += -ldarwintest_utils
 
 # -fno-builtin also disables TMO
@@ -233,10 +231,12 @@ xzone: OTHER_LDFLAGS += -ldarwintest_utils
 # Build this test with no explicit TMO options to validate that it gets TMO
 # automatically on platforms where that's expected
 
-printer_tests: OTHER_LDFLAGS += -lobjc -fobjc-arc -ldarwintest_utils
+enablement_tests: OTHER_LDFLAGS += -lobjc -fobjc-arc -ldarwintest_utils
 
 MALLOC_TYPE_SWIFT_OBJS := $(addsuffix .o,$(addprefix malloc_type_swift_,$(ARCH_CONFIGS)))
 MALLOC_TYPE_SYM_SWIFT_OBJS := $(addprefix $(SYMROOT)/,$(MALLOC_TYPE_SWIFT_OBJS))
+
+memory_pressure: OTHER_CFLAGS := $(filter-out -fno-builtin -fno-typed-memory-operations,$(OTHER_CFLAGS))
 
 malloc_type: OTHER_CFLAGS := $(filter-out -fno-builtin -fno-typed-memory-operations,$(OTHER_CFLAGS))
 malloc_type: OTHER_CFLAGS += $(SYMROOT)/malloc_type_cpp.o $(MALLOC_TYPE_SYM_SWIFT_OBJS) $(SYMROOT)/malloc_type_objc.o
@@ -266,6 +266,7 @@ $(SYMROOT)/malloc_type_callsite_cpp.o: malloc_type_callsite_cpp.cpp
 malloc_type_callsite: $(SYMROOT)/malloc_type_callsite_cpp.o
 malloc_type_callsite: OTHER_CFLAGS += $(SYMROOT)/malloc_type_callsite_cpp.o
 malloc_type_callsite: OTHER_LDFLAGS += -lc++
+
 
 ifeq ($(MALLOC_EXCLAVES),NO)
 # BATS test plist handling

@@ -126,7 +126,7 @@ private:
     StringView registerString(const String&);
 
     using CodePoint = CSSParserToken (CSSTokenizer::*)(UChar);
-    static const CodePoint codePoints[];
+    static const std::array<CodePoint, 128> codePoints;
 
     Vector<CSSParserTokenType, 8> m_blockStack;
     Vector<CSSParserToken, 32> m_tokens;

@@ -139,7 +139,7 @@ static OM_uint32 inquire_sec_context_get_subkey
     if (ret)
 	goto out;
     if (key == NULL) {
-	_gsskrb5_set_status(EINVAL, "have no subkey of type %d", keytype);
+	_gsskrb5_set_status(EINVAL, "have no subkey of type %u", keytype);
 	ret = EINVAL;
 	goto out;
     }

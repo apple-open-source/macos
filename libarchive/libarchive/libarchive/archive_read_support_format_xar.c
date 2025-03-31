@@ -23,7 +23,6 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 #include "archive_platform.h"
-__FBSDID("$FreeBSD$");
 
 #ifdef HAVE_ERRNO_H
 #include <errno.h>
@@ -635,8 +634,10 @@ read_toc(struct archive_read *a)
 			(size_t)xar->toc_chksum_size, NULL, 0);
 		__archive_read_consume(a, xar->toc_chksum_size);
 		xar->offset += xar->toc_chksum_size;
+#ifndef DONT_FAIL_ON_CRC_ERROR
 		if (r != ARCHIVE_OK)
 			return (ARCHIVE_FATAL);
+#endif
 	}
 
 	/*
@@ -839,10 +840,12 @@ xar_read_header(struct archive_read *a, struct archive_entry *entry)
 		    xattr->a_sum.val, xattr->a_sum.len,
 		    xattr->e_sum.val, xattr->e_sum.len);
 		if (r != ARCHIVE_OK) {
+#ifndef DONT_FAIL_ON_CRC_ERROR
 			archive_set_error(&(a->archive), ARCHIVE_ERRNO_MISC,
 			    "Xattr checksum error");
 			r = ARCHIVE_WARN;
 			break;
+#endif
 		}
 		if (xattr->name.s == NULL) {
 			archive_set_error(&(a->archive), ARCHIVE_ERRNO_MISC,
@@ -1135,7 +1138,7 @@ atohex(unsigned char *b, size_t bsize, const char *p, size_t psize)
 			x |= p[1] - '0';
 		else
 			return (-1);
-		
+
 		*b++ = x;
 		bsize--;
 		p += 2;
@@ -1147,11 +1150,11 @@ atohex(unsigned char *b, size_t bsize, const char *p, size_t psize)
 static time_t
 time_from_tm(struct tm *t)
 {
-#if HAVE_TIMEGM
+#if HAVE__MKGMTIME
+        return _mkgmtime(t);
+#elif HAVE_TIMEGM
         /* Use platform timegm() if available. */
         return (timegm(t));
-#elif HAVE__MKGMTIME64
-        return (_mkgmtime64(t));
 #else
         /* Else use direct calculation using POSIX assumptions. */
         /* First, fix up tm_yday based on the year/month/day. */
@@ -2064,6 +2067,11 @@ xml_start(struct archive_read *a, const char *name, struct xmlattr_list *list)
 			    attr = attr->next) {
 				if (strcmp(attr->name, "link") != 0)
 					continue;
+				if (xar->file->hdnext != NULL || xar->file->link != 0) {
+					archive_set_error(&a->archive, ARCHIVE_ERRNO_MISC,
+					    "File with multiple link targets");
+					return (ARCHIVE_FATAL);
+				}
 				if (strcmp(attr->value, "original") == 0) {
 					xar->file->hdnext = xar->hdlink_orgs;
 					xar->hdlink_orgs = xar->file;
@@ -3193,8 +3201,11 @@ xml2_read_toc(struct archive_read *a)
 			if (r == ARCHIVE_OK)
 				r = xml_start(a, name, &list);
 			xmlattr_cleanup(&list);
-			if (r != ARCHIVE_OK)
+			if (r != ARCHIVE_OK) {
+				xmlFreeTextReader(reader);
+				xmlCleanupParser();
 				return (r);
+			}
 			if (empty)
 				xml_end(a, name);
 			break;
@@ -3316,8 +3327,10 @@ expat_read_toc(struct archive_read *a)
 
 		d = NULL;
 		r = rd_contents(a, &d, &outbytes, &used, xar->toc_remaining);
-		if (r != ARCHIVE_OK)
+		if (r != ARCHIVE_OK) {
+			XML_ParserFree(parser);
 			return (r);
+		}
 		xar->toc_remaining -= used;
 		xar->offset += used;
 		xar->toc_total += outbytes;

@@ -3,7 +3,7 @@
  *
  * SPDX-License-Identifier: BSD-2-Clause
  *
- * Copyright (c) 2018-2023 Gavin D. Howard and contributors.
+ * Copyright (c) 2018-2024 Gavin D. Howard and contributors.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -199,6 +199,9 @@ bc_history_init(BcHistory* h)
 
 	h->el = el_init(vm->name, stdin, stdout, stderr);
 	if (BC_ERR(h->el == NULL)) bc_vm_fatalError(BC_ERR_FATAL_ALLOC_ERR);
+#ifdef __APPLE__
+	el_set(h->el, EL_SIGNAL, 1);
+#endif /* __APPLE__ */
 
 	// I want history and a prompt.
 	history(h->hist, &bc_history_event, H_SETSIZE, 100);

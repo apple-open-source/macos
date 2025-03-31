@@ -597,13 +597,15 @@ ether_demux(ifnet_t ifp, mbuf_t m, char *frame_header,
 #if KPI_INTERFACE_EMBEDDED
 int
 ether_frameout(struct ifnet *ifp, struct mbuf **m,
-    const struct sockaddr *ndest, const char *edst,
-    const char *ether_type, u_int32_t *prepend_len, u_int32_t *postpend_len)
+    const struct sockaddr *ndest,
+    IFNET_LLADDR_T edst, IFNET_FRAME_TYPE_T ether_type,
+    u_int32_t *prepend_len, u_int32_t *postpend_len)
 #else /* !KPI_INTERFACE_EMBEDDED */
 int
 ether_frameout(struct ifnet *ifp, struct mbuf **m,
-    const struct sockaddr *ndest, const char *edst,
-    const char *ether_type)
+    const struct sockaddr *ndest,
+    IFNET_LLADDR_T edst,
+    IFNET_FRAME_TYPE_T ether_type)
 #endif /* KPI_INTERFACE_EMBEDDED */
 {
 #if KPI_INTERFACE_EMBEDDED
@@ -623,13 +625,12 @@ ether_frameout(struct ifnet *ifp, struct mbuf **m,
  */
 int
 ether_frameout_extended(struct ifnet *ifp, struct mbuf **m,
-    const struct sockaddr *ndest, const char *edst,
-    const char *ether_type, u_int32_t *prepend_len, u_int32_t *postpend_len)
+    const struct sockaddr *ndest,
+    IFNET_LLADDR_T dst_laddr, IFNET_FRAME_TYPE_T frame_type,
+    u_int32_t *prepend_len, u_int32_t *postpend_len)
 {
 	struct ether_header *eh;
 	int hlen = ETHER_HDR_LEN; /* link layer header length */
-	const uint8_t *dst_laddr = dlil_link_addr(edst);
-	const uint8_t *frame_type = dlil_frame_type(ether_type);
 
 	/*
 	 * If a simplex interface, and the packet is being sent to our
@@ -649,7 +650,7 @@ ether_frameout_extended(struct ifnet *ifp, struct mbuf **m,
 				    n, NULL, ndest, DLIL_OUTPUT_FLAGS_NONE,
 				    NULL);
 			}
-		} else if (_ether_cmp(edst, IF_LLADDR(ifp)) == 0) {
+		} else if (_ether_cmp(dst_laddr, IF_LLADDR(ifp)) == 0) {
 			dlil_output(lo_ifp, ndest->sa_family, *m,
 			    NULL, ndest, DLIL_OUTPUT_FLAGS_NONE, NULL);
 			return EJUSTRETURN;

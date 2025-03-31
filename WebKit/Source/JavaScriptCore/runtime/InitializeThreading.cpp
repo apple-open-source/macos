@@ -49,12 +49,16 @@
 #include <wtf/Threading.h>
 #include <wtf/threads/Signals.h>
 
+WTF_IGNORE_WARNINGS_IN_THIRD_PARTY_CODE_BEGIN
+
 #if !USE(SYSTEM_MALLOC)
 #include <bmalloc/BPlatform.h>
 #if BUSE(LIBPAS)
 #include <bmalloc/pas_scavenger.h>
 #endif
 #endif
+
+WTF_IGNORE_WARNINGS_IN_THIRD_PARTY_CODE_END
 
 #if ENABLE(LLVM_PROFILE_GENERATION)
 extern "C" char __llvm_profile_filename[] = "/private/tmp/WebKitPGO/JavaScriptCore_%m_pid%p%c.profraw";

@@ -26,7 +26,6 @@
 #include "config.h"
 #include "IDBStorageConnectionToClient.h"
 
-#include "WebCoreArgumentCoders.h"
 #include "WebIDBConnectionToServerMessages.h"
 #include "WebIDBResult.h"
 #include <WebCore/IDBRequestData.h>

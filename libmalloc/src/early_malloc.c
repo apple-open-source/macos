@@ -95,7 +95,7 @@ struct mfm_block {
 	void *__ptrauth(ptrauth_key_process_dependent_data, true,
 			ptrauth_string_discriminator("mfmb_next"),
 			"authenticates-null-values")
-	                        mfmb_next;
+							mfmb_next;
 #else
 	uint64_t                mfmb_next;
 #endif
@@ -642,33 +642,28 @@ void
 mfm_initialize(void)
 {
 	struct mfm_arena *arena;
+	int debug_flags;
 #if MALLOC_TARGET_EXCLAVES
 	plat_map_t map = {0};
-#endif // MALLOC_TARGET_EXCLAVES
-
-
-#if MALLOC_TARGET_EXCLAVES
-	arena = mvm_allocate_pages_plat(MFM_ARENA_SIZE, 0, MALLOC_NO_POPULATE,
-			VM_MEMORY_MALLOC, mvm_plat_map(map));
+	debug_flags = MALLOC_NO_POPULATE;
 #else
-	/* this is called early, which means the address space _does_ have 8M */
-	arena = mvm_allocate_pages_plat(MFM_ARENA_SIZE, 0,
-			DISABLE_ASLR | MALLOC_ADD_GUARD_PAGE_FLAGS, VM_MEMORY_MALLOC,
-			NULL);
+	int alloc_flags = 0;
+	debug_flags = DISABLE_ASLR | MALLOC_ADD_GUARD_PAGE_FLAGS;
 #endif // MALLOC_TARGET_EXCLAVES
 
+
+	/* this is called early, which means the address space _does_ have 8M */
+	arena = mvm_allocate_pages_plat(MFM_ARENA_SIZE, 0, debug_flags,
+			VM_MEMORY_MALLOC, mvm_plat_map(map));
 	if (arena == NULL) {
 		MFM_INTERNAL_CRASH(arena, "failed to allocate memory");
 	}
 
 #if MALLOC_TARGET_EXCLAVES
 	/* populate the header up to the block storage */
-	const uintptr_t addr = (uintptr_t)mvm_allocate_plat((uintptr_t)arena,
-			roundup(offsetof(struct mfm_arena, mfm_blocks), PAGE_SIZE), 0,
-			VM_FLAGS_FIXED, 0, 0, mvm_plat_map(map));
-	if (addr != (uintptr_t)arena) {
-		MFM_INTERNAL_CRASH(addr, "populate of header failed");
-	}
+	mvm_madvise_plat(arena,
+			roundup(offsetof(struct mfm_arena, mfm_blocks), PAGE_SIZE),
+			MADV_FAULTABLE, MALLOC_ABORT_ON_ERROR, mvm_plat_map(map));
 
 	arena->mfm_header.mfm_map = map;
 #else
@@ -678,8 +673,7 @@ mfm_initialize(void)
 	 * originally because the kernel would have placed it in the heap range */
 	mach_vm_address_t vm_addr = (mach_vm_address_t)arena;
 	mach_vm_size_t vm_size = (mach_vm_size_t)MFM_ARENA_SIZE;
-	int alloc_flags = VM_FLAGS_OVERWRITE | VM_MAKE_TAG(VM_MEMORY_MALLOC_TINY);
-
+	alloc_flags |= VM_FLAGS_OVERWRITE | VM_MAKE_TAG(VM_MEMORY_MALLOC_TINY);
 
 	kern_return_t kr = mach_vm_map(mach_task_self(), &vm_addr, vm_size,
 			/* mask */ 0, alloc_flags, MEMORY_OBJECT_NULL, /* offset */ 0,
@@ -769,7 +763,7 @@ mfm_alloc(size_t alloc_size)
 			if (blk_size > size) {
 				__mfm_block_mark_start(arena, blk_index + size);
 				__mfm_free_block(arena, blk_index + size,
-				    blk_size - size);
+					blk_size - size);
 			}
 
 			__mfm_block_mark_allocated(arena, blk_index, size);
@@ -799,12 +793,9 @@ mfm_alloc(size_t alloc_size)
 			const uintptr_t end = roundup((uintptr_t)ptr + alloc_size, PAGE_SIZE);
 			const size_t bytes = end - begin;
 			if (bytes) {
-				const uintptr_t addr = (uintptr_t)mvm_allocate_plat(begin,
-						bytes, 0, VM_FLAGS_FIXED, 0, 0,
+				mvm_madvise_plat((void*)begin, bytes, MADV_FAULTABLE,
+						MALLOC_ABORT_ON_ERROR,
 						mvm_plat_map(arena->mfm_header.mfm_map));
-				if (addr != begin) {
-					MFM_INTERNAL_CRASH(ptr, "populate of pages failed");
-				}
 			}
 #endif
 
@@ -872,7 +863,7 @@ mfm_free(void *ptr)
 	}
 
 	if (index + size < arena->mfmh_bump &&
-	    !__mfm_block_is_allocated(arena, index + size)) {
+			!__mfm_block_is_allocated(arena, index + size)) {
 		size_t next  = index + size;
 		size_t nsize = __mfm_block_size(arena, next);
 
@@ -896,7 +887,6 @@ bool
 mfm_claimed_address(void *ptr)
 {
 	struct mfm_arena *arena = os_atomic_load(&mfm_arena, dependency);
-
 
 	return __mfm_address_owned(arena, ptr);
 }
@@ -934,7 +924,7 @@ print_mfm_arena(struct mfm_arena *arena, bool verbose, print_task_printer_t P)
 			size_t size  = __mfm_block_size(arena, index);
 
 			P("  [%p, %p) size=%zd\n",
-			    blk, blk + size, size * MFM_QUANTUM);
+					blk, blk + size, size * MFM_QUANTUM);
 		}
 	}
 	P("\n");

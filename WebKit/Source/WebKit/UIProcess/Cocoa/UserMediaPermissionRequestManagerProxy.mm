@@ -29,12 +29,13 @@
 #import "MediaPermissionUtilities.h"
 #import "SandboxUtilities.h"
 #import "UserMediaCaptureManagerProxy.h"
+#import "WKWebView.h"
 #import "WebPageProxy.h"
 #import "WebPreferences.h"
-#import <WebCore/RuntimeApplicationChecks.h>
 #import <WebCore/VideoFrame.h>
 #import <pal/spi/cocoa/TCCSPI.h>
 #import <wtf/BlockPtr.h>
+#import <wtf/RuntimeApplicationChecks.h>
 #import <wtf/cocoa/RuntimeApplicationChecksCocoa.h>
 
 #import <pal/cocoa/AVFoundationSoftLink.h>
@@ -69,6 +70,7 @@ static WebCore::VideoFrameRotation computeVideoFrameRotation(int rotation)
 
 -(id)initWithRequestManagerProxy:(WeakPtr<WebKit::UserMediaPermissionRequestManagerProxy>&&)managerProxy;
 -(void)observeValueForKeyPath:keyPath ofObject:(id)object change:(NSDictionary*)change context:(void*)context;
+-(bool)isMonitoringCaptureDeviceRotation:(const String&)persistentId;
 -(std::optional<WebCore::VideoFrameRotation>)start:(const String&)persistentId layer:(CALayer*)layer;
 -(void)stop:(const String&)persistentId;
 @end
@@ -99,6 +101,10 @@ static WebCore::VideoFrameRotation computeVideoFrameRotation(int rotation)
         if (_managerProxy)
             _managerProxy->rotationAngleForCaptureDeviceChanged(persistentId, rotation);
     });
+}
+
+-(bool)isMonitoringCaptureDeviceRotation:(const String&)persistentId {
+    return m_coordinators.contains(persistentId);
 }
 
 -(std::optional<WebCore::VideoFrameRotation>)start:(const String&)persistentId layer:(CALayer*)layer {
@@ -191,9 +197,21 @@ void UserMediaPermissionRequestManagerProxy::requestSystemValidation(const WebPa
 }
 
 #if ENABLE(MEDIA_STREAM) && HAVE(AVCAPTUREDEVICEROTATIONCOORDINATOR)
+bool UserMediaPermissionRequestManagerProxy::isMonitoringCaptureDeviceRotation(const String& persistentId)
+{
+    if (persistentId.isEmpty())
+        return false;
+    RetainPtr observer = m_objcObserver;
+    return [observer isMonitoringCaptureDeviceRotation:persistentId];
+}
+
 void UserMediaPermissionRequestManagerProxy::startMonitoringCaptureDeviceRotation(const String& persistentId)
 {
-    auto webView = page().cocoaView();
+    RefPtr page = this->page();
+    if (!page)
+        return;
+
+    RetainPtr webView = page->cocoaView();
     auto *layer = [webView layer];
     if (!layer) {
         RELEASE_LOG_ERROR(WebRTC, "UserMediaPermissionRequestManagerProxy unable to start monitoring capture device rotation");
@@ -214,7 +232,8 @@ void UserMediaPermissionRequestManagerProxy::stopMonitoringCaptureDeviceRotation
 
 void UserMediaPermissionRequestManagerProxy::rotationAngleForCaptureDeviceChanged(const String& persistentId, WebCore::VideoFrameRotation rotation)
 {
-    page().rotationAngleForCaptureDeviceChanged(persistentId, rotation);
+    if (RefPtr page = this->page())
+        page->rotationAngleForCaptureDeviceChanged(persistentId, rotation);
 }
 #endif // HAVE(AVCAPTUREDEVICEROTATIONCOORDINATOR)
 

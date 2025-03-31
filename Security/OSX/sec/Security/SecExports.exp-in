@@ -57,7 +57,7 @@ _SecAreQARootCertificatesEnabled
 #define __P_DO_EXPORT_POLICY_E(NAME) _kSecPolicyApple##NAME
 #define __P_DO_EXPORT_POLICY_P(NAME) _kSecPolicyApple##NAME
 #define __P_DO_EXPORT_POLICY_I(NAME) _kSecPolicyApple##NAME
-#define POLICYMACRO(NAME, OID, ISPUBLIC, INTNAME, IN_NAME, IN_PROPERTIES, FUNCTION) \
+#define POLICYMACRO(NAME, OID, ISPUBLIC, ANCHOR_STORE, INTNAME, IN_NAME, IN_PROPERTIES, FUNCTION) \
 __P_DO_EXPORT_POLICY_##ISPUBLIC(NAME)
 
 #include "Security/SecPolicy.list"
@@ -66,12 +66,18 @@ __P_DO_EXPORT_POLICY_##ISPUBLIC(NAME)
 #define __P_DO_EXPORT_E(NAME)
 #define __P_DO_EXPORT_P(NAME) _kSecPolicyNameApple##NAME
 #define __P_DO_EXPORT_I(NAME) _kSecPolicyName##NAME
-#define POLICYMACRO(NAME, OID, ISPUBLIC, INTNAME, IN_NAME, IN_PROPERTIES, FUNCTION) \
+#define POLICYMACRO(NAME, OID, ISPUBLIC, ANCHOR_STORE, INTNAME, IN_NAME, IN_PROPERTIES, FUNCTION) \
 __P_DO_EXPORT_##ISPUBLIC(NAME)
 #include "SecPolicy.list"
 #if TARGET_OS_OSX
 _kSecPolicyAppleiChat
 #endif
+_kSecPolicyAppleEAPClient
+_kSecPolicyAppleEAPServer
+_kSecPolicyAppleIPSecClient
+_kSecPolicyAppleIPSecServer
+_kSecPolicyAppleSSLClient
+_kSecPolicyAppleSSLServer
 _kSecPolicyMacAppStoreReceipt
 _kSecPolicyNameAppleAIDCService
 _kSecPolicyNameAppleAMPService
@@ -85,6 +91,7 @@ _kSecPolicyNameAppleHomeKitService
 _kSecPolicyNameAppleiCloudSetupService
 _kSecPolicyNameAppleIDSService
 _kSecPolicyNameAppleIssued
+_kSecPolicyNameAppleIssuedTransparent
 _kSecPolicyNameAppleMacOSSoftwareUpdate
 _kSecPolicyNameAppleMapsService
 _kSecPolicyNameAppleMMCSService
@@ -164,6 +171,7 @@ _SecPolicyCreateSSLWithKeyUsage
 _SecPolicyCreateSSLWithATSPinning
 _SecPolicyCreateWithProperties
 _SecPolicyGetName
+_SecPolicyGetCompatibilityOidString
 _SecPolicyGetOidString
 _SecPolicyGetTypeID
 _SecPolicySetATSPinning
@@ -171,6 +179,8 @@ _SecPolicySetName
 _SecPolicySetOptionsValue
 _SecPolicySetSHA256Pins
 _SecPolicySetSSLHostname
+_SecPolicyUsesAppleAnchors
+_SecPolicyUsesConstrainedAnchors
 #if TARGET_OS_OSX
 _SecPolicyCopy
 _SecPolicyCreateAppleTimeStampingAndRevocationPolicies
@@ -188,7 +198,7 @@ _SecPolicySetValue
 #endif
 
 #undef POLICYMACRO
-#define POLICYMACRO(NAME, OID, ISPUBLIC, INTNAME, IN_NAME, IN_PROPERTIES, FUNCTION) \
+#define POLICYMACRO(NAME, OID, ISPUBLIC, ANCHOR_STORE, INTNAME, IN_NAME, IN_PROPERTIES, FUNCTION) \
 _SecPolicyCreate##FUNCTION
 #include "SecPolicy.list"
 
@@ -220,11 +230,15 @@ _kSecTrustExtendedValidation
 _kSecTrustInfoCertificateTransparencyKey
 _kSecTrustInfoCompanyNameKey
 _kSecTrustInfoExtendedValidationKey
+_kSecTrustInfoQWACValidationKey
+_kSecTrustInfoQCStatementsKey
 _kSecTrustInfoResultNotBefore
 _kSecTrustInfoResultNotAfter
 _kSecTrustInfoRevocationKey
 _kSecTrustInfoRevocationValidUntilKey
 _kSecTrustOrganizationName
+_kSecTrustQCStatements
+_kSecTrustQWACValidation
 _kSecTrustResultDetails
 _kSecTrustResultValue
 _kSecTrustRevocationChecked
@@ -358,6 +372,7 @@ _SecTrustedApplicationValidateWithPath
 
 _SecTrustStoreContains
 _SecTrustStoreCopyAll
+_SecTrustStoreCopyAnchors
 _SecTrustStoreCopyUsageConstraints
 _SecTrustStoreDomainName
 _SecTrustStoreForDomain
@@ -406,6 +421,12 @@ _kSecCertificateDetailSHA1Digest
 _kSecCertificateEscrowFileName
 _kSecCertificateProductionEscrowKey
 _kSecCertificateProductionPCSEscrowKey
+_kSecQCStatementCompliance
+_kSecQCStatementType
+_kSecQCStatementTypeWeb
+_kSecQCStatementTypeEseal
+_kSecQCStatementTypeEsign
+_SecCertificateCopyAnchorLookupKey
 _SecCertificateCopyAppleCorporateRoots
 _SecCertificateCopyAppleExternalRoots
 _SecCertificateCopyAttributeDictionary
@@ -462,6 +483,7 @@ _SecCertificateCopySerialNumber
 _SecCertificateCopySerialNumberData
 _SecCertificateCopyNotValidBeforeDate
 _SecCertificateCopyNotValidAfterDate
+_SecCertificateCopyQualifiedCertificateStatements
 #if TARGET_OS_OSX
 #if TARGET_CPU_ARM64
 _SecCertificateCopySerialNumber$LEGACYMAC
@@ -1943,6 +1965,19 @@ _sec_identity_copy_private_key_sign_block
 _sec_identity_create_with_certificates_and_external_private_key
 _sec_identity_access_certificates
 _sec_identity_has_certificates
+_sec_identity_copy_SPAKE2PLUSV1_context
+_sec_identity_copy_SPAKE2PLUSV1_client_identity
+_sec_identity_copy_SPAKE2PLUSV1_server_identity
+_sec_identity_copy_SPAKE2PLUSV1_client_password_verifier
+_sec_identity_copy_SPAKE2PLUSV1_server_password_verifier
+_sec_identity_copy_SPAKE2PLUSV1_registration_record
+_sec_identity_create_SPAKE2PLUSV1_registration_record
+_sec_identity_create_SPAKE2PLUSV1_client_password_verifier
+_sec_identity_create_SPAKE2PLUSV1_server_password_verifier
+_sec_identity_create_client_SPAKE2PLUSV1_identity
+_sec_identity_create_server_SPAKE2PLUSV1_identity
+_sec_identity_copy_type
+_sec_protocol_metadata_get_tls_negotiated_pake
 _sec_protocol_metadata_get_negotiated_tls_protocol_version
 _sec_protocol_metadata_get_handshake_rtt
 _sec_protocol_metadata_copy_quic_transport_parameters
@@ -1979,6 +2014,7 @@ _sec_protocol_metadata_get_server_name
 _sec_protocol_options_set_output_handler_access_block
 _sec_protocol_options_set_eddsa_enabled
 _sec_protocol_options_set_tls_grease_enabled
+_sec_protocol_options_set_pqtls_mode
 _sec_protocol_options_set_allow_unknown_alpn_protos
 _sec_protocol_options_set_tls_delegated_credentials_enabled
 _sec_protocol_options_set_tls_ticket_request_count
@@ -2027,6 +2063,7 @@ _sec_protocol_options_set_peer_authentication_required
 _sec_protocol_options_set_peer_authentication_optional
 _sec_protocol_options_set_enable_encrypted_client_hello
 _sec_protocol_options_get_enable_encrypted_client_hello
+_sec_protocol_options_get_pqtls_mode
 _sec_protocol_options_set_quic_use_legacy_codepoint
 _sec_protocol_options_get_quic_use_legacy_codepoint
 _sec_protocol_options_set_experiment_identifier
@@ -2047,6 +2084,7 @@ _sec_protocol_configuration_copy_singleton
 _sec_protocol_configuration_set_ats_overrides
 _sec_protocol_configuration_copy_transformed_options
 _sec_protocol_configuration_copy_transformed_options_for_host
+_sec_protocol_configuration_copy_transformed_options_for_address
 _sec_protocol_configuration_tls_required
 _sec_protocol_configuration_create_with_builder
 _sec_protocol_configuration_tls_required_for_host
@@ -2084,6 +2122,7 @@ _sec_protocol_options_set_resumed_session_ticket_request
 _sec_protocol_options_set_eap_method
 _sec_protocol_options_get_eap_method
 _sec_protocol_metadata_get_eap_key_material
+_sec_protocol_options_set_sec_protocol_configuration
 _sec_release
 _sec_retain
 _sec_trust_copy_ref

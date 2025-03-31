@@ -1,5 +1,5 @@
 /*-
- * SPDX-License-Identifier: BSD-2-Clause-FreeBSD
+ * SPDX-License-Identifier: BSD-2-Clause
  *
  * Copyright (C) 2008 Edwin Groothuis. All rights reserved.
  *
@@ -26,8 +26,6 @@
  */
 
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD$");
-
 #include <sys/socket.h>
 #include <sys/stat.h>
 #include <sys/time.h>
@@ -106,8 +104,8 @@ unmappedaddr(struct sockaddr_in6 *sin6)
 }
 
 /* Get a field from a \0 separated string */
-ssize_t
-get_field(int peer, char *buffer, ssize_t size)
+size_t
+get_field(int peer, char *buffer, size_t size)
 {
 	char *cp = buffer;
 
@@ -206,7 +204,7 @@ struct debugs debugs[] = {
 	{ DEBUG_ACCESS,		"access",	"TCPd access debugging"	},
 	{ DEBUG_NONE,		NULL,		"No debugging"		},
 };
-int	packetdroppercentage = 0;
+unsigned int packetdroppercentage = 0;
 
 int
 debug_find(char *s)

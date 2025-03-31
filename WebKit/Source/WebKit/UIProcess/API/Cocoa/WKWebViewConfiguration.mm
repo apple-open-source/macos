@@ -43,7 +43,6 @@
 #import "WebURLSchemeHandlerCocoa.h"
 #import "_WKApplicationManifestInternal.h"
 #import "_WKVisitedLinkStoreInternal.h"
-#import <WebCore/RuntimeApplicationChecks.h>
 #import <WebCore/Settings.h>
 #import <WebCore/WebCoreObjCExtras.h>
 #import <WebKit/WKProcessPool.h>
@@ -256,7 +255,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     [coder encodeBool:self._multiRepresentationHEICInsertionEnabled forKey:@"multiRepresentationHEICInsertionEnabled"];
 #if PLATFORM(VISION)
     [coder encodeBool:self._gamepadAccessRequiresExplicitConsent forKey:@"gamepadAccessRequiresExplicitConsent"];
-    [coder encodeBool:self._overlayRegionsEnabled forKey:@"overlayRegionsEnabled"];
+    [coder encodeBool:self._cssTransformStyleSeparatedEnabled forKey:@"cssTransformStyleSeparatedEnabled"];
 #endif
 }
 
@@ -307,7 +306,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     self._multiRepresentationHEICInsertionEnabled = [coder decodeBoolForKey:@"multiRepresentationHEICInsertionEnabled"];
 #if PLATFORM(VISION)
     self._gamepadAccessRequiresExplicitConsent = [coder decodeBoolForKey:@"gamepadAccessRequiresExplicitConsent"];
-    self._overlayRegionsEnabled = [coder decodeBoolForKey:@"overlayRegionsEnabled"];
+    self._cssTransformStyleSeparatedEnabled = [coder decodeBoolForKey:@"cssTransformStyleSeparatedEnabled"];
 #endif
 
     return self;
@@ -564,6 +563,18 @@ static NSString *defaultApplicationNameForUserAgent()
         return nil;
 
     return static_cast<WebKit::WebURLSchemeHandlerCocoa*>(handler.get())->apiHandler();
+}
+
++ (BOOL)_isValidCustomScheme:(NSString *)urlScheme
+{
+    if ([WKWebView handlesURLScheme:urlScheme])
+        return NO;
+
+    auto canonicalScheme = WTF::URLParser::maybeCanonicalizeScheme(String(urlScheme));
+    if (!canonicalScheme)
+        return NO;
+
+    return YES;
 }
 
 #if PLATFORM(IOS_FAMILY)
@@ -1067,16 +1078,6 @@ static WebKit::AttributionOverrideTesting toAttributionOverrideTesting(_WKAttrib
     return _pageConfiguration->loadsSubresources();
 }
 
-- (BOOL)_deferrableUserScriptsShouldWaitUntilNotification
-{
-    return _pageConfiguration->userScriptsShouldWaitUntilNotification();
-}
-
-- (void)_setDeferrableUserScriptsShouldWaitUntilNotification:(BOOL)value
-{
-    _pageConfiguration->setUserScriptsShouldWaitUntilNotification(value);
-}
-
 - (void)_setCrossOriginAccessControlCheckEnabled:(BOOL)enabled
 {
     _pageConfiguration->setCrossOriginAccessControlCheckEnabled(enabled);
@@ -1410,11 +1411,11 @@ static WebKit::AttributionOverrideTesting toAttributionOverrideTesting(_WKAttrib
 
 - (void)_setShouldRelaxThirdPartyCookieBlocking:(BOOL)relax
 {
-    bool allowed = WebCore::applicationBundleIdentifier() == "com.apple.WebKit.TestWebKitAPI"_s;
+    bool allowed = applicationBundleIdentifier() == "com.apple.WebKit.TestWebKitAPI"_s;
 #if PLATFORM(MAC)
-    allowed |= WebCore::MacApplication::isSafari();
+    allowed |= WTF::MacApplication::isSafari();
 #elif PLATFORM(IOS_FAMILY)
-    allowed |= WebCore::IOSApplication::isMobileSafari() || WebCore::IOSApplication::isSafariViewService();
+    allowed |= WTF::IOSApplication::isMobileSafari() || WTF::IOSApplication::isSafariViewService();
 #endif
 #if ENABLE(WK_WEB_EXTENSIONS)
     allowed |= _pageConfiguration->requiredWebExtensionBaseURL().isValid();
@@ -1523,19 +1524,18 @@ static WebKit::AttributionOverrideTesting toAttributionOverrideTesting(_WKAttrib
 #endif
 }
 
-- (BOOL)_overlayRegionsEnabled
+- (BOOL)_cssTransformStyleSeparatedEnabled
 {
-#if ENABLE(OVERLAY_REGIONS_IN_EVENT_REGION)
-    return _pageConfiguration->overlayRegionsEnabled();
+#if HAVE(CORE_ANIMATION_SEPARATED_LAYERS)
+    return _pageConfiguration->cssTransformStyleSeparatedEnabled();
 #else
     return NO;
 #endif
 }
-
-- (void)_setOverlayRegionsEnabled:(BOOL)overlayRegionsEnabled
+- (void)_setCSSTransformStyleSeparatedEnabled:(BOOL)enabled
 {
-#if ENABLE(OVERLAY_REGIONS_IN_EVENT_REGION)
-    _pageConfiguration->setOverlayRegionsEnabled(overlayRegionsEnabled);
+#if HAVE(CORE_ANIMATION_SEPARATED_LAYERS)
+    _pageConfiguration->setCSSTransformStyleSeparatedEnabled(enabled);
 #endif
 }
 

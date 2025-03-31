@@ -36,7 +36,9 @@ OBJC_CLASS WebLowPowerModeObserver;
 
 #if USE(GLIB)
 #include <wtf/glib/GRefPtr.h>
+extern "C" {
 typedef struct _GPowerProfileMonitor GPowerProfileMonitor;
+};
 #endif
 
 namespace WebCore {
@@ -59,10 +61,8 @@ private:
     RetainPtr<WebLowPowerModeObserver> m_observer;
     LowPowerModeChangeCallback m_callback;
 #elif USE(GLIB)
-#if GLIB_CHECK_VERSION(2, 69, 1)
     LowPowerModeChangeCallback m_callback;
     GRefPtr<GPowerProfileMonitor> m_powerProfileMonitor;
-#endif
     bool m_lowPowerModeEnabled { false };
 #endif
 };

@@ -528,56 +528,11 @@ ualoc_getAppleParent(const char* localeID,
             return len;
         }
     }
-    tempStatus = U_ZERO_ERROR;
-    rb = ures_openDirect(NULL, "supplementalData", &tempStatus);
-    rb = ures_getByKey(rb, "parentLocales", rb, &tempStatus);
-    if (U_SUCCESS(tempStatus)) {
-        UResourceBundle * parentMapBundle = NULL;
-        int32_t childLen = 0;
-        while (childLen == 0) {
-            tempStatus = U_ZERO_ERROR;
-            parentMapBundle = ures_getNextResource(rb, parentMapBundle, &tempStatus);
-            if (U_FAILURE(tempStatus)) {
-                break; // no more parent bundles, normal exit
-            }
-            char childName[kLocBaseNameMax + 1];
-            childName[kLocBaseNameMax] = 0;
-            const char * childPtr = NULL;
-            if (ures_getType(parentMapBundle) == URES_STRING) {
-                childLen = kLocBaseNameMax;
-                childPtr = ures_getUTF8String(parentMapBundle, childName, &childLen, false, &tempStatus);
-                if (U_FAILURE(tempStatus) || uprv_strncmp(locbuf, childPtr, kLocBaseNameMax) != 0) {
-                    childLen = 0;
-                }
-            } else { // should be URES_ARRAY
-                int32_t childCur, childCount = ures_getSize(parentMapBundle);
-                for (childCur = 0; childCur < childCount && childLen == 0; childCur++) {
-                    tempStatus = U_ZERO_ERROR;
-                    childLen = kLocBaseNameMax;
-                    childPtr = ures_getUTF8StringByIndex(parentMapBundle, childCur, childName, &childLen, false, &tempStatus);
-                    if (U_FAILURE(tempStatus) || uprv_strncmp(locbuf, childPtr, kLocBaseNameMax) != 0) {
-                        childLen = 0;
-                    }
-                }
-            }
-        }
-        ures_close(rb);
-        if (childLen > 0) {
-            // parentMapBundle key is the parent we are looking for
-            const char * keyStr = ures_getKey(parentMapBundle);
-            len = uprv_strlen(keyStr);
-            if (len < parentCapacity) {
-                 uprv_strcpy(parent, keyStr);
-            } else {
-                *err = U_BUFFER_OVERFLOW_ERROR;
-            }
-            ures_close(parentMapBundle);
-            return len;
-        }
-        ures_close(parentMapBundle);
+
+    len = ures_getLocParent(locbuf, parent, parentCapacity, err);
+    if (U_SUCCESS(*err) && len == 0) {
+        len = uloc_getParent(locbuf, parent, parentCapacity, err);
     }
-    
-    len = uloc_getParent(locbuf, parent, parentCapacity, err);
     if (U_SUCCESS(*err) && len == 0) {
         len = 4;
         if (len < parentCapacity) {
@@ -1142,6 +1097,16 @@ ualoc_localizationsToUse( const char* const *preferredLanguages,
         for (int32_t availLocIndex = 0; availLocIndex < availableLocalizationsCount; ++availLocIndex) {
             LocaleIDInfo* availLocInfo = &availLocInfos[availLocIndex];
             availLocInfo->initBaseNames(availableLocalizations[availLocIndex], charStorage, status);
+            if (U_FAILURE(*status)) {
+                // there was a change in behavior in ICU 75 (in response to https://unicode-org.atlassian.net/browse/ICU-22520;
+                // see https://github.com/unicode-org/icu/pull/2813) that causes some of the APIs that initBaseNames() calls
+                // to return an error where they didn't before.  This means that before, if the availableLocalizations list
+                // contained malformed locale IDs, we just skipped them, and now we return U_ILLEGAL_ARGUMENT_ERROR.  We have
+                // Apple code relying on the old behavior, so we simulate that by swallowing any errors we get back from
+                // initBaseNames() and just skipping the relevant entries
+                *status = U_ZERO_ERROR;
+                continue;
+            }
             
             // Give the highest preference (a score of -1) to locales whose base names are an exact match.
             if (resultScore > -1 && uprv_strcmp(prefLangInfo->base, availLocInfo->base) == 0) {

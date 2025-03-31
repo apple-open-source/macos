@@ -12,6 +12,7 @@
 
 #include <cstdio>
 #include <memory>
+#include <optional>
 #include <utility>
 #include <vector>
 
@@ -50,8 +51,8 @@ std::unique_ptr<RtpFrameObject> CreateRtpFrameObject(
       /*last_packet_received_time=*/5, /*rtp_timestamp=*/6, /*ntp_time_ms=*/7,
       VideoSendTiming(), /*payload_type=*/8, video_header.codec,
       kVideoRotation_0, VideoContentType::UNSPECIFIED, video_header,
-      absl::nullopt, RtpPacketInfos({packet_info}),
-      EncodedImageBuffer::Create(0));
+      /*color_space=*/std::nullopt, /*frame_instrumentation_data=*/std::nullopt,
+      RtpPacketInfos({packet_info}), EncodedImageBuffer::Create(0));
 }
 
 std::unique_ptr<RtpFrameObject> CreateRtpFrameObject() {
@@ -222,8 +223,8 @@ TEST(RtpVideoStreamReceiverFrameTransformerDelegateTest,
   // Checks that the recieved RTPFrameObject has the new metadata.
   EXPECT_CALL(receiver, ManageFrame)
       .WillOnce([&](std::unique_ptr<RtpFrameObject> frame) {
-        const absl::optional<RTPVideoHeader::GenericDescriptorInfo>&
-            descriptor = frame->GetRtpVideoHeader().generic;
+        const std::optional<RTPVideoHeader::GenericDescriptorInfo>& descriptor =
+            frame->GetRtpVideoHeader().generic;
         if (!descriptor.has_value()) {
           ADD_FAILURE() << "GenericDescriptorInfo in RTPVideoHeader doesn't "
                            "have a value.";

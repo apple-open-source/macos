@@ -244,6 +244,22 @@ const int32_t SCRIPT_PROPS[] = {
     0x10582 | EXCLUSION | CASED,  // Vith
     0x11F1B | EXCLUSION | LB_LETTERS,  // Kawi
     0x1E4E6 | EXCLUSION,  // Nagm
+#if APPLE_ICU_CHANGES
+// rdar://136543750 (Integrate ICU 76.1 and CLDR 46.0 into Apple ICU)
+// This is an earlier problem found while integrating ICU 76.1 (there was a bug in the unit tests that
+// prevented this problem from being caught).  I'm addressing this by hand-editing this table, which might
+// not be a good idea, but I'm not even sure how to generate the table.
+    0x0628 | RECOMMENDED | RTL,  // Aran (copied from Arab)
+#else
+    0,
+#endif
+    0x10D5D | EXCLUSION | RTL | CASED,  // Gara
+    0x1611C | EXCLUSION,  // Gukh
+    0x16D45 | EXCLUSION,  // Krai
+    0x1E5D0 | EXCLUSION,  // Onao
+    0x11BC4 | EXCLUSION,  // Sunu
+    0x105C2 | EXCLUSION,  // Todr
+    0x11392 | EXCLUSION,  // Tutg
     // End copy-paste from parsescriptmetadata.py
 };
 

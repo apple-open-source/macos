@@ -834,7 +834,7 @@ xdr_setup_connection(krb5_context context,
 		goto try_again;
 	    }
 	    krb5_set_error_message(context, EINVAL,
-				   "init_sec_context failed with %d/%d",
+				   "init_sec_context failed with %u/%u",
 				   maj_stat, min_stat);
 	    return EINVAL;
 	} else if (maj_stat & GSS_S_CONTINUE_NEEDED) {
@@ -875,7 +875,7 @@ xdr_setup_connection(krb5_context context,
 	if (GSS_ERROR(maj_stat2)) {
 	    krb5_data_free(&data);
 	    krb5_set_error_message(context, EINVAL,
-				   "server sent a failure code: %d/%d",
+				   "server sent a failure code: %u/%u",
 				   maj_stat2, min_stat);
 	    return EINVAL;
 	} else if (maj_stat2 & GSS_S_CONTINUE_NEEDED) {

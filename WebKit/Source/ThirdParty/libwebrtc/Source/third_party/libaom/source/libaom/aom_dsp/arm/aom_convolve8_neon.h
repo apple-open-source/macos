@@ -18,7 +18,7 @@
 #include "aom_dsp/arm/mem_neon.h"
 #include "config/aom_config.h"
 
-static INLINE int16x4_t convolve8_4(const int16x4_t s0, const int16x4_t s1,
+static inline int16x4_t convolve8_4(const int16x4_t s0, const int16x4_t s1,
                                     const int16x4_t s2, const int16x4_t s3,
                                     const int16x4_t s4, const int16x4_t s5,
                                     const int16x4_t s6, const int16x4_t s7,
@@ -38,7 +38,7 @@ static INLINE int16x4_t convolve8_4(const int16x4_t s0, const int16x4_t s1,
   return sum;
 }
 
-static INLINE uint8x8_t convolve8_8(const int16x8_t s0, const int16x8_t s1,
+static inline uint8x8_t convolve8_8(const int16x8_t s0, const int16x8_t s1,
                                     const int16x8_t s2, const int16x8_t s3,
                                     const int16x8_t s4, const int16x8_t s5,
                                     const int16x8_t s6, const int16x8_t s7,
@@ -59,7 +59,7 @@ static INLINE uint8x8_t convolve8_8(const int16x8_t s0, const int16x8_t s1,
   return vqrshrun_n_s16(sum, FILTER_BITS - 1);
 }
 
-static INLINE void convolve8_horiz_2tap_neon(const uint8_t *src,
+static inline void convolve8_horiz_2tap_neon(const uint8_t *src,
                                              ptrdiff_t src_stride, uint8_t *dst,
                                              ptrdiff_t dst_stride,
                                              const int16_t *filter_x, int w,
@@ -146,7 +146,7 @@ static INLINE void convolve8_horiz_2tap_neon(const uint8_t *src,
   }
 }
 
-static INLINE uint8x8_t convolve4_8(const int16x8_t s0, const int16x8_t s1,
+static inline uint8x8_t convolve4_8(const int16x8_t s0, const int16x8_t s1,
                                     const int16x8_t s2, const int16x8_t s3,
                                     const int16x4_t filter) {
   int16x8_t sum = vmulq_lane_s16(s0, filter, 0);
@@ -158,7 +158,7 @@ static INLINE uint8x8_t convolve4_8(const int16x8_t s0, const int16x8_t s1,
   return vqrshrun_n_s16(sum, FILTER_BITS - 1);
 }
 
-static INLINE void convolve8_vert_4tap_neon(const uint8_t *src,
+static inline void convolve8_vert_4tap_neon(const uint8_t *src,
                                             ptrdiff_t src_stride, uint8_t *dst,
                                             ptrdiff_t dst_stride,
                                             const int16_t *filter_y, int w,
@@ -244,7 +244,7 @@ static INLINE void convolve8_vert_4tap_neon(const uint8_t *src,
   }
 }
 
-static INLINE void convolve8_vert_2tap_neon(const uint8_t *src,
+static inline void convolve8_vert_2tap_neon(const uint8_t *src,
                                             ptrdiff_t src_stride, uint8_t *dst,
                                             ptrdiff_t dst_stride,
                                             const int16_t *filter_y, int w,

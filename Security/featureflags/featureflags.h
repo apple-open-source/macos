@@ -39,6 +39,9 @@ bool _SecSystemKeychainAlwaysIsEnabled(void);
 void _SecSystemKeychainAlwaysOverride(bool value);
 void _SecSystemKeychainAlwaysClearOverride(void);
 
+// Helpers for trust-related feature flags
+bool _SecTrustQWACValidationEnabled(void);
+bool _SecTrustStoreRootConstraintsEnabled(void);
 
 #ifdef    __cplusplus
 }

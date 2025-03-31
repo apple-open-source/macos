@@ -26,12 +26,15 @@
 #include <pthread.h>
 #include <mach/mach.h>
 #include <mach/vm_statistics.h>
+#include <mach-o/dyld_priv.h>
 #include <stdlib.h>
 #include <pthread/private.h>
 #include <pthread/stack_np.h>
 #include "stack_logging.h"
 
-#define	INSTACK(a)	((a) >= stackbot && (a) <= stacktop)
+// maps regular stack to id=1 and dyld stack to id=2
+#define	STACKID(a)	(((a) >= stackbot && (a) <= stacktop) ? 1 : 2)
+#define	INSTACK(a)	(((a) >= stackbot && (a) <= stacktop) || (((a) != NULL) && (a) >= dyldstackbot && (a) <= dyldstacktop))
 #if defined(__x86_64__)
 #define	ISALIGNED(a)	((((uintptr_t)(a)) & 0xf) == 0)
 #elif defined(__i386__)
@@ -39,6 +42,10 @@
 #elif defined(__arm__) || defined(__arm64__)
 #define	ISALIGNED(a)	((((uintptr_t)(a)) & 0x1) == 0)
 #endif
+
+// If we're outside of the pthread stack, assume any frame larger than 1MB is a
+// bogus pointer and stop walking the stack
+#define MAX_ALT_FRAME_SIZE 0x100000
 
 // The Swift async ABI is not implemented on 32bit architectures.
 #if __LP64__ || __ARM64_ARCH_8_32__
@@ -132,6 +139,8 @@ __thread_stack_pcs(vm_address_t *buffer, unsigned max, unsigned *nb,
 	pthread_t self = pthread_self();
 	void *stacktop = pthread_get_stackaddr_np(self);
 	void *stackbot = stacktop - pthread_get_stacksize_np(self);
+	const void *dyldstacktop = NULL;
+	const void *dyldstackbot = NULL;
 	unsigned int has_extended_frame = 0;
 	*nb = 0;
 
@@ -140,11 +149,63 @@ __thread_stack_pcs(vm_address_t *buffer, unsigned max, unsigned *nb,
 	frame = __builtin_frame_address(0);
 	next = (void*)pthread_stack_frame_decode_np((uintptr_t)frame, NULL);
 
+	_dyld_stack_range(&dyldstackbot, &dyldstacktop);
+
+	if (!ISALIGNED(frame)) {
+		return 0;
+	} else if (!INSTACK(frame)) {
+		// Allow calls to thread_stack_pcs from one non-default stack to work
+		// around rdar://114874436
+		if (startfp || allow_async) {
+			return 0;
+		}
+		// Need to not decrement skip in the condition to avoid breaking to the
+		// rest of the function with an underflowed skip value
+		while (skip) {
+			skip--;
+			const ptrdiff_t diff = (ptrdiff_t)next - (ptrdiff_t)frame;
+			if (!ISALIGNED(next) || (!INSTACK(next) &&
+					(diff <= 0 || diff >= MAX_ALT_FRAME_SIZE))) {
+				return 0;
+			}
+			frame = next;
+			next = (void*)pthread_stack_frame_decode_np((uintptr_t)frame, NULL);
+			if (INSTACK(frame)) {
+				goto pthread_stacktrace;
+			}
+		}
+		while (max--) {
+			uintptr_t retaddr;
+#if __LP64__ || __ARM64_ARCH_8_32__
+			if (__is_async_frame((uintptr_t)frame)) {
+				has_extended_frame = 1;
+			}
+#endif
+			next = (void*)pthread_stack_frame_decode_np((uintptr_t)frame, &retaddr);
+			buffer[*nb] = retaddr;
+			(*nb)++;
+			const ptrdiff_t diff = (ptrdiff_t)next - (ptrdiff_t)frame;
+			if (!ISALIGNED(next) || (!INSTACK(next) &&
+					(diff <= 0 || diff >= MAX_ALT_FRAME_SIZE))) {
+				return has_extended_frame;
+			}
+			frame = next;
+			if (INSTACK(next)) {
+				break;
+			}
+		}
+		// We get to here either by jumping back to the pthread stack or by
+		// enumerating `max` frames in the non-default stack. In the latter
+		// case, we're now done
+		if (max + 1 == 0) {
+			return has_extended_frame;
+		}
+	}
+pthread_stacktrace:
+
 	/* make sure return address is never out of bounds */
 	stacktop -= (next - frame);
 
-	if(!INSTACK(frame) || !ISALIGNED(frame))
-		return 0;
 	while (startfp || skip--) {
 		if (startfp && startfp < next) break;
 		if(!INSTACK(next) || !ISALIGNED(next) || next <= frame)
@@ -169,7 +230,7 @@ __thread_stack_pcs(vm_address_t *buffer, unsigned max, unsigned *nb,
 		next = (void*)pthread_stack_frame_decode_np((uintptr_t)frame, &retaddr);
 		buffer[*nb] = retaddr;
 		(*nb)++;
-		if(!INSTACK(next) || !ISALIGNED(next) || next <= frame)
+		if(!INSTACK(next) || !ISALIGNED(next) || ((next <= frame) && (STACKID(next) == STACKID(frame))))
 			return has_extended_frame;
 		frame = next;
 	}

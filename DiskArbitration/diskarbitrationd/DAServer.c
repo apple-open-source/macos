@@ -1393,9 +1393,13 @@ void _DAMediaDisappearedCallback( void * context, io_iterator_t notification )
             /*
              * Remove the disk object from our tables.
              */
-
             DALogInfo( "removed disk, id = %@.", disk );
 
+            if ( ( DADiskGetDescription( disk, kDADiskDescriptionVolumePathKey ) != NULL) && DADiskGetDescription( disk, kDADiskDescriptionVolumeUUIDKey ) )
+            {
+                CFDictionarySetValue( gDADanglingVolumeList, DADiskGetDescription( disk, kDADiskDescriptionVolumeUUIDKey ),  DADiskGetDescription( disk, kDADiskDescriptionVolumePathKey ) );
+                DALogInfo( " added volume id = %@  mountpath %@ to danglingVolumeList.", DADiskGetDescription( disk, kDADiskDescriptionVolumeUUIDKey ), DADiskGetDescription( disk, kDADiskDescriptionVolumePathKey ) );
+            }
             if ( DADiskGetBSDLink( disk, TRUE ) )
             {
                 unlink( DADiskGetBSDLink( disk, TRUE ) );
@@ -1926,13 +1930,32 @@ kern_return_t _DAServerDiskSetAdoption( mach_port_t _session, caddr_t _disk, boo
 
             if ( disk )
             {
-                status = DAAuthorize( session, _kDAAuthorizeOptionDefault, disk, audit_token_to_euid( _token ), audit_token_to_egid( _token ), _kDAAuthorizeRightAdopt );
+                status = DAAuthorize( session,
+                                      _kDAAuthorizeOptionDefault,
+                                      disk,
+                                      audit_token_to_euid( _token ),
+                                      audit_token_to_egid( _token ),
+                                      _kDAAuthorizeRightAdopt );
 
                 if ( status == kDAReturnSuccess )
                 {
-                    DALogDebug( "  set disk adoption, id = %@, adoption = %s.", disk, _adoption ? "true" : "false" );
-
-                    status = _DADiskSetAdoption( disk, _adoption );
+                    /* Only disks that can set 'noowners' can set adoption. Do the same check for internal disks here. */
+                    if ( DAMountGetPreference( disk, kDAMountPreferenceTrust ) == TRUE )
+                    {
+                        if ( audit_token_to_euid( _token ) )
+                        {
+                            status = kDAReturnNotPrivileged;
+                        }
+                    }
+                }
+                    
+                if ( status == kDAReturnSuccess )
+                {
+                    {
+                        DALogDebug( "  set disk adoption, id = %@, adoption = %s.", disk, _adoption ? "true" : "false" );
+                        
+                        status = _DADiskSetAdoption( disk, _adoption );
+                    }
                 }
             }
         }
@@ -1941,50 +1964,6 @@ kern_return_t _DAServerDiskSetAdoption( mach_port_t _session, caddr_t _disk, boo
     if ( status )
     {
          DALogDebug( "unable to set disk adoption, id = %s (status code 0x%08X).", _disk, status );
-    }
-
-    return status;
-}
-
-kern_return_t _DAServerDiskSetEncoding( mach_port_t _session, caddr_t _disk, int32_t encoding, audit_token_t _token )
-{
-    kern_return_t status;
-
-    status = kDAReturnBadArgument;
-
-    DALogDebugHeader( "? [?]:%d -> %s", _session, gDAProcessNameID );
-
-    if ( _session )
-    {
-        DASessionRef session;
-
-        session = __DASessionListGetSession( _session );
-
-        if ( session )
-        {
-            DADiskRef disk;
-
-            DALogDebugHeader( "%@ -> %s", session, gDAProcessNameID );
-
-            disk = DADiskListGetDisk( _disk );
-
-            if ( disk )
-            {
-                status = DAAuthorize( session, _kDAAuthorizeOptionIsOwner, disk, audit_token_to_euid( _token ), audit_token_to_egid( _token ), _kDAAuthorizeRightEncode );
-
-                if ( status == kDAReturnSuccess )
-                {
-                    DALogDebug( "  set disk encoding, id = %@, encoding = %d.", disk, encoding );
-
-                    status = _DADiskSetEncoding( disk, encoding );
-                }
-            }
-        }
-    }
-
-    if ( status )
-    {
-        DALogDebug( "unable to set disk encoding, id = %s (status code 0x%08X).", _disk, status );
     }
 
     return status;
@@ -2428,7 +2407,11 @@ kern_return_t _DAServerSessionQueueRequest( mach_port_t            _session,
 #if TARGET_OS_OSX
                                 if ( argument3 )
                                 {
-                                    if ( DAMountContainsArgument( argument3, kDAFileSystemMountArgumentNoOwnership ) == TRUE &&  DAMountGetPreference( disk, kDAMountPreferenceTrust ) == TRUE )
+                                    if ( ( ( DAMountContainsArgument( argument3,
+                                               kDAFileSystemMountArgumentNoOwnership ) == TRUE ) ||
+                                          ( DAMountContainsArgument( argument3,
+                                               kDAFileSystemMountArgumentNoPermission ) == TRUE ) ) &&
+                                        DAMountGetPreference( disk, kDAMountPreferenceTrust ) == TRUE )
                                     {
                                         if ( audit_token_to_euid( _token ) )
                                         {
@@ -2468,29 +2451,6 @@ kern_return_t _DAServerSessionQueueRequest( mach_port_t            _session,
                         case _kDADiskRename:
                         {
                             status = DAAuthorize( session, _kDAAuthorizeOptionIsOwner, disk, audit_token_to_euid( _token ), audit_token_to_egid( _token ), _kDAAuthorizeRightRename );
-                              
-#if TARGET_OS_OSX
-                            if ( status == 0 )
-                            {
-                                char * path;
-                                if ( DADiskGetDescription( disk, kDADiskDescriptionVolumePathKey ) )
-                                {
-                                    CFURLRef mountpoint = DADiskGetBypath( disk );
-                                    path = ___CFURLCopyFileSystemRepresentation( mountpoint );
-                                                                
-                                    if ( path &&  ( strncmp( path, kDAMainMountPointFolder, strlen( kDAMainMountPointFolder ) ) == 0 ) )
-                                    {
-                                        status = sandbox_check_by_audit_token(_token, "file-write-unlink", SANDBOX_FILTER_PATH | SANDBOX_CHECK_CANONICAL | SANDBOX_CHECK_NOFOLLOW , path);
-                                        if ( status )
-                                        {
-                                            DALogInfo(" sandbox check for file-write-unlink failed on %@", disk);
-                                            status = kDAReturnNotPrivileged;
-                                        }
-                                        free( path );
-                                    }
-                                }
-                            }
-#endif
 
                             break;
                         }

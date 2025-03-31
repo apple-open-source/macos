@@ -28,8 +28,8 @@
 
 #include "ContentSecurityPolicy.h"
 #include "ContentSecurityPolicyDirectiveList.h"
-#include "ParsingUtilities.h"
 #include <wtf/TZoneMallocInlines.h>
+#include <wtf/text/ParsingUtilities.h>
 #include <wtf/text/StringCommon.h>
 #include <wtf/text/WTFString.h>
 

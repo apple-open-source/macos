@@ -1336,6 +1336,7 @@ int     vfs_setattr(mount_t mp, struct vfs_attr *vfa, vfs_context_t ctx);
 int     vfs_extendedsecurity(mount_t);
 mount_t vfs_getvfs_by_mntonname(char *);
 vnode_t vfs_vnodecovered(mount_t mp); /* Returns vnode with an iocount that must be released with vnode_put() */
+vnode_t vfs_vnodecovered_noblock(mount_t mp);
 int vfs_setdevvp(mount_t mp, vnode_t vp);
 vnode_t vfs_devvp(mount_t mp); /* Please see block comment with implementation */
 int vfs_nativexattrs(mount_t mp);  /* whether or not the FS supports EAs natively */
@@ -1557,4 +1558,43 @@ int     ungraftdmg(const char *, uint64_t) __OSX_AVAILABLE(13.0) __IOS_AVAILABLE
 __END_DECLS
 
 #endif /* KERNEL */
+
+#ifdef PRIVATE
+
+/* statfs_ext() / fstatfs_ext() flags */
+#define STATFS_EXT_NOBLOCK  0x0001
+
+/*!
+ * @function statfs_ext
+ * @abstract Retrieve filesystem statistics with extended options.
+ * @discussion Similar to statfs(), this function provides information about a mounted filesystem.
+ *     It supports additional flags for enhanced control and customization of the returned data.
+ * @param path The path to the mounted filesystem.
+ * @param buf A pointer to a statfs structure where the filesystem statistics will be stored.
+ * @param flags Bitwise OR of flags to modify function behavior. Supported flags include:
+ *     `STATFS_EXT_NOBLOCK`: Fetch information only from the VFS, without querying the underlying filesystem.
+ *     Note that only a subset of the statfs structure will be populated:
+ *     f_fsid, f_owner, f_type, f_flags, f_fssubtype, f_fstypename, f_mntonname, f_mntfromname and f_flags_ext.
+ * @return: On success, returns 0 and fills buf with filesystem statistics.
+ *     On error, returns -1 and sets errno to indicate the error.
+ */
+int     statfs_ext(const char *path, struct statfs *buf, int flags);
+
+/*!
+ * @function fstatfs_ext
+ * @abstract Retrieve filesystem statistics for a file descriptor with extended options..
+ * @discussion Similar to fstatfs(), this function provides information about a mounted filesystem.
+ *     It supports additional flags for enhanced control and customization of the returned data.
+ * @param fd The file descriptor for an open file.
+ * @param buf A pointer to a statfs structure where the filesystem statistics will be stored.
+ * @param flags Bitwise OR of flags to modify function behavior. Supported flags include:
+ *     `STATFS_EXT_NOBLOCK`: Fetch information only from the VFS, without querying the underlying filesystem.
+ *     Note that only a subset of the statfs structure will be populated:
+ *     f_fsid, f_owner, f_type, f_flags, f_fssubtype, f_fstypename, f_mntonname, f_mntfromname and f_flags_ext.
+ * @return: On success, returns 0 and fills buf with filesystem statistics.
+ *     On error, returns -1 and sets errno to indicate the error.
+ */
+int     fstatfs_ext(int fd, struct statfs *buf, int flags);
+
+#endif /* PRIVATE */
 #endif /* !_SYS_MOUNT_H_ */

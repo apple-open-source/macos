@@ -244,6 +244,11 @@ ko{
                 dnam{"나노초"}
                 other{"{0}나노초"}
             }
+            night{
+                dnam{"박"}
+                other{"{0}박"}
+                per{"1박당 {0}"}
+            }
             second{
                 per{"초당 {0}"}
             }
@@ -790,6 +795,11 @@ ko{
             minute{
                 per{"{0}/분"}
             }
+            night{
+                dnam{"박"}
+                other{"{0}박"}
+                per{"{0}/박"}
+            }
             second{
                 per{"{0}/초"}
             }
@@ -1002,6 +1012,11 @@ ko{
             }
             nanosecond{
                 other{"{0}ns"}
+            }
+            night{
+                dnam{"박"}
+                other{"{0}박"}
+                per{"{0}/박"}
             }
             quarter{
                 dnam{"분기"}

@@ -12,7 +12,7 @@
 #ifndef AOM_AOM_DSP_AOM_SIMD_INLINE_H_
 #define AOM_AOM_DSP_AOM_SIMD_INLINE_H_
 
-#include "aom/aom_integer.h"
+#include "aom_dsp/aom_dsp_common.h"
 
 #ifndef SIMD_INLINE
 #define SIMD_INLINE static AOM_FORCE_INLINE

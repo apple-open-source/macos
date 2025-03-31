@@ -35,7 +35,7 @@ class StreamingEncoderBase {
             do {
                 try finish()
             } catch {
-                fatalError("StreamingEncoderBase could not write final byte")
+                Logger(subsystem: "StreamingEncoder", category: "init").error("StreamingEncoder could not write final byte: \(error)")
             }
         }
     }
@@ -106,12 +106,16 @@ class StreamingEncoderArray: StreamingEncoderBase {
 
     func descend(_ handler: (_: StreamingEncoderArray) throws -> Void) throws {
         try maybeComma()
-        try handler(try StreamingEncoderArray(fileDesc))
+        let sub = try StreamingEncoderArray(fileDesc)
+        try handler(sub)
+        try sub.finish()
     }
 
     func descend(_ handler: (_: StreamingEncoderDict) throws -> Void) throws {
         try maybeComma()
-        try handler(try StreamingEncoderDict(fileDesc))
+        let sub = try StreamingEncoderDict(fileDesc)
+        try handler(sub)
+        try sub.finish()
     }
 }
 
@@ -134,13 +138,17 @@ class StreamingEncoderDict: StreamingEncoderBase {
         try maybeComma()
         try Self.encode(fileDesc: fileDesc, obj: key)
         try fileDesc.writeAll(":".utf8)
-        try handler(try StreamingEncoderArray(fileDesc))
+        let sub = try StreamingEncoderArray(fileDesc)
+        try handler(sub)
+        try sub.finish()
     }
 
     func descend(_ key: String, _ handler: (_: StreamingEncoderDict) throws -> Void) throws {
         try maybeComma()
         try Self.encode(fileDesc: fileDesc, obj: key)
         try fileDesc.writeAll(":".utf8)
-        try handler(try StreamingEncoderDict(fileDesc))
+        let sub = try StreamingEncoderDict(fileDesc)
+        try handler(sub)
+        try sub.finish()
     }
 }

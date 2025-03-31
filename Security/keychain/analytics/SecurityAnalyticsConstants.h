@@ -51,7 +51,6 @@ extern NSString *const kSecurityRTCEventNameCreatesSOSApplication;
 extern NSString *const kSecurityRTCEventNameAcceptorCreatesPacket4; // sends voucher
 extern NSString *const kSecurityRTCEventNameVerifySOSApplication;
 extern NSString *const kSecurityRTCEventNameCreateSOSCircleBlob;
-extern NSString *const kSecurityRTCEventNameTrustedDeviceListRefresh;
 extern NSString *const kSecurityRTCEventNameCKKSTlkFetch;
 extern NSString *const kSecurityRTCEventNameUpdateTrust;
 extern NSString *const kSecurityRTCEventNameInitiatorJoinsTrustSystems;
@@ -59,7 +58,8 @@ extern NSString *const kSecurityRTCEventNameInitiatorJoinsSOS;
 extern NSString *const kSecurityRTCEventNameUpdateTDL;
 extern NSString *const kSecurityRTCEventNameFetchAndPersistChanges;
 extern NSString *const kSecurityRTCEventNameFetchPolicyDocument;
-extern NSString *const kSecurityRTCEventNameJoin;
+extern NSString *const kSecurityRTCEventNameJoinWithVoucherOperation;
+extern NSString *const kSecurityRTCEventNameJoinWithVoucherInTPH;
 extern NSString *const kSecurityRTCEventNameInitiatorWaitsForUpgrade;
 extern NSString *const kSecurityRTCEventNamePreApprovedJoin;
 extern NSString *const kSecurityRTCEventNameAcceptorCreatesPacket5; // sends initial sync data
@@ -82,6 +82,39 @@ extern NSString *const kSecurityRTCEventNamePairingFailedFetchPCSItems;
 extern NSString *const kSecurityRTCEventNamePairingEmptyOctagonPayload;
 extern NSString *const kSecurityRTCEventNamePairingEmptyAckPayload;
 extern NSString *const kSecurityRTCEventNameRPDDeleteAllRecords;
+extern NSString *const kSecurityRTCEventNamePairingFailedToFetchItemForPersistentRef;
+extern NSString *const kSecurityRTCEventNamePiggybackingAcceptorInitialMessage;
+extern NSString *const kSecurityRTCEventNamePiggybackingAcceptorProcessMessage;
+extern NSString *const kSecurityRTCEventNamePiggybackingAcceptorProcessApplication;
+extern NSString *const kSecurityRTCEventNamePiggybackingSessionInitiatorInitialMessage;
+extern NSString *const kSecurityRTCEventNamePiggybackingSessionInitiatorHandleChallenge;
+extern NSString *const kSecurityRTCEventNamePiggybackingSessionInitiatorHandleVerification;
+extern NSString *const kSecurityRTCEventNamePiggybackingCircleInitiatorInitialMessage;
+extern NSString *const kSecurityRTCEventNamePiggybackingCircleInitiatorHandleCircleBlobMessage;
+
+// MARK: Escrow Recovery Events
+extern NSString *const kSecurityRTCEventNamePerformSilentEscrowRecovery;
+extern NSString *const kSecurityRTCEventNameRecoverSilentWithCDPContext;
+extern NSString *const kSecurityRTCEventNameRecoverWithInfo;
+extern NSString *const kSecurityRTCEventNameHandleRecoveryResults;
+extern NSString *const kSecurityRTCEventNameRestoreFromBottleEvent;
+extern NSString *const kSecurityRTCEventNameHandleRecoveryResultsResetAndEstablish;
+extern NSString *const kSecurityRTCEventNameRestoreKeychainAsyncWithPassword;
+extern NSString *const kSecurityRTCEventNameVouchWithBottle;
+extern NSString *const kSecurityRTCEventNamePreflightVouchWithBottle;
+extern NSString *const kSecurityRTCEventNameFetchRecoverableTLKShares;
+extern NSString *const kSecurityRTCEventNameVouchWithBottleTPH;
+
+
+extern NSString *const kSecurityRTCEventNamePerformEscrowRecovery;
+extern NSString *const kSecurityRTCEventNameRecoverWithCDPContext;
+
+
+// MARK: Account Creation
+extern NSString *const kSecurityRTCEventNameEstablish;
+extern NSString *const kSecurityRTCEventNameEstablishOperation;
+extern NSString *const kSecurityRTCEventNameOnqueueEstablishTPH;
+extern NSString *const kSecurityRTCEventNameFetchAfterEstablish;
 
 // MARK: RTC Fields
 
@@ -165,6 +198,20 @@ extern NSString *const kSecurityRTCFieldNumLocalRecords;
 extern NSString *const kSecurityRTCFieldNumKeychainItems;
 extern NSString *const kSecurityRTCFieldTotalCKRecords;
 extern NSString *const kSecurityRTCFieldAvgCKRecords;
+
+/* Escrow Recovery Fields */
+extern NSString *const kSecurityRTCFieldRecordDataMissing;
+extern NSString *const kSecurityRTCFieldMissingDigest;
+extern NSString *const kSecurityRTCFieldMissingPassword;
+
+/* Join metrics */
+extern NSString *const kSecurityRTCFieldTotalNumberOfPeers;
+extern NSString *const kSecurityRTCFieldTotalNumberOfRecoveryKeys;
+extern NSString *const kSecurityRTCFieldTotalNumberOfDistrustedRecoveryKeys;
+extern NSString *const kSecurityRTCFieldTotalNumberOfCustodians;
+extern NSString *const kSecurityRTCFieldTotalNumberOfTrustedRecoveryKeys;
+extern NSString *const kSecurityRTCFieldTotalNumberOfTrustedCustodians;
+extern NSString *const kSecurityRTCFieldTotalNumberOfPreapprovals;
 
 NS_ASSUME_NONNULL_END
 

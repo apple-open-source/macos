@@ -2,7 +2,7 @@
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
  *           (C) 2001 Dirk Mueller (mueller@kde.org)
- * Copyright (C) 2004-2016 Apple Inc. All rights reserved.
+ * Copyright (C) 2004-2024 Apple Inc. All rights reserved.
  *           (C) 2006 Alexey Proskuryakov (ap@nypop.com)
  *
  * This library is free software; you can redistribute it and/or
@@ -45,16 +45,18 @@ WTF_MAKE_TZONE_ALLOCATED_IMPL(FormListedElement);
 using namespace HTMLNames;
 
 class FormAttributeTargetObserver final : private IdTargetObserver {
-    WTF_MAKE_TZONE_ALLOCATED_INLINE(FormAttributeTargetObserver);
+    WTF_MAKE_TZONE_ALLOCATED(FormAttributeTargetObserver);
     WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(FormAttributeTargetObserver);
 public:
     FormAttributeTargetObserver(const AtomString& id, FormListedElement&);
 
 private:
-    void idTargetChanged() override;
+    void idTargetChanged(Element&) override;
 
     FormListedElement& m_element;
 };
+
+WTF_MAKE_TZONE_ALLOCATED_IMPL(FormAttributeTargetObserver);
 
 FormListedElement::FormListedElement(HTMLFormElement* form)
     : FormAssociatedElement(form)
@@ -296,7 +298,7 @@ FormAttributeTargetObserver::FormAttributeTargetObserver(const AtomString& id, F
 {
 }
 
-void FormAttributeTargetObserver::idTargetChanged()
+void FormAttributeTargetObserver::idTargetChanged(Element&)
 {
     m_element.formAttributeTargetChanged();
 }

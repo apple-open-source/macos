@@ -79,6 +79,9 @@ if (!build_with_chromium) {
         "video:sv_loopback",
         "video:video_loopback",
       ]
+      if (use_libfuzzer) {
+        deps += [ "test/fuzzers" ]
+      }
       if (!is_asan) {
         # Do not build :webrtc_lib_link_test because lld complains on some OS
         # (e.g. when target_os = "mac") when is_asan=true. For more details,
@@ -367,10 +370,6 @@ config("common_config") {
     defines += [ "RTC_DISABLE_METRICS" ]
   }
 
-  if (rtc_exclude_transient_suppressor) {
-    defines += [ "WEBRTC_EXCLUDE_TRANSIENT_SUPPRESSOR" ]
-  }
-
   if (rtc_exclude_audio_processing_module) {
     defines += [ "WEBRTC_EXCLUDE_AUDIO_PROCESSING_MODULE" ]
   }
@@ -420,19 +419,11 @@ config("common_config") {
     }
 
     if (is_clang) {
-      cflags += [ "-Wc++11-narrowing" ]
-
-      if (!is_fuchsia) {
-        # Compiling with the Fuchsia SDK results in Wundef errors
-        # TODO(bugs.fuchsia.dev/100722): Remove from (!is_fuchsia) branch when
-        # Fuchsia build errors are fixed.
-        cflags += [ "-Wundef" ]
-      }
-
-      if (!is_nacl) {
-        # Flags NaCl (Clang 3.7) do not recognize.
-        cflags += [ "-Wunused-lambda-capture" ]
-      }
+      cflags += [
+        "-Wc++11-narrowing",
+        "-Wundef",
+        "-Wunused-lambda-capture",
+      ]
     }
 
     if (is_win && !is_clang) {
@@ -513,6 +504,18 @@ config("common_objc") {
   frameworks = [ "Foundation.framework" ]
 }
 
+if (!rtc_build_ssl) {
+  config("external_ssl_library") {
+    if (rtc_ssl_root != "") {
+      include_dirs = [ rtc_ssl_root ]
+    }
+    libs = [
+      "crypto",
+      "ssl",
+    ]
+  }
+}
+
 if (!build_with_chromium) {
   # Target to build all the WebRTC production code.
   rtc_static_library("webrtc") {
@@ -533,6 +536,7 @@ if (!build_with_chromium) {
       "api:libjingle_peerconnection_api",
       "api:rtc_error",
       "api:transport_api",
+      "api/audio_codecs:opus_audio_decoder_factory",
       "api/crypto",
       "api/rtc_event_log:rtc_event_log_factory",
       "api/task_queue",
@@ -634,7 +638,7 @@ if (rtc_include_tests && !build_with_chromium) {
     deps = [
       "api:compile_all_headers",
       "api:rtc_api_unittests",
-      "api/audio/test:audio_api_unittests",
+      "api/audio:audio_api_unittests",
       "api/audio_codecs/test:audio_codecs_api_unittests",
       "api/numerics:numerics_unittests",
       "api/task_queue:pending_task_safety_flag_unittests",
@@ -650,6 +654,7 @@ if (rtc_include_tests && !build_with_chromium) {
       "p2p:rtc_p2p_unittests",
       "rtc_base:async_dns_resolver_unittests",
       "rtc_base:async_packet_socket_unittest",
+      "rtc_base:async_udp_socket_unittest",
       "rtc_base:callback_list_unittests",
       "rtc_base:rtc_base_approved_unittests",
       "rtc_base:rtc_base_unittests",
@@ -709,6 +714,7 @@ if (rtc_include_tests && !build_with_chromium) {
 
   # TODO(pbos): Rename test suite, this is no longer "just" for video targets.
   video_engine_tests_resources = [
+    "resources/ConferenceMotion_1280_720_50.yuv",
     "resources/foreman_cif_short.yuv",
     "resources/voice_engine/audio_long16.pcm",
   ]

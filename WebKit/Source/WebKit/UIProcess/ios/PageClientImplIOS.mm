@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2012-2023 Apple Inc. All rights reserved.
+ * Copyright (C) 2012-2024 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -96,7 +96,7 @@ PageClientImpl::~PageClientImpl()
 {
 }
 
-std::unique_ptr<DrawingAreaProxy> PageClientImpl::createDrawingAreaProxy(WebProcessProxy& webProcessProxy)
+Ref<DrawingAreaProxy> PageClientImpl::createDrawingAreaProxy(WebProcessProxy& webProcessProxy)
 {
     return [contentView() _createDrawingAreaProxy:webProcessProxy];
 }
@@ -360,11 +360,6 @@ void PageClientImpl::setCursorHiddenUntilMouseMoves(bool)
     notImplemented();
 }
 
-void PageClientImpl::didChangeViewportProperties(const ViewportAttributes&)
-{
-    notImplemented();
-}
-
 void PageClientImpl::registerEditCommand(Ref<WebEditCommandProxy>&& command, UndoOrRedo undoOrRedo)
 {
     auto actionName = command->label();
@@ -391,7 +386,7 @@ void PageClientImpl::executeUndoRedo(UndoOrRedo undoOrRedo)
     return (undoOrRedo == UndoOrRedo::Undo) ? [[contentView() undoManager] undo] : [[contentView() undoManager] redo];
 }
 
-void PageClientImpl::accessibilityWebProcessTokenReceived(std::span<const uint8_t> data, WebCore::FrameIdentifier, pid_t)
+void PageClientImpl::accessibilityWebProcessTokenReceived(std::span<const uint8_t> data, pid_t)
 {
     [contentView() _setAccessibilityWebProcessToken:toNSData(data).get()];
 }
@@ -461,6 +456,11 @@ FloatRect PageClientImpl::convertToUserSpace(const FloatRect& rect)
 IntPoint PageClientImpl::screenToRootView(const IntPoint& point)
 {
     return IntPoint([contentView() convertPoint:point fromView:nil]);
+}
+
+IntPoint PageClientImpl::rootViewToScreen(const IntPoint& point)
+{
+    return IntPoint([contentView() convertPoint:point toView:nil]);
 }
 
 IntRect PageClientImpl::rootViewToScreen(const IntRect& rect)
@@ -680,6 +680,11 @@ void PageClientImpl::updateInputContextAfterBlurringAndRefocusingElement()
     [contentView() _updateInputContextAfterBlurringAndRefocusingElement];
 }
 
+void PageClientImpl::didProgrammaticallyClearFocusedElement(WebCore::ElementContext&& context)
+{
+    [contentView() _didProgrammaticallyClearFocusedElement:WTFMove(context)];
+}
+
 void PageClientImpl::updateFocusedElementInformation(const FocusedElementInformation& information)
 {
     [contentView() _updateFocusedElementInformation:information];
@@ -703,6 +708,11 @@ void PageClientImpl::focusedElementDidChangeInputMode(WebCore::InputMode mode)
 void PageClientImpl::didUpdateEditorState()
 {
     [contentView() _didUpdateEditorState];
+}
+
+void PageClientImpl::reconcileEnclosingScrollViewContentOffset(EditorState& state)
+{
+    [contentView() _reconcileEnclosingScrollViewContentOffset:state];
 }
 
 void PageClientImpl::showPlaybackTargetPicker(bool hasVideo, const IntRect& elementRect, WebCore::RouteSharingPolicy policy, const String& contextUID)
@@ -761,6 +771,8 @@ void PageClientImpl::disableInspectorNodeSearch()
 
 WebFullScreenManagerProxyClient& PageClientImpl::fullScreenManagerProxyClient()
 {
+    if (m_fullscreenClientForTesting)
+        return *m_fullscreenClientForTesting;
     return *this;
 }
 
@@ -780,10 +792,19 @@ bool PageClientImpl::isFullScreen()
     return [webView fullScreenWindowController].isFullScreen;
 }
 
-void PageClientImpl::enterFullScreen(FloatSize mediaDimensions)
+void PageClientImpl::enterFullScreen(FloatSize mediaDimensions, CompletionHandler<void(bool)>&& completionHandler)
 {
-    [[webView() fullScreenWindowController] enterFullScreen:mediaDimensions];
+    if (![webView() fullScreenWindowController])
+        return completionHandler(false);
+    [[webView() fullScreenWindowController] enterFullScreen:mediaDimensions completionHandler:WTFMove(completionHandler)];
 }
+
+#if ENABLE(QUICKLOOK_FULLSCREEN)
+void PageClientImpl::updateImageSource()
+{
+    [[webView() fullScreenWindowController] updateImageSource];
+}
+#endif
 
 void PageClientImpl::exitFullScreen()
 {
@@ -844,12 +865,12 @@ void PageClientImpl::scrollingNodeScrollViewDidScroll(ScrollingNodeID)
     [contentView() _didScroll];
 }
 
-void PageClientImpl::scrollingNodeScrollWillStartScroll(ScrollingNodeID nodeID)
+void PageClientImpl::scrollingNodeScrollWillStartScroll(std::optional<ScrollingNodeID> nodeID)
 {
     [contentView() _scrollingNodeScrollingWillBegin:nodeID];
 }
 
-void PageClientImpl::scrollingNodeScrollDidEndScroll(ScrollingNodeID nodeID)
+void PageClientImpl::scrollingNodeScrollDidEndScroll(std::optional<ScrollingNodeID> nodeID)
 {
     [contentView() _scrollingNodeScrollingDidEnd:nodeID];
 }
@@ -964,26 +985,10 @@ Ref<ValidationBubble> PageClientImpl::createValidationBubble(const String& messa
     return ValidationBubble::create(m_contentView.getAutoreleased(), message, settings);
 }
 
-#if ENABLE(INPUT_TYPE_COLOR)
-RefPtr<WebColorPicker> PageClientImpl::createColorPicker(WebPageProxy*, const WebCore::Color& initialColor, const WebCore::IntRect&, Vector<WebCore::Color>&&)
-{
-    return nullptr;
-}
-#endif
-
-#if ENABLE(DATALIST_ELEMENT)
 RefPtr<WebDataListSuggestionsDropdown> PageClientImpl::createDataListSuggestionsDropdown(WebPageProxy& page)
 {
     return WebDataListSuggestionsDropdownIOS::create(page, m_contentView.getAutoreleased());
 }
-#endif
-
-#if ENABLE(DATE_AND_TIME_INPUT_TYPES)
-RefPtr<WebDateTimePicker> PageClientImpl::createDateTimePicker(WebPageProxy&)
-{
-    return nullptr;
-}
-#endif
 
 #if ENABLE(DRAG_SUPPORT)
 void PageClientImpl::didPerformDragOperation(bool handled)
@@ -1128,6 +1133,11 @@ void PageClientImpl::handleAsynchronousCancelableScrollEvent(WKBaseScrollView *s
 }
 #endif
 
+bool PageClientImpl::isSimulatingCompatibilityPointerTouches() const
+{
+    return [webView() _isSimulatingCompatibilityPointerTouches];
+}
+
 void PageClientImpl::runModalJavaScriptDialog(CompletionHandler<void()>&& callback)
 {
     [contentView() runModalJavaScriptDialog:WTFMove(callback)];
@@ -1237,6 +1247,18 @@ const String& PageClientImpl::spatialTrackingLabel() const
 void PageClientImpl::scheduleVisibleContentRectUpdate()
 {
     [webView() _scheduleVisibleContentRectUpdate];
+}
+
+#if ENABLE(PDF_PLUGIN)
+void PageClientImpl::pluginDidInstallPDFDocument(double initialScale)
+{
+    [webView() _pluginDidInstallPDFDocument:initialScale];
+}
+#endif
+
+bool PageClientImpl::isPotentialTapInProgress() const
+{
+    return [m_contentView isPotentialTapInProgress];
 }
 
 } // namespace WebKit

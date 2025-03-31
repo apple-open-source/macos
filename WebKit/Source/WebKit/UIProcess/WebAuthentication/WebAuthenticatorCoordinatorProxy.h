@@ -33,6 +33,7 @@
 #include <WebCore/MediationRequirement.h>
 #include <wtf/CompletionHandler.h>
 #include <wtf/Forward.h>
+#include <wtf/MonotonicTime.h>
 #include <wtf/Noncopyable.h>
 #include <wtf/TZoneMalloc.h>
 
@@ -62,15 +63,6 @@ OBJC_CLASS ASCAgentProxy;
 #endif
 
 namespace WebKit {
-class WebAuthenticatorCoordinatorProxy;
-}
-
-namespace WTF {
-template<typename T> struct IsDeprecatedWeakRefSmartPointerException;
-template<> struct IsDeprecatedWeakRefSmartPointerException<WebKit::WebAuthenticatorCoordinatorProxy> : std::true_type { };
-}
-
-namespace WebKit {
 
 class WebPageProxy;
 
@@ -78,26 +70,38 @@ struct FrameInfoData;
 struct SharedPreferencesForWebProcess;
 struct WebAuthenticationRequestData;
 
+struct AutofillEvent {
+    MonotonicTime time;
+    String username;
+    URL url;
+};
+
 using CapabilitiesCompletionHandler = CompletionHandler<void(Vector<KeyValuePair<String, bool>>&&)>;
 using RequestCompletionHandler = CompletionHandler<void(const WebCore::AuthenticatorResponseData&, WebCore::AuthenticatorAttachment, const WebCore::ExceptionData&)>;
 
-class WebAuthenticatorCoordinatorProxy : public IPC::MessageReceiver {
+class WebAuthenticatorCoordinatorProxy : public IPC::MessageReceiver, public RefCounted<WebAuthenticatorCoordinatorProxy> {
     WTF_MAKE_TZONE_ALLOCATED(WebAuthenticatorCoordinatorProxy);
     WTF_MAKE_NONCOPYABLE(WebAuthenticatorCoordinatorProxy);
 public:
-    explicit WebAuthenticatorCoordinatorProxy(WebPageProxy&);
+    static Ref<WebAuthenticatorCoordinatorProxy> create(WebPageProxy&);
     ~WebAuthenticatorCoordinatorProxy();
 
-    const SharedPreferencesForWebProcess& sharedPreferencesForWebProcess() const;
+    void ref() const final { RefCounted::ref(); }
+    void deref() const final { RefCounted::deref(); }
+
+    std::optional<SharedPreferencesForWebProcess> sharedPreferencesForWebProcess() const;
 
 #if HAVE(WEB_AUTHN_AS_MODERN)
     static WeakPtr<WebAuthenticatorCoordinatorProxy>& activeConditionalMediationProxy();
     void pauseConditionalAssertion(CompletionHandler<void()>&&);
     void unpauseConditionalAssertion();
     void makeActiveConditionalAssertion();
+    void recordAutofill(const String& username, const URL&);
 #endif
 
 private:
+    explicit WebAuthenticatorCoordinatorProxy(WebPageProxy&);
+
     using QueryCompletionHandler = CompletionHandler<void(bool)>;
 
     // IPC::MessageReceiver.
@@ -113,7 +117,7 @@ private:
 
     void handleRequest(WebAuthenticationRequestData&&, RequestCompletionHandler&&);
 
-    WebPageProxy& m_webPageProxy;
+    WeakPtr<WebPageProxy> m_webPageProxy;
 
 #if HAVE(UNIFIED_ASC_AUTH_UI) || HAVE(WEB_AUTHN_AS_MODERN)
     bool isASCAvailable();
@@ -123,6 +127,9 @@ private:
     RetainPtr<ASAuthorizationController> constructASController(const WebAuthenticationRequestData&);
     RetainPtr<NSArray> requestsForRegistration(const WebCore::PublicKeyCredentialCreationOptions&, const WebCore::SecurityOriginData& callerOrigin);
     RetainPtr<NSArray> requestsForAssertion(const WebCore::PublicKeyCredentialRequestOptions&, const WebCore::SecurityOriginData& callerOrigin, const std::optional<WebCore::SecurityOriginData>& parentOrigin);
+    bool removeMatchingAutofillEventForUsername(const String&, const WebCore::SecurityOriginData&);
+    void removeExpiredAutofillEvents();
+
 #endif
 
     void performRequest(WebAuthenticationRequestData&&, RequestCompletionHandler&&);
@@ -138,6 +145,7 @@ private:
     RetainPtr<ASAuthorizationController> m_controller;
     bool m_paused { false };
     bool m_isConditionalMediation { false };
+    Vector<AutofillEvent> m_recentAutofills;
 #endif
 
 #if HAVE(UNIFIED_ASC_AUTH_UI)

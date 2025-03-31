@@ -52,6 +52,8 @@
                          lastScan:(NSDate* _Nullable)lastScan
                         lastFixup:(CKKSFixup)lastFixup
                encodedRateLimiter:(NSData* _Nullable)encodedRateLimiter
+          fetchNewestChangesFirst:(BOOL)fetchNewestChangesFirst
+              initialSyncFinished:(BOOL)initialSyncFinished
 {
     if(self = [super init]) {
         _contextID = contextID;
@@ -63,6 +65,8 @@
         _lastFetchTime = lastFetch;
         _lastLocalKeychainScanTime = lastScan;
         _lastFixup = lastFixup;
+        _fetchNewestChangesFirst = fetchNewestChangesFirst;
+        _initialSyncFinished = initialSyncFinished;
 
         self.encodedRateLimiter = encodedRateLimiter;
     }
@@ -70,12 +74,14 @@
 }
 
 - (NSString*)description {
-    return [NSString stringWithFormat:@"<CKKSZoneStateEntry[%@](%@): created:%@ subscribed:%@ moreRecords:%@>",
+    return [NSString stringWithFormat:@"<CKKSZoneStateEntry[%@](%@): created:%@ subscribed:%@ moreRecords:%@ fetchNewestChangesFirst:%@ initialSyncFinished:%@>",
             self.contextID,
             self.ckzone,
             self.ckzonecreated ? @"YES" : @"NO",
             self.ckzonesubscribed ? @"YES" : @"NO",
-            self.moreRecordsInCloudKit ? @"YES" : @"NO"
+            self.moreRecordsInCloudKit ? @"YES" : @"NO",
+            self.fetchNewestChangesFirst ? @"YES" : @"NO",
+            self.initialSyncFinished ? @"YES" : @"NO"
     ];
 }
 
@@ -96,6 +102,8 @@
             ((self.rateLimiter == nil && obj.rateLimiter == nil) || [self.rateLimiter isEqual: obj.rateLimiter]) &&
             self.lastFixup == obj.lastFixup &&
             ((self.lastLocalKeychainScanTime == nil && obj.lastLocalKeychainScanTime == nil) || [self.lastLocalKeychainScanTime isEqualToDate: obj.lastLocalKeychainScanTime]) &&
+            self.fetchNewestChangesFirst == obj.fetchNewestChangesFirst &&
+            self.initialSyncFinished == obj.initialSyncFinished &&
             true) ? YES : NO;
 }
 
@@ -119,7 +127,9 @@
                                                   lastFetch:nil
                                                    lastScan:nil
                                                   lastFixup:CKKSCurrentFixupNumber
-                                         encodedRateLimiter:nil];
+                                         encodedRateLimiter:nil
+                                    fetchNewestChangesFirst:YES
+                                        initialSyncFinished:NO];
     }
     return ret;
 }
@@ -184,7 +194,7 @@
 
 + (NSArray<NSString*>*) sqlColumns {
     // Note that 'extra' is not currently used, but the schema supports adding a protobuf or other serialized data
-    return @[@"contextID", @"ckzone", @"ckzonecreated", @"ckzonesubscribed", @"changetoken", @"lastfetch", @"ratelimiter", @"lastFixup", @"morecoming", @"lastscan", @"extra"];
+    return @[@"contextID", @"ckzone", @"ckzonecreated", @"ckzonesubscribed", @"changetoken", @"lastfetch", @"ratelimiter", @"lastFixup", @"morecoming", @"lastscan", @"extra", @"fetchNewestChangesFirst", @"initialSyncFinished"];
 }
 
 - (NSDictionary<NSString*,NSString*>*) whereClauseToFindSelf {
@@ -208,6 +218,8 @@
         @"lastFixup": [NSNumber numberWithLong:self.lastFixup],
         @"morecoming": [NSNumber numberWithBool:self.moreRecordsInCloudKit],
         @"lastscan": CKKSNilToNSNull(self.lastLocalKeychainScanTime ? [dateFormat stringFromDate:self.lastLocalKeychainScanTime] : nil),
+        @"fetchNewestChangesFirst": [NSNumber numberWithBool:self.fetchNewestChangesFirst],
+        @"initialSyncFinished": [NSNumber numberWithBool:self.initialSyncFinished],
     };
 }
 
@@ -222,6 +234,8 @@
                                                 lastScan:row[@"lastscan"].asISO8601Date
                                                lastFixup:(CKKSFixup)row[@"lastFixup"].asNSInteger
                                       encodedRateLimiter:row[@"ratelimiter"].asBase64DecodedData
+                                 fetchNewestChangesFirst:row[@"fetchNewestChangesFirst"].asBOOL
+                                     initialSyncFinished:row[@"initialSyncFinished"].asBOOL
     ];
 }
 

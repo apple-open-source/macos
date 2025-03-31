@@ -60,11 +60,11 @@ namespace WebCore {
 // In the database, the state column in the SubscriptionSets table uses 0 for enabled and 1 for ignored.
 enum class SubscriptionSetsStateColumn { Enabled, Ignored };
 
-static constexpr ASCIILiteral pushDatabaseSchemaV1Statements[] = {
+static constexpr std::array<ASCIILiteral, 1> pushDatabaseSchemaV1Statements {
     "PRAGMA auto_vacuum=INCREMENTAL"_s,
 };
 
-static constexpr ASCIILiteral pushDatabaseSchemaV2Statements[] = {
+static constexpr std::array<ASCIILiteral, 3> pushDatabaseSchemaV2Statements {
     "CREATE TABLE SubscriptionSets("
     "  rowID INTEGER PRIMARY KEY AUTOINCREMENT,"
     "  creationTime INT NOT NULL,"
@@ -88,15 +88,15 @@ static constexpr ASCIILiteral pushDatabaseSchemaV2Statements[] = {
     "CREATE INDEX Subscriptions_SubscriptionSetID_Index ON Subscriptions(subscriptionSetID)"_s,
 };
 
-static constexpr ASCIILiteral pushDatabaseSchemaV3Statements[] = {
+static constexpr std::array<ASCIILiteral, 1> pushDatabaseSchemaV3Statements {
     "CREATE TABLE Metadata(key TEXT, value, UNIQUE(key))"_s,
 };
 
-static constexpr ASCIILiteral pushDatabaseSchemaV4Statements[] = {
+static constexpr std::array<ASCIILiteral, 1> pushDatabaseSchemaV4Statements {
     "ALTER TABLE SubscriptionSets ADD COLUMN state INT NOT NULL DEFAULT 0"_s,
 };
 
-static constexpr ASCIILiteral pushDatabaseSchemaV5Statements[] = {
+static constexpr std::array<ASCIILiteral, 4> pushDatabaseSchemaV5Statements {
     "ALTER TABLE SubscriptionSets RENAME TO SubscriptionSetsOld"_s,
     "CREATE TABLE SubscriptionSets("
     "  rowID INTEGER PRIMARY KEY AUTOINCREMENT,"
@@ -112,12 +112,12 @@ static constexpr ASCIILiteral pushDatabaseSchemaV5Statements[] = {
     "DROP TABLE SubscriptionSetsOld"_s,
 };
 
-static constexpr std::span<const ASCIILiteral> pushDatabaseSchemaStatements[] = {
-    { pushDatabaseSchemaV1Statements },
-    { pushDatabaseSchemaV2Statements },
-    { pushDatabaseSchemaV3Statements },
-    { pushDatabaseSchemaV4Statements },
-    { pushDatabaseSchemaV5Statements },
+static constexpr std::array<std::span<const ASCIILiteral>, 5> pushDatabaseSchemaStatements {
+    std::span { pushDatabaseSchemaV1Statements },
+    std::span { pushDatabaseSchemaV2Statements },
+    std::span { pushDatabaseSchemaV3Statements },
+    std::span { pushDatabaseSchemaV4Statements },
+    std::span { pushDatabaseSchemaV5Statements },
 };
 
 static constexpr int currentPushDatabaseVersion = std::size(pushDatabaseSchemaStatements);
@@ -283,7 +283,7 @@ void PushDatabase::create(const String& path, CreationHandler&& completionHandle
                 return;
             }
 
-            completionHandler(std::unique_ptr<PushDatabase>(new PushDatabase(WTFMove(queue), makeUniqueRefFromNonNullUniquePtr(WTFMove(database)))));
+            completionHandler(adoptRef(*new PushDatabase(WTFMove(queue), makeUniqueRefFromNonNullUniquePtr(WTFMove(database)))));
         });
     });
 }
@@ -517,7 +517,7 @@ void PushDatabase::insertRecord(const PushRecord& record, CompletionHandler<void
             if (!sql || sql->step() != SQLITE_DONE)
                 return completeOnMainQueue(WTFMove(completionHandler), std::optional<PushRecord> { });
 
-            record.identifier = LegacyNullableObjectIdentifier<PushSubscriptionIdentifierType>(m_db->lastInsertRowID());
+            record.identifier = ObjectIdentifier<PushSubscriptionIdentifierType>(m_db->lastInsertRowID());
         }
 
         transaction.commit();
@@ -575,7 +575,7 @@ void PushDatabase::removeRecordByIdentifier(PushSubscriptionIdentifier identifie
 static PushRecord makePushRecordFromRow(SQLiteStatementAutoResetScope& sql, int columnIndex)
 {
     return PushRecord {
-        .identifier = LegacyNullableObjectIdentifier<PushSubscriptionIdentifierType>(sql->columnInt64(columnIndex)),
+        .identifier = ObjectIdentifier<PushSubscriptionIdentifierType>(sql->columnInt64(columnIndex)),
         .subscriptionSetIdentifier = {
             .bundleIdentifier = sql->columnText(columnIndex + 1),
             .pushPartition = sql->columnText(columnIndex + 2),
@@ -635,7 +635,7 @@ void PushDatabase::getIdentifiers(CompletionHandler<void(HashSet<PushSubscriptio
         HashSet<PushSubscriptionIdentifier> result;
         auto sql = cachedStatementOnQueue("SELECT rowid FROM Subscriptions"_s);
         while (sql && sql->step() == SQLITE_ROW)
-            result.add(LegacyNullableObjectIdentifier<PushSubscriptionIdentifierType>(sql->columnInt64(0)));
+            result.add(ObjectIdentifier<PushSubscriptionIdentifierType>(sql->columnInt64(0)));
 
         completeOnMainQueue(WTFMove(completionHandler), WTFMove(result));
     });
@@ -754,7 +754,7 @@ void PushDatabase::removeRecordsBySubscriptionSet(const PushSubscriptionSetIdent
                 return;
 
             while (sql->step() == SQLITE_ROW) {
-                auto identifier = LegacyNullableObjectIdentifier<PushSubscriptionIdentifierType>(sql->columnInt(1));
+                auto identifier = ObjectIdentifier<PushSubscriptionIdentifierType>(sql->columnInt(1));
                 auto topic = sql->columnText(2);
                 auto serverVAPIDPublicKey = sql->columnBlob(3);
                 removedPushRecords.append({ identifier, WTFMove(topic), WTFMove(serverVAPIDPublicKey) });
@@ -817,7 +817,7 @@ void PushDatabase::removeRecordsBySubscriptionSetAndSecurityOrigin(const PushSub
 
             while (sql->step() == SQLITE_ROW) {
                 subscriptionSetID = sql->columnInt(0);
-                auto identifier = LegacyNullableObjectIdentifier<PushSubscriptionIdentifierType>(sql->columnInt(1));
+                auto identifier = ObjectIdentifier<PushSubscriptionIdentifierType>(sql->columnInt(1));
                 auto topic = sql->columnText(2);
                 auto serverVAPIDPublicKey = sql->columnBlob(3);
                 removedPushRecords.append({ identifier, WTFMove(topic), WTFMove(serverVAPIDPublicKey) });
@@ -867,7 +867,7 @@ void PushDatabase::removeRecordsByBundleIdentifierAndDataStore(const String& bun
                 return;
 
             while (sql->step() == SQLITE_ROW) {
-                auto identifier = LegacyNullableObjectIdentifier<PushSubscriptionIdentifierType>(sql->columnInt(1));
+                auto identifier = ObjectIdentifier<PushSubscriptionIdentifierType>(sql->columnInt(1));
                 auto topic = sql->columnText(2);
                 auto serverVAPIDPublicKey = sql->columnBlob(3);
                 removedPushRecords.append({ identifier, WTFMove(topic), WTFMove(serverVAPIDPublicKey) });

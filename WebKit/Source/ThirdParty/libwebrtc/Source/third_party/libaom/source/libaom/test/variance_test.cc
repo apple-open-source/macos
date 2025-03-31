@@ -14,7 +14,7 @@
 #include <ostream>
 #include <tuple>
 
-#include "third_party/googletest/src/googletest/include/gtest/gtest.h"
+#include "gtest/gtest.h"
 
 #include "config/aom_config.h"
 #include "config/aom_dsp_rtcd.h"
@@ -87,14 +87,6 @@ static void RoundHighBitDepth(int bit_depth, int64_t *se, uint64_t *sse) {
     case AOM_BITS_8:
     default: break;
   }
-}
-
-static unsigned int mb_ss_ref(const int16_t *src) {
-  unsigned int res = 0;
-  for (int i = 0; i < 256; ++i) {
-    res += src[i] * src[i];
-  }
-  return res;
 }
 
 /* Note:
@@ -344,6 +336,7 @@ static uint32_t obmc_subpel_variance_ref(const uint8_t *pre, int l2w, int l2h,
 
 ////////////////////////////////////////////////////////////////////////////////
 
+#if !CONFIG_REALTIME_ONLY
 class SumOfSquaresTest : public ::testing::TestWithParam<SumOfSquaresFunction> {
  public:
   SumOfSquaresTest() : func_(GetParam()) {}
@@ -370,6 +363,14 @@ void SumOfSquaresTest::ConstTest() {
   }
 }
 
+unsigned int mb_ss_ref(const int16_t *src) {
+  unsigned int res = 0;
+  for (int i = 0; i < 256; ++i) {
+    res += src[i] * src[i];
+  }
+  return res;
+}
+
 void SumOfSquaresTest::RefTest() {
   int16_t mem[256];
   for (int i = 0; i < 100; ++i) {
@@ -383,6 +384,7 @@ void SumOfSquaresTest::RefTest() {
     EXPECT_EQ(expected, res);
   }
 }
+#endif  // !CONFIG_REALTIME_ONLY
 
 ////////////////////////////////////////////////////////////////////////////////
 // Encapsulating struct to store the function to test along with
@@ -1729,8 +1731,10 @@ TEST_P(GetSseSum16x16DualTest, RefMseSum) { RefTestSseSumDual(); }
 TEST_P(GetSseSum16x16DualTest, MinSseSum) { MinTestSseSumDual(); }
 TEST_P(GetSseSum16x16DualTest, MaxMseSum) { MaxTestSseSumDual(); }
 TEST_P(GetSseSum16x16DualTest, DISABLED_Speed) { SseSum_SpeedTestDual(); }
+#if !CONFIG_REALTIME_ONLY
 TEST_P(SumOfSquaresTest, Const) { ConstTest(); }
 TEST_P(SumOfSquaresTest, Ref) { RefTest(); }
+#endif  // !CONFIG_REALTIME_ONLY
 TEST_P(AvxSubpelVarianceTest, Ref) { RefTest(); }
 TEST_P(AvxSubpelVarianceTest, ExtremeRef) { ExtremeRefTest(); }
 TEST_P(AvxSubpelVarianceTest, DISABLED_Speed) { SpeedTest(); }
@@ -1756,8 +1760,10 @@ INSTANTIATE_TEST_SUITE_P(
                       Mse16xHParams(2, 3, &aom_mse_16xh_16bit_c, 8),
                       Mse16xHParams(2, 2, &aom_mse_16xh_16bit_c, 8)));
 
+#if !CONFIG_REALTIME_ONLY
 INSTANTIATE_TEST_SUITE_P(C, SumOfSquaresTest,
                          ::testing::Values(aom_get_mb_ss_c));
+#endif  // !CONFIG_REALTIME_ONLY
 
 typedef TestParams<VarianceMxNFunc> MseParams;
 INSTANTIATE_TEST_SUITE_P(C, AvxMseTest,
@@ -2729,8 +2735,10 @@ INSTANTIATE_TEST_SUITE_P(
                       Mse16xHParams(2, 3, &aom_mse_16xh_16bit_sse2, 8),
                       Mse16xHParams(2, 2, &aom_mse_16xh_16bit_sse2, 8)));
 
+#if !CONFIG_REALTIME_ONLY
 INSTANTIATE_TEST_SUITE_P(SSE2, SumOfSquaresTest,
                          ::testing::Values(aom_get_mb_ss_sse2));
+#endif  // !CONFIG_REALTIME_ONLY
 
 INSTANTIATE_TEST_SUITE_P(SSE2, AvxMseTest,
                          ::testing::Values(MseParams(4, 4, &aom_mse16x16_sse2),
@@ -3411,8 +3419,10 @@ INSTANTIATE_TEST_SUITE_P(
                       Mse16xHParams(2, 3, &aom_mse_16xh_16bit_neon, 8),
                       Mse16xHParams(2, 2, &aom_mse_16xh_16bit_neon, 8)));
 
+#if !CONFIG_REALTIME_ONLY
 INSTANTIATE_TEST_SUITE_P(NEON, SumOfSquaresTest,
                          ::testing::Values(aom_get_mb_ss_neon));
+#endif  // !CONFIG_REALTIME_ONLY
 
 INSTANTIATE_TEST_SUITE_P(NEON, AvxMseTest,
                          ::testing::Values(MseParams(3, 3, &aom_mse8x8_neon),

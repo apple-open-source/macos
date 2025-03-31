@@ -205,8 +205,9 @@ fullpath(struct dosDirEntry *dir)
 	do {
 		np = dir->lname[0] ? dir->lname : dir->name;
 		nl = strlen(np);
-		if ((cp -= nl) <= namebuf + 1)
+		if ((cp - nl) <= namebuf + 1)
 			break;
+		cp -= nl;
 		memcpy(cp, np, nl);
 		*--cp = '/';
 	} while ((dir = dir->parent) != NULL);
@@ -454,6 +455,11 @@ delete(struct bootblock *boot, cl_t startcl, size_t startoff, cl_t endcl, size_t
                             fsck_print(fsck_ctx, LOG_CRIT, "%s (%s)\n", "Unable to read directory", strerror(errno));
                             return FSFATAL;
         }
+        if ((context->shadowFD > 0) &&
+            (pwrite(context->shadowFD, delbuf, clsz, off) != clsz)) {
+            fsck_print(fsck_ctx, LOG_INFO, "Failed to shadow at offset 0x%llx, length 0x%x (errno %d)", off, clsz, errno);
+        }
+
 		while (s < e) {
 			*s = SLOT_DELETED;
 			s += 32;
@@ -633,6 +639,11 @@ static errno_t isSubdirectory(struct bootblock *boot, struct dosDirEntry *dir, c
         goto fail;
     }
 
+    if ((context->shadowFD > 0) &&
+        (pwrite(context->shadowFD, buf, boot->BytesPerSec, offset) != boot->BytesPerSec)) {
+        fsck_print(fsck_ctx, LOG_INFO, "Failed to shadow at offset 0x%llx, length 0x%x (errno %d)", offset, boot->BytesPerSec, errno);
+    }
+
     /* Make sure the first two children are named "." and ".." */
     if (memcmp(buf, ".          ", 11) || memcmp(buf+32, "..         ", 11)) {
         err = ENOTDIR;
@@ -702,6 +713,10 @@ readDosDirSection(struct bootblock *boot, struct dosDirEntry *dir, int rdonly, c
         if (context->readHelper(context->resource, buffer, last, off) != last) {
             fsck_print(fsck_ctx, LOG_CRIT, "%s (%s)\n", "Unable to read directory", strerror(errno));
             return FSFATAL;
+        }
+        if ((context->shadowFD > 0) &&
+            (pwrite(context->shadowFD, buffer, last, off) != last)) {
+            fsck_print(fsck_ctx, LOG_INFO, "Failed to shadow at offset 0x%llx, length 0x%x (errno %d)", off, last, errno);
         }
 
 		last /= 32;

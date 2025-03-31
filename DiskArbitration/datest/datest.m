@@ -66,6 +66,7 @@ enum {
     kDADiskDisAppeared,
     kDADiskDescChanged,
     kDARename,
+    kDAEncode,
     kDAIdle,
     kDASessionKeepAliveWithDAIdle,
     kDASessionKeepAliveWithDADiskAppeared,
@@ -78,6 +79,7 @@ enum {
     kDAUseBlockCallback,
     kDASetFSKitAdditions,
     kDATestTelemetry,
+    kDAValue,
     kDAHelp,
     kDALast
 } options;
@@ -103,6 +105,8 @@ static struct option opts[] = {
 { "unmountApproval",                            no_argument,            0,              kDAUnmountApproval },
 { "ejectApproval",                              no_argument,            0,              kDAEjectApproval },
 { "rename",                                     no_argument,            0,              kDARename },
+{ "encode",                                     no_argument,            0,              kDAEncode },
+{ "value",                                      required_argument,      0,              kDAValue},
 { "name",                                       required_argument,      0,              kDAName},
 { "testDiskAppeared",                           no_argument,            0,              kDADiskAppeared },
 { "testDiskDisAppeared",                        no_argument,            0,              kDADiskDisAppeared },
@@ -436,15 +440,16 @@ void DiskMountCallback( DADiskRef disk, DADissenterRef dissenter, void *context 
 }
 
 
-DADissenterRef DiskApprovalCallback( DADiskRef disk, void * __nullable context )
+DADissenterRef DiskApprovalCallback( DADiskRef disk, void *context )
 {
     printf("approval callback received\n");
+    *(OSStatus *)context = 0;
     done = 1;
     return NULL;
 }
 
 
-void DiskUnmountCallback ( DADiskRef disk, DADissenterRef dissenter, void * context )
+void DiskUnmountCallback ( DADiskRef disk, DADissenterRef dissenter, void *context )
 {
     DAReturn    ret = 0;
     if (dissenter) {
@@ -483,6 +488,7 @@ static void
 DiskAppearedCallback( DADiskRef disk, void *context )
 {
     printf("DiskAppearedCallback dispatched\n");
+    *(OSStatus *)context = 0;
     done = 1;
 }
 
@@ -490,6 +496,7 @@ static void
 DiskDisAppearedCallback( DADiskRef disk, void *context )
 {
     printf("DiskDisAppearedCallback dispatched\n");
+    *(OSStatus *)context = 0;
     done = 1;
 }
 
@@ -499,12 +506,14 @@ void DiskDescriptionChangedCallback( DADiskRef disk, CFArrayRef keys, void *cont
     CFShow(disk);
     CFShow(keys);
     printf("DiskDescriptionChangedCallback dispatched\n");
+    *(OSStatus *)context = 0;
     done = 1;
 }
 
 void IdleCallback(void *context)
 {
     printf("Idle received\n");
+    *(OSStatus *)context = 0;
     done = 1;
 }
 
@@ -581,7 +590,7 @@ static void stopTestTelemetry( CFStringRef fsTypeExpected )
 
 static int testMount(struct clarg actargs[kDALast], bool approval)
 {
-    OSStatus                     ret = 1;
+    __block OSStatus        ret = 1;
     DASessionRef            _session = DASessionCreate(kCFAllocatorDefault);
     int                     validArgs[] = {kDADevice};
     CFURLRef                mountpoint = NULL;
@@ -637,6 +646,7 @@ static int testMount(struct clarg actargs[kDALast], bool approval)
             {
                 DADiskMountApprovalCallbackBlock bl = ^ DADissenterRef ( DADiskRef disk )
                 {
+                    ret = 0;
                     done = 1;
                     return NULL;
                 };
@@ -646,10 +656,9 @@ static int testMount(struct clarg actargs[kDALast], bool approval)
             }
             else
             {
-                DARegisterDiskMountApprovalCallback( _session, NULL, DiskApprovalCallback, NULL);
+                DARegisterDiskMountApprovalCallback( _session, NULL, DiskApprovalCallback, &ret);
                 DADiskMountWithArguments (_disk, mountpoint, options, NULL, &ret, mountoptions);
             }
-            ret = 0;
         }
         else
         {
@@ -666,16 +675,12 @@ static int testMount(struct clarg actargs[kDALast], bool approval)
             {
                 DADiskMountWithArguments (_disk, mountpoint, options, DiskMountCallback, &ret, mountoptions);
             }
-            ret = 0;
         }
     }
     DASessionSetDispatchQueue(_session, myDispatchQueue);
-    if ( ret == 0 )
+    if ( WaitForCallback() == false )
     {
-        if ( WaitForCallback() == false )
-        {
-            ret = -1;
-        }
+        ret = -1;
     }
     
     if ( actargs[kDATestTelemetry].present )
@@ -692,7 +697,7 @@ exit:
 
 static int testUnmount(struct clarg actargs[kDALast], int approval)
 {
-    OSStatus                     ret = 1;
+    __block OSStatus        ret = 1;
     DASessionRef _session = DASessionCreate(kCFAllocatorDefault);
     int                     validArgs[] = {kDADevice};
     
@@ -738,6 +743,7 @@ static int testUnmount(struct clarg actargs[kDALast], int approval)
             {
                 DADiskUnmountApprovalCallbackBlock bl = ^ DADissenterRef ( DADiskRef disk )
                 {
+                    ret = 0;
                     done = 1;
                     return NULL;
                 };
@@ -747,10 +753,9 @@ static int testUnmount(struct clarg actargs[kDALast], int approval)
             }
             else
             {
-                DARegisterDiskUnmountApprovalCallback( _session, NULL, DiskApprovalCallback, NULL);
+                DARegisterDiskUnmountApprovalCallback( _session, NULL, DiskApprovalCallback, &ret);
                 DADiskUnmount( _disk, options, NULL,  &ret );
             }
-            ret = 0;
         }
         else
         {
@@ -767,16 +772,12 @@ static int testUnmount(struct clarg actargs[kDALast], int approval)
             {
                 DADiskUnmount( _disk, options, DiskUnmountCallback,  &ret );
             }
-            ret = 0;
         }
     }
     DASessionSetDispatchQueue(_session, myDispatchQueue);
-    if ( ret == 0 )
+    if ( WaitForCallback() == false )
     {
-        if ( WaitForCallback() == false )
-        {
-            ret = -1;
-        }
+        ret = -1;
     }
 
     if ( actargs[kDATestTelemetry].present )
@@ -791,7 +792,7 @@ exit:
 
 static int testEject(struct clarg actargs[kDALast], int approval)
 {
-    OSStatus                     ret = 1;
+    __block OSStatus        ret = 1;
     DASessionRef _session = DASessionCreate(kCFAllocatorDefault);
     int                     validArgs[] = {kDADevice};
     CFDictionaryRef     description = NULL;
@@ -840,6 +841,7 @@ static int testEject(struct clarg actargs[kDALast], int approval)
             {
                 DADiskEjectApprovalCallbackBlock bl = ^ DADissenterRef ( DADiskRef disk )
                 {
+                    ret = 0;
                     done = 1;
                     return NULL;
                 };
@@ -852,13 +854,12 @@ static int testEject(struct clarg actargs[kDALast], int approval)
             }
             else
             {
-                DARegisterDiskEjectApprovalCallback( _session, NULL, DiskApprovalCallback, NULL);
+                DARegisterDiskEjectApprovalCallback( _session, NULL, DiskApprovalCallback, &ret);
                 DADiskEject( _disk,
                             options,
                             NULL,
                             &ret );
             }
-            ret = 0;
         }
         else
         {
@@ -884,16 +885,11 @@ static int testEject(struct clarg actargs[kDALast], int approval)
         }
         
         DASessionSetDispatchQueue(_session, myDispatchQueue);
-
-        ret = 0;
     }
     
-    if ( ret == 0 )
+    if ( WaitForCallback() == false )
     {
-        if ( WaitForCallback() == false )
-        {
-            ret = -1;
-        }
+        ret = -1;
     }
 
     if ( actargs[kDATestTelemetry].present )
@@ -908,7 +904,7 @@ exit:
 
 static int testDiskAppeared(struct clarg actargs[kDALast])
 {
-    int             ret = 1;
+    __block int  ret = 1;
     DASessionRef _session = DASessionCreate(kCFAllocatorDefault);
     
     myDispatchQueue = dispatch_queue_create("com.example.DiskArbTest", DISPATCH_QUEUE_SERIAL);
@@ -929,15 +925,11 @@ static int testDiskAppeared(struct clarg actargs[kDALast])
        }
     
         DASessionSetDispatchQueue(_session, myDispatchQueue);
-        ret = 0;
     }
     
-    if ( ret == 0 )
+    if ( WaitForCallback() == false )
     {
-        if ( WaitForCallback() == false )
-        {
-            ret = -1;
-        }
+        ret = -1;
     }
 
 exit:
@@ -946,7 +938,7 @@ exit:
 
 static int testDiskDisAppeared(struct clarg actargs[kDALast])
 {
-    int             ret = 1;
+    __block int  ret = 1;
     DASessionRef _session = DASessionCreate(kCFAllocatorDefault);
     int                     validArgs[] = {kDADevice};
     CFDictionaryRef     description = NULL;
@@ -998,16 +990,12 @@ static int testDiskDisAppeared(struct clarg actargs[kDALast])
                      NULL,
                      NULL );
         DASessionSetDispatchQueue(_session, myDispatchQueue);
-        ret = 0;
     }
     
-    if ( ret == 0 )
+    if ( WaitForCallback() == false )
     {
-        if ( WaitForCallback() == false )
-        {
-            ret = -1;
-            printf( "Eject failed. Check if any of the volumes are mounted.\n ");
-        }
+        ret = -1;
+        printf( "Eject failed. Check if any of the volumes are mounted.\n ");
     }
 
 exit:
@@ -1017,7 +1005,7 @@ exit:
 
 static int testDiskDescriptionChanged(struct clarg actargs[kDALast])
 {
-    int             ret = 1;
+    __block int         ret = 1;
     DASessionRef _session = DASessionCreate(kCFAllocatorDefault);
     int                     validArgs[] = {kDADevice};
     CFDictionaryRef     description = NULL;
@@ -1070,15 +1058,11 @@ static int testDiskDescriptionChanged(struct clarg actargs[kDALast])
                            NULL,
                            NULL );
         DASessionSetDispatchQueue(_session, myDispatchQueue);
-        ret = 0;
     }
     
-    if ( ret == 0 )
+    if ( WaitForCallback() == false )
     {
-        if ( WaitForCallback() == false )
-        {
-            ret = -1;
-        }
+        ret = -1;
     }
 
 exit:
@@ -1119,7 +1103,6 @@ static int testDASetFSKitAdditions(struct clarg actargs[kDALast])
         DARegisterDiskDescriptionChangedCallbackBlock(_session, NULL, NULL, block );
 
         DASessionSetDispatchQueue(_session, myDispatchQueue);
-        ret = 0;
     }
     else
     {
@@ -1132,10 +1115,11 @@ static int testDASetFSKitAdditions(struct clarg actargs[kDALast])
         if (error)
         {
             printf( "DADiskSetFSKitAdditions failed, error %d", error );
+            done = 1;
             ret = -1; // Fall through the !retrievedDisk test
         }
     });
-    if ( ret == 0 && WaitForCallback() == false )
+    if ( WaitForCallback() == false )
     {
         ret = -1;
         goto exit;
@@ -1177,7 +1161,7 @@ static int testDASetFSKitAdditions(struct clarg actargs[kDALast])
         }
     });
     // Remember the session still has the disk change callback set above
-    if ( ret == 0 && WaitForCallback() == false )
+    if ( WaitForCallback() == false )
     {
         ret = -1;
         goto exit;
@@ -1215,7 +1199,7 @@ exit:
 
 static int testDAIdle(struct clarg actargs[kDALast])
 {
-    int             ret = 1;
+    __block int             ret = 1;
     DASessionRef _session = DASessionCreate(kCFAllocatorDefault);
   
     DAIdleCallbackBlock block;
@@ -1227,24 +1211,20 @@ static int testDAIdle(struct clarg actargs[kDALast])
         {
             DAIdleCallbackBlock block =  ^( void )
             {
-                IdleCallback( NULL );
+                IdleCallback( &ret );
             };
             DARegisterIdleCallbackWithBlock(_session, block );
         }
         else
         {
-            DARegisterIdleCallback(_session, IdleCallback, NULL);
+            DARegisterIdleCallback( _session, IdleCallback, &ret );
         }
         DASessionSetDispatchQueue(_session, myDispatchQueue);
-        ret = 0;
     }
     
-    if ( ret == 0 )
+    if ( WaitForCallback() == false )
     {
-        if ( WaitForCallback() == false )
-        {
-            ret = -1;
-        }
+        ret = -1;
     }
 
 exit:
@@ -1258,7 +1238,7 @@ exit:
 
 static int testRename(struct clarg actargs[kDALast])
 {
-    OSStatus                     ret = 1;
+    __block OSStatus        ret = 1;
     DASessionRef _session = DASessionCreate(kCFAllocatorDefault);
     int                     validArgs[] = {kDADevice, kDAName};
     CFDictionaryRef     description = NULL;
@@ -1308,21 +1288,60 @@ static int testRename(struct clarg actargs[kDALast])
         }
         
         DASessionSetDispatchQueue(_session, myDispatchQueue);
-        ret = 0;
     }
     
-    if ( ret == 0 )
+    if ( WaitForCallback() == false )
     {
-        if ( WaitForCallback() == false )
-        {
-            ret = -1;
-        }
+        ret = -1;
     }
 
 exit:
     return ret;
 }
 
+static int testEncode(struct clarg actargs[kDALast])
+{
+    OSStatus                     ret = 1;
+    DASessionRef _session = DASessionCreate(kCFAllocatorDefault);
+    int                     validArgs[] = {kDADevice, kDAValue};
+    CFDictionaryRef     description = NULL;
+    
+    if (validateArguments(validArgs, sizeof(validArgs)/sizeof(int), actargs))
+    {
+        goto exit;
+    }
+    DADiskRef _disk = DADiskCreateFromBSDName(kCFAllocatorDefault, _session, actargs[kDADevice].argument);
+  
+    if (!_disk)      {
+        printf( "%s does not exist", actargs[kDADevice].argument);
+        goto exit;
+    }
+        
+    description = DADiskCopyDescription(_disk);
+    if (description) {
+            
+        if ( CFDictionaryGetValue(description, kDADiskDescriptionVolumePathKey) == NULL )
+        {
+            printf( "volume is not mounted. mount the volume and try again.\n ");
+            goto exit;
+        }
+    }
+    else
+    {
+        printf( "DADiskCopyDescription failed.\n ");
+        goto exit;
+    }
+    char* endptr;
+    int value = strtol(actargs[kDAValue].argument, &endptr, 10);
+    printf( "Encoding with value %d\n" , value);
+    if ( _session ) {
+          ret = _DADiskSetEncoding(_disk, value);
+    }
+    printf( "Setting Encoding completed with status %X \n" , ret);
+
+exit:
+    return ret;
+}
 
 static int TerminateDaemonToTriggerRelaunch()
 {
@@ -1349,20 +1368,16 @@ static int testDASessionKeepAliveWithDAIdle(struct clarg actargs[kDALast])
     
     if ( _session ) {
 
-        DARegisterIdleCallback(_session, IdleCallback, NULL);
+        DARegisterIdleCallback(_session, IdleCallback, &ret);
         DASessionSetDispatchQueue(_session, myDispatchQueue);
         DASessionKeepAlive( _session, myDispatchQueue);
         printf ("set the current session to be kept alive across daemon launches\n");
-        ret = 0;
     }
     
-    if ( ret == 0 )
+    if ( WaitForCallback() == false )
     {
-        if ( WaitForCallback() == false )
-        {
-            ret = -1;
-            goto exit;
-        }
+        ret = -1;
+        goto exit;
     }
     
     // wait for DA to exit
@@ -1586,6 +1601,10 @@ int main (int argc, char * argv[])
         return testRename(actargs);
     }
     
+    if(actargs[kDAEncode].present) {
+        return testEncode(actargs);
+    }
+    
     if(actargs[kDADiskAppeared].present) {
         return testDiskAppeared(actargs);
     }
@@ -1620,5 +1639,6 @@ int main (int argc, char * argv[])
     }
 
     /* default */
-    return 0;
+    usage();
+    return 1;
 }

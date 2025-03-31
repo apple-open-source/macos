@@ -20,7 +20,7 @@
 #include "aom_dsp/arm/transpose_neon.h"
 #include "av1/common/resize.h"
 
-static INLINE uint8x8_t convolve8_4(const int16x4_t s0, const int16x4_t s1,
+static inline uint8x8_t convolve8_4(const int16x4_t s0, const int16x4_t s1,
                                     const int16x4_t s2, const int16x4_t s3,
                                     const int16x4_t s4, const int16x4_t s5,
                                     const int16x4_t s6, const int16x4_t s7,
@@ -40,7 +40,7 @@ static INLINE uint8x8_t convolve8_4(const int16x4_t s0, const int16x4_t s1,
   return vqrshrun_n_s16(vcombine_s16(sum, vdup_n_s16(0)), FILTER_BITS);
 }
 
-static INLINE uint8x8_t convolve8_8(const int16x8_t s0, const int16x8_t s1,
+static inline uint8x8_t convolve8_8(const int16x8_t s0, const int16x8_t s1,
                                     const int16x8_t s2, const int16x8_t s3,
                                     const int16x8_t s4, const int16x8_t s5,
                                     const int16x8_t s6, const int16x8_t s7,

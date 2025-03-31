@@ -173,6 +173,8 @@ int options;
 #define	F_WAITTIME	0x400000
 #define	F_CONNECT	0x800000
 #define F_PRTIME	0x1000000
+#define F_PRID   	0x2000000
+#define F_PRREQ   	0x4000000
 
 /*
  * MAX_DUP_CHK is the number of bits in received table, i.e. the maximum
@@ -261,10 +263,14 @@ static int longopt_flag = 0;
 
 #define	LOF_CONNECT	0x01
 #define	LOF_PRTIME	0x02
+#define	LOF_PRID	0x04
+#define	LOF_PRREQ	0x08
 
 static const struct option longopts[] = {
 	{ "apple-connect", no_argument, &longopt_flag, LOF_CONNECT },
 	{ "apple-time", no_argument, &longopt_flag, LOF_PRTIME },
+	{ "apple-print-id", no_argument, &longopt_flag, LOF_PRID },
+	{ "apple-print-request", no_argument, &longopt_flag, LOF_PRREQ },
 	{ NULL, 0, NULL, 0 }
 };
 
@@ -585,6 +591,12 @@ main(int argc, char *const *argv)
 				case LOF_PRTIME:
 					options |= F_PRTIME;
 					thiszone = gmt2local(0);
+					break;
+				case LOF_PRID:
+					options |= F_PRID;
+					break;
+				case LOF_PRREQ:
+					options |= F_PRREQ;
 					break;
 				default:
 					break;
@@ -1139,7 +1151,7 @@ pinger(void)
 		timing = 1;
 	else
 		timing = 0;
-	
+
 	if ((options & F_TIME) || timing) {
 		(void)gettimeofday(&now, NULL);
 
@@ -1186,7 +1198,7 @@ pinger(void)
 
 		msg.msg_controllen = 0;
 		msg.msg_control = NULL;
-		
+
 		if (traffic_class >= 0) {
 			cm->cmsg_len = CMSG_LEN(sizeof(int));
 			cm->cmsg_level = SOL_SOCKET;
@@ -1213,7 +1225,7 @@ pinger(void)
 		} else {
 		i = sendto(s, (char *)packet, cc, 0, (struct sockaddr *)&whereto,
 			sizeof(whereto));
-	}
+		}
 	}
 	if (i < 0 || i != cc)  {
 		if (i < 0) {
@@ -1226,6 +1238,15 @@ pinger(void)
 			warn("%s: partial write: %d of %d bytes",
 			     hostname, i, cc);
 		}
+	} else if ((options & F_PRREQ) && !(options & F_FLOOD)) {
+			if (options & F_PRTIME)
+				pr_currenttime();
+			(void)printf("%d bytes to %s: icmp_seq=%u", cc,
+			   inet_ntoa(*(struct in_addr *)&whereto.sin_addr.s_addr),
+			   ntohs(icp->icmp_seq));
+			if (options & F_PRID)
+				(void)printf(" icmp_id=%u", icp->icmp_id);
+			printf("\n");
 	}
 	ntransmitted++;
 	sntransmitted++;
@@ -1339,6 +1360,8 @@ pr_pack(char *buf, int cc, struct sockaddr_in *from, struct timeval *tv,
 			(void)printf("%d bytes from %s: icmp_seq=%u", cc,
 			   inet_ntoa(*(struct in_addr *)&from->sin_addr.s_addr),
 			   seq);
+			if (options & F_PRID)
+				(void)printf(" icmp_id=%u", ident);
 			(void)printf(" ttl=%d", ip->ip_ttl);
 			if (timing)
 				(void)printf(" time=%.3f ms", triptime);
@@ -2070,7 +2093,9 @@ usage(void)
 	(void)fprintf(stderr, "            -b boundif           # bind the socket to the interface\n");
 	(void)fprintf(stderr, "            -k traffic_class     # set traffic class socket option\n");
 	(void)fprintf(stderr, "            -K net_service_type  # set traffic class socket options\n");
-	(void)fprintf(stderr, "            --apple-connect       # call connect(2) in the socket\n");
-	(void)fprintf(stderr, "            --apple-time          # display current time\n");
+	(void)fprintf(stderr, "            --apple-connect      # call connect(2) in the socket\n");
+	(void)fprintf(stderr, "            --apple-time         # display current time\n");
+	(void)fprintf(stderr, "            --apple-print-id     # display echo ID\n");
+	(void)fprintf(stderr, "            --apple-print-req    # display echo request\n");
 	exit(EX_USAGE);
 }

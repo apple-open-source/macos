@@ -24,6 +24,7 @@ KERNELFILES = \
 	vm_options.h \
 	vm_pageout.h \
 	vm_protos.h \
+	vm_far.h \
 	vm_shared_region.h \
 	vm_dyld_pager.h \
 	vm_compressor_algorithms.h \
@@ -48,6 +49,7 @@ XNU_ONLY_EXPORTS = \
 	vm_purgeable_xnu.h \
 	vm_reclaim_xnu.h \
 	vm_shared_region_xnu.h
+
 
 # Internal headers for the sake of bsd/vm/* and bsd/kern/kern_mman.c files only
 XNU_ONLY_EXPORTS += \

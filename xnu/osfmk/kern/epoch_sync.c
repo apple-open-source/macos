@@ -295,8 +295,7 @@ esync_put(ht_t *ht, esync_t *sync, esync_t *to_be_freed)
 		(void) os_ref_release(&sync->es_refcnt);
 
 		/* Drop the final refcnt and free it. */
-		cnt = os_ref_release(&sync->es_refcnt);
-		assert3u(cnt, ==, 0);
+		os_ref_release_last(&sync->es_refcnt);
 
 		/*
 		 * Before freeing (and potentially taking another lock), call
@@ -313,8 +312,7 @@ esync_put(ht_t *ht, esync_t *sync, esync_t *to_be_freed)
 
 	/* An unused entry, free it. */
 	if (to_be_freed != NULL) {
-		cnt = os_ref_release(&to_be_freed->es_refcnt);
-		assert3u(cnt, ==, 0);
+		os_ref_release_last(&to_be_freed->es_refcnt);
 		esync_free(to_be_freed);
 	}
 }

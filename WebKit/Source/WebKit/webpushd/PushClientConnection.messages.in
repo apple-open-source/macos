@@ -22,6 +22,7 @@
 
 #if ENABLE(WEB_PUSH_NOTIFICATIONS)
 
+[ExceptionForEnabledBy]
 messages -> WebPushD::PushClientConnection NotUsingIPCConnection {
     SetPushAndNotificationsEnabledForOrigin(String originString, bool enabled) -> ()
     GetPendingPushMessage() -> (std::optional<WebKit::WebPushMessage> message)

@@ -1,0 +1,46 @@
+#! /bin/sh
+
+. ${tstdir-.}/daemon.sh
+. ${tstdir-.}/lib.sh
+. ${tstdir-.}/conf.sh
+
+dest="$PWD/ftp"
+cfgfile="$PWD/rsyncd.conf"
+modlogfile="$PWD/module.log"
+xferlogfile="$PWD/xfer.log"
+
+rm -rf "$dest" "$modlogfile" "$xferlogfile"
+
+mkdir "$dest"
+echo "captured" > "$dest"/flag
+
+cat <<EOF > "$cfgfile"
+path = $dest
+use chroot = no
+max verbosity = 4
+
+[logged]
+	log file = $modlogfile
+[xferlogged]
+	log format = %o %m %f %l
+	log file = $xferlogfile
+	transfer logging = yes
+EOF
+
+rsyncd "$cfgfile"
+dport=$(daemon_port)
+
+command $RSYNC_CLIENT -vvv rsync://localhost:$dport/logged/flag from-logged > out
+cmp -s "from-logged" "$dest/flag"
+
+if [ ! -s "$modlogfile" ]; then
+	1>&2 echo "Module 'log file' is empty at high verbosity, should have text"
+	exit 1
+fi
+
+command $RSYNC_CLIENT rsync://localhost:$dport/xferlogged/flag xferlog-1
+if ! grep -qF 'send xferlogged flag 9' "$xferlogfile"; then
+	1>&2 echo "Transfer logging doesn't seem to be present in $xferlogfile"
+	1>&2 cat "$xferlogfile"
+	exit 1
+fi

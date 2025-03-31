@@ -1,0 +1,82 @@
+#! /bin/sh
+
+# atf:require.user=root
+
+. ${tstdir-.}/daemon.sh
+. ${tstdir-.}/lib.sh
+. ${tstdir-.}/conf.sh
+
+src="$PWD/src"
+dest="$PWD/ftp"
+cfgfile="$PWD/rsyncd.conf"
+
+rm -rf "$dest" "$src"
+
+mkdir "$dest" "$src"
+
+_uid=
+_gid=
+
+search_low=1
+search_high=4096
+
+for id in $(seq "$search_low" "$search_high"); do
+	if [ -z "$_uid" ] && check_id "$id" "uid"; then
+		_uid="$id"
+		[ -n "$_gid" ] && break
+
+		# We'll intentionally roll with a different UID and GID to make
+		# sure that there's no confusion between the two.
+		continue
+	fi
+	if [ -z "$_gid" ] && check_id "$id" "gid"; then
+		_gid="$id"
+		[ -n "$_uid" ] && break
+	fi
+done
+
+if [ -z "$_uid" -o -z "$_gid" ]; then
+	# This seems very unlikely.
+	1>&2 echo "Failed to find used uid and gid to run as between ${search_low} and ${search_higH}"
+	1>&2 echo "_uid=$_uid, _gid=$_gid"
+	exit 1
+fi
+
+1>&2 echo "Running as $_uid:$_gid"
+
+# Limit the destination to the unprivileged user to more closely mirror a real
+# world scenario.
+chown "$_uid:$_gid" "$dest"
+chmod 0700 "$dest"
+
+cat <<EOF > "$cfgfile"
+use chroot = no
+uid = $_uid
+gid = $_gid
+
+[public]
+	path = $dest
+	read only = false
+EOF
+
+rsyncd "$cfgfile"
+dport=$(daemon_port)
+
+echo "file" > "$src"/file
+command $RSYNC_CLIENT "$src"/file rsync://localhost:$dport/public/file
+
+if [ ! -f "$dest"/file ]; then
+	1>&2 echo "Daemon could not write file"
+	exit 1
+fi
+
+# XXX Should be `stat -c` on Linux; we should really have a stat(1) wrapper
+# that takes a format string and N files after.
+perms=$(stat -f "%u:%g" "$dest"/file)
+
+if [ "$perms" != "$_uid:$_gid" ]; then
+	1>&2 echo "Daemon chuser failed"
+	1>&2 echo "Expected: $_uid:$_gid"
+	1>&2 ls -ln "$dest"
+	exit 1
+fi

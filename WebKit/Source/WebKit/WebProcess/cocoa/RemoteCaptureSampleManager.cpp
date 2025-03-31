@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2020 Apple Inc. All rights reserved.
+ * Copyright (C) 2020-2024 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -31,6 +31,7 @@
 #include "RemoteVideoFrameObjectHeapProxy.h"
 #include "RemoteVideoFrameProxy.h"
 #include "SharedCARingBuffer.h"
+#include "UserMediaCaptureManager.h"
 #include "WebProcess.h"
 #include <WebCore/CVUtilities.h>
 #include <WebCore/NativeImage.h>
@@ -45,14 +46,25 @@ using namespace WebCore;
 
 WTF_MAKE_TZONE_ALLOCATED_IMPL(RemoteCaptureSampleManager);
 
-RemoteCaptureSampleManager::RemoteCaptureSampleManager()
-    : m_queue(WorkQueue::create("RemoteCaptureSampleManager"_s, WorkQueue::QOS::UserInteractive))
+RemoteCaptureSampleManager::RemoteCaptureSampleManager(UserMediaCaptureManager& manager)
+    : m_manager(manager)
+    , m_queue(WorkQueue::create("RemoteCaptureSampleManager"_s, WorkQueue::QOS::UserInteractive))
 {
 }
 
 RemoteCaptureSampleManager::~RemoteCaptureSampleManager()
 {
     ASSERT(!m_connection);
+}
+
+void RemoteCaptureSampleManager::ref() const
+{
+    m_manager->ref();
+}
+
+void RemoteCaptureSampleManager::deref() const
+{
+    m_manager->deref();
 }
 
 void RemoteCaptureSampleManager::stopListeningForIPC()
@@ -174,7 +186,7 @@ void RemoteCaptureSampleManager::videoFrameAvailableCV(RealtimeMediaSourceIdenti
     iterator->value->remoteVideoFrameAvailable(videoFrame.get(), metadata);
 }
 
-WTF_MAKE_TZONE_ALLOCATED_IMPL_NESTED(RemoteCaptureSampleManagerRemoteAudio, RemoteCaptureSampleManager::RemoteAudio);
+WTF_MAKE_TZONE_ALLOCATED_IMPL(RemoteCaptureSampleManager::RemoteAudio);
 
 RemoteCaptureSampleManager::RemoteAudio::RemoteAudio(Ref<RemoteRealtimeAudioSource>&& source)
     : m_source(WTFMove(source))

@@ -32,8 +32,7 @@
 #include <ResourceError.h>
 #include <ResourceResponse.h>
 #include <libsoup/soup.h>
-#include <wtf/glib/GRefPtr.h>
-#include <wtf/glib/GUniquePtr.h>
+#include <wtf/glib/GSpanExtras.h>
 
 namespace WebCore {
 
@@ -74,11 +73,9 @@ CertificateInfo CertificateInfo::isolatedCopy() const
         certificatesDataList.append(certificateData.release());
     }
 
-#if GLIB_CHECK_VERSION(2, 69, 0)
     GUniqueOutPtr<char> privateKey;
     GUniqueOutPtr<char> privateKeyPKCS11Uri;
     g_object_get(m_certificate.get(), "private-key-pem", &privateKey.outPtr(), "private-key-pkcs11-uri", &privateKeyPKCS11Uri.outPtr(), nullptr);
-#endif
 
     GType certificateType = g_tls_backend_get_certificate_type(g_tls_backend_get_default());
     GRefPtr<GTlsCertificate> certificate;
@@ -89,10 +86,8 @@ CertificateInfo CertificateInfo::isolatedCopy() const
             certificateType, nullptr, nullptr,
             "certificate-pem", certificateData.get(),
             "issuer", issuer,
-#if GLIB_CHECK_VERSION(2, 69, 0)
             "private-key-pem", certificatesDataList.isEmpty() ? privateKey.get() : nullptr,
             "private-key-pkcs11-uri", certificatesDataList.isEmpty() ? privateKeyPKCS11Uri.get() : nullptr,
-#endif
             nullptr)));
         RELEASE_ASSERT(certificate);
         issuer = certificate.get();
@@ -106,7 +101,6 @@ std::optional<CertificateSummary> CertificateInfo::summary() const
     if (!m_certificate)
         return std::nullopt;
 
-#if GLIB_CHECK_VERSION(2, 69, 0)
     CertificateSummary summaryInfo;
 
     GRefPtr<GDateTime> validNotBefore;
@@ -123,25 +117,14 @@ std::optional<CertificateSummary> CertificateInfo::summary() const
         summaryInfo.validUntil = Seconds(static_cast<double>(g_date_time_to_unix(validNotAfter.get())));
     if (subjectName)
         summaryInfo.subject = String::fromUTF8(subjectName.get());
-    if (dnsNames) {
-        for (unsigned i = 0; i < dnsNames->len; ++i) {
-            GBytes* bytes = static_cast<GBytes*>(dnsNames->pdata[i]);
-            gsize dataLength;
-            const auto* data = g_bytes_get_data(bytes, &dataLength);
-            summaryInfo.dnsNames.append(String({ static_cast<const char*>(data), dataLength }));
-        }
-    }
-    if (ipAddresses) {
-        for (unsigned i = 0; i < ipAddresses->len; ++i) {
-            GUniquePtr<char> ipAddress(g_inet_address_to_string(static_cast<GInetAddress*>(ipAddresses->pdata[i])));
-            summaryInfo.ipAddresses.append(String::fromUTF8(ipAddress.get()));
-        }
+    for (auto dnsName : span<GBytes*>(dnsNames))
+        summaryInfo.dnsNames.append(String(span(dnsName)));
+    for (auto address : span<GInetAddress*>(ipAddresses)) {
+        GUniquePtr<char> ipAddress(g_inet_address_to_string(address));
+        summaryInfo.ipAddresses.append(String::fromUTF8(ipAddress.get()));
     }
 
     return summaryInfo;
-#else
-    return std::nullopt;
-#endif
 }
 
 } // namespace WebCore

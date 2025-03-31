@@ -151,7 +151,7 @@ void KeyframeEffectStack::setCSSAnimationList(RefPtr<const AnimationList>&& cssA
     m_isSorted = false;
 }
 
-OptionSet<AnimationImpact> KeyframeEffectStack::applyKeyframeEffects(RenderStyle& targetStyle, HashSet<AnimatableCSSProperty>& affectedProperties, const RenderStyle* previousLastStyleChangeEventStyle, const Style::ResolutionContext& resolutionContext)
+OptionSet<AnimationImpact> KeyframeEffectStack::applyKeyframeEffects(RenderStyle& targetStyle, UncheckedKeyHashSet<AnimatableCSSProperty>& affectedProperties, const RenderStyle* previousLastStyleChangeEventStyle, const Style::ResolutionContext& resolutionContext)
 {
     OptionSet<AnimationImpact> impact;
 
@@ -234,7 +234,7 @@ bool KeyframeEffectStack::allowsAcceleration() const
     // stack is unable to be accelerated, or if we have more than one effect animating
     // an accelerated property with an implicit keyframe.
 
-    HashSet<AnimatableCSSProperty> allAcceleratedProperties;
+    UncheckedKeyHashSet<AnimatableCSSProperty> allAcceleratedProperties;
 
     for (auto& effect : m_effects) {
         if (effect->preventsAcceleration())
@@ -274,9 +274,9 @@ void KeyframeEffectStack::lastStyleChangeEventStyleDidChange(const RenderStyle* 
         effect->lastStyleChangeEventStyleDidChange(previousStyle, currentStyle);
 }
 
-void KeyframeEffectStack::cascadeDidOverrideProperties(const HashSet<AnimatableCSSProperty>& overriddenProperties, const Document& document)
+void KeyframeEffectStack::cascadeDidOverrideProperties(const UncheckedKeyHashSet<AnimatableCSSProperty>& overriddenProperties, const Document& document)
 {
-    HashSet<AnimatableCSSProperty> acceleratedPropertiesOverriddenByCascade;
+    UncheckedKeyHashSet<AnimatableCSSProperty> acceleratedPropertiesOverriddenByCascade;
     for (auto animatedProperty : overriddenProperties) {
         if (CSSPropertyAnimation::animationOfPropertyIsAccelerated(animatedProperty, document.settings()))
             acceleratedPropertiesOverriddenByCascade.add(animatedProperty);

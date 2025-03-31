@@ -19,7 +19,7 @@
 #include "aom_ports/mem.h"
 
 // SAD
-static INLINE unsigned int get_sad_from_mm256_epi32(const __m256i *v) {
+static inline unsigned int get_sad_from_mm256_epi32(const __m256i *v) {
   // input 8 32-bit summation
   __m128i lo128, hi128;
   __m256i u = _mm256_srli_si256(*v, 8);
@@ -37,7 +37,7 @@ static INLINE unsigned int get_sad_from_mm256_epi32(const __m256i *v) {
   return (unsigned int)_mm_cvtsi128_si32(lo128);
 }
 
-static INLINE void highbd_sad16x4_core_avx2(__m256i *s, __m256i *r,
+static inline void highbd_sad16x4_core_avx2(__m256i *s, __m256i *r,
                                             __m256i *sad_acc) {
   const __m256i zero = _mm256_setzero_si256();
   int i;
@@ -58,7 +58,7 @@ static INLINE void highbd_sad16x4_core_avx2(__m256i *s, __m256i *r,
 }
 
 // If sec_ptr = 0, calculate regular SAD. Otherwise, calculate average SAD.
-static INLINE void sad16x4(const uint16_t *src_ptr, int src_stride,
+static inline void sad16x4(const uint16_t *src_ptr, int src_stride,
                            const uint16_t *ref_ptr, int ref_stride,
                            const uint16_t *sec_ptr, __m256i *sad_acc) {
   __m256i s[4], r[4];
@@ -289,7 +289,6 @@ HIGHBD_SADMXN_AVX2(32, 8)
 HIGHBD_SADMXN_AVX2(64, 16)
 #endif  // !CONFIG_REALTIME_ONLY
 
-HIGHBD_SAD_SKIP_MXN_AVX2(16, 8)
 HIGHBD_SAD_SKIP_MXN_AVX2(16, 16)
 HIGHBD_SAD_SKIP_MXN_AVX2(16, 32)
 
@@ -306,7 +305,6 @@ HIGHBD_SAD_SKIP_MXN_AVX2(128, 128)
 
 #if !CONFIG_REALTIME_ONLY
 HIGHBD_SAD_SKIP_MXN_AVX2(16, 64)
-HIGHBD_SAD_SKIP_MXN_AVX2(32, 8)
 HIGHBD_SAD_SKIP_MXN_AVX2(64, 16)
 #endif  // !CONFIG_REALTIME_ONLY
 
@@ -560,7 +558,7 @@ unsigned int aom_highbd_sad128x128_avg_avx2(const uint8_t *src, int src_stride,
 
 // SAD 4D
 // Combine 4 __m256i input vectors  v to uint32_t result[4]
-static INLINE void get_4d_sad_from_mm256_epi32(const __m256i *v,
+static inline void get_4d_sad_from_mm256_epi32(const __m256i *v,
                                                uint32_t *res) {
   __m256i u0, u1, u2, u3;
   const __m256i mask = _mm256_set1_epi64x(~0u);
@@ -697,7 +695,6 @@ HIGHBD_SAD_MXNX4D_AVX2(32, 8)
 HIGHBD_SAD_MXNX4D_AVX2(64, 16)
 #endif  // !CONFIG_REALTIME_ONLY
 
-HIGHBD_SAD_SKIP_MXNX4D_AVX2(16, 8)
 HIGHBD_SAD_SKIP_MXNX4D_AVX2(16, 16)
 HIGHBD_SAD_SKIP_MXNX4D_AVX2(16, 32)
 
@@ -714,7 +711,6 @@ HIGHBD_SAD_SKIP_MXNX4D_AVX2(128, 128)
 
 #if !CONFIG_REALTIME_ONLY
 HIGHBD_SAD_SKIP_MXNX4D_AVX2(16, 64)
-HIGHBD_SAD_SKIP_MXNX4D_AVX2(32, 8)
 HIGHBD_SAD_SKIP_MXNX4D_AVX2(64, 16)
 #endif  // !CONFIG_REALTIME_ONLY
 

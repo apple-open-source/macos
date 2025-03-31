@@ -42,14 +42,14 @@ public:
     // fftSize must be a power of two
     FFTConvolver(size_t fftSize);
 
-    // For now, with multiple calls to Process(), framesToProcess MUST add up EXACTLY to fftSize / 2
+    // For now, with multiple calls to Process(), source.size() MUST add up EXACTLY to fftSize / 2
     //
     // FIXME: Later, we can do more sophisticated buffering to relax this requirement...
     //
     // The input to output latency is equal to fftSize / 2
     //
     // Processing in-place is allowed...
-    void process(FFTFrame* fftKernel, const float* sourceP, float* destP, size_t framesToProcess);
+    void process(FFTFrame* fftKernel, std::span<const float> source, std::span<float> destination);
 
     void reset();
 

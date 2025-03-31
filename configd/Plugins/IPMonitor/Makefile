@@ -198,6 +198,7 @@ IPMonitor: IPMonitor.o IPMonitorControlPrefs.o agent-monitor.o configAgent.o con
 
 nat64: nat64-configuration.c
 	$(CC) -DTEST_NAT64_CONFIGURATION $(TEST_INCLUDE) $(PF_INC) $(ARCH_FLAGS) -isysroot $(SYSROOT) -lnetwork -framework CoreFoundation -framework SystemConfiguration -Wall -O0 -g -o $@ $^
+	codesign -s - $@
 
 # ----------
 

@@ -41,6 +41,7 @@
 
 namespace WebCore {
 class Document;
+class LocalFrame;
 }
 
 namespace WebKit {
@@ -72,6 +73,8 @@ public:
 
     void redraw();
 
+    void clearCachedRanges();
+
 private:
     // PageOverlayClient.
     void willMoveToPage(WebCore::PageOverlay&, WebCore::Page*) override;
@@ -83,8 +86,13 @@ private:
     void setTextIndicatorWithRange(const WebCore::SimpleRange&);
     void flashTextIndicatorAndUpdateSelectionWithRange(const WebCore::SimpleRange&);
 
+    RefPtr<WebCore::TextIndicator> createTextIndicatorForPDFRange(const WebFoundTextRange&, WebCore::TextIndicatorPresentationTransition);
+    void setTextIndicatorWithPDFRange(const WebFoundTextRange&);
+    void flashTextIndicatorAndUpdateSelectionWithPDFRange(const WebFoundTextRange&);
+
     Vector<WebCore::FloatRect> rectsForTextMatchesInRect(WebCore::IntRect clipRect);
 
+    WebCore::LocalFrame* frameForFoundTextRange(const WebFoundTextRange&) const;
     WebCore::Document* documentForFoundTextRange(const WebFoundTextRange&) const;
     std::optional<WebCore::SimpleRange> simpleRangeFromFoundTextRange(WebFoundTextRange);
 
@@ -93,7 +101,7 @@ private:
 
     WebFoundTextRange m_highlightedRange;
 
-    HashMap<WebFoundTextRange, std::optional<WebCore::SimpleRange>> m_cachedFoundRanges;
+    HashMap<WebFoundTextRange, std::optional<WebCore::WeakSimpleRange>> m_cachedFoundRanges;
     HashMap<WebFoundTextRange, FindDecorationStyle> m_decoratedRanges;
 
     RefPtr<WebCore::TextIndicator> m_textIndicator;

@@ -53,3 +53,4 @@ _modelmanagerd:*:301:301::0:0:Model Manager:/var/db/modelmanagerd:/usr/bin/false
 _reportsystemmemory:*:302:302::0:0:ReportSystemMemory:/var/empty:/usr/bin/false
 _swtransparencyd:*:303:303::0:0:Software Transparency Services:/var/db/swtransparencyd:/usr/bin/false
 _naturallanguaged:*:304:304::0:0:Natural Language Services:/var/db/com.apple.naturallanguaged:/usr/bin/false
+_diagnosticservicesd:*:307:307::0:0:Diagnostic Services:/var/empty:/usr/bin/false

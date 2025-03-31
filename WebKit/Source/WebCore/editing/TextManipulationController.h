@@ -32,6 +32,7 @@
 #include "TextManipulationItem.h"
 #include <wtf/CheckedRef.h>
 #include <wtf/CompletionHandler.h>
+#include <wtf/Markable.h>
 #include <wtf/ObjectIdentifier.h>
 #include <wtf/TZoneMalloc.h>
 #include <wtf/WeakHashSet.h>
@@ -42,6 +43,8 @@ namespace WebCore {
 class Document;
 class Element;
 class VisiblePosition;
+
+using NodeSet = UncheckedKeyHashSet<Ref<Node>>;
 
 class TextManipulationController final : public CanMakeWeakPtr<TextManipulationController>, public CanMakeCheckedPtr<TextManipulationController> {
     WTF_MAKE_TZONE_ALLOCATED(TextManipulationController);
@@ -99,15 +102,15 @@ private:
     };
     using NodeEntry = std::pair<Ref<Node>, Ref<Node>>;
     Vector<Ref<Node>> getPath(Node*, Node*);
-    void updateInsertions(Vector<NodeEntry>&, const Vector<Ref<Node>>&, Node*, HashSet<Ref<Node>>&, Vector<NodeInsertion>&);
-    std::optional<ManipulationFailure::Type> replace(const ManipulationItemData&, const Vector<TextManipulationToken>&, HashSet<Ref<Node>>& containersWithoutVisualOverflowBeforeReplacement);
+    void updateInsertions(Vector<NodeEntry>&, const Vector<Ref<Node>>&, Node*, NodeSet&, Vector<NodeInsertion>&);
+    std::optional<ManipulationFailure::Type> replace(const ManipulationItemData&, const Vector<TextManipulationToken>&, NodeSet& containersWithoutVisualOverflowBeforeReplacement);
 
     WeakPtr<Document, WeakPtrImplWithEventTargetData> m_document;
     WeakHashSet<Node, WeakPtrImplWithEventTargetData> m_manipulatedNodes;
     WeakHashSet<Node, WeakPtrImplWithEventTargetData> m_manipulatedNodesWithNewContent;
     WeakHashSet<Node, WeakPtrImplWithEventTargetData> m_addedOrNewlyRenderedNodes;
 
-    HashMap<String, bool> m_cachedFontFamilyExclusionResults;
+    UncheckedKeyHashMap<String, bool> m_cachedFontFamilyExclusionResults;
 
     bool m_didScheduleObservationUpdate { false };
 
@@ -115,9 +118,7 @@ private:
     Vector<TextManipulationItem> m_pendingItemsForCallback;
 
     Vector<ExclusionRule> m_exclusionRules;
-    HashMap<TextManipulationItemIdentifier, ManipulationItemData> m_items;
-    TextManipulationItemIdentifier m_itemIdentifier;
-    TextManipulationTokenIdentifier m_tokenIdentifier;
+    UncheckedKeyHashMap<TextManipulationItemIdentifier, ManipulationItemData> m_items;
 };
 
 } // namespace WebCore

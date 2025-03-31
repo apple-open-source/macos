@@ -44,7 +44,7 @@ using namespace WebCore;
 RemoteLayerWithRemoteRenderingBackingStore::RemoteLayerWithRemoteRenderingBackingStore(PlatformCALayerRemote& layer)
     : RemoteLayerBackingStore(layer)
 {
-    auto* collection = backingStoreCollection();
+    RefPtr collection = backingStoreCollection();
     if (!collection) {
         ASSERT_NOT_REACHED();
         return;
@@ -111,8 +111,11 @@ void RemoteLayerWithRemoteRenderingBackingStore::ensureBackingStore(const Parame
 
     m_parameters = parameters;
     m_cleared = true;
-    if (m_bufferSet)
-        m_bufferSet->setConfiguration(size(), scale(), colorSpace(), pixelFormat(), type() == RemoteLayerBackingStore::Type::IOSurface ? RenderingMode::Accelerated : RenderingMode::Unaccelerated, m_layer.containsBitmapOnly() ? WebCore::RenderingPurpose::BitmapOnlyLayerBacking : WebCore::RenderingPurpose::LayerBacking);
+    if (m_bufferSet) {
+        auto renderingMode = type() == RemoteLayerBackingStore::Type::IOSurface ? RenderingMode::Accelerated : RenderingMode::Unaccelerated;
+        auto renderingPurpose = m_layer->containsBitmapOnly() ? WebCore::RenderingPurpose::BitmapOnlyLayerBacking : WebCore::RenderingPurpose::LayerBacking;
+        m_bufferSet->setConfiguration(size(), scale(), colorSpace(), pixelFormat(), renderingMode, renderingPurpose);
+    }
 }
 
 void RemoteLayerWithRemoteRenderingBackingStore::encodeBufferAndBackendInfos(IPC::Encoder& encoder) const

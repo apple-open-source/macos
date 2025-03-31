@@ -63,7 +63,7 @@ static bool SOSTransportKeyParameterKVSUpdateKVS(CFDictionaryRef changes, CFErro
         return false;
     }
 
-    bool waitForeverForSynchronization = true;
+    bool waitForeverForSynchronization = false;
     CFDictionaryRef changes = NULL;
     CFDataRef timeData = NULL;
     CFMutableStringRef timeDescription = CFStringCreateMutableCopy(kCFAllocatorDefault, 0, CFSTR("["));

@@ -82,6 +82,8 @@ SEC_CONST_DECL (kSecTrustInfoCompanyNameKey, "CompanyName");
 SEC_CONST_DECL (kSecTrustInfoRevocationKey, "Revocation");
 SEC_CONST_DECL (kSecTrustInfoRevocationValidUntilKey, "RevocationValidUntil");
 SEC_CONST_DECL (kSecTrustInfoCertificateTransparencyKey, "CertificateTransparency");
+SEC_CONST_DECL (kSecTrustInfoQCStatementsKey, "QCStatements");
+SEC_CONST_DECL (kSecTrustInfoQWACValidationKey, "QWACValidation");
 
 /* This is the "real" trust validity date which includes all inputs. */
 SEC_CONST_DECL (kSecTrustInfoResultNotBefore, "TrustResultNotBefore");
@@ -96,6 +98,8 @@ SEC_CONST_DECL (kSecTrustRevocationChecked, "TrustRevocationChecked");
 SEC_CONST_DECL (kSecTrustRevocationReason, "TrustRevocationReason");
 SEC_CONST_DECL (kSecTrustResultDetails, "TrustResultDetails");
 SEC_CONST_DECL (kSecTrustCertificateTransparency, "TrustCertificateTransparency");
+SEC_CONST_DECL (kSecTrustQCStatements, "TrustQCStatements");
+SEC_CONST_DECL (kSecTrustQWACValidation, "TrustQWACValidation");
 
 /* Deprecated public constants */
 SEC_CONST_DECL (kSecTrustCertificateTransparencyWhiteList, "TrustCertificateTransparencyWhiteList");
@@ -879,51 +883,6 @@ Boolean SecTrustIsExpiredOnly(SecTrustRef trust) {
 out:
     CFReleaseSafe(details);
     return result;
-}
-
-#if TARGET_OS_IPHONE
-static CFArrayRef SecTrustCreatePolicyAnchorsArray(const UInt8* certData, CFIndex certLength)
-{
-    CFArrayRef array = NULL;
-    CFAllocatorRef allocator = kCFAllocatorDefault;
-    SecCertificateRef cert = SecCertificateCreateWithBytes(allocator, certData, certLength);
-    if (cert) {
-        array = CFArrayCreate(allocator, (const void **)&cert, 1, &kCFTypeArrayCallBacks);
-        CFReleaseSafe(cert);
-    }
-    return array;
-}
-#endif
-
-static void SecTrustAddPolicyAnchors(SecTrustRef trust)
-{
-    /* Provide anchor certificates specifically required by certain policies.
-       This is used to evaluate test policies where the anchor is not provided
-       in the root store and may not be able to be supplied by the caller.
-     */
-    if (!trust) { return; }
-    __block CFArrayRef policies = NULL;
-    dispatch_sync(trust->_trustQueue, ^{
-        policies = CFRetain(trust->_policies);
-    });
-    CFIndex ix, count = CFArrayGetCount(policies);
-    for (ix = 0; ix < count; ++ix) {
-        SecPolicyRef policy = (SecPolicyRef) CFArrayGetValueAtIndex(policies, ix);
-        if (policy) {
-            #if TARGET_OS_IPHONE
-            if (CFEqual(policy->_oid, kSecPolicyAppleTestSMPEncryption)) {
-                __block CFArrayRef policyAnchors = SecTrustCreatePolicyAnchorsArray(_SEC_TestAppleRootCAECC, sizeof(_SEC_TestAppleRootCAECC));
-                dispatch_sync(trust->_trustQueue, ^{
-                    CFReleaseSafe(trust->_anchors);
-                    trust->_anchors = policyAnchors;
-                });
-                trust->_anchorsOnly = true;
-                break;
-            }
-            #endif
-        }
-    }
-    CFReleaseSafe(policies);
 }
 
 // uncomment for verbose debug logging (debug builds only)
@@ -1826,7 +1785,6 @@ static OSStatus SecTrustEvaluateIfNecessary(SecTrustRef trust) {
     SecTrustEvaluateThreadRuntimeCheck();
 
     __block CFAbsoluteTime verifyTime = SecTrustGetVerifyTime(trust);
-    SecTrustAddPolicyAnchors(trust);
     dispatch_sync(trust->_trustQueue, ^{
         if (SecTrustIsTrustResultValid(trust, verifyTime)) {
             result = errSecSuccess;
@@ -1901,7 +1859,6 @@ static void SecTrustEvaluateIfNecessaryFastAsync(SecTrustRef trust,
     }
 
     __block CFAbsoluteTime verifyTime = SecTrustGetVerifyTime(trust);
-    SecTrustAddPolicyAnchors(trust);
 
     // retain the caller's queue and trust so we have it whenever our evalBlock runs
     dispatch_retain(queue);
@@ -2757,6 +2714,16 @@ CFDictionaryRef SecTrustCopyResult(SecTrustRef trust) {
         CFDateRef validUntilDate;
         if (CFDictionaryGetValueIfPresent(info, kSecTrustRevocationValidUntilDate, (const void **)&validUntilDate)) {
             CFDictionarySetValue(results, (const void *)kSecTrustRevocationValidUntilDate, (const void *)validUntilDate);
+        }
+
+        // kSecTrustQCStatements
+        CFStringRef qcsValue;
+        CFBooleanRef qwacValue;
+        if (CFDictionaryGetValueIfPresent(info, kSecTrustInfoQCStatementsKey, (const void **)&qcsValue)) {
+            CFDictionarySetValue(results, (const void *)kSecTrustQCStatements, (const void *)qcsValue);
+        }
+        if (CFDictionaryGetValueIfPresent(info, kSecTrustInfoQWACValidationKey, (const void **)&qwacValue)) {
+            CFDictionarySetValue(results, (const void *)kSecTrustQWACValidation, (const void *)qwacValue);
         }
     });
 

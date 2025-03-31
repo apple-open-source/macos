@@ -2,7 +2,7 @@
   utf8.c -  Oniguruma (regular expression library)
 **********************************************************************/
 /*-
- * Copyright (c) 2002-2016  K.Kosako  <sndgk393 AT ybb DOT ne DOT jp>
+ * Copyright (c) 2002-2019  K.Kosako
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -29,7 +29,10 @@
 
 #include "regenc.h"
 
-//#define USE_INVALID_CODE_SCHEME
+/* U+0000 - U+10FFFF */
+#define USE_RFC3629_RANGE
+
+/* #define USE_INVALID_CODE_SCHEME */
 
 #ifdef USE_INVALID_CODE_SCHEME
 /* virtual codepoint values for invalid encoding byte 0xfe and 0xff */
@@ -57,7 +60,11 @@ static const int EncLen_UTF8[] = {
   2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
   2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
   3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
+#ifdef USE_RFC3629_RANGE
+  4, 4, 4, 4, 4, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1
+#else
   4, 4, 4, 4, 4, 4, 4, 4, 5, 5, 5, 5, 6, 6, 1, 1
+#endif
 };
 
 static int
@@ -78,41 +85,16 @@ is_valid_mbc_string(const UChar* p, const UChar* end)
     len = mbc_enc_len(p++);
     if (len > 1) {
       for (i = 1; i < len; i++) {
-	if (p == end)
-	  return FALSE;
+        if (p == end)
+          return FALSE;
 
-	if (! utf8_istail(*p++))
-	  return FALSE;
+        if (! utf8_istail(*p++))
+          return FALSE;
       }
     }
   }
 
   return TRUE;
-}
-
-static int
-is_mbc_newline(const UChar* p, const UChar* end)
-{
-  if (p < end) {
-    if (*p == 0x0a) return 1;
-
-#ifdef USE_UNICODE_ALL_LINE_TERMINATORS
-#ifndef USE_CRNL_AS_LINE_TERMINATOR
-    if (*p == 0x0d) return 1;
-#endif
-    if (p + 1 < end) {
-      if (*(p+1) == 0x85 && *p == 0xc2) /* U+0085 */
-        return 1;
-      if (p + 2 < end) {
-        if ((*(p+2) == 0xa8 || *(p+2) == 0xa9)
-            && *(p+1) == 0x80 && *p == 0xe2)  /* U+2028, U+2029 */
-          return 1;
-      }
-    }
-#endif
-  }
-
-  return 0;
 }
 
 static OnigCodePoint
@@ -122,7 +104,7 @@ mbc_to_code(const UChar* p, const UChar* end)
   OnigCodePoint n;
 
   len = mbc_enc_len(p);
-  if (len > end - p) len = end - p;
+  if (len > (int )(end - p)) len = (int )(end - p);
 
   c = *p++;
   if (len > 1) {
@@ -151,8 +133,10 @@ code_to_mbclen(OnigCodePoint code)
   else if ((code & 0xfffff800) == 0) return 2;
   else if ((code & 0xffff0000) == 0) return 3;
   else if ((code & 0xffe00000) == 0) return 4;
+#ifndef USE_RFC3629_RANGE
   else if ((code & 0xfc000000) == 0) return 5;
   else if ((code & 0x80000000) == 0) return 6;
+#endif
 #ifdef USE_INVALID_CODE_SCHEME
   else if (code == INVALID_CODE_FE) return 1;
   else if (code == INVALID_CODE_FF) return 1;
@@ -186,6 +170,7 @@ code_to_mbc(OnigCodePoint code, UChar *buf)
       *p++ = UTF8_TRAILS(code, 12);
       *p++ = UTF8_TRAILS(code,  6);
     }
+#ifndef USE_RFC3629_RANGE
     else if ((code & 0xfc000000) == 0) {
       *p++ = (UChar )(((code>>24) & 0x03) | 0xf8);
       *p++ = UTF8_TRAILS(code, 18);
@@ -199,6 +184,7 @@ code_to_mbc(OnigCodePoint code, UChar *buf)
       *p++ = UTF8_TRAILS(code, 12);
       *p++ = UTF8_TRAILS(code,  6);
     }
+#endif
 #ifdef USE_INVALID_CODE_SCHEME
     else if (code == INVALID_CODE_FE) {
       *p = 0xfe;
@@ -214,13 +200,13 @@ code_to_mbc(OnigCodePoint code, UChar *buf)
     }
 
     *p++ = UTF8_TRAIL0(code);
-    return p - buf;
+    return (int )(p - buf);
   }
 }
 
 static int
 mbc_case_fold(OnigCaseFoldType flag, const UChar** pp,
-	      const UChar* end, UChar* fold)
+              const UChar* end, UChar* fold)
 {
   const UChar* p = *pp;
 
@@ -242,50 +228,13 @@ mbc_case_fold(OnigCaseFoldType flag, const UChar** pp,
   }
   else {
     return onigenc_unicode_mbc_case_fold(ONIG_ENCODING_UTF8, flag,
-					 pp, end, fold);
+                                         pp, end, fold);
   }
 }
-
-#if 0
-static int
-is_mbc_ambiguous(OnigCaseFoldType flag, const UChar** pp, const UChar* end)
-{
-  const UChar* p = *pp;
-
-  if (ONIGENC_IS_MBC_ASCII(p)) {
-    (*pp)++;
-    return ONIGENC_IS_ASCII_CODE_CASE_AMBIG(*p);
-  }
-  else {
-    (*pp) += enclen(ONIG_ENCODING_UTF8, p);
-
-    if (*p == 0xc3) {
-      int c = *(p + 1);
-      if (c >= 0x80) {
-        if (c <= (UChar )0x9e) { /* upper */
-          if (c == (UChar )0x97) return FALSE;
-          return TRUE;
-        }
-        else if (c >= (UChar )0xa0 && c <= (UChar )0xbe) { /* lower */
-          if (c == (UChar )'\267') return FALSE;
-          return TRUE;
-        }
-        else if (c == (UChar )0x9f &&
-                 (flag & INTERNAL_ONIGENC_CASE_FOLD_MULTI_CHAR) != 0) {
-          return TRUE;
-        }
-      }
-    }
-  }
-
-  return FALSE;
-}
-#endif
-
 
 static int
 get_ctype_code_range(OnigCtype ctype, OnigCodePoint *sb_out,
-		     const OnigCodePoint* ranges[])
+                     const OnigCodePoint* ranges[])
 {
   *sb_out = 0x80;
   return onigenc_unicode_ctype_code_range(ctype, ranges);
@@ -309,15 +258,19 @@ get_case_fold_codes_by_str(OnigCaseFoldType flag,
     const OnigUChar* p, const OnigUChar* end, OnigCaseFoldCodeItem items[])
 {
   return onigenc_unicode_get_case_fold_codes_by_str(ONIG_ENCODING_UTF8,
-						    flag, p, end, items);
+                                                    flag, p, end, items);
 }
 
 OnigEncodingType OnigEncodingUTF8 = {
   mbc_enc_len,
   "UTF-8",     /* name */
-  6,           /* max byte length */
-  1,           /* min byte length */
-  is_mbc_newline,
+#ifdef USE_RFC3629_RANGE
+  4,           /* max enc length */
+#else
+  6,
+#endif
+  1,           /* min enc length */
+  onigenc_is_mbc_newline_0x0a,
   mbc_to_code,
   code_to_mbclen,
   code_to_mbc,
@@ -331,5 +284,7 @@ OnigEncodingType OnigEncodingUTF8 = {
   onigenc_always_true_is_allowed_reverse_match,
   NULL, /* init */
   NULL, /* is_initialized */
-  is_valid_mbc_string
+  is_valid_mbc_string,
+  ENC_FLAG_ASCII_COMPATIBLE|ENC_FLAG_UNICODE|ENC_FLAG_SKIP_OFFSET_1_OR_0,
+  0, 0
 };

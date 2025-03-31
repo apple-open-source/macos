@@ -53,10 +53,10 @@ fsckPrintFunction(fsck_client_ctx_t ctx, int level, const char *fmt, va_list ap)
             }
             [fsTask logMessage:message];
         } else {
-            os_log_error(fskit_std_log(), "%s: No message connection object, can't log message", __FUNCTION__);
+            os_log_error(OS_LOG_DEFAULT, "%s: No message connection object, can't log message", __FUNCTION__);
         }
     } else {
-        os_log_error(fskit_std_log(), "%s: Context is null, can't log message", __FUNCTION__);
+        os_log_error(OS_LOG_DEFAULT, "%s: Context is null, can't log message", __FUNCTION__);
     }
 }
 
@@ -101,10 +101,10 @@ newfsPrintFunction(newfs_client_ctx_t ctx, int level, const char *fmt, va_list a
             }
             [fsTask logMessage:message];
         } else {
-            os_log_error(fskit_std_log(), "%s: No message connection object, can't log message", __FUNCTION__);
+            os_log_error(OS_LOG_DEFAULT, "%s: No message connection object, can't log message", __FUNCTION__);
         }
     } else {
-        os_log_error(fskit_std_log(), "%s: Context is null, can't log message", __FUNCTION__);
+        os_log_error(OS_LOG_DEFAULT, "%s: Context is null, can't log message", __FUNCTION__);
     }
 }
 
@@ -115,18 +115,18 @@ int wipeFSCallback(newfs_client_ctx_t ctx, WipeFSProperties wipeFSProps)
     FSUnaryFileSystem *fsSimpleFS;
     FSBlockDeviceResource *resource;
     if(!ctx) {
-        os_log_error(fskit_std_log(), "%s: Context is null, can't wipe resource", __FUNCTION__);
+        os_log_error(OS_LOG_DEFAULT, "%s: Context is null, can't wipe resource", __FUNCTION__);
         return EINVAL;
     }
     newfsCtx = (NewfsCtxAppex *)ctx;
     if (!newfsCtx->fs) {
-        os_log_error(fskit_std_log(), "%s: Context isn't initialized, can't wipe resource", __FUNCTION__);
+        os_log_error(OS_LOG_DEFAULT, "%s: Context isn't initialized, can't wipe resource", __FUNCTION__);
         return EINVAL;
     }
     fsSimpleFS = newfsCtx->fs;
     resource = newfsCtx->resource;
     if (resource == nil) {
-        os_log_error(fskit_std_log(), "%s: Given device is not a block device", __FUNCTION__);
+        os_log_error(OS_LOG_DEFAULT, "%s: Given device is not a block device", __FUNCTION__);
         return EINVAL;
     }
 
@@ -137,16 +137,16 @@ int wipeFSCallback(newfs_client_ctx_t ctx, WipeFSProperties wipeFSProps)
            completionHandler:^(NSError * _Nullable err) {
         error = err;
         if (error) {
-            os_log_error(fskit_std_log(), "%s: got reply from send wipe resource request with err: %@", __FUNCTION__, error);
+            os_log_error(OS_LOG_DEFAULT, "%s: got reply from send wipe resource request with err: %@", __FUNCTION__, error);
         } else {
-            os_log_debug(fskit_std_log(), "%s: got reply from send wipe resource request with no errors", __FUNCTION__);
+            os_log_debug(OS_LOG_DEFAULT, "%s: got reply from send wipe resource request with no errors", __FUNCTION__);
         }
         dispatch_group_leave(group);
     }];
-    os_log_debug(fskit_std_log(), "%s: waiting for reply from send wipe resource request", __FUNCTION__);
+    os_log_debug(OS_LOG_DEFAULT, "%s: waiting for reply from send wipe resource request", __FUNCTION__);
     dispatch_group_wait(group, DISPATCH_TIME_FOREVER);
     if (error) {
-        os_log_error(fskit_std_log(), "%s: Wipe resource error: %s", __FUNCTION__, [[error description] UTF8String]);
+        os_log_error(OS_LOG_DEFAULT, "%s: Wipe resource error: %s", __FUNCTION__, [[error description] UTF8String]);
         return (int)error.code;
     }
     return 0;
@@ -155,18 +155,19 @@ int wipeFSCallback(newfs_client_ctx_t ctx, WipeFSProperties wipeFSProps)
 @implementation msdosFileSystem
 
 - (void)loadResource:(nonnull FSResource *)resource
-             options:(FSTaskParameters *)options
+             options:(FSTaskOptions *)options
         replyHandler:(nonnull void (^)(FSVolume * _Nullable, NSError * _Nullable))reply
 {
-    os_log_info(fskit_std_log(), "%s:start", __FUNCTION__);
+    os_log_info(OS_LOG_DEFAULT, "%s:start", __FUNCTION__);
     _resource = nil;
     if ([resource isKindOfClass:[FSBlockDeviceResource class]]) {
         _resource                       = (FSBlockDeviceResource *)resource;
     }
 
-    for (NSString *opt in options) {
+    BOOL forcedLoad = NO;
+    for (NSString *opt in options.taskOptions) {
         if ([opt containsString:@"-f"]) {
-            return reply(nil, nil);
+            forcedLoad = YES;
         }
     }
 
@@ -184,12 +185,35 @@ int wipeFSCallback(newfs_client_ctx_t ctx, WipeFSProperties wipeFSProps)
     }];
 
     if (error) {
+        if (forcedLoad) {
+            // If the force option is present, should set the container error state to NSError error EPROTONOSUPPORT and reply with no error and no volume.
+            self.containerStatus = [FSContainerStatus notReadyWithStatus:fs_errorForPOSIXError(EPROTONOSUPPORT)];
+            return reply(nil, nil);
+        }
         // Return probe error
         return reply(nil, error);
     }
 
     if (probeResult.result != FSMatchResultUsable) {
-        // Resource can't be used for MSDOS module
+        if (forcedLoad) {
+            // If the force option is present, should set the container error state to NSError error EPROTONOSUPPORT and reply with no error and no volume.
+            self.containerStatus = [FSContainerStatus notReadyWithStatus:fs_errorForPOSIXError(EPROTONOSUPPORT)];
+            return reply(nil, nil);
+        }
+
+        if (probeResult.result != FSMatchResultNotRecognized) {
+            /*
+             * If the resource is formatted using a recognized but unsupported format, this method will set the container error
+             * state to NSError FSKitErrorDomain code FSKitErrorUnusable. The method should reply with the same error.
+             */
+            NSError *containerErr = [NSError errorWithDomain:FSKitErrorDomain
+                                                        code:FSErrorResourceUnusable
+                                                    userInfo:nil];
+            self.containerStatus = [FSContainerStatus notReadyWithStatus:containerErr];
+            return reply(nil, containerErr);
+        }
+
+        // The only state left is that the resource is formatted using an unrecognized format. reply with the NSError POSIX error EINVAL.
         return reply(nil, fs_errorForPOSIXError(EINVAL));
     }
 
@@ -198,7 +222,8 @@ int wipeFSCallback(newfs_client_ctx_t ctx, WipeFSProperties wipeFSProps)
                                          volumeName:probeResult.name];
 
     if (_volume != nil) {
-        os_log_info(fskit_std_log(), "%s: loaded resource with volume ID (%@)", __FUNCTION__, probeResult.containerID);
+        os_log_info(OS_LOG_DEFAULT, "%s: loaded resource with volume ID (%@)", __FUNCTION__, probeResult.containerID);
+        self.containerStatus = [FSContainerStatus ready];
         return reply(self.volume, nil);
     } else {
         /* init isn't supposed to fail, assume EIO if it did */
@@ -206,6 +231,16 @@ int wipeFSCallback(newfs_client_ctx_t ctx, WipeFSProperties wipeFSProps)
     }
 }
 
+- (void)unloadResource:(nonnull FSResource *)resource
+               options:(nonnull FSTaskOptions *)options
+          replyHandler:(nonnull void (^)(NSError * _Nullable))reply
+{
+    if (_resource) {
+        _resource = nil;
+        _volume = nil;
+    }
+    reply(nil);
+}
 
 -(NSError *_Nullable)syncRead:(FSBlockDeviceResource *)device
                          into:(void *)buffer
@@ -219,9 +254,9 @@ int wipeFSCallback(newfs_client_ctx_t ctx, WipeFSProperties wipeFSProps)
                                     length:nbyte
                                      error:&error];
     if (error) {
-        os_log_error(fskit_std_log(), "%s: Failed to read, error %@", __FUNCTION__, error);
+        os_log_error(OS_LOG_DEFAULT, "%s: Failed to read, error %@", __FUNCTION__, error);
     } else if (actuallyRead != nbyte) {
-        os_log_error(fskit_std_log(), "%s: Expected to read %lu bytes, read %lu", __FUNCTION__, nbyte, actuallyRead);
+        os_log_error(OS_LOG_DEFAULT, "%s: Expected to read %lu bytes, read %lu", __FUNCTION__, nbyte, actuallyRead);
         /*
          * Setting to EIO for now. pread's manpage lists it as a possible
          * errno value:
@@ -237,10 +272,9 @@ int wipeFSCallback(newfs_client_ctx_t ctx, WipeFSProperties wipeFSProps)
         replyHandler:(void(^)(FSProbeResult * _Nullable result,
                               NSError * _Nullable error))replyHandler
 {
-    FSMatchResult matchResult = FSMatchResultNotRecognized;
     NSMutableData *bootSectorBuffer = nil;
     FSBlockDeviceResource *device = nil;
-    FSProbeResult *probeResult = nil;
+    FSProbeResult *probeResult = FSProbeResult.notRecognizedProbeResult;
     unsigned char *volUuid = NULL;
     union bootsector *bootSector;
     __block NSError *error = nil;
@@ -252,7 +286,7 @@ int wipeFSCallback(newfs_client_ctx_t ctx, WipeFSProperties wipeFSProps)
         device = (FSBlockDeviceResource *)resource;
     }
     if (!device) {
-        os_log(fskit_std_log(), "%s: Given device is not a block device", __FUNCTION__);
+        os_log(OS_LOG_DEFAULT, "%s: Given device is not a block device", __FUNCTION__);
         goto out;
     }
 
@@ -336,24 +370,25 @@ int wipeFSCallback(newfs_client_ctx_t ctx, WipeFSProperties wipeFSProps)
         goto out;
     }
     nsuuid = [Utilities generateVolumeUuid:bootSector uuid:volUuid];
-
-    matchResult = FSMatchResultUsable;
+    {
+        // explicitly mark that containerID goes out of scope before the out: label
+        FSContainerIdentifier *containerID = [[FSContainerIdentifier alloc] initWithUUID:nsuuid];
+        os_log_debug(OS_LOG_DEFAULT, "%s: Setting up probeResult (%@)", __FUNCTION__, nsuuid);
+        probeResult = [FSProbeResult usableProbeResultWithName:volName
+                                                   containerID:containerID];
+    }
 out:
-    os_log_debug(fskit_std_log(), "%s: Setting up probeResult (%@)", __FUNCTION__, nsuuid);
     if (error) {
         return replyHandler(nil, error);
     }
-    FSContainerIdentifier *containerID = [[FSContainerIdentifier alloc] initWithUUID:nsuuid];
-    probeResult = [FSProbeResult resultWithResult:matchResult
-                                              name:volName
-                                       containerID:containerID];
     return replyHandler(probeResult, error);
 }
 
 -(NSProgress * _Nullable)startCheckWithTask:(FSTask *)task
-                                 parameters:(FSTaskParameters *)parameters
+                                    options:(FSTaskOptions *)options
                                       error:(NSError**)error
 {
+    taskParameters      *parameters = options.taskOptions;
     NSProgress          *progress = [[NSProgress alloc] init];
     msdosProgressHelper *updater = [[msdosProgressHelper alloc] initWithProgress:progress];
     __block check_context context = {0};
@@ -361,7 +396,7 @@ out:
     int preCheckResult = 0;
     __block int result = 0;
 
-    os_log(fskit_std_log(), "%s: started to check resource", __FUNCTION__);
+    os_log(OS_LOG_DEFAULT, "%s: started to check resource", __FUNCTION__);
 
     progress.totalUnitCount = 100;
 
@@ -442,8 +477,10 @@ bad_multiplier:
 afterPreCheck:
     // If error was found before starting to check the filesystem, reply about that error
     if(preCheckResult) {
-        *error = fs_errorForPOSIXError(preCheckResult);
-        os_log(fskit_std_log(), "%s:done:error(%@)", __FUNCTION__, *error);
+        if (error) {
+            *error = fs_errorForPOSIXError(preCheckResult);
+        }
+        os_log(OS_LOG_DEFAULT, "%s:done:error(%@)", __FUNCTION__, *error);
         return nil;
     }
     // No errors found start checking file system.
@@ -467,14 +504,15 @@ afterPreCheck:
         ctx = NULL;
         [task didCompleteWithError:result ? fs_errorForPOSIXError(result) : nil];
     });
-    os_log(fskit_std_log(), "%s: done", __FUNCTION__);
+    os_log(OS_LOG_DEFAULT, "%s: done", __FUNCTION__);
     return progress;
 }
 
 -(NSProgress * _Nullable)startFormatWithTask:(FSTask *)task
-                                  parameters:(FSTaskParameters *)parameters
+                                     options:(FSTaskOptions *)options
                                        error:(NSError**)error
 {
+    taskParameters    *parameters = options.taskOptions;
     NSProgress  *progress = [[NSProgress alloc] init];
     msdosProgressHelper *updater = [[msdosProgressHelper alloc] initWithProgress:progress];
     FSBlockDeviceResource *device = _resource;
@@ -492,7 +530,7 @@ afterPreCheck:
     const char *bname = NULL;
     const char *fname = NULL;
 
-    os_log(fskit_std_log(), "%s: started to format resource", __FUNCTION__);
+    os_log(OS_LOG_DEFAULT, "%s: started to format resource", __FUNCTION__);
 
     progress.totalUnitCount = 100;
 
@@ -500,7 +538,7 @@ afterPreCheck:
     memset(&newfsProps, 0, sizeof(newfsProps));
     newfsCtx = malloc(sizeof(NewfsCtxAppex));
     if (!newfsCtx) {
-        os_log_error(fskit_std_log(), "%s: Can't allocate a wipe FS context object", __FUNCTION__);
+        os_log_error(OS_LOG_DEFAULT, "%s: Can't allocate a wipe FS context object", __FUNCTION__);
         preFormatResult = ENOMEM;
         goto afterPreCheck;
     }
@@ -648,7 +686,9 @@ afterPreCheck:
         if (newfsCtx) {
             free(newfsCtx);
         }
-        *error = fs_errorForPOSIXError(preFormatResult);
+        if (error) {
+            *error = fs_errorForPOSIXError(preFormatResult);
+        }
         return nil;
     }
     // Setup the newfs properties
@@ -678,7 +718,7 @@ afterPreCheck:
         }
         [task didCompleteWithError:result ? fs_errorForPOSIXError(result) : nil];
         /* Be done with the progress */
-        os_log(fskit_std_log(), "%s: done", __FUNCTION__);
+        os_log(OS_LOG_DEFAULT, "%s: done", __FUNCTION__);
     });
     return progress;
 }
@@ -686,7 +726,7 @@ afterPreCheck:
 void startCallback(char* description, int64_t parentUnitCount, int64_t totalCount, unsigned int *completedCount, void *updater)
 {
     if (!description) {
-        os_log_error(fskit_std_log(), "%s: Invalid description (null)", __FUNCTION__);
+        os_log_error(OS_LOG_DEFAULT, "%s: Invalid description (null)", __FUNCTION__);
         return;
     }
     msdosProgressHelper *progressUpdater = (__bridge msdosProgressHelper *)updater;
@@ -697,14 +737,14 @@ void startCallback(char* description, int64_t parentUnitCount, int64_t totalCoun
                                phaseTotalCount:totalCount
                               completedCounter:completedCount];
     if (updaterError) {
-        os_log_error(fskit_std_log(), "Failed to start phase, error %s",[[updaterError description] UTF8String]);
+        os_log_error(OS_LOG_DEFAULT, "Failed to start phase, error %s",[[updaterError description] UTF8String]);
     }
 }
 
 void endCallback(char* description, void *updater)
 {
     if (!description) {
-        os_log_error(fskit_std_log(), "%s: Invalid description (null)", __FUNCTION__);
+        os_log_error(OS_LOG_DEFAULT, "%s: Invalid description (null)", __FUNCTION__);
         return;
     }
     msdosProgressHelper *progressUpdater = (__bridge msdosProgressHelper *)updater;

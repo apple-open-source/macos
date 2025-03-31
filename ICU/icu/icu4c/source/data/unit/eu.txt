@@ -101,7 +101,7 @@ eu{
             10p-24{"jokto{0}"}
             10p-27{"ronto{0}"}
             10p-3{"mili{0}"}
-            10p-30{"quecto{0}"}
+            10p-30{"kekto{0}"}
             10p-6{"mikro{0}"}
             10p-9{"nano{0}"}
             10p1{"deka{0}"}
@@ -302,6 +302,12 @@ eu{
                 dnam{"nanosegundoak"}
                 one{"{0} nanosegundo"}
                 other{"{0} nanosegundo"}
+            }
+            night{
+                dnam{"gauak"}
+                one{"{0} gau"}
+                other{"{0} gau"}
+                per{"{0} gau bakoitzeko"}
             }
             quarter{
                 dnam{"laurdenak"}
@@ -719,6 +725,11 @@ eu{
                 one{"{0} kilometro orduko"}
                 other{"{0} kilometro orduko"}
             }
+            light-speed{
+                dnam{"argia"}
+                one{"{0} argi"}
+                other{"{0} argi"}
+            }
             meter-per-second{
                 one{"{0} metro segundoko"}
                 other{"{0} metro segundoko"}
@@ -929,6 +940,12 @@ eu{
                 one{"{0} hil"}
                 other{"{0} hil"}
             }
+            night{
+                dnam{"gau"}
+                one{"{0} g."}
+                other{"{0} g."}
+                per{"{0}/gau"}
+            }
             second{
                 dnam{"s"}
             }
@@ -1014,6 +1031,11 @@ eu{
             knot{
                 one{"{0}kn"}
                 other{"{0}kn"}
+            }
+            light-speed{
+                dnam{"argia"}
+                one{"{0} a."}
+                other{"{0} a."}
             }
         }
         temperature{
@@ -1216,6 +1238,12 @@ eu{
                 other{"{0} hilabete"}
                 per{"{0}/hil"}
             }
+            night{
+                dnam{"gau"}
+                one{"{0} gau"}
+                other{"{0} gau"}
+                per{"{0}/gau"}
+            }
             quarter{
                 dnam{"laurden"}
                 one{"{0} laur."}
@@ -1417,6 +1445,11 @@ eu{
                 dnam{"korapilo"}
                 one{"{0} korapilo"}
                 other{"{0} korapilo"}
+            }
+            light-speed{
+                dnam{"argia"}
+                one{"{0} argi"}
+                other{"{0} argi"}
             }
             meter-per-second{
                 dnam{"metro segundoko"}

@@ -10,7 +10,7 @@
  */
 
 #include <string>
-#include "third_party/googletest/src/googletest/include/gtest/gtest.h"
+#include "gtest/gtest.h"
 
 #include "aom/aom_codec.h"
 #include "aom_ports/aom_timer.h"

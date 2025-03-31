@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2019 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2025 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  *
@@ -133,6 +133,8 @@ extern void wait_while_mp_kdp_trap(bool check_SIGPdebug);
 /*
  *	Exported variables:
  */
+
+TUNABLE(long, wdt, "wdt", 0);
 
 struct machine_info     machine_info;
 
@@ -568,12 +570,20 @@ processor_cpu_reinit(void* machine_param,
 	ml_cpu_up();
 #endif
 
+	/*
+	 * Interrupts must be disabled while processor_start_state_lock is
+	 * held to prevent a deadlock with CPU startup of other CPUs that
+	 * may be proceeding in parallel to this CPU's reinitialization.
+	 */
+	spl_t s = splsched();
 	processor_t processor = current_processor();
 
 	simple_lock(&processor_start_state_lock, LCK_GRP_NULL);
 	assert(processor->processor_instartup == true || is_final_system_sleep);
 	processor->processor_instartup = false;
 	simple_unlock(&processor_start_state_lock);
+
+	splx(s);
 
 	thread_wakeup((event_t)&processor->processor_instartup);
 }
@@ -1321,7 +1331,7 @@ ml_broadcast_cpu_event(enum cpu_event event, unsigned int cpu_or_cluster)
 void
 machine_timeout_init_with_suffix(const struct machine_timeout_spec *spec, char const *suffix)
 {
-	if (spec->skip_predicate != NULL && spec->skip_predicate(spec)) {
+	if (wdt == -1 || (spec->skip_predicate != NULL && spec->skip_predicate(spec))) {
 		// This timeout should be disabled.
 		os_atomic_store_wide((uint64_t*)spec->ptr, 0, relaxed);
 		return;

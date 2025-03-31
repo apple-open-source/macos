@@ -71,7 +71,7 @@ WK_OBJECT_DISABLE_DISABLE_KVC_IVAR_ACCESS;
 + (instancetype)defaultStore
 {
 #if ENABLE(CONTENT_EXTENSIONS)
-    return wrapper(API::ContentRuleListStore::defaultStore());
+    return wrapper(API::ContentRuleListStore::defaultStoreSingleton());
 #else
     return nil;
 #endif
@@ -169,6 +169,20 @@ WK_OBJECT_DISABLE_DISABLE_KVC_IVAR_ACCESS;
 #endif
 }
 
+- (void)_corruptContentRuleListHeaderForIdentifier:(NSString *)identifier usingCurrentVersion:(BOOL)usingCurrentVersion
+{
+#if ENABLE(CONTENT_EXTENSIONS)
+    _contentRuleListStore->corruptContentRuleListHeader(identifier, usingCurrentVersion);
+#endif
+}
+
+- (void)_invalidateContentRuleListHeaderForIdentifier:(NSString *)identifier
+{
+#if ENABLE(CONTENT_EXTENSIONS)
+    _contentRuleListStore->invalidateContentRuleListHeader(identifier);
+#endif
+}
+
 - (void)_getContentRuleListSourceForIdentifier:(NSString *)identifier completionHandler:(void (^)(NSString*))completionHandler
 {
 #if ENABLE(CONTENT_EXTENSIONS)
@@ -191,7 +205,7 @@ WK_OBJECT_DISABLE_DISABLE_KVC_IVAR_ACCESS;
 + (instancetype)defaultStoreWithLegacyFilename
 {
 #if ENABLE(CONTENT_EXTENSIONS)
-    return wrapper(API::ContentRuleListStore::defaultStore());
+    return wrapper(API::ContentRuleListStore::defaultStoreSingleton());
 #else
     return nil;
 #endif

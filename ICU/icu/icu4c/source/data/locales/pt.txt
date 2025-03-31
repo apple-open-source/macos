@@ -1006,6 +1006,9 @@ pt{
                 }
             }
         }
+        minute-narrow{
+            dn{"min"}
+        }
         minute-short{
             dn{"min."}
             relativeTime{
@@ -1177,8 +1180,8 @@ pt{
                     other{"em {0} domingos"}
                 }
                 past{
-                    one{"há {0} domigo"}
-                    other{"há {0} domigos"}
+                    one{"há {0} domingo"}
+                    other{"há {0} domingos"}
                 }
             }
         }
@@ -1427,10 +1430,10 @@ pt{
                 "[%％﹪ ٪]",
                 "[‰ ؉]",
                 "[\$＄﹩]",
-                "[£ ₤]",
+                "[£￡ ₤]",
                 "[¥￥]",
                 "[₩￦]",
-                "[₹ ₨ {Rp} {Rs}]",
+                "[₹ {Rp} {Rs}₨]",
             }
         }
         number{

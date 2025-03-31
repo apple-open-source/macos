@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2005-2024 Apple Inc. All rights reserved.
+ * Copyright (c) 2005-2025 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -39,7 +39,6 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <stdint.h>
-#include <stdbool.h>
 #include <string.h>
 #include <mach/boolean.h>
 #include <CoreFoundation/CFString.h>
@@ -51,6 +50,12 @@
 #if defined(TEST_DNSNAMELIST) || defined(DEBUG)
 #include "util.h"
 #endif
+
+typedef CF_ENUM(uint8_t, DNSFlags) {
+	kDNSFlagsNone	 		= 0x00,
+	kDNSFlagsSingleName 		= 0x01,
+	kDNSFlagsPreserveEndLabel 	= 0x02,
+};
 
 #define DNS_PTR_PATTERN_BYTE_MASK	(uint8_t)0xc0
 #define DNS_PTR_PATTERN_MASK		(uint16_t)0xc000
@@ -91,7 +96,7 @@ typedef struct {
 typedef struct {
     DNSBuf		dnb_buf;
     DNSNameOffsetsList	dnb_names;
-    Boolean		dnb_compact;
+    bool		dnb_compact;
 } DNSNamesBuf, * DNSNamesBufRef;
 
 /**
@@ -103,7 +108,7 @@ DNSBufInit(DNSBufRef db, uint8_t * buf, int buf_size)
 {
     bzero(db, sizeof(*db));
     if (buf != NULL) {
-	db->db_buf_user_supplied = TRUE;
+	db->db_buf_user_supplied = true;
 	db->db_buf = buf;
 	db->db_buf_size = buf_size;
     }
@@ -117,7 +122,7 @@ DNSBufInit(DNSBufRef db, uint8_t * buf, int buf_size)
 STATIC void
 DNSBufFreeElements(DNSBufRef db)
 {
-    if (db->db_buf_user_supplied == FALSE) {
+    if (!db->db_buf_user_supplied) {
 	if (db->db_buf != NULL && db->db_buf != db->db_buf_s) {
 	    free(db->db_buf);
 	}
@@ -163,7 +168,7 @@ DNSBufAddData(DNSBufRef db, const void * data, int data_len)
 		    "user-supplied buffer failed to add data with"
 		    " length %d (> %d)\n",
 		    data_len, (db->db_buf_size - db->db_buf_used));
-	    return (FALSE);
+	    return (false);
 	}
 #ifdef DEBUG
 	printf("Buffer growing from %d to %d\n", db->db_buf_size,
@@ -182,7 +187,7 @@ DNSBufAddData(DNSBufRef db, const void * data, int data_len)
     }
     memcpy(db->db_buf + db->db_buf_used, data, data_len);
     db->db_buf_used += data_len;
-    return (TRUE);
+    return (true);
 }
 
 /**
@@ -216,10 +221,10 @@ DNSNameOffsetsContainsOffset(DNSNameOffsetsRef list, uint32_t off)
 
     for (i = 0; i < list->dno_count; i++) {
 	if (list->dno_list[i] == off) {
-	    return (TRUE);
+	    return (true);
 	}
     }
-    return (FALSE);
+    return (false);
 }
 
 STATIC void
@@ -381,8 +386,9 @@ DNSNameFree(DNSNameRef * name_p)
 }
 
 STATIC DNSNameRef
-DNSNameCreate(const char * dns_name)
+DNSNameCreate(const char * dns_name, DNSFlags flags)
 {
+    bool		end_label = false;
     int			digits = 0;
     int			i;
     int			name_len;
@@ -398,8 +404,9 @@ DNSNameCreate(const char * dns_name)
     for (i = 0; i <= name_len; i++) {
 	if (i == name_len || dns_name[i] == '.') {
 	    if (digits == 0) {
-		fprintf(stderr, "label length is 0\n");
-		goto failed;
+		/* add the end label */
+		end_label = true;
+		break;
 	    }
 	    if (digits > DNS_LABEL_LENGTH_MAX) {
 		fprintf(stderr, "label length %d > %d\n", digits,
@@ -417,8 +424,18 @@ DNSNameCreate(const char * dns_name)
 	    digits++;
 	}
     }
-    new_name->dn_buf_size = size + 1;
-    new_name->dn_buf[size] = '\0';
+    /*
+     * names in a list (i.e. not single name) always get an end label,
+     * single names only get an end label if requested
+     */
+    if ((flags & kDNSFlagsSingleName) == 0
+	|| (end_label && (flags & kDNSFlagsPreserveEndLabel) != 0)) {
+	new_name->dn_buf_size = size + 1;
+	new_name->dn_buf[size] = '\0';
+    }
+    else {
+	new_name->dn_buf_size = size;
+    }
     return (new_name);
  failed:
     DNSNameFree(&new_name);
@@ -472,7 +489,7 @@ DNSNamesBufFreeElements(DNSNamesBufRef nb)
 }
 
 STATIC void
-DNSNamesBufInit(DNSNamesBufRef nb, void * buf, int buf_size, Boolean compact)
+DNSNamesBufInit(DNSNamesBufRef nb, void * buf, int buf_size, bool compact)
 {
     DNSBufInit(&nb->dnb_buf, buf, buf_size);
     DNSNameOffsetsListInit(&nb->dnb_names);
@@ -505,7 +522,7 @@ DNSNamesBufAddData(DNSNamesBufRef nb, const void * data, int data_len)
 }
 
 STATIC bool
-DNSNamesBufAddName(DNSNamesBufRef nb, const char * dns_name)
+DNSNamesBufAddName(DNSNamesBufRef nb, const char * dns_name, DNSFlags flags)
 {
     int			best_matched = 0;
     DNSNameOffsetsRef	best_name = NULL;
@@ -514,24 +531,19 @@ DNSNamesBufAddName(DNSNamesBufRef nb, const char * dns_name)
     int			count;
     int			i;
     DNSNameRef		new_name = NULL;
-    bool		ret = FALSE;
+    bool		ret = false;
     int			start_count;
 
     buf_offset = DNSNamesBufUsed(nb);
 
     /* parse the name into labels */
-    new_name = DNSNameCreate(dns_name);
+    new_name = DNSNameCreate(dns_name, flags);
     if (new_name == NULL) {
 	goto done;
     }
     if (!nb->dnb_compact) {
 	/* add the whole encoded name to nb's buffer */
-	if (DNSNamesBufAddData(nb, new_name->dn_buf,
-			       new_name->dn_buf_size) == FALSE) {
-	}
-	else {
-	    ret = TRUE;
-	}
+	ret = DNSNamesBufAddData(nb, new_name->dn_buf, new_name->dn_buf_size);
 	goto done;
     }
 
@@ -556,8 +568,7 @@ DNSNamesBufAddName(DNSNamesBufRef nb, const char * dns_name)
     }
     if (best_name == NULL) {
 	/* add the whole encoded name to nb's buffer */
-	if (DNSNamesBufAddData(nb, new_name->dn_buf,
-			       new_name->dn_buf_size) == FALSE) {
+	if (!DNSNamesBufAddData(nb, new_name->dn_buf, new_name->dn_buf_size)) {
 	    goto done;
 	}
     }
@@ -576,7 +587,7 @@ DNSNamesBufAddName(DNSNamesBufRef nb, const char * dns_name)
 		uint16_t	ptr;
 		
 		ptr = htons(DNS_PTR_PATTERN_MASK | best_offset);
-		if (DNSNamesBufAddData(nb, &ptr, sizeof(ptr)) == FALSE) {
+		if (!DNSNamesBufAddData(nb, &ptr, sizeof(ptr))) {
 		    goto done;
 		}
 	    }
@@ -589,9 +600,8 @@ DNSNamesBufAddName(DNSNamesBufRef nb, const char * dns_name)
 	    name_offset = DNSNameOffsetsElement(new_name->dn_offsets, i);
 	    if (best_name != NULL) {
 		/* add this component to nb's buffer */
-		if (DNSNamesBufAddData(nb, new_name->dn_buf + name_offset,
-				       new_name->dn_buf[name_offset] + 1)
-		    == FALSE) {
+		if (!DNSNamesBufAddData(nb, new_name->dn_buf + name_offset,
+					new_name->dn_buf[name_offset] + 1)) {
 		    goto done;
 		}
 	    }
@@ -603,10 +613,10 @@ DNSNamesBufAddName(DNSNamesBufRef nb, const char * dns_name)
     /* "steal" the offsets from the name before it's released */
     DNSNameOffsetsListAdd(&nb->dnb_names, new_name->dn_offsets);
     new_name->dn_offsets = NULL;
-    ret = TRUE;
+    ret = true;
 
  done:
-    if (ret == FALSE) {
+    if (!ret) {
 	/* roll back */
 	DNSNamesBufSetUsed(nb, buf_offset);
     }
@@ -619,26 +629,10 @@ DNSNamesBufAddName(DNSNamesBufRef nb, const char * dns_name)
  ** DNSNameList* API's
  **/
 
-/* 
- * Function: DNSNameListBufferCreate
- *   Convert the given list of DNS domain names into either of two formats
- *   described in RFC 1035.  If "buffer" is NULL, this routine allocates
- *   a buffer of sufficient size and returns its size in "buffer_size".
- *   Use free() to release the memory.
- *
- *   If "buffer" is not NULL, this routine places at most "buffer_size" 
- *   bytes into "buffer".  If "buffer" is too small, NULL is returned, and
- *   "buffer_size" reflects the number of bytes used in the partial conversion.
- *
- *   If "compact" is TRUE, generates the compact form (RFC 1035 section 4.1.4),
- *   otherwise generates the non-compact form (RFC 1035 section 3.1).
- *   
- * Returns:
- *   NULL if the conversion failed, non-NULL otherwise.
- */
-PRIVATE_EXTERN uint8_t *
-DNSNameListBufferCreate(const char * names[], int names_count,
-			uint8_t * buffer, int * buffer_size, Boolean compact)
+STATIC uint8_t *
+DNSNameListBufferCreateCommon(const char * names[], int names_count,
+			      uint8_t * buffer, int * buffer_size,
+			      bool compact, DNSFlags flags)
 {
     int			bufsize = *buffer_size;
     int			i;
@@ -656,7 +650,7 @@ DNSNameListBufferCreate(const char * names[], int names_count,
     }
     DNSNamesBufInit(&nb, buffer, bufsize, compact);
     for (i = 0; i < names_count; i++) {
-	if (DNSNamesBufAddName(&nb, names[i]) == FALSE) {
+	if (!DNSNamesBufAddName(&nb, names[i], flags)) {
 	    fprintf(stderr, "failed to add %s\n", names[i]);
 	    if (buffer != NULL) {
 		used = DNSNamesBufUsed(&nb);
@@ -680,13 +674,17 @@ DNSNameListBufferCreate(const char * names[], int names_count,
 
 }
 
-/* 
- * Function: DNSNameListDataCreateWithArray
- *
- * Purpose:
- */
+PRIVATE_EXTERN uint8_t *
+DNSNameListBufferCreate(const char * names[], int names_count,
+			uint8_t * buffer, int * buffer_size, bool compact)
+{
+    return DNSNameListBufferCreateCommon(names, names_count,
+					 buffer, buffer_size, compact,
+					 kDNSFlagsNone);
+}
+
 PRIVATE_EXTERN CFDataRef
-DNSNameListDataCreateWithArray(CFArrayRef list, Boolean compact)
+DNSNameListDataCreateWithArray(CFArrayRef list, bool compact)
 {
     CFDataRef	data = NULL;
     uint8_t *	encoded;
@@ -707,39 +705,39 @@ DNSNameListDataCreateWithArray(CFArrayRef list, Boolean compact)
     return (data);
 }
 
-/* 
- * Function: DNSNameListDataCreateWithString
- *
- * Purpose:
- */
 PRIVATE_EXTERN CFDataRef
-DNSNameListDataCreateWithString(CFStringRef cfstr)
+DNSNameListDataCreateWithCString(const char * str)
 {
     CFDataRef	data = NULL;
     uint8_t *	encoded;
     int		encoded_length = 0;
+
+    encoded = DNSNameListBufferCreateCommon((const char * *)&str, 1,
+					    NULL, &encoded_length,
+					    false, kDNSFlagsSingleName);
+    if (encoded != NULL) {
+	data = CFDataCreate(NULL, encoded, encoded_length);
+	free(encoded);
+    }
+    return (data);
+}
+
+PRIVATE_EXTERN CFDataRef
+DNSNameListDataCreateWithString(CFStringRef cfstr)
+{
+    CFDataRef	data = NULL;
     char *	str;
 
     str = my_CFStringToCString(cfstr, kCFStringEncodingUTF8);
-    if (str == NULL) {
-	goto done;
+    if (str != NULL) {
+	data = DNSNameListDataCreateWithCString(str);
+	free(str);
     }
-    encoded = DNSNameListBufferCreate((const char * *)&str, 1, 
-				      NULL, &encoded_length,
-				      FALSE);
-    free(str);
-    if (encoded == NULL) {
-	goto done;
-    }
-    data = CFDataCreate(NULL, encoded, encoded_length);
-    free(encoded);
-
- done:
     return (data);
 }
 
 /*
- * Function: DNSNameListCreateCommon
+ * Function: DNSNameListCreateWithDNSBuf
  *
  * Purpose:
  *   Convert the domain name list form described in RFC 1035 to a list
@@ -768,30 +766,32 @@ DNSNameListDataCreateWithString(CFStringRef cfstr)
  *   domain name is complete, and the "read_head" advances to the "scan" point.
  */
 STATIC int
-DNSNameListCreateCommon(const uint8_t * buffer, int buffer_size,
-			DNSBufRef name_buf_p, Boolean single_name)
+DNSNameListCreateWithDNSBuf(const uint8_t * buffer, int buffer_size,
+			    DNSBufRef name_buf_p, DNSFlags flags)
 {
     DNSNameOffsets	buffer_offsets;
+    char		dot = '.';
     bool		first;
     uint32_t		last_completed_name = 0;
     uint32_t		left;
     int			list_count = 0;
+    char		nul = '\0';
     uint32_t		read_head;
     uint32_t		scan;
-    bool		success = FALSE;
+    bool		success = false;
 
     if (buffer == NULL || buffer_size == 0) {
 	return (0);
     }
     DNSNameOffsetsInit(&buffer_offsets);
     left = buffer_size;
-    first = TRUE;
+    first = true;
     for (read_head = scan = 0; read_head < buffer_size; ) {
 	uint16_t	ptr;
 
 	if ((buffer[read_head] & DNS_PTR_PATTERN_BYTE_MASK) 
 	    == DNS_PTR_PATTERN_BYTE_MASK) {
-	    if (single_name) {
+	    if ((flags & kDNSFlagsSingleName) != 0) {
 		fprintf(stderr, "single name with pointers\n");
 		goto failed;
 	    }
@@ -817,7 +817,7 @@ DNSNameListCreateCommon(const uint8_t * buffer, int buffer_size,
 		fprintf(stderr, "attempt to create infinite loop\n");
 		goto failed;
 	    }
-	    if (DNSNameOffsetsContainsOffset(&buffer_offsets, ptr) == FALSE) {
+	    if (!DNSNameOffsetsContainsOffset(&buffer_offsets, ptr)) {
 		fprintf(stderr, "attempt to point off into the weeds\n");
 		goto failed;
 	    }
@@ -843,29 +843,28 @@ DNSNameListCreateCommon(const uint8_t * buffer, int buffer_size,
 	    }
 	    if (len == 0) {
 		/* end label */
-		char	ch = '\0';
-
-		(void)DNSBufAddData(name_buf_p, &ch, 1);
+		if ((flags & kDNSFlagsPreserveEndLabel) != 0) {
+		    (void)DNSBufAddData(name_buf_p, &dot, 1);
+		}
+		(void)DNSBufAddData(name_buf_p, &nul, 1);
 		last_completed_name = scan;
 		read_head = scan;
 		list_count++;
 		/* start on the next domain name */
-		first = TRUE;
-		if (single_name) {
+		first = true;
+		if ((flags & kDNSFlagsSingleName) != 0) {
+		    /* stop looking at the buffer */
 		    break;
 		}
 	    }
 	    else {
 		/* got a label */
-		char	dot = '.';
-
-		if (DNSNameOffsetsContainsOffset(&buffer_offsets, read_head) 
-		    == FALSE) {
+		if (!DNSNameOffsetsContainsOffset(&buffer_offsets, read_head)) {
 		    DNSNameOffsetsAdd(&buffer_offsets, read_head);
 		}
 		if (first) {
 		    /* got the start of a new domain name */
-		    first = FALSE;
+		    first = false;
 		}
 		else {
 		    (void)DNSBufAddData(name_buf_p, &dot, 1);
@@ -881,12 +880,14 @@ DNSNameListCreateCommon(const uint8_t * buffer, int buffer_size,
 	if (DNSBufUsed(name_buf_p) == 0) {
 	    fprintf(stderr, "empty list\n");
 	}
-	else {
-	    fprintf(stderr, "name missing end label\n");
+	else if ((flags & kDNSFlagsSingleName) != 0) {
+	    (void)DNSBufAddData(name_buf_p, &nul, 1);
+	    list_count = 1;
+	    success = true;
 	}
     }
     else {
-	success = TRUE;
+	success = true;
     }
 
  failed:
@@ -917,16 +918,17 @@ DNSNameListCreateCommon(const uint8_t * buffer, int buffer_size,
  *   to the newly allocated area, and the pointer array is populated by
  *   walking the name buffer looking for complete strings.
  */
-PRIVATE_EXTERN const char * *
-DNSNameListCreate(const uint8_t * buffer, int buffer_size, int * names_count)
+STATIC const char * *
+DNSNameListCreateCommon(const uint8_t * buffer, int buffer_size,
+			int * names_count, DNSFlags flags)
 {
     char * *		list = NULL;
     int			list_count;
     DNSBuf		name_buf;
 
     DNSBufInit(&name_buf, NULL, 0);
-    list_count = DNSNameListCreateCommon(buffer, buffer_size, &name_buf,
-					 FALSE);
+    list_count = DNSNameListCreateWithDNSBuf(buffer, buffer_size, &name_buf,
+					     flags);
     if (list_count == 0) {
 	goto failed;
     }
@@ -956,6 +958,12 @@ DNSNameListCreate(const uint8_t * buffer, int buffer_size, int * names_count)
     return ((const char * *)list);
 }
 
+PRIVATE_EXTERN const char * *
+DNSNameListCreate(const uint8_t * buffer, int buffer_size, int * names_count)
+{
+    return DNSNameListCreateCommon(buffer, buffer_size, names_count, false);
+}
+
 /*
  * Function: DNSNameListCreateArray
  * Purpose:
@@ -972,8 +980,7 @@ DNSNameListCreateArray(const uint8_t * buffer, int buffer_size)
     const char *	name_start;
 
     DNSBufInit(&name_buf, NULL, 0);
-    list_count = DNSNameListCreateCommon(buffer, buffer_size,
-					 &name_buf, FALSE);
+    list_count = DNSNameListCreateWithDNSBuf(buffer, buffer_size, &name_buf, 0);
     if (list_count == 0) {
 	return (NULL);
     }
@@ -1006,16 +1013,22 @@ DNSNameListCreateArray(const uint8_t * buffer, int buffer_size)
 }
 
 PRIVATE_EXTERN CFStringRef
-DNSNameStringCreate(const uint8_t * buffer, int buffer_size)
+DNSNameStringCreate(const uint8_t * buffer, int buffer_size,
+		    bool preserve_end_label)
 {
+    DNSFlags		flags;
     int			list_count;
     DNSBuf		name_buf;
     const char *	name_start;
     CFStringRef		str;
 
     DNSBufInit(&name_buf, NULL, 0);
-    list_count = DNSNameListCreateCommon(buffer, buffer_size,
-					 &name_buf, TRUE);
+    flags = kDNSFlagsSingleName;
+    if (preserve_end_label) {
+	flags |= kDNSFlagsPreserveEndLabel;
+    }
+    list_count = DNSNameListCreateWithDNSBuf(buffer, buffer_size, &name_buf,
+					     flags);
     if (list_count == 0) {
 	return (NULL);
     }
@@ -1056,7 +1069,26 @@ const uint8_t	bad_buf6[] = {
     5, 'a', 'p', 'p', 'l', 'e', 3, 'c', 'o', 'm', 0,
     16, 'g', 'o', 'o' };
 
-const uint8_t	bad_buf7[] = {
+/*
+ * The no_end_label data is OK for a single name, but not OK when expecting
+ * multiple names. This data will fail in the DNS list test, but succeed
+ * in DNS single name test.
+ *
+ * Notes:
+ * 1) The DHCPv6 FQDN option may or may not have a terminating end label,
+ *    in fact it normally will not have a terminating end label. The DHCPv6
+ *    client code specifies `preserve_end_label = true` so that when it logs,
+ *    it shows the trailing ".".
+ *    The RA PVD domain name always has an end label, but the code currently
+ *    doesn't want a trailing ".", so it specifies `preserve_end_label = false`.
+ *
+ * 2) The DNSNameList option is expected to always have end labels: that's how
+ *    we know we're reached the end of a name when we're expecting potentially
+ *    multiple names. It's possible to make the code tolerant of non-terminated
+ *    DNS name lists in some cases (non compact), but that's not really worth
+ *    the effort.
+ */
+const uint8_t	no_end_label[] = {
     5, 'a', 'p', 'p', 'l', 'e', 3, 'c', 'o', 'm'
 };
 
@@ -1095,6 +1127,8 @@ const uint8_t good_buf2[] = {
  * good_buf4
  * - aligned to 8 bytes, multiple end labels, trailing non-zeroes
  *   that should be ignored when doing a single label
+ * - this is technically garbage (non RFC 1035 compliant) data that
+ *   we made the code tolerant of: the padding bytes should be all zeroes
  */
 const uint8_t good_buf4[] = {
 	5, 'm', 'u', 'l', 't', 'i', 3, 'c', 'o', 'm', 0,
@@ -1133,27 +1167,27 @@ struct test {
 };
 
 STATIC const struct test all_tests[] = {
-    { "infinite loop", bad_buf1, sizeof(bad_buf1), FALSE },
-    { "infinite loop", bad_buf2, sizeof(bad_buf2), FALSE },
-    { "forward pointer", bad_buf3, sizeof(bad_buf3), FALSE },
-    { "pointer to non-existent location", bad_buf4, sizeof(bad_buf4), FALSE },
-    { "truncated pointer", bad_buf5, sizeof(bad_buf5), FALSE },
-    { "truncated label", bad_buf6, sizeof(bad_buf6), FALSE },
-    { "no end label", bad_buf7, sizeof(bad_buf7), FALSE },
-    { "bad chars", bad_buf8, sizeof(bad_buf8), FALSE },
-    { "apple.com", good_buf1, sizeof(good_buf1), TRUE },
-    { "w.x", good_buf2, sizeof(good_buf2), TRUE },
-    { "scps-pvds-dev.scpscl.dev-charter.net", good_buf5, sizeof(good_buf5), TRUE },
-    { "device-services.comcast.net", good_buf6, sizeof(good_buf6), TRUE },
-    { "bad 'device-services.comcast.net'",  bad_buf11, sizeof(bad_buf11), FALSE },
+    { "infinite loop", bad_buf1, sizeof(bad_buf1), false },
+    { "infinite loop", bad_buf2, sizeof(bad_buf2), false },
+    { "forward pointer", bad_buf3, sizeof(bad_buf3), false },
+    { "pointer to non-existent location", bad_buf4, sizeof(bad_buf4), false },
+    { "truncated pointer", bad_buf5, sizeof(bad_buf5), false },
+    { "truncated label", bad_buf6, sizeof(bad_buf6), false },
+    { "no end label", no_end_label, sizeof(no_end_label), false },
+    { "bad chars", bad_buf8, sizeof(bad_buf8), false },
+    { "apple.com", good_buf1, sizeof(good_buf1), true },
+    { "w.x", good_buf2, sizeof(good_buf2), true },
+    { "scps-pvds-dev.scpscl.dev-charter.net", good_buf5, sizeof(good_buf5), true },
+    { "device-services.comcast.net", good_buf6, sizeof(good_buf6), true },
+    { "bad 'device-services.comcast.net'",  bad_buf11, sizeof(bad_buf11), false },
     { NULL, NULL, 0}
 };
 
 STATIC const struct test all_string_tests[] = {
-    { "no end label", bad_buf7, sizeof(bad_buf7), FALSE },
-    { "truncated label", bad_buf9, sizeof(bad_buf9), FALSE },
-    { "contains pointer", bad_buf10, sizeof(bad_buf10), FALSE },
-    { "multi.com", good_buf4, sizeof(good_buf1), TRUE },
+    { "no end label", no_end_label, sizeof(no_end_label), true },
+    { "truncated label", bad_buf9, sizeof(bad_buf9), false },
+    { "contains pointer", bad_buf10, sizeof(bad_buf10), false },
+    { "multi.com", good_buf4, sizeof(good_buf1), true },
     { NULL, NULL, 0}
 };
 
@@ -1197,26 +1231,34 @@ DNSNameListBufferDumpCharArray(const uint8_t * buf, int buf_size)
 
 
 STATIC void
-test_domain_list(int argc, const char * argv[], Boolean compact)
+test_domain_list(int argc, const char * argv[], bool compact)
 {
     uint8_t *		buf;
+    int			count = argc - 1;
     int			buf_size;
     int 		i;
     const char * *	list;
     int			list_count;
+    DNSFlags		flags = 0;
     uint8_t		tmp[16];
 
-    buf = DNSNameListBufferCreate(argv + 1, argc - 1, NULL, &buf_size, compact);
+    if (count <= 0) {
+	return;
+    }
+    if (count == 1) {
+	flags = kDNSFlagsSingleName | kDNSFlagsPreserveEndLabel;
+    }
+    buf = DNSNameListBufferCreateCommon(argv + 1, count, NULL, &buf_size,
+					compact, flags);
     if (buf != NULL) {
 	print_data(buf, buf_size);
-	list = DNSNameListCreate(buf, buf_size, &list_count);
+	list = DNSNameListCreateCommon(buf, buf_size, &list_count, flags);
 	if (list != NULL) {
 	    printf("Domains%s: ", compact ? " [compact]" : "");
 	    for (i = 0; i < list_count; i++) {
 		if (strcasecmp(list[i], argv[i + 1]) != 0) {
-		    fprintf(stderr, "ERROR! %s != %s\n",
+		    fprintf(stderr, "%s != %s\n",
 			    list[i], argv[i + 1]);
-		    break;
 		}
 		printf("%s%s", (i > 0) ? " " : "", list[i]);
 	    }
@@ -1227,7 +1269,8 @@ test_domain_list(int argc, const char * argv[], Boolean compact)
 	free(buf);
     }
     buf_size = sizeof(tmp);
-    buf = DNSNameListBufferCreate(argv + 1, argc - 1, tmp, &buf_size, compact);
+    buf = DNSNameListBufferCreateCommon(argv + 1, count, tmp, &buf_size,
+					compact, flags);
     if (buf_size == 0) {
 	printf("FAILED to convert\n");
     }
@@ -1237,7 +1280,7 @@ test_domain_list(int argc, const char * argv[], Boolean compact)
 		   buf_size);
 	}
 	print_data(tmp, buf_size);
-	list = DNSNameListCreate(tmp, buf_size, &list_count);
+	list = DNSNameListCreateCommon(tmp, buf_size, &list_count, flags);
 	if (list != NULL) {
 	    printf("Domains%s: ", compact ? " [compact]" : "");
 	    for (i = 0; i < list_count; i++) {
@@ -1258,23 +1301,26 @@ main(int argc, const char * argv[])
     const struct test *	test;
 
     if (argc >= 2) {
-	test_domain_list(argc, argv, TRUE);
-	test_domain_list(argc, argv, FALSE);
+	test_domain_list(argc, argv, true);
+	test_domain_list(argc, argv, false);
     }
+    printf("\n-------\nDNS name list tests\n");
     for (i = 0, test = all_tests; test->name != NULL; i++, test++) {
 	CFArrayRef	array;
 
 	list = DNSNameListCreate(test->buf, test->buf_size,
 				 &list_count);
 	array = DNSNameListCreateArray(test->buf, test->buf_size);
-	printf("Test %d '%s' ", i + 1, test->name);
+	printf("\ttest #%d '%s' ", i + 1, test->name);
 	if (test->expect_success
 	    == (array != NULL && list != NULL)) {
 	    printf("PASSED\n");
 	}
 	else {
-	    printf("FAILED\n");
-	    printf("Halting tests\n");
+	    fprintf(stderr,
+		    "expect success %s\n", test->expect_success ? "yes" : "no");
+	    fprintf(stderr, "FAILED\n");
+	    fprintf(stderr, "Halting tests\n");
 	    exit(2);
 	}
 	if (list != NULL) {
@@ -1293,22 +1339,32 @@ main(int argc, const char * argv[])
 	    CFRelease(array);
 	}
     }
+    printf("\n--------\nDNS single name tests\n");
     for (i = 0, test = all_string_tests; test->name != NULL; i++, test++) {
 	CFStringRef	str;
 
-	str = DNSNameStringCreate(test->buf, test->buf_size);
-	printf("String Test %d '%s' ", i + 1, test->name);
-	if (test->expect_success == (str != NULL)) {
-	    printf("PASSED\n");
-	}
-	else {
-	    printf("FAILED\n");
-	    printf("Halting tests\n");
-	    exit(2);
-	}
-	if (str != NULL) {
-	    CFShow(str);
-	    CFRelease(str);
+	for (bool preserve_end_label = false;
+	     TRUE;
+	     preserve_end_label = true) {
+	    printf("\ttest #%d '%s'%s ", i + 1, test->name,
+		   preserve_end_label ? " [end label]" : "");
+	    str = DNSNameStringCreate(test->buf, test->buf_size,
+				      preserve_end_label);
+	    if (test->expect_success == (str != NULL)) {
+		printf("PASSED\n");
+	    }
+	    else {
+		printf("FAILED\n");
+		printf("Halting tests\n");
+		exit(2);
+	    }
+	    if (str != NULL) {
+		CFShow(str);
+		CFRelease(str);
+	    }
+	    if (preserve_end_label == true) {
+		break;
+	    }
 	}
     }
     exit(0);

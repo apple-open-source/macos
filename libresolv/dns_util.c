@@ -74,6 +74,9 @@
 
 #define MAXPACKET 1024
 
+_Pragma("clang diagnostic push")
+_Pragma("clang diagnostic ignored \"-Wdeprecated\"")
+
 extern void _check_cache(sdns_handle_t *sdns);
 extern int _sdns_search(sdns_handle_t *sdns, const char *name, uint32_t class, uint32_t type, uint32_t fqdn, uint32_t recurse, char *buf, uint32_t len, struct sockaddr *from, uint32_t *fromlen, int *min);
 extern int _pdns_search(sdns_handle_t *sdns, pdns_handle_t *pdns, const char *name, uint32_t class, uint32_t type, char *buf, uint32_t len, struct sockaddr *from, uint32_t *fromlen);
@@ -122,56 +125,6 @@ _dns_parse_uint32(char **p)
 	v = ntohl(*x);
 	*p += 4;
 	return v;
-}
-
-static uint8_t
-_dns_cname_length(char *s)
-{
-	uint8_t l;
-
-	if (s == NULL) return 1;
-	l = strlen(s);
-	while ((s[l - 1] == '.') && (l > 1)) l--;
-	return l;
-}
-
-static void
-_dns_insert_cname(char *s, char *p)
-{
-	int i;
-	uint8_t len, dlen;
-
-	if (s == NULL)
-	{
-		*p = 0;
-		return;
-	}
-
-	if (!strcmp(s, "."))
-	{
-		p[0] = 1;
-		p[1] = '.';
-		p[2] = 0;
-		return;
-	}
-
-	len = _dns_cname_length(s);
-
-	p[0] = '.';
-	memmove(p + 1, s, len);
-	p[len + 1] = '.';
-
-	dlen = 0;
-
-	for (i = len + 1; i >= 0; i--)
-	{
-		if (p[i] == '.')
-		{
-			p[i] = dlen;
-			dlen = 0;
-		}
-		else dlen++;
-	}
 }
 
 static char *
@@ -1108,100 +1061,6 @@ dns_free_reply(dns_reply_t *r)
 	free(r);
 }
 
-static void
-_dns_append_question(dns_question_t *q, char **s, uint16_t *l)
-{
-	uint16_t len, *p;
-	char *x;
-
-	if (q == NULL) return;
-
-	len = *l + _dns_cname_length(q->name) + 2 + 4;
-	*s = realloc(*s, len);
-
-	_dns_insert_cname(q->name, (char *)*s + *l);
-	*l = len;
-
-	x = *s + (len - 4);
-
-	p = (uint16_t *)x;
-	*p = htons(q->dnstype);
-	x += 2;
-
-	p = (uint16_t *)x;
-	*p = htons(q->dnsclass);
-
-}
-
-static void
-_dns_append_resource_record(dns_resource_record_t *r, char **s, uint16_t *l)
-{
-	uint16_t clen, len, *p, extra, rdlen;
-	uint32_t *p2;
-	char *x;
-
-	if (r == NULL) return;
-
-	extra = 10;
-	switch (r->dnstype)
-	{
-		case ns_t_a:
-			extra += 4;
-			break;
-		case ns_t_ptr:
-			extra += 2;
-			clen = _dns_cname_length(r->data.PTR->name);
-			extra += clen;
-			break;
-		default: break;
-	}
-
-	len = *l + _dns_cname_length(r->name) + 2 + extra;
-	*s = realloc(*s, len);
-
-	_dns_insert_cname(r->name, (char *)*s + *l);
-	*l = len;
-
-	x = *s + (len - extra);
-
-	p = (uint16_t *)x;
-	*p = htons(r->dnstype);
-	x += 2;
-
-	p = (uint16_t *)x;
-	*p = htons(r->dnsclass);
-	x += 2;
-
-	p2 = (uint32_t *)x;
-	*p2 = htonl(r->ttl);
-	x += 4;
-
-	switch (r->dnstype)
-	{
-		case ns_t_a:
-			rdlen = 4;
-			p = (uint16_t *)x;
-			*p = htons(rdlen);
-			x += 2;
-
-			p2 = (uint32_t *)x;
-			*p2 = htons(r->data.A->addr.s_addr);
-			x += 4;
-			return;
-
-		case ns_t_ptr:
-			clen = _dns_cname_length(r->data.PTR->name) + 2;
-			p = (uint16_t *)x;
-			*p = htons(clen);
-			x += 2;
-			_dns_insert_cname(r->data.PTR->name, x);
-			x += clen;
-			return;
-
-		default: return;
-	}
-}
-
 void
 dns_free_question(dns_question_t *q)
 {
@@ -2108,6 +1967,7 @@ dns_all_server_addrs(dns_handle_t d, struct sockaddr ***addrs, uint32_t *count)
 	*count = n;
 }
 
+__attribute__((__visibility__("hidden")))
 int
 dns_res_once(struct sockaddr *server, struct timeval *timeout, int options, const char *name, int class, int type, u_char *res, int *reslen)
 {
@@ -2128,15 +1988,15 @@ dns_res_once(struct sockaddr *server, struct timeval *timeout, int options, cons
 	statp->options = options;
 	statp->id = res_randomid();
 	if (timeout == NULL) statp->retrans = 5;
-	else statp->retrans = timeout->tv_sec;
+	else statp->retrans = (int)timeout->tv_sec;
 
 	statp->ndots = 1;
 	statp->_vcsock = -1;
 	statp->nscount = 1;
 
-	strcpy(statp->_u._ext.ext->nsuffix, "ip6.arpa");
-	strcpy(statp->_u._ext.ext->nsuffix2, "ip6.int");
-	strcpy(statp->_u._ext.ext->bsuffix, "ip6.arpa");
+	strlcpy(statp->_u._ext.ext->nsuffix, "ip6.arpa", RES_EXT_SUFFIX_LEN);
+	strlcpy(statp->_u._ext.ext->nsuffix2, "ip6.int", RES_EXT_SUFFIX_LEN);
+	strlcpy(statp->_u._ext.ext->bsuffix, "ip6.arpa", RES_EXT_SUFFIX_LEN);
 
 	if (server->sa_family == AF_INET6)
 	{
@@ -2157,3 +2017,5 @@ dns_res_once(struct sockaddr *server, struct timeval *timeout, int options, cons
 
 	return status;
 }
+
+_Pragma("clang diagnostic pop")

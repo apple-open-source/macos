@@ -1,0 +1,103 @@
+#! /bin/sh
+
+. ${tstdir-.}/daemon.sh
+. ${tstdir-.}/lib.sh
+. ${tstdir-.}/conf.sh
+
+dest="$PWD/ftp"
+cfgfile="$PWD/rsyncd.conf"
+scratch="$PWD/scratch"
+errfile="$PWD/rsyncd.out"
+
+rm -rf "$dest" "$scratch"
+
+mkdir "$dest" "$scratch"
+:> "$dest"/file
+
+:> "$scratch"/file.1
+:> "$scratch"/file.2
+
+cat <<EOF > "$cfgfile"
+path = $dest
+use chroot = no
+
+[simple]
+	refuse options = checksum
+[short]
+	refuse options = c
+[wildcard]
+	refuse options = delete-*
+[delete]
+	# Refuses all of the delete options and --remove-source-files
+	refuse options = delete
+[multi]
+	refuse options = delete-before delete-after
+[archive_full]
+	# Will refuse -Dgloprt
+	refuse options = archive
+[archive_wild]
+	# Will not refuse -Dgloprt
+	refuse options = archiv*
+[archive_implicit]
+	# Will refuse --archive
+	refuse options = r
+EOF
+
+rsyncd "$cfgfile"
+dport=$(daemon_port)
+
+for module in short simple; do
+	if command $RSYNC_CLIENT -c rsync://localhost:$dport/$module/file \
+	    "$scratch" 2> "$errfile"; then
+		1>&2 echo "-c not refused on module '$module'"
+		exit 1
+	fi
+	if command $RSYNC_CLIENT --checksum rsync://localhost:$dport/$module/file \
+	    "$scratch" 2> "$errfile"; then
+		1>&2 echo "--checksum not refused on module '$module'"
+		exit 1
+	fi
+done
+
+for param in delete-before delete-after; do
+	if command $RSYNC_CLIENT "--$param" -a "$scratch" \
+	    rsync://localhost:$dport/wildcard 2> "$errfile"; then
+		1>&2 echo "--$param not refused on module 'wildcard'"
+		exit 1
+	fi
+	if command $RSYNC_CLIENT "--$param" -a "$scratch" \
+	    rsync://localhost:$dport/delete 2> "$errfile"; then
+		1>&2 echo "--$param not refused on module 'delete'"
+		exit 1
+	fi
+	if command $RSYNC_CLIENT "--$param" -a "$scratch" \
+	    rsync://localhost:$dport/multi 2> "$errfile"; then
+		1>&2 echo "--$param not refused on module 'multi'"
+		exit 1
+	fi
+done
+
+if command $RSYNC_CLIENT --remove-source-files -a \
+    rsync://localhost:$dport/delete/file "$scratch" 2> "$errfile"; then
+	1>&2 echo "--remove-source-files not refused on module 'delete'"
+	exit 1
+fi
+
+if command $RSYNC_CLIENT -r rsync://localhost:$dport/archive_full/file \
+    "$scratch" 2> "$errfile"; then
+	1>&2 echo "-r not refused on module 'archive_full'"
+	# XXX Soft warning until we stop testing against rsync 2.6.9.
+	#exit 1
+fi
+
+if ! command $RSYNC_CLIENT -r rsync://localhost:$dport/archive_wild/file \
+    "$scratch" 2> "$errfile"; then
+	1>&2 echo "-r refused on module 'archive_wild'"
+	exit 1
+fi
+
+if command $RSYNC_CLIENT -a rsync://localhost:$dport/archive_implicit/file \
+    "$scratch" 2> "$errfile"; then
+	1>&2 echo "-a not refused on module 'archive_implicit'"
+	exit 1
+fi

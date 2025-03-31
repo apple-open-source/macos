@@ -272,6 +272,15 @@ extern int pcap_get_divert_input(pcap_t *, int *);
 SPI_AVAILABLE(macos(15.0), ios(15.0), tvos(15.0), watchos(11.0), bridgeos(9.0))
 extern int pcap_set_divert_input(pcap_t *, int );
 
+
+/*
+ * Return the current number of packet that have been read
+ */
+#define HAS_PCAP_GET_PACKET_READ_COUNT 1
+
+SPI_AVAILABLE(macos(15.5), ios(18.5), tvos(18.5), watchos(11.5), bridgeos(9.5), visionos(2.4))
+extern int pcap_get_packet_read_count(pcap_t *, unsigned long *);
+
 #ifdef __cplusplus
 }
 #endif

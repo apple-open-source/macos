@@ -8,6 +8,8 @@
 #include <TargetConditionals.h>
 #include <sys/vnode.h>
 
+#define MAXLONGPATHLEN 8192
+
 removefile_state_t
 removefile_state_alloc(void) {
 	removefile_state_t state = (removefile_state_t)calloc(1, sizeof(struct _removefile_state));
@@ -57,6 +59,10 @@ removefile_state_get(removefile_state_t state, uint32_t key, void* dst) {
 			*(void**)dst = state->status_context;
 			break;
 		case REMOVEFILE_STATE_FTSENT:
+			if (!state->recurse_entry) {
+				errno = EINVAL;
+				return -1;
+			}
 			*(FTSENT**)dst = state->recurse_entry;
 			break;
 		default:
@@ -104,7 +110,7 @@ removefile_state_set(removefile_state_t state, uint32_t key, const void* value) 
  * the edge case of '/../' or '/.' is not relevant.
  */
 static int
-canonicalize_path(const char *old_path, char *new_path) {
+canonicalize_path(const char *old_path, char *new_path, size_t max_len) {
 	struct getattrDirReply {
 		uint32_t length;
 		uint32_t file_type;
@@ -125,39 +131,61 @@ canonicalize_path(const char *old_path, char *new_path) {
 	}
 
 	/*
-	 * Avoid calling F_GETPATH in case of a hardlink.
+	 * Avoid getting the canonical path in case of a hardlink.
 	 * Also avoid the canonicalization if the file is not a directory.
 	 */
 	if ((reply.file_type != VDIR) || (reply.link_count > 1)) {
 		return -1;
 	}
 
-	int fd = open(old_path, O_RDONLY | O_SYMLINK | O_NONBLOCK);
-	if (fd < 0)
-		return errno;
-
-	if ((error = fcntl(fd, F_GETPATH, new_path)) < 0) {
-		close(fd);
-		return errno;
+	struct pathReply {
+		uint32_t length;
+		attrreference_t attr;
+		char path[];
+	};
+	size_t buf_len = sizeof(struct pathReply) + max_len;
+	struct pathReply *buf = malloc(buf_len);
+	if (buf == NULL) {
+		return -1;
 	}
 
-	if ((error = close(fd)) < 0)
-		return errno;
+	memset(&attr_list, 0, sizeof(attr_list));
+	memset(buf, 0, buf_len);
+	attr_list.bitmapcount = ATTR_BIT_MAP_COUNT;
+	attr_list.commonattr = ATTR_CMN_FULLPATH;
 
+	if ((error = getattrlist(old_path, &attr_list, buf, buf_len, FSOPT_NOFOLLOW))) {
+		error = errno;
+		goto out;
+	}
+
+	char *buf_end = (char *)buf + buf_len;
+	char *attr_end = (char *)buf + buf->length;
+	char *data = (char *)&buf->attr + buf->attr.attr_dataoffset;
+	char *data_end = data + buf->attr.attr_length;
+
+	if (data > attr_end || data_end > attr_end || data_end > buf_end || buf->attr.attr_length > max_len) {
+		error = ENOBUFS;
+	} else {
+		memmove(new_path, data, buf->attr.attr_length);
+	}
+
+out:
+	free(buf);
 	return error;
 }
 
 int
 removefile(const char* path, removefile_state_t state_param, removefile_flags_t flags) {
 	int res = 0, error = 0;
-	char file_path[PATH_MAX];
 	char* paths[] = { NULL, NULL };
 	removefile_state_t state = state_param;
+	size_t max_len = flags & REMOVEFILE_ALLOW_LONG_PATHS ? MAXLONGPATHLEN : PATH_MAX;
 
 	if (path == NULL) {
 		errno = EINVAL;
 		return -1;
-	} else if (strnlen(path, PATH_MAX) >= PATH_MAX) {
+	} else if (strnlen(path, max_len) >= max_len) {
 		errno = ENAMETOOLONG;
 		return -1;
 	}
@@ -177,16 +205,28 @@ removefile(const char* path, removefile_state_t state_param, removefile_flags_t 
 		__removefile_init_random(getpid(), state);
 	}
 
+	char *file_path = malloc(max_len);
+	if (file_path == NULL) {
+		error = errno;
+		res = -1;
+		goto out;
+	}
+
 	// Try to canonicalize the path, which is guaranteed to fit in `file_path`.
 	// (Use the original path upon failure, which is also a legal length.)
-	if (canonicalize_path(path, file_path) != 0) {
-		strncpy(file_path, path, sizeof(file_path));
-		file_path[sizeof(file_path) - 1] = '\0';
+	if (canonicalize_path(path, file_path, max_len) != 0) {
+		strncpy(file_path, path, max_len);
+		file_path[max_len - 1] = '\0';
 	}
 	paths[0] = file_path;
-	res = __removefile_tree_walker(paths, state);
+	if (state->unlink_flags & REMOVEFILE_RECURSIVE_SLIM) {
+		res = __removefile_tree_walker_slim(file_path, state);
+	} else {
+		res = __removefile_tree_walker(paths, state);
+	}
 	error = state->error_num;
 
+out:
 	// deallocate if allocated locally
 	if (state_param == NULL) {
 		removefile_state_free(state);
@@ -195,6 +235,7 @@ removefile(const char* path, removefile_state_t state_param, removefile_flags_t 
 	if (res) {
 		errno = error;
 	}
+	free(file_path);
 
 	return res;
 }

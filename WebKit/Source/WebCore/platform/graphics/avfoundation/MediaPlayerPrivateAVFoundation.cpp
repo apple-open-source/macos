@@ -280,8 +280,8 @@ void MediaPlayerPrivateAVFoundation::seekToTarget(const SeekTarget& target)
     if (target.time > duration())
         adjustedTarget.time = duration();
 
-    if (currentTextTrack())
-        currentTextTrack()->beginSeeking();
+    if (RefPtr track = currentTextTrack().get())
+        track->beginSeeking();
 
     ALWAYS_LOG(LOGIDENTIFIER, "seeking to ", adjustedTarget.time);
 
@@ -675,8 +675,8 @@ void MediaPlayerPrivateAVFoundation::seekCompleted(bool finished)
     if (!finished)
         return;
 
-    if (currentTextTrack())
-        currentTextTrack()->endSeeking();
+    if (RefPtr track = currentTextTrack().get())
+        track->endSeeking();
 
     updateStates();
 
@@ -908,7 +908,7 @@ WTFLogChannel& MediaPlayerPrivateAVFoundation::logChannel() const
 
 String convertEnumerationToString(MediaPlayerPrivateAVFoundation::MediaRenderingMode enumerationValue)
 {
-    static const NeverDestroyed<String> values[] = {
+    static const std::array<NeverDestroyed<String>, 3> values {
         MAKE_STATIC_STRING_IMPL("MediaRenderingNone"),
         MAKE_STATIC_STRING_IMPL("MediaRenderingToContext"),
         MAKE_STATIC_STRING_IMPL("MediaRenderingToLayer"),

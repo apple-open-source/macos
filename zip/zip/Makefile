@@ -1,12 +1,11 @@
 PROJECT		= zip
-VERSION		= 3.0
-DIST		= $(PROJECT)$(shell echo $(VERSION)  | tr -d '.')
-DISTFILE	= $(DIST).zip
+VERSION		= 30
+DIST		= $(PROJECT)$(VERSION)
 
 OSLICENSES	= /usr/local/OpenSourceLicenses
-PATCHFILES	= patch-Apple
 
 SRCROOT		?= $(shell pwd)
+SRCDIR		?= $(SRCROOT)/$(DIST)
 OBJROOT		?= $(SRCROOT)/obj
 SYMROOT		?= $(SRCROOT)/sym
 DSTROOT		?= $(SRCROOT)/dst
@@ -26,12 +25,12 @@ clean:
 
 install: destroot symbols ossinfo
 
-installsrc:
-	pax -rw . $(SRCROOT)
-
-destroot: patchsrc unpacksrc
+destroot:
+	mkdir -p $(OBJROOT)/$(DIST)
+	:> $(OBJROOT)/$(DIST)/flags
 	$(MAKE) -C $(OBJROOT)/$(DIST) \
-		-f unix/Makefile generic install \
+		-f $(SRCDIR)/unix/Makefile generic install \
+		SRCDIR=$(SRCDIR) \
 		prefix=$(DSTROOT)/usr \
 		MANDIR=$(DSTROOT)/usr/share/man/man1 \
 		LOCAL_ZIP="-DLARGE_FILE_SUPPORT -Wall -Os -g -mdynamic-no-pic $(RC_CFLAGS)" BIND="$(CC) $(RC_CFLAGS)" \
@@ -40,15 +39,6 @@ destroot: patchsrc unpacksrc
 symbols:
 	$(CP) $(OBJROOT)/$(DIST)/zip $(SYMROOT)
 
-ossinfo: unpacksrc
+ossinfo:
 	$(MKDIR) $(DSTROOT)/$(OSLICENSES)
-	$(INSTALL_FILE) $(OBJROOT)/$(DIST)/LICENSE $(DSTROOT)/$(OSLICENSES)/$(PROJECT).txt
-
-unpacksrc:
-	cd $(OBJROOT); unzip $(SRCROOT)/$(DISTFILE)
-	> $(OBJROOT)/$(DIST)/flags
-
-patchsrc: unpacksrc
-	for p in $(PATCHFILES); do						\
-		cd $(OBJROOT)/$(DIST) && patch -f -p1 --posix < $(SRCROOT)/$${p} || exit 1;	\
-	done
+	$(INSTALL_FILE) $(SRCDIR)/LICENSE $(DSTROOT)/$(OSLICENSES)/$(PROJECT).txt

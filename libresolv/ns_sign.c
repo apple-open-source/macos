@@ -1,30 +1,32 @@
+/*	$NetBSD: ns_sign.c,v 1.2 2022/04/19 20:32:17 rillig Exp $	*/
+
 /*
+ * Copyright (c) 2004 by Internet Systems Consortium, Inc. ("ISC")
  * Copyright (c) 1999 by Internet Software Consortium, Inc.
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
  * copyright notice and this permission notice appear in all copies.
  *
- * THE SOFTWARE IS PROVIDED "AS IS" AND INTERNET SOFTWARE CONSORTIUM DISCLAIMS
- * ALL WARRANTIES WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES
- * OF MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL INTERNET SOFTWARE
- * CONSORTIUM BE LIABLE FOR ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL
- * DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR
- * PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS
- * ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS
- * SOFTWARE.
+ * THE SOFTWARE IS PROVIDED "AS IS" AND ISC DISCLAIMS ALL WARRANTIES
+ * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS.  IN NO EVENT SHALL ISC BE LIABLE FOR
+ * ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+ * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+ * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT
+ * OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
-
-#ifndef __APPLE__
-#ifndef lint
-static const char rcsid[] = "$Id: ns_sign.c,v 1.1 2006/03/01 19:01:37 majka Exp $";
-#endif
+#include <sys/cdefs.h>
+#if 0
+static const char rcsid[] = "Id: ns_sign.c,v 1.6 2006/03/09 23:57:56 marka Exp ";
+#else
+__RCSID("$NetBSD: ns_sign.c,v 1.2 2022/04/19 20:32:17 rillig Exp $");
 #endif
 
 /* Import. */
 
-#ifndef __APPLE__
 #include "port_before.h"
+#ifndef __APPLE__
 #include "fd_setsize.h"
 #endif
 
@@ -33,6 +35,9 @@ static const char rcsid[] = "$Id: ns_sign.c,v 1.1 2006/03/01 19:01:37 majka Exp 
 
 #include <netinet/in.h>
 #include <arpa/nameser.h>
+#ifdef __APPLE__
+#include <arpa/nameser_compat.h>
+#endif
 #include <arpa/inet.h>
 
 #include <errno.h>
@@ -46,11 +51,15 @@ static const char rcsid[] = "$Id: ns_sign.c,v 1.1 2006/03/01 19:01:37 majka Exp 
 
 #ifndef __APPLE__
 #include <isc/dst.h>
-#include "port_after.h"
+#include <isc/assertions.h>
 #else
+#include <assert.h>
+#define INSIST(cond)	assert(cond)
 #include "dst_internal.h"
 #include "res_private.h"
 #endif
+
+#include "port_after.h"
 
 #define BOUNDS_CHECK(ptr, count) \
 	do { \
@@ -60,24 +69,26 @@ static const char rcsid[] = "$Id: ns_sign.c,v 1.1 2006/03/01 19:01:37 majka Exp 
 		} \
 	} while (0)
 
-/* ns_sign
+/*%
+ *  ns_sign
+ *
  * Parameters:
- *	msg		message to be sent
- *	msglen		input - length of message
+ *\li	msg		message to be sent
+ *\li	msglen		input - length of message
  *			output - length of signed message
- *	msgsize		length of buffer containing message
- *	error		value to put in the error field
- *	key		tsig key used for signing
- *	querysig	(response), the signature in the query
- *	querysiglen	(response), the length of the signature in the query
- *	sig		a buffer to hold the generated signature
- *	siglen		input - length of signature buffer
+ *\li	msgsize		length of buffer containing message
+ *\li	error		value to put in the error field
+ *\li	key		tsig key used for signing
+ *\li	querysig	(response), the signature in the query
+ *\li	querysiglen	(response), the length of the signature in the query
+ *\li	sig		a buffer to hold the generated signature
+ *\li	siglen		input - length of signature buffer
  *			output - length of signature
  *
  * Errors:
- *	- bad input data (-1)
- *	- bad key / sign failed (-BADKEY)
- *	- not enough space (NS_TSIG_ERROR_NO_SPACE)
+ *\li	- bad input data (-1)
+ *\li	- bad key / sign failed (-BADKEY)
+ *\li	- not enough space (NS_TSIG_ERROR_NO_SPACE)
  */
 int
 ns_sign(u_char *msg, int *msglen, int msgsize, int error, void *k,
@@ -94,33 +105,44 @@ ns_sign2(u_char *msg, int *msglen, int msgsize, int error, void *k,
 	 const u_char *querysig, int querysiglen, u_char *sig, int *siglen,
 	 time_t in_timesigned, u_char **dnptrs, u_char **lastdnptr)
 {
-	HEADER *hp = (HEADER *)msg;
+	HEADER *hp = (void *)msg;
 	DST_KEY *key = (DST_KEY *)k;
-	u_char *cp = msg + *msglen, *eob = msg + msgsize;
+	u_char *cp, *eob;
 	u_char *lenp;
-	u_char *name, *alg;
+	u_char *alg;
 	int n;
 	time_t timesigned;
+        u_char name[NS_MAXCDNAME];
 
 	dst_init();
 	if (msg == NULL || msglen == NULL || sig == NULL || siglen == NULL)
 		return (-1);
 
+	cp = msg + *msglen;
+	eob = msg + msgsize;
+
 	/* Name. */
-	if (key != NULL && error != ns_r_badsig && error != ns_r_badkey)
-		n = dn_comp(key->dk_key_name, cp, eob - cp, dnptrs, lastdnptr);
-	else
-		n = dn_comp("", cp, eob - cp, NULL, NULL);
+	if (key != NULL && error != ns_r_badsig && error != ns_r_badkey) {
+		n = ns_name_pton(key->dk_key_name, name, sizeof name);
+		if (n != -1)
+			n = ns_name_pack(name, cp, (int)(eob - cp),
+					 (void *)dnptrs,
+					 (void *)lastdnptr);
+
+	} else {
+		n = ns_name_pton("", name, sizeof name);
+		if (n != -1)
+			n = ns_name_pack(name, cp, (int)(eob - cp), NULL, NULL);
+	}
 	if (n < 0)
 		return (NS_TSIG_ERROR_NO_SPACE);
-	name = cp;
 	cp += n;
 
 	/* Type, class, ttl, length (not filled in yet). */
-	BOUNDS_CHECK(cp, NS_INT16SZ + NS_INT16SZ + NS_INT32SZ + NS_INT16SZ);
-	NS_PUT16(ns_t_tsig, cp);
-	NS_PUT16(ns_c_any, cp);
-	NS_PUT32(0, cp);		/* TTL */
+	BOUNDS_CHECK(cp, INT16SZ + INT16SZ + INT32SZ + INT16SZ);
+	PUTSHORT(ns_t_tsig, cp);
+	PUTSHORT(ns_c_any, cp);
+	PUTLONG(0, cp);		/*%< TTL */
 	lenp = cp;
 	cp += 2;
 
@@ -128,30 +150,31 @@ ns_sign2(u_char *msg, int *msglen, int msgsize, int error, void *k,
 	if (key != NULL && error != ns_r_badsig && error != ns_r_badkey) {
 		if (key->dk_alg != KEY_HMAC_MD5)
 			return (-ns_r_badkey);
-		n = dn_comp(NS_TSIG_ALG_HMAC_MD5, cp, eob - cp, NULL, NULL);
+		n = dn_comp(NS_TSIG_ALG_HMAC_MD5, cp, (int)(eob - cp), NULL,
+		    NULL);
 	}
 	else
-		n = dn_comp("", cp, eob - cp, NULL, NULL);
+		n = dn_comp("", cp, (int)(eob - cp), NULL, NULL);
 	if (n < 0)
 		return (NS_TSIG_ERROR_NO_SPACE);
 	alg = cp;
 	cp += n;
 	
 	/* Time. */
-	BOUNDS_CHECK(cp, NS_INT16SZ + NS_INT32SZ + NS_INT16SZ);
-	NS_PUT16(0, cp);
+	BOUNDS_CHECK(cp, INT16SZ + INT32SZ + INT16SZ);
+	PUTSHORT(0, cp);
 	timesigned = time(NULL);
 	if (error != ns_r_badtime)
-		NS_PUT32(timesigned, cp);
+		PUTLONG(timesigned, cp);
 	else
-		NS_PUT32(in_timesigned, cp);
-	NS_PUT16(NS_TSIG_FUDGE, cp);
+		PUTLONG(in_timesigned, cp);
+	PUTSHORT(NS_TSIG_FUDGE, cp);
 
 	/* Compute the signature. */
 	if (key != NULL && error != ns_r_badsig && error != ns_r_badkey) {
 		void *ctx;
-		u_char buf[NS_MAXDNAME], *cp2;
-		int n;
+		u_char buf[NS_MAXCDNAME], *cp2;
+		int nn;
 
 		dst_sign_data(SIG_MODE_INIT, key, &ctx, NULL, 0, NULL, 0);
 
@@ -159,7 +182,7 @@ ns_sign2(u_char *msg, int *msglen, int msgsize, int error, void *k,
 		if (querysiglen > 0 && querysig != NULL) {
 			u_int16_t len_n = htons(querysiglen);
 			dst_sign_data(SIG_MODE_UPDATE, key, &ctx,
-				      (u_char *)&len_n, NS_INT16SZ, NULL, 0);
+				      (void *)&len_n, INT16SZ, NULL, 0);
 			dst_sign_data(SIG_MODE_UPDATE, key, &ctx,
 				      querysig, querysiglen, NULL, 0);
 		}
@@ -169,74 +192,76 @@ ns_sign2(u_char *msg, int *msglen, int msgsize, int error, void *k,
 			      NULL, 0);
 
 		/* Digest the key name. */
-		n = ns_name_ntol(name, buf, sizeof(buf));
-		dst_sign_data(SIG_MODE_UPDATE, key, &ctx, buf, n, NULL, 0);
+		nn = ns_name_ntol(name, buf, sizeof(buf));
+		INSIST(nn > 0);
+		dst_sign_data(SIG_MODE_UPDATE, key, &ctx, buf, nn, NULL, 0);
 
 		/* Digest the class and TTL. */
 		cp2 = buf;
-		NS_PUT16(ns_c_any, cp2);
-		NS_PUT32(0, cp2);
-		dst_sign_data(SIG_MODE_UPDATE, key, &ctx, buf, cp2-buf,
+		PUTSHORT(ns_c_any, cp2);
+		PUTLONG(0, cp2);
+		dst_sign_data(SIG_MODE_UPDATE, key, &ctx, buf, (int)(cp2 - buf),
 			      NULL, 0);
 
 		/* Digest the algorithm. */
-		n = ns_name_ntol(alg, buf, sizeof(buf));
-		dst_sign_data(SIG_MODE_UPDATE, key, &ctx, buf, n, NULL, 0);
+		nn = ns_name_ntol(alg, buf, sizeof(buf));
+		INSIST(nn > 0);
+		dst_sign_data(SIG_MODE_UPDATE, key, &ctx, buf, nn, NULL, 0);
 
 		/* Digest the time signed, fudge, error, and other data */
 		cp2 = buf;
-		NS_PUT16(0, cp2);	/* Top 16 bits of time */
+		PUTSHORT(0, cp2);	/*%< Top 16 bits of time */
 		if (error != ns_r_badtime)
-			NS_PUT32(timesigned, cp2);
+			PUTLONG(timesigned, cp2);
 		else
-			NS_PUT32(in_timesigned, cp2);
-		NS_PUT16(NS_TSIG_FUDGE, cp2);
-		NS_PUT16(error, cp2);	/* Error */
+			PUTLONG(in_timesigned, cp2);
+		PUTSHORT(NS_TSIG_FUDGE, cp2);
+		PUTSHORT(error, cp2);	/*%< Error */
 		if (error != ns_r_badtime)
-			NS_PUT16(0, cp2);	/* Other data length */
+			PUTSHORT(0, cp2);	/*%< Other data length */
 		else {
-			NS_PUT16(NS_INT16SZ+NS_INT32SZ, cp2);	/* Other data length */
-			NS_PUT16(0, cp2);	/* Top 16 bits of time */
-			NS_PUT32(timesigned, cp2);
+			PUTSHORT(INT16SZ+INT32SZ, cp2);	/*%< Other data length */
+			PUTSHORT(0, cp2);	/*%< Top 16 bits of time */
+			PUTLONG(timesigned, cp2);
 		}
-		dst_sign_data(SIG_MODE_UPDATE, key, &ctx, buf, cp2-buf,
+		dst_sign_data(SIG_MODE_UPDATE, key, &ctx, buf, (int)(cp2 - buf),
 			      NULL, 0);
 
-		n = dst_sign_data(SIG_MODE_FINAL, key, &ctx, NULL, 0,
+		nn = dst_sign_data(SIG_MODE_FINAL, key, &ctx, NULL, 0,
 				  sig, *siglen);
-		if (n < 0)
+		if (nn < 0)
 			return (-ns_r_badkey);
-		*siglen = n;
+		*siglen = nn;
 	} else
 		*siglen = 0;
 
 	/* Add the signature. */
-	BOUNDS_CHECK(cp, NS_INT16SZ + (*siglen));
-	NS_PUT16(*siglen, cp);
+	BOUNDS_CHECK(cp, INT16SZ + (*siglen));
+	PUTSHORT(*siglen, cp);
 	memcpy(cp, sig, *siglen);
 	cp += (*siglen);
 
 	/* The original message ID & error. */
-	BOUNDS_CHECK(cp, NS_INT16SZ + NS_INT16SZ);
-	NS_PUT16(ntohs(hp->id), cp);	/* already in network order */
-	NS_PUT16(error, cp);
+	BOUNDS_CHECK(cp, INT16SZ + INT16SZ);
+	PUTSHORT(ntohs(hp->id), cp);	/*%< already in network order */
+	PUTSHORT(error, cp);
 
 	/* Other data. */
-	BOUNDS_CHECK(cp, NS_INT16SZ);
+	BOUNDS_CHECK(cp, INT16SZ);
 	if (error != ns_r_badtime)
-		NS_PUT16(0, cp);	/* Other data length */
+		PUTSHORT(0, cp);	/*%< Other data length */
 	else {
-		NS_PUT16(NS_INT16SZ+NS_INT32SZ, cp);	/* Other data length */
-		BOUNDS_CHECK(cp, NS_INT32SZ+NS_INT16SZ);
-		NS_PUT16(0, cp);	/* Top 16 bits of time */
-		NS_PUT32(timesigned, cp);
+		PUTSHORT(INT16SZ+INT32SZ, cp);	/*%< Other data length */
+		BOUNDS_CHECK(cp, INT32SZ+INT16SZ);
+		PUTSHORT(0, cp);	/*%< Top 16 bits of time */
+		PUTLONG(timesigned, cp);
 	}
 
 	/* Go back and fill in the length. */
-	NS_PUT16(cp - lenp - NS_INT16SZ, lenp);
+	PUTSHORT(cp - lenp - INT16SZ, lenp);
 
 	hp->arcount = htons(ntohs(hp->arcount) + 1);
-	*msglen = (cp - msg);
+	*msglen = (int)(cp - msg);
 	return (0);
 }
 
@@ -272,8 +297,8 @@ ns_sign_tcp2(u_char *msg, int *msglen, int msgsize, int error,
 	     u_char **dnptrs, u_char **lastdnptr)
 {
 	u_char *cp, *eob, *lenp;
-	u_char buf[NS_MAXDNAME], *cp2;
-	HEADER *hp = (HEADER *)msg;
+	u_char buf[MAXDNAME], *cp2;
+	HEADER *hp = (void *)msg;
 	time_t timesigned;
 	int n;
 
@@ -292,7 +317,7 @@ ns_sign_tcp2(u_char *msg, int *msglen, int msgsize, int error,
 		dst_sign_data(SIG_MODE_INIT, state->key, &state->ctx,
 			      NULL, 0, NULL, 0);
 		dst_sign_data(SIG_MODE_UPDATE, state->key, &state->ctx,
-			      (u_char *)&siglen_n, NS_INT16SZ, NULL, 0);
+			      (void *)&siglen_n, INT16SZ, NULL, 0);
 		dst_sign_data(SIG_MODE_UPDATE, state->key, &state->ctx,
 			      state->sig, state->siglen, NULL, 0);
 		state->siglen = 0;
@@ -308,31 +333,32 @@ ns_sign_tcp2(u_char *msg, int *msglen, int msgsize, int error,
 	eob = msg + msgsize;
 
 	/* Name. */
-	n = dn_comp(state->key->dk_key_name, cp, eob - cp, dnptrs, lastdnptr);
+	n = dn_comp(state->key->dk_key_name, cp, (int)(eob - cp), dnptrs,
+	    lastdnptr);
 	if (n < 0)
 		return (NS_TSIG_ERROR_NO_SPACE);
 	cp += n;
 
 	/* Type, class, ttl, length (not filled in yet). */
-	BOUNDS_CHECK(cp, NS_INT16SZ + NS_INT16SZ + NS_INT32SZ + NS_INT16SZ);
-	NS_PUT16(ns_t_tsig, cp);
-	NS_PUT16(ns_c_any, cp);
-	NS_PUT32(0, cp);		/* TTL */
+	BOUNDS_CHECK(cp, INT16SZ + INT16SZ + INT32SZ + INT16SZ);
+	PUTSHORT(ns_t_tsig, cp);
+	PUTSHORT(ns_c_any, cp);
+	PUTLONG(0, cp);		/*%< TTL */
 	lenp = cp;
 	cp += 2;
 
 	/* Alg. */
-	n = dn_comp(NS_TSIG_ALG_HMAC_MD5, cp, eob - cp, NULL, NULL);
+	n = dn_comp(NS_TSIG_ALG_HMAC_MD5, cp, (int)(eob - cp), NULL, NULL);
 	if (n < 0)
 		return (NS_TSIG_ERROR_NO_SPACE);
 	cp += n;
 	
 	/* Time. */
-	BOUNDS_CHECK(cp, NS_INT16SZ + NS_INT32SZ + NS_INT16SZ);
-	NS_PUT16(0, cp);
+	BOUNDS_CHECK(cp, INT16SZ + INT32SZ + INT16SZ);
+	PUTSHORT(0, cp);
 	timesigned = time(NULL);
-	NS_PUT32(timesigned, cp);
-	NS_PUT16(NS_TSIG_FUDGE, cp);
+	PUTLONG(timesigned, cp);
+	PUTSHORT(NS_TSIG_FUDGE, cp);
 
 	/*
 	 * Compute the signature.
@@ -340,38 +366,40 @@ ns_sign_tcp2(u_char *msg, int *msglen, int msgsize, int error,
 
 	/* Digest the time signed and fudge. */
 	cp2 = buf;
-	NS_PUT16(0, cp2);	/* Top 16 bits of time */
-	NS_PUT32(timesigned, cp2);
-	NS_PUT16(NS_TSIG_FUDGE, cp2);
+	PUTSHORT(0, cp2);	/*%< Top 16 bits of time */
+	PUTLONG(timesigned, cp2);
+	PUTSHORT(NS_TSIG_FUDGE, cp2);
 
 	dst_sign_data(SIG_MODE_UPDATE, state->key, &state->ctx,
-		      buf, cp2 - buf, NULL, 0);
+		      buf, (int)(cp2 - buf), NULL, 0);
 
 	n = dst_sign_data(SIG_MODE_FINAL, state->key, &state->ctx, NULL, 0,
-			  state->sig, sizeof(state->sig));
+			  state->sig, (int)sizeof(state->sig));
 	if (n < 0)
 		return (-ns_r_badkey);
 	state->siglen = n;
 
 	/* Add the signature. */
-	BOUNDS_CHECK(cp, NS_INT16SZ + state->siglen);
-	NS_PUT16(state->siglen, cp);
+	BOUNDS_CHECK(cp, INT16SZ + state->siglen);
+	PUTSHORT(state->siglen, cp);
 	memcpy(cp, state->sig, state->siglen);
 	cp += state->siglen;
 
 	/* The original message ID & error. */
-	BOUNDS_CHECK(cp, NS_INT16SZ + NS_INT16SZ);
-	NS_PUT16(ntohs(hp->id), cp);	/* already in network order */
-	NS_PUT16(error, cp);
+	BOUNDS_CHECK(cp, INT16SZ + INT16SZ);
+	PUTSHORT(ntohs(hp->id), cp);	/*%< already in network order */
+	PUTSHORT(error, cp);
 
 	/* Other data. */
-	BOUNDS_CHECK(cp, NS_INT16SZ);
-	NS_PUT16(0, cp);
+	BOUNDS_CHECK(cp, INT16SZ);
+	PUTSHORT(0, cp);
 
 	/* Go back and fill in the length. */
-	NS_PUT16(cp - lenp - NS_INT16SZ, lenp);
+	PUTSHORT(cp - lenp - INT16SZ, lenp);
 
 	hp->arcount = htons(ntohs(hp->arcount) + 1);
-	*msglen = (cp - msg);
+	*msglen = (int)(cp - msg);
 	return (0);
 }
+
+/*! \file */

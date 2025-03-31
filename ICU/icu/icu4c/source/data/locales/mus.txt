@@ -2,8 +2,8 @@
 // License & terms of use: http://www.unicode.org/copyright.html
 // Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
 mus{
-    AuxExemplarCharacters{"[b d ē g j q z]"}
-    ExemplarCharacters{"[a c e f h i k l m n o p r s t u v w y ʼ]"}
+    AuxExemplarCharacters{"[b d g j q z]"}
+    ExemplarCharacters{"[a c eē f h i k l m n o p r s t u v w y ʼ]"}
     ExemplarCharactersIndex{"[A C E F H I K L M N O P R S T U V W Y]"}
     ExemplarCharactersPunctuation{"[\\- ‐‑ – — , ; \\: ! ? . … '‘’ \u0022“” ( ) \\[ \\] § @ * / \\& # † ‡ ′ ″]"}
     calendar{
@@ -11,13 +11,13 @@ mus{
             dayNames{
                 format{
                     wide{
-                        "Nettv Cako",
+                        "Nettvʼcako",
                         "Enhvteceskv",
                         "Enhvteceskv Enhvyvtke",
                         "Ennvrkvpv",
                         "Ennvrkvpv Enhvyvtke",
                         "Nak Okkoskv Nettv",
-                        "Nettv Cakcuse",
+                        "Nettv Cakʼcuse",
                     }
                 }
             }
@@ -55,7 +55,7 @@ mus{
             dn{"Hvse"}
         }
         week{
-            dn{"Nettv Cako"}
+            dn{"Nettvcako"}
         }
         year{
             dn{"Ohrolope"}

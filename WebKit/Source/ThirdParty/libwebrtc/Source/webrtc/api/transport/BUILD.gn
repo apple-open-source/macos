@@ -14,10 +14,7 @@ rtc_library("bitrate_settings") {
     "bitrate_settings.cc",
     "bitrate_settings.h",
   ]
-  deps = [
-    "../../rtc_base/system:rtc_export",
-    "//third_party/abseil-cpp/absl/types:optional",
-  ]
+  deps = [ "../../rtc_base/system:rtc_export" ]
 }
 
 rtc_source_set("bandwidth_usage") {
@@ -29,6 +26,11 @@ rtc_library("bandwidth_estimation_settings") {
   visibility = [ "*" ]
   sources = [ "bandwidth_estimation_settings.h" ]
   deps = [ "../../rtc_base/system:rtc_export" ]
+}
+
+rtc_source_set("ecn_marking") {
+  visibility = [ "*" ]
+  sources = [ "ecn_marking.h" ]
 }
 
 rtc_source_set("enums") {
@@ -45,7 +47,9 @@ rtc_library("network_control") {
   ]
 
   deps = [
+    ":ecn_marking",
     "../../api:field_trials_view",
+    "../../rtc_base/system:rtc_export",
     "../environment",
     "../rtc_event_log",
     "../units:data_rate",
@@ -53,7 +57,6 @@ rtc_library("network_control") {
     "../units:time_delta",
     "../units:timestamp",
     "//third_party/abseil-cpp/absl/base:core_headers",
-    "//third_party/abseil-cpp/absl/types:optional",
   ]
 }
 
@@ -76,9 +79,9 @@ rtc_source_set("datagram_transport_interface") {
   sources = [ "data_channel_transport_interface.h" ]
   deps = [
     "..:array_view",
+    "..:priority",
     "..:rtc_error",
     "../../rtc_base:copy_on_write_buffer",
-    "//third_party/abseil-cpp/absl/types:optional",
   ]
 }
 
@@ -120,6 +123,7 @@ rtc_source_set("stun_types") {
     "../../rtc_base:digest",
     "../../rtc_base:ip_address",
     "../../rtc_base:logging",
+    "../../rtc_base:net_helpers",
     "../../rtc_base:socket_address",
     "../../system_wrappers:metrics",
     "//third_party/abseil-cpp/absl/strings:string_view",
@@ -134,6 +138,10 @@ if (rtc_include_tests) {
     deps = [
       ":network_control",
       "..:simulated_network_api",
+      "../units:data_rate",
+      "../units:data_size",
+      "../units:time_delta",
+      "../units:timestamp",
     ]
   }
   rtc_library("test_feedback_generator") {
@@ -158,8 +166,10 @@ if (rtc_include_tests) {
     sources = [ "stun_unittest.cc" ]
     deps = [
       ":stun_types",
+      "..:array_view",
       "../../rtc_base:byte_buffer",
       "../../rtc_base:byte_order",
+      "../../rtc_base:ip_address",
       "../../rtc_base:macromagic",
       "../../rtc_base:socket_address",
       "../../system_wrappers:metrics",

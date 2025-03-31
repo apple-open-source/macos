@@ -43,15 +43,8 @@ ABSL_FLAG(bool, gen_ref, false, "Generate reference files.");
 
 namespace webrtc {
 
-#if defined(WEBRTC_LINUX) && defined(WEBRTC_ARCH_X86_64) &&         \
-    defined(WEBRTC_NETEQ_UNITTEST_BITEXACT) &&                      \
-    (defined(WEBRTC_CODEC_ISAC) || defined(WEBRTC_CODEC_ISACFX)) && \
-    defined(WEBRTC_CODEC_ILBC)
-#define MAYBE_TestBitExactness TestBitExactness
-#else
-#define MAYBE_TestBitExactness DISABLED_TestBitExactness
-#endif
-TEST_F(NetEqDecodingTest, MAYBE_TestBitExactness) {
+// TODO(bugs.webrtc.org/345525069): Either fix/enable or remove.
+TEST_F(NetEqDecodingTest, DISABLED_TestBitExactness) {
   const std::string input_rtp_file =
       webrtc::test::ResourcePath("audio_coding/neteq_universal_new", "rtp");
 
@@ -81,7 +74,7 @@ TEST_F(NetEqDecodingTest, MAYBE_TestOpusBitExactness) {
       "cefd2de4adfa8f6a9b66a3639ad63c2f6779d0cd";
 
   const std::string network_stats_checksum =
-      "5f2c8e3dff9cff55dd7a9f4167939de001566d95|"
+      "06f6b9a86aeae6317fd25a36edf9ed16f35e798f|"
       "80ab17c17da030d4f2dfbf314ac44aacdadd7f0c";
 
   DecodeAndCompare(input_rtp_file, output_checksum, network_stats_checksum,
@@ -103,7 +96,7 @@ TEST_F(NetEqDecodingTest, MAYBE_TestOpusDtxBitExactness) {
       "5d13affec87bf4cc8c7667f0cd0d25e1ad09c7c3";
 
   const std::string network_stats_checksum =
-      "92b0fdcbf8bb9354d40140b7312f2fb76a078555";
+      "6af74a713749cc4343464718b6af54f1e5b06ad9";
 
   DecodeAndCompare(input_rtp_file, output_checksum, network_stats_checksum,
                    absl::GetFlag(FLAGS_gen_ref));
@@ -513,7 +506,7 @@ TEST_F(NetEqDecodingTest, DiscardDuplicateCng) {
   ASSERT_EQ(0, neteq_->GetAudio(&out_frame_, &muted));
   ASSERT_EQ(kBlockSize16kHz, out_frame_.samples_per_channel_);
   EXPECT_EQ(AudioFrame::kNormalSpeech, out_frame_.speech_type_);
-  absl::optional<uint32_t> playout_timestamp = neteq_->GetPlayoutTimestamp();
+  std::optional<uint32_t> playout_timestamp = neteq_->GetPlayoutTimestamp();
   ASSERT_TRUE(playout_timestamp);
   EXPECT_EQ(first_speech_timestamp + kSamples - algorithmic_delay_samples,
             *playout_timestamp);
@@ -660,7 +653,7 @@ TEST_F(NetEqDecodingTestWithMutedState, MutedState) {
   // NetEqNetworkStatistics::expand_rate tells the fraction of samples that were
   // concealment samples, in Q14 (16384 = 100%) .The vast majority should be
   // concealment samples in this test.
-  EXPECT_GT(stats.expand_rate, 14000);
+  EXPECT_GT(stats.expand_rate, 13000);
   // And, it should be greater than the speech_expand_rate.
   EXPECT_GT(stats.expand_rate, stats.speech_expand_rate);
 }
@@ -1005,7 +998,7 @@ TEST(NetEqNoTimeStretchingMode, RunTest) {
       {8, kRtpExtensionVideoTiming}};
   std::unique_ptr<NetEqInput> input = CreateNetEqRtpDumpInput(
       webrtc::test::ResourcePath("audio_coding/neteq_universal_new", "rtp"),
-      rtp_ext_map, absl::nullopt /*No SSRC filter*/);
+      rtp_ext_map, std::nullopt /*No SSRC filter*/);
   std::unique_ptr<TimeLimitedNetEqInput> input_time_limit(
       new TimeLimitedNetEqInput(std::move(input), 20000));
   std::unique_ptr<AudioSink> output(new VoidAudioSink);

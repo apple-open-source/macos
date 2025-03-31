@@ -53,7 +53,7 @@ public:
 
     virtual ~WebBackForwardList();
 
-    WebBackForwardListItem* itemForID(const WebCore::BackForwardItemIdentifier&);
+    WebBackForwardListItem* itemForID(WebCore::BackForwardItemIdentifier);
 
     void addItem(Ref<WebBackForwardListItem>&&);
     void goToItem(WebBackForwardListItem&);
@@ -84,10 +84,10 @@ public:
     BackForwardListState backForwardListState(WTF::Function<bool (WebBackForwardListItem&)>&&) const;
     void restoreFromState(BackForwardListState);
 
-    Vector<BackForwardListItemState> itemStates() const;
-    Vector<BackForwardListItemState> filteredItemStates(Function<bool(WebBackForwardListItem&)>&&) const;
+    void setItemsAsRestoredFromSession();
+    void setItemsAsRestoredFromSessionIf(Function<bool(WebBackForwardListItem&)>&&);
 
-    void addRootChildFrameItem(Ref<WebBackForwardListItem>&&) const;
+    Ref<FrameState> completeFrameStateForNavigation(Ref<FrameState>&&);
 
 #if !LOG_DISABLED
     String loggingString();

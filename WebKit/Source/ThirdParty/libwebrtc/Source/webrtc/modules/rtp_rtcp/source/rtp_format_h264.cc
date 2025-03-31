@@ -16,11 +16,11 @@
 #include <cstdint>
 #include <iterator>
 #include <memory>
+#include <optional>
 #include <utility>
 #include <vector>
 
 #include "absl/algorithm/container.h"
-#include "absl/types/optional.h"
 #include "absl/types/variant.h"
 #include "common_video/h264/h264_common.h"
 #include "common_video/h264/pps_parser.h"
@@ -34,9 +34,9 @@
 namespace webrtc {
 namespace {
 
-static const size_t kNalHeaderSize = 1;
-static const size_t kFuAHeaderSize = 2;
-static const size_t kLengthFieldSize = 2;
+constexpr size_t kNalHeaderSize = 1;
+constexpr size_t kFuAHeaderSize = 2;
+constexpr size_t kLengthFieldSize = 2;
 
 }  // namespace
 

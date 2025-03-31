@@ -36,10 +36,11 @@ class GStreamerAudioEncoder : public AudioEncoder {
 public:
     static void create(const String& codecName, const Config&, CreateCallback&&, DescriptionCallback&&, OutputCallback&&);
 
-    GStreamerAudioEncoder(DescriptionCallback&&,  OutputCallback&&, GRefPtr<GstElement>&&);
     ~GStreamerAudioEncoder();
 
 private:
+    GStreamerAudioEncoder(DescriptionCallback&&,  OutputCallback&&, GRefPtr<GstElement>&&);
+
     Ref<EncodePromise> encode(RawFrame&&) final;
     Ref<GenericPromise> flush() final;
     void reset() final;

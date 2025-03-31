@@ -47,6 +47,11 @@
     return regID ? [regID unsignedLongLongValue] : 0;
 }
 
+- (void)registerWithSystem
+{
+    IOHIDServiceRegister((__bridge IOHIDServiceRef)self);
+}
+
 @end
 
 @implementation HIDEventService (HIDFrameworkPrivate)

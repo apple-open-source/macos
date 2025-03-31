@@ -1,0 +1,5169 @@
+# to unbundle, sh this file (in an empty directory)
+mkdir libF77
+echo libF77/uninit.c 1>&2
+sed >libF77/uninit.c <<'//GO.SYSIN DD libF77/uninit.c' 's/^-//'
+-#include <stdio.h>
+-#include <string.h>
+-#include "arith.h"
+-
+-#define TYSHORT 2
+-#define TYLONG 3
+-#define TYREAL 4
+-#define TYDREAL 5
+-#define TYCOMPLEX 6
+-#define TYDCOMPLEX 7
+-#define TYINT1 11
+-#define TYQUAD 14
+-#ifndef Long
+-#define Long long
+-#endif
+-
+-#ifdef __mips
+-#define RNAN	0xffc00000
+-#define DNAN0	0xfff80000
+-#define DNAN1	0
+-#endif
+-
+-#ifdef _PA_RISC1_1
+-#define RNAN	0xffc00000
+-#define DNAN0	0xfff80000
+-#define DNAN1	0
+-#endif
+-
+-#ifndef RNAN
+-#define RNAN	0xff800001
+-#ifdef IEEE_MC68k
+-#define DNAN0	0xfff00000
+-#define DNAN1	1
+-#else
+-#define DNAN0	1
+-#define DNAN1	0xfff00000
+-#endif
+-#endif /*RNAN*/
+-
+-#ifdef KR_headers
+-#define Void /*void*/
+-#define FA7UL (unsigned Long) 0xfa7a7a7aL
+-#else
+-#define Void void
+-#define FA7UL 0xfa7a7a7aUL
+-#endif
+-
+-#ifdef __cplusplus
+-extern "C" {
+-#endif
+-
+-static void ieee0(Void);
+-
+-static unsigned Long rnan = RNAN,
+-	dnan0 = DNAN0,
+-	dnan1 = DNAN1;
+-
+-double _0 = 0.;
+-
+- void
+-#ifdef KR_headers
+-_uninit_f2c(x, type, len) void *x; int type; long len;
+-#else
+-_uninit_f2c(void *x, int type, long len)
+-#endif
+-{
+-	static int first = 1;
+-
+-	unsigned Long *lx, *lxe;
+-
+-	if (first) {
+-		first = 0;
+-		ieee0();
+-		}
+-	if (len == 1)
+-	 switch(type) {
+-	  case TYINT1:
+-		*(char*)x = 'Z';
+-		return;
+-	  case TYSHORT:
+-		*(short*)x = 0xfa7a;
+-		break;
+-	  case TYLONG:
+-		*(unsigned Long*)x = FA7UL;
+-		return;
+-	  case TYQUAD:
+-	  case TYCOMPLEX:
+-	  case TYDCOMPLEX:
+-		break;
+-	  case TYREAL:
+-		*(unsigned Long*)x = rnan;
+-		return;
+-	  case TYDREAL:
+-		lx = (unsigned Long*)x;
+-		lx[0] = dnan0;
+-		lx[1] = dnan1;
+-		return;
+-	  default:
+-		printf("Surprise type %d in _uninit_f2c\n", type);
+-	  }
+-	switch(type) {
+-	  case TYINT1:
+-		memset(x, 'Z', len);
+-		break;
+-	  case TYSHORT:
+-		*(short*)x = 0xfa7a;
+-		break;
+-	  case TYQUAD:
+-		len *= 2;
+-		/* no break */
+-	  case TYLONG:
+-		lx = (unsigned Long*)x;
+-		lxe = lx + len;
+-		while(lx < lxe)
+-			*lx++ = FA7UL;
+-		break;
+-	  case TYCOMPLEX:
+-		len *= 2;
+-		/* no break */
+-	  case TYREAL:
+-		lx = (unsigned Long*)x;
+-		lxe = lx + len;
+-		while(lx < lxe)
+-			*lx++ = rnan;
+-		break;
+-	  case TYDCOMPLEX:
+-		len *= 2;
+-		/* no break */
+-	  case TYDREAL:
+-		lx = (unsigned Long*)x;
+-		for(lxe = lx + 2*len; lx < lxe; lx += 2) {
+-			lx[0] = dnan0;
+-			lx[1] = dnan1;
+-			}
+-	  }
+-	}
+-#ifdef __cplusplus
+-}
+-#endif
+-
+-#ifndef MSpc
+-#ifdef MSDOS
+-#define MSpc
+-#else
+-#ifdef _WIN32
+-#define MSpc
+-#endif
+-#endif
+-#endif
+-
+-#ifdef MSpc
+-#define IEEE0_done
+-#include "float.h"
+-#include "signal.h"
+-
+- static void
+-ieee0(Void)
+-{
+-#ifndef __alpha
+-	_control87(EM_DENORMAL | EM_UNDERFLOW | EM_INEXACT, MCW_EM);
+-#endif
+-	/* With MS VC++, compiling and linking with -Zi will permit */
+-	/* clicking to invoke the MS C++ debugger, which will show */
+-	/* the point of error -- provided SIGFPE is SIG_DFL. */
+-	signal(SIGFPE, SIG_DFL);
+-	}
+-#endif /* MSpc */
+-
+-#ifdef __mips	/* must link with -lfpe */
+-#define IEEE0_done
+-/* code from Eric Grosse */
+-#include <stdlib.h>
+-#include <stdio.h>
+-#include "/usr/include/sigfpe.h"	/* full pathname for lcc -N */
+-#include "/usr/include/sys/fpu.h"
+-
+- static void
+-#ifdef KR_headers
+-ieeeuserhand(exception, val) unsigned exception[5]; int val[2];
+-#else
+-ieeeuserhand(unsigned exception[5], int val[2])
+-#endif
+-{
+-	fflush(stdout);
+-	fprintf(stderr,"ieee0() aborting because of ");
+-	if(exception[0]==_OVERFL) fprintf(stderr,"overflow\n");
+-	else if(exception[0]==_UNDERFL) fprintf(stderr,"underflow\n");
+-	else if(exception[0]==_DIVZERO) fprintf(stderr,"divide by 0\n");
+-	else if(exception[0]==_INVALID) fprintf(stderr,"invalid operation\n");
+-	else fprintf(stderr,"\tunknown reason\n");
+-	fflush(stderr);
+-	abort();
+-}
+-
+- static void
+-#ifdef KR_headers
+-ieeeuserhand2(j) unsigned int **j;
+-#else
+-ieeeuserhand2(unsigned int **j)
+-#endif
+-{
+-	fprintf(stderr,"ieee0() aborting because of confusion\n");
+-	abort();
+-}
+-
+- static void
+-ieee0(Void)
+-{
+-	int i;
+-	for(i=1; i<=4; i++){
+-		sigfpe_[i].count = 1000;
+-		sigfpe_[i].trace = 1;
+-		sigfpe_[i].repls = _USER_DETERMINED;
+-		}
+-	sigfpe_[1].repls = _ZERO;	/* underflow */
+-	handle_sigfpes( _ON,
+-		_EN_UNDERFL|_EN_OVERFL|_EN_DIVZERO|_EN_INVALID,
+-		ieeeuserhand,_ABORT_ON_ERROR,ieeeuserhand2);
+-	}
+-#endif /* mips */
+-
+-#ifdef __linux__
+-#define IEEE0_done
+-#include "fpu_control.h"
+-
+-#ifdef __alpha__
+-#ifndef USE_setfpucw
+-#define __setfpucw(x) __fpu_control = (x)
+-#endif
+-#endif
+-
+-#ifndef _FPU_SETCW
+-#undef  Can_use__setfpucw
+-#define Can_use__setfpucw
+-#endif
+-
+- static void
+-ieee0(Void)
+-{
+-#if (defined(__mc68000__) || defined(__mc68020__) || defined(mc68020) || defined (__mc68k__))
+-/* Reported 20010705 by Alan Bain <alanb@chiark.greenend.org.uk> */
+-/* Note that IEEE 754 IOP (illegal operation) */
+-/* = Signaling NAN (SNAN) + operation error (OPERR). */
+-#ifdef Can_use__setfpucw /* Has __setfpucw gone missing from S.u.S.E. 6.3? */
+-	__setfpucw(_FPU_IEEE + _FPU_DOUBLE + _FPU_MASK_OPERR + _FPU_MASK_DZ + _FPU_MASK_SNAN+_FPU_MASK_OVFL);
+-#else
+-	__fpu_control = _FPU_IEEE + _FPU_DOUBLE + _FPU_MASK_OPERR + _FPU_MASK_DZ + _FPU_MASK_SNAN+_FPU_MASK_OVFL;
+-	_FPU_SETCW(__fpu_control);
+-#endif
+-
+-#elif (defined(__powerpc__)||defined(_ARCH_PPC)||defined(_ARCH_PWR)) /* !__mc68k__ */
+-/* Reported 20011109 by Alan Bain <alanb@chiark.greenend.org.uk> */
+-
+-#ifdef Can_use__setfpucw
+-
+-/* The following is NOT a mistake -- the author of the fpu_control.h
+-for the PPC has erroneously defined IEEE mode to turn on exceptions
+-other than Inexact! Start from default then and turn on only the ones
+-which we want*/
+-
+-	__setfpucw(_FPU_DEFAULT +  _FPU_MASK_IM+_FPU_MASK_OM+_FPU_MASK_UM);
+-
+-#else /* PPC && !Can_use__setfpucw */
+-
+-	__fpu_control = _FPU_DEFAULT +_FPU_MASK_OM+_FPU_MASK_IM+_FPU_MASK_UM;
+-	_FPU_SETCW(__fpu_control);
+-
+-#endif /*Can_use__setfpucw*/
+-
+-#else /* !(mc68000||powerpc) */
+-
+-#ifdef _FPU_IEEE
+-#ifndef _FPU_EXTENDED /* e.g., ARM processor under Linux */
+-#define _FPU_EXTENDED 0
+-#endif
+-#ifndef _FPU_DOUBLE
+-#define _FPU_DOUBLE 0
+-#endif
+-#ifdef Can_use__setfpucw /* Has __setfpucw gone missing from S.u.S.E. 6.3? */
+-	__setfpucw(_FPU_IEEE - _FPU_EXTENDED + _FPU_DOUBLE - _FPU_MASK_IM - _FPU_MASK_ZM - _FPU_MASK_OM);
+-#else
+-	__fpu_control = _FPU_IEEE - _FPU_EXTENDED + _FPU_DOUBLE - _FPU_MASK_IM - _FPU_MASK_ZM - _FPU_MASK_OM;
+-	_FPU_SETCW(__fpu_control);
+-#endif
+-
+-#else /* !_FPU_IEEE */
+-
+-	fprintf(stderr, "\n%s\n%s\n%s\n%s\n",
+-		"WARNING:  _uninit_f2c in libf2c does not know how",
+-		"to enable trapping on this system, so f2c's -trapuv",
+-		"option will not detect uninitialized variables unless",
+-		"you can enable trapping manually.");
+-	fflush(stderr);
+-
+-#endif /* _FPU_IEEE */
+-#endif /* __mc68k__ */
+-	}
+-#endif /* __linux__ */
+-
+-#ifdef __alpha
+-#ifndef IEEE0_done
+-#define IEEE0_done
+-#include <machine/fpu.h>
+- static void
+-ieee0(Void)
+-{
+-	ieee_set_fp_control(IEEE_TRAP_ENABLE_INV);
+-	}
+-#endif /*IEEE0_done*/
+-#endif /*__alpha*/
+-
+-#ifdef __hpux
+-#define IEEE0_done
+-#define _INCLUDE_HPUX_SOURCE
+-#include <math.h>
+-
+-#ifndef FP_X_INV
+-#include <fenv.h>
+-#define fpsetmask fesettrapenable
+-#define FP_X_INV FE_INVALID
+-#endif
+-
+- static void
+-ieee0(Void)
+-{
+-	fpsetmask(FP_X_INV);
+-	}
+-#endif /*__hpux*/
+-
+-#ifdef _AIX
+-#define IEEE0_done
+-#include <fptrap.h>
+-
+- static void
+-ieee0(Void)
+-{
+-	fp_enable(TRP_INVALID);
+-	fp_trap(FP_TRAP_SYNC);
+-	}
+-#endif /*_AIX*/
+-
+-#ifdef __sun
+-#define IEEE0_done
+-#include <ieeefp.h>
+-
+- static void
+-ieee0(Void)
+-{
+-	fpsetmask(FP_X_INV);
+-	}
+-#endif /*__sparc*/
+-
+-#ifndef IEEE0_done
+- static void
+-ieee0(Void) {}
+-#endif
+//GO.SYSIN DD libF77/uninit.c
+echo libF77/arithchk.c 1>&2
+sed >libF77/arithchk.c <<'//GO.SYSIN DD libF77/arithchk.c' 's/^-//'
+-/****************************************************************
+-Copyright (C) 1997, 1998, 2000 Lucent Technologies
+-All Rights Reserved
+-
+-Permission to use, copy, modify, and distribute this software and
+-its documentation for any purpose and without fee is hereby
+-granted, provided that the above copyright notice appear in all
+-copies and that both that the copyright notice and this
+-permission notice and warranty disclaimer appear in supporting
+-documentation, and that the name of Lucent or any of its entities
+-not be used in advertising or publicity pertaining to
+-distribution of the software without specific, written prior
+-permission.
+-
+-LUCENT DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE,
+-INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS.
+-IN NO EVENT SHALL LUCENT OR ANY OF ITS ENTITIES BE LIABLE FOR ANY
+-SPECIAL, INDIRECT OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+-WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER
+-IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION,
+-ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF
+-THIS SOFTWARE.
+-****************************************************************/
+-
+-/* Try to deduce arith.h from arithmetic properties. */
+-
+-#include <stdio.h>
+-#include <math.h>
+-#include <errno.h>
+-
+-#ifdef NO_FPINIT
+-#define fpinit_ASL()
+-#else
+-#ifndef KR_headers
+-extern
+-#ifdef __cplusplus
+-	"C"
+-#endif
+-	void fpinit_ASL(void);
+-#endif /*KR_headers*/
+-#endif /*NO_FPINIT*/
+-
+- static int dalign;
+- typedef struct
+-Akind {
+-	char *name;
+-	int   kind;
+-	} Akind;
+-
+- static Akind
+-IEEE_8087	= { "IEEE_8087", 1 },
+-IEEE_MC68k	= { "IEEE_MC68k", 2 },
+-IBM		= { "IBM", 3 },
+-VAX		= { "VAX", 4 },
+-CRAY		= { "CRAY", 5};
+-
+- static double t_nan;
+-
+- static Akind *
+-Lcheck()
+-{
+-	union {
+-		double d;
+-		long L[2];
+-		} u;
+-	struct {
+-		double d;
+-		long L;
+-		} x[2];
+-
+-	if (sizeof(x) > 2*(sizeof(double) + sizeof(long)))
+-		dalign = 1;
+-	u.L[0] = u.L[1] = 0;
+-	u.d = 1e13;
+-	if (u.L[0] == 1117925532 && u.L[1] == -448790528)
+-		return &IEEE_MC68k;
+-	if (u.L[1] == 1117925532 && u.L[0] == -448790528)
+-		return &IEEE_8087;
+-	if (u.L[0] == -2065213935 && u.L[1] == 10752)
+-		return &VAX;
+-	if (u.L[0] == 1267827943 && u.L[1] == 704643072)
+-		return &IBM;
+-	return 0;
+-	}
+-
+- static Akind *
+-icheck()
+-{
+-	union {
+-		double d;
+-		int L[2];
+-		} u;
+-	struct {
+-		double d;
+-		int L;
+-		} x[2];
+-
+-	if (sizeof(x) > 2*(sizeof(double) + sizeof(int)))
+-		dalign = 1;
+-	u.L[0] = u.L[1] = 0;
+-	u.d = 1e13;
+-	if (u.L[0] == 1117925532 && u.L[1] == -448790528)
+-		return &IEEE_MC68k;
+-	if (u.L[1] == 1117925532 && u.L[0] == -448790528)
+-		return &IEEE_8087;
+-	if (u.L[0] == -2065213935 && u.L[1] == 10752)
+-		return &VAX;
+-	if (u.L[0] == 1267827943 && u.L[1] == 704643072)
+-		return &IBM;
+-	return 0;
+-	}
+-
+-char *emptyfmt = "";	/* avoid possible warning message with printf("") */
+-
+- static Akind *
+-ccheck()
+-{
+-	union {
+-		double d;
+-		long L;
+-		} u;
+-	long Cray1;
+-
+-	/* Cray1 = 4617762693716115456 -- without overflow on non-Crays */
+-	Cray1 = printf(emptyfmt) < 0 ? 0 : 4617762;
+-	if (printf(emptyfmt, Cray1) >= 0)
+-		Cray1 = 1000000*Cray1 + 693716;
+-	if (printf(emptyfmt, Cray1) >= 0)
+-		Cray1 = 1000000*Cray1 + 115456;
+-	u.d = 1e13;
+-	if (u.L == Cray1)
+-		return &CRAY;
+-	return 0;
+-	}
+-
+- static int
+-fzcheck()
+-{
+-	double a, b;
+-	int i;
+-
+-	a = 1.;
+-	b = .1;
+-	for(i = 155;; b *= b, i >>= 1) {
+-		if (i & 1) {
+-			a *= b;
+-			if (i == 1)
+-				break;
+-			}
+-		}
+-	b = a * a;
+-	return b == 0.;
+-	}
+-
+- static int
+-need_nancheck()
+-{
+-	double t;
+-
+-	errno = 0;
+-	t = log(t_nan);
+-	if (errno == 0)
+-		return 1;
+-	errno = 0;
+-	t = sqrt(t_nan);
+-	return errno == 0;
+-	}
+-
+-main()
+-{
+-	FILE *f;
+-	Akind *a = 0;
+-	int Ldef = 0;
+-
+-	fpinit_ASL();
+-#ifdef WRITE_ARITH_H	/* for Symantec's buggy "make" */
+-	f = fopen("arith.h", "w");
+-	if (!f) {
+-		printf("Cannot open arith.h\n");
+-		return 1;
+-		}
+-#else
+-	f = stdout;
+-#endif
+-
+-	if (sizeof(double) == 2*sizeof(long))
+-		a = Lcheck();
+-	else if (sizeof(double) == 2*sizeof(int)) {
+-		Ldef = 1;
+-		a = icheck();
+-		}
+-	else if (sizeof(double) == sizeof(long))
+-		a = ccheck();
+-	if (a) {
+-		fprintf(f, "#define %s\n#define Arith_Kind_ASL %d\n",
+-			a->name, a->kind);
+-		if (Ldef)
+-			fprintf(f, "#define Long int\n#define Intcast (int)(long)\n");
+-		if (dalign)
+-			fprintf(f, "#define Double_Align\n");
+-		if (sizeof(char*) == 8)
+-			fprintf(f, "#define X64_bit_pointers\n");
+-#ifndef NO_LONG_LONG
+-		if (sizeof(long long) < 8)
+-#endif
+-			fprintf(f, "#define NO_LONG_LONG\n");
+-		if (a->kind <= 2) {
+-			if (fzcheck())
+-				fprintf(f, "#define Sudden_Underflow\n");
+-			t_nan = -a->kind;
+-			if (need_nancheck())
+-				fprintf(f, "#define NANCHECK\n");
+-			}
+-		return 0;
+-		}
+-	fprintf(f, "/* Unknown arithmetic */\n");
+-	return 1;
+-	}
+-
+-#ifdef __sun
+-#ifdef __i386
+-/* kludge for Intel Solaris */
+-void fpsetprec(int x) { }
+-#endif
+-#endif
+//GO.SYSIN DD libF77/arithchk.c
+echo libF77/f77vers.c 1>&2
+sed >libF77/f77vers.c <<'//GO.SYSIN DD libF77/f77vers.c' 's/^-//'
+- char 
+-_libf77_version_f2c[] = "\n@(#) LIBF77 VERSION (f2c) 20021004\n";
+-
+-/*
+-2.00	11 June 1980.  File version.c added to library.
+-2.01	31 May 1988.  s_paus() flushes stderr; names of hl_* fixed
+-	[ d]erf[c ] added
+-	 8 Aug. 1989: #ifdefs for f2c -i2 added to s_cat.c
+-	29 Nov. 1989: s_cmp returns long (for f2c)
+-	30 Nov. 1989: arg types from f2c.h
+-	12 Dec. 1989: s_rnge allows long names
+-	19 Dec. 1989: getenv_ allows unsorted environment
+-	28 Mar. 1990: add exit(0) to end of main()
+-	 2 Oct. 1990: test signal(...) == SIG_IGN rather than & 01 in main
+-	17 Oct. 1990: abort() calls changed to sig_die(...,1)
+-	22 Oct. 1990: separate sig_die from main
+-	25 Apr. 1991: minor, theoretically invisible tweaks to s_cat, sig_die
+-	31 May  1991: make system_ return status
+-	18 Dec. 1991: change long to ftnlen (for -i2) many places
+-	28 Feb. 1992: repair z_sqrt.c (scribbled on input, gave wrong answer)
+-	18 July 1992: for n < 0, repair handling of 0**n in pow_[dr]i.c
+-			and m**n in pow_hh.c and pow_ii.c;
+-			catch SIGTRAP in main() for error msg before abort
+-	23 July 1992: switch to ANSI prototypes unless KR_headers is #defined
+-	23 Oct. 1992: fix botch in signal_.c (erroneous deref of 2nd arg);
+-			change Cabs to f__cabs.
+-	12 March 1993: various tweaks for C++
+-	 2 June 1994: adjust so abnormal terminations invoke f_exit just once
+-	16 Sept. 1994: s_cmp: treat characters as unsigned in comparisons.
+-	19 Sept. 1994: s_paus: flush after end of PAUSE; add -DMSDOS
+-	12 Jan. 1995:	pow_[dhiqrz][hiq]: adjust x**i to work on machines
+-			that sign-extend right shifts when i is the most
+-			negative integer.
+-	26 Jan. 1995: adjust s_cat.c, s_copy.c to permit the left-hand side
+-			of character assignments to appear on the right-hand
+-			side (unless compiled with -DNO_OVERWRITE).
+-	27 Jan. 1995: minor tweak to s_copy.c: copy forward whenever
+-			possible (for better cache behavior).
+-	30 May 1995:  added subroutine exit(rc) integer rc. Version not changed.
+-	29 Aug. 1995: add F77_aloc.c; use it in s_cat.c and system_.c.
+-	6 Sept. 1995: fix return type of system_ under -DKR_headers.
+-	19 Dec. 1995: s_cat.c: fix bug when 2nd or later arg overlaps lhs.
+-	19 Mar. 1996: s_cat.c: supply missing break after overlap detection.
+-	13 May 1996:  add [lq]bitbits.c and [lq]bitshft.c (f90 bit intrinsics).
+-	19 June 1996: add casts to unsigned in [lq]bitshft.c.
+-	26 Feb. 1997: adjust functions with a complex output argument
+-			to permit aliasing it with input arguments.
+-			(For now, at least, this is just for possible
+-			benefit of g77.)
+-	4 April 1997: [cz]_div.c: tweaks invisible on most systems (that may
+-			affect systems using gratuitous extra precision).
+-	19 Sept. 1997: [de]time_.c (Unix systems only): change return
+-			type to double.
+-	2 May 1999:	getenv_.c: omit environ in favor of getenv().
+-			c_cos.c, c_exp.c, c_sin.c, d_cnjg.c, r_cnjg.c,
+-			z_cos.c, z_exp.c, z_log.c, z_sin.c: cope fully with
+-			overlapping arguments caused by equivalence.
+-	3 May 1999:	"invisible" tweaks to omit compiler warnings in
+-			abort_.c, ef1asc_.c, s_rnge.c, s_stop.c.
+-
+-	7 Sept. 1999: [cz]_div.c: arrange for compilation under
+-			-DIEEE_COMPLEX_DIVIDE to make these routines
+-			avoid calling sig_die when the denominator
+-			vanishes; instead, they return pairs of NaNs
+-			or Infinities, depending whether the numerator
+-			also vanishes or not.  VERSION not changed.
+-	15 Nov. 1999: s_rnge.c: add casts for the case of
+-			sizeof(ftnint) == sizeof(int) < sizeof(long).
+-	10 March 2000: z_log.c: improve accuracy of Real(log(z)) for, e.g.,
+-			z near (+-1,eps) with |eps| small.  For the old
+-			evaluation, compile with -DPre20000310 .
+-	20 April 2000: s_cat.c: tweak argument types to accord with
+-			calls by f2c when ftnint and ftnlen are of
+-			different sizes (different numbers of bits).
+-	4 July 2000: adjustments to permit compilation by C++ compilers;
+-			VERSION string remains unchanged.
+-	29 Sept. 2000: dtime_.c, etime_.c: use floating-point divide.
+-			dtime_.d, erf_.c, erfc_.c, etime.c: for use with
+-			"f2c -R", compile with -DREAL=float.
+-	23 June 2001: add uninit.c; [fi]77vers.c: make version strings
+-			visible as extern char _lib[fi]77_version_f2c[].
+-	5 July 2001: modify uninit.c for __mc68k__ under Linux.
+-	16 Nov. 2001: uninit.c: Linux Power PC logic supplied by Alan Bain.
+-	18 Jan. 2002: fix glitches in qbit_bits(): wrong return type,
+-			missing ~ on y in return value.
+-	14 March 2002: z_log.c: add code to cope with buggy compilers
+-			(e.g., some versions of gcc under -O2 or -O3)
+-			that do floating-point comparisons against values
+-			computed into extended-precision registers on some
+-			systems (such as Intel IA32 systems).  Compile with
+-			-DNO_DOUBLE_EXTENDED to omit the new logic.
+-	4 Oct. 2002: uninit.c: on IRIX systems, omit use of shell variables.
+-*/
+//GO.SYSIN DD libF77/f77vers.c
+echo libF77/libF77.xsum 1>&2
+sed >libF77/libF77.xsum <<'//GO.SYSIN DD libF77/libF77.xsum' 's/^-//'
+-F77_aloc.c	f74c1f61	678
+-Notice	76f23b4	1212
+-README	fbd01e7d	7210
+-abort_.c	1ef378f2	298
+-arithchk.c	efc0d389	4669
+-c_abs.c	fec22c59	272
+-c_cos.c	18fc0ea3	354
+-c_div.c	f5424912	930
+-c_exp.c	1b85b1fc	349
+-c_log.c	28cdfed	384
+-c_sin.c	1ccaedc8	350
+-c_sqrt.c	f1ee88d5	605
+-cabs.c	f3d3b5f2	494
+-d_abs.c	e58094ef	218
+-d_acos.c	e5ecf93d	245
+-d_asin.c	e12ceeff	245
+-d_atan.c	53034db	245
+-d_atn2.c	ff8a1a78	271
+-d_cnjg.c	1c27c728	255
+-d_cos.c	c0eb625	241
+-d_cosh.c	11dc4adb	245
+-d_dim.c	e1ccb774	232
+-d_exp.c	1879c41c	241
+-d_imag.c	fe9c703e	201
+-d_int.c	f5de3566	269
+-d_lg10.c	1a1d7b77	291
+-d_log.c	1b368adf	241
+-d_mod.c	f540cf24	688
+-d_nint.c	ff913b40	281
+-d_prod.c	ad4856b	207
+-d_sign.c	9562fc5	266
+-d_sin.c	6e3f542	241
+-d_sinh.c	18b22950	245
+-d_sqrt.c	17e1db09	245
+-d_tan.c	ec93ebdb	241
+-d_tanh.c	1c55d15b	245
+-derf_.c	f85e74a3	239
+-derfc_.c	e96b7667	253
+-dtime_.c	c982be4	972
+-ef1asc_.c	e0576e63	521
+-ef1cmc_.c	ea5ad9e8	427
+-erf_.c	e82f7790	270
+-erfc_.c	ba65441	275
+-etime_.c	19d1fdad	839
+-exit_.c	ff4baa3a	543
+-f2ch.add	ef66bf17	6060
+-f77vers.c	13362f51	4740
+-getarg_.c	f182a268	562
+-getenv_.c	ff3b797c	1217
+-h_abs.c	e4443109	218
+-h_dim.c	c6e48bc	230
+-h_dnnt.c	f6bb90e	294
+-h_indx.c	ef8461eb	442
+-h_len.c	e8c3633	205
+-h_mod.c	7355bd0	207
+-h_nint.c	f0da3396	281
+-h_sign.c	f1370ffd	266
+-hl_ge.c	ed792501	346
+-hl_gt.c	feeacbd9	345
+-hl_le.c	f6fb5d6e	346
+-hl_lt.c	18501419	345
+-i_abs.c	12ab51ab	214
+-i_dim.c	f2a56785	225
+-i_dnnt.c	11748482	291
+-i_indx.c	fb59026f	430
+-i_len.c	17d17252	203
+-i_mod.c	bef73ae	211
+-i_nint.c	e494b804	278
+-i_sign.c	fa015b08	260
+-iargc_.c	49abda3	196
+-l_ge.c	f4710e74	334
+-l_gt.c	e8db94a7	333
+-l_le.c	c9c0a99	334
+-l_lt.c	767e79f	333
+-lbitbits.c	33fe981	1097
+-lbitshft.c	e81981d2	258
+-main.c	dc8ce96	2219
+-makefile	f4048935	4364
+-pow_ci.c	fa934cec	412
+-pow_dd.c	f004559b	276
+-pow_di.c	a4db539	448
+-pow_hh.c	d1a45a9	489
+-pow_ii.c	1fcf2742	488
+-pow_qq.c	e6a32de6	516
+-pow_ri.c	e7d9fc2a	436
+-pow_zi.c	1b894af7	851
+-pow_zz.c	f81a06b5	549
+-qbitbits.c	fdb9910e	1151
+-qbitshft.c	873054d	258
+-r_abs.c	f471383c	206
+-r_acos.c	1a6aca63	233
+-r_asin.c	e8555587	233
+-r_atan.c	eac25444	233
+-r_atn2.c	f611bea	253
+-r_cnjg.c	a8d7805	235
+-r_cos.c	fdef1ece	229
+-r_cosh.c	f05d1ae	233
+-r_dim.c	ee23e1a8	214
+-r_exp.c	1da16cd7	229
+-r_imag.c	166ad0f3	189
+-r_int.c	fc80b9a8	257
+-r_lg10.c	e876cfab	279
+-r_log.c	2062254	229
+-r_mod.c	187363fc	678
+-r_nint.c	6edcbb2	269
+-r_sign.c	1ae32441	248
+-r_sin.c	c3d968	229
+-r_sinh.c	1090c850	233
+-r_sqrt.c	ffbb0625	233
+-r_tan.c	fe85179d	229
+-r_tanh.c	10ffcc5b	233
+-s_cat.c	3070507	1452
+-s_cmp.c	e69e8b60	722
+-s_copy.c	1e258852	1024
+-s_paus.c	245d604	1596
+-s_rnge.c	fd20c6b4	753
+-s_stop.c	ffa80b24	762
+-sig_die.c	fbcad8d6	701
+-signal1.h0	1d43ee57	842
+-signal_.c	f3ef9cfc	299
+-system_.c	eae6254c	646
+-uninit.c	183c9847	7170
+-z_abs.c	1fa0640d	268
+-z_cos.c	facccd9b	363
+-z_div.c	1abdf45a	907
+-z_exp.c	1a8506e8	357
+-z_log.c	6bf3b22	2729
+-z_sin.c	1aa35b59	359
+-z_sqrt.c	1864d867	581
+//GO.SYSIN DD libF77/libF77.xsum
+echo libF77/main.c 1>&2
+sed >libF77/main.c <<'//GO.SYSIN DD libF77/main.c' 's/^-//'
+-/* STARTUP PROCEDURE FOR UNIX FORTRAN PROGRAMS */
+-
+-#include "stdio.h"
+-#include "signal1.h"
+-
+-#ifndef SIGIOT
+-#ifdef SIGABRT
+-#define SIGIOT SIGABRT
+-#endif
+-#endif
+-
+-#ifndef KR_headers
+-#undef VOID
+-#include "stdlib.h"
+-#ifdef __cplusplus
+-extern "C" {
+-#endif
+-#endif
+-
+-#ifndef VOID
+-#define VOID void
+-#endif
+-
+-#ifdef __cplusplus
+-extern "C" {
+-#endif
+-
+-#ifdef NO__STDC
+-#define ONEXIT onexit
+-extern VOID f_exit();
+-#else
+-#ifndef KR_headers
+-extern void f_exit(void);
+-#ifndef NO_ONEXIT
+-#define ONEXIT atexit
+-extern int atexit(void (*)(void));
+-#endif
+-#else
+-#ifndef NO_ONEXIT
+-#define ONEXIT onexit
+-extern VOID f_exit();
+-#endif
+-#endif
+-#endif
+-
+-#ifdef KR_headers
+-extern VOID f_init(), sig_die();
+-extern int MAIN__();
+-#define Int /* int */
+-#else
+-extern void f_init(void), sig_die(char*, int);
+-extern int MAIN__(void);
+-#define Int int
+-#endif
+-
+-static VOID sigfdie(Sigarg)
+-{
+-Use_Sigarg;
+-sig_die("Floating Exception", 1);
+-}
+-
+-
+-static VOID sigidie(Sigarg)
+-{
+-Use_Sigarg;
+-sig_die("IOT Trap", 1);
+-}
+-
+-#ifdef SIGQUIT
+-static VOID sigqdie(Sigarg)
+-{
+-Use_Sigarg;
+-sig_die("Quit signal", 1);
+-}
+-#endif
+-
+-
+-static VOID sigindie(Sigarg)
+-{
+-Use_Sigarg;
+-sig_die("Interrupt", 0);
+-}
+-
+-static VOID sigtdie(Sigarg)
+-{
+-Use_Sigarg;
+-sig_die("Killed", 0);
+-}
+-
+-#ifdef SIGTRAP
+-static VOID sigtrdie(Sigarg)
+-{
+-Use_Sigarg;
+-sig_die("Trace trap", 1);
+-}
+-#endif
+-
+-
+-int xargc;
+-char **xargv;
+-
+-#ifdef __cplusplus
+-	}
+-#endif
+-
+-#ifdef KR_headers
+-main(argc, argv) int argc; char **argv;
+-#else
+-main(int argc, char **argv)
+-#endif
+-{
+-xargc = argc;
+-xargv = argv;
+-signal1(SIGFPE, sigfdie);	/* ignore underflow, enable overflow */
+-#ifdef SIGIOT
+-signal1(SIGIOT, sigidie);
+-#endif
+-#ifdef SIGTRAP
+-signal1(SIGTRAP, sigtrdie);
+-#endif
+-#ifdef SIGQUIT
+-if(signal1(SIGQUIT,sigqdie) == SIG_IGN)
+-	signal1(SIGQUIT, SIG_IGN);
+-#endif
+-if(signal1(SIGINT, sigindie) == SIG_IGN)
+-	signal1(SIGINT, SIG_IGN);
+-signal1(SIGTERM,sigtdie);
+-
+-#ifdef pdp11
+-	ldfps(01200); /* detect overflow as an exception */
+-#endif
+-
+-f_init();
+-#ifndef NO_ONEXIT
+-ONEXIT(f_exit);
+-#endif
+-MAIN__();
+-#ifdef NO_ONEXIT
+-f_exit();
+-#endif
+-exit(0);	/* exit(0) rather than return(0) to bypass Cray bug */
+-return 0;	/* For compilers that complain of missing return values; */
+-		/* others will complain that this is unreachable code. */
+-}
+-#ifdef __cplusplus
+-}
+-#endif
+//GO.SYSIN DD libF77/main.c
+echo libF77/makefile 1>&2
+sed >libF77/makefile <<'//GO.SYSIN DD libF77/makefile' 's/^-//'
+-.SUFFIXES: .c .o
+-CC = cc
+-SHELL = /bin/sh
+-CFLAGS = -O
+-
+-# If your system lacks onexit() and you are not using an
+-# ANSI C compiler, then you should add -DNO_ONEXIT to CFLAGS,
+-# e.g., by changing the above "CFLAGS =" line to
+-# CFLAGS = -O -DNO_ONEXIT
+-
+-# On at least some Sun systems, it is more appropriate to change the
+-# "CFLAGS =" line to
+-# CFLAGS = -O -Donexit=on_exit
+-
+-# compile, then strip unnecessary symbols
+-.c.o:
+-	$(CC) -c -DSkip_f2c_Undefs $(CFLAGS) $*.c
+-	ld -r -x -o $*.xxx $*.o
+-	mv $*.xxx $*.o
+-## Under Solaris (and other systems that do not understand ld -x),
+-## omit -x in the ld line above.
+-## If your system does not have the ld command, comment out
+-## or remove both the ld and mv lines above.
+-
+-MISC =	F77_aloc.o main.o s_rnge.o abort_.o f77vers.o getarg_.o iargc_.o \
+-	getenv_.o signal_.o s_stop.o s_paus.o system_.o cabs.o\
+-	derf_.o derfc_.o erf_.o erfc_.o sig_die.o exit_.o uninit.o
+-POW =	pow_ci.o pow_dd.o pow_di.o pow_hh.o pow_ii.o  pow_ri.o pow_zi.o pow_zz.o
+-CX =	c_abs.o c_cos.o c_div.o c_exp.o c_log.o c_sin.o c_sqrt.o
+-DCX =	z_abs.o z_cos.o z_div.o z_exp.o z_log.o z_sin.o z_sqrt.o
+-REAL =	r_abs.o r_acos.o r_asin.o r_atan.o r_atn2.o r_cnjg.o r_cos.o\
+-	r_cosh.o r_dim.o r_exp.o r_imag.o r_int.o\
+-	r_lg10.o r_log.o r_mod.o r_nint.o r_sign.o\
+-	r_sin.o r_sinh.o r_sqrt.o r_tan.o r_tanh.o
+-DBL =	d_abs.o d_acos.o d_asin.o d_atan.o d_atn2.o\
+-	d_cnjg.o d_cos.o d_cosh.o d_dim.o d_exp.o\
+-	d_imag.o d_int.o d_lg10.o d_log.o d_mod.o\
+-	d_nint.o d_prod.o d_sign.o d_sin.o d_sinh.o\
+-	d_sqrt.o d_tan.o d_tanh.o
+-INT =	i_abs.o i_dim.o i_dnnt.o i_indx.o i_len.o i_mod.o i_nint.o i_sign.o
+-HALF =	h_abs.o h_dim.o h_dnnt.o h_indx.o h_len.o h_mod.o  h_nint.o h_sign.o
+-CMP =	l_ge.o l_gt.o l_le.o l_lt.o hl_ge.o hl_gt.o hl_le.o hl_lt.o
+-EFL =	ef1asc_.o ef1cmc_.o
+-CHAR =	F77_aloc.o s_cat.o s_cmp.o s_copy.o
+-F90BIT = lbitbits.o lbitshft.o
+-QINT =	pow_qq.o qbitbits.o qbitshft.o
+-TIME =	dtime_.o etime_.o
+-
+-all: signal1.h libF77.a
+-
+-# You may need to adjust signal1.h suitably for your system...
+-signal1.h: signal1.h0
+-	cp signal1.h0 signal1.h
+-
+-# If you get an error compiling dtime_.c or etime_.c, try adding
+-# -DUSE_CLOCK to the CFLAGS assignment above; if that does not work,
+-# omit $(TIME) from the dependency list for libF77.a below.
+-
+-# For INTEGER*8 support (which requires system-dependent adjustments to
+-# f2c.h), add $(QINT) to the libf2c.a dependency list below...
+-
+-libF77.a : $(MISC) $(POW) $(CX) $(DCX) $(REAL) $(DBL) $(INT) \
+-	$(HALF) $(CMP) $(EFL) $(CHAR) $(F90BIT) $(TIME)
+-	ar r libF77.a $?
+-	ranlib libF77.a || true
+-
+-### If your system lacks ranlib, you don't need it; see README.
+-
+-# f77vers.c was "Version.c"; renamed on 20010623 to accord with libf2c.zip.
+-
+-f77vers.o: f77vers.c
+-	$(CC) -c f77vers.c
+-
+-uninit.o: arith.h
+-
+-arith.h: arithchk.c
+-	$(CC) $(CFLAGS) -DNO_FPINIT arithchk.c -lm ||\
+-	 $(CC) -DNO_LONG_LONG $(CFLAGS) -DNO_FPINIT arithchk.c -lm
+-	./a.out >arith.h
+-	rm -f a.out arithchk.o
+-
+-# To compile with C++, first "make f2c.h"
+-f2c.h: f2ch.add
+-	cat /usr/include/f2c.h f2ch.add >f2c.h
+-
+-install:	libF77.a
+-	mv libF77.a $(LIBDIR)/libF77.a
+-	ranlib $(LIBDIR)/libF77.a || true
+-
+-clean:
+-	rm -f libF77.a *.o arith.h
+-
+-check:
+-	xsum F77_aloc.c Notice README abort_.c arithchk.c c_abs.c \
+-	c_cos.c c_div.c c_exp.c c_log.c c_sin.c c_sqrt.c cabs.c \
+-	d_abs.c d_acos.c \
+-	d_asin.c d_atan.c d_atn2.c d_cnjg.c d_cos.c d_cosh.c d_dim.c \
+-	d_exp.c d_imag.c d_int.c d_lg10.c d_log.c d_mod.c d_nint.c \
+-	d_prod.c d_sign.c d_sin.c d_sinh.c d_sqrt.c d_tan.c d_tanh.c \
+-	derf_.c derfc_.c dtime_.c ef1asc_.c ef1cmc_.c erf_.c erfc_.c \
+-	etime_.c exit_.c f2ch.add f77vers.c \
+-	getarg_.c getenv_.c h_abs.c h_dim.c h_dnnt.c h_indx.c h_len.c \
+-	h_mod.c h_nint.c h_sign.c hl_ge.c hl_gt.c hl_le.c hl_lt.c \
+-	i_abs.c i_dim.c i_dnnt.c i_indx.c i_len.c i_mod.c i_nint.c \
+-	i_sign.c iargc_.c l_ge.c l_gt.c l_le.c l_lt.c lbitbits.c lbitshft.c \
+-	main.c makefile pow_ci.c pow_dd.c pow_di.c pow_hh.c pow_ii.c \
+-	pow_qq.c pow_ri.c pow_zi.c pow_zz.c qbitbits.c qbitshft.c \
+-	r_abs.c r_acos.c r_asin.c r_atan.c r_atn2.c \
+-	r_cnjg.c r_cos.c r_cosh.c r_dim.c r_exp.c r_imag.c r_int.c r_lg10.c \
+-	r_log.c r_mod.c r_nint.c r_sign.c r_sin.c r_sinh.c r_sqrt.c \
+-	r_tan.c r_tanh.c s_cat.c s_cmp.c s_copy.c \
+-	s_paus.c s_rnge.c s_stop.c sig_die.c signal1.h0 signal_.c system_.c \
+-	uninit.c z_abs.c z_cos.c z_div.c z_exp.c z_log.c z_sin.c z_sqrt.c >zap
+-	cmp zap libF77.xsum && rm zap || diff libF77.xsum zap
+//GO.SYSIN DD libF77/makefile
+echo libF77/pow_ci.c 1>&2
+sed >libF77/pow_ci.c <<'//GO.SYSIN DD libF77/pow_ci.c' 's/^-//'
+-#include "f2c.h"
+-#ifdef __cplusplus
+-extern "C" {
+-#endif
+-
+-#ifdef KR_headers
+-VOID pow_ci(p, a, b) 	/* p = a**b  */
+- complex *p, *a; integer *b;
+-#else
+-extern void pow_zi(doublecomplex*, doublecomplex*, integer*);
+-void pow_ci(complex *p, complex *a, integer *b) 	/* p = a**b  */
+-#endif
+-{
+-doublecomplex p1, a1;
+-
+-a1.r = a->r;
+-a1.i = a->i;
+-
+-pow_zi(&p1, &a1, b);
+-
+-p->r = p1.r;
+-p->i = p1.i;
+-}
+-#ifdef __cplusplus
+-}
+-#endif
+//GO.SYSIN DD libF77/pow_ci.c
+echo libF77/pow_dd.c 1>&2
+sed >libF77/pow_dd.c <<'//GO.SYSIN DD libF77/pow_dd.c' 's/^-//'
+-#include "f2c.h"
+-
+-#ifdef KR_headers
+-double pow();
+-double pow_dd(ap, bp) doublereal *ap, *bp;
+-#else
+-#undef abs
+-#include "math.h"
+-#ifdef __cplusplus
+-extern "C" {
+-#endif
+-double pow_dd(doublereal *ap, doublereal *bp)
+-#endif
+-{
+-return(pow(*ap, *bp) );
+-}
+-#ifdef __cplusplus
+-}
+-#endif
+//GO.SYSIN DD libF77/pow_dd.c
+echo libF77/pow_di.c 1>&2
+sed >libF77/pow_di.c <<'//GO.SYSIN DD libF77/pow_di.c' 's/^-//'
+-#include "f2c.h"
+-#ifdef __cplusplus
+-extern "C" {
+-#endif
+-
+-#ifdef KR_headers
+-double pow_di(ap, bp) doublereal *ap; integer *bp;
+-#else
+-double pow_di(doublereal *ap, integer *bp)
+-#endif
+-{
+-double pow, x;
+-integer n;
+-unsigned long u;
+-
+-pow = 1;
+-x = *ap;
+-n = *bp;
+-
+-if(n != 0)
+-	{
+-	if(n < 0)
+-		{
+-		n = -n;
+-		x = 1/x;
+-		}
+-	for(u = n; ; )
+-		{
+-		if(u & 01)
+-			pow *= x;
+-		if(u >>= 1)
+-			x *= x;
+-		else
+-			break;
+-		}
+-	}
+-return(pow);
+-}
+-#ifdef __cplusplus
+-}
+-#endif
+//GO.SYSIN DD libF77/pow_di.c
+echo libF77/pow_hh.c 1>&2
+sed >libF77/pow_hh.c <<'//GO.SYSIN DD libF77/pow_hh.c' 's/^-//'
+-#include "f2c.h"
+-#ifdef __cplusplus
+-extern "C" {
+-#endif
+-
+-#ifdef KR_headers
+-shortint pow_hh(ap, bp) shortint *ap, *bp;
+-#else
+-shortint pow_hh(shortint *ap, shortint *bp)
+-#endif
+-{
+-	shortint pow, x, n;
+-	unsigned u;
+-
+-	x = *ap;
+-	n = *bp;
+-
+-	if (n <= 0) {
+-		if (n == 0 || x == 1)
+-			return 1;
+-		if (x != -1)
+-			return x == 0 ? 1/x : 0;
+-		n = -n;
+-		}
+-	u = n;
+-	for(pow = 1; ; )
+-		{
+-		if(u & 01)
+-			pow *= x;
+-		if(u >>= 1)
+-			x *= x;
+-		else
+-			break;
+-		}
+-	return(pow);
+-	}
+-#ifdef __cplusplus
+-}
+-#endif
+//GO.SYSIN DD libF77/pow_hh.c
+echo libF77/pow_ii.c 1>&2
+sed >libF77/pow_ii.c <<'//GO.SYSIN DD libF77/pow_ii.c' 's/^-//'
+-#include "f2c.h"
+-#ifdef __cplusplus
+-extern "C" {
+-#endif
+-
+-#ifdef KR_headers
+-integer pow_ii(ap, bp) integer *ap, *bp;
+-#else
+-integer pow_ii(integer *ap, integer *bp)
+-#endif
+-{
+-	integer pow, x, n;
+-	unsigned long u;
+-
+-	x = *ap;
+-	n = *bp;
+-
+-	if (n <= 0) {
+-		if (n == 0 || x == 1)
+-			return 1;
+-		if (x != -1)
+-			return x == 0 ? 1/x : 0;
+-		n = -n;
+-		}
+-	u = n;
+-	for(pow = 1; ; )
+-		{
+-		if(u & 01)
+-			pow *= x;
+-		if(u >>= 1)
+-			x *= x;
+-		else
+-			break;
+-		}
+-	return(pow);
+-	}
+-#ifdef __cplusplus
+-}
+-#endif
+//GO.SYSIN DD libF77/pow_ii.c
+echo libF77/pow_qq.c 1>&2
+sed >libF77/pow_qq.c <<'//GO.SYSIN DD libF77/pow_qq.c' 's/^-//'
+-#include "f2c.h"
+-#ifdef __cplusplus
+-extern "C" {
+-#endif
+-
+-#ifdef KR_headers
+-longint pow_qq(ap, bp) longint *ap, *bp;
+-#else
+-longint pow_qq(longint *ap, longint *bp)
+-#endif
+-{
+-	longint pow, x, n;
+-	unsigned long long u;	/* system-dependent */
+-
+-	x = *ap;
+-	n = *bp;
+-
+-	if (n <= 0) {
+-		if (n == 0 || x == 1)
+-			return 1;
+-		if (x != -1)
+-			return x == 0 ? 1/x : 0;
+-		n = -n;
+-		}
+-	u = n;
+-	for(pow = 1; ; )
+-		{
+-		if(u & 01)
+-			pow *= x;
+-		if(u >>= 1)
+-			x *= x;
+-		else
+-			break;
+-		}
+-	return(pow);
+-	}
+-#ifdef __cplusplus
+-}
+-#endif
+//GO.SYSIN DD libF77/pow_qq.c
+echo libF77/pow_ri.c 1>&2
+sed >libF77/pow_ri.c <<'//GO.SYSIN DD libF77/pow_ri.c' 's/^-//'
+-#include "f2c.h"
+-#ifdef __cplusplus
+-extern "C" {
+-#endif
+-
+-#ifdef KR_headers
+-double pow_ri(ap, bp) real *ap; integer *bp;
+-#else
+-double pow_ri(real *ap, integer *bp)
+-#endif
+-{
+-double pow, x;
+-integer n;
+-unsigned long u;
+-
+-pow = 1;
+-x = *ap;
+-n = *bp;
+-
+-if(n != 0)
+-	{
+-	if(n < 0)
+-		{
+-		n = -n;
+-		x = 1/x;
+-		}
+-	for(u = n; ; )
+-		{
+-		if(u & 01)
+-			pow *= x;
+-		if(u >>= 1)
+-			x *= x;
+-		else
+-			break;
+-		}
+-	}
+-return(pow);
+-}
+-#ifdef __cplusplus
+-}
+-#endif
+//GO.SYSIN DD libF77/pow_ri.c
+echo libF77/pow_zi.c 1>&2
+sed >libF77/pow_zi.c <<'//GO.SYSIN DD libF77/pow_zi.c' 's/^-//'
+-#include "f2c.h"
+-#ifdef __cplusplus
+-extern "C" {
+-#endif
+-
+-#ifdef KR_headers
+-VOID pow_zi(p, a, b) 	/* p = a**b  */
+- doublecomplex *p, *a; integer *b;
+-#else
+-extern void z_div(doublecomplex*, doublecomplex*, doublecomplex*);
+-void pow_zi(doublecomplex *p, doublecomplex *a, integer *b) 	/* p = a**b  */
+-#endif
+-{
+-	integer n;
+-	unsigned long u;
+-	double t;
+-	doublecomplex q, x;
+-	static doublecomplex one = {1.0, 0.0};
+-
+-	n = *b;
+-	q.r = 1;
+-	q.i = 0;
+-
+-	if(n == 0)
+-		goto done;
+-	if(n < 0)
+-		{
+-		n = -n;
+-		z_div(&x, &one, a);
+-		}
+-	else
+-		{
+-		x.r = a->r;
+-		x.i = a->i;
+-		}
+-
+-	for(u = n; ; )
+-		{
+-		if(u & 01)
+-			{
+-			t = q.r * x.r - q.i * x.i;
+-			q.i = q.r * x.i + q.i * x.r;
+-			q.r = t;
+-			}
+-		if(u >>= 1)
+-			{
+-			t = x.r * x.r - x.i * x.i;
+-			x.i = 2 * x.r * x.i;
+-			x.r = t;
+-			}
+-		else
+-			break;
+-		}
+- done:
+-	p->i = q.i;
+-	p->r = q.r;
+-	}
+-#ifdef __cplusplus
+-}
+-#endif
+//GO.SYSIN DD libF77/pow_zi.c
+echo libF77/pow_zz.c 1>&2
+sed >libF77/pow_zz.c <<'//GO.SYSIN DD libF77/pow_zz.c' 's/^-//'
+-#include "f2c.h"
+-
+-#ifdef KR_headers
+-double log(), exp(), cos(), sin(), atan2(), f__cabs();
+-VOID pow_zz(r,a,b) doublecomplex *r, *a, *b;
+-#else
+-#undef abs
+-#include "math.h"
+-#ifdef __cplusplus
+-extern "C" {
+-#endif
+-extern double f__cabs(double,double);
+-void pow_zz(doublecomplex *r, doublecomplex *a, doublecomplex *b)
+-#endif
+-{
+-double logr, logi, x, y;
+-
+-logr = log( f__cabs(a->r, a->i) );
+-logi = atan2(a->i, a->r);
+-
+-x = exp( logr * b->r - logi * b->i );
+-y = logr * b->i + logi * b->r;
+-
+-r->r = x * cos(y);
+-r->i = x * sin(y);
+-}
+-#ifdef __cplusplus
+-}
+-#endif
+//GO.SYSIN DD libF77/pow_zz.c
+echo libF77/qbitbits.c 1>&2
+sed >libF77/qbitbits.c <<'//GO.SYSIN DD libF77/qbitbits.c' 's/^-//'
+-#include "f2c.h"
+-#ifdef __cplusplus
+-extern "C" {
+-#endif
+-
+-#ifndef LONGBITS
+-#define LONGBITS 32
+-#endif
+-
+-#ifndef LONG8BITS
+-#define LONG8BITS (2*LONGBITS)
+-#endif
+-
+- longint
+-#ifdef KR_headers
+-qbit_bits(a, b, len) longint a; integer b, len;
+-#else
+-qbit_bits(longint a, integer b, integer len)
+-#endif
+-{
+-	/* Assume 2's complement arithmetic */
+-
+-	ulongint x, y;
+-
+-	x = (ulongint) a;
+-	y = (ulongint)-1L;
+-	x >>= b;
+-	y <<= len;
+-	return (longint)(x & ~y);
+-	}
+-
+- longint
+-#ifdef KR_headers
+-qbit_cshift(a, b, len) longint a; integer b, len;
+-#else
+-qbit_cshift(longint a, integer b, integer len)
+-#endif
+-{
+-	ulongint x, y, z;
+-
+-	x = (ulongint)a;
+-	if (len <= 0) {
+-		if (len == 0)
+-			return 0;
+-		goto full_len;
+-		}
+-	if (len >= LONG8BITS) {
+- full_len:
+-		if (b >= 0) {
+-			b %= LONG8BITS;
+-			return (longint)(x << b | x >> LONG8BITS - b );
+-			}
+-		b = -b;
+-		b %= LONG8BITS;
+-		return (longint)(x << LONG8BITS - b | x >> b);
+-		}
+-	y = z = (unsigned long)-1;
+-	y <<= len;
+-	z &= ~y;
+-	y &= x;
+-	x &= z;
+-	if (b >= 0) {
+-		b %= len;
+-		return (longint)(y | z & (x << b | x >> len - b));
+-		}
+-	b = -b;
+-	b %= len;
+-	return (longint)(y | z & (x >> b | x << len - b));
+-	}
+-#ifdef __cplusplus
+-}
+-#endif
+//GO.SYSIN DD libF77/qbitbits.c
+echo libF77/qbitshft.c 1>&2
+sed >libF77/qbitshft.c <<'//GO.SYSIN DD libF77/qbitshft.c' 's/^-//'
+-#include "f2c.h"
+-#ifdef __cplusplus
+-extern "C" {
+-#endif
+-
+- longint
+-#ifdef KR_headers
+-qbit_shift(a, b) longint a; integer b;
+-#else
+-qbit_shift(longint a, integer b)
+-#endif
+-{
+-	return b >= 0 ? a << b : (longint)((ulongint)a >> -b);
+-	}
+-#ifdef __cplusplus
+-}
+-#endif
+//GO.SYSIN DD libF77/qbitshft.c
+echo libF77/r_abs.c 1>&2
+sed >libF77/r_abs.c <<'//GO.SYSIN DD libF77/r_abs.c' 's/^-//'
+-#include "f2c.h"
+-#ifdef __cplusplus
+-extern "C" {
+-#endif
+-
+-#ifdef KR_headers
+-double r_abs(x) real *x;
+-#else
+-double r_abs(real *x)
+-#endif
+-{
+-if(*x >= 0)
+-	return(*x);
+-return(- *x);
+-}
+-#ifdef __cplusplus
+-}
+-#endif
+//GO.SYSIN DD libF77/r_abs.c
+echo libF77/r_acos.c 1>&2
+sed >libF77/r_acos.c <<'//GO.SYSIN DD libF77/r_acos.c' 's/^-//'
+-#include "f2c.h"
+-
+-#ifdef KR_headers
+-double acos();
+-double r_acos(x) real *x;
+-#else
+-#undef abs
+-#include "math.h"
+-#ifdef __cplusplus
+-extern "C" {
+-#endif
+-double r_acos(real *x)
+-#endif
+-{
+-return( acos(*x) );
+-}
+-#ifdef __cplusplus
+-}
+-#endif
+//GO.SYSIN DD libF77/r_acos.c
+echo libF77/r_asin.c 1>&2
+sed >libF77/r_asin.c <<'//GO.SYSIN DD libF77/r_asin.c' 's/^-//'
+-#include "f2c.h"
+-
+-#ifdef KR_headers
+-double asin();
+-double r_asin(x) real *x;
+-#else
+-#undef abs
+-#include "math.h"
+-#ifdef __cplusplus
+-extern "C" {
+-#endif
+-double r_asin(real *x)
+-#endif
+-{
+-return( asin(*x) );
+-}
+-#ifdef __cplusplus
+-}
+-#endif
+//GO.SYSIN DD libF77/r_asin.c
+echo libF77/r_atan.c 1>&2
+sed >libF77/r_atan.c <<'//GO.SYSIN DD libF77/r_atan.c' 's/^-//'
+-#include "f2c.h"
+-
+-#ifdef KR_headers
+-double atan();
+-double r_atan(x) real *x;
+-#else
+-#undef abs
+-#include "math.h"
+-#ifdef __cplusplus
+-extern "C" {
+-#endif
+-double r_atan(real *x)
+-#endif
+-{
+-return( atan(*x) );
+-}
+-#ifdef __cplusplus
+-}
+-#endif
+//GO.SYSIN DD libF77/r_atan.c
+echo libF77/r_atn2.c 1>&2
+sed >libF77/r_atn2.c <<'//GO.SYSIN DD libF77/r_atn2.c' 's/^-//'
+-#include "f2c.h"
+-
+-#ifdef KR_headers
+-double atan2();
+-double r_atn2(x,y) real *x, *y;
+-#else
+-#undef abs
+-#include "math.h"
+-#ifdef __cplusplus
+-extern "C" {
+-#endif
+-double r_atn2(real *x, real *y)
+-#endif
+-{
+-return( atan2(*x,*y) );
+-}
+-#ifdef __cplusplus
+-}
+-#endif
+//GO.SYSIN DD libF77/r_atn2.c
+echo libF77/z_sqrt.c 1>&2
+sed >libF77/z_sqrt.c <<'//GO.SYSIN DD libF77/z_sqrt.c' 's/^-//'
+-#include "f2c.h"
+-
+-#ifdef KR_headers
+-double sqrt(), f__cabs();
+-VOID z_sqrt(r, z) doublecomplex *r, *z;
+-#else
+-#undef abs
+-#include "math.h"
+-#ifdef __cplusplus
+-extern "C" {
+-#endif
+-extern double f__cabs(double, double);
+-void z_sqrt(doublecomplex *r, doublecomplex *z)
+-#endif
+-{
+-	double mag, zi = z->i, zr = z->r;
+-
+-	if( (mag = f__cabs(zr, zi)) == 0.)
+-		r->r = r->i = 0.;
+-	else if(zr > 0)
+-		{
+-		r->r = sqrt(0.5 * (mag + zr) );
+-		r->i = zi / r->r / 2;
+-		}
+-	else
+-		{
+-		r->i = sqrt(0.5 * (mag - zr) );
+-		if(zi < 0)
+-			r->i = - r->i;
+-		r->r = zi / r->i / 2;
+-		}
+-	}
+-#ifdef __cplusplus
+-}
+-#endif
+//GO.SYSIN DD libF77/z_sqrt.c
+echo libF77/r_cnjg.c 1>&2
+sed >libF77/r_cnjg.c <<'//GO.SYSIN DD libF77/r_cnjg.c' 's/^-//'
+-#include "f2c.h"
+-#ifdef __cplusplus
+-extern "C" {
+-#endif
+-
+-#ifdef KR_headers
+-VOID r_cnjg(r, z) complex *r, *z;
+-#else
+-VOID r_cnjg(complex *r, complex *z)
+-#endif
+-{
+-	real zi = z->i;
+-	r->r = z->r;
+-	r->i = -zi;
+-	}
+-#ifdef __cplusplus
+-}
+-#endif
+//GO.SYSIN DD libF77/r_cnjg.c
+echo libF77/r_cos.c 1>&2
+sed >libF77/r_cos.c <<'//GO.SYSIN DD libF77/r_cos.c' 's/^-//'
+-#include "f2c.h"
+-
+-#ifdef KR_headers
+-double cos();
+-double r_cos(x) real *x;
+-#else
+-#undef abs
+-#include "math.h"
+-#ifdef __cplusplus
+-extern "C" {
+-#endif
+-double r_cos(real *x)
+-#endif
+-{
+-return( cos(*x) );
+-}
+-#ifdef __cplusplus
+-}
+-#endif
+//GO.SYSIN DD libF77/r_cos.c
+echo libF77/r_cosh.c 1>&2
+sed >libF77/r_cosh.c <<'//GO.SYSIN DD libF77/r_cosh.c' 's/^-//'
+-#include "f2c.h"
+-
+-#ifdef KR_headers
+-double cosh();
+-double r_cosh(x) real *x;
+-#else
+-#undef abs
+-#include "math.h"
+-#ifdef __cplusplus
+-extern "C" {
+-#endif
+-double r_cosh(real *x)
+-#endif
+-{
+-return( cosh(*x) );
+-}
+-#ifdef __cplusplus
+-}
+-#endif
+//GO.SYSIN DD libF77/r_cosh.c
+echo libF77/r_dim.c 1>&2
+sed >libF77/r_dim.c <<'//GO.SYSIN DD libF77/r_dim.c' 's/^-//'
+-#include "f2c.h"
+-#ifdef __cplusplus
+-extern "C" {
+-#endif
+-
+-#ifdef KR_headers
+-double r_dim(a,b) real *a, *b;
+-#else
+-double r_dim(real *a, real *b)
+-#endif
+-{
+-return( *a > *b ? *a - *b : 0);
+-}
+-#ifdef __cplusplus
+-}
+-#endif
+//GO.SYSIN DD libF77/r_dim.c
+echo libF77/r_exp.c 1>&2
+sed >libF77/r_exp.c <<'//GO.SYSIN DD libF77/r_exp.c' 's/^-//'
+-#include "f2c.h"
+-
+-#ifdef KR_headers
+-double exp();
+-double r_exp(x) real *x;
+-#else
+-#undef abs
+-#include "math.h"
+-#ifdef __cplusplus
+-extern "C" {
+-#endif
+-double r_exp(real *x)
+-#endif
+-{
+-return( exp(*x) );
+-}
+-#ifdef __cplusplus
+-}
+-#endif
+//GO.SYSIN DD libF77/r_exp.c
+echo libF77/r_imag.c 1>&2
+sed >libF77/r_imag.c <<'//GO.SYSIN DD libF77/r_imag.c' 's/^-//'
+-#include "f2c.h"
+-#ifdef __cplusplus
+-extern "C" {
+-#endif
+-
+-#ifdef KR_headers
+-double r_imag(z) complex *z;
+-#else
+-double r_imag(complex *z)
+-#endif
+-{
+-return(z->i);
+-}
+-#ifdef __cplusplus
+-}
+-#endif
+//GO.SYSIN DD libF77/r_imag.c
+echo libF77/r_int.c 1>&2
+sed >libF77/r_int.c <<'//GO.SYSIN DD libF77/r_int.c' 's/^-//'
+-#include "f2c.h"
+-
+-#ifdef KR_headers
+-double floor();
+-double r_int(x) real *x;
+-#else
+-#undef abs
+-#include "math.h"
+-#ifdef __cplusplus
+-extern "C" {
+-#endif
+-double r_int(real *x)
+-#endif
+-{
+-return( (*x>0) ? floor(*x) : -floor(- *x) );
+-}
+-#ifdef __cplusplus
+-}
+-#endif
+//GO.SYSIN DD libF77/r_int.c
+echo libF77/r_lg10.c 1>&2
+sed >libF77/r_lg10.c <<'//GO.SYSIN DD libF77/r_lg10.c' 's/^-//'
+-#include "f2c.h"
+-
+-#define log10e 0.43429448190325182765
+-
+-#ifdef KR_headers
+-double log();
+-double r_lg10(x) real *x;
+-#else
+-#undef abs
+-#include "math.h"
+-#ifdef __cplusplus
+-extern "C" {
+-#endif
+-double r_lg10(real *x)
+-#endif
+-{
+-return( log10e * log(*x) );
+-}
+-#ifdef __cplusplus
+-}
+-#endif
+//GO.SYSIN DD libF77/r_lg10.c
+echo libF77/r_log.c 1>&2
+sed >libF77/r_log.c <<'//GO.SYSIN DD libF77/r_log.c' 's/^-//'
+-#include "f2c.h"
+-
+-#ifdef KR_headers
+-double log();
+-double r_log(x) real *x;
+-#else
+-#undef abs
+-#include "math.h"
+-#ifdef __cplusplus
+-extern "C" {
+-#endif
+-double r_log(real *x)
+-#endif
+-{
+-return( log(*x) );
+-}
+-#ifdef __cplusplus
+-}
+-#endif
+//GO.SYSIN DD libF77/r_log.c
+echo libF77/r_mod.c 1>&2
+sed >libF77/r_mod.c <<'//GO.SYSIN DD libF77/r_mod.c' 's/^-//'
+-#include "f2c.h"
+-
+-#ifdef KR_headers
+-#ifdef IEEE_drem
+-double drem();
+-#else
+-double floor();
+-#endif
+-double r_mod(x,y) real *x, *y;
+-#else
+-#ifdef IEEE_drem
+-double drem(double, double);
+-#else
+-#undef abs
+-#include "math.h"
+-#ifdef __cplusplus
+-extern "C" {
+-#endif
+-#endif
+-double r_mod(real *x, real *y)
+-#endif
+-{
+-#ifdef IEEE_drem
+-	double xa, ya, z;
+-	if ((ya = *y) < 0.)
+-		ya = -ya;
+-	z = drem(xa = *x, ya);
+-	if (xa > 0) {
+-		if (z < 0)
+-			z += ya;
+-		}
+-	else if (z > 0)
+-		z -= ya;
+-	return z;
+-#else
+-	double quotient;
+-	if( (quotient = (double)*x / *y) >= 0)
+-		quotient = floor(quotient);
+-	else
+-		quotient = -floor(-quotient);
+-	return(*x - (*y) * quotient );
+-#endif
+-}
+-#ifdef __cplusplus
+-}
+-#endif
+//GO.SYSIN DD libF77/r_mod.c
+echo libF77/r_nint.c 1>&2
+sed >libF77/r_nint.c <<'//GO.SYSIN DD libF77/r_nint.c' 's/^-//'
+-#include "f2c.h"
+-
+-#ifdef KR_headers
+-double floor();
+-double r_nint(x) real *x;
+-#else
+-#undef abs
+-#include "math.h"
+-#ifdef __cplusplus
+-extern "C" {
+-#endif
+-double r_nint(real *x)
+-#endif
+-{
+-return( (*x)>=0 ?
+-	floor(*x + .5) : -floor(.5 - *x) );
+-}
+-#ifdef __cplusplus
+-}
+-#endif
+//GO.SYSIN DD libF77/r_nint.c
+echo libF77/r_sign.c 1>&2
+sed >libF77/r_sign.c <<'//GO.SYSIN DD libF77/r_sign.c' 's/^-//'
+-#include "f2c.h"
+-#ifdef __cplusplus
+-extern "C" {
+-#endif
+-
+-#ifdef KR_headers
+-double r_sign(a,b) real *a, *b;
+-#else
+-double r_sign(real *a, real *b)
+-#endif
+-{
+-double x;
+-x = (*a >= 0 ? *a : - *a);
+-return( *b >= 0 ? x : -x);
+-}
+-#ifdef __cplusplus
+-}
+-#endif
+//GO.SYSIN DD libF77/r_sign.c
+echo libF77/r_sin.c 1>&2
+sed >libF77/r_sin.c <<'//GO.SYSIN DD libF77/r_sin.c' 's/^-//'
+-#include "f2c.h"
+-
+-#ifdef KR_headers
+-double sin();
+-double r_sin(x) real *x;
+-#else
+-#undef abs
+-#include "math.h"
+-#ifdef __cplusplus
+-extern "C" {
+-#endif
+-double r_sin(real *x)
+-#endif
+-{
+-return( sin(*x) );
+-}
+-#ifdef __cplusplus
+-}
+-#endif
+//GO.SYSIN DD libF77/r_sin.c
+echo libF77/r_sinh.c 1>&2
+sed >libF77/r_sinh.c <<'//GO.SYSIN DD libF77/r_sinh.c' 's/^-//'
+-#include "f2c.h"
+-
+-#ifdef KR_headers
+-double sinh();
+-double r_sinh(x) real *x;
+-#else
+-#undef abs
+-#include "math.h"
+-#ifdef __cplusplus
+-extern "C" {
+-#endif
+-double r_sinh(real *x)
+-#endif
+-{
+-return( sinh(*x) );
+-}
+-#ifdef __cplusplus
+-}
+-#endif
+//GO.SYSIN DD libF77/r_sinh.c
+echo libF77/r_sqrt.c 1>&2
+sed >libF77/r_sqrt.c <<'//GO.SYSIN DD libF77/r_sqrt.c' 's/^-//'
+-#include "f2c.h"
+-
+-#ifdef KR_headers
+-double sqrt();
+-double r_sqrt(x) real *x;
+-#else
+-#undef abs
+-#include "math.h"
+-#ifdef __cplusplus
+-extern "C" {
+-#endif
+-double r_sqrt(real *x)
+-#endif
+-{
+-return( sqrt(*x) );
+-}
+-#ifdef __cplusplus
+-}
+-#endif
+//GO.SYSIN DD libF77/r_sqrt.c
+echo libF77/r_tan.c 1>&2
+sed >libF77/r_tan.c <<'//GO.SYSIN DD libF77/r_tan.c' 's/^-//'
+-#include "f2c.h"
+-
+-#ifdef KR_headers
+-double tan();
+-double r_tan(x) real *x;
+-#else
+-#undef abs
+-#include "math.h"
+-#ifdef __cplusplus
+-extern "C" {
+-#endif
+-double r_tan(real *x)
+-#endif
+-{
+-return( tan(*x) );
+-}
+-#ifdef __cplusplus
+-}
+-#endif
+//GO.SYSIN DD libF77/r_tan.c
+echo libF77/r_tanh.c 1>&2
+sed >libF77/r_tanh.c <<'//GO.SYSIN DD libF77/r_tanh.c' 's/^-//'
+-#include "f2c.h"
+-
+-#ifdef KR_headers
+-double tanh();
+-double r_tanh(x) real *x;
+-#else
+-#undef abs
+-#include "math.h"
+-#ifdef __cplusplus
+-extern "C" {
+-#endif
+-double r_tanh(real *x)
+-#endif
+-{
+-return( tanh(*x) );
+-}
+-#ifdef __cplusplus
+-}
+-#endif
+//GO.SYSIN DD libF77/r_tanh.c
+echo libF77/s_cmp.c 1>&2
+sed >libF77/s_cmp.c <<'//GO.SYSIN DD libF77/s_cmp.c' 's/^-//'
+-#include "f2c.h"
+-#ifdef __cplusplus
+-extern "C" {
+-#endif
+-
+-/* compare two strings */
+-
+-#ifdef KR_headers
+-integer s_cmp(a0, b0, la, lb) char *a0, *b0; ftnlen la, lb;
+-#else
+-integer s_cmp(char *a0, char *b0, ftnlen la, ftnlen lb)
+-#endif
+-{
+-register unsigned char *a, *aend, *b, *bend;
+-a = (unsigned char *)a0;
+-b = (unsigned char *)b0;
+-aend = a + la;
+-bend = b + lb;
+-
+-if(la <= lb)
+-	{
+-	while(a < aend)
+-		if(*a != *b)
+-			return( *a - *b );
+-		else
+-			{ ++a; ++b; }
+-
+-	while(b < bend)
+-		if(*b != ' ')
+-			return( ' ' - *b );
+-		else	++b;
+-	}
+-
+-else
+-	{
+-	while(b < bend)
+-		if(*a == *b)
+-			{ ++a; ++b; }
+-		else
+-			return( *a - *b );
+-	while(a < aend)
+-		if(*a != ' ')
+-			return(*a - ' ');
+-		else	++a;
+-	}
+-return(0);
+-}
+-#ifdef __cplusplus
+-}
+-#endif
+//GO.SYSIN DD libF77/s_cmp.c
+echo libF77/s_copy.c 1>&2
+sed >libF77/s_copy.c <<'//GO.SYSIN DD libF77/s_copy.c' 's/^-//'
+-/* Unless compiled with -DNO_OVERWRITE, this variant of s_copy allows the
+- * target of an assignment to appear on its right-hand side (contrary
+- * to the Fortran 77 Standard, but in accordance with Fortran 90),
+- * as in  a(2:5) = a(4:7) .
+- */
+-
+-#include "f2c.h"
+-#ifdef __cplusplus
+-extern "C" {
+-#endif
+-
+-/* assign strings:  a = b */
+-
+-#ifdef KR_headers
+-VOID s_copy(a, b, la, lb) register char *a, *b; ftnlen la, lb;
+-#else
+-void s_copy(register char *a, register char *b, ftnlen la, ftnlen lb)
+-#endif
+-{
+-	register char *aend, *bend;
+-
+-	aend = a + la;
+-
+-	if(la <= lb)
+-#ifndef NO_OVERWRITE
+-		if (a <= b || a >= b + la)
+-#endif
+-			while(a < aend)
+-				*a++ = *b++;
+-#ifndef NO_OVERWRITE
+-		else
+-			for(b += la; a < aend; )
+-				*--aend = *--b;
+-#endif
+-
+-	else {
+-		bend = b + lb;
+-#ifndef NO_OVERWRITE
+-		if (a <= b || a >= bend)
+-#endif
+-			while(b < bend)
+-				*a++ = *b++;
+-#ifndef NO_OVERWRITE
+-		else {
+-			a += lb;
+-			while(b < bend)
+-				*--a = *--bend;
+-			a += lb;
+-			}
+-#endif
+-		while(a < aend)
+-			*a++ = ' ';
+-		}
+-	}
+-#ifdef __cplusplus
+-}
+-#endif
+//GO.SYSIN DD libF77/s_copy.c
+echo libF77/s_paus.c 1>&2
+sed >libF77/s_paus.c <<'//GO.SYSIN DD libF77/s_paus.c' 's/^-//'
+-#include "stdio.h"
+-#include "f2c.h"
+-#define PAUSESIG 15
+-
+-#include "signal1.h"
+-#ifdef KR_headers
+-#define Void /* void */
+-#define Int /* int */
+-#else
+-#define Void void
+-#define Int int
+-#undef abs
+-#undef min
+-#undef max
+-#include "stdlib.h"
+-#ifdef __cplusplus
+-extern "C" {
+-#endif
+-#ifdef __cplusplus
+-extern "C" {
+-#endif
+-extern int getpid(void), isatty(int), pause(void);
+-#endif
+-
+-extern VOID f_exit(Void);
+-
+- static VOID
+-waitpause(Sigarg)
+-{	Use_Sigarg;
+-	return;
+-	}
+-
+- static VOID
+-#ifdef KR_headers
+-s_1paus(fin) FILE *fin;
+-#else
+-s_1paus(FILE *fin)
+-#endif
+-{
+-	fprintf(stderr,
+-	"To resume execution, type go.  Other input will terminate the job.\n");
+-	fflush(stderr);
+-	if( getc(fin)!='g' || getc(fin)!='o' || getc(fin)!='\n' ) {
+-		fprintf(stderr, "STOP\n");
+-#ifdef NO_ONEXIT
+-		f_exit();
+-#endif
+-		exit(0);
+-		}
+-	}
+-
+- int
+-#ifdef KR_headers
+-s_paus(s, n) char *s; ftnlen n;
+-#else
+-s_paus(char *s, ftnlen n)
+-#endif
+-{
+-	fprintf(stderr, "PAUSE ");
+-	if(n > 0)
+-		fprintf(stderr, " %.*s", (int)n, s);
+-	fprintf(stderr, " statement executed\n");
+-	if( isatty(fileno(stdin)) )
+-		s_1paus(stdin);
+-	else {
+-#ifdef MSDOS
+-		FILE *fin;
+-		fin = fopen("con", "r");
+-		if (!fin) {
+-			fprintf(stderr, "s_paus: can't open con!\n");
+-			fflush(stderr);
+-			exit(1);
+-			}
+-		s_1paus(fin);
+-		fclose(fin);
+-#else
+-		fprintf(stderr,
+-		"To resume execution, execute a   kill -%d %d   command\n",
+-			PAUSESIG, getpid() );
+-		signal1(PAUSESIG, waitpause);
+-		fflush(stderr);
+-		pause();
+-#endif
+-		}
+-	fprintf(stderr, "Execution resumes after PAUSE.\n");
+-	fflush(stderr);
+-	return 0; /* NOT REACHED */
+-#ifdef __cplusplus
+-	}
+-#endif
+-}
+-#ifdef __cplusplus
+-}
+-#endif
+//GO.SYSIN DD libF77/s_paus.c
+echo libF77/s_rnge.c 1>&2
+sed >libF77/s_rnge.c <<'//GO.SYSIN DD libF77/s_rnge.c' 's/^-//'
+-#include "stdio.h"
+-#include "f2c.h"
+-#ifdef __cplusplus
+-extern "C" {
+-#endif
+-
+-/* called when a subscript is out of range */
+-
+-#ifdef KR_headers
+-extern VOID sig_die();
+-integer s_rnge(varn, offset, procn, line) char *varn, *procn; ftnint offset, line;
+-#else
+-extern VOID sig_die(char*,int);
+-integer s_rnge(char *varn, ftnint offset, char *procn, ftnint line)
+-#endif
+-{
+-register int i;
+-
+-fprintf(stderr, "Subscript out of range on file line %ld, procedure ",
+-	(long)line);
+-while((i = *procn) && i != '_' && i != ' ')
+-	putc(*procn++, stderr);
+-fprintf(stderr, ".\nAttempt to access the %ld-th element of variable ",
+-	(long)offset+1);
+-while((i = *varn) && i != ' ')
+-	putc(*varn++, stderr);
+-sig_die(".", 1);
+-return 0;	/* not reached */
+-}
+-#ifdef __cplusplus
+-}
+-#endif
+//GO.SYSIN DD libF77/s_rnge.c
+echo libF77/s_stop.c 1>&2
+sed >libF77/s_stop.c <<'//GO.SYSIN DD libF77/s_stop.c' 's/^-//'
+-#include "stdio.h"
+-#include "f2c.h"
+-
+-#ifdef KR_headers
+-extern void f_exit();
+-int s_stop(s, n) char *s; ftnlen n;
+-#else
+-#undef abs
+-#undef min
+-#undef max
+-#include "stdlib.h"
+-#ifdef __cplusplus
+-extern "C" {
+-#endif
+-#ifdef __cplusplus
+-extern "C" {
+-#endif
+-void f_exit(void);
+-
+-int s_stop(char *s, ftnlen n)
+-#endif
+-{
+-int i;
+-
+-if(n > 0)
+-	{
+-	fprintf(stderr, "STOP ");
+-	for(i = 0; i<n ; ++i)
+-		putc(*s++, stderr);
+-	fprintf(stderr, " statement executed\n");
+-	}
+-#ifdef NO_ONEXIT
+-f_exit();
+-#endif
+-exit(0);
+-
+-/* We cannot avoid (useless) compiler diagnostics here:		*/
+-/* some compilers complain if there is no return statement,	*/
+-/* and others complain that this one cannot be reached.		*/
+-
+-return 0; /* NOT REACHED */
+-}
+-#ifdef __cplusplus
+-}
+-#endif
+-#ifdef __cplusplus
+-}
+-#endif
+//GO.SYSIN DD libF77/s_stop.c
+echo libF77/signal1.h0 1>&2
+sed >libF77/signal1.h0 <<'//GO.SYSIN DD libF77/signal1.h0' 's/^-//'
+-/* You may need to adjust the definition of signal1 to supply a */
+-/* cast to the correct argument type.  This detail is system- and */
+-/* compiler-dependent.   The #define below assumes signal.h declares */
+-/* type SIG_PF for the signal function's second argument. */
+-
+-/* For some C++ compilers, "#define Sigarg_t ..." may be appropriate. */
+-
+-#include <signal.h>
+-
+-#ifndef Sigret_t
+-#define Sigret_t void
+-#endif
+-#ifndef Sigarg_t
+-#ifdef KR_headers
+-#define Sigarg_t
+-#else
+-#define Sigarg_t int
+-#endif
+-#endif /*Sigarg_t*/
+-
+-#ifdef USE_SIG_PF	/* compile with -DUSE_SIG_PF under IRIX */
+-#define sig_pf SIG_PF
+-#else
+-typedef Sigret_t (*sig_pf)(Sigarg_t);
+-#endif
+-
+-#define signal1(a,b) signal(a,(sig_pf)b)
+-
+-#ifdef __cplusplus
+-#define Sigarg ...
+-#define Use_Sigarg
+-#else
+-#define Sigarg Int n
+-#define Use_Sigarg n = n	/* shut up compiler warning */
+-#endif
+//GO.SYSIN DD libF77/signal1.h0
+echo libF77/signal_.c 1>&2
+sed >libF77/signal_.c <<'//GO.SYSIN DD libF77/signal_.c' 's/^-//'
+-#include "f2c.h"
+-#include "signal1.h"
+-#ifdef __cplusplus
+-extern "C" {
+-#endif
+-
+- ftnint
+-#ifdef KR_headers
+-signal_(sigp, proc) integer *sigp; sig_pf proc;
+-#else
+-signal_(integer *sigp, sig_pf proc)
+-#endif
+-{
+-	int sig;
+-	sig = (int)*sigp;
+-
+-	return (ftnint)signal(sig, proc);
+-	}
+-#ifdef __cplusplus
+-}
+-#endif
+//GO.SYSIN DD libF77/signal_.c
+echo libF77/system_.c 1>&2
+sed >libF77/system_.c <<'//GO.SYSIN DD libF77/system_.c' 's/^-//'
+-/* f77 interface to system routine */
+-
+-#include "f2c.h"
+-
+-#ifdef KR_headers
+-extern char *F77_aloc();
+-
+- integer
+-system_(s, n) register char *s; ftnlen n;
+-#else
+-#undef abs
+-#undef min
+-#undef max
+-#include "stdlib.h"
+-#ifdef __cplusplus
+-extern "C" {
+-#endif
+-extern char *F77_aloc(ftnlen, char*);
+-
+- integer
+-system_(register char *s, ftnlen n)
+-#endif
+-{
+-	char buff0[256], *buff;
+-	register char *bp, *blast;
+-	integer rv;
+-
+-	buff = bp = n < sizeof(buff0)
+-			? buff0 : F77_aloc(n+1, "system_");
+-	blast = bp + n;
+-
+-	while(bp < blast && *s)
+-		*bp++ = *s++;
+-	*bp = 0;
+-	rv = system(buff);
+-	if (buff != buff0)
+-		free(buff);
+-	return rv;
+-	}
+-#ifdef __cplusplus
+-}
+-#endif
+//GO.SYSIN DD libF77/system_.c
+echo libF77/z_abs.c 1>&2
+sed >libF77/z_abs.c <<'//GO.SYSIN DD libF77/z_abs.c' 's/^-//'
+-#include "f2c.h"
+-#ifdef __cplusplus
+-extern "C" {
+-#endif
+-
+-#ifdef KR_headers
+-double f__cabs();
+-double z_abs(z) doublecomplex *z;
+-#else
+-double f__cabs(double, double);
+-double z_abs(doublecomplex *z)
+-#endif
+-{
+-return( f__cabs( z->r, z->i ) );
+-}
+-#ifdef __cplusplus
+-}
+-#endif
+//GO.SYSIN DD libF77/z_abs.c
+echo libF77/z_cos.c 1>&2
+sed >libF77/z_cos.c <<'//GO.SYSIN DD libF77/z_cos.c' 's/^-//'
+-#include "f2c.h"
+-
+-#ifdef KR_headers
+-double sin(), cos(), sinh(), cosh();
+-VOID z_cos(r, z) doublecomplex *r, *z;
+-#else
+-#undef abs
+-#include "math.h"
+-#ifdef __cplusplus
+-extern "C" {
+-#endif
+-void z_cos(doublecomplex *r, doublecomplex *z)
+-#endif
+-{
+-	double zi = z->i, zr = z->r;
+-	r->r =   cos(zr) * cosh(zi);
+-	r->i = - sin(zr) * sinh(zi);
+-	}
+-#ifdef __cplusplus
+-}
+-#endif
+//GO.SYSIN DD libF77/z_cos.c
+echo libF77/z_div.c 1>&2
+sed >libF77/z_div.c <<'//GO.SYSIN DD libF77/z_div.c' 's/^-//'
+-#include "f2c.h"
+-#ifdef __cplusplus
+-extern "C" {
+-#endif
+-
+-#ifdef KR_headers
+-extern VOID sig_die();
+-VOID z_div(c, a, b) doublecomplex *a, *b, *c;
+-#else
+-extern void sig_die(char*, int);
+-void z_div(doublecomplex *c, doublecomplex *a, doublecomplex *b)
+-#endif
+-{
+-	double ratio, den;
+-	double abr, abi, cr;
+-
+-	if( (abr = b->r) < 0.)
+-		abr = - abr;
+-	if( (abi = b->i) < 0.)
+-		abi = - abi;
+-	if( abr <= abi )
+-		{
+-		if(abi == 0) {
+-#ifdef IEEE_COMPLEX_DIVIDE
+-			if (a->i != 0 || a->r != 0)
+-				abi = 1.;
+-			c->i = c->r = abi / abr;
+-			return;
+-#else
+-			sig_die("complex division by zero", 1);
+-#endif
+-			}
+-		ratio = b->r / b->i ;
+-		den = b->i * (1 + ratio*ratio);
+-		cr = (a->r*ratio + a->i) / den;
+-		c->i = (a->i*ratio - a->r) / den;
+-		}
+-
+-	else
+-		{
+-		ratio = b->i / b->r ;
+-		den = b->r * (1 + ratio*ratio);
+-		cr = (a->r + a->i*ratio) / den;
+-		c->i = (a->i - a->r*ratio) / den;
+-		}
+-	c->r = cr;
+-	}
+-#ifdef __cplusplus
+-}
+-#endif
+//GO.SYSIN DD libF77/z_div.c
+echo libF77/z_exp.c 1>&2
+sed >libF77/z_exp.c <<'//GO.SYSIN DD libF77/z_exp.c' 's/^-//'
+-#include "f2c.h"
+-
+-#ifdef KR_headers
+-double exp(), cos(), sin();
+-VOID z_exp(r, z) doublecomplex *r, *z;
+-#else
+-#undef abs
+-#include "math.h"
+-#ifdef __cplusplus
+-extern "C" {
+-#endif
+-void z_exp(doublecomplex *r, doublecomplex *z)
+-#endif
+-{
+-	double expx, zi = z->i;
+-
+-	expx = exp(z->r);
+-	r->r = expx * cos(zi);
+-	r->i = expx * sin(zi);
+-	}
+-#ifdef __cplusplus
+-}
+-#endif
+//GO.SYSIN DD libF77/z_exp.c
+echo libF77/z_log.c 1>&2
+sed >libF77/z_log.c <<'//GO.SYSIN DD libF77/z_log.c' 's/^-//'
+-#include "f2c.h"
+-
+-#ifdef KR_headers
+-double log(), f__cabs(), atan2();
+-#define ANSI(x) ()
+-#else
+-#define ANSI(x) x
+-#undef abs
+-#include "math.h"
+-#ifdef __cplusplus
+-extern "C" {
+-#endif
+-extern double f__cabs(double, double);
+-#endif
+-
+-#ifndef NO_DOUBLE_EXTENDED
+-#ifndef GCC_COMPARE_BUG_FIXED
+-#ifndef Pre20000310
+-#ifdef Comment
+-Some versions of gcc, such as 2.95.3 and 3.0.4, are buggy under -O2 or -O3:
+-on IA32 (Intel 80x87) systems, they may do comparisons on values computed
+-in extended-precision registers.  This can lead to the test "s > s0" that
+-was used below being carried out incorrectly.  The fix below cannot be
+-spoiled by overzealous optimization, since the compiler cannot know
+-whether gcc_bug_bypass_diff_F2C will be nonzero.  (We expect it always
+-to be zero.  The weird name is unlikely to collide with anything.)
+-
+-An example (provided by Ulrich Jakobus) where the bug fix matters is
+-
+-	double complex a, b
+-	a = (.1099557428756427618354862829619, .9857360542953131909982289471372)
+-	b = log(a)
+-
+-An alternative to the fix below would be to use 53-bit rounding precision,
+-but the means of specifying this 80x87 feature are highly unportable.
+-#endif /*Comment*/
+-#define BYPASS_GCC_COMPARE_BUG
+-double (*gcc_bug_bypass_diff_F2C) ANSI((double*,double*));
+- static double
+-#ifdef KR_headers
+-diff1(a,b) double *a, *b;
+-#else
+-diff1(double *a, double *b)
+-#endif
+-{ return *a - *b; }
+-#endif /*Pre20000310*/
+-#endif /*GCC_COMPARE_BUG_FIXED*/
+-#endif /*NO_DOUBLE_EXTENDED*/
+-
+-#ifdef KR_headers
+-VOID z_log(r, z) doublecomplex *r, *z;
+-#else
+-void z_log(doublecomplex *r, doublecomplex *z)
+-#endif
+-{
+-	double s, s0, t, t2, u, v;
+-	double zi = z->i, zr = z->r;
+-#ifdef BYPASS_GCC_COMPARE_BUG
+-	double (*diff) ANSI((double*,double*));
+-#endif
+-
+-	r->i = atan2(zi, zr);
+-#ifdef Pre20000310
+-	r->r = log( f__cabs( zr, zi ) );
+-#else
+-	if (zi < 0)
+-		zi = -zi;
+-	if (zr < 0)
+-		zr = -zr;
+-	if (zr < zi) {
+-		t = zi;
+-		zi = zr;
+-		zr = t;
+-		}
+-	t = zi/zr;
+-	s = zr * sqrt(1 + t*t);
+-	/* now s = f__cabs(zi,zr), and zr = |zr| >= |zi| = zi */
+-	if ((t = s - 1) < 0)
+-		t = -t;
+-	if (t > .01)
+-		r->r = log(s);
+-	else {
+-
+-#ifdef Comment
+-
+-	log(1+x) = x - x^2/2 + x^3/3 - x^4/4 + - ...
+-
+-		 = x(1 - x/2 + x^2/3 -+...)
+-
+-	[sqrt(y^2 + z^2) - 1] * [sqrt(y^2 + z^2) + 1] = y^2 + z^2 - 1, so
+-
+-	sqrt(y^2 + z^2) - 1 = (y^2 + z^2 - 1) / [sqrt(y^2 + z^2) + 1]
+-
+-#endif /*Comment*/
+-
+-#ifdef BYPASS_GCC_COMPARE_BUG
+-		if (!(diff = gcc_bug_bypass_diff_F2C))
+-			diff = diff1;
+-#endif
+-		t = ((zr*zr - 1.) + zi*zi) / (s + 1);
+-		t2 = t*t;
+-		s = 1. - 0.5*t;
+-		u = v = 1;
+-		do {
+-			s0 = s;
+-			u *= t2;
+-			v += 2;
+-			s += u/v - t*u/(v+1);
+-			}
+-#ifdef BYPASS_GCC_COMPARE_BUG
+-			while(s - s0 > 1e-18 || (*diff)(&s,&s0) > 0.);
+-#else
+-			while(s > s0);
+-#endif
+-		r->r = s*t;
+-		}
+-#endif
+-	}
+-#ifdef __cplusplus
+-}
+-#endif
+//GO.SYSIN DD libF77/z_log.c
+echo libF77/z_sin.c 1>&2
+sed >libF77/z_sin.c <<'//GO.SYSIN DD libF77/z_sin.c' 's/^-//'
+-#include "f2c.h"
+-
+-#ifdef KR_headers
+-double sin(), cos(), sinh(), cosh();
+-VOID z_sin(r, z) doublecomplex *r, *z;
+-#else
+-#undef abs
+-#include "math.h"
+-#ifdef __cplusplus
+-extern "C" {
+-#endif
+-void z_sin(doublecomplex *r, doublecomplex *z)
+-#endif
+-{
+-	double zi = z->i, zr = z->r;
+-	r->r = sin(zr) * cosh(zi);
+-	r->i = cos(zr) * sinh(zi);
+-	}
+-#ifdef __cplusplus
+-}
+-#endif
+//GO.SYSIN DD libF77/z_sin.c
+echo libF77/i_mod.c 1>&2
+sed >libF77/i_mod.c <<'//GO.SYSIN DD libF77/i_mod.c' 's/^-//'
+-#include "f2c.h"
+-#ifdef __cplusplus
+-extern "C" {
+-#endif
+-
+-#ifdef KR_headers
+-integer i_mod(a,b) integer *a, *b;
+-#else
+-integer i_mod(integer *a, integer *b)
+-#endif
+-{
+-return( *a % *b);
+-}
+-#ifdef __cplusplus
+-}
+-#endif
+//GO.SYSIN DD libF77/i_mod.c
+echo libF77/i_nint.c 1>&2
+sed >libF77/i_nint.c <<'//GO.SYSIN DD libF77/i_nint.c' 's/^-//'
+-#include "f2c.h"
+-
+-#ifdef KR_headers
+-double floor();
+-integer i_nint(x) real *x;
+-#else
+-#undef abs
+-#include "math.h"
+-#ifdef __cplusplus
+-extern "C" {
+-#endif
+-integer i_nint(real *x)
+-#endif
+-{
+-return (integer)(*x >= 0 ? floor(*x + .5) : -floor(.5 - *x));
+-}
+-#ifdef __cplusplus
+-}
+-#endif
+//GO.SYSIN DD libF77/i_nint.c
+echo libF77/i_sign.c 1>&2
+sed >libF77/i_sign.c <<'//GO.SYSIN DD libF77/i_sign.c' 's/^-//'
+-#include "f2c.h"
+-#ifdef __cplusplus
+-extern "C" {
+-#endif
+-
+-#ifdef KR_headers
+-integer i_sign(a,b) integer *a, *b;
+-#else
+-integer i_sign(integer *a, integer *b)
+-#endif
+-{
+-integer x;
+-x = (*a >= 0 ? *a : - *a);
+-return( *b >= 0 ? x : -x);
+-}
+-#ifdef __cplusplus
+-}
+-#endif
+//GO.SYSIN DD libF77/i_sign.c
+echo libF77/iargc_.c 1>&2
+sed >libF77/iargc_.c <<'//GO.SYSIN DD libF77/iargc_.c' 's/^-//'
+-#include "f2c.h"
+-#ifdef __cplusplus
+-extern "C" {
+-#endif
+-
+-#ifdef KR_headers
+-ftnint iargc_()
+-#else
+-ftnint iargc_(void)
+-#endif
+-{
+-extern int xargc;
+-return ( xargc - 1 );
+-}
+-#ifdef __cplusplus
+-}
+-#endif
+//GO.SYSIN DD libF77/iargc_.c
+echo libF77/l_ge.c 1>&2
+sed >libF77/l_ge.c <<'//GO.SYSIN DD libF77/l_ge.c' 's/^-//'
+-#include "f2c.h"
+-#ifdef __cplusplus
+-extern "C" {
+-#endif
+-
+-#ifdef KR_headers
+-extern integer s_cmp();
+-logical l_ge(a,b,la,lb) char *a, *b; ftnlen la, lb;
+-#else
+-extern integer s_cmp(char *, char *, ftnlen, ftnlen);
+-logical l_ge(char *a, char *b, ftnlen la, ftnlen lb)
+-#endif
+-{
+-return(s_cmp(a,b,la,lb) >= 0);
+-}
+-#ifdef __cplusplus
+-}
+-#endif
+//GO.SYSIN DD libF77/l_ge.c
+echo libF77/l_gt.c 1>&2
+sed >libF77/l_gt.c <<'//GO.SYSIN DD libF77/l_gt.c' 's/^-//'
+-#include "f2c.h"
+-#ifdef __cplusplus
+-extern "C" {
+-#endif
+-
+-#ifdef KR_headers
+-extern integer s_cmp();
+-logical l_gt(a,b,la,lb) char *a, *b; ftnlen la, lb;
+-#else
+-extern integer s_cmp(char *, char *, ftnlen, ftnlen);
+-logical l_gt(char *a, char *b, ftnlen la, ftnlen lb)
+-#endif
+-{
+-return(s_cmp(a,b,la,lb) > 0);
+-}
+-#ifdef __cplusplus
+-}
+-#endif
+//GO.SYSIN DD libF77/l_gt.c
+echo libF77/l_le.c 1>&2
+sed >libF77/l_le.c <<'//GO.SYSIN DD libF77/l_le.c' 's/^-//'
+-#include "f2c.h"
+-#ifdef __cplusplus
+-extern "C" {
+-#endif
+-
+-#ifdef KR_headers
+-extern integer s_cmp();
+-logical l_le(a,b,la,lb) char *a, *b; ftnlen la, lb;
+-#else
+-extern integer s_cmp(char *, char *, ftnlen, ftnlen);
+-logical l_le(char *a, char *b, ftnlen la, ftnlen lb)
+-#endif
+-{
+-return(s_cmp(a,b,la,lb) <= 0);
+-}
+-#ifdef __cplusplus
+-}
+-#endif
+//GO.SYSIN DD libF77/l_le.c
+echo libF77/l_lt.c 1>&2
+sed >libF77/l_lt.c <<'//GO.SYSIN DD libF77/l_lt.c' 's/^-//'
+-#include "f2c.h"
+-#ifdef __cplusplus
+-extern "C" {
+-#endif
+-
+-#ifdef KR_headers
+-extern integer s_cmp();
+-logical l_lt(a,b,la,lb) char *a, *b; ftnlen la, lb;
+-#else
+-extern integer s_cmp(char *, char *, ftnlen, ftnlen);
+-logical l_lt(char *a, char *b, ftnlen la, ftnlen lb)
+-#endif
+-{
+-return(s_cmp(a,b,la,lb) < 0);
+-}
+-#ifdef __cplusplus
+-}
+-#endif
+//GO.SYSIN DD libF77/l_lt.c
+echo libF77/lbitbits.c 1>&2
+sed >libF77/lbitbits.c <<'//GO.SYSIN DD libF77/lbitbits.c' 's/^-//'
+-#include "f2c.h"
+-#ifdef __cplusplus
+-extern "C" {
+-#endif
+-
+-#ifndef LONGBITS
+-#define LONGBITS 32
+-#endif
+-
+- integer
+-#ifdef KR_headers
+-lbit_bits(a, b, len) integer a, b, len;
+-#else
+-lbit_bits(integer a, integer b, integer len)
+-#endif
+-{
+-	/* Assume 2's complement arithmetic */
+-
+-	unsigned long x, y;
+-
+-	x = (unsigned long) a;
+-	y = (unsigned long)-1L;
+-	x >>= b;
+-	y <<= len;
+-	return (integer)(x & ~y);
+-	}
+-
+- integer
+-#ifdef KR_headers
+-lbit_cshift(a, b, len) integer a, b, len;
+-#else
+-lbit_cshift(integer a, integer b, integer len)
+-#endif
+-{
+-	unsigned long x, y, z;
+-
+-	x = (unsigned long)a;
+-	if (len <= 0) {
+-		if (len == 0)
+-			return 0;
+-		goto full_len;
+-		}
+-	if (len >= LONGBITS) {
+- full_len:
+-		if (b >= 0) {
+-			b %= LONGBITS;
+-			return (integer)(x << b | x >> LONGBITS -b );
+-			}
+-		b = -b;
+-		b %= LONGBITS;
+-		return (integer)(x << LONGBITS - b | x >> b);
+-		}
+-	y = z = (unsigned long)-1;
+-	y <<= len;
+-	z &= ~y;
+-	y &= x;
+-	x &= z;
+-	if (b >= 0) {
+-		b %= len;
+-		return (integer)(y | z & (x << b | x >> len - b));
+-		}
+-	b = -b;
+-	b %= len;
+-	return (integer)(y | z & (x >> b | x << len - b));
+-	}
+-#ifdef __cplusplus
+-}
+-#endif
+//GO.SYSIN DD libF77/lbitbits.c
+echo libF77/lbitshft.c 1>&2
+sed >libF77/lbitshft.c <<'//GO.SYSIN DD libF77/lbitshft.c' 's/^-//'
+-#include "f2c.h"
+-#ifdef __cplusplus
+-extern "C" {
+-#endif
+-
+- integer
+-#ifdef KR_headers
+-lbit_shift(a, b) integer a; integer b;
+-#else
+-lbit_shift(integer a, integer b)
+-#endif
+-{
+-	return b >= 0 ? a << b : (integer)((uinteger)a >> -b);
+-	}
+-#ifdef __cplusplus
+-}
+-#endif
+//GO.SYSIN DD libF77/lbitshft.c
+echo libF77/sig_die.c 1>&2
+sed >libF77/sig_die.c <<'//GO.SYSIN DD libF77/sig_die.c' 's/^-//'
+-#include "stdio.h"
+-#include "signal.h"
+-
+-#ifndef SIGIOT
+-#ifdef SIGABRT
+-#define SIGIOT SIGABRT
+-#endif
+-#endif
+-
+-#ifdef KR_headers
+-void sig_die(s, kill) register char *s; int kill;
+-#else
+-#include "stdlib.h"
+-#ifdef __cplusplus
+-extern "C" {
+-#endif
+-#ifdef __cplusplus
+-extern "C" {
+-#endif
+- extern void f_exit(void);
+-
+-void sig_die(register char *s, int kill)
+-#endif
+-{
+-	/* print error message, then clear buffers */
+-	fprintf(stderr, "%s\n", s);
+-
+-	if(kill)
+-		{
+-		fflush(stderr);
+-		f_exit();
+-		fflush(stderr);
+-		/* now get a core */
+-#ifdef SIGIOT
+-		signal(SIGIOT, SIG_DFL);
+-#endif
+-		abort();
+-		}
+-	else {
+-#ifdef NO_ONEXIT
+-		f_exit();
+-#endif
+-		exit(1);
+-		}
+-	}
+-#ifdef __cplusplus
+-}
+-#endif
+-#ifdef __cplusplus
+-}
+-#endif
+//GO.SYSIN DD libF77/sig_die.c
+echo libF77/d_sinh.c 1>&2
+sed >libF77/d_sinh.c <<'//GO.SYSIN DD libF77/d_sinh.c' 's/^-//'
+-#include "f2c.h"
+-
+-#ifdef KR_headers
+-double sinh();
+-double d_sinh(x) doublereal *x;
+-#else
+-#undef abs
+-#include "math.h"
+-#ifdef __cplusplus
+-extern "C" {
+-#endif
+-double d_sinh(doublereal *x)
+-#endif
+-{
+-return( sinh(*x) );
+-}
+-#ifdef __cplusplus
+-}
+-#endif
+//GO.SYSIN DD libF77/d_sinh.c
+echo libF77/d_sqrt.c 1>&2
+sed >libF77/d_sqrt.c <<'//GO.SYSIN DD libF77/d_sqrt.c' 's/^-//'
+-#include "f2c.h"
+-
+-#ifdef KR_headers
+-double sqrt();
+-double d_sqrt(x) doublereal *x;
+-#else
+-#undef abs
+-#include "math.h"
+-#ifdef __cplusplus
+-extern "C" {
+-#endif
+-double d_sqrt(doublereal *x)
+-#endif
+-{
+-return( sqrt(*x) );
+-}
+-#ifdef __cplusplus
+-}
+-#endif
+//GO.SYSIN DD libF77/d_sqrt.c
+echo libF77/d_tan.c 1>&2
+sed >libF77/d_tan.c <<'//GO.SYSIN DD libF77/d_tan.c' 's/^-//'
+-#include "f2c.h"
+-
+-#ifdef KR_headers
+-double tan();
+-double d_tan(x) doublereal *x;
+-#else
+-#undef abs
+-#include "math.h"
+-#ifdef __cplusplus
+-extern "C" {
+-#endif
+-double d_tan(doublereal *x)
+-#endif
+-{
+-return( tan(*x) );
+-}
+-#ifdef __cplusplus
+-}
+-#endif
+//GO.SYSIN DD libF77/d_tan.c
+echo libF77/d_tanh.c 1>&2
+sed >libF77/d_tanh.c <<'//GO.SYSIN DD libF77/d_tanh.c' 's/^-//'
+-#include "f2c.h"
+-
+-#ifdef KR_headers
+-double tanh();
+-double d_tanh(x) doublereal *x;
+-#else
+-#undef abs
+-#include "math.h"
+-#ifdef __cplusplus
+-extern "C" {
+-#endif
+-double d_tanh(doublereal *x)
+-#endif
+-{
+-return( tanh(*x) );
+-}
+-#ifdef __cplusplus
+-}
+-#endif
+//GO.SYSIN DD libF77/d_tanh.c
+echo libF77/derf_.c 1>&2
+sed >libF77/derf_.c <<'//GO.SYSIN DD libF77/derf_.c' 's/^-//'
+-#include "f2c.h"
+-#ifdef __cplusplus
+-extern "C" {
+-#endif
+-
+-#ifdef KR_headers
+-double erf();
+-double derf_(x) doublereal *x;
+-#else
+-extern double erf(double);
+-double derf_(doublereal *x)
+-#endif
+-{
+-return( erf(*x) );
+-}
+-#ifdef __cplusplus
+-}
+-#endif
+//GO.SYSIN DD libF77/derf_.c
+echo libF77/derfc_.c 1>&2
+sed >libF77/derfc_.c <<'//GO.SYSIN DD libF77/derfc_.c' 's/^-//'
+-#include "f2c.h"
+-#ifdef __cplusplus
+-extern "C" {
+-#endif
+-
+-#ifdef KR_headers
+-extern double erfc();
+-
+-double derfc_(x) doublereal *x;
+-#else
+-extern double erfc(double);
+-
+-double derfc_(doublereal *x)
+-#endif
+-{
+-return( erfc(*x) );
+-}
+-#ifdef __cplusplus
+-}
+-#endif
+//GO.SYSIN DD libF77/derfc_.c
+echo libF77/dtime_.c 1>&2
+sed >libF77/dtime_.c <<'//GO.SYSIN DD libF77/dtime_.c' 's/^-//'
+-#include "time.h"
+-
+-#ifdef MSDOS
+-#undef USE_CLOCK
+-#define USE_CLOCK
+-#endif
+-
+-#ifndef REAL
+-#define REAL double
+-#endif
+-
+-#ifndef USE_CLOCK
+-#define _INCLUDE_POSIX_SOURCE	/* for HP-UX */
+-#define _INCLUDE_XOPEN_SOURCE	/* for HP-UX */
+-#include "sys/types.h"
+-#include "sys/times.h"
+-#ifdef __cplusplus
+-extern "C" {
+-#endif
+-#endif
+-
+-#undef Hz
+-#ifdef CLK_TCK
+-#define Hz CLK_TCK
+-#else
+-#ifdef HZ
+-#define Hz HZ
+-#else
+-#define Hz 60
+-#endif
+-#endif
+-
+- REAL
+-#ifdef KR_headers
+-dtime_(tarray) float *tarray;
+-#else
+-dtime_(float *tarray)
+-#endif
+-{
+-#ifdef USE_CLOCK
+-#ifndef CLOCKS_PER_SECOND
+-#define CLOCKS_PER_SECOND Hz
+-#endif
+-	static double t0;
+-	double t = clock();
+-	tarray[1] = 0;
+-	tarray[0] = (t - t0) / CLOCKS_PER_SECOND;
+-	t0 = t;
+-	return tarray[0];
+-#else
+-	struct tms t;
+-	static struct tms t0;
+-
+-	times(&t);
+-	tarray[0] = (double)(t.tms_utime - t0.tms_utime) / Hz;
+-	tarray[1] = (double)(t.tms_stime - t0.tms_stime) / Hz;
+-	t0 = t;
+-	return tarray[0] + tarray[1];
+-#endif
+-	}
+-#ifdef __cplusplus
+-}
+-#endif
+//GO.SYSIN DD libF77/dtime_.c
+echo libF77/ef1asc_.c 1>&2
+sed >libF77/ef1asc_.c <<'//GO.SYSIN DD libF77/ef1asc_.c' 's/^-//'
+-/* EFL support routine to copy string b to string a */
+-
+-#include "f2c.h"
+-#ifdef __cplusplus
+-extern "C" {
+-#endif
+-
+-
+-#define M	( (long) (sizeof(long) - 1) )
+-#define EVEN(x)	( ( (x)+ M) & (~M) )
+-
+-#ifdef KR_headers
+-extern VOID s_copy();
+-ef1asc_(a, la, b, lb) ftnint *a, *b; ftnlen *la, *lb;
+-#else
+-extern void s_copy(char*,char*,ftnlen,ftnlen);
+-int ef1asc_(ftnint *a, ftnlen *la, ftnint *b, ftnlen *lb)
+-#endif
+-{
+-s_copy( (char *)a, (char *)b, EVEN(*la), *lb );
+-return 0;	/* ignored return value */
+-}
+-#ifdef __cplusplus
+-}
+-#endif
+//GO.SYSIN DD libF77/ef1asc_.c
+echo libF77/ef1cmc_.c 1>&2
+sed >libF77/ef1cmc_.c <<'//GO.SYSIN DD libF77/ef1cmc_.c' 's/^-//'
+-/* EFL support routine to compare two character strings */
+-
+-#include "f2c.h"
+-#ifdef __cplusplus
+-extern "C" {
+-#endif
+-
+-#ifdef KR_headers
+-extern integer s_cmp();
+-integer ef1cmc_(a, la, b, lb) ftnint *a, *b; ftnlen *la, *lb;
+-#else
+-extern integer s_cmp(char*,char*,ftnlen,ftnlen);
+-integer ef1cmc_(ftnint *a, ftnlen *la, ftnint *b, ftnlen *lb)
+-#endif
+-{
+-return( s_cmp( (char *)a, (char *)b, *la, *lb) );
+-}
+-#ifdef __cplusplus
+-}
+-#endif
+//GO.SYSIN DD libF77/ef1cmc_.c
+echo libF77/erf_.c 1>&2
+sed >libF77/erf_.c <<'//GO.SYSIN DD libF77/erf_.c' 's/^-//'
+-#include "f2c.h"
+-#ifdef __cplusplus
+-extern "C" {
+-#endif
+-
+-#ifndef REAL
+-#define REAL double
+-#endif
+-
+-#ifdef KR_headers
+-double erf();
+-REAL erf_(x) real *x;
+-#else
+-extern double erf(double);
+-REAL erf_(real *x)
+-#endif
+-{
+-return( erf((double)*x) );
+-}
+-#ifdef __cplusplus
+-}
+-#endif
+//GO.SYSIN DD libF77/erf_.c
+echo libF77/erfc_.c 1>&2
+sed >libF77/erfc_.c <<'//GO.SYSIN DD libF77/erfc_.c' 's/^-//'
+-#include "f2c.h"
+-#ifdef __cplusplus
+-extern "C" {
+-#endif
+-
+-#ifndef REAL
+-#define REAL double
+-#endif
+-
+-#ifdef KR_headers
+-double erfc();
+-REAL erfc_(x) real *x;
+-#else
+-extern double erfc(double);
+-REAL erfc_(real *x)
+-#endif
+-{
+-return( erfc((double)*x) );
+-}
+-#ifdef __cplusplus
+-}
+-#endif
+//GO.SYSIN DD libF77/erfc_.c
+echo libF77/etime_.c 1>&2
+sed >libF77/etime_.c <<'//GO.SYSIN DD libF77/etime_.c' 's/^-//'
+-#include "time.h"
+-
+-#ifdef MSDOS
+-#undef USE_CLOCK
+-#define USE_CLOCK
+-#endif
+-
+-#ifndef REAL
+-#define REAL double
+-#endif
+-
+-#ifndef USE_CLOCK
+-#define _INCLUDE_POSIX_SOURCE	/* for HP-UX */
+-#define _INCLUDE_XOPEN_SOURCE	/* for HP-UX */
+-#include "sys/types.h"
+-#include "sys/times.h"
+-#ifdef __cplusplus
+-extern "C" {
+-#endif
+-#endif
+-
+-#undef Hz
+-#ifdef CLK_TCK
+-#define Hz CLK_TCK
+-#else
+-#ifdef HZ
+-#define Hz HZ
+-#else
+-#define Hz 60
+-#endif
+-#endif
+-
+- REAL
+-#ifdef KR_headers
+-etime_(tarray) float *tarray;
+-#else
+-etime_(float *tarray)
+-#endif
+-{
+-#ifdef USE_CLOCK
+-#ifndef CLOCKS_PER_SECOND
+-#define CLOCKS_PER_SECOND Hz
+-#endif
+-	double t = clock();
+-	tarray[1] = 0;
+-	return tarray[0] = t / CLOCKS_PER_SECOND;
+-#else
+-	struct tms t;
+-
+-	times(&t);
+-	return	  (tarray[0] = (double)t.tms_utime/Hz)
+-		+ (tarray[1] = (double)t.tms_stime/Hz);
+-#endif
+-	}
+-#ifdef __cplusplus
+-}
+-#endif
+//GO.SYSIN DD libF77/etime_.c
+echo libF77/exit_.c 1>&2
+sed >libF77/exit_.c <<'//GO.SYSIN DD libF77/exit_.c' 's/^-//'
+-/* This gives the effect of
+-
+-	subroutine exit(rc)
+-	integer*4 rc
+-	stop
+-	end
+-
+- * with the added side effect of supplying rc as the program's exit code.
+- */
+-
+-#include "f2c.h"
+-#undef abs
+-#undef min
+-#undef max
+-#ifndef KR_headers
+-#include "stdlib.h"
+-#ifdef __cplusplus
+-extern "C" {
+-#endif
+-#ifdef __cplusplus
+-extern "C" {
+-#endif
+-extern void f_exit(void);
+-#endif
+-
+- void
+-#ifdef KR_headers
+-exit_(rc) integer *rc;
+-#else
+-exit_(integer *rc)
+-#endif
+-{
+-#ifdef NO_ONEXIT
+-	f_exit();
+-#endif
+-	exit(*rc);
+-	}
+-#ifdef __cplusplus
+-}
+-#endif
+-#ifdef __cplusplus
+-}
+-#endif
+//GO.SYSIN DD libF77/exit_.c
+echo libF77/getarg_.c 1>&2
+sed >libF77/getarg_.c <<'//GO.SYSIN DD libF77/getarg_.c' 's/^-//'
+-#include "f2c.h"
+-#ifdef __cplusplus
+-extern "C" {
+-#endif
+-
+-/*
+- * subroutine getarg(k, c)
+- * returns the kth unix command argument in fortran character
+- * variable argument c
+-*/
+-
+-#ifdef KR_headers
+-VOID getarg_(n, s, ls) ftnint *n; register char *s; ftnlen ls;
+-#else
+-void getarg_(ftnint *n, register char *s, ftnlen ls)
+-#endif
+-{
+-extern int xargc;
+-extern char **xargv;
+-register char *t;
+-register int i;
+-
+-if(*n>=0 && *n<xargc)
+-	t = xargv[*n];
+-else
+-	t = "";
+-for(i = 0; i<ls && *t!='\0' ; ++i)
+-	*s++ = *t++;
+-for( ; i<ls ; ++i)
+-	*s++ = ' ';
+-}
+-#ifdef __cplusplus
+-}
+-#endif
+//GO.SYSIN DD libF77/getarg_.c
+echo libF77/getenv_.c 1>&2
+sed >libF77/getenv_.c <<'//GO.SYSIN DD libF77/getenv_.c' 's/^-//'
+-#include "f2c.h"
+-#undef abs
+-#ifdef KR_headers
+-extern char *F77_aloc(), *getenv();
+-#else
+-#include <stdlib.h>
+-#include <string.h>
+-#ifdef __cplusplus
+-extern "C" {
+-#endif
+-extern char *F77_aloc(ftnlen, char*);
+-#endif
+-
+-/*
+- * getenv - f77 subroutine to return environment variables
+- *
+- * called by:
+- *	call getenv (ENV_NAME, char_var)
+- * where:
+- *	ENV_NAME is the name of an environment variable
+- *	char_var is a character variable which will receive
+- *		the current value of ENV_NAME, or all blanks
+- *		if ENV_NAME is not defined
+- */
+-
+-#ifdef KR_headers
+- VOID
+-getenv_(fname, value, flen, vlen) char *value, *fname; ftnlen vlen, flen;
+-#else
+- void
+-getenv_(char *fname, char *value, ftnlen flen, ftnlen vlen)
+-#endif
+-{
+-	char buf[256], *ep, *fp;
+-	integer i;
+-
+-	if (flen <= 0)
+-		goto add_blanks;
+-	for(i = 0; i < sizeof(buf); i++) {
+-		if (i == flen || (buf[i] = fname[i]) == ' ') {
+-			buf[i] = 0;
+-			ep = getenv(buf);
+-			goto have_ep;
+-			}
+-		}
+-	while(i < flen && fname[i] != ' ')
+-		i++;
+-	strncpy(fp = F77_aloc(i+1, "getenv_"), fname, (int)i);
+-	fp[i] = 0;
+-	ep = getenv(fp);
+-	free(fp);
+- have_ep:
+-	if (ep)
+-		while(*ep && vlen-- > 0)
+-			*value++ = *ep++;
+- add_blanks:
+-	while(vlen-- > 0)
+-		*value++ = ' ';
+-	}
+-#ifdef __cplusplus
+-}
+-#endif
+//GO.SYSIN DD libF77/getenv_.c
+echo libF77/h_abs.c 1>&2
+sed >libF77/h_abs.c <<'//GO.SYSIN DD libF77/h_abs.c' 's/^-//'
+-#include "f2c.h"
+-#ifdef __cplusplus
+-extern "C" {
+-#endif
+-
+-#ifdef KR_headers
+-shortint h_abs(x) shortint *x;
+-#else
+-shortint h_abs(shortint *x)
+-#endif
+-{
+-if(*x >= 0)
+-	return(*x);
+-return(- *x);
+-}
+-#ifdef __cplusplus
+-}
+-#endif
+//GO.SYSIN DD libF77/h_abs.c
+echo libF77/h_dim.c 1>&2
+sed >libF77/h_dim.c <<'//GO.SYSIN DD libF77/h_dim.c' 's/^-//'
+-#include "f2c.h"
+-#ifdef __cplusplus
+-extern "C" {
+-#endif
+-
+-#ifdef KR_headers
+-shortint h_dim(a,b) shortint *a, *b;
+-#else
+-shortint h_dim(shortint *a, shortint *b)
+-#endif
+-{
+-return( *a > *b ? *a - *b : 0);
+-}
+-#ifdef __cplusplus
+-}
+-#endif
+//GO.SYSIN DD libF77/h_dim.c
+echo libF77/h_dnnt.c 1>&2
+sed >libF77/h_dnnt.c <<'//GO.SYSIN DD libF77/h_dnnt.c' 's/^-//'
+-#include "f2c.h"
+-
+-#ifdef KR_headers
+-double floor();
+-shortint h_dnnt(x) doublereal *x;
+-#else
+-#undef abs
+-#include "math.h"
+-#ifdef __cplusplus
+-extern "C" {
+-#endif
+-shortint h_dnnt(doublereal *x)
+-#endif
+-{
+-return (shortint)(*x >= 0. ? floor(*x + .5) : -floor(.5 - *x));
+-}
+-#ifdef __cplusplus
+-}
+-#endif
+//GO.SYSIN DD libF77/h_dnnt.c
+echo libF77/h_indx.c 1>&2
+sed >libF77/h_indx.c <<'//GO.SYSIN DD libF77/h_indx.c' 's/^-//'
+-#include "f2c.h"
+-#ifdef __cplusplus
+-extern "C" {
+-#endif
+-
+-#ifdef KR_headers
+-shortint h_indx(a, b, la, lb) char *a, *b; ftnlen la, lb;
+-#else
+-shortint h_indx(char *a, char *b, ftnlen la, ftnlen lb)
+-#endif
+-{
+-ftnlen i, n;
+-char *s, *t, *bend;
+-
+-n = la - lb + 1;
+-bend = b + lb;
+-
+-for(i = 0 ; i < n ; ++i)
+-	{
+-	s = a + i;
+-	t = b;
+-	while(t < bend)
+-		if(*s++ != *t++)
+-			goto no;
+-	return((shortint)i+1);
+-	no: ;
+-	}
+-return(0);
+-}
+-#ifdef __cplusplus
+-}
+-#endif
+//GO.SYSIN DD libF77/h_indx.c
+echo libF77/h_len.c 1>&2
+sed >libF77/h_len.c <<'//GO.SYSIN DD libF77/h_len.c' 's/^-//'
+-#include "f2c.h"
+-#ifdef __cplusplus
+-extern "C" {
+-#endif
+-
+-#ifdef KR_headers
+-shortint h_len(s, n) char *s; ftnlen n;
+-#else
+-shortint h_len(char *s, ftnlen n)
+-#endif
+-{
+-return(n);
+-}
+-#ifdef __cplusplus
+-}
+-#endif
+//GO.SYSIN DD libF77/h_len.c
+echo libF77/h_mod.c 1>&2
+sed >libF77/h_mod.c <<'//GO.SYSIN DD libF77/h_mod.c' 's/^-//'
+-#include "f2c.h"
+-#ifdef __cplusplus
+-extern "C" {
+-#endif
+-
+-#ifdef KR_headers
+-shortint h_mod(a,b) short *a, *b;
+-#else
+-shortint h_mod(short *a, short *b)
+-#endif
+-{
+-return( *a % *b);
+-}
+-#ifdef __cplusplus
+-}
+-#endif
+//GO.SYSIN DD libF77/h_mod.c
+echo libF77/h_nint.c 1>&2
+sed >libF77/h_nint.c <<'//GO.SYSIN DD libF77/h_nint.c' 's/^-//'
+-#include "f2c.h"
+-
+-#ifdef KR_headers
+-double floor();
+-shortint h_nint(x) real *x;
+-#else
+-#undef abs
+-#include "math.h"
+-#ifdef __cplusplus
+-extern "C" {
+-#endif
+-shortint h_nint(real *x)
+-#endif
+-{
+-return (shortint)(*x >= 0 ? floor(*x + .5) : -floor(.5 - *x));
+-}
+-#ifdef __cplusplus
+-}
+-#endif
+//GO.SYSIN DD libF77/h_nint.c
+echo libF77/h_sign.c 1>&2
+sed >libF77/h_sign.c <<'//GO.SYSIN DD libF77/h_sign.c' 's/^-//'
+-#include "f2c.h"
+-#ifdef __cplusplus
+-extern "C" {
+-#endif
+-
+-#ifdef KR_headers
+-shortint h_sign(a,b) shortint *a, *b;
+-#else
+-shortint h_sign(shortint *a, shortint *b)
+-#endif
+-{
+-shortint x;
+-x = (*a >= 0 ? *a : - *a);
+-return( *b >= 0 ? x : -x);
+-}
+-#ifdef __cplusplus
+-}
+-#endif
+//GO.SYSIN DD libF77/h_sign.c
+echo libF77/hl_ge.c 1>&2
+sed >libF77/hl_ge.c <<'//GO.SYSIN DD libF77/hl_ge.c' 's/^-//'
+-#include "f2c.h"
+-#ifdef __cplusplus
+-extern "C" {
+-#endif
+-
+-#ifdef KR_headers
+-extern integer s_cmp();
+-shortlogical hl_ge(a,b,la,lb) char *a, *b; ftnlen la, lb;
+-#else
+-extern integer s_cmp(char *, char *, ftnlen, ftnlen);
+-shortlogical hl_ge(char *a, char *b, ftnlen la, ftnlen lb)
+-#endif
+-{
+-return(s_cmp(a,b,la,lb) >= 0);
+-}
+-#ifdef __cplusplus
+-}
+-#endif
+//GO.SYSIN DD libF77/hl_ge.c
+echo libF77/hl_gt.c 1>&2
+sed >libF77/hl_gt.c <<'//GO.SYSIN DD libF77/hl_gt.c' 's/^-//'
+-#include "f2c.h"
+-#ifdef __cplusplus
+-extern "C" {
+-#endif
+-
+-#ifdef KR_headers
+-extern integer s_cmp();
+-shortlogical hl_gt(a,b,la,lb) char *a, *b; ftnlen la, lb;
+-#else
+-extern integer s_cmp(char *, char *, ftnlen, ftnlen);
+-shortlogical hl_gt(char *a, char *b, ftnlen la, ftnlen lb)
+-#endif
+-{
+-return(s_cmp(a,b,la,lb) > 0);
+-}
+-#ifdef __cplusplus
+-}
+-#endif
+//GO.SYSIN DD libF77/hl_gt.c
+echo libF77/hl_le.c 1>&2
+sed >libF77/hl_le.c <<'//GO.SYSIN DD libF77/hl_le.c' 's/^-//'
+-#include "f2c.h"
+-#ifdef __cplusplus
+-extern "C" {
+-#endif
+-
+-#ifdef KR_headers
+-extern integer s_cmp();
+-shortlogical hl_le(a,b,la,lb) char *a, *b; ftnlen la, lb;
+-#else
+-extern integer s_cmp(char *, char *, ftnlen, ftnlen);
+-shortlogical hl_le(char *a, char *b, ftnlen la, ftnlen lb)
+-#endif
+-{
+-return(s_cmp(a,b,la,lb) <= 0);
+-}
+-#ifdef __cplusplus
+-}
+-#endif
+//GO.SYSIN DD libF77/hl_le.c
+echo libF77/hl_lt.c 1>&2
+sed >libF77/hl_lt.c <<'//GO.SYSIN DD libF77/hl_lt.c' 's/^-//'
+-#include "f2c.h"
+-#ifdef __cplusplus
+-extern "C" {
+-#endif
+-
+-#ifdef KR_headers
+-extern integer s_cmp();
+-shortlogical hl_lt(a,b,la,lb) char *a, *b; ftnlen la, lb;
+-#else
+-extern integer s_cmp(char *, char *, ftnlen, ftnlen);
+-shortlogical hl_lt(char *a, char *b, ftnlen la, ftnlen lb)
+-#endif
+-{
+-return(s_cmp(a,b,la,lb) < 0);
+-}
+-#ifdef __cplusplus
+-}
+-#endif
+//GO.SYSIN DD libF77/hl_lt.c
+echo libF77/i_abs.c 1>&2
+sed >libF77/i_abs.c <<'//GO.SYSIN DD libF77/i_abs.c' 's/^-//'
+-#include "f2c.h"
+-#ifdef __cplusplus
+-extern "C" {
+-#endif
+-
+-#ifdef KR_headers
+-integer i_abs(x) integer *x;
+-#else
+-integer i_abs(integer *x)
+-#endif
+-{
+-if(*x >= 0)
+-	return(*x);
+-return(- *x);
+-}
+-#ifdef __cplusplus
+-}
+-#endif
+//GO.SYSIN DD libF77/i_abs.c
+echo libF77/i_dim.c 1>&2
+sed >libF77/i_dim.c <<'//GO.SYSIN DD libF77/i_dim.c' 's/^-//'
+-#include "f2c.h"
+-#ifdef __cplusplus
+-extern "C" {
+-#endif
+-
+-#ifdef KR_headers
+-integer i_dim(a,b) integer *a, *b;
+-#else
+-integer i_dim(integer *a, integer *b)
+-#endif
+-{
+-return( *a > *b ? *a - *b : 0);
+-}
+-#ifdef __cplusplus
+-}
+-#endif
+//GO.SYSIN DD libF77/i_dim.c
+echo libF77/i_dnnt.c 1>&2
+sed >libF77/i_dnnt.c <<'//GO.SYSIN DD libF77/i_dnnt.c' 's/^-//'
+-#include "f2c.h"
+-
+-#ifdef KR_headers
+-double floor();
+-integer i_dnnt(x) doublereal *x;
+-#else
+-#undef abs
+-#include "math.h"
+-#ifdef __cplusplus
+-extern "C" {
+-#endif
+-integer i_dnnt(doublereal *x)
+-#endif
+-{
+-return (integer)(*x >= 0. ? floor(*x + .5) : -floor(.5 - *x));
+-}
+-#ifdef __cplusplus
+-}
+-#endif
+//GO.SYSIN DD libF77/i_dnnt.c
+echo libF77/i_indx.c 1>&2
+sed >libF77/i_indx.c <<'//GO.SYSIN DD libF77/i_indx.c' 's/^-//'
+-#include "f2c.h"
+-#ifdef __cplusplus
+-extern "C" {
+-#endif
+-
+-#ifdef KR_headers
+-integer i_indx(a, b, la, lb) char *a, *b; ftnlen la, lb;
+-#else
+-integer i_indx(char *a, char *b, ftnlen la, ftnlen lb)
+-#endif
+-{
+-ftnlen i, n;
+-char *s, *t, *bend;
+-
+-n = la - lb + 1;
+-bend = b + lb;
+-
+-for(i = 0 ; i < n ; ++i)
+-	{
+-	s = a + i;
+-	t = b;
+-	while(t < bend)
+-		if(*s++ != *t++)
+-			goto no;
+-	return(i+1);
+-	no: ;
+-	}
+-return(0);
+-}
+-#ifdef __cplusplus
+-}
+-#endif
+//GO.SYSIN DD libF77/i_indx.c
+echo libF77/i_len.c 1>&2
+sed >libF77/i_len.c <<'//GO.SYSIN DD libF77/i_len.c' 's/^-//'
+-#include "f2c.h"
+-#ifdef __cplusplus
+-extern "C" {
+-#endif
+-
+-#ifdef KR_headers
+-integer i_len(s, n) char *s; ftnlen n;
+-#else
+-integer i_len(char *s, ftnlen n)
+-#endif
+-{
+-return(n);
+-}
+-#ifdef __cplusplus
+-}
+-#endif
+//GO.SYSIN DD libF77/i_len.c
+echo libF77/F77_aloc.c 1>&2
+sed >libF77/F77_aloc.c <<'//GO.SYSIN DD libF77/F77_aloc.c' 's/^-//'
+-#include "f2c.h"
+-#undef abs
+-#undef min
+-#undef max
+-#include "stdio.h"
+-
+-static integer memfailure = 3;
+-
+-#ifdef KR_headers
+-extern char *malloc();
+-extern void exit_();
+-
+- char *
+-F77_aloc(Len, whence) integer Len; char *whence;
+-#else
+-#include "stdlib.h"
+-#ifdef __cplusplus
+-extern "C" {
+-#endif
+-#ifdef __cplusplus
+-extern "C" {
+-#endif
+-extern void exit_(integer*);
+-#ifdef __cplusplus
+-	}
+-#endif
+-
+- char *
+-F77_aloc(integer Len, char *whence)
+-#endif
+-{
+-	char *rv;
+-	unsigned int uLen = (unsigned int) Len;	/* for K&R C */
+-
+-	if (!(rv = (char*)malloc(uLen))) {
+-		fprintf(stderr, "malloc(%u) failure in %s\n",
+-			uLen, whence);
+-		exit_(&memfailure);
+-		}
+-	return rv;
+-	}
+-#ifdef __cplusplus
+-}
+-#endif
+//GO.SYSIN DD libF77/F77_aloc.c
+echo libF77/README 1>&2
+sed >libF77/README <<'//GO.SYSIN DD libF77/README' 's/^-//'
+-If your compiler does not recognize ANSI C headers,
+-compile with KR_headers defined:  either add -DKR_headers
+-to the definition of CFLAGS in the makefile, or insert
+-
+-#define KR_headers
+-
+-at the top of f2c.h , cabs.c , main.c , and sig_die.c .
+-
+-Under MS-DOS, compile s_paus.c with -DMSDOS.
+-
+-If you have a really ancient K&R C compiler that does not understand
+-void, add -Dvoid=int to the definition of CFLAGS in the makefile.
+-
+-If you use a C++ compiler, first create a local f2c.h by appending
+-f2ch.add to the usual f2c.h, e.g., by issuing the command
+-	make f2c.h
+-which assumes f2c.h is installed in /usr/include .
+-
+-If your system lacks onexit() and you are not using an ANSI C
+-compiler, then you should compile main.c, s_paus.c, s_stop.c, and
+-sig_die.c with NO_ONEXIT defined.  See the comments about onexit in
+-the makefile.
+-
+-If your system has a double drem() function such that drem(a,b)
+-is the IEEE remainder function (with double a, b), then you may
+-wish to compile r_mod.c and d_mod.c with IEEE_drem defined.
+-On some systems, you may also need to compile with -Ddrem=remainder .
+-
+-To check for transmission errors, issue the command
+-	make check
+-This assumes you have the xsum program whose source, xsum.c,
+-is distributed as part of "all from f2c/src".  If you do not
+-have xsum, you can obtain xsum.c by sending the following E-mail
+-message to netlib@netlib.bell-labs.com
+-	send xsum.c from f2c/src
+-
+-The makefile assumes you have installed f2c.h in a standard
+-place (and does not cause recompilation when f2c.h is changed);
+-f2c.h comes with "all from f2c" (the source for f2c) and is
+-available separately ("f2c.h from f2c").
+-
+-Most of the routines in libF77 are support routines for Fortran
+-intrinsic functions or for operations that f2c chooses not
+-to do "in line".  There are a few exceptions, summarized below --
+-functions and subroutines that appear to your program as ordinary
+-external Fortran routines.
+-
+-If you use the REAL valued functions listed below (ERF, ERFC,
+-DTIME, and ETIME) with "f2c -R", then you need to compile the
+-corresponding source files with -DREAL=float.  To do this, it is
+-perhaps simplest to add "-DREAL=float" to CFLAGS in the makefile.
+-
+-1.	CALL ABORT prints a message and causes a core dump.
+-
+-2.	ERF(r) and DERF(d) and the REAL and DOUBLE PRECISION
+-	error functions (with x REAL and d DOUBLE PRECISION);
+-	DERF must be declared DOUBLE PRECISION in your program.
+-	Both ERF and DERF assume your C library provides the
+-	underlying erf() function (which not all systems do).
+-
+-3.	ERFC(r) and DERFC(d) are the complementary error functions:
+-	ERFC(r) = 1 - ERF(r) and DERFC(d) = 1.d0 - DERFC(d)
+-	(except that their results may be more accurate than
+-	explicitly evaluating the above formulae would give).
+-	Again, ERFC and r are REAL, and DERFC and d are DOUBLE
+-	PRECISION (and must be declared as such in your program),
+-	and ERFC and DERFC rely on your system's erfc().
+-
+-4.	CALL GETARG(n,s), where n is an INTEGER and s is a CHARACTER
+-	variable, sets s to the n-th command-line argument (or to
+-	all blanks if there are fewer than n command-line arguments);
+-	CALL GETARG(0,s) sets s to the name of the program (on systems
+-	that support this feature).  See IARGC below.
+-
+-5.	CALL GETENV(name, value), where name and value are of type
+-	CHARACTER, sets value to the environment value, $name, of
+-	name (or to blanks if $name has not been set).
+-
+-6.	NARGS = IARGC() sets NARGS to the number of command-line
+-	arguments (an INTEGER value).
+-
+-7.	CALL SIGNAL(n,func), where n is an INTEGER and func is an
+-	EXTERNAL procedure, arranges for func to be invoked when
+-	signal n occurs (on systems where this makes sense).
+-
+-8.	CALL SYSTEM(cmd), where cmd is of type CHARACTER, passes
+-	cmd to the system's command processor (on systems where
+-	this can be done).
+-	
+-If your compiler complains about the signal calls in main.c, s_paus.c,
+-and signal_.c, you may need to adjust signal1.h suitably.  See the
+-comments in signal1.h.
+-
+-8.	ETIME(ARR) and DTIME(ARR) are REAL functions that return
+-	execution times.  ARR is declared REAL ARR(2).  The elapsed
+-	user and system CPU times are stored in ARR(1) and ARR(2),
+-	respectively.  ETIME returns the total elapsed CPU time,
+-	i.e., ARR(1) + ARR(2).  DTIME returns total elapsed CPU
+-	time since the previous call on DTIME.
+-
+-9.	CALL SYSTEM(cmd), where cmd is of type CHARACTER, passes
+-	cmd to the system's command processor (on systems where
+-	this can be done).
+-
+-The makefile does not attempt to compile pow_qq.c, qbitbits.c,
+-and qbitshft.c, which are meant for use with INTEGER*8.  To use
+-INTEGER*8, you must modify f2c.h to declare longint and ulongint
+-appropriately; then add pow_qq.o to the POW = line in the makefile,
+-and add " qbitbits.o qbitshft.o" to the makefile's F90BIT = line.
+-
+-Following Fortran 90, s_cat.c and s_copy.c allow the target of a
+-(character string) assignment to be appear on its right-hand, at
+-the cost of some extra overhead for all run-time concatenations.
+-If you prefer the  extra efficiency that comes with the Fortran 77
+-requirement that the left-hand side of a character assignment not
+-be involved in the right-hand side, compile s_cat.c and s_copy.c
+-with -DNO_OVERWRITE .
+-
+-If your system lacks a ranlib command, you don't need it.
+-Either comment out the makefile's ranlib invocation, or install
+-a harmless "ranlib" command somewhere in your PATH, such as the
+-one-line shell script
+-
+-	exit 0
+-
+-or (on some systems)
+-
+-	exec /usr/bin/ar lts $1 >/dev/null
+-
+-If your compiler complains about the signal calls in main.c, s_paus.c,
+-and signal_.c, you may need to adjust signal1.h suitably.  See the
+-comments in signal1.h.
+-
+-By default, the routines that implement complex and double complex
+-division, c_div.c and z_div.c, call sig_die to print an error message
+-and exit if they see a divisor of 0, as this is sometimes helpful for
+-debugging.  On systems with IEEE arithmetic, compiling c_div.c and
+-z_div.c with -DIEEE_COMPLEX_DIVIDE causes them instead to set both
+-the real and imaginary parts of the result to +INFINITY if the
+-numerator is nonzero, or to NaN if it vanishes.
+-
+-The initializations for "f2c -trapuv" are done by _uninit_f2c(),
+-whose source is uninit.c, introduced June 2001.  On IEEE-arithmetic
+-systems, _uninit_f2c should initialize floating-point variables to
+-signaling NaNs and, at its first invocation, should enable the
+-invalid operation exception.  Alas, the rules for distinguishing
+-signaling from quiet NaNs were not specified in the IEEE P754 standard,
+-nor were the precise means of enabling and disabling IEEE-arithmetic
+-exceptions, and these details are thus system dependent.  There are
+-#ifdef's in uninit.c that specify them for some popular systems.  If
+-yours is not one of these systems, it may take some detective work to
+-discover the appropriate details for your system.  Sometimes it helps
+-to look in the standard include directories for header files with
+-relevant-sounding names, such as ieeefp.h, nan.h, or trap.h, and
+-it may be simplest to run experiments to see what distinguishes a
+-signaling from a quiet NaN.  (If x is initialized to a signaling
+-NaN and the invalid operation exception is masked off, as it should
+-be by default on IEEE-arithmetic systems, then computing, say,
+-y = x + 1 will yield a quiet NaN.)
+//GO.SYSIN DD libF77/README
+echo libF77/abort_.c 1>&2
+sed >libF77/abort_.c <<'//GO.SYSIN DD libF77/abort_.c' 's/^-//'
+-#include "stdio.h"
+-#include "f2c.h"
+-#ifdef __cplusplus
+-extern "C" {
+-#endif
+-
+-#ifdef KR_headers
+-extern VOID sig_die();
+-
+-int abort_()
+-#else
+-extern void sig_die(char*,int);
+-
+-int abort_(void)
+-#endif
+-{
+-sig_die("Fortran abort routine called", 1);
+-return 0;	/* not reached */
+-}
+-#ifdef __cplusplus
+-}
+-#endif
+//GO.SYSIN DD libF77/abort_.c
+echo libF77/c_abs.c 1>&2
+sed >libF77/c_abs.c <<'//GO.SYSIN DD libF77/c_abs.c' 's/^-//'
+-#include "f2c.h"
+-#ifdef __cplusplus
+-extern "C" {
+-#endif
+-
+-#ifdef KR_headers
+-extern double f__cabs();
+-
+-double c_abs(z) complex *z;
+-#else
+-extern double f__cabs(double, double);
+-
+-double c_abs(complex *z)
+-#endif
+-{
+-return( f__cabs( z->r, z->i ) );
+-}
+-#ifdef __cplusplus
+-}
+-#endif
+//GO.SYSIN DD libF77/c_abs.c
+echo libF77/c_cos.c 1>&2
+sed >libF77/c_cos.c <<'//GO.SYSIN DD libF77/c_cos.c' 's/^-//'
+-#include "f2c.h"
+-
+-#ifdef KR_headers
+-extern double sin(), cos(), sinh(), cosh();
+-
+-VOID c_cos(r, z) complex *r, *z;
+-#else
+-#undef abs
+-#include "math.h"
+-#ifdef __cplusplus
+-extern "C" {
+-#endif
+-
+-void c_cos(complex *r, complex *z)
+-#endif
+-{
+-	double zi = z->i, zr = z->r;
+-	r->r =   cos(zr) * cosh(zi);
+-	r->i = - sin(zr) * sinh(zi);
+-	}
+-#ifdef __cplusplus
+-}
+-#endif
+//GO.SYSIN DD libF77/c_cos.c
+echo libF77/c_div.c 1>&2
+sed >libF77/c_div.c <<'//GO.SYSIN DD libF77/c_div.c' 's/^-//'
+-#include "f2c.h"
+-#ifdef __cplusplus
+-extern "C" {
+-#endif
+-
+-#ifdef KR_headers
+-extern VOID sig_die();
+-VOID c_div(c, a, b)
+-complex *a, *b, *c;
+-#else
+-extern void sig_die(char*,int);
+-void c_div(complex *c, complex *a, complex *b)
+-#endif
+-{
+-	double ratio, den;
+-	double abr, abi, cr;
+-
+-	if( (abr = b->r) < 0.)
+-		abr = - abr;
+-	if( (abi = b->i) < 0.)
+-		abi = - abi;
+-	if( abr <= abi )
+-		{
+-		if(abi == 0) {
+-#ifdef IEEE_COMPLEX_DIVIDE
+-			float af, bf;
+-			af = bf = abr;
+-			if (a->i != 0 || a->r != 0)
+-				af = 1.;
+-			c->i = c->r = af / bf;
+-			return;
+-#else
+-			sig_die("complex division by zero", 1);
+-#endif
+-			}
+-		ratio = (double)b->r / b->i ;
+-		den = b->i * (1 + ratio*ratio);
+-		cr = (a->r*ratio + a->i) / den;
+-		c->i = (a->i*ratio - a->r) / den;
+-		}
+-
+-	else
+-		{
+-		ratio = (double)b->i / b->r ;
+-		den = b->r * (1 + ratio*ratio);
+-		cr = (a->r + a->i*ratio) / den;
+-		c->i = (a->i - a->r*ratio) / den;
+-		}
+-	c->r = cr;
+-	}
+-#ifdef __cplusplus
+-}
+-#endif
+//GO.SYSIN DD libF77/c_div.c
+echo libF77/c_exp.c 1>&2
+sed >libF77/c_exp.c <<'//GO.SYSIN DD libF77/c_exp.c' 's/^-//'
+-#include "f2c.h"
+-
+-#ifdef KR_headers
+-extern double exp(), cos(), sin();
+-
+- VOID c_exp(r, z) complex *r, *z;
+-#else
+-#undef abs
+-#include "math.h"
+-#ifdef __cplusplus
+-extern "C" {
+-#endif
+-
+-void c_exp(complex *r, complex *z)
+-#endif
+-{
+-	double expx, zi = z->i;
+-
+-	expx = exp(z->r);
+-	r->r = expx * cos(zi);
+-	r->i = expx * sin(zi);
+-	}
+-#ifdef __cplusplus
+-}
+-#endif
+//GO.SYSIN DD libF77/c_exp.c
+echo libF77/c_log.c 1>&2
+sed >libF77/c_log.c <<'//GO.SYSIN DD libF77/c_log.c' 's/^-//'
+-#include "f2c.h"
+-
+-#ifdef KR_headers
+-extern double log(), f__cabs(), atan2();
+-VOID c_log(r, z) complex *r, *z;
+-#else
+-#undef abs
+-#include "math.h"
+-#ifdef __cplusplus
+-extern "C" {
+-#endif
+-extern double f__cabs(double, double);
+-
+-void c_log(complex *r, complex *z)
+-#endif
+-{
+-	double zi, zr;
+-	r->i = atan2(zi = z->i, zr = z->r);
+-	r->r = log( f__cabs(zr, zi) );
+-	}
+-#ifdef __cplusplus
+-}
+-#endif
+//GO.SYSIN DD libF77/c_log.c
+echo libF77/c_sin.c 1>&2
+sed >libF77/c_sin.c <<'//GO.SYSIN DD libF77/c_sin.c' 's/^-//'
+-#include "f2c.h"
+-
+-#ifdef KR_headers
+-extern double sin(), cos(), sinh(), cosh();
+-
+-VOID c_sin(r, z) complex *r, *z;
+-#else
+-#undef abs
+-#include "math.h"
+-#ifdef __cplusplus
+-extern "C" {
+-#endif
+-
+-void c_sin(complex *r, complex *z)
+-#endif
+-{
+-	double zi = z->i, zr = z->r;
+-	r->r = sin(zr) * cosh(zi);
+-	r->i = cos(zr) * sinh(zi);
+-	}
+-#ifdef __cplusplus
+-}
+-#endif
+//GO.SYSIN DD libF77/c_sin.c
+echo libF77/c_sqrt.c 1>&2
+sed >libF77/c_sqrt.c <<'//GO.SYSIN DD libF77/c_sqrt.c' 's/^-//'
+-#include "f2c.h"
+-
+-#ifdef KR_headers
+-extern double sqrt(), f__cabs();
+-
+-VOID c_sqrt(r, z) complex *r, *z;
+-#else
+-#undef abs
+-#include "math.h"
+-#ifdef __cplusplus
+-extern "C" {
+-#endif
+-extern double f__cabs(double, double);
+-
+-void c_sqrt(complex *r, complex *z)
+-#endif
+-{
+-	double mag, t;
+-	double zi = z->i, zr = z->r;
+-
+-	if( (mag = f__cabs(zr, zi)) == 0.)
+-		r->r = r->i = 0.;
+-	else if(zr > 0)
+-		{
+-		r->r = t = sqrt(0.5 * (mag + zr) );
+-		t = zi / t;
+-		r->i = 0.5 * t;
+-		}
+-	else
+-		{
+-		t = sqrt(0.5 * (mag - zr) );
+-		if(zi < 0)
+-			t = -t;
+-		r->i = t;
+-		t = zi / t;
+-		r->r = 0.5 * t;
+-		}
+-	}
+-#ifdef __cplusplus
+-}
+-#endif
+//GO.SYSIN DD libF77/c_sqrt.c
+echo libF77/cabs.c 1>&2
+sed >libF77/cabs.c <<'//GO.SYSIN DD libF77/cabs.c' 's/^-//'
+-#ifdef KR_headers
+-extern double sqrt();
+-double f__cabs(real, imag) double real, imag;
+-#else
+-#undef abs
+-#include "math.h"
+-#ifdef __cplusplus
+-extern "C" {
+-#endif
+-double f__cabs(double real, double imag)
+-#endif
+-{
+-double temp;
+-
+-if(real < 0)
+-	real = -real;
+-if(imag < 0)
+-	imag = -imag;
+-if(imag > real){
+-	temp = real;
+-	real = imag;
+-	imag = temp;
+-}
+-if((real+imag) == real)
+-	return(real);
+-
+-temp = imag/real;
+-temp = real*sqrt(1.0 + temp*temp);  /*overflow!!*/
+-return(temp);
+-}
+-#ifdef __cplusplus
+-}
+-#endif
+//GO.SYSIN DD libF77/cabs.c
+echo libF77/d_abs.c 1>&2
+sed >libF77/d_abs.c <<'//GO.SYSIN DD libF77/d_abs.c' 's/^-//'
+-#include "f2c.h"
+-#ifdef __cplusplus
+-extern "C" {
+-#endif
+-
+-#ifdef KR_headers
+-double d_abs(x) doublereal *x;
+-#else
+-double d_abs(doublereal *x)
+-#endif
+-{
+-if(*x >= 0)
+-	return(*x);
+-return(- *x);
+-}
+-#ifdef __cplusplus
+-}
+-#endif
+//GO.SYSIN DD libF77/d_abs.c
+echo libF77/d_acos.c 1>&2
+sed >libF77/d_acos.c <<'//GO.SYSIN DD libF77/d_acos.c' 's/^-//'
+-#include "f2c.h"
+-
+-#ifdef KR_headers
+-double acos();
+-double d_acos(x) doublereal *x;
+-#else
+-#undef abs
+-#include "math.h"
+-#ifdef __cplusplus
+-extern "C" {
+-#endif
+-double d_acos(doublereal *x)
+-#endif
+-{
+-return( acos(*x) );
+-}
+-#ifdef __cplusplus
+-}
+-#endif
+//GO.SYSIN DD libF77/d_acos.c
+echo libF77/d_asin.c 1>&2
+sed >libF77/d_asin.c <<'//GO.SYSIN DD libF77/d_asin.c' 's/^-//'
+-#include "f2c.h"
+-
+-#ifdef KR_headers
+-double asin();
+-double d_asin(x) doublereal *x;
+-#else
+-#undef abs
+-#include "math.h"
+-#ifdef __cplusplus
+-extern "C" {
+-#endif
+-double d_asin(doublereal *x)
+-#endif
+-{
+-return( asin(*x) );
+-}
+-#ifdef __cplusplus
+-}
+-#endif
+//GO.SYSIN DD libF77/d_asin.c
+echo libF77/d_atan.c 1>&2
+sed >libF77/d_atan.c <<'//GO.SYSIN DD libF77/d_atan.c' 's/^-//'
+-#include "f2c.h"
+-
+-#ifdef KR_headers
+-double atan();
+-double d_atan(x) doublereal *x;
+-#else
+-#undef abs
+-#include "math.h"
+-#ifdef __cplusplus
+-extern "C" {
+-#endif
+-double d_atan(doublereal *x)
+-#endif
+-{
+-return( atan(*x) );
+-}
+-#ifdef __cplusplus
+-}
+-#endif
+//GO.SYSIN DD libF77/d_atan.c
+echo libF77/d_atn2.c 1>&2
+sed >libF77/d_atn2.c <<'//GO.SYSIN DD libF77/d_atn2.c' 's/^-//'
+-#include "f2c.h"
+-
+-#ifdef KR_headers
+-double atan2();
+-double d_atn2(x,y) doublereal *x, *y;
+-#else
+-#undef abs
+-#include "math.h"
+-#ifdef __cplusplus
+-extern "C" {
+-#endif
+-double d_atn2(doublereal *x, doublereal *y)
+-#endif
+-{
+-return( atan2(*x,*y) );
+-}
+-#ifdef __cplusplus
+-}
+-#endif
+//GO.SYSIN DD libF77/d_atn2.c
+echo libF77/d_cnjg.c 1>&2
+sed >libF77/d_cnjg.c <<'//GO.SYSIN DD libF77/d_cnjg.c' 's/^-//'
+-#include "f2c.h"
+-#ifdef __cplusplus
+-extern "C" {
+-#endif
+-
+- VOID
+-#ifdef KR_headers
+-d_cnjg(r, z) doublecomplex *r, *z;
+-#else
+-d_cnjg(doublecomplex *r, doublecomplex *z)
+-#endif
+-{
+-	doublereal zi = z->i;
+-	r->r = z->r;
+-	r->i = -zi;
+-	}
+-#ifdef __cplusplus
+-}
+-#endif
+//GO.SYSIN DD libF77/d_cnjg.c
+echo libF77/d_cos.c 1>&2
+sed >libF77/d_cos.c <<'//GO.SYSIN DD libF77/d_cos.c' 's/^-//'
+-#include "f2c.h"
+-
+-#ifdef KR_headers
+-double cos();
+-double d_cos(x) doublereal *x;
+-#else
+-#undef abs
+-#include "math.h"
+-#ifdef __cplusplus
+-extern "C" {
+-#endif
+-double d_cos(doublereal *x)
+-#endif
+-{
+-return( cos(*x) );
+-}
+-#ifdef __cplusplus
+-}
+-#endif
+//GO.SYSIN DD libF77/d_cos.c
+echo libF77/d_cosh.c 1>&2
+sed >libF77/d_cosh.c <<'//GO.SYSIN DD libF77/d_cosh.c' 's/^-//'
+-#include "f2c.h"
+-
+-#ifdef KR_headers
+-double cosh();
+-double d_cosh(x) doublereal *x;
+-#else
+-#undef abs
+-#include "math.h"
+-#ifdef __cplusplus
+-extern "C" {
+-#endif
+-double d_cosh(doublereal *x)
+-#endif
+-{
+-return( cosh(*x) );
+-}
+-#ifdef __cplusplus
+-}
+-#endif
+//GO.SYSIN DD libF77/d_cosh.c
+echo libF77/d_dim.c 1>&2
+sed >libF77/d_dim.c <<'//GO.SYSIN DD libF77/d_dim.c' 's/^-//'
+-#include "f2c.h"
+-#ifdef __cplusplus
+-extern "C" {
+-#endif
+-
+-#ifdef KR_headers
+-double d_dim(a,b) doublereal *a, *b;
+-#else
+-double d_dim(doublereal *a, doublereal *b)
+-#endif
+-{
+-return( *a > *b ? *a - *b : 0);
+-}
+-#ifdef __cplusplus
+-}
+-#endif
+//GO.SYSIN DD libF77/d_dim.c
+echo libF77/d_exp.c 1>&2
+sed >libF77/d_exp.c <<'//GO.SYSIN DD libF77/d_exp.c' 's/^-//'
+-#include "f2c.h"
+-
+-#ifdef KR_headers
+-double exp();
+-double d_exp(x) doublereal *x;
+-#else
+-#undef abs
+-#include "math.h"
+-#ifdef __cplusplus
+-extern "C" {
+-#endif
+-double d_exp(doublereal *x)
+-#endif
+-{
+-return( exp(*x) );
+-}
+-#ifdef __cplusplus
+-}
+-#endif
+//GO.SYSIN DD libF77/d_exp.c
+echo libF77/d_imag.c 1>&2
+sed >libF77/d_imag.c <<'//GO.SYSIN DD libF77/d_imag.c' 's/^-//'
+-#include "f2c.h"
+-#ifdef __cplusplus
+-extern "C" {
+-#endif
+-
+-#ifdef KR_headers
+-double d_imag(z) doublecomplex *z;
+-#else
+-double d_imag(doublecomplex *z)
+-#endif
+-{
+-return(z->i);
+-}
+-#ifdef __cplusplus
+-}
+-#endif
+//GO.SYSIN DD libF77/d_imag.c
+echo libF77/d_int.c 1>&2
+sed >libF77/d_int.c <<'//GO.SYSIN DD libF77/d_int.c' 's/^-//'
+-#include "f2c.h"
+-
+-#ifdef KR_headers
+-double floor();
+-double d_int(x) doublereal *x;
+-#else
+-#undef abs
+-#include "math.h"
+-#ifdef __cplusplus
+-extern "C" {
+-#endif
+-double d_int(doublereal *x)
+-#endif
+-{
+-return( (*x>0) ? floor(*x) : -floor(- *x) );
+-}
+-#ifdef __cplusplus
+-}
+-#endif
+//GO.SYSIN DD libF77/d_int.c
+echo libF77/d_lg10.c 1>&2
+sed >libF77/d_lg10.c <<'//GO.SYSIN DD libF77/d_lg10.c' 's/^-//'
+-#include "f2c.h"
+-
+-#define log10e 0.43429448190325182765
+-
+-#ifdef KR_headers
+-double log();
+-double d_lg10(x) doublereal *x;
+-#else
+-#undef abs
+-#include "math.h"
+-#ifdef __cplusplus
+-extern "C" {
+-#endif
+-double d_lg10(doublereal *x)
+-#endif
+-{
+-return( log10e * log(*x) );
+-}
+-#ifdef __cplusplus
+-}
+-#endif
+//GO.SYSIN DD libF77/d_lg10.c
+echo libF77/d_log.c 1>&2
+sed >libF77/d_log.c <<'//GO.SYSIN DD libF77/d_log.c' 's/^-//'
+-#include "f2c.h"
+-
+-#ifdef KR_headers
+-double log();
+-double d_log(x) doublereal *x;
+-#else
+-#undef abs
+-#include "math.h"
+-#ifdef __cplusplus
+-extern "C" {
+-#endif
+-double d_log(doublereal *x)
+-#endif
+-{
+-return( log(*x) );
+-}
+-#ifdef __cplusplus
+-}
+-#endif
+//GO.SYSIN DD libF77/d_log.c
+echo libF77/d_mod.c 1>&2
+sed >libF77/d_mod.c <<'//GO.SYSIN DD libF77/d_mod.c' 's/^-//'
+-#include "f2c.h"
+-
+-#ifdef KR_headers
+-#ifdef IEEE_drem
+-double drem();
+-#else
+-double floor();
+-#endif
+-double d_mod(x,y) doublereal *x, *y;
+-#else
+-#ifdef IEEE_drem
+-double drem(double, double);
+-#else
+-#undef abs
+-#include "math.h"
+-#ifdef __cplusplus
+-extern "C" {
+-#endif
+-#endif
+-double d_mod(doublereal *x, doublereal *y)
+-#endif
+-{
+-#ifdef IEEE_drem
+-	double xa, ya, z;
+-	if ((ya = *y) < 0.)
+-		ya = -ya;
+-	z = drem(xa = *x, ya);
+-	if (xa > 0) {
+-		if (z < 0)
+-			z += ya;
+-		}
+-	else if (z > 0)
+-		z -= ya;
+-	return z;
+-#else
+-	double quotient;
+-	if( (quotient = *x / *y) >= 0)
+-		quotient = floor(quotient);
+-	else
+-		quotient = -floor(-quotient);
+-	return(*x - (*y) * quotient );
+-#endif
+-}
+-#ifdef __cplusplus
+-}
+-#endif
+//GO.SYSIN DD libF77/d_mod.c
+echo libF77/d_nint.c 1>&2
+sed >libF77/d_nint.c <<'//GO.SYSIN DD libF77/d_nint.c' 's/^-//'
+-#include "f2c.h"
+-
+-#ifdef KR_headers
+-double floor();
+-double d_nint(x) doublereal *x;
+-#else
+-#undef abs
+-#include "math.h"
+-#ifdef __cplusplus
+-extern "C" {
+-#endif
+-double d_nint(doublereal *x)
+-#endif
+-{
+-return( (*x)>=0 ?
+-	floor(*x + .5) : -floor(.5 - *x) );
+-}
+-#ifdef __cplusplus
+-}
+-#endif
+//GO.SYSIN DD libF77/d_nint.c
+echo libF77/d_prod.c 1>&2
+sed >libF77/d_prod.c <<'//GO.SYSIN DD libF77/d_prod.c' 's/^-//'
+-#include "f2c.h"
+-#ifdef __cplusplus
+-extern "C" {
+-#endif
+-
+-#ifdef KR_headers
+-double d_prod(x,y) real *x, *y;
+-#else
+-double d_prod(real *x, real *y)
+-#endif
+-{
+-return( (*x) * (*y) );
+-}
+-#ifdef __cplusplus
+-}
+-#endif
+//GO.SYSIN DD libF77/d_prod.c
+echo libF77/d_sign.c 1>&2
+sed >libF77/d_sign.c <<'//GO.SYSIN DD libF77/d_sign.c' 's/^-//'
+-#include "f2c.h"
+-#ifdef __cplusplus
+-extern "C" {
+-#endif
+-
+-#ifdef KR_headers
+-double d_sign(a,b) doublereal *a, *b;
+-#else
+-double d_sign(doublereal *a, doublereal *b)
+-#endif
+-{
+-double x;
+-x = (*a >= 0 ? *a : - *a);
+-return( *b >= 0 ? x : -x);
+-}
+-#ifdef __cplusplus
+-}
+-#endif
+//GO.SYSIN DD libF77/d_sign.c
+echo libF77/d_sin.c 1>&2
+sed >libF77/d_sin.c <<'//GO.SYSIN DD libF77/d_sin.c' 's/^-//'
+-#include "f2c.h"
+-
+-#ifdef KR_headers
+-double sin();
+-double d_sin(x) doublereal *x;
+-#else
+-#undef abs
+-#include "math.h"
+-#ifdef __cplusplus
+-extern "C" {
+-#endif
+-double d_sin(doublereal *x)
+-#endif
+-{
+-return( sin(*x) );
+-}
+-#ifdef __cplusplus
+-}
+-#endif
+//GO.SYSIN DD libF77/d_sin.c
+echo libF77/s_cat.c 1>&2
+sed >libF77/s_cat.c <<'//GO.SYSIN DD libF77/s_cat.c' 's/^-//'
+-/* Unless compiled with -DNO_OVERWRITE, this variant of s_cat allows the
+- * target of a concatenation to appear on its right-hand side (contrary
+- * to the Fortran 77 Standard, but in accordance with Fortran 90).
+- */
+-
+-#include "f2c.h"
+-#ifndef NO_OVERWRITE
+-#include "stdio.h"
+-#undef abs
+-#ifdef KR_headers
+- extern char *F77_aloc();
+- extern void free();
+- extern void exit_();
+-#else
+-#undef min
+-#undef max
+-#include "stdlib.h"
+-extern
+-#ifdef __cplusplus
+-	"C"
+-#endif
+-	char *F77_aloc(ftnlen, char*);
+-#endif
+-#include "string.h"
+-#endif /* NO_OVERWRITE */
+-
+-#ifdef __cplusplus
+-extern "C" {
+-#endif
+-
+- VOID
+-#ifdef KR_headers
+-s_cat(lp, rpp, rnp, np, ll) char *lp, *rpp[]; ftnint rnp[], *np; ftnlen ll;
+-#else
+-s_cat(char *lp, char *rpp[], ftnint rnp[], ftnint *np, ftnlen ll)
+-#endif
+-{
+-	ftnlen i, nc;
+-	char *rp;
+-	ftnlen n = *np;
+-#ifndef NO_OVERWRITE
+-	ftnlen L, m;
+-	char *lp0, *lp1;
+-
+-	lp0 = 0;
+-	lp1 = lp;
+-	L = ll;
+-	i = 0;
+-	while(i < n) {
+-		rp = rpp[i];
+-		m = rnp[i++];
+-		if (rp >= lp1 || rp + m <= lp) {
+-			if ((L -= m) <= 0) {
+-				n = i;
+-				break;
+-				}
+-			lp1 += m;
+-			continue;
+-			}
+-		lp0 = lp;
+-		lp = lp1 = F77_aloc(L = ll, "s_cat");
+-		break;
+-		}
+-	lp1 = lp;
+-#endif /* NO_OVERWRITE */
+-	for(i = 0 ; i < n ; ++i) {
+-		nc = ll;
+-		if(rnp[i] < nc)
+-			nc = rnp[i];
+-		ll -= nc;
+-		rp = rpp[i];
+-		while(--nc >= 0)
+-			*lp++ = *rp++;
+-		}
+-	while(--ll >= 0)
+-		*lp++ = ' ';
+-#ifndef NO_OVERWRITE
+-	if (lp0) {
+-		memcpy(lp0, lp1, L);
+-		free(lp1);
+-		}
+-#endif
+-	}
+-#ifdef __cplusplus
+-}
+-#endif
+//GO.SYSIN DD libF77/s_cat.c
+echo libF77/Notice 1>&2
+sed >libF77/Notice <<'//GO.SYSIN DD libF77/Notice' 's/^-//'
+-/****************************************************************
+-Copyright 1990 - 1997 by AT&T, Lucent Technologies and Bellcore.
+-
+-Permission to use, copy, modify, and distribute this software
+-and its documentation for any purpose and without fee is hereby
+-granted, provided that the above copyright notice appear in all
+-copies and that both that the copyright notice and this
+-permission notice and warranty disclaimer appear in supporting
+-documentation, and that the names of AT&T, Bell Laboratories,
+-Lucent or Bellcore or any of their entities not be used in
+-advertising or publicity pertaining to distribution of the
+-software without specific, written prior permission.
+-
+-AT&T, Lucent and Bellcore disclaim all warranties with regard to
+-this software, including all implied warranties of
+-merchantability and fitness.  In no event shall AT&T, Lucent or
+-Bellcore be liable for any special, indirect or consequential
+-damages or any damages whatsoever resulting from loss of use,
+-data or profits, whether in an action of contract, negligence or
+-other tortious action, arising out of or in connection with the
+-use or performance of this software.
+-****************************************************************/
+-
+//GO.SYSIN DD libF77/Notice
+echo libF77/f2ch.add 1>&2
+sed >libF77/f2ch.add <<'//GO.SYSIN DD libF77/f2ch.add' 's/^-//'
+-/* If you are using a C++ compiler, append the following to f2c.h
+-   for compiling libF77 and libI77. */
+-
+-#ifdef __cplusplus
+-extern "C" {
+-extern int abort_(void);
+-extern double c_abs(complex *);
+-extern void c_cos(complex *, complex *);
+-extern void c_div(complex *, complex *, complex *);
+-extern void c_exp(complex *, complex *);
+-extern void c_log(complex *, complex *);
+-extern void c_sin(complex *, complex *);
+-extern void c_sqrt(complex *, complex *);
+-extern double d_abs(double *);
+-extern double d_acos(double *);
+-extern double d_asin(double *);
+-extern double d_atan(double *);
+-extern double d_atn2(double *, double *);
+-extern void d_cnjg(doublecomplex *, doublecomplex *);
+-extern double d_cos(double *);
+-extern double d_cosh(double *);
+-extern double d_dim(double *, double *);
+-extern double d_exp(double *);
+-extern double d_imag(doublecomplex *);
+-extern double d_int(double *);
+-extern double d_lg10(double *);
+-extern double d_log(double *);
+-extern double d_mod(double *, double *);
+-extern double d_nint(double *);
+-extern double d_prod(float *, float *);
+-extern double d_sign(double *, double *);
+-extern double d_sin(double *);
+-extern double d_sinh(double *);
+-extern double d_sqrt(double *);
+-extern double d_tan(double *);
+-extern double d_tanh(double *);
+-extern double derf_(double *);
+-extern double derfc_(double *);
+-extern integer do_fio(ftnint *, char *, ftnlen);
+-extern integer do_lio(ftnint *, ftnint *, char *, ftnlen);
+-extern integer do_uio(ftnint *, char *, ftnlen);
+-extern integer e_rdfe(void);
+-extern integer e_rdue(void);
+-extern integer e_rsfe(void);
+-extern integer e_rsfi(void);
+-extern integer e_rsle(void);
+-extern integer e_rsli(void);
+-extern integer e_rsue(void);
+-extern integer e_wdfe(void);
+-extern integer e_wdue(void);
+-extern integer e_wsfe(void);
+-extern integer e_wsfi(void);
+-extern integer e_wsle(void);
+-extern integer e_wsli(void);
+-extern integer e_wsue(void);
+-extern int ef1asc_(ftnint *, ftnlen *, ftnint *, ftnlen *);
+-extern integer ef1cmc_(ftnint *, ftnlen *, ftnint *, ftnlen *);
+-extern double erf(double);
+-extern double erf_(float *);
+-extern double erfc(double);
+-extern double erfc_(float *);
+-extern integer f_back(alist *);
+-extern integer f_clos(cllist *);
+-extern integer f_end(alist *);
+-extern void f_exit(void);
+-extern integer f_inqu(inlist *);
+-extern integer f_open(olist *);
+-extern integer f_rew(alist *);
+-extern int flush_(void);
+-extern void getarg_(integer *, char *, ftnlen);
+-extern void getenv_(char *, char *, ftnlen, ftnlen);
+-extern short h_abs(short *);
+-extern short h_dim(short *, short *);
+-extern short h_dnnt(double *);
+-extern short h_indx(char *, char *, ftnlen, ftnlen);
+-extern short h_len(char *, ftnlen);
+-extern short h_mod(short *, short *);
+-extern short h_nint(float *);
+-extern short h_sign(short *, short *);
+-extern short hl_ge(char *, char *, ftnlen, ftnlen);
+-extern short hl_gt(char *, char *, ftnlen, ftnlen);
+-extern short hl_le(char *, char *, ftnlen, ftnlen);
+-extern short hl_lt(char *, char *, ftnlen, ftnlen);
+-extern integer i_abs(integer *);
+-extern integer i_dim(integer *, integer *);
+-extern integer i_dnnt(double *);
+-extern integer i_indx(char *, char *, ftnlen, ftnlen);
+-extern integer i_len(char *, ftnlen);
+-extern integer i_mod(integer *, integer *);
+-extern integer i_nint(float *);
+-extern integer i_sign(integer *, integer *);
+-extern integer iargc_(void);
+-extern ftnlen l_ge(char *, char *, ftnlen, ftnlen);
+-extern ftnlen l_gt(char *, char *, ftnlen, ftnlen);
+-extern ftnlen l_le(char *, char *, ftnlen, ftnlen);
+-extern ftnlen l_lt(char *, char *, ftnlen, ftnlen);
+-extern void pow_ci(complex *, complex *, integer *);
+-extern double pow_dd(double *, double *);
+-extern double pow_di(double *, integer *);
+-extern short pow_hh(short *, shortint *);
+-extern integer pow_ii(integer *, integer *);
+-extern double pow_ri(float *, integer *);
+-extern void pow_zi(doublecomplex *, doublecomplex *, integer *);
+-extern void pow_zz(doublecomplex *, doublecomplex *, doublecomplex *);
+-extern double r_abs(float *);
+-extern double r_acos(float *);
+-extern double r_asin(float *);
+-extern double r_atan(float *);
+-extern double r_atn2(float *, float *);
+-extern void r_cnjg(complex *, complex *);
+-extern double r_cos(float *);
+-extern double r_cosh(float *);
+-extern double r_dim(float *, float *);
+-extern double r_exp(float *);
+-extern double r_imag(complex *);
+-extern double r_int(float *);
+-extern double r_lg10(float *);
+-extern double r_log(float *);
+-extern double r_mod(float *, float *);
+-extern double r_nint(float *);
+-extern double r_sign(float *, float *);
+-extern double r_sin(float *);
+-extern double r_sinh(float *);
+-extern double r_sqrt(float *);
+-extern double r_tan(float *);
+-extern double r_tanh(float *);
+-extern void s_cat(char *, char **, integer *, integer *, ftnlen);
+-extern integer s_cmp(char *, char *, ftnlen, ftnlen);
+-extern void s_copy(char *, char *, ftnlen, ftnlen);
+-extern int s_paus(char *, ftnlen);
+-extern integer s_rdfe(cilist *);
+-extern integer s_rdue(cilist *);
+-extern integer s_rnge(char *, integer, char *, integer);
+-extern integer s_rsfe(cilist *);
+-extern integer s_rsfi(icilist *);
+-extern integer s_rsle(cilist *);
+-extern integer s_rsli(icilist *);
+-extern integer s_rsne(cilist *);
+-extern integer s_rsni(icilist *);
+-extern integer s_rsue(cilist *);
+-extern int s_stop(char *, ftnlen);
+-extern integer s_wdfe(cilist *);
+-extern integer s_wdue(cilist *);
+-extern integer s_wsfe(cilist *);
+-extern integer s_wsfi(icilist *);
+-extern integer s_wsle(cilist *);
+-extern integer s_wsli(icilist *);
+-extern integer s_wsne(cilist *);
+-extern integer s_wsni(icilist *);
+-extern integer s_wsue(cilist *);
+-extern void sig_die(char *, int);
+-extern integer signal_(integer *, void (*)(int));
+-extern integer system_(char *, ftnlen);
+-extern double z_abs(doublecomplex *);
+-extern void z_cos(doublecomplex *, doublecomplex *);
+-extern void z_div(doublecomplex *, doublecomplex *, doublecomplex *);
+-extern void z_exp(doublecomplex *, doublecomplex *);
+-extern void z_log(doublecomplex *, doublecomplex *);
+-extern void z_sin(doublecomplex *, doublecomplex *);
+-extern void z_sqrt(doublecomplex *, doublecomplex *);
+-	}
+-#endif
+//GO.SYSIN DD libF77/f2ch.add

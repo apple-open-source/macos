@@ -540,6 +540,19 @@ void av1_cyclic_refresh_update_parameters(AV1_COMP *const cpi) {
   }
 }
 
+static void cyclic_refresh_reset_resize(AV1_COMP *const cpi) {
+  const AV1_COMMON *const cm = &cpi->common;
+  CYCLIC_REFRESH *const cr = cpi->cyclic_refresh;
+  memset(cr->map, 0, cm->mi_params.mi_rows * cm->mi_params.mi_cols);
+  cr->sb_index = 0;
+  cr->last_sb_index = 0;
+  cpi->refresh_frame.golden_frame = true;
+  cr->apply_cyclic_refresh = 0;
+  cr->counter_encode_maxq_scene_change = 0;
+  cr->percent_refresh_adjustment = 5;
+  cr->rate_ratio_qdelta_adjustment = 0.25;
+}
+
 // Setup cyclic background refresh: set delta q and segmentation map.
 void av1_cyclic_refresh_setup(AV1_COMP *const cpi) {
   AV1_COMMON *const cm = &cpi->common;
@@ -560,7 +573,7 @@ void av1_cyclic_refresh_setup(AV1_COMP *const cpi) {
        cm->height != cm->prev_frame->height) &&
       cpi->svc.prev_number_spatial_layers == cpi->svc.number_spatial_layers;
 
-  if (resolution_change) av1_cyclic_refresh_reset_resize(cpi);
+  if (resolution_change) cyclic_refresh_reset_resize(cpi);
   if (!cr->apply_cyclic_refresh) {
     // Don't disable and set seg_map to 0 if active_maps is enabled, unless
     // whole frame is set as inactive (since we only apply cyclic_refresh to
@@ -651,19 +664,6 @@ void av1_cyclic_refresh_setup(AV1_COMP *const cpi) {
 
 int av1_cyclic_refresh_get_rdmult(const CYCLIC_REFRESH *cr) {
   return cr->rdmult;
-}
-
-void av1_cyclic_refresh_reset_resize(AV1_COMP *const cpi) {
-  const AV1_COMMON *const cm = &cpi->common;
-  CYCLIC_REFRESH *const cr = cpi->cyclic_refresh;
-  memset(cr->map, 0, cm->mi_params.mi_rows * cm->mi_params.mi_cols);
-  cr->sb_index = 0;
-  cr->last_sb_index = 0;
-  cpi->refresh_frame.golden_frame = true;
-  cr->apply_cyclic_refresh = 0;
-  cr->counter_encode_maxq_scene_change = 0;
-  cr->percent_refresh_adjustment = 5;
-  cr->rate_ratio_qdelta_adjustment = 0.25;
 }
 
 int av1_cyclic_refresh_disable_lf_cdef(AV1_COMP *const cpi) {

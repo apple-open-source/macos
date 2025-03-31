@@ -39,18 +39,24 @@ new_subregion(
     const native_segment_command_t *sc,
     const struct libent *le)
 {
-    struct subregion *s = malloc(sizeof (*s));
-
-    assert(vmaddr != 0 && vmsize != 0);
-    assert(vmaddr < vmaddr + vmsize);
-    s->s_segcmd = *sc;
-
-    S_SETADDR(s, vmaddr);
-    S_SETSIZE(s, vmsize);
-
-    s->s_libent = le;
-    s->s_isuuidref = false;
-    return s;
+    if ((vmaddr != 0 && vmsize != 0) && (vmaddr < vmaddr + vmsize))
+    {
+        struct subregion *s = malloc(sizeof (*s));
+        
+        assert(vmaddr != 0 && vmsize != 0);
+        assert(vmaddr < vmaddr + vmsize);
+        s->s_segcmd = *sc;
+        
+        S_SETADDR(s, vmaddr);
+        S_SETSIZE(s, vmsize);
+        
+        s->s_libent = le;
+        s->s_isuuidref = false;
+        s->s_isshared_dyld = false;
+        return s;
+    } else {
+        return NULL;
+    }
 }
 
 static void
@@ -154,21 +160,23 @@ add_subregions_for_libent(
 
                 struct subregionlist *srl = calloc(1, sizeof (*srl));
                 struct subregion *s = new_subregion(lo, hi - lo, sc, le);
-                assert(sc->fileoff >= 0);
-                srl->srl_s = s;
-                STAILQ_INSERT_HEAD(srlh, srl, srl_linkage);
-
-                if (OPTIONS_DEBUG(opt, 2)) {
-                    hsize_str_t hstr;
-                    printr(r, "subregion %llx-%llx %7s %12s\t%s [%s off %lu for %lu nsects %u flags %x]\n",
-                           S_ADDR(s), S_ENDADDR(s),
-                           str_hsize(hstr, S_SIZE(s)),
-                           sc->segname,
-                           S_FILENAME(s),
-                           str_prot(sc->initprot),
-                           (unsigned long)sc->fileoff,
-                           (unsigned long)sc->filesize,
-                           sc->nsects, sc->flags);
+                if (s!=NULL) {
+                    assert(sc->fileoff >= 0);
+                    srl->srl_s = s;
+                    STAILQ_INSERT_HEAD(srlh, srl, srl_linkage);
+                    
+                    if (OPTIONS_DEBUG(opt, 2)) {
+                        hsize_str_t hstr;
+                        printr(r, "subregion %llx-%llx %7s %12s\t%s [%s off %lu for %lu nsects %u flags %x]\n",
+                               S_ADDR(s), S_ENDADDR(s),
+                               str_hsize(hstr, S_SIZE(s)),
+                               sc->segname,
+                               S_FILENAME(s),
+                               str_prot(sc->initprot),
+                               (unsigned long)sc->fileoff,
+                               (unsigned long)sc->filesize,
+                               sc->nsects, sc->flags);
+                    }
                 }
                 break;
             default:
@@ -298,6 +306,9 @@ decorate_memory_region(struct region *r, void *arg)
 					}
 					continue;
 				}
+                
+                if (is_range_part_of_the_shared_library_address_space(s->s_range.addr,s->s_range.size))
+                    s->s_isshared_dyld = true;
 				if (r->r_insharedregion) {
 					/*
 					 * Part of the shared region: things get more complicated.
@@ -469,6 +480,16 @@ sparse_region_optimization(struct region *r, __unused void *arg)
                 /* subregions are pagewise-adjacent: bigger chunks to compress */
                 if (OPTIONS_DEBUG(opt, 2))
                     printr(r, "merging subregions (%llx-%llx + %llx-%llx) -- adjacent pages\n",
+                           S_ADDR(s0), S_ENDADDR(s0), S_ADDR(s1), S_ENDADDR(s1));
+                S_SETSIZE(s0, S_ENDADDR(s1) - S_ADDR(s0));
+                elide_subregion(r, i);
+                continue;
+            }
+            /* Join regions with an offset < 7 bytes to avoid problems with DYLD dirty regions boundaries*/
+            if (endpfn[0] + 7 >= pfn[1] ) {
+                /* subregions are pagewise-adjacent: bigger chunks to compress */
+                if (OPTIONS_DEBUG(opt, 2))
+                    printr(r, "Nerging subregions (%llx-%llx + %llx-%llx) -- adjacent pages\n",
                            S_ADDR(s0), S_ENDADDR(s0), S_ADDR(s1), S_ENDADDR(s1));
                 S_SETSIZE(s0, S_ENDADDR(s1) - S_ADDR(s0));
                 elide_subregion(r, i);

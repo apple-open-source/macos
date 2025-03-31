@@ -93,6 +93,19 @@ extern const CFStringRef kSecPolicyApplePassbookSigning
     __OSX_AVAILABLE_STARTING(__MAC_10_9, __IPHONE_7_0);
 extern const CFStringRef kSecPolicyApplePayIssuerEncryption
     __OSX_AVAILABLE_STARTING(__MAC_10_11, __IPHONE_9_0);
+extern const CFStringRef kSecPolicyAppleSSLServer
+    API_AVAILABLE(macos(15.4), ios(18.4), watchos(11.4), tvos(18.4));
+extern const CFStringRef kSecPolicyAppleSSLClient
+    API_AVAILABLE(macos(15.4), ios(18.4), watchos(11.4), tvos(18.4));
+extern const CFStringRef kSecPolicyAppleEAPServer
+    API_AVAILABLE(macos(15.4), ios(18.4), watchos(11.4), tvos(18.4));
+extern const CFStringRef kSecPolicyAppleEAPClient
+    API_AVAILABLE(macos(15.4), ios(18.4), watchos(11.4), tvos(18.4));
+extern const CFStringRef kSecPolicyAppleIPSecServer
+    API_AVAILABLE(macos(15.4), ios(18.4), watchos(11.4), tvos(18.4));
+extern const CFStringRef kSecPolicyAppleIPSecClient
+    API_AVAILABLE(macos(15.4), ios(18.4), watchos(11.4), tvos(18.4));
+
 
 /*!
     @enum Policy Value Constants

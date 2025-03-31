@@ -24,22 +24,24 @@
 
 #pragma once
 
-#include <optional>
-#include <wtf/RefPtr.h>
+#include <wtf/Forward.h>
 
 namespace WebCore {
 
+namespace CSS {
+struct Range;
+}
+
 class CSSParserTokenRange;
 class CSSPrimitiveValue;
+struct CSSParserContext;
 
 namespace CSSPropertyParserHelpers {
 
-enum class IntegerValueRange : uint8_t;
-
-RefPtr<CSSPrimitiveValue> consumeInteger(CSSParserTokenRange&);
-RefPtr<CSSPrimitiveValue> consumeNonNegativeInteger(CSSParserTokenRange&);
-RefPtr<CSSPrimitiveValue> consumePositiveInteger(CSSParserTokenRange&);
-RefPtr<CSSPrimitiveValue> consumeInteger(CSSParserTokenRange&, IntegerValueRange);
+RefPtr<CSSPrimitiveValue> consumeInteger(CSSParserTokenRange&, const CSSParserContext&);
+RefPtr<CSSPrimitiveValue> consumeNonNegativeInteger(CSSParserTokenRange&, const CSSParserContext&);
+RefPtr<CSSPrimitiveValue> consumePositiveInteger(CSSParserTokenRange&, const CSSParserContext&);
+RefPtr<CSSPrimitiveValue> consumeInteger(CSSParserTokenRange&, const CSSParserContext&, const CSS::Range&);
 
 } // namespace CSSPropertyParserHelpers
 } // namespace WebCore

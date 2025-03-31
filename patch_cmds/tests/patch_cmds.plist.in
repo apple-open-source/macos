@@ -15,7 +15,7 @@
 #if TARGET_OS_OSX
 		<dict>
 			<key>TestName</key>
-			<string>patch_cmds.cmp_test.missing</string>
+			<string>patch_cmds.t_cmp.sh.missing</string>
 			<key>ShellEnv</key>
 			<dict>
 				<key>ATF_SH</key>
@@ -42,7 +42,7 @@
 		</dict>
 		<dict>
 			<key>TestName</key>
-			<string>patch_cmds.cmp_test.skip</string>
+			<string>patch_cmds.t_cmp.sh.skip</string>
 			<key>ShellEnv</key>
 			<dict>
 				<key>ATF_SH</key>
@@ -231,7 +231,34 @@
 		</dict>
 		<dict>
 			<key>TestName</key>
-			<string>patch_cmds.diff.t_diff.mallocv</string>
+			<string>patch_cmds.cmp_test2.sh.stdout</string>
+			<key>ShellEnv</key>
+			<dict>
+				<key>ATF_SH</key>
+				<string>/usr/local/bin/atf-sh</string>
+				<key>__RUNNING_INSIDE_ATF_RUN</key>
+				<string>internal-yes-value</string>
+			</dict>
+			<key>Command</key>
+			<array>
+				<string>/usr/local/bin/atf-sh</string>
+				<string>/AppleInternal/Tests/patch_cmds/cmp/cmp_test2.sh</string>
+				<string>-s</string>
+				<string>/AppleInternal/Tests/patch_cmds/cmp</string>
+				<string>-r</string>
+				<string>cmp_test2.sh.stdout.results.txt</string>
+				<string>stdout</string>
+			</array>
+			<key>Description</key>
+			<string>Failure to write to stdout</string>
+			<key>MayRunConcurrently</key>
+			<true/>
+			<key>Timeout</key>
+			<integer>300</integer>
+		</dict>
+		<dict>
+			<key>TestName</key>
+			<string>patch_cmds.t_diff.sh.mallocv</string>
 			<key>ShellEnv</key>
 			<dict>
 				<key>ATF_SH</key>
@@ -258,7 +285,7 @@
 		</dict>
 		<dict>
 			<key>TestName</key>
-			<string>patch_cmds.diff.t_diff.nomallocv</string>
+			<string>patch_cmds.t_diff.sh.nomallocv</string>
 			<key>ShellEnv</key>
 			<dict>
 				<key>ATF_SH</key>
@@ -285,7 +312,7 @@
 		</dict>
 		<dict>
 			<key>TestName</key>
-			<string>patch_cmds.diff.t_diff.same</string>
+			<string>patch_cmds.t_diff.sh.same</string>
 			<key>ShellEnv</key>
 			<dict>
 				<key>ATF_SH</key>
@@ -312,7 +339,7 @@
 		</dict>
 		<dict>
 			<key>TestName</key>
-			<string>patch_cmds.diff.diff_test.simple</string>
+			<string>patch_cmds.diff_test.sh.simple</string>
 			<key>ShellEnv</key>
 			<dict>
 				<key>ATF_SH</key>
@@ -337,7 +364,7 @@
 		</dict>
 		<dict>
 			<key>TestName</key>
-			<string>patch_cmds.diff.diff_test.unified</string>
+			<string>patch_cmds.diff_test.sh.unified</string>
 			<key>ShellEnv</key>
 			<dict>
 				<key>ATF_SH</key>
@@ -362,7 +389,7 @@
 		</dict>
 		<dict>
 			<key>TestName</key>
-			<string>patch_cmds.diff.diff_test.header</string>
+			<string>patch_cmds.diff_test.sh.header</string>
 			<key>ShellEnv</key>
 			<dict>
 				<key>ATF_SH</key>
@@ -387,7 +414,7 @@
 		</dict>
 		<dict>
 			<key>TestName</key>
-			<string>patch_cmds.diff.diff_test.header_ns</string>
+			<string>patch_cmds.diff_test.sh.header_ns</string>
 			<key>ShellEnv</key>
 			<dict>
 				<key>ATF_SH</key>
@@ -412,7 +439,7 @@
 		</dict>
 		<dict>
 			<key>TestName</key>
-			<string>patch_cmds.diff.diff_test.ifdef</string>
+			<string>patch_cmds.diff_test.sh.ifdef</string>
 			<key>ShellEnv</key>
 			<dict>
 				<key>ATF_SH</key>
@@ -437,7 +464,7 @@
 		</dict>
 		<dict>
 			<key>TestName</key>
-			<string>patch_cmds.diff.diff_test.group_format</string>
+			<string>patch_cmds.diff_test.sh.group_format</string>
 			<key>ShellEnv</key>
 			<dict>
 				<key>ATF_SH</key>
@@ -462,7 +489,7 @@
 		</dict>
 		<dict>
 			<key>TestName</key>
-			<string>patch_cmds.diff.diff_test.side_by_side</string>
+			<string>patch_cmds.diff_test.sh.side_by_side</string>
 			<key>ShellEnv</key>
 			<dict>
 				<key>ATF_SH</key>
@@ -487,7 +514,7 @@
 		</dict>
 		<dict>
 			<key>TestName</key>
-			<string>patch_cmds.diff.diff_test.side_by_side_tabbed</string>
+			<string>patch_cmds.diff_test.sh.side_by_side_tabbed</string>
 			<key>ShellEnv</key>
 			<dict>
 				<key>ATF_SH</key>
@@ -512,7 +539,7 @@
 		</dict>
 		<dict>
 			<key>TestName</key>
-			<string>patch_cmds.diff.diff_test.brief_format</string>
+			<string>patch_cmds.diff_test.sh.brief_format</string>
 			<key>ShellEnv</key>
 			<dict>
 				<key>ATF_SH</key>
@@ -537,7 +564,7 @@
 		</dict>
 		<dict>
 			<key>TestName</key>
-			<string>patch_cmds.diff.diff_test.b230049</string>
+			<string>patch_cmds.diff_test.sh.b230049</string>
 			<key>ShellEnv</key>
 			<dict>
 				<key>ATF_SH</key>
@@ -562,7 +589,7 @@
 		</dict>
 		<dict>
 			<key>TestName</key>
-			<string>patch_cmds.diff.diff_test.stripcr_o</string>
+			<string>patch_cmds.diff_test.sh.stripcr_o</string>
 			<key>ShellEnv</key>
 			<dict>
 				<key>ATF_SH</key>
@@ -587,7 +614,7 @@
 		</dict>
 		<dict>
 			<key>TestName</key>
-			<string>patch_cmds.diff.diff_test.b252515</string>
+			<string>patch_cmds.diff_test.sh.b252515</string>
 			<key>ShellEnv</key>
 			<dict>
 				<key>ATF_SH</key>
@@ -612,7 +639,32 @@
 		</dict>
 		<dict>
 			<key>TestName</key>
-			<string>patch_cmds.diff.diff_test.Bflag</string>
+			<string>patch_cmds.diff_test.sh.b278988</string>
+			<key>ShellEnv</key>
+			<dict>
+				<key>ATF_SH</key>
+				<string>/usr/local/bin/atf-sh</string>
+				<key>__RUNNING_INSIDE_ATF_RUN</key>
+				<string>internal-yes-value</string>
+			</dict>
+			<key>Command</key>
+			<array>
+				<string>/usr/local/bin/atf-sh</string>
+				<string>/AppleInternal/Tests/patch_cmds/diff/diff_test.sh</string>
+				<string>-s</string>
+				<string>/AppleInternal/Tests/patch_cmds/diff</string>
+				<string>-r</string>
+				<string>diff_test.sh.b278988.results.txt</string>
+				<string>b278988</string>
+			</array>
+			<key>MayRunConcurrently</key>
+			<true/>
+			<key>Timeout</key>
+			<integer>300</integer>
+		</dict>
+		<dict>
+			<key>TestName</key>
+			<string>patch_cmds.diff_test.sh.Bflag</string>
 			<key>ShellEnv</key>
 			<dict>
 				<key>ATF_SH</key>
@@ -637,7 +689,7 @@
 		</dict>
 		<dict>
 			<key>TestName</key>
-			<string>patch_cmds.diff.diff_test.Nflag</string>
+			<string>patch_cmds.diff_test.sh.Nflag</string>
 			<key>ShellEnv</key>
 			<dict>
 				<key>ATF_SH</key>
@@ -662,7 +714,7 @@
 		</dict>
 		<dict>
 			<key>TestName</key>
-			<string>patch_cmds.diff.diff_test.tabsize</string>
+			<string>patch_cmds.diff_test.sh.tabsize</string>
 			<key>ShellEnv</key>
 			<dict>
 				<key>ATF_SH</key>
@@ -687,7 +739,7 @@
 		</dict>
 		<dict>
 			<key>TestName</key>
-			<string>patch_cmds.diff.diff_test.conflicting_format</string>
+			<string>patch_cmds.diff_test.sh.conflicting_format</string>
 			<key>ShellEnv</key>
 			<dict>
 				<key>ATF_SH</key>
@@ -712,7 +764,7 @@
 		</dict>
 		<dict>
 			<key>TestName</key>
-			<string>patch_cmds.diff.diff_test.label</string>
+			<string>patch_cmds.diff_test.sh.label</string>
 			<key>ShellEnv</key>
 			<dict>
 				<key>ATF_SH</key>
@@ -737,7 +789,7 @@
 		</dict>
 		<dict>
 			<key>TestName</key>
-			<string>patch_cmds.diff.diff_test.report_identical</string>
+			<string>patch_cmds.diff_test.sh.report_identical</string>
 			<key>ShellEnv</key>
 			<dict>
 				<key>ATF_SH</key>
@@ -764,7 +816,7 @@
 		</dict>
 		<dict>
 			<key>TestName</key>
-			<string>patch_cmds.diff.diff_test.non_regular_file</string>
+			<string>patch_cmds.diff_test.sh.non_regular_file</string>
 			<key>ShellEnv</key>
 			<dict>
 				<key>ATF_SH</key>
@@ -789,7 +841,7 @@
 		</dict>
 		<dict>
 			<key>TestName</key>
-			<string>patch_cmds.diff.diff_test.binary</string>
+			<string>patch_cmds.diff_test.sh.binary</string>
 			<key>ShellEnv</key>
 			<dict>
 				<key>ATF_SH</key>
@@ -814,7 +866,7 @@
 		</dict>
 		<dict>
 			<key>TestName</key>
-			<string>patch_cmds.diff.diff_test.functionname</string>
+			<string>patch_cmds.diff_test.sh.functionname</string>
 			<key>ShellEnv</key>
 			<dict>
 				<key>ATF_SH</key>
@@ -839,7 +891,7 @@
 		</dict>
 		<dict>
 			<key>TestName</key>
-			<string>patch_cmds.diff.diff_test.noderef</string>
+			<string>patch_cmds.diff_test.sh.noderef</string>
 			<key>ShellEnv</key>
 			<dict>
 				<key>ATF_SH</key>
@@ -864,7 +916,7 @@
 		</dict>
 		<dict>
 			<key>TestName</key>
-			<string>patch_cmds.diff.diff_test.ignorecase</string>
+			<string>patch_cmds.diff_test.sh.ignorecase</string>
 			<key>ShellEnv</key>
 			<dict>
 				<key>ATF_SH</key>
@@ -889,7 +941,7 @@
 		</dict>
 		<dict>
 			<key>TestName</key>
-			<string>patch_cmds.diff.diff_test.unified_timestamp</string>
+			<string>patch_cmds.diff_test.sh.unified_timestamp</string>
 			<key>ShellEnv</key>
 			<dict>
 				<key>ATF_SH</key>
@@ -905,7 +957,7 @@
 				<string>/AppleInternal/Tests/patch_cmds/diff</string>
 				<string>-r</string>
 				<string>diff_test.sh.unified_timestamp.results.txt</string>
-				<string>unified</string>
+				<string>unified_timestamp</string>
 			</array>
 			<key>MayRunConcurrently</key>
 			<true/>
@@ -914,7 +966,32 @@
 		</dict>
 		<dict>
 			<key>TestName</key>
-			<string>patch_cmds.diff.diff_test.color</string>
+			<string>patch_cmds.diff_test.sh.crlfeol</string>
+			<key>ShellEnv</key>
+			<dict>
+				<key>ATF_SH</key>
+				<string>/usr/local/bin/atf-sh</string>
+				<key>__RUNNING_INSIDE_ATF_RUN</key>
+				<string>internal-yes-value</string>
+			</dict>
+			<key>Command</key>
+			<array>
+				<string>/usr/local/bin/atf-sh</string>
+				<string>/AppleInternal/Tests/patch_cmds/diff/diff_test.sh</string>
+				<string>-s</string>
+				<string>/AppleInternal/Tests/patch_cmds/diff</string>
+				<string>-r</string>
+				<string>diff_test.sh.crlfeol.results.txt</string>
+				<string>crlfeol</string>
+			</array>
+			<key>MayRunConcurrently</key>
+			<true/>
+			<key>Timeout</key>
+			<integer>300</integer>
+		</dict>
+		<dict>
+			<key>TestName</key>
+			<string>patch_cmds.diff_test.sh.color</string>
 			<key>ShellEnv</key>
 			<dict>
 				<key>ATF_SH</key>
@@ -930,7 +1007,7 @@
 				<string>/AppleInternal/Tests/patch_cmds/diff</string>
 				<string>-r</string>
 				<string>diff_test.sh.color.results.txt</string>
-				<string>unified</string>
+				<string>color</string>
 			</array>
 			<key>MayRunConcurrently</key>
 			<true/>
@@ -939,7 +1016,7 @@
 		</dict>
 		<dict>
 			<key>TestName</key>
-			<string>patch_cmds.diff.diff_test.truncated</string>
+			<string>patch_cmds.diff_test.sh.truncated</string>
 			<key>ShellEnv</key>
 			<dict>
 				<key>ATF_SH</key>
@@ -964,7 +1041,7 @@
 		</dict>
 		<dict>
 			<key>TestName</key>
-			<string>patch_cmds.diff.diff_test.fifodiff</string>
+			<string>patch_cmds.diff_test.sh.fifodiff</string>
 			<key>ShellEnv</key>
 			<dict>
 				<key>ATF_SH</key>
@@ -1082,6 +1159,32 @@
 				<string>diff3_test.sh.diff3_merge.results.txt</string>
 				<string>diff3_merge</string>
 			</array>
+			<key>MayRunConcurrently</key>
+			<true/>
+			<key>Timeout</key>
+			<integer>300</integer>
+		</dict>
+		<dict>
+			<key>TestName</key>
+			<string>patch_cmds.libdiff_test.diff_atomize_truncated</string>
+			<key>ShellEnv</key>
+			<dict>
+				<key>ATF_SH</key>
+				<string>/usr/local/bin/atf-sh</string>
+				<key>__RUNNING_INSIDE_ATF_RUN</key>
+				<string>internal-yes-value</string>
+			</dict>
+			<key>Command</key>
+			<array>
+				<string>/AppleInternal/Tests/patch_cmds/diff/libdiff_test</string>
+				<string>-s</string>
+				<string>/AppleInternal/Tests/patch_cmds/diff</string>
+				<string>-r</string>
+				<string>libdiff_test.diff_atomize_truncated.results.txt</string>
+				<string>diff_atomize_truncated</string>
+			</array>
+			<key>Description</key>
+			<string>Verify that the atomizer does not crash when an input file is truncated</string>
 			<key>MayRunConcurrently</key>
 			<true/>
 			<key>Timeout</key>

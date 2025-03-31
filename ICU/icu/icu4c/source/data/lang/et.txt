@@ -222,7 +222,6 @@ et{
         fur{"friuuli"}
         fy{"läänefriisi"}
         ga{"iiri"}
-        gaa{"gaa"}
         gag{"gagauusi"}
         gan{"kani"}
         gay{"gajo"}
@@ -358,6 +357,7 @@ et{
         lil{"lillueti"}
         liv{"liivi"}
         lkt{"lakota"}
+        lld{"ladiini"}
         lmo{"lombardi"}
         ln{"lingala"}
         lo{"lao"}
@@ -372,7 +372,6 @@ et{
         lua{"lulua"}
         lui{"luisenjo"}
         lun{"lunda"}
-        luo{"luo"}
         lus{"lušei"}
         luy{"luhja"}
         lv{"läti"}
@@ -396,6 +395,7 @@ et{
         mgh{"makhuwa-meetto"}
         mgo{"meta"}
         mh{"maršalli"}
+        mhn{"mohheni"}
         mi{"maoori"}
         mic{"mikmaki"}
         mid{"mandaiki"}
@@ -635,7 +635,6 @@ et{
         und{"määramata keel"}
         ur{"urdu"}
         uz{"usbeki"}
-        vai{"vai"}
         ve{"venda"}
         vec{"veneti"}
         vep{"vepsa"}
@@ -658,6 +657,7 @@ et{
         xal{"kalmõki"}
         xh{"koosa"}
         xmf{"megreli"}
+        xnr{"kangri"}
         xog{"soga"}
         yao{"jao"}
         yap{"japi"}
@@ -741,6 +741,7 @@ et{
         Elba{"Elbasani"}
         Elym{"elümi"}
         Ethi{"etioopia"}
+        Gara{"garai"}
         Geok{"hutsuri"}
         Geor{"gruusia"}
         Glag{"glagoolitsa"}
@@ -852,6 +853,7 @@ et{
         Sora{"sora"}
         Soyo{"sojombo"}
         Sund{"sunda"}
+        Sunu{"sunvari"}
         Sylo{"siloti"}
         Syrc{"süüria"}
         Syre{"süüria estrangelo"}
@@ -969,7 +971,6 @@ et{
             phonebook{"telefoniraamatu sortimisjärjestus"}
             phonetic{"foneetiline sortimisjärjestus"}
             pinyin{"pinyin’i sortimisjärjestus"}
-            reformed{"reformitud sortimisjärjestus"}
             search{"üldeesmärgiline otsing"}
             searchjl{"otsing korea alguskonsonandi järgi"}
             standard{"standardne järjestus"}

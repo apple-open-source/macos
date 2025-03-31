@@ -112,6 +112,10 @@ test-dhcpv6-options: DHCPv6Options.c DHCPv6.c DHCPDUID.c ptrlist.c util.c DNSNam
 test-duid: DHCPDUID.c cfutil.c
 	$(CC) -DTEST_DHCPDUID -isysroot $(SYSROOT) $(ARCH_FLAGS) -framework CoreFoundation -framework SystemConfiguration -g -o $@ $^
 
+dhcp-hostname: cfutil.c
+	$(CC) -DTEST_DHCP_HOSTNAME -isysroot $(SYSROOT) $(ARCH_FLAGS) $(SYSPRIV) $(PF_INC) -Wall -g -o $@ $^ -framework SystemConfiguration -framework CoreFoundation
+	codesign -s - $@
+
 clean:
 	rm -f afpusers arp dhcpopt dnsnamelist genoptionfiles hfsvols interfaces nbimages nbsp nihosts nilist readtest sharepoints subnets test-dhcpv6-options IPv4ClasslessRoute inetroute interfaces-no-sc test-duid
 	rm -rf *.dSYM/

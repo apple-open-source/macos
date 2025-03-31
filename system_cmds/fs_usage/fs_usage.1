@@ -15,6 +15,7 @@ real-time
 .Op Fl b
 .Op Fl t Ar seconds
 .Op Fl R Ar rawfile Op Fl S Ar start_time Fl E Ar end_time
+.Op Fl F
 .Op Ar pid | cmd Op Ar pid | cmd Op ...
 .Sh DESCRIPTION
 The
@@ -115,6 +116,13 @@ is selected, specifies the ending time in microseconds to
 stop processing entries from the raw trace file.
 Entries with timestamps beyond the specified ending time will be
 skipped.
+.\" ==========
+.It Fl F
+Specifying the
+.Fl F
+option trims pathnames from the right side, keeping
+the front of the pathname. By default, pathnames are
+trimmed from the left side.
 .\" ==========
 .It  pid | cmd
 The sampled data can be limited to a list of process IDs or commands.

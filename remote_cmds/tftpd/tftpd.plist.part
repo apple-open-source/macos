@@ -2,11 +2,11 @@
 		<key>OpenSourceProject</key>
 		<string>tftpd</string>
 		<key>OpenSourceVersion</key>
-		<string>2024-03-10</string>
+		<string>2024-05-10</string>
 		<key>OpenSourceWebsiteURL</key>
-		<string>https://cgit.freebsd.org/src/tree/libexec/tftpd?id=1955ad42b3b71a2083bd6d2aec0d9a10dd78eb21</string>
+		<string>https://cgit.freebsd.org/src/tree/libexec/tftpd?id=25945af47e7a1d06c44c8c160045a866e90569ab</string>
 		<key>OpenSourceImportDate</key>
-		<string>2023-03-10</string>
+		<string>2024-05-14</string>
 		<key>OpenSourceModifications</key>
 		<array>
 			<string>tftp-options.c: adjust type of net.inet.udp.maxdgram</string>

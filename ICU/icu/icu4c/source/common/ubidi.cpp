@@ -310,7 +310,7 @@ ubidi_setReorderingMode(UBiDi *pBiDi, UBiDiReorderingMode reorderingMode) UPRV_N
     if ((pBiDi!=nullptr) && (reorderingMode >= UBIDI_REORDER_DEFAULT)
                         && (reorderingMode < UBIDI_REORDER_COUNT)) {
         pBiDi->reorderingMode = reorderingMode;
-        pBiDi->isInverse = (UBool)(reorderingMode == UBIDI_REORDER_INVERSE_NUMBERS_AS_L);
+        pBiDi->isInverse = reorderingMode == UBIDI_REORDER_INVERSE_NUMBERS_AS_L;
     }
 }
 
@@ -387,7 +387,7 @@ firstL_R_AL(UBiDi *pBiDi) {
     for(i=0; i<length; ) {
         /* i is incremented by U16_NEXT */
         U16_NEXT(text, i, length, uchar);
-        dirProp=(DirProp)ubidi_getCustomizedClass(pBiDi, uchar);
+        dirProp = static_cast<DirProp>(ubidi_getCustomizedClass(pBiDi, uchar));
         if(result==ON) {
             if(dirProp==L || dirProp==R || dirProp==AL) {
                 result=dirProp;
@@ -569,13 +569,13 @@ getDirProps(UBiDi *pBiDi) {
     UBool isDefaultLevel=IS_DEFAULT_LEVEL(pBiDi->paraLevel);
     /* for inverse BiDi, the default para level is set to RTL if there is a
        strong R or AL character at either end of the text                            */
-    UBool isDefaultLevelInverse=isDefaultLevel && (UBool)
-            (pBiDi->reorderingMode==UBIDI_REORDER_INVERSE_LIKE_DIRECT ||
-             pBiDi->reorderingMode==UBIDI_REORDER_INVERSE_FOR_NUMBERS_SPECIAL);
+    UBool isDefaultLevelInverse = isDefaultLevel && static_cast<UBool>(
+            pBiDi->reorderingMode == UBIDI_REORDER_INVERSE_LIKE_DIRECT ||
+            pBiDi->reorderingMode == UBIDI_REORDER_INVERSE_FOR_NUMBERS_SPECIAL);
     int32_t lastArabicPos=-1;
     int32_t controlCount=0;
-    UBool removeBiDiControls = (UBool)(pBiDi->reorderingOptions &
-                                       UBIDI_OPTION_REMOVE_CONTROLS);
+    UBool removeBiDiControls =
+        static_cast<UBool>(pBiDi->reorderingOptions & UBIDI_OPTION_REMOVE_CONTROLS);
 
     enum State {
          NOT_SEEKING_STRONG,            /* 0: not contextual paraLevel, not after FSI */
@@ -869,7 +869,7 @@ bracketInit(UBiDi *pBiDi, BracketData *bd) {
     bd->isoRuns[0].level=GET_PARALEVEL(pBiDi, 0);
     UBiDiLevel t = GET_PARALEVEL(pBiDi, 0) & 1;
     bd->isoRuns[0].lastStrong = bd->isoRuns[0].lastBase = t;
-    bd->isoRuns[0].contextDir = (UBiDiDirection)t;
+    bd->isoRuns[0].contextDir = static_cast<UBiDiDirection>(t);
     bd->isoRuns[0].contextPos=0;
     if(pBiDi->openingsMemory) {
         bd->openings=pBiDi->openingsMemory;
@@ -889,7 +889,7 @@ bracketProcessB(BracketData *bd, UBiDiLevel level) {
     bd->isoRuns[0].limit=0;
     bd->isoRuns[0].level=level;
     bd->isoRuns[0].lastStrong=bd->isoRuns[0].lastBase=level&1;
-    bd->isoRuns[0].contextDir=(UBiDiDirection)(level&1);
+    bd->isoRuns[0].contextDir = static_cast<UBiDiDirection>(level & 1);
     bd->isoRuns[0].contextPos=0;
 }
 
@@ -915,8 +915,8 @@ bracketProcessBoundary(BracketData *bd, int32_t lastCcPos,
     pLastIsoRun->limit=pLastIsoRun->start;
     pLastIsoRun->level=embeddingLevel;
     pLastIsoRun->lastStrong=pLastIsoRun->lastBase=contextLevel&1;
-    pLastIsoRun->contextDir=(UBiDiDirection)(contextLevel&1);
-    pLastIsoRun->contextPos=(UBiDiDirection)lastCcPos;
+    pLastIsoRun->contextDir = static_cast<UBiDiDirection>(contextLevel & 1);
+    pLastIsoRun->contextPos = static_cast<UBiDiDirection>(lastCcPos);
 }
 
 /* LRI or RLI */
@@ -931,7 +931,7 @@ bracketProcessLRI_RLI(BracketData *bd, UBiDiLevel level) {
     pLastIsoRun->start=pLastIsoRun->limit=lastLimit;
     pLastIsoRun->level=level;
     pLastIsoRun->lastStrong=pLastIsoRun->lastBase=level&1;
-    pLastIsoRun->contextDir=(UBiDiDirection)(level&1);
+    pLastIsoRun->contextDir = static_cast<UBiDiDirection>(level & 1);
     pLastIsoRun->contextPos=0;
 }
 
@@ -1005,7 +1005,7 @@ bracketProcessClosing(BracketData *bd, int32_t openIdx, int32_t position) {
     UBool stable;
     DirProp newProp;
     pOpening=&bd->openings[openIdx];
-    direction=(UBiDiDirection)(pLastIsoRun->level&1);
+    direction = static_cast<UBiDiDirection>(pLastIsoRun->level & 1);
     stable=true;            /* assume stable until proved otherwise */
 
     /* The stable flag is set when brackets are paired and their
@@ -1098,7 +1098,7 @@ bracketProcessChar(BracketData *bd, int32_t position) {
                 break;
             }
             pLastIsoRun->lastBase=ON;
-            pLastIsoRun->contextDir=(UBiDiDirection)newProp;
+            pLastIsoRun->contextDir = static_cast<UBiDiDirection>(newProp);
             pLastIsoRun->contextPos=position;
             level=bd->pBiDi->levels[position];
             if(level&UBIDI_LEVEL_OVERRIDE) {    /* X4, X5 */
@@ -1146,14 +1146,14 @@ bracketProcessChar(BracketData *bd, int32_t position) {
             dirProps[position]=newProp;
         pLastIsoRun->lastBase=newProp;
         pLastIsoRun->lastStrong=newProp;
-        pLastIsoRun->contextDir=(UBiDiDirection)newProp;
+        pLastIsoRun->contextDir = static_cast<UBiDiDirection>(newProp);
         pLastIsoRun->contextPos=position;
     }
     else if(dirProp<=R || dirProp==AL) {
         newProp= static_cast<DirProp>(DIR_FROM_STRONG(dirProp));
         pLastIsoRun->lastBase=dirProp;
         pLastIsoRun->lastStrong=dirProp;
-        pLastIsoRun->contextDir=(UBiDiDirection)newProp;
+        pLastIsoRun->contextDir = static_cast<UBiDiDirection>(newProp);
         pLastIsoRun->contextPos=position;
     }
     else if(dirProp==EN) {
@@ -1162,7 +1162,7 @@ bracketProcessChar(BracketData *bd, int32_t position) {
             newProp=L;                  /* W7 */
             if(!bd->isNumbersSpecial)
                 dirProps[position]=ENL;
-            pLastIsoRun->contextDir=(UBiDiDirection)L;
+            pLastIsoRun->contextDir = static_cast<UBiDiDirection>(L);
             pLastIsoRun->contextPos=position;
         }
         else {
@@ -1171,14 +1171,14 @@ bracketProcessChar(BracketData *bd, int32_t position) {
                 dirProps[position]=AN;  /* W2 */
             else
                 dirProps[position]=ENR;
-            pLastIsoRun->contextDir=(UBiDiDirection)R;
+            pLastIsoRun->contextDir = static_cast<UBiDiDirection>(R);
             pLastIsoRun->contextPos=position;
         }
     }
     else if(dirProp==AN) {
         newProp=R;                      /* N0 */
         pLastIsoRun->lastBase=AN;
-        pLastIsoRun->contextDir=(UBiDiDirection)R;
+        pLastIsoRun->contextDir = static_cast<UBiDiDirection>(R);
         pLastIsoRun->contextPos=position;
     }
     else if(dirProp==NSM) {
@@ -1411,10 +1411,10 @@ resolveExplicitLevels(UBiDi *pBiDi, UErrorCode *pErrorCode) {
                 levels[i]=previousLevel;
                 if (dirProp==LRE || dirProp==LRO)
                     /* least greater even level */
-                    newLevel=(UBiDiLevel)((embeddingLevel+2)&~(UBIDI_LEVEL_OVERRIDE|1));
+                    newLevel = static_cast<UBiDiLevel>((embeddingLevel + 2) & ~(UBIDI_LEVEL_OVERRIDE | 1));
                 else
                     /* least greater odd level */
-                    newLevel=(UBiDiLevel)((NO_OVERRIDE(embeddingLevel)+1)|1);
+                    newLevel = static_cast<UBiDiLevel>((NO_OVERRIDE(embeddingLevel) + 1) | 1);
                 if(newLevel<=UBIDI_MAX_EXPLICIT_LEVEL && overflowIsolateCount==0 &&
                                                          overflowEmbeddingCount==0) {
                     lastCcPos=i;
@@ -1455,7 +1455,7 @@ resolveExplicitLevels(UBiDi *pBiDi, UErrorCode *pErrorCode) {
                     lastCcDirProp = dirProp;
 #endif // APPLE_ICU_CHANGES
                     stackLast--;
-                    embeddingLevel=(UBiDiLevel)stack[stackLast];
+                    embeddingLevel = static_cast<UBiDiLevel>(stack[stackLast]);
                 }
                 break;
             case LRI:
@@ -1475,10 +1475,10 @@ resolveExplicitLevels(UBiDi *pBiDi, UErrorCode *pErrorCode) {
                 /* (X5a, X5b) */
                 if(dirProp==LRI)
                     /* least greater even level */
-                    newLevel=(UBiDiLevel)((embeddingLevel+2)&~(UBIDI_LEVEL_OVERRIDE|1));
+                    newLevel = static_cast<UBiDiLevel>((embeddingLevel + 2) & ~(UBIDI_LEVEL_OVERRIDE | 1));
                 else
                     /* least greater odd level */
-                    newLevel=(UBiDiLevel)((NO_OVERRIDE(embeddingLevel)+1)|1);
+                    newLevel = static_cast<UBiDiLevel>((NO_OVERRIDE(embeddingLevel) + 1) | 1);
                 if(newLevel<=UBIDI_MAX_EXPLICIT_LEVEL && overflowIsolateCount==0 &&
                                                          overflowEmbeddingCount==0) {
                     flags|=DIRPROP_FLAG(dirProp);
@@ -1564,7 +1564,7 @@ resolveExplicitLevels(UBiDi *pBiDi, UErrorCode *pErrorCode) {
 #else
                     dirProps[i]=WS;
 #endif // APPLE_ICU_CHANGES
-                embeddingLevel=(UBiDiLevel)stack[stackLast]&~ISOLATE;
+                embeddingLevel = static_cast<UBiDiLevel>(stack[stackLast]) & ~ISOLATE;
                 flags|=(DIRPROP_FLAG(ON)|DIRPROP_FLAG_LR(embeddingLevel));
                 previousLevel=embeddingLevel;
                 levels[i]=NO_OVERRIDE(embeddingLevel);
@@ -1607,7 +1607,7 @@ resolveExplicitLevels(UBiDi *pBiDi, UErrorCode *pErrorCode) {
                 previousLevel=embeddingLevel;
                 levels[i]=embeddingLevel;
                 if(!bracketProcessChar(&bracketData, i))
-                    return (UBiDiDirection)-1;
+                    return static_cast<UBiDiDirection>(-1);
                 /* the dirProp may have been changed in bracketProcessChar() */
                 flags|=DIRPROP_FLAG(dirProps[i]);
                 break;
@@ -1685,7 +1685,7 @@ checkExplicitLevels(UBiDi *pBiDi, UErrorCode *pErrorCode) {
                 } else {
                     // Treat explicit level 0 as a wildcard for the paragraph level.
                     // Avoid making the caller guess what the paragraph level would be.
-                    level = (UBiDiLevel)currentParaLevel;
+                    level = static_cast<UBiDiLevel>(currentParaLevel);
                     levels[i] = level | overrideFlag;
                 }
             } else {
@@ -2196,7 +2196,7 @@ processPropertySeq(UBiDi *pBiDi, LevState *pLevState, uint8_t _prop,
     int32_t start0, k;
 
     start0=start;                           /* save original start position */
-    oldStateSeq=(uint8_t)pLevState->state;
+    oldStateSeq = static_cast<uint8_t>(pLevState->state);
     cell=(*pImpTab)[oldStateSeq][_prop];
     pLevState->state=GET_STATE(cell);       /* isolate the new state */
     actionSeq=(*pImpAct)[GET_ACTION(cell)]; /* isolate the action */
@@ -2404,7 +2404,7 @@ lastL_R_AL(UBiDi *pBiDi) {
     for(i=length; i>0; ) {
         /* i is decremented by U16_PREV */
         U16_PREV(text, 0, i, uchar);
-        dirProp=(DirProp)ubidi_getCustomizedClass(pBiDi, uchar);
+        dirProp = static_cast<DirProp>(ubidi_getCustomizedClass(pBiDi, uchar));
         if(dirProp==L) {
             return DirProp_L;
         }
@@ -2432,7 +2432,7 @@ firstL_R_AL_EN_AN(UBiDi *pBiDi) {
     for(i=0; i<length; ) {
         /* i is incremented by U16_NEXT */
         U16_NEXT(text, i, length, uchar);
-        dirProp=(DirProp)ubidi_getCustomizedClass(pBiDi, uchar);
+        dirProp = static_cast<DirProp>(ubidi_getCustomizedClass(pBiDi, uchar));
         if(dirProp==L) {
             return DirProp_L;
         }
@@ -2479,18 +2479,18 @@ resolveImplicitLevels(UBiDi *pBiDi,
      * actions) and different levels state tables (maybe very similar to the
      * LTR corresponding ones.
      */
-    inverseRTL=(UBool)
-        ((start<pBiDi->lastArabicPos) && (GET_PARALEVEL(pBiDi, start) & 1) &&
-         (pBiDi->reorderingMode==UBIDI_REORDER_INVERSE_LIKE_DIRECT  ||
-          pBiDi->reorderingMode==UBIDI_REORDER_INVERSE_FOR_NUMBERS_SPECIAL));
+    inverseRTL =
+        static_cast<UBool>((start < pBiDi->lastArabicPos) && (GET_PARALEVEL(pBiDi, start) & 1) &&
+                           (pBiDi->reorderingMode == UBIDI_REORDER_INVERSE_LIKE_DIRECT ||
+                            pBiDi->reorderingMode == UBIDI_REORDER_INVERSE_FOR_NUMBERS_SPECIAL));
 
     /* initialize for property and levels state tables */
     levState.startL2EN=-1;              /* used for INVERSE_LIKE_DIRECT_WITH_MARKS */
     levState.lastStrongRTL=-1;          /* used for INVERSE_LIKE_DIRECT_WITH_MARKS */
     levState.runStart=start;
     levState.runLevel=pBiDi->levels[start];
-    levState.pImpTab=(const ImpTab*)((pBiDi->pImpTabPair)->pImpTab)[levState.runLevel&1];
-    levState.pImpAct=(const ImpAct*)((pBiDi->pImpTabPair)->pImpAct)[levState.runLevel&1];
+    levState.pImpTab = static_cast<const ImpTab*>(((pBiDi->pImpTabPair)->pImpTab)[levState.runLevel & 1]);
+    levState.pImpAct = static_cast<const ImpAct*>(((pBiDi->pImpTabPair)->pImpAct)[levState.runLevel & 1]);
     if(start==0 && pBiDi->proLength>0) {
         DirProp lastStrong=lastL_R_AL(pBiDi);
         if(lastStrong!=DirProp_ON) {
@@ -2794,8 +2794,8 @@ setParaRunsOnly(UBiDi *pBiDi, const char16_t *text, int32_t length,
         goto cleanup3;
     }
     visualMap=runsOnlyMemory;
-    visualText=(char16_t *)&visualMap[length];
-    saveLevels=(UBiDiLevel *)&visualText[length];
+    visualText = reinterpret_cast<char16_t*>(&visualMap[length]);
+    saveLevels = reinterpret_cast<UBiDiLevel*>(&visualText[length]);
     saveOptions=pBiDi->reorderingOptions;
     if(saveOptions & UBIDI_OPTION_INSERT_MARKS) {
         pBiDi->reorderingOptions&=~UBIDI_OPTION_INSERT_MARKS;

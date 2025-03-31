@@ -478,7 +478,7 @@ OPENSSL_EXPORT int SSL_get_error(const SSL *ssl, int ret_code);
 #define SSL_ERROR_NONE 0
 
 // SSL_ERROR_SSL indicates the operation failed within the library. The caller
-// may inspect the error queue for more information.
+// may inspect the error queue (see |ERR_get_error|) for more information.
 #define SSL_ERROR_SSL 1
 
 // SSL_ERROR_WANT_READ indicates the operation failed attempting to read from
@@ -651,6 +651,17 @@ OPENSSL_EXPORT int DTLSv1_handle_timeout(SSL *ssl);
 
 #define DTLS1_VERSION 0xfeff
 #define DTLS1_2_VERSION 0xfefd
+// DTLS1_3_EXPERIMENTAL_VERSION gates experimental, in-progress code for DTLS
+// 1.3.
+//
+// WARNING: Do not use this value. BoringSSL's DTLS 1.3 implementation is still
+// under development. The code enabled by this value is neither stable nor
+// secure. It does not correspond to any real protocol. It is also incompatible
+// with other DTLS implementations, and it is not compatible with future or past
+// versions of BoringSSL.
+//
+// When the DTLS 1.3 implementation is complete, this symbol will be replaced.
+#define DTLS1_3_EXPERIMENTAL_VERSION 0xfc25
 
 // SSL_CTX_set_min_proto_version sets the minimum protocol version for |ctx| to
 // |version|. If |version| is zero, the default minimum version is used. It
@@ -853,8 +864,9 @@ OPENSSL_EXPORT void SSL_CTX_set0_buffer_pool(SSL_CTX *ctx,
 // |SSL_CTX| and |SSL| objects maintain lists of credentials in preference
 // order. During the handshake, BoringSSL will select the first usable
 // credential from the list. Non-credential APIs, such as
-// |SSL_CTX_use_certificate|, configure a "default credential", which is
-// appended to this list if configured.
+// |SSL_CTX_use_certificate|, configure a "legacy credential", which is
+// appended to this list if configured. Using the legacy credential is the same
+// as configuring an equivalent credential with the |SSL_CREDENTIAL| API.
 //
 // When selecting credentials, BoringSSL considers the credential's type, its
 // cryptographic capabilities, and capabilities advertised by the peer. This
@@ -958,7 +970,7 @@ OPENSSL_EXPORT int SSL_CTX_add1_credential(SSL_CTX *ctx, SSL_CREDENTIAL *cred);
 OPENSSL_EXPORT int SSL_add1_credential(SSL *ssl, SSL_CREDENTIAL *cred);
 
 // SSL_certs_clear removes all credentials configured on |ssl|. It also removes
-// the certificate chain and private key on the default credential.
+// the certificate chain and private key on the legacy credential.
 OPENSSL_EXPORT void SSL_certs_clear(SSL *ssl);
 
 // SSL_get0_selected_credential returns the credential in use in the current
@@ -989,8 +1001,9 @@ OPENSSL_EXPORT const SSL_CREDENTIAL *SSL_get0_selected_credential(
 // than return an error. Additionally, overwriting a previously-configured
 // certificate and key pair only works if the certificate is configured first.
 //
-// Each of these functions configures the default credential. To select between
-// multiple certificates, see |SSL_CREDENTIAL_new_x509| and related APIs.
+// Each of these functions configures the single "legacy credential" on the
+// |SSL_CTX| or |SSL|. To select between multiple certificates, use
+// |SSL_CREDENTIAL_new_x509| and other APIs to configure a list of credentials.
 
 // SSL_CTX_use_certificate sets |ctx|'s leaf certificate to |x509|. It returns
 // one on success and zero on failure. If |ctx| has a private key which is
@@ -1491,6 +1504,25 @@ OPENSSL_EXPORT void SSL_CTX_set_private_key_method(
 // credential-specific state, such as a handle to the private key.
 OPENSSL_EXPORT int SSL_CREDENTIAL_set_private_key_method(
     SSL_CREDENTIAL *cred, const SSL_PRIVATE_KEY_METHOD *key_method);
+
+// SSL_CREDENTIAL_set_must_match_issuer sets the flag that this credential
+// should be considered only when it matches a peer request for a particular
+// issuer via a negotiation mechanism (such as the certificate_authorities
+// extension).
+OPENSSL_EXPORT void SSL_CREDENTIAL_set_must_match_issuer(SSL_CREDENTIAL *cred);
+
+// SSL_CREDENTIAL_clear_must_match_issuer clears the flag requiring issuer
+// matching, indicating this credential should be considered regardless of peer
+// issuer matching requests. (This is the default).
+OPENSSL_EXPORT void SSL_CREDENTIAL_clear_must_match_issuer(
+    SSL_CREDENTIAL *cred);
+
+// SSL_CREDENTIAL_must_match_issuer returns the value of the flag indicating
+// that this credential should be considered only when it matches a peer request
+// for a particular issuer via a negotiation mechanism (such as the
+// certificate_authorities extension).
+OPENSSL_EXPORT int SSL_CREDENTIAL_must_match_issuer(
+    const SSL_CREDENTIAL *cred);
 
 // SSL_can_release_private_key returns one if |ssl| will no longer call into the
 // private key and zero otherwise. If the function returns one, the caller can
@@ -2537,6 +2569,7 @@ OPENSSL_EXPORT size_t SSL_CTX_get_num_tickets(const SSL_CTX *ctx);
 #define SSL_GROUP_SECP384R1 24
 #define SSL_GROUP_SECP521R1 25
 #define SSL_GROUP_X25519 29
+#define SSL_GROUP_X25519_MLKEM768 0x11ec
 #define SSL_GROUP_X25519_KYBER768_DRAFT00 0x6399
 
 // SSL_CTX_set1_group_ids sets the preferred groups for |ctx| to |group_ids|.
@@ -2965,6 +2998,12 @@ OPENSSL_EXPORT void SSL_CTX_set_client_CA_list(SSL_CTX *ctx,
 // which should contain DER-encoded distinguished names (RFC 5280). It takes
 // ownership of |name_list|.
 OPENSSL_EXPORT void SSL_set0_client_CAs(SSL *ssl,
+                                        STACK_OF(CRYPTO_BUFFER) *name_list);
+
+// SSL_set0_CA_names sets |ssl|'s CA name list for the certificate authorities
+// extension to |name_list|, which should contain DER-encoded distinguished names
+// (RFC 5280). It takes ownership of |name_list|.
+OPENSSL_EXPORT void SSL_set0_CA_names(SSL *ssl,
                                         STACK_OF(CRYPTO_BUFFER) *name_list);
 
 // SSL_CTX_set0_client_CAs sets |ctx|'s client certificate CA list to
@@ -3635,13 +3674,13 @@ OPENSSL_EXPORT int SSL_CREDENTIAL_set1_delegated_credential(
 // holds for any application protocol state remembered for 0-RTT, e.g. HTTP/3
 // SETTINGS.
 
-// ssl_encryption_level_t represents a specific QUIC encryption level used to
-// transmit handshake messages.
+// ssl_encryption_level_t represents an encryption level in TLS 1.3. Values in
+// this enum match the first 4 epochs used in DTLS 1.3 (section 6.1).
 enum ssl_encryption_level_t BORINGSSL_ENUM_INT {
   ssl_encryption_initial = 0,
-  ssl_encryption_early_data,
-  ssl_encryption_handshake,
-  ssl_encryption_application,
+  ssl_encryption_early_data = 1,
+  ssl_encryption_handshake = 2,
+  ssl_encryption_application = 3,
 };
 
 // ssl_quic_method_st (aka |SSL_QUIC_METHOD|) describes custom QUIC hooks.
@@ -4617,6 +4656,16 @@ enum ssl_select_cert_result_t BORINGSSL_ENUM_INT {
   // ssl_select_cert_error indicates that a fatal error occured and the
   // handshake should be terminated.
   ssl_select_cert_error = -1,
+  // ssl_select_cert_disable_ech indicates that, although an encrypted
+  // ClientHelloInner was decrypted, it should be discarded. The certificate
+  // selection callback will then be called again, passing in the
+  // ClientHelloOuter instead. From there, the handshake will proceed
+  // without retry_configs, to signal to the client to disable ECH.
+  //
+  // This value may only be returned when |SSL_ech_accepted| returnes one. It
+  // may be useful if the ClientHelloInner indicated a service which does not
+  // support ECH, e.g. if it is a TLS-1.2 only service.
+  ssl_select_cert_disable_ech = -2,
 };
 
 // SSL_early_callback_ctx_extension_get searches the extensions in
@@ -5616,6 +5665,14 @@ enum ssl_compliance_policy_t BORINGSSL_ENUM_INT {
   // implementation risks of using a more obscure primitive like P-384
   // dominate other considerations.
   ssl_compliance_policy_wpa3_192_202304,
+
+  // ssl_compliance_policy_cnsa_202407 confingures a TLS connection to use:
+  //   * For TLS 1.3, AES-256-GCM over AES-128-GCM over ChaCha20-Poly1305.
+  //
+  // I.e. it ensures that AES-GCM will be used whenever the client supports it.
+  // The cipher suite configuration mini-language can be used to similarly
+  // configure prior TLS versions if they are enabled.
+  ssl_compliance_policy_cnsa_202407,
 };
 
 // SSL_CTX_set_compliance_policy configures various aspects of |ctx| based on
@@ -5864,9 +5921,12 @@ OPENSSL_EXPORT bool SSL_serialize_handback(const SSL *ssl, CBB *out);
 OPENSSL_EXPORT bool SSL_apply_handback(SSL *ssl, Span<const uint8_t> handback);
 
 // SSL_get_traffic_secrets sets |*out_read_traffic_secret| and
-// |*out_write_traffic_secret| to reference the TLS 1.3 traffic secrets for
-// |ssl|. This function is only valid on TLS 1.3 connections that have
-// completed the handshake. It returns true on success and false on error.
+// |*out_write_traffic_secret| to reference the current TLS 1.3 traffic secrets
+// for |ssl|. It returns true on success and false on error.
+//
+// This function is only valid on TLS 1.3 connections that have completed the
+// handshake. It is not valid for QUIC or DTLS, where multiple traffic secrets
+// may be active at a time.
 OPENSSL_EXPORT bool SSL_get_traffic_secrets(
     const SSL *ssl, Span<const uint8_t> *out_read_traffic_secret,
     Span<const uint8_t> *out_write_traffic_secret);

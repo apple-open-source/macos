@@ -35,18 +35,14 @@
 #include "RTCRtpSendParameters.h"
 #include <wtf/text/WTFString.h>
 
-ALLOW_UNUSED_PARAMETERS_BEGIN
-ALLOW_DEPRECATED_DECLARATIONS_BEGIN
-ALLOW_COMMA_BEGIN
+WTF_IGNORE_WARNINGS_IN_THIRD_PARTY_CODE_BEGIN
 
 #include <webrtc/api/rtp_parameters.h>
 #include <webrtc/api/rtp_transceiver_interface.h>
 #include <webrtc/p2p/base/p2p_constants.h>
 #include <webrtc/pc/webrtc_sdp.h>
 
-ALLOW_COMMA_END
-ALLOW_DEPRECATED_DECLARATIONS_END
-ALLOW_UNUSED_PARAMETERS_END
+WTF_IGNORE_WARNINGS_IN_THIRD_PARTY_CODE_END
 
 namespace WebCore {
 
@@ -64,6 +60,17 @@ webrtc::Priority fromRTCPriorityType(RTCPriorityType priority)
     }
 
     RELEASE_ASSERT_NOT_REACHED();
+}
+
+RTCPriorityType toRTCPriorityType(webrtc::PriorityValue priority)
+{
+    if (priority <= webrtc::PriorityValue(webrtc::Priority::kVeryLow))
+        return RTCPriorityType::VeryLow;
+    if (priority <= webrtc::PriorityValue(webrtc::Priority::kLow))
+        return RTCPriorityType::Low;
+    if (priority <= webrtc::PriorityValue(webrtc::Priority::kMedium))
+        return RTCPriorityType::Medium;
+    return RTCPriorityType::High;
 }
 
 RTCPriorityType toRTCPriorityType(webrtc::Priority priority)
@@ -193,7 +200,7 @@ static inline RTCRtpCodecParameters toRTCCodecParameters(const webrtc::RtpCodecP
             sdpFmtpLineBuilder.append(';');
         else
             isFirst = false;
-        sdpFmtpLineBuilder.append(span(keyValue.first.c_str()), '=', span(keyValue.second.c_str()));
+        sdpFmtpLineBuilder.append(std::span { keyValue.first }, '=', std::span { keyValue.second });
     }
     parameters.sdpFmtpLine = sdpFmtpLineBuilder.toString();
 
@@ -255,11 +262,11 @@ void updateRTCRtpSendParameters(const RTCRtpSendParameters& parameters, webrtc::
     for (size_t i = 0; i < parameters.encodings.size(); ++i) {
         rtcParameters.encodings[i].active = parameters.encodings[i].active;
         if (parameters.encodings[i].maxBitrate)
-            rtcParameters.encodings[i].max_bitrate_bps = parameters.encodings[i].maxBitrate;
+            rtcParameters.encodings[i].max_bitrate_bps = *parameters.encodings[i].maxBitrate;
         if (parameters.encodings[i].maxFramerate)
-            rtcParameters.encodings[i].max_framerate = parameters.encodings[i].maxFramerate;
+            rtcParameters.encodings[i].max_framerate = *parameters.encodings[i].maxFramerate;
         if (parameters.encodings[i].scaleResolutionDownBy)
-            rtcParameters.encodings[i].scale_resolution_down_by = parameters.encodings[i].scaleResolutionDownBy;
+            rtcParameters.encodings[i].scale_resolution_down_by = *parameters.encodings[i].scaleResolutionDownBy;
         rtcParameters.encodings[i].bitrate_priority = toWebRTCBitRatePriority(parameters.encodings[i].priority);
         if (parameters.encodings[i].networkPriority)
             rtcParameters.encodings[i].network_priority = fromRTCPriorityType(*parameters.encodings[i].networkPriority);

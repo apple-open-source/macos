@@ -242,7 +242,12 @@ inline static  double normPI(double angle)  {
  * @deprecated ICU 2.4. This class may be removed or modified.
  */
 CalendarAstronomer::CalendarAstronomer():
-  fTime(Calendar::getNow()), fLongitude(0.0), fLatitude(0.0), fGmtOffset(0.0), moonPosition(0,0), moonPositionSet(false) {
+#if APPLE_ICU_CHANGES
+// rdar://100197751 (QFA: Islamic Lunar Calendar Improvements)
+fTime(Calendar::getNow()), fLongitude(0.0), fLatitude(0.0), moonPosition(0,0), moonPositionSet(false) {
+#else
+  fTime(Calendar::getNow()), moonPosition(0,0), moonPositionSet(false) {
+#endif // APPLE_ICU_CHANGES
   clearCache();
 }
 
@@ -252,32 +257,25 @@ CalendarAstronomer::CalendarAstronomer():
  * @internal
  * @deprecated ICU 2.4. This class may be removed or modified.
  */
-CalendarAstronomer::CalendarAstronomer(UDate d): fTime(d), fLongitude(0.0), fLatitude(0.0), fGmtOffset(0.0), moonPosition(0,0), moonPositionSet(false) {
+#if APPLE_ICU_CHANGES
+// rdar://100197751 (QFA: Islamic Lunar Calendar Improvements)
+    CalendarAstronomer::CalendarAstronomer(UDate d): fTime(d), fLongitude(0.0), fLatitude(0.0), moonPosition(0,0), moonPositionSet(false) {
+#else
+CalendarAstronomer::CalendarAstronomer(UDate d): fTime(d), moonPosition(0,0), moonPositionSet(false) {
+#endif // APPLE_ICU_CHANGES
   clearCache();
 }
 
-/**
- * Construct a new <code>CalendarAstronomer</code> object with the given
- * latitude and longitude.  The object's time is set to the current
- * date and time.
- * <p>
- * @param longitude The desired longitude, in <em>degrees</em> east of
- *                  the Greenwich meridian.
- *
- * @param latitude  The desired latitude, in <em>degrees</em>.  Positive
- *                  values signify North, negative South.
- *
- * @see java.util.Date#getTime()
- * @internal
- * @deprecated ICU 2.4. This class may be removed or modified.
- */
-CalendarAstronomer::CalendarAstronomer(double longitude, double latitude) :
-  fTime(Calendar::getNow()), moonPosition(0,0), moonPositionSet(false) {
-  fLongitude = normPI(longitude * (double)DEG_RAD);
-  fLatitude  = normPI(latitude  * (double)DEG_RAD);
-  fGmtOffset = (double)(fLongitude * 24. * (double)HOUR_MS / (double)CalendarAstronomer_PI2);
-  clearCache();
+#if APPLE_ICU_CHANGES
+// rdar://100197751 (QFA: Islamic Lunar Calendar Improvements)
+CalendarAstronomer::CalendarAstronomer(UDate d, double longitude, double latitude)
+: fTime(d), fLongitude(longitude), fLatitude(latitude), moonPosition(0,0), moonPositionSet(false)
+{
+    fLongitude = normPI(longitude * (double)DEG_RAD);
+    fLatitude  = normPI(latitude  * (double)DEG_RAD);
+    clearCache();
 }
+#endif // APPLE_ICU_CHANGES
 
 CalendarAstronomer::~CalendarAstronomer()
 {
@@ -301,335 +299,8 @@ CalendarAstronomer::~CalendarAstronomer()
  */
 void CalendarAstronomer::setTime(UDate aTime) {
     fTime = aTime;
-    U_DEBUG_ASTRO_MSG(("setTime(%.1lf, %sL)\n", aTime, debug_astro_date(aTime+fGmtOffset)));
     clearCache();
 }
-
-/**
- * Set the current date and time of this <code>CalendarAstronomer</code> object.  All
- * astronomical calculations are performed based on this time setting.
- *
- * @param jdn   the desired time, expressed as a "julian day number",
- *              which is the number of elapsed days since
- *              1/1/4713 BC (Julian), 12:00 GMT.  Note that julian day
- *              numbers start at <em>noon</em>.  To get the jdn for
- *              the corresponding midnight, subtract 0.5.
- *
- * @see #getJulianDay
- * @see #JULIAN_EPOCH_MS
- * @internal
- * @deprecated ICU 2.4. This class may be removed or modified.
- */
-void CalendarAstronomer::setJulianDay(double jdn) {
-    fTime = (double)(jdn * DAY_MS) + JULIAN_EPOCH_MS;
-    clearCache();
-    julianDay = jdn;
-}
-
-struct RegionLocation {
-  const char *region;
-  double latitude;
-  double longitude;
-};
-
-
-/* Location of a country is defined as a geographic mid-point
- * Source: https://developers.google.com/public-data/docs/canonical/countries_csv
- */
-static const RegionLocation REGION_LOCATIONS[] = {
-  { "AD",    42.5462,    1.6015 },
-  { "AE",    23.4240,    53.8478 },
-  { "AF",    33.939,    67.7099 },
-  { "AG",    17.0608,    -61.7964 },
-  { "AI",    18.2205,    -63.0686 },
-  { "AL",    41.1533,    20.1683 },
-  { "AM",    40.0690,    45.0381 },
-  { "AN",    12.2260,    -69.0600 },
-  { "AO",    -11.2026,    17.8738 },
-  { "AQ",    -75.2509,    -0.0713 },
-  { "AR",    -38.4160,    -63.6166 },
-  { "AS",    -14.2709,    -170.1322 },
-  { "AT",    47.5162,    14.5500 },
-  { "AU",    -25.2743,    133.7751 },
-  { "AW",    12.521,    -69.9683 },
-  { "AZ",    40.1431,    47.5769 },
-  { "BA",    43.9158,    17.6790 },
-  { "BB",    13.1938,    -59.5431 },
-  { "BD",    23.6849,    90.3563 },
-  { "BE",    50.5038,    4.4699 },
-  { "BF",    12.2383,    -1.5615 },
-  { "BG",    42.7338,    25.485 },
-  { "BH",    25.9304,    50.6377 },
-  { "BI",    -3.3730,    29.9188 },
-  { "BJ",    9.307,    2.3158 },
-  { "BM",    32.3213,    -64.757 },
-  { "BN",    4.5352,    114.7276 },
-  { "BO",    -16.2901,    -63.5886 },
-  { "BR",    -14.2350,    -51.925 },
-  { "BS",    25.034,    -77.396 },
-  { "BT",    27.5141,    90.4336 },
-  { "BV",    -54.4231,    3.4131 },
-  { "BW",    -22.3284,    24.6848 },
-  { "BY",    53.7098,    27.9533 },
-  { "BZ",    17.1898,    -88.497 },
-  { "CA",    56.1303,    -106.3467 },
-  { "CC",    -12.1641,    96.8709 },
-  { "CD",    -4.0383,    21.7586 },
-  { "CF",    6.6111,    20.9394 },
-  { "CG",    -0.2280,    15.8276 },
-  { "CH",    46.8181,    8.2275 },
-  { "CI",    7.5399,    -5.547 },
-  { "CK",    -21.2367,    -159.7776 },
-  { "CL",    -35.6751,    -71.5429 },
-  { "CM",    7.3697,    12.3547 },
-  { "CN",    35.861,    104.1953 },
-  { "CO",    4.5708,    -74.2973 },
-  { "CR",    9.7489,    -83.7534 },
-  { "CU",    21.5217,    -77.7811 },
-  { "CV",    16.0020,    -24.0131 },
-  { "CX",    -10.4475,    105.6904 },
-  { "CY",    35.1264,    33.4298 },
-  { "CZ",    49.8174,    15.4729 },
-  { "DE",    51.1656,    10.4515 },
-  { "DJ",    11.8251,    42.5902 },
-  { "DK",    56.263,    9.5017 },
-  { "DM",    15.4149,    -61.3709 },
-  { "DO",    18.7356,    -70.1626 },
-  { "DZ",    28.0338,    1.6596 },
-  { "EC",    -1.8312,    -78.1834 },
-  { "EE",    58.5952,    25.0136 },
-  { "EG",    26.8205,    30.8024 },
-  { "EH",    24.2155,    -12.8858 },
-  { "ER",    15.1793,    39.7823 },
-  { "ES",    40.4636,    -3.749 },
-  { "ET",    9.1004,    40.4896 },
-  { "FI",    61.924,    25.7481 },
-  { "FJ",    -16.5781,    179.4144 },
-  { "FK",    -51.7962,    -59.5236 },
-  { "FM",    7.4255,    150.5508 },
-  { "FO",    61.8926,    -6.9118 },
-  { "FR",    46.2276,    2.2137 },
-  { "GA",    -0.8036,    11.6094 },
-  { "GB",    55.3780,    -3.4359 },
-  { "GD",    12.2627,    -61.6041 },
-  { "GE",    42.3154,    43.3568 },
-  { "GF",    3.9338,    -53.1257 },
-  { "GG",    49.4656,    -2.5852 },
-  { "GH",    7.9465,    -1.0231 },
-  { "GI",    36.1377,    -5.3453 },
-  { "GL",    71.7069,    -42.6043 },
-  { "GM",    13.4431,    -15.3101 },
-  { "GN",    9.9455,    -9.6966 },
-  { "GP",    16.9959,    -62.0676 },
-  { "GQ",    1.6508,    10.2678 },
-  { "GR",    39.0742,    21.8243 },
-  { "GS",    -54.4295,    -36.5879 },
-  { "GT",    15.7834,    -90.2307 },
-  { "GU",    13.4443,    144.7937 },
-  { "GW",    11.8037,    -15.1804 },
-  { "GY",    4.8604,    -58.930 },
-  { "GZ",    31.3546,    34.3088 },
-  { "HK",    22.3964,    114.1094 },
-  { "HM",    -53.081,    73.5041 },
-  { "HN",    15.1999,    -86.2419 },
-  { "HR",    45.1013,    15.2007 },
-  { "HT",    18.9711,    -72.2852 },
-  { "HU",    47.1624,    19.5033 },
-  { "ID",    -0.7892,    113.9213 },
-  { "IE",    53.412,    -8.243 },
-  { "IL",    31.0460,    34.8516 },
-  { "IM",    54.2361,    -4.5480 },
-  { "IN",    20.5936,    78.962 },
-  { "IO",    -6.3431,    71.8765 },
-  { "IQ",    33.2231,    43.6792 },
-  { "IR",    32.4279,    53.6880 },
-  { "IS",    64.9630,    -19.0208 },
-  { "IT",    41.871,    12.567 },
-  { "JE",    49.2144,    -2.131 },
-  { "JM",    18.1095,    -77.2975 },
-  { "JO",    30.5851,    36.2384 },
-  { "JP",    36.2048,    138.2529 },
-  { "KE",    -0.0235,    37.9061 },
-  { "KG",    41.204,    74.7660 },
-  { "KH",    12.5656,    104.9909 },
-  { "KI",    -3.3704,    -168.7340 },
-  { "KM",    -11.8750,    43.8722 },
-  { "KN",    17.3578,    -62.7829 },
-  { "KP",    40.3398,    127.5100 },
-  { "KR",    35.9077,    127.7669 },
-  { "KW",    29.311,    47.4817 },
-  { "KY",    19.5134,    -80.5669 },
-  { "KZ",    48.0195,    66.9236 },
-  { "LA",    19.856,    102.4954 },
-  { "LB",    33.8547,    35.8622 },
-  { "LC",    13.9094,    -60.9788 },
-  { "LI",    47.1003,    9.5553 },
-  { "LK",    7.8730,    80.7717 },
-  { "LR",    6.4280,    -9.4294 },
-  { "LS",    -29.6099,    28.2336 },
-  { "LT",    55.1694,    23.8812 },
-  { "LU",    49.8152,    6.1295 },
-  { "LV",    56.8796,    24.6031 },
-  { "LY",    26.3308,    17.2283 },
-  { "MA",    31.7917,    -7.092 },
-  { "MC",    43.7502,    7.4128 },
-  { "MD",    47.4116,    28.3698 },
-  { "ME",    42.7086,    19.374 },
-  { "MG",    -18.7669,    46.8691 },
-  { "MH",    7.1314,    171.1844 },
-  { "MK",    41.6086,    21.7452 },
-  { "ML",    17.5706,    -3.9961 },
-  { "MM",    21.9139,    95.9562 },
-  { "MN",    46.8624,    103.8466 },
-  { "MO",    22.1987,    113.5438 },
-  { "MP",    17.330,    145.384 },
-  { "MQ",    14.6415,    -61.0241 },
-  { "MR",    21.007,    -10.9408 },
-  { "MS",    16.7424,    -62.1873 },
-  { "MT",    35.9374,    14.3754 },
-  { "MU",    -20.3484,    57.5521 },
-  { "MV",    3.2027,    73.220 },
-  { "MW",    -13.2543,    34.3015 },
-  { "MX",    23.6345,    -102.5527 },
-  { "MY",    4.2104,    101.9757 },
-  { "MZ",    -18.6656,    35.5295 },
-  { "NA",    -22.957,    18.490 },
-  { "NC",    -20.9043,    165.6180 },
-  { "NE",    17.6077,    8.0816 },
-  { "NF",    -29.0408,    167.9547 },
-  { "NG",    9.0819,    8.6752 },
-  { "NI",    12.8654,    -85.2072 },
-  { "NL",    52.1326,    5.2912 },
-  { "NO",    60.4720,    8.4689 },
-  { "NP",    28.3948,    84.1240 },
-  { "NR",    -0.5227,    166.9315 },
-  { "NU",    -19.0544,    -169.8672 },
-  { "NZ",    -40.9005,    174.8859 },
-  { "OM",    21.5125,    55.9232 },
-  { "PA",    8.5379,    -80.7821 },
-  { "PE",    -9.1899,    -75.0151 },
-  { "PF",    -17.6797,    -149.4068 },
-  { "PG",    -6.3149,    143.955 },
-  { "PH",    12.8797,    121.7740 },
-  { "PK",    30.3753,    69.3451 },
-  { "PL",    51.9194,    19.1451 },
-  { "PM",    46.9419,    -56.271 },
-  { "PN",    -24.7036,    -127.4393 },
-  { "PR",    18.2208,    -66.5901 },
-  { "PS",    31.9521,    35.2331 },
-  { "PT",    39.3998,    -8.2244 },
-  { "PW",    7.514,    134.582 },
-  { "PY",    -23.4425,    -58.4438 },
-  { "QA",    25.3548,    51.1838 },
-  { "RE",    -21.1151,    55.5363 },
-  { "RO",    45.9431,    24.966 },
-  { "RS",    44.0165,    21.0058 },
-  { "RU",    61.524,    105.3187 },
-  { "RW",    -1.9402,    29.8738 },
-  { "SA",    23.8859,    45.0791 },
-  { "SB",    -9.645,    160.1561 },
-  { "SC",    -4.6795,    55.4919 },
-  { "SD",    12.8628,    30.2176 },
-  { "SE",    60.1281,    18.6435 },
-  { "SG",    1.3520,    103.8198 },
-  { "SH",    -24.1434,    -10.0306 },
-  { "SI",    46.1512,    14.9954 },
-  { "SJ",    77.5536,    23.6702 },
-  { "SK",    48.6690,    19.6990 },
-  { "SL",    8.4605,    -11.7798 },
-  { "SM",    43.942,    12.4577 },
-  { "SN",    14.4974,    -14.4523 },
-  { "SO",    5.1521,    46.1996 },
-  { "SR",    3.9193,    -56.0277 },
-  { "ST",    0.186,    6.6130 },
-  { "SV",    13.7941,    -88.896 },
-  { "SY",    34.8020,    38.9968 },
-  { "SZ",    -26.5225,    31.4658 },
-  { "TC",    21.6940,    -71.7979 },
-  { "TD",    15.4541,    18.7322 },
-  { "TF",    -49.2803,    69.3485 },
-  { "TG",    8.6195,    0.8247 },
-  { "TH",    15.8700,    100.9925 },
-  { "TJ",    38.8610,    71.2760 },
-  { "TK",    -8.9673,    -171.8558 },
-  { "TL",    -8.8742,    125.7275 },
-  { "TM",    38.9697,    59.5562 },
-  { "TN",    33.8869,    9.5374 },
-  { "TO",    -21.1789,    -175.1982 },
-  { "TR",    38.9637,    35.2433 },
-  { "TT",    10.6918,    -61.2225 },
-  { "TV",    -7.1095,    177.649 },
-  { "TW",    23.697,    120.9605 },
-  { "TZ",    -6.3690,    34.8888 },
-  { "UA",    48.3794,    31.165 },
-  { "UG",    1.3733,    32.2902 },
-  { "US",    37.090,    -95.7128 },
-  { "UY",    -32.5227,    -55.7658 },
-  { "UZ",    41.3774,    64.5852 },
-  { "VA",    41.9029,    12.4533 },
-  { "VC",    12.9843,    -61.2872 },
-  { "VE",    6.423,    -66.589 },
-  { "VG",    18.4206,    -64.6399 },
-  { "VI",    18.3357,    -64.8963 },
-  { "VN",    14.0583,    108.2771 },
-  { "VU",    -15.3767,    166.9591 },
-  { "WF",    -13.7687,    -177.1560 },
-  { "WS",    -13.7590,    -172.1046 },
-  { "XK",    42.6026,    20.9029 },
-  { "YE",    15.5527,    48.5163 },
-  { "YT",    -12.8202,    45.1662 },
-  { "ZA",    -30.5594,    22.9375 },
-  { "ZM",    -13.1338,    27.8493 },
-  { "ZW",    -19.0154,    29.1548 },
-};
-
-/**
- * Set the location of this <code>CalendarAstronomer</code> object.  All
- * astronomical calculations are performed relative to this location.
- *
- * @param #longitude
- * @param #latitude
- * @internal
- */
-void CalendarAstronomer::setLocation(double latitude, double longitude) {
-    fLongitude = longitude;
-    fLatitude = latitude;
-}
-
-int getLocationId(const char* region, int start, int end) {
-    if (start > end || region == nullptr) {
-        return -1;
-    }
-    int mid = start + (end - start) / 2;
-    int pos = strcmp(region, REGION_LOCATIONS[mid].region);
-    if (pos == 0) {
-        return mid;
-    }
-    else if (pos < 1) {
-        return getLocationId(region, start, mid - 1);
-    }
-    else {
-        return getLocationId(region, mid + 1, end);
-    }
-}
-
-/**
-   * Set the location of this <code>CalendarAstronomer</code> object based on region
-   * All astronomical calculations are performed relative to this location.
-   *
-   * @param #region
-   * @internal
-   */
-void CalendarAstronomer::setLocation(const char* region){
-    int id = getLocationId(region, 0, sizeof(REGION_LOCATIONS) / sizeof(RegionLocation));
-    if (id == -1)  {
-        setLocation(0.0, 0.0);
-        return;
-    }
-    setLocation(REGION_LOCATIONS[id].latitude, REGION_LOCATIONS[id].longitude);
-}
-
-
 
 /**
  * Get the current time of this <code>CalendarAstronomer</code> object,
@@ -657,121 +328,14 @@ UDate CalendarAstronomer::getTime() {
  */
 double CalendarAstronomer::getJulianDay() {
     if (isINVALID(julianDay)) {
-        julianDay = (fTime - (double)JULIAN_EPOCH_MS) / (double)DAY_MS;
+        julianDay = (fTime - JULIAN_EPOCH_MS) / static_cast<double>(DAY_MS);
     }
     return julianDay;
 }
 
-/**
- * Returns the longitude of the location of this object
- *
- * @internal
- */
-double CalendarAstronomer::getLocationLongitude()
-{
-    return fLongitude;
-}
-  
-/**
- * Returns the latitude of the location of this object
- *
- * @internal
- */
-double CalendarAstronomer::getLocationLatitude()
-{
-    return fLatitude;
-}
-
-/**
- * Return this object's time expressed in julian centuries:
- * the number of centuries after 1/1/1900 AD, 12:00 GMT
- *
- * @see #getJulianDay
- * @internal
- * @deprecated ICU 2.4. This class may be removed or modified.
- */
-double CalendarAstronomer::getJulianCentury() {
-    if (isINVALID(julianCentury)) {
-        julianCentury = (getJulianDay() - 2415020.0) / 36525.0;
-    }
-    return julianCentury;
-}
-
-/**
- * Returns the current Greenwich sidereal time, measured in hours
- * @internal
- * @deprecated ICU 2.4. This class may be removed or modified.
- */
-double CalendarAstronomer::getGreenwichSidereal() {
-    if (isINVALID(siderealTime)) {
-        // See page 86 of "Practical Astronomy with your Calculator",
-        // by Peter Duffet-Smith, for details on the algorithm.
-
-        double UT = normalize(fTime/(double)HOUR_MS, 24.);
-
-        siderealTime = normalize(getSiderealOffset() + UT*1.002737909, 24.);
-    }
-    return siderealTime;
-}
-
-double CalendarAstronomer::getSiderealOffset() {
-    if (isINVALID(siderealT0)) {
-        double JD  = uprv_floor(getJulianDay() - 0.5) + 0.5;
-        double S   = JD - 2451545.0;
-        double T   = S / 36525.0;
-        siderealT0 = normalize(6.697374558 + 2400.051336*T + 0.000025862*T*T, 24);
-    }
-    return siderealT0;
-}
-
-/**
- * Returns the current local sidereal time, measured in hours
- * @internal
- * @deprecated ICU 2.4. This class may be removed or modified.
- */
-double CalendarAstronomer::getLocalSidereal() {
-    return normalize(getGreenwichSidereal() + (fGmtOffset/(double)HOUR_MS), 24.);
-}
-
-/**
- * Converts local sidereal time to Universal Time.
- *
- * @param lst   The Local Sidereal Time, in hours since sidereal midnight
- *              on this object's current date.
- *
- * @return      The corresponding Universal Time, in milliseconds since
- *              1 Jan 1970, GMT.
- */
-double CalendarAstronomer::lstToUT(double lst) {
-    // Convert to local mean time
-    double lt = normalize((lst - getSiderealOffset()) * 0.9972695663, 24);
-
-    // Then find local midnight on this day
-    double base = (DAY_MS * ClockMath::floorDivide(fTime + fGmtOffset,(double)DAY_MS)) - fGmtOffset;
-
-    //out("    lt  =" + lt + " hours");
-    //out("    base=" + new Date(base));
-
-    return base + (long)(lt * HOUR_MS);
-}
-
-
 //-------------------------------------------------------------------------
 // Coordinate transformations, all based on the current time of this object
 //-------------------------------------------------------------------------
-
-/**
- * Convert from ecliptic to equatorial coordinates.
- *
- * @param ecliptic  A point in the sky in ecliptic coordinates.
- * @return          The corresponding point in equatorial coordinates.
- * @internal
- * @deprecated ICU 2.4. This class may be removed or modified.
- */
-CalendarAstronomer::Equatorial& CalendarAstronomer::eclipticToEquatorial(CalendarAstronomer::Equatorial& result, const CalendarAstronomer::Ecliptic& ecliptic)
-{
-    return eclipticToEquatorial(result, ecliptic.longitude, ecliptic.latitude);
-}
 
 /**
  * Convert from ecliptic to equatorial coordinates.
@@ -804,46 +368,6 @@ CalendarAstronomer::Equatorial& CalendarAstronomer::eclipticToEquatorial(Calenda
     return result;
 }
 
-/**
- * Convert from ecliptic longitude to equatorial coordinates.
- *
- * @param eclipLong     The ecliptic longitude
- *
- * @return              The corresponding point in equatorial coordinates.
- * @internal
- * @deprecated ICU 2.4. This class may be removed or modified.
- */
-CalendarAstronomer::Equatorial& CalendarAstronomer::eclipticToEquatorial(CalendarAstronomer::Equatorial& result, double eclipLong)
-{
-    return eclipticToEquatorial(result, eclipLong, 0);  // TODO: optimize
-}
-
-/**
- * @internal
- * @deprecated ICU 2.4. This class may be removed or modified.
- */
-CalendarAstronomer::Horizon& CalendarAstronomer::eclipticToHorizon(CalendarAstronomer::Horizon& result, double eclipLong)
-{
-    Equatorial equatorial;
-    eclipticToEquatorial(equatorial, eclipLong);
-
-    double H = getLocalSidereal()*CalendarAstronomer::PI/12 - equatorial.ascension;     // Hour-angle
-
-    double sinH = ::sin(H);
-    double cosH = cos(H);
-    double sinD = ::sin(equatorial.declination);
-    double cosD = cos(equatorial.declination);
-    double sinL = ::sin(fLatitude);
-    double cosL = cos(fLatitude);
-
-    double altitude = asin(sinD*sinL + cosD*cosL*cosH);
-    double azimuth  = atan2(-cosD*cosL*sinH, sinD - sinL * ::sin(altitude));
-
-    result.set(azimuth, altitude);
-    return result;
-}
-
-
 //-------------------------------------------------------------------------
 // The Sun
 //-------------------------------------------------------------------------
@@ -874,7 +398,7 @@ CalendarAstronomer::Horizon& CalendarAstronomer::eclipticToHorizon(CalendarAstro
 // before fix, errors of up to +73 / -101 min or more; after, errors always less than 1 min.
 // about 17 times faster with the fix.
 // For getSunLongitude:
-// before fix, only accurate to about 0.07 degree; this was enough so Chinese calendar 
+// before fix, only accurate to about 0.07 degree; this was enough so Chinese calendar
 // calculations were off by a month in some cases.
 // after fix, about 100 times more accurate.
 // speed is about the same.
@@ -1298,7 +822,7 @@ static const int8_t sunLongitudeAdjustmts[][4] = {
     { -119,  -55,   84,   25 }, // 2097 Dec 21, 02:36
     { -113,  -41,   97,   28 }, // 2098 Dec 21, 08:20
     { -108,  -39,   94,   27 }, // 2099 Dec 21, 14:04
-    { -105,    0,    0,    0 }, // 2100 Dec 21, 19:51        
+    { -105,    0,    0,    0 }, // 2100 Dec 21, 19:51
 };
 
 static const int32_t timeDeltaToSprEquin =  768903; // avg delta in millis/10000 from winter solstice to spring equinox, within 1 hr
@@ -1445,22 +969,7 @@ double CalendarAstronomer::adjustSunLongitude(double &theSunLongitude, UDate the
     }
     return theSunLongitude;
 }
-
-/**
- * The longitude of the sun at the time specified by theTime.
- * This does not result in caching of any of the intermediate computations.
- * @internal
- */
-double CalendarAstronomer::getSunLongitudeForTime(UDate theTime)
-{    
-    double jd = (theTime - (double)JULIAN_EPOCH_MS) / (double)DAY_MS;
-    double theSunLongitude;
-    double theMeanAnomalySun;
- 
-    getSunLongitude(jd, theSunLongitude, theMeanAnomalySun);
-    return CalendarAstronomer::adjustSunLongitude(theSunLongitude, theTime);
-}
-#endif  // APPLE_ICU_CHANGES
+#endif // APPLE_ICU_CHANGES
 
 /**
  * The longitude of the sun at the time specified by this object.
@@ -1529,50 +1038,6 @@ double CalendarAstronomer::getSunLongitude()
 }
 
 /**
- * The position of the sun at this object's current date and time,
- * in equatorial coordinates.
- * @internal
- * @deprecated ICU 2.4. This class may be removed or modified.
- */
-CalendarAstronomer::Equatorial& CalendarAstronomer::getSunPosition(CalendarAstronomer::Equatorial& result) {
-    return eclipticToEquatorial(result, getSunLongitude(), 0);
-}
-
-
-/**
- * Constant representing the vernal equinox.
- * For use with {@link #getSunTime getSunTime}.
- * Note: In this case, "vernal" refers to the northern hemisphere's seasons.
- * @internal
- * @deprecated ICU 2.4. This class may be removed or modified.
- */
-/*double CalendarAstronomer::VERNAL_EQUINOX() {
-  return 0;
-}*/
-
-/**
- * Constant representing the summer solstice.
- * For use with {@link #getSunTime getSunTime}.
- * Note: In this case, "summer" refers to the northern hemisphere's seasons.
- * @internal
- * @deprecated ICU 2.4. This class may be removed or modified.
- */
-double CalendarAstronomer::SUMMER_SOLSTICE() {
-    return  (CalendarAstronomer::PI/2);
-}
-
-/**
- * Constant representing the autumnal equinox.
- * For use with {@link #getSunTime getSunTime}.
- * Note: In this case, "autumn" refers to the northern hemisphere's seasons.
- * @internal
- * @deprecated ICU 2.4. This class may be removed or modified.
- */
-/*double CalendarAstronomer::AUTUMN_EQUINOX() {
-  return  (CalendarAstronomer::PI);
-}*/
-
-/**
  * Constant representing the winter solstice.
  * For use with {@link #getSunTime getSunTime}.
  * Note: In this case, "winter" refers to the northern hemisphere's seasons.
@@ -1629,310 +1094,6 @@ UDate CalendarAstronomer::getSunTime(double desired, UBool next)
                         MINUTE_MS,
                         next);
 }
-
-CalendarAstronomer::CoordFunc::~CoordFunc() {}
-
-class RiseSetCoordFunc : public CalendarAstronomer::CoordFunc {
-public:
-    virtual ~RiseSetCoordFunc();
-    virtual void eval(CalendarAstronomer::Equatorial& result, CalendarAstronomer& a) override { a.getSunPosition(result); }
-};
-
-RiseSetCoordFunc::~RiseSetCoordFunc() {}
-
-UDate CalendarAstronomer::getSunRiseSet(UBool rise)
-{
-    UDate t0 = fTime;
-
-    // Make a rough guess: 6am or 6pm local time on the current day
-    double noon = ClockMath::floorDivide(fTime + fGmtOffset, (double)DAY_MS)*DAY_MS - fGmtOffset + (12*HOUR_MS);
-
-    U_DEBUG_ASTRO_MSG(("Noon=%.2lf, %sL, gmtoff %.2lf\n", noon, debug_astro_date(noon+fGmtOffset), fGmtOffset));
-    setTime(noon +  ((rise ? -6 : 6) * HOUR_MS));
-    U_DEBUG_ASTRO_MSG(("added %.2lf ms as a guess,\n", ((rise ? -6. : 6.) * HOUR_MS)));
-
-    RiseSetCoordFunc func;
-    double t = riseOrSet(func,
-                         rise,
-                         .533 * DEG_RAD,        // Angular Diameter
-                         34. /60.0 * DEG_RAD,    // Refraction correction
-                         MINUTE_MS / 12.);       // Desired accuracy
-
-    setTime(t0);
-    return t;
-}
-
-// Commented out - currently unused. ICU 2.6, Alan
-//    //-------------------------------------------------------------------------
-//    // Alternate Sun Rise/Set
-//    // See Duffett-Smith p.93
-//    //-------------------------------------------------------------------------
-//
-//    // This yields worse results (as compared to USNO data) than getSunRiseSet().
-//    /**
-//     * TODO Make this when the entire class is package-private.
-//     */
-//    /*public*/ long getSunRiseSet2(boolean rise) {
-//        // 1. Calculate coordinates of the sun's center for midnight
-//        double jd = uprv_floor(getJulianDay() - 0.5) + 0.5;
-//        double[] sl = getSunLongitude(jd);//        double lambda1 = sl[0];
-//        Equatorial pos1 = eclipticToEquatorial(lambda1, 0);
-//
-//        // 2. Add ... to lambda to get position 24 hours later
-//        double lambda2 = lambda1 + 0.985647*DEG_RAD;
-//        Equatorial pos2 = eclipticToEquatorial(lambda2, 0);
-//
-//        // 3. Calculate LSTs of rising and setting for these two positions
-//        double tanL = ::tan(fLatitude);
-//        double H = ::acos(-tanL * ::tan(pos1.declination));
-//        double lst1r = (CalendarAstronomer_PI2 + pos1.ascension - H) * 24 / CalendarAstronomer_PI2;
-//        double lst1s = (pos1.ascension + H) * 24 / CalendarAstronomer_PI2;
-//               H = ::acos(-tanL * ::tan(pos2.declination));
-//        double lst2r = (CalendarAstronomer_PI2-H + pos2.ascension ) * 24 / CalendarAstronomer_PI2;
-//        double lst2s = (H + pos2.ascension ) * 24 / CalendarAstronomer_PI2;
-//        if (lst1r > 24) lst1r -= 24;
-//        if (lst1s > 24) lst1s -= 24;
-//        if (lst2r > 24) lst2r -= 24;
-//        if (lst2s > 24) lst2s -= 24;
-//
-//        // 4. Convert LSTs to GSTs.  If GST1 > GST2, add 24 to GST2.
-//        double gst1r = lstToGst(lst1r);
-//        double gst1s = lstToGst(lst1s);
-//        double gst2r = lstToGst(lst2r);
-//        double gst2s = lstToGst(lst2s);
-//        if (gst1r > gst2r) gst2r += 24;
-//        if (gst1s > gst2s) gst2s += 24;
-//
-//        // 5. Calculate GST at 0h UT of this date
-//        double t00 = utToGst(0);
-//
-//        // 6. Calculate GST at 0h on the observer's longitude
-//        double offset = ::round(fLongitude*12/PI); // p.95 step 6; he _rounds_ to nearest 15 deg.
-//        double t00p = t00 - offset*1.002737909;
-//        if (t00p < 0) t00p += 24; // do NOT normalize
-//
-//        // 7. Adjust
-//        if (gst1r < t00p) {
-//            gst1r += 24;
-//            gst2r += 24;
-//        }
-//        if (gst1s < t00p) {
-//            gst1s += 24;
-//            gst2s += 24;
-//        }
-//
-//        // 8.
-//        double gstr = (24.07*gst1r-t00*(gst2r-gst1r))/(24.07+gst1r-gst2r);
-//        double gsts = (24.07*gst1s-t00*(gst2s-gst1s))/(24.07+gst1s-gst2s);
-//
-//        // 9. Correct for parallax, refraction, and sun's diameter
-//        double dec = (pos1.declination + pos2.declination) / 2;
-//        double psi = ::acos(sin(fLatitude) / cos(dec));
-//        double x = 0.830725 * DEG_RAD; // parallax+refraction+diameter
-//        double y = ::asin(sin(x) / ::sin(psi)) * RAD_DEG;
-//        double delta_t = 240 * y / cos(dec) / 3600; // hours
-//
-//        // 10. Add correction to GSTs, subtract from GSTr
-//        gstr -= delta_t;
-//        gsts += delta_t;
-//
-//        // 11. Convert GST to UT and then to local civil time
-//        double ut = gstToUt(rise ? gstr : gsts);
-//        //System.out.println((rise?"rise=":"set=") + ut + ", delta_t=" + delta_t);
-//        long midnight = DAY_MS * (time / DAY_MS); // Find UT midnight on this day
-//        return midnight + (long) (ut * 3600000);
-//    }
-
-// Commented out - currently unused. ICU 2.6, Alan
-//    /**
-//     * Convert local sidereal time to Greenwich sidereal time.
-//     * Section 15.  Duffett-Smith p.21
-//     * @param lst in hours (0..24)
-//     * @return GST in hours (0..24)
-//     */
-//    double lstToGst(double lst) {
-//        double delta = fLongitude * 24 / CalendarAstronomer_PI2;
-//        return normalize(lst - delta, 24);
-//    }
-
-// Commented out - currently unused. ICU 2.6, Alan
-//    /**
-//     * Convert UT to GST on this date.
-//     * Section 12.  Duffett-Smith p.17
-//     * @param ut in hours
-//     * @return GST in hours
-//     */
-//    double utToGst(double ut) {
-//        return normalize(getT0() + ut*1.002737909, 24);
-//    }
-
-// Commented out - currently unused. ICU 2.6, Alan
-//    /**
-//     * Convert GST to UT on this date.
-//     * Section 13.  Duffett-Smith p.18
-//     * @param gst in hours
-//     * @return UT in hours
-//     */
-//    double gstToUt(double gst) {
-//        return normalize(gst - getT0(), 24) * 0.9972695663;
-//    }
-
-// Commented out - currently unused. ICU 2.6, Alan
-//    double getT0() {
-//        // Common computation for UT <=> GST
-//
-//        // Find JD for 0h UT
-//        double jd = uprv_floor(getJulianDay() - 0.5) + 0.5;
-//
-//        double s = jd - 2451545.0;
-//        double t = s / 36525.0;
-//        double t0 = 6.697374558 + (2400.051336 + 0.000025862*t)*t;
-//        return t0;
-//    }
-
-// Commented out - currently unused. ICU 2.6, Alan
-//    //-------------------------------------------------------------------------
-//    // Alternate Sun Rise/Set
-//    // See sci.astro FAQ
-//    // http://www.faqs.org/faqs/astronomy/faq/part3/section-5.html
-//    //-------------------------------------------------------------------------
-//
-//    // Note: This method appears to produce inferior accuracy as
-//    // compared to getSunRiseSet().
-//
-//    /**
-//     * TODO Make this when the entire class is package-private.
-//     */
-//    /*public*/ long getSunRiseSet3(boolean rise) {
-//
-//        // Compute day number for 0.0 Jan 2000 epoch
-//        double d = (double)(time - EPOCH_2000_MS) / DAY_MS;
-//
-//        // Now compute the Local Sidereal Time, LST:
-//        //
-//        double LST  =  98.9818  +  0.985647352 * d  +  /*UT*15  +  long*/
-//            fLongitude*RAD_DEG;
-//        //
-//        // (east long. positive).  Note that LST is here expressed in degrees,
-//        // where 15 degrees corresponds to one hour.  Since LST really is an angle,
-//        // it's convenient to use one unit---degrees---throughout.
-//
-//        //    COMPUTING THE SUN'S POSITION
-//        //    ----------------------------
-//        //
-//        // To be able to compute the Sun's rise/set times, you need to be able to
-//        // compute the Sun's position at any time.  First compute the "day
-//        // number" d as outlined above, for the desired moment.  Next compute:
-//        //
-//        double oblecl = 23.4393 - 3.563E-7 * d;
-//        //
-//        double w  =  282.9404  +  4.70935E-5   * d;
-//        double M  =  356.0470  +  0.9856002585 * d;
-//        double e  =  0.016709  -  1.151E-9     * d;
-//        //
-//        // This is the obliquity of the ecliptic, plus some of the elements of
-//        // the Sun's apparent orbit (i.e., really the Earth's orbit): w =
-//        // argument of perihelion, M = mean anomaly, e = eccentricity.
-//        // Semi-major axis is here assumed to be exactly 1.0 (while not strictly
-//        // true, this is still an accurate approximation).  Next compute E, the
-//        // eccentric anomaly:
-//        //
-//        double E = M + e*(180/PI) * ::sin(M*DEG_RAD) * ( 1.0 + e*cos(M*DEG_RAD) );
-//        //
-//        // where E and M are in degrees.  This is it---no further iterations are
-//        // needed because we know e has a sufficiently small value.  Next compute
-//        // the true anomaly, v, and the distance, r:
-//        //
-//        /*      r * cos(v)  =  */ double A  =  cos(E*DEG_RAD) - e;
-//        /*      r * ::sin(v)  =  */ double B  =  ::sqrt(1 - e*e) * ::sin(E*DEG_RAD);
-//        //
-//        // and
-//        //
-//        //      r  =  sqrt( A*A + B*B )
-//        double v  =  ::atan2( B, A )*RAD_DEG;
-//        //
-//        // The Sun's true longitude, slon, can now be computed:
-//        //
-//        double slon  =  v + w;
-//        //
-//        // Since the Sun is always at the ecliptic (or at least very very close to
-//        // it), we can use simplified formulae to convert slon (the Sun's ecliptic
-//        // longitude) to sRA and sDec (the Sun's RA and Dec):
-//        //
-//        //                   ::sin(slon) * cos(oblecl)
-//        //     tan(sRA)  =  -------------------------
-//        //            cos(slon)
-//        //
-//        //     ::sin(sDec) =  ::sin(oblecl) * ::sin(slon)
-//        //
-//        // As was the case when computing az, the Azimuth, if possible use an
-//        // atan2() function to compute sRA.
-//
-//        double sRA = ::atan2(sin(slon*DEG_RAD) * cos(oblecl*DEG_RAD), cos(slon*DEG_RAD))*RAD_DEG;
-//
-//        double sin_sDec = ::sin(oblecl*DEG_RAD) * ::sin(slon*DEG_RAD);
-//        double sDec = ::asin(sin_sDec)*RAD_DEG;
-//
-//        //    COMPUTING RISE AND SET TIMES
-//        //    ----------------------------
-//        //
-//        // To compute when an object rises or sets, you must compute when it
-//        // passes the meridian and the HA of rise/set.  Then the rise time is
-//        // the meridian time minus HA for rise/set, and the set time is the
-//        // meridian time plus the HA for rise/set.
-//        //
-//        // To find the meridian time, compute the Local Sidereal Time at 0h local
-//        // time (or 0h UT if you prefer to work in UT) as outlined above---name
-//        // that quantity LST0.  The Meridian Time, MT, will now be:
-//        //
-//        //     MT  =  RA - LST0
-//        double MT = normalize(sRA - LST, 360);
-//        //
-//        // where "RA" is the object's Right Ascension (in degrees!).  If negative,
-//        // add 360 deg to MT.  If the object is the Sun, leave the time as it is,
-//        // but if it's stellar, multiply MT by 365.2422/366.2422, to convert from
-//        // sidereal to solar time.  Now, compute HA for rise/set, name that
-//        // quantity HA0:
-//        //
-//        //                 ::sin(h0)  -  ::sin(lat) * ::sin(Dec)
-//        // cos(HA0)  =  ---------------------------------
-//        //                      cos(lat) * cos(Dec)
-//        //
-//        // where h0 is the altitude selected to represent rise/set.  For a purely
-//        // mathematical horizon, set h0 = 0 and simplify to:
-//        //
-//        //    cos(HA0)  =  - tan(lat) * tan(Dec)
-//        //
-//        // If you want to account for refraction on the atmosphere, set h0 = -35/60
-//        // degrees (-35 arc minutes), and if you want to compute the rise/set times
-//        // for the Sun's upper limb, set h0 = -50/60 (-50 arc minutes).
-//        //
-//        double h0 = -50/60 * DEG_RAD;
-//
-//        double HA0 = ::acos(
-//          (sin(h0) - ::sin(fLatitude) * sin_sDec) /
-//          (cos(fLatitude) * cos(sDec*DEG_RAD)))*RAD_DEG;
-//
-//        // When HA0 has been computed, leave it as it is for the Sun but multiply
-//        // by 365.2422/366.2422 for stellar objects, to convert from sidereal to
-//        // solar time.  Finally compute:
-//        //
-//        //    Rise time  =  MT - HA0
-//        //    Set  time  =  MT + HA0
-//        //
-//        // convert the times from degrees to hours by dividing by 15.
-//        //
-//        // If you'd like to check that your calculations are accurate or just
-//        // need a quick result, check the USNO's Sun or Moon Rise/Set Table,
-//        // <URL:http://aa.usno.navy.mil/AA/data/docs/RS_OneYear.html>.
-//
-//        double result = MT + (rise ? -HA0 : HA0); // in degrees
-//
-//        // Find UT midnight on this day
-//        long midnight = DAY_MS * (time / DAY_MS);
-//
-//        return midnight + (long) (result * 3600000 / 15);
-//    }
 
 //-------------------------------------------------------------------------
 // The Moon
@@ -4473,2505 +3634,7 @@ static const UDate newMoonDatesFirst = 10000.0 * -221149158; // newMoonDates[0];
 static const UDate newMoonDatesLast  = 10000.0 *  413644464; // newMoonDates[kNewMoonDatesCount-1];
 static const UDate newMoonDatesRange = 10000.0 * (413644464 + 221149158); // newMoonDatesLast - newMoonDatesFirst;
 
-// To get the full moon date/time in millis,
-// first we use the newMoonDates data to estimate the full moon time for a given lunation
-// as halfway between the new moon for the current lunation and the new moon for the next,
-// then we add the correction from the table below.
-// These adjustment values are in millis/10000.0 (i.e. in units of 10 seconds) to fit
-// into 16 bits.
-// This fullMoonAdjustmts array has one fewer entry than the newMoonDates array.
-static const int16_t fullMoonAdjustmts[] = {
-//  adj/10K   lunation number
-    -6411, // -285
-    -4500, // -284
-    -1641, // -283
-     1527, // -282
-     4353, // -281
-     6303, // -280
-     7017, // -279
-     6402, // -278
-     4572, // -277
-     1866, // -276
-    -1224, // -275
-    -4092, // -274
-    -6126, // -273
-    -6873, // -272
-    -6183, // -271
-    -4230, // -270
-    -1410, // -269
-     1689, // -268
-     4425, // -267
-     6279, // -266
-     6933, // -265
-     6288, // -264
-     4443, // -263
-     1701, // -262
-    -1419, // -261
-    -4251, // -260
-    -6192, // -259
-    -6849, // -258
-    -6114, // -257
-    -4125, // -256
-    -1332, // -255
-     1692, // -254
-     4362, // -253
-     6210, // -252
-     6894, // -251
-     6237, // -250
-     4305, // -249
-     1458, // -248
-    -1710, // -247
-    -4509, // -246
-    -6360, // -245
-    -6903, // -244
-    -6075, // -243
-    -4095, // -242
-    -1353, // -241
-     1653, // -240
-     4377, // -239
-     6258, // -238
-     6882, // -237
-     6084, // -236
-     4023, // -235
-     1122, // -234
-    -2004, // -233
-    -4692, // -232
-    -6417, // -231
-    -6894, // -230
-    -6093, // -229
-    -4143, // -228
-    -1371, // -227
-     1716, // -226
-     4470, // -225
-     6303, // -224
-     6837, // -223
-     5955, // -222
-     3837, // -221
-      921, // -220
-    -2154, // -219
-    -4785, // -218
-    -6489, // -217
-    -6987, // -216
-    -6156, // -215
-    -4119, // -214
-    -1236, // -213
-     1911, // -212
-     4677, // -211
-     6477, // -210
-     6918, // -209
-     5895, // -208
-     3675, // -207
-      756, // -206
-    -2289, // -205
-    -4893, // -204
-    -6561, // -203
-    -6987, // -202
-    -6054, // -201
-    -3924, // -200
-     -951, // -199
-     2271, // -198
-     5010, // -197
-     6654, // -196
-     6891, // -195
-     5769, // -194
-     3561, // -193
-      681, // -192
-    -2328, // -191
-    -4893, // -190
-    -6531, // -189
-    -6918, // -188
-    -5916, // -187
-    -3651, // -186
-     -558, // -185
-     2637, // -184
-     5211, // -183
-     6705, // -182
-     6891, // -181
-     5775, // -180
-     3564, // -179
-      666, // -178
-    -2376, // -177
-    -4980, // -176
-    -6612, // -175
-    -6885, // -174
-    -5688, // -173
-    -3282, // -172
-     -213, // -171
-     2862, // -170
-     5343, // -169
-     6774, // -168
-     6906, // -167
-     5727, // -166
-     3456, // -165
-      510, // -164
-    -2571, // -163
-    -5139, // -162
-    -6630, // -161
-    -6726, // -160
-    -5439, // -159
-    -3045, // -158
-      -39, // -157
-     2970, // -156
-     5358, // -155
-     6708, // -154
-     6801, // -153
-     5601, // -152
-     3300, // -151
-      309, // -150
-    -2766, // -149
-    -5262, // -148
-    -6666, // -147
-    -6699, // -146
-    -5373, // -145
-    -2973, // -144
-       -9, // -143
-     2928, // -142
-     5289, // -141
-     6663, // -140
-     6768, // -139
-     5514, // -138
-     3105, // -137
-       27, // -136
-    -3057, // -135
-    -5490, // -134
-    -6780, // -133
-    -6705, // -132
-    -5334, // -131
-    -2970, // -130
-      -42, // -129
-     2913, // -128
-     5340, // -127
-     6708, // -126
-     6702, // -125
-     5298, // -124
-     2787, // -123
-     -291, // -122
-    -3300, // -121
-    -5604, // -120
-    -6795, // -119
-    -6711, // -118
-    -5376, // -117
-    -3003, // -116
-       -9, // -115
-     3021, // -114
-     5436, // -113
-     6723, // -112
-     6618, // -111
-     5136, // -110
-     2595, // -109
-     -468, // -108
-    -3405, // -107
-    -5673, // -106
-    -6873, // -105
-    -6792, // -104
-    -5391, // -103
-    -2910, // -102
-      183, // -101
-     3249, // -100
-     5649, //  -99
-     6867, //  -98
-     6633, //  -97
-     5031, //  -96
-     2436, //  -95
-     -612, //  -94
-    -3519, //  -93
-    -5760, //  -92
-    -6912, //  -91
-    -6729, //  -90
-    -5229, //  -89
-    -2649, //  -88
-      528, //  -87
-     3624, //  -86
-     5925, //  -85
-     6939, //  -84
-     6552, //  -83
-     4908, //  -82
-     2346, //  -81
-     -654, //  -80
-    -3540, //  -79
-    -5757, //  -78
-    -6867, //  -77
-    -6633, //  -76
-    -5025, //  -75
-    -2301, //  -74
-      927, //  -73
-     3906, //  -72
-     6036, //  -71
-     6954, //  -70
-     6555, //  -69
-     4914, //  -68
-     2343, //  -67
-     -699, //  -66
-    -3621, //  -65
-    -5853, //  -64
-    -6909, //  -63
-    -6510, //  -62
-    -4713, //  -61
-    -1938, //  -60
-     1200, //  -59
-     4071, //  -58
-     6126, //  -57
-     6993, //  -56
-     6531, //  -55
-     4833, //  -54
-     2199, //  -53
-     -888, //  -52
-    -3822, //  -51
-    -5967, //  -50
-    -6849, //  -49
-    -6306, //  -48
-    -4482, //  -47
-    -1755, //  -46
-     1320, //  -45
-     4116, //  -44
-     6093, //  -43
-     6900, //  -42
-     6411, //  -41
-     4689, //  -40
-     2013, //  -39
-    -1107, //  -38
-    -3996, //  -37
-    -6051, //  -36
-    -6858, //  -35
-    -6267, //  -34
-    -4422, //  -33
-    -1710, //  -32
-     1308, //  -31
-     4047, //  -30
-     6033, //  -29
-     6873, //  -28
-     6369, //  -27
-     4545, //  -26
-     1755, //  -25
-    -1410, //  -24
-    -4266, //  -23
-    -6228, //  -22
-    -6924, //  -21
-    -6258, //  -20
-    -4407, //  -19
-    -1731, //  -18
-     1278, //  -17
-     4083, //  -16
-     6102, //  -15
-     6885, //  -14
-     6228, //  -13
-     4275, //  -12
-     1437, //  -11
-    -1686, //  -10
-    -4443, //   -9
-    -6288, //   -8
-    -6924, //   -7
-    -6279, //   -6
-    -4449, //   -5
-    -1734, //   -4
-     1374, //   -3
-     4218, //   -2
-     6180, //   -1
-     6855, //    0
-     6114, //    1
-     4104, //    2
-     1257, //    3
-    -1818, //    4
-    -4518, //    5
-    -6357, //    6
-    -7008, //    7
-    -6333, //    8
-    -4395, //    9
-    -1560, //   10
-     1617, //   11
-     4467, //   12
-     6381, //   13
-     6957, //   14
-     6078, //   15
-     3969, //   16
-     1110, //   17
-    -1941, //   18
-    -4617, //   19
-    -6423, //   20
-    -6999, //   21
-    -6213, //   22
-    -4173, //   23
-    -1248, //   24
-     1989, //   25
-     4803, //   26
-     6561, //   27
-     6939, //   28
-     5964, //   29
-     3873, //   30
-     1053, //   31
-    -1971, //   32
-    -4626, //   33
-    -6399, //   34
-    -6930, //   35
-    -6063, //   36
-    -3894, //   37
-     -855, //   38
-     2346, //   39
-     4992, //   40
-     6603, //   41
-     6939, //   42
-     5976, //   43
-     3873, //   44
-     1020, //   45
-    -2040, //   46
-    -4731, //   47
-    -6492, //   48
-    -6906, //   49
-    -5844, //   50
-    -3546, //   51
-     -540, //   52
-     2541, //   53
-     5100, //   54
-     6666, //   55
-     6951, //   56
-     5919, //   57
-     3756, //   58
-      840, //   59
-    -2262, //   60
-    -4914, //   61
-    -6528, //   62
-    -6774, //   63
-    -5628, //   64
-    -3348, //   65
-     -405, //   66
-     2610, //   67
-     5097, //   68
-     6591, //   69
-     6840, //   70
-     5784, //   71
-     3585, //   72
-      633, //   73
-    -2472, //   74
-    -5055, //   75
-    -6582, //   76
-    -6768, //   77
-    -5595, //   78
-    -3315, //   79
-     -402, //   80
-     2565, //   81
-     5031, //   82
-     6558, //   83
-     6816, //   84
-     5697, //   85
-     3378, //   86
-      339, //   87
-    -2772, //   88
-    -5292, //   89
-    -6714, //   90
-    -6804, //   91
-    -5580, //   92
-    -3321, //   93
-     -429, //   94
-     2574, //   95
-     5112, //   96
-     6624, //   97
-     6765, //   98
-     5493, //   99
-     3075, //  100
-       30, //  101
-    -3000, //  102
-    -5400, //  103
-    -6732, //  104
-    -6804, //  105
-    -5613, //  106
-    -3339, //  107
-     -366, //  108
-     2721, //  109
-     5247, //  110
-     6669, //  111
-     6702, //  112
-     5355, //  113
-     2907, //  114
-     -114, //  115
-    -3093, //  116
-    -5460, //  117
-    -6804, //  118
-    -6879, //  119
-    -5619, //  120
-    -3210, //  121
-     -129, //  122
-     2991, //  123
-     5490, //  124
-     6834, //  125
-     6744, //  126
-     5268, //  127
-     2769, //  128
-     -237, //  129
-    -3189, //  130
-    -5541, //  131
-    -6837, //  132
-    -6810, //  133
-    -5433, //  134
-    -2925, //  135
-      234, //  136
-     3369, //  137
-     5757, //  138
-     6912, //  139
-     6669, //  140
-     5163, //  141
-     2697, //  142
-     -282, //  143
-    -3216, //  144
-    -5541, //  145
-    -6798, //  146
-    -6708, //  147
-    -5217, //  148
-    -2577, //  149
-      621, //  150
-     3639, //  151
-     5856, //  152
-     6915, //  153
-     6672, //  154
-     5172, //  155
-     2685, //  156
-     -345, //  157
-    -3321, //  158
-    -5661, //  159
-    -6855, //  160
-    -6597, //  161
-    -4926, //  162
-    -2241, //  163
-      858, //  164
-     3762, //  165
-     5925, //  166
-     6948, //  167
-     6645, //  168
-     5076, //  169
-     2520, //  170
-     -561, //  171
-    -3549, //  172
-    -5796, //  173
-    -6813, //  174
-    -6417, //  175
-    -4731, //  176
-    -2100, //  177
-      945, //  178
-     3792, //  179
-     5886, //  180
-     6852, //  181
-     6519, //  182
-     4926, //  183
-     2319, //  184
-     -792, //  185
-    -3744, //  186
-    -5901, //  187
-    -6846, //  188
-    -6414, //  189
-    -4710, //  190
-    -2088, //  191
-      921, //  192
-     3732, //  193
-     5838, //  194
-     6837, //  195
-     6477, //  196
-     4776, //  197
-     2058, //  198
-    -1101, //  199
-    -4011, //  200
-    -6084, //  201
-    -6930, //  202
-    -6420, //  203
-    -4704, //  204
-    -2106, //  205
-      909, //  206
-     3786, //  207
-     5940, //  208
-     6867, //  209
-     6354, //  210
-     4518, //  211
-     1746, //  212
-    -1365, //  213
-    -4173, //  214
-    -6138, //  215
-    -6933, //  216
-    -6441, //  217
-    -4734, //  218
-    -2082, //  219
-     1038, //  220
-     3963, //  221
-     6054, //  222
-     6867, //  223
-     6261, //  224
-     4374, //  225
-     1596, //  226
-    -1476, //  227
-    -4236, //  228
-    -6201, //  229
-    -7005, //  230
-    -6483, //  231
-    -4659, //  232
-    -1872, //  233
-     1320, //  234
-     4242, //  235
-     6273, //  236
-     6981, //  237
-     6243, //  238
-     4266, //  239
-     1473, //  240
-    -1581, //  241
-    -4335, //  242
-    -6267, //  243
-    -6993, //  244
-    -6345, //  245
-    -4413, //  246
-    -1536, //  247
-     1707, //  248
-     4581, //  249
-     6447, //  250
-     6972, //  251
-     6150, //  252
-     4173, //  253
-     1416, //  254
-    -1614, //  255
-    -4353, //  256
-    -6252, //  257
-    -6924, //  258
-    -6189, //  259
-    -4128, //  260
-    -1149, //  261
-     2043, //  262
-     4752, //  263
-     6477, //  264
-     6969, //  265
-     6156, //  266
-     4173, //  267
-     1380, //  268
-    -1704, //  269
-    -4482, //  270
-    -6360, //  271
-    -6918, //  272
-    -5994, //  273
-    -3810, //  274
-     -873, //  275
-     2202, //  276
-     4830, //  277
-     6525, //  278
-     6975, //  279
-     6090, //  280
-     4038, //  281
-     1176, //  282
-    -1953, //  283
-    -4689, //  284
-    -6417, //  285
-    -6804, //  286
-    -5808, //  287
-    -3657, //  288
-     -777, //  289
-     2247, //  290
-     4821, //  291
-     6456, //  292
-     6858, //  293
-     5949, //  294
-     3852, //  295
-      942, //  296
-    -2184, //  297
-    -4842, //  298
-    -6492, //  299
-    -6825, //  300
-    -5811, //  301
-    -3648, //  302
-     -789, //  303
-     2199, //  304
-     4764, //  305
-     6432, //  306
-     6849, //  307
-     5868, //  308
-     3648, //  309
-      645, //  310
-    -2481, //  311
-    -5076, //  312
-    -6633, //  313
-    -6876, //  314
-    -5811, //  315
-    -3660, //  316
-     -810, //  317
-     2229, //  318
-     4869, //  319
-     6522, //  320
-     6816, //  321
-     5673, //  322
-     3357, //  323
-      354, //  324
-    -2691, //  325
-    -5172, //  326
-    -6648, //  327
-    -6879, //  328
-    -5832, //  329
-    -3660, //  330
-     -714, //  331
-     2418, //  332
-     5049, //  333
-     6600, //  334
-     6777, //  335
-     5565, //  336
-     3219, //  337
-      234, //  338
-    -2766, //  339
-    -5229, //  340
-    -6714, //  341
-    -6945, //  342
-    -5820, //  343
-    -3498, //  344
-     -438, //  345
-     2721, //  346
-     5310, //  347
-     6777, //  348
-     6831, //  349
-     5496, //  350
-     3096, //  351
-      132, //  352
-    -2859, //  353
-    -5313, //  354
-    -6753, //  355
-    -6867, //  356
-    -5610, //  357
-    -3189, //  358
-      -57, //  359
-     3102, //  360
-     5577, //  361
-     6855, //  362
-     6768, //  363
-     5403, //  364
-     3036, //  365
-       84, //  366
-    -2895, //  367
-    -5325, //  368
-    -6717, //  369
-    -6762, //  370
-    -5394, //  371
-    -2850, //  372
-      309, //  373
-     3348, //  374
-     5661, //  375
-     6855, //  376
-     6771, //  377
-     5412, //  378
-     3012, //  379
-        9, //  380
-    -3021, //  381
-    -5466, //  382
-    -6783, //  383
-    -6666, //  384
-    -5136, //  385
-    -2550, //  386
-      510, //  387
-     3444, //  388
-     5709, //  389
-     6876, //  390
-     6735, //  391
-     5304, //  392
-     2826, //  393
-     -234, //  394
-    -3273, //  395
-    -5619, //  396
-    -6765, //  397
-    -6522, //  398
-    -4974, //  399
-    -2451, //  400
-      555, //  401
-     3456, //  402
-     5664, //  403
-     6783, //  404
-     6609, //  405
-     5142, //  406
-     2613, //  407
-     -480, //  408
-    -3477, //  409
-    -5733, //  410
-    -6822, //  411
-    -6549, //  412
-    -4983, //  413
-    -2457, //  414
-      525, //  415
-     3402, //  416
-     5634, //  417
-     6783, //  418
-     6579, //  419
-     5001, //  420
-     2355, //  421
-     -786, //  422
-    -3744, //  423
-    -5925, //  424
-    -6915, //  425
-    -6567, //  426
-    -4986, //  427
-    -2469, //  428
-      534, //  429
-     3486, //  430
-     5766, //  431
-     6843, //  432
-     6474, //  433
-     4758, //  434
-     2064, //  435
-    -1029, //  436
-    -3891, //  437
-    -5967, //  438
-    -6912, //  439
-    -6576, //  440
-    -5007, //  441
-    -2418, //  442
-      708, //  443
-     3711, //  444
-     5913, //  445
-     6864, //  446
-     6405, //  447
-     4632, //  448
-     1935, //  449
-    -1125, //  450
-    -3945, //  451
-    -6024, //  452
-    -6987, //  453
-    -6606, //  454
-    -4908, //  455
-    -2169, //  456
-     1029, //  457
-     4008, //  458
-     6150, //  459
-     6996, //  460
-     6399, //  461
-     4542, //  462
-     1833, //  463
-    -1212, //  464
-    -4032, //  465
-    -6090, //  466
-    -6969, //  467
-    -6456, //  468
-    -4635, //  469
-    -1815, //  470
-     1422, //  471
-     4347, //  472
-     6315, //  473
-     6984, //  474
-     6312, //  475
-     4467, //  476
-     1779, //  477
-    -1260, //  478
-    -4071, //  479
-    -6093, //  480
-    -6906, //  481
-    -6309, //  482
-    -4359, //  483
-    -1455, //  484
-     1728, //  485
-     4488, //  486
-     6336, //  487
-     6975, //  488
-     6318, //  489
-     4455, //  490
-     1722, //  491
-    -1374, //  492
-    -4224, //  493
-    -6216, //  494
-    -6915, //  495
-    -6132, //  496
-    -4071, //  497
-    -1209, //  498
-     1854, //  499
-     4548, //  500
-     6369, //  501
-     6975, //  502
-     6243, //  503
-     4302, //  504
-     1491, //  505
-    -1644, //  506
-    -4446, //  507
-    -6297, //  508
-    -6825, //  509
-    -5982, //  510
-    -3960, //  511
-    -1158, //  512
-     1869, //  513
-     4524, //  514
-     6297, //  515
-     6864, //  516
-     6102, //  517
-     4116, //  518
-     1251, //  519
-    -1887, //  520
-    -4614, //  521
-    -6387, //  522
-    -6873, //  523
-    -6015, //  524
-    -3978, //  525
-    -1182, //  526
-     1830, //  527
-     4485, //  528
-     6294, //  529
-     6864, //  530
-     6027, //  531
-     3906, //  532
-      960, //  533
-    -2175, //  534
-    -4845, //  535
-    -6528, //  536
-    -6936, //  537
-    -6015, //  538
-    -3978, //  539
-    -1179, //  540
-     1887, //  541
-     4623, //  542
-     6423, //  543
-     6858, //  544
-     5850, //  545
-     3636, //  546
-      696, //  547
-    -2367, //  548
-    -4935, //  549
-    -6540, //  550
-    -6930, //  551
-    -6033, //  552
-    -3963, //  553
-    -1050, //  554
-     2124, //  555
-     4845, //  556
-     6519, //  557
-     6840, //  558
-     5760, //  559
-     3525, //  560
-      597, //  561
-    -2427, //  562
-    -4977, //  563
-    -6603, //  564
-    -6987, //  565
-    -6000, //  566
-    -3768, //  567
-     -735, //  568
-     2454, //  569
-     5124, //  570
-     6711, //  571
-     6906, //  572
-     5712, //  573
-     3423, //  574
-      501, //  575
-    -2517, //  576
-    -5061, //  577
-    -6639, //  578
-    -6906, //  579
-    -5775, //  580
-    -3441, //  581
-     -354, //  582
-     2826, //  583
-     5379, //  584
-     6783, //  585
-     6846, //  586
-     5631, //  587
-     3366, //  588
-      450, //  589
-    -2568, //  590
-    -5094, //  591
-    -6618, //  592
-    -6810, //  593
-    -5571, //  594
-    -3123, //  595
-       -9, //  596
-     3045, //  597
-     5436, //  598
-     6777, //  599
-     6846, //  600
-     5628, //  601
-     3330, //  602
-      354, //  603
-    -2715, //  604
-    -5259, //  605
-    -6705, //  606
-    -6735, //  607
-    -5340, //  608
-    -2862, //  609
-      153, //  610
-     3108, //  611
-     5469, //  612
-     6789, //  613
-     6804, //  614
-     5514, //  615
-     3123, //  616
-       87, //  617
-    -2991, //  618
-    -5430, //  619
-    -6708, //  620
-    -6618, //  621
-    -5214, //  622
-    -2799, //  623
-      171, //  624
-     3102, //  625
-     5424, //  626
-     6699, //  627
-     6681, //  628
-     5346, //  629
-     2904, //  630
-     -165, //  631
-    -3204, //  632
-    -5556, //  633
-    -6783, //  634
-    -6669, //  635
-    -5256, //  636
-    -2826, //  637
-      141, //  638
-     3072, //  639
-     5418, //  640
-     6720, //  641
-     6666, //  642
-     5211, //  643
-     2649, //  644
-     -471, //  645
-    -3465, //  646
-    -5742, //  647
-    -6882, //  648
-    -6693, //  649
-    -5253, //  650
-    -2817, //  651
-      177, //  652
-     3195, //  653
-     5586, //  654
-     6804, //  655
-     6582, //  656
-     4983, //  657
-     2379, //  658
-     -690, //  659
-    -3597, //  660
-    -5781, //  661
-    -6873, //  662
-    -6693, //  663
-    -5253, //  664
-    -2739, //  665
-      387, //  666
-     3453, //  667
-     5769, //  668
-     6852, //  669
-     6534, //  670
-     4887, //  671
-     2280, //  672
-     -759, //  673
-    -3636, //  674
-    -5832, //  675
-    -6942, //  676
-    -6714, //  677
-    -5127, //  678
-    -2457, //  679
-      735, //  680
-     3774, //  681
-     6012, //  682
-     6987, //  683
-     6540, //  684
-     4815, //  685
-     2187, //  686
-     -846, //  687
-    -3726, //  688
-    -5904, //  689
-    -6927, //  690
-    -6555, //  691
-    -4839, //  692
-    -2091, //  693
-     1122, //  694
-     4092, //  695
-     6168, //  696
-     6981, //  697
-     6456, //  698
-     4743, //  699
-     2130, //  700
-     -900, //  701
-    -3780, //  702
-    -5919, //  703
-    -6873, //  704
-    -6417, //  705
-    -4587, //  706
-    -1761, //  707
-     1398, //  708
-     4212, //  709
-     6171, //  710
-     6963, //  711
-     6456, //  712
-     4725, //  713
-     2055, //  714
-    -1047, //  715
-    -3960, //  716
-    -6069, //  717
-    -6900, //  718
-    -6261, //  719
-    -4335, //  720
-    -1563, //  721
-     1491, //  722
-     4245, //  723
-     6189, //  724
-     6954, //  725
-     6378, //  726
-     4554, //  727
-     1806, //  728
-    -1338, //  729
-    -4200, //  730
-    -6168, //  731
-    -6840, //  732
-    -6147, //  733
-    -4260, //  734
-    -1539, //  735
-     1485, //  736
-     4218, //  737
-     6126, //  738
-     6855, //  739
-     6240, //  740
-     4362, //  741
-     1560, //  742
-    -1584, //  743
-    -4380, //  744
-    -6267, //  745
-    -6906, //  746
-    -6201, //  747
-    -4299, //  748
-    -1569, //  749
-     1455, //  750
-     4203, //  751
-     6147, //  752
-     6873, //  753
-     6174, //  754
-     4161, //  755
-     1272, //  756
-    -1869, //  757
-    -4602, //  758
-    -6408, //  759
-    -6969, //  760
-    -6210, //  761
-    -4293, //  762
-    -1545, //  763
-     1551, //  764
-     4383, //  765
-     6312, //  766
-     6891, //  767
-     6021, //  768
-     3912, //  769
-     1029, //  770
-    -2031, //  771
-    -4677, //  772
-    -6417, //  773
-    -6963, //  774
-    -6216, //  775
-    -4245, //  776
-    -1374, //  777
-     1824, //  778
-     4635, //  779
-     6432, //  780
-     6888, //  781
-     5952, //  782
-     3822, //  783
-      957, //  784
-    -2076, //  785
-    -4713, //  786
-    -6477, //  787
-    -7014, //  788
-    -6159, //  789
-    -4023, //  790
-    -1029, //  791
-     2181, //  792
-     4920, //  793
-     6627, //  794
-     6966, //  795
-     5919, //  796
-     3744, //  797
-      873, //  798
-    -2169, //  799
-    -4806, //  800
-    -6519, //  801
-    -6927, //  802
-    -5928, //  803
-    -3693, //  804
-     -648, //  805
-     2538, //  806
-     5160, //  807
-     6693, //  808
-     6903, //  809
-     5835, //  810
-     3678, //  811
-      813, //  812
-    -2235, //  813
-    -4851, //  814
-    -6510, //  815
-    -6840, //  816
-    -5733, //  817
-    -3396, //  818
-     -348, //  819
-     2724, //  820
-     5196, //  821
-     6672, //  822
-     6897, //  823
-     5829, //  824
-     3627, //  825
-      684, //  826
-    -2415, //  827
-    -5043, //  828
-    -6618, //  829
-    -6789, //  830
-    -5535, //  831
-    -3174, //  832
-     -219, //  833
-     2760, //  834
-     5217, //  835
-     6675, //  836
-     6855, //  837
-     5703, //  838
-     3408, //  839
-      399, //  840
-    -2706, //  841
-    -5226, //  842
-    -6639, //  843
-    -6699, //  844
-    -5448, //  845
-    -3144, //  846
-     -228, //  847
-     2745, //  848
-     5178, //  849
-     6600, //  850
-     6738, //  851
-     5535, //  852
-     3186, //  853
-      144, //  854
-    -2925, //  855
-    -5367, //  856
-    -6723, //  857
-    -6768, //  858
-    -5505, //  859
-    -3183, //  860
-     -249, //  861
-     2736, //  862
-     5196, //  863
-     6645, //  864
-     6744, //  865
-     5412, //  866
-     2931, //  867
-     -147, //  868
-    -3174, //  869
-    -5544, //  870
-    -6828, //  871
-    -6801, //  872
-    -5496, //  873
-    -3156, //  874
-     -174, //  875
-     2892, //  876
-     5403, //  877
-     6759, //  878
-     6678, //  879
-     5205, //  880
-     2694, //  881
-     -342, //  882
-    -3288, //  883
-    -5574, //  884
-    -6810, //  885
-    -6792, //  886
-    -5478, //  887
-    -3042, //  888
-       75, //  889
-     3195, //  890
-     5607, //  891
-     6822, //  892
-     6648, //  893
-     5136, //  894
-     2619, //  895
-     -393, //  896
-    -3315, //  897
-    -5616, //  898
-    -6876, //  899
-    -6801, //  900
-    -5331, //  901
-    -2733, //  902
-      450, //  903
-     3528, //  904
-     5853, //  905
-     6960, //  906
-     6663, //  907
-     5076, //  908
-     2535, //  909
-     -477, //  910
-    -3414, //  911
-    -5703, //  912
-    -6867, //  913
-    -6636, //  914
-    -5040, //  915
-    -2370, //  916
-      822, //  917
-     3822, //  918
-     5997, //  919
-     6945, //  920
-     6582, //  921
-     5004, //  922
-     2478, //  923
-     -546, //  924
-    -3486, //  925
-    -5736, //  926
-    -6825, //  927
-    -6510, //  928
-    -4803, //  929
-    -2070, //  930
-     1059, //  931
-     3915, //  932
-     5982, //  933
-     6924, //  934
-     6579, //  935
-     4971, //  936
-     2376, //  937
-     -723, //  938
-    -3696, //  939
-    -5907, //  940
-    -6873, //  941
-    -6387, //  942
-    -4596, //  943
-    -1911, //  944
-     1116, //  945
-     3927, //  946
-     5991, //  947
-     6915, //  948
-     6495, //  949
-     4794, //  950
-     2109, //  951
-    -1032, //  952
-    -3954, //  953
-    -6021, //  954
-    -6837, //  955
-    -6300, //  956
-    -4548, //  957
-    -1920, //  958
-     1101, //  959
-     3906, //  960
-     5946, //  961
-     6825, //  962
-     6360, //  963
-     4596, //  964
-     1863, //  965
-    -1275, //  966
-    -4134, //  967
-    -6132, //  968
-    -6921, //  969
-    -6375, //  970
-    -4605, //  971
-    -1944, //  972
-     1089, //  973
-     3918, //  974
-     5994, //  975
-     6870, //  976
-     6315, //  977
-     4410, //  978
-     1584, //  979
-    -1542, //  980
-    -4338, //  981
-    -6264, //  982
-    -6981, //  983
-    -6381, //  984
-    -4581, //  985
-    -1890, //  986
-     1221, //  987
-     4134, //  988
-     6186, //  989
-     6912, //  990
-     6174, //  991
-     4185, //  992
-     1371, //  993
-    -1689, //  994
-    -4401, //  995
-    -6270, //  996
-    -6969, //  997
-    -6369, //  998
-    -4509, //  999
-    -1683, // 1000
-     1536, // 1001
-     4422, // 1002
-     6333, // 1003
-     6927, // 1004
-     6132, // 1005
-     4119, // 1006
-     1323, // 1007
-    -1719, // 1008
-    -4434, // 1009
-    -6321, // 1010
-    -7011, // 1011
-    -6297, // 1012
-    -4266, // 1013
-    -1314, // 1014
-     1905, // 1015
-     4707, // 1016
-     6525, // 1017
-     7011, // 1018
-     6108, // 1019
-     4050, // 1020
-     1236, // 1021
-    -1815, // 1022
-    -4536, // 1023
-    -6375, // 1024
-    -6930, // 1025
-    -6063, // 1026
-    -3933, // 1027
-     -948, // 1028
-     2238, // 1029
-     4923, // 1030
-     6576, // 1031
-     6945, // 1032
-     6024, // 1033
-     3981, // 1034
-     1167, // 1035
-    -1899, // 1036
-    -4608, // 1037
-    -6387, // 1038
-    -6864, // 1039
-    -5895, // 1040
-    -3669, // 1041
-     -687, // 1042
-     2391, // 1043
-     4944, // 1044
-     6543, // 1045
-     6930, // 1046
-     6012, // 1047
-     3915, // 1048
-     1020, // 1049
-    -2109, // 1050
-    -4815, // 1051
-    -6513, // 1052
-    -6828, // 1053
-    -5727, // 1054
-    -3483, // 1055
-     -591, // 1056
-     2400, // 1057
-     4941, // 1058
-     6546, // 1059
-     6888, // 1060
-     5874, // 1061
-     3681, // 1062
-      714, // 1063
-    -2415, // 1064
-    -5019, // 1065
-    -6555, // 1066
-    -6771, // 1067
-    -5670, // 1068
-    -3486, // 1069
-     -618, // 1070
-     2382, // 1071
-     4917, // 1072
-     6489, // 1073
-     6783, // 1074
-     5718, // 1075
-     3456, // 1076
-      456, // 1077
-    -2631, // 1078
-    -5160, // 1079
-    -6648, // 1080
-    -6852, // 1081
-    -5742, // 1082
-    -3525, // 1083
-     -624, // 1084
-     2400, // 1085
-     4968, // 1086
-     6558, // 1087
-     6801, // 1088
-     5604, // 1089
-     3225, // 1090
-      186, // 1091
-    -2865, // 1092
-    -5328, // 1093
-    -6747, // 1094
-    -6882, // 1095
-    -5724, // 1096
-    -3477, // 1097
-     -519, // 1098
-     2598, // 1099
-     5208, // 1100
-     6705, // 1101
-     6762, // 1102
-     5424, // 1103
-     3006, // 1104
-       12, // 1105
-    -2958, // 1106
-    -5352, // 1107
-    -6732, // 1108
-    -6864, // 1109
-    -5688, // 1110
-    -3333, // 1111
-     -234, // 1112
-     2934, // 1113
-     5442, // 1114
-     6783, // 1115
-     6747, // 1116
-     5373, // 1117
-     2952, // 1118
-      -18, // 1119
-    -2982, // 1120
-    -5394, // 1121
-    -6798, // 1122
-    -6867, // 1123
-    -5523, // 1124
-    -2997, // 1125
-      159, // 1126
-     3261, // 1127
-     5679, // 1128
-     6918, // 1129
-     6771, // 1130
-     5325, // 1131
-     2877, // 1132
-     -105, // 1133
-    -3093, // 1134
-    -5487, // 1135
-    -6792, // 1136
-    -6705, // 1137
-    -5226, // 1138
-    -2649, // 1139
-      507, // 1140
-     3537, // 1141
-     5802, // 1142
-     6900, // 1143
-     6690, // 1144
-     5241, // 1145
-     2808, // 1146
-     -198, // 1147
-    -3192, // 1148
-    -5550, // 1149
-    -6771, // 1150
-    -6594, // 1151
-    -5022, // 1152
-    -2391, // 1153
-      702, // 1154
-     3600, // 1155
-     5775, // 1156
-     6864, // 1157
-     6675, // 1158
-     5202, // 1159
-     2691, // 1160
-     -402, // 1161
-    -3423, // 1162
-    -5739, // 1163
-    -6840, // 1164
-    -6507, // 1165
-    -4848, // 1166
-    -2265, // 1167
-      732, // 1168
-     3591, // 1169
-     5778, // 1170
-     6858, // 1171
-     6594, // 1172
-     5016, // 1173
-     2406, // 1174
-     -717, // 1175
-    -3690, // 1176
-    -5865, // 1177
-    -6825, // 1178
-    -6447, // 1179
-    -4833, // 1180
-    -2295, // 1181
-      708, // 1182
-     3579, // 1183
-     5748, // 1184
-     6783, // 1185
-     6468, // 1186
-     4830, // 1187
-     2160, // 1188
-     -966, // 1189
-    -3870, // 1190
-    -5976, // 1191
-    -6918, // 1192
-    -6528, // 1193
-    -4896, // 1194
-    -2313, // 1195
-      729, // 1196
-     3633, // 1197
-     5835, // 1198
-     6855, // 1199
-     6441, // 1200
-     4656, // 1201
-     1902, // 1202
-    -1212, // 1203
-    -4065, // 1204
-    -6111, // 1205
-    -6981, // 1206
-    -6528, // 1207
-    -4851, // 1208
-    -2223, // 1209
-      900, // 1210
-     3888, // 1211
-     6063, // 1212
-     6918, // 1213
-     6321, // 1214
-     4452, // 1215
-     1713, // 1216
-    -1335, // 1217
-    -4110, // 1218
-    -6099, // 1219
-    -6954, // 1220
-    -6501, // 1221
-    -4758, // 1222
-    -1986, // 1223
-     1245, // 1224
-     4194, // 1225
-     6219, // 1226
-     6951, // 1227
-     6294, // 1228
-     4410, // 1229
-     1680, // 1230
-    -1359, // 1231
-    -4140, // 1232
-    -6159, // 1233
-    -6996, // 1234
-    -6423, // 1235
-    -4494, // 1236
-    -1602, // 1237
-     1617, // 1238
-     4479, // 1239
-     6402, // 1240
-     7026, // 1241
-     6282, // 1242
-     4341, // 1243
-     1602, // 1244
-    -1458, // 1245
-    -4257, // 1246
-    -6222, // 1247
-    -6921, // 1248
-    -6189, // 1249
-    -4164, // 1250
-    -1254, // 1251
-     1920, // 1252
-     4665, // 1253
-     6438, // 1254
-     6963, // 1255
-     6192, // 1256
-     4269, // 1257
-     1512, // 1258
-    -1572, // 1259
-    -4356, // 1260
-    -6255, // 1261
-    -6867, // 1262
-    -6039, // 1263
-    -3939, // 1264
-    -1032, // 1265
-     2031, // 1266
-     4659, // 1267
-     6393, // 1268
-     6939, // 1269
-     6174, // 1270
-     4188, // 1271
-     1338, // 1272
-    -1812, // 1273
-    -4590, // 1274
-    -6405, // 1275
-    -6867, // 1276
-    -5916, // 1277
-    -3795, // 1278
-     -969, // 1279
-     2028, // 1280
-     4656, // 1281
-     6405, // 1282
-     6903, // 1283
-     6036, // 1284
-     3942, // 1285
-     1020, // 1286
-    -2118, // 1287
-    -4800, // 1288
-    -6459, // 1289
-    -6828, // 1290
-    -5886, // 1291
-    -3819, // 1292
-    -1011, // 1293
-     2016, // 1294
-     4647, // 1295
-     6366, // 1296
-     6816, // 1297
-     5886, // 1298
-     3723, // 1299
-      771, // 1300
-    -2334, // 1301
-    -4935, // 1302
-    -6558, // 1303
-    -6921, // 1304
-    -5964, // 1305
-    -3858, // 1306
-     -996, // 1307
-     2067, // 1308
-     4737, // 1309
-     6468, // 1310
-     6861, // 1311
-     5793, // 1312
-     3504, // 1313
-      516, // 1314
-    -2544, // 1315
-    -5091, // 1316
-    -6654, // 1317
-    -6945, // 1318
-    -5931, // 1319
-    -3780, // 1320
-     -849, // 1321
-     2310, // 1322
-     5019, // 1323
-     6633, // 1324
-     6831, // 1325
-     5622, // 1326
-     3315, // 1327
-      375, // 1328
-    -2622, // 1329
-    -5106, // 1330
-    -6630, // 1331
-    -6918, // 1332
-    -5874, // 1333
-    -3612, // 1334
-     -537, // 1335
-     2667, // 1336
-     5256, // 1337
-     6726, // 1338
-     6828, // 1339
-     5598, // 1340
-     3288, // 1341
-      351, // 1342
-    -2646, // 1343
-    -5151, // 1344
-    -6696, // 1345
-    -6915, // 1346
-    -5694, // 1347
-    -3261, // 1348
-     -135, // 1349
-     2994, // 1350
-     5484, // 1351
-     6852, // 1352
-     6858, // 1353
-     5556, // 1354
-     3210, // 1355
-      255, // 1356
-    -2772, // 1357
-    -5268, // 1358
-    -6702, // 1359
-    -6756, // 1360
-    -5409, // 1361
-    -2925, // 1362
-      180, // 1363
-     3231, // 1364
-     5589, // 1365
-     6822, // 1366
-     6774, // 1367
-     5469, // 1368
-     3126, // 1369
-      141, // 1370
-    -2895, // 1371
-    -5349, // 1372
-    -6699, // 1373
-    -6666, // 1374
-    -5235, // 1375
-    -2709, // 1376
-      342, // 1377
-     3270, // 1378
-     5547, // 1379
-     6786, // 1380
-     6753, // 1381
-     5421, // 1382
-     2985, // 1383
-      -78, // 1384
-    -3147, // 1385
-    -5553, // 1386
-    -6792, // 1387
-    -6612, // 1388
-    -5100, // 1389
-    -2616, // 1390
-      345, // 1391
-     3252, // 1392
-     5550, // 1393
-     6780, // 1394
-     6672, // 1395
-     5223, // 1396
-     2691, // 1397
-     -408, // 1398
-    -3423, // 1399
-    -5691, // 1400
-    -6792, // 1401
-    -6570, // 1402
-    -5109, // 1403
-    -2661, // 1404
-      318, // 1405
-     3258, // 1406
-     5547, // 1407
-     6729, // 1408
-     6564, // 1409
-     5043, // 1410
-     2460, // 1411
-     -645, // 1412
-    -3597, // 1413
-    -5805, // 1414
-    -6888, // 1415
-    -6669, // 1416
-    -5172, // 1417
-    -2661, // 1418
-      372, // 1419
-     3348, // 1420
-     5664, // 1421
-     6831, // 1422
-     6558, // 1423
-     4893, // 1424
-     2220, // 1425
-     -873, // 1426
-    -3774, // 1427
-    -5928, // 1428
-    -6948, // 1429
-    -6654, // 1430
-    -5103, // 1431
-    -2538, // 1432
-      582, // 1433
-     3639, // 1434
-     5922, // 1435
-     6912, // 1436
-     6456, // 1437
-     4713, // 1438
-     2061, // 1439
-     -975, // 1440
-    -3807, // 1441
-    -5916, // 1442
-    -6921, // 1443
-    -6618, // 1444
-    -4989, // 1445
-    -2274, // 1446
-      957, // 1447
-     3960, // 1448
-     6084, // 1449
-     6951, // 1450
-     6444, // 1451
-     4689, // 1452
-     2040, // 1453
-     -987, // 1454
-    -3840, // 1455
-    -5982, // 1456
-    -6966, // 1457
-    -6531, // 1458
-    -4707, // 1459
-    -1881, // 1460
-     1326, // 1461
-     4227, // 1462
-     6255, // 1463
-     7023, // 1464
-     6435, // 1465
-     4629, // 1466
-     1956, // 1467
-    -1107, // 1468
-    -3975, // 1469
-    -6060, // 1470
-    -6894, // 1471
-    -6300, // 1472
-    -4395, // 1473
-    -1566, // 1474
-     1590, // 1475
-     4392, // 1476
-     6279, // 1477
-     6954, // 1478
-     6339, // 1479
-     4539, // 1480
-     1845, // 1481
-    -1245, // 1482
-    -4095, // 1483
-    -6114, // 1484
-    -6864, // 1485
-    -6180, // 1486
-    -4212, // 1487
-    -1386, // 1488
-     1674, // 1489
-     4368, // 1490
-     6222, // 1491
-     6924, // 1492
-     6315, // 1493
-     4446, // 1494
-     1653, // 1495
-    -1503, // 1496
-    -4350, // 1497
-    -6282, // 1498
-    -6888, // 1499
-    -6090, // 1500
-    -4104, // 1501
-    -1356, // 1502
-     1650, // 1503
-     4356, // 1504
-     6237, // 1505
-     6903, // 1506
-     6180, // 1507
-     4191, // 1508
-     1326, // 1509
-    -1818, // 1510
-    -4566, // 1511
-    -6348, // 1512
-    -6870, // 1513
-    -6078, // 1514
-    -4146, // 1515
-    -1398, // 1516
-     1647, // 1517
-     4377, // 1518
-     6228, // 1519
-     6828, // 1520
-     6039, // 1521
-     3984, // 1522
-     1086, // 1523
-    -2028, // 1524
-    -4698, // 1525
-    -6444, // 1526
-    -6963, // 1527
-    -6162, // 1528
-    -4170, // 1529
-    -1350, // 1530
-     1740, // 1531
-     4503, // 1532
-     6363, // 1533
-     6897, // 1534
-     5970, // 1535
-     3792, // 1536
-      858, // 1537
-    -2217, // 1538
-    -4839, // 1539
-    -6531, // 1540
-    -6987, // 1541
-    -6117, // 1542
-    -4065, // 1543
-    -1173, // 1544
-     2019, // 1545
-     4812, // 1546
-     6552, // 1547
-     6888, // 1548
-     5820, // 1549
-     3624, // 1550
-      738, // 1551
-    -2274, // 1552
-    -4845, // 1553
-    -6510, // 1554
-    -6948, // 1555
-    -6042, // 1556
-    -3867, // 1557
-     -825, // 1558
-     2391, // 1559
-     5064, // 1560
-     6645, // 1561
-     6900, // 1562
-     5811, // 1563
-     3609, // 1564
-      720, // 1565
-    -2304, // 1566
-    -4908, // 1567
-    -6582, // 1568
-    -6945, // 1569
-    -5856, // 1570
-    -3513, // 1571
-     -432, // 1572
-     2706, // 1573
-     5271, // 1574
-     6765, // 1575
-     6927, // 1576
-     5769, // 1577
-     3528, // 1578
-      618, // 1579
-    -2442, // 1580
-    -5037, // 1581
-    -6600, // 1582
-    -6792, // 1583
-    -5577, // 1584
-    -3201, // 1585
-     -153, // 1586
-     2910, // 1587
-     5355, // 1588
-     6729, // 1589
-     6834, // 1590
-     5676, // 1591
-     3432, // 1592
-      480, // 1593
-    -2592, // 1594
-    -5139, // 1595
-    -6618, // 1596
-    -6732, // 1597
-    -5439, // 1598
-    -3030, // 1599
-      -33, // 1600
-     2922, // 1601
-     5295, // 1602
-     6678, // 1603
-     6810, // 1604
-     5616, // 1605
-     3279, // 1606
-      237, // 1607
-    -2865, // 1608
-    -5364, // 1609
-    -6732, // 1610
-    -6702, // 1611
-    -5343, // 1612
-    -2970, // 1613
-      -45, // 1614
-     2895, // 1615
-     5307, // 1616
-     6693, // 1617
-     6744, // 1618
-     5421, // 1619
-     2976, // 1620
-     -102, // 1621
-    -3144, // 1622
-    -5508, // 1623
-    -6744, // 1624
-    -6684, // 1625
-    -5364, // 1626
-    -3024, // 1627
-      -66, // 1628
-     2925, // 1629
-     5334, // 1630
-     6669, // 1631
-     6651, // 1632
-     5256, // 1633
-     2754, // 1634
-     -324, // 1635
-    -3306, // 1636
-    -5610, // 1637
-    -6840, // 1638
-    -6783, // 1639
-    -5424, // 1640
-    -3003, // 1641
-       24, // 1642
-     3057, // 1643
-     5493, // 1644
-     6801, // 1645
-     6666, // 1646
-     5124, // 1647
-     2535, // 1648
-     -525, // 1649
-    -3462, // 1650
-    -5724, // 1651
-    -6900, // 1652
-    -6765, // 1653
-    -5337, // 1654
-    -2847, // 1655
-      270, // 1656
-     3384, // 1657
-     5766, // 1658
-     6894, // 1659
-     6582, // 1660
-     4965, // 1661
-     2403, // 1662
-     -606, // 1663
-    -3489, // 1664
-    -5712, // 1665
-    -6864, // 1666
-    -6711, // 1667
-    -5199, // 1668
-    -2556, // 1669
-      666, // 1670
-     3717, // 1671
-     5937, // 1672
-     6933, // 1673
-     6576, // 1674
-     4956, // 1675
-     2397, // 1676
-     -621, // 1677
-    -3534, // 1678
-    -5790, // 1679
-    -6918, // 1680
-    -6618, // 1681
-    -4914, // 1682
-    -2166, // 1683
-     1020, // 1684
-     3966, // 1685
-     6090, // 1686
-     7008, // 1687
-     6567, // 1688
-     4896, // 1689
-     2295, // 1690
-     -759, // 1691
-    -3693, // 1692
-    -5886, // 1693
-    -6861, // 1694
-    -6402, // 1695
-    -4626, // 1696
-    -1884, // 1697
-     1245, // 1698
-     4089, // 1699
-     6096, // 1700
-     6930, // 1701
-     6468, // 1702
-     4794, // 1703
-     2166, // 1704
-     -918, // 1705
-    -3840, // 1706
-    -5958, // 1707
-    -6849, // 1708
-    -6318, // 1709
-    -4482, // 1710
-    -1746, // 1711
-     1302, // 1712
-     4056, // 1713
-     6033, // 1714
-     6897, // 1715
-     6441, // 1716
-     4686, // 1717
-     1959, // 1718
-    -1200, // 1719
-    -4110, // 1720
-    -6144, // 1721
-    -6900, // 1722
-    -6258, // 1723
-    -4407, // 1724
-    -1731, // 1725
-     1263, // 1726
-     4050, // 1727
-     6069, // 1728
-     6882, // 1729
-     6306, // 1730
-     4434, // 1731
-     1632, // 1732
-    -1515, // 1733
-    -4320, // 1734
-    -6222, // 1735
-    -6891, // 1736
-    -6261, // 1737
-    -4455, // 1738
-    -1776, // 1739
-     1284, // 1740
-     4101, // 1741
-     6087, // 1742
-     6837, // 1743
-     6183, // 1744
-     4242, // 1745
-     1410, // 1746
-    -1701, // 1747
-    -4443, // 1748
-    -6312, // 1749
-    -6987, // 1750
-    -6345, // 1751
-    -4470, // 1752
-    -1701, // 1753
-     1419, // 1754
-     4266, // 1755
-     6252, // 1756
-     6927, // 1757
-     6135, // 1758
-     4068, // 1759
-     1203, // 1760
-    -1875, // 1761
-    -4575, // 1762
-    -6396, // 1763
-    -7005, // 1764
-    -6279, // 1765
-    -4332, // 1766
-    -1482, // 1767
-     1731, // 1768
-     4599, // 1769
-     6459, // 1770
-     6933, // 1771
-     6009, // 1772
-     3927, // 1773
-     1107, // 1774
-    -1923, // 1775
-    -4578, // 1776
-    -6369, // 1777
-    -6957, // 1778
-    -6186, // 1779
-    -4113, // 1780
-    -1113, // 1781
-     2121, // 1782
-     4854, // 1783
-     6549, // 1784
-     6948, // 1785
-     6009, // 1786
-     3921, // 1787
-     1092, // 1788
-    -1953, // 1789
-    -4647, // 1790
-    -6450, // 1791
-    -6957, // 1792
-    -6003, // 1793
-    -3756, // 1794
-     -735, // 1795
-     2412, // 1796
-     5040, // 1797
-     6660, // 1798
-     6978, // 1799
-     5964, // 1800
-     3837, // 1801
-      966, // 1802
-    -2115, // 1803
-    -4797, // 1804
-    -6486, // 1805
-    -6822, // 1806
-    -5745, // 1807
-    -3480, // 1808
-     -495, // 1809
-     2574, // 1810
-     5094, // 1811
-     6609, // 1812
-     6876, // 1813
-     5862, // 1814
-     3720, // 1815
-      807, // 1816
-    -2292, // 1817
-    -4923, // 1818
-    -6534, // 1819
-    -6789, // 1820
-    -5640, // 1821
-    -3348, // 1822
-     -414, // 1823
-     2568, // 1824
-     5037, // 1825
-     6564, // 1826
-     6852, // 1827
-     5802, // 1828
-     3549, // 1829
-      549, // 1830
-    -2583, // 1831
-    -5166, // 1832
-    -6657, // 1833
-    -6783, // 1834
-    -5577, // 1835
-    -3315, // 1836
-     -438, // 1837
-     2538, // 1838
-     5055, // 1839
-     6588, // 1840
-     6798, // 1841
-     5604, // 1842
-     3252, // 1843
-      216, // 1844
-    -2853, // 1845
-    -5307, // 1846
-    -6684, // 1847
-    -6780, // 1848
-    -5607, // 1849
-    -3369, // 1850
-     -450, // 1851
-     2598, // 1852
-     5118, // 1853
-     6594, // 1854
-     6720, // 1855
-     5457, // 1856
-     3048, // 1857
-       12, // 1858
-    -2997, // 1859
-    -5403, // 1860
-    -6777, // 1861
-    -6873, // 1862
-    -5658, // 1863
-    -3321, // 1864
-     -318, // 1865
-     2775, // 1866
-     5313, // 1867
-     6750, // 1868
-     6759, // 1869
-     5346, // 1870
-     2856, // 1871
-     -168, // 1872
-    -3141, // 1873
-    -5508, // 1874
-    -6822, // 1875
-    -6843, // 1876
-    -5547, // 1877
-    -3135, // 1878
-      -30, // 1879
-     3123, // 1880
-     5604, // 1881
-     6858, // 1882
-     6690, // 1883
-     5211, // 1884
-     2745, // 1885
-     -234, // 1886
-    -3162, // 1887
-    -5493, // 1888
-    -6789, // 1889
-    -6780, // 1890
-    -5394, // 1891
-    -2826, // 1892
-      372, // 1893
-     3459, // 1894
-     5769, // 1895
-     6903, // 1896
-     6690, // 1897
-     5211, // 1898
-     2739, // 1899
-     -258, // 1900
-    -3225, // 1901
-    -5583, // 1902
-    -6852, // 1903
-    -6693, // 1904
-    -5106, // 1905
-    -2442, // 1906
-      705, // 1907
-     3684, // 1908
-     5904, // 1909
-     6963, // 1910
-     6684, // 1911
-     5145, // 1912
-     2625, // 1913
-     -414, // 1914
-    -3405, // 1915
-    -5700, // 1916
-    -6810, // 1917
-    -6498, // 1918
-    -4845, // 1919
-    -2202, // 1920
-      891, // 1921
-     3783, // 1922
-     5901, // 1923
-     6882, // 1924
-     6579, // 1925
-     5031, // 1926
-     2484, // 1927
-     -594, // 1928
-    -3570, // 1929
-    -5799, // 1930
-    -6819, // 1931
-    -6444, // 1932
-    -4743, // 1933
-    -2106, // 1934
-      918, // 1935
-     3732, // 1936
-     5835, // 1937
-     6852, // 1938
-     6546, // 1939
-     4914, // 1940
-     2250, // 1941
-     -891, // 1942
-    -3852, // 1943
-    -5997, // 1944
-    -6894, // 1945
-    -6408, // 1946
-    -4692, // 1947
-    -2109, // 1948
-      882, // 1949
-     3732, // 1950
-     5877, // 1951
-     6855, // 1952
-     6423, // 1953
-     4668, // 1954
-     1935, // 1955
-    -1200, // 1956
-    -4062, // 1957
-    -6078, // 1958
-    -6894, // 1959
-    -6423, // 1960
-    -4746, // 1961
-    -2145, // 1962
-      924, // 1963
-     3819, // 1964
-     5934, // 1965
-     6834, // 1966
-     6324, // 1967
-     4494, // 1968
-     1731, // 1969
-    -1371, // 1970
-    -4173, // 1971
-    -6159, // 1972
-    -6990, // 1973
-    -6498, // 1974
-    -4746, // 1975
-    -2034, // 1976
-     1101, // 1977
-     4029, // 1978
-     6132, // 1979
-     6945, // 1980
-     6288, // 1981
-     4341, // 1982
-     1542, // 1983
-    -1521, // 1984
-    -4287, // 1985
-    -6237, // 1986
-    -6996, // 1987
-    -6420, // 1988
-    -4578, // 1989
-    -1782, // 1990
-     1440, // 1991
-     4380, // 1992
-     6345, // 1993
-     6960, // 1994
-     6183, // 1995
-     4218, // 1996
-     1473, // 1997
-    -1560, // 1998
-    -4293, // 1999
-    -6213, // 2000
-    -6951, // 2001
-    -6318, // 2002
-    -4344, // 2003
-    -1410, // 2004
-     1827, // 2005
-     4629, // 2006
-     6438, // 2007
-     6978, // 2008
-     6189, // 2009
-     4227, // 2010
-     1452, // 2011
-    -1608, // 2012
-    -4383, // 2013
-    -6309, // 2014
-    -6957, // 2015
-    -6132, // 2016
-    -3999, // 2017
-    -1047, // 2018
-     2091, // 2019
-     4788, // 2020
-     6531, // 2021
-     7002, // 2022
-     6144, // 2023
-     4125, // 2024
-     1311, // 2025
-    -1791, // 2026
-    -4551, // 2027
-    -6363, // 2028
-    -6837, // 2029
-    -5901, // 2030
-    -3759, // 2031
-     -849, // 2032
-     2223, // 2033
-     4821, // 2034
-     6471, // 2035
-     6900, // 2036
-     6033, // 2037
-     3996, // 2038
-     1131, // 2039
-    -1995, // 2040
-    -4704, // 2041
-    -6426, // 2042
-    -6828, // 2043
-    -5838, // 2044
-    -3672, // 2045
-     -801, // 2046
-     2196, // 2047
-     4755, // 2048
-     6429, // 2049
-     6879, // 2050
-     5967, // 2051
-     3816, // 2052
-      852, // 2053
-    -2292, // 2054
-    -4950, // 2055
-    -6570, // 2056
-    -6852, // 2057
-    -5796, // 2058
-    -3651, // 2059
-     -825, // 2060
-     2175, // 2061
-     4794, // 2062
-     6474, // 2063
-     6834, // 2064
-     5781, // 2065
-     3522, // 2066
-      534, // 2067
-    -2550, // 2068
-    -5088, // 2069
-    -6597, // 2070
-    -6852, // 2071
-    -5832, // 2072
-    -3705, // 2073
-     -819, // 2074
-     2268, // 2075
-     4899, // 2076
-     6513, // 2077
-     6783, // 2078
-     5652, // 2079
-     3336, // 2080
-      348, // 2081
-    -2691, // 2082
-    -5178, // 2083
-    -6687, // 2084
-    -6948, // 2085
-    -5874, // 2086
-    -3633, // 2087
-     -645, // 2088
-     2490, // 2089
-     5121, // 2090
-     6693, // 2091
-     6840, // 2092
-     5559, // 2093
-     3174, // 2094
-      192, // 2095
-    -2808, // 2096
-    -5274, // 2097
-    -6735, // 2098
-    -6909, // 2099
-    -5739, // 2100
-    -3408, // 2101
-     -324, // 2102
-     2862, // 2103
-     5430, // 2104
-     6804, // 2105
-     6780, // 2106
-     5445, // 2107
-     3078, // 2108
-      141, // 2109
-    -2832, // 2110
-    -5265, // 2111
-    -6702, // 2112
-    -6834, // 2113
-    -5568, // 2114
-    -3090, // 2115
-       78, // 2116
-     3189, // 2117
-     5580, // 2118
-     6843, // 2119
-     6792, // 2120
-     5454, // 2121
-     3078, // 2122
-      108, // 2123
-    -2901, // 2124
-    -5370, // 2125
-    -6774, // 2126
-    -6753, // 2127
-    -5298, // 2128
-    -2730, // 2129
-      381, // 2130
-     3378, // 2131
-     5694, // 2132
-     6900, // 2133
-     6777, // 2134
-     5373, // 2135
-     2946, // 2136
-      -75, // 2137
-    -3111, // 2138
-    -5511, // 2139
-    -6750, // 2140
-    -6579, // 2141
-    -5067, // 2142
-    -2529, // 2143
-      522, // 2144
-     3450, // 2145
-     5673, // 2146
-     6807, // 2147
-     6666, // 2148
-     5253, // 2149
-     2787, // 2150
-     -282, // 2151
-    -3300, // 2152
-    -5625, // 2153
-    -6786, // 2154
-    -6555, // 2155
-    -5004, // 2156
-    -2466, // 2157
-      528, // 2158
-     3390, // 2159
-     5619, // 2160
-     6786, // 2161
-     6636, // 2162
-     5130, // 2163
-     2544, // 2164
-     -585, // 2165
-    -3588, // 2166
-    -5829, // 2167
-    -6873, // 2168
-    -6549, // 2169
-    -4977, // 2170
-    -2481, // 2171
-      495, // 2172
-     3414, // 2173
-     5685, // 2174
-     6810, // 2175
-     6525, // 2176
-     4887, // 2177
-     2232, // 2178
-     -879, // 2179
-    -3786, // 2180
-    -5910, // 2181
-    -6876, // 2182
-    -6567, // 2183
-    -5025, // 2184
-    -2496, // 2185
-      564, // 2186
-     3537, // 2187
-     5778, // 2188
-     6813, // 2189
-     6447, // 2190
-     4734, // 2191
-     2052, // 2192
-    -1035, // 2193
-    -3885, // 2194
-    -5985, // 2195
-    -6966, // 2196
-    -6633, // 2197
-    -5001, // 2198
-    -2352, // 2199
-      792, // 2200
-     3792, // 2201
-     6006, // 2202
-};
-#endif  // APPLE_ICU_CHANGES
+#endif // APPLE_ICU_CHANGES
 
 /**
  * The position of the moon at the time set on this
@@ -6999,7 +3662,7 @@ const CalendarAstronomer::Equatorial& CalendarAstronomer::getMoonPosition()
         // Calculate the mean longitude and anomaly of the moon, based on
         // a circular orbit.  Similar to the corresponding solar calculation.
         double meanLongitude = norm2PI(13.1763966*PI/180*day + moonL0);
-        meanAnomalyMoon = norm2PI(meanLongitude - 0.1114041*PI/180 * day - moonP0);
+        double meanAnomalyMoon = norm2PI(meanLongitude - 0.1114041*PI/180 * day - moonP0);
 
         //
         // Calculate the following corrections:
@@ -7025,7 +3688,7 @@ const CalendarAstronomer::Equatorial& CalendarAstronomer::getMoonPosition()
         double a4 =     0.2140*PI/180 * ::sin(2 * meanAnomalyMoon);
 
         // Now find the moon's corrected longitude
-        moonLongitude = meanLongitude + evection + center - annual + a4;
+        double moonLongitude = meanLongitude + evection + center - annual + a4;
 
         //
         // And finally, find the variation, caused by the fact that the sun's
@@ -7065,7 +3728,6 @@ const CalendarAstronomer::Equatorial& CalendarAstronomer::getMoonPosition()
  * current ecliptic longitudes of the sun and the moon,
  * measured in radians.
  *
- * @see #getMoonPhase
  * @internal
  * @deprecated ICU 2.4. This class may be removed or modified.
  */
@@ -7076,58 +3738,9 @@ double CalendarAstronomer::getMoonAge() {
     // Force the moon's position to be calculated.  We're going to use
     // some the intermediate results cached during that calculation.
     //
-#if APPLE_ICU_CHANGES
-// rdar://15539491&16688723 9e6ee2fcb8.. For gregorian 1900-2100 use tables instead of or in addition to calculation to get or adjust moon & sun positions & times, faster and much more accurate (e.g. accurate to one minute of time instead of 25, 60, or worse).
-    // Currently, the only client is IslamicCalendar. All it cares
-    // about is that the method returns new moon (0) and full moon (PI)
-    // at the correct date & time, and otherwise that the returned value
-    // is monotonically increasing from 0 to PI for the range new moon date
-    // to full moon date, and monotonically increasing from PI to just under
-    // 2*PI for the range full moon date to just before next new moon date.
-
-    if (fTime >= newMoonDatesFirst && fTime < newMoonDatesLast) {
-        int32_t offset = (int32_t)(((double)kNewMoonDatesCount)*(fTime - newMoonDatesFirst)/newMoonDatesRange);
-        const int32_t * newMoonDatesPtr = newMoonDates + offset; // approximate starting position
-        int32_t curTime = (int32_t)(fTime/10000.0);
-        while (curTime < *newMoonDatesPtr) {
-            newMoonDatesPtr--;
-        }
-        while (curTime >= *(newMoonDatesPtr+1)) {
-            newMoonDatesPtr++;
-        }
-        offset = newMoonDatesPtr - newMoonDates;
-        int32_t fullMoonDate = (*newMoonDatesPtr + *(newMoonDatesPtr+1))/2 + fullMoonAdjustmts[offset];
-        if (curTime < fullMoonDate) {
-            return PI*((double)(curTime - *newMoonDatesPtr))/((double)(fullMoonDate - *newMoonDatesPtr));
-        }
-        return PI + PI*((double)(curTime - fullMoonDate))/((double)(*(newMoonDatesPtr+1) - fullMoonDate));
-    }
-
-#endif  // APPLE_ICU_CHANGES
     getMoonPosition();
 
     return norm2PI(moonEclipLong - sunLongitude);
-}
-
-/**
- * Calculate the phase of the moon at the time set in this object.
- * The returned phase is a <code>double</code> in the range
- * <code>0 <= phase < 1</code>, interpreted as follows:
- * <ul>
- * <li>0.00: New moon
- * <li>0.25: First quarter
- * <li>0.50: Full moon
- * <li>0.75: Last quarter
- * </ul>
- *
- * @see #getMoonAge
- * @internal
- * @deprecated ICU 2.4. This class may be removed or modified.
- */
-double CalendarAstronomer::getMoonPhase() {
-    // See page 147 of "Practical Astronomy with your Calculator",
-    // by Peter Duffet-Smith, for details on the algorithm.
-    return 0.5 * (1 - cos(getMoonAge()));
 }
 
 /**
@@ -7136,29 +3749,10 @@ double CalendarAstronomer::getMoonPhase() {
  * @internal
  * @deprecated ICU 2.4. This class may be removed or modified.
  */
-const CalendarAstronomer::MoonAge CalendarAstronomer::NEW_MOON() {
+CalendarAstronomer::MoonAge CalendarAstronomer::NEW_MOON() {
     return  CalendarAstronomer::MoonAge(0);
 }
 
-/**
- * Constant representing the moon's first quarter.
- * For use with {@link #getMoonTime getMoonTime}
- * @internal
- * @deprecated ICU 2.4. This class may be removed or modified.
- */
-/*const CalendarAstronomer::MoonAge CalendarAstronomer::FIRST_QUARTER() {
-  return   CalendarAstronomer::MoonAge(CalendarAstronomer::PI/2);
-}*/
-
-/**
- * Constant representing a full moon.
- * For use with {@link #getMoonTime getMoonTime}
- * @internal
- * @deprecated ICU 2.4. This class may be removed or modified.
- */
-const CalendarAstronomer::MoonAge CalendarAstronomer::FULL_MOON() {
-    return   CalendarAstronomer::MoonAge(CalendarAstronomer::PI);
-}
 /**
  * Constant representing the moon's last quarter.
  * For use with {@link #getMoonTime getMoonTime}
@@ -7213,40 +3807,6 @@ UDate CalendarAstronomer::getNewMoonTimeInRange(UDate theTime, UBool next)
 #endif  // APPLE_ICU_CHANGES
 
 /**
- * Find the next or previous time at which the Moon's ecliptic
- * longitude will have the desired value.
- * <p>
- * @param desired   The desired longitude.
- * @param next      <tt>true</tt> if the next occurrence of the phase
- *                  is desired, <tt>false</tt> for the previous occurrence.
- * @internal
- * @deprecated ICU 2.4. This class may be removed or modified.
- */
-UDate CalendarAstronomer::getMoonTime(double desired, UBool next)
-{
-#if APPLE_ICU_CHANGES
-// rdar://15539491&16688723 9e6ee2fcb8.. For gregorian 1900-2100 use tables instead of or in addition to calculation to get or adjust moon & sun positions & times, faster and much more accurate (e.g. accurate to one minute of time instead of 25, 60, or worse).
-// rdar://17888673 688c98a2e1.. Speed up Calendar use of chinese: Refactor CalendarAstronomer to provide static
-    // Currently, we only get here via a call from ChineseCalendar,
-    // with desired == CalendarAstronomer::NEW_MOON().value
-    if (desired == CalendarAstronomer::NEW_MOON().value) {
-        UDate newMoonTime = CalendarAstronomer::getNewMoonTimeInRange(fTime, next);
-        if (newMoonTime != 0.0) {
-            return newMoonTime;
-        }
-        // else fall through to the full calculation
-    }
-    
-#endif  // APPLE_ICU_CHANGES
-    MoonTimeAngleFunc func;
-    return timeOfAngle( func,
-                        desired,
-                        SYNODIC_MONTH,
-                        MINUTE_MS,
-                        next);
-}
-
-/**
  * Find the next or previous time at which the moon will be in the
  * desired phase.
  * <p>
@@ -7259,34 +3819,24 @@ UDate CalendarAstronomer::getMoonTime(double desired, UBool next)
 UDate CalendarAstronomer::getMoonTime(const CalendarAstronomer::MoonAge& desired, UBool next) {
 #if APPLE_ICU_CHANGES
 // rdar://15539491&16688723 9e6ee2fcb8.. For gregorian 1900-2100 use tables instead of or in addition to calculation to get or adjust moon & sun positions & times, faster and much more accurate (e.g. accurate to one minute of time instead of 25, 60, or worse).
-    // Currently, the only client is ChineseCalendar, which calls
-    // this with desired == CalendarAstronomer::NEW_MOON()
+// rdar://17888673 688c98a2e1.. Speed up Calendar use of chinese: Refactor CalendarAstronomer to provide static
+    // Currently, we only get here via a call from ChineseCalendar,
+    // with desired == CalendarAstronomer::NEW_MOON().value
+    if (desired.value == CalendarAstronomer::NEW_MOON().value) {
+        UDate newMoonTime = CalendarAstronomer::getNewMoonTimeInRange(fTime, next);
+        if (newMoonTime != 0.0) {
+            return newMoonTime;
+        }
+        // else fall through to the full calculation
+    }
+    
 #endif  // APPLE_ICU_CHANGES
-    return getMoonTime(desired.value, next);
-}
-
-class MoonRiseSetCoordFunc : public CalendarAstronomer::CoordFunc {
-public:
-    virtual ~MoonRiseSetCoordFunc();
-    virtual void eval(CalendarAstronomer::Equatorial& result, CalendarAstronomer& a) override { result = a.getMoonPosition(); }
-};
-
-MoonRiseSetCoordFunc::~MoonRiseSetCoordFunc() {}
-
-/**
- * Returns the time (GMT) of sunrise or sunset on the local date to which
- * this calendar is currently set.
- * @internal
- * @deprecated ICU 2.4. This class may be removed or modified.
- */
-UDate CalendarAstronomer::getMoonRiseSet(UBool rise)
-{
-    MoonRiseSetCoordFunc func;
-    return riseOrSet(func,
-                     rise,
-                     .533 * DEG_RAD,        // Angular Diameter
-                     34 /60.0 * DEG_RAD,    // Refraction correction
-                     MINUTE_MS);            // Desired accuracy
+    MoonTimeAngleFunc func;
+    return timeOfAngle( func,
+                        desired.value,
+                        SYNODIC_MONTH,
+                        MINUTE_MS,
+                        next);
 }
 
 //-------------------------------------------------------------------------
@@ -7361,48 +3911,7 @@ UDate CalendarAstronomer::timeOfAngle(AngleFunc& func, double desired,
     return fTime;
 }
 
-UDate CalendarAstronomer::riseOrSet(CoordFunc& func, UBool rise,
-                                    double diameter, double refraction,
-                                    double epsilon)
-{
-    Equatorial pos;
-    double      tanL   = ::tan(fLatitude);
-    double     deltaT = 0;
-    int32_t         count = 0;
-
-    //
-    // Calculate the object's position at the current time, then use that
-    // position to calculate the time of rising or setting.  The position
-    // will be different at that time, so iterate until the error is allowable.
-    //
-    U_DEBUG_ASTRO_MSG(("setup rise=%s, dia=%.3lf, ref=%.3lf, eps=%.3lf\n",
-        rise?"T":"F", diameter, refraction, epsilon));
-    do {
-        // See "Practical Astronomy With Your Calculator, section 33.
-        func.eval(pos, *this);
-        double angle = ::acos(-tanL * ::tan(pos.declination));
-        double lst = ((rise ? CalendarAstronomer_PI2-angle : angle) + pos.ascension ) * 24 / CalendarAstronomer_PI2;
-
-        // Convert from LST to Universal Time.
-        UDate newTime = lstToUT( lst );
-
-        deltaT = newTime - fTime;
-        setTime(newTime);
-        U_DEBUG_ASTRO_MSG(("%d] dT=%.3lf, angle=%.3lf, lst=%.3lf,   A=%.3lf/D=%.3lf\n",
-            count, deltaT, angle, lst, pos.ascension, pos.declination));
-    }
-    while (++ count < 5 && uprv_fabs(deltaT) > epsilon);
-
-    // Calculate the correction due to refraction and the object's angular diameter
-    double cosD  = ::cos(pos.declination);
-    double psi   = ::acos(sin(fLatitude) / cosD);
-    double x     = diameter / 2 + refraction;
-    double y     = ::asin(sin(x) / ::sin(psi));
-    long  delta  = (long)((240 * y * RAD_DEG / cosD)*SECOND_MS);
-
-    return fTime + (rise ? -delta : delta);
-}
-											   /**
+/**
  * Return the obliquity of the ecliptic (the angle between the ecliptic
  * and the earth's equator) at the current time.  This varies due to
  * the precession of the earth's axis.
@@ -7411,21 +3920,285 @@ UDate CalendarAstronomer::riseOrSet(CoordFunc& func, UBool rise,
  *          measured in radians.
  */
 double CalendarAstronomer::eclipticObliquity() {
-    if (isINVALID(eclipObliquity)) {
-        const double epoch = 2451545.0;     // 2000 AD, January 1.5
+    const double epoch = 2451545.0;     // 2000 AD, January 1.5
 
-        double T = (getJulianDay() - epoch) / 36525;
+    double T = (getJulianDay() - epoch) / 36525;
 
-        eclipObliquity = 23.439292
-            - 46.815/3600 * T
-            - 0.0006/3600 * T*T
-            + 0.00181/3600 * T*T*T;
+    double eclipObliquity = 23.439292
+        - 46.815/3600 * T
+        - 0.0006/3600 * T*T
+        + 0.00181/3600 * T*T*T;
 
-        eclipObliquity *= DEG_RAD;
-    }
-    return eclipObliquity;
+    return eclipObliquity * DEG_RAD;
 }
 
+//-------------------------------------------------------------------------
+// Astronomical helpers and structures for Hindu lunar and solar calendars
+//-------------------------------------------------------------------------
+// Astronomy helpers
+double CalendarAstronomer::hinduSunrise(int32_t date, double longitudeOffset, double latitudeDeg) const {
+    return date + hr(6) + (longitudeOffset) / 360.0
+           - hinduEquationOfTime(date)
+           + (1577917828.0 / 1582237828.0 / 360.0)
+             * (hinduAscensionalDifference(date, latitudeDeg) + 0.25 * hinduSolarSiderealDifference(date));
+}
+
+double CalendarAstronomer::hinduSunset(int32_t date, double longitudeOffset, double latitudeDeg) const {
+    return date + hr(18) + (longitudeOffset) / 360.0
+           - hinduEquationOfTime(date)
+           + (1577917828.0 / 1582237828.0) / 360.0
+             * (hinduAscensionalDifference(date, latitudeDeg) - (3.0 / 4.0) * hinduSolarSiderealDifference(date));
+}
+
+double CalendarAstronomer::hinduEquationOfTime(double date) const {
+    double offset = hinduSine(hinduMeanPosition(date, HINDU_ANOMALISTIC_YEAR));
+    double equationSun = offset * 57.3 * (1.0 - 14.0 / 360.0 * std::abs(offset) / 1080.0);
+
+    return (hinduDailyMotion(date) / 360.0) * (equationSun / 360.0);
+}
+
+double CalendarAstronomer::hinduAscensionalDifference(double date, double latitudeDeg) const {
+    double sinDelta = 1397.0 / 3438.0 * hinduSine(hinduTropicalLongitude(date));
+    double phi = latitudeDeg;
+    double diurnalRadius = hinduSine(90.0 + hinduArcsin(sinDelta));
+    double tanPhi = hinduSine(phi) / hinduSine(90.0 + phi);
+    double earthSine = sinDelta * tanPhi;
+
+    return hinduArcsin(-earthSine / diurnalRadius);
+}
+
+double CalendarAstronomer::hinduSolarSiderealDifference(int32_t date) const {
+    return hinduDailyMotion(date) * hinduRisingSign(date);
+}
+
+double CalendarAstronomer::hinduMeanPosition(double tee, double period) const {
+    return 360.0 * modLisp((tee - HINDU_CREATION) / period, 1.0);
+}
+
+double CalendarAstronomer::hinduDailyMotion(double date) const {
+    double meanMotion = 360 / HINDU_SIDEREAL_YEAR;
+    double anomaly = hinduMeanPosition(date, HINDU_ANOMALISTIC_YEAR);
+    double epicycle = 14.0 / 360.0 - std::abs(hinduSine(anomaly)) / 1080.0;
+    int32_t entry = static_cast<int32_t>(anomaly / 225.0 / 360.0);
+    int32_t sineTableStep = hinduSineTable(entry + 1) - hinduSineTable(entry);
+    double factor = -3438.0 / 225.0 * sineTableStep * epicycle;
+
+    return meanMotion * (1.0 + factor);
+}
+
+double CalendarAstronomer::hinduTruePosition(double tee, double period, double size, double anomalistic, double change) const {
+    double lambda = hinduMeanPosition(tee, period);
+    double sine = hinduMeanPosition(tee, anomalistic);
+    double offset = hinduSine(sine);
+    double contraction = std::abs(offset) * change * size;
+    double equation = hinduArcsin(offset * (size - contraction));
+
+    return modLisp(lambda - equation, 360.0);
+}
+
+double CalendarAstronomer::hinduSolarLongitude(double tee) const{
+    return hinduTruePosition(tee, HINDU_SIDEREAL_YEAR, 14.0 / 360.0, HINDU_ANOMALISTIC_YEAR, 1.0 / 42.0);
+}
+
+double CalendarAstronomer::hinduLunarLongitude(double tee) const {
+    return hinduTruePosition(tee, HINDU_SIDEREAL_MONTH, 32.0 / 360.0, HINDU_ANOMALISTIC_MONTH, 1.0 / 96.0);
+}
+
+double CalendarAstronomer::hinduLunarPhase(double tee) const {
+    double lunarLongitude = hinduLunarLongitude(tee);
+    double solarLongitude = hinduSolarLongitude(tee);
+
+    return modLisp(lunarLongitude - solarLongitude, 360.0);
+}
+
+double CalendarAstronomer::hinduTropicalLongitude(double date) const {
+    double days = date; // Assuming date is in days
+    double precession = 27.0 - std::abs(108.0 * modLisp(600.0 / 1577917828.0 * days - 1.0 / 4, 1.0 / 2) - 1.0 / 2);
+
+    return modLisp(hinduSolarLongitude(date) - precession, 360.0);
+}
+
+double CalendarAstronomer::hinduRisingSign(double date) const {
+    double i = hinduTropicalLongitude(date) / 30.0;
+
+    // List of tabulated values
+    double tabulatedValues[] = {1670.0 / 1800.0, 1795.0 / 1800.0, 1935.0 / 1800.0,
+                                 1935.0 / 1800.0, 1795.0 / 1800.0, 1670.0 / 1800.0};
+
+    return tabulatedValues[static_cast<int32_t>(modLisp(i, 6.0))];
+}
+
+double CalendarAstronomer::hinduNewMoonBefore(double tee) const {
+    double epsilon = 0.0001; // Safety margin.
+    double tau = tee - (1.0 / 360.0) * hinduLunarPhase(tee) * HINDU_SYNODIC_MONTH;
+
+    return binarySearch(tau - 1.0, fmin(tee, tau + 1.0), tee, epsilon);
+}
+
+int32_t CalendarAstronomer::hinduLunarDayFromMoment(double tee) const{
+    return 1 + static_cast<int32_t>(hinduLunarPhase(tee) / 12.0);
+}
+
+int32_t CalendarAstronomer::hinduZodiac(double tee) const {
+    return 1 + static_cast<int32_t>(hinduSolarLongitude(tee) / 30.0);
+}
+
+int32_t CalendarAstronomer::hinduCalendarYear(double tee) const {
+    return std::round((tee - HINDU_EPOCH_YEAR) / HINDU_SIDEREAL_YEAR - hinduSolarLongitude(tee) / 360.0 );
+}
+
+double CalendarAstronomer::hinduSolarLongitudeAtOrAfter(double lambda, double tee) const {
+    double tau = tee + hinduSolarLongitude(tee) + (hinduSolarLongitude(tee) - lambda) / 360.0;
+    double a = std::max(tee, tau - 5.0);
+    double b = tau + 5.0;
+    return invertAngularSolarLongitude(lambda, a, b);
+}
+
+double CalendarAstronomer::hinduLunarDayAtOrAfter(double k, double tee) const {
+    double phase = (k - 1) * 12.0; // Degrees corresponding to k.
+
+    double tau = tee + modLisp(phase - hinduLunarPhase(tee) * (1.0 / 360.0) , 360.0) * HINDU_SYNODIC_MONTH;
+    double a = std::max(tee, tau - 2);
+    double b = tau + 2;
+
+    return invertAngularLunarPhase(phase, a, b);
+}
+
+int32_t CalendarAstronomer::hinduLunarStation(double date, double longitudeOffset, double latitudeDeg) const {
+    return 1 + static_cast<int32_t>(std::floor(hinduLunarLongitude(hinduSunrise(date, longitudeOffset, latitudeDeg)) / angle(0, 800, 0)));
+}
+
+double CalendarAstronomer::hinduStandardFromSundial(double tee, double longitudeOffset, double latitudeDeg) const {
+    // Hindu local time of temporal moment tee.
+    int32_t date = fixedFromMoment(tee);
+    double time = timeFromMoment(tee);
+    int32_t q = static_cast<int32_t>(std::floor(4 * time)); // quarter of day
+    double a, b;
+
+    if (q == 0) {
+        a = hinduSunset(date - 1, longitudeOffset, latitudeDeg); // early this morning
+        b = hinduSunrise(date, longitudeOffset, latitudeDeg);
+    } else if (q == 3) {
+        a = hinduSunset(date, longitudeOffset, latitudeDeg); // this evening
+        b = hinduSunrise(date + 1, longitudeOffset, latitudeDeg);
+    } else { // daytime today
+        a = hinduSunrise(date, longitudeOffset, latitudeDeg);
+        b = hinduSunset(date, longitudeOffset, latitudeDeg);
+    }
+
+    return a + 2 * (b - a) * (time - ((q == 3) ? 18.0 : ((q == 0) ? -6.0 : 6.0)));
+}
+
+// fixed-from-moment
+int32_t CalendarAstronomer::fixedFromMoment(double tee) const {
+    return static_cast<int32_t>(std::floor(tee));
+}
+
+// time-from-moment
+double CalendarAstronomer::timeFromMoment(double tee) const {
+    return modLisp(tee, 1.0);
+}
+
+// Trigonometry
+double CalendarAstronomer::sinDegrees(const Angle& angle) const {
+    return std::sin(angle.degrees * M_PI / 180.0 + angle.minutes * M_PI / (180.0 * 60.0) + angle.seconds * M_PI / (180.0 * 3600.0));
+}
+
+double CalendarAstronomer::hinduSineTable(int32_t entry) const {
+    double exact = 3438 * sinDegrees({0, 225 * entry, 0});
+    double error = 0.215 * std::copysign(1.0, exact) * std::copysign(1.0, std::abs(exact) - 1716.0);
+    
+    return round(exact + error) / 3438;
+}
+
+double CalendarAstronomer::hinduSine(double theta) const {
+    double entry = theta / angle(0, 225, 0); // Interpolate in table
+    double fraction = modLisp(entry, 1.0);
+    
+    return fraction * hinduSineTable(std::ceil(entry)) +
+           (1.0 - fraction) * hinduSineTable(std::floor(entry));
+}
+
+double CalendarAstronomer::hinduArcsin(double amp) const {
+    if (amp < 0) {
+        return -hinduArcsin(-amp);
+    } else {
+        int32_t pos = 0;
+        while (amp > hinduSineTable(pos)) {
+            pos++;
+        }
+
+        double below = hinduSineTable(pos - 1);
+        double denom = (hinduSineTable(pos) - below);
+        
+        if (denom == 0.0) {
+            return 0.0;
+        }
+        
+        return angle(0, 225, 0) * (pos - 1 + (amp - below) / (hinduSineTable(pos) - below));
+    }
+}
+
+double CalendarAstronomer::angle(int32_t d, int32_t m, double s) const {
+    return static_cast<double>(d) + (static_cast<double>(m) + (s / 60.0)) / 60.0;
+}
+
+
+// Math and algo helpers
+double CalendarAstronomer::hr(double x) const {
+    // Hours -> duration
+    return x / 24.0;
+}
+
+double CalendarAstronomer::modLisp(double a, double b) const {
+    // Simulating lisp modulo behavior which returns true modulo for negative numbers
+    // C return negative remainder instead.
+    // It is really (a > 0.0 ? fmod(a, b) : fmod(a + b, b);)
+    // but fmod(a, b) is equal to fmod(a + b, b) anyway
+    // as all of modulo calls work within the circle angles of (-360, 360), we can ignore cases where a + b is still negative
+    return fmod(a + b, b);
+}
+
+double CalendarAstronomer::binarySearch(double l, double u, double tee, double epsilon) const {
+    while (u - l > epsilon) {
+        double x = (l + u) / 2.0;
+        double phase = hinduLunarPhase(x);
+        if (phase < 180.0) {
+            u = x;
+        } else {
+            l = x;
+        }
+    }
+    return (l + u) / 2.0;
+}
+
+double CalendarAstronomer::invertAngularSolarLongitude(double y, double l, double u) const {
+    double epsilon = 1.0 / 100000.0; // Desired accuracy
+
+    while (u - l > epsilon) {
+        double x = (l + u) / 2.0;
+        if ((modLisp(hinduSolarLongitude(x) - y, 360.0)) < 180.0) {
+            l = x;
+        } else {
+            u = x;
+        }
+    }
+    return (l + u) / 2.0;
+}
+
+double CalendarAstronomer::invertAngularLunarPhase(double y, double l, double u) const {
+    double epsilon = 1.0 / 100000.0; // Desired accuracy
+
+    while (u - l > epsilon) {
+        double x = (l + u) / 2.0;
+        if ((modLisp(hinduLunarPhase(x) - y, 360.0)) < 180.0) {
+            l = x;
+        } else {
+            u = x;
+        }
+    }
+    return (l + u) / 2.0;
+}
 
 //-------------------------------------------------------------------------
 // Private data
@@ -7434,44 +4207,12 @@ void CalendarAstronomer::clearCache() {
     const double INVALID = uprv_getNaN();
 
     julianDay       = INVALID;
-    julianCentury   = INVALID;
     sunLongitude    = INVALID;
     meanAnomalySun  = INVALID;
-    moonLongitude   = INVALID;
     moonEclipLong   = INVALID;
-    meanAnomalyMoon = INVALID;
-    eclipObliquity  = INVALID;
-    siderealTime    = INVALID;
-    siderealT0      = INVALID;
+
     moonPositionSet = false;
 }
-
-//private static void out(String s) {
-//    System.out.println(s);
-//}
-
-//private static String deg(double rad) {
-//    return Double.toString(rad * RAD_DEG);
-//}
-
-//private static String hours(long ms) {
-//    return Double.toString((double)ms / HOUR_MS) + " hours";
-//}
-
-/**
- * @internal
- * @deprecated ICU 2.4. This class may be removed or modified.
- */
-/*UDate CalendarAstronomer::local(UDate localMillis) {
-  // TODO - srl ?
-  TimeZone *tz = TimeZone::createDefault();
-  int32_t rawOffset;
-  int32_t dstOffset;
-  UErrorCode status = U_ZERO_ERROR;
-  tz->getOffset(localMillis, true, rawOffset, dstOffset, status);
-  delete tz;
-  return localMillis - rawOffset;
-}*/
 
 // Debugging functions
 UnicodeString CalendarAstronomer::Ecliptic::toString() const
@@ -7481,7 +4222,7 @@ UnicodeString CalendarAstronomer::Ecliptic::toString() const
     snprintf(tmp, sizeof(tmp), "[%.5f,%.5f]", longitude*RAD_DEG, latitude*RAD_DEG);
     return UnicodeString(tmp, "");
 #else
-    return UnicodeString();
+    return {};
 #endif
 }
 
@@ -7493,37 +4234,10 @@ UnicodeString CalendarAstronomer::Equatorial::toString() const
         (ascension*RAD_DEG), (declination*RAD_DEG));
     return UnicodeString(tmp, "");
 #else
-    return UnicodeString();
+    return {};
 #endif
 }
 
-UnicodeString CalendarAstronomer::Horizon::toString() const
-{
-#ifdef U_DEBUG_ASTRO
-    char tmp[800];
-    snprintf(tmp, sizeof(tmp), "[%.5f,%.5f]", altitude*RAD_DEG, azimuth*RAD_DEG);
-    return UnicodeString(tmp, "");
-#else
-    return UnicodeString();
-#endif
-}
-
-
-//  static private String radToHms(double angle) {
-//    int hrs = (int) (angle*RAD_HOUR);
-//    int min = (int)((angle*RAD_HOUR - hrs) * 60);
-//    int sec = (int)((angle*RAD_HOUR - hrs - min/60.0) * 3600);
-
-//    return Integer.toString(hrs) + "h" + min + "m" + sec + "s";
-//  }
-
-//  static private String radToDms(double angle) {
-//    int deg = (int) (angle*RAD_DEG);
-//    int min = (int)((angle*RAD_DEG - deg) * 60);
-//    int sec = (int)((angle*RAD_DEG - deg - min/60.0) * 3600);
-
-//    return Integer.toString(deg) + "\u00b0" + min + "'" + sec + "\"";
-//  }
 
 // =============== Calendar Cache ================
 

@@ -67,9 +67,9 @@ public:
 
 #if APPLE_ICU_CHANGES
 // rdar:/
-    UBool parse(const UnicodeString& text, ParsePosition& pos, double upperBound, uint32_t nonNumericalExecutedRuleMask, Formattable& result, UBool lenient=false) const;
+    UBool parse(const UnicodeString& text, ParsePosition& pos, double upperBound, uint32_t nonNumericalExecutedRuleMask, int32_t recursionCount, Formattable& result, UBool lenient=false) const;
 #else
-    UBool parse(const UnicodeString& text, ParsePosition& pos, double upperBound, uint32_t nonNumericalExecutedRuleMask, Formattable& result) const;
+    UBool parse(const UnicodeString& text, ParsePosition& pos, double upperBound, uint32_t nonNumericalExecutedRuleMask, int32_t recursionCount, Formattable& result) const;
 #endif  // APPLE_ICU_CHANGES
 
     void appendRules(UnicodeString& result) const; // toString

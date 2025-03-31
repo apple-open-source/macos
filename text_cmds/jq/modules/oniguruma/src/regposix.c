@@ -2,7 +2,7 @@
   regposix.c - Oniguruma (regular expression library)
 **********************************************************************/
 /*-
- * Copyright (c) 2002-2008  K.Kosako  <sndgk393 AT ybb DOT ne DOT jp>
+ * Copyright (c) 2002-2022  K.Kosako
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -30,7 +30,20 @@
 #define regex_t   onig_regex_t
 #include "regint.h"
 #undef regex_t
+
 #include "onigposix.h"
+
+#undef regex_t
+#undef regmatch_t
+#undef regoff_t
+#undef regcomp
+#undef regexec
+#undef regfree
+#undef regerror
+#undef reg_set_encoding
+#undef reg_name_to_group_numbers
+#undef reg_foreach_name
+#undef reg_number_of_names
 
 #define ONIG_C(reg)    ((onig_regex_t* )((reg)->onig))
 #define PONIG_C(reg)   ((onig_regex_t** )(&(reg)->onig))
@@ -40,7 +53,7 @@
   if (ONIGENC_MBC_MINLEN(enc) == 1) { \
     UChar* tmps = (UChar* )(s); \
     while (*tmps != 0) tmps++; \
-    len = tmps - (UChar* )(s); \
+    len = (int )(tmps - (UChar* )(s));\
   } \
   else { \
     len = onigenc_str_bytelen_null(enc, (UChar* )s); \
@@ -58,14 +71,18 @@ onig2posix_error_code(int code)
   static const O2PERR o2p[] = {
     { ONIG_MISMATCH,                                      REG_NOMATCH },
     { ONIG_NO_SUPPORT_CONFIG,                             REG_EONIG_INTERNAL },
+    { ONIG_ABORT,                                         REG_EONIG_INTERNAL },
     { ONIGERR_MEMORY,                                     REG_ESPACE  },
     { ONIGERR_MATCH_STACK_LIMIT_OVER,                     REG_EONIG_INTERNAL },
+    { ONIGERR_RETRY_LIMIT_IN_MATCH_OVER,                  REG_EONIG_INTERNAL },
+    { ONIGERR_RETRY_LIMIT_IN_SEARCH_OVER,                 REG_EONIG_INTERNAL },
+    { ONIGERR_SUBEXP_CALL_LIMIT_IN_SEARCH_OVER,           REG_EONIG_INTERNAL },
     { ONIGERR_TYPE_BUG,                                   REG_EONIG_INTERNAL },
     { ONIGERR_PARSER_BUG,                                 REG_EONIG_INTERNAL },
     { ONIGERR_STACK_BUG,                                  REG_EONIG_INTERNAL },
     { ONIGERR_UNDEFINED_BYTECODE,                         REG_EONIG_INTERNAL },
     { ONIGERR_UNEXPECTED_BYTECODE,                        REG_EONIG_INTERNAL },
-    { ONIGERR_DEFAULT_ENCODING_IS_NOT_SETTED,             REG_EONIG_BADARG },
+    { ONIGERR_DEFAULT_ENCODING_IS_NOT_SET,                REG_EONIG_BADARG },
     { ONIGERR_SPECIFIED_ENCODING_CANT_CONVERT_TO_WIDE_CHAR, REG_EONIG_BADARG },
     { ONIGERR_FAIL_TO_INITIALIZE,                         REG_EONIG_INTERNAL },
     { ONIGERR_INVALID_ARGUMENT,                           REG_EONIG_BADARG },
@@ -88,6 +105,7 @@ onig2posix_error_code(int code)
     { ONIGERR_END_PATTERN_WITH_UNMATCHED_PARENTHESIS,     REG_EPAREN  },
     { ONIGERR_END_PATTERN_IN_GROUP,                       REG_BADPAT  },
     { ONIGERR_UNDEFINED_GROUP_OPTION,                     REG_BADPAT  },
+    { ONIGERR_INVALID_GROUP_OPTION,                       REG_BADPAT  },
     { ONIGERR_INVALID_POSIX_BRACKET_TYPE,                 REG_BADPAT  },
     { ONIGERR_INVALID_LOOK_BEHIND_PATTERN,                REG_BADPAT  },
     { ONIGERR_INVALID_REPEAT_RANGE_PATTERN,               REG_BADPAT  },
@@ -103,6 +121,7 @@ onig2posix_error_code(int code)
     { ONIGERR_NUMBERED_BACKREF_OR_CALL_NOT_ALLOWED,       REG_BADPAT  },
     { ONIGERR_TOO_BIG_WIDE_CHAR_VALUE,                    REG_EONIG_BADWC },
     { ONIGERR_TOO_LONG_WIDE_CHAR_VALUE,                   REG_EONIG_BADWC },
+    { ONIGERR_UNDEFINED_OPERATOR,                         REG_BADPAT  },
     { ONIGERR_INVALID_CODE_POINT_VALUE,                   REG_EONIG_BADWC },
     { ONIGERR_EMPTY_GROUP_NAME,                           REG_BADPAT },
     { ONIGERR_INVALID_GROUP_NAME,                         REG_BADPAT },
@@ -114,7 +133,17 @@ onig2posix_error_code(int code)
     { ONIGERR_NEVER_ENDING_RECURSION,                     REG_BADPAT },
     { ONIGERR_GROUP_NUMBER_OVER_FOR_CAPTURE_HISTORY,      REG_BADPAT },
     { ONIGERR_INVALID_CHAR_PROPERTY_NAME,                 REG_BADPAT },
+    { ONIGERR_INVALID_IF_ELSE_SYNTAX,                     REG_BADPAT },
+    { ONIGERR_INVALID_ABSENT_GROUP_PATTERN,               REG_BADPAT },
+    { ONIGERR_INVALID_ABSENT_GROUP_GENERATOR_PATTERN,     REG_BADPAT },
+    { ONIGERR_INVALID_CALLOUT_PATTERN,                    REG_BADPAT },
+    { ONIGERR_INVALID_CALLOUT_NAME,                       REG_BADPAT },
+    { ONIGERR_UNDEFINED_CALLOUT_NAME,                     REG_BADPAT },
+    { ONIGERR_INVALID_CALLOUT_BODY,                       REG_BADPAT },
+    { ONIGERR_INVALID_CALLOUT_TAG_NAME,                   REG_BADPAT },
+    { ONIGERR_INVALID_CALLOUT_ARG,                        REG_BADPAT },
     { ONIGERR_NOT_SUPPORTED_ENCODING_COMBINATION,         REG_EONIG_BADARG },
+    { ONIGERR_VERY_INEFFICIENT_PATTERN,                   REG_BADPAT },
     { ONIGERR_LIBRARY_IS_NOT_INITIALIZED,                 REG_EONIG_INTERNAL }
   };
 
@@ -131,11 +160,13 @@ onig2posix_error_code(int code)
 }
 
 extern int
-regcomp(regex_t* reg, const char* pattern, int posix_options)
+onig_posix_regcomp(onig_posix_regex_t* reg, const char* pattern, int posix_options)
 {
   int r, len;
   OnigSyntaxType* syntax = OnigDefaultSyntax;
   OnigOptionType options;
+
+  reg->onig = (void* )0;
 
   if ((posix_options & REG_EXTENDED) == 0)
     syntax = ONIG_SYNTAX_POSIX_BASIC;
@@ -152,8 +183,8 @@ regcomp(regex_t* reg, const char* pattern, int posix_options)
 
   ENC_STRING_LEN(OnigEncDefaultCharEncoding, pattern, len);
   r = onig_new(PONIG_C(reg), (UChar* )pattern, (UChar* )(pattern + len),
-	       options, OnigEncDefaultCharEncoding, syntax,
-	       (OnigErrorInfo* )NULL);
+               options, OnigEncDefaultCharEncoding, syntax,
+               (OnigErrorInfo* )NULL);
   if (r != ONIG_NORMAL) {
     return onig2posix_error_code(r);
   }
@@ -163,12 +194,12 @@ regcomp(regex_t* reg, const char* pattern, int posix_options)
 }
 
 extern int
-regexec(regex_t* reg, const char* str, size_t nmatch,
-	regmatch_t pmatch[], int posix_options)
+onig_posix_regexec(onig_posix_regex_t* reg, const char* str, size_t nmatch,
+                   onig_posix_regmatch_t pmatch[], int posix_options)
 {
   int r, i, len;
   UChar* end;
-  regmatch_t* pm;
+  onig_posix_regmatch_t* pm;
   OnigOptionType options;
 
   options = ONIG_OPTION_POSIX_REGION;
@@ -176,11 +207,11 @@ regexec(regex_t* reg, const char* str, size_t nmatch,
   if ((posix_options & REG_NOTEOL) != 0) options |= ONIG_OPTION_NOTEOL;
 
   if (nmatch == 0 || (reg->comp_options & REG_NOSUB) != 0) {
-    pm = (regmatch_t* )NULL;
+    pm = (onig_posix_regmatch_t* )NULL;
     nmatch = 0;
   }
   else if ((int )nmatch < ONIG_C(reg)->num_mem + 1) {
-    pm = (regmatch_t* )xmalloc(sizeof(regmatch_t)
+    pm = (onig_posix_regmatch_t* )xmalloc(sizeof(onig_posix_regmatch_t)
                                * (ONIG_C(reg)->num_mem + 1));
     if (pm == NULL)
       return REG_ESPACE;
@@ -192,12 +223,12 @@ regexec(regex_t* reg, const char* str, size_t nmatch,
   ENC_STRING_LEN(ONIG_C(reg)->enc, str, len);
   end = (UChar* )(str + len);
   r = onig_search(ONIG_C(reg), (UChar* )str, end, (UChar* )str, end,
-		  (OnigRegion* )pm, options);
+                  (OnigRegion* )pm, options);
 
   if (r >= 0) {
     r = 0; /* Match */
     if (pm != pmatch && pm != NULL) {
-      xmemcpy(pmatch, pm, sizeof(regmatch_t) * nmatch);
+      xmemcpy(pmatch, pm, sizeof(onig_posix_regmatch_t) * nmatch);
     }
   }
   else if (r == ONIG_MISMATCH) {
@@ -221,14 +252,15 @@ regexec(regex_t* reg, const char* str, size_t nmatch,
 }
 
 extern void
-regfree(regex_t* reg)
+onig_posix_regfree(onig_posix_regex_t* reg)
 {
   onig_free(ONIG_C(reg));
+  reg->onig = (void* )0;
 }
 
 
 extern void
-reg_set_encoding(int mb_code)
+onig_posix_reg_set_encoding(int mb_code)
 {
   OnigEncoding enc;
 
@@ -257,28 +289,27 @@ reg_set_encoding(int mb_code)
     break;
   }
 
-  onig_initialize(0, 0);
-  onig_initialize_encoding(enc);
+  onig_initialize(&enc, 1);
 
   onigenc_set_default_encoding(enc);
 }
 
 extern int
-reg_name_to_group_numbers(regex_t* reg,
+onig_posix_reg_name_to_group_numbers(onig_posix_regex_t* reg,
   const unsigned char* name, const unsigned char* name_end, int** nums)
 {
   return onig_name_to_group_numbers(ONIG_C(reg), name, name_end, nums);
 }
 
 typedef struct {
-  int (*func)(const unsigned char*, const unsigned char*,int,int*,regex_t*,void*);
-  regex_t* reg;
+  int (*func)(const unsigned char*, const unsigned char*,int,int*,onig_posix_regex_t*,void*);
+  onig_posix_regex_t* reg;
   void* arg;
 } i_wrap;
 
 static int
 i_wrapper(const UChar* name, const UChar* name_end, int ng, int* gs,
-	  onig_regex_t* reg ARG_UNUSED, void* arg)
+          onig_regex_t* reg ARG_UNUSED, void* arg)
 {
   i_wrap* warg = (i_wrap* )arg;
 
@@ -286,8 +317,8 @@ i_wrapper(const UChar* name, const UChar* name_end, int ng, int* gs,
 }
 
 extern int
-reg_foreach_name(regex_t* reg,
- int (*func)(const unsigned char*, const unsigned char*,int,int*,regex_t*,void*),
+onig_posix_reg_foreach_name(onig_posix_regex_t* reg,
+ int (*func)(const unsigned char*, const unsigned char*,int,int*,onig_posix_regex_t*,void*),
  void* arg)
 {
   i_wrap warg;
@@ -300,7 +331,58 @@ reg_foreach_name(regex_t* reg,
 }
 
 extern int
-reg_number_of_names(regex_t* reg)
+onig_posix_reg_number_of_names(onig_posix_regex_t* reg)
 {
   return onig_number_of_names(ONIG_C(reg));
 }
+
+
+#ifdef USE_BINARY_COMPATIBLE_POSIX_API
+
+extern int
+regcomp(onig_posix_regex_t* reg, const char* pattern, int posix_options)
+{
+  return onig_posix_regcomp(reg, pattern, posix_options);
+}
+
+extern int
+regexec(onig_posix_regex_t* reg, const char* str, size_t nmatch,
+        onig_posix_regmatch_t pmatch[], int posix_options)
+{
+  return onig_posix_regexec(reg, str, nmatch, pmatch, posix_options);
+}
+
+extern void
+regfree(onig_posix_regex_t* reg)
+{
+  onig_posix_regfree(reg);
+}
+
+extern void
+reg_set_encoding(int mb_code)
+{
+  onig_posix_reg_set_encoding(mb_code);
+}
+
+extern int
+reg_name_to_group_numbers(onig_posix_regex_t* reg,
+  const unsigned char* name, const unsigned char* name_end, int** nums)
+{
+  return onig_posix_reg_name_to_group_numbers(reg, name, name_end, nums);
+}
+
+extern int
+reg_foreach_name(onig_posix_regex_t* reg,
+  int (*func)(const unsigned char*, const unsigned char*,int,int*,onig_posix_regex_t*,void*),
+  void* arg)
+{
+  return onig_posix_reg_foreach_name(reg, func, arg);
+}
+
+extern int
+reg_number_of_names(onig_posix_regex_t* reg)
+{
+  return onig_posix_reg_number_of_names(reg);
+}
+
+#endif /* USE_BINARY_COMPATIBLE_POSIX_API */

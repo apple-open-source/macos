@@ -32,6 +32,7 @@
 #include "WPEEnumTypes.h"
 #include "WPEEvent.h"
 #include "WPEGestureControllerImpl.h"
+#include "WPESettings.h"
 #include "WPEToplevelPrivate.h"
 #include "WPEViewPrivate.h"
 #include <optional>
@@ -84,7 +85,7 @@ enum {
     PROP_HEIGHT,
     PROP_SCALE,
     PROP_TOPLEVEL_STATE,
-    PROP_MONITOR,
+    PROP_SCREEN,
     PROP_VISIBLE,
     PROP_MAPPED,
     PROP_HAS_FOCUS,
@@ -92,7 +93,7 @@ enum {
     N_PROPERTIES
 };
 
-static GParamSpec* sObjProperties[N_PROPERTIES] = { nullptr, };
+static std::array<GParamSpec*, N_PROPERTIES> sObjProperties;
 
 enum {
     CLOSED,
@@ -106,7 +107,7 @@ enum {
     LAST_SIGNAL
 };
 
-static guint signals[LAST_SIGNAL] = { 0, };
+static std::array<unsigned, LAST_SIGNAL> signals;
 
 static void wpeViewSetProperty(GObject* object, guint propId, const GValue* value, GParamSpec* paramSpec)
 {
@@ -150,8 +151,8 @@ static void wpeViewGetProperty(GObject* object, guint propId, GValue* value, GPa
     case PROP_TOPLEVEL_STATE:
         g_value_set_flags(value, wpe_view_get_toplevel_state(view));
         break;
-    case PROP_MONITOR:
-        g_value_set_object(value, wpe_view_get_monitor(view));
+    case PROP_SCREEN:
+        g_value_set_object(value, wpe_view_get_screen(view));
         break;
     case PROP_VISIBLE:
         g_value_set_boolean(value, wpe_view_get_visible(view));
@@ -170,11 +171,12 @@ static void wpeViewGetProperty(GObject* object, guint propId, GValue* value, GPa
 static void wpeViewConstructed(GObject* object)
 {
     G_OBJECT_CLASS(wpe_view_parent_class)->constructed(object);
+    auto* view = WPE_VIEW(object);
+    auto* priv = view->priv;
+    auto settings = wpe_display_get_settings(priv->display.get());
 
-    // FIXME: add API to set the default view size.
-    auto* priv = WPE_VIEW(object)->priv;
-    priv->width = 1024;
-    priv->height = 768;
+    GVariant* toplevelSize = wpe_settings_get_value(settings, WPE_SETTING_TOPLEVEL_DEFAULT_SIZE, nullptr);
+    g_variant_get(toplevelSize, "(uu)", &priv->width, &priv->height);
 }
 
 static void wpeViewDispose(GObject* object)
@@ -249,7 +251,7 @@ static void wpe_view_class_init(WPEViewClass* viewClass)
         g_param_spec_double(
             "scale",
             nullptr, nullptr,
-            1., G_MAXDOUBLE, 1.,
+            0., G_MAXDOUBLE, 1.,
             WEBKIT_PARAM_READABLE);
 
     /**
@@ -266,15 +268,15 @@ static void wpe_view_class_init(WPEViewClass* viewClass)
             WEBKIT_PARAM_READABLE);
 
     /**
-     * WPEView:monitor:
+     * WPEView:screen:
      *
-     * The current #WPEMonitor of the view.
+     * The current #WPEScreen of the view.
      */
-    sObjProperties[PROP_MONITOR] =
+    sObjProperties[PROP_SCREEN] =
         g_param_spec_object(
-            "monitor",
+            "screen",
             nullptr, nullptr,
-            WPE_TYPE_MONITOR,
+            WPE_TYPE_SCREEN,
             WEBKIT_PARAM_READABLE);
 
     /**
@@ -322,7 +324,7 @@ static void wpe_view_class_init(WPEViewClass* viewClass)
             FALSE,
             WEBKIT_PARAM_READABLE);
 
-    g_object_class_install_properties(objectClass, N_PROPERTIES, sObjProperties);
+    g_object_class_install_properties(objectClass, N_PROPERTIES, sObjProperties.data());
 
     /**
      * WPEView::closed:
@@ -457,9 +459,9 @@ void wpeViewScaleChanged(WPEView* view, double scale)
     g_object_notify_by_pspec(G_OBJECT(view), sObjProperties[PROP_SCALE]);
 }
 
-void wpeViewMonitorChanged(WPEView* view)
+void wpeViewScreenChanged(WPEView* view)
 {
-    g_object_notify_by_pspec(G_OBJECT(view), sObjProperties[PROP_MONITOR]);
+    g_object_notify_by_pspec(G_OBJECT(view), sObjProperties[PROP_SCREEN]);
 }
 
 void wpeViewPreferredDMABufFormatsChanged(WPEView* view)
@@ -542,7 +544,7 @@ void wpe_view_set_toplevel(WPEView* view, WPEToplevel* toplevel)
         wpeToplevelAddView(priv->toplevel.get(), view);
         wpeViewScaleChanged(view, wpe_toplevel_get_scale(priv->toplevel.get()));
         wpeViewToplevelStateChanged(view, wpe_toplevel_get_state(priv->toplevel.get()));
-        wpeViewMonitorChanged(view);
+        wpeViewScreenChanged(view);
         wpeViewPreferredDMABufFormatsChanged(view);
     }
 
@@ -850,18 +852,18 @@ WPEToplevelState wpe_view_get_toplevel_state(WPEView* view)
 }
 
 /**
- * wpe_view_get_monitor:
+ * wpe_view_get_screen:
  * @view: a #WPEView
  *
- * Get current #WPEMonitor of @view
+ * Get current #WPEScreen of @view
  *
- * Returns: (transfer none) (nullable): a #WPEMonitor, or %NULL
+ * Returns: (transfer none) (nullable): a #WPEScreen, or %NULL
  */
-WPEMonitor* wpe_view_get_monitor(WPEView* view)
+WPEScreen* wpe_view_get_screen(WPEView* view)
 {
     g_return_val_if_fail(WPE_IS_VIEW(view), nullptr);
 
-    return view->priv->toplevel ? wpe_toplevel_get_monitor(view->priv->toplevel.get()) : nullptr;
+    return view->priv->toplevel ? wpe_toplevel_get_screen(view->priv->toplevel.get()) : nullptr;
 }
 
 /**
@@ -953,9 +955,10 @@ guint wpe_view_compute_press_count(WPEView* view, gdouble x, gdouble y, guint bu
     auto* priv = view->priv;
     unsigned pressCount = 1;
     if (priv->lastButtonPress.pressCount) {
-        // FIXME: make these configurable.
-        static const int doubleClickDistance = 5;
-        static const unsigned doubleClickTime = 400;
+        auto* settings = wpe_display_get_settings(priv->display.get());
+        int doubleClickDistance = wpe_settings_get_uint32(settings, WPE_SETTING_DOUBLE_CLICK_DISTANCE, nullptr);
+        unsigned doubleClickTime = wpe_settings_get_uint32(settings, WPE_SETTING_DOUBLE_CLICK_TIME, nullptr);
+
         if (std::abs(x - priv->lastButtonPress.x) < doubleClickDistance
             && std::abs(y - priv->lastButtonPress.y) < doubleClickDistance
             && button == priv->lastButtonPress.button

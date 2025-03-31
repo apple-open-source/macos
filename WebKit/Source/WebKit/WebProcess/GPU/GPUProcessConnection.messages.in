@@ -22,6 +22,10 @@
 
 #if ENABLE(GPU_PROCESS)
 
+[
+    DispatchedFrom=GPU,
+    DispatchedTo=WebContent
+]
 messages -> GPUProcessConnection WantsDispatchMessage {
     DidInitialize(std::optional<WebKit::GPUProcessConnectionInfo> info) CanDispatchOutOfOrder
     DidReceiveRemoteCommand(enum:uint8_t WebCore::PlatformMediaSessionRemoteControlCommandType type, struct WebCore::PlatformMediaSession::RemoteCommandArgument argument)

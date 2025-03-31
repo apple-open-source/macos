@@ -62,6 +62,7 @@ class HTMLPlugInElement;
 class LoadableModuleScript;
 class LocalFrame;
 class ModuleFetchParameters;
+class NavigationAction;
 class ScriptSourceCode;
 class SecurityOrigin;
 class Widget;
@@ -83,7 +84,7 @@ class ScriptController final : public CanMakeWeakPtr<ScriptController>, public C
     WTF_MAKE_TZONE_ALLOCATED(ScriptController);
     WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(ScriptController);
 
-    using RootObjectMap = HashMap<void*, Ref<JSC::Bindings::RootObject>>;
+    using RootObjectMap = UncheckedKeyHashMap<void*, Ref<JSC::Bindings::RootObject>>;
 
 public:
     explicit ScriptController(LocalFrame&);
@@ -111,8 +112,7 @@ public:
     JSC::JSValue evaluateInWorldIgnoringException(const ScriptSourceCode&, DOMWrapperWorld&);
 
     // This asserts that URL argument is a JavaScript URL.
-    void executeJavaScriptURL(const URL&, RefPtr<SecurityOrigin>, ShouldReplaceDocumentIfJavaScriptURL, bool& didReplaceDocument);
-    void executeJavaScriptURL(const URL&, RefPtr<SecurityOrigin> = nullptr, ShouldReplaceDocumentIfJavaScriptURL = ReplaceDocumentIfJavaScriptURL);
+    void executeJavaScriptURL(const URL&, const NavigationAction&, bool& didReplaceDocument);
 
     static void initializeMainThread();
 
@@ -174,10 +174,6 @@ public:
     void reportExceptionFromScriptError(LoadableScript::Error, bool);
 
     void registerImportMap(const ScriptSourceCode&, const URL& baseURL);
-    bool isAcquiringImportMaps();
-    void setAcquiringImportMaps();
-    void setPendingImportMaps();
-    void clearPendingImportMaps();
 
 private:
     ValueOrException executeScriptInWorld(DOMWrapperWorld&, RunJavaScriptParameters&&);
@@ -192,7 +188,7 @@ private:
 
     Ref<LocalFrame> protectedFrame() const;
 
-    LocalFrame& m_frame;
+    WeakRef<LocalFrame> m_frame;
     const URL* m_sourceURL { nullptr };
 
     bool m_paused;
@@ -209,6 +205,7 @@ private:
 #if PLATFORM(COCOA)
     RetainPtr<WebScriptObject> m_windowScriptObject;
 #endif
+
 };
 
 } // namespace WebCore

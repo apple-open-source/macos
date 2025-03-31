@@ -3808,9 +3808,23 @@ IOHIDEvent* IOHIDEventDriver::createDigitizerTransducerEventForReport(DigitizerT
     OSData                * unfilteredXValue = NULL;
     IOHIDEvent            * unfilteredYEvent = NULL;
     OSData                * unfilteredYValue = NULL;
+    bool                    inDigitizerCollection = false;
   
     require_quiet(transducer->elements, exit);
   
+    for (index = 0; index < transducer->elements->getCount(); index++) {
+        IOHIDElement *  element;
+        
+        element = OSDynamicCast(IOHIDElement, transducer->elements->getObject(index));
+        if ( !element )
+            continue;
+        
+        if (element->getReportID()==reportID) {
+            inDigitizerCollection = true;
+        }
+    }
+    
+    require_action(inDigitizerCollection, exit, HIDServiceLog("createDigitizerTransducerEventForReport generates null event: dispatched input report not present in digitizer collection"));
     
     for (index = 0; index < transducer->elements->getCount(); index++) {
         IOHIDElement *  element;

@@ -3,10 +3,38 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 46;
+	objectVersion = 55;
 	objects = {
 
+/* Begin PBXAggregateTarget section */
+		326AD7E52996C0B800BCFB10 /* default */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = 326AD7E72996C0B800BCFB10 /* Build configuration list for PBXAggregateTarget "default" */;
+			buildPhases = (
+			);
+			dependencies = (
+				326AD7EB2996C0C600BCFB10 /* PBXTargetDependency */,
+				326AD7E92996C0C300BCFB10 /* PBXTargetDependency */,
+			);
+			name = default;
+			productName = default;
+		};
+/* End PBXAggregateTarget section */
+
 /* Begin PBXBuildFile section */
+		326AD7F02996C8CE00BCFB10 /* libresolv.plist in Copy Tests plist */ = {isa = PBXBuildFile; fileRef = 326AD7EF2996C8B900BCFB10 /* libresolv.plist */; };
+		32CE6FF128B7B26100D5AC50 /* res_mkupdate.c in Sources */ = {isa = PBXBuildFile; fileRef = 32CE6FF028B7B03900D5AC50 /* res_mkupdate.c */; };
+		32E0CAE42805A89900AB9015 /* mtctxres.c in Sources */ = {isa = PBXBuildFile; fileRef = 32E0CAE32805A87D00AB9015 /* mtctxres.c */; };
+		32F6557E299A6DE1008E65CD /* libresolv.plist in Copy Open Source Plist */ = {isa = PBXBuildFile; fileRef = 32F6557D299A6DE1008E65CD /* libresolv.plist */; };
+		32F6557F29A505E5008E65CD /* installapi.h in Headers */ = {isa = PBXBuildFile; fileRef = 3272B39C2840FD16006F9D19 /* installapi.h */; };
+		32FE3DBA281007D8000F3BCE /* res_state.c in Sources */ = {isa = PBXBuildFile; fileRef = 32FE3DB8281005F7000F3BCE /* res_state.c */; };
+		32FE3DBB281007DE000F3BCE /* resolv_mt.h in Headers */ = {isa = PBXBuildFile; fileRef = 32FE3DB9281005F7000F3BCE /* resolv_mt.h */; };
+		32FE3DC828105AA9000F3BCE /* libatf-c.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 32FE3DC728105AA9000F3BCE /* libatf-c.dylib */; platformFilters = (macos, ); settings = {ATTRIBUTES = (Required, ); }; };
+		32FE3DCA28105ACC000F3BCE /* libresolv_test.c in Sources */ = {isa = PBXBuildFile; fileRef = 32FE3DC928105ACC000F3BCE /* libresolv_test.c */; };
+		32FE3DED2816AEA5000F3BCE /* libresolv.9.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 32FE3DCC281152F1000F3BCE /* libresolv.9.dylib */; };
+		D35CC3C82AD5BAA100FCBD23 /* port_after.h in Headers */ = {isa = PBXBuildFile; fileRef = D35CC3C62AD5BAA100FCBD23 /* port_after.h */; };
+		D35CC3C92AD5BAA100FCBD23 /* port_before.h in Headers */ = {isa = PBXBuildFile; fileRef = D35CC3C72AD5BAA100FCBD23 /* port_before.h */; };
+		D3B73ACC291C3F5B0077F338 /* res_update.c in Sources */ = {isa = PBXBuildFile; fileRef = D3B73ACB291C3F5B0077F338 /* res_update.c */; };
 		FC585F0714EDAF3000C8F63A /* base64.c in Sources */ = {isa = PBXBuildFile; fileRef = FC585EE014EDAF3000C8F63A /* base64.c */; };
 		FC585F0814EDAF3000C8F63A /* dns_async.c in Sources */ = {isa = PBXBuildFile; fileRef = FC585EE114EDAF3000C8F63A /* dns_async.c */; };
 		FC585F0914EDAF3000C8F63A /* dns_private.h in Headers */ = {isa = PBXBuildFile; fileRef = FC585EE214EDAF3000C8F63A /* dns_private.h */; settings = {ATTRIBUTES = (Private, ); }; };
@@ -15,9 +43,9 @@
 		FC585F0C14EDAF3000C8F63A /* dns.c in Sources */ = {isa = PBXBuildFile; fileRef = FC585EE514EDAF3000C8F63A /* dns.c */; };
 		FC585F0D14EDAF3000C8F63A /* dns.h in Headers */ = {isa = PBXBuildFile; fileRef = FC585EE614EDAF3000C8F63A /* dns.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		FC585F0E14EDAF3000C8F63A /* dst_api.c in Sources */ = {isa = PBXBuildFile; fileRef = FC585EE714EDAF3000C8F63A /* dst_api.c */; };
-		FC585F0F14EDAF3000C8F63A /* dst_hmac_link.c in Sources */ = {isa = PBXBuildFile; fileRef = FC585EE814EDAF3000C8F63A /* dst_hmac_link.c */; };
+		FC585F0F14EDAF3000C8F63A /* hmac_link.c in Sources */ = {isa = PBXBuildFile; fileRef = FC585EE814EDAF3000C8F63A /* hmac_link.c */; };
 		FC585F1014EDAF3000C8F63A /* dst_internal.h in Headers */ = {isa = PBXBuildFile; fileRef = FC585EE914EDAF3000C8F63A /* dst_internal.h */; };
-		FC585F1114EDAF3000C8F63A /* dst_support.c in Sources */ = {isa = PBXBuildFile; fileRef = FC585EEA14EDAF3000C8F63A /* dst_support.c */; };
+		FC585F1114EDAF3000C8F63A /* support.c in Sources */ = {isa = PBXBuildFile; fileRef = FC585EEA14EDAF3000C8F63A /* support.c */; };
 		FC585F1214EDAF3000C8F63A /* dst.h in Headers */ = {isa = PBXBuildFile; fileRef = FC585EEB14EDAF3000C8F63A /* dst.h */; };
 		FC585F1314EDAF3000C8F63A /* nameser.h in Headers */ = {isa = PBXBuildFile; fileRef = FC585EEC14EDAF3000C8F63A /* nameser.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		FC585F1414EDAF3000C8F63A /* ns_date.c in Sources */ = {isa = PBXBuildFile; fileRef = FC585EED14EDAF3000C8F63A /* ns_date.c */; };
@@ -36,18 +64,81 @@
 		FC585F2114EDAF3000C8F63A /* res_findzonecut.c in Sources */ = {isa = PBXBuildFile; fileRef = FC585EFA14EDAF3000C8F63A /* res_findzonecut.c */; };
 		FC585F2214EDAF3000C8F63A /* res_init.c in Sources */ = {isa = PBXBuildFile; fileRef = FC585EFB14EDAF3000C8F63A /* res_init.c */; };
 		FC585F2314EDAF3000C8F63A /* res_mkquery.c in Sources */ = {isa = PBXBuildFile; fileRef = FC585EFC14EDAF3000C8F63A /* res_mkquery.c */; };
-		FC585F2414EDAF3000C8F63A /* res_mkupdate.c in Sources */ = {isa = PBXBuildFile; fileRef = FC585EFD14EDAF3000C8F63A /* res_mkupdate.c */; };
 		FC585F2514EDAF3000C8F63A /* res_private.h in Headers */ = {isa = PBXBuildFile; fileRef = FC585EFE14EDAF3000C8F63A /* res_private.h */; };
 		FC585F2614EDAF3000C8F63A /* res_query.c in Sources */ = {isa = PBXBuildFile; fileRef = FC585EFF14EDAF3000C8F63A /* res_query.c */; };
 		FC585F2714EDAF3000C8F63A /* res_send.c in Sources */ = {isa = PBXBuildFile; fileRef = FC585F0014EDAF3000C8F63A /* res_send.c */; };
 		FC585F2814EDAF3000C8F63A /* res_sendsigned.c in Sources */ = {isa = PBXBuildFile; fileRef = FC585F0114EDAF3000C8F63A /* res_sendsigned.c */; };
-		FC585F2914EDAF3000C8F63A /* res_update.c in Sources */ = {isa = PBXBuildFile; fileRef = FC585F0214EDAF3000C8F63A /* res_update.c */; };
 		FC585F2A14EDAF3000C8F63A /* res_update.h in Headers */ = {isa = PBXBuildFile; fileRef = FC585F0314EDAF3000C8F63A /* res_update.h */; };
 		FC585F2B14EDAF3000C8F63A /* resolv.h in Headers */ = {isa = PBXBuildFile; fileRef = FC585F0414EDAF3000C8F63A /* resolv.h */; settings = {ATTRIBUTES = (Public, ); }; };
 /* End PBXBuildFile section */
 
+/* Begin PBXContainerItemProxy section */
+		326AD7E82996C0C300BCFB10 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = FC585ECD14EDAEA400C8F63A /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = FC585ED514EDAEA400C8F63A;
+			remoteInfo = libresolv;
+		};
+		326AD7EA2996C0C600BCFB10 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = FC585ECD14EDAEA400C8F63A /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 32FE3DBF281059EA000F3BCE;
+			remoteInfo = tests;
+		};
+		32FE3DE52816A818000F3BCE /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = FC585ECD14EDAEA400C8F63A /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = FC585ED514EDAEA400C8F63A;
+			remoteInfo = libresolv;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		326AD7EE2996C89900BCFB10 /* Copy Tests plist */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /AppleInternal/CoreOS/BATS/unit_tests;
+			dstSubfolderSpec = 0;
+			files = (
+				326AD7F02996C8CE00BCFB10 /* libresolv.plist in Copy Tests plist */,
+			);
+			name = "Copy Tests plist";
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		32F6557C299A6D5A008E65CD /* Copy Open Source Plist */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /usr/local/OpenSourceVersions;
+			dstSubfolderSpec = 0;
+			files = (
+				32F6557E299A6DE1008E65CD /* libresolv.plist in Copy Open Source Plist */,
+			);
+			name = "Copy Open Source Plist";
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
 /* Begin PBXFileReference section */
+		326AD7EF2996C8B900BCFB10 /* libresolv.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = libresolv.plist; sourceTree = "<group>"; };
+		3272B39C2840FD16006F9D19 /* installapi.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = installapi.h; sourceTree = "<group>"; };
+		32CE6FF028B7B03900D5AC50 /* res_mkupdate.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = res_mkupdate.c; sourceTree = "<group>"; };
+		32E0CAE32805A87D00AB9015 /* mtctxres.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = mtctxres.c; sourceTree = "<group>"; };
+		32F6557D299A6DE1008E65CD /* libresolv.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = libresolv.plist; sourceTree = "<group>"; };
+		32FE3DB8281005F7000F3BCE /* res_state.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = res_state.c; sourceTree = "<group>"; };
+		32FE3DB9281005F7000F3BCE /* resolv_mt.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = resolv_mt.h; sourceTree = "<group>"; };
+		32FE3DC0281059EA000F3BCE /* libresolv_tests */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = libresolv_tests; sourceTree = BUILT_PRODUCTS_DIR; };
+		32FE3DC728105AA9000F3BCE /* libatf-c.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = "libatf-c.dylib"; path = "../../atf/build/Release/libatf-c.dylib"; sourceTree = "<group>"; };
+		32FE3DC928105ACC000F3BCE /* libresolv_test.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = libresolv_test.c; sourceTree = "<group>"; };
+		32FE3DCC281152F1000F3BCE /* libresolv.9.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libresolv.9.dylib; path = build/Release/libresolv.9.dylib; sourceTree = "<group>"; };
+		32FE3DE92816AE1F000F3BCE /* libresolv.9.dylib.dSYM */ = {isa = PBXFileReference; lastKnownFileType = wrapper.dsym; name = libresolv.9.dylib.dSYM; path = build/Release/libresolv.9.dylib.dSYM; sourceTree = "<group>"; };
+		32FE3DEA2816AE1F000F3BCE /* libresolv.9.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libresolv.9.tbd; path = build/Release/libresolv.9.tbd; sourceTree = "<group>"; };
 		81BED2FE185D91FC00BC7221 /* libresolv.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = libresolv.xcconfig; path = xcodescripts/libresolv.xcconfig; sourceTree = "<group>"; };
+		D35CC3C62AD5BAA100FCBD23 /* port_after.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = port_after.h; sourceTree = "<group>"; };
+		D35CC3C72AD5BAA100FCBD23 /* port_before.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = port_before.h; sourceTree = "<group>"; };
+		D3B73ACB291C3F5B0077F338 /* res_update.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = res_update.c; sourceTree = "<group>"; };
 		FC585ED614EDAEA400C8F63A /* libresolv.9.dylib */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = libresolv.9.dylib; sourceTree = BUILT_PRODUCTS_DIR; };
 		FC585EE014EDAF3000C8F63A /* base64.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = base64.c; sourceTree = "<group>"; };
 		FC585EE114EDAF3000C8F63A /* dns_async.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = dns_async.c; sourceTree = "<group>"; };
@@ -57,9 +148,9 @@
 		FC585EE514EDAF3000C8F63A /* dns.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = dns.c; sourceTree = "<group>"; };
 		FC585EE614EDAF3000C8F63A /* dns.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = dns.h; sourceTree = "<group>"; };
 		FC585EE714EDAF3000C8F63A /* dst_api.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = dst_api.c; sourceTree = "<group>"; };
-		FC585EE814EDAF3000C8F63A /* dst_hmac_link.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = dst_hmac_link.c; sourceTree = "<group>"; };
+		FC585EE814EDAF3000C8F63A /* hmac_link.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = hmac_link.c; sourceTree = "<group>"; };
 		FC585EE914EDAF3000C8F63A /* dst_internal.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = dst_internal.h; sourceTree = "<group>"; };
-		FC585EEA14EDAF3000C8F63A /* dst_support.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = dst_support.c; sourceTree = "<group>"; };
+		FC585EEA14EDAF3000C8F63A /* support.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = support.c; sourceTree = "<group>"; };
 		FC585EEB14EDAF3000C8F63A /* dst.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = dst.h; sourceTree = "<group>"; };
 		FC585EEC14EDAF3000C8F63A /* nameser.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = nameser.h; sourceTree = "<group>"; };
 		FC585EED14EDAF3000C8F63A /* ns_date.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = ns_date.c; sourceTree = "<group>"; };
@@ -78,12 +169,10 @@
 		FC585EFA14EDAF3000C8F63A /* res_findzonecut.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = res_findzonecut.c; sourceTree = "<group>"; };
 		FC585EFB14EDAF3000C8F63A /* res_init.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = res_init.c; sourceTree = "<group>"; };
 		FC585EFC14EDAF3000C8F63A /* res_mkquery.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = res_mkquery.c; sourceTree = "<group>"; };
-		FC585EFD14EDAF3000C8F63A /* res_mkupdate.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = res_mkupdate.c; sourceTree = "<group>"; };
 		FC585EFE14EDAF3000C8F63A /* res_private.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = res_private.h; sourceTree = "<group>"; };
 		FC585EFF14EDAF3000C8F63A /* res_query.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = res_query.c; sourceTree = "<group>"; };
 		FC585F0014EDAF3000C8F63A /* res_send.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = res_send.c; sourceTree = "<group>"; };
 		FC585F0114EDAF3000C8F63A /* res_sendsigned.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = res_sendsigned.c; sourceTree = "<group>"; };
-		FC585F0214EDAF3000C8F63A /* res_update.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = res_update.c; sourceTree = "<group>"; };
 		FC585F0314EDAF3000C8F63A /* res_update.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = res_update.h; sourceTree = "<group>"; };
 		FC585F0414EDAF3000C8F63A /* resolv.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = resolv.h; sourceTree = "<group>"; };
 		FC585F0514EDAF3000C8F63A /* resolver.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = resolver.3; sourceTree = "<group>"; };
@@ -91,6 +180,15 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		32FE3DBD281059EA000F3BCE /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				32FE3DED2816AEA5000F3BCE /* libresolv.9.dylib in Frameworks */,
+				32FE3DC828105AA9000F3BCE /* libatf-c.dylib in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		FC585ED314EDAEA400C8F63A /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -101,23 +199,38 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		32FE3DC1281059EA000F3BCE /* tests */ = {
+			isa = PBXGroup;
+			children = (
+				326AD7EF2996C8B900BCFB10 /* libresolv.plist */,
+				32FE3DC928105ACC000F3BCE /* libresolv_test.c */,
+			);
+			path = tests;
+			sourceTree = "<group>";
+		};
+		32FE3DC628105AA9000F3BCE /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				32FE3DE92816AE1F000F3BCE /* libresolv.9.dylib.dSYM */,
+				32FE3DEA2816AE1F000F3BCE /* libresolv.9.tbd */,
+				32FE3DCC281152F1000F3BCE /* libresolv.9.dylib */,
+				32FE3DC728105AA9000F3BCE /* libatf-c.dylib */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
 		FC585ECB14EDAEA400C8F63A = {
 			isa = PBXGroup;
 			children = (
-				81BED2FE185D91FC00BC7221 /* libresolv.xcconfig */,
+				FC585F0514EDAF3000C8F63A /* resolver.3 */,
+				FC585F0614EDAF3000C8F63A /* resolver.5 */,
 				FC585EE014EDAF3000C8F63A /* base64.c */,
 				FC585EE114EDAF3000C8F63A /* dns_async.c */,
-				FC585EE214EDAF3000C8F63A /* dns_private.h */,
 				FC585EE314EDAF3000C8F63A /* dns_util.c */,
-				FC585EE414EDAF3000C8F63A /* dns_util.h */,
 				FC585EE514EDAF3000C8F63A /* dns.c */,
-				FC585EE614EDAF3000C8F63A /* dns.h */,
 				FC585EE714EDAF3000C8F63A /* dst_api.c */,
-				FC585EE814EDAF3000C8F63A /* dst_hmac_link.c */,
-				FC585EE914EDAF3000C8F63A /* dst_internal.h */,
-				FC585EEA14EDAF3000C8F63A /* dst_support.c */,
-				FC585EEB14EDAF3000C8F63A /* dst.h */,
-				FC585EEC14EDAF3000C8F63A /* nameser.h */,
+				FC585EE814EDAF3000C8F63A /* hmac_link.c */,
+				32E0CAE32805A87D00AB9015 /* mtctxres.c */,
 				FC585EED14EDAF3000C8F63A /* ns_date.c */,
 				FC585EEE14EDAF3000C8F63A /* ns_name.c */,
 				FC585EEF14EDAF3000C8F63A /* ns_netint.c */,
@@ -130,21 +243,35 @@
 				FC585EF614EDAF3000C8F63A /* res_comp.c */,
 				FC585EF714EDAF3000C8F63A /* res_data.c */,
 				FC585EF814EDAF3000C8F63A /* res_debug.c */,
-				FC585EF914EDAF3000C8F63A /* res_debug.h */,
 				FC585EFA14EDAF3000C8F63A /* res_findzonecut.c */,
 				FC585EFB14EDAF3000C8F63A /* res_init.c */,
 				FC585EFC14EDAF3000C8F63A /* res_mkquery.c */,
-				FC585EFD14EDAF3000C8F63A /* res_mkupdate.c */,
-				FC585EFE14EDAF3000C8F63A /* res_private.h */,
+				32CE6FF028B7B03900D5AC50 /* res_mkupdate.c */,
 				FC585EFF14EDAF3000C8F63A /* res_query.c */,
 				FC585F0014EDAF3000C8F63A /* res_send.c */,
 				FC585F0114EDAF3000C8F63A /* res_sendsigned.c */,
-				FC585F0214EDAF3000C8F63A /* res_update.c */,
+				32FE3DB8281005F7000F3BCE /* res_state.c */,
+				D3B73ACB291C3F5B0077F338 /* res_update.c */,
+				FC585EEA14EDAF3000C8F63A /* support.c */,
+				FC585EE214EDAF3000C8F63A /* dns_private.h */,
+				FC585EE414EDAF3000C8F63A /* dns_util.h */,
+				FC585EE614EDAF3000C8F63A /* dns.h */,
+				FC585EE914EDAF3000C8F63A /* dst_internal.h */,
+				FC585EEB14EDAF3000C8F63A /* dst.h */,
+				3272B39C2840FD16006F9D19 /* installapi.h */,
+				FC585EEC14EDAF3000C8F63A /* nameser.h */,
+				D35CC3C62AD5BAA100FCBD23 /* port_after.h */,
+				D35CC3C72AD5BAA100FCBD23 /* port_before.h */,
+				FC585EF914EDAF3000C8F63A /* res_debug.h */,
+				FC585EFE14EDAF3000C8F63A /* res_private.h */,
 				FC585F0314EDAF3000C8F63A /* res_update.h */,
+				32FE3DB9281005F7000F3BCE /* resolv_mt.h */,
 				FC585F0414EDAF3000C8F63A /* resolv.h */,
-				FC585F0514EDAF3000C8F63A /* resolver.3 */,
-				FC585F0614EDAF3000C8F63A /* resolver.5 */,
+				32F6557D299A6DE1008E65CD /* libresolv.plist */,
+				81BED2FE185D91FC00BC7221 /* libresolv.xcconfig */,
+				32FE3DC628105AA9000F3BCE /* Frameworks */,
 				FC585ED714EDAEA400C8F63A /* Products */,
+				32FE3DC1281059EA000F3BCE /* tests */,
 			);
 			sourceTree = "<group>";
 		};
@@ -152,6 +279,7 @@
 			isa = PBXGroup;
 			children = (
 				FC585ED614EDAEA400C8F63A /* libresolv.9.dylib */,
+				32FE3DC0281059EA000F3BCE /* libresolv_tests */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -168,17 +296,39 @@
 				FC585F1314EDAF3000C8F63A /* nameser.h in Headers */,
 				FC585F2B14EDAF3000C8F63A /* resolv.h in Headers */,
 				FC585F0914EDAF3000C8F63A /* dns_private.h in Headers */,
+				32FE3DBB281007DE000F3BCE /* resolv_mt.h in Headers */,
+				D35CC3C92AD5BAA100FCBD23 /* port_before.h in Headers */,
+				FC585F2A14EDAF3000C8F63A /* res_update.h in Headers */,
+				FC585F2514EDAF3000C8F63A /* res_private.h in Headers */,
+				D35CC3C82AD5BAA100FCBD23 /* port_after.h in Headers */,
+				32F6557F29A505E5008E65CD /* installapi.h in Headers */,
+				FC585F2014EDAF3000C8F63A /* res_debug.h in Headers */,
 				FC585F1014EDAF3000C8F63A /* dst_internal.h in Headers */,
 				FC585F1214EDAF3000C8F63A /* dst.h in Headers */,
-				FC585F2014EDAF3000C8F63A /* res_debug.h in Headers */,
-				FC585F2514EDAF3000C8F63A /* res_private.h in Headers */,
-				FC585F2A14EDAF3000C8F63A /* res_update.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXHeadersBuildPhase section */
 
 /* Begin PBXNativeTarget section */
+		32FE3DBF281059EA000F3BCE /* libresolv_tests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 32FE3DC4281059EA000F3BCE /* Build configuration list for PBXNativeTarget "libresolv_tests" */;
+			buildPhases = (
+				32FE3DBC281059EA000F3BCE /* Sources */,
+				32FE3DBD281059EA000F3BCE /* Frameworks */,
+				326AD7EE2996C89900BCFB10 /* Copy Tests plist */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				32FE3DE62816A818000F3BCE /* PBXTargetDependency */,
+			);
+			name = libresolv_tests;
+			productName = tests;
+			productReference = 32FE3DC0281059EA000F3BCE /* libresolv_tests */;
+			productType = "com.apple.product-type.tool";
+		};
 		FC585ED514EDAEA400C8F63A /* libresolv */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = FC585EDA14EDAEA400C8F63A /* Build configuration list for PBXNativeTarget "libresolv" */;
@@ -187,6 +337,7 @@
 				FC585ED314EDAEA400C8F63A /* Frameworks */,
 				FC585ED414EDAEA400C8F63A /* Headers */,
 				FC585F2E14EF126300C8F63A /* Run Script */,
+				32F6557C299A6D5A008E65CD /* Copy Open Source Plist */,
 			);
 			buildRules = (
 			);
@@ -203,8 +354,18 @@
 		FC585ECD14EDAEA400C8F63A /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
-				LastUpgradeCheck = 1400;
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1500;
 				ORGANIZATIONNAME = "Apple Inc.";
+				TargetAttributes = {
+					326AD7E52996C0B800BCFB10 = {
+						CreatedOnToolsVersion = 14.0;
+					};
+					32FE3DBF281059EA000F3BCE = {
+						CreatedOnToolsVersion = 14.0;
+						ProvisioningStyle = Automatic;
+					};
+				};
 			};
 			buildConfigurationList = FC585ED014EDAEA400C8F63A /* Build configuration list for PBXProject "libresolv" */;
 			compatibilityVersion = "Xcode 3.2";
@@ -219,7 +380,9 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
+				326AD7E52996C0B800BCFB10 /* default */,
 				FC585ED514EDAEA400C8F63A /* libresolv */,
+				32FE3DBF281059EA000F3BCE /* libresolv_tests */,
 			);
 		};
 /* End PBXProject section */
@@ -237,11 +400,19 @@
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 			shellPath = /bin/sh;
-			shellScript = "sh \"$PROJECT_DIR\"/xcodescripts/headers.sh\nsh \"$PROJECT_DIR\"/xcodescripts/manpages.sh\nsh \"$PROJECT_DIR\"/xcodescripts/links.sh";
+			shellScript = "sh \"$PROJECT_DIR\"/xcodescripts/headers.sh\nsh \"$PROJECT_DIR\"/xcodescripts/manpages.sh\nsh \"$PROJECT_DIR\"/xcodescripts/links.sh\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		32FE3DBC281059EA000F3BCE /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				32FE3DCA28105ACC000F3BCE /* libresolv_test.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		FC585ED214EDAEA400C8F63A /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -251,10 +422,13 @@
 				FC585F0A14EDAF3000C8F63A /* dns_util.c in Sources */,
 				FC585F0C14EDAF3000C8F63A /* dns.c in Sources */,
 				FC585F0E14EDAF3000C8F63A /* dst_api.c in Sources */,
-				FC585F0F14EDAF3000C8F63A /* dst_hmac_link.c in Sources */,
-				FC585F1114EDAF3000C8F63A /* dst_support.c in Sources */,
+				FC585F0F14EDAF3000C8F63A /* hmac_link.c in Sources */,
+				FC585F1114EDAF3000C8F63A /* support.c in Sources */,
+				32FE3DBA281007D8000F3BCE /* res_state.c in Sources */,
+				32E0CAE42805A89900AB9015 /* mtctxres.c in Sources */,
 				FC585F1414EDAF3000C8F63A /* ns_date.c in Sources */,
 				FC585F1514EDAF3000C8F63A /* ns_name.c in Sources */,
+				32CE6FF128B7B26100D5AC50 /* res_mkupdate.c in Sources */,
 				FC585F1614EDAF3000C8F63A /* ns_netint.c in Sources */,
 				FC585F1714EDAF3000C8F63A /* ns_parse.c in Sources */,
 				FC585F1814EDAF3000C8F63A /* ns_print.c in Sources */,
@@ -264,21 +438,77 @@
 				FC585F1C14EDAF3000C8F63A /* ns_verify.c in Sources */,
 				FC585F1D14EDAF3000C8F63A /* res_comp.c in Sources */,
 				FC585F1E14EDAF3000C8F63A /* res_data.c in Sources */,
+				D3B73ACC291C3F5B0077F338 /* res_update.c in Sources */,
 				FC585F1F14EDAF3000C8F63A /* res_debug.c in Sources */,
 				FC585F2114EDAF3000C8F63A /* res_findzonecut.c in Sources */,
 				FC585F2214EDAF3000C8F63A /* res_init.c in Sources */,
 				FC585F2314EDAF3000C8F63A /* res_mkquery.c in Sources */,
-				FC585F2414EDAF3000C8F63A /* res_mkupdate.c in Sources */,
 				FC585F2614EDAF3000C8F63A /* res_query.c in Sources */,
 				FC585F2714EDAF3000C8F63A /* res_send.c in Sources */,
 				FC585F2814EDAF3000C8F63A /* res_sendsigned.c in Sources */,
-				FC585F2914EDAF3000C8F63A /* res_update.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
 
+/* Begin PBXTargetDependency section */
+		326AD7E92996C0C300BCFB10 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = FC585ED514EDAEA400C8F63A /* libresolv */;
+			targetProxy = 326AD7E82996C0C300BCFB10 /* PBXContainerItemProxy */;
+		};
+		326AD7EB2996C0C600BCFB10 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 32FE3DBF281059EA000F3BCE /* libresolv_tests */;
+			targetProxy = 326AD7EA2996C0C600BCFB10 /* PBXContainerItemProxy */;
+		};
+		32FE3DE62816A818000F3BCE /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = FC585ED514EDAEA400C8F63A /* libresolv */;
+			targetProxy = 32FE3DE52816A818000F3BCE /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
 /* Begin XCBuildConfiguration section */
+		326AD7E62996C0B800BCFB10 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
+		32FE3DC5281059EA000F3BCE /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++17";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				DEAD_CODE_STRIPPING = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				INSTALL_PATH = /AppleInternal/Tests/libresolv/tests;
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx.internal;
+			};
+			name = Release;
+		};
 		FC585ED914EDAEA400C8F63A /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -301,7 +531,9 @@
 				CLANG_WARN_SUSPICIOUS_MOVE = YES;
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				DEAD_CODE_STRIPPING = YES;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
 				GCC_NO_COMMON_BLOCKS = YES;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES;
@@ -309,6 +541,10 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
+				HEADER_SEARCH_PATHS = "$(SRCROOT)";
+				SUPPORTED_PLATFORMS = "macosx iphoneos";
+				SUPPORTS_TEXT_BASED_API = YES;
+				TAPI_ENABLE_PROJECT_HEADERS = NO;
 			};
 			name = Release;
 		};
@@ -316,7 +552,13 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 81BED2FE185D91FC00BC7221 /* libresolv.xcconfig */;
 			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD)";
 				CLANG_ENABLE_OBJC_WEAK = YES;
+				FRAMEWORK_VERSION = 9;
+				SDKROOT = macosx.internal;
+				SUPPORTS_TEXT_BASED_API = YES;
+				TAPI_ENABLE_PROJECT_HEADERS = NO;
+				TAPI_VERIFY_MODE = Pedantic;
 				WARNING_CFLAGS = (
 					"-Wall",
 					"-Werror=format-nonliteral",
@@ -328,6 +570,22 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		326AD7E72996C0B800BCFB10 /* Build configuration list for PBXAggregateTarget "default" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				326AD7E62996C0B800BCFB10 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		32FE3DC4281059EA000F3BCE /* Build configuration list for PBXNativeTarget "libresolv_tests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				32FE3DC5281059EA000F3BCE /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 		FC585ED014EDAEA400C8F63A /* Build configuration list for PBXProject "libresolv" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (

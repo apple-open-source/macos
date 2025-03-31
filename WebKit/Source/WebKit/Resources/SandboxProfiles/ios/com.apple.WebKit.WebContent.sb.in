@@ -418,7 +418,12 @@
     (literal "/"))
 
 (allow file-read*
-       (subpath "/private/var/MobileAsset/PreinstalledAssetsV2/InstallWithOs"))
+    (subpath "/private/var/MobileAsset/PreinstalledAssetsV2/InstallWithOs"))
+
+;; FIXME: Remove when rdar://141156558 has been fixed.
+#if ENABLE(REMOVE_XPC_AND_MACH_SANDBOX_EXTENSIONS_IN_WEBCONTENT)
+(allow file-read* (subpath "/private/var/MobileAsset/AssetsV2/com_apple_MobileAsset_Font7"))
+#endif
 
 (device-access)
 
@@ -428,10 +433,12 @@
         (extension "com.apple.fileprovider.read-write")))
 
 #if ENABLE(LOGD_BLOCKING_IN_WEBCONTENT)
+#if !ENABLE(REMOVE_XPC_AND_MACH_SANDBOX_EXTENSIONS_IN_WEBCONTENT)
 (with-filter (require-not (lockdown-mode))
     (allow mach-lookup (global-name
         "com.apple.logd"
         "com.apple.logd.events")))
+#endif
 #else
 (allow mach-lookup (global-name
     "com.apple.logd"
@@ -446,7 +453,8 @@
 
 ;; <rdar://problem/12413942>
 (allow file-read*
-       (well-known-system-group-container-literal "/systemgroup.com.apple.mobilegestaltcache/Library/Caches/com.apple.MobileGestalt.plist"))
+   (well-known-system-group-container-literal "/systemgroup.com.apple.mobilegestaltcache/Library/Caches/com.apple.MobileGestalt.plist"))
+
 (allow iokit-get-properties
        (iokit-property "IORegistryEntryPropertyKeys"))
 
@@ -834,11 +842,12 @@
 (deny mach-lookup
     (global-name "com.apple.mobilegestalt.xpc"))
 
-(allow mach-lookup (with telemetry)
-    (require-all
-        (require-not (webcontent-process-launched))
-        (extension "com.apple.webkit.extension.mach")
-        (global-name "com.apple.mobilegestalt.xpc")))
+(with-filter (require-not (state-flag "BlockMobileGestaltInWebContentSandbox"))
+    (allow mach-lookup (with telemetry)
+        (require-all
+            (require-not (webcontent-process-launched))
+            (extension "com.apple.webkit.extension.mach")
+            (global-name "com.apple.mobilegestalt.xpc"))))
 
 (deny mach-lookup (with no-report)
     (xpc-service-name "com.apple.audio.toolbox.reporting.service"))
@@ -885,30 +894,20 @@
 (with-filter (system-attribute apple-internal)
     (allow mach-lookup
         (global-name "com.apple.diagnosticd")
-        ;; This is only added temporarily. See rdar://123786910.
-        (global-name "com.apple.analyticsd")
         (global-name "com.apple.osanalytics.osanalyticshelper")))
 
-(define (mach-extension-list)
-    (global-name
-        "com.apple.mobileassetd.v2"))
-
-(allow mach-lookup (with telemetry-backtrace)
-    (require-all
-        (extension "com.apple.webkit.extension.mach")
-        (mach-extension-list)))
-
-(with-filter (state-flag "EnableExperimentalSandbox")
-    (deny mach-lookup
+(with-filter (require-not (state-flag "BlockMobileAssetInWebContentSandbox"))
+    (allow mach-lookup
         (require-all
             (extension "com.apple.webkit.extension.mach")
-            (mach-extension-list))))
+            (global-name "com.apple.mobileassetd.v2"))))
 
-(allow mach-lookup
-    (require-all
-        (extension "com.apple.webkit.extension.mach")
-        (system-attribute apple-internal)
-        (global-name "com.apple.webinspector")))
+(with-filter (require-not (state-flag "BlockWebInspectorInWebContentSandbox"))
+    (allow mach-lookup
+        (require-all
+            (extension "com.apple.webkit.extension.mach")
+            (system-attribute apple-internal)
+            (global-name "com.apple.webinspector"))))
 
 ;; Silence warnings about these connections if we have decided not to extend access to them:
 (deny mach-lookup (with no-report)
@@ -1131,6 +1130,7 @@
 
 (deny syscall-unix (with no-report) (syscall-number
     SYS_connect
+    SYS_persona
 #if !PLATFORM(WATCHOS)
     SYS_sigreturn
 #endif

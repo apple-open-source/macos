@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006-2023 Apple Inc. All rights reserved.
+ * Copyright (C) 2006-2025 Apple Inc. All rights reserved.
  * Copyright (C) 2007-2009 Torch Mobile, Inc.
  * Copyright (C) 2010, 2011 Research In Motion Limited. All rights reserved.
  * Copyright (C) 2013 Samsung Electronics. All rights reserved.
@@ -168,10 +168,6 @@
 #define ENABLE_CONTEXT_MENU_EVENT 1
 #endif
 
-#if !defined(ENABLE_CSS_TRANSFORM_STYLE_OPTIMIZED_3D)
-#define ENABLE_CSS_TRANSFORM_STYLE_OPTIMIZED_3D 0
-#endif
-
 #if !defined(ENABLE_CUSTOM_CURSOR_SUPPORT)
 #define ENABLE_CUSTOM_CURSOR_SUPPORT 1
 #endif
@@ -190,14 +186,6 @@
 
 #if !defined(ENABLE_DATACUE_VALUE)
 #define ENABLE_DATACUE_VALUE 0
-#endif
-
-#if !defined(ENABLE_DATALIST_ELEMENT)
-#define ENABLE_DATALIST_ELEMENT 0
-#endif
-
-#if !defined(ENABLE_DATE_AND_TIME_INPUT_TYPES)
-#define ENABLE_DATE_AND_TIME_INPUT_TYPES 0
 #endif
 
 #if !defined(ENABLE_DECLARATIVE_WEB_PUSH)
@@ -268,30 +256,6 @@
 #define ENABLE_INLINE_PATH_DATA 0
 #endif
 
-#if !defined(ENABLE_INPUT_TYPE_COLOR)
-#define ENABLE_INPUT_TYPE_COLOR 1
-#endif
-
-#if !defined(ENABLE_INPUT_TYPE_DATE)
-#define ENABLE_INPUT_TYPE_DATE 0
-#endif
-
-#if !defined(ENABLE_INPUT_TYPE_DATETIMELOCAL)
-#define ENABLE_INPUT_TYPE_DATETIMELOCAL 0
-#endif
-
-#if !defined(ENABLE_INPUT_TYPE_MONTH)
-#define ENABLE_INPUT_TYPE_MONTH 0
-#endif
-
-#if !defined(ENABLE_INPUT_TYPE_TIME)
-#define ENABLE_INPUT_TYPE_TIME 0
-#endif
-
-#if !defined(ENABLE_INPUT_TYPE_WEEK)
-#define ENABLE_INPUT_TYPE_WEEK 0
-#endif
-
 #if !defined(ENABLE_INPUT_TYPE_WEEK_PICKER)
 #define ENABLE_INPUT_TYPE_WEEK_PICKER 0
 #endif
@@ -347,6 +311,10 @@
 #define ENABLE_MEDIA_RECORDER 0
 #endif
 
+#if !defined(ENABLE_MEDIA_RECORDER_WEBM)
+#define ENABLE_MEDIA_RECORDER_WEBM 0
+#endif
+
 #if !defined(ENABLE_MEDIA_SOURCE)
 #define ENABLE_MEDIA_SOURCE 0
 #endif
@@ -369,10 +337,6 @@
 
 #if !defined(ENABLE_MHTML)
 #define ENABLE_MHTML 0
-#endif
-
-#if !defined(ENABLE_MODERN_MEDIA_CONTROLS)
-#define ENABLE_MODERN_MEDIA_CONTROLS 0
 #endif
 
 #if !defined(ENABLE_MONOSPACE_FONT_EXCEPTION)
@@ -561,8 +525,12 @@
 #define ENABLE_WEBXR_HANDS 0
 #endif
 
+#if !defined(ENABLE_WEBXR_WEBGPU_BY_DEFAULT)
+#define ENABLE_WEBXR_WEBGPU_BY_DEFAULT 0
+#endif
+
 #if !defined(ENABLE_WEBXR_LAYERS)
-#define ENABLE_WEBXR_LAYERS (PLATFORM(COCOA) && ENABLE_WEBXR)
+#define ENABLE_WEBXR_LAYERS (PLATFORM(VISION) && __VISION_OS_VERSION_MAX_ALLOWED >= 20200)
 #endif
 
 #if !defined(ENABLE_WHEEL_EVENT_LATCHING)
@@ -597,6 +565,16 @@
 #define ENABLE_MALLOC_HEAP_BREAKDOWN 0
 #endif
 
+// See RefTrackerMixin.h
+#if ASSERT_ENABLED
+#undef ENABLE_REFTRACKER
+#define ENABLE_REFTRACKER 1
+#endif
+
+#if !defined(ENABLE_REFTRACKER)
+#define ENABLE_REFTRACKER 0
+#endif
+
 #if !defined(ENABLE_CFPREFS_DIRECT_MODE)
 #define ENABLE_CFPREFS_DIRECT_MODE 0
 #endif
@@ -621,7 +599,7 @@
 #endif
 
 /* The JIT is enabled by default on all x86-64 & ARM64 platforms. */
-#if !defined(ENABLE_JIT) && (CPU(X86_64) || (CPU(ARM64) && CPU(ADDRESS64)))
+#if !defined(ENABLE_JIT) && (CPU(X86_64) || (CPU(ARM64) && CPU(ADDRESS64) && !PLATFORM(WATCHOS)))
 #define ENABLE_JIT 1
 #endif
 
@@ -690,7 +668,7 @@
 #if !defined(ENABLE_DFG_JIT) && ENABLE(JIT)
 
 /* Enable the DFG JIT on X86 and X86_64. */
-#if CPU(X86_64) && (OS(DARWIN) || OS(LINUX) || OS(FREEBSD) || OS(HURD) || OS(WINDOWS))
+#if CPU(X86_64) && (OS(DARWIN) || OS(LINUX) || OS(FREEBSD) || OS(HAIKU) || OS(HURD) || OS(WINDOWS))
 #define ENABLE_DFG_JIT 1
 #endif
 
@@ -720,20 +698,14 @@
 #define ENABLE_FAST_TLS_JIT 1
 #endif
 
-/* FIXME: This should be turned into an #error invariant */
-/* If the baseline jit is not available, then disable upper tiers as well. */
-#if !ENABLE(JIT)
-#undef ENABLE_DFG_JIT
-#undef ENABLE_FTL_JIT
-#define ENABLE_DFG_JIT 0
-#define ENABLE_FTL_JIT 0
+/* Ensure that upper tiers are disabled if baseline JIT is not available */
+#if !ENABLE(JIT) && (ENABLE(DFG_JIT) || ENABLE(FTL_JIT))
+#error "DFG and FTL JIT require baseline JIT to be enabled"
 #endif
 
-/* FIXME: This should be turned into an #error invariant */
-/* If the DFG jit is not available, then disable upper tiers as well: */
-#if !ENABLE(DFG_JIT)
-#undef ENABLE_FTL_JIT
-#define ENABLE_FTL_JIT 0
+/* Ensure that FTL JIT is disabled if DFG JIT is not available */
+#if !ENABLE(DFG_JIT) && ENABLE(FTL_JIT)
+#error "FTL JIT requires DFG JIT to be enabled"
 #endif
 
 /* This controls whether B3 is built. B3 is needed for FTL JIT and WebAssembly */
@@ -750,13 +722,13 @@
 #define ENABLE_WEBASSEMBLY_BBQJIT 1
 #endif
 
-#if !defined(ENABLE_WEBASSEMBLY) && (ENABLE(B3_JIT) && PLATFORM(COCOA) && CPU(ADDRESS64))
+#if !defined(ENABLE_WEBASSEMBLY) && (ENABLE(B3_JIT) && PLATFORM(COCOA) && CPU(ADDRESS64) && !PLATFORM(WATCHOS))
 #define ENABLE_WEBASSEMBLY 1
 #define ENABLE_WEBASSEMBLY_OMGJIT 1
 #define ENABLE_WEBASSEMBLY_BBQJIT 1
 #endif
 
-#if !defined(ENABLE_WEBASSEMBLY) && CPU(ADDRESS64) && PLATFORM(COCOA) && !ENABLE(C_LOOP)
+#if !defined(ENABLE_WEBASSEMBLY) && CPU(ADDRESS64) && PLATFORM(COCOA) && !ENABLE(C_LOOP) && !PLATFORM(WATCHOS)
 #define ENABLE_WEBASSEMBLY 1
 #endif
 
@@ -840,6 +812,11 @@
 #define ENABLE_YARR_JIT_UNICODE_EXPRESSIONS 1
 #endif
 
+/* Enables an optimiztion to advance two codepoints when we fail to match a non-BMP character */
+#if ENABLE(YARR_JIT) && CPU(ARM64)
+#define ENABLE_YARR_JIT_UNICODE_CAN_INCREMENT_INDEX_FOR_NON_BMP 1
+#endif
+
 /* If either the JIT or the RegExp JIT is enabled, then the Assembler must be
    enabled as well: */
 #if ENABLE(JIT) || ENABLE(YARR_JIT) || !ENABLE(C_LOOP)
@@ -908,7 +885,7 @@
 #define ENABLE_JIT_OPERATION_DISASSEMBLY 1
 #endif
 
-#if CPU(ARM64E)
+#if CPU(ARM64E) && ENABLE(JIT)
 #define ENABLE_JIT_SIGN_ASSEMBLER_BUFFER 1
 #endif
 
@@ -928,7 +905,7 @@
    that executes each opcode. It cannot be supported by the CLoop since there's no way to embed the
    OpcodeID word in the CLoop's switch statement cases. It is also currently not implemented for MSVC.
 */
-#if !defined(ENABLE_LLINT_EMBEDDED_OPCODE_ID) && !ENABLE(C_LOOP) && !COMPILER(MSVC) && (CPU(X86) || CPU(X86_64) || CPU(ARM64) || (CPU(ARM_THUMB2) && OS(DARWIN)) || CPU(RISCV64))
+#if !defined(ENABLE_LLINT_EMBEDDED_OPCODE_ID) && !ENABLE(C_LOOP) && (CPU(X86) || CPU(X86_64) || CPU(ARM64) || (CPU(ARM_THUMB2) && OS(DARWIN)) || CPU(RISCV64))
 #define ENABLE_LLINT_EMBEDDED_OPCODE_ID 1
 #endif
 
@@ -1006,4 +983,8 @@
 #if !defined(ENABLE_WRITING_SUGGESTIONS) \
     && (PLATFORM(COCOA) && HAVE(INLINE_PREDICTIONS) && !PLATFORM(MACCATALYST))
 #define ENABLE_WRITING_SUGGESTIONS 1
+#endif
+
+#if !defined(ENABLE_COOKIE_STORE_API_BY_DEFAULT)
+#define ENABLE_COOKIE_STORE_API_BY_DEFAULT 0
 #endif

@@ -26,8 +26,6 @@
 #include "config.h"
 #include "WebDateTimeChooser.h"
 
-#if ENABLE(DATE_AND_TIME_INPUT_TYPES)
-
 #include "WebPage.h"
 #include "WebPageProxyMessages.h"
 #include "WebProcess.h"
@@ -42,28 +40,35 @@ WebDateTimeChooser::WebDateTimeChooser(WebPage& page, WebCore::DateTimeChooserCl
 {
 }
 
+WebDateTimeChooser::~WebDateTimeChooser() = default;
+
 void WebDateTimeChooser::didChooseDate(StringView date)
 {
-    m_client.didChooseValue(date);
+    m_client->didChooseValue(date);
 }
 
 void WebDateTimeChooser::didEndChooser()
 {
-    m_client.didEndChooser();
+    m_client->didEndChooser();
 }
 
 void WebDateTimeChooser::endChooser()
 {
-    WebProcess::singleton().parentProcessConnection()->send(Messages::WebPageProxy::EndDateTimePicker(), m_page.get().identifier());
+    RefPtr page = m_page.get();
+    if (!page)
+        return;
+
+    WebProcess::singleton().parentProcessConnection()->send(Messages::WebPageProxy::EndDateTimePicker(), page->identifier());
 }
 
 void WebDateTimeChooser::showChooser(const WebCore::DateTimeChooserParameters& params)
 {
-    Ref page { m_page.get() };
+    RefPtr page  = m_page.get();
+    if (!page)
+        return;
+
     page->setActiveDateTimeChooser(*this);
     WebProcess::singleton().parentProcessConnection()->send(Messages::WebPageProxy::ShowDateTimePicker(params), page->identifier());
 }
 
 } // namespace WebKit
-
-#endif

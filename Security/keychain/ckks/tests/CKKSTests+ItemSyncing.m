@@ -962,6 +962,130 @@
     [self checkGenericPasswordStoredUUID:ckr.recordID.recordName account:@"account-delete-me"];
 }
 
+- (void)testReceiveIncomingItemConflictsWithTombstoneItemWithCKMEAtLowerUUID {
+    [self createAndSaveFakeKeyHierarchy: self.keychainZoneID]; // Make life easy for this test.
+    [self startCKKSSubsystem];
+
+    NSDictionary *query = @{(id)kSecClass : (id)kSecClassGenericPassword,
+                            (id)kSecAttrAccessGroup : @"com.apple.security.ckks",
+                            (id)kSecAttrAccount : @"account-delete-me",
+                            (id)kSecAttrSynchronizable : (id)kCFBooleanTrue,
+                            (id)kSecMatchLimit : (id)kSecMatchLimitOne,
+    };
+
+    CFTypeRef item = NULL;
+    XCTAssertEqual(errSecItemNotFound, SecItemCopyMatching((__bridge CFDictionaryRef) query, &item), "item should not yet exist");
+
+    // Add first item at lower UUID
+    NSString* account = @"account-delete-me";
+    NSMutableDictionary* item1 = [[self fakeRecordDictionary:account password:@"first-password" zoneID:self.keychainZoneID] mutableCopy];
+    CKRecord* ckr = [self createFakeRecord:self.keychainZoneID recordName:@"11111111-1111-1111-1111-111111111111" itemDictionary:item1 key:nil plaintextPCSServiceIdentifier:nil plaintextPCSPublicKey:nil plaintextPCSPublicIdentity:nil];
+    [self.keychainZone addToZone:ckr];
+
+    // Trigger a notification (with hilariously fake data)
+    [self.defaultCKKS.zoneChangeFetcher notifyZoneChange:nil];
+    [self.defaultCKKS waitForFetchAndIncomingQueueProcessing];
+
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
+    XCTAssertEqual(errSecSuccess, SecItemCopyMatching((__bridge CFDictionaryRef) query, &item), "item should exist now");
+    [self waitForCKModifications];
+
+    // Now delete it! But fail the outgoing queue operation so that the CKME doesn't get deleted.
+    NSError* greyMode = [[NSError alloc] initWithDomain:CKErrorDomain code:CKErrorNotAuthenticated userInfo:@{
+        CKErrorRetryAfterKey: @(0.2),
+    }];
+    [self failNextCKAtomicModifyItemRecordsUpdateFailure:self.keychainZoneID blockAfterReject:nil withError:greyMode];
+    XCTAssertEqual(errSecSuccess, SecItemDelete((__bridge CFDictionaryRef)@{
+                                                                         (id)kSecClass : (id)kSecClassGenericPassword,
+                                                                         (id)kSecAttrAccessGroup : @"com.apple.security.ckks",
+                                                                         (id)kSecAttrAccount : account,
+                                                                         (id)kSecAttrSynchronizable : (id)kCFBooleanTrue,
+                                                                         }), @"Deleting local item");
+    
+    // In the meantime, CKKS receives a second item at a higher UUID
+    NSMutableDictionary* item2 = [item1 mutableCopy];
+    item2[(id)kSecValueData] = [@"second-password" dataUsingEncoding:NSUTF8StringEncoding];
+    CKRecord* ckr2 = [self createFakeRecord:self.keychainZoneID recordName:@"F9C58D31-7B59-481E-98AC-5A507ACB2D85" itemDictionary:item2 key:nil plaintextPCSServiceIdentifier:nil plaintextPCSPublicKey:nil plaintextPCSPublicIdentity:nil];
+    [self.keychainZone addToZone:ckr2];
+    [self.defaultCKKS.zoneChangeFetcher notifyZoneChange:nil];
+
+    // Set expectation that incoming item is added and existing TB item is deleted
+    [self expectCKModifyItemRecords:0 deletedRecords:1 currentKeyPointerRecords:0 zoneID:self.keychainZoneID checkItem:nil expectedOperationGroupName:@"incoming-queue-response"];
+
+    [self.defaultCKKS waitForFetchAndIncomingQueueProcessing];
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
+
+    // Verify that existing item is correctly deleted from CloudKit and incoming item is retained
+    XCTAssertNil(self.keychainZone.currentDatabase[ckr.recordID], "Record (%@) should have been deleted from CloudKit", ckr.recordID.recordName);
+    XCTAssertNotNil(self.keychainZone.currentDatabase[ckr2.recordID], "Record (%@) should have been retained in CloudKit", ckr2.recordID.recordName);
+
+    // And the local item should have ckr2's UUID
+    [self checkGenericPasswordStoredUUID:ckr2.recordID.recordName account:account];
+    [self checkGenericPassword:@"second-password" account:account];
+}
+
+- (void)testReceiveIncomingItemConflictsWithTombstoneItemWithCKMEAtHigherUUID {
+    [self createAndSaveFakeKeyHierarchy: self.keychainZoneID]; // Make life easy for this test.
+    [self startCKKSSubsystem];
+
+    NSDictionary *query = @{(id)kSecClass : (id)kSecClassGenericPassword,
+                            (id)kSecAttrAccessGroup : @"com.apple.security.ckks",
+                            (id)kSecAttrAccount : @"account-delete-me",
+                            (id)kSecAttrSynchronizable : (id)kCFBooleanTrue,
+                            (id)kSecMatchLimit : (id)kSecMatchLimitOne,
+    };
+
+    CFTypeRef item = NULL;
+    XCTAssertEqual(errSecItemNotFound, SecItemCopyMatching((__bridge CFDictionaryRef) query, &item), "item should not yet exist");
+
+    // Add first item at higher UUID
+    NSString* account = @"account-delete-me";
+    NSMutableDictionary* item1 = [[self fakeRecordDictionary:account password:@"first-password" zoneID:self.keychainZoneID] mutableCopy];
+    CKRecord* ckr = [self createFakeRecord:self.keychainZoneID recordName:@"F9C58D31-7B59-481E-98AC-5A507ACB2D85" itemDictionary:item1 key:nil plaintextPCSServiceIdentifier:nil plaintextPCSPublicKey:nil plaintextPCSPublicIdentity:nil];
+    [self.keychainZone addToZone:ckr];
+
+    // Trigger a notification (with hilariously fake data)
+    [self.defaultCKKS.zoneChangeFetcher notifyZoneChange:nil];
+    [self.defaultCKKS waitForFetchAndIncomingQueueProcessing];
+
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
+    XCTAssertEqual(errSecSuccess, SecItemCopyMatching((__bridge CFDictionaryRef) query, &item), "item should exist now");
+    [self waitForCKModifications];
+
+    // Now delete it! But fail the outgoing queue operation so that the CKME doesn't get deleted.
+    NSError* greyMode = [[NSError alloc] initWithDomain:CKErrorDomain code:CKErrorNotAuthenticated userInfo:@{
+        CKErrorRetryAfterKey: @(0.2),
+    }];
+    [self failNextCKAtomicModifyItemRecordsUpdateFailure:self.keychainZoneID blockAfterReject:nil withError:greyMode];
+    XCTAssertEqual(errSecSuccess, SecItemDelete((__bridge CFDictionaryRef)@{
+                                                                         (id)kSecClass : (id)kSecClassGenericPassword,
+                                                                         (id)kSecAttrAccessGroup : @"com.apple.security.ckks",
+                                                                         (id)kSecAttrAccount : account,
+                                                                         (id)kSecAttrSynchronizable : (id)kCFBooleanTrue,
+                                                                         }), @"Deleting local item");
+    
+    // In the meantime, CKKS receives a second item at a lower UUID
+    NSMutableDictionary* item2 = [item1 mutableCopy];
+    item2[(id)kSecValueData] = [@"second-password" dataUsingEncoding:NSUTF8StringEncoding];
+    CKRecord* ckr2 = [self createFakeRecord:self.keychainZoneID recordName:@"11111111-1111-1111-1111-111111111111" itemDictionary:item2 key:nil plaintextPCSServiceIdentifier:nil plaintextPCSPublicKey:nil plaintextPCSPublicIdentity:nil];
+    [self.keychainZone addToZone:ckr2];
+    [self.defaultCKKS.zoneChangeFetcher notifyZoneChange:nil];
+
+    // Set expectation that existing item is properly deleted this time, and incoming item is retained
+    [self expectCKModifyItemRecords:0 deletedRecords:1 currentKeyPointerRecords:0 zoneID:self.keychainZoneID checkItem:nil expectedOperationGroupName:@"incoming-queue-response"];
+
+    [self.defaultCKKS waitForFetchAndIncomingQueueProcessing];
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
+
+    // Verify that existing item is correctly deleted from CloudKit and incoming item is retained
+    XCTAssertNil(self.keychainZone.currentDatabase[ckr.recordID], "Record (%@) should have been deleted from CloudKit", ckr.recordID.recordName);
+    XCTAssertNotNil(self.keychainZone.currentDatabase[ckr2.recordID], "Record (%@) should have been retained in CloudKit", ckr2.recordID.recordName);
+
+    // And the local item should have ckr2's UUID
+    [self checkGenericPasswordStoredUUID:ckr2.recordID.recordName account:@"account-delete-me"];
+    [self checkGenericPassword:@"second-password" account:account];
+}
+
 - (void)testReceiveCorruptedItem {
     [self createAndSaveFakeKeyHierarchy: self.keychainZoneID]; // Make life easy for this test.
     [self startCKKSSubsystem];

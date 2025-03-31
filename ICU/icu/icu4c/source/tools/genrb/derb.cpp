@@ -17,13 +17,6 @@
 *   maintained by: Yves Arrouye <yves@realnames.com>
 */
 
-#if /*APPLE_ICU_CHANGES*/true // APPLE_ICU_CHANGES is defined in uconfig.h below, but that's too late
-// rdar://121241618 (StarlightE: VideosUI-883.40.54#24 has failed to build in install; cannot initialize a variable of type 'const UChar *' (aka 'const char16_t)
-#ifndef UCHAR_TYPE
-#define UCHAR_TYPE char16_t
-#endif
-#endif // APPLE_ICU_CHANGES
-
 #include "unicode/stringpiece.h"
 #include "unicode/ucnv.h"
 #include "unicode/unistr.h"
@@ -201,7 +194,7 @@ main(int argc, char* argv[]) {
             if (q == nullptr) {
                 locale.append(p, status);
             } else {
-                locale.append(p, (int32_t)(q - p), status);
+                locale.append(p, static_cast<int32_t>(q - p), status);
             }
         }
         if (U_FAILURE(status)) {
@@ -230,7 +223,7 @@ main(int argc, char* argv[]) {
 #endif
                 infile.append(inputDir, status);
                 if(q != nullptr) {
-                    infile.appendPathPart(icu::StringPiece(arg, (int32_t)(q - arg)), status);
+                    infile.appendPathPart(icu::StringPiece(arg, static_cast<int32_t>(q - arg)), status);
                 }
                 if (U_FAILURE(status)) {
                     return status;
@@ -241,13 +234,13 @@ main(int argc, char* argv[]) {
         if (thename) {
             bundle = ures_openDirect(thename, locale.data(), &status);
         } else {
-            bundle = ures_open(fromICUData ? 0 : inputDir, locale.data(), &status);
+            bundle = ures_open(fromICUData ? nullptr : inputDir, locale.data(), &status);
         }
         if (U_SUCCESS(status)) {
             UFILE *out = nullptr;
 
-            const char *filename = 0;
-            const char *ext = 0;
+            const char* filename = nullptr;
+            const char* ext = nullptr;
 
             if (locale.isEmpty() || !tostdout) {
                 filename = findBasename(arg);
@@ -266,7 +259,7 @@ main(int argc, char* argv[]) {
                 }
                 thefile.appendPathPart(filename, status);
                 if (*ext) {
-                    thefile.truncate(thefile.length() - (int32_t)uprv_strlen(ext));
+                    thefile.truncate(thefile.length() - static_cast<int32_t>(uprv_strlen(ext)));
                 }
                 thefile.append(".txt", status);
                 if (U_FAILURE(status)) {
@@ -282,7 +275,7 @@ main(int argc, char* argv[]) {
             }
 
             // now, set the callback.
-            ucnv_setFromUCallBack(u_fgetConverter(out), UCNV_FROM_U_CALLBACK_ESCAPE, UCNV_ESCAPE_C, 0, 0, &status);
+            ucnv_setFromUCallBack(u_fgetConverter(out), UCNV_FROM_U_CALLBACK_ESCAPE, UCNV_ESCAPE_C, nullptr, nullptr, &status);
             if (U_FAILURE(status)) {
               u_fprintf(ustderr, "%s: couldn't configure converter for encoding\n", pname);
               u_fclose(ustderr);
@@ -308,7 +301,7 @@ main(int argc, char* argv[]) {
             if (!locale.isEmpty()) {
               u_fprintf(out, "%s", locale.data());
             } else {
-              u_fprintf(out, "%.*s%.*S", (int32_t)(ext - filename),  filename, UPRV_LENGTHOF(sp), sp);
+              u_fprintf(out, "%.*s%.*S", static_cast<int32_t>(ext - filename), filename, UPRV_LENGTHOF(sp), sp);
             }
             printOutBundle(out, bundle, 0, pname, &status);
 
@@ -341,7 +334,7 @@ static char16_t *quotedString(const char16_t *string) {
         }
     }
 
-    newstr = (char16_t *) uprv_malloc((1 + alen) * U_SIZEOF_UCHAR);
+    newstr = static_cast<char16_t*>(uprv_malloc((1 + alen) * U_SIZEOF_UCHAR));
     for (sp = string, np = newstr; *sp; ++sp) {
         switch (*sp) {
             case '\n':
@@ -404,7 +397,7 @@ static void printOutAlias(UFILE *out,  UResourceBundle *parent, Resource r, cons
         char msg[128];
         printIndent(out, indent);
         snprintf(msg, sizeof(msg), "// WARNING: this resource, size %li is truncated to %li\n",
-            (long)len, (long)truncsize/2);
+            static_cast<long>(len), static_cast<long>(truncsize) / 2);
         printCString(out, msg, -1);
         len = truncsize;
     }
@@ -448,7 +441,7 @@ static void printOutBundle(UFILE *out, UResourceBundle *resource, int32_t indent
                 char msg[128];
                 printIndent(out, indent);
                 snprintf(msg, sizeof(msg), "// WARNING: this resource, size %li is truncated to %li\n",
-                        (long)len, (long)(truncsize/2));
+                        static_cast<long>(len), static_cast<long>(truncsize / 2));
                 printCString(out, msg, -1);
                 len = truncsize/2;
             }
@@ -456,7 +449,7 @@ static void printOutBundle(UFILE *out, UResourceBundle *resource, int32_t indent
             if(key != nullptr) {
                 static const char16_t openStr[] = { 0x0020, 0x007B, 0x0020, 0x0022 }; /* " { \"" */
                 static const char16_t closeStr[] = { 0x0022, 0x0020, 0x007D }; /* "\" }" */
-                printCString(out, key, (int32_t)uprv_strlen(key));
+                printCString(out, key, static_cast<int32_t>(uprv_strlen(key)));
                 printString(out, openStr, UPRV_LENGTHOF(openStr));
                 printString(out, string, len);
                 printString(out, closeStr, UPRV_LENGTHOF(closeStr));
@@ -465,7 +458,7 @@ static void printOutBundle(UFILE *out, UResourceBundle *resource, int32_t indent
                 static const char16_t closeStr[] = { 0x0022, 0x002C }; /* "\"," */
 
                 printString(out, openStr, UPRV_LENGTHOF(openStr));
-                printString(out, string, (int32_t)(u_strlen(string)));
+                printString(out, string, u_strlen(string));
                 printString(out, closeStr, UPRV_LENGTHOF(closeStr));
             }
 
@@ -502,12 +495,12 @@ static void printOutBundle(UFILE *out, UResourceBundle *resource, int32_t indent
     case URES_BINARY :
         {
             int32_t len = 0;
-            const int8_t *data = (const int8_t *)ures_getBinary(resource, &len, status);
+            const int8_t* data = reinterpret_cast<const int8_t*>(ures_getBinary(resource, &len, status));
             if(opt_truncate && len > truncsize) {
                 char msg[128];
                 printIndent(out, indent);
                 snprintf(msg, sizeof(msg), "// WARNING: this resource, size %li is truncated to %li\n",
-                        (long)len, (long)(truncsize/2));
+                        static_cast<long>(len), static_cast<long>(truncsize / 2));
                 printCString(out, msg, -1);
                 len = truncsize;
             }
@@ -602,7 +595,7 @@ static void printOutBundle(UFILE *out, UResourceBundle *resource, int32_t indent
             } else { /* we have to use low level access to do this */
               Resource r;
               int32_t resSize = ures_getSize(resource);
-              UBool isTable = (UBool)(ures_getType(resource) == URES_TABLE);
+              UBool isTable = static_cast<UBool>(ures_getType(resource) == URES_TABLE);
               for(i = 0; i < resSize; i++) {
                 /* need to know if it's an alias */
                 if(isTable) {

@@ -314,6 +314,12 @@ gl{
                 one{"{0} nanosegundo"}
                 other{"{0} nanosegundos"}
             }
+            night{
+                dnam{"noites"}
+                one{"{0} noite"}
+                other{"{0} noites"}
+                per{"{0} por noite"}
+            }
             quarter{
                 dnam{"trimestres"}
                 one{"{0} trimestre"}
@@ -780,6 +786,11 @@ gl{
                 one{"{0} nó"}
                 other{"{0} nós"}
             }
+            light-speed{
+                dnam{"luz"}
+                one{"{0} luz"}
+                other{"{0} luz"}
+            }
             meter-per-second{
                 dnam{"metros por segundo"}
                 one{"{0} metro por segundo"}
@@ -1053,6 +1064,12 @@ gl{
                 other{"{0} m."}
                 per{"{0}/m."}
             }
+            night{
+                dnam{"noites"}
+                one{"{0} noite"}
+                other{"{0} noites"}
+                per{"{0}/noite"}
+            }
             quarter{
                 one{"{0} tr."}
                 other{"{0} tr."}
@@ -1162,6 +1179,11 @@ gl{
             knot{
                 one{"{0} nó"}
                 other{"{0} nós"}
+            }
+            light-speed{
+                dnam{"luz"}
+                one{"{0} luz"}
+                other{"{0} luz"}
             }
             mile-per-hour{
                 dnam{"mi/h"}
@@ -1335,6 +1357,12 @@ gl{
                 one{"{0} mes"}
                 other{"{0} meses"}
                 per{"{0}/mes"}
+            }
+            night{
+                dnam{"noites"}
+                one{"{0} noite"}
+                other{"{0} noites"}
+                per{"{0}/noite"}
             }
             quarter{
                 dnam{"trim."}
@@ -1542,6 +1570,11 @@ gl{
                 dnam{"nós"}
                 one{"{0} nós"}
                 other{"{0} nós"}
+            }
+            light-speed{
+                dnam{"luz"}
+                one{"{0} luz"}
+                other{"{0} luz"}
             }
             mile-per-hour{
                 dnam{"millas/hora"}

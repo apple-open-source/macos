@@ -238,4 +238,4 @@ float BasicScrollingMomentumCalculator::animationProgressAfterElapsedTime(Second
     return std::min(1.0, m_snapAnimationCurveMagnitude * (1.0 - std::pow(m_snapAnimationDecayFactor, -framesPerSecond * scrollSnapAnimationDuration.value() * timeProgress)));
 }
 
-}; // namespace WebCore
+} // namespace WebCore

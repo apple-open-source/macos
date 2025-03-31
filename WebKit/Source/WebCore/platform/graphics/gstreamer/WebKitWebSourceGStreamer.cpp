@@ -151,7 +151,7 @@ struct WebKitWebSrcPrivate {
         uint64_t stopPosition { UINT64_MAX };
 
         bool isRequestPending { true };
-        HashSet<RefPtr<WebCore::SecurityOrigin>> origins;
+        UncheckedKeyHashSet<RefPtr<WebCore::SecurityOrigin>> origins;
 
         RefPtr<PlatformMediaResource> resource;
     };
@@ -159,16 +159,16 @@ struct WebKitWebSrcPrivate {
 };
 
 enum {
-    PROP_0,
-    PROP_LOCATION,
-    PROP_RESOLVED_LOCATION,
-    PROP_KEEP_ALIVE,
-    PROP_EXTRA_HEADERS,
-    PROP_COMPRESS,
-    PROP_METHOD
+    WEBKIT_WEBSRC_PROP_0,
+    WEBKIT_WEBSRC_PROP_LOCATION,
+    WEBKIT_WEBSRC_PROP_RESOLVED_LOCATION,
+    WEBKIT_WEBSRC_PROP_KEEP_ALIVE,
+    WEBKIT_WEBSRC_PROP_EXTRA_HEADERS,
+    WEBKIT_WEBSRC_PROP_COMPRESS,
+    WEBKIT_WEBSRC_PROP_METHOD
 };
 
-static GstStaticPadTemplate srcTemplate = GST_STATIC_PAD_TEMPLATE("src", GST_PAD_SRC, GST_PAD_ALWAYS, GST_STATIC_CAPS_ANY);
+static GstStaticPadTemplate webSrcTemplate = GST_STATIC_PAD_TEMPLATE("src", GST_PAD_SRC, GST_PAD_ALWAYS, GST_STATIC_CAPS_ANY);
 
 GST_DEBUG_CATEGORY_STATIC(webkit_web_src_debug);
 #define GST_CAT_DEFAULT webkit_web_src_debug
@@ -193,7 +193,6 @@ static void webKitWebSrcSetContext(GstElement*, GstContext*);
 static void restartLoaderIfNeeded(WebKitWebSrc*, DataMutexLocker<WebKitWebSrcPrivate::StreamingMembers>&);
 static void stopLoaderIfNeeded(WebKitWebSrc*, DataMutexLocker<WebKitWebSrcPrivate::StreamingMembers>&);
 
-#define webkit_web_src_parent_class parent_class
 WEBKIT_DEFINE_TYPE_WITH_CODE(WebKitWebSrc, webkit_web_src, GST_TYPE_PUSH_SRC,
     G_IMPLEMENT_INTERFACE(GST_TYPE_URI_HANDLER, webKitWebSrcUriHandlerInit);
     GST_DEBUG_CATEGORY_INIT(webkit_web_src_debug, "webkitwebsrc", 0, "websrc element");
@@ -208,34 +207,34 @@ static void webkit_web_src_class_init(WebKitWebSrcClass* klass)
     oklass->get_property = webKitWebSrcGetProperty;
 
     GstElementClass* eklass = GST_ELEMENT_CLASS(klass);
-    gst_element_class_add_static_pad_template(eklass, &srcTemplate);
+    gst_element_class_add_static_pad_template(eklass, &webSrcTemplate);
 
     gst_element_class_set_metadata(eklass, "WebKit Web source element", "Source/Network", "Handles HTTP/HTTPS uris",
         "Philippe Normand <philn@igalia.com>");
 
     /* Allows setting the uri using the 'location' property, which is used
      * for example by gst_element_make_from_uri() */
-    g_object_class_install_property(oklass, PROP_LOCATION,
+    g_object_class_install_property(oklass, WEBKIT_WEBSRC_PROP_LOCATION,
         g_param_spec_string("location", nullptr, nullptr,
             nullptr, static_cast<GParamFlags>(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
 
-    g_object_class_install_property(oklass, PROP_RESOLVED_LOCATION,
+    g_object_class_install_property(oklass, WEBKIT_WEBSRC_PROP_RESOLVED_LOCATION,
         g_param_spec_string("resolved-location", nullptr, nullptr,
             nullptr, static_cast<GParamFlags>(G_PARAM_READABLE | G_PARAM_STATIC_STRINGS)));
 
-    g_object_class_install_property(oklass, PROP_KEEP_ALIVE,
+    g_object_class_install_property(oklass, WEBKIT_WEBSRC_PROP_KEEP_ALIVE,
         g_param_spec_boolean("keep-alive", nullptr, nullptr,
             FALSE, static_cast<GParamFlags>(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
 
-    g_object_class_install_property(oklass, PROP_EXTRA_HEADERS,
+    g_object_class_install_property(oklass, WEBKIT_WEBSRC_PROP_EXTRA_HEADERS,
         g_param_spec_boxed("extra-headers", nullptr, nullptr,
             GST_TYPE_STRUCTURE, static_cast<GParamFlags>(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
 
-    g_object_class_install_property(oklass, PROP_COMPRESS,
+    g_object_class_install_property(oklass, WEBKIT_WEBSRC_PROP_COMPRESS,
         g_param_spec_boolean("compress", nullptr, nullptr,
             FALSE, static_cast<GParamFlags>(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
 
-    g_object_class_install_property(oklass, PROP_METHOD,
+    g_object_class_install_property(oklass, WEBKIT_WEBSRC_PROP_METHOD,
         g_param_spec_string("method", nullptr, nullptr,
             nullptr, static_cast<GParamFlags>(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
 
@@ -261,7 +260,7 @@ enum class ResetType {
     Hard
 };
 
-static void webkitWebSrcReset(WebKitWebSrc* src, DataMutexLocker<WebKitWebSrcPrivate::StreamingMembers>& members, ResetType resetType)
+static void webkitWebSrcReset([[maybe_unused]] WebKitWebSrc* src, DataMutexLocker<WebKitWebSrcPrivate::StreamingMembers>& members, ResetType resetType)
 {
     GST_DEBUG_OBJECT(src, "Resetting internal state");
     gst_adapter_clear(members->adapter.get());
@@ -294,7 +293,7 @@ static void webkitWebSrcReset(WebKitWebSrc* src, DataMutexLocker<WebKitWebSrcPri
 
 static void webKitWebSrcConstructed(GObject* object)
 {
-    GST_CALL_PARENT(G_OBJECT_CLASS, constructed, (object));
+    G_OBJECT_CLASS(webkit_web_src_parent_class)->constructed(object);
 
     WebKitWebSrc* src = WEBKIT_WEB_SRC(object);
     WebKitWebSrcPrivate* priv = src->priv;
@@ -313,21 +312,21 @@ static void webKitWebSrcSetProperty(GObject* object, guint propID, const GValue*
     WebKitWebSrc* src = WEBKIT_WEB_SRC(object);
 
     switch (propID) {
-    case PROP_LOCATION:
+    case WEBKIT_WEBSRC_PROP_LOCATION:
         gst_uri_handler_set_uri(reinterpret_cast<GstURIHandler*>(src), g_value_get_string(value), nullptr);
         break;
-    case PROP_KEEP_ALIVE:
+    case WEBKIT_WEBSRC_PROP_KEEP_ALIVE:
         src->priv->keepAlive = g_value_get_boolean(value);
         break;
-    case PROP_EXTRA_HEADERS: {
+    case WEBKIT_WEBSRC_PROP_EXTRA_HEADERS: {
         const GstStructure* s = gst_value_get_structure(value);
         src->priv->extraHeaders.reset(s ? gst_structure_copy(s) : nullptr);
         break;
     }
-    case PROP_COMPRESS:
+    case WEBKIT_WEBSRC_PROP_COMPRESS:
         src->priv->compress = g_value_get_boolean(value);
         break;
-    case PROP_METHOD:
+    case WEBKIT_WEBSRC_PROP_METHOD:
         src->priv->httpMethod.reset(g_value_dup_string(value));
         break;
     default:
@@ -342,24 +341,24 @@ static void webKitWebSrcGetProperty(GObject* object, guint propID, GValue* value
     WebKitWebSrcPrivate* priv = src->priv;
 
     switch (propID) {
-    case PROP_LOCATION:
+    case WEBKIT_WEBSRC_PROP_LOCATION:
         g_value_set_string(value, priv->originalURI.data());
         break;
-    case PROP_RESOLVED_LOCATION: {
+    case WEBKIT_WEBSRC_PROP_RESOLVED_LOCATION: {
         DataMutexLocker members { priv->dataMutex };
         g_value_set_string(value, members->redirectedURI.isNull() ? priv->originalURI.data() : members->redirectedURI.data());
         break;
     }
-    case PROP_KEEP_ALIVE:
+    case WEBKIT_WEBSRC_PROP_KEEP_ALIVE:
         g_value_set_boolean(value, priv->keepAlive);
         break;
-    case PROP_EXTRA_HEADERS:
+    case WEBKIT_WEBSRC_PROP_EXTRA_HEADERS:
         gst_value_set_structure(value, priv->extraHeaders.get());
         break;
-    case PROP_COMPRESS:
+    case WEBKIT_WEBSRC_PROP_COMPRESS:
         g_value_set_boolean(value, priv->compress);
         break;
-    case PROP_METHOD:
+    case WEBKIT_WEBSRC_PROP_METHOD:
         g_value_set_string(value, priv->httpMethod.get());
         break;
     default:
@@ -379,7 +378,7 @@ static void webKitWebSrcSetContext(GstElement* element, GstContext* context)
         DataMutexLocker members { priv->dataMutex };
         members->loader = reinterpret_cast<WebCore::PlatformMediaResourceLoader*>(g_value_get_pointer(value));
     }
-    GST_ELEMENT_CLASS(parent_class)->set_context(element, context);
+    GST_ELEMENT_CLASS(webkit_web_src_parent_class)->set_context(element, context);
 }
 
 static void restartLoaderIfNeeded(WebKitWebSrc* src, DataMutexLocker<WebKitWebSrcPrivate::StreamingMembers>& members)
@@ -419,7 +418,7 @@ static void restartLoaderIfNeeded(WebKitWebSrc* src, DataMutexLocker<WebKitWebSr
 }
 
 
-static void stopLoaderIfNeeded(WebKitWebSrc* src, DataMutexLocker<WebKitWebSrcPrivate::StreamingMembers>& members)
+static void stopLoaderIfNeeded([[maybe_unused]] WebKitWebSrc* src, DataMutexLocker<WebKitWebSrcPrivate::StreamingMembers>& members)
 {
     ASSERT(isMainThread());
 
@@ -573,7 +572,7 @@ static GstFlowReturn webKitWebSrcCreate(GstPushSrc* pushSrc, GstBuffer** buffer)
     return GST_FLOW_EOS;
 }
 
-static bool webKitWebSrcSetExtraHeader(GQuark fieldId, const GValue* value, gpointer userData)
+static bool webKitWebSrcSetExtraHeader(StringView fieldId, const GValue* value, ResourceRequest& request)
 {
     GUniquePtr<gchar> fieldContent;
 
@@ -587,41 +586,10 @@ static bool webKitWebSrcSetExtraHeader(GQuark fieldId, const GValue* value, gpoi
             fieldContent.reset(g_value_dup_string(&dest));
     }
 
-    const gchar* fieldName = g_quark_to_string(fieldId);
-    if (!fieldContent.get()) {
-        GST_ERROR("extra-headers field '%s' contains no value or can't be converted to a string", fieldName);
-        return false;
-    }
-
-    GST_DEBUG("Appending extra header: \"%s: %s\"", fieldName, fieldContent.get());
-    ResourceRequest* request = static_cast<ResourceRequest*>(userData);
-    request->setHTTPHeaderField(String::fromLatin1(fieldName), String::fromLatin1(fieldContent.get()));
+    auto field = fieldId.toStringWithoutCopying();
+    GST_DEBUG("Appending extra header: \"%s: %s\"", field.ascii().data(), fieldContent.get());
+    request.setHTTPHeaderField(field, String::fromLatin1(fieldContent.get()));
     return true;
-}
-
-static gboolean webKitWebSrcProcessExtraHeaders(GQuark fieldId, const GValue* value, gpointer userData)
-{
-    if (G_VALUE_TYPE(value) == GST_TYPE_ARRAY) {
-        unsigned size = gst_value_array_get_size(value);
-
-        for (unsigned i = 0; i < size; i++) {
-            if (!webKitWebSrcSetExtraHeader(fieldId, gst_value_array_get_value(value, i), userData))
-                return FALSE;
-        }
-        return TRUE;
-    }
-
-    if (G_VALUE_TYPE(value) == GST_TYPE_LIST) {
-        unsigned size = gst_value_list_get_size(value);
-
-        for (unsigned i = 0; i < size; i++) {
-            if (!webKitWebSrcSetExtraHeader(fieldId, gst_value_list_get_value(value, i), userData))
-                return FALSE;
-        }
-        return TRUE;
-    }
-
-    return webKitWebSrcSetExtraHeader(fieldId, value, userData);
 }
 
 static gboolean webKitWebSrcStart(GstBaseSrc* baseSrc)
@@ -686,8 +654,32 @@ static void webKitWebSrcMakeRequest(WebKitWebSrc* src, DataMutexLocker<WebKitWeb
     if (!priv->keepAlive)
         request.setHTTPHeaderField(HTTPHeaderName::Connection, "close"_s);
 
-    if (priv->extraHeaders)
-        gst_structure_foreach(priv->extraHeaders.get(), webKitWebSrcProcessExtraHeaders, &request);
+    if (priv->extraHeaders) {
+        gstStructureForeach(priv->extraHeaders.get(), [&](auto id, auto value) -> bool {
+            auto fieldId = gstIdToString(id);
+            if (G_VALUE_TYPE(value) == GST_TYPE_ARRAY) {
+                unsigned size = gst_value_array_get_size(value);
+
+                for (unsigned i = 0; i < size; i++) {
+                    if (!webKitWebSrcSetExtraHeader(fieldId, gst_value_array_get_value(value, i), request))
+                        return FALSE;
+                }
+                return TRUE;
+            }
+
+            if (G_VALUE_TYPE(value) == GST_TYPE_LIST) {
+                unsigned size = gst_value_list_get_size(value);
+
+                for (unsigned i = 0; i < size; i++) {
+                    if (!webKitWebSrcSetExtraHeader(fieldId, gst_value_list_get_value(value, i), request))
+                        return FALSE;
+                }
+                return TRUE;
+            }
+
+            return webKitWebSrcSetExtraHeader(fieldId, value, request);
+        });
+    }
 
     // We always request Icecast/Shoutcast metadata, just in case ...
     request.setHTTPHeaderField(HTTPHeaderName::IcyMetadata, "1"_s);
@@ -796,7 +788,7 @@ static gboolean webKitWebSrcQuery(GstBaseSrc* baseSrc, GstQuery* query)
     }
 
     if (!result)
-        result = GST_BASE_SRC_CLASS(parent_class)->query(baseSrc, query);
+        result = GST_BASE_SRC_CLASS(webkit_web_src_parent_class)->query(baseSrc, query);
 
     if (GST_QUERY_TYPE(query) == GST_QUERY_SCHEDULING) {
         GstSchedulingFlags flags;
@@ -829,7 +821,7 @@ static gboolean webKitWebSrcEvent(GstBaseSrc* baseSrc, GstEvent* event)
     default:
         break;
     };
-    return GST_BASE_SRC_CLASS(parent_class)->event(baseSrc, event);
+    return GST_BASE_SRC_CLASS(webkit_web_src_parent_class)->event(baseSrc, event);
 }
 
 static gboolean webKitWebSrcUnLock(GstBaseSrc* baseSrc)
@@ -887,12 +879,8 @@ static GstURIType webKitWebSrcUriGetType(GType)
 
 const gchar* const* webKitWebSrcGetProtocols(GType)
 {
-    static const char* protocols[4];
-    protocols[0] = "http";
-    protocols[1] = "https";
-    protocols[2] = "blob";
-    protocols[3] = nullptr;
-    return protocols;
+    static std::array<const char*, 4> protocols { "http", "https", "blob" };
+    return protocols.data();
 }
 
 static URL convertPlaybinURI(const char* uriString)
@@ -1164,9 +1152,11 @@ void CachedResourceStreamingClient::dataReceived(PlatformMediaResource&, const S
     // sending time from the receiving time, it is better to ignore it.
     if (!members->downloadStartTime.isNaN()) {
         members->totalDownloadedBytes += data.size();
+#ifndef GST_DISABLE_GST_DEBUG
         double timeSinceStart = (WallTime::now() - members->downloadStartTime).seconds();
         GST_TRACE_OBJECT(src.get(), "R%u: downloaded %" G_GUINT64_FORMAT " bytes in %f seconds =~ %1.0f bytes/second", m_requestNumber, members->totalDownloadedBytes, timeSinceStart
             , timeSinceStart ? members->totalDownloadedBytes / timeSinceStart : 0);
+#endif
     } else {
         members->downloadStartTime = WallTime::now();
     }

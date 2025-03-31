@@ -1,0 +1,79 @@
+#! /bin/sh
+
+. ${tstdir-.}/daemon.sh
+. ${tstdir-.}/lib.sh
+. ${tstdir-.}/conf.sh
+
+dest="$PWD/ftp"
+cfgfile="$PWD/rsyncd.conf"
+motdfile="$PWD/motd"
+
+rm -rf "$dest" from-*
+
+mkdir "$dest"
+
+cat <<EOF > "$cfgfile"
+use chroot = no
+[no_comment]
+	path = $dest
+EOF
+
+rsyncd "$cfgfile"
+dport=$(daemon_port)
+
+command $RSYNC_CLIENT rsync://localhost:$dport/ > out
+if ! grep -Eq '^no_comment[[:space:]]*$' out; then
+	1>&2 echo "Module listing had excess output"
+	exit 1
+fi
+
+daemon_kill
+
+# Test a global comment directive, applies to any and all modules
+cat <<EOF > "$cfgfile"
+use chroot = no
+comment = global comment
+[global_comment]
+	path = $dest
+EOF
+
+rsyncd "$cfgfile"
+dport=$(daemon_port)
+
+command $RSYNC_CLIENT rsync://localhost:$dport/ > out
+if ! grep -Eq '^global_comment[[:space:]]+global comment$' out; then
+	1>&2 echo "Module listing missing global comment"
+	exit 1
+fi
+
+daemon_kill
+
+# Test a single comment directive
+cat <<EOF > "$cfgfile"
+use chroot = no
+[comment_one]
+	path = $dest
+	comment = Module #1
+[comment_two]
+	path = $dest
+	comment = Module #2
+[hidden]
+	path = $dest
+	comment = Module #3
+	list = false
+EOF
+
+rsyncd "$cfgfile"
+dport=$(daemon_port)
+
+command $RSYNC_CLIENT rsync://localhost:$dport/ > out
+if ! grep -Fq 'Module #1' out; then
+	1>&2 echo "Module listing missing #1 comment"
+	exit 1
+elif ! grep -Fq 'Module #2' out; then
+	1>&2 echo "Module listing missing #2 comment"
+	exit 1
+elif grep -Fq 'Module #3' out; then
+	1>&2 echo "Hidden module made available to listing"
+	exit 1
+fi

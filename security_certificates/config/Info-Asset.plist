@@ -3,7 +3,7 @@
 <plist version="1.0">
 <dict>
 	<key>CFBundleShortVersionString</key>
-	<string>1.0.1</string>
+	<string>1.1.0</string>
 	<key>CFBundleIdentifier</key>
 	<string>com.apple.MobileAsset.PKITrustStore</string>
 	<key>CFBundleName</key>
@@ -11,7 +11,7 @@
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>1.0</string>
 	<key>CFBundleVersion</key>
-	<string>1.0.1</string>
+	<string>1.1.0</string>
 	<key>MobileAssetProperties</key>
 	<dict>
 		<key>__ContainsCryptexContents</key>
@@ -21,9 +21,9 @@
 		<key>AssetSpecifier</key>
 		<string>PKITrustStore</string>
 		<key>AssetVersion</key>
-		<string>1.0.1.0.0,0</string>
+		<string>1.1.0.0.0,0</string>
 		<key>ContentVersion</key>
-		<integer>2024051500</integer>
+		<integer>2025022600</integer>
 		<key>__AssetDefaultGarbageCollectionBehavior</key>
 		<string>NeverCollected</string>
 		<key>_IsMAAutoAsset</key>

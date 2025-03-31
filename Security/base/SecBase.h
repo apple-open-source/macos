@@ -706,6 +706,7 @@ CF_ENUM(OSStatus)
     errSecCertificateValidityPeriodTooLong   = -67901,    /* The validity period in the certificate exceeds the maximum allowed. */
     errSecCertificateIsCA                    = -67902,    /* The verified certificate is a CA rather than an end-entity */
     errSecCertificateDuplicateExtension      = -67903,    /* The certificate contains multiple extensions with the same extension ID. */
+    errSecMissingQualifiedCertStatement      = -67904,    /* A qualified certificate statement was expected but missing. */
 };
 
 

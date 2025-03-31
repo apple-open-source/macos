@@ -81,8 +81,8 @@ private:
         bool stitchTiles;
         IntSize paintingSize;
 
-        int latticeSelector[2 * s_blockSize + 2];
-        float gradient[4][2 * s_blockSize + 2][2];
+        std::array<int, 2 * s_blockSize + 2> latticeSelector;
+        std::array<std::array<std::array<float, 2>, 2 * s_blockSize + 2>, 4> gradient;
     };
 
     struct StitchData {

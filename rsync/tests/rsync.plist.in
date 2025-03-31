@@ -19,8 +19,6 @@
 			<true/>
 			<key>Timeout</key>
 			<integer>30</integer>
-			<key>AsRoot</key>
-			<true/>
 			<key>TestSpecificLogs</key>
 			<array>
 				<string>BATS_TMP_DIR/rsync.help</string>
@@ -29,11 +27,83 @@
 		</dict>
 		<dict>
 			<key>TestName</key>
+			<string>rsync.pwauth__samba</string>
+			<key>ShellEnv</key>
+			<dict>
+				<key>rsync</key>
+				<string>/AppleInternal/Tests/rsync/rsync.samba</string>
+			</dict>
+			<key>Command</key>
+			<array>
+				<string>/AppleInternal/Tests/rsync/pwauth.sh</string>
+			</array>
+			<key>MayRunConcurrently</key>
+			<false/>
+			<key>AsRoot</key>
+			<true/>
+			<key>Timeout</key>
+			<integer>30</integer>
+		</dict>
+		<dict>
+			<key>TestName</key>
+			<string>rsync.pwauth__openrsync</string>
+			<key>ShellEnv</key>
+			<dict>
+				<key>rsync</key>
+				<string>/AppleInternal/Tests/rsync/rsync.openrsync</string>
+			</dict>
+			<key>Command</key>
+			<array>
+				<string>/AppleInternal/Tests/rsync/pwauth.sh</string>
+			</array>
+			<key>MayRunConcurrently</key>
+			<false/>
+			<key>AsRoot</key>
+			<true/>
+			<key>Timeout</key>
+			<integer>30</integer>
+		</dict>
+		<dict>
+			<key>TestName</key>
+			<string>rsync.setsid__samba</string>
+			<key>ShellEnv</key>
+			<dict>
+				<key>rsync</key>
+				<string>/AppleInternal/Tests/rsync/rsync.samba</string>
+			</dict>
+			<key>Command</key>
+			<array>
+				<string>/AppleInternal/Tests/rsync/setsid.sh</string>
+			</array>
+			<key>MayRunConcurrently</key>
+			<true/>
+			<key>Timeout</key>
+			<integer>30</integer>
+		</dict>
+		<dict>
+			<key>TestName</key>
+			<string>rsync.setsid__openrsync</string>
+			<key>ShellEnv</key>
+			<dict>
+				<key>rsync</key>
+				<string>/AppleInternal/Tests/rsync/rsync.openrsync</string>
+			</dict>
+			<key>Command</key>
+			<array>
+				<string>/AppleInternal/Tests/rsync/setsid.sh</string>
+			</array>
+			<key>MayRunConcurrently</key>
+			<true/>
+			<key>Timeout</key>
+			<integer>30</integer>
+		</dict>
+		<dict>
+			<key>TestName</key>
 			<string>rsync.syslog_trace__samba</string>
 			<key>ShellEnv</key>
 			<dict>
 				<key>rsync</key>
-				<string>/usr/libexec/rsync/rsync.samba</string>
+				<string>/AppleInternal/Tests/rsync/rsync.samba</string>
 			</dict>
 			<key>Command</key>
 			<array>
@@ -54,7 +124,7 @@
 			<key>ShellEnv</key>
 			<dict>
 				<key>rsync</key>
-				<string>/usr/libexec/rsync/rsync.openrsync</string>
+				<string>/AppleInternal/Tests/rsync/rsync.openrsync</string>
 			</dict>
 			<key>Command</key>
 			<array>
@@ -69,6 +139,52 @@
 				<string>BATS_TMP_DIR/error.log</string>
 			</array>
 		</dict>
+		<dict>
+			<key>TestName</key>
+			<string>rsync.xfer__openrsync</string>
+			<key>ShellEnv</key>
+			<dict>
+				<key>rsync</key>
+				<string>/AppleInternal/Tests/rsync/rsync.openrsync</string>
+			</dict>
+			<key>Command</key>
+			<array>
+				<string>/AppleInternal/Tests/rsync/xfer.sh</string>
+			</array>
+			<key>MayRunConcurrently</key>
+			<false/>
+			<key>AsRoot</key>
+			<false/>
+			<key>Timeout</key>
+			<integer>120</integer>
+			<key>TestSpecificLogs</key>
+			<array>
+				<string>BATS_TMP_DIR/rsync.log</string>
+			</array>
+		</dict>
+		<dict>
+			<key>TestName</key>
+			<string>rsync.xfer__samba</string>
+			<key>ShellEnv</key>
+			<dict>
+				<key>rsync</key>
+				<string>/AppleInternal/Tests/rsync/rsync.samba</string>
+			</dict>
+			<key>Command</key>
+			<array>
+				<string>/AppleInternal/Tests/rsync/xfer.sh</string>
+			</array>
+			<key>MayRunConcurrently</key>
+			<false/>
+			<key>AsRoot</key>
+			<false/>
+			<key>Timeout</key>
+			<integer>120</integer>
+			<key>TestSpecificLogs</key>
+			<array>
+				<string>BATS_TMP_DIR/rsync.log</string>
+			</array>
+		</dict>
 		<!-- These that require atf-sh(1) availability -->
 #if TARGET_OS_OSX
 		<dict>
@@ -81,7 +197,7 @@
 				<key>__RUNNING_INSIDE_ATF_RUN</key>
 				<string>internal-yes-value</string>
 				<key>rsync</key>
-				<string>/usr/libexec/rsync/rsync.samba</string>
+				<string>/AppleInternal/Tests/rsync/rsync.samba</string>
 			</dict>
 			<key>Command</key>
 			<array>
@@ -110,7 +226,7 @@
 				<key>__RUNNING_INSIDE_ATF_RUN</key>
 				<string>internal-yes-value</string>
 				<key>rsync</key>
-				<string>/usr/libexec/rsync/rsync.openrsync</string>
+				<string>/AppleInternal/Tests/rsync/rsync.openrsync</string>
 			</dict>
 			<key>Command</key>
 			<array>
@@ -129,6 +245,7 @@
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
+#include "rsync.daemon.plist"
 #include "rsync.interop.plist"
 #endif
 	</array>

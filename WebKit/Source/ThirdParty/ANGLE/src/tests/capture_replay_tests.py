@@ -503,6 +503,15 @@ def RunProcess(cmd, env, xvfb_pool, stop_event, timeout):
                 return None, stdout[0]
 
 
+def ReturnCodeWithNote(rc):
+    s = 'rc=%s' % rc
+    if sys.platform.startswith('linux'):
+        if rc == -9:
+            # OOM killer sends SIGKILL to the process, return code is -signal
+            s += ' SIGKILL possibly due to OOM'
+    return s
+
+
 def RunCaptureInParallel(args, trace_folder_path, test_names, worker_count, xvfb_pool):
     n = args.batch_count
     test_batches = [test_names[i:i + n] for i in range(0, len(test_names), n)]
@@ -557,12 +566,13 @@ def RunCaptureInParallel(args, trace_folder_path, test_names, worker_count, xvfb
             continue
 
         if rc != 0:
-            logging.error('Capture failed.\nTests: %s\nStdout:\n%s\n', ':'.join(tests), stdout)
+            logging.error('Capture failed (%s)\nTests: %s\nStdout:\n%s', ReturnCodeWithNote(rc),
+                          ':'.join(tests), stdout)
             capture_failed = True
             continue
 
         if args.show_capture_stdout:
-            logging.info('Capture test stdout:\n%s\n', stdout)
+            logging.info('Capture test stdout:\n%s', stdout)
 
         for test_name, res in test_results['tests'].items():
             if res['actual'] == 'SKIP':
@@ -601,7 +611,8 @@ def RunReplayTestsInParallel(args, replay_build_dir, replay_tests, expected_resu
 
         if rc != 0:
             if expected_to_pass:
-                logging.error('Replay failed.\nTest: %s\nStdout:\n%s\n', test, p.stdout.decode())
+                logging.error('Replay failed (%s)\nTest: %s\nStdout:\n%s', ReturnCodeWithNote(rc),
+                              test, stdout)
                 replay_failed = True
             else:
                 logging.info('Ignoring replay failure due to expectation: %s [expected %s]', test,
@@ -609,7 +620,7 @@ def RunReplayTestsInParallel(args, replay_build_dir, replay_tests, expected_resu
             continue
 
         if args.show_replay_stdout:
-            logging.info('Replay test stdout:\n%s\n', stdout)
+            logging.info('Replay test stdout:\n%s', stdout)
 
         output_lines = stdout.splitlines()
         for output_line in output_lines:

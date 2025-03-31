@@ -44,7 +44,7 @@ public:
 private:
     void connectToAllWorkerInspectorProxies() override;
 
-    Page& m_page;
+    WeakRef<Page> m_page;
 };
 
 } // namespace WebCore

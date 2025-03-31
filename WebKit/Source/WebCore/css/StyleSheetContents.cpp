@@ -1,6 +1,6 @@
 /*
  * (C) 1999-2003 Lars Knoll (knoll@kde.org)
- * Copyright (C) 2004-2022 Apple Inc. All rights reserved.
+ * Copyright (C) 2004-2025 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -81,8 +81,7 @@ StyleSheetContents::StyleSheetContents(StyleRuleImport* ownerRule, const String&
 }
 
 StyleSheetContents::StyleSheetContents(const StyleSheetContents& o)
-    : CanMakeWeakPtr<StyleSheetContents>()
-    , m_originalURL(o.m_originalURL)
+    : m_originalURL(o.m_originalURL)
     , m_encodingFromCharsetRule(o.m_encodingFromCharsetRule)
     , m_layerRulesBeforeImportRules(o.m_layerRulesBeforeImportRules.size())
     , m_importRules(o.m_importRules.size())
@@ -569,7 +568,6 @@ bool StyleSheetContents::traverseSubresources(const Function<bool(const CachedRe
         case StyleRuleType::Page:
         case StyleRuleType::Keyframes:
         case StyleRuleType::Namespace:
-        case StyleRuleType::Unknown:
         case StyleRuleType::Charset:
         case StyleRuleType::Keyframe:
         case StyleRuleType::Supports:
@@ -584,6 +582,7 @@ bool StyleSheetContents::traverseSubresources(const Function<bool(const CachedRe
         case StyleRuleType::Scope:
         case StyleRuleType::StartingStyle:
         case StyleRuleType::ViewTransition:
+        case StyleRuleType::PositionTry:
             return false;
         };
         ASSERT_NOT_REACHED();
@@ -644,7 +643,6 @@ bool StyleSheetContents::mayDependOnBaseURL() const
         case StyleRuleType::Page:
         case StyleRuleType::Keyframes:
         case StyleRuleType::Namespace:
-        case StyleRuleType::Unknown:
         case StyleRuleType::Charset:
         case StyleRuleType::Keyframe:
         case StyleRuleType::Supports:
@@ -659,6 +657,7 @@ bool StyleSheetContents::mayDependOnBaseURL() const
         case StyleRuleType::Scope:
         case StyleRuleType::StartingStyle:
         case StyleRuleType::ViewTransition:
+        case StyleRuleType::PositionTry:
             return false;
         };
         ASSERT_NOT_REACHED();

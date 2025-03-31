@@ -360,12 +360,12 @@ fts_close(FTS *sp)
 }
 
 /*
- * Special case a root of "/" so that slashes aren't appended which would
- * cause paths to be written as "//foo".
+ * Special case of "/" at the end of the path so that slashes aren't
+ * appended which would cause paths to be written as "....//foo".
  */
 #define	NAPPEND(p)							\
-	(p->fts_level == FTS_ROOTLEVEL && p->fts_pathlen == 1 &&	\
-	    p->fts_path[0] == '/' ? 0 : p->fts_pathlen)
+	(p->fts_path[p->fts_pathlen - 1] == '/'				\
+	    ? p->fts_pathlen - 1 : p->fts_pathlen)
 
 FTSENT *
 fts_read(FTS *sp)
@@ -1257,11 +1257,8 @@ common_no_stat:
 	 * If not changing directories, reset the path back to original
 	 * state.
 	 */
-	if (ISSET(FTS_NOCHDIR)) {
-		if (len == sp->fts_pathlen || nitems == 0)
-			--cp;
-		*cp = '\0';
-	}
+	if (ISSET(FTS_NOCHDIR))
+		sp->fts_path[cur->fts_pathlen] = '\0';
 
 	/*
 	 * If descended after called from fts_children or after called from

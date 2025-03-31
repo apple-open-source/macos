@@ -884,7 +884,7 @@ class Mounts(object):
             out_dict['mp'] = "{:#x}".format(mp.GetSBValue().unsigned)
             out_dict['mnt_devvp'] = "{:#x}".format(mp.mnt_devvp.GetSBValue().unsigned)
             vnode = mp.mnt_devvp
-            if (vnode.v_type == cls.vblk_type) or (vnode.v_type == cls.vchr_type):
+            if ((vnode.v_type == cls.vblk_type) or (vnode.v_type == cls.vchr_type)) and (vnode.v_data.GetSBValue().unsigned != 0):
                 devnode = Cast(vnode.v_data, 'devnode_t *')
                 devnode_dev = devnode.dn_typeinfo.dev
                 devnode_major = (devnode_dev >> 24) & 0xff
@@ -902,6 +902,8 @@ class Mounts(object):
                 out_dict['f_fstypename'] = str(mp.mnt_vfsstat.f_fstypename)
                 out_dict['f_mntonname'] = str(mp.mnt_vfsstat.f_mntonname)
                 out_dict['f_mntfromname'] = str(mp.mnt_vfsstat.f_mntfromname)
+            else:
+                return None
             return out_dict
         return None
         

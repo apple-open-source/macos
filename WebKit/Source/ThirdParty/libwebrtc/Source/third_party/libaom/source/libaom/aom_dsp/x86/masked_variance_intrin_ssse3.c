@@ -136,7 +136,7 @@ MASK_SUBPIX_VAR_SSSE3(64, 16)
 MASK_SUBPIX_VAR_SSSE3(16, 64)
 #endif  // !CONFIG_REALTIME_ONLY
 
-static INLINE __m128i filter_block(const __m128i a, const __m128i b,
+static inline __m128i filter_block(const __m128i a, const __m128i b,
                                    const __m128i filter) {
   __m128i v0 = _mm_unpacklo_epi8(a, b);
   v0 = _mm_maddubs_epi16(v0, filter);
@@ -221,7 +221,7 @@ static void bilinear_filter(const uint8_t *src, int src_stride, int xoffset,
   }
 }
 
-static INLINE __m128i filter_block_2rows(const __m128i *a0, const __m128i *b0,
+static inline __m128i filter_block_2rows(const __m128i *a0, const __m128i *b0,
                                          const __m128i *a1, const __m128i *b1,
                                          const __m128i *filter) {
   __m128i v0 = _mm_unpacklo_epi8(*a0, *b0);
@@ -395,7 +395,7 @@ static void bilinear_filter4xh(const uint8_t *src, int src_stride, int xoffset,
   }
 }
 
-static INLINE void accumulate_block(const __m128i *src, const __m128i *a,
+static inline void accumulate_block(const __m128i *src, const __m128i *a,
                                     const __m128i *b, const __m128i *m,
                                     __m128i *sum, __m128i *sum_sq) {
   const __m128i zero = _mm_setzero_si128();
@@ -717,7 +717,7 @@ HIGHBD_MASK_SUBPIX_VAR_SSSE3(16, 64)
 HIGHBD_MASK_SUBPIX_VAR_SSSE3(64, 16)
 #endif  // !CONFIG_REALTIME_ONLY
 
-static INLINE __m128i highbd_filter_block(const __m128i a, const __m128i b,
+static inline __m128i highbd_filter_block(const __m128i a, const __m128i b,
                                           const __m128i filter) {
   __m128i v0 = _mm_unpacklo_epi16(a, b);
   v0 = _mm_madd_epi16(v0, filter);
@@ -803,7 +803,7 @@ static void highbd_bilinear_filter(const uint16_t *src, int src_stride,
   }
 }
 
-static INLINE __m128i highbd_filter_block_2rows(const __m128i *a0,
+static inline __m128i highbd_filter_block_2rows(const __m128i *a0,
                                                 const __m128i *b0,
                                                 const __m128i *a1,
                                                 const __m128i *b1,

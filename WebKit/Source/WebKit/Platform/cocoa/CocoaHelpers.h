@@ -23,12 +23,16 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#if ENABLE(WK_WEB_EXTENSIONS)
+
+#import <WebCore/Icon.h>
 #import <wtf/HashSet.h>
 #import <wtf/OptionSet.h>
 #import <wtf/RetainPtr.h>
 #import <wtf/URLHash.h>
 #import <wtf/UUID.h>
 #import <wtf/WallTime.h>
+#import <wtf/cocoa/TypeCastsCocoa.h>
 #import <wtf/text/StringHash.h>
 
 OBJC_CLASS NSArray;
@@ -108,6 +112,11 @@ inline std::optional<String> toOptional(NSString *maybeNil)
     return std::nullopt;
 }
 
+inline CocoaImage *toCocoaImage(RefPtr<WebCore::Icon> icon)
+{
+    return icon ? icon->image().get() : nil;
+}
+
 enum class JSONOptions {
     FragmentsAllowed = 1 << 0, /// Allows for top-level scalar types, in addition to arrays and dictionaries.
 };
@@ -136,9 +145,6 @@ NSString *escapeCharactersInString(NSString *, NSString *charactersToEscape);
 
 void callAfterRandomDelay(Function<void()>&&);
 
-NSSet *availableScreenScales();
-CGFloat largestDisplayScale();
-
 NSDate *toAPI(const WallTime&);
 WallTime toImpl(NSDate *);
 
@@ -148,4 +154,9 @@ NSSet *toAPI(const HashSet<String>&);
 NSArray *toAPIArray(const HashSet<String>&);
 HashSet<String> toImpl(NSSet *);
 
+using DataMap = HashMap<String, std::variant<String, Ref<API::Data>>>;
+DataMap toDataMap(NSDictionary *);
+
 } // namespace WebKit
+
+#endif // ENABLE(WK_WEB_EXTENSIONS)

@@ -33,7 +33,10 @@
 #if ENABLE(WK_WEB_EXTENSIONS)
 
 #import "APIData.h"
+#import "APIError.h"
 #import "APIFrameInfo.h"
+#import "WKNSData.h"
+#import "WKNSError.h"
 #import "WKURLSchemeTaskInternal.h"
 #import "WKWebViewConfigurationPrivate.h"
 #import "WebExtension.h"
@@ -43,7 +46,6 @@
 #import "WebPageProxy.h"
 #import "WebProcessProxy.h"
 #import "WebURLSchemeTask.h"
-#import "_WKWebExtensionLocalization.h"
 #import <wtf/BlockPtr.h>
 
 namespace WebKit {
@@ -104,10 +106,10 @@ void WebExtensionURLSchemeHandler::platformStartTask(WebPageProxy& page, WebURLS
             loadingExtensionMainFrame = true;
         }
 
-        NSError *error;
-        RefPtr resourceData = API::Data::createWithoutCopying(extensionContext->extension().resourceDataForPath(requestURL.path().toString(), &error));
-        if (!resourceData) {
-            extensionContext->recordError(error);
+        RefPtr<API::Error> error;
+        RefPtr resourceData = extensionContext->extension().resourceDataForPath(requestURL.path().toString(), error);
+        if (!resourceData || error) {
+            extensionContext->recordErrorIfNeeded(wrapper(error));
             task.didComplete([NSError errorWithDomain:NSURLErrorDomain code:NSURLErrorFileDoesNotExist userInfo:nil]);
             return;
         }

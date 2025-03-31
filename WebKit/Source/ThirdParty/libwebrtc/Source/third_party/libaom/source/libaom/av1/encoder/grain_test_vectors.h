@@ -16,6 +16,8 @@
  * not signaled in film grain metadata. The parameters are valid
  * for any bit depth.
  */
+
+#if !CONFIG_REALTIME_ONLY
 static aom_film_grain_t film_grain_test_vectors[16] = {
   /* Test 1 */
   {
@@ -778,4 +780,5 @@ static aom_film_grain_t film_grain_test_vectors[16] = {
       45231 /* random_seed */
   },
 };
+#endif  // !CONFIG_REALTIME_ONLY
 #endif  // AOM_AV1_ENCODER_GRAIN_TEST_VECTORS_H_

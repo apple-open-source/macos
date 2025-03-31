@@ -1,7 +1,6 @@
 {C	en_US.ISO8859-1
-E$	[\xc0-\xd6]		abc	NOMATCH
 E$	[\xc0-\xd6]		\xe1	NOMATCH
-Ei$	[\xc0-\xd6]		\xe1	(0,1)
+Ei$	[\xc0-\xd6]		\xe2	(0,1)
 E$	[[:lower:]]		\xe1	(0,1)
 Ei$	[[:lower:]]		\xe1	(0,1)
 E$	[[:upper:]]		\xe1	NOMATCH

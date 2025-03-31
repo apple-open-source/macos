@@ -13,12 +13,20 @@
 #include <cstddef>
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <utility>
+#include <vector>
 
+#include "api/rtp_headers.h"
+#include "api/transport/network_types.h"
+#include "api/units/data_size.h"
 #include "api/units/time_delta.h"
 #include "modules/rtp_rtcp/include/rtp_header_extension_map.h"
+#include "modules/rtp_rtcp/include/rtp_rtcp_defines.h"
 #include "modules/rtp_rtcp/mocks/mock_rtp_rtcp.h"
+#include "modules/rtp_rtcp/source/rtcp_packet.h"
 #include "modules/rtp_rtcp/source/rtcp_packet/transport_feedback.h"
+#include "modules/rtp_rtcp/source/rtp_header_extensions.h"
 #include "modules/rtp_rtcp/source/rtp_packet_to_send.h"
 #include "rtc_base/checks.h"
 #include "rtc_base/fake_clock.h"
@@ -35,19 +43,13 @@ namespace webrtc {
 namespace {
 
 using ::testing::_;
-using ::testing::AnyNumber;
-using ::testing::AtLeast;
 using ::testing::ElementsAreArray;
-using ::testing::Field;
-using ::testing::Gt;
 using ::testing::InSequence;
-using ::testing::Le;
 using ::testing::MockFunction;
 using ::testing::NiceMock;
 using ::testing::Pointee;
 using ::testing::Property;
 using ::testing::Return;
-using ::testing::SaveArg;
 
 constexpr int kProbeMinProbes = 5;
 constexpr int kProbeMinBytes = 1000;
@@ -116,7 +118,7 @@ TEST_F(PacketRouterTest, GeneratePaddingPrioritizesRtx) {
   const size_t kExpectedPaddingPackets = 1;
   EXPECT_CALL(rtp_1, GeneratePadding(_)).Times(0);
   EXPECT_CALL(rtp_2, GeneratePadding(kPaddingSize))
-      .WillOnce([&](size_t padding_size) {
+      .WillOnce([&](size_t /* padding_size */) {
         return std::vector<std::unique_ptr<RtpPacketToSend>>(
             kExpectedPaddingPackets);
       });
@@ -161,7 +163,7 @@ TEST_F(PacketRouterTest, GeneratePaddingPrioritizesVideo) {
   const size_t kPaddingSize = 123;
   const size_t kExpectedPaddingPackets = 1;
 
-  auto generate_padding = [&](size_t padding_size) {
+  auto generate_padding = [&](size_t /* padding_size */) {
     return std::vector<std::unique_ptr<RtpPacketToSend>>(
         kExpectedPaddingPackets);
   };
@@ -265,7 +267,7 @@ TEST_F(PacketRouterTest, PadsOnLastActiveMediaStream) {
   // and supports rtx.
   EXPECT_CALL(rtp_2, GeneratePadding(kPaddingBytes))
       .Times(1)
-      .WillOnce([&](size_t target_size_bytes) {
+      .WillOnce([&](size_t /* target_size_bytes */) {
         std::vector<std::unique_ptr<RtpPacketToSend>> packets;
         packets.push_back(BuildRtpPacket(kSsrc2));
         return packets;
@@ -277,7 +279,7 @@ TEST_F(PacketRouterTest, PadsOnLastActiveMediaStream) {
 
   EXPECT_CALL(rtp_1, GeneratePadding(kPaddingBytes))
       .Times(1)
-      .WillOnce([&](size_t target_size_bytes) {
+      .WillOnce([&](size_t /* target_size_bytes */) {
         std::vector<std::unique_ptr<RtpPacketToSend>> packets;
         packets.push_back(BuildRtpPacket(kSsrc1));
         return packets;
@@ -420,7 +422,7 @@ TEST_F(PacketRouterTest, SendPacketWithoutTransportSequenceNumbers) {
                     &RtpPacketToSend::HasExtension<TransportSequenceNumber>,
                     false)),
                 Pointee(Property(&RtpPacketToSend::transport_sequence_number,
-                                 absl::nullopt))),
+                                 std::nullopt))),
           _));
   packet_router_.SendPacket(std::move(packet), PacedPacketInfo());
   packet_router_.OnBatchComplete();
@@ -517,9 +519,9 @@ TEST_F(PacketRouterTest, ReportsRtxSsrc) {
   packet_router_.AddSendRtpModule(&rtp_2, false);
 
   EXPECT_EQ(packet_router_.GetRtxSsrcForMedia(kSsrc1), kRtxSsrc1);
-  EXPECT_EQ(packet_router_.GetRtxSsrcForMedia(kRtxSsrc1), absl::nullopt);
-  EXPECT_EQ(packet_router_.GetRtxSsrcForMedia(kSsrc2), absl::nullopt);
-  EXPECT_EQ(packet_router_.GetRtxSsrcForMedia(kInvalidSsrc), absl::nullopt);
+  EXPECT_EQ(packet_router_.GetRtxSsrcForMedia(kRtxSsrc1), std::nullopt);
+  EXPECT_EQ(packet_router_.GetRtxSsrcForMedia(kSsrc2), std::nullopt);
+  EXPECT_EQ(packet_router_.GetRtxSsrcForMedia(kInvalidSsrc), std::nullopt);
 
   packet_router_.RemoveSendRtpModule(&rtp_1);
   packet_router_.RemoveSendRtpModule(&rtp_2);

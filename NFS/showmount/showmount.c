@@ -441,13 +441,13 @@ create_client(const char *host, struct sockaddr *sockaddr, int prog, int vers, s
 {
 	CLIENT *clp;
 	int so = RPC_ANYSOCK;
-	struct sockaddr addr = {};
-	memcpy(&addr, sockaddr, sizeof(addr));
+	struct sockaddr_storage addr = {};
+	memcpy(&addr, sockaddr, sockaddr->sa_len);
 
 	/* Try to connect to TCP, otherwise fall back to UDP */
-	clp = clnttcp_create_sa(&addr, prog, vers, &so, 0, 0);
+	clp = clnttcp_create_sa((struct sockaddr *)&addr, prog, vers, &so, 0, 0);
 	if (clp == NULL) {
-		clp = clntudp_create_sa(&addr, prog, vers, try, &so);
+		clp = clntudp_create_sa((struct sockaddr *)&addr, prog, vers, try, &so);
 	}
 	if (clp == NULL) {
 		if (*spcerrp) {

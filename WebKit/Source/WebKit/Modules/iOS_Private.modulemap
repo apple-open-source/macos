@@ -1,3 +1,5 @@
+#include <TargetConditionals.h>
+
 framework module WebKit_Private [system] {
   umbrella header "WebKitPrivate.h"
   export *
@@ -984,11 +986,6 @@ framework module WebKit_Private [system] {
     export *
   }
 
-  explicit module WKBundlePageFullScreenClient {
-    header "WKBundlePageFullScreenClient.h"
-    export *
-  }
-
   explicit module WKBundlePageLoaderClient {
     header "WKBundlePageLoaderClient.h"
     export *
@@ -1529,6 +1526,11 @@ framework module WebKit_Private [system] {
     export *
   }
 
+  explicit module WKPageFullScreenClient {
+    header "WKPageFullScreenClient.h"
+    export *
+  }
+
   explicit module WKPageGroup {
     header "WKPageGroup.h"
     export *
@@ -1844,86 +1846,6 @@ framework module WebKit_Private [system] {
     export *
   }
 
-  explicit module WKWebExtension {
-    header "WKWebExtension.h"
-    export *
-  }
-
-  explicit module WKWebExtensionAction {
-    header "WKWebExtensionAction.h"
-    export *
-  }
-
-  explicit module WKWebExtensionCommand {
-    header "WKWebExtensionCommand.h"
-    export *
-  }
-
-  explicit module WKWebExtensionContext {
-    header "WKWebExtensionContext.h"
-    export *
-  }
-
-  explicit module WKWebExtensionController {
-    header "WKWebExtensionController.h"
-    export *
-  }
-
-  explicit module WKWebExtensionControllerConfiguration {
-    header "WKWebExtensionControllerConfiguration.h"
-    export *
-  }
-
-  explicit module WKWebExtensionControllerDelegate {
-    header "WKWebExtensionControllerDelegate.h"
-    export *
-  }
-
-  explicit module WKWebExtensionDataRecord {
-    header "WKWebExtensionDataRecord.h"
-    export *
-  }
-
-  explicit module WKWebExtensionDataType {
-    header "WKWebExtensionDataType.h"
-    export *
-  }
-
-  explicit module WKWebExtensionMatchPattern {
-    header "WKWebExtensionMatchPattern.h"
-    export *
-  }
-
-  explicit module WKWebExtensionMessagePort {
-    header "WKWebExtensionMessagePort.h"
-    export *
-  }
-
-  explicit module WKWebExtensionPermission {
-    header "WKWebExtensionPermission.h"
-    export *
-  }
-
-  explicit module WKWebExtensionTab {
-    header "WKWebExtensionTab.h"
-    export *
-  }
-
-  explicit module WKWebExtensionTabConfiguration {
-    header "WKWebExtensionTabConfiguration.h"
-    export *
-  }
-
-  explicit module WKWebExtensionWindow {
-    header "WKWebExtensionWindow.h"
-    export *
-  }
-
-  explicit module WKWebExtensionWindowConfiguration {
-    header "WKWebExtensionWindowConfiguration.h"
-    export *
-  }
-
   explicit module WKWebProcess {
     header "WKWebProcess.h"
     export *
@@ -2209,7 +2131,9 @@ framework module WebKit_Private [system] {
     export *
   }
 
-#ifdef ENABLE_IOS_TOUCH_EVENTS
+  // Inlined spelling of ENABLE(IOS_TOUCH_EVENTS), so that this file can be preprocessed without
+  // needing WTF headers installed.
+#if TARGET_OS_IPHONE && __has_include(<CoreFoundation/CFPriv.h>)
   explicit module WebEventRegion {
     header "WebEventRegion.h"
     export *

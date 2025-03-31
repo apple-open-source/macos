@@ -29,6 +29,7 @@ cmake_print_variables(RUNTIME)
 cmake_print_variables(RUNTIME_LOCAL)
 cmake_print_variables(CONFIG_EXCLAVEKIT)
 cmake_print_variables(CONFIG_EXCLAVECORE)
+cmake_print_variables(CONFIG_KERNELKIT)
 cmake_print_variables(DRIVERKIT)
 
 list(APPEND TEMPLATE_SOURCES  Availability.h AvailabilityInternal.h AvailabilityInternalLegacy.h AvailabilityInternalPrivate.h AvailabilityMacros.h
@@ -60,7 +61,7 @@ add_custom_command(
 
 add_custom_command(
    OUTPUT "${OBJROOT}/availability"
-   COMMAND "${SRCROOT}/availability" --preprocess ${SRCROOT}/availability ${OBJROOT}/availability
+   COMMAND "${SRCROOT}/availability" --av_version ${AV_VERSION} --preprocess ${SRCROOT}/availability ${OBJROOT}/availability
    DEPENDS "${SRCROOT}/availability"
    DEPENDS "${SRCROOT}/availability.dsl"
 )
@@ -123,9 +124,11 @@ foreach(unifdef_source ${UNIFDEF_SOURCES})
   )
 endforeach()
 
-foreach(header ${DYLD_HEADERS})
-  install(FILES "${OBJROOT}/${header}" DESTINATION ${DYLD_HEADERS_LOCATION} PERMISSIONS OWNER_READ OWNER_WRITE GROUP_READ WORLD_READ)
-endforeach()
+if(NOT CONFIG_KERNELKIT EQUAL "1")
+  foreach(header ${DYLD_HEADERS})
+    install(FILES "${OBJROOT}/${header}" DESTINATION ${DYLD_HEADERS_LOCATION} PERMISSIONS OWNER_READ OWNER_WRITE GROUP_READ WORLD_READ)
+  endforeach()
+endif()
 
 foreach(header ${LOCAL_HEADERS})
   install(FILES "${OBJROOT}/${header}" DESTINATION ${USR_LOCAL_INCLUDE} PERMISSIONS OWNER_READ OWNER_WRITE GROUP_READ WORLD_READ)

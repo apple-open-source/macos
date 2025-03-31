@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2021 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2025 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -177,5 +177,12 @@ rt_xaddrs(const char * cp, const char * cplim, struct rt_addrinfo * rtinfo);
 #ifndef countof
 #define countof(__an_array)	(sizeof(__an_array) / sizeof((__an_array)[0]))
 #endif
+
+#define MY_FREE(ptr) do {			\
+	if (ptr != NULL) {			\
+	    free(ptr);				\
+	    ptr = NULL;				\
+	}					\
+    } while(0)
 
 #endif /* _S_UTIL_H */

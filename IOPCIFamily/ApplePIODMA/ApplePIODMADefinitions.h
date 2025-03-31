@@ -25,7 +25,7 @@
 // Table 2.4. Next Pointer Packet Header, Revision 2.2.15
 enum tApplePIODMANextPointerPacketHeader
 {
-    kApplePIODMANextPointerPacketHeaderNextSrcAddrLo      = APIODMABitRange32(32, 63),
+    kApplePIODMANextPointerPacketHeaderNextSrcAddrLo      = APIODMABitRange64(32, 63),
     kApplePIODMANextPointerPacketHeaderNextSrcAddrLoPhase = APIODMABitRangePhase(32, 63),
     kApplePIODMANextPointerPacketHeaderNextSrcAddrHi      = APIODMABitRange32(28, 31),
     kApplePIODMANextPointerPacketHeaderNextSrcAddrHiPhase = APIODMABitRangePhase(28, 31),

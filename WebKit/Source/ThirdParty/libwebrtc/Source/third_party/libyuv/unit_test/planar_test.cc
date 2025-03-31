@@ -1906,28 +1906,28 @@ TEST_F(LibYUVPlanarTest, ARGBMultiply_Any) {
   int max_diff = TestMultiply(benchmark_width_ + 1, benchmark_height_,
                               benchmark_iterations_, disable_cpu_flags_,
                               benchmark_cpu_info_, +1, 0);
-  EXPECT_LE(max_diff, 1);
+  EXPECT_LE(max_diff, 0);
 }
 
 TEST_F(LibYUVPlanarTest, ARGBMultiply_Unaligned) {
   int max_diff =
       TestMultiply(benchmark_width_, benchmark_height_, benchmark_iterations_,
                    disable_cpu_flags_, benchmark_cpu_info_, +1, 1);
-  EXPECT_LE(max_diff, 1);
+  EXPECT_LE(max_diff, 0);
 }
 
 TEST_F(LibYUVPlanarTest, ARGBMultiply_Invert) {
   int max_diff =
       TestMultiply(benchmark_width_, benchmark_height_, benchmark_iterations_,
                    disable_cpu_flags_, benchmark_cpu_info_, -1, 0);
-  EXPECT_LE(max_diff, 1);
+  EXPECT_LE(max_diff, 0);
 }
 
 TEST_F(LibYUVPlanarTest, ARGBMultiply_Opt) {
   int max_diff =
       TestMultiply(benchmark_width_, benchmark_height_, benchmark_iterations_,
                    disable_cpu_flags_, benchmark_cpu_info_, +1, 0);
-  EXPECT_LE(max_diff, 1);
+  EXPECT_LE(max_diff, 0);
 }
 
 static int TestAdd(int width,
@@ -2496,13 +2496,13 @@ TEST_F(LibYUVPlanarTest, DISABLED_ARM(TestARGBPolynomial)) {
   }
 }
 
-int TestHalfFloatPlane(int benchmark_width,
-                       int benchmark_height,
-                       int benchmark_iterations,
-                       int disable_cpu_flags,
-                       int benchmark_cpu_info,
-                       float scale,
-                       int mask) {
+static int TestHalfFloatPlane(int benchmark_width,
+                              int benchmark_height,
+                              int benchmark_iterations,
+                              int disable_cpu_flags,
+                              int benchmark_cpu_info,
+                              float scale,
+                              int mask) {
   int i, j;
   const int y_plane_size = benchmark_width * benchmark_height * 2;
 
@@ -2551,11 +2551,12 @@ int TestHalfFloatPlane(int benchmark_width,
 #if defined(__arm__)
 static void EnableFlushDenormalToZero(void) {
   uint32_t cw;
-  __asm__ __volatile__(
-      "vmrs   %0, fpscr         \n"
-      "orr    %0, %0, #0x1000000        \n"
-      "vmsr   fpscr, %0         \n"
-      : "=r"(cw)::"memory");
+  asm volatile (
+    "vmrs   %0, fpscr                 \n"
+    "orr    %0, %0, #0x1000000        \n"
+    "vmsr   fpscr, %0                 \n"
+    : "=r"(cw)
+    ::"memory", "cc"); // Clobber List
 }
 #endif
 
@@ -2630,12 +2631,12 @@ TEST_F(LibYUVPlanarTest, TestHalfFloatPlane_12bit_One) {
   EXPECT_LE(diff, 1);
 }
 
-float TestByteToFloat(int benchmark_width,
-                      int benchmark_height,
-                      int benchmark_iterations,
-                      int disable_cpu_flags,
-                      int benchmark_cpu_info,
-                      float scale) {
+static float TestByteToFloat(int benchmark_width,
+                             int benchmark_height,
+                             int benchmark_iterations,
+                             int disable_cpu_flags,
+                             int benchmark_cpu_info,
+                             float scale) {
   int i, j;
   const int y_plane_size = benchmark_width * benchmark_height;
 

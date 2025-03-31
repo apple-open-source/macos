@@ -46,7 +46,9 @@ typedef struct _GstGLDisplay GstGLDisplay;
 #endif // ENABLE(VIDEO) && USE(GSTREAMER)
 
 #if USE(SKIA)
-#include <skia/gpu/GrDirectContext.h>
+WTF_IGNORE_WARNINGS_IN_THIRD_PARTY_CODE_BEGIN
+#include <skia/gpu/ganesh/GrDirectContext.h>
+WTF_IGNORE_WARNINGS_IN_THIRD_PARTY_CODE_END
 #include <wtf/ThreadSafeWeakHashSet.h>
 #endif
 
@@ -97,6 +99,9 @@ public:
     bool destroyEGLImage(EGLImage) const;
 #if USE(GBM)
     const Vector<GLDisplay::DMABufFormat>& dmabufFormats();
+#if USE(GSTREAMER)
+    const Vector<GLDisplay::DMABufFormat>& dmabufFormatsForVideo();
+#endif
 #endif
 
 #if ENABLE(WEBGL)

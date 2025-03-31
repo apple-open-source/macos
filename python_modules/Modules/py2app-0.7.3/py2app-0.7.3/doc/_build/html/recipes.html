@@ -1,0 +1,214 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Recipes &mdash; py2app 0.7.3 documentation</title>
+    
+    <link rel="stylesheet" href="_static/nature.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '',
+        VERSION:     '0.7.3',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <link rel="top" title="py2app 0.7.3 documentation" href="index.html" />
+    <link rel="next" title="Implementation Details" href="implementation.html" />
+    <link rel="prev" title="py2app Options" href="options.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="implementation.html" title="Implementation Details"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="options.html" title="py2app Options"
+             accesskey="P">previous</a> |</li>
+        <li><a href="index.html">py2app 0.7.3 documentation</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="recipes">
+<h1>Recipes<a class="headerlink" href="#recipes" title="Permalink to this headline">¶</a></h1>
+<p>py2app includes a mechanism for working around package incompatibilities,
+and stripping unwanted dependencies automatically. These are called recipes.</p>
+<p>A future version of py2app will support packaging of <a class="reference external" href="http://peak.telecommunity.com/DevCenter/PythonEggs">Python Eggs</a>. Once
+this is established, recipes will be obsolete since eggs contain all of the
+metadata needed to build a working standalone application.</p>
+<div class="section" id="common-causes-for-incompatibility">
+<h2>Common causes for incompatibility<a class="headerlink" href="#common-causes-for-incompatibility" title="Permalink to this headline">¶</a></h2>
+<p>Some Python packages are written in such a way that they aren&#8217;t compatible
+with being packaged. There are two main causes of this:</p>
+<ul class="simple">
+<li>Using <tt class="docutils literal"><span class="pre">__import__</span></tt> or otherwise importing code without usage of the
+<tt class="docutils literal"><span class="pre">import</span></tt> statement.</li>
+<li>Requiring in-package data files</li>
+</ul>
+</div>
+<div class="section" id="built-in-recipes">
+<h2>Built-in recipes<a class="headerlink" href="#built-in-recipes" title="Permalink to this headline">¶</a></h2>
+<dl class="docutils">
+<dt><tt class="docutils literal"><span class="pre">cjkcodecs</span></tt>:</dt>
+<dd>All codecs in the package are imported.</dd>
+<dt><tt class="docutils literal"><span class="pre">docutils</span></tt>:</dt>
+<dd>Several of its internal components are automatically imported
+(<tt class="docutils literal"><span class="pre">languages</span></tt>, <tt class="docutils literal"><span class="pre">parsers</span></tt>, <tt class="docutils literal"><span class="pre">readers</span></tt>, <tt class="docutils literal"><span class="pre">writers</span></tt>,
+<tt class="docutils literal"><span class="pre">parsers.rst.directives</span></tt>, <tt class="docutils literal"><span class="pre">parsers.rst.langauges</span></tt>).</dd>
+<dt><tt class="docutils literal"><span class="pre">matplotlib</span></tt>:</dt>
+<dd>A dependency on <tt class="docutils literal"><span class="pre">pytz.zoneinfo.UTC</span></tt> is implied, and the <tt class="docutils literal"><span class="pre">matplotlib</span></tt>
+package is included in its entirety out of the zip file.</dd>
+<dt><tt class="docutils literal"><span class="pre">numpy</span></tt>:</dt>
+<dd>The <tt class="docutils literal"><span class="pre">numpy</span></tt> package is included in its entirety out of the zip file.</dd>
+<dt><tt class="docutils literal"><span class="pre">PIL</span></tt>:</dt>
+<dd>Locates and includes all image plugins (Python modules that end with
+<tt class="docutils literal"><span class="pre">ImagePlugin.py</span></tt>), removes unwanted dependencies on <tt class="docutils literal"><span class="pre">Tkinter</span></tt>.</dd>
+<dt><tt class="docutils literal"><span class="pre">pydoc</span></tt>:</dt>
+<dd>The implicit references on the several modules are removed (<tt class="docutils literal"><span class="pre">Tkinter</span></tt>,
+<tt class="docutils literal"><span class="pre">tty</span></tt>, <tt class="docutils literal"><span class="pre">BaseHTTPServer</span></tt>, <tt class="docutils literal"><span class="pre">mimetools</span></tt>, <tt class="docutils literal"><span class="pre">select</span></tt>, <tt class="docutils literal"><span class="pre">threading</span></tt>,
+<tt class="docutils literal"><span class="pre">ic</span></tt>, <tt class="docutils literal"><span class="pre">getopt</span></tt>, <tt class="docutils literal"><span class="pre">nturl2path</span></tt>).</dd>
+<dt><tt class="docutils literal"><span class="pre">pygame</span></tt>:</dt>
+<dd>Several data files that are included in the zip file where <tt class="docutils literal"><span class="pre">pygame</span></tt> can
+find them (<tt class="docutils literal"><span class="pre">freesansbold.ttf</span></tt>, <tt class="docutils literal"><span class="pre">pygame_icon.tiff</span></tt>,
+<tt class="docutils literal"><span class="pre">pygame_icon.icns</span></tt>).</dd>
+<dt><tt class="docutils literal"><span class="pre">PyOpenGL</span></tt>:</dt>
+<dd>If the installed version of PyOpenGL reads a <tt class="docutils literal"><span class="pre">version</span></tt> file to determine
+its version, then the <tt class="docutils literal"><span class="pre">OpenGL</span></tt> package is included in its entirety out of
+the zip file.</dd>
+<dt><tt class="docutils literal"><span class="pre">scipy</span></tt>:</dt>
+<dd>The <tt class="docutils literal"><span class="pre">scipy</span></tt> and <tt class="docutils literal"><span class="pre">numpy</span></tt> packages are included in their entirety
+out of the zip file.</dd>
+<dt><tt class="docutils literal"><span class="pre">sip</span></tt>:</dt>
+<dd>If <tt class="docutils literal"><span class="pre">sip</span></tt> is detected, then all sip-using packages are included
+(e.g. PyQt).</dd>
+</dl>
+</div>
+<div class="section" id="developing-recipes">
+<h2>Developing Recipes<a class="headerlink" href="#developing-recipes" title="Permalink to this headline">¶</a></h2>
+<p>py2app currently searches for recipes only in the <tt class="docutils literal"><span class="pre">py2app.recipes</span></tt> module.
+A recipe is an object that implements a <tt class="docutils literal"><span class="pre">check(py2app_cmd,</span> <span class="pre">modulegraph)</span></tt>
+method.</p>
+<dl class="docutils">
+<dt><tt class="docutils literal"><span class="pre">py2app_cmd</span></tt>:</dt>
+<dd>The py2app command instance (a subclass of <tt class="docutils literal"><span class="pre">setuptools.Command</span></tt>).
+See the source for <tt class="docutils literal"><span class="pre">py2app.build_app</span></tt> for reference.</dd>
+<dt><tt class="docutils literal"><span class="pre">modulegraph</span></tt>:</dt>
+<dd>The <tt class="docutils literal"><span class="pre">modulegraph.modulegraph.ModuleGraph</span></tt> instance.</dd>
+</dl>
+<p>A recipe should return either <tt class="docutils literal"><span class="pre">None</span></tt> or a <tt class="docutils literal"><span class="pre">dict</span></tt> instance.</p>
+<p>If a recipe returns <tt class="docutils literal"><span class="pre">None</span></tt> it should not have performed any actions with
+side-effects, and it may be called again zero or more times.</p>
+<p>If a recipe returns a <tt class="docutils literal"><span class="pre">dict</span></tt> instance, it will not be called again. The
+returned <tt class="docutils literal"><span class="pre">dict</span></tt> may have any of these optional string keys:</p>
+<dl class="docutils">
+<dt><tt class="docutils literal"><span class="pre">filters</span></tt>:</dt>
+<dd>A list of filter functions to be called with every module in the
+modulegraph during flattening. If the filter returns False, the module
+and any of its dependencies will not be included in the output. This is
+similar in purpose to the <tt class="docutils literal"><span class="pre">excludes</span></tt> option, but can be any predicate
+(e.g. to exclude all modules in a given path).</dd>
+<dt><tt class="docutils literal"><span class="pre">loader_files</span></tt>:</dt>
+<dd>Used to include data files inside the <tt class="docutils literal"><span class="pre">site-packages.zip</span></tt>. This is a
+list of 2-tuples: <tt class="docutils literal"><span class="pre">[(subdir,</span> <span class="pre">files),</span> <span class="pre">...]</span></tt>. <tt class="docutils literal"><span class="pre">subdir</span></tt> is the path
+within <tt class="docutils literal"><span class="pre">site-packages.zip</span></tt> and <tt class="docutils literal"><span class="pre">files</span></tt> is the list of files to include
+in that directory.</dd>
+<dt><tt class="docutils literal"><span class="pre">packages</span></tt>:</dt>
+<dd>A list of package names to be included in their entirety outside of the
+<tt class="docutils literal"><span class="pre">site-packages.zip</span></tt>.</dd>
+<dt><tt class="docutils literal"><span class="pre">prescripts</span></tt>:</dt>
+<dd>A list of additional Python scripts to run before initializing the main
+script. This is often used to monkey-patch included modules so that they
+work in a frozen environment. The prescripts may be module names,
+file names, or file-like objects containing Python code (e.g. StringIO).
+Note that if a file-like object is used, it will not currently be scanned
+for additional dependencies.</dd>
+</dl>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">Recipes</a><ul>
+<li><a class="reference internal" href="#common-causes-for-incompatibility">Common causes for incompatibility</a></li>
+<li><a class="reference internal" href="#built-in-recipes">Built-in recipes</a></li>
+<li><a class="reference internal" href="#developing-recipes">Developing Recipes</a></li>
+</ul>
+</li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="options.html"
+                        title="previous chapter">py2app Options</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="implementation.html"
+                        title="next chapter">Implementation Details</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="_sources/recipes.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="implementation.html" title="Implementation Details"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="options.html" title="py2app Options"
+             >previous</a> |</li>
+        <li><a href="index.html">py2app 0.7.3 documentation</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2010, Ronald Oussoren, Bob Ippolito.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1.3.
+    </div>
+  </body>
+</html>

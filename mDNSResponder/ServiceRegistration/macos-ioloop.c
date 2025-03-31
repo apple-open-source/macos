@@ -285,11 +285,9 @@ comm_finalize(comm_t *comm)
     // later on.  So we can't actually free the data structure yet, but the good news is that comm_finalize() will
     // be called again later when the last outstanding asynchronous cancel is done, and then all of the stuff
     // that follows this will happen.
-#ifndef __clang_analyzer__
     if (comm->ref_count > 0) {
         return;
     }
-#endif
     if (comm->idle_timer != NULL) {
         ioloop_cancel_wake_event(comm->idle_timer);
         RELEASE_HERE(comm->idle_timer, wakeup);
@@ -1036,6 +1034,7 @@ ioloop_listener_connection_callback(comm_t *listener, nw_connection_t new_connec
         ERROR("%p: " PRI_S_SRP ": no memory for connection name.", listener, listener->name);
         nw_connection_cancel(connection->connection);
         nw_release(connection->connection);
+        free(connection);
         return;
     }
     connection->datagram_callback = listener->datagram_callback;
@@ -1413,12 +1412,12 @@ ioloop_udp_listener_setup(comm_t *listener, const addr_t *ip_address, uint16_t p
             if (family == AF_INET) {
                 IPv4_ADDR_GEN_SRP(&listener->address.sin.sin_addr.s_addr, ipv4_addr_buf);
                 ERROR("Can't bind to " PRI_IPv4_ADDR_SRP "#%d: %s",
-                      IPv4_ADDR_PARAM_SRP(&listener->address.sin.sin_addr.s_addr, ipv4_addr_buf), ntohs(port),
+                      IPv4_ADDR_PARAM_SRP(&listener->address.sin.sin_addr.s_addr, ipv4_addr_buf), port,
                       strerror(errno));
             } else {
                 SEGMENTED_IPv6_ADDR_GEN_SRP(&listener->address.sin6.sin6_addr.s6_addr, ipv6_addr_buf);
                 ERROR("Can't bind to " PRI_SEGMENTED_IPv6_ADDR_SRP "#%d: %s",
-                      SEGMENTED_IPv6_ADDR_PARAM_SRP(&listener->address.sin6.sin6_addr.s6_addr, ipv6_addr_buf), ntohs(port),
+                      SEGMENTED_IPv6_ADDR_PARAM_SRP(&listener->address.sin6.sin6_addr.s6_addr, ipv6_addr_buf), port,
                       strerror(errno));
             }
         out:
@@ -2084,7 +2083,6 @@ ioloop_dnssd_txn_add_(DNSServiceRef ref, void *context, dnssd_txn_finalize_callb
     }
     return txn;
 }
-
 
 void
 ioloop_dnssd_txn_set_aux_pointer(dnssd_txn_t *NONNULL txn, void *aux_pointer)

@@ -43,16 +43,6 @@
 @protocol WKHistoryDelegatePrivate;
 @protocol WKNavigationDelegate;
 
-namespace WebKit {
-class NavigationState;
-class WebPageLoadTiming;
-}
-
-namespace WTF {
-template<typename T> struct IsDeprecatedWeakRefSmartPointerException;
-template<> struct IsDeprecatedWeakRefSmartPointerException<WebKit::NavigationState> : std::true_type { };
-}
-
 namespace API {
 class Navigation;
 }
@@ -64,12 +54,16 @@ class SecurityOriginData;
 namespace WebKit {
 
 struct WebNavigationDataStore;
+class WebPageLoadTiming;
 
 class NavigationState final : public PageLoadState::Observer {
     WTF_MAKE_TZONE_ALLOCATED(NavigationState);
 public:
     explicit NavigationState(WKWebView *);
     ~NavigationState();
+
+    void ref() const final;
+    void deref() const final;
 
     static NavigationState* fromWebPage(WebPageProxy&);
 
@@ -105,6 +99,7 @@ public:
 
 private:
     class NavigationClient final : public API::NavigationClient {
+        WTF_MAKE_TZONE_ALLOCATED(NavigationClient);
     public:
         explicit NavigationClient(NavigationState&);
         ~NavigationClient();
@@ -152,10 +147,8 @@ private:
         void didFinishLoadForQuickLookDocumentInMainFrame(const WebCore::FragmentedSharedBuffer&) override;
 #endif
 
-#if PLATFORM(MAC)
         bool didChangeBackForwardList(WebPageProxy&, WebBackForwardListItem*, const Vector<Ref<WebBackForwardListItem>>&) final;
-#endif
-        bool willGoToBackForwardListItem(WebPageProxy&, WebBackForwardListItem&, bool inBackForwardCache) final;
+        void shouldGoToBackForwardListItem(WebPageProxy&, WebBackForwardListItem&, bool inBackForwardCache, CompletionHandler<void(bool)>&&) final;
 
 #if ENABLE(CONTENT_EXTENSIONS)
         void contentRuleListNotification(WebPageProxy&, URL&&, WebCore::ContentRuleListResults&&) final;
@@ -171,6 +164,7 @@ private:
     };
     
     class HistoryClient final : public API::HistoryClient {
+        WTF_MAKE_TZONE_ALLOCATED(HistoryClient);
     public:
         explicit HistoryClient(NavigationState&);
         ~HistoryClient();
@@ -278,10 +272,10 @@ private:
         bool webViewDidRequestPasswordForQuickLookDocument : 1;
         bool webViewDidStopRequestingPasswordForQuickLookDocument : 1;
 
-#if PLATFORM(MAC)
         bool webViewBackForwardListItemAddedRemoved : 1;
-#endif
         bool webViewWillGoToBackForwardListItemInBackForwardCache : 1;
+        bool webViewShouldGoToBackForwardListItemInBackForwardCacheCompletionHandler : 1;
+        bool webViewShouldGoToBackForwardListItemWillUseInstantBackCompletionHandler : 1;
 
 #if HAVE(APP_SSO)
         bool webViewDecidePolicyForSOAuthorizationLoadWithCurrentPolicyForExtensionCompletionHandler : 1;
@@ -298,7 +292,7 @@ private:
     } m_historyDelegateMethods;
 
 #if USE(RUNNINGBOARD)
-    std::unique_ptr<ProcessThrottler::BackgroundActivity> m_networkActivity;
+    RefPtr<ProcessThrottler::BackgroundActivity> m_networkActivity;
     RunLoop::Timer m_releaseNetworkActivityTimer;
 #endif
 };

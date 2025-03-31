@@ -18,7 +18,7 @@
 #include "aom/aomcx.h"
 #include "aom/aomdx.h"
 #include "config/aom_config.h"
-#include "third_party/googletest/src/googletest/include/gtest/gtest.h"
+#include "gtest/gtest.h"
 
 namespace {
 typedef std::tuple<const char *, const char *> KeyValParam;

@@ -84,6 +84,16 @@ PerformanceMonitor::PerformanceMonitor(Page& page)
     }
 }
 
+void PerformanceMonitor::ref() const
+{
+    m_page->ref();
+}
+
+void PerformanceMonitor::deref() const
+{
+    m_page->deref();
+}
+
 void PerformanceMonitor::didStartProvisionalLoad()
 {
     m_postLoadCPUTime = std::nullopt;
@@ -146,15 +156,7 @@ void PerformanceMonitor::activityStateChanged(OptionSet<ActivityState> oldState,
 enum class ReportingReason { HighCPUUsage, HighMemoryUsage };
 static void reportPageOverPostLoadResourceThreshold(Page& page, ReportingReason reason)
 {
-    auto* localMainFrame = dynamicDowncast<LocalFrame>(page.mainFrame());
-    if (!localMainFrame)
-        return;
-
-    auto* document = localMainFrame->document();
-    if (!document)
-        return;
-
-    RegistrableDomain registrableDomain { document->url() };
+    RegistrableDomain registrableDomain { page.mainFrameURL() };
     if (registrableDomain.isEmpty())
         return;
 

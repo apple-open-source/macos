@@ -139,10 +139,6 @@ void av1_filter_block_plane_horz_opt_chroma(
     TX_SIZE *tx_buf, int plane, bool joint_filter_chroma,
     int num_mis_in_lpf_unit_height_log2);
 
-uint8_t av1_get_filter_level(const struct AV1Common *cm,
-                             const loop_filter_info_n *lfi_n, const int dir_idx,
-                             int plane, const MB_MODE_INFO *mbmi);
-
 #ifdef __cplusplus
 }  // extern "C"
 #endif

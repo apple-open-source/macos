@@ -77,14 +77,27 @@ NS_ASSUME_NONNULL_BEGIN
 
 + (nullable instancetype)sessionWithSecretDelegate: (NSObject<KCJoiningRequestSecretDelegate>*) secretDelegate
                                               dsid: (uint64_t)dsid
+                                           altDSID:(NSString* _Nullable)altDSID
+                                            flowID:(NSString* _Nullable)flowID
+                                   deviceSessionID:(NSString* _Nullable)deviceSessionID
+                                             error: (NSError**) error;
+
++ (nullable instancetype)sessionWithSecretDelegate: (NSObject<KCJoiningRequestSecretDelegate>*) secretDelegate
+                                              dsid: (uint64_t)dsid
                                              error: (NSError**) error;
 
 - (nullable instancetype)initWithSecretDelegate: (NSObject<KCJoiningRequestSecretDelegate>*) secretDelegate
                                            dsid: (uint64_t)dsid
+                                        altDSID:(NSString* _Nullable)altDSID
+                                         flowID:(NSString* _Nullable)flowID
+                                deviceSessionID:(NSString* _Nullable)deviceSessionID
                                           error: (NSError**)error;
 
 - (nullable instancetype)initWithSecretDelegate: (NSObject<KCJoiningRequestSecretDelegate>*) secretDelegate
                                            dsid: (uint64_t)dsid
+                                        altDSID:(NSString* _Nullable)altDSID
+                                         flowID:(NSString* _Nullable)flowID
+                                deviceSessionID:(NSString* _Nullable)deviceSessionID
                                             rng: (struct ccrng_state *)rng
                                           error: (NSError**)error NS_DESIGNATED_INITIALIZER;
 
@@ -100,19 +113,31 @@ NS_ASSUME_NONNULL_BEGIN
 - (nullable NSData*) initialMessage: (NSError**) error;
 - (nullable NSData*) processMessage: (NSData*) incomingMessage error: (NSError**) error;
 
++ (instancetype)sessionWithCircleDelegate:(NSObject<KCJoiningRequestCircleDelegate>*)circleDelegate
+                                  session:(KCAESGCMDuplexSession*)session
+                                  altDSID:(NSString* _Nullable)altDSID
+                                   flowID:(NSString* _Nullable)flowID
+                          deviceSessionID:(NSString* _Nullable)deviceSessionID
+                                    error:(NSError**)error;
+
 + (instancetype) sessionWithCircleDelegate: (NSObject<KCJoiningRequestCircleDelegate>*) circleDelegate
                                    session: (KCAESGCMDuplexSession*) session
                                      error: (NSError**) error;
 
-- (instancetype) initWithCircleDelegate: (NSObject<KCJoiningRequestCircleDelegate>*) circleDelegate
-                                session: (KCAESGCMDuplexSession*) session
-                                  error: (NSError**) error;
+- (instancetype)initWithCircleDelegate:(NSObject<KCJoiningRequestCircleDelegate>*)circleDelegate
+                                session:(KCAESGCMDuplexSession*)session
+                               altDSID:(NSString* _Nullable)altDSID
+                                flowID:(NSString* _Nullable)flowID
+                       deviceSessionID:(NSString* _Nullable)deviceSessionID
+                                 error:(NSError**)error;
 
-
-- (instancetype)initWithCircleDelegate:(NSObject<KCJoiningRequestCircleDelegate>*) circleDelegate
-                               session:(KCAESGCMDuplexSession*) session
+- (instancetype)initWithCircleDelegate:(NSObject<KCJoiningRequestCircleDelegate>*)circleDelegate
+                               session:(KCAESGCMDuplexSession*)session
                              otcontrol:(OTControl*)otcontrol
-                                 error:(NSError**) error NS_DESIGNATED_INITIALIZER;
+                               altDSID:(NSString* _Nullable)altDSID
+                                flowID:(NSString* _Nullable)flowID
+                       deviceSessionID:(NSString* _Nullable)deviceSessionID
+                                 error:(NSError**)error NS_DESIGNATED_INITIALIZER;
 
 - (instancetype)init NS_UNAVAILABLE;
 @end
@@ -191,12 +216,23 @@ typedef enum {
                                                dsid: (uint64_t) dsid
                                               error: (NSError**) error;
 
++ (nullable instancetype) sessionWithInitialMessage:(NSData*) message
+                                     secretDelegate:(NSObject<KCJoiningAcceptSecretDelegate>*) secretDelegate
+                                     circleDelegate:(NSObject<KCJoiningAcceptCircleDelegate>*) circleDelegate
+                                               dsid:(uint64_t) dsid
+                                            altDSID:(NSString* _Nullable)altDSID
+                                             flowID:(NSString* _Nullable)flowID
+                                    deviceSessionID:(NSString* _Nullable)deviceSessionID
+                                              error:(NSError**) error;
 
-- (nullable instancetype)initWithSecretDelegate: (NSObject<KCJoiningAcceptSecretDelegate>*) delegate
-                                 circleDelegate: (NSObject<KCJoiningAcceptCircleDelegate>*) delegate
-                                           dsid: (uint64_t) dsid
-                                            rng: (struct ccrng_state *)rng
-                                          error: (NSError**) error NS_DESIGNATED_INITIALIZER;
+- (nullable instancetype) initWithSecretDelegate:(NSObject<KCJoiningAcceptSecretDelegate>*) secretDelegate
+                                  circleDelegate:(NSObject<KCJoiningAcceptCircleDelegate>*) circleDelegate
+                                            dsid:(uint64_t) dsid
+                                         altDSID:(NSString* _Nullable)altDSID
+                                          flowID:(NSString* _Nullable)flowID
+                                 deviceSessionID:(NSString* _Nullable)deviceSessionID
+                                             rng:(struct ccrng_state *)rng
+                                           error:(NSError**)error NS_DESIGNATED_INITIALIZER;
 
 /*!
  create an appropriate joining session given the initial message.

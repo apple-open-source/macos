@@ -62,7 +62,7 @@ private:
     };
 
     static inline uint8_t clampRGBAValue(float channel, uint8_t max = 255);
-    static inline void setDestinationPixels(const PixelBuffer& sourcePixelBuffer, PixelBuffer& destinationPixelBuffer, int& pixel, float* totals, float divisor, float bias, bool preserveAlphaValues);
+    static inline void setDestinationPixels(const PixelBuffer& sourcePixelBuffer, PixelBuffer& destinationPixelBuffer, int& pixel, std::span<float> totals, float divisor, float bias, bool preserveAlphaValues);
 
     static inline int getPixelValue(const PaintingData&, int x, int y);
 

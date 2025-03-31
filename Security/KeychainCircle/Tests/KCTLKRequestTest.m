@@ -224,6 +224,9 @@ static NSData* createTlkRequestMessage (KCAESGCMDuplexSession* aesSession) {
     KCJoiningRequestTestDelegate* requestDelegate = [KCJoiningRequestTestDelegate requestDelegateWithSecret: secret];
     KCJoiningRequestSecretSession *requestSession = [[KCJoiningRequestSecretSession alloc] initWithSecretDelegate:requestDelegate
                                                                                                              dsid:dsid
+                                                                                                          altDSID:@"123456789"
+                                                                                                           flowID:@"flowID-testTLKRequest"
+                                                                                                  deviceSessionID:@"deviceSessionID-testTLKRequest"
                                                                                                               rng:ccDRBGGetRngState()
                                                                                                             error:&error];
 
@@ -236,6 +239,9 @@ static NSData* createTlkRequestMessage (KCAESGCMDuplexSession* aesSession) {
     KCJoiningAcceptSession* acceptSession = [[KCJoiningAcceptSession alloc] initWithSecretDelegate:acceptDelegate
                                                                                     circleDelegate:acceptDelegate
                                                                                               dsid:dsid
+                                                                                           altDSID:@"123456789"
+                                                                                            flowID:@"flowID-testTLKRequest"
+                                                                                   deviceSessionID:@"deviceSessionID-testTLKRequest"
                                                                                                rng:ccDRBGGetRngState()
                                                                                              error:&error];
 

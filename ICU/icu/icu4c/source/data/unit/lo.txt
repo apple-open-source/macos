@@ -198,6 +198,11 @@ lo{
                 dnam{"ນາ​ໂນ​ວິ​ນາ​ທີ"}
                 other{"{0} ນາ​ໂນ​ວິ​ນາ​ທີ"}
             }
+            night{
+                dnam{"ຄືນ"}
+                other{"{0} ຄືນ"}
+                per{"{0}/ຄືນ"}
+            }
             second{
                 dnam{"ວິນາທີ"}
                 other{"{0} ວິນາທີ"}
@@ -431,6 +436,10 @@ lo{
                 dnam{"ນ໋ອດ"}
                 other{"{0} ນ໋ອດ"}
             }
+            light-speed{
+                dnam{"ແສງ"}
+                other{"{0} ແສງ"}
+            }
             meter-per-second{
                 dnam{"ແມັດຕໍ່ວິນາທີ"}
                 other{"{0} ແມັດຕໍ່ວິນາທີ"}
@@ -538,6 +547,9 @@ lo{
             percent{
                 dnam{"%"}
             }
+            permille{
+                dnam{"‰"}
+            }
         }
         consumption{
             liter-per-100-kilometer{
@@ -549,12 +561,20 @@ lo{
             }
         }
         duration{
+            century{
+                dnam{"ສຕວ"}
+                other{"{0} ສຕວ"}
+            }
             day{
                 other{"{0} ມ."}
             }
             millisecond{
                 dnam{"ມລວ"}
-                other{"{0} ມລ. ວິ."}
+            }
+            night{
+                dnam{"ຄືນ"}
+                other{"{0} ຄືນ"}
+                per{"{0}/ຄືນ"}
             }
             week{
                 dnam{"ອທ."}
@@ -601,6 +621,10 @@ lo{
             }
         }
         speed{
+            light-speed{
+                dnam{"ແສງ"}
+                other{"{0} ແສງ"}
+            }
             meter-per-second{
                 dnam{"ມ/ວ"}
             }
@@ -774,6 +798,10 @@ lo{
             }
         }
         duration{
+            century{
+                dnam{"ສຕວ"}
+                other{"{0} ສຕວ"}
+            }
             day{
                 dnam{"ມື້"}
                 other{"{0} ມື້"}
@@ -809,6 +837,11 @@ lo{
             nanosecond{
                 dnam{"ນາ​ໂນ​ວິ​"}
                 other{"{0} ນນ​ວິ"}
+            }
+            night{
+                dnam{"ຄືນ"}
+                other{"{0} ຄືນ"}
+                per{"{0}/ຄືນ"}
             }
             quarter{
                 dnam{"ໄຕມາດ"}
@@ -997,6 +1030,10 @@ lo{
             kilometer-per-hour{
                 dnam{"ກມ/ຊມ"}
                 other{"{0} ກມ/ຊມ"}
+            }
+            light-speed{
+                dnam{"ແສງ"}
+                other{"{0} ແສງ"}
             }
             meter-per-second{
                 dnam{"ແມັດ/ວິ"}

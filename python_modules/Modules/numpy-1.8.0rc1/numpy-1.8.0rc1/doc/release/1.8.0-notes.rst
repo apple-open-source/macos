@@ -1,0 +1,357 @@
+NumPy 1.8.0 Release Notes
+*************************
+
+This release supports  Python 2.6 -2.7 and 3.2 - 3.3.
+
+
+Highlights
+==========
+
+Python 2 and Python 3 are supported by the same code base. The
+2to3 fixer is no longer run.
+
+
+
+Dropped Support
+===============
+
+Support for Python versions 2.4 and 2.5 has been dropped,
+
+Support for SCons has been removed.
+
+Future Changes
+==============
+
+The Datetime64 type remains experimental in this release. In 1.9 there will
+probably be some changes to make it more useable.
+
+The diagonal method currently returns a new array and raises a
+FutureWarning. In 1.9 it will return a readonly view.
+
+Multiple field selection from a array of structured type currently
+returns a new array and raises a FutureWarning. In 1.9 it will return a
+readonly view.
+
+The numpy/oldnumeric and numpy/numarray compatibility modules will be
+removed in 1.9.
+
+Compatibility notes
+===================
+
+The doc/sphinxext content has been moved into its own github repository,
+and is included in numpy as a submodule. See the instructions in
+doc/HOWTO_BUILD_DOCS.rst.txt for how to access the content.
+
+.. _numpydoc: https://github.com/numpy/numpydoc
+
+The hash function of numpy.void scalars has been changed.  Previously the
+pointer to the data was hashed as an integer.  Now, the hash function uses
+the tuple-hash algorithm to combine the hash functions of the elements of
+the scalar, but only if the scalar is read-only.
+
+Numpy has switched its build system to using 'separate compilation' by
+default.  In previous releases this was supported, but not default. This
+should produce the same results as the old system, but if you're trying to
+do something complicated like link numpy statically or using an unusual
+compiler, then it's possible you will encounter problems. If so, please
+file a bug and as a temporary workaround you can re-enable the old build
+system by exporting the shell variable NPY_SEPARATE_COMPILATION=0.
+
+For the AdvancedNew iterator the ``oa_ndim`` flag should now be -1 to indicate
+that no ``op_axes`` and ``itershape`` are passed in. The ``oa_ndim == 0``
+case, now indicates a 0-D iteration and ``op_axes`` being NULL and the old
+usage is deprecated. This does not effect the ``NpyIter_New`` or
+``NpyIter_MultiNew`` functions.
+
+The functions nanargmin and nanargmax now return np.iinfo['intp'].min for
+the index in all-NaN slices. Previously the functions would raise a ValueError
+for array returns and NaN for scalar returns.
+
+NPY_RELAXED_STRIDES_CHECKING
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+There is a new compile time environment variable
+``NPY_RELAXED_STRIDES_CHECKING``. If this variable is set to 1, then
+numpy will consider more arrays to be C- or F-contiguous -- for
+example, it becomes possible to have a column vector which is
+considered both C- and F-contiguous simultaneously. The new definition
+is more accurate, allows for faster code that makes fewer unnecessary
+copies, and simplifies numpy's code internally. However, it may also
+break third-party libraries that make too-strong assumptions about the
+stride values of C- and F-contiguous arrays. (It is also currently
+known that this breaks Cython code using memoryviews, which will be
+fixed in Cython.) THIS WILL BECOME THE DEFAULT IN A FUTURE RELEASE, SO
+PLEASE TEST YOUR CODE NOW AGAINST NUMPY BUILT WITH::
+
+  NPY_RELAXED_STRIDES_CHECKING=1 python setup.py install
+
+You can check whether NPY_RELAXED_STRIDES_CHECKING is in effect by
+running::
+
+  np.ones((10, 1), order="C").flags.f_contiguous
+
+This will be ``True`` if relaxed strides checking is enabled, and
+``False`` otherwise. The typical problem we've seen so far is C code
+that works with C-contiguous arrays, and assumes that the itemsize can
+be accessed by looking at the last element in the ``PyArray_STRIDES(arr)``
+array. When relaxed strides are in effect, this is not true (and in
+fact, it never was true in some corner cases). Instead, use
+``PyArray_ITEMSIZE(arr)``.
+
+For more information check the "Internal memory layout of an ndarray"
+section in the documentation.
+
+IO compatibility with large files
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Large NPZ files >2GB can be loaded on 64-bit systems.
+
+Binary operations with non-arrays as second argument
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Binary operations of the form ``<array-or-subclass> * <non-array-subclass>``
+where ``<non-array-subclass>`` declares an ``__array_priority__`` higher than
+that of ``<array-or-subclass>`` will now unconditionally return
+*NotImplemented*, giving ``<non-array-subclass>`` a chance to handle the
+operation.  Previously, `NotImplemented` would only be returned if
+``<non-array-subclass>`` actually implemented the reversed operation, and after
+a (potentially expensive) array conversion of ``<non-array-subclass>`` had been
+attempted. (`bug <https://github.com/numpy/numpy/issues/3375>`_, `pull request
+<https://github.com/numpy/numpy/pull/3501>`_)
+
+Function `median` used with `overwrite_input` only partially sorts array
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+If `median` is used with `overwrite_input` option the input array will now only
+be partially sorted instead of fully sorted.
+
+Fix to financial.npv
+~~~~~~~~~~~~~~~~~~~~
+
+The npv function had a bug. Contrary to what the documentation stated, it
+summed from indexes ``1`` to ``M`` instead of from ``0`` to ``M - 1``. The
+fix changes the returned value. The mirr function called the npv function,
+but worked around the problem, so that was also fixed and the return value
+of the mirr function remains unchanged.
+
+
+New Features
+============
+
+Building against OpenBLAS
+~~~~~~~~~~~~~~~~~~~~~~~~~
+It is now possible to build numpy against OpenBLAS by editing site.cfg.
+
+New constant
+~~~~~~~~~~~~
+Euler's constant is now exposed in numpy as euler_gamma.
+
+New modes for qr
+~~~~~~~~~~~~~~~~
+New modes 'complete', 'reduced', and 'raw' have been added to the qr
+factorization and the old 'full' and 'economic' modes are deprecated.
+The 'reduced' mode replaces the old 'full' mode and is the default as was
+the 'full' mode, so backward compatibility can be maintained by not
+specifying the mode.
+
+The 'complete' mode returns a full dimensional factorization, which can be
+useful for obtaining a basis for the orthogonal complement of the range
+space. The 'raw' mode returns arrays that contain the Householder
+reflectors and scaling factors that can be used in the future to apply q
+without needing to convert to a matrix. The 'economic' mode is simply
+deprecated, there isn't much use for it and it isn't any more efficient
+than the 'raw' mode.
+
+New `invert` argument to `in1d`
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The function `in1d` now accepts a `invert` argument which, when `True`,
+causes the returned array to be inverted.
+
+Advanced indexing using `np.newaxis`
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+It is now possible to use `np.newaxis`/`None` together with index
+arrays instead of only in simple indices. This means that
+``array[np.newaxis, [0, 1]]`` will now work as expected.
+
+New functions `full` and `full_like`
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+New convenience functions to create arrays filled with a specific value;
+complementary to the existing `zeros` and `zeros_like` functions.
+
+New functions `partition` and `argpartition`
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+New functions to partially sort arrays.
+Partial sorting moves the value of selected elements into their position if the
+array would be sorted via a selection algorithm. In the resulting array all
+elements smaller than the sorted elements will placed before the it and all
+equal or larger behind it.
+This has a time complexity of O(n) compared to O(n log(n)) of a full sort.
+
+New functions `nanmean`, `nanvar` and `nanstd`
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+New nan aware statistical functions are added. In these functions the
+results are what would be obtained if nan values were ommited from all
+computations.
+
+In place fancy indexing for ufuncs
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+The function ``at`` has been added to ufunc objects to allow in place
+ufuncs with no buffering when fancy indexing is used. For example, the
+following will increment the first and second items in the array, and will
+increment the third item twice:
+numpy.add.at(array, [0, 1, 2, 2], 1)
+
+This is similar to doing array[[0, 1, 2, 2]] += 1
+
+C-API
+~~~~~
+
+New ufuncs can now be registered with built in input types and a custom
+output type. Before this change, NumPy wouldn't be able to find the right
+ufunc loop function when the ufunc was called from Python, because the ufunc
+loop signature matching logic wasn't looking at the output operand type.
+Now the correct ufunc loop is found, as long as the user provides an output
+argument with the correct output type.
+
+runtests.py
+~~~~~~~~~~~
+
+A simple test runner script ``runtests.py`` was added. It also builds Numpy via
+``setup.py build`` and can be used to run tests easily during development.
+
+
+Improvements
+============
+
+IO performance improvements
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Performance in reading large files was improved by chunking (see also IO compatibility).
+
+Performance improvements to `pad`
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+The `pad` function has a new implementation, greatly improving performance for
+all inputs except `mode=<function>` (retained for backwards compatibility).
+Scaling with dimensionality is dramatically improved for rank >= 4.
+
+Performance improvements to `isnan`, `isinf`, `isfinite` and `byteswap`
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+`isnan`, `isinf`, `isfinite` and `byteswap` have been improved to take
+advantage of compiler builtins to avoid expensive calls to libc.
+This improves performance of these operations by about a factor of two on gnu
+libc systems.
+
+Performance improvements via SSE2 vectorization
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Several functions have been optimized to make use of SSE2 CPU SIMD instructions.
+
+ * Float32 and float64:
+
+   * base math (`add`, `subtract`, `divide`, `multiply`)
+   * `sqrt`
+   * `minimum/maximum`
+   * `absolute`
+
+ * Bool:
+
+   * `logical_or`
+   * `logical_and`
+   * `logical_not`
+
+This improves performance of these operations up to 4x/2x for float32/float64
+and up to 10x for bool depending on the location of the data in the CPU caches.
+The performance gain is greatest for in-place operations.
+
+In order to use the improved functions the SSE2 instruction set must be enabled
+at compile time. It is enabled by default on x86_64 systems. On x86_32 with a
+capable CPU it must be enabled by passing the appropriate flag to the CFLAGS
+build variable (-msse2 with gcc).
+
+Performance improvements to `median`
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+`median` is now implemented in terms of `partition` instead of `sort` which
+reduces its time complexity from O(n log(n)) to O(n).
+If used with the `overwrite_input` option the array will now only be partially
+sorted instead of fully sorted.
+
+Changes
+=======
+
+General
+~~~~~~~
+
+The function np.take now allows 0-d arrays as indices.
+
+The separate compilation mode is now enabled by default.
+
+Several changes to np.insert and np.delete:
+* Previously, negative indices and indices that pointed past the end of
+  the array were simply ignored. Now, this will raise a Future or Deprecation
+  Warning. In the future they will be treated like normal indexing treats
+  them -- negative indices will wrap around, and out-of-bound indices will
+  generate an error.
+* Previously, boolean indices were treated as if they were integers (always
+  referring to either the 0th or 1st item in the array). In the future, they
+  will be treated as masks. In this release, they raise a FutureWarning
+  warning of this coming change.
+* In Numpy 1.7. np.insert already allowed the syntax
+  `np.insert(arr, 3, [1,2,3])` to insert multiple items at a single position.
+  In Numpy 1.8. this is also possible for `np.insert(arr, [3], [1, 2, 3])`.
+
+Padded regions from np.pad are now correctly rounded, not truncated.
+
+C-API Array Additions
+~~~~~~~~~~~~~~~~~~~~~
+
+Three new functions have been added to the array C-API.
+* PyArray_Partition
+* PyArray_ArgPartition
+* PyArray_SelectkindConverter
+* PyDataMem_NEW_ZEROED
+
+C-API Ufunc Additions
+~~~~~~~~~~~~~~~~~~~~~
+
+One new function has been added to the ufunc C-API that allows to register
+an inner loop for user types using the descr.
+* PyUFunc_RegisterLoopForDescr
+
+
+
+Deprecations
+============
+
+The 'full' and 'economic' modes of qr factorization are deprecated.
+
+General
+~~~~~~~
+
+The use of non-integer for indices and most integer arguments has been
+deprecated. Previously float indices and function arguments such as axes or
+shapes were truncated to integers without warning. For example
+`arr.reshape(3., -1)` or `arr[0.]` will trigger a deprecation warning in
+NumPy 1.8., and in some future version of NumPy they will raise an error.
+
+C-API
+~~~~~
+
+None
+
+New Features
+============
+
+When creating a ufunc, the default ufunc operand flags can be overridden
+via the new op_flags attribute of the ufunc object. For example, to set
+the operand flag for the first input to read/write:
+
+PyObject \*ufunc = PyUFunc_FromFuncAndData(...);
+ufunc->op_flags[0] = NPY_ITER_READWRITE;
+
+This allows a ufunc to perform an operation in place. Also, global nditer flags
+can be overridden via the new iter_flags attribute of the ufunc object.
+For example, to set the reduce flag for a ufunc:
+
+ufunc->iter_flags = NPY_ITER_REDUCE_OK;

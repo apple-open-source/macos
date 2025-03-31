@@ -31,7 +31,6 @@
 #include <JavaScriptCore/JSExportMacros.h>
 #include <WebCore/PlatformExportMacros.h>
 #include <pal/ExportMacros.h>
-#include <wtf/DisallowCType.h>
 
 #ifdef __cplusplus
 
@@ -40,6 +39,7 @@
 #undef new
 #undef delete
 #include <wtf/FastMalloc.h>
+#include <wtf/TZoneMalloc.h>
 
 #endif
 

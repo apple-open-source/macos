@@ -1,4 +1,4 @@
-framework module OctagonTrust [system] {
+framework module OctagonTrust_Private [system] {
   umbrella header "OctagonTrust_Private.h"
 
   export *

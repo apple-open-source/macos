@@ -74,3 +74,34 @@ void _SecSystemKeychainAlwaysClearOverride(void)
     gSystemKeychainAlwaysSupported = SystemKeychainAlways_DEFAULT;
     secnotice("keychain", "System Keychain Always Supported override removed");
 }
+
+static void _SecTrustShowFeatureStatus(const char* feature, bool status) {
+    secnotice("trustd", "%s is %s (via feature flags)",
+              feature, status ? "enabled" : "disabled");
+}
+
+bool _SecTrustQWACValidationEnabled(void)
+{
+    /* NOTE: This feature flags are referenced by string in unit tests.
+     * If you're here cleaning up, please remove it from the tests as well. */
+    static bool QWACValidationEnabled = false;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        QWACValidationEnabled = os_feature_enabled(Security, QWACValidation);
+        _SecTrustShowFeatureStatus("QWACValidation", QWACValidationEnabled);
+    });
+    return QWACValidationEnabled;
+}
+
+bool _SecTrustStoreRootConstraintsEnabled(void)
+{
+    /* NOTE: This feature flags are referenced by string in unit tests.
+     * If you're here cleaning up, please remove it from the tests as well. */
+    static bool RootConstraintsEnabled = false;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        RootConstraintsEnabled = os_feature_enabled(Security, RootConstraints);
+        _SecTrustShowFeatureStatus("RootConstraints", RootConstraintsEnabled);
+    });
+    return RootConstraintsEnabled;
+}

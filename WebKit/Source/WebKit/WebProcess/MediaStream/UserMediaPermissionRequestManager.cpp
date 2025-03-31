@@ -24,7 +24,6 @@
 
 #include "Logging.h"
 #include "MessageSenderInlines.h"
-#include "WebCoreArgumentCoders.h"
 #include "WebFrame.h"
 #include "WebPage.h"
 #include "WebPageProxyMessages.h"
@@ -47,6 +46,21 @@ WTF_MAKE_TZONE_ALLOCATED_IMPL(UserMediaPermissionRequestManager);
 UserMediaPermissionRequestManager::UserMediaPermissionRequestManager(WebPage& page)
     : m_page(page)
 {
+}
+
+void UserMediaPermissionRequestManager::ref() const
+{
+    m_page->ref();
+}
+
+void UserMediaPermissionRequestManager::deref() const
+{
+    m_page->deref();
+}
+
+Ref<WebPage> UserMediaPermissionRequestManager::protectedPage() const
+{
+    return m_page.get();
 }
 
 void UserMediaPermissionRequestManager::startUserMediaRequest(UserMediaRequest& request)
@@ -84,7 +98,7 @@ void UserMediaPermissionRequestManager::sendUserMediaRequest(UserMediaRequest& u
     ASSERT(webFrame);
 
     auto* topLevelDocumentOrigin = userRequest.topLevelDocumentOrigin();
-    m_page.send(Messages::WebPageProxy::RequestUserMediaPermissionForFrame(userRequest.identifier(), webFrame->frameID(), userRequest.userMediaDocumentOrigin()->data(), topLevelDocumentOrigin->data(), userRequest.request()));
+    protectedPage()->send(Messages::WebPageProxy::RequestUserMediaPermissionForFrame(userRequest.identifier(), webFrame->frameID(), userRequest.userMediaDocumentOrigin()->data(), topLevelDocumentOrigin->data(), userRequest.request()));
 }
 
 void UserMediaPermissionRequestManager::cancelUserMediaRequest(UserMediaRequest& request)
@@ -149,7 +163,7 @@ void UserMediaPermissionRequestManager::enumerateMediaDevices(Document& document
         return;
     }
 
-    m_page.sendWithAsyncReply(Messages::WebPageProxy::EnumerateMediaDevicesForFrame { WebFrame::fromCoreFrame(*frame)->frameID(), document.securityOrigin().data(), document.topOrigin().data() }, WTFMove(completionHandler));
+    protectedPage()->sendWithAsyncReply(Messages::WebPageProxy::EnumerateMediaDevicesForFrame { WebFrame::fromCoreFrame(*frame)->frameID(), document.securityOrigin().data(), document.topOrigin().data() }, WTFMove(completionHandler));
 }
 
 #if USE(GSTREAMER)
@@ -185,7 +199,7 @@ UserMediaClient::DeviceChangeObserverToken UserMediaPermissionRequestManager::ad
         updateCaptureDevices(ShouldNotify::No);
         WebCore::RealtimeMediaSourceCenter::singleton().addDevicesChangedObserver(*this);
 #else
-        m_page.send(Messages::WebPageProxy::BeginMonitoringCaptureDevices());
+        protectedPage()->send(Messages::WebPageProxy::BeginMonitoringCaptureDevices());
 #endif
     }
     return identifier;
@@ -199,7 +213,7 @@ void UserMediaPermissionRequestManager::removeDeviceChangeObserver(UserMediaClie
 
 void UserMediaPermissionRequestManager::updateCaptureState(const WebCore::Document& document, bool isActive, WebCore::MediaProducerMediaCaptureKind kind, CompletionHandler<void(std::optional<WebCore::Exception>&&)>&& completionHandler)
 {
-    m_page.updateCaptureState(document, isActive, kind, WTFMove(completionHandler));
+    protectedPage()->updateCaptureState(document, isActive, kind, WTFMove(completionHandler));
 }
 
 void UserMediaPermissionRequestManager::captureDevicesChanged()

@@ -9,9 +9,9 @@
  */
 
 #include <memory>
+#include <optional>
 
 #include "absl/algorithm/container.h"
-#include "absl/types/optional.h"
 #include "api/task_queue/task_queue_base.h"
 #include "api/test/simulated_network.h"
 #include "api/test/video/function_video_encoder_factory.h"
@@ -527,8 +527,8 @@ TEST_F(StatsEndToEndTest, MAYBE_ContentTypeSwitches) {
 
   SendTask(task_queue(), [this, &test, &send_config, &recv_config,
                           &encoder_config_with_screenshare]() {
-    CreateSenderCall(send_config);
-    CreateReceiverCall(recv_config);
+    CreateSenderCall(std::move(send_config));
+    CreateReceiverCall(std::move(recv_config));
     CreateReceiveTransport(test.GetReceiveTransportConfig(), &test);
     CreateSendTransport(test.GetReceiveTransportConfig(), &test);
 
@@ -691,7 +691,7 @@ TEST_F(StatsEndToEndTest, VerifyNackStats) {
     bool dropped_rtp_packet_requested_ RTC_GUARDED_BY(&mutex_) = false;
     std::vector<VideoReceiveStreamInterface*> receive_streams_;
     VideoSendStream* send_stream_ = nullptr;
-    absl::optional<int64_t> start_runtime_ms_;
+    std::optional<int64_t> start_runtime_ms_;
     TaskQueueBase* const task_queue_;
     rtc::scoped_refptr<PendingTaskSafetyFlag> task_safety_flag_ =
         PendingTaskSafetyFlag::CreateDetached();

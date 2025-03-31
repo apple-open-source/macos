@@ -207,6 +207,18 @@
 		</dict>
 		<dict>
 			<key>TestName</key>
+			<string>SecTaskAPITest</string>
+			<key>Command</key>
+			<array>
+				<string>/AppleInternal/CoreOS/tests/Security/secsectaskapitest</string>
+			</array>
+			<key>Disabled</key>
+			<string>BATS_UTD_Disabled_SecTaskAPITest</string>
+			<key>ShowSubtestResults</key>
+			<true/>
+		</dict>
+		<dict>
+			<key>TestName</key>
 			<string>SecurityUnitTestsMacOS</string>
 			<key>ShowSubtestResults</key>
 			<true/>

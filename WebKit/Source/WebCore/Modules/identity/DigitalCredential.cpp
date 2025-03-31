@@ -26,22 +26,22 @@
 #include "config.h"
 #include "DigitalCredential.h"
 
-#include <JavaScriptCore/Uint8Array.h>
+#include <wtf/UUID.h>
 #include <wtf/text/Base64.h>
 
 #if ENABLE(WEB_AUTHN)
 
 namespace WebCore {
 
-Ref<DigitalCredential> DigitalCredential::create(Ref<Uint8Array>&& data, IdentityCredentialProtocol protocol)
+Ref<DigitalCredential> DigitalCredential::create(JSC::Strong<JSC::JSObject>&& data, IdentityCredentialProtocol protocol)
 {
     return adoptRef(*new DigitalCredential(WTFMove(data), protocol));
 }
 
 DigitalCredential::~DigitalCredential() = default;
 
-DigitalCredential::DigitalCredential(Ref<Uint8Array>&& data, IdentityCredentialProtocol protocol)
-    : BasicCredential(base64URLEncodeToString(data->span()), Type::DigitalCredential, Discovery::CredentialStore)
+DigitalCredential::DigitalCredential(JSC::Strong<JSC::JSObject>&& data, IdentityCredentialProtocol protocol)
+    : BasicCredential(createVersion4UUIDString(), Type::DigitalCredential, Discovery::CredentialStore)
     , m_protocol(protocol)
     , m_data(WTFMove(data))
 {

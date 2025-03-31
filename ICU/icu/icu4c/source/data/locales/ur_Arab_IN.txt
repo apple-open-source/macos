@@ -8,7 +8,7 @@ ur_Arab_IN{
                 currencyFormat{"¤ #,##,##0.00"}
             }
         }
-        default{"arabext"}
+        default{"latn"}
         latn{
             miscPatterns{
                 atLeast{"{0}+"}

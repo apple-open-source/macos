@@ -347,8 +347,43 @@ and
 .Dv RTM_CHANGE .
 As such, only the super-user may modify
 the routing tables.
+.Pp
+The
+.Cm monitor
+command accepts optional modifiers to display only the routing messages that match the modifiers.
+.Pp
+The optional modifier
+.Fl ifindex
+takes an interface index or an interface name to limit the display of routing messagges
+for that interface.
+.Pp
+Optional modifiers of the
+.Cm monitor
+command may be used to select messages with some specific routing flags like:
+.Fl blackhole
+.Fl cloning
+.Fl gateway
+.Fl host
+.Fl llinfo
+.Fl local
+.Fl reject
+.Fl router
+.Fl static
+.Fl wascloned .
+.Pp
+And the
+.Cm monitor
+command also may used to print messages for a given type like:
+.Fl add
+.Fl delete
+.Fl newmaddr .
+.Pp
+The modifier may excludes message that match the modifier by adding the prefix
+.Sy no
+to the modifier name.
 .Sh DIAGNOSTICS
 .Bl -diag
+The optional modifiers may also be used to select
 .It "add [host \&| network ] %s: gateway %s flags %x"
 The specified route is being added to the tables.  The
 values printed are from the routing table entry supplied

@@ -286,7 +286,21 @@ malloc_size_stress_thread(void *arg)
 }
 
 T_DECL(threaded_stress_malloc_size_tiny,
-		"multi-threaded stress test for tiny malloc_size")
+		"multi-threaded stress test for tiny malloc_size",
+		T_META_ENVVAR("MallocNanoZone=0"))
+{
+	uint64_t iterations = 2000000ull;
+#if TARGET_OS_TV || TARGET_OS_WATCH
+	iterations = 200000ull;
+#endif // TARGET_OS_TV || TARGET_OS_WATCH
+
+	malloc_threaded_stress(false, 16, 256, 16, 2048,
+			iterations, malloc_size_stress_thread);
+}
+
+T_DECL(threaded_stress_malloc_size_nano,
+		"multi-threaded stress test for nano malloc_size",
+		T_META_ENVVAR("MallocNanoZone=1"))
 {
 	uint64_t iterations = 2000000ull;
 #if TARGET_OS_TV || TARGET_OS_WATCH

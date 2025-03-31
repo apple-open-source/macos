@@ -84,7 +84,7 @@ static NSRect convertRectToScreen(NSWindow *window, NSRect rect)
 
 static void makeResponderFirstResponderIfDescendantOfView(NSWindow *window, NSResponder *responder, NSView *view)
 {
-    if ([responder isKindOfClass:[NSView class]] && [(NSView *)responder isDescendantOf:view])
+    if (auto *responderView = dynamic_objc_cast<NSView>(responder); responderView && [responderView isDescendantOf:view])
         [window makeFirstResponder:responder];
 }
 
@@ -221,10 +221,10 @@ static RetainPtr<CGImageRef> createImageWithCopiedData(CGImageRef sourceImage)
     return adoptCF(CGImageCreate(width, height, bitsPerComponent, bitsPerPixel, bytesPerRow, colorSpace, bitmapInfo, provider.get(), 0, shouldInterpolate, intent));
 }
 
-- (void)enterFullScreen:(NSScreen *)screen
+- (void)enterFullScreen:(NSScreen *)screen completionHandler:(CompletionHandler<void(bool)>&&)completionHandler
 {
     if ([self isFullScreen])
-        return;
+        return completionHandler(false);
     _fullScreenState = WaitingToEnterFullScreen;
 
     if (!screen)
@@ -237,7 +237,7 @@ static RetainPtr<CGImageRef> createImageWithCopiedData(CGImageRef sourceImage)
     webViewFrame.origin.y = NSMaxY([[[NSScreen screens] objectAtIndex:0] frame]) - NSMaxY(webViewFrame);
 
     CGWindowID windowID = [[_webView window] windowNumber];
-    RetainPtr<CGImageRef> webViewContents = adoptCF(WebCore::cgWindowListCreateImage(NSRectToCGRect(webViewFrame), kCGWindowListOptionIncludingWindow, windowID, kCGWindowImageShouldBeOpaque));
+    RetainPtr webViewContents = WebCore::cgWindowListCreateImage(NSRectToCGRect(webViewFrame), kCGWindowListOptionIncludingWindow, windowID, kCGWindowImageShouldBeOpaque);
 
     // Using the returned CGImage directly would result in calls to the WindowServer every time
     // the image was painted. Instead, copy the image data into our own process to eliminate that
@@ -277,7 +277,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     _savedScale = _page->pageScaleFactor();
     _page->scalePageRelativeToScrollPosition(1, { });
     [self _manager]->setAnimatingFullScreen(true);
-    [self _manager]->willEnterFullScreen();
+    [self _manager]->willEnterFullScreen(WTFMove(completionHandler));
 }
 
 - (void)beganEnterFullScreenWithInitialFrame:(NSRect)initialFrame finalFrame:(NSRect)finalFrame
@@ -480,7 +480,7 @@ static RetainPtr<CGImageRef> takeWindowSnapshot(CGSWindowID windowID, bool captu
     CGWindowImageOption imageOptions = kCGWindowImageBoundsIgnoreFraming | kCGWindowImageShouldBeOpaque;
     if (captureAtNominalResolution)
         imageOptions |= kCGWindowImageNominalResolution;
-    return adoptCF(WebCore::cgWindowListCreateImage(CGRectNull, kCGWindowListOptionIncludingWindow, windowID, imageOptions));
+    return WebCore::cgWindowListCreateImage(CGRectNull, kCGWindowListOptionIncludingWindow, windowID, imageOptions);
 }
 
 - (void)finishedExitFullScreenAnimationAndExitImmediately:(bool)immediately

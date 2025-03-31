@@ -27,6 +27,7 @@
 #import "CoreIPCNSURLRequest.h"
 
 #import "GeneratedSerializers.h"
+#import <WebCore/ResourceLoadPriority.h>
 #import <wtf/TZoneMallocInlines.h>
 #import <wtf/cocoa/VectorCocoa.h>
 
@@ -202,6 +203,7 @@ CoreIPCNSURLRequest::CoreIPCNSURLRequest(NSURLRequest *request)
     SET_NSURLREQUESTDATA_PRIMITIVE(blockTrackers, NSNumber, bool);
     SET_NSURLREQUESTDATA_PRIMITIVE(failInsecureLoadWithHTTPSDNSRecord, NSNumber, bool);
     SET_NSURLREQUESTDATA_PRIMITIVE(isWebSearchContent, NSNumber, bool);
+    SET_NSURLREQUESTDATA_PRIMITIVE(allowOnlyPartitionedCookies, NSNumber, bool);
 
     NSArray *contentDispositionEncodingFallbackArray = dict[@"contentDispositionEncodingFallbackArray"];
     if ([contentDispositionEncodingFallbackArray isKindOfClass:[NSArray class]]) {
@@ -225,7 +227,7 @@ CoreIPCNSURLRequest::CoreIPCNSURLRequest(const RetainPtr<NSURLRequest>& request)
 
 RetainPtr<id> CoreIPCNSURLRequest::toID() const
 {
-    auto dict = adoptNS([[NSMutableDictionary alloc] initWithCapacity:43]); // Initialized with the count of members in CoreIPCNSURLRequestData
+    auto dict = adoptNS([[NSMutableDictionary alloc] initWithCapacity:CoreIPCNSURLRequestData::numberOfFields]);
 
     SET_DICT_FROM_OPTIONAL_MEMBER(protocolProperties);
     SET_DICT_FROM_PRIMITIVE(isMutable, NSNumber, Bool);
@@ -249,7 +251,10 @@ RetainPtr<id> CoreIPCNSURLRequest::toID() const
 
     [dict setObject:[NSNumber numberWithUnsignedChar:static_cast<uint8_t>(m_data.networkServiceType)] forKey:@"networkServiceType"];
 
-    SET_DICT_FROM_PRIMITIVE(requestPriority, NSNumber, Int);
+    int clampedRequestPriority = std::min(std::max(m_data.requestPriority, -1),
+        static_cast<int>(WTF::enumToUnderlyingType(WebCore::ResourceLoadPriority::Highest)));
+    [dict setObject:[NSNumber numberWithInt:clampedRequestPriority] forKey:@"requestPriority"];
+
     SET_DICT_FROM_OPTIONAL_PRIMITIVE(isHTTP, NSNumber, Bool);
     SET_DICT_FROM_OPTIONAL_MEMBER(httpMethod);
 
@@ -258,8 +263,11 @@ RetainPtr<id> CoreIPCNSURLRequest::toID() const
         for (auto& headerPair : *m_data.headerFields) {
             WTF::switchOn(headerPair.second,
                 [&] (const String& s) {
-                    if (!s.isNull() && !headerPair.first.isNull())
-                        [headerFields setObject:(NSString *)s forKey:(NSString *)headerPair.first];
+                    auto array = adoptNS([[NSMutableArray alloc] initWithCapacity:1]);
+                    if (!s.isNull() && !headerPair.first.isNull()) {
+                        [array addObject: s];
+                        [headerFields setObject:array.get() forKey:(NSString *)headerPair.first];
+                    }
                 },
                 [&] (const Vector<String>& vector) {
                     auto array = adoptNS([[NSMutableArray alloc] initWithCapacity:vector.size()]);
@@ -315,6 +323,7 @@ RetainPtr<id> CoreIPCNSURLRequest::toID() const
     SET_DICT_FROM_PRIMITIVE(blockTrackers, NSInteger, Bool);
     SET_DICT_FROM_PRIMITIVE(failInsecureLoadWithHTTPSDNSRecord, NSInteger, Bool);
     SET_DICT_FROM_PRIMITIVE(isWebSearchContent, NSInteger, Bool);
+    SET_DICT_FROM_PRIMITIVE(allowOnlyPartitionedCookies, NSInteger, Bool);
 
     if (m_data.contentDispositionEncodingFallbackArray) {
         auto array = adoptNS([[NSMutableArray alloc] initWithCapacity:m_data.contentDispositionEncodingFallbackArray->size()]);

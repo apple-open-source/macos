@@ -17,7 +17,7 @@
 #include "config/aom_config.h"
 #include "config/aom_dsp_rtcd.h"
 
-static INLINE int get_filter_taps_convolve8(const int16_t *filter) {
+static inline int get_filter_taps_convolve8(const int16_t *filter) {
   if (filter[0] | filter[7]) {
     return 8;
   }

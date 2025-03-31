@@ -20,7 +20,9 @@
 	  <string>lib/curl_gssapi.c: Address pointer alignment issue in gss_OID_desc structs. (#27287483)</string>
 	  <string>lib/vtls: On macOS, use openssl if present, secure-transport if not. (#43091584)</string>
 	  <string>lib/vtls/sectransp.c: Support finding identities by public key to support Yubikey auth on Big Sur. (#72186096)</string>
-	  <string>lib/easy_lock.h: include sched.h (98886899)</string>
+	  <string>lib/easy_lock.h: include sched.h (#98886899)</string>
+	  <string>lib/hsts.c: Backport patch for CVE-2024-9681 (#140715883)</string>
+	  <string>lib/http_aws_sigv4.c: Backport patch to address potential undefined behavior of qsort() (#140715883)</string>
 	</array>
 	<key>OpenSourceLicense</key>
 	<string>MIT</string>

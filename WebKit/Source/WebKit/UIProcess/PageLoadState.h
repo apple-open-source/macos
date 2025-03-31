@@ -28,24 +28,20 @@
 #include <WebCore/CertificateInfo.h>
 #include <WebCore/NavigationIdentifier.h>
 #include <WebCore/SecurityOriginData.h>
+#include <wtf/AbstractRefCountedAndCanMakeWeakPtr.h>
 #include <wtf/URL.h>
 #include <wtf/WeakHashSet.h>
 #include <wtf/text/WTFString.h>
 
-namespace WebKit {
-class PageLoadStateObserverBase;
+namespace WebCore {
+enum class ResourceResponseSource : uint8_t;
 }
-
-namespace WTF {
-template<typename T> struct IsDeprecatedWeakRefSmartPointerException;
-template<> struct IsDeprecatedWeakRefSmartPointerException<WebKit::PageLoadStateObserverBase> : std::true_type { };
-}
-
 namespace WebKit {
 
 class WebPageProxy;
+enum class Source;
 
-class PageLoadStateObserverBase : public CanMakeWeakPtr<PageLoadStateObserverBase> {
+class PageLoadStateObserverBase : public AbstractRefCountedAndCanMakeWeakPtr<PageLoadStateObserverBase> {
 public:
     virtual ~PageLoadStateObserverBase() = default;
 
@@ -123,14 +119,16 @@ public:
 #endif
         };
 
-        RefPtr<WebPageProxy> m_webPageProxy;
-        PageLoadState* m_pageLoadState;
+        RefPtr<PageLoadState> m_pageLoadState;
     };
 
     struct PendingAPIRequest {
         Markable<WebCore::NavigationIdentifier> navigationID;
         String url;
     };
+
+    void ref() const;
+    void deref() const;
 
     void addObserver(Observer&);
     void removeObserver(Observer&);
@@ -140,34 +138,36 @@ public:
 
     void reset(const Transaction::Token&);
 
-    bool isLoading() const;
+    bool isLoading() const { return isLoading(m_committedState); }
     bool isProvisional() const { return m_committedState.state == State::Provisional; }
     bool isCommitted() const { return m_committedState.state == State::Committed; }
     bool isFinished() const { return m_committedState.state == State::Finished; }
 
-    bool hasUncommittedLoad() const;
+    bool hasUncommittedLoad() const { return isLoading(m_uncommittedState); }
 
     const String& provisionalURL() const { return m_committedState.provisionalURL; }
     const String& url() const { return m_committedState.url; }
     const WebCore::SecurityOriginData& origin() const { return m_committedState.origin; }
     const String& unreachableURL() const { return m_committedState.unreachableURL; }
 
-    String activeURL() const;
+    String activeURL() const { return activeURL(m_committedState); }
 
     bool hasOnlySecureContent() const;
     bool hasNegotiatedLegacyTLS() const;
     void negotiatedLegacyTLS(const Transaction::Token&);
-    bool wasPrivateRelayed() const;
+    bool wasPrivateRelayed() const { return m_committedState.wasPrivateRelayed; }
+    String proxyName() { return m_committedState.proxyName; }
+    WebCore::ResourceResponseSource source() { return m_committedState.source; }
 
     double estimatedProgress() const;
     bool networkRequestsInProgress() const { return m_committedState.networkRequestsInProgress; }
 
     const WebCore::CertificateInfo& certificateInfo() const { return m_committedState.certificateInfo; }
 
-    const URL& resourceDirectoryURL() const;
+    const URL& resourceDirectoryURL() const { return m_committedState.resourceDirectoryURL; }
 
-    const String& pendingAPIRequestURL() const;
-    const PendingAPIRequest& pendingAPIRequest() const;
+    const String& pendingAPIRequestURL() const { return m_committedState.pendingAPIRequest.url; }
+    const PendingAPIRequest& pendingAPIRequest() const { return m_committedState.pendingAPIRequest; }
     void setPendingAPIRequest(const Transaction::Token&, PendingAPIRequest&& pendingAPIRequest, const URL& resourceDirectoryPath = { });
     void clearPendingAPIRequest(const Transaction::Token&);
 
@@ -176,7 +176,8 @@ public:
     void didReceiveServerRedirectForProvisionalLoad(const Transaction::Token&, const String& url);
     void didFailProvisionalLoad(const Transaction::Token&);
 
-    void didCommitLoad(const Transaction::Token&, const WebCore::CertificateInfo&, bool hasInsecureContent, bool usedLegacyTLS, bool privateRelayed, const WebCore::SecurityOriginData&);
+    void didCommitLoad(const Transaction::Token&, const WebCore::CertificateInfo&, bool hasInsecureContent, bool usedLegacyTLS, bool privateRelayed, const String& proxyName, const WebCore::ResourceResponseSource, const WebCore::SecurityOriginData&);
+
     void didFinishLoad(const Transaction::Token&);
     void didFailLoad(const Transaction::Token&);
 
@@ -247,6 +248,8 @@ private:
         bool networkRequestsInProgress { false };
 
         WebCore::CertificateInfo certificateInfo;
+        String proxyName;
+        WebCore::ResourceResponseSource source;
     };
 
     static bool isLoading(const Data&);

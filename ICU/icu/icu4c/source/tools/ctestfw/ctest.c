@@ -221,6 +221,15 @@ cleanUpTestTree(TestNode *tn)
 
 }
 
+#if APPLE_ICU_CHANGES
+// rdar://137994165
+void T_CTEST_EXPORT2
+resetRepeat()
+{
+    REPEAT_TESTS_INIT = 0;
+    REPEAT_TESTS = 1;
+}
+#endif
 
 void T_CTEST_EXPORT2
 addTest(TestNode** root,
@@ -671,27 +680,27 @@ static void go_offline_with_marker(const char *mrk) {
   }
 }
 
-static void go_offline() {
+static void go_offline(void) {
 	go_offline_with_marker(NULL);
 }
 
-static void go_offline_err() {
+static void go_offline_err(void) {
 	go_offline();
 }
 
-static void first_line_verbose() {
+static void first_line_verbose(void) {
     go_offline_with_marker("v");
 }
 
-static void first_line_err() {
+static void first_line_err(void) {
     go_offline_with_marker("!");
 }
 
-static void first_line_info() {
+static void first_line_info(void) {
     go_offline_with_marker("\"");
 }
 
-static void first_line_test() {
+static void first_line_test(void) {
 	fputs(" ", stdout);
 }
 

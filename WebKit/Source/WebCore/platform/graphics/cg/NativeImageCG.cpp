@@ -31,6 +31,7 @@
 #include "CGSubimageCacheWithTimer.h"
 #include "GeometryUtilities.h"
 #include "GraphicsContextCG.h"
+#include "ImageBuffer.h"
 #include <limits>
 #include <pal/spi/cg/CoreGraphicsSPI.h>
 
@@ -50,6 +51,15 @@ bool PlatformImageNativeImageBackend::hasAlpha() const
 DestinationColorSpace PlatformImageNativeImageBackend::colorSpace() const
 {
     return DestinationColorSpace(CGImageGetColorSpace(m_platformImage.get()));
+}
+
+Headroom PlatformImageNativeImageBackend::headroom() const
+{
+#if HAVE(HDR_SUPPORT)
+    return CGImageGetContentHeadroom(m_platformImage.get());
+#else
+    return Headroom::None;
+#endif
 }
 
 RefPtr<NativeImage> NativeImage::create(PlatformImagePtr&& image, RenderingResourceIdentifier renderingResourceIdentifier)
@@ -82,8 +92,8 @@ std::optional<Color> NativeImage::singlePixelSolidColor() const
     if (size() != IntSize(1, 1))
         return std::nullopt;
 
-    unsigned char pixel[4]; // RGBA
-    auto bitmapContext = adoptCF(CGBitmapContextCreate(pixel, 1, 1, 8, sizeof(pixel), sRGBColorSpaceRef(), static_cast<uint32_t>(kCGImageAlphaPremultipliedLast) | static_cast<uint32_t>(kCGBitmapByteOrder32Big)));
+    std::array<uint8_t, 4> pixel; // RGBA
+    auto bitmapContext = adoptCF(CGBitmapContextCreate(pixel.data(), 1, 1, 8, pixel.size(), sRGBColorSpaceRef(), static_cast<uint32_t>(kCGImageAlphaPremultipliedLast) | static_cast<uint32_t>(kCGBitmapByteOrder32Big)));
 
     if (!bitmapContext)
         return std::nullopt;
@@ -99,20 +109,7 @@ std::optional<Color> NativeImage::singlePixelSolidColor() const
 
 void NativeImage::draw(GraphicsContext& context, const FloatRect& destinationRect, const FloatRect& sourceRect, ImagePaintingOptions options)
 {
-    auto isHDRColorSpace = [](CGColorSpaceRef colorSpace) -> bool {
-ALLOW_DEPRECATED_DECLARATIONS_BEGIN
-        return CGColorSpaceIsHDR(colorSpace);
-ALLOW_DEPRECATED_DECLARATIONS_END
-    };
-
-    auto isHDRNativeImage = [&](const NativeImage& image) -> bool {
-        return isHDRColorSpace(CGImageGetColorSpace(image.platformImage().get()));
-    };
-
-    auto isHDRContext = [&](GraphicsContext& context) -> bool {
-        return isHDRColorSpace(context.colorSpace().platformColorSpace());
-    };
-
+#if !HAVE(CORE_ANIMATION_FIX_FOR_RADAR_93560567)
     auto colorSpaceForHDRImageBuffer = [](GraphicsContext& context) -> const DestinationColorSpace& {
 #if PLATFORM(IOS_FAMILY)
         // iOS typically renders into extended range sRGB to preserve wide gamut colors, but we want
@@ -126,12 +123,12 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     };
 
     auto drawHDRNativeImage = [&](GraphicsContext& context, const FloatRect& destinationRect, const FloatRect& sourceRect, ImagePaintingOptions options) -> bool {
-        if (sourceRect.isEmpty() || !isHDRNativeImage(*this))
+        if (sourceRect.isEmpty() || colorSpace().usesStandardRange())
             return false;
 
         // If context and the image have HDR colorSpaces, draw the image directly without
         // going through the workaround.
-        if (isHDRContext(context))
+        if (!context.colorSpace().usesStandardRange())
             return false;
 
         // Create a temporary ImageBuffer for destinationRect with the current scaleFator.
@@ -153,6 +150,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     // FIXME: rdar://105525195 -- Remove this HDR workaround once the system libraries can render images without clipping HDR data.
     if (drawHDRNativeImage(context, destinationRect, sourceRect, options))
         return;
+#endif
 
     context.drawNativeImageInternal(*this, destinationRect, sourceRect, options);
 }

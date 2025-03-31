@@ -13,7 +13,7 @@
 #include <ostream>
 #include <tuple>
 
-#include "third_party/googletest/src/googletest/include/gtest/gtest.h"
+#include "gtest/gtest.h"
 
 #include "av1/encoder/encoder.h"
 

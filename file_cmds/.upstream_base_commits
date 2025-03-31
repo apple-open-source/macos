@@ -76,9 +76,10 @@ gzip/zuncompress.c	freebsd	usr.bin/gzip/zuncompress.c	216f72f1416cb23de8b64ae787
 ipcrm/ipcrm.1	freebsd	usr.bin/ipcrm/ipcrm.1	d51868a30a8782c6141eba40a30239d03f89ddee
 ipcrm/ipcrm.c	freebsd	usr.bin/ipcrm/ipcrm.c	75c1df31cff84d203a3711e12c3ab54057b4c89c
 
-ln/ln.1	freebsd	bin/ln/ln.1	b01fe519c320ca4a1d6b66e10f37efecb94448fc
-ln/ln.c	freebsd	bin/ln/ln.c	8a16b7a18f5d0b031f09832fd7752fba717e2a97
-ln/symlink.7	freebsd	bin/ln/symlink.7	fbbd9655e5107c68e4e0146ff22b73d7350475bc
+ln/ln.1	freebsd	bin/ln/ln.1	90aea514c6249118e880d75972d063362f4bf492
+ln/ln.c	freebsd	bin/ln/ln.c	bee7cf9e97f6d7bdc918421a93270fa88659808b
+ln/symlink.7	freebsd	bin/ln/symlink.7	90aea514c6249118e880d75972d063362f4bf492
+ln/tests/ln_test.sh	freebsd	bin/ln/tests/ln_test.sh	bee7cf9e97f6d7bdc918421a93270fa88659808b
 
 ls/cmp.c	freebsd	bin/ls/cmp.c	8a16b7a18f5d0b031f09832fd7752fba717e2a97
 ls/extern.h	freebsd	bin/ls/extern.h	e10ba80063386211b1c74eb72b4fb0f4093e93c0
@@ -94,9 +95,9 @@ mkdir/mkdir.c	freebsd	bin/mkdir/mkdir.c	8a16b7a18f5d0b031f09832fd7752fba717e2a97
 mkfifo/mkfifo.1	freebsd	usr.bin/mkfifo/mkfifo.1	fbbd9655e5107c68e4e0146ff22b73d7350475bc
 mkfifo/mkfifo.c	freebsd	usr.bin/mkfifo/mkfifo.c	8a16b7a18f5d0b031f09832fd7752fba717e2a97
 
-install/install.1	freebsd	usr.bin/xinstall/install.1	b2c76c41be32f904179efed29c0ca04d53f3996c
-install/tests/install_test.sh	freebsd	usr.bin/xinstall/tests/install_test.sh	767c97c501ae72eb3d74bc23ddf5a1d570d8f841
-install/xinstall.c	freebsd	usr.bin/xinstall/xinstall.c	767c97c501ae72eb3d74bc23ddf5a1d570d8f841
+install/install.1	freebsd	usr.bin/xinstall/install.1	a0439a1b820fa0e742c00d095f5f5c06f5f19432
+install/xinstall.c	freebsd	usr.bin/xinstall/xinstall.c	000a533e6d1db9878296b32d1cc212e11a2cc718
+install/tests/install_test.sh	freebsd	usr.bin/xinstall/tests/install_test.sh	17dc7017d7375b3463d65adffe1eb980b0f86795
 
 mknod/mknod.8	netbsd-src	sbin/mknod/mknod.8	56b14ee00121a3a960d2fbe103c85e147ac57103
 mknod/mknod.c	netbsd-src	sbin/mknod/mknod.c	82d6c74c103b8f86833bfbcfbe0f88027f658b9c
@@ -152,6 +153,7 @@ stat/stat.c	freebsd	usr.bin/stat/stat.c	f35f34b153b5606e3dc54277273d6dcc2c16074c
 
 touch/touch.1	freebsd	usr.bin/touch/touch.1	2a1fb740484524abbbf0175a5cd26d7c66a621f5
 touch/touch.c	freebsd	usr.bin/touch/touch.c	8a16b7a18f5d0b031f09832fd7752fba717e2a97
+touch/tests/touch_test.sh	freebsd	usr.bin/touch/tests/touch_test.sh	74a4aa9b1517d92bfa85b0b1cd7d4c1262bb1ef9
 
 truncate/tests/truncate_test.sh	freebsd	usr.bin/truncate/tests/truncate_test.sh	10173270495e57efdb58bd1b91f976cf80d927ee
 truncate/truncate.1	freebsd	usr.bin/truncate/truncate.1	c2895f19347c21f3ebb853d417581603cb4fbba0

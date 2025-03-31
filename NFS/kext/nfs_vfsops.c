@@ -122,6 +122,7 @@ nfs_lck_group_info_t nfs_lck_group_infos[NLG_NUM_GROUPS] = {
 	{ NLG_OPEN_OWNERS, "nfs_open_owners" },
 	{ NLG_DELEGATIONS, "nfs_delegations" },
 	{ NLG_SEND_STATE, "nfs_send_state" },
+	{ NLG_COMMITD, "nfs_commit_thread" },
 };
 
 // this describes each of our lock mutexes
@@ -140,6 +141,7 @@ nfs_lck_mtx_info_t nfs_lck_mtx_infos[NLM_NUM_MUTEXES] = {
 	{ NLM_LOCK, NLG_LOCK, "nfs_lock_mutex" },
 	{ NLM_BUF, NLG_BUF, "nfs_buf_mutex" },
 	{ NLM_XID, NLG_XID, "nfs_xid_mutex" },
+	{ NLM_COMMITD, NLG_COMMITD, "nfs_commitd_mutex" },
 };
 
 lck_grp_t* nfs_lck_groups[NLG_NUM_GROUPS];
@@ -394,6 +396,7 @@ const struct nfs_funcs nfs3_funcs = {
 	.nf_read_rpc_async = nfs3_read_rpc_async,
 	.nf_read_rpc_async_finish = nfs3_read_rpc_async_finish,
 	.nf_readlink_rpc = nfs3_readlink_rpc,
+	.nf_readdir_rpc = nfs3_readdir_rpc,
 	.nf_write_rpc_async = nfs3_write_rpc_async,
 	.nf_write_rpc_async_finish = nfs3_write_rpc_async_finish,
 	.nf_commit_rpc = nfs3_commit_rpc,
@@ -416,6 +419,7 @@ const struct nfs_funcs nfs4_funcs = {
 	.nf_read_rpc_async = nfs4_read_rpc_async,
 	.nf_read_rpc_async_finish = nfs4_read_rpc_async_finish,
 	.nf_readlink_rpc = nfs4_readlink_rpc,
+	.nf_readdir_rpc = nfs4_readdir_rpc,
 	.nf_write_rpc_async = nfs4_write_rpc_async,
 	.nf_write_rpc_async_finish = nfs4_write_rpc_async_finish,
 	.nf_commit_rpc = nfs4_commit_rpc,
@@ -6311,6 +6315,9 @@ nfs_threads_terminate(void)
 
 	/* wake up the delayed write service thread */
 	nfs_buf_delwri_thread_wakeup();
+
+	/* wake up the commit service thread */
+	nfs_buf_commit_thread_wakeup();
 
 	nfs_cancel_thread(&nfs_request_timer_call);
 	nfs_cancel_thread(&nfs_buf_timer_call);

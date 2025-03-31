@@ -1,5 +1,6 @@
 #include "libmalloc_common.xcconfig"
 
+
 BUILD_VARIANTS = normal
 INSTALL_PATH = /System/Library/PrivateFrameworks
 PRODUCT_NAME = MallocExclavesIntrospector
@@ -13,6 +14,7 @@ SUPPORTS_TEXT_BASED_API = YES
 SYSTEM_HEADER_SEARCH_PATHS = $(inherited) $(SDKROOT)/$(SDK_INSTALL_HEADERS_ROOT)/System/Library/Frameworks/System.framework/PrivateHeaders $(SDKROOT)/usr/local/standalone/cL4-future/include
 
 GCC_PREPROCESSOR_DEFINITIONS = $(inherited) L4_CONFIG_PLAT_EXCLAVE_GENERIC MALLOC_TARGET_EXCLAVES_INTROSPECTOR=1
+
 
 EXCLUDED_SOURCE_FILE_NAMES = src/xzone/xzone_introspect_stub.c
 EXCLUDED_SOURCE_FILE_NAMES[arch=x86_64] = src/xzone/xzone_introspect.c

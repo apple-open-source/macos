@@ -35,6 +35,7 @@
 
 #include "Event.h"
 #include "FrameSnapshotting.h"
+#include "ImageBuffer.h"
 #include "InspectorAnimationAgent.h"
 #include "InspectorCPUProfilerAgent.h"
 #include "InspectorClient.h"
@@ -61,8 +62,8 @@
 #include <wtf/text/MakeString.h>
 
 #if PLATFORM(IOS_FAMILY)
-#include "RuntimeApplicationChecks.h"
 #include "WebCoreThreadInternal.h"
+#include <wtf/RuntimeApplicationChecks.h>
 #endif
 
 #if PLATFORM(COCOA)
@@ -84,7 +85,7 @@ static CFRunLoopRef currentRunLoop()
     // we still allow this, see <rdar://problem/7403328>. Since the race condition and subsequent
     // crash are especially troublesome for iBooks, we never allow the observer to be added to the
     // main run loop in iBooks.
-    if (CocoaApplication::isIBooks())
+    if (WTF::CocoaApplication::isIBooks())
         return WebThreadRunLoop();
 #endif
     return CFRunLoopGetCurrent();
@@ -238,7 +239,7 @@ void InspectorTimelineAgent::internalStart(std::optional<int>&& maxCallStackDept
 
     m_frontendDispatcher->recordingStarted(timestamp());
 
-    if (auto* client = m_inspectedPage.inspectorController().inspectorClient())
+    if (auto* client = m_inspectedPage->inspectorController().inspectorClient())
         client->timelineRecordingChanged(true);
 }
 
@@ -270,7 +271,7 @@ void InspectorTimelineAgent::internalStop()
 
     m_frontendDispatcher->recordingStopped(timestamp());
 
-    if (auto* client = m_inspectedPage.inspectorController().inspectorClient())
+    if (auto* client = m_inspectedPage->inspectorController().inspectorClient())
         client->timelineRecordingChanged(false);
 }
 
@@ -675,14 +676,14 @@ void InspectorTimelineAgent::captureScreenshot()
     SetForScope isTakingScreenshot(m_isCapturingScreenshot, true);
 
     auto snapshotStartTime = timestamp();
-    auto* localMainFrame = dynamicDowncast<LocalFrame>(m_inspectedPage.mainFrame());
+    RefPtr localMainFrame = m_inspectedPage->localMainFrame();
     if (!localMainFrame)
         return;
 
     auto viewportRect = localMainFrame->view()->unobscuredContentRect();
     if (auto snapshot = snapshotFrameRect(*localMainFrame, viewportRect, { { }, ImageBufferPixelFormat::BGRA8, DestinationColorSpace::SRGB() })) {
         auto snapshotRecord = TimelineRecordFactory::createScreenshotData(snapshot->toDataURL("image/png"_s));
-        pushCurrentRecord(WTFMove(snapshotRecord), TimelineRecordType::Screenshot, false, localMainFrame, snapshotStartTime);
+        pushCurrentRecord(WTFMove(snapshotRecord), TimelineRecordType::Screenshot, false, localMainFrame.get(), snapshotStartTime);
         didCompleteCurrentRecord(TimelineRecordType::Screenshot);
     }
 }

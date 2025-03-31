@@ -46,14 +46,6 @@ export INTERNALINSTALL = NO
 endif
 export BINDIR = $(INSTALLPREFIX)/bin
 
-installsrc: afterinstallsrc
-
-afterinstallsrc:
-	for i in $(SRCROOT)/Modules/*; do \
-	    [ ! -d $$i ] || $(MAKE) -C $$i afterinstallsrc Project=$(Project) || exit 1; \
-	done
-	$(MAKE) -C $(SRCROOT)/tmpprefix afterinstallsrc
-
 build::
 	$(MKDIR) $(OBJROOT)/$(OSL)
 	$(MKDIR) $(OBJROOT)/$(OSV)

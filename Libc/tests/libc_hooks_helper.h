@@ -111,7 +111,7 @@ static void libc_hooks_log_dump(libc_hooks_log_t log) {
 //   to define that size by observing it empirically and recording it here so that we can
 //   have an expectation for how much of a locale_t is being introspected. Observations are
 //   recorded here:
-#if TARGET_OS_WATCH
+#if TARGET_OS_WATCH && __ILP32__
 #define SIZE_LOCALE_T 1400
 #else
 #define SIZE_LOCALE_T 1472

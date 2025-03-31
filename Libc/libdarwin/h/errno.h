@@ -29,11 +29,14 @@
 #ifndef __DARWIN_ERRNO_H
 #define __DARWIN_ERRNO_H
 
+#include <_bounds.h>
 #include <os/base.h>
 #include <os/api.h>
 #include <sys/errno.h>
 #include <sys/cdefs.h>
 #include <sysexits.h>
+
+_LIBC_SINGLE_BY_DEFAULT()
 
 #if DARWIN_TAPI
 #include "tapi.h"

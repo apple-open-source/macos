@@ -22,7 +22,7 @@
 
 [SharedPreferencesNeedsConnection]
 messages -> TestWithEnabledBy {
-    AlwaysEnabled(String url)
+    [ExceptionForEnabledBy] AlwaysEnabled(String url)
     [EnabledBy=SomeFeature] ConditionallyEnabled(String url)
     [EnabledBy=SomeFeature && OtherFeature] ConditionallyEnabledAnd()
     [EnabledBy=SomeFeature || OtherFeature] ConditionallyEnabledOr()

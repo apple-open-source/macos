@@ -223,6 +223,29 @@ x_flag_cleanup()
 	mdconfig -d -u $md_device
 }
 
+#ifdef __APPLE__
+atf_test_case n_flag
+n_flag_head() {
+	atf_set "descr" "Verify that chgrp -n interprets the ID numerically."
+	atf_set "require.user" "root"
+}
+n_flag_body() {
+	GNAME=31337
+	GID=9999
+	if ! dscl /Local/Default -read /Groups/$GNAME >/dev/null 2>&1 ; then
+		atf_check dscl /Local/Default -create /Groups/$GNAME
+		atf_check dscl /Local/Default -create /Groups/$GNAME \
+		    PrimaryGroupID $GID
+	fi
+	touch foo
+	atf_check chgrp $GNAME foo
+	atf_check -o inline:"$GID\n" stat -f %g foo
+	atf_check chgrp -n $GNAME foo
+	atf_check -o inline:"$GNAME\n" stat -f %g foo
+
+}
+#endif /* __APPLE__ */
+
 atf_init_test_cases()
 {
 	atf_add_test_case RH_flag
@@ -232,4 +255,7 @@ atf_init_test_cases()
 	atf_add_test_case h_flag
 	atf_add_test_case v_flag
 	atf_add_test_case x_flag
+#ifdef __APPLE__
+	atf_add_test_case n_flag
+#endif /* __APPLE__ */
 }

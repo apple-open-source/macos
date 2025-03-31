@@ -118,10 +118,12 @@ static ExceptionOr<void> validateCountryCode(const String& countryCode)
     if (!countryCode)
         return Exception { ExceptionCode::TypeError, "Missing country code."_s };
 
-    for (auto *countryCodePtr = uloc_getISOCountries(); *countryCodePtr; ++countryCodePtr) {
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
+    for (auto* countryCodePtr = uloc_getISOCountries(); *countryCodePtr; ++countryCodePtr) {
         if (countryCode == StringView::fromLatin1(*countryCodePtr))
             return { };
     }
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
 
     return Exception { ExceptionCode::TypeError, makeString("\""_s, countryCode, "\" is not a valid country code."_s) };
 }

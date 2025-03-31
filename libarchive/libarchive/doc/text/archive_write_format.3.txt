@@ -1,4 +1,4 @@
-ARCHIVE_WRITE_FORMAT(3)  BSD Library Functions Manual  ARCHIVE_WRITE_FORMAT(3)
+ARCHIVE_WRITE_FORMAT(3)	 BSD Library Functions Manual  ARCHIVE_WRITE_FORMAT(3)
 
 NAME
      archive_write_set_format, archive_write_set_format_7zip,
@@ -16,7 +16,7 @@ NAME
      archive_write_set_format_shar, archive_write_set_format_shar_dump,
      archive_write_set_format_ustar, archive_write_set_format_v7tar,
      archive_write_set_format_warc, archive_write_set_format_xar,
-     archive_write_set_format_zip -- functions for creating archives
+     archive_write_set_format_zip — functions for creating archives
 
 LIBRARY
      Streaming Archive Library (libarchive, -larchive)
@@ -120,7 +120,7 @@ DESCRIPTION
 
      archive_write_set_format_filter_by_ext()
 	     archive_write_set_format_filter_by_ext_def()
-	     Sets both filters and format based on the output filename.  Sup-
+	     Sets both filters and format based on the output filename.	 Sup‐
 	     ported extensions: .7z, .zip, .jar, .cpio, .iso, .a, .ar, .tar,
 	     .tgz, .tar.gz, .tar.bz2, .tar.xz
 
@@ -142,7 +142,7 @@ DESCRIPTION
 	     archive_write_set_format_ustar() archive_write_set_format_v7tar()
 	     archive_write_set_format_warc() archive_write_set_format_xar()
 	     archive_write_set_format_zip()
-	     Set the format as specified.  More details on the formats sup-
+	     Set the format as specified.  More details on the formats sup‐
 	     ported by libarchive can be found in the libarchive-formats(5)
 	     manual page.
 

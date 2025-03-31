@@ -185,41 +185,45 @@ id{
             west{"{0} barat"}
         }
         digital{
+            byte{
+                dnam{"bita"}
+                other{"{0} bita"}
+            }
             gigabit{
                 dnam{"gigabit"}
                 other{"{0} gigabit"}
             }
             gigabyte{
-                dnam{"gigabyte"}
-                other{"{0} gigabyte"}
+                dnam{"gigabita"}
+                other{"{0} gigabita"}
             }
             kilobit{
                 dnam{"kilobit"}
                 other{"{0} kilobit"}
             }
             kilobyte{
-                dnam{"kilobyte"}
-                other{"{0} kilobyte"}
+                dnam{"kilobita"}
+                other{"{0} kilobita"}
             }
             megabit{
                 dnam{"megabit"}
                 other{"{0} megabit"}
             }
             megabyte{
-                dnam{"megabyte"}
-                other{"{0} megabyte"}
+                dnam{"megabita"}
+                other{"{0} megabita"}
             }
             petabyte{
-                dnam{"petabyte"}
-                other{"{0} petabyte"}
+                dnam{"petabita"}
+                other{"{0} petabita"}
             }
             terabit{
                 dnam{"terabit"}
                 other{"{0} terabit"}
             }
             terabyte{
-                dnam{"terabyte"}
-                other{"{0} terabyte"}
+                dnam{"terabita"}
+                other{"{0} terabita"}
             }
         }
         duration{
@@ -255,6 +259,11 @@ id{
             nanosecond{
                 dnam{"nanodetik"}
                 other{"{0} nanodetik"}
+            }
+            night{
+                dnam{"malam"}
+                other{"{0} malam"}
+                per{"{0} per malam"}
             }
             quarter{
                 dnam{"kuartal"}
@@ -611,6 +620,10 @@ id{
                 dnam{"knot"}
                 other{"{0} knot"}
             }
+            light-speed{
+                dnam{"cahaya"}
+                other{"{0} cahaya"}
+            }
             meter-per-second{
                 dnam{"meter per detik"}
                 other{"{0} meter per detik"}
@@ -879,6 +892,11 @@ id{
                 other{"{0}m"}
                 per{"{0}/m"}
             }
+            night{
+                dnam{"malam"}
+                other{"{0} malam"}
+                per{"{0}/malam"}
+            }
             quarter{
                 other{"{0}k"}
             }
@@ -991,6 +1009,10 @@ id{
         speed{
             kilometer-per-hour{
                 other{"{0} km/j"}
+            }
+            light-speed{
+                dnam{"cahaya"}
+                other{"{0} cahaya"}
             }
             meter-per-second{
                 dnam{"m/dtk"}
@@ -1140,32 +1162,36 @@ id{
             west{"{0} B"}
         }
         digital{
+            byte{
+                dnam{"bita"}
+                other{"{0} bita"}
+            }
             gigabit{
                 dnam{"Gbit"}
             }
             gigabyte{
-                dnam{"GByte"}
+                dnam{"GBita"}
             }
             kilobit{
                 dnam{"kbit"}
             }
             kilobyte{
-                dnam{"kByte"}
+                dnam{"kBita"}
             }
             megabit{
                 dnam{"Mbit"}
             }
             megabyte{
-                dnam{"MByte"}
+                dnam{"MBita"}
             }
             petabyte{
-                dnam{"PByte"}
+                dnam{"PBita"}
             }
             terabit{
                 dnam{"Tbit"}
             }
             terabyte{
-                dnam{"TByte"}
+                dnam{"TBita"}
             }
         }
         duration{
@@ -1208,6 +1234,11 @@ id{
             nanosecond{
                 dnam{"nanodtk"}
                 other{"{0} ndtk"}
+            }
+            night{
+                dnam{"malam"}
+                other{"{0} malam"}
+                per{"{0}/malam"}
             }
             quarter{
                 dnam{"krt"}
@@ -1400,6 +1431,10 @@ id{
             kilometer-per-hour{
                 dnam{"km/jam"}
                 other{"{0} km/j"}
+            }
+            light-speed{
+                dnam{"cahaya"}
+                other{"{0} cahaya"}
             }
             meter-per-second{
                 dnam{"meter/dtk"}

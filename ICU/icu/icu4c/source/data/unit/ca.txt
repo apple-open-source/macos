@@ -183,6 +183,7 @@ ca{
             }
             milligram-ofglucose-per-deciliter{
                 dnam{"mil·ligrams per decilitre"}
+                gender{"masculine"}
                 one{"{0} mil·ligram per decilitre"}
                 other{"{0} mil·ligrams per decilitre"}
             }
@@ -370,6 +371,13 @@ ca{
                 one{"{0} nanosegon"}
                 other{"{0} nanosegons"}
             }
+            night{
+                dnam{"nits"}
+                gender{"feminine"}
+                one{"{0} nit"}
+                other{"{0} nits"}
+                per{"{0} per nit"}
+            }
             quarter{
                 dnam{"trimestres"}
                 gender{"masculine"}
@@ -452,6 +460,7 @@ ca{
             }
             kilocalorie{
                 dnam{"quilocalories"}
+                gender{"feminine"}
                 one{"{0} quilocaloria"}
                 other{"{0} quilocalories"}
             }
@@ -665,6 +674,7 @@ ca{
                 other{"{0} picòmetres"}
             }
             point{
+                gender{"masculine"}
                 one{"{0} punt tipogràfic"}
                 other{"{0} punts tipogràfics"}
             }
@@ -864,6 +874,7 @@ ca{
             }
             millimeter-ofhg{
                 dnam{"mil·límetres de mercuri"}
+                gender{"masculine"}
                 one{"{0} mil·límetre de mercuri"}
                 other{"{0} mil·límetres de mercuri"}
             }
@@ -895,6 +906,12 @@ ca{
                 dnam{"nusos"}
                 one{"{0} nus"}
                 other{"{0} nusos"}
+            }
+            light-speed{
+                dnam{"llum"}
+                gender{"feminine"}
+                one{"{0} llum"}
+                other{"{0} llum"}
             }
             meter-per-second{
                 dnam{"metres per segon"}
@@ -1209,6 +1226,12 @@ ca{
                 one{"{0} m"}
                 other{"{0} m"}
             }
+            night{
+                dnam{"nit"}
+                one{"{0}/nit"}
+                other{"{0}/nit"}
+                per{"{0}/nit"}
+            }
             second{
                 dnam{"s"}
                 one{"{0} s"}
@@ -1383,6 +1406,11 @@ ca{
             }
         }
         speed{
+            light-speed{
+                dnam{"llum"}
+                one{"{0} llum"}
+                other{"{0} llum"}
+            }
             meter-per-second{
                 dnam{"m/s"}
                 one{"{0}m/s"}
@@ -1575,6 +1603,12 @@ ca{
                 one{"{0} mes"}
                 other{"{0} m"}
             }
+            night{
+                dnam{"nits"}
+                one{"{0} nit"}
+                other{"{0} nits"}
+                per{"{0}/nit"}
+            }
             quarter{
                 dnam{"trim."}
                 one{"{0} trim."}
@@ -1764,6 +1798,13 @@ ca{
                 dnam{"mmHg"}
                 one{"{0} mmHg"}
                 other{"{0} mmHg"}
+            }
+        }
+        speed{
+            light-speed{
+                dnam{"llum"}
+                one{"{0} llum"}
+                other{"{0} llum"}
             }
         }
         temperature{

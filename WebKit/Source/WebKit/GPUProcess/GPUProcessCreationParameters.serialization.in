@@ -37,8 +37,6 @@
     bool shouldUseModernAVContentKeySession;
 #endif
 
-    ProcessID parentPID;
-
 #if USE(SANDBOX_EXTENSIONS_FOR_CACHE_AND_TEMP_DIRECTORY_ACCESS)
     WebKit::SandboxExtensionHandle containerCachesDirectoryExtensionHandle;
     WebKit::SandboxExtensionHandle containerTemporaryDirectoryExtensionHandle;
@@ -63,6 +61,10 @@
 #endif
 
     Vector<String> overrideLanguages;
+#if PLATFORM(COCOA)
+    bool enableMetalDebugDeviceForTesting;
+    bool enableMetalShaderValidationForTesting;
+#endif
 };
 
 #endif

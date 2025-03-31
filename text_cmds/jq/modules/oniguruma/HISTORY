@@ -1,5 +1,341 @@
 History
 
+2022/04/2X: Version 6.9.8
+
+2022/04/11: implement whole option: (?C)
+2022/04/07: implement whole option: (?L)
+2022/04/04: implement whole option: (?I)
+2022/03/15: fix: Insufficient backreference matching for the same name groups
+2022/02/22: fix #250: ONIG_ESCAPE_REGEX_T_COLLISION doesn't work
+2021/10/17: Update to Unicode 14.0
+2021/08/29: fix: use CMAKE_INSTALL_LIBDIR as install lib dir, in some
+            platforms, lib could be installed in lib64 dir but the .pc file
+            is installed in lib dir.
+2021/08/22: fix: Stack overflow for some very long patterns
+2021/08/22: fix: Issue 37442 in oss-fuzz: Undefined-shift
+2021/08/05: fix #239: CMake build fails to detect alloca on some platforms
+            such as FreeBSD
+2021/08/04: CMake: Make documentation and examples optional
+2021/05/20: fix #235: 6.9.7 can't compile with Visual Studio 2005
+
+2021/04/15: Version 6.9.7 revised 1
+
+2021/04/14: fix: replace UChar to OnigUChar in oniguruma.h
+
+2021/04/14: Version 6.9.7
+
+2021/03/31: Release Candidate 1 for Version 6.9.7
+
+2021/03/23: fix Issue 32340, 32345, 32355 in oss-fuzz
+2021/03/12: fix invalid optimization info for if-pattern (?(cond)...)
+2021/02/21: NEW API: ONIG_OPTION_CALLBACK_EACH_MATCH
+2021/02/02: fix Issue 30144 in oss-fuzz: Timeout
+2021/01/18: NEW API: ONIG_SYNTAX_PYTHON
+2020/12/20: fix Issue 28795 in oss-fuzz: Timeout
+2020/12/13: fix Issue 28554 in oss-fuzz: Timeout, check very inefficient patterns at tune_tree(NODE_CALL)
+2020/12/04: fix Issue 28259 in oss-fuzz: Timeout
+2020/12/03: fix invalid reduction of nested quantifiers (?:<expr>+?)* and (?:<expr>+?)+
+2020/12/01: fix Issue 28104 in oss-fuzz: Timeout
+2020/11/28: NEW API: ONIG_OPTION_IGNORECASE_IS_ASCII
+2020/11/07: fix Issue 27015 in oss-fuzz: Timeout
+
+2020/11/05: Version 6.9.6
+
+2020/11/01: fix Issue 26798 in oss-fuzz: Timeout
+2020/10/27: fix Issue 26675 in oss-fuzz: Timeout
+
+2020/10/21: Release Candidate 4 for Version 6.9.6
+
+2020/10/20: #221: revert cbe9f8b and 8155473: Out-of-bounds write in #207 (Issues found with Coverity) is fake
+
+2020/10/16: Release Candidate 3 for Version 6.9.6
+
+2020/10/15: fix #220: autotools not building DLL using msys2 and mingw64 on windows 10
+2020/10/12: fix #219: Binary incompatibilty between 6.9.5_rev1 -> 6.9.2_rc2: reg_number_of_names
+
+2020/10/09: Release Candidate 2 for Version 6.9.6
+
+2020/10/09: fix #216: build fails on Windows
+
+2020/10/07: Release Candidate 1 for Version 6.9.6
+
+2020/09/30: add configure option --enable-binary-compatible-posix-api
+2020/09/24: fix: Issue 25893 in oss-fuzz: Stack-buffer-overflow
+2020/09/22: fix Issues found with Coverity (Issue #207)
+2020/08/27: fix Issue #204: define uint32_t and uint64_t for Visual Studio older than 2010
+2020/08/04: fix Issue 24544 in oss-fuzz: Timeout
+2020/07/21: add USE_CHECK_VALIDITY_OF_STRING_IN_TREE (fix Issue 24276 in oss-fuzz: Undefined-shift)
+2020/07/20: fix: Issue 24268 in oss-fuzz: Timeout
+2020/07/17: fix: Issue 24112 in oss-fuzz: Undefined-shift
+2020/07/14: fix: Issue 24066 in oss-fuzz: Timeout
+2020/07/05: fix: Incomplete application of ONIG_OPTION_NOTBOL to \A
+2020/07/05: fix: Incomplete application of ONIG_OPTION_NOT_END_STRING to \Z (Issue #192)
+2020/07/05: fix: Incomplete application of ONIG_OPTION_NOTEOL to \z
+2020/07/05: fix: Incomplete application of ONIG_OPTION_NOTEOL to \Z
+2020/07/01: add ONIG_OPTION_NOT_END_STRING (Issue #198)
+2020/06/28: add ONIG_OPTION_NOT_BEGIN_POSITION (Issue #198)
+2020/06/28: add ONIG_OPTION_NOT_BEGIN_STRING
+2020/06/28: fix: Issue 23754 in oss-fuzz: Timeout
+2020/06/21: fix: Issue 23525 in oss-fuzz: Timeout
+2020/06/15: fix: Issue 23311 in oss-fuzz: Timeout
+2020/06/03: fix: Issue 22925 in oss-fuzz: Index-out-of-bounds
+2020/06/03: fix: Issue 22917 in oss-fuzz: Out-of-memory
+2020/06/02: fix: Issue 22916 in oss-fuzz: Timeout
+2020/05/29: fix: Issue 22744 in oss-fuzz: Integer-overflow
+2020/05/28: fix: Issue 22658 in oss-fuzz: check backref with level
+2020/05/28: fix: Issue 22533 in oss-fuzz: memory leak
+2020/05/23: fix: Issue 22393 in oss-fuzz: Integer-overflow
+2020/05/13: fix: Issue 22154 in oss-fuzz: When the option FIND_LONGEST is specified, match_at() returns ONIG_MISMATCH unless there is no need to search any more.
+2020/05/06: Add SOVERSION info to library when using cmake
+2020/05/04: fix: 22008 in oss-fuzz
+2020/05/04: fix: 21998 in oss-fuzz
+2020/05/03: fix: 21944, 21977 in oss-fuzz
+
+2020/04/26: Version 6.9.5 revised 1
+
+2020/04/24: fix #192: Unexpected regex match
+
+2020/04/20: Version 6.9.5
+
+2020/04/12: Release Candidate 2 for Version 6.9.5
+2020/04/09: fix a problem (found by oss-fuzz test on my PC)
+2020/04/05: Release Candidate 1 for Version 6.9.5
+2020/03/30: remove src/*.py and src/*.sh from distribution files
+2020/03/27: NEW: Code point sequence notation \x{HHHH ...}, \o{OOOO ...}
+2020/03/24: NEW API: maximum nesting level of subexp call
+2020/03/22: #165: change enable-posix-api default from YES to NO
+2020/03/15: update Unicode version to 13.0.0
+2020/03/10: add test_back.c
+2020/03/08: tune output of debug in print_optimize_info()
+2020/03/02: fix #186: Allow regset search to succeed at end of string
+2020/02/13: NEW API: retry-limit-in-search functions
+2020/01/20: add ONIG_SYN_VARIABLE_LEN_LOOK_BEHIND flag
+2019/12/27: add USE_REGSET switch
+2019/12/20: remove OPTIMIZE_STR_CASE_FOLD
+2019/12/13: add test/test_syntax.c
+2019/12/13: add ONIG_SYN_ISOLATED_OPTION_CONTINUE_BRANCH flag
+
+
+2019/11/29: Version 6.9.4
+
+2019/11/22: Release Candidate 3 for Version 6.9.4
+2019/11/20: fix a problem found by libFuzzer test
+2019/11/14: Release Candidate 2 for Version 6.9.4
+2019/11/12: fix integer overflow by nested quantifier
+2019/11/11: fix CVE-2019-19012: Integer overflow related to reg->dmax in search_in_range()
+2019/11/07: fix CVE-2019-19203: heap-buffer-overflow in gb18030_mbc_enc_len()
+2019/11/06: fix CVE-2019-19204: heap-buffer-overflow in fetch_interval_quantifier()
+2019/11/06: add HAVE_INTTYPES_H into config.h.windows.in and config.h.win{32,64}
+2019/11/06: add HAVE_STDINT_H into config.h.win{32,64}
+2019/11/05: Release Candidate 1 for Version 6.9.4
+2019/10/31: Update Unicode Emoji version to 12.1 (Nothing data changed)
+2019/10/29: implement USE_REPEAT_AND_EMPTY_CHECK_LOCAL_VAR configuration
+2019/10/18: re-implement case fold conversion
+2019/10/04: fix #156: Heap buffer overflow in match_at() with case-insensitive match
+2019/09/30: NEW API: add onig_regset_replace()
+2019/09/30: change Unicode VERSION value format
+2019/09/20: NEW API: add regset functions
+2019/09/20: add data ensure check before peek string value in OP_PUSH_IF_PEEK_NEXT
+2019/09/20: fix loose code in encode-harness.c
+2019/08/13: fix heap-buffer-overflow
+2019/08/13: Add a macro to disable direct threading in the match engine (PR#149)
+
+2019/08/06: Version 6.9.3 (secirity fix release)
+
+2019/07/30: add ONIG_SYN_ALLOW_INVALID_CODE_END_OF_RANGE_IN_CC
+2019/07/29: add STK_PREC_READ_START/END stack type
+2019/07/29: Fix #147: Stack Exhaustion Problem caused by some parsing functions
+2019/07/11: add a dictionary file for libfuzzer
+2019/07/07: add harnesses directory
+2019/07/05-2019/07/29: fix many problems found by libfuzzer programs
+2019/06/27: deprecate onig_new_deluxe()
+2019/06/27: Fix CVE-2019-13224: don't allow different encodings for onig_new_deluxe()
+2019/06/27: Fix CVE-2019-13225: problem in converting if-then-else pattern
+
+2019/05/07: Version 6.9.2 (same as Release Candidate 3)
+
+2019/04/23: Release Candidate 3 for 6.9.2
+2019/04/23: add doc/SYNTAX.md into distribution file
+2019/04/09: Release Candidate 2 for 6.9.2
+2019/04/09: fix #139: UAF in match_at()
+2019/04/01: Release Candidate 1 for 6.9.2
+2019/04/01: update Unicode version to 12.1.0 (draft)
+2019/03/29: allow {n,m} (n>m) as possessive interval
+2019/03/25: add ONIG_SYN_OP2_OPTION_ONIGURUMA
+2019/03/22: add new options ONIG_OPTION_TEXT_SEGMENT_EXTENDED_GRAPHEME_CLUSTER and
+            ONIG_OPTION_TEXT_SEGMENT_WORD
+2019/03/21: PR #137: fix cross-compilation
+2019/03/20: update Unicode version to 12.0.0
+2019/03/17: add doc/SYNTAX.md
+2019/03/13: {n,m}+ and {n,m}? are possessive and reluctant range operator
+            in Perl syntax
+2019/03/04: fix #132: don't execute testp if ENABLE_POSIX_API == no
+2019/02/28: re-implement bytecode by using Operation struct
+2019/02/26: fix #130: Build error on UWP with VS2017
+2019/02/03: PR #128: regerror/toascii: do not attempt to serialize NULL pointer
+2019/01/30: Build breaks without autoreconf #73
+2019/01/02: fix #127: Windows VS 2008 build errors
+2018/12/19: fix #126: Unable to compile when USE_CALLOUT is not defined
+
+2018/12/11: Version 6.9.1
+
+2018/10/08: use ENC_FLAG_SKIP_OFFSET_XXX values
+2018/10/06: UTF-8 supports code range from 0x0000 to 0x10FFFF
+            (https://tools.ietf.org/html/rfc3629)
+2018/10/05: speed improvement
+2018/10/03: use OPTIMIZE_STR_CASE_FOLD_FAST
+2018/10/01: convert CRLF line endings to LF
+2018/09/27: set SIZEOF_SIZE_T for windows platforms
+2018/09/22: use Sunday quick search algorithm instead of Boyer-Moor-Horspool
+2018/09/20: introduce threaded code into match_at()
+2018/09/17: remove HAVE_STRINGS_H
+2018/09/16: remove HAVE_PROTOTYPES and HAVE_STDARG_PROTOTYPES
+2018/09/14: add a command line option '-gc' for make_unicode_property_data.py.
+2018/09/08: remove AC_HEADER_STDC
+2018/09/06: remove AC_OUTPUT macro call
+2018/09/06: remove AC_FUNC_MEMCMP, AC_HEADER_TIME, AC_C_CONST, HAVE__SETJMP and
+            HAVE_STRING_H
+2018/09/05: remove HAVE_LIMITS_H, HAVE_FLOAT_H and HAVE_STDLIB_H
+
+2018/09/03: Version 6.9.0
+
+2018/08/24: add Unicode Emoji properties
+2018/08/24: update Unicode version 11.0.0
+2018/08/21: support gperf 3.1 instead of 3.0.4
+2018/08/07: add ENABLE_POSIX_API switch into src/Makefile.windows
+2018/08/02: add make_win.bat and src/config.h.windows.in
+2018/06/25: add ENABLE_POSIX_API option into CMakeLists.txt
+2018/06/04: add .travis.yml (for TravisCI)
+
+2018/04/17: Version 6.8.2
+
+2018/04/13: add doc/CALLOUTS.API.ja
+2018/04/10: add doc/CALLOUTS.API
+2018/04/10: fix #87: Read unknown address in onig_error_code_to_str()
+2018/04/06: fix #86: typedef StateCheckNumType is unused
+2018/04/02: update automake 1.16.1
+2018/03/30: fix #84: stack-buffer-overflow in mbc_enc_len
+2018/03/28: PR #83: Improve CMake build
+2018/03/21: switch uses of UChar to OnigUChar in oniguruma.h (#80)
+
+2018/03/19: Version 6.8.1
+
+2018/03/19: update LTVERSION from 4:0:0 to 5:0:0
+2018/03/19: add flag, sb_range etc.. into OnigEncodingType
+2018/03/19: move regex structure from oniguruma.h to regint.h
+2018/03/19: ONIGENC_CTYPE_XXX to be enum (Issue #33)
+
+2018/03/16: Version 6.8.0
+
+2018/03/12: add doc/CALLOUTS.BUILTIN for builtin callouts
+2018/03/08: allow abbreviated notation for callouts (?(*name)..|..) (?(?{...})..|..)
+2018/03/02: NEW API: move onigenc_strdup() from regenc.h to oniguruma.h
+2018/02/21: remove all USE_COMBINATION_EXPLOSION_CHECK
+2018/02/15: fix #78: bad definition of PV_()
+2018/02/14: add configure option --enable-posix-api (for #77)
+2018/02/08: implement callouts of name
+2018/02/01: implement callouts of contents
+2018/01/30: define ONIGURUMA_VERSION_INT
+2018/01/29: enable USE_TRY_IN_MATCH_LIMIT by default
+2018/01/29: NEW API: onig_search_with_param() onig_match_with_param()
+2018/01/26: remove include windows.h from oniguruma.h
+
+2018/01/26: Version 6.7.1
+
+2018/01/25: disable USE_TRY_IN_MATCH_LIMIT by default
+2018/01/24: implement mechanism of try-in-match-limit
+2018/01/24: #76: rename EXPORT to ONIGURUMA_EXPORT
+2018/01/15: #73: update for automake 1.15.1
+2018/01/14: #74: update description of README
+2018/01/10: #72: Correct spelling and grammar in FAQ (English)
+2017/12/25: remove USE_COMBINATION_EXPLOSION_CHECK codes
+
+2017/12/11: Version 6.7.0
+
+2017/12/08: Disable \N and \O on ONIG_SYNTAX_RUBY
+2017/12/08: add ONIG_SYNTAX_ONIGURUMA (default syntax)
+2017/12/05: restructure StackType
+2017/11/13: implement subexp calls (?R), (?&name), (?-n), (?+n) for Perl syntax
+2017/09/25: use string pool of gperf for Unicode Property lookup function
+2017/09/16: fix #70: an empty greedy regex and a word boundary (.*\b) fails
+2017/09/13: remove a stack type STK_POS
+2017/09/08: fix #69: add a declaration of onig_end()
+2017/09/07: fix #68: Compilation failure in out-of-source build
+2017/09/03: [new] hexadecimal codepoint \uHHHH
+
+2017/08/30: Version 6.6.1
+
+2017/08/29: fix definition of \X to (?>\O(?:\Y\O)*)
+
+2017/08/28: Version 6.6.0
+
+2017/08/26: fix #67: can't compile with Visual Studio 2005
+2017/08/24: rename Absent clear to Range clear
+2017/08/21: [new] Extended Grapheme Cluster \X and boundary \y, \Y
+2017/08/17: fix: invalid index(ctype) value assigned to Unicode Block properties
+2017/08/16: --enable-crnl-as-line-terminator to be deprecated
+2017/08/15: [new] ASCII only mode options (?WDSP)
+2017/08/14: [new] ONIG_OPTION_XXXX_IS_ASCII  options
+2017/08/11: disable OP_CCLASS_NODE
+2017/08/11: [spec] Absent clear restore previous range value at backtrack
+2017/08/07: optimize for simple one char repetition in Absent expression
+2017/08/07: fix: invalid impl. for reluctant repetition in Absent expression
+2017/08/04: remove compile switch USE_NAMED_GROUP
+
+2017/08/03: Version 6.5.0
+
+2017/07/30: [new] support Absent clear (Absent functions)
+2017/07/25: abolish configure option: --enable-combination-explosion-check
+2017/07/23: [new] support Absent functions (?~...)
+2017/07/14: fix #65: SIZEOF_SIZE_T doesn't exist on certain architecutres
+2017/07/11: [new] support \O (true anychar)
+2017/07/10: [new] support \K (keep)
+2017/07/10: add new node type: NODE_GIMMICK
+2017/07/07: [new] support \N (no newline)
+2017/07/05: [new] support \R (general newline)
+2017/07/05: [new] support if-then-else syntax
+2017/07/04: [new] support backref validity checker
+
+2017/07/03: Version 6.4.0
+
+2017/06/30: fix memory leaks
+2017/06/29: fix memory leaks
+2017/06/28: change encoding of doc/XXXX.ja from EUC-JP to UTF-8
+2017/06/28: update doc/RE, and doc/RE.ja
+2017/06/26: fix fatal bug of endless repeat check on Windows
+2017/06/26: PR #62 : add check for return values
+2017/06/23: [new] support call zero (\g{0})
+2017/06/23: [new] support relative call by positive number
+2017/06/23: [new] support relative back-reference by positive number
+2017/06/15: fix #60 : check value type
+2017/06/02: change output format for ONIG_DEBUG_COMPILE and ONIG_DEBUG_MATCH
+
+2017/05/29: Version 6.3.0
+
+2017/05/24: fix #60 : invalid state(CCS_VALUE) in parse_char_class()
+2017/05/24: fix #59 : access to invalid address by reg->dmax value
+2017/05/23: fix invalid increment of start position in onig_scan()
+2017/05/23: fix #58 : access to invalid address by reg->dmin value
+2017/05/23: fix #57 : DATA_ENSURE() check must be before data access
+2017/05/22: fix #56 : return invalid result for codepoint 0xFFFFFFFF
+2017/05/19: [new] add \o{17777777777} syntax.
+2017/05/19: fix #55 : Byte value expressed in octal must be smaller than 256
+
+2017/04/08: Version 6.2.0
+
+2017/03/15: fix: size in xmemcpy in stack_double (PR #51)
+2017/02/21: Initialize return value
+2017/01/03: NEW API: add onig_set_capture_num_limit()
+2017/01/03: change MemNumType from short int to int
+2016/12/13: fix: [0-9-a] was not allowed as [0-9\-a]
+2016/12/13: fix: illegal capture after recursive call
+2016/12/13: fix: problem with optimization of \z
+2016/12/13: fix: .* optimization
+2016/12/13: Set a limit of parser recursion
+2016/12/12: fix; that warnings are not shown properly
+2016/12/12: fix: /[a-c#]+\W/ =~ "def#" fails when encoding is UTF-16/32
+2016/12/12: fix: /[\x{0}-X]/i doesn't match properly when UTF-16/32 is used.
+
 2016/12/11: Version 6.1.3
 
 2016/12/11: fix: Syntax error: redirection unexpected (expecting word) #35
@@ -255,12 +591,12 @@ History
 2006/11/07: [dist] remove test.rb, testconv.rb and testconvu.rb.
 2006/11/07: [bug]  get_case_fold_codes_by_str() should handle 'Ss' and 'sS'
                    combination for ess-tsett.
-2006/11/07: [impl] apply_all_case_fold() doesn't need to return all 
+2006/11/07: [impl] apply_all_case_fold() doesn't need to return all
                    case character combination for multi-character folding.
                    (ONIGENC_CASE_FOLD_MULTI_CHAR)
 2006/11/07: [bug]  (thanks Byte)
                    add { 0xa3, 0xb3 } to CaseFoldMap[] for KOI8-R.
-2006/11/06: [spec] change ONIG_OPTION_FIND_LONGEST to search all of 
+2006/11/06: [spec] change ONIG_OPTION_FIND_LONGEST to search all of
                    the string range.
                    add USE_FIND_LONGEST_SEARCH_ALL_OF_RANGE.
 2006/11/02: [impl] re-implement expand_case_fold_string() for
@@ -528,7 +864,7 @@ History
 
 2006/05/11: [test] success in ruby 1.9.0 (2006-03-01) [i686-linux].
 2006/05/11: [bug]  (thanks Yuji Kaneda)
-                   dead-lock in onig_end().              
+                   dead-lock in onig_end().
 2006/05/11: [dist] update index.html.
 
 2006/05/08: Version 4.0.3
@@ -580,7 +916,7 @@ History
                    use GNU libtool/automake.
                    change configure.in and add Makefile.am, sample/Makefile.am.
                    add AUTHORS file.
-2006/01/24: [dist] test programs return exit code -1 when test fails. 
+2006/01/24: [dist] test programs return exit code -1 when test fails.
 2006/01/24: [bug] (thanks KIMURA Koichi)
                    invalid syntax definition in ONIG_SYNTAX_GREP.
                    ONIG_SYN_OP_BRACE_INTERVAL
@@ -598,7 +934,7 @@ History
 2005/11/24: [test] success in ruby 1.9.0 (2005-08-09) [i686-linux].
 2005/11/21: [test] success in ruby 1.9.0 (2005-11-20) [i386-cygwin].
 2005/11/21: [bug]  (thanks Allan Odgaard)
-                   utf-8 character comments in extended mode leads 
+                   utf-8 character comments in extended mode leads
                    invalid result.
                    ex. /(?x)(?<= # <any-utf-8 multibyte char>o\n~) /
                    fix onigenc_unicode_is_code_ctype() and
@@ -680,7 +1016,7 @@ History
                    add new character encoding ONIG_ENCODING_GB18030.
 2005/06/30: [bug]  invalid ctype check for multibyte encodings.
                    ("graph", "print")
-                   fix onigenc_mb2/4_is_code_ctype(), 
+                   fix onigenc_mb2/4_is_code_ctype(),
                    eucjp_is_code_ctype() and sjis_is_code_ctype().
 2005/06/30: [bug]  invalid conversion from code point to mbc in
                    onigenc_mb4_code_to_mbc().
@@ -755,7 +1091,7 @@ History
                    remove oniggnu.h from make 19.
 2005/03/01: [bug]  (thanks matz) [ruby-dev:25778]
                    uninitialized member (OptEnv.backrefed_status)
-                   was used. 
+                   was used.
 
 2005/02/19: Version 3.7.0
 
@@ -806,7 +1142,7 @@ History
 2005/01/19: [bug]  (thanks Isao Sonobe)
                    callback function argument name_end of onig_foreach_name()
                    was wrong.
-                   name key of name table should be null terminated for 
+                   name key of name table should be null terminated for
                    character encoding length.
                    add strdup_with_null(), rename onig_strdup() to k_strdup().
                    use e->name_len in i_names().
@@ -1078,7 +1414,7 @@ History
                    RelAddrType, AbsAddrType and LengthType change
                    from short int to int type for the very long string match.
 2004/06/14: [bug]  (thanks Greg A. Woods)
-                   fix nmatch argument of regexec() is smaller than 
+                   fix nmatch argument of regexec() is smaller than
                    reg->num_mem + 1 case. (POSIX API)
 2004/06/14: [spec] (thanks Greg A. Woods)
                    set pmatch to NULL if nmatch is 0 in regexec(). (POSIX API)
@@ -1258,7 +1594,7 @@ History
 2004/02/23: [new]  support ISO-8859-10. (ONIG_ENCODING_ISO_8859_10)
 2004/02/20: [bug]  fix iso_8859_4_mbc_is_case_ambig().
 2004/02/20: [new]  support ISO-8859-9. (ONIG_ENCODING_ISO_8859_9)
-2004/02/19: [bug]  correct ctype tables for ISO-8859-3, ISO-8859-4, 
+2004/02/19: [bug]  correct ctype tables for ISO-8859-3, ISO-8859-4,
                    ISO-8859-6, ISO-8859-7, ISO-8859-8, KOI8_R.
 2004/02/18: [bug]  wrong replaced name OnigSyntaxGnuOnigex.
 2004/02/17: [spec] check capture status for empty infinite loop.
@@ -1431,7 +1767,7 @@ History
 2003/11/11: [spec] add syntax op. REG_SYN_OP_VARIABLE_META_CHARS.
 2003/11/11: [spec] rename REG_SYN_OP_ESC_CAPITAL_Q_QUOTE to
                    REG_SYN_OP2_ESC_CAPITAL_Q_QUOTE,
-                   REG_SYN_OP_QMARK_GROUP_EFFECT to 
+                   REG_SYN_OP_QMARK_GROUP_EFFECT to
                    REG_SYN_OP2_QMARK_GROUP_EFFECT.
 2003/11/06: [impl] define THREAD_PASS as rb_thread_schedule() in Ruby mode.
 2003/11/05: [spec] add syntax behavior REG_SYN_WARN_REDUNDANT_NESTED_REPEAT.
@@ -1448,7 +1784,7 @@ History
 2003/10/03: [bug]  (thanks nobu)  [ruby-dev:21472]
                    sub-anchor of optimization map info was wrong
                    in concat_left_node_opt_info().
-                   ex. /^(x?y)/ = "xy" fail. 
+                   ex. /^(x?y)/ = "xy" fail.
 
 2003/09/17: Version 1.9.4
 
@@ -1511,7 +1847,7 @@ History
 2003/09/01: [dist] update doc/RE and doc/RE.ja.
 2003/08/26: [bug]  (thanks Guy Decoux)
                    should not double free node at the case TK_CC_CC_OPEN
-                   in parse_char_class().  
+                   in parse_char_class().
 
 2003/08/19: Version 1.9.3
 
@@ -1523,8 +1859,8 @@ History
                    REG_SYN_OP2_ATMARK_CAPTURE_HISTORY.
 2003/08/18: [spec] (thanks nobu)
                    don't use IMPORT in oniguruma.h and onigposix.h.
-2003/08/18: [impl] (thanks nobu) change error output to stdout in testconv.rb. 
-2003/08/18: [inst] (thanks nobu) lacked $(srcdir) in Makefile.in.  
+2003/08/18: [impl] (thanks nobu) change error output to stdout in testconv.rb.
+2003/08/18: [inst] (thanks nobu) lacked $(srcdir) in Makefile.in.
 2003/08/18: [bug]  REG_MBLEN_TABLE[SJIS][0xFD-0xFF] should be 1.
 2003/08/18: [bug]  (thanks nobu) mbctab_sjis[0x80] should be 0.
 2003/08/18: [bug]  (thanks nobu)
@@ -1553,7 +1889,7 @@ History
 2003/07/29: [new]  add regex_get_encoding(), regex_get_options() and
                    regex_get_syntax().
 2003/07/25: [spec] (thanks akr)
-                   change group(...) to shy-group(?:...) if named group is 
+                   change group(...) to shy-group(?:...) if named group is
                    used in the pattern.
                    add REG_SYN_CAPTURE_ONLY_NAMED_GROUP.
 2003/07/24: [spec] rename REG_OPTION_CAPTURE_ONLY_NAMED_GROUP to
@@ -1581,7 +1917,7 @@ History
                    set option status to effect memory in optimize_node_left().
 2003/07/07: [impl] add opcode OP_ANYCHAR_ML, OP_ANYCHAR_ML_STAR and
                    OP_ANYCHAR_ML_START_PEEK_NEXT.
-2003/07/07: [bug]  (thanks nobu) REG_MBLEN_TABLE[SJIS][0x80] should be 1. 
+2003/07/07: [bug]  (thanks nobu) REG_MBLEN_TABLE[SJIS][0x80] should be 1.
 2003/07/07: [spec] rename REG_SYN_OP_QUOTE to REG_SYN_OP_ESC_Q_QUOTE.
 
 2003/07/04: Version 1.9.1
@@ -1644,7 +1980,7 @@ History
 2003/06/12: [spec] add syntax behavior REG_SYN_WARN_FOR_CC_OP_NOT_ESCAPEED.
 2003/06/12: [spec] invalid POSIX bracket should be error.   ex. [[:upper :]]
 2003/06/11: [new]  char-class in char-class (as Java(TM)).
-2003/06/11: [spec] change AND operator in char-class from &&[..] to &&. 
+2003/06/11: [spec] change AND operator in char-class from &&[..] to &&.
 2003/06/04: [spec] {n,m}+ should not be possessive operator.
                    ex. a{3}+ should be (?:a{3})+
 2003/06/03: [bug]  should compare strings with min-length in is_not_included().
@@ -1808,7 +2144,7 @@ History
 2003/02/26: [impl] add -win option to testconv.rb.
 2003/02/25: [spec] allow to assign same name to different group.
                    add OP_BACKREF_MULTI.
-2003/02/24: [impl] reduce redundant repeat of empty target. 
+2003/02/24: [impl] reduce redundant repeat of empty target.
 	           ex. /()*/ ==> /()?/, /()+/ ==> /()/, /(?:)+/ ==> //
 2003/02/24: [impl] change condition in regex_is_allow_reverse_match().
 2003/02/24: [impl] convert i(/../, ...) functions in testconv.rb.
@@ -1877,7 +2213,7 @@ History
 2003/02/04: [bug]  typo miss in regex_region_copy().
 2003/02/04: [impl] change THREAD_PASS macro. (regint.h)
 2003/02/04: [dist] add API document file doc/API.
-2003/02/04: [tune] if sub_anchor has ANCHOR_BEGIN_LINE then 
+2003/02/04: [tune] if sub_anchor has ANCHOR_BEGIN_LINE then
                    set REG_OPTIMIZE_EXACT_BM in set_optimize_exact_info().
 2003/02/04: [spec] reimplement regex_clone() and it is obsoleted.
 2003/02/04: [bug]  add REGERR_OVER_THREAD_PASS_LIMIT_COUNT
@@ -1898,7 +2234,7 @@ History
 2003/01/31: [impl] rename TTRANS() to TOLOWER().
 2003/01/30: [bug]  .c.o --> .c.obj in win32\Makefile.
 2003/01/30: [impl] add -DNOT_RUBY to Makefile.in.
-                   NOT_RUBY is refered in regint.h for escape double
+                   NOT_RUBY is referred in regint.h for escape double
                    including config.h.
 2003/01/30: [impl] when string hasn't case ambiguity, don't compile
                    to ignore case opcode.
@@ -1997,7 +2333,7 @@ History
 2002/04/01: [dist] add COPYING.
 2002/03/30: [spec] warn redundant nested repeat operator
                    in Ruby verbose mode.  ex. (?:a*)?
-2002/03/30: [spec] nested repeat operator error check should be 
+2002/03/30: [spec] nested repeat operator error check should be
                    same with GNU regex.             (thanks Guy Decoux)
 2002/03/30: [new]  add \x{hexadecimal-wide-char}.   (thanks matz)
 2002/03/27: [bug]  MBCTYPE_XXX symbol values should be same with GNU regex.
@@ -2060,7 +2396,7 @@ History
                    ex. /(?:abc){10}/
 2002/03/06: [new]  add a symbol REG_TRANSTABLE_USE_DEFAULT in regex.h.
 2002/03/06: [impl] rename RegDefaultCharCode to RegDefaultCharEncoding.
-2002/03/06: [bug]  if pattern has NULL(\000) char, infinite loop happens 
+2002/03/06: [bug]  if pattern has NULL(\000) char, infinite loop happens
                    in ScanMakeNode(). (beware of strchr(). thanks Nobu)
 2002/03/06: [bug]  range argument of ForwardSearchRange() is wrong.
                    ex. /\A.a/, /\G.a/ mismatched with "aa". (thanks Nobu)
@@ -2134,5 +2470,14 @@ cvs rtag "VERSION_X_X_X" oniguruma
   revision: implementation number of same interface (from 0)
   age:      number of supported previous interfaces
             (if current only supported then age == 0)
+
+
+<add SHA256 checksum>
+MacOS X
+$ shasum -a 256 -b onig-X.Y.Z.tar.gz > onig-X.Y.Z.tar.gz.sha256
+
+<check SHA256 checksum>
+MacOS X
+$ shasum -a 256 -c onig-X.Y.Z.tar.gz.sha256
 
 //END

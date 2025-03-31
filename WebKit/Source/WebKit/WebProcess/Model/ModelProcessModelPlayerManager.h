@@ -32,6 +32,7 @@
 #include <wtf/TZoneMalloc.h>
 
 namespace WebCore {
+class ModelPlayer;
 class ModelPlayerClient;
 }
 
@@ -51,13 +52,11 @@ public:
     ModelProcessConnection& modelProcessConnection();
 
     Ref<ModelProcessModelPlayer> createModelProcessModelPlayer(WebPage&, WebCore::ModelPlayerClient&);
-    void deleteModelProcessModelPlayer(WebCore::ModelPlayerIdentifier);
+    void deleteModelProcessModelPlayer(WebCore::ModelPlayer&);
 
     void didReceivePlayerMessage(IPC::Connection&, IPC::Decoder&);
 
-    void ref() const final { return ThreadSafeRefCountedAndCanMakeThreadSafeWeakPtr<ModelProcessModelPlayerManager>::ref(); }
-    void deref() const final { return ThreadSafeRefCountedAndCanMakeThreadSafeWeakPtr<ModelProcessModelPlayerManager>::deref(); }
-    ThreadSafeWeakPtrControlBlock& controlBlock() const final { return ThreadSafeRefCountedAndCanMakeThreadSafeWeakPtr<ModelProcessModelPlayerManager>::controlBlock(); }
+    WTF_ABSTRACT_THREAD_SAFE_REF_COUNTED_AND_CAN_MAKE_WEAK_PTR_IMPL;
 
 private:
     ModelProcessModelPlayerManager();

@@ -1,5 +1,6 @@
 /*
  * Copyright (C) Research In Motion Limited 2010. All rights reserved.
+ * Copyright (C) 2024 Apple Inc. All Rights Reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -26,7 +27,6 @@
 #include <wtf/HashSet.h>
 #include <wtf/Noncopyable.h>
 #include <wtf/StdLibExtras.h>
-#include <wtf/TZoneMallocInlines.h>
 
 namespace WebCore {
 
@@ -35,7 +35,7 @@ class SVGCursorElement;
 class SVGElement;
 
 class SVGElementRareData {
-    WTF_MAKE_TZONE_ALLOCATED_INLINE(SVGElementRareData);
+    WTF_MAKE_TZONE_ALLOCATED(SVGElementRareData);
     WTF_MAKE_NONCOPYABLE(SVGElementRareData);
 public:
     SVGElementRareData()

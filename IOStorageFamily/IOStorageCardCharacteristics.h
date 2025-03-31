@@ -487,4 +487,30 @@ Example:
 #define kIOPropertyCardTypeSDXCKey						"SDXC"
 
 
+/*!
+@defined kIOPropertyCardTypeSDUCKey
+ @discussion This key is used to indicate the card type is SDUC.
+
+Requirement: Optional.
+
+Example:
+<pre>
+@textblock
+<dict>
+	<key>Card Characteristics</key>
+	<dict>
+		<key>Product Name</key>
+		<string>SD128G</string>
+		<key>Product Revision Level</key>
+		<string>1.0</string>
+		<key>Card Type</key>
+		<string>SDUC</string>
+	</dict>
+</dict>
+@/textblock
+</pre>
+*/
+#define kIOPropertyCardTypeSDUCKey						"SDUC"
+
+
 #endif	/* _IOKIT_IO_STORAGE_CARD_CHARACTERISTICS_H_ */

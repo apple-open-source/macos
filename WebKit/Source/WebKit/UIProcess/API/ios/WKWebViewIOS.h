@@ -190,6 +190,10 @@ enum class TapHandlingResult : uint8_t;
 
 - (BOOL)_tryToHandleKeyEventInCustomContentView:(UIPressesEvent *)event;
 
+#if ENABLE(PDF_PLUGIN)
+- (void)_pluginDidInstallPDFDocument:(double)initialScale;
+#endif
+
 @property (nonatomic, readonly) WKPasswordView *_passwordView;
 @property (nonatomic, readonly) WKWebViewContentProviderRegistry *_contentProviderRegistry;
 @property (nonatomic, readonly) WKSelectionGranularity _selectionGranularity;
@@ -208,6 +212,7 @@ enum class TapHandlingResult : uint8_t;
 @property (nonatomic, readonly) BOOL _isWindowResizingEnabled;
 #endif
 
+@property (nonatomic, readonly) BOOL _isSimulatingCompatibilityPointerTouches;
 @property (nonatomic, readonly) WKVelocityTrackingScrollView *_scrollViewInternal;
 @property (nonatomic, readonly) CGRect _contentRectForUserInteraction;
 
@@ -219,6 +224,8 @@ enum class TapHandlingResult : uint8_t;
 
 - (void)_overrideZoomScaleParametersWithMinimumZoomScale:(CGFloat)minimumZoomScale maximumZoomScale:(CGFloat)maximumZoomScale allowUserScaling:(BOOL)allowUserScaling;
 - (void)_clearOverrideZoomScaleParameters;
+
+- (void)_setPointerTouchCompatibilitySimulatorEnabled:(BOOL)enabled;
 
 #if ENABLE(PAGE_LOAD_OBSERVER)
 - (void)_updatePageLoadObserverState NS_DIRECT;

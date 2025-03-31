@@ -192,7 +192,7 @@ private:
         PackedRefPtr<ExecutableMemoryHandle> handle;
         bool needsCrossModifyingCodeFence;
     };
-    using CTIStubMap = HashMap<ThunkGenerator, Entry>;
+    using CTIStubMap = UncheckedKeyHashMap<ThunkGenerator, Entry>;
 
     using HostFunctionKey = std::tuple<TaggedNativeFunction, TaggedNativeFunction, ImplementationVisibility, String>;
 
@@ -225,7 +225,7 @@ private:
     struct HostKeySearcher;
     struct NativeExecutableTranslator;
 
-    using WeakNativeExecutableSet = HashSet<Weak<NativeExecutable>, WeakNativeExecutableHash>;
+    using WeakNativeExecutableSet = UncheckedKeyHashSet<Weak<NativeExecutable>, WeakNativeExecutableHash>;
 
     MacroAssemblerCodeRef<JITThunkPtrTag> m_commonThunks[numberOfCommonThunkIDs] { };
     CTIStubMap m_ctiStubMap;

@@ -38,30 +38,34 @@ namespace WebKit {
 
 WTF_MAKE_TZONE_ALLOCATED_IMPL(WebRTCResolver);
 
+Ref<WebRTCResolver> WebRTCResolver::create(LibWebRTCSocketFactory& socketFactory, LibWebRTCResolverIdentifier identifier)
+{
+    return adoptRef(*new WebRTCResolver(socketFactory, identifier));
+}
+
 WebRTCResolver::WebRTCResolver(LibWebRTCSocketFactory& socketFactory, LibWebRTCResolverIdentifier identifier)
     : m_socketFactory(socketFactory)
     , m_identifier(identifier)
 {
 }
 
+WebRTCResolver::~WebRTCResolver() = default;
+
 void WebRTCResolver::setResolvedAddress(const Vector<RTCNetwork::IPAddress>& addresses)
 {
-    auto& factory = m_socketFactory;
-
     auto rtcAddresses = addresses.map([](auto& address) {
         return address.rtcAddress();
     });
-    WebCore::LibWebRTCProvider::callOnWebRTCNetworkThread([&factory, identifier = m_identifier, rtcAddresses = WTFMove(rtcAddresses)] () mutable {
-        if (auto resolver = factory.resolver(identifier))
+    WebCore::LibWebRTCProvider::callOnWebRTCNetworkThread([factory = m_socketFactory, identifier = m_identifier, rtcAddresses = WTFMove(rtcAddresses)] () mutable {
+        if (auto resolver = factory->resolver(identifier))
             resolver->setResolvedAddress(WTFMove(rtcAddresses));
     });
 }
 
 void WebRTCResolver::resolvedAddressError(int error)
 {
-    auto& factory = m_socketFactory;
-    WebCore::LibWebRTCProvider::callOnWebRTCNetworkThread([&factory, identifier = m_identifier, error]() {
-        if (auto resolver = factory.resolver(identifier))
+    WebCore::LibWebRTCProvider::callOnWebRTCNetworkThread([factory = m_socketFactory, identifier = m_identifier, error]() {
+        if (auto resolver = factory->resolver(identifier))
             resolver->setError(error);
     });
 }

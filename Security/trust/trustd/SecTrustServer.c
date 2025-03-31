@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006-2010,2012-2022 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2006-2010,2012-2024 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -25,6 +25,8 @@
  *
  */
 
+#include "featureflags/featureflags.h"
+
 #include "trust/trustd/SecTrustServer.h"
 #include "trust/trustd/SecTrustStoreServer.h"
 #include "trust/trustd/SecPolicyServer.h"
@@ -44,6 +46,7 @@
 #include <Security/SecItem.h>
 #include <Security/SecCertificateInternal.h>
 #include <Security/SecFramework.h>
+#include <Security/SecFrameworkStrings.h>
 #include <Security/SecPolicyPriv.h>
 #include <Security/SecPolicyInternal.h>
 #include <Security/SecTrustSettingsPriv.h>
@@ -244,6 +247,9 @@ static void SecPathBuilderInit(SecPathBuilderRef builder, dispatch_queue_t build
         CFArrayAppendValue(builder->parentSources, builder->appleAnchorSource);
         if (TrustdVariantHasCertificatesBundle()) {
             CFArrayAppendValue(builder->parentSources, kSecSystemAnchorSource);
+            if (_SecTrustStoreRootConstraintsEnabled()) {
+                CFArrayAppendValue(builder->parentSources, kSecSystemConstrainedAnchorSource);
+            }
         }
         CFArrayAppendValue(builder->parentSources, kSecUserAnchorSource);
     }
@@ -273,6 +279,9 @@ static void SecPathBuilderInit(SecPathBuilderRef builder, dispatch_queue_t build
         CFArrayAppendValue(builder->anchorSources, kSecUserAnchorSource);
         if (TrustdVariantHasCertificatesBundle()) {
             CFArrayAppendValue(builder->anchorSources, kSecSystemAnchorSource);
+            if (_SecTrustStoreRootConstraintsEnabled()) {
+                CFArrayAppendValue(builder->anchorSources, kSecSystemConstrainedAnchorSource);
+            }
         }
     }
 
@@ -617,20 +626,15 @@ SecPVCRef SecPathBuilderGetResultPVC(SecPathBuilderRef builder) {
 
 /* This function assumes that the input source is an anchor source */
 static bool SecPathBuilderIsAnchorPerConstraints(SecPathBuilderRef builder, SecCertificateSourceRef source,
-    SecCertificateRef certificate) {
+                                                 SecCertificateRef certificate, SecPVCRef pvc) {
 
     /* Get the trust settings result for the PVCs. Only one PVC need match to
      * trigger the anchor behavior -- policy validation will handle whether the
      * path is truly anchored for that PVC. */
-    __block bool result = false;
-    SecPathBuilderForEachPVC(builder, ^(SecPVCRef pvc, bool * __unused stop) {
-        if (SecPVCIsAnchorPerConstraints(pvc, source, certificate)) {
-            result = true;
-            *stop = true;
-        }
-    });
-
-    return result;
+    if (SecPVCIsAnchorPerConstraints(pvc, source, certificate)) {
+        return true;
+    }
+    return false;
 }
 
 /* Source returned in foundInSource has the same lifetime as the builder. */
@@ -639,20 +643,29 @@ static bool SecPathBuilderIsAnchor(SecPathBuilderRef builder,
     /* We look through the anchor sources in order. They are ordered in
        SecPathBuilderInit so that process anchors override user anchors which
        override system anchors. */
+    __block bool result = false;
     CFIndex count = CFArrayGetCount(builder->anchorSources);
     CFIndex ix;
     for (ix = 0; ix < count; ++ix) {
-        SecCertificateSourceRef source = (SecCertificateSourceRef)
-        CFArrayGetValueAtIndex(builder->anchorSources, ix);
-        if (SecCertificateSourceContains(source, certificate)) {
-            if (foundInSource)
-                *foundInSource = source;
-            if (SecPathBuilderIsAnchorPerConstraints(builder, source, certificate)) {
-                return true;
+        SecCertificateSourceRef source = (SecCertificateSourceRef)CFArrayGetValueAtIndex(builder->anchorSources, ix);
+        SecPathBuilderForEachPVC(builder, ^(SecPVCRef pvc, bool * __unused stop) {
+            if (SecCertificateSourceContains(source, certificate, pvc)) {
+                if (foundInSource) {
+                    /* We need the source, even if the cert isn't an anchor so we can get the usage constraints */
+                    *foundInSource = source;
+                }
+                if (SecPathBuilderIsAnchorPerConstraints(builder, source, certificate, pvc)) {
+                    result = true;
+                    *stop = true;
+                }
             }
+        });
+        /* stop if we found an anchor source with the anchor */
+        if (result) {
+            break;
         }
     }
-    return false;
+    return result;
 }
 
 bool SecPathBuilderIsAnchorSource(SecPathBuilderRef builder, SecCertificateSourceRef source) {
@@ -1361,6 +1374,18 @@ bool SecPathBuilderReportResult(SecPathBuilderRef builder) {
     /* Set CT marker in the info */
     if (builder->info && SecCertificatePathVCIsCT(builder->bestPath) && SecPathBuilderIsOkResult(builder)) {
         CFDictionarySetValue(builder->info, kSecTrustInfoCertificateTransparencyKey,
+                             kCFBooleanTrue);
+    }
+
+    /* Set QWAC statement and marker in the info */
+    if (builder->info && SecCertificatePathVCIsQWAC(builder->bestPath) && SecPathBuilderIsOkResult(builder)) {
+        CFStringRef qcsTypeStr = SecCopyCertString(SEC_QCS_TYPE_WEB_AUTH);
+        if (qcsTypeStr) {
+            CFDictionarySetValue(builder->info, kSecTrustInfoQCStatementsKey,
+                                 qcsTypeStr);
+            CFRelease(qcsTypeStr);
+        }
+        CFDictionarySetValue(builder->info, kSecTrustInfoQWACValidationKey,
                              kCFBooleanTrue);
     }
 

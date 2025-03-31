@@ -567,15 +567,12 @@ CustomTransformFactory::CustomTransformFactory(CFStringRef uniqueName, SecTransf
     RegisterTransform(this, kSecCustom);
 }
 
-// clang cannot possibly reason about the way in which we turn Transforms into CFRefs, and it just looks like a leak
-#ifndef __clang_analyzer__
 CFTypeRef CustomTransformFactory::Make() CF_RETURNS_RETAINED
 {
 	CustomTransform *ct = new CustomTransform(this->GetTypename(), createFuncPtr);
 	ct->Create();
 	return ct->get_ref();
 }
-#endif
 
 #pragma mark MISC
 
@@ -625,8 +622,9 @@ extern "C" {
 }
 
 // clang cannot reason about this business of creating an object for the side-effects of doing so
-#ifndef __clang_analyzer__
-Boolean SecTransformRegister(CFStringRef uniqueName, SecTransformCreateFP createFP, CFErrorRef *caller_error) 
+// The act of creating the factory registers it, keeping a reference in a global dictionary, so
+// we can suppress the analyzer warning in the `return TRUE` case below.
+Boolean SecTransformRegister(CFStringRef uniqueName, SecTransformCreateFP createFP, CFErrorRef *caller_error)
 {
 	CFErrorRef error = NULL;
 	
@@ -638,14 +636,17 @@ Boolean SecTransformRegister(CFStringRef uniqueName, SecTransformCreateFP create
 		{
 			*caller_error = error;
 		}
+		else
+		{
+			CFRelease(error);
+		}
 		return FALSE;
 	} 
 	else 
 	{
-		return TRUE;
+		[[clang::suppress]] return TRUE;
 	}
 }
-#endif
 
 SecTransformRef SecTransformCreate(CFStringRef name, CFErrorRef *error) 
 {

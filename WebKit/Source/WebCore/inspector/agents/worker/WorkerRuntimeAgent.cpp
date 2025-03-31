@@ -50,7 +50,7 @@ WorkerRuntimeAgent::WorkerRuntimeAgent(WorkerAgentContext& context)
     , m_backendDispatcher(RuntimeBackendDispatcher::create(context.backendDispatcher, this))
     , m_globalScope(context.globalScope)
 {
-    ASSERT(context.globalScope.isContextThread());
+    ASSERT(context.globalScope->isContextThread());
 }
 
 WorkerRuntimeAgent::~WorkerRuntimeAgent() = default;

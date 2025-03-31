@@ -74,20 +74,20 @@ static void tests(void)
     SecCertificateRef cert = NULL;
     SecKeyRef pkey = NULL;
 
-#ifndef __clang_analyzer__
+    [[clang::suppress]] {
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wnonnull"
-    // Disable compile-time nullability checks, otherwise the code below won't compile.
+        // Disable compile-time nullability checks, otherwise the code below won't compile.
 #if LEGACY_OSX_PKCS12
-    // legacy code returned errSecPassphraseRequired instead of errSecAuthFailed; rdar://87484096
-    is_status(SecPKCS12Import(message, NULL, &items), errSecPassphraseRequired,
-              "try null password on a known good p12");
+        // legacy code returned errSecPassphraseRequired instead of errSecAuthFailed; rdar://87484096
+        is_status(SecPKCS12Import(message, NULL, &items), errSecPassphraseRequired,
+                  "try null password on a known good p12");
 #else
-    is_status(SecPKCS12Import(message, NULL, &items), errSecAuthFailed,
-              "try null password on a known good p12");
+        is_status(SecPKCS12Import(message, NULL, &items), errSecAuthFailed,
+                  "try null password on a known good p12");
 #endif
 #pragma clang diagnostic pop
-#endif // __clang_analyzer__
+    }
     CFReleaseNull(items);
 
     CFStringRef password = CFSTR("user-one");

@@ -33,6 +33,7 @@
 #include <wtf/HashSet.h>
 #include <wtf/Hasher.h>
 #include <wtf/MemoryPressureHandler.h>
+#include <wtf/ZippedRange.h>
 #include <wtf/text/StringCommon.h>
 #include <wtf/text/StringImpl.h>
 #include <wtf/text/WYHash.h>
@@ -60,9 +61,9 @@ private:
             unsigned length = string.length();
             ASSERT(length <= s_capacity);
             if (string.is8Bit())
-                copySmallCharacters(m_characters.data(), string.span8());
+                copySmallCharacters(std::span { m_characters }, string.span8());
             else
-                copySmallCharacters(m_characters.data(), string.span16());
+                copySmallCharacters(std::span { m_characters }, string.span16());
             m_hashAndLength = WYHash::computeHashAndMaskTop8Bits(std::span<const UChar> { m_characters }.first(s_capacity)) | (length << 24);
         }
 
@@ -81,13 +82,13 @@ private:
         static constexpr unsigned s_deletedValueLength = s_capacity + 1;
 
         template<typename CharacterType>
-        ALWAYS_INLINE static void copySmallCharacters(UChar* destination, std::span<const CharacterType> source)
+        ALWAYS_INLINE static void copySmallCharacters(std::span<UChar, s_capacity> destination, std::span<const CharacterType> source)
         {
             if constexpr (std::is_same_v<CharacterType, UChar>)
-                memcpy(destination, source.data(), source.size_bytes());
+                memcpySpan(destination, source);
             else {
-                for (auto character : source)
-                    *destination++ = character;
+                for (auto [sourceCharacter, destinationCharacter] : zippedRange(source, destination))
+                    destinationCharacter = sourceCharacter;
             }
         }
 
@@ -221,8 +222,8 @@ private:
         return false;
     }
 
-    using Map = HashMap<SmallStringKey, float, SmallStringKeyHash, SmallStringKeyHashTraits, WTF::FloatWithZeroEmptyKeyHashTraits<float>>;
-    using SingleCharMap = HashMap<uint32_t, float, DefaultHash<uint32_t>, HashTraits<uint32_t>, WTF::FloatWithZeroEmptyKeyHashTraits<float>>;
+    using Map = UncheckedKeyHashMap<SmallStringKey, float, SmallStringKeyHash, SmallStringKeyHashTraits, WTF::FloatWithZeroEmptyKeyHashTraits<float>>;
+    using SingleCharMap = UncheckedKeyHashMap<uint32_t, float, DefaultHash<uint32_t>, HashTraits<uint32_t>, WTF::FloatWithZeroEmptyKeyHashTraits<float>>;
 
     static constexpr int s_minInterval = -3; // A cache hit pays for about 3 cache misses.
     static constexpr int s_maxInterval = 20; // Sampling at this interval has almost no overhead.

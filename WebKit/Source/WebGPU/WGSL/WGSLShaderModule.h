@@ -36,14 +36,13 @@
 
 #include <wtf/HashSet.h>
 #include <wtf/OptionSet.h>
-#include <wtf/TZoneMallocInlines.h>
 #include <wtf/text/StringHash.h>
 #include <wtf/text/WTFString.h>
 
 namespace WGSL {
 
 class ShaderModule {
-    WTF_MAKE_TZONE_ALLOCATED_INLINE(ShaderModule);
+    WTF_MAKE_TZONE_ALLOCATED(ShaderModule);
 public:
     explicit ShaderModule(const String& source)
         : ShaderModule(source, { })
@@ -146,6 +145,12 @@ public:
     bool usesMin() const { return m_usesMin; }
     void setUsesMin() { m_usesMin = true; }
 
+    bool usesFtoi() const { return m_usesFtoi; }
+    void setUsesFtoi() { m_usesFtoi = true; }
+
+    bool usesInsertBits() const { return m_usesInsertBits; }
+    void setUsesInsertBits() { m_usesInsertBits = true; }
+
     template<typename T>
     std::enable_if_t<std::is_base_of_v<AST::Node, T>, void> replace(T* current, T&& replacement)
     {
@@ -169,7 +174,7 @@ public:
     std::enable_if_t<sizeof(CurrentType) < sizeof(ReplacementType) || std::is_same_v<ReplacementType, AST::Expression>, void> replace(CurrentType& current, ReplacementType& replacement)
     {
         m_replacements.append([&current, currentCopy = current]() mutable {
-            bitwise_cast<AST::IdentityExpression*>(&current)->~IdentityExpression();
+            std::bit_cast<AST::IdentityExpression*>(&current)->~IdentityExpression();
             new (&current) CurrentType(WTFMove(currentCopy));
         });
 
@@ -181,12 +186,12 @@ public:
     std::enable_if_t<sizeof(CurrentType) >= sizeof(ReplacementType) && !std::is_same_v<ReplacementType, AST::Expression>, void> replace(CurrentType& current, ReplacementType& replacement)
     {
         m_replacements.append([&current, currentCopy = current]() mutable {
-            bitwise_cast<ReplacementType*>(&current)->~ReplacementType();
-            new (bitwise_cast<void*>(&current)) CurrentType(WTFMove(currentCopy));
+            std::bit_cast<ReplacementType*>(&current)->~ReplacementType();
+            new (std::bit_cast<void*>(&current)) CurrentType(WTFMove(currentCopy));
         });
 
         current.~CurrentType();
-        new (bitwise_cast<void*>(&current)) ReplacementType(replacement);
+        new (std::bit_cast<void*>(&current)) ReplacementType(replacement);
     }
 
     template<typename T, size_t size>
@@ -251,11 +256,18 @@ public:
         vector.clear();
     }
 
-    void revertReplacements()
+    size_t currentReplacementSize() const
     {
-        for (int i = m_replacements.size() - 1; i >= 0; --i)
+        return m_replacements.size();
+    }
+
+    void revertReplacements(size_t limit)
+    {
+        if (m_replacements.size() == limit)
+            return;
+        for (size_t i = m_replacements.size() - 1; i >= limit; --i)
             m_replacements[i]();
-        m_replacements.clear();
+        m_replacements.shrinkCapacity(limit);
     }
 
     OptionSet<Extension>& enabledExtensions() { return m_enabledExtensions; }
@@ -305,6 +317,8 @@ private:
     bool m_usesExtractBits { false };
     bool m_usesPackedVec3 { false };
     bool m_usesMin { false };
+    bool m_usesFtoi { false };
+    bool m_usesInsertBits { false };
     OptionSet<Extension> m_enabledExtensions;
     OptionSet<LanguageFeature> m_requiredFeatures;
     Configuration m_configuration;

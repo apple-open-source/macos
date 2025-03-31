@@ -14,7 +14,7 @@
 
 #include <arm_neon.h>
 
-#include "aom/aom_integer.h"  // For AOM_FORCE_INLINE.
+#include "aom_dsp/aom_dsp_common.h"  // For AOM_FORCE_INLINE.
 #include "config/aom_config.h"
 
 #define REINTERPRET_NEON(u, to_sz, to_count, from_sz, from_count, n, q)     \

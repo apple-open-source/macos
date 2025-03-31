@@ -32,7 +32,6 @@
 #include "CSSParser.h"
 #include "CSSPrimitiveValue.h"
 #include "CSSPropertyParserConsumer+Font.h"
-#include "CSSPropertyParserHelpers.h"
 #include "CSSSegmentedFontFace.h"
 #include "CSSValueList.h"
 #include "CSSValuePool.h"
@@ -40,6 +39,7 @@
 #include "FontCache.h"
 #include "FontSelectionValueInlines.h"
 #include "StyleBuilderConverter.h"
+#include "StylePrimitiveNumericTypes+Conversions.h"
 #include "StyleProperties.h"
 
 namespace WebCore {
@@ -339,31 +339,23 @@ static FontSelectionRequest computeFontSelectionRequest(CSSPropertyParserHelpers
                 return normalWeightValue();
             }
         },
-        [&](NumberRaw weight) {
-            return FontSelectionValue::clampFloat(weight.value);
-        },
-        [&](const UnevaluatedCalc<NumberRaw>& calc) {
+        [&](const CSSPropertyParserHelpers::UnresolvedFontWeightNumber& weight) {
             // FIXME: Figure out correct behavior when conversion data is required.
-            if (requiresConversionData(calc))
+            if (requiresConversionData(weight))
                 return normalWeightValue();
-
-            return FontSelectionValue(clampTo<float>(evaluateCalcNoConversionDataRequired(calc, { }).value, 1, 1000));
+            return FontSelectionValue::clampFloat(Style::toStyleNoConversionDataRequired(weight).value);
         }
     );
 
-    auto stretchSelectionValue = WTF::switchOn(font.stretch,
+    auto widthSelectionValue = WTF::switchOn(font.stretch,
         [&](CSSValueID ident) -> FontSelectionValue {
-            return *fontStretchValue(ident);
+            return *fontWidthValue(ident);
         },
-        [&](PercentageRaw percent) -> FontSelectionValue  {
-            return FontSelectionValue::clampFloat(percent.value);
-        },
-        [&](const UnevaluatedCalc<PercentageRaw>& calc) -> FontSelectionValue  {
+        [&](const CSSPropertyParserHelpers::UnresolvedFontStretchPercentage& percent) -> FontSelectionValue  {
             // FIXME: Figure out correct behavior when conversion data is required.
-            if (requiresConversionData(calc))
-                return normalStretchValue();
-
-            return FontSelectionValue::clampFloat(evaluateCalcNoConversionDataRequired(calc, { }).value);
+            if (requiresConversionData(percent))
+                return normalWidthValue();
+            return FontSelectionValue::clampFloat(Style::toStyleNoConversionDataRequired(percent).value);
         }
     );
 
@@ -381,22 +373,18 @@ static FontSelectionRequest computeFontSelectionRequest(CSSPropertyParserHelpers
                 return std::nullopt;
             }
         },
-        [&](AngleRaw angle) -> std::optional<FontSelectionValue> {
-            return FontSelectionValue::clampFloat(CSSPrimitiveValue::computeDegrees(angle.type, angle.value));
-        },
-        [&](const UnevaluatedCalc<AngleRaw>& calc) -> std::optional<FontSelectionValue> {
+        [&](const CSSPropertyParserHelpers::UnresolvedFontStyleObliqueAngle& angle) -> std::optional<FontSelectionValue> {
             // FIXME: Figure out correct behavior when conversion data is required.
-            if (requiresConversionData(calc))
+            if (requiresConversionData(angle))
                 return std::nullopt;
-
-            return normalizedFontItalicValue(static_cast<float>(evaluateCalcNoConversionDataRequired(calc, { }).value));
+            return FontSelectionValue::clampFloat(Style::toStyleNoConversionDataRequired(angle).value);
         }
     );
 
-    return { weightSelectionValue, stretchSelectionValue, styleSelectionValue };
+    return { weightSelectionValue, widthSelectionValue, styleSelectionValue };
 }
 
-using CodePointsMap = HashSet<uint32_t, DefaultHash<uint32_t>, WTF::UnsignedWithZeroKeyHashTraits<uint32_t>>;
+using CodePointsMap = UncheckedKeyHashSet<uint32_t, DefaultHash<uint32_t>, WTF::UnsignedWithZeroKeyHashTraits<uint32_t>>;
 static CodePointsMap codePointsFromString(StringView stringView)
 {
     CodePointsMap result;
@@ -421,7 +409,7 @@ ExceptionOr<Vector<std::reference_wrapper<CSSFontFace>>> CSSFontFaceSet::matchin
     if (!font)
         return Exception { ExceptionCode::SyntaxError };
 
-    HashSet<AtomString> uniqueFamilies;
+    UncheckedKeyHashSet<AtomString> uniqueFamilies;
     Vector<AtomString> familyOrder;
     for (auto& familyRaw : font->family) {
         AtomString familyAtom;
@@ -440,7 +428,7 @@ ExceptionOr<Vector<std::reference_wrapper<CSSFontFace>>> CSSFontFaceSet::matchin
             familyOrder.append(familyAtom);
     }
 
-    HashSet<CSSFontFace*> resultConstituents;
+    UncheckedKeyHashSet<CSSFontFace*> resultConstituents;
     auto request = computeFontSelectionRequest(*font);
     for (auto codePoint : codePointsFromString(string)) {
         bool found = false;
@@ -526,11 +514,11 @@ CSSSegmentedFontFace* CSSFontFaceSet::fontFace(FontSelectionRequest request, con
             auto firstCapabilities = first.fontSelectionCapabilities();
             auto secondCapabilities = second.fontSelectionCapabilities();
             
-            auto stretchDistanceFirst = fontSelectionAlgorithm.stretchDistance(firstCapabilities).distance;
-            auto stretchDistanceSecond = fontSelectionAlgorithm.stretchDistance(secondCapabilities).distance;
-            if (stretchDistanceFirst < stretchDistanceSecond)
+            auto widthDistanceFirst = fontSelectionAlgorithm.widthDistance(firstCapabilities).distance;
+            auto widthDistanceSecond = fontSelectionAlgorithm.widthDistance(secondCapabilities).distance;
+            if (widthDistanceFirst < widthDistanceSecond)
                 return true;
-            if (stretchDistanceFirst > stretchDistanceSecond)
+            if (widthDistanceFirst > widthDistanceSecond)
                 return false;
 
             auto styleDistanceFirst = fontSelectionAlgorithm.styleDistance(firstCapabilities).distance;

@@ -20,8 +20,8 @@
 #include "aom_mem/aom_mem.h"
 #include "av1/common/common.h"
 #include "config/aom_dsp_rtcd.h"
+#include "gtest/gtest.h"
 #include "test/acm_random.h"
-#include "third_party/googletest/src/googletest/include/gtest/gtest.h"
 
 namespace {
 

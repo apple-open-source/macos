@@ -4193,7 +4193,7 @@ nfs_advlock_setlock(
 	struct nfsmount *nmp;
 	struct nfs_file_lock *newnflp, *nflp, *nflp2 = NULL, *nextnflp, *flocknflp = NULL;
 	struct nfs_file_lock *coalnflp;
-	int error = 0, error2, willsplit = 0, delay, slpflag, busy = 0, inuse = 0, restart, inqueue = 0;
+	int error = 0, error2, willsplit = 0, delay, slpflag, busy = 0, inuse = 0, restart, inqueue = 0, granted = 0;
 	struct timespec ts = { .tv_sec = 1, .tv_nsec = 0 };
 
 	nmp = NFSTONMP(np);
@@ -4419,6 +4419,9 @@ restart:
 				busy = 0;
 			}
 			error = nmp->nm_funcs->nf_setlock_rpc(np, nofp, newnflp, 0, 0, vfs_context_thread(ctx), vfs_context_ucred(ctx));
+			if (!error) {
+				granted = 1;
+			}
 			if (!busy) {
 				error2 = nfs_open_state_set_busy(np, vfs_context_thread(ctx));
 				if (error2) {
@@ -4505,6 +4508,10 @@ error_out:
 	lck_mtx_lock(&np->n_openlock);
 	newnflp->nfl_flags &= ~NFS_FILE_LOCK_BLOCKED;
 	if (error) {
+		if (granted) {
+			/* unlock if lock was granted */
+			nmp->nm_funcs->nf_unlock_rpc(np, nlop, newnflp->nfl_type, newnflp->nfl_start, newnflp->nfl_end, 0, vfs_context_thread(ctx), vfs_context_ucred(ctx));
+		}
 		newnflp->nfl_flags |= NFS_FILE_LOCK_DEAD;
 		if (newnflp->nfl_blockcnt) {
 			/* wake up anyone blocked on this lock */
@@ -4864,6 +4871,12 @@ restart:
 				lck_mtx_lock(&np->n_openlock);
 			}
 			if (error) {
+				break;
+			}
+			/* Paranoia check: ensure newnflp is not NULL */
+			if (!newnflp) {
+				NP(np, "nfs_advlock_unlock: newnflp is NULL!");
+				error = EINVAL;
 				break;
 			}
 			/* update locks and insert new lock after current lock */
@@ -5422,8 +5435,6 @@ nfs4_open_rpc_internal(
 	fhandle_t *fh;
 	struct nfsreq *req;
 	struct nfs_dulookup *dul;
-	char sbuf[64], *s;
-	uint32_t ace_type, ace_flags, ace_mask, len, slen;
 	struct kauth_ace ace;
 	struct nfsreq_secinfo_args si;
 
@@ -5479,8 +5490,6 @@ nfs4_open_rpc_internal(
 again:
 	rflags = delegation = recall = 0;
 	ace.ace_flags = 0;
-	s = sbuf;
-	slen = sizeof(sbuf);
 	NVATTR_INIT(nvattr);
 	NFSREQ_SECINFO_SET(&si, dnp, NULL, 0, cnp->cn_nameptr, cnp->cn_namelen);
 
@@ -5566,45 +5575,7 @@ again:
 			break;
 		case NFS_OPEN_DELEGATE_READ:
 		case NFS_OPEN_DELEGATE_WRITE:
-			nfsm_chain_get_stateid(error, &nmrep, &dstateid);
-			nfsm_chain_get_32(error, &nmrep, recall);
-			if (delegation == NFS_OPEN_DELEGATE_WRITE) { // space (skip) XXX
-				nfsm_chain_adv(error, &nmrep, 3 * NFSX_UNSIGNED);
-			}
-			/* if we have any trouble accepting the ACE, just invalidate it */
-			ace_type = ace_flags = ace_mask = len = 0;
-			nfsm_chain_get_32(error, &nmrep, ace_type);
-			nfsm_chain_get_32(error, &nmrep, ace_flags);
-			nfsm_chain_get_32(error, &nmrep, ace_mask);
-			nfsm_chain_get_32(error, &nmrep, len);
-			ace.ace_flags = nfs4_ace_nfstype_to_vfstype(ace_type, &error);
-			ace.ace_flags |= nfs4_ace_nfsflags_to_vfsflags(ace_flags);
-			ace.ace_rights = nfs4_ace_nfsmask_to_vfsrights(ace_mask);
-			if (!error && (len >= slen)) {
-				s = kalloc_data(len + 1, Z_WAITOK);
-				if (s) {
-					slen = len + 1;
-				} else {
-					ace.ace_flags = 0;
-				}
-			}
-			if (s) {
-				nfsm_chain_get_opaque(error, &nmrep, len, s);
-			} else {
-				nfsm_chain_adv(error, &nmrep, nfsm_rndup(len));
-			}
-			if (!error && s) {
-				s[len] = '\0';
-				if (nfs4_id2guid(s, &ace.ace_applicable, (ace_flags & NFS_ACE_IDENTIFIER_GROUP))) {
-					ace.ace_flags = 0;
-				}
-			}
-			if (error || !s) {
-				ace.ace_flags = 0;
-			}
-			if (s && (s != sbuf)) {
-				kfree_data(s, slen);
-			}
+			nfsm_chain_get_rw_delegation(error, &nmrep, &dstateid, recall, delegation, ace);
 			break;
 		default:
 			error = EBADRPC;
@@ -5861,8 +5832,6 @@ nfs4_claim_delegated_open_rpc(
 	uint32_t rflags = 0, delegation, recall = 0;
 	fhandle_t *fh;
 	struct nfs_stateid dstateid;
-	char sbuf[64], *s = sbuf;
-	uint32_t ace_type, ace_flags, ace_mask, len, slen = sizeof(sbuf);
 	struct kauth_ace ace;
 	vnode_t dvp = NULL;
 	const char *vname = NULL;
@@ -6008,45 +5977,7 @@ nfs4_claim_delegated_open_rpc(
 				    ((np->n_openflags & N_DELEG_MASK) == N_DELEG_WRITE) ? "W" : "R",
 				    (delegation == NFS_OPEN_DELEGATE_WRITE) ? "W" : "R", filename ? filename : "???");
 			}
-			nfsm_chain_get_stateid(error, &nmrep, &dstateid);
-			nfsm_chain_get_32(error, &nmrep, recall);
-			if (delegation == NFS_OPEN_DELEGATE_WRITE) { // space (skip) XXX
-				nfsm_chain_adv(error, &nmrep, 3 * NFSX_UNSIGNED);
-			}
-			/* if we have any trouble accepting the ACE, just invalidate it */
-			ace_type = ace_flags = ace_mask = len = 0;
-			nfsm_chain_get_32(error, &nmrep, ace_type);
-			nfsm_chain_get_32(error, &nmrep, ace_flags);
-			nfsm_chain_get_32(error, &nmrep, ace_mask);
-			nfsm_chain_get_32(error, &nmrep, len);
-			ace.ace_flags = nfs4_ace_nfstype_to_vfstype(ace_type, &error);
-			ace.ace_flags |= nfs4_ace_nfsflags_to_vfsflags(ace_flags);
-			ace.ace_rights = nfs4_ace_nfsmask_to_vfsrights(ace_mask);
-			if (!error && (len >= slen)) {
-				s = kalloc_data(len + 1, Z_WAITOK);
-				if (s) {
-					slen = len + 1;
-				} else {
-					ace.ace_flags = 0;
-				}
-			}
-			if (s) {
-				nfsm_chain_get_opaque(error, &nmrep, len, s);
-			} else {
-				nfsm_chain_adv(error, &nmrep, nfsm_rndup(len));
-			}
-			if (!error && s) {
-				s[len] = '\0';
-				if (nfs4_id2guid(s, &ace.ace_applicable, (ace_flags & NFS_ACE_IDENTIFIER_GROUP))) {
-					ace.ace_flags = 0;
-				}
-			}
-			if (error || !s) {
-				ace.ace_flags = 0;
-			}
-			if (s && (s != sbuf)) {
-				kfree_data(s, slen);
-			}
+			nfsm_chain_get_rw_delegation(error, &nmrep, &dstateid, recall, delegation, ace);
 			if (!error) {
 				/* stuff the latest delegation state in the node */
 				lck_mtx_lock(&np->n_openlock);
@@ -6149,8 +6080,6 @@ nfs4_open_reclaim_rpc(
 	uint32_t rflags = 0, delegation, recall = 0;
 	fhandle_t *fh;
 	struct nfs_stateid dstateid;
-	char sbuf[64], *s = sbuf;
-	uint32_t ace_type, ace_flags, ace_mask, len, slen = sizeof(sbuf);
 	struct kauth_ace ace;
 	struct nfsreq_secinfo_args si;
 
@@ -6251,45 +6180,7 @@ nfs4_open_reclaim_rpc(
 			break;
 		case NFS_OPEN_DELEGATE_READ:
 		case NFS_OPEN_DELEGATE_WRITE:
-			nfsm_chain_get_stateid(error, &nmrep, &dstateid);
-			nfsm_chain_get_32(error, &nmrep, recall);
-			if (delegation == NFS_OPEN_DELEGATE_WRITE) { // space (skip) XXX
-				nfsm_chain_adv(error, &nmrep, 3 * NFSX_UNSIGNED);
-			}
-			/* if we have any trouble accepting the ACE, just invalidate it */
-			ace_type = ace_flags = ace_mask = len = 0;
-			nfsm_chain_get_32(error, &nmrep, ace_type);
-			nfsm_chain_get_32(error, &nmrep, ace_flags);
-			nfsm_chain_get_32(error, &nmrep, ace_mask);
-			nfsm_chain_get_32(error, &nmrep, len);
-			ace.ace_flags = nfs4_ace_nfstype_to_vfstype(ace_type, &error);
-			ace.ace_flags |= nfs4_ace_nfsflags_to_vfsflags(ace_flags);
-			ace.ace_rights = nfs4_ace_nfsmask_to_vfsrights(ace_mask);
-			if (!error && (len >= slen)) {
-				s = kalloc_data(len + 1, Z_WAITOK);
-				if (s) {
-					slen = len + 1;
-				} else {
-					ace.ace_flags = 0;
-				}
-			}
-			if (s) {
-				nfsm_chain_get_opaque(error, &nmrep, len, s);
-			} else {
-				nfsm_chain_adv(error, &nmrep, nfsm_rndup(len));
-			}
-			if (!error && s) {
-				s[len] = '\0';
-				if (nfs4_id2guid(s, &ace.ace_applicable, (ace_flags & NFS_ACE_IDENTIFIER_GROUP))) {
-					ace.ace_flags = 0;
-				}
-			}
-			if (error || !s) {
-				ace.ace_flags = 0;
-			}
-			if (s && (s != sbuf)) {
-				kfree_data(s, slen);
-			}
+			nfsm_chain_get_rw_delegation(error, &nmrep, &dstateid, recall, delegation, ace);
 			if (!error) {
 				/* stuff the delegation state in the node */
 				lck_mtx_lock(&np->n_openlock);
@@ -6940,6 +6831,7 @@ nfs4_delegation_return(nfsnode_t np, int flags, thread_t thd, kauth_cred_t cred)
 	fhandle_t *fh;
 	nfs_stateid dstateid;
 	int error;
+	int busy = 0;
 
 	nmp = NFSTONMP(np);
 	if (nfs_mount_gone(nmp)) {
@@ -6955,6 +6847,12 @@ nfs4_delegation_return(nfsnode_t np, int flags, thread_t thd, kauth_cred_t cred)
 
 	/* make sure nobody else is using the delegation state */
 	if ((error = nfs_open_state_set_busy(np, NULL))) {
+		goto out;
+	}
+	busy = 1;
+
+	if (!(np->n_openflags & N_DELEG_MASK)) {
+		NP(np, "nfs4_delegation_return was called without delegation?");
 		goto out;
 	}
 
@@ -7008,7 +6906,9 @@ out:
 		}
 	}
 
-	nfs_open_state_clear_busy(np);
+	if (busy) {
+		nfs_open_state_clear_busy(np);
+	}
 	NFS_ZFREE(get_zone(NFS_FILE_HANDLE_ZONE), fh);
 	return error;
 }
@@ -8136,8 +8036,6 @@ nfs4_named_attr_get(
 	thread_t thd;
 	kauth_cred_t cred;
 	struct timeval now;
-	char sbuf[64], *s;
-	uint32_t ace_type, ace_flags, ace_mask, len, slen;
 	struct kauth_ace ace;
 	struct nfsreq *req;
 	struct nfsreq_secinfo_args si;
@@ -8145,8 +8043,6 @@ nfs4_named_attr_get(
 	*anpp = NULL;
 	rflags = delegation = recall = eof = rlen = retlen = 0;
 	ace.ace_flags = 0;
-	s = sbuf;
-	slen = sizeof(sbuf);
 
 	nmp = NFSTONMP(np);
 	if (nfs_mount_gone(nmp)) {
@@ -8517,45 +8413,7 @@ restart:
 				break;
 			case NFS_OPEN_DELEGATE_READ:
 			case NFS_OPEN_DELEGATE_WRITE:
-				nfsm_chain_get_stateid(error, &nmrep, &dstateid);
-				nfsm_chain_get_32(error, &nmrep, recall);
-				if (delegation == NFS_OPEN_DELEGATE_WRITE) { // space (skip) XXX
-					nfsm_chain_adv(error, &nmrep, 3 * NFSX_UNSIGNED);
-				}
-				/* if we have any trouble accepting the ACE, just invalidate it */
-				ace_type = ace_flags = ace_mask = len = 0;
-				nfsm_chain_get_32(error, &nmrep, ace_type);
-				nfsm_chain_get_32(error, &nmrep, ace_flags);
-				nfsm_chain_get_32(error, &nmrep, ace_mask);
-				nfsm_chain_get_32(error, &nmrep, len);
-				ace.ace_flags = nfs4_ace_nfstype_to_vfstype(ace_type, &error);
-				ace.ace_flags |= nfs4_ace_nfsflags_to_vfsflags(ace_flags);
-				ace.ace_rights = nfs4_ace_nfsmask_to_vfsrights(ace_mask);
-				if (!error && (len >= slen)) {
-					s = kalloc_data(len + 1, Z_WAITOK);
-					if (s) {
-						slen = len + 1;
-					} else {
-						ace.ace_flags = 0;
-					}
-				}
-				if (s) {
-					nfsm_chain_get_opaque(error, &nmrep, len, s);
-				} else {
-					nfsm_chain_adv(error, &nmrep, nfsm_rndup(len));
-				}
-				if (!error && s) {
-					s[len] = '\0';
-					if (nfs4_id2guid(s, &ace.ace_applicable, (ace_flags & NFS_ACE_IDENTIFIER_GROUP))) {
-						ace.ace_flags = 0;
-					}
-				}
-				if (error || !s) {
-					ace.ace_flags = 0;
-				}
-				if (s && (s != sbuf)) {
-					kfree_data(s, slen);
-				}
+				nfsm_chain_get_rw_delegation(error, &nmrep, &dstateid, recall, delegation, ace);
 				break;
 			default:
 				error = EBADRPC;
@@ -8721,8 +8579,6 @@ nfsmout:
 			nofp = newnofp = NULL;
 			rflags = delegation = recall = eof = rlen = retlen = 0;
 			ace.ace_flags = 0;
-			s = sbuf;
-			slen = sizeof(sbuf);
 			nfsm_chain_cleanup(&nmreq);
 			nfsm_chain_cleanup(&nmrep);
 			if (anp) {

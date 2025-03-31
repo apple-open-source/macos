@@ -310,6 +310,9 @@ SYSCTL_INT(_vm, OID_AUTO, macho_printf, CTLFLAG_RW | CTLFLAG_LOCKED, &macho_prin
 extern int apple_protect_pager_data_request_debug;
 SYSCTL_INT(_vm, OID_AUTO, apple_protect_pager_data_request_debug, CTLFLAG_RW | CTLFLAG_LOCKED, &apple_protect_pager_data_request_debug, 0, "");
 
+extern unsigned int vm_object_copy_delayed_paging_wait_disable;
+EXPERIMENT_FACTOR_UINT(_vm, vm_object_copy_delayed_paging_wait_disable, &vm_object_copy_delayed_paging_wait_disable, FALSE, TRUE, "");
+
 #if __arm64__
 /* These are meant to support the page table accounting unit test. */
 extern unsigned int arm_hardware_page_size;
@@ -2529,20 +2532,18 @@ SYSCTL_UINT(_vm, OID_AUTO, page_secluded_grab_for_iokit_success, CTLFLAG_RD | CT
 
 #endif /* CONFIG_SECLUDED_MEMORY */
 
-#pragma mark Deferred Reclaim
-
 #if CONFIG_DEFERRED_RECLAIM
-
+#pragma mark Deferred Reclaim
+SYSCTL_NODE(_vm, OID_AUTO, reclaim, CTLFLAG_RW | CTLFLAG_LOCKED, 0, "Deferred Memory Reclamation");
 #if DEVELOPMENT || DEBUG
 /*
  * VM reclaim testing
  */
-extern bool vm_deferred_reclamation_block_until_pid_has_been_reclaimed(pid_t pid);
+extern bool vm_deferred_reclamation_block_until_task_has_been_reclaimed(task_t task);
 
 static int
-sysctl_vm_reclaim_drain_async_queue SYSCTL_HANDLER_ARGS
+sysctl_vm_reclaim_wait_for_pid SYSCTL_HANDLER_ARGS
 {
-#pragma unused(arg1, arg2)
 	int error = EINVAL, pid = 0;
 	/*
 	 * Only send on write
@@ -2551,23 +2552,40 @@ sysctl_vm_reclaim_drain_async_queue SYSCTL_HANDLER_ARGS
 	if (error || !req->newptr) {
 		return error;
 	}
+	if (pid <= 0) {
+		return EINVAL;
+	}
+	proc_t p = proc_find(pid);
+	if (p == PROC_NULL) {
+		return ESRCH;
+	}
+	task_t t = proc_task(p);
+	if (t == TASK_NULL) {
+		proc_rele(p);
+		return ESRCH;
+	}
+	task_reference(t);
+	proc_rele(p);
 
-	bool success = vm_deferred_reclamation_block_until_pid_has_been_reclaimed(pid);
+	bool success = vm_deferred_reclamation_block_until_task_has_been_reclaimed(t);
 	if (success) {
 		error = 0;
 	}
+	task_deallocate(t);
 
 	return error;
 }
 
-SYSCTL_PROC(_vm, OID_AUTO, reclaim_drain_async_queue,
+SYSCTL_PROC(_vm_reclaim, OID_AUTO, wait_for_pid,
     CTLTYPE_INT | CTLFLAG_WR | CTLFLAG_LOCKED | CTLFLAG_MASKED, 0, 0,
-    &sysctl_vm_reclaim_drain_async_queue, "I", "");
+    &sysctl_vm_reclaim_wait_for_pid, "I",
+    "Block until the given pid has been drained by kernel GC");
 
 static int
-sysctl_vm_reclaim_from_pid SYSCTL_HANDLER_ARGS
+sysctl_vm_reclaim_drain_pid SYSCTL_HANDLER_ARGS
 {
 	int error = EINVAL;
+	kern_return_t kr;
 	pid_t pid;
 	error = sysctl_handle_int(oidp, &pid, 0, req);
 	/* Only reclaim on write */
@@ -2588,40 +2606,143 @@ sysctl_vm_reclaim_from_pid SYSCTL_HANDLER_ARGS
 	}
 	task_reference(t);
 	proc_rele(p);
-	vm_deferred_reclamation_reclaim_from_task_sync(t, UINT64_MAX);
+	kr = vm_deferred_reclamation_task_drain(t, RECLAIM_OPTIONS_NONE);
 	task_deallocate(t);
-	return 0;
+	return mach_to_bsd_errno(kr);
 }
 
-SYSCTL_PROC(_vm, OID_AUTO, reclaim_from_pid,
+SYSCTL_PROC(_vm_reclaim, OID_AUTO, drain_pid,
     CTLTYPE_INT | CTLFLAG_WR | CTLFLAG_LOCKED | CTLFLAG_MASKED, 0, 0,
-    &sysctl_vm_reclaim_from_pid, "I",
+    &sysctl_vm_reclaim_drain_pid, "I",
     "Drain the deferred reclamation buffer for a pid");
 
 static int
-sysctl_vm_reclaim_drain_all_buffers SYSCTL_HANDLER_ARGS
+proc_filter_reclaimable(proc_t p, __unused void *arg)
 {
-	/* Only reclaim on write */
+	task_t task = proc_task(p);
+	return vm_deferred_reclamation_task_has_ring(task);
+}
+
+static int
+proc_reclaim_drain(proc_t p, __unused void *arg)
+{
+	kern_return_t kr;
+	task_t task = proc_task(p);
+	kr = vm_deferred_reclamation_task_drain(task, RECLAIM_OPTIONS_NONE);
+	return mach_to_bsd_errno(kr);
+}
+
+static int
+sysctl_vm_reclaim_drain_all SYSCTL_HANDLER_ARGS
+{
+	int error;
+	int val;
 	if (!req->newptr) {
 		return EINVAL;
 	}
-	vm_deferred_reclamation_reclaim_all_memory(RECLAIM_OPTIONS_NONE);
+	error = sysctl_handle_int(oidp, &val, 0, req);
+	if (error || val == FALSE) {
+		return error;
+	}
+	proc_iterate(PROC_ALLPROCLIST, proc_reclaim_drain, NULL,
+	    proc_filter_reclaimable, NULL);
 	return 0;
 }
 
-SYSCTL_PROC(_vm, OID_AUTO, reclaim_drain_all_buffers,
+SYSCTL_PROC(_vm_reclaim, OID_AUTO, drain_all,
     CTLTYPE_INT | CTLFLAG_WR | CTLFLAG_LOCKED | CTLFLAG_MASKED, 0, 0,
-    &sysctl_vm_reclaim_drain_all_buffers, "I",
-    "Drain all system-wide deferred reclamation buffers");
+    &sysctl_vm_reclaim_drain_all, "I",
+    "Fully reclaim from every deferred reclamation buffer on the system");
 
-
+extern uint32_t vm_reclaim_buffer_count;
+extern uint64_t vm_reclaim_gc_epoch;
+extern uint64_t vm_reclaim_gc_reclaim_count;
+#if XNU_TARGET_OS_IOS
 extern uint64_t vm_reclaim_max_threshold;
-extern uint64_t vm_reclaim_trim_divisor;
+#else /* !XNU_TARGET_OS_IOS */
+extern bool vm_reclaim_debug;
+extern bool vm_reclaim_enabled;
+extern uint64_t vm_reclaim_sampling_period_ns;
+extern uint64_t vm_reclaim_sampling_period_abs;
+extern uint32_t vm_reclaim_autotrim_pct_normal;
+extern uint32_t vm_reclaim_autotrim_pct_pressure;
+extern uint32_t vm_reclaim_autotrim_pct_critical;
+extern uint32_t vm_reclaim_wma_weight_base;
+extern uint32_t vm_reclaim_wma_weight_cur;
+extern uint32_t vm_reclaim_wma_denom;
+extern uint64_t vm_reclaim_abandonment_threshold;
+#endif /* XNU_TARGET_OS_IOS */
 
-SYSCTL_ULONG(_vm, OID_AUTO, reclaim_max_threshold, CTLFLAG_RW | CTLFLAG_LOCKED, &vm_reclaim_max_threshold, "");
-SYSCTL_ULONG(_vm, OID_AUTO, reclaim_trim_divisor, CTLFLAG_RW | CTLFLAG_LOCKED, &vm_reclaim_trim_divisor, "");
+SYSCTL_UINT(_vm_reclaim, OID_AUTO, reclaim_buffer_count,
+    CTLFLAG_RD | CTLFLAG_LOCKED, (uint32_t *)&vm_reclaim_buffer_count, 0,
+    "The number of deferred memory buffers currently alive");
+SYSCTL_QUAD(_vm_reclaim, OID_AUTO, reclaim_gc_epoch,
+    CTLFLAG_RW | CTLFLAG_LOCKED, &vm_reclaim_gc_epoch,
+    "Number of times the global GC thread has run");
+SYSCTL_QUAD(_vm_reclaim, OID_AUTO, reclaim_gc_reclaim_count,
+    CTLFLAG_RW | CTLFLAG_LOCKED, &vm_reclaim_gc_reclaim_count,
+    "Number of times the global GC thread has reclaimed from a buffer");
+#if XNU_TARGET_OS_IOS
+SYSCTL_QUAD(_vm_reclaim, OID_AUTO, max_threshold,
+    CTLFLAG_RW | CTLFLAG_LOCKED, &vm_reclaim_max_threshold,
+    "Maximum amount of virtual memory (in B) that may be deferred without "
+    "synchronous reclamation");
+#else /* !XNU_TARGET_OS_IOS */
+SYSCTL_COMPAT_UINT(_vm_reclaim, OID_AUTO, enabled,
+    CTLFLAG_RW | CTLFLAG_LOCKED, &vm_reclaim_enabled, 0,
+    "Whether deferred memory reclamation is enabled on this system");
+SYSCTL_COMPAT_UINT(_vm_reclaim, OID_AUTO, debug,
+    CTLFLAG_RW | CTLFLAG_LOCKED, &vm_reclaim_debug, 0,
+    "Whether vm.reclaim debug logs are enabled");
+SYSCTL_UINT(_vm_reclaim, OID_AUTO, autotrim_pct_normal,
+    CTLFLAG_RW | CTLFLAG_LOCKED, &vm_reclaim_autotrim_pct_normal, 0,
+    "Percentage of a task's lifetime max phys_footprint that must be reclaimable "
+    "to engage auto-trim when the system is operating normally");
+SYSCTL_UINT(_vm_reclaim, OID_AUTO, autotrim_pct_pressure,
+    CTLFLAG_RW | CTLFLAG_LOCKED, &vm_reclaim_autotrim_pct_pressure, 0,
+    "Percentage of a task's lifetime max phys_footprint that must be reclaimable "
+    "to engage auto-trim when the system is under memory pressure");
+SYSCTL_UINT(_vm_reclaim, OID_AUTO, autotrim_pct_critical,
+    CTLFLAG_RW | CTLFLAG_LOCKED, &vm_reclaim_autotrim_pct_critical, 0,
+    "Percentage of a task's lifetime max phys_footprint that must be reclaimable "
+    "to engage auto-trim when the system is under critical memory pressure");
+SYSCTL_UINT(_vm_reclaim, OID_AUTO, wma_weight_base,
+    CTLFLAG_RW | CTLFLAG_LOCKED, &vm_reclaim_wma_weight_base, 0,
+    "Weight applied to historical minimum buffer size samples");
+SYSCTL_UINT(_vm_reclaim, OID_AUTO, wma_weight_cur,
+    CTLFLAG_RW | CTLFLAG_LOCKED, &vm_reclaim_wma_weight_cur, 0,
+    "Weight applied to current sampled minimum buffer size");
+SYSCTL_UINT(_vm_reclaim, OID_AUTO, wma_denom,
+    CTLFLAG_RW | CTLFLAG_LOCKED, &vm_reclaim_wma_denom, 0,
+    "Denominator for weighted moving average calculation");
+SYSCTL_QUAD(_vm_reclaim, OID_AUTO, abandonment_threshold,
+    CTLFLAG_RW | CTLFLAG_LOCKED, &vm_reclaim_abandonment_threshold,
+    "The number of sampling periods between accounting updates that may elapse "
+    "before the buffer is considered \"abandoned\"");
+
+static int
+sysctl_vm_reclaim_sampling_period SYSCTL_HANDLER_ARGS
+{
+	uint64_t new_val_ns;
+	uint64_t old_val_ns = vm_reclaim_sampling_period_ns;
+	int err = sysctl_io_number(req, vm_reclaim_sampling_period_ns,
+	    sizeof(vm_reclaim_sampling_period_ns), &new_val_ns, NULL);
+	if (err || !req->newptr) {
+		return err;
+	}
+	if (new_val_ns != old_val_ns) {
+		vm_reclaim_sampling_period_ns = new_val_ns;
+		nanoseconds_to_absolutetime(vm_reclaim_sampling_period_ns, &vm_reclaim_sampling_period_abs);
+	}
+	return 0;
+}
+
+SYSCTL_PROC(_vm_reclaim, OID_AUTO, sampling_period_ns,
+    CTLFLAG_RW | CTLFLAG_LOCKED, NULL, 0, sysctl_vm_reclaim_sampling_period, "I",
+    "Interval (nanoseconds) at which to sample the minimum buffer size and "
+    "consider trimming excess");
+#endif /* XNU_TARGET_OS_IOS */
 #endif /* DEVELOPMENT || DEBUG */
-
 #endif /* CONFIG_DEFERRED_RECLAIM */
 
 #include <kern/thread.h>
@@ -3087,6 +3208,8 @@ SYSCTL_QUAD(_vm, OID_AUTO, object_shadow_forced, CTLFLAG_RD | CTLFLAG_LOCKED,
 SYSCTL_QUAD(_vm, OID_AUTO, object_shadow_skipped, CTLFLAG_RD | CTLFLAG_LOCKED,
     &vm_object_shadow_skipped, "");
 
+
+
 SYSCTL_INT(_vm, OID_AUTO, vmtc_total, CTLFLAG_RD | CTLFLAG_LOCKED,
     &vmtc_total, 0, "total text page corruptions detected");
 
@@ -3255,12 +3378,22 @@ extern int fbdp_no_panic;
 SYSCTL_INT(_vm, OID_AUTO, fbdp_no_panic, CTLFLAG_RW | CTLFLAG_LOCKED | CTLFLAG_ANYBODY, &fbdp_no_panic, 0, "");
 #endif /* MACH_ASSERT */
 
+extern uint64_t cluster_direct_write_wired;
+SYSCTL_QUAD(_vm, OID_AUTO, cluster_direct_write_wired, CTLFLAG_RD | CTLFLAG_LOCKED, &cluster_direct_write_wired, "");
+
 
 #if DEVELOPMENT || DEBUG
 
+static uint32_t
+sysctl_compressor_seg_magic(vm_c_serialize_add_data_t with_data)
+{
+#pragma unused(with_data)
+	return VM_C_SEGMENT_INFO_MAGIC;
+}
 
-/* The largest possible single segment + its slots is (sizeof(c_segment_info) + C_SLOT_MAX_INDEX * sizeof(c_slot_info)), so this should be enough  */
-#define SYSCTL_SEG_BUF_SIZE (8 * 1024)
+/* The largest possible single segment + its slots is
+ * (sizeof(c_segment_info) + C_SLOT_MAX_INDEX * sizeof(c_slot_info)) + (data of a single segment) */
+#define SYSCTL_SEG_BUF_SIZE (8 * 1024 + 64 * 1024)
 
 extern uint32_t c_segments_available;
 
@@ -3271,7 +3404,7 @@ struct sysctl_buf_header {
 /* This sysctl iterates over the populated c_segments and writes some info about each one and its slots.
  * instead of doing everything here, the function calls a function vm_compressor.c. */
 static int
-sysctl_compressor_segments(__unused struct sysctl_oid *oidp, __unused void *arg1, __unused int arg2, struct sysctl_req *req)
+sysctl_compressor_segments_stream(struct sysctl_req *req, vm_c_serialize_add_data_t with_data)
 {
 	char* buf = kalloc_data(SYSCTL_SEG_BUF_SIZE, Z_WAITOK | Z_ZERO);
 	if (!buf) {
@@ -3282,12 +3415,12 @@ sysctl_compressor_segments(__unused struct sysctl_oid *oidp, __unused void *arg1
 	int segno = 0;
 	/* 4 byte header to identify the version of the formatting of the data.
 	 * This should be incremented if c_segment_info or c_slot_info are changed */
-	((struct sysctl_buf_header*)buf)->magic = VM_C_SEGMENT_INFO_MAGIC;
+	((struct sysctl_buf_header*)buf)->magic = sysctl_compressor_seg_magic(with_data);
 	offset += sizeof(uint32_t);
 
 	while (segno < c_segments_available) {
 		size_t left_sz = SYSCTL_SEG_BUF_SIZE - offset;
-		kern_return_t kr = vm_compressor_serialize_segment_debug_info(segno, buf + offset, &left_sz);
+		kern_return_t kr = vm_compressor_serialize_segment_debug_info(segno, buf + offset, &left_sz, with_data);
 		if (kr == KERN_NO_SPACE) {
 			/* failed to add another segment, push the current buffer out and try again */
 			if (offset == 0) {
@@ -3308,6 +3441,7 @@ sysctl_compressor_segments(__unused struct sysctl_oid *oidp, __unused void *arg1
 		} else {
 			offset += left_sz;
 			++segno;
+			assert(offset <= SYSCTL_SEG_BUF_SIZE);
 		}
 	}
 
@@ -3320,6 +3454,11 @@ out:
 	return error;
 }
 
+static int
+sysctl_compressor_segments(__unused struct sysctl_oid *oidp, __unused void *arg1, __unused int arg2, struct sysctl_req *req)
+{
+	return sysctl_compressor_segments_stream(req, VM_C_SERIALIZE_DATA_NONE);
+}
 SYSCTL_PROC(_vm, OID_AUTO, compressor_segments, CTLTYPE_STRUCT | CTLFLAG_LOCKED | CTLFLAG_RD, 0, 0, sysctl_compressor_segments, "S", "");
 
 
@@ -3333,6 +3472,18 @@ sysctl_compressor_fragmentation_level(__unused struct sysctl_oid *oidp, __unused
 }
 
 SYSCTL_PROC(_vm, OID_AUTO, compressor_fragmentation_level, CTLTYPE_INT | CTLFLAG_RD | CTLFLAG_LOCKED, 0, 0, sysctl_compressor_fragmentation_level, "IU", "");
+
+extern uint32_t vm_compressor_incore_fragmentation_wasted_pages(void);
+
+static int
+sysctl_compressor_incore_fragmentation_wasted_pages(__unused struct sysctl_oid *oidp, __unused void *arg1, __unused int arg2, struct sysctl_req *req)
+{
+	uint32_t value = vm_compressor_incore_fragmentation_wasted_pages();
+	return SYSCTL_OUT(req, &value, sizeof(value));
+}
+
+SYSCTL_PROC(_vm, OID_AUTO, compressor_incore_fragmentation_wasted_pages, CTLTYPE_INT | CTLFLAG_RD | CTLFLAG_LOCKED, 0, 0, sysctl_compressor_incore_fragmentation_wasted_pages, "IU", "");
+
 
 
 #define SYSCTL_VM_OBJECTS_SLOTMAP_BUF_SIZE (8 * 1024)

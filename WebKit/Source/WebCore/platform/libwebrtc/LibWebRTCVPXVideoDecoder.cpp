@@ -41,8 +41,7 @@
 #include <wtf/WorkQueue.h>
 #include <wtf/text/MakeString.h>
 
-ALLOW_UNUSED_PARAMETERS_BEGIN
-ALLOW_COMMA_BEGIN
+WTF_IGNORE_WARNINGS_IN_THIRD_PARTY_CODE_BEGIN
 
 #include <webrtc/api/environment/environment_factory.h>
 #include <webrtc/modules/video_coding/codecs/vp8/include/vp8.h>
@@ -50,8 +49,7 @@ ALLOW_COMMA_BEGIN
 #include <webrtc/system_wrappers/include/cpu_info.h>
 #include <webrtc/webkit_sdk/WebKit/WebKitDecoder.h>
 
-ALLOW_COMMA_END
-ALLOW_UNUSED_PARAMETERS_END
+WTF_IGNORE_WARNINGS_IN_THIRD_PARTY_CODE_END
 
 #include "CoreVideoSoftLink.h"
 
@@ -94,7 +92,7 @@ private:
     size_t m_pixelBufferPoolWidth { 0 };
     size_t m_pixelBufferPoolHeight { 0 };
     OSType m_pixelBufferPoolType;
-    UniqueRef<webrtc::VideoDecoder> m_internalDecoder WTF_GUARDED_BY_CAPABILITY(vpxDecoderQueueSingleton());
+    const UniqueRef<webrtc::VideoDecoder> m_internalDecoder WTF_GUARDED_BY_CAPABILITY(vpxDecoderQueueSingleton());
     const bool m_useIOSurface { false };
     const bool m_treatNoOutputAsError { true };
     const std::optional<PlatformVideoColorSpace> m_colorSpace;
@@ -103,7 +101,7 @@ private:
 
 void LibWebRTCVPXVideoDecoder::create(Type type, const Config& config, CreateCallback&& callback, OutputCallback&& outputCallback)
 {
-    UniqueRef<VideoDecoder> decoder = makeUniqueRef<LibWebRTCVPXVideoDecoder>(type, config, WTFMove(outputCallback));
+    Ref<VideoDecoder> decoder = adoptRef(*new LibWebRTCVPXVideoDecoder(type, config, WTFMove(outputCallback)));
     callback(WTFMove(decoder));
 }
 
@@ -119,7 +117,7 @@ LibWebRTCVPXVideoDecoder::~LibWebRTCVPXVideoDecoder()
 Ref<VideoDecoder::DecodePromise> LibWebRTCVPXVideoDecoder::decode(EncodedFrame&& frame)
 {
     return invokeAsync(vpxDecoderQueueSingleton(), [value = Vector<uint8_t> { frame.data }, isKeyFrame = frame.isKeyFrame, timestamp = frame.timestamp, duration = frame.duration, decoder = m_internalDecoder] {
-        return decoder->decode({ value.data(), value.size() }, isKeyFrame, timestamp, duration);
+        return decoder->decode(value.span(), isKeyFrame, timestamp, duration);
     });
 }
 

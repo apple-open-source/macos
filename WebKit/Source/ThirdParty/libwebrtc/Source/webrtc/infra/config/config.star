@@ -13,7 +13,7 @@ lucicfg.check_version("1.30.9")
 WEBRTC_GIT = "https://webrtc.googlesource.com/src"
 WEBRTC_GERRIT = "https://webrtc-review.googlesource.com/src"
 WEBRTC_TROOPER_EMAIL = "webrtc-troopers-robots@google.com"
-WEBRTC_XCODE14 = "14c18"
+WEBRTC_XCODE = "15f31d"
 DEFAULT_CPU = "x86-64"
 
 # Helpers:
@@ -315,7 +315,7 @@ luci.cq_group(
     tree_status_host = "webrtc-status.appspot.com",
     watch = [cq.refset(repo = WEBRTC_GERRIT, refs = ["refs/heads/main"])],
     acls = [
-        acl.entry(acl.CQ_COMMITTER, groups = ["project-webrtc-committers"]),
+        acl.entry(acl.CQ_COMMITTER, groups = ["project-webrtc-submit-access"]),
         acl.entry(acl.CQ_DRY_RUNNER, groups = ["project-webrtc-tryjob-access"]),
     ],
     allow_owner_if_submittable = cq.ACTION_DRY_RUN,
@@ -327,7 +327,7 @@ luci.cq_group(
     name = "cq_branch",
     watch = [cq.refset(repo = WEBRTC_GERRIT, refs = ["refs/branch-heads/.+"])],
     acls = [
-        acl.entry(acl.CQ_COMMITTER, groups = ["project-webrtc-committers"]),
+        acl.entry(acl.CQ_COMMITTER, groups = ["project-webrtc-submit-access"]),
         acl.entry(acl.CQ_DRY_RUNNER, groups = ["project-webrtc-tryjob-access"]),
     ],
     retry_config = cq.RETRY_ALL_FAILURES,
@@ -404,6 +404,11 @@ luci.notifier(
         name = "infra_failure",
         body = io.read_file("luci-notify/email-templates/infra_failure.template"),
     ),
+)
+
+# Notify findit about completed builds for code coverage purposes
+luci.buildbucket_notification_topic(
+    name = "projects/findit-for-me/topics/buildbucket_notification",
 )
 
 # Tree closer definitions:
@@ -705,10 +710,10 @@ def normal_builder_factory(**common_kwargs):
 # Mixins:
 
 ios_builder, ios_try_job = normal_builder_factory(
-    properties = {"xcode_build_version": WEBRTC_XCODE14},
+    properties = {"xcode_build_version": WEBRTC_XCODE},
     caches = [swarming.cache(
-        name = "xcode_ios_" + WEBRTC_XCODE14,
-        path = "xcode_ios_" + WEBRTC_XCODE14 + ".app",
+        name = "xcode_ios_" + WEBRTC_XCODE,
+        path = "xcode_ios_" + WEBRTC_XCODE + ".app",
     )],
 )
 

@@ -164,7 +164,7 @@ private:
     void removeWheelEventTestCompletionDeferralForReason(ScrollingNodeID, WheelEventTestMonitor::DeferReason) const final;
     ScrollingNodeID scrollingNodeIDForTesting() const final;
 
-#if PLATFORM(GTK) || USE(NICOSIA)
+#if USE(COORDINATED_GRAPHICS)
     bool scrollAnimationEnabled() const final;
 #endif
 

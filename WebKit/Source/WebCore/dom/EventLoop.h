@@ -32,7 +32,7 @@
 #include <wtf/Function.h>
 #include <wtf/Markable.h>
 #include <wtf/MonotonicTime.h>
-#include <wtf/RefCounted.h>
+#include <wtf/RefCountedAndCanMakeWeakPtr.h>
 #include <wtf/StdLibExtras.h>
 #include <wtf/TZoneMalloc.h>
 #include <wtf/WeakHashSet.h>
@@ -96,7 +96,7 @@ private:
 enum class HasReachedMaxNestingLevel : bool { No, Yes };
 
 // https://html.spec.whatwg.org/multipage/webappapis.html#event-loop
-class EventLoop : public RefCounted<EventLoop>, public CanMakeWeakPtr<EventLoop> {
+class EventLoop : public RefCountedAndCanMakeWeakPtr<EventLoop> {
 public:
     virtual ~EventLoop();
 

@@ -849,6 +849,7 @@
 		49938FE528EEC2A500847F67 /* TestHIDVirtualService_NotificationTypeEnumerated.m in Sources */ = {isa = PBXBuildFile; fileRef = 49938FE428EEC2A500847F67 /* TestHIDVirtualService_NotificationTypeEnumerated.m */; };
 		499B07852ADFD1D700A0CCC0 /* TestHIDDeviceAccessEntitlements.m in Sources */ = {isa = PBXBuildFile; fileRef = 499B07842ADFD1D700A0CCC0 /* TestHIDDeviceAccessEntitlements.m */; };
 		499B07872ADFD1F900A0CCC0 /* TestHIDDeviceAccessNoEntitlements.m in Sources */ = {isa = PBXBuildFile; fileRef = 499B07862ADFD1F900A0CCC0 /* TestHIDDeviceAccessNoEntitlements.m */; };
+		499CB5332CA4FA6800FAC759 /* TestHIDUnregisteredService.m in Sources */ = {isa = PBXBuildFile; fileRef = 499CB5322CA4FA5B00FAC759 /* TestHIDUnregisteredService.m */; };
 		49A358AD2ABD8F7D009998EA /* TestHIDRemapAlphaNumericEntitlement.m in Sources */ = {isa = PBXBuildFile; fileRef = 49A358AC2ABD8F7D009998EA /* TestHIDRemapAlphaNumericEntitlement.m */; };
 		49A358AF2ABD918C009998EA /* TestHIDRemapAlphaNumericNoEntitlement.m in Sources */ = {isa = PBXBuildFile; fileRef = 49A358AE2ABD918C009998EA /* TestHIDRemapAlphaNumericNoEntitlement.m */; };
 		49CB816A2A65DD5400E83F18 /* HIDButtonLoggingServiceFilter.m in CopyFiles */ = {isa = PBXBuildFile; fileRef = 49CB81692A65DD5400E83F18 /* HIDButtonLoggingServiceFilter.m */; };
@@ -1430,7 +1431,6 @@
 		D06F2E6F28CA56EA00F07F1F /* TestHIDDigitizerSurfaceSwitch.m in Sources */ = {isa = PBXBuildFile; fileRef = D06F2E6E28CA56EA00F07F1F /* TestHIDDigitizerSurfaceSwitch.m */; };
 		D06F2E7128CA570900F07F1F /* TestHIDDigitizerFingerCollection.m in Sources */ = {isa = PBXBuildFile; fileRef = D06F2E7028CA570900F07F1F /* TestHIDDigitizerFingerCollection.m */; };
 		D09A007629F848120048684B /* PowerLog.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D09A007529F848120048684B /* PowerLog.framework */; };
-		D09A007829F848190048684B /* PerfPowerServicesMetadata.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D09A007729F848190048684B /* PerfPowerServicesMetadata.framework */; platformFilters = (ios, macos, xros, ); };
 		D09A007A29F8483D0048684B /* libbsm.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = D09A007929F8483D0048684B /* libbsm.tbd */; };
 		D0A13F012A17F8E4002336F1 /* libMobileGestalt.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = D0A13F002A17F8E4002336F1 /* libMobileGestalt.tbd */; };
 		D0BAAFB82A01805000277470 /* IOHIDSensorPowerLoggingFilter.m in Sources */ = {isa = PBXBuildFile; fileRef = D0BAAFB62A017F9400277470 /* IOHIDSensorPowerLoggingFilter.m */; };
@@ -3893,6 +3893,7 @@
 		49938FE428EEC2A500847F67 /* TestHIDVirtualService_NotificationTypeEnumerated.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = TestHIDVirtualService_NotificationTypeEnumerated.m; sourceTree = "<group>"; };
 		499B07842ADFD1D700A0CCC0 /* TestHIDDeviceAccessEntitlements.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = TestHIDDeviceAccessEntitlements.m; sourceTree = "<group>"; };
 		499B07862ADFD1F900A0CCC0 /* TestHIDDeviceAccessNoEntitlements.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = TestHIDDeviceAccessNoEntitlements.m; sourceTree = "<group>"; };
+		499CB5322CA4FA5B00FAC759 /* TestHIDUnregisteredService.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = TestHIDUnregisteredService.m; sourceTree = "<group>"; };
 		49A358AC2ABD8F7D009998EA /* TestHIDRemapAlphaNumericEntitlement.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = TestHIDRemapAlphaNumericEntitlement.m; sourceTree = "<group>"; };
 		49A358AE2ABD918C009998EA /* TestHIDRemapAlphaNumericNoEntitlement.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = TestHIDRemapAlphaNumericNoEntitlement.m; sourceTree = "<group>"; };
 		49BEC8662C40936B00547D30 /* IOHIDSensorPowerLoggingFilter.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = IOHIDSensorPowerLoggingFilter.xcconfig; sourceTree = "<group>"; };
@@ -4239,7 +4240,6 @@
 		D06F2E6E28CA56EA00F07F1F /* TestHIDDigitizerSurfaceSwitch.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = TestHIDDigitizerSurfaceSwitch.m; sourceTree = "<group>"; };
 		D06F2E7028CA570900F07F1F /* TestHIDDigitizerFingerCollection.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = TestHIDDigitizerFingerCollection.m; sourceTree = "<group>"; };
 		D09A007529F848120048684B /* PowerLog.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = PowerLog.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX14.0.Internal.sdk/System/Library/PrivateFrameworks/PowerLog.framework; sourceTree = DEVELOPER_DIR; };
-		D09A007729F848190048684B /* PerfPowerServicesMetadata.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = PerfPowerServicesMetadata.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS17.0.Internal.sdk/System/Library/PrivateFrameworks/PerfPowerServicesMetadata.framework; sourceTree = DEVELOPER_DIR; };
 		D09A007929F8483D0048684B /* libbsm.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libbsm.tbd; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX14.0.Internal.sdk/usr/lib/libbsm.tbd; sourceTree = DEVELOPER_DIR; };
 		D0A13F002A17F8E4002336F1 /* libMobileGestalt.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libMobileGestalt.tbd; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS17.0.Internal.sdk/usr/lib/libMobileGestalt.tbd; sourceTree = DEVELOPER_DIR; };
 		D0BAAFB52A017F9400277470 /* IOHIDSensorPowerLoggingFilter.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = IOHIDSensorPowerLoggingFilter.h; path = IOHIDSensorPowerLoggingFilter/IOHIDSensorPowerLoggingFilter.h; sourceTree = "<group>"; };
@@ -5009,7 +5009,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				D09A007A29F8483D0048684B /* libbsm.tbd in Frameworks */,
-				D09A007829F848190048684B /* PerfPowerServicesMetadata.framework in Frameworks */,
 				D09A007629F848120048684B /* PowerLog.framework in Frameworks */,
 				D0C727CD29F1AD5800E878ED /* IOKit.framework in Frameworks */,
 				D0C727CE29F1AD5800E878ED /* Foundation.framework in Frameworks */,
@@ -6074,7 +6073,6 @@
 				D0A13F002A17F8E4002336F1 /* libMobileGestalt.tbd */,
 				F3807F752A0C70B000CE5E08 /* HIDPreferences.framework */,
 				D09A007929F8483D0048684B /* libbsm.tbd */,
-				D09A007729F848190048684B /* PerfPowerServicesMetadata.framework */,
 				D09A007529F848120048684B /* PowerLog.framework */,
 				F30959B029AEB54B005CFBE4 /* CoreAnalytics.framework */,
 				F3BF5EA429E90B59001B3600 /* CoreAnalytics.framework */,
@@ -6424,6 +6422,7 @@
 		D8ACE9181DBA6D3C00F34E42 /* IOHIDFamilyUnitTests */ = {
 			isa = PBXGroup;
 			children = (
+				499CB5322CA4FA5B00FAC759 /* TestHIDUnregisteredService.m */,
 				49416E782C1296E800C1DDC2 /* TestHIDEventDriver_DigitizerHand.m */,
 				D82426EC2B687F4C00622417 /* TestHIDVirtualService_RequestTerminate.m */,
 				D0EDCC742A5DFD1000966D13 /* IOHIDEventSystemClientRef */,
@@ -9352,6 +9351,10 @@
 			buildActionMask = 2147483647;
 			files = (
 			);
+			inputPaths = (
+			);
+			outputPaths = (
+			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi\n";
@@ -9360,6 +9363,10 @@
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+			);
+			inputPaths = (
+			);
+			outputPaths = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
@@ -9370,6 +9377,10 @@
 			buildActionMask = 2147483647;
 			files = (
 			);
+			inputPaths = (
+			);
+			outputPaths = (
+			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi\n";
@@ -9378,6 +9389,10 @@
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+			);
+			inputPaths = (
+			);
+			outputPaths = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
@@ -9388,6 +9403,10 @@
 			buildActionMask = 2147483647;
 			files = (
 			);
+			inputPaths = (
+			);
+			outputPaths = (
+			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "mkdir -p \"$DERIVED_SOURCES_DIR/IOKit\" && ln -sf \"$SRCROOT/IOHIDFamily\" \"$DERIVED_SOURCES_DIR/IOKit/hid\"\n";
@@ -9396,6 +9415,10 @@
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+			);
+			inputPaths = (
+			);
+			outputPaths = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
@@ -10181,6 +10204,7 @@
 				4988CEB32B5DBC5C0049E7C5 /* TestHIDLegacyEvents.m in Sources */,
 				486EE5291E5D05A300C0A7C1 /* TestHIDProperty.m in Sources */,
 				6C93BF361FD5F5BF0026F8F5 /* TestHIDQueueClass.m in Sources */,
+				499CB5332CA4FA6800FAC759 /* TestHIDUnregisteredService.m in Sources */,
 				D06F2E6F28CA56EA00F07F1F /* TestHIDDigitizerSurfaceSwitch.m in Sources */,
 				6C28900A1FB26D4600245AE7 /* TestHIDManagerDQ.m in Sources */,
 				66EA070B2224CD5800C47F35 /* TestHIDIOHIDEventDriver_Temperature.m in Sources */,

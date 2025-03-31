@@ -50,10 +50,10 @@ LayerPool::~LayerPool()
     allLayerPools().remove(this);
 }
 
-HashSet<CheckedPtr<LayerPool>>& LayerPool::allLayerPools()
+UncheckedKeyHashSet<CheckedPtr<LayerPool>>& LayerPool::allLayerPools()
 {
     RELEASE_ASSERT(isMainThread());
-    static NeverDestroyed<HashSet<CheckedPtr<LayerPool>>> allLayerPools;
+    static NeverDestroyed<UncheckedKeyHashSet<CheckedPtr<LayerPool>>> allLayerPools;
     return allLayerPools.get();
 }
 
@@ -64,7 +64,7 @@ unsigned LayerPool::backingStoreBytesForSize(const IntSize& size)
 
 LayerPool::LayerList& LayerPool::listOfLayersWithSize(const IntSize& size, AccessType accessType)
 {
-    HashMap<IntSize, LayerList>::iterator it = m_reuseLists.find(size);
+    UncheckedKeyHashMap<IntSize, LayerList>::iterator it = m_reuseLists.find(size);
     if (it == m_reuseLists.end()) {
         it = m_reuseLists.add(size, LayerList()).iterator;
         m_sizesInPruneOrder.append(size);

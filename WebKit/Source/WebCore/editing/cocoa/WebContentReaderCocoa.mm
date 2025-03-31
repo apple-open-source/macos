@@ -48,6 +48,7 @@
 #import "HTMLIFrameElement.h"
 #import "HTMLImageElement.h"
 #import "HTMLObjectElement.h"
+#import "HTMLPictureElement.h"
 #import "HTMLSourceElement.h"
 #import "LegacyWebArchive.h"
 #import "LocalFrame.h"
@@ -193,12 +194,14 @@ public:
     {
         if (m_didDisableImage)
             m_cachedResourceLoader->setImagesEnabled(true);
-        if (m_didEnabledDeferredLoading)
-            m_frame->page()->setDefersLoading(false);
+        if (m_didEnabledDeferredLoading) {
+            if (RefPtr frame = m_frame.get())
+                frame->page()->setDefersLoading(false);
+        }
     }
 
 private:
-    Ref<LocalFrame> m_frame;
+    WeakPtr<LocalFrame> m_frame;
     Ref<CachedResourceLoader> m_cachedResourceLoader;
     bool m_didEnabledDeferredLoading { false };
     bool m_didDisableImage { false };
@@ -296,7 +299,7 @@ static void replaceRichContentWithAttachments(LocalFrame& frame, DocumentFragmen
         return;
 
     // FIXME: Handle resources in subframe archives.
-    HashMap<AtomString, Ref<ArchiveResource>> urlToResourceMap;
+    UncheckedKeyHashMap<AtomString, Ref<ArchiveResource>> urlToResourceMap;
     for (auto& subresource : subresources)
         urlToResourceMap.set(AtomString { subresource->url().string() }, subresource.copyRef());
 
@@ -393,11 +396,13 @@ static void replaceRichContentWithAttachments(LocalFrame& frame, DocumentFragmen
         if (supportsClientSideAttachmentData(frame)) {
             if (RefPtr image = dynamicDowncast<HTMLImageElement>(originalElement); image && contentTypeIsSuitableForInlineImageRepresentation(info.contentType)) {
                 RefPtr document = frame.document();
-                image->setAttributeWithoutSynchronization(HTMLNames::srcAttr, AtomString { DOMURL::createObjectURL(*document, Blob::create(document.get(), info.data->copyData(), info.contentType)) });
+                Ref data = info.data;
+                image->setAttributeWithoutSynchronization(HTMLNames::srcAttr, AtomString { DOMURL::createObjectURL(*document, Blob::create(document.get(), data->copyData(), info.contentType)) });
                 image->setAttachmentElement(attachment.copyRef());
             } else if (RefPtr source = dynamicDowncast<HTMLSourceElement>(originalElement); source && contentTypeIsSuitableForInlineImageRepresentation(info.contentType)) {
                 RefPtr document = frame.document();
-                source->setAttributeWithoutSynchronization(HTMLNames::srcsetAttr, AtomString { DOMURL::createObjectURL(*document, Blob::create(document.get(), info.data->copyData(), info.contentType)) });
+                Ref data = info.data;
+                source->setAttributeWithoutSynchronization(HTMLNames::srcsetAttr, AtomString { DOMURL::createObjectURL(*document, Blob::create(document.get(), data->copyData(), info.contentType)) });
                 source->setAttachmentElement(attachment.copyRef());
             } else {
                 attachment->updateAttributes(info.data->size(), AtomString { info.contentType }, AtomString { info.fileName });
@@ -406,7 +411,8 @@ static void replaceRichContentWithAttachments(LocalFrame& frame, DocumentFragmen
             frame.editor().registerAttachmentIdentifier(attachment->ensureUniqueIdentifier(), WTFMove(info.contentType), WTFMove(info.fileName), WTFMove(info.data));
         } else {
             RefPtr document = frame.document();
-            attachment->setFile(File::create(document.get(), Blob::create(document.get(), info.data->copyData(), WTFMove(info.contentType)), WTFMove(info.fileName)), HTMLAttachmentElement::UpdateDisplayAttributes::Yes);
+            Ref data = info.data;
+            attachment->setFile(File::create(document.get(), Blob::create(document.get(), data->copyData(), WTFMove(info.contentType)), WTFMove(info.fileName)), HTMLAttachmentElement::UpdateDisplayAttributes::Yes);
             parent->replaceChild(WTFMove(attachment), WTFMove(originalElement));
         }
     }
@@ -417,6 +423,43 @@ static void replaceRichContentWithAttachments(LocalFrame& frame, DocumentFragmen
     UNUSED_PARAM(fragment);
     UNUSED_PARAM(subresources);
 #endif
+}
+
+static void simplifyFragmentForSingleTextAttachment(NSAttributedString *string, DocumentFragment& fragment)
+{
+    auto stringLength = string.length;
+    if (!stringLength || stringLength > 2)
+        return;
+
+    RetainPtr plainText = [string string];
+    if ([plainText characterAtIndex:0] != objectReplacementCharacter)
+        return;
+
+    __block unsigned numberOfTextAttachments = 0;
+    [string enumerateAttribute:NSAttachmentAttributeName inRange:NSMakeRange(0, 1) options:0 usingBlock:^(NSTextAttachment *attachment, NSRange, BOOL *) {
+        if (attachment)
+            numberOfTextAttachments++;
+    }];
+
+    if (numberOfTextAttachments != 1)
+        return;
+
+    if (stringLength == 2 && [plainText characterAtIndex:1] != newlineCharacter)
+        return;
+
+    RefPtr pictureOrImage = [&] -> RefPtr<HTMLElement> {
+        for (Ref element : descendantsOfType<HTMLElement>(fragment)) {
+            if (is<HTMLPictureElement>(element) || is<HTMLImageElement>(element))
+                return WTFMove(element);
+        }
+        return { };
+    }();
+
+    if (!pictureOrImage)
+        return;
+
+    fragment.removeChildren();
+    fragment.appendChild(pictureOrImage.releaseNonNull());
 }
 
 RefPtr<DocumentFragment> createFragment(LocalFrame& frame, NSAttributedString *string, OptionSet<FragmentCreationOptions> fragmentCreationOptions)
@@ -449,14 +492,16 @@ RefPtr<DocumentFragment> createFragment(LocalFrame& frame, NSAttributedString *s
         return WTFMove(fragmentAndResources.fragment);
     }
 
-    HashMap<AtomString, AtomString> blobURLMap;
+    UncheckedKeyHashMap<AtomString, AtomString> blobURLMap;
     for (auto& subresource : fragmentAndResources.resources) {
-        auto blob = Blob::create(&document, subresource->data().copyData(), subresource->mimeType());
+        Ref data = subresource->data();
+        auto blob = Blob::create(&document, data->copyData(), subresource->mimeType());
         String blobURL = DOMURL::createObjectURL(document, blob);
         blobURLMap.set(AtomString { subresource->url().string() }, AtomString { blobURL });
     }
 
     replaceSubresourceURLs(*fragmentAndResources.fragment, WTFMove(blobURLMap));
+    simplifyFragmentForSingleTextAttachment(string, *fragmentAndResources.fragment);
     return WTFMove(fragmentAndResources.fragment);
 }
 
@@ -486,12 +531,10 @@ static std::optional<MarkupAndArchive> extractMarkupAndArchive(SharedBuffer& buf
 static String sanitizeMarkupWithArchive(LocalFrame& frame, Document& destinationDocument, MarkupAndArchive& markupAndArchive, MSOListQuirks msoListQuirks, const std::function<bool(const String)>& canShowMIMETypeAsHTML)
 {
     Ref page = createPageForSanitizingWebContent();
-    auto* localMainFrame = dynamicDowncast<LocalFrame>(page->mainFrame());
-    if (!localMainFrame)
+    RefPtr stagingDocument = page->localTopDocument();
+    if (!stagingDocument)
         return String();
 
-    Document* stagingDocument = localMainFrame->document();
-    ASSERT(stagingDocument);
     auto fragment = createFragmentFromMarkup(*stagingDocument, markupAndArchive.markup, markupAndArchive.mainResource->url().string(), { });
 
     if (shouldReplaceRichContentWithAttachments()) {
@@ -499,12 +542,13 @@ static String sanitizeMarkupWithArchive(LocalFrame& frame, Document& destination
         return sanitizedMarkupForFragmentInDocument(WTFMove(fragment), *stagingDocument, msoListQuirks, markupAndArchive.markup);
     }
 
-    HashMap<AtomString, AtomString> blobURLMap;
+    UncheckedKeyHashMap<AtomString, AtomString> blobURLMap;
     for (const Ref<ArchiveResource>& subresource : markupAndArchive.archive->subresources()) {
         auto& subresourceURL = subresource->url();
         if (!shouldReplaceSubresourceURLWithBlobDuringSanitization(subresourceURL))
             continue;
-        auto blob = Blob::create(&destinationDocument, subresource->data().copyData(), subresource->mimeType());
+        Ref data = subresource->data();
+        auto blob = Blob::create(&destinationDocument, data->copyData(), subresource->mimeType());
         String blobURL = DOMURL::createObjectURL(destinationDocument, blob);
         blobURLMap.set(AtomString { subresourceURL.string() }, AtomString { blobURL });
     }
@@ -554,7 +598,7 @@ bool WebContentReader::readWebArchive(SharedBuffer& buffer)
     Ref frameDocument = *frame->document();
     if (!DeprecatedGlobalSettings::customPasteboardDataEnabled()) {
         m_fragment = createFragmentFromMarkup(frameDocument, result->markup, result->mainResource->url().string(), { });
-        if (DocumentLoader* loader = frame->loader().documentLoader())
+        if (RefPtr loader = frame->loader().documentLoader())
             loader->addAllArchiveResources(result->archive.get());
         return true;
     }

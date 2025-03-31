@@ -4,5 +4,7 @@
 <dict>
 	<key>com.apple.security.cs.debugger.read.root</key>
 	<true/>
+	<key>com.apple.private.amfi.version-restriction</key>
+	<integer>1</integer>
 </dict>
 </plist>

@@ -735,11 +735,11 @@ MALLOC_STATIC_ASSERT(sizeof(struct medium_region) == 128 * 1024 * 1024,
 typedef struct large_entry_s {
 	vm_address_t address;
 	vm_size_t size;
-#if CONFIG_DEFERRED_RECLAIM
-	uint64_t reclaim_index;
+#if CONFIG_MAGAZINE_DEFERRED_RECLAIM
+	mach_vm_reclaim_id_t reclaim_index;
 #else
 	boolean_t did_madvise_reusable;
-#endif /* CONFIG_DEFERRED_RECLAIM */
+#endif /* CONFIG_MAGAZINE_DEFERRED_RECLAIM */
 } large_entry_t;
 
 #if !CONFIG_LARGE_CACHE && DEBUG_MALLOC

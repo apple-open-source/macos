@@ -728,6 +728,51 @@ int nfsm_chain_get_secinfo(struct nfsm_chain *, uint32_t *, int *);
 	        (LEN) = __len; \
 	} while (0)
 
+#define nfsm_chain_get_rw_delegation(E, NMC, SID, RECALL, DELEG, ACE) \
+	do { \
+	        char __sbuf[64], *__s = __sbuf; \
+	        uint32_t __ace_type, __ace_flags, __ace_mask, __len, __slen = sizeof(__sbuf); \
+	        nfsm_chain_get_stateid((E), (NMC), (SID)); \
+	        nfsm_chain_get_32((E), (NMC), (RECALL)); \
+	        if ((DELEG) == NFS_OPEN_DELEGATE_WRITE) { \
+	                nfsm_chain_adv((E), (NMC), 3 * NFSX_UNSIGNED); \
+	        } \
+	/* if we have any trouble accepting the ACE, just invalidate it */ \
+	        __ace_type = __ace_flags = __ace_mask = __len = 0; \
+	        nfsm_chain_get_32((E), (NMC), __ace_type); \
+	        nfsm_chain_get_32((E), (NMC), __ace_flags); \
+	        nfsm_chain_get_32((E), (NMC), __ace_mask); \
+	        nfsm_chain_get_32((E), (NMC), __len); \
+	        (ACE).ace_flags = nfs4_ace_nfstype_to_vfstype(__ace_type, &(E)); \
+	        (ACE).ace_flags |= nfs4_ace_nfsflags_to_vfsflags(__ace_flags); \
+	        (ACE).ace_rights = nfs4_ace_nfsmask_to_vfsrights(__ace_mask); \
+	        if (!(E) && (__len >= __slen)) { \
+	                __s = kalloc_data(__len + 1, Z_WAITOK); \
+	                if (__s) { \
+	                        __slen = __len + 1; \
+	                } else { \
+	                        (ACE).ace_flags = 0; \
+	                } \
+	        } \
+	        if (__s) { \
+	                nfsm_chain_get_opaque((E), (NMC), __len, __s); \
+	        } else { \
+	                nfsm_chain_adv((E), (NMC), nfsm_rndup(__len)); \
+	        } \
+	        if (!(E) && __s) { \
+	                __s[__len] = '\0'; \
+	                if (nfs4_id2guid(__s, &(ACE).ace_applicable, (__ace_flags & NFS_ACE_IDENTIFIER_GROUP))) { \
+	                        (ACE).ace_flags = 0; \
+	                } \
+	        } \
+	        if ((E) || !__s) { \
+	                (ACE).ace_flags = 0; \
+	        } \
+	        if (__s && (__s != __sbuf)) { \
+	                kfree_data(__s, __slen); \
+	        } \
+	} while (0)
+
 /* get an NFSv4 "stateid" structure from an mbuf chain */
 #define nfsm_chain_get_stateid(E, NMC, SID) \
 	do { \

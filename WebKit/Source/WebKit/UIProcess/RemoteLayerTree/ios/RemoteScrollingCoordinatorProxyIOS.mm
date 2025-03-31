@@ -52,8 +52,12 @@
 #import <WebCore/ScrollingTreePluginScrollingNode.h>
 #import <WebCore/ScrollingTreePositionedNode.h>
 #import <tuple>
+#import <wtf/TZoneMallocInlines.h>
 
 namespace WebKit {
+
+WTF_MAKE_TZONE_ALLOCATED_IMPL(RemoteScrollingCoordinatorProxyIOS);
+
 using namespace WebCore;
 
 #define MESSAGE_CHECK(assertion) MESSAGE_CHECK_BASE(assertion, webPageProxy().legacyMainFrameProcess().connection())
@@ -81,7 +85,7 @@ void RemoteScrollingCoordinatorProxyIOS::clearTouchActionsForTouchIdentifier(uns
     m_touchActionsByTouchIdentifier.remove(touchIdentifier);
 }
 
-UIScrollView *RemoteScrollingCoordinatorProxyIOS::scrollViewForScrollingNodeID(ScrollingNodeID nodeID) const
+UIScrollView *RemoteScrollingCoordinatorProxyIOS::scrollViewForScrollingNodeID(std::optional<ScrollingNodeID> nodeID) const
 {
     auto* treeNode = scrollingTree()->nodeForID(nodeID);
 
@@ -254,9 +258,11 @@ void RemoteScrollingCoordinatorProxyIOS::establishLayerTreeScrollingRelations(co
 
         for (auto overflowNodeID : positionedNode->relatedOverflowScrollingNodes()) {
             auto* node = scrollingTree()->nodeForID(overflowNodeID);
-            MESSAGE_CHECK(is<ScrollingTreeOverflowScrollingNode>(node));
-            auto* overflowNode = downcast<ScrollingTreeOverflowScrollingNode>(node);
-            stationaryScrollContainerIDs.append(*RemoteLayerTreeNode::layerID(static_cast<CALayer*>(overflowNode->scrollContainerLayer())));
+            auto* overflowNode = dynamicDowncast<ScrollingTreeOverflowScrollingNode>(node);
+            MESSAGE_CHECK(overflowNode);
+            auto layerID = RemoteLayerTreeNode::layerID(static_cast<CALayer*>(overflowNode->scrollContainerLayer()));
+            MESSAGE_CHECK(layerID);
+            stationaryScrollContainerIDs.append(*layerID);
         }
 
         if (auto* layerNode = RemoteLayerTreeNode::forCALayer(positionedNode->layer())) {
@@ -267,8 +273,8 @@ void RemoteScrollingCoordinatorProxyIOS::establishLayerTreeScrollingRelations(co
 
     for (auto& scrollProxyNode : scrollingTree()->activeOverflowScrollProxyNodes()) {
         auto* node = scrollingTree()->nodeForID(scrollProxyNode->overflowScrollingNodeID());
-        MESSAGE_CHECK(is<ScrollingTreeOverflowScrollingNode>(node));
-        auto* overflowNode = downcast<ScrollingTreeOverflowScrollingNode>(node);
+        auto* overflowNode = dynamicDowncast<ScrollingTreeOverflowScrollingNode>(node);
+        MESSAGE_CHECK(overflowNode);
 
         if (auto* layerNode = RemoteLayerTreeNode::forCALayer(scrollProxyNode->layer())) {
             layerNode->setActingScrollContainerID(RemoteLayerTreeNode::layerID(static_cast<CALayer*>(overflowNode->scrollContainerLayer())));
@@ -395,9 +401,7 @@ void RemoteScrollingCoordinatorProxyIOS::displayDidRefresh(PlatformDisplayID dis
 
 RemoteLayerTreeDrawingAreaProxyIOS& RemoteScrollingCoordinatorProxyIOS::drawingAreaIOS() const
 {
-    auto* drawingArea = dynamicDowncast<RemoteLayerTreeDrawingAreaProxy>(webPageProxy().drawingArea());
-    ASSERT(drawingArea && drawingArea->isRemoteLayerTreeDrawingAreaProxyIOS());
-    return *static_cast<RemoteLayerTreeDrawingAreaProxyIOS*>(drawingArea);
+    return *downcast<RemoteLayerTreeDrawingAreaProxyIOS>(webPageProxy().drawingArea());
 }
 
 #if ENABLE(THREADED_ANIMATION_RESOLUTION)

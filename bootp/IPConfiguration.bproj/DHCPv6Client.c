@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009-2024 Apple Inc. All rights reserved.
+ * Copyright (c) 2009-2025 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -232,10 +232,10 @@ struct DHCPv6Client {
     CFTimeInterval		retransmit_time;
     dhcpv6_info			saved;
     lease_info			lease;
-    bool			saved_verified;
     bool			private_address;
     CFDataRef			duid;
     absolute_time_t		renew_rebind_time;
+    DHCPv6ClientMode		saved_mode;
     DHCPDUIDRef			server_id; 	/* points to saved */
     IA_NA_PD_U			ia_na_pd;
     ADDR_PREFIX_U		addr_prefix;
@@ -290,10 +290,17 @@ DHCPv6ClientVerifyModeIsNone(DHCPv6ClientRef client, const char * func)
     return (true);
 }
 
+STATIC bool
+DHCPv6ClientSavedInfoValid(DHCPv6ClientRef client)
+{
+    return (client->saved_mode == client->mode);
+}
+
 STATIC const uint16_t	DHCPv6RequestedOptionsStatic[] = {
     kDHCPv6OPTION_DNS_SERVERS,
     kDHCPv6OPTION_DOMAIN_LIST,
-    kDHCPv6OPTION_CAPTIVE_PORTAL_URL
+    kDHCPv6OPTION_CAPTIVE_PORTAL_URL,
+    kDHCPv6OPTION_CLIENT_FQDN
 };
 
 STATIC void
@@ -943,7 +950,8 @@ DHCPv6ClientAddPacketDescription(DHCPv6ClientRef client,
     dhcpv6_info_t	info = &client->saved;
     CFMutableStringRef	str;
 
-    if (!client->saved_verified || info->pkt == NULL || info->options == NULL) {
+    if (!DHCPv6ClientSavedInfoValid(client)
+	|| info->pkt == NULL || info->options == NULL) {
 	return;
     }
     str = CFStringCreateMutable(NULL, 0);
@@ -966,8 +974,8 @@ DHCPv6ClientProvideSummary(DHCPv6ClientRef client,
 			      DHCPv6ClientStateGetName(client->cstate));
     my_CFDictionarySetCString(dict, CFSTR("Mode"),
 			      DHCPv6ClientModeGetName(client->mode));
-    if (client->lease.valid && client->saved.pkt_len != 0
-	&& client->saved_verified) {
+    if (DHCPv6ClientSavedInfoValid(client)
+	&& client->lease.valid && client->saved.pkt_len != 0) {
 	switch (client->mode) {
 	case kDHCPv6ClientModeStatefulAddress:
 #define kStatefulAddress	CFSTR("StatefulAddress")
@@ -1138,7 +1146,7 @@ DHCPv6ClientClearPacket(DHCPv6ClientRef client)
     client->server_id = NULL;
     client->ia_na_pd.ptr = NULL;
     client->addr_prefix.ptr = NULL;
-    client->saved_verified = false;
+    client->saved_mode = kDHCPv6ClientModeNone;
     client->saved.pkt_len = 0;
     return;
 }
@@ -1195,7 +1203,6 @@ DHCPv6ClientLeaseStillValid(DHCPv6ClientRef client,
     if (current_time < lease_p->start) {
 	/* time went backwards */
 	DHCPv6ClientClearPacket(client);
-	lease_p->valid = false;
 	my_log(LOG_INFO, "%s: lease no longer valid",
 	       DHCPv6ClientGetDescription(client));
 
@@ -1206,7 +1213,6 @@ DHCPv6ClientLeaseStillValid(DHCPv6ClientRef client,
 	my_log(LOG_INFO, "%s: lease has expired",
 	       DHCPv6ClientGetDescription(client));
 	DHCPv6ClientClearPacket(client);
-	lease_p->valid = false;
     }
 
  done:
@@ -1321,8 +1327,152 @@ DHCPv6ClientSavePacket(DHCPv6ClientRef client, DHCPv6SocketReceiveDataRef data)
     lease_p->valid_lifetime = valid_lifetime;
 
  done:
-    client->saved_verified = true;
+    client->saved_mode = client->mode;
     return;
+}
+
+STATIC bool
+fqdn_message_type_ok(DHCPv6MessageType message_type)
+{
+    bool	ok = false;
+
+    /*
+     * per RFC 4704 Section 5.
+     * A client MUST only include the Client FQDN option in SOLICIT,
+     * REQUEST, RENEW, or REBIND messages.
+     */
+    switch (message_type) {
+    case kDHCPv6MessageSOLICIT:
+    case kDHCPv6MessageREQUEST:
+    case kDHCPv6MessageRENEW:
+    case kDHCPv6MessageREBIND:
+	ok = true;
+	break;
+    default:
+	break;
+    }
+    return (ok);
+}
+
+STATIC bool
+oro_message_type_ok(DHCPv6MessageType message_type)
+{
+    bool	ok = false;
+
+    /*
+     * per RFC 8415 Appendix B.
+     * A client MUST only include the ORO (option request option)
+     * in solicit, request, renew, rebind, or information request
+     */
+    switch (message_type) {
+    case kDHCPv6MessageSOLICIT:
+    case kDHCPv6MessageREQUEST:
+    case kDHCPv6MessageRENEW:
+    case kDHCPv6MessageREBIND:
+    case kDHCPv6MessageINFORMATION_REQUEST:
+	ok = true;
+	break;
+    default:
+	break;
+    }
+    return (ok);
+}
+
+STATIC bool
+DHCPv6ClientAddFQDNOption(DHCPv6ClientRef client, DHCPv6OptionAreaRef oa_p)
+{
+    bool			added = false;
+    CFDataRef			dns_name_buffer;
+    CFIndex			dns_name_buffer_length;
+    DHCPv6OptionErrorString 	err;
+    DHCPv6OptionCLIENT_FQDNRef	fqdn;
+    size_t			fqdn_size;
+    const char *		hostname;
+    interface_t *		if_p = DHCPv6ClientGetInterface(client);
+    boolean_t			share_device_type; /* unused */
+
+    if (ServiceIsPrivacyRequired(client->service_p, &share_device_type)) {
+	my_log(LOG_NOTICE, "DHCPv6 %s: privacy disallows sharing hostname",
+	       if_name(if_p));
+	goto done;
+    }
+    hostname = get_dns_hostname();
+    if (hostname == NULL) {
+	my_log(LOG_NOTICE, "DHCPv6 %s: no hostname available",
+	       if_name(if_p));
+	goto done;
+    }
+    dns_name_buffer = DNSNameListDataCreateWithCString(hostname);
+    if (dns_name_buffer == NULL) {
+	my_log(LOG_NOTICE, "DHCPv6 %s: failed to convert '%s'",
+	       if_name(if_p), hostname);
+	goto done;
+    }
+    dns_name_buffer_length = CFDataGetLength(dns_name_buffer);
+    fqdn_size = DHCPv6OptionCLIENT_FQDNSize(dns_name_buffer_length);
+    fqdn = (DHCPv6OptionCLIENT_FQDNRef)malloc(fqdn_size);
+    /* set S flag to tell the server to update DNS */
+    DHCPv6OptionCLIENT_FQDNSetFlags(fqdn, kDHCPv6OptionCLIENT_FQDNFlags_S);
+    CFDataGetBytes(dns_name_buffer, CFRangeMake(0, dns_name_buffer_length),
+		   fqdn->domain_name);
+    if (!DHCPv6OptionAreaAddOption(oa_p, kDHCPv6OPTION_CLIENT_FQDN,
+				   fqdn_size, fqdn,
+				   &err)) {
+	my_log(LOG_NOTICE, "DHCPv6Client: failed to add CLIENT_FQDN, %s",
+	       err.str);
+    }
+    else {
+	added = true;
+	my_log(LOG_NOTICE, "DHCPv6 %s: added FQDN option for '%s'",
+	       if_name(if_p), hostname);
+    }
+    CFRelease(dns_name_buffer);
+    free(fqdn);
+
+ done:
+    return (added);
+}
+
+STATIC bool
+DHCPv6ClientAddOptionRequestOption(DHCPv6ClientRef client,
+				   DHCPv6OptionAreaRef oa_p,
+				   bool fqdn_ok)
+{
+    DHCPv6OptionErrorString 	err;
+    bool			ok = false;
+
+    if (fqdn_ok) {
+	ok = DHCPv6OptionAreaAddOptionRequestOption(oa_p,
+						    DHCPv6RequestedOptions,
+						    DHCPv6RequestedOptionsCount,
+						    &err);
+	if (!ok) {
+	    my_log(LOG_NOTICE, "DHCPv6Client: failed to add ORO, %s",
+		   err.str);
+	}
+    }
+    else {
+	uint16_t	filtered[DHCPv6RequestedOptionsCount];
+	int		filtered_count = 0;
+
+	for (int i = 0; i < DHCPv6RequestedOptionsCount; i++) {
+	    uint16_t	option;
+
+	    option = DHCPv6RequestedOptions[i];
+	    if (option != kDHCPv6OPTION_CLIENT_FQDN) {
+		filtered[filtered_count++] = option;
+	    }
+	}
+	ok = DHCPv6OptionAreaAddOptionRequestOption(oa_p,
+						    filtered,
+						    filtered_count,
+						    &err);
+	if (!ok) {
+	    my_log(LOG_NOTICE, "DHCPv6Client: failed to add ORO, %s",
+		   err.str);
+	}
+    }
+    return (ok);
 }
 
 STATIC DHCPv6PacketRef
@@ -1332,6 +1482,7 @@ DHCPv6ClientMakePacket(DHCPv6ClientRef client,
 		       DHCPv6OptionAreaRef oa_p)
 {
     uint16_t			elapsed_time;
+    bool			fqdn_ok = false;
     DHCPv6OptionErrorString 	err;
     DHCPv6PacketRef		pkt;
 
@@ -1343,13 +1494,13 @@ DHCPv6ClientMakePacket(DHCPv6ClientRef client,
     if (!S_insert_duid(client, oa_p)) {
 	return (NULL);
     }
+    if (client->mode == kDHCPv6ClientModeStatefulAddress
+	&& fqdn_message_type_ok(message_type)) {
+	fqdn_ok = DHCPv6ClientAddFQDNOption(client, oa_p);
+    }
     if (client->mode != kDHCPv6ClientModeStatefulPrefix
-	&& !DHCPv6OptionAreaAddOptionRequestOption(oa_p,
-						   DHCPv6RequestedOptions,
-						   DHCPv6RequestedOptionsCount,
-						   &err)) {
-	my_log(LOG_NOTICE, "DHCPv6Client: failed to add ORO, %s",
-	       err.str);
+	&& oro_message_type_ok(message_type)
+	&& !DHCPv6ClientAddOptionRequestOption(client, oa_p, fqdn_ok)) {
 	return (NULL);
     }
     elapsed_time = get_elapsed_time(client);
@@ -1455,6 +1606,25 @@ DHCPv6ClientSendPacket(DHCPv6ClientRef client)
     DHCPv6OptionArea		oa;
     DHCPv6PacketRef		pkt;
 
+    switch (client->mode) {
+    case kDHCPv6ClientModeStatefulAddress:
+    case kDHCPv6ClientModeStatefulPrefix:
+	break;
+    default:
+	/* should not happen */
+	my_log(LOG_NOTICE,
+	       "%s: %s() invalid mode '%s'",
+	       DHCPv6ClientGetDescription(client),
+	       __func__,
+	       DHCPv6ClientModeGetName(client->mode));
+	return;
+    }
+    if (!DHCPv6ClientSavedInfoValid(client)) {
+	my_log(LOG_NOTICE, "%s: %s() saved information is not valid",
+	       DHCPv6ClientGetDescription(client),
+	       __func__);
+	return;
+    }
     if (client->server_id == NULL) {
 	my_log(LOG_NOTICE, "%s: %s() NULL server_id",
 	       DHCPv6ClientGetDescription(client),
@@ -1699,7 +1869,6 @@ DHCPv6Client_Decline(DHCPv6ClientRef client, IFEventID_t event_id,
 	DHCPv6ClientRemoveAddress(client, "Decline");
 	DHCPv6ClientCancelPendingEvents(client);
 	DHCPv6ClientClearLease(client);
-	client->saved_verified = false;
 	DHCPv6ClientPostNotification(client);
 	DHCPv6ClientClearRetransmit(client);
 	DHCPv6ClientSetNewTransactionID(client);
@@ -1916,7 +2085,6 @@ DHCPv6Client_Confirm(DHCPv6ClientRef client, IFEventID_t event_id,
 	DHCPv6ClientSetState(client, kDHCPv6ClientStateConfirm);
 	DHCPv6ClientCancelPendingEvents(client);
 	DHCPv6ClientClearRetransmit(client);
-	client->saved_verified = false;
 	DHCPv6ClientSetNewTransactionID(client);
 	DHCPv6SocketEnableReceive(client->sock,
 				  DHCPv6ClientGetTransactionID(client),
@@ -2304,7 +2472,6 @@ DHCPv6Client_Bound(DHCPv6ClientRef client, IFEventID_t event_id,
 
 	DHCPv6ClientSetState(client, kDHCPv6ClientStateBound);
 	client->lease.valid = true;
-	client->saved_verified = true;
 	DHCPv6ClientCancelPendingEvents(client);
 	valid_lifetime = client->lease.valid_lifetime;
 	preferred_lifetime = client->lease.preferred_lifetime;
@@ -2694,7 +2861,8 @@ DHCPv6ClientStartInternal(DHCPv6ClientRef client)
 	my_log(LOG_NOTICE, "%s: %s()",
 	       DHCPv6ClientGetDescription(client), __func__);
 	current_time = timer_get_current_time();
-	if (DHCPv6ClientLeaseStillValid(client, current_time)
+	if (DHCPv6ClientSavedInfoValid(client)
+	    && DHCPv6ClientLeaseStillValid(client, current_time)
 	    && DHCPv6ClientLeaseOnSameNetwork(client)) {
 	    my_log(LOG_NOTICE, "%s: %s() CONFIRM",
 		   DHCPv6ClientGetDescription(client), __func__);
@@ -2786,7 +2954,6 @@ DHCPv6ClientStop(DHCPv6ClientRef client)
     DHCPv6ClientCancelPendingEvents(client);
     bzero(&client->delegated_prefix, sizeof(client->delegated_prefix));
     client->delegated_prefix_length = 0;
-    client->saved_verified = false;
     DHCPv6ClientSetState(client, kDHCPv6ClientStateInactive);
     client->mode = kDHCPv6ClientModeNone;
     my_CFRelease(&client->duid);
@@ -2794,19 +2961,40 @@ DHCPv6ClientStop(DHCPv6ClientRef client)
     return;
 }
 
+STATIC void
+DHCPv6ClientSendRelease(DHCPv6ClientRef client)
+{
+    link_status_t	link_status;
+    interface_t *	if_p = DHCPv6ClientGetInterface(client);
+
+    link_status = if_get_link_status(if_p);
+    if (link_status_is_active(&link_status)) {
+	absolute_time_t	current_time = timer_get_current_time();
+
+	if (DHCPv6ClientLeaseStillValid(client, current_time)) {
+	    DHCPv6Client_Release(client, IFEventID_start_e, NULL);
+	}
+    }
+}
+
 PRIVATE_EXTERN void
 DHCPv6ClientRelease(DHCPv6ClientRef * client_p)
 {
     DHCPv6ClientRef	client = *client_p;
-    absolute_time_t	current_time;
 
     if (client == NULL) {
 	return;
     }
+    my_log(LOG_INFO, "%s: %s",
+	   DHCPv6ClientGetDescription(client), __func__);
     *client_p = NULL;
-    current_time = timer_get_current_time();
-    if (DHCPv6ClientLeaseStillValid(client, current_time)) {
-	DHCPv6Client_Release(client, IFEventID_start_e, NULL);
+    switch (client->mode) {
+    case kDHCPv6ClientModeStatefulAddress:
+    case kDHCPv6ClientModeStatefulPrefix:
+	DHCPv6ClientSendRelease(client);
+	break;
+    default:
+	break;
     }
     if (client->timer != NULL) {
 	timer_callout_free(&client->timer);
@@ -2823,7 +3011,8 @@ DHCPv6ClientRelease(DHCPv6ClientRef * client_p)
 PRIVATE_EXTERN bool
 DHCPv6ClientGetInfo(DHCPv6ClientRef client, ipv6_info_t * info_p)
 {
-    if (client->saved.options == NULL || !client->saved_verified
+    if (client->saved.options == NULL
+	|| !DHCPv6ClientSavedInfoValid(client)
 	|| client->saved.pkt_len == 0) {
 	info_p->pkt = NULL;
 	info_p->pkt_len = 0;
@@ -3423,6 +3612,19 @@ get_mode_from_string(const char * str, DHCPv6ClientMode * ret_mode)
     }
     *ret_mode = mode;
     return (success);
+}
+
+boolean_t
+ServiceIsPrivacyRequired(ServiceRef service_p, boolean_t * share_device_type_p)
+{
+    *share_device_type_p = false;
+    return false;
+}
+
+char *
+get_dns_hostname(void)
+{
+    return "device";
 }
 
 int

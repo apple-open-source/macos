@@ -3,7 +3,7 @@
  *
  * SPDX-License-Identifier: BSD-2-Clause
  *
- * Copyright (c) 2018-2023 Gavin D. Howard and contributors.
+ * Copyright (c) 2018-2024 Gavin D. Howard and contributors.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -59,6 +59,13 @@
 #error On FreeBSD with _POSIX_C_SOURCE
 #endif // __FreeBSD__
 #endif // BC_TEST_FREEBSD
+
+// This is used by configure.sh to test for macOS.
+#ifdef BC_TEST_APPLE
+#ifdef __APPLE__
+#error On macOS without _DARWIN_C_SOURCE
+#endif // __APPLE__
+#endif // BC_TEST_APPLE
 
 // Windows has deprecated isatty() and the rest of these. Or doesn't have them.
 // So these are just fixes for Windows.

@@ -28,8 +28,10 @@
 #include "MessageSender.h"
 #include "SandboxExtension.h"
 #include <WebCore/IDBConnectionToServer.h>
+#include <WebCore/IDBIndexIdentifier.h>
 #include <WebCore/IDBObjectStoreIdentifier.h>
 #include <WebCore/ProcessIdentifier.h>
+#include <optional>
 
 namespace WebKit {
 
@@ -37,17 +39,17 @@ class WebIDBResult;
 
 class WebIDBConnectionToServer final : private WebCore::IDBClient::IDBConnectionToServerDelegate, private IPC::MessageSender, public RefCounted<WebIDBConnectionToServer> {
 public:
-    static Ref<WebIDBConnectionToServer> create();
+    static Ref<WebIDBConnectionToServer> create(PAL::SessionID);
     virtual ~WebIDBConnectionToServer();
 
     WebCore::IDBClient::IDBConnectionToServer& coreConnectionToServer();
-    WebCore::IDBConnectionIdentifier identifier() const final;
+    std::optional<WebCore::IDBConnectionIdentifier> identifier() const final;
 
     void didReceiveMessage(IPC::Connection&, IPC::Decoder&);
     void connectionToServerLost();
 
 private:
-    WebIDBConnectionToServer();
+    WebIDBConnectionToServer(PAL::SessionID);
 
     IPC::Connection* messageSenderConnection() const final;
     uint64_t messageSenderDestinationID() const final { return 0; }
@@ -64,7 +66,7 @@ private:
     void clearObjectStore(const WebCore::IDBRequestData&, WebCore::IDBObjectStoreIdentifier) final;
     void createIndex(const WebCore::IDBRequestData&, const WebCore::IDBIndexInfo&) final;
     void deleteIndex(const WebCore::IDBRequestData&, WebCore::IDBObjectStoreIdentifier, const String& indexName) final;
-    void renameIndex(const WebCore::IDBRequestData&, WebCore::IDBObjectStoreIdentifier, uint64_t indexIdentifier, const String& newName) final;
+    void renameIndex(const WebCore::IDBRequestData&, WebCore::IDBObjectStoreIdentifier, WebCore::IDBIndexIdentifier, const String& newName) final;
     void putOrAdd(const WebCore::IDBRequestData&, const WebCore::IDBKeyData&, const WebCore::IDBValue&, const WebCore::IndexedDB::ObjectStoreOverwriteMode) final;
     void getRecord(const WebCore::IDBRequestData&, const WebCore::IDBGetRecordData&) final;
     void getAllRecords(const WebCore::IDBRequestData&, const WebCore::IDBGetAllRecordsData&) final;

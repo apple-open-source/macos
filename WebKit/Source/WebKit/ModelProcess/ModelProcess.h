@@ -29,7 +29,8 @@
 
 #include "AuxiliaryProcess.h"
 #include "SandboxExtension.h"
-#include "WebPageProxyIdentifier.h"
+#include "SharedPreferencesForWebProcess.h"
+#include <WebCore/ProcessIdentifier.h>
 #include <WebCore/Timer.h>
 #include <pal/SessionID.h>
 #include <wtf/Function.h>
@@ -38,20 +39,29 @@
 #include <wtf/TZoneMalloc.h>
 #include <wtf/WeakPtr.h>
 
+#if PLATFORM(VISION) && ENABLE(GPU_PROCESS)
+namespace IPC {
+class SharedFileHandle;
+}
+#endif
+
 namespace WebKit {
 
 class ModelConnectionToWebProcess;
 struct ModelProcessConnectionParameters;
 struct ModelProcessCreationParameters;
 
-class ModelProcess : public AuxiliaryProcess, public ThreadSafeRefCounted<ModelProcess> {
+class ModelProcess final : public AuxiliaryProcess, public ThreadSafeRefCounted<ModelProcess> {
     WTF_MAKE_NONCOPYABLE(ModelProcess);
     WTF_MAKE_TZONE_ALLOCATED(ModelProcess);
     WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(ModelProcess);
 public:
     explicit ModelProcess(AuxiliaryProcessInitializationParameters&&);
     ~ModelProcess();
-    static constexpr WebCore::AuxiliaryProcessType processType = WebCore::AuxiliaryProcessType::Model;
+    static constexpr WTF::AuxiliaryProcessType processType = WTF::AuxiliaryProcessType::Model;
+
+    void ref() const final { ThreadSafeRefCounted::ref(); }
+    void deref() const final { ThreadSafeRefCounted::deref(); }
 
     void removeModelConnectionToWebProcess(ModelConnectionToWebProcess&);
 
@@ -66,6 +76,10 @@ public:
     void tryExitIfUnusedAndUnderMemoryPressure();
 
     const String& applicationVisibleName() const { return m_applicationVisibleName; }
+
+#if PLATFORM(VISION) && ENABLE(GPU_PROCESS)
+    void requestSharedSimulationConnection(WebCore::ProcessIdentifier, CompletionHandler<void(std::optional<IPC::SharedFileHandle>)>&&);
+#endif
 
     void webProcessConnectionCountForTesting(CompletionHandler<void(uint64_t)>&&);
 
@@ -83,11 +97,11 @@ private:
 
     // IPC::Connection::Client
     void didReceiveMessage(IPC::Connection&, IPC::Decoder&) override;
-    void didReceiveModelProcessMessage(IPC::Connection&, IPC::Decoder&);
 
     // Message Handlers
     void initializeModelProcess(ModelProcessCreationParameters&&, CompletionHandler<void()>&&);
     void createModelConnectionToWebProcess(WebCore::ProcessIdentifier, PAL::SessionID, IPC::Connection::Handle&&, ModelProcessConnectionParameters&&, CompletionHandler<void()>&&);
+    void sharedPreferencesForWebProcessDidChange(WebCore::ProcessIdentifier, SharedPreferencesForWebProcess&&, CompletionHandler<void()>&&);
     void addSession(PAL::SessionID);
     void removeSession(PAL::SessionID);
 

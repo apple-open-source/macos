@@ -10,6 +10,8 @@
 
 #include "pc/test/integration_test_helpers.h"
 
+#include "api/audio/builtin_audio_processing_builder.h"
+
 namespace webrtc {
 
 PeerConnectionInterface::RTCOfferAnswerOptions IceRestartOfferAnswerOptions() {
@@ -18,15 +20,16 @@ PeerConnectionInterface::RTCOfferAnswerOptions IceRestartOfferAnswerOptions() {
   return options;
 }
 
-void RemoveSsrcsAndMsids(cricket::SessionDescription* desc) {
-  for (ContentInfo& content : desc->contents()) {
+void RemoveSsrcsAndMsids(std::unique_ptr<SessionDescriptionInterface>& sdp) {
+  for (ContentInfo& content : sdp->description()->contents()) {
     content.media_description()->mutable_streams().clear();
   }
-  desc->set_msid_signaling(0);
+  sdp->description()->set_msid_signaling(0);
 }
 
-void RemoveSsrcsAndKeepMsids(cricket::SessionDescription* desc) {
-  for (ContentInfo& content : desc->contents()) {
+void RemoveSsrcsAndKeepMsids(
+    std::unique_ptr<SessionDescriptionInterface>& sdp) {
+  for (ContentInfo& content : sdp->description()->contents()) {
     std::string track_id;
     std::vector<std::string> stream_ids;
     if (!content.media_description()->streams().empty()) {
@@ -41,6 +44,13 @@ void RemoveSsrcsAndKeepMsids(cricket::SessionDescription* desc) {
     new_stream.set_stream_ids(stream_ids);
     content.media_description()->AddStream(new_stream);
   }
+}
+
+void SetSdpType(std::unique_ptr<SessionDescriptionInterface>& sdp,
+                SdpType sdpType) {
+  std::string str;
+  sdp->ToString(&str);
+  sdp = CreateSessionDescription(sdpType, str);
 }
 
 int FindFirstMediaStatsIndexByKind(
@@ -217,6 +227,11 @@ bool PeerConnectionIntegrationWrapper::Init(
 
   pc_factory_dependencies.adm = fake_audio_capture_module_;
   if (create_media_engine) {
+    // Standard creation method for APM may return a null pointer when
+    // AudioProcessing is disabled with a build flag. Bypass that flag by
+    // explicitly injecting the factory.
+    pc_factory_dependencies.audio_processing_builder =
+        std::make_unique<BuiltinAudioProcessingBuilder>();
     EnableMediaWithDefaults(pc_factory_dependencies);
   }
 
@@ -225,13 +240,6 @@ bool PeerConnectionIntegrationWrapper::Init(
   }
   if (reset_decoder_factory) {
     pc_factory_dependencies.video_decoder_factory.reset();
-  }
-
-  if (!pc_factory_dependencies.audio_processing) {
-    // If the standard Creation method for APM returns a null pointer, instead
-    // use the builder for testing to create an APM object.
-    pc_factory_dependencies.audio_processing =
-        AudioProcessingBuilderForTesting().Create();
   }
 
   if (event_log_factory) {

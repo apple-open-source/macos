@@ -13,14 +13,15 @@
 #include <atomic>
 #include <cstdint>
 #include <limits>
+#include <optional>
 #include <utility>
 #include <vector>
 
 #include "absl/strings/string_view.h"
-#include "absl/types/optional.h"
 #include "api/array_view.h"
 #include "api/data_channel_interface.h"
 #include "api/environment/environment.h"
+#include "api/priority.h"
 #include "media/base/media_channel.h"
 #include "net/dcsctp/public/dcsctp_socket_factory.h"
 #include "net/dcsctp/public/packet_observer.h"
@@ -71,7 +72,7 @@ WebrtcPPID ToPPID(DataMessageType message_type, size_t size) {
   }
 }
 
-absl::optional<DataMessageType> ToDataMessageType(dcsctp::PPID ppid) {
+std::optional<DataMessageType> ToDataMessageType(dcsctp::PPID ppid) {
   switch (static_cast<WebrtcPPID>(ppid.value())) {
     case WebrtcPPID::kDCEP:
       return DataMessageType::kControl;
@@ -84,10 +85,10 @@ absl::optional<DataMessageType> ToDataMessageType(dcsctp::PPID ppid) {
     case WebrtcPPID::kBinaryEmpty:
       return DataMessageType::kBinary;
   }
-  return absl::nullopt;
+  return std::nullopt;
 }
 
-absl::optional<cricket::SctpErrorCauseCode> ToErrorCauseCode(
+std::optional<cricket::SctpErrorCauseCode> ToErrorCauseCode(
     dcsctp::ErrorKind error) {
   switch (error) {
     case dcsctp::ErrorKind::kParseFailed:
@@ -106,7 +107,7 @@ absl::optional<cricket::SctpErrorCauseCode> ToErrorCauseCode(
       // No SCTP error cause code matches those
       break;
   }
-  return absl::nullopt;
+  return std::nullopt;
 }
 
 bool IsEmptyPPID(dcsctp::PPID ppid) {
@@ -191,8 +192,8 @@ bool DcSctpTransport::Start(int local_sctp_port,
     options.max_message_size = max_message_size;
     options.max_timer_backoff_duration = kMaxTimerBackoffDuration;
     // Don't close the connection automatically on too many retransmissions.
-    options.max_retransmissions = absl::nullopt;
-    options.max_init_retransmits = absl::nullopt;
+    options.max_retransmissions = std::nullopt;
+    options.max_init_retransmits = std::nullopt;
     options.per_stream_send_queue_limit =
         DataChannelInterface::MaxSendQueueSize();
     // This is just set to avoid denial-of-service. Practically unlimited.
@@ -222,16 +223,27 @@ bool DcSctpTransport::Start(int local_sctp_port,
 
   MaybeConnectSocket();
 
+  for (const auto& [sid, stream_state] : stream_states_) {
+    socket_->SetStreamPriority(sid, stream_state.priority);
+  }
+
   return true;
 }
 
-bool DcSctpTransport::OpenStream(int sid) {
+bool DcSctpTransport::OpenStream(int sid, PriorityValue priority) {
   RTC_DCHECK_RUN_ON(network_thread_);
-  RTC_DLOG(LS_INFO) << debug_name_ << "->OpenStream(" << sid << ").";
+  RTC_DLOG(LS_INFO) << debug_name_ << "->OpenStream(" << sid << ", "
+                    << priority.value() << ").";
 
   StreamState stream_state;
+  stream_state.priority = dcsctp::StreamPriority(priority.value());
   stream_states_.insert_or_assign(dcsctp::StreamID(static_cast<uint16_t>(sid)),
                                   stream_state);
+  if (socket_) {
+    socket_->SetStreamPriority(dcsctp::StreamID(sid),
+                               dcsctp::StreamPriority(priority.value()));
+  }
+
   return true;
 }
 
@@ -370,15 +382,15 @@ int DcSctpTransport::max_message_size() const {
   return socket_->options().max_message_size;
 }
 
-absl::optional<int> DcSctpTransport::max_outbound_streams() const {
+std::optional<int> DcSctpTransport::max_outbound_streams() const {
   if (!socket_)
-    return absl::nullopt;
+    return std::nullopt;
   return socket_->options().announced_maximum_outgoing_streams;
 }
 
-absl::optional<int> DcSctpTransport::max_inbound_streams() const {
+std::optional<int> DcSctpTransport::max_inbound_streams() const {
   if (!socket_)
-    return absl::nullopt;
+    return std::nullopt;
   return socket_->options().announced_maximum_incoming_streams;
 }
 
@@ -673,7 +685,7 @@ void DcSctpTransport::OnTransportWritableState(
 }
 
 void DcSctpTransport::OnTransportReadPacket(
-    rtc::PacketTransportInternal* transport,
+    rtc::PacketTransportInternal* /* transport */,
     const rtc::ReceivedPacket& packet) {
   RTC_DCHECK_RUN_ON(network_thread_);
   if (packet.decryption_info() != rtc::ReceivedPacket::kDtlsDecrypted) {

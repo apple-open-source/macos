@@ -220,6 +220,7 @@ static CFMutableArrayRef            gTimedAssertionsList = NULL;
 static dispatch_source_t            gAssertionTimer = 0;
 bool                                assertion_timer_suspended = true;
 static uint64_t                     nextOffload_ts;
+static uint64_t                     gOffloadDelay = kAsyncAssertionsDefaultOffloadDelay;
 static xpc_connection_t             gAssertionConnection;
 
 // current local assertion id sent to powerd
@@ -297,6 +298,11 @@ void checkFeatureEnabled()
                         bool feature = xpc_dictionary_get_bool(resp, kAssertionFeatureSupportKey);
                         INFO_LOG("Assertion feature: setting gAsyncMode to %d", feature);
                         gAsyncMode = feature;
+                        uint64_t offload_delay = xpc_dictionary_get_int64(resp, kAssertionAsyncOffloadDelay);
+                        if (offload_delay) {
+                            INFO_LOG("Async assertion: setting offload delay to %llu", offload_delay);
+                            gOffloadDelay = offload_delay;
+                        }
                     }
                 });
                 if (msg) {
@@ -331,8 +337,7 @@ uint64_t getMonotonicTime( )
 
     if (timebaseInfo.denom == 0)
         mach_timebase_info(&timebaseInfo);
-
-    return ( (mach_absolute_time( ) * timebaseInfo.numer) / (timebaseInfo.denom * NSEC_PER_SEC));
+    return ( (mach_absolute_time( ) * timebaseInfo.numer) / (timebaseInfo.denom * NSEC_PER_MSEC));
 }
 
 void setupLogging()
@@ -480,8 +485,8 @@ error_exit:
 void activateAsyncAssertion(IOPMAssertionID id, kIOPMAsyncAssertionLogAction logAction)
 {
     uint32_t  idx;
-    uint64_t  timeout_secs = 0;
-    uint64_t  timeout_ts = 0;
+    uint64_t timeout_msecs = 0;
+    uint64_t timeout_ts = 0;
     uint64_t  unique_id;
     CFNumberRef numRef;
 
@@ -512,11 +517,13 @@ void activateAsyncAssertion(IOPMAssertionID id, kIOPMAsyncAssertionLogAction log
     // timeout
     numRef = CFDictionaryGetValue(assertion, kIOPMAssertionTimeoutKey);
     if (isA_CFNumber(numRef))  {
+        uint64_t timeout_secs = 0;
         CFNumberGetValue(numRef, kCFNumberSInt64Type, &timeout_secs);
+        timeout_msecs = timeout_secs * 1000;
     }
-    if (timeout_secs) {
+    if (timeout_msecs) {
         // There is timeout.
-        timeout_ts = timeout_secs + getMonotonicTime();
+        timeout_ts = timeout_msecs + getMonotonicTime();
         CFNumberRef cf_timeout_ts = CFNumberCreate(NULL, kCFNumberSInt64Type, &timeout_ts);
         if (cf_timeout_ts) {
             CFDictionarySetValue(assertion, kIOPMAsyncAssertionTimeoutTimestamp, cf_timeout_ts);
@@ -524,21 +531,21 @@ void activateAsyncAssertion(IOPMAssertionID id, kIOPMAsyncAssertionLogAction log
         }
         insertIntoTimedList(assertion);
     }
-    if (kAsyncAssertionsDefaultOffloadDelay == 0) {
+    if (gOffloadDelay == 0) {
         offloadAssertions(false);
     } else {
-        if (!timeout_secs || (timeout_secs > kAsyncAssertionsDefaultOffloadDelay)) {
-            timeout_secs = kAsyncAssertionsDefaultOffloadDelay;
-            timeout_ts = getMonotonicTime() + timeout_secs;
+        if (!timeout_msecs || (timeout_msecs > gOffloadDelay)) {
+            timeout_msecs = gOffloadDelay;
+            timeout_ts = getMonotonicTime() + timeout_msecs;
         }
         if (!gCurrentAssertion && (!nextOffload_ts || (timeout_ts != 0 && timeout_ts < nextOffload_ts))) {
-            INFO_LOG("Setting gAssertionsOffloader timeout to %llu\n", timeout_secs);
+            INFO_LOG("Setting gAssertionsOffloader timeout to %llu\n", timeout_msecs);
             dispatch_source_set_timer(gAssertionsOffloader,
-                                      dispatch_time(DISPATCH_TIME_NOW, timeout_secs*NSEC_PER_SEC), DISPATCH_TIME_FOREVER, 0);
+                                      dispatch_time(DISPATCH_TIME_NOW, timeout_msecs*NSEC_PER_MSEC), DISPATCH_TIME_FOREVER, 0);
             if (!nextOffload_ts) {
                 dispatch_resume(gAssertionsOffloader);
             }
-            nextOffload_ts = getMonotonicTime() + timeout_secs;
+            nextOffload_ts = getMonotonicTime() + timeout_msecs;
         }
     }
 }

@@ -47,7 +47,7 @@ public:
     Biquad();
     ~Biquad();
 
-    void process(const float* sourceP, float* destP, size_t framesToProcess);
+    void process(std::span<const float> source, std::span<float> destination);
 
     bool hasSampleAccurateValues() const { return m_hasSampleAccurateValues; }
     void setHasSampleAccurateValues(bool hasSampleAccurateValues) { m_hasSampleAccurateValues = hasSampleAccurateValues; }
@@ -69,7 +69,7 @@ public:
     // Filter response at a set of n frequencies. The magnitude and
     // phase response are returned in magResponse and phaseResponse.
     // The phase response is in radians.
-    void getFrequencyResponse(unsigned nFrequencies, const float* frequency, float* magResponse, float* phaseResponse);
+    void getFrequencyResponse(unsigned nFrequencies, std::span<const float> frequency, std::span<float> magResponse, std::span<float> phaseResponse);
 
     // Compute tail frame based on the filter coefficents at index
     // |coefIndex|. The tail frame is the frame number where the
@@ -91,8 +91,8 @@ private:
     AudioDoubleArray m_a2;
 
 #if USE(ACCELERATE)
-    void processFast(const float* sourceP, float* destP, size_t framesToProcess);
-    void processSliceFast(double* sourceP, double* destP, double* coefficientsP, size_t framesToProcess);
+    void processFast(std::span<const float> source, std::span<float> destination);
+    void processSliceFast(std::span<double> source, std::span<double> destination, std::span<double> coefficients, size_t framesToProcess);
     AudioDoubleArray m_inputBuffer;
     AudioDoubleArray m_outputBuffer;
 #endif

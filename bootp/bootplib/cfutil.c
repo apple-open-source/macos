@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2021 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2025 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -808,3 +808,115 @@ my_CFPropertyListCreateWithBytePtrAndLength(const void * data, int data_len)
     CFRelease(xml_data);
     return (plist);
 }
+typedef struct {
+	CFStringRef	source;
+	CFStringRef 	replacement;
+} replaceString, *replaceStringRef;
+
+/*
+ * Function: myCopyDHCPSafeHostName
+ * Purpose:
+ *   Shorten the length of the string by replacing certain
+ *   Mac product names.  If still not short enough, eliminate -'s.
+ *   If still not short enough, remove enough of the middle part of
+ *   the remaining string.
+ */
+PRIVATE_EXTERN CFStringRef
+myCopyDHCPSafeHostName(CFStringRef name, unsigned int max_length)
+{
+	unsigned int 		len;
+	unsigned int 		delete_len;
+	replaceString 		replaceList[] = {
+		{ CFSTR("macbook-air"), CFSTR("Air") },
+		{ CFSTR("macbook-pro"), CFSTR("MBP") },
+		{ CFSTR("mac-mini"), CFSTR("Mini") },
+		{ CFSTR("mac-pro"), CFSTR("Pro") },
+		{ CFSTR("-"), CFSTR("") },
+	};
+	CFStringRef		ret_name = NULL;
+	CFMutableStringRef 	shortened_name;
+	replaceStringRef 	scan;
+
+	len = CFStringGetLength(name);
+	if (len <= max_length) {
+		CFRetain(name);
+		ret_name = name;
+		goto done;
+	}
+	ret_name = shortened_name
+		= CFStringCreateMutableCopy(kCFAllocatorDefault, 0, name);
+	scan = replaceList;
+	for (CFIndex i = 0; i < countof(replaceList); i++, scan++) {
+		CFRange r;
+
+		r = CFRangeMake(0, len);
+		CFStringFindAndReplace(shortened_name,
+				       scan->source, scan->replacement, r,
+				       kCFCompareCaseInsensitive);
+		len = CFStringGetLength(shortened_name);
+		if (len <= max_length) {
+			if (len == 0) {
+				my_CFRelease(&ret_name);
+			}
+			goto done;
+		}
+	}
+	/* truncate middle part of string */
+	delete_len = len - max_length;
+	CFStringDelete(shortened_name,
+		       CFRangeMake(max_length / 2, delete_len));
+
+ done:
+	return ret_name;
+
+}
+
+
+#ifdef TEST_DHCP_HOSTNAME
+#include <SystemConfiguration/SCPrivate.h>
+
+int
+main(int argc, char * argv[])
+{
+	replaceString	tests[] = {
+		{ CFSTR("jane-macbook-pro"), CFSTR("jane-MBP") },
+		{ CFSTR("david-s-mac-mini"), CFSTR("david-s-Mini") },
+		{ CFSTR("steve-has-many-computers"), CFSTR("stevehaomputers") },
+		{ CFSTR("monica-s-mac-pro"), CFSTR("monica-s-Pro") },
+		{ CFSTR("this-is-really-long"), CFSTR("thisisrallylong") },
+		{ CFSTR("this-is-ok"), CFSTR("this-is-ok") },
+		{ CFSTR("-h-e-l-l-o----------"), CFSTR("hello") },
+		{ CFSTR("----------------"), NULL },
+	};
+	replaceStringRef scan;
+
+	scan = tests;
+	for (int i = 0; i < countof(tests); i++, scan++) {
+		CFStringRef	short_name;
+
+		short_name = myCopyDHCPSafeHostName(scan->source, 15);
+		if (scan->replacement != NULL) {
+			if (short_name == NULL
+			    || !CFEqual(short_name, scan->replacement)) {
+				SCPrint(TRUE, stderr,
+					CFSTR("FAILED '%@' => '%@',expected '%@'\n"),
+					scan->source, short_name,
+					scan->replacement);
+				exit(2);
+			}
+		}
+		else if (short_name != NULL) {
+			SCPrint(TRUE, stderr,
+				CFSTR("FAILED '%@' => '%@', expected '%@'\n"),
+				scan->source, short_name,
+				scan->replacement);
+			exit(2);
+		}
+		SCPrint(TRUE, stdout,
+			CFSTR("SUCCESS '%@' => '%@'\n"),
+			scan->source, short_name);
+		my_CFRelease(&short_name);
+	}
+	exit(0);
+}
+#endif /* TEST_DHCP_HOSTNAME */

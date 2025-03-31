@@ -310,20 +310,18 @@
     CFDataRef message = CFDataCreateWithBytesNoCopy(kCFAllocatorDefault,
                                                     _test_p12_pbes1, sizeof(_test_p12_pbes1), kCFAllocatorNull);
     CFArrayRef items = NULL;
-#ifndef __clang_analyzer__
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wnonnull"
     // Disable compile-time nullability checks, otherwise the code below won't compile.
 #if LEGACY_OSX_PKCS12
     // legacy code returned errSecPassphraseRequired instead of errSecAuthFailed; rdar://87484096
-    XCTAssertEqual(SecPKCS12Import(message, NULL, NULL), errSecPassphraseRequired,
-                   @"try null password on a known good p12");
+    [[clang::suppress]] XCTAssertEqual(SecPKCS12Import(message, NULL, NULL), errSecPassphraseRequired,
+                                       @"try null password on a known good p12");
 #else
-    XCTAssertEqual(SecPKCS12Import(message, NULL, &items), errSecAuthFailed,
-                   @"try null password on a known good p12");
+    [[clang::suppress]] XCTAssertEqual(SecPKCS12Import(message, NULL, &items), errSecAuthFailed,
+                                       @"try null password on a known good p12");
 #endif
 #pragma clang diagnostic pop
-#endif // __clang_analyzer__
 
     CFReleaseNull(message);
     CFReleaseNull(items);
@@ -335,20 +333,18 @@
     CFDataRef message = CFDataCreateWithBytesNoCopy(kCFAllocatorDefault,
                                                     _test_HMAC_SHA256_p12, sizeof(_test_HMAC_SHA256_p12), kCFAllocatorNull);
     CFArrayRef items = NULL;
-#ifndef __clang_analyzer__
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wnonnull"
     // Disable compile-time nullability checks, otherwise the code below won't compile.
 #if LEGACY_OSX_PKCS12
     // legacy code returned errSecPassphraseRequired instead of errSecAuthFailed; rdar://87484096
-    XCTAssertEqual(SecPKCS12Import(message, NULL, NULL), errSecPassphraseRequired,
-                   @"try null password on a known good p12");
+    [[clang::suppress]] XCTAssertEqual(SecPKCS12Import(message, NULL, NULL), errSecPassphraseRequired,
+                                       @"try null password on a known good p12");
 #else
-    XCTAssertEqual(SecPKCS12Import(message, NULL, &items), errSecAuthFailed,
-                   @"try null password on a known good p12");
+    [[clang::suppress]] XCTAssertEqual(SecPKCS12Import(message, NULL, &items), errSecAuthFailed,
+                                       @"try null password on a known good p12");
 #endif
 #pragma clang diagnostic pop
-#endif // __clang_analyzer__
 
     CFReleaseNull(message);
     CFReleaseNull(items);

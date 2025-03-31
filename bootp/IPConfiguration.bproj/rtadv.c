@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2024 Apple Inc. All rights reserved.
+ * Copyright (c) 2003-2025 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -235,7 +235,7 @@ _new_pvd_info_request(ServiceRef service_p,
     /* make and save new context */
     PvDInfoContextSetPvDID(&rtadv->pvd_context, pvdid);
     PvDInfoContextSetSequenceNumber(&rtadv->pvd_context, seqnr);
-    ipv6_prefixes = RouterAdvertisementCopyPrefixes(ra);
+    ipv6_prefixes = RouterAdvertisementCopyPrefixes(ra, NULL);
     if (ipv6_prefixes == NULL) {
 	my_log(LOG_ERR, "%s: couldn't copy prefixes from RA", __func__);
 	goto done;
@@ -303,7 +303,7 @@ rtadv_pvd_additional_info_schedule_fetch(ServiceRef service_p)
 	PvDInfoContextFlush(&rtadv->pvd_context, true);
 	goto done;
     }
-    pvdid = DNSNameStringCreate(pvd_id, pvd_id_length);
+    pvdid = DNSNameStringCreate(pvd_id, pvd_id_length, false);
     if (pvdid == NULL) {
 	CFMutableStringRef bytes_str = NULL;
 
@@ -414,7 +414,6 @@ STATIC uint16_t S_clat46_address_use_count[CLAT46_ADDRESS_COUNT];
 STATIC uint8_t
 S_clat46_address_allocate(const char * ifname)
 {
-    bool	found_free = false;
     uint8_t	partial_addr;
     uint8_t	which = 0;
 
@@ -1435,32 +1434,33 @@ rtadv_router_expired(ServiceRef service_p,
 }
 
 STATIC CFStringRef
-create_signature(RouterAdvertisementRef ra,
-		 inet6_addrinfo_t * list_p, int list_count)
+create_signature(RouterAdvertisementRef ra)
 {
     const uint8_t *	lladdr;
     int			lladdr_length;
-    struct in6_addr	netaddr;
-    char 		ntopbuf[INET6_ADDRSTRLEN];
+    CFStringRef		prefix = NULL;
+    CFNumberRef		prefix_length = NULL;
+    CFArrayRef		prefix_lengths = NULL;
+    CFArrayRef		prefixes = NULL;
     CFMutableStringRef	sig_str;
-
-    if (list_p == NULL || list_count == 0 || ra == NULL) {
-	return (NULL);
-    }
 
     lladdr = RouterAdvertisementGetSourceLinkAddress(ra, &lladdr_length);
     if (lladdr == NULL) {
 	return (NULL);
     }
-    netaddr = list_p[0].addr;
-    in6_netaddr(&netaddr, list_p[0].prefix_length);
+    prefixes = RouterAdvertisementCopyPrefixes(ra, &prefix_lengths);
+    if (prefixes == NULL) {
+	return (NULL);
+    }
+    prefix = CFArrayGetValueAtIndex(prefixes, 0);
+    prefix_length = CFArrayGetValueAtIndex(prefix_lengths, 0);
     sig_str = CFStringCreateMutable(NULL, 0);
     CFStringAppendFormat(sig_str, NULL,
-			 CFSTR("IPv6.Prefix=%s/%d;IPv6.RouterHardwareAddress="),
-			 inet_ntop(AF_INET6, &netaddr,
-				   ntopbuf, sizeof(ntopbuf)),
-			 list_p[0].prefix_length);
+			 CFSTR("IPv6.Prefix=%@/%@;IPv6.RouterHardwareAddress="),
+			 prefix, prefix_length);
     my_CFStringAppendBytesAsHex(sig_str, lladdr, lladdr_length, ':');
+    my_CFRelease(&prefixes);
+    my_CFRelease(&prefix_lengths);
     return (sig_str);
 }
 
@@ -1529,6 +1529,88 @@ rtadv_trigger_dad(ServiceRef service_p, inet6_addrinfo_t * list, int count)
 }
 
 STATIC void
+rtadv_publish(ServiceRef service_p, inet6_addrinfo_t * list, int list_count,
+	      boolean_t dhcp_has_address)
+{
+    boolean_t			clat46_is_configured;
+    interface_t *		if_p = service_interface(service_p);
+    ipv6_info_t			info;
+    boolean_t			remove_clat46 = TRUE;
+    boolean_t			set_clat46 = FALSE;
+    int				router_count;
+    const struct in6_addr *	router_p;
+    Service_rtadv_t *		rtadv;
+    CFStringRef			signature = NULL;
+
+    rtadv = (Service_rtadv_t *)ServiceGetPrivate(service_p);
+    bzero(&info, sizeof(info));
+
+    /* fill in information from DHCPv6 */
+    if (rtadv->dhcp_client != NULL
+	&& DHCPv6ClientGetInfo(rtadv->dhcp_client, &info)) {
+	if (dhcp_has_address && rtadv->dhcpv6_complete == 0) {
+	    rtadv->dhcpv6_complete = timer_get_current_time();
+	}
+    }
+    /* this checks whether there's current pvd addinfo to publish */
+    if (PvDInfoContextIsOk(&rtadv->pvd_context)) {
+	info.pvd_additional_info_dict
+	    = PvDInfoContextGetAdditionalInformation(&rtadv->pvd_context);
+    }
+    /* check whether to enable CLAT46 or not */
+    clat46_is_configured = service_clat46_is_configured(service_p);
+    info.ra = rtadv->ra;
+    info.nat64_prefix = copy_nat64_prefix(rtadv->ra);
+    if (info.nat64_prefix != NULL
+	|| service_nat64_prefix_available(service_p)) {
+	service_clat46_set_is_available(service_p, TRUE);
+	if (info.nat64_prefix != NULL) {
+	    /* we have PREF64, set it now */
+	    rtadv_set_nat64_prefixlist(service_p, info.nat64_prefix);
+	}
+	if (!service_interface_ipv4_published(service_p)) {
+	    /* no IPv4 service published, OK to set CLAT46 */
+	    set_clat46 = TRUE;
+	    remove_clat46 = FALSE;
+	}
+    }
+    else {
+	service_clat46_set_is_available(service_p, FALSE);
+	if (clat46_is_configured || if_ift_type(if_p) != IFT_CELLULAR) {
+	    info.perform_plat_discovery
+		= !service_plat_discovery_complete(service_p);
+	}
+    }
+    if (remove_clat46) {
+	/* remove CLAT46 prefix and CLAT46 address */
+	rtadv_set_nat64_prefixlist(service_p, NULL);
+	if (rtadv->clat46_partial != 0) {
+	    rtadv_remove_clat46_address(service_p, FALSE);
+	}
+    }
+    else if (set_clat46) {
+	CFStringRef	ifname;
+
+	/* enable CLAT46 */
+	ifname = ServiceGetInterfaceName(service_p);
+	if (rtadv_set_clat46_address(service_p)) {
+	    info.ipv4_dict
+		= S_ipv4_clat46_dict_copy(ifname, rtadv->clat46_partial);
+	}
+    }
+    router_p = RouterAdvertisementGetSourceIPAddress(rtadv->ra);
+    router_count = 1;
+    signature = create_signature(rtadv->ra);
+    ServicePublishSuccessIPv6(service_p, list, list_count,
+			      router_p, router_count,
+			      &info, signature);
+    my_CFRelease(&signature);
+    my_CFRelease(&info.ipv4_dict);
+    my_CFRelease(&info.nat64_prefix);
+    return;
+}
+
+STATIC void
 rtadv_address_changed_common(ServiceRef service_p,
 			     inet6_addrlist_t * addr_list_p)
 {
@@ -1584,12 +1666,8 @@ rtadv_address_changed_common(ServiceRef service_p,
 	uint32_t		deprecated_count = 0;
 	uint32_t		detached_count = 0;
 	int			i;
-	ipv6_info_t		info;
 	inet6_addrinfo_t	list[addr_list_p->count];
-	const struct in6_addr *	router_p = NULL;
-	int			router_count = 0;
 	inet6_addrinfo_t *	scan;
-	CFStringRef		signature = NULL;
 
 	inet6_addrlist_init(&dhcp_addr_list);
 	if (rtadv->dhcp_client != NULL) {
@@ -1645,77 +1723,9 @@ rtadv_address_changed_common(ServiceRef service_p,
 		   if_name(if_p));
 	}
 	rtadv->has_autoconf_address = (autoconf_count != 0);
-
-	bzero(&info, sizeof(info));
 	if (rtadv->ra != NULL) {
-	    boolean_t	clat46_is_configured;
-	    boolean_t	remove_clat46 = TRUE;
-	    boolean_t	set_clat46 = FALSE;
-
-	    /* fill in information from DHCPv6 */
-	    if (rtadv->dhcp_client != NULL
-		&& DHCPv6ClientGetInfo(rtadv->dhcp_client, &info)) {
-		if (dhcp_has_address && rtadv->dhcpv6_complete == 0) {
-		    rtadv->dhcpv6_complete = timer_get_current_time();
-		}
-	    }
-	    /* this checks whether there's current pvd addinfo to publish */
-	    if (PvDInfoContextIsOk(&rtadv->pvd_context)) {
-		info.pvd_additional_info_dict
-		= PvDInfoContextGetAdditionalInformation(&rtadv->pvd_context);
-	    }
-	    /* check whether to enable CLAT46 or not */
-	    clat46_is_configured = service_clat46_is_configured(service_p);
-	    info.ra = rtadv->ra;
-	    info.nat64_prefix = copy_nat64_prefix(rtadv->ra);
-	    if (info.nat64_prefix != NULL
-		|| service_nat64_prefix_available(service_p)) {
-		service_clat46_set_is_available(service_p, TRUE);
-		if (info.nat64_prefix != NULL) {
-		    /* we have PREF64, set it now */
-		    rtadv_set_nat64_prefixlist(service_p, info.nat64_prefix);
-		}
-		if (!service_interface_ipv4_published(service_p)) {
-		    /* no IPv4 service published, OK to set CLAT46 */
-		    set_clat46 = TRUE;
-		    remove_clat46 = FALSE;
-		}
-	    }
-	    else {
-		service_clat46_set_is_available(service_p, FALSE);
-		if (clat46_is_configured || if_ift_type(if_p) != IFT_CELLULAR) {
-		    info.perform_plat_discovery
-			= !service_plat_discovery_complete(service_p);
-		}
-	    }
-	    if (remove_clat46) {
-		/* remove CLAT46 prefix and CLAT46 address */
-		rtadv_set_nat64_prefixlist(service_p, NULL);
-		if (rtadv->clat46_partial != 0) {
-		    rtadv_remove_clat46_address(service_p, FALSE);
-		}
-	    }
-	    else if (set_clat46) {
-		CFStringRef	ifname;
-
-		/* enable CLAT46 */
-		ifname = ServiceGetInterfaceName(service_p);
-		if (rtadv_set_clat46_address(service_p)) {
-		    info.ipv4_dict
-			= S_ipv4_clat46_dict_copy(ifname, rtadv->clat46_partial);
-		}
-	    }
-	    router_p = RouterAdvertisementGetSourceIPAddress(rtadv->ra);
-	    router_count = 1;
-	    signature = create_signature(rtadv->ra, list, count);
-	}
-	ServicePublishSuccessIPv6(service_p, list, count,
-				  router_p, router_count,
-				  &info, signature);
-	my_CFRelease(&signature);
-	my_CFRelease(&info.ipv4_dict);
-	my_CFRelease(&info.nat64_prefix);
-	if (rtadv->ra != NULL) {
+	    /* only publish if we're routable */
+	    rtadv_publish(service_p, list, count, dhcp_has_address);
 	    rtadv_submit_awd_success_report(service_p);
 	    if (rtadv->dhcp_client == NULL
 		|| !DHCPv6ClientIsActive(rtadv->dhcp_client)) {

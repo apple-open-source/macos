@@ -57,7 +57,7 @@ NetworkDataTaskCurl::NetworkDataTaskCurl(NetworkSession& session, NetworkDataTas
     : NetworkDataTask(session, client, parameters.request, parameters.storedCredentialsPolicy, parameters.shouldClearReferrerOnHTTPSToHTTPRedirect, parameters.isMainFrameNavigation)
     , m_frameID(parameters.webFrameID)
     , m_pageID(parameters.webPageID)
-    , m_shouldRelaxThirdPartyCookieBlocking(parameters.shouldRelaxThirdPartyCookieBlocking)
+    , m_webPageProxyID(parameters.webPageProxyID)
     , m_sourceOrigin(parameters.sourceOrigin)
 {
     auto request = parameters.request;
@@ -245,9 +245,13 @@ void NetworkDataTaskCurl::curlDidFailWithError(CurlRequest& request, ResourceErr
 
     if (isDownload()) {
         deleteDownloadFile();
-        auto* download = m_session->networkProcess().downloadManager().download(*m_pendingDownloadID);
-        RELEASE_ASSERT(download);
-        download->didFail(resourceError, { });
+        if (m_client)
+            m_client->didCompleteWithError(resourceError);
+        else {
+            auto* download = m_session->networkProcess().downloadManager().download(*m_pendingDownloadID);
+            RELEASE_ASSERT(download);
+            download->didFail(resourceError, { });
+        }
         return;
     }
 
@@ -314,10 +318,9 @@ void NetworkDataTaskCurl::invokeDidReceiveResponse()
             }
 
             auto& downloadManager = m_session->networkProcess().downloadManager();
-            auto download = makeUnique<Download>(downloadManager, *m_pendingDownloadID, *this, *m_session, suggestedFilename());
-            auto* downloadPtr = download.get();
-            downloadManager.dataTaskBecameDownloadTask(*m_pendingDownloadID, WTFMove(download));
-            downloadPtr->didCreateDestination(m_pendingDownloadLocation);
+            Ref download = Download::create(downloadManager, *m_pendingDownloadID, *this, *m_session, suggestedFilename());
+            downloadManager.dataTaskBecameDownloadTask(*m_pendingDownloadID, download.copyRef());
+            download->didCreateDestination(m_pendingDownloadLocation);
             if (m_curlRequest)
                 m_curlRequest->completeDidReceiveResponse();
             break;
@@ -576,7 +579,7 @@ bool NetworkDataTaskCurl::shouldBlockCookies(const WebCore::ResourceRequest& req
     bool shouldBlockCookies = m_storedCredentialsPolicy == WebCore::StoredCredentialsPolicy::EphemeralStateless;
 
     if (!shouldBlockCookies && m_session->networkStorageSession())
-        shouldBlockCookies = m_session->networkStorageSession()->shouldBlockCookies(request, m_frameID, m_pageID, m_shouldRelaxThirdPartyCookieBlocking);
+        shouldBlockCookies = m_session->networkStorageSession()->shouldBlockCookies(request, m_frameID, m_pageID, m_session->networkProcess().shouldRelaxThirdPartyCookieBlockingForPage(m_webPageProxyID));
 
     if (shouldBlockCookies)
         return true;

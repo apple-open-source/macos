@@ -30,3 +30,16 @@ touch dir3/a.o dir3/b.o dir3/c.o
 
 rsync -a --del --filter '+s a.o' --filter '-s *.o' -- dir1/ dir3
 compare_trees dir2 dir3
+
+rm -rf dir3
+mkdir -p headers/include
+touch headers/include/foo.h headers/include/foo.sh
+
+rsync -a --include="*.h" --filter="H! */" headers/ dir3
+if [ ! -e dir3/include/foo.h ]; then
+	1>&2 echo "foo.h was improperly excluded"
+	exit 1
+elif [ -e dir3/include/foo.sh ]; then
+	1>&2 echo "foo.sh should have been excluded"
+	exit 1
+fi

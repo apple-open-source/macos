@@ -44,7 +44,9 @@
 #import "WebExtensionMenuItemParameters.h"
 #import "WebExtensionTabParameters.h"
 #import "WebExtensionUtilities.h"
+#import "WebFrame.h"
 #import "WebProcess.h"
+#import <WebCore/LocalFrame.h>
 #import <wtf/cocoa/VectorCocoa.h>
 
 static NSString * const checkedKey = @"checked";
@@ -141,7 +143,7 @@ bool WebExtensionAPIMenus::parseCreateAndUpdateProperties(ForUpdate forUpdate, N
         else if ([type isEqualToString:separatorKey])
             parameters.type = WebExtensionMenuItemType::Separator;
         else {
-            *outExceptionString = toErrorString(nil, typeKey, @"it must specify either 'normal', 'checkbox', 'radio', or 'separator'");
+            *outExceptionString = toErrorString(nullString(), typeKey, @"it must specify either 'normal', 'checkbox', 'radio', or 'separator'");
             return false;
         }
     }
@@ -176,12 +178,12 @@ bool WebExtensionAPIMenus::parseCreateAndUpdateProperties(ForUpdate forUpdate, N
             }
 
             if ([context isEqualToString:@"action"] && !extensionContext().supportsManifestVersion(3)) {
-                *outExceptionString = toErrorString(nil, contextsKey, @"'%@' is not a valid context", context);
+                *outExceptionString = toErrorString(nullString(), contextsKey, @"'%@' is not a valid context", context);
                 return false;
             }
 
             if (([context isEqualToString:@"browser_action"] || [context isEqualToString:@"page_action"]) && extensionContext().supportsManifestVersion(3)) {
-                *outExceptionString = toErrorString(nil, contextsKey, @"'%@' is not a valid context", context);
+                *outExceptionString = toErrorString(nullString(), contextsKey, @"'%@' is not a valid context", context);
                 return false;
             }
 
@@ -193,7 +195,7 @@ bool WebExtensionAPIMenus::parseCreateAndUpdateProperties(ForUpdate forUpdate, N
         for (NSString *patternString in documentPatterns) {
             auto pattern = WebExtensionMatchPattern::getOrCreate(patternString);
             if (!pattern || !pattern->isSupported()) {
-                *outExceptionString = toErrorString(nil, documentURLPatternsKey, @"'%@' is not a valid pattern", patternString);
+                *outExceptionString = toErrorString(nullString(), documentURLPatternsKey, @"'%@' is not a valid pattern", patternString);
                 return false;
             }
         }
@@ -207,7 +209,7 @@ bool WebExtensionAPIMenus::parseCreateAndUpdateProperties(ForUpdate forUpdate, N
 
             // Any valid pattern is allowed, not just supported schemes.
             if (!pattern || !pattern->isValid()) {
-                *outExceptionString = toErrorString(nil, targetURLPatternsKey, @"'%@' is not a valid pattern", patternString);
+                *outExceptionString = toErrorString(nullString(), targetURLPatternsKey, @"'%@' is not a valid pattern", patternString);
                 return false;
             }
         }
@@ -217,7 +219,7 @@ bool WebExtensionAPIMenus::parseCreateAndUpdateProperties(ForUpdate forUpdate, N
 
     if (NSString *identifier = objectForKey<NSString>(properties, idKey, false)) {
         if (!identifier.length) {
-            *outExceptionString = toErrorString(nil, idKey, @"it must not be empty");
+            *outExceptionString = toErrorString(nullString(), idKey, @"it must not be empty");
             return false;
         }
 
@@ -227,7 +229,7 @@ bool WebExtensionAPIMenus::parseCreateAndUpdateProperties(ForUpdate forUpdate, N
 
     if (NSString *parentIdentifier = objectForKey<NSString>(properties, parentIdKey, false)) {
         if (!parentIdentifier.length) {
-            *outExceptionString = toErrorString(nil, parentIdKey, @"it must not be empty");
+            *outExceptionString = toErrorString(nullString(), parentIdKey, @"it must not be empty");
             return false;
         }
 
@@ -237,7 +239,7 @@ bool WebExtensionAPIMenus::parseCreateAndUpdateProperties(ForUpdate forUpdate, N
 
     if (NSString *title = properties[titleKey]) {
         if (!title.length && parameters.type != WebExtensionMenuItemType::Separator) {
-            *outExceptionString = toErrorString(nil, titleKey, @"it must not be empty");
+            *outExceptionString = toErrorString(nullString(), titleKey, @"it must not be empty");
             return false;
         }
 
@@ -246,7 +248,7 @@ bool WebExtensionAPIMenus::parseCreateAndUpdateProperties(ForUpdate forUpdate, N
 
     if (JSValue *clickCallback = properties[onclickKey]) {
         if (!clickCallback._isFunction) {
-            *outExceptionString = toErrorString(nil, onclickKey, @"it must be a function");
+            *outExceptionString = toErrorString(nullString(), onclickKey, @"it must be a function");
             return false;
         }
 
@@ -291,7 +293,7 @@ bool WebExtensionAPIMenus::parseCreateAndUpdateProperties(ForUpdate forUpdate, N
 
     if (NSString *command = properties[commandKey]) {
         if (!command.length) {
-            *outExceptionString = toErrorString(nil, commandKey, @"it must not be empty");
+            *outExceptionString = toErrorString(nullString(), commandKey, @"it must not be empty");
             return false;
         }
 
@@ -316,7 +318,7 @@ id WebExtensionAPIMenus::createMenu(WebPage& page, WebFrame& frame, NSDictionary
 {
     // Documentation: https://developer.mozilla.org/docs/Mozilla/Add-ons/WebExtensions/API/menus/create
 
-    m_pageProxyIdentifier = page.webPageProxyIdentifier();
+    m_frameIdentifier = frame.frameID();
 
     std::optional<WebExtensionMenuItemParameters> parameters;
     RefPtr<WebExtensionCallbackHandler> clickCallback;
@@ -334,7 +336,7 @@ id WebExtensionAPIMenus::createMenu(WebPage& page, WebFrame& frame, NSDictionary
 
         if (clickCallback) {
             if (m_clickHandlerMap.isEmpty())
-                WebProcess::singleton().send(Messages::WebExtensionContext::AddListener(m_pageProxyIdentifier, WebExtensionEventListenerType::MenusOnClicked, contentWorldType()), extensionContext().identifier());
+                WebProcess::singleton().send(Messages::WebExtensionContext::AddListener(*m_frameIdentifier, WebExtensionEventListenerType::MenusOnClicked, contentWorldType()), extensionContext().identifier());
 
             m_clickHandlerMap.set(identifier, clickCallback.releaseNonNull());
         }
@@ -349,7 +351,7 @@ void WebExtensionAPIMenus::update(WebPage& page, WebFrame& frame, id identifier,
 {
     // Documentation: https://developer.mozilla.org/docs/Mozilla/Add-ons/WebExtensions/API/menus/update
 
-    m_pageProxyIdentifier = page.webPageProxyIdentifier();
+    m_frameIdentifier = frame.frameID();
 
     if (!validateObject(identifier, @"identifier", [NSOrderedSet orderedSetWithObjects:NSString.class, NSNumber.class, nil], outExceptionString))
         return;
@@ -379,7 +381,7 @@ void WebExtensionAPIMenus::update(WebPage& page, WebFrame& frame, id identifier,
 
             if (clickCallback) {
                 if (m_clickHandlerMap.isEmpty())
-                    WebProcess::singleton().send(Messages::WebExtensionContext::AddListener(m_pageProxyIdentifier, WebExtensionEventListenerType::MenusOnClicked, contentWorldType()), extensionContext().identifier());
+                    WebProcess::singleton().send(Messages::WebExtensionContext::AddListener(*m_frameIdentifier, WebExtensionEventListenerType::MenusOnClicked, contentWorldType()), extensionContext().identifier());
 
                 m_clickHandlerMap.set(newIdentifier, clickCallback.releaseNonNull());
             }
@@ -408,7 +410,7 @@ void WebExtensionAPIMenus::remove(id identifier, Ref<WebExtensionCallbackHandler
         m_clickHandlerMap.remove(identifier);
 
         if (m_clickHandlerMap.isEmpty())
-            WebProcess::singleton().send(Messages::WebExtensionContext::RemoveListener(m_pageProxyIdentifier, WebExtensionEventListenerType::MenusOnClicked, contentWorldType(), 1), extensionContext().identifier());
+            WebProcess::singleton().send(Messages::WebExtensionContext::RemoveListener(*m_frameIdentifier, WebExtensionEventListenerType::MenusOnClicked, contentWorldType(), 1), extensionContext().identifier());
 
         callback->call();
     }, extensionContext().identifier());
@@ -427,7 +429,7 @@ void WebExtensionAPIMenus::removeAll(Ref<WebExtensionCallbackHandler>&& callback
         if (!m_clickHandlerMap.isEmpty()) {
             m_clickHandlerMap.clear();
 
-            WebProcess::singleton().send(Messages::WebExtensionContext::RemoveListener(m_pageProxyIdentifier, WebExtensionEventListenerType::MenusOnClicked, contentWorldType(), 1), extensionContext().identifier());
+            WebProcess::singleton().send(Messages::WebExtensionContext::RemoveListener(*m_frameIdentifier, WebExtensionEventListenerType::MenusOnClicked, contentWorldType(), 1), extensionContext().identifier());
         }
 
         callback->call();

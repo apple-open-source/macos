@@ -31,5 +31,7 @@ extern bool libent_build_nametable(task_t, dyld_process_info);
 extern dyld_process_info get_task_dyld_info(task_t);
 extern bool get_sc_uuid(dyld_process_info, uuid_t);
 extern void free_task_dyld_info(dyld_process_info);
-
+extern void create_dyld_header_regions(task_t task,struct regionhead *rhead);
+extern void add_forced_regions(task_t task,struct regionhead *rhead);
+extern bool is_range_part_of_the_shared_library_address_space(mach_vm_address_t address,mach_vm_size_t size);
 #endif /* _DYLD_H */

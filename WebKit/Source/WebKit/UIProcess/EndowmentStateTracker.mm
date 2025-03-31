@@ -144,12 +144,12 @@ void EndowmentStateTracker::setState(State&& state)
 
     RELEASE_LOG(ViewState, "%p - EndowmentStateTracker::setState() isUserFacing: %{public}s isVisible: %{public}s", this, m_state->isUserFacing ? "true" : "false", m_state->isVisible ? "true" : "false");
 
-    for (auto& client : copyToVector(m_clients)) {
-        if (isUserFacingChanged && client)
-            client->isUserFacingChanged(m_state->isUserFacing);
-        if (isVisibleChanged && client)
-            client->isVisibleChanged(m_state->isVisible);
-    }
+    m_clients.forEach([&](auto& client) {
+        if (isUserFacingChanged)
+            Ref { client }->isUserFacingChanged(m_state->isUserFacing);
+        if (isVisibleChanged)
+            Ref { client }->isVisibleChanged(m_state->isVisible);
+    });
 }
 
 }

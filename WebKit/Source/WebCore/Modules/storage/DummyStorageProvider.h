@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2021 Apple Inc. All rights reserved.
+ * Copyright (C) 2021-2024 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -29,12 +29,11 @@
 #include "StorageConnection.h"
 #include "StorageEstimate.h"
 #include "StorageProvider.h"
-#include <wtf/TZoneMallocInlines.h>
 
 namespace WebCore {
 
 class DummyStorageProvider final : public StorageProvider {
-    WTF_MAKE_TZONE_ALLOCATED_INLINE(DummyStorageProvider);
+    WTF_MAKE_TZONE_ALLOCATED_EXPORT(DummyStorageProvider, WEBCORE_EXPORT);
 public:
     DummyStorageProvider() = default;
 

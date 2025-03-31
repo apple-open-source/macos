@@ -18,10 +18,10 @@
 
 #include <algorithm>
 #include <limits>
+#include <optional>
 #include <string>
 
 #include "absl/strings/match.h"
-#include "absl/types/optional.h"
 #include "api/video/video_codec_constants.h"
 #include "api/video_codecs/scalability_mode.h"
 #include "common_video/libyuv/include/webrtc_libyuv.h"
@@ -65,7 +65,7 @@ enum H264EncoderImplEvent {
   kH264EncoderEventMax = 16,
 };
 
-int NumberOfThreads(absl::optional<int> encoder_thread_limit,
+int NumberOfThreads(std::optional<int> encoder_thread_limit,
                     int width,
                     int height,
                     int number_of_cores) {
@@ -109,7 +109,7 @@ VideoFrameType ConvertToVideoFrameType(EVideoFrameType type) {
   return VideoFrameType::kEmptyFrame;
 }
 
-absl::optional<ScalabilityMode> ScalabilityModeFromTemporalLayers(
+std::optional<ScalabilityMode> ScalabilityModeFromTemporalLayers(
     int num_temporal_layers) {
   switch (num_temporal_layers) {
     case 0:
@@ -123,7 +123,7 @@ absl::optional<ScalabilityMode> ScalabilityModeFromTemporalLayers(
     default:
       RTC_DCHECK_NOTREACHED();
   }
-  return absl::nullopt;
+  return std::nullopt;
 }
 
 }  // namespace
@@ -597,7 +597,8 @@ int32_t H264EncoderImpl::Encode(
       if (svc_controllers_[i]) {
         codec_specific.generic_frame_info =
             svc_controllers_[i]->OnEncodeDone(layer_frames[0]);
-        if (send_key_frame && codec_specific.generic_frame_info.has_value()) {
+        if (encoded_images_[i]._frameType == VideoFrameType::kVideoFrameKey &&
+            codec_specific.generic_frame_info.has_value()) {
           codec_specific.template_structure =
               svc_controllers_[i]->DependencyStructure();
         }

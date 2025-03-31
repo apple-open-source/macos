@@ -28,7 +28,7 @@
 #if ENABLE(WEBGL)
 
 #include "GraphicsContextGLANGLE.h"
-#include "IOSurface.h"
+#include "IOSurfaceDrawingBuffer.h"
 #include "ProcessIdentity.h"
 #include <array>
 
@@ -57,6 +57,20 @@ class GraphicsContextGLCVCocoa;
 #if ENABLE(MEDIA_STREAM)
 class ImageRotationSessionVT;
 #endif
+
+// IOSurface backing store for an image of a texture.
+// When preserveDrawingBuffer == false, this is the drawing buffer backing store.
+// When preserveDrawingBuffer == true, this is blitted to during display prepare.
+class IOSurfacePbuffer : public IOSurfaceDrawingBuffer {
+public:
+    IOSurfacePbuffer() = default;
+    IOSurfacePbuffer(IOSurfacePbuffer&&);
+    explicit IOSurfacePbuffer(std::unique_ptr<IOSurface>&&, void* pbuffer);
+    void* pbuffer() const { return m_pbuffer; }
+    IOSurfacePbuffer& operator=(IOSurfacePbuffer&&);
+private:
+    void* m_pbuffer { nullptr };
+};
 
 class WEBCORE_EXPORT GraphicsContextGLCocoa : public GraphicsContextGLANGLE {
 public:
@@ -99,10 +113,7 @@ public:
     // GraphicsContextGLANGLE overrides.
     RefPtr<GraphicsLayerContentsDisplayDelegate> layerContentsDisplayDelegate() override;
 #if ENABLE(VIDEO)
-    bool copyTextureFromMedia(MediaPlayer&, PlatformGLObject texture, GCGLenum target, GCGLint level, GCGLenum internalFormat, GCGLenum format, GCGLenum type, bool premultiplyAlpha, bool flipY) final;
-#endif
-#if ENABLE(VIDEO)
-    GraphicsContextGLCV* asCV() final;
+    bool copyTextureFromVideoFrame(VideoFrame&, PlatformGLObject texture, uint32_t target, int32_t level, uint32_t internalFormat, uint32_t format, uint32_t type, bool premultiplyAlpha, bool flipY) final;
 #endif
 #if ENABLE(MEDIA_STREAM) || ENABLE(WEB_CODECS)
     RefPtr<VideoFrame> surfaceBufferToVideoFrame(SurfaceBuffer) final;
@@ -111,7 +122,7 @@ public:
     void setDrawingBufferColorSpace(const DestinationColorSpace&) final;
     void prepareForDisplay() override;
 
-    void withBufferAsNativeImage(SurfaceBuffer, Function<void(NativeImage&)>) override;
+    RefPtr<NativeImage> bufferAsNativeImage(SurfaceBuffer) override;
 
     // Prepares current frame for display. The `finishedSignal` will be invoked once the frame has finished rendering.
     void prepareForDisplayWithFinishedSignal(Function<void()> finishedSignal);
@@ -125,15 +136,8 @@ protected:
     bool platformInitialize() final;
     void invalidateKnownTextureContent(GCGLuint) final;
     bool reshapeDrawingBuffer() final;
+    void prepareForDrawingBufferWrite() final;
 
-    // IOSurface backing store for an image of a texture.
-    // When preserveDrawingBuffer == false, this is the drawing buffer backing store.
-    // When preserveDrawingBuffer == true, this is blitted to during display prepare.
-    struct IOSurfacePbuffer {
-        std::unique_ptr<IOSurface> surface;
-        void* pbuffer { nullptr };
-        operator bool() const { return !!surface; }
-    };
     IOSurfacePbuffer& drawingBuffer();
     IOSurfacePbuffer& displayBuffer();
     IOSurfacePbuffer& surfaceBuffer(SurfaceBuffer);
@@ -146,7 +150,9 @@ protected:
 #if ENABLE(WEBXR)
     bool enableRequiredWebXRExtensionsImpl();
 #endif
-
+#if ENABLE(VIDEO)
+    GraphicsContextGLCV* cvContext();
+#endif
 
     ProcessIdentity m_resourceOwner;
     DestinationColorSpace m_drawingBufferColorSpace;
@@ -169,6 +175,25 @@ protected:
     std::array<IOSurfacePbuffer, maxReusedDrawingBuffers> m_drawingBuffers;
     friend class GraphicsContextGLCVCocoa;
 };
+
+inline IOSurfacePbuffer::IOSurfacePbuffer(std::unique_ptr<IOSurface>&& surface, void* pbuffer)
+    : IOSurfaceDrawingBuffer(WTFMove(surface))
+    , m_pbuffer(pbuffer)
+{
+}
+
+inline IOSurfacePbuffer::IOSurfacePbuffer(IOSurfacePbuffer&& other)
+    : IOSurfaceDrawingBuffer(WTFMove(other))
+    , m_pbuffer(std::exchange(other.m_pbuffer, nullptr))
+{
+}
+
+inline IOSurfacePbuffer& IOSurfacePbuffer::operator=(IOSurfacePbuffer&& other)
+{
+    IOSurfaceDrawingBuffer::operator=(WTFMove(other));
+    m_pbuffer = std::exchange(other.m_pbuffer, nullptr);
+    return *this;
+}
 
 }
 

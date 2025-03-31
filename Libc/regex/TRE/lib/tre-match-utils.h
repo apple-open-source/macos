@@ -515,7 +515,9 @@ tre_tag_order(int num_tags, tre_tag_direction_t *tag_directions,
 #include <xlocale.h>
 #endif /* !__LIBC__ */
 
-int __collate_equiv_value(locale_t loc, const wchar_t *str, size_t len);
+int __collate_equiv_wchar(locale_t loc, wchar_t lch, wchar_t rch,
+    int insensitive);
+int __collate_range_cmp(wchar_t c1, wchar_t c2, locale_t loc);
 
 inline static int
 tre_bracket_match(tre_bracket_match_list_t * __restrict list, tre_cint_t wc,
@@ -525,7 +527,6 @@ tre_bracket_match(tre_bracket_match_list_t * __restrict list, tre_cint_t wc,
   int i;
   tre_bracket_match_t *b;
   tre_cint_t uc, lc;
-  int we, ue, le, got_equiv = 0;
   int icase = ((tnfa->cflags & REG_ICASE) != 0);
 
   DPRINT(("tre_bracket_match: %p, %d, %d\n", list, wc, icase));
@@ -568,22 +569,25 @@ tre_bracket_match(tre_bracket_match_list_t * __restrict list, tre_cint_t wc,
 		goto error;
 	      }
 	    end = b->value;
-	    if (!got_equiv)
+	    if (MB_CUR_MAX > 1)
 	      {
 		if (icase)
-		  {
-		    ue = __collate_equiv_value(tnfa->loc, &uc, 1);
-		    le = __collate_equiv_value(tnfa->loc, &lc, 1);
-		  }
+		   match = ((start <= uc && uc <= end) ||
+		     (start <= lc && lc <= end));
 		else
-		    we = __collate_equiv_value(tnfa->loc, &wc, 1);
-		got_equiv = 1;
+		   match = (start <= wc && wc <= end);
 	      }
-	    if (icase)
-	      match = ((start <= ue && ue <= end) ||
-		      (start <= le && le <= end));
 	    else
-	      match = (start <= we && we <= end);
+	      {
+		if (icase)
+		   match = ((__collate_range_cmp(start, uc, tnfa->loc) <= 0 &&
+		     __collate_range_cmp(end, uc, tnfa->loc) >= 0) ||
+		     (__collate_range_cmp(start, lc, tnfa->loc) <= 0 &&
+		     __collate_range_cmp(end, lc, tnfa->loc) >= 0));
+		else
+		   match = (__collate_range_cmp(start, wc, tnfa->loc) <= 0 &&
+		     __collate_range_cmp(end, wc, tnfa->loc) >= 0);
+	      }
 	    break;
 	  }
 	case TRE_BRACKET_MATCH_TYPE_RANGE_END:
@@ -598,21 +602,7 @@ tre_bracket_match(tre_bracket_match_list_t * __restrict list, tre_cint_t wc,
 	    match = (tre_isctype_l(wc, b->value, tnfa->loc));
 	  break;
 	case TRE_BRACKET_MATCH_TYPE_EQUIVALENCE:
-	  if (!got_equiv)
-	    {
-	      if (icase)
-		{
-		  ue = __collate_equiv_value(tnfa->loc, &uc, 1);
-		  le = __collate_equiv_value(tnfa->loc, &lc, 1);
-		}
-	      else
-		  we = __collate_equiv_value(tnfa->loc, &wc, 1);
-	      got_equiv = 1;
-	    }
-	  if (icase)
-	    match = (b->value == ue || b->value == le);
-	  else
-	    match = (b->value == we);
+	  match = __collate_equiv_wchar(tnfa->loc, wc, b->value, icase);
 	  break;
 	default:
 	  DPRINT(("tre_bracket_match: unknown type %d\n", b->type));

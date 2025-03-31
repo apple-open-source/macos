@@ -1,0 +1,50 @@
+#! /bin/sh
+
+. ${tstdir-.}/daemon.sh
+. ${tstdir-.}/lib.sh
+. ${tstdir-.}/conf.sh
+
+dest="$PWD/ftp"
+cfgfile="$PWD/rsyncd.conf"
+motdfile="$PWD/motd"
+
+rm -rf "$dest" from-*
+
+mkdir "$dest"
+echo "captured" > "$dest"/flag
+printf "message of the day" > "$motdfile"
+
+cat <<EOF > "$cfgfile"
+use chroot = no
+motd file = $motdfile
+[with_motd]
+	path = $dest
+EOF
+
+rsyncd "$cfgfile"
+dport=$(daemon_port)
+
+command $RSYNC_CLIENT rsync://localhost:$dport/with_motd/flag from-motd > out
+cmp -s "from-motd" "$dest/flag"
+if ! cat out | grep -q "message of the day"; then
+	1>&2 echo "Message of the day missing"
+	exit 1
+fi
+daemon_kill
+
+# It's a global option, so this motd file should be ignored.
+rm -f out
+cat <<EOF > "$cfgfile"
+use chroot = no
+
+[without_motd]
+	motd file = $motdfile
+	path = $dest
+EOF
+
+rsyncd "$cfgfile"
+dport=$(daemon_port)
+
+command $RSYNC_CLIENT rsync://localhost:$dport/without_motd/flag from-without_motd > out
+cmp -s "from-without_motd" "$dest/flag"
+test ! -s out

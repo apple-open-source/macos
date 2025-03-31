@@ -655,6 +655,7 @@ struct nfsnode {
 	u_short                 n_hflag;        /* node hash flags */
 	u_short                 n_bflag;        /* node buffer flags */
 	u_short                 n_mflag;        /* node mount flags */
+	u_short                 n_cflag;        /* node commit flags */
 	u_char                  n_fh[NFS_SMALLFH];/* Small File Handle */
 	u_short                 n_bufiterflags; /* buf iterator flags */
 	uint32_t                n_busy_shared;  /* shared busy counter */
@@ -692,6 +693,7 @@ struct nfsnode {
 		} rdirplusstamp;
 		nfs_stateid       n_dstateid;   /* delegation stateid */
 	} n_un8;
+	TAILQ_ENTRY(nfsnode)    n_commit;       /* commit list link */
 	TAILQ_ENTRY(nfsnode)    n_dlink;        /* delegation list link */
 	TAILQ_ENTRY(nfsnode)    n_dreturn;      /* delegation return list link */
 	struct kauth_ace        n_dace;         /* delegation ACE */
@@ -793,6 +795,13 @@ struct nfsnode {
  */
 #define NMMONSCANINPROG 0x0001  /* monitored node is currently updating attributes */
 #define NMMONSCANWANT   0x0002  /* waiting for attribute update to complete */
+
+/*
+ * Flags for n_cflag
+ * Note: protected by NLM_COMMITD global mutex
+ */
+#define NCOMMITINPROG   0x0001  /* commit thread is currently sending COMMIT rpc */
+#define NCOMMITWANT     0x0002  /* waiting for COMMIT rpc to complete */
 
 /*
  * n_openflags
@@ -978,6 +987,13 @@ int nfs_buf_write_dirty_pages(struct nfsbuf *, thread_t, kauth_cred_t);
 
 int nfs_flushcommits(nfsnode_t, int);
 int nfs_flush(nfsnode_t, int, thread_t, int);
+
+void nfs_buf_commit_push(nfsnode_t);
+void nfs_buf_commit_remove(nfsnode_t, int);
+void nfs_buf_commit_service(void);
+void nfs_buf_commit_thread(void *, wait_result_t);
+void nfs_buf_commit_thread_wakeup(void);
+
 void nfs_buf_delwri_push(int);
 void nfs_buf_delwri_service(void);
 void nfs_buf_delwri_thread(void *, wait_result_t);

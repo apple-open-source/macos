@@ -24,7 +24,7 @@ node_callback(int group, int beg, int end, int level, int at, void* arg)
 }
 
 extern int ex(unsigned char* str, unsigned char* pattern,
-              OnigSyntaxType* syntax)
+              OnigSyntaxType* syntax, OnigOptionType options)
 {
   int r;
   unsigned char *start, *range, *end;
@@ -33,10 +33,10 @@ extern int ex(unsigned char* str, unsigned char* pattern,
   OnigRegion *region;
 
   r = onig_new(&reg, pattern, pattern + strlen((char* )pattern),
-	       ONIG_OPTION_DEFAULT, ONIG_ENCODING_ASCII, syntax, &einfo);
+               options, ONIG_ENCODING_ASCII, syntax, &einfo);
   if (r != ONIG_NORMAL) {
     char s[ONIG_MAX_ERROR_MESSAGE_LEN];
-    onig_error_code_to_str(s, r, &einfo);
+    onig_error_code_to_str((UChar* )s, r, &einfo);
     fprintf(stderr, "ERROR: %s\n", s);
     return -1;
   }
@@ -68,7 +68,9 @@ extern int ex(unsigned char* str, unsigned char* pattern,
   }
   else { /* error */
     char s[ONIG_MAX_ERROR_MESSAGE_LEN];
-    onig_error_code_to_str(s, r);
+    onig_error_code_to_str((UChar* )s, r);
+    onig_region_free(region, 1 /* 1:free self, 0:free contents only */);
+    onig_free(reg);
     return -1;
   }
 
@@ -82,6 +84,7 @@ extern int main(int argc, char* argv[])
 {
   int r;
   OnigSyntaxType syn;
+  OnigEncoding use_encs[1];
 
   static UChar* str1 = (UChar* )"((())())";
   static UChar* pattern1
@@ -93,17 +96,22 @@ extern int main(int argc, char* argv[])
   static UChar* str3     = (UChar* )"0123";
   static UChar* pattern3 = (UChar* )"(?@.)(?@.)(?@.)(?@.)";
 
-  OnigEncoding use_encs[] = { ONIG_ENCODING_ASCII };
+  static UChar* str4 = (UChar* )"(((a))(a)) ((((a))(a)))";
+  static UChar* pattern4
+    = (UChar* )"\\g<p>(?@<p>\\(\\g<s>\\)){0}(?@<s>(?:\\g<p>)*|a){0}";
+
+  use_encs[0] = ONIG_ENCODING_ASCII;
   onig_initialize(use_encs, sizeof(use_encs)/sizeof(use_encs[0]));
 
- /* enable capture hostory */
+ /* enable capture history */
   onig_copy_syntax(&syn, ONIG_SYNTAX_DEFAULT);
-  onig_set_syntax_op2(&syn, 
+  onig_set_syntax_op2(&syn,
        onig_get_syntax_op2(&syn) | ONIG_SYN_OP2_ATMARK_CAPTURE_HISTORY);
 
-  r = ex(str1, pattern1, &syn);
-  r = ex(str2, pattern2, &syn);
-  r = ex(str3, pattern3, &syn);
+  r = ex(str1, pattern1, &syn, ONIG_OPTION_NONE);
+  r = ex(str2, pattern2, &syn, ONIG_OPTION_NONE);
+  r = ex(str3, pattern3, &syn, ONIG_OPTION_NONE);
+  r = ex(str4, pattern4, &syn, ONIG_OPTION_FIND_LONGEST);
 
   onig_end();
   return r;

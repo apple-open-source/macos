@@ -1,0 +1,44 @@
+{
+  "configurations" : [
+    {
+      "id" : "F7174AAB-4CBB-44A4-894D-5DE3EC205193",
+      "name" : "Test Scheme Action",
+      "options" : {
+
+      }
+    }
+  ],
+  "defaultOptions" : {
+    "codeCoverage" : {
+      "targets" : [
+        {
+          "containerPath" : "container:ICU.xcodeproj",
+          "identifier" : "CC7981B12434011E0086956E",
+          "name" : "io"
+        }
+      ]
+    },
+    "environmentVariableEntries" : [
+      {
+        "key" : "ICU_DATA",
+        "value" : "$(CONFIGURATION_BUILD_DIR)\/icudt76l.dat:$(CONFIGURATION_BUILD_DIR)\/testdata.dat"
+      }
+    ],
+    "targetForVariableExpansion" : {
+      "containerPath" : "container:ICU.xcodeproj",
+      "identifier" : "DE4B99C72CD2A8EE00E7C905",
+      "name" : "xc_iotest"
+    }
+  },
+  "testTargets" : [
+    {
+      "parallelizable" : true,
+      "target" : {
+        "containerPath" : "container:ICU.xcodeproj",
+        "identifier" : "DE4B99C72CD2A8EE00E7C905",
+        "name" : "xc_iotest"
+      }
+    }
+  ],
+  "version" : 1
+}

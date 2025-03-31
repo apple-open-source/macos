@@ -1,11 +1,10 @@
 # This file is include in the sub-projects's Makefiles to inherit standard
 # build behavior.  The sub-project's Makefiles need to define NAME and
 # VERSION.  The custompatching target may by redefined to do any patching
-# just after files are unpacked from the tarball.  The postinstall target
+# just before the modules are built.  The postinstall target
 # may be redefined to do any post install processing.
 
 NAMEVERSION := $(NAME)-$(VERSION)
-TARBALL := $(NAMEVERSION).tar.gz
 DIR := $(OBJROOT)/$(NAMEVERSION)
 
 INCLUDEPYTHONVERS = $(PYPREFIX)/Headers
@@ -21,10 +20,7 @@ export LIBRARYPREFIX = /Library
 endif
 
 $(DIR):
-	tar xozf $(TARBALL) -C $(OBJROOT)
-
-afterinstallsrc::
-	@echo "# $(NAMEVERSION): afterinstallsrc"
+	cp -a $(NAMEVERSION) $(OBJROOT)
 
 install: realinstall postinstall
 

@@ -161,6 +161,12 @@
 #define NFSDBG_VN4_REMOVENAMEDSTREAM  NFSDBG_CODE(141)   /* 0x3150234 */
 #endif /* NAMEDSTREAMS */
 
+/* NFSv4 Callback tracepoints */
+#define NFSDBG_CB4_HANDLER            NFSDBG_CODE(150)   /* 0x3150258 */
+#define NFSDBG_CB4_RCV                NFSDBG_CODE(151)   /* 0x315025c */
+#define NFSDBG_CB4_ACCEPT             NFSDBG_CODE(152)   /* 0x3150260 */
+#define NFSDBG_CB4_MOUNT_SETUP        NFSDBG_CODE(153)   /* 0x3150264 */
+
 /* nfs_bio.c tracepoints */
 #define NFSDBG_BIO_UPL_SETUP          NFSDBG_CODE(160)   /* 0x3150280 */
 #define NFSDBG_BIO_UPL_CHECK          NFSDBG_CODE(161)   /* 0x3150284 */

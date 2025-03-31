@@ -25,15 +25,17 @@
 
 #pragma once
 
-#if PLATFORM(MAC) && ENABLE(INPUT_TYPE_COLOR)
+#if PLATFORM(MAC)
 
 #import "ButtonControlMac.h"
+#import <wtf/TZoneMalloc.h>
 
 namespace WebCore {
 
 class ColorWellPart;
 
 class ColorWellMac final : public ButtonControlMac {
+    WTF_MAKE_TZONE_ALLOCATED(ColorWellMac);
 public:
     ColorWellMac(ColorWellPart& owningPart, ControlFactoryMac&, NSButtonCell *);
 
@@ -45,4 +47,4 @@ private:
 
 } // namespace WebCore
 
-#endif // PLATFORM(MAC) && ENABLE(INPUT_TYPE_COLOR)
+#endif // PLATFORM(MAC)

@@ -40,6 +40,7 @@ MutationEvent
 MutationEvents interfaceName=MutationEvent
 NavigateEvent
 NavigationCurrentEntryChangeEvent
+OverflowEvent
 PageRevealEvent
 PageSwapEvent
 PageTransitionEvent
@@ -47,7 +48,6 @@ PopStateEvent
 ProgressEvent
 PromiseRejectionEvent
 PushEvent
-PushNotificationEvent conditional=DECLARATIVE_WEB_PUSH
 PushSubscriptionChangeEvent
 SubmitEvent
 ToggleEvent

@@ -417,11 +417,27 @@ VME_OBJECT_SHADOW(
 }
 
 extern vm_tag_t vmtaglog_tag; /* Collected from a tunable in vm_resident.c */
+
+static inline bool
+vmtaglog_matches(vm_tag_t tag)
+{
+	switch (vmtaglog_tag) {
+	case VM_KERN_MEMORY_NONE:
+		return false;
+	case VM_KERN_MEMORY_FIRST_DYNAMIC:
+		return tag >= VM_KERN_MEMORY_FIRST_DYNAMIC;
+	case VM_KERN_MEMORY_ANY:
+		return tag != VM_KERN_MEMORY_NONE;
+	default:
+		return tag == vmtaglog_tag;
+	}
+}
+
 static inline void
 vme_btref_consider_and_set(__unused vm_map_entry_t entry, __unused void *fp)
 {
 #if VM_BTLOG_TAGS
-	if (vmtaglog_tag && (VME_ALIAS(entry) == vmtaglog_tag) && entry->vme_kernel_object && entry->wired_count) {
+	if (vmtaglog_matches(VME_ALIAS(entry)) && entry->vme_kernel_object && entry->wired_count) {
 		assert(!entry->vme_tag_btref); /* We should have already zeroed and freed the btref if we're here. */
 		entry->vme_tag_btref = btref_get(fp, BTREF_GET_NOWAIT);
 	}
@@ -653,6 +669,7 @@ extern void             vm_map_require(
 extern void             vm_map_copy_require(
 	vm_map_copy_t           copy);
 
+
 extern kern_return_t    vm_map_copy_extract(
 	vm_map_t                src_map,
 	vm_map_address_t        src_addr,
@@ -664,12 +681,12 @@ extern kern_return_t    vm_map_copy_extract(
 	vm_inherit_t            inheritance,
 	vm_map_kernel_flags_t   vmk_flags);
 
-#define VM_MAP_COPYIN_SRC_DESTROY       0x00000001
-#define VM_MAP_COPYIN_USE_MAXPROT       0x00000002
-#define VM_MAP_COPYIN_ENTRY_LIST        0x00000004
+#define VM_MAP_COPYIN_SRC_DESTROY        0x00000001
+#define VM_MAP_COPYIN_USE_MAXPROT        0x00000002
+#define VM_MAP_COPYIN_ENTRY_LIST         0x00000004
 #define VM_MAP_COPYIN_PRESERVE_PURGEABLE 0x00000008
-#define VM_MAP_COPYIN_FORK              0x00000010
-#define VM_MAP_COPYIN_ALL_FLAGS         0x0000001F
+#define VM_MAP_COPYIN_FORK               0x00000010
+#define VM_MAP_COPYIN_ALL_FLAGS              0x0000001F
 
 extern kern_return_t    vm_map_copyin_internal(
 	vm_map_t                src_map,
@@ -854,6 +871,10 @@ vm_map_sizes(vm_map_t map,
     vm_map_size_t * psize,
     vm_map_size_t * pfree,
     vm_map_size_t * plargest_free);
+
+extern void vm_map_guard_exception(
+	vm_map_offset_t         address,
+	unsigned                reason);
 
 #endif /* MACH_KERNEL_PRIVATE */
 

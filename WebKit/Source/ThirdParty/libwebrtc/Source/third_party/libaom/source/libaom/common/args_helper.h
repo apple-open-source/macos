@@ -52,8 +52,6 @@ typedef struct arg_def {
 #define ARG_DEF_LIST_END \
   { 0 }
 
-struct arg arg_init(char **argv);
-
 /*
  * The helper functions below all take an optional parameter err_msg for
  * error reporting. When err_msg is not NULL (must point to a buffer
@@ -63,6 +61,8 @@ struct arg arg_init(char **argv);
  */
 int arg_match_helper(struct arg *arg_, const struct arg_def *def, char **argv,
                      char *err_msg);
+
+// Note: arg_match_helper() must be called before invoking these functions.
 unsigned int arg_parse_uint_helper(const struct arg *arg, char *err_msg);
 int arg_parse_int_helper(const struct arg *arg, char *err_msg);
 struct aom_rational arg_parse_rational_helper(const struct arg *arg,

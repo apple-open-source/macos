@@ -168,6 +168,7 @@
 		A4C105602C652A2B00689640 /* DATelemetry.h in Headers */ = {isa = PBXBuildFile; fileRef = A4C1055F2C652A2B00689640 /* DATelemetry.h */; };
 		A4C105622C652AEA00689640 /* DATelemetry.m in Sources */ = {isa = PBXBuildFile; fileRef = A4C105612C652AEA00689640 /* DATelemetry.m */; };
 		A4C105642C6563A700689640 /* CoreAnalytics.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A4C105632C6563A700689640 /* CoreAnalytics.framework */; platformFilters = (ios, macos, ); settings = {ATTRIBUTES = (Weak, ); }; };
+		A4FA51AD2D08E9C1008ECF30 /* libutil.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = A4FA51AC2D08E9C1008ECF30 /* libutil.tbd */; };
 		DB0BFD1929DE382200CE569E /* DiskArbitration.plist in Copy Feature Flag plist */ = {isa = PBXBuildFile; fileRef = DB0BFD1729DE37C600CE569E /* DiskArbitration.plist */; };
 		DB7355FC29C3E24800840238 /* DAUserFSMount.m in Sources */ = {isa = PBXBuildFile; fileRef = 957575E025D36E9A002758FF /* DAUserFSMount.m */; };
 /* End PBXBuildFile section */
@@ -392,6 +393,7 @@
 		A4C1055F2C652A2B00689640 /* DATelemetry.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = DATelemetry.h; path = diskarbitrationd/DATelemetry.h; sourceTree = "<group>"; };
 		A4C105612C652AEA00689640 /* DATelemetry.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = DATelemetry.m; path = diskarbitrationd/DATelemetry.m; sourceTree = "<group>"; };
 		A4C105632C6563A700689640 /* CoreAnalytics.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreAnalytics.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.2.Internal.sdk/System/Library/PrivateFrameworks/CoreAnalytics.framework; sourceTree = DEVELOPER_DIR; };
+		A4FA51AC2D08E9C1008ECF30 /* libutil.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libutil.tbd; path = Platforms/AppleTVOS.platform/Developer/SDKs/AppleTVOS18.4.Internal.sdk/usr/lib/libutil.tbd; sourceTree = DEVELOPER_DIR; };
 		DB0BFD1729DE37C600CE569E /* DiskArbitration.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = DiskArbitration.plist; path = diskarbitrationd/DiskArbitration.plist; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -419,6 +421,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A4FA51AD2D08E9C1008ECF30 /* libutil.tbd in Frameworks */,
 				A4C105642C6563A700689640 /* CoreAnalytics.framework in Frameworks */,
 				A407C29F2908897A00928858 /* FSKit.framework in Frameworks */,
 				95005613268D087800C60718 /* libbsm.tbd in Frameworks */,
@@ -466,6 +469,7 @@
 		1236382F031ABDC703A87B01 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				A4FA51AC2D08E9C1008ECF30 /* libutil.tbd */,
 				A4C105632C6563A700689640 /* CoreAnalytics.framework */,
 				A407C29E2908897A00928858 /* FSKit.framework */,
 				9505A5F2271E11490003E6AA /* libFSInfo.a */,

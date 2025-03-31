@@ -157,6 +157,11 @@ bool SecCertificatePathVCIsEV(SecCertificatePathVCRef certificatePath);
 void SecCertificatePathVCSetIsEV(SecCertificatePathVCRef certificatePath, bool isEV);
 bool SecCertificatePathVCIsOptionallyEV(SecCertificatePathVCRef certificatePath);
 
+/* QWAC */
+bool SecCertificatePathVCIsQWAC(SecCertificatePathVCRef certificatePath);
+void SecCertificatePathVCSetIsQWAC(SecCertificatePathVCRef certificatePath, bool isQWAC);
+bool SecCertificatePathVCIsOptionallyQWAC(SecCertificatePathVCRef certificatePath);
+
 /* CT */
 typedef CFIndex SecPathCTPolicy;
 enum {

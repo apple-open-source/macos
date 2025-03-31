@@ -28,6 +28,7 @@
 
 #include <wtf/TZoneMallocInlines.h>
 #include <wtf/cf/TypeCastsCF.h>
+#include <wtf/cf/VectorCF.h>
 #include <wtf/text/WTFString.h>
 
 namespace WebCore {
@@ -65,7 +66,7 @@ bool KeyedDecoderCF::decodeBytes(const String& key, std::span<const uint8_t>& by
     if (!data)
         return false;
 
-    bytes = { CFDataGetBytePtr(data), static_cast<size_t>(CFDataGetLength(data)) };
+    bytes = span(data);
     return true;
 }
 

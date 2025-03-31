@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015 Apple Inc. All rights reserved.
+ * Copyright (C) 2015-2024 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -140,7 +140,7 @@ private:
     Timer m_lifetimeTimer;
 };
 
-WTF_MAKE_TZONE_ALLOCATED_IMPL_NESTED(SpeculativeLoadManagerExpiringEntry, SpeculativeLoadManager::ExpiringEntry);
+WTF_MAKE_TZONE_ALLOCATED_IMPL(SpeculativeLoadManager::ExpiringEntry);
 
 
 class SpeculativeLoadManager::PreloadedEntry : private ExpiringEntry {
@@ -166,7 +166,7 @@ private:
     std::optional<ResourceRequest> m_speculativeValidationRequest;
 };
 
-WTF_MAKE_TZONE_ALLOCATED_IMPL_NESTED(SpeculativeLoadManagerPreloadedEntry, SpeculativeLoadManager::PreloadedEntry);
+WTF_MAKE_TZONE_ALLOCATED_IMPL(SpeculativeLoadManager::PreloadedEntry);
 
 class SpeculativeLoadManager::PendingFrameLoad : public RefCounted<PendingFrameLoad> {
 public:
@@ -428,11 +428,12 @@ void SpeculativeLoadManager::addPreloadedEntry(std::unique_ptr<Entry> entry, con
 void SpeculativeLoadManager::retrieveEntryFromStorage(const SubresourceInfo& info, RetrieveCompletionHandler&& completionHandler)
 {
     protectedStorage()->retrieve(info.key(), static_cast<unsigned>(info.priority()), [completionHandler = WTFMove(completionHandler)](auto record, auto timings) {
-        if (!record) {
+        if (record.isNull()) {
             completionHandler(nullptr);
             return false;
         }
-        auto entry = Entry::decodeStorageRecord(*record);
+
+        auto entry = Entry::decodeStorageRecord(record);
         if (!entry) {
             completionHandler(nullptr);
             return false;
@@ -628,12 +629,12 @@ void SpeculativeLoadManager::retrieveSubresourcesEntry(const Key& storageKey, WT
     RefPtr storage = m_storage.get();
     auto subresourcesStorageKey = makeSubresourcesKey(storageKey, storage->salt());
     storage->retrieve(subresourcesStorageKey, static_cast<unsigned>(ResourceLoadPriority::Medium), [completionHandler = WTFMove(completionHandler)](auto record, auto timings) {
-        if (!record) {
+        if (record.isNull()) {
             completionHandler(nullptr);
             return false;
         }
 
-        auto subresourcesEntry = SubresourcesEntry::decodeStorageRecord(*record);
+        auto subresourcesEntry = SubresourcesEntry::decodeStorageRecord(record);
         if (!subresourcesEntry) {
             completionHandler(nullptr);
             return false;

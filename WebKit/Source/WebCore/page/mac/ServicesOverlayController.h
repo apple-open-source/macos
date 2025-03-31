@@ -52,6 +52,9 @@ public:
     explicit ServicesOverlayController(Page&);
     ~ServicesOverlayController();
 
+    void ref() const;
+    void deref() const;
+
     void selectedTelephoneNumberRangesChanged();
     void selectionRectsDidChange(const Vector<LayoutRect>&, const Vector<GapRects>&, bool isTextOnly);
 
@@ -71,7 +74,7 @@ private:
     void invalidateHighlightsOfType(DataDetectorHighlight::Type);
     void buildPotentialHighlightsIfNeeded();
 
-    void replaceHighlightsOfTypePreservingEquivalentHighlights(HashSet<RefPtr<DataDetectorHighlight>>&, DataDetectorHighlight::Type);
+    void replaceHighlightsOfTypePreservingEquivalentHighlights(UncheckedKeyHashSet<RefPtr<DataDetectorHighlight>>&, DataDetectorHighlight::Type);
     void removeAllPotentialHighlightsOfType(DataDetectorHighlight::Type);
     void buildPhoneNumberHighlights();
     void buildSelectionHighlight();
@@ -105,8 +108,8 @@ private:
 
     RefPtr<DataDetectorHighlight> m_activeHighlight;
     RefPtr<DataDetectorHighlight> m_nextActiveHighlight;
-    HashSet<RefPtr<DataDetectorHighlight>> m_potentialHighlights;
-    HashSet<RefPtr<DataDetectorHighlight>> m_animatingHighlights;
+    UncheckedKeyHashSet<RefPtr<DataDetectorHighlight>> m_potentialHighlights;
+    UncheckedKeyHashSet<RefPtr<DataDetectorHighlight>> m_animatingHighlights;
     WeakHashSet<DataDetectorHighlight> m_highlights;
 
     Vector<LayoutRect> m_currentSelectionRects;

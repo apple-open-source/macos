@@ -82,9 +82,7 @@ _auth_item_finalize(CFTypeRef value)
         /* cannot set item->data.name to NULL because item->data.name is non-nullable public API (rdar://problem/32235322)
          * cannot leave item->data.name pointing to original data (rdar://problem/31006596)
          * => suppress the warning */
-        #ifndef __clang_analyzer__
-        item->data.name = NULL;
-        #endif
+        [[clang::suppress]] item->data.name = NULL;
     }
 
     if (item->data.value) {

@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2019 Kristaps Dzonsons <kristaps@bsd.lv>
+ * Copyright (c) 2024, Klara, Inc.
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -47,13 +48,6 @@
 #include "extern.h"
 
 #define	RSYNC_LISTEN_BACKLOG	5
-
-/*
- * Defaults from the reference rsync; the max password size is specifically for
- * password files, and not otherwise strictly enforced.
- */
-#define	RSYNCD_DEFAULT_USER	"nobody"
-#define	RSYNCD_MAX_PASSWORDSZ	511
 
 /*
  * Negative values don't make sense for any of the options we support, so we use
@@ -548,7 +542,7 @@ inet_resolve(struct sess *sess, const char *host, size_t *sz, int passive)
 			src[i].family = PF_INET;
 			inet_ntop(AF_INET,
 			    &(((struct sockaddr_in *)sa)->sin_addr),
-			    src[i].ip, INET6_ADDRSTRLEN);
+			    src[i].ip, INET_ADDRSTRLEN);
 		} else {
 			src[i].family = PF_INET6;
 			inet_ntop(AF_INET6,
@@ -727,13 +721,13 @@ protocol_auth(struct sess *sess, const char *user, int sd,
  */
 static int
 protocol_line(struct sess *sess, __attribute__((unused)) const char *host,
-    const char *user, int sd, const char *cp)
+    const char *user, int sd, const char *cp, int listonly)
 {
 	int	major, minor;
 
 	if (strncmp(cp, "@RSYNCD: ", 9)) {
-		if (sess->opts->no_motd == 0)
-			LOG1("%s", cp);
+		if (listonly || sess->opts->no_motd == 0)
+			LOG0("%s", cp);
 		return 0;
 	}
 
@@ -743,7 +737,7 @@ protocol_line(struct sess *sess, __attribute__((unused)) const char *host,
 
 	/* @RSYNCD: OK indicates that we're finished. */
 
-	if (strcmp(cp, "OK") == 0)
+	if (strcmp(cp, "OK") == 0 || strcmp(cp, "EXIT") == 0)
 		return 1;
 
 	if (strncmp(cp, "AUTHREQD", sizeof("AUTHREQ") - 1) == 0) {
@@ -764,7 +758,7 @@ protocol_line(struct sess *sess, __attribute__((unused)) const char *host,
 		return 0;
 	}
 
-	ERRX("rsyncd protocol error: unknown command");
+	ERRX("rsyncd protocol error: unknown command: %s", cp);
 	return -1;
 }
 
@@ -896,7 +890,7 @@ rsync_listen(struct sess *sess, rsync_client_handler *handler)
 	 * might need to do a reverse lookup.  Don't quote me on that.
 	 */
 	if (opts->address != NULL) {
-		if ((bsrc = inet_resolve(sess, opts->address, &bsrcsz, 1)) ==
+		if ((bsrc = inet_resolve(sess, opts->address, &bsrcsz, 0)) ==
 		    NULL) {
 			ERRX1("inet_resolve bind");
 			exit(1);
@@ -1002,7 +996,7 @@ rsync_socket(struct cleanup_ctx *cleanup_ctx, const struct opts *opts,
 {
 	struct sess	  sess;
 	size_t		  i, skip;
-	int		  c, rc = 1;
+	int		  c, listonly = 0, rc = 1;
 	char		**args, buf[BUFSIZ];
 
 #ifndef __APPLE__
@@ -1033,11 +1027,21 @@ rsync_socket(struct cleanup_ctx *cleanup_ctx, const struct opts *opts,
 		goto out;
 	}
 
-	LOG2("requesting module: %s, %s", f->module, f->host);
+	if (f->module[0] == '\0') {
+		LOG2("requesting module listing from %s", f->host);
 
-	if (!io_write_line(&sess, sd, f->module)) {
-		ERRX1("io_write_line");
-		goto out;
+		listonly = 1;
+		if (!io_write_line(&sess, sd, "#list")) {
+			ERRX1("io_write_line");
+			goto out;
+		}
+	} else {
+		LOG2("requesting module: %s, %s", f->module, f->host);
+
+		if (!io_write_line(&sess, sd, f->module)) {
+			ERRX1("io_write_line");
+			goto out;
+		}
 	}
 
 	/*
@@ -1073,11 +1077,17 @@ rsync_socket(struct cleanup_ctx *cleanup_ctx, const struct opts *opts,
 		if (buf[i - 1] == '\r')
 			buf[i - 1] = '\0';
 
-		if ((c = protocol_line(&sess, f->host, f->user, sd, buf)) < 0) {
+		if ((c = protocol_line(&sess, f->host, f->user, sd, buf,
+		    listonly)) < 0) {
 			ERRX1("protocol_line");
 			goto out;
 		} else if (c > 0)
 			break;
+	}
+
+	if (listonly) {
+		rc = 0;
+		goto out;
 	}
 
 	/*
@@ -1089,11 +1099,13 @@ rsync_socket(struct cleanup_ctx *cleanup_ctx, const struct opts *opts,
 	 * Emit a standalone newline afterward.
 	 */
 
-	for (i = skip ; args[i] != NULL; i++)
+	for (i = skip ; args[i] != NULL; i++) {
+		LOG2("exec[%zu] = %s", i, args[i]);
 		if (!io_write_line(&sess, sd, args[i])) {
 			ERRX1("io_write_line");
 			goto out;
 		}
+	}
 	if (!io_write_byte(&sess, sd, '\n')) {
 		ERRX1("io_write_line");
 		goto out;
@@ -1142,8 +1154,19 @@ rsync_socket(struct cleanup_ctx *cleanup_ctx, const struct opts *opts,
 	    sess.opts->whole_file ? "disabled" : "enabled");
 
 	if (f->mode == FARGS_RECEIVER) {
+		const char *sink = f->sink;
+
 		LOG2("client starting receiver: %s", f->host);
-		if (!rsync_receiver(&sess, cleanup_ctx, sd, sd, f->sink)) {
+		if (sink == NULL) {
+			/*
+			 * --list-only mode, just fake something.
+			 */
+			sink = strdup(".");
+			if (sink == NULL)
+				errx(ERR_NOMEM, NULL);
+		}
+
+		if (!rsync_receiver(&sess, cleanup_ctx, sd, sd, sink)) {
 			ERRX1("rsync_receiver");
 			goto out;
 		}
@@ -1162,16 +1185,19 @@ rsync_socket(struct cleanup_ctx *cleanup_ctx, const struct opts *opts,
 	 */
 	rc = 0;
 	if (!io_read_close(&sess, sd)) {
-		WARNX("data remains in read pipe");
+		if (sess.mplex_read_remain > 0)
+			WARNX("data remains in read pipe");
 		rc = ERR_IPC;
 	} else if (sess.err_del_limit) {
-		assert(sess.total_deleted >= sess.opts->max_delete);
+		assert(sess.total_deleted >= sess.opts->max_delete ||
+		    sess.opts->dry_run);
 		rc = ERR_DEL_LIMIT;
 	} else if (sess.total_errors > 0) {
 		rc = ERR_PARTIAL;
 	}
 out:
 	batch_close(&sess, f, rc);
+	sess_cleanup(&sess);
 	free(args);
 	return rc;
 }

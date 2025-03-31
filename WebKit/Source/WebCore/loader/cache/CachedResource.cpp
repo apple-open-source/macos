@@ -100,7 +100,7 @@ CachedResource::CachedResource(CachedResourceRequest&& request, Type type, PAL::
 {
     ASSERT(m_sessionID.isValid());
 
-    setLoadPriority(request.priority(), request.fetchPriorityHint());
+    setLoadPriority(request.priority(), request.fetchPriority());
 #ifndef NDEBUG
     cachedResourceLeakCounter.increment();
 #endif
@@ -169,7 +169,7 @@ void CachedResource::load(CachedResourceLoader& cachedResourceLoader)
     // We query the top document because new frames may be created in pagehide event handlers
     // and their backForwardCacheState will not reflect the fact that they are about to enter page
     // cache.
-    if (RefPtr localFrame = dynamicDowncast<LocalFrame>(frame->mainFrame())) {
+    if (RefPtr localFrame = frame->localMainFrame()) {
         if (RefPtr topDocument = localFrame->document()) {
             switch (topDocument->backForwardCacheState()) {
             case Document::NotInBackForwardCache:
@@ -189,7 +189,7 @@ void CachedResource::load(CachedResourceLoader& cachedResourceLoader)
         }
     }
 
-    CheckedRef frameLoader = frame->loader();
+    Ref frameLoader = frame->loader();
     if (m_options.securityCheck == SecurityCheckPolicy::DoSecurityCheck && !m_options.keepAlive && !shouldUsePingLoad(type())) {
         while (true) {
             if (frameLoader->state() == FrameState::Provisional)
@@ -585,10 +585,10 @@ void CachedResource::removeClient(CachedResourceClient& client)
     if (hasClients())
         return;
 
-    auto& memoryCache = MemoryCache::singleton();
+    Ref memoryCache = MemoryCache::singleton();
     if (allowsCaching() && inCache()) {
-        memoryCache.removeFromLiveResourcesSize(*this);
-        memoryCache.removeFromLiveDecodedResourcesList(*this);
+        memoryCache->removeFromLiveResourcesSize(*this);
+        memoryCache->removeFromLiveDecodedResourcesList(*this);
     }
 
     if (deleteIfPossible()) {
@@ -603,7 +603,7 @@ void CachedResource::removeClient(CachedResourceClient& client)
     if (!allowsCaching())
         return;
 
-    memoryCache.pruneSoon();
+    memoryCache->pruneSoon();
 }
 
 void CachedResource::allClientsRemoved()
@@ -688,9 +688,9 @@ void CachedResource::setDecodedSize(unsigned size)
     mutableResponseData().m_decodedSize = size;
    
     if (allowsCaching() && inCache()) {
-        auto& memoryCache = MemoryCache::singleton();
+        Ref memoryCache = MemoryCache::singleton();
         // Now insert into the new LRU list.
-        memoryCache.insertInLRUList(*this);
+        memoryCache->insertInLRUList(*this);
         
         // Insert into or remove from the live decoded list if necessary.
         // When inserting into the LiveDecodedResourcesList it is possible
@@ -699,14 +699,14 @@ void CachedResource::setDecodedSize(unsigned size)
         // violation of the invariant that the list is to be kept sorted
         // by access time. The weakening of the invariant does not pose
         // a problem. For more details please see: https://bugs.webkit.org/show_bug.cgi?id=30209
-        bool inLiveDecodedResourcesList = memoryCache.inLiveDecodedResourcesList(*this);
+        bool inLiveDecodedResourcesList = memoryCache->inLiveDecodedResourcesList(*this);
         if (decodedSize() && !inLiveDecodedResourcesList && hasClients())
-            memoryCache.insertInLiveDecodedResourcesList(*this);
+            memoryCache->insertInLiveDecodedResourcesList(*this);
         else if (!decodedSize() && inLiveDecodedResourcesList)
-            memoryCache.removeFromLiveDecodedResourcesList(*this);
+            memoryCache->removeFromLiveDecodedResourcesList(*this);
 
         // Update the cache's size totals.
-        memoryCache.adjustSize(hasClients(), delta);
+        memoryCache->adjustSize(hasClients(), delta);
     }
 }
 
@@ -725,9 +725,9 @@ void CachedResource::setEncodedSize(unsigned size)
     mutableResponseData().m_encodedSize = size;
 
     if (allowsCaching() && inCache()) {
-        auto& memoryCache = MemoryCache::singleton();
-        memoryCache.insertInLRUList(*this);
-        memoryCache.adjustSize(hasClients(), delta);
+        Ref memoryCache = MemoryCache::singleton();
+        memoryCache->insertInLRUList(*this);
+        memoryCache->adjustSize(hasClients(), delta);
     }
 }
 
@@ -736,9 +736,9 @@ void CachedResource::didAccessDecodedData(MonotonicTime timeStamp)
     m_lastDecodedAccessTime = timeStamp;
     
     if (allowsCaching() && inCache()) {
-        auto& memoryCache = MemoryCache::singleton();
-        memoryCache.moveToEndOfLiveDecodedResourcesListIfPresent(*this);
-        memoryCache.pruneSoon();
+        Ref memoryCache = MemoryCache::singleton();
+        memoryCache->moveToEndOfLiveDecodedResourcesListIfPresent(*this);
+        memoryCache->pruneSoon();
     }
 }
     
@@ -917,13 +917,13 @@ unsigned CachedResource::overheadSize() const
     return sizeof(CachedResource) + response().memoryUsage() + kAverageClientsHashMapSize + m_resourceRequest.url().string().length() * 2;
 }
 
-void CachedResource::setLoadPriority(const std::optional<ResourceLoadPriority>& loadPriority, RequestPriority fetchPriorityHint)
+void CachedResource::setLoadPriority(const std::optional<ResourceLoadPriority>& loadPriority, RequestPriority fetchPriority)
 {
     ResourceLoadPriority priority = loadPriority ? loadPriority.value() : DefaultResourceLoadPriority::forResourceType(type());
-    if (fetchPriorityHint == RequestPriority::Low) {
+    if (fetchPriority == RequestPriority::Low) {
         if (priority != ResourceLoadPriority::Lowest)
             --priority;
-    } else if (fetchPriorityHint == RequestPriority::High) {
+    } else if (fetchPriority == RequestPriority::High) {
         if (priority != ResourceLoadPriority::Highest)
             ++priority;
     }
@@ -1016,23 +1016,18 @@ unsigned CachedResource::decodedSize() const
     return m_response->m_decodedSize;
 }
 
-inline CachedResource::Callback::Callback(CachedResource& resource, CachedResourceClient& client)
-    : m_resource(resource)
-    , m_client(client)
-    , m_timer(*this, &Callback::timerFired)
+inline CachedResourceCallback::CachedResourceCallback(CachedResource& resource, CachedResourceClient& client)
+    : m_timer([resource = CachedResourceHandle { resource }, client = WeakPtr { client }] {
+        if (client)
+            resource->didAddClient(*client);
+    })
 {
     m_timer.startOneShot(0_s);
 }
 
-inline void CachedResource::Callback::cancel()
+inline void CachedResourceCallback::cancel()
 {
-    if (m_timer.isActive())
-        m_timer.stop();
-}
-
-void CachedResource::Callback::timerFired()
-{
-    CachedResourceHandle { m_resource.get() }->didAddClient(m_client);
+    m_timer.stop();
 }
 
 #if ENABLE(SHAREABLE_RESOURCE)

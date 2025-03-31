@@ -282,6 +282,12 @@ tr{
                 one{"{0} nanosaniye"}
                 other{"{0} nanosaniye"}
             }
+            night{
+                dnam{"gece"}
+                one{"{0} gece"}
+                other{"{0} gece"}
+                per{"{0}/gece"}
+            }
             quarter{
                 one{"{0} çeyrek"}
                 other{"{0} çeyrek"}
@@ -696,6 +702,11 @@ tr{
                 one{"{0} knot"}
                 other{"{0} knot"}
             }
+            light-speed{
+                dnam{"ışık"}
+                one{"{0} ışık"}
+                other{"{0} ışık"}
+            }
             meter-per-second{
                 dnam{"metre/saniye"}
                 one{"{0} metre/saniye"}
@@ -931,6 +942,12 @@ tr{
             nanosecond{
                 dnam{"nsn"}
             }
+            night{
+                dnam{"gece"}
+                one{"{0} gece"}
+                other{"{0} gece"}
+                per{"{0}/gece"}
+            }
             quarter{
                 dnam{"çey."}
                 per{"{0}/çey."}
@@ -1016,6 +1033,11 @@ tr{
             }
         }
         speed{
+            light-speed{
+                dnam{"ışık"}
+                one{"{0} ışık"}
+                other{"{0} ışık"}
+            }
             mile-per-hour{
                 dnam{"mil/sa"}
             }
@@ -1238,6 +1260,12 @@ tr{
                 one{"{0} nsn"}
                 other{"{0} nsn"}
             }
+            night{
+                dnam{"gece"}
+                one{"{0} gece"}
+                other{"{0} gece"}
+                per{"{0}/gece"}
+            }
             quarter{
                 dnam{"çeyrek"}
                 one{"{0} çey."}
@@ -1446,6 +1474,11 @@ tr{
                 dnam{"km/sa"}
                 one{"{0} km/sa"}
                 other{"{0} km/sa"}
+            }
+            light-speed{
+                dnam{"ışık"}
+                one{"{0} ışık"}
+                other{"{0} ışık"}
             }
             meter-per-second{
                 dnam{"m/sn"}

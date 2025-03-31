@@ -1,0 +1,7 @@
+# Syntax documentation:
+# https://docs.mibexsoftware.com/codeowners/owner-rules
+
+# Initial implementation - add everyone to every PR
+@@@Reviewers @aaron_morrison @dsteffen @joshua_otto @mwright @phabouzit @pavhad @rokhinip
+
+* @@Reviewers

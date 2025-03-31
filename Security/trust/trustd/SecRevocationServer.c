@@ -414,89 +414,11 @@ static bool SecRVCShouldCheckOCSP(SecRVCRef rvc) {
     return true;
 }
 
-static bool SecRVCPolicyConstraintsPermitPolicy(SecValidPolicy *constraints, CFIndex count, SecPolicyRef policy) {
-    if (!constraints || !policy) {
-        return true; /* nothing to constrain */
-    }
-    SecValidPolicy policyType = kSecValidPolicyAny;
-    CFStringRef policyName = SecPolicyGetName(policy);
-    /* determine if the policy is a candidate for being constrained */
-    if (CFEqualSafe(policyName, kSecPolicyNameSSLServer) ||
-               CFEqualSafe(policyName, kSecPolicyNameEAPServer) ||
-               CFEqualSafe(policyName, kSecPolicyNameIPSecServer)) {
-        policyType = kSecValidPolicyServerAuthentication;
-    } else if (CFEqualSafe(policyName, kSecPolicyNameSSLClient) ||
-               CFEqualSafe(policyName, kSecPolicyNameEAPClient) ||
-               CFEqualSafe(policyName, kSecPolicyNameIPSecClient)) {
-        policyType = kSecValidPolicyClientAuthentication;
-    } else if (CFEqualSafe(policyName, kSecPolicyNameSMIME)) {
-        policyType = kSecValidPolicyEmailProtection;
-    } else if (CFEqualSafe(policyName, kSecPolicyNameCodeSigning)) {
-        policyType = kSecValidPolicyCodeSigning;
-    } else if (CFEqualSafe(policyName, kSecPolicyNameTimeStamping)) {
-        policyType = kSecValidPolicyTimeStamping;
-    }
-    if (policyType == kSecValidPolicyAny) {
-        return true; /* policy not subject to constraint */
-    }
-    /* policy is subject to constraint; do the constraints allow it? */
-    bool result = false;
-    for (CFIndex ix = 0; ix < count; ix++) {
-        SecValidPolicy allowedPolicy = constraints[ix];
-        if (allowedPolicy == kSecValidPolicyAny ||
-            allowedPolicy == policyType) {
-            result = true;
-            break;
-        }
-    }
-    if (!result) {
-        secnotice("rvc", "%@ not allowed by policy constraints on issuing CA", policyName);
-    }
-    return result;
-}
-
-static bool SecRVCGetPolicyConstraints(CFDataRef data, SecValidPolicy **constraints, CFIndex *count) {
-    /* Check the input policy constraints data, returning pointer and
-     * count values in output arguments. Function result is true if successful.
-     *
-     * The first byte of the policy constraints data contains the number of entries,
-     * followed by an array of 0..n policy constraint values of type SecValidPolicy.
-     * The maximum number of defined policies is not expected to approach 127, i.e.
-     * the largest value which can be expressed in a signed byte.
-     */
-    bool result = false;
-    CFIndex length = 0;
-    SecValidPolicy *p = NULL;
-    if (data) {
-        length = CFDataGetLength(data);
-        p = (SecValidPolicy *)CFDataGetBytePtr(data);
-    }
-    /* Verify that count is 0 or greater, and equal to remaining number of bytes */
-    CFIndex c = (length > 0) ? *p++ : -1;
-    if (c < 0 || c != (length - 1)) {
-        secerror("invalid policy constraints array");
-    } else {
-        if (constraints) {
-            *constraints = p;
-        }
-        if (count) {
-            *count = c;
-        }
-        result = true;
-    }
-    return result;
-}
-
 static void SecRVCProcessValidPolicyConstraints(SecRVCRef rvc) {
     if (!rvc || !rvc->valid_info || !rvc->builder) {
         return;
     }
     if (!rvc->valid_info->hasPolicyConstraints) {
-        return;
-    }
-    CFIndex count = 0;
-    SecValidPolicy *constraints = NULL;
-    if (!SecRVCGetPolicyConstraints(rvc->valid_info->policyConstraints, &constraints, &count)) {
         return;
     }
     secdebug("rvc", "found policy constraints for cert at index %ld", rvc->certIX);
@@ -510,7 +432,8 @@ static void SecRVCProcessValidPolicyConstraints(SecRVCRef rvc) {
         CFIndex policyCount = (policies) ? CFArrayGetCount(policies) : 0;
         for (CFIndex policyIX = 0; policyIX < policyCount; policyIX++) {
             SecPolicyRef policy = (SecPolicyRef)CFArrayGetValueAtIndex(policies, policyIX);
-            if (!SecRVCPolicyConstraintsPermitPolicy(constraints, count, policy)) {
+            CFStringRef policyId = SecPolicyGetOidString(policy);
+            if (!SecValidInfoPolicyConstraintsPermitPolicy(rvc->valid_info, policyId)) {
                 policyDeniedByConstraints = true;
                 if (rvc->valid_info->overridable) {
                     SecPVCSetResultForcedWithTrustResult(pvc, kSecPolicyCheckIssuerPolicyConstraints, rvc->certIX,
@@ -594,18 +517,7 @@ bool SecRVCHasDefinitiveValidInfo(SecRVCRef rvc) {
         return false;
     }
     SecValidInfoRef info = rvc->valid_info;
-    /* outcomes as defined in Valid server specification */
-    if (info->format == kSecValidInfoFormatSerial ||
-        info->format == kSecValidInfoFormatSHA256) {
-        if (info->noCACheck || info->complete || info->isOnList) {
-            return true;
-        }
-    } else { /* info->format == kSecValidInfoFormatNto1 */
-        if (info->noCACheck || (info->complete && !info->isOnList)) {
-            return true;
-        }
-    }
-    return false;
+    return SecValidInfoIsDefinitive(info);
 }
 
 bool SecRVCHasRevokedValidInfo(SecRVCRef rvc) {
@@ -613,8 +525,7 @@ bool SecRVCHasRevokedValidInfo(SecRVCRef rvc) {
         return false;
     }
     SecValidInfoRef info = rvc->valid_info;
-    /* either not present on an allowlist, or present on a blocklist */
-    return (!info->isOnList && info->valid) || (info->isOnList && !info->valid);
+    return SecValidInfoIsRevoked(info);
 }
 
 void SecRVCSetValidDeterminedErrorResult(SecRVCRef rvc) {

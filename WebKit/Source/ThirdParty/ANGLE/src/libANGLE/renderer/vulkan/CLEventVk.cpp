@@ -122,19 +122,24 @@ angle::Result CLEventVk::waitForUserEventStatus()
 
 angle::Result CLEventVk::setStatusAndExecuteCallback(cl_int status)
 {
-    *mStatus = status;
+    auto statusHandle        = mStatus.synchronize();
+    auto haveCallbacksHandle = mHaveCallbacks.synchronize();
 
-    ANGLE_TRY(setTimestamp(status));
-    if (status >= CL_COMPLETE && status < CL_QUEUED && mHaveCallbacks->at(status))
+    // we might skip states in some cases i.e. move from QUEUED to COMPLETE, so
+    // make sure we are setting time stamps for all transitions
+    ASSERT(*statusHandle > status);
+    do
     {
-        auto haveCallbacks = mHaveCallbacks.synchronize();
+        (*statusHandle)--;
+        ANGLE_TRY(setTimestamp(*statusHandle));
+        if (*statusHandle >= CL_COMPLETE && *statusHandle < CL_QUEUED &&
+            haveCallbacksHandle->at(*statusHandle))
+        {
+            getFrontendObject().callback(*statusHandle);
+            haveCallbacksHandle->at(*statusHandle) = false;
+        }
 
-        // Sanity check, callback(s) only from this exec status should be outstanding
-        ASSERT(std::count(haveCallbacks->begin() + status, haveCallbacks->end(), true) == 1);
-
-        getFrontendObject().callback(status);
-        haveCallbacks->at(status) = false;
-    }
+    } while (*statusHandle > status);
 
     return angle::Result::Continue;
 }
@@ -142,7 +147,7 @@ angle::Result CLEventVk::setStatusAndExecuteCallback(cl_int status)
 angle::Result CLEventVk::setTimestamp(cl_int status)
 {
     if (!isUserEvent() &&
-        mEvent.getCommandQueue()->getProperties().isSet(CL_QUEUE_PROFILING_ENABLE))
+        mEvent.getCommandQueue()->getProperties().intersects(CL_QUEUE_PROFILING_ENABLE))
     {
         // TODO(aannestrand) Just get current CPU timestamp for now, look into Vulkan GPU device
         // timestamp query instead and later make CPU timestamp a fallback if GPU timestamp cannot

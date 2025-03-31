@@ -83,6 +83,20 @@
 		<key>DevelopmentPhase</key>
 		<string>UnderDevelopment</string>
 	</dict>
+	<key>QWACValidation</key>
+	<dict>
+		<key>DisplayName</key>
+		<string>Enable validation of QWAC certificates</string>
+		<key>DevelopmentPhase</key>
+		<string>PreviewReady</string>
+	</dict>
+	<key>RootConstraints</key>
+	<dict>
+		<key>DisplayName</key>
+		<string>Enable constrained anchor source</string>
+		<key>DevelopmentPhase</key>
+		<string>FeatureComplete</string>
+	</dict>
 	<key>AllowAllMetrics</key>
 	<dict>
 		<key>Enabled</key>

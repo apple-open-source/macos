@@ -790,6 +790,16 @@ intpr(u_int display, u_int version)
 			printer->intpr(1,
 			    "Rel_lkowner", clntstats.opcntv4[NFS_OP_RELEASE_LOCKOWNER]);
 			printer->close();
+			printer->open(PRINTER_NO_PREFIX, "NFSv4 Callback RPC Counts");
+			printer->intpr(2,
+			    "CB Null", clntstats.cbopcntv4[NFSPROC4_CB_NULL],
+			    "CB Compound", clntstats.cbopcntv4[NFSPROC4_CB_COMPOUND]);
+			printer->close();
+			printer->open(PRINTER_NO_PREFIX, "NFSv4 Callback Operation Counts");
+			printer->intpr(2,
+			    "CB Getattr", clntstats.cbopcntv4[NFS_OP_CB_GETATTR],
+			    "CB Recall", clntstats.cbopcntv4[NFS_OP_CB_RECALL]);
+			printer->close();
 		}
 		printer->open(PRINTER_NO_PREFIX, "RPC Info");
 		printer->intpr(5,

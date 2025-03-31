@@ -129,6 +129,10 @@ bool SimpleAclSubject::validates(const AclValidationContext &ctx) const
     return false;
 }
 
+CFStringRef SimpleAclSubject::createACLDebugString() const
+{
+    return CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("<SimpleAclSubject(type:%d)>"), this->type());
+}
 
 //
 // AclSubjects always have a (virtual) dump method.
@@ -158,3 +162,50 @@ void AclSubject::dump(const char *title) const
 }
 
 #endif //DEBUGDUMP
+
+CFStringRef AclValidationContext::createACLDebugString() const
+{
+    // An ACL Validation context doesn't really exist until init() has been called on it. Check the internal pointers against the known pointer pattern.
+    CFStringRef objectDesc = NULL;
+    CFStringRef subjectDesc = NULL;
+
+    if(mAcl == NULL) {
+        objectDesc = CFSTR("null");
+    } else if(mAcl == (void*)0xDEADDEADDEADDEAD) {
+        objectDesc = CFSTR("not-init");
+    } else {
+        objectDesc = mAcl->createACLDebugString();
+    }
+
+    if(mSubject == NULL) {
+        subjectDesc = CFSTR("null");
+    } else if(mSubject == (void*)0xDEADDEADDEADDEAD) {
+        subjectDesc = CFSTR("not-init");
+    } else {
+        subjectDesc = mSubject->createACLDebugString();
+    }
+
+    CFStringRef s = CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("<AclValidationContext(action:%d)SUBJECT[%@]OBJECT[%@]>"),
+                                             mAuth,
+                                             subjectDesc,
+                                             objectDesc);
+
+    if(objectDesc) {
+        CFRelease(objectDesc);
+    }
+    if(subjectDesc) {
+        CFRelease(subjectDesc);
+    }
+    return s;
+}
+
+CFStringRef AclSubject::createACLDebugString() const
+{
+    switch (type()) {
+        case CSSM_ACL_SUBJECT_TYPE_ANY:
+            return CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("<AclSubject[type:ANY]>"));
+
+        default:
+            return CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("<AclSubject[type:%d]>"), mType);
+    }
+}

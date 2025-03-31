@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013-2023 Apple Inc. All rights reserved.
+ * Copyright (C) 2013-2024 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -31,11 +31,12 @@
 #endif
 #include <CommonCrypto/CommonCrypto.h>
 #include <optional>
+#include <wtf/TZoneMallocInlines.h>
 
 namespace PAL {
 
 struct CryptoDigestContext {
-    WTF_MAKE_STRUCT_FAST_ALLOCATED;
+    WTF_MAKE_STRUCT_TZONE_ALLOCATED(CryptoDigestContext);
     CryptoDigest::Algorithm algorithm;
     std::variant<
 #if HAVE(SWIFT_CPP_INTEROP)
@@ -46,6 +47,8 @@ struct CryptoDigestContext {
         std::unique_ptr<CC_SHA512_CTX>
     > ccContext;
 };
+
+WTF_MAKE_STRUCT_TZONE_ALLOCATED_IMPL(CryptoDigestContext);
 
 inline CC_SHA1_CTX* toSHA1Context(CryptoDigestContext* context)
 {
@@ -212,21 +215,6 @@ Vector<uint8_t> CryptoDigest::computeHash()
 
     }
     return result;
-}
-
-String CryptoDigest::toHexString()
-{
-    auto hash = computeHash();
-
-    char* start = 0;
-    unsigned hashLength = hash.size();
-    CString result = CString::newUninitialized(hashLength * 2, start);
-    char* buffer = start;
-    for (size_t i = 0; i < hashLength; ++i) {
-        snprintf(buffer, 3, "%02X", hash.at(i));
-        buffer += 2;
-    }
-    return String::fromUTF8(result.span());
 }
 
 } // namespace PAL

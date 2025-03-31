@@ -301,6 +301,11 @@ const WebCore::CryptoKeyAES& SetPinRequest::sharedKey() const
     return m_sharedKey;
 }
 
+const Vector<uint8_t>& SetPinRequest::pinAuth() const
+{
+    return m_pinUvAuthParam;
+}
+
 std::optional<SetPinRequest> SetPinRequest::tryCreate(const String& inputPin, const WebCore::CryptoKeyEC& peerKey)
 {
     std::optional<CString> newPin = validateAndConvertToUTF8(inputPin);
@@ -365,7 +370,7 @@ Vector<uint8_t> encodeAsCBOR(const SetPinRequest& request)
     return encodePinCommand(Subcommand::kSetPin, [coseKey = WTFMove(request.m_coseKey), encryptedPin = request.m_newPinEnc, pinUvAuthParam = request.m_pinUvAuthParam] (CBORValue::MapValue* map) mutable {
         map->emplace(static_cast<int64_t>(RequestKey::kKeyAgreement), WTFMove(coseKey));
         map->emplace(static_cast<int64_t>(RequestKey::kNewPinEnc), WTFMove(encryptedPin));
-        map->emplace(static_cast<int64_t>(RequestKey::kPinUvAuthParam), WTFMove(pinUvAuthParam));
+        map->emplace(static_cast<int64_t>(RequestKey::kPinAuth), WTFMove(pinUvAuthParam));
     });
 }
 

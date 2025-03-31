@@ -27,9 +27,6 @@
  * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
- *
- *	@(#)diff.h	8.1 (Berkeley) 6/6/93
- * $FreeBSD$
  */
 
 #include <sys/types.h>
@@ -116,6 +113,7 @@ enum {
 #define	D_SKIPPED2	6	/* path2 was a special file */
 #define	D_ERROR		7	/* A file access error occurred */
 #endif /* __APPLE__ */
+
 /*
  * Color options
  */

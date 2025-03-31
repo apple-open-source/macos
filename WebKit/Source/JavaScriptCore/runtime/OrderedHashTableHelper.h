@@ -29,6 +29,8 @@
 #include "JSImmutableButterfly.h"
 #include "JSObject.h"
 
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
+
 namespace JSC {
 
 struct MapTraits {
@@ -423,6 +425,17 @@ public:
             return;
         }
 
+        scope.release();
+        addImpl(globalObject, owner, base, key, value, result);
+    }
+    ALWAYS_INLINE static void addImpl(JSGlobalObject* globalObject, HashTable* owner, Storage& base, JSValue key, JSValue value, FindResult& result)
+    {
+        VM& vm = getVM(globalObject);
+        auto scope = DECLARE_THROW_SCOPE(vm);
+        ASSERT(!isObsolete(base));
+
+        ASSERT(!isValidTableIndex(result.entryKeyIndex));
+
         Storage* candidate = expandIfNeeded(globalObject, owner, base);
         RETURN_IF_EXCEPTION(scope, void());
 
@@ -597,3 +610,5 @@ public:
 };
 
 } // namespace JSC
+
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_END

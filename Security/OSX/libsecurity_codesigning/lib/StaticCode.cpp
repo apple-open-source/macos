@@ -2747,7 +2747,6 @@ void SecStaticCode::staticValidate(SecCSFlags flags, const SecRequirement *req)
 				if ((arch.cpuType() & ~CPU_ARCH_MASK) == CPU_TYPE_POWERPC)
 					return;	// irrelevant to Gatekeeper
 			}
-			subcode->detachedSignature(this->mDetachedSig);	// carry over explicit (but not implicit) detached signature
 			subcode->staticValidateCore(flags, req);
 		});
 	}
@@ -3079,6 +3078,7 @@ void SecStaticCode::visitOtherArchitectures(void (^visitor)(SecStaticCode* other
 						subcode->setValidationFlags(mValidationFlags & flagsToPropagate);
 
 						subcode->detachedSignature(this->mDetachedSig); // carry over explicit (but not implicit) detached signature
+						subcode->resetValidity();
 						visitor(subcode);
 					}
 				} catch(std::out_of_range e) {

@@ -76,7 +76,8 @@ WK_OBJECT_DISABLE_DISABLE_KVC_IVAR_ACCESS;
 
 - (WKFrameInfo *)_frame
 {
-    return wrapper(_navigationResponse->frame());
+    // FIXME: This RefPtr should not be necessary. Remove it once clang static analyzer is fixed.
+    return wrapper(RefPtr { _navigationResponse.get() }->protectedFrame().get());
 }
 
 - (NSURLRequest *)_request
@@ -90,4 +91,18 @@ WK_OBJECT_DISABLE_DISABLE_KVC_IVAR_ACCESS;
     return attribute.isNull() ? nil : (NSString *)attribute;
 }
 
+- (BOOL)_wasPrivateRelayed
+{
+    return _navigationResponse->response().wasPrivateRelayed();
+}
+
+- (NSString *)_proxyName
+{
+    return _navigationResponse->response().proxyName();
+}
+
+- (BOOL)_isFromNetwork
+{
+    return _navigationResponse->response().source() == WebCore::ResourceResponseBase::Source::Network;
+}
 @end

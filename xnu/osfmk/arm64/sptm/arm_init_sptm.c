@@ -59,6 +59,11 @@
 #include <machine/pal_hibernate.h>
 #endif /* HIBERNATION */
 
+#if __arm64__
+#include <pexpert/arm64/apt_msg.h>
+#endif
+
+
 /**
  * Functions defined elsewhere that are required by this source file.
  */
@@ -115,10 +120,6 @@ SECURITY_READ_ONLY_LATE(addr64_t) first_avail_phys = 0;
 /* Enable both branch target retention (0x2) and branch direction retention (0x1) across sleep */
 uint32_t bp_ret = 3;
 extern void set_bp_ret(void);
-#endif
-
-#if SCHED_HYGIENE_DEBUG
-boolean_t sched_hygiene_debug_pmc = 1;
 #endif
 
 #if SCHED_HYGIENE_DEBUG
@@ -186,8 +187,10 @@ SECURITY_READ_ONLY_LATE(boolean_t) diversify_user_jop = TRUE;
 #endif
 
 
+
 SECURITY_READ_ONLY_LATE(uint64_t) gDramBase;
 SECURITY_READ_ONLY_LATE(uint64_t) gDramSize;
+SECURITY_READ_ONLY_LATE(ppnum_t)  pmap_first_pnum;
 
 SECURITY_READ_ONLY_LATE(bool) serial_console_enabled = false;
 
@@ -239,6 +242,7 @@ extern vm_offset_t vm_kernel_slide;
 extern vm_offset_t segLOWESTKC, segHIGHESTKC, segLOWESTROKC, segHIGHESTROKC;
 extern vm_offset_t segLOWESTAuxKC, segHIGHESTAuxKC, segLOWESTROAuxKC, segHIGHESTROAuxKC;
 extern vm_offset_t segLOWESTRXAuxKC, segHIGHESTRXAuxKC, segHIGHESTNLEAuxKC;
+
 
 void arm_slide_rebase_and_sign_image(void);
 MARK_AS_FIXUP_TEXT void
@@ -293,6 +297,13 @@ arm_slide_rebase_and_sign_image(void)
 	 * arm_vm_init()
 	 */
 	vm_kernel_slide = slide;
+}
+
+void arm_static_if_init(boot_args *args);
+MARK_AS_FIXUP_TEXT void
+arm_static_if_init(boot_args *args)
+{
+	static_if_init(args->CommandLine);
 }
 
 void
@@ -639,7 +650,10 @@ void
 arm_init_kasan(boot_args *args, sptm_bootstrap_args_xnu_t *sptm_boot_args)
 {
 	/* Initialize SPTM helper library. */
-	libsptm_init(&sptm_boot_args->libsptm_state);
+	uint8_t ret = libsptm_init(&sptm_boot_args->libsptm_state);
+	if (ret != LIBSPTM_SUCCESS) {
+		panic("%s: libsptm_init failed: %u", __func__, ret);
+	}
 
 	memSize = args->memSize;
 	kasan_bootstrap(args, phystokv(sptm_boot_args->libsptm_state.root_table_paddr), sptm_boot_args);
@@ -660,6 +674,8 @@ arm_init(boot_args *args, sptm_bootstrap_args_xnu_t *sptm_boot_args)
 	uint32_t memsize;
 	uint64_t xmaxmem;
 	thread_t thread;
+	DTEntry chosen;
+	unsigned int dt_entry_size;
 
 	extern void xnu_return_to_gl2(void);
 	const sptm_vaddr_t handler_addr = (sptm_vaddr_t) ptrauth_strip((void *)xnu_return_to_gl2, ptrauth_key_function_pointer);
@@ -700,7 +716,10 @@ arm_init(boot_args *args, sptm_bootstrap_args_xnu_t *sptm_boot_args)
 	memSize = args->memSize;
 
 	/* Initialize SPTM helper library. */
-	libsptm_init(&const_sptm_args.libsptm_state);
+	uint8_t ret = libsptm_init(&const_sptm_args.libsptm_state);
+	if (ret != LIBSPTM_SUCCESS) {
+		panic("%s: libsptm_init failed: %u", __func__, ret);
+	}
 #endif
 
 #if __arm64__
@@ -710,6 +729,26 @@ arm_init(boot_args *args, sptm_bootstrap_args_xnu_t *sptm_boot_args)
 
 	configure_misc_apple_boot_args();
 	configure_misc_apple_regs(true);
+
+#if (DEVELOPMENT || DEBUG)
+	unsigned long const *platform_stall_ptr = NULL;
+
+	if (SecureDTLookupEntry(NULL, "/chosen", &chosen) != kSuccess) {
+		panic("%s: Unable to find 'chosen' DT node", __FUNCTION__);
+	}
+
+	// Not usable TUNABLE here because TUNABLEs are parsed at a later point.
+	if (SecureDTGetProperty(chosen, "xnu_platform_stall", (void const **)&platform_stall_ptr,
+	    &dt_entry_size) == kSuccess) {
+		xnu_platform_stall_value = *platform_stall_ptr;
+	}
+
+	platform_stall_panic_or_spin(PLATFORM_STALL_XNU_LOCATION_ARM_INIT);
+
+	chosen = NULL; // Force a re-lookup later on since VM addresses are not final at this point
+	dt_entry_size = 0;
+#endif
+
 #if HAS_ARM_FEAT_SME
 	(void)PE_parse_boot_argn("enable_sme", &enable_sme, sizeof(enable_sme));
 	if (enable_sme) {
@@ -754,6 +793,7 @@ arm_init(boot_args *args, sptm_bootstrap_args_xnu_t *sptm_boot_args)
 
 	ml_parse_cpu_topology();
 
+	siq_init();
 
 	master_cpu = ml_get_boot_cpu_number();
 	assert(master_cpu >= 0 && master_cpu <= ml_get_max_cpu_number());
@@ -813,16 +853,7 @@ arm_init(boot_args *args, sptm_bootstrap_args_xnu_t *sptm_boot_args)
 		/* Disable if WDT is disabled */
 		if (wdt_disabled || kern_feature_override(KF_INTERRUPT_MASKED_DEBUG_OVRD)) {
 			interrupt_masked_debug_mode = SCHED_HYGIENE_MODE_OFF;
-		} else if (kern_feature_override(KF_SCHED_HYGIENE_DEBUG_PMC_OVRD)) {
-			/*
-			 * The sched hygiene facility can, in adition to checking time, capture
-			 * metrics provided by the cycle and instruction counters available in some
-			 * systems. Check if we should enable this feature based on the validation
-			 * overrides.
-			 */
-			sched_hygiene_debug_pmc = 0;
 		}
-
 		if (wdt_disabled || kern_feature_override(KF_PREEMPTION_DISABLED_DEBUG_OVRD)) {
 			sched_preemption_disable_debug_mode = SCHED_HYGIENE_MODE_OFF;
 		}
@@ -902,6 +933,9 @@ arm_init(boot_args *args, sptm_bootstrap_args_xnu_t *sptm_boot_args)
 
 	PE_init_platform(TRUE, &BootCpuData);
 
+	/* Initialize the debug infrastructure system-wide and on the local core. */
+	pe_arm_debug_init_early(&BootCpuData);
+
 #if RELEASE
 	/* Validate SPTM variant. */
 	if (const_sptm_args.sptm_variant != SPTM_VARIANT_RELEASE) {
@@ -926,6 +960,10 @@ arm_init(boot_args *args, sptm_bootstrap_args_xnu_t *sptm_boot_args)
 #endif /* KPERF */
 
 	PE_init_cpu();
+#if __arm64__
+	apt_msg_init();
+	apt_msg_init_cpu();
+#endif
 	fiq_context_init(TRUE);
 
 
@@ -938,8 +976,6 @@ arm_init(boot_args *args, sptm_bootstrap_args_xnu_t *sptm_boot_args)
 	 * the actual DRAM base address and size as reported by iBoot through the
 	 * device tree.
 	 */
-	DTEntry chosen;
-	unsigned int dt_entry_size;
 	unsigned long const *dram_base;
 	unsigned long const *dram_size;
 	if (SecureDTLookupEntry(NULL, "/chosen", &chosen) != kSuccess) {
@@ -956,6 +992,7 @@ arm_init(boot_args *args, sptm_bootstrap_args_xnu_t *sptm_boot_args)
 
 	gDramBase = *dram_base;
 	gDramSize = *dram_size;
+	pmap_first_pnum = (ppnum_t)atop(gDramBase);
 
 	/*
 	 * Initialize the stack protector for all future calls
@@ -1011,6 +1048,7 @@ arm_init_cpu(
 
 	os_atomic_andnot(&cpu_data_ptr->cpu_flags, SleepState, relaxed);
 
+	siq_cpu_init();
 
 	machine_set_current_thread(cpu_data_ptr->cpu_active_thread);
 
@@ -1019,7 +1057,10 @@ arm_init_cpu(
 	if (hibargs != 0 && hibargs->hib_header_phys != 0) {
 		gIOHibernateState = kIOHibernateStateWakingFromHibernate;
 		uart_hibernation = true;
+
+
 		__nosan_memcpy(gIOHibernateCurrentHeader, (void*)phystokv(hibargs->hib_header_phys), sizeof(IOHibernateImageHeader));
+
 	}
 	if ((cpu_data_ptr == &BootCpuData) && (gIOHibernateState == kIOHibernateStateWakingFromHibernate) && ml_is_quiescing()) {
 		// the "normal" S2R code captures wake_abstime too early, so on a hibernation resume we fix it up here
@@ -1090,11 +1131,15 @@ arm_init_cpu(
 #endif /* HIBERNATION */
 	}
 	PE_init_cpu();
+#if __arm64__
+	apt_msg_init_cpu();
+#endif
 
 	fiq_context_init(TRUE);
 	cpu_data_ptr->rtcPop = EndOfAllTime;
 	timer_resync_deadlines();
 
+	/* Start tracing (secondary CPU). */
 #if DEVELOPMENT || DEBUG
 	PE_arm_debug_enable_trace(true);
 #endif /* DEVELOPMENT || DEBUG */
@@ -1580,6 +1625,7 @@ arm_vm_init(uint64_t memory_size, boot_args * args)
 	gPhysSize = mem_size = ((gPhysBase + memSize) & ~PAGE_MASK) - gPhysBase;
 
 
+
 	/* Obtain total memory size, including non-managed memory */
 	mem_actual = args->memSizeActual ? args->memSizeActual : mem_size;
 
@@ -1594,7 +1640,6 @@ arm_vm_init(uint64_t memory_size, boot_args * args)
 	if (mem_size >= ((VM_MAX_KERNEL_ADDRESS - VM_MIN_KERNEL_ADDRESS) / 2)) {
 		panic("Unsupported memory configuration %lx", mem_size);
 	}
-
 
 	physmap_base = SPTMArgs->physmap_base;
 	physmap_end = static_memory_end = SPTMArgs->physmap_end;
@@ -1776,6 +1821,7 @@ arm_vm_init(uint64_t memory_size, boot_args * args)
 		 * XNU_KERNEL_RESTRICTED for now.
 		 */
 		use_xnu_restricted = false;
+
 #endif /* XNU_TARGET_OS_OSX */
 	}
 

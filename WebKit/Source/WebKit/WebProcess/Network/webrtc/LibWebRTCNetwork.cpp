@@ -29,6 +29,7 @@
 #include "LibWebRTCNetworkMessages.h"
 #include "Logging.h"
 #include "NetworkConnectionToWebProcessMessages.h"
+#include "WebProcess.h"
 #include <WebCore/SharedBuffer.h>
 #include <wtf/MainThread.h>
 #include <wtf/TZoneMallocInlines.h>
@@ -37,9 +38,30 @@ namespace WebKit {
 
 WTF_MAKE_TZONE_ALLOCATED_IMPL(LibWebRTCNetwork);
 
+LibWebRTCNetwork::LibWebRTCNetwork(WebProcess& webProcess)
+    : m_webProcess(webProcess)
+#if USE(LIBWEBRTC)
+    , m_webNetworkMonitor(*this)
+#endif
+#if ENABLE(WEB_RTC)
+    , m_mdnsRegister(*this)
+#endif
+{
+}
+
 LibWebRTCNetwork::~LibWebRTCNetwork()
 {
     ASSERT_NOT_REACHED();
+}
+
+void LibWebRTCNetwork::ref() const
+{
+    m_webProcess->ref();
+}
+
+void LibWebRTCNetwork::deref() const
+{
+    m_webProcess->deref();
 }
 
 void LibWebRTCNetwork::setAsActive()

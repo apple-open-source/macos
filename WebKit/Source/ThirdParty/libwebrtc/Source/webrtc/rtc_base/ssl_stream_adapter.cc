@@ -10,9 +10,18 @@
 
 #include "rtc_base/ssl_stream_adapter.h"
 
-#include "absl/memory/memory.h"
+#include <cstddef>
+#include <cstdint>
+#include <memory>
+#include <string>
+#include <utility>
+#include <vector>
+
+#include "absl/functional/any_invocable.h"
 #include "absl/strings/string_view.h"
 #include "rtc_base/openssl_stream_adapter.h"
+#include "rtc_base/ssl_identity.h"
+#include "rtc_base/stream.h"
 
 namespace rtc {
 
@@ -78,28 +87,6 @@ std::unique_ptr<SSLStreamAdapter> SSLStreamAdapter::Create(
                                                 std::move(handshake_error));
 }
 
-bool SSLStreamAdapter::GetSslCipherSuite(int* cipher_suite) {
-  return false;
-}
-
-bool SSLStreamAdapter::ExportKeyingMaterial(absl::string_view label,
-                                            const uint8_t* context,
-                                            size_t context_len,
-                                            bool use_context,
-                                            uint8_t* result,
-                                            size_t result_len) {
-  return false;  // Default is unsupported
-}
-
-bool SSLStreamAdapter::SetDtlsSrtpCryptoSuites(
-    const std::vector<int>& crypto_suites) {
-  return false;
-}
-
-bool SSLStreamAdapter::GetDtlsSrtpCryptoSuite(int* crypto_suite) {
-  return false;
-}
-
 bool SSLStreamAdapter::IsBoringSsl() {
   return OpenSSLStreamAdapter::IsBoringSsl();
 }
@@ -109,9 +96,6 @@ bool SSLStreamAdapter::IsAcceptableCipher(int cipher, KeyType key_type) {
 bool SSLStreamAdapter::IsAcceptableCipher(absl::string_view cipher,
                                           KeyType key_type) {
   return OpenSSLStreamAdapter::IsAcceptableCipher(cipher, key_type);
-}
-std::string SSLStreamAdapter::SslCipherSuiteToName(int cipher_suite) {
-  return OpenSSLStreamAdapter::SslCipherSuiteToName(cipher_suite);
 }
 
 ///////////////////////////////////////////////////////////////////////////////

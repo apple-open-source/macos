@@ -54,6 +54,9 @@ public:
     static Ref<RemoteSharedResourceCache> create(GPUConnectionToWebProcess&);
     virtual ~RemoteSharedResourceCache();
 
+    void ref() const final { ThreadSafeRefCounted::ref(); }
+    void deref() const final { ThreadSafeRefCounted::deref(); }
+
     void addSerializedImageBuffer(WebCore::RenderingResourceIdentifier, Ref<WebCore::ImageBuffer>);
     RefPtr<WebCore::ImageBuffer> takeSerializedImageBuffer(WebCore::RenderingResourceIdentifier);
 

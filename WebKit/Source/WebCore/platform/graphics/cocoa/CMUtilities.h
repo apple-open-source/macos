@@ -27,6 +27,9 @@
 
 #if PLATFORM(COCOA)
 
+#include "CAAudioStreamDescription.h"
+#include "MediaSample.h"
+#include <CoreAudio/CoreAudioTypes.h>
 #include <memory>
 #include <wtf/Expected.h>
 #include <wtf/RetainPtr.h>
@@ -36,6 +39,7 @@ typedef struct AudioFormatVorbisModeInfo AudioFormatVorbisModeInfo;
 typedef const struct opaqueCMFormatDescription* CMFormatDescriptionRef;
 typedef struct opaqueCMSampleBuffer* CMSampleBufferRef;
 typedef struct __CVBuffer* CVPixelBufferRef;
+typedef struct OpaqueCMBlockBuffer* CMBlockBufferRef;
 
 namespace WebCore {
 
@@ -46,9 +50,18 @@ struct PlatformVideoColorSpace;
 struct TrackInfo;
 
 WEBCORE_EXPORT RetainPtr<CMFormatDescriptionRef> createFormatDescriptionFromTrackInfo(const TrackInfo&);
+WEBCORE_EXPORT RefPtr<AudioInfo> createAudioInfoFromFormatDescription(CMFormatDescriptionRef);
+// audioStreamDescriptFromAudioInfo only works with compressed audio format (non PCM)
+WEBCORE_EXPORT CAAudioStreamDescription audioStreamDescriptionFromAudioInfo(const AudioInfo&);
+WEBCORE_EXPORT Ref<SharedBuffer> sharedBufferFromCMBlockBuffer(CMBlockBufferRef);
+WEBCORE_EXPORT RetainPtr<CMBlockBufferRef> ensureContiguousBlockBuffer(CMBlockBufferRef);
+
 // Convert MediaSamplesBlock to the equivalent CMSampleBufferRef. If CMFormatDescriptionRef
 // is set it will be used, otherwise it will be created from the MediaSamplesBlock's TrackInfo.
-WEBCORE_EXPORT Expected<RetainPtr<CMSampleBufferRef>, CString> toCMSampleBuffer(MediaSamplesBlock&&, CMFormatDescriptionRef = nullptr);
+WEBCORE_EXPORT Expected<RetainPtr<CMSampleBufferRef>, CString> toCMSampleBuffer(const MediaSamplesBlock&, CMFormatDescriptionRef = nullptr);
+// Convert CMSampleBufferRef to the equivalent MediaSamplesBlock. If TrackInfo
+// is set it will be used, otherwise it will be created from the CMSampleBufferRef's CMFormatDescriptionRef.
+WEBCORE_EXPORT UniqueRef<MediaSamplesBlock> samplesBlockFromCMSampleBuffer(CMSampleBufferRef, TrackInfo* = nullptr);
 
 WEBCORE_EXPORT void attachColorSpaceToPixelBuffer(const PlatformVideoColorSpace&, CVPixelBufferRef);
 
@@ -59,7 +72,7 @@ public:
     ~PacketDurationParser();
 
     bool isValid() const { return m_isValid; }
-    size_t framesInPacket(SharedBuffer&);
+    size_t framesInPacket(std::span<const uint8_t>);
     void reset();
 
 private:
@@ -67,13 +80,17 @@ private:
     uint32_t m_constantFramesPerPacket { 0 };
     std::optional<Seconds> m_frameDuration;
     uint32_t m_sampleRate { 0 };
+#if ENABLE(VORBIS)
 #if HAVE(AUDIOFORMATPROPERTY_VARIABLEPACKET_SUPPORTED)
     std::unique_ptr<AudioFormatVorbisModeInfo> m_vorbisModeInfo;
-#endif
     uint32_t m_vorbisModeMask { 0 };
+#endif
     uint32_t m_lastVorbisBlockSize { 0 };
+#endif
     bool m_isValid { false };
 };
+
+Vector<AudioStreamPacketDescription> getPacketDescriptions(CMSampleBufferRef);
 
 }
 

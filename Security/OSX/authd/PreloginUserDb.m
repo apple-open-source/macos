@@ -16,7 +16,7 @@
 #import <Security/Authorization.h>
 #import <Security/AuthorizationPriv.h>
 #import <Security/AuthorizationTagsPriv.h>
-#import <libaks_filevault.h>
+#import <AppleKeyStore/libaks_filevault.h>
 #import "authutilities.h"
 #import <os/boot_mode_private.h>
 #import <sys/sysctl.h>

@@ -1,0 +1,1152 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Release history &mdash; py2app 0.7.3 documentation</title>
+    
+    <link rel="stylesheet" href="_static/nature.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '',
+        VERSION:     '0.7.3',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <link rel="top" title="py2app 0.7.3 documentation" href="index.html" />
+    <link rel="prev" title="py2applet" href="py2applet.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="py2applet.html" title="py2applet"
+             accesskey="P">previous</a> |</li>
+        <li><a href="index.html">py2app 0.7.3 documentation</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="release-history">
+<h1>Release history<a class="headerlink" href="#release-history" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="py2app-0-7-3">
+<h2>py2app 0.7.3<a class="headerlink" href="#py2app-0-7-3" title="Permalink to this headline">¶</a></h2>
+<p>py2app 0.7.3 is a bugfix release</p>
+<ul>
+<li><p class="first">Issue #82: Remove debug print statement from py2app.util.LOADER that
+caused problems with Python 3.</p>
+</li>
+<li><p class="first">Issue #81: Py2app now fails with an error when trying to build a bundle
+for a unix-style shared library build of Python (<tt class="docutils literal"><span class="pre">--enable-shared</span></tt>) unless
+you are using a recent enough patchlevel of python (2.7.4, 3.2.3, 3.3.1,
+3.4.0, all of them are not released yet).</p>
+<p>The build failure was added to avoid a very confusing error when trying
+to start the generated application due to a bug in the way python reads
+the environment (for shared library builds on Mac OS X).</p>
+</li>
+<li><p class="first">Py2app will also give an error message when the python binary does not
+have a shared library (or framework) at all.</p>
+</li>
+<li><p class="first">Issue #87: Ignore &#8216;.git&#8217; and &#8216;.hg&#8217; directories while copying package data
+(&#8216;.svn&#8217; and &#8216;CVS&#8217; were already ignored).</p>
+</li>
+<li><p class="first">Issue #65: the fix in 0.7 to avoid copying a symlinked library twice caused
+problems for some users because only one of the file names ended up in the
+application bundle. This release ensures that both names exist (one as a
+symbolic name to the other).</p>
+</li>
+<li><p class="first">Issue #88: Ensure that the fix for #65 won&#8217;t try to create a symlink that
+points to itself. This could for example occur with homebrew, where the
+exposed lib directory contains symlinks to a cellar, while tye install_name
+does mention the &#8220;public&#8221; lib directory:</p>
+<div class="highlight-python"><pre>$ ls -l /opt/homebrew/lib
+...
+libglib-2.0.0.dylib -&gt; ../Cellar/glib/2.32.4/lib/libglib-2.0.0.dylib
+...
+
+$ otool -vL /opt/homebrew/lib/libglib-2.0.0.dylib
+/opt/homebrew/lib/libglib-2.0.0.dylib:
+   /opt/homebrew/lib/libglib-2.0.0.dylib (compatibility version 3201.0.0, current version 3201.4.0)
+   time stamp 1 Thu Jan  1 01:00:01 1970
+...</pre>
+</div>
+</li>
+</ul>
+</div>
+<div class="section" id="py2app-0-7-2">
+<h2>py2app 0.7.2<a class="headerlink" href="#py2app-0-7-2" title="Permalink to this headline">¶</a></h2>
+<p>py2app 0.7.2 is a bugfix release</p>
+<ul>
+<li><p class="first">Issue #75: Don&#8217;t remove <tt class="docutils literal"><span class="pre">--dist-dir</span></tt>, but only remove the old version
+of the objects we&#8217;re trying to build (if that exists).</p>
+<p>This once again makes it possible to have a number of setup.py files that
+build plugins into the same target folder (such as the plugins folder
+of an application)</p>
+</li>
+<li><p class="first">Issue #78: Packages added using the <tt class="docutils literal"><span class="pre">--packages</span></tt> option didn&#8217;t end up
+on <tt class="docutils literal"><span class="pre">sys.path</span></tt> for semi-standalone applications.</p>
+<p>Reported by Steve Strassmann</p>
+</li>
+<li><p class="first">Issue #76: Semi-standalone packages using extensions modules coudn&#8217;t use
+extensions unless they also used the <tt class="docutils literal"><span class="pre">--site-packages</span></tt> option (and
+the extensions are in the site-packages directory).</p>
+<p>Fixes some problems with PyQt and wxWidgets when using the system installation
+of Python.</p>
+<p>Patch by Dan Horner.</p>
+</li>
+<li><p class="first">It is currently not possible to use a subpackage (&#8220;foo.bar&#8221;) in the list
+of packages for the &#8220;packages&#8221; option. Py2app now explicitly checks for this
+and prints an error message instead of building an application that doesn&#8217;t
+work.</p>
+<p>Issue: #39</p>
+</li>
+</ul>
+</div>
+<div class="section" id="py2app-0-7-1">
+<h2>py2app 0.7.1<a class="headerlink" href="#py2app-0-7-1" title="Permalink to this headline">¶</a></h2>
+<p>py2app 0.7.1 is a bugfix release</p>
+<ul>
+<li><p class="first">Always include &#8216;pkg_resources&#8217;, this is needed to correctly work with
+setuptools namespace packages, the __init__.py files of those contain
+<tt class="docutils literal"><span class="pre">__import__('pkg_resources')</span></tt> and that call isn&#8217;t recognized as an import
+by the bytecode scanner.</p>
+</li>
+<li><p class="first">Issue #67: py2applet didn&#8217;t work with python 3 due to the use of &#8216;raw_input&#8217;</p>
+<p>Reported by Andrew Barnert.</p>
+</li>
+<li><p class="first">Issue #68: the &#8220;extra-scripts&#8221; feature introduced in 0.7 couldn&#8217;t copy scripts
+that aren&#8217;t in the same directory as &#8220;setup.py&#8221;.</p>
+<p>Reported by Andrew Barnert.</p>
+</li>
+<li><p class="first">For semi-standalone applications the &#8220;lib-dynload&#8221; directory inside the
+application was not on &#8220;sys.path&#8221;, which resulted in launch failures
+when using an extension that is not in the stdlib.</p>
+</li>
+<li><p class="first">Issue #70: application fails to launch when script uses Windows line endings</p>
+<p>Reported by Luc Jean.</p>
+</li>
+</ul>
+</div>
+<div class="section" id="py2app-0-7">
+<h2>py2app 0.7<a class="headerlink" href="#py2app-0-7" title="Permalink to this headline">¶</a></h2>
+<p>py2app 0.7 is a bugfix release</p>
+<ul>
+<li><p class="first">Issue #65: generated bundle would crash when two libraries linked to the
+same library using different names (one refering to the real name, the other
+to a symlink).</p>
+<p>An example if this is an application using wxWidgets when wxWidgets is installed
+using homebrew.</p>
+<p>Reported by &#8220;Bouke&#8221;.</p>
+</li>
+<li><p class="first">Issue #13: It is now possible to add helper scripts to a bundle, for
+example for creating a GUI that starts a helper script in the background.</p>
+<p>This can be done by using the option &#8220;&#8211;extra-scripts&#8221;, the value of which is a list
+of script files (&#8221;.py&#8221; or &#8221;.pyw&#8221; files).</p>
+</li>
+<li><p class="first">Smarter matplotlib recipe, it is now possible to specify which backends should
+be included. Issue #44, reported by Adam Kovics.</p>
+<p>The argument to <tt class="docutils literal"><span class="pre">--matplotlib-plugins</span></tt> (or &#8216;matplotlib_plugins&#8217; in setup.py)
+is a list of plugins to include. Use &#8216;-&#8216; to not include backends other than those
+found by the import statement analysis, and &#8216;*&#8217; to include all backends (without
+necessarily including all of matplotlib)</p>
+<p>As an example, use <tt class="docutils literal"><span class="pre">--matplotlib-plugins=wxagg</span></tt> to include just the wxagg
+backend.</p>
+<p>Default is to include the entire matplotlib package.</p>
+</li>
+<li><p class="first">The packages included by a py2app recipe weren&#8217;t processed by modulegraph and
+hence their dependencies were not always included.</p>
+</li>
+<li><p class="first">Fix virtualenv support: alias builds in a virtual environment failed to work.</p>
+<p>(There are still issues with semi-standalone and alias plugin bundles in
+a virtualenv environment).</p>
+</li>
+<li><p class="first">issue #18: improved PyQt and PySide support.</p>
+<p>Py2app now has a new option named &#8220;&#8211;qt-plugins&#8221; (or &#8220;qt_plugins&#8221; in setup.py),
+this option specify a list of plugins that should be included in the
+application bundle. The items of the list can have a number of forms:</p>
+<ul>
+<li><p class="first">&#8220;plugintype/libplugin.dylib&#8221;</p>
+<p>Specify one particular plugin</p>
+</li>
+<li><p class="first">&#8220;plugintype/*foo*&#8221;</p>
+<p>Specify one or more plugins using a glob pattern</p>
+</li>
+<li><p class="first">&#8220;plugintype&#8221;</p>
+<p>Include all plugins of a type, equivalent to &#8220;plugintype/*&#8221;.</p>
+</li>
+</ul>
+<p>The plugins are copied into &#8220;Resources/qt_plugins&#8221; and py2app adds a &#8220;qt.conf&#8221;
+file that points to that location for plugins.</p>
+</li>
+<li><p class="first">issue #49: package data that is a zipfile is now correctly copied into
+the bundle instead of extracting the archive.</p>
+</li>
+<li><p class="first">issue #59: compile site.py to ensure that the generated bundle doesn&#8217;t
+change on first run.</p>
+<p>This is nice to have in general, and essential when using code signing
+because the signature will break when a new file is added after signing.</p>
+<p>Reported by Michael McCracken.</p>
+</li>
+<li><p class="first">issue #60: recipe for &#8220;email&#8221; package was not loaded</p>
+<p>Reported by Chris Beaumont</p>
+</li>
+<li><p class="first">issue #46: py2app no longer warns about the Qt license. We don&#8217;t warn about
+other possibly GPL licensed software either and py2app is not
+a license-enforcement tool.</p>
+<p>Reported by briank_in_la.</p>
+</li>
+<li><p class="first">Generated bundles always started with python optimization active
+(that is, as if running as &#8216;python -O&#8217;).</p>
+</li>
+<li><p class="first">Fix issue #53: py2app would crash if a data file happened to
+be a zipfile.</p>
+</li>
+<li><p class="first">py2app copies data files in the directory for a package into
+the application bundle. It also did this for directories that
+represent subpackages, which made it impossible to exclude
+subpackages.</p>
+</li>
+<li><p class="first">added recipe for wxPython because some subpackages of wxPython
+use <tt class="docutils literal"><span class="pre">__path__</span></tt> trickery that confuses modulegraph.</p>
+</li>
+<li><p class="first">recipes can now return a list of additional entries for the
+&#8216;includes&#8217; list.</p>
+</li>
+<li><p class="first">rewritten the recipe for matplotlib. The recipe no longer includes
+the entire package, but just the &#8220;mpl-data&#8221; directory.</p>
+<p>WARNING: This recipe has had limited testing.</p>
+</li>
+<li><p class="first">fix mixed indentation (tabs and spaces) in argv_emulation.py,
+which caused installation failures on python 3.x (issue #40)</p>
+</li>
+<li><p class="first">Issue #43: py2app now creates a symlink named &#8220;Current&#8221; in the
+&#8216;Versions&#8217; directory of the embedded Python framework to comply
+with a requirement for the Mac App-store.</p>
+</li>
+<li><p class="first">on some OSX releases the application receives both the
+&#8220;open application&#8221; and &#8220;open documents&#8221; Apple Events during startup,
+which broke an assumption in argv_emulation.py.</p>
+</li>
+<li><p class="first">py2app is more strict w.r.t. explictly closing files, this avoids
+ResourceWarnings for unclosed files.</p>
+</li>
+<li><p class="first">fix test issue with semi-standalone builds on Python 3.2</p>
+</li>
+<li><p class="first">added recipe for pyzmq</p>
+</li>
+<li><p class="first">Don&#8217;t use the version information from Python.framework&#8217;s Info.plist,
+but use <tt class="docutils literal"><span class="pre">sys.version_info</span></tt>. This fixes a build problem with EPD.</p>
+</li>
+<li><p class="first">Ignore some more files when copying package data:</p>
+<ul class="simple">
+<li>VIM swap files (<tt class="docutils literal"><span class="pre">.foo.py.swp</span></tt>)</li>
+<li>Backup files for a number of tools: <tt class="docutils literal"><span class="pre">foo.orig</span></tt> and <tt class="docutils literal"><span class="pre">foo~</span></tt></li>
+</ul>
+</li>
+</ul>
+</div>
+<div class="section" id="py2app-0-6-4">
+<h2>py2app 0.6.4<a class="headerlink" href="#py2app-0-6-4" title="Permalink to this headline">¶</a></h2>
+<p>py2app 0.6.4 is a bugfix and minor feature release</p>
+<ul>
+<li><p class="first">Issue #28: the argv emulator crashes in 64-bit mode on OSX 10.5</p>
+<p>Fixing this issue required yet another rewrite of the argv_emulator
+code.</p>
+</li>
+<li><p class="first">Added option &#8216;&#8211;arch=VALUE&#8217; which can be used to select the set of
+architectures for the main executable. This defaults to the set of
+architectures supported by the python interpreter and can be used to
+drop support for some architectures (for example when you&#8217;re using a
+python binary that supports both 32-bit and 64-bit code and use a
+GUI library that does not yet work in 64-bit mode).</p>
+<p>Valid values for the argument are archectures used in the list below
+and the following groups of architectures:</p>
+<ul class="simple">
+<li>fat:        i386, ppc</li>
+<li>fat3:       i386, x86_64, ppc</li>
+<li>univeral:   i386, x86_64, ppc, ppc64</li>
+<li>intel:      i386, x86_64</li>
+</ul>
+</li>
+<li><p class="first">Issue #32: fix crash when application uses PySide</p>
+<p>This is partially fixed in macholib (release 1.4.3)</p>
+</li>
+<li><p class="first">The &#8216;-O&#8217; flag of py2app now defaults to the python optimization level
+when using python 2.6 or later.</p>
+</li>
+<li><p class="first">Issue #31: honor optimze flag at runtime.</p>
+<p>Until now an application bundle created by py2app would also run without
+the &#8220;-O&#8221; flag, even when the user specified it should. This is now fixed.</p>
+</li>
+<li><p class="first">Issue #33: py2app&#8217;s application bundle launcher now clears the environment
+variable <tt class="docutils literal"><span class="pre">PYOBJC_BUNDLE_ADDRESS</span></tt>, avoids a crash when using PyObjC in an
+application launched from a py2app based plugin bundle.</p>
+</li>
+<li><p class="first">py2app&#8217;s bundle launcher set the environment variable <tt class="docutils literal"><span class="pre">PYOBJC_BUNDLE_ADDRESS</span></tt>,
+this variable is now deprecated. Use <tt class="docutils literal"><span class="pre">PYOBJC_BUNDLE_ADDRESS&lt;PID&gt;</span></tt> instead
+(replace <tt class="docutils literal"><span class="pre">&lt;PID&gt;</span></tt> by the process ID of the current process).</p>
+</li>
+<li><p class="first">When using the system python we now explicitly add Apple&#8217;s additional packages
+(like PyObjC and Twisted) to <tt class="docutils literal"><span class="pre">sys.path</span></tt>.</p>
+<p>This fixes and issue reported by Sean Robinson: py2app used to create a non-working
+bundle when you used these packages because the packages didn&#8217;t get included
+(as intented), but were not available on <tt class="docutils literal"><span class="pre">sys.path</span></tt> either.</p>
+</li>
+<li><p class="first">Fixed the recipe for sip, which in turn ensures that PyQt4 applications
+work.</p>
+<p>As before the SIP recipe is rather crude, it will include <em>all</em> SIP-based
+packages into your application bundle when it detects a module that uses
+SIP.</p>
+</li>
+<li><p class="first">The &#8216;Resources&#8217; folder is no longer on the python search path,
+it contains the scripts while Python modules and packages are located
+in the site-packages directory. This change is related to issue #30.</p>
+</li>
+<li><p class="first">The folder &#8216;Resources/Python/site-packages&#8217; is no longer on the python
+search path. This folder is not used by py2app itself, but might by
+used by custom build scripts that wrap around py2app.</p>
+</li>
+<li><p class="first">Issue #30: py2app bundles failed to launch properly when the scriptfile
+has the same name as a python package used by the application.</p>
+</li>
+<li><p class="first">Issue #15: py2app now has an option to emulate the shell environment you
+get by opening a window in the Terminal.</p>
+<p>Usage: <tt class="docutils literal"><span class="pre">python</span> <span class="pre">setup.py</span> <span class="pre">py2app</span> <span class="pre">--emulate-shell-environment</span></tt></p>
+<p>This option is experimental, it is far from certain that the implementation
+works on all systems.</p>
+</li>
+<li><p class="first">Issue #16: <tt class="docutils literal"><span class="pre">--argv-emulation</span></tt> now works with Python 3.x and in 64-bit
+executables.</p>
+</li>
+<li><p class="first">Issue #17: py2applet script defaults &#8216;argv_emulation&#8217; to False when your using
+a 64-bit build of python, because that option is not supported on
+such builds.</p>
+</li>
+<li><p class="first">py2app now clears the temporary directory in &#8216;build&#8217; and the output directory
+in &#8216;dist&#8217; before doing anything. This avoids unwanted interactions between
+results from a previous builds and the current build.</p>
+</li>
+<li><p class="first">Issue #22: py2app will give an error when the specified version is invalid,
+instead of causing a crash in the generated executable.</p>
+</li>
+<li><p class="first">Issue #23: py2app failed to work when an .egg directory was implictly added
+to <tt class="docutils literal"><span class="pre">sys.path</span></tt> by setuptools and the &#8220;-O&#8221; option was used (for example
+<tt class="docutils literal"><span class="pre">python</span> <span class="pre">setup.py</span> <span class="pre">py2app</span> <span class="pre">-O2</span></tt>)</p>
+</li>
+<li><p class="first">Issue #26: py2app copied the wrong executable into the application bundle
+when using virtualenv with a framework build of Python.</p>
+</li>
+</ul>
+</div>
+<div class="section" id="py2app-0-6-3">
+<h2>py2app 0.6.3<a class="headerlink" href="#py2app-0-6-3" title="Permalink to this headline">¶</a></h2>
+<p>py2app 0.6.3 is a bugfix release</p>
+<ul class="simple">
+<li>py2app failed to compile .xib files
+(as reported on the pythonmac-sig mail-ing list).</li>
+</ul>
+</div>
+<div class="section" id="py2app-0-6-2">
+<h2>py2app 0.6.2<a class="headerlink" href="#py2app-0-6-2" title="Permalink to this headline">¶</a></h2>
+<p>py2app 0.6.2 is a bugfix release</p>
+<ul>
+<li><p class="first">py2app failed to copy the iconfile into application bundle
+(reported by Russel Owen)</p>
+</li>
+<li><p class="first">py2app failed to copy resources and data files as well
+(the <tt class="docutils literal"><span class="pre">resource</span></tt> key in the py2ap options dictionary and
+the <tt class="docutils literal"><span class="pre">data_files</span></tt> argument to the setup function).</p>
+<p>Issue #19, reported by bryon(at)spideroak.com.</p>
+</li>
+<li><p class="first">py2app failed to build application bundles when using virtualenv
+due to assumptions about the relation between <tt class="docutils literal"><span class="pre">sys.prefix</span></tt> and
+<tt class="docutils literal"><span class="pre">sys.executable</span></tt>.</p>
+<p>Report and fix by Erik van Zijst.</p>
+</li>
+<li><p class="first">Ensure that the &#8216;examples&#8217; directory is included in the source
+archive</p>
+</li>
+</ul>
+</div>
+<div class="section" id="py2app-0-6-1">
+<h2>py2app 0.6.1<a class="headerlink" href="#py2app-0-6-1" title="Permalink to this headline">¶</a></h2>
+<p>py2app 0.6.1 is a bugfix release</p>
+<p>Bugfixes:</p>
+<ul>
+<li><p class="first">py2app failed to build the bundle when python package contained
+a zipfile with data.</p>
+<p>This version solves most of that problem using a rough
+workaround (the issue is fixed when the filename ends with &#8216;.zip&#8217;).</p>
+</li>
+<li><p class="first">The code that recreates the stub executables when they are
+older than the source code now uses <tt class="docutils literal"><span class="pre">xcode-select</span></tt> to
+find the root of SDKs.</p>
+<p>This makes it possible to recreate these executables on machines
+where both Xcode 3 and Xcode 4 are installed and Xcode 3 is
+the default Xcode.</p>
+</li>
+<li><p class="first">The stub executables were regenerated using Xcode 3</p>
+<p>As a word of warning: Xcode 4 cannot be used to rebuild the
+stub executables, in particular not those that have support
+for the PPC architecture.</p>
+</li>
+<li><p class="first">Don&#8217;t rebuild the stub executables automaticly, that&#8217;s
+unsafe with Xcode 4 and could trigger accidently when
+files are installed in a different order than expected.</p>
+</li>
+<li><p class="first">Small tweaks to the testsuite to ensure that they work
+on systems with both Xcode3 and Xcode4 (Xcode3 must be
+the selected version).</p>
+</li>
+<li><p class="first">Better cleanup in the testsuite when <tt class="docutils literal"><span class="pre">setupClass</span></tt> fails.</p>
+</li>
+</ul>
+</div>
+<div class="section" id="py2app-0-6">
+<h2>py2app 0.6<a class="headerlink" href="#py2app-0-6" title="Permalink to this headline">¶</a></h2>
+<p>py2app 0.6 is a minor feature release</p>
+<p>Features:</p>
+<ul>
+<li><p class="first">it is now possible to specify which python distributions must
+be availble when building the bundle by using the
+&#8220;install_requires&#8221; argument of the <tt class="docutils literal"><span class="pre">setup()</span></tt> function:</p>
+<div class="highlight-python"><pre>setup(
+
+    ...
+    install_requires = [
+           "pyobjc == 2.2"
+    ],
+)</pre>
+</div>
+</li>
+<li><p class="first">py2app can now package namespace packages that were installed
+using <cite>pip &lt;http://pypi.python.org/pypi/pip&gt;</cite> or the
+setuptools install option <tt class="docutils literal"><span class="pre">--single-version-externally-managed</span></tt>.</p>
+</li>
+<li><p class="first">the bundle template now supports python3, based on a patch
+by Virgil Dupras.</p>
+</li>
+<li><p class="first">alias builds no longer use Carbon Aliases and therefore are
+supported with python3 as well (patch by Virgil Dupras)</p>
+</li>
+<li><p class="first">argv emulation doesn&#8217;t work in python 3, this release
+will tell you abou this instead of silently failing to
+build a working bundle.</p>
+</li>
+<li><p class="first">add support for custom URLs to the argv emulation code
+(patch by Brendan Simon).</p>
+<p>You will have to add a &#8220;CFBundleURLTypes&#8221; key to your Info.plist to
+use this, the argv emulation code will ensure that the URL
+to open will end up in <tt class="docutils literal"><span class="pre">sys.argv</span></tt>.</p>
+</li>
+<li><p class="first"><tt class="docutils literal"><span class="pre">py2app.util</span></tt> contains a number of functions that are now
+deprecated an will be removed in a future version, specifically:
+<tt class="docutils literal"><span class="pre">os_path_islink</span></tt>, <tt class="docutils literal"><span class="pre">os_path_isdir</span></tt>, <tt class="docutils literal"><span class="pre">path_to_zip</span></tt>,
+<tt class="docutils literal"><span class="pre">get_zip_data</span></tt>, <tt class="docutils literal"><span class="pre">get_mtime</span></tt>,  and <tt class="docutils literal"><span class="pre">os_readlink</span></tt>.</p>
+</li>
+<li><p class="first">The module <tt class="docutils literal"><span class="pre">py2app.simpleio</span></tt> no longer exists, and should never
+have been in the repository (it was part of a failed rewrite of
+the I/O layer).</p>
+</li>
+</ul>
+<p>Bug fixes:</p>
+<ul class="simple">
+<li>fix problem with symlinks in copied framework, as reported
+by Dan Ross.</li>
+<li>py2applet didn&#8217;t work in python 3.x.</li>
+<li>The <tt class="docutils literal"><span class="pre">--alias</span></tt> option didn&#8217;t work when building a plugin
+bundle (issue #10, fix by Virgil Dupras)</li>
+<li>Avoid copying the __pycache__ directory in python versions
+that implement PEP 3147 (Python 3.2 and later)</li>
+<li>App bundles with Python 3 now work when the application is
+stored in a directory with non-ASCII characters in the full
+name.</li>
+<li>Do not compile <tt class="docutils literal"><span class="pre">.nib</span></tt> files, it is not strictly needed and
+breaks PyObjC projects that still use the NibClassBuilder code.</li>
+<li>Better error messsages when trying to include a non-existing
+file as a resource.</li>
+<li>Don&#8217;t drop into PDB when an exception occurs.</li>
+<li>Issue #5: Avoid a possible stack overflow in the bundle executable</li>
+<li>Issue #9: Work with python 3.2</li>
+<li>Fix build issues with python 2.5 (due to usage of too modern distutils
+command subclasses)</li>
+<li>The source distribution didn&#8217;t include all files that needed to be
+it ever since switching to mercurial, I&#8217;ve added a MANIFEST.in
+file rather than relying on setuptool&#8217;s autoguessing of files to include.</li>
+<li>Bundle template works again with semi-standalone builds (such as
+when using a system python), this rewrites the fix for issue #10
+mentioned earlier.</li>
+<li>Ensure py2app works correctly when the sources are located in a
+directory with non-ascii characters in its name.</li>
+</ul>
+</div>
+<div class="section" id="py2app-0-5-2">
+<h2>py2app 0.5.2<a class="headerlink" href="#py2app-0-5-2" title="Permalink to this headline">¶</a></h2>
+<p>py2app 0.5.2 is a bugfix release</p>
+<p>Bug fixes:</p>
+<ul class="simple">
+<li>Ensure that the right stub executable gets found when using
+the system python 2.5</li>
+</ul>
+</div>
+<div class="section" id="py2app-0-5-1">
+<h2>py2app 0.5.1<a class="headerlink" href="#py2app-0-5-1" title="Permalink to this headline">¶</a></h2>
+<p>py2app 0.5.1 is a bugfix release</p>
+<p>Bug fixes:</p>
+<ul class="simple">
+<li>Ensure stub executables get included in the egg files</li>
+<li>Fix name of the bundletemplate stub executable for 32-bit builds</li>
+</ul>
+</div>
+<div class="section" id="py2app-0-5">
+<h2>py2app 0.5<a class="headerlink" href="#py2app-0-5" title="Permalink to this headline">¶</a></h2>
+<p>py2app 0.5 is a minor feature release.</p>
+<p>Features:</p>
+<ul class="simple">
+<li>Add support for the <tt class="docutils literal"><span class="pre">--with-framework-name</span></tt> option of Python&#8217;s
+configure script, that is: py2app now also works when the Python
+framework is not named &#8216;Python.framework&#8217;.</li>
+<li>Add support for various build flavours of Python (32bit, 3-way, ...)</li>
+<li>py2app now actually works for me (<a class="reference external" href="mailto:ronaldoussoren&#37;&#52;&#48;mac&#46;com">ronaldoussoren<span>&#64;</span>mac<span>&#46;</span>com</a>) with a
+python interpreter in a virtualenv environment.</li>
+<li>Experimental support for python 3</li>
+</ul>
+<p>Bug fixes:</p>
+<ul class="simple">
+<li>Fix recipe for matplotlib: that recipe caused an exception with
+current versions of matplotlib and pytz.</li>
+<li>Use modern API&#8217;s in the alias-build bootstrap code, without
+this &#8216;py2app -A&#8217; will result in broken bundles on a 64-bit build
+of Python.
+(Patch contributed by James R Eagan)</li>
+<li>Try both &#8216;import Image&#8217; and &#8216;from PIL import Image&#8217; in the PIL
+recipe.
+(Patch contributed by Christopher Barker)</li>
+<li>The stub executable now works for 64-bit application bundles</li>
+<li>(Lowlevel) The application stub was rewritten to use
+<tt class="docutils literal"><span class="pre">dlopen</span></tt> instead of <tt class="docutils literal"><span class="pre">dyld</span></tt> APIs. This removes deprecation
+warnings during compilation.</li>
+</ul>
+</div>
+<div class="section" id="py2app-0-4-3">
+<h2>py2app 0.4.3<a class="headerlink" href="#py2app-0-4-3" title="Permalink to this headline">¶</a></h2>
+<p>py2app 0.4.3 is a bugfix release</p>
+<p>Bug fixes:</p>
+<ul class="simple">
+<li>A bad format string in build_app.py made it impossible to copy the
+Python framework into an app bundle.</li>
+</ul>
+</div>
+<div class="section" id="py2app-0-4-2">
+<h2>py2app 0.4.2<a class="headerlink" href="#py2app-0-4-2" title="Permalink to this headline">¶</a></h2>
+<p>py2app 0.4.2 is a minor feature release</p>
+<p>Features:</p>
+<ul class="simple">
+<li>When the &#8216;&#8211;strip&#8217; option is specified we now also remove &#8216;.dSYM&#8217;
+directories from the bundle.</li>
+<li>Remove dependency on a &#8216;version.plist&#8217; file in the python framework</li>
+<li>A new recipe for <a class="reference external" href="http://www.riverbankcomputing.co.uk/pyqt/index.php">PyQt</a> 4.x. This recipe was donated by Kevin Walzer.</li>
+<li>A new recipe for <a class="reference external" href="http://pypi.python.org/pypi/virtualenv">virtualenv</a>, this allows you to use py2app from
+a virtual environment.</li>
+</ul>
+<ul>
+<li><p class="first">Adds support for converting <tt class="docutils literal"><span class="pre">.xib</span></tt> files (NIB files for
+Interface Builder 3)</p>
+</li>
+<li><p class="first">Introduces an experimental plugin API for data converters.</p>
+<p>A conversion plugin should be defined as an entry-point in the
+<tt class="docutils literal"><span class="pre">py2app.converter</span></tt> group:</p>
+<div class="highlight-python"><pre> setup(
+   ...
+   entry_points = {
+           'py2app.converter': [
+               "label          = some_module:converter_function",
+            ]
+    },
+    ...
+)</pre>
+</div>
+<p>The conversion function should be defined like this:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="kn">from</span> <span class="nn">py2app.decorators</span> <span class="kn">import</span> <span class="n">converts</span>
+
+<span class="nd">@converts</span><span class="p">(</span><span class="s">&#39;.png&#39;</span><span class="p">)</span>
+<span class="k">def</span> <span class="nf">optimze_png</span><span class="p">(</span><span class="n">source</span><span class="p">,</span> <span class="n">proposed_destionation</span><span class="p">,</span> <span class="n">dryrun</span><span class="o">=</span><span class="mi">0</span><span class="p">):</span>
+   <span class="c"># Copy &#39;source&#39; to &#39;proposed_destination&#39;</span>
+   <span class="c"># The conversion is allowed to change the proposed</span>
+   <span class="c"># destination to another name in the same directory.</span>
+   <span class="k">pass</span>
+</pre></div>
+</div>
+</li>
+</ul>
+<p>Buf fixes:</p>
+<ul class="simple">
+<li>This fixes an issue with copying a different version of Python over
+to an app/plugin bundle than the one used to run py2app with.</li>
+</ul>
+</div>
+<div class="section" id="py2app-0-4-0">
+<h2>py2app 0.4.0<a class="headerlink" href="#py2app-0-4-0" title="Permalink to this headline">¶</a></h2>
+<p>py2app 0.4.0 is a minor feature release (and was never formally released).</p>
+<p>Features:</p>
+<ul class="simple">
+<li>Support for CoreData mapping models (introduced in Mac OS X 10.5)</li>
+<li>Support for python packages that are stored in zipfiles (such as <tt class="docutils literal"><span class="pre">zip_safe</span></tt>
+python eggs).</li>
+</ul>
+<p>Bug fixes:</p>
+<ul class="simple">
+<li>Fix incorrect symlink target creation with an alias bundle that has included
+frameworks.</li>
+<li>Stuffit tends to extract archives recursively, which results in unzipped
+code archives inside py2app-created bundles. This version has a workaround
+for this &#8220;feature&#8221; for Stuffit.</li>
+<li>Be more carefull about passing non-constant strings as the template argumenti
+of string formatting functions (in the app and bundle templates), to avoid
+crashes under some conditions.</li>
+</ul>
+</div>
+<div class="section" id="py2app-0-3-6">
+<h2>py2app 0.3.6<a class="headerlink" href="#py2app-0-3-6" title="Permalink to this headline">¶</a></h2>
+<p>py2app 0.3.6 is a minor bugfix release.</p>
+<p>Bug fixes:</p>
+<ul class="simple">
+<li>Ensure that custom icons are copied into the output bundle</li>
+<li>Solve compatibility problem with some haxies and inputmanager plugins</li>
+</ul>
+</div>
+<div class="section" id="py2app-0-3-5">
+<h2>py2app 0.3.5<a class="headerlink" href="#py2app-0-3-5" title="Permalink to this headline">¶</a></h2>
+<p>py2app 0.3.5 is a minor bugfix release.</p>
+<p>Bug fixes:</p>
+<ul class="simple">
+<li>Resolve disable_linecache issue</li>
+<li>Fix Info.plist and Python path for plugins</li>
+</ul>
+</div>
+<div class="section" id="py2app-0-3-4">
+<h2>py2app 0.3.4<a class="headerlink" href="#py2app-0-3-4" title="Permalink to this headline">¶</a></h2>
+<p>py2app 0.3.4 is a minor bugfix release.</p>
+<p>Bug fixes:</p>
+<ul class="simple">
+<li>Fixed a typo in the py2applet script</li>
+<li>Removed some, but not all, compiler warnings from the bundle template
+(which is still probably broken anyway)</li>
+</ul>
+</div>
+<div class="section" id="py2app-0-3-3">
+<h2>py2app 0.3.3<a class="headerlink" href="#py2app-0-3-3" title="Permalink to this headline">¶</a></h2>
+<p>py2app 0.3.3 is a minor bugfix release.</p>
+<p>Bug Fixes:</p>
+<ul class="simple">
+<li>Fixed a typo in the argv emulation code</li>
+<li>Removed the unnecessary py2app.install hack (setuptools does that already)</li>
+</ul>
+</div>
+<div class="section" id="py2app-0-3-2">
+<h2>py2app 0.3.2<a class="headerlink" href="#py2app-0-3-2" title="Permalink to this headline">¶</a></h2>
+<p>py2app 0.3.2 is a major bugfix release.</p>
+<p>Functional changes:</p>
+<ul class="simple">
+<li>Massively updated documentation</li>
+<li>New prefer-ppc option</li>
+<li>New recipes: numpy, scipy, matplotlib</li>
+<li>Updated py2applet script to take options, provide &#8211;make-setup</li>
+</ul>
+<p>Bug Fixes:</p>
+<ul class="simple">
+<li>No longer defaults to LSPrefersPPC</li>
+<li>Replaced stdlib usage of argvemulator to inline version for i386
+compatibility</li>
+</ul>
+</div>
+<div class="section" id="py2app-0-3-1">
+<h2>py2app 0.3.1<a class="headerlink" href="#py2app-0-3-1" title="Permalink to this headline">¶</a></h2>
+<p>py2app 0.3.1 is a minor bugfix release.</p>
+<p>Functional changes:</p>
+<ul class="simple">
+<li>New EggInstaller example</li>
+</ul>
+<p>Bug Fixes:</p>
+<ul class="simple">
+<li>Now ensures that the executable is +x (when installed from egg this may not
+be the case)</li>
+</ul>
+</div>
+<div class="section" id="py2app-0-3-0">
+<h2>py2app 0.3.0<a class="headerlink" href="#py2app-0-3-0" title="Permalink to this headline">¶</a></h2>
+<p>py2app 0.3.0 is a major feature enhancements release.</p>
+<p>Functional changes:</p>
+<ul class="simple">
+<li>New &#8211;xref (-x) option similar to py2exe&#8217;s that produces
+a list of modules and their interdependencies as a HTML
+file</li>
+<li>sys.executable now points to a regular Python interpreter
+alongside the regular executable, so spawning sub-interpreters
+should work much more reliably</li>
+<li>Application bootstrap now detects paths containing &#8221;:&#8221;
+and will provide a &#8220;friendly&#8221; error message instead of just
+crashing &lt;<a class="reference external" href="http://python.org/sf/1507224">http://python.org/sf/1507224</a>&gt;.</li>
+<li>Application bootstrap now sets PYTHONHOME instead of
+a large PYTHONPATH</li>
+<li>Application bootstrap rewritten in C that links to
+CoreFoundation and Cocoa dynamically as needed,
+so it doesn&#8217;t imply any particular version of the runtime.</li>
+<li>Documentation and examples changed to use setuptools
+instead of distutils.core, which removes the need for
+the py2app import</li>
+<li>Refactored to use setuptools, distributed as an egg.</li>
+<li>macholib, bdist_mpkg, modulegraph, and altgraph are now
+separately maintained packages available on PyPI as eggs</li>
+<li>macholib now supports little endian architectures,
+64-bit Mach-O headers, and reading/writing of
+multiple headers per file (fat / universal binaries)</li>
+</ul>
+</div>
+<div class="section" id="py2app-0-2-1">
+<h2>py2app 0.2.1<a class="headerlink" href="#py2app-0-2-1" title="Permalink to this headline">¶</a></h2>
+<p>py2app 0.2.1 is a minor bug fix release.</p>
+<p>Bug Fixes:</p>
+<ul class="simple">
+<li>macholib.util.in_system_path understands SDKs now</li>
+<li>DYLD_LIBRARY_PATH searching is fixed</li>
+<li>Frameworks and excludes options should work again.</li>
+</ul>
+</div>
+<div class="section" id="py2app-0-2-0">
+<h2>py2app 0.2.0<a class="headerlink" href="#py2app-0-2-0" title="Permalink to this headline">¶</a></h2>
+<p>py2app 0.2.0 is a minor bug fix release.</p>
+<p>Functional changes:</p>
+<ul class="simple">
+<li>New datamodels option to support CoreData.  Compiles
+.xcdatamodel files and places them in the Resources dir
+(as .mom).</li>
+<li>New use-pythonpath option.  The py2app application bootstrap
+will no longer use entries from PYTHONPATH unless this option
+is used.</li>
+<li>py2app now persists information about the build environment
+(python version, executable, build style, etc.) in the
+Info.plist and will clean the executable before rebuilding
+if anything at all has changed.</li>
+<li>bdist_mpkg now builds packages with the full platform info,
+so that installing a package for one platform combination
+will not look like an upgrade to another platform combination.</li>
+</ul>
+<p>Bug Fixes:</p>
+<ul class="simple">
+<li>Fixed a bug in standalone building, where a rebuild could
+cause an unlaunchable executable.</li>
+<li>Plugin bootstrap should compile/link correctly
+with gcc 4.</li>
+<li>Plugin bootstrap no longer sets PYTHONHOME and will
+restore PYTHONPATH after initialization.</li>
+<li>Plugin bootstrap swaps out thread state upon plug-in
+load if it is the first to initialize Python.  This
+fixes threading issues.</li>
+</ul>
+</div>
+<div class="section" id="py2app-0-1-9">
+<h2>py2app 0.1.9<a class="headerlink" href="#py2app-0-1-9" title="Permalink to this headline">¶</a></h2>
+<p>py2app 0.1.9 is a minor bug fix release.</p>
+<p>Bugs fixed:</p>
+<ul class="simple">
+<li>bdist_mpkg now builds zip files that are correctly unzipped
+by all known tools.</li>
+<li>The behavior of the bootstrap has changed slightly such that
+<tt class="docutils literal"><span class="pre">__file__</span></tt> should now point to your main script, rather than
+the bootstrap.  The main script has also moved to <tt class="docutils literal"><span class="pre">Resources</span></tt>,
+from <tt class="docutils literal"><span class="pre">Resources/Python</span></tt>, so that <tt class="docutils literal"><span class="pre">__file__</span></tt> relative resource
+paths should still work.</li>
+</ul>
+</div>
+<div class="section" id="py2app-0-1-8">
+<h2>py2app 0.1.8<a class="headerlink" href="#py2app-0-1-8" title="Permalink to this headline">¶</a></h2>
+<p>py2app 0.1.8 is a major enhancements release:</p>
+<p>Bugs fixed:</p>
+<ul class="simple">
+<li>Symlinks in included frameworks should be preserved correctly
+(fixes Tcl/Tk)</li>
+<li>Fixes some minor issues with alias bundles</li>
+<li>Removed implicit SpiderImagePlugin -&gt; ImageTk reference in PIL
+recipe</li>
+<li>The <tt class="docutils literal"><span class="pre">--optimize</span></tt> option should work now</li>
+<li><tt class="docutils literal"><span class="pre">weakref</span></tt> is now included by default</li>
+<li><tt class="docutils literal"><span class="pre">anydbm</span></tt>&#8216;s dynamic dependencies are now in the standard implies
+list</li>
+<li>Errors on app launch are brought to the front so the user does
+not miss them</li>
+<li>bdist_mpkg now compatible with pychecker (data_files had issues)</li>
+</ul>
+<p>Options changed:</p>
+<ul class="simple">
+<li>deprecated <tt class="docutils literal"><span class="pre">--strip</span></tt>, it is now on by default</li>
+<li>new <tt class="docutils literal"><span class="pre">--no-strip</span></tt> option to turn off stripping of executables</li>
+</ul>
+<p>New features:</p>
+<ul class="simple">
+<li>Looks for a hacked version of the PyOpenGL __init__.py so that
+it doesn&#8217;t have to include the whole package in order to get
+at the stupid version file.</li>
+<li>New <tt class="docutils literal"><span class="pre">loader_files</span></tt> key that a recipe can return in order to
+ensure that non-code ends up in the .zip (the pygame recipe
+uses this)</li>
+<li>Now scans all files in the bundle and normalizes Mach-O load
+commands, not just extensions.  This helps out when using the
+<tt class="docutils literal"><span class="pre">--package</span></tt> option, when including frameworks that have plugins,
+etc.</li>
+<li>An embedded Python interpreter is now included in the executable
+bundle (<tt class="docutils literal"><span class="pre">sys.executable</span></tt> points to it), this currently only
+works for framework builds of Python</li>
+<li>New <tt class="docutils literal"><span class="pre">macho_standalone</span></tt> tool</li>
+<li>New <tt class="docutils literal"><span class="pre">macho_find</span></tt> tool</li>
+<li>Major enhancements to the way plugins are built</li>
+<li>bdist_mpkg now has a <tt class="docutils literal"><span class="pre">--zipdist</span></tt> option to build zip files
+from the built package</li>
+<li>The bdist_mpkg &#8220;Installed to:&#8221; description is now based on the
+package install root, rather than the build root</li>
+</ul>
+</div>
+<div class="section" id="py2app-0-1-7">
+<h2>py2app 0.1.7<a class="headerlink" href="#py2app-0-1-7" title="Permalink to this headline">¶</a></h2>
+<p><a class="reference external" href="http://undefined.org/python/#py2app">py2app</a> 0.1.7 is a bug fix release:</p>
+<ul class="simple">
+<li>The <tt class="docutils literal"><span class="pre">bdist_mpkg</span></tt> script will now set up sys.path properly, for setup scripts
+that require local imports.</li>
+<li><tt class="docutils literal"><span class="pre">bdist_mpkg</span></tt> will now correctly accept <tt class="docutils literal"><span class="pre">ReadMe</span></tt>, <tt class="docutils literal"><span class="pre">License</span></tt>, <tt class="docutils literal"><span class="pre">Welcome</span></tt>,
+and <tt class="docutils literal"><span class="pre">background</span></tt> files by parameter.</li>
+<li><tt class="docutils literal"><span class="pre">bdist_mpkg</span></tt> can now display a custom background again (0.1.6 broke this).</li>
+<li><tt class="docutils literal"><span class="pre">bdist_mpkg</span></tt> now accepts a <tt class="docutils literal"><span class="pre">build-base=</span></tt> argument, to put build files in
+an alternate location.</li>
+<li><tt class="docutils literal"><span class="pre">py2app</span></tt> will now accept main scripts with a <tt class="docutils literal"><span class="pre">.pyw</span></tt> extension.</li>
+<li><tt class="docutils literal"><span class="pre">py2app</span></tt>&#8216;s not_stdlib_filter will now ignore a <tt class="docutils literal"><span class="pre">site-python</span></tt> directory as
+well as <tt class="docutils literal"><span class="pre">site-packages</span></tt>.</li>
+<li><tt class="docutils literal"><span class="pre">py2app</span></tt>&#8216;s plugin bundle template no longer displays GUI dialogs by default,
+but still links to <tt class="docutils literal"><span class="pre">AppKit</span></tt>.</li>
+<li><tt class="docutils literal"><span class="pre">py2app</span></tt> now ensures that the directory of the main script is now added to
+<tt class="docutils literal"><span class="pre">sys.path</span></tt> when scanning modules.</li>
+<li>The <tt class="docutils literal"><span class="pre">py2app</span></tt> build command has been refactored such that it would be easier
+to change its behavior by subclassing.</li>
+<li><tt class="docutils literal"><span class="pre">py2app</span></tt> alias bundles can now cope with editors that do atomic saves
+(write new file, swap names with existing file).</li>
+<li><tt class="docutils literal"><span class="pre">macholib</span></tt> now has minimal support for fat binaries.  It still assumes big
+endian and will not make any changes to a little endian header.</li>
+<li>Add a warning message when using the <tt class="docutils literal"><span class="pre">install</span></tt> command rather than installing
+from a package.</li>
+<li>New <tt class="docutils literal"><span class="pre">simple/structured</span></tt> example that shows how you could package an
+application that is organized into several folders.</li>
+<li>New <tt class="docutils literal"><span class="pre">PyObjC/pbplugin</span></tt> Xcode Plug-In example.</li>
+</ul>
+</div>
+<div class="section" id="py2app-0-1-6">
+<h2>py2app 0.1.6<a class="headerlink" href="#py2app-0-1-6" title="Permalink to this headline">¶</a></h2>
+<p>Since I have been slacking and the last announcement was for 0.1.4, here are the
+changes for the soft-launched releases 0.1.5 and 0.1.6:</p>
+<p><a class="reference external" href="http://undefined.org/python/#py2app">py2app</a> 0.1.6 was a major feature enhancements release:</p>
+<ul class="simple">
+<li><tt class="docutils literal"><span class="pre">py2applet</span></tt> and <tt class="docutils literal"><span class="pre">bdist_mpkg</span></tt> scripts have been moved to Python modules
+so that the functionality can be shared with the tools.</li>
+<li>Generic graph-related functionality from <tt class="docutils literal"><span class="pre">py2app</span></tt> was moved to
+<tt class="docutils literal"><span class="pre">altgraph.ObjectGraph</span></tt> and <tt class="docutils literal"><span class="pre">altgraph.GraphUtil</span></tt>.</li>
+<li><tt class="docutils literal"><span class="pre">bdist_mpkg</span></tt> now outputs more specific plist requirements
+(for future compatibility).</li>
+<li><tt class="docutils literal"><span class="pre">py2app</span></tt> can now create plugin bundles (MH_BUNDLE) as well as executables.
+New recipe for supporting extensions built with <a class="reference external" href="http://www.riverbankcomputing.co.uk/sip/index.php">sip</a>, such as <a class="reference external" href="http://www.riverbankcomputing.co.uk/pyqt/index.php">PyQt</a>.  Note that
+due to the way that <a class="reference external" href="http://www.riverbankcomputing.co.uk/sip/index.php">sip</a> works, when one sip-based extension is used, <em>all</em>
+sip-based extensions are included in your application.  In practice, this means
+anything provided by <a class="reference external" href="http://www.riverbankcomputing.co.uk/">Riverbank</a>, I don&#8217;t think anyone else uses <a class="reference external" href="http://www.riverbankcomputing.co.uk/sip/index.php">sip</a> (publicly).</li>
+<li>New recipe for <a class="reference external" href="http://pyopengl.sourceforge.net/">PyOpenGL</a>.  This is very naive and simply includes the whole
+thing, rather than trying to monkeypatch their brain-dead
+version acquisition routine in <tt class="docutils literal"><span class="pre">__init__</span></tt>.</li>
+<li>Bootstrap now sets <tt class="docutils literal"><span class="pre">ARGVZERO</span></tt> and <tt class="docutils literal"><span class="pre">EXECUTABLEPATH</span></tt> environment variables,
+corresponding to the <tt class="docutils literal"><span class="pre">argv[0]</span></tt> and the <tt class="docutils literal"><span class="pre">_NSGetExecutablePath(...)</span></tt> that the
+bundle saw.  This is only really useful if you need to relaunch your own
+application.</li>
+<li>More correct <tt class="docutils literal"><span class="pre">dyld</span></tt> search behavior.</li>
+<li>Refactored <tt class="docutils literal"><span class="pre">macholib</span></tt> to use <tt class="docutils literal"><span class="pre">altgraph</span></tt>, can now generate <a class="reference external" href="http://www.pixelglow.com/graphviz/">GraphViz</a> graphs
+and more complex analysis of dependencies can be done.</li>
+<li><tt class="docutils literal"><span class="pre">macholib</span></tt> was refactored to be easier to maintain, and the structure handling
+has been optimized a bit.</li>
+<li>The few tests that there are were refactored in <a class="reference external" href="http://codespeak.net/py/current/doc/test.html">py.test</a> style.</li>
+<li>New <a class="reference external" href="http://www.riverbankcomputing.co.uk/pyqt/index.php">PyQt</a> example.</li>
+<li>New <a class="reference external" href="http://pyopengl.sourceforge.net/">PyOpenGL</a> example.</li>
+</ul>
+<p>See also:</p>
+<ul class="simple">
+<li><a class="reference external" href="http://mail.python.org/pipermail/pythonmac-sig/2004-December/012272.html">http://mail.python.org/pipermail/pythonmac-sig/2004-December/012272.html</a></li>
+</ul>
+</div>
+<div class="section" id="py2app-0-1-5">
+<h2>py2app 0.1.5<a class="headerlink" href="#py2app-0-1-5" title="Permalink to this headline">¶</a></h2>
+<p><a class="reference external" href="http://undefined.org/python/#py2app">py2app</a> 0.1.5 is a major feature enhancements release:</p>
+<ul>
+<li><p class="first">Added a <tt class="docutils literal"><span class="pre">bdist_mpkg</span></tt> distutils extension, for creating Installer
+an metapackage from any distutils script.</p>
+<ul class="simple">
+<li>Includes PackageInstaller tool</li>
+<li>bdist_mpkg script</li>
+<li>setup.py enhancements to support bdist_mpkg functionality</li>
+</ul>
+</li>
+<li><dl class="first docutils">
+<dt>Added a <tt class="docutils literal"><span class="pre">PackageInstaller</span></tt> tool, a droplet that performs the same function</dt>
+<dd><p class="first last">as the <tt class="docutils literal"><span class="pre">bdist_mpkg</span></tt> script.</p>
+</dd>
+</dl>
+</li>
+<li><p class="first">Create a custom <tt class="docutils literal"><span class="pre">bdist_mpkg</span></tt> subclass for <a class="reference external" href="http://undefined.org/python/#py2app">py2app</a>&#8216;s setup script.</p>
+</li>
+<li><p class="first">Source package now includes <a class="reference external" href="http://dirtSimple.org/">PJE</a>&#8216;s <a class="reference external" href="http://cvs.eby-sarna.com/PEAK/setuptools/">setuptools</a> extension to distutils.</p>
+</li>
+<li><p class="first">Added lots of metadata to the setup script.</p>
+</li>
+<li><p class="first"><tt class="docutils literal"><span class="pre">py2app.modulegraph</span></tt> is now a top-level package, <tt class="docutils literal"><span class="pre">modulegraph</span></tt>.</p>
+</li>
+<li><p class="first"><tt class="docutils literal"><span class="pre">py2app.find_modules</span></tt> is now <tt class="docutils literal"><span class="pre">modulegraph.find_modules</span></tt>.</p>
+</li>
+<li><p class="first">Should now correctly handle paths (and application names) with unicode characters
+in them.</p>
+</li>
+<li><p class="first">New <tt class="docutils literal"><span class="pre">--strip</span></tt> option for <tt class="docutils literal"><span class="pre">py2app</span></tt> build command, strips all Mach-O files
+in output application bundle.</p>
+</li>
+<li><p class="first">New <tt class="docutils literal"><span class="pre">--bdist-base=</span></tt> option for <tt class="docutils literal"><span class="pre">py2app</span></tt> build command, allows an alternate
+build directory to be specified.</p>
+</li>
+<li><p class="first">New <a class="reference external" href="http://docutils.sf.net/">docutils</a> recipe.
+Support for non-framework Python, such as the one provided by <a class="reference external" href="http://darwinports.opendarwin.org/">DarwinPorts</a>.</p>
+</li>
+</ul>
+<p>See also:</p>
+<ul class="simple">
+<li><a class="reference external" href="http://mail.python.org/pipermail/pythonmac-sig/2004-October/011933.html">http://mail.python.org/pipermail/pythonmac-sig/2004-October/011933.html</a></li>
+</ul>
+</div>
+<div class="section" id="py2app-0-1-4">
+<h2>py2app 0.1.4<a class="headerlink" href="#py2app-0-1-4" title="Permalink to this headline">¶</a></h2>
+<p><a class="reference external" href="http://undefined.org/python/#py2app">py2app</a> 0.1.4 is a minor bugfix release:</p>
+<ul class="simple">
+<li>The <tt class="docutils literal"><span class="pre">altgraph</span></tt> from 0.1.3 had a pretty nasty bug in it that prevented
+filtering from working properly, so I fixed it and bumped to 0.1.4.</li>
+</ul>
+</div>
+<div class="section" id="py2app-0-1-3">
+<h2>py2app 0.1.3<a class="headerlink" href="#py2app-0-1-3" title="Permalink to this headline">¶</a></h2>
+<p><a class="reference external" href="http://undefined.org/python/#py2app">py2app</a> 0.1.3 is a refactoring and new features release:</p>
+<ul class="simple">
+<li><tt class="docutils literal"><span class="pre">altgraph</span></tt>, my fork of Istvan Albert&#8217;s <a class="reference external" href="http://www.personal.psu.edu/staff/i/u/iua1/python/graphlib/html/">graphlib</a>, is now part of the
+distribution</li>
+<li><tt class="docutils literal"><span class="pre">py2app.modulegraph</span></tt> has been refactored to use <tt class="docutils literal"><span class="pre">altgraph</span></tt></li>
+<li><a class="reference external" href="http://undefined.org/python/#py2app">py2app</a> can now create <a class="reference external" href="http://www.pixelglow.com/graphviz/">GraphViz</a> DOT graphs with the <tt class="docutils literal"><span class="pre">-g</span></tt> option
+(<a class="reference external" href="http://undefined.org/~bob/TinyTinyEdit.pdf">TinyTinyEdit example</a>)</li>
+<li>Moved the filter stack into <tt class="docutils literal"><span class="pre">py2app.modulegraph</span></tt></li>
+<li>Fixed a bug that may have been in 0.1.2 where explicitly included packages
+would not be scanned by <tt class="docutils literal"><span class="pre">macholib</span></tt></li>
+<li><tt class="docutils literal"><span class="pre">py2app.apptemplate</span></tt> now contains a stripped down <tt class="docutils literal"><span class="pre">site</span></tt> module as
+opposed to a <tt class="docutils literal"><span class="pre">sitecustomize</span></tt></li>
+<li>Alias builds are now the only ones that contain the system and user
+<tt class="docutils literal"><span class="pre">site-packages</span></tt> directory in <tt class="docutils literal"><span class="pre">sys.path</span></tt></li>
+<li>The <tt class="docutils literal"><span class="pre">pydoc</span></tt> recipe has been beefed up to also exclude <tt class="docutils literal"><span class="pre">BaseHTTPServer</span></tt>,
+etc.</li>
+</ul>
+<p>Known issues:</p>
+<ul class="simple">
+<li>Commands marked with XXX in the help are not implemented</li>
+<li>Includes <em>all</em> files from packages, it should be smart enough to strip
+unused .py/.pyc/.pyo files (to save space, depending on which optimization
+flag is used)</li>
+<li><tt class="docutils literal"><span class="pre">macholib</span></tt> should be refactored to use <tt class="docutils literal"><span class="pre">altgraph</span></tt></li>
+<li><tt class="docutils literal"><span class="pre">py2app.build_app</span></tt> and <tt class="docutils literal"><span class="pre">py2app.modulegraph</span></tt> should be refactored to
+search for dependencies on a per-application basis</li>
+</ul>
+</div>
+<div class="section" id="py2app-0-1-2">
+<h2>py2app 0.1.2<a class="headerlink" href="#py2app-0-1-2" title="Permalink to this headline">¶</a></h2>
+<p><a class="reference external" href="http://undefined.org/python/#py2app">py2app</a> 0.2 is primarily a bugfix release:</p>
+<ul class="simple">
+<li>The encodings package now gets included in the zip file (saves space)</li>
+<li>A copy of the Python interpreter is not included anymore in standalone
+builds (saves space)</li>
+<li>The executable bootstrap is now stripped by default (saves a little space)</li>
+<li><tt class="docutils literal"><span class="pre">sys.argv</span></tt> is set correctly now, it used to point to the executable, now
+it points to the boot script.  This should enhance compatibility with some
+applications.</li>
+<li>Adds an &#8220;Alias&#8221; feature to modulegraph, so that <tt class="docutils literal"><span class="pre">sys.modules</span></tt> craziness
+such as <tt class="docutils literal"><span class="pre">wxPython.wx</span> <span class="pre">-&gt;</span> <span class="pre">wx</span></tt> can be accomodated (this particular craziness
+is also now handled by default)</li>
+<li>A <tt class="docutils literal"><span class="pre">sys.path</span></tt> alternative may be passed to <tt class="docutils literal"><span class="pre">find_modules</span></tt> now, though
+this is not used yet</li>
+<li>The <tt class="docutils literal"><span class="pre">Command</span></tt> instance is now passed to recipes instead of the
+<tt class="docutils literal"><span class="pre">Distribution</span></tt> instance (though no recipes currently use either)</li>
+<li>The post-filtering of modules and extensions is now generalized into a
+stack and can be modified by recipes</li>
+<li>A <a class="reference external" href="http://www.wxpython.org/">wxPython</a> example demonstrating how to package <a class="reference external" href="http://wxglade.sourceforge.net/">wxGlade</a> has been
+added (this is a good example of how to write your own recipe, and how to
+deal with complex applications that mix code and data files)</li>
+<li><tt class="docutils literal"><span class="pre">PyRuntimeLocations</span></tt> is now set to (only) the location of the current
+interpreter&#8217;s <tt class="docutils literal"><span class="pre">Python.framework</span></tt> for alias and semi-standalone build
+modes (enhances compatibility with extensions built with an unpatched
+Makefile with Mac OS X 10.3&#8217;s Python 2.3.0)</li>
+</ul>
+<p>Known issues:</p>
+<ul class="simple">
+<li>Includes <em>all</em> files from packages, it should be smart enough to strip
+unused .py/.pyc/.pyo files (to save space, depending on which optimization
+flag is used).</li>
+</ul>
+</div>
+<div class="section" id="py2app-0-1-1">
+<h2>py2app 0.1.1<a class="headerlink" href="#py2app-0-1-1" title="Permalink to this headline">¶</a></h2>
+<p><a class="reference external" href="http://undefined.org/python/#py2app">py2app</a> 0.1.1 is primarily a bugfix release:</p>
+<ul>
+<li><dl class="first docutils">
+<dt>Several problems related to Mac OS X 10.2 compatibility and standalone</dt>
+<dd><p class="first last">building have been resolved</p>
+</dd>
+</dl>
+</li>
+<li><p class="first">Scripts that are not in the same directory as setup.py now work</p>
+</li>
+<li><p class="first">A new recipe has been added that removes the pydoc -&gt; Tkinter dependency</p>
+</li>
+<li><p class="first">A recipe has been added for <a class="reference external" href="http://undefined.org/python/#py2app">py2app</a> itself</p>
+</li>
+<li><p class="first">a <a class="reference external" href="http://www.wxpython.org/">wxPython</a> example (superdoodle) has been added.
+Demonstrates not only how easy it is (finally!) to bundle
+<a class="reference external" href="http://www.wxpython.org/">wxPython</a> applications, but also how one setup.py can
+deal with both <a class="reference external" href="http://starship.python.net/crew/theller/py2exe/">py2exe</a> and <a class="reference external" href="http://undefined.org/python/#py2app">py2app</a>.</p>
+</li>
+<li><p class="first">A new experimental tool, py2applet, has been added.
+Once you&#8217;ve built it (<tt class="docutils literal"><span class="pre">python</span> <span class="pre">setup.py</span> <span class="pre">py2app</span></tt>, of course), you should
+be able to build simple applications simply by dragging your main script
+and optionally any packages, data files, Info.plist and icon it needs.</p>
+</li>
+</ul>
+<p>Known issues:</p>
+<ul class="simple">
+<li>Includes <em>all</em> files from packages, it should be smart enough to strip
+unused .py/.pyc/.pyo files (to save space, depending on which
+optimization flag is used).</li>
+<li>The default <tt class="docutils literal"><span class="pre">PyRuntimeLocations</span></tt> can cause problems on machines that
+have a /Library/Frameworks/Python.framework installed.  Workaround is
+to set a plist that has the following key:
+<tt class="docutils literal"><span class="pre">PyRuntimeLocations=['/System/Library/Frameworks/Python.framework/Versions/2.3/Python']</span></tt>
+(this will be resolved soon)</li>
+</ul>
+</div>
+<div class="section" id="py2app-0-1">
+<h2>py2app 0.1<a class="headerlink" href="#py2app-0-1" title="Permalink to this headline">¶</a></h2>
+<p>(first public release)
+<a class="reference external" href="http://undefined.org/python/#py2app">py2app</a> is the bundlebuilder replacement we&#8217;ve all been waiting
+for.  It is implemented as a distutils command, similar to <a class="reference external" href="http://starship.python.net/crew/theller/py2exe/">py2exe</a>.</p>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">Release history</a><ul>
+<li><a class="reference internal" href="#py2app-0-7-3">py2app 0.7.3</a></li>
+<li><a class="reference internal" href="#py2app-0-7-2">py2app 0.7.2</a></li>
+<li><a class="reference internal" href="#py2app-0-7-1">py2app 0.7.1</a></li>
+<li><a class="reference internal" href="#py2app-0-7">py2app 0.7</a></li>
+<li><a class="reference internal" href="#py2app-0-6-4">py2app 0.6.4</a></li>
+<li><a class="reference internal" href="#py2app-0-6-3">py2app 0.6.3</a></li>
+<li><a class="reference internal" href="#py2app-0-6-2">py2app 0.6.2</a></li>
+<li><a class="reference internal" href="#py2app-0-6-1">py2app 0.6.1</a></li>
+<li><a class="reference internal" href="#py2app-0-6">py2app 0.6</a></li>
+<li><a class="reference internal" href="#py2app-0-5-2">py2app 0.5.2</a></li>
+<li><a class="reference internal" href="#py2app-0-5-1">py2app 0.5.1</a></li>
+<li><a class="reference internal" href="#py2app-0-5">py2app 0.5</a></li>
+<li><a class="reference internal" href="#py2app-0-4-3">py2app 0.4.3</a></li>
+<li><a class="reference internal" href="#py2app-0-4-2">py2app 0.4.2</a></li>
+<li><a class="reference internal" href="#py2app-0-4-0">py2app 0.4.0</a></li>
+<li><a class="reference internal" href="#py2app-0-3-6">py2app 0.3.6</a></li>
+<li><a class="reference internal" href="#py2app-0-3-5">py2app 0.3.5</a></li>
+<li><a class="reference internal" href="#py2app-0-3-4">py2app 0.3.4</a></li>
+<li><a class="reference internal" href="#py2app-0-3-3">py2app 0.3.3</a></li>
+<li><a class="reference internal" href="#py2app-0-3-2">py2app 0.3.2</a></li>
+<li><a class="reference internal" href="#py2app-0-3-1">py2app 0.3.1</a></li>
+<li><a class="reference internal" href="#py2app-0-3-0">py2app 0.3.0</a></li>
+<li><a class="reference internal" href="#py2app-0-2-1">py2app 0.2.1</a></li>
+<li><a class="reference internal" href="#py2app-0-2-0">py2app 0.2.0</a></li>
+<li><a class="reference internal" href="#py2app-0-1-9">py2app 0.1.9</a></li>
+<li><a class="reference internal" href="#py2app-0-1-8">py2app 0.1.8</a></li>
+<li><a class="reference internal" href="#py2app-0-1-7">py2app 0.1.7</a></li>
+<li><a class="reference internal" href="#py2app-0-1-6">py2app 0.1.6</a></li>
+<li><a class="reference internal" href="#py2app-0-1-5">py2app 0.1.5</a></li>
+<li><a class="reference internal" href="#py2app-0-1-4">py2app 0.1.4</a></li>
+<li><a class="reference internal" href="#py2app-0-1-3">py2app 0.1.3</a></li>
+<li><a class="reference internal" href="#py2app-0-1-2">py2app 0.1.2</a></li>
+<li><a class="reference internal" href="#py2app-0-1-1">py2app 0.1.1</a></li>
+<li><a class="reference internal" href="#py2app-0-1">py2app 0.1</a></li>
+</ul>
+</li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="py2applet.html"
+                        title="previous chapter">py2applet</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="_sources/changelog.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="py2applet.html" title="py2applet"
+             >previous</a> |</li>
+        <li><a href="index.html">py2app 0.7.3 documentation</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2010, Ronald Oussoren, Bob Ippolito.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1.3.
+    </div>
+  </body>
+</html>

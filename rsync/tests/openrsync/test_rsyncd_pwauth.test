@@ -1,0 +1,205 @@
+#!/bin/sh
+
+. ${tstdir-.}/daemon.sh
+. ${tstdir-.}/lib.sh
+. ${tstdir-.}/conf.sh
+
+src="$PWD/src"
+dest="$PWD/ftp"
+cfgfile="$PWD/rsyncd.conf"
+secretsfile="$PWD/rsyncd.secrets"
+
+rm -rf "$dest" "$src" *-file
+
+mkdir "$dest" "$src"
+
+cat <<EOF > "$secretsfile"
+fred:password1
+sarah:password2
+EOF
+chmod 0600 "$secretsfile"
+
+cp "$secretsfile" "$secretsfile".badmode
+chmod 0666 "$secretsfile".badmode
+
+password_of() {
+	user="$1"
+
+	case "$user" in
+	fred)
+		echo "password1"
+		;;
+	sarah)
+		echo "password2"
+		;;
+	esac
+}
+
+# Note that we are notably lacking any @group matching, but that's a 3.x feature
+# we adopted and it's harder to test since we need actual system users that
+# match our 'auth users' and groups for them to be added to.
+cat <<EOF > "$cfgfile"
+use chroot = no
+secrets file = $secretsfile.badmode
+path = $dest
+
+[public]
+	comment = Public module
+	read only = no
+[notstrict]
+	auth users = fred
+	strict modes = no
+[basicauth]
+	auth users = fred
+[normallyro]
+	auth users = fred:rw, sarah
+	read only = yes
+[normallyrw]
+	auth users = fred:ro, sarah
+	read only = no
+[denyone]
+	auth users = fred:deny, sarah
+EOF
+
+rsyncd "$cfgfile"
+dport=$(daemon_port)
+
+echo "file" > "$src"/file
+
+pull() {
+	user="$1"
+	module="$2"
+	file="$3"
+
+	if [ ! -f "$dest"/file ]; then
+		cp "$src"/file "$dest"/file
+	fi
+
+	env RSYNC_PASSWORD="$(password_of "$user")" $RSYNC_CLIENT \
+	    rsync://"$user"@localhost:$dport/"$module"/file "$file"
+}
+
+push() {
+	user="$1"
+	module="$2"
+	file="$3"
+
+	rm -f "$dest"/file
+	env RSYNC_PASSWORD="$(password_of "$user")" $RSYNC_CLIENT "$file" \
+	    rsync://"$user"@localhost:$dport/"$module"/file
+}
+
+## Our very first test should fail to a 'strict modes' violation.  We have to
+## wait for first push since we're operating under netwrapd.  We do the same
+## with a notstrict module to be sure that we can make it more permissive.
+if pull fred basicauth basicauth-file; then
+	1>&2 echo "Pull from 'basicauth' module erroneously succeeded"
+	1>&2 echo "Daemon startup should have failed due to a 'strict modes' violation"
+	exit 1
+elif [ -f basicauth-file ]; then
+	1>&2 echo "Erroneously succeeded to pull 'file' from the 'basicauth' module (strict modes)"
+	exit 1
+fi
+if ! pull fred notstrict notstrict-file; then
+	1>&2 echo "Pull from 'notstrict' module failed"
+	exit 1
+elif [ ! -f notstrict-file ]; then
+	1>&2 echo "Failed to pull 'file' from the 'notstrict' module"
+	exit 1
+fi
+
+# Now remove the violation and start over.
+daemon_kill
+sed -i.bak -e 's/\.badmode//' "$cfgfile"
+rsyncd "$cfgfile"
+dport=$(daemon_port)
+
+## Test that a "secrets file" being set doesn't stop us from defining
+## a public module.
+if ! command $RSYNC_CLIENT "$src"/file rsync://localhost:$dport/public/file; then
+	1>&2 echo "Push to 'public' module failed, but 'auth users' not set"
+	exit 1
+elif [ ! -f "$dest"/file ]; then
+	1>&2 echo "Failed to push 'file' to the 'public' module"
+	exit 1
+fi
+
+## fred can use basicauth, but sarah cannot
+if ! pull fred basicauth file-basicauth; then
+	1>&2 echo "Authorized user failed to pull from 'basicauth' module"
+	exit 1
+elif [ ! -f file-basicauth ]; then
+	1>&2 echo "Failed to pull 'file' from the 'basicauth' module"
+	exit 1
+fi
+rm -f file-basicauth
+if pull sarah basicauth file-basicauth; then
+	1>&2 echo "Unauthorized user pulled from 'basicauth' module"
+	exit 1
+elif [ -f file-basicauth ]; then
+	1>&2 echo "Erroneously ulled 'file' from the 'basicauth' module"
+	exit 1
+fi
+
+## fred can write to 'normallyro', but it should be read-only for sarah
+if ! push fred normallyro "$src"/file; then
+	1>&2 echo "'fred' override for 'normallyro' module failed"
+	exit 1
+elif [ ! -f "$dest"/file ]; then
+	1>&2 echo "Push for 'fred' to 'normallyro' module failed"
+	exit 1
+fi
+if ! pull sarah normallyro file-normallyro; then
+	1>&2 echo "'sarah' should have read-only access to 'normallyro' module"
+	exit 1
+elif [ ! -f file-normallyro ]; then
+	1>&2 echo "Pull for 'sarah' from 'normallyro' module failed"
+	exit 1
+fi
+# But she can't push
+if push sarah normallyro "$src"/file; then
+	1>&2 echo "'sarah' incorrectly granted read-write access to 'normallyro' module"
+	exit 1
+elif [ -f "$dest"/file ]; then
+	1>&2 echo "Push for 'sarah' to 'normallyro' erroneously module succeeded"
+	exit 1
+fi
+
+## 'fred' cannot write to normallyrw, but 'sarah' can
+if push fred normallyrw "$src"/file; then
+	1>&2 echo "'fred' override to read-only for 'normallyrw' module failed"
+	exit 1
+elif [ -f "$dest"/file ]; then
+	1>&2 echo "Push for 'fred' to 'normallyrw' module erroneously succeeded"
+	exit 1
+fi
+if ! push sarah normallyrw "$src"/file; then
+	1>&2 echo "'sarah' should have write access to 'normallyrw' module"
+	exit 1
+elif [ ! -f "$dest"/file ]; then
+	1>&2 echo "Push for 'sarah' to 'normallyrw' module failed"
+	exit 1
+fi
+if ! pull fred normallyrw normallyrw-file; then
+	1>&2 echo "'fred' failed to read from 'normallyrw' module"
+	exit 1
+elif [ ! -f normallyrw-file ]; then
+	1>&2 echo "Pull for 'fred' from 'normallyrw' module failed"
+	exit 1
+fi
+
+## 'fred' should be denied entirely, but 'sarah' should not
+if pull fred denyone denyone-file; then
+	1>&2 echo "'fred' erroneously able to read from 'denyone' module"
+	exit 1
+elif [ -f denyone-file ]; then
+	1>&2 echo "Pull for 'fred' from 'denyone' module erroneously succeeded"
+	exit 1
+fi
+if ! pull sarah denyone denyone-file; then
+	1>&2 echo "'sarah' failed to read from 'denyone' module"
+	exit 1
+elif [ ! -f denyone-file ]; then
+	1>&2 echo "Pull for 'sarah' from 'denyone' module erroneously succeeded"
+	exit 1
+fi

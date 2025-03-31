@@ -10,7 +10,7 @@
  */
 #include <tuple>
 
-#include "third_party/googletest/src/googletest/include/gtest/gtest.h"
+#include "gtest/gtest.h"
 #include "test/warp_filter_test_util.h"
 using libaom_test::ACMRandom;
 #if CONFIG_AV1_HIGHBITDEPTH
@@ -72,14 +72,9 @@ INSTANTIATE_TEST_SUITE_P(
     libaom_test::AV1WarpFilter::BuildParams(av1_warp_affine_neon));
 
 #if CONFIG_AV1_HIGHBITDEPTH
-#if AOM_ARCH_AARCH64
-// TODO(aomedia:349455146): enable for armv7 after SIGBUS is fixed.
 INSTANTIATE_TEST_SUITE_P(
     NEON, AV1HighbdWarpFilterTest,
     libaom_test::AV1HighbdWarpFilter::BuildParams(av1_highbd_warp_affine_neon));
-#else   // !AOM_ARCH_AARCH64
-GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(AV1HighbdWarpFilterTest);
-#endif  // AOM_ARCH_AARCH64
 #endif  // CONFIG_AV1_HIGHBITDEPTH
 #endif  // HAVE_NEON
 

@@ -3885,9 +3885,6 @@ skipread:
 			if (error) {
 				goto out;
 			}
-			if (np->n_needcommitcnt >= NFS_A_LOT_OF_NEEDCOMMITS) {
-				nfs_flushcommits(np, 1);
-			}
 		} else if (((n + on) == biosize) || (ioflag & IO_APPEND) ||
 		    (ioflag & IO_NOCACHE) || ISSET(bp->nb_flags, NB_NOCACHE)) {
 			SET(bp->nb_flags, NB_ASYNC);
@@ -3902,6 +3899,8 @@ skipread:
 			}
 			nfs_buf_write_delayed(bp);
 		}
+		/* Push to the commit queue */
+		nfs_buf_commit_push(np);
 	} while (uio_resid(uio) > 0 && n > 0);
 
 out:
@@ -8273,7 +8272,7 @@ nfs_vnop_pagein(
 	if (size <= 0) {
 		NP(np, "nfs_vnop_pagein: invalid size %u", size);
 		if (!nofreeupl) {
-			(void) ubc_upl_abort_range(pl, pl_offset, size, 0);
+			ubc_upl_abort_range(pl, pl_offset, size, UPL_ABORT_FREE_ON_EMPTY);
 		}
 		error = EINVAL;
 		goto out_return;
@@ -8660,7 +8659,7 @@ nfs_vnop_pageout(
 	if (size <= 0) {
 		printf("nfs_pageout: invalid size %u", size);
 		if (!nofreeupl) {
-			ubc_upl_abort_range(pl, pl_offset, size, 0);
+			ubc_upl_abort_range(pl, pl_offset, size, UPL_ABORT_FREE_ON_EMPTY);
 		}
 		error = EINVAL;
 		goto out_return;
@@ -8708,7 +8707,7 @@ nfs_vnop_pageout(
 				}
 				/* no panic. just tell vm we are busy */
 				if (!nofreeupl) {
-					ubc_upl_abort_range(pl, pl_offset, size, 0);
+					ubc_upl_abort_range(pl, pl_offset, size, UPL_ABORT_FREE_ON_EMPTY);
 				}
 				error = EBUSY;
 				goto out_return;
@@ -8760,7 +8759,7 @@ nfs_vnop_pageout(
 						nfs_data_unlock_noupdate(np);
 					}
 					if (!nofreeupl) {
-						ubc_upl_abort_range(pl, pl_offset, size, 0);
+						ubc_upl_abort_range(pl, pl_offset, size, UPL_ABORT_FREE_ON_EMPTY);
 					}
 					error = EBUSY;
 					goto out_return;

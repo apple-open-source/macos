@@ -31,21 +31,35 @@
 
 #import <pal/ios/UIKitSoftLink.h>
 
-id webCoreTextAttachmentMissingPlatformImage()
+namespace WebCore {
+
+static RetainPtr<CocoaImage>& webCoreTextAttachmentMissingPlatformImageIfExists()
 {
-    static NeverDestroyed<RetainPtr<id>> missingImage;
+    static NeverDestroyed<RetainPtr<CocoaImage>> missingImage;
+    return missingImage.get();
+}
+
+CocoaImage *webCoreTextAttachmentMissingPlatformImage()
+{
     static dispatch_once_t once;
 
     dispatch_once(&once, ^{
-        NSBundle *webCoreBundle = [NSBundle bundleWithIdentifier:@"com.apple.WebCore"];
+        RetainPtr webCoreBundle = [NSBundle bundleWithIdentifier:@"com.apple.WebCore"];
 #if PLATFORM(IOS_FAMILY)
-        id image = [PAL::getUIImageClass() imageNamed:@"missingImage" inBundle:webCoreBundle compatibleWithTraitCollection:nil];
+        RetainPtr image = [PAL::getUIImageClass() imageNamed:@"missingImage" inBundle:webCoreBundle.get() compatibleWithTraitCollection:nil];
 #else
-        id image = [webCoreBundle imageForResource:@"missingImage"];
+        RetainPtr image = [webCoreBundle imageForResource:@"missingImage"];
 #endif
         ASSERT_WITH_MESSAGE(image != nil, "Unable to find missingImage.");
-        missingImage.get() = image;
+        webCoreTextAttachmentMissingPlatformImageIfExists() = WTFMove(image);
     });
 
-    return missingImage.get().get();
+    return webCoreTextAttachmentMissingPlatformImageIfExists().get();
 }
+
+bool isWebCoreTextAttachmentMissingPlatformImage(CocoaImage *image)
+{
+    return image && image == webCoreTextAttachmentMissingPlatformImageIfExists();
+}
+
+} // namespace WebCore

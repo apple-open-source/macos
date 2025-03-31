@@ -1,0 +1,44 @@
+#! /bin/sh
+
+set -e
+set -u
+
+. ${tstdir-.}/lib.sh
+. ${tstdir-.}/conf.sh
+
+rm -rf dir1 dir2 dir3
+# make the copy-from-here tree
+mkdir dir1
+cd dir1
+echo one > one
+echo two > two
+echo three > three
+sudo chown nobody three
+case $(uname -s) in
+	Darwin)
+		sudo chmod 000 three
+		sudo chmod +a "admin deny readattr" three
+		;;
+	FreeBSD)
+		sudo setfacl -m everyone@:a::deny three
+		;;
+	*)
+		sudo chmod 000 three
+		;;
+esac
+ln -s three four
+ln -s /nope five
+
+# make the tree we want to compare to
+mkdir ../dir2
+cd ../dir2
+echo one > one
+echo two > two
+
+cd ..
+set +e
+rsync -v -a --copy-links -- dir1/ dir3
+rc=$?
+set -e
+[ $rc -eq 23 ]
+compare_trees dir2 dir3

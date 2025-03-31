@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<array>
+	<dict>
+		<key>OpenSourceProject</key>
+		<string>libiconv</string>
+		<key>OpenSourceVersion</key>
+		<string>2022-09-15</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>https://cgit.freebsd.org/src/tree/lib/libc/resolv?id=0090d18235269cc5f9582712a42fb5641d5b6f71</string>
+		<key>OpenSourceImportDate</key>
+		<string>2023-02-10</string>
+		<key>OpenSourceModifications</key>
+		<array>
+		</array>
+		<key>OpenSourceLicense</key>
+		<string>BSD</string>
+	</dict>
+</array>
+</plist>

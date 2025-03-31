@@ -251,7 +251,7 @@ CB_COEFF_BUFFER *av1_get_cb_coeff_buffer(const struct AV1_COMP *cpi, int mi_row,
  * \param[in]    plane          The index of the current plane
  * \param[in]    tx_size        The transform size
  */
-static INLINE int av1_cost_skip_txb(const CoeffCosts *coeff_costs,
+static inline int av1_cost_skip_txb(const CoeffCosts *coeff_costs,
                                     const TXB_CTX *const txb_ctx, int plane,
                                     TX_SIZE tx_size) {
   const TX_SIZE txs_ctx = get_txsize_entropy_ctx(tx_size);

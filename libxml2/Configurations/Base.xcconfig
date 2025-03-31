@@ -72,6 +72,9 @@ DEAD_CODE_STRIPPING_Production = $(DEAD_CODE_STRIPPING_Release);
 
 SDKROOT = macosx.internal;
 
+CODE_SIGN_IDENTITY = -;
+AD_HOC_CODE_SIGNING_ALLOWED = YES;
+
 ALWAYS_SEARCH_USER_PATHS = NO;
 
 SUPPORTED_PLATFORMS = appletvos appletvsimulator iphoneos iphonesimulator macosx watchos watchsimulator;

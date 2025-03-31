@@ -3,7 +3,7 @@
  *
  * SPDX-License-Identifier: BSD-2-Clause
  *
- * Copyright (c) 2018-2023 Gavin D. Howard and contributors.
+ * Copyright (c) 2018-2024 Gavin D. Howard and contributors.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -121,6 +121,7 @@ bc_vm_jmp(void)
 static void
 bc_vm_sig(int sig)
 {
+#ifndef __APPLE__
 #if BC_ENABLE_EDITLINE
 	// Editline needs this to resize the terminal. This also needs to come first
 	// because a resize always needs to happen.
@@ -141,6 +142,7 @@ bc_vm_sig(int sig)
 		return;
 	}
 #endif // BC_ENABLE_EDITLINE
+#endif /* __APPLE__ */
 
 	// There is already a signal in flight if this is true.
 	if (vm->status == (sig_atomic_t) BC_STATUS_QUIT || vm->sig != 0)
@@ -254,7 +256,7 @@ bc_vm_sigaction(void)
 	struct sigaction sa;
 
 	sigemptyset(&sa.sa_mask);
-	sa.sa_flags = 0;
+	sa.sa_flags = BC_ENABLE_EDITLINE ? 0 : SA_NODEFER;
 
 	// This mess is to silence a warning on Clang with regards to glibc's
 	// sigaction handler, which activates the warning here.
@@ -270,10 +272,12 @@ bc_vm_sigaction(void)
 	sigaction(SIGQUIT, &sa, NULL);
 	sigaction(SIGINT, &sa, NULL);
 
+#ifndef __APPLE__
 #if BC_ENABLE_EDITLINE
 	// Editline needs this to resize the terminal.
 	if (BC_TTY) sigaction(SIGWINCH, &sa, NULL);
 #endif // BC_ENABLE_EDITLINE
+#endif /* __APPLE__ */
 
 #if BC_ENABLE_HISTORY
 	if (BC_TTY) sigaction(SIGHUP, &sa, NULL);

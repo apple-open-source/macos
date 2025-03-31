@@ -28,7 +28,10 @@
 #import "config.h"
 #import "PlatformWritingToolsUtilities.h"
 
+#import <SoftLinking/WeakLinking.h>
 #import <WebCore/WritingToolsTypes.h>
+
+WEAK_IMPORT_OBJC_CLASS(WTContext);
 
 namespace WebKit {
 
@@ -126,6 +129,10 @@ WebCore::WritingTools::Action convertToWebAction(WTAction action)
     case WTActionShowRewritten:
         return WebCore::WritingTools::Action::ShowRewritten;
     case WTActionCompositionRestart:
+        return WebCore::WritingTools::Action::Restart;
+
+    // FIXME (rdar://141822568): Handle all Writing Tools actions.
+    default:
         return WebCore::WritingTools::Action::Restart;
     }
 }

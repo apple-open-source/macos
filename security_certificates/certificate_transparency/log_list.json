@@ -158,9 +158,9 @@
                     "log_id": "2ra/az+1tiKfm8K7XGvocJFxbLtRhIU0vaQ9MEjX+6s=",
                     "mmd": 86400,
                     "state": {
-                        "usable": {
-                            "timestamp": "2022-11-13T00:00:00Z",
-                            "version": "179"
+                        "rejected": {
+                            "timestamp": "2025-02-24T22:25:38Z",
+                            "version": "331"
                         }
                     },
                     "temporal_interval": {
@@ -192,9 +192,9 @@
                     "log_id": "yzj3FYl8hKFEX1vB3fvJbvKaWc1HCmkFhbDLFMMUWOc=",
                     "mmd": 86400,
                     "state": {
-                        "qualified": {
-                            "timestamp": "2024-08-26T21:00:00Z",
-                            "version": "307"
+                        "usable": {
+                            "timestamp": "2024-11-26T18:07:26Z",
+                            "version": "308"
                         }
                     },
                     "temporal_interval": {
@@ -642,9 +642,9 @@
                     "log_id": "7s3QZNXbGs7FXLedtM0TojKHRny87N7DUUhZRnEftZs=",
                     "mmd": 86400,
                     "state": {
-                        "usable": {
-                            "timestamp": "2022-11-13T00:00:00Z",
-                            "version": "173"
+                        "rejected": {
+                            "timestamp": "2025-02-24T22:26:45Z",
+                            "version": "332"
                         }
                     },
                     "temporal_interval": {
@@ -659,9 +659,9 @@
                     "log_id": "dv+IPwq2+5VRwmHM9Ye6NLSkzbsp3GhCCp/mZ0xaOnQ=",
                     "mmd": 86400,
                     "state": {
-                        "usable": {
-                            "timestamp": "2022-11-13T00:00:00Z",
-                            "version": "174"
+                        "rejected": {
+                            "timestamp": "2025-02-24T22:27:08Z",
+                            "version": "333"
                         }
                     },
                     "temporal_interval": {
@@ -744,9 +744,9 @@
                     "log_id": "DleUvPOuqT4zGyyZB7P3kN+bwj1xMiXdIaklrGHFTiE=",
                     "mmd": 86400,
                     "state": {
-                        "qualified": {
-                            "timestamp": "2024-07-17T01:09:59Z",
-                            "version": "292"
+                        "usable": {
+                            "timestamp": "2024-11-26T18:08:02Z",
+                            "version": "309"
                         }
                     },
                     "temporal_interval": {
@@ -761,9 +761,9 @@
                     "log_id": "1219ENGn9XfCx+lf1wC/+YLJM1pl4dCzAXMXwMjFaXc=",
                     "mmd": 86400,
                     "state": {
-                        "qualified": {
-                            "timestamp": "2024-07-17T01:10:09Z",
-                            "version": "293"
+                        "usable": {
+                            "timestamp": "2024-11-26T18:08:20Z",
+                            "version": "310"
                         }
                     },
                     "temporal_interval": {
@@ -778,9 +778,9 @@
                     "log_id": "lpdkv1VYl633Q4doNwhCd+nwOtX2pPM2bkakPw/KqcY=",
                     "mmd": 86400,
                     "state": {
-                        "qualified": {
-                            "timestamp": "2024-07-17T01:10:19Z",
-                            "version": "294"
+                        "usable": {
+                            "timestamp": "2024-11-26T18:08:37Z",
+                            "version": "311"
                         }
                     },
                     "temporal_interval": {
@@ -795,9 +795,9 @@
                     "log_id": "2AlVO5RPev/IFhlvlE+Fq7D4/F6HVSYPFdEucrtFSxQ=",
                     "mmd": 86400,
                     "state": {
-                        "qualified": {
-                            "timestamp": "2024-07-17T01:10:32Z",
-                            "version": "295"
+                        "usable": {
+                            "timestamp": "2024-11-26T18:08:55Z",
+                            "version": "312"
                         }
                     },
                     "temporal_interval": {
@@ -1148,9 +1148,9 @@
                     "log_id": "SLDja9qmRzQP5WoC+p0w6xxSActW3SyB2bu/qznYhHM=",
                     "mmd": 86400,
                     "state": {
-                        "usable": {
-                            "timestamp": "2022-11-13T00:00:00Z",
-                            "version": "175"
+                        "rejected": {
+                            "timestamp": "2025-02-24T22:27:36Z",
+                            "version": "334"
                         }
                     },
                     "temporal_interval": {
@@ -1165,9 +1165,9 @@
                     "log_id": "c9meiRtMlnigIH1HneayxhzQUV5xGSqMa4AQesF3crU=",
                     "mmd": 86400,
                     "state": {
-                        "retired": {
-                            "timestamp": "2023-05-30T00:00:00Z",
-                            "version": "195"
+                        "rejected": {
+                            "timestamp": "2025-02-24T22:27:56Z",
+                            "version": "335"
                         }
                     },
                     "temporal_interval": {
@@ -1233,9 +1233,9 @@
                     "log_id": "DCrvLEpbmIPU3aOC/lD7UYiz6XMzoexToJ3Jp50NCCA=",
                     "mmd": 86400,
                     "state": {
-                        "qualified": {
-                            "timestamp": "2024-06-16T00:00:00Z",
-                            "version": "282"
+                        "rejected": {
+                            "timestamp": "2025-02-24T22:28:15Z",
+                            "version": "336"
                         }
                     },
                     "temporal_interval": {
@@ -1250,9 +1250,9 @@
                     "log_id": "cyAiDwgWivnzxKaLCrJqmkoA7vV3hYoITQUA1KVCRFk=",
                     "mmd": 86400,
                     "state": {
-                        "qualified": {
-                            "timestamp": "2024-06-16T00:00:00Z",
-                            "version": "283"
+                        "usable": {
+                            "timestamp": "2024-11-26T18:09:47Z",
+                            "version": "314"
                         }
                     },
                     "temporal_interval": {
@@ -1267,9 +1267,9 @@
                     "log_id": "7TxL1ugGwqSiAFfbyyTiOAHfUS/txIbFcA8g3bc+P+A=",
                     "mmd": 86400,
                     "state": {
-                        "qualified": {
-                            "timestamp": "2024-06-16T00:00:00Z",
-                            "version": "284"
+                        "usable": {
+                            "timestamp": "2024-11-26T18:10:05Z",
+                            "version": "315"
                         }
                     },
                     "temporal_interval": {
@@ -1284,9 +1284,9 @@
                     "log_id": "ZBHEbKQS7KeJHKICLgC8q08oB9QeNSer6v7VA8l9zfA=",
                     "mmd": 86400,
                     "state": {
-                        "qualified": {
-                            "timestamp": "2024-08-24T12:00:00Z",
-                            "version": "307"
+                        "usable": {
+                            "timestamp": "2024-11-26T18:10:24Z",
+                            "version": "316"
                         }
                     },
                     "temporal_interval": {
@@ -1301,9 +1301,9 @@
                     "log_id": "wjF+V0UZo0XufzjespBB68fCIVoiv3/Vta12mtkOUs0=",
                     "mmd": 86400,
                     "state": {
-                        "qualified": {
-                            "timestamp": "2024-08-24T12:00:00Z",
-                            "version": "307"
+                        "usable": {
+                            "timestamp": "2024-11-26T18:10:49Z",
+                            "version": "317"
                         }
                     },
                     "temporal_interval": {
@@ -1335,9 +1335,9 @@
                     "log_id": "3Mleb6KZubD9vWymo24dcsQhL90eD0dVOjbWzxrRHY0=",
                     "mmd": 86400,
                     "state": {
-                        "qualified": {
-                            "timestamp": "2024-06-16T00:00:00Z",
-                            "version": "286"
+                        "rejected": {
+                            "timestamp": "2025-02-24T22:28:30Z",
+                            "version": "337"
                         }
                     },
                     "temporal_interval": {
@@ -1352,9 +1352,9 @@
                     "log_id": "3oWB11AkfGvNy69WN8XngcZM5G7WF2OfjzSnJsnivTc=",
                     "mmd": 86400,
                     "state": {
-                        "qualified": {
-                            "timestamp": "2024-06-16T00:00:00Z",
-                            "version": "287"
+                        "usable": {
+                            "timestamp": "2024-11-26T18:11:30Z",
+                            "version": "319"
                         }
                     },
                     "temporal_interval": {
@@ -1369,9 +1369,9 @@
                     "log_id": "pELFBklgYVSPD9TqnPt6LSZFTYepfy/fRVn2J086hFQ=",
                     "mmd": 86400,
                     "state": {
-                        "qualified": {
-                            "timestamp": "2024-06-16T00:00:00Z",
-                            "version": "289"
+                        "usable": {
+                            "timestamp": "2024-11-26T18:11:47Z",
+                            "version": "320"
                         }
                     },
                     "temporal_interval": {
@@ -1386,9 +1386,9 @@
                     "log_id": "SZybad4dfOz8Nt7Nh2SmuFuvCoeAGdFVUvvp6ynd+MM=",
                     "mmd": 86400,
                     "state": {
-                        "qualified": {
-                            "timestamp": "2024-08-24T12:00:00Z",
-                            "version": "307"
+                        "usable": {
+                            "timestamp": "2024-11-26T18:12:06Z",
+                            "version": "321"
                         }
                     },
                     "temporal_interval": {
@@ -1403,9 +1403,9 @@
                     "log_id": "lE5Dh/rswe+B8xkkJqgYZQHH0184AgE/cmd9VTcuGdg=",
                     "mmd": 86400,
                     "state": {
-                        "qualified": {
-                            "timestamp": "2024-08-24T12:00:00Z",
-                            "version": "307"
+                        "usable": {
+                            "timestamp": "2024-11-26T18:12:25Z",
+                            "version": "322"
                         }
                     },
                     "temporal_interval": {
@@ -1475,9 +1475,9 @@
                     "log_id": "3+FW66oFr7WcD4ZxjajAMk6uVtlup/WlagHRwTu+Ulw=",
                     "mmd": 86400,
                     "state": {
-                        "usable": {
-                            "timestamp": "2023-11-13T19:44:24Z",
-                            "version": "234"
+                        "rejected": {
+                            "timestamp": "2025-02-24T22:30:49Z",
+                            "version": "338"
                         }
                     },
                     "temporal_interval": {
@@ -1543,9 +1543,9 @@
                     "log_id": "GZgQcQnw1lIuMIDSnj9ku4NuKMz5D1KO7t/OSj8WtMo=",
                     "mmd": 86400,
                     "state": {
-                        "usable": {
-                            "timestamp": "2023-11-13T19:45:27Z",
-                            "version": "238"
+                        "rejected": {
+                            "timestamp": "2025-02-24T22:31:21Z",
+                            "version": "339"
                         }
                     },
                     "temporal_interval": {
@@ -1611,9 +1611,9 @@
                     "log_id": "JS+Uwisp6W6fQRpyBytpXFtS/5epDSVAu/zcUexN7gs=",
                     "mmd": 86400,
                     "state": {
-                        "qualified": {
-                            "timestamp": "2024-07-17T01:10:54Z",
-                            "version": "296"
+                        "usable": {
+                            "timestamp": "2024-11-26T18:12:51Z",
+                            "version": "323"
                         }
                     },
                     "temporal_interval": {
@@ -1628,9 +1628,9 @@
                     "log_id": "lLHBirDQV8R74KwEDh8svI3DdXJ7yVHyClJhJoY7pzw=",
                     "mmd": 86400,
                     "state": {
-                        "qualified": {
-                            "timestamp": "2024-07-17T01:11:06Z",
-                            "version": "297"
+                        "usable": {
+                            "timestamp": "2024-11-26T18:13:21Z",
+                            "version": "324"
                         }
                     },
                     "temporal_interval": {
@@ -1645,9 +1645,9 @@
                     "log_id": "VmzVo3a+g9/jQrZ1xJwjJJinabrDgsurSaOHfZqzLQE=",
                     "mmd": 86400,
                     "state": {
-                        "qualified": {
-                            "timestamp": "2024-07-17T01:11:17Z",
-                            "version": "298"
+                        "usable": {
+                            "timestamp": "2024-11-26T18:13:40Z",
+                            "version": "325"
                         }
                     },
                     "temporal_interval": {
@@ -1662,9 +1662,9 @@
                     "log_id": "H1bRq5RwSkHdP+r99GmTVTAsFDG/5hNGCJ//rnldzC8=",
                     "mmd": 86400,
                     "state": {
-                        "qualified": {
-                            "timestamp": "2024-07-17T01:11:28Z",
-                            "version": "299"
+                        "usable": {
+                            "timestamp": "2024-11-26T18:14:52Z",
+                            "version": "326"
                         }
                     },
                     "temporal_interval": {
@@ -1789,9 +1789,9 @@
                     "log_id": "PxdLT9ciR1iUHWUchL4NEu2QN38fhWrrwb8ohez4ZG4=",
                     "mmd": 86400,
                     "state": {
-                        "usable": {
-                            "timestamp": "2022-11-13T00:00:00Z",
-                            "version": "181"
+                        "rejected": {
+                            "timestamp": "2025-02-24T22:31:45Z",
+                            "version": "340"
                         }
                     },
                     "temporal_interval": {
@@ -1840,9 +1840,9 @@
                     "log_id": "GYbUxyiqb/66A294Kk0BkarOLXIxD67OXXBBLSVMx9Q=",
                     "mmd": 86400,
                     "state": {
-                        "qualified": {
-                            "timestamp": "2024-08-20T00:00:00Z",
-                            "version": "307"
+                        "usable": {
+                            "timestamp": "2024-11-26T18:15:23Z",
+                            "version": "327"
                         }
                     },
                     "temporal_interval": {
@@ -1857,9 +1857,9 @@
                     "log_id": "rKswcGzr7IQx9BPS9JFfER5CJEOx8qaMTzwrO6ceAsM=",
                     "mmd": 86400,
                     "state": {
-                        "qualified": {
-                            "timestamp": "2024-08-20T00:00:00Z",
-                            "version": "307"
+                        "usable": {
+                            "timestamp": "2024-11-26T18:15:42Z",
+                            "version": "328"
                         }
                     },
                     "temporal_interval": {
@@ -1950,9 +1950,9 @@
                     "log_id": "h0+1DcAp2ZMd5XPp8omejkUzs5LTiwpGJXS/D+6y/B4=",
                     "mmd": 86400,
                     "state": {
-                        "usable": {
-                            "timestamp": "2023-11-13T19:47:16Z",
-                            "version": "243"
+                        "rejected": {
+                            "timestamp": "2025-02-24T22:32:11Z",
+                            "version": "341"
                         }
                     },
                     "temporal_interval": {
@@ -2001,9 +2001,9 @@
                     "log_id": "dNudWPfUfp39eHoWKpkcGM9pjafHKZGMmhiwRQ26RLw=",
                     "mmd": 86400,
                     "state": {
-                        "qualified": {
-                            "timestamp": "2024-07-02T00:00:00Z",
-                            "version": "290"
+                        "usable": {
+                            "timestamp": "2024-11-26T18:16:15Z",
+                            "version": "329"
                         }
                     },
                     "temporal_interval": {
@@ -2018,9 +2018,9 @@
                     "log_id": "Jbfv3qETAZPtkweXcKoyKiZiDeNayKp8dRl94LGp4GU=",
                     "mmd": 86400,
                     "state": {
-                        "qualified": {
-                            "timestamp": "2024-07-02T00:00:00Z",
-                            "version": "291"
+                        "usable": {
+                            "timestamp": "2024-11-26T18:16:33Z",
+                            "version": "330"
                         }
                     },
                     "temporal_interval": {
@@ -2033,5 +2033,5 @@
             "name": "TrustAsia"
         }
     ],
-    "version": "307"
+    "version": "341"
 }

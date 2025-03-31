@@ -6,8 +6,10 @@
  *
  */
 #include <darwintest.h>
+#include <darwintest_utils.h>
 
 #include <dlfcn.h>
+#include <fcntl.h>
 #include <errno.h>
 #include <ptrauth.h>
 #include <signal.h>
@@ -29,6 +31,9 @@
 #include <mach/task_info.h>
 #include <mach/shared_region.h>
 #include <machine/cpu_capabilities.h>
+
+#include <sys/mman.h>
+#include <sys/syslimits.h>
 
 T_GLOBAL_META(
 	T_META_NAMESPACE("xnu.vm"),
@@ -83,7 +88,7 @@ test_memory_entry_tagging(int override_tag)
 	}
 
 	for (i = 0; i < vmsize_orig / vmsize_chunk; i++) {
-		vmaddr_chunk = vmaddr_orig + (i * vmsize_chunk);
+		vmaddr_chunk = vmaddr_orig + ((mach_vm_size_t)i * vmsize_chunk);
 		kr = mach_vm_allocate(mach_task_self(),
 		    &vmaddr_chunk,
 		    vmsize_chunk,
@@ -193,7 +198,7 @@ again:
 		mach_vm_address_t       vmaddr_info;
 		mach_vm_size_t          vmsize_info;
 
-		vmaddr_info = *vmaddr_ptr + (i * vmsize_chunk);
+		vmaddr_info = *vmaddr_ptr + ((mach_vm_size_t)i * vmsize_chunk);
 		vmsize_info = 0;
 		depth = 1;
 		ri_count = VM_REGION_SUBMAP_SHORT_INFO_COUNT_64;
@@ -211,13 +216,13 @@ again:
 		}
 		T_QUIET;
 		T_EXPECT_EQ(vmaddr_info, *vmaddr_ptr + (i * vmsize_chunk), "[override_tag:%d][do_copy:%d] mach_vm_region_recurse(0x%llx+0x%llx) returned addr 0x%llx",
-		    override_tag, do_copy, *vmaddr_ptr, i * vmsize_chunk, vmaddr_info);
+		    override_tag, do_copy, *vmaddr_ptr, (mach_vm_size_t)i * vmsize_chunk, vmaddr_info);
 		if (T_RESULT == T_RESULT_FAIL) {
 			goto done;
 		}
 		T_QUIET;
 		T_EXPECT_EQ(vmsize_info, vmsize_chunk, "[override_tag:%d][do_copy:%d] mach_vm_region_recurse(0x%llx+0x%llx) returned size 0x%llx expected 0x%llx",
-		    override_tag, do_copy, *vmaddr_ptr, i * vmsize_chunk, vmsize_info, vmsize_chunk);
+		    override_tag, do_copy, *vmaddr_ptr, (mach_vm_size_t)i * vmsize_chunk, vmsize_info, vmsize_chunk);
 		if (T_RESULT == T_RESULT_FAIL) {
 			goto done;
 		}
@@ -862,6 +867,102 @@ done:
 	}
 }
 
+T_DECL(madvise_zero_wired, "test madvise(MADV_ZERO_WIRED_PAGES)", T_META_TAG_VM_PREFERRED)
+{
+	vm_address_t            vmaddr;
+	vm_address_t            vmaddr_remap;
+	vm_size_t               vmsize = PAGE_SIZE * 3;
+	vm_prot_t               cur_prot, max_prot;
+	vm_address_t            non_zero_addr = 0;
+	kern_return_t           kr;
+	int                     ret;
+
+	/*
+	 * madvise(MADV_ZERO_WIRED_PAGES) should cause wired pages to get zero-filled
+	 * when they get deallocated.
+	 */
+	vmaddr = 0;
+	kr = vm_allocate(mach_task_self(),
+	    &vmaddr,
+	    vmsize,
+	    (VM_FLAGS_ANYWHERE |
+	    VM_MAKE_TAG(VM_MEMORY_MALLOC)));
+	T_QUIET; T_ASSERT_MACH_SUCCESS(kr, "vm_allocate()");
+	memset((void *)vmaddr, 'A', vmsize);
+	T_QUIET; T_ASSERT_EQ(*(char *)vmaddr, 'A', " ");
+	vmaddr_remap = 0;
+	kr = vm_remap(mach_task_self(), &vmaddr_remap, vmsize, 0, VM_FLAGS_ANYWHERE,
+	    mach_task_self(), vmaddr, FALSE, &cur_prot, &max_prot,
+	    VM_INHERIT_DEFAULT);
+	T_QUIET; T_ASSERT_MACH_SUCCESS(kr, "vm_remap()");
+	ret = madvise((void*)vmaddr, vmsize, MADV_ZERO_WIRED_PAGES);
+	T_QUIET; T_ASSERT_POSIX_SUCCESS(ret, "madvise(MADV_ZERO_WIRED_PAGES)");
+	ret = mlock((void*)vmaddr, vmsize);
+	T_QUIET; T_ASSERT_POSIX_SUCCESS(ret, "mlock()");
+	T_QUIET; T_ASSERT_EQ(*(char *)vmaddr, 'A', " ");
+	ret = munmap((void*)vmaddr, vmsize);
+	T_QUIET; T_ASSERT_POSIX_SUCCESS(ret, "munmap()");
+	T_ASSERT_EQ(*(char *)vmaddr_remap, 0, "wired pages are zero-filled on unmap");
+	T_QUIET; T_ASSERT_EQ(validate_memory_is_zero(vmaddr_remap, vmsize, &non_zero_addr),
+	    true, "madvise(%p, %lu, MADV_ZERO_WIRED) did not zero-fill mem at %p",
+	    (void *)vmaddr, vmsize, (void *)non_zero_addr);
+	ret = munmap((void *)vmaddr_remap, vmsize);
+	T_QUIET; T_ASSERT_POSIX_SUCCESS(ret, "munmap()");
+
+	/*
+	 * madvise(MADV_ZERO_WIRED_PAGES) should fail with EPERM if the
+	 * mapping is not writable.
+	 */
+	vmaddr = 0;
+	kr = vm_allocate(mach_task_self(),
+	    &vmaddr,
+	    vmsize,
+	    (VM_FLAGS_ANYWHERE |
+	    VM_MAKE_TAG(VM_MEMORY_MALLOC)));
+	T_QUIET; T_ASSERT_MACH_SUCCESS(kr, "vm_allocate()");
+	memset((void *)vmaddr, 'A', vmsize);
+	T_QUIET; T_ASSERT_EQ(*(char *)vmaddr, 'A', " ");
+	ret = mprotect((void*)vmaddr, vmsize, PROT_READ);
+	T_QUIET; T_ASSERT_POSIX_SUCCESS(ret, "mprotect(PROT_READ)");
+	ret = madvise((void*)vmaddr, vmsize, MADV_ZERO_WIRED_PAGES);
+	//T_LOG("madv() ret %d errno %d\n", ret, errno);
+	T_ASSERT_POSIX_FAILURE(ret, EPERM,
+	    "madvise(MADV_ZERO_WIRED_PAGES) returns EPERM on non-writable mapping ret %d errno %d", ret, errno);
+	ret = munmap((void*)vmaddr, vmsize);
+	T_QUIET; T_ASSERT_POSIX_SUCCESS(ret, "munmap()");
+
+	/*
+	 * madvise(MADV_ZERO_WIRED_PAGES) should not zero-fill the pages
+	 * if the mapping is no longer writable when it gets unwired.
+	 */
+	vmaddr = 0;
+	kr = vm_allocate(mach_task_self(),
+	    &vmaddr,
+	    vmsize,
+	    (VM_FLAGS_ANYWHERE |
+	    VM_MAKE_TAG(VM_MEMORY_MALLOC)));
+	T_QUIET; T_ASSERT_MACH_SUCCESS(kr, "vm_allocate()");
+	memset((void *)vmaddr, 'A', vmsize);
+	T_QUIET; T_ASSERT_EQ(*(char *)vmaddr, 'A', " ");
+	vmaddr_remap = 0;
+	kr = vm_remap(mach_task_self(), &vmaddr_remap, vmsize, 0, VM_FLAGS_ANYWHERE,
+	    mach_task_self(), vmaddr, FALSE, &cur_prot, &max_prot,
+	    VM_INHERIT_DEFAULT);
+	T_QUIET; T_ASSERT_MACH_SUCCESS(kr, "vm_remap()");
+	ret = madvise((void*)vmaddr, vmsize, MADV_ZERO_WIRED_PAGES);
+	T_QUIET; T_ASSERT_POSIX_SUCCESS(ret, "madvise(MADV_ZERO_WIRED_PAGES)");
+	ret = mprotect((void*)vmaddr, vmsize, PROT_READ);
+	T_QUIET; T_ASSERT_POSIX_SUCCESS(ret, "mprotect(PROT_READ)");
+	ret = mlock((void*)vmaddr, vmsize);
+	T_QUIET; T_ASSERT_POSIX_SUCCESS(ret, "mlock()");
+	T_QUIET; T_ASSERT_EQ(*(char *)vmaddr, 'A', " ");
+	ret = munmap((void*)vmaddr, vmsize);
+	T_QUIET; T_ASSERT_POSIX_SUCCESS(ret, "munmap()");
+	T_ASSERT_EQ(*(char *)vmaddr_remap, 'A', "RO wired pages NOT zero-filled on unmap");
+	ret = munmap((void *)vmaddr_remap, vmsize);
+	T_QUIET; T_ASSERT_POSIX_SUCCESS(ret, "munmap()");
+}
+
 #define DEST_PATTERN 0xFEDCBA98
 
 T_DECL(map_read_overwrite, "test overwriting vm map from other map - \
@@ -872,8 +973,8 @@ T_DECL(map_read_overwrite, "test overwriting vm map from other map - \
 	kern_return_t           kr;
 	mach_vm_address_t       vmaddr1, vmaddr2;
 	mach_vm_size_t          vmsize1, vmsize2;
-	unsigned int            *ip;
-	unsigned int            i;
+	uint32_t                *ip;
+	uint32_t                i;
 
 	vmaddr1 = 0;
 	vmsize1 = 4 * 4096;
@@ -883,8 +984,8 @@ T_DECL(map_read_overwrite, "test overwriting vm map from other map - \
 	    VM_FLAGS_ANYWHERE);
 	T_ASSERT_MACH_SUCCESS(kr, "vm_allocate()");
 
-	ip = (unsigned int *)(uintptr_t)vmaddr1;
-	for (i = 0; i < vmsize1 / sizeof(*ip); i++) {
+	ip = (uint32_t *)(uintptr_t)vmaddr1;
+	for (i = 0; (mach_vm_size_t)i < vmsize1 / sizeof(*ip); i++) {
 		ip[i] = i;
 	}
 
@@ -895,8 +996,8 @@ T_DECL(map_read_overwrite, "test overwriting vm map from other map - \
 	    VM_FLAGS_ANYWHERE);
 	T_ASSERT_MACH_SUCCESS(kr, "vm_allocate()");
 
-	ip = (unsigned int *)(uintptr_t)vmaddr2;
-	for (i = 0; i < vmsize1 / sizeof(*ip); i++) {
+	ip = (uint32_t *)(uintptr_t)vmaddr2;
+	for (i = 0; (mach_vm_size_t)i < vmsize1 / sizeof(*ip); i++) {
 		ip[i] = DEST_PATTERN;
 	}
 
@@ -908,18 +1009,18 @@ T_DECL(map_read_overwrite, "test overwriting vm map from other map - \
 	    &vmsize2);
 	T_ASSERT_MACH_SUCCESS(kr, "vm_read_overwrite()");
 
-	ip = (unsigned int *)(uintptr_t)vmaddr2;
+	ip = (uint32_t *)(uintptr_t)vmaddr2;
 	for (i = 0; i < 1; i++) {
 		T_QUIET;
 		T_ASSERT_EQ(ip[i], DEST_PATTERN, "vmaddr2[%d] = 0x%x instead of 0x%x",
 		    i, ip[i], DEST_PATTERN);
 	}
-	for (; i < (vmsize1 - 2) / sizeof(*ip); i++) {
+	for (; (mach_vm_size_t)i < (vmsize1 - 2) / sizeof(*ip); i++) {
 		T_QUIET;
 		T_ASSERT_EQ(ip[i], i, "vmaddr2[%d] = 0x%x instead of 0x%x",
 		    i, ip[i], i);
 	}
-	for (; i < vmsize1 / sizeof(*ip); i++) {
+	for (; (mach_vm_size_t)i < vmsize1 / sizeof(*ip); i++) {
 		T_QUIET;
 		T_ASSERT_EQ(ip[i], DEST_PATTERN, "vmaddr2[%d] = 0x%x instead of 0x%x",
 		    i, ip[i], DEST_PATTERN);

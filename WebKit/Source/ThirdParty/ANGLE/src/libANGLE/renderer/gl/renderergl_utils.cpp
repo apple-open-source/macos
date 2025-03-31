@@ -1603,6 +1603,8 @@ void GenerateCaps(const FunctionsGL *functions,
          functions->hasGLExtension("GL_ATI_texture_mirror_once") ||
          functions->hasGLESExtension("GL_EXT_texture_mirror_clamp_to_edge"));
 
+    extensions->textureShadowLodEXT = functions->hasExtension("GL_EXT_texture_shadow_lod");
+
     extensions->multiDrawIndirectEXT = true;
     extensions->instancedArraysANGLE = functions->isAtLeastGL(gl::Version(3, 1)) ||
                                        (functions->hasGLExtension("GL_ARB_instanced_arrays") &&
@@ -1690,27 +1692,7 @@ void GenerateCaps(const FunctionsGL *functions,
                                         functions->hasGLExtension("GL_ARB_stencil_texturing") ||
                                         functions->isAtLeastGLES(gl::Version(3, 1));
 
-    // ANGLE_shader_pixel_local_storage.
-    if (features.supportsShaderPixelLocalStorageEXT.enabled &&
-        functions->isAtLeastGLES(gl::Version(3, 1)))
-    {
-        // We can support PLS natively, including memoryless planes, in tiled memory.
-        // (EXT_shader_pixel_local_storage doesn't have a mechanism to preserve more than one plane
-        // of data, so we can only use this backend if we also have ES3.1 shader images.)
-        //
-        // MAX_SHADER_PIXEL_LOCAL_STORAGE_FAST_SIZE_EXT has a minimum value of 16, which gives 4
-        // planes. Only a non-conformant backend driver would have < 16.
-        caps->maxShaderPixelLocalStorageFastSizeEXT =
-            QuerySingleGLInt(functions, GL_MAX_SHADER_PIXEL_LOCAL_STORAGE_FAST_SIZE_EXT);
-        if (caps->maxShaderPixelLocalStorageFastSizeEXT >= 16)
-        {
-            extensions->shaderPixelLocalStorageANGLE         = true;
-            extensions->shaderPixelLocalStorageCoherentANGLE = true;
-            plsOptions->type             = ShPixelLocalStorageType::PixelLocalStorageEXT;
-            plsOptions->fragmentSyncType = ShFragmentSynchronizationType::Automatic;
-        }
-    }
-    else if (features.supportsShaderFramebufferFetchEXT.enabled)
+    if (features.supportsShaderFramebufferFetchEXT.enabled)
     {
         // We can support PLS natively, probably in tiled memory.
         extensions->shaderPixelLocalStorageANGLE         = true;
@@ -1806,13 +1788,16 @@ void GenerateCaps(const FunctionsGL *functions,
     // Note that OES_texture_storage_multisample_2d_array support could be extended down to GL 3.2
     // if we emulated texStorage* API on top of texImage*.
     extensions->textureStorageMultisample2dArrayOES =
-        functions->isAtLeastGL(gl::Version(4, 2)) || functions->isAtLeastGLES(gl::Version(3, 2));
+        functions->isAtLeastGL(gl::Version(4, 3)) ||
+        functions->hasGLExtension("GL_ARB_texture_storage_multisample") ||
+        functions->hasGLESExtension("GL_OES_texture_storage_multisample_2d_array");
 
     extensions->multiviewMultisampleANGLE = extensions->textureStorageMultisample2dArrayOES &&
                                             (extensions->multiviewOVR || extensions->multiview2OVR);
 
     extensions->textureMultisampleANGLE = functions->isAtLeastGL(gl::Version(3, 2)) ||
-                                          functions->hasGLExtension("GL_ARB_texture_multisample");
+                                          functions->hasGLExtension("GL_ARB_texture_multisample") ||
+                                          functions->isAtLeastGLES(gl::Version(3, 1));
 
     extensions->textureSRGBDecodeEXT = functions->hasGLExtension("GL_EXT_texture_sRGB_decode") ||
                                        functions->hasGLESExtension("GL_EXT_texture_sRGB_decode");
@@ -2660,14 +2645,10 @@ void InitializeFeatures(const FunctionsGL *functions, angle::FeaturesGL *feature
         features, supportsShaderFramebufferFetchNonCoherentEXT,
         functions->hasGLESExtension("GL_EXT_shader_framebuffer_fetch_non_coherent"));
 
-    // EXT_shader_pixel_local_storage
-    ANGLE_FEATURE_CONDITION(features, supportsShaderPixelLocalStorageEXT,
-                            functions->hasGLESExtension("GL_EXT_shader_pixel_local_storage"));
-
     // https://crbug.com/1356053
     ANGLE_FEATURE_CONDITION(features, bindCompleteFramebufferForTimerQueries, isMali);
 
-    // https://crbug.com/1434317
+    // https://crbug.com/40264674
     ANGLE_FEATURE_CONDITION(features, disableClipControl, IsMaliG72OrG76OrG51(functions));
 
     // https://anglebug.com/42266811
@@ -2687,10 +2668,11 @@ void InitializeFeatures(const FunctionsGL *functions, angle::FeaturesGL *feature
     // http://anglebug.com/42266610
     ANGLE_FEATURE_CONDITION(features, disableBaseInstanceVertex, IsMaliValhall(functions));
 
-    // http://crbug.com/1420130
-    ANGLE_FEATURE_CONDITION(features, scalarizeVecAndMatConstructorArgs, isMali);
+    // Mali: http://crbug.com/40063287
+    // Nvidia: http://crbug.com/328015191
+    ANGLE_FEATURE_CONDITION(features, scalarizeVecAndMatConstructorArgs, isMali || isNvidia);
 
-    // http://crbug.com/1456243
+    // http://crbug.com/40066076
     ANGLE_FEATURE_CONDITION(features, ensureNonEmptyBufferIsBoundForDraw, IsApple() || IsAndroid());
 
     // https://anglebug.com/42266857
@@ -3038,6 +3020,14 @@ void ClearErrors(const FunctionsGL *functions,
     {
         INFO() << "Preexisting GL error " << gl::FmtHex(error) << " as of " << file << ", "
                << function << ":" << line << ". ";
+
+        // Skip GL_CONTEXT_LOST errors, they will be generated continuously and result in an
+        // infinite loop.
+        if (error == GL_CONTEXT_LOST)
+        {
+            return;
+        }
+
         error = functions->getError();
     }
 }

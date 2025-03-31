@@ -86,9 +86,9 @@ static void appendImplicitSelectorIfNeeded(MutableCSSSelector& selector, CSSPars
     }
 }
 
-MutableCSSSelectorList parseMutableCSSSelectorList(CSSParserTokenRange& range, const CSSSelectorParserContext& context, StyleSheetContents* styleSheet, CSSParserEnum::NestedContext nestedContext, CSSParserEnum::IsForgiving isForgiving)
+MutableCSSSelectorList parseMutableCSSSelectorList(CSSParserTokenRange& range, const CSSSelectorParserContext& context, StyleSheetContents* styleSheet, CSSParserEnum::NestedContext nestedContext, CSSParserEnum::IsForgiving isForgiving, CSSSelectorParser::DisallowPseudoElement disallowPseudoElement)
 {
-    CSSSelectorParser parser(context, styleSheet, nestedContext);
+    CSSSelectorParser parser(context, styleSheet, nestedContext, disallowPseudoElement);
     range.consumeWhitespace();
     auto consume = [&] {
         if (nestedContext && isForgiving == CSSParserEnum::IsForgiving::No)
@@ -114,7 +114,7 @@ MutableCSSSelectorList parseMutableCSSSelectorList(CSSParserTokenRange& range, c
 
 std::optional<CSSSelectorList> parseCSSSelectorList(CSSParserTokenRange range, const CSSSelectorParserContext& context, StyleSheetContents* styleSheet, CSSParserEnum::NestedContext nestedContext)
 {
-    auto result = parseMutableCSSSelectorList(range, context, styleSheet, nestedContext, CSSParserEnum::IsForgiving::No);
+    auto result = parseMutableCSSSelectorList(range, context, styleSheet, nestedContext, CSSParserEnum::IsForgiving::No, CSSSelectorParser::DisallowPseudoElement::No);
 
     if (result.isEmpty() || !range.atEnd())
         return { };
@@ -122,10 +122,11 @@ std::optional<CSSSelectorList> parseCSSSelectorList(CSSParserTokenRange range, c
     return CSSSelectorList { WTFMove(result) };
 }
 
-CSSSelectorParser::CSSSelectorParser(const CSSSelectorParserContext& context, StyleSheetContents* styleSheet, CSSParserEnum::NestedContext nestedContext)
+CSSSelectorParser::CSSSelectorParser(const CSSSelectorParserContext& context, StyleSheetContents* styleSheet, CSSParserEnum::NestedContext nestedContext, DisallowPseudoElement disallowPseudoElement)
     : m_context(context)
     , m_styleSheet(styleSheet)
     , m_nestedContext(nestedContext)
+    , m_disallowPseudoElements(disallowPseudoElement == DisallowPseudoElement::Yes)
 {
 }
 
@@ -315,16 +316,16 @@ static FixedVector<PossiblyQuotedIdentifier> consumeLangArgumentList(CSSParserTo
     return FixedVector<PossiblyQuotedIdentifier> { WTFMove(list) };
 }
 
-static std::optional<FixedVector<PossiblyQuotedIdentifier>> consumeCommaSeparatedCustomIdentList(CSSParserTokenRange& range)
+static std::optional<FixedVector<AtomString>> consumeCommaSeparatedCustomIdentList(CSSParserTokenRange& range)
 {
-    Vector<PossiblyQuotedIdentifier> customIdents { };
+    Vector<AtomString> customIdents { };
 
     do {
         auto ident = CSSPropertyParserHelpers::consumeCustomIdentRaw(range, /* shouldLowercase */ true);
         if (ident.isEmpty())
             return std::nullopt;
 
-        customIdents.append({ AtomString { WTFMove(ident) }, false });
+        customIdents.append(WTFMove(ident));
     } while (CSSPropertyParserHelpers::consumeCommaIncludingWhitespace(range));
 
     if (!range.atEnd())
@@ -333,7 +334,7 @@ static std::optional<FixedVector<PossiblyQuotedIdentifier>> consumeCommaSeparate
     // The parsing code guarantees there has to be at least one custom ident.
     ASSERT(!customIdents.isEmpty());
 
-    return FixedVector<PossiblyQuotedIdentifier> { WTFMove(customIdents) };
+    return FixedVector<AtomString> { WTFMove(customIdents) };
 }
 
 enum class CompoundSelectorFlag {
@@ -861,7 +862,7 @@ std::unique_ptr<MutableCSSSelector> CSSSelectorParser::consumePseudo(CSSParserTo
             auto list = consumeLangArgumentList(block);
             if (list.isEmpty() || !block.atEnd())
                 return nullptr;
-            selector->setArgumentList(WTFMove(list));
+            selector->setLangList(WTFMove(list));
             return selector;
         }
         case CSSSelector::PseudoClass::Is:
@@ -947,19 +948,19 @@ std::unique_ptr<MutableCSSSelector> CSSSelectorParser::consumePseudo(CSSParserTo
         case CSSSelector::PseudoElement::ViewTransitionImagePair:
         case CSSSelector::PseudoElement::ViewTransitionOld:
         case CSSSelector::PseudoElement::ViewTransitionNew: {
-            Vector<PossiblyQuotedIdentifier> nameAndClasses;
+            Vector<AtomString> nameAndClasses;
 
             // Check for implicit universal selector.
             if (m_context.viewTransitionClassesEnabled && block.peek().type() == DelimiterToken && block.peek().delimiter() == '.')
-                nameAndClasses.append({ starAtom() });
+                nameAndClasses.append(starAtom());
 
             // Parse name or explicit universal selector.
             if (nameAndClasses.isEmpty()) {
                 const auto& ident = block.consume();
                 if (ident.type() == IdentToken && isValidCustomIdentifier(ident.id()))
-                    nameAndClasses.append({ ident.value().toAtomString() });
+                    nameAndClasses.append(ident.value().toAtomString());
                 else if (ident.type() == DelimiterToken && ident.delimiter() == '*')
-                    nameAndClasses.append({ starAtom() });
+                    nameAndClasses.append(starAtom());
                 else
                     return nullptr;
             }
@@ -981,19 +982,19 @@ std::unique_ptr<MutableCSSSelector> CSSSelectorParser::consumePseudo(CSSParserTo
             if (!block.atEnd())
                 return nullptr;
 
-            selector->setArgumentList(FixedVector<PossiblyQuotedIdentifier> { WTFMove(nameAndClasses) });
+            selector->setArgumentList(FixedVector<AtomString> { WTFMove(nameAndClasses) });
             return selector;
         }
 
         case CSSSelector::PseudoElement::Part: {
-            Vector<PossiblyQuotedIdentifier> argumentList;
+            Vector<AtomString> argumentList;
             do {
                 auto& ident = block.consumeIncludingWhitespace();
                 if (ident.type() != IdentToken)
                     return nullptr;
-                argumentList.append({ ident.value().toAtomString() });
+                argumentList.append(ident.value().toAtomString());
             } while (!block.atEnd());
-            selector->setArgumentList(FixedVector<PossiblyQuotedIdentifier> { WTFMove(argumentList) });
+            selector->setArgumentList(FixedVector<AtomString> { WTFMove(argumentList) });
             return selector;
         }
         case CSSSelector::PseudoElement::Slotted: {

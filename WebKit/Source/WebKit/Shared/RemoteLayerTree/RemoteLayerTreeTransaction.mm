@@ -29,17 +29,20 @@
 #import "ArgumentCoders.h"
 #import "LayerProperties.h"
 #import "PlatformCALayerRemote.h"
-#import "WebCoreArgumentCoders.h"
 #import <QuartzCore/QuartzCore.h>
 #import <WebCore/EventRegion.h>
 #import <WebCore/LengthFunctions.h>
 #import <WebCore/Model.h>
-#import <WebCore/RuntimeApplicationChecks.h>
 #import <WebCore/TimingFunction.h>
+#import <wtf/RuntimeApplicationChecks.h>
 #import <wtf/TZoneMallocInlines.h>
 #import <wtf/text/CString.h>
 #import <wtf/text/MakeString.h>
 #import <wtf/text/TextStream.h>
+
+#if ENABLE(MODEL_PROCESS)
+#import <WebCore/ModelContext.h>
+#endif
 
 namespace WebKit {
 
@@ -60,7 +63,7 @@ void RemoteLayerTreeTransaction::setRootLayerID(WebCore::PlatformLayerIdentifier
 
 void RemoteLayerTreeTransaction::layerPropertiesChanged(PlatformCALayerRemote& remoteLayer)
 {
-    ASSERT(WebCore::isInWebProcess());
+    ASSERT(isInWebProcess());
     m_changedLayers.changedLayers.add(remoteLayer);
 }
 
@@ -237,9 +240,16 @@ static void dumpChangedLayers(TextStream& ts, const LayerPropertiesMap& changedL
             ts.dumpProperty("isDescendentOfSeparatedPortal", layerProperties.isDescendentOfSeparatedPortal);
 #endif
 #endif
+        if (layerProperties.changedProperties & LayerChange::ContentsFormatChanged)
+            ts.dumpProperty("contentsFormat", layerProperties.contentsFormat);
 
         if (layerProperties.changedProperties & LayerChange::VideoGravityChanged)
             ts.dumpProperty("videoGravity", layerProperties.videoGravity);
+
+#if HAVE(CORE_MATERIAL)
+        if (layerProperties.changedProperties & LayerChange::AppleVisualEffectChanged)
+            ts.dumpProperty("appleVisualEffect", layerProperties.appleVisualEffect);
+#endif
     }
 }
 
@@ -305,6 +315,11 @@ String RemoteLayerTreeTransaction::description() const
                     ts << " (model " << model->get() << ")";
                 break;
 #endif
+#if HAVE(CORE_ANIMATION_SEPARATED_LAYERS)
+            case WebCore::PlatformCALayer::LayerType::LayerTypeSeparatedImageLayer:
+                ts << " (separated image)";
+                break;
+#endif
             default:
                 break;
             }
@@ -340,19 +355,19 @@ bool RemoteLayerTreeTransaction::hasAnyLayerChanges() const
 
 HashSet<Ref<PlatformCALayerRemote>>& RemoteLayerTreeTransaction::changedLayers()
 {
-    ASSERT(WebCore::isInWebProcess());
+    ASSERT(isInWebProcess());
     return m_changedLayers.changedLayers;
 }
 
 const LayerPropertiesMap& RemoteLayerTreeTransaction::changedLayerProperties() const
 {
-    ASSERT(!WebCore::isInAuxiliaryProcess());
+    ASSERT(!isInAuxiliaryProcess());
     return m_changedLayers.changedLayerProperties;
 }
 
 LayerPropertiesMap& RemoteLayerTreeTransaction::changedLayerProperties()
 {
-    ASSERT(!WebCore::isInAuxiliaryProcess());
+    ASSERT(!isInAuxiliaryProcess());
     return m_changedLayers.changedLayerProperties;
 }
 
@@ -390,6 +405,11 @@ std::optional<WebCore::LayerHostingContextIdentifier> RemoteLayerTreeTransaction
 
 uint32_t RemoteLayerTreeTransaction::LayerCreationProperties::hostingContextID() const
 {
+#if ENABLE(MODEL_PROCESS)
+    if (auto* modelContext = std::get_if<Ref<WebCore::ModelContext>>(&additionalData))
+        return (*modelContext)->modelContentsLayerHostingContextIdentifier().toRawValue();
+#endif
+
     if (auto* customData = std::get_if<CustomData>(&additionalData))
         return customData->hostingContextID;
     return 0;
@@ -409,6 +429,16 @@ float RemoteLayerTreeTransaction::LayerCreationProperties::hostingDeviceScaleFac
     return 1;
 }
 
+#if ENABLE(MODEL_PROCESS)
+RefPtr<WebCore::ModelContext> RemoteLayerTreeTransaction::LayerCreationProperties::modelContext() const
+{
+    auto* modelContext = std::get_if<Ref<WebCore::ModelContext>>(&additionalData);
+    if (!modelContext)
+        return nullptr;
+    return modelContext->ptr();
+}
+#endif
+
 } // namespace WebKit
 
 namespace IPC {
@@ -417,7 +447,7 @@ void ArgumentCoder<WebKit::ChangedLayers>::encode(Encoder& encoder, const WebKit
 {
     // Although the data is not stored as a LayerPropertiesMap in the web content process, we want it to
     // decode as a LayerPropertiesMap in the UI process without doing any unnecessary transformations or allocations.
-    ASSERT(WebCore::isInWebProcess());
+    ASSERT(isInWebProcess());
     encoder << instance.changedLayers.size();
     for (const auto& layer : instance.changedLayers) {
         encoder << layer->layerID();
@@ -437,7 +467,7 @@ void ArgumentCoder<WebKit::RemoteLayerBackingStoreOrProperties>::encode(Encoder&
 {
     // The web content process has a std::unique_ptr<RemoteLayerBackingStore> but we want it to decode
     // in the UI process as a std::unique_ptr<RemoteLayerBackingStoreProperties>.
-    ASSERT(WebCore::isInWebProcess());
+    ASSERT(isInWebProcess());
     bool hasFrontBuffer = instance.store && instance.store->hasFrontBuffer();
     encoder << hasFrontBuffer;
     if (hasFrontBuffer)

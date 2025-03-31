@@ -8,6 +8,7 @@
 #include <sys/loadable_fs.h>
 #include <libproc.h>
 #include <sys/codesign.h>
+#include <os/feature_private.h>
 #import "DATelemetry.h"
 #import "DADisk.h"
 #import "DAFileSystem.h"
@@ -390,9 +391,32 @@ int DATelemetrySendMountEvent( int status , CFStringRef fsType , bool useUserFS 
     
     telemetry.operationType = DATelemetryOpMount;
     telemetry.fsType = fsType;
-    telemetry.fsImplementation = ( useUserFS ) ? CFSTR("UserFS") : CFSTR("kext");
     telemetry.status = status;
     telemetry.durationNs = durationNs;
+    
+    // Use the FSKit guidelines for whether or not the fs was mounted with FSKit or UserFS
+    if ( ! useUserFS )
+    {
+        telemetry.fsImplementation = CFSTR("kext");
+    }
+    else
+    {
+        switch ( __DA_fsTypeToTelemetryValue( fsType ) ) {
+            case DATelemetryFSTypeMSDOS:
+                telemetry.fsImplementation = ( os_feature_enabled(FSKit, msdosUseFSKitModule) )
+                    ? CFSTR("FSKit") : CFSTR("UserFS");
+                break;
+            case DATelemetryFSTypeEXFAT: // Move these filesystems as we update their mount path to FSKit
+            case DATelemetryFSTypeAPFS:
+            case DATelemetryFSTypeHFS:
+            case DATelemetryFSTypeNTFS:
+                telemetry.fsImplementation = CFSTR("UserFS");
+                break;
+            default: // Third-party FSModules
+                telemetry.fsImplementation = CFSTR("FSKit");
+                break;
+        }
+    }
     
     eventInfo = __DATelemetrySerialize( &telemetry );
 #if TARGET_OS_OSX || TARGET_OS_IOS

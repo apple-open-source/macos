@@ -294,10 +294,6 @@
 }
 
 - (void)testSPKIForEd448 {
-#ifndef LIBDER_HAS_EDDSA
-    // guard for rdar://106052612
-    XCTSkip();
-#endif
     NSError *error = nil;
     id privateKey = CFBridgingRelease(SecKeyCreateRandomKey((CFDictionaryRef)@{(id)kSecAttrKeyType: (id)kSecAttrKeyTypeEd448, (id)kSecAttrKeySizeInBits: @256, (id)kSecUseDataProtectionKeychain : @YES}, (void *)&error));
     XCTAssertNotNil(privateKey, @"key generation failed: %@", error);

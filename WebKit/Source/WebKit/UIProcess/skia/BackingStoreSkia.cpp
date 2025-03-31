@@ -50,7 +50,14 @@ BackingStore::~BackingStore() = default;
 
 void BackingStore::paint(PlatformPaintContextPtr cr, const WebCore::IntRect& rect)
 {
-    m_surface->draw(cr, rect.x(), rect.y());
+    cr->save();
+    cr->scale(1 / m_deviceScaleFactor, 1 / m_deviceScaleFactor);
+    WebCore::IntRect scaledRect { rect };
+    scaledRect.scale(m_deviceScaleFactor);
+    cr->clipIRect(scaledRect);
+    SkSamplingOptions option { SkFilterMode::kLinear };
+    m_surface->draw(cr, 0, 0, option, nullptr);
+    cr->restore();
 }
 
 void BackingStore::incorporateUpdate(UpdateInfo&& updateInfo)
@@ -64,8 +71,7 @@ void BackingStore::incorporateUpdate(UpdateInfo&& updateInfo)
         return;
 
 #if ASSERT_ENABLED
-    WebCore::IntSize updateSize = updateInfo.updateRectBounds.size();
-    updateSize.scale(m_deviceScaleFactor);
+    WebCore::IntSize updateSize = expandedIntSize(updateInfo.updateRectBounds.size() * m_deviceScaleFactor);
     ASSERT(bitmap->size() == updateSize);
 #endif
 

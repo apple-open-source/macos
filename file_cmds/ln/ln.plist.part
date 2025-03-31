@@ -2,15 +2,15 @@
 		<key>OpenSourceProject</key>
 		<string>ln</string>
 		<key>OpenSourceVersion</key>
-		<string>2017-11-20</string>
+		<string>2024-04-04</string>
 		<key>OpenSourceWebsiteURL</key>
-		<string>https://cgit.freebsd.org/src/tree/bin/ln?id=8a16b7a18f5d0b031f09832fd7752fba717e2a97</string>
+		<string>https://cgit.freebsd.org/src/tree/bin/ln?id=bee7cf9e97f6d7bdc918421a93270fa88659808b</string>
 		<key>OpenSourceImportDate</key>
-		<string>2021-05-10</string>
+		<string>2024-04-04</string>
 		<key>OpenSourceModifications</key>
 		<array>
-			<string>ln.c: POSIX conformance for link(1) (42901913)</string>
-			<string>symlink.7: Apple-specific set of system calls that do not follow links (5815743, 72902035)</string>
+			<string>symlink.7: lutimes(3) instead of lutimes(2) (5815743)</string>
+			<string>symlink.7: Darwin does not have lpathconf(2) (72902035)</string>
 		</array>
 		<key>OpenSourceLicense</key>
 		<string>bsd</string>

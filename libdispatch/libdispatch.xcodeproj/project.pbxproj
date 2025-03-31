@@ -222,6 +222,12 @@
 		8495D6AC2C06863D00BCCAF9 /* dispatch.modulemap in Copy Public Module Maps */ = {isa = PBXBuildFile; fileRef = C901445E1C73A7FE002638FC /* dispatch.modulemap */; };
 		8495D6AD2C06864600BCCAF9 /* dispatch_private.modulemap in Copy Private Module Maps */ = {isa = PBXBuildFile; fileRef = C90144641C73A845002638FC /* dispatch_private.modulemap */; };
 		8495D6AF2C0686C900BCCAF9 /* dispatch.modulemap in Copy Public Module Maps */ = {isa = PBXBuildFile; fileRef = 4BD3E9C12954422000D73EA2 /* dispatch.modulemap */; };
+		87AD50322C1A20410094EC1B /* client_callout.mm in Sources */ = {isa = PBXBuildFile; fileRef = 87AD50312C1A20410094EC1B /* client_callout.mm */; };
+		87AD50342C1A20410094EC1B /* client_callout.mm in Sources */ = {isa = PBXBuildFile; fileRef = 87AD50312C1A20410094EC1B /* client_callout.mm */; };
+		87AD50352C1A20410094EC1B /* client_callout.mm in Sources */ = {isa = PBXBuildFile; fileRef = 87AD50312C1A20410094EC1B /* client_callout.mm */; };
+		87AD50362C1A20410094EC1B /* client_callout.mm in Sources */ = {isa = PBXBuildFile; fileRef = 87AD50312C1A20410094EC1B /* client_callout.mm */; };
+		87AD50372C1A20410094EC1B /* client_callout.mm in Sources */ = {isa = PBXBuildFile; fileRef = 87AD50312C1A20410094EC1B /* client_callout.mm */; };
+		87AD50382C1A20410094EC1B /* client_callout.mm in Sources */ = {isa = PBXBuildFile; fileRef = 87AD50312C1A20410094EC1B /* client_callout.mm */; };
 		96032E4B0F5CC8C700241C5F /* time.c in Sources */ = {isa = PBXBuildFile; fileRef = 96032E4A0F5CC8C700241C5F /* time.c */; };
 		96032E4D0F5CC8D100241C5F /* time.h in Headers */ = {isa = PBXBuildFile; fileRef = 96032E4C0F5CC8D100241C5F /* time.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		961B99360F3E83980006BC96 /* benchmark.h in Headers */ = {isa = PBXBuildFile; fileRef = 961B99350F3E83980006BC96 /* benchmark.h */; settings = {ATTRIBUTES = (Private, ); }; };
@@ -939,6 +945,7 @@
 		72DEAA9B1AE1B0BD00289540 /* firehose.defs */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.mig; path = firehose.defs; sourceTree = "<group>"; };
 		72DEAA9D1AE1BB7300289540 /* firehose_server_object.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = firehose_server_object.m; sourceTree = "<group>"; };
 		72EA3FBA1AF41EA400BBA227 /* firehose_server_private.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = firehose_server_private.h; sourceTree = "<group>"; };
+		87AD50312C1A20410094EC1B /* client_callout.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = client_callout.mm; sourceTree = "<group>"; };
 		89EB85E327612F2500963B76 /* bounds_attributes_verifier.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = bounds_attributes_verifier.c; sourceTree = "<group>"; };
 		924D8EAA1C116B9F002AC2BC /* dispatch_c99.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = dispatch_c99.c; sourceTree = "<group>"; };
 		92F3FE8F1BEC686300025962 /* dispatch_api.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = dispatch_api.c; sourceTree = "<group>"; };
@@ -1152,6 +1159,7 @@
 				6E4BACBC1D48A41500B562AE /* mach.c */,
 				9661E56A0F3E7DDF00749F3E /* object.c */,
 				E4FC3263145F46C9002FBDDB /* object.m */,
+				87AD50312C1A20410094EC1B /* client_callout.mm */,
 				96DF70BD0F38FE3C0074BD99 /* once.c */,
 				FC7BED8A0E8361E600161930 /* queue.c */,
 				721F5CCE0F15553500FF03A6 /* semaphore.c */,
@@ -2686,6 +2694,7 @@
 				96A8AA870F41E7A400CD570B /* source.c in Sources */,
 				9B81557B234AFC9800DB5CA3 /* workgroup.c in Sources */,
 				6E9C6CA720F9848100EA81C0 /* yield.c in Sources */,
+				87AD50352C1A20410094EC1B /* client_callout.mm in Sources */,
 				6E4BACBD1D48A41500B562AE /* mach.c in Sources */,
 				6EA962971D48622600759D53 /* event.c in Sources */,
 				6EA9629F1D48625000759D53 /* event_kevent.c in Sources */,
@@ -2724,6 +2733,7 @@
 				E43B887F2241F19000215272 /* apply.c in Sources */,
 				E43B88802241F19000215272 /* source.c in Sources */,
 				E43B88812241F19000215272 /* yield.c in Sources */,
+				87AD50372C1A20410094EC1B /* client_callout.mm in Sources */,
 				E43B88822241F19000215272 /* mach.c in Sources */,
 				E43B88832241F19000215272 /* event.c in Sources */,
 				E43B88842241F19000215272 /* event_kevent.c in Sources */,
@@ -2762,6 +2772,7 @@
 				E49BB6DA1E70748100868613 /* queue.c in Sources */,
 				E49BB6DF1E70748100868613 /* apply.c in Sources */,
 				6E9C6CAA20F9848D00EA81C0 /* yield.c in Sources */,
+				87AD50382C1A20410094EC1B /* client_callout.mm in Sources */,
 				E49BB6E31E70748100868613 /* source.c in Sources */,
 				E49BB6E81E70748100868613 /* event.c in Sources */,
 				E49BB6D61E70748100868613 /* event_kevent.c in Sources */,
@@ -2800,6 +2811,7 @@
 				E49F24CE125D57FA0057C971 /* apply.c in Sources */,
 				E49F24D1125D57FA0057C971 /* source.c in Sources */,
 				6E9C6CA820F9848C00EA81C0 /* yield.c in Sources */,
+				87AD50362C1A20410094EC1B /* client_callout.mm in Sources */,
 				6E4BACC21D48A42000B562AE /* mach.c in Sources */,
 				6EA962981D48622700759D53 /* event.c in Sources */,
 				6EA962A01D48625100759D53 /* event_kevent.c in Sources */,
@@ -2838,6 +2850,7 @@
 				E4B515C1164B2DA300E003AF /* queue.c in Sources */,
 				E4B515C4164B2DA300E003AF /* apply.c in Sources */,
 				E4B515C7164B2DA300E003AF /* source.c in Sources */,
+				87AD50322C1A20410094EC1B /* client_callout.mm in Sources */,
 				6E4BACC51D48A42200B562AE /* mach.c in Sources */,
 				6EA9629B1D48622900759D53 /* event.c in Sources */,
 				6EA962A31D48625300759D53 /* event_kevent.c in Sources */,
@@ -2877,6 +2890,7 @@
 				E4EC121D12514715000DDBD1 /* apply.c in Sources */,
 				E4EC122012514715000DDBD1 /* source.c in Sources */,
 				6E9C6CA920F9848D00EA81C0 /* yield.c in Sources */,
+				87AD50342C1A20410094EC1B /* client_callout.mm in Sources */,
 				6E4BACC31D48A42100B562AE /* mach.c in Sources */,
 				6EA962991D48622800759D53 /* event.c in Sources */,
 				6EA962A11D48625100759D53 /* event_kevent.c in Sources */,

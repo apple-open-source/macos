@@ -164,6 +164,7 @@
 #define		__raise				raise
 #define		__signalcontext			signalcontext
 #define		__sleep				sleep
+#define		__strchrnul			strchrnul
 #define		__strtok_r			strtok_r
 #define		__swapcontext			swapcontext
 #define		__system			system

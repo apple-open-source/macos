@@ -793,6 +793,7 @@ smb2_mc_query_info_response_event(struct session_network_interface_info *session
 	do {
         // Parse the query_interface_respose message, extract the server NICs info
 		server_info_buffer += next_offset;
+        if (server_info_buffer > buf_end) goto bad_offset;
 		uint8_t* interface_data = server_info_buffer;
 
 		/* Extract the data from the buffer */

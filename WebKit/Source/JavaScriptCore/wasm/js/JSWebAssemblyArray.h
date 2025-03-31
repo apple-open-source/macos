@@ -33,6 +33,8 @@
 #include "WasmTypeDefinition.h"
 #include "WebAssemblyGCObjectBase.h"
 
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
+
 namespace JSC {
 
 class JSWebAssemblyArray final : public WebAssemblyGCObjectBase {
@@ -54,9 +56,9 @@ public:
 
     static Structure* createStructure(VM&, JSGlobalObject*, JSValue);
 
-    static JSWebAssemblyArray* create(VM& vm, Structure* structure, Wasm::FieldType elementType, size_t size, RefPtr<const Wasm::RTT> rtt)
+    static JSWebAssemblyArray* create(VM& vm, Structure* structure, Wasm::FieldType elementType, size_t size, RefPtr<const Wasm::RTT>&& rtt)
     {
-        auto* object = new (NotNull, allocateCell<JSWebAssemblyArray>(vm)) JSWebAssemblyArray(vm, structure, elementType, size, rtt);
+        auto* object = new (NotNull, allocateCell<JSWebAssemblyArray>(vm)) JSWebAssemblyArray(vm, structure, elementType, size, WTFMove(rtt));
         object->finishCreation(vm);
         return object;
     }
@@ -156,7 +158,7 @@ public:
         case Wasm::TypeKind::Funcref:
         case Wasm::TypeKind::Ref:
         case Wasm::TypeKind::RefNull: {
-            WriteBarrier<Unknown>* pointer = bitwise_cast<WriteBarrier<Unknown>*>(m_payload64.mutableSpan().data());
+            WriteBarrier<Unknown>* pointer = std::bit_cast<WriteBarrier<Unknown>*>(m_payload64.mutableSpan().data());
             pointer += index;
             pointer->set(vm(), this, JSValue::decode(static_cast<EncodedJSValue>(value)));
             break;
@@ -214,7 +216,7 @@ public:
     }
 
 protected:
-    JSWebAssemblyArray(VM&, Structure*, Wasm::FieldType, size_t, RefPtr<const Wasm::RTT>);
+    JSWebAssemblyArray(VM&, Structure*, Wasm::FieldType, size_t, RefPtr<const Wasm::RTT>&&);
     ~JSWebAssemblyArray();
 
     DECLARE_DEFAULT_FINISH_CREATION;
@@ -235,5 +237,7 @@ protected:
 };
 
 } // namespace JSC
+
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
 
 #endif // ENABLE(WEBASSEMBLY)

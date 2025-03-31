@@ -109,26 +109,26 @@ RealtimeMediaSource::RealtimeMediaSource(const CaptureDevice& device, MediaDevic
     , m_name({ device.label() })
     , m_device(device)
 {
-    initializePersistentId();
+    initializeIds();
 }
 
-RealtimeMediaSource::~RealtimeMediaSource()
-{
-}
+RealtimeMediaSource::~RealtimeMediaSource() = default;
 
 void RealtimeMediaSource::setPersistentId(const String& persistentID)
 {
     m_device.setPersistentId(persistentID);
-    initializePersistentId();
+    initializeIds();
 }
 
-void RealtimeMediaSource::initializePersistentId()
+void RealtimeMediaSource::initializeIds()
 {
     if (m_device.persistentId().isEmpty())
         m_device.setPersistentId(createVersion4UUIDString());
 
     m_hashedID = RealtimeMediaSourceCenter::hashStringWithSalt(m_device.persistentId(), m_idHashSalts.persistentDeviceSalt);
     m_ephemeralHashedID = RealtimeMediaSourceCenter::hashStringWithSalt(m_device.persistentId(), m_idHashSalts.ephemeralDeviceSalt);
+
+    m_hashedGroupId = RealtimeMediaSourceCenter::hashStringWithSalt(m_device.groupId(), m_idHashSalts.ephemeralDeviceSalt);
 }
 
 void RealtimeMediaSource::addAudioSampleObserver(AudioSampleObserver& observer)
@@ -395,7 +395,7 @@ void RealtimeMediaSource::start()
 
 void RealtimeMediaSource::stop()
 {
-    if (!m_isProducingData)
+    if (!m_isProducingData || m_isEnded)
         return;
 
     ALWAYS_LOG_IF(m_logger, LOGIDENTIFIER);
@@ -717,10 +717,10 @@ double RealtimeMediaSource::fitnessDistance(MediaConstraintType constraintType, 
 
     switch (constraintType) {
     case MediaConstraintType::EchoCancellation:
-        if (!capabilities.supportsEchoCancellation())
+        if (!capabilities.supportsEchoCancellation() || capabilities.echoCancellation() == RealtimeMediaSourceCapabilities::EchoCancellation::OnOrOff)
             return 0;
 
-        return constraint.fitnessDistance(capabilities.echoCancellation() == RealtimeMediaSourceCapabilities::EchoCancellation::ReadWrite);
+        return constraint.fitnessDistance(capabilities.echoCancellation() == RealtimeMediaSourceCapabilities::EchoCancellation::On);
     case MediaConstraintType::Torch:
         if (!capabilities.supportsTorch())
             return 0;
@@ -799,6 +799,13 @@ void RealtimeMediaSource::setSizeFrameRateAndZoom(const VideoPresetConstraints& 
         setZoom(*constraints.zoom);
 }
 
+static bool booleanSettingFromConstraint(const BooleanConstraint& boolConstraint)
+{
+    bool setting = true;
+    boolConstraint.getExact(setting) || boolConstraint.getIdeal(setting);
+    return setting;
+}
+
 void RealtimeMediaSource::applyConstraint(MediaConstraintType constraintType, const MediaConstraint& constraint)
 {
     ALWAYS_LOG_IF(m_logger, LOGIDENTIFIER, constraintType);
@@ -852,17 +859,24 @@ void RealtimeMediaSource::applyConstraint(MediaConstraintType constraintType, co
         break;
     }
 
-    case MediaConstraintType::EchoCancellation: {
+    case MediaConstraintType::EchoCancellation:
         ASSERT(constraint.isBoolean());
         if (!capabilities.supportsEchoCancellation())
             return;
 
-        bool setting;
-        const BooleanConstraint& boolConstraint = downcast<BooleanConstraint>(constraint);
-        if (boolConstraint.getExact(setting) || boolConstraint.getIdeal(setting))
-            setEchoCancellation(setting);
+        setEchoCancellation([&] -> bool {
+            switch (capabilities.echoCancellation()) {
+            case RealtimeMediaSourceCapabilities::EchoCancellation::Off:
+                return false;
+            case RealtimeMediaSourceCapabilities::EchoCancellation::On:
+                return true;
+            case RealtimeMediaSourceCapabilities::EchoCancellation::OnOrOff:
+                return booleanSettingFromConstraint(downcast<BooleanConstraint>(constraint));
+            };
+            ASSERT_NOT_REACHED();
+            return true;
+        }());
         break;
-    }
 
     case MediaConstraintType::FacingMode: {
         ASSERT(constraint.isString());
@@ -1484,8 +1498,15 @@ auto RealtimeMediaSource::getPhotoSettings() -> Ref<PhotoSettingsNativePromise>
     return PhotoSettingsNativePromise::createAndReject("Not supported"_s);
 }
 
+#if USE(GSTREAMER)
+std::pair<GstClockTime, GstClockTime> RealtimeMediaSource::queryCaptureLatency() const
+{
+    return { GST_CLOCK_TIME_NONE, GST_CLOCK_TIME_NONE };
+}
+#endif
+
 #if !RELEASE_LOG_DISABLED
-void RealtimeMediaSource::setLogger(const Logger& newLogger, const void* newLogIdentifier)
+void RealtimeMediaSource::setLogger(const Logger& newLogger, uint64_t newLogIdentifier)
 {
     m_logger = &newLogger;
     m_logIdentifier = newLogIdentifier;
@@ -1500,7 +1521,7 @@ WTFLogChannel& RealtimeMediaSource::logChannel() const
 
 String convertEnumerationToString(RealtimeMediaSource::Type enumerationValue)
 {
-    static const NeverDestroyed<String> values[] = {
+    static const std::array<NeverDestroyed<String>, 2> values {
         MAKE_STATIC_STRING_IMPL("Audio"),
         MAKE_STATIC_STRING_IMPL("Video")
     };

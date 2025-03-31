@@ -1,5 +1,5 @@
 <!-- Creator     : groff version 1.22.4 -->
-<!-- CreationDate: Tue Feb  8 08:46:42 2022 -->
+<!-- CreationDate: Fri Apr 26 09:23:48 2024 -->
 <!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
 "http://www.w3.org/TR/html4/loose.dtd">
 <html>
@@ -32,9 +32,9 @@ tape archives</p>
 <p style="margin-left:12%;"><b>tar</b>
 [<i>bundled-flags&nbsp;</i>&lang;</p>
 
-<p>args &rang;] [&lang; <i><br>
-file</i> &rang;&nbsp;|&nbsp;&lang; <i><br>
-pattern</i> &rang;&nbsp;...]</p>
+<p>args &rang; ] [&lang; <i><br>
+file</i> &rang; &nbsp;|&nbsp;&lang; <i><br>
+pattern</i> &rang; &nbsp;...]</p>
 
 <p style="margin-left:12%;"><b>tar</b> {<b>-c</b>}
 [<i>options</i>]
@@ -301,6 +301,14 @@ will be used instead. On create, this sets the group name
 that will be stored in the archive; the name will not be
 verified against the system group database.</p>
 
+<p style="margin-top: 1em"><b>--group</b>
+<i>name</i>[:<i>gid</i>]</p>
+
+<p style="margin-left:17%;">Use the provided group, if
+<i>gid</i> is not provided, <i>name</i> can be either a
+group name or numeric id. See the <b>--gname</b> option for
+details.</p>
+
 <p style="margin-top: 1em"><b>-H</b></p>
 
 <p style="margin-left:17%; margin-top: 1em">(c and r modes
@@ -454,7 +462,9 @@ OS X specific. Archive or extract extended ACLs and extended
 file attributes using copyfile(3) in AppleDouble format.
 This is the reverse of <b>--no-mac-metadata</b>. and the
 default behavior in c, r, and u modes or if <b>tar</b> is
-run in x mode as root.</p>
+run in x mode as root. Currently supported only for pax
+formats (including &quot;pax restricted&quot;, the default
+tar format for bsdtar.)</p>
 
 <p style="margin-top: 1em"><b>-n</b>, <b>--norecurse</b>,
 <b>--no-recursion</b></p>
@@ -533,6 +543,12 @@ specific. Do not archive or extract ACLs and extended file
 attributes using copyfile(3) in AppleDouble format. This is
 the reverse of <b>--mac-metadata</b>. and the default
 behavior if <b>tar</b> is run as non-root in x mode.</p>
+
+<p style="margin-top: 1em"><b>--no-read-sparse</b></p>
+
+<p style="margin-left:17%;">(c, r, u modes only) Do not
+read sparse file information from disk. This is the reverse
+of <b>--read-sparse</b>.</p>
 
 <p style="margin-top: 1em"><b>--no-safe-writes</b></p>
 
@@ -730,11 +746,60 @@ default).</p>
 block being compressed for a compression dictionary to
 improve compression ratio.</p>
 
-<p><b>zstd:compression-level</b></p>
+<p><b>zstd:compression-level</b>=<i>N</i></p>
 
 <p style="margin-left:27%;">A decimal integer specifying
 the zstd compression level. Supported values depend on the
 library version, common values are from 1 to 22.</p>
+
+<p><b>zstd:threads</b>=<i>N</i></p>
+
+<p style="margin-left:27%;">Specify the number of worker
+threads to use, or 0 to use as many threads as there are CPU
+cores in the system.</p>
+
+<p><b>zstd:frame-per-file</b></p>
+
+<p style="margin-left:27%;">Start a new compression frame
+at the beginning of each file in the archive.</p>
+
+<p><b>zstd:min-frame-in</b>=<i>N</i></p>
+
+<p style="margin-left:27%;">In combination with
+<b>zstd:frame-per-file</b>, do not start a new compression
+frame unless the uncompressed size of the current frame is
+at least <i>N</i> bytes. The number may be followed by k /
+kB, M / MB, or G / GB to indicate kilobytes, megabytes or
+gigabytes respectively.</p>
+
+<p><b>zstd:min-frame-out</b>=<i>N</i>,
+<b>zstd:min-frame-size</b>=<i>N</i></p>
+
+<p style="margin-left:27%;">In combination with
+<b>zstd:frame-per-file</b>, do not start a new compression
+frame unless the compressed size of the current frame is at
+least <i>N</i> bytes. The number may be followed by k / kB,
+M / MB, or G / GB to indicate kilobytes, megabytes or
+gigabytes respectively.</p>
+
+<p><b>zstd:max-frame-in</b>=<i>N</i>,
+<b>zstd:max-frame-size</b>=<i>N</i></p>
+
+<p style="margin-left:27%;">Start a new compression frame
+as soon as possible after the uncompressed size of the
+current frame exceeds <i>N</i> bytes. The number may be
+followed by k / kB, M / MB, or G / GB to indicate kilobytes,
+megabytes or gigabytes respectively. Values less than 1,024
+will be rejected.</p>
+
+<p><b>zstd:max-frame-out</b>=<i>N</i></p>
+
+<p style="margin-left:27%;">Start a new compression frame
+as soon as possible after the compressed size of the current
+frame exceeds <i>N</i> bytes. The number may be followed by
+k / kB, M / MB, or G / GB to indicate kilobytes, megabytes
+or gigabytes respectively. Values less than 1,024 will be
+rejected.</p>
 
 <p><b>lzop:compression-level</b></p>
 
@@ -745,6 +810,13 @@ specifying the lzop compression level.</p>
 
 <p style="margin-left:27%;">A decimal integer from 0 to 9
 specifying the xz compression level.</p>
+
+<p><b>xz:threads</b></p>
+
+<p style="margin-left:27%;">Specify the number of worker
+threads to use. Setting threads to a special value 0 makes
+xz(1) use as many threads as there are CPU cores on the
+system.</p>
 
 <p><b>mtree:</b><i>keyword</i></p>
 
@@ -856,6 +928,12 @@ entries with the same name and, by convention, later entries
 overwrite earlier entries. This option is provided as a
 performance optimization.</p>
 
+<p style="margin-top: 1em"><b>--read-sparse</b></p>
+
+<p style="margin-left:17%;">(c, r, u modes only) Read
+sparse file information from disk. This is the reverse of
+<b>--no-read-sparse</b> and the default behavior.</p>
+
 <p style="margin-top: 1em"><b>-S</b></p>
 
 <p style="margin-left:17%; margin-top: 1em">(x mode only)
@@ -868,7 +946,7 @@ dd.</p>
 
 <p style="margin-left:17%;">Modify file or archive member
 names according to <i>pattern</i>. The pattern has the
-format <i>/old/new/</i>[ghHprRsS] where <i>old</i> is a
+format <i>/old/new/</i>[bghHprRsS] where <i>old</i> is a
 basic regular expression, <i>new</i> is the replacement
 string of the matched part, and the optional trailing
 letters modify how the replacement is handled. If <i>old</i>
@@ -880,15 +958,18 @@ part and stop on the first unmatched pattern. The optional
 trailing s specifies that the pattern applies to the value
 of symbolic links. The optional trailing p specifies that
 after a successful substitution the original path name and
-the new path name should be printed to standard error.
-Optional trailing H, R, or S characters suppress
-substitutions for hardlink targets, regular filenames, or
-symlink targets, respectively. Optional trailing h, r, or s
-characters enable substitutions for hardlink targets,
-regular filenames, or symlink targets, respectively. The
-default is <i>hrs</i> which applies substitutions to all
-names. In particular, it is never necessary to specify h, r,
-or s.</p>
+the new path name should be printed to standard error. The
+optional trailing b specifies that the substitution should
+be matched from the beginning of the string rather than from
+right after the position at which the previous matching
+substitution ended. Optional trailing H, R, or S characters
+suppress substitutions for hardlink targets, regular
+filenames, or symlink targets, respectively. Optional
+trailing h, r, or s characters enable substitutions for
+hardlink targets, regular filenames, or symlink targets,
+respectively. The default is <i>hrs</i> which applies
+substitutions to all names. In particular, it is never
+necessary to specify h, r, or s.</p>
 
 <p style="margin-top: 1em"><b>--safe-writes</b></p>
 
@@ -976,6 +1057,14 @@ name is not verified against the system user database.</p>
 or the output (in c mode) through <i>program</i> instead of
 using the builtin compression support.</p>
 
+<p style="margin-top: 1em"><b>--owner</b>
+<i>name</i>[:<i>uid</i>]</p>
+
+<p style="margin-left:17%;">Use the provided user, if
+<i>uid</i> is not provided, <i>name</i> can be either an
+username or numeric id. See the <b>--uname</b> option for
+details.</p>
+
 <p style="margin-top: 1em"><b>-v</b>, <b>--verbose</b></p>
 
 <p style="margin-left:17%;">Produce verbose output. In
@@ -1043,31 +1132,31 @@ variables affect the execution of <b>tar</b>:</p>
 
 <p style="margin-top: 1em">TAR_READER_OPTIONS</p>
 
-<p style="margin-left:21%;">The default options for format
+<p style="margin-left:17%;">The default options for format
 readers and compression readers. The <b>--options</b> option
 overrides this.</p>
 
 <p style="margin-top: 1em">TAR_WRITER_OPTIONS</p>
 
-<p style="margin-left:21%;">The default options for format
+<p style="margin-left:17%;">The default options for format
 writers and compression writers. The <b>--options</b> option
 overrides this.</p>
 
 <p style="margin-top: 1em">LANG</p>
 
-<p style="margin-left:21%; margin-top: 1em">The locale to
+<p style="margin-left:17%; margin-top: 1em">The locale to
 use. See environ(7) for more information.</p>
 
 <p style="margin-top: 1em">TAPE</p>
 
-<p style="margin-left:21%; margin-top: 1em">The default
+<p style="margin-left:17%; margin-top: 1em">The default
 device. The <b>-f</b> option overrides this. Please see the
 description of the <b>-f</b> option above for more
 details.</p>
 
 <p style="margin-top: 1em">TZ</p>
 
-<p style="margin-left:21%; margin-top: 1em">The timezone to
+<p style="margin-left:17%; margin-top: 1em">The timezone to
 use when displaying dates. See environ(7) for more
 information.</p>
 
@@ -1378,7 +1467,7 @@ incompatible ways that different archive formats store
 hardlink information.)</p>
 
 <p style="margin-left:6%; margin-top: 1em">BSD
-January&nbsp;31, 2020 BSD</p>
+April&nbsp;23, 2024 BSD</p>
 <hr>
 </body>
 </html>

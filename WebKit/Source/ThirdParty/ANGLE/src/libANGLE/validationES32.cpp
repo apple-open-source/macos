@@ -63,11 +63,6 @@ bool ValidateBlendEquationSeparatei(const PrivateState &state,
                                     GLenum modeRGB,
                                     GLenum modeAlpha)
 {
-    if (!ValidateDrawBufferIndexIfActivePLS(state, errors, entryPoint, buf, "buf"))
-    {
-        return false;
-    }
-
     if (buf >= static_cast<GLuint>(state.getCaps().maxDrawBuffers))
     {
         errors->validationError(entryPoint, GL_INVALID_VALUE, kExceedsMaxDrawBuffers);
@@ -89,11 +84,6 @@ bool ValidateBlendEquationi(const PrivateState &state,
                             GLuint buf,
                             GLenum mode)
 {
-    if (!ValidateDrawBufferIndexIfActivePLS(state, errors, entryPoint, buf, "buf"))
-    {
-        return false;
-    }
-
     if (buf >= static_cast<GLuint>(state.getCaps().maxDrawBuffers))
     {
         errors->validationError(entryPoint, GL_INVALID_VALUE, kExceedsMaxDrawBuffers);
@@ -118,11 +108,6 @@ bool ValidateBlendFuncSeparatei(const PrivateState &state,
                                 GLenum srcAlpha,
                                 GLenum dstAlpha)
 {
-    if (!ValidateDrawBufferIndexIfActivePLS(state, errors, entryPoint, buf, "buf"))
-    {
-        return false;
-    }
-
     if (buf >= static_cast<GLuint>(state.getCaps().maxDrawBuffers))
     {
         errors->validationError(entryPoint, GL_INVALID_VALUE, kExceedsMaxDrawBuffers);
@@ -145,11 +130,6 @@ bool ValidateBlendFunci(const PrivateState &state,
                         GLenum src,
                         GLenum dst)
 {
-    if (!ValidateDrawBufferIndexIfActivePLS(state, errors, entryPoint, buf, "buf"))
-    {
-        return false;
-    }
-
     if (buf >= static_cast<GLuint>(state.getCaps().maxDrawBuffers))
     {
         errors->validationError(entryPoint, GL_INVALID_VALUE, kExceedsMaxDrawBuffers);
@@ -174,11 +154,6 @@ bool ValidateColorMaski(const PrivateState &state,
                         GLboolean b,
                         GLboolean a)
 {
-    if (!ValidateDrawBufferIndexIfActivePLS(state, errors, entryPoint, buf, "buf"))
-    {
-        return false;
-    }
-
     if (buf >= static_cast<GLuint>(state.getCaps().maxDrawBuffers))
     {
         errors->validationError(entryPoint, GL_INVALID_VALUE, kIndexExceedsMaxDrawBuffer);
@@ -261,11 +236,6 @@ bool ValidateDisablei(const PrivateState &state,
         if (IsIndexedCapBannedWithActivePLS(target))
         {
             errors->validationErrorF(entryPoint, GL_INVALID_OPERATION, kPLSCapNotAllowed, target);
-            return false;
-        }
-        if (target == GL_BLEND &&
-            !ValidateDrawBufferIndexIfActivePLS(state, errors, entryPoint, index, "index"))
-        {
             return false;
         }
     }
@@ -354,11 +324,6 @@ bool ValidateEnablei(const PrivateState &state,
             errors->validationErrorF(entryPoint, GL_INVALID_OPERATION, kPLSCapNotAllowed, target);
             return false;
         }
-        if (target == GL_BLEND &&
-            !ValidateDrawBufferIndexIfActivePLS(state, errors, entryPoint, index, "index"))
-        {
-            return false;
-        }
     }
 
     switch (target)
@@ -427,6 +392,17 @@ bool ValidateGetObjectLabel(const Context *context,
                             const GLsizei *length,
                             const GLchar *label)
 {
+    if (context->getClientVersion() < ES_3_2)
+    {
+        ANGLE_VALIDATION_ERROR(GL_INVALID_OPERATION, kES32Required);
+        return false;
+    }
+
+    if (!ValidateGetObjectLabelBase(context, entryPoint, identifier, name, bufSize, length, label))
+    {
+        return false;
+    }
+
     return true;
 }
 
@@ -437,6 +413,17 @@ bool ValidateGetObjectPtrLabel(const Context *context,
                                const GLsizei *length,
                                const GLchar *label)
 {
+    if (context->getClientVersion() < ES_3_2)
+    {
+        ANGLE_VALIDATION_ERROR(GL_INVALID_OPERATION, kES32Required);
+        return false;
+    }
+
+    if (!ValidateGetObjectPtrLabelBase(context, entryPoint, ptr, bufSize, length, label))
+    {
+        return false;
+    }
+
     return true;
 }
 
@@ -445,50 +432,46 @@ bool ValidateGetPointerv(const Context *context,
                          GLenum pname,
                          void *const *params)
 {
-    Version clientVersion = context->getClientVersion();
+    switch (pname)
+    {
+        case GL_VERTEX_ARRAY_POINTER:
+        case GL_NORMAL_ARRAY_POINTER:
+        case GL_COLOR_ARRAY_POINTER:
+        case GL_TEXTURE_COORD_ARRAY_POINTER:
+        case GL_POINT_SIZE_ARRAY_POINTER_OES:
+            if (context->getClientMajorVersion() != 1)
+            {
+                ANGLE_VALIDATION_ERROR(GL_INVALID_ENUM, kInvalidPointerQuery);
+                return false;
+            }
+            break;
 
-    if ((clientVersion == ES_1_0) || (clientVersion == ES_1_1))
-    {
-        switch (pname)
-        {
-            case GL_VERTEX_ARRAY_POINTER:
-            case GL_NORMAL_ARRAY_POINTER:
-            case GL_COLOR_ARRAY_POINTER:
-            case GL_TEXTURE_COORD_ARRAY_POINTER:
-            case GL_POINT_SIZE_ARRAY_POINTER_OES:
-                return true;
-            default:
-                ANGLE_VALIDATION_ERROR(GL_INVALID_ENUM, kInvalidPointerQuery);
+        case GL_DEBUG_CALLBACK_FUNCTION:
+        case GL_DEBUG_CALLBACK_USER_PARAM:
+            if (!context->getExtensions().debugKHR)
+            {
+                ANGLE_VALIDATION_ERROR(GL_INVALID_OPERATION, kExtensionNotEnabled);
                 return false;
-        }
-    }
-    else if (clientVersion == ES_3_2)
-    {
-        switch (pname)
-        {
-            case GL_DEBUG_CALLBACK_FUNCTION:
-            case GL_DEBUG_CALLBACK_USER_PARAM:
-                return true;
-            // GL_ANGLE_variable_rasterization_rate_metal
-            case GL_METAL_RASTERIZATION_RATE_MAP_BINDING_ANGLE:
-                return context->getExtensions().variableRasterizationRateMetalANGLE;
-            default:
-                ANGLE_VALIDATION_ERROR(GL_INVALID_ENUM, kInvalidPointerQuery);
+            }
+            break;
+
+        case GL_BLOB_CACHE_GET_FUNCTION_ANGLE:
+        case GL_BLOB_CACHE_SET_FUNCTION_ANGLE:
+        case GL_BLOB_CACHE_USER_PARAM_ANGLE:
+            if (!context->getExtensions().blobCacheANGLE)
+            {
+                ANGLE_VALIDATION_ERROR(GL_INVALID_OPERATION, kExtensionNotEnabled);
                 return false;
-        }
+            }
+            break;
+        // GL_ANGLE_variable_rasterization_rate_metal
+        case GL_METAL_RASTERIZATION_RATE_MAP_BINDING_ANGLE:
+            return context->getExtensions().variableRasterizationRateMetalANGLE;
+        default:
+            ANGLE_VALIDATION_ERROR(GL_INVALID_ENUM, kInvalidPointerQuery);
+            return false;
     }
-    else
-    {
-        switch (pname)
-        {
-            // GL_ANGLE_variable_rasterization_rate_metal
-            case GL_METAL_RASTERIZATION_RATE_MAP_BINDING_ANGLE:
-                return context->getExtensions().variableRasterizationRateMetalANGLE;
-            default:
-                ANGLE_VALIDATION_ERROR(GL_INVALID_OPERATION, kES1or32Required);
-                return false;
-        }
-    }
+    return true;
 }
 
 bool ValidateGetSamplerParameterIiv(const Context *context,
@@ -632,6 +615,17 @@ bool ValidateObjectLabel(const Context *context,
                          GLsizei length,
                          const GLchar *label)
 {
+    if (context->getClientVersion() < ES_3_2)
+    {
+        ANGLE_VALIDATION_ERROR(GL_INVALID_OPERATION, kES32Required);
+        return false;
+    }
+
+    if (!ValidateObjectLabelBase(context, entryPoint, identifier, name, length, label))
+    {
+        return false;
+    }
+
     return true;
 }
 
@@ -641,6 +635,17 @@ bool ValidateObjectPtrLabel(const Context *context,
                             GLsizei length,
                             const GLchar *label)
 {
+    if (context->getClientVersion() < ES_3_2)
+    {
+        ANGLE_VALIDATION_ERROR(GL_INVALID_OPERATION, kES32Required);
+        return false;
+    }
+
+    if (!ValidateObjectPtrLabelBase(context, entryPoint, ptr, length, label))
+    {
+        return false;
+    }
+
     return true;
 }
 
@@ -815,7 +820,13 @@ bool ValidateTexStorage3DMultisample(const Context *context,
                                      GLsizei depth,
                                      GLboolean fixedsamplelocations)
 {
-    return true;
+    if (context->getClientVersion() < ES_3_2)
+    {
+        ANGLE_VALIDATION_ERROR(GL_INVALID_OPERATION, kES32Required);
+        return false;
+    }
+    return ValidateTexStorage3DMultisampleBase(context, entryPoint, targetPacked, samples,
+                                               internalformat, width, height, depth);
 }
 
 }  // namespace gl

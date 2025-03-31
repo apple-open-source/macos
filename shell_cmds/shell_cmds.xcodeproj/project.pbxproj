@@ -354,6 +354,7 @@
 		CB1205102A4DEA29008069F2 /* stdbuf.c in Sources */ = {isa = PBXBuildFile; fileRef = CB12050E2A4DEA28008069F2 /* stdbuf.c */; };
 		CB1205112A4DEA33008069F2 /* stdbuf.1 in CopyFiles */ = {isa = PBXBuildFile; fileRef = CB12050F2A4DEA28008069F2 /* stdbuf.1 */; };
 		CB2E9CF628B8F24000F6C10B /* renice_test.sh in Copy Test Files */ = {isa = PBXBuildFile; fileRef = CB2E9CF528B8F24000F6C10B /* renice_test.sh */; };
+		CB76E9222CB48B1100266D3F /* env_test.sh in Copy Test Files */ = {isa = PBXBuildFile; fileRef = CB76E9212CB48AFA00266D3F /* env_test.sh */; };
 		CB822FD92A60A8DC00913E2B /* regress.R-1.out in Copy Test Files */ = {isa = PBXBuildFile; fileRef = CB822FD82A60A8C200913E2B /* regress.R-1.out */; };
 		CB822FDA2A60A8E100913E2B /* regress.n2147483647.out in Copy Test Files */ = {isa = PBXBuildFile; fileRef = CB822FD72A60A8C200913E2B /* regress.n2147483647.out */; };
 		CB4251CF297AC86C00373DFD /* libsbuf.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = CB4251CE297AC85900373DFD /* libsbuf.tbd */; };
@@ -1967,6 +1968,17 @@
 			name = "Copy Test Files";
 			runOnlyForDeploymentPostprocessing = 1;
 		};
+		CBCDE6D32CB4882D00AD91BD /* Copy Test Files */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /AppleInternal/Tests/shell_cmds/env;
+			dstSubfolderSpec = 0;
+			files = (
+				CB76E9222CB48B1100266D3F /* env_test.sh in Copy Test Files */,
+			);
+			name = "Copy Test Files";
+			runOnlyForDeploymentPostprocessing = 1;
+		};
 		FC5D638614B9819E00123E48 /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 2147483647;
@@ -2695,6 +2707,7 @@
 		CB12050E2A4DEA28008069F2 /* stdbuf.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = stdbuf.c; sourceTree = "<group>"; };
 		CB12050F2A4DEA28008069F2 /* stdbuf.1 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.man; path = stdbuf.1; sourceTree = "<group>"; };
 		CB2E9CF528B8F24000F6C10B /* renice_test.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; name = renice_test.sh; path = tests/renice_test.sh; sourceTree = "<group>"; };
+		CB76E9212CB48AFA00266D3F /* env_test.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = env_test.sh; sourceTree = "<group>"; };
 		CB822FD72A60A8C200913E2B /* regress.n2147483647.out */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = regress.n2147483647.out; path = tests/regress.n2147483647.out; sourceTree = "<group>"; };
 		CB822FD82A60A8C200913E2B /* regress.R-1.out */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = "regress.R-1.out"; path = "tests/regress.R-1.out"; sourceTree = "<group>"; };
 		CB4251CE297AC85900373DFD /* libsbuf.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libsbuf.tbd; path = usr/lib/libsbuf.tbd; sourceTree = SDKROOT; };
@@ -3725,6 +3738,14 @@
 			name = tests;
 			sourceTree = "<group>";
 		};
+		CBCDE6D12CB4880A00AD91BD /* tests */ = {
+			isa = PBXGroup;
+			children = (
+				CB76E9212CB48AFA00266D3F /* env_test.sh */,
+			);
+			path = tests;
+			sourceTree = "<group>";
+		};
 		CE799E5F24AD3B1B00E73238 /* tests */ = {
 			isa = PBXGroup;
 			children = (
@@ -3966,6 +3987,7 @@
 		FCBA136114A141A300AA698B /* env */ = {
 			isa = PBXGroup;
 			children = (
+				CBCDE6D12CB4880A00AD91BD /* tests */,
 				FCBA136214A141A300AA698B /* env.1 */,
 				FCBA136314A141A300AA698B /* env.c */,
 				FD88EB01198C5257006B7EFD /* envopts.c */,
@@ -4779,6 +4801,7 @@
 				FCBA14D814A1434A00AA698B /* Sources */,
 				FCBA14D914A1434A00AA698B /* Frameworks */,
 				FCBA14DA14A1434A00AA698B /* CopyFiles */,
+				CBCDE6D32CB4882D00AD91BD /* Copy Test Files */,
 			);
 			buildRules = (
 			);

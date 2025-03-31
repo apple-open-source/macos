@@ -282,7 +282,7 @@
 		FCCE17DA135A6961002CEE6D /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				"CODE_SIGN_ENTITLEMENTS[sdk=*]" = test/test-removefile.entitlements;
+				CODE_SIGN_ENTITLEMENTS = "test/test-removefile.entitlements";
 				CODE_SIGN_IDENTITY = "-";
 				INSTALL_PATH = /AppleInternal/CoreOS/tests/removefile/;
 				PRODUCT_NAME = "$(TARGET_NAME)";

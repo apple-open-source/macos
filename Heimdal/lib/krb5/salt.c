@@ -62,7 +62,7 @@ krb5_salttype_to_string (krb5_context context,
 	}
     }
     krb5_set_error_message (context, HEIM_ERR_SALTTYPE_NOSUPP,
-			    "salttype %d not supported", stype);
+			    "salttype %u not supported", stype);
     return HEIM_ERR_SALTTYPE_NOSUPP;
 }
 
@@ -201,7 +201,7 @@ krb5_string_to_key_data_salt_opaque (krb5_context context,
 	    return (*st->string_to_key)(context, enctype, password,
 					salt, opaque, key);
     krb5_set_error_message(context, HEIM_ERR_SALTTYPE_NOSUPP,
-			   N_("salt type %d not supported", ""),
+			   N_("salt type %u not supported", ""),
 			   salt.salttype);
     return HEIM_ERR_SALTTYPE_NOSUPP;
 }

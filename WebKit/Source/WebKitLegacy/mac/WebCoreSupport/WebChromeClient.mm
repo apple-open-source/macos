@@ -55,6 +55,7 @@
 #import "WebView.h"
 #import "WebViewInternal.h"
 #import <Foundation/Foundation.h>
+#import <WebCore/Chrome.h>
 #import <WebCore/ColorChooser.h>
 #import <WebCore/ContextMenu.h>
 #import <WebCore/ContextMenuController.h>
@@ -252,7 +253,7 @@ void WebChromeClient::focusedFrameChanged(Frame*)
 {
 }
 
-Page* WebChromeClient::createWindow(LocalFrame& frame, const WindowFeatures& features, const NavigationAction&)
+RefPtr<Page> WebChromeClient::createWindow(LocalFrame& frame, const String& openedMainFrameName, const WindowFeatures& features, const NavigationAction&)
 {
     id delegate = [m_webView UIDelegate];
     WebView *newWebView;
@@ -303,10 +304,20 @@ Page* WebChromeClient::createWindow(LocalFrame& frame, const WindowFeatures& fea
     else
         newWebView = CallUIDelegate(m_webView, @selector(webView:createWebViewWithRequest:), nil);
 
-    auto* newPage = core(newWebView);
-    if (newPage && !features.wantsNoOpener()) {
-        m_webView.page->protectedStorageNamespaceProvider()->cloneSessionStorageNamespaceForPage(*m_webView.page, *newPage);
-        newPage->mainFrame().setOpenerForWebKitLegacy(&frame);
+    RefPtr newPage = core(newWebView);
+    if (newPage) {
+        if (!features.wantsNoOpener()) {
+            m_webView.page->protectedStorageNamespaceProvider()->cloneSessionStorageNamespaceForPage(*m_webView.page, *newPage);
+            newPage->mainFrame().setOpenerForWebKitLegacy(&frame);
+            newPage->applyWindowFeatures(features);
+        }
+
+        auto effectiveSandboxFlags = frame.effectiveSandboxFlags();
+        if (!effectiveSandboxFlags.contains(WebCore::SandboxFlag::PropagatesToAuxiliaryBrowsingContexts))
+            effectiveSandboxFlags = { };
+        newPage->mainFrame().updateSandboxFlags(effectiveSandboxFlags, WebCore::Frame::NotifyUIProcess::No);
+        newPage->chrome().show();
+        newPage->mainFrame().tree().setSpecifiedName(AtomString(openedMainFrameName));
     }
 
     return newPage;
@@ -589,6 +600,12 @@ IntPoint WebChromeClient::screenToRootView(const IntPoint& p) const
     return p;
 }
 
+IntPoint WebChromeClient::rootViewToScreen(const IntPoint& p) const
+{
+    // FIXME: Implement this.
+    return p;
+}
+
 IntRect WebChromeClient::rootViewToScreen(const IntRect& r) const
 {
     // FIXME: Implement this.
@@ -635,19 +652,19 @@ void WebChromeClient::scrollContainingScrollViewsToRevealRect(const IntRect& r) 
 
 // End host window methods.
 
-bool WebChromeClient::shouldUnavailablePluginMessageBeButton(RenderEmbeddedObject::PluginUnavailabilityReason pluginUnavailabilityReason) const
+bool WebChromeClient::shouldUnavailablePluginMessageBeButton(PluginUnavailabilityReason pluginUnavailabilityReason) const
 {
-    if (pluginUnavailabilityReason == RenderEmbeddedObject::PluginMissing)
+    if (pluginUnavailabilityReason == PluginUnavailabilityReason::PluginMissing)
         return [[m_webView UIDelegate] respondsToSelector:@selector(webView:didPressMissingPluginButton:)];
 
     return false;
 }
 
-void WebChromeClient::unavailablePluginButtonClicked(Element& element, RenderEmbeddedObject::PluginUnavailabilityReason pluginUnavailabilityReason) const
+void WebChromeClient::unavailablePluginButtonClicked(Element& element, PluginUnavailabilityReason pluginUnavailabilityReason) const
 {
     ASSERT(element.hasTagName(objectTag) || element.hasTagName(embedTag) || element.hasTagName(appletTag));
 
-    ASSERT(pluginUnavailabilityReason == RenderEmbeddedObject::PluginMissing);
+    ASSERT(pluginUnavailabilityReason == PluginUnavailabilityReason::PluginMissing);
     CallUIDelegate(m_webView, @selector(webView:didPressMissingPluginButton:), kit(&element));
 }
 
@@ -684,32 +701,24 @@ void WebChromeClient::exceededDatabaseQuota(LocalFrame& frame, const String& dat
     END_BLOCK_OBJC_EXCEPTIONS
 }
 
-#if ENABLE(INPUT_TYPE_COLOR)
-
-std::unique_ptr<ColorChooser> WebChromeClient::createColorChooser(ColorChooserClient& client, const Color& initialColor)
+RefPtr<ColorChooser> WebChromeClient::createColorChooser(ColorChooserClient& client, const Color& initialColor)
 {
     // FIXME: Implement <input type='color'> for WK1 (Bug 119094).
     ASSERT_NOT_REACHED();
     return nullptr;
 }
 
-#endif
-
-#if ENABLE(DATALIST_ELEMENT)
-std::unique_ptr<DataListSuggestionPicker> WebChromeClient::createDataListSuggestionPicker(DataListSuggestionsClient& client)
+RefPtr<DataListSuggestionPicker> WebChromeClient::createDataListSuggestionPicker(DataListSuggestionsClient& client)
 {
     ASSERT_NOT_REACHED();
     return nullptr;
 }
-#endif
 
-#if ENABLE(DATE_AND_TIME_INPUT_TYPES)
-std::unique_ptr<DateTimeChooser> WebChromeClient::createDateTimeChooser(DateTimeChooserClient&)
+RefPtr<DateTimeChooser> WebChromeClient::createDateTimeChooser(DateTimeChooserClient&)
 {
     ASSERT_NOT_REACHED();
     return nullptr;
 }
-#endif
 
 void WebChromeClient::setTextIndicator(const WebCore::TextIndicatorData& indicatorData) const
 {

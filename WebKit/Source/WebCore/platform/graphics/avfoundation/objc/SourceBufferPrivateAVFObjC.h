@@ -48,7 +48,6 @@
 
 OBJC_CLASS AVStreamDataParser;
 OBJC_CLASS AVSampleBufferAudioRenderer;
-OBJC_CLASS AVSampleBufferDisplayLayer;
 OBJC_CLASS NSData;
 OBJC_CLASS NSError;
 OBJC_CLASS NSObject;
@@ -128,10 +127,10 @@ public:
     void registerForErrorNotifications(SourceBufferPrivateAVFObjCErrorClient*);
     void unregisterForErrorNotifications(SourceBufferPrivateAVFObjCErrorClient*);
 
-    void setVideoRenderer(WebSampleBufferVideoRendering *);
-    void stageVideoRenderer(WebSampleBufferVideoRendering *);
-
-    void setDecompressionSession(WebCoreDecompressionSession*);
+    void setVideoRenderer(VideoMediaSampleRenderer*);
+    void stageVideoRenderer(VideoMediaSampleRenderer*);
+    void videoRendererWillReconfigure(VideoMediaSampleRenderer&);
+    void videoRendererDidReconfigure(VideoMediaSampleRenderer&);
 
 #if ENABLE(LEGACY_ENCRYPTED_MEDIA)
     SharedBuffer* initData() { return m_initData.get(); }
@@ -140,10 +139,10 @@ public:
 #if !RELEASE_LOG_DISABLED
     const Logger& logger() const final { return m_logger.get(); }
     ASCIILiteral logClassName() const override { return "SourceBufferPrivateAVFObjC"_s; }
-    const void* logIdentifier() const final { return m_logIdentifier; }
+    uint64_t logIdentifier() const final { return m_logIdentifier; }
     WTFLogChannel& logChannel() const final;
     const Logger& sourceBufferLogger() const final { return m_logger.get(); }
-    const void* sourceBufferLogIdentifier() final { return logIdentifier(); }
+    uint64_t sourceBufferLogIdentifier() final { return logIdentifier(); }
 #endif
 
     void setResourceOwner(const ProcessIdentity& resourceOwner) { m_resourceOwner = resourceOwner; }
@@ -227,7 +226,7 @@ ALLOW_NEW_API_WITHOUT_GUARDS_END
 ALLOW_NEW_API_WITHOUT_GUARDS_BEGIN
     StdUnorderedMap<TrackID, RetainPtr<AVSampleBufferAudioRenderer>> m_audioRenderers;
 ALLOW_NEW_API_WITHOUT_GUARDS_END
-    Ref<WebAVSampleBufferListener> m_listener;
+    const Ref<WebAVSampleBufferListener> m_listener;
 #if PLATFORM(IOS_FAMILY)
     bool m_displayLayerWasInterrupted { false };
 #endif
@@ -235,7 +234,6 @@ ALLOW_NEW_API_WITHOUT_GUARDS_END
     Box<BinarySemaphore> m_hasSessionSemaphore;
     Box<Semaphore> m_abortSemaphore;
     const Ref<WTF::WorkQueue> m_appendQueue;
-    RefPtr<WebCoreDecompressionSession> m_decompressionSession;
 
 #if ENABLE(LEGACY_ENCRYPTED_MEDIA)
     RefPtr<SharedBuffer> m_initData;
@@ -272,7 +270,7 @@ ALLOW_NEW_API_WITHOUT_GUARDS_END
 
 #if !RELEASE_LOG_DISABLED
     Ref<const Logger> m_logger;
-    const void* m_logIdentifier;
+    const uint64_t m_logIdentifier;
 #endif
 
     ProcessIdentity m_resourceOwner;

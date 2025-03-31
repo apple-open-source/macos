@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005-2023 Apple Inc. All rights reserved.
+ * Copyright (C) 2005-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -54,9 +54,11 @@
 #import "GraphicsContextCG.h"
 #import "HTMLAttachmentElement.h"
 #import "HTMLButtonElement.h"
+#import "HTMLDataListElement.h"
 #import "HTMLInputElement.h"
 #import "HTMLMeterElement.h"
 #import "HTMLNames.h"
+#import "HTMLOptionElement.h"
 #import "HTMLSelectElement.h"
 #import "HTMLTextAreaElement.h"
 #import "IOSurface.h"
@@ -92,13 +94,8 @@
 #import <wtf/StdLibExtras.h>
 #import <wtf/cocoa/TypeCastsCocoa.h>
 
-#if ENABLE(DATALIST_ELEMENT)
-#include "HTMLDataListElement.h"
-#include "HTMLOptionElement.h"
-#endif
-
 #if USE(APPLE_INTERNAL_SDK)
-#include <WebKitAdditions/RenderThemeIOSAdditions.mm>
+#import <WebKitAdditions/RenderThemeIOSAdditions.mm>
 #endif
 
 #import <pal/ios/UIKitSoftLink.h>
@@ -131,25 +128,8 @@ bool RenderThemeIOS::canCreateControlPartForRenderer(const RenderObject& rendere
 #endif
 }
 
-void RenderThemeIOS::adjustStyleForAlternateFormControlDesignTransition(RenderStyle& style, const Element* element) const
-{
-    if (!element)
-        return;
-
-    if (!element->document().settings().alternateFormControlDesignEnabled())
-        return;
-
-#if ENABLE(CSS_TRANSFORM_STYLE_OPTIMIZED_3D)
-    // FIXME: We need to find a way to not do this for any running transition, only the UA-owned transition.
-    style.setTransformStyle3D(element->hasRunningTransitionForProperty(PseudoId::None, CSSPropertyID::CSSPropertyTranslate) || element->hovered() ? TransformStyle3D::Optimized3D : TransformStyle3D::Flat);
-#else
-    UNUSED_PARAM(style);
-#endif
-}
-
 void RenderThemeIOS::adjustCheckboxStyle(RenderStyle& style, const Element* element) const
 {
-    adjustStyleForAlternateFormControlDesignTransition(style, element);
     adjustMinimumIntrinsicSizeForAppearance(StyleAppearance::Checkbox, style);
 
     if (!style.width().isIntrinsicOrAuto() && !style.height().isAuto())
@@ -158,6 +138,8 @@ void RenderThemeIOS::adjustCheckboxStyle(RenderStyle& style, const Element* elem
     auto size = std::max(style.computedFontSize(), 10.f);
     style.setWidth({ size, LengthType::Fixed });
     style.setHeight({ size, LengthType::Fixed });
+
+    UNUSED_PARAM(element);
 }
 
 LayoutRect RenderThemeIOS::adjustedPaintRect(const RenderBox& box, const LayoutRect& paintRect) const
@@ -194,10 +176,8 @@ bool RenderThemeIOS::isControlStyled(const RenderStyle& style, const RenderStyle
     if (style.usedAppearance() == StyleAppearance::TextField || style.usedAppearance() == StyleAppearance::TextArea || style.usedAppearance() == StyleAppearance::SearchField)
         return !style.borderAndBackgroundEqual(userAgentStyle);
 
-#if ENABLE(DATALIST_ELEMENT)
     if (style.usedAppearance() == StyleAppearance::ListButton)
         return style.hasContent() || style.hasUsedContentNone();
-#endif
 
     return RenderTheme::isControlStyled(style, userAgentStyle);
 }
@@ -213,7 +193,6 @@ void RenderThemeIOS::adjustMinimumIntrinsicSizeForAppearance(StyleAppearance app
 
 void RenderThemeIOS::adjustRadioStyle(RenderStyle& style, const Element* element) const
 {
-    adjustStyleForAlternateFormControlDesignTransition(style, element);
     adjustMinimumIntrinsicSizeForAppearance(StyleAppearance::Radio, style);
 
     if (!style.width().isIntrinsicOrAuto() && !style.height().isAuto())
@@ -223,6 +202,8 @@ void RenderThemeIOS::adjustRadioStyle(RenderStyle& style, const Element* element
     style.setWidth({ size, LengthType::Fixed });
     style.setHeight({ size, LengthType::Fixed });
     style.setBorderRadius({ static_cast<int>(size / 2), static_cast<int>(size / 2) });
+
+    UNUSED_PARAM(element);
 }
 
 void RenderThemeIOS::adjustTextFieldStyle(RenderStyle& style, const Element* element) const
@@ -347,7 +328,7 @@ LengthBox RenderThemeIOS::popupInternalPaddingBox(const RenderStyle& style) cons
     auto padding = emSize->resolveAsLength<float>({ style, nullptr, nullptr, nullptr });
 
     if (style.usedAppearance() == StyleAppearance::MenulistButton) {
-        if (style.direction() == TextDirection::RTL)
+        if (style.writingMode().isBidiRTL())
             return { 0, 0, 0, static_cast<int>(padding + style.borderTopWidth()) };
         return { 0, static_cast<int>(padding + style.borderTopWidth()), 0, 0 };
     }
@@ -386,7 +367,7 @@ void RenderThemeIOS::adjustRoundBorderRadius(RenderStyle& style, RenderBox& box)
 
     // FIXME: We should not be relying on border radius for the appearance of our controls <rdar://problem/7675493>.
     auto borderRadius = LengthSize { { minDimension / 2, LengthType::Fixed }, { boxLogicalHeight / 2, LengthType::Fixed } };
-    if (!style.isHorizontalWritingMode())
+    if (!style.writingMode().isHorizontal())
         borderRadius = { borderRadius.height, borderRadius.width };
     style.setBorderRadius(WTFMove(borderRadius));
 }
@@ -399,7 +380,7 @@ static void applyCommonButtonPaddingToStyle(RenderStyle& style, const Element& e
     int pixels = emSize->resolveAsLength<int>({ style, document.renderStyle(), nullptr, document.renderView() });
 
     auto paddingBox = LengthBox(0, pixels, 0, pixels);
-    if (!style.isHorizontalWritingMode())
+    if (!style.writingMode().isHorizontal())
         paddingBox = LengthBox(paddingBox.left().value(), paddingBox.top().value(), paddingBox.right().value(), paddingBox.bottom().value());
 
     style.setPaddingBox(WTFMove(paddingBox));
@@ -466,8 +447,6 @@ static void adjustInputElementButtonStyle(RenderStyle& style, const HTMLInputEle
 
 void RenderThemeIOS::adjustMenuListButtonStyle(RenderStyle& style, const Element* element) const
 {
-    adjustStyleForAlternateFormControlDesignTransition(style, element);
-
     // Set the min-height to be at least MenuListMinHeight.
     if (style.logicalHeight().isAuto())
         style.setLogicalMinHeight(Length(std::max(MenuListMinHeight, static_cast<int>(MenuListBaseHeight / MenuListBaseFontSize * style.fontDescription().computedSize())), LengthType::Fixed));
@@ -552,12 +531,12 @@ void RenderThemeIOS::paintMenuListButtonDecorations(const RenderBox& box, const 
     auto glyphScale = 0.65f * emPixels / glyphSize.width();
     glyphSize = glyphScale * glyphSize;
 
-    bool isHorizontalWritingMode = style.isHorizontalWritingMode();
+    bool isHorizontalWritingMode = style.writingMode().isHorizontal();
     auto logicalRect = isHorizontalWritingMode ? rect : rect.transposedRect();
 
     FloatPoint glyphOrigin;
     glyphOrigin.setY(logicalRect.center().y() - glyphSize.height() / 2.0f);
-    if (style.isLeftToRightDirection())
+    if (!style.writingMode().isInlineFlipped())
         glyphOrigin.setX(logicalRect.maxX() - glyphSize.width() - box.style().borderEndWidth() - valueForLength(box.style().paddingEnd(), logicalRect.width()));
     else
         glyphOrigin.setX(logicalRect.x() + box.style().borderEndWidth() + valueForLength(box.style().paddingEnd(), logicalRect.width()));
@@ -643,15 +622,13 @@ bool RenderThemeIOS::paintSliderTrack(const RenderObject& box, const PaintInfo& 
 
     context.fillRoundedRect(innerBorder, systemColor(CSSValueAppleSystemOpaqueFill, styleColorOptions));
 
-#if ENABLE(DATALIST_ELEMENT)
     paintSliderTicks(box, paintInfo, trackClip);
-#endif
 
     double valueRatio = renderSlider->valueRatio();
     if (isHorizontal) {
         double newWidth = trackClip.width() * valueRatio;
 
-        if (!box.style().isLeftToRightDirection())
+        if (box.writingMode().isInlineFlipped())
             trackClip.move(trackClip.width() - newWidth, 0);
 
         trackClip.setWidth(newWidth);
@@ -659,7 +636,7 @@ bool RenderThemeIOS::paintSliderTrack(const RenderObject& box, const PaintInfo& 
         float height = trackClip.height();
         trackClip.setHeight(height * valueRatio);
 
-        if (box.style().isHorizontalWritingMode() || !box.style().isLeftToRightDirection())
+        if (box.writingMode().isHorizontal() || box.writingMode().isInlineFlipped())
             trackClip.setY(trackClip.y() + height - trackClip.height());
     }
 
@@ -736,7 +713,7 @@ bool RenderThemeIOS::paintProgressBar(const RenderObject& renderer, const PaintI
     GraphicsContextStateSaver stateSaver(context);
 
     auto styleColorOptions = renderer.styleColorOptions();
-    auto isHorizontalWritingMode = renderer.style().isHorizontalWritingMode();
+    auto isHorizontalWritingMode = renderer.writingMode().isHorizontal();
 
     constexpr auto barBlockSize = 4.0f;
 
@@ -782,7 +759,7 @@ bool RenderThemeIOS::paintProgressBar(const RenderObject& renderer, const PaintI
     if (renderProgress->isDeterminate()) {
         barInlineSize = clampTo<float>(renderProgress->position(), 0.0f, 1.0f) * trackInlineSize;
 
-        if (!renderProgress->style().isLeftToRightDirection())
+        if (renderProgress->writingMode().isInlineFlipped())
             barInlineStart = trackInlineStart + trackInlineSize - barInlineSize;
     } else {
         Seconds elapsed = MonotonicTime::now() - renderProgress->animationStartTime();
@@ -816,7 +793,6 @@ bool RenderThemeIOS::paintProgressBar(const RenderObject& renderer, const PaintI
     return false;
 }
 
-#if ENABLE(DATALIST_ELEMENT)
 IntSize RenderThemeIOS::sliderTickSize() const
 {
     // FIXME: <rdar://problem/12271791> MERGEBOT: Correct values for slider tick of <input type="range"> elements (requires ENABLE_DATALIST_ELEMENT)
@@ -828,7 +804,6 @@ int RenderThemeIOS::sliderTickOffsetFromTrackCenter() const
     // FIXME: <rdar://problem/12271791> MERGEBOT: Correct values for slider tick of <input type="range"> elements (requires ENABLE_DATALIST_ELEMENT)
     return -9;
 }
-#endif
 
 void RenderThemeIOS::adjustSearchFieldStyle(RenderStyle& style, const Element* element) const
 {
@@ -897,8 +872,6 @@ void RenderThemeIOS::adjustButtonLikeControlStyle(RenderStyle& style, const Elem
 
 void RenderThemeIOS::adjustButtonStyle(RenderStyle& style, const Element* element) const
 {
-    adjustStyleForAlternateFormControlDesignTransition(style, element);
-
     // If no size is specified, ensure the height of the button matches ControlBaseHeight scaled
     // with the font size. min-height is used rather than height to avoid clipping the contents of
     // the button in cases where the button contains more than one line of text.
@@ -910,10 +883,8 @@ void RenderThemeIOS::adjustButtonStyle(RenderStyle& style, const Element* elemen
         style.setLogicalMinHeight(Length(minimumHeight, LengthType::Fixed));
     }
 
-#if ENABLE(INPUT_TYPE_COLOR)
     if (style.usedAppearance() == StyleAppearance::ColorWell)
         return;
-#endif
 
     // Set padding: 0 1.0em; on buttons.
     // CSSPrimitiveValue::resolveAsLength only needs the element's style to calculate em lengths.
@@ -923,7 +894,7 @@ void RenderThemeIOS::adjustButtonStyle(RenderStyle& style, const Element* elemen
     int pixels = emSize->resolveAsLength<int>({ style, nullptr, nullptr, nullptr });
 
     auto paddingBox = LengthBox(0, pixels, 0, pixels);
-    if (!style.isHorizontalWritingMode())
+    if (!style.writingMode().isHorizontal())
         paddingBox = LengthBox(paddingBox.left().value(), paddingBox.top().value(), paddingBox.right().value(), paddingBox.bottom().value());
 
     style.setPaddingBox(WTFMove(paddingBox));
@@ -1642,7 +1613,7 @@ bool RenderThemeIOS::paintMeter(const RenderObject& renderer, const PaintInfo& p
     GraphicsContextStateSaver stateSaver(context);
 
     auto styleColorOptions = renderer.styleColorOptions();
-    auto isHorizontalWritingMode = renderer.style().isHorizontalWritingMode();
+    auto isHorizontalWritingMode = renderer.writingMode().isHorizontal();
 
     float cornerRadius = std::min(rect.width(), rect.height()) / 2.0f;
     FloatRoundedRect roundedFillRect(rect, FloatRoundedRect::Radii(cornerRadius));
@@ -1661,7 +1632,7 @@ bool RenderThemeIOS::paintMeter(const RenderObject& renderer, const PaintInfo& p
     if (!isHorizontalWritingMode)
         gaugeRegionPosition = gaugeRegionPosition.transposedSize();
 
-    if (!renderer.style().isLeftToRightDirection())
+    if (renderer.writingMode().isInlineFlipped())
         gaugeRegionPosition = -gaugeRegionPosition;
 
     fillRect.move(gaugeRegionPosition);
@@ -1681,8 +1652,6 @@ bool RenderThemeIOS::paintMeter(const RenderObject& renderer, const PaintInfo& p
 
     return false;
 }
-
-#if ENABLE(DATALIST_ELEMENT)
 
 bool RenderThemeIOS::paintListButton(const RenderObject& box, const PaintInfo& paintInfo, const FloatRect& rect)
 {
@@ -1769,11 +1738,11 @@ void RenderThemeIOS::paintSliderTicks(const RenderObject& box, const PaintInfo& 
     auto deviceScaleFactor = box.document().deviceScaleFactor();
     auto styleColorOptions = box.styleColorOptions();
 
-    bool isReversedInlineDirection = (!isHorizontal && box.style().isHorizontalWritingMode()) || !box.style().isLeftToRightDirection();
+    bool isInlineFlipped = (!isHorizontal && box.writingMode().isHorizontal()) || box.writingMode().isInlineFlipped();
     for (auto& optionElement : dataList->suggestions()) {
         if (auto optionValue = input->listOptionValueAsDouble(optionElement)) {
             auto tickFraction = (*optionValue - min) / (max - min);
-            auto tickRatio = isReversedInlineDirection ? 1.0 - tickFraction : tickFraction;
+            auto tickRatio = isInlineFlipped ? 1.0 - tickFraction : tickFraction;
             if (isHorizontal)
                 tickRect.setX(rect.x() + tickRatio * (rect.width() - tickRect.width()));
             else
@@ -1785,33 +1754,19 @@ void RenderThemeIOS::paintSliderTicks(const RenderObject& box, const PaintInfo& 
     }
 }
 
-#endif // ENABLE(DATALIST_ELEMENT)
-
-#if ENABLE(INPUT_TYPE_COLOR)
-
-String RenderThemeIOS::colorInputStyleSheet() const
-{
-    return "input[type=\"color\"] { appearance: auto; width: 28px; height: 28px; box-sizing: border-box; outline: none; border: initial; border-radius: 50%; } "_s;
-}
-
-void RenderThemeIOS::adjustColorWellStyle(RenderStyle& style, const Element* element) const
-{
-    adjustStyleForAlternateFormControlDesignTransition(style, element);
-}
-
 void RenderThemeIOS::paintColorWellDecorations(const RenderObject&, const PaintInfo& paintInfo, const FloatRect& rect)
 {
     constexpr int strokeThickness = 3;
-    constexpr DisplayP3<float> colorStops[] = {
-        { 1, 1, 0, 1 },
-        { 1, 0.5, 0, 1 },
-        { 1, 0, 0, 1 },
-        { 1, 0, 1, 1},
-        { 0, 0, 1, 1 },
-        { 0, 1, 1, 1 },
-        { 0, 1, 0, 1},
-        { 0.63, 0.88, 0.03, 1 },
-        { 1, 1, 0, 1 }
+    constexpr std::array colorStops {
+        DisplayP3<float> { 1, 1, 0, 1 },
+        DisplayP3<float> { 1, 0.5, 0, 1 },
+        DisplayP3<float> { 1, 0, 0, 1 },
+        DisplayP3<float> { 1, 0, 1, 1 },
+        DisplayP3<float> { 0, 0, 1, 1 },
+        DisplayP3<float> { 0, 1, 1, 1 },
+        DisplayP3<float> { 0, 1, 0, 1 },
+        DisplayP3<float> { 0.63, 0.88, 0.03, 1 },
+        DisplayP3<float> { 1, 1, 0, 1 }
     };
     constexpr int numColorStops = std::size(colorStops);
 
@@ -1830,8 +1785,6 @@ void RenderThemeIOS::paintColorWellDecorations(const RenderObject&, const PaintI
     context.setStrokeGradient(WTFMove(gradient));
     context.strokeEllipse(strokeRect);
 }
-
-#endif // ENABLE(INPUT_TYPE_COLOR)
 
 void RenderThemeIOS::adjustSearchFieldDecorationPartStyle(RenderStyle& style, const Element* element) const
 {

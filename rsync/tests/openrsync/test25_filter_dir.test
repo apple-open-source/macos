@@ -54,3 +54,10 @@ rm -rf dir3
 touch dir2/a/x/x.o dir2/a/y/y.o
 rsync -a --filter ":ne .merge-rules" -- dir1/ dir3
 compare_trees dir2 dir3
+
+# Test dir-merge again, but use an anchored path
+rm -rf dir3
+rm dir2/x.o
+echo "/*.o" > dir1/.merge-rules
+rsync -a --filter ":-ne .merge-rules" -- dir1/ dir3
+compare_trees dir2 dir3

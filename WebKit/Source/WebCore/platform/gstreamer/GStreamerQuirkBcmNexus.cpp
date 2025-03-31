@@ -48,7 +48,8 @@ GStreamerQuirkBcmNexus::GStreamerQuirkBcmNexus()
 
 std::optional<bool> GStreamerQuirkBcmNexus::isHardwareAccelerated(GstElementFactory* factory)
 {
-    if (g_str_has_prefix(GST_OBJECT_NAME(factory), "brcm"))
+    auto view = StringView::fromLatin1(GST_OBJECT_NAME(factory));
+    if (view.startsWith("brcm"_s))
         return true;
 
     return std::nullopt;

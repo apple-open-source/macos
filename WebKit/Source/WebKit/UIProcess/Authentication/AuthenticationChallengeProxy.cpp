@@ -31,7 +31,6 @@
 #include "AuthenticationManager.h"
 #include "AuthenticationManagerMessages.h"
 #include "AuxiliaryProcessProxy.h"
-#include "WebCoreArgumentCoders.h"
 #include "WebCredential.h"
 #include "WebProcessProxy.h"
 #include "WebProtectionSpace.h"
@@ -74,6 +73,11 @@ WebProtectionSpace* AuthenticationChallengeProxy::protectionSpace() const
         m_webProtectionSpace = WebProtectionSpace::create(m_coreAuthenticationChallenge.protectionSpace());
 
     return m_webProtectionSpace.get();
+}
+
+Ref<AuthenticationDecisionListener> AuthenticationChallengeProxy::protectedListener() const
+{
+    return m_listener;
 }
 
 } // namespace WebKit

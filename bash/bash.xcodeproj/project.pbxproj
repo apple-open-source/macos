@@ -61,6 +61,7 @@
 /* End PBXAggregateTarget section */
 
 /* Begin PBXBuildFile section */
+		2A6389C52CAA2C5A000436DB /* radr136938890.sh in CopyFiles */ = {isa = PBXBuildFile; fileRef = 2A6389C42CAA2C39000436DB /* radr136938890.sh */; };
 		3F33BE5121EBE68100305526 /* siglist.c in Sources */ = {isa = PBXBuildFile; fileRef = 59926F000FE0692C005D5BC8 /* siglist.c */; };
 		4AB3FA402325F8C10000629D /* bash.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = 4AB3FA392325F8840000629D /* bash.plist */; };
 		591539150FE05880007671F4 /* syntax.c in Sources */ = {isa = PBXBuildFile; fileRef = 591539140FE05880007671F4 /* syntax.c */; };
@@ -353,6 +354,7 @@
 			dstSubfolderSpec = 0;
 			files = (
 				CB7B1AE229D50F48004EDD18 /* radr107297705.sh in CopyFiles */,
+				2A6389C52CAA2C5A000436DB /* radr136938890.sh in CopyFiles */,
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 		};
@@ -445,6 +447,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		2A6389C42CAA2C39000436DB /* radr136938890.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = radr136938890.sh; sourceTree = "<group>"; };
 		3F0C454E189AED7000B957A9 /* bash.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = bash.xcconfig; sourceTree = "<group>"; };
 		4AB3FA392325F8840000629D /* bash.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = bash.plist; sourceTree = "<group>"; };
 		591539140FE05880007671F4 /* syntax.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = syntax.c; sourceTree = "<group>"; };
@@ -773,6 +776,7 @@
 			isa = PBXGroup;
 			children = (
 				CB7B1AE129D50F39004EDD18 /* radr107297705.sh */,
+				2A6389C42CAA2C39000436DB /* radr136938890.sh */,
 				4AB3FA392325F8840000629D /* bash.plist */,
 			);
 			path = tests;

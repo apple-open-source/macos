@@ -211,7 +211,8 @@ typedef struct {
 
 #include <xlocale.h>
 
-int __collate_equiv_value(locale_t loc, const wchar_t *str, size_t len);
+wchar_t __collate_equiv_value(locale_t loc, const wchar_t *str, size_t len);
+int __collate_range_cmp(wchar_t c1, wchar_t c2, locale_t loc);
 
 #ifdef BSD_COMPATIBILITY
 static wchar_t
@@ -356,7 +357,7 @@ tre_parse_bracket_items(tre_parse_ctx_t *ctx, tre_bracket_match_list_t **items,
 #endif /* BSD_COMPATIBILITY */
 			    /* Verify this is a known sequence */
 			    if (__collate_equiv_value(ctx->loc, start,
-							  re - start) <= 0)
+							  re - start) == 0)
 			      {
 				status = REG_ECOLLATE;
 				goto error;
@@ -499,7 +500,7 @@ tre_parse_bracket_items(tre_parse_ctx_t *ctx, tre_bracket_match_list_t **items,
 				   contain multi-character sequences, might
 				   be unexpected, so we punt for now. */
 				if ((equiv = __collate_equiv_value(ctx->loc,
-					     start, re - start)) <= 0)
+					     start, re - start)) == 0)
 				  {
 				    /* The standard says that if no collating
 				       element if found, we use the collating
@@ -647,13 +648,9 @@ process_single_character:
 	  /* Process single character */
 	  if (range > 0)
 	    {
-	      int mine, maxe;
-
 process_end_range:
 	      /* Get collation equivalence values */
-	      mine = __collate_equiv_value(ctx->loc, &min, 1);
-	      maxe = __collate_equiv_value(ctx->loc, &c, 1);
-	      if (maxe < mine)
+	      if (__collate_range_cmp(min, c, ctx->loc) > 0)
 		{
 		  status = REG_ERANGE;
 		  goto error;
@@ -662,12 +659,12 @@ process_end_range:
 		{
 		  status = tre_new_item(ctx->mem,
 					TRE_BRACKET_MATCH_TYPE_RANGE_BEGIN,
-					mine, &max_i, items);
+					min, &max_i, items);
 		  if (status != REG_OK)
 		    goto error;
 		  status = tre_new_item(ctx->mem,
 					TRE_BRACKET_MATCH_TYPE_RANGE_END,
-					maxe, &max_i, items);
+					c, &max_i, items);
 		  if (status != REG_OK)
 		    goto error;
 		}

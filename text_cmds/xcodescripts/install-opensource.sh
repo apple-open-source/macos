@@ -22,4 +22,5 @@ trap 'rm "$tmplist"' EXIT
 ) >"$tmplist"
 
 plutil -lint "$tmplist"
+plutil -convert xml1 "$tmplist"
 install -m 0644 "$tmplist" "$OSV"/text_cmds.plist

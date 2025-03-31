@@ -258,6 +258,9 @@ extension OctagonPairingTests {
         let requestCircleSession = KCJoiningRequestCircleSession(circleDelegate: requestDelegate!,
                                                                  session: aesSession!,
                                                                  otcontrol: self.otControl,
+                                                                 altDSID: try XCTUnwrap(self.mockAuthKit.primaryAltDSID()),
+                                                                 flowID: "flowID-test",
+                                                                 deviceSessionID: "deviceSessionID-test",
                                                                  error: nil)
         XCTAssertNotNil(requestCircleSession, "No request secret session")
 
@@ -373,8 +376,21 @@ extension OctagonPairingTests {
         }
         OctagonSetSOSFeatureEnabled(false)
     }
-    /* FIX ME, This isn't testing version 1.
-    func testV1() {
+
+    func testLegacyPiggybackingApplicationHandlingUsingTestVector() throws {
+
+        OctagonSetSOSFeatureEnabled(true)
+        self.startCKAccountStatusMock()
+
+        self.getAcceptorInCircle()
+
+        let initiator1Context = self.manager.context(forContainerName: OTCKContainerName, contextID: OTDefaultContext)
+
+        initiator1Context.startOctagonStateMachine()
+
+        self.assertEnters(context: initiator1Context, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
+
+        // Note that in this strange situation, the join should create the CKKS TLKs
         let (requestDelegate, acceptDelegate, acceptSession, requestSession) = self.setupKCJoiningSessionObjects()
         var initialMessageContainingOctagonVersion: Data?
         var challengeContainingEpoch: Data?
@@ -423,48 +439,63 @@ extension OctagonPairingTests {
             XCTAssertNil(error, "error retrieving response message")
         }
 
+        let signInCallback = self.expectation(description: "trigger sign in")
+        self.otControl.appleAccountSigned(in: OTControlArguments(altDSID: try XCTUnwrap(self.mockAuthKit.primaryAltDSID()))) { error in
+            XCTAssertNil(error, "error should be nil")
+            signInCallback.fulfill()
+        }
+        self.wait(for: [signInCallback], timeout: 10)
+
         XCTAssertTrue(requestSession!.isDone(), "SecretSession done")
         XCTAssertFalse(acceptSession!.isDone(), "Unexpected accept session done")
 
         let aesSession = requestSession!.session
 
-        let requestCircleSession = KCJoiningRequestCircleSession(circleDelegate: requestDelegate!, session: aesSession!, error: nil)
+        let requestCircleSession = KCJoiningRequestCircleSession(circleDelegate: requestDelegate!,
+                                                                 session: aesSession!,
+                                                                 otcontrol: self.otControl,
+                                                                 altDSID: "123456",
+                                                                 flowID: "flowID-test",
+                                                                 deviceSessionID: "deviceSessionID-test",
+                                                                 error: nil)
         XCTAssertNotNil(requestCircleSession, "No request secret session")
 
-        requestCircleSession.setJoiningConfigurationObject(self.initiatorPiggybackingConfig)
+        requestCircleSession.setContextIDFor(self.initiatorArguments.contextID)
         requestCircleSession.setControlObject(self.otControl)
 
         var identityMessage: Data?
         do {
             identityMessage = try requestCircleSession.initialMessage()
+            let parsedMessage = try KCJoiningMessage(der: identityMessage!)
+            XCTAssertNotNil(parsedMessage.firstData, "No octagon message")
+            XCTAssertNotNil(parsedMessage.secondData, "No sos message")
             XCTAssertNotNil(identityMessage, "No identity message")
-
         } catch {
             XCTAssertNil(error, "error retrieving identityMessage message")
         }
 
+        // Double-check that there's an Octagon message in the packet
+        let initiatorIdentityMessage = try self.unpackPiggybackingInitialMessage(identityMessage: identityMessage!, session: acceptSession!.accessSession())
+        XCTAssertTrue(initiatorIdentityMessage.hasPrepare, "Pairing message should contain prepared information")
+
+        // everything leading up to this point is to get the Piggybacking state machine in the correct state.
+        // Now swap in the test vector of a legacy windows client.  Passing this message to the acceptor should not fail.
+        let b64TestVectorString = "MIIDOwIBBASCAzQSqQYKM1NIQTI1NjoxZm9oeDJvRmhBREVKbjViTkxhU3B0WHJFUEptc01YUmZSelgzdDhPT3ZJPRLfAggBEngwdjAQBgcqhkjOPQIBBgUrgQQAIgNiAARyPxKe8vLeeFRQnQe/a76ve5OkzT4Eye8ozletW2zvu7ilEA+HE5DL0JfVL2KH8dZNMCINAJYUkW3tiZo/9iy+tjTU6JV0OQer4iYhE8lgTn0RTP9ggydfDZifwZles3waeDB2MBAGByqGSM49AgEGBSuBBAAiA2IABIeSRZNouh104TjAvwdPhUSBo/OBPH7CtsSwzmJhEmlk0FFF0pkeuvDnDjvBwEck/pNk9I6dekutpOSpt8LbymLH8+ax1MU6YYNsxVxrV0H3QwWdph2YFukNT4BlcvgTASJQWjhhYU9Nb0kveE80cFZzYkFrVjZ5dWFGamtrRldveVhNQXNYUVlKUGlLYXlXZitJZitMUllrdnE5VVIyMVl5eWhialRQTk8vNHo4VERFOTUqFVdpblBDOzEwLjAoMCwwKTsyMjYyMRpoMGYCMQDFioIT8/HIF0woVsGLssJxG4aY90N/klnSBcaQSSzvBRKqt0lhR/GsHHkXz0ojfrcCMQDZFWFcl2sPdqDkdDrwxZeBwghY4xLUuOlOMOxHYwOMK+xwfr6sI+ur2OtDskpta88ivAEIARATGjNTSEEyNTY6amVWU05VT3VRZzdFTnFQMXZpY3ZxR0pkR1dJTEk4ZzhqSGVFYWc5WWJDOD0qFVdpblBDOzEwLjAoMCwwKTsyMjYyMTIPWUVHSElBLVdJTjEwLVZNSiA3MGI2ZDM3ZjgxNTAyMmRiOWZjYjBhNzdkYmRjN2U2Y1ATWjNTSEEyNTY6amVWU05VT3VRZzdFTnFQMXZpY3ZxR0pkR1dJTEk4ZzhqSGVFYWc5WWJDOD1gAipnMGUCMG2lT41VDND6bRmsYn/turuD7uSKw4HEYdnrrPgkrKIBZCxuuBnURCWB7zOIAh/jZQIxAM6/GVbDsQ14mFYYPFlG7mIU8UG+8yU51Dz/qAoSWiMk60spH3aFuzxFBMO4LKKzbyoCCAEyAggB"
+
+        let testVectorData = Data(base64Encoded: b64TestVectorString)!
+
         var voucherMessage: Data?
         do {
-            voucherMessage = try acceptSession!.processMessage(identityMessage!)
-            XCTAssertNotNil(voucherMessage, "No voucherMessage message")
+            voucherMessage = try acceptSession!.processMessage(testVectorData)
+            let parsedMessage = try KCJoiningMessage(der: testVectorData)
+            XCTAssertNotNil(parsedMessage.firstData, "Should contain an Octagon message")
+            XCTAssertNil(parsedMessage.secondData, "Should contain no SOS message")
+            XCTAssertNotNil(voucherMessage, "Should have a voucher message")
         } catch {
             XCTAssertNil(error, "error retrieving voucherMessage message")
-
         }
-
-        var nothing: Data?
-        do {
-            nothing = try requestCircleSession.processMessage(voucherMessage!)
-            XCTAssertNotNil(nothing, "No nothing message")
-        } catch {
-            XCTAssertNil(error, "error retrieving nothing message")
-
-        }
-
-        XCTAssertTrue(requestSession!.isDone(), "requestor should be done")
-        XCTAssertTrue(acceptSession!.isDone(), "acceptor should be done")
     }
-*/
+
     func testPairingReset() {
         self.startCKAccountStatusMock()
 
@@ -651,6 +682,9 @@ extension OctagonPairingTests {
         let requestCircleSession = KCJoiningRequestCircleSession(circleDelegate: requestDelegate!,
                                                                  session: aesSession!,
                                                                  otcontrol: self.otControl,
+                                                                 altDSID: "123456",
+                                                                 flowID: "flowID-test",
+                                                                 deviceSessionID: "deviceSessionID-test",
                                                                  error: nil)
         XCTAssertNotNil(requestCircleSession, "No request secret session")
 
@@ -818,6 +852,9 @@ extension OctagonPairingTests {
         let requestCircleSession = KCJoiningRequestCircleSession(circleDelegate: requestDelegate!,
                                                                  session: aesSession!,
                                                                  otcontrol: self.otControl,
+                                                                 altDSID: "123456",
+                                                                 flowID: "flowID-test",
+                                                                 deviceSessionID: "deviceSessionID-test",
                                                                  error: nil)
         XCTAssertNotNil(requestCircleSession, "No request secret session")
 
@@ -987,6 +1024,9 @@ extension OctagonPairingTests {
         let requestCircleSession = KCJoiningRequestCircleSession(circleDelegate: requestDelegate!,
                                                                  session: aesSession!,
                                                                  otcontrol: self.otControl,
+                                                                 altDSID: "123456",
+                                                                 flowID: "flowID-test",
+                                                                 deviceSessionID: "deviceSessionID-test",
                                                                  error: nil)
         XCTAssertNotNil(requestCircleSession, "No request secret session")
 
@@ -1150,6 +1190,9 @@ extension OctagonPairingTests {
         let requestCircleSession = KCJoiningRequestCircleSession(circleDelegate: requestDelegate!,
                                                                  session: aesSession!,
                                                                  otcontrol: self.otControl,
+                                                                 altDSID: "123456",
+                                                                 flowID: "flowID-test",
+                                                                 deviceSessionID: "deviceSessionID-test",
                                                                  error: nil)
         XCTAssertNotNil(requestCircleSession, "No request secret session")
 
@@ -1247,6 +1290,9 @@ extension OctagonPairingTests {
         let requestCircleSession = KCJoiningRequestCircleSession(circleDelegate: requestDelegate!,
                                                                  session: aesSession!,
                                                                  otcontrol: self.otControl,
+                                                                 altDSID: "123456",
+                                                                 flowID: "flowID-test",
+                                                                 deviceSessionID: "deviceSessionID-test",
                                                                  error: nil)
         XCTAssertNotNil(requestCircleSession, "Should have a request secret session")
 

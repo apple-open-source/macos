@@ -608,7 +608,7 @@ FNS(sse2)
 #undef FNS
 #undef FN
 
-static INLINE void highbd_compute_dist_wtd_comp_avg(__m128i *p0, __m128i *p1,
+static inline void highbd_compute_dist_wtd_comp_avg(__m128i *p0, __m128i *p1,
                                                     const __m128i *w0,
                                                     const __m128i *w1,
                                                     const __m128i *r,

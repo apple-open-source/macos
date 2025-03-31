@@ -4,6 +4,47 @@ import Foundation
 private let logger = Logger(subsystem: "com.apple.security.trustedpeers", category: "recoverykey")
 
 extension Container {
+    internal static func onqueueRemoveDuplicateOrInvalidCRKs(containerMO: ContainerMO, moc: NSManagedObjectContext) throws {
+        logger.debug("onqueueRemoveDuplicateOrInvalidCRKs start")
+
+        let keyFactory = TPECPublicKeyFactory()
+        var uniqueSet: Set<TPCustodianRecoveryKey> = Set()
+        var CRKsToDelete = [CustodianRecoveryKeyMO]()
+
+        try autoreleasepool {
+            let fetch = CustodianRecoveryKeyMO.fetchRequest()
+            fetch.predicate = NSPredicate(format: "container == %@", containerMO)
+            // limit to 10 MOs, to reduce memory footprint
+            fetch.fetchBatchSize = 10
+
+            try moc.executeBatchedFetchAndEnumerateChunkwise(
+                fetchRequest: fetch,
+                itemBlock: { crkMO, _ in
+                    defer { moc.refaultUnchanged(crkMO) }
+
+                    if let tpcrk = TPCustodianRecoveryKey(data: crkMO.crkInfo ?? Data(), sig: crkMO.crkInfoSig ?? Data(), keyFactory: keyFactory) {
+                        let (added, _) = uniqueSet.insert(tpcrk)
+                        if !added {
+                            CRKsToDelete.append(crkMO)
+                        }
+                    } else {
+                        CRKsToDelete.append(crkMO)
+                    }
+                },
+                chunkBlock: moc.refaultUnchanged
+            )
+
+            CRKsToDelete.forEach(moc.delete)
+
+            do {
+                try moc.save()
+            } catch {
+                logger.error("CRK cleanup unable to save \(error, privacy: .public)")
+                throw error
+            }
+        }
+    }
+
     func preflightVouchWithRecoveryKey(recoveryKey: String,
                                        salt: String,
                                        reply: @escaping (String?, TPSyncingPolicy?, Error?) -> Void) {

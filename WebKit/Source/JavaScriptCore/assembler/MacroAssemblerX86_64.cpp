@@ -36,10 +36,6 @@
 #include <sys/sysctl.h>
 #endif
 
-#if COMPILER(MSVC)
-#include <intrin.h>
-#endif
-
 namespace JSC {
 
 JSC_DECLARE_NOEXCEPT_JIT_OPERATION(ctiMasmProbeTrampoline, void, ());
@@ -123,10 +119,6 @@ JSC_ANNOTATE_JIT_OPERATION_PROBE(ctiMasmProbeTrampolineSIMD);
 // non-vector case.
 #define PROBE_SIZE (PROBE_FIRST_XMM_OFFSET + 16 * 2 * XMM_SIZE)
 
-#if COMPILER(MSVC)
-#define PROBE_EXECUTOR_OFFSET PROBE_SIZE // Stash the executeJSCJITProbe function pointer at the end of the ProbeContext.
-#endif
-
 // The outgoing record to be popped off the stack at the end consists of:
 // eflags, eax, ecx, ebp, eip.
 #define OUT_SIZE        (5 * PTR_SIZE)
@@ -185,9 +177,6 @@ static_assert(PROBE_OFFSETOF_REG(cpu.fprs.fprs, X86Registers::xmm15) == PROBE_CP
 #endif // CPU(X86_64)
 
 static_assert(sizeof(Probe::State) == PROBE_SIZE, "Probe::State::size's matches ctiMasmProbeTrampoline");
-#if COMPILER(MSVC)
-static_assert((PROBE_EXECUTOR_OFFSET + PTR_SIZE) <= (PROBE_SIZE + OUT_SIZE), "Must have room after ProbeContext to stash the probe handler");
-#endif
 
 #undef PROBE_OFFSETOF
 

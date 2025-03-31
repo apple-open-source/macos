@@ -2180,19 +2180,7 @@ xmlSAX2AttributeNs(xmlParserCtxtPtr ctxt,
 // in such a way that broke Microsoft Document Connection. Detect Microsoft Document Connection and mimic the old behavior.
 static bool evaluateStartElementNSNeedsUndeclaredPrefixQuirk(void)
 {
-    const char* executablePath = _dyld_get_image_name(0);
-    if (!executablePath)
-        return false;
-
-    // Find the base name portion of the path.
-    const char* executableName = strrchr(executablePath, '/');
-    if (!executableName)
-        return false;
-
-    // Move past the slash.
-    executableName++;
-
-    if (strcmp(executableName, "Microsoft Document Connection"))
+    if (strcmp(__progname, "Microsoft Document Connection") != 0)
         return false;
 
 #pragma clang diagnostic push
@@ -2610,7 +2598,7 @@ xmlSAX2Text(xmlParserCtxtPtr ctxt, const xmlChar *ch, int len,
 	    (lastChild->type == type) &&
 	    ((type != XML_TEXT_NODE) ||
              (lastChild->name == xmlStringText));
-	if ((coalesceText) && (ctxt->nodemem != 0)) {
+	if ((coalesceText) && (ctxt->nodemem > 0)) {
 	    /*
 	     * The whole point of maintaining nodelen and nodemem,
 	     * xmlTextConcat is too costly, i.e. compute length,

@@ -924,6 +924,7 @@ tcp_sack_process_dsack(struct tcpcb *tp, struct tcpopt *to,
 		    TCP_DSACK_SEQ_IN_WINDOW(tp, first_sack.end, th->th_ack))) {
 			to->to_nsacks--;
 			to->to_sacks += TCPOLEN_SACK;
+			to->to_sacks_size -= TCPOLEN_SACK;
 			tcpstat.tcps_dsack_recvd_old++;
 
 			/*
@@ -948,6 +949,7 @@ tcp_sack_process_dsack(struct tcpcb *tp, struct tcpopt *to,
 		    th->th_ack)) {
 			to->to_nsacks--;
 			to->to_sacks += TCPOLEN_SACK;
+			to->to_sacks_size -= TCPOLEN_SACK;
 			tcpstat.tcps_dsack_recvd_old++;
 			return TRUE;
 		}
@@ -959,6 +961,7 @@ tcp_sack_process_dsack(struct tcpcb *tp, struct tcpopt *to,
 	/* Update the tcpopt pointer to exclude dsack block */
 	to->to_nsacks--;
 	to->to_sacks += TCPOLEN_SACK;
+	to->to_sacks_size -= TCPOLEN_SACK;
 	tcpstat.tcps_dsack_recvd++;
 	tp->t_dsack_recvd++;
 

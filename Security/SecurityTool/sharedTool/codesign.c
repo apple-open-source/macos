@@ -264,6 +264,7 @@ static CF_RETURNS_RETAINED CFArrayRef load_code_signatures(const char *path)
     bool fully_parsed_binary = false;
     CFMutableDictionaryRef result = NULL;
     CFMutableArrayRef results = CFArrayCreateMutable(kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks);
+    struct fat_arch *archs = NULL;
 
     FILE *binary = open_bundle(path, "r");
     if (!binary) binary = fopen(path, "r");
@@ -288,7 +289,7 @@ static CF_RETURNS_RETAINED CFArrayRef load_code_signatures(const char *path)
         require(1 == fread(&fat, sizeof(fat), 1, binary), out);
         require(ntohl(fat.magic) == FAT_MAGIC, out);
         uint32_t slice, slices = ntohl(fat.nfat_arch);
-        struct fat_arch *archs = calloc(slices, sizeof(struct fat_arch));
+        archs = calloc(slices, sizeof(struct fat_arch));
         require(slices == fread(archs, sizeof(struct fat_arch), slices, binary), out);
         for (slice = 0; slice < slices; slice++) {
             uint32_t slice_offset = ntohl(archs[slice].offset);
@@ -308,6 +309,7 @@ static CF_RETURNS_RETAINED CFArrayRef load_code_signatures(const char *path)
     }
     fully_parsed_binary = true;
 out:
+    free(archs);
     if (!fully_parsed_binary) {
         if (results) {
             CFRelease(results);

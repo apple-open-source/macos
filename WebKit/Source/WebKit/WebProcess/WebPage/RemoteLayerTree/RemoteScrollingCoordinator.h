@@ -50,6 +50,9 @@ public:
         return adoptRef(*new RemoteScrollingCoordinator(page));
     }
 
+    void ref() const final { WebCore::AsyncScrollingCoordinator::ref(); }
+    void deref() const final { WebCore::AsyncScrollingCoordinator::deref(); }
+
     RemoteScrollingCoordinatorTransaction buildTransaction(WebCore::FrameIdentifier);
 
     void scrollingStateInUIProcessChanged(const RemoteScrollingUIState&);
@@ -76,9 +79,9 @@ private:
     bool coordinatesScrollingForFrameView(const WebCore::LocalFrameView&) const override;
     void scheduleTreeStateCommit() override;
 
-    bool isRubberBandInProgress(WebCore::ScrollingNodeID) const final;
-    bool isUserScrollInProgress(WebCore::ScrollingNodeID) const final;
-    bool isScrollSnapInProgress(WebCore::ScrollingNodeID) const final;
+    bool isRubberBandInProgress(std::optional<WebCore::ScrollingNodeID>) const final;
+    bool isUserScrollInProgress(std::optional<WebCore::ScrollingNodeID>) const final;
+    bool isScrollSnapInProgress(std::optional<WebCore::ScrollingNodeID>) const final;
 
     void setScrollPinningBehavior(WebCore::ScrollPinningBehavior) override;
     

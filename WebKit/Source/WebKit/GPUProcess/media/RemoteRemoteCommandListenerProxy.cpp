@@ -31,6 +31,7 @@
 #include "GPUConnectionToWebProcess.h"
 #include "GPUProcess.h"
 #include "RemoteRemoteCommandListenerMessages.h"
+#include "SharedPreferencesForWebProcess.h"
 #include <wtf/TZoneMallocInlines.h>
 
 namespace WebKit {
@@ -55,6 +56,14 @@ void RemoteRemoteCommandListenerProxy::updateSupportedCommands(Vector<WebCore::P
 
     if (auto connection = m_gpuConnection.get())
         connection->updateSupportedRemoteCommands();
+}
+
+std::optional<SharedPreferencesForWebProcess> RemoteRemoteCommandListenerProxy::sharedPreferencesForWebProcess() const
+{
+    if (RefPtr gpuConnectionToWebProcess = m_gpuConnection.get())
+        return gpuConnectionToWebProcess->sharedPreferencesForWebProcess();
+
+    return std::nullopt;
 }
 
 }

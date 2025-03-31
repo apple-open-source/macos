@@ -2,11 +2,11 @@
 		<key>OpenSourceProject</key>
 		<string>calendar</string>
 		<key>OpenSourceVersion</key>
-		<string>2022-07-31</string>
+		<string>2023-12-17</string>
 		<key>OpenSourceWebsiteURL</key>
-		<string>https://cgit.freebsd.org/src/tree/usr.bin/calendar?id=dc9e68ad0187bdfe4781256a6c4751e074e1e2a2</string>
+		<string>https://cgit.freebsd.org/src/tree/usr.bin/calendar?id=0a82cd4f101c5eb8533a0049aaa3f06f005cf8af</string>
 		<key>OpenSourceImportDate</key>
-		<string>2022-12-23</string>
+		<string>2023-12-18</string>
 		<key>OpenSourceModifications</key>
 		<array>
 			<string>calendar.c: match default as per man page</string>

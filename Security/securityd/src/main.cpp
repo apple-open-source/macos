@@ -195,7 +195,7 @@ int main(int argc, char *argv[])
 
 // The clang static analyzer isn't a big fan of our "object creation hooks object into global pointer graph" model.
 // Tell it not to worry.
-#ifndef __clang_analyzer__
+    [[clang::suppress]] {
 	// introduce all supported ACL subject types
 	new AnyAclSubject::Maker();
 	new PasswordAclSubject::Maker();
@@ -209,7 +209,7 @@ int main(int argc, char *argv[])
 	new PartitionAclSubject::Maker();
 	new PreAuthorizationAcls::OriginMaker();
     new PreAuthorizationAcls::SourceMaker();
-#endif
+    }
     // establish the code equivalents database
     CodeSignatures codeSignatures;
 
@@ -239,10 +239,8 @@ int main(int argc, char *argv[])
     // install MDS (if needed) and initialize the local CSSM
     server.loadCssm(mdsIsInstalled);
 
-#ifndef __clang_analyzer__
-	// create the shared memory notification hub
-	new SharedMemoryListener(messagingName, kSharedMemoryPoolSize);
-#endif
+    // create the shared memory notification hub
+    [[clang::suppress]] new SharedMemoryListener(messagingName, kSharedMemoryPoolSize);
 	
 
 	// okay, we're ready to roll

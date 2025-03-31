@@ -133,6 +133,29 @@ sr_Latn_BA{
                 one{"B {0}"}
                 other{"B {0}"}
             }
+            light-speed{
+                case{
+                    accusative{
+                        few{"{0} svjetla"}
+                        one{"{0} svjetlo"}
+                        other{"{0} svjetla"}
+                    }
+                    genitive{
+                        few{"{0} svjetla"}
+                        one{"{0} svjetla"}
+                        other{"{0} svjetala"}
+                    }
+                    instrumental{
+                        few{"{0} svjetla"}
+                        one{"{0} svjetlom"}
+                        other{"{0} svjetala"}
+                    }
+                }
+                dnam{"svjetlo"}
+                few{"{0} svjetla"}
+                one{"{0} svjetlo"}
+                other{"{0} svjetla"}
+            }
         }
         volume{
             acre-foot{
@@ -183,6 +206,12 @@ sr_Latn_BA{
                 few{"B {0}"}
                 one{"B {0}"}
                 other{"B {0}"}
+            }
+            light-speed{
+                dnam{"svjetlo"}
+                few{"{0} svjetla"}
+                one{"{0} svjetlo"}
+                other{"{0} svjetala"}
             }
         }
         volume{
@@ -237,6 +266,12 @@ sr_Latn_BA{
                 few{"B {0}"}
                 one{"B {0}"}
                 other{"B {0}"}
+            }
+            light-speed{
+                dnam{"svjetlo"}
+                few{"{0} svjetla"}
+                one{"{0} svjetlo"}
+                other{"{0} svjetala"}
             }
         }
     }

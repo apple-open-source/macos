@@ -17,6 +17,8 @@ extern NSString *kKCPairingChannelErrorDomain;
 #define KCPairingErrorNoStashedCredential       7
 #define KCPairingErrorNotTrustedInOctagon       8
 #define KCPairingErrorWrongPacketFormat         9
+#define KCPairingErrorUnexpectedKeychainType    10
+#define KCPairingErrorUnableToFetchDSID         11
 
 typedef void(^KCPairingChannelCompletion)(BOOL complete, NSData *packet, NSError *error);
 

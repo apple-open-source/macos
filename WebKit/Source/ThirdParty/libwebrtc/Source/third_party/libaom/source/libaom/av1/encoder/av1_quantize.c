@@ -514,7 +514,7 @@ void av1_highbd_quantize_b_facade(const tran_low_t *coeff_ptr,
   }
 }
 
-static INLINE void highbd_quantize_dc(
+static inline void highbd_quantize_dc(
     const tran_low_t *coeff_ptr, int n_coeffs, int skip_block,
     const int16_t *round_ptr, const int16_t quant, tran_low_t *qcoeff_ptr,
     tran_low_t *dqcoeff_ptr, const int16_t dequant_ptr, uint16_t *eob_ptr,
@@ -674,7 +674,7 @@ void av1_build_quantizer(aom_bit_depth_t bit_depth, int y_dc_delta_q,
   }
 }
 
-static INLINE bool deltaq_params_have_changed(
+static inline bool deltaq_params_have_changed(
     const DeltaQuantParams *prev_deltaq_params,
     const CommonQuantParams *quant_params) {
   return (prev_deltaq_params->y_dc_delta_q != quant_params->y_dc_delta_q ||
@@ -708,8 +708,18 @@ void av1_init_quantizer(EncQuantDequantParams *const enc_quant_dequant_params,
   prev_deltaq_params->v_ac_delta_q = quant_params->v_ac_delta_q;
 }
 
-void av1_set_q_index(const EncQuantDequantParams *enc_quant_dequant_params,
-                     int qindex, MACROBLOCK *x) {
+/*!\brief Update quantize parameters in MACROBLOCK
+ *
+ * \param[in]  enc_quant_dequant_params This parameter cached the quantize and
+ *                                      dequantize parameters for all q
+ *                                      indices.
+ * \param[in]  qindex                   Quantize index used for the current
+ *                                      superblock.
+ * \param[out] x                        A superblock data structure for
+ *                                      encoder.
+ */
+static void set_q_index(const EncQuantDequantParams *enc_quant_dequant_params,
+                        int qindex, MACROBLOCK *x) {
   const QUANTS *const quants = &enc_quant_dequant_params->quants;
   const Dequants *const dequants = &enc_quant_dequant_params->dequants;
   x->qindex = qindex;
@@ -744,8 +754,15 @@ void av1_set_q_index(const EncQuantDequantParams *enc_quant_dequant_params,
   x->plane[2].dequant_QTX = dequants->v_dequant_QTX[qindex];
 }
 
-void av1_set_qmatrix(const CommonQuantParams *quant_params, int segment_id,
-                     MACROBLOCKD *xd) {
+/*!\brief Update quantize matrix in MACROBLOCKD based on segment id
+ *
+ * \param[in]  quant_params  Quantize parameters used by encoder and decoder
+ * \param[in]  segment_id    Segment id.
+ * \param[out] xd            A superblock data structure used by encoder and
+ * decoder.
+ */
+static void set_qmatrix(const CommonQuantParams *quant_params, int segment_id,
+                        MACROBLOCKD *xd) {
   const int use_qmatrix = av1_use_qmatrix(quant_params, xd, segment_id);
   const int qmlevel_y =
       use_qmatrix ? quant_params->qmatrix_level_y : NUM_QM_LEVELS - 1;
@@ -802,13 +819,13 @@ void av1_init_plane_quantizers(const AV1_COMP *cpi, MACROBLOCK *x,
 
   const int qindex_change = x->qindex != qindex;
   if (qindex_change || do_update) {
-    av1_set_q_index(&cpi->enc_quant_dequant_params, qindex, x);
+    set_q_index(&cpi->enc_quant_dequant_params, qindex, x);
   }
 
   MACROBLOCKD *const xd = &x->e_mbd;
   if ((segment_id != x->prev_segment_id) ||
       av1_use_qmatrix(quant_params, xd, segment_id)) {
-    av1_set_qmatrix(quant_params, segment_id, xd);
+    set_qmatrix(quant_params, segment_id, xd);
   }
 
   x->seg_skip_block = segfeature_active(&cm->seg, segment_id, SEG_LVL_SKIP);
@@ -847,7 +864,8 @@ static int adjust_hdr_cr_deltaq(int base_qindex) {
 }
 
 void av1_set_quantizer(AV1_COMMON *const cm, int min_qmlevel, int max_qmlevel,
-                       int q, int enable_chroma_deltaq, int enable_hdr_deltaq) {
+                       int q, int enable_chroma_deltaq, int enable_hdr_deltaq,
+                       bool is_allintra) {
   // quantizer has to be reinitialized with av1_init_quantizer() if any
   // delta_q changes.
   CommonQuantParams *quant_params = &cm->quant_params;
@@ -879,18 +897,29 @@ void av1_set_quantizer(AV1_COMMON *const cm, int min_qmlevel, int max_qmlevel,
     }
   }
 
-  quant_params->qmatrix_level_y =
-      aom_get_qmlevel(quant_params->base_qindex, min_qmlevel, max_qmlevel);
-  quant_params->qmatrix_level_u =
-      aom_get_qmlevel(quant_params->base_qindex + quant_params->u_ac_delta_q,
-                      min_qmlevel, max_qmlevel);
+  // Select the best QM formula based on whether we're encoding in allintra mode
+  // or any other mode
+  int (*get_qmlevel)(int, int, int);
 
-  if (!cm->seq_params->separate_uv_delta_q)
-    quant_params->qmatrix_level_v = quant_params->qmatrix_level_u;
-  else
+  if (is_allintra) {
+    get_qmlevel = aom_get_qmlevel_allintra;
+  } else {
+    get_qmlevel = aom_get_qmlevel;
+  }
+
+  quant_params->qmatrix_level_y =
+      get_qmlevel(quant_params->base_qindex, min_qmlevel, max_qmlevel);
+  quant_params->qmatrix_level_u =
+      get_qmlevel(quant_params->base_qindex + quant_params->u_ac_delta_q,
+                  min_qmlevel, max_qmlevel);
+
+  if (cm->seq_params->separate_uv_delta_q) {
     quant_params->qmatrix_level_v =
-        aom_get_qmlevel(quant_params->base_qindex + quant_params->v_ac_delta_q,
-                        min_qmlevel, max_qmlevel);
+        get_qmlevel(quant_params->base_qindex + quant_params->v_ac_delta_q,
+                    min_qmlevel, max_qmlevel);
+  } else {
+    quant_params->qmatrix_level_v = quant_params->qmatrix_level_u;
+  }
 }
 
 // Table that converts 0-63 Q-range values passed in outside to the Qindex

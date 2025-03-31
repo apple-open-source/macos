@@ -107,7 +107,7 @@ struct Styleable;
 class WebGLProgram;
 #endif
 
-using WebSocketChannelIdentifier = LegacyNullableAtomicObjectIdentifier<WebSocketChannel>;
+using WebSocketChannelIdentifier = AtomicObjectIdentifier<WebSocketChannel>;
 enum class StorageType : uint8_t;
 
 struct ComputedEffectTiming;
@@ -238,7 +238,7 @@ public:
     static void frameScheduledNavigation(Frame&, Seconds delay);
     static void frameClearedScheduledNavigation(Frame&);
     static void accessibilitySettingsDidChange(Page&);
-#if ENABLE(DARK_MODE_CSS) || HAVE(OS_DARK_MODE_SUPPORT)
+#if ENABLE(DARK_MODE_CSS)
     static void defaultAppearanceDidChange(Page&);
 #endif
     static void willDestroyCachedResource(CachedResource&);
@@ -453,7 +453,7 @@ private:
     static void frameScheduledNavigationImpl(InstrumentingAgents&, Frame&, Seconds delay);
     static void frameClearedScheduledNavigationImpl(InstrumentingAgents&, Frame&);
     static void accessibilitySettingsDidChangeImpl(InstrumentingAgents&);
-#if ENABLE(DARK_MODE_CSS) || HAVE(OS_DARK_MODE_SUPPORT)
+#if ENABLE(DARK_MODE_CSS)
     static void defaultAppearanceDidChangeImpl(InstrumentingAgents&);
 #endif
     static void willDestroyCachedResourceImpl(CachedResource&);
@@ -1310,7 +1310,7 @@ inline void InspectorInstrumentation::accessibilitySettingsDidChange(Page& page)
     accessibilitySettingsDidChangeImpl(instrumentingAgents(page));
 }
 
-#if ENABLE(DARK_MODE_CSS) || HAVE(OS_DARK_MODE_SUPPORT)
+#if ENABLE(DARK_MODE_CSS)
 inline void InspectorInstrumentation::defaultAppearanceDidChange(Page& page)
 {
     FAST_RETURN_IF_NO_FRONTENDS(void());

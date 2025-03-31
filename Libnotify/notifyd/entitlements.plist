@@ -8,5 +8,9 @@
 	</array>
 	<key>com.apple.private.xpc.launchd.ios-system-session</key>
 	<true/>
+	<key>com.apple.developer.hardened-process</key>
+	<true/>
+	<key>com.apple.developer.hardened-process.hardened-heap</key>
+	<true/>
 </dict>
 </plist>

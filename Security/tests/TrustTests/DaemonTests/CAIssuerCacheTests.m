@@ -147,6 +147,10 @@ static void Callback(void *context, CFArrayRef certs) {
 }
 
 - (void)testExpiredCacheNetworkFail {
+#if TARGET_OS_BRIDGE || TARGET_OS_WATCH
+    /* watchOS and bridgeOS don't support networking in trustd */
+    XCTSkip();
+#endif
     const uint8_t hostname[] = "bad.example.com";
     NSURL *bad_uri = [NSURL URLWithString:@"http://bad.example.com/apsecc12g1.der"];
     NSMutableData *badApple = [NSMutableData dataWithBytes:_apple_caissuer length:sizeof(_apple_caissuer)];

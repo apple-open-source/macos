@@ -77,7 +77,7 @@ UBool SimpleFormatter::applyPatternMinMaxArguments(
     const char16_t *patternBuffer = pattern.getBuffer();
     int32_t patternLength = pattern.length();
     // Reserve the first char for the number of arguments.
-    compiledPattern.setTo((char16_t)0);
+    compiledPattern.setTo(static_cast<char16_t>(0));
     int32_t textLength = 0;
     int32_t maxArg = -1;
     UBool inQuote = false;
@@ -107,7 +107,7 @@ UBool SimpleFormatter::applyPatternMinMaxArguments(
         } else if (!inQuote && c == OPEN_BRACE) {
             if (textLength > 0) {
                 compiledPattern.setCharAt(compiledPattern.length() - textLength - 1,
-                                          (char16_t)(ARG_NUM_LIMIT + textLength));
+                                          static_cast<char16_t>(ARG_NUM_LIMIT + textLength));
                 textLength = 0;
             }
             int32_t argNumber;
@@ -138,7 +138,7 @@ UBool SimpleFormatter::applyPatternMinMaxArguments(
             if (argNumber > maxArg) {
                 maxArg = argNumber;
             }
-            compiledPattern.append((char16_t)argNumber);
+            compiledPattern.append(static_cast<char16_t>(argNumber));
             continue;
         }  // else: c is part of literal text
         // Append c and track the literal-text segment length.
@@ -153,14 +153,14 @@ UBool SimpleFormatter::applyPatternMinMaxArguments(
     }
     if (textLength > 0) {
         compiledPattern.setCharAt(compiledPattern.length() - textLength - 1,
-                                  (char16_t)(ARG_NUM_LIMIT + textLength));
+                                  static_cast<char16_t>(ARG_NUM_LIMIT + textLength));
     }
     int32_t argCount = maxArg + 1;
     if (argCount < min || max < argCount) {
         errorCode = U_ILLEGAL_ARGUMENT_ERROR;
         return false;
     }
-    compiledPattern.setCharAt(0, (char16_t)argCount);
+    compiledPattern.setCharAt(0, static_cast<char16_t>(argCount));
     return true;
 }
 

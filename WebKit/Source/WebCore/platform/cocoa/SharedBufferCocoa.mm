@@ -29,11 +29,13 @@
 #import "WebCoreJITOperations.h"
 #import "WebCoreObjCExtras.h"
 #import <JavaScriptCore/InitializeThreading.h>
-#import <pal/cf/CoreMediaSoftLink.h>
 #import <string.h>
 #import <wtf/MainThread.h>
+#import <wtf/StdLibExtras.h>
 #import <wtf/cocoa/TypeCastsCocoa.h>
 #import <wtf/cocoa/VectorCocoa.h>
+
+#import <pal/cf/CoreMediaSoftLink.h>
 
 @interface WebCoreSharedBufferData : NSData
 - (instancetype)initWithDataSegment:(const WebCore::DataSegment&)dataSegment position:(NSUInteger)position size:(NSUInteger)size;
@@ -120,7 +122,7 @@ RetainPtr<CMBlockBufferRef> FragmentedSharedBuffer::createCMBlockBuffer() const
         allocator.refCon = const_cast<DataSegment*>(&segment);
         segment.ref();
         CMBlockBufferRef partialBuffer = nullptr;
-        if (PAL::CMBlockBufferCreateWithMemoryBlock(nullptr, static_cast<void*>(const_cast<uint8_t*>(segment.data())), segment.size(), nullptr, &allocator, 0, segment.size(), 0, &partialBuffer) != kCMBlockBufferNoErr)
+        if (PAL::CMBlockBufferCreateWithMemoryBlock(nullptr, const_cast<uint8_t*>(segment.span().data()), segment.size(), nullptr, &allocator, 0, segment.size(), 0, &partialBuffer) != kCMBlockBufferNoErr)
             return nullptr;
         return adoptCF(partialBuffer);
     };
@@ -176,7 +178,7 @@ RetainPtr<NSData> DataSegment::createNSData() const
 void DataSegment::iterate(CFDataRef data, const Function<void(std::span<const uint8_t>)>& apply) const
 {
     [(__bridge NSData *)data enumerateByteRangesUsingBlock:^(const void *bytes, NSRange byteRange, BOOL *) {
-        apply({ static_cast<const uint8_t*>(bytes), byteRange.length });
+        apply(unsafeMakeSpan(static_cast<const uint8_t*>(bytes), byteRange.length));
     }];
 }
 

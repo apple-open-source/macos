@@ -482,6 +482,7 @@ extension OctagonPairingTests {
         XCTAssertNotNil(acceptor, "acceptor should not be nil")
         XCTAssertNotNil(initiator, "initiator should not be nil")
 
+
         let signInCallback = self.expectation(description: "trigger sign in")
         self.otControl.appleAccountSigned(in: OTControlArguments(altDSID: try XCTUnwrap(self.mockAuthKit.primaryAltDSID()))) { error in
             XCTAssertNil(error, "error should be nil")
@@ -843,18 +844,11 @@ extension OctagonPairingTests {
         let initiatorThirdPacket = self.sendPairingExpectingReply(channel: initiator, packet: acceptorVoucherPacket, reason: "intitiator third packet")
 
         /* ACCEPTOR THIRD STEP */
-        let acceptorThirdPacket = self.sendPairingExpectingReply(channel: acceptor, packet: initiatorThirdPacket, reason: "acceptor third packet")
+        let acceptorThirdPacket = self.sendPairingExpectingCompletionAndReply(channel: acceptor, packet: initiatorThirdPacket, reason: "acceptor third packet")
         XCTAssertFalse(try self.tlkInPairingChannel(packet: acceptorThirdPacket), "pairing channel should NOT transport TLKs for SOS+Octagon")
 
         /* INITIATOR FOURTH STEP*/
-        let initiatorFourthPacket = self.sendPairingExpectingReply(channel: initiator, packet: acceptorThirdPacket, reason: "initiator fourth packet")
-
-        acceptor.setDSIDForTest("123456")
-        let acceptorFourthPacket = self.sendPairingExpectingReply(channel: acceptor, packet: initiatorFourthPacket, reason: "acceptor fourth packet")
-
-        let initiatorFifthPacket = self.sendPairingExpectingCompletionAndReply(channel: initiator, packet: acceptorFourthPacket, reason: "initiator fifth packet")
-
-        self.sendPairingExpectingCompletion(channel: acceptor, packet: initiatorFifthPacket, reason: "acceptor finishes")
+        self.sendPairingExpectingCompletion(channel: initiator, packet: acceptorThirdPacket, reason: "initiator fourth packet")
 
         XCTAssertNil(initiator1Context.pairingUUID, "pairingUUID should be nil")
 
@@ -937,20 +931,13 @@ extension OctagonPairingTests {
         let initiatorPreparedIdentityPacket = self.sendPairingExpectingReply(channel: initiator, packet: acceptorEpochPacket, reason: "prepared identity")
 
         /* ACCEPTOR SECOND RTT */
-        let acceptorVoucherPacket = self.sendPairingExpectingReply(channel: acceptor, packet: initiatorPreparedIdentityPacket, reason: "acceptor second packet")
+        let acceptorVoucherPacket = self.sendPairingExpectingCompletionAndReply(channel: acceptor, packet: initiatorPreparedIdentityPacket, reason: "acceptor second packet")
 
         // the tlks are in the 3rd roundtrip, but lets check here too
         XCTAssertFalse(try self.tlkInPairingChannel(packet: acceptorVoucherPacket), "pairing channel should not transport TLKs for octagon")
 
         /* INITIATOR THIRD STEP*/
-        let initiatorThirdPacket = self.sendPairingExpectingReply(channel: initiator, packet: acceptorVoucherPacket, reason: "initiator third packet")
-
-        acceptor.setDSIDForTest("123456")
-        let acceptorThirdPacket = self.sendPairingExpectingReply(channel: acceptor, packet: initiatorThirdPacket, reason: "acceptor third packet")
-
-        let initiatorFourthPacket = self.sendPairingExpectingCompletionAndReply(channel: initiator, packet: acceptorThirdPacket, reason: "initiator fourth packet")
-
-        self.sendPairingExpectingCompletion(channel: acceptor, packet: initiatorFourthPacket, reason: "acceptor finishes")
+        self.sendPairingExpectingCompletion(channel: initiator, packet: acceptorVoucherPacket, reason: "initiator third packet")
 
         assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
 
@@ -1127,7 +1114,6 @@ extension OctagonPairingTests {
 
         XCTAssertNotNil(acceptor, "acceptor should not be nil")
         XCTAssertNotNil(initiator, "initiator should not be nil")
-
         let signInCallback = self.expectation(description: "trigger sign in")
         self.otControl.appleAccountSigned(in: OTControlArguments(altDSID: try XCTUnwrap(self.mockAuthKit.primaryAltDSID()))) { error in
             XCTAssertNil(error, "error should be nil")
@@ -1168,7 +1154,6 @@ extension OctagonPairingTests {
 
         XCTAssertNotNil(acceptor, "acceptor should not be nil")
         XCTAssertNotNil(initiator, "initiator should not be nil")
-
         let signInCallback = self.expectation(description: "trigger sign in")
         self.otControl.appleAccountSigned(in: OTControlArguments(altDSID: try XCTUnwrap(self.mockAuthKit.primaryAltDSID()))) { error in
             XCTAssertNil(error, "error should be nil")
@@ -1214,7 +1199,6 @@ extension OctagonPairingTests {
 
         XCTAssertNotNil(acceptor, "acceptor should not be nil")
         XCTAssertNotNil(initiator, "initiator should not be nil")
-
         let signInCallback = self.expectation(description: "trigger sign in")
         self.otControl.appleAccountSigned(in: OTControlArguments(altDSID: try XCTUnwrap(self.mockAuthKit.primaryAltDSID()))) { error in
             XCTAssertNil(error, "error should be nil")
@@ -1261,7 +1245,6 @@ extension OctagonPairingTests {
 
         XCTAssertNotNil(acceptor, "acceptor should not be nil")
         XCTAssertNotNil(initiator, "initiator should not be nil")
-
         let signInCallback = self.expectation(description: "trigger sign in")
         self.otControl.appleAccountSigned(in: OTControlArguments(altDSID: try XCTUnwrap(self.mockAuthKit.primaryAltDSID()))) { error in
             XCTAssertNil(error, "error should be nil")
@@ -1356,7 +1339,6 @@ extension OctagonPairingTests {
 
         XCTAssertNotNil(acceptor, "acceptor should not be nil")
         XCTAssertNotNil(initiator, "initiator should not be nil")
-
         let signInCallback = self.expectation(description: "trigger sign in")
         self.otControl.appleAccountSigned(in: OTControlArguments(altDSID: try XCTUnwrap(self.mockAuthKit.primaryAltDSID()))) { error in
             XCTAssertNil(error, "error should be nil")
@@ -1406,7 +1388,6 @@ extension OctagonPairingTests {
 
         XCTAssertNotNil(acceptor, "acceptor should not be nil")
         XCTAssertNotNil(initiator, "initiator should not be nil")
-
         let signInCallback = self.expectation(description: "trigger sign in")
         self.otControl.appleAccountSigned(in: OTControlArguments(altDSID: try XCTUnwrap(self.mockAuthKit.primaryAltDSID()))) { error in
             XCTAssertNil(error, "error should be nil")
@@ -1454,7 +1435,6 @@ extension OctagonPairingTests {
 
         XCTAssertNotNil(acceptor, "acceptor should not be nil")
         XCTAssertNotNil(initiator, "initiator should not be nil")
-
         XCTAssertNotNil(acceptor.peerVersionContext.flowID, "acceptor flowID should not be nil")
         XCTAssertNotNil(acceptor.peerVersionContext.deviceSessionID, "acceptor deviceSessionID should not be nil")
         XCTAssertNotNil(initiator.peerVersionContext.flowID, "requestor flowID should not be nil")
@@ -1480,21 +1460,14 @@ extension OctagonPairingTests {
         XCTAssertNil(initiator1Context.sessionMetrics, "sessionMetrics should be nil")
 
         /* ACCEPTOR SECOND RTT */
-        let acceptorVoucherPacket = self.sendPairingExpectingReply(channel: acceptor, packet: initiatorPreparedIdentityPacket, reason: "acceptor second packet")
+        let acceptorVoucherPacket = self.sendPairingExpectingCompletionAndReply(channel: acceptor, packet: initiatorPreparedIdentityPacket, reason: "acceptor second packet")
         XCTAssertNil(self.cuttlefishContextForAcceptor.sessionMetrics, "sessionMetrics should be nil")
 
         // the tlks are in the 3rd roundtrip, but lets check here too
         XCTAssertFalse(try self.tlkInPairingChannel(packet: acceptorVoucherPacket), "pairing channel should not transport TLKs for octagon")
 
         /* INITIATOR THIRD STEP*/
-        let initiatorThirdPacket = self.sendPairingExpectingReply(channel: initiator, packet: acceptorVoucherPacket, reason: "initiator third packet")
-
-        acceptor.setDSIDForTest("123456")
-        let acceptorThirdPacket = self.sendPairingExpectingReply(channel: acceptor, packet: initiatorThirdPacket, reason: "acceptor third packet")
-
-        let initiatorFourthPacket = self.sendPairingExpectingCompletionAndReply(channel: initiator, packet: acceptorThirdPacket, reason: "initiator fourth packet")
-
-        self.sendPairingExpectingCompletion(channel: acceptor, packet: initiatorFourthPacket, reason: "acceptor finishes")
+        self.sendPairingExpectingCompletion(channel: initiator, packet: acceptorVoucherPacket, reason: "initiator third packet")
 
         assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
 
@@ -1546,7 +1519,6 @@ extension OctagonPairingTests {
 
         XCTAssertNotNil(acceptor, "pairing object should not be nil")
         XCTAssertNotNil(initiator, "pairing object should not be nil")
-
         let signInCallback = self.expectation(description: "trigger sign in")
         self.otControl.appleAccountSigned(in: OTControlArguments(altDSID: try XCTUnwrap(self.mockAuthKit.primaryAltDSID()))) { error in
             XCTAssertNil(error, "error should be nil")
@@ -1582,7 +1554,6 @@ extension OctagonPairingTests {
 
         XCTAssertNotNil(acceptor, "pairing object should not be nil")
         XCTAssertNotNil(initiator, "pairing object should not be nil")
-
         let signInCallback = self.expectation(description: "trigger sign in")
         self.otControl.appleAccountSigned(in: OTControlArguments(altDSID: try XCTUnwrap(self.mockAuthKit.primaryAltDSID()))) { error in
             XCTAssertNil(error, "error should be nil")
@@ -1618,7 +1589,6 @@ extension OctagonPairingTests {
 
         XCTAssertNotNil(acceptor, "pairing object should not be nil")
         XCTAssertNotNil(initiator, "pairing object should not be nil")
-
         let signInCallback = self.expectation(description: "trigger sign in")
         self.otControl.appleAccountSigned(in: OTControlArguments(altDSID: try XCTUnwrap(self.mockAuthKit.primaryAltDSID()))) { error in
             XCTAssertNil(error, "error should be nil")
@@ -1661,7 +1631,6 @@ extension OctagonPairingTests {
 
         XCTAssertNotNil(acceptor, "pairing object should not be nil")
         XCTAssertNotNil(initiator, "pairing object should not be nil")
-
         let signInCallback = self.expectation(description: "trigger sign in")
         self.otControl.appleAccountSigned(in: OTControlArguments(altDSID: try XCTUnwrap(self.mockAuthKit.primaryAltDSID()))) { error in
             XCTAssertNil(error, "error should be nil")
@@ -1704,7 +1673,6 @@ extension OctagonPairingTests {
 
         XCTAssertNotNil(acceptor, "pairing object should not be nil")
         XCTAssertNotNil(initiator, "pairing object should not be nil")
-
         let signInCallback = self.expectation(description: "trigger sign in")
         self.otControl.appleAccountSigned(in: OTControlArguments(altDSID: try XCTUnwrap(self.mockAuthKit.primaryAltDSID()))) { error in
             XCTAssertNil(error, "error should be nil")
@@ -1752,7 +1720,6 @@ extension OctagonPairingTests {
 
         XCTAssertNotNil(acceptor, "pairing object should not be nil")
         XCTAssertNotNil(initiator, "pairing object should not be nil")
-
         let signInCallback = self.expectation(description: "trigger sign in")
         self.otControl.appleAccountSigned(in: OTControlArguments(altDSID: try XCTUnwrap(self.mockAuthKit.primaryAltDSID()))) { error in
             XCTAssertNil(error, "error should be nil")
@@ -1800,7 +1767,6 @@ extension OctagonPairingTests {
 
         XCTAssertNotNil(acceptor, "pairing object should not be nil")
         XCTAssertNotNil(initiator, "pairing object should not be nil")
-
         let signInCallback = self.expectation(description: "trigger sign in")
         self.otControl.appleAccountSigned(in: OTControlArguments(altDSID: try XCTUnwrap(self.mockAuthKit.primaryAltDSID()))) { error in
             XCTAssertNil(error, "error should be nil")
@@ -1843,7 +1809,6 @@ extension OctagonPairingTests {
 
         XCTAssertNotNil(acceptor, "pairing object should not be nil")
         XCTAssertNotNil(initiator, "pairing object should not be nil")
-
         let signInCallback = self.expectation(description: "trigger sign in")
         self.otControl.appleAccountSigned(in: OTControlArguments(altDSID: try XCTUnwrap(self.mockAuthKit.primaryAltDSID()))) { error in
             XCTAssertNil(error, "error should be nil")
@@ -1901,7 +1866,6 @@ extension OctagonPairingTests {
 
         XCTAssertNotNil(acceptor, "pairing object should not be nil")
         XCTAssertNotNil(initiator, "pairing object should not be nil")
-
         let signInCallback = self.expectation(description: "trigger sign in")
         self.otControl.appleAccountSigned(in: OTControlArguments(altDSID: try XCTUnwrap(self.mockAuthKit.primaryAltDSID()))) { error in
             XCTAssertNil(error, "error should be nil")
@@ -1941,7 +1905,6 @@ extension OctagonPairingTests {
 
         XCTAssertNotNil(acceptor, "pairing object should not be nil")
         XCTAssertNotNil(initiator, "pairing object should not be nil")
-
         let signInCallback = self.expectation(description: "trigger sign in")
         self.otControl.appleAccountSigned(in: OTControlArguments(altDSID: try XCTUnwrap(self.mockAuthKit.primaryAltDSID()))) { error in
             XCTAssertNil(error, "error should be nil")
@@ -1959,7 +1922,7 @@ extension OctagonPairingTests {
         let initiatorPreparedIdentityPacket = self.sendPairingExpectingReply(channel: initiator, packet: acceptorEpochPacket, reason: "prepared identity")
 
         /* ACCEPTOR SECOND RTT */
-        let acceptorVoucherPacket = self.sendPairingExpectingReply(channel: acceptor, packet: initiatorPreparedIdentityPacket, reason: "acceptor third packet")
+        let acceptorVoucherPacket = self.sendPairingExpectingCompletionAndReply(channel: acceptor, packet: initiatorPreparedIdentityPacket, reason: "acceptor third packet")
 
         let otControl = OctagonTrustCliqueBridge.makeMockOTControlObjectWithFailingJoinWithXPCError()
         initiator.setControlObject(otControl)
@@ -1987,7 +1950,6 @@ extension OctagonPairingTests {
 
         XCTAssertNotNil(acceptor, "pairing object should not be nil")
         XCTAssertNotNil(initiator, "pairing object should not be nil")
-
         let signInCallback = self.expectation(description: "trigger sign in")
         self.otControl.appleAccountSigned(in: OTControlArguments(altDSID: try XCTUnwrap(self.mockAuthKit.primaryAltDSID()))) { error in
             XCTAssertNil(error, "error should be nil")
@@ -2005,7 +1967,7 @@ extension OctagonPairingTests {
         let initiatorPreparedIdentityPacket = self.sendPairingExpectingReply(channel: initiator, packet: acceptorEpochPacket, reason: "prepared identity")
 
         /* ACCEPTOR SECOND RTT */
-        let acceptorVoucherPacket = self.sendPairingExpectingReply(channel: acceptor, packet: initiatorPreparedIdentityPacket, reason: "acceptor third packet")
+        let acceptorVoucherPacket = self.sendPairingExpectingCompletionAndReply(channel: acceptor, packet: initiatorPreparedIdentityPacket, reason: "acceptor third packet")
 
         let otControl = OctagonTrustCliqueBridge.makeMockOTControlObjectWithFailingJoinWithRandomError()
         initiator.setControlObject(otControl)
@@ -2033,7 +1995,6 @@ extension OctagonPairingTests {
 
         XCTAssertNotNil(acceptor, "pairing object should not be nil")
         XCTAssertNotNil(initiator, "pairing object should not be nil")
-
         let signInCallback = self.expectation(description: "trigger sign in")
         self.otControl.appleAccountSigned(in: OTControlArguments(altDSID: try XCTUnwrap(self.mockAuthKit.primaryAltDSID()))) { error in
             XCTAssertNil(error, "error should be nil")
@@ -2051,7 +2012,7 @@ extension OctagonPairingTests {
         let initiatorPreparedIdentityPacket = self.sendPairingExpectingReply(channel: initiator, packet: acceptorEpochPacket, reason: "prepared identity")
 
         /* ACCEPTOR SECOND RTT */
-        let acceptorVoucherPacket = self.sendPairingExpectingReply(channel: acceptor, packet: initiatorPreparedIdentityPacket, reason: "acceptor third packet")
+        let acceptorVoucherPacket = self.sendPairingExpectingCompletionAndReply(channel: acceptor, packet: initiatorPreparedIdentityPacket, reason: "acceptor third packet")
 
         let ckError = NSError(domain: AKAppleIDAuthenticationErrorDomain,
                               code: 17,
@@ -2106,7 +2067,6 @@ extension OctagonPairingTests {
 
         XCTAssertNotNil(acceptor, "acceptor should not be nil")
         XCTAssertNotNil(initiator, "initiator should not be nil")
-
         XCTAssertNotNil(acceptor.peerVersionContext.flowID, "acceptor flowID should not be nil")
         XCTAssertNotNil(acceptor.peerVersionContext.deviceSessionID, "acceptor deviceSessionID should not be nil")
         XCTAssertNotNil(initiator.peerVersionContext.flowID, "requestor flowID should not be nil")
@@ -2212,7 +2172,7 @@ extension OctagonPairingTests {
             XCTAssertNotNil(error, "error should not be nil")
             XCTAssertTrue(((error! as NSError).domain == CKKSResultErrorDomain) || ((error! as NSError).domain == AKAppleIDAuthenticationErrorDomain), "error domain should be CKKSResultErrorDomain or AKAuthenticationError")
             XCTAssertTrue(((error! as NSError).code == CKKSResultTimedOut) || ((error! as NSError).code == AKAppleIDAuthenticationError.authenticationErrorNotPermitted.rawValue), "error domain should be CKKSResultTimedOut or AKAuthenticationErrorNotPermitted")
-            
+
             rpcVoucherCallback.fulfill()
         }
 
@@ -2346,7 +2306,6 @@ extension OctagonPairingTests {
 
         XCTAssertNotNil(acceptor, "acceptor should not be nil")
         XCTAssertNotNil(initiator, "initiator should not be nil")
-
         let signInCallback = self.expectation(description: "trigger sign in")
         self.otControl.appleAccountSigned(in: OTControlArguments(altDSID: try XCTUnwrap(self.mockAuthKit.primaryAltDSID()))) { error in
             XCTAssertNil(error, "error should be nil")

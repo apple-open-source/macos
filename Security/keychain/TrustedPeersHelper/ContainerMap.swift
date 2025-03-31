@@ -399,7 +399,7 @@ public class RetryingCKCodeService: ConfiguredCuttlefishAPIAsync {
             return CuttlefishAPI.FetchPcsidentityByPublicKeyOperation(request: request)
         }, completion: completion)
     }
-    
+
     public func performCkserverUnreadableDataRemoval(_ request: RemoveUnreadableCKServerDataRequest, completion: @escaping (Result<RemoveUnreadableCKServerDataResponse, any Error>) -> Void) {
         retry(functionName: #function, deviceSessionID: request.metrics.deviceSessionID, flowID: request.metrics.flowID, operationCreator: {
             return CuttlefishAPI.PerformCkserverUnreadableDataRemovalOperation(request: request)

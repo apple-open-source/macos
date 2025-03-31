@@ -403,7 +403,6 @@ class TIntermConstantUnion : public TIntermExpression
                                               int index);
     static TConstantUnion *FoldAggregateBuiltIn(TIntermAggregate *aggregate,
                                                 TDiagnostics *diagnostics);
-    static bool IsFloatDivision(TBasicType t1, TBasicType t2);
 
   protected:
     // Same data may be shared between multiple constant unions, so it can't be modified.
@@ -464,6 +463,7 @@ class TIntermSwizzle : public TIntermExpression
     bool hasSideEffects() const override { return mOperand->hasSideEffects(); }
 
     TIntermTyped *getOperand() { return mOperand; }
+    ImmutableString getOffsetsAsXYZW() const;
     void writeOffsetsAsXYZW(TInfoSinkBase *out) const;
 
     const TVector<int> &getSwizzleOffsets() { return mSwizzleOffsets; }

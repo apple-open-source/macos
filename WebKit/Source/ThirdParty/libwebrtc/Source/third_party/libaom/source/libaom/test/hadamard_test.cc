@@ -12,7 +12,7 @@
 #include <algorithm>
 #include <ostream>
 
-#include "third_party/googletest/src/googletest/include/gtest/gtest.h"
+#include "gtest/gtest.h"
 
 #include "config/aom_dsp_rtcd.h"
 

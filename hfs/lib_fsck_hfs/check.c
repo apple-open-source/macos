@@ -32,7 +32,6 @@ int checkfilesys(char * filesys)
 {
     int flags;
     int result = 0;
-    int canWrite = fsck_get_writable();
     char *mntonname = state.mountpoint;
     flags = 0;
     int error = 0;
@@ -104,7 +103,7 @@ int checkfilesys(char * filesys)
      * go check HFS volume...
      */
 
-    if (state.rebuildOptions && canWrite == 0) {
+    if (state.rebuildOptions && (fsck_get_writable() == 0)) {
         fsck_print(ctx, LOG_TYPE_INFO, "BTree rebuild requested but writing disabled\n");
         result = EEXIT;
         goto ExitThisRoutine;
@@ -122,9 +121,8 @@ int checkfilesys(char * filesys)
             return error;
         }
     }
-
     result = CheckHFS( filesys, state.fsreadfd, state.fswritefd, state.chkLev, state.repLev, ctx,
-                       state.lostAndFoundMode, canWrite, &state.fsmodified,
+                       state.lostAndFoundMode, fsck_get_writable(), &state.fsmodified,
                        state.lflag, state.rebuildOptions );
     if (state.debug) {
         fsck_print(ctx, LOG_TYPE_INFO, "\tCheckHFS returned %d, fsmodified = %d\n", result, state.fsmodified);

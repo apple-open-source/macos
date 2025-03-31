@@ -327,8 +327,13 @@ DISPATCH_OPTIONS(dispatch_invoke_flags, uint32_t,
 	// @const DISPATCH_INVOKE_DISALLOW_SYNC_WAITERS
 	// The next serial drain should not allow sync waiters.
 	//
+	// @const DISPATCH_INVOKE_AGAIN
+	// This object is being invoked again because unlocking the object after
+	// the first invoke failed
+	//
 	DISPATCH_INVOKE_ASYNC_REPLY				= 0x00000004,
 	DISPATCH_INVOKE_DISALLOW_SYNC_WAITERS	= 0x00000008,
+	DISPATCH_INVOKE_AGAIN					= 0x00000010,
 
 	// Below this point flags are propagated to recursive calls to drain(),
 	// continuation pop() or dx_invoke().

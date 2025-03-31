@@ -38,6 +38,14 @@ WK_HEADER_AUDIT_BEGIN(nullability, sendability)
 @property (nonatomic, nullable, readonly) NSURL *_backgroundContentURL;
 
 /*!
+ @abstract Sends a message to the JavaScript `browser.test.onMessage` API.
+ @discussion Allows code to trigger a `browser.test.onMessage` event, enabling bidirectional communication during testing.
+ @param message The message string to send.
+ @param argument The optional JSON-serializable argument to include with the message. Must be JSON-serializable according to \c NSJSONSerialization.
+ */
+- (void)_sendTestMessage:(NSString *)message withArgument:(nullable id)argument;
+
+/*!
  @abstract Retrieves the extension sidebar for a given tab, or the default sidebar if `nil` is passed.
  @param tab The tab for which to retrieve the extension sidebar, or `nil` to get the default sidebar.
  @discussion The returned object represents the sidebar specific to the tab when provided; otherwise, it returns the default sidebar.

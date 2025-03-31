@@ -61,6 +61,9 @@ public:
     void exportBlob(Writer::Counter &pub, Writer::Counter &priv);
     void exportBlob(Writer &pub, Writer &priv);
 
+
+    virtual CFStringRef createACLDebugString() const;
+
 	class Maker : public AclSubject::Maker {
 	public:
 		Maker() : AclSubject::Maker(CSSM_ACL_SUBJECT_TYPE_PARTITION) { }

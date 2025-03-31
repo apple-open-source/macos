@@ -49,10 +49,7 @@ rtc_library("metric") {
     "metric.cc",
     "metric.h",
   ]
-  deps = [
-    "../../../api/units:timestamp",
-    "//third_party/abseil-cpp/absl/types:optional",
-  ]
+  deps = [ "../../../api/units:timestamp" ]
 }
 
 rtc_library("metrics_logger") {
@@ -65,9 +62,11 @@ rtc_library("metrics_logger") {
     ":metric",
     ":metrics_accumulator",
     "../..:array_view",
+    "../../../rtc_base:macromagic",
     "../../../rtc_base/synchronization:mutex",
     "../../../system_wrappers",
     "../../numerics",
+    "../../units:timestamp",
     "//third_party/abseil-cpp/absl/strings:string_view",
   ]
 }
@@ -108,7 +107,6 @@ rtc_library("stdout_metrics_exporter") {
     ":metrics_exporter",
     "../..:array_view",
     "../../../rtc_base:stringutils",
-    "//third_party/abseil-cpp/absl/types:optional",
   ]
 }
 
@@ -152,6 +150,7 @@ rtc_library("metrics_set_proto_file_exporter") {
     "../..:array_view",
     "../../../rtc_base:logging",
     "../../../test:fileutils",
+    "//third_party/abseil-cpp/absl/strings:string_view",
   ]
 
   if (rtc_enable_protobuf) {
@@ -198,7 +197,7 @@ if (rtc_include_tests) {
       "../../../system_wrappers",
       "../../../test:test_support",
       "../../numerics",
-      "//third_party/abseil-cpp/absl/types:optional",
+      "../../units:timestamp",
     ]
   }
 
@@ -245,7 +244,6 @@ if (rtc_include_tests) {
       ":metrics_logger",
       "../../../system_wrappers",
       "../../../test:test_support",
-      "//third_party/abseil-cpp/absl/types:optional",
     ]
   }
 

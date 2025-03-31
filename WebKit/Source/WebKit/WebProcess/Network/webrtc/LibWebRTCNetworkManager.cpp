@@ -45,7 +45,7 @@ using namespace WebCore;
 
 WTF_MAKE_TZONE_ALLOCATED_IMPL(LibWebRTCNetworkManager);
 
-LibWebRTCNetworkManager* LibWebRTCNetworkManager::getOrCreate(WebCore::ScriptExecutionContextIdentifier identifier)
+RefPtr<LibWebRTCNetworkManager> LibWebRTCNetworkManager::getOrCreate(WebCore::ScriptExecutionContextIdentifier identifier)
 {
     RefPtr document = Document::allDocumentsMap().get(identifier);
     if (!document)
@@ -56,7 +56,7 @@ LibWebRTCNetworkManager* LibWebRTCNetworkManager::getOrCreate(WebCore::ScriptExe
         auto newNetworkManager = adoptRef(*new LibWebRTCNetworkManager(identifier));
         networkManager = newNetworkManager.ptr();
         document->setRTCNetworkManager(WTFMove(newNetworkManager));
-        WebProcess::singleton().libWebRTCNetwork().monitor().addObserver(*networkManager);
+        WebProcess::singleton().libWebRTCNetwork().protectedMonitor()->addObserver(*networkManager);
     }
 
     return networkManager;
@@ -65,7 +65,7 @@ LibWebRTCNetworkManager* LibWebRTCNetworkManager::getOrCreate(WebCore::ScriptExe
 void LibWebRTCNetworkManager::signalUsedInterface(WebCore::ScriptExecutionContextIdentifier contextIdentifier, String&& name)
 {
     callOnMainRunLoop([contextIdentifier, name = WTFMove(name).isolatedCopy()]() mutable {
-        if (auto* manager = LibWebRTCNetworkManager::getOrCreate(contextIdentifier))
+        if (RefPtr manager = LibWebRTCNetworkManager::getOrCreate(contextIdentifier))
             manager->signalUsedInterface(WTFMove(name));
     });
 }
@@ -85,12 +85,12 @@ void LibWebRTCNetworkManager::close()
 #if ASSERT_ENABLED
     m_isClosed = true;
 #endif
-    WebProcess::singleton().libWebRTCNetwork().monitor().removeObserver(*this);
+    WebProcess::singleton().libWebRTCNetwork().protectedMonitor()->removeObserver(*this);
 }
 
 void LibWebRTCNetworkManager::unregisterMDNSNames()
 {
-    WebProcess::singleton().libWebRTCNetwork().mdnsRegister().unregisterMDNSNames(m_documentIdentifier);
+    WebProcess::singleton().protectedLibWebRTCNetwork()->protectedMDNSRegister()->unregisterMDNSNames(m_documentIdentifier);
 }
 
 void LibWebRTCNetworkManager::setEnumeratingAllNetworkInterfacesEnabled(bool enabled)
@@ -125,7 +125,7 @@ void LibWebRTCNetworkManager::StopUpdating()
     callOnMainRunLoop([weakThis = WeakPtr { *this }] {
         if (!weakThis)
             return;
-        WebProcess::singleton().libWebRTCNetwork().monitor().stopUpdating();
+        WebProcess::singleton().libWebRTCNetwork().protectedMonitor()->stopUpdating();
     });
 }
 
@@ -229,7 +229,7 @@ void LibWebRTCNetworkManager::CreateNameForAddress(const rtc::IPAddress& address
         if (!weakThis)
             return;
 
-        WebProcess::singleton().libWebRTCNetwork().mdnsRegister().registerMDNSName(weakThis->m_documentIdentifier, fromStdString(address.ToString()), [address, callback = std::move(callback)](auto name, auto error) mutable {
+        WebProcess::singleton().protectedLibWebRTCNetwork()->protectedMDNSRegister()->registerMDNSName(weakThis->m_documentIdentifier, fromStdString(address.ToString()), [address, callback = std::move(callback)](auto name, auto error) mutable {
             WebCore::LibWebRTCProvider::callOnWebRTCNetworkThread([address, callback = std::move(callback), name = WTFMove(name).isolatedCopy(), error] {
                 RELEASE_LOG_ERROR_IF(error, WebRTC, "MDNS registration of a host candidate failed with error %hhu", enumToUnderlyingType(*error));
                 // In case of error, we provide the name to let gathering complete.

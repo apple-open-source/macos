@@ -284,7 +284,7 @@ static WebCore::PlatformTouchPoint::TouchType webPlatformTouchTypeToPlatform(con
 class WebKit2PlatformTouchPoint : public WebCore::PlatformTouchPoint {
 public:
 WebKit2PlatformTouchPoint(const WebPlatformTouchPoint& webTouchPoint)
-    : PlatformTouchPoint(webTouchPoint.identifier(), webTouchPoint.location(), touchEventType(webTouchPoint)
+    : PlatformTouchPoint(webTouchPoint.identifier(), webTouchPoint.locationInRootView(), webTouchPoint.locationInViewport(), touchEventType(webTouchPoint)
 #if ENABLE(IOS_TOUCH_EVENTS)
         , webTouchPoint.radiusX(), webTouchPoint.radiusY(), webTouchPoint.rotationAngle(), webTouchPoint.force(), webTouchPoint.altitudeAngle(), webTouchPoint.azimuthAngle(), webPlatformTouchTypeToPlatform(webTouchPoint.touchType())
 #endif
@@ -377,6 +377,7 @@ public:
         m_isPotentialTap = webEvent.isPotentialTap();
         m_position = webEvent.position();
         m_globalPosition = webEvent.position();
+        m_authorizationToken = webEvent.authorizationToken();
 #else
         // PlatformTouchEvent
         for (size_t i = 0; i < webEvent.touchPoints().size(); ++i)

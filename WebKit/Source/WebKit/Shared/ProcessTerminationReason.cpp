@@ -25,6 +25,7 @@
 
 #include "config.h"
 #include "ProcessTerminationReason.h"
+
 #include <wtf/text/ASCIILiteral.h>
 
 namespace WebKit {
@@ -58,6 +59,8 @@ ASCIILiteral processTerminationReasonToString(ProcessTerminationReason reason)
         return "GPUProcessCrashedTooManyTimes"_s;
     case ProcessTerminationReason::ModelProcessCrashedTooManyTimes:
         return "ModelProcessCrashedTooManyTimes"_s;
+    case ProcessTerminationReason::NonMainFrameWebContentProcessCrash:
+        return "NonMainFrameWebContentProcessCrash"_s;
     }
 
     return ""_s;

@@ -48,6 +48,10 @@
 #include <libxml/xmlerror.h>
 #include <libxml/threads.h>
 
+#ifdef __APPLE__
+#include "xmlversionInternal.h"
+#endif
+
 static int xmlMemInitialized = 0;
 static unsigned long  debugMemSize = 0;
 static unsigned long  debugMemBlocks = 0;
@@ -72,6 +76,17 @@ void xmlMallocBreakpoint(void);
 #ifdef xmlMemStrdup
 #undef xmlMemStrdup
 #endif
+#endif
+
+#if defined(LIBXML_HAS_DEPRECATED_MEMORY_ALLOCATION_FUNCTIONS)
+#undef xmlMemMalloc
+#undef xmlMemRealloc
+#undef xmlMemoryStrdup
+
+#undef xmlMallocLoc
+#undef xmlReallocLoc
+#undef xmlMallocAtomicLoc
+#undef xmlMemStrdupLoc
 #endif
 
 /*
@@ -161,6 +176,11 @@ xmlMallocBreakpoint(void) {
 void *
 xmlMallocLoc(size_t size, const char * file, int line)
 {
+#ifdef LIBXML_HAS_DEPRECATED_MEMORY_ALLOCATION_FUNCTIONS
+    if (linkedOnOrAfter2024EReleases())
+        return malloc(size);
+#endif
+
     MEMHDR *p;
     void *ret;
 
@@ -237,6 +257,11 @@ xmlMallocLoc(size_t size, const char * file, int line)
 void *
 xmlMallocAtomicLoc(size_t size, const char * file, int line)
 {
+#ifdef LIBXML_HAS_DEPRECATED_MEMORY_ALLOCATION_FUNCTIONS
+    if (linkedOnOrAfter2024EReleases())
+        return malloc(size);
+#endif
+
     MEMHDR *p;
     void *ret;
 
@@ -310,6 +335,11 @@ xmlMallocAtomicLoc(size_t size, const char * file, int line)
 void *
 xmlMemMalloc(size_t size)
 {
+#ifdef LIBXML_HAS_DEPRECATED_MEMORY_ALLOCATION_FUNCTIONS
+    if (linkedOnOrAfter2024EReleases())
+        return malloc(size);
+#endif
+
     return(xmlMallocLoc(size, "none", 0));
 }
 
@@ -328,6 +358,11 @@ xmlMemMalloc(size_t size)
 void *
 xmlReallocLoc(void *ptr,size_t size, const char * file, int line)
 {
+#ifdef LIBXML_HAS_DEPRECATED_MEMORY_ALLOCATION_FUNCTIONS
+    if (linkedOnOrAfter2024EReleases())
+        return realloc(ptr, size);
+#endif
+
     MEMHDR *p, *tmp;
     unsigned long number;
 #ifdef DEBUG_MEMORY
@@ -418,6 +453,11 @@ error:
 
 void *
 xmlMemRealloc(void *ptr,size_t size) {
+#ifdef LIBXML_HAS_DEPRECATED_MEMORY_ALLOCATION_FUNCTIONS
+    if (linkedOnOrAfter2024EReleases())
+        return realloc(ptr, size);
+#endif
+
     return(xmlReallocLoc(ptr, size, "none", 0));
 }
 
@@ -430,6 +470,13 @@ xmlMemRealloc(void *ptr,size_t size) {
 void
 xmlMemFree(void *ptr)
 {
+#ifdef LIBXML_HAS_DEPRECATED_MEMORY_ALLOCATION_FUNCTIONS
+    if (linkedOnOrAfter2024EReleases()) {
+        free(ptr);
+        return;
+    }
+#endif
+
     MEMHDR *p;
     char *target;
 #ifdef DEBUG_MEMORY
@@ -506,6 +553,11 @@ error:
 char *
 xmlMemStrdupLoc(const char *str, const char *file, int line)
 {
+#ifdef LIBXML_HAS_DEPRECATED_MEMORY_ALLOCATION_FUNCTIONS
+    if (linkedOnOrAfter2024EReleases())
+        return strdup(str);
+#endif
+
     char *s;
     size_t size = strlen(str) + 1;
     MEMHDR *p;
@@ -571,6 +623,11 @@ error:
 
 char *
 xmlMemoryStrdup(const char *str) {
+#ifdef LIBXML_HAS_DEPRECATED_MEMORY_ALLOCATION_FUNCTIONS
+    if (linkedOnOrAfter2024EReleases())
+        return strdup(str);
+#endif
+
     return(xmlMemStrdupLoc(str, "none", 0));
 }
 
@@ -991,6 +1048,11 @@ xmlCleanupMemory(void) {
 int
 xmlMemSetup(xmlFreeFunc freeFunc, xmlMallocFunc mallocFunc,
             xmlReallocFunc reallocFunc, xmlStrdupFunc strdupFunc) {
+#ifdef LIBXML_HAS_DEPRECATED_MEMORY_ALLOCATION_FUNCTIONS
+    if (linkedOnOrAfter2024EReleases())
+        return -1;
+#endif
+
 #ifdef DEBUG_MEMORY
      xmlGenericError(xmlGenericErrorContext,
 	     "xmlMemSetup()\n");
@@ -1029,6 +1091,11 @@ xmlMemSetup(xmlFreeFunc freeFunc, xmlMallocFunc mallocFunc,
 int
 xmlMemGet(xmlFreeFunc *freeFunc, xmlMallocFunc *mallocFunc,
 	  xmlReallocFunc *reallocFunc, xmlStrdupFunc *strdupFunc) {
+#ifdef LIBXML_HAS_DEPRECATED_MEMORY_ALLOCATION_FUNCTIONS
+    if (linkedOnOrAfter2024EReleases())
+        return -1;
+#endif
+
     if (freeFunc != NULL) *freeFunc = xmlFree;
     if (mallocFunc != NULL) *mallocFunc = xmlMalloc;
     if (reallocFunc != NULL) *reallocFunc = xmlRealloc;
@@ -1058,6 +1125,11 @@ int
 xmlGcMemSetup(xmlFreeFunc freeFunc, xmlMallocFunc mallocFunc,
               xmlMallocFunc mallocAtomicFunc, xmlReallocFunc reallocFunc,
 	      xmlStrdupFunc strdupFunc) {
+#ifdef LIBXML_HAS_DEPRECATED_MEMORY_ALLOCATION_FUNCTIONS
+    if (linkedOnOrAfter2024EReleases())
+        return -1;
+#endif
+
 #ifdef DEBUG_MEMORY
      xmlGenericError(xmlGenericErrorContext,
 	     "xmlGcMemSetup()\n");
@@ -1102,6 +1174,11 @@ int
 xmlGcMemGet(xmlFreeFunc *freeFunc, xmlMallocFunc *mallocFunc,
             xmlMallocFunc *mallocAtomicFunc, xmlReallocFunc *reallocFunc,
 	    xmlStrdupFunc *strdupFunc) {
+#ifdef LIBXML_HAS_DEPRECATED_MEMORY_ALLOCATION_FUNCTIONS
+    if (linkedOnOrAfter2024EReleases())
+        return -1;
+#endif
+
     if (freeFunc != NULL) *freeFunc = xmlFree;
     if (mallocFunc != NULL) *mallocFunc = xmlMalloc;
     if (mallocAtomicFunc != NULL) *mallocAtomicFunc = xmlMallocAtomic;

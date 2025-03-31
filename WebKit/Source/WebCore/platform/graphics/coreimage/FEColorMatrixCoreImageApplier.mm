@@ -63,7 +63,7 @@ bool FEColorMatrixCoreImageApplier::apply(const Filter&, const FilterImageVector
         return false;
 
     auto values = FEColorMatrix::normalizedFloats(m_effect.values());
-    float components[9];
+    std::array<float, 9> components;
 
     switch (m_effect.type()) {
     case ColorMatrixType::FECOLORMATRIX_TYPE_SATURATE:

@@ -27,6 +27,7 @@
 #import "WebProcess.h"
 
 #import "AccessibilitySupportSPI.h"
+#import "AdditionalFonts.h"
 #import "ArgumentCodersCocoa.h"
 #import "CoreIPCAuditToken.h"
 #import "DefaultWebBrowserChecks.h"
@@ -44,7 +45,7 @@
 #import "WKFullKeyboardAccessWatcher.h"
 #import "WKWebProcessPlugInBrowserContextControllerInternal.h"
 #import "WebFrame.h"
-#import "WebInspector.h"
+#import "WebInspectorInternal.h"
 #import "WebPage.h"
 #import "WebPageGroupProxy.h"
 #import "WebProcessCreationParameters.h"
@@ -67,7 +68,6 @@
 #endif
 #import <WebCore/AXObjectCache.h>
 #import <WebCore/CPUMonitor.h>
-#import <WebCore/DeprecatedGlobalSettings.h>
 #import <WebCore/DisplayRefreshMonitorManager.h>
 #import <WebCore/FontCache.h>
 #import <WebCore/FontCacheCoreText.h>
@@ -91,7 +91,6 @@
 #import <WebCore/PlatformScreen.h>
 #import <WebCore/ProcessCapabilities.h>
 #import <WebCore/PublicSuffixStore.h>
-#import <WebCore/RuntimeApplicationChecks.h>
 #import <WebCore/SWContextManager.h>
 #import <WebCore/SystemBattery.h>
 #import <WebCore/SystemSoundManager.h>
@@ -118,8 +117,10 @@
 #import <wtf/FileSystem.h>
 #import <wtf/Language.h>
 #import <wtf/LogInitialization.h>
+#import <wtf/MachSendRight.h>
 #import <wtf/MemoryPressureHandler.h>
 #import <wtf/ProcessPrivilege.h>
+#import <wtf/RuntimeApplicationChecks.h>
 #import <wtf/SoftLinking.h>
 #import <wtf/cocoa/Entitlements.h>
 #import <wtf/cocoa/NSURLExtras.h>
@@ -174,6 +175,10 @@
 #if HAVE(MEDIA_ACCESSIBILITY_FRAMEWORK)
 #import "WebCaptionPreferencesDelegate.h"
 #import <WebCore/CaptionUserPreferencesMediaAF.h>
+#endif
+
+#if ENABLE(LOGD_BLOCKING_IN_WEBCONTENT)
+#import "LogStreamMessages.h"
 #endif
 
 #if ENABLE(DATA_DETECTION) && PLATFORM(IOS_FAMILY)
@@ -332,7 +337,16 @@ static void setVideoDecoderBehaviors(OptionSet<VideoDecoderBehavior> videoDecode
 
 void WebProcess::platformInitializeWebProcess(WebProcessCreationParameters& parameters)
 {
-    WEBPROCESS_RELEASE_LOG(Process, "WebProcess::platformInitializeWebProcess");
+#if ENABLE(LOGD_BLOCKING_IN_WEBCONTENT)
+    setupLogStream();
+#endif
+
+#if ENABLE(NOTIFY_BLOCKING)
+    for (const auto& [name, state] : parameters.notifyState)
+        setNotifyState(name, state);
+#endif
+
+    RELEASE_LOG_FORWARDABLE(Process, PLATFORM_INITIALIZE_WEBPROCESS);
 
 #if USE(EXTENSIONKIT)
     // Workaround for crash seen when running tests. See rdar://118186487.
@@ -351,8 +365,6 @@ void WebProcess::platformInitializeWebProcess(WebProcessCreationParameters& para
     populateMobileGestaltCache(WTFMove(parameters.mobileGestaltExtensionHandle));
 
     m_uiProcessBundleIdentifier = parameters.uiProcessBundleIdentifier;
-
-    WebCore::setPresentingApplicationBundleIdentifier(parameters.presentingApplicationBundleIdentifier);
 
 #if ENABLE(SANDBOX_EXTENSIONS)
     SandboxExtension::consumePermanently(parameters.uiProcessBundleResourcePathExtensionHandle);
@@ -490,14 +502,6 @@ void WebProcess::platformInitializeWebProcess(WebProcessCreationParameters& para
     pthread_set_fixedpriority_self();
 #endif
 
-#if ENABLE(VORBIS)
-    PlatformMediaSessionManager::setVorbisDecoderEnabled(DeprecatedGlobalSettings::vorbisDecoderEnabled());
-#endif
-
-#if ENABLE(OPUS)
-    PlatformMediaSessionManager::setOpusDecoderEnabled(DeprecatedGlobalSettings::opusDecoderEnabled());
-#endif
-
     if (!parameters.mediaMIMETypes.isEmpty())
         setMediaMIMETypes(parameters.mediaMIMETypes);
     else {
@@ -577,6 +581,10 @@ void WebProcess::platformInitializeWebProcess(WebProcessCreationParameters& para
     if (codeCheckSemaphore)
         dispatch_semaphore_wait(codeCheckSemaphore.get(), DISPATCH_TIME_FOREVER);
 #endif
+
+#if ENABLE(CLOSE_WEBCONTENT_XPC_CONNECTION_POST_LAUNCH)
+    xpc_connection_cancel(parentProcessConnection()->xpcConnection());
+#endif
 }
 
 void WebProcess::platformSetWebsiteDataStoreParameters(WebProcessDataStoreParameters&& parameters)
@@ -592,9 +600,6 @@ void WebProcess::platformSetWebsiteDataStoreParameters(WebProcessDataStoreParame
 #endif
 #endif
 #if PLATFORM(IOS_FAMILY)
-    // FIXME: Does the web process still need access to the cookie storage directory? Probably not.
-    if (auto& handle = parameters.cookieStorageDirectoryExtensionHandle)
-        SandboxExtension::consumePermanently(*handle);
     if (auto& handle = parameters.containerCachesDirectoryExtensionHandle)
         SandboxExtension::consumePermanently(*handle);
     if (auto& handle = parameters.containerTemporaryDirectoryExtensionHandle)
@@ -797,21 +802,8 @@ static void prewarmLogs()
 }
 #endif // PLATFORM(IOS_FAMILY)
 
-static Ref<WorkQueue> logQueue()
+void WebProcess::registerLogHook()
 {
-    static LazyNeverDestroyed<Ref<WorkQueue>> queue;
-    static dispatch_once_t onceToken;
-    dispatch_once(&onceToken, [&] {
-        queue.construct(WorkQueue::create("Log Queue"_s, WorkQueue::QOS::Background));
-    });
-    return queue.get();
-}
-
-static void registerLogHook()
-{
-    if (os_trace_get_mode() != OS_TRACE_MODE_DISABLE && os_trace_get_mode() != OS_TRACE_MODE_OFF)
-        return;
-
     static os_log_hook_t prevHook = nullptr;
 
 #ifdef NDEBUG
@@ -822,7 +814,7 @@ static void registerLogHook()
     constexpr auto minimumType = OS_LOG_TYPE_DEBUG;
 #endif
 
-    prevHook = os_log_set_hook(minimumType, ^(os_log_type_t type, os_log_message_t msg) {
+    prevHook = os_log_set_hook(minimumType, makeBlockPtr([](os_log_type_t type, os_log_message_t msg) {
         if (prevHook)
             prevHook(type, msg);
 
@@ -836,60 +828,63 @@ static void registerLogHook()
             return;
 #endif
 
-        CString logFormat(msg->format);
-        CString logChannel(msg->subsystem);
-        CString logCategory(msg->category);
+        auto logChannel = unsafeSpan8IncludingNullTerminator(msg->subsystem);
+        auto logCategory = unsafeSpan8IncludingNullTerminator(msg->category);
 
-        auto qos = Thread::QOS::Background;
-
-        // Send fault logs with high priority. If the WebContent process is terminated, we might not be able to send the log in time.
-        if (type == OS_LOG_TYPE_FAULT) {
+        if (type == OS_LOG_TYPE_FAULT)
             type = OS_LOG_TYPE_ERROR;
-            qos = Thread::QOS::UserInteractive;
-        }
 
-        Vector<uint8_t> buffer(std::span { msg->buffer, msg->buffer_sz });
-        Vector<uint8_t> privdata(std::span { msg->privdata, msg->privdata_sz });
-
-        logQueue()->dispatchWithQOS([logFormat = WTFMove(logFormat), logChannel = WTFMove(logChannel), logCategory = WTFMove(logCategory), type = type, buffer = WTFMove(buffer), privdata = WTFMove(privdata), qos] {
-            os_log_message_s msg;
-            memset(&msg, 0, sizeof(msg));
-
-            msg.format = logFormat.data();
-            msg.buffer = buffer.data();
-            msg.buffer_sz = buffer.size();
-            msg.privdata = privdata.data();
-            msg.privdata_sz = privdata.size();
-
-            char* messageString = os_log_copy_message_string(&msg);
-            if (!messageString)
-                return;
-            std::span logStringIncludingNullTerminator(messageString, strlen(messageString) + 1);
-
-            auto connectionID = WebProcess::singleton().networkProcessConnectionID();
-            if (connectionID)
-                IPC::Connection::send(connectionID, Messages::NetworkConnectionToWebProcess::LogOnBehalfOfWebContent(logChannel.spanIncludingNullTerminator(), logCategory.spanIncludingNullTerminator(), logStringIncludingNullTerminator, type, getpid()), 0, { }, qos);
-
+        if (char* messageString = os_log_copy_message_string(msg)) {
+            auto logString = unsafeSpan8IncludingNullTerminator(messageString);
+            WebProcess::singleton().sendLogOnStream(logChannel, logCategory, logString, type);
             free(messageString);
-        }, qos);
-    });
+        }
+    }).get());
 
     WTFSignpostIndirectLoggingEnabled = true;
+}
+
+void WebProcess::setupLogStream()
+{
+    if (os_trace_get_mode() != OS_TRACE_MODE_OFF)
+        return;
+
+    static constexpr auto connectionBufferSizeLog2 = 21;
+    auto connectionPair = IPC::StreamClientConnection::create(connectionBufferSizeLog2, 1_s);
+    if (!connectionPair)
+        CRASH();
+    auto [streamConnection, serverHandle] = WTFMove(*connectionPair);
+
+    LogStreamIdentifier logStreamIdentifier { LogStreamIdentifier::generate() };
+
+    RefPtr logStreamConnection = WTFMove(streamConnection);
+    if (!logStreamConnection)
+        return;
+
+    logStreamConnection->open(*this, RunLoop::protectedCurrent());
+
+    parentProcessConnection()->sendWithAsyncReply(Messages::WebProcessProxy::SetupLogStream(getpid(), WTFMove(serverHandle), logStreamIdentifier), [logStreamConnection, logStreamIdentifier] (IPC::Semaphore&& wakeUpSemaphore, IPC::Semaphore&& clientWaitSemaphore) {
+        logStreamConnection->setSemaphores(WTFMove(wakeUpSemaphore), WTFMove(clientWaitSemaphore));
+#if PLATFORM(IOS_FAMILY)
+        prewarmLogs();
+#endif
+        RELEASE_ASSERT(!logClient());
+        logClient() = makeUnique<LogClient>(*logStreamConnection, logStreamIdentifier);
+
+        WebProcess::singleton().registerLogHook();
+    });
+}
+
+void WebProcess::sendLogOnStream(std::span<const uint8_t> logChannel, std::span<const uint8_t> logCategory, std::span<const uint8_t> logString, os_log_type_t type)
+{
+    if (auto& client = logClient())
+        client->log(logChannel, logCategory, logString, type);
 }
 #endif
 
 void WebProcess::platformInitializeProcess(const AuxiliaryProcessInitializationParameters& parameters)
 {
     WebCore::PublicSuffixStore::singleton().enablePublicSuffixCache();
-
-#if ENABLE(LOGD_BLOCKING_IN_WEBCONTENT)
-    if (isLockdownModeEnabled()) {
-#if PLATFORM(IOS_FAMILY)
-        prewarmLogs();
-#endif
-        registerLogHook();
-    }
-#endif // ENABLE(LOGD_BLOCKING_IN_WEBCONTENT)
 
 #if PLATFORM(MAC)
     // Deny the WebContent process access to the WindowServer.
@@ -1471,14 +1466,14 @@ void WebProcess::systemWillPowerOn()
 
 void WebProcess::systemWillSleep()
 {
-    if (PlatformMediaSessionManager::sharedManagerIfExists())
-        PlatformMediaSessionManager::sharedManager().processSystemWillSleep();
+    if (PlatformMediaSessionManager::singletonIfExists())
+        PlatformMediaSessionManager::singleton().processSystemWillSleep();
 }
 
 void WebProcess::systemDidWake()
 {
-    if (PlatformMediaSessionManager::sharedManagerIfExists())
-        PlatformMediaSessionManager::sharedManager().processSystemDidWake();
+    if (PlatformMediaSessionManager::singletonIfExists())
+        PlatformMediaSessionManager::singleton().processSystemDidWake();
 }
 #endif
 
@@ -1514,13 +1509,8 @@ void WebProcess::revokeLaunchServicesSandboxExtension()
 #if ENABLE(NOTIFY_BLOCKING)
 void WebProcess::postNotification(const String& message, std::optional<uint64_t> state)
 {
-    if (state) {
-        int token = 0;
-        if (notify_register_check(message.ascii().data(), &token) == NOTIFY_STATUS_OK) {
-            notify_set_state(token, *state);
-            notify_cancel(token);
-        }
-    }
+    if (state)
+        setNotifyState(message, state.value());
     notify_post(message.ascii().data());
 }
 
@@ -1529,7 +1519,67 @@ void WebProcess::postObserverNotification(const String& message)
     [[NSNotificationCenter defaultCenter] postNotificationName:message object:nil];
 }
 
+void WebProcess::setNotifyState(const String& name, uint64_t state)
+{
+    // FIXME: explain why caching the token for a non-zero state value is necessary
+    if (!state) {
+        if (auto maybeToken = m_notifyTokens.takeOptional(name)) {
+            notify_set_state(*maybeToken, 0);
+            notify_cancel(*maybeToken);
+        }
+        return;
+    }
+
+    int token = NOTIFY_TOKEN_INVALID;
+    int status = NOTIFY_STATUS_OK;
+    if (auto maybeToken = m_notifyTokens.getOptional(name))
+        token = maybeToken.value();
+    else if ((status = notify_register_check(name.ascii().data(), &token)) == NOTIFY_STATUS_OK)
+        m_notifyTokens.set(name, token);
+
+    if (token == NOTIFY_TOKEN_INVALID) {
+        WEBPROCESS_RELEASE_LOG_ERROR(Process, "setNotifyState: Couldn't create token for %" PUBLIC_LOG_STRING ": %d", name.ascii().data(), status);
+        return;
+    }
+
+    notify_set_state(token, state);
+}
+
+void WebProcess::getNotifyStateForTesting(const String& name, CompletionHandler<void(std::optional<uint64_t>)>&& completionHandler)
+{
+    int token = NOTIFY_TOKEN_INVALID;
+    uint64_t state = 0;
+
+    if (notify_register_check(name.ascii().data(), &token) != NOTIFY_STATUS_OK)
+        completionHandler(std::nullopt);
+    else if (notify_get_state(token, &state) != NOTIFY_STATUS_OK)
+        completionHandler(std::nullopt);
+    else
+        completionHandler(state);
+
+    if (token != NOTIFY_TOKEN_INVALID)
+        notify_cancel(token);
+}
+
 #endif
+
+void WebProcess::registerAdditionalFonts(AdditionalFonts&& fonts)
+{
+    RetainPtr<NSMutableArray> fontURLs = [NSMutableArray array];
+    for (auto& fontData : fonts.fontDataList) {
+        SandboxExtension::consumePermanently(fontData.sandboxExtensionHandle);
+
+        RetainPtr<CFURLRef> cfURL = fontData.fontURL.createCFURL();
+        [fontURLs addObject:(__bridge NSURL *)cfURL.get()];
+    }
+
+    auto blockPtr = makeBlockPtr([fontURLs](CFArrayRef errors, bool done) {
+        RELEASE_LOG(Process, "Register font URLs %@ errors=%@ done=%d", fontURLs.get(), (__bridge id)errors, done);
+        return true;
+    });
+
+    CTFontManagerRegisterFontURLs((__bridge CFArrayRef)fontURLs.get(), kCTFontManagerScopeProcess, true, blockPtr.get());
+}
 
 } // namespace WebKit
 

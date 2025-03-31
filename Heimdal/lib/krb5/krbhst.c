@@ -948,12 +948,13 @@ srv_find_realm(krb5_context context, struct krb5_krbhst_data *handle,
 
     heim_retain(query);
 
-    error = DNSServiceQueryRecord(&client,
+    error = DNSServiceQueryRecordWithAttribute(&client,
 				  dnsFlags | kDNSServiceFlagsShareConnection,
 				  dns_service_id,
 				  query->domain,
 				  kDNSServiceType_SRV,
 				  kDNSServiceClass_IN,
+				  &kDNSServiceAttrAllowFailover,
 				  SRVQueryCallback,
 				  query);
     if (error == kDNSServiceErr_NoError) {
@@ -1260,7 +1261,7 @@ append_host_hostinfo(krb5_context context, struct krb5_krbhst_data *kd, struct k
 	       h->port == host->port &&
 	       strcasecmp(h->hostname, host->hostname) == 0)
 	    {
-		_krb5_debugx(context, 10, "dropping dup KDC host: %s:%d (proto %d)", h->hostname, h->port, h->proto);
+		_krb5_debugx(context, 10, "dropping dup KDC host: %s:%d (proto %u)", h->hostname, h->port, h->proto);
 		_krb5_free_krbhst_info(host);
 		host = NULL;
 	    }
@@ -1513,7 +1514,7 @@ fallback_get_hosts(krb5_context context, struct krb5_krbhst_data *kd,
 	return 0;
     }
 
-    _krb5_debugx(context, 2, "fallback lookup %d for realm %s (service %s)",
+    _krb5_debugx(context, 2, "fallback lookup %u for realm %s (service %s)",
 		kd->fallback_count, kd->realm, serv_string);
 
     /*
@@ -1530,7 +1531,7 @@ fallback_get_hosts(krb5_context context, struct krb5_krbhst_data *kd,
     if(kd->fallback_count == 0)
 	ret = asprintf(&host, "%s.%s.", serv_string, kd->realm);
     else
-	ret = asprintf(&host, "%s-%d.%s.",
+	ret = asprintf(&host, "%s-%u.%s.",
 		       serv_string, kd->fallback_count, kd->realm);
 
     if (ret < 0 || host == NULL)

@@ -1,7 +1,7 @@
-CPIO(5) 		    BSD File Formats Manual		       CPIO(5)
+CPIO(5)			    BSD File Formats Manual		       CPIO(5)
 
 NAME
-     cpio -- format of cpio archive files
+     cpio — format of cpio archive files
 
 DESCRIPTION
      The cpio archive format collects any number of files, directories, and
@@ -11,16 +11,16 @@ DESCRIPTION
    General Format
      Each file system object in a cpio archive comprises a header record with
      basic numeric metadata followed by the full pathname of the entry and the
-     file data.  The header record stores a series of integer values that gen-
+     file data.	 The header record stores a series of integer values that gen‐
      erally follow the fields in struct stat.  (See stat(2) for details.)  The
-     variants differ primarily in how they store those integers (binary, oc-
-     tal, or hexadecimal).  The header is followed by the pathname of the en-
+     variants differ primarily in how they store those integers (binary, oc‐
+     tal, or hexadecimal).  The header is followed by the pathname of the en‐
      try (the length of the pathname is stored in the header) and any file
      data.  The end of the archive is indicated by a special record with the
-     pathname "TRAILER!!!".
+     pathname “TRAILER!!!”.
 
    PWB format
-     The PWB binary cpio format is the original format, when cpio was intro-
+     The PWB binary cpio format is the original format, when cpio was intro‐
      duced as part of the Programmer's Work Bench system, a variant of 6th
      Edition UNIX.  It stores numbers as 2-byte and 4-byte binary values.
      Each entry begins with a header in the following format:
@@ -34,9 +34,9 @@ DESCRIPTION
 		   short   h_gid;
 		   short   h_nlink;
 		   short   h_majmin;
-		   long    h_mtime;
+		   long	   h_mtime;
 		   short   h_namesize;
-		   long    h_filesize;
+		   long	   h_filesize;
 	   };
 
      The short fields here are 16-bit integer values, while the long fields
@@ -44,7 +44,7 @@ DESCRIPTION
      based on, only ran on PDP-11 computers, they are in PDP-endian format,
      which has little-endian shorts, and big-endian longs.  That is, the long
      integer whose hexadecimal representation is 0x12345678 would be stored in
-     four successive bytes as 0x34, 0x12, 0x78, 0x56.  The fields are as fol-
+     four successive bytes as 0x34, 0x12, 0x78, 0x56.  The fields are as fol‐
      lows:
 
      h_magic
@@ -75,7 +75,7 @@ DESCRIPTION
 	     0002000  SGID bit.
 	     0001000  Sticky bit.
 	     0000777  The lower 9 bits specify read/write/execute permissions
-		      for world, group, and user following standard POSIX con-
+		      for world, group, and user following standard POSIX con‐
 		      ventions.
 
      h_uid, h_gid
@@ -87,7 +87,7 @@ DESCRIPTION
 	     file data with every copy in the archive.
 
      h_majmin
-	     For block special and character special entries, this field con-
+	     For block special and character special entries, this field con‐
 	     tains the associated device number, with the major number in the
 	     high byte, and the minor number in the low byte.  For all other
 	     entry types, it should be set to zero by writers and ignored by
@@ -104,10 +104,10 @@ DESCRIPTION
      h_filesize
 	     The size of the file.  Note that this archive format is limited
 	     to 16 megabyte file sizes, because PWB UNIX, like 6th Edition,
-	     only used an unsigned 24 bit integer for the file size inter-
+	     only used an unsigned 24 bit integer for the file size inter‐
 	     nally.
 
-     The pathname immediately follows the fixed header.  If h_namesize is odd,
+     The pathname immediately follows the fixed header.	 If h_namesize is odd,
      an additional NUL byte is added after the pathname.  The file data is
      then appended, again with an additional NUL appended if needed to get the
      next header at an even offset.
@@ -125,7 +125,7 @@ DESCRIPTION
      start of the header.  The 32 bit integers are still always stored with
      the most significant word first, though, so each of those two, in the
      struct shown above, was stored as an array of two 16 bit integers, in the
-     traditional order.  Those 16 bit integers, like all the others in the
+     traditional order.	 Those 16 bit integers, like all the others in the
      struct, were accessed using a macro that byte swapped them if necessary.
 
      Next, 7th Edition had more file types to store, and the IALLOC and ILARG
@@ -152,7 +152,7 @@ DESCRIPTION
      gigabytes.
 
      Note that there is no obvious way to tell which of the two binary formats
-     an archive uses, other than to see which one makes more sense.  The typi-
+     an archive uses, other than to see which one makes more sense.  The typi‐
      cal error scenario is that a PWB format archive unpacked as if it were in
      the new format will create named sockets instead of directories, and then
      fail to unpack files that should go in those directories.	Running
@@ -162,77 +162,77 @@ DESCRIPTION
      a '?' in that position.
 
    Portable ASCII Format
-     Version 2 of the Single UNIX Specification ("SUSv2") standardized an
+     Version 2 of the Single UNIX Specification (“SUSv2”) standardized an
      ASCII variant that is portable across all platforms.  It is commonly
-     known as the "old character" format or as the "odc" format.  It stores
+     known as the “old character” format or as the “odc” format.  It stores
      the same numeric fields as the old binary format, but represents them as
      6-character or 11-character octal values.
 
 	   struct cpio_odc_header {
-		   char    c_magic[6];
-		   char    c_dev[6];
-		   char    c_ino[6];
-		   char    c_mode[6];
-		   char    c_uid[6];
-		   char    c_gid[6];
-		   char    c_nlink[6];
-		   char    c_rdev[6];
-		   char    c_mtime[11];
-		   char    c_namesize[6];
-		   char    c_filesize[11];
+		   char	   c_magic[6];
+		   char	   c_dev[6];
+		   char	   c_ino[6];
+		   char	   c_mode[6];
+		   char	   c_uid[6];
+		   char	   c_gid[6];
+		   char	   c_nlink[6];
+		   char	   c_rdev[6];
+		   char	   c_mtime[11];
+		   char	   c_namesize[6];
+		   char	   c_filesize[11];
 	   };
 
      The fields are identical to those in the new binary format.  The name and
-     file body follow the fixed header.  Unlike the binary formats, there is
-     no additional padding after the pathname or file contents.  If the files
+     file body follow the fixed header.	 Unlike the binary formats, there is
+     no additional padding after the pathname or file contents.	 If the files
      being archived are themselves entirely ASCII, then the resulting archive
      will be entirely ASCII, except for the NUL byte that terminates the name
      field.
 
    New ASCII Format
      The "new" ASCII format uses 8-byte hexadecimal fields for all numbers and
-     separates device numbers into separate fields for major and minor num-
+     separates device numbers into separate fields for major and minor num‐
      bers.
 
 	   struct cpio_newc_header {
-		   char    c_magic[6];
-		   char    c_ino[8];
-		   char    c_mode[8];
-		   char    c_uid[8];
-		   char    c_gid[8];
-		   char    c_nlink[8];
-		   char    c_mtime[8];
-		   char    c_filesize[8];
-		   char    c_devmajor[8];
-		   char    c_devminor[8];
-		   char    c_rdevmajor[8];
-		   char    c_rdevminor[8];
-		   char    c_namesize[8];
-		   char    c_check[8];
+		   char	   c_magic[6];
+		   char	   c_ino[8];
+		   char	   c_mode[8];
+		   char	   c_uid[8];
+		   char	   c_gid[8];
+		   char	   c_nlink[8];
+		   char	   c_mtime[8];
+		   char	   c_filesize[8];
+		   char	   c_devmajor[8];
+		   char	   c_devminor[8];
+		   char	   c_rdevmajor[8];
+		   char	   c_rdevminor[8];
+		   char	   c_namesize[8];
+		   char	   c_check[8];
 	   };
 
      Except as specified below, the fields here match those specified for the
      new binary format above.
 
-     magic   The string "070701".
+     magic   The string “070701”.
 
-     check   This field is always set to zero by writers and ignored by read-
+     check   This field is always set to zero by writers and ignored by read‐
 	     ers.  See the next section for more details.
 
      The pathname is followed by NUL bytes so that the total size of the fixed
      header plus pathname is a multiple of four.  Likewise, the file data is
      padded to a multiple of four bytes.  Note that this format supports only
-     4 gigabyte files (unlike the older ASCII format, which supports 8 giga-
+     4 gigabyte files (unlike the older ASCII format, which supports 8 giga‐
      byte files).
 
      In this format, hardlinked files are handled by setting the filesize to
      zero for each entry except the first one that appears in the archive.
 
    New CRC Format
-     The CRC format is identical to the new ASCII format described in the pre-
-     vious section except that the magic field is set to "070702" and the
+     The CRC format is identical to the new ASCII format described in the pre‐
+     vious section except that the magic field is set to “070702” and the
      check field is set to the sum of all bytes in the file data.  This sum is
-     computed treating all bytes as unsigned values and using unsigned arith-
+     computed treating all bytes as unsigned values and using unsigned arith‐
      metic.  Only the least-significant 32 bits of the sum are stored.
 
    HP variants
@@ -240,8 +240,8 @@ DESCRIPTION
      numbers differently XXX.
 
    Other Extensions and Variants
-     Sun Solaris uses additional file types to store extended file data, in-
-     cluding ACLs and extended attributes, as special entries in cpio ar-
+     Sun Solaris uses additional file types to store extended file data, in‐
+     cluding ACLs and extended attributes, as special entries in cpio ar‐
      chives.
 
      XXX Others? XXX
@@ -250,38 +250,38 @@ SEE ALSO
      cpio(1), tar(5)
 
 STANDARDS
-     The cpio utility is no longer a part of POSIX or the Single Unix Stan-
+     The cpio utility is no longer a part of POSIX or the Single Unix Stan‐
      dard.  It last appeared in Version 2 of the Single UNIX Specification
-     ("SUSv2").  It has been supplanted in subsequent standards by pax(1).
+     (“SUSv2”).	 It has been supplanted in subsequent standards by pax(1).
      The portable ASCII format is currently part of the specification for the
      pax(1) utility.
 
 HISTORY
      The original cpio utility was written by Dick Haight while working in
-     AT&T's Unix Support Group.  It appeared in 1977 as part of PWB/UNIX 1.0,
-     the "Programmer's Work Bench" derived from AT&T UNIX 6th Edition UNIX
-     that was used internally at AT&T.	Both the new binary and old character
-     formats were in use by 1980, according to the System III source released
-     by SCO under their "Ancient Unix" license.  The character format was
-     adopted as part of IEEE Std 1003.1-1988 ("POSIX.1").  XXX when did "newc"
-     appear?  Who invented it?	When did HP come out with their variant?  When
-     did Sun introduce ACLs and extended attributes? XXX
+     AT&T's Unix Support Group.	 It appeared in 1977 as part of PWB/UNIX 1.0,
+     the “Programmer's Work Bench” derived from Version 6 AT&T UNIX that was
+     used internally at AT&T.  Both the new binary and old character formats
+     were in use by 1980, according to the System III source released by SCO
+     under their “Ancient Unix” license.  The character format was adopted as
+     part of IEEE Std 1003.1-1988 (“POSIX.1”).	XXX when did "newc" appear?
+     Who invented it?  When did HP come out with their variant?	 When did Sun
+     introduce ACLs and extended attributes? XXX
 
 BUGS
-     The "CRC" format is mis-named, as it uses a simple checksum and not a
+     The “CRC” format is mis-named, as it uses a simple checksum and not a
      cyclic redundancy check.
 
      The binary formats are limited to 16 bits for user id, group id, device,
-     and inode numbers.  They are limited to 16 megabyte and 2 gigabyte file
+     and inode numbers.	 They are limited to 16 megabyte and 2 gigabyte file
      sizes for the older and newer variants, respectively.
 
-     The old ASCII format is limited to 18 bits for the user id, group id, de-
+     The old ASCII format is limited to 18 bits for the user id, group id, de‐
      vice, and inode numbers.  It is limited to 8 gigabyte file sizes.
 
      The new ASCII format is limited to 4 gigabyte file sizes.
 
      None of the cpio formats store user or group names, which are essential
-     when moving files between systems with dissimilar user or group number-
+     when moving files between systems with dissimilar user or group number‐
      ing.
 
      Especially when writing older cpio variants, it may be necessary to map

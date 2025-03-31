@@ -21,6 +21,11 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #if PLATFORM(IOS_FAMILY) || (PLATFORM(MAC) && ENABLE(VIDEO_PRESENTATION_MODE))
+[
+    EnabledBy=VideoPresentationManagerEnabled || VideoPresentationModeAPIEnabled,
+    DispatchedFrom=WebContent,
+    DispatchedTo=UI
+]
 messages -> PlaybackSessionManagerProxy {
     CurrentTimeChanged(WebKit::PlaybackSessionContextIdentifier contextId, double currentTime, double hostTime)
     BufferedTimeChanged(WebKit::PlaybackSessionContextIdentifier contextId, double bufferedTime)
@@ -45,6 +50,8 @@ messages -> PlaybackSessionManagerProxy {
 #endif
     SetUpPlaybackControlsManagerWithID(WebKit::PlaybackSessionContextIdentifier contextId, bool isVideo)
     ClearPlaybackControlsManager()
+
+    SwapFullscreenModes(WebKit::PlaybackSessionContextIdentifier firstContextId, WebKit::PlaybackSessionContextIdentifier secondContextId)
 
     HandleControlledElementIDResponse(WebKit::PlaybackSessionContextIdentifier contextId, String id)
 

@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2019 Kristaps Dzonsons <kristaps@bsd.lv>
+ * Copyright (c) 2024, Klara, Inc.
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -16,10 +17,12 @@
 #include "config.h"
 
 #include <sys/ioctl.h>
+#include <sys/param.h>
 #include <sys/stat.h>
 #if HAVE_SYS_QUEUE
 #include <sys/queue.h>
 #endif
+#include <sys/uio.h>
 
 #include <assert.h>
 #include COMPAT_ENDIAN_H
@@ -33,6 +36,13 @@
 #include <unistd.h>
 
 #include "extern.h"
+
+/*
+ * struct iobuf repack and allocation thresholds.
+ */
+#define IOBUF_MIN_REPACK	(1024 * 4)
+#define IOBUF_MAX_REPACK	(1024 * 128)
+#define IOBUF_MIN_ALLOC		(1024 * 128)
 
 struct io_tag_handler {
 	SLIST_ENTRY(io_tag_handler)	 entry;
@@ -78,14 +88,21 @@ int
 io_read_close(struct sess *sess, int fd)
 {
 	struct pollfd	 pfd;
-	int		 nbrecv, rc;
+	int		 hup, nbrecv, rc;
 
+	hup = 0;
 	pfd.fd = fd;
 	pfd.events = POLLIN;
 
-	while ((rc = poll(&pfd, 1, INFTIM)) || errno == EINTR) {
-		if (rc == -1)
-			continue;
+	while (!hup) {
+		rc = poll(&pfd, 1, INFTIM);
+		if (rc == -1) {
+			if (errno == EINTR)
+				continue;
+
+			ERR("poll");
+			break;
+		}
 
 		/*
 		 * FIONREAD == 0 on POLLIN to check for EOF of a socket, instead
@@ -97,8 +114,15 @@ io_read_close(struct sess *sess, int fd)
 			break;
 
 		if (nbrecv == 0 || (pfd.revents & POLLHUP) != 0) {
-			close(fd);
-			return 1;
+			hup = 1;
+
+			/*
+			 * We'll give the below flush a chance to push anything
+			 * out of the pipeline, then we'll terminate rather than
+			 * poll() again.
+			 */
+			if (nbrecv <= 0)
+				break;
 		}
 
 		/*
@@ -110,12 +134,21 @@ io_read_close(struct sess *sess, int fd)
 		 * We'll keep going as long as we're only getting out-of-band
 		 * messages.
 		 */
-		if (!io_read_flush(sess, fd) || sess->mplex_read_remain)
+		if (!io_read_flush(sess, fd) || sess->mplex_read_remain) {
+			/* Force an error for both of these cases. */
+			hup = 0;
 			break;
+		}
+
+		if ((pfd.revents & (POLLERR | POLLNVAL)) != 0) {
+			ERRX("socket error, poll=%x", pfd.revents);
+			hup = 0;
+			break;
+		}
 	}
 
 	close(fd);
-	return 0;
+	return hup;
 }
 
 /*
@@ -151,7 +184,7 @@ io_write_nonblocking(int fd, const void *buf, size_t bsz,
 		ERRX("poll: bad fd");
 		return 0;
 	} else if ((pfd.revents & POLLHUP)) {
-		ERRX("poll: hangup");
+		ERRX("poll: hangup on nonblocking write");
 		return 0;
 	} else if (!(pfd.revents & POLLOUT)) {
 		ERRX("poll: unknown event");
@@ -173,7 +206,7 @@ io_write_nonblocking(int fd, const void *buf, size_t bsz,
  * Blocking write of the full size of the buffer.
  * Returns 0 on failure, non-zero on success (all bytes written).
  */
-static int
+int
 io_write_blocking(int fd, const void *buf, size_t sz)
 {
 	size_t		wsz;
@@ -190,6 +223,78 @@ io_write_blocking(int fd, const void *buf, size_t sz)
 		}
 		buf += wsz;
 		sz -= wsz;
+	}
+
+	return 1;
+}
+
+/*
+ * Blocking write of the full length of iov[].  Modifies iov[]
+ * if unable to write the full request in one call to writev().
+ *
+ * Makes at most one pass over iov[], skipping zero-length
+ * iovecs when encountered.
+ *
+ * Leverages writev() to validate function parameters.
+ *
+ * Returns 0 on failure, non-zero on success (all bytes written).
+ */
+static int
+io_writev_blocking(int fd, struct iovec *iov, int iovcnt)
+{
+	struct pollfd pfd = {
+		.fd = fd,
+		.events = POLLOUT,
+	};
+
+	for (;;) {
+		int skip = 0;
+		ssize_t cc;
+		int n, i;
+
+		cc = writev(fd, iov, iovcnt);
+
+		if (cc == -1 && errno != EAGAIN && errno != EINTR) {
+			ERRX("io_writev_blocking: %s", strerror(errno));
+			return 0;
+		}
+
+		for (i = 0; i < iovcnt && cc >= 0; ++i) {
+			if ((size_t)cc < iov[i].iov_len) {
+				iov[i].iov_base += cc;
+				iov[i].iov_len -= cc;
+				break;
+			}
+
+			cc -= iov[i].iov_len;
+			skip++;
+		}
+
+		if (skip >= iovcnt)
+			break;
+
+		iov += skip;
+		iovcnt -= skip;
+
+		n = poll(&pfd, 1, poll_timeout);
+
+		if (n != 1) {
+			if (n == -1 && errno == EINTR)
+				continue;
+
+			ERRX("io_writev_blocking: %s",
+			    (n == 0) ? "timeout" : strerror(errno));
+			return 0;
+		}
+		if ((pfd.revents & (POLLERR | POLLNVAL | POLLHUP)) != 0) {
+			ERRX("io_writev_blocking: %s",
+			    ((pfd.revents & POLLHUP) != 0) ? "hangup" : "bad fd");
+			return 0;
+		}
+		if ((pfd.revents & POLLOUT) == 0) {
+			ERRX("io_writev_blocking: unknown event");
+			return 0;
+		}
 	}
 
 	return 1;
@@ -254,24 +359,35 @@ io_write_buf_tagged(struct sess *sess, int fd, const void *buf, size_t sz,
 	/*
 	 * Some things can send 0-byte buffers in the reference implementation,
 	 * but I think those are all peer messages rather than client <-> server
+	 *
+	 * We might be here as the result of a POLLOUT event for which the
+	 * caller has carefully arranged to write no more data (incl. tag)
+	 * than there is space available (so as not to block).  However, if
+	 * we write the tag and data in separate output operations then we'll
+	 * likely block unnecessarily. Therefore, to avoid blocking, we try
+	 * to write them both in one single output operation via writev().
 	 */
 	while (sz > 0) {
+		struct iovec iov[2];
+
 		wsz = (sz < 0xFFFFFF) ? sz : 0xFFFFFF;
 		tag = ((iotag + IOTAG_OFFSET) << 24) + (int)wsz;
 		tagbuf = htole32(tag);
-		if (!io_write_blocking(fd, &tagbuf, sizeof(tagbuf))) {
-			ERRX1("io_write_blocking");
+		iov[0].iov_base = &tagbuf;
+		iov[0].iov_len = sizeof(tagbuf);
+
+		iov[1].iov_base = (void *)buf;
+		iov[1].iov_len = wsz;
+
+		if (!io_writev_blocking(fd, iov, 2)) {
+			ERRX1("io_writev_blocking");
 			return 0;
 		}
-		if (!io_write_blocking(fd, buf, wsz)) {
-			ERRX1("io_write_blocking");
-			return 0;
-		}
+
 		sess->total_write += wsz;
 		sz -= wsz;
 		buf += wsz;
 	}
-
 	return 1;
 }
 
@@ -437,7 +553,7 @@ int
 io_read_flush(struct sess *sess, int fd)
 {
 	int32_t	 tagbuf, tag;
-	char	 mpbuf[1024];
+	char	 mpbuf[BIGPATH_MAX + 1];
 	size_t	 mpbufsz;
 	int	 ret;
 
@@ -455,15 +571,34 @@ io_read_flush(struct sess *sess, int fd)
 		ERRX1("io_read_blocking");
 		return 0;
 	}
+
 	tag = le32toh(tagbuf);
 	sess->mplex_read_remain = tag & 0xFFFFFF;
 	tag >>= 24;
 	tag -= IOTAG_OFFSET;
-	if (tag == IT_DATA)
+
+	switch (tag) {
+	case IT_DATA:
 		return 1;
 
-	if (sess->mplex_read_remain > sizeof(mpbuf)) {
-		ERRX("multiplex buffer overflow");
+	case IT_ERROR_XFER:
+	case IT_INFO:
+	case IT_ERROR:
+	case IT_WARNING:
+	case IT_SUCCESS:
+	case IT_DELETED:
+	case IT_NO_SEND:
+		break;
+
+	default:
+		ERRX("unexpected tag %d (0x%x), len %zu",
+		     tag, le32toh(tagbuf), sess->mplex_read_remain);
+		return 0;
+	}
+
+	if (sess->mplex_read_remain >= sizeof(mpbuf)) {
+		ERRX("multiplex buffer overflow (tag %d 0x%x, len %zu)",
+		     tag, le32toh(tagbuf), sess->mplex_read_remain);
 		return 0;
 	}
 
@@ -493,11 +628,13 @@ io_read_flush(struct sess *sess, int fd)
 
 	/*
 	 * Always print the server's messages, as the server
-	 * will control its own log levelling.
+	 * will control its own log leveling.
 	 */
 	if (tag >= IT_ERROR_XFER && tag <= IT_WARNING) {
-		if (mpbufsz != 0)
-			LOG0("%.*s", (int)mpbufsz, mpbuf);
+		if (mpbufsz > 0) {
+			mpbuf[mpbufsz] = '\0';
+			rsync_log_tag(tag, "%s\n", mpbuf);
+		}
 
 		if (tag == IT_ERROR_XFER || tag == IT_ERROR) {
 			sess->total_errors++;
@@ -760,9 +897,6 @@ io_lowbuffer_vstring(struct sess *sess, void *buf, size_t *bufpos,
 {
 	int32_t	tagbuf;
 
-	if (sz == 0)
-		return;
-
 	if (!sess->mplex_writes) {
 		io_buffer_vstring(buf, bufpos, buflen, str, sz);
 		return;
@@ -886,7 +1020,8 @@ io_buffer_vstring(void *buf, size_t *bufpos, size_t buflen, char *str,
 		io_buffer_byte(buf, bufpos, buflen, (sz >> 8) + 0x80);
 	}
 	io_buffer_byte(buf, bufpos, buflen, sz & 0xff);
-	io_buffer_buf(buf, bufpos, buflen, str, sz);
+	if (sz > 0)
+		io_buffer_buf(buf, bufpos, buflen, str, sz);
 }
 
 /*
@@ -1091,12 +1226,20 @@ io_write_byte(struct sess *sess, int fd, uint8_t val)
 }
 
 /*
+ * Read a string length and data directly off the wire,
+ * blocking until all data is read or there is an error.
+ * Allocates storage for the string and returns a NUL
+ * terminated pointer to it, or a NULL pointer if the
+ * length of the string is zero.
+ * Returns zero on failure, non-zero on success.
  */
 int
-io_read_vstring(struct sess *sess, int fd, char *str, size_t sz)
+io_read_vstring(struct sess *sess, int fd, char **strp)
 {
 	uint8_t bval;
 	size_t len = 0;
+
+	*strp = NULL;
 
 	if (!io_read_byte(sess, fd, &bval)) {
 		ERRX1("io_read_vstring byte 1");
@@ -1111,15 +1254,19 @@ io_read_vstring(struct sess *sess, int fd, char *str, size_t sz)
 	}
 	len |= bval;
 
-	if (len >= sz) {
-		ERRX1("io_read_vstring: incoming string too large (%zu > %zu)",
-		    len, sz);
-		return 0;
-	}
+	if (len > 0) {
+		*strp = malloc(len + 1);
+		if (*strp == NULL) {
+			ERRX1("io_read_vstring: malloc(%zu) failed", len + 1);
+			return 0;
+		}
 
-	if (!io_read_buf(sess, fd, str, len)) {
-		ERRX1("io_read_vstring buf");
-		return 0;
+		if (!io_read_buf(sess, fd, *strp, len)) {
+			ERRX1("io_read_vstring buf");
+			return 0;
+		}
+
+		(*strp)[len] = '\0';
 	}
 
 	return 1;
@@ -1186,16 +1333,26 @@ iobuf_alloc_common(struct sess *sess, struct iobuf *buf, size_t sz, bool framed)
 	if (framed)
 		sz += sizeof(int32_t);	/* Multiplexing tag */
 
-	iobuf_repack(buf);
-	room = buf->size - buf->resid;
-	if (sz > room) {
-		pp = realloc(buf->buffer, buf->size + (sz - room));
+	room = buf->size - buf->offset - buf->resid;
+	if (room > sz)
+		return 1;
+
+	if ((buf->offset > IOBUF_MIN_REPACK && buf->resid < IOBUF_MIN_REPACK) ||
+	    (buf->offset > IOBUF_MAX_REPACK)) {
+		iobuf_repack(buf);
+	}
+
+	room = buf->size - buf->offset - buf->resid;
+	if (sz >= room) {
+		size_t newsz = buf->size + roundup(sz - room + 1, IOBUF_MIN_ALLOC);
+
+		pp = realloc(buf->buffer, newsz);
 		if (pp == NULL) {
 			ERR("realloc");
 			return 0;
 		}
 		buf->buffer = pp;
-		buf->size += sz - room;
+		buf->size = newsz;
 	}
 
 	return 1;
@@ -1215,6 +1372,20 @@ iobuf_get_readsz(const struct iobuf *buf)
 	return buf->resid;
 }
 
+void
+iobuf_eof(struct iobuf *buf)
+{
+
+	buf->eof = true;
+}
+
+bool
+iobuf_seen_eof(const struct iobuf *buf)
+{
+
+	return buf->eof;
+}
+
 /*
  * Fill up an iobuf with as much data as is currently available.
  */
@@ -1226,7 +1397,11 @@ iobuf_fill(struct sess *sess, struct iobuf *buf, int fd)
 	bool read_any;
 
 	assert(buf->size != 0);
-	iobuf_repack(buf);
+
+	if ((buf->offset > IOBUF_MIN_REPACK && buf->resid < IOBUF_MIN_REPACK) ||
+	    (buf->offset > IOBUF_MAX_REPACK)) {
+		iobuf_repack(buf);
+	}
 
 	read_any = false;
 	check = 0;
@@ -1430,8 +1605,13 @@ iobuf_read_vstring(struct iobuf *buf, struct vstring *vstr)
 		return 0;
 
 	if (vstr->vstring_buffer == NULL) {
-		/* Need size */
-		if (avail < (2 * sizeof(bval)))
+		/* Need at least one of the potentially two length bytes */
+		if (avail < sizeof(bval))
+			return 0;
+
+		/* If bit 7 of the first byte is set then wait for both bytes */
+		iobuf_peek_buf(buf, &bval, sizeof(bval));
+		if ((bval & 0x80) && (avail < sizeof(bval) * 2))
 			return 0;
 
 		iobuf_read_byte(buf, &bval);
@@ -1442,8 +1622,11 @@ iobuf_read_vstring(struct iobuf *buf, struct vstring *vstr)
 
 		len |= bval;
 
+		if (len == 0)
+			return 1;
+
 		vstr->vstring_size = len;
-		vstr->vstring_buffer = malloc(vstr->vstring_size);
+		vstr->vstring_buffer = malloc(vstr->vstring_size + 1);
 		if (vstr->vstring_buffer == NULL) {
 			ERR("malloc");
 			return -1;
@@ -1458,6 +1641,7 @@ iobuf_read_vstring(struct iobuf *buf, struct vstring *vstr)
 
 	iobuf_read_buf(buf, &vstr->vstring_buffer[vstr->vstring_offset], avail);
 	vstr->vstring_offset += avail;
+	vstr->vstring_buffer[vstr->vstring_size] = '\0';
 	return vstr->vstring_offset == vstr->vstring_size ? 1 : 0;
 }
 

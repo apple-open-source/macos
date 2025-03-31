@@ -44,8 +44,7 @@ namespace ClearKey {
 
 // ClearKey CENC SystemID.
 // https://www.w3.org/TR/eme-initdata-cenc/#common-system
-const uint8_t cencSystemId[] = { 0x10, 0x77, 0xef, 0xec, 0xc0, 0xb2, 0x4d, 0x02, 0xac, 0xe3, 0x3c, 0x1e, 0x52, 0xe2, 0xfb, 0x4b };
-const unsigned cencSystemIdSize = sizeof(cencSystemId);
+constexpr std::array<uint8_t, 16> cencSystemId { 0x10, 0x77, 0xef, 0xec, 0xc0, 0xb2, 0x4d, 0x02, 0xac, 0xe3, 0x3c, 0x1e, 0x52, 0xe2, 0xfb, 0x4b };
 enum {
     AES128CTRBlockSizeInBytes = 16,
     KeyIDSizeInBytes = 16,
@@ -97,6 +96,8 @@ public:
     CDMInstanceClearKey();
     virtual ~CDMInstanceClearKey();
 
+    uint32_t getNextSessionIdValue() { return m_nextSessionIdValue++; }
+
     // CDMInstance
     ImplementationType implementationType() const final { return ImplementationType::ClearKey; }
     void initializeWithConfiguration(const CDMKeySystemConfiguration&, AllowDistinctiveIdentifiers, AllowPersistentState, SuccessCallback&&) final;
@@ -104,6 +105,9 @@ public:
     void setStorageDirectory(const String&) final;
     const String& keySystem() const final;
     RefPtr<CDMInstanceSession> createSession() final;
+
+private:
+    uint32_t m_nextSessionIdValue { 0 };
 };
 
 class CDMInstanceSessionClearKey final : public CDMInstanceSessionProxy {

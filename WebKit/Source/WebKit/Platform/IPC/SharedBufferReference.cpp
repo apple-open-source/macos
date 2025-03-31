@@ -28,13 +28,11 @@
 
 #include "Decoder.h"
 #include "Encoder.h"
-#include "WebCoreArgumentCoders.h"
 #include <WebCore/SharedMemory.h>
 
 namespace IPC {
 
 using namespace WebCore;
-using namespace WebKit;
 
 #if !USE(UNIX_DOMAIN_SOCKETS)
 SharedBufferReference::SharedBufferReference(std::optional<SerializableBuffer>&& serializableBuffer)

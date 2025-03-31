@@ -30,7 +30,7 @@
 #include <Security/SecItem.h>
 #include <Security/SecItemPriv.h>
 #include <utilities/SecCFRelease.h>
-#include <libaks.h>
+#include <AppleKeyStore/libaks.h>
 #include <AssertMacros.h>
 #include "keychain/securityd/SOSCloudCircleServer.h"
 

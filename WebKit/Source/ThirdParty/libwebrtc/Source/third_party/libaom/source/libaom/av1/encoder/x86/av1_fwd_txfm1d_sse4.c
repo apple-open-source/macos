@@ -396,61 +396,6 @@ void av1_fdct32_sse4_1(__m128i *input, __m128i *output, int cos_bit,
   output[endidx] = buf0[1];
 }
 
-void av1_fadst4_sse4_1(const __m128i *input, __m128i *output,
-                       const int8_t cos_bit, const int8_t *stage_range) {
-  const int txfm_size = 4;
-  const int num_per_128 = 4;
-  const int32_t *cospi;
-  __m128i buf0[4];
-  __m128i buf1[4];
-  int col_num = txfm_size / num_per_128;
-  int col;
-  (void)stage_range;
-  for (col = 0; col < col_num; col++) {
-    // stage 0;
-    int j;
-    for (j = 0; j < 4; ++j) {
-      buf0[j] = input[j * col_num + col];
-    }
-
-    // stage 1
-    buf1[0] = buf0[3];
-    buf1[1] = buf0[0];
-    buf1[2] = buf0[1];
-    buf1[3] = buf0[2];
-
-    // stage 2
-    cospi = cospi_arr(cos_bit);
-    btf_32_sse4_1_type0(cospi[8], cospi[56], buf1[0], buf1[1], buf0[0], buf0[1],
-                        cos_bit);
-    btf_32_sse4_1_type0(cospi[40], cospi[24], buf1[2], buf1[3], buf0[2],
-                        buf0[3], cos_bit);
-
-    // stage 3
-    buf1[0] = _mm_add_epi32(buf0[0], buf0[2]);
-    buf1[2] = _mm_sub_epi32(buf0[0], buf0[2]);
-    buf1[1] = _mm_add_epi32(buf0[1], buf0[3]);
-    buf1[3] = _mm_sub_epi32(buf0[1], buf0[3]);
-
-    // stage 4
-    cospi = cospi_arr(cos_bit);
-    buf0[0] = buf1[0];
-    buf0[1] = buf1[1];
-    btf_32_sse4_1_type0(cospi[32], cospi[32], buf1[2], buf1[3], buf0[2],
-                        buf0[3], cos_bit);
-
-    // stage 5
-    buf1[0] = buf0[0];
-    buf1[1] = _mm_sub_epi32(_mm_setzero_si128(), buf0[2]);
-    buf1[2] = buf0[3];
-    buf1[3] = _mm_sub_epi32(_mm_setzero_si128(), buf0[1]);
-
-    for (j = 0; j < 4; ++j) {
-      output[j * col_num + col] = buf1[j];
-    }
-  }
-}
-
 void av1_fdct64_sse4_1(__m128i *input, __m128i *output, int8_t cos_bit,
                        const int instride, const int outstride) {
   const int32_t *cospi = cospi_arr(cos_bit);

@@ -229,6 +229,18 @@ static void cancelCurrentAlert(bool stopRunLoop) {
 
 static void askAboutAll(bool passwordFailure);
 
+static bool CFErrorIsMalfunctioningKeybagError(CFErrorRef error){
+    switch(CFErrorGetCode(error))
+    {
+        case(kAKSReturnError):
+        case(kAKSReturnBusy):
+        case(kAKSReturnNoPermission):
+            break;
+        default:
+            return false;
+    }
+    return CFEqualSafe(CFErrorGetDomain(error), kSecKernDomain);
+}
 
 static void applicantChoice(CFUserNotificationRef userNotification, CFOptionFlags responseFlags)
 {

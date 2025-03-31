@@ -29,8 +29,22 @@
 
 #import <Foundation/Foundation.h>
 
+OBJC_CLASS NSImage;
+OBJC_CLASS UIImage;
+
+namespace WebCore {
+
+#if USE(APPKIT)
+using CocoaImage = NSImage;
+#else
+using CocoaImage = UIImage;
+#endif
+
 // Returns an NSImage or UIImage depending on platform
-id webCoreTextAttachmentMissingPlatformImage();
+CocoaImage *webCoreTextAttachmentMissingPlatformImage();
+bool isWebCoreTextAttachmentMissingPlatformImage(CocoaImage *);
+
+} // namespace WebCore
 
 #if !PLATFORM(IOS_FAMILY)
 @interface NSTextAttachment (WebCoreNSTextAttachment)

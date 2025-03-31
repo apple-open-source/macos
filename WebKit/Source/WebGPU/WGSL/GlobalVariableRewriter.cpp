@@ -78,7 +78,7 @@ private:
     };
 
     template<typename Value>
-    using IndexMap = HashMap<unsigned, Value, WTF::IntHash<unsigned>, WTF::UnsignedWithZeroKeyHashTraits<unsigned>>;
+    using IndexMap = HashMap<uint64_t, Value, WTF::IntHash<uint64_t>, WTF::UnsignedWithZeroKeyHashTraits<uint64_t>>;
 
     using UsedResources = IndexMap<IndexMap<Global*>>;
     using UsedPrivateGlobals = Vector<Global*>;
@@ -127,7 +127,7 @@ private:
     void insertWorkgroupBarrier(AST::Function&, size_t);
     AST::Identifier& findOrInsertLocalInvocationIndex(AST::Function&);
     AST::Statement::List storeInitialValue(const UsedPrivateGlobals&);
-    void storeInitialValue(AST::Expression&, AST::Statement::List&, unsigned, bool isNested);
+    void storeInitialValue(AST::Expression&, AST::Statement::List&, unsigned);
 
     void packResource(AST::Variable&);
     void packArrayResource(AST::Variable&, const Types::Array*);
@@ -232,6 +232,8 @@ void RewriteGlobalVariables::visitCallee(const CallGraph::Callee& callee)
 
             for (auto& length : it->value) {
                 auto lengthName = makeString("__"_s, length, "_ArrayLength"_s);
+                if (m_reads.contains(lengthName))
+                    continue;
                 m_shaderModule.append(callee.target->parameters(), m_shaderModule.astBuilder().construct<AST::Parameter>(
                     SourceSpan::empty(),
                     AST::Identifier::make(lengthName),
@@ -280,6 +282,8 @@ void RewriteGlobalVariables::visitCallee(const CallGraph::Callee& callee)
                     result.iterator->value.add(identifier);
 
                     auto lengthName = makeString("__"_s, identifier, "_ArrayLength"_s);
+                    if (m_reads.contains(lengthName))
+                        continue;
                     auto& length = m_shaderModule.astBuilder().construct<AST::IdentifierExpression>(
                         SourceSpan::empty(),
                         AST::Identifier::make(lengthName)
@@ -878,8 +882,11 @@ const Type* RewriteGlobalVariables::packArrayType(const Types::Array* arrayType)
 {
     auto* structType = std::get_if<Types::Struct>(arrayType->element);
     if (!structType) {
-        if (arrayType->element->packing() & Packing::Vec3)
+        if (arrayType->element->packing() & Packing::Vec3) {
+            m_shaderModule.setUsesUnpackArray();
+            m_shaderModule.setUsesPackArray();
             m_shaderModule.setUsesPackedVec3();
+        }
         return nullptr;
     }
 
@@ -1008,16 +1015,6 @@ void RewriteGlobalVariables::collectDynamicOffsetGlobals(const PipelineLayout& p
             if (!entry.visibility.contains(m_stage))
                 continue;
 
-            auto argumentBufferIndex = [&] {
-                switch (m_stage) {
-                case ShaderStage::Vertex:
-                    return entry.vertexArgumentBufferIndex;
-                case ShaderStage::Fragment:
-                    return entry.fragmentArgumentBufferIndex;
-                case ShaderStage::Compute:
-                    return entry.computeArgumentBufferIndex;
-                }
-            }();
             auto bufferDynamicOffset = [&] {
                 switch (m_stage) {
                 case ShaderStage::Vertex:
@@ -1032,7 +1029,7 @@ void RewriteGlobalVariables::collectDynamicOffsetGlobals(const PipelineLayout& p
             if (!bufferDynamicOffset.has_value())
                 continue;
 
-            m_globalsUsingDynamicOffset.add({ group + 1, *argumentBufferIndex + 1 }, *bufferDynamicOffset);
+            m_globalsUsingDynamicOffset.add({ group + 1, entry.binding + 1 }, *bufferDynamicOffset);
         }
         ++group;
     }
@@ -1967,27 +1964,127 @@ Result<Vector<unsigned>> RewriteGlobalVariables::insertStructs(PipelineLayout& l
             }();
 
             AST::Variable* variable = nullptr;
-            auto it = m_globalsByBinding.find({ group + 1, entry.binding + 1 });
-            if (it != m_globalsByBinding.end()) {
-                variable = it->value;
-                serializedVariables.add(variable, &entry);
-                entries.append({ entry.binding, &createArgumentBufferEntry(*argumentBufferIndex, *variable) });
-            } else {
-                // FIXME: https://bugs.webkit.org/show_bug.cgi?id=282098
-                if (std::get_if<ExternalTextureBindingLayout>(&entry.bindingMember))
-                    return makeUnexpected(Error("Shader uses bind group layout with unused external texture: this is not supported"_s, SourceSpan::empty()));
 
-                auto& type = m_shaderModule.astBuilder().construct<AST::IdentifierExpression>(SourceSpan::empty(), AST::Identifier::make("u32"_s));
-                type.m_inferredType = m_shaderModule.types().u32Type();
+            auto globalIt = m_globalsByBinding.find({ group + 1, entry.binding + 1 });
+            if (globalIt != m_globalsByBinding.end()) {
+                auto groupIt = usedResources.find(group);
+                if (groupIt != usedResources.end()) {
+                    auto& bindings = groupIt->value;
+                    auto bindingIt = bindings.find(entry.binding);
+                    if (bindingIt != bindings.end()) {
+                        variable = bindingIt->value->declaration;
+                        serializedVariables.add(variable, &entry);
+                        entries.append({ *argumentBufferIndex, &createArgumentBufferEntry(*argumentBufferIndex, *variable) });
+                    }
+                }
+            }
 
-                auto& referenceType = m_shaderModule.astBuilder().construct<AST::ReferenceTypeExpression>(
-                    SourceSpan::empty(),
-                    type
-                );
-                referenceType.m_inferredType = m_shaderModule.types().referenceType(AddressSpace::Storage, m_shaderModule.types().u32Type(), AccessMode::Read);
+            if (!variable) {
+                auto& type = m_shaderModule.astBuilder().construct<AST::IdentifierExpression>(SourceSpan::empty(), AST::Identifier::make("void"_s));
+                type.m_inferredType = WTF::switchOn(entry.bindingMember,
+                    [&](const BufferBindingLayout& buffer) -> const Type* {
+                        AddressSpace addressSpace;
+                        AccessMode accessMode;
+                        switch (buffer.type) {
+                        case BufferBindingType::Uniform:
+                            addressSpace = AddressSpace::Uniform;
+                            accessMode = AccessMode::Read;
+                            break;
+                        case BufferBindingType::Storage:
+                            addressSpace = AddressSpace::Storage;
+                            accessMode = AccessMode::ReadWrite;
+                            break;
+                        case BufferBindingType::ReadOnlyStorage:
+                            addressSpace = AddressSpace::Storage;
+                            accessMode = AccessMode::Read;
+                            break;
+                        }
+                        return m_shaderModule.types().pointerType(addressSpace, m_shaderModule.types().voidType(), accessMode);
+                    },
+                    [&](const SamplerBindingLayout&) -> const Type* {
+                        return m_shaderModule.types().samplerType();
+                    },
+                    [&](const TextureBindingLayout& layout) -> const Type* {
+                        const Type* sampleType;
+                        switch (layout.sampleType) {
+                        case TextureSampleType::Float:
+                        case TextureSampleType::UnfilterableFloat:
+                        case TextureSampleType::Depth:
+                            sampleType = m_shaderModule.types().f32Type();
+                            break;
+                        case TextureSampleType::SignedInt:
+                            sampleType = m_shaderModule.types().i32Type();
+                            break;
+                        case TextureSampleType::UnsignedInt:
+                            sampleType = m_shaderModule.types().u32Type();
+                            break;
+                        }
+                        Types::Texture::Kind textureKind;
+                        switch (layout.viewDimension) {
+                        case TextureViewDimension::OneDimensional:
+                            textureKind = Types::Texture::Kind::Texture1d;
+                            break;
+                        case TextureViewDimension::TwoDimensional:
+                            if (layout.multisampled)
+                                textureKind = Types::Texture::Kind::TextureMultisampled2d;
+                            else
+                                textureKind = Types::Texture::Kind::Texture2d;
+                            break;
+                        case TextureViewDimension::TwoDimensionalArray:
+                            textureKind = Types::Texture::Kind::Texture2dArray;
+                            break;
+                        case TextureViewDimension::Cube:
+                            textureKind = Types::Texture::Kind::TextureCube;
+                            break;
+                        case TextureViewDimension::CubeArray:
+                            textureKind = Types::Texture::Kind::TextureCubeArray;
+                            break;
+                        case TextureViewDimension::ThreeDimensional:
+                            textureKind = Types::Texture::Kind::Texture3d;
+                            break;
+                        }
+                        return m_shaderModule.types().textureType(textureKind, sampleType);
+                    },
+                    [&](const StorageTextureBindingLayout& layout) -> const Type* {
+                        Types::TextureStorage::Kind textureStorageKind;
+                        switch (layout.viewDimension) {
+                        case TextureViewDimension::OneDimensional:
+                            textureStorageKind = Types::TextureStorage::Kind::TextureStorage1d;
+                            break;
+                        case TextureViewDimension::TwoDimensional:
+                            textureStorageKind = Types::TextureStorage::Kind::TextureStorage2d;
+                            break;
+                        case TextureViewDimension::TwoDimensionalArray:
+                            textureStorageKind = Types::TextureStorage::Kind::TextureStorage2dArray;
+                            break;
+                        case TextureViewDimension::ThreeDimensional:
+                            textureStorageKind = Types::TextureStorage::Kind::TextureStorage3d;
+                            break;
+                        default:
+                            RELEASE_ASSERT_NOT_REACHED();
+                        }
+                        AccessMode accessMode;
+                        switch (layout.access) {
+                        case StorageTextureAccess::WriteOnly:
+                            accessMode = AccessMode::Write;
+                            break;
+                        case StorageTextureAccess::ReadOnly:
+                            accessMode = AccessMode::Read;
+                            break;
+                        case StorageTextureAccess::ReadWrite:
+                            accessMode = AccessMode::ReadWrite;
+                            break;
+                        }
+                        return m_shaderModule.types().textureStorageType(textureStorageKind, layout.format, accessMode);
+                    },
+                    [&](const ExternalTextureBindingLayout&) -> const Type* {
+                        m_shaderModule.setUsesExternalTextures();
+                        return m_shaderModule.types().textureExternalType();
+                    });
+
                 entries.append({
-                    entry.binding,
-                    &createArgumentBufferEntry(*argumentBufferIndex, SourceSpan::empty(), makeString("__ArgumentBufferPlaceholder_"_s, entry.binding), referenceType)
+                    *argumentBufferIndex,
+                    &createArgumentBufferEntry(*argumentBufferIndex, SourceSpan::empty(), makeString("__ArgumentBufferPlaceholder_"_s, entry.binding), type)
                 });
             }
 
@@ -2258,12 +2355,12 @@ AST::Statement::List RewriteGlobalVariables::storeInitialValue(const UsedPrivate
             AST::Identifier::make(variable.name().id())
         );
         target.m_inferredType = type;
-        storeInitialValue(target, statements, 0, false);
+        storeInitialValue(target, statements, 0);
     }
     return statements;
 }
 
-void RewriteGlobalVariables::storeInitialValue(AST::Expression& target, AST::Statement::List& statements, unsigned arrayDepth, bool isNested)
+void RewriteGlobalVariables::storeInitialValue(AST::Expression& target, AST::Statement::List& statements, unsigned arrayDepth)
 {
     const auto& zeroInitialize = [&]() {
         // This piece of code generation relies on 2 implementation details from the metal serializer:
@@ -2310,7 +2407,7 @@ void RewriteGlobalVariables::storeInitialValue(AST::Expression& target, AST::Sta
         arrayAccess.m_inferredType = arrayType->element;
 
         AST::Statement::List forBodyStatements;
-        storeInitialValue(arrayAccess, forBodyStatements, arrayDepth + 1, true);
+        storeInitialValue(arrayAccess, forBodyStatements, arrayDepth + 1);
 
         auto& zero = m_shaderModule.astBuilder().construct<AST::Unsigned32Literal>(
             SourceSpan::empty(),
@@ -2397,7 +2494,7 @@ void RewriteGlobalVariables::storeInitialValue(AST::Expression& target, AST::Sta
                 AST::Identifier::make(member.name())
             );
             fieldAccess.m_inferredType = fieldType;
-            storeInitialValue(fieldAccess, statements, arrayDepth, true);
+            storeInitialValue(fieldAccess, statements, arrayDepth);
         }
         return;
     }
@@ -2430,9 +2527,6 @@ void RewriteGlobalVariables::storeInitialValue(AST::Expression& target, AST::Sta
         statements.append(AST::Statement::Ref(callStatement));
         return;
     }
-
-    if (!isNested)
-        return;
 
     zeroInitialize();
 }

@@ -23,7 +23,6 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 #include "test.h"
-__FBSDID("$FreeBSD$");
 
 #include <locale.h>
 
@@ -42,8 +41,7 @@ if [ ! -f ${if} ]; then
   exit 0
 fi
 of=test_archive_string_conversion.txt.Z
-echo "\$FreeBSD\$" > ${of}.uu
-awk -F ';'  '$0 ~/^[0-9A-F]+/ {printf "%s;%s\n", $2, $3}' ${if} | compress | uuencode ${of} >> ${of}.uu
+awk -F ';'  '$0 ~/^[0-9A-F]+/ {printf "%s;%s\n", $2, $3}' ${if} | compress | uuencode ${of} > ${of}.uu
 exit 1
 */
 
@@ -847,7 +845,7 @@ test_archive_string_set_get(void)
 	assertEqualInt(0, archive_mstring_update_utf8(a, &mstr, "EEEEE---H"));
 	check_string(a, &mstr, sc, "EEEEE---H", L"EEEEE---H");
 
-	archive_mstring_clean(&mstr);
+        archive_mstring_clean(&mstr);
 	assertEqualInt(ARCHIVE_OK, archive_read_free(a));
 
 }

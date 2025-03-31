@@ -18,44 +18,16 @@
 #include "unicode/udisplaycontext.h"
 #include "unicode/brkiter.h"
 #include "unicode/ucurr.h"
+#include "bytesinkutil.h"
+#include "charstr.h"
 #include "cmemory.h"
 #include "cstring.h"
 #include "mutex.h"
+#include "uassert.h"
 #include "ulocimp.h"
 #include "umutex.h"
 #include "ureslocs.h"
 #include "uresimp.h"
-
-#include <stdarg.h>
-
-/**
- * Concatenate a number of null-terminated strings to buffer, leaving a
- * null-terminated string.  The last argument should be the null pointer.
- * Return the length of the string in the buffer, not counting the trailing
- * null.  Return -1 if there is an error (buffer is null, or buflen < 1).
- */
-static int32_t ncat(char *buffer, uint32_t buflen, ...) {
-  va_list args;
-  char *str;
-  char *p = buffer;
-  const char* e = buffer + buflen - 1;
-
-  if (buffer == nullptr || buflen < 1) {
-    return -1;
-  }
-
-  va_start(args, buflen);
-  while ((str = va_arg(args, char *)) != 0) {
-    char c;
-    while (p != e && (c = *str++) != 0) {
-      *p++ = c;
-    }
-  }
-  *p = 0;
-  va_end(args);
-
-  return static_cast<int32_t>(p - buffer);
-}
 
 U_NAMESPACE_BEGIN
 
@@ -64,12 +36,13 @@ U_NAMESPACE_BEGIN
 // Access resource data for locale components.
 // Wrap code in uloc.c for now.
 class ICUDataTable {
-    const char* path;
+    const char* const path;
     Locale locale;
 
 public:
+    // Note: path should be a pointer to a statically allocated string.
     ICUDataTable(const char* path, const Locale& locale);
-    ~ICUDataTable();
+    ~ICUDataTable() = default;
 
     const Locale& getLocale();
 
@@ -95,23 +68,9 @@ ICUDataTable::getNoFallback(const char* tableKey, const char* itemKey, UnicodeSt
 }
 
 ICUDataTable::ICUDataTable(const char* path, const Locale& locale)
-    : path(nullptr), locale(Locale::getRoot())
+    : path(path), locale(locale)
 {
-  if (path) {
-    int32_t len = static_cast<int32_t>(uprv_strlen(path));
-    this->path = (const char*) uprv_malloc(len + 1);
-    if (this->path) {
-      uprv_strcpy((char *)this->path, path);
-      this->locale = locale;
-    }
-  }
-}
-
-ICUDataTable::~ICUDataTable() {
-  if (path) {
-    uprv_free((void*) path);
-    path = nullptr;
-  }
+    U_ASSERT(path != nullptr);
 }
 
 const Locale&
@@ -309,7 +268,7 @@ class LocaleDisplayNamesImpl : public LocaleDisplayNames {
     };
     // Capitalization transforms. For each usage type, indicates whether to titlecase for
     // the context specified in capitalizationContext (which we know at construction time)
-     UBool fCapitalization[kCapContextUsageCount];
+     bool fCapitalization[kCapContextUsageCount];
 
 public:
     // constructor
@@ -350,12 +309,12 @@ private:
 #endif // APPLE_ICU_CHANGES
     UnicodeString& appendWithSep(UnicodeString& buffer, const UnicodeString& src) const;
     UnicodeString& adjustForUsageAndContext(CapContextUsage usage, UnicodeString& result) const;
-    UnicodeString& scriptDisplayName(const char* script, UnicodeString& result, UBool skipAdjust) const;
-    UnicodeString& regionDisplayName(const char* region, UnicodeString& result, UBool skipAdjust) const;
-    UnicodeString& variantDisplayName(const char* variant, UnicodeString& result, UBool skipAdjust) const;
-    UnicodeString& keyDisplayName(const char* key, UnicodeString& result, UBool skipAdjust) const;
+    UnicodeString& scriptDisplayName(const char* script, UnicodeString& result, bool skipAdjust) const;
+    UnicodeString& regionDisplayName(const char* region, UnicodeString& result, bool skipAdjust) const;
+    UnicodeString& variantDisplayName(const char* variant, UnicodeString& result, bool skipAdjust) const;
+    UnicodeString& keyDisplayName(const char* key, UnicodeString& result, bool skipAdjust) const;
     UnicodeString& keyValueDisplayName(const char* key, const char* value,
-                                        UnicodeString& result, UBool skipAdjust) const;
+                                        UnicodeString& result, bool skipAdjust) const;
     void initialize();
 
     struct CapitalizationContextSink;
@@ -386,10 +345,11 @@ LocaleDisplayNamesImpl::LocaleDisplayNamesImpl(const Locale& locale,
 {
     while (length-- > 0) {
         UDisplayContext value = *contexts++;
-        UDisplayContextType selector = (UDisplayContextType)((uint32_t)value >> 8);
+        UDisplayContextType selector =
+            static_cast<UDisplayContextType>(static_cast<uint32_t>(value) >> 8);
         switch (selector) {
             case UDISPCTX_TYPE_DIALECT_HANDLING:
-                dialectHandling = (UDialectHandling)value;
+                dialectHandling = static_cast<UDialectHandling>(value);
                 break;
             case UDISPCTX_TYPE_CAPITALIZATION:
                 capitalizationContext = value;
@@ -415,7 +375,7 @@ LocaleDisplayNamesImpl::LocaleDisplayNamesImpl(const Locale& locale,
 }
 
 struct LocaleDisplayNamesImpl::CapitalizationContextSink : public ResourceSink {
-    UBool hasCapitalizationUsage;
+    bool hasCapitalizationUsage;
     LocaleDisplayNamesImpl& parent;
 
     CapitalizationContextSink(LocaleDisplayNamesImpl& _parent)
@@ -464,7 +424,7 @@ LocaleDisplayNamesImpl::CapitalizationContextSink::~CapitalizationContextSink() 
 
 void
 LocaleDisplayNamesImpl::initialize() {
-    LocaleDisplayNamesImpl *nonConstThis = (LocaleDisplayNamesImpl *)this;
+    LocaleDisplayNamesImpl* nonConstThis = this;
     nonConstThis->locale = langData.getLocale() == Locale::getRoot()
         ? regionData.getLocale()
         : langData.getLocale();
@@ -483,20 +443,20 @@ LocaleDisplayNamesImpl::initialize() {
         pattern = UnicodeString("{0} ({1})", -1, US_INV);
     }
     format.applyPatternMinMaxArguments(pattern, 2, 2, status);
-    if (pattern.indexOf((char16_t)0xFF08) >= 0) {
-        formatOpenParen.setTo((char16_t)0xFF08);         // fullwidth (
-        formatReplaceOpenParen.setTo((char16_t)0xFF3B);  // fullwidth [
-        formatCloseParen.setTo((char16_t)0xFF09);        // fullwidth )
-        formatReplaceCloseParen.setTo((char16_t)0xFF3D); // fullwidth ]
+    if (pattern.indexOf(static_cast<char16_t>(0xFF08)) >= 0) {
+        formatOpenParen.setTo(static_cast<char16_t>(0xFF08));         // fullwidth (
+        formatReplaceOpenParen.setTo(static_cast<char16_t>(0xFF3B));  // fullwidth [
+        formatCloseParen.setTo(static_cast<char16_t>(0xFF09));        // fullwidth )
+        formatReplaceCloseParen.setTo(static_cast<char16_t>(0xFF3D)); // fullwidth ]
 #if APPLE_ICU_CHANGES
 // rdar://50687287 add names for ks/pa/ur_Arab that use script Naskh, force their use, remove redundant parens
         formatParenCloseOpen.setTo(u"）（", 2);        // fullwidth FF09 FF08 redundant parens
 #endif // APPLE_ICU_CHANGES
     } else {
-        formatOpenParen.setTo((char16_t)0x0028);         // (
-        formatReplaceOpenParen.setTo((char16_t)0x005B);  // [
-        formatCloseParen.setTo((char16_t)0x0029);        // )
-        formatReplaceCloseParen.setTo((char16_t)0x005D); // ]
+        formatOpenParen.setTo(static_cast<char16_t>(0x0028));         // (
+        formatReplaceOpenParen.setTo(static_cast<char16_t>(0x005B));  // [
+        formatCloseParen.setTo(static_cast<char16_t>(0x0029));        // )
+        formatReplaceCloseParen.setTo(static_cast<char16_t>(0x005D)); // ]
 #if APPLE_ICU_CHANGES
 // rdar://50687287 add names for ks/pa/ur_Arab that use script Naskh, force their use, remove redundant parens
         formatParenCloseOpen.setTo(u") (", 3);        // halfwidth redundant parens
@@ -514,7 +474,7 @@ LocaleDisplayNamesImpl::initialize() {
 #if !UCONFIG_NO_BREAK_ITERATION
     // Only get the context data if we need it! This is a const object so we know now...
     // Also check whether we will need a break iterator (depends on the data)
-    UBool needBrkIter = false;
+    bool needBrkIter = false;
     if (capitalizationContext == UDISPCTX_CAPITALIZATION_FOR_UI_LIST_OR_MENU || capitalizationContext == UDISPCTX_CAPITALIZATION_FOR_STANDALONE) {
         LocalUResourceBundlePointer resource(ures_open(nullptr, locale.getName(), &status));
         if (U_FAILURE(status)) { return; }
@@ -560,7 +520,7 @@ UDisplayContext
 LocaleDisplayNamesImpl::getContext(UDisplayContextType type) const {
     switch (type) {
         case UDISPCTX_TYPE_DIALECT_HANDLING:
-            return (UDisplayContext)dialectHandling;
+            return static_cast<UDisplayContext>(dialectHandling);
         case UDISPCTX_TYPE_CAPITALIZATION:
             return capitalizationContext;
         case UDISPCTX_TYPE_DISPLAY_LENGTH:
@@ -576,7 +536,7 @@ LocaleDisplayNamesImpl::getContext(UDisplayContextType type) const {
         default:
             break;
     }
-    return (UDisplayContext)0;
+    return static_cast<UDisplayContext>(0);
 }
 
 UnicodeString&
@@ -629,9 +589,18 @@ LocaleDisplayNamesImpl::localeDisplayName(const Locale& loc,
   const char* country = loc.getCountry();
   const char* variant = loc.getVariant();
 
-  UBool hasScript = uprv_strlen(script) > 0;
-  UBool hasCountry = uprv_strlen(country) > 0;
-  UBool hasVariant = uprv_strlen(variant) > 0;
+  bool hasScript = uprv_strlen(script) > 0;
+  bool hasCountry = uprv_strlen(country) > 0;
+  bool hasVariant = uprv_strlen(variant) > 0;
+    
+#if APPLE_ICU_CHANGES
+// rdar://123787001 (China regulatory regions include "Root" for locale identifier display names when only requesting region)
+    // short-circuit the regular logic: If we get a locale ID that just has a region code (e.g., "_CN"),
+    // just return the region name
+    if (hasCountry && !hasScript && !hasVariant && loc.getLanguage()[0] == '\0') {
+        return regionShortDisplayName(country, result);
+    }
+#endif
 
 #if APPLE_ICU_CHANGES
 // rdar://50750364 Add and always use dialect names for zh and yue
@@ -647,31 +616,56 @@ LocaleDisplayNamesImpl::localeDisplayName(const Locale& loc,
 #else
   if (dialectHandling == ULDN_DIALECT_NAMES) {
 #endif // APPLE_ICU_CHANGES
-    char buffer[ULOC_FULLNAME_CAPACITY];
+    UErrorCode status = U_ZERO_ERROR;
+    CharString buffer;
     do { // loop construct is so we can break early out of search
       if (hasScript && hasCountry) {
-        ncat(buffer, ULOC_FULLNAME_CAPACITY, lang, "_", script, "_", country, (char *)0);
-        localeIdName(buffer, resultName, false);
-        if (!resultName.isBogus()) {
-          hasScript = false;
-          hasCountry = false;
-          break;
+        buffer.append(lang, status)
+              .append('_', status)
+              .append(script, status)
+              .append('_', status)
+              .append(country, status);
+        if (U_SUCCESS(status)) {
+          localeIdName(buffer.data(), resultName, false);
+          if (!resultName.isBogus()) {
+            hasScript = false;
+            hasCountry = false;
+            break;
+          }
         }
       }
       if (hasScript) {
-        ncat(buffer, ULOC_FULLNAME_CAPACITY, lang, "_", script, (char *)0);
-        localeIdName(buffer, resultName, false);
-        if (!resultName.isBogus()) {
-          hasScript = false;
-          break;
+#if APPLE_ICU_CHANGES
+// rdar://136543653 (Integrate ICU 76rc and CLDR 46rc into Apple ICU)
+// (I think this is broken in OSICU too, but they don't have any tests that expose it)
+        buffer.clear();
+#endif // APPLE_ICU_CHANGES
+        buffer.append(lang, status)
+              .append('_', status)
+              .append(script, status);
+        if (U_SUCCESS(status)) {
+          localeIdName(buffer.data(), resultName, false);
+          if (!resultName.isBogus()) {
+            hasScript = false;
+            break;
+          }
         }
       }
       if (hasCountry) {
-        ncat(buffer, ULOC_FULLNAME_CAPACITY, lang, "_", country, (char*)0);
-        localeIdName(buffer, resultName, false);
-        if (!resultName.isBogus()) {
-          hasCountry = false;
-          break;
+#if APPLE_ICU_CHANGES
+// rdar://136543653 (Integrate ICU 76rc and CLDR 46rc into Apple ICU)
+// (I think this is broken in OSICU too, but they don't have any tests that expose it)
+        buffer.clear();
+#endif // APPLE_ICU_CHANGES
+        buffer.append(lang, status)
+              .append('_', status)
+              .append(country, status);
+        if (U_SUCCESS(status)) {
+          localeIdName(buffer.data(), resultName, false);
+          if (!resultName.isBogus()) {
+            hasCountry = false;
+            break;
+          }
         }
       }
     } while (false);
@@ -723,21 +717,19 @@ LocaleDisplayNamesImpl::localeDisplayName(const Locale& loc,
   LocalPointer<StringEnumeration> e(loc.createKeywords(status));
   if (e.isValid() && U_SUCCESS(status)) {
     UnicodeString temp2;
-    char value[ULOC_KEYWORD_AND_VALUES_CAPACITY]; // sigh, no ULOC_VALUE_CAPACITY
     const char* key;
-    while ((key = e->next((int32_t *)0, status)) != nullptr) {
-      value[0] = 0;
-      loc.getKeywordValue(key, value, ULOC_KEYWORD_AND_VALUES_CAPACITY, status);
-      if (U_FAILURE(status) || status == U_STRING_NOT_TERMINATED_WARNING) {
-        return result;
+    while ((key = e->next((int32_t*)nullptr, status)) != nullptr) {
+        auto value = loc.getKeywordValue<CharString>(key, status);
+        if (U_FAILURE(status)) {
+            return result;
       }
       keyDisplayName(key, temp, true);
       temp.findAndReplace(formatOpenParen, formatReplaceOpenParen);
       temp.findAndReplace(formatCloseParen, formatReplaceCloseParen);
-      keyValueDisplayName(key, value, temp2, true);
+      keyValueDisplayName(key, value.data(), temp2, true);
       temp2.findAndReplace(formatOpenParen, formatReplaceOpenParen);
       temp2.findAndReplace(formatCloseParen, formatReplaceCloseParen);
-      if (temp2 != UnicodeString(value, -1, US_INV)) {
+      if (temp2 != UnicodeString(value.data(), -1, US_INV)) {
         appendWithSep(resultRemainder, temp2);
       } else if (temp != UnicodeString(key, -1, US_INV)) {
         UnicodeString temp3;
@@ -745,7 +737,7 @@ LocaleDisplayNamesImpl::localeDisplayName(const Locale& loc,
         appendWithSep(resultRemainder, temp3);
       } else {
         appendWithSep(resultRemainder, temp)
-          .append((char16_t)0x3d /* = */)
+          .append(static_cast<char16_t>(0x3d) /* = */)
           .append(temp2);
       }
     }
@@ -869,7 +861,7 @@ LocaleDisplayNamesImpl::languageDisplayName(const char* lang,
 UnicodeString&
 LocaleDisplayNamesImpl::scriptDisplayName(const char* script,
                                           UnicodeString& result,
-                                          UBool skipAdjust) const {
+                                          bool skipAdjust) const {
 #if APPLE_ICU_CHANGES
 // rdar://25991768 51660c2486.. uldn handle fallback from short lang/script/reg; standalone script should use correct name
     if (!skipAdjust) { // => prefer standalone
@@ -916,7 +908,7 @@ LocaleDisplayNamesImpl::scriptDisplayName(UScriptCode scriptCode,
 UnicodeString&
 LocaleDisplayNamesImpl::regionDisplayName(const char* region,
                                           UnicodeString& result,
-                                          UBool skipAdjust) const {
+                                          bool skipAdjust) const {
 #if APPLE_ICU_CHANGES
     // rdar://115264744 (Sub-TLF: China geopolitical location display via ICU)
     bool useChineseVariant = uaprv_onCalciumDevice();
@@ -1021,7 +1013,7 @@ LocaleDisplayNamesImpl::regionDisplayName(const char* region,
 UnicodeString&
 LocaleDisplayNamesImpl::variantDisplayName(const char* variant,
                                            UnicodeString& result,
-                                           UBool skipAdjust) const {
+                                           bool skipAdjust) const {
     // don't have a resource for short variant names
     if (substitute == UDISPCTX_SUBSTITUTE) {
         langData.get("Variants", variant, result);
@@ -1040,7 +1032,7 @@ LocaleDisplayNamesImpl::variantDisplayName(const char* variant,
 UnicodeString&
 LocaleDisplayNamesImpl::keyDisplayName(const char* key,
                                        UnicodeString& result,
-                                       UBool skipAdjust) const {
+                                       bool skipAdjust) const {
     // don't have a resource for short key names
     if (substitute == UDISPCTX_SUBSTITUTE) {
         langData.get("Keys", key, result);
@@ -1060,7 +1052,7 @@ UnicodeString&
 LocaleDisplayNamesImpl::keyValueDisplayName(const char* key,
                                             const char* value,
                                             UnicodeString& result,
-                                            UBool skipAdjust) const {
+                                            bool skipAdjust) const {
     if (uprv_strcmp(key, "currency") == 0) {
         // ICU4C does not have ICU4J CurrencyDisplayInfo equivalent for now.
         UErrorCode sts = U_ZERO_ERROR;
@@ -1126,7 +1118,7 @@ uldn_open(const char * locale,
           UDialectHandling dialectHandling,
           UErrorCode *pErrorCode) {
   if (U_FAILURE(*pErrorCode)) {
-    return 0;
+    return nullptr;
   }
   if (locale == nullptr) {
     locale = uloc_getDefault();
@@ -1139,7 +1131,7 @@ uldn_openForContext(const char * locale,
                     UDisplayContext *contexts, int32_t length,
                     UErrorCode *pErrorCode) {
   if (U_FAILURE(*pErrorCode)) {
-    return 0;
+    return nullptr;
   }
   if (locale == nullptr) {
     locale = uloc_getDefault();

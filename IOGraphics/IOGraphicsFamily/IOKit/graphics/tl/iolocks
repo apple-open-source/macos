@@ -75,20 +75,20 @@ inline void unlock(IOSimpleLockInterrupt* sli, IOInterruptState is)
 // assertions out of XNU_KERNEL_PRIVATE. Until it is published I have copy and
 // pasted the implementaiton, radar to follow.
 inline void assertLocked(IOLock* l)
-    { LCK_MTX_ASSERT(static_cast<lck_mtx_t*>(l), LCK_ASSERT_OWNED); }
+    { LCK_MTX_ASSERT(reinterpret_cast<lck_mtx_t*>(l), LCK_ASSERT_OWNED); }
 inline void assertLocked(IORecursiveLock* l)
     { assert(IORecursiveLockHaveLock(l)); }
 inline void assertLocked(IOSimpleLock* l)
-    { LCK_SPIN_ASSERT(static_cast<lck_spin_t*>(l), LCK_ASSERT_OWNED); }
+    { LCK_SPIN_ASSERT(reinterpret_cast<lck_spin_t*>(l), LCK_ASSERT_OWNED); }
 inline void assertLocked(IOSimpleLockInterrupt* l)
     { LCK_SPIN_ASSERT(reinterpret_cast<lck_spin_t*>(l), LCK_ASSERT_OWNED); }
 
 inline void assertUnlocked(IOLock* l)
-    { LCK_MTX_ASSERT(static_cast<lck_mtx_t*>(l), LCK_ASSERT_NOTOWNED); }
+    { LCK_MTX_ASSERT(reinterpret_cast<lck_mtx_t*>(l), LCK_ASSERT_NOTOWNED); }
 inline void assertUnlocked(IORecursiveLock* l)
     { assert(!IORecursiveLockHaveLock(l)); }
 inline void assertUnlocked(IOSimpleLock* l)
-    { LCK_SPIN_ASSERT(static_cast<lck_spin_t*>(l), LCK_ASSERT_NOTOWNED); }
+    { LCK_SPIN_ASSERT(reinterpret_cast<lck_spin_t*>(l), LCK_ASSERT_NOTOWNED); }
 inline void assertUnlocked(IOSimpleLockInterrupt* l)
     { LCK_SPIN_ASSERT(reinterpret_cast<lck_spin_t*>(l), LCK_ASSERT_NOTOWNED); }
 }; // namespace locking_primitives

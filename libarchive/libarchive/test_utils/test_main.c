@@ -331,7 +331,7 @@ my_GetFileInformationByName(const char *path, BY_HANDLE_FILE_INFORMATION *bhfi)
 	int r;
 
 	memset(bhfi, 0, sizeof(*bhfi));
-	h = CreateFile(path, FILE_READ_ATTRIBUTES, 0, NULL,
+	h = CreateFileA(path, FILE_READ_ATTRIBUTES, 0, NULL,
 		OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, NULL);
 	if (h == INVALID_HANDLE_VALUE)
 		return (0);
@@ -430,7 +430,7 @@ failure(const char *fmt, ...)
 		nextmsg = NULL;
 	} else {
 		va_start(ap, fmt);
-		vsprintf(msgbuff, fmt, ap);
+		vsnprintf(msgbuff, sizeof(msgbuff), fmt, ap);
 		va_end(ap);
 		nextmsg = msgbuff;
 	}
@@ -555,7 +555,7 @@ test_skipping(const char *fmt, ...)
 	va_list ap;
 
 	va_start(ap, fmt);
-	vsprintf(buff, fmt, ap);
+	vsnprintf(buff, sizeof(buff), fmt, ap);
 	va_end(ap);
 	/* Use failure() message if set. */
 	msg = nextmsg;
@@ -625,6 +625,21 @@ assertion_equal_int(const char *file, int line,
 	failure_start(file, line, "%s != %s", e1, e2);
 	logprintf("      %s=%lld (0x%llx, 0%llo)\n", e1, v1, v1, v1);
 	logprintf("      %s=%lld (0x%llx, 0%llo)\n", e2, v2, v2, v2);
+	failure_finish(extra);
+	return (0);
+}
+
+/* Verify two pointers are equal. */
+int
+assertion_equal_address(const char *file, int line,
+    const void *v1, const char *e1, const void *v2, const char *e2, void *extra)
+{
+	assertion_count(file, line);
+	if (v1 == v2)
+		return (1);
+	failure_start(file, line, "%s != %s", e1, e2);
+	logprintf("      %s=0x%llx\n", e1, (unsigned long long)(uintptr_t)v1);
+	logprintf("      %s=0x%llx\n", e2, (unsigned long long)(uintptr_t)v2);
 	failure_finish(extra);
 	return (0);
 }
@@ -1249,7 +1264,7 @@ assertion_file_contains_lines_any_order(const char *file, int line,
 		c = *p;
 	}
 	if (actual_count) {
-		actual = calloc(sizeof(char *), actual_count);
+		actual = calloc(actual_count, sizeof(char *));
 		if (actual == NULL) {
 			failure_start(pathname, line, "Can't allocate memory");
 			failure_finish(NULL);
@@ -1436,7 +1451,7 @@ assertion_file_time(const char *file, int line,
 	/* Note: FILE_FLAG_BACKUP_SEMANTICS applies to open
 	 * a directory file. If not, CreateFile() will fail when
 	 * the pathname is a directory. */
-	h = CreateFile(pathname, FILE_READ_ATTRIBUTES, 0, NULL,
+	h = CreateFileA(pathname, FILE_READ_ATTRIBUTES, 0, NULL,
 	    OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, NULL);
 	if (h == INVALID_HANDLE_VALUE) {
 		failure_start(file, line, "Can't access %s\n", pathname);
@@ -1974,7 +1989,12 @@ assertion_make_file(const char *file, int line,
 		failure_finish(NULL);
 		return (0);
 	}
-	if (0 != chmod(path, mode)) {
+#ifdef HAVE_FCHMOD
+	if (0 != fchmod(fd, mode))
+#else
+	if (0 != chmod(path, mode))
+#endif
+	{
 		failure_start(file, line, "Could not chmod %s", path);
 		failure_finish(NULL);
 		close(fd);
@@ -2344,7 +2364,7 @@ static void assert_version_id(char **qq, size_t *ss)
 		q += 3;
 		s -= 3;
 	}
-	
+
 	/* Skip a single trailing a,b,c, or d. */
 	if (*q == 'a' || *q == 'b' || *q == 'c' || *q == 'd')
 		++q;
@@ -2390,7 +2410,7 @@ void assertVersion(const char *prog, const char *base)
 
 	/* Version message should start with name of program, then space. */
 	assert(s > prog_len + 1);
-	
+
 	failure("Version must start with '%s': ``%s''", base, p);
 	if (!assertEqualMem(q, base, prog_len)) {
 		free(p);
@@ -2614,7 +2634,7 @@ canLzma(void)
 	static int tested = 0, value = 0;
 	if (!tested) {
 		tested = 1;
-		if (systemf("lzma %s", redirectArgs) == 0)
+		if (systemf("lzma --help %s", redirectArgs) == 0)
 			value = 1;
 	}
 	return (value);
@@ -2728,7 +2748,7 @@ canNodump(void)
 /* Get extended attribute value from a path */
 void *
 getXattr(const char *path, const char *name, size_t *sizep)
-{ 
+{
 	void *value = NULL;
 #if ARCHIVE_XATTR_SUPPORT
 	ssize_t size;
@@ -3074,7 +3094,7 @@ systemf(const char *fmt, ...)
     int idx = 0, status;
 
 	va_start(ap, fmt);
-	vsprintf(buff, fmt, ap);
+	vsnprintf(buff, sizeof(buff), fmt, ap);
 	if (verbosity > VERBOSITY_FULL)
 		logprintf("Cmd: %s\n", buff);
 
@@ -3109,7 +3129,7 @@ slurpfile(size_t * sizep, const char *fmt, ...)
 	int r;
 
 	va_start(ap, fmt);
-	vsprintf(filename, fmt, ap);
+	vsnprintf(filename, sizeof(filename), fmt, ap);
 	va_end(ap);
 
 	f = fopen(filename, "rb");
@@ -3176,7 +3196,7 @@ extract_reference_file(const char *name)
 	char buff[1024];
 	FILE *in, *out;
 
-	sprintf(buff, "%s/%s.uu", refdir, name);
+	snprintf(buff, sizeof(buff), "%s/%s.uu", refdir, name);
 	in = fopen(buff, "r");
 	failure("Couldn't open reference file %s", buff);
 	assert(in != NULL);
@@ -3204,14 +3224,12 @@ extract_reference_file(const char *name)
 		while (bytes > 0) {
 			int n = 0;
 			/* Write out 1-3 bytes from that. */
-			if (bytes > 0) {
-				assert(VALID_UUDECODE(p[0]));
-				assert(VALID_UUDECODE(p[1]));
-				n = UUDECODE(*p++) << 18;
-				n |= UUDECODE(*p++) << 12;
-				fputc(n >> 16, out);
-				--bytes;
-			}
+			assert(VALID_UUDECODE(p[0]));
+			assert(VALID_UUDECODE(p[1]));
+			n = UUDECODE(*p++) << 18;
+			n |= UUDECODE(*p++) << 12;
+			fputc(n >> 16, out);
+			--bytes;
 			if (bytes > 0) {
 				assert(VALID_UUDECODE(p[0]));
 				n |= UUDECODE(*p++) << 6;
@@ -3237,7 +3255,7 @@ copy_reference_file(const char *name)
 	FILE *in, *out;
 	size_t rbytes;
 
-	sprintf(buff, "%s/%s", refdir, name);
+	snprintf(buff, sizeof(buff), "%s/%s", refdir, name);
 	in = fopen(buff, "rb");
 	failure("Couldn't open reference file %s", buff);
 	assert(in != NULL);
@@ -3481,6 +3499,12 @@ assertion_entry_compare_acls(const char *file, int line,
  *      DEFINE_TEST(test_function)
  * for each test.
  */
+struct test_list_t
+{
+	void (*func)(void);
+	const char *name;
+	int failures;
+};
 
 /* Use "list.h" to declare all of the test functions. */
 #undef DEFINE_TEST
@@ -3558,7 +3582,7 @@ test_run(int i, const char *tmpdir)
 		exit(1);
 	}
 	/* Create a log file for this test. */
-	sprintf(logfilename, "%s.log", tests[i].name);
+	snprintf(logfilename, sizeof(logfilename), "%s.log", tests[i].name);
 	logfile = fopen(logfilename, "w");
 	fprintf(logfile, "%s\n\n", tests[i].name);
 	/* Chdir() to a work dir for this specific test. */
@@ -3645,7 +3669,6 @@ usage(const char *program)
 	printf("Otherwise, specify the numbers of the tests you wish to run.\n");
 	printf("Options:\n");
 	printf("  -d  Dump core after any failure, for debugging.\n");
-    printf("  -i  Run single test cases using test indexes.\n");
 	printf("  -k  Keep all temp files.\n");
 	printf("      Default: temp files for successful tests deleted.\n");
 #ifdef PROGRAM
@@ -3773,14 +3796,115 @@ success:
 	return p;
 }
 
+/* Filter tests against a glob pattern. Returns non-zero if test matches
+ * pattern, zero otherwise. A '^' at the beginning of the pattern negates
+ * the return values (i.e. returns zero for a match, non-zero otherwise.
+ */
+static int
+test_filter(const char *pattern, const char *test)
+{
+	int retval = 0;
+	int negate = 0;
+	const char *p = pattern;
+	const char *t = test;
+
+	if (p[0] == '^')
+	{
+		negate = 1;
+		p++;
+	}
+
+	while (1)
+	{
+		if (p[0] == '\\')
+			p++;
+		else if (p[0] == '*')
+		{
+			while (p[0] == '*')
+				p++;
+			if (p[0] == '\\')
+				p++;
+			if ((t = strchr(t, p[0])) == 0)
+				break;
+		}
+		if (p[0] != t[0])
+			break;
+		if (p[0] == '\0') {
+			retval = 1;
+			break;
+		}
+		p++;
+		t++;
+	}
+
+	return (negate) ? !retval : retval;
+}
+
+static int
+get_test_set(int *test_set, int limit, const char *test)
+{
+	int start, end;
+	int idx = 0;
+
+	if (test == NULL) {
+		/* Default: Run all tests. */
+		for (;idx < limit; idx++)
+			test_set[idx] = idx;
+		return (limit);
+	}
+	if (*test >= '0' && *test <= '9') {
+		const char *vp = test;
+		start = 0;
+		while (*vp >= '0' && *vp <= '9') {
+			start *= 10;
+			start += *vp - '0';
+			++vp;
+		}
+		if (*vp == '\0') {
+			end = start;
+		} else if (*vp == '-') {
+			++vp;
+			if (*vp == '\0') {
+				end = limit - 1;
+			} else {
+				end = 0;
+				while (*vp >= '0' && *vp <= '9') {
+					end *= 10;
+					end += *vp - '0';
+					++vp;
+				}
+			}
+		} else
+			return (-1);
+		if (start < 0 || end >= limit || start > end)
+			return (-1);
+		while (start <= end)
+			test_set[idx++] = start++;
+	} else {
+		for (start = 0; start < limit; ++start) {
+			const char *name = tests[start].name;
+			if (test_filter(test, name))
+				test_set[idx++] = start;
+		}
+	}
+	return ((idx == 0)?-1:idx);
+}
+
 int
 main(int argc, char **argv)
 {
 	static const int limit = sizeof(tests) / sizeof(tests[0]);
 	int test_set[sizeof(tests) / sizeof(tests[0])];
 	int i = 0, j = 0, tests_run = 0, tests_failed = 0, option;
+	int testprogdir_len;
+#ifdef PROGRAM
+	int tmp2_len;
+#endif
 	time_t now;
-    int test_index = -1;
+	struct tm *tmptr;
+#if defined(HAVE_LOCALTIME_R) || defined(HAVE_LOCALTIME_S)
+	struct tm tmbuf;
+#endif
 	char *refdir_alloc = NULL;
 	const char *progname;
 	char **saved_argv;
@@ -3816,12 +3940,13 @@ main(int argc, char **argv)
 	 * tree.
 	 */
 	progname = p = argv[0];
-	if ((testprogdir = (char *)malloc(strlen(progname) + 1)) == NULL)
+	testprogdir_len = strlen(progname) + 1;
+	if ((testprogdir = (char *)malloc(testprogdir_len)) == NULL)
 	{
 		fprintf(stderr, "ERROR: Out of memory.");
 		exit(1);
 	}
-	strcpy(testprogdir, progname);
+	strncpy(testprogdir, progname, testprogdir_len);
 	while (*p != '\0') {
 		/* Support \ or / dir separators for Windows compat. */
 		if (*p == '/' || *p == '\\')
@@ -3906,7 +4031,7 @@ main(int argc, char **argv)
 			option = *p++;
 			option_arg = NULL;
 			/* If 'opt' takes an argument, parse that. */
-			if (option == 'p' || option == 'r' || option == 'i') {
+			if (option == 'p' || option == 'r') {
 				if (*p != '\0')
 					option_arg = p;
 				else if (*argv == NULL) {
@@ -3924,9 +4049,6 @@ main(int argc, char **argv)
 			case 'd':
 				dump_on_failure = 1;
 				break;
-            case 'i':
-                test_index = atoi(option_arg);
-                break;
 			case 'k':
 				keep_temp_files = 1;
 				break;
@@ -3966,20 +4088,21 @@ main(int argc, char **argv)
 #ifdef PROGRAM
 	if (testprogfile == NULL)
 	{
-		if ((tmp2 = (char *)malloc(strlen(testprogdir) + 1 +
-			strlen(PROGRAM) + 1)) == NULL)
+		tmp2_len = strlen(testprogdir) + 1 + strlen(PROGRAM) + 1;
+		if ((tmp2 = (char *)malloc(tmp2_len)) == NULL)
 		{
 			fprintf(stderr, "ERROR: Out of memory.");
 			exit(1);
 		}
-		strcpy(tmp2, testprogdir);
-		strcat(tmp2, "/");
-		strcat(tmp2, PROGRAM);
+		strncpy(tmp2, testprogdir, tmp2_len);
+		strncat(tmp2, "/", tmp2_len);
+		strncat(tmp2, PROGRAM, tmp2_len);
 		testprogfile = tmp2;
 	}
 
 	{
 		char *testprg;
+		int testprg_len;
 #if defined(_WIN32) && !defined(__CYGWIN__)
 		/* Command.com sometimes rejects '/' separators. */
 		testprg = strdup(testprogfile);
@@ -3990,10 +4113,11 @@ main(int argc, char **argv)
 		testprogfile = testprg;
 #endif
 		/* Quote the name that gets put into shell command lines. */
-		testprg = malloc(strlen(testprogfile) + 3);
-		strcpy(testprg, "\"");
-		strcat(testprg, testprogfile);
-		strcat(testprg, "\"");
+		testprg_len = strlen(testprogfile) + 3;
+		testprg = malloc(testprg_len);
+		strncpy(testprg, "\"", testprg_len);
+		strncat(testprg, testprogfile, testprg_len);
+		strncat(testprg, "\"", testprg_len);
 		testprog = testprg;
 	}
 #endif
@@ -4015,9 +4139,15 @@ main(int argc, char **argv)
 	 */
 	now = time(NULL);
 	for (i = 0; ; i++) {
+#if defined(HAVE_LOCALTIME_S)
+		tmptr = localtime_s(&tmbuf, &now) ? NULL : &tmbuf;
+#elif defined(HAVE_LOCALTIME_R)
+		tmptr = localtime_r(&now, &tmbuf);
+#else
+		tmptr = localtime(&now);
+#endif
 		strftime(tmpdir_timestamp, sizeof(tmpdir_timestamp),
-		    "%Y-%m-%dT%H.%M.%S",
-		    localtime(&now));
+		    "%Y-%m-%dT%H.%M.%S", tmptr);
 		if ((strlen(tmp) + 1 + strlen(progname) + 1 +
 		    strlen(tmpdir_timestamp) + 1 + 3) >
 		    (sizeof(tmpdir) / sizeof(char))) {
@@ -4067,40 +4197,31 @@ main(int argc, char **argv)
 	/*
 	 * Run some or all of the individual tests.
 	 */
-    int test_num;
+	saved_argv = argv;
+	do {
+		argv = saved_argv;
+		do {
+			int test_num;
 
-    test_num = get_test_set(test_set, limit, *argv, tests);
-    if (test_num < 0) {
-        printf("*** INVALID Test %s\n", *argv);
-        free(refdir_alloc);
-        free(testprogdir);
-        usage(progname);
-        return (1);
-    }
-    if (test_index >= 0 && test_index < test_num){
-        if(test_run(test_set[test_index], tmpdir)){
-            tests_failed++;
-        };
-        goto finish;
-    }else{
-        saved_argv = argv;
-        do {
-            argv = saved_argv;
-            do {
-                for (i = 0; i < test_num; i++) {
-                    tests_run++;
-                    if (test_run(test_set[i], tmpdir)) {
-                        tests_failed++;
-                        if (until_failure)
-                            goto finish;
-                    }
-                }
-                if (*argv != NULL)
-                    argv++;
-            } while (*argv != NULL);
-        } while (until_failure);
-    }
-
+			test_num = get_test_set(test_set, limit, *argv);
+			if (test_num < 0) {
+				printf("*** INVALID Test %s\n", *argv);
+				free(refdir_alloc);
+				free(testprogdir);
+				usage(progname);
+			}
+			for (i = 0; i < test_num; i++) {
+				tests_run++;
+				if (test_run(test_set[i], tmpdir)) {
+					tests_failed++;
+					if (until_failure)
+						goto finish;
+				}
+			}
+			if (*argv != NULL)
+				argv++;
+		} while (*argv != NULL);
+	} while (until_failure);
 
 finish:
 	/* Must be freed after all tests run */

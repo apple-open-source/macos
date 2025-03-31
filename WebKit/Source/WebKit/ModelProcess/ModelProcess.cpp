@@ -52,6 +52,11 @@
 #include <wtf/UniqueRef.h>
 #include <wtf/text/AtomString.h>
 
+#if PLATFORM(VISION) && ENABLE(GPU_PROCESS)
+#include "SharedFileHandle.h"
+#include <WebKitAdditions/WKREEngine.h>
+#endif
+
 namespace WebKit {
 
 WTF_MAKE_TZONE_ALLOCATED_IMPL(ModelProcess);
@@ -71,19 +76,6 @@ ModelProcess::ModelProcess(AuxiliaryProcessInitializationParameters&& parameters
 
 ModelProcess::~ModelProcess() = default;
 
-void ModelProcess::didReceiveMessage(IPC::Connection& connection, IPC::Decoder& decoder)
-{
-    if (messageReceiverMap().dispatchMessage(connection, decoder))
-        return;
-
-    if (decoder.messageReceiverName() == Messages::AuxiliaryProcess::messageReceiverName()) {
-        AuxiliaryProcess::didReceiveMessage(connection, decoder);
-        return;
-    }
-
-    didReceiveModelProcessMessage(connection, decoder);
-}
-
 void ModelProcess::createModelConnectionToWebProcess(WebCore::ProcessIdentifier identifier, PAL::SessionID sessionID, IPC::Connection::Handle&& connectionHandle, ModelProcessConnectionParameters&& parameters, CompletionHandler<void()>&& completionHandler)
 {
     RELEASE_LOG(Process, "%p - ModelProcess::createModelConnectionToWebProcess: processIdentifier=%" PRIu64, this, identifier.toUInt64());
@@ -94,6 +86,18 @@ void ModelProcess::createModelConnectionToWebProcess(WebCore::ProcessIdentifier 
     if (!connectionHandle)
         return;
 
+#if PLATFORM(VISION) && ENABLE(GPU_PROCESS)
+    WKREEngine::shared().initializeWithSharedSimulationConnectionGetterIfNeeded([identifier, weakThis = WeakPtr { *this }] (CompletionHandler<void(std::optional<IPC::SharedFileHandle>)>&& completionHandler) {
+        RefPtr protectedThis = weakThis.get();
+        if (!protectedThis) {
+            completionHandler(std::nullopt);
+            return;
+        }
+
+        protectedThis->requestSharedSimulationConnection(identifier, WTFMove(completionHandler));
+    });
+#endif
+
     auto newConnection = ModelConnectionToWebProcess::create(*this, identifier, sessionID, WTFMove(connectionHandle), WTFMove(parameters));
 
 #if ENABLE(IPC_TESTING_API)
@@ -103,6 +107,13 @@ void ModelProcess::createModelConnectionToWebProcess(WebCore::ProcessIdentifier 
 
     ASSERT(!m_webProcessConnections.contains(identifier));
     m_webProcessConnections.add(identifier, WTFMove(newConnection));
+}
+
+void ModelProcess::sharedPreferencesForWebProcessDidChange(WebCore::ProcessIdentifier identifier, SharedPreferencesForWebProcess&& sharedPreferencesForWebProcess, CompletionHandler<void()>&& completionHandler)
+{
+    if (RefPtr connection = m_webProcessConnections.get(identifier))
+        connection->updateSharedPreferencesForWebProcess(WTFMove(sharedPreferencesForWebProcess));
+    completionHandler();
 }
 
 void ModelProcess::removeModelConnectionToWebProcess(ModelConnectionToWebProcess& connection)
@@ -198,7 +209,7 @@ void ModelProcess::initializeModelProcess(ModelProcessCreationParameters&& param
     // Match the QoS of the UIProcess since the model process is doing rendering on its behalf.
     WTF::Thread::setCurrentThreadIsUserInteractive(0);
 
-    WebCore::setPresentingApplicationPID(parameters.parentPID);
+    setLegacyPresentingApplicationPID(parameters.parentPID);
 
 #if USE(OS_STATE)
     registerWithStateDumper("ModelProcess state"_s);
@@ -227,6 +238,13 @@ ModelConnectionToWebProcess* ModelProcess::webProcessConnection(WebCore::Process
 {
     return m_webProcessConnections.get(identifier);
 }
+
+#if PLATFORM(VISION) && ENABLE(GPU_PROCESS)
+void ModelProcess::requestSharedSimulationConnection(WebCore::ProcessIdentifier webProcessIdentifier, CompletionHandler<void(std::optional<IPC::SharedFileHandle>)>&& completionHandler)
+{
+    parentProcessConnection()->sendWithAsyncReply(Messages::ModelProcessProxy::RequestSharedSimulationConnection(webProcessIdentifier), WTFMove(completionHandler));
+}
+#endif
 
 void ModelProcess::webProcessConnectionCountForTesting(CompletionHandler<void(uint64_t)>&& completionHandler)
 {

@@ -31,6 +31,7 @@
 
 #define APPLEH16
 #define NO_MONITOR               1 /* No EL3 for this CPU -- ever */
+#define HAS_EL2                  1 /* Has EL2 for this CPU */
 #define HAS_CTRR3                1 /* Has CTRRv3 registers */
 #define HAS_CONTINUOUS_HWCLOCK   1 /* Has a hardware clock that ticks during sleep */
 #define HAS_IPI                  1 /* Has IPI registers */

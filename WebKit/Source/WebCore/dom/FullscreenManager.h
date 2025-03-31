@@ -61,6 +61,7 @@ public:
 
     // WHATWG Fullscreen API
     WEBCORE_EXPORT Element* fullscreenElement() const;
+    RefPtr<Element> protectedFullscreenElement() const { return fullscreenElement(); }
     WEBCORE_EXPORT bool isFullscreenEnabled() const;
     WEBCORE_EXPORT void exitFullscreen(RefPtr<DeferredPromise>&&);
 
@@ -68,6 +69,7 @@ public:
     bool isFullscreen() const { return m_fullscreenElement.get(); }
     bool isFullscreenKeyboardInputAllowed() const { return m_fullscreenElement.get() && m_areKeysEnabledInFullscreen; }
     Element* currentFullscreenElement() const { return m_fullscreenElement.get(); }
+    RefPtr<Element> protectedCurrentFullscreenElement() const { return currentFullscreenElement(); }
     WEBCORE_EXPORT void cancelFullscreen();
 
     enum FullscreenCheckType {
@@ -93,6 +95,8 @@ public:
     void clear();
     void emptyEventQueue();
 
+    void updatePageFullscreenStatusIfTopDocument();
+
 protected:
     friend class Document;
 
@@ -104,13 +108,13 @@ protected:
 private:
 #if !RELEASE_LOG_DISABLED
     const Logger& logger() const { return document().logger(); }
-    const void* logIdentifier() const { return m_logIdentifier; }
+    uint64_t logIdentifier() const { return m_logIdentifier; }
     ASCIILiteral logClassName() const { return "FullscreenManager"_s; }
     WTFLogChannel& logChannel() const;
 #endif
 
-    Document& topDocument() { return m_topDocument ? *m_topDocument : document().topDocument(); }
-    Ref<Document> protectedTopDocument();
+    Document* mainFrameDocument();
+    RefPtr<Document> protectedMainFrameDocument();
 
     WeakRef<Document, WeakPtrImplWithEventTargetData> m_document;
     WeakPtr<Document, WeakPtrImplWithEventTargetData> m_topDocument;
@@ -129,7 +133,7 @@ private:
     bool m_isAnimatingFullscreen { false };
 
 #if !RELEASE_LOG_DISABLED
-    const void* m_logIdentifier;
+    const uint64_t m_logIdentifier;
 #endif
 };
 

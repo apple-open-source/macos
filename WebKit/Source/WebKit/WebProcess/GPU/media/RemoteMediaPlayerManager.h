@@ -57,18 +57,17 @@ public:
     void setUseGPUProcess(bool);
 
     GPUProcessConnection& gpuProcessConnection();
+    Ref<GPUProcessConnection> protectedGPUProcessConnection();
 
     void didReceivePlayerMessage(IPC::Connection&, IPC::Decoder&);
 
     void deleteRemoteMediaPlayer(WebCore::MediaPlayerIdentifier);
 
-    WebCore::MediaPlayerIdentifier findRemotePlayerId(const WebCore::MediaPlayerPrivateInterface*);
+    std::optional<WebCore::MediaPlayerIdentifier> findRemotePlayerId(const WebCore::MediaPlayerPrivateInterface*);
 
     RemoteMediaPlayerMIMETypeCache& typeCache(WebCore::MediaPlayerEnums::MediaEngineIdentifier);
 
-    void ref() const final { return ThreadSafeRefCountedAndCanMakeThreadSafeWeakPtr<RemoteMediaPlayerManager>::ref(); }
-    void deref() const final { return ThreadSafeRefCountedAndCanMakeThreadSafeWeakPtr<RemoteMediaPlayerManager>::deref(); }
-    ThreadSafeWeakPtrControlBlock& controlBlock() const final { return ThreadSafeRefCountedAndCanMakeThreadSafeWeakPtr<RemoteMediaPlayerManager>::controlBlock(); }
+    WTF_ABSTRACT_THREAD_SAFE_REF_COUNTED_AND_CAN_MAKE_WEAK_PTR_IMPL;
 
     void initialize(const WebProcessCreationParameters&);
 

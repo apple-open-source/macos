@@ -56,7 +56,7 @@ static bool isAncestorAndWithinBlock(const RenderInline& ancestor, const RenderO
 static float minLogicalTopForTextDecorationLineUnder(const InlineIterator::LineBoxIterator& lineBox, float textRunLogicalTop, const RenderElement& decoratingBoxRendererForUnderline)
 {
     auto minLogicalTop = textRunLogicalTop;
-    for (auto run = lineBox->firstLeafBox(); run; run.traverseNextOnLine()) {
+    for (auto run = lineBox->lineLeftmostLeafBox(); run; run.traverseLineRightwardOnLine()) {
         if (run->renderer().isOutOfFlowPositioned())
             continue; // Positioned placeholders don't affect calculations.
 
@@ -75,7 +75,7 @@ static float minLogicalTopForTextDecorationLineUnder(const InlineIterator::LineB
 static float maxLogicalBottomForTextDecorationLineUnder(const InlineIterator::LineBoxIterator& lineBox, float textRunLogicalBottom, const RenderElement& decoratingBoxRendererForUnderline)
 {
     auto maxLogicalBottom = textRunLogicalBottom;
-    for (auto run = lineBox->firstLeafBox(); run; run.traverseNextOnLine()) {
+    for (auto run = lineBox->lineLeftmostLeafBox(); run; run.traverseLineRightwardOnLine()) {
         if (run->renderer().isOutOfFlowPositioned())
             continue; // Positioned placeholders don't affect calculations.
 
@@ -118,7 +118,7 @@ static const RenderElement* enclosingRendererWithTextDecoration(const RenderText
 
 static float boxOffsetFromBottomMost(const InlineIterator::LineBoxIterator& lineBox, const RenderElement& decoratingInlineBoxRenderer, float boxLogicalTop, float boxLogicalBottom)
 {
-    if (decoratingInlineBoxRenderer.style().isFlippedLinesWritingMode())
+    if (decoratingInlineBoxRenderer.writingMode().isLineInverted())
         return boxLogicalTop - minLogicalTopForTextDecorationLineUnder(lineBox, boxLogicalTop, decoratingInlineBoxRenderer);
     return maxLogicalBottomForTextDecorationLineUnder(lineBox, boxLogicalBottom, decoratingInlineBoxRenderer) - boxLogicalBottom;
 }
@@ -256,7 +256,8 @@ bool isAlignedForUnder(const RenderStyle& decoratingBoxStyle)
     auto underlinePosition = decoratingBoxStyle.textUnderlinePosition();
     if (underlinePosition.contains(TextUnderlinePosition::Under))
         return true;
-    if (decoratingBoxStyle.typographicMode() == TypographicMode::Horizontal || decoratingBoxStyle.textOrientation() == TextOrientation::Sideways)
+    if (!decoratingBoxStyle.writingMode().isVerticalTypographic()
+        || decoratingBoxStyle.writingMode().isSidewaysOrientation())
         return false;
     if (underlinePosition.contains(TextUnderlinePosition::Left) || underlinePosition.contains(TextUnderlinePosition::Right)) {
         // In vertical typographic modes, the underline is aligned as for under for 'left' and 'right'.
@@ -318,17 +319,14 @@ float underlineOffsetForTextBoxPainting(const InlineIterator::InlineBox& inlineB
 
 float overlineOffsetForTextBoxPainting(const InlineIterator::InlineBox& inlineBox, const RenderStyle& style)
 {
-    if (style.typographicMode() == TypographicMode::Horizontal || style.textOrientation() == TextOrientation::Sideways)
+    if (!style.writingMode().isVerticalTypographic())
         return { };
 
+    // If 'right' causes the underline to be drawn on the "over" side of the text, then an overline also switches sides and is drawn on the "under" side.
     auto underlinePosition = style.textUnderlinePosition();
-    auto overBecomesUnder = [&] {
-        // If 'right' causes the underline to be drawn on the "over" side of the text, then an overline also switches sides and is drawn on the "under" side.
-        if (underlinePosition.contains(TextUnderlinePosition::Right))
-            return style.typographicMode() == TypographicMode::Vertical || style.blockFlowDirection() == FlowDirection::RightToLeft;
-        return false;
-    };
-    return overBecomesUnder() ? inlineBoxContentBoxHeight(inlineBox) + defaultGap(style) : (0.f - defaultGap(style));
+    return underlinePosition.contains(TextUnderlinePosition::Right)
+        ? inlineBoxContentBoxHeight(inlineBox) + defaultGap(style)
+        : (0.f - defaultGap(style));
 }
 
 }

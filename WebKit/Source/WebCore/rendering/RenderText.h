@@ -23,7 +23,7 @@
 
 #pragma once
 
-#include "DocumentMarker.h"
+#include "FontCascade.h"
 #include "RenderElement.h"
 #include "RenderTextLineBoxes.h"
 #include "Text.h"
@@ -37,6 +37,7 @@ class Font;
 class LegacyInlineTextBox;
 struct GlyphOverflow;
 struct WordTrailingSpace;
+enum class DocumentMarkerType : uint32_t;
 
 namespace Layout {
 class InlineTextBox;
@@ -168,7 +169,9 @@ public:
 
     bool containsOnlyCollapsibleWhitespace() const;
 
-    bool canUseSimpleFontCodePath() const { return m_canUseSimpleFontCodePath; }
+    FontCascade::CodePath fontCodePath() const { return static_cast<FontCascade::CodePath>(m_fontCodePath); }
+    bool canUseSimpleFontCodePath() const { return fontCodePath() == FontCascade::CodePath::Simple; }
+    bool shouldUseSimpleGlyphOverflowCodePath() const { return fontCodePath() == FontCascade::CodePath::SimpleWithGlyphOverflow; }
 
     void removeAndDestroyLegacyTextBoxes();
 
@@ -187,7 +190,7 @@ public:
     
     bool containsOnlyCSSWhitespace(unsigned from, unsigned length) const;
 
-    Vector<std::pair<unsigned, unsigned>> contentRangesBetweenOffsetsForType(const DocumentMarker::Type, unsigned startOffset, unsigned endOffset) const;
+    Vector<std::pair<unsigned, unsigned>> contentRangesBetweenOffsetsForType(const DocumentMarkerType, unsigned startOffset, unsigned endOffset) const;
 
     RenderInline* inlineWrapperForDisplayContents();
     void setInlineWrapperForDisplayContents(RenderInline*);
@@ -211,7 +214,7 @@ protected:
     void willBeDestroyed() override;
 
     virtual void setRenderedText(const String&);
-    virtual UChar previousCharacter() const;
+    virtual Vector<UChar> previousCharacter() const;
 
     virtual void setTextInternal(const String&, bool force);
 
@@ -228,12 +231,11 @@ private:
 
     void setSelectionState(HighlightState) final;
     LayoutRect selectionRectForRepaint(const RenderLayerModelObject* repaintContainer, bool clipToVisibleContent = true) final;
-    LayoutRect clippedOverflowRect(const RenderLayerModelObject* repaintContainer, VisibleRectContext) const final;
-    RepaintRects rectsForRepaintingAfterLayout(const RenderLayerModelObject* repaintContainer, RepaintOutlineBounds) const final;
+    RepaintRects localRectsForRepaint(RepaintOutlineBounds) const final;
 
     void computePreferredLogicalWidths(float leadWidth, SingleThreadWeakHashSet<const Font>& fallbackFonts, GlyphOverflow&, bool forcedMinMaxWidthComputation = false);
 
-    bool computeCanUseSimpleFontCodePath() const;
+    void computeFontCodePath();
     
     bool nodeAtPoint(const HitTestRequest&, HitTestResult&, const HitTestLocation&, const LayoutPoint&, HitTestAction) final { ASSERT_NOT_REACHED(); return false; }
 
@@ -279,16 +281,18 @@ private:
                                          // or removed).
     unsigned m_needsVisualReordering : 1 { false };
     unsigned m_containsOnlyASCII : 1 { false };
-    unsigned m_canUseSimpleFontCodePath : 1 { false };
     mutable unsigned m_knownToHaveNoOverflowAndNoFallbackFonts : 1 { false };
     unsigned m_useBackslashAsYenSymbol : 1 { false };
     unsigned m_originalTextDiffersFromRendered : 1 { false };
     unsigned m_hasInlineWrapperForDisplayContents : 1 { false };
     unsigned m_hasSecureTextTimer : 1 { false };
+    unsigned m_fontCodePath : 2 { 0 };
 };
 
-String applyTextTransform(const RenderStyle&, const String&, UChar previousCharacter);
-String capitalize(const String&, UChar previousCharacter);
+String applyTextTransform(const RenderStyle&, const String&, Vector<UChar> previousCharacter);
+String applyTextTransform(const RenderStyle&, const String&);
+String capitalize(const String&, Vector<UChar> previousCharacter);
+String capitalize(const String&);
 TextBreakIterator::LineMode::Behavior mapLineBreakToIteratorMode(LineBreak);
 TextBreakIterator::ContentAnalysis mapWordBreakToContentAnalysis(WordBreak);
 

@@ -43,9 +43,9 @@ std::unique_ptr<VideoDecoder> CreateDecoder(const Environment& env,
     case VideoCodecType::kVideoCodecAV1:
       return CreateDav1dDecoder();
     case VideoCodecType::kVideoCodecH265:
-      // TODO: bugs.webrtc.org/13485 - implement H265 decoder
+      // No H.265 SW decoder implementation will be provided.
       return nullptr;
-    default:
+    case VideoCodecType::kVideoCodecGeneric:
       return nullptr;
   }
 }
@@ -83,7 +83,7 @@ IvfVideoFrameGenerator::~IvfVideoFrameGenerator() {
   video_decoder_.reset();
   {
     MutexLock frame_lock(&frame_decode_lock_);
-    next_frame_ = absl::nullopt;
+    next_frame_ = std::nullopt;
     // Set event in case another thread is waiting on it.
     next_frame_decoded_.Set();
   }
@@ -96,7 +96,7 @@ FrameGeneratorInterface::VideoFrameData IvfVideoFrameGenerator::NextFrame() {
   if (!file_reader_->HasMoreFrames()) {
     file_reader_->Reset();
   }
-  absl::optional<EncodedImage> image = file_reader_->NextFrame();
+  std::optional<EncodedImage> image = file_reader_->NextFrame();
   RTC_CHECK(image);
   // Last parameter is undocumented and there is no usage of it found.
   RTC_CHECK_EQ(WEBRTC_VIDEO_CODEC_OK,
@@ -118,6 +118,21 @@ FrameGeneratorInterface::VideoFrameData IvfVideoFrameGenerator::NextFrame() {
     buffer = scaled_buffer;
   }
   return VideoFrameData(buffer, next_frame_->update_rect());
+}
+
+void IvfVideoFrameGenerator::SkipNextFrame() {
+  MutexLock lock(&lock_);
+  next_frame_decoded_.Reset();
+  RTC_CHECK(file_reader_);
+  if (!file_reader_->HasMoreFrames()) {
+    file_reader_->Reset();
+  }
+  std::optional<EncodedImage> image = file_reader_->NextFrame();
+  RTC_CHECK(image);
+  // Last parameter is undocumented and there is no usage of it found.
+  // Frame has to be decoded in case it is a key frame.
+  RTC_CHECK_EQ(WEBRTC_VIDEO_CODEC_OK,
+               video_decoder_->Decode(*image, /*render_time_ms=*/0));
 }
 
 void IvfVideoFrameGenerator::ChangeResolution(size_t width, size_t height) {
@@ -144,8 +159,8 @@ int32_t IvfVideoFrameGenerator::DecodedCallback::Decoded(
 }
 void IvfVideoFrameGenerator::DecodedCallback::Decoded(
     VideoFrame& decoded_image,
-    absl::optional<int32_t> decode_time_ms,
-    absl::optional<uint8_t> qp) {
+    std::optional<int32_t> decode_time_ms,
+    std::optional<uint8_t> qp) {
   reader_->OnFrameDecoded(decoded_image);
 }
 

@@ -65,7 +65,7 @@
 #define API_TO_BE_DEPRECATED_DRIVERKIT 100000
 #endif
 
-#ifndef API_TO_BE_DEPRECATEDC_VISIONOS
+#ifndef API_TO_BE_DEPRECATED_VISIONOS
 #define API_TO_BE_DEPRECATED_VISIONOS 100000
 #endif
 
@@ -100,12 +100,15 @@
      * Use to specify the release that a particular API became available.
      *
      * Platform names:
-     *   macos, ios, tvos, watchos
+     *   macos, macOSApplicationExtension, macCatalyst, macCatalystApplicationExtension,
+     *   ios, iOSApplicationExtension, tvos, tvOSApplicationExtension, watchos,
+     *   watchOSApplicationExtension, driverkit, visionos, visionOSApplicationExtension
      *
      * Examples:
      *    API_AVAILABLE(macos(10.10))
      *    API_AVAILABLE(macos(10.9), ios(10.0))
      *    API_AVAILABLE(macos(10.4), ios(8.0), watchos(2.0), tvos(10.0))
+     *    API_AVAILABLE(driverkit(19.0))
      */
 
 // @@AVAILABILITY_MACRO_INTERFACE(API_AVAILABLE,__API_AVAILABLE)@@
@@ -114,15 +117,17 @@
     /*
      * API Deprecations
      *
-     * Use to specify the release that a particular API became unavailable.
+     * Use to specify the release that a particular API became deprecated.
      *
      * Platform names:
-     *   macos, ios, tvos, watchos
+     *   macos, macOSApplicationExtension, macCatalyst, macCatalystApplicationExtension,
+     *   ios, iOSApplicationExtension, tvos, tvOSApplicationExtension, watchos,
+     *   watchOSApplicationExtension, driverkit, visionos, visionOSApplicationExtension
      *
      * Examples:
      *
-     *    API_DEPRECATED("No longer supported", macos(10.4, 10.8))
-     *    API_DEPRECATED("No longer supported", macos(10.4, 10.8), ios(2.0, 3.0), watchos(2.0, 3.0), tvos(9.0, 10.0))
+     *    API_DEPRECATED("Deprecated", macos(10.4, 10.8))
+     *    API_DEPRECATED("Deprecated", macos(10.4, 10.8), ios(2.0, 3.0), watchos(2.0, 3.0), tvos(9.0, 10.0))
      *
      *    API_DEPRECATED_WITH_REPLACEMENT("-setName:", tvos(10.0, 10.4), ios(9.0, 10.0))
      *    API_DEPRECATED_WITH_REPLACEMENT("SomeClassName", macos(10.4, 10.6), watchos(2.0, 3.0))
@@ -134,6 +139,31 @@
 // @@AVAILABILITY_MACRO_INTERFACE(API_DEPRECATED,__API_DEPRECATED_BEGIN,argCount=1,scoped_availablity=TRUE)@@
 
 // @@AVAILABILITY_MACRO_INTERFACE(API_DEPRECATED_WITH_REPLACEMENT,__API_DEPRECATED_WITH_REPLACEMENT_BEGIN,argCount=1,scoped_availablity=TRUE)@@
+
+    /*
+     * API Obsoletions
+     *
+     * Use to specify the release that a particular API became unavailable.
+     *
+     * Platform names:
+     *   macos, macOSApplicationExtension, macCatalyst, macCatalystApplicationExtension,
+     *   ios, iOSApplicationExtension, tvos, tvOSApplicationExtension, watchos,
+     *   watchOSApplicationExtension, driverkit, visionos, visionOSApplicationExtension
+     *
+     * Examples:
+     *
+     *    API_OBSOLETED("No longer supported", macos(10.4, 10.8, 11.0))
+     *    API_OBSOLETED("No longer supported", macos(10.4, 10.8, 11.0), ios(2.0, 3.0, 4.0), watchos(2.0, 3.0, 4.0), tvos(9.0, 10.0, 11.0))
+     *
+     *    API_OBSOLETED_WITH_REPLACEMENT("-setName:", tvos(10.0, 10.4, 12.0), ios(9.0, 10.0, 11.0))
+     *    API_OBSOLETED_WITH_REPLACEMENT("SomeClassName", macos(10.4, 10.6, 11.0), watchos(2.0, 3.0, 4.0))
+     */
+// @@AVAILABILITY_MACRO_INTERFACE(API_OBSOLETED,__API_OBSOLETED_MSG,argCount=1)@@
+// @@AVAILABILITY_MACRO_INTERFACE(API_OBSOLETED_WITH_REPLACEMENT,__API_OBSOLETED_REP,argCount=1)@@
+
+// @@AVAILABILITY_MACRO_INTERFACE(API_OBSOLETED,__API_OBSOLETED_BEGIN,argCount=1,scoped_availablity=TRUE)@@
+
+// @@AVAILABILITY_MACRO_INTERFACE(API_OBSOLETED_WITH_REPLACEMENT,__API_OBSOLETED_WITH_REPLACEMENT_BEGIN,argCount=1,scoped_availablity=TRUE)@@
 
     /*
      * API Unavailability
@@ -190,6 +220,30 @@
   #define API_DEPRECATED_WITH_REPLACEMENT_END(...)
 #endif
 
+#ifndef API_OBSOLETED
+  #define API_OBSOLETED(...)
+#endif
+
+#ifndef API_OBSOLETED_BEGIN
+  #define API_OBSOLETED_BEGIN(...)
+#endif
+
+#ifndef API_OBSOLETED_END
+  #define API_OBSOLETED_END(...)
+#endif
+
+#ifndef API_OBSOLETED_WITH_REPLACEMENT
+  #define API_OBSOLETED_WITH_REPLACEMENT(...)
+#endif
+
+#ifndef API_OBSOLETED_WITH_REPLACEMENT_BEGIN
+  #define API_OBSOLETED_WITH_REPLACEMENT_BEGIN(...)
+#endif
+
+#ifndef API_OBSOLETED_WITH_REPLACEMENT_END
+  #define API_OBSOLETED_WITH_REPLACEMENT_END(...)
+#endif
+
 #ifndef API_UNAVAILABLE
   #define API_UNAVAILABLE(...)
 #endif
@@ -231,3 +285,4 @@
 #endif
 
 #endif /* __OS_AVAILABILITY__ */
+

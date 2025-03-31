@@ -1919,7 +1919,7 @@ _krb5_derive_key(krb5_context context,
     default:
 	ret = KRB5_CRYPTO_INTERNAL;
 	krb5_set_error_message(context, ret,
-			       N_("derive_key() called with unknown keytype (%u)", ""),
+			       N_("derive_key() called with unknown keytype (%d)", ""),
 			       kt->type);
 	break;
     }

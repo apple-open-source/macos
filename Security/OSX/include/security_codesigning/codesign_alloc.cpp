@@ -353,133 +353,133 @@ bool code_sign_allocate(const char* existingFilePath,
 // This is the smallest section that I was able to exclude the analyzer from.
 //
 // See rdar://33355401 for the static analyzer not being able to handle this.
-#ifndef __clang_analyzer__
-    // check if fat file
-    const mach_header* mh = (mach_header*)mappedInputFile;
+    [[clang::suppress]] {
+        // check if fat file
+        const mach_header* mh = (mach_header*)mappedInputFile;
     
-    if (inputFileLen64 > UINT32_MAX) {
-        log_error(errorMessage, "input file too large: %lld bytes\n", inputFileLen64);
-        success = false;
-        goto lb_unmap;
-    }
-    inputFileLen = (uint32_t)inputFileLen64;
+        if (inputFileLen64 > UINT32_MAX) {
+            log_error(errorMessage, "input file too large: %lld bytes\n", inputFileLen64);
+            success = false;
+            goto lb_unmap;
+        }
+        inputFileLen = (uint32_t)inputFileLen64;
     
-    if (mh->magic == OSSwapBigToHostInt32(FAT_MAGIC)) {
-        // gather signature space needed for each slice
-        const struct fat_header* inFatHeader = (struct fat_header*)mh;
-        const struct fat_arch* inArches = (struct fat_arch*)((char*)mh + sizeof(struct fat_header));
-        const unsigned int fatCount = OSSwapBigToHostInt32(inFatHeader->nfat_arch);
-        unsigned int *__os_free sigSpace = (unsigned int*)calloc(fatCount, sizeof(unsigned int));
-        unsigned int totalSigSize = 0;
-        for (unsigned int i=0; i < fatCount; ++i) {
-            unsigned int offset = OSSwapBigToHostInt32(inArches[i].offset);
-            unsigned int size = OSSwapBigToHostInt32(inArches[i].size);
-            if ((size + offset) > inputFileLen) {
-                log_error(errorMessage, "malformed fat file, slice %d extends past end of file\n", i);
-                success = false;
-                goto lb_unmap;
+        if (mh->magic == OSSwapBigToHostInt32(FAT_MAGIC)) {
+            // gather signature space needed for each slice
+            const struct fat_header* inFatHeader = (struct fat_header*)mh;
+            const struct fat_arch* inArches = (struct fat_arch*)((char*)mh + sizeof(struct fat_header));
+            const unsigned int fatCount = OSSwapBigToHostInt32(inFatHeader->nfat_arch);
+            unsigned int *__os_free sigSpace = (unsigned int*)calloc(fatCount, sizeof(unsigned int));
+            unsigned int totalSigSize = 0;
+            for (unsigned int i=0; i < fatCount; ++i) {
+                unsigned int offset = OSSwapBigToHostInt32(inArches[i].offset);
+                unsigned int size = OSSwapBigToHostInt32(inArches[i].size);
+                if ((size + offset) > inputFileLen) {
+                    log_error(errorMessage, "malformed fat file, slice %d extends past end of file\n", i);
+                    success = false;
+                    goto lb_unmap;
+                }
+                unsigned int sigSize = getSigSpaceNeeded(get32(true,inArches[i].cputype),
+                                                         get32(true, inArches[i].cpusubtype));
+                if (sigSize == UINT32_MAX) {
+                    log_error(errorMessage, "requested signature size is too long for slice: %d\n", i);
+                    success = false;
+                    goto lb_unmap;
+                }
+                if ((sigSize & 0xF) != 0) {
+                    log_error(errorMessage, "signature size not a multiple of 16 in slice %d\n", i);
+                    success = false;
+                    goto lb_unmap;
+                }
+                sigSpace[i] = sigSize;
+                totalSigSize += sigSize;
             }
-            unsigned int sigSize = getSigSpaceNeeded(get32(true,inArches[i].cputype),
-                                                     get32(true, inArches[i].cpusubtype));
-            if (sigSize == UINT32_MAX) {
-                log_error(errorMessage, "requested signature size is too long for slice: %d\n", i);
-                success = false;
-                goto lb_unmap;
-            }
-            if ((sigSize & 0xF) != 0) {
-                log_error(errorMessage, "signature size not a multiple of 16 in slice %d\n", i);
-                success = false;
-                goto lb_unmap;
-            }
-            sigSpace[i] = sigSize;
-            totalSigSize += sigSize;
-        }
-        // allocate output buffer, worst case size
-        if (os_add3_overflow(inputFileLen, totalSigSize, (15+0x4000)*fatCount, &worstCaseOutputSize)) {
-            log_error(errorMessage, "worstCaseOutputsize overflows: inputFileLen (%d) totalSigSize (%d), fatCount(%d)\n", inputFileLen, totalSigSize, fatCount);
-            success = false;
-            goto lb_unmap;
-        }
-        if (!vm_alloc(output, worstCaseOutputSize, errorMessage)) {
-            success = false;
-            goto lb_unmap;
-        }
-        struct fat_header* outFatHeader = (struct fat_header*)output;
-        struct fat_arch* outArches = (struct fat_arch*)((char*)output + sizeof(struct fat_header));
-        // copy fat header
-        *outFatHeader = *inFatHeader;
-        // copy each slice
-        void* outputSlice = ((char*)output + 0x4000); // 16KB align first slice
-        for (unsigned int i=0; i < fatCount; ++i) {
-            outArches[i] = inArches[i];
-            const void* inputSlice = (void*)((char*)mh + OSSwapBigToHostInt32(inArches[i].offset));
-            unsigned int inputSliceSize = OSSwapBigToHostInt32(inArches[i].size);
-            memcpy(outputSlice, inputSlice, inputSliceSize);
-            unsigned int newSliceSize = inputSliceSize+sigSpace[i];
-            success = assure_signature_space(outputSlice, sigSpace[i], inputSliceSize, newSliceSize, errorMessage);
-            if (!success) {
-                success = false;
-                goto lb_dealloc;
-            }
-
-            // update fat header with new info
-            uintptr_t tempOffset = 0;
-            if (os_sub_overflow((uintptr_t)outputSlice, (uintptr_t)output, &tempOffset)) {
-                log_error(errorMessage, "new architecture offset underflows");
-                success = false;
-                goto lb_dealloc;
-            }
-
-            if (tempOffset > UINT32_MAX) {
-                log_error(errorMessage, "new architecture offset is too large");
-                success = false;
-                goto lb_dealloc;
-            }
-            unsigned int newOffset = (unsigned int)tempOffset;
-            outArches[i].offset = OSSwapHostToBigInt32(newOffset);
-            outArches[i].size = OSSwapHostToBigInt32(newSliceSize);
-            outArches[i].align = OSSwapHostToBigInt32(14);
-            outputSlice = (char*)outputSlice + ((newSliceSize + 0x3FFF) & (-0x4000)); // 16KB align next slice
-            if (os_add_overflow(newOffset, newSliceSize, &outputSize)) {
-                log_error(errorMessage, "new outputsize overflows: newOffset(%d) newSliceSize(%d)\n", newOffset, newSliceSize);
-                success = false;
-                goto lb_dealloc;
-            }
-        }
-    } else if ((mh->magic == MH_MAGIC) ||
-               (mh->magic == MH_CIGAM) ||
-               (mh->magic == MH_MAGIC_64) ||
-               (mh->magic == MH_CIGAM_64)) {
-        const bool swap = ((mh->magic == MH_CIGAM) || (mh->magic == MH_CIGAM_64));
-        // handle non-fat mach-o file
-        unsigned int sigSize = getSigSpaceNeeded(get32(swap, mh->cputype),
-                                                 get32(swap, mh->cpusubtype));
-        if (sigSize == UINT32_MAX) {
-            log_error(errorMessage, "requested signature size is too long for slice");
-            success = false;
-            goto lb_unmap;
-        }
-        if ((sigSize & 0xF) == 0) {
             // allocate output buffer, worst case size
-            if (os_add3_overflow(inputFileLen, sigSize, 15, &outputSize)) {
-                log_error(errorMessage, "overflow calculating output size (%u + %d + 15)", inputFileLen, sigSize);
+            if (os_add3_overflow(inputFileLen, totalSigSize, (15+0x4000)*fatCount, &worstCaseOutputSize)) {
+                log_error(errorMessage, "worstCaseOutputsize overflows: inputFileLen (%d) totalSigSize (%d), fatCount(%d)\n", inputFileLen, totalSigSize, fatCount);
                 success = false;
                 goto lb_unmap;
             }
-            worstCaseOutputSize = outputSize;
             if (!vm_alloc(output, worstCaseOutputSize, errorMessage)) {
                 success = false;
                 goto lb_unmap;
             }
-            // copy to output buffer
-            memcpy(output, mh, inputFileLen);
-            success = assure_signature_space(output, sigSize, inputFileLen, outputSize, errorMessage);
-        } else {
-            log_error(errorMessage, "signature size not a multiple of 16\n");
-            success = false;
+            struct fat_header* outFatHeader = (struct fat_header*)output;
+            struct fat_arch* outArches = (struct fat_arch*)((char*)output + sizeof(struct fat_header));
+            // copy fat header
+            *outFatHeader = *inFatHeader;
+            // copy each slice
+            void* outputSlice = ((char*)output + 0x4000); // 16KB align first slice
+            for (unsigned int i=0; i < fatCount; ++i) {
+                outArches[i] = inArches[i];
+                const void* inputSlice = (void*)((char*)mh + OSSwapBigToHostInt32(inArches[i].offset));
+                unsigned int inputSliceSize = OSSwapBigToHostInt32(inArches[i].size);
+                memcpy(outputSlice, inputSlice, inputSliceSize);
+                unsigned int newSliceSize = inputSliceSize+sigSpace[i];
+                success = assure_signature_space(outputSlice, sigSpace[i], inputSliceSize, newSliceSize, errorMessage);
+                if (!success) {
+                    success = false;
+                    goto lb_dealloc;
+                }
+
+                // update fat header with new info
+                uintptr_t tempOffset = 0;
+                if (os_sub_overflow((uintptr_t)outputSlice, (uintptr_t)output, &tempOffset)) {
+                    log_error(errorMessage, "new architecture offset underflows");
+                    success = false;
+                    goto lb_dealloc;
+                }
+
+                if (tempOffset > UINT32_MAX) {
+                    log_error(errorMessage, "new architecture offset is too large");
+                    success = false;
+                    goto lb_dealloc;
+                }
+                unsigned int newOffset = (unsigned int)tempOffset;
+                outArches[i].offset = OSSwapHostToBigInt32(newOffset);
+                outArches[i].size = OSSwapHostToBigInt32(newSliceSize);
+                outArches[i].align = OSSwapHostToBigInt32(14);
+                outputSlice = (char*)outputSlice + ((newSliceSize + 0x3FFF) & (-0x4000)); // 16KB align next slice
+                if (os_add_overflow(newOffset, newSliceSize, &outputSize)) {
+                    log_error(errorMessage, "new outputsize overflows: newOffset(%d) newSliceSize(%d)\n", newOffset, newSliceSize);
+                    success = false;
+                    goto lb_dealloc;
+                }
+            }
+        } else if ((mh->magic == MH_MAGIC) ||
+                   (mh->magic == MH_CIGAM) ||
+                   (mh->magic == MH_MAGIC_64) ||
+                   (mh->magic == MH_CIGAM_64)) {
+            const bool swap = ((mh->magic == MH_CIGAM) || (mh->magic == MH_CIGAM_64));
+            // handle non-fat mach-o file
+            unsigned int sigSize = getSigSpaceNeeded(get32(swap, mh->cputype),
+                                                     get32(swap, mh->cpusubtype));
+            if (sigSize == UINT32_MAX) {
+                log_error(errorMessage, "requested signature size is too long for slice");
+                success = false;
+                goto lb_unmap;
+            }
+            if ((sigSize & 0xF) == 0) {
+                // allocate output buffer, worst case size
+                if (os_add3_overflow(inputFileLen, sigSize, 15, &outputSize)) {
+                    log_error(errorMessage, "overflow calculating output size (%u + %d + 15)", inputFileLen, sigSize);
+                    success = false;
+                    goto lb_unmap;
+                }
+                worstCaseOutputSize = outputSize;
+                if (!vm_alloc(output, worstCaseOutputSize, errorMessage)) {
+                    success = false;
+                    goto lb_unmap;
+                }
+                // copy to output buffer
+                memcpy(output, mh, inputFileLen);
+                success = assure_signature_space(output, sigSize, inputFileLen, outputSize, errorMessage);
+            } else {
+                log_error(errorMessage, "signature size not a multiple of 16\n");
+                success = false;
+            }
         }
     }
-#endif // __clang_analyzer__
 
     // write buffer to output file
     if (success) {

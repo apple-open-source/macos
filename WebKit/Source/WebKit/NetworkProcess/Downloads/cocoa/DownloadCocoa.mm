@@ -60,7 +60,15 @@ void Download::resume(std::span<const uint8_t> resumeData, const String& path, S
     // FIXME: Use nsData instead of updatedData once we've migrated from _WKDownload to WKDownload
     // because there's no reason to set the local path we got from the data back into the data.
     m_downloadTask = [cocoaSession.sessionWrapperForDownloadResume().session downloadTaskWithResumeData:updatedData];
+    if (!m_downloadTask) {
+        RELEASE_LOG_ERROR(Network, "Could not create download task from resume data");
+        return;
+    }
     auto taskIdentifier = [m_downloadTask taskIdentifier];
+    if (!taskIdentifier) {
+        RELEASE_LOG_ERROR(Network, "Could not resume download, since task identifier is 0");
+        return;
+    }
     ASSERT(!cocoaSession.sessionWrapperForDownloadResume().downloadMap.contains(taskIdentifier));
     cocoaSession.sessionWrapperForDownloadResume().downloadMap.add(taskIdentifier, m_downloadID);
     m_downloadTask.get()._pathToDownloadTaskFile = path;
@@ -115,7 +123,6 @@ void Download::platformDestroyDownload()
 #if HAVE(MODERN_DOWNLOADPROGRESS)
     m_bookmarkURL = nil;
     [m_progress cancel];
-    [m_progress unpublish];
 #else
     if (m_progress)
 #if HAVE(NSPROGRESS_PUBLISHING_SPI)
@@ -161,8 +168,6 @@ void Download::publishProgress(const URL& url, std::span<const uint8_t> bookmark
         // This is to make sure the placeholder has not been moved to the final download URL before the client received the placeholder URL.
         if (!isUsingPlaceholder)
             startUpdatingProgress();
-
-        [m_progress publish];
     } else {
         m_progress = adoptNS([[WKDownloadProgress alloc] initWithDownloadTask:m_downloadTask.get() download:*this URL:(NSURL *)url sandboxExtension:nullptr]);
 #if HAVE(NSPROGRESS_PUBLISHING_SPI)
@@ -226,6 +231,8 @@ void Download::startUpdatingProgress()
 
     auto *progress = (WKModernDownloadProgress *)m_progress;
     [progress startUpdatingDownloadProgress];
+
+    send(Messages::DownloadProxy::DidStartUpdatingProgress());
 
     // If we have a download task, progress is updated by observing this task. See startUpdatingDownloadProgress method.
     if (m_downloadTask)

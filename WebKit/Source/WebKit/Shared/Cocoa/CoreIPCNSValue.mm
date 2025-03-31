@@ -26,24 +26,35 @@
 #import "config.h"
 #import "CoreIPCNSValue.h"
 
+#import "CoreIPCNSCFObject.h"
+#import "CoreIPCTypes.h"
+
+#if PLATFORM(IOS_FAMILY)
+#import <WebCore/WAKAppKitStubs.h>
+#endif
+
 #if PLATFORM(COCOA)
 
 namespace WebKit {
 
-CoreIPCNSValue::Value CoreIPCNSValue::valueFromNSValue(NSValue *nsValue)
+CoreIPCNSValue::CoreIPCNSValue(CoreIPCNSValue&&) = default;
+
+CoreIPCNSValue::~CoreIPCNSValue() = default;
+
+CoreIPCNSValue::CoreIPCNSValue(Value&& value)
+    : m_value(WTFMove(value)) { }
+
+auto CoreIPCNSValue::valueFromNSValue(NSValue *nsValue) -> Value
 {
-    if (!shouldWrapValue(nsValue))
-        return CoreIPCSecureCoding { nsValue };
-
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
     if (!strcmp(nsValue.objCType, @encode(NSRange)))
-        return WrappedNSValue { nsValue.rangeValue };
+        return nsValue.rangeValue;
 
-#if PLATFORM(MAC)
-    if (!strcmp(nsValue.objCType, @encode(NSRect)))
-        return WrappedNSValue { nsValue.rectValue };
-#endif
+    if (!strcmp(nsValue.objCType, @encode(CGRect)))
+        return nsValue.rectValue;
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
 
-    RELEASE_ASSERT_NOT_REACHED();
+    return makeUniqueRef<CoreIPCNSCFObject>(nsValue);
 }
 
 CoreIPCNSValue::CoreIPCNSValue(NSValue *value)
@@ -55,41 +66,21 @@ RetainPtr<id> CoreIPCNSValue::toID() const
 {
     RetainPtr<id> result;
 
-    auto nsValueFromWrapped = [](const WrappedNSValue& wrappedValue) {
+    auto nsValueFromWrapped = [](const Value& wrappedValue) {
         RetainPtr<id> result;
 
         WTF::switchOn(wrappedValue, [&](const NSRange& range) {
             result = [NSValue valueWithRange:range];
-#if PLATFORM(MAC)
-        }, [&](const NSRect& rect) {
+        }, [&](const CGRect& rect) {
             result = [NSValue valueWithRect:rect];
-#endif
+        }, [&](const UniqueRef<CoreIPCNSCFObject>& object) {
+            result = object->toID();
         });
 
         return result;
     };
 
-    WTF::switchOn(m_value,
-        [&](const CoreIPCNSValue::WrappedNSValue& wrappedValue) {
-            result = nsValueFromWrapped(wrappedValue);
-        }, [&](const CoreIPCSecureCoding& secureCoding) {
-            result = secureCoding.toID();
-        }
-    );
-
-    return result;
-}
-
-bool CoreIPCNSValue::shouldWrapValue(NSValue *value)
-{
-    if (!strcmp(value.objCType, @encode(NSRange)))
-        return true;
-#if PLATFORM(MAC)
-    if (!strcmp(value.objCType, @encode(NSRect)))
-        return true;
-#endif
-
-    return false;
+    return nsValueFromWrapped(m_value);
 }
 
 } // namespace WebKit

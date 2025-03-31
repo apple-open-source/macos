@@ -37,6 +37,10 @@
 #import "keychain/TrustedPeersHelper/TrustedPeersHelperProtocol.h"
 #import "keychain/ot/ObjCImprovements.h"
 
+#import <KeychainCircle/SecurityAnalyticsConstants.h>
+#import <KeychainCircle/SecurityAnalyticsReporterRTC.h>
+#import <KeychainCircle/AAFAnalyticsEvent+Security.h>
+
 @interface OTEstablishOperation ()
 @property OTOperationDependencies* operationDependencies;
 
@@ -67,11 +71,25 @@
 {
     secnotice("octagon", "Beginning an establish operation");
 
+    AAFAnalyticsEventSecurity *establishEvent = [[AAFAnalyticsEventSecurity alloc] initWithKeychainCircleMetrics:nil
+                                                                                                         altDSID:self.operationDependencies.activeAccount.altDSID
+                                                                                                          flowID:self.operationDependencies.flowID
+                                                                                                 deviceSessionID:self.operationDependencies.deviceSessionID
+                                                                                                       eventName:kSecurityRTCEventNameEstablishOperation
+                                                                                                 testsAreEnabled:SecCKKSTestsEnabled()
+                                                                                                  canSendMetrics:self.operationDependencies.permittedToSendMetrics
+                                                                                                        category:kSecurityRTCEventCategoryAccountDataAccessRecovery];
+
     WEAKIFY(self);
 
     self.finishedOp = [NSBlockOperation blockOperationWithBlock:^{
         STRONGIFY(self);
         secnotice("octagon", "Finishing an establish operation with %@", self.error ?: @"no error");
+        if (self.error) {
+            [SecurityAnalyticsReporterRTC sendMetricWithEvent:establishEvent success:NO error:self.error];
+        } else {
+            [SecurityAnalyticsReporterRTC sendMetricWithEvent:establishEvent success:YES error:nil];
+        }
     }];
     [self dependOnBeforeGroupFinished:self.finishedOp];
 
@@ -96,7 +114,7 @@
     WEAKIFY(self);
 
     NSArray<NSData*>* publicSigningSPKIs = nil;
-    if(self.operationDependencies.sosAdapter.sosEnabled) {
+    if (self.operationDependencies.sosAdapter.sosEnabled) {
         NSError* sosPreapprovalError = nil;
         publicSigningSPKIs = [OTSOSAdapterHelpers peerPublicSigningKeySPKIsForCircle:self.operationDependencies.sosAdapter error:&sosPreapprovalError];
 
@@ -112,8 +130,9 @@
 
     NSError* persistError = nil;
     BOOL persisted = [self.operationDependencies.stateHolder persistOctagonJoinAttempt:OTAccountMetadataClassC_AttemptedAJoinState_ATTEMPTED error:&persistError];
-    if(!persisted || persistError) {
+    if (!persisted || persistError) {
         secerror("octagon: failed to save 'attempted join' state: %@", persistError);
+        self.error = persistError;
     }
 
     secnotice("octagon-ckks", "Beginning establish with keys: %@", viewKeySets);
@@ -121,6 +140,10 @@
                                                                       ckksKeys:viewKeySets
                                                                      tlkShares:pendingTLKShares
                                                                preapprovedKeys:publicSigningSPKIs
+                                                                       altDSID:self.operationDependencies.activeAccount.altDSID
+                                                                        flowID:self.operationDependencies.flowID
+                                                               deviceSessionID:self.operationDependencies.deviceSessionID
+                                                                canSendMetrics:self.operationDependencies.permittedToSendMetrics
                                                                          reply:^(NSString * _Nullable peerID,
                                                                                  NSArray<CKRecord*>* _Nullable keyHierarchyRecords,
                                                                                  TPSyncingPolicy* _Nullable syncingPolicy,
@@ -128,7 +151,7 @@
             STRONGIFY(self);
 
             [[CKKSAnalytics logger] logResultForEvent:OctagonEventEstablishIdentity hardFailure:true result:error];
-            if(error) {
+            if (error) {
                 secerror("octagon: Error calling establish: %@", error);
 
                 if ([error isCuttlefishError:CuttlefishErrorKeyHierarchyAlreadyExists]) {
@@ -151,7 +174,7 @@
                 return metadata;
             } error:&localError];
 
-            if(!persisted || localError) {
+            if (!persisted || localError) {
                 secnotice("octagon", "Couldn't persist results: %@", localError);
                 self.error = localError;
             } else {

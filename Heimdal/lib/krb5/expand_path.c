@@ -300,7 +300,7 @@ _expand_temp_folder(krb5_context context, PTYPE param, const char *postfix, char
 static int
 _expand_userid(krb5_context context, PTYPE param, const char *postfix, char **str)
 {
-    int ret = asprintf(str, "%ld", (unsigned long)getuid());
+    int ret = asprintf(str, "%u", getuid());
     if (ret < 0 || *str == NULL)
 	return ENOMEM;
     return 0;
@@ -325,7 +325,7 @@ _expand_asid(krb5_context context, PTYPE param, const char *postfix, char **str)
     }
     asid = aia.ai_asid;
 #endif
-    ret = asprintf(str, "%ld", asid);
+    ret = asprintf(str, "%lu", asid);
     if (ret < 0 || *str == NULL)
 	return krb5_enomem(context);
     return 0;

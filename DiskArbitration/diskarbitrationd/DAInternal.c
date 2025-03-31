@@ -628,7 +628,7 @@ __private_extern__ int __DAVolumeGetDeviceIDForLifsMount(char *mntpoint, char *d
         if ( strncmp( mntpoint, "apfs", strlen( "apfs" ) ) != 0 )
 #endif
         {
-            endStr = strrchr(startStr, '/');
+            endStr = strchr(startStr, '/');
             if ( endStr != NULL )
             {
                 *endStr = '\0';
@@ -644,6 +644,7 @@ __private_extern__ int _DAVolumeGetDevicePathForLifsMount( const struct statfs *
 {
     char *    startStr;
     char *    endStr;
+    char *    lastPtr;
     int       ret = -1;
     int       slice = -1;
     char mntpoint[MAXPATHLEN];
@@ -652,7 +653,10 @@ __private_extern__ int _DAVolumeGetDevicePathForLifsMount( const struct statfs *
     if ((startStr = strstr(mntpoint, "://")))
     {
         startStr = startStr + strlen("://");
-        endStr = strrchr(startStr, '/');
+        
+        // rdar://136273560 - due to drive names containing a forward slash, find the first forward slash and terminate the string
+        // ex. "disk3s1/diskname w/ forward slash" -> "disk3s1"
+        endStr = strchr(startStr, '/');
 		if ( endStr != NULL )
 		{
 			*endStr = '\0';

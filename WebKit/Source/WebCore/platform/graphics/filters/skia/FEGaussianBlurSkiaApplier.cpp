@@ -33,7 +33,9 @@
 #include "FilterImage.h"
 #include "GraphicsContext.h"
 #include "NativeImage.h"
+WTF_IGNORE_WARNINGS_IN_THIRD_PARTY_CODE_BEGIN // GLib/Win ports
 #include <skia/core/SkCanvas.h>
+WTF_IGNORE_WARNINGS_IN_THIRD_PARTY_CODE_END
 #include <skia/effects/SkImageFilters.h>
 #include <wtf/TZoneMallocInlines.h>
 

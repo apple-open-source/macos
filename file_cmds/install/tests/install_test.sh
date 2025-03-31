@@ -25,6 +25,13 @@
 #
 #
 
+atf_test_case copy_to_empty
+copy_to_empty_body() {
+	printf 'test\n123\r456\r\n789\0z' >testf
+	atf_check -s not-exit:0 -e match:"empty string" \
+	    install testf ""
+}
+
 copy_to_nonexistent_with_opts() {
 	printf 'test\n123\r456\r\n789\0z' >testf
 	atf_check install "$@" testf copyf
@@ -496,7 +503,68 @@ set_optional_exec_body()
 	atf_check test ! -x testfile
 }
 
+#ifdef __APPLE__
+atf_test_case sandbox_fallback
+sandbox_fallback_head() {
+	atf_set "descr" "test sandbox fallback"
+}
+sandbox_fallback_body() {
+	local install=$(realpath "$(which install)")
+	local pwd=$(realpath "${PWD}")
+	mkdir src dst
+	echo "hello, world!" >src/file
+	cat >sandbox-profile <<EOF
+(version 1)
+(deny default)
+(import "system.sb")
+(allow file-read* process-exec
+  (literal "${install}"))
+(allow file-read*
+  (literal "${pwd}/src/file")
+  (literal "${pwd}/dst"))
+(allow file-read-metadata file-write*
+  (literal "${pwd}/dst/file"))
+EOF
+	atf_check -e match:'sandbox detected' \
+	      sandbox-exec -f sandbox-profile \
+	      "${install}" src/file dst/file
+	atf_check cmp src/file dst/file
+}
+
+atf_test_case sandbox_fallback_strip
+sandbox_fallback_strip_head() {
+	atf_set "descr" "test sandbox fallback with stripping"
+}
+sandbox_fallback_strip_body() {
+	local install=$(realpath "$(which install)")
+	local strip=$(realpath "$(which strip)")
+	local pwd=$(realpath "${PWD}")
+	mkdir src dst
+	echo "hello, world!" >src/file
+	cat >sandbox-profile <<EOF
+(version 1)
+(deny default)
+(import "system.sb")
+(allow process-fork)
+(allow file-read* process-exec
+  (literal "${install}")
+  (literal "${strip}"))
+(allow file-read*
+  (literal "${pwd}/src/file")
+  (literal "${pwd}/dst"))
+(allow file-read-metadata file-write*
+  (literal "${pwd}/dst/file"))
+EOF
+	atf_check -e match:'sandbox detected' \
+	      env STRIPBIN="${strip}" \
+	      sandbox-exec -f sandbox-profile \
+	      "${install}" -s src/file dst/file
+	atf_check cmp src/file dst/file
+}
+#endif /* __APPLE__ */
+
 atf_init_test_cases() {
+	atf_add_test_case copy_to_empty
 	atf_add_test_case copy_to_nonexistent
 	atf_add_test_case copy_to_nonexistent_safe
 	atf_add_test_case copy_to_nonexistent_comparing
@@ -539,4 +607,8 @@ atf_init_test_cases() {
 	atf_add_test_case set_owner_group_mode
 	atf_add_test_case set_owner_group_mode_unpriv
 	atf_add_test_case set_optional_exec
+#ifdef __APPLE__
+	atf_add_test_case sandbox_fallback
+	atf_add_test_case sandbox_fallback_strip
+#endif /* __APPLE__ */
 }

@@ -1050,11 +1050,11 @@ angle::Result Program::linkJobImpl(const Caps &caps,
     linkShaders();
 
     linkingVariables->initForProgram(mState);
-    resources->init(&mState.mExecutable->mUniformBlocks, &mState.mExecutable->mUniforms,
-                    &mState.mExecutable->mUniformNames, &mState.mExecutable->mUniformMappedNames,
-                    &mState.mExecutable->mShaderStorageBlocks,
-                    &mState.mExecutable->mBufferVariables,
-                    &mState.mExecutable->mAtomicCounterBuffers);
+    resources->init(
+        &mState.mExecutable->mUniformBlocks, &mState.mExecutable->mUniforms,
+        &mState.mExecutable->mUniformNames, &mState.mExecutable->mUniformMappedNames,
+        &mState.mExecutable->mShaderStorageBlocks, &mState.mExecutable->mBufferVariables,
+        &mState.mExecutable->mAtomicCounterBuffers, &mState.mExecutable->mPixelLocalStorageFormats);
 
     updateLinkedShaderStages();
 
@@ -1156,6 +1156,10 @@ angle::Result Program::linkJobImpl(const Caps &caps,
                 fragmentShader->metadataFlags.test(sh::MetadataFlags::HasDiscard);
             mState.mExecutable->mPod.enablesPerSampleShading =
                 fragmentShader->metadataFlags.test(sh::MetadataFlags::EnablesPerSampleShading);
+            mState.mExecutable->mPod.hasDepthInputAttachment =
+                fragmentShader->metadataFlags.test(sh::MetadataFlags::HasDepthInputAttachment);
+            mState.mExecutable->mPod.hasStencilInputAttachment =
+                fragmentShader->metadataFlags.test(sh::MetadataFlags::HasStencilInputAttachment);
             mState.mExecutable->mPod.advancedBlendEquations =
                 fragmentShader->advancedBlendEquations;
             mState.mExecutable->mPod.specConstUsageBits |= fragmentShader->specConstUsageBits;
@@ -1490,7 +1494,7 @@ angle::Result Program::getBinary(Context *context,
         // TODO: This should be moved to the validation layer but computing the size of the binary
         // before saving it causes the save to happen twice.  It may be possible to write the binary
         // to a separate buffer, validate sizes and then copy it.
-        ANGLE_CHECK(context, false, "Insufficient buffer size", GL_INVALID_OPERATION);
+        ANGLE_CHECK(context, false, err::kInsufficientBufferSize, GL_INVALID_OPERATION);
     }
 
     if (binary)

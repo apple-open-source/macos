@@ -28,16 +28,18 @@
 
 #include "AcceleratedBackingStoreDMABufMessages.h"
 #include "AcceleratedSurfaceDMABufMessages.h"
-#include "DMABufRendererBufferMode.h"
 #include "DRMDevice.h"
 #include "Display.h"
 #include "LayerTreeContext.h"
+#include "RendererBufferTransportMode.h"
 #include "WebPageProxy.h"
 #include "WebProcessProxy.h"
 #include <WebCore/GLContext.h>
 #include <WebCore/IntRect.h>
+#include <WebCore/NativeImage.h>
 #include <WebCore/NotImplemented.h>
 #include <WebCore/PlatformDisplay.h>
+#include <WebCore/RefPtrCairo.h>
 #include <WebCore/ShareableBitmap.h>
 #include <WebCore/SharedMemory.h>
 #include <epoxy/egl.h>
@@ -62,13 +64,22 @@ static constexpr uint64_t s_dmabufInvalidModifier = ((1ULL << 56) - 1);
 #include <gdk/x11/gdkx.h>
 #endif
 
+#if USE(SKIA)
+WTF_IGNORE_WARNINGS_IN_THIRD_PARTY_CODE_BEGIN
+IGNORE_CLANG_WARNINGS_BEGIN("cast-align")
+#include <skia/core/SkBitmap.h>
+#include <skia/core/SkColorSpace.h>
+IGNORE_CLANG_WARNINGS_END
+WTF_IGNORE_WARNINGS_IN_THIRD_PARTY_CODE_END
+#endif
+
 namespace WebKit {
 
 WTF_MAKE_TZONE_ALLOCATED_IMPL(AcceleratedBackingStoreDMABuf);
 
-OptionSet<DMABufRendererBufferMode> AcceleratedBackingStoreDMABuf::rendererBufferMode()
+OptionSet<RendererBufferTransportMode> AcceleratedBackingStoreDMABuf::rendererBufferTransportMode()
 {
-    static OptionSet<DMABufRendererBufferMode> mode;
+    static OptionSet<RendererBufferTransportMode> mode;
     static std::once_flag onceFlag;
     std::call_once(onceFlag, [] {
         const char* disableDMABuf = getenv("WEBKIT_DISABLE_DMABUF_RENDERER");
@@ -81,30 +92,35 @@ OptionSet<DMABufRendererBufferMode> AcceleratedBackingStoreDMABuf::rendererBuffe
             return;
         }
 
-        mode.add(DMABufRendererBufferMode::SharedMemory);
+        mode.add(RendererBufferTransportMode::SharedMemory);
 
         const char* forceSHM = getenv("WEBKIT_DMABUF_RENDERER_FORCE_SHM");
         if (forceSHM && strcmp(forceSHM, "0"))
             return;
 
+        // Don't claim to support hardware buffers if we don't have a device to import them.
+        auto device = drmRenderNodeDevice();
+        if (device.isEmpty())
+            return;
+
         if (auto* glDisplay = Display::singleton().glDisplay()) {
             const auto& eglExtensions = glDisplay->extensions();
             if (eglExtensions.KHR_image_base && eglExtensions.EXT_image_dma_buf_import)
-                mode.add(DMABufRendererBufferMode::Hardware);
+                mode.add(RendererBufferTransportMode::Hardware);
         }
     });
     return mode;
 }
 bool AcceleratedBackingStoreDMABuf::checkRequirements()
 {
-    return !rendererBufferMode().isEmpty();
+    return !rendererBufferTransportMode().isEmpty();
 }
 
 #if USE(GBM)
 Vector<DMABufRendererBufferFormat> AcceleratedBackingStoreDMABuf::preferredBufferFormats()
 {
-    auto mode = rendererBufferMode();
-    if (!mode.contains(DMABufRendererBufferMode::Hardware))
+    auto mode = rendererBufferTransportMode();
+    if (!mode.contains(RendererBufferTransportMode::Hardware))
         return { };
 
     auto& display = Display::singleton();
@@ -148,22 +164,28 @@ Vector<DMABufRendererBufferFormat> AcceleratedBackingStoreDMABuf::preferredBuffe
 }
 #endif
 
-std::unique_ptr<AcceleratedBackingStoreDMABuf> AcceleratedBackingStoreDMABuf::create(WebPageProxy& webPage)
+Ref<AcceleratedBackingStoreDMABuf> AcceleratedBackingStoreDMABuf::create(WebPageProxy& webPage)
 {
     ASSERT(checkRequirements());
-    return std::unique_ptr<AcceleratedBackingStoreDMABuf>(new AcceleratedBackingStoreDMABuf(webPage));
+    return adoptRef(*new AcceleratedBackingStoreDMABuf(webPage));
 }
 
 AcceleratedBackingStoreDMABuf::AcceleratedBackingStoreDMABuf(WebPageProxy& webPage)
     : AcceleratedBackingStore(webPage)
-    , m_fenceMonitor([this] { gtk_widget_queue_draw(m_webPage.viewWidget()); })
+    , m_fenceMonitor([this] {
+        if (m_webPage)
+            gtk_widget_queue_draw(m_webPage->viewWidget());
+    })
+    , m_legacyMainFrameProcess(webPage.legacyMainFrameProcess())
 {
 }
 
 AcceleratedBackingStoreDMABuf::~AcceleratedBackingStoreDMABuf()
 {
-    if (m_surfaceID)
-        m_webPage.legacyMainFrameProcess().removeMessageReceiver(Messages::AcceleratedBackingStoreDMABuf::messageReceiverName(), m_surfaceID);
+    if (m_surfaceID) {
+        if (RefPtr legacyMainFrameProcess = m_legacyMainFrameProcess.get())
+            legacyMainFrameProcess->removeMessageReceiver(Messages::AcceleratedBackingStoreDMABuf::messageReceiverName(), m_surfaceID);
+    }
 
     if (m_gdkGLContext) {
         gdk_gl_context_make_current(m_gdkGLContext.get());
@@ -173,7 +195,7 @@ AcceleratedBackingStoreDMABuf::~AcceleratedBackingStoreDMABuf()
 }
 
 AcceleratedBackingStoreDMABuf::Buffer::Buffer(WebPageProxy& webPage, uint64_t id, uint64_t surfaceID, const WebCore::IntSize& size, DMABufRendererBufferFormat::Usage usage)
-    : m_webPage(&webPage)
+    : m_webPage(webPage)
     , m_id(id)
     , m_surfaceID(surfaceID)
     , m_size(size)
@@ -243,6 +265,30 @@ void AcceleratedBackingStoreDMABuf::Buffer::didRelease() const
     m_webPage->legacyMainFrameProcess().send(Messages::AcceleratedSurfaceDMABuf::ReleaseBuffer(m_id, { }), m_surfaceID);
 }
 
+#if USE(GTK4)
+static RefPtr<WebCore::NativeImage> nativeImageFromGdkTexture(GdkTexture* texture)
+{
+    if (!texture)
+        return nullptr;
+
+#if USE(CAIRO)
+    RefPtr<cairo_surface_t> surface = adoptRef(cairo_image_surface_create(CAIRO_FORMAT_ARGB32, gdk_texture_get_width(texture), gdk_texture_get_height(texture)));
+    gdk_texture_download(texture, cairo_image_surface_get_data(surface.get()), cairo_image_surface_get_stride(surface.get()));
+    cairo_surface_mark_dirty(surface.get());
+    return WebCore::NativeImage::create(WTFMove(surface));
+#elif USE(SKIA)
+    auto imageInfo = SkImageInfo::MakeN32Premul(gdk_texture_get_width(texture), gdk_texture_get_height(texture), SkColorSpace::MakeSRGB());
+    SkBitmap bitmap;
+    if (!bitmap.tryAllocPixels(imageInfo))
+        return nullptr;
+
+    gdk_texture_download(texture, reinterpret_cast<guchar*>(bitmap.getPixels()), imageInfo.minRowBytes());
+    bitmap.setImmutable();
+    return WebCore::NativeImage::create(bitmap.asImage());
+#endif
+}
+#endif
+
 #if GTK_CHECK_VERSION(4, 13, 4)
 RefPtr<AcceleratedBackingStoreDMABuf::Buffer> AcceleratedBackingStoreDMABuf::BufferDMABuf::create(WebPageProxy& webPage, uint64_t id, uint64_t surfaceID, const WebCore::IntSize& size, DMABufRendererBufferFormat::Usage usage, uint32_t format, Vector<UnixFileDescriptor>&& fds, Vector<uint32_t>&& offsets, Vector<uint32_t>&& strides, uint64_t modifier)
 {
@@ -294,6 +340,11 @@ void AcceleratedBackingStoreDMABuf::BufferDMABuf::didUpdateContents(Buffer* prev
 RendererBufferFormat AcceleratedBackingStoreDMABuf::BufferDMABuf::format() const
 {
     return { RendererBufferFormat::Type::DMABuf, m_usage, gdk_dmabuf_texture_builder_get_fourcc(m_builder.get()), gdk_dmabuf_texture_builder_get_modifier(m_builder.get()) };
+}
+
+RefPtr<WebCore::NativeImage> AcceleratedBackingStoreDMABuf::BufferDMABuf::asNativeImageForTesting() const
+{
+    return nativeImageFromGdkTexture(m_texture.get());
 }
 
 void AcceleratedBackingStoreDMABuf::BufferDMABuf::release()
@@ -428,6 +479,15 @@ RendererBufferFormat AcceleratedBackingStoreDMABuf::BufferEGLImage::format() con
     return { RendererBufferFormat::Type::DMABuf, m_usage, m_fourcc, m_modifier };
 }
 
+RefPtr<WebCore::NativeImage> AcceleratedBackingStoreDMABuf::BufferEGLImage::asNativeImageForTesting() const
+{
+#if USE(GTK4)
+    return nativeImageFromGdkTexture(m_texture.get());
+#else
+    return nullptr;
+#endif
+}
+
 void AcceleratedBackingStoreDMABuf::BufferEGLImage::release()
 {
 #if USE(GTK4)
@@ -499,6 +559,11 @@ RendererBufferFormat AcceleratedBackingStoreDMABuf::BufferGBM::format() const
     return { RendererBufferFormat::Type::DMABuf, m_usage, gbm_bo_get_format(m_buffer), gbm_bo_get_modifier(m_buffer) };
 }
 
+RefPtr<WebCore::NativeImage> AcceleratedBackingStoreDMABuf::BufferGBM::asNativeImageForTesting() const
+{
+    return nullptr;
+}
+
 void AcceleratedBackingStoreDMABuf::BufferGBM::release()
 {
     m_surface = nullptr;
@@ -525,7 +590,7 @@ void AcceleratedBackingStoreDMABuf::BufferSHM::didUpdateContents(Buffer*, const 
 #if USE(CAIRO)
     m_surface = m_bitmap->createCairoSurface();
 #elif USE(SKIA)
-    m_surface = cairo_image_surface_create_for_data(m_bitmap->mutableSpan().data(), CAIRO_FORMAT_ARGB32, m_size.width(), m_size.height(), m_bitmap->bytesPerRow());
+    m_surface = adoptRef(cairo_image_surface_create_for_data(m_bitmap->mutableSpan().data(), CAIRO_FORMAT_ARGB32, m_size.width(), m_size.height(), m_bitmap->bytesPerRow()));
     m_bitmap->ref();
     static cairo_user_data_key_t s_surfaceDataKey;
     cairo_surface_set_user_data(m_surface.get(), &s_surfaceDataKey, m_bitmap.get(), [](void* userData) {
@@ -544,6 +609,13 @@ RendererBufferFormat AcceleratedBackingStoreDMABuf::BufferSHM::format() const
 #endif
 }
 
+RefPtr<WebCore::NativeImage> AcceleratedBackingStoreDMABuf::BufferSHM::asNativeImageForTesting() const
+{
+    if (!m_bitmap)
+        return nullptr;
+    return WebCore::NativeImage::create(m_bitmap->createPlatformImage(WebCore::BackingStoreCopy::CopyBackingStore));
+}
+
 void AcceleratedBackingStoreDMABuf::BufferSHM::release()
 {
     m_surface = nullptr;
@@ -552,29 +624,37 @@ void AcceleratedBackingStoreDMABuf::BufferSHM::release()
 
 void AcceleratedBackingStoreDMABuf::didCreateBuffer(uint64_t id, const WebCore::IntSize& size, uint32_t format, Vector<WTF::UnixFileDescriptor>&& fds, Vector<uint32_t>&& offsets, Vector<uint32_t>&& strides, uint64_t modifier, DMABufRendererBufferFormat::Usage usage)
 {
+    RefPtr webPage = m_webPage.get();
+    if (!webPage)
+        return;
+
 #if USE(GBM)
     if (!Display::singleton().glDisplayIsSharedWithGtk()) {
         ASSERT(fds.size() == 1 && strides.size() == 1);
-        if (auto buffer = BufferGBM::create(m_webPage, id, m_surfaceID, size, usage, format, WTFMove(fds[0]), strides[0]))
+        if (auto buffer = BufferGBM::create(*webPage, id, m_surfaceID, size, usage, format, WTFMove(fds[0]), strides[0]))
             m_buffers.add(id, WTFMove(buffer));
         return;
     }
 #endif
 
 #if GTK_CHECK_VERSION(4, 13, 4)
-    if (auto buffer = BufferDMABuf::create(m_webPage, id, m_surfaceID, size, usage, format, WTFMove(fds), WTFMove(offsets), WTFMove(strides), modifier)) {
+    if (auto buffer = BufferDMABuf::create(*webPage, id, m_surfaceID, size, usage, format, WTFMove(fds), WTFMove(offsets), WTFMove(strides), modifier)) {
         m_buffers.add(id, WTFMove(buffer));
         return;
     }
 #endif
 
-    if (auto buffer = BufferEGLImage::create(m_webPage, id, m_surfaceID, size, usage, format, WTFMove(fds), WTFMove(offsets), WTFMove(strides), modifier))
+    if (auto buffer = BufferEGLImage::create(*webPage, id, m_surfaceID, size, usage, format, WTFMove(fds), WTFMove(offsets), WTFMove(strides), modifier))
         m_buffers.add(id, WTFMove(buffer));
 }
 
 void AcceleratedBackingStoreDMABuf::didCreateBufferSHM(uint64_t id, WebCore::ShareableBitmap::Handle&& handle)
 {
-    if (auto buffer = BufferSHM::create(m_webPage, id, m_surfaceID, WebCore::ShareableBitmap::create(WTFMove(handle), WebCore::SharedMemory::Protection::ReadOnly)))
+    RefPtr webPage = m_webPage.get();
+    if (!webPage)
+        return;
+
+    if (auto buffer = BufferSHM::create(*webPage, id, m_surfaceID, WebCore::ShareableBitmap::create(WTFMove(handle), WebCore::SharedMemory::Protection::ReadOnly)))
         m_buffers.add(id, WTFMove(buffer));
 }
 
@@ -599,7 +679,8 @@ void AcceleratedBackingStoreDMABuf::frame(uint64_t bufferID, WebCore::Region&& d
 
 void AcceleratedBackingStoreDMABuf::frameDone()
 {
-    m_webPage.legacyMainFrameProcess().send(Messages::AcceleratedSurfaceDMABuf::FrameDone(), m_surfaceID);
+    if (RefPtr legacyMainFrameProcess = m_legacyMainFrameProcess.get())
+        legacyMainFrameProcess->send(Messages::AcceleratedSurfaceDMABuf::FrameDone(), m_surfaceID);
 }
 
 void AcceleratedBackingStoreDMABuf::unrealize()
@@ -618,11 +699,15 @@ void AcceleratedBackingStoreDMABuf::ensureGLContext()
     if (m_gdkGLContext)
         return;
 
+    RefPtr webPage = m_webPage.get();
+    if (!webPage)
+        return;
+
     GUniqueOutPtr<GError> error;
 #if USE(GTK4)
-    m_gdkGLContext = adoptGRef(gdk_surface_create_gl_context(gtk_native_get_surface(gtk_widget_get_native(m_webPage.viewWidget())), &error.outPtr()));
+    m_gdkGLContext = adoptGRef(gdk_surface_create_gl_context(gtk_native_get_surface(gtk_widget_get_native(webPage->viewWidget())), &error.outPtr()));
 #else
-    m_gdkGLContext = adoptGRef(gdk_window_create_gl_context(gtk_widget_get_window(m_webPage.viewWidget()), &error.outPtr()));
+    m_gdkGLContext = adoptGRef(gdk_window_create_gl_context(gtk_widget_get_window(webPage->viewWidget()), &error.outPtr()));
 #endif
     if (!m_gdkGLContext)
         g_error("GDK is not able to create a GL context: %s.", error->message);
@@ -648,12 +733,15 @@ void AcceleratedBackingStoreDMABuf::update(const LayerTreeContext& context)
             buffer->setSurfaceID(0);
         }
 
-        m_webPage.legacyMainFrameProcess().removeMessageReceiver(Messages::AcceleratedBackingStoreDMABuf::messageReceiverName(), m_surfaceID);
+        if (RefPtr legacyMainFrameProcess = m_legacyMainFrameProcess.get())
+            legacyMainFrameProcess->removeMessageReceiver(Messages::AcceleratedBackingStoreDMABuf::messageReceiverName(), m_surfaceID);
     }
 
     m_surfaceID = context.contextID;
-    if (m_surfaceID)
-        m_webPage.legacyMainFrameProcess().addMessageReceiver(Messages::AcceleratedBackingStoreDMABuf::messageReceiverName(), m_surfaceID, *this);
+    if (m_surfaceID && m_webPage) {
+        m_legacyMainFrameProcess = m_webPage->legacyMainFrameProcess();
+        Ref { *m_legacyMainFrameProcess }->addMessageReceiver(Messages::AcceleratedBackingStoreDMABuf::messageReceiverName(), m_surfaceID, *this);
+    }
 }
 
 bool AcceleratedBackingStoreDMABuf::swapBuffersIfNeeded()
@@ -676,15 +764,17 @@ bool AcceleratedBackingStoreDMABuf::swapBuffersIfNeeded()
 }
 
 #if USE(GTK4)
-void AcceleratedBackingStoreDMABuf::snapshot(GtkSnapshot* gtkSnapshot)
+bool AcceleratedBackingStoreDMABuf::snapshot(GtkSnapshot* gtkSnapshot)
 {
     bool didSwapBuffers = swapBuffersIfNeeded();
     if (!m_committedBuffer)
-        return;
+        return false;
 
     m_committedBuffer->snapshot(gtkSnapshot);
     if (didSwapBuffers)
         frameDone();
+
+    return didSwapBuffers;
 }
 #else
 bool AcceleratedBackingStoreDMABuf::paint(cairo_t* cr, const WebCore::IntRect& clipRect)
@@ -697,7 +787,7 @@ bool AcceleratedBackingStoreDMABuf::paint(cairo_t* cr, const WebCore::IntRect& c
     if (didSwapBuffers)
         frameDone();
 
-    return true;
+    return didSwapBuffers;
 }
 #endif
 
@@ -705,6 +795,21 @@ RendererBufferFormat AcceleratedBackingStoreDMABuf::bufferFormat() const
 {
     auto* buffer = m_committedBuffer ? m_committedBuffer.get() : m_pendingBuffer.get();
     return buffer ? buffer->format() : RendererBufferFormat { };
+}
+
+RefPtr<WebCore::NativeImage> AcceleratedBackingStoreDMABuf::bufferAsNativeImageForTesting() const
+{
+    if (!m_committedBuffer)
+        return nullptr;
+
+#if USE(CAIRO)
+    // Scaling the surface is not supported with cairo, so in that case we will fall back to
+    // get the snapshot from the web view widget.
+    if (m_committedBuffer->deviceScaleFactor() != 1)
+        return nullptr;
+#endif
+
+    return m_committedBuffer->asNativeImageForTesting();
 }
 
 } // namespace WebKit

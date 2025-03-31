@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007-2021 Apple Inc. All rights reserved.
+ * Copyright (C) 2007-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -40,6 +40,7 @@
 #include "CSSNamespaceRule.h"
 #include "CSSNestedDeclarations.h"
 #include "CSSPageRule.h"
+#include "CSSPositionTryRule.h"
 #include "CSSPropertyRule.h"
 #include "CSSScopeRule.h"
 #include "CSSStartingStyleRule.h"
@@ -60,6 +61,7 @@
 #include "JSCSSNamespaceRule.h"
 #include "JSCSSNestedDeclarations.h"
 #include "JSCSSPageRule.h"
+#include "JSCSSPositionTryRule.h"
 #include "JSCSSPropertyRule.h"
 #include "JSCSSScopeRule.h"
 #include "JSCSSStartingStyleRule.h"
@@ -127,7 +129,8 @@ JSValue toJSNewlyCreated(JSGlobalObject*, JSDOMGlobalObject* globalObject, Ref<C
         return createWrapper<CSSStartingStyleRule>(globalObject, WTFMove(rule));
     case StyleRuleType::ViewTransition:
         return createWrapper<CSSViewTransitionRule>(globalObject, WTFMove(rule));
-    case StyleRuleType::Unknown:
+    case StyleRuleType::PositionTry:
+        return createWrapper<CSSPositionTryRule>(globalObject, WTFMove(rule));
     case StyleRuleType::Charset:
     case StyleRuleType::Margin:
     case StyleRuleType::FontFeatureValuesBlock:

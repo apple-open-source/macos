@@ -81,6 +81,7 @@ hu{
         bin{"bini"}
         bkm{"kom"}
         bla{"siksika"}
+        blo{"anii"}
         bm{"bambara"}
         bn{"bangla"}
         bo{"tibeti"}
@@ -312,6 +313,7 @@ hu{
         kv{"komi"}
         kw{"korni"}
         kwk{"kwakʼwala"}
+        kxv{"kuvi"}
         ky{"kirgiz"}
         la{"latin"}
         lad{"ladino"}
@@ -338,7 +340,6 @@ hu{
         lua{"luba-lulua"}
         lui{"luiseno"}
         lun{"lunda"}
-        luo{"luo"}
         lus{"lushai"}
         lut{"lushootseed"}
         luy{"lujia"}
@@ -577,11 +578,11 @@ hu{
         ur{"urdu"}
         ur_Arab{"urdu (Naszhi)"}
         uz{"üzbég"}
-        vai{"vai"}
         ve{"venda"}
         vec{"velencei"}
         vi{"vietnámi"}
         vls{"nyugat-flamand"}
+        vmw{"makua"}
         vo{"volapük"}
         vot{"votják"}
         vun{"vunjo"}
@@ -595,6 +596,7 @@ hu{
         wuu{"wu kínai"}
         xal{"kalmük"}
         xh{"xhosza"}
+        xnr{"kangri"}
         xog{"szoga"}
         yao{"jaó"}
         yap{"japi"}
@@ -636,7 +638,6 @@ hu{
     Scripts{
         Adlm{"Adlam"}
         Aghb{"Kaukázusi albaniai"}
-        Arab{"Arab"}
         Aran{"Nasztalik"}
         Armi{"Birodalmi arámi"}
         Armn{"Örmény"}
@@ -687,7 +688,6 @@ hu{
         Hung{"Ómagyar"}
         Inds{"Indus"}
         Ital{"Régi olasz"}
-        Jamo{"Jamo"}
         Java{"Jávai"}
         Jpan{"Japán"}
         Kali{"Kajah li"}
@@ -762,7 +762,6 @@ hu{
         Tfng{"Tifinagh"}
         Tglg{"Tagalog"}
         Thaa{"Thaana"}
-        Thai{"Thai"}
         Tibt{"Tibeti"}
         Ugar{"Ugari"}
         Vaii{"Vai"}
@@ -852,7 +851,6 @@ hu{
             phonebook{"Telefonkönyv sorrend"}
             phonetic{"Fonetikus rendezési sorrend"}
             pinyin{"Pinyin sorrend"}
-            reformed{"Átalakított rendezési elv"}
             search{"Általános célú keresés"}
             searchjl{"Keresés hangul kezdő mássalhangzó szerint"}
             standard{"Normál rendezési sorrend"}

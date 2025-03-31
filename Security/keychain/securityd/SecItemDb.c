@@ -324,6 +324,7 @@ s3dl_query_add(SecDbConnectionRef dbt, Query *q, CFTypeRef *result, CFErrorRef *
                 CKKSRegisterSyncStatusCallback(uuid, q->q_add_sync_callback);
             } else {
                 secerror("Couldn't fetch UUID from item; can't call callback");
+                ok = SecError(errSecInternal, error, CFSTR("uuid disappeared"));
             }
         }
     }

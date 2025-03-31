@@ -19,7 +19,7 @@
 #include "aom_dsp/arm/mem_neon.h"
 #include "aom_dsp/arm/sum_neon.h"
 
-static INLINE void get_squared_error(
+static inline void get_squared_error(
     const uint16_t *frame1, const uint32_t stride1, const uint16_t *frame2,
     const uint32_t stride2, const uint32_t block_width,
     const uint32_t block_height, uint32_t *frame_sse,

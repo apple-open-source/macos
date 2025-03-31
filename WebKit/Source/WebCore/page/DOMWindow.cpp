@@ -39,6 +39,7 @@
 #include "NodeList.h"
 #include "Page.h"
 #include "PageConsoleClient.h"
+#include "PlatformStrategies.h"
 #include "RemoteDOMWindow.h"
 #include "ResourceLoadObserver.h"
 #include "ScheduledAction.h"
@@ -118,7 +119,7 @@ void DOMWindow::close()
     }
 
     RefPtr localFrame = dynamicDowncast<LocalFrame>(frame);
-    if (localFrame && !localFrame->checkedLoader()->shouldClose())
+    if (localFrame && !localFrame->protectedLoader()->shouldClose())
         return;
 
     ResourceLoadObserver::shared().updateCentralStatisticsStore([] { });
@@ -906,5 +907,15 @@ ExceptionOr<String> DOMWindow::atob(const String& stringToEncode)
         return Exception { ExceptionCode::SecurityError };
     return Base64Utilities::atob(stringToEncode);
 }
+
+#if ENABLE(DECLARATIVE_WEB_PUSH)
+ExceptionOr<PushManager&> DOMWindow::pushManager()
+{
+    auto* localThis = dynamicDowncast<LocalDOMWindow>(*this);
+    if (!localThis)
+        return Exception { ExceptionCode::SecurityError };
+    return localThis->pushManager();
+}
+#endif
 
 } // namespace WebCore

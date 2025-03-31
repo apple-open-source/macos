@@ -78,7 +78,7 @@
 #include <kern/affinity.h>
 #include <kern/host.h>
 #include <kern/exc_guard.h>
-#include <ipc/port.h>
+#include <ipc/ipc_policy.h>
 #include <mach/arm/thread_status.h>
 
 
@@ -138,7 +138,7 @@ thread_set_state_allowed(thread_t thread, int flavor)
 	    && !IOCurrentTaskHasEntitlement("com.apple.private.thread-set-state")
 	    ) {
 		/* fatal crash */
-		mach_port_guard_exception(MACH_PORT_NULL, 0, 0, kGUARD_EXC_THREAD_SET_STATE);
+		mach_port_guard_exception(MACH_PORT_NULL, 0, kGUARD_EXC_THREAD_SET_STATE);
 		send_thread_set_state_telemetry();
 		return FALSE;
 	}
@@ -156,7 +156,7 @@ thread_set_state_allowed(thread_t thread, int flavor)
 	    && !IOCurrentTaskHasEntitlement("com.apple.private.thread-set-state")
 	    ) {
 		/* fatal crash */
-		mach_port_guard_exception(MACH_PORT_NULL, 0, 0, kGUARD_EXC_THREAD_SET_STATE);
+		mach_port_guard_exception(MACH_PORT_NULL, 0, kGUARD_EXC_THREAD_SET_STATE);
 		send_thread_set_state_telemetry();
 		return FALSE;
 	}

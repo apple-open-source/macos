@@ -2463,7 +2463,7 @@ recallocarray(void *ptr, size_t oldnmemb, size_t newnmemb, size_t size)
 		return NULL;
 	}
 	oldsize = oldnmemb * size;
-	
+
 	/*
 	 * Don't bother too much if we're shrinking just a bit,
 	 * we do not shrink for series of small steps, oh well.
@@ -2477,6 +2477,7 @@ recallocarray(void *ptr, size_t oldnmemb, size_t newnmemb, size_t size)
 		}
 	}
 
+#if defined(__has_feature) && __has_feature(memory_sanitizer)
 	newptr = malloc(newsize);
 	if (newptr == NULL)
 		return NULL;
@@ -2489,6 +2490,14 @@ recallocarray(void *ptr, size_t oldnmemb, size_t newnmemb, size_t size)
 
 	explicit_bzero(ptr, oldsize);
 	free(ptr);
+#else
+	newptr = realloc(ptr, newsize);
+	if (newptr == NULL)
+		return NULL;
+
+	if (newsize > oldsize)
+		memset((char *)newptr + oldsize, 0, newsize - oldsize);
+#endif
 
 	return newptr;
 }

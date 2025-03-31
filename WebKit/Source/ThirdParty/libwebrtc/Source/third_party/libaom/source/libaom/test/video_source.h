@@ -27,7 +27,7 @@
 #include "aom/aom_encoder.h"
 #include "test/acm_random.h"
 #if !defined(_WIN32)
-#include "third_party/googletest/src/googletest/include/gtest/gtest.h"
+#include "gtest/gtest.h"
 #endif
 
 namespace libaom_test {

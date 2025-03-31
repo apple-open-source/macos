@@ -1374,6 +1374,25 @@ class Container: NSObject, ConfiguredCloudKit {
             }
         }
 
+        func enumerateCRKs(_ block: @escaping (TPCustodianRecoveryKey, UnsafeMutablePointer<ObjCBool>) -> Void) throws {
+            let keyFactory = TPECPublicKeyFactory()
+            let fetch = CustodianRecoveryKeyMO.fetchRequest()
+            fetch.predicate = NSPredicate(format: "container == %@", self.containerMO)
+            fetch.fetchBatchSize = 10
+            try moc.executeBatchedFetchAndEnumerateChunkwise(
+                fetchRequest: fetch,
+                itemBlock: { crkMO, stop in
+                    var oStop = ObjCBool(false)
+                    guard let crk = TPCustodianRecoveryKey(data: crkMO.crkInfo ?? Data(), sig: crkMO.crkInfoSig ?? Data(), keyFactory: keyFactory) else {
+                        return
+                    }
+                    block(crk, &oStop)
+                    stop = oStop.boolValue
+                },
+                chunkBlock: moc.refaultUnchanged
+            )
+        }
+
         func policy(withVersion version: TPCounter, error errorOut: NSErrorPointer) -> TPPolicyDocument? {
             let fetch = PolicyMO.fetchRequest()
             // Would be nice to use PRId64 here, but it's not easy, see rdar://121705880&121705973
@@ -1514,6 +1533,9 @@ class Container: NSObject, ConfiguredCloudKit {
             // remove duplicate machineMOs
             Container.onqueueRemoveDuplicateMachineIDs(containerMO: containerMO, moc: moc)
 
+            // remove duplicate & invalid CRKs
+            try Container.onqueueRemoveDuplicateOrInvalidCRKs(containerMO: containerMO, moc: moc)
+
             (model, dbAdapter) = Container.loadModel(moc: moc, containerMO: containerMO, hmacKey: nil)
             Container.ensureEgoConsistency(from: containerMO, model: model)
 
@@ -1610,15 +1632,13 @@ class Container: NSObject, ConfiguredCloudKit {
         let model = TPModel(decrypter: PolicyRedactionCrypter(), dbAdapter: dbAdapter)
         model.suppressInitialInfoLogging = true
         defer { model.suppressInitialInfoLogging = false }
-        let keyFactory = TPECPublicKeyFactory()
 
-        let crks = containerMO.custodianRecoveryKeys as? Set<CustodianRecoveryKeyMO>
-        crks?.forEach { crk in
-            if let data = crk.crkInfo, let sig = crk.crkInfoSig {
-                if let tpcrk = TPCustodianRecoveryKey(data: data, sig: sig, keyFactory: keyFactory) {
-                    model.register(tpcrk)
-                }
+        do {
+            try dbAdapter.enumerateCRKs { tpcrk, _ in
+                model.register(tpcrk)
             }
+        } catch {
+            logger.error("loadModel error enumerating CRKs: \(error, privacy: .public)")
         }
 
         do {
@@ -2305,7 +2325,7 @@ class Container: NSObject, ConfiguredCloudKit {
                     return
                 }
 
-                var names : [String: String] = [:]
+                var names: [String: String] = [:]
 
                 logger.log(level: .info, "egoPeer: \(egoPeer)")
 
@@ -2417,7 +2437,7 @@ class Container: NSObject, ConfiguredCloudKit {
             let request = RemoveUnreadableCKServerDataRequest()
             self.cuttlefish.performCkserverUnreadableDataRemoval(request) { response in
                 switch response {
-                case .success(_):
+                case .success:
                     logger.notice("performCkserverUnreadableRemoval success")
                 case .failure(let error):
                     logger.error("performCkserverUnreadableRemoval failed: \(String(describing: error), privacy: .public)")
@@ -2876,6 +2896,10 @@ class Container: NSObject, ConfiguredCloudKit {
     func establish(ckksKeys: [CKKSKeychainBackedKeySet],
                    tlkShares: [CKKSTLKShare],
                    preapprovedKeys: [Data]?,
+                   altDSID: String?,
+                   flowID: String?,
+                   deviceSessionID: String?,
+                   canSendMetrics: Bool,
                    reply: @escaping (String?, [CKRecord], TPSyncingPolicy?, Error?) -> Void) {
         let sem = self.grabSemaphore()
         let reply: (String?, [CKRecord], TPSyncingPolicy?, Error?) -> Void = {
@@ -2888,7 +2912,11 @@ class Container: NSObject, ConfiguredCloudKit {
         self.moc.performAndWait {
             self.onqueueEstablish(ckksKeys: ckksKeys,
                                   tlkShares: tlkShares,
-                                  preapprovedKeys: preapprovedKeys) { peerID, ckrecords, syncingPolicy, error in
+                                  preapprovedKeys: preapprovedKeys,
+                                  altDSID: altDSID,
+                                  flowID: flowID,
+                                  deviceSessionID: deviceSessionID,
+                                  canSendMetrics: canSendMetrics) { peerID, ckrecords, syncingPolicy, error in
                 reply(peerID, ckrecords, syncingPolicy, error)
             }
         }
@@ -2903,18 +2931,32 @@ class Container: NSObject, ConfiguredCloudKit {
 
     func fetchAfterEstablish(ckksKeys: [CKKSKeychainBackedKeySet],
                              tlkShares: [CKKSTLKShare],
+                             altDSID: String?,
+                             flowID: String?,
+                             deviceSessionID: String?,
+                             canSendMetrics: Bool,
                              reply: @escaping (String?, [CKRecord], TPSyncingPolicy?, Error?) -> Void) {
         self.moc.performAndWait {
+            let event = AAFAnalyticsEventSecurity(keychainCircleMetrics: nil,
+                                                  altDSID: altDSID,
+                                                  flowID: flowID,
+                                                  deviceSessionID: deviceSessionID,
+                                                  eventName: kSecurityRTCEventNameFetchAfterEstablish,
+                                                  testsAreEnabled: soft_MetricsOverrideTestsAreEnabled(),
+                                                  canSendMetrics: canSendMetrics,
+                                                  category: kSecurityRTCEventCategoryAccountDataAccessRecovery)
             do {
                 try self.deleteLocalCloudKitData()
             } catch {
                 logger.error("fetchAfterEstablish failed to reset local data: \(String(describing: error), privacy: .public)")
+                SecurityAnalyticsReporterRTC.sendMetric(withEvent: event, success: false, error: error)
                 reply(nil, [], nil, error)
                 return
             }
             self.onqueueFetchAndPersistChanges { error in
                 guard error == nil else {
                     logger.error("fetchAfterEstablish failed to fetch changes: \(String(describing: error), privacy: .public)")
+                    SecurityAnalyticsReporterRTC.sendMetric(withEvent: event, success: false, error: error)
                     reply(nil, [], nil, error)
                     return
                 }
@@ -2927,33 +2969,39 @@ class Container: NSObject, ConfiguredCloudKit {
                         let egoStableSig = self.containerMO.egoPeerStableInfoSig
                         else {
                             logger.info("fetchAfterEstablish: failed to fetch egoPeerID")
+                            SecurityAnalyticsReporterRTC.sendMetric(withEvent: event, success: false, error: ContainerError.noPreparedIdentity)
                             reply(nil, [], nil, ContainerError.noPreparedIdentity)
                             return
                     }
                     do {
                         guard try self.model.hasPeer(withID: egoPeerID) else {
                             logger.info("fetchAfterEstablish: did not find peer \(egoPeerID, privacy: .public) in model")
+                            SecurityAnalyticsReporterRTC.sendMetric(withEvent: event, success: false, error: ContainerError.invalidPeerID)
                             reply(nil, [], nil, ContainerError.invalidPeerID)
                             return
                         }
                     } catch {
                         logger.info("fetchAfterEstablish: error finding peer \(egoPeerID, privacy: .public) in model: \(error, privacy: .public)")
+                        SecurityAnalyticsReporterRTC.sendMetric(withEvent: event, success: false, error: error)
                         reply(nil, [], nil, error)
                         return
                     }
                     let keyFactory = TPECPublicKeyFactory()
                     guard let selfPermanentInfo = TPPeerPermanentInfo(peerID: egoPeerID, data: egoPermData, sig: egoPermSig, keyFactory: keyFactory) else {
+                        SecurityAnalyticsReporterRTC.sendMetric(withEvent: event, success: false, error: ContainerError.invalidPermanentInfoOrSig)
                         reply(nil, [], nil, ContainerError.invalidPermanentInfoOrSig)
                         return
                     }
                     guard let selfStableInfo = TPPeerStableInfo(data: egoStableData, sig: egoStableSig) else {
                         logger.info("cannot create TPPeerStableInfo")
+                        SecurityAnalyticsReporterRTC.sendMetric(withEvent: event, success: false, error: ContainerError.invalidStableInfoOrSig)
                         reply(nil, [], nil, ContainerError.invalidStableInfoOrSig)
                         return
                     }
                     self.onqueueUpdateTLKs(ckksKeys: ckksKeys, tlkShares: tlkShares) { ckrecords, error in
                         guard error == nil else {
                             logger.error("fetchAfterEstablish failed to update TLKs: \(String(describing: error), privacy: .public)")
+                            SecurityAnalyticsReporterRTC.sendMetric(withEvent: event, success: false, error: error)
                             reply(nil, [], nil, error)
                             return
                         }
@@ -2962,9 +3010,11 @@ class Container: NSObject, ConfiguredCloudKit {
                             let syncingPolicy = try self.syncingPolicyFor(modelID: selfPermanentInfo.modelID,
                                                                           stableInfo: selfStableInfo)
                             logger.info("fetchAfterEstablish succeeded")
+                            SecurityAnalyticsReporterRTC.sendMetric(withEvent: event, success: true, error: nil)
                             reply(egoPeerID, ckrecords ?? [], syncingPolicy, nil)
                         } catch {
                             logger.error("fetchAfterEstablish failed: \(String(describing: error), privacy: .public)")
+                            SecurityAnalyticsReporterRTC.sendMetric(withEvent: event, success: false, error: error)
                             reply(nil, [], nil, error)
                         }
                     }
@@ -2976,7 +3026,21 @@ class Container: NSObject, ConfiguredCloudKit {
     func onqueueEstablish(ckksKeys: [CKKSKeychainBackedKeySet],
                           tlkShares: [CKKSTLKShare],
                           preapprovedKeys: [Data]?,
+                          altDSID: String?,
+                          flowID: String?,
+                          deviceSessionID: String?,
+                          canSendMetrics: Bool,
                           reply: @escaping (String?, [CKRecord], TPSyncingPolicy?, Error?) -> Void) {
+
+        let event = AAFAnalyticsEventSecurity(keychainCircleMetrics: nil,
+                                              altDSID: altDSID,
+                                              flowID: flowID,
+                                              deviceSessionID: deviceSessionID,
+                                              eventName: kSecurityRTCEventNameOnqueueEstablishTPH,
+                                              testsAreEnabled: soft_MetricsOverrideTestsAreEnabled(),
+                                              canSendMetrics: canSendMetrics,
+                                              category: kSecurityRTCEventCategoryAccountDataAccessRecovery)
+
         // Fetch ego peer identity from local storage.
         guard let egoPeerID = self.containerMO.egoPeerID,
             let egoPermData = self.containerMO.egoPeerPermanentInfo,
@@ -2984,23 +3048,27 @@ class Container: NSObject, ConfiguredCloudKit {
             let egoStableData = self.containerMO.egoPeerStableInfo,
             let egoStableSig = self.containerMO.egoPeerStableInfoSig
             else {
+            SecurityAnalyticsReporterRTC.sendMetric(withEvent: event, success: false, error: ContainerError.noPreparedIdentity)
                 reply(nil, [], nil, ContainerError.noPreparedIdentity)
                 return
-        }
+            }
 
         let keyFactory = TPECPublicKeyFactory()
         guard let selfPermanentInfo = TPPeerPermanentInfo(peerID: egoPeerID, data: egoPermData, sig: egoPermSig, keyFactory: keyFactory) else {
+            SecurityAnalyticsReporterRTC.sendMetric(withEvent: event, success: false, error: ContainerError.invalidPermanentInfoOrSig)
             reply(nil, [], nil, ContainerError.invalidPermanentInfoOrSig)
             return
         }
         guard let selfStableInfo = TPPeerStableInfo(data: egoStableData, sig: egoStableSig) else {
             logger.info("cannot create TPPeerStableInfo")
+            SecurityAnalyticsReporterRTC.sendMetric(withEvent: event, success: false, error: ContainerError.invalidStableInfoOrSig)
             reply(nil, [], nil, ContainerError.invalidStableInfoOrSig)
             return
         }
         guard self.onqueueMachineIDAllowedByIDMS(machineID: selfPermanentInfo.machineID) else {
             logger.info("establish: self machineID \(selfPermanentInfo.machineID, privacy: .public) not on list")
             self.onqueueTTRUntrusted()
+            SecurityAnalyticsReporterRTC.sendMetric(withEvent: event, success: false, error: ContainerError.preparedIdentityNotOnAllowedList(selfPermanentInfo.machineID))
             reply(nil, [], nil, ContainerError.preparedIdentityNotOnAllowedList(selfPermanentInfo.machineID))
             return
         }
@@ -3008,6 +3076,7 @@ class Container: NSObject, ConfiguredCloudKit {
         loadEgoKeys(peerID: egoPeerID) { egoPeerKeys, error in
             guard let egoPeerKeys = egoPeerKeys else {
                 logger.error("Don't have my own peer keys; can't establish: \(String(describing: error), privacy: .public)")
+                SecurityAnalyticsReporterRTC.sendMetric(withEvent: event, success: false, error: error)
                 reply(nil, [], nil, error)
                 return
             }
@@ -3021,6 +3090,7 @@ class Container: NSObject, ConfiguredCloudKit {
                     allTLKShares = octagonShares + sosShares
                 } catch {
                     logger.error("Unable to make TLKShares for self: \(String(describing: error), privacy: .public)")
+                    SecurityAnalyticsReporterRTC.sendMetric(withEvent: event, success: false, error: error)
                     reply(nil, [], nil, error)
                     return
                 }
@@ -3039,12 +3109,14 @@ class Container: NSObject, ConfiguredCloudKit {
                     logger.info("dynamic info: \(newDynamicInfo, privacy: .public)")
                 } catch {
                     logger.error("Unable to create peer for joining: \(String(describing: error), privacy: .public)")
+                    SecurityAnalyticsReporterRTC.sendMetric(withEvent: event, success: false, error: error)
                     reply(nil, [], nil, error)
                     return
                 }
 
                 guard let newPeerStableInfo = peer.stableInfoAndSig.toStableInfo() else {
                     logger.info("Unable to create new peer stable info for joining")
+                    SecurityAnalyticsReporterRTC.sendMetric(withEvent: event, success: false, error: ContainerError.invalidStableInfoOrSig)
                     reply(nil, [], nil, ContainerError.invalidStableInfoOrSig)
                     return
                 }
@@ -3053,6 +3125,7 @@ class Container: NSObject, ConfiguredCloudKit {
                 do {
                     bottle = try self.assembleBottle(egoPeerID: egoPeerID)
                 } catch {
+                    SecurityAnalyticsReporterRTC.sendMetric(withEvent: event, success: false, error: error)
                     reply(nil, [], nil, error)
                     return
                 }
@@ -3108,30 +3181,36 @@ class Container: NSObject, ConfiguredCloudKit {
                                     guard fetchError == nil else {
                                         // This is an odd error condition: we might be able to fetch again and be in a good state...
                                         logger.info("fetch-after-establish failed: \(String(describing: fetchError), privacy: .public)")
+                                        SecurityAnalyticsReporterRTC.sendMetric(withEvent: event, success: false, error: fetchError)
                                         reply(nil, keyHierarchyRecords, nil, fetchError)
                                         return
                                     }
 
                                     logger.info("fetch-after-establish succeeded")
+                                    SecurityAnalyticsReporterRTC.sendMetric(withEvent: event, success: true, error: nil)
                                     reply(egoPeerID, keyHierarchyRecords, syncingPolicy, nil)
                                 }
                                 return
                             }
 
                             logger.info("establish succeeded")
+                            SecurityAnalyticsReporterRTC.sendMetric(withEvent: event, success: true, error: error)
                             reply(egoPeerID, keyHierarchyRecords, syncingPolicy, nil)
                         } catch {
                             logger.error("establish handling failed: \(String(describing: error), privacy: .public)")
+                            SecurityAnalyticsReporterRTC.sendMetric(withEvent: event, success: false, error: error)
                             reply(nil, keyHierarchyRecords, nil, error)
                         }
                     case .failure(let error):
                         switch error {
                         case CuttlefishErrorMatcher(code: CuttlefishErrorCode.establishFailed):
                             logger.info("establish returned failed, trying fetch")
-                            self.fetchAfterEstablish(ckksKeys: ckksKeys, tlkShares: tlkShares, reply: reply)
+                            SecurityAnalyticsReporterRTC.sendMetric(withEvent: event, success: false, error: error)
+                            self.fetchAfterEstablish(ckksKeys: ckksKeys, tlkShares: tlkShares, altDSID: altDSID, flowID: flowID, deviceSessionID: deviceSessionID, canSendMetrics: canSendMetrics, reply: reply)
                             return
                         default:
                             logger.error("establish failed: \(String(describing: error), privacy: .public)")
+                            SecurityAnalyticsReporterRTC.sendMetric(withEvent: event, success: false, error: error)
                             reply(nil, [], nil, error)
                             return
                         }
@@ -3540,6 +3619,10 @@ class Container: NSObject, ConfiguredCloudKit {
                          entropy: Data,
                          bottleSalt: String,
                          tlkShares: [CKKSTLKShare],
+                         altDSID: String?,
+                         flowID: String?,
+                         deviceSessionID: String?,
+                         canSendMetrics: Bool,
                          reply: @escaping (Data?, Data?, [CKKSTLKShare]?, TrustedPeersHelperTLKRecoveryResult?, Error?) -> Void) {
         let sem = self.grabSemaphore()
         let reply: (Data?, Data?, [CKKSTLKShare]?, TrustedPeersHelperTLKRecoveryResult?, Error?) -> Void = {
@@ -3552,30 +3635,43 @@ class Container: NSObject, ConfiguredCloudKit {
         // A preflight should have been successful before calling this function. So, we can assume that all required data is stored locally.
 
         self.moc.performAndWait {
+            let eventS = AAFAnalyticsEventSecurity(keychainCircleMetrics: nil,
+                                                   altDSID: altDSID,
+                                                   flowID: flowID,
+                                                   deviceSessionID: deviceSessionID,
+                                                   eventName: kSecurityRTCEventNameVouchWithBottleTPH,
+                                                   testsAreEnabled: soft_MetricsOverrideTestsAreEnabled(),
+                                                   canSendMetrics: canSendMetrics,
+                                                   category: kSecurityRTCEventCategoryAccountDataAccessRecovery)
             let bmo: BottleMO
 
             do {
                 (bmo, _, _) = try self.onMOCQueuePerformPreflight(bottleID: bottleID)
             } catch {
                 logger.error("vouchWithBottle failed preflight: \(String(describing: error), privacy: .public)")
+                SecurityAnalyticsReporterRTC.sendMetric(withEvent: eventS, success: false, error: error)
                 reply(nil, nil, nil, nil, error)
                 return
             }
 
             guard let bottledContents = bmo.contents else {
+                SecurityAnalyticsReporterRTC.sendMetric(withEvent: eventS, success: false, error: ContainerError.bottleDoesNotContainContents)
                 reply(nil, nil, nil, nil, ContainerError.bottleDoesNotContainContents)
                 return
             }
             guard let signatureUsingEscrowKey = bmo.signatureUsingEscrowKey else {
+                SecurityAnalyticsReporterRTC.sendMetric(withEvent: eventS, success: false, error: ContainerError.bottleDoesNotContainEscrowKeySignature)
                 reply(nil, nil, nil, nil, ContainerError.bottleDoesNotContainEscrowKeySignature)
                 return
             }
 
             guard let signatureUsingPeerKey = bmo.signatureUsingPeerKey else {
+                SecurityAnalyticsReporterRTC.sendMetric(withEvent: eventS, success: false, error: ContainerError.bottleDoesNotContainerPeerKeySignature)
                 reply(nil, nil, nil, nil, ContainerError.bottleDoesNotContainerPeerKeySignature)
                 return
             }
             guard let sponsorPeerID = bmo.peerID else {
+                SecurityAnalyticsReporterRTC.sendMetric(withEvent: eventS, success: false, error: ContainerError.bottleDoesNotContainPeerID)
                 reply(nil, nil, nil, nil, ContainerError.bottleDoesNotContainPeerID)
                 return
             }
@@ -3584,11 +3680,13 @@ class Container: NSObject, ConfiguredCloudKit {
             do {
                 guard let sponsorPeer = try self.model.peer(withID: sponsorPeerID) else {
                     logger.info("vouchWithBottle: Unable to find peer that created the bottle")
+                    SecurityAnalyticsReporterRTC.sendMetric(withEvent: eventS, success: false, error: ContainerError.bottleCreatingPeerNotFound)
                     reply(nil, nil, nil, nil, ContainerError.bottleCreatingPeerNotFound)
                     return
                 }
                 guard let signingKey: _SFECPublicKey = sponsorPeer.permanentInfo.signingPubKey as? _SFECPublicKey else {
                     logger.info("vouchWithBottle: Unable to create a sponsor public key")
+                    SecurityAnalyticsReporterRTC.sendMetric(withEvent: eventS, success: false, error: ContainerError.signatureVerificationFailed)
                     reply(nil, nil, nil, nil, ContainerError.signatureVerificationFailed)
                     return
                 }
@@ -3596,6 +3694,7 @@ class Container: NSObject, ConfiguredCloudKit {
                 _ = try BottledPeer.verifyBottleSignature(data: bottledContents, signature: signatureUsingPeerKey, pubKey: signingKey)
             } catch {
                 logger.error("vouchWithBottle: Verification of bottled signature failed: \(String(describing: error), privacy: .public)")
+                SecurityAnalyticsReporterRTC.sendMetric(withEvent: eventS, success: false, error: ContainerError.failedToCreateBottledPeer)
                 reply(nil, nil, nil, nil, ContainerError.failedToCreateBottledPeer)
                 return
             }
@@ -3619,6 +3718,7 @@ class Container: NSObject, ConfiguredCloudKit {
                                                   signatureUsingPeerKey: signatureUsingPeerKey)
                 } catch {
                     logger.error("Creation of Bottled Peer failed: \(String(describing: error), privacy: .public)")
+                    SecurityAnalyticsReporterRTC.sendMetric(withEvent: eventS, success: false, error: ContainerError.failedToCreateBottledPeer)
                     reply(nil, nil, nil, nil, ContainerError.failedToCreateBottledPeer)
                     return
                 }
@@ -3633,43 +3733,51 @@ class Container: NSObject, ConfiguredCloudKit {
                 // I must have an ego identity in order to vouch using bottle
                 guard let egoPeerID = self.containerMO.egoPeerID else {
                     logger.info("As a nonmember, can't vouch for someone else")
+                    SecurityAnalyticsReporterRTC.sendMetric(withEvent: eventS, success: false, error: ContainerError.nonMember)
                     reply(nil, nil, nil, nil, ContainerError.nonMember)
                     return
                 }
                 guard let permanentInfo = self.containerMO.egoPeerPermanentInfo else {
                     logger.info("permanentInfo does not exist")
+                    SecurityAnalyticsReporterRTC.sendMetric(withEvent: eventS, success: false, error: ContainerError.nonMember)
                     reply(nil, nil, nil, nil, ContainerError.nonMember)
                     return
                 }
                 guard let permanentInfoSig = self.containerMO.egoPeerPermanentInfoSig else {
                     logger.info("permanentInfoSig does not exist")
+                    SecurityAnalyticsReporterRTC.sendMetric(withEvent: eventS, success: false, error: ContainerError.nonMember)
                     reply(nil, nil, nil, nil, ContainerError.nonMember)
                     return
                 }
                 guard let stableInfo = self.containerMO.egoPeerStableInfo else {
                     logger.info("stableInfo does not exist")
+                    SecurityAnalyticsReporterRTC.sendMetric(withEvent: eventS, success: false, error: ContainerError.nonMember)
                     reply(nil, nil, nil, nil, ContainerError.nonMember)
                     return
                 }
                 guard let stableInfoSig = self.containerMO.egoPeerStableInfoSig else {
                     logger.info("stableInfoSig does not exist")
+                    SecurityAnalyticsReporterRTC.sendMetric(withEvent: eventS, success: false, error: ContainerError.nonMember)
                     reply(nil, nil, nil, nil, ContainerError.nonMember)
                     return
                 }
                 let keyFactory = TPECPublicKeyFactory()
                 guard let beneficiaryPermanentInfo = TPPeerPermanentInfo(peerID: egoPeerID, data: permanentInfo, sig: permanentInfoSig, keyFactory: keyFactory) else {
                     logger.info("Invalid permenent info or signature; can't vouch for them")
+                    SecurityAnalyticsReporterRTC.sendMetric(withEvent: eventS, success: false, error: ContainerError.invalidPermanentInfoOrSig)
                     reply(nil, nil, nil, nil, ContainerError.invalidPermanentInfoOrSig)
                     return
                 }
                 guard let beneficiaryStableInfo = TPPeerStableInfo(data: stableInfo, sig: stableInfoSig) else {
                     logger.info("Invalid stableinfo or signature; van't vouch for them")
+                    SecurityAnalyticsReporterRTC.sendMetric(withEvent: eventS, success: false, error: ContainerError.invalidStableInfoOrSig)
                     reply(nil, nil, nil, nil, ContainerError.invalidStableInfoOrSig)
                     return
                 }
                 loadEgoKeys(peerID: egoPeerID) { egoPeerKeys, error in
                     guard let egoPeerKeys = egoPeerKeys else {
                         logger.error("Error loading ego peer keys: \(String(describing: error), privacy: .public)")
+                        SecurityAnalyticsReporterRTC.sendMetric(withEvent: eventS, success: false, error: error)
                         reply(nil, nil, nil, nil, error)
                         return
                     }
@@ -3683,10 +3791,12 @@ class Container: NSObject, ConfiguredCloudKit {
 
                         let newSelfTLKShares = try makeCKKSTLKShares(ckksTLKs: recoveredTLKs, asPeer: egoPeerKeys, toPeer: egoPeerKeys, epoch: Int(beneficiaryPermanentInfo.epoch))
 
+                        SecurityAnalyticsReporterRTC.sendMetric(withEvent: eventS, success: true, error: nil)
                         reply(voucher.data, voucher.sig, newSelfTLKShares, recoveryResult, nil)
                         return
                     } catch {
                         logger.error("Error creating voucher with bottle: \(String(describing: error), privacy: .public)")
+                        SecurityAnalyticsReporterRTC.sendMetric(withEvent: eventS, success: false, error: error)
                         reply(nil, nil, nil, nil, error)
                         return
                     }
@@ -4295,6 +4405,15 @@ class Container: NSObject, ConfiguredCloudKit {
                             $0.deviceSessionID = deviceSessionID ?? String()
                         }
 
+                        let event = AAFAnalyticsEventSecurity(keychainCircleMetrics: nil,
+                                                              altDSID: altDSID,
+                                                              flowID: flowID,
+                                                              deviceSessionID: deviceSessionID,
+                                                              eventName: kSecurityRTCEventNameUpdateTrust,
+                                                              testsAreEnabled: soft_MetricsOverrideTestsAreEnabled(),
+                                                              canSendMetrics: canSendMetrics,
+                                                              category: kSecurityRTCEventCategoryAccountDataAccessRecovery)
+
                         self.cuttlefish.updateTrust(changeToken: self.changeToken(),
                                                     peerID: egoPeerID,
                                                     stableInfoAndSig: nil,
@@ -4307,10 +4426,11 @@ class Container: NSObject, ConfiguredCloudKit {
                                 let newKeyRecords = response.zoneKeyHierarchyRecords.map(CKRecord.init)
                                 logger.info("Uploaded new tlkshares: \(newKeyRecords, privacy: .public)")
                                 // We don't need to save these; CKKS will refetch them as needed
-
+                                SecurityAnalyticsReporterRTC.sendMetric(withEvent: event, success: true, error: nil)
                                 reply(voucher.data, voucher.sig, nil)
                             case .failure(let error):
                                 logger.error("Unable to upload new tlkshares: \(String(describing: error), privacy: .public)")
+                                SecurityAnalyticsReporterRTC.sendMetric(withEvent: event, success: false, error: error)
                                 reply(voucher.data, voucher.sig, error)
                                 return
                             }
@@ -5150,7 +5270,20 @@ class Container: NSObject, ConfiguredCloudKit {
     }
 
     func fetchRecoverableTLKShares(peerID: String?,
+                                   altDSID: String?,
+                                   flowID: String?,
+                                   deviceSessionID: String?,
+                                   canSendMetrics: Bool,
                                    reply: @escaping ([CKRecord]?, Error?) -> Void) {
+
+        let eventS = AAFAnalyticsEventSecurity(keychainCircleMetrics: nil,
+                                               altDSID: altDSID,
+                                               flowID: flowID,
+                                               deviceSessionID: deviceSessionID,
+                                               eventName: kSecurityRTCEventNameFetchRecoverableTLKShares,
+                                               testsAreEnabled: soft_MetricsOverrideTestsAreEnabled(),
+                                               canSendMetrics: canSendMetrics,
+                                               category: kSecurityRTCEventCategoryAccountDataAccessRecovery)
         let request = FetchRecoverableTLKSharesRequest.with {
             $0.peerID = peerID ?? ""
         }
@@ -5159,6 +5292,7 @@ class Container: NSObject, ConfiguredCloudKit {
             switch response {
             case .failure(let error):
                 logger.error("fetchRecoverableTlkshares failed: \(String(describing: error), privacy: .public)")
+                SecurityAnalyticsReporterRTC.sendMetric(withEvent: eventS, success: false, error: error)
                 reply(nil, error)
                 return
 
@@ -5166,6 +5300,7 @@ class Container: NSObject, ConfiguredCloudKit {
                 let shareCount = response.views.map { $0.tlkShares.count }.reduce(0, +)
                 logger.info("fetchRecoverableTlkshares succeeded: found \(response.views.count) views and \(shareCount) total TLKShares")
                 let records = response.views.flatMap { $0.ckrecords() }
+                SecurityAnalyticsReporterRTC.sendMetric(withEvent: eventS, success: true, error: nil)
                 reply(records, nil)
                 return
             }
@@ -5333,6 +5468,15 @@ class Container: NSObject, ConfiguredCloudKit {
             reply($0, $1, $2, $3)
         }
 
+        let joinWithVoucherEvent = AAFAnalyticsEventSecurity(keychainCircleMetrics: nil,
+                                                             altDSID: altDSID,
+                                                             flowID: flowID,
+                                                             deviceSessionID: deviceSessionID,
+                                                             eventName: kSecurityRTCEventNameJoinWithVoucherInTPH,
+                                                             testsAreEnabled: soft_MetricsOverrideTestsAreEnabled(),
+                                                             canSendMetrics: canSendMetrics,
+                                                             category: kSecurityRTCEventCategoryAccountDataAccessRecovery)
+
         let eventFetchAndPersistChanges = AAFAnalyticsEventSecurity(keychainCircleMetrics: nil,
                                                                     altDSID: altDSID,
                                                                     flowID: flowID,
@@ -5343,8 +5487,9 @@ class Container: NSObject, ConfiguredCloudKit {
                                                                     category: kSecurityRTCEventCategoryAccountDataAccessRecovery)
         self.fetchAndPersistChanges { error in
             guard error == nil else {
-                reply(nil, [], nil, error)
                 SecurityAnalyticsReporterRTC.sendMetric(withEvent: eventFetchAndPersistChanges, success: false, error: error)
+                SecurityAnalyticsReporterRTC.sendMetric(withEvent: joinWithVoucherEvent, success: false, error: error)
+                reply(nil, [], nil, error)
                 return
             }
 
@@ -5364,6 +5509,7 @@ class Container: NSObject, ConfiguredCloudKit {
                     return try self.model.allPolicyVersions()
                 } catch {
                     logger.error("Error fetching all policy versions: \(error, privacy: .public)")
+                    SecurityAnalyticsReporterRTC.sendMetric(withEvent: joinWithVoucherEvent, success: false, error: error)
                     reply(nil, [], nil, error)
                     return nil
                 }
@@ -5381,6 +5527,7 @@ class Container: NSObject, ConfiguredCloudKit {
 
                 self.moc.performAndWait {
                     guard let voucher = TPVoucher(infoWith: voucherData, sig: voucherSig) else {
+                        SecurityAnalyticsReporterRTC.sendMetric(withEvent: joinWithVoucherEvent, success: false, error: ContainerError.invalidVoucherOrSig)
                         reply(nil, [], nil, ContainerError.invalidVoucherOrSig)
                         return
                     }
@@ -5389,10 +5536,12 @@ class Container: NSObject, ConfiguredCloudKit {
                         sponsor = try self.model.peer(withID: voucher.sponsorID)
                     } catch {
                         logger.error("Error getting sponsor (\(voucher.sponsorID)): \(error, privacy: .public)")
+                        SecurityAnalyticsReporterRTC.sendMetric(withEvent: joinWithVoucherEvent, success: false, error: error)
                         reply(nil, [], nil, error)
                         return
                     }
                     guard let sponsor else {
+                        SecurityAnalyticsReporterRTC.sendMetric(withEvent: joinWithVoucherEvent, success: false, error: ContainerError.sponsorNotRegistered(voucher.sponsorID) as NSError)
                         reply(nil, [], nil, ContainerError.sponsorNotRegistered(voucher.sponsorID))
                         return
                     }
@@ -5404,22 +5553,26 @@ class Container: NSObject, ConfiguredCloudKit {
                         let egoStableData = self.containerMO.egoPeerStableInfo,
                         let egoStableSig = self.containerMO.egoPeerStableInfoSig
                         else {
+                        SecurityAnalyticsReporterRTC.sendMetric(withEvent: joinWithVoucherEvent, success: false, error: ContainerError.noPreparedIdentity)
                             reply(nil, [], nil, ContainerError.noPreparedIdentity)
                             return
                     }
 
                     let keyFactory = TPECPublicKeyFactory()
                     guard let selfPermanentInfo = TPPeerPermanentInfo(peerID: egoPeerID, data: egoPermData, sig: egoPermSig, keyFactory: keyFactory) else {
+                        SecurityAnalyticsReporterRTC.sendMetric(withEvent: joinWithVoucherEvent, success: false, error: ContainerError.invalidPermanentInfoOrSig)
                         reply(nil, [], nil, ContainerError.invalidPermanentInfoOrSig)
                         return
                     }
                     guard let selfStableInfo = TPPeerStableInfo(data: egoStableData, sig: egoStableSig) else {
+                        SecurityAnalyticsReporterRTC.sendMetric(withEvent: joinWithVoucherEvent, success: false, error: ContainerError.invalidStableInfoOrSig)
                         reply(nil, [], nil, ContainerError.invalidStableInfoOrSig)
                         return
                     }
                     guard self.onqueueMachineIDAllowedByIDMS(machineID: selfPermanentInfo.machineID) else {
                         logger.info("join: self machineID \(selfPermanentInfo.machineID, privacy: .public) not on list")
                         self.onqueueTTRUntrusted()
+                        SecurityAnalyticsReporterRTC.sendMetric(withEvent: joinWithVoucherEvent, success: false, error: ContainerError.preparedIdentityNotOnAllowedList(selfPermanentInfo.machineID) as NSError)
                         reply(nil, [], nil, ContainerError.preparedIdentityNotOnAllowedList(selfPermanentInfo.machineID))
                         return
                     }
@@ -5427,6 +5580,7 @@ class Container: NSObject, ConfiguredCloudKit {
                     loadEgoKeys(peerID: egoPeerID) { egoPeerKeys, error in
                         guard let egoPeerKeys = egoPeerKeys else {
                             logger.error("Don't have my own peer keys; can't join: \(String(describing: error), privacy: .public)")
+                            SecurityAnalyticsReporterRTC.sendMetric(withEvent: joinWithVoucherEvent, success: false, error: error)
                             reply(nil, [], nil, error)
                             return
                         }
@@ -5447,12 +5601,14 @@ class Container: NSObject, ConfiguredCloudKit {
                                                                                                egoPeerKeys: egoPeerKeys)
                             } catch {
                                 logger.error("Unable to create peer for joining: \(String(describing: error), privacy: .public)")
+                                SecurityAnalyticsReporterRTC.sendMetric(withEvent: joinWithVoucherEvent, success: false, error: error)
                                 reply(nil, [], nil, error)
                                 return
                             }
 
                             guard let peerStableInfo = peer.stableInfoAndSig.toStableInfo() else {
                                 logger.info("Unable to create new peer stable info for joining")
+                                SecurityAnalyticsReporterRTC.sendMetric(withEvent: joinWithVoucherEvent, success: false, error: ContainerError.invalidStableInfoOrSig)
                                 reply(nil, [], nil, ContainerError.invalidStableInfoOrSig)
                                 return
                             }
@@ -5467,6 +5623,7 @@ class Container: NSObject, ConfiguredCloudKit {
                                                                                             epoch: Int(selfPermanentInfo.epoch))
                             } catch {
                                 logger.error("Unable to process keys before joining: \(String(describing: error), privacy: .public)")
+                                SecurityAnalyticsReporterRTC.sendMetric(withEvent: joinWithVoucherEvent, success: false, error: error)
                                 reply(nil, [], nil, error)
                                 return
                             }
@@ -5477,6 +5634,7 @@ class Container: NSObject, ConfiguredCloudKit {
                                                                  withSponsorID: sponsor.peerID)
                             } catch {
                                 logger.error("Error checking introduction: \(String(describing: error), privacy: .public)")
+                                SecurityAnalyticsReporterRTC.sendMetric(withEvent: joinWithVoucherEvent, success: false, error: error)
                                 reply(nil, [], nil, error)
                                 return
                             }
@@ -5485,6 +5643,7 @@ class Container: NSObject, ConfiguredCloudKit {
                             do {
                                 bottle = try self.assembleBottle(egoPeerID: egoPeerID)
                             } catch {
+                                SecurityAnalyticsReporterRTC.sendMetric(withEvent: joinWithVoucherEvent, success: false, error: error)
                                 reply(nil, [], nil, error)
                                 return
                             }
@@ -5525,6 +5684,32 @@ class Container: NSObject, ConfiguredCloudKit {
                                 $0.metrics = metrics
                             }
 
+                            let totalNumberOfTrustedPeers = newDynamicInfo.includedPeerIDs.count
+                            let totalPeerCount = totalNumberOfTrustedPeers + newDynamicInfo.excludedPeerIDs.count as NSNumber
+
+                            let numberOfRecoveryKeys = self.model.countTotalNumberOfRecoveryKeys()
+                            let numberOfDistrustedRecoveryKeys = self.model.countOfDistrustedRecoveryKeys()
+                            let totalNumberOfTrustedRecoveryKeys: NSNumber
+                            do {
+                                totalNumberOfTrustedRecoveryKeys = NSNumber(value: try self.model.isRecoveryKeyEnrolled() ? 1 : 0)
+                            } catch {
+                                logger.error("Error determining whether Recovery Key is enrolled: \(error, privacy: .public)")
+                                totalNumberOfTrustedRecoveryKeys = NSNumber(value: 0)
+                            }
+
+                            let totalNumberOfCustodians = self.model.allCustodianRecoveryKeys().count as NSNumber
+                            let totalNumberOfTrustedCustodians = self.model.countTotalTrustedCustodians() as NSNumber
+                            let totalNumberOfPreapprovals = newDynamicInfo.preapprovals.count as NSNumber
+
+                            joinWithVoucherEvent.addMetrics([kSecurityRTCFieldTotalNumberOfPeers: totalPeerCount,
+                                                           kSecurityRTCFieldNumberOfTrustedPeers: totalNumberOfTrustedPeers as NSNumber,
+                                                      kSecurityRTCFieldTotalNumberOfRecoveryKeys: numberOfRecoveryKeys,
+                                            kSecurityRTCFieldTotalNumberOfDistrustedRecoveryKeys: numberOfDistrustedRecoveryKeys,
+                                                        kSecurityRTCFieldTotalNumberOfCustodians: totalNumberOfCustodians,
+                                               kSecurityRTCFieldTotalNumberOfTrustedRecoveryKeys: totalNumberOfTrustedRecoveryKeys,
+                                                 kSecurityRTCFieldTotalNumberOfTrustedCustodians: totalNumberOfTrustedCustodians,
+                                                      kSecurityRTCFieldTotalNumberOfPreapprovals: totalNumberOfPreapprovals, ])
+
                             self.cuttlefish.joinWithVoucher(request) { response in
                                 switch response {
                                 case .success(let response):
@@ -5550,14 +5735,17 @@ class Container: NSObject, ConfiguredCloudKit {
                                             logger.info("JoinWithVoucher succeeded")
 
                                             let keyHierarchyRecords = response.zoneKeyHierarchyRecords.compactMap { CKRecord($0) }
+                                            SecurityAnalyticsReporterRTC.sendMetric(withEvent: joinWithVoucherEvent, success: true, error: nil)
                                             reply(egoPeerID, keyHierarchyRecords, syncingPolicy, nil)
                                         } catch {
                                             logger.error("JoinWithVoucher failed: \(String(describing: error), privacy: .public)")
+                                            SecurityAnalyticsReporterRTC.sendMetric(withEvent: joinWithVoucherEvent, success: false, error: error)
                                             reply(nil, [], nil, error)
                                         }
                                     }
                                 case .failure(let error):
                                     logger.error("joinWithVoucher failed: \(String(describing: error), privacy: .public)")
+                                    SecurityAnalyticsReporterRTC.sendMetric(withEvent: joinWithVoucherEvent, success: false, error: error)
                                     reply(nil, [], nil, error)
                                     return
                                 }
@@ -5573,7 +5761,7 @@ class Container: NSObject, ConfiguredCloudKit {
                             repair: Bool,
                             knownFederations: [String],
                             flowID: String?,
-                            deviceSessionID: String?, 
+                            deviceSessionID: String?,
                             reply: @escaping (TrustedPeersHelperHealthCheckResult?, Error?) -> Void) {
         let sem = self.grabSemaphore()
         let reply: (TrustedPeersHelperHealthCheckResult?, Error?) -> Void = {
@@ -5990,6 +6178,10 @@ class Container: NSObject, ConfiguredCloudKit {
     func preapprovedJoin(ckksKeys: [CKKSKeychainBackedKeySet],
                          tlkShares: [CKKSTLKShare],
                          preapprovedKeys: [Data]?,
+                         altDSID: String?,
+                         flowID: String?,
+                         deviceSessionID: String?,
+                         canSendMetrics: Bool,
                          reply: @escaping (String?, [CKRecord], TPSyncingPolicy?, Error?) -> Void) {
         let sem = self.grabSemaphore()
         let reply: (String?, [CKRecord], TPSyncingPolicy?, Error?) -> Void = {
@@ -6016,6 +6208,10 @@ class Container: NSObject, ConfiguredCloudKit {
                         self.onqueueEstablish(ckksKeys: ckksKeys,
                                               tlkShares: tlkShares,
                                               preapprovedKeys: preapprovedKeys,
+                                              altDSID: altDSID,
+                                              flowID: flowID,
+                                              deviceSessionID: deviceSessionID,
+                                              canSendMetrics: canSendMetrics,
                                               reply: reply)
                         return
                     }

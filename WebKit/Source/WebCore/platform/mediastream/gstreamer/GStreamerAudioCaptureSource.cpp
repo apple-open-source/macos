@@ -40,7 +40,7 @@ static DoubleCapabilityRange defaultVolumeCapability()
 {
     return { 0.0, 1.0 };
 }
-const static RealtimeMediaSourceCapabilities::EchoCancellation defaultEchoCancellationCapability = RealtimeMediaSourceCapabilities::EchoCancellation::ReadWrite;
+const static RealtimeMediaSourceCapabilities::EchoCancellation defaultEchoCancellationCapability = RealtimeMediaSourceCapabilities::EchoCancellation::OnOrOff;
 
 GST_DEBUG_CATEGORY(webkit_audio_capture_source_debug);
 #define GST_CAT_DEFAULT webkit_audio_capture_source_debug
@@ -98,7 +98,7 @@ GStreamerAudioCaptureSource::GStreamerAudioCaptureSource(GStreamerCaptureDevice&
     });
 
     auto& singleton = GStreamerAudioCaptureDeviceManager::singleton();
-    singleton.registerCapturer(m_capturer);
+    singleton.registerCapturer(m_capturer.copyRef());
 }
 
 GStreamerAudioCaptureSource::~GStreamerAudioCaptureSource()
@@ -111,6 +111,14 @@ void GStreamerAudioCaptureSource::captureEnded()
 {
     m_capturer->stop();
     captureFailed();
+}
+
+std::pair<GstClockTime, GstClockTime> GStreamerAudioCaptureSource::queryCaptureLatency() const
+{
+    if (!m_capturer)
+        return { GST_CLOCK_TIME_NONE, GST_CLOCK_TIME_NONE };
+
+    return m_capturer->queryLatency();
 }
 
 void GStreamerAudioCaptureSource::startProducingData()

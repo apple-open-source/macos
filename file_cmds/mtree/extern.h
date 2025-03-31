@@ -47,7 +47,7 @@ char	*escape_path(char *string);
 struct timespec	ptime(char *path, int *supported);
 
 const char	*inotype(u_int);
-u_int	 parsekey(char *, int *);
+u_int64_t	 parsekey(char *, int *);
 char	*rlink(char *);
 NODE	*mtree_readspec(FILE *fi);
 int	mtree_verifyspec(FILE *fi);
@@ -60,7 +60,7 @@ const char * ftype(u_int type);
 
 extern int ftsoptions;
 extern int xattr_options;
-extern u_int keys;
+extern u_int64_t keys;
 extern int lineno;
 extern int dflag, eflag, iflag, nflag, qflag, rflag, sflag, uflag, wflag, mflag, tflag, xflag;
 extern int insert_mod, insert_birth, insert_access, insert_change, insert_parent;

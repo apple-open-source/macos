@@ -1,0 +1,64 @@
+-----BEGIN PGP SIGNED MESSAGE-----
+
+# netlib-bl master Sun Oct 29 04:44:48 EST 2006
+# http://cm.bell-labs.com/netlib/crc/netlib-bl.html
+fyPtuwH6bFwKUcY263edzA	00lastchange
+fly3ZKomK206GNH46wxSFQ	README
+qosC46L1pu5gyDYf6gkBeA	changes
+Yrjzy3qMAF2HkSn5epGX6g	disclaimer
+F345KmWVpdP3bJkyG1hYuw	f2c.1
+P9Inhk/7xaifTvBs3ayVUg	f2c.1t
+uCBnCwhHF1lHUnE0rGdjLg	f2c.h
+KoTW0vdEEteiiOchBw1iuA	f2c.pdf
+lZXtU687uJADS6DbdQlMDg	f2c.ps
+2uNN5gPIDvaJMfrtQIpSxw	fc
+JOD2ZC/kDcVZbv4LHuvqdw	fixlog
+hfcSe0J/Ms21jOUSm0Dv7w	getopt.c
+2r9d/Go37PRM4KjvHkI02Q	index
+ue5ebgoqq9Lp899xjs377A	libf2c.zip
+O/TqQ82nJEUC/RmonEDSzw	libf77
+OOmkboAzOZoQAVNdaNobmQ	libi77
+JOAQtI7OATPEPHcgO29oOA	permission
+
+-----BEGIN PGP SIGNATURE-----
+Version: 2.6.2
+
+iQCVAwUBRUR4Eb5pvxO9gjtZAQE7DAP/Yre8hEKzNxHB1xi/hUKUFXi00zhRPA0K
+P5xmu9EHYEaYCny/zvLIhzwCtn48fcIG+Uq1l6AzapT4QoutU2273JgUjnvVp3oQ
+cmMX4LgBaZu6vPaVPaTB8BAbzcvs0vDFCB9utF59S3gTdAPpofB0T9EwaetnAtzE
+F+DQWLxd6KM=
+=zuTo
+-----END PGP SIGNATURE-----
+-----BEGIN PGP SIGNED MESSAGE-----
+
+# netlib-utk master Wed Aug 3 03:15:56 EDT 2011
+97+mbwKBV2UXkpxnTPKMwg	00lastchange
+UyaNj9EKdXjvSo9OiIfdBQ	README
+iybQw/BZCpFLpUlnBwVB+A	changes
+DhuHpjwRF5I5i9q6q0RZ6Q	directory
+Yrjzy3qMAF2HkSn5epGX6g	disclaimer
+F345KmWVpdP3bJkyG1hYuw	f2c.1
+P9Inhk/7xaifTvBs3ayVUg	f2c.1t
+uCBnCwhHF1lHUnE0rGdjLg	f2c.h
+KoTW0vdEEteiiOchBw1iuA	f2c.pdf
+lZXtU687uJADS6DbdQlMDg	f2c.ps
+3N9q+9liBGYr8QWUt0TLRA	fc
+JOD2ZC/kDcVZbv4LHuvqdw	fixlog
+hfcSe0J/Ms21jOUSm0Dv7w	getopt.c
+xAZ3f3jUmxSd0jE90XEecQ	index
+K2vt/zANbXVZfiBPNQanog	index.html
+3GriubMzR/64vcw8Pe+Lnw	libf2c.zip
+O/TqQ82nJEUC/RmonEDSzw	libf77
+OOmkboAzOZoQAVNdaNobmQ	libi77
+JOAQtI7OATPEPHcgO29oOA	permission
+UyaNj9EKdXjvSo9OiIfdBQ	readme
+
+-----BEGIN PGP SIGNATURE-----
+Version: 2.6.2
+
+iQCVAwUBTjj1r+FlxDEfrjtlAQGlKwQAhLTG4SBqi7GTkFu/2cbYOk5YMSdUgnyf
+yMBt0l05c8oK/Iai+p/C4TwH/D/VGK+ZibhbhAy2UHPpxj6QhaTadplB2twAOrIN
+Xk1kLPSPclMv9N+7/THip1klCSZ/hsOebgpOawA2NsTkZ0I0KKJPAFn7e2YP5iwz
+caqtZAsZ6r8=
+=Mz/y
+-----END PGP SIGNATURE-----

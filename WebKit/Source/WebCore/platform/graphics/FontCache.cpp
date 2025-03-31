@@ -52,6 +52,10 @@
 #include "OpenTypeVerticalData.h"
 #endif
 
+#if PLATFORM(WIN)
+#include <dwrite.h>
+#endif
+
 namespace WebCore {
 
 WTF_MAKE_TZONE_ALLOCATED_IMPL(FontCache);
@@ -115,10 +119,10 @@ struct FontDataCacheKeyTraits : WTF::GenericHashTraits<FontPlatformData> {
     }
 };
 
-using FontPlatformDataCache = HashMap<FontPlatformDataCacheKey, std::unique_ptr<FontPlatformData>, FontPlatformDataCacheKeyHash, FontPlatformDataCacheKeyHashTraits>;
-using FontDataCache = HashMap<FontPlatformData, Ref<Font>, FontDataCacheKeyHash, FontDataCacheKeyTraits>;
+using FontPlatformDataCache = UncheckedKeyHashMap<FontPlatformDataCacheKey, std::unique_ptr<FontPlatformData>, FontPlatformDataCacheKeyHash, FontPlatformDataCacheKeyHashTraits>;
+using FontDataCache = UncheckedKeyHashMap<FontPlatformData, Ref<Font>, FontDataCacheKeyHash, FontDataCacheKeyTraits>;
 #if ENABLE(OPENTYPE_VERTICAL)
-using FontVerticalDataCache = HashMap<FontPlatformData, RefPtr<OpenTypeVerticalData>, FontDataCacheKeyHash, FontDataCacheKeyTraits>;
+using FontVerticalDataCache = UncheckedKeyHashMap<FontPlatformData, RefPtr<OpenTypeVerticalData>, FontDataCacheKeyHash, FontDataCacheKeyTraits>;
 #endif
 
 struct FontCache::FontDataCaches {
@@ -462,7 +466,7 @@ bool FontCache::useBackslashAsYenSignForFamily(const AtomString& family)
     if (m_familiesUsingBackslashAsYenSign.isEmpty()) {
         auto add = [&] (ASCIILiteral name, std::initializer_list<UChar> unicodeName) {
             m_familiesUsingBackslashAsYenSign.add(AtomString { name });
-            m_familiesUsingBackslashAsYenSign.add(AtomString({ unicodeName.begin(), unicodeName.size() }));
+            m_familiesUsingBackslashAsYenSign.add(AtomString(std::span { unicodeName }));
         };
         add("MS PGothic"_s, { 0xFF2D, 0xFF33, 0x0020, 0xFF30, 0x30B4, 0x30B7, 0x30C3, 0x30AF });
         add("MS PMincho"_s, { 0xFF2D, 0xFF33, 0x0020, 0xFF30, 0x660E, 0x671D });

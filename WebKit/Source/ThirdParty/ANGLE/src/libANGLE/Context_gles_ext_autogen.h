@@ -14,6 +14,7 @@
                                                                                                    \
     /* GLES1 Extensions */                                                                         \
                                                                                                    \
+    /* GL_OES_blend_subtract */                                                                    \
     /* GL_OES_draw_texture */                                                                      \
     void drawTexf(GLfloat x, GLfloat y, GLfloat z, GLfloat width, GLfloat height);                 \
     void drawTexfv(const GLfloat *coords);                                                         \
@@ -44,6 +45,7 @@
     void texGeniv(GLenum coord, GLenum pname, const GLint *params);                                \
     void texGenx(GLenum coord, GLenum pname, GLfixed param);                                       \
     void texGenxv(GLenum coord, GLenum pname, const GLfixed *params);                              \
+    /* GL_OES_texture_mirrored_repeat */                                                           \
                                                                                                    \
     /* GLES2+ Extensions */                                                                        \
                                                                                                    \
@@ -75,7 +77,9 @@
                                    GLchar *source);                                                \
     /* GL_APPLE_clip_distance */                                                                   \
     /* GL_ARB_sync */                                                                              \
+    /* GL_ARM_rgba8 */                                                                             \
     /* GL_ARM_shader_framebuffer_fetch */                                                          \
+    /* GL_ARM_shader_framebuffer_fetch_depth_stencil */                                            \
     /* GL_EXT_EGL_image_array */                                                                   \
     /* GL_EXT_EGL_image_external_wrap_modes */                                                     \
     /* GL_EXT_EGL_image_storage */                                                                 \
@@ -83,6 +87,7 @@
                                   const GLint *attrib_list);                                       \
     void eGLImageTargetTextureStorage(GLuint texture, egl::ImageID imagePacked,                    \
                                       const GLint *attrib_list);                                   \
+    /* GL_EXT_EGL_image_storage_compression */                                                     \
     /* GL_EXT_YUV_target */                                                                        \
     /* GL_EXT_base_instance */                                                                     \
     void drawArraysInstancedBaseInstance(PrimitiveMode modePacked, GLint first, GLsizei count,     \
@@ -215,6 +220,7 @@
                        const TextureID *texturesPacked, const GLenum *srcLayouts);                 \
     /* GL_EXT_semaphore_fd */                                                                      \
     void importSemaphoreFd(SemaphoreID semaphorePacked, HandleType handleTypePacked, GLint fd);    \
+    /* GL_EXT_separate_depth_stencil */                                                            \
     /* GL_EXT_separate_shader_objects */                                                           \
     /* GL_EXT_shader_framebuffer_fetch */                                                          \
     /* GL_EXT_shader_framebuffer_fetch_non_coherent */                                             \
@@ -240,12 +246,19 @@
     /* GL_EXT_texture_format_sRGB_override */                                                      \
     /* GL_EXT_texture_mirror_clamp_to_edge */                                                      \
     /* GL_EXT_texture_norm16 */                                                                    \
+    /* GL_EXT_texture_query_lod */                                                                 \
     /* GL_EXT_texture_rg */                                                                        \
     /* GL_EXT_texture_sRGB_R8 */                                                                   \
     /* GL_EXT_texture_sRGB_RG8 */                                                                  \
     /* GL_EXT_texture_sRGB_decode */                                                               \
+    /* GL_EXT_texture_shadow_lod */                                                                \
     /* GL_EXT_texture_storage */                                                                   \
     void texStorage1D(GLenum target, GLsizei levels, GLenum internalformat, GLsizei width);        \
+    /* GL_EXT_texture_storage_compression */                                                       \
+    void texStorageAttribs2D(GLenum target, GLsizei levels, GLenum internalformat, GLsizei width,  \
+                             GLsizei height, const GLint *attrib_list);                            \
+    void texStorageAttribs3D(GLenum target, GLsizei levels, GLenum internalformat, GLsizei width,  \
+                             GLsizei height, GLsizei depth, const GLint *attrib_list);             \
     /* GL_EXT_texture_type_2_10_10_10_REV */                                                       \
     /* GL_EXT_unpack_subimage */                                                                   \
     /* GL_IMG_texture_compression_pvrtc */                                                         \
@@ -319,6 +332,7 @@
     void *mapBuffer(BufferBinding targetPacked, GLenum access);                                    \
     /* GL_OES_packed_depth_stencil */                                                              \
     /* GL_OES_primitive_bounding_box */                                                            \
+    /* GL_OES_required_internalformat */                                                           \
     /* GL_OES_rgb8_rgba8 */                                                                        \
     /* GL_OES_sample_shading */                                                                    \
     /* GL_OES_sample_variables */                                                                  \
@@ -384,6 +398,9 @@
         const void *const *indices, const GLsizei *instanceCounts, const GLint *baseVertices,      \
         const GLuint *baseInstances, GLsizei drawcount);                                           \
     /* GL_ANGLE_base_vertex_base_instance_shader_builtin */                                        \
+    /* GL_ANGLE_blob_cache */                                                                      \
+    void blobCacheCallbacks(GLSETBLOBPROCANGLE set, GLGETBLOBPROCANGLE get,                        \
+                            const void *userParam);                                                \
     /* GL_ANGLE_client_arrays */                                                                   \
     /* GL_ANGLE_clip_cull_distance */                                                              \
     /* GL_ANGLE_compressed_texture_etc */                                                          \

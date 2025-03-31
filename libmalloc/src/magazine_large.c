@@ -55,7 +55,7 @@ large_debug_print(task_t task, unsigned level, vm_address_t zone_address,
 			if (range->address) {
 				_simple_sprintf(b, "   Slot %5d: %p, size %y", index,
 						(void *)range->address, range->size);
-#if CONFIG_DEFERRED_RECLAIM
+#if CONFIG_MAGAZINE_DEFERRED_RECLAIM
 				_simple_sprintf(b, "%s\n",
 						((range->size + 2 * large_vm_page_quanta_size <= UINT32_MAX &&
 						mvm_reclaim_is_available(range->reclaim_index))
@@ -63,7 +63,7 @@ large_debug_print(task_t task, unsigned level, vm_address_t zone_address,
 #else
 				_simple_sprintf(b, "%s\n",
 						(range->did_madvise_reusable ? ", madvised" : ""));
-#endif // CONFIG_DEFERRED_RECLAIM
+#endif // CONFIG_MAGAZINE_DEFERRED_RECLAIM
 			}
 		}
 
@@ -88,7 +88,7 @@ large_debug_print(task_t task, unsigned level, vm_address_t zone_address,
 				} else if (index == mapped_szone->large_entry_cache_oldest) {
 					age = "[oldest]";
 				}
-#if CONFIG_DEFERRED_RECLAIM
+#if CONFIG_MAGAZINE_DEFERRED_RECLAIM
 				_simple_sprintf(b, "%s\n",
 						((range->size + 2 * large_vm_page_quanta_size <= UINT32_MAX &&
 						mvm_reclaim_is_available(range->reclaim_index))
@@ -96,7 +96,7 @@ large_debug_print(task_t task, unsigned level, vm_address_t zone_address,
 #else
 				_simple_sprintf(b, "%s\n",
 						(range->did_madvise_reusable ? ", madvised" : ""));
-#endif // CONFIG_DEFERRED_RECLAIM
+#endif // CONFIG_MAGAZINE_DEFERRED_RECLAIM
 			}
 			_simple_sprintf(b, "\n");
 		}
@@ -254,11 +254,11 @@ large_entry_grow_and_insert_no_lock(szone_t *szone, vm_address_t addr, vm_size_t
 	large_entry_t large_entry;
 	large_entry.address = addr;
 	large_entry.size = size;
-#if CONFIG_DEFERRED_RECLAIM
-	large_entry.reclaim_index = VM_RECLAIM_INDEX_NULL;
+#if CONFIG_MAGAZINE_DEFERRED_RECLAIM
+	large_entry.reclaim_index = VM_RECLAIM_ID_NULL;
 #else
 	large_entry.did_madvise_reusable = FALSE;
-#endif // CONFIG_DEFERRED_RECLAIM
+#endif // CONFIG_MAGAZINE_DEFERRED_RECLAIM
 	large_entry_insert_no_lock(szone, large_entry);
 
 	szone->num_large_objects_in_use++;
@@ -288,11 +288,11 @@ large_entries_rehash_after_entry_no_lock(szone_t *szone, large_entry_t *entry)
 		}
 		szone->large_entries[index].address = (vm_address_t)0;
 		szone->large_entries[index].size = 0;
-#if CONFIG_DEFERRED_RECLAIM
-		szone->large_entries[index].reclaim_index = VM_RECLAIM_INDEX_NULL;
+#if CONFIG_MAGAZINE_DEFERRED_RECLAIM
+		szone->large_entries[index].reclaim_index = VM_RECLAIM_ID_NULL;
 #else
 		szone->large_entries[index].did_madvise_reusable = FALSE;
-#endif // CONFIG_DEFERRED_RECLAIM
+#endif // CONFIG_MAGAZINE_DEFERRED_RECLAIM
 		large_entry_insert_no_lock(szone, range); // this will reinsert in the
 		// proper place
 	} while (index != hash_index);
@@ -382,11 +382,11 @@ large_entry_free_no_lock(szone_t *szone, large_entry_t *entry)
 
 	entry->address = 0;
 	entry->size = 0;
-#if CONFIG_DEFERRED_RECLAIM
-	entry->reclaim_index = VM_RECLAIM_INDEX_NULL;
+#if CONFIG_MAGAZINE_DEFERRED_RECLAIM
+	entry->reclaim_index = VM_RECLAIM_ID_NULL;
 #else
 	entry->did_madvise_reusable = FALSE;
-#endif // CONFIG_DEFERRED_RECLAIM
+#endif // CONFIG_MAGAZINE_DEFERRED_RECLAIM
 	large_entries_rehash_after_entry_no_lock(szone, entry);
 
 #if DEBUG_MALLOC
@@ -532,11 +532,11 @@ remove_from_death_row_no_lock(szone_t *szone, int idx, int *best)
 
 		szone->large_entry_cache[idx].address = 0;
 		szone->large_entry_cache[idx].size = 0;
-#if CONFIG_DEFERRED_RECLAIM
-		szone->large_entry_cache[idx].reclaim_index = VM_RECLAIM_INDEX_NULL;
+#if CONFIG_MAGAZINE_DEFERRED_RECLAIM
+		szone->large_entry_cache[idx].reclaim_index = VM_RECLAIM_ID_NULL;
 #else
 		szone->large_entry_cache[idx].did_madvise_reusable = FALSE;
-#endif // CONFIG_DEFERRED_RECLAIM 
+#endif // CONFIG_MAGAZINE_DEFERRED_RECLAIM
 		next_idx = -1;
 	}
 
@@ -562,8 +562,8 @@ large_malloc_best_fit_in_cache(szone_t *szone, size_t size, unsigned char alignm
 
 		if (0 == alignment || 0 == (((uintptr_t)addr) & (((uintptr_t)1 << alignment) - 1))) {
 			if (size == this_size || (size < this_size && this_size < best_size)) {
-#if CONFIG_DEFERRED_RECLAIM
-				uint64_t reclaim_index = szone->large_entry_cache[idx].reclaim_index;
+#if CONFIG_MAGAZINE_DEFERRED_RECLAIM
+				mach_vm_reclaim_id_t reclaim_index = szone->large_entry_cache[idx].reclaim_index;
 				if (best_size + 2 * large_vm_page_quanta_size <= UINT32_MAX &&
 						!mvm_reclaim_is_available(reclaim_index)) {
 					// Kernel has already reclaimed this entry or
@@ -578,7 +578,7 @@ large_malloc_best_fit_in_cache(szone_t *szone, size_t size, unsigned char alignm
 						continue;
 					}
 				}
-#endif // CONFIG_DEFERRED_RECLAIM
+#endif // CONFIG_MAGAZINE_DEFERRED_RECLAIM
 				best = idx;
 				best_size = this_size;
 				if (size == this_size) {
@@ -630,10 +630,10 @@ large_malloc_from_cache(szone_t *szone, size_t size, unsigned char alignment, bo
 			SZONE_UNLOCK(szone);
 			return NULL;
 		} else {
-#if CONFIG_DEFERRED_RECLAIM
+#if CONFIG_MAGAZINE_DEFERRED_RECLAIM
 			if (entry.size + 2 * large_vm_page_quanta_size <= UINT32_MAX &&
 					!mvm_reclaim_mark_used(entry.reclaim_index, entry.address,
-					(uint32_t) entry.size, szone->debug_flags)) {
+					entry.size, szone->debug_flags)) {
 				// Entry has been reclaimed by the kernel since we put it in the death row cache
 				// large_malloc_best_fit_in_cache already removed it from the cache.
 				// Let's search the cache again to see if there's another entry we can use.
@@ -643,7 +643,7 @@ large_malloc_from_cache(szone_t *szone, size_t size, unsigned char alignment, bo
 				// will clear out any entries that were reclaimed before this one.
 				continue;
 			}
-#endif // CONFIG_DEFERRED_RECLAIM
+#endif // CONFIG_MAGAZINE_DEFERRED_RECLAIM
 			/* Got an entry */
 			break;
 		}
@@ -659,11 +659,11 @@ large_malloc_from_cache(szone_t *szone, size_t size, unsigned char alignment, bo
 		SZONE_UNLOCK(szone);
 		return NULL;
 	}
-#if CONFIG_DEFERRED_RECLAIM
+#if CONFIG_MAGAZINE_DEFERRED_RECLAIM
 	was_madvised_reusable = true;
 #else
 	was_madvised_reusable = entry.did_madvise_reusable;
-#endif // CONFIG_DEFERRED_RECLAIM
+#endif // CONFIG_MAGAZINE_DEFERRED_RECLAIM
 	if (!was_madvised_reusable) {
 		szone->large_entry_cache_reserve_bytes -= entry.size;
 	}
@@ -752,18 +752,18 @@ free_large(szone_t *szone, void *ptr, bool try)
 #if CONFIG_LARGE_CACHE
 		if (large_cache_enabled &&
 				entry->size <= szone->large_cache_entry_limit
-#if !CONFIG_DEFERRED_RECLAIM
+#if !CONFIG_MAGAZINE_DEFERRED_RECLAIM
 				&& -1 != madvise((void *)(entry->address), entry->size, MADV_CAN_REUSE)
-#endif // CONFIG_DEFERRED_RECLAIM
+#endif // CONFIG_MAGAZINE_DEFERRED_RECLAIM
 				) { // Put the large_entry_t on the death-row cache?
 				int idx = szone->large_entry_cache_newest, stop_idx = szone->large_entry_cache_oldest;
 				// Make a local copy, we'll free the entry from the lookup table
 				// before dropping the lock.
 				large_entry_t this_entry = *entry;
-#if !CONFIG_DEFERRED_RECLAIM
+#if !CONFIG_MAGAZINE_DEFERRED_RECLAIM
 				boolean_t should_madvise = szone->large_entry_cache_reserve_bytes +
 						this_entry.size > szone->large_entry_cache_reserve_limit;
-#endif // !CONFIG_DEFERRED_RECLAIM
+#endif // !CONFIG_MAGAZINE_DEFERRED_RECLAIM
 				boolean_t reusable = TRUE;
 
 				// Already freed?
@@ -772,9 +772,9 @@ free_large(szone_t *szone, void *ptr, bool try)
 				// is accommodated, matching the behavior of the previous implementation.]
 				while (1) { // Scan large_entry_cache starting with most recent entry
 					vm_address_t addr = szone->large_entry_cache[idx].address;
-#if CONFIG_DEFERRED_RECLAIM
+#if CONFIG_MAGAZINE_DEFERRED_RECLAIM
 					vm_size_t curr_size = szone->large_entry_cache[idx].size;
-					uint64_t reclaim_index = szone->large_entry_cache[idx].reclaim_index;
+					mach_vm_reclaim_id_t reclaim_index = szone->large_entry_cache[idx].reclaim_index;
 					if (curr_size + 2 * large_vm_page_quanta_size <= UINT32_MAX &&
 							!mvm_reclaim_is_available(reclaim_index)) {
 						// Entry has been reclaimed
@@ -790,24 +790,24 @@ free_large(szone_t *szone, void *ptr, bool try)
 
 						continue;
 					}
-#endif // CONFIG_DEFERRED_RECLAIM
+#endif // CONFIG_MAGAZINE_DEFERRED_RECLAIM
 					if (addr == entry->address) {
-#if CONFIG_DEFERRED_RECLAIM
+#if CONFIG_MAGAZINE_DEFERRED_RECLAIM
 						if (curr_size + 2 * large_vm_page_quanta_size <= UINT32_MAX) {
 							// mvm_reclaim_is_available doesn't actually synchronize with the kernel,
 							// so in order to confidently say this was a double free
 							// we need to make sure the entry was not reclaimed.
-							if (!mvm_reclaim_mark_used(reclaim_index, addr, (uint32_t) curr_size, szone->debug_flags)) {
+							if (!mvm_reclaim_mark_used(reclaim_index, addr, curr_size, szone->debug_flags)) {
 								// This entry has been reclaimed, so it's not a double-free. continue
 								break;
 							}
 							// This is a double free, but we just took the entry
 							// out of the reclaim buffer. Put it back.
 							szone->large_entry_cache[idx].reclaim_index =
-							    mvm_reclaim_mark_free(addr, (uint32_t) curr_size, szone->debug_flags);
+							    mvm_reclaim_mark_free(addr, curr_size, szone->debug_flags);
 							reclaim_index = szone->large_entry_cache[idx].reclaim_index;
 						}
-#endif // CONFIG_DEFERRED_RECLAIM
+#endif // CONFIG_MAGAZINE_DEFERRED_RECLAIM
 						malloc_zone_error(szone->debug_flags, true, "pointer %p being freed already on death-row\n", ptr);
 						SZONE_UNLOCK(szone);
 						return true;
@@ -850,7 +850,7 @@ free_large(szone_t *szone, void *ptr, bool try)
 
 				// madvise(..., MADV_REUSABLE) death-row arrivals if hoarding would exceed large_entry_cache_reserve_limit
 
-#if CONFIG_DEFERRED_RECLAIM
+#if CONFIG_MAGAZINE_DEFERRED_RECLAIM
 				if (reusable) {
 					if ((szone->debug_flags & MALLOC_DO_SCRIBBLE)) {
 						memset((void *)(this_entry.address), SCRUBBLE_BYTE, this_entry.size);
@@ -861,7 +861,7 @@ free_large(szone_t *szone, void *ptr, bool try)
 						reusable = false;
 					}
 					this_entry.reclaim_index = mvm_reclaim_mark_free(this_entry.address,
-					    (uint32_t) this_entry.size, szone->debug_flags);
+					    this_entry.size, szone->debug_flags);
 					// NB: At this point this_entry.address could be reclaimed
 				}
 #else
@@ -883,7 +883,7 @@ free_large(szone_t *szone, void *ptr, bool try)
 						reusable = FALSE;
 					}
 				}
-#endif // CONFIG_DEFERRED_RECLAIM
+#endif // CONFIG_MAGAZINE_DEFERRED_RECLAIM
 
 				SZONE_LOCK(szone);
 
@@ -895,9 +895,9 @@ free_large(szone_t *szone, void *ptr, bool try)
 					int idx = szone->large_entry_cache_newest; // Most recently occupied
 					vm_address_t addr;
 					size_t adjsize;
-#if CONFIG_DEFERRED_RECLAIM
-					uint64_t old_reclaim_index;
-#endif // CONFIG_DEFERRED_RECLAIM
+#if CONFIG_MAGAZINE_DEFERRED_RECLAIM
+					mach_vm_reclaim_id_t old_reclaim_index;
+#endif // CONFIG_MAGAZINE_DEFERRED_RECLAIM
 
 					if (szone->large_entry_cache_newest == szone->large_entry_cache_oldest &&
 						0 == szone->large_entry_cache[idx].address) {
@@ -916,13 +916,13 @@ free_large(szone_t *szone, void *ptr, bool try)
 							addr = szone->large_entry_cache[idx].address;
 							adjsize = szone->large_entry_cache[idx].size;
 							szone->large_entry_cache_bytes -= adjsize;
-#if CONFIG_DEFERRED_RECLAIM
+#if CONFIG_MAGAZINE_DEFERRED_RECLAIM
 							old_reclaim_index = szone->large_entry_cache[idx].reclaim_index;
 #else
 							if (!szone->large_entry_cache[idx].did_madvise_reusable) {
 								szone->large_entry_cache_reserve_bytes -= adjsize;
 							}
-#endif // CONFIG_DEFERRED_RECLAIM
+#endif // CONFIG_MAGAZINE_DEFERRED_RECLAIM
 						} else {
 							// Using an unoccupied cache slot
 							addr = 0;
@@ -930,7 +930,7 @@ free_large(szone_t *szone, void *ptr, bool try)
 						}
 					}
 
-#if !CONFIG_DEFERRED_RECLAIM
+#if !CONFIG_MAGAZINE_DEFERRED_RECLAIM
 					if ((szone->debug_flags & MALLOC_DO_SCRIBBLE)) {
 						memset((void *)(this_entry.address), should_madvise ?
 								SCRUBBLE_BYTE : SCRABBLE_BYTE, this_entry.size);
@@ -940,7 +940,7 @@ free_large(szone_t *szone, void *ptr, bool try)
 						// Entered on death-row without madvise() => up the hoard total
 						szone->large_entry_cache_reserve_bytes += this_entry.size;
 					}
-#endif // !CONFIG_DEFERRED_RECLAIM
+#endif // !CONFIG_MAGAZINE_DEFERRED_RECLAIM
 
 					szone->large_entry_cache_bytes += this_entry.size;
 
@@ -969,16 +969,16 @@ free_large(szone_t *szone, void *ptr, bool try)
 					// we deallocate_pages, including guard pages, outside the lock
 					SZONE_UNLOCK(szone);
 
-#if CONFIG_DEFERRED_RECLAIM
+#if CONFIG_MAGAZINE_DEFERRED_RECLAIM
 					// Need to take ownership of the allocation before trying to deallocate it.
 					if (adjsize + 2 * large_vm_page_quanta_size <= UINT32_MAX &&
 							mvm_reclaim_mark_used(old_reclaim_index, addr,
-							(uint32_t) adjsize, szone->debug_flags)) {
+							adjsize, szone->debug_flags)) {
 						mvm_deallocate_pages((void *)addr, (size_t)adjsize, szone->debug_flags);
 					}
 #else
 					mvm_deallocate_pages((void *)addr, (size_t)adjsize, 0);
-#endif // CONFIG_DEFERRED_RECLAIM
+#endif // CONFIG_MAGAZINE_DEFERRED_RECLAIM
 					return true;
 				} else {
 					// fall through to deallocate vm_range_to_deallocate
@@ -1126,18 +1126,18 @@ large_clear_cache_locked(szone_t *szone)
 static void
 large_deallocate_cache_entry(szone_t *szone, large_entry_t *entry)
 {
-#if CONFIG_DEFERRED_RECLAIM
+#if CONFIG_MAGAZINE_DEFERRED_RECLAIM
 	// If we're using deferred reclaim, we have to first take ownership of the entry back
 	// out of the reclaim buffer. If we fail to get the entry, then it's already been
 	// reclaimed.
 	if (entry->size > UINT32_MAX ||
 		mvm_reclaim_mark_used(entry->reclaim_index, entry->address,
-				(uint32_t) entry->size, szone->debug_flags)) {
+				entry->size, szone->debug_flags)) {
 		mvm_deallocate_pages((void *)entry->address, entry->size, szone->debug_flags);
 	}
-#else // CONFIG_DEFERRED_RECLAIM
+#else // CONFIG_MAGAZINE_DEFERRED_RECLAIM
 	mvm_deallocate_pages((void *)entry->address, entry->size, szone->debug_flags);
-#endif // CONFIG_DEFERRED_RECLAIM
+#endif // CONFIG_MAGAZINE_DEFERRED_RECLAIM
 }
 
 void

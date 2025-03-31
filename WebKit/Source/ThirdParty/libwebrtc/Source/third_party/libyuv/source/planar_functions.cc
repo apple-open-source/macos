@@ -14,9 +14,6 @@
 #include <string.h>  // for memset()
 
 #include "libyuv/cpu_id.h"
-#ifdef HAVE_JPEG
-#include "libyuv/mjpeg_decoder.h"
-#endif
 #include "libyuv/row.h"
 #include "libyuv/scale_row.h"  // for ScaleRowDown2
 
@@ -149,6 +146,14 @@ void Convert16To8Plane(const uint16_t* src_y,
     Convert16To8Row = Convert16To8Row_Any_AVX2;
     if (IS_ALIGNED(width, 32)) {
       Convert16To8Row = Convert16To8Row_AVX2;
+    }
+  }
+#endif
+#if defined(HAS_CONVERT16TO8ROW_AVX512BW)
+  if (TestCpuFlag(kCpuHasAVX512BW)) {
+    Convert16To8Row = Convert16To8Row_Any_AVX512BW;
+    if (IS_ALIGNED(width, 64)) {
+      Convert16To8Row = Convert16To8Row_AVX512BW;
     }
   }
 #endif
@@ -3361,6 +3366,11 @@ int RAWToRGB24(const uint8_t* src_raw,
     }
   }
 #endif
+#if defined(HAS_RAWTORGB24ROW_SVE2)
+  if (TestCpuFlag(kCpuHasSVE2)) {
+    RAWToRGB24Row = RAWToRGB24Row_SVE2;
+  }
+#endif
 #if defined(HAS_RAWTORGB24ROW_MSA)
   if (TestCpuFlag(kCpuHasMSA)) {
     RAWToRGB24Row = RAWToRGB24Row_Any_MSA;
@@ -3741,6 +3751,11 @@ int ARGBGrayTo(const uint8_t* src_argb,
     ARGBGrayRow = ARGBGrayRow_NEON;
   }
 #endif
+#if defined(HAS_ARGBGRAYROW_NEON_DOTPROD)
+  if (TestCpuFlag(kCpuHasNeonDotProd) && IS_ALIGNED(width, 8)) {
+    ARGBGrayRow = ARGBGrayRow_NEON_DotProd;
+  }
+#endif
 #if defined(HAS_ARGBGRAYROW_MSA)
   if (TestCpuFlag(kCpuHasMSA) && IS_ALIGNED(width, 8)) {
     ARGBGrayRow = ARGBGrayRow_MSA;
@@ -3796,6 +3811,11 @@ int ARGBGray(uint8_t* dst_argb,
     ARGBGrayRow = ARGBGrayRow_NEON;
   }
 #endif
+#if defined(HAS_ARGBGRAYROW_NEON_DOTPROD)
+  if (TestCpuFlag(kCpuHasNeonDotProd) && IS_ALIGNED(width, 8)) {
+    ARGBGrayRow = ARGBGrayRow_NEON_DotProd;
+  }
+#endif
 #if defined(HAS_ARGBGRAYROW_MSA)
   if (TestCpuFlag(kCpuHasMSA) && IS_ALIGNED(width, 8)) {
     ARGBGrayRow = ARGBGrayRow_MSA;
@@ -3847,6 +3867,11 @@ int ARGBSepia(uint8_t* dst_argb,
 #if defined(HAS_ARGBSEPIAROW_NEON)
   if (TestCpuFlag(kCpuHasNEON) && IS_ALIGNED(width, 8)) {
     ARGBSepiaRow = ARGBSepiaRow_NEON;
+  }
+#endif
+#if defined(HAS_ARGBSEPIAROW_NEON_DOTPROD)
+  if (TestCpuFlag(kCpuHasNeonDotProd) && IS_ALIGNED(width, 8)) {
+    ARGBSepiaRow = ARGBSepiaRow_NEON_DotProd;
   }
 #endif
 #if defined(HAS_ARGBSEPIAROW_MSA)
@@ -3908,6 +3933,11 @@ int ARGBColorMatrix(const uint8_t* src_argb,
 #if defined(HAS_ARGBCOLORMATRIXROW_NEON)
   if (TestCpuFlag(kCpuHasNEON) && IS_ALIGNED(width, 8)) {
     ARGBColorMatrixRow = ARGBColorMatrixRow_NEON;
+  }
+#endif
+#if defined(HAS_ARGBCOLORMATRIXROW_NEON_I8MM)
+  if (TestCpuFlag(kCpuHasNeonI8MM) && IS_ALIGNED(width, 8)) {
+    ARGBColorMatrixRow = ARGBColorMatrixRow_NEON_I8MM;
   }
 #endif
 #if defined(HAS_ARGBCOLORMATRIXROW_MSA)

@@ -73,19 +73,29 @@ static int
 consolidate_storage_error(int error)
 {
 	switch (error) {
-	case XNUUPCALLS_STORAGEUPCALLSERROR_NOSUCHFILE:
-	case XNUUPCALLS_STORAGEUPCALLSERROR_IOERROR:
-	case XNUUPCALLS_STORAGEUPCALLSERROR_OUTOFMEMORY:
-	case XNUUPCALLS_STORAGEUPCALLSERROR_ACCESSERROR:
-	case XNUUPCALLS_STORAGEUPCALLSERROR_INVALIDARG:
-	case XNUUPCALLS_STORAGEUPCALLSERROR_NOSPACELEFT:
-	case XNUUPCALLS_STORAGEUPCALLSERROR_NOTSUPPORTED:
-	case XNUUPCALLS_STORAGEUPCALLSERROR_BUFFERTOOSMALL:
-	case XNUUPCALLS_STORAGEUPCALLSERROR_NAMETOOLONG:
-	case XNUUPCALLS_STORAGEUPCALLSERROR_UNKNOWN:
+	case XNUUPCALLSV2_STORAGEUPCALLSERROR_PERMISSIONDENIED:
+	case XNUUPCALLSV2_STORAGEUPCALLSERROR_NOSUCHFILE:
+	case XNUUPCALLSV2_STORAGEUPCALLSERROR_IOERROR:
+	case XNUUPCALLSV2_STORAGEUPCALLSERROR_OUTOFMEMORY:
+	case XNUUPCALLSV2_STORAGEUPCALLSERROR_ACCESSERROR:
+	case XNUUPCALLSV2_STORAGEUPCALLSERROR_FILEEXISTS:
+	case XNUUPCALLSV2_STORAGEUPCALLSERROR_NOTADIRECTORY:
+	case XNUUPCALLSV2_STORAGEUPCALLSERROR_ISADIRECTORY:
+	case XNUUPCALLSV2_STORAGEUPCALLSERROR_INVALIDARG:
+	case XNUUPCALLSV2_STORAGEUPCALLSERROR_NOSPACELEFT:
+	case XNUUPCALLSV2_STORAGEUPCALLSERROR_READONLYFILESYSTEM:
+	case XNUUPCALLSV2_STORAGEUPCALLSERROR_RESULTTOOLARGE:
+	case XNUUPCALLSV2_STORAGEUPCALLSERROR_RESOURCETEMPORARILYUNAVAILABLE:
+	case XNUUPCALLSV2_STORAGEUPCALLSERROR_NOTSUPPORTED:
+	case XNUUPCALLSV2_STORAGEUPCALLSERROR_BUFFERTOOSMALL:
+	case XNUUPCALLSV2_STORAGEUPCALLSERROR_NAMETOOLONG:
+	case XNUUPCALLSV2_STORAGEUPCALLSERROR_STALEFILEHANDLE:
+	case XNUUPCALLSV2_STORAGEUPCALLSERROR_AUTHENTICATIONERROR:
+	case XNUUPCALLSV2_STORAGEUPCALLSERROR_VALUETOOSMALL:
+	case XNUUPCALLSV2_STORAGEUPCALLSERROR_INTERNALERROR:
 		return error;
 	default:
-		return XNUUPCALLS_STORAGEUPCALLSERROR_UNKNOWN;
+		return XNUUPCALLSV2_STORAGEUPCALLSERROR_UNKNOWN;
 	}
 }
 
@@ -569,6 +579,38 @@ exclaves_storage_upcall_root(const uint8_t exclaveid[_Nonnull 32],
 }
 
 tb_error_t
+exclaves_storage_upcall_rootex(const uint32_t fstag,
+    const uint8_t exclaveid[_Nonnull 32],
+    tb_error_t (^completion)(xnuupcallsv2_storageupcallsprivate_rootex__result_s))
+{
+	exclaves_debug_printf(show_storage_upcalls,
+	    "[storage_upcalls_server] rootex tag %u exclaveid %s\n", fstag, exclaveid);
+
+	int error;
+	uint64_t rootid;
+	xnuupcallsv2_storageupcallsprivate_rootex__result_s result = {};
+
+	if ((error = verify_string_length((const char *)&exclaveid[0], 32))) {
+		xnuupcallsv2_storageupcallsprivate_rootex__result_init_failure(&result, error);
+		return completion(result);
+	}
+	error = vfs_exclave_fs_root_ex(fstag, (const char *)&exclaveid[0], &rootid);
+	if (error) {
+		exclaves_debug_printf(show_errors,
+		    "[storage_upcalls_server] vfs_exclave_fs_rootex failed with %d\n",
+		    error);
+		xnuupcallsv2_storageupcallsprivate_rootex__result_init_failure(&result, error);
+	} else {
+		exclaves_debug_printf(show_storage_upcalls,
+		    "[storage_upcalls_server] vfs_exclave_fs_rootex return "
+		    "rootId %lld\n", rootid);
+		xnuupcallsv2_storageupcallsprivate_rootex__result_init_success(&result, rootid);
+	}
+
+	return completion(result);
+}
+
+tb_error_t
 exclaves_storage_upcall_open(const uint32_t fstag,
     const uint64_t rootid, const uint8_t name[_Nonnull 256],
     tb_error_t (^completion)(xnuupcallsv2_storageupcallsprivate_open__result_s))
@@ -789,6 +831,9 @@ exclaves_storage_upcall_sync(const uint32_t fstag,
 	case XNUUPCALLSV2_SYNCOP__FULL:
 		_op = EXCLAVE_FS_SYNC_OP_FULL;
 		break;
+	case XNUUPCALLSV2_SYNCOP__UBC:
+		_op = EXCLAVE_FS_SYNC_OP_UBC;
+		break;
 	default:
 		// unknown op, set to selector value for debug
 		_op = op->tag;
@@ -902,6 +947,37 @@ exclaves_storage_upcall_sealstate(const uint32_t fstag,
 		exclaves_debug_printf(show_storage_upcalls,
 		    "[storage_upcalls_server] vfs_exclave_fs_sealstate succeeded\n");
 		xnuupcallsv2_storageupcallsprivate_sealstate__result_init_success(&result, sealed);
+	}
+
+	return completion(result);
+}
+
+tb_error_t
+exclaves_storage_upcall_queryvolumegroup(const uint8_t vguuid[_Nonnull 37],
+    tb_error_t (^completion)(xnuupcallsv2_storageupcallsprivate_queryvolumegroup__result_s))
+{
+	exclaves_debug_printf(show_storage_upcalls,
+	    "[storage_upcalls_server] queryvolumegroup exclaveid %s\n", vguuid);
+
+	int error;
+	bool exists;
+	xnuupcallsv2_storageupcallsprivate_queryvolumegroup__result_s result = {};
+
+	if ((error = verify_string_length((const char *)vguuid, 37))) {
+		xnuupcallsv2_storageupcallsprivate_queryvolumegroup__result_init_failure(&result, error);
+		return completion(result);
+	}
+	error = vfs_exclave_fs_query_volume_group((const char *)&vguuid[0], &exists);
+	if (error) {
+		exclaves_debug_printf(show_errors,
+		    "[storage_upcalls_server] vfs_exclave_fs_queryvolumegroup failed with %d\n",
+		    error);
+		xnuupcallsv2_storageupcallsprivate_queryvolumegroup__result_init_failure(&result, error);
+	} else {
+		exclaves_debug_printf(show_storage_upcalls,
+		    "[storage_upcalls_server] vfs_exclave_fs_queryvolumegroup return "
+		    "exists %d\n", exists);
+		xnuupcallsv2_storageupcallsprivate_queryvolumegroup__result_init_success(&result, exists);
 	}
 
 	return completion(result);

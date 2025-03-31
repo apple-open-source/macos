@@ -485,17 +485,7 @@ informationOnPeers:(NSDictionary<NSString *, NSDictionary*>*)informationOnPeers
     OTEscrowRecord* record = nil;
     
     for (OTEscrowRecord* r in escrowRecords) {
-        CFErrorRef cfError = NULL;
-        SOSPeerInfoRef peer = SOSPeerInfoCreateFromData(kCFAllocatorDefault, &cfError, (__bridge CFDataRef)r.escrowInformationMetadata.peerInfo);
-        if (peer == NULL) {
-            NSError* nsError = (__bridge_transfer NSError*)cfError;
-            fprintf(stderr, "Failed SOSPeerInfoCreateFromData: %s\n", nsError.description.UTF8String);
-            continue;
-        }
-
-        CFStringRef peerID = SOSPeerInfoGetPeerID(peer);
-        
-        if ([(__bridge NSString *)peerID isEqualToString:recordID]) {
+        if ([r.recordId isEqualToString:recordID]) {
             record = r;
             break;
         }

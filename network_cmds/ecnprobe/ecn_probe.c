@@ -97,7 +97,7 @@ void SetupFirewall(u_int32_t targetIP, u_int16_t port, char *dev)
 	bzero(pfcmd, sizeof(pfcmd));
 
 	bzero(args, sizeof(args));
-	sprintf(pfcmd, "block in quick on %s inet proto tcp from %s port %u\n",
+	snprintf(pfcmd, sizeof(pfcmd), "block in quick on %s inet proto tcp from %s port %u\n",
 		dev, InetAddress(targetIP), port);
 	if (session.debug >= SESSION_DEBUG_LOW)
 		printf("PF rule: %s\n", pfcmd);

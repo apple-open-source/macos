@@ -7,6 +7,7 @@
 #include <mach/task.h>
 #include <mach/mach_vm.h>
 #include <stdbool.h>
+#include <mach-o/dyld_introspection.h>
 
 #include "corefile.h"
 #include "region.h"
@@ -54,4 +55,9 @@ in_zfod_region(const vm_region_submap_info_data_64_t *info)
         0 == info->pages_dirtied + info->pages_resident + info->pages_swapped_out;
 }
 
+/*
+ * Public function to insert a region computed externally, normally from the
+ * mach-o header of dylds when using a skinny coredump
+ */
+extern struct region * vm_insert_region(struct regionhead *rhead,mach_vm_offset_t vmaddr, mach_vm_size_t vmsize, const vm_region_submap_info_data_64_t *infop, dyld_shared_cache_t sc);
 #endif /* _VM_H */

@@ -28,7 +28,6 @@
 
 #include "Decoder.h"
 #include "Encoder.h"
-#include "WebCoreArgumentCoders.h"
 #include "WebKeyboardEvent.h"
 #include <WebCore/WindowsKeyboardCodes.h>
 #include <wtf/TZoneMallocInlines.h>

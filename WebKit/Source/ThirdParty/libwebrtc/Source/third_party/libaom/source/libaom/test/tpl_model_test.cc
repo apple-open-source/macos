@@ -17,7 +17,7 @@
 #include "av1/encoder/cost.h"
 #include "av1/encoder/tpl_model.h"
 #include "av1/encoder/encoder.h"
-#include "third_party/googletest/src/googletest/include/gtest/gtest.h"
+#include "gtest/gtest.h"
 
 namespace {
 

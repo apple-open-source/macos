@@ -27,23 +27,29 @@
 
 #if USE(COORDINATED_GRAPHICS) && USE(GBM)
 #include "CoordinatedPlatformLayerBuffer.h"
+#include <wtf/unix/UnixFileDescriptor.h>
 
 namespace WebCore {
 
 class DMABufBuffer;
+struct DMABufBufferAttributes;
 
 class CoordinatedPlatformLayerBufferDMABuf final : public CoordinatedPlatformLayerBuffer {
 public:
     static std::unique_ptr<CoordinatedPlatformLayerBufferDMABuf> create(Ref<DMABufBuffer>&&, OptionSet<TextureMapperFlags>, std::unique_ptr<GLFence>&&);
+    static std::unique_ptr<CoordinatedPlatformLayerBufferDMABuf> create(Ref<DMABufBuffer>&&, OptionSet<TextureMapperFlags>, WTF::UnixFileDescriptor&&);
     CoordinatedPlatformLayerBufferDMABuf(Ref<DMABufBuffer>&&, OptionSet<TextureMapperFlags>, std::unique_ptr<GLFence>&&);
+    CoordinatedPlatformLayerBufferDMABuf(Ref<DMABufBuffer>&&, OptionSet<TextureMapperFlags>, WTF::UnixFileDescriptor&&);
     virtual ~CoordinatedPlatformLayerBufferDMABuf();
 
 private:
     void paintToTextureMapper(TextureMapper&, const FloatRect&, const TransformationMatrix& modelViewMatrix = TransformationMatrix(), float opacity = 1.0) override;
 
     std::unique_ptr<CoordinatedPlatformLayerBuffer> importDMABuf(TextureMapper&) const;
+    std::unique_ptr<CoordinatedPlatformLayerBuffer> importYUV(TextureMapper&) const;
 
     Ref<DMABufBuffer> m_dmabuf;
+    WTF::UnixFileDescriptor m_fenceFD;
 };
 
 } // namespace WebCore

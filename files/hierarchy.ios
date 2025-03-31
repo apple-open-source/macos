@@ -21,6 +21,7 @@
 0775	501	250	private/var/mobile/Library/Logs
 0775	501	250	private/var/mobile/Library/Logs/CrashReporter
 0755	501	501	private/var/mobile/Library/Logs/CrashReporter/DiagnosticLogs
+0700	501	501	private/var/mobile/Library/Metadata
 0700	501	501	private/var/mobile/Library/Preferences
 0700	501	501	private/var/mobile/Library/Safari
 0700	501	501	private/var/mobile/Library/WebClips

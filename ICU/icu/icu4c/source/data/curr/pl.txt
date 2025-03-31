@@ -533,7 +533,7 @@ pl{
         }
         LSL{
             "LSL",
-            "loti lesotyjskie",
+            "loti sotyjskie",
         }
         LTL{
             "LTL",
@@ -1660,10 +1660,10 @@ pl{
             other{"dolara liberyjskiego"}
         }
         LSL{
-            few{"loti lesotyjskie"}
-            many{"loti lesotyjskich"}
-            one{"loti lesotyjskie"}
-            other{"loti lesotyjskiego"}
+            few{"loti sotyjskie"}
+            many{"loti sotyjskich"}
+            one{"loti sotyjskie"}
+            other{"loti sotyjskiego"}
         }
         LTL{
             few{"lity litewskie"}
@@ -2229,11 +2229,5 @@ pl{
             one{"kwacha zambijska"}
             other{"kwachy zambijskiej"}
         }
-    }
-    CurrencyUnitPatterns{
-        few{"{0} {1}"}
-        many{"{0} {1}"}
-        one{"{0} {1}"}
-        other{"{0} {1}"}
     }
 }

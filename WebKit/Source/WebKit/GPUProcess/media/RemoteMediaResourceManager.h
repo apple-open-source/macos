@@ -59,6 +59,9 @@ public:
     static Ref<RemoteMediaResourceManager> create() { return adoptRef(*new RemoteMediaResourceManager()); }
     ~RemoteMediaResourceManager();
 
+    void ref() const final { IPC::WorkQueueMessageReceiver::ref(); }
+    void deref() const final { IPC::WorkQueueMessageReceiver::deref(); }
+
     void initializeConnection(IPC::Connection*);
     void stopListeningForIPC();
 

@@ -146,14 +146,14 @@ T_DECL(all_cores_running,
 		T_LOG("WARNING: amfi_get_out_of_my_way=1 boot-arg is missing, required to reliably capture CPU load data");
 	}
 
-	wait_for_quiescence_default();
+	wait_for_quiescence_default(argc, argv);
 
 	init_host_and_cpu_count();
 	T_LOG("System has %d logical cores", cpu_count);
 
 	check_recommended_core_mask(NULL);
 
-	trace_handle_t trace_handle = begin_collect_trace("sched_all_cores_running");
+	trace_handle_t trace_handle = begin_collect_trace(argc, argv, "sched_all_cores_running");
 
 	T_SETUPEND;
 

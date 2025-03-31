@@ -77,6 +77,7 @@
 #include "AppleCorporateRootCertificates.h"
 #include <Security/SecInternalReleasePriv.h>
 #include <CoreTrust/CTCompress.h>
+#include <corecrypto/ccsha1.h>
 
 #pragma clang diagnostic ignored "-Wformat=2"
 
@@ -94,12 +95,14 @@
 #define MAX_EXTENSIONS 10000
 #define MAX_ATTRIBUTE_TYPE_AND_VALUES 1024
 #define MAX_CRL_DPS 1024
-#define MAX_CERTIFICATE_POLICIES 8192
-#define MAX_POLICY_MAPPINGS 8192
+#define MAX_CERTIFICATE_POLICIES 1024
+#define MAX_POLICY_MAPPINGS 1024
 #define MAX_EKUS 8192
 #define MAX_AIAS 1024
 #define MAX_GENERAL_NAMES 8192
 #define MAX_SUBTREE_NAMES 8192
+#define MAX_QCSTATEMENTS 1024
+#define MAX_QCTYPES 10
 
 typedef struct SecCertificateExtension {
 	DERItem extnID;
@@ -209,6 +212,10 @@ struct __SecCertificate {
     CFTypeRef           _keychain_item;
     uint8_t             _isSelfSigned;
 
+    /* Qualified certificate statements extension, if present.
+       Not malloced, just points to an element in the _extensions array. */
+    CFDictionaryRef     _qcStatements;
+
     /* NOTE: If you add fields to the middle of this struct, tests may break unless you also install
      *   updated Security framework. */
 };
@@ -245,6 +252,33 @@ typedef bool (*SecCertificateExtensionParser)(SecCertificateRef certificate,
 /* Mapping from extension OIDs (as a DERItem *) to
    SecCertificateExtensionParser extension parsing routines. */
 static CFDictionaryRef sExtensionParsers;
+
+/* Dictionary key callback for comparing to DERItems. */
+static Boolean SecDERItemEqual(const void *value1, const void *value2) {
+    return DEROidCompare((const DERItem *)value1, (const DERItem *)value2);
+}
+
+/* Dictionary key callback calculating the hash of a DERItem. */
+static CFHashCode SecDERItemHash(const void *value) {
+    const DERItem *derItem = (const DERItem *)value;
+    CFHashCode hash = derItem->length;
+    DERSize ix = derItem->length > 8 ? derItem->length - 8 : 0;
+    for (; ix < derItem->length; ++ix) {
+        hash = (hash << 9) + (hash >> 23) + derItem->data[ix];
+    }
+
+    return hash;
+}
+
+/* Dictionary key callbacks using the above 2 functions. */
+static const CFDictionaryKeyCallBacks SecDERItemKeyCallBacks = {
+    0,                    /* version */
+    NULL,                /* retain */
+    NULL,                /* release */
+    NULL,                /* copyDescription */
+    SecDERItemEqual,    /* equal */
+    SecDERItemHash        /* hash */
+};
 
 /* Forward declarations of static functions. */
 static bool SecCertificateIsCertificate(SecCertificateRef certificate);
@@ -294,6 +328,7 @@ static void SecCertificateDestroy(CFTypeRef cf) {
     CFReleaseNull(certificate->_keychain_item);
     CFReleaseNull(certificate->_permittedSubtrees);
     CFReleaseNull(certificate->_excludedSubtrees);
+    CFReleaseNull(certificate->_qcStatements);
 }
 
 static Boolean SecCertificateEqual(CFTypeRef cf1, CFTypeRef cf2) {
@@ -499,9 +534,7 @@ static OSStatus parseX501Name(const DERItem *x501Name, void *context,
     }
 }
 
-/************************************************************************/
-/********************** Extension Parsing Routines **********************/
-/************************************************************************/
+/* MARK: Extension Parsing Routines */
 
 static bool SecCEPSubjectKeyIdentifier(SecCertificateRef certificate,
 	const SecCertificateExtension *extn) {
@@ -1147,32 +1180,158 @@ static bool SecCEPOCSPNoCheck(SecCertificateRef certificate,
     return true;
 }
 
-/* Dictionary key callback for comparing to DERItems. */
-static Boolean SecDERItemEqual(const void *value1, const void *value2) {
-	return DEROidCompare((const DERItem *)value1, (const DERItem *)value2);
-}
+/* MARK: QC Statements */
+/*  see RFC 3739
+    id-pe-qcStatements OBJECT IDENTIFIER ::= { id-pe 3}
 
-/* Dictionary key callback calculating the hash of a DERItem. */
-static CFHashCode SecDERItemHash(const void *value) {
-	const DERItem *derItem = (const DERItem *)value;
-	CFHashCode hash = derItem->length;
-	DERSize ix = derItem->length > 8 ? derItem->length - 8 : 0;
-	for (; ix < derItem->length; ++ix) {
-		hash = (hash << 9) + (hash >> 23) + derItem->data[ix];
-	}
+    QCStatements ::= SEQUENCE OF QCStatement
 
-	return hash;
-}
+    QCStatement ::= SEQUENCE {
+        statementId        OBJECT IDENTIFIER,
+        statementInfo      ANY DEFINED BY statementId OPTIONAL}
+*/
+typedef struct {
+    DERItem        statementId;
+    DERItem        statementInfo;
+} DERQCStatement;
 
-/* Dictionary key callbacks using the above 2 functions. */
-static const CFDictionaryKeyCallBacks SecDERItemKeyCallBacks = {
-	0,					/* version */
-	NULL,				/* retain */
-	NULL,				/* release */
-	NULL,				/* copyDescription */
-	SecDERItemEqual,	/* equal */
-	SecDERItemHash		/* hash */
+const DERItemSpec DERQCStatementItemSpecs[] = {
+    { DER_OFFSET(DERQCStatement, statementId),
+            ASN1_OBJECT_ID,
+            DER_DEC_NO_OPTS },
+    { DER_OFFSET(DERQCStatement, statementInfo),
+            0,                    /* no tag - ANY */
+        DER_DEC_ASN_ANY | DER_DEC_SAVE_DER | DER_DEC_OPTIONAL }
 };
+
+const DERSize DERNumQCStatementItemSpecs =
+    sizeof(DERQCStatementItemSpecs) / sizeof(DERItemSpec);
+
+typedef bool (*SecCertificateQCStatementParser)(CFMutableDictionaryRef statements,
+                                                const DERQCStatement *statement);
+
+SEC_CONST_DECL(kSecQCStatementCompliance, "QCSCompliance");
+SEC_CONST_DECL(kSecQCStatementType, "QCSType");
+SEC_CONST_DECL(kSecQCStatementTypeWeb, "QCSTypeWeb");
+SEC_CONST_DECL(kSecQCStatementTypeEseal, "QCSTypeEseal");
+SEC_CONST_DECL(kSecQCStatementTypeEsign, "QCSTypeEsign");
+
+/* ETSI EN 319 412-5 V2.4.1 (2023-09) 4.2.1
+    Absent statementInfo    
+*/
+static bool SecQCPCompliance(CFMutableDictionaryRef statements, const DERQCStatement *statement) {
+    CFDictionaryAddValue(statements, kSecQCStatementCompliance, kCFBooleanTrue);
+    return true;
+}
+
+/* ETSI EN 319 412-5 V2.4.1 (2023-09) 4.2.3
+    esi4-qcStatement-6 QC-STATEMENT ::= { SYNTAX QcType IDENTIFIED BY id-etsi-qcs-QcType }
+
+    id-etsi-qcs-QcType OBJECT IDENTIFIER ::= { id-etsi-qcs 6 }
+    QcType::= SEQUENCE OF OBJECT IDENTIFIER (id-etsi-qct-esign | id-etsi-qct-eseal | id-etsi-qct-web, ...)
+*/
+static bool SecQCPType(CFMutableDictionaryRef statements, const DERQCStatement *statement) {
+    DERSequence typeSeq;
+    DERTag typeTag;
+    CFMutableSetRef types = CFSetCreateMutable(NULL, 0, &kCFTypeSetCallBacks);
+    DERReturn drtn = DERDecodeSeqInit(&statement->statementInfo, &typeTag, &typeSeq);
+    require_quiet((drtn == DR_Success) && (typeTag == ASN1_CONSTR_SEQUENCE), badDER);
+    require_quiet(typeSeq.nextItem != typeSeq.end, badDER);
+    DERDecodedInfo typeContent;
+    int type_count = 0;
+    while ((drtn = DERDecodeSeqNext(&typeSeq, &typeContent)) == DR_Success) {
+        require_quiet(typeContent.tag == ASN1_OBJECT_ID, badDER);
+        type_count++;
+        require_quiet(type_count < MAX_QCTYPES, badDER);
+        if (DEROidCompare(&oidQCTypeWeb, &typeContent.content)) {
+            CFSetAddValue(types, kSecQCStatementTypeWeb);
+        } else if (DEROidCompare(&oidQCTypeEseal, &typeContent.content)) {
+            CFSetAddValue(types, kSecQCStatementTypeEseal);
+        } else if (DEROidCompare(&oidQCTypeEsign, &typeContent.content)) {
+            CFSetAddValue(types, kSecQCStatementTypeEsign);
+        }
+    }
+    require_quiet(drtn == DR_EndOfSequence, badDER);
+    CFDictionarySetValue(statements, kSecQCStatementType, types);
+    CFReleaseNull(types);
+    return true;
+badDER:
+    CFReleaseNull(types);
+    secwarning("Invalid QCS Type");
+    return false;
+}
+
+static CFDictionaryRef SecCertificateInitializeQCStatementParsers(void) {
+    /* Build a dictionary that maps from QC Statement OIDs to callback functions
+     which can parse the statement of the type given. */
+    static const void *extnOIDs[] = {
+        &oidQCCompliance,
+        &oidQCType,
+    };
+    static const void *extnParsers[] = {
+        SecQCPCompliance,
+        SecQCPType,
+    };
+    return CFDictionaryCreate(kCFAllocatorDefault, extnOIDs,
+                              extnParsers, array_size(extnOIDs),
+                              &SecDERItemKeyCallBacks, NULL);
+}
+
+static bool SecCEPQCStatements(SecCertificateRef certificate,
+    const SecCertificateExtension *extn) {
+    secdebug("cert", "critical: %{BOOL}d", extn->critical);
+
+    /* Mapping from extension OIDs (as a DERItem *) to
+       SecCertificateQCStatementParser QCS parsing routines. */
+    static CFDictionaryRef sQCSParsers;
+
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        sQCSParsers = SecCertificateInitializeQCStatementParsers();
+    });
+    CFMutableDictionaryRef statements = CFDictionaryCreateMutable(NULL, 0,
+                                                                  &kCFTypeDictionaryKeyCallBacks,
+                                                                  &kCFTypeDictionaryValueCallBacks);
+    require_quiet(extn != NULL && sQCSParsers != NULL && statements != NULL, badDER);
+
+
+    DERTag tag;
+    DERSequence qcSeq;
+    DERReturn drtn = DERDecodeSeqInit(&extn->extnValue, &tag, &qcSeq);
+    require_noerr_quiet(drtn, badDER);
+    require_quiet(tag == ASN1_CONSTR_SEQUENCE, badDER);
+    require_quiet(qcSeq.nextItem != qcSeq.end, badDER);
+    DERDecodedInfo statementContent;
+    int statement_count = 0;
+    while ((drtn = DERDecodeSeqNext(&qcSeq, &statementContent)) == DR_Success) {
+        require_quiet(statementContent.tag == ASN1_CONSTR_SEQUENCE, badDER);
+        DERQCStatement statement;
+        drtn = DERParseSequenceContent(&statementContent.content,
+                                       DERNumQCStatementItemSpecs,
+                                       DERQCStatementItemSpecs,
+                                       &statement, sizeof(statement));
+        require_noerr_quiet(drtn, badDER);
+        statement_count++;
+        require_quiet(statement_count < MAX_QCSTATEMENTS, badDER);
+
+        SecCertificateQCStatementParser parser = (SecCertificateQCStatementParser)CFDictionaryGetValue(sQCSParsers,
+                                                                                                       &statement.statementId);
+        if (parser) {
+            require_quiet(parser(statements, &statement), badDER);
+        } else {
+            secdebug("cert", "Found unknown QC Statement");
+        }
+    }
+    require_quiet(drtn == DR_EndOfSequence, badDER);
+
+    certificate->_qcStatements = statements;
+    return true;
+badDER:
+    CFReleaseNull(statements);
+    certificate->_qcStatements = NULL;
+    secwarning("Invalid QCStatements Extension");
+    return false;
+}
 
 static void SecCertificateInitializeExtensionParsers(void) {
 	/* Build a dictionary that maps from extension OIDs to callback functions
@@ -1198,6 +1357,7 @@ static void SecCertificateInitializeExtensionParsers(void) {
 		&oidEntrustVersInfo,
         &oidApplePolicyEscrowService,
         &oidOCSPNoCheck,
+        &oidQCStatements
 	};
 	static const void *extnParsers[] = {
 		SecCEPSubjectKeyIdentifier,
@@ -1220,6 +1380,7 @@ static void SecCertificateInitializeExtensionParsers(void) {
 		SecCEPEntrustVersInfo,
         SecCEPEscrowMarker,
         SecCEPOCSPNoCheck,
+        SecCEPQCStatements,
 	};
 	sExtensionParsers = CFDictionaryCreate(kCFAllocatorDefault, extnOIDs,
                                            extnParsers, array_size(extnOIDs),
@@ -2004,9 +2165,9 @@ CFDataRef SecCertificateCopyPrecertTBS(SecCertificateRef certificate)
     extensionsOut.length = DERLengthOfEncodedSequence(ASN1_CONSTR_SEQUENCE, extensionsList, extensionsCount, extensionsListSpecs);
     extensionsOut.data = malloc(extensionsOut.length);
     require_quiet(extensionsOut.data, out);
-#ifndef __clang_analyzer__ // rdar://83126788
-    drtn = DEREncodeSequence(ASN1_CONSTR_SEQUENCE, extensionsList, extensionsCount, extensionsListSpecs, extensionsOut.data, &extensionsOut.length);
-#endif
+    [[clang::suppress]] { // rdar://83126788
+        drtn = DEREncodeSequence(ASN1_CONSTR_SEQUENCE, extensionsList, extensionsCount, extensionsListSpecs, extensionsOut.data, &extensionsOut.length);
+    }
     require_noerr_quiet(drtn, out);
 
     tbsCert.extensions = extensionsOut;
@@ -2015,9 +2176,9 @@ CFDataRef SecCertificateCopyPrecertTBS(SecCertificateRef certificate)
     require_quiet(tbsOut.length < LONG_MAX, out);
     tbsOut.data = malloc(tbsOut.length);
     require_quiet(tbsOut.data, out);
-#ifndef __clang_analyzer__ // rdar://83126788
-    drtn = DEREncodeSequence(ASN1_CONSTR_SEQUENCE, &tbsCert, DERNumTBSCertItemSpecs, DERTBSCertItemSpecs, tbsOut.data, &tbsOut.length);
-#endif
+    [[clang::suppress]] { // rdar://83126788
+        drtn = DEREncodeSequence(ASN1_CONSTR_SEQUENCE, &tbsCert, DERNumTBSCertItemSpecs, DERTBSCertItemSpecs, tbsOut.data, &tbsOut.length);
+    }
     require_noerr_quiet(drtn, out);
 
     outData = CFDataCreate(kCFAllocatorDefault, tbsOut.data, (CFIndex)tbsOut.length);
@@ -3795,6 +3956,78 @@ badDER:
                           extnValue, localized);
 }
 
+static void appendQCSTypes(CFMutableArrayRef properties,
+                           const DERItem *extnValue, bool localized) {
+    DERTag tag;
+    DERSequence derSeq;
+    DERReturn drtn = DERDecodeSeqInit(extnValue, &tag, &derSeq);
+    require_noerr_quiet(drtn, badDER);
+    require_quiet(tag == ASN1_CONSTR_SEQUENCE, badDER);
+    DERDecodedInfo currDecoded;
+    while ((drtn = DERDecodeSeqNext(&derSeq, &currDecoded)) == DR_Success) {
+        require_quiet(currDecoded.tag == ASN1_OBJECT_ID, badDER);
+        appendOIDProperty(properties, SEC_QCS_TYPE, NULL,
+            &currDecoded.content, localized);
+    }
+    require_quiet(drtn == DR_EndOfSequence, badDER);
+    return;
+badDER:
+    appendInvalidProperty(properties, SEC_QCS_TYPE,
+                          extnValue, localized);
+}
+
+static void appendQCStatements(CFMutableArrayRef properties,
+                               const DERItem *extnValue, bool localized) {
+    CFMutableDictionaryRef statements = CFDictionaryCreateMutable(NULL, 0,
+                                                                  &kCFTypeDictionaryKeyCallBacks,
+                                                                  &kCFTypeDictionaryValueCallBacks);
+    require_quiet(extnValue != NULL && statements != NULL, badDER);
+
+    DERTag tag;
+    DERSequence qcSeq;
+    DERReturn drtn = DERDecodeSeqInit(extnValue, &tag, &qcSeq);
+    require_noerr_quiet(drtn, badDER);
+    require_quiet(tag == ASN1_CONSTR_SEQUENCE, badDER);
+    require_quiet(qcSeq.nextItem != qcSeq.end, badDER);
+    DERDecodedInfo statementContent;
+    int statement_count = 0;
+    while ((drtn = DERDecodeSeqNext(&qcSeq, &statementContent)) == DR_Success) {
+        require_quiet(statementContent.tag == ASN1_CONSTR_SEQUENCE, badDER);
+        DERQCStatement statement;
+        drtn = DERParseSequenceContent(&statementContent.content,
+                                       DERNumQCStatementItemSpecs,
+                                       DERQCStatementItemSpecs,
+                                       &statement, sizeof(statement));
+        require_noerr_quiet(drtn, badDER);
+        statement_count++;
+        require_quiet(statement_count < MAX_QCSTATEMENTS, badDER);
+        if (DEROidCompare(&oidQCCompliance, &statement.statementId)) {
+            appendBoolProperty(properties, SEC_QCS_EU_COMPLIANCE, true, localized);
+        } else if (DEROidCompare(&oidQCType, &statement.statementId)) {
+            appendQCSTypes(properties, &statement.statementInfo, localized);
+        } else {
+            /* unknown QC Statement */
+            CFAllocatorRef allocator = CFGetAllocator(properties);
+            CFStringRef label = SecDERItemCopyOIDDecimalRepresentation(allocator, &statement.statementId);
+            CFStringRef localizedLabel = copyOidDescription(allocator, &statement.statementId, localized);
+            CFStringRef info_string = copyDERThingDescription(allocator, &statement.statementInfo, false, localized);
+            if (info_string) {
+                appendProperty(properties, kSecPropertyTypeString, label, localizedLabel, info_string, localized);
+            } else {
+                appendUnparsedProperty(properties, label, localizedLabel, &statement.statementInfo, localized);
+            }
+            CFReleaseNull(label);
+            CFReleaseNull(localizedLabel);
+            CFReleaseNull(info_string);
+        }
+    }
+    require_quiet(drtn == DR_EndOfSequence, badDER);
+    return;
+badDER:
+    appendInvalidProperty(properties, SEC_QUAL_CERT_STATMENTS,
+                          extnValue, localized);
+}
+
 static void appendNetscapeCertType(CFMutableArrayRef properties,
     const DERItem *extnValue, bool localized) {
     static const CFStringRef certTypes[] = {
@@ -3937,7 +4170,7 @@ static void appendExtension(CFMutableArrayRef parent,
 			appendInfoAccess(properties, extnValue, localized);
 			break;
 		case  3: /* QCStatements             id-pe 3 */
-			handled = false;
+            appendQCStatements(properties, extnValue, localized);
 			break;
 		case 11: /* SubjectInfoAccess        id-pe 11 */
 			appendInfoAccess(properties, extnValue, localized);
@@ -7048,8 +7281,6 @@ SecSignatureHashAlgorithm SecSignatureHashAlgorithmForAlgorithmOid(const DERItem
             break;
         }
         /* classify the signature algorithm OID into one of our known types */
-#if LIBDER_HAS_EDDSA
-        // guard for rdar://106052612
         if (DEROidCompare(algOid, &oidEd448) ||
             DEROidCompare(algOid, &oidSHAKE256)) {
             result = kSecSignatureHashAlgorithmSHAKE256;
@@ -7058,7 +7289,6 @@ SecSignatureHashAlgorithm SecSignatureHashAlgorithmForAlgorithmOid(const DERItem
         if (DEROidCompare(algOid, &oidEd25519)) {
             result = kSecSignatureHashAlgorithmSHA512;
         }
-#endif
         if (DEROidCompare(algOid, &oidSha512Ecdsa) ||
             DEROidCompare(algOid, &oidSha512Rsa) ||
             DEROidCompare(algOid, &oidSha512)) {
@@ -7228,4 +7458,31 @@ errOut:
     CFReleaseNull(corp2);
     CFReleaseNull(corp3);
     return result;
+}
+
+CFDictionaryRef SecCertificateCopyQualifiedCertificateStatements(SecCertificateRef certificate) {
+    if (!SecCertificateIsCertificate(certificate)) {
+        return NULL;
+    }
+    return CFRetainSafe(certificate->_qcStatements);
+}
+
+_Nullable CF_RETURNS_RETAINED CFStringRef SecCertificateCopyAnchorLookupKey(SecCertificateRef certificate) {
+    CFDataRef normalizedSubjectContent = NULL;
+    CFDataRef normalizedSubjectHash = NULL;
+    CFStringRef anchorLookupKey = NULL;
+
+    require_quiet(certificate, errOut);
+    normalizedSubjectContent = SecCertificateGetNormalizedSubjectContent(certificate);
+    CFRetainSafe(normalizedSubjectContent);
+    require_quiet(normalizedSubjectContent, errOut);
+    normalizedSubjectHash = CFDataCreateWithHash(kCFAllocatorDefault, ccsha1_di(), CFDataGetBytePtr(normalizedSubjectContent), CFDataGetLength(normalizedSubjectContent));
+    require_quiet(normalizedSubjectHash, errOut);
+    anchorLookupKey = CFDataCopyHexString(normalizedSubjectHash);
+    require_quiet(anchorLookupKey, errOut);
+
+errOut:
+    CFReleaseSafe(normalizedSubjectContent);
+    CFReleaseSafe(normalizedSubjectHash);
+    return anchorLookupKey;
 }

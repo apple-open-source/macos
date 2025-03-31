@@ -78,7 +78,7 @@ int main __P((int, char **));
 static void
 usage(void)
 {
-	printf("Usage: fsck_msdos [-fnpqy] [-M <integer>[k|K|m|M]] filesystem ... \n");
+	printf("Usage: fsck_msdos [-fnpqy] [-M <integer>[k|K|m|M]] [-S path] filesystem ... \n");
 	exit(8);
 }
 
@@ -111,13 +111,14 @@ fsckFstatHelper(void *resource, struct stat *buffer)
 int
 main(int argc, char **argv)
 {
+    check_context context = {0};
 	int ret = 0, erg;
 	int ch;
 	int offset;
 	size_t maxmem = 0;
-    check_context context = {0};
 
 	fsck_set_context_properties(vprint, vask, NULL);
+    context.shadowFD = -1;
 
 	/*
 	 * Allow default maximum memory to be specified at compile time.
@@ -126,7 +127,7 @@ main(int argc, char **argv)
 	maxmem = FSCK_MAX_MEM;
 	#endif
 
-	while ((ch = getopt(argc, argv, "pynfqM:")) != -1) {
+	while ((ch = getopt(argc, argv, "pynfqM:S:")) != -1) {
 		switch (ch) {
 		case 'f':
 			/*
@@ -152,6 +153,9 @@ main(int argc, char **argv)
 		case 'q':
 			fsck_set_quick(true);
 			break;
+        case 'S':
+                context.shadowPrefix = strdup(optarg);
+                break;
 		case 'M':
 			if (sscanf(optarg, "%zi%n", &maxmem, &offset) == 0)
 			{

@@ -39,14 +39,17 @@ using namespace WebCore;
 
 WTF_MAKE_TZONE_ALLOCATED_IMPL(AcceleratedSurfaceLibWPE);
 
-std::unique_ptr<AcceleratedSurfaceLibWPE> AcceleratedSurfaceLibWPE::create(WebPage& webPage, Client& client)
+std::unique_ptr<AcceleratedSurfaceLibWPE> AcceleratedSurfaceLibWPE::create(WebPage& webPage, Function<void()>&& frameCompleteHandler)
 {
-    return std::unique_ptr<AcceleratedSurfaceLibWPE>(new AcceleratedSurfaceLibWPE(webPage, client));
+    return std::unique_ptr<AcceleratedSurfaceLibWPE>(new AcceleratedSurfaceLibWPE(webPage, WTFMove(frameCompleteHandler)));
 }
 
-AcceleratedSurfaceLibWPE::AcceleratedSurfaceLibWPE(WebPage& webPage, Client& client)
-    : AcceleratedSurface(webPage, client)
+AcceleratedSurfaceLibWPE::AcceleratedSurfaceLibWPE(WebPage& webPage, Function<void()>&& frameCompleteHandler)
+    : AcceleratedSurface(webPage, WTFMove(frameCompleteHandler))
+    , m_hostFD(webPage.hostFileDescriptor())
+    , m_initialSize(webPage.size())
 {
+    m_initialSize.scale(webPage.deviceScaleFactor());
 }
 
 AcceleratedSurfaceLibWPE::~AcceleratedSurfaceLibWPE()
@@ -54,15 +57,22 @@ AcceleratedSurfaceLibWPE::~AcceleratedSurfaceLibWPE()
     ASSERT(!m_backend);
 }
 
+void AcceleratedSurfaceLibWPE::finalize()
+{
+    wpe_renderer_backend_egl_target_destroy(m_backend);
+    m_backend = nullptr;
+}
+
 void AcceleratedSurfaceLibWPE::initialize()
 {
-    m_backend = wpe_renderer_backend_egl_target_create(dupCloseOnExec(m_webPage.hostFileDescriptor()));
+    ASSERT(!m_backend);
+    m_backend = wpe_renderer_backend_egl_target_create(m_hostFD.release());
     static struct wpe_renderer_backend_egl_target_client s_client = {
         // frame_complete
         [](void* data)
         {
             auto& surface = *reinterpret_cast<AcceleratedSurfaceLibWPE*>(data);
-            surface.m_client.frameComplete();
+            surface.frameComplete();
         },
         // padding
         nullptr,
@@ -72,35 +82,34 @@ void AcceleratedSurfaceLibWPE::initialize()
     };
     wpe_renderer_backend_egl_target_set_client(m_backend, &s_client, this);
     wpe_renderer_backend_egl_target_initialize(m_backend, downcast<PlatformDisplayLibWPE>(PlatformDisplay::sharedDisplay()).backend(),
-        std::max(1, m_size.width()), std::max(1, m_size.height()));
-}
-
-void AcceleratedSurfaceLibWPE::finalize()
-{
-    wpe_renderer_backend_egl_target_destroy(m_backend);
-    m_backend = nullptr;
+        std::max(1, m_initialSize.width()), std::max(1, m_initialSize.height()));
 }
 
 uint64_t AcceleratedSurfaceLibWPE::window() const
 {
-    ASSERT(m_backend);
+    const_cast<AcceleratedSurfaceLibWPE*>(this)->initialize();
+
     // EGLNativeWindowType changes depending on the EGL implementation: reinterpret_cast works
     // for pointers (only if they are 64-bit wide and not for other cases), and static_cast for
     // numeric types (and when needed they get extended to 64-bit) but not for pointers. Using
     // a plain C cast expression in this one instance works in all cases.
     static_assert(sizeof(EGLNativeWindowType) <= sizeof(uint64_t), "EGLNativeWindowType must not be longer than 64 bits.");
-    return (uint64_t) wpe_renderer_backend_egl_target_get_native_window(m_backend);
+    return (uint64_t)wpe_renderer_backend_egl_target_get_native_window(m_backend);
 }
 
 uint64_t AcceleratedSurfaceLibWPE::surfaceID() const
 {
-    return m_webPage.identifier().toUInt64();
+    return m_webPage->identifier().toUInt64();
 }
 
-void AcceleratedSurfaceLibWPE::clientResize(const IntSize& size)
+bool AcceleratedSurfaceLibWPE::resize(const IntSize& size)
 {
+    if (!AcceleratedSurface::resize(size))
+        return false;
+
     ASSERT(m_backend);
-    wpe_renderer_backend_egl_target_resize(m_backend, std::max(1, m_size.width()), std::max(1, m_size.height()));
+    wpe_renderer_backend_egl_target_resize(m_backend, std::max(1, size.width()), std::max(1, size.height()));
+    return true;
 }
 
 void AcceleratedSurfaceLibWPE::willRenderFrame()
@@ -109,7 +118,7 @@ void AcceleratedSurfaceLibWPE::willRenderFrame()
     wpe_renderer_backend_egl_target_frame_will_render(m_backend);
 }
 
-void AcceleratedSurfaceLibWPE::didRenderFrame(WebCore::Region&&)
+void AcceleratedSurfaceLibWPE::didRenderFrame()
 {
     ASSERT(m_backend);
     wpe_renderer_backend_egl_target_frame_rendered(m_backend);

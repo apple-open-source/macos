@@ -27,19 +27,31 @@
 // but we still run our unit tests there for convenience.
 
 #import <OCMock/OCMock.h>
-#import "supd.h"
 #import <Security/SFAnalytics.h>
 #import <Security/SecLaunchSequence.h>
-#import "SFAnalyticsDefines.h"
 #import <CoreFoundation/CFPriv.h>
 #import <Foundation/NSXPCConnection_Private.h>
+#import <CFNetwork/CFNetwork.h>
 #import <os/signpost.h>
+#import "Analytics/SFAnalyticsDefines.h"
+#import "supd/supd.h"
+#import "supd/Tests/SupdTests.h"
+#import "MockServer.h"
 
 static NSString* _path;
 static NSInteger _testnum;
 static NSString* build = NULL;
 static NSString* product = NULL;
 static NSInteger _reporterWrites;
+
+// MARK: SUPDConnectionAcceptAll
+
+@interface MockSUPDServer: NSObject <HTTPServerProtocol>
+@property (assign) int postCount;
+@property (assign) int bodyMissing;
+@property (assign) int bodyIncorrect;
+@property (assign) int methodIncorrect;
+@end
 
 // MARK: Stub FakeCKKSAnalytics
 
@@ -136,9 +148,6 @@ static NSInteger _reporterWrites;
 
 // MARK: Start SupdTests
 
-@interface SupdTests : XCTestCase
-@end
-
 @implementation SupdTests {
     supd* _supd;
     id mockTopic;
@@ -150,6 +159,51 @@ static NSInteger _reporterWrites;
     FakeTLSAnalytics* _tlsAnalytics;
     FakeTransparencyAnalytics* _transparencyAnalytics;
     FakeSWTransparencyAnalytics* _swtransparencyAnalytics;
+}
+
++ (NSData *)supd_gzipInflate:(NSData *)data
+{
+    if ([data length] == 0) {
+        return data;
+    }
+
+    z_stream strm;
+    memset(&strm, 0, sizeof(strm));
+    strm.next_in=(uint8_t *)[data bytes];
+    strm.avail_in = (unsigned int)[data length];
+
+
+    if (inflateInit2(&strm, 32+MAX_WBITS) != Z_OK) {
+        return NULL;
+    }
+    
+#define GZIP_STRIDE_LEN 10000
+    NSMutableData *uncompressed = [NSMutableData dataWithLength:GZIP_STRIDE_LEN];
+
+    int ret;
+    do {
+        if (strm.total_out >= [uncompressed length]) {
+            [uncompressed increaseLengthBy: 16384];
+        }
+
+        strm.next_out = [uncompressed mutableBytes] + strm.total_out;
+        strm.avail_out = (int)[uncompressed length] - (int)strm.total_out;
+
+        ret = inflate(&strm, Z_FINISH);
+
+    } while (ret == Z_BUF_ERROR);
+    if (ret != Z_OK && ret != Z_STREAM_END) {
+        return nil;
+    }
+
+    deflateEnd(&strm);
+
+    [uncompressed setLength: strm.total_out];
+    if (strm.avail_in == 0) {
+        return uncompressed;
+    } else {
+        return nil;
+    }
 }
 
 // MARK: Test helper methods
@@ -176,6 +230,14 @@ static NSInteger _reporterWrites;
 
 - (SFAnalyticsTopic *)SWTransparencyTopic {
     return [self topicNamed:SFAnalyticsTopicSWTransparency];
+}
+
+- (SFAnalytics*)swtransparencyAnalytics {
+    return _swtransparencyAnalytics;
+}
+
+- (supd*)supd {
+    return _supd;
 }
 
 - (void)inspectDataBlobStructure:(NSDictionary*)data
@@ -406,9 +468,15 @@ static NSInteger _reporterWrites;
 
     _reporterWrites = 0;
     mockReporter = OCMClassMock([SFAnalyticsReporter class]);
-    OCMStub([mockReporter saveReport:[OCMArg isNotNil] fileName:[OCMArg isNotNil]]).andDo(^(NSInvocation *invocation) {
+    OCMStub([mockReporter saveReportNamed:[OCMArg isNotNil]
+                           intoFileHandle:[OCMArg isNotNil]]).andDo(^(NSInvocation *invocation) {
         _reporterWrites++;
     }).andReturn(YES);
+    OCMStub([mockReporter saveReportNamed:[OCMArg isNotNil]
+                               reportData:[OCMArg isNotNil]]).andDo(^(NSInvocation *invocation) {
+        _reporterWrites++;
+    }).andReturn(YES);
+
 
     mockConnection = OCMClassMock([NSXPCConnection class]);
     OCMStub([mockConnection valueForEntitlement:@"com.apple.private.securityuploadd"]).andReturn(@(YES));
@@ -734,7 +802,7 @@ static NSInteger _reporterWrites;
     BOOL writtenToLog = YES;
     size_t numWrites = 5;
     for (size_t i = 0; i < numWrites; i++) {
-        writtenToLog &= [reporter saveReport:reportData fileName:@"log.txt"];
+        writtenToLog &= [reporter saveReportNamed:@"log.txt" reportData:reportData];
     }
 
     XCTAssertTrue(writtenToLog, "Failed to write to log");
@@ -1221,16 +1289,141 @@ static NSInteger _reporterWrites;
     
 }
 
-// TODO (need mock server)
-- (void)testSplunkUpload
-{
+- (void)testFileHandleWriter {
+    NSURL *hosts = [NSURL URLWithString:@"file:///private/etc/hosts"];
+    NSFileManager *manager = NSFileManager.defaultManager;
 
+    NSURL *file = [[manager temporaryDirectory] URLByAppendingPathComponent:[[NSUUID UUID] UUIDString]];
+    [manager createFileAtPath:file.path contents:[NSData data] attributes:nil];
+    NSFileHandle *fileHandle = [NSFileHandle fileHandleForWritingToURL:file error:nil];
+
+    [[_supd class] writeURL:hosts intoFileHandle:fileHandle];
+    [fileHandle closeFile];
+    fileHandle = nil;
+    
+    NSData *data1 = [NSData dataWithContentsOfURL:hosts];
+    NSData *data2 = [NSData dataWithContentsOfURL:file];
+    
+    XCTAssertEqualObjects(data1, data2);
+
+    [manager removeItemAtURL:file error:nil];
+}
+
+- (void)testSplunkUpload {
+    NSError *error = nil;
+    MockSUPDServer *server = [[MockSUPDServer alloc] init];
+    
+    [_transparencyAnalytics logSuccessForEventNamed:@"foo"];
+
+    HTTPServer *testWebServer = [[HTTPServer alloc] initWithName:self.name type:@"_party._tcp" port:kHTTPServerPortAny];
+    testWebServer.acceptConnection = server;
+
+    [testWebServer start];
+    
+    for (SFAnalyticsTopic *topic in _supd.analyticsTopics) {
+        NSString *u = [NSString stringWithFormat:@"http://localhost:%d/bag/%@", 
+                       testWebServer.port, topic.internalTopicName];
+        topic.splunkBagURL = [NSURL URLWithString:u];
+        topic.allowHTTPSplunkServerForTests = YES;
+    }
+    
+    if (![_supd filebasedUploadAnalytics:YES error:&error]) {
+        XCTFail("foo: %@", error);
+    }
+    
+    XCTAssertEqual(server.methodIncorrect, 0, "should be no failure");
+    XCTAssertEqual(server.bodyMissing, 0, "should be no failure");
+    XCTAssertEqual(server.bodyIncorrect, 0, "should be no failure");
+#if TARGET_OS_OSX
+    XCTAssertEqual(server.postCount, 10, "macOS should have 10 topics");
+#endif
+
+    [testWebServer stop:YES];
 }
 
 // TODO (need mock server)
 - (void)testDBIsEmptiedAfterUpload
 {
 
+}
+
+@end
+
+@interface MockSUPDConnection: HTTPConnection
+@property (weak) MockSUPDServer *server;
+@end
+
+@implementation MockSUPDServer
+
+- (HTTPConnection * _Nullable)newConnection:(nonnull struct _CFHTTPServerConnection *)connection server:(nonnull HTTPServer *)server {
+    MockSUPDConnection *conn = [[MockSUPDConnection alloc] initWithConnectionRef:connection server:server];
+    conn.server = self;
+    return conn;
+}
+
+@end
+
+
+@implementation MockSUPDConnection
+
+- (void)didReceiveRequest:(HTTPRequest *)request {
+    [super didReceiveRequest:request];
+    
+    HTTPResponse* response;
+    
+    MockSUPDServer *server = self.server;
+    
+    NSURL *url = request.URL;
+    if ([url.path hasPrefix:@"/bag/"]) {
+        NSURLComponents *components = [NSURLComponents componentsWithURL:url resolvingAgainstBaseURL:YES];
+        components.path = @"/post";
+        
+        NSDictionary *bag = @{
+            @"metricsUrl": components.URL.absoluteString,
+        };
+        
+        NSData *data = [NSJSONSerialization dataWithJSONObject:bag options:0 error:nil];
+        
+        response = [[HTTPResponse alloc] initWithRequest:request code:200 data:data];
+        [self enqueueResponse:response];
+
+    } else if ([url.path hasPrefix:@"/post/2/"]) {
+        server.postCount += 1;
+        
+        response = [[HTTPResponse alloc] initWithRequest:request code:200 data:[NSData data]];
+        
+        if (![request.method isEqual:@"POST"]) {
+            server.methodIncorrect += 1;
+            [self enqueueResponse:response];
+        } else {
+            [self requestData:request withCompletion:^(NSError *error, NSData *data) {
+                if (data == nil) {
+                    server.bodyMissing += 1;
+                }
+                
+                NSData *f = [SupdTests supd_gzipInflate:data];
+                if (f == nil) {
+                    server.bodyIncorrect += 1;
+                } else {
+                    NSDictionary *j = [NSJSONSerialization JSONObjectWithData:f options:0 error:nil];
+                    if (j == nil) {
+                        server.bodyIncorrect += 1;
+                    } else {
+                        if (j[@"postTime"] == nil) {
+                            server.bodyIncorrect += 1;
+                        }
+                        if (j[@"events"] == nil) {
+                            server.bodyIncorrect += 1;
+                        }
+                    }
+                }
+                [self enqueueResponse:response];
+            }];
+        }
+    } else {
+        response = [[HTTPResponse alloc] initWithRequest:request code:500 data:[NSData data]];
+        [self enqueueResponse:response];
+    }
 }
 
 @end

@@ -24,6 +24,7 @@
 #include "av1/common/filter.h"
 #include "av1/common/reconinter.h"
 
+#if !CONFIG_REALTIME_ONLY
 uint32_t aom_get_mb_ss_c(const int16_t *a) {
   unsigned int i, sum = 0;
 
@@ -33,6 +34,7 @@ uint32_t aom_get_mb_ss_c(const int16_t *a) {
 
   return sum;
 }
+#endif  // !CONFIG_REALTIME_ONLY
 
 static void variance(const uint8_t *a, int a_stride, const uint8_t *b,
                      int b_stride, int w, int h, uint32_t *sse, int *sum) {
@@ -889,7 +891,7 @@ HIGHBD_MASK_SUBPIX_VAR(64, 16)
 #endif  // CONFIG_AV1_HIGHBITDEPTH
 
 #if !CONFIG_REALTIME_ONLY
-static INLINE void obmc_variance(const uint8_t *pre, int pre_stride,
+static inline void obmc_variance(const uint8_t *pre, int pre_stride,
                                  const int32_t *wsrc, const int32_t *mask,
                                  int w, int h, unsigned int *sse, int *sum) {
   int i, j;
@@ -996,7 +998,7 @@ OBMC_VAR(64, 16)
 OBMC_SUBPIX_VAR(64, 16)
 
 #if CONFIG_AV1_HIGHBITDEPTH
-static INLINE void highbd_obmc_variance64(const uint8_t *pre8, int pre_stride,
+static inline void highbd_obmc_variance64(const uint8_t *pre8, int pre_stride,
                                           const int32_t *wsrc,
                                           const int32_t *mask, int w, int h,
                                           uint64_t *sse, int64_t *sum) {
@@ -1019,7 +1021,7 @@ static INLINE void highbd_obmc_variance64(const uint8_t *pre8, int pre_stride,
   }
 }
 
-static INLINE void highbd_obmc_variance(const uint8_t *pre8, int pre_stride,
+static inline void highbd_obmc_variance(const uint8_t *pre8, int pre_stride,
                                         const int32_t *wsrc,
                                         const int32_t *mask, int w, int h,
                                         unsigned int *sse, int *sum) {
@@ -1030,7 +1032,7 @@ static INLINE void highbd_obmc_variance(const uint8_t *pre8, int pre_stride,
   *sse = (unsigned int)sse64;
 }
 
-static INLINE void highbd_10_obmc_variance(const uint8_t *pre8, int pre_stride,
+static inline void highbd_10_obmc_variance(const uint8_t *pre8, int pre_stride,
                                            const int32_t *wsrc,
                                            const int32_t *mask, int w, int h,
                                            unsigned int *sse, int *sum) {
@@ -1041,7 +1043,7 @@ static INLINE void highbd_10_obmc_variance(const uint8_t *pre8, int pre_stride,
   *sse = (unsigned int)ROUND_POWER_OF_TWO(sse64, 4);
 }
 
-static INLINE void highbd_12_obmc_variance(const uint8_t *pre8, int pre_stride,
+static inline void highbd_12_obmc_variance(const uint8_t *pre8, int pre_stride,
                                            const int32_t *wsrc,
                                            const int32_t *mask, int w, int h,
                                            unsigned int *sse, int *sum) {

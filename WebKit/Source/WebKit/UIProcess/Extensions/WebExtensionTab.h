@@ -27,15 +27,18 @@
 
 #if ENABLE(WK_WEB_EXTENSIONS)
 
-#include "CocoaImage.h"
 #include "WebExtensionError.h"
 #include "WebExtensionEventListenerType.h"
 #include "WebExtensionTabIdentifier.h"
 #include "WebPageProxyIdentifier.h"
 #include <wtf/Forward.h>
 #include <wtf/Identified.h>
+#include <wtf/RefCountedAndCanMakeWeakPtr.h>
 #include <wtf/TZoneMalloc.h>
+#if PLATFORM(COCOA)
+#include "CocoaImage.h"
 #include <wtf/WeakObjCPtr.h>
+#endif
 
 OBJC_CLASS NSArray;
 OBJC_CLASS NSLocale;
@@ -56,7 +59,7 @@ enum class WebExtensionTabImageFormat : uint8_t {
     JPEG,
 };
 
-class WebExtensionTab : public RefCounted<WebExtensionTab>, public CanMakeWeakPtr<WebExtensionTab>, public Identified<WebExtensionTabIdentifier> {
+class WebExtensionTab : public RefCountedAndCanMakeWeakPtr<WebExtensionTab>, public Identified<WebExtensionTabIdentifier> {
     WTF_MAKE_NONCOPYABLE(WebExtensionTab);
     WTF_MAKE_TZONE_ALLOCATED(WebExtensionTab);
 
@@ -163,7 +166,9 @@ public:
     void mute(CompletionHandler<void(Expected<void, WebExtensionError>&&)>&& completionHandler) { setMuted(true, WTFMove(completionHandler)); }
     void unmute(CompletionHandler<void(Expected<void, WebExtensionError>&&)>&& completionHandler) { setMuted(false, WTFMove(completionHandler)); }
 
+#if PLATFORM(COCOA)
     CGSize size() const;
+#endif
 
     double zoomFactor() const;
     void setZoomFactor(double, CompletionHandler<void(Expected<void, WebExtensionError>&&)>&&);
@@ -174,7 +179,9 @@ public:
     bool isLoadingComplete() const;
 
     void detectWebpageLocale(CompletionHandler<void(Expected<NSLocale *, WebExtensionError>&&)>&&);
+#if PLATFORM(COCOA)
     void captureVisibleWebpage(CompletionHandler<void(Expected<CocoaImage *, WebExtensionError>&&)>&&);
+#endif
 
     void loadURL(URL, CompletionHandler<void(Expected<void, WebExtensionError>&&)>&&);
 
@@ -208,7 +215,9 @@ public:
 
 private:
     WeakPtr<WebExtensionContext> m_extensionContext;
+#if PLATFORM(COCOA)
     WeakObjCPtr<WKWebExtensionTab> m_delegate;
+#endif
     RefPtr<WebExtensionMatchPattern> m_temporaryPermissionMatchPattern;
     OptionSet<ChangedProperties> m_changedProperties;
     bool m_activeUserGesture : 1 { false };

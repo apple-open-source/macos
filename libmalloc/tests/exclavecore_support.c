@@ -11,12 +11,8 @@
 #include <string.h>
 
 #include <platform/platform.h>
-#include <platform/plat.h>
-#include <vas/vas.h>
 #include <xrt/endpoint.h>
-#include <xnuproxy/xnuproxy.h>
 
-#include <sharedmem/sharedmem.h>
 
 LIBLIBC_PLAT_EP(hello_endpoint, "HelloExclave");
 static xrt_endpoint_t hello_xrt_endpoint;

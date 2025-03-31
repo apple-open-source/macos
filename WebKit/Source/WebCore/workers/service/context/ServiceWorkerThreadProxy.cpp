@@ -32,6 +32,7 @@
 #include "EventLoop.h"
 #include "EventNames.h"
 #include "FetchLoader.h"
+#include "FetchLoaderClient.h"
 #include "FrameLoader.h"
 #include "LoaderStrategy.h"
 #include "LocalFrame.h"
@@ -66,7 +67,7 @@ static ThreadSafeWeakHashSet<ServiceWorkerThreadProxy>& allServiceWorkerThreadPr
 
 ServiceWorkerThreadProxy::ServiceWorkerThreadProxy(Ref<Page>&& page, ServiceWorkerContextData&& contextData, ServiceWorkerData&& workerData, String&& userAgent, WorkerThreadMode workerThreadMode, CacheStorageProvider& cacheStorageProvider, std::unique_ptr<NotificationClient>&& notificationClient)
     : m_page(WTFMove(page))
-    , m_document(*dynamicDowncast<LocalFrame>(m_page->mainFrame())->document())
+    , m_document(*m_page->localTopDocument())
 #if ENABLE(REMOTE_INSPECTOR)
     , m_remoteDebuggable(ServiceWorkerDebuggable::create(*this, contextData))
 #endif

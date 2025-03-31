@@ -7,6 +7,17 @@
 	objects = {
 
 /* Begin PBXAggregateTarget section */
+		2A4018EA2C83699200BEBD25 /* genwrap_sandbox_test */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = 2A4018EB2C83699200BEBD25 /* Build configuration list for PBXAggregateTarget "genwrap_sandbox_test" */;
+			buildPhases = (
+				2A4018ED2C83699B00BEBD25 /* CopyFiles */,
+			);
+			dependencies = (
+			);
+			name = genwrap_sandbox_test;
+			productName = genwrap_sandbox_test;
+		};
 		2A485F732B5DAEBE009D80F8 /* Host */ = {
 			isa = PBXAggregateTarget;
 			buildConfigurationList = 2A485F752B5DAEBE009D80F8 /* Build configuration list for PBXAggregateTarget "Host" */;
@@ -63,6 +74,7 @@
 				FDF277630FC6102600D7A3C6 /* PBXTargetDependency */,
 				FDF2775F0FC6102600D7A3C6 /* PBXTargetDependency */,
 				2A7E4099297A4741003942C8 /* PBXTargetDependency */,
+				2A4018F12C8369C500BEBD25 /* PBXTargetDependency */,
 				FDF2775D0FC6102600D7A3C6 /* PBXTargetDependency */,
 				FDF2775B0FC6102600D7A3C6 /* PBXTargetDependency */,
 				2A15A1D12B45C53D00A3DA9E /* PBXTargetDependency */,
@@ -101,6 +113,8 @@
 		2A114C9429674FF3005099EA /* genwrap.y in Sources */ = {isa = PBXBuildFile; fileRef = 2A114C9329674FF3005099EA /* genwrap.y */; };
 		2A190210296C04C4008E5A05 /* genwrap.c in Sources */ = {isa = PBXBuildFile; fileRef = 2A19020F296C04C4008E5A05 /* genwrap.c */; };
 		2A190214296DDC68008E5A05 /* genwrap.8 in Install Section 8 Manpages */ = {isa = PBXBuildFile; fileRef = 2A190213296DDC5C008E5A05 /* genwrap.8 */; };
+		2A4018EE2C8369AF00BEBD25 /* com.apple.genwrap-test-sandbox.sb in CopyFiles */ = {isa = PBXBuildFile; fileRef = 2A4018DC2C82CA9B00BEBD25 /* com.apple.genwrap-test-sandbox.sb */; };
+		2A4018EF2C8369B200BEBD25 /* genwrap_sandbox_test.sh in CopyFiles */ = {isa = PBXBuildFile; fileRef = 2A4018DE2C82CEE700BEBD25 /* genwrap_sandbox_test.sh */; };
 		2A485F7E2B641A27009D80F8 /* scanner.c in Sources */ = {isa = PBXBuildFile; fileRef = 2AFA03042A2EE86700440D64 /* scanner.c */; };
 		2A485F7F2B641A27009D80F8 /* charmap.c in Sources */ = {isa = PBXBuildFile; fileRef = 2AFA02FB2A2EE84E00440D64 /* charmap.c */; };
 		2A485F802B641A27009D80F8 /* parser.c in Sources */ = {isa = PBXBuildFile; fileRef = 2A5628D32A73835C0083A770 /* parser.c */; };
@@ -246,6 +260,13 @@
 			proxyType = 1;
 			remoteGlobalIDString = 2AFA030C2A2EE8AB00440D64;
 			remoteInfo = localedef;
+		};
+		2A4018F02C8369C500BEBD25 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = FDF276430FC60E9000D7A3C6 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 2A4018EA2C83699200BEBD25;
+			remoteInfo = genwrap_sandbox_test;
 		};
 		2A485F8F2B641B2A009D80F8 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -596,6 +617,17 @@
 				2A190214296DDC68008E5A05 /* genwrap.8 in Install Section 8 Manpages */,
 			);
 			name = "Install Section 8 Manpages";
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		2A4018ED2C83699B00BEBD25 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /AppleInternal/Tests/adv_cmds/genwrap;
+			dstSubfolderSpec = 0;
+			files = (
+				2A4018EE2C8369AF00BEBD25 /* com.apple.genwrap-test-sandbox.sb in CopyFiles */,
+				2A4018EF2C8369B200BEBD25 /* genwrap_sandbox_test.sh in CopyFiles */,
+			);
 			runOnlyForDeploymentPostprocessing = 1;
 		};
 		2A51186127E442AB0059F4ED /* Install Test Files */ = {
@@ -949,6 +981,8 @@
 		2A114C9329674FF3005099EA /* genwrap.y */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.yacc; name = genwrap.y; path = genwrap/genwrap.y; sourceTree = "<group>"; };
 		2A19020F296C04C4008E5A05 /* genwrap.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = genwrap.c; path = genwrap/genwrap.c; sourceTree = "<group>"; };
 		2A190213296DDC5C008E5A05 /* genwrap.8 */ = {isa = PBXFileReference; lastKnownFileType = text; name = genwrap.8; path = genwrap/genwrap.8; sourceTree = "<group>"; };
+		2A4018DC2C82CA9B00BEBD25 /* com.apple.genwrap-test-sandbox.sb */ = {isa = PBXFileReference; lastKnownFileType = text; name = "com.apple.genwrap-test-sandbox.sb"; path = "genwrap/tests/com.apple.genwrap-test-sandbox.sb"; sourceTree = "<group>"; };
+		2A4018DE2C82CEE700BEBD25 /* genwrap_sandbox_test.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; name = genwrap_sandbox_test.sh; path = genwrap/tests/genwrap_sandbox_test.sh; sourceTree = "<group>"; };
 		2A485F8E2B641A27009D80F8 /* localedef */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = localedef; sourceTree = BUILT_PRODUCTS_DIR; };
 		2A51184227E442190059F4ED /* pgrep-o_test.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; name = "pgrep-o_test.sh"; path = "pkill/tests/pgrep-o_test.sh"; sourceTree = SOURCE_ROOT; };
 		2A51184327E442190059F4ED /* pgrep-x_test.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; name = "pgrep-x_test.sh"; path = "pkill/tests/pgrep-x_test.sh"; sourceTree = SOURCE_ROOT; };
@@ -1423,8 +1457,10 @@
 				2A96BE7829839C8C00F1705B /* arg_selector_complex_logonly.wrapper */,
 				2A7E4090297A4581003942C8 /* arg_selector_simple_a.wrapper */,
 				2A7E4091297A4581003942C8 /* arg_selector_simple_b.wrapper */,
+				2A4018DC2C82CA9B00BEBD25 /* com.apple.genwrap-test-sandbox.sb */,
 				2A7E408F297A4581003942C8 /* env_selector.wrapper */,
 				2A688AF32A461EF000F211FD /* env_selector_addarg.wrapper */,
+				2A4018DE2C82CEE700BEBD25 /* genwrap_sandbox_test.sh */,
 				2A7E4109297A5EA2003942C8 /* genwrap_test.sh */,
 				2A7E4093297A4593003942C8 /* simple_shim.wrapper */,
 			);
@@ -2259,6 +2295,9 @@
 					2A114C7E29674842005099EA = {
 						CreatedOnToolsVersion = 14.0;
 					};
+					2A4018EA2C83699200BEBD25 = {
+						CreatedOnToolsVersion = 16.0;
+					};
 					2A485F732B5DAEBE009D80F8 = {
 						CreatedOnToolsVersion = 15.3;
 					};
@@ -2306,6 +2345,7 @@
 				FDF276B60FC60F7F00D7A3C6 /* tabs */,
 				FDF276BC0FC60F8400D7A3C6 /* tty */,
 				FDF276C20FC60F8A00D7A3C6 /* whois */,
+				2A4018EA2C83699200BEBD25 /* genwrap_sandbox_test */,
 				2A7E409C297A4ACD003942C8 /* genwrap_static */,
 				2A7E410D297A63E0003942C8 /* analytics_simple */,
 				2A7E40B0297A4D49003942C8 /* arg_selector_complex */,
@@ -2941,6 +2981,11 @@
 			target = 2AFA030C2A2EE8AB00440D64 /* localedef */;
 			targetProxy = 2A15A1D02B45C53D00A3DA9E /* PBXContainerItemProxy */;
 		};
+		2A4018F12C8369C500BEBD25 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 2A4018EA2C83699200BEBD25 /* genwrap_sandbox_test */;
+			targetProxy = 2A4018F02C8369C500BEBD25 /* PBXContainerItemProxy */;
+		};
 		2A485F902B641B2A009D80F8 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 2A485F7B2B641A27009D80F8 /* localedef_host */;
@@ -3185,6 +3230,14 @@
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx;
 				USER_HEADER_SEARCH_PATHS = "$(SRCROOT)/genwrap";
+			};
+			name = Release;
+		};
+		2A4018EC2C83699200BEBD25 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Release;
 		};
@@ -3827,6 +3880,14 @@
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				2A114C8329674842005099EA /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		2A4018EB2C83699200BEBD25 /* Build configuration list for PBXAggregateTarget "genwrap_sandbox_test" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				2A4018EC2C83699200BEBD25 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

@@ -30,7 +30,7 @@ T_DECL(malloc_xzone_create_zone, "Test malloc_create_zone with xzones enabled",
 
 	void *ptr = malloc_zone_malloc(new_zone, 65536);
 	T_ASSERT_NOTNULL(ptr, "allocate from new zone");
-	T_ASSERT_GE(malloc_size(ptr), 65536, "pointer size works");
+	T_ASSERT_GE(malloc_size(ptr), 65536ul, "pointer size works");
 
 	malloc_destroy_zone(new_zone);
 
@@ -43,9 +43,9 @@ T_DECL(malloc_xzone_create_zone, "Test malloc_create_zone with xzones enabled",
 			"New zone is of type XZONE");
 	ptr = malloc_zone_malloc(new_zone, 64);
 	T_ASSERT_NOTNULL(ptr, "allocate from new zone");
-	T_ASSERT_GE(malloc_size(ptr), 64, "pointer size works");
+	T_ASSERT_GE(malloc_size(ptr), 64ul, "pointer size works");
 	malloc_destroy_zone(new_zone);
-	T_ASSERT_EQ(malloc_size(ptr), 0, "pointer is freed by destroying zone");
+	T_ASSERT_EQ(malloc_size(ptr), 0ul, "pointer is freed by destroying zone");
 	T_PASS("success");
 }
 
@@ -223,6 +223,7 @@ worker_thread(void *arg)
 		T_QUIET; T_ASSERT_NOTNULL(ptr, "malloc failed");
 		free(ptr);
 	}
+	return NULL;
 }
 
 T_DECL(malloc_fork_with_xzone, "Test that we can fork with a non-default xzone",
@@ -297,8 +298,8 @@ T_DECL(malloc_fork_with_xzone, "Test that we can fork with a non-default xzone",
 	T_ASSERT_TRUE(WIFEXITED(child_status), "Child called exit");
 	T_ASSERT_EQ(WEXITSTATUS(child_status), 0, "Child called exit(0)");
 
-	T_ASSERT_LE(malloc_size(ptr1), 64, "tiny pointer still seen post fork");
-	T_ASSERT_LE(malloc_size(ptr2), 65536, "large pointer still seen post fork");
+	T_ASSERT_LE(malloc_size(ptr1), 64ul, "tiny pointer still seen post fork");
+	T_ASSERT_LE(malloc_size(ptr2), 65536ul, "large pointer still seen post fork");
 
 	free(ptr1);
 	free(ptr2);
@@ -323,9 +324,9 @@ T_DECL(malloc_statistics, "Make sure the main and new zone support statistics",
 	malloc_zone_statistics(default_zone, &default_stats);
 	malloc_zone_statistics(new_zone, &new_stats);
 
-	T_ASSERT_EQ(new_stats.size_in_use, 0,
+	T_ASSERT_EQ(new_stats.size_in_use, 0ul,
 			"Accurate stats before any allocations");
-	T_ASSERT_EQ(new_stats.blocks_in_use, 0,
+	T_ASSERT_EQ(new_stats.blocks_in_use, 0u,
 			"Accurate allocation count before any allocations");
 	void *ptr1 = malloc_zone_malloc(new_zone, 1024);
 	void *ptr2 = malloc_zone_malloc(new_zone, 8192);
@@ -333,9 +334,9 @@ T_DECL(malloc_statistics, "Make sure the main and new zone support statistics",
 	free(ptr1);
 	free(ptr2);
 
-	T_ASSERT_EQ(new_stats.size_in_use, 1024 + 8192,
+	T_ASSERT_EQ(new_stats.size_in_use, 1024ul + 8192ul,
 			"Accurate stats after allocations");
-	T_ASSERT_EQ(new_stats.blocks_in_use, 2,
+	T_ASSERT_EQ(new_stats.blocks_in_use, 2u,
 			"Accurate allocation count after allocations");
 }
 
@@ -360,50 +361,50 @@ T_DECL(malloc_free_pointers_on_destroy,
 	for (int i = 0; i < countof(tiny_ptrs); i++) {
 		tiny_ptrs[i] = malloc_zone_malloc(new_zone, 1024);
 		T_QUIET; T_ASSERT_NOTNULL(tiny_ptrs[i], "TINY allocation succeeded");
-		T_QUIET; T_ASSERT_GE(malloc_size(tiny_ptrs[i]), 1024,
+		T_QUIET; T_ASSERT_GE(malloc_size(tiny_ptrs[i]), 1024ul,
 				"TINY allocation is of requested size");
 	}
 
 	for (int i = 0; i < countof(small_ptrs); i++) {
 		small_ptrs[i] = malloc_zone_malloc(new_zone, 32768);
 		T_QUIET; T_ASSERT_NOTNULL(small_ptrs[i], "SMALL allocation succeeded");
-		T_QUIET; T_ASSERT_GE(malloc_size(small_ptrs[i]), 32768,
+		T_QUIET; T_ASSERT_GE(malloc_size(small_ptrs[i]), 32768ul,
 				"SMALL allocation is of requested size");
 	}
 
 	for (int i = 0; i < countof(large_ptrs); i++) {
 		large_ptrs[i] = malloc_zone_malloc(new_zone, 65536);
 		T_QUIET; T_ASSERT_NOTNULL(large_ptrs[i], "LARGE allocation succeeded");
-		T_QUIET; T_ASSERT_GE(malloc_size(large_ptrs[i]), 65536,
+		T_QUIET; T_ASSERT_GE(malloc_size(large_ptrs[i]), 65536ul,
 				"LARGE allocation is of requested size");
 	}
 
 	for (int i = 0; i < countof(huge_ptrs); i++) {
 		huge_ptrs[i] = malloc_zone_malloc(new_zone, MiB(32));
 		T_QUIET; T_ASSERT_NOTNULL(huge_ptrs[i], "HUGE allocation succeeded");
-		T_QUIET; T_ASSERT_GE(malloc_size(huge_ptrs[i]), MiB(32),
+		T_QUIET; T_ASSERT_GE(malloc_size(huge_ptrs[i]), (size_t)MiB(32),
 				"HUGE allocation is of requested size");
 	}
 
 	malloc_destroy_zone(new_zone);
 
 	for (int i = 0; i < countof(tiny_ptrs); i++) {
-		T_QUIET; T_ASSERT_EQ(malloc_size(tiny_ptrs[i]), 0,
+		T_QUIET; T_ASSERT_EQ(malloc_size(tiny_ptrs[i]), 0ul,
 				"TINY allocation is freed by destroying zone");
 	}
 
 	for (int i = 0; i < countof(small_ptrs); i++) {
-		T_QUIET; T_ASSERT_EQ(malloc_size(small_ptrs[i]), 0,
+		T_QUIET; T_ASSERT_EQ(malloc_size(small_ptrs[i]), 0ul,
 				"SMALL allocation is freed by destroying zone");
 	}
 
 	for (int i = 0; i < countof(large_ptrs); i++) {
-		T_QUIET; T_ASSERT_EQ(malloc_size(large_ptrs[i]), 0,
+		T_QUIET; T_ASSERT_EQ(malloc_size(large_ptrs[i]), 0ul,
 				"LARGE allocation is freed by destroying zone");
 	}
 
 	for (int i = 0; i < countof(huge_ptrs); i++) {
-		T_QUIET; T_ASSERT_EQ(malloc_size(huge_ptrs[i]), 0,
+		T_QUIET; T_ASSERT_EQ(malloc_size(huge_ptrs[i]), 0ul,
 				"HUGE allocation is freed by destroying zone");
 	}
 }
@@ -547,7 +548,7 @@ T_DECL(free_default_with_scribble,
 	void *ptr = malloc_zone_malloc(zone, 16384);
 	T_ASSERT_NOTNULL(ptr, "Allocate from non-default zone");
 	free(ptr);
-	T_ASSERT_EQ(malloc_size(ptr), 0, "Pointer is freed");
+	T_ASSERT_EQ(malloc_size(ptr), 0ul, "Pointer is freed");
 }
 
 #else // CONFIG_XZONE_MALLOC

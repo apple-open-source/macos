@@ -46,7 +46,7 @@
 
 #if ENABLE(WK_WEB_EXTENSIONS)
 
-WK_OBJECT_DEALLOC_IMPL_ON_MAIN_THREAD(WKWebExtensionController, WebExtensionController, _webExtensionController);
+WK_OBJECT_DEALLOC_IMPL_ON_MAIN_THREAD(WKWebExtensionController, WebExtensionController, Ref { *_webExtensionController });
 
 - (instancetype)init
 {
@@ -65,35 +65,35 @@ WK_OBJECT_DEALLOC_IMPL_ON_MAIN_THREAD(WKWebExtensionController, WebExtensionCont
     if (!(self = [super init]))
         return nil;
 
-    API::Object::constructInWrapper<WebKit::WebExtensionController>(self, configuration._webExtensionControllerConfiguration.copy());
+    API::Object::constructInWrapper<WebKit::WebExtensionController>(self, configuration._protectedWebExtensionControllerConfiguration->copy());
 
     return self;
 }
 
 - (WKWebExtensionControllerConfiguration *)configuration
 {
-    return _webExtensionController->configuration().copy()->wrapper();
+    return Ref { *_webExtensionController }->protectedConfiguration()->copy()->wrapper();
 }
 
 - (BOOL)loadExtensionContext:(WKWebExtensionContext *)extensionContext error:(NSError **)outError
 {
     NSParameterAssert([extensionContext isKindOfClass:WKWebExtensionContext.class]);
 
-    return _webExtensionController->load(extensionContext._webExtensionContext, outError);
+    return Ref { *_webExtensionController }->load(Ref { extensionContext._webExtensionContext }, outError);
 }
 
 - (BOOL)unloadExtensionContext:(WKWebExtensionContext *)extensionContext error:(NSError **)outError
 {
     NSParameterAssert([extensionContext isKindOfClass:WKWebExtensionContext.class]);
 
-    return _webExtensionController->unload(extensionContext._webExtensionContext, outError);
+    return Ref { *_webExtensionController }->unload(Ref { extensionContext._webExtensionContext }, outError);
 }
 
 - (WKWebExtensionContext *)extensionContextForExtension:(WKWebExtension *)extension
 {
     NSParameterAssert([extension isKindOfClass:WKWebExtension.class]);
 
-    if (auto extensionContext = _webExtensionController->extensionContext(extension._webExtension))
+    if (auto extensionContext = Ref { *_webExtensionController }->extensionContext(extension._protectedWebExtension))
         return extensionContext->wrapper();
     return nil;
 }
@@ -102,7 +102,7 @@ WK_OBJECT_DEALLOC_IMPL_ON_MAIN_THREAD(WKWebExtensionController, WebExtensionCont
 {
     NSParameterAssert([url isKindOfClass:NSURL.class]);
 
-    if (auto extensionContext = _webExtensionController->extensionContext(url))
+    if (auto extensionContext = Ref { *_webExtensionController }->extensionContext(url))
         return extensionContext->wrapper();
     return nil;
 }
@@ -123,12 +123,12 @@ static inline NSSet *toAPI(const HashSet<Ref<T>>& inputSet)
 
 - (NSSet<WKWebExtension *> *)extensions
 {
-    return toAPI(_webExtensionController->extensions());
+    return toAPI(Ref { *_webExtensionController }->extensions());
 }
 
 - (NSSet<WKWebExtensionContext *> *)extensionContexts
 {
-    return toAPI(_webExtensionController->extensionContexts());
+    return toAPI(Ref { *_webExtensionController }->extensionContexts());
 }
 
 + (NSSet<WKWebExtensionDataType> *)allExtensionDataTypes
@@ -141,7 +141,7 @@ static inline NSSet *toAPI(const HashSet<Ref<T>>& inputSet)
     NSParameterAssert([dataTypes isKindOfClass:NSSet.class]);
     NSParameterAssert(completionHandler);
 
-    _webExtensionController->getDataRecords(WebKit::toWebExtensionDataTypes(dataTypes), [completionHandler = makeBlockPtr(completionHandler)](Vector<Ref<WebKit::WebExtensionDataRecord>> records) {
+    Ref { *_webExtensionController }->getDataRecords(WebKit::toWebExtensionDataTypes(dataTypes), [completionHandler = makeBlockPtr(completionHandler)](Vector<Ref<WebKit::WebExtensionDataRecord>> records) {
         completionHandler(toAPI(records));
     });
 }
@@ -152,7 +152,7 @@ static inline NSSet *toAPI(const HashSet<Ref<T>>& inputSet)
     NSParameterAssert([extensionContext isKindOfClass:WKWebExtensionContext.class]);
     NSParameterAssert(completionHandler);
 
-    _webExtensionController->getDataRecord(WebKit::toWebExtensionDataTypes(dataTypes), extensionContext._webExtensionContext, [completionHandler = makeBlockPtr(completionHandler)](RefPtr<WebKit::WebExtensionDataRecord> record) {
+    Ref { *_webExtensionController }->getDataRecord(WebKit::toWebExtensionDataTypes(dataTypes), Ref { extensionContext._webExtensionContext }, [completionHandler = makeBlockPtr(completionHandler)](RefPtr<WebKit::WebExtensionDataRecord> record) {
         if (record)
             completionHandler(record->wrapper());
         else
@@ -166,102 +166,95 @@ static inline NSSet *toAPI(const HashSet<Ref<T>>& inputSet)
     NSParameterAssert([dataRecords isKindOfClass:NSArray.class]);
     NSParameterAssert(completionHandler);
 
-    _webExtensionController->removeData(WebKit::toWebExtensionDataTypes(dataTypes), WebKit::toWebExtensionDataRecords(dataRecords), [completionHandler = makeBlockPtr(completionHandler)] {
+    Ref { *_webExtensionController }->removeData(WebKit::toWebExtensionDataTypes(dataTypes), WebKit::toWebExtensionDataRecords(dataRecords), [completionHandler = makeBlockPtr(completionHandler)] {
         completionHandler();
     });
 }
 
 - (void)didOpenWindow:(id<WKWebExtensionWindow>)newWindow
 {
-    NSParameterAssert([newWindow conformsToProtocol:@protocol(WKWebExtensionWindow)]);
+    NSParameterAssert(newWindow != nil);
 
-    for (auto& context : _webExtensionController->extensionContexts())
+    for (auto& context : Ref { *_webExtensionController }->extensionContexts())
         [context->wrapper() didOpenWindow:newWindow];
 }
 
 - (void)didCloseWindow:(id<WKWebExtensionWindow>)closedWindow
 {
-    NSParameterAssert([closedWindow conformsToProtocol:@protocol(WKWebExtensionWindow)]);
+    NSParameterAssert(closedWindow != nil);
 
-    for (auto& context : _webExtensionController->extensionContexts())
+    for (auto& context : Ref { *_webExtensionController }->extensionContexts())
         [context->wrapper() didCloseWindow:closedWindow];
 }
 
 - (void)didFocusWindow:(id<WKWebExtensionWindow>)focusedWindow
 {
-    if (focusedWindow)
-        NSParameterAssert([focusedWindow conformsToProtocol:@protocol(WKWebExtensionWindow)]);
-
-    for (auto& context : _webExtensionController->extensionContexts())
+    for (auto& context : Ref { *_webExtensionController }->extensionContexts())
         [context->wrapper() didFocusWindow:focusedWindow];
 }
 
 - (void)didOpenTab:(id<WKWebExtensionTab>)newTab
 {
-    NSParameterAssert([newTab conformsToProtocol:@protocol(WKWebExtensionTab)]);
+    NSParameterAssert(newTab != nil);
 
-    for (auto& context : _webExtensionController->extensionContexts())
+    for (auto& context : Ref { *_webExtensionController }->extensionContexts())
         [context->wrapper() didOpenTab:newTab];
 }
 
 - (void)didCloseTab:(id<WKWebExtensionTab>)closedTab windowIsClosing:(BOOL)windowIsClosing
 {
-    NSParameterAssert([closedTab conformsToProtocol:@protocol(WKWebExtensionTab)]);
+    NSParameterAssert(closedTab != nil);
 
-    for (auto& context : _webExtensionController->extensionContexts())
+    for (auto& context : Ref { *_webExtensionController }->extensionContexts())
         [context->wrapper() didCloseTab:closedTab windowIsClosing:windowIsClosing];
 }
 
 - (void)didActivateTab:(id<WKWebExtensionTab>)activatedTab previousActiveTab:(nullable id<WKWebExtensionTab>)previousTab
 {
-    NSParameterAssert([activatedTab conformsToProtocol:@protocol(WKWebExtensionTab)]);
-    if (previousTab)
-        NSParameterAssert([previousTab conformsToProtocol:@protocol(WKWebExtensionTab)]);
+    NSParameterAssert(activatedTab != nil);
 
-    for (auto& context : _webExtensionController->extensionContexts())
+    for (auto& context : Ref { *_webExtensionController }->extensionContexts())
         [context->wrapper() didActivateTab:activatedTab previousActiveTab:previousTab];
 }
 
-- (void)didSelectTabs:(NSSet<id<WKWebExtensionTab>> *)selectedTabs
+- (void)didSelectTabs:(NSArray<id<WKWebExtensionTab>> *)selectedTabs
 {
-    NSParameterAssert([selectedTabs isKindOfClass:NSSet.class]);
+    NSParameterAssert([selectedTabs isKindOfClass:NSArray.class]);
 
-    for (auto& context : _webExtensionController->extensionContexts())
+    for (auto& context : Ref { *_webExtensionController }->extensionContexts())
         [context->wrapper() didSelectTabs:selectedTabs];
 }
 
-- (void)didDeselectTabs:(NSSet<id<WKWebExtensionTab>> *)deselectedTabs
+- (void)didDeselectTabs:(NSArray<id<WKWebExtensionTab>> *)deselectedTabs
 {
-    NSParameterAssert([deselectedTabs isKindOfClass:NSSet.class]);
+    NSParameterAssert([deselectedTabs isKindOfClass:NSArray.class]);
 
-    for (auto& context : _webExtensionController->extensionContexts())
+    for (auto& context : Ref { *_webExtensionController }->extensionContexts())
         [context->wrapper() didDeselectTabs:deselectedTabs];
 }
 
 - (void)didMoveTab:(id<WKWebExtensionTab>)movedTab fromIndex:(NSUInteger)index inWindow:(id<WKWebExtensionWindow>)oldWindow
 {
-    NSParameterAssert([movedTab conformsToProtocol:@protocol(WKWebExtensionTab)]);
-    if (oldWindow)
-        NSParameterAssert([oldWindow conformsToProtocol:@protocol(WKWebExtensionWindow)]);
+    NSParameterAssert(movedTab != nil);
 
-    for (auto& context : _webExtensionController->extensionContexts())
+    for (auto& context : Ref { *_webExtensionController }->extensionContexts())
         [context->wrapper() didMoveTab:movedTab fromIndex:index inWindow:oldWindow];
 }
 
 - (void)didReplaceTab:(id<WKWebExtensionTab>)oldTab withTab:(id<WKWebExtensionTab>)newTab
 {
-    NSParameterAssert([oldTab conformsToProtocol:@protocol(WKWebExtensionTab)]);
-    NSParameterAssert([newTab conformsToProtocol:@protocol(WKWebExtensionTab)]);
+    NSParameterAssert(oldTab != nil);
+    NSParameterAssert(newTab != nil);
 
-    for (auto& context : _webExtensionController->extensionContexts())
+    for (auto& context : Ref { *_webExtensionController }->extensionContexts())
         [context->wrapper() didReplaceTab:oldTab withTab:newTab];
 }
 
 - (void)didChangeTabProperties:(WKWebExtensionTabChangedProperties)properties forTab:(id<WKWebExtensionTab>)changedTab
 {
-    NSParameterAssert([changedTab conformsToProtocol:@protocol(WKWebExtensionTab)]);
+    NSParameterAssert(changedTab != nil);
 
-    for (auto& context : _webExtensionController->extensionContexts())
+    for (auto& context : Ref { *_webExtensionController }->extensionContexts())
         [context->wrapper() didChangeTabProperties:properties forTab:changedTab];
 }
 

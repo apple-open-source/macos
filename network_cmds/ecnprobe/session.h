@@ -180,4 +180,4 @@ void rcvData (void (*ackData)(struct IPPacket *p));
 
 void SendRequest(char *filename, void (*ackData)(struct IPPacket *p));
 
-int  PrepareRequest(char *data, char *filename) ;
+int  PrepareRequest(char *data, size_t size, char *filename) ;

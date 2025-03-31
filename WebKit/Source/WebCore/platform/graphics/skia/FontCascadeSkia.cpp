@@ -35,7 +35,9 @@
 
 namespace WebCore {
 
-void FontCascade::drawGlyphs(GraphicsContext& graphicsContext, const Font& font, const GlyphBufferGlyph* glyphs, const GlyphBufferAdvance* advances, unsigned glyphCount, const FloatPoint& position, FontSmoothingMode smoothingMode)
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN // GLib/Win port
+
+void FontCascade::drawGlyphs(GraphicsContext& graphicsContext, const Font& font, std::span<const GlyphBufferGlyph> glyphs, std::span<const GlyphBufferAdvance> advances, const FloatPoint& position, FontSmoothingMode smoothingMode)
 {
     if (!font.platformData().size())
         return;
@@ -66,15 +68,15 @@ void FontCascade::drawGlyphs(GraphicsContext& graphicsContext, const Font& font,
     SkTextBlobBuilder builder;
     const auto& buffer = [&]() {
         if (skFont.getEdging() == edging)
-            return isVertical ? builder.allocRunPos(skFont, glyphCount) : builder.allocRunPosH(skFont, glyphCount, 0);
+            return isVertical ? builder.allocRunPos(skFont, glyphs.size()) : builder.allocRunPosH(skFont, glyphs.size(), 0);
 
         SkFont copiedFont = skFont;
         copiedFont.setEdging(edging);
-        return isVertical ? builder.allocRunPos(copiedFont, glyphCount) : builder.allocRunPosH(copiedFont, glyphCount, 0);
+        return isVertical ? builder.allocRunPos(copiedFont, glyphs.size()) : builder.allocRunPosH(copiedFont, glyphs.size(), 0);
     }();
 
     FloatSize glyphPosition;
-    for (unsigned i = 0; i < glyphCount; ++i) {
+    for (size_t i = 0; i < glyphs.size(); ++i) {
         buffer.glyphs[i] = glyphs[i];
 
         if (isVertical) {
@@ -90,6 +92,8 @@ void FontCascade::drawGlyphs(GraphicsContext& graphicsContext, const Font& font,
     auto blob = builder.make();
     static_cast<GraphicsContextSkia*>(&graphicsContext)->drawSkiaText(blob, SkFloatToScalar(position.x()), SkFloatToScalar(position.y()), edging != SkFont::Edging::kAlias, isVertical);
 }
+
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
 
 bool FontCascade::canReturnFallbackFontsForComplexText()
 {
@@ -125,7 +129,7 @@ ResolvedEmojiPolicy FontCascade::resolveEmojiPolicy(FontVariantEmoji fontVariant
     return ResolvedEmojiPolicy::NoPreference;
 }
 
-const Font* FontCascade::fontForCombiningCharacterSequence(StringView stringView) const
+RefPtr<const Font> FontCascade::fontForCombiningCharacterSequence(StringView stringView) const
 {
     ASSERT(!stringView.isEmpty());
     auto codePoints = stringView.codePoints();

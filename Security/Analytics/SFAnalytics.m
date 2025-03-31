@@ -32,15 +32,15 @@
 #import "SFAnalyticsCollection.h"
 #import "keychain/analytics/SecLaunchSequence.h"
 #import "NSDate+SFAnalytics.h"
-#import "utilities/debugging.h"
-#import <utilities/SecFileLocations.h>
 #import <objc/runtime.h>
 #import <sys/stat.h>
 #import <CoreFoundation/CFPriv.h>
 #include <os/transaction_private.h>
 #include <os/variant_private.h>
 
-#import <utilities/SecCoreAnalytics.h>
+#import "utilities/SecCoreAnalytics.h"
+#import "utilities/SecFileLocations.h"
+#import "utilities/debugging.h"
 
 #if TARGET_OS_OSX
 #include <sys/sysctl.h>
@@ -138,6 +138,11 @@ NSString* const SFAnalyticsTableSchema =    @"CREATE TABLE IF NOT EXISTS hard_fa
                                                 @"event_type STRING PRIMARY KEY,\n"
                                                 @"timestamp REAL,"
                                                 @"data BLOB\n"
+                                            @");\n"
+                                            @"CREATE TABLE IF NOT EXISTS upload_file (\n"
+                                                @"file STRING PRIMARY KEY,\n"
+                                                @"store STRING,\n"
+                                                @"timestamp REAL\n"
                                             @");\n"
                                             @"DROP TABLE IF EXISTS all_events;\n";
 
@@ -701,6 +706,11 @@ static NSString *const SFAnalyticsUnderlyingErrorMultipleUnderlyingError= @"m";
 - (void)logSoftFailureForEventNamed:(NSString*)eventName withAttributes:(NSDictionary*)attributes
 {
     [self logSoftFailureForEventNamed:eventName withAttributes:attributes timestampBucket:SFAnalyticsTimestampBucketSecond];
+}
+
+- (void)logRockwellFailureForEventNamed:(NSString*)eventName withAttributes:(NSDictionary*)attributes
+{
+    [self logEventNamed:eventName class:SFAnalyticsEventClassRockwell attributes:attributes timestampBucket:SFAnalyticsTimestampBucketSecond];
 }
 
 - (void)logResultForEvent:(NSString*)eventName hardFailure:(bool)hardFailure result:(NSError*)eventResultError timestampBucket:(SFAnalyticsTimestampBucket)timestampBucket

@@ -43,13 +43,13 @@ AudioSessionRoutingArbitratorProxy::AudioSessionRoutingArbitratorProxy(WebProces
     , m_token(SharedRoutingArbitratorToken::create())
 {
     m_logIdentifier = m_token->logIdentifier();
-    SharedRoutingArbitrator::sharedInstance().setLogger(logger());
+    SharedRoutingArbitrator::sharedInstance().setLogger(Ref { logger() });
     proxy.addMessageReceiver(Messages::AudioSessionRoutingArbitratorProxy::messageReceiverName(), destinationId(), *this);
 }
 
 AudioSessionRoutingArbitratorProxy::~AudioSessionRoutingArbitratorProxy()
 {
-    RefAllowingPartiallyDestroyed<WebProcessProxy> process = m_process.get();
+    Ref<WebProcessProxy> process = m_process.get();
     process->removeMessageReceiver(Messages::AudioSessionRoutingArbitratorProxy::messageReceiverName(), destinationId());
 }
 
@@ -67,10 +67,10 @@ void AudioSessionRoutingArbitratorProxy::beginRoutingArbitrationWithCategory(Web
     m_category = category;
     m_arbitrationStatus = ArbitrationStatus::Pending;
     m_arbitrationUpdateTime = WallTime::now();
-    SharedRoutingArbitrator::sharedInstance().beginRoutingArbitrationForToken(m_token, category, [this, weakThis = WeakPtr { *this }, callback = WTFMove(callback), identifier = WTFMove(identifier)] (RoutingArbitrationError error, DefaultRouteChanged routeChanged) mutable {
-        if (weakThis) {
-            ALWAYS_LOG(identifier, "callback, error = ", error, ", routeChanged = ", routeChanged);
-            weakThis->m_arbitrationStatus = error == RoutingArbitrationError::None ? ArbitrationStatus::Active : ArbitrationStatus::None;
+    SharedRoutingArbitrator::sharedInstance().beginRoutingArbitrationForToken(m_token, category, [weakThis = WeakPtr { *this }, callback = WTFMove(callback), identifier = WTFMove(identifier)] (RoutingArbitrationError error, DefaultRouteChanged routeChanged) mutable {
+        if (RefPtr protectedThis = weakThis.get()) {
+            ALWAYS_LOG_WITH_THIS(protectedThis, identifier, "callback, error = ", error, ", routeChanged = ", routeChanged);
+            protectedThis->m_arbitrationStatus = error == RoutingArbitrationError::None ? ArbitrationStatus::Active : ArbitrationStatus::None;
         }
         callback(error, routeChanged);
     });

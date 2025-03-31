@@ -492,7 +492,8 @@ angle::Result QueryVk::getResult(const gl::Context *context, bool wait)
     // We only need to check mQueryHelper, not mStashedQueryHelper, since they are always in order.
     if (contextVk->hasUnsubmittedUse(mQueryHelper.get()))
     {
-        ANGLE_TRY(contextVk->flushImpl(nullptr, nullptr, RenderPassClosureReason::GetQueryResult));
+        ANGLE_TRY(contextVk->flushAndSubmitCommands(nullptr, nullptr,
+                                                    RenderPassClosureReason::GetQueryResult));
 
         ASSERT(contextVk->getRenderer()->hasResourceUseSubmitted(
             mQueryHelperTimeElapsedBegin.getResourceUse()));
@@ -506,14 +507,13 @@ angle::Result QueryVk::getResult(const gl::Context *context, bool wait)
     // not-ready if not waiting).
     if (isCurrentlyInUse(renderer) &&
         (!renderer->getFeatures().supportsHostQueryReset.enabled ||
-         renderer->getFeatures().forceWaitForSubmissionToCompleteForQueryResult.enabled ||
-         renderer->isAsyncCommandQueueEnabled()))
+         renderer->getFeatures().forceWaitForSubmissionToCompleteForQueryResult.enabled))
     {
         // The query might appear busy because there was no check for completed commands
         // recently. Do that now and see if the query is still busy.  If the application is
         // looping until the query results become available, there wouldn't be any forward
         // progress without this.
-        ANGLE_TRY(renderer->checkCompletedCommands(contextVk));
+        ANGLE_TRY(renderer->checkCompletedCommandsAndCleanup(contextVk));
 
         if (isCurrentlyInUse(renderer))
         {

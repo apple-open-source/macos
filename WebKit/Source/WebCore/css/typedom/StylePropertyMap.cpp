@@ -29,8 +29,10 @@
 #include "CSSProperty.h"
 #include "CSSPropertyNames.h"
 #include "CSSPropertyParser.h"
+#include "CSSQuadValue.h"
 #include "CSSStyleValueFactory.h"
 #include "CSSUnparsedValue.h"
+#include "CSSValueList.h"
 #include "CSSValuePair.h"
 #include "CSSVariableReferenceValue.h"
 #include "Document.h"
@@ -126,6 +128,11 @@ ExceptionOr<void> StylePropertyMap::set(Document& document, const AtomString& pr
     if (auto pair = dynamicDowncast<CSSValuePair>(value)) {
         if (pair->canBeCoalesced())
             return Exception { ExceptionCode::NotSupportedError, "Invalid values"_s };
+    }
+
+    if (auto quad = dynamicDowncast<CSSQuadValue>(value)) {
+        if (quad->canBeCoalesced())
+            return Exception { ExceptionCode::TypeError, "Invalid values"_s };
     }
 
     if (!setProperty(propertyID, value.releaseNonNull()))

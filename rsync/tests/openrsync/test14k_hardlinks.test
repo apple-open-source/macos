@@ -1,0 +1,171 @@
+#! /bin/sh
+
+set -e
+set -u
+
+. ${tstdir-.}/lib.sh
+. ${tstdir-.}/conf.sh
+
+# Check that each file in the given dir whose name matches the given pattern
+# has exactly the given link count.  Also check that if the link count
+# is greater than one then all matching files have the same inode.
+#
+check_linkage() {
+    [ $# -eq 3 ]
+    local dir=$1
+    local fnpat=$2
+    local nlinks=$3
+    local inode=0
+
+    find "${dir}" -type f -name "${fnpat}" -exec stat -f '%l %i' {} \; | while read line ; do
+	set -- $line
+	[ $1 -eq ${nlinks} ]
+
+	if [ ${nlinks} -gt 1 ] ; then
+	    if [ ${inode} -eq 0 ] ; then
+		inode=$2
+	    else
+		[ ${inode} -eq $2 ]
+	    fi
+	fi
+    done
+}
+
+rm -rf src dst
+mkdir src
+
+rm -rf src dst
+mkdir src
+
+date > src/a
+
+jot 17 9 > src/b
+for f in c x y ; do
+    ln src/b src/$f
+done
+
+date > src/z
+
+nlinks=$(stat -f %l src/b)
+
+rsync -axSH -- src/ dst/
+compare_trees -t src dst
+
+echo
+echo 'Test 1: --update should not update already synced files on dest'
+
+touch -A -10 src
+
+rsync --no-v -vv -aixSH --update -- src/ dst/ | tee log
+compare_trees -t src dst
+
+echo "Test 1.1: check linkage"
+check_linkage dst '[bcxy]' $nlinks
+
+echo "Test 1.2: check itemization"
+X=$(egrep -c '^[h.][f][ ]{7}' log)
+[ $X -eq 6 ]
+
+
+echo
+echo 'Test 2: --update should not update hardlinked files on dest'
+
+touch -A -20 src/b
+
+rsync --no-v -vv -aixSH --update -- src/ dst/ | tee log
+compare_trees src dst
+
+echo "Test 2.1: check linkage"
+check_linkage dst '[bcxy]' $nlinks
+
+echo "Test 2.2: check itemization"
+X=$(egrep -c '^[h.][f].{7}' log)
+[ $X -eq 2 ]
+
+echo "Test 2.3: check itemization"
+X=$(egrep -c '^[.][f][ ]{7}' log)
+[ $X -eq 2 ]
+
+
+if [ -n "${RSYNC_PREFIX_DEST}" ] ; then
+    V=$(${RSYNC_SERVER} --version | head -1 | awk '{printf "%d", $3}')
+else
+    V=$(rsync --version | head -1 | awk '{printf "%d", $3}')
+fi
+
+echo
+echo 'Test 3: --update should recreate dst/x as a regular file'
+
+touch -A -30 src
+touch -A -30 src/b
+rm -f dst/x
+
+rsync --no-v -vv -aixSH --update -- src/ dst/ | tee log
+
+case $V in
+[03])
+    compare_trees src dst
+    echo "Test 3.1: check itemization"
+    X=$(egrep -c '^[h<>.][f].{7}.* [axz]' log)
+    [ $X -eq 3 ]
+
+    echo "Test 3.2: check itemization"
+    X=$(egrep -c '^[<>][f][+]{7}.* x' log)
+    [ $X -eq 1 ]
+    ;;
+*)
+    ;;
+esac
+
+echo "Test 3.3: check linkage"
+check_linkage dst '[bcy]' $((nlinks - 1))
+
+
+
+echo
+echo 'Test 4: --ignore-existing should not update any files on dest '
+
+touch -A -40 src
+rm -f dst/x
+ln dst/b dst/x
+
+rsync --no-v -vv -aixSH --ignore-existing -- src/ dst/ | tee log
+compare_trees src dst
+
+echo "Test 4.1: check linkage"
+check_linkage dst '[bcxy]' $nlinks
+
+echo "Test 4.2: check itemization"
+X=$(egrep -c '^[.h][df][.t]{7}' log)
+[ $X -eq 1 ]
+
+
+
+echo
+echo 'Test 5: --ignore-existing should recreate dst/y as a regular file'
+
+touch -A -50 src
+rm -f dst/y
+
+rsync --no-v -vv -aixSH --ignore-existing -- src/ dst/ | tee log
+
+case $V in
+[03])
+    compare_trees src dst
+
+    echo "Test 5.1: check itemization"
+    X=$(egrep -c '^[h<>.][f].{7}.*' log)
+    [ $X -eq 1 ]
+
+    echo "Test 5.2: check itemization"
+    X=$(egrep -c '^[<>][f][+]{7}.* y' log)
+    [ $X -eq 1 ]
+    ;;
+
+*)
+    ;;
+esac
+
+
+echo "Test 5.2: check linkage ${nlinks}"
+check_linkage dst '[bcx]' $((nlinks - 1))

@@ -117,12 +117,13 @@ def PrintPortSummary(port, show_kmsg_summary=True, show_sets=False, prefix="", O
     """
 
     format_string = "{:<#20x} {:<#20x} {:#010x} {:>6d}  {:<#20x}  {:>8d}  {:<20s} {:<s}"
-    receiver_name = port.ip_messages.imq_receiver_name
+    ip_messages = port.ip_messages
+    receiver_name = ip_messages.imq_receiver_name
     splabel_name = 'N/A'
     space = 0
     refs = 0
-
-    if port.ip_object.io_bits & 0x80000000:
+    ip_object = port.ip_object
+    if ip_object.io_bits & 0x80000000:
         if receiver_name:
             space = unsigned(port.ip_receiver)
 
@@ -137,19 +138,20 @@ def PrintPortSummary(port, show_kmsg_summary=True, show_sets=False, prefix="", O
     else:
         dest_str = "inactive-port"
 
-    print(prefix + format_string.format(unsigned(port), addressof(port.ip_waitq),
-        unsigned(receiver_name), port.ip_object.io_references, space,
-        port.ip_messages.imq_msgcount, splabel_name, dest_str))
+    ip_waitq = port.ip_waitq
+    print(prefix + format_string.format(unsigned(port), addressof(ip_waitq),
+        unsigned(receiver_name), ip_object.io_references, space,
+        ip_messages.imq_msgcount, splabel_name, dest_str))
 
     if show_kmsg_summary:
         with O.table(prefix + GetKMsgSummary.header):
-            for kmsgp in IterateCircleQueue(port.ip_messages.imq_messages, 'ipc_kmsg', 'ikm_link'):
+            for kmsgp in IterateCircleQueue(ip_messages.imq_messages, 'ipc_kmsg', 'ikm_link'):
                 print(prefix + GetKMsgSummary(kmsgp, prefix))
 
-    wq = Waitq(addressof(port.ip_waitq))
+    wq = Waitq(addressof(ip_waitq))
     if show_sets and wq.hasSets():
         def doit(wq):
-            for wqs in Waitq(addressof(port.ip_waitq)).iterateSets():
+            for wqs in wq.iterateSets():
                 PrintPortSetSummary(wqs.asPset(), space=port.ip_receiver, verbose=False, O=O)
 
         if O is None:
@@ -432,9 +434,10 @@ def PrintPortSetSummary(pset, space=0, verbose=True, O=None):
     if config['verbosity'] > vHUMAN :
         show_kmsg_summary = True
 
-    wqs = Waitq(addressof(pset.ips_wqset))
+    ips_wqset = pset.ips_wqset
+    wqs = Waitq(addressof(ips_wqset))
 
-    local_name = unsigned(pset.ips_wqset.wqset_index) << 8
+    local_name = unsigned(ips_wqset.wqset_index) << 8
     dest = "-"
     if space:
         is_tableval, _ = GetSpaceTable(space)
@@ -446,14 +449,15 @@ def PrintPortSetSummary(pset, space=0, verbose=True, O=None):
         for wq in wqs.iterateMembers():
             dest = GetSpaceProcDesc(wq.asPort().ip_receiver)
 
-    if pset.ips_object.io_bits & 0x80000000:
+    ips_object = pset.ips_object
+    if ips_object.io_bits & 0x80000000:
         state = "ASet"
     else:
         state = "DSet"
 
     print("{:<#20x} {:<#20x} {:#010x} {:>6d}  {:<6s}  {:<20s}".format(
-        unsigned(pset), addressof(pset.ips_wqset), local_name,
-        pset.ips_object.io_references, "ASet", dest))
+        unsigned(pset), addressof(ips_wqset), local_name,
+        ips_object.io_references, "ASet", dest))
 
     if verbose and wqs.hasThreads():
         with O.table("{:<20s} {:<20s}".format('waiter', 'event'), indent=True):
@@ -464,7 +468,6 @@ def PrintPortSetSummary(pset, space=0, verbose=True, O=None):
     if verbose and wqs.hasMembers():
         with O.table(PrintPortSummary.header, indent=True):
             for wq in wqs.iterateMembers():
-                portval = wq.asPort()
                 PrintPortSummary(wq.asPort(), show_kmsg_summary=show_kmsg_summary, O=O)
             print("")
 
@@ -477,10 +480,9 @@ def ShowIPC(cmd_args=None):
     """  Routine to print data for the given IPC space 
          Usage: showipc <address of ipc space>
     """
-    if not cmd_args:
-        print("No arguments passed")
-        print(ShowIPC.__doc__)
-        return False
+    if cmd_args is None or len(cmd_args) == 0:
+        raise ArgumentError("No arguments passed")
+
     ipc = kern.GetValueFromAddress(cmd_args[0], 'ipc_space *')
     if not ipc:
         print("unknown arguments:", str(cmd_args))
@@ -498,10 +500,9 @@ def ShowTaskIPC(cmd_args=None):
     """  Routine to print IPC summary of given task
          Usage: showtaskipc <address of task>
     """
-    if not cmd_args:
-        print("No arguments passed")
-        print(ShowTaskIPC.__doc__)
-        return False
+    if cmd_args is None or len(cmd_args) == 0:
+        raise ArgumentError("No arguments passed")
+
     tval = kern.GetValueFromAddress(cmd_args[0], 'task *')
     if not tval:
         print("unknown arguments:", str(cmd_args))
@@ -843,10 +844,9 @@ def ShowRights(cmd_args=None, cmd_options={}):
                     'n'     : No-Senders notification requested
                     'x'     : Port-destroy notification requested
     """
-    if not cmd_args:
-        print("No arguments passed")
-        print(ShowRights.__doc__)
-        return False
+    if cmd_args is None or len(cmd_args) == 0:
+        raise ArgumentError("No arguments passed")
+
     ipc = kern.GetValueFromAddress(cmd_args[0], 'ipc_space *')
     if not ipc:
         print("unknown arguments:", str(cmd_args))
@@ -882,10 +882,9 @@ def ShowTaskRights(cmd_args=None, cmd_options={}):
                    'n'     : No-Senders notification requested
                    'x'     : Port-destroy notification requested
     """
-    if cmd_args is None:
-        print("No arguments passed")
-        print(ShowTaskStacksCmdHelper.__doc__)
-        return False
+    if cmd_args is None or len(cmd_args) == 0:
+        raise ArgumentError("No arguments passed")
+
     tval = kern.GetValueFromAddress(cmd_args[0], 'task *')
     if not tval:
         print("unknown arguments:", str(cmd_args))
@@ -954,10 +953,9 @@ def ShowTaskRightsBt(cmd_args=None, cmd_options={}):
                    'n'     : No-Senders notification requested
                    'x'     : Port-destroy notification requested
     """
-    if cmd_args is None:
-        print("No arguments passed")
-        print(ShowTaskRightsBt.__doc__)
-        return False
+    if cmd_args is None or len(cmd_args) == 0:
+        raise ArgumentError("No arguments passed")
+
     tval = kern.GetValueFromAddress(cmd_args[0], 'task *')
     if not tval:
         print("unknown arguments:", str(cmd_args))
@@ -1439,7 +1437,7 @@ def FindPortRights(cmd_args=None, cmd_options={}):
                     'n'     : No-Senders notification requested
                     'x'     : Port-destroy notification requested
     """
-    if not cmd_args:
+    if cmd_args is None or len(cmd_args) == 0:
         raise ArgumentError("no port address provided")
     port = kern.GetValueFromAddress(cmd_args[0], 'struct ipc_port *')
 
@@ -1473,10 +1471,11 @@ def CountPortsCallback(task, space, ctx, entry_idx, ipc_entry, ipc_port, port_di
     (p_set, p_intransit, p_bytask) = ctx
 
     ## Add the port address to the set of all port addresses
-    p_set.add(unsigned(ipc_port))
+    ipc_port_addr = unsigned(ipc_port)
+    p_set.add(ipc_port_addr)
 
     if entry_idx == intransit_idx:
-        p_intransit.add(unsigned(ipc_port))
+        p_intransit.add(ipc_port_addr)
 
     if task.active or (task.halting and not task.active):
         if not task in p_bytask:
@@ -1540,10 +1539,9 @@ def ShowTaskBusyPorts(cmd_args=None, cmd_options={}, O=None):
         have enqueued messages. This is often a sign of a blocked or hung process
         Usage: showtaskbusyports <task address>
     """
-    if not cmd_args:
-        print("No arguments passed. Please pass in the address of a task")
-        print(ShowTaskBusyPorts.__doc__)
-        return
+    if cmd_args is None or len(cmd_args) == 0:
+        raise ArgumentError("No arguments passed. Please pass in the address of a task")
+
     task = kern.GetValueFromAddress(cmd_args[0], 'task_t')
     is_tableval, num_entries = GetSpaceTable(task.itk_space)
 
@@ -1593,6 +1591,8 @@ def FindKobjectPort(cmd_args=None, cmd_options={}, O=None):
 
         usage: findkobjectport <kobject-addr>
     """
+    if cmd_args is None or len(cmd_args) == 0:
+        raise ArgumentError()
 
     kobj_addr = unsigned(kern.GetValueFromAddress(cmd_args[0]))
     kmem = kmemory.KMem.get_shared()
@@ -1616,10 +1616,9 @@ def ShowTaskBusyPortSets(cmd_args=None, cmd_options={}, O=None):
         have enqueued messages. This is often a sign of a blocked or hung process
         Usage: showtaskbusypsets <task address>
     """
-    if not cmd_args:
-        print("No arguments passed. Please pass in the address of a task")
-        print(ShowTaskBusyPortsSets.__doc__)
-        return
+    if cmd_args is None or len(cmd_args) == 0:
+        raise ArgumentError("No arguments passed. Please pass in the address of a task")
+
     task = kern.GetValueFromAddress(cmd_args[0], 'task_t')
     is_tableval, num_entries = GetSpaceTable(task.itk_space)
 
@@ -1720,10 +1719,12 @@ def ShowPort(cmd_args=None, cmd_options={}, O=None):
         usage: showport <address>
     """
     # -K is default and kept for backward compat, it used to mean "show kmsg queue"
-    if not cmd_args:
-        return O.error("Missing port argument")
+    if cmd_args is None or len(cmd_args) == 0:
+        raise ArgumentError("Missing port argument")
+
     obj = kern.GetValueFromAddress(cmd_args[0], 'struct ipc_object *')
     ShowPortOrPset(obj, O=O)
+
 
 @lldb_command('showpset', "S:", fancy=True)
 def ShowPSet(cmd_args=None, cmd_options={}, O=None):
@@ -1731,8 +1732,9 @@ def ShowPSet(cmd_args=None, cmd_options={}, O=None):
 
         usage: showpset [-S <space>] <address>
     """
-    if not cmd_args:
-        return O.error("Missing port argument")
+    if cmd_args is None or len(cmd_args) == 0:
+        raise ArgumentError("Missing port argument")
+
     space = 0
     if "-S" in cmd_options:
         space = kern.GetValueFromAddress(cmd_options["-S"], 'struct ipc_space *')
@@ -1747,8 +1749,9 @@ def ShowKMSG(cmd_args=[]):
     """ Show detail information about a <ipc_kmsg_t> structure
         Usage: (lldb) showkmsg <ipc_kmsg_t>
     """
-    if not cmd_args:
+    if cmd_args is None or len(cmd_args) == 0:
         raise ArgumentError('Invalid arguments')
+
     kmsg = kern.GetValueFromAddress(cmd_args[0], 'ipc_kmsg_t')
     print(GetKMsgSummary.header)
     print(GetKMsgSummary(kmsg))
@@ -1858,7 +1861,7 @@ def ShowIPCImportance(cmd_args=[], cmd_options={}):
     """ Describe an importance from <ipc_importance_elem_t> argument.
         Usage: (lldb) showimportance <ipc_importance_elem_t>
     """
-    if not cmd_args:
+    if cmd_args is None or len(cmd_args) == 0:
         raise ArgumentError("Please provide valid argument")
 
     elem = kern.GetValueFromAddress(cmd_args[0], 'ipc_importance_elem_t')
@@ -1885,7 +1888,7 @@ def ShowIPCVoucherAttributeControl(cmd_args=[], cmd_options={}):
     """ Show summary of voucher attribute contols.
         Usage: (lldb) showivac <ipc_voucher_attr_control_t>
     """
-    if not cmd_args:
+    if cmd_args is None or len(cmd_args) == 0:
         raise ArgumentError("Please provide correct arguments.")
     ivac = kern.GetValueFromAddress(cmd_args[0], 'ipc_voucher_attr_control_t')
     print(GetIPCVoucherAttrControlSummary.header)
@@ -2060,8 +2063,9 @@ def ShowIVACFreeList(cmd_args=[], cmd_options={}):
     """ Walk the free list and print every entry in the list.
         usage: (lldb) showivacfreelist <ipc_voucher_attr_control_t>
     """
-    if not cmd_args:
+    if cmd_args is None or len(cmd_args) == 0:
         raise ArgumentError('Please provide <ipc_voucher_attr_control_t>')
+
     ivac = kern.GetValueFromAddress(cmd_args[0], 'ipc_voucher_attr_control_t')
     print(GetIPCVoucherAttrControlSummary.header)
     print(GetIPCVoucherAttrControlSummary(ivac))
@@ -2191,7 +2195,7 @@ def ShowVoucher(cmd_args=[], cmd_options={}):
     """ Describe a voucher from <ipc_voucher_t> argument.
         Usage: (lldb) showvoucher <ipc_voucher_t>
     """
-    if not cmd_args:
+    if cmd_args is None or len(cmd_args) == 0:
         raise ArgumentError("Please provide valid argument")
 
     voucher = kern.GetValueFromAddress(cmd_args[0], 'ipc_voucher_t')
@@ -2203,8 +2207,9 @@ def ShowPortSendRights(cmd_args=[], cmd_options={}):
     """ Display a list of send rights across all tasks for a given port.
         Usage: (lldb) showportsendrights <ipc_port_t>
     """
-    if not cmd_args:
+    if cmd_args is None or len(cmd_args) == 0:
         raise ArgumentError("no port address provided")
+
     port = kern.GetValueFromAddress(cmd_args[0], 'struct ipc_port *')
     if not port or port == xnudefines.MACH_PORT_DEAD:
         return
@@ -2217,8 +2222,9 @@ def ShowTaskSuspenders(cmd_args=[], cmd_options={}):
     """ Display the tasks and send rights that are holding a target task suspended.
         Usage: (lldb) showtasksuspenders <task_t>
     """
-    if not cmd_args:
+    if cmd_args is None or len(cmd_args) == 0:
         raise ArgumentError("no task address provided")
+
     task = kern.GetValueFromAddress(cmd_args[0], 'task_t')
 
     if task.suspend_count == 0:
@@ -2248,8 +2254,9 @@ def ShowMQueue(cmd_args=None, cmd_options={}, O=None):
         An mqueue is directly tied to a mach port, so it just shows the details of that port.
         Syntax: (lldb) showmqueue <address>
     """
-    if not cmd_args:
-        return O.error("Missing mqueue argument")
+    if cmd_args is None or len(cmd_args) == 0:
+        raise ArgumentError("Missing mqueue argument")
+
     space = 0
     mqueue = kern.GetValueFromAddress(cmd_args[0], 'struct ipc_mqueue *')
     portoff = getfieldoffset('struct ipc_port', 'ip_messages')

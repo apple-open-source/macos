@@ -31,7 +31,7 @@
 @implementation AsyncPiperTests
 
 - (void)testFailToCreatePipe {
-    AsyncPiperFailPipeForTesting* __unused failWrapping = [[AsyncPiperFailPipeForTesting alloc] init];
+    AsyncPiperForTestingFailPipe;
     NSError* error = nil;
     AsyncPiper* piper = [[AsyncPiper alloc] initWithError:&error];
     XCTAssertNil(piper);
@@ -41,7 +41,7 @@
 }
 
 - (void)testFailToWrapFd {
-    AsyncPiperFailXpcFdWrappingForTesting* __unused failWrapping = [[AsyncPiperFailXpcFdWrappingForTesting alloc] init];
+    AsyncPiperForTestingFailXpcFdWrapping;
     NSError* error = nil;
     AsyncPiper* piper = [[AsyncPiper alloc] initWithError:&error];
     XCTAssertNil(piper);

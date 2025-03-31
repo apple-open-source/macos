@@ -27,6 +27,7 @@
 
 #include "APIObject.h"
 #include "WKRetainPtr.h"
+#include <WebCore/CryptoKey.h>
 #include <WebCore/SerializedScriptValue.h>
 #include <wtf/RefPtr.h>
 
@@ -68,6 +69,7 @@ public:
     }
 
     static WKRetainPtr<WKTypeRef> deserializeWK(WebCore::SerializedScriptValue&);
+    static Vector<uint8_t> serializeCryptoKey(const WebCore::CryptoKey&);
 
 #if PLATFORM(COCOA) && defined(__OBJC__)
     static id deserialize(WebCore::SerializedScriptValue&);

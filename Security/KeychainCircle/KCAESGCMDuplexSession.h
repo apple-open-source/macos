@@ -14,6 +14,8 @@ NS_ASSUME_NONNULL_BEGIN
 // Therefore, we must add some extra data here, which is not strictly part of a AES GCM session.
 @property (retain, nullable) NSString* pairingUUID;
 @property (retain, nullable) NSString* altDSID;
+@property (retain, nullable) NSString* flowID;
+@property (retain, nullable) NSString* deviceSessionID;
 @property uint64_t piggybackingVersion;
 @property uint64_t epoch;
 

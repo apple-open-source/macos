@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016-2023 Apple Inc. All rights reserved.
+ * Copyright (C) 2016-2024 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -29,6 +29,7 @@
 
 #if ENABLE(WEBASSEMBLY)
 
+#include "JITCompilation.h"
 #include "SIMDInfo.h"
 #include "WasmLLIntBuiltin.h"
 #include "WasmOps.h"
@@ -56,9 +57,13 @@
 #define RTT_ALIGNMENT
 #endif
 
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
+
 namespace JSC {
 
 namespace Wasm {
+
+class JSToWasmICCallee;
 
 #define CREATE_ENUM_VALUE(name, id, ...) name = id,
 enum class ExtSIMDOpType : uint32_t {
@@ -313,6 +318,7 @@ constexpr size_t typeKindSizeInBytes(TypeKind kind)
     case TypeKind::Arrayref:
     case TypeKind::Structref:
     case TypeKind::Funcref:
+    case TypeKind::Exn:
     case TypeKind::Externref:
     case TypeKind::Ref:
     case TypeKind::RefNull: {
@@ -327,6 +333,7 @@ constexpr size_t typeKindSizeInBytes(TypeKind kind)
     case TypeKind::Rec:
     case TypeKind::Eqref:
     case TypeKind::Anyref:
+    case TypeKind::Nullexn:
     case TypeKind::Nullref:
     case TypeKind::Nullfuncref:
     case TypeKind::Nullexternref:
@@ -341,12 +348,8 @@ constexpr size_t typeKindSizeInBytes(TypeKind kind)
 
 class FunctionSignature {
 public:
-    FunctionSignature(Type* payload, FunctionArgCount argumentCount, FunctionArgCount returnCount)
-        : m_payload(payload)
-        , m_argCount(argumentCount)
-        , m_retCount(returnCount)
-    {
-    }
+    FunctionSignature(Type* payload, FunctionArgCount argumentCount, FunctionArgCount returnCount);
+    ~FunctionSignature();
 
     FunctionArgCount argumentCount() const { return m_argCount; }
     FunctionArgCount returnCount() const { return m_retCount; }
@@ -357,6 +360,8 @@ public:
     Type argumentType(FunctionArgCount i) const { return const_cast<FunctionSignature*>(this)->getArgumentType(i); }
     bool argumentsOrResultsIncludeV128() const { return m_argumentsOrResultsIncludeV128; }
     void setArgumentsOrResultsIncludeV128(bool value) { m_argumentsOrResultsIncludeV128 = value; }
+    bool argumentsOrResultsIncludeExnref() const { return m_argumentsOrResultsIncludeExnref; }
+    void setArgumentsOrResultsIncludeExnref(bool value) { m_argumentsOrResultsIncludeExnref = value; }
 
     size_t numVectors() const
     {
@@ -404,14 +409,28 @@ public:
     Type* storage(FunctionArgCount i) { return i + m_payload; }
     const Type* storage(FunctionArgCount i) const { return const_cast<FunctionSignature*>(this)->storage(i); }
 
+#if ENABLE(JIT)
+    // This is const because we generally think of FunctionSignatures as immutable.
+    // Conceptually this more like using the `const FunctionSignature*` as a global UncheckedKeyHashMap
+    // key to the JIT code though.
+    CodePtr<JSEntryPtrTag> jsToWasmICEntrypoint() const;
+#endif
+
 private:
     friend class TypeInformation;
 
     Type* m_payload;
     FunctionArgCount m_argCount;
     FunctionArgCount m_retCount;
-    bool m_hasRecursiveReference { false };
-    bool m_argumentsOrResultsIncludeV128 { false };
+#if ENABLE(JIT)
+    mutable RefPtr<JSToWasmICCallee> m_jsToWasmICCallee;
+    // FIXME: We should have a WTF::Once that uses ParkingLot and the low bits of a pointer as a lock and use that here.
+    mutable Lock m_jitCodeLock;
+    // FIXME: Support caching wasmToJSEntrypoints too.
+#endif
+    bool m_hasRecursiveReference : 1 { false };
+    bool m_argumentsOrResultsIncludeV128 : 1 { false };
+    bool m_argumentsOrResultsIncludeExnref : 1 { false };
 };
 
 // FIXME auto-generate this. https://bugs.webkit.org/show_bug.cgi?id=165231
@@ -555,7 +574,7 @@ public:
     const FieldType* storage(StructFieldCount i) const { return const_cast<StructType*>(this)->storage(i); }
 
     // Returns the offset relative to `m_payload` (the internal vector of fields)
-    const unsigned* offsetOfField(StructFieldCount i) const { ASSERT(i < fieldCount()); return bitwise_cast<const unsigned*>(m_payload + m_fieldCount) + i; }
+    const unsigned* offsetOfField(StructFieldCount i) const { ASSERT(i < fieldCount()); return std::bit_cast<const unsigned*>(m_payload + m_fieldCount) + i; }
     unsigned* offsetOfField(StructFieldCount i) { return const_cast<unsigned*>(const_cast<const StructType*>(this)->offsetOfField(i)); }
 
     // Returns the offset relative to `m_payload.storage` (the internal storage for the internal vector of fields)
@@ -754,12 +773,13 @@ enum class TypeDefinitionKind : uint8_t {
 
 class TypeDefinition : public ThreadSafeRefCounted<TypeDefinition> {
     WTF_MAKE_TZONE_ALLOCATED(TypeDefinition);
+    WTF_MAKE_NONCOPYABLE(TypeDefinition);
 
     TypeDefinition() = delete;
-    TypeDefinition(const TypeDefinition&) = delete;
 
     TypeDefinition(TypeDefinitionKind kind, FunctionArgCount retCount, FunctionArgCount argCount)
-        : m_typeHeader { FunctionSignature { static_cast<Type*>(payload()), argCount, retCount } }
+        // FunctionSignature is not moveable.
+        : m_typeHeader(std::in_place_index<0>, static_cast<Type*>(payload()), argCount, retCount)
     {
         RELEASE_ASSERT(kind == TypeDefinitionKind::FunctionSignature);
     }
@@ -786,7 +806,7 @@ class TypeDefinition : public ThreadSafeRefCounted<TypeDefinition> {
         : m_typeHeader { ArrayType { static_cast<FieldType*>(payload()) } }
     {
         if (kind == TypeDefinitionKind::Projection)
-            m_typeHeader = { Projection { static_cast<TypeIndex*>(payload()) } };
+            m_typeHeader = Projection { static_cast<TypeIndex*>(payload()) };
         else
             RELEASE_ASSERT(kind == TypeDefinitionKind::ArrayType);
     }
@@ -836,7 +856,7 @@ public:
 
 private:
     // Returns the TypeIndex of a potentially unowned (other than TypeInformation::m_typeSet) TypeDefinition.
-    TypeIndex unownedIndex() const { return bitwise_cast<TypeIndex>(this); }
+    TypeIndex unownedIndex() const { return std::bit_cast<TypeIndex>(this); }
 
     friend class TypeInformation;
     friend struct FunctionParameterTypes;
@@ -928,6 +948,7 @@ public:
     static TypeInformation& singleton();
 
     static const TypeDefinition& signatureForLLIntBuiltin(LLIntBuiltin);
+    static const TypeDefinition& signatureForJSException();
 
     static RefPtr<TypeDefinition> typeDefinitionForFunction(const Vector<Type, 16>& returnTypes, const Vector<Type, 16>& argumentTypes);
     static RefPtr<TypeDefinition> typeDefinitionForStruct(const Vector<FieldType>& fields);
@@ -958,10 +979,10 @@ public:
 
     static void tryCleanup();
 private:
-    HashSet<Wasm::TypeHash> m_typeSet;
-    HashMap<TypeIndex, RefPtr<const TypeDefinition>> m_unrollingCache;
-    HashMap<TypeIndex, RefPtr<RTT>> m_rttMap;
-    HashSet<RefPtr<TypeDefinition>> m_placeholders;
+    UncheckedKeyHashSet<Wasm::TypeHash> m_typeSet;
+    UncheckedKeyHashMap<TypeIndex, RefPtr<const TypeDefinition>> m_unrollingCache;
+    UncheckedKeyHashMap<TypeIndex, RefPtr<RTT>> m_rttMap;
+    UncheckedKeyHashSet<RefPtr<TypeDefinition>> m_placeholders;
     const FunctionSignature* thunkTypes[numTypes];
     RefPtr<TypeDefinition> m_I64_Void;
     RefPtr<TypeDefinition> m_Void_I32;
@@ -973,6 +994,7 @@ private:
     RefPtr<TypeDefinition> m_Ref_RefI32I32;
     RefPtr<TypeDefinition> m_Arrayref_I32I32I32I32;
     RefPtr<TypeDefinition> m_Anyref_Externref;
+    RefPtr<TypeDefinition> m_Void_Externref;
     RefPtr<TypeDefinition> m_Void_I32AnyrefI32;
     RefPtr<TypeDefinition> m_Void_I32AnyrefI32I32I32I32;
     RefPtr<TypeDefinition> m_Void_I32AnyrefI32I32AnyrefI32I32;
@@ -980,5 +1002,7 @@ private:
 };
 
 } } // namespace JSC::Wasm
+
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
 
 #endif // ENABLE(WEBASSEMBLY)

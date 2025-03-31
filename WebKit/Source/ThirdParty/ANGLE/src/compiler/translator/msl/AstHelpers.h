@@ -11,8 +11,9 @@
 #include <unordered_map>
 #include <unordered_set>
 
+#include "common/span.h"
+#include "compiler/translator/Name.h"
 #include "compiler/translator/msl/IdGen.h"
-#include "compiler/translator/msl/Name.h"
 #include "compiler/translator/msl/SymbolEnv.h"
 
 namespace sh
@@ -22,11 +23,12 @@ namespace sh
 const TVariable &CreateStructTypeVariable(TSymbolTable &symbolTable, const TStructure &structure);
 
 // Creates a variable for a struct instance.
-const TVariable &CreateInstanceVariable(TSymbolTable &symbolTable,
-                                        const TStructure &structure,
-                                        const Name &name,
-                                        TQualifier qualifier = TQualifier::EvqTemporary,
-                                        const TSpan<const unsigned int> *arraySizes = nullptr);
+const TVariable &CreateInstanceVariable(
+    TSymbolTable &symbolTable,
+    const TStructure &structure,
+    const Name &name,
+    TQualifier qualifier                              = TQualifier::EvqTemporary,
+    const angle::Span<const unsigned int> *arraySizes = nullptr);
 
 // The input sequence should be discarded from AST after this is called.
 TIntermSequence &CloneSequenceAndPrepend(const TIntermSequence &seq, TIntermNode &node);
@@ -97,17 +99,17 @@ TIntermTyped &AccessIndex(TIntermTyped &node, const int *index);
 // This returns the original node if the slice is an identity for the node.
 TIntermTyped &SubVector(TIntermTyped &vectorNode, int begin, int end);
 
-// Matches scalar bool, int, uint32_t, float, double.
+// Matches scalar bool, int, uint32_t, float.
 bool IsScalarBasicType(const TType &type);
 
-// Matches vector bool, int, uint32_t, float, double.
+// Matches vector bool, int, uint32_t, float.
 bool IsVectorBasicType(const TType &type);
 
-// Matches bool, int, uint32_t, float, double.
+// Matches bool, int, uint32_t, float.
 // Type does not need to be a scalar.
 bool HasScalarBasicType(const TType &type);
 
-// Matches bool, int, uint32_t, float, double.
+// Matches bool, int, uint32_t, float.
 bool HasScalarBasicType(TBasicType type);
 
 // Clones a type.

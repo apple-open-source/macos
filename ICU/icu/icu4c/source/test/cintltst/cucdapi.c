@@ -46,7 +46,7 @@ static void assertEqualScripts(const char *msg,
     }
 }
 
-void TestUScriptCodeAPI(){
+void TestUScriptCodeAPI(void){
     int i =0;
     int numErrors =0;
     {
@@ -152,6 +152,39 @@ void TestUScriptCodeAPI(){
         }
 
     }
+#if APPLE_ICU_CHANGES
+        // rdar://111419695
+    {
+      UErrorCode err = U_ZERO_ERROR;
+      int32_t capacity = 0;
+      int32_t j;
+      UScriptCode monCode[] = { USCRIPT_CYRILLIC, USCRIPT_MONGOLIAN  };
+      UScriptCode script[10] = { USCRIPT_INVALID_CODE };
+      int32_t num = uscript_getCode("mon",script,capacity, &err);
+      /* preflight */
+      if(err==U_BUFFER_OVERFLOW_ERROR){
+          err = U_ZERO_ERROR;
+          capacity = 10;
+          num = uscript_getCode("mon",script,capacity, &err);
+          if(num!=UPRV_LENGTHOF(monCode)){
+              log_err("Errors uscript_getScriptCode() for Mongolian locale: num=%d, expected %d \n",
+                      num, UPRV_LENGTHOF(monCode));
+          }
+          for(j=0;j<UPRV_LENGTHOF(monCode);j++) {
+              if(script[j] != monCode[j]) {
+                  log_err("Mongolian locale: code #%d was %d (%s) but expected %d (%s)\n", j,
+                          script[j], uscript_getName(script[j]),
+                          monCode[j], uscript_getName(monCode[j]));
+                  
+              }
+          }
+      }else{
+          log_data_err("Errors in uscript_getScriptCode() expected error : %s got: %s \n",
+              "U_BUFFER_OVERFLOW_ERROR",
+               u_errorName(err));
+      }
+    }
+#endif // APPLE_ICU_CHANGES
     {
         static const UScriptCode LATIN[1] = { USCRIPT_LATIN };
         static const UScriptCode CYRILLIC[1] = { USCRIPT_CYRILLIC };
@@ -160,6 +193,10 @@ void TestUScriptCodeAPI(){
         static const UScriptCode JAPANESE[3] = { USCRIPT_KATAKANA, USCRIPT_HIRAGANA, USCRIPT_HAN };
         static const UScriptCode KOREAN[2] = { USCRIPT_HANGUL, USCRIPT_HAN };
         static const UScriptCode HAN_BOPO[2] = { USCRIPT_HAN, USCRIPT_BOPOMOFO };
+#if APPLE_ICU_CHANGES
+        // rdar://111419695
+        static const UScriptCode MONGOLIAN[2] = { USCRIPT_CYRILLIC, USCRIPT_MONGOLIAN };
+#endif // APPLE_ICU_CHANGES
         UScriptCode scripts[5];
         UErrorCode err;
         int32_t num;
@@ -190,7 +227,16 @@ void TestUScriptCodeAPI(){
         err = U_ZERO_ERROR;
         num = uscript_getCode("zh-TW", scripts, UPRV_LENGTHOF(scripts), &err);
         assertEqualScripts("zh-TW scripts: Hani Bopo", HAN_BOPO, 2, scripts, num, err);
-
+#if APPLE_ICU_CHANGES
+        // rdar://111419695
+        err = U_ZERO_ERROR;
+        num = uscript_getCode("mon", scripts, UPRV_LENGTHOF(scripts), &err);
+        assertEqualScripts("mon scripts: Cyrl Mong", MONGOLIAN, 2, scripts, num, err);
+        err = U_ZERO_ERROR;
+        num = uscript_getCode("mn", scripts, UPRV_LENGTHOF(scripts), &err);
+        assertEqualScripts("mn scripts: Cyrl Mong", MONGOLIAN, 2, scripts, num, err);
+#endif // APPLE_ICU_CHANGES
+      
         // Ambiguous API, but this probably wants to return Latin rather than Rongorongo (Roro).
         err = U_ZERO_ERROR;
         num = uscript_getCode("ro-RO", scripts, UPRV_LENGTHOF(scripts), &err);
@@ -431,6 +477,10 @@ void TestUScriptCodeAPI(){
             "Cypro_Minoan", "Old_Uyghur", "Tangsa", "Toto", "Vithkuqi",
             // new in ICU 72
             "Kawi", "Nag_Mundari",
+            // new in ICU 75
+            "Aran",
+            // new in ICU 76
+            "Garay", "Gurung_Khema", "Kirat_Rai", "Ol_Onal", "Sunuwar", "Todhri", "Tulu_Tigalari",
         };
         static const char* expectedShort[] = {
             "Bali", "Batk", "Blis", "Brah", "Cham", "Cirt", "Cyrs", "Egyd", "Egyh", "Egyp",
@@ -471,6 +521,10 @@ void TestUScriptCodeAPI(){
             "Cpmn", "Ougr", "Tnsa", "Toto", "Vith",
             // new in ICU 72
             "Kawi", "Nagm",
+            // new in ICU 75
+            "Aran",
+            // new in ICU 76
+            "Gara", "Gukh", "Krai", "Onao", "Sunu", "Todr", "Tutg",
         };
         int32_t j = 0;
         if(UPRV_LENGTHOF(expectedLong)!=(USCRIPT_CODE_LIMIT-USCRIPT_BALINESE)) {
@@ -518,7 +572,7 @@ void TestUScriptCodeAPI(){
     }
 }
 
-void TestHasScript() {
+void TestHasScript(void) {
     if(!(
         !uscript_hasScript(0x063f, USCRIPT_COMMON) &&
         uscript_hasScript(0x063f, USCRIPT_ARABIC) &&  /* main Script value */
@@ -578,7 +632,7 @@ static UBool scriptsContain(UScriptCode scripts[], int32_t length, UScriptCode s
     return contain;
 }
 
-void TestGetScriptExtensions() {
+void TestGetScriptExtensions(void) {
     UScriptCode scripts[20];
     int32_t length;
     UErrorCode errorCode;
@@ -666,7 +720,7 @@ void TestGetScriptExtensions() {
     }
 }
 
-void TestScriptMetadataAPI() {
+void TestScriptMetadataAPI(void) {
     /* API & code coverage. More testing in intltest/ucdtest.cpp. */
     UErrorCode errorCode=U_ZERO_ERROR;
     UChar sample[8];
@@ -729,7 +783,7 @@ void TestScriptMetadataAPI() {
     }
 }
 
-void TestBinaryValues() {
+void TestBinaryValues(void) {
     /*
      * Unicode 5.1 explicitly defines binary property value aliases.
      * Verify that they are all recognized.

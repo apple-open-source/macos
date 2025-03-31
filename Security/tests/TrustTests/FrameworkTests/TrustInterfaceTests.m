@@ -31,6 +31,7 @@
 #include "OSX/utilities/SecCFWrappers.h"
 #include "OSX/utilities/array_size.h"
 #include "OSX/sec/ipc/securityd_client.h"
+#include "featureflags/featureflags.h"
 
 #include "../TestMacroConversions.h"
 #include "../TrustEvaluationTestHelpers.h"
@@ -688,14 +689,14 @@ errOut:
     /* correct API behavior */
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wnonnull"
-#ifndef __clang_analyzer__
-    is(SecTrustSerialize(NULL, &error), NULL, "serialize succeeded with null input");
-    is(CFErrorGetCode(error), errSecParam, "Incorrect error code for bad serialization input");
-    CFReleaseNull(error);
-    is(SecTrustDeserialize(NULL, &error), NULL, "deserialize succeeded with null input");
-    is(CFErrorGetCode(error), errSecParam, "Incorrect error code for bad deserialization input");
-    CFReleaseNull(error);
-#endif
+    [[clang::suppress]] {
+        is(SecTrustSerialize(NULL, &error), NULL, "serialize succeeded with null input");
+        is(CFErrorGetCode(error), errSecParam, "Incorrect error code for bad serialization input");
+        CFReleaseNull(error);
+        is(SecTrustDeserialize(NULL, &error), NULL, "deserialize succeeded with null input");
+        is(CFErrorGetCode(error), errSecParam, "Incorrect error code for bad deserialization input");
+        CFReleaseNull(error);
+    }
 #pragma clang diagnostic pop
 
 errOut:
@@ -825,11 +826,9 @@ errOut:
 
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wnonnull"
-#ifndef __clang_analyzer__
-    XCTAssert(errSecParam == SecTrustEvaluateFastAsync(trust, NULL, ^(SecTrustRef  _Nonnull trustRef, SecTrustResultType trustResult) {
+    [[clang::suppress]] XCTAssert(errSecParam == SecTrustEvaluateFastAsync(trust, NULL, ^(SecTrustRef  _Nonnull trustRef, SecTrustResultType trustResult) {
         XCTAssert(false, "callback called with invalid parameter");
     }));
-#endif
 #pragma clang diagnostic pop
 
     /* expect success */
@@ -909,11 +908,9 @@ errOut:
 
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wnonnull"
-#ifndef __clang_analyzer__
-    XCTAssert(errSecParam == SecTrustEvaluateAsyncWithError(trust, NULL, ^(SecTrustRef  _Nonnull trustRef, bool result, CFErrorRef  _Nullable error) {
+    [[clang::suppress]] XCTAssert(errSecParam == SecTrustEvaluateAsyncWithError(trust, NULL, ^(SecTrustRef  _Nonnull trustRef, bool result, CFErrorRef  _Nullable error) {
         XCTAssert(false, "callback called with invalid parameter");
     }));
-#endif
 #pragma clang diagnostic pop
 
     /* expect success */
@@ -1022,13 +1019,11 @@ errOut:
     /* Test null input */
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wnonnull"
-#ifndef __clang_analyzer__
 #if TARGET_OS_IPHONE
-    XCTAssertEqual(NULL, SecTrustCopyProperties(NULL));
+    [[clang::suppress]] XCTAssertEqual(NULL, SecTrustCopyProperties(NULL));
 #else
-    XCTAssertEqual(NULL, SecTrustCopyProperties_ios(NULL));
+    [[clang::suppress]] XCTAssertEqual(NULL, SecTrustCopyProperties_ios(NULL));
 #endif // TARGET_OS_IPHONE
-#endif // __clang_analyzer__
 #pragma clang diagnostic pop
 
     NSURL *testPlist = nil;
@@ -1173,10 +1168,8 @@ errOut:
 
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wnonnull"
-#ifndef __clang_analyzer__
     // NULL passed as 'trust' newly generates a warning, we need to suppress it in order to compile
-    is_status(SecTrustSetOCSPResponse(NULL, resp), errSecParam, "SecTrustSetOCSPResponse param 1 check OK");
-#endif
+    [[clang::suppress]] is_status(SecTrustSetOCSPResponse(NULL, resp), errSecParam, "SecTrustSetOCSPResponse param 1 check OK");
 #pragma clang diagnostic pop
     is_status(SecTrustSetOCSPResponse(trust, NULL), errSecSuccess, "SecTrustSetOCSPResponse param 2 check OK");
     is_status(SecTrustSetOCSPResponse(trust, resp), errSecSuccess, "SecTrustSetOCSPResponse OK");
@@ -1257,6 +1250,36 @@ errOut:
 
     CFReleaseNull(cert0);
     CFReleaseNull(cert1);
+}
+
+- (void)testTrustResultQWACValidation
+{
+    SecCertificateRef cert0 = SecCertificateCreateWithBytes(NULL, _eidas_leaf, sizeof(_eidas_leaf));
+    SecCertificateRef cert1 = SecCertificateCreateWithBytes(NULL, _eidas_ca, sizeof(_eidas_ca));
+    SecCertificateRef cert2 = SecCertificateCreateWithBytes(NULL, _eidas_root, sizeof(_eidas_root));
+    SecPolicyRef policy = SecPolicyCreateSSL(true, CFSTR("eidas.ec.europa.eu"));
+
+    NSArray *certs = @[ (__bridge id)cert0, (__bridge id)cert1 ];
+    TestTrustEvaluation *eval = [[TestTrustEvaluation alloc] initWithCertificates:certs policies:@[(__bridge id)policy]];
+    [eval addAnchor:cert2];
+    [eval setVerifyDate:[NSDate dateWithTimeIntervalSinceReferenceDate:748890000]]; /* Sep 24 2024 */
+    XCTAssert([eval evaluate:NULL]);
+
+    NSDictionary *result = eval.resultDictionary;
+    if (_SecTrustQWACValidationEnabled()) {
+        // has QWAC validation
+        XCTAssert(result[(id)kSecTrustQWACValidation] == (id)kCFBooleanTrue);
+        XCTAssert(result[(id)kSecTrustQCStatements] != NULL);
+    } else {
+        // no QWAC validation
+        XCTAssert(result[(id)kSecTrustQWACValidation] == NULL);
+        XCTAssert(result[(id)kSecTrustQCStatements] == NULL);
+    }
+
+    CFReleaseNull(cert0);
+    CFReleaseNull(cert1);
+    CFReleaseNull(cert2);
+    CFReleaseNull(policy);
 }
 
 @end

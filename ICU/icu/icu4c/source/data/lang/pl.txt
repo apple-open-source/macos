@@ -95,6 +95,7 @@ pl{
         bjn{"banjar"}
         bkm{"kom"}
         bla{"siksika"}
+        blo{"anii"}
         bm{"bambara"}
         bn{"bengalski"}
         bo{"tybetański"}
@@ -236,7 +237,6 @@ pl{
         gmh{"średnio-wysoko-niemiecki"}
         gn{"guarani"}
         goh{"staro-wysoko-niemiecki"}
-        gom{"konkani (Goa)"}
         gon{"gondi"}
         gor{"gorontalo"}
         got{"gocki"}
@@ -348,6 +348,7 @@ pl{
         kv{"komi"}
         kw{"kornijski"}
         kwk{"kwakiutl"}
+        kxv{"kuvi"}
         ky{"kirgiski"}
         la{"łaciński"}
         lad{"ladyński"}
@@ -377,7 +378,6 @@ pl{
         lua{"luba-lulua"}
         lui{"luiseno"}
         lun{"lunda"}
-        luo{"luo"}
         lus{"mizo"}
         lut{"lushootseed"}
         luy{"luhya"}
@@ -399,7 +399,7 @@ pl{
         mfe{"kreolski Mauritiusa"}
         mg{"malgaski"}
         mga{"średnioirlandzki"}
-        mgh{"makua"}
+        mgh{"makua-meetto"}
         mgo{"meta"}
         mh{"marszalski"}
         mi{"maoryjski"}
@@ -654,6 +654,7 @@ pl{
         vi{"wietnamski"}
         vls{"zachodnioflamandzki"}
         vmf{"meński frankoński"}
+        vmw{"makua"}
         vo{"wolapik"}
         vot{"wotiacki"}
         vro{"võro"}
@@ -669,6 +670,7 @@ pl{
         xal{"kałmucki"}
         xh{"khosa"}
         xmf{"megrelski"}
+        xnr{"kangri"}
         xog{"soga"}
         yao{"yao"}
         yap{"japski"}
@@ -870,6 +872,8 @@ pl{
             indian{"narodowy kalendarz hinduski"}
             islamic{"kalendarz muzułmański"}
             islamic-civil{"kalendarz muzułmański (metoda obliczeniowa)"}
+            islamic-rgsa{"kalendarz islamski (Arabia Saudyjska, metoda wzrokowa)"}
+            islamic-tbla{"kalendarz islamski (metoda obliczeniowa, epoka astronomiczna)"}
             islamic-umalqura{"kalendarz muzułmański (Umm al-Kura)"}
             iso8601{"kalendarz ISO-8601"}
             japanese{"kalendarz japoński"}
@@ -922,7 +926,6 @@ pl{
             phonebook{"porządek sortowania książki telefonicznej"}
             phonetic{"sortowanie fonetyczne"}
             pinyin{"porządek sortowania pinyin"}
-            reformed{"sortowanie zreformowane"}
             search{"wyszukiwanie ogólnego zastosowania"}
             searchjl{"Wyszukiwanie według początkowej spółgłoski hangul"}
             standard{"standardowa kolejność sortowania"}

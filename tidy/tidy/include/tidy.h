@@ -70,6 +70,18 @@
 #include "platform.h"
 #include "tidyenum.h"
 
+#ifdef __APPLE__
+#include <Availability.h>
+
+#define TIDY_API_DEPRECATED_MEMORY_ALLOCATION_FUNCTIONS \
+        __OSX_DEPRECATED(10.0, 15.4, "Memory allocation functions deprecated") \
+        __IOS_DEPRECATED(2.0, 18.4, "Memory allocation functions deprecated") \
+        __TVOS_DEPRECATED(9.0, 18.4, "Memory allocation functions deprecated") \
+        __WATCHOS_DEPRECATED(1.0, 11.4, "Memory allocation functions deprecated")
+#else
+#define TIDY_API_DEPRECATED_MEMORY_ALLOCATION_FUNCTIONS
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -515,11 +527,11 @@ typedef void  (TIDY_CALL *TidyFree)( void* buf );
 typedef void  (TIDY_CALL *TidyPanic)( ctmbstr mssg );
 
 /** Give Tidy a malloc() replacement */
-TIDY_EXPORT Bool TIDY_CALL        tidySetMallocCall( TidyMalloc fmalloc );
+TIDY_EXPORT Bool TIDY_CALL        tidySetMallocCall( TidyMalloc fmalloc ) TIDY_API_DEPRECATED_MEMORY_ALLOCATION_FUNCTIONS;
 /** Give Tidy a realloc() replacement */
-TIDY_EXPORT Bool TIDY_CALL        tidySetReallocCall( TidyRealloc frealloc );
+TIDY_EXPORT Bool TIDY_CALL        tidySetReallocCall( TidyRealloc frealloc ) TIDY_API_DEPRECATED_MEMORY_ALLOCATION_FUNCTIONS;
 /** Give Tidy a free() replacement */
-TIDY_EXPORT Bool TIDY_CALL        tidySetFreeCall( TidyFree ffree );
+TIDY_EXPORT Bool TIDY_CALL        tidySetFreeCall( TidyFree ffree ) TIDY_API_DEPRECATED_MEMORY_ALLOCATION_FUNCTIONS;
 /** Give Tidy an "out of memory" handler */
 TIDY_EXPORT Bool TIDY_CALL        tidySetPanicCall( TidyPanic fpanic );
 

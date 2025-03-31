@@ -220,12 +220,7 @@ ContextMtl::ContextMtl(const gl::State &state,
       mDriverUniforms{},
       mProvokingVertexHelper(this),
       mContextDevice(GetOwnershipIdentity(attribs))
-{
-    if (@available(iOS 12.0, macOS 10.14, *))
-    {
-        mHasMetalSharedEvents = true;
-    }
-}
+{}
 
 ContextMtl::~ContextMtl() {}
 
@@ -274,28 +269,18 @@ void ContextMtl::onDestroy(const gl::Context *context)
 // Flush and finish.
 angle::Result ContextMtl::flush(const gl::Context *context)
 {
-    if (mHasMetalSharedEvents)
-    {
-        // MTLSharedEvent is available on these platforms, and callers
-        // are expected to use the EGL_ANGLE_metal_shared_event_sync
-        // extension to synchronize with ANGLE's Metal backend, if
-        // needed. This is typically required if two MTLDevices are
-        // operating on the same IOSurface.
-        flushCommandBuffer(mtl::NoWait);
-    }
-    else
-    {
-        // Older operating systems do not have this primitive available.
-        // Make every flush operation wait until it's scheduled in order to
-        // achieve callers' expected synchronization behavior.
-        flushCommandBuffer(mtl::WaitUntilScheduled);
-    }
-    return angle::Result::Continue;
+    // MTLSharedEvent is available on these platforms, and callers
+    // are expected to use the EGL_ANGLE_metal_shared_event_sync
+    // extension to synchronize with ANGLE's Metal backend, if
+    // needed. This is typically required if two MTLDevices are
+    // operating on the same IOSurface.
+    flushCommandBuffer(mtl::NoWait);
+    return checkCommandBufferError();
 }
 angle::Result ContextMtl::finish(const gl::Context *context)
 {
     ANGLE_TRY(finishCommandBuffer());
-    return angle::Result::Continue;
+    return checkCommandBufferError();
 }
 
 ANGLE_INLINE angle::Result ContextMtl::resyncDrawFramebufferIfNeeded(const gl::Context *context)
@@ -1101,19 +1086,19 @@ gl::GraphicsResetStatus ContextMtl::getResetStatus()
 // EXT_debug_marker
 angle::Result ContextMtl::insertEventMarker(GLsizei length, const char *marker)
 {
-    return angle::Result::Continue;
+    return checkCommandBufferError();
 }
 
 angle::Result ContextMtl::pushGroupMarker(GLsizei length, const char *marker)
 {
     mCmdBuffer.pushDebugGroup(ConvertMarkerToString(length, marker));
-    return angle::Result::Continue;
+    return checkCommandBufferError();
 }
 
 angle::Result ContextMtl::popGroupMarker()
 {
     mCmdBuffer.popDebugGroup();
-    return angle::Result::Continue;
+    return checkCommandBufferError();
 }
 
 // KHR_debug
@@ -1122,12 +1107,12 @@ angle::Result ContextMtl::pushDebugGroup(const gl::Context *context,
                                          GLuint id,
                                          const std::string &message)
 {
-    return angle::Result::Continue;
+    return checkCommandBufferError();
 }
 
 angle::Result ContextMtl::popDebugGroup(const gl::Context *context)
 {
-    return angle::Result::Continue;
+    return checkCommandBufferError();
 }
 
 void ContextMtl::updateIncompatibleAttachments(const gl::State &glState)
@@ -1229,13 +1214,9 @@ angle::Result ContextMtl::syncState(const gl::Context *context,
                 break;
             case gl::state::DIRTY_BIT_SAMPLE_COVERAGE_ENABLED:
             case gl::state::DIRTY_BIT_SAMPLE_COVERAGE:
-                invalidateDriverUniforms();
-                break;
             case gl::state::DIRTY_BIT_SAMPLE_MASK_ENABLED:
-                // NOTE(hqle): 3.1 MSAA support
-                break;
             case gl::state::DIRTY_BIT_SAMPLE_MASK:
-                // NOTE(hqle): 3.1 MSAA support
+                invalidateDriverUniforms();
                 break;
             case gl::state::DIRTY_BIT_DEPTH_TEST_ENABLED:
                 mDepthStencilDesc.updateDepthTestEnabled(glState.getDepthStencilState());
@@ -1470,7 +1451,7 @@ angle::Result ContextMtl::onMakeCurrent(const gl::Context *context)
         GetImplAs<QueryMtl>(query)->onContextMakeCurrent(context);
     }
     mBufferManager.incrementNumContextSwitches();
-    return angle::Result::Continue;
+    return checkCommandBufferError();
 }
 angle::Result ContextMtl::onUnMakeCurrent(const gl::Context *context)
 {
@@ -1485,7 +1466,7 @@ angle::Result ContextMtl::onUnMakeCurrent(const gl::Context *context)
     {
         GetImplAs<QueryMtl>(query)->onContextUnMakeCurrent(context);
     }
-    return angle::Result::Continue;
+    return checkCommandBufferError();
 }
 
 // Native capabilities, unmodified by gl::Context.
@@ -1634,7 +1615,7 @@ angle::Result ContextMtl::memoryBarrier(const gl::Context *context, GLbitfield b
 {
     if (barriers == 0)
     {
-        return angle::Result::Continue;
+        return checkCommandBufferError();
     }
     if (context->getClientVersion() >= gl::Version{3, 1})
     {
@@ -1683,7 +1664,7 @@ angle::Result ContextMtl::memoryBarrier(const gl::Context *context, GLbitfield b
         stages |= MTLRenderStageFragment;
     }
     mRenderEncoder.memoryBarrier(scope, stages, stages);
-    return angle::Result::Continue;
+    return checkCommandBufferError();
 }
 
 angle::Result ContextMtl::memoryBarrierByRegion(const gl::Context *context, GLbitfield barriers)
@@ -1731,20 +1712,6 @@ void ContextMtl::handleError(GLenum glErrorCode,
                              unsigned int line)
 {
     mErrors->handleError(glErrorCode, message, file, function, line);
-}
-
-void ContextMtl::handleError(NSError *nserror,
-                             const char *message,
-                             const char *file,
-                             const char *function,
-                             unsigned int line)
-{
-    if (!nserror)
-    {
-        return;
-    }
-
-    mErrors->handleError(GL_INVALID_OPERATION, message, file, function, line);
 }
 
 void ContextMtl::invalidateState(const gl::Context *context)
@@ -1918,12 +1885,12 @@ void ContextMtl::endEncoding(bool forceSaveRenderPassContent)
 
 void ContextMtl::flushCommandBuffer(mtl::CommandBufferFinishOperation operation)
 {
+    mRenderPassesSinceFlush = 0;
     if (mCmdBuffer.ready())
     {
         endEncoding(true);
         mCmdBuffer.commit(operation);
         mBufferManager.incrementNumCommandBufferCommits();
-        mRenderPassesSinceFlush = 0;
     }
     else
     {
@@ -1933,20 +1900,12 @@ void ContextMtl::flushCommandBuffer(mtl::CommandBufferFinishOperation operation)
 
 void ContextMtl::flushCommandBufferIfNeeded()
 {
-    if (mRenderPassesSinceFlush >= mtl::kMaxRenderPassesPerCommandBuffer)
+    if (mRenderPassesSinceFlush >= mtl::kMaxRenderPassesPerCommandBuffer ||
+        mCmdBuffer.needsFlushForDrawCallLimits())
     {
-#if defined(ANGLE_PLATFORM_MACOS)
         // Ensure that we don't accumulate too many unflushed render passes. Don't wait until they
         // are submitted, other components handle backpressure so don't create uneccessary CPU/GPU
         // synchronization.
-        flushCommandBuffer(mtl::NoWait);
-#else
-        // WaitUntilScheduled is used on iOS to avoid regressing untested devices.
-        flushCommandBuffer(mtl::WaitUntilScheduled);
-#endif
-    }
-    else if (mCmdBuffer.needsFlushForDrawCallLimits())
-    {
         flushCommandBuffer(mtl::NoWait);
     }
 }
@@ -1970,7 +1929,7 @@ void ContextMtl::present(const gl::Context *context, id<CAMetalDrawable> present
 angle::Result ContextMtl::finishCommandBuffer()
 {
     flushCommandBuffer(mtl::WaitUntilFinished);
-    return angle::Result::Continue;
+    return checkCommandBufferError();
 }
 
 bool ContextMtl::hasStartedRenderPass(const mtl::RenderPassDesc &desc)
@@ -2026,7 +1985,8 @@ mtl::RenderCommandEncoder *ContextMtl::getRenderPassCommandEncoder(const mtl::Re
             std::stringstream errorStream;
             errorStream << "This set of render targets requires " << renderTargetSize
                         << " bytes of pixel storage. This device supports " << maxSize << " bytes.";
-            ANGLE_MTL_HANDLE_ERROR(this, errorStream.str().c_str(), GL_INVALID_OPERATION);
+            handleError(GL_INVALID_OPERATION, errorStream.str().c_str(), __FILE__, ANGLE_FUNCTION,
+                        __LINE__);
             return nullptr;
         }
     }
@@ -2574,7 +2534,7 @@ angle::Result ContextMtl::setupDraw(const gl::Context *context,
 
         if (*isNoOp)
         {
-            return angle::Result::Continue;
+            return checkCommandBufferError();
         }
         // Setup with flushed state should either produce a working encoder or fail with an error
         // result. if that's not the case, something's gone seriously wrong. Try to
@@ -2764,7 +2724,7 @@ angle::Result ContextMtl::setupDrawImpl(const gl::Context *context,
                                          uniformBuffersDirty));
     }
 
-    return angle::Result::Continue;
+    return checkCommandBufferError();
 }
 
 void ContextMtl::filterOutXFBOnlyDirtyBits(const gl::Context *context)
@@ -2924,6 +2884,12 @@ angle::Result ContextMtl::handleDirtyDriverUniforms(const gl::Context *context,
         mDriverUniforms.coverageMask = 0xFFFFFFFFu;
     }
 
+    // Sample mask
+    if (mState.isSampleMaskEnabled())
+    {
+        mDriverUniforms.coverageMask &= mState.getSampleMaskWord(0);
+    }
+
     ANGLE_TRY(
         fillDriverXFBUniforms(drawCallFirstVertex, verticesPerInstance, /** skippedInstances */ 0));
 
@@ -3050,6 +3016,13 @@ angle::Result ContextMtl::checkIfPipelineChanged(const gl::Context *context,
 
     *isPipelineDescChanged = rppChange;
 
+    return angle::Result::Continue;
+}
+
+angle::Result ContextMtl::checkCommandBufferError()
+{
+    ANGLE_CHECK_GL_ALLOC(
+        this, mCmdBuffer.cmdQueue().popCmdBufferError() != MTLCommandBufferErrorOutOfMemory);
     return angle::Result::Continue;
 }
 

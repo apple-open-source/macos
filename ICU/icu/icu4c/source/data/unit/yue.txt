@@ -39,6 +39,11 @@ yue{
             month{
                 per{"每月 {0}"}
             }
+            night{
+                dnam{"晚"}
+                other{"{0} 晚"}
+                per{"{0}/晚"}
+            }
             quarter{
                 per{"每季 {0}"}
             }
@@ -126,6 +131,10 @@ yue{
             kilometer-per-hour{
                 other{"{0}公里/小時"}
             }
+            light-speed{
+                dnam{"光速"}
+                other{"{0} 光速"}
+            }
             meter-per-second{
                 other{"{0}米/秒"}
             }
@@ -167,6 +176,13 @@ yue{
             byte{
                 dnam{"B"}
                 other{"{0}B"}
+            }
+        }
+        duration{
+            night{
+                dnam{"晚"}
+                other{"{0}晚"}
+                per{"{0}/晚"}
             }
         }
         graphics{
@@ -219,6 +235,10 @@ yue{
             kilometer-per-hour{
                 dnam{"公里/小時"}
                 other{"{0}公里/時"}
+            }
+            light-speed{
+                dnam{"光速"}
+                other{"{0}光速"}
             }
             meter-per-second{
                 other{"{0}米/秒"}
@@ -456,6 +476,11 @@ yue{
             nanosecond{
                 dnam{"奈秒"}
                 other{"{0} 奈秒"}
+            }
+            night{
+                dnam{"晚"}
+                other{"{0} 晚"}
+                per{"{0}/晚"}
             }
             quarter{
                 dnam{"季"}
@@ -847,6 +872,10 @@ yue{
             knot{
                 dnam{"節"}
                 other{"{0} 節"}
+            }
+            light-speed{
+                dnam{"光速"}
+                other{"{0} 光速"}
             }
             meter-per-second{
                 dnam{"米/秒"}

@@ -59,6 +59,7 @@
 #include <wtf/text/MakeString.h>
 #include <wtf/text/StringToIntegerConversion.h>
 
+#ifndef GST_DISABLE_GST_DEBUG
 static const char* dumpReadyState(WebCore::MediaPlayer::ReadyState readyState)
 {
     switch (readyState) {
@@ -70,9 +71,10 @@ static const char* dumpReadyState(WebCore::MediaPlayer::ReadyState readyState)
     default: return "(unknown)";
     }
 }
+#endif // GST_DISABLE_GST_DEBUG
 
-GST_DEBUG_CATEGORY(webkit_mse_debug);
-#define GST_CAT_DEFAULT webkit_mse_debug
+GST_DEBUG_CATEGORY_STATIC(webkit_mse_player_debug);
+#define GST_CAT_DEFAULT webkit_mse_player_debug
 
 namespace WebCore {
 
@@ -107,7 +109,7 @@ static Vector<RefPtr<MediaSourceTrackGStreamer>> filterOutRepeatingTracks(const 
     uniqueTracks.reserveInitialCapacity(tracks.size());
 
     for (const auto& track : tracks) {
-        if (!uniqueTracks.containsIf([&track](const auto& current) { return track->stringId() == current->stringId(); }))
+        if (!uniqueTracks.containsIf([&track](const auto& current) { return track->id() == current->id(); }))
             uniqueTracks.append(track);
     }
 
@@ -117,7 +119,7 @@ static Vector<RefPtr<MediaSourceTrackGStreamer>> filterOutRepeatingTracks(const 
 
 void MediaPlayerPrivateGStreamerMSE::registerMediaEngine(MediaEngineRegistrar registrar)
 {
-    GST_DEBUG_CATEGORY_INIT(webkit_mse_debug, "webkitmse", 0, "WebKit MSE media player");
+    GST_DEBUG_CATEGORY_INIT(webkit_mse_player_debug, "webkitmseplayer", 0, "WebKit MSE media player");
     registrar(makeUnique<MediaPlayerFactoryGStreamerMSE>());
 }
 
@@ -146,7 +148,12 @@ void MediaPlayerPrivateGStreamerMSE::load(const URL& url, const ContentType&, Me
 {
     auto mseBlobURI = makeString("mediasource"_s, url.string().isEmpty() ? "blob://"_s : url.string());
     GST_DEBUG("Loading %s", mseBlobURI.ascii().data());
-    m_mediaSourcePrivate = MediaSourcePrivateGStreamer::open(mediaSource, *this);
+    if (RefPtr mediaSourcePrivate = downcast<MediaSourcePrivateGStreamer>(mediaSource.mediaSourcePrivate())) {
+        mediaSourcePrivate->setPlayer(this);
+        m_mediaSourcePrivate = WTFMove(mediaSourcePrivate);
+        mediaSource.reOpen();
+    } else
+        m_mediaSourcePrivate = MediaSourcePrivateGStreamer::open(mediaSource, *this);
 
     MediaPlayerPrivateGStreamer::load(mseBlobURI);
 }
@@ -163,6 +170,11 @@ void MediaPlayerPrivateGStreamerMSE::play()
 void MediaPlayerPrivateGStreamerMSE::pause()
 {
     GST_DEBUG_OBJECT(pipeline(), "Pause requested");
+    if (m_playbackRatePausedState == PlaybackRatePausedState::ManuallyPaused) {
+        GST_DEBUG_OBJECT(pipeline(), "Player is paused already.");
+        return;
+    }
+
     m_isPaused = true;
     m_playbackRatePausedState = PlaybackRatePausedState::ManuallyPaused;
     updateStates();
@@ -199,7 +211,7 @@ void MediaPlayerPrivateGStreamerMSE::checkPlayingConsistency()
     }
 }
 
-#ifndef GST_DISABLE_DEBUG
+#ifndef GST_DISABLE_GST_DEBUG
 void MediaPlayerPrivateGStreamerMSE::setShouldDisableSleep(bool shouldDisableSleep)
 {
     // This method is useful only for logging purpose. The actual sleep disabler is managed by HTMLMediaElement.
@@ -212,7 +224,7 @@ MediaTime MediaPlayerPrivateGStreamerMSE::duration() const
     if (UNLIKELY(!m_pipeline || m_didErrorOccur))
         return MediaTime();
 
-    return m_mediaTimeDuration;
+    return m_mediaTimeDuration.isValid() ? m_mediaTimeDuration : MediaTime::zeroTime();
 }
 
 void MediaPlayerPrivateGStreamerMSE::seekToTarget(const SeekTarget& target)
@@ -406,7 +418,7 @@ void MediaPlayerPrivateGStreamerMSE::updateStates()
 {
     bool isWaitingPreroll = isPipelineWaitingPreroll();
     bool shouldUpdatePlaybackState = false;
-    bool shouldBePlaying = (!m_isPaused && readyState() >= MediaPlayer::ReadyState::HaveFutureData && m_playbackRatePausedState != PlaybackRatePausedState::RatePaused)
+    bool shouldBePlaying = (!m_isPaused && !m_isPausedByViewport && readyState() >= MediaPlayer::ReadyState::HaveFutureData && m_playbackRatePausedState != PlaybackRatePausedState::RatePaused)
         || m_playbackRatePausedState == PlaybackRatePausedState::ShouldMoveToPlaying;
     GST_DEBUG_OBJECT(pipeline(), "shouldBePlaying = %s, m_isPipelinePlaying = %s, is seeking %s", boolForPrinting(shouldBePlaying),
         boolForPrinting(m_isPipelinePlaying), boolForPrinting(isWaitingPreroll));
@@ -495,6 +507,7 @@ void MediaPlayerPrivateGStreamerMSE::setEosWithNoBuffers(bool eosWithNoBuffers)
         // error in lower versions.
         if (!webkitGstCheckVersion(1, 24, 0))
             m_ignoreErrors = true;
+        GST_DEBUG_OBJECT(pipeline(), "EOS with no buffers, setting pipeline to READY state.");
         changePipelineState(GST_STATE_READY);
         if (!webkitGstCheckVersion(1, 24, 0))
             m_ignoreErrors = false;

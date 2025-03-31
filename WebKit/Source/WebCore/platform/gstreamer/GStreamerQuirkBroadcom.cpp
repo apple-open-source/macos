@@ -39,9 +39,10 @@ GStreamerQuirkBroadcom::GStreamerQuirkBroadcom()
 
 void GStreamerQuirkBroadcom::configureElement(GstElement* element, const OptionSet<ElementRuntimeCharacteristics>& characteristics)
 {
+    auto view = StringView::fromLatin1(GST_ELEMENT_NAME(element));
     if (!g_strcmp0(G_OBJECT_TYPE_NAME(element), "Gstbrcmaudiosink"))
         g_object_set(G_OBJECT(element), "async", TRUE, nullptr);
-    else if (g_str_has_prefix(GST_ELEMENT_NAME(element), "brcmaudiodecoder")) {
+    else if (view.startsWith("brcmaudiodecoder"_s)) {
         // Limit BCM audio decoder buffering to 1sec so live progressive playback can start faster.
         if (characteristics.contains(ElementRuntimeCharacteristics::IsLiveStream))
             g_object_set(G_OBJECT(element), "limit_buffering_ms", 1000, nullptr);
@@ -58,7 +59,8 @@ void GStreamerQuirkBroadcom::configureElement(GstElement* element, const OptionS
 
 std::optional<bool> GStreamerQuirkBroadcom::isHardwareAccelerated(GstElementFactory* factory)
 {
-    if (g_str_has_prefix(GST_OBJECT_NAME(factory), "brcm"))
+    auto view = StringView::fromLatin1(GST_OBJECT_NAME(factory));
+    if (view.startsWith("brcm"_s))
         return true;
 
     return std::nullopt;

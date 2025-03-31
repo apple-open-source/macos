@@ -44,7 +44,7 @@ Ref<WebImage> WebImage::create(const IntSize& size, ImageOptions options, const 
         auto purpose = options.contains(ImageOption::Shareable) ? RenderingPurpose::ShareableSnapshot : RenderingPurpose::Snapshot;
         purpose = options.contains(ImageOption::Local) ? RenderingPurpose::ShareableLocalSnapshot : purpose;
         
-        if (auto buffer = client->createImageBuffer(size, purpose, 1, colorSpace, ImageBufferPixelFormat::BGRA8, { }))
+        if (auto buffer = client->createImageBuffer(size, RenderingMode::Unaccelerated, purpose, 1, colorSpace, ImageBufferPixelFormat::BGRA8))
             return WebImage::create(buffer.releaseNonNull());
     }
 
@@ -55,7 +55,7 @@ Ref<WebImage> WebImage::create(const IntSize& size, ImageOptions options, const 
         return WebImage::create(buffer.releaseNonNull());
     }
 
-    auto buffer = ImageBuffer::create(size, RenderingPurpose::Snapshot, 1, colorSpace, ImageBufferPixelFormat::BGRA8);
+    auto buffer = ImageBuffer::create(size, RenderingMode::Unaccelerated, RenderingPurpose::Snapshot, 1, colorSpace, ImageBufferPixelFormat::BGRA8);
     if (!buffer)
         return createEmpty();
     return WebImage::create(buffer.releaseNonNull());

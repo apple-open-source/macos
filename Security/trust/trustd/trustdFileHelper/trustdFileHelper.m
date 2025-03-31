@@ -9,8 +9,8 @@
 #import <Foundation/NSError_Private.h>
 #include <sys/stat.h>
 
-#include <utilities/SecCFWrappers.h>
-#include <utilities/SecFileLocations.h>
+#include "utilities/SecCFWrappers.h"
+#include "utilities/SecFileLocations.h"
 
 #include "trust/trustd/trustdFileLocations.h"
 #include "trust/trustd/trustdFileHelper/trustdFileHelper.h"

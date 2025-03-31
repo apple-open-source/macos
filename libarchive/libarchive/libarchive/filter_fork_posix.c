@@ -30,8 +30,6 @@
 #if defined(HAVE_PIPE) && defined(HAVE_FCNTL) && \
     (defined(HAVE_FORK) || defined(HAVE_VFORK) || defined(HAVE_POSIX_SPAWNP))
 
-__FBSDID("$FreeBSD: head/lib/libarchive/filter_fork.c 182958 2008-09-12 05:33:00Z kientzle $");
-
 #if defined(HAVE_SYS_TYPES_H)
 #  include <sys/types.h>
 #endif
@@ -76,7 +74,7 @@ int
 __archive_create_child(const char *cmd, int *child_stdin, int *child_stdout,
 		pid_t *out_child)
 {
-	pid_t child;
+	pid_t child = -1;
 	int stdin_pipe[2], stdout_pipe[2], tmp;
 #if HAVE_POSIX_SPAWNP
 	posix_spawn_file_actions_t actions;

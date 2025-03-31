@@ -115,11 +115,6 @@ rm -rf dst _.flag
 mkdir dst
 cp src/file.part dst/file
 
-if [ -n "$__RUNNING_INSIDE_ATF_RUN" ]; then
-	1>&2 echo "Compression part of this test is disabled in BATS"
-	exit 0
-fi
-
 # One last time, but this time with compression
 (
 	# We'll sleep until the transfer starts, then we'll immediately truncate

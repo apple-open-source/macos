@@ -30,9 +30,7 @@
 
 #import "LocalAuthenticator.h"
 #import "LocalConnection.h"
-
-#import "AppAttestInternalSoftLink.h"
-#import "LocalAuthenticationSoftLink.h"
+#import <wtf/TZoneMallocInlines.h>
 
 #if USE(APPLE_INTERNAL_SDK)
 #import <WebKitAdditions/LocalServiceAdditions.h>
@@ -40,7 +38,16 @@
 #define LOCAL_SERVICE_ADDITIONS
 #endif
 
+#import "LocalAuthenticationSoftLink.h"
+
 namespace WebKit {
+
+WTF_MAKE_TZONE_ALLOCATED_IMPL(LocalService);
+
+Ref<LocalService> LocalService::create(AuthenticatorTransportServiceObserver& observer)
+{
+    return adoptRef(*new LocalService(observer));
+}
 
 LocalService::LocalService(AuthenticatorTransportServiceObserver& observer)
     : AuthenticatorTransportService(observer)
@@ -59,15 +66,6 @@ LOCAL_SERVICE_ADDITIONS
         return false;
     }
 
-#if HAVE(APPLE_ATTESTATION)
-    if (!AppAttest_WebAuthentication_IsSupported()) {
-        LOG_ERROR("Device is unable to support Apple attestation features.");
-        return false;
-    }
-#else
-    return false;
-#endif
-
     return true;
 }
 
@@ -83,9 +81,9 @@ bool LocalService::platformStartDiscovery() const
     return LocalService::isAvailable();
 }
 
-UniqueRef<LocalConnection> LocalService::createLocalConnection() const
+Ref<LocalConnection> LocalService::createLocalConnection() const
 {
-    return makeUniqueRef<LocalConnection>();
+    return LocalConnection::create();
 }
 
 } // namespace WebKit

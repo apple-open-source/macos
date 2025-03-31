@@ -242,7 +242,7 @@ static void update_eob_context(int eob, TX_SIZE tx_size, TX_CLASS tx_class,
   }
 }
 
-static INLINE int get_nz_map_ctx(const uint8_t *const levels,
+static inline int get_nz_map_ctx(const uint8_t *const levels,
                                  const int coeff_idx, const int bhl,
                                  const int width, const int scan_idx,
                                  const int is_eob, const TX_SIZE tx_size,

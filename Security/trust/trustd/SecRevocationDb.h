@@ -103,6 +103,27 @@ struct __SecValidInfo {
  */
 void SecValidInfoSetAnchor(SecValidInfoRef validInfo, SecCertificateRef anchor);
 
+static inline bool SecValidInfoIsRevoked(SecValidInfoRef info) {
+    /* either not present on an allowlist, or present on a blocklist */
+    return (!info->isOnList && info->valid) || (info->isOnList && !info->valid);
+}
+
+static inline bool SecValidInfoIsDefinitive(SecValidInfoRef info) {
+    if (info->format == kSecValidInfoFormatSerial ||
+        info->format == kSecValidInfoFormatSHA256) {
+        if (info->noCACheck || info->complete || info->isOnList) {
+            return true;
+        }
+    } else { /* info->format == kSecValidInfoFormatNto1 */
+        if (info->noCACheck || (info->complete && !info->isOnList)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+bool SecValidInfoPolicyConstraintsPermitPolicy(SecValidInfoRef info, CFStringRef policyId);
+
 /*!
 	@function SecRevocationDbCheckNextUpdate
 	@abstract Periodic hook to poll for updates.

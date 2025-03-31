@@ -97,12 +97,9 @@
                 (apply require-any filters)
                 (extension-class "com.apple.mediaserverd.read"))))
     ;; CoreMedia framework.
-    (allow mach-lookup (with telemetry)
-           (global-name "com.apple.coremedia.assetimagegenerator.xpc")
-           (global-name "com.apple.coremedia.audiodeviceclock.xpc") ; Needed for CMTimeBase
+    (allow mach-lookup
            (global-name "com.apple.coremedia.capturesession")      ; Actually for video capture
            (global-name "com.apple.coremedia.capturesource")       ; Also for video capture (<rdar://problem/15794291>).
-           (global-name "com.apple.coremedia.cpe.xpc") ; Needed for HDR playback.
 #if ENABLE(LINEAR_MEDIA_PLAYER)
            (global-name "com.apple.coremedia.mediaplaybackd.videotarget.xpc") ; Needed for FigVideoTarget
 #endif
@@ -113,26 +110,14 @@
            (global-name "com.apple.mediaexperience.endpoint.xpc")
 #endif
            (global-name "com.apple.coremedia.admin")
-           (global-name "com.apple.coremedia.asset.xpc")
-           (global-name "com.apple.coremedia.audioprocessingtap.xpc")
-           (global-name "com.apple.coremedia.customurlloader.xpc") ; Needed for custom media loading
-           (global-name "com.apple.coremedia.figcpecryptor")
-           (global-name "com.apple.coremedia.formatreader.xpc")
            (global-name "com.apple.coremedia.mediaparserd.fairplaypsshatomparser.xpc")
            (global-name "com.apple.coremedia.mediaparserd.formatreader.xpc")
            (global-name "com.apple.coremedia.mediaparserd.manifold.xpc")
-           (global-name "com.apple.coremedia.player.xpc")
-           (global-name "com.apple.coremedia.remaker")
            (global-name "com.apple.coremedia.routediscoverer.xpc")
            (global-name "com.apple.coremedia.routingcontext.xpc")
-           (global-name "com.apple.coremedia.samplebufferaudiorenderer.xpc")
-           (global-name "com.apple.coremedia.samplebufferrendersynchronizer.xpc")
-           (global-name "com.apple.coremedia.sandboxserver.xpc")
            (global-name "com.apple.coremedia.systemcontroller.xpc")
-           (global-name "com.apple.coremedia.visualcontext.xpc")
            (global-name "com.apple.coremedia.volumecontroller.xpc"))
 
-#if HAVE(MEDIAPLAYBACKD)
     (allow mach-lookup
         (global-name
             "com.apple.coremedia.mediaplaybackd.asset.xpc"
@@ -160,15 +145,11 @@
             "com.apple.coremedia.videocodecd.compressionsession.xpc"
             "com.apple.coremedia.videocodecd.decompressionsession"
             "com.apple.coremedia.videocodecd.decompressionsession.xpc"))
-#endif
 
     (allow mach-lookup (with report) (with telemetry)
-        (global-name "com.apple.coremedia.cpeprotector.xpc")
 #if !HAVE(REFACTORED_MEDIASERVERD)
         (global-name "com.apple.coremedia.endpoint.xpc")
 #endif
-        (global-name "com.apple.coremedia.figcontentkeysession.xpc")
-        (global-name "com.apple.coremedia.figcontentkeyboss.xpc")
         (global-name "com.apple.coremedia.routingsessionmanager.xpc")
         (global-name "com.apple.coremedia.sts"))
 
@@ -226,13 +207,6 @@
             (preference-domain "com.apple.coremedia"))
         (allow file-read* (with telemetry) (subpath "/Library/CoreMediaIO/Plug-Ins/DAL"))
         (allow device-camera))
-
-    ;; Support incoming video connections
-    (allow mach-lookup (with telemetry)
-        (global-name "com.apple.coremedia.compressionsession"))
-    (allow mach-lookup
-        (global-name "com.apple.coremedia.decompressionsession")
-        (global-name "com.apple.coremedia.videoqueue"))
 )
 
 (define-once (accessibility-support)
@@ -798,6 +772,9 @@
         SYS_fcntl
         SYS_fcntl_nocancel
         SYS_fileport_makefd
+#if PLATFORM(VISION) && ENABLE(MODEL_PROCESS)
+        SYS_fileport_makeport
+#endif
         SYS_flock
         SYS_fsetattrlist
         SYS_fsetxattr
@@ -1015,6 +992,11 @@
     (require-all
         (extension-class "com.apple.mediaserverd.read")
         (apply subpath issue-extension-secondary-paths)))
+#endif
+
+#if PLATFORM(VISION) && ENABLE(MODEL_PROCESS)
+(allow mach-lookup
+    (global-name "com.apple.surfboard.applicationservice"))
 #endif
 
 #if __has_include(<WebKitAdditions/com.apple.WebKit.GPU.sb.in>)

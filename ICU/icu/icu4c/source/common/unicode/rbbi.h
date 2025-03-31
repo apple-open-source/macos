@@ -48,7 +48,7 @@ class  UnhandledEngine;
 class  UStack;
 
 
-#ifndef U_HIDE_DRAFT_API
+#ifndef U_HIDE_INTERNAL_API
 /**
  * The ExternalBreakEngine class define an abstract interface for the host environment
  * to provide a low level facility to break text for unicode text in script that the text boundary
@@ -107,7 +107,7 @@ class ExternalBreakEngine : public UObject {
                                int32_t* foundBreaks, int32_t foundBreaksCapacity,
                                UErrorCode& status) const = 0;
 };
-#endif  /* U_HIDE_DRAFT_API */
+#endif  /* U_HIDE_INTERNAL_API */
 
 
 /**
@@ -424,14 +424,14 @@ public:
      * @return A hash code
      *  @stable ICU 2.0
      */
-    virtual int32_t hashCode(void) const;
+    virtual int32_t hashCode() const;
 
     /**
      * Returns the description used to create this iterator
      * @return the description used to create this iterator
      *  @stable ICU 2.0
      */
-    virtual const UnicodeString& getRules(void) const;
+    virtual const UnicodeString& getRules() const;
 
     //=======================================================================
     // BreakIterator overrides
@@ -461,8 +461,7 @@ public:
      * @return An iterator over the text being analyzed.
      * @stable ICU 2.0
      */
-    virtual  CharacterIterator& getText(void) const override;
-
+    virtual CharacterIterator& getText() const override;
 
     /**
       *  Get a UText for the text being analyzed.
@@ -522,14 +521,14 @@ public:
      * @return The offset of the beginning of the text, zero.
      *  @stable ICU 2.0
      */
-    virtual int32_t first(void) override;
+    virtual int32_t first() override;
 
     /**
      * Sets the current iteration position to the end of the text.
      * @return The text's past-the-end offset.
      *  @stable ICU 2.0
      */
-    virtual int32_t last(void) override;
+    virtual int32_t last() override;
 
     /**
      * Advances the iterator either forward or backward the specified number of steps.
@@ -548,14 +547,14 @@ public:
      * @return The position of the first boundary after this one.
      *  @stable ICU 2.0
      */
-    virtual int32_t next(void) override;
+    virtual int32_t next() override;
 
     /**
      * Moves the iterator backwards, to the last boundary preceding this one.
      * @return The position of the last boundary position preceding this one.
      *  @stable ICU 2.0
      */
-    virtual int32_t previous(void) override;
+    virtual int32_t previous() override;
 
     /**
      * Sets the iterator to refer to the first boundary position following
@@ -593,8 +592,7 @@ public:
      * @return The current iteration position.
      * @stable ICU 2.0
      */
-    virtual int32_t current(void) const override;
-
+    virtual int32_t current() const override;
 
     /**
      * Return the status tag from the break rule that determined the boundary at
@@ -686,7 +684,7 @@ public:
      *                  other classes have different class IDs.
      * @stable ICU 2.0
      */
-    virtual UClassID getDynamicClassID(void) const override;
+    virtual UClassID getDynamicClassID() const override;
 
     /**
      * Returns the class ID for this class.  This is useful only for
@@ -699,7 +697,7 @@ public:
      * @return          The class ID for all objects of this class.
      * @stable ICU 2.0
      */
-    static UClassID U_EXPORT2 getStaticClassID(void);
+    static UClassID U_EXPORT2 getStaticClassID();
 
 #ifndef U_FORCE_HIDE_DEPRECATED_API
     /**
@@ -878,7 +876,7 @@ private:
     void dumpTables();
 #endif  /* U_HIDE_INTERNAL_API */
 
-#ifndef U_HIDE_DRAFT_API
+#ifndef U_HIDE_INTERNAL_API
     /**
      * Register a new external break engine. The external break engine will be adopted.
      * Because ICU may choose to cache break engine internally, this must
@@ -890,7 +888,7 @@ private:
      */
     static void U_EXPORT2 registerExternalBreakEngine(
                   ExternalBreakEngine* toAdopt, UErrorCode& status);
-#endif  /* U_HIDE_DRAFT_API */
+#endif  /* U_HIDE_INTERNAL_API */
 
 };
 

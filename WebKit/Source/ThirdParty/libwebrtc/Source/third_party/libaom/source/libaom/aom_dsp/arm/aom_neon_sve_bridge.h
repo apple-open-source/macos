@@ -26,14 +26,14 @@
 // remainder of the vector is unused - this approach is still beneficial when
 // compared to a Neon-only solution.
 
-static INLINE uint64x2_t aom_udotq_u16(uint64x2_t acc, uint16x8_t x,
+static inline uint64x2_t aom_udotq_u16(uint64x2_t acc, uint16x8_t x,
                                        uint16x8_t y) {
   return svget_neonq_u64(svdot_u64(svset_neonq_u64(svundef_u64(), acc),
                                    svset_neonq_u16(svundef_u16(), x),
                                    svset_neonq_u16(svundef_u16(), y)));
 }
 
-static INLINE int64x2_t aom_sdotq_s16(int64x2_t acc, int16x8_t x, int16x8_t y) {
+static inline int64x2_t aom_sdotq_s16(int64x2_t acc, int16x8_t x, int16x8_t y) {
   return svget_neonq_s64(svdot_s64(svset_neonq_s64(svundef_s64(), acc),
                                    svset_neonq_s16(svundef_s16(), x),
                                    svset_neonq_s16(svundef_s16(), y)));
@@ -44,12 +44,12 @@ static INLINE int64x2_t aom_sdotq_s16(int64x2_t acc, int16x8_t x, int16x8_t y) {
                                  svset_neonq_s16(svundef_s16(), s0),  \
                                  svset_neonq_s16(svundef_s16(), f), lane))
 
-static INLINE uint16x8_t aom_tbl_u16(uint16x8_t s, uint16x8_t tbl) {
+static inline uint16x8_t aom_tbl_u16(uint16x8_t s, uint16x8_t tbl) {
   return svget_neonq_u16(svtbl_u16(svset_neonq_u16(svundef_u16(), s),
                                    svset_neonq_u16(svundef_u16(), tbl)));
 }
 
-static INLINE int16x8_t aom_tbl_s16(int16x8_t s, uint16x8_t tbl) {
+static inline int16x8_t aom_tbl_s16(int16x8_t s, uint16x8_t tbl) {
   return svget_neonq_s16(svtbl_s16(svset_neonq_s16(svundef_s16(), s),
                                    svset_neonq_u16(svundef_u16(), tbl)));
 }

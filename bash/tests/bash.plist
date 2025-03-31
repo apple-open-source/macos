@@ -17,6 +17,17 @@
 			<key>MayRunConcurrently</key>
 			<true/>
 		</dict>
+		<dict>
+			<key>TestName</key>
+			<string>bash.regress.radr136938890</string>
+			<key>Command</key>
+			<array>
+				<string>/bin/bash</string>
+				<string>/AppleInternal/Tests/bash/radr136938890.sh</string>
+			</array>
+			<key>MayRunConcurrently</key>
+			<true/>
+		</dict>
 	</array>
 	<key>Timeout</key>
 	<integer>30</integer>

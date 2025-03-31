@@ -14,6 +14,11 @@
 #include "tidy.h"
 #include "forward.h"
 
+#ifdef __APPLE__
+#include <dispatch/dispatch.h>
+#include <mach-o/dyld_priv.h>
+#endif
+
 static TidyMalloc  g_malloc  = NULL;
 static TidyRealloc g_realloc = NULL;
 static TidyFree    g_free    = NULL;
@@ -21,16 +26,22 @@ static TidyPanic   g_panic   = NULL;
 
 Bool TIDY_CALL tidySetMallocCall( TidyMalloc fmalloc )
 {
+  if (linkedOnOrAfter2024EReleases())
+      return no;
   g_malloc  = fmalloc;
   return yes;
 }
 Bool TIDY_CALL tidySetReallocCall( TidyRealloc frealloc )
 {
+  if (linkedOnOrAfter2024EReleases())
+      return no;
   g_realloc = frealloc;
   return yes;
 }
 Bool TIDY_CALL tidySetFreeCall( TidyFree ffree )
 {
+  if (linkedOnOrAfter2024EReleases())
+      return no;
   g_free    = ffree;
   return yes;
 }
@@ -52,7 +63,7 @@ void FatalError( ctmbstr msg )
   }
 }
 
-void* MemAlloc( size_t size )
+void* TY_MEM(MemAlloc)( size_t size )
 {
     void *p = ( g_malloc ? g_malloc(size) : malloc(size) );
     if ( !p )
@@ -60,11 +71,11 @@ void* MemAlloc( size_t size )
     return p;
 }
 
-void* MemRealloc( void* mem, size_t newsize )
+void* TY_MEM(MemRealloc)( void* mem, size_t newsize )
 {
     void *p;
     if ( mem == NULL )
-        return MemAlloc( newsize );
+        return TY_MEM(MemAlloc)( newsize );
 
     p = ( g_realloc ? g_realloc(mem, newsize) : realloc(mem, newsize) );
     if (!p)
@@ -72,7 +83,7 @@ void* MemRealloc( void* mem, size_t newsize )
     return p;
 }
 
-void MemFree( void* mem )
+void TY_MEM(MemFree)( void* mem )
 {
     if ( mem )
     {
@@ -88,3 +99,16 @@ void ClearMemory( void *mem, size_t size )
     memset(mem, 0, size);
 }
 
+bool linkedOnOrAfter2024EReleases(void)
+{
+#ifdef TIDY_LINKED_ON_OR_AFTER_MACOS15_4_IOS18_4_TVOS18_4_VISIONOS2_4_WATCHOS11_4
+    static bool result;
+    static dispatch_once_t once;
+    dispatch_once(&once, ^{
+        result = dyld_program_minos_at_least(dyld_2024_SU_E_os_versions);
+    });
+    return result;
+#else
+    return false;
+#endif
+}

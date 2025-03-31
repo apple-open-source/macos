@@ -1,0 +1,62 @@
+#! /bin/sh
+
+# Test that the --itemize-changes option works as expected.
+
+set -e
+set -u
+
+. ${tstdir-.}/lib.sh
+. ${tstdir-.}/conf.sh
+
+# Cleanup from previous run:
+#
+rm -rf src dst log
+
+# Create the source tree:
+#
+mkdir -p src
+
+for i in 1 2 3  ; do
+	jot $(expr $i \* 1000) $i > src/file$i
+	mkfifo src/fifo$i
+	mkdir src/dir$i
+	ln -s file$i src/sym$i
+done
+
+touch -h -A -10 src/*
+
+echo "1: Initial sync, dest does not exist"
+rsync --no-v -avxSH -i -- src/ dst/ > log
+compare_trees -t src dst
+
+X=$(grep -E -c '^.[dfLS]\+{7,} (dir|fifo|file|sym)' log)
+[ "$X" -eq 12 ]
+
+
+echo "2: re-sync, dest is identical to source"
+rsync --no-v -axSH -n -i -- src/ dst/ > log
+compare_trees -t src dst
+[ ! -s log ]
+
+
+echo "3: re-sync, archive mode, dest files are younger"
+touch -h dst/*
+rsync --no-v -axSH -n -i -- src/ dst/ > log
+compare_trees src dst
+
+X=$(grep -E -c '^.[dfLS]\.\.t\.{4,} (dir|fifo|file|sym)' log)
+[ "$X" -eq 9 ]
+
+X=$(grep -E -c '^.[dfS]\.\.t\.{4,} (dir|fifo|file)' log)
+[ "$X" -eq 9 ]
+
+
+echo "4: re-sync, archive mode minus -t, dest files are younger"
+rsync --no-v -nrlpgoD -i --delete -- src/ dst/ > log
+compare_trees src dst
+
+X=$(grep -E -c '^.[dfLS]\.\.T\.{4,} (dir|fifo|file|sym)' log)
+[ "$X" -eq 3 ]
+
+X=$(grep -E -c '^.[fS]\.\.T\.{4,} (file|sym)' log)
+[ "$X" -eq 3 ]

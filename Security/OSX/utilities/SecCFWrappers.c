@@ -83,6 +83,12 @@ appendDescriptionToArray(const void *value, void *context)
     }
 }
 
+static CFComparisonResult
+compare(const void *val1, const void *val2, void * __unused context)
+{
+    return CFStringCompare(val1, val2, 0);
+}
+
 void CFStringSetPerformWithDescription(CFSetRef set, void (^action)(CFStringRef description)) {
     if(!set) {
         action(CFSTR("null"));
@@ -91,7 +97,7 @@ void CFStringSetPerformWithDescription(CFSetRef set, void (^action)(CFStringRef 
         
         CFSetApplyFunction(set, appendDescriptionToArray, keys);
 
-        CFArraySortValues(keys, CFRangeMake(0, CFArrayGetCount(keys)), (CFComparatorFunction)&CFStringCompare, NULL);
+        CFArraySortValues(keys, CFRangeMake(0, CFArrayGetCount(keys)), compare, NULL);
         
         CFStringArrayPerformWithDelimiterWithDescription(keys, CFSTR("{("), CFSTR(")}"), action);
         

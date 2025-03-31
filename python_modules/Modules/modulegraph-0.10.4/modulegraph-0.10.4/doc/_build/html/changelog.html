@@ -1,0 +1,361 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Release history &mdash; modulegraph 0.10.4 documentation</title>
+    
+    <link rel="stylesheet" href="_static/nature.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '',
+        VERSION:     '0.10.4',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <link rel="top" title="modulegraph 0.10.4 documentation" href="index.html" />
+    <link rel="next" title="License" href="license.html" />
+    <link rel="prev" title="Modulegraph - Python module dependency graph" href="index.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="license.html" title="License"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="index.html" title="Modulegraph - Python module dependency graph"
+             accesskey="P">previous</a> |</li>
+        <li><a href="index.html">modulegraph 0.10.4 documentation</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="release-history">
+<h1>Release history<a class="headerlink" href="#release-history" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="id1">
+<h2>0.10.4<a class="headerlink" href="#id1" title="Permalink to this headline">¶</a></h2>
+<p>This is a bugfix release</p>
+<ul class="simple">
+<li>There were no &#8216;classifiers&#8217; in the package metadata due to a bug
+in setup.py.</li>
+</ul>
+</div>
+<div class="section" id="id2">
+<h2>0.10.3<a class="headerlink" href="#id2" title="Permalink to this headline">¶</a></h2>
+<p>This is a bugfix release</p>
+<div class="section" id="bugfixes">
+<h3>Bugfixes<a class="headerlink" href="#bugfixes" title="Permalink to this headline">¶</a></h3>
+<ul class="simple">
+<li><tt class="docutils literal"><span class="pre">modulegraph.find.modules.parse_mf_results</span></tt> failed when the main script of
+a py2app module didn&#8217;t have a file name ending in &#8216;.py&#8217;.</li>
+</ul>
+</div>
+</div>
+<div class="section" id="id3">
+<h2>0.10.2<a class="headerlink" href="#id3" title="Permalink to this headline">¶</a></h2>
+<p>This is a bugfix release</p>
+<div class="section" id="id4">
+<h3>Bugfixes<a class="headerlink" href="#id4" title="Permalink to this headline">¶</a></h3>
+<ul>
+<li><p class="first">Issue #12: modulegraph would sometimes find the wrong package <em>__init__</em>
+module due to using the wrong search method. One easy way to reproduce the
+problem was to have a toplevel module named <em>__init__</em>.</p>
+<p>Reported by Kentzo.</p>
+</li>
+</ul>
+</div>
+</div>
+<div class="section" id="id5">
+<h2>0.10.1<a class="headerlink" href="#id5" title="Permalink to this headline">¶</a></h2>
+<p>This is a bugfix release</p>
+<div class="section" id="id6">
+<h3>Bugfixes<a class="headerlink" href="#id6" title="Permalink to this headline">¶</a></h3>
+<ul>
+<li><p class="first">Issue #11: creating xrefs and dotty graphs from modulegraphs (the &#8211;xref
+and &#8211;graph options of py2app) didn&#8217;t work with python 3 due to use of
+APIs that aren&#8217;t available in that version of python.</p>
+<p>Reported by Andrew Barnert.</p>
+</li>
+</ul>
+</div>
+</div>
+<div class="section" id="id7">
+<h2>0.10<a class="headerlink" href="#id7" title="Permalink to this headline">¶</a></h2>
+<p>This is a minor feature release</p>
+<div class="section" id="features">
+<h3>Features<a class="headerlink" href="#features" title="Permalink to this headline">¶</a></h3>
+<ul>
+<li><p class="first"><tt class="docutils literal"><span class="pre">modulegraph.find_modules.find_needed_modules</span></tt> claimed to automaticly
+include subpackages for the &#8220;packages&#8221; argument as well, but that code
+didn&#8217;t work at all.</p>
+</li>
+<li><p class="first">Issue #9: The modulegraph script is deprecated, use
+&#8220;python -mmodulegraph&#8221; instead.</p>
+</li>
+<li><p class="first">Issue #10: Ensure that the result of &#8220;zipio.open&#8221; can be used
+in a with statement (that is, <tt class="docutils literal"><span class="pre">with</span> <span class="pre">zipio.open(...)</span> <span class="pre">as</span> <span class="pre">fp</span></tt>.</p>
+</li>
+<li><p class="first">No longer use &#8220;2to3&#8221; to support Python 3.</p>
+<p>Because of this modulegraph now supports Python 2.6
+and later.</p>
+</li>
+<li><p class="first">Slightly improved HTML output, which makes it easier
+to manipulate the generated HTML using JavaScript.</p>
+<p>Patch by anatoly techtonik.</p>
+</li>
+<li><p class="first">Ensure modulegraph works with changes introduced after
+Python 3.3b1.</p>
+</li>
+<li><p class="first">Implement support for PEP 420 (&#8220;Implicit namespace packages&#8221;)
+in Python 3.3.</p>
+</li>
+<li><p class="first"><tt class="docutils literal"><span class="pre">modulegraph.util.imp_walk</span></tt> is deprecated and will be
+removed in the next release of this package.</p>
+</li>
+</ul>
+</div>
+<div class="section" id="id8">
+<h3>Bugfixes<a class="headerlink" href="#id8" title="Permalink to this headline">¶</a></h3>
+<ul>
+<li><p class="first">The module graph was incomplete, and generated incorrect warnings
+along the way, when a subpackage contained import statements for
+submodules.</p>
+<p>An example of this is <tt class="docutils literal"><span class="pre">sqlalchemy.util</span></tt>, the <tt class="docutils literal"><span class="pre">__init__.py</span></tt> file
+for this package contains imports of modules in that modules using
+the classic relative import syntax (that is <tt class="docutils literal"><span class="pre">import</span> <span class="pre">compat</span></tt> to
+import <tt class="docutils literal"><span class="pre">sqlalchemy.util.compat</span></tt>). Until this release modulegraph
+searched the wrong path to locate these modules (and hence failed
+to find them).</p>
+</li>
+</ul>
+</div>
+</div>
+<div class="section" id="id9">
+<h2>0.9.2<a class="headerlink" href="#id9" title="Permalink to this headline">¶</a></h2>
+<p>This is a bugfix release</p>
+<div class="section" id="id10">
+<h3>Bugfixes<a class="headerlink" href="#id10" title="Permalink to this headline">¶</a></h3>
+<ul class="simple">
+<li>The &#8216;packages&#8217; option to modulegraph.find_modules.find_modules ignored
+the search path argument but always used the default search path.</li>
+<li>The &#8216;imp_find_modules&#8217; function in modulegraph.util has an argument &#8216;path&#8217;,
+this was a string in previous release and can now also be a sequence.</li>
+<li>Don&#8217;t crash when a module on the &#8216;includes&#8217; list doesn&#8217;t exist, but warn
+just like for missing &#8216;packages&#8217; (modulegraph.find_modules.find_modules)</li>
+</ul>
+</div>
+</div>
+<div class="section" id="id11">
+<h2>0.9.1<a class="headerlink" href="#id11" title="Permalink to this headline">¶</a></h2>
+<p>This is a bugfix release</p>
+<div class="section" id="bug-fixes">
+<h3>Bug fixes<a class="headerlink" href="#bug-fixes" title="Permalink to this headline">¶</a></h3>
+<ul>
+<li><p class="first">Fixed the name of nodes imports in packages where the first element of
+a dotted name can be found but the rest cannot. This used to create
+a MissingModule node for the dotted name in the global namespace instead
+of relative to the package.</p>
+<p>That is, given a package &#8220;pkg&#8221; with submodule &#8220;sub&#8221; if the &#8220;__init__.py&#8221;
+of &#8220;pkg&#8221; contains &#8220;import sub.nomod&#8221; we now create a MissingModule node
+for &#8220;pkg.sub.nomod&#8221; instead of &#8220;sub.nomod&#8221;.</p>
+<p>This fixes an issue with including the crcmod package in application
+bundles, first reported on the pythonmac-sig mailinglist by
+Brendan Simon.</p>
+</li>
+</ul>
+</div>
+</div>
+<div class="section" id="id12">
+<h2>0.9<a class="headerlink" href="#id12" title="Permalink to this headline">¶</a></h2>
+<p>This is a minor feature release</p>
+<p>Features:</p>
+<ul>
+<li><p class="first">Documentation is now generated using <a class="reference external" href="http://pypi.python.org/pypi/sphinx">sphinx</a>
+and can be viewed at &lt;<a class="reference external" href="http://packages.python.org/modulegraph">http://packages.python.org/modulegraph</a>&gt;.</p>
+<p>The documention is very rough at this moment and in need of reorganisation and
+language cleanup. I&#8217;ve basiclly writting the current version by reading the code
+and documenting what it does, the order in which classes and methods are document
+is therefore not necessarily the most useful.</p>
+</li>
+<li><p class="first">The repository has moved to bitbucket</p>
+</li>
+<li><p class="first">Renamed <tt class="docutils literal"><span class="pre">modulegraph.modulegraph.AddPackagePath</span></tt> to <tt class="docutils literal"><span class="pre">addPackagePath</span></tt>,
+likewise <tt class="docutils literal"><span class="pre">ReplacePackage</span></tt> is now <tt class="docutils literal"><span class="pre">replacePackage</span></tt>. The old name is still
+available, but is deprecated and will be removed before the 1.0 release.</p>
+</li>
+<li><p class="first"><tt class="docutils literal"><span class="pre">modulegraph.modulegraph</span></tt> contains two node types that are unused and
+have unclear semantics: <tt class="docutils literal"><span class="pre">FlatPackage</span></tt> and <tt class="docutils literal"><span class="pre">ArchiveModule</span></tt>. These node
+types are deprecated and will be removed before 1.0 is released.</p>
+</li>
+<li><p class="first">Added a simple commandline tool (<tt class="docutils literal"><span class="pre">modulegraph</span></tt>) that will print information
+about the dependency graph of a script.</p>
+</li>
+<li><p class="first">Added a module (<tt class="docutils literal"><span class="pre">zipio</span></tt>) for dealing with paths that may refer to entries
+inside zipfiles (such as source paths referring to modules in zipped eggfiles).</p>
+<p>With this addition <tt class="docutils literal"><span class="pre">modulegraph.modulegraph.os_listdir</span></tt> is deprecated and
+it will be removed before the 1.0 release.</p>
+</li>
+</ul>
+<p>Bug fixes:</p>
+<ul>
+<li><p class="first">The <tt class="docutils literal"><span class="pre">__cmp__</span></tt> method of a Node no longer causes an exception
+when the compared-to object is not a Node. Patch by Ivan Kozik.</p>
+</li>
+<li><p class="first">Issue #1: The initialiser for <tt class="docutils literal"><span class="pre">modulegraph.ModuleGraph</span></tt> caused an exception
+when an entry on the path (<tt class="docutils literal"><span class="pre">sys.path</span></tt>) doesn&#8217;t actually exist.</p>
+<p>Fix by &#8220;skurylo&#8221;, testcase by Ronald.</p>
+</li>
+<li><p class="first">The code no longer worked with python 2.5, this release fixes that.</p>
+</li>
+<li><p class="first">Due to the switch to mercurial setuptools will no longer include
+all required files. Fixed by adding a MANIFEST.in file</p>
+</li>
+<li><p class="first">The method for printing a <tt class="docutils literal"><span class="pre">.dot</span></tt> representation of a <tt class="docutils literal"><span class="pre">ModuleGraph</span></tt>
+works again.</p>
+</li>
+</ul>
+</div>
+<div class="section" id="id13">
+<h2>0.8.1<a class="headerlink" href="#id13" title="Permalink to this headline">¶</a></h2>
+<p>This is a minor feature release</p>
+<p>Features:</p>
+<ul class="simple">
+<li><tt class="docutils literal"><span class="pre">from</span> <span class="pre">__future__</span> <span class="pre">import</span> <span class="pre">absolute_import</span></tt> is now supported</li>
+<li>Relative imports (<tt class="docutils literal"><span class="pre">from</span> <span class="pre">.</span> <span class="pre">import</span> <span class="pre">module</span></tt>) are now supported</li>
+<li>Add support for namespace packages when those are installed
+using option <tt class="docutils literal"><span class="pre">--single-version-externally-managed</span></tt> (part
+of setuptools/distribute)</li>
+</ul>
+</div>
+<div class="section" id="id14">
+<h2>0.8<a class="headerlink" href="#id14" title="Permalink to this headline">¶</a></h2>
+<p>This is a minor feature release</p>
+<p>Features:</p>
+<ul>
+<li><p class="first">Initial support for Python 3.x</p>
+</li>
+<li><p class="first">It is now possible to run the test suite
+using <tt class="docutils literal"><span class="pre">python</span> <span class="pre">setup.py</span> <span class="pre">test</span></tt>.</p>
+<p>(The actual test suite is still fairly minimal though)</p>
+</li>
+</ul>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">Release history</a><ul>
+<li><a class="reference internal" href="#id1">0.10.4</a></li>
+<li><a class="reference internal" href="#id2">0.10.3</a><ul>
+<li><a class="reference internal" href="#bugfixes">Bugfixes</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id3">0.10.2</a><ul>
+<li><a class="reference internal" href="#id4">Bugfixes</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id5">0.10.1</a><ul>
+<li><a class="reference internal" href="#id6">Bugfixes</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id7">0.10</a><ul>
+<li><a class="reference internal" href="#features">Features</a></li>
+<li><a class="reference internal" href="#id8">Bugfixes</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id9">0.9.2</a><ul>
+<li><a class="reference internal" href="#id10">Bugfixes</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id11">0.9.1</a><ul>
+<li><a class="reference internal" href="#bug-fixes">Bug fixes</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id12">0.9</a></li>
+<li><a class="reference internal" href="#id13">0.8.1</a></li>
+<li><a class="reference internal" href="#id14">0.8</a></li>
+</ul>
+</li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="index.html"
+                        title="previous chapter">Modulegraph - Python module dependency graph</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="license.html"
+                        title="next chapter">License</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="_sources/changelog.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="license.html" title="License"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="index.html" title="Modulegraph - Python module dependency graph"
+             >previous</a> |</li>
+        <li><a href="index.html">modulegraph 0.10.4 documentation</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2010, Ronald Oussoren.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1.3.
+    </div>
+  </body>
+</html>

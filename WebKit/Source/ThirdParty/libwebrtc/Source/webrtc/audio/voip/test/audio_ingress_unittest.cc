@@ -46,13 +46,12 @@ class AudioIngressTest : public ::testing::Test {
         ReceiveStatistics::Create(time_controller_.GetClock());
 
     RtpRtcpInterface::Configuration rtp_config;
-    rtp_config.clock = time_controller_.GetClock();
     rtp_config.audio = true;
     rtp_config.receive_statistics = receive_statistics_.get();
     rtp_config.rtcp_report_interval_ms = 5000;
     rtp_config.outgoing_transport = &transport_;
     rtp_config.local_media_ssrc = 0xdeadc0de;
-    rtp_rtcp_ = ModuleRtpRtcpImpl2::Create(rtp_config);
+    rtp_rtcp_ = std::make_unique<ModuleRtpRtcpImpl2>(env_, rtp_config);
 
     rtp_rtcp_->SetSendingMediaStatus(false);
     rtp_rtcp_->SetRTCPStatus(RtcpMode::kCompound);
@@ -64,13 +63,10 @@ class AudioIngressTest : public ::testing::Test {
   void SetUp() override {
     constexpr int kPcmuPayload = 0;
     ingress_ = std::make_unique<AudioIngress>(
-        rtp_rtcp_.get(), time_controller_.GetClock(), receive_statistics_.get(),
-        decoder_factory_);
+        env_, rtp_rtcp_.get(), receive_statistics_.get(), decoder_factory_);
     ingress_->SetReceiveCodecs({{kPcmuPayload, kPcmuFormat}});
 
-    egress_ = std::make_unique<AudioEgress>(
-        rtp_rtcp_.get(), time_controller_.GetClock(),
-        time_controller_.GetTaskQueueFactory());
+    egress_ = std::make_unique<AudioEgress>(env_, rtp_rtcp_.get());
     egress_->SetEncoder(kPcmuPayload, kPcmuFormat,
                         encoder_factory_->Create(
                             env_, kPcmuFormat, {.payload_type = kPcmuPayload}));

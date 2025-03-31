@@ -25,10 +25,7 @@
 .\" OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
 .\" SUCH DAMAGE.
 .\"
-.\"     @(#)shutdown.8	8.2 (Berkeley) 4/27/95
-.\" $FreeBSD$
-.\"
-.Dd June 6, 2023
+.Dd August 4, 2024
 .Dt SHUTDOWN 8
 .Os
 .Sh NAME
@@ -44,6 +41,7 @@
 .Fl o
 .Op Fl n
 .Oc
+.Op Fl q
 .Ar time
 .Op Ar warning-message ...
 .Sh DESCRIPTION
@@ -53,6 +51,10 @@ utility provides an automated shutdown procedure for super-users
 to nicely notify users when the system is shutting down,
 saving them from system administrators, hackers, and gurus, who
 would otherwise not bother with such niceties.
+.\" In order to use the
+.\" .Nm
+.\" command, the user must have root privileges or be a member of the
+.\" operator group.
 .Pp
 The following options are available:
 .Bl -tag -width indent
@@ -108,6 +110,12 @@ to
 or
 .Xr reboot 8 .
 The use of this option is discouraged as it can result in data loss.
+.It Fl q
+Shut down quietly.
+Suppress the warning message to all logged in users about system shutdown.
+It is an error to supply a
+.Ar warning-message
+when warnings are suppressed.
 .It Ar time
 .Ar Time
 is the time at which

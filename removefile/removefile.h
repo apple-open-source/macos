@@ -30,6 +30,7 @@ enum {
 	REMOVEFILE_ALLOW_LONG_PATHS = (1 << 8),     // Paths may be longer than PATH_MAX - requires temporarily changing cwd
 	REMOVEFILE_CLEAR_PURGEABLE = (1 << 9),      // Clear purgeable on any directory encountered before deletion
 	REMOVEFILE_SYSTEM_DISCARDED = (1 << 10),    // File Discarded by system
+	REMOVEFILE_RECURSIVE_SLIM = (1 << 11),      // Slim implementation of dir removal, which iterates the directory in DFS, to reduce memory consumption.
 };
 
 /*

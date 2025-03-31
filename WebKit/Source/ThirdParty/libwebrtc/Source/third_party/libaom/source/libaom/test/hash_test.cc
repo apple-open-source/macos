@@ -18,9 +18,9 @@
 
 #include "aom_ports/aom_timer.h"
 #include "av1/encoder/hash.h"
+#include "gtest/gtest.h"
 #include "test/acm_random.h"
 #include "test/util.h"
-#include "third_party/googletest/src/googletest/include/gtest/gtest.h"
 
 namespace {
 

@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.12)
+cmake_minimum_required(VERSION 3.16)
 
 # Defer enabling C and CXX languages.
 project(BoringSSL NONE)
@@ -169,7 +169,7 @@ if(CMAKE_COMPILER_IS_GNUCXX OR CLANG)
   endif()
 
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${C_CXX_FLAGS} -Wmissing-prototypes -Wold-style-definition -Wstrict-prototypes")
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${C_CXX_FLAGS} -Wmissing-declarations")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${C_CXX_FLAGS} -Wmissing-declarations -Wnon-virtual-dtor")
 
   # In GCC, -Wmissing-declarations is the C++ spelling of -Wmissing-prototypes
   # and using the wrong one is an error. In Clang, -Wmissing-prototypes is the
@@ -365,7 +365,9 @@ if(FIPS_DELOCATE OR NOT OPENSSL_NO_ASM)
     set(CMAKE_ASM_NASM_FLAGS "${CMAKE_ASM_NASM_FLAGS} -gcv8")
   else()
     enable_language(ASM)
-    set(OPENSSL_ASM TRUE)
+    if (NOT OPENSSL_NO_ASM)
+      set(OPENSSL_ASM TRUE)
+    endif()
     # Work around https://gitlab.kitware.com/cmake/cmake/-/issues/20771 in older
     # CMake versions.
     if(APPLE AND CMAKE_VERSION VERSION_LESS 3.19)
@@ -504,10 +506,20 @@ endif()
 
 if(FIPS_DELOCATE)
   add_library(bcm_c_generated_asm STATIC ${BCM_SOURCES})
+  if(NOT MSVC)
+    # The C++ code in libcrypto shouldn't depend on libstdc++. This requires
+    # -fno-exceptions otherwise use of std::unique_ptr emits a call to
+    # std::terminate.
+    target_compile_options(bcm_c_generated_asm PRIVATE $<$<COMPILE_LANGUAGE:CXX>:-fno-exceptions -fno-rtti>)
+  endif()
   add_dependencies(bcm_c_generated_asm boringssl_prefix_symbols)
   target_include_directories(bcm_c_generated_asm PRIVATE ${PROJECT_SOURCE_DIR}/include)
   set_target_properties(bcm_c_generated_asm PROPERTIES COMPILE_OPTIONS "-S")
   set_target_properties(bcm_c_generated_asm PROPERTIES POSITION_INDEPENDENT_CODE ON)
+  if(CLANG)
+    # Clang warns when passing both -c (from CMake) and -S.
+    set_property(TARGET bcm_c_generated_asm APPEND PROPERTY COMPILE_OPTIONS "-Wno-unused-command-line-argument")
+  endif()
 
   set(TARGET_FLAG "")
   if(CMAKE_ASM_COMPILER_TARGET)
@@ -550,6 +562,12 @@ elseif(FIPS_SHARED)
   endif()
 
   add_library(bcm_library STATIC ${BCM_SOURCES} ${BCM_SOURCES_ASM_USED})
+  if(NOT MSVC)
+    # The C++ code in libcrypto shouldn't depend on libstdc++. This requires
+    # -fno-exceptions otherwise use of std::unique_ptr emits a call to
+    # std::terminate.
+    target_compile_options(bcm_library PRIVATE $<$<COMPILE_LANGUAGE:CXX>:-fno-exceptions -fno-rtti>)
+  endif()
   add_dependencies(bcm_library boringssl_prefix_symbols)
   target_include_directories(bcm_library PRIVATE ${PROJECT_SOURCE_DIR}/include)
 
@@ -562,12 +580,24 @@ elseif(FIPS_SHARED)
   set(CRYPTO_FIPS_OBJECTS bcm.o)
 else()
   add_library(fipsmodule OBJECT ${BCM_SOURCES} ${BCM_SOURCES_ASM_USED})
+  if(NOT MSVC)
+    # The C++ code in libcrypto shouldn't depend on libstdc++. This requires
+    # -fno-exceptions otherwise use of std::unique_ptr emits a call to
+    # std::terminate.
+    target_compile_options(fipsmodule PRIVATE $<$<COMPILE_LANGUAGE:CXX>:-fno-exceptions -fno-rtti>)
+  endif()
   add_dependencies(fipsmodule boringssl_prefix_symbols)
   target_include_directories(fipsmodule PRIVATE ${PROJECT_SOURCE_DIR}/include)
   set(CRYPTO_FIPS_OBJECTS $<TARGET_OBJECTS:fipsmodule>)
 endif()
 
 add_library(crypto ${CRYPTO_SOURCES} ${CRYPTO_FIPS_OBJECTS} ${CRYPTO_SOURCES_ASM_USED})
+if(NOT MSVC)
+    # The C++ code in libcrypto shouldn't depend on libstdc++. This requires
+    # -fno-exceptions otherwise use of std::unique_ptr emits a call to
+    # std::terminate.
+  target_compile_options(crypto PRIVATE $<$<COMPILE_LANGUAGE:CXX>:-fno-exceptions -fno-rtti>)
+endif()
 target_include_directories(crypto PUBLIC
   $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>
@@ -761,19 +791,8 @@ else()
 endif()
 
 if(INSTALL_ENABLED)
-  # CMake versions before 3.14 do not have default destination values. Executable
-  # and library targets that use a default destination should include this
-  # variable.
-  if(CMAKE_VERSION VERSION_LESS "3.14")
-    set(INSTALL_DESTINATION_DEFAULT
-        ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
-        LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
-        RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
-  endif()
-
-  install(TARGETS crypto ssl
-          EXPORT OpenSSLTargets ${INSTALL_DESTINATION_DEFAULT})
-  install(TARGETS bssl DESTINATION ${INSTALL_DESTINATION_DEFAULT})
+  install(TARGETS crypto ssl EXPORT OpenSSLTargets)
+  install(TARGETS bssl)
   install(DIRECTORY include/ DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
   install(EXPORT OpenSSLTargets
           FILE OpenSSLTargets.cmake

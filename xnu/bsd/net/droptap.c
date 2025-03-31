@@ -360,8 +360,8 @@ droptap_input_mbuf(struct mbuf *m, drop_reason_t reason, const char *funcname,
 		dtaphdr.dth_dropfunc_size = (uint8_t)strbuflen(dtaphdr.dth_dropfunc);
 	}
 
-	hdr = (char *)mbuf_data(m);
-	start = (char *)mbuf_datastart(m);
+	hdr = mtod(m, char *);
+	start = (char *)m_mtod_lower_bound(m);
 	if (frame_header != NULL && frame_header >= start && frame_header <= hdr) {
 		size_t o_len = m->m_len;
 		u_int32_t pre = (u_int32_t)(hdr - frame_header);

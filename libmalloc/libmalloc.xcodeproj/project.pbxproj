@@ -173,6 +173,8 @@
 		B218ABB32B0818CD00CB20FC /* xzone_introspect.h in Headers */ = {isa = PBXBuildFile; fileRef = B23096182AB4F3DE00917598 /* xzone_introspect.h */; };
 		B218ABB42B08219700CB20FC /* xzone_introspect.c in Sources */ = {isa = PBXBuildFile; fileRef = B293DBC22AB1223E00EA1B30 /* xzone_introspect.c */; };
 		B218ABB52B08219A00CB20FC /* xzone_introspect.h in Headers */ = {isa = PBXBuildFile; fileRef = B23096182AB4F3DE00917598 /* xzone_introspect.h */; };
+		B21C130A2BF2F30200D41860 /* instrumentation.c in Sources */ = {isa = PBXBuildFile; fileRef = 06057A282A56B4B8005EF06B /* instrumentation.c */; };
+		B21C130B2BF2F30800D41860 /* instrumentation.c in Sources */ = {isa = PBXBuildFile; fileRef = 06057A282A56B4B8005EF06B /* instrumentation.c */; };
 		B2226E192A9035AA001703BE /* malloc_common.c in Sources */ = {isa = PBXBuildFile; fileRef = B66C71D82034BFAE0047E265 /* malloc_common.c */; settings = {COMPILER_FLAGS = "$(MALLOC_BOUNDS_ATTRIBUTES_SUPPORT)"; }; };
 		B2226E1A2A9035AF001703BE /* xzone_segment.c in Sources */ = {isa = PBXBuildFile; fileRef = F765F92829217BAA00E9649E /* xzone_segment.c */; };
 		B2226E1B2A9035B2001703BE /* xzone_malloc.c in Sources */ = {isa = PBXBuildFile; fileRef = F765F92929217BAA00E9649E /* xzone_malloc.c */; };
@@ -1836,6 +1838,7 @@
 				B2444EF229C29C0D001D6839 /* malloc_type.c in Sources */,
 				B2CDBA0B2A8164C300E76A55 /* early_malloc.c in Sources */,
 				B29C114F2A7C2F2D00C00C07 /* malloc_printf.c in Sources */,
+				B21C130A2BF2F30200D41860 /* instrumentation.c in Sources */,
 				B24F716629B7F10B0064241F /* sanitizer_malloc.c in Sources */,
 				B2CDBA122A81658D00E76A55 /* vm.c in Sources */,
 				B29E9A5929FC651300C0EBFF /* malloc_exclaves.c in Sources */,
@@ -1948,6 +1951,7 @@
 				B2226E1C2A9035CE001703BE /* malloc_type.c in Sources */,
 				B2226E1D2A9035D1001703BE /* early_malloc.c in Sources */,
 				B2226E1F2A9035F1001703BE /* malloc_printf.c in Sources */,
+				B21C130B2BF2F30800D41860 /* instrumentation.c in Sources */,
 				B2226E202A9035F7001703BE /* sanitizer_malloc.c in Sources */,
 				B2226E1E2A9035D4001703BE /* vm.c in Sources */,
 				B2226E212A90360F001703BE /* malloc_exclaves.c in Sources */,

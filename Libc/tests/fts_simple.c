@@ -44,13 +44,14 @@ _remove_prefix(char *prefix, char *input) {
 
 T_DECL(fts_simple, "Simple fts_read test")
 {
-	T_LOG("prog: %s", getprogname());
-	char *tmp_path = NULL;
-	T_ASSERT_POSIX_SUCCESS(asprintf(&tmp_path, "%s/%s-XXXXXX", dt_tmpdir(), T_NAME), NULL);
-	T_ASSERT_NOTNULL(mktemp(tmp_path), NULL);
-	T_ASSERT_POSIX_SUCCESS(mkdir(tmp_path, 0777), NULL);
+	char *tmp_template = NULL, *tmp_path = NULL;
+	T_SETUPBEGIN;
+	T_ASSERT_POSIX_SUCCESS(asprintf(&tmp_template, "%s/%s-XXXXXX", dt_tmpdir(), T_NAME), NULL);
+	T_ASSERT_NOTNULL(tmp_template, NULL);
+	T_ASSERT_NOTNULL(mkdtemp(tmp_template), NULL);
+	T_ASSERT_NOTNULL(tmp_path = realpath(tmp_template, NULL), NULL);
+	free(tmp_template);
 	int tmp_fd = open(tmp_path, O_RDONLY | O_DIRECTORY);
-	T_LOG("tmp: %s", tmp_path);
 	T_ASSERT_POSIX_SUCCESS(tmp_fd, NULL);
 
 	T_ASSERT_POSIX_SUCCESS(mkdirat(tmp_fd, "A", 0777), NULL);
@@ -214,6 +215,7 @@ T_DECL(fts_simple, "Simple fts_read test")
 		root_path,
 		NULL,
 	};
+	T_SETUPEND;
 	FTS *tree = fts_open(paths, FTS_PHYSICAL, NULL);
 	T_ASSERT_NOTNULL(tree, NULL);
 	FTSENT *node;

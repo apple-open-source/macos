@@ -215,26 +215,22 @@ void EntryPlan::compileFunctions(CompilationEffort effort)
         }
 
         for (uint32_t index = functionIndex; index < functionIndexEnd; ++index)
-            compileFunction(index);
+            compileFunction(FunctionCodeIndex(index));
 
         if (!areWasmToWasmStubsCompiled) {
-#if ENABLE(JIT)
             if (UNLIKELY(!generateWasmToWasmStubs())) {
                 Locker locker { m_lock };
                 fail(makeString("Out of executable memory at stub generation"_s));
                 return;
             }
-#endif
         }
 
         if (!areWasmToJSStubsCompiled) {
-#if ENABLE(JIT)
             if (UNLIKELY(!generateWasmToJSStubs())) {
                 Locker locker { m_lock };
                 fail(makeString("Out of executable memory at stub generation"_s));
                 return;
             }
-#endif
         }
     }
 }
@@ -272,21 +268,17 @@ bool EntryPlan::completeSyncIfPossible()
 void EntryPlan::generateStubsIfNecessary()
 {
     if (!std::exchange(m_areWasmToWasmStubsCompiled, true)) {
-#if ENABLE(JIT)
         if (UNLIKELY(!generateWasmToWasmStubs())) {
             fail(makeString("Out of executable memory at stub generation"_s));
             return;
         }
-#endif
     }
 
     if (!std::exchange(m_areWasmToJSStubsCompiled, true)) {
-#if ENABLE(JIT)
         if (UNLIKELY(!generateWasmToJSStubs())) {
             fail(makeString("Out of executable memory at stub generation"_s));
             return;
         }
-#endif
     }
 }
 
@@ -310,8 +302,12 @@ bool EntryPlan::generateWasmToWasmStubs()
 #else
         if (false);
 #endif // ENABLE(JIT)
-        else
-            m_wasmToWasmExitStubs[importFunctionIndex++] = LLInt::getCodeRef<WasmEntryPtrTag>(wasm_to_wasm_wrapper_entry);
+        else {
+            if (Options::useWasmIPInt())
+                m_wasmToWasmExitStubs[importFunctionIndex++] = LLInt::getCodeRef<WasmEntryPtrTag>(wasm_to_wasm_ipint_wrapper_entry);
+            else
+                m_wasmToWasmExitStubs[importFunctionIndex++] = LLInt::getCodeRef<WasmEntryPtrTag>(wasm_to_wasm_wrapper_entry);
+        }
     }
     ASSERT(importFunctionIndex == m_wasmToWasmExitStubs.size());
     return true;

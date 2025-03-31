@@ -26,348 +26,450 @@
 #include "config.h"
 #include "CSSPropertyParserConsumer+Filter.h"
 
+#include "CSSAppleColorFilterProperty.h"
+#include "CSSAppleColorFilterPropertyValue.h"
 #include "CSSFilterFunctionDescriptor.h"
-#include "CSSFunctionValue.h"
+#include "CSSFilterProperty.h"
+#include "CSSFilterPropertyValue.h"
 #include "CSSParserContext.h"
 #include "CSSParserTokenRange.h"
 #include "CSSPrimitiveValue.h"
-#include "CSSPropertyParserConsumer+Angle.h"
+#include "CSSPropertyParserConsumer+AngleDefinitions.h"
+#include "CSSPropertyParserConsumer+Background.h"
+#include "CSSPropertyParserConsumer+Color.h"
 #include "CSSPropertyParserConsumer+Ident.h"
-#include "CSSPropertyParserConsumer+Length.h"
-#include "CSSPropertyParserConsumer+Number.h"
-#include "CSSPropertyParserConsumer+Percentage.h"
+#include "CSSPropertyParserConsumer+LengthDefinitions.h"
+#include "CSSPropertyParserConsumer+MetaConsumer.h"
+#include "CSSPropertyParserConsumer+NumberDefinitions.h"
+#include "CSSPropertyParserConsumer+PercentageDefinitions.h"
+#include "CSSPropertyParserConsumer+Primitives.h"
 #include "CSSPropertyParserConsumer+URL.h"
-#include "CSSPropertyParserHelpers.h"
 #include "CSSToLengthConversionData.h"
 #include "CSSTokenizer.h"
 #include "CSSValueKeywords.h"
 #include "FilterOperations.h"
-#include "FilterOperationsBuilder.h"
+#include "StyleFilterProperty.h"
 #include <wtf/text/StringView.h>
 
 namespace WebCore {
 namespace CSSPropertyParserHelpers {
 
-template<CSSValueID filterFunction> static constexpr bool isAllowed(AllowedFilterFunctions allowedFunctions)
+template<CSSValueID filterFunction> static decltype(auto) consumeNumberOrPercentFilterParameter(CSSParserTokenRange& args, const CSSParserContext& context)
 {
-    switch (allowedFunctions) {
-    case AllowedFilterFunctions::PixelFilters:
-        return isPixelFilterFunction<filterFunction>();
-    case AllowedFilterFunctions::ColorFilters:
-        return isColorFilterFunction<filterFunction>();
+    if constexpr (filterFunctionAllowsValuesGreaterThanOne<filterFunction>()) {
+        return MetaConsumer<
+            CSS::Number<CSS::Nonnegative>,
+            CSS::Percentage<CSS::Nonnegative>
+        >::consume(args, context, { }, { .parserMode = context.mode });
+    } else {
+        return MetaConsumer<
+            CSS::Number<CSS::ClosedUnitRangeClampUpper>,
+            CSS::Percentage<CSS::ClosedPercentageRangeClampUpper>
+        >::consume(args, context, { }, { .parserMode = context.mode });
     }
-
-    ASSERT_NOT_REACHED();
-    return false;
 }
 
-template<CSSValueID filterFunction> static RefPtr<CSSValue> consumeNumberOrPercentFilterParameter(CSSParserTokenRange& args, const CSSParserContext&)
-{
-    if (RefPtr percentage = consumePercentage(args, ValueRange::NonNegative)) {
-        if (!filterFunctionAllowsValuesGreaterThanOne<filterFunction>() && percentage->resolveAsPercentageIfNotCalculated() > 100.0)
-            percentage = CSSPrimitiveValue::create(100.0, CSSUnitType::CSS_PERCENTAGE);
-        return percentage;
-    } else if (RefPtr number = consumeNumber(args, ValueRange::NonNegative)) {
-        if (!filterFunctionAllowsValuesGreaterThanOne<filterFunction>() && number->resolveAsNumberIfNotCalculated() > 1.0)
-            number = CSSPrimitiveValue::create(1.0, CSSUnitType::CSS_NUMBER);
-        return number;
-    }
-    return nullptr;
-}
-
-static RefPtr<CSSFunctionValue> consumeFilterFunctionBlur(CSSParserTokenRange& range, const CSSParserContext&, AllowedFilterFunctions allowedFunctions)
-{
-    // blur() = blur( <length>? )
-
-    constexpr CSSValueID function = CSSValueBlur;
-
-    if (!isAllowed<function>(allowedFunctions))
-        return nullptr;
-
-    auto args = consumeFunction(range);
-    if (args.atEnd())
-        return CSSFunctionValue::create(function);
-
-    auto parsedValue = consumeLength(args, HTMLStandardMode, ValueRange::NonNegative);
-    if (!parsedValue || !args.atEnd())
-        return nullptr;
-    return CSSFunctionValue::create(function, parsedValue.releaseNonNull());
-}
-
-static RefPtr<CSSFunctionValue> consumeFilterFunctionBrightness(CSSParserTokenRange& range, const CSSParserContext& context, AllowedFilterFunctions allowedFunctions)
-{
-    // brightness() = brightness( [ <number> |  <percentage> ]? )
-
-    constexpr CSSValueID function = CSSValueBrightness;
-
-    if (!isAllowed<function>(allowedFunctions))
-        return nullptr;
-
-    auto args = consumeFunction(range);
-    if (args.atEnd())
-        return CSSFunctionValue::create(function);
-
-    auto parsedValue = consumeNumberOrPercentFilterParameter<function>(args, context);
-    if (!parsedValue || !args.atEnd())
-        return nullptr;
-    return CSSFunctionValue::create(function, parsedValue.releaseNonNull());
-}
-
-static RefPtr<CSSFunctionValue> consumeFilterFunctionContrast(CSSParserTokenRange& range, const CSSParserContext& context, AllowedFilterFunctions allowedFunctions)
-{
-    // contrast() = contrast( [ <number> |  <percentage> ]? )
-
-    constexpr CSSValueID function = CSSValueContrast;
-
-    if (!isAllowed<function>(allowedFunctions))
-        return nullptr;
-
-    auto args = consumeFunction(range);
-    if (args.atEnd())
-        return CSSFunctionValue::create(function);
-
-    auto parsedValue = consumeNumberOrPercentFilterParameter<function>(args, context);
-    if (!parsedValue || !args.atEnd())
-        return nullptr;
-    return CSSFunctionValue::create(function, parsedValue.releaseNonNull());
-}
-
-static RefPtr<CSSFunctionValue> consumeFilterFunctionDropShadow(CSSParserTokenRange& range, const CSSParserContext& context, AllowedFilterFunctions allowedFunctions)
-{
-    // drop-shadow() = drop-shadow( [ <color>? && <length>{2,3} ] )
-
-    constexpr CSSValueID function = CSSValueDropShadow;
-
-    if (!isAllowed<function>(allowedFunctions))
-        return nullptr;
-
-    auto args = consumeFunction(range);
-
-    auto parsedValue = consumeSingleShadow(args, context, false, false);
-    if (!parsedValue || !args.atEnd())
-        return nullptr;
-
-    return CSSFunctionValue::create(function, parsedValue.releaseNonNull());
-}
-
-static RefPtr<CSSFunctionValue> consumeFilterFunctionGrayscale(CSSParserTokenRange& range, const CSSParserContext& context, AllowedFilterFunctions allowedFunctions)
-{
-    // grayscale() = grayscale( [ <number> |  <percentage> ]? )
-
-    constexpr CSSValueID function = CSSValueGrayscale;
-
-    if (!isAllowed<function>(allowedFunctions))
-        return nullptr;
-
-    auto args = consumeFunction(range);
-    if (args.atEnd())
-        return CSSFunctionValue::create(function);
-
-    auto parsedValue = consumeNumberOrPercentFilterParameter<function>(args, context);
-    if (!parsedValue || !args.atEnd())
-        return nullptr;
-    return CSSFunctionValue::create(function, parsedValue.releaseNonNull());
-}
-
-static RefPtr<CSSFunctionValue> consumeFilterFunctionHueRotate(CSSParserTokenRange& range, const CSSParserContext& context, AllowedFilterFunctions allowedFunctions)
-{
-    // hue-rotate() = hue-rotate( [ <angle> | <zero> ]? )
-
-    constexpr CSSValueID function = CSSValueHueRotate;
-
-    if (!isAllowed<function>(allowedFunctions))
-        return nullptr;
-
-    auto args = consumeFunction(range);
-    if (args.atEnd())
-        return CSSFunctionValue::create(function);
-
-    auto parsedValue = consumeAngle(args, context.mode, UnitlessQuirk::Forbid, UnitlessZeroQuirk::Allow);
-    if (!parsedValue || !args.atEnd())
-        return nullptr;
-
-    return CSSFunctionValue::create(function, parsedValue.releaseNonNull());
-}
-
-static RefPtr<CSSFunctionValue> consumeFilterFunctionInvert(CSSParserTokenRange& range, const CSSParserContext& context, AllowedFilterFunctions allowedFunctions)
-{
-    // invert() = invert( [ <number> |  <percentage> ]? )
-
-    constexpr CSSValueID function = CSSValueInvert;
-
-    if (!isAllowed<function>(allowedFunctions))
-        return nullptr;
-
-    auto args = consumeFunction(range);
-    if (args.atEnd())
-        return CSSFunctionValue::create(function);
-
-    auto parsedValue = consumeNumberOrPercentFilterParameter<function>(args, context);
-    if (!parsedValue || !args.atEnd())
-        return nullptr;
-    return CSSFunctionValue::create(function, parsedValue.releaseNonNull());
-}
-
-static RefPtr<CSSFunctionValue> consumeFilterFunctionOpacity(CSSParserTokenRange& range, const CSSParserContext& context, AllowedFilterFunctions allowedFunctions)
-{
-    // opacity() = opacity( [ <number> |  <percentage> ]? )
-
-    constexpr CSSValueID function = CSSValueOpacity;
-
-    if (!isAllowed<function>(allowedFunctions))
-        return nullptr;
-
-    auto args = consumeFunction(range);
-    if (args.atEnd())
-        return CSSFunctionValue::create(function);
-
-    auto parsedValue = consumeNumberOrPercentFilterParameter<function>(args, context);
-    if (!parsedValue || !args.atEnd())
-        return nullptr;
-    return CSSFunctionValue::create(function, parsedValue.releaseNonNull());
-}
-
-static RefPtr<CSSFunctionValue> consumeFilterFunctionSaturate(CSSParserTokenRange& range, const CSSParserContext& context, AllowedFilterFunctions allowedFunctions)
-{
-    // saturate() = saturate( [ <number> |  <percentage> ]? )
-
-    constexpr CSSValueID function = CSSValueSaturate;
-
-    if (!isAllowed<function>(allowedFunctions))
-        return nullptr;
-
-    auto args = consumeFunction(range);
-    if (args.atEnd())
-        return CSSFunctionValue::create(function);
-
-    auto parsedValue = consumeNumberOrPercentFilterParameter<function>(args, context);
-    if (!parsedValue || !args.atEnd())
-        return nullptr;
-    return CSSFunctionValue::create(function, parsedValue.releaseNonNull());
-}
-
-static RefPtr<CSSFunctionValue> consumeFilterFunctionSepia(CSSParserTokenRange& range, const CSSParserContext& context, AllowedFilterFunctions allowedFunctions)
-{
-    // sepia() = sepia( [ <number> |  <percentage> ]? )
-
-    constexpr CSSValueID function = CSSValueSepia;
-
-    if (!isAllowed<function>(allowedFunctions))
-        return nullptr;
-
-    auto args = consumeFunction(range);
-    if (args.atEnd())
-        return CSSFunctionValue::create(function);
-
-    auto parsedValue = consumeNumberOrPercentFilterParameter<function>(args, context);
-    if (!parsedValue || !args.atEnd())
-        return nullptr;
-    return CSSFunctionValue::create(function, parsedValue.releaseNonNull());
-}
-
-static RefPtr<CSSFunctionValue> consumeFilterFunctionAppleInvertLightness(CSSParserTokenRange& range, const CSSParserContext&, AllowedFilterFunctions allowedFunctions)
+static std::optional<CSS::AppleInvertLightnessFunction> consumeFilterAppleInvertLightness(CSSParserTokenRange& range, const CSSParserContext&)
 {
     // <-apple-invert-lightness()> = -apple-invert-lightness()
-
-    constexpr CSSValueID function = CSSValueAppleInvertLightness;
-
-    if (!isAllowed<function>(allowedFunctions))
-        return nullptr;
+    // Non-standard
 
     auto args = consumeFunction(range);
     if (!args.atEnd())
-        return nullptr;
-    return CSSFunctionValue::create(function);
+        return { };
+
+    return CSS::AppleInvertLightnessFunction { .parameters = { } };
 }
 
-// MARK: <filter-function>
-// https://drafts.fxtf.org/filter-effects/#typedef-filter-function
-
-static RefPtr<CSSFunctionValue> consumeFilterFunction(CSSParserTokenRange& range, const CSSParserContext& context, AllowedFilterFunctions allowedFunctions)
+static std::optional<CSS::BlurFunction> consumeFilterBlur(CSSParserTokenRange& range, const CSSParserContext& context)
 {
-    // <filter-function> = <blur()> | <brightness()> | <contrast()> | <drop-shadow()> | <grayscale()> | <hue-rotate()> | <invert()> | <opacity()> | <sepia()> | <saturate()>
-    //
-    // On top of the standard functions above, we add `... | <-apple-invert-lightness()>`.
+    // blur() = blur( <length [0,∞]>? )
+    // https://drafts.fxtf.org/filter-effects/#funcdef-filter-blur
 
-    auto rangeCopy = range;
+    auto args = consumeFunction(range);
+    if (args.atEnd())
+        return { CSS::BlurFunction { .parameters = { } } };
 
-    RefPtr<CSSFunctionValue> function;
-    switch (rangeCopy.peek().functionId()) {
-    case CSSValueBlur:
-        function = consumeFilterFunctionBlur(rangeCopy, context, allowedFunctions);
+    const auto lengthOptions = CSSPropertyParserOptions {
+        .parserMode = context.mode,
+        .unitlessZero = UnitlessZeroQuirk::Allow
+    };
+    auto parsedValue = MetaConsumer<CSS::Length<CSS::Nonnegative>>::consume(args, context, { }, lengthOptions);
+    if (!parsedValue || !args.atEnd())
+        return { };
+
+    return CSS::BlurFunction { .parameters = { CSS::Blur::Parameter { WTFMove(*parsedValue) } } };
+}
+
+static std::optional<CSS::BrightnessFunction> consumeFilterBrightness(CSSParserTokenRange& range, const CSSParserContext& context)
+{
+    // brightness() = brightness( [ <number [0,∞]> | <percentage [0,∞]> ]? )
+    // https://drafts.fxtf.org/filter-effects/#funcdef-filter-brightness
+
+    auto args = consumeFunction(range);
+    if (args.atEnd())
+        return CSS::BrightnessFunction { .parameters = { } };
+
+    auto parsedValue = consumeNumberOrPercentFilterParameter<CSS::BrightnessFunction::name>(args, context);
+    if (!parsedValue || !args.atEnd())
+        return { };
+
+    return CSS::BrightnessFunction { .parameters = { CSS::Brightness::Parameter { WTFMove(*parsedValue) } } };
+}
+
+static std::optional<CSS::ContrastFunction> consumeFilterContrast(CSSParserTokenRange& range, const CSSParserContext& context)
+{
+    // contrast() = contrast( [ <number [0,∞]> | <percentage [0,∞]> ]? )
+    // https://drafts.fxtf.org/filter-effects/#funcdef-filter-contrast
+
+    auto args = consumeFunction(range);
+    if (args.atEnd())
+        return CSS::ContrastFunction { .parameters = { } };
+
+    auto parsedValue = consumeNumberOrPercentFilterParameter<CSS::ContrastFunction::name>(args, context);
+    if (!parsedValue || !args.atEnd())
+        return { };
+
+    return CSS::ContrastFunction { .parameters = { CSS::Contrast::Parameter { WTFMove(*parsedValue) } } };
+}
+
+static std::optional<CSS::DropShadowFunction> consumeFilterDropShadow(CSSParserTokenRange& range, const CSSParserContext& context)
+{
+    // drop-shadow() = drop-shadow( [ <color>? && [<length>{2} <length [0,∞]>?] ] )
+    // https://drafts.fxtf.org/filter-effects/#funcdef-filter-drop-shadow
+
+    auto args = consumeFunction(range);
+
+    const auto lengthOptions = CSSPropertyParserOptions {
+        .parserMode = context.mode,
+        .unitlessZero = UnitlessZeroQuirk::Allow
+    };
+
+    std::optional<CSS::Color> color;
+    std::optional<CSS::Length<>> x;
+    std::optional<CSS::Length<>> y;
+    std::optional<CSS::Length<CSS::Nonnegative>> stdDeviation;
+
+    auto consumeOptionalColor = [&] -> bool {
+        if (color)
+            return false;
+        auto maybeColor = consumeUnresolvedColor(args, context);
+        if (!maybeColor)
+            return false;
+        color = WTFMove(*maybeColor);
+        return true;
+    };
+
+    auto consumeLengths = [&] -> bool {
+        if (x)
+            return false;
+        x = MetaConsumer<CSS::Length<>>::consume(args, context, { }, lengthOptions);
+        if (!x)
+            return false;
+        y = MetaConsumer<CSS::Length<>>::consume(args, context, { }, lengthOptions);
+        if (!y)
+            return false;
+
+        stdDeviation = MetaConsumer<CSS::Length<CSS::Nonnegative>>::consume(args, context, { }, lengthOptions);
+        return true;
+    };
+
+    while (!args.atEnd()) {
+        if (consumeOptionalColor() || consumeLengths())
+            continue;
         break;
-    case CSSValueBrightness:
-        function = consumeFilterFunctionBrightness(rangeCopy, context, allowedFunctions);
-        break;
-    case CSSValueContrast:
-        function = consumeFilterFunctionContrast(rangeCopy, context, allowedFunctions);
-        break;
-    case CSSValueDropShadow:
-        function = consumeFilterFunctionDropShadow(rangeCopy, context, allowedFunctions);
-        break;
-    case CSSValueGrayscale:
-        function = consumeFilterFunctionGrayscale(rangeCopy, context, allowedFunctions);
-        break;
-    case CSSValueHueRotate:
-        function = consumeFilterFunctionHueRotate(rangeCopy, context, allowedFunctions);
-        break;
-    case CSSValueInvert:
-        function = consumeFilterFunctionInvert(rangeCopy, context, allowedFunctions);
-        break;
-    case CSSValueOpacity:
-        function = consumeFilterFunctionOpacity(rangeCopy, context, allowedFunctions);
-        break;
-    case CSSValueSaturate:
-        function = consumeFilterFunctionSaturate(rangeCopy, context, allowedFunctions);
-        break;
-    case CSSValueSepia:
-        function = consumeFilterFunctionSepia(rangeCopy, context, allowedFunctions);
-        break;
-    case CSSValueAppleInvertLightness:
-        function = consumeFilterFunctionAppleInvertLightness(rangeCopy, context, allowedFunctions);
-        break;
-    default:
-        return nullptr;
     }
 
-    if (function)
-        range = rangeCopy;
-    return function;
+    if (!y || !args.atEnd())
+        return { };
+
+    return CSS::DropShadowFunction {
+        .parameters = {
+            .color = WTFMove(color),
+            .location = { WTFMove(*x), WTFMove(*y) },
+            .stdDeviation = WTFMove(stdDeviation)
+        }
+    };
 }
 
-// MARK: <filter-value-list>
-// https://drafts.fxtf.org/filter-effects/#typedef-filter-value-list
+static std::optional<CSS::GrayscaleFunction> consumeFilterGrayscale(CSSParserTokenRange& range, const CSSParserContext& context)
+{
+    // grayscale() = grayscale( [ <number [0,1(clamp upper)] > | <percentage [0,100(clamp upper)]> ]? )
+    // https://drafts.fxtf.org/filter-effects/#funcdef-filter-grayscale
 
-RefPtr<CSSValue> consumeFilterValueList(CSSParserTokenRange& range, const CSSParserContext& context, AllowedFilterFunctions allowedFunctions)
+    auto args = consumeFunction(range);
+    if (args.atEnd())
+        return CSS::GrayscaleFunction { .parameters = { } };
+
+    auto parsedValue = consumeNumberOrPercentFilterParameter<CSS::GrayscaleFunction::name>(args, context);
+    if (!parsedValue || !args.atEnd())
+        return { };
+
+    return CSS::GrayscaleFunction { .parameters = { CSS::Grayscale::Parameter { WTFMove(*parsedValue) } } };
+}
+
+static std::optional<CSS::HueRotateFunction> consumeFilterHueRotate(CSSParserTokenRange& range, const CSSParserContext& context)
+{
+    // hue-rotate() = hue-rotate( [ <angle> | <zero> ]? )
+    // https://drafts.fxtf.org/filter-effects/#funcdef-filter-hue-rotate
+
+    auto args = consumeFunction(range);
+    if (args.atEnd())
+        return CSS::HueRotateFunction { .parameters = { } };
+
+    const auto angleOptions = CSSPropertyParserOptions {
+        .parserMode = context.mode,
+        .unitlessZero = UnitlessZeroQuirk::Allow
+    };
+
+    auto parsedValue = MetaConsumer<CSS::Angle<>>::consume(args, context, { }, angleOptions);
+    if (!parsedValue || !args.atEnd())
+        return { };
+
+    return CSS::HueRotateFunction { .parameters = { CSS::HueRotate::Parameter { WTFMove(*parsedValue) } } };
+}
+
+static std::optional<CSS::InvertFunction> consumeFilterInvert(CSSParserTokenRange& range, const CSSParserContext& context)
+{
+    // invert() = invert( [ <number [0,1(clamp upper)] > | <percentage [0,100(clamp upper)]> ]? )
+    // https://drafts.fxtf.org/filter-effects/#funcdef-filter-invert
+
+    auto args = consumeFunction(range);
+    if (args.atEnd())
+        return CSS::InvertFunction { .parameters = { } };
+
+    auto parsedValue = consumeNumberOrPercentFilterParameter<CSS::InvertFunction::name>(args, context);
+    if (!parsedValue || !args.atEnd())
+        return { };
+
+    return CSS::InvertFunction { .parameters = { CSS::Invert::Parameter { WTFMove(*parsedValue) } } };
+}
+
+static std::optional<CSS::OpacityFunction> consumeFilterOpacity(CSSParserTokenRange& range, const CSSParserContext& context)
+{
+    // opacity() = opacity( [ <number [0,1(clamp upper)] > | <percentage [0,100(clamp upper)]> ]? )
+    // https://drafts.fxtf.org/filter-effects/#funcdef-filter-opacity
+
+    auto args = consumeFunction(range);
+    if (args.atEnd())
+        return CSS::OpacityFunction { .parameters = { } };
+
+    auto parsedValue = consumeNumberOrPercentFilterParameter<CSS::OpacityFunction::name>(args, context);
+    if (!parsedValue || !args.atEnd())
+        return { };
+
+    return CSS::OpacityFunction { .parameters = { CSS::Opacity::Parameter { WTFMove(*parsedValue) } } };
+}
+
+static std::optional<CSS::SaturateFunction> consumeFilterSaturate(CSSParserTokenRange& range, const CSSParserContext& context)
+{
+    // saturate() = saturate( [ <number [0,∞]> | <percentage [0,∞]> ]? )
+    // https://drafts.fxtf.org/filter-effects/#funcdef-filter-saturate
+
+    auto args = consumeFunction(range);
+    if (args.atEnd())
+        return CSS::SaturateFunction { .parameters = { } };
+
+    auto parsedValue = consumeNumberOrPercentFilterParameter<CSS::SaturateFunction::name>(args, context);
+    if (!parsedValue || !args.atEnd())
+        return { };
+
+    return CSS::SaturateFunction { .parameters = { CSS::Saturate::Parameter { WTFMove(*parsedValue) } } };
+}
+
+static std::optional<CSS::SepiaFunction> consumeFilterSepia(CSSParserTokenRange& range, const CSSParserContext& context)
+{
+    // sepia() = sepia( [ <number [0,1(clamp upper)] > | <percentage [0,100(clamp upper)]> ]? )
+    // https://drafts.fxtf.org/filter-effects/#funcdef-filter-sepia
+
+    auto args = consumeFunction(range);
+    if (args.atEnd())
+        return CSS::SepiaFunction { .parameters = { } };
+
+    auto parsedValue = consumeNumberOrPercentFilterParameter<CSS::SepiaFunction::name>(args, context);
+    if (!parsedValue || !args.atEnd())
+        return { };
+
+    return CSS::SepiaFunction { .parameters = { CSS::Sepia::Parameter { WTFMove(*parsedValue) } } };
+}
+
+static std::optional<CSS::FilterProperty::List> consumeUnresolvedFilterValueList(CSSParserTokenRange& range, const CSSParserContext& context)
 {
     // <filter-value-list> = [ <filter-function> | <url> ]+
+    // <filter-function> = <blur()> | <brightness()> | <contrast()> | <drop-shadow()> | <grayscale()> | <hue-rotate()> | <invert()> | <opacity()> | <sepia()> | <saturate()>
+    // https://drafts.fxtf.org/filter-effects/#typedef-filter-value-list
 
     auto rangeCopy = range;
 
-    bool referenceFiltersAllowed = allowedFunctions == AllowedFilterFunctions::PixelFilters;
-    CSSValueListBuilder list;
+    CSS::FilterProperty::List list;
+
+    auto appendOnSuccess = [&](auto&& value) -> bool {
+        if (!value)
+            return false;
+        list.value.append(WTFMove(*value));
+        return true;
+    };
+
     do {
-        RefPtr<CSSValue> filterValue = referenceFiltersAllowed ? consumeURL(rangeCopy) : nullptr;
-        if (!filterValue) {
-            filterValue = consumeFilterFunction(rangeCopy, context, allowedFunctions);
-            if (!filterValue)
-                return nullptr;
+        if (auto url = consumeURLRaw(rangeCopy)) {
+            list.value.append(CSS::FilterReference { url.toString() });
+            continue;
         }
-        list.append(filterValue.releaseNonNull());
+
+        switch (rangeCopy.peek().functionId()) {
+        case CSSValueBlur:
+            if (!appendOnSuccess(consumeFilterBlur(rangeCopy, context)))
+                return { };
+            break;
+        case CSSValueBrightness:
+            if (!appendOnSuccess(consumeFilterBrightness(rangeCopy, context)))
+                return { };
+            break;
+        case CSSValueContrast:
+            if (!appendOnSuccess(consumeFilterContrast(rangeCopy, context)))
+                return { };
+            break;
+        case CSSValueDropShadow:
+            if (!appendOnSuccess(consumeFilterDropShadow(rangeCopy, context)))
+                return { };
+            break;
+        case CSSValueGrayscale:
+            if (!appendOnSuccess(consumeFilterGrayscale(rangeCopy, context)))
+                return { };
+            break;
+        case CSSValueHueRotate:
+            if (!appendOnSuccess(consumeFilterHueRotate(rangeCopy, context)))
+                return { };
+            break;
+        case CSSValueInvert:
+            if (!appendOnSuccess(consumeFilterInvert(rangeCopy, context)))
+                return { };
+            break;
+        case CSSValueOpacity:
+            if (!appendOnSuccess(consumeFilterOpacity(rangeCopy, context)))
+                return { };
+            break;
+        case CSSValueSaturate:
+            if (!appendOnSuccess(consumeFilterSaturate(rangeCopy, context)))
+                return { };
+            break;
+        case CSSValueSepia:
+            if (!appendOnSuccess(consumeFilterSepia(rangeCopy, context)))
+                return { };
+            break;
+        default:
+            return { };
+        }
     } while (!rangeCopy.atEnd());
 
     range = rangeCopy;
-    return CSSValueList::createSpaceSeparated(WTFMove(list));
+
+    return { WTFMove(list) };
 }
 
-RefPtr<CSSValue> consumeFilterValueListOrNone(CSSParserTokenRange& range, const CSSParserContext& context, AllowedFilterFunctions allowedFunctions)
+std::optional<CSS::FilterProperty> consumeUnresolvedFilter(CSSParserTokenRange& range, const CSSParserContext& context)
 {
-    if (range.peek().id() == CSSValueNone)
-        return consumeIdent(range);
-    return consumeFilterValueList(range, context, allowedFunctions);
+    if (range.peek().id() == CSSValueNone) {
+        range.consumeIncludingWhitespace();
+        return CSS::FilterProperty { CSS::Keyword::None { } };
+    }
+    if (auto filterValueList = consumeUnresolvedFilterValueList(range, context))
+        return CSS::FilterProperty { WTFMove(*filterValueList) };
+    return { };
 }
 
-std::optional<FilterOperations> parseFilterValueListOrNoneRaw(const String& string, const CSSParserContext& context, AllowedFilterFunctions allowedFunctions, const Document& document, RenderStyle& style)
+RefPtr<CSSValue> consumeFilter(CSSParserTokenRange& range, const CSSParserContext& context)
+{
+    if (auto property = consumeUnresolvedFilter(range, context))
+        return CSSFilterPropertyValue::create({ WTFMove(*property) });
+    return nullptr;
+}
+
+// MARK: - <-apple-color-filter>
+
+static std::optional<CSS::AppleColorFilterProperty::List> consumeUnresolvedAppleColorFilterValueList(CSSParserTokenRange& range, const CSSParserContext& context)
+{
+    // <-apple-color-filter-value-list = <-apple-color-filter-function>+
+    // <-apple-color-filter-function> = <-apple-invert-lightness() | <brightness()> | <contrast()> | <grayscale()> | <hue-rotate()> | <invert()> | <opacity()> | <sepia()> | <saturate()>
+
+    auto rangeCopy = range;
+
+    CSS::AppleColorFilterProperty::List list;
+
+    auto appendOnSuccess = [&](auto&& value) -> bool {
+        if (!value)
+            return false;
+        list.value.append(WTFMove(*value));
+        return true;
+    };
+
+    do {
+        switch (rangeCopy.peek().functionId()) {
+        case CSSValueAppleInvertLightness:
+            if (!appendOnSuccess(consumeFilterAppleInvertLightness(rangeCopy, context)))
+                return { };
+            break;
+        case CSSValueBrightness:
+            if (!appendOnSuccess(consumeFilterBrightness(rangeCopy, context)))
+                return { };
+            break;
+        case CSSValueContrast:
+            if (!appendOnSuccess(consumeFilterContrast(rangeCopy, context)))
+                return { };
+            break;
+        case CSSValueGrayscale:
+            if (!appendOnSuccess(consumeFilterGrayscale(rangeCopy, context)))
+                return { };
+            break;
+        case CSSValueHueRotate:
+            if (!appendOnSuccess(consumeFilterHueRotate(rangeCopy, context)))
+                return { };
+            break;
+        case CSSValueInvert:
+            if (!appendOnSuccess(consumeFilterInvert(rangeCopy, context)))
+                return { };
+            break;
+        case CSSValueOpacity:
+            if (!appendOnSuccess(consumeFilterOpacity(rangeCopy, context)))
+                return { };
+            break;
+        case CSSValueSaturate:
+            if (!appendOnSuccess(consumeFilterSaturate(rangeCopy, context)))
+                return { };
+            break;
+        case CSSValueSepia:
+            if (!appendOnSuccess(consumeFilterSepia(rangeCopy, context)))
+                return { };
+            break;
+        default:
+            return { };
+        }
+    } while (!rangeCopy.atEnd());
+
+    range = rangeCopy;
+
+    return { WTFMove(list) };
+}
+
+std::optional<CSS::AppleColorFilterProperty> consumeUnresolvedAppleColorFilter(CSSParserTokenRange& range, const CSSParserContext& context)
+{
+    if (range.peek().id() == CSSValueNone) {
+        range.consumeIncludingWhitespace();
+        return CSS::AppleColorFilterProperty { CSS::Keyword::None { } };
+    }
+    if (auto filterValueList = consumeUnresolvedAppleColorFilterValueList(range, context))
+        return CSS::AppleColorFilterProperty { WTFMove(*filterValueList) };
+    return { };
+}
+
+RefPtr<CSSValue> consumeAppleColorFilter(CSSParserTokenRange& range, const CSSParserContext& context)
+{
+    if (auto property = consumeUnresolvedAppleColorFilter(range, context))
+        return CSSAppleColorFilterPropertyValue::create({ WTFMove(*property) });
+    return nullptr;
+}
+
+std::optional<FilterOperations> parseFilterValueListOrNoneRaw(const String& string, const CSSParserContext& context, const Document& document, RenderStyle& style)
 {
     CSSTokenizer tokenizer(string);
     CSSParserTokenRange range(tokenizer.tokenRange());
@@ -375,8 +477,8 @@ std::optional<FilterOperations> parseFilterValueListOrNoneRaw(const String& stri
     // Handle leading whitespace.
     range.consumeWhitespace();
 
-    auto parsedValue = consumeFilterValueListOrNone(range, context, allowedFunctions);
-    if (!parsedValue)
+    auto filter = consumeUnresolvedFilter(range, context);
+    if (!filter)
         return { };
 
     // Handle trailing whitespace.
@@ -386,7 +488,7 @@ std::optional<FilterOperations> parseFilterValueListOrNoneRaw(const String& stri
         return { };
 
     CSSToLengthConversionData conversionData { style, nullptr, nullptr, nullptr };
-    return Style::createFilterOperations(document, style, conversionData, *parsedValue);
+    return Style::createFilterOperations(*filter, document, style, conversionData);
 }
 
 } // namespace CSSPropertyParserHelpers

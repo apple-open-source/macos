@@ -73,6 +73,7 @@
 
 #include <sys/param.h>
 #include <sys/systm.h>
+#include <sys/syslimits.h> /* For MAXLONGPATHLEN */
 #include <sys/namei.h>
 #include <sys/filedesc.h>
 #include <sys/kernel.h>
@@ -279,8 +280,6 @@ extern const struct fileops vnops;
 extern errno_t rmdir_remove_orphaned_appleDouble(vnode_t, vfs_context_t, int *);
 #endif /* CONFIG_APPLEDOUBLE */
 
-/* Maximum buffer length supported by fsgetpath(2) */
-#define FSGETPATH_MAXBUFLEN  8192
 
 /*
  * Virtual File System System Calls
@@ -1836,6 +1835,13 @@ update:
 		if (mp->mnt_vtable->vfc_vfsflags & VFC_VFSPREFLIGHT) {
 			mp->mnt_kern_flag |= MNTK_UNMOUNT_PREFLIGHT;
 		}
+		/* Get subtype if supported to cache it */
+		VFSATTR_INIT(&vfsattr);
+		VFSATTR_WANTED(&vfsattr, f_fssubtype);
+		if (vfs_getattr(mp, &vfsattr, ctx) == 0 && VFSATTR_IS_SUPPORTED(&vfsattr, f_fssubtype)) {
+			mp->mnt_vfsstat.f_fssubtype = vfsattr.f_fssubtype;
+		}
+
 		/* increment the operations count */
 		OSAddAtomic(1, &vfs_nummntops);
 		enablequotas(mp, ctx);
@@ -1847,6 +1853,9 @@ update:
 		/* Now that mount is setup, notify the listeners */
 		vfs_notify_mount(pvp);
 		IOBSDMountChange(mp, kIOMountChangeMount);
+#if CONFIG_MACF
+		mac_mount_notify_mount(ctx, mp);
+#endif /* CONFIG_MACF */
 	} else {
 		/* If we fail a fresh mount, there should be no vnodes left hooked into the mountpoint. */
 		if (mp->mnt_vnodelist.tqh_first != NULL) {
@@ -2498,6 +2507,9 @@ relocate_imageboot_source(vnode_t pvp, vnode_t vp,
 	zfree(ZV_NAMEI, old_mntonname);
 
 	vfs_notify_mount(pvp);
+#if CONFIG_MACF
+	mac_mount_notify_mount(ctx, mp);
+#endif /* CONFIG_MACF */
 
 	return 0;
 out3:
@@ -2695,6 +2707,8 @@ checkdirs(vnode_t olddp, vfs_context_t ctx)
 
 #define ROLE_ACCOUNT_UNMOUNT_ENTITLEMENT        \
 	"com.apple.private.vfs.role-account-unmount"
+#define SYSTEM_VOLUME_UNMOUNT_ENTITLEMENT       \
+	"com.apple.private.vfs.system-volume-unmount"
 
 /*
  * Unmount a file system.
@@ -2809,16 +2823,19 @@ safedounmount(struct mount *mp, int flags, vfs_context_t ctx)
 			goto out;
 		}
 	}
+
 	/*
 	 * Don't allow unmounting the root file system, or other volumes
 	 * associated with it (for example, the associated VM or DATA mounts) .
 	 */
-	if ((mp->mnt_flag & MNT_ROOTFS) || (mp->mnt_kern_flag & MNTK_SYSTEM)) {
-		if (!(mp->mnt_flag & MNT_ROOTFS)) {
-			printf("attempt to unmount a system mount (%s), will return EBUSY\n",
-			    mp->mnt_vfsstat.f_mntonname);
-		}
-		error = EBUSY; /* the root (or associated volumes) is always busy */
+	if (mp->mnt_flag & MNT_ROOTFS) {
+		error = EBUSY; /* the root is always busy */
+		goto out;
+	}
+	if ((mp->mnt_kern_flag & MNTK_SYSTEM) && !IOCurrentTaskHasEntitlement(SYSTEM_VOLUME_UNMOUNT_ENTITLEMENT)) {
+		printf("attempt to unmount a system mount (%s), will return EBUSY\n",
+		    mp->mnt_vfsstat.f_mntonname);
+		error = EBUSY; /* root-associated volumes are always busy unless caller is entitled */
 		goto out;
 	}
 
@@ -4789,8 +4806,11 @@ open1(vfs_context_t ctx, struct nameidata *ndp, int uflags,
 	}
 
 	/* try to truncate by setting the size attribute */
-	if ((flags & O_TRUNC) && ((error = vnode_setsize(vp, (off_t)0, 0, ctx)) != 0)) {
-		goto bad;
+	if (flags & O_TRUNC) {
+		if ((error = vnode_setsize(vp, (off_t)0, 0, ctx)) != 0) {
+			goto bad;
+		}
+		fp->fp_glob->fg_flag |= FWASWRITTEN;
 	}
 
 	/*
@@ -6524,7 +6544,12 @@ lseek(proc_t p, struct lseek_args *uap, off_t *retval)
 		}
 		return error;
 	}
-	if (vnode_isfifo(vp)) {
+	if (
+		// rdar://3837316: Seeking a pipe is disallowed by POSIX.
+		vnode_isfifo(vp)
+		// rdar://120750171: Seeking a TTY is undefined and should be denied.
+		|| vnode_istty(vp)
+		) {
 		file_drop(uap->fd);
 		return ESPIPE;
 	}
@@ -8470,8 +8495,10 @@ truncate(proc_t p, struct truncate_args *uap, __unused int32_t *retval)
 int
 ftruncate(proc_t p, struct ftruncate_args *uap, int32_t *retval)
 {
-	vnode_t vp;
+	struct vnode_attr va;
+	vnode_t vp = NULLVP;
 	struct fileproc *fp;
+	bool need_vnode_put = false;
 	int error;
 
 	AUDIT_ARG(fd, uap->fd);
@@ -8506,14 +8533,35 @@ ftruncate(proc_t p, struct ftruncate_args *uap, int32_t *retval)
 	if ((error = vnode_getwithref(vp)) != 0) {
 		goto out;
 	}
+	need_vnode_put = true;
+
+	VATTR_INIT(&va);
+	VATTR_WANTED(&va, va_flags);
+
+	error = vnode_getattr(vp, &va, vfs_context_current());
+	if (error) {
+		goto out;
+	}
+
+	/* Don't allow ftruncate if the file has append-only flag set. */
+	if (va.va_flags & APPEND) {
+		error = EPERM;
+		goto out;
+	}
 
 	AUDIT_ARG(vnpath, vp, ARG_VNODE1);
 
 	error = truncate_internal(vp, uap->length, fp->fp_glob->fg_cred,
 	    vfs_context_current(), false);
-	vnode_put(vp);
+	if (!error) {
+		fp->fp_glob->fg_flag |= FWASWRITTEN;
+	}
 
 out:
+	if (vp && need_vnode_put) {
+		vnode_put(vp);
+	}
+
 	file_drop(uap->fd);
 	return error;
 }
@@ -12363,7 +12411,8 @@ vfs_materialize_item(
 		} else {
 			goto out_release_port;
 		}
-	} while (error == ENOSPC && (path_alloc_len += MAXPATHLEN) && path_alloc_len <= FSGETPATH_MAXBUFLEN);
+	} while (error == ENOSPC && (path_alloc_len += MAXPATHLEN) &&
+	    path_alloc_len <= MAXLONGPATHLEN);
 
 	error = vfs_context_copy_audit_token(context, &atoken);
 	if (error) {
@@ -13783,7 +13832,7 @@ fsgetpath_internal(vfs_context_t ctx, int volfs_id, uint64_t objid,
 	/* maximum number of times to retry build_path */
 	unsigned int retries = 0x10;
 
-	if (bufsize > FSGETPATH_MAXBUFLEN) {
+	if (bufsize > MAXLONGPATHLEN) {
 		return EINVAL;
 	}
 
@@ -13881,20 +13930,7 @@ unionget:
 	AUDIT_ARG(text, buf);
 
 	if (kdebug_debugid_enabled(VFS_LOOKUP) && length > 0) {
-		unsigned long path_words[NUMPARMS];
-		size_t path_len = sizeof(path_words);
-
-		if ((size_t)length < path_len) {
-			memcpy((char *)path_words, buf, length);
-			memset((char *)path_words + length, 0, path_len - length);
-
-			path_len = length;
-		} else {
-			memcpy((char *)path_words, buf + (length - path_len), path_len);
-		}
-
-		kdebug_vfs_lookup(path_words, (int)path_len, vp,
-		    KDBG_VFS_LOOKUP_FLAG_LOOKUP);
+		kdebug_vfs_lookup(buf, length, vp, KDBG_VFSLKUP_LOOKUP);
 	}
 
 	*pathlen = length; /* may be superseded by error */
@@ -13927,7 +13963,7 @@ fsgetpath_extended(user_addr_t buf, user_size_t bufsize, user_addr_t user_fsid, 
 	AUDIT_ARG(value64, objid);
 	/* Restrict output buffer size for now. */
 
-	if (bufsize > FSGETPATH_MAXBUFLEN || bufsize <= 0) {
+	if (bufsize > MAXLONGPATHLEN || bufsize <= 0) {
 		return EINVAL;
 	}
 	realpath = kalloc_data(bufsize, Z_WAITOK | Z_ZERO);

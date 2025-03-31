@@ -190,6 +190,7 @@ __test_exit_reason_delegate_signal(int signal)
 	audit_token_t token = INVALID_AUDIT_TOKEN_VALUE;
 	pid_t child = fork();
 	if (child > 0) {
+		audit_token_for_pid(getpid(), &instigator);
 		audit_token_for_pid(child, &token);
 		// Send signal to the child with its audit token
 		ret = proc_signal_delegate(instigator, token, signal);
@@ -214,6 +215,7 @@ __test_exit_reason_delegate_terminate()
 	pid_t child = fork();
 	int sentsignal = 0;
 	if (child > 0) {
+		audit_token_for_pid(getpid(), &instigator);
 		audit_token_for_pid(child, &token);
 		// Send signal to the child with its audit token
 		ret = proc_terminate_delegate(instigator, token, &sentsignal);
@@ -223,6 +225,35 @@ __test_exit_reason_delegate_terminate()
 		// Send signal to the child with its audit token who has exited by now
 		ret = proc_terminate_delegate(instigator, token, &sentsignal);
 		T_EXPECT_EQ_INT(ret, ESRCH, "expect no such process return: %d", ret);
+		// Terminating PID 1 should fail with EPERM
+		audit_token_for_pid(1, &token);
+		ret = proc_terminate_delegate(instigator, token, &sentsignal);
+		T_EXPECT_EQ_INT(ret, EPERM, "expected eperm return: %d", ret);
+	} else {
+		pause();
+		// This exit should not hit, but we exit abnormally in case something went wrong
+		_exit(-1);
+	}
+}
+
+static void
+__test_exit_reason_terminate()
+{
+	int ret = 0;
+	pid_t child = fork();
+	int sentsignal = 0;
+	if (child > 0) {
+		// Send signal to the child with its audit token
+		ret = proc_terminate(child, &sentsignal);
+		T_EXPECT_EQ_INT(ret, 0, "expect proc_terminate_delegate return: %d", ret);
+		T_EXPECT_TRUE(sentsignal == SIGTERM || sentsignal == SIGKILL, "sentsignal retval %d", sentsignal);
+		wait_collect_exit_reason(child, SIGTERM);
+		// Send signal to the child with its audit token who has exited by now
+		ret = proc_terminate(child, &sentsignal);
+		T_EXPECT_EQ_INT(ret, ESRCH, "expected no such process return: %d", ret);
+		// Terminating PID 1 should fail with EPERM
+		ret = proc_terminate(1, &sentsignal);
+		T_EXPECT_EQ_INT(ret, EPERM, "expected eperm return: %d", ret);
 	} else {
 		pause();
 		// This exit should not hit, but we exit abnormally in case something went wrong
@@ -263,6 +294,25 @@ __test_exit_reason_signal_with_audittoken_fail_bad_token(int signal)
 		// Send signal to the child with its audit token, modified so pidversion is bad
 		token.val[7] += 1;
 		ret = proc_signal_with_audittoken(&token, signal);
+		wait_with_timeout_expected(child, 2);
+		T_EXPECT_EQ_INT(ret, ESRCH, "expect bad audit token return: %d", ret);
+		// Cleanup child
+		kill(child, signal);
+	} else {
+		pause();
+	}
+}
+
+static void
+__test_exit_reason_delegated_signal_fail_bad_instigator_token(int signal)
+{
+	int ret = 0;
+	audit_token_t token = INVALID_AUDIT_TOKEN_VALUE;
+	audit_token_t instigator = INVALID_AUDIT_TOKEN_VALUE;
+	pid_t child = fork();
+	if (child > 0) {
+		audit_token_for_pid(child, &token);
+		ret = proc_signal_delegate(instigator, token, signal);
 		wait_with_timeout_expected(child, 2);
 		T_EXPECT_EQ_INT(ret, ESRCH, "expect bad audit token return: %d", ret);
 		// Cleanup child
@@ -318,6 +368,14 @@ T_DECL(proc_signal_delegate_success, "proc_signal_delegate should work", T_META_
 	});
 }
 
+T_DECL(proc_terminate_success, "proc_terminate should work", T_META_TAG_VM_PREFERRED)
+{
+	dispatch_test(^{
+		__test_exit_reason_terminate();
+		T_END;
+	});
+}
+
 T_DECL(proc_signal_with_audittoken_success, "proc_signal_with_audittoken should work", T_META_TAG_VM_PREFERRED)
 {
 	dispatch_test(^{
@@ -333,6 +391,14 @@ T_DECL(proc_signal_with_audittoken_fail_bad_token, "proc_signal_with_audittoken 
 {
 	dispatch_test(^{
 		__test_exit_reason_signal_with_audittoken_fail_bad_token(SIGKILL);
+		T_END;
+	});
+}
+
+T_DECL(proc_delegated_signal_fail_bad_instigator_token, "proc_signal_delegated should fail with invalid instigator audit token", T_META_TAG_VM_PREFERRED)
+{
+	dispatch_test(^{
+		__test_exit_reason_delegated_signal_fail_bad_instigator_token(SIGKILL);
 		T_END;
 	});
 }
@@ -370,11 +436,12 @@ struct pthread_kill_helper_args {
 	int signal;
 };
 
-static void
-pthread_kill_helper(void *msg)
+static void *_Nullable
+pthread_kill_helper(void *_Nullable msg)
 {
 	struct pthread_kill_helper_args *args = (struct pthread_kill_helper_args *)msg;
 	pthread_kill(*args->pthread, args->signal);
+	return NULL;
 }
 
 static void

@@ -120,9 +120,6 @@ gaa{
         "America:Puerto_Rico"{
             ec{"Puerto Riko"}
         }
-        "America:Rainy_River"{
-            ec{"Faa Ni Nɛɔ"}
-        }
         "America:Rankin_Inlet"{
             ec{"Rankin Ŋshɔnine"}
         }
@@ -144,17 +141,11 @@ gaa{
         "America:Tegucigalpa"{
             ec{"Tegusigalpa"}
         }
-        "America:Thunder_Bay"{
-            ec{"Sarawa Ŋshɔnine Bibioo"}
-        }
         "America:Vancouver"{
             ec{"Vankouver"}
         }
         "America:Whitehorse"{
             ec{"Okpɔŋɔ Yɛŋ"}
-        }
-        "America:Yellowknife"{
-            ec{"Kakla Wuɔfɔ"}
         }
         "Antarctica:Casey"{
             ec{"Kasey"}
@@ -170,9 +161,6 @@ gaa{
         }
         "Asia:Aqtobe"{
             ec{"Aktobe"}
-        }
-        "Asia:Choibalsan"{
-            ec{"Tsoibalsan"}
         }
         "Asia:Colombo"{
             ec{"Kolombo"}
@@ -218,9 +206,6 @@ gaa{
         }
         "Australia:Broken_Hill"{
             ec{"Ŋmeŋme Ni Ekumɔ"}
-        }
-        "Australia:Currie"{
-            ec{"Kurrie"}
         }
         "Australia:Eucla"{
             ec{"Yukla"}
@@ -332,6 +317,9 @@ gaa{
         "meta:French_Southern"{
             ls{"Antarktik Kɛ Wuoyigbɛbii Ni Wieɔ Frɛntsi Be"}
         }
+        "meta:GMT"{
+            ls{"Betsɔɔmɔ ni ka ŋɛlɛ kome nɔ"}
+        }
         "meta:Greenland_Eastern"{
             ld{"Greenland Bokãgbɛ Be Yɛ Latsa Beiaŋ"}
             lg{"Greenland Bokãgbɛ Be"}
@@ -354,11 +342,6 @@ gaa{
             ld{"Mauritius Be Yɛ Latsa Beiaŋ"}
             lg{"Mauritius Be"}
             ls{"Mauritius Be Yɛ Fɛi Beiaŋ"}
-        }
-        "meta:Mexico_Northwest"{
-            ld{"Meziko Kooyi-Anaigbɛ Be Yɛ Latsa Beiaŋ"}
-            lg{"Meziko Kooyi-Anaigbɛ Be"}
-            ls{"Meziko Kooyi-Anaigbɛ Be Yɛ Fɛi Beiaŋ"}
         }
         "meta:Mexico_Pacific"{
             ld{"Meziko Pasifik Be Yɛ Latsa Beiaŋ"}

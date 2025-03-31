@@ -43,6 +43,7 @@ public:
     ExceptionOr<void> show();
     ExceptionOr<void> showModal();
     void close(const String&);
+    void requestClose(const String&);
 
     bool isModal() const { return m_isModal; };
 

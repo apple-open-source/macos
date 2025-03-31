@@ -61,6 +61,8 @@ public:
 
         bool ignoreInitialScaleForLayoutWidth { false };
 
+        bool shouldHonorMinimumEffectiveDeviceWidthFromClient { true };
+
         friend bool operator==(const Parameters&, const Parameters&) = default;
     };
 
@@ -145,6 +147,9 @@ public:
     WEBCORE_EXPORT Parameters nativeWebpageParameters();
     static Parameters nativeWebpageParametersWithoutShrinkToFit();
     static Parameters nativeWebpageParametersWithShrinkToFit();
+#if ENABLE(PDF_PLUGIN)
+    WEBCORE_EXPORT static Parameters pluginDocumentParameters();
+#endif
     WEBCORE_EXPORT static Parameters webpageParameters();
     WEBCORE_EXPORT static Parameters textDocumentParameters();
     WEBCORE_EXPORT static Parameters imageDocumentParameters();
@@ -212,6 +217,7 @@ private:
     bool m_isKnownToLayOutWiderThanViewport { false };
     bool m_prefersHorizontalScrollingBelowDesktopViewportWidths { false };
     bool m_canIgnoreViewportArgumentsToAvoidExcessiveZoom { false };
+    bool m_minimumEffectiveDeviceWidthWasSetByClient { false };
 };
 
 WTF::TextStream& operator<<(WTF::TextStream&, const ViewportConfiguration::Parameters&);

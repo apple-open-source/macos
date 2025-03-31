@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009-2024 Apple Inc. All rights reserved.
+ * Copyright (c) 2009-2025 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -62,6 +62,7 @@
 #define kDHCPv6OPTIONSTR_POSIX_TIMEZONE		"POSIX_TIMEZONE"
 #define kDHCPv6OPTIONSTR_TZDB_TIMEZONE		"TZDB_TIMEZONE"
 #define kDHCPv6OPTIONSTR_CAPTIVE_PORTAL_URL	"CAPTIVE_PORTAL_URL"
+#define kDHCPv6OPTIONSTR_CLIENT_FQDN		"CLIENT_FQDN"
 
 STATIC void
 DHCPv6OptionIA_NAPrintLevelToString(CFMutableStringRef str,
@@ -87,6 +88,11 @@ STATIC void
 DHCPv6OptionSTATUS_CODEPrintToString(CFMutableStringRef str,
 				     DHCPv6OptionSTATUS_CODERef status_p,
 				     int status_len);
+
+STATIC void
+DHCPv6OptionCLIENT_FQDNPrintToString(CFMutableStringRef str,
+				     DHCPv6OptionCLIENT_FQDNRef fqdn_p,
+				     int fqdn_len);
 
 PRIVATE_EXTERN DHCPv6OptionType
 DHCPv6OptionCodeGetType(DHCPv6OptionCode option_code)
@@ -129,6 +135,9 @@ DHCPv6OptionCodeGetType(DHCPv6OptionCode option_code)
 	break;
     case kDHCPv6OPTION_IAPREFIX:
 	type = kDHCPv6OptionTypeIAPREFIX;
+	break;
+    case kDHCPv6OPTION_CLIENT_FQDN:
+	type = kDHCPv6OptionTypeClientFQDN;
 	break;
     case kDHCPv6OPTION_STATUS_CODE:
 	type = kDHCPv6OptionTypeStatusCode;
@@ -179,6 +188,10 @@ STATIC OptionCodeName option_code_names[] = {
     {
 	kDHCPv6OPTION_CAPTIVE_PORTAL_URL,
 	kDHCPv6OPTIONSTR_CAPTIVE_PORTAL_URL
+    },
+    {
+	kDHCPv6OPTION_CLIENT_FQDN,
+	kDHCPv6OPTIONSTR_CLIENT_FQDN
     },
 };
 
@@ -236,6 +249,9 @@ DHCPv6OptionCodeGetName(DHCPv6OptionCode code)
 	break;
     case kDHCPv6OPTION_UNICAST:
 	str = "UNICAST";
+	break;
+    case kDHCPv6OPTION_CLIENT_FQDN:
+	str = "CLIENT_FQDN";
 	break;
     case kDHCPv6OPTION_STATUS_CODE:
 	str = "STATUS_CODE";
@@ -592,6 +608,13 @@ DHCPv6OptionPrintToString(CFMutableStringRef str,
 	DHCPv6OptionSTATUS_CODEPrintToString(str,
 					     (DHCPv6OptionSTATUS_CODERef)
 					     option_data, option_length);
+	break;
+
+    case kDHCPv6OptionTypeClientFQDN:
+	DHCPv6OptionCLIENT_FQDNPrintToString(str,
+					     (DHCPv6OptionCLIENT_FQDNRef)
+					     option_data,
+					     option_length);
 	break;
 
     print_option_data:
@@ -1262,6 +1285,61 @@ DHCPv6OptionListGetStatusCode(DHCPv6OptionListRef options,
     return (success);
 }
 
+STATIC void
+DHCPv6OptionCLIENT_FQDNPrintToString(CFMutableStringRef str,
+				     DHCPv6OptionCLIENT_FQDNRef fqdn_p,
+				     int fqdn_len)
+{
+    uint8_t *				domain_name_buf;
+    int					domain_name_buf_len;
+    DHCPv6OptionCLIENT_FQDNFlags	flags;
+
+    if (fqdn_len < DHCPv6OptionCLIENT_FQDN_MIN_LENGTH) {
+	STRING_APPEND(str, " CLIENT_FQDN option is too short %d < %d\n",
+		      fqdn_len, DHCPv6OptionCLIENT_FQDN_MIN_LENGTH);
+	return;
+    }
+    flags = DHCPv6OptionCLIENT_FQDNGetFlags(fqdn_p);
+    STRING_APPEND(str, " CLIENT_FQDN flags 0x%x", flags);
+    if (flags != 0) {
+	STRING_APPEND(str, " [");
+	if ((flags & kDHCPv6OptionCLIENT_FQDNFlags_N) != 0) {
+	    STRING_APPEND(str, " N");
+	}
+	if ((flags & kDHCPv6OptionCLIENT_FQDNFlags_O) != 0) {
+	    STRING_APPEND(str, " O");
+	}
+	if ((flags & kDHCPv6OptionCLIENT_FQDNFlags_S) != 0) {
+	    STRING_APPEND(str, " S");
+	}
+	STRING_APPEND(str, " ]");
+    }
+    domain_name_buf_len = fqdn_len - DHCPv6OptionCLIENT_FQDN_MIN_LENGTH;
+    printf("LENGTH %d\n", domain_name_buf_len);
+    domain_name_buf = fqdn_p->domain_name;
+    if (domain_name_buf_len != 0) {
+	CFStringRef	domain_name;
+
+	domain_name = DNSNameStringCreate(domain_name_buf,
+					  domain_name_buf_len,
+					  true);
+	SCPrint(TRUE, stdout, CFSTR("name %@\n"), domain_name);
+	if (domain_name == NULL) {
+	    STRING_APPEND(str, " domain-name bad, raw bytes <");
+	    print_bytes_cfstr(str,
+			      (void *)domain_name_buf,
+			      domain_name_buf_len);
+	    STRING_APPEND(str, ">");
+	}
+	else {
+	    STRING_APPEND(str, " domain-name %@", domain_name);
+	    CFRelease(domain_name);
+	}
+    }
+    STRING_APPEND(str, "\n");
+    return;
+}
+
 #if TEST_DHCPV6_OPTIONS
 
 #define IA_ADDR_1 \
@@ -1304,6 +1382,10 @@ DHCPv6OptionListGetStatusCode(DHCPv6OptionListRef options,
 	9, 'm', 'a', 'r', 'k', 'e', 't', 'i', 'n', 'g', 5, 'a', 'p', 'p', 'l', 'e', 3, 'c', 'o', 'm', 0, \
 	11, 'e', 'n', 'g', 'i', 'n', 'e', 'e', 'r', 'i', 'n', 'g', 5, 'a', 'p', 'p', 'l', 'e', 3, 'c', 'o', 'm', 0
 
+#define FQDN_NAME_1				\
+    4, 't', 'e', 's', 't', 5, 'a', 'p', 'p', 'l', 'e', 3, 'c', 'o', 'm', 0
+#define FQDN_NAME_2				\
+    4, 'b', 'l', 'u', 'e', 7, 'c', 'o', 'm', 'p', 'a', 'n', 'y', 3, 'c', 'o', 'm'
 
 
 /* test_buf1 parses OK */
@@ -1317,6 +1399,9 @@ const uint8_t test_buf1[] = {
     0x00, 0x18, 0x00, 0x03, 0x1, 'a', 0,
     0x00, 0x02, 0x00, 0x0e, DUID_LLT_UNDEF6_1 ,
     0x00, 0x17, 0x00, 0x10, DNS_SERVER_1 ,
+    0x00, 0x27, 0x00, 0x01, 0x01 ,
+    0x00, 0x27, 0x00, 0x11, 0x01, FQDN_NAME_1 ,
+    0x00, 0x27, 0x00, 0x12, 0x01, FQDN_NAME_2 ,
 };
 
 /* test_buf2 parses at a high level OK, but IA_NA is too short. */

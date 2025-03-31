@@ -521,8 +521,8 @@ static void populate_task_crash_info_for_corpse(struct task_crashinfo_note_data 
                 break;
                 
             case TASK_CRASHINFO_EXCEPTION_CODES: {
-                assert(data_size == 2 * sizeof(mach_exception_data_t));
                 const mach_exception_data_t exc_data = (mach_exception_data_t)data;
+                assert(data_size == 2 * sizeof(*exc_data));
                 tcip->exception_code_code = exc_data[0];
                 tcip->exception_code_subcode = exc_data[1];
                 break;

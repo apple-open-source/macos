@@ -66,7 +66,9 @@ CSSSelectorList::CSSSelectorList(MutableCSSSelectorList&& selectorVector)
             {
                 // Move item from the parser selector vector into m_selectorArray without invoking destructor (Ugh.)
                 CSSSelector* currentSelector = current->releaseSelector().release();
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
                 memcpy(static_cast<void*>(&m_selectorArray[arrayIndex]), static_cast<void*>(currentSelector), sizeof(CSSSelector));
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
 
                 // Free the underlying memory without invoking the destructor.
                 operator delete (currentSelector);
@@ -85,6 +87,7 @@ CSSSelectorList::CSSSelectorList(MutableCSSSelectorList&& selectorVector)
     m_selectorArray[arrayIndex - 1].setLastInSelectorList();
 }
 
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
 unsigned CSSSelectorList::componentCount() const
 {
     if (!m_selectorArray)
@@ -108,6 +111,7 @@ unsigned CSSSelectorList::listSize() const
     }
     return size;
 }
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
 
 String CSSSelectorList::selectorsText() const
 {

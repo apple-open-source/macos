@@ -26,7 +26,6 @@
  */
 
 #include "archive_platform.h"
-__FBSDID("$FreeBSD: head/lib/libarchive/archive_write_set_format_pax.c 201162 2009-12-29 05:47:46Z kientzle $");
 
 #ifdef HAVE_ERRNO_H
 #include <errno.h>
@@ -100,6 +99,7 @@ static int		 has_non_ASCII(const char *);
 static void		 sparse_list_clear(struct pax *);
 static int		 sparse_list_add(struct pax *, int64_t, int64_t);
 static char		*url_encode(const char *in);
+static time_t		 get_ustar_max_mtime(void);
 
 /*
  * Set output format to 'restricted pax' format.
@@ -605,6 +605,8 @@ archive_write_pax_header(struct archive_write *a,
 	need_extension = 0;
 	pax = (struct pax *)a->format_data;
 
+	const time_t ustar_max_mtime = get_ustar_max_mtime();
+
 	/* Sanity check. */
 	if (archive_entry_pathname(entry_original) == NULL) {
 		archive_set_error(&a->archive, ARCHIVE_ERRNO_MISC,
@@ -1038,10 +1040,8 @@ archive_write_pax_header(struct archive_write *a,
 	archive_string_init(&entry_name);
 	archive_strcpy(&entry_name, archive_entry_pathname(entry_main));
 
-	/* If file size is too large, add 'size' to pax extended attrs. */
+	/* If file size is too large, we need pax extended attrs. */
 	if (archive_entry_size(entry_main) >= (((int64_t)1) << 33)) {
-		add_pax_attr_int(&(pax->pax_header), "size",
-		    archive_entry_size(entry_main));
 		need_extension = 1;
 	}
 
@@ -1128,16 +1128,13 @@ archive_write_pax_header(struct archive_write *a,
 	}
 
 	/*
-	 * Technically, the mtime field in the ustar header can
-	 * support 33 bits, but many platforms use signed 32-bit time
-	 * values.  The cutoff of 0x7fffffff here is a compromise.
 	 * Yes, this check is duplicated just below; this helps to
 	 * avoid writing an mtime attribute just to handle a
 	 * high-resolution timestamp in "restricted pax" mode.
 	 */
 	if (!need_extension &&
 	    ((archive_entry_mtime(entry_main) < 0)
-		|| (archive_entry_mtime(entry_main) >= 0x7fffffff)))
+		|| (archive_entry_mtime(entry_main) >= ustar_max_mtime)))
 		need_extension = 1;
 
 	/* I use a star-compatible file flag attribute. */
@@ -1202,7 +1199,7 @@ archive_write_pax_header(struct archive_write *a,
 	if (a->archive.archive_format != ARCHIVE_FORMAT_TAR_PAX_RESTRICTED ||
 	    need_extension) {
 		if (archive_entry_mtime(entry_main) < 0  ||
-		    archive_entry_mtime(entry_main) >= 0x7fffffff  ||
+		    archive_entry_mtime(entry_main) >= ustar_max_mtime  ||
 		    archive_entry_mtime_nsec(entry_main) != 0)
 			add_pax_attr_time(&(pax->pax_header), "mtime",
 			    archive_entry_mtime(entry_main),
@@ -1357,6 +1354,12 @@ archive_write_pax_header(struct archive_write *a,
 		    mapsize + pax->sparse_map_padding + sparse_total);
 	}
 
+	/* If file size is too large, add 'size' to pax extended attrs. */
+	if (archive_entry_size(entry_main) >= (((int64_t)1) << 33)) {
+		add_pax_attr_int(&(pax->pax_header), "size",
+		    archive_entry_size(entry_main));
+	}
+
 	/* Format 'ustar' header for main entry.
 	 *
 	 * The trouble with file size: If the reader can't understand
@@ -1434,7 +1437,7 @@ archive_write_pax_header(struct archive_write *a,
 		/* Copy mtime, but clip to ustar limits. */
 		s = archive_entry_mtime(entry_main);
 		if (s < 0) { s = 0; }
-		if (s >= 0x7fffffff) { s = 0x7fffffff; }
+		if (s > ustar_max_mtime) { s = ustar_max_mtime; }
 		archive_entry_set_mtime(pax_attr_entry, s, 0);
 
 		/* Standard ustar doesn't support atime. */
@@ -1723,7 +1726,7 @@ build_pax_attribute_name(char *dest, const char *src)
 	 * to having clients override it.
 	 */
 #if HAVE_GETPID && 0  /* Disable this for now; see above comment. */
-	sprintf(buff, "PaxHeader.%d", getpid());
+	snprintf(buff, sizeof(buff), "PaxHeader.%d", getpid());
 #else
 	/* If the platform can't fetch the pid, don't include it. */
 	strcpy(buff, "PaxHeader");
@@ -2057,3 +2060,18 @@ sparse_list_add(struct pax *pax, int64_t offset, int64_t length)
 	return (_sparse_list_add_block(pax, offset, length, 0));
 }
 
+static time_t
+get_ustar_max_mtime(void)
+{
+	/*
+	 * Technically, the mtime field in the ustar header can
+	 * support 33 bits. We are using all of them to keep
+	 * tar/test/test_option_C_mtree.c simple and passing after 2038.
+	 * For platforms that use signed 32-bit time values we
+	 * use the 32-bit maximum.
+	 */
+	if (sizeof(time_t) > sizeof(int32_t))
+		return (time_t)0x1ffffffff;
+	else
+		return (time_t)0x7fffffff;
+}

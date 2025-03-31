@@ -1,0 +1,210 @@
+#! /bin/sh
+
+# Test that the --fuzzy/-y option works as expected.
+#
+# Note: This test primarily tries to exercise --fuzzy in different
+# ways so as to be able to detect any problems that might result
+# from using a fuzzy basis file.
+#
+# To test that --fuzzy actually works correctly we must use a very simple
+# test in order to ensure that both rsync269 and openrsync choose
+# the same fuzzy basis file.  This is because the algorithms for fuzzy
+# basis file selection differ between rsync269 and openrsync such that
+# cannot ensure they will choose the same file when there are multple
+# reasonable selections.
+
+set -e
+set -u
+
+. ${tstdir-.}/lib.sh
+. ${tstdir-.}/conf.sh
+
+[ -d dst ] && chmod -R =rw,+X dst
+
+# Create the source tree:
+#
+rm -rf src
+mkdir src
+jot 300000 100001 > src/file
+
+touch -t 202001020304 src/file
+
+
+# Very simple test for non-existent dest dir:
+#
+for opt in "--fuzzy" "-y" ; do
+    rm -rf dst
+    rsync -a ${opt} -- src/ dst/
+    compare_trees -t src dst
+done
+
+
+# Create the reference dir, including files that match those
+# in the source dir (including size and mtime, but different
+# data) but have "fuzzy ignorable" suffixes:
+#
+rm -rf ref
+mkdir ref
+jot 300000 100002 > ref/file
+for suf in '~' '.bak' '.old' '.orig' '.~1~' ; do
+    cp -a ref/file ref/file${suf}
+done
+cp -a src/file ref/
+touch $(find src ref)
+
+
+# rsync will try to use one of the "ignorable" files as the basis
+# file because they all match in size and mtime to the source file.
+# However, after transfer the final checksum should fail and rsync
+# should fall back to using the source file and a differential
+# transfer to correct the mismatched blocks:
+#
+rm -rf dst
+cp -a ref dst
+
+for i in $(seq 3) ; do
+    for opt in "--fuzzy" "-y" ; do
+        rm -f dst/file
+        rsync -a ${opt} -- src/ dst/
+        compare_trees -t ref dst
+    done
+done
+
+
+# Append to all "ignorable" files so that the size and mtime no longer
+# match that of the source file.  rsync will choose "file~" as the basis
+# file because it is the closest match by filename.
+#
+# Note: openrsync currently does not contain fuzzy file matching by-name
+# and hence will simply transfer the source file via whole-file transfer.
+#
+for suf in '~' '.bak' '.old' '.orig' '.~1~' ; do
+    date >> ref/file${suf}
+done
+touch $(find src ref)
+
+rm -rf dst
+cp -a ref dst
+
+for i in $(seq 3) ; do
+    for opt in "--fuzzy" "-y" ; do
+        rm -f dst/file
+        rsync -a ${opt} -- src/ dst/
+        compare_trees -t ref dst
+    done
+done
+
+
+# Here we create a dest dir with a selection of poor choices for the fuzzy
+# basis file, and only one good choice.  rsync should skip non-regular files
+# and regular files that cannot be opened, and eventually settle on "filem"
+# for the basis file.  Unfortunately, rsync actually chooses "filec" which
+# it cannot open and resorts to performing a full transfer from src/file.
+# Openrsync, however, eventually chooses "filem".
+#
+rm -rf ref dst
+mkdir dst
+ln -s dne dst/filea
+mkfifo dst/fileb
+cp -a src/file dst/filec
+cp -a src/file dst/filem
+cp -a src/file dst/filex
+mkfifo dst/filey
+ln -s dne dst/filez
+
+chmod 0 dst/filec dst/filex
+
+for i in $(seq 3) ; do
+    for opt in "--fuzzy" "-y" ; do
+        rm -f dst/file
+        rsync -a ${opt} -- src/ dst/ || [ $? -eq 23 ]
+        cmp src/file dst/file
+    done
+done
+
+
+# Do not perform interop testing past this point.
+#
+[ -n "${RSYNC_SERVER}" ] && exit
+
+# Next, a very simple test that rsync will choose the fuzzy
+# basis file as the source file.  In this test there will always
+# be exactly one basis file to choose from, and it will be an
+# exact copy of the source file.
+#
+rm -f dst/*
+
+S=$(stat -f %z src/file)
+
+for suf in '~' '.bak' '.old' '.orig' '.~1~' "-" "x" "X" "0" "1" "-a" "-abc" "--xyx" ; do
+    f="file${suf}"
+    cp -a src/file dst/$f
+
+    # Use --stats to obtain the total bytes sent when src/file is transferred
+    # to the destination:
+    #
+    X=$(rsync -av --stats -- src/ localhost:$PWD/dst/ 2>&1 | \
+	    sed -En -e 's/,//g' -e 's/^Total.*sent: *([0-9]+).*$/\1/p')
+    cmp src/file dst/file
+
+    # Total bytes sent should be larger than the size of src/file:
+    #
+    [ "$X" -ge "$S" ]
+
+
+    # Use --stats to obtain the total bytes sent when dst/filex is used
+    # as the fuzzy basis file:
+    #
+    rm dst/file
+    Y=$(rsync -av --stats --fuzzy -- src/ localhost:$PWD/dst/ 2>&1 | \
+	    sed -En -e 's/,//g' -e 's/^Total.*sent: *([0-9]+).*$/\1/p')
+
+    cmp src/file dst/file
+
+    # Total bytes sent with --fuzzy should be many times smaller than
+    # the size of src/file:
+    #
+    [ "$X" -gt "$Y" ]
+
+    Z=$(expr $X / $Y)
+    [ "$Z" -gt 1 ]
+
+    rm dst/file*
+done
+
+
+# Finally, compare a full sync of many files with and without
+# the --fuzzy option, and use the --stats option to measure
+# the reduction in bytes transferred with --fuzzy:
+#
+rm -rf src dst
+mkdir -p src/dir/dir dst/dir/dir
+
+for i in $(seq 10) ; do
+    jot -r -p$i 300000 > src/$i
+    jot -r -p$i 300000 > src/dir/$i
+    jot -r -p$i 300000 > src/dir/dir/$i
+done
+
+X=$(rsync -a --stats -- src/ localhost:$PWD/dst/ 2>&1 | \
+    sed -En -e 's/,//g' -e 's/^Total.*sent: *([0-9]+).*$/\1/p')
+
+for i in $(seq 10) ; do
+    mv dst/$i dst/${i}x
+    mv dst/dir/$i dst/dir/${i}x
+    mv dst/dir/dir/$i dst/dir/dir/${i}x
+done
+
+Y=$(rsync -a --stats --fuzzy -- src/ localhost:$PWD/dst/ 2>&1 | \
+    sed -En -e 's/,//g' -e 's/^Total.*sent: *([0-9]+).*$/\1/p')
+
+# Total bytes transferred without --fuzzy should be larger
+# than with --fuzzy:
+#
+[ "$X" -gt "$Y" ]
+
+# Total bytes transferred without --fuzzy should be several
+# orders of magnitude larger than with --fuzzy:
+#
+M=$(expr $X / $Y)
+[ "$M" -ge 100 ]

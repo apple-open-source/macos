@@ -20,7 +20,7 @@ RTCVideoFrame *ToObjCVideoFrame(const VideoFrame &frame) {
       [[RTCVideoFrame alloc] initWithBuffer:ToObjCVideoFrameBuffer(frame.video_frame_buffer())
                                    rotation:RTCVideoRotation(frame.rotation())
                                 timeStampNs:frame.timestamp_us() * rtc::kNumNanosecsPerMicrosec];
-  videoFrame.timeStamp = frame.timestamp();
+  videoFrame.timeStamp = frame.timestamp_us();
 
   return videoFrame;
 }

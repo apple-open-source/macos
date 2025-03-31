@@ -14,6 +14,7 @@ custompatching:
 	sed 's,XXXXX,$(TMPPREFIX),' setup.cfg.ed | ed - $(DIR)/setup.cfg
 	ed - $(DIR)/lib/matplotlib/animation.py < lib_matplotlib_animation.py.ed
 	ed - $(DIR)/src/ft2font.cpp < error.ed
+	patch $(DIR)/CXX/Python2/Objects.hxx < libc++_char_trait_fix_130091223.patch
 
 postinstall:
 	cp -f LICENSE $(OSL)/$(NAME)-$(VERSION).txt

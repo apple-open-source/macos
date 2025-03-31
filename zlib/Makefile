@@ -42,6 +42,10 @@ tests: clean osx
 	./build/Release/t_zlib_verify -t -e 0 -d 10 /Volumes/Data/Sets/CanterburyCorpus/*
 	./build/Release/t_zlib_verify -t -e 0 -d 10 -f /Volumes/Data/Sets/CanterburyCorpus/*
 
+fuzzer:
+	xcodebuild -sdk $(OSX_SDK) -configuration $(CONFIG) -target f_zlib ARCHS="$(OSX_ARCHS)" DSTROOT=$(OSX_DSTROOT) $(SANITIZER_OPT) install > $(OSX_LOG) 2>&1 || cat $(OSX_LOG)
+	$(OSX_DSTROOT)/usr/local/bin/f_zlib /Volumes/Data/Work/CompressionTests.git/Fuzzing/zlib_zlib
+
 osx:
 	$(call PRINT_OPT,CONFIG   ,$(CONFIG))
 	$(call PRINT_OPT,OSX_SDK  ,$(OSX_SDK))

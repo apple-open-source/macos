@@ -70,24 +70,14 @@ void IdentityCredentialsContainer::get(CredentialRequestOptions&& options, Crede
         return;
     }
 
-    if (!document->hasFocus()) {
-        promise.reject(Exception { ExceptionCode::NotAllowedError, "The document is not focused."_s });
-        return;
-    }
-
-    if (document->visibilityState() != VisibilityState::Visible) {
-        promise.reject(Exception { ExceptionCode::NotAllowedError, "The document is not visible."_s });
+    if (options.digital->requests.isEmpty()) {
+        promise.reject(Exception { ExceptionCode::TypeError, "At least one request must present."_s });
         return;
     }
 
     RefPtr window = document->domWindow();
     if (!window || !window->consumeTransientActivation()) {
         promise.reject(Exception { ExceptionCode::NotAllowedError, "Calling get() needs to be triggered by an activation triggering user event."_s });
-        return;
-    }
-
-    if (options.digital->providers.isEmpty()) {
-        promise.reject(Exception { ExceptionCode::TypeError, "At least one provider must be specified."_s });
         return;
     }
 

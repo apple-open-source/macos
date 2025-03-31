@@ -1,0 +1,5 @@
+numpy>=1.5
+python-dateutil
+tornado
+pyparsing>=1.5.6,!=2.0.0
+nose

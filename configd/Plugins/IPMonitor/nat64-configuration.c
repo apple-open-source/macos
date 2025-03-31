@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2021 Apple Inc. All rights reserved.
+ * Copyright (c) 2017-2025 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -35,6 +35,7 @@
 #include <CoreFoundation/CoreFoundation.h>
 #include <SystemConfiguration/SystemConfiguration.h>
 #include <SystemConfiguration/SCPrivate.h>
+#include <notify.h>
 #ifdef	TEST_NAT64_CONFIGURATION
 static Boolean			G_set_prefixes_force_failure;
 #define my_if_nametoindex	if_nametoindex
@@ -50,7 +51,53 @@ static Boolean			G_set_prefixes_force_failure;
 #include <netinet/in.h>
 #include <nw/private.h>
 #include <sys/queue.h>
+#include <dnsinfo.h>
 
+struct NAT64PrefixRequest;
+typedef struct NAT64PrefixRequest NAT64PrefixRequest, * NAT64PrefixRequestRef;
+#define NAT64PrefixRequest_LIST_ENTRY LIST_ENTRY(NAT64PrefixRequest)
+#define NAT64PrefixRequest_LIST_HEAD LIST_HEAD(NAT64PrefixRequestHead,	\
+					       NAT64PrefixRequest)
+static NAT64PrefixRequest_LIST_HEAD	S_request_head;
+static struct NAT64PrefixRequestHead * 	S_request_head_p = &S_request_head;
+
+
+typedef CF_ENUM(uint16_t, RequestFlags) {
+	kRequestFlagsNone = 0x0000,
+	kRequestFlagsValid = 0x0001,
+	kRequestFlagsWaitingForDNS = 0x0002,
+};
+
+struct NAT64PrefixRequest {
+	NAT64PrefixRequest_LIST_ENTRY	link;
+	nw_nat64_prefixes_resolver_t	resolver;
+	const char *			if_name;
+	CFStringRef			if_name_cf;
+	unsigned int			if_index;
+	unsigned int			retain_count;
+	RequestFlags			flags;
+};
+
+static Boolean
+NAT64PrefixRequestFlagsIsSet(NAT64PrefixRequestRef request, RequestFlags flags)
+{
+    return ((request->flags & flags) != 0);
+}
+
+static void
+NAT64PrefixRequestFlagsSet(NAT64PrefixRequestRef request, RequestFlags flags)
+{
+    request->flags |= flags;
+}
+
+static void
+NAT64PrefixRequestFlagsClear(NAT64PrefixRequestRef request, RequestFlags flags)
+{
+    request->flags &= ~flags;
+}
+
+static void
+NAT64PrefixRequestStartWaitingResolvers(void);
 
 /**
  ** Support functions
@@ -212,48 +259,132 @@ _nat64_resolver_create(unsigned int if_index)
 	return (resolver);
 }
 
+static bool
+interface_has_dns(dns_config_t * dns_config, unsigned int ifindex)
+{
+	bool		has_dns = false;
+
+	if (dns_config == NULL
+	    || dns_config->n_scoped_resolver == 0
+	    || dns_config->scoped_resolver == NULL) {
+		goto done;
+	}
+	for (int i = 0; i < dns_config->n_scoped_resolver; i++) {
+		dns_resolver_t *	resolver;
+
+		resolver = dns_config->scoped_resolver[i];
+		if (resolver->if_index == ifindex) {
+			has_dns = true;
+			break;
+		}
+	}
+ done:
+	return has_dns;
+}
+
+static dns_config_t *
+nat64_get_dns_config(dns_config_t * * dns_config_p)
+{
+	dns_config_t *	dns_config = *dns_config_p;
+
+	if (dns_config == NULL) {
+		dns_config = *dns_config_p = dns_configuration_copy();
+	}
+	if (dns_config == NULL) {
+		SC_log(LOG_NOTICE,
+		       "%s: dns_configuration_copy() returned NULL",
+		       __FUNCTION__);
+	} else {
+		SC_log(LOG_INFO, "%s: generation %llu",
+		       __FUNCTION__, dns_config->generation);
+	}
+	return dns_config;
+}
+
+
+static int S_monitor_dnsinfo_token = NOTIFY_TOKEN_INVALID;
+
+static void
+monitor_dnsinfo_start(dispatch_queue_t queue)
+{
+	const char * 		key = dns_configuration_notify_key();
+	notify_handler_t	handler;
+	int 			status;
+	int 			token;
+
+	if (S_monitor_dnsinfo_token != NOTIFY_TOKEN_INVALID) {
+		/* already watching */
+		return;
+	}
+	handler =  ^(int t) {
+		if (t != S_monitor_dnsinfo_token) {
+			SC_log(LOG_NOTICE,
+			       "%s token %d != expected token %d, ignoring",
+			       __FUNCTION__, t, S_monitor_dnsinfo_token);
+		} else {
+			NAT64PrefixRequestStartWaitingResolvers();
+		}
+	};
+	status = notify_register_dispatch(key, &token, queue, handler);
+	if (status != NOTIFY_STATUS_OK) {
+		SC_log(LOG_NOTICE, "%s notify_register_dispatch failed %d",
+		       __FUNCTION__, status);
+	} else {
+		SC_log(LOG_INFO,
+		       "%s notify_register_dispatch success (token %d)",
+		       __FUNCTION__, token);
+		S_monitor_dnsinfo_token = token;
+	}
+}
+
+static void
+monitor_dnsinfo_stop(void)
+{
+	int status;
+
+	if (S_monitor_dnsinfo_token == NOTIFY_TOKEN_INVALID) {
+		/* not watching */
+		return;
+	}
+	status = notify_cancel(S_monitor_dnsinfo_token);
+	if (status == NOTIFY_STATUS_OK) {
+		SC_log(LOG_INFO,
+		       "%s notify_cancel(token %d) success",
+		       __FUNCTION__, S_monitor_dnsinfo_token);
+	}
+	else {
+		SC_log(LOG_NOTICE,
+		       "%s notify_cancel(token %d) failed %d",
+		       __FUNCTION__, S_monitor_dnsinfo_token, status);
+	}
+	S_monitor_dnsinfo_token = NOTIFY_TOKEN_INVALID;
+}
+
 /**
  ** NAT64PrefixRequest
  **/
-struct NAT64PrefixRequest;
-typedef struct NAT64PrefixRequest NAT64PrefixRequest, * NAT64PrefixRequestRef;
-#define NAT64PrefixRequest_LIST_ENTRY LIST_ENTRY(NAT64PrefixRequest)
-#define NAT64PrefixRequest_LIST_HEAD LIST_HEAD(NAT64PrefixRequestHead,	\
-					       NAT64PrefixRequest)
-static NAT64PrefixRequest_LIST_HEAD	S_request_head;
-static struct NAT64PrefixRequestHead * 	S_request_head_p = &S_request_head;
-
-typedef CF_ENUM(uint16_t, RequestFlags) {
-	kRequestFlagsNone = 0x0000,
-	kRequestFlagsValid = 0x0001,
-};
-
-struct NAT64PrefixRequest {
-	NAT64PrefixRequest_LIST_ENTRY	link;
-	nw_nat64_prefixes_resolver_t	resolver;
-	const char *			if_name;
-	CFStringRef			if_name_cf;
-	unsigned int			if_index;
-	unsigned int			retain_count;
-	RequestFlags			flags;
-};
-
-static Boolean
-NAT64PrefixRequestFlagsIsSet(NAT64PrefixRequestRef request, RequestFlags flags)
+static void
+NAT64PrefixRequestAddToWaiting(NAT64PrefixRequestRef request)
 {
-    return ((request->flags & flags) != 0);
+	if (!NAT64PrefixRequestFlagsIsSet(request,
+					 kRequestFlagsWaitingForDNS)) {
+		SC_log(LOG_NOTICE, "%s %s: waiting for DNS",
+		       request->if_name, __FUNCTION__);
+		NAT64PrefixRequestFlagsSet(request,
+					   kRequestFlagsWaitingForDNS);
+	}
 }
 
 static void
-NAT64PrefixRequestFlagsSet(NAT64PrefixRequestRef request, RequestFlags flags)
+NAT64PrefixRequestRemoveFromWaiting(NAT64PrefixRequestRef request)
 {
-    request->flags |= flags;
-}
-
-static void
-NAT64PrefixRequestFlagsClear(NAT64PrefixRequestRef request, RequestFlags flags)
-{
-    request->flags &= ~flags;
+	if (NAT64PrefixRequestFlagsIsSet(request,
+					 kRequestFlagsWaitingForDNS)) {
+		SC_log(LOG_NOTICE, "%s %s: no longer waiting for DNS",
+		       request->if_name, __FUNCTION__);
+		NAT64PrefixRequestFlagsClear(request,
+					     kRequestFlagsWaitingForDNS);
+	}
 }
 
 static NAT64PrefixRequestRef
@@ -287,7 +418,7 @@ NAT64PrefixRequestCreate(CFStringRef if_name_cf)
 	NAT64PrefixRequestRef	request;
 
 	if_name = _SC_cfstring_to_cstring(if_name_cf, NULL, 0,
-					  kCFStringEncodingASCII);
+					  kCFStringEncodingUTF8);
 	if (if_name == NULL) {
 		SC_log(LOG_ERR,
 		       "%@: could not convert interface name",
@@ -310,6 +441,7 @@ NAT64PrefixRequestCreate(CFStringRef if_name_cf)
 	LIST_INSERT_HEAD(S_request_head_p, request, link);
 	NAT64PrefixRequestFlagsSet(request, kRequestFlagsValid);
 	NAT64PrefixRequestRetain(request);
+	monitor_dnsinfo_start(nat64_dispatch_queue());
 	return (request);
 }
 
@@ -331,9 +463,13 @@ NAT64PrefixRequestInvalidate(NAT64PrefixRequestRef request)
 {
 	SC_log(LOG_DEBUG, "%s: %s", request->if_name, __FUNCTION__);
 	NAT64PrefixRequestStopResolver(request);
+	NAT64PrefixRequestRemoveFromWaiting(request);
 	if (NAT64PrefixRequestFlagsIsSet(request, kRequestFlagsValid)) {
 		NAT64PrefixRequestFlagsClear(request, kRequestFlagsValid);
 		LIST_REMOVE(request, link);
+	}
+	if (LIST_EMPTY(S_request_head_p)) {
+		monitor_dnsinfo_stop();
 	}
 	return;
 }
@@ -377,11 +513,7 @@ NAT64PrefixRequestStart(NAT64PrefixRequestRef request)
 	CFAbsoluteTime			start_time;
 
 	SC_log(LOG_INFO, "%s: %s",  request->if_name, __FUNCTION__);
-	if (request->resolver != NULL) {
-		SC_log(LOG_DEBUG, "%s %s: resolver is already active",
-		       request->if_name, __FUNCTION__);
-		return;
-	}
+	NAT64PrefixRequestRemoveFromWaiting(request);
 	resolver = _nat64_resolver_create(request->if_index);
 	if (resolver == NULL) {
 		return;
@@ -412,15 +544,14 @@ NAT64PrefixRequestStart(NAT64PrefixRequestRef request)
 			SC_log(LOG_ERR, "%s: NAT64 no prefixes",
 			       request->if_name);
 		}
-		_nat64_prefix_post(request->if_name_cf,
-				   num_prefixes, prefixes, start_time);
 #ifdef	TEST_NAT64_CONFIGURATION
 		if (G_set_prefixes_force_failure) {
 			remove_resolver = TRUE;
 		}
 #endif /* TEST_NAT64_CONFIGURATION */
 		if (remove_resolver) {
-			/* remove resolver */
+			_nat64_prefix_post(request->if_name_cf,
+					   num_prefixes, prefixes, start_time);
 			NAT64PrefixRequestInvalidate(request);
 			NAT64PrefixRequestRelease(request);
 			return;
@@ -435,13 +566,69 @@ NAT64PrefixRequestStart(NAT64PrefixRequestRef request)
 	return;
 }
 
+static void
+NAT64PrefixRequestStartWaitingResolvers(void)
+{
+	dns_config_t *		dns_config = NULL;
+	NAT64PrefixRequestRef	request;
+
+	LIST_FOREACH(request, S_request_head_p, link) {
+		if (!NAT64PrefixRequestFlagsIsSet(request,
+						 kRequestFlagsWaitingForDNS)){
+			continue;
+		}
+		nat64_get_dns_config(&dns_config);
+		if (dns_config == NULL) {
+			break;
+		}
+		if (interface_has_dns(dns_config, request->if_index)) {
+			NAT64PrefixRequestStart(request);
+		}
+	}
+	if (dns_config != NULL) {
+		dns_configuration_free(dns_config);
+	}
+}
+
+static void
+NAT64PrefixRequestCheckStart(NAT64PrefixRequestRef request,
+			     dns_config_t * dns_config)
+{
+	uint64_t			generation = 0;
+	bool 				has_dns;
+
+	SC_log(LOG_INFO, "%s: %s",  request->if_name, __FUNCTION__);
+	if (request->resolver != NULL) {
+		SC_log(LOG_DEBUG, "%s %s: resolver is already active",
+		       request->if_name, __FUNCTION__);
+		return;
+	}
+	has_dns = interface_has_dns(dns_config, request->if_index);
+	if (dns_config != NULL) {
+		generation = dns_config->generation;
+	}
+	SC_log(LOG_NOTICE,
+	       "%s: %s: DNS is %savailable (gen %llu)",
+	       request->if_name, __FUNCTION__,
+	       has_dns ? "" : "not ", generation);
+	if (!has_dns) {
+		SC_log(LOG_NOTICE,
+		       "%s: %s: waiting for DNS before starting resolver",
+		       request->if_name, __FUNCTION__);
+		NAT64PrefixRequestAddToWaiting(request);
+		return;
+	}
+	NAT64PrefixRequestStart(request);
+}
+
 /**
  ** Set iterators
  **/
+
 static void
 _nat64_process_prefix_request(const void *value, void *context)
 {
-#pragma unused(context)
+	dns_config_t * *	dns_config_p = (dns_config_t * *)context;
 	CFStringRef		interface = (CFStringRef)value;
 	NAT64PrefixRequestRef	request;
 
@@ -453,7 +640,10 @@ _nat64_process_prefix_request(const void *value, void *context)
 	/* start a new request */
 	request = NAT64PrefixRequestCreate(interface);
 	if (request != NULL) {
-		NAT64PrefixRequestStart(request);
+		dns_config_t *	dns_config;
+
+		dns_config = nat64_get_dns_config(dns_config_p);
+		NAT64PrefixRequestCheckStart(request, dns_config);
 	}
 	return;
 }
@@ -461,7 +651,7 @@ _nat64_process_prefix_request(const void *value, void *context)
 static void
 _nat64_process_prefix_update(const void *value, void *context)
 {
-#pragma unused(context)
+	dns_config_t * *	dns_config_p = (dns_config_t * *)context;
 	CFStringRef		interface = (CFStringRef)value;
 	NAT64PrefixRequestRef	request;
 
@@ -480,7 +670,10 @@ _nat64_process_prefix_update(const void *value, void *context)
 	/* start a new request */
 	request = NAT64PrefixRequestCreate(interface);
 	if (request != NULL) {
-		NAT64PrefixRequestStart(request);
+		dns_config_t *	dns_config;
+
+		dns_config = nat64_get_dns_config(dns_config_p);
+		NAT64PrefixRequestCheckStart(request, dns_config);
 	}
 	return;
 }
@@ -562,6 +755,8 @@ static void
 nat64_configuration_update_locked(CFSetRef requests, CFSetRef updates,
 				  CFSetRef cancellations)
 {
+	dns_config_t * 	dns_config = NULL;
+
 	if (cancellations != NULL) {
 		CFSetApplyFunction(cancellations,
 				   _nat64_process_cancel_request,
@@ -569,13 +764,17 @@ nat64_configuration_update_locked(CFSetRef requests, CFSetRef updates,
 	}
 	// for any interface that changed, refresh the nat64 prefix
 	if (updates != NULL) {
-		CFSetApplyFunction(updates, _nat64_process_prefix_update, NULL);
+		CFSetApplyFunction(updates, _nat64_process_prefix_update,
+				   &dns_config);
 	}
 
 	// for any requested interface, query the nat64 prefix
 	if (requests != NULL) {
 		CFSetApplyFunction(requests, _nat64_process_prefix_request,
-				   NULL);
+				   &dns_config);
+	}
+	if (dns_config != NULL) {
+		dns_configuration_free(dns_config);
 	}
 	return;
 }
@@ -617,26 +816,58 @@ nat64_configuration_update(CFSetRef requests, CFSetRef updates,
 }
 
 #ifdef	TEST_NAT64_CONFIGURATION
+
+static void
+usage(void)
+{
+	fprintf(stderr,
+		"usage: nat64 -i <ifname> [ -i <ifname> ... ] [ -W ]\n");
+	exit(1);
+}
+
 int
 main(int argc, char * argv[])
 {
-	CFStringRef	if_name_cf;
+	int 		ch;
+	CFStringRef	name;
 	CFMutableSetRef	set;
+	bool		wait = false;
 
 	set = CFSetCreateMutable(NULL, 0, &kCFTypeSetCallBacks);
-	for (int i = 1; i < argc; i++) {
-		if_name_cf = CFStringCreateWithCString(NULL,
-						       argv[i],
-						       kCFStringEncodingASCII);
-		CFSetAddValue(set, if_name_cf);
-		CFRelease(if_name_cf);
+	while ((ch = getopt(argc, argv, "i:W")) != -1) {
+		switch (ch) {
+		case 'i':
+			name = CFStringCreateWithCString(NULL, optarg,
+							 kCFStringEncodingUTF8);
+			CFSetAddValue(set, name);
+			CFRelease(name);
+			break;
+		case 'W':
+			wait = true;
+			break;
+		default:
+			usage();
+			break;
+		}
+	}
+	argc -= optind;
+	argv += optind;
+
+	if (argc != 0) {
+		fprintf(stderr, "extra arguments provided\n");
+		usage();
 	}
 	if (CFSetGetCount(set) == 0) {
-		fprintf(stderr, "nothing to do\n");
-		exit(0);
+		fprintf(stderr,
+			"Must specify at least one interface\n");
+		usage();
 	}
+
 	SC_log(LOG_NOTICE, "Starting %@", set);
 	nat64_configuration_update(set, NULL, NULL);
+	if (wait) {
+		dispatch_main();
+	}
 	sleep(2);
 
 	SC_log(LOG_NOTICE, "Starting 2 %@", set);

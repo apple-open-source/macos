@@ -1593,6 +1593,7 @@ initializeRootDomainInterestNotifications(void)
     if (ret != kIOReturnSuccess) goto exit;
 
     IONotificationPortSetDispatchQueue(note_port, _getPMMainQueue());
+    initializeClamshellState();
 
 exit:
     // Do not release notification_object, would uninstall notification

@@ -71,7 +71,10 @@
 #define _SYS_FCNTL_H_
 
 #include <sys/cdefs.h>
+#include <_bounds.h>
 #include <_compat/sys/_types.h>
+
+_LIBC_SINGLE_BY_DEFAULT()
 
 /*
  * File status flags: these are used by open(2), fcntl(2).

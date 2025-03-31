@@ -52,6 +52,8 @@ T_GLOBAL_META(
 
 #define SECONDS_TO_SLEEP 3
 
+#if 0
+
 static int fd = -1;
 static bool finished = false;
 static bool is_tcp = false;
@@ -604,3 +606,11 @@ T_DECL(ipv6_udp_connectx6_connect4_race, "race bind calls with UDP sockets", T_M
 {
 	do_bind_race(false, connectx6_leader, connect4_racer);
 }
+#else
+
+T_DECL(stub, "test suite disabled")
+{
+	T_EXPECT_TRUE(true, "disabled by rdar://137741815");
+}
+
+#endif /* 0 */

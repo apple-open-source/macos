@@ -25,7 +25,7 @@
 
 #pragma once
 
-#if ENABLE(WEB_CODECS) && USE(LIBWEBRTC)
+#if USE(LIBWEBRTC)
 
 #include "VideoEncoder.h"
 #include <wtf/TZoneMalloc.h>
@@ -48,10 +48,11 @@ public:
     };
     static void create(Type, const Config&, CreateCallback&&, DescriptionCallback&&, OutputCallback&&);
 
-    LibWebRTCVPXVideoEncoder(Type, OutputCallback&&);
     ~LibWebRTCVPXVideoEncoder();
 
 private:
+    LibWebRTCVPXVideoEncoder(Type, OutputCallback&&);
+
     int initialize(LibWebRTCVPXVideoEncoder::Type, const VideoEncoder::Config&);
     Ref<EncodePromise> encode(RawFrame&&, bool shouldGenerateKeyFrame) final;
     Ref<GenericPromise> flush() final;
@@ -64,4 +65,4 @@ private:
 
 }
 
-#endif // ENABLE(WEB_CODECS) && USE(LIBWEBRTC)
+#endif // USE(LIBWEBRTC)

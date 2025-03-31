@@ -224,7 +224,7 @@ unparse_something (int num, const struct units *units, char *s, size_t len,
 static int
 print_unit (char *s, size_t len, int divisor, const char *name, int rem)
 {
-    return snprintf (s, len, "%u %s%s%s",
+    return snprintf (s, len, "%d %s%s%s",
 		     divisor, name,
 		     divisor == 1 ? "" : "s",
 		     rem > 0 ? " " : "");

@@ -25,7 +25,6 @@
  */
 
 #include "archive_platform.h"
-__FBSDID("$FreeBSD: head/lib/libarchive/archive_string.c 201095 2009-12-28 02:33:22Z kientzle $");
 
 /*
  * Basic resizable string support, to simplify manipulating arbitrary-sized
@@ -557,6 +556,8 @@ archive_wstring_append_from_mbs_in_codepage(struct archive_wstring *dest,
 		} else
 			mbflag = MB_PRECOMPOSED;
 
+		mbflag |= MB_ERR_INVALID_CHARS;
+
 		buffsize = dest->length + length + 1;
 		do {
 			/* Allocate memory for WCS. */
@@ -749,7 +750,7 @@ archive_string_append_from_wcs_in_codepage(struct archive_string *as,
 				dp = &defchar_used;
 			count = WideCharToMultiByte(to_cp, 0, ws, wslen,
 			    as->s + as->length,
-			    (int)as->buffer_length - as->length - 1, NULL, dp);
+			    (int)as->buffer_length - (int)as->length - 1, NULL, dp);
 			if (count == 0 &&
 			    GetLastError() == ERROR_INSUFFICIENT_BUFFER) {
 				/* Expand the MBS buffer and retry. */
@@ -1328,6 +1329,10 @@ free_sconv_object(struct archive_string_conv *sc)
 }
 
 #if defined(_WIN32) && !defined(__CYGWIN__)
+# if defined(WINAPI_FAMILY_PARTITION) && !WINAPI_FAMILY_PARTITION(WINAPI_PARTITION_DESKTOP)
+#  define GetOEMCP() CP_OEMCP
+# endif
+
 static unsigned
 my_atoi(const char *p)
 {
@@ -1527,7 +1532,7 @@ get_current_codepage(void)
 	p = strrchr(locale, '.');
 	if (p == NULL)
 		return (GetACP());
-	if (strcmp(p+1, "utf8") == 0)
+	if ((strcmp(p+1, "utf8") == 0) || (strcmp(p+1, "UTF-8") == 0))
 		return CP_UTF8;
 	cp = my_atoi(p+1);
 	if ((int)cp <= 0)
@@ -3992,10 +3997,10 @@ int
 archive_mstring_get_mbs_l(struct archive *a, struct archive_mstring *aes,
     const char **p, size_t *length, struct archive_string_conv *sc)
 {
-	int r, ret = 0;
-
-	(void)r; /* UNUSED */
+	int ret = 0;
 #if defined(_WIN32) && !defined(__CYGWIN__)
+	int r;
+
 	/*
 	 * Internationalization programming on Windows must use Wide
 	 * characters because Windows platform cannot make locale UTF-8.
@@ -4227,6 +4232,17 @@ archive_mstring_update_utf8(struct archive *a, struct archive_mstring *aes,
 	if (sc == NULL)
 		return (-1);/* Couldn't allocate memory for sc. */
 	r = archive_strcpy_l(&(aes->aes_mbs), utf8, sc);
+
+#if defined(_WIN32) && !defined(__CYGWIN__)
+	/* On failure, make an effort to convert UTF8 to WCS as the active code page
+	 * may not be able to represent all characters in the string */
+	if (r != 0) {
+		if (archive_wstring_append_from_mbs_in_codepage(&(aes->aes_wcs),
+			aes->aes_utf8.s, aes->aes_utf8.length, sc) == 0)
+			aes->aes_set = AES_SET_UTF8 | AES_SET_WCS;
+	}
+#endif
+
 	if (a == NULL)
 		free_sconv_object(sc);
 	if (r != 0)

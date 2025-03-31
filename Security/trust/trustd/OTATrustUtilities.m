@@ -52,8 +52,10 @@
 #include <utilities/SecCFWrappers.h>
 #include <utilities/sec_action.h>
 #include <utilities/SecFileLocations.h>
+#include <utilities/SecInternalReleasePriv.h>
 #include <Security/SecBasePriv.h>
 #include <Security/SecCertificatePriv.h>
+#include <Security/SecCertificateInternal.h>
 #include <Security/SecFramework.h>
 #include <dispatch/dispatch.h>
 #include <dispatch/private.h>
@@ -63,6 +65,8 @@
 #include "trust/trustd/SecTrustLoggingServer.h"
 #include "trust/trustd/trustdVariants.h"
 #include "trust/trustd/trustd_spi.h"
+#include "trust/trustd/trustd_objc_helpers.h"
+#include "trust/trustd/SecAnchorCache.h"
 #import <ipc/securityd_client.h>
 
 #if !TARGET_OS_BRIDGE
@@ -75,26 +79,6 @@
 #import <MobileKeyBag/MobileKeyBag.h>
 #include <System/sys/content_protection.h>
 #endif
-
-static inline bool isNSNumber(id nsType) {
-    return nsType && [nsType isKindOfClass:[NSNumber class]];
-}
-
-static inline bool isNSDictionary(id nsType) {
-    return nsType && [nsType isKindOfClass:[NSDictionary class]];
-}
-
-static inline bool isNSArray(id nsType) {
-    return nsType && [nsType isKindOfClass:[NSArray class]];
-}
-
-static inline bool isNSDate(id nsType) {
-    return nsType && [nsType isKindOfClass:[NSDate class]];
-}
-
-static inline bool isNSData(id nsType) {
-    return nsType && [nsType isKindOfClass:[NSData class]];
-}
 
 dispatch_queue_t SecTrustServerGetWorkloop(void) {
     static dispatch_workloop_t workloop = NULL;
@@ -1582,6 +1566,150 @@ static bool InitializeAnchorTable(SecOTAPKIRef otapkiref, CFDictionaryRef* pLook
     return result;
 }
 
+static void _addAnchorInfoForCert(NSString *oid, SecCertificateRef cert,
+                                 NSMutableDictionary *lookupAdditions, NSMutableDictionary *testAnchors) {
+    NSData *sha2 = CFBridgingRelease(SecCertificateCopySHA256Digest(cert));
+    NSData *sha2spki = CFBridgingRelease(SecCertificateCopySubjectPublicKeyInfoSHA256Digest(cert));
+
+    if (!sha2 || !sha2spki) { return; } // shouldn't happen
+    NSString *sha2String = CFBridgingRelease(CFDataCopyHexString((__bridge CFDataRef)sha2));
+    NSString *sha2spkiString = CFBridgingRelease(CFDataCopyHexString((__bridge CFDataRef)sha2spki));
+    NSString *anchorLookupKey = CFBridgingRelease(SecCertificateCopyAnchorLookupKey(cert));
+    if (!sha2String || !sha2spkiString || !anchorLookupKey) { return; } // shouldn't happen
+
+    NSMutableDictionary *anchorRecord = [NSMutableDictionary dictionary];
+    NSArray *oids = [NSArray arrayWithObject:oid];
+    anchorRecord[@"oids"] = oids;
+    anchorRecord[@"sha2"] = sha2String;
+    anchorRecord[@"spki-sha2"] = sha2spkiString;
+    anchorRecord[@"type"] = (__bridge NSString*)kSecAnchorTypeCustom;
+
+    if (lookupAdditions[anchorLookupKey]) {
+        NSMutableArray *anchorRecords = lookupAdditions[anchorLookupKey];
+        [anchorRecords addObject:anchorRecord];
+    } else {
+        NSMutableArray *anchorRecords = [NSMutableArray arrayWithObject:anchorRecord];
+        lookupAdditions[anchorLookupKey] = anchorRecords;
+    }
+
+    /* Add cert to anchors */
+    testAnchors[sha2String] = CFBridgingRelease(SecCertificateCopyData(cert));
+}
+
+/* ConstrainedTestAnchors are located at /var/protected/trustd/private/ConstrainedTestAnchors.plist.
+ * The plist is a dictionary with policy OID string keys (kSecPolicyApple* constant values) mapping
+ * to an array of Base64-encoded certificate data.
+ * User instructions:
+ *  - To create/modify that file you will need to be on an internal build and use dvdo.
+ *  - Relaunch trustd after creating or modifying file.
+ *  - Make sure the file is class D or you'll need to re-launch trustd after reboot to trust your anchors:
+ *    dvdo keystorectl utils -m -o AKS_MIGRATE_FILE -s 3 -d 4 /private/var/protected/trustd/private/ConstrainedTestAnchors.plist */
+static bool InitializeConstrainedTestAnchors(CFDictionaryRef *anchorLookupAdditions, CFDictionaryRef *constrainedTestAnchors) {
+    if (!SecIsInternalRelease()) {
+        return true;
+    }
+
+    @autoreleasepool {
+        NSURL *testAnchorsUrl = CFBridgingRelease(SecCopyURLForFileInPrivateTrustdDirectory(CFSTR("ConstrainedTestAnchors.plist")));
+        if (![[NSFileManager defaultManager] isReadableFileAtPath:[testAnchorsUrl path]]) {
+            return true;
+        }
+        NSDictionary *testAnchorsPlist = [NSDictionary dictionaryWithContentsOfURL:testAnchorsUrl];
+        if (!isNSDictionary(testAnchorsPlist)) {
+            secwarning("Found ConstrainedTestAnchors.plist in incorrect format. Skipping.");
+            return false;
+        }
+
+        NSMutableDictionary *lookupAdditions = [NSMutableDictionary dictionary];
+        NSMutableDictionary *testAnchors = [NSMutableDictionary dictionary];
+        for (NSString *oid in testAnchorsPlist) {
+            if (![oid hasPrefix:@"1.2.840.113635.100.1"]) {
+                secwarning("Found ConstrainedTestAnchors.plist key in incorrect format (%@). Skipping.", oid);
+                continue;
+            }
+            NSArray *certs = testAnchorsPlist[oid];
+            if (!isNSArray(certs)) {
+                secwarning("Found ConstrainedTestAnchors.plist value in incorrect format for %@. Skipping.", oid);
+                continue;
+            }
+            for (NSString *certString in certs) {
+                if (!isNSString(certString)) {
+                    secwarning("Found ConstrainedTestAnchors.plist value in incorrect format for %@. Skipping.", oid);
+                    continue;
+                }
+                NSData *certData = [[NSData alloc] initWithBase64EncodedString:certString options:0];
+                if (!certData) {
+                    secwarning("Found ConstrainedTestAnchors.plist value in incorrect format for %@. Skipping.", oid);
+                    continue;
+                }
+                SecCertificateRef cert = SecCertificateCreateWithData(NULL, (__bridge CFDataRef)certData);
+                if (!cert) {
+                    secwarning("Found ConstrainedTestAnchors.plist unparseable cert for %@. Skipping.", oid);
+                    continue;
+                }
+
+                _addAnchorInfoForCert(oid, cert, lookupAdditions, testAnchors);
+                CFReleaseNull(cert);
+            }
+        }
+
+        if (testAnchors.count == 0 || lookupAdditions.count == 0) {
+            return false;
+        }
+        if (constrainedTestAnchors) {
+            *constrainedTestAnchors = CFBridgingRetain(testAnchors);
+        }
+        if (anchorLookupAdditions) {
+            *anchorLookupAdditions = CFBridgingRetain(lookupAdditions);
+        }
+        return true;
+    }
+}
+
+static CF_RETURNS_RETAINED
+CFDictionaryRef _addConstrainedTestAnchors(CFDictionaryRef anchorLookup, CFDictionaryRef testLookupAdditions) {
+    if (!testLookupAdditions || CFDictionaryGetCount(testLookupAdditions) == 0) {
+        return CFRetainSafe(anchorLookup);
+    }
+
+    NSMutableDictionary *newAnchorLookup = [(__bridge NSDictionary*)anchorLookup mutableCopy];
+    for (NSString *addition in (__bridge NSDictionary*)testLookupAdditions) {
+        NSDictionary *newAnchorRecord = ((__bridge NSDictionary*)testLookupAdditions)[addition];
+        if (newAnchorLookup[addition]) {
+            secwarning("Found test anchor would replace a production anchor lookup key (%@). Skipping.", addition);
+            continue;
+        } else {
+            newAnchorLookup[addition] = newAnchorRecord;
+        }
+    }
+    return CFBridgingRetain(newAnchorLookup);
+}
+
+static bool InitializeConstrainedAnchorLookupTable(SecOTAPKIRef otapkiref, CFDictionaryRef* anchorTable, CFDictionaryRef testLookupAdditions, bool usingAsset) {
+    CFPropertyListRef plist = NULL;
+    CFDataRef plistData = NULL;
+    bool result = false;
+    if (usingAsset) {
+        plistData = SecAssetTrustStoreCopyResourceContents(otapkiref, CFSTR("Anchors"), CFSTR("plist"), NULL);
+    } else {
+        plistData = SecSystemTrustStoreCopyResourceContents(CFSTR("Anchors"), CFSTR("plist"), NULL);
+    }
+    if (plistData) {
+        plist = CFPropertyListCreateWithData(kCFAllocatorDefault, plistData, kCFPropertyListImmutable, NULL, NULL);
+        CFRelease(plistData);
+    }
+    if (isDictionary(plist)) {
+        result = true;
+        if (anchorTable) {
+            *anchorTable = _addConstrainedTestAnchors(plist, testLookupAdditions);
+        }
+    } else {
+        secwarning("Anchors.plist is wrong type.");
+    }
+    CFReleaseNull(plist);
+    return result;
+}
+
 static CF_RETURNS_RETAINED CFDictionaryRef InitializeEventSamplingRates(void) {
     NSDictionary *analyticsSamplingRates =  nil;
     NSDictionary *eventSamplingRates = nil;
@@ -1650,6 +1778,10 @@ struct _OpaqueSecOTAPKI {
     CFDictionaryRef     _nonTlsTrustedCTLogs;
     CFURLRef            _pinningList;
     CFDictionaryRef     _evPolicyToAnchorMapping;
+    bool                _usingConstrainedAnchorsFromAsset;
+    bool                _usingAnchorsFromAsset;
+    CFDictionaryRef     _testConstrainedAnchorTable;
+    CFDictionaryRef     _constrainedAnchorLookupTable;
     CFDictionaryRef     _anchorLookupTable;
     const char*         _anchorTable;
     size_t              _anchorTableSize;
@@ -1696,6 +1828,10 @@ static void SecOTAPKIInitialize(CFTypeRef cf) {
     otapkiref->_nonTlsTrustedCTLogs = NULL;
     otapkiref->_pinningList = NULL;
     otapkiref->_evPolicyToAnchorMapping = NULL;
+    otapkiref->_usingConstrainedAnchorsFromAsset = false;
+    otapkiref->_usingAnchorsFromAsset = false;
+    otapkiref->_testConstrainedAnchorTable = NULL;
+    otapkiref->_constrainedAnchorLookupTable = NULL;
     otapkiref->_anchorLookupTable = NULL;
     otapkiref->_anchorTable = NULL;
     otapkiref->_trustStoreAssetVersion = NULL;
@@ -1717,6 +1853,8 @@ static void SecOTAPKIDestroy(CFTypeRef cf) {
     CFReleaseNull(otapkiref->_allowList);
 
     CFReleaseNull(otapkiref->_evPolicyToAnchorMapping);
+    CFReleaseNull(otapkiref->_testConstrainedAnchorTable);
+    CFReleaseNull(otapkiref->_constrainedAnchorLookupTable);
     CFReleaseNull(otapkiref->_anchorLookupTable);
     CFReleaseNull(otapkiref->_trustStoreAssetVersion);
     CFReleaseNull(otapkiref->_trustStoreContentDigest);
@@ -1908,6 +2046,7 @@ static SecOTAPKIRef SecOTACreate(void) {
     /* Initialize anchors from asset, falling back to system anchors on failure */
     if (!InitializeAnchorTable(otapkiref, &anchorLookupTable, &anchorTablePtr, &anchorTableSize, true)) {
         secnotice("OTATrust", "Using built-in system anchors");
+        otapkiref->_usingAnchorsFromAsset = false;
         if (!InitializeAnchorTable(otapkiref, &anchorLookupTable, &anchorTablePtr, &anchorTableSize, false)) {
             CFReleaseSafe(anchorLookupTable);
             if (anchorTablePtr) {
@@ -1916,10 +2055,35 @@ static SecOTAPKIRef SecOTACreate(void) {
             CFReleaseNull(otapkiref);
             return otapkiref;
         }
+    } else {
+        otapkiref->_usingAnchorsFromAsset = true;
     }
     otapkiref->_anchorLookupTable = anchorLookupTable;
     otapkiref->_anchorTable = anchorTablePtr;
     otapkiref->_anchorTableSize = anchorTableSize;
+    
+    /* Initialize constrained anchors from asset, falling back to system constrained anchors on failure */
+    CFDictionaryRef constrainedAnchorLookupTable = NULL;
+    CFDictionaryRef testConstrainedAnchorTable = NULL;
+    if (_SecTrustStoreRootConstraintsEnabled()) {
+        CFDictionaryRef testAnchorLookupAdditions = NULL;
+        if (!InitializeConstrainedTestAnchors(&testAnchorLookupAdditions, &testConstrainedAnchorTable)) {
+            secnotice("OTATrust", "failed to load constrained test anchors");
+        }
+        if (!InitializeConstrainedAnchorLookupTable(otapkiref, &constrainedAnchorLookupTable, testAnchorLookupAdditions, true)) {
+            secnotice("OTATrust", "Using built-in constrained anchors");
+            otapkiref->_usingConstrainedAnchorsFromAsset = false;
+            if (!InitializeConstrainedAnchorLookupTable(otapkiref, &constrainedAnchorLookupTable, testAnchorLookupAdditions, false)) {
+                CFReleaseSafe(constrainedAnchorLookupTable);
+                CFReleaseNull(otapkiref);
+                return otapkiref;
+            }
+        } else {
+            otapkiref->_usingConstrainedAnchorsFromAsset = true;
+        }
+    }
+    otapkiref->_constrainedAnchorLookupTable = constrainedAnchorLookupTable;
+    otapkiref->_testConstrainedAnchorTable = testConstrainedAnchorTable;
 
     /* Initialize trust store asset version */
     otapkiref->_trustStoreAssetVersion = InitializeTrustStoreAssetVersion(otapkiref);
@@ -2252,6 +2416,32 @@ CFDictionaryRef SecOTAPKICopyEVPolicyToAnchorMapping(SecOTAPKIRef otapkiRef) {
     return CFRetainSafe(otapkiRef->_evPolicyToAnchorMapping);
 }
 
+CFDictionaryRef SecOTAPKICopyConstrainedAnchorLookupTable(SecOTAPKIRef otapkiRef) {
+    if (NULL == otapkiRef) {
+        return NULL;
+    }
+
+    return CFRetainSafe(otapkiRef->_constrainedAnchorLookupTable);
+}
+
+CFDataRef SecOTAPKICopyConstrainedAnchorData(SecOTAPKIRef otapkiRef, CFStringRef anchorHash) {
+    if (NULL == otapkiRef) {
+        return NULL;
+    }
+    if (otapkiRef->_testConstrainedAnchorTable && CFDictionaryContainsKey(otapkiRef->_testConstrainedAnchorTable, anchorHash)) {
+        return CFRetainSafe(CFDictionaryGetValue(otapkiRef->_testConstrainedAnchorTable, anchorHash));
+    }
+
+    // Retrieve from same container (asset or built-in) as the anchor lookup table.
+    // The anchor data is meant to be cached by the caller.
+    CFDataRef certData = NULL;
+    if (otapkiRef->_usingConstrainedAnchorsFromAsset) {
+        certData = SecAssetTrustStoreCopyResourceContents(otapkiRef, anchorHash, CFSTR("cer"), CFSTR("Anchors"));
+    } else {
+        certData = SecSystemTrustStoreCopyResourceContents(anchorHash, CFSTR("cer"), CFSTR("Anchors"));
+    }
+    return certData;
+}
 
 CFDictionaryRef SecOTAPKICopyAnchorLookupTable(SecOTAPKIRef otapkiRef) {
     if (NULL == otapkiRef) {
@@ -2661,9 +2851,13 @@ static CFURLRef SecAssetTrustStoreCopyResourceURL(SecOTAPKIRef otapkiref,
     if (!assetPath) {
         return result;
     }
-    NSString *pathString = [NSString stringWithFormat:@"%@/%@", (__bridge NSString*)assetPath, resourceName];
+    NSString *pathString = CFBridgingRelease(assetPath);
+    if (subDirName) {
+        pathString = [pathString stringByAppendingPathComponent:(__bridge NSString*)subDirName];
+    }
+    pathString = [pathString stringByAppendingPathComponent:(__bridge NSString*)resourceName];
     if (resourceType) {
-        pathString = [NSString stringWithFormat:@"%@.%@", pathString, (__bridge NSString*)resourceType];
+        pathString = [pathString stringByAppendingPathExtension:(__bridge NSString*)resourceType];
     }
     NSURL *fileURL = [NSURL fileURLWithPath:pathString isDirectory:NO];
     if (!fileURL) {
@@ -2672,7 +2866,6 @@ static CFURLRef SecAssetTrustStoreCopyResourceURL(SecOTAPKIRef otapkiref,
     } else {
         result = CFBridgingRetain(fileURL);
     }
-    CFReleaseNull(assetPath);
     return result;
 }
 

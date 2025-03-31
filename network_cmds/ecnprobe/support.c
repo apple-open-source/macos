@@ -94,59 +94,6 @@ void SendReset()
 
 }
 
-#if 0
-/* make a clean exit on interrupts */
-void  SigHandle (int signo)
-{
-  Cleanup () ; 
-  fflush(stdout); 
-  fflush(stderr); 
-  exit(-1);
-}
-
-
-void Cleanup()
-{
-
-  char ipfw_rule[100];
-  int r;
-
-  /* If a firewall rule has been installed then remove it */
-  if (session.initFirewall > 0) {
-    
-#ifdef linux
-#define IP_FW_DEL	(IP_FW_DELETE)
-#endif /* linux */
-
-    sprintf(ipfw_rule, "ipfw del 00%d", session.firewall_rule_number); 
-    r = system(ipfw_rule);
-
-  }
-
-  if (session.initSession > 0) {
-
-    SendReset();
-    shutdown(session.socket,2);
-
-  }
-
-  if (session.initCapture > 0) {
-    CaptureEnd();
-  }
-
-}
-
-void Quit(int how)
-{
-
-  Cleanup();
-  fflush(stdout);
-  fflush(stderr);
-  exit(how);
-
-}
-#endif /* 0 */
-
 double GetTime()
 {
   struct timeval tv;

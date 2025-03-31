@@ -81,6 +81,50 @@ hash_slow(const void *buf, size_t len,
 	MD4_Final(md, &ctx);
 }
 
+void
+hash_fmap_chunks(struct fmap *map, size_t mapsz, MD4_CTX *ctx)
+{
+	off_t offset;
+
+	offset = 0;
+	while (mapsz != 0) {
+		size_t cursz;
+		void *data;
+
+		cursz = MIN(HASH_LARGE_CHUNK_SIZE, mapsz);
+		data = fmap_data(map, offset, cursz);
+
+		MD4_Update(ctx, data, cursz);
+		offset += cursz;
+		mapsz -= cursz;
+	}
+}
+
+int
+hash_fmap(const char *path, struct fmap *map, size_t mapsz, unsigned char *md,
+    const struct sess *sess)
+{
+	MD4_CTX ctx;
+
+	MD4_Init(&ctx);
+	if (sess != NULL) {
+		int32_t seed = htole32(sess->seed);
+
+		MD4_Update(&ctx, &seed, sizeof(int32_t));
+	}
+
+	if (!fmap_trap(map)) {
+		ERRX("%s: file truncated while hashing", path);
+		return -1;
+	}
+
+	hash_fmap_chunks(map, mapsz, &ctx);
+	fmap_untrap(map);
+
+	MD4_Final(md, &ctx);
+	return 0;
+}
+
 /*
  * Hash an entire file.
  * This is similar to hash_slow() except the seed is hashed at the end
@@ -115,11 +159,16 @@ hash_file_by_path(int rootfd, const char *path, size_t len, unsigned char *md)
 	int fd, rc, save;
 	struct fmap *map;
 
+	if (len == 0) {
+		hash_file(NULL, len, md, NULL);
+		return 0;
+	}
+
 	fd = openat(rootfd, path, O_RDONLY | O_NOFOLLOW);
 	if (fd == -1)
 		return -1;
 
-	map = fmap_open(fd, len, PROT_READ);
+	map = fmap_open(path, fd, len);
 	if (map == NULL) {
 		save = errno;
 		close(fd);
@@ -127,17 +176,12 @@ hash_file_by_path(int rootfd, const char *path, size_t len, unsigned char *md)
 		return -1;
 	}
 
-	rc = 0;
-	if (!fmap_trap(map)) {
-		ERRX("%s: file truncated while hashing", path);
-		rc = -1;
-	} else {
-		hash_file(fmap_data(map, 0), len, md, NULL);
-		fmap_untrap(map);
-	}
+	rc = hash_fmap(path, map, len, md, NULL);
+	save = errno;
 
 	fmap_close(map);
 	close(fd);
 
-	return 0;
+	errno = save;
+	return rc;
 }

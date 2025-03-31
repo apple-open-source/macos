@@ -135,7 +135,7 @@ public:
     Value* addIntConstant(Origin, Type, int64_t value);
     Value* addIntConstant(Value*, int64_t value);
 
-    // bits is a bitwise_cast of the constant you want.
+    // bits is a std::bit_cast of the constant you want.
     JS_EXPORT_PRIVATE Value* addConstant(Origin, Type, uint64_t bits);
     JS_EXPORT_PRIVATE Value* addConstant(Origin, Type, v128_t bits);
 
@@ -316,7 +316,7 @@ private:
     std::unique_ptr<NaturalLoops> m_naturalLoops;
     std::unique_ptr<BackwardsCFG> m_backwardsCFG;
     std::unique_ptr<BackwardsDominators> m_backwardsDominators;
-    HashSet<ValueKey> m_fastConstants;
+    UncheckedKeyHashSet<ValueKey> m_fastConstants;
     const char* m_lastPhaseName;
     std::unique_ptr<OpaqueByproducts> m_byproducts;
     std::unique_ptr<Air::Code> m_code;

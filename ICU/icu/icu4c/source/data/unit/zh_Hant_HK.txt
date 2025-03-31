@@ -237,10 +237,6 @@ zh_Hant_HK{
             }
         }
         speed{
-            beaufort{
-                dnam{"蒲福氏風級"}
-                other{"蒲福氏風級 {0} 級"}
-            }
             kilometer-per-hour{
                 dnam{"公里每小時"}
             }
@@ -458,12 +454,14 @@ zh_Hant_HK{
         }
         speed{
             beaufort{
-                dnam{"蒲福氏風級"}
                 other{"蒲福氏風級 {0} 級"}
             }
             kilometer-per-hour{
                 dnam{"公里每小時"}
                 other{"{0}km/h"}
+            }
+            light-speed{
+                other{"{0}夜"}
             }
             meter-per-second{
                 other{"{0}m/s"}

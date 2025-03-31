@@ -27,7 +27,7 @@
 
 # sys/param.h
 #ifdef __APPLE__
-: ${MAXBSIZE:=$((265 * 4096))}
+: ${MAXBSIZE:=$((256 * 4096))}
 #else
 #: ${MAXBSIZE:=65536}
 #endif

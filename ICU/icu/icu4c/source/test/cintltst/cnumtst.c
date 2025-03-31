@@ -112,8 +112,10 @@ static void TestCurrencySymbol(void);   // rdar://79879611
 static void TestRgSubtag(void); // rdar://107276400
 static void TestThousandsSeparator(void); // rdar://108506710
 static void TestSigDigVsRounding(void); // rdar://112745117
-static void TestDefaultArabicNumberingSystem(void); // rdar://116185298
+static void TestDefaultNumberingSystem(void); // rdar://116185298, rdar://135129865, rdar://143383524, rdar://143383531
 static void TestMinGroupingDigits(void); // TEMPORARY!!!
+static void TestUrduPercentSign(void); // rdar://129319878
+static void TestIndianSecondaryGrouping(void); // rdar://144593924
 #endif  // APPLE_ICU_CHANGES
 
 #define TESTCASE(x) addTest(root, &x, "tsformat/cnumtst/" #x)
@@ -183,14 +185,16 @@ void addNumForTest(TestNode** root)
     TESTCASE(TestRgSubtag); // rdar://107276400
     TESTCASE(TestThousandsSeparator); // rdar://108506710
     TESTCASE(TestSigDigVsRounding); // rdar://112745117
-    TESTCASE(TestDefaultArabicNumberingSystem); // rdar://116185298
+    TESTCASE(TestDefaultNumberingSystem); // rdar://116185298, rdar://135129865, rdar://143383524, rdar://143383531
     TESTCASE(TestMinGroupingDigits); // TEMPORARY!!!
+    TESTCASE(TestUrduPercentSign); // rdar://129319878
+    TESTCASE(TestIndianSecondaryGrouping); // rdar://144593924
 #endif  // APPLE_ICU_CHANGES
 }
 
 /* test Parse int 64 */
 
-static void TestInt64Parse()
+static void TestInt64Parse(void)
 {
 
     UErrorCode st = U_ZERO_ERROR;
@@ -230,11 +234,10 @@ static void TestInt64Parse()
     }
 
     unum_close(nf);
-    return;
 }
 
 /* test Number Format API */
-static void TestNumberFormat()
+static void TestNumberFormat(void)
 {
     UChar *result=NULL;
     UChar temp1[512];
@@ -1156,7 +1159,7 @@ static const ParseCurrencyItem parseCurrencyItems[] = {
     { NULL,    NULL,       NULL,        NULL,           0,             0, 0.0, 0,             0, 0.0, NULL  }
 };
 
-static void TestParseCurrency()
+static void TestParseCurrency(void)
 {
     const ParseCurrencyItem * itemPtr;
     for (itemPtr = parseCurrencyItems; itemPtr->locale != NULL; ++itemPtr) {
@@ -1322,7 +1325,7 @@ static const SpelloutParseTest spelloutParseTests[] = {
 };
 #endif  // APPLE_ICU_CHANGES
 
-static void TestSpelloutNumberParse()
+static void TestSpelloutNumberParse(void)
 {
 #if APPLE_ICU_CHANGES
 // rdar://
@@ -1354,7 +1357,7 @@ static void TestSpelloutNumberParse()
     }
 }
 
-static void TestSignificantDigits()
+static void TestSignificantDigits(void)
 {
     UChar temp[128];
     int32_t resultlengthneeded;
@@ -1396,7 +1399,7 @@ static void TestSignificantDigits()
     unum_close(fmt);
 }
 
-static void TestSigDigRounding()
+static void TestSigDigRounding(void)
 {
     UErrorCode status = U_ZERO_ERROR;
     UChar expected[128];
@@ -1433,7 +1436,7 @@ static void TestSigDigRounding()
     unum_close(fmt);
 }
 
-static void TestNumberFormatPadding()
+static void TestNumberFormatPadding(void)
 {
     UChar *result=NULL;
     UChar temp1[512];
@@ -1556,7 +1559,7 @@ withinErr(double a, double b, double err) {
     return uprv_fabs(a - b) < uprv_fabs(a * err);
 }
 
-static void TestInt64Format() {
+static void TestInt64Format(void) {
     UChar temp1[512];
     UChar result[512];
     UNumberFormat *fmt;
@@ -1833,7 +1836,7 @@ static void test_fmt(UNumberFormat* fmt, UBool isDecimal) {
     }
 }
 
-static void TestNonExistentCurrency() {
+static void TestNonExistentCurrency(void) {
     UNumberFormat *format;
     UErrorCode status = U_ZERO_ERROR;
     UChar currencySymbol[8];
@@ -1857,7 +1860,7 @@ static void TestNonExistentCurrency() {
     unum_close(format);
 }
 
-static void TestRBNFFormat() {
+static void TestRBNFFormat(void) {
     UErrorCode status;
     UParseError perr;
     UChar pat[1024];
@@ -1967,7 +1970,7 @@ static void TestRBNFFormat() {
     }
 }
 
-static void TestRBNFRounding() {
+static void TestRBNFRounding(void) {
     UChar fmtbuf[FORMAT_BUF_CAPACITY];
     UChar expectedBuf[FORMAT_BUF_CAPACITY];
     int32_t len;
@@ -3425,7 +3428,7 @@ static void TestVariousStylesAndAttributes(void) {
 static const UChar currpat[]  = { 0xA4,0x23,0x2C,0x23,0x23,0x30,0x2E,0x30,0x30,0}; /* ¤#,##0.00 */
 static const UChar parsetxt[] = { 0x78,0x30,0x79,0x24,0 }; /* x0y$ */
 
-static void TestParseCurrPatternWithDecStyle() {
+static void TestParseCurrPatternWithDecStyle(void) {
     UErrorCode status = U_ZERO_ERROR;
     UNumberFormat *unumfmt = unum_open(UNUM_DECIMAL, NULL, 0, "en_US", NULL, &status);
     if (U_FAILURE(status)) {
@@ -3562,7 +3565,7 @@ static void TestFormatForFields(void) {
     }
 }
 
-static void Test12052_NullPointer() {
+static void Test12052_NullPointer(void) {
     UErrorCode status = U_ZERO_ERROR;
     static const UChar input[] = u"199a";
     UChar currency[200] = {0};
@@ -5480,13 +5483,21 @@ static void TestSigDigVsRounding(void) {
     unum_close(nf);
 }
 
-// rdar://116185298
-static void TestDefaultArabicNumberingSystem(void) {
+// rdar://116185298, rdar://135129865, rdar://143383524, rdar://143383531
+static void TestDefaultNumberingSystem(void) {
     const UChar* testCases[] = {
+        // tests for rdar://116185298
         u"ar",    u"1,234.56",
         u"ar_SA", u"١٬٢٣٤٫٥٦",
         u"ar_AE", u"1,234.56",
         u"ar_GB", u"1,234.56",
+        // tests for rdar://135129865
+        u"ur",    u"1,234.56", // "control" (correct in CLDR)
+        u"ur_IN", u"1,234.56", // Apple override (CLDR has ۱٬۲۳۴٫۵۶)
+        // test for rdar://143383524
+        u"bn",    u"1,234.56",
+        // test for rdar://143383531
+        u"mr",    u"1,234.56",
     };
     
     for (int32_t i = 0; i < UPRV_LENGTHOF(testCases); i += 2) {
@@ -5534,6 +5545,89 @@ static void TestMinGroupingDigits(void) {
     assertUEquals("min grouping UNUM_MINIMUM_GROUPING_DIGITS_AUTO", u"12.345", result);
 
     unum_close(numFmt);
+}
+
+// rdar://129319878
+void TestUrduPercentSign(void) {
+    UChar expected[64];
+    UChar result[64];
+    UErrorCode status = U_ZERO_ERROR;
+    double fraction = 0.42;
+    int32_t length;
+    UNumberFormat* fmt;
+
+    fmt = unum_open(UNUM_PERCENT, NULL, 0, "ur-u-nu-arabext", NULL, &status);
+    if (U_FAILURE(status)) {
+        log_err("unum_open failed with: %s\n", u_errorName(status));
+        return;
+    }
+    length = unum_formatDouble(fmt, fraction, result, 64, NULL, &status);
+    if (U_FAILURE(status)) {
+        log_err("unum_formatDouble failed with: %s\n", u_errorName(status));
+        unum_close(fmt);
+        return;
+    }
+    u_uastrcpy(expected, "\u06F4\u06F2\u066A"); // ۴۲٪
+    if (u_strcmp(result, expected) != 0) {
+        log_err("FAIL: Error in number formatting using unum_formatDouble() - got '%s' expected '%s'\n",
+                aescstrdup(result, -1), aescstrdup(expected, -1));
+    }
+    unum_close(fmt);
+}
+
+// rdar://144593924
+static void TestIndianSecondaryGrouping(void) {
+    const UChar* testCases[] = {
+        u"en_IN",                 u"1,23,456.78", u"₹1,23,456.78", // also see rdar://144815432
+        u"bn_IN",                 u"1,23,456.78", u"₹1,23,456.78",
+        u"bn_IN@numbers=beng",    u"১,২৩,৪৫৬.৭৮", u"₹১,২৩,৪৫৬.৭৮",
+        u"gu_IN",                 u"1,23,456.78", u"₹1,23,456.78",
+        u"gu_IN@numbers=gujr",    u"૧,૨૩,૪૫૬.૭૮", u"₹૧,૨૩,૪૫૬.૭૮",
+        u"hi_IN",                 u"1,23,456.78", u"₹1,23,456.78",
+        u"hi_IN@numbers=deva",    u"१,२३,४५६.७८",  u"₹१,२३,४५६.७८",
+        u"kn_IN",                 u"1,23,456.78",  u"₹1,23,456.78",
+        u"kn_IN@numbers=knda",    u"೧,೨೩,೪೫೬.೭೮",  u"₹೧,೨೩,೪೫೬.೭೮",
+        u"ml_IN",                 u"1,23,456.78", u"₹1,23,456.78",
+        u"ml_IN@numbers=mlym",    u"൧,൨൩,൪൫൬.൭൮", u"₹൧,൨൩,൪൫൬.൭൮",
+        u"mr_IN",                 u"1,23,456.78", u"₹1,23,456.78",
+        u"mr_IN@numbers=deva",    u"१,२३,४५६.७८", u"₹१,२३,४५६.७८",
+        u"or_IN",                 u"1,23,456.78", u"₹1,23,456.78",
+        u"or_IN@numbers=orya",    u"୧,୨୩,୪୫୬.୭୮", u"₹୧,୨୩,୪୫୬.୭୮",
+        u"pa_IN",                 u"1,23,456.78", u"₹1,23,456.78",
+        u"pa_IN@numbers=guru",    u"੧,੨੩,੪੫੬.੭੮", u"₹੧,੨੩,੪੫੬.੭੮",
+        u"ta_IN",                 u"1,23,456.78", u"₹1,23,456.78",
+        u"te_IN",                 u"1,23,456.78", u"₹1,23,456.78",
+        u"te_IN@numbers=telu",    u"౧,౨౩,౪౫౬.౭౮", u"₹౧,౨౩,౪౫౬.౭౮",
+        u"ur_IN",                 u"1,23,456.78",  u"₹1,23,456.78",
+        u"ur_IN@numbers=arabext", u"۱٬۲۳٬۴۵۶٫۷۸",  u"₹ ۱٬۲۳٬۴۵۶٫۷۸",
+    };
+    
+    for (int32_t i = 0; i < UPRV_LENGTHOF(testCases); i += 3) {
+        const char* locale = austrdup(testCases[i]);
+        const UChar* expectedDecimalResult = testCases[i + 1];
+        const UChar* expectedCurrencyResult = testCases[i + 2];
+        
+        char errorMessage[100];
+        
+        UErrorCode err = U_ZERO_ERROR;
+        UChar decResult[50];
+        UNumberFormat* decF = unum_open(UNUM_DECIMAL, NULL, 0, locale, NULL, &err);
+        unum_formatDouble(decF, 123456.78, decResult, 50, NULL, &err);
+        if (assertSuccess("Error in formatting", &err)) {
+            snprintf(errorMessage, 100, "Wrong decimal formatting result for %s", locale);
+            assertUEquals(errorMessage, expectedDecimalResult, decResult);
+        }
+        unum_close(decF);
+
+        UChar currResult[50];
+        UNumberFormat* currF = unum_open(UNUM_CURRENCY, NULL, 0, locale, NULL, &err);
+        unum_formatDouble(currF, 123456.78, currResult, 50, NULL, &err);
+        if (assertSuccess("Error in formatting", &err)) {
+            snprintf(errorMessage, 100, "Wrong currency formatting result for %s", locale);
+            assertUEquals(errorMessage, expectedCurrencyResult, currResult);
+        }
+        unum_close(currF);
+    }
 }
 
 

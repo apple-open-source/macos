@@ -1312,10 +1312,10 @@ sustained_pressure_handler(void* arg0 __unused, void* arg1 __unused)
 	 * If the pressure hasn't been relieved by then, the problem is memory
 	 * consumption in a higher band and this churn is probably doing more harm than good.
 	 */
-	max_kills = memorystatus_get_proccnt_upto_priority(memorystatus_sustained_pressure_maximum_band) * 2;
+	max_kills = memstat_get_proccnt_upto_priority(memorystatus_sustained_pressure_maximum_band) * 2;
 	memorystatus_log("memorystatus: Pressure level has been elevated for too long. killing up to %d idle processes\n", max_kills);
 	while (memorystatus_vm_pressure_level != kVMPressureNormal && kill_count < max_kills) {
-		boolean_t killed = memorystatus_kill_on_sustained_pressure();
+		bool killed = memorystatus_kill_on_sustained_pressure();
 		if (killed) {
 			/*
 			 * Pause before our next kill & see if pressure reduces.
@@ -1421,9 +1421,14 @@ memorystatus_update_vm_pressure(boolean_t target_foreground_process)
 	 * by immediately killing idle exitable processes. We use a delay
 	 * to avoid overkill.  And we impose a max counter as a fail safe
 	 * in case daemons re-launch too fast.
+	 *
+	 * TODO: These jetsams should be performed on the memorystatus thread. We can
+	 * provide the similar false-idle mitigation by skipping processes with med/high
+	 * relaunch probability and/or using the sustained-pressure mechanism.
+	 * (rdar://134075608)
 	 */
 	while ((memorystatus_vm_pressure_level != kVMPressureNormal) && (idle_kill_counter < MAX_IDLE_KILLS)) {
-		if (memorystatus_idle_exit_from_VM() == FALSE) {
+		if (!memstat_kill_idle_process(kMemorystatusKilledIdleExit, NULL)) {
 			/* No idle exitable processes left to kill */
 			break;
 		}

@@ -31,6 +31,8 @@
 // renaming of more LibWebRTC-prefixed files in WebKit.
 // https://bugs.webkit.org/show_bug.cgi?id=243774
 
+#include <wtf/Compiler.h>
+
 #if USE(LIBWEBRTC)
 
 #include <wtf/TZoneMalloc.h>

@@ -317,6 +317,12 @@ et{
                 one{"{0} nanosekund"}
                 other{"{0} nanosekundit"}
             }
+            night{
+                dnam{"ööd"}
+                one{"{0} öö"}
+                other{"{0} ööd"}
+                per{"{0} öö kohta"}
+            }
             quarter{
                 dnam{"kvartalid"}
                 one{"{0} kvartal"}
@@ -1025,6 +1031,12 @@ et{
                 one{"{0} k"}
                 other{"{0} k"}
             }
+            night{
+                dnam{"ööd"}
+                one{"{0} öö"}
+                other{"{0} ööd"}
+                per{"{0}/öö"}
+            }
             second{
                 dnam{"s"}
                 one{"{0} s"}
@@ -1265,6 +1277,12 @@ et{
                 one{"{0} kuu"}
                 other{"{0} kuud"}
                 per{"{0}/k"}
+            }
+            night{
+                dnam{"ööd"}
+                one{"{0} öö"}
+                other{"{0} ööd"}
+                per{"{0}/öö"}
             }
             quarter{
                 dnam{"kv"}

@@ -1,7 +1,26 @@
+/*-
+ * SPDX-License-Identifier: (ISC AND BSD-3-Clause)
+ *
+ * Portions Copyright (C) 2004, 2005, 2008  Internet Systems Consortium, Inc. ("ISC")
+ * Portions Copyright (C) 1996-2001, 2003  Internet Software Consortium.
+ *
+ * Permission to use, copy, modify, and/or distribute this software for any
+ * purpose with or without fee is hereby granted, provided that the above
+ * copyright notice and this permission notice appear in all copies.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS" AND ISC DISCLAIMS ALL WARRANTIES WITH
+ * REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY
+ * AND FITNESS.  IN NO EVENT SHALL ISC BE LIABLE FOR ANY SPECIAL, DIRECT,
+ * INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM
+ * LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE
+ * OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
+ * PERFORMANCE OF THIS SOFTWARE.
+ */
+
 /*
  * Copyright (c) 1988, 1993
  *    The Regents of the University of California.  All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
  * are met:
@@ -10,14 +29,10 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- * 	This product includes software developed by the University of
- * 	California, Berkeley and its contributors.
- * 4. Neither the name of the University nor the names of its contributors
+ * 3. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE REGENTS AND CONTRIBUTORS ``AS IS'' AND
  * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -33,14 +48,14 @@
 
 /*
  * Portions Copyright (c) 1993 by Digital Equipment Corporation.
- * 
+ *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
  * copyright notice and this permission notice appear in all copies, and that
  * the name of Digital Equipment Corporation not be used in advertising or
  * publicity pertaining to distribution of the document or software without
  * specific, written prior permission.
- * 
+ *
  * THE SOFTWARE IS PROVIDED "AS IS" AND DIGITAL EQUIPMENT CORP. DISCLAIMS ALL
  * WARRANTIES WITH REGARD TO THIS SOFTWARE, INCLUDING ALL IMPLIED WARRANTIES
  * OF MERCHANTABILITY AND FITNESS.   IN NO EVENT SHALL DIGITAL EQUIPMENT
@@ -51,36 +66,31 @@
  * SOFTWARE.
  */
 
-/*
- * Portions Copyright (c) 1996-1999 by Internet Software Consortium.
- *
- * Permission to use, copy, modify, and distribute this software for any
- * purpose with or without fee is hereby granted, provided that the above
- * copyright notice and this permission notice appear in all copies.
- *
- * THE SOFTWARE IS PROVIDED "AS IS" AND INTERNET SOFTWARE CONSORTIUM DISCLAIMS
- * ALL WARRANTIES WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES
- * OF MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL INTERNET SOFTWARE
- * CONSORTIUM BE LIABLE FOR ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL
- * DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR
- * PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS
- * ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS
- * SOFTWARE.
- */
-
 #if defined(LIBC_SCCS) && !defined(lint)
 static const char sccsid[] = "@(#)res_query.c	8.1 (Berkeley) 6/4/93";
-static const char rcsid[] = "$Id: res_query.c,v 1.1 2006/03/01 19:01:38 majka Exp $";
+static const char rcsid[] = "$Id: res_query.c,v 1.11 2008/11/14 02:36:51 marka Exp $";
 #endif /* LIBC_SCCS and not lint */
+#include <sys/cdefs.h>
+__FBSDID("$FreeBSD$");
 
-#ifndef __APPLE__
 #include "port_before.h"
-#endif
-#include <sys/types.h>
 #include <sys/param.h>
+#ifdef __APPLE__
+#include <sys/types.h>
+#include <sys/event.h>
+#include <sys/time.h>
+#include <dns_sd.h>
+#include <notify.h>
+#include <notify_private.h>
+#include <pthread.h>
+#include "res_private.h"
+#endif /* __APPLE__ */
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <arpa/nameser.h>
+#ifdef __APPLE__
+#include <arpa/nameser_compat.h>
+#endif
 #include <ctype.h>
 #include <errno.h>
 #include <netdb.h>
@@ -88,24 +98,10 @@ static const char rcsid[] = "$Id: res_query.c,v 1.1 2006/03/01 19:01:38 majka Ex
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "res_private.h"
-#include <dns_sd.h>
-#include <sys/event.h>
-#include <sys/time.h>
-#include <time.h>
 #include <unistd.h>
-#include <notify.h>
-#include <pthread.h>
-#ifndef __APPLE__
 #include "port_after.h"
-#endif
 
-/* interrupt mechanism is implemented in res_send.c */
-extern int interrupt_pipe_enabled;
-extern pthread_key_t interrupt_pipe_key;
-
-/* Options.  Leave them on. */
-#define DEBUG
+#include "res_debug.h"
 
 #if PACKETSZ > 1024
 #define MAXPACKET	PACKETSZ
@@ -113,9 +109,17 @@ extern pthread_key_t interrupt_pipe_key;
 #define MAXPACKET	1024
 #endif
 
+#ifdef __APPLE__
+/* The interrupt mechanism is implemented in res_send.c */
+extern int interrupt_pipe_enabled;
+extern pthread_key_t interrupt_pipe_key;
+
 #define BILLION 1000000000
 
-/* length of a reverse DNS IPv6 address query name, e.g. "9.4.a.f.c.e.e.f.e.e.1.5.4.1.4.0.0.0.0.0.0.0.0.0.0.0.0.0.0.8.e.f.ip6.arpa" */
+/* 
+ * Length of a reverse DNS IPv6 address query name, e.g.
+ * "9.4.a.f.c.e.e.f.e.e.1.5.4.1.4.0.0.0.0.0.0.0.0.0.0.0.0.0.0.8.e.f.ip6.arpa" 
+ */
 #define IPv6_REVERSE_LEN 72
 
 /* index of the trailing char that must be "8", "9", "A", "a", "b", or "B" */
@@ -149,7 +153,10 @@ struct res_query_context
 };
 
 static void
-res_query_callback(DNSServiceRef sdRef, DNSServiceFlags flags, uint32_t ifIndex, DNSServiceErrorType errorCode, const char *fullname, uint16_t rrtype, uint16_t rrclass, uint16_t rdlen, const void *rdata, uint32_t ttl, void *ctx)
+res_query_callback(DNSServiceRef sdRef, DNSServiceFlags flags, uint32_t ifIndex,
+	DNSServiceErrorType errorCode, const char *fullname, uint16_t rrtype,
+	uint16_t rrclass, uint16_t rdlen, const void *rdata, uint32_t ttl,
+	void *ctx)
 {
 	struct res_query_context *context;
 	int n;
@@ -165,14 +172,18 @@ res_query_callback(DNSServiceRef sdRef, DNSServiceFlags flags, uint32_t ifIndex,
 
 	if (errorCode != kDNSServiceErr_NoError)
 	{
-		if (context->res_flags & RES_DEBUG) printf(";; res_query_mDNSResponder callback [%s %hu %hu]: error %u\n", fullname, rrtype, rrclass, errorCode);
+		DprintC(context->res_flags & RES_DEBUG,
+			";; res_query_mDNSResponder callback [%s %hu %hu]: error %u",
+			fullname, rrtype, rrclass, errorCode);
 		return;
 	}
 
 	buflen = context->ansmaxlen - context->anslen;
 	if (buflen < NS_HFIXEDSZ)
 	{
-		if (context->res_flags & RES_DEBUG) printf(";; res_query_mDNSResponder callback [%s %hu %hu]: malformed reply\n", fullname, rrtype, rrclass);
+		DprintC(context->res_flags & RES_DEBUG,
+			";; res_query_mDNSResponder callback [%s %hu %hu]: malformed reply",
+			fullname, rrtype, rrclass);
 		return;
 	}
 
@@ -181,10 +192,12 @@ res_query_callback(DNSServiceRef sdRef, DNSServiceFlags flags, uint32_t ifIndex,
 
 	cp = context->answer + context->anslen;
 
-	n = dn_comp((char *)fullname, cp, buflen, dnlist, &dnlist[1]);
+	n = dn_comp((char *)fullname, cp, (int)buflen, dnlist, &dnlist[1]);
 	if (n < 0)
 	{
-		if (context->res_flags & RES_DEBUG) printf(";; res_query_mDNSResponder callback [%s %hu %hu]: name mismatch\n", fullname, rrtype, rrclass);
+		DprintC(context->res_flags & RES_DEBUG,
+			";; res_query_mDNSResponder callback [%s %hu %hu]: name mismatch",
+			fullname, rrtype, rrclass);
 		return;
 	}
 
@@ -194,11 +207,15 @@ res_query_callback(DNSServiceRef sdRef, DNSServiceFlags flags, uint32_t ifIndex,
 	 */
 	if (buflen < n + rdlen + 10)
 	{
-		if (context->res_flags & RES_DEBUG) printf(";; res_query_mDNSResponder callback [%s %hu %hu]: insufficient buffer space for reply\n", fullname, rrtype, rrclass);
+		DprintC(context->res_flags & RES_DEBUG,
+			";; res_query_mDNSResponder callback [%s %hu %hu]: insufficient buffer space for reply",
+			fullname, rrtype, rrclass);
 		return;
 	}
 	
-	if (context->res_flags & RES_DEBUG) printf(";; res_query_mDNSResponder callback for %s %hu %hu\n", fullname, rrtype, rrclass);
+	DprintC(context->res_flags & RES_DEBUG,
+		";; res_query_mDNSResponder callback for %s %hu %hu",
+		fullname, rrtype, rrclass);
 
 	cp += n;
 	buflen -= n;
@@ -233,13 +250,17 @@ res_query_callback(DNSServiceRef sdRef, DNSServiceFlags flags, uint32_t ifIndex,
 	{
 		memset(&a6, 0, sizeof(struct in6_addr));
 		memcpy(&a6, rdata, sizeof(struct in6_addr));
-		if (IN6_IS_ADDR_LINKLOCAL(&a6)) context->ifnum = ifIndex;
+		if (IN6_IS_ADDR_LINKLOCAL(&a6))
+			context->ifnum = ifIndex;
 	}
 }
 
 static void
 h_errno_for_dnssd_err(DNSServiceErrorType dnssd_err, int *h_errno_err)
 {
+	if (h_errno_err == NULL)
+		return;
+
 	switch (dnssd_err)
 	{
 		case kDNSServiceErr_NoError:
@@ -264,20 +285,26 @@ h_errno_for_dnssd_err(DNSServiceErrorType dnssd_err, int *h_errno_err)
 static int
 _is_rev_link_local(const char *name)
 {
-	int len, i;
+	size_t len;
+	int i;
 
 	if (name == NULL) return 0;
 
 	len = strlen(name);
-	if (len == 0) return 0;
+	/* name must be at least IPv6_REVERSE_LEN bytes long and may have a
+	 * trailing '.', which will be removed in the next step. */
+	if (len == 0 || len != IPv6_REVERSE_LEN ||
+	    len != IPv6_REVERSE_LEN+1)
+		return 0;
 
 	/* check for trailing '.' */
-	if (name[len - 1] == '.') len--;
-
-	if (len != IPv6_REVERSE_LEN) return 0;
+	if (name[len - 1] == '.')
+		len--;
 
 	i = IPv6_REVERSE_LINK_LOCAL_TRAILING_CHAR;
-	if ((name[i] != '8') && (name[i] != '9') && (name[i] != 'A') && (name[i] != 'a') && (name[i] != 'B') && (name[i] != 'b')) return 0;
+	if ((name[i] != '8') && (name[i] != '9') && (name[i] != 'A') &&
+		(name[i] != 'a') && (name[i] != 'B') && (name[i] != 'b'))
+		return 0;
 
 	i = IPv6_REVERSE_LINK_LOCAL_TRAILING_CHAR + 1;
 	if (strncasecmp(name + i, ".e.f.ip6.arpa", 13)) return 0;
@@ -294,8 +321,10 @@ _is_rev_link_local(const char *name)
 	return 1;
 }
 
+__attribute__((__visibility__("hidden")))
 int
-res_query_mDNSResponder(res_state statp, const char *name, int class, int type, u_char *answer, int anslen, struct sockaddr *from, uint32_t *fromlen)
+res_query_mDNSResponder(res_state statp, const char *name, int class, int type,
+	u_char *answer, int anslen, struct sockaddr *from, uint32_t *fromlen)
 {
 	DNSServiceRef sdRef;
 	DNSServiceErrorType result;
@@ -309,7 +338,6 @@ res_query_mDNSResponder(res_state statp, const char *name, int class, int type, 
 	uint16_t nibble;
 	char *qname, *notify_name;
 	int *interrupt_pipe;
-	uint64_t exit_requested;
 
 	interrupt_pipe = NULL;
 	result = 0;
@@ -321,18 +349,26 @@ res_query_mDNSResponder(res_state statp, const char *name, int class, int type, 
 	memset(&context, 0, sizeof(struct res_query_context));
 
 	/* Build a dummy DNS header with question for the answer */
-	context.res_flags = statp->options;
+	context.res_flags = (uint32_t)statp->options;
 	context.answer = answer;
 	context.ansmaxlen = anslen;
-	context.anslen = res_nmkquery(statp, ns_o_query, name, class, type, NULL, 0, NULL, answer, anslen);
-	if (context.anslen <= 0) return 0;
+	context.anslen = res_nmkquery(statp, ns_o_query, name, class, type,
+		NULL, 0, NULL, answer, anslen);
+	if (context.anslen <= 0)
+		return 0;
 
 	/* Mark DNS packet as a response */
 	ans->qr = 1;
 	ans->qr = htons(ans->qr);
 
 	/* Pull out Scope ID in link-local reverse queries */
-	qname = (char *)name;
+	qname = strdup(name);
+	if (qname == NULL)
+	{
+		h_errno = NO_RECOVERY;
+		errno = ENOMEM;
+		return -1;
+	}
 	iface = 0;
 	if (_is_rev_link_local(name))
 	{
@@ -355,14 +391,6 @@ res_query_mDNSResponder(res_state statp, const char *name, int class, int type, 
 
 		if (iface != 0)
 		{
-			qname = strdup(name);
-			if (qname == NULL)
-			{
-				h_errno = NO_RECOVERY;
-				errno = ENOMEM;
-				return -1;
-			}
-
 			i = IPv6_REVERSE_LINK_LOCAL_SCOPE_ID_LOW;
 			qname[i] = '0';
 			qname[i + 2] = '0';
@@ -371,15 +399,18 @@ res_query_mDNSResponder(res_state statp, const char *name, int class, int type, 
 		}
 	}
 
-	if (statp->options & RES_DEBUG) printf(";; res_query_mDNSResponder\n");
+	Dprint(";; res_query_mDNSResponder");
 
-	result = DNSServiceQueryRecord(&sdRef, kDNSServiceFlagsReturnIntermediates, iface, qname, type, class, res_query_callback, &context);
-	if (iface != 0) free(qname);
+	result = DNSServiceQueryRecord(&sdRef, kDNSServiceFlagsReturnIntermediates,
+			iface, qname, type, class, res_query_callback, &context);
+	free(qname);
 
 	if (result != 0) return 0;
 
 	/* Use a kqueue to wait for a response from mDNSResponder */
 	kq = kqueue();
+	if (kq == -1)
+		return 0;
 
 	/* determine the maximum time to wait for a result */
 	gettimeofday(&ctv, NULL);
@@ -394,7 +425,10 @@ res_query_mDNSResponder(res_state statp, const char *name, int class, int type, 
 	/* add mdns reply FD to kqueue */
 	EV_SET(&mevent, DNSServiceRefSockFD(sdRef), EVFILT_READ, EV_ADD, 0, 0, 0);
 	n = kevent(kq, &mevent, 1, NULL, 0, NULL);
-	if (n != 0) return 0;
+	if (n != 0) {
+		close(kq);
+		return 0;
+	}
 
 	/* add interrupt pipe to kqueue if interrupt is enabled */
 	if (interrupt_pipe_enabled != 0)
@@ -404,8 +438,12 @@ res_query_mDNSResponder(res_state statp, const char *name, int class, int type, 
 		{
 			if (interrupt_pipe[0] >= 0)
 			{
-				EV_SET(&ievent, interrupt_pipe[0], EVFILT_READ, EV_ADD, 0, 0, (void *)name);
-				/* allow this to fail silently (should never happen, but it would only break interrupts */
+				EV_SET(&ievent, interrupt_pipe[0], EVFILT_READ,
+					EV_ADD, 0, 0, (void *)name);
+				/*
+				 * XXX: Allow this to fail silently (should never
+				 * happen, but it would only break interrupts.
+				 */
 				n = kevent(kq, &ievent, 1, NULL, 0, NULL);
 			}
 		}
@@ -432,17 +470,10 @@ res_query_mDNSResponder(res_state statp, const char *name, int class, int type, 
 		memset(&event, 0, sizeof(struct kevent));
 		n = kevent(kq, NULL, 0, &event, 1, &timeout);
 
-		if (notify_token != -1)
+		if (res_check_if_exit_requested(statp, notify_token))
 		{
-			exit_requested = 0;
-			status = notify_get_state(notify_token, &exit_requested);
-			if (exit_requested == ThreadStateExitRequested)
-			{
-				/* interrupted */
-				if (statp->options & RES_DEBUG) printf(";; cancelled\n");
-				cancelled = 1;
-				break;
-			}
+			cancelled = 1;
+			break;
 		}
 
 		if (n < 0)
@@ -459,7 +490,7 @@ res_query_mDNSResponder(res_state statp, const char *name, int class, int type, 
 		else if (event.udata == (void *)name)
 		{
 			/* interrupted */
-			if (statp->options & RES_DEBUG) printf(";; cancelled\n");
+			Dprint(";; cancelled");
 			cancelled = 1;
 			break;
 		}
@@ -468,12 +499,17 @@ res_query_mDNSResponder(res_state statp, const char *name, int class, int type, 
 			result = DNSServiceProcessResult(sdRef);
 			if ((result != 0) || (context.error != 0))
 			{
-				if (result == 0) result = context.error;
+				if (result == 0)
+					result = context.error;
 				h_errno_for_dnssd_err(result, &h_errno);
 				wait = 0;
 			}
 
-			if ((ans->ancount > 0) && ((context.flags & kDNSServiceFlagsMoreComing) == 0) && ((context.lastanstype != ns_t_cname) || (type == ns_t_cname))) wait = 0;
+			if ((ans->ancount > 0) &&
+					((context.flags & kDNSServiceFlagsMoreComing) == 0) &&
+					((context.lastanstype != ns_t_cname) ||
+					(type == ns_t_cname)))
+				wait = 0;
 		}
 
 	keep_waiting:
@@ -499,11 +535,15 @@ res_query_mDNSResponder(res_state statp, const char *name, int class, int type, 
 		}
 	}
 
-	if (notify_token != -1) notify_cancel(notify_token);
+	if (notify_token != -1)
+		notify_cancel(notify_token);
 	DNSServiceRefDeallocate(sdRef);
 	close(kq);
 
-	if ((ans->ancount == 0) || (cancelled == 1)) context.anslen = -1;
+	if ((ans->ancount == 0) || (cancelled == 1)) {
+		errno = (cancelled == 1) ? EINTR : EAGAIN;
+		context.anslen = -1;
+	}
 
 	if ((from != NULL) && (fromlen != NULL) && (context.ifnum != 0))
 	{
@@ -514,7 +554,7 @@ res_query_mDNSResponder(res_state statp, const char *name, int class, int type, 
 		*fromlen = sizeof(struct sockaddr_in6);
 	}
 
-	return context.anslen;
+	return (int)context.anslen;
 }
 
 static int
@@ -585,7 +625,8 @@ res_soa_minimum(const u_char *msg, int len)
  * Caller must parse answer and determine whether it answers the question.
  */
 __attribute__((__visibility__("hidden"))) int
-res_nquery_soa_min(res_state statp, const char *name, int class, int type, u_char *answer, int anslen, struct sockaddr *from, int *fromlen, int *min)
+res_nquery_soa_min(res_state statp, const char *name, int class, int type,
+	u_char *answer, int anslen, struct sockaddr *from, int *fromlen,int *min)
 {
 	u_char buf[MAXPACKET];
 	HEADER *hp = (HEADER *) answer;
@@ -600,20 +641,18 @@ again:
 	__h_errno_set(statp, 0);
 	hp->rcode = ns_r_noerror;	/* default */
 
-#ifdef DEBUG
-	if (statp->options & RES_DEBUG) printf(";; res_query(%s, %d, %d)\n", name, class, type);
-#endif
+	Dprint(";; res_query(%s, %d, %d)", name, class, type);
 
-	n = res_nmkquery(statp, ns_o_query, name, class, type, NULL, 0, NULL, buf, sizeof(buf));
+	n = res_nmkquery(statp, ns_o_query, name, class, type, NULL, 0, NULL,
+		buf, sizeof(buf));
 #ifdef RES_USE_EDNS0
-	if (n > 0 && (statp->_flags & RES_F_EDNS0ERR) == 0 && (statp->options & (RES_USE_EDNS0|RES_USE_DNSSEC)) != 0)
+	if (n > 0 && (statp->_flags & RES_F_EDNS0ERR) == 0 &&
+			(statp->options & (RES_USE_EDNS0|RES_USE_DNSSEC)) != 0)
 		n = res_nopt(statp, n, buf, sizeof(buf), anslen);
 #endif
-	if (n <= 0)
+	if (n < 0)
 	{
-#ifdef DEBUG
-		if (statp->options & RES_DEBUG) printf(";; res_query: mkquery failed\n");
-#endif
+		Dprint(";; res_query: mkquery failed");
 		__h_errno_set(statp, NO_RECOVERY);
 		return (n);
 	}
@@ -623,16 +662,15 @@ again:
 	{
 #ifdef RES_USE_EDNS0
 		/* if the query choked with EDNS0, retry without EDNS0 */
-		if ((statp->options & (RES_USE_EDNS0|RES_USE_DNSSEC)) != 0 && ((oflags ^ statp->_flags) & RES_F_EDNS0ERR) != 0)
+		if ((statp->options & (RES_USE_EDNS0|RES_USE_DNSSEC)) != 0 &&
+				((oflags ^ statp->_flags) & RES_F_EDNS0ERR) != 0)
 		{
 			statp->_flags |= RES_F_EDNS0ERR;
-			if (statp->options & RES_DEBUG) printf(";; res_nquery: retry without EDNS0\n");
+			Dprint(";; res_nquery: retry without EDNS0");
 			goto again;
 		}
 #endif
-#ifdef DEBUG
-		if (statp->options & RES_DEBUG) printf(";; res_query: send error\n");
-#endif
+		Dprint(";; res_query: send error");
 		__h_errno_set(statp, TRY_AGAIN);
 		return (n);
 	}
@@ -642,15 +680,14 @@ again:
 		if (min != NULL)
 		{
 			*min = res_soa_minimum(answer, anslen);
-			if (statp->options & RES_DEBUG) printf(";; res_nquery: SOA minimum TTL = %d\n", *min);
+			Dprint(";; res_nquery: SOA minimum TTL = %d", *min);
 		}
 	}
 
 	if (hp->rcode != ns_r_noerror || ntohs(hp->ancount) == 0)
 	{
-#ifdef DEBUG
-		if (statp->options & RES_DEBUG) printf(";; rcode = %d, ancount=%d\n", hp->rcode, ntohs(hp->ancount));
-#endif
+		Dprint(";; rcode = %d, ancount=%d", hp->rcode,
+		       ntohs(hp->ancount));
 		switch (hp->rcode)
 		{
 			case ns_r_nxdomain:
@@ -678,22 +715,11 @@ again:
 
 __attribute__((__visibility__("hidden")))
 int
-res_nquery_2(res_state statp, const char *name, int class, int type, u_char *answer, int anslen, struct sockaddr *from, int *fromlen)
+res_nquery_2(res_state statp, const char *name, int class, int type,
+	u_char *answer, int anslen, struct sockaddr *from, int *fromlen)
 {
-	int unused = 0;
-
-	return res_nquery_soa_min(statp, name, class, type, answer, anslen, from, fromlen, &unused);
-}
-
-int
-res_nquery(res_state statp, const char *name, int class, int type, u_char *answer, int anslen)
-{
-	struct sockaddr_storage f;
-	int l;
-
-	l = sizeof(struct sockaddr_storage);
-
-	return res_nquery_2(statp, name, class, type, answer, anslen, (struct sockaddr *)&f, &l);
+	return res_nquery_soa_min(statp, name, class, type, answer, anslen,
+		from, fromlen, NULL);
 }
 
 /*
@@ -702,15 +728,16 @@ res_nquery(res_state statp, const char *name, int class, int type, u_char *answe
  */
 __attribute__((__visibility__("hidden")))
 int
-res_nquerydomain_2(res_state statp, const char *name, const char *domain, int class, int type, u_char *answer, int anslen, struct sockaddr *from, int *fromlen)
+res_nquerydomain_2(res_state statp, const char *name, const char *domain,
+	int class, int type, u_char *answer, int anslen, struct sockaddr *from,
+	int *fromlen)
 {
 	char nbuf[NS_MAXDNAME];
 	const char *longname = nbuf;
-	int n, d;
+	size_t n, d;
 
-#ifdef DEBUG
-	if (statp->options & RES_DEBUG) printf(";; res_nquerydomain(%s, %s, %d, %d)\n", name, domain?domain:"<Nil>", class, type);
-#endif
+	Dprint(";; res_nquerydomain(%s, %s, %d, %d)",
+	       name, domain?domain:"<Nil>", class, type);
 	if (domain == NULL)
 	{
 		/*
@@ -727,8 +754,7 @@ res_nquerydomain_2(res_state statp, const char *name, const char *domain, int cl
 		n--;
 		if (n >= 0 && name[n] == '.')
 		{
-			strncpy(nbuf, name, n);
-			nbuf[n] = '\0';
+			strlcpy(nbuf, name, n);
 		}
 		else
 		{
@@ -751,17 +777,6 @@ res_nquerydomain_2(res_state statp, const char *name, const char *domain, int cl
 	return (res_nquery_2(statp, longname, class, type, answer, anslen, from, fromlen));
 }
 
-int
-res_nquerydomain(res_state statp, const char *name, const char *domain, int class, int type, u_char *answer, int anslen)
-{
-	struct sockaddr_storage f;
-	int l;
-
-	l = sizeof(struct sockaddr_storage);
-
-	return res_nquerydomain_2(statp, name, domain, class, type, answer, anslen, (struct sockaddr *)&f, &l);
-}
-
 /*
  * Formulate a normal query, send, and retrieve answer in supplied buffer.
  * Return the size of the response on success, -1 on error.
@@ -770,7 +785,8 @@ res_nquerydomain(res_state statp, const char *name, const char *domain, int clas
  */
 __attribute__((__visibility__("hidden")))
 int
-res_nsearch_2(res_state statp, const char *name, int class, int type, u_char *answer, int anslen, struct sockaddr *from, int *fromlen)
+res_nsearch_2(res_state statp, const char *name, int class, int type,
+	u_char *answer, int anslen, struct sockaddr *from, int *fromlen)
 {
 	const char *cp, * const *domain;
 	HEADER *hp = (HEADER *) answer;
@@ -802,8 +818,10 @@ res_nsearch_2(res_state statp, const char *name, int class, int type, u_char *an
 	saved_herrno = -1;
 	if (dots >= statp->ndots || trailing_dot)
 	{
-		ret = res_nquerydomain_2(statp, name, NULL, class, type, answer, anslen, from, fromlen);
-		if (ret > 0 || trailing_dot) return (ret);
+		ret = res_nquerydomain_2(statp, name, NULL, class, type, answer,
+			anslen, from, fromlen);
+		if (ret > 0 || trailing_dot)
+			return (ret);
 		saved_herrno = h_errno;
 		tried_as_is++;
 	}
@@ -814,7 +832,8 @@ res_nsearch_2(res_state statp, const char *name, int class, int type, u_char *an
 	 *	- there is at least one dot, there is no trailing dot,
 	 *	  and RES_DNSRCH is set.
 	 */
-	if ((!dots && (statp->options & RES_DEFNAMES) != 0) || (dots && !trailing_dot && (statp->options & RES_DNSRCH) != 0))
+	if ((!dots && (statp->options & RES_DEFNAMES) != 0) ||
+		(dots && !trailing_dot && (statp->options & RES_DNSRCH) != 0))
 	{
 		int done = 0;
 
@@ -822,10 +841,14 @@ res_nsearch_2(res_state statp, const char *name, int class, int type, u_char *an
 		{
 			searched = 1;
 
-			if (domain[0][0] == '\0' || (domain[0][0] == '.' && domain[0][1] == '\0')) root_on_list++;
+			if (domain[0][0] == '\0' || (domain[0][0] == '.' &&
+					domain[0][1] == '\0'))
+				root_on_list++;
 
-			ret = res_nquerydomain_2(statp, name, *domain, class, type, answer, anslen, from, fromlen);
-			if (ret > 0) return (ret);
+			ret = res_nquerydomain_2(statp, name, *domain, class,
+				type, answer, anslen, from, fromlen);
+			if (ret > 0)
+				return (ret);
 
 			/*
 			 * If no server present, give up.
@@ -864,13 +887,8 @@ res_nsearch_2(res_state statp, const char *name, int class, int type, u_char *an
 					/* FALLTHROUGH */
 				default:
 					/* anything else implies that we're done */
-					done++;
+					break;
 			}
-
-			/* if we got here for some reason other than DNSRCH,
-			 * we only wanted one iteration of the loop, so stop.
-			 */
-			if ((statp->options & RES_DNSRCH) == 0) done++;
 		}
 	}
 
@@ -878,10 +896,13 @@ res_nsearch_2(res_state statp, const char *name, int class, int type, u_char *an
 	 * If the query has not already been tried as is then try it
 	 * unless RES_NOTLDQUERY is set and there were no dots.
 	 */
-	if ((dots || !searched || (statp->options & RES_NOTLDQUERY) == 0) && !(tried_as_is || root_on_list))
+	if ((dots || !searched || (statp->options & RES_NOTLDQUERY) == 0) &&
+			!(tried_as_is || root_on_list))
 	{
-		ret = res_nquerydomain_2(statp, name, NULL, class, type, answer, anslen, from, fromlen);
-		if (ret > 0) return (ret);
+		ret = res_nquerydomain_2(statp, name, NULL, class, type, answer,
+				anslen, from, fromlen);
+		if (ret > 0)
+			return (ret);
 	}
 
 	/* if we got here, we didn't satisfy the search.
@@ -902,7 +923,9 @@ res_nsearch_2(res_state statp, const char *name, int class, int type, u_char *an
 
 __attribute__((__visibility__("hidden")))
 int
-__res_nsearch_list_2(res_state statp, const char *name,	int class, int type, u_char *answer, int anslen, struct sockaddr *from, int *fromlen, int nsearch, char **search)
+__res_nsearch_list_2(res_state statp, const char *name,	int class, int type,
+	u_char *answer, int anslen, struct sockaddr *from, int *fromlen,
+	int nsearch, char **search)
 {
 	const char *cp, *domain;
 	HEADER *hp = (HEADER *) answer;
@@ -946,19 +969,21 @@ __res_nsearch_list_2(res_state statp, const char *name,	int class, int type, u_c
 	 *	- there is at least one dot, there is no trailing dot,
 	 *	  and RES_DNSRCH is set.
 	 */
-	if ((!dots && (statp->options & RES_DEFNAMES) != 0) || (dots && !trailing_dot && (statp->options & RES_DNSRCH) != 0))
+	if ((!dots && (statp->options & RES_DEFNAMES) != 0) ||
+		(dots && !trailing_dot && (statp->options & RES_DNSRCH) != 0))
 	{
-		int done = 0;
-
 		for (i = 0; i < nsearch; i++)
 		{
 			domain = search[i];
 			searched = 1;
 
-			if (domain[0] == '\0' || (domain[0] == '.' && domain[1] == '\0')) root_on_list++;
+			if (domain[0] == '\0' || (domain[0] == '.' && domain[1] == '\0'))
+				root_on_list++;
 
-			ret = res_nquerydomain_2(statp, name, domain, class, type, answer, anslen, from, fromlen);
-			if (ret > 0) return ret;
+			ret = res_nquerydomain_2(statp, name, domain, class, type,
+					answer, anslen, from, fromlen);
+			if (ret > 0)
+				return ret;
 
 			/*
 			 * If no server present, give up.
@@ -969,7 +994,7 @@ __res_nsearch_list_2(res_state statp, const char *name,	int class, int type, u_c
 			 * a wildcard entry of another type could keep us
 			 * from finding this entry higher in the domain.
 			 * If we get some other error (negative answer or
-										   * server failure), then stop searching up,
+			 * server failure), then stop searching up,
 			 * but try the input name below in case it's
 			 * fully-qualified.
 			 */
@@ -997,14 +1022,8 @@ __res_nsearch_list_2(res_state statp, const char *name,	int class, int type, u_c
 					/* FALLTHROUGH */
 				default:
 					/* anything else implies that we're done */
-					done++;
+					break;
 			}
-
-			/*
-			 * if we got here for some reason other than DNSRCH,
-			 * we only wanted one iteration of the loop, so stop.
-			 */
-			if ((statp->options & RES_DNSRCH) == 0) done++;
 		}
 	}
 
@@ -1012,10 +1031,13 @@ __res_nsearch_list_2(res_state statp, const char *name,	int class, int type, u_c
 	 * If the query has not already been tried as is then try it
 	 * unless RES_NOTLDQUERY is set and there were no dots.
 	 */
-	if ((dots || !searched || (statp->options & RES_NOTLDQUERY) == 0) && !(tried_as_is || root_on_list))
+	if ((dots || !searched || (statp->options & RES_NOTLDQUERY) == 0) &&
+			!(tried_as_is || root_on_list))
 	{
-		ret = res_nquerydomain_2(statp, name, NULL, class, type, answer, anslen, from, fromlen);
-		if (ret > 0) return ret;
+		ret = res_nquerydomain_2(statp, name, NULL, class, type, answer,
+				anslen, from, fromlen);
+		if (ret > 0)
+			return ret;
 	}
 
 	/*
@@ -1026,52 +1048,380 @@ __res_nsearch_list_2(res_state statp, const char *name,	int class, int type, u_c
 	 * else send back meaningless H_ERRNO, that being the one from
 	 * the last DNSRCH we did.
 	 */
-	if (saved_herrno != -1) __h_errno_set(statp, saved_herrno);
-	else if (got_nodata) __h_errno_set(statp, NO_DATA);
-	else if (got_servfail) __h_errno_set(statp, TRY_AGAIN);
+	if (saved_herrno != -1)
+		__h_errno_set(statp, saved_herrno);
+	else if(got_nodata)
+		__h_errno_set(statp, NO_DATA);
+	else if (got_servfail)
+		__h_errno_set(statp, TRY_AGAIN);
 	return -1;
 }
-			  
+#endif /* __APPLE__ */
+
+/*%
+ * Formulate a normal query, send, and await answer.
+ * Returned answer is placed in supplied buffer "answer".
+ * Perform preliminary check of answer, returning success only
+ * if no error is indicated and the answer count is nonzero.
+ * Return the size of the response on success, -1 on error.
+ * Error number is left in H_ERRNO.
+ *
+ * Caller must parse answer and determine whether it answers the question.
+ */
 int
-res_nsearch(res_state statp, const char *name, int class, int type, u_char *answer, int anslen)
+res_nquery(res_state statp,
+	   const char *name,	/*%< domain name */
+	   int class, int type,	/*%< class and type of query */
+	   u_char *answer,	/*%< buffer to put answer */
+	   int anslen)		/*%< size of answer buffer */
 {
-	struct sockaddr_storage f;
-	int l;
+	u_char buf[MAXPACKET];
+	HEADER *hp = (HEADER *) answer;
+	u_int oflags;
+	u_char *rdata;
+	int n;
 
-	l = sizeof(struct sockaddr_storage);
+	oflags = statp->_flags;
 
-	return res_nsearch_2(statp, name, class, type, answer, anslen, (struct sockaddr *)&f, &l);
+again:
+	hp->rcode = NOERROR;	/*%< default */
+	Dprint(";; res_query(%s, %d, %d)", name, class, type);
+
+	n = res_nmkquery(statp, QUERY, name, class, type, NULL, 0, NULL,
+			 buf, sizeof(buf));
+#ifdef RES_USE_EDNS0
+	if (n > 0 && (statp->_flags & RES_F_EDNS0ERR) == 0 &&
+	    (statp->options & (RES_USE_EDNS0|RES_USE_DNSSEC|RES_NSID))) {
+		n = res_nopt(statp, n, buf, sizeof(buf), anslen);
+		if (n > 0 && (statp->options & RES_NSID) != 0U) {
+			rdata = &buf[n];
+			n = res_nopt_rdata(statp, n, buf, sizeof(buf), rdata,
+					   NS_OPT_NSID, 0, NULL);
+		}
+	}
+#endif
+	if (n < 0) {
+		Dprint(";; res_query: mkquery failed");
+		RES_SET_H_ERRNO(statp, NO_RECOVERY);
+		return (n);
+	}
+
+	n = res_nsend(statp, buf, n, answer, anslen);
+	if (n < 0) {
+#ifdef RES_USE_EDNS0
+		/* if the query choked with EDNS0, retry without EDNS0 */
+		if ((statp->options & (RES_USE_EDNS0|RES_USE_DNSSEC)) != 0U &&
+		    ((oflags ^ statp->_flags) & RES_F_EDNS0ERR) != 0) {
+			statp->_flags |= RES_F_EDNS0ERR;
+			Dprint(";; res_nquery: retry without EDNS0");
+			goto again;
+		}
+#endif
+		Dprint(";; res_query: send error");
+		RES_SET_H_ERRNO(statp, TRY_AGAIN);
+		return (n);
+	}
+
+	if (hp->rcode != NOERROR || ntohs(hp->ancount) == 0) {
+		Dprint(";; rcode = (%s), counts = an:%d ns:%d ar:%d",
+		       p_rcode(hp->rcode),
+		       ntohs(hp->ancount),
+		       ntohs(hp->nscount),
+		       ntohs(hp->arcount));
+		switch (hp->rcode) {
+		case NXDOMAIN:
+			RES_SET_H_ERRNO(statp, HOST_NOT_FOUND);
+			break;
+		case SERVFAIL:
+			RES_SET_H_ERRNO(statp, TRY_AGAIN);
+			break;
+		case NOERROR:
+			RES_SET_H_ERRNO(statp, NO_DATA);
+			break;
+		case FORMERR:
+		case NOTIMP:
+		case REFUSED:
+		default:
+			RES_SET_H_ERRNO(statp, NO_RECOVERY);
+			break;
+		}
+		return (-1);
+	}
+	return (n);
+}
+
+/*%
+ * Formulate a normal query, send, and retrieve answer in supplied buffer.
+ * Return the size of the response on success, -1 on error.
+ * If enabled, implement search rules until answer or unrecoverable failure
+ * is detected.  Error code, if any, is left in H_ERRNO.
+ */
+int
+res_nsearch(res_state statp,
+	    const char *name,	/*%< domain name */
+	    int class, int type,	/*%< class and type of query */
+	    u_char *answer,	/*%< buffer to put answer */
+	    int anslen)		/*%< size of answer */
+{
+	const char *cp, * const *domain;
+	HEADER *hp = (HEADER *) answer;
+	char tmp[NS_MAXDNAME];
+	u_int dots;
+	int trailing_dot, ret, saved_herrno;
+	int got_nodata = 0, got_servfail = 0, root_on_list = 0;
+	int tried_as_is = 0;
+	int searched = 0;
+
+	errno = 0;
+	RES_SET_H_ERRNO(statp, HOST_NOT_FOUND);  /*%< True if we never query. */
+	dots = 0;
+	for (cp = name; *cp != '\0'; cp++)
+		dots += (*cp == '.');
+	trailing_dot = 0;
+	if (cp > name && *--cp == '.')
+		trailing_dot++;
+
+	/* If there aren't any dots, it could be a user-level alias. */
+	if (!dots && (cp = res_hostalias(statp, name, tmp, sizeof tmp))!= NULL)
+		return (res_nquery(statp, cp, class, type, answer, anslen));
+
+	/*
+	 * If there are enough dots in the name, let's just give it a
+	 * try 'as is'. The threshold can be set with the "ndots" option.
+	 * Also, query 'as is', if there is a trailing dot in the name.
+	 */
+	saved_herrno = -1;
+	if (dots >= statp->ndots || trailing_dot) {
+		ret = res_nquerydomain(statp, name, NULL, class, type,
+					 answer, anslen);
+		if (ret > 0 || trailing_dot)
+			return (ret);
+		if (errno == ECONNREFUSED) {
+			RES_SET_H_ERRNO(statp, TRY_AGAIN);
+			return (-1);
+		}
+		switch (statp->res_h_errno) {
+		case NO_DATA:
+		case HOST_NOT_FOUND:
+			break;
+		case TRY_AGAIN:
+			if (hp->rcode == SERVFAIL)
+				break;
+			/* FALLTHROUGH */
+		default:
+			return (-1);
+		}
+		saved_herrno = statp->res_h_errno;
+		tried_as_is++;
+	}
+
+	/*
+	 * We do at least one level of search if
+	 *	- there is no dot and RES_DEFNAME is set, or
+	 *	- there is at least one dot, there is no trailing dot,
+	 *	  and RES_DNSRCH is set.
+	 */
+	if ((!dots && (statp->options & RES_DEFNAMES) != 0U) ||
+	    (dots && !trailing_dot && (statp->options & RES_DNSRCH) != 0U)) {
+		int done = 0;
+
+		for (domain = (const char * const *)statp->dnsrch;
+		     *domain && !done;
+		     domain++) {
+			searched = 1;
+
+			if (domain[0][0] == '\0' ||
+			    (domain[0][0] == '.' && domain[0][1] == '\0'))
+				root_on_list++;
+
+			if (root_on_list && tried_as_is)
+				continue;
+
+			ret = res_nquerydomain(statp, name, *domain,
+					       class, type,
+					       answer, anslen);
+			if (ret > 0)
+				return (ret);
+
+			/*
+			 * If no server present, give up.
+			 * If name isn't found in this domain,
+			 * keep trying higher domains in the search list
+			 * (if that's enabled).
+			 * On a NO_DATA error, keep trying, otherwise
+			 * a wildcard entry of another type could keep us
+			 * from finding this entry higher in the domain.
+			 * If we get some other error (negative answer or
+			 * server failure), then stop searching up,
+			 * but try the input name below in case it's
+			 * fully-qualified.
+			 */
+			if (errno == ECONNREFUSED) {
+				RES_SET_H_ERRNO(statp, TRY_AGAIN);
+				return (-1);
+			}
+
+			switch (statp->res_h_errno) {
+			case NO_DATA:
+				got_nodata++;
+				/* FALLTHROUGH */
+			case HOST_NOT_FOUND:
+				/* keep trying */
+				break;
+			case TRY_AGAIN:
+				/*
+				 * This can occur due to a server failure
+				 * (that is, all listed servers have failed),
+				 * or all listed servers have timed out.
+				 * ((HEADER *)answer)->rcode may not be set
+				 * to SERVFAIL in the case of a timeout.
+				 *
+				 * Either way we must return TRY_AGAIN in
+				 * order to avoid non-deterministic
+				 * return codes.
+				 * For example, loaded name servers or races
+				 * against network startup/validation (dhcp,
+				 * ppp, etc) can cause the search to timeout
+				 * on one search element, e.g. 'fu.bar.com',
+				 * and return a definitive failure on the
+				 * next search element, e.g. 'fu.'.
+				 */
+				got_servfail++;
+				if (hp->rcode == SERVFAIL) {
+					/* try next search element, if any */
+					break;
+				}
+				/* FALLTHROUGH */
+			default:
+				/* anything else implies that we're done */
+				done++;
+				break;
+			}
+
+			/* if we got here for some reason other than DNSRCH,
+			 * we only wanted one iteration of the loop, so stop.
+			 */
+			if ((statp->options & RES_DNSRCH) == 0U)
+				done++;
+		}
+	}
+
+	switch (statp->res_h_errno) {
+	case NO_DATA:
+	case HOST_NOT_FOUND:
+		break;
+	case TRY_AGAIN:
+		if (hp->rcode == SERVFAIL)
+			break;
+		/* FALLTHROUGH */
+	default:
+		goto giveup;
+	}
+
+	/*
+	 * If the query has not already been tried as is then try it
+	 * unless RES_NOTLDQUERY is set and there were no dots.
+	 */
+	if ((dots || !searched || (statp->options & RES_NOTLDQUERY) == 0U) &&
+	    !(tried_as_is || root_on_list)) {
+		ret = res_nquerydomain(statp, name, NULL, class, type,
+				       answer, anslen);
+		if (ret > 0)
+			return (ret);
+	}
+
+	/* if we got here, we didn't satisfy the search.
+	 * if we did an initial full query, return that query's H_ERRNO
+	 * (note that we wouldn't be here if that query had succeeded).
+	 * else if we ever got a nodata, send that back as the reason.
+	 * else send back meaningless H_ERRNO, that being the one from
+	 * the last DNSRCH we did.
+	 */
+giveup:
+	if (saved_herrno != -1)
+		RES_SET_H_ERRNO(statp, saved_herrno);
+	else if (got_nodata)
+		RES_SET_H_ERRNO(statp, NO_DATA);
+	else if (got_servfail)
+		RES_SET_H_ERRNO(statp, TRY_AGAIN);
+	return (-1);
+}
+
+/*%
+ * Perform a call on res_query on the concatenation of name and domain,
+ * removing a trailing dot from name if domain is NULL.
+ */
+int
+res_nquerydomain(res_state statp,
+	    const char *name,
+	    const char *domain,
+	    int class, int type,	/*%< class and type of query */
+	    u_char *answer,		/*%< buffer to put answer */
+	    int anslen)		/*%< size of answer */
+{
+	char nbuf[MAXDNAME];
+	const char *longname = nbuf;
+	size_t n, d;
+
+	Dprint(";; res_nquerydomain(%s, %s, %d, %d)",
+	       name, domain?domain:"<Nil>", class, type);
+	if (domain == NULL) {
+		/*
+		 * Check for trailing '.';
+		 * copy without '.' if present.
+		 */
+		n = strlen(name);
+		if (n >= MAXDNAME) {
+			RES_SET_H_ERRNO(statp, NO_RECOVERY);
+			return (-1);
+		}
+		n--;
+		if (n >= 0 && name[n] == '.') {
+			strncpy(nbuf, name, n);
+			nbuf[n] = '\0';
+		} else
+			longname = name;
+	} else {
+		n = strlen(name);
+		d = strlen(domain);
+		if (n + d + 1 >= MAXDNAME) {
+			RES_SET_H_ERRNO(statp, NO_RECOVERY);
+			return (-1);
+		}
+		sprintf(nbuf, "%s.%s", name, domain);
+	}
+	return (res_nquery(statp, longname, class, type, answer, anslen));
 }
 
 const char *
-res_hostalias(const res_state statp, const char *name, char *dst, size_t siz)
-{
+res_hostalias(const res_state statp, const char *name, char *dst, size_t siz) {
 	char *file, *cp1, *cp2;
 	char buf[BUFSIZ];
 	FILE *fp;
 
-	if (statp->options & RES_NOALIASES) return (NULL);
-
+	if (statp->options & RES_NOALIASES)
+		return (NULL);
+	if (issetugid())
+		return (NULL);
 	file = getenv("HOSTALIASES");
-	if (file == NULL || (fp = fopen(file, "r")) == NULL) return (NULL);
-
+	if (file == NULL || (fp = fopen(file, "re")) == NULL)
+		return (NULL);
 	setbuf(fp, NULL);
 	buf[sizeof(buf) - 1] = '\0';
-	while (fgets(buf, sizeof(buf), fp))
-	{
-		for (cp1 = buf; *cp1 && !isspace((unsigned char)*cp1); ++cp1) ;
-
-		if (!*cp1) break;
+	while (fgets(buf, sizeof(buf), fp)) {
+		for (cp1 = buf; *cp1 && !isspace((unsigned char)*cp1); ++cp1)
+			;
+		if (!*cp1)
+			break;
 		*cp1 = '\0';
-
-		if (ns_samename(buf, name) == 1)
-		{
-			while (isspace((unsigned char)*++cp1)) ;
-
-			if (!*cp1) break;
-
-			for (cp2 = cp1 + 1; *cp2 && !isspace((unsigned char)*cp2); ++cp2) ;
-
+		if (ns_samename(buf, name) == 1) {
+			while (isspace((unsigned char)*++cp1))
+				;
+			if (!*cp1)
+				break;
+			for (cp2 = cp1 + 1; *cp2 &&
+			     !isspace((unsigned char)*cp2); ++cp2)
+				;
 			*cp2 = '\0';
 			strncpy(dst, cp1, siz - 1);
 			dst[siz - 1] = '\0';
@@ -1079,7 +1429,8 @@ res_hostalias(const res_state statp, const char *name, char *dst, size_t siz)
 			return (dst);
 		}
 	}
-
 	fclose(fp);
 	return (NULL);
 }
+
+/*! \file */

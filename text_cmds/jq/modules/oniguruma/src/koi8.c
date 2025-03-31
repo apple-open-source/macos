@@ -2,7 +2,7 @@
   koi8.c -  Oniguruma (regular expression library)
 **********************************************************************/
 /*-
- * Copyright (c) 2002-2016  K.Kosako  <sndgk393 AT ybb DOT ne DOT jp>
+ * Copyright (c) 2002-2020  K.Kosako
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -105,34 +105,19 @@ static const unsigned short EncKOI8_CtypeTable[256] = {
 
 
 static int
-koi8_mbc_case_fold(OnigCaseFoldType flag ARG_UNUSED,
-	   const UChar** pp, const UChar* end ARG_UNUSED, UChar* lower)
+koi8_mbc_case_fold(OnigCaseFoldType flag,
+                   const UChar** pp, const UChar* end ARG_UNUSED, UChar* lower)
 {
   const UChar* p = *pp;
 
-  *lower = ENC_KOI8_TO_LOWER_CASE(*p);
+  if (CASE_FOLD_IS_NOT_ASCII_ONLY(flag) || ONIGENC_IS_ASCII_CODE(*p))
+    *lower = ENC_KOI8_TO_LOWER_CASE(*p);
+  else
+    *lower = *p;
+
   (*pp)++;
   return 1;
 }
-
-#if 0
-static int
-koi8_is_mbc_ambiguous(OnigAmbigType flag, const OnigUChar** pp, const OnigUChar* end)
-{
-  const OnigUChar* p = *pp;
-
-  (*pp)++;
-  if (((flag & ONIGENC_CASE_FOLD_ASCII_CASE) != 0 &&
-       ONIGENC_IS_MBC_ASCII(p)) ||
-      ((flag & ONIGENC_CASE_FOLD_NONASCII_CASE) != 0 &&
-       !ONIGENC_IS_MBC_ASCII(p))) {
-    int v = (EncKOI8_CtypeTable[*p] &
-             (BIT_CTYPE_UPPER | BIT_CTYPE_LOWER));
-    return (v != 0 ? TRUE : FALSE);
-  }
-  return FALSE;
-}
-#endif
 
 static int
 koi8_is_code_ctype(OnigCodePoint code, unsigned int ctype)
@@ -214,7 +199,7 @@ static const OnigPairCaseFoldCodes CaseFoldMap[] = {
 
 static int
 koi8_apply_all_case_fold(OnigCaseFoldType flag,
-			 OnigApplyAllCaseFoldFunc f, void* arg)
+                         OnigApplyAllCaseFoldFunc f, void* arg)
 {
   return onigenc_apply_all_case_fold_with_map(
              sizeof(CaseFoldMap)/sizeof(OnigPairCaseFoldCodes), CaseFoldMap, 0,
@@ -226,8 +211,8 @@ koi8_get_case_fold_codes_by_str(OnigCaseFoldType flag,
     const OnigUChar* p, const OnigUChar* end, OnigCaseFoldCodeItem items[])
 {
   return onigenc_get_case_fold_codes_by_str_with_map(
-	     sizeof(CaseFoldMap)/sizeof(OnigPairCaseFoldCodes), CaseFoldMap, 0,
-	     flag, p, end, items);
+                 sizeof(CaseFoldMap)/sizeof(OnigPairCaseFoldCodes), CaseFoldMap, 0,
+                 flag, p, end, items);
 }
 
 OnigEncodingType OnigEncodingKOI8 = {
@@ -249,5 +234,7 @@ OnigEncodingType OnigEncodingKOI8 = {
   onigenc_always_true_is_allowed_reverse_match,
   NULL, /* init */
   NULL, /* is_initialized */
-  onigenc_always_true_is_valid_mbc_string
+  onigenc_always_true_is_valid_mbc_string,
+  ENC_FLAG_ASCII_COMPATIBLE|ENC_FLAG_SKIP_OFFSET_1,
+  0, 0
 };

@@ -1,11 +1,20 @@
+[![Build Status](https://travis-ci.org/kkos/oniguruma.svg?branch=master)](https://travis-ci.org/kkos/oniguruma)
+[![Fuzzing Status](https://oss-fuzz-build-logs.storage.googleapis.com/badges/oniguruma.svg)](https://oss-fuzz-build-logs.storage.googleapis.com/index.html#oniguruma)
+[![TrustInSoft CI](https://ci.trust-in-soft.com/projects/kkos/oniguruma.svg?branch=master)](https://ci.trust-in-soft.com/projects/kkos/oniguruma)
+
 Oniguruma
 =========
 
+## **Since 2020, Oniguruma has been under attack on Google search in Japan.** [(Issue #234)](https://github.com/kkos/oniguruma/issues/234)
+
+
 https://github.com/kkos/oniguruma
 
-Oniguruma is a regular expressions library.
-The characteristics of this library is that different character encoding
-for every regular expression object can be specified.
+Oniguruma is a modern and flexible regular expressions library. It
+encompasses features from different regular expression implementations
+that traditionally exist in different languages.
+
+Character encoding can be specified per regular expression object.
 
 Supported character encodings:
 
@@ -18,25 +27,70 @@ Supported character encodings:
 
 * GB18030: contributed by KUBO Takehiro
 * CP1251:  contributed by Byte
+* doc/SYNTAX.md: contributed by seanofw
 
 
-New feature of version 6.1.2
---------------------------
+Notice (from 6.9.6)
+-------------------
+When using configure script, if you have the POSIX API enabled in an earlier version (disabled by default in 6.9.5) and you need application binary compatibility with the POSIX API, specify "--enable-binary-compatible-posix-api=yes" instead of "--enable-posix-api=yes". Starting in 6.9.6, "--enable-posix-api=yes" only supports source-level compatibility for 6.9.5 and earlier about POSIX API. (Issue #210)
 
-* allow word bound, word begin and word end in look-behind.
-* NEW option: ONIG_OPTION_CHECK_VALIDITY_OF_STRING
 
-New feature of version 6.1
---------------------------
+Master branch
+-------------
+* Update Unicode version 15.0.0
+* NEW API: ONIG_OPTION_MATCH_WHOLE_STRING
+* Fixed: (?I) option was not enabled for character classes (Issue #264).
+* Changed specification to check for incorrect POSIX bracket (Issue #253).
+* Changed [[:punct:]] in Unicode encodings to be compatible with POSIX definition. (Issue #268)
+* Fixed: ONIG_OPTION_FIND_LONGEST behavior
 
-* improved doc/RE
-* NEW API: onig_scan()
 
-New feature of version 6.0
---------------------------
+Version 6.9.8
+-------------
+* Update Unicode version 14.0.0
+* Whole options
+    * (?C) : ONIG_OPTION_DONT_CAPTURE_GROUP
+    * (?I) : ONIG_OPTION_IGNORECASE_IS_ASCII
+    * (?L) : ONIG_OPTION_FIND_LONGEST
+* Fixed some problems found by OSS-Fuzz
 
-* Update Unicode 8.0 Property/Case-folding
-* NEW API: onig_unicode_define_user_property()
+
+Version 6.9.7
+-------------
+* NEW API: ONIG_OPTION_CALLBACK_EACH_MATCH
+* NEW API: ONIG_OPTION_IGNORECASE_IS_ASCII
+* NEW API: ONIG_SYNTAX_PYTHON
+* Fixed some problems found by OSS-Fuzz
+
+
+Version 6.9.6
+-------------
+* NEW: configure option --enable-binary-compatible-posix-api=[yes/no]
+* NEW API: Limiting the maximum number of calls of subexp-call
+* NEW API: ONIG_OPTION_NOT_BEGIN_STRING / NOT_END_STRING / NOT_BEGIN_POSITION
+* Fixed behavior of ONIG_OPTION_NOTBOL / NOTEOL
+* Fixed many problems found by OSS-Fuzz
+* Fixed many problems found by Coverity
+* Fixed CVE-2020-26159 (This turned out not to be a problem later. #221)
+* Under cygwin and mingw, generate and install the libonig.def file (Issue #220)
+
+
+Version 6.9.5 revised 1
+-----------------------
+
+* Fixed Issue #192
+
+
+Version 6.9.5
+-------------
+
+* POSIX API disabled by default for Unix (* Enabled by: configure --enable-posix-api=yes)
+* Update Unicode version 13.0.0
+* NEW: Code point sequence notation \x{HHHH HHHH ...}, \o{OOOO OOOO ...}
+* NEW API: retry limit in search functions
+* NEW API: maximum nesting level of subexp call
+* Fixed behavior of isolated options in Perl and Java syntaxes.  /...(?i).../
+
 
 
 License
@@ -48,7 +102,15 @@ License
 Install
 -------
 
-### Case 1: Unix and Cygwin platform
+### Case 1: Linux distribution packages
+
+   * Fedora:         `dnf install oniguruma-devel`
+   * RHEL/CentOS:    `yum install oniguruma`
+   * Debian/Ubuntu:  `apt install libonig5`
+   * Arch:           `pacman -S oniguruma`
+   * openSUSE:       `zypper install oniguruma`
+
+### Case 2: Manual compilation on Linux, Unix, and Cygwin platform
 
    1. autoreconf -vfi   (* case: configure script is not found.)
 
@@ -69,22 +131,30 @@ Install
 
 
 
-### Case 2: Windows 64/32bit platform (Visual Studio)
+### Case 3: Windows 64/32bit platform (Visual Studio)
 
-   execute make_win64 or make_win32
+   * build library
+
+      .\make_win.bat
 
       onig_s.lib:  static link library
       onig.dll:    dynamic link library
 
-   * test (ASCII/Shift_JIS)
+   * make test programs
 
-      1. cd src
-      2. copy ..\windows\testc.c .
-      3. nmake -f Makefile.windows ctest
-
-   (I have checked by Visual Studio Community 2015)
+      .\make_win.bat all-test
 
 
+Alternatively, you can build and install oniguruma using [vcpkg](https://github.com/microsoft/vcpkg/) dependency manager:
+
+   1. git clone https://github.com/Microsoft/vcpkg.git
+   2. cd vcpkg
+   3. ./bootstrap-vcpkg.bat
+   4. ./vcpkg integrate install
+   5. ./vcpkg install oniguruma
+
+The oniguruma port in vcpkg is kept up to date by microsoft team members and community contributors.
+If the version is out of date, please [create an issue or pull request](https://github.com/Microsoft/vcpkg) on the vcpkg repository.
 
 Regular Expressions
 -------------------
@@ -99,7 +169,7 @@ Usage
   See doc/API for Oniguruma API.
 
   If you want to disable UChar type (== unsigned char) definition
-  in oniguruma.h, define ONIG_ESCAPE_UCHAR_COLLISION and then 
+  in oniguruma.h, define ONIG_ESCAPE_UCHAR_COLLISION and then
   include oniguruma.h.
 
   If you want to disable regex_t type definition in oniguruma.h,
@@ -121,14 +191,18 @@ Sample Programs
 
 |File                  |Description                               |
 |:---------------------|:-----------------------------------------|
+|sample/callout.c      |example of callouts                       |
+|sample/count.c        |example of built-in callout *COUNT        |
+|sample/echo.c         |example of user defined callouts of name  |
+|sample/encode.c       |example of some encodings                 |
+|sample/listcap.c      |example of the capture history            |
+|sample/names.c        |example of the named group callback       |
+|sample/posix.c        |POSIX API sample                          |
+|sample/regset.c       |example of using RegSet API               |
+|sample/scan.c         |example of using onig_scan()              |
 |sample/simple.c       |example of the minimum (Oniguruma API)    |
-|sample/names.c        |example of the named group callback.      |
-|sample/encode.c       |example of some encodings.                |
-|sample/listcap.c      |example of the capture history.           |
-|sample/posix.c        |POSIX API sample.                         |
-|sample/scan.c         |example of using onig_scan().             |
-|sample/sql.c          |example of the variable meta characters.  |
-|sample/user_property.c|example of user defined Unicode property. |
+|sample/sql.c          |example of the variable meta characters   |
+|sample/user_property.c|example of user defined Unicode property  |
 
 
 Test Programs
@@ -199,5 +273,4 @@ Source Files
 |utf32_le.c         |UTF-32LE encoding                                       |
 |unicode.c          |common codes of Unicode encoding                        |
 |unicode_fold_data.c|Unicode folding data                                    |
-|win32/Makefile     |Makefile for Win32 (VC++)                               |
-|win32/config.h     |config.h for Win32                                      |
+|windows/testc.c    |Test program for Windows (VC++)                        |

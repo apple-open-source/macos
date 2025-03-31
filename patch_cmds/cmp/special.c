@@ -29,27 +29,19 @@
  * SUCH DAMAGE.
  */
 
-#if 0
-#ifndef lint
-static char sccsid[] = "@(#)special.c	8.3 (Berkeley) 4/2/94";
-#endif
-#endif
-
-#include <sys/cdefs.h>
-__FBSDID("$FreeBSD$");
-
 #include <sys/types.h>
 
 #ifndef __APPLE__
 #include <capsicum_helpers.h>
 #endif
 #include <err.h>
+#include <stdbool.h>
 #include <stdlib.h>
 #include <stdio.h>
 
 #include "extern.h"
 
-void
+int
 c_special(int fd1, const char *file1, off_t skip1,
     int fd2, const char *file2, off_t skip2, off_t limit)
 {
@@ -69,8 +61,10 @@ c_special(int fd1, const char *file1, off_t skip1,
 
 	if ((fp1 = fdopen(fd1, "r")) == NULL)
 		err(ERR_EXIT, "%s", file1);
+	(void)setvbuf(fp1, NULL, _IOFBF, 65536);
 	if ((fp2 = fdopen(fd2, "r")) == NULL)
 		err(ERR_EXIT, "%s", file2);
+	(void)setvbuf(fp2, NULL, _IOFBF, 65536);
 
 	dfound = 0;
 	while (skip1--)
@@ -81,6 +75,13 @@ c_special(int fd1, const char *file1, off_t skip1,
 			goto eof;
 
 	for (byte = line = 1; limit == 0 || byte <= limit; ++byte) {
+#ifdef SIGINFO
+		if (info) {
+			(void)fprintf(stderr, "%s %s char %zu line %zu\n",
+			    file1, file2, (size_t)byte, (size_t)line);
+			info = 0;
+		}
+#endif
 		ch1 = getc(fp1);
 		ch2 = getc(fp2);
 		if (ch1 == EOF || ch2 == EOF)
@@ -101,7 +102,7 @@ c_special(int fd1, const char *file1, off_t skip1,
 					    (long long)byte, ch1, ch2);
 			} else {
 				diffmsg(file1, file2, byte, line, ch1, ch2);
-				/* NOTREACHED */
+				return (DIFF_EXIT);
 			}
 		}
 		if (ch1 == '\n')
@@ -113,13 +114,17 @@ eof:	if (ferror(fp1))
 	if (ferror(fp2))
 		err(ERR_EXIT, "%s", file2);
 	if (feof(fp1)) {
-		if (!feof(fp2))
+		if (!feof(fp2)) {
 			eofmsg(file1);
-	} else
-		if (feof(fp2))
+			return (DIFF_EXIT);
+		}
+	} else {
+		if (feof(fp2)) {
 			eofmsg(file2);
+			return (DIFF_EXIT);
+		}
+	}
 	fclose(fp2);
 	fclose(fp1);
-	if (dfound)
-		exit(DIFF_EXIT);
+	return (dfound ? DIFF_EXIT : 0);
 }

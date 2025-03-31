@@ -78,7 +78,6 @@ ScrollingStateFrameScrollingNode::ScrollingStateFrameScrollingNode(
     int footerHeight,
     ScrollBehaviorForFixedElements&& scrollBehaviorForFixedElements,
     float topContentInset,
-    bool fixedElementsLayoutRelativeToFrame,
     bool visualViewportIsSmallerThanLayoutViewport,
     bool asyncFrameOrOverflowScrollingEnabled,
     bool wheelEventGesturesBecomeNonBlocking,
@@ -135,7 +134,6 @@ ScrollingStateFrameScrollingNode::ScrollingStateFrameScrollingNode(
     , m_footerHeight(footerHeight)
     , m_behaviorForFixed(WTFMove(scrollBehaviorForFixedElements))
 
-    , m_fixedElementsLayoutRelativeToFrame(fixedElementsLayoutRelativeToFrame)
     , m_visualViewportIsSmallerThanLayoutViewport(visualViewportIsSmallerThanLayoutViewport)
     , m_asyncFrameOrOverflowScrollingEnabled(asyncFrameOrOverflowScrollingEnabled)
     , m_wheelEventGesturesBecomeNonBlocking(wheelEventGesturesBecomeNonBlocking)
@@ -163,7 +161,6 @@ ScrollingStateFrameScrollingNode::ScrollingStateFrameScrollingNode(const Scrolli
     , m_headerHeight(stateNode.headerHeight())
     , m_footerHeight(stateNode.footerHeight())
     , m_behaviorForFixed(stateNode.scrollBehaviorForFixedElements())
-    , m_fixedElementsLayoutRelativeToFrame(stateNode.fixedElementsLayoutRelativeToFrame())
     , m_visualViewportIsSmallerThanLayoutViewport(stateNode.visualViewportIsSmallerThanLayoutViewport())
     , m_asyncFrameOrOverflowScrollingEnabled(stateNode.asyncFrameOrOverflowScrollingEnabled())
     , m_wheelEventGesturesBecomeNonBlocking(stateNode.wheelEventGesturesBecomeNonBlocking())
@@ -211,7 +208,6 @@ OptionSet<ScrollingStateNode::Property> ScrollingStateFrameScrollingNode::applic
         Property::FooterLayer,
         Property::BehaviorForFixedElements,
         Property::TopContentInset,
-        Property::FixedElementsLayoutRelativeToFrame,
         Property::VisualViewportIsSmallerThanLayoutViewport,
         Property::AsyncFrameOrOverflowScrollingEnabled,
         Property::WheelEventGesturesBecomeNonBlocking,
@@ -382,15 +378,6 @@ void ScrollingStateFrameScrollingNode::setVisualViewportIsSmallerThanLayoutViewp
     setPropertyChanged(Property::VisualViewportIsSmallerThanLayoutViewport);
 }
 
-void ScrollingStateFrameScrollingNode::setFixedElementsLayoutRelativeToFrame(bool fixedElementsLayoutRelativeToFrame)
-{
-    if (fixedElementsLayoutRelativeToFrame == m_fixedElementsLayoutRelativeToFrame)
-        return;
-    
-    m_fixedElementsLayoutRelativeToFrame = fixedElementsLayoutRelativeToFrame;
-    setPropertyChanged(Property::FixedElementsLayoutRelativeToFrame);
-}
-
 void ScrollingStateFrameScrollingNode::setAsyncFrameOrOverflowScrollingEnabled(bool enabled)
 {
     if (enabled == m_asyncFrameOrOverflowScrollingEnabled)
@@ -495,9 +482,6 @@ void ScrollingStateFrameScrollingNode::dumpProperties(TextStream& ts, OptionSet<
 
     if (m_visualViewportIsSmallerThanLayoutViewport)
         ts.dumpProperty("visual viewport smaller than layout viewport", m_visualViewportIsSmallerThanLayoutViewport);
-
-    if (m_fixedElementsLayoutRelativeToFrame)
-        ts.dumpProperty("fixed elements lay out relative to frame", m_fixedElementsLayoutRelativeToFrame);
 }
 
 } // namespace WebCore

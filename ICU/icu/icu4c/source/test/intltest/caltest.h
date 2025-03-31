@@ -225,7 +225,10 @@ public: // package
     void Test1624();
     void TestIslamicUmAlQura();
     void TestIslamicTabularDates();
+#if APPLE_ICU_CHANGES
+// rdar://100197751 (QFA: Islamic Lunar Calendar Improvements)
     void TestIslamicLocation();
+#endif // APPLE_ICU_CHANGES
 
     /**
      * Test the time stamp array recalculation during heavy Calendar usage
@@ -333,7 +336,35 @@ public: // package
     void TestDangiOverflowIsLeapMonthBetween22507();
 
     void TestFWWithISO8601();
+    void TestAddOverflow();
     void TestRollWeekOfYear();
+    void TestHinduCalendar();
+    void TestIndianLunisolarCalendars();
+    void TestIndianSolarCalendars();
+    void Test22633ChineseOverflow();
+    void Test22633IndianOverflow();
+    void Test22633IslamicUmalquraOverflow();
+    void Test22633PersianOverflow();
+    void Test22633HebrewOverflow();
+    void Test22633AMPMOverflow();
+    void Test22633SetGetTimeOverflow();
+    void Test22633Set2FieldsGetTimeOverflow();
+    void Test22633SetAddGetTimeOverflow();
+    void Test22633SetRollGetTimeOverflow();
+    void Test22633AddTwiceGetTimeOverflow();
+    void Test22633RollTwiceGetTimeOverflow();
+    void Test22730JapaneseOverflow();
+    void Test22730CopticOverflow();
+
+    void Test22750Roll();
+
+    void RunTestOnCalendars(void(TestFunc)(Calendar*, UCalendarDateFields));
+
+    void verifyFirstDayOfWeek(const char* locale, UCalendarDaysOfWeek expected);
+    void TestFirstDayOfWeek();
+
+    void TestChineseCalendarComputeMonthStart();
+    void Test22633HebrewLargeNegativeDay();
 
     void RunChineseCalendarInTemporalLeapYearTest(Calendar* cal);
     void RunIslamicCalendarInTemporalLeapYearTest(Calendar* cal);

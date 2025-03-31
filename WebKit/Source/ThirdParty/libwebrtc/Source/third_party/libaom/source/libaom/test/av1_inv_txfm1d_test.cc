@@ -102,7 +102,7 @@ TEST(av1_inv_txfm1d, InvAccuracyCheck) {
   }
 }
 
-static INLINE int get_max_bit(int x) {
+static inline int get_max_bit(int x) {
   int max_bit = -1;
   while (x) {
     x = x >> 1;

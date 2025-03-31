@@ -5,6 +5,8 @@
 #import <Foundation/Foundation.h>
 #import <ProtocolBuffer/PBCodable.h>
 
+#import "SECSFAGlobalEnums.h"
+
 @class SECSFAEventFilter;
 @class SECSFAEventRule;
 @class SECSFAVersionMatch;
@@ -19,8 +21,12 @@ __attribute__((visibility("hidden")))
 @interface SECSFARules : PBCodable <NSCopying>
 {
     SECSFAVersionMatch *_allowedBuilds;
+    SECSFAConfigVersion _configVersion;
     NSMutableArray<SECSFAEventFilter *> *_eventFilters;
     NSMutableArray<SECSFAEventRule *> *_eventRules;
+    struct {
+        uint configVersion:1;
+    } _has;
 }
 
 
@@ -40,6 +46,11 @@ __attribute__((visibility("hidden")))
 - (NSUInteger)eventFiltersCount;
 - (SECSFAEventFilter *)eventFilterAtIndex:(NSUInteger)idx;
 + (Class)eventFilterType;
+
+@property (nonatomic) BOOL hasConfigVersion;
+@property (nonatomic) SECSFAConfigVersion configVersion;
+- (NSString *)configVersionAsString:(SECSFAConfigVersion)value;
+- (SECSFAConfigVersion)StringAsConfigVersion:(NSString *)str;
 
 // Performs a shallow copy into other
 - (void)copyTo:(SECSFARules *)other;

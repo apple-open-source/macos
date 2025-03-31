@@ -26,6 +26,8 @@
 #include "config.h"
 #include "DFGSpeculativeJIT.h"
 
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
+
 #if ENABLE(DFG_JIT)
 
 #include "AtomicsObject.h"
@@ -2876,8 +2878,7 @@ void SpeculativeJIT::compileGetByVal(Node* node, const ScopedLambda<std::tuple<J
                 auto done = jump();
                 slowCases.link(this);
                 speculationCheck(NegativeIndex, JSValueRegs(), nullptr, branch32(LessThan, propertyReg, TrustedImm32(0)));
-                static const double NaN = PNaN;
-                loadDouble(TrustedImmPtr(&NaN), tempReg);
+                move64ToDouble(TrustedImm64(std::bit_cast<uint64_t>(PNaN)), tempReg);
                 done.link(this);
                 ASSERT(!resultRegs);
                 doubleResult(tempReg, node);
@@ -3073,6 +3074,7 @@ void SpeculativeJIT::compileRegExpTestInline(Node* node)
         store32(yarrRegisters.returnRegister, Address(globalObjectGPR, offset + RegExpCachedResult::offsetOfResult() + OBJECT_OFFSETOF(MatchResult, start)));
         store32(yarrRegisters.returnRegister2, Address(globalObjectGPR, offset + RegExpCachedResult::offsetOfResult() + OBJECT_OFFSETOF(MatchResult, end)));
         store8(TrustedImm32(0), Address(globalObjectGPR, offset + RegExpCachedResult::offsetOfReified()));
+        store8(TrustedImm32(0), Address(globalObjectGPR, offset + RegExpCachedResult::offsetOfOneCharacterMatch()));
 
         JumpList doneCases;
 
@@ -3697,8 +3699,9 @@ void SpeculativeJIT::compile(Node* node)
         break;
     }
 
+    case StringAt:
     case StringCharAt: {
-        // Relies on StringCharAt node having same basic layout as GetByVal
+        // Relies on StringCharAt and StringAt node having same basic layout as GetByVal
         JSValueRegsTemporary result;
         compileGetByValOnString(node, scopedLambda<std::tuple<JSValueRegs, DataFormat>(DataFormat preferredFormat, bool needsFlush)>([&] (DataFormat preferredFormat, bool needsFlush) {
             result = JSValueRegsTemporary(this);
@@ -4143,8 +4146,8 @@ void SpeculativeJIT::compile(Node* node)
         break;
     }
 
-    case ArraySpliceExtract: {
-        compileArraySpliceExtract(node);
+    case ArraySplice: {
+        compileArraySplice(node);
         break;
     }
 
@@ -4187,7 +4190,7 @@ void SpeculativeJIT::compile(Node* node)
                 // FIXME: This would not have to be here if changing the publicLength also zeroed the values between the old
                 // length and the new length.
                 store64(
-                    TrustedImm64(bitwise_cast<int64_t>(PNaN)), BaseIndex(storageGPR, storageLengthGPR, TimesEight));
+                    TrustedImm64(std::bit_cast<int64_t>(PNaN)), BaseIndex(storageGPR, storageLengthGPR, TimesEight));
                 slowCase = branchIfNaN(tempFPR);
                 boxDouble(tempFPR, valueGPR);
             } else {
@@ -4471,7 +4474,12 @@ void SpeculativeJIT::compile(Node* node)
         compileNewArrayWithSpecies(node);
         break;
     }
-        
+
+    case NewArrayWithSizeAndStructure: {
+        compileNewArrayWithSizeAndStructure(node);
+        break;
+    }
+
     case NewArrayBuffer: {
         compileNewArrayBuffer(node);
         break;
@@ -5356,6 +5364,10 @@ void SpeculativeJIT::compile(Node* node)
         compileMapStorage(node);
         break;
 
+    case MapStorageOrSentinel:
+        compileMapStorageOrSentinel(node);
+        break;
+
     case MapIteratorNext:
         compileMapIteratorNext(node);
         break;
@@ -5693,11 +5705,11 @@ void SpeculativeJIT::compile(Node* node)
         break;
 
     case SuperSamplerBegin:
-        add32(TrustedImm32(1), AbsoluteAddress(bitwise_cast<void*>(&g_superSamplerCount)));
+        add32(TrustedImm32(1), AbsoluteAddress(std::bit_cast<void*>(&g_superSamplerCount)));
         break;
 
     case SuperSamplerEnd:
-        sub32(TrustedImm32(1), AbsoluteAddress(bitwise_cast<void*>(&g_superSamplerCount)));
+        sub32(TrustedImm32(1), AbsoluteAddress(std::bit_cast<void*>(&g_superSamplerCount)));
         break;
 
     case ForceOSRExit: {
@@ -6134,7 +6146,7 @@ void SpeculativeJIT::compile(Node* node)
         case DoubleRepUse:
             doubleValue.emplace(this, valueEdge);
             valueFPR = doubleValue->fpr();
-            if (data.byteSize == 4) {
+            if (data.byteSize < 8) {
                 fprTemporary.emplace(this);
                 tempFPR = fprTemporary->fpr();
             }
@@ -6186,6 +6198,7 @@ void SpeculativeJIT::compile(Node* node)
         auto baseIndex = BaseIndex(t2, t1, TimesOne);
 
         if (data.isFloatingPoint) {
+            ASSERT(valueEdge.useKind() == DoubleRepUse);
             RELEASE_ASSERT(valueFPR != InvalidFPRReg);
             if (data.byteSize == 2) {
                 RELEASE_ASSERT(tempFPR != InvalidFPRReg);
@@ -6343,10 +6356,7 @@ void SpeculativeJIT::compile(Node* node)
 
 #if ENABLE(FTL_JIT)        
     case CheckTierUpInLoop: {
-        Jump callTierUp = branchAdd32(
-            PositiveOrZero,
-            TrustedImm32(Options::ftlTierUpCounterIncrementForLoop()),
-            AbsoluteAddress(&jitCode()->tierUpCounter.m_counter));
+        Jump callTierUp = branchAdd32(PositiveOrZero, TrustedImm32(Options::ftlTierUpCounterIncrementForLoop()), Address(GPRInfo::jitDataRegister, JITData::offsetOfTierUpCounter()));
 
         Label toNextOperation = label();
 
@@ -6367,10 +6377,7 @@ void SpeculativeJIT::compile(Node* node)
     }
         
     case CheckTierUpAtReturn: {
-        Jump done = branchAdd32(
-            Signed,
-            TrustedImm32(Options::ftlTierUpCounterIncrementForReturn()),
-            AbsoluteAddress(&jitCode()->tierUpCounter.m_counter));
+        Jump done = branchAdd32(Signed, TrustedImm32(Options::ftlTierUpCounterIncrementForReturn()), Address(GPRInfo::jitDataRegister, JITData::offsetOfTierUpCounter()));
         
         silentSpillAllRegisters(InvalidGPRReg);
         callOperationWithoutExceptionCheck(operationTriggerTierUpNow, TrustedImmPtr(&vm()));
@@ -6394,10 +6401,7 @@ void SpeculativeJIT::compile(Node* node)
         static_assert(sizeof(JITCode::TriggerReason) == 1, "branchTest8 assumes this size");
 
         Jump forceOSREntry = branchTest8(NonZero, AbsoluteAddress(forceEntryTrigger));
-        Jump overflowedCounter = branchAdd32(
-            PositiveOrZero,
-            TrustedImm32(Options::ftlTierUpCounterIncrementForLoop()),
-            AbsoluteAddress(&jitCode()->tierUpCounter.m_counter));
+        Jump overflowedCounter = branchAdd32(PositiveOrZero, TrustedImm32(Options::ftlTierUpCounterIncrementForLoop()), Address(GPRInfo::jitDataRegister, JITData::offsetOfTierUpCounter()));
         Label toNextOperation = label();
 
         Vector<SilentRegisterSavePlan> savePlans;
@@ -6697,8 +6701,7 @@ void SpeculativeJIT::compileDateGet(Node* node)
         loadDouble(Address(baseGPR, DateInstance::offsetOfInternalNumber()), temp1FPR);
         auto isNaN = branchIfNaN(temp1FPR);
 
-        static const double msPerSecondConstant = msPerSecond;
-        loadDouble(TrustedImmPtr(&msPerSecondConstant), temp2FPR);
+        move64ToDouble(TrustedImm64(std::bit_cast<uint64_t>(static_cast<double>(msPerSecond))), temp2FPR);
         divDouble(temp1FPR, temp2FPR, temp3FPR);
         floorDouble(temp3FPR, temp3FPR);
         mulDouble(temp3FPR, temp2FPR, temp3FPR);
@@ -6796,10 +6799,8 @@ void SpeculativeJIT::compileDateSet(Node* node)
     moveZeroToDouble(scratch2FPR);
     addDouble(scratch2FPR, scratch1FPR);
 
-    static const double NaN = PNaN;
-    static const double max = WTF::maxECMAScriptTime;
-    loadDouble(TrustedImmPtr(&max), scratch3FPR);
-    loadDouble(TrustedImmPtr(&NaN), scratch4FPR);
+    move64ToDouble(TrustedImm64(std::bit_cast<uint64_t>(static_cast<double>(WTF::maxECMAScriptTime))), scratch3FPR);
+    move64ToDouble(TrustedImm64(std::bit_cast<uint64_t>(PNaN)), scratch4FPR);
     absDouble(timeFPR, scratch2FPR);
     moveDoubleConditionallyDouble(DoubleGreaterThanOrUnordered, scratch2FPR, scratch3FPR, scratch4FPR, scratch1FPR, scratch1FPR);
 
@@ -8079,7 +8080,7 @@ void SpeculativeJIT::compileNewBoundFunction(Node* node)
     storeValue(arg1Regs, Address(resultGPR, JSBoundFunction::offsetOfBoundArgs() + sizeof(WriteBarrier<Unknown>) * 1));
     storeValue(arg2Regs, Address(resultGPR, JSBoundFunction::offsetOfBoundArgs() + sizeof(WriteBarrier<Unknown>) * 2));
     storePtr(TrustedImmPtr(nullptr), Address(resultGPR, JSBoundFunction::offsetOfNameMayBeNull()));
-    store64(TrustedImm64(bitwise_cast<uint64_t>(PNaN)), Address(resultGPR, JSBoundFunction::offsetOfLength()));
+    store64(TrustedImm64(std::bit_cast<uint64_t>(PNaN)), Address(resultGPR, JSBoundFunction::offsetOfLength()));
     store32(TrustedImm32(node->numberOfBoundArguments()), Address(resultGPR, JSBoundFunction::offsetOfBoundArgsLength()));
     store8(TrustedImm32(static_cast<uint8_t>(TriState::Indeterminate)), Address(resultGPR, JSBoundFunction::offsetOfCanConstruct()));
     mutatorFence(vm());
@@ -8132,7 +8133,7 @@ void SpeculativeJIT::compileEnumeratorPutByVal(Node* node)
 
             genericOrRecoverCase.append(branch32(NotEqual, scratchGPR, Address(enumeratorGPR, JSPropertyNameEnumerator::cachedStructureIDOffset())));
             emitNonNullDecodeZeroExtendedStructureID(scratchGPR, scratchGPR);
-            genericOrRecoverCase.append(branchTest32(NonZero, Address(scratchGPR, Structure::bitFieldOffset()), TrustedImm32(Structure::s_isWatchingReplacementBits)));
+            genericOrRecoverCase.append(branchTest32(NonZero, Address(scratchGPR, Structure::bitFieldOffset()), TrustedImm32(Structure::s_hasReadOnlyOrGetterSetterPropertiesExcludingProtoBits | Structure::s_isWatchingReplacementBits)));
 
             // Compute the offset
             // If index is less than the enumerator's cached inline storage, then it's an inline access
@@ -8402,3 +8403,5 @@ void SpeculativeJIT::compileCreateClonedArguments(Node* node)
 } } // namespace JSC::DFG
 
 #endif
+
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_END

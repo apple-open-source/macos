@@ -217,16 +217,22 @@ struct tv32 {
 #define F_CONNECT	0x4000000
 #define F_NOUSERDATA	(F_NODEADDR | F_FQDN | F_FQDNOLD | F_SUPTYPES)
 #define	F_WAITTIME	0x8000000
+#define F_PRID   	0x10000000
+#define F_PRREQ   	0x20000000
 u_int options;
 
 static int longopt_flag = 0;
 
 #define	LOF_CONNECT	0x01
 #define LOF_PRTIME	0x02
+#define	LOF_PRID	0x04
+#define	LOF_PRREQ	0x08
 
 static const struct option longopts[] = {
 	{ "apple-connect", no_argument, &longopt_flag, LOF_CONNECT },
 	{ "apple-time", no_argument, &longopt_flag, LOF_PRTIME },
+	{ "apple-print-id", no_argument, &longopt_flag, LOF_PRID },
+	{ "apple-print-request", no_argument, &longopt_flag, LOF_PRREQ },
 	{ NULL, 0, NULL, 0 }
 };
 
@@ -750,6 +756,12 @@ main(int argc, char *argv[])
 					options |= F_PRTIME;
 					thiszone = gmt2local(0);
 					break;
+				case LOF_PRID:
+					options |= F_PRID;
+					break;
+				case LOF_PRREQ:
+					options |= F_PRREQ;
+					break;
 				default:
 					break;
 			}
@@ -905,8 +917,6 @@ main(int argc, char *argv[])
 	}
 
 	/* revoke root privilege */
-	if (seteuid(getuid()) != 0)
-		err(1, "seteuid() failed");
 	if (setuid(getuid()) != 0)
 		err(1, "setuid() failed");
 
@@ -1711,6 +1721,14 @@ pinger(void)
 			warn("sendmsg");
 		(void)printf("ping6: wrote %s %d chars, ret=%d\n",
 		    hostname, cc, i);
+	} else if ((options & F_PRREQ) && !(options & F_FLOOD)) {
+			if (options & F_PRTIME)
+				pr_currenttime();
+			(void)printf("%d bytes to %s, icmp_seq=%u", cc,
+						 pr_addr((struct sockaddr *)&dst, sizeof(dst)), ntohs(icp->icmp6_seq));
+			if (options & F_PRID)
+				(void)printf(" icmp_id=%u", ntohs(icp->icmp6_id));
+			printf("\n");
 	}
 	sntransmitted++;
 	if (!(options & F_QUIET) && options & F_FLOOD)
@@ -1913,6 +1931,8 @@ pr_pack(u_char *buf, int cc, struct msghdr *mhdr)
 				pr_currenttime();
 			(void)printf("%d bytes from %s, icmp_seq=%u", cc,
 			    pr_addr(from, fromlen), seq);
+			if (options & F_PRID)
+				(void)printf(" icmp_id=%u", ntohs(icp->icmp6_id));
 			(void)printf(" hlim=%d", hoplim);
 			if ((options & F_VERBOSE) != 0) {
 				struct sockaddr_in6 dstsa;
@@ -3340,5 +3360,7 @@ usage(void)
 	(void)fprintf(stderr, "            -K net_service_type  # set traffic class socket options\n");
 	(void)fprintf(stderr, "            --apple-connect      # call connect(2) in the socket\n");
 	(void)fprintf(stderr, "            --apple-time         # display current time\n");
+	(void)fprintf(stderr, "            --apple-print-id     # display echo ID\n");
+	(void)fprintf(stderr, "            --apple-print-req    # display echo request\n");
 	exit(1);
 }

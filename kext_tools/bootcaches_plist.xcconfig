@@ -1,0 +1,3 @@
+#include "<DEVELOPER_DIR>/AppleInternal/XcodeConfig/AppleFeatures.xcconfig"
+
+BOOTCACHES_PLIST = ./bootcaches.plist

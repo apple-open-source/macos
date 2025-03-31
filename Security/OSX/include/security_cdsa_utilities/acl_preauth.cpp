@@ -233,6 +233,24 @@ void SourceAclSubject::debugDump() const
 
 #endif //DEBUGDUMP
 
+CFStringRef OriginAclSubject::createACLDebugString() const
+{
+    return CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("<OriginAclSubject[slot:%d]>"), mAuthTag - CSSM_ACL_AUTHORIZATION_PREAUTH_BASE);
+}
+
+CFStringRef SourceAclSubject::createACLDebugString() const
+{
+    if(mSourceSubject) {
+        CFStringRef sourceDebug = mSourceSubject->createACLDebugString();
+        CFStringRef s = CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("<SourceAclSubject[%@]>"), sourceDebug);
+        if(sourceDebug) {
+            CFRelease(sourceDebug);
+        }
+        return s;
+    } else {
+        return CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("<SourceAclSubject[empty]>"));
+    }
+}
 
 }	//  namespace PreAuthorizationAcls
 }	//  namespace Security

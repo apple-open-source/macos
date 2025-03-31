@@ -15,7 +15,7 @@
 #include <math.h>
 #include <stdio.h>
 #include <string.h>
-#include "third_party/googletest/src/googletest/include/gtest/gtest.h"
+#include "gtest/gtest.h"
 #include "aom/aom_image.h"
 #include "aom_ports/aom_timer.h"
 
@@ -52,7 +52,7 @@ inline double compute_psnr(const aom_image_t *img1, const aom_image_t *img2) {
   return psnr;
 }
 
-static INLINE double get_time_mark(aom_usec_timer *t) {
+static inline double get_time_mark(aom_usec_timer *t) {
   aom_usec_timer_mark(t);
   return static_cast<double>(aom_usec_timer_elapsed(t));
 }

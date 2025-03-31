@@ -52,6 +52,7 @@ struct _removefile_state {
 
 int __removefile_rename_unlink(const char*path, removefile_state_t state);
 int __removefile_tree_walker(char ** trees, removefile_state_t state);
+int __removefile_tree_walker_slim(const char *path, removefile_state_t state);
 int __removefile_sunlink(const char * path, removefile_state_t state);
 void __removefile_init_random(const unsigned int seed, removefile_state_t state);
 char __removefile_random_char(removefile_state_t state);

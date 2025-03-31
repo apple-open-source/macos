@@ -1352,61 +1352,14 @@ def RtEntryTrash(cmd_args=None):
 def ShRtEntry(cmd_args=None):
     """ Print rtentry.
     """
+    if cmd_args is None or len(cmd_args) == 0:
+        raise ArgumentError()
+
     out_string = ""
     rt = kern.GetValueFromAddress(cmd_args[0], 'rtentry *')
     out_string += GetRtEntryPrDetailsAsString(rt) + "\n"
     print(out_string)
 # EndMacro: show_rtentry
-
-# Macro: inifa_trash
-@lldb_command('inifa_trash')
-def InIfaTrash(cmd_args=None):
-    """ Walk the list of trash in_ifaddr entries
-    """
-    out_string = ""
-    ifa_trash_head = kern.globals.inifa_trash_head
-    ifa = Cast(ifa_trash_head.tqh_first, 'in_ifaddr_dbg *')
-    inifa_trash_format_string = "{0:4d}: {1:x} {2:3d} {3:6d} {4:6d}"
-    cnt = 0
-    while (int(ifa) != 0):
-        if (cnt == 0):
-            if (kern.ptrsize == 8):
-                print("                  in_ifa  ref   hold   rele")
-                print("      ------------------  ---  ------  ----")
-            else:
-                print("          in_ifa  ref   hold   rele")
-                print("      ----------  ---  ----- ------")
-        out_string += inifa_trash_format_string.format(cnt + 1, ifa, ifa.inifa_refhold_cnt - ifa.inifa_refrele_cnt, ifa.inifa_refhold_cnt, ifa.inifa_refrele_cnt) + "   "
-        out_string += GetSocketAddrAsStringInet(ifa.inifa.ia_ifa.ifa_addr) + "\n"
-        ifa = ifa.inifa_trash_link.tqe_next
-        cnt += 1
-    print(out_string)
-# EndMacro: inifa_trash
-
-# Macro: in6ifa_trash
-@lldb_command('in6ifa_trash')
-def In6IfaTrash(cmd_args=None):
-    """ Walk the list of trash in6_ifaddr entries
-    """
-    out_string = ""
-    in6ifa_trash_head = kern.globals.in6ifa_trash_head
-    ifa = Cast(in6ifa_trash_head.tqh_first, 'in6_ifaddr_dbg *')
-    in6ifa_trash_format_string = "{0:4d}: 0x{1:x} {2:3d} {3:6d} {4:6d}"
-    cnt = 0
-    while (int(ifa) != 0):
-        if (cnt == 0):
-            if (kern.ptrsize == 8):
-                print("                 in6_ifa  ref   hold   rele")
-                print("      ------------------  --- ------ ------")
-            else:
-                print("         in6_ifa  ref   hold   rele")
-                print("      ----------  --- ------ ------")
-        out_string += in6ifa_trash_format_string.format(cnt + 1, ifa, ifa.in6ifa_refhold_cnt - ifa.in6ifa_refrele_cnt, ifa.in6ifa_refhold_cnt, ifa.in6ifa_refrele_cnt) + "   "
-        out_string += GetSocketAddrAsStringInet6(ifa.in6ifa.ia_ifa.ifa_addr) + "\n"
-        ifa = ifa.in6ifa_trash_link.tqe_next
-        cnt += 1
-    print(out_string)
-# EndMacro: in6ifa_trash
 
 # Macro: inm_trash
 @lldb_command('inm_trash')
@@ -1862,7 +1815,11 @@ def Getntohs(port):
 @lldb_command('mbuf_list_usage_summary')
 def ShowMbufListUsageSummary(cmd_args=None):
     """ Print mbuf list usage summary
+    Usage: mbuf_list_usage_summary [mbuf_addr]
     """
+    if cmd_args is None or len(cmd_args) == 0:
+        raise ArgumentError()
+
     out_string = ""
     pkt_cnt = [0]
     buf_byte_cnt = [0] * (Mbuf_Type.MT_LAST + 1)
@@ -1989,6 +1946,23 @@ def ShowUdpPcbInfo(cmd_args=None):
     """
     print(GetPcbInfo(addressof(kern.globals.udbinfo), IPPROTO_UDP))
 # EndMacro:  show_udp_pcbinfo
+
+# Macro: show_udp_pcbinfo
+@lldb_command('show_udb_info')
+def ShowUdb(cmd_args=None):
+    """ Display the list of UDP PCBs from udb.
+    """
+    head = kern.globals.udb
+    pcb = cast(head.lh_first, 'inpcb *')
+    pcbseen = 0
+    while pcb != 0:
+        pcbseen += 1
+        so = pcb.inp_socket
+        pcb = cast(pcb.inp_list.le_next, 'inpcb *')
+        #print(pcb.inp_last_proc_name)
+        print(GetInPcb(pcb, IPPROTO_UDP))
+        #print(pcb.inp_start_timestamp)
+# EndMacro: show_udb_pcbinfo
 
 # Macro: show_rip_pcbinfo
 @lldb_command('show_rip_pcbinfo')
@@ -2131,7 +2105,7 @@ def ShowDomains(cmd_args=None):
 def TCPCountRxtSegments(cmd_args=None):
     """ Size of the t_rxt_segments chain
     """
-    if not cmd_args:
+    if cmd_args is None or len(cmd_args) == 0:
         raise ArgumentError("Missing argument 0 in user function.")
 
     tp = kern.GetValueFromAddress(cmd_args[0], 'tcpcb *')
@@ -2150,7 +2124,7 @@ def TCPCountRxtSegments(cmd_args=None):
 def TCPWalkRxtSegments(cmd_args=None):
     """ Walk the t_rxt_segments chain
     """
-    if not cmd_args:
+    if cmd_args is None or len(cmd_args) == 0:
         raise ArgumentError("Missing argument 0 in user function.")
 
     tp = kern.GetValueFromAddress(cmd_args[0], 'tcpcb *')

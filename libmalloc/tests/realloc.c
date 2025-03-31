@@ -16,7 +16,7 @@ T_DECL(realloc_failure, "realloc failure", T_META_TAG_XZONE,
 	T_ASSERT_NULL(b, "realloc should fail");
 	T_ASSERT_EQ(error, ENOMEM, "failure should have been ENOMEM");
 
-	T_ASSERT_GT(a_sz, 0, "The original pointer should not have been freed");
+	T_ASSERT_GT(a_sz, 0ul, "The original pointer should not have been freed");
 
 	free(a);
 }
@@ -34,5 +34,5 @@ T_DECL(reallocf_failure, "reallocf failure", T_META_TAG_XZONE,
 	T_ASSERT_NULL(b, "reallocf should fail");
 	T_ASSERT_EQ(error, ENOMEM, "failure should have been ENOMEM");
 
-	T_ASSERT_EQ(a_sz, 0, "The original pointer should have been freed");
+	T_ASSERT_EQ(a_sz, 0ul, "The original pointer should have been freed");
 }

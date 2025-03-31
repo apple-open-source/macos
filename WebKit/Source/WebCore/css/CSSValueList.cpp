@@ -47,7 +47,7 @@ CSSValueContainingVector::CSSValueContainingVector(ClassType type, ValueSeparato
     } else {
         for (unsigned i = 0; i < maxInlineSize; ++i)
             m_inlineStorage[i] = &values[i].leakRef();
-        m_additionalStorage = static_cast<const CSSValue**>(fastMalloc(sizeof(const CSSValue*) * (m_size - maxInlineSize)));
+        m_additionalStorage = MallocSpan<const CSSValue*>::malloc(sizeof(const CSSValue*) * (m_size - maxInlineSize));
         for (unsigned i = maxInlineSize; i < m_size; ++i)
             m_additionalStorage[i - maxInlineSize] = &values[i].leakRef();
     }
@@ -275,7 +275,7 @@ bool CSSValueContainingVector::customTraverseSubresources(const Function<bool(co
     return false;
 }
 
-void CSSValueContainingVector::customSetReplacementURLForSubresources(const HashMap<String, String>& replacementURLStrings)
+void CSSValueContainingVector::customSetReplacementURLForSubresources(const UncheckedKeyHashMap<String, String>& replacementURLStrings)
 {
     for (auto& value : *this)
         const_cast<CSSValue&>(value).setReplacementURLForSubresources(replacementURLStrings);

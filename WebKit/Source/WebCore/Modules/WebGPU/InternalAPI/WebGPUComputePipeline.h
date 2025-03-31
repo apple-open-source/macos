@@ -27,7 +27,7 @@
 
 #include <cstdint>
 #include <wtf/Ref.h>
-#include <wtf/RefCounted.h>
+#include <wtf/RefCountedAndCanMakeWeakPtr.h>
 #include <wtf/WeakPtr.h>
 #include <wtf/text/WTFString.h>
 
@@ -35,7 +35,7 @@ namespace WebCore::WebGPU {
 
 class BindGroupLayout;
 
-class ComputePipeline : public RefCounted<ComputePipeline>, public CanMakeWeakPtr<ComputePipeline> {
+class ComputePipeline : public RefCountedAndCanMakeWeakPtr<ComputePipeline> {
 public:
     virtual ~ComputePipeline() = default;
 

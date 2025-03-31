@@ -25,9 +25,7 @@
 
 #pragma once
 
-#if ENABLE(DATE_AND_TIME_INPUT_TYPES)
-
-#include <wtf/RefCounted.h>
+#include <wtf/RefCountedAndCanMakeWeakPtr.h>
 #include <wtf/WeakPtr.h>
 
 namespace WebCore {
@@ -38,7 +36,7 @@ namespace WebKit {
 
 class WebPageProxy;
 
-class WebDateTimePicker : public RefCounted<WebDateTimePicker>, public CanMakeWeakPtr<WebDateTimePicker> {
+class WebDateTimePicker : public RefCountedAndCanMakeWeakPtr<WebDateTimePicker> {
 public:
     virtual ~WebDateTimePicker();
 
@@ -52,5 +50,3 @@ protected:
 };
 
 } // namespace WebKit
-
-#endif // ENABLE(DATE_AND_TIME_INPUT_TYPES)

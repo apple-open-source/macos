@@ -146,7 +146,6 @@ NSString* CKKSAccountStatusToString(CKKSAccountStatus status);
 
 + (SOSAccountStatus*)getCircleStatus;
 + (void)fetchCirclePeerID:(void (^)(NSString* _Nullable peerID, NSError* _Nullable error))callback;
-+ (NSString*)stringFromAccountStatus:(CKKSAccountStatus)status;
 
 @end
 

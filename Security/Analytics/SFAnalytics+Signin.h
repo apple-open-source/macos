@@ -28,8 +28,8 @@
 
 NS_ASSUME_NONNULL_BEGIN
 
-#import "SFAnalytics.h"
-#import "SFAnalyticsSQLiteStore.h"
+#import "Analytics/SFAnalytics.h"
+#import "Analytics/SFAnalyticsSQLiteStore.h"
 @interface SFAnalytics (SignIn)
 /* Typical SFA clients do not need this.  SignIn Metrics needs this */
 @property (nonatomic, nullable) SFAnalyticsSQLiteStore* database;

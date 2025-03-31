@@ -69,7 +69,7 @@ void SharedStringHashTable::clear()
     if (!m_sharedMemory)
         return;
 
-    memsetSpan(m_sharedMemory->mutableSpan(), 0);
+    zeroSpan(m_sharedMemory->mutableSpan());
     setSharedMemory(nullptr);
 }
 

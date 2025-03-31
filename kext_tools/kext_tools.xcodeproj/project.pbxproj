@@ -134,7 +134,7 @@
 			isa = PBXAggregateTarget;
 			buildConfigurationList = 331983F21C9B3A03009D04F3 /* Build configuration list for PBXAggregateTarget "bootcaches_plist" */;
 			buildPhases = (
-				331983F31C9B3A21009D04F3 /* Copy Files bootcaches.plist */,
+				B30E6D7A2C1B7CD5002F3388 /* Script: Copy bootcaches.plist */,
 			);
 			dependencies = (
 			);
@@ -292,7 +292,6 @@
 		24FD30230DC145530065A35B /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1492D20D01E541CE02CA2A87 /* IOKit.framework */; };
 		274B8E6C13621CBE00DDD2DF /* libcsfde.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 4B5563461267821C009908A3 /* libcsfde.dylib */; settings = {ATTRIBUTES = (Weak, ); }; };
 		274B8E6D13621CD200DDD2DF /* libCoreStorage.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 0022F3BB11758B0700EE4798 /* libCoreStorage.dylib */; settings = {ATTRIBUTES = (Weak, ); }; };
-		331983F41C9B3A4A009D04F3 /* bootcaches.plist in Copy Files bootcaches.plist */ = {isa = PBXBuildFile; fileRef = 24AF80980E09E94A002ED318 /* bootcaches.plist */; };
 		364A90B4203FB79200F223BF /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 146BE2D201F7A95A02CA2A87 /* CoreFoundation.framework */; };
 		364A90BF203FB86100F223BF /* kextaudit_test.m in Sources */ = {isa = PBXBuildFile; fileRef = 364A90BE203FB86100F223BF /* kextaudit_test.m */; };
 		365342F7203F91AA007C5B77 /* KextAudit.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 365342EF203F91A9007C5B77 /* KextAudit.cpp */; };
@@ -829,17 +828,6 @@
 			name = "Copy Man Pages";
 			runOnlyForDeploymentPostprocessing = 1;
 		};
-		331983F31C9B3A21009D04F3 /* Copy Files bootcaches.plist */ = {
-			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 8;
-			dstPath = /usr/standalone;
-			dstSubfolderSpec = 0;
-			files = (
-				331983F41C9B3A4A009D04F3 /* bootcaches.plist in Copy Files bootcaches.plist */,
-			);
-			name = "Copy Files bootcaches.plist";
-			runOnlyForDeploymentPostprocessing = 1;
-		};
 		3F2316A02242F6A300B5222D /* Copy klist_cdhashes */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 8;
@@ -1138,6 +1126,7 @@
 		A6D698181E56B04D0050FC06 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = /System/Library/Frameworks/Foundation.framework; sourceTree = "<absolute>"; };
 		A6E477F52170207300B5B68E /* com.apple.kext.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = com.apple.kext.plist; sourceTree = "<group>"; };
 		A6F960040D05B7C800EE36C5 /* libstdc++.6.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = "libstdc++.6.dylib"; path = "/usr/lib/libstdc++.6.dylib"; sourceTree = "<absolute>"; };
+		B30E6D792C1B7C39002F3388 /* bootcaches_plist.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = bootcaches_plist.xcconfig; sourceTree = "<group>"; };
 		CD99C87B243E74F300E7D51C /* kext.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; path = kext.xcconfig; sourceTree = "<group>"; };
 		D3EA479024B7D9DB007B8277 /* kextstat.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = kextstat.m; sourceTree = "<group>"; };
 		D3EFA56C241AD27F00973534 /* kextutil.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = kextutil.m; sourceTree = "<group>"; };
@@ -1468,6 +1457,7 @@
 				72CEFE13170F871E00A7EAC3 /* com.apple.logkextloadsd.plist */,
 				058248A50974758700E44A92 /* com.apple.kextd.plist */,
 				24AF80980E09E94A002ED318 /* bootcaches.plist */,
+				B30E6D792C1B7C39002F3388 /* bootcaches_plist.xcconfig */,
 				A6E477F52170207300B5B68E /* com.apple.kext.plist */,
 			);
 			name = plists;
@@ -2451,6 +2441,25 @@
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "# Type a script or drag a script file from your workspace to insert its path.\necho \"Just checking stuff\"\nXCRUN=\"/usr/bin/xcrun\"\nTARGETSDK=${SDKROOT}\nINSTALLPATH=\"/AppleInternal/CoreOS/kext_tools\"\nEXTRACTMETA=$(${XCRUN} -sdk ${TARGETSDK} -find dt_extractmeta)\n\necho \"${SYMROOT}\"\necho \"${BUILT_PRODUCTS_DIR}\"\necho \"${EXTRACTMETA} extract -i ${INSTALLPATH}/kextaudit_darwintest -b ${BUILT_PRODUCTS_DIR}/kextaudit_darwintest -o ${BUILT_PRODUCTS_DIR}/kextaudit_darwintest.plist\"\n${EXTRACTMETA} extract -i ${INSTALLPATH}/kextaudit_darwintest -b ${BUILT_PRODUCTS_DIR}/kextaudit_darwintest -o ${BUILT_PRODUCTS_DIR}/kextaudit_darwintest.plist\n\necho \"${EXTRACTMETA} merge -o ${BUILT_PRODUCTS_DIR}/meta.plist ${BUILT_PRODUCTS_DIR}/kextaudit_darwintest.plist\"\n${EXTRACTMETA} merge -o ${BUILT_PRODUCTS_DIR}/meta.plist ${BUILT_PRODUCTS_DIR}/kextaudit_darwintest.plist\n\n\n";
+		};
+		B30E6D7A2C1B7CD5002F3388 /* Script: Copy bootcaches.plist */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 8;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Script: Copy bootcaches.plist";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = /bin/sh;
+			shellScript = "DST_DIR=\"${DSTROOT}/usr/standalone\"\n\n/bin/echo \"Creating directory ${DST_DIR}\"\n/bin/mkdir -p -m 0755 \"${DST_DIR}\"\n\n# bootcaches_plist.xcconfig defines the appropriate source file based on feature flags\nSRC=${SRCROOT}/${BOOTCACHES_PLIST}\nDST=${DST_DIR}/bootcaches.plist\n/bin/echo \"Copying ${SRC} -> ${DST}\"\n/bin/cp \"${SRC}\" \"${DST}\"\n\n/bin/echo \"Setting owner and permissions on ${DST_DIR}\"\n/usr/sbin/chown -R root:wheel \"${DST_DIR}\"\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -4200,6 +4209,7 @@
 		};
 		331983EF1C9B3A03009D04F3 /* Development */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = B30E6D792C1B7C39002F3388 /* bootcaches_plist.xcconfig */;
 			buildSettings = {
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
@@ -4207,6 +4217,7 @@
 		};
 		331983F01C9B3A03009D04F3 /* Deployment */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = B30E6D792C1B7C39002F3388 /* bootcaches_plist.xcconfig */;
 			buildSettings = {
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
@@ -4214,6 +4225,7 @@
 		};
 		331983F11C9B3A03009D04F3 /* Analyze */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = B30E6D792C1B7C39002F3388 /* bootcaches_plist.xcconfig */;
 			buildSettings = {
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};

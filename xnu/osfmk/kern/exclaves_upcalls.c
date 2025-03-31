@@ -114,10 +114,20 @@ static const xnuupcalls_xnuupcalls__server_s exclaves_tightbeam_upcalls = {
 		return exclaves_memory_upcall_legacy_alloc(npages, kind, completion);
 	},
 
+	.alloc_ext = ^(const uint32_t npages, xnuupcalls_pageallocflags_s flags,
+	    tb_error_t (^completion)(xnuupcalls_pagelist_s)) {
+		return exclaves_memory_upcall_legacy_alloc_ext(npages, flags, completion);
+	},
+
 	.free = ^(const uint32_t pages[_Nonnull EXCLAVES_MEMORY_MAX_REQUEST],
 	    const uint32_t npages, const xnuupcalls_pagekind_s kind,
 	    tb_error_t (^completion)(void)) {
 		return exclaves_memory_upcall_legacy_free(pages, npages, kind, completion);
+	},
+
+	.free_ext = ^(const uint32_t pages[_Nonnull EXCLAVES_MEMORY_MAX_REQUEST],
+		const uint32_t npages, xnuupcalls_pagefreeflags_s flags, tb_error_t (^completion)(void)) {
+		return exclaves_memory_upcall_legacy_free_ext(pages, npages, flags, completion);
 	},
 
 	.root = ^(const uint8_t exclaveid[_Nonnull 32],
@@ -326,14 +336,27 @@ static const xnuupcallsv2_xnuupcalls__server_s exclaves_tightbeam_upcalls_v2 = {
 		return exclaves_memory_upcall_alloc(npages, kind, completion);
 	},
 
+	.alloc_ext = ^(const uint32_t npages, xnuupcallsv2_pageallocflagsv2_s flags, tb_error_t (^completion)(xnuupcallsv2_pagelist_s)) {
+		return exclaves_memory_upcall_alloc_ext(npages, flags, completion);
+	},
+
 	.free = ^(const xnuupcallsv2_pagelist_s pages, const xnuupcallsv2_pagekind_s kind,
 	    tb_error_t (^completion)(void)) {
 		return exclaves_memory_upcall_free(pages, kind, completion);
 	},
 
+	.free_ext = ^(const xnuupcallsv2_pagelist_s pages, xnuupcallsv2_pagefreeflagsv2_s flags, tb_error_t (^completion)(void)) {
+		return exclaves_memory_upcall_free_ext(pages, flags, completion);
+	},
+
 	.root = ^(const uint8_t exclaveid[_Nonnull 32],
 	    tb_error_t (^completion)(xnuupcallsv2_storageupcallsprivate_root__result_s)) {
 		return exclaves_storage_upcall_root(exclaveid, completion);
+	},
+
+	.rootex = ^(const uint32_t fstag, const uint8_t exclaveid[_Nonnull 32],
+	    tb_error_t (^completion)(xnuupcallsv2_storageupcallsprivate_rootex__result_s)) {
+		return exclaves_storage_upcall_rootex(fstag, exclaveid, completion);
 	},
 
 	.open = ^(const uint32_t fstag, const uint64_t rootid,
@@ -393,6 +416,11 @@ static const xnuupcallsv2_xnuupcalls__server_s exclaves_tightbeam_upcalls_v2 = {
 	.sealstate = ^(const uint32_t fstag,
 		tb_error_t (^completion)(xnuupcallsv2_storageupcallsprivate_sealstate__result_s)) {
 		return exclaves_storage_upcall_sealstate(fstag, completion);
+	},
+
+	.queryvolumegroup = ^(const uint8_t vguuid[_Nonnull 37],
+		tb_error_t (^completion)(xnuupcallsv2_storageupcallsprivate_queryvolumegroup__result_s)) {
+		return exclaves_storage_upcall_queryvolumegroup(vguuid, completion);
 	},
 
 	.irqregister = ^(const uint64_t id, const int32_t index,

@@ -909,7 +909,6 @@ void _objc_init(void)
     initialized = true;
     
     // fixme defer initialization until an objc-using image is found?
-    masks_init();
     locks_init();
     environ_init();
     runtime_tls_init();
@@ -942,7 +941,7 @@ void _objc_init(void)
 * _headerForAddress.
 * addr can be a class or a category
 **********************************************************************/
-static const header_info *_headerForAddress(void *addr)
+const header_info *_headerForAddress(const void *addr)
 {
     const char *segnames[] = { "__DATA", "__DATA_CONST", "__DATA_DIRTY", "__AUTH" };
     header_info *hi;

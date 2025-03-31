@@ -30,7 +30,6 @@
 #import "CAFrameRateRangeUtilities.h"
 #import "RemoteLayerTreeHost.h"
 #import "WKAnimationDelegate.h"
-#import "WebCoreArgumentCoders.h"
 #import <QuartzCore/QuartzCore.h>
 #import <WebCore/GraphicsLayer.h>
 #import <WebCore/PlatformCAAnimationCocoa.h>

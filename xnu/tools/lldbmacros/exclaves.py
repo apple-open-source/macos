@@ -126,7 +126,7 @@ def ShowESyncTable(cmd_args=None, cmd_options={}, O=None):
         Example: showesynctable &exclaves_queue_ht
     """
 
-    if not cmd_args:
+    if cmd_args is None or len(cmd_args) == 0:
         raise ArgumentError("No arguments passed.")
 
     try:

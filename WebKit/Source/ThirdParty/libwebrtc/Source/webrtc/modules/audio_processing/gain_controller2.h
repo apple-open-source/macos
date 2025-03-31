@@ -68,7 +68,8 @@ class GainController2 {
   // computes the speech probability via `vad_`.
   // Handles input volume changes; if the caller cannot determine whether an
   // input volume change occurred, set `input_volume_changed` to false.
-  void Process(absl::optional<float> speech_probability,
+  // TODO(bugs.webrtc.org/7494): Remove `speech_probability`.
+  void Process(std::optional<float> speech_probability,
                bool input_volume_changed,
                AudioBuffer* audio);
 
@@ -76,7 +77,7 @@ class GainController2 {
 
   AvailableCpuFeatures GetCpuFeatures() const { return cpu_features_; }
 
-  absl::optional<int> recommended_input_volume() const {
+  std::optional<int> recommended_input_volume() const {
     return recommended_input_volume_;
   }
 
@@ -102,7 +103,7 @@ class GainController2 {
   // Recommended input volume from `InputVolumecontroller`. Non-empty after
   // `Process()` if input volume controller is enabled and
   // `InputVolumeController::Process()` has returned a non-empty value.
-  absl::optional<int> recommended_input_volume_;
+  std::optional<int> recommended_input_volume_;
 };
 
 }  // namespace webrtc

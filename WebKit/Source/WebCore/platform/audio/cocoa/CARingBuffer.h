@@ -79,6 +79,7 @@ protected:
     WEBCORE_EXPORT static CheckedSize computeSizeForBuffers(size_t bytesPerFrame, size_t frameCount, uint32_t numChannelStreams);
 
     virtual void* data() = 0;
+    std::span<uint8_t> span() { return unsafeMakeSpan(static_cast<uint8_t*>(data()), m_channelCount * m_capacityBytes); }
     using TimeBoundsBuffer = SequenceLocked<TimeBounds>;
     virtual TimeBoundsBuffer& timeBoundsBuffer() = 0;
 
@@ -87,7 +88,7 @@ private:
     void setTimeBounds(TimeBounds bufferBounds);
     void fetchInternal(AudioBufferList*, size_t frameCount, uint64_t startFrame, FetchMode, TimeBounds bufferBounds);
 
-    Vector<Byte*> m_pointers;
+    Vector<std::span<Byte>> m_channels;
     const uint32_t m_channelCount;
     const size_t m_bytesPerFrame;
     const uint32_t m_frameCount;
@@ -101,6 +102,8 @@ inline CARingBuffer::FetchMode CARingBuffer::fetchModeForMixing(AudioStreamDescr
 {
     switch (format) {
     case AudioStreamDescription::None:
+    case AudioStreamDescription::Uint8:
+    case AudioStreamDescription::Int24:
         ASSERT_NOT_REACHED();
         return MixInt32;
     case AudioStreamDescription::Int16:
@@ -115,6 +118,7 @@ inline CARingBuffer::FetchMode CARingBuffer::fetchModeForMixing(AudioStreamDescr
 }
 
 class InProcessCARingBuffer final : public CARingBuffer {
+    WTF_MAKE_TZONE_ALLOCATED_EXPORT(InProcessCARingBuffer, WEBCORE_EXPORT);
 public:
     WEBCORE_EXPORT static std::unique_ptr<InProcessCARingBuffer> allocate(const WebCore::CAAudioStreamDescription& format, size_t frameCount);
     WEBCORE_EXPORT ~InProcessCARingBuffer();

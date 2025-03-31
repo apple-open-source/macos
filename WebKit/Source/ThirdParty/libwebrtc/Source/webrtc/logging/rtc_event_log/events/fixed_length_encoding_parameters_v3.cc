@@ -12,8 +12,8 @@
 
 #include <algorithm>
 #include <cstdint>
+#include <optional>
 
-#include "absl/types/optional.h"
 #include "api/array_view.h"
 #include "logging/rtc_event_log/events/rtc_event_field_extraction.h"
 #include "rtc_base/checks.h"
@@ -91,8 +91,8 @@ FixedLengthEncodingParametersV3::CalculateParameters(
   // equal".
   RTC_DCHECK(!use_signed_deltas || delta_bit_width < 64);
 
-  RTC_DCHECK(ValidParameters(delta_bit_width, use_signed_deltas,
-                             values_optional, value_bit_width));
+  RTC_DCHECK(
+      ValidParameters(delta_bit_width, use_signed_deltas, value_bit_width));
   return FixedLengthEncodingParametersV3(delta_bit_width, use_signed_deltas,
                                          values_optional, value_bit_width);
 }
@@ -110,7 +110,7 @@ uint64_t FixedLengthEncodingParametersV3::DeltaHeaderAsInt() const {
   return header;
 }
 
-absl::optional<FixedLengthEncodingParametersV3>
+std::optional<FixedLengthEncodingParametersV3>
 FixedLengthEncodingParametersV3::ParseDeltaHeader(uint64_t header,
                                                   uint64_t value_bit_width) {
   uint64_t delta_bit_width = (header & ((1u << 6) - 1)) + 1;
@@ -119,17 +119,16 @@ FixedLengthEncodingParametersV3::ParseDeltaHeader(uint64_t header,
 
   if (header >= (1u << 8)) {
     RTC_LOG(LS_ERROR) << "Failed to parse delta header; unread bits remaining.";
-    return absl::nullopt;
+    return std::nullopt;
   }
 
-  if (!ValidParameters(delta_bit_width, signed_deltas, values_optional,
-                       value_bit_width)) {
+  if (!ValidParameters(delta_bit_width, signed_deltas, value_bit_width)) {
     RTC_LOG(LS_ERROR) << "Failed to parse delta header. Invalid combination of "
                          "values: delta_bit_width="
                       << delta_bit_width << " signed_deltas=" << signed_deltas
                       << " values_optional=" << values_optional
                       << " value_bit_width=" << value_bit_width;
-    return absl::nullopt;
+    return std::nullopt;
   }
 
   return FixedLengthEncodingParametersV3(delta_bit_width, signed_deltas,

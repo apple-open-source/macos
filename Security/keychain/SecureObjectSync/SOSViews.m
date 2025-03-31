@@ -249,6 +249,12 @@ CFSetRef SOSViewsGetAllCurrent(void) {
     return sosAllViews;
 }
 
+static CFComparisonResult
+BitMaskCompare(const void *val1, const void *val2, void * __unused context)
+{
+    return CFStringCompare(val1, val2, 0);
+}
+
 static CFDictionaryRef SOSViewsGetBitmasks(void) {
     static dispatch_once_t once;
     static CFMutableDictionaryRef masks = NULL;
@@ -266,7 +272,7 @@ static CFDictionaryRef SOSViewsGetBitmasks(void) {
         } else {
             __block uint32_t maskValue = 1;
             CFRange all = CFRangeMake(0, viewCount);
-            CFArraySortValues(viewArray, all, (CFComparatorFunction)CFStringCompare, NULL);
+            CFArraySortValues(viewArray, all, BitMaskCompare, NULL);
             masks = CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFCopyStringDictionaryKeyCallBacks, NULL);
             CFArrayForEach(viewArray, ^(const void *value) {
                 CFDictionaryAddValue(masks, value, (const void *) (uintptr_t) maskValue);

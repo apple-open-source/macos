@@ -70,8 +70,10 @@ extern SecTrustedApplicationRef appPathToAppRef(const char *appPath);
 /* read a file --> SecCertificateRef */
 int readCertFile(const char *fileName, SecCertificateRef *certRef);
 
+#if TARGET_OS_OSX
 /* policy string --> CSSM_OID */
 const CSSM_OID *policyStringToOid(const char *policy, bool *useTLS);
+#endif
 
 /* revocation option string --> revocation option flag */
 CFOptionFlags revCheckOptionStringToFlags(const char *revCheckOption);

@@ -29,10 +29,7 @@
 .\" OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
 .\" SUCH DAMAGE.
 .\"
-.\"     @(#)date.1	8.3 (Berkeley) 4/28/95
-.\" $FreeBSD$
-.\"
-.Dd July 28, 2022
+.Dd September 10, 2024
 .Dt DATE 1
 .Os
 .Sh NAME
@@ -42,6 +39,7 @@
 .\" Display time.
 .Nm
 .Op Fl nRu
+.Op Fl z Ar output_zone
 .Op Fl I Ns Op Ar FMT
 .Op Fl r Ar filename
 .Op Fl r Ar seconds
@@ -56,6 +54,7 @@
 .\" Set time with the default input format.
 .Nm
 .Op Fl jnRu
+.Op Fl z Ar output_zone
 .Op Fl I Ns Op Ar FMT
 .Oo
 .Sm off
@@ -79,6 +78,7 @@
 .\" Set time with the user-provided input format.
 .Nm
 .Op Fl jnRu
+.Op Fl z Ar output_zone
 .Op Fl I Ns Op Ar FMT
 .Oo
 .Sm off
@@ -152,17 +152,19 @@ values are
 .Cm date ,
 .Cm hours ,
 .Cm minutes ,
+.Cm seconds ,
 and
-.Cm seconds .
+.Cm ns No Pq for nanoseconds .
 The date and time is formatted to the specified precision.
 When
 .Ar FMT
 is
 .Cm hours
-(or the more precise
-.Cm minutes
+.Po or the more precise
+.Cm minutes ,
+.Cm seconds ,
 or
-.Cm seconds ) ,
+.Cm ns Pc ,
 the
 .St -iso8601
 format includes the timezone.
@@ -213,6 +215,14 @@ displays the time in the time zone described by
 or the
 .Ev TZ
 environment variable.
+.It Fl z Ar output_zone
+Just before printing the time, change to the specified timezone;
+see the description of
+.Ev TZ
+below.
+This can be used with
+.Fl j
+to easily convert time specifications from one zone to another.
 .It Xo
 .Fl v
 .Sm off
@@ -226,8 +236,8 @@ day, week day, month or year according to
 .Ar val .
 If
 .Ar val
-is preceded with a plus or minus sign,
-the date is adjusted forwards or backwards according to the remaining string,
+is preceded by a plus or minus sign,
+the date is adjusted forward or backward according to the remaining string,
 otherwise the relevant part of the date is set.
 The date can be adjusted as many times as required using these flags.
 Flags are processed in the order given.
@@ -287,7 +297,7 @@ will be necessary to reach October 29, 2:30.
 .Pp
 When the date is adjusted to a specific value that does not actually exist
 (for example March 26, 1:30 BST 2000 in the Europe/London timezone),
-the date will be silently adjusted forwards in units of one hour until it
+the date will be silently adjusted forward in units of one hour until it
 reaches a valid time.
 When the date is adjusted to a specific value that occurs twice
 (for example October 29, 1:30 2000),
@@ -328,7 +338,9 @@ which specifies the format in which to display the date and time.
 The format string may contain any of the conversion specifications
 described in the
 .Xr strftime 3
-manual page, as well as any arbitrary text.
+manual page and
+.Ql %N
+for nanoseconds, as well as any arbitrary text.
 A newline
 .Pq Ql \en
 character is always output after the characters specified by
@@ -527,13 +539,23 @@ will display
 .Pp
 .Dl "2018-08-04T13:42:19-07:00"
 .Pp
-Finally the command:
+The command:
 .Pp
-.Dl "date -j -f ""%a %b %d %T %Z %Y"" ""`LC_ALL=C date`"" ""+%s"""
+.Dl "env LC_ALL=C date -j -f ""%a %b %d %T %Z %Y"" ""`env LC_ALL=C date`"" ""+%s"""
 .Pp
 can be used to parse the output from
 .Nm
 and express it in Epoch time.
+.Pp
+Finally the command
+.Pp
+.Dl "TZ=America/Los_Angeles date -z Europe/Paris -j 0900"
+.Pp
+will print the time in the
+.Dq Europe/Paris
+timezone when it is 9:00 in the
+.Dq America/Los_Angeles
+timezone.
 .Sh DIAGNOSTICS
 It is invalid to combine the
 .Fl I
@@ -561,6 +583,7 @@ For more information about legacy mode, see
 .Xr compat 5 .
 .Sh SEE ALSO
 .Xr locale 1 ,
+.Xr clock_gettime 2 ,
 .Xr gettimeofday 2 ,
 .Xr getutxent 3 ,
 .Xr strftime 3 ,
@@ -592,6 +615,12 @@ The format selected by the
 .Fl I
 flag is compatible with
 .St -iso8601 .
+.Pp
+The
+.Ql %N
+conversion specification for nanoseconds is a non-standard extension.
+It is compatible with GNU date's
+.Ql %N .
 .Sh HISTORY
 A
 .Nm
@@ -610,3 +639,8 @@ The
 .Fl I
 flag was added in
 .Fx 12.0 .
+.Pp
+The
+.Ql %N
+conversion specification was added in
+.Fx 14.1 .

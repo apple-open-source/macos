@@ -98,6 +98,7 @@ class MediaController
         scheduler.flushScheduledLayoutCallbacks();
 
         shadowRoot.addEventListener("resize", this);
+        shadowRoot.addEventListener("fullscreenchange", this);
 
         media.videoTracks.addEventListener("addtrack", this);
         media.videoTracks.addEventListener("removetrack", this);
@@ -256,6 +257,8 @@ class MediaController
             this._updateControlsIfNeeded();
             // We must immediately perform layouts so that we don't lag behind the media layout size.
             scheduler.flushScheduledLayoutCallbacks();
+        } else if (event.type === "fullscreenchange" && event.currentTarget === this.shadowRoot) {
+            this._updateControlsAvailability();
         } else if (event.type === "keydown" && this.isFullscreen && event.key === " ") {
             this.togglePlayback();
             event.preventDefault();
@@ -348,6 +351,9 @@ class MediaController
     deinitialize()
     {
         this.shadowRoot.removeChild(this.container);
+        window.removeEventListener("keydown", this);
+        if (this.controls)
+            this.controls.disable();
         return true;
     }
 
@@ -358,6 +364,9 @@ class MediaController
         this.mediaWeakRef = new WeakRef(media);
         this.host = host;
         shadowRoot.appendChild(this.container);
+        window.addEventListener("keydown", this);
+        if (this.controls)
+            this.controls.reenable();
         return true;
     }
 
@@ -416,6 +425,9 @@ class MediaController
         }
 
         this._updateControlsAvailability();
+
+        if (this.host?.needsChromeMediaControlsPseudoElement)
+            this.controls.element.setAttribute('useragentpart', '-webkit-media-controls');
     }
 
     _stopPropagationOnClickEvents()
@@ -497,6 +509,9 @@ class MediaController
     _shouldControlsBeAvailable()
     {
         if (this.layoutTraits.controlsNeverAvailable())
+            return false;
+        
+        if (this.controls instanceof IOSInlineMediaControls && this.media.webkitPresentationMode === "picture-in-picture")
             return false;
 
         // Otherwise, for controls to be available, the controls attribute must be present on the media element

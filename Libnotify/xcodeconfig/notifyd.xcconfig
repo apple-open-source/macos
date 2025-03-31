@@ -9,3 +9,5 @@ SANDBOX_NAME = com.apple.notifyd
 SANDBOX_PROFILE = com.apple.notifyd.sb
 OTHER_MIGFLAGS = -DMACH_NOTIFY_SEND_POSSIBLE_EXPECTED=1
 
+
+CODE_SIGN_ENTITLEMENTS = notifyd/entitlements.plist

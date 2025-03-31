@@ -26,7 +26,7 @@
 #include "aom_dsp/arm/transpose_neon.h"
 #include "aom_ports/mem.h"
 
-static INLINE void convolve8_horiz_8tap_neon(const uint8_t *src,
+static inline void convolve8_horiz_8tap_neon(const uint8_t *src,
                                              ptrdiff_t src_stride, uint8_t *dst,
                                              ptrdiff_t dst_stride,
                                              const int16_t *filter_x, int w,
@@ -195,7 +195,7 @@ static INLINE void convolve8_horiz_8tap_neon(const uint8_t *src,
   }
 }
 
-static INLINE void convolve8_horiz_4tap_neon(const uint8_t *src,
+static inline void convolve8_horiz_4tap_neon(const uint8_t *src,
                                              ptrdiff_t src_stride, uint8_t *dst,
                                              ptrdiff_t dst_stride,
                                              const int16_t *filter_x, int w,
@@ -292,7 +292,7 @@ void aom_convolve8_horiz_neon(const uint8_t *src, ptrdiff_t src_stride,
   }
 }
 
-static INLINE void convolve8_vert_8tap_neon(const uint8_t *src,
+static inline void convolve8_vert_8tap_neon(const uint8_t *src,
                                             ptrdiff_t src_stride, uint8_t *dst,
                                             ptrdiff_t dst_stride,
                                             const int16_t *filter_y, int w,

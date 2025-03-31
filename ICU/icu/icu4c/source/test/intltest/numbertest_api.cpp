@@ -1240,7 +1240,7 @@ void NumberFormatterApiTest::unitArbitraryMeasureUnits() {
                 .unit(MeasureUnit::forIdentifier("nanogram-per-picobarrel", status)),
             Locale("en-ZA"),
             2.4,
-            u"2.4 ng/pbbl");
+            u"2,4 ng/pbbl");
 
     assertFormatSingle(
             u"Prefix in the denominator: nanogram-per-picobarrel unit-width-full-name",
@@ -1251,7 +1251,7 @@ void NumberFormatterApiTest::unitArbitraryMeasureUnits() {
                 .unitWidth(UNUM_UNIT_WIDTH_FULL_NAME),
             Locale("en-ZA"),
             2.4,
-            u"2.4 nanograms per picobarrel");
+            u"2,4 nanograms per picobarrel");
 
     // Valid MeasureUnit, but unformattable, because we only have patterns for
     // pow2 and pow3 at this time:
@@ -1273,7 +1273,7 @@ void NumberFormatterApiTest::unitArbitraryMeasureUnits() {
                 .unitWidth(UNUM_UNIT_WIDTH_FULL_NAME),
             Locale("en-ZA"),
             2.4,
-            u"2.4 kibijoule-feet per cubic gigafurlong-square second");
+            u"2,4 kibijoule-feet per cubic gigafurlong-square second");
 
     assertFormatSingle(
             u"kibijoule-foot-per-cubic-gigafurlong-square-second unit-width-full-name",
@@ -1300,7 +1300,7 @@ void NumberFormatterApiTest::unitArbitraryMeasureUnits() {
                 .unitWidth(UNUM_UNIT_WIDTH_FULL_NAME),
             Locale("en-ZA"),
             2.4,
-            u"2.4 kilowatt-hours per 100 kilometres");
+            u"2,4 kilowatt-hours per 100 kilometres");
 }
 
 // TODO: merge these tests into numbertest_skeletons.cpp instead of here:
@@ -1366,7 +1366,7 @@ void NumberFormatterApiTest::unitSkeletons() {
          u"unit/kibijoule-per-furlong",          //
          u"unit/kibijoule-per-furlong"},
     };
-    for (auto &cas : cases) {
+    for (const auto& cas : cases) {
         IcuTestErrorCode status(*this, cas.msg);
         auto nf = NumberFormatter::forSkeleton(cas.inputSkeleton, status);
         if (status.errIfFailureAndReset("NumberFormatter::forSkeleton failed")) {
@@ -1410,7 +1410,7 @@ void NumberFormatterApiTest::unitSkeletons() {
          U_NUMBER_SKELETON_SYNTAX_ERROR,                //
          U_ZERO_ERROR},
     };
-    for (auto &cas : failCases) {
+    for (const auto& cas : failCases) {
         IcuTestErrorCode status(*this, cas.msg);
         auto nf = NumberFormatter::forSkeleton(cas.inputSkeleton, status);
         if (status.expectErrorAndReset(cas.expectedForSkelStatus, cas.msg)) {
@@ -1492,11 +1492,11 @@ void NumberFormatterApiTest::unitUsage() {
             u"unit/meter usage/road",
             unloc_formatter,
             Locale("en-ZA"),
-            u"87,650 km",
-            u"8,765 km",
+            u"87\u00A0650 km",
+            u"8\u00A0765 km",
             u"876 km", // 6.5 rounds down, 7.5 rounds up.
             u"88 km",
-            u"8.8 km",
+            u"8,8 km",
             u"900 m",
             u"90 m",
             u"9 m",
@@ -1683,14 +1683,14 @@ void NumberFormatterApiTest::unitUsage() {
                     .precision(Precision::minMaxSignificantDigits(1, 4))
                     .unitWidth(UNumberUnitWidth::UNUM_UNIT_WIDTH_FULL_NAME),
             Locale("en-ZA"),
-            u"8.765E1 square kilometres",
-            u"8.765E0 square kilometres",
-            u"8.765E1 hectares",
-            u"8.765E0 hectares",
-            u"8.765E3 square metres",
-            u"8.765E2 square metres",
-            u"8.765E1 square metres",
-            u"8.765E0 square metres",
+            u"8,765E1 square kilometres",
+            u"8,765E0 square kilometres",
+            u"8,765E1 hectares",
+            u"8,765E0 hectares",
+            u"8,765E3 square metres",
+            u"8,765E2 square metres",
+            u"8,765E1 square metres",
+            u"8,765E0 square metres",
             u"0E0 square centimetres");
 
     assertFormatSingle(
@@ -1700,7 +1700,7 @@ void NumberFormatterApiTest::unitUsage() {
             NumberFormatter::with().unit(MeasureUnit::getAcre()).usage("default"),
             Locale::getEnglish(),
             -uprv_getInfinity(),
-            u"-∞ km²");
+            u"-∞ sq mi");
 
 //     // TODO(icu-units#131): do we care about NaN?
 //     // TODO: on some platforms with MSVC, "-NaN sec" is returned.
@@ -2059,7 +2059,7 @@ void NumberFormatterApiTest::unitUsageSkeletons() {
                 .precision(Precision::maxSignificantDigits(4)),
             Locale("en-ZA"),
             321.45, // 0.45 rounds down, 0.55 rounds up.
-            u"3.214E2 m");
+            u"3,214E2 m");
 
     assertFormatSingle(
             u"Scientific notation with Usage: possible when using a reasonable Precision",
@@ -2072,7 +2072,7 @@ void NumberFormatterApiTest::unitUsageSkeletons() {
                 .unitWidth(UNumberUnitWidth::UNUM_UNIT_WIDTH_FULL_NAME),
             Locale("en-ZA"),
             1e20,
-            u"1.5E28 kilometres");
+            u"1,5E28 kilometres");
 
     status.assertSuccess();
 }
@@ -2175,7 +2175,7 @@ void NumberFormatterApiTest::unitCurrency() {
             NumberFormatter::with().unit(USD).unitWidth(UNUM_UNIT_WIDTH_NARROW),
             Locale("en-CA"),
             5.43,
-            u"US$5.43");
+            u"$5.43");
 
     assertFormatSingle(
             u"Currency Difference between Narrow and Short (Short Version)",
@@ -3017,15 +3017,15 @@ void NumberFormatterApiTest::unitLocaleTags() {
          "fahrenheit", 0, "default", "fahrenheit", 0.0, u"0 degrees Fahrenheit"},
 
         // Test the behaviour of the `rg` tag
-        {u"Test the locale with rg = UK and without usage", "en-US-u-rg-ukzzzz", "fahrenheit", 0,
+        {u"Test the locale with rg = GB and without usage", "en-US-u-rg-gbzzzz", "fahrenheit", 0,
          nullptr, "fahrenheit", 0.0, u"0 degrees Fahrenheit"},
-        {u"Test the locale with rg = UK and with usage", "en-US-u-rg-ukzzzz", "fahrenheit", 0, "default",
+        {u"Test the locale with rg = GB and with usage", "en-US-u-rg-gbzzzz", "fahrenheit", 0, "default",
          "celsius", -18, u"-18 degrees Celsius"},
         {"Test the locale with mu = fahrenheit and without usage", "en-US-u-mu-fahrenheit", "celsius", 0,
          nullptr, "celsius", 0.0, "0 degrees Celsius"},
         {"Test the locale with mu = fahrenheit and with usage", "en-US-u-mu-fahrenheit", "celsius", 0,
          "default", "fahrenheit", 32.0, "32 degrees Fahrenheit"},
-        {u"Test the locale with rg = UKOI and with usage", "en-US-u-rg-ukoi", "fahrenheit", 0,
+        {u"Test the locale with rg = GBOXF and with usage", "en-US-u-rg-gboxf", "fahrenheit", 0,
          "default", "celsius", -18.0, u"-18 degrees Celsius"},
 
         // Test the priorities
@@ -3033,6 +3033,14 @@ void NumberFormatterApiTest::unitLocaleTags() {
          "celsius", 0, "default", "celsius", 0.0, u"0 degrees Celsius"},
         {u"Test the locale with ms,rg --> ms tag wins", "en-US-u-ms-metric-rg-uszzzz", "foot", 1,
          "default", "centimeter", 30.0, u"30 centimeters"},
+
+        // Test the liklihood of the languages
+        {"Test the region of `en` --> region should be US", "en", "celsius", 1, "default", "fahrenheit",
+         34.0, u"34 degrees Fahrenheit"},
+        {"Test the region of `de` --> region should be DE", "de", "celsius", 1, "default", "celsius",
+         1.0, u"1 Grad Celsius"},
+        {"Test the region of `ar` --> region should be EG", "ar", "celsius", 1, "default", "celsius",
+         1.0, u"1 درجة مئوية"},
     };
 
     for (const auto &testCase : cases) {
@@ -3040,7 +3048,7 @@ void NumberFormatterApiTest::unitLocaleTags() {
         Locale locale(testCase.locale);
         auto inputUnit = MeasureUnit::forIdentifier(testCase.inputUnit, status);
         auto inputValue = testCase.inputValue;
-        auto usage = testCase.usage;
+        const auto* usage = testCase.usage;
         auto expectedOutputUnit = MeasureUnit::forIdentifier(testCase.expectedOutputUnit, status);
         UnicodeString expectedFormattedNumber = testCase.expectedFormattedNumber;
 
@@ -3071,9 +3079,9 @@ void NumberFormatterApiTest::percentParity() {
     UnlocalizedNumberFormatter uMeasurePermille = NumberFormatter::with().unit(MeasureUnit::getPermille());
 
     int32_t localeCount;
-    auto locales = Locale::getAvailableLocales(localeCount);
+    const auto* locales = Locale::getAvailableLocales(localeCount);
     for (int32_t i=0; i<localeCount; i++) {
-        auto& locale = locales[i];
+        const auto& locale = locales[i];
         UnicodeString sNoUnitPercent = uNoUnitPercent.locale(locale)
             .formatDouble(50, status).toString(status);
         UnicodeString sNoUnitPermille = uNoUnitPermille.locale(locale)
@@ -4918,7 +4926,7 @@ void NumberFormatterApiTest::sign() {
                 .unitWidth(UNUM_UNIT_WIDTH_NARROW),
             Locale::getCanada(),
             -444444,
-            u"(US$444,444.00)");
+            u"($444,444.00)");
 
     assertFormatSingle(
             u"Sign Accounting Negative Short",
@@ -4992,10 +5000,10 @@ void NumberFormatterApiTest::signNearZero() {
         { UNUM_SIGN_NEGATIVE, -0.9, u"-1" },
         { UNUM_SIGN_NEGATIVE, -1.1, u"-1" },
     };
-    for (auto& cas : cases) {
+    for (const auto& cas : cases) {
         auto sign = cas.sign;
         auto input = cas.input;
-        auto expected = cas.expected;
+        const auto* expected = cas.expected;
         auto actual = NumberFormatter::with()
             .sign(sign)
             .precision(Precision::integer())
@@ -5024,11 +5032,11 @@ void NumberFormatterApiTest::signCoverage() {
     const double inputs[] = {
         -uprv_getInfinity(), -1, -0.0, 0, 1, uprv_getInfinity(), uprv_getNaN(), negNaN
     };
-    for (auto& cas : cases) {
+    for (const auto& cas : cases) {
         auto sign = cas.sign;
         for (int32_t i = 0; i < UPRV_LENGTHOF(inputs); i++) {
             auto input = inputs[i];
-            auto expected = cas.expectedStrings[i];
+            const auto* expected = cas.expectedStrings[i];
             auto actual = NumberFormatter::with()
                 .sign(sign)
                 .locale(Locale::getUS())
@@ -5215,6 +5223,36 @@ void NumberFormatterApiTest::locale() {
     UnicodeString actual = NumberFormatter::withLocale(Locale::getFrench()).formatInt(1234, status)
             .toString(status);
     assertEquals("Locale withLocale()", u"1\u202f234", actual);
+
+    LocalizedNumberFormatter lnf1 = NumberFormatter::withLocale("en").unitWidth(UNUM_UNIT_WIDTH_FULL_NAME)
+            .scale(Scale::powerOfTen(2));
+    LocalizedNumberFormatter lnf2 = NumberFormatter::with()
+            .notation(Notation::compactLong()).locale("fr").unitWidth(UNUM_UNIT_WIDTH_FULL_NAME);
+    UnlocalizedNumberFormatter unf1 = lnf1.withoutLocale();
+    UnlocalizedNumberFormatter unf2 = std::move(lnf2).withoutLocale();
+
+    assertFormatSingle(
+            u"Formatter after withoutLocale A",
+            u"unit/meter unit-width-full-name scale/100",
+            u"unit/meter unit-width-full-name scale/100",
+            unf1.unit(METER),
+            "it-IT",
+            2,
+            u"200 metri");
+
+    assertFormatSingle(
+            u"Formatter after withoutLocale B",
+            u"compact-long unit/meter unit-width-full-name",
+            u"compact-long unit/meter unit-width-full-name",
+            unf2.unit(METER),
+            "ja-JP",
+            2,
+#if APPLE_ICU_CHANGES
+// rdar:// ??? Apple changes ja.xml to omit the space
+            u"2メートル");
+#else
+            u"2 メートル");
+#endif // APPLE_ICU_CHANGES
 }
 
 void NumberFormatterApiTest::skeletonUserGuideExamples() {
@@ -6006,7 +6044,12 @@ void NumberFormatterApiTest::toObject() {
 
 void NumberFormatterApiTest::toDecimalNumber() {
     IcuTestErrorCode status(*this, "toDecimalNumber");
+#if APPLE_ICU_CHANGES
+// rdar://143383524 ([Numerals]?: BL: CrystalE22E190a: Suggesting to keep Western Arabic numerals (1,2,3...) as system default for Bangla instead of native numerals)
+    FormattedNumber fn = NumberFormatter::withLocale("bn-BD-u-nu-beng")
+#else
     FormattedNumber fn = NumberFormatter::withLocale("bn-BD")
+#endif // APPLE_ICU_CHANGES
         .scale(Scale::powerOfTen(2))
         .precision(Precision::maxSignificantDigits(5))
         .formatDouble(9.87654321e12, status);
@@ -6015,7 +6058,12 @@ void NumberFormatterApiTest::toDecimalNumber() {
     assertEquals(u"Should have expected toDecimalNumber string result",
         "9.8765E+14", fn.toDecimalNumber<std::string>(status).c_str());
 
+#if APPLE_ICU_CHANGES
+// rdar://143383524 ([Numerals]?: BL: CrystalE22E190a: Suggesting to keep Western Arabic numerals (1,2,3...) as system default for Bangla instead of native numerals)
+    fn = NumberFormatter::withLocale("bn-BD-u-nu-beng").formatDouble(0, status);
+#else
     fn = NumberFormatter::withLocale("bn-BD").formatDouble(0, status);
+#endif // APPLE_ICU_CHANGES
     assertEquals("Should have expected localized string result",
         u"০", fn.toString(status));
     assertEquals(u"Should have expected toDecimalNumber string result",

@@ -49,6 +49,7 @@
 #include "WebCoreInstanceHandle.h"
 #include "markup.h"
 #include <pal/text/TextEncoding.h>
+#include <wtf/StdLibExtras.h>
 #include <wtf/URL.h>
 #include <wtf/WindowsExtras.h>
 #include <wtf/text/CString.h>
@@ -504,16 +505,19 @@ void Pasteboard::writeRangeToDataObject(const SimpleRange& selectedRange, LocalF
         m_writableDataObject->SetData(smartPasteFormat(), &medium, TRUE);
 }
 
-void Pasteboard::writeSelection(const SimpleRange& selectedRange, bool canSmartCopyOrDelete, LocalFrame& frame, ShouldSerializeSelectedTextForDataTransfer shouldSerializeSelectedTextForDataTransfer)
+void Pasteboard::writeSelection(const std::optional<SimpleRange>& selectedRange, bool canSmartCopyOrDelete, LocalFrame& frame, ShouldSerializeSelectedTextForDataTransfer shouldSerializeSelectedTextForDataTransfer)
 {
     clear();
+
+    if (!selectedRange)
+        return;
 
     // Put CF_HTML format on the pasteboard 
     if (::OpenClipboard(m_owner)) {
         Vector<char> data;
         // FIXME: Use ResolveURLs::YesExcludingURLsForPrivacy.
         markupToCFHTML(serializePreservingVisualAppearance(frame.selection().selection()),
-            selectedRange.start.container->document().url().string(), data);
+            selectedRange->start.container->document().url().string(), data);
         HGLOBAL cbData = createGlobalData(data);
         if (!::SetClipboardData(HTMLClipboardFormat, cbData))
             ::GlobalFree(cbData);
@@ -539,7 +543,7 @@ void Pasteboard::writeSelection(const SimpleRange& selectedRange, bool canSmartC
         }
     }
 
-    writeRangeToDataObject(selectedRange, frame);
+    writeRangeToDataObject(*selectedRange, frame);
 }
 
 void Pasteboard::writePlainTextToDataObject(const String& text, SmartReplaceOption)
@@ -601,18 +605,18 @@ static String fileSystemPathFromURLOrTitle(const String& urlString, const String
 {
     static const size_t fsPathMaxLengthExcludingNullTerminator = MAX_PATH - 1;
     bool usedURL = false;
-    UChar fsPathBuffer[MAX_PATH];
+    std::array<UChar, MAX_PATH> fsPathBuffer;
     fsPathBuffer[0] = 0;
     int fsPathMaxLengthExcludingExtension = fsPathMaxLengthExcludingNullTerminator - extension.length();
 
     if (!title.isEmpty()) {
         size_t len = std::min<size_t>(title.length(), fsPathMaxLengthExcludingExtension);
-        StringView(title).left(len).getCharacters(fsPathBuffer);
+        StringView(title).left(len).getCharacters(std::span<UChar> { fsPathBuffer });
         fsPathBuffer[len] = 0;
-        pathRemoveBadFSCharacters(wcharFrom(fsPathBuffer), len);
+        pathRemoveBadFSCharacters(wcharFrom(fsPathBuffer.data()), len);
     }
 
-    if (!wcslen(wcharFrom(fsPathBuffer))) {
+    if (!wcslen(wcharFrom(fsPathBuffer.data()))) {
         URL url { urlString };
         usedURL = true;
         // The filename for any content based drag or file url should be the last element of 
@@ -622,24 +626,24 @@ static String fileSystemPathFromURLOrTitle(const String& urlString, const String
         auto lastComponent = url.lastPathComponent();
         if (url.protocolIsFile() || (!isLink && !lastComponent.isEmpty())) {
             len = std::min<DWORD>(fsPathMaxLengthExcludingExtension, lastComponent.length());
-            lastComponent.left(len).getCharacters(fsPathBuffer);
+            lastComponent.left(len).getCharacters(std::span<UChar> { fsPathBuffer });
         } else {
             len = std::min<DWORD>(fsPathMaxLengthExcludingExtension, urlString.length());
-            StringView(urlString).left(len).getCharacters(fsPathBuffer);
+            StringView(urlString).left(len).getCharacters(std::span<UChar> { fsPathBuffer });
         }
         fsPathBuffer[len] = 0;
-        pathRemoveBadFSCharacters(wcharFrom(fsPathBuffer), len);
+        pathRemoveBadFSCharacters(wcharFrom(fsPathBuffer.data()), len);
     }
 
     if (extension.isEmpty())
-        return String(wcharFrom(fsPathBuffer));
+        return String(wcharFrom(fsPathBuffer.data()));
 
     if (!isLink && usedURL) {
-        PathRenameExtension(wcharFrom(fsPathBuffer), extension.wideCharacters().data());
-        return String(wcharFrom(fsPathBuffer));
+        PathRenameExtension(wcharFrom(fsPathBuffer.data()), extension.wideCharacters().data());
+        return String(wcharFrom(fsPathBuffer.data()));
     }
 
-    return makeString(const_cast<const UChar*>(fsPathBuffer), extension);
+    return makeString(const_cast<const UChar*>(fsPathBuffer.data()), extension);
 }
 
 // writeFileToDataObject takes ownership of fileDescriptor and fileContent
@@ -723,7 +727,7 @@ void Pasteboard::writeURLToDataObject(const URL& kurl, const String& titleStr)
     fgd->fgd[0].nFileSizeLow = content.length();
 
     unsigned maxSize = std::min<unsigned>(fsPath.length(), std::size(fgd->fgd[0].cFileName));
-    StringView(fsPath).left(maxSize).getCharacters(ucharFrom(fgd->fgd[0].cFileName));
+    StringView(fsPath).left(maxSize).getCharacters(spanReinterpretCast<UChar>(std::span<wchar_t> { fgd->fgd[0].cFileName }));
     GlobalUnlock(urlFileDescriptor);
 
     char* fileContents = static_cast<char*>(GlobalLock(urlFileContent));
@@ -961,7 +965,7 @@ static HGLOBAL createGlobalImageFileDescriptor(const String& url, const String& 
     }
 
     int maxSize = std::min<int>(fsPath.length(), std::size(fgd->fgd[0].cFileName));
-    StringView(fsPath).left(maxSize).getCharacters(ucharFrom(fgd->fgd[0].cFileName));
+    StringView(fsPath).left(maxSize).getCharacters(spanReinterpretCast<UChar>(std::span<wchar_t> { fgd->fgd[0].cFileName }));
     GlobalUnlock(memObj);
 
     return memObj;
@@ -1002,7 +1006,8 @@ static HGLOBAL createGlobalHDropContent(const URL& url, String& fileName, Fragme
         // windows does not enjoy a leading slash on paths
         if (localPath[0] == '/')
             localPath = localPath.substring(1);
-        LPCWSTR localPathStr = localPath.wideCharacters().data();
+        auto wideCharacters = localPath.wideCharacters();
+        LPCWSTR localPathStr = wideCharacters.data();
         if (localPathStr && wcslen(localPathStr) + 1 < MAX_PATH)
             wcscpy_s(filePath, MAX_PATH, localPathStr);
         else

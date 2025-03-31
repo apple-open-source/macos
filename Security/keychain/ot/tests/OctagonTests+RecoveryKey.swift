@@ -1472,6 +1472,97 @@ class OctagonRecoveryKeyTests: OctagonTestsBase {
         self.assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
     }
 
+    func testRecoveryKeyRemainsTrustedEvenAsOtherPeersDepart() throws {
+        try self.skipOnRecoveryKeyNotSupported()
+        self.startCKAccountStatusMock()
+
+        let establishContextID = "establish-context-id"
+        let establishContext = self.createEstablishContext(contextID: establishContextID)
+
+        let establishPeerID = self.assertResetAndBecomeTrusted(context: establishContext)
+
+        // Fake that this peer also created some TLKShares for itself
+        self.putFakeKeyHierarchiesInCloudKit()
+        try self.putSelfTLKSharesInCloudKit(context: establishContext)
+        self.assertSelfTLKSharesInCloudKit(context: establishContext)
+
+        let recoveryKey = try XCTUnwrap(SecRKCreateRecoveryKeyString(nil), "recoveryKey should not be nil")
+
+        do {
+            let setRKExpectation = self.expectation(description: "setRecoveryKey")
+            self.fakeCuttlefishServer.setRecoveryKeyListener = { request in
+                let newStableInfo = request.stableInfoAndSig.stableInfo()
+
+                XCTAssertNotNil(newStableInfo.recoverySigningPublicKey, "Peer should trust the RK's signing key")
+                XCTAssertNotNil(newStableInfo.recoveryEncryptionPublicKey, "Peer should trust the RK's public key")
+
+                XCTAssertEqual(request.peerID, establishPeerID, "update() should come from establish peer")
+
+                setRKExpectation.fulfill()
+                return nil
+            }
+
+            let setRecoveryKeyCallbackExpectation = self.expectation(description: "setRecoveryKeyExpectation callback occurs")
+            TestsObjectiveC.setNewRecoveryKeyWithData(self.createOTConfigurationContextForTests(contextID: establishContextID), recoveryKey: recoveryKey) { _, error in
+                XCTAssertNil(error, "error should be nil")
+                setRecoveryKeyCallbackExpectation.fulfill()
+            }
+            self.wait(for: [setRecoveryKeyCallbackExpectation, setRKExpectation], timeout: 10)
+            self.assertEnters(context: establishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
+            self.fakeCuttlefishServer.setRecoveryKeyListener = nil
+        }
+
+        let serverJoinExpectation = self.expectation(description: "joinWithVoucher callback occurs")
+        self.fakeCuttlefishServer.joinListener = { joinRequest in
+            let newStableInfo = joinRequest.peer.stableInfoAndSig.stableInfo()
+
+            XCTAssertNotNil(newStableInfo.recoverySigningPublicKey, "Joining peer should trust the RK's signing key")
+            XCTAssertNotNil(newStableInfo.recoveryEncryptionPublicKey, "Joining peer should trust the RK's public key")
+            serverJoinExpectation.fulfill()
+            return nil
+        }
+        let willBeRemovedContext = self.makeInitiatorContext(contextID: "jumpsInALakePeerContext", authKitAdapter: self.mockAuthKit3)
+        let secondPeerID = self.assertJoinViaEscrowRecovery(joiningContext: willBeRemovedContext, sponsor: establishContext)
+        self.wait(for: [serverJoinExpectation], timeout: 10)
+
+        // Ensure that the first peer trusts it
+
+        self.sendContainerChangeWaitForFetch(context: establishContext)
+        self.assertEnters(context: establishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
+
+        XCTAssertTrue(self.fakeCuttlefishServer.assertCuttlefishState(FakeCuttlefishAssertion(peer: establishPeerID, opinion: .trusts, target: secondPeerID)),
+                      "establish peer should trust joined peer")
+
+        // Now, distrust that peer from `establishPeer`
+        do {
+            let updateTrustExpectation = self.expectation(description: "updateTrust")
+            self.fakeCuttlefishServer.updateListener = { request in
+                // This request should not change the stableInfo. So, the peer should remain trusting the RK.
+                XCTAssertFalse(request.hasStableInfoAndSig)
+                let newDynamicInfo = request.dynamicInfoAndSig.dynamicInfo()
+
+                XCTAssertEqual(request.peerID, establishPeerID, "update() should come from establish peer")
+
+                XCTAssertFalse(newDynamicInfo.includedPeerIDs.contains(secondPeerID), "establish peer should no longer trust peer1")
+                XCTAssertTrue(newDynamicInfo.excludedPeerIDs.contains(secondPeerID), "establish peer should no longer trust peer1")
+
+                XCTAssertEqual(newDynamicInfo.excludedPeerIDs.filter { $0.hasPrefix("RK-") }.count, 0, "Should have distrusted 0 RKs")
+
+                updateTrustExpectation.fulfill()
+                return nil
+            }
+
+            self.mockAuthKit2.removeAndSendNotification(self.mockAuthKit3.currentMachineID)
+            self.wait(for: [updateTrustExpectation], timeout: 10)
+            self.assertEnters(context: establishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
+
+            self.fakeCuttlefishServer.updateListener = nil
+        }
+
+        XCTAssertTrue(self.fakeCuttlefishServer.assertCuttlefishState(FakeCuttlefishAssertion(peer: establishPeerID, opinion: .excludes, target: secondPeerID)),
+                      "establish peer should no longer trust joined peer")
+    }
+
     func testMalformedRecoveryKey() throws {
         try self.skipOnRecoveryKeyNotSupported()
         self.startCKAccountStatusMock()
@@ -2153,6 +2244,85 @@ class OctagonRecoveryKeyTests: OctagonTestsBase {
 
         XCTAssertNil(error, "error should be nil")
         XCTAssertThrowsError(try OctagonTrustCliqueBridge.isRecoveryKeySet(self.otcliqueContext), "recovery key should not be set")
+
+        let stableInfoCheckDumpCallback = self.expectation(description: "stableInfoCheckDumpCallback callback occurs")
+        self.tphClient.dump(with: try XCTUnwrap(self.cuttlefishContext.activeAccount)) { dump, _ in
+            XCTAssertNotNil(dump, "dump should not be nil")
+            let egoSelf = dump!["self"] as? [String: AnyObject]
+            XCTAssertNotNil(egoSelf, "egoSelf should not be nil")
+            let dynamicInfo = egoSelf!["dynamicInfo"] as? [String: AnyObject]
+            XCTAssertNotNil(dynamicInfo, "dynamicInfo should not be nil")
+
+            let stableInfo = egoSelf!["stableInfo"] as? [String: AnyObject]
+            XCTAssertNotNil(stableInfo, "stableInfo should not be nil")
+            XCTAssertNil(stableInfo!["recovery_signing_public_key"], "recoverySigningPublicKey should be nil")
+            XCTAssertNil(stableInfo!["recovery_encryption_public_key"], "recoveryEncryptionPublicKey should be nil")
+
+            XCTAssertNil(dump!["modelRecoverySigningPublicKey"], "modelRecoverySigningPublicKey should be nil")
+            XCTAssertNil(dump!["modelRecoveryEncryptionPublicKey"], "modelRecoveryEncryptionPublicKey should be nil")
+
+            let included = dynamicInfo!["included"] as? [String]
+            XCTAssertNotNil(included, "included should not be nil")
+            XCTAssertEqual(included!.count, 1, "should be 1 peer id")
+
+            stableInfoCheckDumpCallback.fulfill()
+        }
+        self.wait(for: [stableInfoCheckDumpCallback], timeout: 10)
+    }
+
+    func testRemoveRecoveryKeyMultipleTimes() throws {
+        try self.skipOnRecoveryKeyNotSupported()
+        self.startCKAccountStatusMock()
+        self.assertResetAndBecomeTrustedInDefaultContext()
+
+        let clique = self.cliqueFor(context: self.cuttlefishContext)
+        let cliqueBridge = OctagonTrustCliqueBridge(clique: clique)
+        var error: NSError?
+        var recoveryString: String?
+        XCTAssertNoThrow(recoveryString = cliqueBridge.createAndSetRecoveryKey(with: self.otcliqueContext, error: &error), "createAndSetRecoveryKey should not error")
+        XCTAssertNil(error, "error should be nil")
+        XCTAssertNotNil(recoveryString, "recoveryString should not be nil")
+
+        let mockSBD = self.otcliqueContext.sbd as! OTMockSecureBackup
+        mockSBD.setRecoveryKey(recoveryKey: recoveryString!)
+        self.otcliqueContext.sbd = mockSBD
+
+        // Recovery Key should be set
+        XCTAssertNoThrow(try OctagonTrustCliqueBridge.isRecoveryKeySet(self.otcliqueContext), "recovery key should be set")
+
+        let removeExpectation = self.expectation(description: "removeExpectation")
+        self.fakeCuttlefishServer.removeRecoveryKeyListener = { _ in
+            self.fakeCuttlefishServer.removeRecoveryKeyListener = nil
+            removeExpectation.fulfill()
+            return nil
+        }
+
+        XCTAssertNoThrow(try cliqueBridge.removeRecoveryKey(with: self.otcliqueContext), "removeRecoveryKey should not error")
+        mockSBD.setRecoveryKey(recoveryKey: nil)
+
+        self.wait(for: [removeExpectation], timeout: 10)
+
+        XCTAssertNil(error, "error should be nil")
+        XCTAssertThrowsError(try OctagonTrustCliqueBridge.isRecoveryKeySet(self.otcliqueContext), "recovery key should not be set")
+
+        XCTAssertNoThrow(recoveryString = cliqueBridge.createAndSetRecoveryKey(with: self.otcliqueContext, error: &error), "createAndSetRecoveryKey should not error")
+
+        XCTAssertNoThrow(try cliqueBridge.removeRecoveryKey(with: self.otcliqueContext), "removeRecoveryKey should not error")
+
+        XCTAssertNoThrow(recoveryString = cliqueBridge.createAndSetRecoveryKey(with: self.otcliqueContext, error: &error), "createAndSetRecoveryKey should not error")
+
+        XCTAssertNoThrow(try cliqueBridge.removeRecoveryKey(with: self.otcliqueContext), "removeRecoveryKey should not error")
+
+        XCTAssertNoThrow(recoveryString = cliqueBridge.createAndSetRecoveryKey(with: self.otcliqueContext, error: &error), "createAndSetRecoveryKey should not error")
+
+        XCTAssertNoThrow(try cliqueBridge.removeRecoveryKey(with: self.otcliqueContext), "removeRecoveryKey should not error")
+
+        XCTAssertNoThrow(recoveryString = cliqueBridge.createAndSetRecoveryKey(with: self.otcliqueContext, error: &error), "createAndSetRecoveryKey should not error")
+
+        XCTAssertNoThrow(try OctagonTrustCliqueBridge.recover(withRecoveryKey: self.otcliqueContext, recoveryKey: recoveryString!), "recoverWithRecoveryKey should not throw an error")
+        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
+
+        XCTAssertNoThrow(try cliqueBridge.removeRecoveryKey(with: self.otcliqueContext), "removeRecoveryKey should not error")
 
         let stableInfoCheckDumpCallback = self.expectation(description: "stableInfoCheckDumpCallback callback occurs")
         self.tphClient.dump(with: try XCTUnwrap(self.cuttlefishContext.activeAccount)) { dump, _ in

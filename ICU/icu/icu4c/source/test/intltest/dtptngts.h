@@ -41,10 +41,12 @@ private:
     void test_jConsistencyOddLocales();
     void testBestPattern();
     void testDateTimePatterns();
+    void testISO8601();
     void testRegionOverride();
 #if APPLE_ICU_CHANGES
 // rdar://
    void testHorizontalInheritance();   // rdar://78420184
+    void testPunjabiPattern(); // rdar://139506314
 #endif  // APPLE_ICU_CHANGES
 
     // items for testDateTimePatterns();

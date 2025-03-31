@@ -16,7 +16,6 @@
 			<string>updatedb.sh: reinvoke as nobody if run as root (5393718, 6170830)</string>
 			<string>updatedb.sh: add macOS FILESYSTEMS (4739976, 31872124)</string>
 			<string>updatedb.sh: add macOS PRUNEPATHS (5386141, 6167355)</string>
-			<string>updatedb.sh: exit in trap (4968689)</string>
 		</array>
 		<key>OpenSourceLicense</key>
 		<string>BSD</string>

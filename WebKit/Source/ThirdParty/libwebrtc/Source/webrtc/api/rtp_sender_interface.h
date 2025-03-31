@@ -36,6 +36,16 @@
 
 namespace webrtc {
 
+class RtpSenderObserverInterface {
+ public:
+  // The observer is called when the first media packet is sent for the observed
+  // sender. It is called immediately if the first packet was already sent.
+  virtual void OnFirstPacketSent(cricket::MediaType media_type) = 0;
+
+ protected:
+  virtual ~RtpSenderObserverInterface() {}
+};
+
 using SetParametersCallback = absl::AnyInvocable<void(RTCError) &&>;
 
 class RTC_EXPORT RtpSenderInterface : public webrtc::RefCountInterface,
@@ -53,7 +63,7 @@ class RTC_EXPORT RtpSenderInterface : public webrtc::RefCountInterface,
 
   // Returns primary SSRC used by this sender for sending media.
   // Returns 0 if not yet determined.
-  // TODO(deadbeef): Change to absl::optional.
+  // TODO(deadbeef): Change to std::optional.
   // TODO(deadbeef): Remove? With GetParameters this should be redundant.
   virtual uint32_t ssrc() const = 0;
 
@@ -87,6 +97,12 @@ class RTC_EXPORT RtpSenderInterface : public webrtc::RefCountInterface,
   virtual RTCError SetParameters(const RtpParameters& parameters) = 0;
   virtual void SetParametersAsync(const RtpParameters& parameters,
                                   SetParametersCallback callback);
+
+  // Sets an observer which gets a callback when the first media packet is sent
+  // for this sender.
+  // Does not take ownership of observer.
+  // Must call SetObserver(nullptr) before the observer is destroyed.
+  virtual void SetObserver(RtpSenderObserverInterface* /* observer */) {}
 
   // Returns null for a video sender.
   virtual rtc::scoped_refptr<DtmfSenderInterface> GetDtmfSender() const = 0;
@@ -123,7 +139,7 @@ class RTC_EXPORT RtpSenderInterface : public webrtc::RefCountInterface,
   // Default implementation of SetFrameTransformer.
   // TODO: bugs.webrtc.org/15929 - remove when all implementations are good
   void SetFrameTransformer(rtc::scoped_refptr<FrameTransformerInterface>
-                               frame_transformer) override {}
+                           /* frame_transformer */) override {}
 
  protected:
   ~RtpSenderInterface() override = default;

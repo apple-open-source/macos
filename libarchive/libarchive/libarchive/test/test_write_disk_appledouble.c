@@ -24,7 +24,6 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 #include "test.h"
-__FBSDID("$FreeBSD$");
 
 #ifdef HAVE_SYS_ACL_H
 #include <sys/acl.h>
@@ -326,4 +325,3 @@ DEFINE_TEST(test_write_disk_appledouble_zip)
 
 #endif
 }
-

@@ -66,6 +66,8 @@ extern const CFStringRef kSecTrustInfoCompanyNameKey;
 extern const CFStringRef kSecTrustInfoRevocationKey;
 extern const CFStringRef kSecTrustInfoRevocationValidUntilKey;
 extern const CFStringRef kSecTrustInfoCertificateTransparencyKey;
+extern const CFStringRef kSecTrustInfoQCStatementsKey;
+extern const CFStringRef kSecTrustInfoQWACValidationKey;
 extern const CFStringRef kSecTrustInfoResultNotBefore;
 extern const CFStringRef kSecTrustInfoResultNotAfter;
 

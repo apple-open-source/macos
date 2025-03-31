@@ -65,7 +65,7 @@ nso{
                     }
                     wide{
                         "Lamorena",
-                        "Musopologo",
+                        "Mošupologo",
                         "Labobedi",
                         "Laboraro",
                         "Labone",
@@ -174,28 +174,28 @@ nso{
                         "Dibo",
                         "Hlak",
                         "Mora",
-                        "Mopi",
-                        "Phupu",
+                        "Mei",
+                        "June",
                         "Mose",
-                        "Phato",
+                        "Agosetose",
                         "Lewe",
                         "Dipha",
                         "Diba",
                         "Manth",
                     }
                     wide{
-                        "Pherekgong",
-                        "Dibokwane",
-                        "Hlakola",
-                        "Moranang",
-                        "Mopitlo",
-                        "Phupu",
-                        "Mosegemanye",
-                        "Phato",
-                        "Lewedi",
-                        "Diphalane",
-                        "Dibatsela",
-                        "Manthole",
+                        "Janeware",
+                        "Febereware",
+                        "Matšhe",
+                        "Aporele",
+                        "Mei",
+                        "June",
+                        "Julae",
+                        "Agosetose",
+                        "Setemere",
+                        "Oktobore",
+                        "Nofemere",
+                        "Disemere",
                     }
                 }
                 stand-alone{
@@ -226,5 +226,14 @@ nso{
                 }
             }
         }
+    }
+    delimiters{
+        alternateQuotationEnd{"”"}
+        alternateQuotationStart{"“"}
+        quotationEnd{"’"}
+        quotationStart{"‘"}
+    }
+    measurementSystemNames{
+        metric{"Metriki"}
     }
 }

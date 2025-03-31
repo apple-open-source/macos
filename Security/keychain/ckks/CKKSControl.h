@@ -106,6 +106,11 @@ typedef NS_ENUM(NSUInteger, CKKSKnownBadState) {
                            reply:(void (^)(NSDictionary<NSNumber*,NSArray<NSData*>*>* _Nullable result,
                                            NSError* _Nullable error))reply;
 
+/* Indicates whether we've fetched and processed all items in the account for this view at initial sign in time.
+ This should not be used to determine whether we are currently in sync with CloudKit, and should not be used in lieu of notifications */
+- (void)initialSyncStatus:(NSString*)viewName
+                    reply:(void(^)(BOOL result, NSError* _Nullable error))reply;
+
 + (CKKSControl* _Nullable)controlObject:(NSError* _Nullable __autoreleasing* _Nullable)error;
 + (CKKSControl* _Nullable)CKKSControlObject:(BOOL)sync error:(NSError* _Nullable __autoreleasing* _Nullable)error;
 

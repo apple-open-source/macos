@@ -123,7 +123,7 @@ loop(gss_OID mechoid,
 			       nameoid,
 			       &gss_target_name);
     if (GSS_ERROR(maj_stat))
-	err(1, "import name creds failed with: %d", maj_stat);
+	err(1, "import name creds failed with: %u", maj_stat);
 
     if (acceptor_name) {
 	input_token.value = rk_UNCONST(acceptor_name);
@@ -134,7 +134,7 @@ loop(gss_OID mechoid,
 				   nameoid,
 				   &gss_acceptor_name);
 	if (GSS_ERROR(maj_stat))
-	    err(1, "import acceptor name creds failed with: %d", maj_stat);
+	    err(1, "import acceptor name creds failed with: %u", maj_stat);
 
 	maj_stat = gss_acquire_cred(&min_stat, gss_acceptor_name,
 				    GSS_C_INDEFINITE, NULL,

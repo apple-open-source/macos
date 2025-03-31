@@ -21,6 +21,89 @@ struct StreamingEncoderTest {
     }
 
     @Test
+    func badFileDescAtEndOfDescend() async throws {
+        do {
+            let (readEnd, writeEnd) = try FileDescriptor.pipe()
+            defer {
+                try? writeEnd.close()
+            }
+            // Ignore SIGPIPE on the write side, or the test will crash due to the default handler for this signal
+            #expect(fcntl(writeEnd.rawValue, F_SETNOSIGPIPE, 1) == 0, "fcntl failed")
+
+            let streamy = try StreamingEncoderArray(writeEnd)
+
+            #expect(throws: Errno.brokenPipe, "should receive broken pipe error") {
+                try streamy.descend { sub in
+                    try sub.append("Hello world!")
+                    // but caller closes the read end of the FD before descend is complete
+                    try? readEnd.close()
+                }
+            }
+            #expect(throws: Errno.brokenPipe, "should receive broken pipe error") { try streamy.finish() }
+        }
+
+        do {
+            let (readEnd, writeEnd) = try FileDescriptor.pipe()
+            defer {
+                try? writeEnd.close()
+            }
+            // Ignore SIGPIPE on the write side, or the test will crash due to the default handler for this signal
+            #expect(fcntl(writeEnd.rawValue, F_SETNOSIGPIPE, 1) == 0, "fcntl failed")
+
+            let streamy = try StreamingEncoderDict(writeEnd)
+
+            #expect(throws: Errno.brokenPipe, "should receive broken pipe error") {
+                try streamy.descend("a") { sub in
+                    try sub.append("Hello world!")
+                    // but caller closes the read end of the FD before descend is complete
+                    try? readEnd.close()
+                }
+            }
+            #expect(throws: Errno.brokenPipe, "should receive broken pipe error") { try streamy.finish() }
+        }
+
+        do {
+            let (readEnd, writeEnd) = try FileDescriptor.pipe()
+            defer {
+                try? writeEnd.close()
+            }
+            // Ignore SIGPIPE on the write side, or the test will crash due to the default handler for this signal
+            #expect(fcntl(writeEnd.rawValue, F_SETNOSIGPIPE, 1) == 0, "fcntl failed")
+
+            let streamy = try StreamingEncoderArray(writeEnd)
+
+            #expect(throws: Errno.brokenPipe, "should receive broken pipe error") {
+                try streamy.descend { sub in
+                    try sub.append(key: "Hello world!", value: "Goodbye earth!")
+                    // but caller closes the read end of the FD before descend is complete
+                    try? readEnd.close()
+                }
+            }
+            #expect(throws: Errno.brokenPipe, "should receive broken pipe error") { try streamy.finish() }
+        }
+
+        do {
+            let (readEnd, writeEnd) = try FileDescriptor.pipe()
+            defer {
+                try? writeEnd.close()
+            }
+            // Ignore SIGPIPE on the write side, or the test will crash due to the default handler for this signal
+            #expect(fcntl(writeEnd.rawValue, F_SETNOSIGPIPE, 1) == 0, "fcntl failed")
+
+            let streamy = try StreamingEncoderDict(writeEnd)
+
+            #expect(throws: Errno.brokenPipe, "should receive broken pipe error") {
+                try streamy.descend("a") { sub in
+                    try sub.append(key: "Hello world!", value: "Goodbye earth!")
+                    // but caller closes the read end of the FD before descend is complete
+                    try? readEnd.close()
+                }
+            }
+            #expect(throws: Errno.brokenPipe, "should receive broken pipe error") { try streamy.finish() }
+        }
+    }
+
+    @Test
     func oneString() async throws {
         let (readEnd, writeEnd) = try FileDescriptor.pipe()
         defer {

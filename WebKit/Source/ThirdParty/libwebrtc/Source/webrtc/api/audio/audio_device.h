@@ -11,7 +11,7 @@
 #ifndef API_AUDIO_AUDIO_DEVICE_H_
 #define API_AUDIO_AUDIO_DEVICE_H_
 
-#include "absl/types/optional.h"
+#include <optional>
 #include "api/audio/audio_device_defines.h"
 #include "api/ref_count.h"
 #include "api/scoped_refptr.h"
@@ -41,6 +41,12 @@ class AudioDeviceModule : public webrtc::RefCountInterface {
     kDefaultCommunicationDevice = -1,
     kDefaultDevice = -2
   };
+
+// Only supported on iOS.
+#if defined(WEBRTC_IOS)
+  enum MutedSpeechEvent { kMutedSpeechStarted, kMutedSpeechEnded };
+  typedef void (^MutedSpeechEventHandler)(MutedSpeechEvent event);
+#endif  // WEBRTC_IOS
 
   struct Stats {
     // The fields below correspond to similarly-named fields in the WebRTC stats
@@ -163,7 +169,7 @@ class AudioDeviceModule : public webrtc::RefCountInterface {
 
   // Used to generate RTC stats. If not implemented, RTCAudioPlayoutStats will
   // not be present in the stats.
-  virtual absl::optional<Stats> GetStats() const { return absl::nullopt; }
+  virtual std::optional<Stats> GetStats() const { return std::nullopt; }
 
 // Only supported on iOS.
 #if defined(WEBRTC_IOS)

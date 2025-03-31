@@ -1,0 +1,567 @@
+#! /bin/sh
+
+. ${tstdir-.}/lib.sh
+. ${tstdir-.}/conf.sh
+
+generate_size_tree ()
+{
+    local i=1
+    local max=2048
+
+    while [ $i -le $max ] ; do
+        cstream -i- -o $i -n $i
+        i=$(($i + 1))
+    done
+}
+
+# the purpose of this contraption is to show up in `sh -x`
+1>&2 echo Running test60_batch
+
+rm -rf dir1 dir2 dir3
+# make the copy-from-here tree
+mkdir dir1
+cd dir1
+generate_tree_1
+# make the tree we want to compare to
+mkdir ../dir2
+cd ../dir2
+generate_tree_1
+
+cd ..
+rsync -a --only-write-batch=batch.bin -- dir1/ dir3
+rsync -a --read-batch=batch.bin -- dir3
+compare_trees dir2 dir3
+
+
+1>&2 echo Running test60b_batch
+
+rm -rf dir1 dir2 dir3
+# make the copy-from-here tree
+mkdir dir1
+cd dir1
+generate_size_tree
+# make the tree we want to compare to
+mkdir ../dir2
+cd ../dir2
+generate_size_tree
+
+cd ..
+rsync -a --only-write-batch=batch.bin -- dir1/ dir3
+rsync -a --read-batch=batch.bin -- dir3
+compare_trees dir2 dir3
+
+
+1>&2 echo Running test60c_batchhl
+
+rm -rf dir1 dir2 dir3
+# make the copy-from-here tree
+mkdir dir1
+cd dir1
+mkdirfile foo
+ln foo bar
+ln foo zzz
+# make the tree we want to compare to
+mkdir ../dir2
+cd ../dir2
+mkdirfile foo
+ln foo bar
+ln foo zzz
+
+cd ..
+rsync -a -H -S --only-write-batch=batch.bin -- dir1/ dir3
+rsync -a -H -S --read-batch=batch.bin -- dir3
+compare_trees dir2 dir3
+
+# TODO: openrsync --read-batch doesn't correctly link the files in dir3/
+# so fix it up for now:
+#
+RSNAME=$(rsync --version | head -1 | awk '{print $1}')
+if [ "$RSNAME" = "openrsync:" ] ; then
+    rsync -a -H -S dir1/ dir3/
+fi
+
+1>&2 echo Running test60c2_batchhl
+
+# Remove dir1/foo and recreate it as a fifo (i.e., a non-regular file)
+rm dir1/foo
+mkfifo dir1/foo
+rsync -a -H -S dir1/ dir2/
+compare_trees dir1 dir2
+
+rsync -a -H -S --only-write-batch=batch.bin -- dir1/ dir3
+rsync -a -H -S --read-batch=batch.bin -- dir3
+compare_trees dir2 dir3
+
+# TODO: openrsync --read-batch doesn't correctly link the files in dir3/
+# so fix it up for now:
+#
+if [ "$RSNAME" = "openrsync:" ] ; then
+    rsync -a -H -S dir1/ dir3/
+fi
+
+
+1>&2 echo Running test60c3_batchhl
+
+# Remove dir1/foo and relink it to dir1/bar (as it was originally)
+rm dir1/foo
+ln dir1/bar dir1/foo
+rsync -a -H -S dir1/ dir2/
+compare_trees dir1 dir2
+
+rsync -a -H -S --only-write-batch=batch.bin -- dir1/ dir3
+rsync -a -H -S --read-batch=batch.bin -- dir3
+compare_trees dir2 dir3
+
+
+1>&2 echo Running test60d_batchhl
+
+rm -rf dir1 dir2 dir3
+# make the copy-from-here tree
+mkdir dir1
+cd dir1
+mkdirfile foo
+ln foo bar
+# make the tree we want to compare to
+mkdir ../dir2
+cd ../dir2
+mkdirfile foo
+ln foo bar
+
+mkdir ../dir3
+cd ../dir3
+mkdirfile foo
+mkdirfile bar
+
+cd ..
+rsync -a -H -S --only-write-batch=batch.bin -- dir1/ dir3
+rsync -a -H -S --read-batch=batch.bin -- dir3
+compare_trees dir2 dir3
+
+
+1>&2 echo Running test60e_batchhl
+
+rm -rf dir1 dir2 dir3
+# make the copy-from-here tree
+mkdir dir1
+cd dir1
+mkdirfile foo
+ln foo bar
+# make the tree we want to compare to
+mkdir ../dir2
+cd ../dir2
+mkdirfile foo
+ln foo bar
+
+mkdir ../dir3
+cd ../dir3
+mkdirfile bar
+ln bar baz
+
+cd ..
+rsync -a -H -S --only-write-batch=batch.bin --delete -- dir1/ dir3
+rsync -a -H -S --read-batch=batch.bin --delete -- dir3
+compare_trees dir2 dir3
+
+
+1>&2 echo Running test60f_batchhl
+
+# This tests whether hardlinks that exist in the destination directory
+# can be undone by sending in two plain files.
+
+rm -rf dir1 dir2 dir3
+# make the copy-from-here tree
+mkdir dir1
+cd dir1
+mkdirfile foo
+mkdirfile bar
+# make the tree we want to compare to
+mkdir ../dir2
+cd ../dir2
+mkdirfile foo
+mkdirfile bar
+
+mkdir ../dir3
+cd ../dir3
+mkdirfile foo
+ln foo bar
+
+cd ..
+rsync -a -H -S --only-write-batch=batch.bin --delete --ignore-times -- dir1/ dir3
+rsync -a -H -S --read-batch=batch.bin --delete --ignore-times -- dir3
+compare_trees dir2 dir3
+
+
+1>&2 echo Running test60g_batchhl
+
+rm -rf dir1 dir2 dir3
+# make the copy-from-here tree
+mkdir dir1
+cd dir1
+mkdirfile foo
+mkdirfile bar
+echo baz >> bar
+# make the tree we want to compare to
+mkdir ../dir2
+cd ../dir2
+mkdirfile foo
+mkdirfile bar
+echo baz >> bar
+
+mkdir ../dir3
+cd ../dir3
+mkdirfile foo
+ln foo bar
+
+cd ..
+rsync -a -H -S --only-write-batch=batch.bin --delete -- dir1/ dir3
+rsync -a -H -S --read-batch=batch.bin --delete -- dir3
+compare_trees dir2 dir3
+
+
+1>&2 echo Running test60h_batch_symlink-kills-dir
+
+rm -rf dir1 dir2 dir3
+# make the copy-from-here tree
+mkdir dir1
+cd dir1
+generate_tree_1
+# make the tree we want to compare to
+mkdir ../dir2
+cd ../dir2
+generate_tree_1
+# the tree we want to rsync over
+mkdir ../dir3
+cd ../dir3
+generate_tree_1
+cd ..
+
+# now - in the source tree replace a whole directory with a symlink.
+# we want to test whether rsync nukes the dir to make space for the symlink.
+
+rm -rf dir1/foo/bar
+(
+    cd dir1/foo
+    ln -s ../foo/five bar
+)
+
+# Do the same in the to-compare tree.
+rm -rf dir2/foo/bar
+(
+    cd dir2/foo
+    ln -s ../foo/five bar
+)
+
+# this fails for SMB rsync, too, do make failure the expected result
+if rsync -a -H -S --only-write-batch=batch.bin -- dir1/ dir3 \
+        && rsync -a -H -S --read-batch=batch.bin -- dir3  ; then
+    echo this should have failed 1>&2
+    echo it did not, so this is not compatible to SMB rsync 1>&2
+    exit 2
+else
+    echo $rsync exit code as expected not zero: $? 1>&2
+    echo That means the test succeeded 1>&2
+fi
+
+
+1>&2 echo Running test60i_batch_symlink-kills-dir
+
+rm -rf dir1 dir2 dir3
+# make the copy-from-here tree
+mkdir dir1
+cd dir1
+generate_tree_1
+# make the tree we want to compare to
+mkdir ../dir2
+cd ../dir2
+generate_tree_1
+# the tree we want to rsync over
+mkdir ../dir3
+cd ../dir3
+generate_tree_1
+cd ..
+
+# Now - in the source tree replace a whole directory with a symlink.
+# We want to test whether rsync nukes the dir to make space for the symlink.
+# At the time of this writing the --force flag for GNU rsync will
+# do that and openrsync doesn't have that flag.
+
+rm -rf dir1/foo/bar
+(
+    cd dir1/foo
+    ln -s ../foo/five bar
+    # remove unrelated symlink that will be broken
+    rm baz/three.txt
+)
+
+# Do the same in the to-compare tree.
+rm -rf dir2/foo/bar
+(
+    cd dir2/foo
+    ln -s ../foo/five bar
+    # remove unrelated symlink that will be broken
+    rm baz/three.txt
+)
+# remove unrelated symlink that will be broken
+rm dir3/foo/baz/three.txt
+
+rsync -a --force -H -S --only-write-batch=batch.bin -- dir1/ dir3
+rsync -a --force -H -S --read-batch=batch.bin -- dir3
+compare_trees dir2 dir3
+
+
+1>&2 echo Running test60j_batch_middlediff
+
+umask 022
+rm -rf dir1 dir2 dir3
+# make the copy-from-here tree
+mkdir dir1
+cd dir1
+generate_tree_1
+rm foo/baz/three.txt
+# make this file again the way we want it.
+$cstream -n 1M -i- -o foo/bar/baz/one.txt
+echo foo >> foo/bar/baz/one.txt
+$cstream -n 1M -i- >> foo/bar/baz/one.txt
+# make the tree we want to compare to
+mkdir ../dir2
+cd ../dir2
+generate_tree_1
+rm foo/baz/three.txt
+# make this file again the way we want it.
+$cstream -n 1M -i- -o foo/bar/baz/one.txt
+echo foo >> foo/bar/baz/one.txt
+$cstream -n 1M -i- >> foo/bar/baz/one.txt
+
+mkdir ../dir3
+cd ../dir3
+generate_tree_1
+rm foo/baz/three.txt
+# make this file different in the middle
+$cstream -n 1M -i- -o foo/bar/baz/one.txt
+echo bar >> foo/bar/baz/one.txt
+$cstream -n 1M -i- >> foo/bar/baz/one.txt
+
+cd ..
+# openrsync needs the --ignore-times here since it doesn't have
+# a flag to force checksumming.
+rsync -a -H -S --ignore-times --only-write-batch=batch.bin -- dir1/ dir3
+rsync -a -H -S --ignore-times --read-batch=batch.bin -- dir3
+compare_trees dir2 dir3
+
+
+1>&2 echo Running test60k_batch_middlediff
+
+umask 022
+rm -rf dir1 dir2 dir3
+# make the copy-from-here tree
+mkdir dir1
+cd dir1
+generate_tree_1
+rm foo/baz/three.txt
+# make this file again the way we want it.
+$cstream -n 1M -i- -o foo/bar/baz/one.txt
+echo foo >> foo/bar/baz/one.txt
+$cstream -n 1M -i- >> foo/bar/baz/one.txt
+echo baz >> foo/bar/baz/one.txt
+# make the tree we want to compare to
+mkdir ../dir2
+cd ../dir2
+generate_tree_1
+rm foo/baz/three.txt
+# make this file again the way we want it.
+$cstream -n 1M -i- -o foo/bar/baz/one.txt
+echo foo >> foo/bar/baz/one.txt
+$cstream -n 1M -i- >> foo/bar/baz/one.txt
+echo baz >> foo/bar/baz/one.txt
+
+mkdir ../dir3
+cd ../dir3
+generate_tree_1
+rm foo/baz/three.txt
+# make this file different in the middle
+$cstream -n 1M -i- -o foo/bar/baz/one.txt
+echo bar >> foo/bar/baz/one.txt
+$cstream -n 1M -i- >> foo/bar/baz/one.txt
+
+cd ..
+# openrsync needs the --ignore-times here since it doesn't have
+# a flag to force checksumming.
+rsync -a -H -S --ignore-times --only-write-batch=batch.bin -- dir1/ dir3
+rsync -a -H -S --ignore-times --read-batch=batch.bin -- dir3
+compare_trees dir2 dir3
+
+
+1>&2 echo Running test60l_batch_longfn
+
+# Test that openrsync handles long file names correctly.
+
+# Create the source tree:
+#
+rm -rf src dst
+mkdir src
+
+for i in $(seq 128) ; do
+    date > src/$(jot -n -bf -s. $i)
+    mkfifo src/$(jot -n -bp -s. $i)
+    ln -s $(jot -n -bf -s. $i) src/$(jot -n -bl -s. $i)
+    dir="$(jot -n -bd -s. $i)"
+    mkdir src/${dir}
+    ln -s ../$(jot -n -bf -s. $i) src/${dir}/$(jot -n -bl -s. $i)
+done
+
+rsync -a -H -S --specials --only-write-batch=batch.bin -- src/ dst/
+rsync -a -H -S --specials --read-batch=batch.bin -- dst/
+
+S=$(find src | wc -l)
+[ $S -eq $((i * 5 + 1)) ]
+
+D=$(find dst | wc -l)
+[ $S -eq $D ]
+
+compare_trees src dst
+
+
+1>&2 echo Running test60m_batch_tofile
+
+# test "target is a file" while renaming the file
+
+rm -rf dir1 dir2 dir3
+# make the copy-from-here tree
+mkdir dir1
+cd dir1
+genfile_stdout_1m > foo
+# make the tree we want to compare to
+mkdir ../dir2
+cd ../dir2
+genfile_stdout_1m > bar
+cd ..
+mkdir dir3
+
+rsync -a -H -S --only-write-batch=batch.bin -- dir1/foo dir3/bar
+rsync -a -H -S --read-batch=batch.bin -- dir3/bar
+compare_trees dir2 dir3
+
+1>&2 echo Running test60n_batch_tofile
+
+# test "target is a file" while renaming the file
+# Test b - no subdirectory
+
+rm -rf dir1 dir2 dir3
+# make the copy-from-here tree
+mkdir dir1
+cd dir1
+genfile_stdout_1m > foo
+# make the tree we want to compare to
+mkdir ../dir2
+cd ../dir2
+genfile_stdout_1m > bar
+cd ..
+mkdir dir3
+cd dir3
+
+#rsync -a -- ../dir1/foo bar
+rsync -a -H -S --only-write-batch=../batch.bin -- ../dir1/foo bar
+rsync -a -H -S --read-batch=../batch.bin -- bar
+cd ..
+compare_trees dir2 dir3
+
+
+1>&2 echo Running test60o_batch_checksum
+
+rm -rf src dst
+rm -rf src-1 src-1.stat
+rm -rf src-2 src-2.stat
+
+# Create the source tree (one zero length file, one largish file, and
+# one sparse file whose size is not power-of-two aligned).
+#
+mkdir src
+touch src/zero
+jot 999999 1000000 > src/large
+echo "x" >> src/large
+dd if=/dev/zero of=src/sparse bs=1 count=1 oseek=1048576
+touch -t 202308252015.01 src/large
+
+# First, use rsync to create the dest dir:
+#
+rsync -a -c -- src/ dst/
+compare_trees -t src dst
+
+# Next, recreate dst/large such that it has the same size
+# and mtime as src/large, but differs by one byte at the end:
+#
+jot 999999 1000000 > dst/large
+echo "y" >> dst/large
+touch -t 202308252015.01 dst/large
+
+# Now check that rsync -a does not update dst/large:
+#
+rsync -a -- src/ dst/
+cmp -s src/zero dst/zero
+X=$(cmp -s src/large dst/large || echo ok)
+[ "$X" = "ok" ]
+
+# Now check that rsync -c correctly updates dst/large:
+#
+rsync -a --checksum --only-write-batch=batch.bin -- src/ dst/
+rsync -a --checksum --read-batch=batch.bin -- dst/
+compare_trees -t src dst
+
+rm -rf src dst
+
+# Next, create a few files in the top-level directory:
+#
+stat_fmt='%Sp %Su %Sg %z %m'
+
+date > src-1
+stat -f "${stat_fmt}" src-1 > src-1.stat
+
+mkfifo src-2
+stat -f "${stat_fmt}" src-2 > src-2.stat
+
+ln -sf src-1 src-3
+stat -f "${stat_fmt}" src-3 > src-3.stat
+
+# Create the dest dir on first pass of the loop,
+# then run rsync -ac on the second pass:
+#
+for opt in '-avv' '-avvc' ; do
+    ls -alR src-1 src-2 src-3
+    [ -e dst ] && ls -alR dst
+    rsync --only-write-batch=batch.bin ${opt} -- src-1 src-2 src-3 dst/ || sh -c 'echo "rsync only-write-batch failed $?"; false'
+    rsync --read-batch=batch.bin ${opt} -- dst/ || sh -c 'echo "rsync read-batch failed $?"; false'
+    cmp -s src-1 dst/src-1
+    cmp -s src-3 dst/src-3
+    cmp -s dst/src-1 dst/src-3
+
+    stat -f "${stat_fmt}" dst/src-1 > dst-1.stat
+    stat -f "${stat_fmt}" dst/src-2 > dst-2.stat
+    stat -f "${stat_fmt}" dst/src-3 > dst-3.stat
+
+    cmp -s src-1.stat dst-1.stat
+    cmp -s src-2.stat dst-2.stat
+    cmp -s src-3.stat dst-3.stat
+
+    echo 0 >> dst/src-1
+    touch dst/src-2
+done
+
+
+1>&2 echo Running test60p_batch_bigfile
+
+RSYNC_CLIENT_EXECUTOR=sudo
+RSYNC_SERVER_EXECUTOR=sudo
+# Test >4G files for 64-to-32 bit shortening issues.
+
+rm -f bigfile bigfile.out
+
+dd if=/dev/random of=bigfile bs=1M count=$((1024 * 4 + 128))
+if [ -z "$RSYNC_DEBUG" ]; then
+	trap 'rm -f bigfile bigfile.out' EXIT
+fi
+
+rsync --only-write-batch=batch.bin -- bigfile bigfile.out
+rsync --read-batch=batch.bin -- bigfile.out
+
+echo Regular end, tests succeeded
+

@@ -4,14 +4,18 @@ ACLOCAL_AMFLAGS = -I m4
 
 SUBDIRS = src test sample
 
-EXTRA_DIST = oniguruma.pc.in HISTORY README.ja README.md \
-	index.html index_ja.html \
-	CMakeLists.txt dist.info oniguruma.pc.cmake.in cmake/dist.cmake \
-	src/config.h.cmake.in \
+EXTRA_DIST = oniguruma.pc.in HISTORY README_japanese README.md \
+	index.html index_ja.html make_win.bat \
+	CMakeLists.txt oniguruma.pc.cmake.in cmake/Config.cmake.in \
+	onig-config.cmake.in src/config.h.cmake.in \
 	doc/API doc/API.ja doc/RE doc/RE.ja doc/FAQ doc/FAQ.ja \
-	doc/UNICODE_PROPERTIES \
-	src/Makefile.windows src/config.h.win32 src/config.h.win64 \
-	windows/testc.c contributed/libfuzzer-onig.cpp
+	doc/CALLOUTS.BUILTIN doc/CALLOUTS.BUILTIN.ja \
+	doc/CALLOUTS.API doc/CALLOUTS.API.ja \
+	doc/SYNTAX.md doc/UNICODE_PROPERTIES \
+	src/Makefile.windows src/config.h.windows.in \
+	src/config.h.win32 src/config.h.win64 \
+	test/test.sh test/CMakeLists.txt \
+        windows/testc.c windows/CMakeLists.txt
 
 bin_SCRIPTS = onig-config
 
@@ -31,3 +35,53 @@ oniguruma.pc: $(srcdir)/oniguruma.pc.in Makefile
 
 pkgconfigdir   = $(libdir)/pkgconfig
 pkgconfig_DATA = oniguruma.pc
+DISTCLEANFILES = oniguruma.pc
+
+all-test:
+	cd test; make test
+
+archive:
+	git archive --format=tar --prefix=oniguruma/ HEAD | gzip > ../oniguruma-archive.tar.gz
+
+tar:
+	cd ..; tar cvf oniguruma-`date +%Y%m%d`.tar oniguruma; gzip oniguruma-`date +%Y%m%d`.tar
+
+debug:
+	make clean
+	./configure CFLAGS="-O0 -g"
+	make
+
+debug_out:
+	make clean
+	./configure CFLAGS="-O0 -g -DONIG_DEBUG_PARSE -DONIG_DEBUG_COMPILE"
+	make
+
+sanitize:
+	make clean
+	./configure CFLAGS="-O -g -fsanitize=address" LDFLAGS="-fsanitize=address"
+	make
+	make all-test
+
+debug_out_sanitize:
+	make clean
+	./configure CFLAGS="-O0 -g -fsanitize=address -DONIG_DEBUG_PARSE -DONIG_DEBUG_COMPILE" LDFLAGS="-fsanitize=address"
+	make
+
+cov:
+	make lcov-clear
+	cd test; make CFLAGS="--coverage" test
+	make lcov
+
+gcov:
+	make CFLAGS="--coverage"
+
+lcov:
+	lcov -c -d src/.libs -o coverage.info
+	genhtml -o coverage coverage.info
+
+lcov-clear:
+	lcov -z -d .
+
+cov-clean: clean
+	rm -rf coverage coverage.info
+	find . -name '*.gcno' | xargs rm -f

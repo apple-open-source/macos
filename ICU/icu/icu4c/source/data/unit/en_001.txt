@@ -89,7 +89,7 @@ en_001{
         }
         force{
             kilowatt-hour-per-100-kilometer{
-                dnam{"kilowatt-hour per 100 kilometres"}
+                dnam{"kilowatt-hours per 100 kilometres"}
                 one{"{0} kilowatt-hour per 100 kilometres"}
                 other{"{0} kilowatt-hours per 100 kilometres"}
             }
@@ -109,7 +109,7 @@ en_001{
                 per{"{0} per centimetre"}
             }
             decimeter{
-                dnam{"decimetre"}
+                dnam{"decimetres"}
                 one{"{0} decimetre"}
                 other{"{0} decimetres"}
             }
@@ -129,7 +129,7 @@ en_001{
                 per{"{0} per metre"}
             }
             micrometer{
-                dnam{"micrometre"}
+                dnam{"micrometres"}
                 one{"{0} micrometre"}
                 other{"{0} micrometres"}
             }
@@ -194,9 +194,6 @@ en_001{
             }
         }
         temperature{
-            generic{
-                dnam{"degree"}
-            }
             kelvin{
                 dnam{"kelvin"}
                 one{"{0} kelvin"}
@@ -239,12 +236,12 @@ en_001{
                 other{"{0} decilitres"}
             }
             dessert-spoon{
-                dnam{"US dessertspoon"}
+                dnam{"US dessertspoons"}
                 one{"{0} US dessertspoon"}
                 other{"{0} US dessertspoons"}
             }
             dessert-spoon-imperial{
-                dnam{"dessertspoon"}
+                dnam{"dessertspoons"}
                 one{"{0} dessertspoon"}
                 other{"{0} dessertspoons"}
             }
@@ -297,16 +294,21 @@ en_001{
                 other{"{0} US quarts"}
             }
             quart-imperial{
-                dnam{"quart"}
+                dnam{"quarts"}
                 one{"{0} quart"}
                 other{"{0} quarts"}
             }
         }
     }
     unitsNarrow{
+        acceleration{
+            g-force{
+                other{"{0}G"}
+            }
+        }
         area{
             square-meter{
-                dnam{"metres²"}
+                dnam{"m²"}
                 one{"{0} m²"}
                 other{"{0} m²"}
             }
@@ -356,6 +358,10 @@ en_001{
             }
         }
         mass{
+            carat{
+                one{"{0}ct"}
+                other{"{0}ct"}
+            }
             pound{
                 one{"{0}lb"}
                 other{"{0}lb"}
@@ -367,10 +373,6 @@ en_001{
             }
         }
         temperature{
-            celsius{
-                one{"{0}°"}
-                other{"{0}°"}
-            }
             fahrenheit{
                 one{"{0}°F"}
                 other{"{0}°F"}
@@ -409,9 +411,9 @@ en_001{
             }
             gallon{
                 dnam{"US gal"}
-                one{"{0}galUS"}
-                other{"{0}galUS"}
-                per{"{0}/galUS"}
+                one{"{0}USgal"}
+                other{"{0}USgal"}
+                per{"{0}/USgal"}
             }
             gallon-imperial{
                 dnam{"gal"}
@@ -443,6 +445,11 @@ en_001{
                 one{"{0}ml"}
                 other{"{0}ml"}
             }
+            quart{
+                dnam{"USqt"}
+                one{"{0}USqt"}
+                other{"{0}USqt"}
+            }
             quart-imperial{
                 dnam{"qt"}
                 one{"{0}qt"}
@@ -463,7 +470,7 @@ en_001{
         }
         area{
             square-meter{
-                dnam{"metres²"}
+                dnam{"m²"}
             }
         }
         concentr{
@@ -523,7 +530,7 @@ en_001{
         }
         length{
             meter{
-                dnam{"metres"}
+                dnam{"m"}
             }
             micrometer{
                 dnam{"μmetres"}
@@ -533,10 +540,6 @@ en_001{
             carat{
                 one{"{0} ct"}
                 other{"{0} ct"}
-            }
-            grain{
-                one{"{0} grains"}
-                other{"{0} grains"}
             }
             stone{
                 dnam{"stone"}
@@ -578,7 +581,7 @@ en_001{
                 dnam{"dram"}
             }
             drop{
-                one{"{0} drops"}
+                one{"{0} drop"}
                 other{"{0} drops"}
             }
             fluid-ounce{
@@ -625,7 +628,7 @@ en_001{
                 other{"{0} ml"}
             }
             pinch{
-                one{"{0} pinches"}
+                one{"{0} pinch"}
                 other{"{0} pinches"}
             }
             quart{

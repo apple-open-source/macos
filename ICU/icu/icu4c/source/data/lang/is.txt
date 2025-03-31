@@ -75,6 +75,7 @@ is{
         bik{"bíkol"}
         bin{"bíní"}
         bla{"siksika"}
+        blo{"anii"}
         bm{"bambara"}
         bn{"bengalska"}
         bo{"tíbeska"}
@@ -295,6 +296,7 @@ is{
         kv{"komíska"}
         kw{"kornbreska"}
         kwk{"kwakʼwala"}
+        kxv{"kúví"}
         ky{"kirgiska"}
         la{"latína"}
         lad{"ladínska"}
@@ -305,8 +307,10 @@ is{
         lez{"lesgíska"}
         lg{"ganda"}
         li{"limbúrgíska"}
+        lij{"lígúríska"}
         lil{"lillooet"}
         lkt{"lakóta"}
+        lmo{"lombardíska"}
         ln{"lingala"}
         lo{"laó"}
         lol{"mongó"}
@@ -496,6 +500,7 @@ is{
         swb{"shimaoríska"}
         syc{"klassísk sýrlenska"}
         syr{"sýrlenska"}
+        szl{"slesíska"}
         ta{"tamílska"}
         tce{"suður-tutchone"}
         te{"telúgú"}
@@ -544,7 +549,9 @@ is{
         uz{"úsbekska"}
         vai{"vaí"}
         ve{"venda"}
+        vec{"feneyska"}
         vi{"víetnamska"}
+        vmw{"makúva"}
         vo{"volapyk"}
         vot{"votíska"}
         vun{"vunjó"}
@@ -558,6 +565,7 @@ is{
         wuu{"wu-kínverska"}
         xal{"kalmúkska"}
         xh{"sósa"}
+        xnr{"kangrí"}
         xog{"sóga"}
         yao{"jaó"}
         yap{"japíska"}
@@ -644,8 +652,8 @@ is{
         Orya{"oriya"}
         Rohg{"hanifi"}
         Sinh{"sinhala"}
-        Sund{"sundanesíska"}
-        Syrc{"syriakíska"}
+        Sund{"sundanesískt"}
+        Syrc{"syriakískt"}
         Taml{"tamílskt"}
         Telu{"telúgú"}
         Tfng{"tifinagh"}
@@ -733,7 +741,6 @@ is{
             phonebook{"Símaskráarröðun"}
             phonetic{"Hljóðfræðileg röð"}
             pinyin{"Pinyin-röðun"}
-            reformed{"Endurbætt röð"}
             search{"Almenn leit"}
             searchjl{"Leita eftir upphafssamhljóða í Hangul"}
             standard{"Stöðluð röðun"}

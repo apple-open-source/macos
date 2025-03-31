@@ -1,7 +1,7 @@
 #! /bin/sh
 
 # Test that the --size-only option prevents destination files from being
-# updated if its size matches the source file.
+# updated if their size matches the source file, regardless of mtime.
 
 set -e
 set -u
@@ -12,66 +12,62 @@ set -u
 rm -rf src dst ref
 
 # Create the source tree:
+#
 mkdir src
 echo one > src/one
 echo two > src/two
 
 # Create the reference tree identical to the source tree,
-# with the exception that "dir2/two" is the same size as
-# "dir1/two" but contains different data.
+# with the exception that "ref/two" is the same size as
+# "src/two" but contains different data.
 #
 cp -a src ref
 echo owt > ref/two
 
-# Ensure both src and ref's mtime and access times
-# match so that compare_trees doesn't miscompare them.
+# Make src/two younger than ref/two to ensure that a simple
+# rsync would normally update dst/two.
 #
-touch -t 202308252015.01 src
-touch -t 202308252015.01 ref
+touch -t 202308252015.01 ref/two
+touch -t 202308252015.02 src/two
 
-# Create the destination tree:
+# Create the destination tree identical to the reference tree:
+#
 cp -a ref dst
-echo "check 1"
 compare_trees -t ref dst
 
-# Try to rsync src to dst with the --size-only option,
-# no files in dst/ should be updated.
+# Try to rsync src/ to dst/ with the --size-only option.  The
+# mtime on dst/two should be updated to that of src/two, but
+# its contents should remain identical to ref/two:
 #
 rsync -a --size-only -- src/ dst/
-echo "check 2"
-compare_trees -t ref dst
+compare_trees ref dst
+X=$(stat -f '%m' src/two)
+Y=$(stat -f '%m' dst/two)
+[ "$X" == "$Y" ]
 
-# Check that the ref and dst trees remain identical
-# after running a simple rsync:
+# A metadata update also should not cause dst/two's contents
+# to be updated:
+#
+for mode in 660 600 640 604 440 400 404 ; do
+    chmod ${mode} src/two ref/two
+    rsync -a --size-only -- src/ dst/
+    compare_trees ref dst
+    X=$(stat -f '%m' src/two)
+    Y=$(stat -f '%m' dst/two)
+    [ "$X" == "$Y" ]
+done
+
+# Now that the mtime's match, a simple rsync should also not cause
+# dst/two's contents to change:
 #
 rsync -a -- src/ dst/
-echo "check 3a"
-compare_trees -t ref dst
+compare_trees ref dst
+X=$(stat -f '%m' src/two)
+Y=$(stat -f '%m' dst/two)
+[ "$X" == "$Y" ]
 
-# Check that the src and dst trees match after
-# running rsync --checksum:
+# Finally, a simple rsync (ignoring times) should cause dst/two
+# to become identical to src/two:
 #
-rsync -a --checksum -- src/ dst/
-echo "check 3b"
-compare_trees -t src dst
-
-# Change the the reference file ref/two from a regular
-# file to a directory, then recreate the dest dir from
-# a copy of the reference dir.  rsync --size-only of
-# the source to dest dir should update dst/two
-# (i.e., changing it back into a regular file).
-#
-rm -rf dst
-rm ref/two
-mkdir ref/two
-cp -a ref dst
-
-# Ensure both src and dst's mtime and access times
-# match so that compare_trees doesn't miscompare them.
-#
-touch -t 202308252015.01 src
-touch -t 202308252015.01 dst
-
-rsync -a --size-only -- src/ dst/
-echo "check 4"
+rsync -a --ignore-times -- src/ dst/
 compare_trees -t src dst

@@ -1,0 +1,112 @@
+#! /bin/sh
+
+set -e
+set -u
+
+. ${tstdir-.}/lib.sh
+. ${tstdir-.}/conf.sh
+
+# Check that each file in the given dir whose name matches the given pattern
+# has exactly the given link count.  Also check that if the link count
+# is greater than one then all matching files have the same inode.
+#
+check_linkage() {
+    [ $# -eq 3 ]
+    local dir=$1
+    local fnpat=$2
+    local nlinks=$3
+    local inode=0
+
+    find "${dir}" -type f -name "${fnpat}" -exec stat -f '%l %i' {} \; | while read line ; do
+	set -- $line
+	[ $1 -eq ${nlinks} ]
+
+	if [ ${nlinks} -gt 1 ] ; then
+	    if [ ${inode} -eq 0 ] ; then
+		inode=$2
+	    else
+		[ ${inode} -eq $2 ]
+	    fi
+	fi
+    done
+}
+
+rm -rf src dst
+mkdir src
+
+jot 17 7 > src/one-1
+
+for i in $(seq 2 5) ; do
+    ln src/one-1 src/one-$i
+done
+
+touch -A -50 src/one-1
+
+nlinks=$(stat -f %l src/one-1)
+
+
+# Initial archive mode sync with hardlinks:
+#
+echo
+echo 'Test 1: create dest dir with hardlinks'
+
+rsync -ai -H -- src/ dst/ | tee log
+compare_trees -t src dst
+
+echo "Test 1.1: check linkage"
+check_linkage dst 'one-*' ${nlinks}
+
+echo "Test 1.2: check itemization"
+X=$(egrep -c '^[ch<>][df]\+{7}' log)
+[ $X -eq $((nlinks + 1)) ]
+
+echo "Test 1.3: check itemization"
+X=$(egrep -c '^hf\+{7}.* => one-' log)
+[ $X -eq $((nlinks - 1)) ]
+
+
+# Remove leader:
+#
+echo
+echo 'Test 2: change leader src/one-1 to a dir, create new leader src/one-0'
+rm src/one-1
+mkdir src/one-1
+chmod 400 src/one-3
+ln src/one-3 src/one-0
+
+inode_before=$(stat -f %i dst/one-2)
+
+rsync -ai -H --delete -- src/ dst/ | tee log
+compare_trees -t src dst
+
+echo "Test 2.1: check linkage"
+check_linkage dst 'one-[02-5]' ${nlinks}
+
+echo "Test 2.2: check itemization flags"
+X=$(egrep -c '^[<>][f]\.st.* one-1$' log || true)
+[ $X -eq 0 ]
+
+echo "Test 2.3: check itemization flags"
+X=$(egrep -c '^hf.* one-0 =>' log || true)
+[ $X -eq 1 ]
+
+# Check that unaffected linked files were not perturbed on the dest:
+#
+inode_after=$(stat -f %i dst/one-2)
+echo "Test 2.4: check inodes before/after ${inode_before} ${inode_after}"
+[ ${inode_before} -eq ${inode_after} ]
+
+
+# Resync without hardlinks:
+#
+echo
+echo 'Test 3: resync without hardlinks'
+rsync -ai --ignore-times -- src/ dst/ | tee log
+compare_trees -t src dst
+
+echo "Test 3.1: check linkage"
+check_linkage dst 'one-[02-5]' 1
+
+echo "Test 3.2: check itemization flags"
+X=$(egrep -c '^[<>][f]\.{7}.* one-[02-5]$' log)
+[ $X -eq ${nlinks} ]

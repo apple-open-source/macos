@@ -239,7 +239,6 @@ fi{
         gmh{"keskiyläsaksa"}
         gn{"guarani"}
         goh{"muinaisyläsaksa"}
-        gom{"goankonkani"}
         gon{"gondi"}
         gor{"gorontalo"}
         got{"gootti"}
@@ -367,6 +366,7 @@ fi{
         lil{"lillooet"}
         liv{"liivi"}
         lkt{"lakota"}
+        lld{"ladin"}
         lmo{"lombardi"}
         ln{"lingala"}
         lo{"lao"}
@@ -381,7 +381,6 @@ fi{
         lua{"luluanluba"}
         lui{"luiseño"}
         lun{"lunda"}
-        luo{"luo"}
         lus{"lusai"}
         lut{"lushootseed"}
         luy{"luhya"}
@@ -653,7 +652,6 @@ fi{
         ur{"urdu"}
         ur_Arab{"urdu (naskh)"}
         uz{"uzbekki"}
-        vai{"vai"}
         ve{"venda"}
         vec{"venetsia"}
         vep{"vepsä"}
@@ -1007,7 +1005,6 @@ fi{
             phonebook{"puhelinluettelojärjestys"}
             phonetic{"äänteellinen järjestys"}
             pinyin{"pinyin-järjestys"}
-            reformed{"uudistettu järjestys"}
             search{"yleishakujärjestys"}
             searchjl{"haku hangul-alkukonsonantin mukaan"}
             standard{"normaalijärjestys"}

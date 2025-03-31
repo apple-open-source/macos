@@ -8637,9 +8637,11 @@ smb2_smb_read(struct smb_share *share, struct smb2_rw_rq *readp,
         
 		error = smb2_smb_read_write_async(share, readp, &len, &resid, 1,
                                           &tmp_allow_compression, context);
-        if (error)
-			break;
-        
+        if (error) {
+            SMBERROR("smb2_smb_read_write_async failed with an error %d\n", error);
+            break;
+        }
+
         /* subtract actual amount of data read "resid" from the total left */
 		total_size -= resid;
         
@@ -8651,6 +8653,7 @@ smb2_smb_read(struct smb_share *share, struct smb2_rw_rq *readp,
         
 		if (resid < len) {
             /* assume nothing more to read, so we are done */
+            SMBERROR("Unexpected partial read! resid %lld, len %lld\n", resid, len);
             break;
         }
 	}
@@ -9121,6 +9124,8 @@ resend:
 
     /* Fill in initial requests */
     for (i = 0; i < quantumNbr; i++) {
+        bool no_credits = false;
+
         /* Malloc the read_writep */
         SMB_MALLOC_TYPE(rw_pb[i].rw.read_writep, struct smb2_rw_rq, Z_WAITOK_ZERO);
         if (rw_pb[i].rw.read_writep == NULL) {
@@ -9147,10 +9152,7 @@ resend:
                 /* Running out of credits, clear error and send what we have */
                 SMBDEBUG("low on credits %d\n", error);
                 error = 0;
-                
-                /* i equals number of initial rw_pb's filled in */
-                i += 1;
-                break;
+                no_credits = true;
             }
             else {
                 SMBERROR("smb2_smb_fillin_read/write failed %d\n", error);
@@ -9167,7 +9169,7 @@ resend:
         }
 
         /* Any more to read or write? If not, then send what we have */
-        if (uio_resid(tmp_read_write.auio) == 0) {
+        if (uio_resid(tmp_read_write.auio) == 0 || no_credits) {
             /* i equals number of initial rw_pb's filled in */
             i += 1;
             break;
@@ -10443,11 +10445,13 @@ smb2_smb_write(struct smb_share *share, struct smb2_rw_rq *writep,
 		error = smb2_smb_read_write_async(share, writep, &len, &resid, 0,
                                           allow_compressionp, context);
 		if (error) {
+			SMBERROR("smb2_smb_read_write_async failed with an error %d\n", error);
 			break;
         }
         
         /* did we fail to write out the data? */
 		if (resid < len) {
+			SMBERROR("Unexpected partial write! resid %lld, len %lld\n", resid, len);
 			error = EIO;
 			break;
 		}

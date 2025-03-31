@@ -372,6 +372,8 @@ struct pcap {
 	int *selectable_fd_list;
 	int selectable_fd_count;
 
+	unsigned long packet_read_count; /* only packet type, not other block types */
+
 	/*
 	 * The following needs to be 'int' as required by the corresponding BPF ioctls
 	 */

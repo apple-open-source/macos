@@ -906,6 +906,7 @@ SpeculatedType typeOfDoubleUnaryOp(SpeculatedType value)
 
 SpeculatedType speculationFromString(const char* speculation)
 {
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
     if (!strncmp(speculation, "SpecNone", strlen("SpecNone")))
         return SpecNone;
     if (!strncmp(speculation, "SpecFinalObject", strlen("SpecFinalObject")))
@@ -1043,6 +1044,7 @@ SpeculatedType speculationFromString(const char* speculation)
     if (!strncmp(speculation, "SpecCellCheck", strlen("SpecCellCheck")))
         return SpecCellCheck;
     RELEASE_ASSERT_NOT_REACHED();
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
 }
 
 } // namespace JSC

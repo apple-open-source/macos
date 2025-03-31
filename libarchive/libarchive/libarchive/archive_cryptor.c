@@ -405,14 +405,6 @@ aes_ctr_init(archive_crypto_ctx *ctx, const uint8_t *key, size_t key_len)
 	memcpy(ctx->key, key, key_len);
 	memset(ctx->nonce, 0, sizeof(ctx->nonce));
 	ctx->encr_pos = AES_BLOCK_SIZE;
-#if OPENSSL_VERSION_NUMBER  >= 0x10100000L && !defined(LIBRESSL_VERSION_NUMBER)
-	if (!EVP_CIPHER_CTX_reset(ctx->ctx)) {
-		EVP_CIPHER_CTX_free(ctx->ctx);
-		ctx->ctx = NULL;
-	}
-#else
-	EVP_CIPHER_CTX_init(ctx->ctx);
-#endif
 	return 0;
 }
 
@@ -436,8 +428,8 @@ static int
 aes_ctr_release(archive_crypto_ctx *ctx)
 {
 	EVP_CIPHER_CTX_free(ctx->ctx);
-	memset(ctx->key, 0, ctx->key_len);
-	memset(ctx->nonce, 0, sizeof(ctx->nonce));
+	OPENSSL_cleanse(ctx->key, ctx->key_len);
+	OPENSSL_cleanse(ctx->nonce, sizeof(ctx->nonce));
 	return 0;
 }
 

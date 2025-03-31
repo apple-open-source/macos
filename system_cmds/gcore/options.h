@@ -37,6 +37,7 @@ struct options {
     int debug;          // internal debugging: options accumulate. noisy.
 #endif
 	int extended;		// avoid writing out ro mapped files, compress regions
+    int skinny;         // just code segments, mapped files as references, mutually exclusive with extended
     off_t sizebound;    // maximum size of the dump
     size_t chunksize;   // max size of a compressed subregion
     compression_algorithm calgorithm; // algorithm in use

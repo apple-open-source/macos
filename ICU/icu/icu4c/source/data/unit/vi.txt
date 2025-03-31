@@ -185,6 +185,13 @@ vi{
                 other{"{0} terabyte"}
             }
         }
+        duration{
+            night{
+                dnam{"đêm"}
+                other{"{0} đêm"}
+                per{"{0}/đêm"}
+            }
+        }
         electric{
             ampere{
                 dnam{"ampe"}
@@ -662,6 +669,11 @@ vi{
             month{
                 other{"{0}tháng"}
             }
+            night{
+                dnam{"đêm"}
+                other{"{0} đêm"}
+                per{"{0}/đêm"}
+            }
             second{
                 other{"{0}gi"}
             }
@@ -923,6 +935,11 @@ vi{
             nanosecond{
                 dnam{"nano giây"}
                 other{"{0} nano giây"}
+            }
+            night{
+                dnam{"đêm"}
+                other{"{0} đêm"}
+                per{"{0}/đêm"}
             }
             quarter{
                 dnam{"quý"}

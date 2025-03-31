@@ -26,7 +26,7 @@
 
 #if CONFIG_AV1_TEMPORAL_DENOISING
 // For SVC: only do noise estimation on top spatial layer.
-static INLINE int noise_est_svc(const struct AV1_COMP *const cpi) {
+static inline int noise_est_svc(const struct AV1_COMP *const cpi) {
   return (!cpi->ppi->use_svc ||
           (cpi->ppi->use_svc &&
            cpi->svc.spatial_layer_id == cpi->svc.number_spatial_layers - 1));

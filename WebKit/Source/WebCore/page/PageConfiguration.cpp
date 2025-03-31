@@ -41,13 +41,14 @@
 #include "DiagnosticLoggingClient.h"
 #include "DragClient.h"
 #include "EditorClient.h"
+#include "Frame.h"
 #include "HistoryItem.h"
 #include "InspectorClient.h"
 #include "LocalFrameLoaderClient.h"
-#include "MediaRecorderProvider.h"
 #include "ModelPlayerProvider.h"
 #include "PerformanceLoggingClient.h"
 #include "PluginInfoProvider.h"
+#include "ProcessSyncClient.h"
 #include "ProgressTrackerClient.h"
 #include "RemoteFrameClient.h"
 #include "ScreenOrientationManager.h"
@@ -85,11 +86,10 @@ PageConfiguration::PageConfiguration(
     Ref<BackForwardClient>&& backForwardClient,
     Ref<CookieJar>&& cookieJar,
     UniqueRef<ProgressTrackerClient>&& progressTrackerClient,
-    ClientCreatorForMainFrame&& clientCreatorForMainFrame,
+    MainFrameCreationParameters&& mainFrameCreationParameters,
     FrameIdentifier mainFrameIdentifier,
     RefPtr<Frame>&& mainFrameOpener,
     UniqueRef<SpeechRecognitionProvider>&& speechRecognitionProvider,
-    UniqueRef<MediaRecorderProvider>&& mediaRecorderProvider,
     Ref<BroadcastChannelRegistry>&& broadcastChannelRegistry,
     UniqueRef<StorageProvider>&& storageProvider,
     UniqueRef<ModelPlayerProvider>&& modelPlayerProvider,
@@ -99,10 +99,11 @@ PageConfiguration::PageConfiguration(
     UniqueRef<ContextMenuClient>&& contextMenuClient,
 #endif
 #if ENABLE(APPLE_PAY)
-    UniqueRef<PaymentCoordinatorClient>&& paymentCoordinatorClient,
+    Ref<PaymentCoordinatorClient>&& paymentCoordinatorClient,
 #endif
     UniqueRef<ChromeClient>&& chromeClient,
-    UniqueRef<CryptoClient>&& cryptoClient
+    UniqueRef<CryptoClient>&& cryptoClient,
+    UniqueRef<ProcessSyncClient>&& processSyncClient
 )
     : identifier(identifier)
     , sessionID(sessionID)
@@ -119,19 +120,19 @@ PageConfiguration::PageConfiguration(
     , progressTrackerClient(WTFMove(progressTrackerClient))
     , backForwardClient(WTFMove(backForwardClient))
     , cookieJar(WTFMove(cookieJar))
-    , clientCreatorForMainFrame(WTFMove(clientCreatorForMainFrame))
+    , mainFrameCreationParameters(WTFMove(mainFrameCreationParameters))
     , mainFrameIdentifier(WTFMove(mainFrameIdentifier))
     , mainFrameOpener(WTFMove(mainFrameOpener))
     , cacheStorageProvider(WTFMove(cacheStorageProvider))
     , userContentProvider(WTFMove(userContentProvider))
     , broadcastChannelRegistry(WTFMove(broadcastChannelRegistry))
     , speechRecognitionProvider(WTFMove(speechRecognitionProvider))
-    , mediaRecorderProvider(WTFMove(mediaRecorderProvider))
     , storageProvider(WTFMove(storageProvider))
     , modelPlayerProvider(WTFMove(modelPlayerProvider))
     , badgeClient(WTFMove(badgeClient))
     , historyItemClient(WTFMove(historyItemClient))
     , cryptoClient(WTFMove(cryptoClient))
+    , processSyncClient(WTFMove(processSyncClient))
 {
 }
 

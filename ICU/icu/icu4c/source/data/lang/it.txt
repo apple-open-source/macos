@@ -95,6 +95,7 @@ it{
         bjn{"banjar"}
         bkm{"kom"}
         bla{"siksika"}
+        blo{"anii"}
         bm{"bambara"}
         bn{"bengalese"}
         bo{"tibetano"}
@@ -236,7 +237,6 @@ it{
         gmh{"tedesco medio alto"}
         gn{"guaraní"}
         goh{"tedesco antico alto"}
-        gom{"konkani goano"}
         gon{"gondi"}
         gor{"gorontalo"}
         got{"gotico"}
@@ -344,6 +344,7 @@ it{
         kv{"komi"}
         kw{"cornico"}
         kwk{"kwakʼwala"}
+        kxv{"kuvi"}
         ky{"kirghiso"}
         la{"latino"}
         lad{"giudeo-spagnolo"}
@@ -359,6 +360,7 @@ it{
         lil{"lillooet"}
         liv{"livone"}
         lkt{"lakota"}
+        lld{"ladino"}
         lmo{"lombardo"}
         ln{"lingala"}
         lo{"lao"}
@@ -373,7 +375,6 @@ it{
         lua{"luba-lulua"}
         lui{"luiseno"}
         lun{"lunda"}
-        luo{"luo"}
         lus{"lushai"}
         lut{"lushootseed"}
         luy{"luyia"}
@@ -641,12 +642,12 @@ it{
         ur{"urdu"}
         ur_Arab{"urdu (naskh)"}
         uz{"uzbeco"}
-        vai{"vai"}
         ve{"venda"}
         vec{"veneto"}
         vep{"vepso"}
         vi{"vietnamita"}
         vls{"fiammingo occidentale"}
+        vmw{"macua"}
         vo{"volapük"}
         vot{"voto"}
         vro{"võro"}
@@ -662,6 +663,7 @@ it{
         xal{"kalmyk"}
         xh{"xhosa"}
         xmf{"mengrelio"}
+        xnr{"kangri"}
         xog{"soga"}
         yao{"yao (bantu)"}
         yap{"yapese"}
@@ -944,7 +946,6 @@ it{
             phonebook{"ordinamento Elenco telefonico"}
             phonetic{"ordinamento fonetico"}
             pinyin{"ordinamento pinyin"}
-            reformed{"ordinamento riformato"}
             search{"ricerca generica"}
             searchjl{"cerca per consonante hangul iniziale"}
             standard{"ordinamento standard"}

@@ -17,7 +17,7 @@
 #include "aom_dsp/arm/transpose_neon.h"
 #include "config/aom_dsp_rtcd.h"
 
-static INLINE uint8x8_t convolve8_4_h(uint8x8_t s0, uint8x8_t s1, uint8x8_t s2,
+static inline uint8x8_t convolve8_4_h(uint8x8_t s0, uint8x8_t s1, uint8x8_t s2,
                                       uint8x8_t s3, int8x8_t filter) {
   int8x16_t filter_x2 = vcombine_s8(filter, filter);
 
@@ -34,7 +34,7 @@ static INLINE uint8x8_t convolve8_4_h(uint8x8_t s0, uint8x8_t s1, uint8x8_t s2,
   return vqrshrun_n_s16(sum, FILTER_BITS - 1);
 }
 
-static INLINE uint8x8_t convolve8_8_h(uint8x8_t s0, uint8x8_t s1, uint8x8_t s2,
+static inline uint8x8_t convolve8_8_h(uint8x8_t s0, uint8x8_t s1, uint8x8_t s2,
                                       uint8x8_t s3, uint8x8_t s4, uint8x8_t s5,
                                       uint8x8_t s6, uint8x8_t s7,
                                       int8x8_t filter) {
@@ -58,7 +58,7 @@ static INLINE uint8x8_t convolve8_8_h(uint8x8_t s0, uint8x8_t s1, uint8x8_t s2,
   return vqrshrun_n_s16(sum, FILTER_BITS - 1);
 }
 
-static INLINE void scaled_convolve_horiz_neon_i8mm(
+static inline void scaled_convolve_horiz_neon_i8mm(
     const uint8_t *src, const ptrdiff_t src_stride, uint8_t *dst,
     const ptrdiff_t dst_stride, const InterpKernel *const x_filter,
     const int x0_q4, const int x_step_q4, int w, int h) {
@@ -145,7 +145,7 @@ static INLINE void scaled_convolve_horiz_neon_i8mm(
   } while (h > 0);
 }
 
-static INLINE uint8x8_t convolve8_4_v(uint8x8_t s0, uint8x8_t s1, uint8x8_t s2,
+static inline uint8x8_t convolve8_4_v(uint8x8_t s0, uint8x8_t s1, uint8x8_t s2,
                                       uint8x8_t s3, uint8x8_t s4, uint8x8_t s5,
                                       uint8x8_t s6, uint8x8_t s7,
                                       int8x8_t filter) {
@@ -167,7 +167,7 @@ static INLINE uint8x8_t convolve8_4_v(uint8x8_t s0, uint8x8_t s1, uint8x8_t s2,
                         FILTER_BITS - 1);
 }
 
-static INLINE uint8x8_t convolve8_8_v(uint8x8_t s0, uint8x8_t s1, uint8x8_t s2,
+static inline uint8x8_t convolve8_8_v(uint8x8_t s0, uint8x8_t s1, uint8x8_t s2,
                                       uint8x8_t s3, uint8x8_t s4, uint8x8_t s5,
                                       uint8x8_t s6, uint8x8_t s7,
                                       int8x8_t filter) {
@@ -204,7 +204,7 @@ static INLINE uint8x8_t convolve8_8_v(uint8x8_t s0, uint8x8_t s1, uint8x8_t s2,
   return vqrshrun_n_s16(sum, FILTER_BITS - 1);
 }
 
-static INLINE void scaled_convolve_vert_neon_i8mm(
+static inline void scaled_convolve_vert_neon_i8mm(
     const uint8_t *src, const ptrdiff_t src_stride, uint8_t *dst,
     const ptrdiff_t dst_stride, const InterpKernel *const y_filter,
     const int y0_q4, const int y_step_q4, int w, int h) {

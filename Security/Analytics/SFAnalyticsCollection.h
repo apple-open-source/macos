@@ -67,6 +67,7 @@ typedef NSMutableDictionary<NSString*, NSMutableSet<SFAnalyticsMatchingRule*>*> 
 - (void)stopMetricCollection;
 
 + (SECSFAVersion *_Nullable)parseVersion:(NSString *)build platform:(NSString *)platform;
++ (BOOL)isVersionSameOrNewer:(SECSFAVersion *)v1 than:(SECSFAVersion *)v2;
 
 
 - (SFAnalyticsMetricsHookActions)match:(NSString*)eventName

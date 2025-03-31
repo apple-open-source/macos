@@ -51,6 +51,7 @@
 #include "ScriptDisallowedScope.h"
 #include "ShadowRoot.h"
 #include "UserAgentParts.h"
+#include "UserGestureIndicator.h"
 #include <wtf/TZoneMallocInlines.h>
 
 #if ENABLE(IOS_TOUCH_EVENTS)
@@ -90,10 +91,16 @@ void CheckboxInputType::createShadowSubtree()
 
     Ref document = element()->document();
     Ref track = HTMLDivElement::create(document);
-    track->setUserAgentPart(UserAgentParts::track());
+    {
+        ScriptDisallowedScope::EventAllowedScope eventAllowedScopeBeforeAppend { track };
+        track->setUserAgentPart(UserAgentParts::track());
+    }
     shadowRoot->appendChild(ContainerNode::ChildChange::Source::Parser, track);
     Ref thumb = HTMLDivElement::create(document);
-    thumb->setUserAgentPart(UserAgentParts::thumb());
+    {
+        ScriptDisallowedScope::EventAllowedScope eventAllowedScopeBeforeAppend { thumb };
+        thumb->setUserAgentPart(UserAgentParts::thumb());
+    }
     shadowRoot->appendChild(ContainerNode::ChildChange::Source::Parser, thumb);
 }
 
@@ -258,7 +265,7 @@ void CheckboxInputType::didDispatchClick(Event& event, const InputElementClickSt
 
 static int switchPointerTrackingLogicalLeftPosition(Element& element, LayoutPoint absoluteLocation)
 {
-    auto isVertical = !element.renderer()->style().isHorizontalWritingMode();
+    auto isVertical = !element.renderer()->writingMode().isHorizontal();
     auto localLocation = element.renderer()->absoluteToLocal(absoluteLocation, UseTransforms);
     return isVertical ? localLocation.y() : localLocation.x();
 }
@@ -389,8 +396,13 @@ void CheckboxInputType::performSwitchAnimation(SwitchAnimationType type)
 void CheckboxInputType::performSwitchVisuallyOnAnimation(SwitchTrigger trigger)
 {
     performSwitchAnimation(SwitchAnimationType::VisuallyOn);
+
     if (!RenderTheme::singleton().hasSwitchHapticFeedback(trigger))
         return;
+
+    if (trigger == SwitchTrigger::Click && !UserGestureIndicator::processingUserGesture())
+        return;
+
     if (RefPtr page = element()->document().page())
         page->chrome().client().performSwitchHapticFeedback();
 }
@@ -448,7 +460,7 @@ void CheckboxInputType::updateIsSwitchVisuallyOnFromAbsoluteLocation(LayoutPoint
 {
     auto logicalLeftPosition = switchPointerTrackingLogicalLeftPosition(*element(), absoluteLocation);
     auto isSwitchVisuallyOn = m_isSwitchVisuallyOn;
-    auto isRTL = element()->computedStyle()->direction() == TextDirection::RTL;
+    auto isRTL = element()->computedStyle()->writingMode().isBidiRTL();
     auto switchThumbIsLogicallyLeft = (!isRTL && !isSwitchVisuallyOn) || (isRTL && isSwitchVisuallyOn);
     auto switchTrackRect = element()->renderer()->absoluteBoundingBoxRect();
     auto switchThumbLength = switchTrackRect.height();

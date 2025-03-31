@@ -52,14 +52,14 @@ public:
     // happen on the worker.
     // Any details needed from the page must be copied at this
     // point, but can't hold references to any main-thread objects.
-    static UniqueRef<WebWorkerClient> create(WebCore::Page&, WebCore::WorkerOrWorkletThread&);
+    static UniqueRef<WebWorkerClient> create(WebCore::Page&, SerialFunctionDispatcher&);
 
-    UniqueRef<WorkerClient> createNestedWorkerClient(WebCore::WorkerOrWorkletThread&) override;
+    UniqueRef<WorkerClient> createNestedWorkerClient(SerialFunctionDispatcher&) override;
 
     WebCore::PlatformDisplayID displayID() const final;
 
     RefPtr<WebCore::ImageBuffer> sinkIntoImageBuffer(std::unique_ptr<WebCore::SerializedImageBuffer>) override;
-    RefPtr<WebCore::ImageBuffer> createImageBuffer(const WebCore::FloatSize&, WebCore::RenderingPurpose, float resolutionScale, const WebCore::DestinationColorSpace&, WebCore::ImageBufferPixelFormat, OptionSet<WebCore::ImageBufferOptions>) const override;
+    RefPtr<WebCore::ImageBuffer> createImageBuffer(const WebCore::FloatSize&, WebCore::RenderingMode, WebCore::RenderingPurpose, float resolutionScale, const WebCore::DestinationColorSpace&, WebCore::ImageBufferPixelFormat) const override;
 #if ENABLE(WEBGL)
     RefPtr<WebCore::GraphicsContextGL> createGraphicsContextGL(const WebCore::GraphicsContextGLAttributes&) const override;
 #endif
@@ -69,9 +69,12 @@ public:
 #endif
 
 protected:
-    WebWorkerClient(WebCore::WorkerOrWorkletThread&, WebCore::PlatformDisplayID);
+    WebWorkerClient(SerialFunctionDispatcher&, WebCore::PlatformDisplayID);
 
-    WebCore::WorkerOrWorkletThread& m_dispatcher;
+    // m_dispatcher should stay alive as long as WebWorkerClient is alive.
+    RefPtr<SerialFunctionDispatcher> dispatcher() const { return m_dispatcher.get(); }
+
+    ThreadSafeWeakPtr<SerialFunctionDispatcher> m_dispatcher;
     const WebCore::PlatformDisplayID m_displayID;
 };
 

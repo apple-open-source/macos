@@ -76,7 +76,7 @@
     aks_device_state_s deviceState;
     kern_return_t retCode = aks_get_device_state(session_keybag_handle, &deviceState);
     if (kAKSReturnSuccess == retCode){
-        passcodeIsSet = (deviceState.lock_state != aks_lock_state_disabled ? YES : NO);
+        passcodeIsSet = (deviceState.lock_state != keybag_lock_disabled ? YES : NO);
     } else {
         secerror("octagon-health: aks_get_device_state failed with: %d", retCode);
     }

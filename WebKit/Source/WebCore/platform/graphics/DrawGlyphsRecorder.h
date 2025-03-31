@@ -55,14 +55,14 @@ public:
     enum class DeriveFontFromContext : bool { No, Yes };
     explicit DrawGlyphsRecorder(GraphicsContext&, float scaleFactor = 1, DeriveFontFromContext = DeriveFontFromContext::No);
 
-    void drawGlyphs(const Font&, const GlyphBufferGlyph*, const GlyphBufferAdvance*, unsigned numGlyphs, const FloatPoint& anchorPoint, FontSmoothingMode);
+    void drawGlyphs(const Font&, std::span<const GlyphBufferGlyph>, std::span<const GlyphBufferAdvance>, const FloatPoint& anchorPoint, FontSmoothingMode);
 
 #if USE(CORE_TEXT)
     void drawNativeText(CTFontRef, CGFloat fontSize, CTLineRef, CGRect lineRect);
 
     void recordBeginLayer(CGRenderingStateRef, CGGStateRef, CGRect);
     void recordEndLayer(CGRenderingStateRef, CGGStateRef);
-    void recordDrawGlyphs(CGRenderingStateRef, CGGStateRef, const CGAffineTransform*, const CGGlyph[], const CGPoint positions[], size_t count);
+    void recordDrawGlyphs(CGRenderingStateRef, CGGStateRef, const CGAffineTransform*, std::span<const CGGlyph>, std::span<const CGPoint> positions);
     void recordDrawImage(CGRenderingStateRef, CGGStateRef, CGRect, CGImageRef);
     void recordDrawPath(CGRenderingStateRef, CGGStateRef, CGPathDrawingMode, CGPathRef);
 #endif
@@ -72,9 +72,9 @@ private:
     UniqueRef<GraphicsContext> createInternalContext();
 #endif
 
-    void drawBySplittingIntoOTSVGAndNonOTSVGRuns(const Font&, const GlyphBufferGlyph*, const GlyphBufferAdvance*, unsigned numGlyphs, const FloatPoint& anchorPoint, FontSmoothingMode);
-    void drawOTSVGRun(const Font&, const GlyphBufferGlyph*, const GlyphBufferAdvance*, unsigned numGlyphs, const FloatPoint& anchorPoint, FontSmoothingMode);
-    void drawNonOTSVGRun(const Font&, const GlyphBufferGlyph*, const GlyphBufferAdvance*, unsigned numGlyphs, const FloatPoint& anchorPoint, FontSmoothingMode);
+    void drawBySplittingIntoOTSVGAndNonOTSVGRuns(const Font&, std::span<const GlyphBufferGlyph>, std::span<const GlyphBufferAdvance>, const FloatPoint& anchorPoint, FontSmoothingMode);
+    void drawOTSVGRun(const Font&, std::span<const GlyphBufferGlyph>, std::span<const GlyphBufferAdvance>, const FloatPoint& anchorPoint, FontSmoothingMode);
+    void drawNonOTSVGRun(const Font&, std::span<const GlyphBufferGlyph>, std::span<const GlyphBufferAdvance>, const FloatPoint& anchorPoint, FontSmoothingMode);
 
     void populateInternalState(const GraphicsContextState&);
     void populateInternalContext(const GraphicsContextState&);

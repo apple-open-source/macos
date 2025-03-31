@@ -452,7 +452,7 @@ static int rawToNominal(int val, int base)
 int __rawToNominal(int val, int base) {return rawToNominal(val, base);}
 #endif
 
-static uint64_t getTimeInSecsSinceEpoch(void)
+uint64_t getTimeInSecsSinceEpoch(void)
 {
     struct timespec timeSpec = {0, 0};
     clock_gettime(CLOCK_REALTIME, &timeSpec);
@@ -2701,7 +2701,14 @@ static void initializeCalibrationData(CFDictionaryRef batteryProps, CFMutableDic
     }
 
 
-    // move initialization of kBHCalibrationFlagCalib1NotNeeded to `initializeCalibrationCalib0` routine
+    /**
+     * move initialization of kBHCalibrationFlagCalib1NotNeeded to `initializeCalibrationCalib0` routine
+     * For WatchOS, move initialization of kBHCalibrationFlagCalib1NotNeeded to `initializeCalibrationCalib0` routine. Keep the case of IOS narrow as in kBHCalibrationFlagCalib1NotNeeded above.
+     * For iOS, calib1 is not needed if:
+     * 1) it is a new battery
+     * 2) calibration0 is happening for the first time itself in follow on releases. In the release when calib0 was rolled out, there was a latent bug which caused odd NCCP values while in calib0
+     *      That fix was only warranted on the devices that have seen calib0 already in their lifetime.
+     */
     calibrationData[@kBHCalibrationFlagsKey] = @(calibrationFlags);
     INFO_LOG("calib0: baseline calibration flags 0x%lx", calibrationFlags);
     

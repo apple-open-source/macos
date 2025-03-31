@@ -188,8 +188,8 @@ static void test_async(void *unused __attribute__((unused)), bool async) {
         // 3 level1_func
         T_EXPECT_EQ(frames, 4, "Got the right number of async frames");
         T_EXPECT_EQ(callstack[1], __builtin_return_address(0), "Found fake_async_frame");
-        T_EXPECT_EQ(callstack[2], ptrauth_strip(&level2_func, ptrauth_key_function_pointer) + 1, "Found level2_func");
-        T_EXPECT_EQ(callstack[3], ptrauth_strip(&level1_func, ptrauth_key_function_pointer) + 1, "Found level1_func");
+        T_EXPECT_EQ(callstack[2], ptrauth_strip((void*)&level2_func, ptrauth_key_function_pointer) + 1, "Found level2_func");
+        T_EXPECT_EQ(callstack[3], ptrauth_strip((void*)&level1_func, ptrauth_key_function_pointer) + 1, "Found level1_func");
   } else {
         T_EXPECT_EQ(task_id, 0, "backtrace_async returns no task id.");
         // The 3 frames we expect are

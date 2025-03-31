@@ -264,6 +264,18 @@ CFArrayRef SecCertificateCopyIPAddressDatas(SecCertificateRef certificate);
 CFIndex SecCertificateGetUnparseableKnownExtension(SecCertificateRef certificate);
 CFIndex SecCertificateGetDuplicateExtension(SecCertificateRef certificate);
 
+extern const CFStringRef kSecQCStatementCompliance;
+extern const CFStringRef kSecQCStatementType;
+extern const CFStringRef kSecQCStatementTypeWeb;
+extern const CFStringRef kSecQCStatementTypeEseal;
+extern const CFStringRef kSecQCStatementTypeEsign;
+CFDictionaryRef SecCertificateCopyQualifiedCertificateStatements(SecCertificateRef certificate);
+
+// CopyAnchorLookupKey returns a hex string representation of the hash
+// of the normalized subject for the provided certificate. This is used
+// to look up the anchor records matching this normalized subject.
+CF_RETURNS_RETAINED CFStringRef SecCertificateCopyAnchorLookupKey(SecCertificateRef certificate);
+
 __END_DECLS
 
 #endif /* !_SECURITY_SECCERTIFICATEINTERNAL_H_ */

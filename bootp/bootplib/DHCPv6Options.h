@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009-2024 Apple Inc. All rights reserved.
+ * Copyright (c) 2009-2025 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -71,6 +71,7 @@ typedef CF_ENUM(uint16_t, DHCPv6OptionCode) {
     kDHCPv6OPTION_DOMAIN_LIST		= 24,
     kDHCPv6OPTION_IA_PD			= 25,
     kDHCPv6OPTION_IAPREFIX		= 26,
+    kDHCPv6OPTION_CLIENT_FQDN		= 39,
     kDHCPv6OPTION_POSIX_TIMEZONE	= 41,
     kDHCPv6OPTION_TZDB_TIMEZONE		= 42,
     kDHCPv6OPTION_CAPTIVE_PORTAL_URL	= 103,
@@ -135,6 +136,7 @@ typedef CF_ENUM(uint32_t, DHCPv6OptionType) {
     kDHCPv6OptionTypeString = 10,
     kDHCPv6OptionTypeIA_PD = 11,
     kDHCPv6OptionTypeIAPREFIX = 12,
+    kDHCPv6OptionTypeClientFQDN = 13,
 };
 
 DHCPv6OptionType
@@ -525,5 +527,37 @@ typedef struct {
 #define DHCPv6OptionPREFERENCE_MIN_LENGTH	1
 #define kDHCPv6OptionPREFERENCEMinValue		0
 #define kDHCPv6OptionPREFERENCEMaxValue		255
+
+/**
+ ** DHCPv6ClientFQDN option
+ **/
+typedef CF_ENUM (uint8_t, DHCPv6OptionCLIENT_FQDNFlags) {
+    kDHCPv6OptionCLIENT_FQDNFlags_S 	= 0x01,
+    kDHCPv6OptionCLIENT_FQDNFlags_O	= 0x02,
+    kDHCPv6OptionCLIENT_FQDNFlags_N	= 0x04,
+};
+
+typedef struct {
+    uint8_t		flags;
+    uint8_t		domain_name[1]; /* variable length */
+} DHCPv6OptionCLIENT_FQDN, * DHCPv6OptionCLIENT_FQDNRef;
+
+static inline DHCPv6OptionCLIENT_FQDNFlags
+DHCPv6OptionCLIENT_FQDNGetFlags(DHCPv6OptionCLIENT_FQDNRef fqdn)
+{
+    return fqdn->flags;
+}
+
+static inline void
+DHCPv6OptionCLIENT_FQDNSetFlags(DHCPv6OptionCLIENT_FQDNRef fqdn,
+				DHCPv6OptionCLIENT_FQDNFlags flags)
+{
+    fqdn->flags = flags;
+}
+
+#define DHCPv6OptionCLIENT_FQDNSize(n)			\
+    offsetof(DHCPv6OptionCLIENT_FQDN, domain_name[n])
+
+#define DHCPv6OptionCLIENT_FQDN_MIN_LENGTH  (int)DHCPv6OptionCLIENT_FQDNSize(0)
 
 #endif /* _S_DHCPV6OPTIONS_H */

@@ -22,8 +22,6 @@
 .\" OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
 .\" SUCH DAMAGE.
 .\"
-.\" $FreeBSD$
-.\"
 .Dd November 12, 2020
 .Dt ARCHIVE_WRITE_OPEN 3
 .Os
@@ -218,6 +216,7 @@ On failure, the callback should invoke
 .Fn archive_set_error
 to register an error code and message and
 return
+.Cm ARCHIVE_FATAL .
 .Bl -item -offset indent
 .It
 .Ft typedef int

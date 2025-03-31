@@ -395,6 +395,7 @@ static struct options options = {
 	.debug = 0,
 #endif
 	.extended = 0,
+    .skinny = 0,
 	.sizebound = 0,
 	.chunksize = 0,
 	.calgorithm = COMPRESSION_LZFSE,
@@ -447,7 +448,7 @@ gcore_main(int argc, char *const *argv)
     int c;
     char *sopts, *value;
 
-    while ((c = getopt(argc, argv, "vdsxgCFNSZ:o:c:b:tf:")) != -1) {
+    while ((c = getopt(argc, argv, "vdskNxgCFSZ:o:c:b:t:f:")) != -1) {
         switch (c) {
 
                 /*
@@ -500,8 +501,18 @@ gcore_main(int argc, char *const *argv)
                  * affect the content of the core file
                  */
             case 'x':	/* write extended format (small) core files */
+                if(options.skinny) {
+                    errx(EX_USAGE, "illegal flag combination, cannot create a extended skinny coredump");
+                }
                 options.extended++;
                 options.chunksize = DEFAULT_COMPRESSION_CHUNKSIZE;
+                break;
+            case 'k':    /* write extended format (small) core files */
+                if(options.extended) {
+                    errx(EX_USAGE, "illegal flag combination, cannot create a skinny extended coredump");
+                }
+                options.skinny++;
+                options.allfilerefs++; /* Skinny coredumps does have references to files */
                 break;
             case 'C':   /* forcibly corpsify rather than suspend */
                 options.corpsify++;
@@ -590,7 +601,7 @@ gcore_main(int argc, char *const *argv)
 		errx(EX_USAGE, "too many arguments");
     if (NULL != corefname && NULL != corefmt)
         errx(EX_USAGE, "specify only one of -o and -c");
-    if (!opt->extended && opt->allfilerefs)
+    if ((!opt->extended && !opt->skinny) && opt->allfilerefs)
         errx(EX_USAGE, "unknown flag");
 
     if (opt->sizebound) {
@@ -765,7 +776,7 @@ gcore_main(int argc, char *const *argv)
 	if (opt->verbose) {
         printf("Dumping core ");
         if (OPTIONS_DEBUG(opt, 1)) {
-            printf("(%s", opt->extended ? "extended" : "vanilla");
+            printf("(%s", opt->extended ? "extended" : (opt->skinny) ? "skinny":"vanilla");
             if (0 != opt->sizebound) {
                 hsize_str_t hstr;
                 printf(", <= %s", str_hsize(hstr, opt->sizebound));

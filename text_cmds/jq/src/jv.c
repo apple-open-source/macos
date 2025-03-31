@@ -46,15 +46,6 @@
 #include "jv_unicode.h"
 #include "util.h"
 
-#include "jv_dtoa.h"
-#include "jv_dtoa_tsd.h"
-
-// this means that we will manage the space for the struct
-#define DECNUMDIGITS 1
-#include "decNumber/decNumber.h"
-
-#include "jv_type_private.h"
-
 /*
  * Internal refcounting helpers
  */
@@ -156,8 +147,6 @@ typedef struct {
 } jvp_invalid;
 
 jv jv_invalid_with_msg(jv err) {
-  if (JVP_HAS_KIND(err, JV_KIND_NULL))
-    return JV_INVALID;
   jvp_invalid* i = jv_mem_alloc(sizeof(jvp_invalid));
   i->refcnt = JV_REFCNT_INIT;
   i->errmsg = err;
@@ -204,6 +193,14 @@ static void jvp_invalid_free(jv x) {
  * Numbers
  */
 
+#ifdef USE_DECNUM
+#include "jv_dtoa.h"
+#include "jv_dtoa_tsd.h"
+
+// we will manage the space for the struct
+#define DECNUMDIGITS 1
+#include "decNumber/decNumber.h"
+
 enum {
   JVP_NUMBER_NATIVE = 0,
   JVP_NUMBER_DECIMAL = 1
@@ -213,24 +210,16 @@ enum {
 #define JV_NUMBER_SIZE_CONVERTED (1)
 
 #define JVP_FLAGS_NUMBER_NATIVE       JVP_MAKE_FLAGS(JV_KIND_NUMBER, JVP_MAKE_PFLAGS(JVP_NUMBER_NATIVE, 0))
-#define JVP_FLAGS_NUMBER_NATIVE_STR   JVP_MAKE_FLAGS(JV_KIND_NUMBER, JVP_MAKE_PFLAGS(JVP_NUMBER_NATIVE, 1))
 #define JVP_FLAGS_NUMBER_LITERAL      JVP_MAKE_FLAGS(JV_KIND_NUMBER, JVP_MAKE_PFLAGS(JVP_NUMBER_DECIMAL, 1))
 
-#define STR(x) #x
-#define XSTR(x) STR(x)
-#define DBL_MAX_STR XSTR(DBL_MAX)
-#define DBL_MIN_STR "-" XSTR(DBL_MAX)
-
 // the decimal precision of binary double
-#define BIN64_DEC_PRECISION  (17)
-#define DEC_NUMBER_STRING_GUARD (14)
+#define DEC_NUBMER_DOUBLE_PRECISION   (17)
+#define DEC_NUMBER_STRING_GUARD       (14)
+#define DEC_NUBMER_DOUBLE_EXTRA_UNITS ((DEC_NUBMER_DOUBLE_PRECISION - DECNUMDIGITS + DECDPUN - 1)/DECDPUN)
 
-#ifdef __APPLE__
 #include "jv_thread.h"
-#else
-#include <jv_thread.h>
-#endif  /* __APPLE__ */
 #ifdef WIN32
+#ifndef __MINGW32__
 /* Copied from Heimdal: thread-specific keys; see lib/base/dll.c in Heimdal */
 
 /*
@@ -495,23 +484,20 @@ pthread_getspecific(pthread_key_t key)
 #else
 #include <pthread.h>
 #endif
-
-static pthread_key_t dec_ctx_key;
-static pthread_key_t dec_ctx_dbl_key;
-#ifndef WIN32
-static pthread_once_t dec_ctx_once = PTHREAD_ONCE_INIT;
+#else
+#include <pthread.h>
 #endif
 
+static pthread_key_t dec_ctx_key;
+static pthread_once_t dec_ctx_once = PTHREAD_ONCE_INIT;
+
 #define DEC_CONTEXT() tsd_dec_ctx_get(&dec_ctx_key)
-#define DEC_CONTEXT_TO_DOUBLE() tsd_dec_ctx_get(&dec_ctx_dbl_key)
 
 // atexit finalizer to clean up the tsd dec contexts if main() exits
 // without having called pthread_exit()
 void jv_tsd_dec_ctx_fini() {
   jv_mem_free(pthread_getspecific(dec_ctx_key));
-  jv_mem_free(pthread_getspecific(dec_ctx_dbl_key));
   pthread_setspecific(dec_ctx_key, NULL);
-  pthread_setspecific(dec_ctx_dbl_key, NULL);
 }
 
 void jv_tsd_dec_ctx_init() {
@@ -519,42 +505,26 @@ void jv_tsd_dec_ctx_init() {
     fprintf(stderr, "error: cannot create thread specific key");
     abort();
   }
-  if (pthread_key_create(&dec_ctx_dbl_key, jv_mem_free) != 0) {
-    fprintf(stderr, "error: cannot create thread specific key");
-    abort();
-  }
-#ifndef WIN32
   atexit(jv_tsd_dec_ctx_fini);
-#endif
 }
 
 static decContext* tsd_dec_ctx_get(pthread_key_t *key) {
-#ifndef WIN32
   pthread_once(&dec_ctx_once, jv_tsd_dec_ctx_init); // cannot fail
-#endif
   decContext *ctx = (decContext*)pthread_getspecific(*key);
   if (ctx) {
     return ctx;
   }
 
-  decContext _ctx = {
-      0,
-      DEC_MAX_EMAX,
-      DEC_MIN_EMAX,
-      DEC_ROUND_HALF_UP,
-      0, /*no errors*/
-      0, /*status*/
-      0, /*no clamping*/
-    };
-  if (key == &dec_ctx_key) {
-    _ctx.digits = DEC_MAX_DIGITS;
-  } else if (key == &dec_ctx_dbl_key) {
-    _ctx.digits = BIN64_DEC_PRECISION;
-  }
-
   ctx = malloc(sizeof(decContext));
   if (ctx) {
-    *ctx = _ctx;
+    if (key == &dec_ctx_key)
+    {
+      decContextDefault(ctx, DEC_INIT_BASE);
+      // make sure (Int)D2U(rhs->exponent-lhs->exponent) does not overflow
+      ctx->digits = MIN(DEC_MAX_DIGITS,
+          INT32_MAX - (DECDPUN - 1) - (ctx->emax - ctx->emin - 1));
+      ctx->traps = 0; /*no errors*/
+    }
     if (pthread_setspecific(*key, ctx) != 0) {
       fprintf(stderr, "error: cannot store thread specific data");
       abort();
@@ -572,12 +542,7 @@ typedef struct {
 
 typedef struct {
   decNumber number;
-  decNumberUnit units[1];
-} decNumberSingle;
-
-typedef struct {
-  decNumber number;
-  decNumberUnit units[BIN64_DEC_PRECISION];
+  decNumberUnit units[DEC_NUBMER_DOUBLE_EXTRA_UNITS];
 } decNumberDoublePrecision;
 
 
@@ -631,25 +596,24 @@ static jv jvp_literal_number_new(const char * literal) {
 
 static double jvp_literal_number_to_double(jv j) {
   assert(JVP_HAS_FLAGS(j, JVP_FLAGS_NUMBER_LITERAL));
+  decContext dblCtx;
+
+  // init as decimal64 but change digits to allow conversion to binary64 (double)
+  decContextDefault(&dblCtx, DEC_INIT_DECIMAL64);
+  dblCtx.digits = DEC_NUBMER_DOUBLE_PRECISION;
 
   decNumber *p_dec_number = jvp_dec_number_ptr(j);
   decNumberDoublePrecision dec_double;
-  char literal[BIN64_DEC_PRECISION + DEC_NUMBER_STRING_GUARD + 1]; 
+  char literal[DEC_NUBMER_DOUBLE_PRECISION + DEC_NUMBER_STRING_GUARD + 1];
 
   // reduce the number to the shortest possible form
-  // while also making sure than no more than BIN64_DEC_PRECISION 
-  // digits are used (dec_context_to_double)
-  decNumberReduce(&dec_double.number, p_dec_number, DEC_CONTEXT_TO_DOUBLE());
+  // that fits into the 64 bit floating point representation
+  decNumberReduce(&dec_double.number, p_dec_number, &dblCtx);
 
   decNumberToString(&dec_double.number, literal);
 
   char *end;
   return jvp_strtod(tsd_dtoa_context_get(), literal, &end);
-}
-
-
-static int jvp_number_equal(jv a, jv b) {
-  return jvp_number_cmp(a, b) == 0;
 }
 
 static const char* jvp_literal_number_literal(jv n) {
@@ -662,21 +626,21 @@ static const char* jvp_literal_number_literal(jv n) {
   }
 
   if (decNumberIsInfinite(pdec)) {
-    // For backward compatibility.
-    if (decNumberIsNegative(pdec)) {
-      return DBL_MIN_STR;
-    } else {
-      return DBL_MAX_STR;
-    }
+    // We cannot preserve the literal data of numbers outside the limited
+    // range of exponent. Since `decNumberToString` returns "Infinity"
+    // (or "-Infinity"), and to reduce stack allocations as possible, we
+    // normalize infinities in the callers instead of printing the maximum
+    // (or minimum) double here.
+    return NULL;
   }
 
   if (plit->literal_data == NULL) {
-    int len = jvp_dec_number_ptr(n)->digits + 14;
+    int len = jvp_dec_number_ptr(n)->digits + 15 /* 14 + NUL */;
     plit->literal_data = jv_mem_alloc(len);
 
     // Preserve the actual precision as we have parsed it
     // don't do decNumberTrim(pdec);
-    
+
     decNumberToString(pdec, plit->literal_data);
   }
 
@@ -698,8 +662,26 @@ const char* jv_number_get_literal(jv n) {
   }
 }
 
+jv jv_number_with_literal(const char * literal) {
+  return jvp_literal_number_new(literal);
+}
+#endif /* USE_DECNUM */
+
+jv jv_number(double x) {
+  jv j = {
+#ifdef USE_DECNUM
+    JVP_FLAGS_NUMBER_NATIVE,
+#else
+    JV_KIND_NUMBER,
+#endif
+    0, 0, 0, {.number = x}
+  };
+  return j;
+}
+
 static void jvp_number_free(jv j) {
   assert(JVP_HAS_KIND(j, JV_KIND_NUMBER));
+#ifdef USE_DECNUM
   if (JVP_HAS_FLAGS(j, JVP_FLAGS_NUMBER_LITERAL) && jvp_refcnt_dec(j.u.ptr)) {
     jvp_literal_number* n = jvp_literal_number_ptr(j);
     if (n->literal_data) {
@@ -707,15 +689,7 @@ static void jvp_number_free(jv j) {
     }
     jv_mem_free(n);
   }
-}
-
-jv jv_number_with_literal(const char * literal) {
-  return jvp_literal_number_new(literal);
-}
-
-jv jv_number(double x) {
-  jv j = {JVP_FLAGS_NUMBER_NATIVE, 0, 0, 0, {.number = x}};
-  return j;
+#endif
 }
 
 double jv_number_value(jv j) {
@@ -730,16 +704,13 @@ double jv_number_value(jv j) {
     }
 
     return n->num_double;
-  } else {
-#endif
-    return j.u.number;
-#ifdef USE_DECNUM
   }
 #endif
+  return j.u.number;
 }
 
 int jv_is_integer(jv j){
-  if(!JVP_HAS_KIND(j, JV_KIND_NUMBER)){
+  if (!JVP_HAS_KIND(j, JV_KIND_NUMBER)){
     return 0;
   }
 
@@ -754,22 +725,28 @@ int jv_is_integer(jv j){
 int jvp_number_is_nan(jv n) {
   assert(JVP_HAS_KIND(n, JV_KIND_NUMBER));
 
+#ifdef USE_DECNUM
   if (JVP_HAS_FLAGS(n, JVP_FLAGS_NUMBER_LITERAL)) {
     decNumber *pdec = jvp_dec_number_ptr(n);
     return decNumberIsNaN(pdec);
-  } else {
-    return n.u.number != n.u.number;
   }
+#endif
+  return n.u.number != n.u.number;
 }
 
 int jvp_number_cmp(jv a, jv b) {
   assert(JVP_HAS_KIND(a, JV_KIND_NUMBER));
   assert(JVP_HAS_KIND(b, JV_KIND_NUMBER));
 
-  if(JVP_HAS_FLAGS(a, JVP_FLAGS_NUMBER_LITERAL) && JVP_HAS_FLAGS(b, JVP_FLAGS_NUMBER_LITERAL)) {
-    decNumberSingle res; 
-    decNumberCompare(&res.number, 
-                     jvp_dec_number_ptr(a), 
+#ifdef USE_DECNUM
+  if (JVP_HAS_FLAGS(a, JVP_FLAGS_NUMBER_LITERAL) && JVP_HAS_FLAGS(b, JVP_FLAGS_NUMBER_LITERAL)) {
+    struct {
+      decNumber number;
+      decNumberUnit units[1];
+    } res;
+
+    decNumberCompare(&res.number,
+                     jvp_dec_number_ptr(a),
                      jvp_dec_number_ptr(b),
                      DEC_CONTEXT()
                      );
@@ -780,16 +757,20 @@ int jvp_number_cmp(jv a, jv b) {
     } else {
       return 1;
     }
-  } else {
-    double da = jv_number_value(a), db = jv_number_value(b);
-    if (da < db) {
-      return -1;
-    } else if (da == db) {
-      return 0;
-    } else {
-      return 1;
-    }
   }
+#endif
+  double da = jv_number_value(a), db = jv_number_value(b);
+  if (da < db) {
+    return -1;
+  } else if (da == db) {
+    return 0;
+  } else {
+    return 1;
+  }
+}
+
+static int jvp_number_equal(jv a, jv b) {
+  return jvp_number_cmp(a, b) == 0;
 }
 
 /*
@@ -1094,14 +1075,13 @@ static jvp_string* jvp_string_alloc(uint32_t size) {
 static jv jvp_string_copy_replace_bad(const char* data, uint32_t length) {
   const char* end = data + length;
   const char* i = data;
-  const char* cstart;
 
   uint32_t maxlength = length * 3 + 1; // worst case: all bad bytes, each becomes a 3-byte U+FFFD
   jvp_string* s = jvp_string_alloc(maxlength);
   char* out = s->data;
   int c = 0;
 
-  while ((i = jvp_utf8_next((cstart = i), end, &c))) {
+  while ((i = jvp_utf8_next(i, end, &c))) {
     if (c == -1) {
       c = 0xFFFD; // U+FFFD REPLACEMENT CHARACTER
     }
@@ -1221,7 +1201,9 @@ static uint32_t jvp_string_hash(jv jstr) {
 
   switch(len & 3) {
   case 3: k1 ^= tail[2] << 16;
+          JQ_FALLTHROUGH;
   case 2: k1 ^= tail[1] << 8;
+          JQ_FALLTHROUGH;
   case 1: k1 ^= tail[0];
           k1 *= c1; k1 = rotl32(k1,15); k1 *= c2; h1 ^= k1;
   }
@@ -1301,7 +1283,7 @@ jv jv_string_indexes(jv j, jv k) {
     p = jstr;
     while ((p = _jq_memmem(p, (jstr + jlen) - p, idxstr, idxlen)) != NULL) {
       a = jv_array_append(a, jv_number(p - jstr));
-      p += idxlen;
+      p++;
     }
   }
   jv_free(j);
@@ -1367,7 +1349,8 @@ jv jv_string_implode(jv j) {
     assert(JVP_HAS_KIND(n, JV_KIND_NUMBER));
     int nv = jv_number_value(n);
     jv_free(n);
-    if (nv > 0x10FFFF)
+    // outside codepoint range or in utf16 surrogate pair range
+    if (nv < 0 || nv > 0x10FFFF || (nv >= 0xD800 && nv <= 0xDFFF))
       nv = 0xFFFD; // U+FFFD REPLACEMENT CHARACTER
     s = jv_string_append_codepoint(s, nv);
   }
@@ -1741,10 +1724,9 @@ static int jvp_object_contains(jv a, jv b) {
   int r = 1;
 
   jv_object_foreach(b, key, b_val) {
-    jv a_val = jv_object_get(jv_copy(a), jv_copy(key));
+    jv a_val = jv_object_get(jv_copy(a), key);
 
     r = jv_contains(a_val, b_val);
-    jv_free(key);
 
     if (!r) break;
   }

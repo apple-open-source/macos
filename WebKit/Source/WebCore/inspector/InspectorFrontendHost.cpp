@@ -181,7 +181,7 @@ void InspectorFrontendHost::addSelfToGlobalObjectInWorld(DOMWrapperWorld& world)
 {
     // FIXME: What guarantees m_frontendPage is non-null?
     // FIXME: What guarantees globalObject's return value is non-null?
-    auto* localMainFrame = dynamicDowncast<LocalFrame>(m_frontendPage->mainFrame());
+    RefPtr localMainFrame = m_frontendPage->localMainFrame();
     if (!localMainFrame)
         return;
     auto& globalObject = *localMainFrame->script().globalObject(world);
@@ -272,7 +272,7 @@ void InspectorFrontendHost::inspectedURLChanged(const String& newURL)
 void InspectorFrontendHost::setZoomFactor(float zoom)
 {
     if (m_frontendPage) {
-        if (auto* localMainFrame = dynamicDowncast<LocalFrame>(m_frontendPage->mainFrame()))
+        if (RefPtr localMainFrame = m_frontendPage->localMainFrame())
             localMainFrame->setPageAndTextZoomFactors(zoom, 1);
     }
 }
@@ -280,7 +280,7 @@ void InspectorFrontendHost::setZoomFactor(float zoom)
 float InspectorFrontendHost::zoomFactor()
 {
     if (m_frontendPage) {
-        if (auto* localMainFrame = dynamicDowncast<LocalFrame>(m_frontendPage->mainFrame()))
+        if (RefPtr localMainFrame = m_frontendPage->localMainFrame())
             return localMainFrame->pageZoomFactor();
     }
 
@@ -582,7 +582,7 @@ void InspectorFrontendHost::showContextMenu(Event& event, Vector<ContextMenuItem
     // FIXME: What guarantees m_frontendPage is non-null?
     // FIXME: What guarantees globalObject's return value is non-null?
     ASSERT(m_frontendPage);
-    auto* localMainFrame = dynamicDowncast<LocalFrame>(m_frontendPage->mainFrame());
+    RefPtr localMainFrame = m_frontendPage->localMainFrame();
     if (!localMainFrame)
         return;
     auto& globalObject = *localMainFrame->script().globalObject(debuggerWorld());
@@ -694,7 +694,7 @@ bool InspectorFrontendHost::showCertificate(const String& serializedCertificate)
     if (!data)
         return false;
 
-    WTF::Persistence::Decoder decoder({ data->data(), data->size() });
+    WTF::Persistence::Decoder decoder(data->span());
     std::optional<CertificateInfo> certificateInfo;
     decoder >> certificateInfo;
     if (!certificateInfo)

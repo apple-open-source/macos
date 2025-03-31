@@ -14,11 +14,12 @@ extern int main(int argc, char* argv[])
   regex_t* reg;
   OnigErrorInfo einfo;
   OnigRegion *region;
+  OnigEncoding use_encs[1];
 
   static UChar* pattern = (UChar* )"\\_%\\\\__zz";
   static UChar* str = (UChar* )"a_abcabcabc\\ppzz";
 
-  OnigEncoding use_encs[] = { ONIG_ENCODING_ASCII };
+  use_encs[0] = ONIG_ENCODING_ASCII;
   onig_initialize(use_encs, sizeof(use_encs)/sizeof(use_encs[0]));
 
   onig_set_syntax_op      (&SQLSyntax, ONIG_SYN_OP_VARIABLE_META_CHARACTERS);
@@ -28,20 +29,21 @@ extern int main(int argc, char* argv[])
   onig_set_meta_char(&SQLSyntax, ONIG_META_CHAR_ESCAPE, (OnigCodePoint )'\\');
   onig_set_meta_char(&SQLSyntax, ONIG_META_CHAR_ANYCHAR, (OnigCodePoint )'_');
   onig_set_meta_char(&SQLSyntax, ONIG_META_CHAR_ANYTIME,
-		     ONIG_INEFFECTIVE_META_CHAR);
+                     ONIG_INEFFECTIVE_META_CHAR);
   onig_set_meta_char(&SQLSyntax, ONIG_META_CHAR_ZERO_OR_ONE_TIME,
-		     ONIG_INEFFECTIVE_META_CHAR);
+                     ONIG_INEFFECTIVE_META_CHAR);
   onig_set_meta_char(&SQLSyntax, ONIG_META_CHAR_ONE_OR_MORE_TIME,
-		     ONIG_INEFFECTIVE_META_CHAR);
+                     ONIG_INEFFECTIVE_META_CHAR);
   onig_set_meta_char(&SQLSyntax, ONIG_META_CHAR_ANYCHAR_ANYTIME,
-		     (OnigCodePoint )'%');
+                     (OnigCodePoint )'%');
 
   r = onig_new(&reg, pattern, pattern + strlen((char* )pattern),
-	       ONIG_OPTION_DEFAULT, ONIG_ENCODING_ASCII, &SQLSyntax, &einfo);
+               ONIG_OPTION_DEFAULT, ONIG_ENCODING_ASCII, &SQLSyntax, &einfo);
   if (r != ONIG_NORMAL) {
     char s[ONIG_MAX_ERROR_MESSAGE_LEN];
-    onig_error_code_to_str(s, r, &einfo);
+    onig_error_code_to_str((UChar* )s, r, &einfo);
     fprintf(stderr, "ERROR: %s\n", s);
+    onig_end();
     return -1;
   }
 
@@ -64,8 +66,11 @@ extern int main(int argc, char* argv[])
   }
   else { /* error */
     char s[ONIG_MAX_ERROR_MESSAGE_LEN];
-    onig_error_code_to_str(s, r);
+    onig_error_code_to_str((UChar* )s, r);
     fprintf(stderr, "ERROR: %s\n", s);
+    onig_region_free(region, 1 /* 1:free self, 0:free contents only */);
+    onig_free(reg);
+    onig_end();
     return -1;
   }
 

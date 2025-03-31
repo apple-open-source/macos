@@ -57,7 +57,7 @@
     self.fsOps = fsOps;
     self.fatQueue = dispatch_queue_create([queueName UTF8String], DISPATCH_QUEUE_CONCURRENT);
     if (self.fatQueue == NULL) {
-        os_log_fault(fskit_std_log(), "Failed to create FAT queue");
+        os_log_fault(OS_LOG_DEFAULT, "Failed to create FAT queue");
         return nil;
     }
 
@@ -196,12 +196,12 @@
     }
 
     if (self.fsInfo.freeClusters != 0 && self.fsInfo.freeClusters != countedFreeClusters) {
-        os_log_debug(fskit_std_log(), "%s: counted free clusters number (%u) is not equal to the number read in boot (%llu) - updating", __func__, countedFreeClusters, self.fsInfo.freeClusters);
+        os_log_debug(OS_LOG_DEFAULT, "%s: counted free clusters number (%u) is not equal to the number read in boot (%llu) - updating", __func__, countedFreeClusters, self.fsInfo.freeClusters);
     }
     self.fsInfo.freeClusters = countedFreeClusters;
 
     if (self.fsInfo.firstFreeCluster != 0 && self.fsInfo.firstFreeCluster != firstFoundFreeCluster) {
-        os_log_debug(fskit_std_log(), "%s: first free cluster found (%u) is not equal to the one read in boot (%u) - updating", __func__, firstFoundFreeCluster, self.fsInfo.firstFreeCluster);
+        os_log_debug(OS_LOG_DEFAULT, "%s: first free cluster found (%u) is not equal to the one read in boot (%u) - updating", __func__, firstFoundFreeCluster, self.fsInfo.firstFreeCluster);
     }
     self.fsInfo.firstFreeCluster = firstFoundFreeCluster;
 
@@ -417,7 +417,7 @@ out:
              * We either got currCluster as a valid start point or just found
              * it to be free in the loop above.
              */
-            os_log_fault(fskit_std_log(), "%s: Cluster %u is not free", __FUNCTION__, currCluster);
+            os_log_fault(OS_LOG_DEFAULT, "%s: Cluster %u is not free", __FUNCTION__, currCluster);
             return reply(fs_errorForPOSIXError(EINVAL), 0, 0, 0);
         }
     }
@@ -470,12 +470,12 @@ out:
         /* First see if we can fill the request at all */
         if (clustersToAlloc > self.fsInfo.freeClusters) {
             if (allowPartial && self.fsInfo.freeClusters) {
-                os_log_debug(fskit_std_log(), "%s: (allowPartial = true) %u clusters requested,"\
+                os_log_debug(OS_LOG_DEFAULT, "%s: (allowPartial = true) %u clusters requested,"\
                              "but only %llu are available. Will try to allocate %llu clusters.",\
                              __func__, clustersToAlloc, self.fsInfo.freeClusters, self.fsInfo.freeClusters);
                 clustersToAlloc = (uint32_t)self.fsInfo.freeClusters;
             } else {
-                os_log_error(fskit_std_log(), "%s: (allowPartial = %d) %u clusters requested,"\
+                os_log_error(OS_LOG_DEFAULT, "%s: (allowPartial = %d) %u clusters requested,"\
                              "but only %llu are available. Returning ENOSPC.",\
                              __func__, allowPartial, clustersToAlloc, self.fsInfo.freeClusters);
                 return reply(fs_errorForPOSIXError(ENOSPC), 0, 0, 0);
@@ -534,7 +534,7 @@ out:
                                                                           entry:nextEntry];
                  /* We expect the new cluster to be free */
                  if (nextEntryValue != FREE_CLUSTER) {
-                     os_log_error(fskit_std_log(), "%s: Cluster (%u) isn't free, curr cluster %u", __FUNCTION__, nextCluster, currCluster);
+                     os_log_error(OS_LOG_DEFAULT, "%s: Cluster (%u) isn't free, curr cluster %u", __FUNCTION__, nextCluster, currCluster);
                      nsError = fs_errorForPOSIXError(EINVAL);
                      goto out;
                  }
@@ -546,7 +546,7 @@ out:
                  nsError = [self syncMetaWriteToFATs:[currFatBlock.data mutableBytes]
                                           startingAt:currReadOffset];
                  if (nsError != nil) {
-                     os_log_fault(fskit_std_log(), "%s: Failed to write to the device", __FUNCTION__);
+                     os_log_fault(OS_LOG_DEFAULT, "%s: Failed to write to the device", __FUNCTION__);
                      nsError = fs_errorForPOSIXError(EIO);
                      goto out;
                  }
@@ -563,7 +563,7 @@ out:
                 }
 
                 if (numAllocated == 0) {
-                    os_log_fault(fskit_std_log(), "%s: allocateClustersInBlock could not allocate any cluster", __FUNCTION__);
+                    os_log_fault(OS_LOG_DEFAULT, "%s: allocateClustersInBlock could not allocate any cluster", __FUNCTION__);
                     return reply(fs_errorForPOSIXError(EIO), 0 ,0, 0);
                 } else {
                     if (firstAllocatedCluster == 0) {
@@ -592,7 +592,7 @@ out:
 
         if ((allocatedClusters < clustersToAlloc) && !allowPartial) {
             /* This should have been caught at the sanity checks - fault, maybe more? */
-            os_log_fault(fskit_std_log(), "%s: Allocated %u/%u clusters, filesystems free clusters %llu",
+            os_log_fault(OS_LOG_DEFAULT, "%s: Allocated %u/%u clusters, filesystems free clusters %llu",
                          __FUNCTION__, allocatedClusters, clustersToAlloc, self.fsInfo.freeClusters);
         }
 out:
@@ -732,7 +732,7 @@ out:
 
         /* sanity checks */
         if (numClusters == 0) {
-            os_log_fault(fskit_std_log(), "%s: Received 0 clusters to free", __FUNCTION__);
+            os_log_fault(OS_LOG_DEFAULT, "%s: Received 0 clusters to free", __FUNCTION__);
             return reply(fs_errorForPOSIXError(EINVAL));
         }
 
@@ -823,7 +823,7 @@ out:
                                                                      entry:entry];
                 if (entryValue == FREE_CLUSTER) {
                     /* This is unexpected. Corruption? */
-                    os_log_error(fskit_std_log(), "%s: cluster %u is free where it should be in use. Item stats [%u, %u, %u]",
+                    os_log_error(OS_LOG_DEFAULT, "%s: cluster %u is free where it should be in use. Item stats [%u, %u, %u]",
                                  __FUNCTION__, currCluster, theItem.firstCluster, theItem.lastCluster, theItem.numberOfClusters);
                     nsError = fs_errorForPOSIXError(EIO);
                     break;
@@ -838,7 +838,7 @@ out:
 
                 /* Sanity: make sure we've reached the desired number of free clusters */
                 if (isEof && (freedClusters != numClusters)) {
-                    os_log_error(fskit_std_log(), "%s: %u freed clusters %u, should have freed %u, got EOF", __FUNCTION__,currCluster, freedClusters, numClusters);
+                    os_log_error(OS_LOG_DEFAULT, "%s: %u freed clusters %u, should have freed %u, got EOF", __FUNCTION__,currCluster, freedClusters, numClusters);
                     nsError = fs_errorForPOSIXError(EIO);
                     break;
                 }
@@ -861,7 +861,7 @@ out:
             }
         }
         if (currCluster > self.fsInfo.maxValidCluster && ![self isEOFCluster:currCluster]) {
-            os_log_fault(fskit_std_log(), "%s: curr cluster is illegal (%u)", __FUNCTION__, currCluster);
+            os_log_fault(OS_LOG_DEFAULT, "%s: curr cluster is illegal (%u)", __FUNCTION__, currCluster);
         }
 
         /* After writing to disk, update the item */
@@ -958,7 +958,7 @@ out:
             entry = (uint8_t*)([fatBlock.data mutableBytes]) + clusterOffset;
             entryValue = [self.fsOps getNextClusterFromEntryForCluster:cluster entry:entry];
             if (!entryValue) {
-                os_log_error(fskit_std_log(), "%s: Unexpected free cluster %u", __FUNCTION__, cluster);
+                os_log_error(OS_LOG_DEFAULT, "%s: Unexpected free cluster %u", __FUNCTION__, cluster);
                 reply(fs_errorForPOSIXError(EFAULT), 0, 0, 0);
                 return;
             }
@@ -1118,7 +1118,7 @@ out:
 
         NSError *error = [self syncMetaReadFromFAT:fatBlock.data.mutableBytes startingAt:fatBlock.startOffset];
         if (error) {
-            os_log_error(fskit_std_log(), "%s: Couldn't read FAT block from disk. Error = %@.", __FUNCTION__, error);
+            os_log_error(OS_LOG_DEFAULT, "%s: Couldn't read FAT block from disk. Error = %@.", __FUNCTION__, error);
             return reply(error, dirtyBitUnknown);
         }
 
@@ -1148,7 +1148,7 @@ out:
 
             error = [self syncMetaReadFromFAT:fatBlock.data.mutableBytes startingAt:fatBlock.startOffset];
             if (error) {
-                os_log_error(fskit_std_log(), "%s: Couldn't read FAT block from disk. Error = %@.", __FUNCTION__, error);
+                os_log_error(OS_LOG_DEFAULT, "%s: Couldn't read FAT block from disk. Error = %@.", __FUNCTION__, error);
                 return reply(error);
             }
 
@@ -1160,7 +1160,7 @@ out:
             error = [self syncMetaWriteToFATs:fatBlock.data.mutableBytes
                                    startingAt:fatBlock.startOffset];
             if (error) {
-                os_log_error(fskit_std_log(), "%s: Couldn't write FAT block to disk. Error = %@.", __FUNCTION__, error);
+                os_log_error(OS_LOG_DEFAULT, "%s: Couldn't write FAT block to disk. Error = %@.", __FUNCTION__, error);
                 return reply(error);
             }
 

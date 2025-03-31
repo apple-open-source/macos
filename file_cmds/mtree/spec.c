@@ -179,7 +179,7 @@ static void
 set(char *t, NODE *ip)
 {
 	int error = 0;
-	int type;
+	u_int64_t type;
 	char *kw, *val = NULL;
 	struct group *gr;
 	struct passwd *pw;
@@ -483,6 +483,13 @@ set(char *t, NODE *ip)
 				if (*ep) {
 					RECORD_FAILURE(1875702, EINVAL);
 					errx(1, "line %d: invalid value for protectionclass: %s", lineno, val);
+				}
+				break;
+			case F_PURGEABLE:
+				ip->purgeable = strtoul(val, &ep, 10);
+				if (*ep) {
+					RECORD_FAILURE(2405811, EINVAL);
+					errx(1, "line %d, invalid value for purgeable: %s", lineno, val);
 				}
 				break;
 		}

@@ -77,7 +77,7 @@ private:
     std::span<const uint8_t> m_data;
     float m_sampleRate { 0 };
     int m_channels { 0 };
-    HashMap<int, GRefPtr<GstBufferList>> m_buffers;
+    UncheckedKeyHashMap<int, GRefPtr<GstBufferList>> m_buffers;
     GRefPtr<GstElement> m_pipeline;
     std::optional<int> m_firstChannelType;
     unsigned m_channelSize { 0 };
@@ -113,14 +113,14 @@ int decodebinAutoplugSelectCallback(GstElement*, GstPad*, GstCaps*, GstElementFa
 
 static void copyGstreamerBuffersToAudioChannel(const GRefPtr<GstBufferList>& buffers, AudioChannel* audioChannel)
 {
-    float* destination = audioChannel->mutableData();
+    auto destination = audioChannel->mutableSpan();
     unsigned bufferCount = gst_buffer_list_length(buffers.get());
+    uint64_t offset = 0;
     for (unsigned i = 0; i < bufferCount; ++i) {
-        GstBuffer* buffer = gst_buffer_list_get(buffers.get(), i);
-        ASSERT(buffer);
-        gsize bufferSize = gst_buffer_get_size(buffer);
-        gst_buffer_extract(buffer, 0, destination, bufferSize);
-        destination += bufferSize / sizeof(float);
+        GstMappedBuffer buffer(gst_buffer_list_get(buffers.get(), i), GST_MAP_READ);
+        auto count = buffer.size() / sizeof(float);
+        memcpySpan(destination.subspan(offset, count), buffer.span<float>());
+        offset += count;
     }
 }
 
@@ -276,7 +276,7 @@ void AudioFileReader::handleMessage(GstMessage* message)
         GST_INFO_OBJECT(m_pipeline.get(), "State changed (old: %s, new: %s, pending: %s)",
             gst_element_state_get_name(oldState), gst_element_state_get_name(newState), gst_element_state_get_name(pending));
 
-        auto dotFileName = makeString(span(GST_OBJECT_NAME(m_pipeline.get())), '_', span(gst_element_state_get_name(oldState)), '_', span(gst_element_state_get_name(newState)));
+        auto dotFileName = makeString(unsafeSpan(GST_OBJECT_NAME(m_pipeline.get())), '_', unsafeSpan(gst_element_state_get_name(oldState)), '_', unsafeSpan(gst_element_state_get_name(newState)));
         GST_DEBUG_BIN_TO_DOT_FILE_WITH_TS(GST_BIN_CAST(m_pipeline.get()), GST_DEBUG_GRAPH_SHOW_ALL, dotFileName.utf8().data());
         break;
     }

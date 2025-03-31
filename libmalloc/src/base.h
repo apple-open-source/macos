@@ -194,8 +194,10 @@ extern size_t malloc_absolute_max_size; // caches the definition above
 #define MALLOC_PURGEABLE (1 << 7)
 // call abort() on malloc errors, but not on out of memory.
 #define MALLOC_ABORT_ON_CORRUPTION (1 << 8)
-// don't populate the mapping for the allocation
+// don't populate the mapping for this allocation
 #define MALLOC_NO_POPULATE (1 << 9)
+// enable faulting anywhere within this allocation
+#define MALLOC_CAN_FAULT (1 << 12)
 
 // See malloc_implementation.h
 // MALLOC_MSL_LITE_WRAPPED_ZONE_FLAGS == (1 << 10)
@@ -209,9 +211,9 @@ extern size_t malloc_absolute_max_size; // caches the definition above
 extern unsigned int hyper_shift;
 extern unsigned int logical_ncpus;
 extern unsigned int phys_ncpus;
-#if CONFIG_MAGAZINE_PER_CLUSTER
+#if CONFIG_CLUSTER_AWARE
 extern unsigned int ncpuclusters;
-#endif // CONFIG_MAGAZINE_PER_CLUSTER
+#endif // CONFIG_CLUSTER_AWARE
 
 /*
  * msize - a type to refer to the number of quanta of a tiny or small

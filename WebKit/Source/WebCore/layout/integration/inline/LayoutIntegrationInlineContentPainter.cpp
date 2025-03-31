@@ -33,16 +33,17 @@
 #include "RenderInline.h"
 #include "RenderStyleInlines.h"
 #include "TextBoxPainter.h"
+#include <wtf/Assertions.h>
 
 namespace WebCore {
 namespace LayoutIntegration {
 
-InlineContentPainter::InlineContentPainter(PaintInfo& paintInfo, const LayoutPoint& paintOffset, const RenderInline* inlineBoxWithLayer, const InlineContent& inlineContent, const BoxTree& boxTree)
+InlineContentPainter::InlineContentPainter(PaintInfo& paintInfo, const LayoutPoint& paintOffset, const RenderInline* inlineBoxWithLayer, const InlineContent& inlineContent, const RenderBlockFlow& root)
     : m_paintInfo(paintInfo)
     , m_paintOffset(paintOffset)
     , m_inlineBoxWithLayer(inlineBoxWithLayer)
     , m_inlineContent(inlineContent)
-    , m_boxTree(boxTree)
+    , m_root(root)
 {
     m_damageRect = m_paintInfo.rect;
     m_damageRect.moveBy(-m_paintOffset);
@@ -93,11 +94,17 @@ void InlineContentPainter::paintDisplayBox(const InlineDisplay::Box& box)
         if (!hasVisibleDamage)
             return;
 
-        ModernTextBoxPainter { m_inlineContent, box, m_paintInfo, m_paintOffset }.paint();
+        if (!box.layoutBox().rendererForIntegration()) {
+            // FIXME: For some reason, we are getting to a state in which painting is requested for a box without renderer. We should try to figure out the root cause for this instead of bailing out here.
+            ASSERT_NOT_REACHED();
+            return;
+        }
+
+        TextBoxPainter { m_inlineContent, box, box.style(), m_paintInfo, m_paintOffset }.paint();
         return;
     }
 
-    if (auto* renderer = dynamicDowncast<RenderBox>(box.layoutBox().rendererForIntegration()); renderer && renderer->isReplacedOrInlineBlock()) {
+    if (auto* renderer = dynamicDowncast<RenderBox>(box.layoutBox().rendererForIntegration()); renderer && renderer->isReplacedOrAtomicInline()) {
         if (m_paintInfo.shouldPaintWithinRoot(*renderer)) {
             // FIXME: Painting should not require a non-const renderer.
             const_cast<RenderBox*>(renderer)->paintAsInlineBlock(m_paintInfo, flippedContentOffsetIfNeeded(*renderer));
@@ -107,7 +114,7 @@ void InlineContentPainter::paintDisplayBox(const InlineDisplay::Box& box)
 
 void InlineContentPainter::paint()
 {
-    auto layerPaintScope = LayerPaintScope { m_boxTree, m_inlineBoxWithLayer };
+    auto layerPaintScope = LayerPaintScope { m_inlineBoxWithLayer };
     auto lastBoxLineIndex = std::optional<size_t> { };
 
     auto paintLineEndingEllipsisIfApplicable = [&](std::optional<size_t> currentLineIndex) {
@@ -152,14 +159,18 @@ void InlineContentPainter::paint()
 
 LayoutPoint InlineContentPainter::flippedContentOffsetIfNeeded(const RenderBox& childRenderer) const
 {
-    if (root().style().isFlippedBlocksWritingMode())
+    if (root().writingMode().isBlockFlipped())
         return root().flipForWritingModeForChild(childRenderer, m_paintOffset);
     return m_paintOffset;
 }
 
-LayerPaintScope::LayerPaintScope(const BoxTree& boxTree, const RenderInline* inlineBoxWithLayer)
-    : m_boxTree(boxTree)
-    , m_inlineBoxWithLayer(inlineBoxWithLayer ? inlineBoxWithLayer->layoutBox() : nullptr)
+const RenderBlock& InlineContentPainter::root() const
+{
+    return m_root;
+}
+
+LayerPaintScope::LayerPaintScope(const RenderInline* inlineBoxWithLayer)
+    : m_inlineBoxWithLayer(inlineBoxWithLayer ? inlineBoxWithLayer->layoutBox() : nullptr)
 {
 }
 

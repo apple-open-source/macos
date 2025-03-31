@@ -73,6 +73,7 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)presentError:(NSError *)error forService:(NSString *)service completionHandler:(void (^)(void))completionHandler;
 - (void)updateInterfaceWithLoginChoices:(NSArray<id <ASCLoginChoiceProtocol>> *)loginChoices;
 - (void)presentPINEntryInterface;
+- (void)presentNewPINEntryInterfaceWithMinLength:(NSUInteger)minLength;
 - (void)updateInterfaceForUserVisibleError:(NSError *)userVisibleError;
 - (void)dismissWithError:(nullable NSError *)error;
 
@@ -155,6 +156,8 @@ typedef NS_ENUM(NSUInteger, ASCPublicKeyCredentialKind) {
 - (instancetype)initWithKind:(ASCPublicKeyCredentialKind)credentialKind relyingPartyIdentifier:(NSString *)relyingPartyIdentifier challenge:(NSData *)challenge userVerificationPreference:(nullable NSString *)userVerificationPreference allowedCredentials:(nullable NSArray<ASCPublicKeyCredentialDescriptor *> *)allowedCredentials;
 
 - (instancetype)initWithKind:(ASCPublicKeyCredentialKind)credentialKind relyingPartyIdentifier:(NSString *)relyingPartyIdentifier clientDataHash:(NSData *)clientDataHash userVerificationPreference:(nullable NSString *)userVerificationPreference allowedCredentials:(nullable NSArray<ASCPublicKeyCredentialDescriptor *> *)allowedCredentials;
+
+- (instancetype)initWithKind:(ASCPublicKeyCredentialKind)credentialKind relyingPartyIdentifier:(NSString *)relyingPartyIdentifier clientDataJSON:(NSData *)clientDataJSON userVerificationPreference:(nullable NSString *)userVerificationPreference allowedCredentials:(nullable NSArray<ASCPublicKeyCredentialDescriptor *> *)allowedCredentials;
 
 - (instancetype)initWithKind:(ASCPublicKeyCredentialKind)credentialKind relyingPartyIdentifier:(NSString *)relyingPartyIdentifier clientDataJSON:(NSData *)clientDataJSON userVerificationPreference:(nullable NSString *)userVerificationPreference allowedCredentials:(nullable NSArray<ASCPublicKeyCredentialDescriptor *> *)allowedCredentials origin:(nullable NSString *)origin;
 
@@ -304,7 +307,7 @@ typedef NS_ENUM(NSInteger, ASCredentialRequestStyle) {
 @property (nonatomic, copy, readonly) NSString *relyingPartyIdentifier;
 @property (nonatomic, copy, readonly) NSData *attestationObject;
 @property (nonatomic, copy, readonly) NSData *rawClientDataJSON;
-@property (nonatomic, copy) NSArray<NSNumber *> *transports;
+@property (nonatomic, copy) NSArray<NSString *> *transports;
 @property (nonatomic, copy, nullable) NSData *extensionOutputsCBOR;
 @property (nonatomic, copy, readonly) NSString *attachment;
 
@@ -321,7 +324,7 @@ typedef NS_ENUM(NSInteger, ASCredentialRequestStyle) {
 @property (nonatomic, copy, readonly) NSData *rawClientDataJSON;
 @property (nonatomic, copy, readonly) NSString *relyingPartyIdentifier;
 @property (nonatomic, copy, readonly) NSData *attestationObject;
-@property (nonatomic, copy) NSArray<NSNumber *> *transports;
+@property (nonatomic, copy) NSArray<NSString *> *transports;
 @property (nonatomic, copy, readonly, nullable) NSData *extensionOutputsCBOR;
 @property (nonatomic, copy, readonly) NSString *attachment;
 
@@ -428,6 +431,8 @@ typedef NS_ERROR_ENUM(ASCAuthorizationErrorDomain, ASCAuthorizationError) {
     ASCAuthorizationErrorInvalidResponse = 14,
     ASCAuthorizationErrorNotSupportedInSTP = 16,
     ASCAuthorizationErrorSecurityError = 17,
+    ASCAuthorizationErrorPINTooShort = 18,
+    ASCAuthorizationErrorPINTooLong = 19,
 };
 
 NS_ASSUME_NONNULL_END

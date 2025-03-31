@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2012 Google Inc. All rights reserved.
- * Copyright (C) 2017-2021 Apple Inc. All rights reserved.
+ * Copyright (C) 2017-2024 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -30,13 +30,12 @@
 #include "RTCDataChannelHandler.h"
 #include "RTCDataChannelIdentifier.h"
 #include "RTCDataChannelState.h"
-#include <wtf/TZoneMallocInlines.h>
 #include <wtf/text/WTFString.h>
 
 namespace WebCore {
 
 struct DetachedRTCDataChannel {
-    WTF_MAKE_TZONE_ALLOCATED_INLINE(DetachedRTCDataChannel);
+    WTF_MAKE_TZONE_ALLOCATED_EXPORT(DetachedRTCDataChannel, WEBCORE_EXPORT);
     WTF_MAKE_NONCOPYABLE(DetachedRTCDataChannel);
 public:
     DetachedRTCDataChannel(RTCDataChannelIdentifier identifier, String&& label, RTCDataChannelInit&& options, RTCDataChannelState state)

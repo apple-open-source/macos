@@ -477,6 +477,10 @@ enum {NUM_RETRIES = 5};
                          ckksKeys:(NSArray<CKKSKeychainBackedKeySet*> *)viewKeySets
                         tlkShares:(NSArray<CKKSTLKShare*> *)tlkShares
                   preapprovedKeys:(nullable NSArray<NSData*> *)preapprovedKeys
+                          altDSID:(NSString * _Nullable)altDSID
+                           flowID:(NSString * _Nullable)flowID
+                  deviceSessionID:(NSString * _Nullable)deviceSessionID
+                   canSendMetrics:(BOOL)canSendMetrics
                             reply:(void (^)(NSString * _Nullable peerID,
                                             NSArray<CKRecord*>* _Nullable keyHierarchyRecords,
                                             TPSyncingPolicy* _Nullable syncingPolicy,
@@ -495,7 +499,7 @@ enum {NUM_RETRIES = 5};
                 reply(nil, nil, nil, error);
             }
             ++i;
-        }] establishWithSpecificUser:specificUser ckksKeys:viewKeySets tlkShares:tlkShares preapprovedKeys:preapprovedKeys reply:reply];
+        }] establishWithSpecificUser:specificUser ckksKeys:viewKeySets tlkShares:tlkShares preapprovedKeys:preapprovedKeys altDSID:altDSID flowID:flowID deviceSessionID:deviceSessionID canSendMetrics:canSendMetrics reply:reply];
     } while (retry);
 }
 
@@ -533,6 +537,10 @@ enum {NUM_RETRIES = 5};
 
 - (void)preflightVouchWithBottleWithSpecificUser:(TPSpecificUser*)specificUser
                                         bottleID:(nonnull NSString *)bottleID
+                                         altDSID:(NSString* _Nullable)altDSID
+                                          flowID:(NSString* _Nullable)flowID
+                                 deviceSessionID:(NSString* _Nullable)deviceSessionID
+                                  canSendMetrics:(BOOL)canSendMetrics
                                            reply:(nonnull void (^)(NSString * _Nullable,
                                                                    TPSyncingPolicy* _Nullable peerSyncingPolicy,
                                                                    BOOL refetchWasNeeded,
@@ -552,6 +560,10 @@ enum {NUM_RETRIES = 5};
             ++i;
         }] preflightVouchWithBottleWithSpecificUser:specificUser
          bottleID:bottleID
+         altDSID:altDSID
+         flowID:flowID
+         deviceSessionID:deviceSessionID
+         canSendMetrics:canSendMetrics
          reply:reply];
     } while (retry);
 }
@@ -561,6 +573,10 @@ enum {NUM_RETRIES = 5};
                                 entropy:(NSData*)entropy
                              bottleSalt:(NSString*)bottleSalt
                               tlkShares:(NSArray<CKKSTLKShare*> *)tlkShares
+                                altDSID:(NSString* _Nullable)altDSID
+                                 flowID:(NSString* _Nullable)flowID
+                        deviceSessionID:(NSString* _Nullable)deviceSessionID
+                         canSendMetrics:(BOOL)canSendMetrics
                                   reply:(void (^)(NSData * _Nullable voucher,
                                                   NSData * _Nullable voucherSig,
                                                   NSArray<CKKSTLKShare*>* _Nullable newTLKShares,
@@ -580,7 +596,16 @@ enum {NUM_RETRIES = 5};
                 reply(nil, nil, nil, nil, error);
             }
             ++i;
-        }] vouchWithBottleWithSpecificUser:specificUser bottleID:bottleID entropy:entropy bottleSalt:bottleSalt tlkShares:tlkShares reply:reply];
+        }] vouchWithBottleWithSpecificUser:specificUser
+         bottleID:bottleID
+         entropy:entropy
+         bottleSalt:bottleSalt
+         tlkShares:tlkShares
+         altDSID:altDSID
+         flowID:flowID
+         deviceSessionID:deviceSessionID
+         canSendMetrics:canSendMetrics
+         reply:reply];
     } while (retry);
 }
 
@@ -771,6 +796,10 @@ enum {NUM_RETRIES = 5};
                                       ckksKeys:(NSArray<CKKSKeychainBackedKeySet*> *)ckksKeys
                                      tlkShares:(NSArray<CKKSTLKShare*> *)tlkShares
                                preapprovedKeys:(nullable NSArray<NSData*> *)preapprovedKeys
+                                       altDSID:(NSString * _Nullable)altDSID
+                                        flowID:(NSString * _Nullable)flowID
+                               deviceSessionID:(NSString * _Nullable)deviceSessionID
+                                canSendMetrics:(BOOL)canSendMetrics
                                          reply:(void (^)(NSString * _Nullable peerID,
                                                          NSArray<CKRecord*>* _Nullable keyHierarchyRecords,
                                                          TPSyncingPolicy* _Nullable syncingPolicy,
@@ -793,6 +822,10 @@ enum {NUM_RETRIES = 5};
          ckksKeys:ckksKeys
          tlkShares:tlkShares
          preapprovedKeys:preapprovedKeys
+         altDSID:altDSID
+         flowID:flowID
+         deviceSessionID:deviceSessionID
+         canSendMetrics:canSendMetrics
          reply:reply];
     } while (retry);
 }
@@ -1211,6 +1244,10 @@ enum {NUM_RETRIES = 5};
 
 - (void)fetchRecoverableTLKSharesWithSpecificUser:(TPSpecificUser*)specificUser
                                            peerID:(NSString * _Nullable)peerID
+                                          altDSID:(NSString * _Nullable)altDSID
+                                           flowID:(NSString * _Nullable)flowID
+                                  deviceSessionID:(NSString * _Nullable)deviceSessionID
+                                   canSendMetrics:(BOOL)canSendMetrics
                                             reply:(nonnull void (^)(NSArray<CKRecord *> * _Nullable,
                                                                     NSError * _Nullable))reply
 {
@@ -1227,7 +1264,7 @@ enum {NUM_RETRIES = 5};
                 reply(nil, error);
             }
             ++i;
-        }] fetchRecoverableTLKSharesWithSpecificUser:specificUser peerID:peerID reply:reply];
+        }] fetchRecoverableTLKSharesWithSpecificUser:specificUser peerID:peerID altDSID:altDSID flowID:flowID deviceSessionID:deviceSessionID canSendMetrics:canSendMetrics reply:reply];
     } while (retry);
 }
 
@@ -1493,8 +1530,6 @@ enum {NUM_RETRIES = 5};
 }
 
 - (void)performCKServerUnreadableDataRemovalWithSpecificUser:(TPSpecificUser * _Nullable)specificUser 
-                                             internalAccount:(BOOL)internalAccount
-                                                 demoAccount:(BOOL)demoAccount
                                                        reply:(nonnull void (^)(NSError * _Nullable))reply {
     __block int i = 0;
     __block bool retry;
@@ -1510,8 +1545,6 @@ enum {NUM_RETRIES = 5};
             }
             ++i;
         }] performCKServerUnreadableDataRemovalWithSpecificUser:specificUser
-         internalAccount:internalAccount
-         demoAccount:demoAccount
          reply:reply];
     } while (retry);
 }

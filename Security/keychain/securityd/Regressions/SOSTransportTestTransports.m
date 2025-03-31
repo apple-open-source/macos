@@ -355,7 +355,8 @@ void SOSTransportMessageTestClearChanges(SOSMessageKVSTest* transport)
 
 static void SOSTransportMessageTestAddBulkToChanges(SOSMessageKVSTest* transport, CFDictionaryRef updates)
 {
-#ifndef __clang_analyzer__ // The analyzer thinks transport.changes is a leak, but I don't know why.
+    [[clang::suppress]] // The analyzer thinks transport.changes is a leak, but I don't know why.
+
     if (transport.changes == NULL) {
         transport.changes = CFDictionaryCreateMutableCopy(kCFAllocatorDefault, CFDictionaryGetCount(updates), updates);
     }
@@ -364,7 +365,6 @@ static void SOSTransportMessageTestAddBulkToChanges(SOSMessageKVSTest* transport
             CFDictionarySetValue(transport.changes, key, value);
         });
     }
-#endif // __clang_analyzer__
 }
 
 static void SOSTransportMessageTestAddToChanges(SOSMessageKVSTest* transport, CFStringRef message_key, CFDataRef message_data)

@@ -10,8 +10,8 @@ vulkan_backend_sources = [
   "AllocatorHelperRing.h",
   "BufferVk.cpp",
   "BufferVk.h",
-  "CommandProcessor.cpp",
-  "CommandProcessor.h",
+  "CommandQueue.cpp",
+  "CommandQueue.h",
   "CompilerVk.cpp",
   "CompilerVk.h",
   "ContextVk.cpp",
@@ -130,6 +130,10 @@ if (angle_enable_cl) {
     "CLSamplerVk.cpp",
     "CLSamplerVk.h",
     "cl_types.h",
+    "clspv_utils.cpp",
+    "clspv_utils.h",
+    "vk_cl_utils.cpp",
+    "vk_cl_utils.h",
   ]
 }
 

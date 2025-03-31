@@ -54,6 +54,7 @@ typedef enum UAMeasureUnit {
     UAMEASUNIT_DURATION_DAY_PERSON  = (4 << 8) + 14,    // (CLDR 35, ICU-641)
     UAMEASUNIT_DURATION_DECADE      = (4 << 8) + 15,    // (CLDR 36, ICU-661)
     UAMEASUNIT_DURATION_QUARTER     = (4 << 8) + 16,    // (CLDR 42, ICU-721)
+    UAMEASUNIT_DURATION_NIGHT       = (4 << 8) + 17,    // (CLDR 46, ICU-76)
     //
     UAMEASUNIT_LENGTH_METER         = (5 << 8) + 0,
     UAMEASUNIT_LENGTH_CENTIMETER    = (5 << 8) + 1,
@@ -119,6 +120,7 @@ typedef enum UAMeasureUnit {
     UAMEASUNIT_SPEED_MILE_PER_HOUR      = (9 << 8) + 2,
     UAMEASUNIT_SPEED_KNOT               = (9 << 8) + 3,     // (CLDR 28, ICU-561.3)
     UAMEASUNIT_SPEED_BEAUFORT           = (9 << 8) + 4,     // (CLDR 44, ICU 741)
+    UAMEASUNIT_SPEED_LIGHT_SPEED        = (9 << 8) + 5,     // (CLDR 46, ICU-76)
     //
     UAMEASUNIT_TEMPERATURE_CELSIUS      = (10 << 8) + 0,
     UAMEASUNIT_TEMPERATURE_FAHRENHEIT   = (10 << 8) + 1,

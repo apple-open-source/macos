@@ -1855,6 +1855,8 @@ static int
 iopolicysys_vfs_disallow_rw_for_o_evtonly(struct proc *p, int cmd, int scope, int policy, struct _iopol_param_t *iop_param);
 static int iopolicysys_vfs_altlink(struct proc *p, int cmd, int scope, int policy, struct _iopol_param_t *iop_param);
 static int iopolicysys_vfs_nocache_write_fs_blksize(struct proc *p, int cmd, int scope, int policy, struct _iopol_param_t *iop_param);
+static int
+iopolicysys_vfs_support_long_paths(struct proc *p, int cmd, int scope, int policy, struct _iopol_param_t *iop_param);
 
 /*
  * iopolicysys
@@ -1957,6 +1959,12 @@ iopolicysys(struct proc *p, struct iopolicysys_args *uap, int32_t *retval)
 		break;
 	case IOPOL_TYPE_VFS_NOCACHE_WRITE_FS_BLKSIZE:
 		error = iopolicysys_vfs_nocache_write_fs_blksize(p, uap->cmd, iop_param.iop_scope, iop_param.iop_policy, &iop_param);
+		if (error) {
+			goto out;
+		}
+		break;
+	case IOPOL_TYPE_VFS_SUPPORT_LONG_PATHS:
+		error = iopolicysys_vfs_support_long_paths(p, uap->cmd, iop_param.iop_scope, iop_param.iop_policy, &iop_param);
 		if (error) {
 			goto out;
 		}
@@ -2620,10 +2628,13 @@ out:
 static inline void
 set_thread_skip_mtime_policy(struct uthread *ut, int policy)
 {
+	os_atomic_andnot(&ut->uu_flag, UT_SKIP_MTIME_UPDATE |
+	    UT_SKIP_MTIME_UPDATE_IGNORE, relaxed);
+
 	if (policy == IOPOL_VFS_SKIP_MTIME_UPDATE_ON) {
 		os_atomic_or(&ut->uu_flag, UT_SKIP_MTIME_UPDATE, relaxed);
-	} else {
-		os_atomic_andnot(&ut->uu_flag, UT_SKIP_MTIME_UPDATE, relaxed);
+	} else if (policy == IOPOL_VFS_SKIP_MTIME_UPDATE_IGNORE) {
+		os_atomic_or(&ut->uu_flag, UT_SKIP_MTIME_UPDATE_IGNORE, relaxed);
 	}
 }
 
@@ -2678,6 +2689,7 @@ iopolicysys_vfs_skip_mtime_update(struct proc *p, int cmd, int scope,
 		switch (policy) {
 		case IOPOL_VFS_SKIP_MTIME_UPDATE_ON:
 		case IOPOL_VFS_SKIP_MTIME_UPDATE_OFF:
+		case IOPOL_VFS_SKIP_MTIME_UPDATE_IGNORE:
 			if (!IOCurrentTaskHasEntitlement(SKIP_MTIME_UPDATE_ENTITLEMENT)) {
 				error = EPERM;
 				goto out;
@@ -2695,6 +2707,14 @@ iopolicysys_vfs_skip_mtime_update(struct proc *p, int cmd, int scope,
 		if (thread != THREAD_NULL) {
 			set_thread_skip_mtime_policy(get_bsdthread_info(thread), policy);
 		} else {
+			/*
+			 * The 'IOPOL_VFS_SKIP_MTIME_UPDATE_IGNORE' policy is only
+			 * applicable for thread.
+			 */
+			if (policy == IOPOL_VFS_SKIP_MTIME_UPDATE_IGNORE) {
+				error = EINVAL;
+				goto out;
+			}
 			set_proc_skip_mtime_policy(p, policy);
 		}
 		break;
@@ -2881,6 +2901,105 @@ iopolicysys_vfs_nocache_write_fs_blksize(struct proc *p, int cmd, int scope, int
 	}
 
 	return EINVAL;
+}
+
+static inline void
+set_thread_support_long_paths(struct uthread *ut, int policy)
+{
+	if (policy == IOPOL_VFS_SUPPORT_LONG_PATHS_ON) {
+		os_atomic_or(&ut->uu_flag, UT_SUPPORT_LONG_PATHS, relaxed);
+	} else {
+		os_atomic_andnot(&ut->uu_flag, UT_SUPPORT_LONG_PATHS, relaxed);
+	}
+}
+
+static inline int
+get_thread_support_long_paths(struct uthread *ut)
+{
+	return (os_atomic_load(&ut->uu_flag, relaxed) & UT_SUPPORT_LONG_PATHS) ?
+	       IOPOL_VFS_SUPPORT_LONG_PATHS_ON : IOPOL_VFS_SUPPORT_LONG_PATHS_DEFAULT;
+}
+
+static inline void
+set_proc_support_long_paths(struct proc *p, int policy)
+{
+	if (policy == IOPOL_VFS_SUPPORT_LONG_PATHS_ON) {
+		os_atomic_or(&p->p_vfs_iopolicy, P_VFS_IOPOLICY_SUPPORT_LONG_PATHS, relaxed);
+	} else {
+		os_atomic_andnot(&p->p_vfs_iopolicy, P_VFS_IOPOLICY_SUPPORT_LONG_PATHS, relaxed);
+	}
+}
+
+static inline int
+get_proc_support_long_paths(struct proc *p)
+{
+	return (os_atomic_load(&p->p_vfs_iopolicy, relaxed) & P_VFS_IOPOLICY_SUPPORT_LONG_PATHS) ?
+	       IOPOL_VFS_SUPPORT_LONG_PATHS_ON : IOPOL_VFS_SUPPORT_LONG_PATHS_DEFAULT;
+}
+
+#define SUPPORT_LONG_PATHS_ENTITLEMENT \
+	"com.apple.private.vfs.support-long-paths"
+
+static int
+iopolicysys_vfs_support_long_paths(struct proc *p, int cmd, int scope,
+    int policy, struct _iopol_param_t *iop_param)
+{
+	thread_t thread;
+	int error = 0;
+
+	/* Validate scope */
+	switch (scope) {
+	case IOPOL_SCOPE_THREAD:
+		thread = current_thread();
+		break;
+	case IOPOL_SCOPE_PROCESS:
+		thread = THREAD_NULL;
+		break;
+	default:
+		error = EINVAL;
+		goto out;
+	}
+
+	/* Validate policy */
+	if (cmd == IOPOL_CMD_SET) {
+		switch (policy) {
+		case IOPOL_VFS_SUPPORT_LONG_PATHS_DEFAULT:
+		case IOPOL_VFS_SUPPORT_LONG_PATHS_ON:
+			if (!IOCurrentTaskHasEntitlement(SUPPORT_LONG_PATHS_ENTITLEMENT)) {
+				error = EPERM;
+				goto out;
+			}
+			break;
+		default:
+			error = EINVAL;
+			goto out;
+		}
+	}
+
+	/* Perform command */
+	switch (cmd) {
+	case IOPOL_CMD_SET:
+		if (thread != THREAD_NULL) {
+			set_thread_support_long_paths(get_bsdthread_info(thread), policy);
+		} else {
+			set_proc_support_long_paths(p, policy);
+		}
+		break;
+	case IOPOL_CMD_GET:
+		if (thread != THREAD_NULL) {
+			policy = get_thread_support_long_paths(get_bsdthread_info(thread));
+		} else {
+			policy = get_proc_support_long_paths(p);
+		}
+		iop_param->iop_policy = policy;
+		break;
+	default:
+		error = EINVAL;         /* unknown command */
+		break;
+	}
+
+out:
+	return error;
 }
 
 void

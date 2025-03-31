@@ -497,6 +497,9 @@ ms{
                 GyMMMd{"d MMM y G"}
                 MEd{"E, d/M"}
                 MMMEd{"E, d MMM"}
+                MMMMW{
+                    other{"'minggu' W 'daripada' MMMM"}
+                }
                 MMMMd{"d MMMM"}
                 MMMd{"d MMM"}
                 MMdd{"dd/MM"}
@@ -515,6 +518,9 @@ ms{
                 yMd{"d/M/y"}
                 yQQQ{"QQQ y"}
                 yQQQQ{"QQQQ y"}
+                yw{
+                    other{"'minggu' w 'daripada' Y"}
+                }
             }
             dayNames{
                 format{
@@ -1004,6 +1010,15 @@ ms{
                 }
             }
         }
+        dayOfYear{
+            dn{"Hari dalam Tahun"}
+        }
+        dayOfYear-narrow{
+            dn{"Hari dlm Thn"}
+        }
+        dayOfYear-short{
+            dn{"Hari dlm Thn"}
+        }
         dayperiod{
             dn{"PG/PTG"}
         }
@@ -1419,8 +1434,26 @@ ms{
                 }
             }
         }
+        weekOfMonth{
+            dn{"Minggu dalam Bulan"}
+        }
+        weekOfMonth-narrow{
+            dn{"Minggu dalam Bulan"}
+        }
+        weekOfMonth-short{
+            dn{"Minggu dlm bulan"}
+        }
         weekday{
             dn{"Hari dalam Minggu"}
+        }
+        weekdayOfMonth{
+            dn{"Hari dalam Bulan"}
+        }
+        weekdayOfMonth-narrow{
+            dn{"Hari dlm bln"}
+        }
+        weekdayOfMonth-short{
+            dn{"Hari dlm bln"}
         }
         year{
             dn{"tahun"}
@@ -1503,10 +1536,10 @@ ms{
                 "[%％﹪ ٪]",
                 "[‰ ؉]",
                 "[\$＄﹩]",
-                "[£ ₤]",
+                "[£￡ ₤]",
                 "[¥￥]",
                 "[₩￦]",
-                "[₹ ₨ {Rp} {Rs}]",
+                "[₹ {Rp} {Rs}₨]",
             }
         }
         number{

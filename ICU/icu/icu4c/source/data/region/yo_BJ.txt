@@ -25,7 +25,7 @@ yo_BJ{
         419{"Látín Amɛ́ríkà"}
         AE{"Ɛmirate ti Awɔn Arabu"}
         AS{"Sámóánì ti Orílɛ́ède Àméríkà"}
-        AX{"Àwɔn Erékùsù ti Åland"}
+        AX{"Àwɔn Erékùsù ti Aland"}
         AZ{"Asɛ́bájánì"}
         BA{"Bɔ̀síníà àti Ɛtisɛgófínà"}
         BE{"Bégíɔ́mù"}
@@ -51,8 +51,11 @@ yo_BJ{
         GF{"Firenshi Guana"}
         GS{"Gúúsù Georgia àti Gúúsù Àwɔn Erékùsù Sandwich"}
         IC{"Ɛrékùsù Kánárì"}
+        ID{"Indonéshíà"}
         IL{"Iserɛli"}
+        IM{"Erékùshù ilɛ̀ Man"}
         IS{"Ashilandi"}
+        JE{"Jɛsì"}
         JO{"Jɔdani"}
         KG{"Kurishisitani"}
         KP{"Guusu Kɔria"}
@@ -62,7 +65,7 @@ yo_BJ{
         LI{"Lɛshitɛnisiteni"}
         MH{"Etikun Máshali"}
         MZ{"Moshamibiku"}
-        NF{"Etikun Nɔ́úfókì"}
+        NF{"Erékùsù Nɔ́úfókì"}
         NO{"Nɔɔwii"}
         NZ{"Shilandi Titun"}
         OM{"Ɔɔma"}
@@ -85,8 +88,8 @@ yo_BJ{
         TC{"Tɔɔki ati Etikun Kakɔsi"}
         TD{"Shààdì"}
         TF{"Agbègbè Gúúsù Faranshé"}
-        TL{"ÌlàOòrùn Tímɔ̀"}
-        TM{"Tɔɔkimenisita"}
+        TL{"Tímɔ̀ Lɛsiti"}
+        TM{"Tɔ́kìmɛ́nísítànì"}
         TN{"Tunishia"}
         TR{"Tɔɔki"}
         UM{"Àwɔn Erékùsù Kékèké Agbègbè US"}
@@ -99,7 +102,7 @@ yo_BJ{
         VN{"Fɛtinami"}
         WS{"Samɔ"}
         XA{"ìsɔ̀rɔ̀sí irɔ́"}
-        XB{"ibi irɔ́"}
+        XB{"Agbègbè irɔ́"}
         ZA{"Gúúshù Áfíríkà"}
         ZM{"Shamibia"}
         ZW{"Shimibabe"}
@@ -115,6 +118,8 @@ yo_BJ{
         PS{"Palɛsítínì"}
     }
     Countries%variant{
+        CZ{"Shɛ́ɛ́kì Olómìnira"}
         TL{"Ìlà Òòrùn Tímɔ̀"}
+        TR{"Tɔ́kì"}
     }
 }

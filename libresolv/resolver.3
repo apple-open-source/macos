@@ -9,11 +9,7 @@
 .\" 2. Redistributions in binary form must reproduce the above copyright
 .\"    notice, this list of conditions and the following disclaimer in the
 .\"    documentation and/or other materials provided with the distribution.
-.\" 3. All advertising materials mentioning features or use of this software
-.\"    must display the following acknowledgement:
-.\"	This product includes software developed by the University of
-.\"	California, Berkeley and its contributors.
-.\" 4. Neither the name of the University nor the names of its contributors
+.\" 3. Neither the name of the University nor the names of its contributors
 .\"    may be used to endorse or promote products derived from this software
 .\"    without specific prior written permission.
 .\"
@@ -30,9 +26,9 @@
 .\" SUCH DAMAGE.
 .\"
 .\"     @(#)resolver.3	8.1 (Berkeley) 6/4/93
-.\" $FreeBSD: src/lib/libc/net/resolver.3,v 1.21 2001/10/01 16:08:56 ru Exp $
+.\" $FreeBSD$
 .\"
-.Dd June 4, 1993
+.Dd September 15, 2022
 .Dt RESOLVER 3
 .Os
 .Sh NAME
@@ -50,6 +46,7 @@
 .Nm ns_put32
 .Nd resolver routines
 .Sh LIBRARY
+.\".Lb libc
 .Lb libresolv
 .Sh SYNOPSIS
 .In sys/types.h
@@ -92,7 +89,7 @@
 .Fa "int anslen"
 .Fc
 .Ft int
-.Fn res_init
+.Fn res_init void
 .Ft int
 .Fo dn_comp
 .Fa "const char *exp_dn"
@@ -125,13 +122,13 @@ query and reply messages with Internet domain name servers.
 .Pp
 Global configuration and state information that is used by the
 resolver routines is kept in the structure
-.Em _res .
+.Va _res .
 Most of the values have reasonable defaults and can be ignored.
 Options
 stored in
-.Em _res.options
+.Va _res.options
 are defined in
-.Pa resolv.h
+.In resolv.h
 and are as follows.
 Options are stored as a simple bit mask containing the bitwise ``or''
 of the options enabled.
@@ -166,7 +163,7 @@ This is useful only in programs that regularly do many queries.
 .Tn UDP
 should be the normal mode used.
 .It Dv RES_IGNTC
-Unused currently (ignore truncation errors, i.e., don't retry with
+Unused currently (ignore truncation errors, i.e., do not retry with
 .Tn TCP ) .
 .It Dv RES_RECURSE
 Set the recursion-desired bit in queries.
@@ -191,7 +188,8 @@ This option is enabled by default.
 .It Dv RES_NOALIASES
 This option turns off the user level aliasing feature controlled by the
 .Dq Ev HOSTALIASES
-environment variable.  Network daemons should set this option.
+environment variable.
+Network daemons should set this option.
 .It Dv RES_USE_INET6
 Enables support for IPv6-only applications.
 This causes IPv4 addresses to be returned as an IPv4 mapped address.
@@ -227,18 +225,20 @@ it can be overridden by the environment variable
 This environment variable may contain several blank-separated
 tokens if you wish to override the
 .Em "search list"
-on a per-process basis.  This is similar to the
-.Em search
+on a per-process basis.
+This is similar to the
+.Ic search
 command in the configuration file.
 Another environment variable
 .Dq Ev RES_OPTIONS
 can be set to
 override certain internal resolver options which are otherwise
 set by changing fields in the
-.Em _res
+.Va _res
 structure or are inherited from the configuration file's
-.Em options
-command.  The syntax of the
+.Ic options
+command.
+The syntax of the
 .Dq Ev RES_OPTIONS
 environment variable is explained in
 .Xr resolver 5 .
@@ -260,7 +260,8 @@ The reply message is left in the
 .Fa answer
 buffer with length
 .Fa anslen
-supplied by the caller.  Constants for
+supplied by the caller.
+Constants for
 .Fa type
 and
 .Fa class
@@ -294,10 +295,12 @@ The query type
 is usually
 .Dv QUERY ,
 but can be any of the query types defined in
-.Aq Pa arpa/nameser.h .
+.In arpa/nameser.h .
 The domain name for the query is given by
 .Fa dname .
-.Fa Newrr
+The
+.Fa newrr_in
+argument
 is currently unused but is intended for making update messages.
 .Pp
 The
@@ -340,7 +343,7 @@ is to update the list of pointers for
 labels inserted into the message
 as the name is compressed.
 If
-.Em dnptr
+.Fa dnptr
 is
 .Dv NULL ,
 names are not compressed.
@@ -355,6 +358,7 @@ The
 entry
 expands the compressed domain name
 .Fa comp_dn
+.\"to a full domain name
 to a full domain name.
 The compressed name is contained in a query or reply message;
 .Fa msg
@@ -399,6 +403,44 @@ function puts a 32-bit quantity
 .Fa src
 to a buffer pointed to by
 .Fa dst .
+.Sh IMPLEMENTATION NOTES
+This implementation of the resolver is thread-safe, but it will not
+function properly if the programmer attempts to declare his or her own
+.Va _res
+structure in an attempt to replace the per-thread version referred to
+by that macro.
+.Pp
+The following compile-time option can be specified to change the default
+behavior of resolver routines when necessary.
+.Bl -tag -width RES_ENFORCE_RFC1034
+.It Dv RES_ENFORCE_RFC1034
+If this symbol is defined during compile-time,
+.Fn res_search
+will enforce RFC 1034 check, namely, disallow using of underscore character
+within host names.
+This is used by the standard host lookup routines like
+.Xr gethostbyname 3 .
+For compatibility reasons this option is not enabled by default.
+.El
+.Sh RETURN VALUES
+The
+.Fn res_init
+function will return 0 on success, or \-1 in a threaded program if
+per-thread storage could not be allocated.
+.Pp
+The
+.Fn res_mkquery ,
+.Fn res_search ,
+and
+.Fn res_query
+functions return the size of the response on success, or \-1 if an
+error occurs.
+The integer
+.Vt h_errno
+may be checked to determine the reason for error.
+See
+.Xr gethostbyname 3
+for more information.
 .Sh FILES
 .Bl -tag -width /etc/resolv.conf
 .It Pa /etc/resolv.conf
@@ -409,17 +451,13 @@ see
 .Sh SEE ALSO
 .Xr gethostbyname 3 ,
 .Xr resolver 5 ,
-.Xr hostname 7 ,
-.Xr named 8
+.Xr hostname 7
 .Pp
 .%T RFC1032 ,
 .%T RFC1033 ,
 .%T RFC1034 ,
 .%T RFC1035 ,
 .%T RFC974
-.Rs
-.%T "Name Server Operations Guide for BIND"
-.Re
 .Sh HISTORY
 The
 .Nm

@@ -133,12 +133,12 @@ T_DECL(malloc_size_large_allocation, "Test malloc_size() on buffers > 4GB",
 {
 	void *ptr = malloc(GiB(4));
 	T_ASSERT_NOTNULL(ptr, "4GB allocation");
-	T_ASSERT_GE(malloc_size(ptr), GiB(4), "size of 4GB allocation");
+	T_ASSERT_GE(malloc_size(ptr), (size_t)GiB(4), "size of 4GB allocation");
 	free(ptr);
 
 	ptr = malloc(GiB(6));
 	T_ASSERT_NOTNULL(ptr, "6GB allocation");
-	T_ASSERT_GE(malloc_size(ptr), GiB(6), "size of 6GB allocation");
+	T_ASSERT_GE(malloc_size(ptr), (size_t)GiB(6), "size of 6GB allocation");
 	free(ptr);
 }
 #endif // TARGET_OS_OSX
@@ -176,12 +176,12 @@ T_DECL(malloc_size_outside_embedded_space,
 	// The next allocation should always be above the 64GB mark
 	void *high_ptr = malloc(size);
 	T_ASSERT_NOTNULL(high_ptr, "Allocation outside embedded address space");
-	T_ASSERT_LE(GiB(64), (uintptr_t)high_ptr, "Allocated pointer above 64GB");
+	T_ASSERT_LE((uintptr_t)GiB(64), (uintptr_t)high_ptr, "Allocated pointer above 64GB");
 	T_ASSERT_LE(size, malloc_size(high_ptr),
 			"Size of pointer outside embedded address space");
 
 	free(high_ptr);
-	T_ASSERT_EQ(0, malloc_size(high_ptr), "Size is zero after freeing");
+	T_ASSERT_EQ(0ul, malloc_size(high_ptr), "Size is zero after freeing");
 
 	for (int i = 0; i < num_pointers; i++) {
 		free(ptrs[i]);

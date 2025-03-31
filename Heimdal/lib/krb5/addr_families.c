@@ -205,7 +205,7 @@ ipv4_mask_boundary(krb5_context context, const krb5_address *inaddr,
 
     if (len > 32) {
 	krb5_set_error_message(context, KRB5_PROG_ATYPE_NOSUPP,
-			       N_("IPv4 prefix too large (%ld)", "len"), len);
+			       N_("IPv4 prefix too large (%lu)", "len"), len);
 	return KRB5_PROG_ATYPE_NOSUPP;
     }
     m = m << (32 - len);
@@ -407,7 +407,7 @@ ipv6_mask_boundary(krb5_context context, const krb5_address *inaddr,
 
     if (len > 128) {
 	krb5_set_error_message(context, KRB5_PROG_ATYPE_NOSUPP,
-			       N_("IPv6 prefix too large (%ld)", "length"), len);
+			       N_("IPv6 prefix too large (%lu)", "length"), len);
 	return KRB5_PROG_ATYPE_NOSUPP;
     }
 

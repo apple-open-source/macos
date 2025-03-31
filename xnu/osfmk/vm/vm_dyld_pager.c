@@ -869,6 +869,7 @@ dyld_pager_data_request(
 	vm_object_t             dst_object;
 	kern_return_t           kr;
 	kern_return_t           retval = KERN_SUCCESS;
+	vm_fault_return_t       vmfr;
 	vm_offset_t             src_vaddr;
 	vm_offset_t             dst_vaddr;
 	vm_offset_t             cur_offset;
@@ -955,7 +956,7 @@ retry_src_fault:
 		error_code = 0;
 		prot = VM_PROT_READ;
 		src_page = VM_PAGE_NULL;
-		kr = vm_fault_page(src_top_object,
+		vmfr = vm_fault_page(src_top_object,
 		    offset + cur_offset,
 		    VM_PROT_READ,
 		    FALSE,
@@ -967,7 +968,7 @@ retry_src_fault:
 		    &error_code,
 		    FALSE,
 		    &fault_info);
-		switch (kr) {
+		switch (vmfr) {
 		case VM_FAULT_SUCCESS:
 			break;
 		case VM_FAULT_RETRY:
@@ -994,8 +995,9 @@ retry_src_fault:
 				retval = KERN_MEMORY_ERROR;
 			}
 			goto done;
-		default:
-			panic("dyld_pager_data_request: vm_fault_page() unexpected error 0x%x\n", kr);
+		case VM_FAULT_BUSY:
+			retval = KERN_ALREADY_WAITING;
+			goto done;
 		}
 		assert(src_page != VM_PAGE_NULL);
 		assert(src_page->vmp_busy);

@@ -1,13 +1,13 @@
 @macos
 Feature: SecurityAgent 3rd-party plugins
-3rd-party plugins are stored in /Library/Security/SecurityAgentPlugins, as a .bundle files. 
-For testing purposes, we will use NameAndPassword plugin which is used as example plugin on Apple dev portal: 
-https://developer.apple.com/library/archive/samplecode/NameAndPassword/Introduction/Intro.html
+  3rd-party plugins are stored in /Library/Security/SecurityAgentPlugins, as a .bundle files.
+  For testing purposes, we will use NameAndPassword plugin which is used as example plugin on Apple dev portal:
+  https://developer.apple.com/library/archive/samplecode/NameAndPassword/Introduction/Intro.html
 
   Background:
     # /Library/Security/SecurityAgentPlugins
     # To build the plugin, download the example project above, and build it in Xcode - you may need to change macOS SDK in project Build Settings as there is macOS SDK 10.15 hardcoded in the build settings, just pick 'macOS' from the dropdown menu.
-    # You will find the .bundle file in Products folder of the project afterwards 
+    # You will find the .bundle file in Products folder of the project afterwards
     Given plugin is stored in SecurityAgent plugins folder
     And FileVault is disabled
     # Scenarios below are modifying system.login.console right - there is a chance that you will make the device unable to land to LoginWindow or login if something goes wrong
@@ -17,10 +17,10 @@ https://developer.apple.com/library/archive/samplecode/NameAndPassword/Introduct
     # In case something goes wrong, SSH to the device 'user@IP_address' and modify authdb back to it's original state:
     # $ sudo security authorizationdb write system.login.console <loginOrig.plist
     And remote login through SSH is enabled on the test device
-  
+
   Scenario: Plugin is working in a standalone defined right
     # nameandpassword.plist
-    # 
+    #
     # <?xml version="1.0" encoding="UTF-8"?>
     # <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
     # <plist version="1.0">
@@ -36,7 +36,7 @@ https://developer.apple.com/library/archive/samplecode/NameAndPassword/Introduct
     # <false/>
     # </dict>
     # </plist>
-    # 
+    #
     # Define new right:
     # $ sudo security authorizationdb write NameTestRight <nameandpassword.plist
     Given Standalone right is defined in authdb
@@ -56,9 +56,9 @@ https://developer.apple.com/library/archive/samplecode/NameAndPassword/Introduct
     # $ sudo security authorizationdb write system.login.console <loginModified.plist
     Given I modify the 'system.login.console' to use 3rd party plugin
     And I reboot
-    # You can check that the plugin is used when the password field is wide and doesn't fit the LoginWindow regular UI 
+    # You can check that the plugin is used when the password field is wide and doesn't fit the LoginWindow regular UI
     And I land to LoginWindow
     When I enter user credentials
-    # No logs like this should be present in the logs: 
-    # (com.apple.CryptoTokenKit.ahp.agent): launchd.development[1]: Service did not exit 5 seconds after SIGTERM. Sending SIGKILL. 
+    # No logs like this should be present in the logs:
+    # (com.apple.CryptoTokenKit.ahp.agent): launchd.development[1]: Service did not exit 5 seconds after SIGTERM. Sending SIGKILL.
     Then I succesfully login

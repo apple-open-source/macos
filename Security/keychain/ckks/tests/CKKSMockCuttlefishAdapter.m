@@ -153,6 +153,10 @@
 - (void)fetchRecoverableTLKShares:(TPSpecificUser *)activeAccount 
                            peerID:(NSString *)peerID
                         contextID:(NSString *)contextID
+                          altDSID:(NSString * _Nullable)altDSID
+                           flowID:(NSString * _Nullable)flowID
+                  deviceSessionID:(NSString * _Nullable)deviceSessionID
+                   canSendMetrics:(BOOL)canSendMetrics
                             reply:(void (^)(NSArray<CKKSTLKShareRecord *> * _Nullable, NSError * _Nullable))reply {
     NSMutableArray<CKKSTLKShareRecord*>* tlkShareRecords = [[NSMutableArray alloc] init];
     for (CKRecordZoneID* zoneID in self.fakeCKZones) {

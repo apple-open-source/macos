@@ -1,4 +1,4 @@
-# Copyright (C) 2023 Apple Inc. All rights reserved.
+# Copyright (C) 2023-2024 Apple Inc. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -132,11 +132,6 @@ headers: <WebCore/DisplayListItems.h>
     WebCore::RenderingResourceIdentifier decomposedGlyphsIdentifier();
 };
 
-[CustomHeader, AdditionalEncoder=StreamConnectionEncoder] class WebCore::DisplayList::DrawDisplayListItems {
-    Vector<WebCore::DisplayList::Item> items();
-    WebCore::FloatPoint destination();
-};
-
 [CustomHeader, AdditionalEncoder=StreamConnectionEncoder] class WebCore::DisplayList::DrawImageBuffer {
     WebCore::RenderingResourceIdentifier imageBufferIdentifier();
     WebCore::FloatRect destinationRect();
@@ -188,8 +183,7 @@ headers: <WebCore/DisplayListItems.h>
 };
 
 [CustomHeader, AdditionalEncoder=StreamConnectionEncoder] class WebCore::DisplayList::DrawLinesForText {
-    WebCore::FloatPoint blockLocation();
-    WebCore::FloatSize localAnchor();
+    WebCore::FloatPoint point();
     WebCore::DashArray widths();
     float thickness();
     bool isPrinting();
@@ -360,4 +354,16 @@ headers: <WebCore/DisplayListItems.h>
 
 [CustomHeader, AdditionalEncoder=StreamConnectionEncoder] class WebCore::DisplayList::ApplyDeviceScaleFactor {
     float scaleFactor();
+};
+
+[CustomHeader, AdditionalEncoder=StreamConnectionEncoder] class WebCore::DisplayList::BeginPage {
+    WebCore::IntSize pageSize();
+};
+
+[CustomHeader, AdditionalEncoder=StreamConnectionEncoder] class WebCore::DisplayList::EndPage {
+};
+
+[CustomHeader, AdditionalEncoder=StreamConnectionEncoder] class WebCore::DisplayList::SetURLForRect {
+    URL link();
+    WebCore::FloatRect destRect();
 };

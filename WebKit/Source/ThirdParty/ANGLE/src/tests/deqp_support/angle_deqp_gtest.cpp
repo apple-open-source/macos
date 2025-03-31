@@ -85,7 +85,6 @@ const char *gCaseListFiles[] = {
     GLES_CTS_DIR("aosp_mustpass/main/gles3-565-no-depth-no-stencil.txt"),
     GLES_CTS_DIR("aosp_mustpass/main/gles31-multisample.txt"),
     GLES_CTS_DIR("aosp_mustpass/main/gles31-565-no-depth-no-stencil.txt"),
-    GL_CTS_DIR("khronos_mustpass/main/gl46-main.txt"),
 };
 
 const std::vector<const char *> gTestSuiteConfigParameters[] = {
@@ -110,7 +109,6 @@ const std::vector<const char *> gTestSuiteConfigParameters[] = {
     {"--deqp-gl-config-name=rgb565d0s0ms0"},     // gles3_rgb565_no_depth_no_stencil
     {"--deqp-gl-config-name=rgba8888d24s8ms4"},  // gles31_multisample
     {"--deqp-gl-config-name=rgb565d0s0ms0"},     // gles31_rgb565_no_depth_no_stencil
-    {"--deqp-gl-config-name=rgba8888d24s8ms4"},  // gl46
 };
 
 #undef GLES_CTS_DIR
@@ -138,12 +136,14 @@ const char *gTestExpectationsFiles[] = {
     "deqp_gles3_565_no_depth_no_stencil_test_expectations.txt",
     "deqp_gles31_multisample_test_expectations.txt",
     "deqp_gles31_565_no_depth_no_stencil_test_expectations.txt",
-    "deqp_gl46_test_expectations.txt",
 };
 
 using APIInfo = std::pair<const char *, GPUTestConfig::API>;
 
 constexpr APIInfo kEGLDisplayAPIs[] = {
+#if defined(ANGLE_PLATFORM_ANDROID)
+    {"native-gles", GPUTestConfig::kAPIGLES},
+#endif
     {"angle-d3d9", GPUTestConfig::kAPID3D9},
     {"angle-d3d11", GPUTestConfig::kAPID3D11},
     {"angle-d3d11-ref", GPUTestConfig::kAPID3D11},
@@ -155,7 +155,8 @@ constexpr APIInfo kEGLDisplayAPIs[] = {
     {"angle-vulkan", GPUTestConfig::kAPIVulkan},
     {"angle-webgpu", GPUTestConfig::kAPIWgpu},
     {"win32", GPUTestConfig::kAPIUnknown},
-    {"x11", GPUTestConfig::kAPIUnknown},
+    {"x11", GPUTestConfig::kAPIUnknown}
+
 };
 
 constexpr char kdEQPEGLString[]             = "--deqp-egl-display-type=";
@@ -202,10 +203,13 @@ constexpr bool kEnableRenderDocCapture = true;
 constexpr bool kEnableRenderDocCapture = false;
 #endif
 
+constexpr dEQPDriverOption kDeqpDriverOption = dEQPDriverOption::ANGLE;
+
 const APIInfo *gInitAPI = nullptr;
 dEQPOptions gOptions    = {
     kDefaultPreRotation,      // preRotation
     kEnableRenderDocCapture,  // enableRenderDocCapture
+    kDeqpDriverOption,        // useANGLE
 };
 
 std::vector<const char *> gdEQPForwardFlags;
@@ -365,10 +369,6 @@ size_t GetTestModuleIndex()
 #ifdef ANGLE_DEQP_GLES31_565_NO_DEPTH_NO_STENCIL_TESTS
     return 20;
 #endif
-
-#ifdef ANGLE_DEQP_GL_TESTS
-    return 21;
-#endif
 }
 
 class dEQPCaseList
@@ -480,8 +480,6 @@ void dEQPCaseList::initialize()
         int expectation = testSuite->getTestExpectation(testName);
         mCaseInfoList.push_back(CaseInfo(testName, expectation));
     }
-
-    testSuite->logAnyUnusedTestExpectations();
 }
 
 bool IsPassingResult(dEQPTestResult result)
@@ -791,12 +789,12 @@ void HandleDisplayType(const char *displayTypeString)
         argStream2 << "angle-" << displayTypeString;
         std::string arg2 = argStream2.str();
         gInitAPI         = FindAPIInfo(arg2);
+    }
 
-        if (!gInitAPI)
-        {
-            std::cout << "Unknown API: " << displayTypeString << std::endl;
-            exit(1);
-        }
+    if (!gInitAPI)
+    {
+        std::cout << "Unknown API: " << displayTypeString << std::endl;
+        exit(1);
     }
 }
 
@@ -962,6 +960,14 @@ int RunGLCTSTests(int *argc, char **argv)
     if (gInitAPI)
     {
         api = gInitAPI->second;
+        // On Android, if --deqp-egl-display-type=native-gles, set driverOption to NATIVE
+        // We will load egl libs from native gles driver instead of ANGLE.
+#if defined(ANGLE_PLATFORM_ANDROID)
+        if (strcmp(gInitAPI->first, "native-gles") == 0)
+        {
+            gOptions.driverOption = dEQPDriverOption::NATIVE;
+        }
+#endif
     }
     if (gOptions.preRotation != 0 && api != GPUTestConfig::kAPIVulkan &&
         api != GPUTestConfig::kAPISwiftShader)

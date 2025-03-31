@@ -1092,7 +1092,7 @@ extract(int* tabs, char* spec, char* re, char* s, char* ans, char* msg, char* ac
 			if ((test & TEST_VERIFY) && !(test & (TEST_ACTUAL|TEST_BASELINE|TEST_FAIL|TEST_PASS|TEST_SUMMARY)))
 			{
 				if (msg && strcmp(msg, "EXPECTED"))
-					printf("NOTE\t%s\n", msg);
+					printf("NOTE\t%s:%d: %s\n", state.file, state.lineno, msg);
 				return skip;
 			}
 			test &= ~(TEST_PASS|TEST_QUERY);

@@ -2116,6 +2116,7 @@ SEC_EXP_CLASS(SFAnalyticsMultiSampler)
 SEC_EXP_CLASS(SFAnalyticsSampler)
 SEC_EXP_CLASS(SFAnalyticsSQLiteStore)
 SEC_EXP_CLASS(SecCoreAnalytics)
+_kSecSFAErrorDomain
 _SecCoreAnalyticsValue
 _SecCoreAnalyticsSendValue
 _SecCoreAnalyticsSendKernEntropyAnalytics

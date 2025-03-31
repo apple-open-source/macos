@@ -57,7 +57,7 @@ __BEGIN_DECLS
  *
  *
  * Example:
- *      SOCD_TRACE(KDBG_EVENTID(DBG_DRIVERS, DBG_SOCDIAGS, SOCD_TRACE_EVENTID(SOCD_TRACE_CLASS_KERNEL, SOCD_TRACE_CODE_KERNEL_PANIC)),
+ *      SOCD_TRACE(KDBG_EVENTID(DBG_DRIVERS, DBG_SOCDIAGS, SOCD_TRACE_EVENTID(SOCD_TRACE_CLASS_KERNEL, SOCD_TRACE_MODE_NONE, SOCD_TRACE_CODE_KERNEL_PANIC)),
  *                 ADDR(caller_function_ptr), VALUE(panic_options))
  */
 #define SOCD_TRACE(x, ...) SOCD_TRACE_(x, ## __VA_ARGS__, 4, 3, 2, 1, 0)
@@ -95,11 +95,11 @@ static_assert(SOCD_PACK_2X32(VALUE(0xffff1000), VALUE(0xffff1200)) == 0xffff1000
 static_assert(SOCD_PACK_LSB(VALUE(0xffff), VALUE(0x0)) == 0xfffe, "PACK_LSB failed to return expected output.");
 #endif // !defined(__arm64__)
 
-#define _SOCD_TRACE_XNU(c, x, ...) \
-   SOCD_TRACE(KDBG_EVENTID(DBG_DRIVERS, DBG_SOCDIAGS, SOCD_TRACE_EVENTID(SOCD_TRACE_CLASS_XNU, SOCD_TRACE_CODE_XNU_##c)) | (x), ## __VA_ARGS__)
-#define SOCD_TRACE_XNU(c, ...) _SOCD_TRACE_XNU(c, DBG_FUNC_NONE, ## __VA_ARGS__)
-#define SOCD_TRACE_XNU_START(c, ...) _SOCD_TRACE_XNU(c, DBG_FUNC_START, ## __VA_ARGS__)
-#define SOCD_TRACE_XNU_END(c, ...) _SOCD_TRACE_XNU(c, DBG_FUNC_END, ## __VA_ARGS__)
+#define _SOCD_TRACE_XNU(cls, mode, func, ...) \
+   SOCD_TRACE(KDBG_EVENTID(DBG_DRIVERS, DBG_SOCDIAGS, SOCD_TRACE_EVENTID(SOCD_TRACE_CLASS_XNU, mode, SOCD_TRACE_CODE_XNU_##cls)) | (func), ## __VA_ARGS__)
+#define SOCD_TRACE_XNU(c, m, ...) _SOCD_TRACE_XNU(c, m, DBG_FUNC_NONE, ## __VA_ARGS__)
+#define SOCD_TRACE_XNU_START(c, ...) _SOCD_TRACE_XNU(c, SOCD_TRACE_MODE_NONE, DBG_FUNC_START, ## __VA_ARGS__)
+#define SOCD_TRACE_XNU_END(c, ...) _SOCD_TRACE_XNU(c, SOCD_TRACE_MODE_NONE, DBG_FUNC_END, ## __VA_ARGS__)
 
 extern void socd_client_reinit(void);
 extern void socd_client_trace(uint32_t debugid, socd_client_trace_arg_t arg1,

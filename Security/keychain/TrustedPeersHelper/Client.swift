@@ -219,7 +219,7 @@ class Client: TrustedPeersHelperProtocol {
         do {
             logger.info("performCKServerUnreadableDataRemoval for \(String(describing: user), privacy: .public)")
             let container = try self.containerMap.findOrCreate(user: user)
-            container.performCKServerUnreadableDataRemoval() { error in
+            container.performCKServerUnreadableDataRemoval { error in
                 self.logComplete(function: "performCKServerUnreadableDataRemoval", container: container.name, error: error)
                 reply(error?.sanitizeForClientXPC())
             }
@@ -417,13 +417,21 @@ class Client: TrustedPeersHelperProtocol {
                    ckksKeys: [CKKSKeychainBackedKeySet],
                    tlkShares: [CKKSTLKShare],
                    preapprovedKeys: [Data]?,
+                   altDSID: String?,
+                   flowID: String?,
+                   deviceSessionID: String?,
+                   canSendMetrics: Bool,
                    reply: @escaping (String?, [CKRecord]?, TPSyncingPolicy?, Error?) -> Void) {
         do {
             logger.info("Establishing \(String(describing: user), privacy: .public)")
             let container = try self.containerMap.findOrCreate(user: user)
             container.establish(ckksKeys: ckksKeys,
                                 tlkShares: tlkShares,
-                                preapprovedKeys: preapprovedKeys) { peerID, keyHierarchyRecords, policy, error in
+                                preapprovedKeys: preapprovedKeys,
+                                altDSID: altDSID,
+                                flowID: flowID,
+                                deviceSessionID: deviceSessionID,
+                                canSendMetrics: canSendMetrics) { peerID, keyHierarchyRecords, policy, error in
                 self.logComplete(function: "Establishing", container: container.name, error: error)
                 reply(peerID, keyHierarchyRecords, policy, error?.sanitizeForClientXPC()) }
         } catch {
@@ -466,11 +474,19 @@ class Client: TrustedPeersHelperProtocol {
 
     func preflightVouchWithBottle(with user: TPSpecificUser?,
                                   bottleID: String,
+                                  altDSID: String?,
+                                  flowID: String?,
+                                  deviceSessionID: String?,
+                                  canSendMetrics: Bool,
                                   reply: @escaping (String?, TPSyncingPolicy?, Bool, Error?) -> Void) {
         do {
             logger.info("Preflight Vouch With Bottle \(String(describing: user), privacy: .public)")
             let container = try self.containerMap.findOrCreate(user: user)
-            container.preflightVouchWithBottle(bottleID: bottleID) { peerID, policy, refetched, error in
+            container.preflightVouchWithBottle(bottleID: bottleID,
+                                               altDSID: altDSID,
+                                               flowID: flowID,
+                                               deviceSessionID: deviceSessionID,
+                                               canSendMetrics: canSendMetrics) { peerID, policy, refetched, error in
                 self.logComplete(function: "Preflight Vouch With Bottle", container: container.name, error: error)
                 reply(peerID, policy, refetched, error?.sanitizeForClientXPC()) }
         } catch {
@@ -484,11 +500,22 @@ class Client: TrustedPeersHelperProtocol {
                          entropy: Data,
                          bottleSalt: String,
                          tlkShares: [CKKSTLKShare],
+                         altDSID: String?,
+                         flowID: String?,
+                         deviceSessionID: String?,
+                         canSendMetrics: Bool,
                          reply: @escaping (Data?, Data?, [CKKSTLKShare]?, TrustedPeersHelperTLKRecoveryResult?, Error?) -> Void) {
         do {
             logger.info("Vouching With Bottle \(String(describing: user), privacy: .public)")
             let container = try self.containerMap.findOrCreate(user: user)
-            container.vouchWithBottle(bottleID: bottleID, entropy: entropy, bottleSalt: bottleSalt, tlkShares: tlkShares) { voucher, voucherSig, newTLKShares, recoveryResult, error in
+            container.vouchWithBottle(bottleID: bottleID,
+                                      entropy: entropy,
+                                      bottleSalt: bottleSalt,
+                                      tlkShares: tlkShares,
+                                      altDSID: altDSID,
+                                      flowID: flowID,
+                                      deviceSessionID: deviceSessionID,
+                                      canSendMetrics: canSendMetrics) { voucher, voucherSig, newTLKShares, recoveryResult, error in
                 self.logComplete(function: "Vouching With Bottle", container: container.name, error: error)
                 reply(voucher, voucherSig, newTLKShares, recoveryResult, error?.sanitizeForClientXPC()) }
         } catch {
@@ -640,13 +667,21 @@ class Client: TrustedPeersHelperProtocol {
                                 ckksKeys: [CKKSKeychainBackedKeySet],
                                 tlkShares: [CKKSTLKShare],
                                 preapprovedKeys: [Data]?,
+                                altDSID: String?,
+                                flowID: String?,
+                                deviceSessionID: String?,
+                                canSendMetrics: Bool,
                                 reply: @escaping (String?, [CKRecord]?, TPSyncingPolicy?, Error?) -> Void) {
         do {
             logger.info("Attempting a preapproved join for \(String(describing: user), privacy: .public)")
             let container = try self.containerMap.findOrCreate(user: user)
             container.preapprovedJoin(ckksKeys: ckksKeys,
                                       tlkShares: tlkShares,
-                                      preapprovedKeys: preapprovedKeys) { peerID, keyHierarchyRecords, policy, error in
+                                      preapprovedKeys: preapprovedKeys,
+                                      altDSID: altDSID,
+                                      flowID: flowID,
+                                      deviceSessionID: deviceSessionID,
+                                      canSendMetrics: canSendMetrics) { peerID, keyHierarchyRecords, policy, error in
                 reply(peerID, keyHierarchyRecords, policy, error?.sanitizeForClientXPC()) }
         } catch {
             logger.error("attemptPreapprovedJoin failed for \(String(describing: user), privacy: .public): \(String(describing: error), privacy: .public)")
@@ -846,12 +881,16 @@ class Client: TrustedPeersHelperProtocol {
 
     func fetchRecoverableTLKShares(with user: TPSpecificUser?,
                                    peerID: String?,
+                                   altDSID: String?,
+                                   flowID: String?,
+                                   deviceSessionID: String?,
+                                   canSendMetrics: Bool,
                                    reply: @escaping ([CKRecord]?, Error?) -> Void) {
         do {
             logger.info("Fetching recoverable TLKShares \(String(describing: user), privacy: .public) with peerID filter: \(String(describing: peerID), privacy: .public)")
             let container = try self.containerMap.findOrCreate(user: user)
 
-            container.fetchRecoverableTLKShares(peerID: peerID) { records, error in
+            container.fetchRecoverableTLKShares(peerID: peerID, altDSID: altDSID, flowID: flowID, deviceSessionID: deviceSessionID, canSendMetrics: canSendMetrics) { records, error in
                 reply(records, error?.sanitizeForClientXPC())
             }
         } catch {

@@ -12,7 +12,7 @@ MALLOC_NOINLINE
 static void *
 malloc_wrapper(size_t n)
 {
-	return malloc(n);
+	return malloc_type_malloc(n, (malloc_type_id_t)42);
 }
 
 static bool

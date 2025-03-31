@@ -347,9 +347,7 @@ kern_return_t ucsp_server_openToken(UCSP_ARGS, uint32 ssid, FilePath name,
 	BEGIN_IPC(openToken)
 	CopyOutAccessCredentials creds(accessCredentials, accessCredentialsLength);
 // The static analyzer is not a fan of this "create object, send handle to foreign process" model. Tell it not to worry.
-#ifndef __clang_analyzer__
-	*db = (new TokenDatabase(ssid, connection.process(), name, creds))->handle();
-#endif
+        [[clang::suppress]] *db = (new TokenDatabase(ssid, connection.process(), name, creds))->handle();
 	END_IPC(DL)
 }
 
@@ -561,9 +559,7 @@ kern_return_t ucsp_server_createDb(UCSP_ARGS, DbHandle *db,
 	CopyOutEntryAcl owneracl(owner, ownerLength);
 	CopyOut flatident(ident, identLength, reinterpret_cast<xdrproc_t>(xdr_DLDbFlatIdentifierRef));
     checkPathLength((*reinterpret_cast<DLDbFlatIdentifier*>(flatident.data())).name);
-#ifndef __clang_analyzer__
-	*db = (new KeychainDatabase(*reinterpret_cast<DLDbFlatIdentifier*>(flatident.data()), params, connection.process(), creds, owneracl))->handle();
-#endif
+        [[clang::suppress]] *db = (new KeychainDatabase(*reinterpret_cast<DLDbFlatIdentifier*>(flatident.data()), params, connection.process(), creds, owneracl))->handle();
 	END_IPC(DL)
 }
 
@@ -579,11 +575,11 @@ kern_return_t ucsp_server_cloneDb(UCSP_ARGS, DbHandle srcDb, DATA_IN(ident), DbH
     RefPointer<KeychainDatabase> srcKC = Server::keychain(srcDb);
     secnotice("integrity", "cloning db %d", srcKC->handle());
 
-#ifndef __clang_analyzer__
-    KeychainDatabase* newKC = new KeychainDatabase(*reinterpret_cast<DLDbFlatIdentifier*>(flatident.data()), *srcKC, connection.process());
-    secnotice("integrity", "returning db %d", newKC->handle());
-    *newDb = newKC->handle();
-#endif
+    [[clang::suppress]] {
+        KeychainDatabase* newKC = new KeychainDatabase(*reinterpret_cast<DLDbFlatIdentifier*>(flatident.data()), *srcKC, connection.process());
+        secnotice("integrity", "returning db %d", newKC->handle());
+        *newDb = newKC->handle();
+    }
 
     END_IPC(DL)
 }
@@ -593,9 +589,7 @@ kern_return_t ucsp_server_recodeDbForSync(UCSP_ARGS, DbHandle dbToClone,
 {
 	BEGIN_IPC(recodeDbForSync)
 	RefPointer<KeychainDatabase> srcKC = Server::keychain(srcDb);
-#ifndef __clang_analyzer__
-	*newDb = (new KeychainDatabase(*srcKC, connection.process(), dbToClone))->handle();
-#endif
+	[[clang::suppress]] *newDb = (new KeychainDatabase(*srcKC, connection.process(), dbToClone))->handle();
 	END_IPC(DL)
 }
 
@@ -683,10 +677,10 @@ kern_return_t ucsp_server_decodeDb(UCSP_ARGS, DbHandle *db,
 
     checkPathLength(id.dbName());
 
-#ifndef __clang_analyzer__
-	*db = (new KeychainDatabase(id, SSBLOB(DbBlob, blob),
-        connection.process(), creds))->handle();
-#endif
+        [[clang::suppress]] {
+                *db = (new KeychainDatabase(id, SSBLOB(DbBlob, blob),
+                connection.process(), creds))->handle();
+        }
 	END_IPC(DL)
 }
 

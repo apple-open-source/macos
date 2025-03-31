@@ -74,8 +74,8 @@ public:
     CSSValue* value() const { return m_value.get(); }
     RefPtr<CSSValue> protectedValue() const { return m_value; }
 
-    static CSSPropertyID resolveDirectionAwareProperty(CSSPropertyID, TextDirection, WritingMode);
-    static CSSPropertyID unresolvePhysicalProperty(CSSPropertyID, TextDirection, WritingMode);
+    static CSSPropertyID resolveDirectionAwareProperty(CSSPropertyID, WritingMode);
+    static CSSPropertyID unresolvePhysicalProperty(CSSPropertyID, WritingMode);
     static bool isInheritedProperty(CSSPropertyID);
     static Vector<String> aliasesForProperty(CSSPropertyID);
     static bool isDirectionAwareProperty(CSSPropertyID);
@@ -85,6 +85,22 @@ public:
     static UChar listValuedPropertySeparator(CSSPropertyID);
     static bool isListValuedProperty(CSSPropertyID propertyID) { return !!listValuedPropertySeparator(propertyID); }
     static bool allowsNumberOrIntegerInput(CSSPropertyID);
+
+    // FIXME: Generate from logical property groups.
+
+    // Check if a property is an inset property, as defined in:
+    // https://drafts.csswg.org/css-logical-1/#inset-properties
+    static bool isInsetProperty(CSSPropertyID);
+
+    // Check if a property is a margin property, as defined in:
+    // https://drafts.csswg.org/css-box-4/#margin-properties
+    static bool isMarginProperty(CSSPropertyID);
+
+    // Check if a property is a sizing property, as defined in:
+    // https://drafts.csswg.org/css-sizing-3/#sizing-property
+    static bool isSizingProperty(CSSPropertyID);
+
+    static bool disablesNativeAppearance(CSSPropertyID);
 
     const StylePropertyMetadata& metadata() const { return m_metadata; }
     static bool isColorProperty(CSSPropertyID propertyId)

@@ -27,13 +27,6 @@
 //
 //--------------------------------------------------------------------
 
-#if /*APPLE_ICU_CHANGES*/true // APPLE_ICU_CHANGES is defined in uconfig.h below, but that's too late
-// rdar://121241618 (StarlightE: VideosUI-883.40.54#24 has failed to build in install; cannot initialize a variable of type 'const UChar *' (aka 'const char16_t)
-#ifndef UCHAR_TYPE
-#define UCHAR_TYPE char16_t
-#endif
-#endif // APPLE_ICU_CHANGES
-
 #include "unicode/utypes.h"
 #include "unicode/ucnv.h"
 #include "unicode/unistr.h"
@@ -215,7 +208,7 @@ int  main(int argc, char **argv) {
     char        *ruleBufferC;
 
     file = fopen(ruleFileName, "rb");
-    if( file == 0 ) {
+    if (file == nullptr) {
         fprintf(stderr, "Could not open file \"%s\"\n", ruleFileName);
         exit(-1);
     }
@@ -224,7 +217,7 @@ int  main(int argc, char **argv) {
     fseek(file, 0, SEEK_SET);
     ruleBufferC = new char[ruleFileSize+10];
 
-    result = (long)fread(ruleBufferC, 1, ruleFileSize, file);
+    result = static_cast<long>(fread(ruleBufferC, 1, ruleFileSize, file));
     if (result != ruleFileSize)  {
         fprintf(stderr, "Error reading file \"%s\"\n", ruleFileName);
         exit (-1);
@@ -305,7 +298,7 @@ int  main(int argc, char **argv) {
     RuleBasedBreakIterator *bi = new RuleBasedBreakIterator(ruleSourceS, parseError, status);
     if (U_FAILURE(status)) {
         fprintf(stderr, "createRuleBasedBreakIterator: ICU Error \"%s\"  at line %d, column %d\n",
-                u_errorName(status), (int)parseError.line, (int)parseError.offset);
+                u_errorName(status), static_cast<int>(parseError.line), static_cast<int>(parseError.offset));
         exit(status);
     }
 

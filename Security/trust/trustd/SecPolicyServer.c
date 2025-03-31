@@ -39,6 +39,7 @@
 #include <libDER/oids.h>
 #include <SystemConfiguration/SCDynamicStoreCopySpecific.h>
 
+#include "featureflags/featureflags.h"
 #include <utilities/array_size.h>
 #include <utilities/SecCFWrappers.h>
 #include <utilities/SecAppleAnchorPriv.h>
@@ -120,6 +121,8 @@ out:
  ********************************************************/
 
 static SecTrustSettingsResult SecPVCGetTrustSettingsResult(SecPVCRef pvc, SecCertificateRef certificate, CFArrayRef constraints);
+static CFStringRef SecPVCGetPolicyOidFromConstraint(CFDictionaryRef constraint);
+static SecTrustSettingsResult SecPVCGetTrustSettingsResultFromConstraint(CFDictionaryRef constraint);
 
 static CFMutableDictionaryRef gSecPolicyLeafCallbacks = NULL;
 static CFMutableDictionaryRef gSecPolicyPathCallbacks = NULL;
@@ -460,7 +463,7 @@ static void SecPolicyCheckEmail(SecPVCRef pvc, CFStringRef key) {
     // Issued on or after effective date and system-trusted, email names must be in SAN
     bool sanOnly = false;
     if (notBefore >= apr2022 &&
-        (SecCertificateSourceContains(kSecSystemAnchorSource, root) ||
+        (SecCertificateSourceContains(kSecSystemAnchorSource, root, pvc) ||
          is_configured_test_system_root(root, CFSTR("TestSystemRoot")))) {
         sanOnly = true;
     }
@@ -799,13 +802,8 @@ static void SecPolicyCheckSubjectOrganization(SecPVCRef pvc,
 	CFStringRef key) {
 	SecCertificateRef cert = SecPVCGetCertificateAtIndex(pvc, 0);
 	SecPolicyRef policy = SecPVCGetPolicy(pvc);
-	CFStringRef org = (CFStringRef)CFDictionaryGetValue(policy->_options,
+	CFTypeRef org = (CFStringRef)CFDictionaryGetValue(policy->_options,
 		key);
-    if (!isString(org)) {
-        /* @@@ We can't return an error here and making the evaluation fail
-           won't help much either. */
-        return;
-    }
     if (!SecPolicyCheckCertSubjectOrganization(cert, org)) {
 		/* Leaf Subject Organization mismatch. */
 		SecPVCSetResult(pvc, key, 0, kCFBooleanFalse);
@@ -1264,6 +1262,10 @@ static void SecPolicyCheckBasicCertificateProcessing(SecPVCRef pvc,
          */
         CFArrayRef permitted_subtrees_in_cert = SecCertificateGetPermittedSubtrees(cert);
         if (permitted_subtrees_in_cert) {
+            bool critical = false;
+            CFDataRef value = SecCertificateCopyExtensionValue(cert, CFSTR("2.5.29.30"), &critical);
+            CFReleaseNull(value); // we didn't actually want the value
+
             CFIndex curPermittedSubtreesCount = CFArrayGetCount(permitted_subtrees);
             CFIndex nextPermittedSubtreesCount = CFArrayGetCount(permitted_subtrees_in_cert);
             if (nextPermittedSubtreesCount >= POLICY_SUBTREES_MAX ||
@@ -1271,6 +1273,15 @@ static void SecPolicyCheckBasicCertificateProcessing(SecPVCRef pvc,
                 secnotice("policy", "permitted subtrees too large");
                 if(!SecPVCSetResultForced(pvc, kSecPolicyCheckNameConstraints, n - i, kCFBooleanFalse, true)) { goto errOut; }
             } else {
+                if (!SecNameConstraintsAreSubtreesSupported(permitted_subtrees_in_cert) && critical) {
+                    /* RFC 5280 Section 4.2.1.10
+                        If a name constraints extension that is marked as critical
+                        imposes constraints on a particular name form, and an instance of
+                        that name form appears in the subject field or subjectAltName
+                        extension of a subsequent certificate, then the application MUST
+                        either process the constraint or reject the certificate. */
+                    if(!SecPVCSetResultForced(pvc, kSecPolicyCheckNameConstraints, n - i, kCFBooleanFalse, true)) { goto errOut; }
+                }
                 SecNameConstraintsIntersectSubtrees(permitted_subtrees, permitted_subtrees_in_cert);
             }
         }
@@ -1278,6 +1289,10 @@ static void SecPolicyCheckBasicCertificateProcessing(SecPVCRef pvc,
         // could do something smart here to avoid inserting the exact same constraint
         CFArrayRef excluded_subtrees_in_cert = SecCertificateGetExcludedSubtrees(cert);
         if (excluded_subtrees_in_cert) {
+            bool critical = false;
+            CFDataRef value = SecCertificateCopyExtensionValue(cert, CFSTR("2.5.29.30"), &critical);
+            CFReleaseNull(value); // we didn't actually want the value
+
             CFIndex curExcludedSubtreesCount = CFArrayGetCount(excluded_subtrees);
             CFIndex nextExcludedSubtreesCount = CFArrayGetCount(excluded_subtrees_in_cert);
             if (nextExcludedSubtreesCount >= POLICY_SUBTREES_MAX ||
@@ -1285,6 +1300,9 @@ static void SecPolicyCheckBasicCertificateProcessing(SecPVCRef pvc,
                 secnotice("policy", "excluded subtrees too large");
                 if(!SecPVCSetResultForced(pvc, kSecPolicyCheckNameConstraints, n - i, kCFBooleanFalse, true)) { goto errOut; }
             } else {
+                if (!SecNameConstraintsAreSubtreesSupported(excluded_subtrees_in_cert) && critical) {
+                    if(!SecPVCSetResultForced(pvc, kSecPolicyCheckNameConstraints, n - i, kCFBooleanFalse, true)) { goto errOut; }
+                }
                 CFRange range = { 0, nextExcludedSubtreesCount };
                 CFArrayAppendArray(excluded_subtrees, excluded_subtrees_in_cert, range);
             }
@@ -1441,6 +1459,65 @@ MAY contain the special anyPolicy OID (2.5.29.32.0).
 (c) Root CA Certificates  Root CA Certificates SHOULD NOT contain the
 certificatePolicies or extendedKeyUsage extensions.
 */
+}
+
+static void SecPolicyCheckQWAC(SecPVCRef pvc, CFStringRef key) {
+    if (!_SecTrustQWACValidationEnabled()) {
+        if (SecPVCSetResultForced(pvc, key, 0, kCFBooleanFalse, true)) {
+            return;
+        }
+    }
+
+    /* Is leaf potentially a QWAC */
+    SecCertificatePathVCRef path = SecPathBuilderGetPath(pvc->builder);
+    if (!SecCertificatePathVCIsOptionallyQWAC(path)) {
+        if (SecPVCSetResultForced(pvc, key, 0, kCFBooleanFalse, true)) {
+            return;
+        }
+    }
+
+    CFIndex ix, count = SecPVCGetCertificateCount(pvc);
+    if (count <= 1) { // No CAs
+        if (SecPVCSetResultForced(pvc, key, 0, kCFBooleanFalse, true)) {
+            return;
+        }
+    }
+
+    /* Is any CA in chain a QWAC anchor -- i.e. is it in the constrained store and is it constrained for the QWAC policy */
+    bool isQWAC = false;
+    CFArrayRef constraints = NULL;
+    for (ix = 1; ix < count; ix++) {
+        SecCertificateRef cert = SecPVCGetCertificateAtIndex(pvc, ix);
+        if (!SecSystemConstrainedAnchorSourceContainsAnchor(cert)) {
+            continue;
+        }
+        constraints = SecCertificateSourceCopyUsageConstraints(kSecSystemConstrainedAnchorSource, cert);
+        if (!isArray(constraints)) {
+            CFReleaseNull(constraints);
+            continue;
+        }
+        CFIndex constraintIX, constraintCount = CFArrayGetCount(constraints);
+        for (constraintIX = 0; constraintIX < constraintCount; constraintIX++) {
+            CFDictionaryRef constraint = (CFDictionaryRef)CFArrayGetValueAtIndex(constraints, constraintIX);
+            if (!isDictionary(constraint)) {
+                continue;
+            }
+            CFStringRef policyOid = SecPVCGetPolicyOidFromConstraint(constraint);
+            if (!CFEqualSafe(policyOid, kSecPolicyAppleQWAC)) {
+                continue;
+            }
+            SecTrustSettingsResult result = SecPVCGetTrustSettingsResultFromConstraint(constraint);
+            if (result == kSecTrustSettingsResultTrustRoot || result == kSecTrustSettingsResultTrustAsRoot) {
+                isQWAC = true;
+                break;
+            }
+        }
+        CFReleaseNull(constraints);
+    }
+
+    if (!isQWAC) {
+        SecPVCSetResultForced(pvc, key, 0, kCFBooleanFalse, true);
+    }
 }
 
 static bool checkPolicyOidData(SecPVCRef pvc, CFDataRef oid) {
@@ -1885,8 +1962,8 @@ static void SecPolicyCheckSystemTrustedCTRequired(SecPVCRef pvc) {
     SecCertificateRef root = SecPVCGetCertificateAtIndex(pvc, count - 1);
     appleAnchorSource = SecMemoryCertificateSourceCreate(SecGetAppleTrustAnchors(false));
     require_quiet(SecPathBuilderIsAnchored(pvc->builder), out);
-    require_quiet((SecCertificateSourceContains(kSecSystemAnchorSource, root) &&
-                   appleAnchorSource && !SecCertificateSourceContains(appleAnchorSource, root)) ||
+    require_quiet((SecCertificateSourceContains(kSecSystemAnchorSource, root, pvc) &&
+                   appleAnchorSource && !SecCertificateSourceContains(appleAnchorSource, root, pvc)) ||
                   is_configured_test_system_root(root, CFSTR("TestCTRequiredSystemRoot")), out);
 
     if (!SecCertificatePathVCIsCT(path) && !is_ct_excepted(pvc)) {
@@ -1935,7 +2012,8 @@ static void SecPolicyCheckSystemTrustValidityPeriod(SecPVCRef pvc, CFStringRef k
     SecCertificateRef root = SecPVCGetCertificateAtIndex(pvc, count - 1);
 
     /* check for system trust */
-    if (SecCertificateSourceContains(kSecSystemAnchorSource, root) || is_configured_test_system_root(root, CFSTR("TestSystemRoot"))) {
+    if (SecCertificateSourceContains(kSecSystemAnchorSource, root, pvc) ||
+        is_configured_test_system_root(root, CFSTR("TestSystemRoot"))) {
         SecPolicyRef policy = SecPVCGetPolicy(pvc);
         CFTypeRef maximums = CFDictionaryGetValue(policy->_options, key);
         if (!check_validity_period_maximums(maximums,
@@ -2016,7 +2094,8 @@ static void SecPolicyCheckValidityPeriodMaximums(SecPVCRef pvc, CFStringRef key)
 
     CFIndex count = SecPVCGetCertificateCount(pvc);
     SecCertificateRef root = SecPVCGetCertificateAtIndex(pvc, count - 1);
-    if (SecCertificateSourceContains(kSecSystemAnchorSource, root) || is_configured_test_system_root(root, CFSTR("TestSystemRoot"))) {
+    if (SecCertificateSourceContains(kSecSystemAnchorSource, root, pvc) ||
+        is_configured_test_system_root(root, CFSTR("TestSystemRoot"))) {
         if (!check_system_trust_ssl_validity_maximums(notBefore, notAfter)) {
             SecPVCSetResult(pvc, key, 0, kCFBooleanFalse);
         }
@@ -2046,7 +2125,8 @@ static void SecPolicyCheckServerAuthEKU(SecPVCRef pvc, CFStringRef key) {
     SecCertificateRef leaf = SecPVCGetCertificateAtIndex(pvc, 0);
     CFIndex count = SecPVCGetCertificateCount(pvc);
     SecCertificateRef root = SecPVCGetCertificateAtIndex(pvc, count - 1);
-    if (SecCertificateSourceContains(kSecSystemAnchorSource, root) || is_configured_test_system_root(root, CFSTR("TestSystemRoot"))) {
+    if (SecCertificateSourceContains(kSecSystemAnchorSource, root, pvc) ||
+        is_configured_test_system_root(root, CFSTR("TestSystemRoot"))) {
         /* all system-anchored chains must be compliant */
         if (!SecPolicyCheckCertExtendedKeyUsage(leaf, CFSTR("1.3.6.1.5.5.7.3.1"))) { // server auth EKU
             SecPVCSetResult(pvc, key, 0, kCFBooleanFalse);
@@ -2102,7 +2182,7 @@ static void SecPolicyCheckEmailProtectionEKU(SecPVCRef pvc, CFStringRef key) {
     // Issued on or after effective date
     if (notBefore >= apr2022) {
         // System-trusted
-        if (SecCertificateSourceContains(kSecSystemAnchorSource, root) ||
+        if (SecCertificateSourceContains(kSecSystemAnchorSource, root, pvc) ||
             is_configured_test_system_root(root, CFSTR("TestSystemRoot"))) {
             if (!SecPolicyCheckCertExtendedKeyUsage(leaf, CFSTR("1.3.6.1.5.5.7.3.4"))) { // email protection EKU
                 SecPVCSetResult(pvc, key, 0, kCFBooleanFalse);
@@ -2806,7 +2886,9 @@ static bool SecPVCContainsPolicy(SecPVCRef pvc, CFStringRef searchOid, CFStringR
 	for (ix = 0; ix < count; ++ix) {
 		SecPolicyRef policy = (SecPolicyRef)CFArrayGetValueAtIndex(policies, ix);
 		CFStringRef policyName = SecPolicyGetName(policy);
-        CFStringRef policyOid = SecPolicyGetOidString(policy);
+        // Here we're expecting SSL to match previously written trust settings OIDs, not SSLClient/Server OIDs
+        // The policyName (if saved in the trust settings on compatible builds) will enforce the client vs server
+        CFStringRef policyOid = SecPolicyGetCompatibilityOidString(policy);
         /* Prefer a match of both name and OID */
         if (searchOid && searchName && policyOid && policyName) {
             if (CFEqual(searchOid, policyOid) &&
@@ -3044,6 +3126,23 @@ static bool SecPVCContainsTrustSettingsPolicyOption(SecPVCRef pvc, CFDictionaryR
     return false;
 }
 
+static CFStringRef SecPVCGetPolicyOidFromConstraint(CFDictionaryRef constraint) {
+    CFStringRef policyOid = NULL;
+#if TARGET_OS_OSX
+    /* OS X returns a SecPolicyRef in the constraints. Convert to the oid string. */
+    SecPolicyRef policy = NULL;
+    policy = (SecPolicyRef)CFDictionaryGetValue(constraint, kSecTrustSettingsPolicy);
+    if (isString(policy)) {
+        policyOid = (CFStringRef)policy;
+    } else {
+        policyOid = (policy) ? SecPolicyGetCompatibilityOidString(policy) : NULL;
+    }
+#else
+    policyOid = (CFStringRef)CFDictionaryGetValue(constraint, kSecTrustSettingsPolicy);
+#endif
+    return policyOid;
+}
+
 static bool SecPVCMeetsConstraint(SecPVCRef pvc, SecCertificateRef certificate, CFDictionaryRef constraint) {
     CFStringRef policyOid = NULL, policyString = NULL, policyName = NULL;
     CFNumberRef keyUsageNumber = NULL;
@@ -3054,14 +3153,7 @@ static bool SecPVCMeetsConstraint(SecPVCRef pvc, SecCertificateRef certificate, 
          keyUsageMatch = false, policyOptionMatch = false;
     bool result = false;
 
-#if TARGET_OS_OSX
-    /* OS X returns a SecPolicyRef in the constraints. Convert to the oid string. */
-    SecPolicyRef policy = NULL;
-    policy = (SecPolicyRef)CFDictionaryGetValue(constraint, kSecTrustSettingsPolicy);
-    policyOid = (policy) ? policy->_oid : NULL;
-#else
-    policyOid = (CFStringRef)CFDictionaryGetValue(constraint, kSecTrustSettingsPolicy);
-#endif
+    policyOid = SecPVCGetPolicyOidFromConstraint(constraint);
     policyName = (CFStringRef)CFDictionaryGetValue(constraint, kSecTrustSettingsPolicyName);
     policyString = (CFStringRef)CFDictionaryGetValue(constraint, kSecTrustSettingsPolicyString);
     keyUsageNumber = (CFNumberRef)CFDictionaryGetValue(constraint, kSecTrustSettingsKeyUsage);
@@ -3098,6 +3190,17 @@ static bool SecPVCMeetsConstraint(SecPVCRef pvc, SecCertificateRef certificate, 
     return result;
 }
 
+static SecTrustSettingsResult SecPVCGetTrustSettingsResultFromConstraint(CFDictionaryRef constraint) {
+    CFNumberRef resultNumber = NULL;
+    resultNumber = (CFNumberRef)CFDictionaryGetValue(constraint, kSecTrustSettingsResult);
+    uint32_t resultValue = kSecTrustSettingsResultInvalid;
+    if (!isNumber(resultNumber) || !CFNumberGetValue(resultNumber, kCFNumberSInt32Type, &resultValue)) {
+        /* no SecTrustSettingsResult entry defaults to TrustRoot*/
+        resultValue = kSecTrustSettingsResultTrustRoot;
+    }
+    return resultValue;
+}
+
 static SecTrustSettingsResult SecPVCGetTrustSettingsResult(SecPVCRef pvc, SecCertificateRef certificate, CFArrayRef constraints) {
     SecTrustSettingsResult result = kSecTrustSettingsResultInvalid;
     CFIndex constraintIX, constraintCount = CFArrayGetCount(constraints);
@@ -3107,14 +3210,7 @@ static SecTrustSettingsResult SecPVCGetTrustSettingsResult(SecPVCRef pvc, SecCer
             continue;
         }
 
-        CFNumberRef resultNumber = NULL;
-        resultNumber = (CFNumberRef)CFDictionaryGetValue(constraint, kSecTrustSettingsResult);
-        uint32_t resultValue = kSecTrustSettingsResultInvalid;
-        if (!isNumber(resultNumber) || !CFNumberGetValue(resultNumber, kCFNumberSInt32Type, &resultValue)) {
-            /* no SecTrustSettingsResult entry defaults to TrustRoot*/
-            resultValue = kSecTrustSettingsResultTrustRoot;
-        }
-
+        uint32_t resultValue = SecPVCGetTrustSettingsResultFromConstraint(constraint);
         if (SecPVCMeetsConstraint(pvc, certificate, constraint)) {
             result = resultValue;
             break;
@@ -3188,12 +3284,12 @@ static void SecPVCCheckUsageConstraints(SecPVCRef pvc) {
              * admin anchor sources, trustRoot, trustAsRoot, and Invalid (no constraints),
              * all mean we should use the special "Proceed" trust result. */
             if (SecPathBuilderIsAnchorSource(pvc->builder, kSecUserAnchorSource) &&
-                SecCertificateSourceContains(kSecUserAnchorSource, cert)) {
+                SecCertificateSourceContains(kSecUserAnchorSource, cert, pvc)) {
                 pvc->result = kSecTrustResultProceed;
             }
 #if TARGET_OS_OSX
             if (SecPathBuilderIsAnchorSource(pvc->builder, kSecLegacyAnchorSource) &&
-                SecCertificateSourceContains(kSecLegacyAnchorSource, cert)) {
+                SecCertificateSourceContains(kSecLegacyAnchorSource, cert, pvc)) {
                 pvc->result = kSecTrustResultProceed;
             }
 #endif
@@ -3442,6 +3538,22 @@ void SecPVCPathChecks(SecPVCRef pvc) {
              as a non EV one, if it was valid as such. */
             pvc->result = pre_ev_check_result;
             CFAssignRetained(pvc->details, pre_ev_check_details);
+        }
+        
+        /* Check for QWAC */
+        bool qwac_check_ok = false;
+        if (SecCertificatePathVCIsOptionallyQWAC(path)) {
+            SecTrustResultType pre_qwac_check_result = pvc->result;
+            CFArrayRef pre_qwac_check_details = pvc->details ? SecPVCCopyDetailsArray(pvc) : NULL;
+            SecPolicyCheckQWAC(pvc, kSecPolicyCheckQWAC);
+            /* If QWAC check failed, we still want to accept this chain
+               as non-QWAC, if it was valid as such. */
+            qwac_check_ok = SecPVCIsOkResult(pvc);
+            pvc->result = pre_qwac_check_result;
+            CFAssignRetained(pvc->details, pre_qwac_check_details);
+            if (qwac_check_ok) {
+                SecCertificatePathVCSetIsQWAC(path, true);
+            }
         }
 
         /* Check for CT */

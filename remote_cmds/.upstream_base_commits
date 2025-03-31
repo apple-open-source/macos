@@ -33,19 +33,20 @@ tftp/tftp.c	freebsd	usr.bin/tftp/tftp.c	92570f67c7911126ce742a3dfe1b97046091ed0e
 tftp/tftp.h	freebsd	usr.bin/tftp/tftp.h	92570f67c7911126ce742a3dfe1b97046091ed0e
 tftp/tests/tftp_test.sh	freebsd	usr.bin/tftp/tests/tftp_test.sh	fc76ddee9be0d7f98c9f9a162627950f8102964e
 
-tftpd/tftp-file.c	freebsd	libexec/tftpd/tftp-file.c	bacb00ab408a2178d13f33d0cd9c6622913d80a9
-tftpd/tftp-file.h	freebsd	libexec/tftpd/tftp-file.h	bacb00ab408a2178d13f33d0cd9c6622913d80a9
-tftpd/tftp-io.c	freebsd	libexec/tftpd/tftp-io.c	e3b4cb1b32c05ec668b16fe4e858e78b61fe5805
-tftpd/tftp-io.h	freebsd	libexec/tftpd/tftp-io.h	bacb00ab408a2178d13f33d0cd9c6622913d80a9
-tftpd/tftp-options.c	freebsd	libexec/tftpd/tftp-options.c	a6dfd2015c202f3424eb58846d8575a877728881
-tftpd/tftp-options.h	freebsd	libexec/tftpd/tftp-options.h	8576f84bc1d75c2bae0a41ccb6ebe5de08479a06
-tftpd/tftp-transfer.c	freebsd	libexec/tftpd/tftp-transfer.c	e3b4cb1b32c05ec668b16fe4e858e78b61fe5805
-tftpd/tftp-transfer.h	freebsd	libexec/tftpd/tftp-transfer.h	36242fc0e56c5657d5d70e01fd2cfe1d7e7e7123
-tftpd/tftp-utils.c	freebsd	libexec/tftpd/tftp-utils.c	7c21545c46e1290e66fd9e9300165b4a381161b9
-tftpd/tftp-utils.h	freebsd	libexec/tftpd/tftp-utils.h	bacb00ab408a2178d13f33d0cd9c6622913d80a9
-tftpd/tftpd.8	freebsd	libexec/tftpd/tftpd.8	fdf929ff91d432d17c4d7d0aa0f9995fffe6fa8e
-tftpd/tftpd.c	freebsd	libexec/tftpd/tftpd.c	77e83935b7efb0d881fdb77117eb992e807ed9d7
-tftpd/tests/functional.c	freebsd	libexec/tftpd/tests/functional.c	1955ad42b3b71a2083bd6d2aec0d9a10dd78eb21
+tftpd/tftp-file.c	freebsd	libexec/tftpd/tftp-file.c	a6fe717c2a876105123214c05176cd74106fb94b
+tftpd/tftp-file.h	freebsd	libexec/tftpd/tftp-file.h	1111da6b7c612c571453a23a8dd02fd5e7e40b18
+tftpd/tftp-io.c	freebsd	libexec/tftpd/tftp-io.c	4d09eb87c5d5bec2e2832f50537e2ce6f75f4117
+tftpd/tftp-io.h	freebsd	libexec/tftpd/tftp-io.h	1111da6b7c612c571453a23a8dd02fd5e7e40b18
+tftpd/tftp-options.c	freebsd	libexec/tftpd/tftp-options.c	a6fe717c2a876105123214c05176cd74106fb94b
+tftpd/tftp-options.h	freebsd	libexec/tftpd/tftp-options.h	1111da6b7c612c571453a23a8dd02fd5e7e40b18
+tftpd/tftp-transfer.c	freebsd	libexec/tftpd/tftp-transfer.c	a6fe717c2a876105123214c05176cd74106fb94b
+tftpd/tftp-transfer.h	freebsd	libexec/tftpd/tftp-transfer.h	1111da6b7c612c571453a23a8dd02fd5e7e40b18
+tftpd/tftp-utils.c	freebsd	libexec/tftpd/tftp-utils.c	4d09eb87c5d5bec2e2832f50537e2ce6f75f4117
+tftpd/tftp-utils.h	freebsd	libexec/tftpd/tftp-utils.h	4d09eb87c5d5bec2e2832f50537e2ce6f75f4117
+tftpd/tftp.plist	unknown
+tftpd/tftpd.8	freebsd	libexec/tftpd/tftpd.8	816c4d3dcf99adcd40a03d93431237ddbd23bbdf
+tftpd/tftpd.c	freebsd	libexec/tftpd/tftpd.c	25945af47e7a1d06c44c8c160045a866e90569ab
+tftpd/tests/functional.c	freebsd	libexec/tftpd/tests/functional.c	ae285a8cbf1212bdc1b3f81219635bc1395fadee
 
 wall/ttymsg.c	freebsd	usr.bin/wall/ttymsg.c	1a874a126a54fdc188cebd0c58579851c37d1814
 wall/ttymsg.h	freebsd	usr.bin/wall/ttymsg.h	1a874a126a54fdc188cebd0c58579851c37d1814

@@ -170,12 +170,12 @@ static bool isCMSampleBufferRandomAccess(CMSampleBufferRef sample)
     CFArrayRef attachments = PAL::CMSampleBufferGetSampleAttachmentsArray(sample, false);
     if (!attachments)
         return true;
-    
-    for (CFIndex i = 0, count = CFArrayGetCount(attachments); i < count; ++i) {
-        if (!isCMSampleBufferAttachmentRandomAccess(checked_cf_cast<CFDictionaryRef>(CFArrayGetValueAtIndex(attachments, i))))
-            return false;
-    }
-    return true;
+
+    if (CFArrayGetCount(attachments) < 1)
+        return true;
+
+    CFDictionaryRef firstAttachment = checked_cf_cast<CFDictionaryRef>(CFArrayGetValueAtIndex(attachments, 0));
+    return isCMSampleBufferAttachmentRandomAccess(firstAttachment);
 }
 
 static bool isCMSampleBufferAttachmentNonDisplaying(CFDictionaryRef attachmentDict)

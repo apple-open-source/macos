@@ -30,7 +30,7 @@ NS_ASSUME_NONNULL_BEGIN
         goto exit;
     }
 
-    os_log_info(fskit_std_log(), "Hello MSDOS volume");
+    os_log_info(OS_LOG_DEFAULT, "Hello MSDOS volume");
 
 exit:
 	return self;
@@ -68,7 +68,7 @@ exit:
 
     if (boot->bs50.bsJump[0] != 0xE9 &&
         boot->bs50.bsJump[0] != 0xEB) {
-        os_log_error(fskit_std_log(), "%s: Invalid jump signature (0x%02X)", __func__, boot->bs50.bsJump[0]);
+        os_log_error(OS_LOG_DEFAULT, "%s: Invalid jump signature (0x%02X)", __func__, boot->bs50.bsJump[0]);
         return EINVAL;
     }
     if ((boot->bs50.bsBootSectSig0 != BOOTSIG0) ||
@@ -77,7 +77,7 @@ exit:
          * Not returning an error here as some volumes might have an unexpected
          * signature but are mounted on Windows systems and using our msdos kext.
          */
-        os_log_error(fskit_std_log(), "%s: Invalid boot signature (0x%02X 0x%02X)",
+        os_log_error(OS_LOG_DEFAULT, "%s: Invalid boot signature (0x%02X 0x%02X)",
                      __func__, boot->bs50.bsBootSectSig0, boot->bs50.bsBootSectSig1);
     }
 
@@ -104,13 +104,13 @@ exit:
      * - number of FAT sectors > 0 (too large values handled later)
      */
     if (bytesPerSector != self.systemInfo.bytesPerSector) {
-        os_log_error(fskit_std_log(), "%s: Logical sector size (%u) != physical sector size (%u)",
+        os_log_error(OS_LOG_DEFAULT, "%s: Logical sector size (%u) != physical sector size (%u)",
                      __func__, self.systemInfo.bytesPerSector, bytesPerSector);
         return EINVAL;
     }
 
     if (b50->bpbSecPerClust == 0 || b50->bpbSecPerClust & (b50->bpbSecPerClust - 1)) {
-        os_log_error(fskit_std_log(), "%s: Invalid sectors per cluster (%u)", __func__, b50->bpbSecPerClust);
+        os_log_error(OS_LOG_DEFAULT, "%s: Invalid sectors per cluster (%u)", __func__, b50->bpbSecPerClust);
         return EINVAL;
     }
 
@@ -119,16 +119,16 @@ exit:
     if (totalSectors == 0) {
         if ((*((uint8_t*)boot + 0x42) == 0x42) &&
             (*((uint64_t*)boot + 0x52) != 0)) {
-            os_log_error(fskit_std_log(), "%s: Encountered a special FAT where total sector location is 64bit. Not supported", __func__);
+            os_log_error(OS_LOG_DEFAULT, "%s: Encountered a special FAT where total sector location is 64bit. Not supported", __func__);
         }
-        os_log_error(fskit_std_log(), "%s: Invalid total sectors (0)", __func__);
+        os_log_error(OS_LOG_DEFAULT, "%s: Invalid total sectors (0)", __func__);
         return EINVAL;
     }
 
     fatSectors = (getuint16(b50->bpbFATsecs) == 0) ? getuint32(b710->bpbBigFATsecs) :
         getuint16(b50->bpbFATsecs);
     if (fatSectors == 0) {
-        os_log_error(fskit_std_log(), "%s: Invalid sectors per FAT (0)", __func__);
+        os_log_error(OS_LOG_DEFAULT, "%s: Invalid sectors per FAT (0)", __func__);
         return EINVAL;
     }
 
@@ -146,7 +146,7 @@ exit:
         (self.systemInfo.rootSector < fatSectors) ||
         (self.systemInfo.firstClusterOffset + b50->bpbSecPerClust > totalSectors)) {
         /* Seems like there isn't room even for a single cluster */
-        os_log_error(fskit_std_log(), "%s: Invalid configuration, no root for clusters", __func__);
+        os_log_error(OS_LOG_DEFAULT, "%s: Invalid configuration, no root for clusters", __func__);
         return EINVAL;
     }
 
@@ -176,7 +176,7 @@ exit:
         self.systemInfo.rootFirstCluster = getuint32(b710->bpbRootClust);
         self.systemInfo.fsInfoSectorNumber = getuint16(b710->bpbFSInfo);
     }  else {
-        os_log_error(fskit_std_log(), "%s: Clusters number is too large (0x%llx)", __func__, self.systemInfo.maxValidCluster + 1);
+        os_log_error(OS_LOG_DEFAULT, "%s: Clusters number is too large (0x%llx)", __func__, self.systemInfo.maxValidCluster + 1);
         return EINVAL;
     }
 
@@ -185,7 +185,7 @@ exit:
      * calculated according to the FAT type
      */
     if (self.systemInfo.maxValidCluster >= calculatedNumClusters) {
-        os_log_debug(fskit_std_log(), "%s: max cluster exceeds FAT capacity (%llu, %u)",
+        os_log_debug(OS_LOG_DEFAULT, "%s: max cluster exceeds FAT capacity (%llu, %u)",
                      __func__, self.systemInfo.maxValidCluster, calculatedNumClusters);
         self.systemInfo.maxValidCluster = calculatedNumClusters - 1;
     }
@@ -194,17 +194,17 @@ exit:
         uint32_t tmpMaxCluster;
 
         if (self.systemInfo.firstClusterOffset +  b50->bpbSecPerClust > self.resource.blockCount) {
-            os_log_error(fskit_std_log(), "%s: device sector count (%llu) is too small, no room for clusters",
+            os_log_error(OS_LOG_DEFAULT, "%s: device sector count (%llu) is too small, no room for clusters",
                          __func__, self.resource.blockCount);
             return EINVAL;
         }
         tmpMaxCluster = (uint32_t)((self.resource.blockCount - self.systemInfo.firstClusterOffset) / b50->bpbSecPerClust + 1);
         if (tmpMaxCluster < self.systemInfo.maxValidCluster) {
-            os_log_debug(fskit_std_log(), "%s: device sector count (%llu) us less than volume sector count (%u), limiting max cluster to %u (was %llu)",
+            os_log_debug(OS_LOG_DEFAULT, "%s: device sector count (%llu) us less than volume sector count (%u), limiting max cluster to %u (was %llu)",
                          __func__, self.resource.blockCount, totalSectors, tmpMaxCluster, self.systemInfo.maxValidCluster);
             self.systemInfo.maxValidCluster = tmpMaxCluster;
         } else {
-            os_log_debug(fskit_std_log(), "%s: device sector count (%llu) is less than volume sector count (%u)",
+            os_log_debug(OS_LOG_DEFAULT, "%s: device sector count (%llu) is less than volume sector count (%u)",
                          __func__, self.resource.blockCount, totalSectors);
         }
     }
@@ -245,7 +245,7 @@ exit:
                                               startingAt:bytesPerSector * self.systemInfo.fsInfoSectorNumber
                                                   length:bytesPerSector];
         if (err) {
-            os_log_error(fskit_std_log(), "%s: Failed to read FS Info sector, error %@, ignoring", __func__, err);
+            os_log_error(OS_LOG_DEFAULT, "%s: Failed to read FS Info sector, error %@, ignoring", __func__, err);
             self.systemInfo.fsInfoSectorNumber = 0;
         }
 
@@ -265,7 +265,7 @@ exit:
                 self.systemInfo.fsInfoSectorNumber = 0;
             }
         } else {
-            os_log_error(fskit_std_log(), "%s: FS Info sector has an invalid signature", __func__);
+            os_log_error(OS_LOG_DEFAULT, "%s: FS Info sector has an invalid signature", __func__);
             self.systemInfo.fsInfoSectorNumber = 0;
         }
     }
@@ -274,38 +274,38 @@ exit:
     if (self.systemInfo.type == FAT32) {
         self.systemInfo.rootFirstCluster = getuint32(b710->bpbRootClust);
         if (![self.systemInfo isClusterValid:self.systemInfo.rootFirstCluster]) {
-            os_log_error(fskit_std_log(), "%s: FAT32 root starting cluster (%u) is out of range ([%u, %llu]",
+            os_log_error(OS_LOG_DEFAULT, "%s: FAT32 root starting cluster (%u) is out of range ([%u, %llu]",
                           __func__, self.systemInfo.rootFirstCluster, FIRST_VALID_CLUSTER,
                           self.systemInfo.maxValidCluster);
         }
         if (rootEntryCount) {
-            os_log_error(fskit_std_log(), "%s: FAT32 has non-zero root directory entry count", __func__);
+            os_log_error(OS_LOG_DEFAULT, "%s: FAT32 has non-zero root directory entry count", __func__);
             return EINVAL;
         }
         if (getuint16(b710->bpbFSVers) != 0) {
-            os_log_error(fskit_std_log(), "%s: FAT32 has non-zero version", __func__);
+            os_log_error(OS_LOG_DEFAULT, "%s: FAT32 has non-zero version", __func__);
             return EINVAL;
         }
         if (getuint16(b50->bpbSectors) != 0) {
-            os_log_error(fskit_std_log(), "%s: FAT32 has non-zero 16b total sectors", __func__);
+            os_log_error(OS_LOG_DEFAULT, "%s: FAT32 has non-zero 16b total sectors", __func__);
             return EINVAL;
         }
         if (getuint16(b50->bpbFATsecs) != 0) {
-            os_log_error(fskit_std_log(), "%s: FAT32 has non-zero 16b FAT sectors", __func__);
+            os_log_error(OS_LOG_DEFAULT, "%s: FAT32 has non-zero 16b FAT sectors", __func__);
             return EINVAL;
         }
     } else {
         if (rootEntryCount == 0) {
-            os_log_error(fskit_std_log(), "%s: FAT%d has zero length root directory", __func__,
+            os_log_error(OS_LOG_DEFAULT, "%s: FAT%d has zero length root directory", __func__,
                          self.systemInfo.type == FAT12 ? 12 : 16);
             return EINVAL;
         }
         if (totalSectors < 0x10000 && getuint16(b50->bpbSectors) == 0) {
-            os_log_debug(fskit_std_log(), "%s: FAT%d total sectors (%u) fit in 16b but stored in 32b",
+            os_log_debug(OS_LOG_DEFAULT, "%s: FAT%d total sectors (%u) fit in 16b but stored in 32b",
                          __func__, self.systemInfo.type == 12 ? 12 : 16, totalSectors);
         }
         if (getuint16(b50->bpbFATsecs) == 0) {
-            os_log_debug(fskit_std_log(), "%s: FAT%d has 32b FAT sectors", __func__,
+            os_log_debug(OS_LOG_DEFAULT, "%s: FAT%d has 32b FAT sectors", __func__,
                          self.systemInfo.type == 12 ? 12 : 16);
         }
     }
@@ -319,7 +319,7 @@ exit:
                                                           inDir:nil
                                                      startingAt:self.systemInfo.rootFirstCluster
                                                        withData:nil
-                                                        andName:[[NSString alloc]initWithUTF8String:""]
+                                                        andName:[[FSFileName alloc] initWithCString:""]
                                                          isRoot:true];
     if (rootItem) {
         [rootItem iterateFromOffset:0
@@ -330,7 +330,7 @@ exit:
                                                       struct unistr255 * _Nullable name,
                                                       DirEntryData * _Nullable dirEntryData) {
             if (iterateError) {
-                os_log_error(fskit_std_log(), "%s: Couldn't iterate root dir. Error = %@.", __func__, iterateError);
+                os_log_error(OS_LOG_DEFAULT, "%s: Couldn't iterate root dir. Error = %@.", __func__, iterateError);
             }
             if (result == FATDirEntryVolName) {
                 rootItem.entryData = dirEntryData;
@@ -344,32 +344,9 @@ exit:
 }
 
 /* FSVolumePathConfOperations bits */
-- (int32_t)PC_CASE_PRESERVING {
-	return 1;
-}
 
-- (int32_t)PC_CASE_SENSITIVE {
-	return 0;
-}
-
-- (BOOL)isChownRestricted {
-	return 0;
-}
-
-- (int32_t)maxFileSizeInBits {
-	return 33;
-}
-
-- (int32_t)maxLinkCount {
-	return 1;
-}
-
-- (int32_t)maxNameLength {
+- (NSInteger)maximumNameLength {
 	return WIN_MAXLEN;
-}
-
-- (BOOL)truncatesLongNames {
-	return 0;
 }
 
 /* FSVolumeXattrOperations */
@@ -397,22 +374,24 @@ exit:
 {
     DirItem *theDirItem = [DirItem dynamicCast:item];
 
-    if (theDirItem && theDirItem.isRoot) {
-        if (name_matches(name, MSDOSFS_XATTR_VOLUME_ID_NAME)) {
-            if (!self.systemInfo.serialNumberExists) {
-                return reply(nil, fs_errorForPOSIXError(ENOATTR));
-            }
-            NSMutableData *data = [NSMutableData dataWithLength:4];
-            uint8_t *bytes = data.mutableBytes;
-            uint32_t sn = self.systemInfo.serialNumber;
-            bytes[0] =  sn        & 0xff;
-            bytes[1] = (sn >>  8) & 0xff;
-            bytes[2] = (sn >> 16) & 0xff;
-            bytes[3] = (sn >> 24) & 0xff;
-            return reply(data, nil);
-        }
+    if (theDirItem == nil || theDirItem.isRoot == false
+        || !name_matches(name, MSDOSFS_XATTR_VOLUME_ID_NAME)) {
+        return reply(nil, fs_errorForPOSIXError(ENOTSUP));
     }
-    return reply(nil, fs_errorForPOSIXError(ENOTSUP));
+
+    dispatch_async(theDirItem.queue, ^{
+        if (!self.systemInfo.serialNumberExists) {
+            return reply(nil, fs_errorForPOSIXError(ENOATTR));
+        }
+        NSMutableData *data = [NSMutableData dataWithLength:4];
+        uint8_t *bytes = data.mutableBytes;
+        uint32_t sn = self.systemInfo.serialNumber;
+        bytes[0] =  sn        & 0xff;
+        bytes[1] = (sn >>  8) & 0xff;
+        bytes[2] = (sn >> 16) & 0xff;
+        bytes[3] = (sn >> 24) & 0xff;
+        return reply(data, nil);
+    });
 }
 
 - (void)setXattrNamed:(FSFileName *)name
@@ -445,7 +424,7 @@ exit:
     return reply(nil, fs_errorForPOSIXError(ENOTSUP));
 }
 
-- (void)FatMount:(FSTaskParameters *)options
+- (void)FatMount:(FSTaskOptions *)options
     replyHandler:(void (^)(FSItem * _Nullable, NSError * _Nullable))reply
 {
     unsigned char *uuidConvArray = NULL;
@@ -459,7 +438,7 @@ exit:
         return reply(nil, fs_errorForPOSIXError(ENOMEM));
     }
 
-    for (NSString *opt in options) {
+    for (NSString *opt in options.taskOptions) {
         if ([opt containsString:@"rdonly"]) {
             isReadOnly = YES;
         }
@@ -484,7 +463,7 @@ exit:
                                               usingCache:false];
 
     if (!self.fatManager) {
-        os_log_error(fskit_std_log(), "%s: FATManager failed to init", __FUNCTION__);
+        os_log_error(OS_LOG_DEFAULT, "%s: FATManager failed to init", __FUNCTION__);
         return reply(nil, fs_errorForPOSIXError(EIO));
     }
 
@@ -493,13 +472,13 @@ exit:
         /* Get FAT entry for cluster #1 and check if we had a clean shut down */
         [self.fatManager getDirtyBitValue:^(NSError * _Nullable error, dirtyBitValue value) {
             if (error) {
-                os_log_error(fskit_std_log(), "%s: Failed to read dirty bit value, error: %@",
+                os_log_error(OS_LOG_DEFAULT, "%s: Failed to read dirty bit value, error: %@",
                              __FUNCTION__, error);
                 nsError = error;
             } else {
                 if (value == dirtyBitDirty) {
                     /* We can mount a dirty read-only device */
-                    os_log_error(fskit_std_log(), "%s: Device is dirty, %s",
+                    os_log_error(OS_LOG_DEFAULT, "%s: Device is dirty, %s",
                                  __FUNCTION__, !isReadOnly ? "Fail" : "Continue");
                     if (!isReadOnly) {
                         nsError = fs_errorForPOSIXError(EINVAL);
@@ -534,7 +513,7 @@ exit:
     /* create root record */
     self.rootItem = [self createRootDirItem];
     if (self.rootItem == nil) {
-        os_log_fault(fskit_std_log(), "%s: Failed to create root item", __FUNCTION__);
+        os_log_fault(OS_LOG_DEFAULT, "%s: Failed to create root item", __FUNCTION__);
         return reply(nil, fs_errorForPOSIXError(EINVAL));
     }
 
@@ -566,7 +545,7 @@ exit:
 -(MsdosDirItem *)createDirItemWithParent:(FATItem * _Nullable)parentDir
 							firstCluster:(uint32_t)firstCluster
 							dirEntryData:(DirEntryData * _Nullable)dirEntryData
-									name:(nonnull NSString *)name
+									name:(FSFileName *)name
 								  isRoot:(bool)isRoot;
 {
 	return [[MsdosDirItem alloc] initInVolume:self
@@ -580,7 +559,7 @@ exit:
 -(MsdosFileItem *)createFileItemWithParent:(FATItem * _Nullable)parentDir
 							  firstCluster:(uint32_t)firstCluster
 							  dirEntryData:(DirEntryData * _Nullable)dirEntryData
-									  name:(nonnull NSString *)name
+									  name:(FSFileName *)name
 {
 	return [[MsdosFileItem alloc] initInVolume:self
 										 inDir:parentDir
@@ -592,7 +571,7 @@ exit:
 -(SymLinkItem *)createSymlinkItemWithParent:(FATItem * _Nullable)parentDir
 							   firstCluster:(uint32_t)firstCluster
 							   dirEntryData:(DirEntryData * _Nullable)dirEntryData
-									   name:(nonnull NSString *)name
+									   name:(FSFileName *)name
                               symlinkLength:(uint16_t)length
 {
     SymLinkItem *item = [[SymLinkItem alloc] initInVolume:self
@@ -624,7 +603,7 @@ exit:
 			 * but ENAMETOOLONG makes it clear that the name is the problem (and
 			 * allows Carbon to return a more meaningful error).
 			 */
-			os_log_error(fskit_std_log(), "%s: Short name type invalid.", __func__);
+			os_log_error(OS_LOG_DEFAULT, "%s: Short name type invalid.", __func__);
 			return reply(fs_errorForPOSIXError(ENAMETOOLONG), 0);
 		case 1:
 			// The name is already a short, DOS name, so no long name entries needed.
@@ -638,12 +617,12 @@ exit:
 	}
 }
 
--(void)nameToUnistr:(NSString *)name
+-(void)nameToUnistr:(FSFileName *)name
 			  flags:(uint32_t)flags
        replyHandler:(void (^)(NSError * _Nullable, struct unistr255))reply {
 	struct unistr255 unistrName = {0};
     
-	int error = CONV_UTF8ToUnistr255((uint8_t *)name.UTF8String, strlen(name.UTF8String), &unistrName, flags);
+    int error = CONV_UTF8ToUnistr255((uint8_t *)name.data.bytes, name.data.length, &unistrName, flags);
     return reply(error ? fs_errorForPOSIXError(error) : nil, unistrName);
 }
 
@@ -688,7 +667,7 @@ exit:
                                 startingAt:self.systemInfo.fsInfoSectorNumber * self.systemInfo.bytesPerSector
                                     length:self.systemInfo.bytesPerSector];
         if (err) {
-            os_log_error(fskit_std_log(), "%s: Failed to update FSInfo sector, error %@", __func__, err);
+            os_log_error(OS_LOG_DEFAULT, "%s: Failed to update FSInfo sector, error %@", __func__, err);
         }
     }
 
@@ -714,7 +693,7 @@ exit:
                          replyHandler:^(NSError * _Nullable fatError) {
         if (fatError) {
             /* Log the error, keep going */
-            os_log_error(fskit_std_log(), "%s: Couldn't set the dirty bit. Error = %@.", __FUNCTION__, fatError);
+            os_log_error(OS_LOG_DEFAULT, "%s: Couldn't set the dirty bit. Error = %@.", __FUNCTION__, fatError);
         }
     }];
 
@@ -743,7 +722,7 @@ exit:
              * entry when it exist so revert the boot sector change to avoid
              * names missmatch between the two locations.
              */
-            os_log_error(fskit_std_log(), "%s: revert boot sector change", __FUNCTION__);
+            os_log_error(OS_LOG_DEFAULT, "%s: revert boot sector change", __FUNCTION__);
             [self updateLabelInBootSector:toLabel
                                    toName:fromLabel];
             return reply(nil, nsErr);
@@ -776,7 +755,7 @@ exit:
 
     if (boot->bs50.bsJump[0] != 0xE9 &&
         boot->bs50.bsJump[0] != 0xEB) {
-        os_log_error(fskit_std_log(), "Invalid jump signature (0x%02X)", boot->bs50.bsJump[0]);
+        os_log_error(OS_LOG_DEFAULT, "Invalid jump signature (0x%02X)", boot->bs50.bsJump[0]);
         return fs_errorForPOSIXError(EINVAL);
     }
     if ((boot->bs50.bsBootSectSig0 != BOOTSIG0) ||
@@ -785,7 +764,7 @@ exit:
          * Not returning an error here as some volumes might have an unexpected
          * signature but are mounted on Windows systems and using our msdos kext.
          */
-        os_log_error(fskit_std_log(), "Invalid boot signature (0x%02X 0x%02X)",
+        os_log_error(OS_LOG_DEFAULT, "Invalid boot signature (0x%02X 0x%02X)",
                      boot->bs50.bsBootSectSig0, boot->bs50.bsBootSectSig1);
     }
 

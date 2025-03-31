@@ -41,6 +41,11 @@ static RetainPtr<BEMediaEnvironment> createMediaEnvironment(const URL& webPageUR
     return adoptNS([[BEMediaEnvironment alloc] initWithWebPageURL:protocolHostAndPortURL]);
 }
 
+Ref<MediaCapability> MediaCapability::create(URL&& url)
+{
+    return adoptRef(*new MediaCapability(WTFMove(url)));
+}
+
 MediaCapability::MediaCapability(URL&& webPageURL)
     : m_webPageURL { WTFMove(webPageURL) }
     , m_mediaEnvironment { createMediaEnvironment(m_webPageURL) }
@@ -69,7 +74,7 @@ String MediaCapability::environmentIdentifier() const
     xpc_object_t xpcObject = [m_mediaEnvironment createXPCRepresentation];
     if (!xpcObject)
         return emptyString();
-    return String::fromUTF8(xpc_dictionary_get_string(xpcObject, "identifier"));
+    return xpc_dictionary_get_wtfstring(xpcObject, "identifier"_s);
 #endif
 
     return { };

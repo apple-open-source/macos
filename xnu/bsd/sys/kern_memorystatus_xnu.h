@@ -27,11 +27,15 @@
  */
 #include <stdbool.h>
 #include <stdint.h>
+#include <sys/_types/_pid_t.h>
 
 #pragma once
 
+#if !XNU_KERNEL_PRIVATE
+#error "Including xnu-private header in unexpected target"
+#endif /* !XNU_KERNEL_PRIVATE */
+
 __BEGIN_DECLS
-#if XNU_KERNEL_PRIVATE
 
 /* TODO: migrate other xnu-private interfaces from kern_memorystatus.h */
 
@@ -58,6 +62,12 @@ extern uint32_t memorystatus_get_idle_exit_page_shortage_threshold(void);
 extern uint32_t memorystatus_get_soft_memlimit_page_shortage_threshold(void);
 
 /*
+ * Return the minumum number of available pages jetsam requires before it
+ * begins reaping long-idle processes.
+ */
+extern uint32_t memorystatus_get_reaper_page_shortage_threshold(void);
+
+/*
  * Return the current number of available pages in the system.
  */
 extern uint32_t memorystatus_get_available_page_count(void);
@@ -74,5 +84,45 @@ extern void memorystatus_update_available_page_count(uint32_t available_pages);
  */
 extern void memorystatus_fast_jetsam_override(bool enable_override);
 
-#endif /* XNU_KERNEL_PRIVATE */
+/*
+ * Callout to jetsam. If pid is -1, we wake up the memorystatus thread to do asynchronous kills.
+ * For any other pid we try to kill that process synchronously.
+ */
+extern bool memorystatus_kill_on_zone_map_exhaustion(pid_t pid);
+
+/*
+ * Kill a single process due to compressor space shortage.
+ */
+extern bool memorystatus_kill_on_VM_compressor_space_shortage(bool async);
+
+/*
+ * Asynchronously kill a single process due to VM Pageout Starvation (i.e.
+ * a "stuck" external pageout thread).
+ */
+extern void memorystatus_kill_on_vps_starvation(void);
+
+/*
+ * Synchronously kill a single process due to vnode exhaustion
+ */
+extern bool memorystatus_kill_on_vnode_exhaustion(void);
+
+/*
+ * Wake up the memorystatus thread so it can do async kills.
+ * The memorystatus thread will keep killing until the system is
+ * considered healthy.
+ */
+extern void memorystatus_thread_wake(void);
+
+/*
+ * Respond to compressor exhaustion by waking the jetsam thread or
+ * synchronously invoking a no-paging-space action.
+ */
+extern void memorystatus_respond_to_compressor_exhaustion(void);
+
+/*
+ * Respond to swap exhaustion by waking the jetsam thread or
+ * synchronously invoking a no-paging-space action.
+ */
+extern void memorystatus_respond_to_swap_exhaustion(void);
+
 __END_DECLS

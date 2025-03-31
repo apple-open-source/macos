@@ -113,6 +113,9 @@ mvm_aslr_init(void)
 void * __sized_by_or_null(size)
 mvm_allocate_plat(uintptr_t addr, size_t size, uint8_t align, int flags, int debug_flags, int vm_page_label, plat_map_t *map_out)
 {
+	void * __unsafe_indexable mapped;
+	kern_return_t kr;
+
 	if (addr && (flags & VM_FLAGS_ANYWHERE)) {
 		// Pass MALLOC_ABORT_ON_ERROR to make this call abort
 		malloc_zone_error(MALLOC_ABORT_ON_ERROR | debug_flags, false,
@@ -120,28 +123,28 @@ mvm_allocate_plat(uintptr_t addr, size_t size, uint8_t align, int flags, int deb
 			(unsigned long) addr, (unsigned long) size, flags);
 	}
 #if MALLOC_TARGET_EXCLAVES
-	// This call can have different behavior depending on `flags` and `map_out`:
-	// 1. If the input handle is invalid and MALLOC_NO_POPULATE is not present,
-	//	  the handle is initialized and memory is both reserved and populated
-	// 2. If the input handle is invalid and MALLOC_NO_POPULATE is present,
-	//	  the handle is initialized and memory is only reserved
-	// 3. If the input handle is valid and MALLOC_NO_POPULATE is not present,
-	//    memory is populated
+	// Memory will be reserved and/or populated, and the handle initialized
 	const _liblibc_map_type_t type = LIBLIBC_MAP_TYPE_PRIVATE |
-		((flags & VM_FLAGS_ANYWHERE) ? LIBLIBC_MAP_TYPE_NONE : LIBLIBC_MAP_TYPE_FIXED) |
-		((debug_flags & MALLOC_NO_POPULATE) ? LIBLIBC_MAP_TYPE_NOCOMMIT : LIBLIBC_MAP_TYPE_NONE) |
-		((debug_flags & DISABLE_ASLR) ? LIBLIBC_MAP_TYPE_NORAND : LIBLIBC_MAP_TYPE_NONE);
-	const _liblibc_map_perm_t perm = LIBLIBC_MAP_PERM_READ | LIBLIBC_MAP_PERM_WRITE;
-	void * __unsafe_indexable map = mmap_plat(map_out, addr, size, perm,
-			type, align, (unsigned)vm_page_label);
-	if (!map) {
+			((flags & VM_FLAGS_ANYWHERE) ? LIBLIBC_MAP_TYPE_NONE : LIBLIBC_MAP_TYPE_FIXED) |
+			((debug_flags & MALLOC_CAN_FAULT) ? LIBLIBC_MAP_TYPE_FAULTABLE : LIBLIBC_MAP_TYPE_NONE) |
+			((debug_flags & MALLOC_NO_POPULATE) ? LIBLIBC_MAP_TYPE_NOCOMMIT : LIBLIBC_MAP_TYPE_NONE) |
+			((debug_flags & DISABLE_ASLR) ? LIBLIBC_MAP_TYPE_NORAND : LIBLIBC_MAP_TYPE_NONE);
+	const _liblibc_map_perm_t perm = LIBLIBC_MAP_PERM_READ |
+			LIBLIBC_MAP_PERM_WRITE;
+	mapped = mmap_plat(map_out, addr, size, perm, type, align,
+			(unsigned)vm_page_label);
+	kr = errno;
+	// This message is not printed on non-exclaves targets. Certain code paths,
+	// like xzm_segment_group_try_realloc_huge_chunk, may fail under normal
+	// conditions, and would print a spurious message, but are disabled on
+	// exclaves.
+	if (!mapped) {
 		malloc_zone_error(debug_flags, false,
-			"Failed to allocate memory at address 0x%lx of size 0x%lx with flags %d: %d\n", addr, size, flags, errno);
+			"Failed to allocate memory at address 0x%lx of size 0x%lx with flags %d: %d\n", addr, size, flags, kr);
 	}
-	return __unsafe_forge_bidi_indexable(void *, map, size);
 #else
 	(void)map_out;
-	if (debug_flags & MALLOC_NO_POPULATE) {
+	if (debug_flags & (MALLOC_CAN_FAULT | MALLOC_NO_POPULATE)) {
 		// Pass MALLOC_ABORT_ON_ERROR to make this call abort
 		malloc_zone_error(MALLOC_ABORT_ON_ERROR | debug_flags, false,
 				"Unsupported unpopulated allocation at address 0x%lx of size 0x%lx with flags %d\n",
@@ -151,15 +154,14 @@ mvm_allocate_plat(uintptr_t addr, size_t size, uint8_t align, int flags, int deb
 
 	mach_vm_address_t vm_addr = addr;
 	mach_vm_offset_t allocation_mask = ((mach_vm_offset_t)1 << align) - 1;
-	kern_return_t kr = mach_vm_map(mach_task_self(), &vm_addr,
-			(mach_vm_size_t)size, allocation_mask,
-			flags | VM_MAKE_TAG(vm_page_label), MEMORY_OBJECT_NULL, 0, FALSE,
-			VM_PROT_DEFAULT, VM_PROT_ALL, VM_INHERIT_DEFAULT);
-	if (kr) {
-		return NULL;
-	}
-	return __unsafe_forge_bidi_indexable(void *, vm_addr, size);
+	kr = mach_vm_map(mach_task_self(), &vm_addr, (mach_vm_size_t)size,
+			allocation_mask, flags | VM_MAKE_TAG(vm_page_label),
+			MEMORY_OBJECT_NULL, 0, FALSE, VM_PROT_DEFAULT, VM_PROT_ALL,
+			VM_INHERIT_DEFAULT);
+	mapped = (kr == KERN_SUCCESS) ? (void *)vm_addr : NULL;
 #endif // MALLOC_TARGET_EXCLAVES
+
+	return __unsafe_forge_bidi_indexable(void *, mapped, size);
 }
 
 void * __sized_by_or_null(size)
@@ -303,20 +305,20 @@ retry:
 void
 mvm_deallocate_plat(void * __sized_by(size) addr, size_t size, int debug_flags, plat_map_t *map)
 {
+	kern_return_t kr;
+
 #if MALLOC_TARGET_EXCLAVES
-	if (!munmap_plat(map, addr, size)) {
-		malloc_zone_error(debug_flags, false,
-			"Failed to deallocate at address %p of size 0x%lx: %d\n", addr, size, errno);
-	}
+	kr = munmap_plat(map, addr, size) ? KERN_SUCCESS : errno;
 #else
 	(void)map;
-	kern_return_t kr = mach_vm_deallocate(mach_task_self(),
-		(mach_vm_address_t)addr, (mach_vm_size_t)size);
-	if (kr) {
+	kr = mach_vm_deallocate(mach_task_self(), (mach_vm_address_t)addr,
+			(mach_vm_size_t)size);
+#endif // MALLOC_TARGET_EXCLAVES
+
+	if (kr != KERN_SUCCESS) {
 		malloc_zone_error(debug_flags, false,
 			"Failed to deallocate at address %p of size 0x%lx: %d\n", addr, size, kr);
 	}
-#endif // MALLOC_TARGET_EXCLAVES
 }
 
 void
@@ -409,23 +411,26 @@ mvm_madvise(void * __sized_by(sz) addr, size_t sz, int advice, unsigned debug_fl
 int
 mvm_madvise_plat(void * __sized_by(sz) addr, size_t sz, int advice, unsigned debug_flags, plat_map_t *map)
 {
+	kern_return_t kr;
+
 #if MALLOC_TARGET_EXCLAVES
-	if (!(advice == MADV_FREE || advice == MADV_FREE_REUSABLE) ||
-		(debug_flags & (MALLOC_ADD_GUARD_PAGE_FLAGS | MALLOC_PURGEABLE))) {
+	if ((debug_flags & (MALLOC_ADD_GUARD_PAGE_FLAGS | MALLOC_PURGEABLE))) {
 		malloc_zone_error(MALLOC_ABORT_ON_ERROR | debug_flags, true,
-			"Unsupported allocation advice %d or debug flags %u\n", advice, debug_flags);
+			"Unsupported debug flags %u\n", debug_flags);
 	}
 
-	if (!madvise_plat(map, addr, sz, LIBLIBC_MAP_HINT_UNUSED)) {
-		return 1;
+	kr = !madvise_plat(map, addr, sz, advice) ? KERN_SUCCESS : errno;
+	if (kr != KERN_SUCCESS) {
+		malloc_zone_error(debug_flags, false,
+			"Failed to madvise %d at address %p of size 0x%lx: %d\n", advice,
+			addr, sz, kr);
 	}
 #else
 	(void)map;
-	if (madvise(addr, sz, advice) == -1) {
-		return 1;
-	}
+	kr = !madvise(addr, sz, advice) ? KERN_SUCCESS : errno;
 #endif // MALLOC_TARGET_EXCLAVES
-	return 0;
+
+	return !(kr == KERN_SUCCESS);
 }
 
 int
@@ -477,21 +482,36 @@ mvm_madvise_free_plat(void *rack, void *r, uintptr_t pgLo, uintptr_t pgHi, uintp
 	return 0;
 }
 
-#if CONFIG_DEFERRED_RECLAIM
-static struct mach_vm_reclaim_ringbuffer_v1_s reclaim_buffer;
+#if CONFIG_MAGAZINE_DEFERRED_RECLAIM
+static mach_vm_reclaim_ring_t reclaim_buffer;
 static _malloc_lock_s reclaim_buffer_lock = _MALLOC_LOCK_INIT;
 
-kern_return_t
+mach_vm_reclaim_error_t
 mvm_deferred_reclaim_init(void)
 {
-	return mach_vm_reclaim_ringbuffer_init(&reclaim_buffer);
+	// Pick a sane minimum number of entries and let vm_reclaim round up
+	// to a page boundary. The intention is for the initial size to be
+	// one page. We don't support ringbuffer growth on the legacy DRC, so
+	// the maximum size will be unmodified.
+	mach_vm_reclaim_count_t capacity = mach_vm_reclaim_round_capacity(512);
+	return mach_vm_reclaim_ring_allocate(&reclaim_buffer, capacity, capacity);
 }
 
 
 bool
-mvm_reclaim_mark_used(uint64_t id, mach_vm_address_t ptr, uint32_t size, unsigned int debug_flags)
+mvm_reclaim_mark_used(mach_vm_reclaim_id_t id, mach_vm_address_t ptr, mach_vm_size_t size, unsigned int debug_flags)
 {
-	bool used;
+	mach_vm_reclaim_error_t kr;
+	mach_vm_reclaim_state_t state;
+	bool update_accounting;
+
+	if (id == VM_RECLAIM_ID_NULL) {
+		// Region was never entered into ring
+		// FIXME: Understand why the all cache entries aren't being
+		// assigned reclaim IDs (rdar://137709029)
+		return true;
+	}
+
 	if (debug_flags & MALLOC_ADD_GUARD_PAGE_FLAGS) {
 		if (os_add_overflow(size, 2 * large_vm_page_quanta_size, &size)) {
 			return false;
@@ -499,35 +519,68 @@ mvm_reclaim_mark_used(uint64_t id, mach_vm_address_t ptr, uint32_t size, unsigne
 		ptr -= large_vm_page_quanta_size;
 	}
 	_malloc_lock_lock(&reclaim_buffer_lock);
-	used = mach_vm_reclaim_mark_used(&reclaim_buffer, id, ptr, size);
+	kr = mach_vm_reclaim_try_cancel(reclaim_buffer, id, ptr, size,
+			VM_RECLAIM_DEALLOCATE, &state, &update_accounting);
+	MALLOC_ASSERT(kr == VM_RECLAIM_SUCCESS);
 	_malloc_lock_unlock(&reclaim_buffer_lock);
-	return used;
+	if (update_accounting) {
+		mach_vm_reclaim_update_kernel_accounting(reclaim_buffer);
+	}
+	return mach_vm_reclaim_is_reusable(state);
 }
 
-uint64_t
-mvm_reclaim_mark_free(vm_address_t ptr, uint32_t size, unsigned int debug_flags)
+mach_vm_reclaim_id_t
+mvm_reclaim_mark_free(mach_vm_address_t ptr, mach_vm_size_t size, unsigned int debug_flags)
 {
-	uint64_t id;
+	mach_vm_reclaim_error_t kr;
+	mach_vm_reclaim_id_t id;
 	bool should_update_kernel_accounting = false;
 	if (debug_flags & MALLOC_ADD_GUARD_PAGE_FLAGS) {
 		if (os_add_overflow(size, 2 * large_vm_page_quanta_size, &size)) {
-			return VM_RECLAIM_INDEX_NULL;
+			return VM_RECLAIM_ID_NULL;
 		}
 		ptr -= large_vm_page_quanta_size;
 	}
+
 	_malloc_lock_lock(&reclaim_buffer_lock);
-	id = mach_vm_reclaim_mark_free(&reclaim_buffer, ptr, size,
-			MACH_VM_RECLAIM_DEALLOCATE, &should_update_kernel_accounting);
+
+	do {
+		id = VM_RECLAIM_ID_NULL;
+		kr = mach_vm_reclaim_try_enter(reclaim_buffer, ptr, size,
+				VM_RECLAIM_DEALLOCATE, &id, &should_update_kernel_accounting);
+		MALLOC_ASSERT(kr == VM_RECLAIM_SUCCESS);
+		if (id == VM_RECLAIM_ID_NULL) {
+			mach_vm_reclaim_count_t capacity;
+			kr = mach_vm_reclaim_ring_capacity(reclaim_buffer, &capacity);
+			MALLOC_ASSERT(kr == VM_RECLAIM_SUCCESS);
+			kr = mach_vm_reclaim_ring_flush(reclaim_buffer, capacity);
+			MALLOC_ASSERT(kr == VM_RECLAIM_SUCCESS);
+		}
+	} while (id == VM_RECLAIM_ID_NULL);
+
 	_malloc_lock_unlock(&reclaim_buffer_lock);
+
 	if (should_update_kernel_accounting) {
-		mach_vm_reclaim_update_kernel_accounting(&reclaim_buffer);
+		mach_vm_reclaim_update_kernel_accounting(reclaim_buffer);
 	}
 	return id;
 }
 
 bool
-mvm_reclaim_is_available(uint64_t id)
+mvm_reclaim_is_available(mach_vm_reclaim_id_t id)
 {
-	return mach_vm_reclaim_is_available(&reclaim_buffer, id);
+	mach_vm_reclaim_error_t err;
+	mach_vm_reclaim_state_t state;
+
+	if (id == VM_RECLAIM_ID_NULL) {
+		// Region was never entered into ring
+		// FIXME: Understand why the all cache entries aren't being
+		// assigned reclaim IDs (rdar://137709029)
+		return true;
+	}
+
+	err = mach_vm_reclaim_query_state(reclaim_buffer, id, VM_RECLAIM_DEALLOCATE, &state);
+	MALLOC_ASSERT(err == VM_RECLAIM_SUCCESS);
+	return mach_vm_reclaim_is_reusable(state);
 }
-#endif // CONFIG_DEFERRED_RECLAIM
+#endif // CONFIG_MAGAZINE_DEFERRED_RECLAIM

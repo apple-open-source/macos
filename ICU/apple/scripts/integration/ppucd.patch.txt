@@ -1,0 +1,43 @@
+/block;E000..F8FF;age=1.1;blk=PUA;ea=A;gc=Co;vo=U/ c\
+block;E000..F7EF;age=1.1;blk=PUA;ea=A;gc=Co;vo=U
+/# E000..F8FF Private Use Area/ c\
+# E000..F7EF Private Use Area\
+\
+# Apple Corp Chars\
+block;F7F0..F8FF;age=1.1;bc=ON;blk=PUA;ea=N;gc=So;lb=AL;sc=Zyyy\
+cp;F7F3..F84F;Gr_Base\
+cp;F850..F86F;ea=A\
+cp;F870..F87F;bc=NSM;ea=A;gc=Mn;GCB=EX;lb=CM;Gr_Ext;Case_Ignorable\
+cp;F880..F881;bc=L;ea=W;Gr_Base\
+cp;F882;bc=AL;gc=Lo;Alpha;Gr_Base\
+cp;F883;bc=R;gc=Sc;Gr_Base\
+cp;F884..F889;bc=NSM;gc=Mn;GCB=EX;lb=CM;Gr_Ext;Case_Ignorable\
+cp;F88A..F895;bc=NSM;gc=Mn;GCB=EX;lb=CM;Gr_Ext;Case_Ignorable\
+cp;F896..F899;bc=NSM;gc=Mn;GCB=EX;lb=CM;Gr_Ext;Case_Ignorable\
+cp;F89A..F89E;bc=R;gc=Lo;Alpha;Gr_Base\
+cp;F89F;bc=NSM;gc=Mn;GCB=EX;lb=CM;Gr_Ext;Case_Ignorable\
+cp;F8A0;bc=ET;gc=Sc;lb=PR;Gr_Base\
+cp;F8A1;bc=EN;ea=W;gc=No;nt=Di;nv=0;Gr_Base\
+cp;F8A2;bc=L;ea=W;gc=Nl;nt=Nu;nv=13;Alpha;Gr_Base\
+cp;F8A3;bc=L;ea=W;gc=Nl;nt=Nu;nv=14;Alpha;Gr_Base\
+cp;F8A4;bc=L;ea=W;gc=Nl;nt=Nu;nv=15;Alpha;Gr_Base\
+cp;F8A5;bc=L;ea=W;gc=Nl;nt=Nu;nv=13;Alpha;Gr_Base\
+cp;F8A6;bc=L;ea=W;gc=Nl;nt=Nu;nv=14;Alpha;Gr_Base\
+cp;F8A7;bc=L;ea=W;gc=Nl;nt=Nu;nv=15;Alpha;Gr_Base\
+cp;F8A8..F8AC;bc=L;ea=W;Gr_Base\
+cp;F8AD..F8B1;ea=W;Gr_Base\
+cp;F8B2..F8B3;bc=L;ea=W;Gr_Base\
+cp;F8B4;ea=W;gc=Pe;lb=CL;Gr_Base\
+cp;F8B5..F8B6;ea=W;gc=Po;lb=CL;Gr_Base\
+cp;F8B7;ea=F;gc=Po;lb=ID;Gr_Base\
+cp;F8B8;bc=L;ea=W;gc=Lm;lb=NS;Alpha;Gr_Base;Case_Ignorable\
+cp;F8B9;ea=W;gc=Pd;lb=BA;Gr_Base\
+cp;F8BA;ea=W;gc=Pd;lb=NS;Gr_Base\
+cp;F8BB;ea=W;gc=Po;lb=AI;Gr_Base\
+cp;F8BC;ea=F;gc=Sm;lb=ID;Math;Gr_Base\
+cp;F8BD;ea=W;gc=Sm;lb=IN;Math;Gr_Base\
+cp;F8BE;ea=F;gc=Ps;lb=OP;Gr_Base\
+cp;F8BF;ea=F;gc=Pe;lb=CL;Gr_Base\
+cp;F8C0;ea=F;gc=Sm;lb=ID;Math;Gr_Base\
+cp;F8C1..F8D6;bc=L;ea=W;gc=Lo;lb=NS;Alpha;Gr_Base\
+cp;F8D7..F8FF;Gr_Base

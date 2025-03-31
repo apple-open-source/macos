@@ -766,7 +766,7 @@ _gssapi_unwrap_cfx_iov(OM_uint32 *minor_status,
 
     /* we check exact below, this just for sanity */
     if (header->buffer.length < sizeof(*token)) {
-	_gss_mg_log(5, "cfxunwrap-iov token too short: %ld",
+	_gss_mg_log(5, "cfxunwrap-iov token too short: %lu",
 		    (unsigned long)header->buffer.length);
 	return GSS_S_DEFECTIVE_TOKEN;
     }
@@ -1408,7 +1408,7 @@ OM_uint32 _gssapi_unwrap_cfx(OM_uint32 *minor_status,
     *minor_status = 0;
 
     if (input_message_buffer->length < sizeof(token)) {
-	_gss_mg_log(5, "cfxunwrap token too short: %ld",
+	_gss_mg_log(5, "cfxunwrap token too short: %lu",
 		    (unsigned long)input_message_buffer->length);
 	return GSS_S_DEFECTIVE_TOKEN;
     }
@@ -1684,7 +1684,7 @@ OM_uint32 _gssapi_verify_mic_cfx(OM_uint32 *minor_status,
     *minor_status = 0;
 
     if (token_buffer->length < sizeof(token)) {
-	_gss_mg_log(5, "cfxverifymic token too short: %ld",
+	_gss_mg_log(5, "cfxverifymic token too short: %lu",
 		    (unsigned long)message_buffer->length);
 	return GSS_S_DEFECTIVE_TOKEN;
     }

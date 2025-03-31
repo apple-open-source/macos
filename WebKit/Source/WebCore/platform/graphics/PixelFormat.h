@@ -33,8 +33,13 @@ enum class PixelFormat : uint8_t {
     RGBA8,
     BGRX8,
     BGRA8,
+#if HAVE(IOSURFACE_RGB10)
     RGB10,
     RGB10A8,
+#endif
+#if HAVE(HDR_SUPPORT)
+    RGBA16F,
+#endif
 };
 
 WEBCORE_EXPORT TextStream& operator<<(TextStream&, PixelFormat);

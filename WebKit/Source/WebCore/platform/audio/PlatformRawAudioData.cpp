@@ -24,9 +24,11 @@
 #include "NotImplemented.h"
 #include <wtf/RefPtr.h>
 
+#if ENABLE(WEB_CODECS)
+
 namespace WebCore {
 
-#if !USE(GSTREAMER)
+#if !USE(GSTREAMER) && !USE(AVFOUNDATION)
 RefPtr<PlatformRawAudioData> PlatformRawAudioData::create(std::span<const uint8_t>, AudioSampleFormat, float, int64_t, size_t, size_t)
 {
     notImplemented();
@@ -40,3 +42,5 @@ void PlatformRawAudioData::copyTo(std::span<uint8_t>, AudioSampleFormat, size_t,
 #endif
 
 } // namespace WebCore
+
+#endif // ENABLE(WEB_CODECS)

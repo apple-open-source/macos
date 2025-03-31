@@ -20,6 +20,7 @@
 #include <stdlib.h>
 #include <limits.h>
 #include <unistd.h>
+#include <sys/param.h>
 
 #include "extern.h"
 
@@ -29,14 +30,13 @@
  * The buffer must be passed to free() by the caller.
  */
 char *
-symlink_read(const char *path)
+symlink_read(const char *path, size_t sz)
 {
 	char	*buf = NULL;
-	size_t	 sz;
 	ssize_t	 nsz = 0;
 	void	*pp;
 
-	for (sz = PATH_MAX; ; sz *= 2) {
+	while (true) {
 		if ((pp = realloc(buf, sz + 1)) == NULL) {
 			ERR("realloc");
 			free(buf);
@@ -44,7 +44,7 @@ symlink_read(const char *path)
 		}
 		buf = pp;
 
-		if ((nsz = readlink(path, buf, sz)) == -1) {
+		if ((nsz = readlink(path, buf, sz + 1)) == -1) {
 			ERR("%s: readlink", path);
 			free(buf);
 			return NULL;
@@ -52,8 +52,10 @@ symlink_read(const char *path)
 			ERRX("%s: empty link", path);
 			free(buf);
 			return NULL;
-		} else if ((size_t)nsz < sz)
+		} else if ((size_t)nsz < sz + 1)
 			break;
+
+		sz = roundup(sz + 1, PATH_MAX);
 	}
 
 	assert(buf != NULL);
@@ -68,14 +70,13 @@ symlink_read(const char *path)
  * The buffer must be passed to free() by the caller.
  */
 char *
-symlinkat_read(int fd, const char *path)
+symlinkat_read(int fd, const char *path, size_t sz)
 {
 	char	*buf = NULL;
-	size_t	 sz;
 	ssize_t	 nsz = 0;
 	void	*pp;
 
-	for (sz = PATH_MAX; ; sz *= 2) {
+	while (true) {
 		if ((pp = realloc(buf, sz + 1)) == NULL) {
 			ERR("realloc");
 			free(buf);
@@ -83,7 +84,7 @@ symlinkat_read(int fd, const char *path)
 		}
 		buf = pp;
 
-		if ((nsz = readlinkat(fd, path, buf, sz)) == -1) {
+		if ((nsz = readlinkat(fd, path, buf, sz + 1)) == -1) {
 			ERR("%s: readlinkat", path);
 			free(buf);
 			return NULL;
@@ -91,8 +92,10 @@ symlinkat_read(int fd, const char *path)
 			ERRX("%s: empty link", path);
 			free(buf);
 			return NULL;
-		} else if ((size_t)nsz < sz)
+		} else if ((size_t)nsz < sz + 1)
 			break;
+
+		sz = roundup(sz + 1, PATH_MAX);
 	}
 
 	assert(buf != NULL);

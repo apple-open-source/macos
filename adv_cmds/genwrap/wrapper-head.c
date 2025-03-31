@@ -31,6 +31,7 @@
 
 #include <assert.h>
 #include <err.h>
+#include <errno.h>
 #include <getopt.h>
 #include <limits.h>
 #include <regex.h>
@@ -40,6 +41,7 @@
 #include <string.h>
 #include <unistd.h>
 
+#include <os/log.h>
 #include <xpc/xpc.h>
 
 #if defined(WRAPPER_ANALYTICS_IDENT) && !defined(WRAPPER_ANALYTICS_TESTING)
@@ -116,4 +118,10 @@ struct application {
 	 * for selecting an application to execute.
 	 */
 	bool			 app_opts_logonly;
+
+	/*
+	 * We may be running in a sandbox, in which case we'll denote that here
+	 * to avoid too many access(2) calls.
+	 */
+	bool			 app_sandbox_failure;
 };

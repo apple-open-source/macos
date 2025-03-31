@@ -19,7 +19,6 @@
 #include <bsm/libbsm.h>
 #import <RunningBoardServices/RBSProcessHandle.h>
 #import <PowerLog/PerfPowerServicesTelemetry.h>
-#import <PerfPowerServicesMetadata/PerfPowerServicesMetadata.h>
 #include <AssertMacros.h>
 
 // Subsystem, Category, and Name constants for PerfPowerServices telemetry metrics

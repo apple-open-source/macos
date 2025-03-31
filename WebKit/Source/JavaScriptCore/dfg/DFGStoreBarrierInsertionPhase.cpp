@@ -109,8 +109,8 @@ public:
             // towards believing that all nodes need barriers. "Needing a barrier" is like
             // saying that the node is in a past epoch. "Not needing a barrier" is like saying
             // that the node is in the current epoch.
-            m_stateAtHead = makeUnique<BlockMap<HashSet<Node*>>>(m_graph);
-            m_stateAtTail = makeUnique<BlockMap<HashSet<Node*>>>(m_graph);
+            m_stateAtHead = makeUnique<BlockMap<UncheckedKeyHashSet<Node*>>>(m_graph);
+            m_stateAtTail = makeUnique<BlockMap<UncheckedKeyHashSet<Node*>>>(m_graph);
             
             BlockList postOrder = m_graph.blocksInPostOrder();
             
@@ -207,7 +207,7 @@ private:
 
         bool result = true;
 
-        HashMap<AbstractHeap, Node*> potentialStackEscapes;
+        UncheckedKeyHashMap<AbstractHeap, Node*> potentialStackEscapes;
         
         for (m_nodeIndex = 0; m_nodeIndex < block->size(); ++m_nodeIndex) {
             m_node = block->at(m_nodeIndex);
@@ -343,6 +343,7 @@ private:
                 
             case MultiPutByOffset:
             case MultiDeleteByOffset: {
+                // These nodes may cause transition too.
                 considerBarrier(m_node->child1());
                 break;
             }
@@ -383,6 +384,7 @@ private:
             case NewArray:
             case NewArrayWithSize:
             case NewArrayWithConstantSize:
+            case NewArrayWithSizeAndStructure:
             case NewArrayBuffer:
             case NewInternalFieldObject:
             case NewTypedArray:
@@ -663,8 +665,8 @@ private:
     // Things we only use in Global mode.
     std::unique_ptr<InPlaceAbstractState> m_state;
     std::unique_ptr<AbstractInterpreter<InPlaceAbstractState>> m_interpreter;
-    std::unique_ptr<BlockMap<HashSet<Node*>>> m_stateAtHead;
-    std::unique_ptr<BlockMap<HashSet<Node*>>> m_stateAtTail;
+    std::unique_ptr<BlockMap<UncheckedKeyHashSet<Node*>>> m_stateAtHead;
+    std::unique_ptr<BlockMap<UncheckedKeyHashSet<Node*>>> m_stateAtTail;
     bool m_isConverged;
 };
 

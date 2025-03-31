@@ -98,7 +98,8 @@ GstElement* GStreamerQuirkRialto::createWebAudioSink()
 
 std::optional<bool> GStreamerQuirkRialto::isHardwareAccelerated(GstElementFactory* factory)
 {
-    if (g_str_has_prefix(GST_OBJECT_NAME(factory), "rialto"))
+    auto view = StringView::fromLatin1(GST_OBJECT_NAME(factory));
+    if (view.startsWith("rialto"_s))
         return true;
 
     return std::nullopt;

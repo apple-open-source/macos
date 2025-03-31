@@ -11,7 +11,7 @@
 #include <err.h>
 
 #if !TARGET_OS_SIMULATOR
-#include <libaks.h>
+#include <AppleKeyStore/libaks.h>
 
 static NSData *
 BagMe(void)

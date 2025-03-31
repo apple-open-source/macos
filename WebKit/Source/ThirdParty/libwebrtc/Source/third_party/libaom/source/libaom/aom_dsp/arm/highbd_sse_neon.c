@@ -14,7 +14,7 @@
 #include "config/aom_dsp_rtcd.h"
 #include "aom_dsp/arm/sum_neon.h"
 
-static INLINE void highbd_sse_8x1_init_neon(const uint16_t *src,
+static inline void highbd_sse_8x1_init_neon(const uint16_t *src,
                                             const uint16_t *ref,
                                             uint32x4_t *sse_acc0,
                                             uint32x4_t *sse_acc1) {
@@ -29,7 +29,7 @@ static INLINE void highbd_sse_8x1_init_neon(const uint16_t *src,
   *sse_acc1 = vmull_u16(abs_diff_hi, abs_diff_hi);
 }
 
-static INLINE void highbd_sse_8x1_neon(const uint16_t *src, const uint16_t *ref,
+static inline void highbd_sse_8x1_neon(const uint16_t *src, const uint16_t *ref,
                                        uint32x4_t *sse_acc0,
                                        uint32x4_t *sse_acc1) {
   uint16x8_t s = vld1q_u16(src);
@@ -43,7 +43,7 @@ static INLINE void highbd_sse_8x1_neon(const uint16_t *src, const uint16_t *ref,
   *sse_acc1 = vmlal_u16(*sse_acc1, abs_diff_hi, abs_diff_hi);
 }
 
-static INLINE int64_t highbd_sse_128xh_neon(const uint16_t *src, int src_stride,
+static inline int64_t highbd_sse_128xh_neon(const uint16_t *src, int src_stride,
                                             const uint16_t *ref, int ref_stride,
                                             int height) {
   uint32x4_t sse[16];
@@ -92,7 +92,7 @@ static INLINE int64_t highbd_sse_128xh_neon(const uint16_t *src, int src_stride,
   return horizontal_long_add_u32x4_x16(sse);
 }
 
-static INLINE int64_t highbd_sse_64xh_neon(const uint16_t *src, int src_stride,
+static inline int64_t highbd_sse_64xh_neon(const uint16_t *src, int src_stride,
                                            const uint16_t *ref, int ref_stride,
                                            int height) {
   uint32x4_t sse[8];
@@ -125,7 +125,7 @@ static INLINE int64_t highbd_sse_64xh_neon(const uint16_t *src, int src_stride,
   return horizontal_long_add_u32x4_x8(sse);
 }
 
-static INLINE int64_t highbd_sse_32xh_neon(const uint16_t *src, int src_stride,
+static inline int64_t highbd_sse_32xh_neon(const uint16_t *src, int src_stride,
                                            const uint16_t *ref, int ref_stride,
                                            int height) {
   uint32x4_t sse[8];
@@ -150,7 +150,7 @@ static INLINE int64_t highbd_sse_32xh_neon(const uint16_t *src, int src_stride,
   return horizontal_long_add_u32x4_x8(sse);
 }
 
-static INLINE int64_t highbd_sse_16xh_neon(const uint16_t *src, int src_stride,
+static inline int64_t highbd_sse_16xh_neon(const uint16_t *src, int src_stride,
                                            const uint16_t *ref, int ref_stride,
                                            int height) {
   uint32x4_t sse[4];
@@ -171,7 +171,7 @@ static INLINE int64_t highbd_sse_16xh_neon(const uint16_t *src, int src_stride,
   return horizontal_long_add_u32x4_x4(sse);
 }
 
-static INLINE int64_t highbd_sse_8xh_neon(const uint16_t *src, int src_stride,
+static inline int64_t highbd_sse_8xh_neon(const uint16_t *src, int src_stride,
                                           const uint16_t *ref, int ref_stride,
                                           int height) {
   uint32x4_t sse[2];
@@ -190,7 +190,7 @@ static INLINE int64_t highbd_sse_8xh_neon(const uint16_t *src, int src_stride,
   return horizontal_long_add_u32x4_x2(sse);
 }
 
-static INLINE int64_t highbd_sse_4xh_neon(const uint16_t *src, int src_stride,
+static inline int64_t highbd_sse_4xh_neon(const uint16_t *src, int src_stride,
                                           const uint16_t *ref, int ref_stride,
                                           int height) {
   // Peel the first loop iteration.
@@ -217,7 +217,7 @@ static INLINE int64_t highbd_sse_4xh_neon(const uint16_t *src, int src_stride,
   return horizontal_long_add_u32x4(sse);
 }
 
-static INLINE int64_t highbd_sse_wxh_neon(const uint16_t *src, int src_stride,
+static inline int64_t highbd_sse_wxh_neon(const uint16_t *src, int src_stride,
                                           const uint16_t *ref, int ref_stride,
                                           int width, int height) {
   // { 0, 1, 2, 3, 4, 5, 6, 7 }

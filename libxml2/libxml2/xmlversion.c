@@ -26,6 +26,20 @@ bool linkedOnOrAfterFall2022OSVersions(void)
     });
     return result;
 #else
-    return true;
+    return false;
+#endif
+}
+
+bool linkedOnOrAfter2024EReleases(void)
+{
+#ifdef LIBXML_LINKED_ON_OR_AFTER_MACOS15_4_IOS18_4_WATCHOS11_4_TVOS18_4_VISIONOS2_4
+    static bool result;
+    static dispatch_once_t once;
+    dispatch_once(&once, ^{
+        result = dyld_program_sdk_at_least(dyld_2024_SU_E_os_versions);
+    });
+    return result;
+#else
+    return false;
 #endif
 }

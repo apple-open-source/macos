@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023 Klara, Inc.
+ * Copyright (c) 2023, Klara, Inc.
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -118,6 +118,7 @@ cleanup_hold(struct cleanup_ctx *ctx)
 		sigaddset(&set, SIGHUP);
 		sigaddset(&set, SIGINT);
 		sigaddset(&set, SIGTERM);
+		sigaddset(&set, SIGPIPE);
 
 		sigprocmask(SIG_BLOCK, &set, &ctx->holdmask);
 
@@ -131,6 +132,7 @@ cleanup_hold(struct cleanup_ctx *ctx)
 		sigdelset(&ctx->holdmask, SIGHUP);
 		sigdelset(&ctx->holdmask, SIGINT);
 		sigdelset(&ctx->holdmask, SIGTERM);
+		sigdelset(&ctx->holdmask, SIGPIPE);
 	}
 }
 
@@ -171,6 +173,7 @@ cleanup_init(struct cleanup_ctx *ctx)
 	signal(SIGHUP, cleanup_signaled);
 	signal(SIGINT, cleanup_signaled);
 	signal(SIGTERM, cleanup_signaled);
+	signal(SIGPIPE, cleanup_signaled);
 
 	cleanup_hold(ctx);
 }
@@ -225,6 +228,11 @@ cleanup_run_impl(int code, bool signal_ctx)
 	 * We'll use SIGUSR1 to kill off any remaining children; ignore it now.
 	 */
 	signal(SIGUSR1, SIG_IGN);
+
+	/*
+	 * If we get a SIGPIPE, we'll get more, ignore them from now on.
+	 */
+	signal(SIGPIPE, SIG_IGN);
 
 	depth = ctx->depth++;
 
@@ -295,13 +303,18 @@ rsync_cleanup_reap_child(struct cleanup_ctx *ctx)
 		if (pid != child)
 			continue;
 
-		/*
-		 * rsync will inexplicably inherit a higher-level exit status
-		 * from the child; let's be compatible.
-		 */
-		st = WEXITSTATUS(st);
-		if (st > ctx->exitstatus)
-			ctx->exitstatus = st;
+		if (WIFEXITED(st)) {
+			st = WEXITSTATUS(st);
+
+			/*
+			 * rsync will inexplicably inherit a higher-level exit
+			 * status from the child; let's be compatible.
+			 */
+			if (st > ctx->exitstatus)
+				ctx->exitstatus = st;
+		}
+
+		ctx->child_pid = 0;
 	}
 }
 
@@ -328,6 +341,8 @@ rsync_cleanup_child(struct cleanup_ctx *ctx)
 	 */
 	if (ctx->exitstatus == 0)
 		return;
-
-	kill(0, SIGUSR1);
+	if (ctx->child_pid > 0) {
+		kill(ctx->child_pid, SIGUSR1);
+		ctx->child_pid = 0;
+	}
 }

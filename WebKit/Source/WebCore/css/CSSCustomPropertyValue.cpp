@@ -81,7 +81,7 @@ String CSSCustomPropertyValue::customCSSText() const
             return CSSPrimitiveValue::create(value, RenderStyle::defaultStyle())->cssText();
         }, [&](const NumericSyntaxValue& value) {
             return CSSPrimitiveValue::create(value.value, value.unitType)->cssText();
-        }, [&](const StyleColor& value) {
+        }, [&](const Style::Color& value) {
             return serializationForCSS(value);
         }, [&](const RefPtr<StyleImage>& value) {
             // FIXME: This is not right for gradients that use `currentcolor`. There should be a way preserve it.
@@ -198,7 +198,7 @@ static bool mayDependOnBaseURL(const CSSCustomPropertyValue::SyntaxValue& syntax
         [](const CSSCustomPropertyValue::NumericSyntaxValue&) {
             return false;
         },
-        [](const StyleColor&) {
+        [](const Style::Color&) {
             return false;
         },
         [](const RefPtr<StyleImage>&) {

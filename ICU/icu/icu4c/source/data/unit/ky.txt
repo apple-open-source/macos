@@ -269,6 +269,12 @@ ky{
                 one{"{0} наносекунд"}
                 other{"{0} наносекунд"}
             }
+            night{
+                dnam{"түн"}
+                one{"{0}/түн"}
+                other{"{0}/түн"}
+                per{"{0}/түнүнө"}
+            }
             quarter{
                 dnam{"чейрек"}
                 one{"{0}/чейрек"}
@@ -631,6 +637,11 @@ ky{
                 one{"{0} түйүн"}
                 other{"{0} түйүн"}
             }
+            light-speed{
+                dnam{"жарык"}
+                one{"{0} жарык"}
+                other{"{0} жарык"}
+            }
             meter-per-second{
                 dnam{"секундасына метр"}
                 one{"секундасына {0} метр"}
@@ -862,6 +873,12 @@ ky{
             minute{
                 dnam{"мүн"}
             }
+            night{
+                dnam{"түн"}
+                one{"{0}/түн"}
+                other{"{0}/түн"}
+                per{"{0}/түн"}
+            }
             quarter{
                 one{"{0}/ч"}
                 other{"{0}/ч"}
@@ -951,6 +968,11 @@ ky{
             }
         }
         speed{
+            light-speed{
+                dnam{"жарык"}
+                one{"{0} жарык"}
+                other{"{0} жарык"}
+            }
             meter-per-second{
                 one{"{0} м/с"}
                 other{"{0} м/с"}
@@ -1282,6 +1304,12 @@ ky{
                 dnam{"наносек"}
                 one{"{0} нс"}
                 other{"{0} нс"}
+            }
+            night{
+                dnam{"түн"}
+                one{"{0}/түн"}
+                other{"{0}/түн"}
+                per{"{0}/түн"}
             }
             quarter{
                 dnam{"чрк"}
@@ -1656,6 +1684,11 @@ ky{
                 dnam{"тн"}
                 one{"{0} тн"}
                 other{"{0} тн"}
+            }
+            light-speed{
+                dnam{"жарык"}
+                one{"{0} жарык"}
+                other{"{0} жарык"}
             }
             meter-per-second{
                 dnam{"метр/сек."}

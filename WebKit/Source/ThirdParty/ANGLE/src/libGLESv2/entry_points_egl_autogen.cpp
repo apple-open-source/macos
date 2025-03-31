@@ -32,6 +32,7 @@ EGLBoolean EGLAPIENTRY EGL_ChooseConfig(EGLDisplay dpy,
 {
 
     Thread *thread = egl::GetCurrentThread();
+    ASSERT(!egl::Display::GetCurrentThreadUnlockedTailCall()->any());
     EGLBoolean returnValue;
     {
         ANGLE_SCOPED_GLOBAL_LOCK();
@@ -73,6 +74,7 @@ EGLBoolean EGLAPIENTRY EGL_CopyBuffers(EGLDisplay dpy,
 {
 
     Thread *thread = egl::GetCurrentThread();
+    ASSERT(!egl::Display::GetCurrentThreadUnlockedTailCall()->any());
     EGLBoolean returnValue;
     {
         ANGLE_SCOPED_GLOBAL_LOCK();
@@ -111,6 +113,7 @@ EGLContext EGLAPIENTRY EGL_CreateContext(EGLDisplay dpy,
 {
 
     Thread *thread = egl::GetCurrentThread();
+    ASSERT(!egl::Display::GetCurrentThreadUnlockedTailCall()->any());
     EGLContext returnValue;
     {
         ANGLE_SCOPED_GLOBAL_LOCK();
@@ -154,6 +157,7 @@ EGLSurface EGLAPIENTRY EGL_CreatePbufferSurface(EGLDisplay dpy,
 {
 
     Thread *thread = egl::GetCurrentThread();
+    ASSERT(!egl::Display::GetCurrentThreadUnlockedTailCall()->any());
     EGLSurface returnValue;
     {
         ANGLE_SCOPED_GLOBAL_LOCK();
@@ -195,6 +199,7 @@ EGLSurface EGLAPIENTRY EGL_CreatePixmapSurface(EGLDisplay dpy,
 {
 
     Thread *thread = egl::GetCurrentThread();
+    ASSERT(!egl::Display::GetCurrentThreadUnlockedTailCall()->any());
     EGLSurface returnValue;
     {
         ANGLE_SCOPED_GLOBAL_LOCK();
@@ -237,6 +242,7 @@ EGLSurface EGLAPIENTRY EGL_CreateWindowSurface(EGLDisplay dpy,
 {
 
     Thread *thread = egl::GetCurrentThread();
+    ASSERT(!egl::Display::GetCurrentThreadUnlockedTailCall()->any());
     EGLSurface returnValue;
     {
         ANGLE_SCOPED_GLOBAL_LOCK();
@@ -276,6 +282,7 @@ EGLBoolean EGLAPIENTRY EGL_DestroyContext(EGLDisplay dpy, EGLContext ctx)
 {
 
     Thread *thread = egl::GetCurrentThread();
+    ASSERT(!egl::Display::GetCurrentThreadUnlockedTailCall()->any());
     EGLBoolean returnValue;
     {
         ANGLE_SCOPED_GLOBAL_LOCK();
@@ -309,6 +316,7 @@ EGLBoolean EGLAPIENTRY EGL_DestroySurface(EGLDisplay dpy, EGLSurface surface)
 {
 
     Thread *thread = egl::GetCurrentThread();
+    ASSERT(!egl::Display::GetCurrentThreadUnlockedTailCall()->any());
     EGLBoolean returnValue;
     {
         ANGLE_SCOPED_GLOBAL_LOCK();
@@ -345,6 +353,7 @@ EGLBoolean EGLAPIENTRY EGL_GetConfigAttrib(EGLDisplay dpy,
 {
 
     Thread *thread = egl::GetCurrentThread();
+    ASSERT(!egl::Display::GetCurrentThreadUnlockedTailCall()->any());
     EGLBoolean returnValue;
     {
         ANGLE_SCOPED_GLOBAL_LOCK();
@@ -384,6 +393,7 @@ EGLBoolean EGLAPIENTRY EGL_GetConfigs(EGLDisplay dpy,
 {
 
     Thread *thread = egl::GetCurrentThread();
+    ASSERT(!egl::Display::GetCurrentThreadUnlockedTailCall()->any());
     EGLBoolean returnValue;
     {
         ANGLE_SCOPED_GLOBAL_LOCK();
@@ -419,6 +429,7 @@ EGLDisplay EGLAPIENTRY EGL_GetCurrentDisplay()
 {
 
     Thread *thread = egl::GetCurrentThread();
+    ASSERT(!egl::Display::GetCurrentThreadUnlockedTailCall()->any());
     EGLDisplay returnValue;
 
     EGL_EVENT(GetCurrentDisplay, "");
@@ -443,6 +454,7 @@ EGLSurface EGLAPIENTRY EGL_GetCurrentSurface(EGLint readdraw)
 {
 
     Thread *thread = egl::GetCurrentThread();
+    ASSERT(!egl::Display::GetCurrentThreadUnlockedTailCall()->any());
     EGLSurface returnValue;
 
     EGL_EVENT(GetCurrentSurface, "readdraw = %d", readdraw);
@@ -467,6 +479,7 @@ EGLDisplay EGLAPIENTRY EGL_GetDisplay(EGLNativeDisplayType display_id)
 {
 
     Thread *thread = egl::GetCurrentThread();
+    ASSERT(!egl::Display::GetCurrentThreadUnlockedTailCall()->any());
     EGLDisplay returnValue;
     {
         ANGLE_SCOPED_GLOBAL_LOCK();
@@ -495,6 +508,7 @@ EGLint EGLAPIENTRY EGL_GetError()
 {
 
     Thread *thread = egl::GetCurrentThread();
+    ASSERT(!egl::Display::GetCurrentThreadUnlockedTailCall()->any());
     EGLint returnValue;
 
     EGL_EVENT(GetError, "");
@@ -519,6 +533,7 @@ __eglMustCastToProperFunctionPointerType EGLAPIENTRY EGL_GetProcAddress(const ch
 {
 
     Thread *thread = egl::GetCurrentThread();
+    ASSERT(!egl::Display::GetCurrentThreadUnlockedTailCall()->any());
     __eglMustCastToProperFunctionPointerType returnValue;
     {
         ANGLE_SCOPED_GLOBAL_LOCK();
@@ -548,9 +563,10 @@ EGLBoolean EGLAPIENTRY EGL_Initialize(EGLDisplay dpy, EGLint *major, EGLint *min
 {
 
     Thread *thread = egl::GetCurrentThread();
+    ASSERT(!egl::Display::GetCurrentThreadUnlockedTailCall()->any());
     EGLBoolean returnValue;
     {
-        ANGLE_SCOPED_GLOBAL_LOCK();
+        ANGLE_SCOPED_GLOBAL_EGL_AND_EGL_SYNC_LOCK();
         EGL_EVENT(Initialize,
                   "dpy = 0x%016" PRIxPTR ", major = 0x%016" PRIxPTR ", minor = 0x%016" PRIxPTR "",
                   (uintptr_t)dpy, (uintptr_t)major, (uintptr_t)minor);
@@ -584,6 +600,7 @@ EGLBoolean EGLAPIENTRY EGL_MakeCurrent(EGLDisplay dpy,
 {
 
     Thread *thread = egl::GetCurrentThread();
+    ASSERT(!egl::Display::GetCurrentThreadUnlockedTailCall()->any());
     EGLBoolean returnValue;
     {
         ANGLE_SCOPED_GLOBAL_LOCK();
@@ -625,6 +642,7 @@ EGLBoolean EGLAPIENTRY EGL_QueryContext(EGLDisplay dpy,
 {
 
     Thread *thread = egl::GetCurrentThread();
+    ASSERT(!egl::Display::GetCurrentThreadUnlockedTailCall()->any());
     EGLBoolean returnValue;
     {
         ANGLE_SCOPED_GLOBAL_LOCK();
@@ -661,6 +679,7 @@ const char *EGLAPIENTRY EGL_QueryString(EGLDisplay dpy, EGLint name)
 {
 
     Thread *thread = egl::GetCurrentThread();
+    ASSERT(!egl::Display::GetCurrentThreadUnlockedTailCall()->any());
     const char *returnValue;
     {
         ANGLE_SCOPED_GLOBAL_LOCK();
@@ -698,6 +717,7 @@ EGLBoolean EGLAPIENTRY EGL_QuerySurface(EGLDisplay dpy,
         ANGLE_EGLBOOLEAN_TRY(EGL_PrepareSwapBuffersANGLE(dpy, surface));
     }
     Thread *thread = egl::GetCurrentThread();
+    ASSERT(!egl::Display::GetCurrentThreadUnlockedTailCall()->any());
     EGLBoolean returnValue;
     {
         ANGLE_SCOPED_GLOBAL_LOCK();
@@ -734,6 +754,7 @@ EGLBoolean EGLAPIENTRY EGL_SwapBuffers(EGLDisplay dpy, EGLSurface surface)
 {
     ANGLE_EGLBOOLEAN_TRY(EGL_PrepareSwapBuffersANGLE(dpy, surface));
     Thread *thread = egl::GetCurrentThread();
+    ASSERT(!egl::Display::GetCurrentThreadUnlockedTailCall()->any());
     EGLBoolean returnValue;
     {
         ANGLE_SCOPED_GLOBAL_LOCK();
@@ -767,9 +788,10 @@ EGLBoolean EGLAPIENTRY EGL_Terminate(EGLDisplay dpy)
 {
 
     Thread *thread = egl::GetCurrentThread();
+    ASSERT(!egl::Display::GetCurrentThreadUnlockedTailCall()->any());
     EGLBoolean returnValue;
     {
-        ANGLE_SCOPED_GLOBAL_LOCK();
+        ANGLE_SCOPED_GLOBAL_EGL_AND_EGL_SYNC_LOCK();
         EGL_EVENT(Terminate, "dpy = 0x%016" PRIxPTR "", (uintptr_t)dpy);
 
         egl::Display *dpyPacked = PackParam<egl::Display *>(dpy);
@@ -798,6 +820,7 @@ EGLBoolean EGLAPIENTRY EGL_WaitGL()
 {
 
     Thread *thread = egl::GetCurrentThread();
+    ASSERT(!egl::Display::GetCurrentThreadUnlockedTailCall()->any());
     EGLBoolean returnValue;
     {
         ANGLE_SCOPED_GLOBAL_LOCK();
@@ -826,6 +849,7 @@ EGLBoolean EGLAPIENTRY EGL_WaitNative(EGLint engine)
 {
 
     Thread *thread = egl::GetCurrentThread();
+    ASSERT(!egl::Display::GetCurrentThreadUnlockedTailCall()->any());
     EGLBoolean returnValue;
     {
         ANGLE_SCOPED_GLOBAL_LOCK();
@@ -855,6 +879,7 @@ EGLBoolean EGLAPIENTRY EGL_BindTexImage(EGLDisplay dpy, EGLSurface surface, EGLi
 {
 
     Thread *thread = egl::GetCurrentThread();
+    ASSERT(!egl::Display::GetCurrentThreadUnlockedTailCall()->any());
     EGLBoolean returnValue;
     {
         ANGLE_SCOPED_GLOBAL_LOCK();
@@ -889,6 +914,7 @@ EGLBoolean EGLAPIENTRY EGL_ReleaseTexImage(EGLDisplay dpy, EGLSurface surface, E
 {
 
     Thread *thread = egl::GetCurrentThread();
+    ASSERT(!egl::Display::GetCurrentThreadUnlockedTailCall()->any());
     EGLBoolean returnValue;
     {
         ANGLE_SCOPED_GLOBAL_LOCK();
@@ -927,6 +953,7 @@ EGLBoolean EGLAPIENTRY EGL_SurfaceAttrib(EGLDisplay dpy,
 {
 
     Thread *thread = egl::GetCurrentThread();
+    ASSERT(!egl::Display::GetCurrentThreadUnlockedTailCall()->any());
     EGLBoolean returnValue;
     {
         ANGLE_SCOPED_GLOBAL_LOCK();
@@ -963,6 +990,7 @@ EGLBoolean EGLAPIENTRY EGL_SwapInterval(EGLDisplay dpy, EGLint interval)
 {
 
     Thread *thread = egl::GetCurrentThread();
+    ASSERT(!egl::Display::GetCurrentThreadUnlockedTailCall()->any());
     EGLBoolean returnValue;
     {
         ANGLE_SCOPED_GLOBAL_LOCK();
@@ -995,6 +1023,7 @@ EGLBoolean EGLAPIENTRY EGL_BindAPI(EGLenum api)
 {
 
     Thread *thread = egl::GetCurrentThread();
+    ASSERT(!egl::Display::GetCurrentThreadUnlockedTailCall()->any());
     EGLBoolean returnValue;
     {
         ANGLE_SCOPED_GLOBAL_LOCK();
@@ -1027,6 +1056,7 @@ EGLSurface EGLAPIENTRY EGL_CreatePbufferFromClientBuffer(EGLDisplay dpy,
 {
 
     Thread *thread = egl::GetCurrentThread();
+    ASSERT(!egl::Display::GetCurrentThreadUnlockedTailCall()->any());
     EGLSurface returnValue;
     {
         ANGLE_SCOPED_GLOBAL_LOCK();
@@ -1068,6 +1098,7 @@ EGLenum EGLAPIENTRY EGL_QueryAPI()
 {
 
     Thread *thread = egl::GetCurrentThread();
+    ASSERT(!egl::Display::GetCurrentThreadUnlockedTailCall()->any());
     EGLenum returnValue;
     {
         ANGLE_SCOPED_GLOBAL_LOCK();
@@ -1096,9 +1127,10 @@ EGLBoolean EGLAPIENTRY EGL_ReleaseThread()
 {
 
     Thread *thread = egl::GetCurrentThread();
+    ASSERT(!egl::Display::GetCurrentThreadUnlockedTailCall()->any());
     EGLBoolean returnValue;
     {
-        ANGLE_SCOPED_GLOBAL_LOCK();
+        ANGLE_SCOPED_GLOBAL_EGL_AND_EGL_SYNC_LOCK();
         EGL_EVENT(ReleaseThread, "");
 
         {
@@ -1124,6 +1156,7 @@ EGLBoolean EGLAPIENTRY EGL_WaitClient()
 {
 
     Thread *thread = egl::GetCurrentThread();
+    ASSERT(!egl::Display::GetCurrentThreadUnlockedTailCall()->any());
     EGLBoolean returnValue;
     {
         ANGLE_SCOPED_GLOBAL_LOCK();
@@ -1153,6 +1186,7 @@ EGLContext EGLAPIENTRY EGL_GetCurrentContext()
 {
 
     Thread *thread = egl::GetCurrentThread();
+    ASSERT(!egl::Display::GetCurrentThreadUnlockedTailCall()->any());
     EGLContext returnValue;
 
     EGL_EVENT(GetCurrentContext, "");
@@ -1178,9 +1212,10 @@ EGLint EGLAPIENTRY EGL_ClientWaitSync(EGLDisplay dpy, EGLSync sync, EGLint flags
 {
 
     Thread *thread = egl::GetCurrentThread();
+    ASSERT(!egl::Display::GetCurrentThreadUnlockedTailCall()->any());
     EGLint returnValue;
     {
-        ANGLE_SCOPED_GLOBAL_LOCK();
+        ANGLE_SCOPED_GLOBAL_EGL_SYNC_LOCK();
         EGL_EVENT(ClientWaitSync,
                   "dpy = 0x%016" PRIxPTR ", sync = 0x%016" PRIxPTR ", flags = %d, timeout = %llu",
                   (uintptr_t)dpy, (uintptr_t)sync, flags, static_cast<unsigned long long>(timeout));
@@ -1189,7 +1224,7 @@ EGLint EGLAPIENTRY EGL_ClientWaitSync(EGLDisplay dpy, EGLSync sync, EGLint flags
         egl::SyncID syncPacked  = PackParam<egl::SyncID>(sync);
 
         {
-            ANGLE_EGL_SCOPED_CONTEXT_LOCK(ClientWaitSync, thread, dpyPacked);
+            ANGLE_EGL_SCOPED_CONTEXT_LOCK(ClientWaitSync, thread, dpyPacked, flags);
             if (IsEGLValidationEnabled())
             {
                 ANGLE_EGL_VALIDATE(thread, ClientWaitSync, GetDisplayIfValid(dpyPacked), EGLint,
@@ -1217,6 +1252,7 @@ EGLImage EGLAPIENTRY EGL_CreateImage(EGLDisplay dpy,
 {
 
     Thread *thread = egl::GetCurrentThread();
+    ASSERT(!egl::Display::GetCurrentThreadUnlockedTailCall()->any());
     EGLImage returnValue;
     {
         ANGLE_SCOPED_GLOBAL_LOCK();
@@ -1260,6 +1296,7 @@ EGLSurface EGLAPIENTRY EGL_CreatePlatformPixmapSurface(EGLDisplay dpy,
 {
 
     Thread *thread = egl::GetCurrentThread();
+    ASSERT(!egl::Display::GetCurrentThreadUnlockedTailCall()->any());
     EGLSurface returnValue;
     {
         ANGLE_SCOPED_GLOBAL_LOCK();
@@ -1304,6 +1341,7 @@ EGLSurface EGLAPIENTRY EGL_CreatePlatformWindowSurface(EGLDisplay dpy,
 {
 
     Thread *thread = egl::GetCurrentThread();
+    ASSERT(!egl::Display::GetCurrentThreadUnlockedTailCall()->any());
     EGLSurface returnValue;
     {
         ANGLE_SCOPED_GLOBAL_LOCK();
@@ -1345,9 +1383,10 @@ EGLSync EGLAPIENTRY EGL_CreateSync(EGLDisplay dpy, EGLenum type, const EGLAttrib
 {
 
     Thread *thread = egl::GetCurrentThread();
+    ASSERT(!egl::Display::GetCurrentThreadUnlockedTailCall()->any());
     EGLSync returnValue;
     {
-        ANGLE_SCOPED_GLOBAL_LOCK();
+        ANGLE_SCOPED_GLOBAL_EGL_SYNC_LOCK();
         EGL_EVENT(CreateSync,
                   "dpy = 0x%016" PRIxPTR ", type = 0x%X, attrib_list = 0x%016" PRIxPTR "",
                   (uintptr_t)dpy, type, (uintptr_t)attrib_list);
@@ -1381,6 +1420,7 @@ EGLBoolean EGLAPIENTRY EGL_DestroyImage(EGLDisplay dpy, EGLImage image)
 {
 
     Thread *thread = egl::GetCurrentThread();
+    ASSERT(!egl::Display::GetCurrentThreadUnlockedTailCall()->any());
     EGLBoolean returnValue;
     {
         ANGLE_SCOPED_GLOBAL_LOCK();
@@ -1414,9 +1454,10 @@ EGLBoolean EGLAPIENTRY EGL_DestroySync(EGLDisplay dpy, EGLSync sync)
 {
 
     Thread *thread = egl::GetCurrentThread();
+    ASSERT(!egl::Display::GetCurrentThreadUnlockedTailCall()->any());
     EGLBoolean returnValue;
     {
-        ANGLE_SCOPED_GLOBAL_LOCK();
+        ANGLE_SCOPED_GLOBAL_EGL_SYNC_LOCK();
         EGL_EVENT(DestroySync, "dpy = 0x%016" PRIxPTR ", sync = 0x%016" PRIxPTR "", (uintptr_t)dpy,
                   (uintptr_t)sync);
 
@@ -1449,6 +1490,7 @@ EGLDisplay EGLAPIENTRY EGL_GetPlatformDisplay(EGLenum platform,
 {
 
     Thread *thread = egl::GetCurrentThread();
+    ASSERT(!egl::Display::GetCurrentThreadUnlockedTailCall()->any());
     EGLDisplay returnValue;
     {
         ANGLE_SCOPED_GLOBAL_LOCK();
@@ -1488,9 +1530,10 @@ EGLBoolean EGLAPIENTRY EGL_GetSyncAttrib(EGLDisplay dpy,
 {
 
     Thread *thread = egl::GetCurrentThread();
+    ASSERT(!egl::Display::GetCurrentThreadUnlockedTailCall()->any());
     EGLBoolean returnValue;
     {
-        ANGLE_SCOPED_GLOBAL_LOCK();
+        ANGLE_SCOPED_GLOBAL_EGL_SYNC_LOCK();
         EGL_EVENT(GetSyncAttrib,
                   "dpy = 0x%016" PRIxPTR ", sync = 0x%016" PRIxPTR
                   ", attribute = %d, value = 0x%016" PRIxPTR "",
@@ -1524,9 +1567,10 @@ EGLBoolean EGLAPIENTRY EGL_WaitSync(EGLDisplay dpy, EGLSync sync, EGLint flags)
 {
 
     Thread *thread = egl::GetCurrentThread();
+    ASSERT(!egl::Display::GetCurrentThreadUnlockedTailCall()->any());
     EGLBoolean returnValue;
     {
-        ANGLE_SCOPED_GLOBAL_LOCK();
+        ANGLE_SCOPED_GLOBAL_EGL_SYNC_LOCK();
         EGL_EVENT(WaitSync, "dpy = 0x%016" PRIxPTR ", sync = 0x%016" PRIxPTR ", flags = %d",
                   (uintptr_t)dpy, (uintptr_t)sync, flags);
 
@@ -1534,7 +1578,7 @@ EGLBoolean EGLAPIENTRY EGL_WaitSync(EGLDisplay dpy, EGLSync sync, EGLint flags)
         egl::SyncID syncPacked  = PackParam<egl::SyncID>(sync);
 
         {
-            ANGLE_EGL_SCOPED_CONTEXT_LOCK(WaitSync, thread, dpyPacked);
+            ANGLE_EGL_SCOPED_CONTEXT_LOCK(WaitSync, thread, dpyPacked, flags);
             if (IsEGLValidationEnabled())
             {
                 ANGLE_EGL_VALIDATE(thread, WaitSync, GetDisplayIfValid(dpyPacked), EGLBoolean,

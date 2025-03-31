@@ -850,6 +850,24 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		315F36B02D557A2700974802 /* runsuite.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = runsuite.c; sourceTree = "<group>"; };
+		315F36B12D557A2700974802 /* testAutomata.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = testAutomata.c; sourceTree = "<group>"; };
+		315F36B22D557A2700974802 /* testC14N.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = testC14N.c; sourceTree = "<group>"; };
+		315F36B32D557A2700974802 /* testdso.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = testdso.c; sourceTree = "<group>"; };
+		315F36B42D557A2700974802 /* testHTML.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = testHTML.c; sourceTree = "<group>"; };
+		315F36B52D557A2700974802 /* testlimits.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = testlimits.c; sourceTree = "<group>"; };
+		315F36B62D557A2700974802 /* testModule.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = testModule.c; sourceTree = "<group>"; };
+		315F36B72D557A2700974802 /* testOOM.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = testOOM.c; sourceTree = "<group>"; };
+		315F36B82D557A2700974802 /* testOOMlib.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = testOOMlib.c; sourceTree = "<group>"; };
+		315F36B92D557A2700974802 /* testReader.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = testReader.c; sourceTree = "<group>"; };
+		315F36BA2D557A2700974802 /* testRegexp.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = testRegexp.c; sourceTree = "<group>"; };
+		315F36BB2D557A2700974802 /* testRelax.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = testRelax.c; sourceTree = "<group>"; };
+		315F36BC2D557A2700974802 /* testSAX.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = testSAX.c; sourceTree = "<group>"; };
+		315F36BD2D557A2700974802 /* testSchemas.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = testSchemas.c; sourceTree = "<group>"; };
+		315F36BE2D557A2700974802 /* testThreads.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = testThreads.c; sourceTree = "<group>"; };
+		315F36BF2D557A2700974802 /* testURI.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = testURI.c; sourceTree = "<group>"; };
+		315F36C02D557A2700974802 /* testXPath.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = testXPath.c; sourceTree = "<group>"; };
+		3197642A2D4AC15E00E053E7 /* memory.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = memory.h; sourceTree = "<group>"; };
 		44014DDE2ACE0D6F0021ACCC /* uri.dict */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = uri.dict; sourceTree = "<group>"; };
 		44014DEB2ACE0F0F0021ACCC /* reader.dict */ = {isa = PBXFileReference; lastKnownFileType = text; path = reader.dict; sourceTree = "<group>"; };
 		44083DB62009516B0037BECF /* libxml2.exp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.exports; path = libxml2.exp; sourceTree = "<group>"; };
@@ -1311,6 +1329,23 @@
 		442F405F1E09EC4D004826DD /* Tests */ = {
 			isa = PBXGroup;
 			children = (
+				315F36B02D557A2700974802 /* runsuite.c */,
+				315F36B12D557A2700974802 /* testAutomata.c */,
+				315F36B22D557A2700974802 /* testC14N.c */,
+				315F36B32D557A2700974802 /* testdso.c */,
+				315F36B42D557A2700974802 /* testHTML.c */,
+				315F36B52D557A2700974802 /* testlimits.c */,
+				315F36B62D557A2700974802 /* testModule.c */,
+				315F36B72D557A2700974802 /* testOOM.c */,
+				315F36B82D557A2700974802 /* testOOMlib.c */,
+				315F36B92D557A2700974802 /* testReader.c */,
+				315F36BA2D557A2700974802 /* testRegexp.c */,
+				315F36BB2D557A2700974802 /* testRelax.c */,
+				315F36BC2D557A2700974802 /* testSAX.c */,
+				315F36BD2D557A2700974802 /* testSchemas.c */,
+				315F36BE2D557A2700974802 /* testThreads.c */,
+				315F36BF2D557A2700974802 /* testURI.c */,
+				315F36C02D557A2700974802 /* testXPath.c */,
 				442F40601E09EC71004826DD /* runtest.c */,
 				444A7F281E0B133E00521AF3 /* runxmlconf.c */,
 				444A7F291E0B133E00521AF3 /* testapi.c */,
@@ -1332,6 +1367,7 @@
 		4484EAA62B69E63D00FC27B4 /* private */ = {
 			isa = PBXGroup;
 			children = (
+				3197642A2D4AC15E00E053E7 /* memory.h */,
 				4481A37A2B6C9BC60001E87A /* parser.h */,
 				4484EAA72B69E66F00FC27B4 /* xpath.h */,
 			);

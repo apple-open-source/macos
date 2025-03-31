@@ -629,19 +629,19 @@ SYSCTL_PROC(_net_link_fake, OID_AUTO, qset_cnt,
 static void
 _mbuf_adjust_pkthdr_and_data(mbuf_t m, int len)
 {
-	mbuf_setdata(m, (char *)mbuf_data(m) + len, mbuf_len(m) - len);
+	mbuf_setdata(m, mtod(m, char *) + len, mbuf_len(m) - len);
 	mbuf_pkthdr_adjustlen(m, -len);
 }
 
-static inline void *
+static inline void *__indexable
 get_bpf_header(mbuf_t m, struct ether_header * eh_p,
     struct ether_vlan_header * evl_p, size_t * header_len)
 {
-	void *  header;
+	void * header;
 
 	/* no VLAN tag, just use the ethernet header */
 	if ((m->m_pkthdr.csum_flags & CSUM_VLAN_TAG_VALID) == 0) {
-		header = eh_p;
+		header = (struct ether_header *__bidi_indexable)eh_p;
 		*header_len = sizeof(*eh_p);
 		goto done;
 	}
@@ -653,7 +653,7 @@ get_bpf_header(mbuf_t m, struct ether_header * eh_p,
 	evl_p->evl_tag = htons(m->m_pkthdr.vlan_tag);     /* tag */
 	evl_p->evl_proto = eh_p->ether_type;              /* proto */
 	*header_len = sizeof(*evl_p);
-	header = evl_p;
+	header = (struct ether_vlan_header *__bidi_indexable)evl_p;
 
 done:
 	return header;
@@ -778,7 +778,7 @@ struct if_fake {
 	uint32_t                iff_llink_cnt;
 	kern_channel_ring_t     iff_rx_ring[IFF_MAX_RX_RINGS];
 	kern_channel_ring_t     iff_tx_ring[IFF_MAX_TX_RINGS];
-	fake_llink_t            iff_llink __counted_by(FETH_MAX_LLINKS);
+	fake_llink_t            iff_llink __counted_by_or_null(FETH_MAX_LLINKS);
 	thread_call_t           iff_doorbell_tcall;
 	thread_call_t           iff_if_adv_tcall;
 	boolean_t               iff_doorbell_tcall_active;
@@ -799,7 +799,7 @@ struct if_fake {
 #endif /* SKYWALK */
 };
 
-typedef struct if_fake * if_fake_ref;
+typedef struct if_fake * __single if_fake_ref;
 
 static if_fake_ref
 ifnet_get_if_fake(ifnet_t ifp);
@@ -1021,7 +1021,10 @@ feth_free(if_fake_ref fakeif)
 
 	FAKE_LOG(LOG_DEBUG, FE_DBGF_LIFECYCLE, "%s", fakeif->iff_name);
 	if (fakeif->iff_llink != NULL) {
-		kfree_type(fake_llink, FETH_MAX_LLINKS, fakeif->iff_llink);
+		fake_llink_t    llink;
+		llink = fakeif->iff_llink;
+		fakeif->iff_llink = NULL;
+		kfree_type(fake_llink, FETH_MAX_LLINKS, llink);
 	}
 	kfree_type(struct if_fake, fakeif);
 }
@@ -1171,13 +1174,15 @@ feth_clone_packet(if_fake_ref dif, kern_packet_t sph, kern_packet_t *pdph)
 	kern_pbufpool_t pp = dif->iff_rx_pp;
 	kern_packet_t dph = 0, dph0 = 0;
 	kern_buflet_t sbuf, dbuf0 = NULL, dbuf;
-	void *saddr, *daddr;
+	caddr_t saddr, daddr;
 	uint32_t soff, doff;
 	uint32_t slen, dlen;
 	uint32_t dlim0, dlim;
 
 	sbuf = kern_packet_get_next_buflet(sph, NULL);
-	saddr = kern_buflet_get_data_address(sbuf);
+	saddr = __unsafe_forge_bidi_indexable(caddr_t,
+	    kern_buflet_get_data_address(sbuf),
+	    kern_buflet_get_data_limit(sbuf));
 	doff = soff = kern_buflet_get_data_offset(sbuf);
 	dlen = slen = kern_buflet_get_data_length(sbuf);
 
@@ -1194,9 +1199,9 @@ feth_clone_packet(if_fake_ref dif, kern_packet_t sph, kern_packet_t *pdph)
 		ASSERT(kern_buflet_get_object_limit(dbuf0) ==
 		    PP_BUF_OBJ_SIZE_DEF(pp));
 		ASSERT(kern_buflet_get_data_limit(dbuf0) % 16 == 0);
-		dlim0 = ((uintptr_t)kern_buflet_get_object_address(dbuf0) +
+		dlim0 = ((size_t)kern_buflet_get_object_address(dbuf0) +
 		    kern_buflet_get_object_limit(dbuf0)) -
-		    ((uintptr_t)kern_buflet_get_data_address(dbuf0) +
+		    ((size_t)kern_buflet_get_data_address(dbuf0) +
 		    kern_buflet_get_data_limit(dbuf0));
 	}
 
@@ -1210,7 +1215,9 @@ feth_clone_packet(if_fake_ref dif, kern_packet_t sph, kern_packet_t *pdph)
 		dbuf = kern_packet_get_next_buflet(dph, NULL);
 		ASSERT(kern_buflet_get_data_address(dbuf) ==
 		    kern_buflet_get_object_address(dbuf));
-		daddr = kern_buflet_get_data_address(dbuf);
+		daddr = __unsafe_forge_bidi_indexable(caddr_t,
+		    kern_buflet_get_data_address(dbuf),
+		    kern_buflet_get_data_limit(dbuf));
 		dlim = kern_buflet_get_object_limit(dbuf);
 		ASSERT(dlim == PP_BUF_OBJ_SIZE_DEF(pp));
 	} else {
@@ -1223,17 +1230,16 @@ feth_clone_packet(if_fake_ref dif, kern_packet_t sph, kern_packet_t *pdph)
 		dbuf = kern_packet_get_next_buflet(dph, NULL);
 		ASSERT(kern_buflet_get_object_address(dbuf) ==
 		    kern_buflet_get_object_address(dbuf0));
-		daddr = (void *)((uintptr_t)kern_buflet_get_data_address(dbuf0) +
-		    kern_buflet_get_data_limit(dbuf0));
+		daddr = __unsafe_forge_bidi_indexable(caddr_t,
+		    kern_buflet_get_data_address(dbuf0),
+		    kern_buflet_get_object_limit(dbuf0)) + kern_buflet_get_data_limit(dbuf0);
 		dlim = dlim0;
 	}
 
 	ASSERT(doff + dlen <= dlim);
 
 	ASSERT((uintptr_t)daddr % 16 == 0);
-
-	bcopy((const void *)((uintptr_t)saddr + soff),
-	    (void *)((uintptr_t)daddr + doff), slen);
+	bcopy(saddr + soff, daddr + doff, slen);
 
 	dlim = MIN(dlim, P2ROUNDUP(doff + dlen, 16));
 	err = kern_buflet_set_data_address(dbuf, daddr);
@@ -1264,13 +1270,17 @@ feth_copy_buflet(kern_buflet_t sbuf, kern_buflet_t dbuf)
 {
 	errno_t err;
 	uint32_t off, len;
-	uint8_t *saddr, *daddr;
+	caddr_t saddr, daddr;
 
-	saddr = kern_buflet_get_data_address(sbuf);
+	saddr = __unsafe_forge_bidi_indexable(caddr_t,
+	    kern_buflet_get_data_address(sbuf),
+	    kern_buflet_get_data_limit(sbuf));
 	off = kern_buflet_get_data_offset(sbuf);
 	len = kern_buflet_get_data_length(sbuf);
-	daddr = kern_buflet_get_data_address(dbuf);
-	bcopy((saddr + off), (daddr + off), len);
+	daddr = __unsafe_forge_bidi_indexable(caddr_t,
+	    kern_buflet_get_data_address(dbuf),
+	    kern_buflet_get_data_limit(dbuf));
+	bcopy(saddr + off, daddr + off, len);
 	err = kern_buflet_set_data_offset(dbuf, off);
 	VERIFY(err == 0);
 	err = kern_buflet_set_data_length(dbuf, len);
@@ -1278,7 +1288,7 @@ feth_copy_buflet(kern_buflet_t sbuf, kern_buflet_t dbuf)
 }
 
 static int
-feth_add_packet_trailer(kern_packet_t ph, void *trailer, size_t trailer_len)
+feth_add_packet_trailer(kern_packet_t ph, void * __sized_by(trailer_len) trailer, size_t trailer_len)
 {
 	errno_t err = 0;
 
@@ -1301,7 +1311,9 @@ feth_add_packet_trailer(kern_packet_t ph, void *trailer, size_t trailer_len)
 		return ERANGE;
 	}
 
-	void *data = (void *)((uintptr_t)kern_buflet_get_data_address(buf) + doff + dlen);
+	void *data = __unsafe_forge_bidi_indexable(caddr_t,
+	    kern_buflet_get_data_address(buf),
+	    kern_buflet_get_data_limit(buf)) + doff + dlen;
 	memcpy(data, trailer, trailer_len);
 
 	err = kern_buflet_set_data_length(buf, dlen + trailer_len);
@@ -1327,7 +1339,9 @@ feth_add_packet_fcs(kern_packet_t ph)
 	while ((buf = kern_packet_get_next_buflet(ph, buf)) != NULL) {
 		uint32_t doff = kern_buflet_get_data_offset(buf);
 		uint32_t dlen = kern_buflet_get_data_length(buf);
-		void *data = (void *)((uintptr_t)kern_buflet_get_data_address(buf) + doff);
+		void *data = __unsafe_forge_bidi_indexable(caddr_t,
+		    kern_buflet_get_data_address(buf),
+		    kern_buflet_get_data_limit(buf)) + doff;
 		crc = crc32(crc, data, dlen);
 	}
 
@@ -1375,7 +1389,7 @@ feth_copy_packet(if_fake_ref dif, kern_packet_t sph, kern_packet_t *pdph)
 
 	/* un-constructed multi-buflet packet copy */
 	for (i = 1; i < bufcnt; i++) {
-		kern_buflet_t dbuf_next = NULL;
+		kern_buflet_t __single dbuf_next = NULL;
 
 		sbuf = kern_packet_get_next_buflet(sph, sbuf);
 		VERIFY(sbuf != NULL);
@@ -1445,7 +1459,7 @@ feth_update_pkt_tso_metadata_for_rx(kern_packet_t ph)
 }
 
 static void
-feth_rx_submit(if_fake_ref sif, if_fake_ref dif, kern_packet_t sphs[],
+feth_rx_submit(if_fake_ref sif, if_fake_ref dif, kern_packet_t * __counted_by(n_pkts) sphs,
     uint32_t n_pkts)
 {
 	errno_t err = 0;
@@ -1524,7 +1538,7 @@ feth_rx_submit(if_fake_ref sif, if_fake_ref dif, kern_packet_t sphs[],
 
 static void
 feth_rx_queue_submit(if_fake_ref sif, if_fake_ref dif, uint32_t llink_idx,
-    uint32_t qset_idx, kern_packet_t sphs[], uint32_t n_pkts)
+    uint32_t qset_idx, kern_packet_t * __counted_by(n_pkts) sphs, uint32_t n_pkts)
 {
 	errno_t err = 0;
 	kern_netif_queue_t queue;
@@ -1595,7 +1609,7 @@ feth_rx_queue_submit(if_fake_ref sif, if_fake_ref dif, uint32_t llink_idx,
 }
 
 static void
-feth_tx_complete(if_fake_ref fakeif, kern_packet_t phs[], uint32_t nphs)
+feth_tx_complete(if_fake_ref fakeif, kern_packet_t * __counted_by(nphs) phs, uint32_t nphs)
 {
 	for (uint32_t i = 0; i < nphs; i++) {
 		kern_packet_t ph = phs[i];
@@ -1929,10 +1943,11 @@ feth_register_nexus_domain_provider(void)
 	};
 	errno_t                         err = 0;
 
+	nexus_domain_provider_name_t feth_provider_name = "com.apple.feth";
+
 	/* feth_nxdp_init() is called before this function returns */
 	err = kern_nexus_register_domain_provider(NEXUS_TYPE_NET_IF,
-	    (const uint8_t *)
-	    "com.apple.feth",
+	    feth_provider_name,
 	    &dp_init, sizeof(dp_init),
 	    &feth_nx_dom_prov);
 	if (err != 0) {
@@ -2019,8 +2034,8 @@ feth_nx_ring_fini(kern_nexus_provider_t nxprov, kern_nexus_t nexus,
     kern_channel_ring_t ring)
 {
 #pragma unused(nxprov, ring)
-	if_fake_ref     fakeif;
-	thread_call_t   tcall = NULL;
+	if_fake_ref       fakeif;
+	thread_call_t   __single tcall = NULL;
 
 	feth_lock();
 	fakeif = feth_nexus_context(nexus);
@@ -2132,7 +2147,7 @@ feth_nx_pre_disconnect(kern_nexus_provider_t nxprov,
 {
 #pragma unused(nxprov, channel)
 	if_fake_ref fakeif;
-	thread_call_t tcall;
+	thread_call_t __single tcall;
 	boolean_t connected;
 
 	fakeif = feth_nexus_context(nexus);
@@ -2324,7 +2339,7 @@ feth_nx_sync_rx(kern_nexus_provider_t nxprov,
     kern_nexus_t nexus, kern_channel_ring_t ring, uint32_t flags)
 {
 #pragma unused(nxprov, ring, flags)
-	if_fake_ref             fakeif;
+	if_fake_ref           fakeif;
 	struct netif_stats *nifs = &NX_NETIF_PRIVATE(nexus)->nif_stats;
 
 	STATS_INC(nifs, NETIF_STATS_RX_SYNC);
@@ -2410,7 +2425,7 @@ done:
 static void
 feth_schedule_async_doorbell(if_fake_ref fakeif)
 {
-	thread_call_t   tcall;
+	thread_call_t  __single tcall;
 
 	feth_lock();
 	if (feth_is_detaching(fakeif) || !fakeif->iff_channel_connected) {
@@ -2498,7 +2513,7 @@ feth_nx_intf_adv_config(void *prov_ctx, bool enable)
 static errno_t
 fill_capab_interface_advisory(if_fake_ref fakeif, void *contents, uint32_t *len)
 {
-	struct kern_nexus_capab_interface_advisory *capab = contents;
+	struct kern_nexus_capab_interface_advisory * __single capab = contents;
 
 	if (*len != sizeof(*capab)) {
 		return EINVAL;
@@ -2524,7 +2539,7 @@ feth_notify_steering_info(void *prov_ctx, void *qset_ctx,
 {
 #pragma unused(td)
 	if_fake_ref fakeif = prov_ctx;
-	fake_qset *qset = qset_ctx;
+	fake_qset * __single qset = qset_ctx;
 
 	FAKE_LOG(LOG_DEBUG, FE_DBGF_MISC,
 	    "%s: notify_steering_info: qset_id 0x%llx, %s",
@@ -2535,7 +2550,7 @@ feth_notify_steering_info(void *prov_ctx, void *qset_ctx,
 static errno_t
 fill_capab_qset_extensions(if_fake_ref fakeif, void *contents, uint32_t *len)
 {
-	struct kern_nexus_capab_qset_extensions *capab = contents;
+	struct kern_nexus_capab_qset_extensions * __single capab = contents;
 
 	if (*len != sizeof(*capab)) {
 		return EINVAL;
@@ -2625,7 +2640,7 @@ create_netif_provider_and_instance(if_fake_ref fakeif,
 	nexus_controller_t      controller = kern_nexus_shared_controller();
 	struct kern_nexus_net_init net_init;
 	nexus_name_t            provider_name;
-	nexus_attr_t            nexus_attr = NULL;
+	nexus_attr_t            __single nexus_attr = NULL;
 	struct kern_nexus_provider_init prov_init = {
 		.nxpi_version = KERN_NEXUS_DOMAIN_PROVIDER_CURRENT_VERSION,
 		.nxpi_flags = NXPIF_VIRTUAL_DEVICE,
@@ -2743,7 +2758,7 @@ feth_nx_qset_init(kern_nexus_provider_t nxprov, kern_nexus_t nexus,
 {
 #pragma unused(nxprov)
 	if_fake_ref fakeif;
-	fake_llink *fl = llink_ctx;
+	fake_llink * __single fl = llink_ctx;
 	fake_qset *fqs;
 
 	feth_lock();
@@ -2778,7 +2793,7 @@ feth_nx_qset_fini(kern_nexus_provider_t nxprov, kern_nexus_t nexus,
 {
 #pragma unused(nxprov)
 	if_fake_ref fakeif;
-	fake_qset *fqs = qset_ctx;
+	fake_qset * __single fqs = qset_ctx;
 
 	feth_lock();
 	fakeif = feth_nexus_context(nexus);
@@ -2796,7 +2811,7 @@ feth_nx_queue_init(kern_nexus_provider_t nxprov, kern_nexus_t nexus,
 {
 #pragma unused(nxprov)
 	if_fake_ref fakeif;
-	fake_qset *fqs = qset_ctx;
+	fake_qset *__single fqs = qset_ctx;
 	fake_queue *fq;
 
 	feth_lock();
@@ -2836,7 +2851,7 @@ feth_nx_queue_fini(kern_nexus_provider_t nxprov, kern_nexus_t nexus,
     void *queue_ctx)
 {
 #pragma unused(nxprov, nexus)
-	fake_queue *fq = queue_ctx;
+	fake_queue *__single fq = queue_ctx;
 
 	feth_lock();
 	ASSERT(fq->fq_queue != NULL);
@@ -2912,7 +2927,7 @@ feth_nx_tx_qset_notify(kern_nexus_provider_t nxprov, kern_nexus_t nexus,
 	ifnet_t                 peer_ifp;
 	if_fake_ref             peer_fakeif = NULL;
 	struct netif_stats *nifs = &NX_NETIF_PRIVATE(nexus)->nif_stats;
-	fake_qset               *qset = qset_ctx;
+	fake_qset               * __single qset = qset_ctx;
 	boolean_t               detaching, connected;
 	uint32_t                i;
 	errno_t                 err;
@@ -3004,8 +3019,8 @@ feth_nx_queue_tx_push(kern_nexus_provider_t nxprov,
 	ifnet_t                 ifp;
 	ifnet_t                 peer_ifp;
 	if_fake_ref             peer_fakeif = NULL;
-	struct netif_stats     *nifs = &NX_NETIF_PRIVATE(nexus)->nif_stats;
-	fake_queue             *fq = queue_ctx;
+	struct netif_stats      *nifs = &NX_NETIF_PRIVATE(nexus)->nif_stats;
+	fake_queue              *__single fq = queue_ctx;
 	boolean_t               detaching, connected;
 
 	STATS_INC(nifs, NETIF_STATS_TX_SYNC);
@@ -3101,7 +3116,7 @@ fill_qset_info_and_params(if_fake_ref fakeif, fake_llink *llink_info,
 static void
 fill_llink_info_and_params(if_fake_ref fakeif, uint32_t llink_idx,
     struct kern_nexus_netif_llink_init *llink_init, uint32_t llink_id,
-    struct kern_nexus_netif_llink_qset_init *qset_init, uint32_t qset_cnt,
+    struct kern_nexus_netif_llink_qset_init * __counted_by(qset_cnt) qset_init, uint32_t qset_cnt,
     uint32_t flags)
 {
 	fake_llink *llink_info = &fakeif->iff_llink[llink_idx];
@@ -3195,7 +3210,7 @@ create_netif_llink_provider_and_instance(if_fake_ref fakeif,
 	struct kern_nexus_netif_llink_qset_init qsets[FETH_MAX_QSETS];
 
 	nexus_name_t            provider_name;
-	nexus_attr_t            nexus_attr = NULL;
+	nexus_attr_t            __single nexus_attr = NULL;
 	struct kern_nexus_netif_provider_init prov_init = {
 		.nxnpi_version = KERN_NEXUS_DOMAIN_PROVIDER_NETIF,
 		.nxnpi_flags = NXPIF_VIRTUAL_DEVICE,
@@ -3379,7 +3394,7 @@ static void
 feth_detach_netif_nexus(if_fake_ref fakeif)
 {
 	fake_nx         fnx;
-	fake_llink_t    llink __counted_by(FETH_MAX_LLINKS);
+	fake_llink_t    llink;
 	uint32_t        llink_cnt;
 
 	feth_lock();
@@ -3390,7 +3405,7 @@ feth_detach_netif_nexus(if_fake_ref fakeif)
 	llink_cnt = fakeif->iff_llink_cnt;
 	fakeif->iff_llink_cnt = 0;
 	feth_unlock();
-	remove_non_default_llinks(fakeif->iff_name, &fnx, llink, llink_cnt);
+	remove_non_default_llinks(__unsafe_null_terminated_from_indexable(fakeif->iff_name), &fnx, llink, llink_cnt);
 	detach_provider_and_instance(fnx.fnx_provider, fnx.fnx_instance);
 	if (llink != NULL) {
 		kfree_type(fake_llink, FETH_MAX_LLINKS, llink);
@@ -3451,8 +3466,8 @@ interface_link_event(ifnet_t ifp, u_int32_t event_code)
 		char if_name[IFNAMSIZ];
 	};
 	_Alignas(struct kern_event_msg) char message[sizeof(struct kern_event_msg) + sizeof(struct event)] = { 0 };
-	struct kern_event_msg *header = (struct kern_event_msg*)message;
-	struct event *data = (struct event *)(header + 1);
+	struct kern_event_msg *__single header = (struct kern_event_msg*)message;
+	struct event *data = (struct event *)(message + offsetof(struct kern_event_msg, event_data));
 
 	header->total_size   = sizeof(message);
 	header->vendor_code  = KEV_VENDOR_APPLE;
@@ -3476,11 +3491,11 @@ feth_clone_create(struct if_clone *ifc, u_int32_t unit, __unused void *params)
 {
 	bool                            bsd_mode;
 	int                             error;
-	if_fake_ref                     fakeif;
+	if_fake_ref                   fakeif;
 	struct ifnet_init_eparams       feth_init;
-	fake_llink                     *iff_llink = NULL;
-	ifnet_t                         ifp;
-	uint8_t                         mac_address[ETHER_ADDR_LEN];
+	fake_llink_t                    iff_llink __counted_by_or_null(FETH_MAX_LLINKS) = NULL;
+	ifnet_t                         __single ifp;
+	char                            mac_address[ETHER_ADDR_LEN];
 	bool                            multi_buflet;
 	iff_pktpool_mode_t              pktpool_mode;
 	bool                            tso_support;
@@ -3521,7 +3536,7 @@ feth_clone_create(struct if_clone *ifc, u_int32_t unit, __unused void *params)
 	fakeif->iff_retain_count = 1;
 #define FAKE_ETHER_NAME_LEN     (sizeof(FAKE_ETHER_NAME) - 1)
 	_CASSERT(FAKE_ETHER_NAME_LEN == 4);
-	bcopy(FAKE_ETHER_NAME, mac_address, FAKE_ETHER_NAME_LEN);
+	strbufcpy(mac_address, FAKE_ETHER_NAME);
 	mac_address[ETHER_ADDR_LEN - 2] = (unit & 0xff00) >> 8;
 	mac_address[ETHER_ADDR_LEN - 1] = unit & 0xff;
 	if (bsd_mode) {
@@ -3602,9 +3617,9 @@ feth_clone_create(struct if_clone *ifc, u_int32_t unit, __unused void *params)
 	if (if_fake_nxattach == 0) {
 		feth_init.flags |= IFNET_INIT_NX_NOAUTO;
 	}
+	feth_init.uniqueid_len = (uint32_t)strbuflen(fakeif->iff_name);
 	feth_init.uniqueid = fakeif->iff_name;
-	feth_init.uniqueid_len = strlen(fakeif->iff_name);
-	feth_init.name = ifc->ifc_name;
+	feth_init.name = __unsafe_null_terminated_from_indexable(ifc->ifc_name);
 	feth_init.unit = unit;
 	feth_init.family = IFNET_FAMILY_ETHERNET;
 	feth_init.type = IFT_ETHER;
@@ -3709,7 +3724,7 @@ feth_enqueue_input(ifnet_t ifp, struct mbuf * m)
 
 
 static int
-feth_add_mbuf_trailer(struct mbuf *m, void *trailer, size_t trailer_len)
+feth_add_mbuf_trailer(struct mbuf *m, void *trailer __sized_by(trailer_len), size_t trailer_len)
 {
 	int ret;
 	ASSERT(trailer_len <= FETH_TRAILER_LENGTH_MAX);
@@ -3755,7 +3770,7 @@ feth_add_mbuf_fcs(struct mbuf *m)
 
 static void
 feth_output_common(ifnet_t ifp, struct mbuf * m, ifnet_t peer,
-    iff_flags_t flags, bool fcs, void *trailer, size_t trailer_len)
+    iff_flags_t flags, bool fcs, void *trailer __sized_by(trailer_len), size_t trailer_len)
 {
 	void *                  frame_header;
 
@@ -3779,7 +3794,7 @@ feth_output_common(ifnet_t ifp, struct mbuf * m, ifnet_t peer,
 			FAKE_LOG(LOG_NOTICE, FE_DBGF_OUTPUT, "m_copyup failed");
 			goto done;
 		}
-		frame_header = mbuf_data(m);
+		frame_header = mtod(m, void *);
 		mbuf_pkthdr_setheader(m, frame_header);
 		m_adj(m, ETHER_HDR_LEN);
 		FAKE_LOG(LOG_DEBUG, FE_DBGF_OUTPUT,
@@ -3789,7 +3804,7 @@ feth_output_common(ifnet_t ifp, struct mbuf * m, ifnet_t peer,
 		    (uint64_t)VM_KERNEL_ADDRPERM(mtod(m, void *)),
 		    mbuf_len(m));
 	} else {
-		frame_header = mbuf_data(m);
+		frame_header = mtod(m, void *);
 		mbuf_pkthdr_setheader(m, frame_header);
 		_mbuf_adjust_pkthdr_and_data(m, ETHER_HDR_LEN);
 	}
@@ -3816,7 +3831,7 @@ feth_start(ifnet_t ifp)
 	if_fake_ref     fakeif;
 	iff_flags_t     flags = 0;
 	bool            fcs;
-	struct mbuf *   m;
+	struct mbuf *   __single m;
 	ifnet_t         peer = NULL;
 	size_t          trailer_len;
 
@@ -3906,7 +3921,7 @@ feth_config(ifnet_t ifp, ifnet_t peer)
 	}
 	if (peer != NULL) {
 		/* connect to peer */
-		if_fake_ref     peer_fakeif;
+		if_fake_ref   peer_fakeif;
 
 		peer_fakeif = ifnet_get_if_fake(peer);
 		if (peer_fakeif == NULL) {
@@ -3932,7 +3947,7 @@ feth_config(ifnet_t ifp, ifnet_t peer)
 		connected = TRUE;
 	} else if (fakeif->iff_peer != NULL) {
 		/* disconnect from peer */
-		if_fake_ref     peer_fakeif;
+		if_fake_ref   peer_fakeif;
 
 		peer = fakeif->iff_peer;
 		peer_fakeif = ifnet_get_if_fake(peer);
@@ -4034,7 +4049,7 @@ feth_set_drvspec(ifnet_t ifp, uint32_t cmd, u_int32_t len,
 
 		/* ensure nul termination */
 		iffr.iffr_peer_name[IFNAMSIZ - 1] = '\0';
-		peer = ifunit(iffr.iffr_peer_name);
+		peer = ifunit(__unsafe_null_terminated_from_indexable(iffr.iffr_peer_name));
 		if (peer == NULL) {
 			error = ENXIO;
 			break;
@@ -4263,7 +4278,7 @@ feth_ioctl(ifnet_t ifp, u_long cmd, void * data)
 static void
 feth_if_free(ifnet_t ifp)
 {
-	if_fake_ref             fakeif;
+	if_fake_ref           fakeif;
 
 	if (ifp == NULL) {
 		return;

@@ -1,0 +1,97 @@
+{
+    "type": "object",
+    "id": "com.apple.root_store_updates_schema_v1",
+    "$schema": "http://json-schema.org/draft-07/schema",
+    "required": [
+        "oldVersion",
+        "newVersion",
+        "anchors"
+    ],
+    "definitions": {
+        "constraints" : {
+            "type": "array",
+            "items": {
+                "type": "string",
+                "description": "Policy oids to constrain to"
+            }
+        }
+    },
+    "properties": {
+        "oldVersion": {
+            "title": "Trust store version this update applies to",
+            "description": "Prior trust store version to update. Update will fail to apply if the version is not current.",
+            "minimum": 1,
+            "type": "number"
+        },
+        "newVersion": {
+            "title": "Trust store version this update creates",
+            "description": "Trust store version after this update.",
+            "minimum": 1,
+            "type": "number"
+        },
+        "anchors": {
+            "title": "Anchors to be added, removed, or updated",
+            "description": "Anchors to be changed, in sequential order",
+            "type": "array",
+            "items": {
+                "type": "object",
+                "required": [
+                    "anchorCertificate",
+                    "operation"
+                ],
+                "properties": {
+                    "anchorCertificate": {
+                        "title": "Anchor Certificate",
+                        "description": "base64-encoded DER certificate for anchor",
+                        "type": "string"
+                    },
+                    "operation": {
+                        "title": "The operation to perform for the anchor.",
+                        "type": "object",
+                        "properties": {
+                            "remove": {
+                                "type": "string"
+                            },
+                            "add": {
+                                "type": "object",
+                                "required": [
+                                    "anchorType"
+                                ],
+                                "properties": {
+                                    "anchorType" : {
+                                        "type": "string"
+                                    },
+                                    "constraints" : {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "string",
+                                            "description": "Policy oids to constrain"
+                                        }
+                                    },
+                                    "evOids": {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "string"
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        "oneOf": [
+                            {
+                                "required": [
+                                    "add"
+                                ]
+                            },
+                            {
+                                "required": [
+                                    "remove"
+                                ]
+                            }
+                        ]
+                    }
+                }
+            }
+        }
+    }
+}

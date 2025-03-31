@@ -59,7 +59,6 @@ class GraphicsLayerFactory;
 class LocalFrame;
 class LocalFrameView;
 class TiledBacking;
-struct ViewportAttributes;
 enum class DelegatedScrollingMode : uint8_t;
 }
 
@@ -71,13 +70,16 @@ class LayerTreeHost;
 struct WebPageCreationParameters;
 struct WebPreferencesStore;
 
-class DrawingArea : public IPC::MessageReceiver, public WebCore::DisplayRefreshMonitorFactory {
+class DrawingArea : public RefCounted<DrawingArea>, public IPC::MessageReceiver, public WebCore::DisplayRefreshMonitorFactory {
     WTF_MAKE_TZONE_ALLOCATED(DrawingArea);
     WTF_MAKE_NONCOPYABLE(DrawingArea);
 
 public:
-    static std::unique_ptr<DrawingArea> create(WebPage&, const WebPageCreationParameters&);
+    static RefPtr<DrawingArea> create(WebPage&, const WebPageCreationParameters&);
     virtual ~DrawingArea();
+
+    void ref() const final { RefCounted::ref(); }
+    void deref() const final { RefCounted::deref(); }
     
     DrawingAreaType type() const { return m_type; }
     DrawingAreaIdentifier identifier() const { return m_identifier; }
@@ -154,20 +156,25 @@ public:
     virtual void updateGeometry(const WebCore::IntSize& viewSize, bool flushSynchronously, const WTF::MachSendRight& fencePort, CompletionHandler<void()>&&) = 0;
 #endif
 
+#if USE(GRAPHICS_LAYER_WC) || USE(GRAPHICS_LAYER_TEXTURE_MAPPER)
+    virtual void setIntrinsicDeviceScaleFactor(float) { }
+#endif
 #if USE(GRAPHICS_LAYER_WC)
-    virtual void updateGeometryWC(uint64_t, WebCore::IntSize, float deviceScaleFactor) { };
+    virtual void updateGeometryWC(uint64_t, WebCore::IntSize, float deviceScaleFactor, float intrinsicDeviceScaleFactor) { };
 #endif
 
 #if USE(COORDINATED_GRAPHICS) || USE(TEXTURE_MAPPER)
     virtual void updateGeometry(const WebCore::IntSize&, CompletionHandler<void()>&&) = 0;
-    virtual void didChangeViewportAttributes(WebCore::ViewportAttributes&&) = 0;
-    virtual void deviceOrPageScaleFactorChanged() = 0;
     virtual bool enterAcceleratedCompositingModeIfNeeded() = 0;
     virtual void backgroundColorDidChange() { };
 #endif
 
 #if PLATFORM(WPE) && USE(GBM) && ENABLE(WPE_PLATFORM)
     virtual void preferredBufferFormatsDidChange() { }
+#endif
+
+#if PLATFORM(GTK) || PLATFORM(WPE)
+    virtual void dispatchPendingCallbacksAfterEnsuringDrawing() = 0;
 #endif
 
     virtual void adoptLayersFromDrawingArea(DrawingArea&) { }
@@ -210,19 +217,21 @@ private:
 #if USE(COORDINATED_GRAPHICS) || USE(TEXTURE_MAPPER)
     virtual void updateBackingStoreState(uint64_t /*backingStoreStateID*/, bool /*respondImmediately*/, float /*deviceScaleFactor*/, const WebCore::IntSize& /*size*/,
                                          const WebCore::IntSize& /*scrollOffset*/) { }
-    virtual void setDeviceScaleFactor(float) { }
     virtual void forceUpdate() { }
     virtual void didDiscardBackingStore() { }
 #endif
+
+    virtual void setDeviceScaleFactor(float, CompletionHandler<void()>&& completionHandler) { completionHandler(); }
     virtual void displayDidRefresh() { }
 
     // DisplayRefreshMonitorFactory.
     RefPtr<WebCore::DisplayRefreshMonitor> createDisplayRefreshMonitor(WebCore::PlatformDisplayID) override;
 
 #if PLATFORM(COCOA)
-    virtual void setDeviceScaleFactor(float) { }
     virtual void setColorSpace(std::optional<WebCore::DestinationColorSpace>) { }
+#endif
 
+#if PLATFORM(COCOA) || PLATFORM(GTK) || PLATFORM(WPE)
     virtual void dispatchAfterEnsuringDrawing(IPC::AsyncReplyID) = 0;
 #endif
 

@@ -59,7 +59,7 @@ private:
 
     WGPUQueue backing() const { return m_backing.get(); }
 
-    void submit(Vector<std::reference_wrapper<CommandBuffer>>&&) final;
+    void submit(Vector<Ref<WebGPU::CommandBuffer>>&&) final;
 
     void onSubmittedWorkDone(CompletionHandler<void()>&&) final;
 
@@ -95,6 +95,7 @@ private:
         const Extent3D& copySize) final;
 
     void setLabelInternal(const String&) final;
+    RefPtr<WebCore::NativeImage> getNativeImage(WebCore::VideoFrame&) final;
 
     WebGPUPtr<WGPUQueue> m_backing;
     Ref<ConvertToBackingContext> m_convertToBackingContext;

@@ -107,7 +107,7 @@ struct dnssd_client {
     char *id;
     srp_server_t *server_state;
     wakeup_t *wakeup_timer;
-    cti_connection_t active_data_set_connection;
+    cti_connection_t *active_data_set_connection;
     struct in6_addr mesh_local_prefix;
     bool have_mesh_local_prefix;
     bool first_time;

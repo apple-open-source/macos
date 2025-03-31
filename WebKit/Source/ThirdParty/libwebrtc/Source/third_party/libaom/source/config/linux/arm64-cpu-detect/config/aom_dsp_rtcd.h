@@ -1440,16 +1440,6 @@ void aom_sad_skip_16x32x4d_neon(const uint8_t *src_ptr, int src_stride, const ui
 void aom_sad_skip_16x32x4d_neon_dotprod(const uint8_t *src_ptr, int src_stride, const uint8_t * const ref_ptr[4], int ref_stride, uint32_t sad_array[4]);
 RTCD_EXTERN void (*aom_sad_skip_16x32x4d)(const uint8_t *src_ptr, int src_stride, const uint8_t * const ref_ptr[4], int ref_stride, uint32_t sad_array[4]);
 
-unsigned int aom_sad_skip_16x8_c(const uint8_t *src_ptr, int src_stride, const uint8_t *ref_ptr, int ref_stride);
-unsigned int aom_sad_skip_16x8_neon(const uint8_t *src_ptr, int src_stride, const uint8_t *ref_ptr, int ref_stride);
-unsigned int aom_sad_skip_16x8_neon_dotprod(const uint8_t *src_ptr, int src_stride, const uint8_t *ref_ptr, int ref_stride);
-RTCD_EXTERN unsigned int (*aom_sad_skip_16x8)(const uint8_t *src_ptr, int src_stride, const uint8_t *ref_ptr, int ref_stride);
-
-void aom_sad_skip_16x8x4d_c(const uint8_t *src_ptr, int src_stride, const uint8_t * const ref_ptr[4], int ref_stride, uint32_t sad_array[4]);
-void aom_sad_skip_16x8x4d_neon(const uint8_t *src_ptr, int src_stride, const uint8_t * const ref_ptr[4], int ref_stride, uint32_t sad_array[4]);
-void aom_sad_skip_16x8x4d_neon_dotprod(const uint8_t *src_ptr, int src_stride, const uint8_t * const ref_ptr[4], int ref_stride, uint32_t sad_array[4]);
-RTCD_EXTERN void (*aom_sad_skip_16x8x4d)(const uint8_t *src_ptr, int src_stride, const uint8_t * const ref_ptr[4], int ref_stride, uint32_t sad_array[4]);
-
 unsigned int aom_sad_skip_32x16_c(const uint8_t *src_ptr, int src_stride, const uint8_t *ref_ptr, int ref_stride);
 unsigned int aom_sad_skip_32x16_neon(const uint8_t *src_ptr, int src_stride, const uint8_t *ref_ptr, int ref_stride);
 unsigned int aom_sad_skip_32x16_neon_dotprod(const uint8_t *src_ptr, int src_stride, const uint8_t *ref_ptr, int ref_stride);
@@ -2548,18 +2538,6 @@ static void setup_rtcd_internal(void)
 #if HAVE_NEON_DOTPROD
   if (flags & HAS_NEON_DOTPROD) {
     aom_sad_skip_16x32x4d = aom_sad_skip_16x32x4d_neon_dotprod;
-  }
-#endif
-  aom_sad_skip_16x8 = aom_sad_skip_16x8_neon;
-#if HAVE_NEON_DOTPROD
-  if (flags & HAS_NEON_DOTPROD) {
-    aom_sad_skip_16x8 = aom_sad_skip_16x8_neon_dotprod;
-  }
-#endif
-  aom_sad_skip_16x8x4d = aom_sad_skip_16x8x4d_neon;
-#if HAVE_NEON_DOTPROD
-  if (flags & HAS_NEON_DOTPROD) {
-    aom_sad_skip_16x8x4d = aom_sad_skip_16x8x4d_neon_dotprod;
   }
 #endif
   aom_sad_skip_32x16 = aom_sad_skip_32x16_neon;

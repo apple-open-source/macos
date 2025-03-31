@@ -28,10 +28,14 @@
 
 #if PLATFORM(MAC)
 
+#import "ContentsFormat.h"
+#import "FloatPoint.h"
 #import "FloatRect.h"
 #import "HostWindow.h"
 #import "LocalFrameView.h"
+#import "PlatformCALayerClient.h"
 #import "ScreenProperties.h"
+#import "ThermalMitigationNotifier.h"
 #import <ColorSync/ColorSync.h>
 #import <pal/cocoa/OpenGLSoftLinkCocoa.h>
 #import <pal/spi/cg/CoreGraphicsSPI.h>
@@ -143,6 +147,9 @@ ScreenProperties collectScreenProperties()
 
         if (!supportsHighDynamicRange && dynamicRangeMode > DynamicRangeMode::Standard)
             dynamicRangeMode = DynamicRangeMode::Standard;
+
+        if (supportsHighDynamicRange && WebCore::ThermalMitigationNotifier::isThermalMitigationEnabled())
+            supportsHighDynamicRange = false;
 
         return supportsHighDynamicRange;
     };
@@ -358,6 +365,23 @@ DestinationColorSpace screenColorSpace(Widget* widget)
     return DestinationColorSpace { screen(widget).colorSpace.CGColorSpace };
 }
 
+ContentsFormat screenContentsFormat(Widget* widget, PlatformCALayerClient* client)
+{
+#if HAVE(HDR_SUPPORT)
+    if (client && client->hdrForImagesEnabled() && screenSupportsHighDynamicRange(widget))
+        return ContentsFormat::RGBA16F;
+#endif
+
+#if HAVE(IOSURFACE_RGB10)
+    if (screenSupportsExtendedColor(widget))
+        return ContentsFormat::RGBA10;
+#endif
+
+    UNUSED_PARAM(widget);
+    UNUSED_PARAM(client);
+    return ContentsFormat::RGBA8;
+}
+
 bool screenSupportsExtendedColor(Widget* widget)
 {
     if (auto data = screenProperties(widget))
@@ -410,6 +434,13 @@ FloatRect toUserSpaceForPrimaryScreen(const NSRect& rect)
     FloatRect userRect = rect;
     userRect.setY(NSMaxY(screenRectForDisplay(primaryScreenDisplayID())) - (userRect.y() + userRect.height())); // flip
     return userRect;
+}
+
+FloatPoint toUserSpaceForPrimaryScreen(const NSPoint& point)
+{
+    FloatPoint userPoint = point;
+    userPoint.setY(NSMaxY(screenRectForDisplay(primaryScreenDisplayID())) - userPoint.y()); // flip
+    return userPoint;
 }
 
 NSRect toDeviceSpace(const FloatRect& rect, NSWindow *source)

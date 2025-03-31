@@ -45,7 +45,15 @@ class GraphicsLayerFactory;
 class IntRect;
 class IntSize;
 class Page;
-struct ViewportAttributes;
+}
+
+namespace WebKit {
+class LayerTreeHost;
+}
+
+namespace WTF {
+template<typename T> struct IsDeprecatedTimerSmartPointerException;
+template<> struct IsDeprecatedTimerSmartPointerException<WebKit::LayerTreeHost> : std::true_type { };
 }
 
 namespace WebKit {
@@ -59,7 +67,7 @@ public:
     ~LayerTreeHost();
 
     const LayerTreeContext& layerTreeContext() const { return m_layerTreeContext; }
-    void setLayerFlushSchedulingEnabled(bool);
+    void setLayerTreeStateIsFrozen(bool);
     void setShouldNotifyAfterNextScheduledLayerFlush(bool);
     void scheduleLayerFlush();
     void cancelPendingLayerFlush();
@@ -74,9 +82,7 @@ public:
     void resumeRendering();
     WebCore::GraphicsLayerFactory* graphicsLayerFactory();
     void contentsSizeChanged(const WebCore::IntSize&);
-    void didChangeViewportAttributes(WebCore::ViewportAttributes&&);
     void setIsDiscardable(bool);
-    void deviceOrPageScaleFactorChanged();
     void backgroundColorDidChange();
     RefPtr<WebCore::DisplayRefreshMonitor> createDisplayRefreshMonitor(WebCore::PlatformDisplayID);
     WebCore::PlatformDisplayID displayID() const { return m_displayID; }

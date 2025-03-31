@@ -13,9 +13,6 @@
  * called by a name other than "ssh" or "Secure Shell".
  */
 
-#include <sys/cdefs.h>
-__FBSDID("$FreeBSD$");
-
 #include <err.h>
 #ifdef __APPLE__
 #include <errno.h>

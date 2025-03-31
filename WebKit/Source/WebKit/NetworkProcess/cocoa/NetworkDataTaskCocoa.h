@@ -82,7 +82,7 @@ public:
 
     std::optional<WebCore::FrameIdentifier> frameID() const final { return m_frameID; }
     std::optional<WebCore::PageIdentifier> pageID() const final { return m_pageID; }
-    WebPageProxyIdentifier webPageProxyID() const final { return m_webPageProxyID; }
+    std::optional<WebPageProxyIdentifier> webPageProxyID() const final { return m_webPageProxyID; }
 
     String description() const override;
 
@@ -111,9 +111,9 @@ private:
     RefPtr<SandboxExtension> m_sandboxExtension;
     RetainPtr<NSURLSessionDataTask> m_task;
     WebCore::NetworkLoadMetrics m_networkLoadMetrics;
-    WebCore::FrameIdentifier m_frameID;
+    Markable<WebCore::FrameIdentifier> m_frameID;
     Markable<WebCore::PageIdentifier> m_pageID;
-    WebPageProxyIdentifier m_webPageProxyID;
+    Markable<WebPageProxyIdentifier> m_webPageProxyID;
 
     bool m_isForMainResourceNavigationForAnyFrame { false };
     RefPtr<WebCore::SecurityOrigin> m_sourceOrigin;

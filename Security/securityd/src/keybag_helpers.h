@@ -14,7 +14,7 @@ extern "C" {
 
 #include <bsm/audit.h>
 #include <mach/message.h>
-#include <libaks.h>
+#include <AppleKeyStore/libaks.h>
 
 enum {
     KB_Success      = 0,

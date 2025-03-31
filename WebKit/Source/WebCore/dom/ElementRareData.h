@@ -21,6 +21,7 @@
 
 #pragma once
 
+#include "CalculationRandomKeyMap.h"
 #include "CustomElementDefaultARIA.h"
 #include "CustomElementReactionQueue.h"
 #include "CustomStateSet.h"
@@ -95,6 +96,9 @@ public:
     NamedNodeMap* attributeMap() const { return m_attributeMap.get(); }
     void setAttributeMap(std::unique_ptr<NamedNodeMap>&& attributeMap) { m_attributeMap = WTFMove(attributeMap); }
 
+    String userInfo() const { return m_userInfo; }
+    void setUserInfo(String&& userInfo) { m_userInfo = WTFMove(userInfo); }
+
     RenderStyle* computedStyle() const { return m_computedStyle.get(); }
     void setComputedStyle(std::unique_ptr<RenderStyle>&& computedStyle) { m_computedStyle = WTFMove(computedStyle); }
 
@@ -161,6 +165,9 @@ public:
     OptionSet<VisibilityAdjustment> visibilityAdjustment() const { return m_visibilityAdjustment; }
     void setVisibilityAdjustment(OptionSet<VisibilityAdjustment> adjustment) { m_visibilityAdjustment = adjustment; }
 
+    Ref<Calculation::RandomKeyMap> ensureRandomKeyMap(const std::optional<Style::PseudoElementIdentifier>&);
+    bool hasRandomKeyMap() const;
+
 #if DUMP_NODE_STATISTICS
     OptionSet<UseType> useTypes() const
     {
@@ -215,6 +222,8 @@ public:
             result.add(UseType::ChildIndex);
         if (!m_customStateSet.isEmpty())
             result.add(UseType::CustomStateSet);
+        if (m_userInfo)
+            result.add(UseType::UserInfo);
         return result;
     }
 #endif
@@ -225,6 +234,8 @@ private:
 
     std::optional<OptionSet<ContentRelevancy>> m_contentRelevancy;
     ScrollPosition m_savedLayerScrollPosition;
+
+    String m_userInfo;
 
     std::unique_ptr<RenderStyle> m_computedStyle;
     std::unique_ptr<RenderStyle> m_displayContentsOrNoneStyle;
@@ -267,6 +278,8 @@ private:
     RefPtr<CustomStateSet> m_customStateSet;
 
     OptionSet<VisibilityAdjustment> m_visibilityAdjustment;
+
+    HashMap<std::optional<Style::PseudoElementIdentifier>, Ref<Calculation::RandomKeyMap>> m_randomKeyMaps;
 };
 
 inline ElementRareData::ElementRareData()
@@ -333,6 +346,18 @@ inline AtomString ElementRareData::viewTransitionCapturedName(const std::optiona
 inline void ElementRareData::setViewTransitionCapturedName(const std::optional<Style::PseudoElementIdentifier>& pseudoElementIdentifier, AtomString captureName)
 {
     m_viewTransitionCapturedName.set(pseudoElementIdentifier, captureName);
+}
+
+inline Ref<Calculation::RandomKeyMap> ElementRareData::ensureRandomKeyMap(const std::optional<Style::PseudoElementIdentifier>& pseudoElementIdentifier)
+{
+    return m_randomKeyMaps.ensure(pseudoElementIdentifier, [] -> Ref<Calculation::RandomKeyMap> {
+        return Calculation::RandomKeyMap::create();
+    }).iterator->value;
+}
+
+inline bool ElementRareData::hasRandomKeyMap() const
+{
+    return !m_randomKeyMaps.isEmpty();
 }
 
 inline ElementRareData* Element::elementRareData() const

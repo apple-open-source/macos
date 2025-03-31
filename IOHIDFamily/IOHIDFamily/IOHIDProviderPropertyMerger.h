@@ -22,10 +22,11 @@
  */
 
 #include <IOKit/IOService.h>
+#include <IOKit/IOProviderPropertyMerger.h>
 
 #ifndef _IOKIT_IOHIDPROVIDERPROPERTYMERGER_H
 #define _IOKIT_IOHIDPROVIDERPROPERTYMERGER_H
-class IOHIDProviderPropertyMerger : public IOService 
+class IOHIDProviderPropertyMerger : public IOProviderPropertyMerger
 {
     OSDeclareDefaultStructors(IOHIDProviderPropertyMerger);
 

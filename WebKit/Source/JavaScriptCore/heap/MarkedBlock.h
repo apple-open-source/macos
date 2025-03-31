@@ -35,6 +35,8 @@
 #include <wtf/PageBlock.h>
 #include <wtf/StdLibExtras.h>
 
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
+
 namespace JSC {
 
 class AlignedMemoryAllocator;    
@@ -74,14 +76,16 @@ public:
 
     // Block size must be at least as large as the system page size.
     static constexpr size_t blockSize = std::max(16 * KB, CeilingOnPageSize);
+    static_assert(hasOneBitSet(blockSize)); // blockSize must be a power of two.
     static_assert((WeakBlock::blockSize * 16) == 16 * KB);
 
-    static constexpr size_t blockMask = ~(blockSize - 1); // blockSize must be a power of two.
+    static constexpr size_t blockMask = ~(blockSize - 1);
 
     static constexpr size_t atomsPerBlock = blockSize / atomSize;
 
-    using AtomNumberType = std::conditional<atomsPerBlock < UINT16_MAX, uint16_t, uint32_t>::type;
-    static_assert(std::numeric_limits<AtomNumberType>::max() >= atomsPerBlock);
+    using AtomNumberType = uint16_t;
+    using MarkCountBiasType = std::make_signed_t<AtomNumberType>;
+    static_assert(std::numeric_limits<MarkCountBiasType>::max() >= atomsPerBlock);
 
     static constexpr size_t maxNumberOfLowerTierPreciseCells = 8;
     static_assert(maxNumberOfLowerTierPreciseCells <= 256);
@@ -174,7 +178,7 @@ public:
         size_t markCount();
         size_t size();
 
-        size_t backingStorageSize() { return bitwise_cast<uintptr_t>(end()) - bitwise_cast<uintptr_t>(pageStart()); }
+        size_t backingStorageSize() { return std::bit_cast<uintptr_t>(end()) - std::bit_cast<uintptr_t>(pageStart()); }
         
         bool isAllocated();
         
@@ -183,8 +187,6 @@ public:
 
         bool isLive(const HeapCell*);
         bool isLiveCell(const void*);
-
-        bool isFreeListedCell(const void* target) const;
 
         template <typename Functor> IterationStatus forEachCell(const Functor&);
         template <typename Functor> inline IterationStatus forEachLiveCell(const Functor&);
@@ -279,7 +281,7 @@ public:
         // that this count is racy. It will accurately detect whether or not exactly zero things were
         // marked, but if N things got marked, then this may report anything in the range [1, N] (or
         // before unbiased, it would be [1 + m_markCountBias, N + m_markCountBias].)
-        int16_t m_biasedMarkCount;
+        MarkCountBiasType m_biasedMarkCount;
     
         // We bias the mark count so that if m_biasedMarkCount >= 0 then the block should be retired.
         // We go to all this trouble to make marking a bit faster: this way, marking knows when to
@@ -300,7 +302,7 @@ public:
         // All of this also means that you can detect if any objects are marked by doing:
         //
         //     m_biasedMarkCount != m_markCountBias
-        int16_t m_markCountBias;
+        MarkCountBiasType m_markCountBias;
 
         HeapVersion m_markingVersion;
         HeapVersion m_newlyAllocatedVersion;
@@ -406,7 +408,7 @@ public:
 
     void populatePage() const
     {
-        *bitwise_cast<volatile uint8_t*>(&header());
+        *std::bit_cast<volatile uint8_t*>(&header());
     }
     
     void setVerifierMemo(void*);
@@ -425,13 +427,14 @@ private:
     inline bool marksConveyLivenessDuringMarking(HeapVersion markingVersion);
     inline bool marksConveyLivenessDuringMarking(HeapVersion myMarkingVersion, HeapVersion markingVersion);
 
-    // This is only used for debugging. We should remove this once the issue is resolved (rdar://136782494)
-    NO_RETURN_DUE_TO_CRASH NEVER_INLINE void dumpInfoAndCrashForInvalidHandle(AbstractLocker&, HeapCell*);
+    // FIXME: rdar://139998916
+    NO_RETURN_DUE_TO_CRASH NEVER_INLINE void dumpInfoAndCrashForInvalidHandleV2(AbstractLocker&, HeapCell*);
+    inline void setupTestForDumpInfoAndCrash();
 };
 
 inline MarkedBlock::Header& MarkedBlock::header()
 {
-    return *bitwise_cast<MarkedBlock::Header*>(atoms() + headerAtom);
+    return *std::bit_cast<MarkedBlock::Header*>(atoms() + headerAtom);
 }
 
 inline const MarkedBlock::Header& MarkedBlock::header() const
@@ -688,7 +691,8 @@ inline bool MarkedBlock::hasAnyMarked() const
 inline void MarkedBlock::noteMarked()
 {
     // This is racy by design. We don't want to pay the price of an atomic increment!
-    int16_t biasedMarkCount = header().m_biasedMarkCount;
+    // FIXME: We could probably make this relaxed atomics on Apple ARM64E since it's mostly free for those chips.
+    MarkCountBiasType biasedMarkCount = header().m_biasedMarkCount;
     ++biasedMarkCount;
     header().m_biasedMarkCount = biasedMarkCount;
     if (UNLIKELY(!biasedMarkCount))
@@ -703,7 +707,7 @@ inline void MarkedBlock::setVerifierMemo(void* p)
 template<typename T>
 T MarkedBlock::verifierMemo() const
 {
-    return bitwise_cast<T>(header().m_verifierMemo);
+    return std::bit_cast<T>(header().m_verifierMemo);
 }
 
 } // namespace JSC
@@ -725,3 +729,5 @@ template<> struct DefaultHash<JSC::MarkedBlock*> : MarkedBlockHash { };
 void printInternal(PrintStream& out, JSC::MarkedBlock::Handle::SweepMode);
 
 } // namespace WTF
+
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_END

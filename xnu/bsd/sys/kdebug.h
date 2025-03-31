@@ -393,6 +393,7 @@ __BEGIN_DECLS
 
 #define DBG_VM_MAP_LOOKUP_ENTRY_FAILURE     0x143
 
+
 /*
  * Codes for Working Set Measurement (DBG_MACH_WORKINGSET)
  */
@@ -651,12 +652,16 @@ __BEGIN_DECLS
 #pragma mark Deferred Memory Reclamation Codes (DBG_MACH_VM_RECLAIM)
 
 #define VM_RECLAIM_UPDATE_ACCOUNTING 0x01
-#define VM_RECLAIM_ENTRIES           0x02
+#define VM_RECLAIM_TRIM              0x02
 #define VM_RECLAIM_CHUNK             0x03
 #define VM_RECLAIM_ENTRY             0x04
-#define VM_RECLAIM_ALL_MEMORY        0x05
-#define VM_RECLAIM_ASYNC_MEMORY      0x06
+#define VM_RECLAIM_DRAIN             0x05
+
 #define VM_RECLAIM_INIT              0x07
+#define VM_RECLAIM_SAMPLE            0x08
+
+#define VM_RECLAIM_RESIZE            0x0a
+#define VM_RECLAIM_FLUSH             0x0b
 
 /* **** The Kernel Debug Sub Classes for Network (DBG_NETWORK) **** */
 #define DBG_NETIP       1       /* Internet Protocol */

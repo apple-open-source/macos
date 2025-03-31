@@ -284,7 +284,7 @@ _hx509_Name_to_string(const Name *n, char **str)
 		break;
 	    }
 	    case invalid_choice_DirectoryString:
-		_hx509_abort("unknown directory type: %d", ds->element);
+		    _hx509_abort("unknown directory type: %u", ds->element);
 	    }
 	    append_string(str, &total_len, oidname, strlen(oidname), 0);
 	    free(oidname);
@@ -380,7 +380,7 @@ dsstringprep(const DirectoryString *ds, uint32_t **rname, size_t *rlen)
 	}
 	break;
     case invalid_choice_DirectoryString:
-	_hx509_abort("unknown directory type: %d", ds->element);
+	    _hx509_abort("unknown directory type: %u", ds->element);
     }
 
     *rlen = len;

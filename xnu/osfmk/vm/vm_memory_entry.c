@@ -216,9 +216,6 @@ mach_make_memory_entry_mem_only(
 		wimg_mode = VM_WIMG_USE_DEFAULT;
 	}
 	vm_prot_to_wimg(access, &wimg_mode);
-	if (access != MAP_MEM_NOOP) {
-		parent_entry->access = access;
-	}
 	if (parent_is_object && object &&
 	    (access != MAP_MEM_NOOP) &&
 	    (!(object->nophyscache))) {
@@ -227,6 +224,9 @@ mach_make_memory_entry_mem_only(
 			vm_object_change_wimg_mode(object, wimg_mode);
 			vm_object_unlock(object);
 		}
+	}
+	if (access != MAP_MEM_NOOP) {
+		parent_entry->access = access;
 	}
 	if (object_handle) {
 		*object_handle = IP_NULL;
@@ -502,11 +502,12 @@ mach_make_memory_entry_named_create(
 
 static kern_return_t
 mach_make_memory_entry_copy(
-	vm_map_t                target_map,
-	memory_object_size_ut  *size_u,
-	vm_map_offset_ut        offset_u,
-	vm_prot_t               permission,
-	ipc_port_t             *object_handle)
+	vm_map_t                      target_map,
+	memory_object_size_ut         *size_u,
+	vm_map_offset_ut              offset_u,
+	vm_prot_t                     permission,
+	__unused vm_named_entry_kernel_flags_t vmne_kflags,
+	ipc_port_t                    *object_handle)
 {
 	unsigned int            access;
 	vm_prot_t               protections;
@@ -566,10 +567,11 @@ mach_make_memory_entry_copy(
 	offset_in_page = vm_memory_entry_get_offset_in_page(offset, map_start,
 	    use_data_addr, use_4K_compat);
 
+	int copyin_flags = VM_MAP_COPYIN_ENTRY_LIST;
 	kr = vm_map_copyin_internal(target_map,
 	    map_start,
 	    map_size,
-	    VM_MAP_COPYIN_ENTRY_LIST,
+	    copyin_flags,
 	    &copy);
 	if (kr != KERN_SUCCESS) {
 		return mach_make_memory_entry_cleanup(kr, target_map,
@@ -611,13 +613,14 @@ mach_make_memory_entry_copy(
 
 static kern_return_t
 mach_make_memory_entry_share(
-	vm_map_t                target_map,
-	memory_object_size_ut  *size_u,
-	vm_map_offset_ut        offset_u,
-	vm_prot_t               permission,
-	ipc_port_t             *object_handle,
-	ipc_port_t              parent_handle,
-	vm_named_entry_t        parent_entry)
+	vm_map_t                      target_map,
+	memory_object_size_ut        *size_u,
+	vm_map_offset_ut              offset_u,
+	vm_prot_t                     permission,
+	__unused vm_named_entry_kernel_flags_t vmne_kflags,
+	ipc_port_t                    *object_handle,
+	ipc_port_t                    parent_handle,
+	vm_named_entry_t              parent_entry)
 {
 	vm_object_t             object;
 	unsigned int            access;
@@ -1186,14 +1189,15 @@ mach_make_memory_entry_internal(
 
 	if (permission & MAP_MEM_VM_COPY) {
 		return mach_make_memory_entry_copy(target_map, size_u, offset_u,
-		           permission, object_handle);
+		           permission, vmne_kflags, object_handle);
 	}
 
 	if ((permission & MAP_MEM_VM_SHARE)
 	    || parent_entry == NULL
 	    || (permission & MAP_MEM_NAMED_REUSE)) {
 		return mach_make_memory_entry_share(target_map, size_u, offset_u,
-		           permission, object_handle, parent_handle, parent_entry);
+		           permission, vmne_kflags, object_handle, parent_handle,
+		           parent_entry);
 	}
 
 	/*
@@ -2205,4 +2209,23 @@ memory_entry_check_for_adjustment(
 	named_entry_unlock(named_entry);
 
 	return kr;
+}
+
+vm_object_t
+vm_convert_port_to_copy_object(
+	ipc_port_t      port)
+{
+	/* Invalid / wrong port type? */
+	if (!IP_VALID(port) || ip_kotype(port) != IKOT_NAMED_ENTRY) {
+		return NULL;
+	}
+
+	/* We expect the named entry to point to an object. */
+	vm_named_entry_t named_entry = mach_memory_entry_from_port(port);
+	if (!named_entry || !named_entry->is_object) {
+		return NULL;
+	}
+
+	/* Pull out the copy map object... */
+	return vm_named_entry_to_vm_object(named_entry);
 }

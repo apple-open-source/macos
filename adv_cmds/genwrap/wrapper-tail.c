@@ -22,6 +22,9 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+static const struct application *wrapper_executable(struct application *);
+static bool wrapper_sandbox_failure;
+
 /*
  * genwrap should fail if the specification didn't include any application at
  * all; better safe than sorry, though.
@@ -269,10 +272,10 @@ wrapper_logged_args(const struct application *app, int argc, char *argv[],
 #endif
 
 #if WRAPPER_APPLICATION_COUNT > 1
-static const struct application *
+static struct application *
 wrapper_by_name(const char *appname)
 {
-	const struct application *app;
+	struct application *app;
 
 	for (size_t i = 0; i < nitems(wrapper_apps); i++) {
 		app = &wrapper_apps[i];
@@ -290,7 +293,7 @@ wrapper_by_name(const char *appname)
 	return (NULL);
 }
 
-static const struct application *
+static struct application *
 wrapper_check_env(void)
 {
 #ifdef WRAPPER_ENV_VAR
@@ -303,7 +306,7 @@ wrapper_check_env(void)
 	return (NULL);
 }
 
-static const struct application *
+static struct application *
 wrapper_check_var(void)
 {
 	/*
@@ -314,9 +317,8 @@ wrapper_check_var(void)
 #ifdef WRAPPER_NAME
 	static const char varpath[] = _PATH_VARSEL WRAPPER_NAME;
 	static bool var_app_read;
-	static const struct application *var_app;
+	static struct application *var_app;
 	char target[WRAPPER_MAXNAMELEN];
-	const struct application *app;
 	ssize_t ret;
 
 	if (var_app_read)
@@ -398,10 +400,10 @@ wrapper_check_args_app(const struct application *app, int argc, char *argv[])
 	    argc, argv));
 }
 
-static const struct application *
+static struct application *
 wrapper_check_args(int argc, char *argv[])
 {
-	const struct application *app, *dflt_app;
+	struct application *app, *dflt_app;
 
 	/*
 	 * If we only have the name, there are no arguments to check and we can
@@ -418,7 +420,8 @@ wrapper_check_args(int argc, char *argv[])
 	 * var-specified app anyways.
 	 */
 	dflt_app = wrapper_check_var();
-	if (dflt_app != NULL && wrapper_check_args_app(dflt_app, argc, argv))
+	if (dflt_app != NULL && wrapper_check_args_app(dflt_app, argc, argv) &&
+	    wrapper_executable(dflt_app) != NULL)
 		return (dflt_app);
 
 	for (size_t i = 0; i < nitems(wrapper_apps); i++) {
@@ -426,8 +429,11 @@ wrapper_check_args(int argc, char *argv[])
 		if (app == dflt_app)
 			continue;
 
-		if (wrapper_check_args_app(app, argc, argv))
+		if (wrapper_check_args_app(app, argc, argv)) {
+			if (wrapper_executable(app) == NULL)
+				continue;
 			return (app);
+		}
 	}
 
 	return (NULL);
@@ -567,10 +573,51 @@ wrapper_execute_addargs(const struct application *app, int *argc,
 	*argc = total_args;
 }
 
+static const struct application *
+wrapper_executable(struct application *app)
+{
+
+	if (app == NULL || app->app_sandbox_failure)
+		return (NULL);
+
+	/*
+	 * Nothing we can do if it's an xcode/toolchain executable, those will
+	 * simply fail at xcrun time.
+	 */
+	if (app->app_path[0] != '/' && !app->app_path_relcwd)
+		return (app);
+
+	/*
+	 * We'll let other failures pass through for now and handle the error at
+	 * execv(3) time instead so that we don't silently trigger the fallback
+	 * path for more pressing issues.
+	 */
+	if (access(app->app_path, X_OK) == -1 && errno == EPERM) {
+		static os_log_t genwrap_sandbox_log;
+
+		if (genwrap_sandbox_log == NULL) {
+			genwrap_sandbox_log = os_log_create("com.apple.genwrap",
+			    "sandbox");
+		}
+
+		os_log_error(genwrap_sandbox_log,
+		    "(" WRAPPER_NAME ") sandbox violation avoided: %{public}s [%{public}s]",
+		    app->app_name, app->app_path);
+
+		app->app_sandbox_failure = true;
+		wrapper_sandbox_failure = true;
+		return (NULL);
+	}
+
+	return (app);
+}
+
 static int
 wrapper_execute(const struct application *app, int argc, char *argv[])
 {
 
+	if (app == NULL)
+		errx(1, "No eligible application found");
 #ifdef WRAPPER_ANALYTICS_TESTING
 	return (wrapper_execute_analytics_testing(app, argc, argv));
 #else	/* !WRAPPER_ANALYTICS_TESTING */
@@ -593,6 +640,8 @@ wrapper_execute(const struct application *app, int argc, char *argv[])
 			xpc_dictionary_set_uint64(payload, "argerrors", errors);
 		if (halted)
 			xpc_dictionary_set_bool(payload, "arghalt", true);
+		if (wrapper_sandbox_failure)
+			xpc_dictionary_set_bool(payload, "sandboxfail", true);
 
 		xpc_dictionary_apply(args, ^bool(const char *key, xpc_object_t val) {
 			xpc_type_t type;
@@ -643,6 +692,14 @@ wrapper_execute(const struct application *app, int argc, char *argv[])
 	}
 
 	execv(path, argv);
+
+	/*
+	 * If we were executed in a sandbox, we should have caught that much
+	 * earlier than this.  Most likely we're running in a sandbox that is
+	 * misconfigured.
+	 */
+	assert(errno != EPERM);
+
 	err(1, "execv(%s)", path);
 	/* UNREACHABLE */
 #endif	/* !WRAPPER_ANALYTICS_TESTING */
@@ -660,20 +717,27 @@ wrapper_app(int argc, char *argv[])
 #if WRAPPER_APPLICATION_COUNT > 1
 	const struct application *chosen_app;
 
-	chosen_app = wrapper_check_env();
+	chosen_app = wrapper_executable(wrapper_check_env());
 	if (chosen_app != NULL)
 		return (chosen_app);
 
+	/*
+	 * wrapper_check_args() can find multiple candidates, so it needs to
+	 * have handled executability checks internally in order to fallback
+	 * properly.
+	 */
 	chosen_app = wrapper_check_args(argc, argv);
-	if (chosen_app != NULL)
+	if (chosen_app != NULL) {
+		assert(wrapper_executable(chosen_app) != NULL);
 		return (chosen_app);
+	}
 
-	chosen_app = wrapper_check_var();
+	chosen_app = wrapper_executable(wrapper_check_var());
 	if (chosen_app != NULL)
 		return (chosen_app);
 #endif
 
-	return (&wrapper_apps[0]);
+	return (wrapper_executable(&wrapper_apps[0]));
 }
 
 int

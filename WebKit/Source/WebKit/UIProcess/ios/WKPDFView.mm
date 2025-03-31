@@ -32,6 +32,7 @@
 #import "FindClient.h"
 #import "PDFKitSPI.h"
 #import "PickerDismissalReason.h"
+#import "ProcessTerminationReason.h"
 #import "UIKitSPI.h"
 #import "WKActionSheetAssistant.h"
 #import "WKKeyboardScrollingAnimator.h"
@@ -47,6 +48,7 @@
 #import <wtf/BlockPtr.h>
 #import <wtf/MainThread.h>
 #import <wtf/RetainPtr.h>
+#import <wtf/StdLibExtras.h>
 #import <wtf/WeakObjCPtr.h>
 #import <wtf/cocoa/Entitlements.h>
 #import <wtf/cocoa/NSURLExtras.h>
@@ -177,7 +179,7 @@ static void* kvoContext = &kvoContext;
     [[_hostViewController view] removeFromSuperview];
     [_pageNumberIndicator removeFromSuperview];
     [_keyboardScrollingAnimator invalidate];
-    std::memset(_passwordForPrinting.mutableData(), 0, _passwordForPrinting.length());
+    secureMemsetSpan(_passwordForPrinting.mutableSpan(), 0);
 #if HAVE(UIFINDINTERACTION)
     _searchAggregator = nil;
     _searchString = nil;
@@ -676,7 +678,7 @@ static NSStringCompareOptions stringCompareOptions(_WKFindOptions findOptions)
     // FIXME 40916725: PDFKit should dispatch this message to the main thread like it does for other delegate messages.
     RunLoop::main().dispatch([webView = _webView] {
         if (auto page = [webView _page])
-            page->dispatchProcessDidTerminate(WebKit::ProcessTerminationReason::Crash);
+            page->dispatchProcessDidTerminate(page->legacyMainFrameProcess(), WebKit::ProcessTerminationReason::Crash);
     });
 }
 

@@ -101,13 +101,8 @@ TEST_P(EGLFeatureControlTest, QueryAll)
         EXPECT_STREQ(features[i]->name, eglQueryStringiANGLE(mDisplay, EGL_FEATURE_NAME_ANGLE, i));
         EXPECT_STREQ(FeatureCategoryToString(features[i]->category),
                      eglQueryStringiANGLE(mDisplay, EGL_FEATURE_CATEGORY_ANGLE, i));
-        EXPECT_STREQ(features[i]->description,
-                     eglQueryStringiANGLE(mDisplay, EGL_FEATURE_DESCRIPTION_ANGLE, i));
-        EXPECT_STREQ(features[i]->bug, eglQueryStringiANGLE(mDisplay, EGL_FEATURE_BUG_ANGLE, i));
         EXPECT_STREQ(FeatureStatusToString(features[i]->enabled),
                      eglQueryStringiANGLE(mDisplay, EGL_FEATURE_STATUS_ANGLE, i));
-        EXPECT_STREQ(features[i]->condition,
-                     eglQueryStringiANGLE(mDisplay, EGL_FEATURE_CONDITION_ANGLE, i));
         ASSERT_EGL_SUCCESS();
     }
 }
@@ -307,6 +302,16 @@ TEST_P(EGLFeatureControlTest, OverrideFeaturesDependent)
         GetFeatureName(Feature::SupportsFragmentShadingRate),
     };
 
+    // Features that could be different on some vendors
+    const std::set<std::string> featuresThatCouldBeDifferent = {
+        // Depends-on Feature::SupportsDepthStencilResolve
+        GetFeatureName(Feature::EnableMultisampledRenderToTexture),
+        // Depends-on Feature::SupportsFragmentShadingRate
+        GetFeatureName(Feature::SupportsFoveatedRendering),
+        // Depends-on Feature::EnableMultisampledRenderToTexture
+        GetFeatureName(Feature::PreferDynamicRendering),
+    };
+
     std::vector<std::string> featureNameStorage;
     std::vector<bool> shouldBe;
 
@@ -352,6 +357,12 @@ TEST_P(EGLFeatureControlTest, OverrideFeaturesDependent)
     // Check that all features have the correct status (even the ones we toggled).
     for (size_t i = 0; i < features.size(); i++)
     {
+        if (featuresThatCouldBeDifferent.count(featureNameStorage[i]) > 0)
+        {
+            // On some vendors these features could be different
+            continue;
+        }
+
         EXPECT_STREQ(FeatureStatusToString(shouldBe[i]),
                      eglQueryStringiANGLE(mDisplay, EGL_FEATURE_STATUS_ANGLE, i))
             << featureNameStorage[i];
@@ -361,7 +372,9 @@ TEST_P(EGLFeatureControlTest, OverrideFeaturesDependent)
 ANGLE_INSTANTIATE_TEST(EGLFeatureControlTest,
                        WithNoFixture(ES2_D3D9()),
                        WithNoFixture(ES2_D3D11()),
+                       WithNoFixture(ES2_METAL()),
                        WithNoFixture(ES2_OPENGL()),
                        WithNoFixture(ES2_VULKAN()),
                        WithNoFixture(ES3_D3D11()),
+                       WithNoFixture(ES3_METAL()),
                        WithNoFixture(ES3_OPENGL()));

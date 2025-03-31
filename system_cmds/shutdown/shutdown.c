@@ -30,21 +30,10 @@
  * SUCH DAMAGE.
  */
 
-#if 0
-#ifndef lint
-static const char copyright[] =
-"@(#) Copyright (c) 1988, 1990, 1993\n\
-	The Regents of the University of California.  All rights reserved.\n";
-#endif /* not lint */
-
-#ifndef lint
-static char sccsid[] = "@(#)shutdown.c	8.4 (Berkeley) 4/28/95";
-#endif /* not lint */
-#endif
-#include <sys/cdefs.h>
-__FBSDID("$FreeBSD$");
-
 #include <sys/param.h>
+#ifndef __APPLE__
+#include <sys/boottrace.h>
+#endif
 #include <sys/resource.h>
 #include <sys/syslog.h>
 #include <sys/time.h>
@@ -57,6 +46,7 @@ __FBSDID("$FreeBSD$");
 #include <pwd.h>
 #include <setjmp.h>
 #include <signal.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -82,6 +72,8 @@ __FBSDID("$FreeBSD$");
 #include <utmpx.h>
 
 #include "pathnames.h"
+
+#define	BOOTTRACE(...)
 #endif /* __APPLE__ */
 
 #ifdef DEBUG
@@ -131,7 +123,7 @@ static void die_you_gravy_sucking_pig_dog(void);
 #endif
 static void finish(int);
 static void getoffset(char *);
-static void loop(void);
+static void loop(bool);
 static void nolog(void);
 static void timeout(int);
 static void timewarn(time_t);
@@ -150,12 +142,14 @@ main(int argc, char **argv)
 	struct passwd *pw;
 	size_t arglen;
 	int ch, len, readstdin;
+	bool dowarn;
 
 #ifndef DEBUG
 	if (geteuid())
 		errx(1, "NOT super-user");
 #endif
 
+	dowarn = true;
 	nosync = NULL;
 	readstdin = 0;
 
@@ -183,9 +177,9 @@ main(int argc, char **argv)
 #endif
 
 #ifdef __APPLE__
-	while ((ch = getopt(argc, argv, "-hknoprsu")) != -1)
+	while ((ch = getopt(argc, argv, "-hknopqrsu")) != -1)
 #else
-	while ((ch = getopt(argc, argv, "-chknopr")) != -1)
+	while ((ch = getopt(argc, argv, "-chknopqr")) != -1)
 #endif
 		switch (ch) {
 		case '-':
@@ -214,6 +208,9 @@ main(int argc, char **argv)
 #else
 			dopower = 1;
 #endif
+			break;
+		case 'q':
+			dowarn = false;
 			break;
 		case 'r':
 			doreboot = 1;
@@ -259,6 +256,8 @@ main(int argc, char **argv)
 #ifndef __APPLE__
 poweroff:
 #endif
+	if (!dowarn && *argv != NULL)
+		usage("warning-message supplied but suppressed with -q");
 	if (*argv) {
 		for (p = mbuf, len = sizeof(mbuf); *argv; ++argv) {
 			arglen = strlen(*argv);
@@ -289,10 +288,13 @@ poweroff:
 	}
 	mbuflen = strlen(mbuf);
 
-	if (offset)
+	if (offset) {
+		BOOTTRACE("Shutdown at %s", ctime(&shuttime));
 		(void)printf("Shutdown at %.24s.\n", ctime(&shuttime));
-	else
+	} else {
+		BOOTTRACE("Shutdown NOW!");
 		(void)printf("Shutdown NOW!\n");
+	}
 
 	if (!(whom = getlogin()))
 		whom = (pw = getpwuid(getuid())) ? pw->pw_name : "???";
@@ -328,12 +330,12 @@ poweroff:
 	setsid();
 #endif
 	openlog("shutdown", LOG_CONS, LOG_AUTH);
-	loop();
+	loop(dowarn);
 	return(0);
 }
 
 static void
-loop(void)
+loop(bool dowarn)
 {
 	struct interval *tp;
 	u_int sltime;
@@ -356,13 +358,14 @@ loop(void)
 		 * the next wait time.
 		 */
 		if ((sltime = (u_int)(offset - tp->timeleft))) {
-			if (sltime > (u_int)(tp->timetowait / 5))
+			if (dowarn && sltime > (u_int)(tp->timetowait / 5))
 				timewarn(offset);
 			(void)sleep(sltime);
 		}
 	}
 	for (;; ++tp) {
-		timewarn(tp->timeleft);
+		if (dowarn)
+			timewarn(tp->timeleft);
 		if (!logged && tp->timeleft <= NOLOG_TIME) {
 			logged = 1;
 			nolog();
@@ -469,6 +472,9 @@ die_you_gravy_sucking_pig_dog(void)
 	    "shutdown",
 	    whom, mbuf);
 #else
+	BOOTTRACE("%s by %s",
+	    doreboot ? "reboot" : dohalt ? "halt" : dopower ? "power-down" :
+	   docycle ? "power-cycle" : "shutdown", whom);
 	syslog(LOG_NOTICE, "%s by %s: %s",
 	    doreboot ? "reboot" : dohalt ? "halt" : dopower ? "power-down" :
 	    docycle ? "power-cycle" : "shutdown", whom, mbuf);
@@ -476,6 +482,7 @@ die_you_gravy_sucking_pig_dog(void)
 
 	(void)printf("\r\nSystem shutdown time has arrived\007\007\r\n");
 	if (killflg) {
+		BOOTTRACE("fake shutdown...");
 		(void)printf("\rbut you'll have to do it yourself\r\n");
 		exit(0);
 	}
@@ -527,6 +534,7 @@ die_you_gravy_sucking_pig_dog(void)
 	}
 #else /* !__APPLE__ */
 	if (!oflag) {
+		BOOTTRACE("signal to init(8)...");
 		(void)kill(1, doreboot ? SIGINT :	/* reboot */
 			      dohalt ? SIGUSR1 :	/* halt */
 			      dopower ? SIGUSR2 :	/* power-down */
@@ -534,6 +542,7 @@ die_you_gravy_sucking_pig_dog(void)
 			      SIGTERM);			/* single-user */
 	} else {
 		if (doreboot) {
+			BOOTTRACE("exec reboot(8) -l...");
 			execle(_PATH_REBOOT, "reboot", "-l", nosync, 
 				(char *)NULL, empty_environ);
 			syslog(LOG_ERR, "shutdown: can't exec %s: %m.",
@@ -541,6 +550,7 @@ die_you_gravy_sucking_pig_dog(void)
 			warn(_PATH_REBOOT);
 		}
 		else if (dohalt) {
+			BOOTTRACE("exec halt(8) -l...");
 			execle(_PATH_HALT, "halt", "-l", nosync,
 				(char *)NULL, empty_environ);
 			syslog(LOG_ERR, "shutdown: can't exec %s: %m.",
@@ -548,6 +558,7 @@ die_you_gravy_sucking_pig_dog(void)
 			warn(_PATH_HALT);
 		}
 		else if (dopower) {
+			BOOTTRACE("exec halt(8) -l -p...");
 			execle(_PATH_HALT, "halt", "-l", "-p", nosync,
 				(char *)NULL, empty_environ);
 			syslog(LOG_ERR, "shutdown: can't exec %s: %m.",
@@ -561,6 +572,7 @@ die_you_gravy_sucking_pig_dog(void)
 				_PATH_HALT);
 			warn(_PATH_HALT);
 		}
+		BOOTTRACE("SIGTERM to init(8)...");
 		(void)kill(1, SIGTERM);		/* to single-user */
 	}
 #endif /* __APPLE__ */
@@ -731,9 +743,9 @@ usage(const char *cp)
 		warnx("%s", cp);
 	(void)fprintf(stderr,
 #ifdef __APPLE__
-	    "usage: shutdown [-] [-h | -r | -s | -k] [-o [-n]] time [warning-message ...]\n");
+	    "usage: shutdown [-] [-h | -r | -s | -k] [-o [-n]] [-q] time [warning-message ...]\n");
 #else
-	    "usage: shutdown [-] [-c | -h | -p | -r | -k] [-o [-n]] time [warning-message ...]\n"
+	    "usage: shutdown [-] [-c | -h | -p | -r | -k] [-o [-n]] [-q] time [warning-message ...]\n"
 	    "       poweroff\n");
 #endif
 	exit(1);

@@ -26,7 +26,7 @@
 
 #include "EventTarget.h"
 #include "SecurityOrigin.h"
-#include <wtf/RefCounted.h>
+#include <wtf/RefCountedAndCanMakeWeakPtr.h>
 #include <wtf/Vector.h>
 #include <wtf/WeakHashSet.h>
 
@@ -44,7 +44,11 @@ class WeakPtrImplWithEventTargetData;
 class LibWebRTCLogSink;
 #endif
 
-class RTCController : public RefCounted<RTCController>, public CanMakeWeakPtr<RTCController> {
+#if USE(GSTREAMER_WEBRTC)
+class GStreamerWebRTCLogSink;
+#endif
+
+class RTCController : public RefCountedAndCanMakeWeakPtr<RTCController> {
 public:
     static Ref<RTCController> create() { return adoptRef(*new RTCController); }
 
@@ -72,7 +76,7 @@ private:
     void startGatheringStatLogs(RTCPeerConnection&);
     bool shouldDisableICECandidateFiltering(Document&);
 
-    void stopLoggingLibWebRTCLogs();
+    void stopLoggingWebRTCLogs();
 
     struct PeerConnectionOrigin {
         Ref<SecurityOrigin> topOrigin;
@@ -86,6 +90,9 @@ private:
     WeakPtr<Document, WeakPtrImplWithEventTargetData> m_gatheringLogsDocument;
 #if USE(LIBWEBRTC)
     std::unique_ptr<LibWebRTCLogSink> m_logSink;
+#endif
+#if USE(GSTREAMER_WEBRTC)
+    std::unique_ptr<GStreamerWebRTCLogSink> m_logSink;
 #endif
 #endif // ENABLE(WEB_RTC)
 };

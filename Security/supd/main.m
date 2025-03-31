@@ -42,7 +42,7 @@ int main(int argc, char** argv)
 
 #import <Foundation/Foundation.h>
 #import "supd.h"
-#include "debugging.h"
+#include "utilities/debugging.h"
 #import <Foundation/NSXPCConnection_Private.h>
 #include <xpc/private.h>
 
@@ -84,6 +84,33 @@ static void securityuploadd_sandbox(void)
 #if TARGET_OS_OSX
     // Enter the sandbox on macOS
     char homeDir[PATH_MAX] = {};
+    char buf[PATH_MAX] = "";
+
+    if (!_set_user_dir_suffix("com.apple.securityuploadd") ||
+        confstr(_CS_DARWIN_USER_TEMP_DIR, buf, sizeof(buf)) == 0 ||
+        (mkdir(buf, 0700) && errno != EEXIST)) {
+        secerror("failed to initialize temporary directory (%d): %s", errno, strerror(errno));
+        exit(EXIT_FAILURE);
+    }
+
+    char *tempdir = realpath(buf, NULL);
+    if (tempdir == NULL) {
+        secerror("failed to resolve temporary directory (%d): %s", errno, strerror(errno));
+        exit(EXIT_FAILURE);
+    }
+
+    if (confstr(_CS_DARWIN_USER_CACHE_DIR, buf, sizeof(buf)) == 0 ||
+        (mkdir(buf, 0700) && errno != EEXIST)) {
+        secerror("failed to initialize cache directory (%d): %s", errno, strerror(errno));
+        exit(EXIT_FAILURE);
+    }
+
+    char *cachedir = realpath(buf, NULL);
+    if (cachedir == NULL) {
+        secerror("failed to resolve cache directory (%d): %s", errno, strerror(errno));
+        exit(EXIT_FAILURE);
+    }
+
     struct passwd* pwd = getpwuid(getuid());
     if (pwd == NULL) {
         secerror("Failed to get home directory for user: %d", errno);
@@ -96,6 +123,8 @@ static void securityuploadd_sandbox(void)
 
     const char *sandbox_params[] = {
         "HOME", homeDir,
+        "_TMPDIR", tempdir,
+        "_DARWIN_CACHE_DIR", cachedir,
         NULL
     };
 
@@ -105,7 +134,14 @@ static void securityuploadd_sandbox(void)
         secerror("Failed to enter securityuploadd sandbox: %{public}s", sberror);
         exit(EXIT_FAILURE);
     }
-#endif
+
+    free(tempdir);
+    free(cachedir);
+#else // !TARGET_OS_OSX
+    char buf[PATH_MAX] = "";
+    _set_user_dir_suffix("com.apple.securityuploadd");
+    confstr(_CS_DARWIN_USER_TEMP_DIR, buf, sizeof(buf));
+#endif // !TARGET_OS_OSX
 }
 
 int main(int argc, const char *argv[])

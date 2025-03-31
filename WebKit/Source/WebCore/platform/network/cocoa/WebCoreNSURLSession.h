@@ -57,7 +57,7 @@ enum class ShouldContinuePolicyCheck : bool;
 }
 
 namespace WTF {
-class RefCountedSerialFunctionDispatcher;
+class GuaranteedSerialFunctionDispatcher;
 class WorkQueue;
 }
 
@@ -73,13 +73,13 @@ NS_ASSUME_NONNULL_BEGIN
 WEBCORE_EXPORT @interface WebCoreNSURLSession : NSObject {
 @private
     RefPtr<WebCore::PlatformMediaResourceLoader> _loader;
-    RefPtr<RefCountedSerialFunctionDispatcher> _targetDispatcher;
+    RefPtr<GuaranteedSerialFunctionDispatcher> _targetDispatcher;
     WeakObjCPtr<id<NSURLSessionDelegate>> _delegate;
     RetainPtr<NSOperationQueue> _queue;
     RetainPtr<NSString> _sessionDescription;
     Lock _dataTasksLock;
-    HashSet<RetainPtr<WebCoreNSURLSessionDataTask>> _dataTasks WTF_GUARDED_BY_LOCK(_dataTasksLock);
-    HashSet<RefPtr<WebCore::SecurityOrigin>> _origins WTF_GUARDED_BY_LOCK(_dataTasksLock);
+    UncheckedKeyHashSet<RetainPtr<WebCoreNSURLSessionDataTask>> _dataTasks WTF_GUARDED_BY_LOCK(_dataTasksLock);
+    UncheckedKeyHashSet<RefPtr<WebCore::SecurityOrigin>> _origins WTF_GUARDED_BY_LOCK(_dataTasksLock);
     BOOL _invalidated; // Access on multiple thread, must be accessed via ObjC property.
     NSUInteger _nextTaskIdentifier;
     RefPtr<WTF::WorkQueue> _internalQueue;
@@ -132,7 +132,7 @@ WEBCORE_EXPORT @interface WebCoreNSURLSession : NSObject {
 // Created on com.apple.avfoundation.customurl.nsurlsession
 @interface WebCoreNSURLSessionDataTask : NSObject {
     WeakObjCPtr<WebCoreNSURLSession> _session; // Accesssed from operation queue, main and loader thread. Must be accessed through Obj-C property.
-    RefPtr<RefCountedSerialFunctionDispatcher> _targetDispatcher;
+    RefPtr<GuaranteedSerialFunctionDispatcher> _targetDispatcher;
     RefPtr<WebCore::PlatformMediaResource> _resource; // Accesssed from loader thread.
     RetainPtr<NSURLResponse> _response; // Set on operation queue.
     NSUInteger _taskIdentifier;

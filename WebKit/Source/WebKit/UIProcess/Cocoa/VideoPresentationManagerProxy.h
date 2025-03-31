@@ -60,6 +60,7 @@ class WebPageProxy;
 class PlaybackSessionManagerProxy;
 class PlaybackSessionModelContext;
 class VideoPresentationManagerProxy;
+struct SharedPreferencesForWebProcess;
 
 class VideoPresentationModelContext final
     : public WebCore::VideoPresentationModel  {
@@ -69,20 +70,6 @@ public:
         return adoptRef(*new VideoPresentationModelContext(manager, playbackSessionModel, contextId));
     }
     virtual ~VideoPresentationModelContext();
-
-    PlatformView *layerHostView() const { return m_layerHostView.get(); }
-    void setLayerHostView(RetainPtr<PlatformView>&& layerHostView) { m_layerHostView = WTFMove(layerHostView); }
-
-    WebAVPlayerLayer *playerLayer() const { return m_playerLayer.get(); }
-    void setPlayerLayer(RetainPtr<WebAVPlayerLayer>&&);
-
-#if PLATFORM(IOS_FAMILY)
-    WebAVPlayerLayerView *playerView() const { return m_playerView.get(); }
-    void setPlayerView(RetainPtr<WebAVPlayerLayerView>&& playerView) { m_playerView = WTFMove(playerView); }
-
-    WKVideoView *videoView() const { return m_videoView.get(); }
-    void setVideoView(RetainPtr<WKVideoView>&& videoView) { m_videoView = WTFMove(videoView); }
-#endif
 
     void requestCloseAllMediaPresentations(bool finishedWithMedia, CompletionHandler<void()>&&);
 
@@ -128,8 +115,8 @@ private:
     void setTextTrackRepresentationBounds(const WebCore::IntRect&) final;
 
 #if !RELEASE_LOG_DISABLED
-    const void* logIdentifier() const final;
-    const void* nextChildIdentifier() const final;
+    uint64_t logIdentifier() const final;
+    uint64_t nextChildIdentifier() const final;
     const Logger* loggerPtr() const final;
 
     ASCIILiteral logClassName() const { return "VideoPresentationModelContext"_s; };
@@ -139,13 +126,6 @@ private:
     WeakPtr<VideoPresentationManagerProxy> m_manager;
     Ref<PlaybackSessionModelContext> m_playbackSessionModel;
     PlaybackSessionContextIdentifier m_contextId;
-    RetainPtr<PlatformView> m_layerHostView;
-    RetainPtr<WebAVPlayerLayer> m_playerLayer;
-
-#if PLATFORM(IOS_FAMILY)
-    RetainPtr<WebAVPlayerLayerView> m_playerView;
-    RetainPtr<WKVideoView> m_videoView;
-#endif
 
     WeakHashSet<WebCore::VideoPresentationModelClient> m_clients;
     WebCore::FloatSize m_videoDimensions;
@@ -161,12 +141,13 @@ class VideoPresentationManagerProxy
     , public CanMakeWeakPtr<VideoPresentationManagerProxy>
     , private IPC::MessageReceiver {
 public:
-    using CanMakeWeakPtr<VideoPresentationManagerProxy>::WeakPtrImplType;
-    using CanMakeWeakPtr<VideoPresentationManagerProxy>::WeakValueType;
-    using CanMakeWeakPtr<VideoPresentationManagerProxy>::weakPtrFactory;
+    USING_CAN_MAKE_WEAKPTR(CanMakeWeakPtr<VideoPresentationManagerProxy>);
 
     static Ref<VideoPresentationManagerProxy> create(WebPageProxy&, PlaybackSessionManagerProxy&);
     virtual ~VideoPresentationManagerProxy();
+
+    void ref() const final { RefCounted::ref(); }
+    void deref() const final { RefCounted::deref(); }
 
     void invalidate();
 
@@ -203,6 +184,9 @@ public:
     PlatformLayerContainer createLayerWithID(PlaybackSessionContextIdentifier, WebKit::LayerHostingContextID videoLayerID, const WebCore::FloatSize& initialSize, const WebCore::FloatSize& nativeSize, float hostingScaleFactor);
 
     void willRemoveLayerForID(PlaybackSessionContextIdentifier);
+    std::optional<SharedPreferencesForWebProcess> sharedPreferencesForWebProcess() const;
+
+    void swapFullscreenModes(PlaybackSessionContextIdentifier, PlaybackSessionContextIdentifier);
 
 private:
     friend class VideoPresentationModelContext;
@@ -219,6 +203,7 @@ private:
     void ensureClientForContext(PlaybackSessionContextIdentifier);
     void addClientForContext(PlaybackSessionContextIdentifier);
     void removeClientForContext(PlaybackSessionContextIdentifier);
+    void invalidateInterface(WebCore::PlatformVideoPresentationInterface&);
 
     void hasVideoInPictureInPictureDidChange(bool);
 
@@ -269,7 +254,7 @@ private:
 
 #if !RELEASE_LOG_DISABLED
     const Logger& logger() const;
-    const void* logIdentifier() const;
+    uint64_t logIdentifier() const;
     ASCIILiteral logClassName() const;
     WTFLogChannel& logChannel() const;
 #endif
@@ -277,12 +262,15 @@ private:
     bool m_mockVideoPresentationModeEnabled { false };
     WebCore::FloatSize m_mockPictureInPictureWindowSize { DefaultMockPictureInPictureWindowWidth, DefaultMockPictureInPictureWindowHeight };
 
+    Ref<PlaybackSessionManagerProxy> protectedPlaybackSessionManagerProxy() const;
+
     WeakPtr<WebPageProxy> m_page;
     Ref<PlaybackSessionManagerProxy> m_playbackSessionManagerProxy;
     HashMap<PlaybackSessionContextIdentifier, ModelInterfaceTuple> m_contextMap;
     HashMap<PlaybackSessionContextIdentifier, int> m_clientCounts;
     Vector<CompletionHandler<void()>> m_closeCompletionHandlers;
     WeakHashSet<VideoInPictureInPictureDidChangeObserver> m_pipChangeObservers;
+    Markable<PlaybackSessionContextIdentifier> m_controlsManagerContextId;
 };
 
 } // namespace WebKit

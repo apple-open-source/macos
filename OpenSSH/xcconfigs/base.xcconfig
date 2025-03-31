@@ -13,6 +13,7 @@ ENABLE_USER_SCRIPT_SANDBOXING = NO
 SWIFT_VERSION = 5.9
 SWIFT_ACTIVE_COMPILATION_CONDITIONS = $(UnitTestCondition)
 SWIFT_COMPILATION_MODE = wholemodule
+ENABLE_HARDENED_RUNTIME = YES
 
 // Settings for Debug vs Release
 is_debug = $(Configuration_is_debug_$(CONFIGURATION:identifier):default=NO)

@@ -54,7 +54,7 @@ RemoteTexture::RemoteTexture(GPUConnectionToWebProcess& gpuConnectionToWebProces
     , m_gpuConnectionToWebProcess(gpuConnectionToWebProcess)
     , m_gpu(gpu)
 {
-    m_streamConnection->startReceivingMessages(*this, Messages::RemoteTexture::messageReceiverName(), m_identifier.toUInt64());
+    Ref { m_streamConnection }->startReceivingMessages(*this, Messages::RemoteTexture::messageReceiverName(), m_identifier.toUInt64());
 }
 
 RemoteTexture::~RemoteTexture() = default;
@@ -69,7 +69,7 @@ RefPtr<IPC::Connection> RemoteTexture::connection() const
 
 void RemoteTexture::stopListeningForIPC()
 {
-    m_streamConnection->stopReceivingMessages(Messages::RemoteTexture::messageReceiverName(), m_identifier.toUInt64());
+    Ref { m_streamConnection }->stopReceivingMessages(Messages::RemoteTexture::messageReceiverName(), m_identifier.toUInt64());
 }
 
 void RemoteTexture::createView(const std::optional<WebGPU::TextureViewDescriptor>& descriptor, WebGPUIdentifier identifier)
@@ -91,6 +91,11 @@ void RemoteTexture::createView(const std::optional<WebGPU::TextureViewDescriptor
 void RemoteTexture::destroy()
 {
     protectedBacking()->destroy();
+}
+
+void RemoteTexture::undestroy()
+{
+    protectedBacking()->undestroy();
 }
 
 void RemoteTexture::destruct()

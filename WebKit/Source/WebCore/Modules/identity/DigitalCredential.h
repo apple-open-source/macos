@@ -42,13 +42,13 @@ using DigitalCredentialPromise = DOMPromiseDeferred<IDLInterface<DigitalCredenti
 
 class DigitalCredential final : public BasicCredential {
 public:
-    static Ref<DigitalCredential> create(Ref<Uint8Array>&& data, IdentityCredentialProtocol);
+    static Ref<DigitalCredential> create(JSC::Strong<JSC::JSObject>&&, IdentityCredentialProtocol);
 
     virtual ~DigitalCredential();
 
-    Uint8Array* data() const
+    const JSC::Strong<JSC::JSObject>& data() const
     {
-        return m_data.get();
+        return m_data;
     };
 
     IdentityCredentialProtocol protocol() const
@@ -57,12 +57,12 @@ public:
     }
 
 private:
-    DigitalCredential(Ref<Uint8Array>&& data, IdentityCredentialProtocol);
+    DigitalCredential(JSC::Strong<JSC::JSObject>&&, IdentityCredentialProtocol);
 
     Type credentialType() const final { return Type::DigitalCredential; }
 
     IdentityCredentialProtocol m_protocol;
-    RefPtr<Uint8Array> m_data;
+    const JSC::Strong<JSC::JSObject> m_data;
 };
 
 } // namespace WebCore

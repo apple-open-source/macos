@@ -117,6 +117,8 @@ void fastSetMaxSingleAllocationSize(size_t size)
 
 #endif // !defined(NDEBUG)
 
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
+
 char* fastStrDup(const char* src)
 {
     size_t len = strlen(src) + 1;
@@ -152,6 +154,8 @@ void* fastCompactMemDup(const void* mem, size_t bytes)
     memcpy(result, mem, bytes);
     return result;
 }
+
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
 
 } // namespace WTF
 
@@ -367,7 +371,7 @@ public:
 
     static uintptr_t avoidRecordingCount()
     {
-        return bitwise_cast<uintptr_t>(threadSpecificGet(avoidRecordingCountKey));
+        return std::bit_cast<uintptr_t>(threadSpecificGet(avoidRecordingCountKey));
     }
 };
 
@@ -378,12 +382,12 @@ AvoidRecordingScope::AvoidRecordingScope()
         // The value stored in TLS is initially 0.
         threadSpecificKeyCreate(&avoidRecordingCountKey, [](void*) { });
     });
-    threadSpecificSet(avoidRecordingCountKey, bitwise_cast<void*>(avoidRecordingCount() + 1));
+    threadSpecificSet(avoidRecordingCountKey, std::bit_cast<void*>(avoidRecordingCount() + 1));
 }
 
 AvoidRecordingScope::~AvoidRecordingScope()
 {
-    threadSpecificSet(avoidRecordingCountKey, bitwise_cast<void*>(avoidRecordingCount() - 1));
+    threadSpecificSet(avoidRecordingCountKey, std::bit_cast<void*>(avoidRecordingCount() - 1));
 }
 
 class MallocCallTracker {
@@ -531,7 +535,7 @@ void MallocCallTracker::dumpStats()
             // FIXME: Add a way to remove some entries in StackShot in a programable way.
             // https://bugs.webkit.org/show_bug.cgi?id=205701
             const size_t framesToSkip = 6;
-            WTFPrintBacktrace(mallocDataForStack->siteData[0]->stack.array() + framesToSkip, mallocDataForStack->siteData[0]->stack.size() - framesToSkip);
+            WTFPrintBacktrace(mallocDataForStack->siteData[0]->stack.span().subspan(framesToSkip));
             WTFLogAlways("\n");
         }
     }
@@ -870,9 +874,9 @@ void fastDisableScavenger()
     bmalloc::api::disableScavenger();
 }
 
-void forceEnablePGM()
+void forceEnablePGM(uint16_t guardMallocRate)
 {
-    bmalloc::api::forceEnablePGM();
+    bmalloc::api::forceEnablePGM(guardMallocRate);
 }
 
 } // namespace WTF

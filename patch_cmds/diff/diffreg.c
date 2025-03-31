@@ -62,12 +62,7 @@
  * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
- *
- *	@(#)diffreg.c   8.1 (Berkeley) 6/6/93
  */
-
-#include <sys/cdefs.h>
-__FBSDID("$FreeBSD$");
 
 #ifdef __APPLE__
 #include <sys/param.h> /* MIN, MAX */
@@ -282,11 +277,11 @@ diffreg(char *file1, char *file2, int flags, int capsicum)
 	 */
 	if (diff_algorithm_set) {
 		if (diff_algorithm == D_DIFFMYERS ||
-				diff_algorithm == D_DIFFPATIENCE) {
+		    diff_algorithm == D_DIFFPATIENCE) {
 			if (can_libdiff(flags))
 				return diffreg_new(file1, file2, flags, capsicum);
 			else
-				errx(2, "cannot use myers algorithm with selected options");
+				errx(2, "cannot use Myers algorithm with selected options");
 		} else {
 			/* Fallback to using stone. */
 			return diffreg_stone(file1, file2, flags, capsicum);
@@ -471,7 +466,8 @@ diffreg_stone(char *file1, char *file2, int flags, int capsicum)
 	}
 
 	if (diff_format == D_BRIEF && ignore_pats == NULL &&
-	    (flags & (D_FOLDBLANKS|D_IGNOREBLANKS|D_IGNORECASE|D_STRIPCR)) == 0)
+	    (flags & (D_FOLDBLANKS|D_IGNOREBLANKS|D_IGNORECASE|
+	    D_SKIPBLANKLINES|D_STRIPCR)) == 0)
 	{
 		rval = D_DIFFER;
 		status |= 1;
@@ -808,14 +804,14 @@ unravel(int p)
 static void
 check(FILE *f1, FILE *f2, int flags)
 {
-	int i, j, jackpot, c, d;
+	int i, j, /* jackpot, */ c, d;
 	long ctold, ctnew;
 
 	rewind(f1);
 	rewind(f2);
 	j = 1;
 	ixold[0] = ixnew[0] = 0;
-	jackpot = 0;
+	/* jackpot = 0; */
 	ctold = ctnew = 0;
 	for (i = 1; i <= len[0]; i++) {
 		if (J[i] == 0) {
@@ -885,7 +881,7 @@ check(FILE *f1, FILE *f2, int flags)
 					}
 				}
 				if (chrtran(c) != chrtran(d)) {
-					jackpot++;
+					/* jackpot++; */
 					J[i] = 0;
 					if (c != '\n' && c != EOF)
 						ctold += skipline(f1);
@@ -1615,6 +1611,7 @@ dump_context_vec(FILE *f1, FILE *f2, int flags)
 	lowc = MAX(1, cvp->c - diff_context);
 	upd = MIN(len[1], context_vec_ptr->d + diff_context);
 #endif /* __APPLE__ */
+
 	printf("***************");
 	if (flags & (D_PROTOTYPE | D_MATCHLAST)) {
 		f = match_function(ixold, cvp->a - 1, f1);

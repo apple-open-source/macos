@@ -56,11 +56,11 @@ public:
     String lastUpdatedNowPlayingTitle() const final { return m_lastUpdatedNowPlayingTitle; }
     double lastUpdatedNowPlayingDuration() const final { return m_lastUpdatedNowPlayingDuration; }
     double lastUpdatedNowPlayingElapsedTime() const final { return m_lastUpdatedNowPlayingElapsedTime; }
-    MediaUniqueIdentifier lastUpdatedNowPlayingInfoUniqueIdentifier() const final { return m_lastUpdatedNowPlayingInfoUniqueIdentifier; }
+    std::optional<MediaUniqueIdentifier> lastUpdatedNowPlayingInfoUniqueIdentifier() const final { return m_lastUpdatedNowPlayingInfoUniqueIdentifier; }
     bool registeredAsNowPlayingApplication() const final { return m_registeredAsNowPlayingApplication; }
     bool haveEverRegisteredAsNowPlayingApplication() const final { return m_haveEverRegisteredAsNowPlayingApplication; }
 
-    void prepareToSendUserMediaPermissionRequest() final;
+    void prepareToSendUserMediaPermissionRequestForPage(Page&) final;
 
     std::optional<NowPlayingInfo> nowPlayingInfo() const final { return m_nowPlayingInfo; }
     static WEBCORE_EXPORT void clearNowPlayingInfo();
@@ -69,11 +69,6 @@ public:
     static WEBCORE_EXPORT void updateMediaUsage(PlatformMediaSession&);
 
     static void ensureCodecsRegistered();
-
-#if ENABLE(MEDIA_SOURCE) && HAVE(AVSAMPLEBUFFERVIDEOOUTPUT)
-    static WEBCORE_EXPORT void setMediaSourceInlinePaintingEnabled(bool);
-    static WEBCORE_EXPORT bool mediaSourceInlinePaintingEnabled();
-#endif
 
     static WEBCORE_EXPORT void setShouldUseModernAVContentKeySession(bool);
     static WEBCORE_EXPORT bool shouldUseModernAVContentKeySession();
@@ -95,7 +90,7 @@ protected:
     void clientCharacteristicsChanged(PlatformMediaSession&, bool) final;
     void sessionCanProduceAudioChanged() final;
 
-    virtual void providePresentingApplicationPIDIfNecessary() { }
+    virtual void providePresentingApplicationPIDIfNecessary(ProcessID) { }
 
     WeakPtr<PlatformMediaSession> nowPlayingEligibleSession();
 
@@ -135,7 +130,7 @@ private:
     String m_lastUpdatedNowPlayingTitle;
     double m_lastUpdatedNowPlayingDuration { NAN };
     double m_lastUpdatedNowPlayingElapsedTime { NAN };
-    MediaUniqueIdentifier m_lastUpdatedNowPlayingInfoUniqueIdentifier;
+    Markable<MediaUniqueIdentifier> m_lastUpdatedNowPlayingInfoUniqueIdentifier;
     std::optional<NowPlayingInfo> m_nowPlayingInfo;
 
     const std::unique_ptr<NowPlayingManager> m_nowPlayingManager;

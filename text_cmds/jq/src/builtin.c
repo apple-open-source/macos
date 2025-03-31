@@ -1,5 +1,3 @@
-#define _BSD_SOURCE
-#define _GNU_SOURCE
 #ifndef __sun__
 # define _XOPEN_SOURCE
 # define _XOPEN_SOURCE_EXTENDED 1
@@ -30,7 +28,7 @@ void *alloca (size_t);
 #include <limits.h>
 #include <math.h>
 #ifdef HAVE_LIBONIG
-#include "oniguruma.h"
+#include <oniguruma.h>
 #endif
 #include <string.h>
 #include <time.h>
@@ -45,28 +43,38 @@ void *alloca (size_t);
 #include "locfile.h"
 #include "jv_unicode.h"
 #include "jv_alloc.h"
+#include "jv_private.h"
+#include "util.h"
+
+
+#define BINOP(name) \
+static jv f_ ## name(jq_state *jq, jv input, jv a, jv b) { \
+  jv_free(input); \
+  return binop_ ## name(a, b); \
+}
+BINOPS
+#undef BINOP
 
 
 static jv type_error(jv bad, const char* msg) {
   char errbuf[15];
-  jv err = jv_invalid_with_msg(jv_string_fmt("%s (%s) %s",
-                                             jv_kind_name(jv_get_kind(bad)),
-                                             jv_dump_string_trunc(jv_copy(bad), errbuf, sizeof(errbuf)),
+  const char *badkind = jv_kind_name(jv_get_kind(bad));
+  jv err = jv_invalid_with_msg(jv_string_fmt("%s (%s) %s", badkind,
+                                             jv_dump_string_trunc(bad, errbuf, sizeof(errbuf)),
                                              msg));
-  jv_free(bad);
   return err;
 }
 
 static jv type_error2(jv bad1, jv bad2, const char* msg) {
   char errbuf1[15],errbuf2[15];
+  const char *badkind1 = jv_kind_name(jv_get_kind(bad1));
+  const char *badkind2 = jv_kind_name(jv_get_kind(bad2));
   jv err = jv_invalid_with_msg(jv_string_fmt("%s (%s) and %s (%s) %s",
-                                             jv_kind_name(jv_get_kind(bad1)),
-                                             jv_dump_string_trunc(jv_copy(bad1), errbuf1, sizeof(errbuf1)),
-                                             jv_kind_name(jv_get_kind(bad2)),
-                                             jv_dump_string_trunc(jv_copy(bad2), errbuf2, sizeof(errbuf2)),
+                                             badkind1,
+                                             jv_dump_string_trunc(bad1, errbuf1, sizeof(errbuf1)),
+                                             badkind2,
+                                             jv_dump_string_trunc(bad2, errbuf2, sizeof(errbuf2)),
                                              msg));
-  jv_free(bad1);
-  jv_free(bad2);
   return err;
 }
 
@@ -81,8 +89,7 @@ static inline jv ret_error2(jv bad1, jv bad2, jv msg) {
   return jv_invalid_with_msg(msg);
 }
 
-static jv f_plus(jq_state *jq, jv input, jv a, jv b) {
-  jv_free(input);
+jv binop_plus(jv a, jv b) {
   if (jv_get_kind(a) == JV_KIND_NULL) {
     jv_free(a);
     return b;
@@ -109,28 +116,31 @@ static jv f_plus(jq_state *jq, jv input, jv a, jv b) {
 #ifdef __APPLE__
 // macOS has a bunch of libm deprecation warnings, so let's clean those up
 #ifdef HAVE_TGAMMA
+#define HAVE_GAMMA
 #define gamma tgamma
 #endif
 #ifdef HAVE___EXP10
+#define HAVE_EXP10
 #define exp10 __exp10
 #endif
 #ifdef HAVE_REMAINDER
+#define HAVE_DREM
 #define drem remainder
 #endif
 
 // We replace significand with our own, since there's not a rename-replacement
 #ifdef HAVE_FREXP
-#define HAVE_CUSTOM_SIGNIFICAND
 static double __jq_significand(double x) {
   int z;
   return 2*frexp(x, &z);
 }
+#define HAVE_SIGNIFICAND
 #define significand __jq_significand
 #elif defined(HAVE_SCALBN) && defined(HAVE_ILOGB)
-#define HAVE_CUSTOM_SIGNIFICAND
 static double __jq_significand(double x) {
   return scalbn(x, -ilogb(x));
 }
+#define HAVE_SIGNIFICAND
 #define significand __jq_significand
 #endif
 
@@ -198,8 +208,7 @@ static jv f_ ## name(jq_state *jq, jv input, jv a, jv b, jv c) { \
 #undef LIBM_DDD
 #undef LIBM_DD
 
-#ifdef __APPLE__ // Clean up after ourselves
-#undef HAVE_CUSTOM_SIGNIFICAND
+#ifdef __APPLE__
 #undef gamma
 #undef drem
 #undef significand
@@ -273,7 +282,7 @@ static jv f_endswith(jq_state *jq, jv a, jv b) {
   const char *bstr = jv_string_value(b);
   size_t alen = jv_string_length_bytes(jv_copy(a));
   size_t blen = jv_string_length_bytes(jv_copy(b));
-  jv ret;;
+  jv ret;
 
   if (alen < blen ||
      memcmp(astr + (alen - blen), bstr, blen) != 0)
@@ -286,7 +295,9 @@ static jv f_endswith(jq_state *jq, jv a, jv b) {
 }
 
 static jv f_ltrimstr(jq_state *jq, jv input, jv left) {
-  if (jv_get_kind(f_startswith(jq, jv_copy(input), jv_copy(left))) != JV_KIND_TRUE) {
+  jv startswith = f_startswith(jq, jv_copy(input), jv_copy(left));
+  if (jv_get_kind(startswith) != JV_KIND_TRUE) {
+    jv_free(startswith);
     jv_free(left);
     return input;
   }
@@ -302,18 +313,19 @@ static jv f_ltrimstr(jq_state *jq, jv input, jv left) {
 }
 
 static jv f_rtrimstr(jq_state *jq, jv input, jv right) {
-  if (jv_get_kind(f_endswith(jq, jv_copy(input), jv_copy(right))) == JV_KIND_TRUE) {
+  jv endswith = f_endswith(jq, jv_copy(input), jv_copy(right));
+  if (jv_get_kind(endswith) == JV_KIND_TRUE) {
     jv res = jv_string_sized(jv_string_value(input),
                              jv_string_length_bytes(jv_copy(input)) - jv_string_length_bytes(right));
     jv_free(input);
     return res;
   }
+  jv_free(endswith);
   jv_free(right);
   return input;
 }
 
-static jv f_minus(jq_state *jq, jv input, jv a, jv b) {
-  jv_free(input);
+jv binop_minus(jv a, jv b) {
   if (jv_get_kind(a) == JV_KIND_NUMBER && jv_get_kind(b) == JV_KIND_NUMBER) {
     jv r = jv_number(jv_number_value(a) - jv_number_value(b));
     jv_free(a);
@@ -341,10 +353,9 @@ static jv f_minus(jq_state *jq, jv input, jv a, jv b) {
   }
 }
 
-static jv f_multiply(jq_state *jq, jv input, jv a, jv b) {
+jv binop_multiply(jv a, jv b) {
   jv_kind ak = jv_get_kind(a);
   jv_kind bk = jv_get_kind(b);
-  jv_free(input);
   if (ak == JV_KIND_NUMBER && bk == JV_KIND_NUMBER) {
     jv r = jv_number(jv_number_value(a) * jv_number_value(b));
     jv_free(a);
@@ -358,9 +369,12 @@ static jv f_multiply(jq_state *jq, jv input, jv a, jv b) {
       str = b;
       num = a;
     }
-    jv res = jv_null();
-    int n = jv_number_value(num);
-    if (n > 0) {
+    jv res;
+    double d = jv_number_value(num);
+    if (d < 0 || isnan(d)) {
+      res = jv_null();
+    } else {
+      int n = d;
       size_t alen = jv_string_length_bytes(jv_copy(str));
       res = jv_string_empty(alen * n);
       for (; n > 0; n--) {
@@ -377,8 +391,7 @@ static jv f_multiply(jq_state *jq, jv input, jv a, jv b) {
   }
 }
 
-static jv f_divide(jq_state *jq, jv input, jv a, jv b) {
-  jv_free(input);
+jv binop_divide(jv a, jv b) {
   if (jv_get_kind(a) == JV_KIND_NUMBER && jv_get_kind(b) == JV_KIND_NUMBER) {
     if (jv_number_value(b) == 0.0)
       return type_error2(a, b, "cannot be divided because the divisor is zero");
@@ -393,12 +406,21 @@ static jv f_divide(jq_state *jq, jv input, jv a, jv b) {
   }
 }
 
-static jv f_mod(jq_state *jq, jv input, jv a, jv b) {
-  jv_free(input);
+#define dtoi(n) ((n) < INTMAX_MIN ? INTMAX_MIN : -(n) < INTMAX_MIN ? INTMAX_MAX : (intmax_t)(n))
+jv binop_mod(jv a, jv b) {
   if (jv_get_kind(a) == JV_KIND_NUMBER && jv_get_kind(b) == JV_KIND_NUMBER) {
-    if ((intmax_t)jv_number_value(b) == 0)
+    double na = jv_number_value(a);
+    double nb = jv_number_value(b);
+    if (isnan(na) || isnan(nb)) {
+      jv_free(a);
+      jv_free(b);
+      return jv_number(NAN);
+    }
+    intmax_t bi = dtoi(nb);
+    if (bi == 0)
       return type_error2(a, b, "cannot be divided (remainder) because the divisor is zero");
-    jv r = jv_number((intmax_t)jv_number_value(a) % (intmax_t)jv_number_value(b));
+    // Check if the divisor is -1 to avoid overflow when the dividend is INTMAX_MIN.
+    jv r = jv_number(bi == -1 ? 0 : dtoi(na) % bi);
     jv_free(a);
     jv_free(b);
     return r;
@@ -406,14 +428,13 @@ static jv f_mod(jq_state *jq, jv input, jv a, jv b) {
     return type_error2(a, b, "cannot be divided (remainder)");
   }
 }
+#undef dtoi
 
-static jv f_equal(jq_state *jq, jv input, jv a, jv b) {
-  jv_free(input);
+jv binop_equal(jv a, jv b) {
   return jv_bool(jv_equal(a, b));
 }
 
-static jv f_notequal(jq_state *jq, jv input, jv a, jv b) {
-  jv_free(input);
+jv binop_notequal(jv a, jv b) {
   return jv_bool(!jv_equal(a, b));
 }
 
@@ -424,8 +445,7 @@ enum cmp_op {
   CMP_OP_GREATEREQ
 };
 
-static jv order_cmp(jv input, jv a, jv b, enum cmp_op op) {
-  jv_free(input);
+static jv order_cmp(jv a, jv b, enum cmp_op op) {
   int r = jv_cmp(a, b);
   return jv_bool((op == CMP_OP_LESS && r < 0) ||
                  (op == CMP_OP_LESSEQ && r <= 0) ||
@@ -433,20 +453,20 @@ static jv order_cmp(jv input, jv a, jv b, enum cmp_op op) {
                  (op == CMP_OP_GREATER && r > 0));
 }
 
-static jv f_less(jq_state *jq, jv input, jv a, jv b) {
-  return order_cmp(input, a, b, CMP_OP_LESS);
+jv binop_less(jv a, jv b) {
+  return order_cmp(a, b, CMP_OP_LESS);
 }
 
-static jv f_greater(jq_state *jq, jv input, jv a, jv b) {
-  return order_cmp(input, a, b, CMP_OP_GREATER);
+jv binop_greater(jv a, jv b) {
+  return order_cmp(a, b, CMP_OP_GREATER);
 }
 
-static jv f_lesseq(jq_state *jq, jv input, jv a, jv b) {
-  return order_cmp(input, a, b, CMP_OP_LESSEQ);
+jv binop_lesseq(jv a, jv b) {
+  return order_cmp(a, b, CMP_OP_LESSEQ);
 }
 
-static jv f_greatereq(jq_state *jq, jv input, jv a, jv b) {
-  return order_cmp(input, a, b, CMP_OP_GREATEREQ);
+jv binop_greatereq(jv a, jv b) {
+  return order_cmp(a, b, CMP_OP_GREATEREQ);
 }
 
 static jv f_contains(jq_state *jq, jv a, jv b) {
@@ -639,7 +659,7 @@ static jv f_format(jq_state *jq, jv input, jv fmt) {
     input = f_tostring(jq, input);
 
     int unreserved[128] = {0};
-    const char* p = CHARS_ALPHANUM "-_.!~*'()";
+    const char* p = CHARS_ALPHANUM "-_.~";
     while (*p) unreserved[(int)*p++] = 1;
 
     jv line = jv_string("");
@@ -925,9 +945,20 @@ static jv f_match(jq_state *jq, jv input, jv regex, jv modifiers, jv testmode) {
         jv match = jv_object_set(jv_object(), jv_string("offset"), jv_number(idx));
         match = jv_object_set(match, jv_string("length"), jv_number(0));
         match = jv_object_set(match, jv_string("string"), jv_string(""));
-        match = jv_object_set(match, jv_string("captures"), jv_array());
+        jv captures = jv_array();
+        for (int i = 1; i < region->num_regs; ++i) {
+          jv cap = jv_object();
+          cap = jv_object_set(cap, jv_string("offset"), jv_number(idx));
+          cap = jv_object_set(cap, jv_string("string"), jv_string(""));
+          cap = jv_object_set(cap, jv_string("length"), jv_number(0));
+          cap = jv_object_set(cap, jv_string("name"), jv_null());
+          captures = jv_array_append(captures, cap);
+        }
+        onig_foreach_name(reg, f_match_name_iter, &captures);
+        match = jv_object_set(match, jv_string("captures"), captures);
         result = jv_array_append(result, match);
-        start += 1;
+        // ensure '"qux" | match("(?=u)"; "g")' matches just once
+        start = (const UChar*)(input_string+region->end[0]+1);
         continue;
       }
 
@@ -995,11 +1026,9 @@ static jv f_match(jq_state *jq, jv input, jv regex, jv modifiers, jv testmode) {
             jv_string((char*)ebuf)));
       break;
     }
-  } while (global && start != end);
+  } while (global && start <= end);
   onig_region_free(region,1);
   region = NULL;
-  if (region)
-    onig_region_free(region,1);
   onig_free(reg);
   jv_free(input);
   jv_free(regex);
@@ -1007,6 +1036,10 @@ static jv f_match(jq_state *jq, jv input, jv regex, jv modifiers, jv testmode) {
 }
 #else /* !HAVE_LIBONIG */
 static jv f_match(jq_state *jq, jv input, jv regex, jv modifiers, jv testmode) {
+  jv_free(input);
+  jv_free(regex);
+  jv_free(modifiers);
+  jv_free(testmode);
   return jv_invalid_with_msg(jv_string("jq was compiled without ONIGURUMA regex library. match/test/sub and related functions are not available."));
 }
 #endif /* HAVE_LIBONIG */
@@ -1186,7 +1219,28 @@ static jv f_string_implode(jq_state *jq, jv a) {
   if (jv_get_kind(a) != JV_KIND_ARRAY) {
     return ret_error(a, jv_string("implode input must be an array"));
   }
-  return jv_string_implode(a);
+
+  int len = jv_array_length(jv_copy(a));
+  jv s = jv_string_empty(len);
+
+  for (int i = 0; i < len; i++) {
+    jv n = jv_array_get(jv_copy(a), i);
+    if (jv_get_kind(n) != JV_KIND_NUMBER || jvp_number_is_nan(n)) {
+      jv_free(a);
+      jv_free(s);
+      return type_error(n, "can't be imploded, unicode codepoint needs to be numeric");
+    }
+
+    int nv = jv_number_value(n);
+    jv_free(n);
+    // outside codepoint range or in utf16 surrogate pair range
+    if (nv < 0 || nv > 0x10FFFF || (nv >= 0xD800 && nv <= 0xDFFF))
+      nv = 0xFFFD; // U+FFFD REPLACEMENT CHARACTER
+    s = jv_string_append_codepoint(s, nv);
+  }
+
+  jv_free(a);
+  return s;
 }
 
 static jv f_setpath(jq_state *jq, jv a, jv b, jv c) { return jv_setpath(a, b, c); }
@@ -1227,7 +1281,11 @@ static jv f_debug(jq_state *jq, jv input) {
 }
 
 static jv f_stderr(jq_state *jq, jv input) {
-  jv_dumpf(jv_copy(input), stderr, 0);
+  jq_msg_cb cb;
+  void *data;
+  jq_get_stderr_cb(jq, &cb, &data);
+  if (cb != NULL)
+    cb(data, jv_copy(input));
   return input;
 }
 
@@ -1364,25 +1422,6 @@ static void set_tm_yday(struct tm *tm) {
   tm->tm_yday = yday;
 }
 
-#ifndef HAVE_STRPTIME
-static char *strptime(const char *s, const char *format, struct tm *tm) {
-  if (strcmp(format, "%Y-%m-%dT%H:%M:%SZ"))
-    return NULL;
-
-  int count, end;
-  count = sscanf(s, "%d-%d-%dT%d:%d:%d%n",
-                    &tm->tm_year, &tm->tm_mon, &tm->tm_mday,
-                    &tm->tm_hour, &tm->tm_min, &tm->tm_sec,
-                    &end );
-  if (count == 6 && s[end] == 'Z') {
-    tm->tm_year -= 1900;
-    tm->tm_mon--;
-    return (char*)s + end + 1;
-  }
-  return NULL;
-}
-#endif
-
 static jv f_strptime(jq_state *jq, jv a, jv b) {
   if (jv_get_kind(a) != JV_KIND_STRING || jv_get_kind(b) != JV_KIND_STRING) {
     return ret_error2(a, b, jv_string("strptime/1 requires string inputs and arguments"));
@@ -1425,6 +1464,8 @@ static jv f_strptime(jq_state *jq, jv a, jv b) {
    */
   set_tm_wday(&tm);
   set_tm_yday(&tm);
+#elif defined(WIN32)
+  set_tm_wday(&tm);
 #else
   if (tm.tm_wday == 8 && tm.tm_mday != 0 && tm.tm_mon >= 0 && tm.tm_mon <= 11)
     set_tm_wday(&tm);
@@ -1442,6 +1483,7 @@ static jv f_strptime(jq_state *jq, jv a, jv b) {
     do {                                        \
       jv n = jv_array_get(jv_copy(j), (i));     \
       if (jv_get_kind(n) != (JV_KIND_NUMBER)) { \
+        jv_free(n);                             \
         jv_free(j);                             \
         return 0;                               \
       }                                         \
@@ -1611,7 +1653,7 @@ static jv f_strflocaltime(jq_state *jq, jv a, jv b) {
   }
   struct tm tm;
   if (!jv2tm(a, &tm))
-    return jv_invalid_with_msg(jv_string("strflocaltime/1 requires parsed datetime inputs"));
+    return ret_error(b, jv_string("strflocaltime/1 requires parsed datetime inputs"));
   const char *fmt = jv_string_value(b);
   size_t alloced = strlen(fmt) + 100;
   char *buf = alloca(alloced);
@@ -1660,96 +1702,88 @@ static jv f_current_line(jq_state *jq, jv a) {
 }
 
 #define LIBM_DD(name) \
-  {(cfunction_ptr)f_ ## name,  #name, 1},
+  {f_ ## name,  #name, 1},
 #define LIBM_DD_NO(name)
 
 #define LIBM_DDD(name) \
-  {(cfunction_ptr)f_ ## name, #name, 3},
+  {f_ ## name, #name, 3},
 #define LIBM_DDD_NO(name)
 
 #define LIBM_DDDD(name) \
-  {(cfunction_ptr)f_ ## name, #name, 4},
+  {f_ ## name, #name, 4},
 #define LIBM_DDDD_NO(name)
 
 static const struct cfunction function_list[] = {
 #include "libm.h"
 #ifdef HAVE_FREXP
-  {(cfunction_ptr)f_frexp,"frexp", 1},
+  {f_frexp,"frexp", 1},
 #endif
 #ifdef HAVE_MODF
-  {(cfunction_ptr)f_modf,"modf", 1},
+  {f_modf,"modf", 1},
 #endif
 #ifdef HAVE_LGAMMA_R
-  {(cfunction_ptr)f_lgamma_r,"lgamma_r", 1},
+  {f_lgamma_r,"lgamma_r", 1},
 #endif
-  {(cfunction_ptr)f_plus, "_plus", 3},
-  {(cfunction_ptr)f_negate, "_negate", 1},
-  {(cfunction_ptr)f_minus, "_minus", 3},
-  {(cfunction_ptr)f_multiply, "_multiply", 3},
-  {(cfunction_ptr)f_divide, "_divide", 3},
-  {(cfunction_ptr)f_mod, "_mod", 3},
-  {(cfunction_ptr)f_dump, "tojson", 1},
-  {(cfunction_ptr)f_json_parse, "fromjson", 1},
-  {(cfunction_ptr)f_tonumber, "tonumber", 1},
-  {(cfunction_ptr)f_tostring, "tostring", 1},
-  {(cfunction_ptr)f_keys, "keys", 1},
-  {(cfunction_ptr)f_keys_unsorted, "keys_unsorted", 1},
-  {(cfunction_ptr)f_startswith, "startswith", 2},
-  {(cfunction_ptr)f_endswith, "endswith", 2},
-  {(cfunction_ptr)f_ltrimstr, "ltrimstr", 2},
-  {(cfunction_ptr)f_rtrimstr, "rtrimstr", 2},
-  {(cfunction_ptr)f_string_split, "split", 2},
-  {(cfunction_ptr)f_string_explode, "explode", 1},
-  {(cfunction_ptr)f_string_implode, "implode", 1},
-  {(cfunction_ptr)f_string_indexes, "_strindices", 2},
-  {(cfunction_ptr)f_setpath, "setpath", 3}, // FIXME typechecking
-  {(cfunction_ptr)f_getpath, "getpath", 2},
-  {(cfunction_ptr)f_delpaths, "delpaths", 2},
-  {(cfunction_ptr)f_has, "has", 2},
-  {(cfunction_ptr)f_equal, "_equal", 3},
-  {(cfunction_ptr)f_notequal, "_notequal", 3},
-  {(cfunction_ptr)f_less, "_less", 3},
-  {(cfunction_ptr)f_greater, "_greater", 3},
-  {(cfunction_ptr)f_lesseq, "_lesseq", 3},
-  {(cfunction_ptr)f_greatereq, "_greatereq", 3},
-  {(cfunction_ptr)f_contains, "contains", 2},
-  {(cfunction_ptr)f_length, "length", 1},
-  {(cfunction_ptr)f_utf8bytelength, "utf8bytelength", 1},
-  {(cfunction_ptr)f_type, "type", 1},
-  {(cfunction_ptr)f_isinfinite, "isinfinite", 1},
-  {(cfunction_ptr)f_isnan, "isnan", 1},
-  {(cfunction_ptr)f_isnormal, "isnormal", 1},
-  {(cfunction_ptr)f_infinite, "infinite", 1},
-  {(cfunction_ptr)f_nan, "nan", 1},
-  {(cfunction_ptr)f_sort, "sort", 1},
-  {(cfunction_ptr)f_sort_by_impl, "_sort_by_impl", 2},
-  {(cfunction_ptr)f_group_by_impl, "_group_by_impl", 2},
-  {(cfunction_ptr)f_min, "min", 1},
-  {(cfunction_ptr)f_max, "max", 1},
-  {(cfunction_ptr)f_min_by_impl, "_min_by_impl", 2},
-  {(cfunction_ptr)f_max_by_impl, "_max_by_impl", 2},
-  {(cfunction_ptr)f_error, "error", 1},
-  {(cfunction_ptr)f_format, "format", 2},
-  {(cfunction_ptr)f_env, "env", 1},
-  {(cfunction_ptr)f_halt, "halt", 1},
-  {(cfunction_ptr)f_halt_error, "halt_error", 2},
-  {(cfunction_ptr)f_get_search_list, "get_search_list", 1},
-  {(cfunction_ptr)f_get_prog_origin, "get_prog_origin", 1},
-  {(cfunction_ptr)f_get_jq_origin, "get_jq_origin", 1},
-  {(cfunction_ptr)f_match, "_match_impl", 4},
-  {(cfunction_ptr)f_modulemeta, "modulemeta", 1},
-  {(cfunction_ptr)f_input, "input", 1},
-  {(cfunction_ptr)f_debug, "debug", 1},
-  {(cfunction_ptr)f_stderr, "stderr", 1},
-  {(cfunction_ptr)f_strptime, "strptime", 2},
-  {(cfunction_ptr)f_strftime, "strftime", 2},
-  {(cfunction_ptr)f_strflocaltime, "strflocaltime", 2},
-  {(cfunction_ptr)f_mktime, "mktime", 1},
-  {(cfunction_ptr)f_gmtime, "gmtime", 1},
-  {(cfunction_ptr)f_localtime, "localtime", 1},
-  {(cfunction_ptr)f_now, "now", 1},
-  {(cfunction_ptr)f_current_filename, "input_filename", 1},
-  {(cfunction_ptr)f_current_line, "input_line_number", 1},
+  {f_negate, "_negate", 1},
+#define BINOP(name) {f_ ## name, "_" #name, 3},
+BINOPS
+#undef BINOP
+  {f_dump, "tojson", 1},
+  {f_json_parse, "fromjson", 1},
+  {f_tonumber, "tonumber", 1},
+  {f_tostring, "tostring", 1},
+  {f_keys, "keys", 1},
+  {f_keys_unsorted, "keys_unsorted", 1},
+  {f_startswith, "startswith", 2},
+  {f_endswith, "endswith", 2},
+  {f_ltrimstr, "ltrimstr", 2},
+  {f_rtrimstr, "rtrimstr", 2},
+  {f_string_split, "split", 2},
+  {f_string_explode, "explode", 1},
+  {f_string_implode, "implode", 1},
+  {f_string_indexes, "_strindices", 2},
+  {f_setpath, "setpath", 3}, // FIXME typechecking
+  {f_getpath, "getpath", 2},
+  {f_delpaths, "delpaths", 2},
+  {f_has, "has", 2},
+  {f_contains, "contains", 2},
+  {f_length, "length", 1},
+  {f_utf8bytelength, "utf8bytelength", 1},
+  {f_type, "type", 1},
+  {f_isinfinite, "isinfinite", 1},
+  {f_isnan, "isnan", 1},
+  {f_isnormal, "isnormal", 1},
+  {f_infinite, "infinite", 1},
+  {f_nan, "nan", 1},
+  {f_sort, "sort", 1},
+  {f_sort_by_impl, "_sort_by_impl", 2},
+  {f_group_by_impl, "_group_by_impl", 2},
+  {f_min, "min", 1},
+  {f_max, "max", 1},
+  {f_min_by_impl, "_min_by_impl", 2},
+  {f_max_by_impl, "_max_by_impl", 2},
+  {f_error, "error", 1},
+  {f_format, "format", 2},
+  {f_env, "env", 1},
+  {f_halt, "halt", 1},
+  {f_halt_error, "halt_error", 2},
+  {f_get_search_list, "get_search_list", 1},
+  {f_get_prog_origin, "get_prog_origin", 1},
+  {f_get_jq_origin, "get_jq_origin", 1},
+  {f_match, "_match_impl", 4},
+  {f_modulemeta, "modulemeta", 1},
+  {f_input, "input", 1},
+  {f_debug, "debug", 1},
+  {f_stderr, "stderr", 1},
+  {f_strptime, "strptime", 2},
+  {f_strftime, "strftime", 2},
+  {f_strflocaltime, "strflocaltime", 2},
+  {f_mktime, "mktime", 1},
+  {f_gmtime, "gmtime", 1},
+  {f_localtime, "localtime", 1},
+  {f_now, "now", 1},
+  {f_current_filename, "input_filename", 1},
+  {f_current_line, "input_line_number", 1},
 };
 #undef LIBM_DDDD_NO
 #undef LIBM_DDD_NO
@@ -1806,7 +1840,7 @@ static block bind_bytecoded_builtins(block b) {
 
 static const char jq_builtins[] =
 /* Include jq-coded builtins */
-#include "builtin.inc"
+#include "src/builtin.inc"
 
 /* Include unsupported math functions next */
 #define LIBM_DD(name)
@@ -1817,13 +1851,13 @@ static const char jq_builtins[] =
 #define LIBM_DDDD_NO(name) "def " #name "(a;b;c): \"Error: " #name "/3 not found at build time\"|error;"
 #include "libm.h"
 #ifndef HAVE_FREXP
-  "def frexp: \"Error: frexp/0 not found found at build time\"|error;"
+  "def frexp: \"Error: frexp/0 not found at build time\"|error;"
 #endif
 #ifndef HAVE_MODF
-  "def modf: \"Error: modf/0 not found found at build time\"|error;"
+  "def modf: \"Error: modf/0 not found at build time\"|error;"
 #endif
 #ifndef HAVE_LGAMMA_R
-  "def lgamma_r: \"Error: lgamma_r/0 not found found at build time\"|error;"
+  "def lgamma_r: \"Error: lgamma_r/0 not found at build time\"|error;"
 #endif
 ;
 
@@ -1834,6 +1868,12 @@ static const char jq_builtins[] =
 #undef LIBM_DDD
 #undef LIBM_DD
 
+#ifdef __APPLE__
+#undef HAVE_GAMMA
+#undef HAVE_EXP10
+#undef HAVE_DREM
+#undef HAVE_SIGNIFICAND
+#endif
 
 static block gen_builtin_list(block builtins) {
   jv list = jv_array_append(block_list_funcs(builtins, 1), jv_string("builtins/0"));

@@ -345,6 +345,7 @@ static void populateAdapterParams1Dict (const PwrPortTelemetryLogParams1_t &para
         SMCAdapterParamHelper (mask.wakeCmdFailCount     ,_kAsbPortControllerWakeCmdFailCountSym        ,params1.wakeCmdFailCount),
         SMCAdapterParamHelper (mask.sleepCmdFailCount    ,_kAsbPortControllerSleepCmdFailCountSym       ,params1.sleepCmdFailCount),
         SMCAdapterParamHelper (mask.wakeTimeoutCount     ,_kAsbPortControllerWakeTimeoutCountSym        ,params1.wakeTimeoutCount),
+        SMCAdapterParamHelper (mask.hvEnRecoveryCount    ,_kAsbPortControllerHvEnRecoveryCountSym       ,params1.hvEnRecoveryCount),
     };
   
     for (int i = 0; i < ARRAY_SIZE(params); ++i) {
@@ -843,8 +844,14 @@ bool AppleSmartBattery::pollBatteryState(int type)
         _machinePath = type;
     }
 
-    if (fInitialPollCountdown > 0 ||
-        (_batteryCellCount && !properties->getObject(serialKey))) {
+    /*
+     * Poll until fInitialPollCountdown has elapsed. Or we have a valid non empty battery serial
+     * _batteryCellCount ensures we run this check on portables only.
+     */
+    if ((fInitialPollCountdown > 0)   ||
+        (_batteryCellCount          &&
+         (!properties->getObject(serialKey) ||
+         OSDynamicCast(OSString, properties->getObject(serialKey))->getLength() == 0))) {
         // We're going out of our way to make sure that we get a successfull
         // initial poll at boot. Upgrade all early boot polls to kBoot.
         _machinePath = kBoot;

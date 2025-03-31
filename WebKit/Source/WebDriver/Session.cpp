@@ -29,12 +29,21 @@
 #include "CommandResult.h"
 #include "SessionHost.h"
 #include "WebDriverAtoms.h"
+#include <wtf/ASCIICType.h>
 #include <wtf/CryptographicallyRandomNumber.h>
 #include <wtf/FileSystem.h>
 #include <wtf/HashSet.h>
 #include <wtf/HexNumber.h>
+#include <wtf/JSONValues.h>
 #include <wtf/NeverDestroyed.h>
 #include <wtf/text/MakeString.h>
+
+#if ENABLE(WEBDRIVER_BIDI)
+#include "WebSocketServer.h"
+#include <cstdint>
+#include <wtf/text/StringBuilder.h>
+#include <wtf/text/WTFString.h>
+#endif
 
 namespace WebDriver {
 
@@ -60,7 +69,7 @@ const String& Session::shadowRootIdentifier()
     return shadowRootID;
 }
 
-Session::Session(std::unique_ptr<SessionHost>&& host)
+Session::Session(Ref<SessionHost>&& host)
     : m_host(WTFMove(host))
     , m_scriptTimeout(defaultScriptTimeout)
     , m_pageLoadTimeout(defaultPageLoadTimeout)
@@ -70,8 +79,20 @@ Session::Session(std::unique_ptr<SessionHost>&& host)
         setTimeouts(capabilities().timeouts.value(), [](CommandResult&&) { });
 }
 
+#if ENABLE(WEBDRIVER_BIDI)
+Session::Session(Ref<SessionHost>&& host, WeakPtr<WebSocketServer>&& bidiServer)
+    : Session(WTFMove(host))
+{
+    m_bidiServer = WTFMove(bidiServer);
+    m_host->addEventHandler(this);
+}
+#endif
+
 Session::~Session()
 {
+#if ENABLE(WEBDRIVER_BIDI)
+    m_bidiServer->removeResourceForSession(id());
+#endif
 }
 
 const String& Session::id() const
@@ -3126,5 +3147,146 @@ void Session::takeScreenshot(std::optional<String> elementID, std::optional<bool
         });
     });
 }
+
+#if ENABLE(WEBDRIVER_BIDI)
+void Session::dispatchEvent(RefPtr<JSON::Object>&& message)
+{
+    static String automationPrefix = "Automation."_s;
+    auto method = message->getString("method"_s);
+    if (!method.startsWith(automationPrefix)) {
+        WTFLogAlways("Unknown event domain: %s", method.utf8().data());
+        return;
+    }
+
+    auto eventName = method.substring(automationPrefix.length());
+    if (!m_globalEventSet.contains(eventName))
+        return;
+
+    if (eventName == "logEntryAdded"_s) {
+        doLogEntryAdded(WTFMove(message));
+        return;
+    }
+}
+
+void Session::doLogEntryAdded(RefPtr<JSON::Object>&& message)
+{
+    // https://w3c.github.io/webdriver-bidi/#event-log-entryAdded
+    auto params = message->getObject("params"_s);
+    if (!params) {
+        WTFLogAlways("Log event without parameter information, ignoring.");
+        return;
+    }
+
+    auto method = params->getString("method"_s);
+
+    String level;
+    if (method == "error"_s || method == "assert"_s)
+        level = "error"_s;
+    else if (method == "debug"_s || method == "trace"_s)
+        level = "debug"_s;
+    else if (method == "warn"_s)
+        level = "warn"_s;
+    else
+        level = "info"_s;
+
+    // WebDriver uses the ECMA time format, which is the number of milliseconds since the Unix epoch.
+    // https://tc39.es/ecma262/#sec-time-values-and-time-range
+    RefPtr<JSON::Value> timestampValue = JSON::Value::create(params->getDouble("timestamp"_s).value_or(0));
+    auto messageText = params->getString("text"_s);
+
+    // TODO Get the source from the current realm record
+    // https://bugs.webkit.org/show_bug.cgi?id=282978
+
+    // TODO Get the current stacktrace for assert, error, trace, and warn messages
+    // https://bugs.webkit.org/show_bug.cgi?id=282979
+
+    auto messageType = params->getString("type"_s);
+
+    auto entry = JSON::Object::create();
+    entry->setString("type"_s, messageType);
+    entry->setString("level"_s, level);
+    entry->setString("text"_s, messageText);
+    entry->setValue("timestamp"_s, *timestampValue);
+
+    if (messageType == "console"_s) {
+        // TODO Support formatter string and multiple arguments
+        // This will require changes either on `Automation.json::doLogEntryAdded`, adding the arguments,
+        // or moving the actual event processing to the browser, so we just relay it back to the client.
+        // https://bugs.webkit.org/show_bug.cgi?id=282976
+        // TODO Implement the full serialization algorithm
+        // https://bugs.webkit.org/show_bug.cgi?id=282977
+        auto args = JSON::Array::create();
+        auto arg = JSON::Object::create();
+        arg->setString("type"_s, "string"_s);
+        arg->setString("value"_s, messageText);
+        args->pushObject(WTFMove(arg));
+
+        entry->setString("method"_s, method);
+        entry->setArray("args"_s, args);
+    } else if (messageType == "javascript"_s) {
+        // Despite not having the stack information, the spec requires this
+        // field for JavaScript messages.
+        entry->setString("stackTrace"_s, emptyString());
+    }
+
+    auto body = JSON::Object::create();
+    body->setObject("params"_s, WTFMove(entry));
+
+    if (eventIsEnabled("logEntryAdded"_s, { m_toplevelBrowsingContext.value() }))
+        emitEvent("log.entryAdded"_s, WTFMove(body));
+    // TODO Implement event buffering, to save the log entries for later emission when the user subscribes to it
+    // https://bugs.webkit.org/show_bug.cgi?id=282980
+}
+
+void Session::emitEvent(const String& eventName, RefPtr<JSON::Object>&& body)
+{
+    // https://w3c.github.io/webdriver-bidi/#emit-an-event
+    body->setString("type"_s, "event"_s);
+    body->setString("method"_s, eventName);
+    m_bidiServer->sendMessage(this->id(), body->toJSONString());
+}
+
+bool Session::eventIsEnabled(const String& eventName, const Vector<String>&)
+{
+    // https://w3c.github.io/webdriver-bidi/#event-is-enabled
+    HashSet<String> topLevelBrowsingContexts;
+    // FIXME Add support to subscribe to specific browsing contexts
+    // https://bugs.webkit.org/show_bug.cgi?id=282981
+
+    return m_globalEventSet.contains(eventName);
+}
+
+void Session::enableGlobalEvent(const String& eventName)
+{
+    m_globalEventSet.add(toInternalEventName(eventName));
+}
+
+void Session::disableGlobalEvent(const String& eventName)
+{
+    m_globalEventSet.remove(toInternalEventName(eventName));
+}
+
+String Session::toInternalEventName(const String& eventName)
+{
+    // The messages exchanged with the Browser (see Automation.json) can't have
+    // periods in the message name.
+    StringBuilder builder;
+    bool capitalizeNext = false;
+    for (unsigned i = 0; i < eventName.length(); i++) {
+        if (eventName[i] == '.') {
+            capitalizeNext = true;
+            continue;
+        }
+
+        if (capitalizeNext) {
+            builder.append(toASCIIUpper(eventName[i]));
+            capitalizeNext = false;
+        } else
+            builder.append(eventName[i]);
+    }
+
+    return builder.toString();
+}
+#endif
 
 } // namespace WebDriver

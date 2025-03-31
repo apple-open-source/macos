@@ -242,6 +242,10 @@ _citrus_HZ_mbrtowc_priv(_HZEncodingInfo * __restrict ei,
 			if (tail < psenc->chlen)
 				return (EINVAL);
 			if (ch == ESCAPE_CHAR) {
+#ifdef __APPLE__
+				if (psenc->inuse != INIT0(ei))
+					break;
+#endif
 				++head;
 			} else if (ch == '\n') {
 				if (psenc->inuse != INIT0(ei))

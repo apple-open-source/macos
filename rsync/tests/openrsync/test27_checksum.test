@@ -64,6 +64,25 @@ stat -f "${stat_fmt}" src-2 > src-2.stat
 ln -sf src-1 src-3
 stat -f "${stat_fmt}" src-3 > src-3.stat
 
+
+1>&2 echo "-- Starting 0-byte file regression test --"
+echo "-- Starting 0-byte file regression test --"
+
+
+rm -rf 0src 0dst
+mkdir 0src
+touch 0src/zero
+
+rsync -a -c -- 0src/ 0dst/
+compare_trees -t 0src 0dst
+
+rsync -a -c --stats --no-W -- 0src/ 0dst/ 2>&1 | tee -a log.txt
+cat log.txt
+MATCHED=$(grep "Number of files transferred" log.txt)
+set -- ${MATCHED}
+ls -al 0src/ 0dst/
+[ "$5" -gt 0 ] && T=$5 sh -c 'echo "Transferred too many files: $T, checksum must have failed" 1>&2; false'
+
 # For interop testing, this last part fails under smb rsync because it does not
 # like repeated remote sources, even if they're from the same host.  With
 # openrsync as a client-sender, they still fail for some reason due to a

@@ -87,6 +87,7 @@ if(HAVE_OBJC)
   # call to the ObjC autorelease elision entry point.
   target_sources(dispatch PRIVATE
     data.m
+    client_callout.mm
     object.m
     swift/DispatchStubs.cc)
 endif()

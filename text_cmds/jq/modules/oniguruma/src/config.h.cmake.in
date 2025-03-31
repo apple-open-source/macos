@@ -13,23 +13,8 @@
    */
 #cmakedefine HAVE_ALLOCA_H  ${HAVE_ALLOCA_H}
 
-/* Define if compilerr supports prototypes */
-#cmakedefine HAVE_PROTOTYPES  ${HAVE_PROTOTYPES}
-
-/* Define if compiler supports stdarg prototypes */
-#cmakedefine HAVE_STDARG_PROTOTYPES  ${HAVE_STDARG_PROTOTYPES}
-
 /* Define to 1 if you have the <stdint.h> header file. */
 #cmakedefine HAVE_STDINT_H  ${HAVE_STDINT_H}
-
-/* Define to 1 if you have the <stdlib.h> header file. */
-#cmakedefine HAVE_STDLIB_H  ${HAVE_STDLIB_H}
-
-/* Define to 1 if you have the <strings.h> header file. */
-#cmakedefine HAVE_STRINGS_H  ${HAVE_STRINGS_H}
-
-/* Define to 1 if you have the <string.h> header file. */
-#cmakedefine HAVE_STRING_H  ${HAVE_STRING_H}
 
 /* Define to 1 if you have the <sys/times.h> header file. */
 #cmakedefine HAVE_SYS_TIMES_H  ${HAVE_SYS_TIMES_H}
@@ -43,6 +28,9 @@
 /* Define to 1 if you have the <unistd.h> header file. */
 #cmakedefine HAVE_UNISTD_H  ${HAVE_UNISTD_H}
 
+/* Define to 1 if you have the <inttypes.h> header file. */
+#cmakedefine HAVE_INTTYPES_H  ${HAVE_INTTYPES_H}
+
 /* Name of package */
 #cmakedefine PACKAGE  ${PACKAGE}
 
@@ -55,14 +43,11 @@
 /* The size of `long', as computed by sizeof. */
 #cmakedefine SIZEOF_LONG  ${SIZEOF_LONG}
 
-/* The size of `short', as computed by sizeof. */
-#cmakedefine SIZEOF_SHORT  ${SIZEOF_SHORT}
+/* The size of `long long', as computed by sizeof. */
+#cmakedefine SIZEOF_LONG_LONG  ${SIZEOF_LONG_LONG}
 
-/* Define to 1 if you have the ANSI C header files. */
-#cmakedefine STDC_HEADERS  ${STDC_HEADERS}
-
-/* Define if combination explosion check */
-#cmakedefine USE_COMBINATION_EXPLOSION_CHECK  ${USE_COMBINATION_EXPLOSION_CHECK}
+/* The size of `void*', as computed by sizeof. */
+#cmakedefine SIZEOF_VOIDP  ${SIZEOF_VOIDP}
 
 /* Define if enable CR+NL as line terminator */
 #cmakedefine USE_CRNL_AS_LINE_TERMINATOR  ${USE_CRNL_AS_LINE_TERMINATOR}

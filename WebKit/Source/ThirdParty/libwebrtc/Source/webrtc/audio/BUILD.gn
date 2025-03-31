@@ -59,12 +59,14 @@ rtc_library("audio") {
     "../api/crypto:frame_encryptor_interface",
     "../api/crypto:options",
     "../api/environment",
+    "../api/neteq:default_neteq_factory",
     "../api/neteq:neteq_api",
     "../api/rtc_event_log",
     "../api/task_queue",
     "../api/task_queue:pending_task_safety_flag",
     "../api/transport/rtp:rtp_source",
     "../api/units:time_delta",
+    "../api/units:timestamp",
     "../call:audio_sender_interface",
     "../call:bitrate_allocator",
     "../call:call_interfaces",
@@ -115,7 +117,6 @@ rtc_library("audio") {
     "//third_party/abseil-cpp/absl/functional:any_invocable",
     "//third_party/abseil-cpp/absl/memory",
     "//third_party/abseil-cpp/absl/strings:string_view",
-    "//third_party/abseil-cpp/absl/types:optional",
   ]
 }
 if (rtc_include_tests) {
@@ -162,6 +163,8 @@ if (rtc_include_tests) {
       ":audio_end_to_end_test",
       ":channel_receive_unittest",
       "../api:array_view",
+      "../api:bitrate_allocation",
+      "../api:frame_transformer_factory",
       "../api:frame_transformer_interface",
       "../api:libjingle_peerconnection_api",
       "../api:make_ref_counted",
@@ -172,6 +175,7 @@ if (rtc_include_tests) {
       "../api:mock_transformable_audio_frame",
       "../api:rtp_headers",
       "../api:scoped_refptr",
+      "../api:transport_api",
       "../api/audio:audio_frame_api",
       "../api/audio:audio_processing_statistics",
       "../api/audio_codecs:audio_codecs_api",
@@ -179,10 +183,13 @@ if (rtc_include_tests) {
       "../api/audio_codecs/opus:audio_decoder_opus",
       "../api/audio_codecs/opus:audio_encoder_opus",
       "../api/crypto:frame_decryptor_interface",
+      "../api/crypto:options",
       "../api/environment",
       "../api/environment:environment_factory",
       "../api/task_queue:default_task_queue_factory",
       "../api/task_queue/test:mock_task_queue_base",
+      "../api/transport:bitrate_settings",
+      "../api/units:data_rate",
       "../api/units:time_delta",
       "../api/units:timestamp",
       "../call:mock_bitrate_allocator",
@@ -192,7 +199,6 @@ if (rtc_include_tests) {
       "../call:rtp_receiver",
       "../call:rtp_sender",
       "../common_audio",
-      "../logging:mocks",
       "../modules/audio_coding:audio_coding_module_typedefs",
       "../modules/audio_device:audio_device_impl",  # For TestAudioDeviceModule
       "../modules/audio_device:mock_audio_device",
@@ -225,7 +231,6 @@ if (rtc_include_tests) {
       "utility:utility_tests",
       "//testing/gtest",
       "//third_party/abseil-cpp/absl/memory",
-      "//third_party/abseil-cpp/absl/types:optional",
     ]
   }
 
@@ -238,6 +243,7 @@ if (rtc_include_tests) {
       "../api/audio:audio_device",
       "../api/audio_codecs:builtin_audio_decoder_factory",
       "../api/crypto:frame_decryptor_interface",
+      "../api/environment:environment_factory",
       "../api/task_queue:default_task_queue_factory",
       "../logging:mocks",
       "../modules/audio_device:mock_audio_device",

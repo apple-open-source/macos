@@ -190,7 +190,7 @@ parse_configuration(const char *fn)
 	    c->type = CMD_PASSWORD;
 	    c->str = str;
 	} else
-	    errx(1, "Invalid command on line %d: %s", lineno, s);
+	    errx(1, "Invalid command on line %u: %s", lineno, s);
     }
 
     fclose(cmd);

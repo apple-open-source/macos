@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2024 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2025 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -472,10 +472,16 @@ add_host_name(ServiceRef service_p, dhcpoa_t * options_p)
 
     privacy_required = ServiceIsPrivacyRequired(service_p, &share_device_type);
     if (!privacy_required) {
-	/* add the computer name if privacy is not required */
-	name = computer_name();
-	my_log(LOG_NOTICE, "DHCP %s: supplying hostname '%s'",
-	       if_name(if_p), name);
+	/* add the dhcp hostname if privacy is not required */
+	name = get_dhcp_hostname();
+	if (name != NULL) {
+		my_log(LOG_NOTICE, "DHCP %s: supplying hostname '%s'",
+		       if_name(if_p), name);
+	}
+	else {
+		my_log(LOG_NOTICE, "DHCP %s: hostname is NULL",
+		       if_name(if_p));
+	}
     }
     else if (share_device_type) {
 	/* privacy is required, but sharing the device type is allowed */
@@ -1865,6 +1871,8 @@ dhcp_check_link_with_status(ServiceRef service_p, IFEventID_t event_id,
 		/* go back to INIT state */
 		my_log(LOG_NOTICE, "%s: No lease for %@", if_name(if_p), ssid);
 		dhcp_invalidate_lease(dhcp);
+		service_router_clear(service_p);
+		(void)service_remove_address(service_p);
 	    }
 	    /* we switched networks, start over */
 	    dhcp->try = 0;
@@ -1875,6 +1883,8 @@ dhcp_check_link_with_status(ServiceRef service_p, IFEventID_t event_id,
 		my_log(LOG_NOTICE, "%s: discarding lease for %@, MAC mismatch",
 		       if_name(if_p), ssid);
 		dhcp_invalidate_lease(dhcp);
+		service_router_clear(service_p);
+		(void)service_remove_address(service_p);
 		dhcp->try = 0;
 	    }
 	    else {

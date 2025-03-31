@@ -104,7 +104,11 @@ clock_gettime_nsec_np(clockid_t clock_id)
 
     // Mach Absolute Time unit-based calls
     mach_timebase_info_data_t tb_info;
-    if (mach_timebase_info(&tb_info)) return 0;
+    kern_return_t kr = mach_timebase_info(&tb_info);
+    if (kr != KERN_SUCCESS) {
+        errno = EINVAL;
+        return 0;
+    }
     uint64_t mach_time;
 
     switch(clock_id){
@@ -195,7 +199,9 @@ clock_getres(clockid_t clk_id, struct timespec *res)
     case CLOCK_UPTIME_RAW_APPROX:
     case CLOCK_THREAD_CPUTIME_ID: {
         mach_timebase_info_data_t tb_info;
-        if (mach_timebase_info(&tb_info)){
+        kern_return_t kr = mach_timebase_info(&tb_info);
+        if (kr != KERN_SUCCESS) {
+            errno = EINVAL;
             return -1;
         }
         res->tv_nsec = tb_info.numer / tb_info.denom + (tb_info.numer % tb_info.denom != 0);

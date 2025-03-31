@@ -445,6 +445,10 @@ ppl_hib.o_CWARNFLAGS_ADD += -Wno-vla
 processor_core.o_CWARNFLAGS_ADD += -Wno-vla
 sleh.o_CWARNFLAGS_ADD += -Wno-vla
 vm_reclaim.o_CWARNFLAGS_ADD += -Wno-vla
+# -Wno-enum-compare
+exclaves_memory.o_CWARNFLAGS_ADD += -Wno-enum-compare
+lock_mtx.o_CWARNFLAGS_ADD += -Wno-enum-compare
+pmap.o_CWARNFLAGS_ADD += -Wno-enum-compare
 
 # Rebuild if per-file overrides change
 ${OBJS}: $(firstword $(MAKEFILE_LIST))

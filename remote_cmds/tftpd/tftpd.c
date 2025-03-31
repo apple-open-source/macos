@@ -29,22 +29,6 @@
  * SUCH DAMAGE.
  */
 
-#ifndef __APPLE__
-#ifndef lint
-static const char copyright[] =
-"@(#) Copyright (c) 1983, 1993\n\
-	The Regents of the University of California.  All rights reserved.\n";
-#endif /* not lint */
-
-#ifndef lint
-#if 0
-static char sccsid[] = "@(#)tftpd.c	8.1 (Berkeley) 6/4/93";
-#endif
-#endif /* not lint */
-#include <sys/cdefs.h>
-__FBSDID("$FreeBSD$");
-#endif /* !__APPLE__ */
-
 /*
  * Trivial file transfer protocol server.
  *
@@ -80,12 +64,16 @@ __FBSDID("$FreeBSD$");
 #include "tftp-transfer.h"
 #include "tftp-options.h"
 
+#ifndef __unreachable
+#define __unreachable() __builtin_unreachable()
+#endif
+
 #ifdef	LIBWRAP
 #include <tcpd.h>
 #endif
 
-static void	tftp_wrq(int peer, char *, ssize_t);
-static void	tftp_rrq(int peer, char *, ssize_t);
+static void	tftp_wrq(int peer, char *, size_t);
+static void	tftp_rrq(int peer, char *, size_t);
 
 /*
  * Null-terminated directory prefix list for absolute pathname requests and
@@ -97,11 +85,7 @@ static void	tftp_rrq(int peer, char *, ssize_t);
 #define MAXDIRS	20
 static struct dirlist {
 	const char	*name;
-#ifndef __APPLE__
-	int	len;
-#else
-	size_t	len;
-#endif
+	size_t		len;
 } dirs[MAXDIRS+1];
 #ifdef __APPLE__
 static char	*chroot_dir;
@@ -110,6 +94,7 @@ static size_t	chroot_dir_len;
 static int	suppress_naks;
 static int	logging;
 static int	ipchroot;
+static int	check_woth = 1;
 static int	create_new = 0;
 static const char *newfile_format = "%Y%m%d";
 static int	increase_name = 0;
@@ -154,9 +139,9 @@ main(int argc, char *argv[])
 
 	tftp_openlog("tftpd", LOG_PID | LOG_NDELAY, LOG_FTP);
 #ifndef __APPLE__
-	while ((ch = getopt(argc, argv, "cCd::F:lnoOp:s:u:U:wW")) != -1) {
+	while ((ch = getopt(argc, argv, "cCd::F:lnoOp:s:Su:U:wW")) != -1) {
 #else
-	while ((ch = getopt(argc, argv, "cCd::F:ilnoOp:s:u:U:wW")) != -1) {
+	while ((ch = getopt(argc, argv, "cCd::F:ilnoOp:s:Su:U:wW")) != -1) {
 #endif
 		switch (ch) {
 		case 'c':
@@ -194,13 +179,16 @@ main(int argc, char *argv[])
 			options_extra_enabled = 0;
 			break;
 		case 'p':
-			packetdroppercentage = atoi(optarg);
+			packetdroppercentage = (unsigned int)atoi(optarg);
 			tftp_log(LOG_INFO,
 			    "Randomly dropping %d out of 100 packets",
 			    packetdroppercentage);
 			break;
 		case 's':
 			chroot_dir = optarg;
+			break;
+		case 'S':
+			check_woth = -1;
 			break;
 		case 'u':
 			chuser = optarg;
@@ -267,6 +255,11 @@ main(int argc, char *argv[])
 	}
 	getnameinfo((struct sockaddr *)&peer_sock, peer_sock.ss_len,
 	    peername, sizeof(peername), NULL, 0, NI_NUMERICHOST);
+	if ((size_t)n < 4 /* tftphdr */) {
+		tftp_log(LOG_ERR, "Rejecting %zd-byte request from %s",
+		    n, peername);
+		exit(1);
+	}
 
 	/*
 	 * Now that we have read the message out of the UDP
@@ -390,7 +383,11 @@ main(int argc, char *argv[])
 			tftp_log(LOG_ERR, "setuid failed");
 			exit(1);
 		}
+		if (check_woth == -1)
+			check_woth = 0;
 	}
+	if (check_woth == -1)
+		check_woth = 1;
 
 	len = sizeof(me_sock);
 	if (getsockname(0, (struct sockaddr *)&me_sock, &len) == 0) {
@@ -427,7 +424,7 @@ main(int argc, char *argv[])
 	tp->th_opcode = ntohs(tp->th_opcode);
 	if (tp->th_opcode == RRQ) {
 		if (allow_ro)
-			tftp_rrq(peer, tp->th_stuff, n - 1);
+			tftp_rrq(peer, tp->th_stuff, (size_t)n - 1);
 		else {
 			tftp_log(LOG_WARNING,
 			    "%s read access denied", peername);
@@ -435,7 +432,7 @@ main(int argc, char *argv[])
 		}
 	} else if (tp->th_opcode == WRQ) {
 		if (allow_wo)
-			tftp_wrq(peer, tp->th_stuff, n - 1);
+			tftp_wrq(peer, tp->th_stuff, (size_t)n - 1);
 		else {
 			tftp_log(LOG_WARNING,
 			    "%s write access denied", peername);
@@ -478,16 +475,12 @@ reduce_path(char *fn)
 }
 
 static char *
-parse_header(int peer, char *recvbuffer, ssize_t size,
+parse_header(int peer, char *recvbuffer, size_t size,
 	char **filename, char **mode)
 {
-	char	*cp;
-#ifndef __APPLE__
-	int	i;
-#else
-	ssize_t	i;
-#endif
 	struct formats *pf;
+	char	*cp;
+	size_t	i;
 
 	*mode = NULL;
 	cp = recvbuffer;
@@ -504,12 +497,11 @@ parse_header(int peer, char *recvbuffer, ssize_t size,
 
 	i = get_field(peer, cp, size);
 	*mode = cp;
-	cp += i;
 
 	/* Find the file transfer mode */
-	for (cp = *mode; *cp; cp++)
-		if (isupper(*cp))
-			*cp = tolower(*cp);
+	for (; *cp; cp++)
+		if (isupper((unsigned char)*cp))
+			*cp = tolower((unsigned char)*cp);
 	for (pf = formats; pf->f_mode; pf++)
 		if (strcmp(pf->f_mode, *mode) == 0)
 			break;
@@ -528,7 +520,7 @@ parse_header(int peer, char *recvbuffer, ssize_t size,
  * WRQ - receive a file from the client
  */
 void
-tftp_wrq(int peer, char *recvbuffer, ssize_t size)
+tftp_wrq(int peer, char *recvbuffer, size_t size)
 {
 	char *cp;
 	int has_options = 0, ecode;
@@ -573,7 +565,7 @@ tftp_wrq(int peer, char *recvbuffer, ssize_t size)
  * RRQ - send a file to the client
  */
 void
-tftp_rrq(int peer, char *recvbuffer, ssize_t size)
+tftp_rrq(int peer, char *recvbuffer, size_t size)
 {
 	char *cp;
 	int has_options = 0, ecode;
@@ -646,12 +638,20 @@ tftp_rrq(int peer, char *recvbuffer, ssize_t size)
 static int
 find_next_name(char *filename, int *fd)
 {
-	int i;
-	time_t tval;
-	size_t len;
-	struct tm lt;
-	char yyyymmdd[MAXPATHLEN];
+	/*
+	 * GCC "knows" that we might write all of yyyymmdd plus the static
+	 * elemenents in the format into into newname and thus complains
+	 * unless we reduce the size.  This array is still too big, but since
+	 * the format is user supplied, it's not clear what a better limit
+	 * value would be and this is sufficent to silence the warnings.
+	 */
+	static const int suffix_len = strlen("..00");
+	char yyyymmdd[MAXPATHLEN - suffix_len];
 	char newname[MAXPATHLEN];
+	int i, ret;
+	time_t tval;
+	size_t len, namelen;
+	struct tm lt;
 
 	/* Create the YYYYMMDD part of the filename */
 	time(&tval);
@@ -659,26 +659,33 @@ find_next_name(char *filename, int *fd)
 	len = strftime(yyyymmdd, sizeof(yyyymmdd), newfile_format, &lt);
 	if (len == 0) {
 		syslog(LOG_WARNING,
-			"Filename suffix too long (%d characters maximum)",
-			MAXPATHLEN);
+			"Filename suffix too long (%zu characters maximum)",
+			sizeof(yyyymmdd) - 1);
 		return (EACCESS);
 	}
 
 	/* Make sure the new filename is not too long */
-	if (strlen(filename) > MAXPATHLEN - len - 5) {
+	namelen = strlen(filename);
+	if (namelen >= sizeof(newname) - len - suffix_len) {
 		syslog(LOG_WARNING,
-			"Filename too long (%zd characters, %zd maximum)",
-			strlen(filename), MAXPATHLEN - len - 5);
+			"Filename too long (%zu characters, %zu maximum)",
+			namelen,
+			sizeof(newname) - len - suffix_len - 1);
 		return (EACCESS);
 	}
 
 	/* Find the first file which doesn't exist */
 	for (i = 0; i < 100; i++) {
-		sprintf(newname, "%s.%s.%02d", filename, yyyymmdd, i);
-		*fd = open(newname,
-		    O_WRONLY | O_CREAT | O_EXCL,
-		    S_IRUSR | S_IWUSR | S_IRGRP |
-		    S_IWGRP | S_IROTH | S_IWOTH);
+		ret = snprintf(newname, sizeof(newname), "%s.%s.%02d",
+		    filename, yyyymmdd, i);
+		/*
+		 * Size checked above so this can't happen, we'd use a
+		 * (void) cast, but gcc intentionally ignores that if
+		 * snprintf has __attribute__((warn_unused_result)).
+		 */
+		if (ret < 0 || (size_t)ret >= sizeof(newname))
+			__unreachable();
+		*fd = open(newname, O_WRONLY | O_CREAT | O_EXCL, 0666);
 		if (*fd > 0)
 			return 0;
 	}
@@ -735,10 +742,11 @@ validate_access(int peer, char **filep, int mode)
 		 * it's a /.
 		 */
 		for (dirp = dirs; dirp->name != NULL; dirp++) {
-			if (dirp->len == 1 ||
-			    (!strncmp(filename, dirp->name, dirp->len) &&
-			     filename[dirp->len] == '/'))
-				    break;
+			if (dirp->len == 1)
+				break;
+			if (strncmp(filename, dirp->name, dirp->len) == 0 &&
+			    filename[dirp->len] == '/')
+				break;
 		}
 		/* If directory list is empty, allow access to any file */
 		if (dirp->name == NULL && dirp != dirs)
@@ -751,7 +759,7 @@ validate_access(int peer, char **filep, int mode)
 			if ((stbuf.st_mode & S_IROTH) == 0)
 				return (EACCESS);
 		} else {
-			if ((stbuf.st_mode & S_IWOTH) == 0)
+			if (check_woth && ((stbuf.st_mode & S_IWOTH) == 0))
 				return (EACCESS);
 		}
 	} else {
@@ -781,7 +789,7 @@ validate_access(int peer, char **filep, int mode)
 					if ((stbuf.st_mode & S_IROTH) != 0)
 						break;
 				} else {
-					if ((stbuf.st_mode & S_IWOTH) != 0)
+					if (!check_woth || ((stbuf.st_mode & S_IWOTH) != 0))
 						break;
 				}
 				err = EACCESS;

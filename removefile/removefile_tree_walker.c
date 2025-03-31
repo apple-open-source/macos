@@ -36,6 +36,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 #include <fts.h>
+#include <dirent.h>
 
 #include <TargetConditionals.h>
 
@@ -45,6 +46,26 @@
 #if __APPLE__ && !TARGET_OS_SIMULATOR
 #include <apfs/apfs_fsctl.h>
 #endif
+
+static bool iopolicy_materialization_on(void)
+{
+	// NOTE: some sandboxed processes may crash when calling to getiopolicy_np. See 76141982.
+	// also, per-thread policies override process policies.
+
+	int policy = (getiopolicy_np(IOPOL_TYPE_VFS_MATERIALIZE_DATALESS_FILES, IOPOL_SCOPE_THREAD));
+	if (policy == IOPOL_MATERIALIZE_DATALESS_FILES_ON) {
+		return true;
+	} else if (policy == IOPOL_MATERIALIZE_DATALESS_FILES_OFF) {
+		return false;
+	}
+
+	policy = (getiopolicy_np(IOPOL_TYPE_VFS_MATERIALIZE_DATALESS_FILES, IOPOL_SCOPE_PROCESS));
+	if (policy == IOPOL_MATERIALIZE_DATALESS_FILES_ON) {
+		return true;
+	}
+
+	return false;
+}
 
 static int
 __removefile_process_file(FTS* stream, FTSENT* current_file, removefile_state_t state) {
@@ -95,9 +116,7 @@ __removefile_process_file(FTS* stream, FTSENT* current_file, removefile_state_t 
 				chflags(path, current_file->fts_statp->st_flags &= ~(UF_APPEND|UF_IMMUTABLE)) < 0) {
 				break;
 			}
-			// Calling getiopolicy_np outside of this block is unsafe on iOS. See 76141982.
-			if (state->confirm_callback != NULL &&
-				(getiopolicy_np(IOPOL_TYPE_VFS_MATERIALIZE_DATALESS_FILES, IOPOL_SCOPE_THREAD) != IOPOL_MATERIALIZE_DATALESS_FILES_OFF)) {
+			if (state->confirm_callback != NULL && iopolicy_materialization_on()) {
 				break;
 			}
 			/*
@@ -150,9 +169,7 @@ __removefile_process_file(FTS* stream, FTSENT* current_file, removefile_state_t 
 #if __APPLE__
 						int is_dataless = (current_file->fts_statp->st_flags & SF_DATALESS) != 0;
 						if (is_dataless) {
-							// This call is unsafe on iOS.
-							int iopolicy = getiopolicy_np(IOPOL_TYPE_VFS_MATERIALIZE_DATALESS_FILES, IOPOL_SCOPE_THREAD);
-							if (iopolicy == IOPOL_MATERIALIZE_DATALESS_FILES_OFF || state->confirm_callback == NULL) {
+							if (!iopolicy_materialization_on() || state->confirm_callback == NULL) {
 								res = unlinkat(AT_FDCWD, path, AT_REMOVEDIR_DATALESS);
 							} else {
 								res = rmdir(path);
@@ -336,5 +353,232 @@ __removefile_tree_walker(char **trees, removefile_state_t state) {
 	state->recurse_entry = NULL;
 
 	fts_close(stream);
+	return rval;
+}
+
+static int check_error_cb(char *path, removefile_state_t state, int level)
+{
+	state->error_num = errno;
+
+	// abstract away ENOENT and ENOTDIR errors to the callers, like in the regular removefile implementation
+	if ((state->error_num == ENOENT || state->error_num == ENOTDIR) && (level != 0)) {
+		return 0;
+	}
+
+	if (state->error_callback &&
+		state->error_callback(state, path, state->error_context) != REMOVEFILE_STOP) {
+		return 0;
+	}
+
+	return -1;
+}
+
+typedef struct dir_entry {
+	DIR *dir;
+	struct stat sb;
+} dir_entry_t;
+
+static void
+change_path_to_parent(char *path) {
+	char *last = strrchr(path, '/');
+	if (last) {
+		last[0] = '\0';
+	}
+}
+
+static int
+move_to_parent_dir(char *cur_path, int *level, dir_entry_t *directories, DIR **cur_dir)
+{
+	if (*cur_dir && (closedir(*cur_dir) != 0)) {
+		return -1;
+	}
+
+	directories[*level].dir = NULL;
+	if (*level == 0) {
+		// can't move to the parent of the root directory we are removing
+		*cur_dir = NULL;
+		return 0;
+	}
+
+	// move to the parent directory
+	(*level)--;
+	*cur_dir = directories[*level].dir;
+	change_path_to_parent(cur_path);
+
+	return 0;
+}
+
+#define INITIAL_DIRECTORIS_LEN 8
+
+int
+__removefile_tree_walker_slim(const char *path, removefile_state_t state) {
+	int directories_len = INITIAL_DIRECTORIS_LEN;
+	dir_entry_t *directories;
+	struct dirent *entry;
+	int rval = 0;
+	int level = 0;
+	DIR *cur_dir;
+	char cur_path[MAXPATHLEN];
+	struct stat tmp_sb;
+	int unsupported = state->unlink_flags & (REMOVEFILE_SECURE_7_PASS | REMOVEFILE_SECURE_35_PASS | REMOVEFILE_SECURE_1_PASS | REMOVEFILE_SECURE_3_PASS | REMOVEFILE_SECURE_1_PASS_ZERO | REMOVEFILE_ALLOW_LONG_PATHS);
+
+	if (state->confirm_callback || state->status_callback || unsupported) {
+		state->error_num = EINVAL;
+		return -1;
+	}
+
+	directories = calloc(directories_len, sizeof(dir_entry_t));
+	if (!directories) {
+		state->error_num = ENOMEM;
+		return -1;
+	}
+
+	snprintf(cur_path, sizeof(cur_path), "%s", path);
+	cur_dir = directories[0].dir = opendir(cur_path);
+	if (!cur_dir) {
+		state->error_num = errno;
+		free(directories);
+		return -1;
+	}
+
+	if (fstat(dirfd(cur_dir), &directories[0].sb)) {
+		state->error_num = errno;
+		closedir(cur_dir);
+		free(directories);
+		return -1;
+	}
+
+	while (directories[0].dir != NULL) {
+		if (__removefile_state_test_cancel(state)) {
+			rval = -1;
+			state->error_num = ECANCELED;
+			break;
+		}
+
+		errno = 0;
+		entry = readdir(cur_dir);
+		if (entry == NULL) {
+			// check for readdir errors
+			if (errno) {
+				rval = -1;
+				state->error_num = errno;
+				break;
+			}
+
+			if (!((state->unlink_flags & REMOVEFILE_KEEP_PARENT) && level == 0)) {
+				rval = rmdir(cur_path);
+				if (rval && (rval = check_error_cb(cur_path, state, level))) {
+					break;
+				}
+			}
+
+			rval = move_to_parent_dir(cur_path, &level, directories, &cur_dir);
+			if (rval) {
+				state->error_num = errno;
+				break;
+			}
+
+			continue;
+		}
+
+		if (!strcmp(entry->d_name, ".") || !strcmp(entry->d_name, "..")) {
+			continue;
+		}
+
+		if (snprintf(cur_path, sizeof(cur_path), "%s/%s", cur_path, entry->d_name) >= MAXPATHLEN) {
+			rval = -1;
+			state->error_num = ENAMETOOLONG;
+			break;
+		}
+
+check_entry:
+		if (entry->d_type == DT_UNKNOWN) {
+			// some implementations don't populate d_type, get the details from stat(2)
+			rval = (lstat(cur_path, &tmp_sb));
+			if (rval) {
+				// can't stat this entry - just continue to the next one
+				continue;
+			}
+			if (S_ISREG(tmp_sb.st_mode)) {
+				entry->d_type = DT_DIR;
+			} else if (S_ISLNK(tmp_sb.st_mode)) {
+				entry->d_type = DT_LNK;
+			} else {
+				// fake everything else like it's a regular file
+				entry->d_type = DT_REG;
+			}
+			goto check_entry;
+		}
+
+		if (entry->d_type == DT_DIR) {
+			if (!(state->unlink_flags & REMOVEFILE_CROSS_MOUNT)) {
+				rval = stat(cur_path, &tmp_sb);
+				if (rval) {
+					state->error_num = errno;
+					break;
+				}
+				if (tmp_sb.st_dev != directories[level].sb.st_dev) {
+					change_path_to_parent(cur_path);
+					continue;
+				}
+			}
+#if __APPLE__ && !TARGET_OS_SIMULATOR
+			if (state->unlink_flags & REMOVEFILE_CLEAR_PURGEABLE) {
+				uint64_t cp_flags = APFS_CLEAR_PURGEABLE;
+				(void)fsctl(cur_path, APFSIOC_MARK_PURGEABLE, &cp_flags, 0);
+			}
+#endif
+
+			level++;
+			if (level >= directories_len) {
+				directories_len *= 2;
+				directories = realloc(directories, sizeof(dir_entry_t) * directories_len);
+				if (!directories) {
+					rval = -1;
+					state->error_num = ENOMEM;
+					break;
+				}
+				memset(&directories[level], 0, sizeof(dir_entry_t) * directories_len / 2);
+			}
+
+			// try to remove preorder empty or dataless directories
+			if (unlinkat(AT_FDCWD, cur_path, AT_REMOVEDIR_DATALESS) == 0) {
+				change_path_to_parent(cur_path);
+				level--;
+				continue;
+			}
+
+			// descend into this directory
+			directories[level].dir = opendir(cur_path);
+			cur_dir = directories[level].dir;
+			if (!cur_dir || fstat(dirfd(cur_dir), &directories[level].sb)) {
+				// can't stat this directory, don't descend into it
+				rval = move_to_parent_dir(cur_path, &level, directories, &cur_dir);
+			}
+		} else {
+			// regular files, symbolic links and everything else
+			rval = unlink(cur_path);
+			if (rval && (rval = check_error_cb(cur_path, state, level))) {
+				break;
+			}
+			// restore cur_path to point at the parent directory
+			change_path_to_parent(cur_path);
+		}
+
+		if (rval) {
+			if (!state->error_num) {
+				state->error_num = errno;
+			}
+			break;
+		}
+	}
+
+	for (int i = 0; i < directories_len; i++) {
+		if (directories[i].dir) {
+			closedir(directories[i].dir);
+		}
+	}
+
+	free(directories);
 	return rval;
 }

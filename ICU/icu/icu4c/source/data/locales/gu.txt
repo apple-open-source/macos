@@ -11,14 +11,13 @@ gu{
         "[અ {અં} {અઃ} આ ઇ ઈ ઉ ઊ ઋ ઍ એ ઐ ઑ ઓ ઔ ક {ક્ષ} ખ ગ ઘ ઙ ચ છ જ {જ્ઞ} ઝ ઞ ટ ઠ ડ ઢ"
         " ણ ત {ત્ર} થ દ ધ ન પ ફ બ ભ મ ય ર લ વ શ ષ સ હ ળ]"
     }
-    ExemplarCharactersNumbers{"[\\- ‑ , . % ‰ + 0૦ 1૧ 2૨ 3૩ 4૪ 5૫ 6૬ 7૭ 8૮ 9૯]"}
     ExemplarCharactersPunctuation{"[\\- ‐‑ – — , ; \\: ! ? . … '‘’ \u0022“” ( ) \\[ \\] § @ * / \\& # † ‡ ′ ″]"}
     NumberElements{
         gujr{
             patterns{
-                currencyFormat{"¤#,##0.00"}
-                currencyFormat%alphaNextToNumber{"¤ #,##0.00"}
-                currencyFormat%noCurrency{"#,##0.00"}
+                currencyFormat{"¤#,##,##0.00"}
+                currencyFormat%alphaNextToNumber{"¤ #,##,##0.00"}
+                currencyFormat%noCurrency{"#,##,##0.00"}
                 percentFormat{"#,##0%"}
                 scientificFormat{"#E0"}
             }
@@ -722,18 +721,18 @@ gu{
             monthNames{
                 format{
                     abbreviated{
-                        "જાન્યુ",
-                        "ફેબ્રુ",
+                        "જાન૰",
+                        "ફેબ૰",
                         "માર્ચ",
                         "એપ્રિલ",
                         "મે",
                         "જૂન",
                         "જુલાઈ",
-                        "ઑગસ્ટ",
-                        "સપ્ટે",
-                        "ઑક્ટો",
-                        "નવે",
-                        "ડિસે",
+                        "ઑગ૰",
+                        "સપ્ટ૰",
+                        "ઑક્ટ૰",
+                        "નવ૰",
+                        "ડિસ૰",
                     }
                     wide{
                         "જાન્યુઆરી",

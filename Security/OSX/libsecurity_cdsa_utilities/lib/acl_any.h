@@ -46,6 +46,8 @@ public:
 	bool validates(const AclValidationContext &ctx) const;
 	CssmList toList(Allocator &alloc) const;
 
+    virtual CFStringRef createACLDebugString() const;
+
 	class Maker : public AclSubject::Maker {
 	public:
 		Maker() : AclSubject::Maker(CSSM_ACL_SUBJECT_TYPE_ANY) { }

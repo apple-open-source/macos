@@ -242,8 +242,8 @@ static bool SecTaskLoadEntitlements(SecTaskRef task, CFErrorRef *error)
     uint32_t bufferlen;
     int ret;
     CEQueryContext_t ceCtx = NULL;
-    uint32_t cs_flags = -1;
-    pid_t pid;
+    uint32_t cs_flags = 0;  // Explicitly initialize to 0 to assume unsigned
+    pid_t pid = -1;
 
     // Get the pid
     audit_token_to_au32(task->token, NULL, NULL, NULL, NULL, NULL, &pid, NULL, NULL);
@@ -262,8 +262,11 @@ static bool SecTaskLoadEntitlements(SecTaskRef task, CFErrorRef *error)
     /* Any other combination means no entitlements */
     if (ret == -1) {
         if (errno != ERANGE) {
+            // Save the errno from csops(task, CS_OPS_DER_ENTITLEMENTS_BLOB, ...) here
+            int entitlementErrno = errno;
+
             if (cs_flags != 0) {	// was signed
-                syslog(LOG_NOTICE, "SecTaskLoadEntitlements failed error=%d cs_flags=%x, pid=%d", errno, cs_flags, pid);	// to ease diagnostics
+                syslog(LOG_NOTICE, "SecTaskLoadEntitlements failed error=%d cs_flags=%x, pid=%d", entitlementErrno, cs_flags, pid);	// to ease diagnostics
 
                 CFStringRef description = SecTaskCopyDebugDescription(task);
                 char *descriptionBuf = NULL;
@@ -279,11 +282,11 @@ static bool SecTaskLoadEntitlements(SecTaskRef task, CFErrorRef *error)
             }
 
             // EINVAL is what the kernel says for unsigned code, so we'll have to let that pass
-            if (errno == EINVAL) {
+            if (entitlementErrno == EINVAL) {
                 task->entitlementsLoaded = true;
                 return true;
             }
-            ret = errno;	// what really went wrong
+            ret = entitlementErrno;	// what really went wrong
             goto out;		// bail out
         }
         bufferlen = ntohl(header.length);
@@ -312,16 +315,12 @@ static bool SecTaskLoadEntitlements(SecTaskRef task, CFErrorRef *error)
         entitlements = (CFMutableDictionaryRef) CFPropertyListCreateWithData(kCFAllocatorDefault, data, kCFPropertyListMutableContainers, NULL, error);
 #else
         if (!CE_OK(CEManagedContextFromCFData(CECRuntime, data, &ceCtx))) {
-            pid_t pid;
-            audit_token_to_au32(task->token, NULL, NULL, NULL, NULL, NULL, &pid, NULL, NULL);
             secinfo("SecTask", "couldn't create a managed context from csops call %d", pid);
             CFReleaseNull(data);
             ret = EDOM;    // don't use EINVAL here; it conflates problems with syscall error returns
             goto out;
         }
         if (!CE_OK(CEQueryContextToCFDictionary(ceCtx, &entitlements))) {
-            pid_t pid;
-            audit_token_to_au32(task->token, NULL, NULL, NULL, NULL, NULL, &pid, NULL, NULL);
             secinfo("SecTask", "couldn't convert CE to CF %d", pid);
             CFReleaseNull(data);
             ret = EDOM;    // don't use EINVAL here; it conflates problems with syscall error returns
@@ -338,8 +337,6 @@ static bool SecTaskLoadEntitlements(SecTaskRef task, CFErrorRef *error)
 
         bool entitlementsModified = updateCatalystEntitlements(entitlements);
         if (entitlementsModified) {
-            pid_t pid;
-            audit_token_to_au32(task->token, NULL, NULL, NULL, NULL, NULL, &pid, NULL, NULL);
             secinfo("SecTask", "Fixed catalyst entitlements for process %d", pid);
         }
 
@@ -348,8 +345,6 @@ static bool SecTaskLoadEntitlements(SecTaskRef task, CFErrorRef *error)
         if (needsOSInstallerSetupdEntitlementsFixup(identifier, isPlatform, entitlements)) {
             entitlementsModified = updateOSInstallerSetupdEntitlements(entitlements);
             if (entitlementsModified) {
-                pid_t pid;
-                audit_token_to_au32(task->token, NULL, NULL, NULL, NULL, NULL, &pid, NULL, NULL);
                 secinfo("SecTask", "Fixed TCC entitlements for osinstallerstupd %d", pid);
             }
         }

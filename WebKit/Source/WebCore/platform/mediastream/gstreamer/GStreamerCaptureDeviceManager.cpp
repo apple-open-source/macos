@@ -136,10 +136,10 @@ void GStreamerCaptureDeviceManager::deviceWillBeRemoved(const String& persistent
     stopCapturing(persistentId);
 }
 
-void GStreamerCaptureDeviceManager::registerCapturer(const RefPtr<GStreamerCapturer>& capturer)
+void GStreamerCaptureDeviceManager::registerCapturer(RefPtr<GStreamerCapturer>&& capturer)
 {
     GST_DEBUG("Registering capturer for device %s", capturer->devicePersistentId().ascii().data());
-    m_capturers.append(capturer);
+    m_capturers.append(WTFMove(capturer));
 }
 
 void GStreamerCaptureDeviceManager::unregisterCapturer(const GStreamerCapturer& capturer)
@@ -204,7 +204,7 @@ void GStreamerCaptureDeviceManager::addDevice(GRefPtr<GstDevice>&& device)
     GUniquePtr<char> deviceName(gst_device_get_display_name(device.get()));
     GST_INFO("Registering device %s", deviceName.get());
     auto isDefault = gstStructureGet<bool>(properties.get(), "is-default"_s).value_or(false);
-    auto label = makeString(isDefault ? "default: "_s : ""_s, span(deviceName.get()));
+    auto label = makeString(isDefault ? "default: "_s : ""_s, unsafeSpan(deviceName.get()));
 
     auto identifier = label;
     bool isMock = false;

@@ -600,13 +600,16 @@ lookup_substsearch(struct xlocale_collate *table, const wchar_t key, int pass)
 
 
 static collate_chain_t *
-chainsearch(const wchar_t *key, int *len, locale_t loc)
+chainsearch(struct xlocale_collate *table, const wchar_t *key, int *len)
 {
 	int low = 0;
-	int high = collate_info->chain_count - 1;
+	int high = table->info->chain_count - 1;
 	int next, compar, l;
 	collate_chain_t *p;
-	collate_chain_t *tab = collate_chain_pri_table;
+	collate_chain_t *tab = table->chain_pri_table;
+
+	if (high < 0)
+		return (NULL);
 
 	while (low <= high) {
 		next = (low + high) / 2;
@@ -629,13 +632,16 @@ chainsearch(const wchar_t *key, int *len, locale_t loc)
 }
 
 static collate_large_t *
-largesearch(const wchar_t key, locale_t loc)
+largesearch(struct xlocale_collate *table, const wchar_t key)
 {
 	int low = 0;
-	int high = collate_info->large_count - 1;
+	int high = table->info->large_count - 1;
 	int next, compar;
 	collate_large_t *p;
-	collate_large_t *tab = collate_large_pri_table;
+	collate_large_t *tab = table->large_pri_table;
+
+	if (high < 0)
+		return (NULL);
 
 	while (low <= high) {
 		next = (low + high) / 2;
@@ -651,9 +657,106 @@ largesearch(const wchar_t key, locale_t loc)
 	return NULL;
 }
 
+void
+_collate_lookup(struct xlocale_collate *table, const wchar_t *t,
+    int *len, int *pri, int which, const int **state)
+{
+	collate_chain_t *p2;
+	collate_large_t *match;
+	int p, l;
+	const int *sptr;
+
+	/*
+	 * If this is the "last" pass for the UNDEFINED, then
+	 * we just return the priority itself.
+	 */
+	if (which >= table->info->directive_count) {
+		*pri = *t;
+		*len = 1;
+		*state = NULL;
+	}
+
+	/*
+	 * If we have remaining substitution data from a previous call,
+	 * consume it first.
+	 */
+	if ((sptr = *state) != NULL) {
+		*pri = *sptr;
+		sptr++;
+		if ((sptr == *state) || (sptr == NULL))
+			*state = NULL;
+		else
+			*state = sptr;
+		*len = 0;
+		return;
+	}
+
+	/* No active substitutions */
+	*len = 1;
+
+	/*
+	 * Check for composites such as diphthongs that collate as a
+	 * single element (aka chains or collating-elements).
+	 */
+	if (((p2 = chainsearch(table, t, &l)) != NULL) &&
+	    ((p = p2->pri[which]) >= 0)) {
+
+		*len = l;
+		*pri = p;
+
+	} else if (*t <= UCHAR_MAX) {
+
+		/*
+		 * Character is a small (8-bit) character.
+		 * We just look these up directly for speed.
+		 */
+		*pri = table->char_pri_table[*t].pri[which];
+
+	} else if (table->info->large_count > 0 &&
+	    ((match = largesearch(table, *t)) != NULL)) {
+
+		/*
+		 * Character was found in the extended table.
+		 */
+		*pri = match->pri.pri[which];
+
+	} else {
+		/*
+		 * Character lacks a specific definition.
+		 */
+		if (table->info->directive[which] & DIRECTIVE_UNDEFINED) {
+			/* Mask off sign bit to prevent ordering confusion. */
+			*pri = (*t & COLLATE_MAX_PRIORITY);
+		} else {
+			*pri = table->info->undef_pri[which];
+		}
+		/* No substitutions for undefined characters! */
+		return;
+	}
+
+	/*
+	 * Try substituting (expanding) the character.  We are
+	 * currently doing this *after* the chain compression.  I
+	 * think it should not matter, but this way might be slightly
+	 * faster.
+	 *
+	 * We do this after the priority search, as this will help us
+	 * to identify a single key value.  In order for this to work,
+	 * its important that the priority assigned to a given element
+	 * to be substituted be unique for that level.  The localedef
+	 * code ensures this for us.
+	 */
+	if ((sptr = lookup_substsearch(table, *pri, which)) != NULL) {
+		if ((*pri = *sptr) > 0) {
+			sptr++;
+			*state = *sptr ? sptr : NULL;
+		}
+	}
+}
+
 /*
 * This is provided for programs (like grep) that are calling this
-* private function.  This is also used by wcscoll()
+* private function.  Callers should likely be migrated to _collate_lookup.
 */
 void
 __collate_lookup_l(const wchar_t *t, int *len, int *prim, int *sec, locale_t loc)
@@ -687,7 +790,7 @@ __collate_lookup_l(const wchar_t *t, int *len, int *prim, int *sec, locale_t loc
 	 * Check for composites such as diphthongs that collate as a
 	 * single element (aka chains or collating-elements).
 	 */
-	if (((p2 = chainsearch(t, &l, loc)) != NULL &&
+	if (((p2 = chainsearch(table, t, &l)) != NULL &&
 	    p2->pri[0] >= 0)) {
 
 		*len = l;
@@ -704,7 +807,7 @@ __collate_lookup_l(const wchar_t *t, int *len, int *prim, int *sec, locale_t loc
 		*sec = collate_char_pri_table[*t].pri[1];
 
 	} else if (collate_info->large_count > 0 &&
-	    ((match = largesearch(*t, loc)) != NULL)) {
+	    ((match = largesearch(table, *t)) != NULL)) {
 
 		/*
 		 * Character was found in the extended table.
@@ -808,7 +911,7 @@ __collate_lookup_which(const wchar_t *t, int *len, int *pri, int which, locale_t
 	/* No active substitutions */
 	*len = 1;
 
-	if (((p2 = chainsearch(t, &l, loc)) != NULL &&
+	if (((p2 = chainsearch(table, t, &l)) != NULL &&
 	    (p = p2->pri[which]) >= 0)) {
 
 		*len = l;
@@ -823,7 +926,7 @@ __collate_lookup_which(const wchar_t *t, int *len, int *pri, int which, locale_t
 		*pri = collate_char_pri_table[*t].pri[which];
 
 	} else if ((collate_info->large_count) > 0 &&
-	    (match = largesearch(*t, loc)) != NULL) {
+	    (match = largesearch(table, *t)) != NULL) {
 
 		/*
 		 * Character was found in the extended table.
@@ -1022,6 +1125,7 @@ __collate_collating_symbol(wchar_t *dst, size_t dlen, const char *src, size_t sl
 {
 	wchar_t wname[COLLATE_STR_LEN];
 	wchar_t w, *wp;
+	struct xlocale_collate *table;
 	size_t len, l;
 
 	/* POSIX locale */
@@ -1033,6 +1137,7 @@ __collate_collating_symbol(wchar_t *dst, size_t dlen, const char *src, size_t sl
 		*dst = *src;
 		return 1;
 	}
+	table = XLOCALE_COLLATE(loc);
 	for(wp = wname, len = 0; slen > 0; len++) {
 		l = mbrtowc_l(&w, src, slen, ps, loc);
 		if (l == (size_t)-1 || l == (size_t)-2)
@@ -1057,7 +1162,7 @@ __collate_collating_symbol(wchar_t *dst, size_t dlen, const char *src, size_t sl
 			return 0;
 		} else if (collate_info->large_count > 0) {
 			collate_large_t *match;
-			match = largesearch(*wname, loc);
+			match = largesearch(table, *wname);
 			if (match && match->pri.pri[0] >= 0) {
 				if (dlen > 0)
 					*dst = *wname;
@@ -1070,7 +1175,7 @@ __collate_collating_symbol(wchar_t *dst, size_t dlen, const char *src, size_t sl
 	if (collate_info->chain_count > 0) {
 		collate_chain_t *match;
 		int ll;
-		match = chainsearch(wname, &ll, loc);
+		match = chainsearch(table, wname, &ll);
 		if (match) {
 			if (ll < dlen)
 				dlen = ll;
@@ -1095,12 +1200,14 @@ __collate_equiv_class(const char *src, size_t slen, mbstate_t *ps, locale_t loc)
 {
 	wchar_t wname[COLLATE_STR_LEN];
 	wchar_t w, *wp;
+	struct xlocale_collate *table;
 	size_t len, l;
 	int e;
 
 	/* POSIX locale */
 	if (XLOCALE_COLLATE(loc)->__collate_load_error)
 		return 0;
+	table = XLOCALE_COLLATE(loc);
 	for(wp = wname, len = 0; slen > 0; len++) {
 		l = mbrtowc_l(&w, src, slen, ps, loc);
 		if (l == (size_t)-1 || l == (size_t)-2)
@@ -1121,7 +1228,7 @@ __collate_equiv_class(const char *src, size_t slen, mbstate_t *ps, locale_t loc)
 			e = collate_char_pri_table[*wname].pri[0];
 		else if (collate_info->large_count > 0) {
 			collate_large_t *match;
-			match = largesearch(*wname, loc);
+			match = largesearch(table, *wname);
 			if (match)
 				e = match->pri.pri[0];
 		}
@@ -1133,7 +1240,7 @@ __collate_equiv_class(const char *src, size_t slen, mbstate_t *ps, locale_t loc)
 	if (collate_info->chain_count > 0) {
 		collate_chain_t *match;
 		int ll;
-		match = chainsearch(wname, &ll, loc);
+		match = chainsearch(table, wname, &ll);
 		if (match) {
 			e = match->pri[0];
 			if (e == 0)
@@ -1168,12 +1275,14 @@ __collate_equiv_match(int equiv_class, wchar_t *dst, size_t dlen, wchar_t start,
 	wchar_t buf[COLLATE_STR_LEN], *wp;
 	mbstate_t save;
 	const char *s = src;
+	struct xlocale_collate *table;
 	size_t sl = slen;
 	collate_chain_t *ch = NULL;
 
 	/* POSIX locale */
 	if (XLOCALE_COLLATE(loc)->__collate_load_error)
 		return (size_t)-1;
+	table = XLOCALE_COLLATE(loc);
 	if (equiv_class == IGNORE_EQUIV_CLASS)
 		equiv_class = 0;
 	if (ps)
@@ -1196,7 +1305,7 @@ __collate_equiv_match(int equiv_class, wchar_t *dst, size_t dlen, wchar_t start,
 		len++;
 	}
 	*wp = 0;
-	if (len > 1 && (ch = chainsearch(buf, &i, loc)) != NULL) {
+	if (len > 1 && (ch = chainsearch(table, buf, &i)) != NULL) {
 		int e = ch->pri[0];
 		if (e < 0)
 			e = -e;
@@ -1210,7 +1319,7 @@ __collate_equiv_match(int equiv_class, wchar_t *dst, size_t dlen, wchar_t start,
 			goto found;
 	} else if (collate_info->large_count > 0) {
 		collate_large_t *match;
-		match = largesearch(*buf, loc);
+		match = largesearch(table, *buf);
 		if (match && equiv_class == match->pri.pri[0])
 			goto found;
 	}
@@ -1249,36 +1358,129 @@ found:
 	return len;
 }
 
+static const int32_t *
+__collate_pri_for(locale_t loc, wchar_t ch)
+{
+	struct xlocale_collate *table;
+	collate_large_t *match;
+
+	assert(!XLOCALE_COLLATE(loc)->__collate_load_error);
+	table = XLOCALE_COLLATE(loc);
+
+	if (ch <= UCHAR_MAX)
+		return (collate_char_pri_table[ch].pri);
+
+	match = largesearch(table, ch);
+	if (match != NULL)
+		return (match->pri.pri);
+
+	return (NULL);
+}
+
 /*
- * __collate_equiv_value returns the primary collation value for the given
- * collating symbol specified by str and len.  Zero or negative is return
- * if the collating symbol was not found.  (Use by the bracket code in TRE.)
+ * __collate_equiv_wchar compares two collating symbols for equivalency based on
+ * the weights.  Zero is returned if they are not considered equivalent,
+ * non-zero otherwise.  The insensitive_cmp parameter dictates whether we only
+ * examine based on the first-order weight, or all of the way to the end.  The
+ * first-order weight will be the same for all cases and accentuation of a
+ * letter, for instance, and shouldn't be used unless it's a case-insensitive
+ * equivalence class.
+ * (Used by the bracket code in TRE.)
  */
 __private_extern__ int
+__collate_equiv_wchar(locale_t loc, wchar_t lch, wchar_t rch,
+    int insensitive_cmp)
+{
+	struct xlocale_collate *table;
+	const int32_t *lpri, *rpri;
+	int count;
+
+	/* POSIX locale */
+	if (XLOCALE_COLLATE(loc)->__collate_load_error) {
+		if (lch > UCHAR_MAX || rch > UCHAR_MAX)
+			return (-1);
+		if (insensitive_cmp) {
+			if (!iswlower_l(lch, loc))
+				lch = towlower_l(lch, loc);
+			if (!iswlower_l(rch, loc))
+				rch = towlower_l(rch, loc);
+		}
+		return (lch == rch);
+	}
+
+	table = XLOCALE_COLLATE(loc);
+	lpri = __collate_pri_for(loc, lch);
+	if (lpri == NULL)
+		return (0);
+
+	rpri = __collate_pri_for(loc, rch);
+	if (rpri == NULL)
+		return (0);
+
+	/*
+	 * At face value, if the first-order weights aren't identical then we're
+	 * definitely not even remotely equivalent.
+	 */
+	if (lpri[0] != rpri[0])
+		return (0);
+
+	count = table->info->directive_count;
+	if (insensitive_cmp || count == 1)
+		return (1);
+
+	for (int i = 1; i < count - 1; i++) {
+		const int32_t *sleft, *sright;
+		int32_t cmpleft, cmpright;
+
+		sleft = sright = NULL;
+		if ((lpri[i] & COLLATE_SUBST_PRIORITY) != 0) {
+			sleft = lookup_substsearch(table, lpri[i], i);
+			assert(sleft != NULL);
+
+			cmpleft = *sleft;
+		} else {
+			cmpleft = lpri[i];
+		}
+
+		if ((rpri[i] & COLLATE_SUBST_PRIORITY) != 0) {
+			sright = lookup_substsearch(table, rpri[i], i);
+			assert(sright != NULL);
+
+			cmpright = *sright;
+		} else {
+			cmpright = rpri[i];
+		}
+
+		if (cmpleft != cmpright)
+			return (0);
+	}
+	return (1);
+}
+
+/*
+ * __collate_equiv_value returns the primary collation value for the given
+ * collating symbol specified by str and len.  Zero is returned if the collating
+ * symbol was not found.  (Used by the bracket code in TRE.)
+ */
+__private_extern__ wchar_t
 __collate_equiv_value(locale_t loc, const wchar_t *str, size_t len)
 {
-	int e;
+	struct xlocale_collate *table;
+	int32_t *pri;
 
 	if (len < 1 || len >= COLLATE_STR_LEN)
-		return -1;
+		return 0;
 
 	/* POSIX locale */
 	if (XLOCALE_COLLATE(loc)->__collate_load_error)
-		return (len == 1 && *str <= UCHAR_MAX) ? *str : -1;
+		return (len == 1 && *str <= UCHAR_MAX) ? *str : 0;
+	table = XLOCALE_COLLATE(loc);
 
 	if (len == 1) {
-		e = -1;
-		if (*str <= UCHAR_MAX)
-			e = collate_char_pri_table[*str].pri[0];
-		else if (collate_info->large_count > 0) {
-			collate_large_t *match;
-			match = largesearch(*str, loc);
-			if (match)
-				e = match->pri.pri[0];
-		}
-		if (e == 0)
-			return IGNORE_EQUIV_CLASS;
-		return e > 0 ? e : 0;
+		pri = __collate_pri_for(loc, *str);
+		if (pri != NULL)
+			return (*str);
+		return (0);
 	}
 	if (collate_info->chain_count > 0) {
 		wchar_t name[COLLATE_STR_LEN];
@@ -1287,12 +1489,11 @@ __collate_equiv_value(locale_t loc, const wchar_t *str, size_t len)
 
 		wcsncpy(name, str, len);
 		name[len] = 0;
-		match = chainsearch(name, &ll, loc);
+		match = chainsearch(table, name, &ll);
 		if (match) {
-			e = match->pri[0];
-			if (e == 0)
-				return IGNORE_EQUIV_CLASS;
-			return e < 0 ? -e : e;
+			if (match->pri[0] != 0)
+				return (*str);
+			return (0);
 		}
 	}
 	return 0;

@@ -34,6 +34,150 @@
 #include <wtf/text/StringBuilder.h>
 #include <wtf/text/StringToIntegerConversion.h>
 
+namespace WTF {
+
+template<> bool isValidEnum<WebCore::AV1ConfigurationProfile>(std::underlying_type_t<WebCore::AV1ConfigurationProfile> value)
+{
+    switch (value) {
+    case enumToUnderlyingType(WebCore::AV1ConfigurationProfile::Main):
+    case enumToUnderlyingType(WebCore::AV1ConfigurationProfile::High):
+    case enumToUnderlyingType(WebCore::AV1ConfigurationProfile::Professional):
+        return true;
+    default:
+        return false;
+    }
+}
+
+template<> bool isValidEnum<WebCore::AV1ConfigurationLevel>(std::underlying_type_t<WebCore::AV1ConfigurationLevel> value)
+{
+    switch (value) {
+    case enumToUnderlyingType(WebCore::AV1ConfigurationLevel::Level_2_0):
+    case enumToUnderlyingType(WebCore::AV1ConfigurationLevel::Level_2_1):
+    case enumToUnderlyingType(WebCore::AV1ConfigurationLevel::Level_2_2):
+    case enumToUnderlyingType(WebCore::AV1ConfigurationLevel::Level_2_3):
+    case enumToUnderlyingType(WebCore::AV1ConfigurationLevel::Level_3_0):
+    case enumToUnderlyingType(WebCore::AV1ConfigurationLevel::Level_3_1):
+    case enumToUnderlyingType(WebCore::AV1ConfigurationLevel::Level_3_2):
+    case enumToUnderlyingType(WebCore::AV1ConfigurationLevel::Level_3_3):
+    case enumToUnderlyingType(WebCore::AV1ConfigurationLevel::Level_4_0):
+    case enumToUnderlyingType(WebCore::AV1ConfigurationLevel::Level_4_1):
+    case enumToUnderlyingType(WebCore::AV1ConfigurationLevel::Level_4_2):
+    case enumToUnderlyingType(WebCore::AV1ConfigurationLevel::Level_4_3):
+    case enumToUnderlyingType(WebCore::AV1ConfigurationLevel::Level_5_0):
+    case enumToUnderlyingType(WebCore::AV1ConfigurationLevel::Level_5_1):
+    case enumToUnderlyingType(WebCore::AV1ConfigurationLevel::Level_5_2):
+    case enumToUnderlyingType(WebCore::AV1ConfigurationLevel::Level_5_3):
+    case enumToUnderlyingType(WebCore::AV1ConfigurationLevel::Level_6_0):
+    case enumToUnderlyingType(WebCore::AV1ConfigurationLevel::Level_6_1):
+    case enumToUnderlyingType(WebCore::AV1ConfigurationLevel::Level_6_2):
+    case enumToUnderlyingType(WebCore::AV1ConfigurationLevel::Level_6_3):
+    case enumToUnderlyingType(WebCore::AV1ConfigurationLevel::Level_7_0):
+    case enumToUnderlyingType(WebCore::AV1ConfigurationLevel::Level_7_1):
+    case enumToUnderlyingType(WebCore::AV1ConfigurationLevel::Level_7_2):
+    case enumToUnderlyingType(WebCore::AV1ConfigurationLevel::Level_7_3):
+        return true;
+    default:
+        return false;
+    }
+}
+
+template<> bool isValidEnum<WebCore::AV1ConfigurationChromaSubsampling>(std::underlying_type_t<WebCore::AV1ConfigurationChromaSubsampling> value)
+{
+    switch (value) {
+    case enumToUnderlyingType(WebCore::AV1ConfigurationChromaSubsampling::Subsampling_444):
+    case enumToUnderlyingType(WebCore::AV1ConfigurationChromaSubsampling::Subsampling_422):
+    case enumToUnderlyingType(WebCore::AV1ConfigurationChromaSubsampling::Subsampling_420_Unknown):
+    case enumToUnderlyingType(WebCore::AV1ConfigurationChromaSubsampling::Subsampling_420_Vertical):
+    case enumToUnderlyingType(WebCore::AV1ConfigurationChromaSubsampling::Subsampling_420_Colocated):
+        return true;
+    default:
+        return false;
+    }
+}
+
+template<> bool isValidEnum<WebCore::AV1ConfigurationRange>(std::underlying_type_t<WebCore::AV1ConfigurationRange> value)
+{
+    switch (value) {
+    case enumToUnderlyingType(WebCore::AV1ConfigurationRange::VideoRange):
+    case enumToUnderlyingType(WebCore::AV1ConfigurationRange::FullRange):
+        return true;
+    default:
+        return false;
+    }
+}
+
+template<> bool isValidEnum<WebCore::AV1ConfigurationColorPrimaries>(std::underlying_type_t<WebCore::AV1ConfigurationColorPrimaries> value)
+{
+    switch (value) {
+    case enumToUnderlyingType(WebCore::AV1ConfigurationColorPrimaries::BT_709_6):
+    case enumToUnderlyingType(WebCore::AV1ConfigurationColorPrimaries::Unspecified):
+    case enumToUnderlyingType(WebCore::AV1ConfigurationColorPrimaries::BT_470_6_M):
+    case enumToUnderlyingType(WebCore::AV1ConfigurationColorPrimaries::BT_470_7_BG):
+    case enumToUnderlyingType(WebCore::AV1ConfigurationColorPrimaries::BT_601_7):
+    case enumToUnderlyingType(WebCore::AV1ConfigurationColorPrimaries::SMPTE_ST_240):
+    case enumToUnderlyingType(WebCore::AV1ConfigurationColorPrimaries::Film):
+    case enumToUnderlyingType(WebCore::AV1ConfigurationColorPrimaries::BT_2020_Nonconstant_Luminance):
+    case enumToUnderlyingType(WebCore::AV1ConfigurationColorPrimaries::SMPTE_ST_428_1):
+    case enumToUnderlyingType(WebCore::AV1ConfigurationColorPrimaries::SMPTE_RP_431_2):
+    case enumToUnderlyingType(WebCore::AV1ConfigurationColorPrimaries::SMPTE_EG_432_1):
+    case enumToUnderlyingType(WebCore::AV1ConfigurationColorPrimaries::EBU_Tech_3213_E):
+        return true;
+    default:
+        return false;
+    }
+}
+
+template<> bool isValidEnum<WebCore::AV1ConfigurationTransferCharacteristics>(std::underlying_type_t<WebCore::AV1ConfigurationTransferCharacteristics> value)
+{
+    switch (value) {
+    case enumToUnderlyingType(WebCore::AV1ConfigurationTransferCharacteristics::BT_709_6):
+    case enumToUnderlyingType(WebCore::AV1ConfigurationTransferCharacteristics::Unspecified):
+    case enumToUnderlyingType(WebCore::AV1ConfigurationTransferCharacteristics::BT_470_6_M):
+    case enumToUnderlyingType(WebCore::AV1ConfigurationTransferCharacteristics::BT_470_7_BG):
+    case enumToUnderlyingType(WebCore::AV1ConfigurationTransferCharacteristics::BT_601_7):
+    case enumToUnderlyingType(WebCore::AV1ConfigurationTransferCharacteristics::SMPTE_ST_240):
+    case enumToUnderlyingType(WebCore::AV1ConfigurationTransferCharacteristics::Linear):
+    case enumToUnderlyingType(WebCore::AV1ConfigurationTransferCharacteristics::Logrithmic):
+    case enumToUnderlyingType(WebCore::AV1ConfigurationTransferCharacteristics::Logrithmic_Sqrt):
+    case enumToUnderlyingType(WebCore::AV1ConfigurationTransferCharacteristics::IEC_61966_2_4):
+    case enumToUnderlyingType(WebCore::AV1ConfigurationTransferCharacteristics::BT_1361_0):
+    case enumToUnderlyingType(WebCore::AV1ConfigurationTransferCharacteristics::IEC_61966_2_1):
+    case enumToUnderlyingType(WebCore::AV1ConfigurationTransferCharacteristics::BT_2020_10bit):
+    case enumToUnderlyingType(WebCore::AV1ConfigurationTransferCharacteristics::BT_2020_12bit):
+    case enumToUnderlyingType(WebCore::AV1ConfigurationTransferCharacteristics::SMPTE_ST_2084):
+    case enumToUnderlyingType(WebCore::AV1ConfigurationTransferCharacteristics::SMPTE_ST_428_1):
+    case enumToUnderlyingType(WebCore::AV1ConfigurationTransferCharacteristics::BT_2100_HLG):
+        return true;
+    default:
+        return false;
+    }
+};
+
+template<> bool isValidEnum<WebCore::AV1ConfigurationMatrixCoefficients>(std::underlying_type_t<WebCore::AV1ConfigurationMatrixCoefficients> value)
+{
+    switch (value) {
+    case enumToUnderlyingType(WebCore::AV1ConfigurationMatrixCoefficients::Identity):
+    case enumToUnderlyingType(WebCore::AV1ConfigurationMatrixCoefficients::BT_709_6):
+    case enumToUnderlyingType(WebCore::AV1ConfigurationMatrixCoefficients::Unspecified):
+    case enumToUnderlyingType(WebCore::AV1ConfigurationMatrixCoefficients::FCC):
+    case enumToUnderlyingType(WebCore::AV1ConfigurationMatrixCoefficients::BT_470_7_BG):
+    case enumToUnderlyingType(WebCore::AV1ConfigurationMatrixCoefficients::BT_601_7):
+    case enumToUnderlyingType(WebCore::AV1ConfigurationMatrixCoefficients::SMPTE_ST_240):
+    case enumToUnderlyingType(WebCore::AV1ConfigurationMatrixCoefficients::YCgCo):
+    case enumToUnderlyingType(WebCore::AV1ConfigurationMatrixCoefficients::BT_2020_Nonconstant_Luminance):
+    case enumToUnderlyingType(WebCore::AV1ConfigurationMatrixCoefficients::BT_2020_Constant_Luminance):
+    case enumToUnderlyingType(WebCore::AV1ConfigurationMatrixCoefficients::SMPTE_ST_2085):
+    case enumToUnderlyingType(WebCore::AV1ConfigurationMatrixCoefficients::Chromacity_Nonconstant_Luminance):
+    case enumToUnderlyingType(WebCore::AV1ConfigurationMatrixCoefficients::Chromacity_Constant_Luminance):
+    case enumToUnderlyingType(WebCore::AV1ConfigurationMatrixCoefficients::BT_2100_ICC):
+        return true;
+    default:
+        return false;
+    }
+}
+
+} // namespace WTF
+
 namespace WebCore {
 
 template<typename E>
@@ -304,7 +448,7 @@ struct AV1PerLevelConstraints {
 
 // Derived from "AV1 Bitstream & Decoding Process Specification", Version 1.0.0 with Errata 1
 // Annex A: Profiles and levels
-using AV1PerLevelConstraintsMap = HashMap<AV1ConfigurationLevel, AV1PerLevelConstraints, WTF::IntHash<AV1ConfigurationLevel>, WTF::StrongEnumHashTraits<AV1ConfigurationLevel>>;
+using AV1PerLevelConstraintsMap = UncheckedKeyHashMap<AV1ConfigurationLevel, AV1PerLevelConstraints, WTF::IntHash<AV1ConfigurationLevel>, WTF::StrongEnumHashTraits<AV1ConfigurationLevel>>;
 static const AV1PerLevelConstraintsMap& perLevelConstraints()
 {
     static NeverDestroyed<AV1PerLevelConstraintsMap> perLevelConstraints = AV1PerLevelConstraintsMap {

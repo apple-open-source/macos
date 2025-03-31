@@ -43,6 +43,7 @@
 #import "trust/trustd/SecTrustLoggingServer.h"
 #import "trust/trustd/trustdFileLocations.h"
 #import "trust/trustd/trustdVariants.h"
+#import "trust/trustd/trustd_objc_helpers.h"
 
 #include "utilities/debugging.h"
 #include "utilities/sqlutils.h"
@@ -84,18 +85,6 @@ const CFStringRef kSecPinningDbKeyTransparentConnection = CFSTR("PinningTranspar
 - ( NSDictionary * _Nullable ) queryForDomain:(NSString *)domain;
 - ( NSDictionary * _Nullable ) queryForPolicyName:(NSString *)policyName;
 @end
-
-static inline bool isNSNumber(id nsType) {
-    return nsType && [nsType isKindOfClass:[NSNumber class]];
-}
-
-static inline bool isNSArray(id nsType) {
-    return nsType && [nsType isKindOfClass:[NSArray class]];
-}
-
-static inline bool isNSDictionary(id nsType) {
-    return nsType && [nsType isKindOfClass:[NSDictionary class]];
-}
 
 @implementation SecPinningDb
 #define getSchemaVersionSQL CFSTR("PRAGMA user_version")

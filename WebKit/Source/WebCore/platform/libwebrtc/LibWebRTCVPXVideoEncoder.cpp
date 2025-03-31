@@ -26,7 +26,7 @@
 #include "config.h"
 #include "LibWebRTCVPXVideoEncoder.h"
 
-#if ENABLE(WEB_CODECS) && USE(LIBWEBRTC) && PLATFORM(COCOA)
+#if USE(LIBWEBRTC) && PLATFORM(COCOA)
 
 #include "VideoFrameLibWebRTC.h"
 #include <wtf/NeverDestroyed.h>
@@ -35,8 +35,7 @@
 #include <wtf/WorkQueue.h>
 #include <wtf/text/MakeString.h>
 
-ALLOW_UNUSED_PARAMETERS_BEGIN
-ALLOW_COMMA_BEGIN
+WTF_IGNORE_WARNINGS_IN_THIRD_PARTY_CODE_BEGIN
 
 #include <webrtc/api/environment/environment_factory.h>
 #include <webrtc/modules/video_coding/codecs/av1/libaom_av1_encoder.h>
@@ -45,8 +44,7 @@ ALLOW_COMMA_BEGIN
 #include <webrtc/system_wrappers/include/cpu_info.h>
 #include <webrtc/webkit_sdk/WebKit/WebKitEncoder.h>
 
-ALLOW_COMMA_END
-ALLOW_UNUSED_PARAMETERS_END
+WTF_IGNORE_WARNINGS_IN_THIRD_PARTY_CODE_END
 
 namespace WebCore {
 
@@ -94,14 +92,14 @@ private:
 
 void LibWebRTCVPXVideoEncoder::create(Type type, const VideoEncoder::Config& config, CreateCallback&& callback, DescriptionCallback&& descriptionCallback, OutputCallback&& outputCallback)
 {
-    auto encoder = makeUniqueRef<LibWebRTCVPXVideoEncoder>(type, WTFMove(outputCallback));
+    Ref encoder = adoptRef(*new LibWebRTCVPXVideoEncoder(type, WTFMove(outputCallback)));
     auto error = encoder->initialize(type, config);
 
     if (error) {
         callback(makeUnexpected(makeString("VPx encoding initialization failed with error "_s, error)));
         return;
     }
-    callback(UniqueRef<VideoEncoder> { WTFMove(encoder) });
+    callback(Ref<VideoEncoder> { WTFMove(encoder) });
 
     VideoEncoder::ActiveConfiguration configuration;
     configuration.colorSpace = PlatformVideoColorSpace { PlatformVideoColorPrimaries::Bt709, PlatformVideoTransferCharacteristics::Bt709, PlatformVideoMatrixCoefficients::Bt709, false };
@@ -311,7 +309,7 @@ webrtc::EncodedImageCallback::Result LibWebRTCVPXInternalVideoEncoder::OnEncoded
     }
 
     VideoEncoder::EncodedFrame encodedFrame {
-        Vector<uint8_t> { std::span { encodedImage.data(), encodedImage.size() } },
+        Vector<uint8_t> { unsafeMakeSpan(encodedImage.data(), encodedImage.size()) },
         encodedImage._frameType == webrtc::VideoFrameType::kVideoFrameKey,
         m_timestamp,
         m_duration,
@@ -328,4 +326,4 @@ void LibWebRTCVPXInternalVideoEncoder::OnDroppedFrame(DropReason)
 
 }
 
-#endif // ENABLE(WEB_CODECS) && USE(LIBWEBRTC)
+#endif // USE(LIBWEBRTC)

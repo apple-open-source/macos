@@ -96,7 +96,9 @@ void WebMessagePortChannelProvider::messagePortClosed(const MessagePortIdentifie
 
 void WebMessagePortChannelProvider::takeAllMessagesForPort(const MessagePortIdentifier& port, CompletionHandler<void(Vector<MessageWithMessagePorts>&&, CompletionHandler<void()>&&)>&& completionHandler)
 {
-    networkProcessConnection().sendWithAsyncReply(Messages::NetworkConnectionToWebProcess::TakeAllMessagesForPort { port }, [completionHandler = WTFMove(completionHandler), port](Vector<WebCore::MessageWithMessagePorts>&& messages, uint64_t messageBatchIdentifier) mutable {
+    networkProcessConnection().sendWithAsyncReply(Messages::NetworkConnectionToWebProcess::TakeAllMessagesForPort { port }, [completionHandler = WTFMove(completionHandler), port](Vector<WebCore::MessageWithMessagePorts>&& messages, std::optional<MessageBatchIdentifier> messageBatchIdentifier) mutable {
+        if (!messageBatchIdentifier)
+            return completionHandler({ }, [] { }); // IPC failure.
 
         auto& inProcessPortMessages = WebMessagePortChannelProvider::singleton().m_inProcessPortMessages;
         auto iterator = inProcessPortMessages.find(port);
@@ -105,7 +107,7 @@ void WebMessagePortChannelProvider::takeAllMessagesForPort(const MessagePortIden
             messages.appendVector(WTFMove(pendingMessages));
         }
         completionHandler(WTFMove(messages), [messageBatchIdentifier] {
-            networkProcessConnection().send(Messages::NetworkConnectionToWebProcess::DidDeliverMessagePortMessages { messageBatchIdentifier }, 0);
+            networkProcessConnection().send(Messages::NetworkConnectionToWebProcess::DidDeliverMessagePortMessages { *messageBatchIdentifier }, 0);
         });
     }, 0);
 }

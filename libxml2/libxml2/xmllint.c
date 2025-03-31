@@ -344,6 +344,7 @@ xmllintExternalEntityLoader(const char *URL, const char *ID,
  *									*
  ************************************************************************/
 
+#ifndef LIBXML_HAS_DEPRECATED_MEMORY_ALLOCATION_FUNCTIONS
 static void
 OOM(void)
 {
@@ -398,6 +399,7 @@ myStrdupFunc(const char *str)
     }
     return (ret);
 }
+#endif /* LIBXML_HAS_DEPRECATED_MEMORY_ALLOCATION_FUNCTIONS */
 /************************************************************************
  *									*
  * Internal timing routines to remove the necessity to have		*
@@ -3154,7 +3156,7 @@ static void usage(FILE *f, const char *name) {
 #ifdef HAVE_MMAP
     fprintf(f, "\t--memory : parse from memory\n");
 #endif
-    fprintf(f, "\t--maxmem nbbytes : limits memory allocation to nbbytes bytes\n");
+    fprintf(f, "\t--maxmem nbbytes : limits memory allocation to nbbytes bytes [DEPRECATED]\n");
     fprintf(f, "\t--nowarning : do not emit warnings from parser/validator\n");
     fprintf(f, "\t--noblanks : drop (ignorable?) blanks spaces\n");
     fprintf(f, "\t--nocdata : replace cdata section with text nodes\n");
@@ -3260,8 +3262,10 @@ main(int argc, char **argv) {
 	     }
         }
     }
+#ifndef LIBXML_HAS_DEPRECATED_MEMORY_ALLOCATION_FUNCTIONS
     if (maxmem != 0)
         xmlMemSetup(myFreeFunc, myMallocFunc, myReallocFunc, myStrdupFunc);
+#endif
 
     LIBXML_TEST_VERSION
 

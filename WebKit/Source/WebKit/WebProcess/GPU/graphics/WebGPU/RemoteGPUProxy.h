@@ -33,7 +33,6 @@
 #include "WebGPUIdentifier.h"
 #include <WebCore/WebGPU.h>
 #include <WebCore/WebGPUPresentationContext.h>
-#include <WebCore/WorkerOrWorkletThread.h>
 #include <wtf/TZoneMalloc.h>
 #include <wtf/ThreadSafeRefCounted.h>
 
@@ -57,7 +56,7 @@ class RemoteGPUProxy final : public WebCore::WebGPU::GPU, private IPC::Connectio
     WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(RemoteGPUProxy);
 public:
     static RefPtr<RemoteGPUProxy> create(WebGPU::ConvertToBackingContext&, WebPage&);
-    static RefPtr<RemoteGPUProxy> create(WebGPU::ConvertToBackingContext&, RemoteRenderingBackendProxy&, WebCore::WorkerOrWorkletThread&);
+    static RefPtr<RemoteGPUProxy> create(WebGPU::ConvertToBackingContext&, RemoteRenderingBackendProxy&, SerialFunctionDispatcher&);
 
     virtual ~RemoteGPUProxy();
 
@@ -73,11 +72,9 @@ public:
     WebGPUIdentifier backing() const { return m_backing; }
 
 private:
-    class Dispatcher;
-    static RefPtr<RemoteGPUProxy> create(WebGPU::ConvertToBackingContext&, RemoteRenderingBackendProxy&, Dispatcher&&);
-
     friend class WebGPU::DowncastConvertToBackingContext;
-    RemoteGPUProxy(WebGPU::ConvertToBackingContext&, Dispatcher&&);
+
+    RemoteGPUProxy(WebGPU::ConvertToBackingContext&, SerialFunctionDispatcher&);
     void initializeIPC(Ref<IPC::StreamClientConnection>&&, RenderingBackendIdentifier, IPC::StreamServerConnection::Handle&&);
 
     RemoteGPUProxy(const RemoteGPUProxy&) = delete;
@@ -98,12 +95,12 @@ private:
     template<typename T>
     WARN_UNUSED_RETURN IPC::Error send(T&& message)
     {
-        return root().streamClientConnection().send(std::forward<T>(message), backing());
+        return root().protectedStreamClientConnection()->send(std::forward<T>(message), backing());
     }
     template<typename T>
     WARN_UNUSED_RETURN IPC::Connection::SendSyncResult<T> sendSync(T&& message)
     {
-        return root().streamClientConnection().sendSync(std::forward<T>(message), backing());
+        return root().protectedStreamClientConnection()->sendSync(std::forward<T>(message), backing());
     }
 
     void requestAdapter(const WebCore::WebGPU::RequestAdapterOptions&, CompletionHandler<void(RefPtr<WebCore::WebGPU::Adapter>&&)>&&) final;
@@ -142,27 +139,15 @@ private:
     void abandonGPUProcess();
     void disconnectGpuProcessIfNeeded();
 
-    class Dispatcher {
-    public:
-        using InternalDispatcher = std::variant<Ref<RunLoop>, ThreadSafeWeakPtr<WebCore::WorkerOrWorkletThread>>;
-        explicit Dispatcher(InternalDispatcher&&);
-
-        void dispatch(Function<void()>&&);
-        bool isCurrent() const;
-
-    private:
-        InternalDispatcher m_internalDispatcher;
-    };
-
     // SerialFunctionDispatcher
-    void dispatch(Function<void()>&& function) final { m_dispatcher.dispatch(WTFMove(function)); }
-    bool isCurrent() const final { return m_dispatcher.isCurrent(); }
+    void dispatch(Function<void()>&&) final;
+    bool isCurrent() const final;
 
     RefPtr<IPC::StreamClientConnection> protectedStreamConnection() const { return m_streamConnection; }
     Ref<WebGPU::ConvertToBackingContext> protectedConvertToBackingContext() const;
 
     Ref<WebGPU::ConvertToBackingContext> m_convertToBackingContext;
-    Dispatcher m_dispatcher;
+    ThreadSafeWeakPtr<SerialFunctionDispatcher> m_dispatcher;
     WeakPtr<GPUProcessConnection> m_gpuProcessConnection;
     RefPtr<IPC::StreamClientConnection> m_streamConnection;
     WebGPUIdentifier m_backing { WebGPUIdentifier::generate() };

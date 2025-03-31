@@ -45,6 +45,7 @@ void RbnfRoundTripTest::runIndexedTest(int32_t index, UBool exec, const char* &n
       TESTCASE(9, TestJapaneseSpelloutRT);
       TESTCASE(10, TestRussianSpelloutRT);
       TESTCASE(11, TestPortugueseSpelloutRT);
+      TESTCASE(12, TestGujaratiSpelloutRT);
 #else
       TESTCASE(0, TestRBNFDisabled);
 #endif
@@ -272,6 +273,24 @@ RbnfRoundTripTest::TestPortugueseSpelloutRT()
   delete formatter;
 }
 
+/**
+ * Perform an exhaustive round-trip test on the Gujarati spellout rules
+ */
+void
+RbnfRoundTripTest::TestGujaratiSpelloutRT()
+{
+  UErrorCode status = U_ZERO_ERROR;
+  RuleBasedNumberFormat* formatter
+    = new RuleBasedNumberFormat(URBNF_SPELLOUT, Locale("gu"), status);
+
+  if (U_FAILURE(status)) {
+    errcheckln(status, "failed to construct formatter - %s", u_errorName(status));
+  } else {
+    doTest(formatter, -12345678, 12345678);
+  }
+  delete formatter;
+}
+
 void
 RbnfRoundTripTest::doTest(const RuleBasedNumberFormat* formatter,  
                           double lowLimit,
@@ -306,7 +325,7 @@ RbnfRoundTripTest::doTest(const RuleBasedNumberFormat* formatter,
     } else {
       double rt = (parseResult.getType() == Formattable::kDouble) ? 
         parseResult.getDouble() : 
-        (double)parseResult.getLong();
+        static_cast<double>(parseResult.getLong());
 
       if (rt != i) {
         snprintf(buf, sizeof(buf), "Round-trip failed: %.12g -> %.12g", i, rt);
@@ -333,7 +352,7 @@ RbnfRoundTripTest::doTest(const RuleBasedNumberFormat* formatter,
       } else {
         double rt = (parseResult.getType() == Formattable::kDouble) ? 
           parseResult.getDouble() : 
-          (double)parseResult.getLong();
+          static_cast<double>(parseResult.getLong());
 
         if (rt != d) {
           UnicodeString msg;

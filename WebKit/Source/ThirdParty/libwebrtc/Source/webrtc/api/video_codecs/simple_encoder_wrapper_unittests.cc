@@ -8,11 +8,15 @@
  *  be found in the AUTHORS file in the root of the source tree.
  */
 
-#include "api/video_codecs/simple_encoder_wrapper.h"
+#include <memory>
+#include <optional>
+#include <utility>
 
-#include "api/video/i420_buffer.h"
+#include "api/video/i420_buffer.h"  // IWYU pragma: keep
 #include "api/video_codecs/libaom_av1_encoder_factory.h"
-#include "api/video_codecs/video_encoder_interface.h"
+#include "api/video_codecs/simple_encoder_wrapper.h"
+#include "api/video_codecs/video_encoder_factory_interface.h"
+#include "api/video_codecs/video_encoding_general.h"
 #include "test/gmock.h"
 #include "test/gtest.h"
 #include "test/testsupport/file_utils.h"
@@ -151,7 +155,7 @@ TEST(SimpleEncoderWrapper, EncodeL1T1) {
       [&](const SimpleEncoderWrapper::EncodeResult& result) {
         ++num_callbacks;
         ASSERT_THAT(result.oh_no, Eq(false));
-        EXPECT_THAT(result.dependency_structure, Ne(absl::nullopt));
+        EXPECT_THAT(result.dependency_structure, Ne(std::nullopt));
         EXPECT_THAT(result.bitstream_data, Not(IsEmpty()));
         EXPECT_THAT(result.frame_type, Eq(FrameType::kKeyframe));
         EXPECT_THAT(result.generic_frame_info.spatial_id, Eq(0));
@@ -163,7 +167,7 @@ TEST(SimpleEncoderWrapper, EncodeL1T1) {
       [&](const SimpleEncoderWrapper::EncodeResult& result) {
         ++num_callbacks;
         ASSERT_THAT(result.oh_no, Eq(false));
-        EXPECT_THAT(result.dependency_structure, Eq(absl::nullopt));
+        EXPECT_THAT(result.dependency_structure, Eq(std::nullopt));
         EXPECT_THAT(result.bitstream_data, Not(IsEmpty()));
         EXPECT_THAT(result.frame_type, Eq(FrameType::kDeltaFrame));
         EXPECT_THAT(result.generic_frame_info.spatial_id, Eq(0));
@@ -196,13 +200,13 @@ TEST(SimpleEncoderWrapper, EncodeL2T2_KEY) {
         ASSERT_THAT(result.oh_no, Eq(false));
         if (result.generic_frame_info.spatial_id == 0) {
           ++num_callbacks;
-          EXPECT_THAT(result.dependency_structure, Ne(absl::nullopt));
+          EXPECT_THAT(result.dependency_structure, Ne(std::nullopt));
           EXPECT_THAT(result.bitstream_data, Not(IsEmpty()));
           EXPECT_THAT(result.frame_type, Eq(FrameType::kKeyframe));
           EXPECT_THAT(result.generic_frame_info.temporal_id, Eq(0));
         } else if (result.generic_frame_info.spatial_id == 1) {
           ++num_callbacks;
-          EXPECT_THAT(result.dependency_structure, Eq(absl::nullopt));
+          EXPECT_THAT(result.dependency_structure, Eq(std::nullopt));
           EXPECT_THAT(result.bitstream_data, Not(IsEmpty()));
           EXPECT_THAT(result.frame_type, Eq(FrameType::kDeltaFrame));
           EXPECT_THAT(result.generic_frame_info.temporal_id, Eq(0));
@@ -215,13 +219,13 @@ TEST(SimpleEncoderWrapper, EncodeL2T2_KEY) {
         ASSERT_THAT(result.oh_no, Eq(false));
         if (result.generic_frame_info.spatial_id == 0) {
           ++num_callbacks;
-          EXPECT_THAT(result.dependency_structure, Eq(absl::nullopt));
+          EXPECT_THAT(result.dependency_structure, Eq(std::nullopt));
           EXPECT_THAT(result.bitstream_data, Not(IsEmpty()));
           EXPECT_THAT(result.frame_type, Eq(FrameType::kDeltaFrame));
           EXPECT_THAT(result.generic_frame_info.temporal_id, Eq(1));
         } else if (result.generic_frame_info.spatial_id == 1) {
           ++num_callbacks;
-          EXPECT_THAT(result.dependency_structure, Eq(absl::nullopt));
+          EXPECT_THAT(result.dependency_structure, Eq(std::nullopt));
           EXPECT_THAT(result.bitstream_data, Not(IsEmpty()));
           EXPECT_THAT(result.frame_type, Eq(FrameType::kDeltaFrame));
           EXPECT_THAT(result.generic_frame_info.temporal_id, Eq(1));

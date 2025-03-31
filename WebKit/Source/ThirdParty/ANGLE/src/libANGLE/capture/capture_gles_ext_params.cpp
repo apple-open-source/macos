@@ -2027,9 +2027,7 @@ void CaptureGetTexLevelParameterivANGLE_params(const State &glState,
                                                GLint *params,
                                                ParamCapture *paramCapture)
 {
-    // page 190 https://www.khronos.org/registry/OpenGL/specs/es/3.2/es_spec_3.2.pdf
-    // TEXTURE_BORDER_COLOR: 4 floats, ints, uints
-    paramCapture->readBufferSizeBytes = sizeof(GLint) * 4;
+    paramCapture->readBufferSizeBytes = sizeof(GLint);
 }
 
 void CaptureGetTexLevelParameterfvANGLE_params(const State &glState,
@@ -2040,7 +2038,7 @@ void CaptureGetTexLevelParameterfvANGLE_params(const State &glState,
                                                GLfloat *params,
                                                ParamCapture *paramCapture)
 {
-    CaptureMemory(params, sizeof(GLfloat), paramCapture);
+    paramCapture->readBufferSizeBytes = sizeof(GLfloat);
 }
 
 void CaptureGetMultisamplefvANGLE_val(const State &glState,
@@ -2050,7 +2048,8 @@ void CaptureGetMultisamplefvANGLE_val(const State &glState,
                                       GLfloat *val,
                                       ParamCapture *paramCapture)
 {
-    UNIMPLEMENTED();
+    // GL_SAMPLE_POSITION_ANGLE: 2 floats
+    paramCapture->readBufferSizeBytes = sizeof(GLfloat) * 2;
 }
 
 void CaptureGetTranslatedShaderSourceANGLE_length(const State &glState,
@@ -3605,6 +3604,25 @@ void CaptureGenVertexArraysOES_arraysPacked(const State &glState,
     CaptureGenVertexArrays_arraysPacked(glState, isCallValid, n, arrays, paramCapture);
 }
 
+void CaptureBlobCacheCallbacksANGLE_userParam(const State &glState,
+                                              bool isCallValid,
+                                              GLSETBLOBPROCANGLE set,
+                                              GLGETBLOBPROCANGLE get,
+                                              const void *userParam,
+                                              angle::ParamCapture *paramCapture)
+{
+    // Skipped
+}
+
+void CaptureGetPointervANGLE_params(const State &glState,
+                                    bool isCallValid,
+                                    GLenum pname,
+                                    void **params,
+                                    angle::ParamCapture *paramCapture)
+{
+    // Skipped
+}
+
 void CaptureGetTexImageANGLE_pixels(const State &glState,
                                     bool isCallValid,
                                     TextureTarget target,
@@ -4481,6 +4499,33 @@ void CaptureFramebufferFoveationConfigQCOM_providedFeatures(const State &glState
                                                             GLuint requestedFeatures,
                                                             GLuint *providedFeatures,
                                                             angle::ParamCapture *paramCapture)
+{
+    UNIMPLEMENTED();
+}
+
+void CaptureTexStorageAttribs2DEXT_attrib_list(const State &glState,
+                                               bool isCallValid,
+                                               GLenum target,
+                                               GLsizei levels,
+                                               GLenum internalformat,
+                                               GLsizei width,
+                                               GLsizei height,
+                                               const GLint *attrib_list,
+                                               angle::ParamCapture *paramCapture)
+{
+    UNIMPLEMENTED();
+}
+
+void CaptureTexStorageAttribs3DEXT_attrib_list(const State &glState,
+                                               bool isCallValid,
+                                               GLenum target,
+                                               GLsizei levels,
+                                               GLenum internalformat,
+                                               GLsizei width,
+                                               GLsizei height,
+                                               GLsizei depth,
+                                               const GLint *attrib_list,
+                                               angle::ParamCapture *paramCapture)
 {
     UNIMPLEMENTED();
 }

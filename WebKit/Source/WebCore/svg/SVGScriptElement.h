@@ -53,13 +53,13 @@ private:
     bool isURLAttribute(const Attribute& attribute) const final { return attribute.name() == AtomString { sourceAttributeValue() }; }
     void addSubresourceAttributeURLs(ListHashSet<URL>&) const final;
 
-    Ref<Element> cloneElementWithoutAttributesAndChildren(Document&) final;
+    Ref<Element> cloneElementWithoutAttributesAndChildren(TreeScope&) final;
     bool rendererIsNeeded(const RenderStyle&) final { return false; }
     bool supportsFocus() const final { return false; }
 
     // ScriptElement
     String sourceAttributeValue() const final { return href(); }
-    String charsetAttributeValue() const final { return String(); }
+    AtomString charsetAttributeValue() const final { return nullAtom(); }
     String typeAttributeValue() const final { return getAttribute(SVGNames::typeAttr).string(); }
     String languageAttributeValue() const final { return String(); }
     bool hasAsyncAttribute() const final { return false; }

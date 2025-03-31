@@ -2,7 +2,7 @@
   reggnu.c -  Oniguruma (regular expression library)
 **********************************************************************/
 /*-
- * Copyright (c) 2002-2008  K.Kosako  <sndgk393 AT ybb DOT ne DOT jp>
+ * Copyright (c) 2002-2019  K.Kosako
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -28,10 +28,7 @@
  */
 
 #include "regint.h"
-
-#ifndef ONIGGNU_H
 #include "oniggnu.h"
-#endif
 
 extern void
 re_free_registers(OnigRegion* r)
@@ -42,7 +39,7 @@ re_free_registers(OnigRegion* r)
 
 extern int
 re_adjust_startpos(regex_t* reg, const char* string, int size,
-		   int startpos, int range)
+                   int startpos, int range)
 {
   if (startpos > 0 && ONIGENC_MBC_MAXLEN(reg->enc) != 1 && startpos < size) {
     UChar *p;
@@ -54,7 +51,7 @@ re_adjust_startpos(regex_t* reg, const char* string, int size,
     else {
       p = ONIGENC_LEFT_ADJUST_CHAR_HEAD(reg->enc, (UChar* )string, s);
     }
-    return p - (UChar* )string;
+    return (int )(p - (UChar* )string);
   }
 
   return startpos;
@@ -62,20 +59,20 @@ re_adjust_startpos(regex_t* reg, const char* string, int size,
 
 extern int
 re_match(regex_t* reg, const char* str, int size, int pos,
-	 struct re_registers* regs)
+         struct re_registers* regs)
 {
   return onig_match(reg, (UChar* )str, (UChar* )(str + size),
-		    (UChar* )(str + pos), regs, ONIG_OPTION_NONE);
+                    (UChar* )(str + pos), regs, ONIG_OPTION_NONE);
 }
 
 extern int
 re_search(regex_t* bufp, const char* string, int size, int startpos, int range,
-	  struct re_registers* regs)
+          struct re_registers* regs)
 {
   return onig_search(bufp, (UChar* )string, (UChar* )(string + size),
-		     (UChar* )(string + startpos),
-		     (UChar* )(string + startpos + range),
-		     regs, ONIG_OPTION_NONE);
+                     (UChar* )(string + startpos),
+                     (UChar* )(string + startpos + range),
+                     regs, ONIG_OPTION_NONE);
 }
 
 extern int
@@ -106,9 +103,9 @@ re_alloc_pattern(regex_t** reg)
   if (IS_NULL(*reg)) return ONIGERR_MEMORY;
 
   return onig_reg_init(*reg, ONIG_OPTION_DEFAULT,
-		       ONIGENC_CASE_FOLD_DEFAULT,
-		       OnigEncDefaultCharEncoding,
-		       OnigDefaultSyntax);
+                       ONIGENC_CASE_FOLD_DEFAULT,
+                       OnigEncDefaultCharEncoding,
+                       OnigDefaultSyntax);
 }
 
 extern void
@@ -140,8 +137,7 @@ re_mbcinit(int mb_code)
     break;
   }
 
-  onig_initialize(0, 0);
-  onig_initialize_encoding(enc);
+  onig_initialize(&enc, 1);
 
   onigenc_set_default_encoding(enc);
 }

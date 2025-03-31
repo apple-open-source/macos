@@ -86,7 +86,7 @@
 #import <KeychainCircle/AAFAnalyticsEvent+Security.h>
 
 #import <SoftLinking/SoftLinking.h>
-#import "KeychainCircle/MetricsOverrideForTests.h"
+#import <KeychainCircle/MetricsOverrideForTests.h>
 
 SOFT_LINK_OPTIONAL_FRAMEWORK(PrivateFrameworks, KeychainCircle);
 SOFT_LINK_FUNCTION(KeychainCircle, MetricsEnable, soft_MetricsEnable, bool, (void), ());

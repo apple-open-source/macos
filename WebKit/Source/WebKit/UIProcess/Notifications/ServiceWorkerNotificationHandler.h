@@ -34,9 +34,15 @@ namespace WebKit {
 
 class WebsiteDataStore;
 
+struct SharedPreferencesForWebProcess;
+
 class ServiceWorkerNotificationHandler final : public NotificationManagerMessageHandler {
 public:
     static ServiceWorkerNotificationHandler& singleton();
+
+    // Do nothing since this is a singleton.
+    void ref() const final { }
+    void deref() const final { }
 
     void showNotification(IPC::Connection&, const WebCore::NotificationData&, RefPtr<WebCore::NotificationResources>&&, CompletionHandler<void()>&&) final;
 
@@ -48,7 +54,7 @@ public:
     void setAppBadge(const WebCore::SecurityOriginData&, std::optional<uint64_t> badge) final { }
     void getPermissionState(WebCore::SecurityOriginData&&, CompletionHandler<void(WebCore::PushPermissionState)>&&) final;
     void getPermissionStateSync(WebCore::SecurityOriginData&&, CompletionHandler<void(WebCore::PushPermissionState)>&&) final;
-
+    std::optional<SharedPreferencesForWebProcess> sharedPreferencesForWebProcess(const IPC::Connection&) const final;
     bool handlesNotification(WTF::UUID value) const { return m_notificationToSessionMap.contains(value); }
 
 private:

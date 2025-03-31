@@ -143,7 +143,7 @@ void WorkerInspectorController::updateServiceWorkerPageFrontendCount()
     if (!is<ServiceWorkerGlobalScope>(m_globalScope))
         return;
 
-    auto serviceWorkerPage = downcast<ServiceWorkerGlobalScope>(m_globalScope).serviceWorkerPage();
+    auto serviceWorkerPage = downcast<ServiceWorkerGlobalScope>(m_globalScope.get()).serviceWorkerPage();
     if (!serviceWorkerPage)
         return;
 
@@ -243,7 +243,7 @@ JSC::Debugger* WorkerInspectorController::debugger()
 
 VM& WorkerInspectorController::vm()
 {
-    return m_globalScope.vm();
+    return m_globalScope->vm();
 }
 
 } // namespace WebCore

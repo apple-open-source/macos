@@ -184,7 +184,7 @@ int8_t av1_wedge_sign_from_residuals_sse2(const int16_t *ds, const uint8_t *m,
 }
 
 // Negate under mask
-static INLINE __m128i negm_epi16(__m128i v_v_w, __m128i v_mask_w) {
+static inline __m128i negm_epi16(__m128i v_v_w, __m128i v_mask_w) {
   return _mm_sub_epi16(_mm_xor_si128(v_v_w, v_mask_w), v_mask_w);
 }
 

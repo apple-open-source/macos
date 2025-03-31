@@ -97,7 +97,7 @@ run_tests(void)
     if (items) {
 	count = CFArrayGetCount(items);
 	for (n = 0; n < count; n++) {
-	    printf("index: %lu\n", n);
+	    printf("index: %ld\n", (long)n);
 	    item = (GSSItemRef)CFArrayGetValueAtIndex(items, n);
 
 	    CFShow(item);
@@ -207,7 +207,7 @@ run_tests(void)
     if (items) {
 	count = CFArrayGetCount(items);
 	for (n = 0; n < count; n++) {
-	    printf("index: %lu\n", n);
+	    printf("index: %ld\n", (long)n);
 	    item = (GSSItemRef)CFArrayGetValueAtIndex(items, n);
 	    
 	    CFShow(item);

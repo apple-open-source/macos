@@ -12,9 +12,78 @@ set -e
 : ${RSYNC_PREFIX_SRC=""}
 : ${RSYNC_PREFIX_DEST=""}
 : ${RSYNC_SETUP_SSHKEY=""}
+: ${SUDO="sudo"}
+
+mountlist="$PWD"/.~mounts
 
 # Library of functions.
 # Intended to be sourced by scripts (or interactive shells if you want).
+
+asroot()
+{
+	if [ $(id -u) -eq 0 ]; then
+		"$@"
+	else
+		$SUDO "$@"
+	fi
+}
+
+check_id()
+{
+	local _id
+	local _type
+
+	_id=$1
+	_type=$2
+
+	case "$_type" in
+	uid|gid)
+		;;
+	*)
+		1>&2 echo "Unknown id type $_type"
+		exit 1
+		;;
+	esac
+
+	case "$(uname -s)" in
+	Darwin)
+		local _output
+
+		case "$_type" in
+		uid)
+			_output=$(dscacheutil -q user -a uid "$_id")
+			;;
+		gid)
+			_output=$(dscacheutil -q group -a gid "$_id")
+			;;
+		esac
+		if [ -z "$_output" ]; then
+			return 1
+		else
+			return 0
+		fi
+		;;
+	*)
+		local _db
+
+		_db=""
+		case "$_type" in
+		uid)
+			_db="passwd"
+			;;
+		gid)
+			_db="group"
+			;;
+		esac
+
+		getent "$_db" "$_id" >/dev/null
+		return
+		;;
+	esac
+
+	# Shouldn't happen, but they all exist.
+	return 0
+}
 
 genfile_stdout_16m ()
 {
@@ -30,11 +99,54 @@ genfile ()
     genfile_stdout_1m > "$1"
 }
 
+lib_cleanup()
+{
+	rc=$?
+
+	if [ -s "$mountlist" ]; then
+		local mountpoint
+
+		while read mountpoint; do
+			asroot umount "$mountpoint" || true
+		done < "$mountlist"
+
+		:> "$mountlist"
+	fi
+
+	return "$rc"
+}
+
+mount_tmpfs()
+{
+	local mountpoint osname
+
+	mountpoint="$1"
+	osname="$(uname -s)"
+
+	[ ! -d "$mountpoint" ] && mkdir -p "$mountpoint"
+
+	case "${osname}" in
+	Linux|*BSD)
+		asroot mount -t tmpfs tmpfs "$mountpoint"
+		;;
+	Darwin)
+		asroot mount_tmpfs "$mountpoint"
+		;;
+	*)
+		1>&2 echo "Don't know how to mount tmpfs on ${osname}"
+		exit 1
+		;;
+	esac
+
+	echo "$mountpoint" >> "$mountlist"
+}
+
 # Shim for calling the configured rsync; we use this to manipulate src/dst file
 # names in case we need to do ssh in order to make the requested configuration
 # work at all (e.g., smb rsync with an openrsync backend).  All of our tests
 # right now are written to assume a local server that the client forks.
-rsync() {
+rsync()
+{
 	local cmd="" argsep sshkey word
 
 	set -- "$@"
@@ -92,6 +204,17 @@ rsync() {
 		# other way around won't fork/exec openrsync.
 		cmd="$cmd $@"
 	else
+		# For interop testing, samba rsync does not support multiple sources via ssh
+		# even if they're from the same host.
+		if [ -n "$RSYNC_PREFIX_SRC" -a $# -gt 2 ]; then
+		    case "$RSYNC_CLIENT" in
+		    *samba*)
+			echo "Skipping test incompatible with samba rsync"
+		        exit 0
+		        ;;
+		    esac
+		fi
+
 		# Prefix any srcs
 		while [ $# -gt 1 ]; do
 			if [ -z "$RSYNC_PREFIX_SRC" ]; then

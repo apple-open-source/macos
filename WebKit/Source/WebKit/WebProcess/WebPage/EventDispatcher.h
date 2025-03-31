@@ -36,6 +36,7 @@
 #include <WebCore/ScrollingCoordinatorTypes.h>
 #include <WebCore/WheelEventDeltaFilter.h>
 #include <memory>
+#include <wtf/CheckedRef.h>
 #include <wtf/HashMap.h>
 #include <wtf/Lock.h>
 #include <wtf/Noncopyable.h>
@@ -64,16 +65,32 @@ namespace WebKit {
 class MomentumEventDispatcher;
 class ScrollingAccelerationCurve;
 class WebPage;
+class WebProcess;
 class WebWheelEvent;
+
+#if ENABLE(IOS_TOUCH_EVENTS)
+struct TouchEventData {
+    WebCore::FrameIdentifier frameID;
+    WebTouchEvent event;
+    CompletionHandler<void(bool, std::optional<WebCore::RemoteUserInputEventData>)> completionHandler;
+};
+#endif
 
 class EventDispatcher final :
 #if ENABLE(MOMENTUM_EVENT_DISPATCHER)
     public MomentumEventDispatcher::Client,
 #endif
     private IPC::MessageReceiver {
+    WTF_MAKE_FAST_ALLOCATED;
+#if ENABLE(MOMENTUM_EVENT_DISPATCHER)
+    WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(EventDispatcher);
+#endif
 public:
-    EventDispatcher();
+    explicit EventDispatcher(WebProcess&);
     ~EventDispatcher();
+
+    void ref() const final;
+    void deref() const final;
 
     enum class WheelEventOrigin : bool { UIProcess, MomentumEventDispatcher };
 
@@ -85,11 +102,6 @@ public:
 #endif
 
 #if ENABLE(IOS_TOUCH_EVENTS)
-    struct TouchEventData {
-        WebCore::FrameIdentifier frameID;
-        WebTouchEvent event;
-        CompletionHandler<void(bool, std::optional<WebCore::RemoteUserInputEventData>)> completionHandler;
-    };
     using TouchEventQueue = Vector<TouchEventData, 1>;
     void takeQueuedTouchEventsForPage(const WebPage&, UniqueRef<TouchEventQueue>&);
 #endif
@@ -150,6 +162,7 @@ private:
 
     void pageScreenDidChange(WebCore::PageIdentifier, WebCore::PlatformDisplayID, std::optional<unsigned> nominalFramesPerSecond);
 
+    CheckedRef<WebProcess> m_process;
     Ref<WorkQueue> m_queue;
 
 #if ENABLE(ASYNC_SCROLLING) && ENABLE(SCROLLING_THREAD)

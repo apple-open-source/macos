@@ -21,8 +21,6 @@
  * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- *
- * $FreeBSD: src/lib/libarchive/archive.h.in,v 1.50 2008/05/26 17:00:22 kientzle Exp $
  */
 
 #ifndef ARCHIVE_H_INCLUDED
@@ -36,7 +34,7 @@
  * assert that ARCHIVE_VERSION_NUMBER >= 2012108.
  */
 /* Note: Compiler will complain if this does not match archive_entry.h! */
-#define	ARCHIVE_VERSION_NUMBER 3005003
+#define	ARCHIVE_VERSION_NUMBER 3007004
 
 #include <sys/stat.h>
 #include <stddef.h>  /* for wchar_t */
@@ -99,7 +97,7 @@ typedef ssize_t la_ssize_t;
 #endif
 
 /* Large file support for Android */
-#ifdef __ANDROID__
+#if defined(__LIBARCHIVE_BUILD) && defined(__ANDROID__)
 #include "android_lf.h"
 #endif
 
@@ -122,6 +120,8 @@ typedef ssize_t la_ssize_t;
 #   define __LA_DECL	__declspec(dllimport)
 #  endif
 # endif
+#elif defined __LIBARCHIVE_ENABLE_VISIBILITY
+#  define __LA_DECL __attribute__((visibility("default")))
 #else
 /* Static libraries or non-Windows needs no special declaration. */
 # define __LA_DECL
@@ -157,7 +157,7 @@ __LA_DECL int		archive_version_number(void);
 /*
  * Textual name/version of the library, useful for version displays.
  */
-#define	ARCHIVE_VERSION_ONLY_STRING "3.5.3"
+#define	ARCHIVE_VERSION_ONLY_STRING "3.7.4"
 #define	ARCHIVE_VERSION_STRING "libarchive " ARCHIVE_VERSION_ONLY_STRING
 __LA_DECL const char *	archive_version_string(void);
 
@@ -535,6 +535,10 @@ __LA_DECL int archive_read_open_filenames(struct archive *,
 		     const char **_filenames, size_t _block_size);
 __LA_DECL int archive_read_open_filename_w(struct archive *,
 		     const wchar_t *_filename, size_t _block_size);
+#if defined(_WIN32) && !defined(__CYGWIN__)
+__LA_DECL int archive_read_open_filenames_w(struct archive *,
+		     const wchar_t **_filenames, size_t _block_size);
+#endif
 /* archive_read_open_file() is a deprecated synonym for ..._open_filename(). */
 __LA_DECL int archive_read_open_file(struct archive *,
 		     const char *_filename, size_t _block_size) API_DEPRECATED("Deprecated in libarchive-3", macos(10.6, 10.15), ios(4.0, 13.0), tvos(9.0, 13.0), watchos(2.0, 6.0));
@@ -893,7 +897,7 @@ __LA_DECL int archive_write_set_options(struct archive *_a,
 			    const char *opts);
 
 /*
- * Set a encryption passphrase.
+ * Set an encryption passphrase.
  */
 __LA_DECL int archive_write_set_passphrase(struct archive *_a, const char *p);
 __LA_DECL int archive_write_set_passphrase_callback(struct archive *,
@@ -1026,6 +1030,8 @@ __LA_DECL int  archive_read_disk_set_atime_restored(struct archive *);
 #define	ARCHIVE_READDISK_NO_ACL			(0x0020)
 /* Default: File flags are read from disk. */
 #define	ARCHIVE_READDISK_NO_FFLAGS		(0x0040)
+/* Default: Sparse file information is read from disk. */
+#define	ARCHIVE_READDISK_NO_SPARSE		(0x0080)
 
 __LA_DECL int  archive_read_disk_set_behavior(struct archive *,
 		    int flags);

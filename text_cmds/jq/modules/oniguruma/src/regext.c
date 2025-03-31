@@ -2,7 +2,7 @@
   regext.c -  Oniguruma (regular expression library)
 **********************************************************************/
 /*-
- * Copyright (c) 2002-2008  K.Kosako  <sndgk393 AT ybb DOT ne DOT jp>
+ * Copyright (c) 2002-2019  K.Kosako
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -29,6 +29,7 @@
 
 #include "regint.h"
 
+#if 0
 static void
 conv_ext0be32(const UChar* s, const UChar* end, UChar* conv)
 {
@@ -95,7 +96,7 @@ static int
 conv_encoding(OnigEncoding from, OnigEncoding to, const UChar* s, const UChar* end,
               UChar** conv, UChar** conv_end)
 {
-  int len = end - s;
+  int len = (int )(end - s);
 
   if (to == ONIG_ENCODING_UTF16_BE) {
     if (from == ONIG_ENCODING_ASCII || from == ONIG_ENCODING_ISO_8859_1) {
@@ -158,6 +159,7 @@ conv_encoding(OnigEncoding from, OnigEncoding to, const UChar* s, const UChar* e
 
   return ONIGERR_NOT_SUPPORTED_ENCODING_COMBINATION;
 }
+#endif
 
 extern int
 onig_new_deluxe(regex_t** reg, const UChar* pattern, const UChar* pattern_end,
@@ -169,9 +171,7 @@ onig_new_deluxe(regex_t** reg, const UChar* pattern, const UChar* pattern_end,
   if (IS_NOT_NULL(einfo)) einfo->par = (UChar* )NULL;
 
   if (ci->pattern_enc != ci->target_enc) {
-    r = conv_encoding(ci->pattern_enc, ci->target_enc, pattern, pattern_end,
-                      &cpat, &cpat_end);
-    if (r) return r;
+    return ONIGERR_NOT_SUPPORTED_ENCODING_COMBINATION;
   }
   else {
     cpat     = (UChar* )pattern;
@@ -185,11 +185,11 @@ onig_new_deluxe(regex_t** reg, const UChar* pattern, const UChar* pattern_end,
   }
 
   r = onig_reg_init(*reg, ci->option, ci->case_fold_flag, ci->target_enc,
-		    ci->syntax);
-  if (r) goto err;
+                    ci->syntax);
+  if (r != 0) goto err;
 
   r = onig_compile(*reg, cpat, cpat_end, einfo);
-  if (r) {
+  if (r != 0) {
   err:
     onig_free(*reg);
     *reg = NULL;

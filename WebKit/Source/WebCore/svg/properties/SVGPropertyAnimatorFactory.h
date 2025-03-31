@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019 Apple Inc.  All rights reserved.
+ * Copyright (C) 2019-2024 Apple Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -31,12 +31,11 @@
 #include "SVGValuePropertyAnimatorImpl.h"
 #include "SVGValuePropertyListAnimatorImpl.h"
 #include <wtf/Function.h>
-#include <wtf/TZoneMallocInlines.h>
 
 namespace WebCore {
 
 class SVGPropertyAnimatorFactory {
-    WTF_MAKE_TZONE_ALLOCATED_INLINE(SVGPropertyAnimatorFactory);
+    WTF_MAKE_TZONE_ALLOCATED(SVGPropertyAnimatorFactory);
 public:
     SVGPropertyAnimatorFactory() = default;
 
@@ -70,10 +69,10 @@ public:
     }
 
 private:
-    // This HashMap maps an attribute name to a pair of static methods. The first one creates a shared
+    // This UncheckedKeyHashMap maps an attribute name to a pair of static methods. The first one creates a shared
     // Ref<SVGProperty> for the value type of this attribute. The second creates the animator given the
     // attribute name and the shared Ref<SVGProperty>.
-    using AttributeAnimatorCreator = HashMap<
+    using AttributeAnimatorCreator = UncheckedKeyHashMap<
         QualifiedName::QualifiedNameImpl*,
         std::pair<
             Function<Ref<SVGProperty>()>,
@@ -118,7 +117,6 @@ private:
             Pair { SVGNames::strokeAttr->impl(),         { SVGValueProperty<Color>::create, SVGPropertyAnimatorFactory::createColorAnimator } },
 
             Pair { SVGNames::font_sizeAttr->impl(),         { []() { return SVGLength::create(); }, SVGPropertyAnimatorFactory::createLengthAnimator } },
-            Pair { SVGNames::kerningAttr->impl(),           { []() { return SVGLength::create(); }, SVGPropertyAnimatorFactory::createLengthAnimator } },
             Pair { SVGNames::letter_spacingAttr->impl(),    { []() { return SVGLength::create(); }, SVGPropertyAnimatorFactory::createLengthAnimator } },
             Pair { SVGNames::stroke_dashoffsetAttr->impl(), { []() { return SVGLength::create(); }, SVGPropertyAnimatorFactory::createLengthAnimator } },
             Pair { SVGNames::stroke_widthAttr->impl(),      { []() { return SVGLength::create(); }, SVGPropertyAnimatorFactory::createLengthAnimator } },
@@ -171,7 +169,7 @@ private:
         return map;
     }
 
-    using AttributeProperty = HashMap<QualifiedName, Ref<SVGProperty>>;
+    using AttributeProperty = UncheckedKeyHashMap<QualifiedName, Ref<SVGProperty>>;
     AttributeProperty m_attributeProperty;
 };
     

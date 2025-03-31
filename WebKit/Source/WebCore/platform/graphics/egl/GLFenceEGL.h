@@ -19,6 +19,8 @@
 
 #pragma once
 
+#if HAVE(GL_FENCE)
+
 #include "GLFence.h"
 
 typedef void* EGLSync;
@@ -47,3 +49,5 @@ private:
 };
 
 } // namespace WebCore
+
+#endif // HAVE(GL_FENCE)

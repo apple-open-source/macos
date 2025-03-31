@@ -156,6 +156,19 @@ inline bool isCJKSymbolOrPunctuation(char32_t character)
     return character >= 0x3000 && character <= 0x303F;
 }
 
+inline bool isFullwidthMiddleDotPunctuation(char32_t character)
+{
+    // U+00B7 MIDDLE DOT
+    // U+2027 HYPHENATION POINT
+    // U+30FB KATAKANA MIDDLE DOT
+    return character == 0x00B7 || character == 0x2027 || character == 0x30FB;
+}
+
+inline bool isCombiningMark(char32_t character)
+{
+    return 0x0300 <= character && character <= 0x036F;
+}
+
 } // namespace WTF
 
 using WTF::isEmojiGroupCandidate;
@@ -174,3 +187,5 @@ using WTF::isClosingPunctuation;
 using WTF::isOfScriptType;
 using WTF::isEastAsianFullWidth;
 using WTF::isCJKSymbolOrPunctuation;
+using WTF::isFullwidthMiddleDotPunctuation;
+using WTF::isCombiningMark;

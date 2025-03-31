@@ -215,6 +215,7 @@ udp6_append(struct inpcb *last, struct ip6_hdr *ip6,
 	    SO_RECV_CONTROL_OPTS(last->in6p_socket)) {
 		ret = ip6_savecontrol(last, n, &opts);
 		if (ret != 0) {
+			UDP_LOG(last, "ip_savecontrol error %d", ret);
 			m_freem(n);
 			m_freem(opts);
 			return;
@@ -230,6 +231,7 @@ udp6_append(struct inpcb *last, struct ip6_hdr *ip6,
 	so_recv_data_stat(last->in6p_socket, n, 0);
 	if (sbappendaddr(&last->in6p_socket->so_rcv,
 	    SA(udp_in6), n, opts, NULL) == 0) {
+		UDP_LOG(last, "sbappendaddr full receive socket buffer");
 		udpstat.udps_fullsock++;
 	} else {
 		sorwakeup(last->in6p_socket);
@@ -433,6 +435,7 @@ udp6_input(struct mbuf **mp, int *offp, int proto)
 			    &ip6->ip6_src, ifp, pf_tag, NULL, NULL, NULL, NULL)) {
 				/* do not inject data to pcb */
 				skipit = 1;
+				UDP_LOG_DROP_NECP(ip6, uh, in6p, false);
 			}
 			if (skipit == 0)
 #endif /* NECP */
@@ -618,6 +621,7 @@ udp6_input(struct mbuf **mp, int *offp, int proto)
 	if (!necp_socket_is_allowed_to_send_recv_v6(in6p, uh->uh_dport,
 	    uh->uh_sport, &ip6->ip6_dst, &ip6->ip6_src, ifp, pf_tag, NULL, NULL, NULL, NULL)) {
 		in_pcb_checkstate(in6p, WNT_RELEASE, 1);
+		UDP_LOG_DROP_NECP(ip6, uh, in6p, false);
 		udp_unlock(in6p->in6p_socket, 1, 0);
 		IF_UDP_STATINC(ifp, badipsec);
 		drop_reason = DROP_REASON_IP_NECP_POLICY_DROP;
@@ -638,6 +642,7 @@ udp6_input(struct mbuf **mp, int *offp, int proto)
 	    SO_RECV_CONTROL_OPTS(in6p->in6p_socket)) {
 		ret = ip6_savecontrol(in6p, m, &opts);
 		if (ret != 0) {
+			UDP_LOG(in6p, "ip_savecontrol error %d", ret);
 			udp_unlock(in6p->in6p_socket, 1, 0);
 			drop_reason = DROP_REASON_IP_ENOBUFS;
 			goto bad;
@@ -653,6 +658,7 @@ udp6_input(struct mbuf **mp, int *offp, int proto)
 	so_recv_data_stat(in6p->in6p_socket, m, 0);
 	if (sbappendaddr(&in6p->in6p_socket->so_rcv,
 	    SA(&udp_in6), m, opts, NULL) == 0) {
+		UDP_LOG(in6p, "sbappendaddr full receive socket buffer");
 		m = NULL;
 		opts = NULL;
 		udpstat.udps_fullsock++;

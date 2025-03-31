@@ -32,8 +32,15 @@ void OverrideMTLClearColor(const mtl::TextureRef &texture,
                            const mtl::ClearColorValue &clearColor,
                            MTLClearColor *colorOut)
 {
-    *colorOut =
-        mtl::EmulatedAlphaClearColor(clearColor.toMTLClearColor(), texture->getColorWritableMask());
+    if (texture)
+    {
+        *colorOut = mtl::EmulatedAlphaClearColor(clearColor.toMTLClearColor(),
+                                                 texture->getColorWritableMask());
+    }
+    else
+    {
+        *colorOut = clearColor.toMTLClearColor();
+    }
 }
 
 const gl::InternalFormat &GetReadAttachmentInfo(const gl::Context *context,
@@ -665,26 +672,26 @@ bool FramebufferMtl::totalBitsUsedIsLessThanOrEqualToMaxBitsSupported(
 
 gl::FramebufferStatus FramebufferMtl::checkStatus(const gl::Context *context) const
 {
-    ContextMtl *contextMtl = mtl::GetImpl(context);
-    if (!contextMtl->getDisplay()->getFeatures().allowSeparateDepthStencilBuffers.enabled &&
-        mState.hasSeparateDepthAndStencilAttachments())
+    if (mState.hasSeparateDepthAndStencilAttachments())
     {
-        return gl::FramebufferStatus::Incomplete(
-            GL_FRAMEBUFFER_UNSUPPORTED,
-            gl::err::kFramebufferIncompleteUnsupportedSeparateDepthStencilBuffers);
-    }
+        ContextMtl *contextMtl = mtl::GetImpl(context);
+        if (!contextMtl->getDisplay()->getFeatures().allowSeparateDepthStencilBuffers.enabled)
+        {
+            return gl::FramebufferStatus::Incomplete(
+                GL_FRAMEBUFFER_UNSUPPORTED,
+                gl::err::kFramebufferIncompleteUnsupportedSeparateDepthStencilBuffers);
+        }
 
-    if (mState.getDepthAttachment() && mState.getDepthAttachment()->getFormat().info->depthBits &&
-        mState.getDepthAttachment()->getFormat().info->stencilBits)
-    {
-        return checkPackedDepthStencilAttachment();
-    }
-
-    if (mState.getStencilAttachment() &&
-        mState.getStencilAttachment()->getFormat().info->depthBits &&
-        mState.getStencilAttachment()->getFormat().info->stencilBits)
-    {
-        return checkPackedDepthStencilAttachment();
+        ASSERT(mState.getDepthAttachment()->getFormat().info->depthBits > 0);
+        ASSERT(mState.getStencilAttachment()->getFormat().info->stencilBits > 0);
+        if (mState.getDepthAttachment()->getFormat().info->stencilBits != 0 ||
+            mState.getStencilAttachment()->getFormat().info->depthBits != 0)
+        {
+            return gl::FramebufferStatus::Incomplete(
+                GL_FRAMEBUFFER_UNSUPPORTED,
+                gl::err::
+                    kFramebufferIncompleteUnsupportedSeparateDepthStencilBuffersCombinedFormat);
+        }
     }
 
     if (!totalBitsUsedIsLessThanOrEqualToMaxBitsSupported(context))
@@ -694,38 +701,6 @@ gl::FramebufferStatus FramebufferMtl::checkStatus(const gl::Context *context) co
             gl::err::kFramebufferIncompleteColorBitsUsedExceedsMaxColorBitsSupported);
     }
 
-    return gl::FramebufferStatus::Complete();
-}
-
-gl::FramebufferStatus FramebufferMtl::checkPackedDepthStencilAttachment() const
-{
-    if (ANGLE_APPLE_AVAILABLE_XCI(10.14, 13.1, 12.0))
-    {
-        // If depth/stencil attachment has depth & stencil bits, then depth & stencil must not have
-        // separate attachment. i.e. They must be the same texture or one of them has no
-        // attachment.
-        if (mState.hasSeparateDepthAndStencilAttachments())
-        {
-            WARN() << "Packed depth stencil texture/buffer must not be mixed with other "
-                      "texture/buffer.";
-            return gl::FramebufferStatus::Incomplete(
-                GL_FRAMEBUFFER_UNSUPPORTED,
-                gl::err::kFramebufferIncompleteUnsupportedSeparateDepthStencilBuffers);
-        }
-    }
-    else
-    {
-        // Metal 2.0 and below doesn't allow packed depth stencil texture to be attached only as
-        // depth or stencil buffer. i.e. None of the depth & stencil attachment can be null.
-        if (!mState.getDepthStencilAttachment())
-        {
-            WARN() << "Packed depth stencil texture/buffer must be bound to both depth & stencil "
-                      "attachment point.";
-            return gl::FramebufferStatus::Incomplete(
-                GL_FRAMEBUFFER_UNSUPPORTED,
-                gl::err::kFramebufferIncompleteUnsupportedSeparateDepthStencilBuffers);
-        }
-    }
     return gl::FramebufferStatus::Complete();
 }
 
@@ -831,8 +806,8 @@ angle::Result FramebufferMtl::getSamplePosition(const gl::Context *context,
                                                 size_t index,
                                                 GLfloat *xy) const
 {
-    UNIMPLEMENTED();
-    return angle::Result::Stop;
+    rx::GetSamplePosition(getSamples(), index, xy);
+    return angle::Result::Continue;
 }
 
 angle::Result FramebufferMtl::prepareForUse(const gl::Context *context) const
@@ -1705,7 +1680,8 @@ angle::Result FramebufferMtl::readPixelsImpl(const gl::Context *context,
         {
             return angle::Result::Stop;
         }
-        ANGLE_MTL_CHECK(contextMtl, texture->samples() == 1, GL_INVALID_OPERATION);
+        ANGLE_CHECK(contextMtl, texture->samples() == 1, gl::err::kInternalError,
+                    GL_INVALID_OPERATION);
     }
 
     const mtl::Format &readFormat        = renderTarget->getFormat();
@@ -1778,13 +1754,8 @@ angle::Result FramebufferMtl::readPixelsToPBO(const gl::Context *context,
 
     ContextMtl *contextMtl = mtl::GetImpl(context);
 
-    if constexpr (sizeof(packPixelsParams.offset) > sizeof(uint32_t))
-    {
-        ANGLE_MTL_CHECK(contextMtl,
-                        static_cast<std::make_unsigned_t<decltype(packPixelsParams.offset)>>(
-                            packPixelsParams.offset) <= std::numeric_limits<uint32_t>::max(),
-                        GL_INVALID_OPERATION);
-    }
+    ANGLE_CHECK_GL_MATH(contextMtl,
+                        static_cast<std::make_unsigned_t<decltype(packPixelsParams.offset)>>(packPixelsParams.offset) <= std::numeric_limits<uint32_t>::max());
     uint32_t offset = static_cast<uint32_t>(packPixelsParams.offset);
 
     BufferMtl *packBufferMtl = mtl::GetImpl(packPixelsParams.packBuffer);
@@ -1842,7 +1813,7 @@ angle::Result FramebufferMtl::readPixelsToBuffer(const gl::Context *context,
                             break;
                         default:
                             // Unsupported format.
-                            ANGLE_MTL_CHECK(contextMtl, false, GL_INVALID_ENUM);
+                            ANGLE_GL_UNREACHABLE(contextMtl);
                     }
                     break;
                 }

@@ -87,7 +87,6 @@
     String uiProcessBundleIdentifier;
     int latencyQOS;
     int throughputQOS;
-    String presentingApplicationBundleIdentifier;
 #endif
 
     ProcessID presentingApplicationPID;
@@ -180,12 +179,12 @@
 #endif
 
 #if PLATFORM(GTK) || PLATFORM(WPE)
-    OptionSet<WebKit::DMABufRendererBufferMode> dmaBufRendererBufferMode;
+    OptionSet<WebKit::RendererBufferTransportMode> rendererBufferTransportMode;
+    WebCore::SystemSettings::State systemSettings;
 #endif
 
 #if PLATFORM(GTK)
     bool useSystemAppearanceForScrollbars;
-    WebKit::GtkSettingsState gtkSettings;
 #endif
 
 #if HAVE(CATALYST_USER_INTERFACE_IDIOM_AND_SCALE_FACTOR)
@@ -217,13 +216,19 @@
 
 #if USE(ATSPI)
     String accessibilityBusAddress;
+    String accessibilityBusName;
 #endif
 
     String timeZoneOverride;
 
     HashMap<WebCore::RegistrableDomain, String> storageAccessUserAgentStringQuirksData;
     HashSet<WebCore::RegistrableDomain> storageAccessPromptQuirksDomains;
+    WebKit::ScriptTelemetryRules scriptTelemetryRules;
 
     Seconds memoryFootprintPollIntervalForTesting;
     Vector<size_t> memoryFootprintNotificationThresholds;
+
+#if ENABLE(NOTIFY_BLOCKING)
+    Vector<std::pair<String, uint64_t>> notifyState;
+#endif
 };

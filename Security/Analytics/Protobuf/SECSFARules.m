@@ -72,6 +72,32 @@
 {
     return [SECSFAEventFilter class];
 }
+@synthesize configVersion = _configVersion;
+- (SECSFAConfigVersion)configVersion
+{
+    return _has.configVersion ? _configVersion : SECSFAConfigVersion_version1;
+}
+- (void)setConfigVersion:(SECSFAConfigVersion)v
+{
+    _has.configVersion = (uint)YES;
+    _configVersion = v;
+}
+- (void)setHasConfigVersion:(BOOL)f
+{
+    _has.configVersion = (uint)f;
+}
+- (BOOL)hasConfigVersion
+{
+    return _has.configVersion != 0;
+}
+- (NSString *)configVersionAsString:(SECSFAConfigVersion)value
+{
+    return SECSFAConfigVersionAsString(value);
+}
+- (SECSFAConfigVersion)StringAsConfigVersion:(NSString *)str
+{
+    return StringAsSECSFAConfigVersion(str);
+}
 
 - (NSString *)description
 {
@@ -102,6 +128,10 @@
             [eventFiltersDictReprs addObject:[i_eventFilter dictionaryRepresentation]];
         }
         [dict setObject:eventFiltersDictReprs forKey:@"eventFilter"];
+    }
+    if (self->_has.configVersion)
+    {
+        [dict setObject:SECSFAConfigVersionAsString(self->_configVersion) forKey:@"configVersion"];
     }
     return dict;
 }
@@ -176,6 +206,12 @@ BOOL SECSFARulesReadFrom(__unsafe_unretained SECSFARules *self, __unsafe_unretai
                 PBReaderRecallMark(reader, &mark_eventFilter);
             }
             break;
+            case 5 /* configVersion */:
+            {
+                self->_has.configVersion = (uint)YES;
+                self->_configVersion = PBReaderReadInt32(reader);
+            }
+            break;
             default:
                 if (!PBReaderSkipValueWithTag(reader, tag, aType))
                     return NO;
@@ -212,6 +248,13 @@ BOOL SECSFARulesReadFrom(__unsafe_unretained SECSFARules *self, __unsafe_unretai
             PBDataWriterWriteSubmessage(writer, i_eventFilter, 4);
         }
     }
+    /* configVersion */
+    {
+        if (self->_has.configVersion)
+        {
+            PBDataWriterWriteInt32Field(writer, self->_configVersion, 5);
+        }
+    }
 }
 
 - (void)copyTo:(SECSFARules *)other
@@ -238,6 +281,11 @@ BOOL SECSFARulesReadFrom(__unsafe_unretained SECSFARules *self, __unsafe_unretai
             [other addEventFilter:[self eventFilterAtIndex:i]];
         }
     }
+    if (self->_has.configVersion)
+    {
+        other->_configVersion = _configVersion;
+        other->_has.configVersion = YES;
+    }
 }
 
 - (id)copyWithZone:(NSZone *)zone
@@ -254,6 +302,11 @@ BOOL SECSFARulesReadFrom(__unsafe_unretained SECSFARules *self, __unsafe_unretai
         SECSFAEventFilter *vCopy = [v copyWithZone:zone];
         [copy addEventFilter:vCopy];
     }
+    if (self->_has.configVersion)
+    {
+        copy->_configVersion = _configVersion;
+        copy->_has.configVersion = YES;
+    }
     return copy;
 }
 
@@ -267,6 +320,8 @@ BOOL SECSFARulesReadFrom(__unsafe_unretained SECSFARules *self, __unsafe_unretai
     ((!self->_allowedBuilds && !other->_allowedBuilds) || [self->_allowedBuilds isEqual:other->_allowedBuilds])
     &&
     ((!self->_eventFilters && !other->_eventFilters) || [self->_eventFilters isEqual:other->_eventFilters])
+    &&
+    ((self->_has.configVersion && other->_has.configVersion && self->_configVersion == other->_configVersion) || (!self->_has.configVersion && !other->_has.configVersion))
     ;
 }
 
@@ -279,6 +334,8 @@ BOOL SECSFARulesReadFrom(__unsafe_unretained SECSFARules *self, __unsafe_unretai
     [self->_allowedBuilds hash]
     ^
     [self->_eventFilters hash]
+    ^
+    (self->_has.configVersion ? PBHashInt((NSUInteger)self->_configVersion) : 0)
     ;
 }
 
@@ -299,6 +356,11 @@ BOOL SECSFARulesReadFrom(__unsafe_unretained SECSFARules *self, __unsafe_unretai
     for (SECSFAEventFilter *iter_eventFilters in other->_eventFilters)
     {
         [self addEventFilter:iter_eventFilters];
+    }
+    if (other->_has.configVersion)
+    {
+        self->_configVersion = other->_configVersion;
+        self->_has.configVersion = YES;
     }
 }
 

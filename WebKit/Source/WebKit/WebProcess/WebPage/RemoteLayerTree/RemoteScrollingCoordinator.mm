@@ -35,7 +35,6 @@
 #import "RemoteScrollingCoordinatorMessages.h"
 #import "RemoteScrollingCoordinatorTransaction.h"
 #import "RemoteScrollingUIState.h"
-#import "WebCoreArgumentCoders.h"
 #import "WebPage.h"
 #import "WebProcess.h"
 #import <WebCore/GraphicsLayer.h>
@@ -80,25 +79,25 @@ bool RemoteScrollingCoordinator::coordinatesScrollingForFrameView(const LocalFra
     return renderView && renderView->usesCompositing();
 }
 
-bool RemoteScrollingCoordinator::isRubberBandInProgress(ScrollingNodeID nodeID) const
+bool RemoteScrollingCoordinator::isRubberBandInProgress(std::optional<ScrollingNodeID> nodeID) const
 {
     if (!nodeID)
         return false;
-    return m_nodesWithActiveRubberBanding.contains(nodeID);
+    return m_nodesWithActiveRubberBanding.contains(*nodeID);
 }
 
-bool RemoteScrollingCoordinator::isUserScrollInProgress(ScrollingNodeID nodeID) const
+bool RemoteScrollingCoordinator::isUserScrollInProgress(std::optional<ScrollingNodeID> nodeID) const
 {
     if (!nodeID)
         return false;
-    return m_nodesWithActiveUserScrolls.contains(nodeID);
+    return m_nodesWithActiveUserScrolls.contains(*nodeID);
 }
 
-bool RemoteScrollingCoordinator::isScrollSnapInProgress(ScrollingNodeID nodeID) const
+bool RemoteScrollingCoordinator::isScrollSnapInProgress(std::optional<ScrollingNodeID> nodeID) const
 {
     if (!nodeID)
         return false;
-    return m_nodesWithActiveScrollSnap.contains(nodeID);
+    return m_nodesWithActiveScrollSnap.contains(*nodeID);
 }
 
 void RemoteScrollingCoordinator::setScrollPinningBehavior(ScrollPinningBehavior)

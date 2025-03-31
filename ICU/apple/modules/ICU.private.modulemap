@@ -1,4 +1,0 @@
-extern module ICU_Private "../unicode_private.modulemap"
-
-module ICU_Private_Placeholder_OldFile [system] {
-}

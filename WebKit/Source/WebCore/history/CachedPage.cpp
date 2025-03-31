@@ -66,7 +66,7 @@ CachedPage::CachedPage(Page& page)
     , m_expirationTime(MonotonicTime::now() + page.settings().backForwardCacheExpirationInterval())
     , m_cachedMainFrame(makeUnique<CachedFrame>(page.mainFrame()))
     , m_loadedSubresourceDomains([&] {
-        auto* localFrame = dynamicDowncast<LocalFrame>(page.mainFrame());
+        RefPtr localFrame = page.localMainFrame();
         return localFrame ? localFrame->loader().client().loadedSubresourceDomains() : Vector<RegistrableDomain>();
     }())
 {
@@ -135,8 +135,7 @@ void CachedPage::restore(Page& page)
     ASSERT(m_cachedMainFrame->view()->frame().isMainFrame());
     ASSERT(!page.subframeCount());
 
-    Ref mainFrame = page.mainFrame();
-    RefPtr localMainFrame = dynamicDowncast<LocalFrame>(mainFrame);
+    RefPtr localMainFrame = page.localMainFrame();
 
     CachedPageRestorationScope restorationScope(page);
     m_cachedMainFrame->open();
@@ -156,7 +155,7 @@ void CachedPage::restore(Page& page)
             localMainFrame->selection().suppressScrolling();
 
         bool hadProhibitsScrolling = false;
-        RefPtr frameView = mainFrame->virtualView();
+        RefPtr frameView = localMainFrame->protectedVirtualView();
         if (frameView) {
             hadProhibitsScrolling = frameView->prohibitsScrolling();
             frameView->setProhibitsScrolling(true);
@@ -182,7 +181,7 @@ void CachedPage::restore(Page& page)
 #endif
 
     if (m_needsUpdateContentsSize) {
-        if (RefPtr frameView = mainFrame->virtualView())
+        if (RefPtr frameView = localMainFrame->protectedVirtualView())
             frameView->updateContentsSize();
     }
 
@@ -196,7 +195,7 @@ void CachedPage::restore(Page& page)
 
     for (auto& domain : m_loadedSubresourceDomains) {
         if (localMainFrame)
-            localMainFrame->checkedLoader()->client().didLoadFromRegistrableDomain(WTFMove(domain));
+            localMainFrame->protectedLoader()->client().didLoadFromRegistrableDomain(WTFMove(domain));
     }
 
     clear();

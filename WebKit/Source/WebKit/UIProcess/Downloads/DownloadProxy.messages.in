@@ -20,6 +20,11 @@
 # OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+[
+    ExceptionForEnabledBy,
+    DispatchedFrom=Networking,
+    DispatchedTo=UI
+]
 messages -> DownloadProxy {
     DidStart(WebCore::ResourceRequest request, String suggestedFilename)
     DidReceiveAuthenticationChallenge(WebCore::AuthenticationChallenge challenge, WebKit::AuthenticationChallengeIdentifier challengeID)
@@ -32,5 +37,6 @@ messages -> DownloadProxy {
 #if HAVE(MODERN_DOWNLOADPROGRESS)
     DidReceivePlaceholderURL(URL placeholderURL, std::span<const uint8_t> bookmarkData, WebKit::SandboxExtensionHandle handle) -> ()
     DidReceiveFinalURL(URL finalURL, std::span<const uint8_t> bookmarkData, WebKit::SandboxExtensionHandle handle)
+    DidStartUpdatingProgress()
 #endif
 }

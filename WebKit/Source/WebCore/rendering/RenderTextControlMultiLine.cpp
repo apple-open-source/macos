@@ -84,7 +84,7 @@ LayoutUnit RenderTextControlMultiLine::preferredContentLogicalWidth(float charWi
 {
     float width = ceilf(charWidth * textAreaElement().cols());
 
-    auto overflow = style().isHorizontalWritingMode() ? style().overflowY() : style().overflowX();
+    auto overflow = writingMode().isHorizontal() ? style().overflowY() : style().overflowX();
 
     // We are able to have a vertical scrollbar if the overflow style is scroll or auto
     if ((overflow == Overflow::Scroll) || (overflow == Overflow::Auto))
@@ -111,7 +111,7 @@ void RenderTextControlMultiLine::layoutExcludedChildren(bool relayoutChildren)
     if (!placeholderRenderer)
         return;
     if (CheckedPtr placeholderBox = dynamicDowncast<RenderBox>(placeholderRenderer)) {
-        placeholderBox->mutableStyle().setLogicalWidth(Length(contentLogicalWidth() - placeholderBox->borderAndPaddingLogicalWidth(), LengthType::Fixed));
+        placeholderBox->mutableStyle().setLogicalWidth(Length(contentBoxLogicalWidth() - placeholderBox->borderAndPaddingLogicalWidth(), LengthType::Fixed));
         placeholderBox->layoutIfNeeded();
         placeholderBox->setX(borderLeft() + paddingLeft());
         placeholderBox->setY(borderTop() + paddingTop());

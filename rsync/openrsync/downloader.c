@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2019 Kristaps Dzonsons <kristaps@bsd.lv>
+ * Copyright (c) 2024, Klara, Inc.
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -65,6 +66,7 @@ enum	downloadst {
 static enum zlib_state	 dec_state; /* decompression state */
 static z_stream		 dectx; /* decompression context */
 static int decompress_reinit(void);
+static int buf_copy(const char *, size_t, struct download *, struct sess *);
 
 /*
  * Like struct upload, but used to keep track of what we're downloading.
@@ -73,6 +75,7 @@ static int decompress_reinit(void);
 struct	download {
 	enum downloadst	    state; /* state of affairs */
 	size_t		    idx; /* index of current file */
+	int32_t		    fxiter; /* flist index translation iterator */
 	struct blkset	    blk; /* its blocks */
 	struct fmap	   *map; /* mmap of current file */
 	int		    ofd; /* open origin file */
@@ -93,41 +96,6 @@ struct	download {
 	size_t		    curtok; /* current token */
 };
 
-
-/*
- * Simply log the filename.
- */
-static void
-log_file(struct sess *sess,
-	const struct download *dl, const struct flist *f)
-{
-	float		 frac, tot = dl->total;
-	int		 prec = 0;
-	const char	*unit = "B";
-
-	if (sess->opts->server)
-		return;
-
-	frac = (dl->total == 0) ? 100.0 :
-		100.0 * dl->downloaded / dl->total;
-
-	if (dl->total > 1024 * 1024 * 1024) {
-		tot = dl->total / (1024. * 1024. * 1024.);
-		prec = 3;
-		unit = "GB";
-	} else if (dl->total > 1024 * 1024) {
-		tot = dl->total / (1024. * 1024.);
-		prec = 2;
-		unit = "MB";
-	} else if (dl->total > 1024) {
-		tot = dl->total / 1024.;
-		prec = 1;
-		unit = "KB";
-	}
-
-	LOG1("%s (%.*f %s, %.1f%% downloaded)",
-	    f->path, prec, tot, unit, frac);
-}
 
 /*
  * Reinitialise a download context w/o overwriting the persistent parts
@@ -266,7 +234,21 @@ download_partial_fd(struct sess *sess, int rootfd, const struct flist *f)
 	}
 
 	if (ret == -1) {
-		ret = mkpathat(rootfd, partial_dir,
+		if (partial_dir != partial_reldir) {
+			size_t len;
+
+			/*
+			 * mkpathat() modifies partial_dir[] so we must
+			 * ensure it's in writable memory.
+			 */
+			len = strlcpy(partial_reldir, partial_dir, sizeof(partial_reldir));
+			if (len >= sizeof(partial_reldir)) {
+				errno = ENAMETOOLONG;
+				goto err;
+			}
+		}
+
+		ret = mkpathat(rootfd, partial_reldir,
 		    S_IRUSR|S_IWUSR|S_IXUSR);
 
 		/*
@@ -331,6 +313,8 @@ download_cleanup_partial(struct sess *sess, struct download *p)
 		return 1;
 	}
 
+	/* Flush any buffered writes to the file */
+	buf_copy(NULL, 0, p, sess);
 	close(p->fd);
 	p->fd = -1;
 
@@ -451,6 +435,7 @@ download_alloc(struct sess *sess, int fdin, struct flist *fl, size_t flsz,
 	}
 
 	p->state = DOWNLOAD_READ_NEXT;
+	p->fxiter = -1;
 	p->fl = fl;
 	p->flsz = flsz;
 	p->rootfd = rootfd;
@@ -549,18 +534,20 @@ buf_copy(const char *buf, size_t sz, struct download *p, struct sess *sess)
 		assert(p->obufmax);
 		assert(p->obufsz <= p->obufmax);
 		assert(p->obuf != NULL);
-		if (sess->opts->sparse && iszerobuf(p->obuf, p->obufsz)) {
-			if (lseek(p->fd, p->obufsz, SEEK_CUR) == -1) {
-				ERR("%s: lseek", p->fname);
-				return 0;
-			}
-		} else {
-			if ((ssz = write(p->fd, p->obuf, p->obufsz)) < 0) {
-				ERR("%s: write", p->fname);
-				return 0;
-			} else if ((size_t)ssz != p->obufsz) {
-				ERRX("%s: short write", p->fname);
-				return 0;
+		if (p->fd >= 0) {
+			if (sess->opts->sparse && iszerobuf(p->obuf, p->obufsz)) {
+				if (lseek(p->fd, p->obufsz, SEEK_CUR) == -1) {
+					ERR("%s: lseek", p->fname);
+					return 0;
+				}
+			} else {
+				if ((ssz = write(p->fd, p->obuf, p->obufsz)) < 0) {
+					ERR("%s: write", p->fname);
+					return 0;
+				} else if ((size_t)ssz != p->obufsz) {
+					ERRX("%s: short write", p->fname);
+					return 0;
+				}
 			}
 		}
 		p->obufsz = 0;
@@ -571,7 +558,7 @@ buf_copy(const char *buf, size_t sz, struct download *p, struct sess *sess)
 	 * If we have no pre-write buffer, this is it.
 	 */
 
-	if (sz) {
+	if (sz > 0 && p->fd >= 0) {
 		if ((ssz = write(p->fd, buf, sz)) < 0) {
 			ERR("%s: write", p->fname);
 			return 0;
@@ -581,63 +568,6 @@ buf_copy(const char *buf, size_t sz, struct download *p, struct sess *sess)
 		}
 	}
 	return 1;
-}
-
-/*
- * Print time as hh:mm:ss
- */
-static void
-print_time(FILE *f, double time)
-{
-	int i = time;
-	fprintf(f, "   %02d:%02d:%02d",
-	    i / 3600, (i - i / 3600 * 3600) / 60,
-	    (i - i / 60 * 60));
-}
-
-/*
- * Maybe print progress in current file.
- */
-static void
-progress(struct sess *sess, uint64_t total_bytes, uint64_t so_far, bool finished)
-{
-	struct timeval tv;
-	double now, remaining_time, rate;
-
-	if (!sess->opts->progress)
-		return;
-
-	gettimeofday(&tv, NULL);
-	now = tv.tv_sec + (double)tv.tv_usec / 1000000.0;
-
-	/*
-	 * Print progress.
-	 * This calculates from previous transfer.
-	 */
-	if (sess->last_time == 0) {
-		sess->last_time = now;
-		return;
-	}
-	if (now - sess->last_time < 0.1 && !finished)
-		return;
-	fprintf(stderr, " %14llu", (long long unsigned)so_far);
-	fprintf(stderr, " %3.0f%%", (double)so_far / 
-	    (double)total_bytes * 100.0);
-	rate = (double)so_far / (now - sess->last_time);
-	if (rate > 1024.0 * 1024.0 * 1024.0) {
-		fprintf(stderr, " %7.2fGB/s", rate / 
-		    1024.0 / 1024.0 / 1024.0);
-	} else if (rate > 1024.0 * 1024.0) {
-		fprintf(stderr, " %7.2fMB/s", rate / 
-		    1024.0 / 1024.0);
-	} else if (rate > 1024.0) {
-		fprintf(stderr, " %7.2fKB/s", rate / 
-		    1024.0);
-	}
-	remaining_time = (total_bytes - so_far) / rate;
-	print_time(stderr, remaining_time);
-	fprintf(stderr, finished ? "\n" : "\r");
-	sess->last_time = now;
 }
 
 /*
@@ -695,9 +625,9 @@ delayed_renames(struct sess *sess)
 
 			if (linkat(p->rootfd, hl_p->path, p->rootfd, path,
 			    0) == -1) {
-				LOG0("While hard linking '%s' to '%s' ",
-				    hl_p->path, path);
-				ERRX1("linkat");
+				ERR("linkat");
+				LOG0("Error while delayed hard linking '%s' "
+				    "to '%s' ", hl_p->path, path);
 			}
 
 			hl_p = NULL;
@@ -774,28 +704,12 @@ download_fix_metadata(const struct sess *sess, const char *fname, int fd,
 }
 
 /*
- * Read the Itemization flags for an index off the wire.
  * Deal with the conditional "follows" flags for extra metadata.
  */
 static int
-download_get_iflags(struct sess *sess, int fd, struct flist *fl, int32_t idx)
+download_get_iflags(struct sess *sess, int fd, struct flist *f)
 {
-	int32_t iflags;
-
-	if (idx < 0) {
-		return 0;
-	}
-
-	if (!protocol_itemize) {
-		fl[idx].iflags = IFLAG_TRANSFER;
-		return 1;
-	}
-
-	if (!io_read_short(sess, fd, &iflags)) {
-		ERRX1("io_read_short");
-		return 0;
-	}
-	fl[idx].iflags = iflags;
+	int32_t iflags = f->iflags;
 
 	if ((iflags & IFLAG_BASIS_FOLLOWS) != 0) {
 		uint8_t basis;
@@ -805,17 +719,14 @@ download_get_iflags(struct sess *sess, int fd, struct flist *fl, int32_t idx)
 			return 0;
 		}
 
-		fl[idx].basis = basis;
+		f->basis = basis;
 	}
 	if ((iflags & IFLAG_HLINK_FOLLOWS) != 0) {
-		if (fl[idx].link != NULL) {
-			free(fl[idx].link);
+		if (f->link != NULL) {
+			free(f->link);
+			f->link = NULL;
 		}
-		if ((fl[idx].link = calloc(1, PATH_MAX)) == NULL) {
-			ERR("calloc hlink vstring");
-			return 0;
-		} else if (!io_read_vstring(sess, fd, fl[idx].link,
-		    PATH_MAX)) {
+		if (!io_read_vstring(sess, fd, &f->link)) {
 			ERRX1("io_read_vstring");
 			return 0;
 		}
@@ -848,6 +759,8 @@ protocol_token_cflush(struct sess *sess, struct download *p, char *dbuf)
 	if (dectx.next_out == NULL) {
 		return TOKEN_NEXT;
 	}
+
+	assert(dbuf != NULL);
 
 	dectx.avail_in = 0;
 	dectx.avail_out = MAX_CHUNK_BUF;
@@ -935,24 +848,39 @@ protocol_token_ff_compress(struct sess *sess, struct download *p, size_t tok)
 	assert(sz);
 	assert(p->map != NULL);
 	off = tok * p->blk.len;
-	buf = fmap_data(p->map, off);
+
+	if (!fmap_trap(p->map)) {
+		p->state = DOWNLOAD_FLUSH_REMOTE;
+		return TOKEN_NEXT;
+	}
+	buf = fmap_data(p->map, off, sz);
 
 	if (!decompress_reinit()) {
 		ERRX("decompress_reinit");
+		fmap_untrap(p->map);
 		return TOKEN_ERROR;
 	}
 
-	dbuf = malloc(MAX_CHUNK_BUF);
-	if (dbuf == NULL) {
-		ERRX1("malloc");
-		return TOKEN_ERROR;
+	dbuf = sess->token_dbuf;
+	if (sess->token_dbufsz < MAX_CHUNK_BUF) {
+		dbuf = malloc(MAX_CHUNK_BUF);
+		if (dbuf == NULL) {
+			ERRX1("malloc");
+			fmap_untrap(p->map);
+			return TOKEN_ERROR;
+		}
+
+		free(sess->token_dbuf);
+		sess->token_dbuf = dbuf;
+		sess->token_dbufsz = MAX_CHUNK_BUF;
 	}
 
 	dectx.avail_in = 0;
 	rlen = sz;
 	clen = 0;
 	hdr[0] = '\0';
-	while (rlen != 0) {
+	res = Z_OK;
+	while (res == Z_OK) {
 		if (dectx.avail_in == 0) {
 			if (clen == 0) {
 				/* Provide a stored-block header */
@@ -975,30 +903,25 @@ protocol_token_ff_compress(struct sess *sess, struct download *p, size_t tok)
 		}
 		dectx.next_out = (Bytef *)dbuf;
 		dectx.avail_out = MAX_CHUNK_BUF;
-		if (!fmap_trap(p->map)) {
-			WARNX("%s: file truncated while reading",
-			    p->fl[p->idx].path);
-			p->state = DOWNLOAD_FLUSH_REMOTE;
-			return TOKEN_NEXT;
-		}
 
 		res = inflate(&dectx, Z_SYNC_FLUSH);
-		fmap_untrap(p->map);
 
 		if (res != Z_OK) {
+			fmap_untrap(p->map);
 			ERRX("inflate ff res=%d", res);
 			if (dectx.msg) {
 				ERRX("inflate error: %s", dectx.msg);
 			}
-			free(dbuf);
 			return TOKEN_ERROR;
 		}
 		if (dectx.avail_out == 0) {
+			continue;
+		} else if (rlen == 0) {
 			break;
 		}
 	}
-	free(dbuf);
 
+	fmap_untrap(p->map);
 	return TOKEN_NEXT;
 }
 
@@ -1021,7 +944,12 @@ protocol_token_ff(struct sess *sess, struct download *p, size_t tok)
 	assert(sz);
 	assert(p->map != NULL);
 	off = tok * p->blk.len;
-	buf = fmap_data(p->map, off);
+
+	if (!fmap_trap(p->map)) {
+		p->state = DOWNLOAD_FLUSH_REMOTE;
+		return TOKEN_NEXT;
+	}
+	buf = fmap_data(p->map, off, sz);
 
 	/*
 	 * Now we read from our block.
@@ -1032,23 +960,18 @@ protocol_token_ff(struct sess *sess, struct download *p, size_t tok)
 	 */
 
 	if (download_is_inplace(sess, p, true) && p->total == off) {
+		fmap_untrap(p->map);
+
 		/* Flush any pending data before we seek ahead. */
 		if (!sess->opts->dry_run && !buf_copy(NULL, 0, p, sess)) {
 			ERRX("buf_copy");
 			return TOKEN_ERROR;
 		}
-		if (lseek(p->fd, sz, SEEK_CUR) == -1) {
+		if (p->fd >= 0 && lseek(p->fd, sz, SEEK_CUR) == -1) {
 			ERRX1("lseek");
 			return TOKEN_ERROR;
 		}
 	} else {
-		if (!fmap_trap(p->map)) {
-			WARNX("%s: file truncated while reading",
-			    p->fl[p->idx].path);
-			p->state = DOWNLOAD_FLUSH_REMOTE;
-			return TOKEN_NEXT;
-		}
-
 		if (!buf_copy(buf, sz, p, sess)) {
 			fmap_untrap(p->map);
 			ERRX("buf_copy");
@@ -1076,8 +999,6 @@ protocol_token_ff(struct sess *sess, struct download *p, size_t tok)
 	LOG4("%s: copied %zu B", p->fname, sz);
 
 	if (!fmap_trap(p->map)) {
-		WARNX("%s: file truncated while reading",
-		    p->fl[p->idx].path);
 		p->state = DOWNLOAD_FLUSH_REMOTE;
 		return TOKEN_NEXT;
 	}
@@ -1110,6 +1031,19 @@ protocol_token_compressed(struct sess *sess, struct download *p)
 		return TOKEN_ERROR;
 	}
 
+	dbuf = sess->token_dbuf;
+	if (sess->token_dbufsz < MAX_CHUNK_BUF) {
+		dbuf = malloc(MAX_CHUNK_BUF);
+		if (dbuf == NULL) {
+			ERRX1("malloc");
+			return TOKEN_ERROR;
+		}
+
+		free(sess->token_dbuf);
+		sess->token_dbuf = dbuf;
+		sess->token_dbufsz = MAX_CHUNK_BUF;
+	}
+
 	need_count = false;
 	if ((flag & TOKEN_RUN_RELATIVE) == TOKEN_DEFLATED) {
 		uint16_t bufsz;
@@ -1121,23 +1055,22 @@ protocol_token_compressed(struct sess *sess, struct download *p)
 			return TOKEN_ERROR;
 		}
 		bufsz = ((flag & ~TOKEN_DEFLATED) << 8) | sizelo;
-		buf = malloc(bufsz);
-		if (buf == NULL) {
-			ERRX1("malloc");
-			return TOKEN_ERROR;
-		}
 
-		dbuf = malloc(MAX_CHUNK_BUF);
-		if (dbuf == NULL) {
-			ERRX1("malloc");
-			free(buf);
-			return TOKEN_ERROR;
+		buf = sess->token_buf;
+		if (sess->token_bufsz < bufsz) {
+			buf = malloc(bufsz);
+			if (buf == NULL) {
+				ERRX1("malloc");
+				return TOKEN_ERROR;
+			}
+
+			free(sess->token_buf);
+			sess->token_buf = buf;
+			sess->token_bufsz = bufsz;
 		}
 
 		if (!io_read_buf(sess, p->fdin, buf, bufsz)) {
 			ERRX1("io_read_buf");
-			free(buf);
-			free(dbuf);
 			return TOKEN_ERROR;
 		}
 
@@ -1154,8 +1087,6 @@ protocol_token_compressed(struct sess *sess, struct download *p)
 			dsz = MAX_CHUNK_BUF - dectx.avail_out;
 			if (!buf_copy(dbuf, dsz, p, sess)) {
 				ERRX("buf_copy dbuf");
-				free(buf);
-				free(dbuf);
 				return TOKEN_ERROR;
 			}
 			MD4_Update(&p->ctx, dbuf, dsz);
@@ -1170,8 +1101,6 @@ protocol_token_compressed(struct sess *sess, struct download *p)
 			if (dectx.msg) {
 				ERRX("inflate error: %s", dectx.msg);
 			}
-			free(buf);
-			free(dbuf);
 			return TOKEN_ERROR;
 		}
 		/* We have exhausted the input stream, write out the remaining data */
@@ -1179,8 +1108,6 @@ protocol_token_compressed(struct sess *sess, struct download *p)
 		if (dsz != 0) {
 			if (!buf_copy(dbuf, dsz, p, sess)) {
 				ERRX("buf_copy dbuf");
-				free(buf);
-				free(dbuf);
 				return TOKEN_ERROR;
 			}
 			MD4_Update(&p->ctx, dbuf, dsz);
@@ -1188,8 +1115,6 @@ protocol_token_compressed(struct sess *sess, struct download *p)
 		p->total += dsz;
 		p->downloaded += bufsz;
 		sess->total_unmatched += dsz;
-		free(buf);
-		free(dbuf);
 		assert(dectx.avail_in == 0);
 
 		dec_state_change(COMPRESS_DONE);
@@ -1280,18 +1205,24 @@ protocol_token_raw(struct sess *sess, struct download *p)
 
 	if (rawtok > 0) {
 		sz = rawtok;
-		if ((buf = malloc(sz)) == NULL) {
-			ERR("malloc");
-			return TOKEN_ERROR;
+		buf = sess->token_buf;
+		if (sess->token_bufsz < sz) {
+			buf = malloc(sz);
+			if (buf == NULL) {
+				ERRX1("malloc");
+				return TOKEN_ERROR;
+			}
+
+			free(sess->token_buf);
+			sess->token_buf = buf;
+			sess->token_bufsz = sz;
 		}
 		if (!io_read_buf(sess, p->fdin, buf, sz)) {
 			ERRX1("io_read_buf");
-			free(buf);
 			return TOKEN_ERROR;
 		} else if (p->state != DOWNLOAD_FLUSH_REMOTE &&
 		    !buf_copy(buf, sz, p, sess)) {
 			ERRX("buf_copy");
-			free(buf);
 			return TOKEN_ERROR;
 		}
 		p->total += sz;
@@ -1299,7 +1230,6 @@ protocol_token_raw(struct sess *sess, struct download *p)
 		sess->total_unmatched += sz;
 		LOG4("%s: received %zu B block", p->fname, sz);
 		MD4_Update(&p->ctx, buf, sz);
-		free(buf);
 
 		/* Fast-track more reads as they arrive. */
 
@@ -1334,7 +1264,6 @@ rsync_downloader(struct download *p, struct sess *sess, int *ofd, size_t flsz,
     const struct hardlinks *hl)
 {
 	int32_t		 idx;
-	const struct flist *hl_p = NULL;
 	struct  flist	*f = NULL;
 	struct stat	 st, st2;
 	unsigned char	 ourmd[MD4_DIGEST_LENGTH],
@@ -1372,38 +1301,92 @@ rsync_downloader(struct download *p, struct sess *sess, int *ofd, size_t flsz,
 
 	if (p->state == DOWNLOAD_READ_NEXT) {
 		const char *path;
+		int32_t sendidx;
+		int32_t iflags;
 		int rootfd;
 
-		if (!io_read_int(sess, p->fdin, &idx)) {
+		if (!io_read_int(sess, p->fdin, &sendidx)) {
 			ERRX1("io_read_int");
 			return -1;
-		} else if (idx >= 0 && (size_t)idx >= p->flsz) {
-			ERRX("index out of bounds");
-			return -1;
-		} else if (idx < 0) {
+		} else if (sendidx < 0) {
 			LOG3("downloader: phase complete");
+			p->fxiter = -1;
 			return 0;
 		}
+
+		if (!protocol_itemize) {
+			iflags = IFLAG_TRANSFER | IFLAG_MISSING_DATA;
+		} else {
+			if (!io_read_short(sess, p->fdin, &iflags)) {
+				ERRX1("io_read_short");
+				return -1;
+			}
+		}
+
+		/* Check for keep-alive packet */
+		if (iflags == IFLAG_NEW) {
+			if ((uint32_t)sendidx == sess->sender_flsz) {
+				/* Keep alive packet, do nothing */
+				return 1;
+			}
+
+			ERRX1("invalid sendidx %d for keep alive packet",
+			    sendidx);
+			return -1;
+		} else if ((uint32_t)sendidx == sess->sender_flsz) {
+			ERRX1("invalid item flags 0x%x for sendidx %d",
+			    iflags, sendidx);
+			return -1;
+		}
+
 		/*
-		 * `idx` is a sendidx, translate it back into our local file index since
-		 * we may have, e.g., trimmed duplicates.
+		 * Translate the sender's index to our local flist
+		 * index since we may have, e.g., trimmed duplicates.
 		 */
-		for (int flidx = 0; flidx < p->flsz; flidx++) {
-			if (p->fl[flidx].sendidx == idx) {
-				idx = flidx;
+		idx = -1;
+		for (size_t i = 0; i < p->flsz; i++) {
+			p->fxiter = (p->fxiter + 1) % p->flsz;
+
+			if (p->fl[p->fxiter].sendidx == sendidx) {
+				idx = p->fxiter;
 				break;
 			}
 		}
-		if (!download_get_iflags(sess, p->fdin, p->fl, idx)) {
-			ERRX("get_iflags");
-			return 0;
+		if (idx == -1) {
+			ERRX1("sendidx %d translation failed", sendidx);
+			return -1;
 		}
 
 		f = &p->fl[idx];
-		/* Check for keep-alive packet */
-		if (f->iflags == IFLAG_NEW) {
+		f->iflags = iflags;
+
+		if (!download_get_iflags(sess, p->fdin, f)) {
+			ERRX1("download_get_iflags");
+			return -1;
+		}
+
+		sess->total_read_lf = sess->total_read;
+		sess->total_write_lf = sess->total_write;
+
+		if ((f->iflags & IFLAG_TRANSFER) == 0) {
+			bool hlink = (f->iflags & IFLAG_HLINK_FOLLOWS) != 0;
+			bool sig = (f->iflags & SIGNIFICANT_IFLAGS) != 0;
+
+			if (sig || hlink || sess->itemize || verbose > 1) {
+				bool local = (f->iflags & IFLAG_LOCAL_CHANGE) != 0;
+				bool dir = S_ISDIR(f->st.mode);
+
+				if (local || dir || hlink || sess->itemize)
+					log_item(sess, f);
+				else if (verbose > 1)
+					log_item_impl(sess, f);
+			}
+
 			return 1;
 		}
+
+		if (!sess->lateprint || sess->opts->dry_run)
+			log_item(sess, f);
 
 		/*
 		 * Short-circuit: dry_run mode does nothing, with one exception:
@@ -1412,19 +1395,6 @@ rsync_downloader(struct download *p, struct sess *sess, int *ofd, size_t flsz,
 		 */
 		if (sess->opts->dry_run && sess->wbatch_fd == -1)
 			return 1;
-
-		/*
-		 * `idx` is a sendidx, translate it back into our local file
-		 * index since we may have, e.g., trimmed duplicates.
-		 */
-		if (p->fl[idx].sendidx != idx) {
-			for (size_t flidx = 0; flidx < p->flsz; flidx++) {
-				if (p->fl[flidx].sendidx == idx) {
-					idx = (int32_t)flidx;
-					break;
-				}
-			}
-		}
 
 		/*
 		 * Now get our block information.
@@ -1461,10 +1431,8 @@ rsync_downloader(struct download *p, struct sess *sess, int *ofd, size_t flsz,
 		} else {
 			p->ofd = openat(rootfd, path, O_RDONLY | O_NONBLOCK);
 		}
-		if (sess->opts->progress && !verbose)
-			fprintf(stderr, "%s\n", f->path);
 
-		if (p->ofd == -1 && errno != ENOENT) {
+		if (p->ofd == -1 && errno != ENOENT && rootfd != -1) {
 			ERR("%s: rsync_downloader: openat", path);
 			goto out;
 		} else if (p->ofd != -1) {
@@ -1507,7 +1475,7 @@ rsync_downloader(struct download *p, struct sess *sess, int *ofd, size_t flsz,
 	if (p->state == DOWNLOAD_READ_LOCAL) {
 		assert(p->fname == NULL);
 
-		if (sess->opts->dry_run) {
+		if (sess->opts->dry_run && sess->wbatch_fd == -1) {
 			/*
 			 * Ideally we'd just be able to drive the token protocol
 			 * a little more cleanly.
@@ -1532,19 +1500,37 @@ rsync_downloader(struct download *p, struct sess *sess, int *ofd, size_t flsz,
 			goto out;
 		}
 
-		hl_p = find_hl(f, hl);
-
 		if (p->ofd != -1 && st.st_size > 0) {
-			p->map = fmap_open(p->ofd, st.st_size, PROT_READ);
-			if (p->map == NULL) {
-				ERR("%s: mmap", f->path);
+			p->map = fmap_open(f->path, p->ofd, st.st_size);
+			if (p->map == NULL)
 				goto out;
+#ifdef __APPLE__
+			/* Temporary diagnostics */
+			if (syslog_trace) {
+				size_t nblks;
+
+				nblks = p->blk.blksz;
+				if (p->blk.rem != 0)
+					nblks--;
+				os_log_info(syslog_trace_obj,
+				    "updating file[%llu]: %zu blocks of %zu bytes + %zu residual",
+				    st.st_size, nblks, p->blk.len, p->blk.rem);
 			}
+#endif
 		}
 
 		/* Success either way: we don't need this. */
 
 		*ofd = -1;
+
+		/*
+		 * For the only-write-batch case, we need to map
+		 * the file to do the delta algorithm on it.
+		 */
+		if (sess->opts->dry_run && sess->wbatch_fd != -1) {
+			p->state = DOWNLOAD_READ_REMOTE;
+			return 1;
+		}
 
 		/* Create the temporary file. */
 		if (download_is_inplace(sess, p, false) || f->pdfd >= 0) {
@@ -1578,12 +1564,10 @@ rsync_downloader(struct download *p, struct sess *sess, int *ofd, size_t flsz,
 
 			if (sess->role->append && fmap_size(p->map) > 0) {
 				if (!fmap_trap(p->map)) {
-					WARNX("%s: file truncated while reading",
-					    p->fl[p->idx].path);
 					p->state = DOWNLOAD_FLUSH_REMOTE;
 				} else {
-					MD4_Update(&p->ctx, fmap_data(p->map, 0),
-					    fmap_size(p->map));
+					hash_fmap_chunks(p->map,
+					    fmap_size(p->map),  &p->ctx);
 					fmap_untrap(p->map);
 
 					if (lseek(p->fd, 0, SEEK_END) !=
@@ -1603,10 +1587,8 @@ rsync_downloader(struct download *p, struct sess *sess, int *ofd, size_t flsz,
 
 			if ((p->fd = mkstempat(TMPDIR_FD, p->fname)) == -1) {
 				ERR("mkstempat: '%s'", p->fname);
-				goto out;
-			}
-
-			if (p->ofd != -1 &&
+				sess->total_errors++;
+			} else if (p->ofd != -1 &&
 			    !download_fix_metadata(sess, p->fname, p->fd,
 			    &st)) {
 				goto out;
@@ -1625,20 +1607,26 @@ rsync_downloader(struct download *p, struct sess *sess, int *ofd, size_t flsz,
 
 		if (sess->opts->no_cache) {
 #if defined(F_NOCACHE)
-			fcntl(p->ofd, F_NOCACHE);
-			fcntl(p->fd, F_NOCACHE);
+			if (p->ofd >= 0)
+				fcntl(p->ofd, F_NOCACHE);
+			if (p->fd >= 0)
+				fcntl(p->fd, F_NOCACHE);
 #elif defined(O_DIRECT)
 			int getfl;
 
-			if ((getfl = fcntl(p->ofd, F_GETFL)) < 0) {
-				warn("fcntl failed");
-			} else {
-				fcntl(p->ofd, F_SETFL, getfl | O_DIRECT);
+			if (p->ofd >= 0) {
+				if ((getfl = fcntl(p->ofd, F_GETFL)) < 0) {
+					warn("fcntl failed");
+				} else {
+					fcntl(p->ofd, F_SETFL, getfl | O_DIRECT);
+				}
 			}
-			if ((getfl = fcntl(p->fd, F_GETFL)) < 0) {
-				warn("fcntl failed");
-			} else {
-				fcntl(p->fd, F_SETFL, getfl | O_DIRECT);
+			if (p->fd >= 0) {
+				if ((getfl = fcntl(p->fd, F_GETFL)) < 0) {
+					warn("fcntl failed");
+				} else {
+					fcntl(p->fd, F_SETFL, getfl | O_DIRECT);
+				}
 			}
 #endif
 		}
@@ -1658,30 +1646,36 @@ rsync_downloader(struct download *p, struct sess *sess, int *ofd, size_t flsz,
 
 	if (sess->opts->no_cache) {
 #if defined(F_NOCACHE)
-		fcntl(p->ofd, F_NOCACHE);
-		fcntl(p->fd, F_NOCACHE);
+		if (p->ofd >= 0)
+			fcntl(p->ofd, F_NOCACHE);
+		if (p->fd >= 0)
+			fcntl(p->fd, F_NOCACHE);
 #elif defined(O_DIRECT)
 		int getfl;
 
-		if ((getfl = fcntl(p->ofd, F_GETFL)) < 0) {
-			warn("fcntl failed");
-		} else {
-			fcntl(p->ofd, F_SETFL, getfl | O_DIRECT);
+		if (p->ofd >= 0) {
+			if ((getfl = fcntl(p->ofd, F_GETFL)) < 0) {
+				warn("fcntl failed");
+			} else {
+				fcntl(p->ofd, F_SETFL, getfl | O_DIRECT);
+			}
 		}
-		if ((getfl = fcntl(p->fd, F_GETFL)) < 0) {
-			warn("fcntl failed");
-		} else {
-			fcntl(p->fd, F_SETFL, getfl | O_DIRECT);
+		if (p->fd >= 0) {
+			if ((getfl = fcntl(p->fd, F_GETFL)) < 0) {
+				warn("fcntl failed");
+			} else {
+				fcntl(p->fd, F_SETFL, getfl | O_DIRECT);
+			}
 		}
 #endif
 	}
 again:
-	progress(sess, p->fl[p->idx].st.size, p->total, false);
+	rsync_progress(sess, p->fl[p->idx].st.size, p->total, false,
+	    p->idx, p->flsz);
 
 	assert(p->state == DOWNLOAD_READ_REMOTE ||
 	    p->state == DOWNLOAD_FLUSH_REMOTE);
 	assert(p->fname != NULL || sess->opts->dry_run);
-	assert(p->fd != -1 || sess->opts->dry_run);
 	assert(p->fdin != -1);
 
 	if (sess->opts->compress)
@@ -1710,10 +1704,13 @@ again:
 	 * Just clear anything that was left in the output buffer; we weren't
 	 * going to waste disk writes on a failed file.
 	 */
-	if (p->state == DOWNLOAD_FLUSH_REMOTE)
+	if (p->state == DOWNLOAD_FLUSH_REMOTE) {
+		WARNX("%s: file truncated while reading",
+		    p->fl[p->idx].path);
 		p->obufsz = 0;
+	}
 
-	assert(p->obufsz == 0);
+	assert(p->fd < 0 || p->obufsz == 0 || sess->opts->dry_run);
 	assert(tokres == TOKEN_EOF);
 
 	/*
@@ -1755,7 +1752,7 @@ again:
 	sess->total_xfer_size += f->st.size;
 
 	/* We can still get here with a DRY_XFER in some cases. */
-	if (sess->opts->dry_run)
+	if (p->fd < 0 || sess->opts->dry_run)
 		goto done;
 
 	if (sess->opts->backup) {
@@ -1777,9 +1774,9 @@ again:
 			}
 			if (snprintf(buf2, sizeof(buf2), "%s/%s%s",
 			    sess->opts->backup_dir, usethis,
-			    sess->opts->backup_suffix) > (int)sizeof(buf2)) {
+			    sess->opts->backup_suffix) >= (int)sizeof(buf2)) {
 				ERR("%s: backup-dir: compound backup path "
-				    "too long: %s/%s%s > %d", f->path,
+				    "too long: %s/%s%s >= %d", f->path,
 				    sess->opts->backup_dir, usethis,
 				    sess->opts->backup_suffix,
 				    (int)sizeof(buf2));
@@ -1793,18 +1790,19 @@ again:
 		} else if (!S_ISDIR(st2.st_mode)) {
 			LOG3("%s: doing backup", f->path);
 			if (snprintf(buf2, sizeof(buf2), "%s%s", f->path,
-			    sess->opts->backup_suffix) > (int)sizeof(buf2)) {
+			    sess->opts->backup_suffix) >= (int)sizeof(buf2)) {
 				ERR("%s: backup: compound backup path too "
-				    "long: %s%s > %d", f->path, f->path,
+				    "long: %s%s >= %d", f->path, f->path,
 				    sess->opts->backup_suffix,
 				    (int)sizeof(buf2));
 				goto out;
 			}
-			if (move_file(p->rootfd, f->path,
-				p->rootfd, buf2, 1) == -1) {
-				ERR("%s: move_file: %s", f->path, buf2);
-				goto out;
+			if (backup_file(p->rootfd, f->path,
+			    p->rootfd, buf2, 1, &f->dstat) == -1) {
+				ERR("%s: backup_file: %s", f->path, buf2);
+				sess->total_errors++;
 			}
+
 		}
 	}
 
@@ -1814,8 +1812,6 @@ again:
 		ERRX1("rsync_set_metadata");
 		goto out;
 	}
-	if (sess->lateprint)
-		output(sess, f, 1);
 	/* 
 	 * Finally, rename the temporary to the real file, unless
 	 * --delay-updates is in effect, in which case it is going to
@@ -1894,8 +1890,6 @@ again:
 		usethis = buf2;
 	} else {
 		usethis = f->path;
-		if (sess->opts->hard_links)
-			hl_p = find_hl(f, hl);
 	}
 	if (!download_is_inplace(sess, p, false)) {
 		int fromfd;
@@ -1928,22 +1922,21 @@ again:
 		/* Status update is deferred until the update is done. */
 	} else {
 		f->flstate |= FLIST_SUCCESS;
-		if (hl_p != NULL) {
-			if (unlinkat(p->rootfd, f->path, 0) == -1)
-				if (errno != ENOENT)
-					ERRX1("unlink");
-
-			if (linkat(p->rootfd, hl_p->path, p->rootfd, f->path,
-			    0) == -1) {
-				LOG0("While hard linking '%s' to '%s' ",
-				    hl_p->path, f->path);
-				ERRX1("linkat");
-			}
-		}
+		/*
+		 * This file has been transferred, so unmark it to be
+		 * hardlinked, and it will be come the "leader" of this
+		 * group of hardlinks, and the other files will be linked
+		 * to this first transferred file in the group.
+		 */
+		f->flstate &= ~FLIST_NEED_HLINK;
 	}
 
-	progress(sess, p->fl[p->idx].st.size, p->fl[p->idx].st.size, true);
-	log_file(sess, p, f);
+	rsync_progress(sess, p->fl[p->idx].st.size, p->fl[p->idx].st.size,
+	    true, p->idx, p->flsz);
+
+	if (sess->lateprint)
+		log_item(sess, f);
+
 done:
 	/*
 	 * If we're redoing it, then we need to go ahead and clean up the file

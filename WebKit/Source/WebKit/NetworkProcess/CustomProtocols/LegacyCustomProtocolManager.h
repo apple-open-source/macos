@@ -66,6 +66,9 @@ public:
     void unregisterScheme(const String&);
     bool supportsScheme(const String&);
 
+    void ref() const final;
+    void deref() const final;
+
 #if PLATFORM(COCOA)
     typedef RetainPtr<WKCustomProtocol> CustomProtocol;
 #endif
@@ -96,7 +99,7 @@ private:
     void registerProtocolClass();
     Ref<NetworkProcess> protectedNetworkProcess() const;
 
-    WeakRef<NetworkProcess> m_networkProcess;
+    CheckedRef<NetworkProcess> m_networkProcess;
 
     typedef HashMap<LegacyCustomProtocolID, CustomProtocol> CustomProtocolMap;
     CustomProtocolMap m_customProtocolMap WTF_GUARDED_BY_LOCK(m_customProtocolMapLock);

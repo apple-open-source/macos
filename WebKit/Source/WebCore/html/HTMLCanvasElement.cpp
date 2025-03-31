@@ -69,6 +69,7 @@
 #include "RenderHTMLCanvas.h"
 #include "ResourceLoadObserver.h"
 #include "ScriptController.h"
+#include "ScriptTelemetryCategory.h"
 #include "Settings.h"
 #include "StringAdaptors.h"
 #include "WebCoreOpaqueRoot.h"
@@ -184,6 +185,12 @@ RenderPtr<RenderElement> HTMLCanvasElement::createElementRenderer(RenderStyle&& 
     if (frame && frame->script().canExecuteScripts(ReasonForCallingCanExecuteScripts::NotAboutToExecuteScript))
         return createRenderer<RenderHTMLCanvas>(*this, WTFMove(style));
     return HTMLElement::createElementRenderer(WTFMove(style), insertionPosition);
+}
+
+bool HTMLCanvasElement::isReplaced(const RenderStyle&) const
+{
+    RefPtr frame { document().frame() };
+    return frame && frame->script().canExecuteScripts(ReasonForCallingCanExecuteScripts::NotAboutToExecuteScript);
 }
 
 bool HTMLCanvasElement::canContainRangeEndPoint() const
@@ -364,19 +371,16 @@ CanvasRenderingContext2D* HTMLCanvasElement::createContext2d(const String& type,
     invalidateStyleAndLayerComposition();
 #endif
 
-    return static_cast<CanvasRenderingContext2D*>(m_context.get());
+    return downcast<CanvasRenderingContext2D>(m_context.get());
 }
 
 CanvasRenderingContext2D* HTMLCanvasElement::getContext2d(const String& type, CanvasRenderingContext2DSettings&& settings)
 {
     ASSERT_UNUSED(HTMLCanvasElement::is2dType(type), type);
 
-    if (m_context && !m_context->is2d())
-        return nullptr;
-
     if (!m_context)
         return createContext2d(type, WTFMove(settings));
-    return static_cast<CanvasRenderingContext2D*>(m_context.get());
+    return dynamicDowncast<CanvasRenderingContext2D>(m_context.get());
 }
 
 #if ENABLE(WEBGL)
@@ -451,7 +455,7 @@ WebGLRenderingContextBase* HTMLCanvasElement::createContextWebGL(WebGLVersion ty
         // Need to make sure a RenderLayer and compositing layer get created for the Canvas.
         invalidateStyleAndLayerComposition();
         if (CheckedPtr box = renderBox())
-            box->contentChanged(CanvasChanged);
+            box->contentChanged(ContentChangeType::Canvas);
 #if ENABLE(WEBXR)
         ASSERT(!attrs.xrCompatible || weakContext->isXRCompatible());
 #endif
@@ -465,18 +469,17 @@ WebGLRenderingContextBase* HTMLCanvasElement::getContextWebGL(WebGLVersion type,
     if (!shouldEnableWebGL(document().settings()))
         return nullptr;
 
-    if (m_context) {
-        auto* glContext = dynamicDowncast<WebGLRenderingContextBase>(*m_context);
-        if (!glContext)
-            return nullptr;
+    if (!m_context)
+        return createContextWebGL(type, WTFMove(attrs));
 
-        if ((type == WebGLVersion::WebGL1) != glContext->isWebGL1())
-            return nullptr;
+    auto* glContext = dynamicDowncast<WebGLRenderingContextBase>(*m_context);
+    if (!glContext)
+        return nullptr;
 
-        return glContext;
-    }
+    if ((type == WebGLVersion::WebGL1) != glContext->isWebGL1())
+        return nullptr;
 
-    return createContextWebGL(type, WTFMove(attrs));
+    return glContext;
 }
 
 #endif // ENABLE(WEBGL)
@@ -507,9 +510,10 @@ ImageBitmapRenderingContext* HTMLCanvasElement::createContextBitmapRenderer(cons
 ImageBitmapRenderingContext* HTMLCanvasElement::getContextBitmapRenderer(const String& type, ImageBitmapRenderingContextSettings&& settings)
 {
     ASSERT_UNUSED(type, HTMLCanvasElement::isBitmapRendererType(type));
+
     if (!m_context)
         return createContextBitmapRenderer(type, WTFMove(settings));
-    return static_cast<ImageBitmapRenderingContext*>(m_context.get());
+    return dynamicDowncast<ImageBitmapRenderingContext>(m_context.get());
 }
 
 bool HTMLCanvasElement::isWebGPUType(const String& type)
@@ -532,7 +536,7 @@ GPUCanvasContext* HTMLCanvasElement::createContextWebGPU(const String& type, GPU
         invalidateStyleAndLayerComposition();
     }
 
-    return static_cast<GPUCanvasContext*>(m_context.get());
+    return downcast<GPUCanvasContext>(m_context.get());
 }
 
 GPUCanvasContext* HTMLCanvasElement::getContextWebGPU(const String& type, GPU* gpu)
@@ -542,13 +546,10 @@ GPUCanvasContext* HTMLCanvasElement::getContextWebGPU(const String& type, GPU* g
     if (!document().settings().webGPUEnabled())
         return nullptr;
 
-    if (m_context && !m_context->isWebGPU())
-        return nullptr;
-
     if (!m_context)
         return createContextWebGPU(type, gpu);
 
-    return static_cast<GPUCanvasContext*>(m_context.get());
+    return dynamicDowncast<GPUCanvasContext>(m_context.get());
 }
 
 void HTMLCanvasElement::didDraw(const std::optional<FloatRect>& rect, ShouldApplyPostProcessingToDirtyRect shouldApplyPostProcessingToDirtyRect)
@@ -556,7 +557,7 @@ void HTMLCanvasElement::didDraw(const std::optional<FloatRect>& rect, ShouldAppl
     clearCopiedImage();
     if (CheckedPtr renderer = renderBox()) {
         if (usesContentsAsLayerContents())
-            renderer->contentChanged(CanvasPixelsChanged);
+            renderer->contentChanged(ContentChangeType::CanvasPixels);
         else if (rect) {
             FloatRect destRect;
             if (CheckedPtr renderReplaced = dynamicDowncast<RenderReplaced>(*renderer))
@@ -610,7 +611,7 @@ void HTMLCanvasElement::reset()
         if (oldSize != size()) {
             canvasRenderer->canvasSizeChanged();
             if (canvasRenderer->hasAcceleratedCompositing())
-                canvasRenderer->contentChanged(CanvasChanged);
+                canvasRenderer->contentChanged(ContentChangeType::Canvas);
         }
         if (hadImageBuffer)
             canvasRenderer->repaint();
@@ -687,11 +688,19 @@ ExceptionOr<UncachedString> HTMLCanvasElement::toDataURL(const String& mimeType,
 
     if (size().isEmpty())
         return UncachedString { "data:,"_s };
-    if (document().settings().webAPIStatisticsEnabled())
-        ResourceLoadObserver::shared().logCanvasRead(document());
+    Ref document = this->document();
+    if (document->settings().webAPIStatisticsEnabled())
+        ResourceLoadObserver::shared().logCanvasRead(document);
 
     auto encodingMIMEType = toEncodingMimeType(mimeType);
     auto quality = qualityFromJSValue(qualityValue);
+
+    if (document->requiresScriptExecutionTelemetry(ScriptTelemetryCategory::Canvas)) {
+        if (RefPtr buffer = createImageForNoiseInjection())
+            return UncachedString { buffer->toDataURL(encodingMIMEType, quality) };
+
+        return UncachedString { "data:,"_s };
+    }
 
 #if USE(CG)
     // Try to get ImageData first, as that may avoid lossy conversions.
@@ -699,7 +708,7 @@ ExceptionOr<UncachedString> HTMLCanvasElement::toDataURL(const String& mimeType,
         return UncachedString { dataURL(imageData->pixelBuffer(), encodingMIMEType, quality) };
 #endif
 
-    if (auto url = document().quirks().advancedPrivacyProtectionSubstituteDataURLForScriptWithFeatures(lastFillText(), width(), height()); !url.isNull()) {
+    if (auto url = document->quirks().advancedPrivacyProtectionSubstituteDataURLForScriptWithFeatures(lastFillText(), width(), height()); !url.isNull()) {
         RELEASE_LOG(FingerprintingMitigation, "HTMLCanvasElement::toDataURL: Quirking returned URL for identified fingerprinting script");
         auto consoleMessage = "Detected fingerprinting script. Quirking value returned from HTMLCanvasElement.toDataURL()"_s;
         canvasBaseScriptExecutionContext()->addConsoleMessage(MessageSource::Rendering, MessageLevel::Info, consoleMessage);
@@ -721,37 +730,42 @@ ExceptionOr<void> HTMLCanvasElement::toBlob(Ref<BlobCallback>&& callback, const 
     if (!originClean())
         return Exception { ExceptionCode::SecurityError };
 
+    Ref document = this->document();
     if (size().isEmpty()) {
-        callback->scheduleCallback(document(), nullptr);
+        callback->scheduleCallback(document, nullptr);
         return { };
     }
-    if (document().settings().webAPIStatisticsEnabled())
-        ResourceLoadObserver::shared().logCanvasRead(document());
+    if (document->settings().webAPIStatisticsEnabled())
+        ResourceLoadObserver::shared().logCanvasRead(document);
 
     auto encodingMIMEType = toEncodingMimeType(mimeType);
     auto quality = qualityFromJSValue(qualityValue);
+    auto scheduleCallbackWithBlobData = [&](Ref<BlobCallback>&& callback, Vector<uint8_t>&& blobData) {
+        RefPtr<Blob> blob;
+        if (!blobData.isEmpty())
+            blob = Blob::create(document.ptr(), WTFMove(blobData), encodingMIMEType);
+        callback->scheduleCallback(document, WTFMove(blob));
+    };
+
+    if (document->requiresScriptExecutionTelemetry(ScriptTelemetryCategory::Canvas)) {
+        RefPtr buffer = createImageForNoiseInjection();
+        scheduleCallbackWithBlobData(WTFMove(callback), buffer ? buffer->toData(encodingMIMEType, quality) : Vector<uint8_t> { });
+        return { };
+    }
 
 #if USE(CG)
     if (auto imageData = getImageData()) {
-        RefPtr<Blob> blob;
-        Vector<uint8_t> blobData = encodeData(imageData->pixelBuffer(), encodingMIMEType, quality);
-        if (!blobData.isEmpty())
-            blob = Blob::create(&document(), WTFMove(blobData), encodingMIMEType);
-        callback->scheduleCallback(document(), WTFMove(blob));
+        scheduleCallbackWithBlobData(WTFMove(callback), encodeData(imageData->pixelBuffer(), encodingMIMEType, quality));
         return { };
     }
 #endif
 
     RefPtr buffer = makeRenderingResultsAvailable();
     if (!buffer) {
-        callback->scheduleCallback(document(), nullptr);
+        callback->scheduleCallback(document, nullptr);
         return { };
     }
-    RefPtr<Blob> blob;
-    Vector<uint8_t> blobData = buffer->toData(encodingMIMEType, quality);
-    if (!blobData.isEmpty())
-        blob = Blob::create(&document(), WTFMove(blobData), encodingMIMEType);
-    callback->scheduleCallback(document(), WTFMove(blob));
+    scheduleCallbackWithBlobData(WTFMove(callback), buffer->toData(encodingMIMEType, quality));
     return { };
 }
 
@@ -883,7 +897,7 @@ void HTMLCanvasElement::setImageBufferAndMarkDirty(RefPtr<ImageBuffer>&& buffer)
 
         if (CheckedPtr canvasRenderer = dynamicDowncast<RenderHTMLCanvas>(renderer())) {
             canvasRenderer->canvasSizeChanged();
-            canvasRenderer->contentChanged(CanvasChanged);
+            canvasRenderer->contentChanged(ContentChangeType::Canvas);
         }
 
         notifyObserversCanvasResized();

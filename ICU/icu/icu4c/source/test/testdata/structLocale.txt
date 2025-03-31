@@ -1456,6 +1456,10 @@ structLocale:table(nofallback){
             "",
             "",
         }
+        XCG{
+            "",
+            "",
+        }
         XDR{
             "",
             "",
@@ -1557,6 +1561,10 @@ structLocale:table(nofallback){
             "",
         }
         ZWD{
+            "",
+            "",
+        }
+        ZWG{
             "",
             "",
         }
@@ -3862,6 +3870,14 @@ structLocale:table(nofallback){
             many{""}
             other{""}
         }
+        XCG{
+            zero{""}
+            one{""}
+            two{""}
+            few{""}
+            many{""}
+            other{""}
+        }
         XDR{
             zero{""}
             one{""}
@@ -4039,6 +4055,14 @@ structLocale:table(nofallback){
             other{""}
         }
         ZWD{
+            zero{""}
+            one{""}
+            two{""}
+            few{""}
+            many{""}
+            other{""}
+        }
+        ZWG{
             zero{""}
             one{""}
             two{""}

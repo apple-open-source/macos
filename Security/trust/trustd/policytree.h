@@ -36,6 +36,8 @@
 
 __BEGIN_DECLS
 
+#define POLICY_MAPPINGS_MAX 10
+#define POLICY_TREE_DEPTH_MAX 15
 
 #define oid_equal(oid1, oid2) DEROidCompare(&oid1, &oid2)
 typedef DERItem oid_t;

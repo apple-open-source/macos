@@ -197,6 +197,11 @@ static void nss_cms_decoder_notify(void* arg, Boolean before, void* dest, int de
     }
 }
 
+static void callback(void *arg, const char *buf, size_t len)
+{
+    SecCmsDecoderUpdate(arg, buf, (CFIndex)len);
+}
+
 /*
  * nss_cms_before_data - set up the current encoder to receive data
  */
@@ -302,7 +307,7 @@ static OSStatus nss_cms_before_data(SecCmsDecoderRef p7dcx)
     childp7dcx->cb_arg = p7dcx->cb_arg;
 
     /* now set up the parent to hand decoded data to the next level decoder */
-    p7dcx->cb = (SecCmsContentCallback)SecCmsDecoderUpdate;
+    p7dcx->cb = callback;
     p7dcx->cb_arg = childp7dcx;
 
     PORT_ArenaUnmark(poolp, mark);

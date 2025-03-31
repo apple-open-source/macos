@@ -57,6 +57,7 @@ boolean_t                   inMomentumPhase; \
 boolean_t                   inDigitizerPhase; \
 boolean_t                   supportReportLatency; \
 boolean_t                   hidden; \
+boolean_t                   registered; \
 boolean_t                   protectedAccess; \
 CFMutableDictionaryRef      propertyCache; \
 uint32_t                    propertyCacheHit; \

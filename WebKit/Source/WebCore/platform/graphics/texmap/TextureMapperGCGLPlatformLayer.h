@@ -19,12 +19,11 @@
 
 #pragma once
 
-#if ENABLE(WEBGL) && USE(TEXTURE_MAPPER) && !USE(NICOSIA)
+#if ENABLE(WEBGL) && USE(TEXTURE_MAPPER) && !USE(COORDINATED_GRAPHICS)
 
 #include "GraphicsContextGLTextureMapperANGLE.h"
 #include "PlatformLayer.h"
 #include "TextureMapperPlatformLayer.h"
-#include "TextureMapperPlatformLayerProxyProvider.h"
 #include <wtf/TZoneMalloc.h>
 
 namespace WebCore {
@@ -45,4 +44,4 @@ private:
 
 } // namespace WebCore
 
-#endif // ENABLE(WEBGL) && USE(TEXTURE_MAPPER)
+#endif // ENABLE(WEBGL) && USE(TEXTURE_MAPPER) && !USE(COORDINATED_GRAPHICS)

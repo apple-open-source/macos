@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2023 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2025 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -927,12 +927,19 @@ do_snapshot(int argc, char * const argv[])
 		int			fd;
 		CFMutableArrayRef	patterns;
 
-		fd = open(argv[0], O_WRONLY|O_CREAT|O_TRUNC|O_EXCL, 0644);
-		if (fd == -1) {
-			SCPrint(TRUE, stdout, CFSTR("open() failed: %s\n"), strerror(errno));
-			return;
+		/* check for e.g. /dev/stdout */
+		if (strcmp(argv[0], "/dev/stdout") == 0) {
+			fd = STDOUT_FILENO;
+		} else {
+			fd = open(argv[0],
+				  O_WRONLY|O_CREAT|O_TRUNC|O_EXCL, 0644);
+			if (fd == -1) {
+				SCPrint(TRUE, stdout,
+					CFSTR("open() failed: %s\n"),
+					strerror(errno));
+				return;
+			}
 		}
-
 		patterns = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
 		CFArrayAppendValue(patterns, CFSTR(".*"));
 		dict = SCDynamicStoreCopyMultiple(store, NULL, patterns);

@@ -172,7 +172,13 @@ NSString* OTFollowupContextTypeToString(OTFollowupContextType contextType)
         }
         for (FLFollowUpItem *followUp in followUps) {
             NSDate *creationDate = followUp.notification.creationDate;
-            pendingCFUs[followUp.uniqueIdentifier] = creationDate;
+
+            if(creationDate) {
+                NSISO8601DateFormatter *formatter = [[NSISO8601DateFormatter alloc] init];
+                pendingCFUs[followUp.uniqueIdentifier] = [formatter stringForObjectValue:creationDate];
+            } else {
+                pendingCFUs[followUp.uniqueIdentifier] = @"creation-date-missing";
+            }
         }
     }
 #endif

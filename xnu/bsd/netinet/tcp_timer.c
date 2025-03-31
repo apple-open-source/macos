@@ -1013,7 +1013,7 @@ tcp_send_keep_alive(struct tcpcb *tp)
 		} else {
 			tra.ifscope = IFSCOPE_NONE;
 		}
-		tcp_respond(tp, t_template->tt_ipgen,
+		tcp_respond(tp, t_template->tt_ipgen, sizeof(t_template->tt_ipgen),
 		    &t_template->tt_t, (struct mbuf *)NULL,
 		    tp->rcv_nxt, tp->snd_una - 1, 0, &tra);
 		(void) m_free(m);
@@ -1255,7 +1255,13 @@ retransmit_packet:
 		}
 
 		if (tp->t_state == TCPS_SYN_SENT) {
-			rexmt = TCP_REXMTVAL(tp) * tcp_syn_backoff[tp->t_rxtshift];
+			if ((tcp_link_heuristics_flags & TCP_LINK_HEUR_SYNRMXT) != 0 &&
+			    if_link_heuristics_enabled(outifp)) {
+				IF_TCP_STATINC(outifp, linkheur_synrxmt);
+				rexmt = TCP_REXMTVAL(tp) * tcp_backoff[tp->t_rxtshift];
+			} else {
+				rexmt = TCP_REXMTVAL(tp) * tcp_syn_backoff[tp->t_rxtshift];
+			}
 			tp->t_stat.synrxtshift = tp->t_rxtshift;
 			tp->t_stat.rxmitsyns++;
 
@@ -1268,9 +1274,10 @@ retransmit_packet:
 		} else {
 			rexmt = TCP_REXMTVAL(tp) * tcp_backoff[tp->t_rxtshift];
 		}
-
 		TCPT_RANGESET(tp->t_rxtcur, rexmt, tp->t_rttmin, TCPTV_REXMTMAX,
 		    TCP_ADD_REXMTSLOP(tp));
+
+		tcp_set_link_heur_rtomin(tp, outifp);
 		tp->t_timer[TCPT_REXMT] = OFFSET_FROM_START(tp, tp->t_rxtcur);
 
 		TCP_LOG_RTT_INFO(tp);
@@ -1822,8 +1829,8 @@ fc_output:
 		if (tp->t_timer[TCPT_REXMT] == 0 && tp->t_timer[TCPT_PERSIST] == 0 &&
 		    (tp->t_inpcb->inp_socket->so_snd.sb_cc != 0 || tp->t_state == TCPS_SYN_SENT ||
 		    tp->t_state == TCPS_SYN_RECEIVED)) {
-			tp->t_timer[TCPT_REXMT] =
-			    OFFSET_FROM_START(tp, tp->t_rxtcur);
+			tcp_set_link_heur_rtomin(tp, outifp);
+			tp->t_timer[TCPT_REXMT] = OFFSET_FROM_START(tp, tp->t_rxtcur);
 
 			os_log(OS_LOG_DEFAULT,
 			    "%s: tcp_output() returned %u with retransmission timer disabled "
@@ -3045,4 +3052,16 @@ tcp_itimer(struct inpcbinfo *ipi)
 
 	ipi->ipi_flags &= ~(INPCBINFO_UPDATE_MSS | INPCBINFO_HANDLE_LQM_ABORT);
 	lck_rw_done(&ipi->ipi_lock);
+}
+
+void
+tcp_set_link_heur_rtomin(struct tcpcb *tp, ifnet_t ifp)
+{
+	if ((tcp_link_heuristics_flags & TCP_LINK_HEUR_RTOMIN) != 0 &&
+	    ifp != NULL && if_link_heuristics_enabled(ifp)) {
+		if (tp->t_rxtcur < tcp_link_heuristics_rto_min) {
+			IF_TCP_STATINC(ifp, linkheur_rxmtfloor);
+			tp->t_rxtcur = tcp_link_heuristics_rto_min;
+		}
+	}
 }

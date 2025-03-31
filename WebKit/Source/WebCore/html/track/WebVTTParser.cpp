@@ -235,7 +235,7 @@ void WebVTTParser::parse()
 void WebVTTParser::fileFinished()
 {
     ASSERT(m_state != Finished);
-    parseBytes("\n\n"_span);
+    parseBytes("\n\n"_span8);
     m_state = Finished;
 }
 
@@ -446,7 +446,7 @@ WebVTTParser::ParseState WebVTTParser::collectTimingsAndSettings(const String& l
     input.skipWhile<isASCIIWhitespace<UChar>>();
 
     // Steps 6 - 9 - If the next three characters are not "-->", abort and return failure.
-    if (!input.scan("-->"))
+    if (!input.scan("-->"_span8))
         return BadCue;
     
     input.skipWhile<isASCIIWhitespace<UChar>>();

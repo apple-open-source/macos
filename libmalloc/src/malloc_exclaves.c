@@ -38,6 +38,8 @@ static malloc_zone_t *_malloc_zones[MAX_MALLOC_ZONES] = { NULL };
 malloc_zone_t ** __unsafe_indexable malloc_zones = _malloc_zones;
 
 bool malloc_sanitizer_enabled = false;
+
+
 #if __LIBLIBC_F_ASAN_INSTRUMENTATION
 static struct malloc_sanitizer_poison malloc_poison_default = {
 	.heap_allocate_poison = __asan_poison_heap_memory_alloc,
@@ -140,6 +142,7 @@ void __malloc_init(const char * __null_terminated * __null_terminated args)
 {
 	logical_ncpus = _liblibc_plat_num_cpus;
 	phys_ncpus = _liblibc_plat_num_cpus;
+
 
 	const unsigned malloc_debug_flags = MALLOC_ABORT_ON_CORRUPTION |
 			MALLOC_ABORT_ON_ERROR;
@@ -409,9 +412,7 @@ find_zone_and_free(void * __unsafe_indexable ptr, bool known_non_default)
 
 	zone = _find_registered_zone(ptr, &size, known_non_default);
 	if (!zone) {
-		malloc_report(MALLOC_REPORT_DEBUG | MALLOC_REPORT_NOLOG,
-			"*** error for object %p: pointer being freed was not allocated\n",
-			ptr);
+		malloc_report_pointer_was_not_allocated(MALLOC_REPORT_CRASH, ptr);
 	} else if (zone->free_definite_size) {
 		malloc_zone_free_definite_size(zone,
 			__unsafe_forge_bidi_indexable(void *, ptr, size), size);
@@ -483,9 +484,8 @@ _realloc(void * __unsafe_indexable in_ptr, size_t new_size)
 	} else {
 		zone = _find_registered_zone(old_ptr, NULL, false);
 		if (!zone) {
-			malloc_report(MALLOC_REPORT_CRASH,
-				"*** error for object %p: pointer being realloc'd was not allocated\n",
-				in_ptr);
+			malloc_report_pointer_was_not_allocated(MALLOC_REPORT_CRASH,
+					in_ptr);
 		} else {
 			retval = malloc_zone_realloc(zone, old_ptr, new_size);
 		}

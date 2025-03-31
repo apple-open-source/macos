@@ -74,7 +74,7 @@
     bool isDir = self.type == FSItemTypeDirectory ? true : false;
 
     if ((newFlags & ~MSDOS_VALID_BSD_FLAGS_MASK) != 0) {
-        os_log_error(fskit_std_log(), "%s: invalid BSD flags (0x%x)", __func__, newFlags);
+        os_log_error(OS_LOG_DEFAULT, "%s: invalid BSD flags (0x%x)", __func__, newFlags);
         return fs_errorForPOSIXError(EINVAL);
     }
 
@@ -294,7 +294,7 @@
                       inDir:(FATItem * _Nullable)parentDir
                  startingAt:(uint32_t)firstCluster
                    withData:(DirEntryData * _Nullable)entryData
-                    andName:(nonnull NSString *)name
+                    andName:(FSFileName *)name
                      isRoot:(bool)isRoot
 {
     self = [super initInVolume:volume
@@ -344,7 +344,7 @@
 -(NSError *)createDotEntriesWithAttrs:(FSItemAttributes *)mkdirAttrs
 {
     __block NSError *error = nil;
-    [self createNewDirEntryNamed:@"."
+    [self createNewDirEntryNamed:[[FSFileName alloc] initWithCString:"."]
                             type:FSItemTypeDirectory
                       attributes:mkdirAttrs
                 firstDataCluster:self.firstCluster
@@ -355,7 +355,7 @@
         }
     }];
     if (error) {
-        os_log_error(fskit_std_log(), "%s: create '.' entry failed with error = %@.", __func__, error);
+        os_log_error(OS_LOG_DEFAULT, "%s: create '.' entry failed with error = %@.", __func__, error);
         return error;
     }
 
@@ -364,7 +364,7 @@
     FSItemAttributes *parentAttrs = [self.parentDir getAttributes:getAttr];
 
     uint32_t firstCluster = [DirItem dynamicCast:self.parentDir].isRoot ? 0 : self.parentDir.firstCluster;
-    [self createNewDirEntryNamed:@".."
+    [self createNewDirEntryNamed:[[FSFileName alloc] initWithCString:".."]
                             type:FSItemTypeDirectory
                       attributes:parentAttrs
                 firstDataCluster:firstCluster
@@ -375,7 +375,7 @@
         }
     }];
     if (error) {
-        os_log_error(fskit_std_log(), "%s: create '..' entry failed with error = %@.", __func__, error);
+        os_log_error(OS_LOG_DEFAULT, "%s: create '..' entry failed with error = %@.", __func__, error);
         return error;
     }
     return nil;
@@ -393,7 +393,7 @@
     error = [dirBlock readRelativeDirBlockNum:0];
     if (error) {
         [dirBlock releaseBlock];
-        os_log_error(fskit_std_log(), "%s: Couldn't read dir block idx 0. Error = %@.", __func__, error);
+        os_log_error(OS_LOG_DEFAULT, "%s: Couldn't read dir block idx 0. Error = %@.", __func__, error);
         return error;
     }
     MsdosDirEntryData *dotEntryData = [[MsdosDirEntryData alloc] initWithData:[NSData dataWithBytes:[dirBlock getBytesAtOffset:0]
@@ -416,7 +416,7 @@
             error = [dirBlock writeToDiskFromOffset:0
                                              length:sectorSize];
             if (error) {
-                os_log_error(fskit_std_log(), "%s: Couldn't write dir block to disk. Error = %@.", __func__, error);
+                os_log_error(OS_LOG_DEFAULT, "%s: Couldn't write dir block to disk. Error = %@.", __func__, error);
                 [dirBlock releaseBlock];
                 return error;
             }
@@ -435,7 +435,7 @@
 
     error = [dirBlock readRelativeDirBlockNum:0];
     if (error) {
-        os_log_error(fskit_std_log(), "%s: Couldn't read dir block idx 0. Error = %@.", __func__, error);
+        os_log_error(OS_LOG_DEFAULT, "%s: Couldn't read dir block idx 0. Error = %@.", __func__, error);
         [dirBlock releaseBlock];
         return error;
     }
@@ -466,7 +466,7 @@
     error = [dirBlock writeToDisk];
     [dirBlock releaseBlock];
     if (error) {
-        os_log_error(fskit_std_log(), "%s: Failed to flush dot entry to disk. Error = %@", __func__, error);
+        os_log_error(OS_LOG_DEFAULT, "%s: Failed to flush dot entry to disk. Error = %@", __func__, error);
     }
 
     return error;
@@ -553,7 +553,7 @@
 				struct dosdirentry *currentDirEntry = (struct dosdirentry *)[dirBlock getBytesAtOffset:offsetInDirBlock];
 
                 if (currentDirEntry == NULL) {
-                    os_log_fault(fskit_std_log(), "%s: Got NULL dir entry from dir block", __FUNCTION__);
+                    os_log_fault(OS_LOG_DEFAULT, "%s: Got NULL dir entry from dir block", __FUNCTION__);
                     reply(fs_errorForPOSIXError(EFAULT), FATDirEntryUnknown, 0, nil, nil);
                     return iterateClustersStop;
                 }
@@ -573,7 +573,7 @@
 						if (longNameCtx.numLongNameEntriesLeft > 0) {
 							// Make sure we don't have any long name entries left.
 							// If we do, this directory is corrupted. In that case, just skip this entry.
-                            os_log_error(fskit_std_log(), "%s: (offset = %llu) Reached a short-name entry while we still have long-name entries left. Skipping entry.", __func__, currentDirOffset);
+                            os_log_error(OS_LOG_DEFAULT, "%s: (offset = %llu) Reached a short-name entry while we still have long-name entries left. Skipping entry.", __func__, currentDirOffset);
 							[longNameCtx invalidate];
 							continue;
 						}
@@ -602,7 +602,7 @@
 						if (!(longNameEntry->weCnt & WIN_LAST)) {
 							// All valid sets of long dir entries must begin with an entry having this mask.
 							// In case this mask isn't set, we just skip this dir entry.
-                            os_log_error(fskit_std_log(), "%s: (offset = %llu) First long-name entry doesn't have the WIN_LAST mask. Skipping entry.", __func__, currentDirOffset);
+                            os_log_error(OS_LOG_DEFAULT, "%s: (offset = %llu) First long-name entry doesn't have the WIN_LAST mask. Skipping entry.", __func__, currentDirOffset);
 							continue;
 						}
 						[longNameCtx fillWithFirstLongNameEntry:(struct winentry *)currentDirEntry];
@@ -614,7 +614,7 @@
 					{
 						// All long name entries must have the same checksum value.
 						// If it's not the case, we just skip this dir entry.
-                        os_log_error(fskit_std_log(), "%s: (offset = %llu) long-name entry has an invalid checksum value. Skipping entry.", __func__, currentDirOffset);
+                        os_log_error(OS_LOG_DEFAULT, "%s: (offset = %llu) long-name entry has an invalid checksum value. Skipping entry.", __func__, currentDirOffset);
 						[longNameCtx invalidate];
 						continue;
 					}
@@ -633,7 +633,7 @@
 					}
 					if (res == parseCharacterResultError) {
 						/* We failed parsing the name. Continue to the next dir entry */
-                        os_log_error(fskit_std_log(), "%s: (offset = %llu) Failed to parse long-name entry's characters. Skipping entry.", __func__, currentDirOffset);
+                        os_log_error(OS_LOG_DEFAULT, "%s: (offset = %llu) Failed to parse long-name entry's characters. Skipping entry.", __func__, currentDirOffset);
 						[longNameCtx invalidate];
 						continue;
 					}
@@ -677,14 +677,14 @@
          generationNum++) {
         genError = msdosfs_apply_generation_to_short_name(shortName, generationNum % MAX_AMOUNT_OF_SHORT_GENERATION_NUM);
         if (genError) {
-            os_log_error(fskit_std_log(), "%s: Couldn't apply generation number (%d) to short name (%s). error = %d.",
+            os_log_error(OS_LOG_DEFAULT, "%s: Couldn't apply generation number (%d) to short name (%s). error = %d.",
                          __FUNCTION__, generationNum, shortName, genError);
             return fs_errorForPOSIXError(genError);
         }
         [self isShortNameUniqueInDir:shortName
                         replyHandler:^(NSError * _Nullable lookupError, bool isUnique) {
             if (lookupError) {
-                os_log_error(fskit_std_log(), "%s: short name lookup failed with error = %@.", __FUNCTION__, lookupError);
+                os_log_error(OS_LOG_DEFAULT, "%s: short name lookup failed with error = %@.", __FUNCTION__, lookupError);
                 nsError = lookupError;
             } else {
                 isShortNameUnique = isUnique;
@@ -698,7 +698,7 @@
         }
     }
     if (!isShortNameUnique) {
-        os_log_error(fskit_std_log(), "%s: Couldn't find a unique generation number for shortname creation.", __func__);
+        os_log_error(OS_LOG_DEFAULT, "%s: Couldn't find a unique generation number for shortname creation.", __func__);
         return fs_errorForPOSIXError(EINVAL);
     }
 
@@ -737,13 +737,13 @@
         if (generationNum > 0 && generationNum < MAX_AMOUNT_OF_SHORT_GENERATION_NUM) {
             genError = msdosfs_apply_generation_to_short_name(shortName, generationNum);
             if (genError) {
-                os_log_error(fskit_std_log(), "%s: Couldn't apply generation number (%d) to short name (%s). error = %d.", __FUNCTION__, generationNum, shortName, genError);
+                os_log_error(OS_LOG_DEFAULT, "%s: Couldn't apply generation number (%d) to short name (%s). error = %d.", __FUNCTION__, generationNum, shortName, genError);
                 return reply(fs_errorForPOSIXError(genError), nil);
             }
             self.maxShortNameIndex++;
         } else {
             if ([self generateUniqueShortName:shortName offsetInDir:offsetInDir]) {
-                os_log_error(fskit_std_log(), "%s: Couldn't find a unique generation number for shortname creation.", __FUNCTION__);
+                os_log_error(OS_LOG_DEFAULT, "%s: Couldn't find a unique generation number for shortname creation.", __FUNCTION__);
                 return reply(fs_errorForPOSIXError(EINVAL), nil);
             }
         }
@@ -850,7 +850,7 @@
                   shouldWriteToDisk:true
                        replyHandler:^(NSError *iterateError, void *dirEntry) {
         if (iterateError) {
-            os_log_error(fskit_std_log(), "%s: Couldn't iterate dir entries. Error = %@.", __func__, iterateError);
+            os_log_error(OS_LOG_DEFAULT, "%s: Couldn't iterate dir entries. Error = %@.", __func__, iterateError);
             error = iterateError;
         } else {
             if (entryIdx < numberOfEntries - 1) {
@@ -880,7 +880,7 @@
     // Read dir block to memory.
     error = [dirBlock readDirBlockNum:msdosDirEntryData.dosDirEntryDirBlockNum];
     if (error) {
-        os_log_error(fskit_std_log(), "%s: Couldn't read dir block idx (%llu). Error = %@.", __func__, msdosDirEntryData.dosDirEntryDirBlockNum, error);
+        os_log_error(OS_LOG_DEFAULT, "%s: Couldn't read dir block idx (%llu). Error = %@.", __func__, msdosDirEntryData.dosDirEntryDirBlockNum, error);
         [dirBlock releaseBlock];
         return error;
     }
@@ -904,7 +904,7 @@
                   shouldWriteToDisk:true
                        replyHandler:^(NSError *iterateError, void *dirEntry) {
         if (iterateError) {
-            os_log_error(fskit_std_log(), "%s: Couldn't iterate dir entries. Error = %@.", __func__, iterateError);
+            os_log_error(OS_LOG_DEFAULT, "%s: Couldn't iterate dir entries. Error = %@.", __func__, iterateError);
             error = iterateError;
         } else {
             ((struct dosdirentry *)dirEntry)->deName[0] = SLOT_DELETED;
@@ -933,7 +933,7 @@
         if (!err) {
             struct dosdirentry *dosEntry = (struct dosdirentry *)dirEntry;
             if (dosEntry->deName[0] == SLOT_EMPTY) {
-                os_log_error(fskit_std_log(), "%s: [%u] points to an empty dir entry.", __FUNCTION__, offset);
+                os_log_error(OS_LOG_DEFAULT, "%s: [%u] points to an empty dir entry.", __FUNCTION__, offset);
                 err = fs_errorForPOSIXError(EINVAL);
             }
 
@@ -943,7 +943,7 @@
              */
             struct winentry *longEntry = (struct winentry*)dirEntry;
             if ((dosEntry->deName[0] != SLOT_DELETED) && ((dosEntry->deAttributes & ATTR_WIN95_MASK) == ATTR_WIN95) && (!(longEntry->weCnt & WIN_LAST))) {
-                os_log_error(fskit_std_log(), "%s: [%u] points to non-last long-name dir entry.", __FUNCTION__, offset);
+                os_log_error(OS_LOG_DEFAULT, "%s: [%u] points to non-last long-name dir entry.", __FUNCTION__, offset);
                 err = fs_errorForPOSIXError(EINVAL);
             }
         }
@@ -1058,9 +1058,18 @@
 
 -(uint64_t)getFileID
 {
-    if ([self isFat1216RootDir]) {
-        /* The root dir in FAT12 and FAT16 have a special hard-coded file ID. */
-        return ROOT_DIR_FILENUM;
+    if (self.isRoot) {
+        if ([self isFat1216RootDir]) {
+            /* The root dir in FAT12 and FAT16 have a special hard-coded file ID. */
+            return ROOT_DIR_FILENUM;
+        } else {
+            /*
+             * FAT32 root dir: the root dir entry data is of the
+             * FATDirEntryVolName entry, therefore it doesn't contain the first
+             * cluster of the root dir.  So we return the correct first cluster.
+             */
+            return self.firstCluster;
+        }
     } else {
         return [super getFileID];
     }
@@ -1161,7 +1170,7 @@
     }
 
     if (iterateDirError) {
-        os_log_error(fskit_std_log(), "%s: Failed to iterate directory. Error = %@.", __func__, iterateDirError);
+        os_log_error(OS_LOG_DEFAULT, "%s: Failed to iterate directory. Error = %@.", __func__, iterateDirError);
         reply(iterateDirError, false);
     }
 

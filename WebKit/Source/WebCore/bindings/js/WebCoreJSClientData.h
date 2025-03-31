@@ -165,7 +165,7 @@ public:
     void addClient(JSVMClientDataClient& client) { m_clients.add(client); }
 
 private:
-    HashSet<DOMWrapperWorld*> m_worldSet;
+    UncheckedKeyHashSet<DOMWrapperWorld*> m_worldSet;
     RefPtr<DOMWrapperWorld> m_normalWorld;
 
     JSBuiltinFunctions m_builtinFunctions;

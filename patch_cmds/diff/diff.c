@@ -20,20 +20,17 @@
  * Materiel Command, USAF, under agreement number F39502-99-1-0512.
  */
 
-#include <sys/cdefs.h>
-__FBSDID("$FreeBSD$");
-
 #include <sys/stat.h>
 
 #include <ctype.h>
 #include <err.h>
 #include <errno.h>
 #include <getopt.h>
-#include <stdlib.h>
+#include <limits.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include <limits.h>
 
 #include "diff.h"
 #include "xmalloc.h"
@@ -47,7 +44,7 @@ __FBSDID("$FreeBSD$");
 #ifdef __APPLE__
 static const char diff_version[] = "Apple diff (based on FreeBSD diff)";
 #else
-static const char diff_version[] = "FreeBSD diff 20220309";
+static const char diff_version[] = "FreeBSD diff 20240307";
 #endif /* __APPLE__ */
 bool	 lflag, Nflag, Pflag, rflag, sflag, Tflag, cflag;
 bool	 ignore_file_case, suppress_common, color, noderef;
@@ -58,7 +55,7 @@ int	 diff_format, diff_algorithm, status;
 #else
 int	 diff_format, diff_context, diff_algorithm, status;
 #endif	/* __APPLE__ */
-bool	diff_algorithm_set;
+bool	 diff_algorithm_set;
 int	 tabsize = 8, width = 130;
 static int	colorflag = COLORFLAG_NEVER;
 char	*start, *ifdefname, *diffargs, *label[2];
@@ -517,13 +514,8 @@ main(int argc, char **argv)
 		    argv[1], "");
 #endif
 	}
-#ifdef __APPLE__
-	/*
-	 * rdar://problem/87481026 - don't ignore errors when flushing stdout.
-	 */
 	if (fflush(stdout) != 0)
 		err(2, "stdout");
-#endif
 	exit(status);
 }
 
@@ -570,20 +562,23 @@ static void
 read_excludes_file(char *file)
 {
 	FILE *fp;
-	char *buf, *pattern;
-	size_t len;
+	char *pattern = NULL;
+	size_t blen = 0;
+	ssize_t len;
 
 	if (strcmp(file, "-") == 0)
 		fp = stdin;
 	else if ((fp = fopen(file, "r")) == NULL)
 		err(2, "%s", file);
-	while ((buf = fgetln(fp, &len)) != NULL) {
-		if (buf[len - 1] == '\n')
-			len--;
-		if ((pattern = strndup(buf, len)) == NULL)
-			err(2, "xstrndup");
+	while ((len = getline(&pattern, &blen, fp)) >= 0) {
+		if ((len > 0) && (pattern[len - 1] == '\n'))
+			pattern[len - 1] = '\0';
 		push_excludes(pattern);
+		/* we allocate a new string per line */
+		pattern = NULL;
+		blen = 0;
 	}
+	free(pattern);
 	if (strcmp(file, "-") != 0)
 		fclose(fp);
 }

@@ -1,0 +1,175 @@
+#! /bin/sh
+
+. ${tstdir-.}/daemon.sh
+. ${tstdir-.}/lib.sh
+. ${tstdir-.}/conf.sh
+
+: ${scriptdir="$tstdir"}
+
+dest="$PWD/ftp"
+cfgfile="$PWD/rsyncd.conf"
+scratch="$PWD/scratch"
+errfile="$PWD/rsyncd.out"
+
+rm -rf "$dest" "$scratch"
+
+mkdir "$dest" "$scratch"
+:> "$dest"/file
+
+cat <<EOF > "$cfgfile"
+path = $dest
+use chroot = no
+
+[simple_pre]
+	pre-xfer exec = $scriptdir/rsyncd-simple_pre.sh $scratch/pre.env
+[simple_post]
+	post-xfer exec = $scriptdir/rsyncd-simple_post.sh $scratch/post.env
+[cancel_pre]
+	pre-xfer exec = $scriptdir/rsyncd-cancel_pre.sh $scratch/cancel.flag
+[both]
+	pre-xfer exec = $scriptdir/rsyncd-stub.sh $scratch/pre.flag
+	post-xfer exec = $scriptdir/rsyncd-stub.sh $scratch/post.flag
+[both_precancel]
+	pre-xfer exec = $scriptdir/rsyncd-cancel_pre.sh $scratch/cancel.flag
+	post-xfer exec = $scriptdir/rsyncd-stub.sh $scratch/post.flag
+EOF
+
+rsyncd "$cfgfile"
+dport=$(daemon_port)
+
+wait_file() {
+	local wfile
+
+	wfile="$1"
+
+	# Wait up to 5 seconds for $envfile to appear
+	iter=0
+	tmo=50
+
+	while [ ! -s "$wfile" ] && [ "$iter" -lt "$tmo" ] ; do
+		sleep 0.1
+		iter=$((iter + 1))
+	done
+
+	[ -s "$wfile" ]
+}
+
+check_env() {
+	local extra_vars prepost envfile
+
+	prepost="$1"
+	envfile="$2"
+
+	if ! wait_file "$envfile"; then
+		1>&2 echo "$envfile is empty or missing"
+		exit 1
+	fi
+
+	while read line; do
+		case "$line" in
+		RSYNC_USER_NAME=*)
+			# Auth line will be empty, no validation needed here.
+			continue
+			;;
+		RSYNC_ARGS=*)
+			# RSYNC_ARGS should end in a dot.
+			case "$line" in
+			*\.)
+				# Will be malformed if we try to eval it, just
+				# add a bogus value.
+				RSYNC_ARGS=.
+
+				continue
+				;;
+			*)
+				1>&2 echo "RSYNC_ARGS must end in a '.'"
+				exit 1
+			;;
+			esac
+		esac
+
+		if echo "$line" | grep -E "^[^=]+=$"; then
+			1>&2 echo "Missing value: $line"
+			exit 1
+		fi
+
+		eval "$line"
+	done < "$envfile"
+
+	extra_vars=
+	case "$prepost" in
+	pre)
+		extra_vars="RSYNC_REQUEST RSYNC_ARGS"
+		;;
+	post)
+		extra_vars="RSYNC_EXIT_STATUS RSYNC_RAW_STATUS"
+		;;
+	esac
+
+	for common in RSYNC_MODULE_NAME RSYNC_MODULE_PATH RSYNC_HOST_ADDR \
+	    RSYNC_HOST_NAME RSYNC_USER_NAME RSYNC_PID $extra_vars; do
+		if [ -z "$common" ]; then
+			1>&2 echo "Variable '$common' expected, but is not set"
+			exit 1
+		fi
+	done
+}
+
+for module in pre post; do
+	if ! command $RSYNC_CLIENT -c rsync://localhost:$dport/simple_$module/file \
+	    "$scratch" 2> "$errfile"; then
+		1>&2 echo "module 'simple_$module' failed transfer"
+		exit 1
+	fi
+
+	# Force check_env into a subshell to avoid pollution, since we'll likely
+	# evaluate each line.
+	if ! ( check_env "$module" "$scratch"/"$module".env ); then
+		1>&2 echo "'simple_$module' environment malformed, see above"
+		1>&2 cat "$scratch"/"$module".env
+		exit 1
+	fi
+done
+
+# cancel_pre should not succeed
+if command $RSYNC_CLIENT -c rsync://localhost:$dport/cancel_pre/file \
+    "$scratch" 2> "$errfile"; then
+	1>&2 echo "module 'cancel_pre' should have failed"
+	exit 1
+elif ! wait_file "$scratch"/cancel.flag; then
+	1>&2 echo "module 'cancel_pre' did not create flag file"
+	1>&2 ls -l "$scratch"/cancel.flag
+	exit 1
+fi
+
+# both should create both flag files.
+if ! command $RSYNC_CLIENT -c rsync://localhost:$dport/both/file \
+    "$scratch" 2> "$errfile"; then
+	1>&2 echo "module 'post' should have succeeded"
+	exit 1
+elif ! wait_file "$scratch"/pre.flag; then
+	1>&2 echo "module 'both' did not create pre-xfer flag file"
+	1>&2 ls -l "$scratch"
+	exit 1
+elif ! wait_file "$scratch"/post.flag; then
+	1>&2 echo "module 'both' did not create post-xfer flag file"
+	1>&2 ls -l "$scratch"
+	exit 1
+fi
+
+# This last one has a post-xfer hook combined with a pre-xfer hook that will
+# cancel the xfer early on.
+rm -f "$scratch"/*.flag
+if command $RSYNC_CLIENT -c rsync://localhost:$dport/both_precancel/file \
+    "$scratch" 2> "$errfile"; then
+	1>&2 echo "module 'both_precancel' should have failed"
+	exit 1
+elif ! wait_file "$scratch"/cancel.flag; then
+	1>&2 echo "module 'both_precancel' did not create cancel flag file"
+	1>&2 ls -l "$scratch"
+	exit 1
+elif ! wait_file "$scratch"/post.flag; then
+	1>&2 echo "module 'both_precancel' did not create post-xfer flag file"
+	1>&2 ls -l "$scratch"
+	exit 1
+fi

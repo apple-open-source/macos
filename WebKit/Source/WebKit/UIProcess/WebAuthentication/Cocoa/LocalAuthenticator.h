@@ -56,7 +56,7 @@ public:
         PolicyDecided,
     };
 
-    static Ref<LocalAuthenticator> create(UniqueRef<LocalConnection>&& connection)
+    static Ref<LocalAuthenticator> create(Ref<LocalConnection>&& connection)
     {
         return adoptRef(*new LocalAuthenticator(WTFMove(connection)));
     }
@@ -64,14 +64,13 @@ public:
     static void clearAllCredentials();
 
 private:
-    explicit LocalAuthenticator(UniqueRef<LocalConnection>&&);
+    explicit LocalAuthenticator(Ref<LocalConnection>&&);
 
     std::optional<WebCore::ExceptionData> processClientExtensions(std::variant<Ref<WebCore::AuthenticatorAttestationResponse>, Ref<WebCore::AuthenticatorAssertionResponse>>);
 
     void makeCredential() final;
     void continueMakeCredentialAfterReceivingLAContext(LAContext *);
     void continueMakeCredentialAfterUserVerification(SecAccessControlRef, LocalConnection::UserVerification, LAContext *);
-    void continueMakeCredentialAfterAttested(Vector<uint8_t>&& credentialId, Vector<uint8_t>&& authData, NSArray *certificates, NSError *);
     void finishMakeCredential(Vector<uint8_t>&& credentialId, Vector<uint8_t>&& attestationObject, std::optional<WebCore::ExceptionData>);
 
     void getAssertion() final;
@@ -87,8 +86,10 @@ private:
 
     std::optional<Vector<Ref<WebCore::AuthenticatorAssertionResponse>>> getExistingCredentials(const String& rpId);
 
+    Ref<LocalConnection> protectedConnection() const { return m_connection; }
+
     State m_state { State::Init };
-    UniqueRef<LocalConnection> m_connection;
+    Ref<LocalConnection> m_connection;
     Vector<Ref<WebCore::AuthenticatorAssertionResponse>> m_existingCredentials;
     RetainPtr<NSData> m_provisionalCredentialId;
 };

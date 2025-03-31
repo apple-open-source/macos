@@ -200,7 +200,6 @@ main(int argc, char *argv[])
 static void
 rm_tree(char **argv)
 {
-	errno_t dir_errno = -1;
 	FTS *fts;
 	FTSENT *p;
 	int needstat;
@@ -334,18 +333,14 @@ rm_tree(char **argv)
 				}
 
 				if (rval == -1) {
-					if (p->fts_info == FTS_DP && errno == ENOTEMPTY && (dir_errno == EACCES || dir_errno == -1)) {
+					if (errno == ENOTEMPTY && p->fts_errno == EACCES) {
 						/*
 						 * If we reach this point, it means that we either failed to
-						 * delete an entry because of a permission error,
-						 * Or because we couldn't even list the dir entities.
-						 * This case should be EACCES.
+						 * list the dir entities, or FTS failed to chdir to a child directory.
+						 * Anyway, this case should be EACCES.
 						 */
 						errno = EACCES;
 					}
-
-					if ((dir_errno == -1) || (dir_errno == EACCES))
-						dir_errno = errno;
 				}
 
 				break;
@@ -396,10 +391,6 @@ rm_tree(char **argv)
 						    p->fts_path);
 					}
 					continue;
-				}
-				if (rval == -1) {
-					if ((dir_errno == -1) || (dir_errno == EACCES))
-						dir_errno = errno;
 				}
 			}
 		}

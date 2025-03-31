@@ -47,6 +47,10 @@ class HIDGamepadProvider : public GamepadProvider {
 public:
     WEBCORE_EXPORT static HIDGamepadProvider& singleton();
 
+    // Do nothing since this is a singleton.
+    void ref() const { }
+    void deref() const { }
+
     WEBCORE_EXPORT void startMonitoringGamepads(GamepadProviderClient&) final;
     WEBCORE_EXPORT void stopMonitoringGamepads(GamepadProviderClient&) final;
     const Vector<WeakPtr<PlatformGamepad>>& platformGamepads() final { return m_gamepadVector; }
@@ -89,7 +93,7 @@ private:
     Timer m_inputNotificationTimer;
 
 #if HAVE(MULTIGAMEPADPROVIDER_SUPPORT)
-    HashSet<IOHIDDeviceRef> m_gameControllerManagedGamepads;
+    UncheckedKeyHashSet<IOHIDDeviceRef> m_gameControllerManagedGamepads;
 #endif // HAVE(MULTIGAMEPADPROVIDER_SUPPORT)
 };
 

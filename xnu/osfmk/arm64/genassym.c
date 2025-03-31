@@ -380,9 +380,9 @@ main(int     argc,
 #endif /* defined(HAS_APPLE_PAC) */
 
 
-#if __ARM_ARCH_8_5__
+#if ERET_IS_NOT_CONTEXT_SYNCHRONIZING
 	DECLARE("CPU_SYNC_ON_CSWITCH", offsetof(cpu_data_t, sync_on_cswitch));
-#endif /* __ARM_ARCH_8_5__ */
+#endif /* ERET_IS_NOT_CONTEXT_SYNCHRONIZING */
 
 #if HIBERNATION
 	DECLARE("HIBHDR_STACKOFFSET", offsetof(IOHibernateImageHeader, restore1StackOffset));
@@ -400,6 +400,7 @@ main(int     argc,
 	DECLARE("SPTM_CPU_PANIC", SPTM_CPU_PANIC);
 	DECLARE("SPTM_TRACE_SIZE_SHIFT", SPTM_TRACE_SIZE_SHIFT);
 #endif
+
 
 
 #if CONFIG_SPTM && (DEVELOPMENT || DEBUG)

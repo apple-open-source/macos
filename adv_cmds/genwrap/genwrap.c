@@ -884,7 +884,7 @@ wrapper_write(FILE *outfile)
 		fprintf(outfile, "\n");
 
 	fprintf(outfile, "\n/* Application Definitions */\n");
-	fprintf(outfile, "static const struct application wrapper_apps[] = {\n");
+	fprintf(outfile, "static struct application wrapper_apps[] = {\n");
 
 	LIST_FOREACH(app, &apps, app_entries) {
 		fprintf(outfile, "	{\n");

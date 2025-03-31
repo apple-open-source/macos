@@ -27,6 +27,7 @@
 
 #include "SharedWorkerIdentifier.h"
 #include "TransferredMessagePort.h"
+#include <wtf/AbstractRefCounted.h>
 #include <wtf/HashMap.h>
 #include <wtf/TZoneMalloc.h>
 
@@ -46,7 +47,7 @@ public:
     void resumeSharedWorker(SharedWorkerIdentifier);
     WEBCORE_EXPORT void stopAllSharedWorkers();
 
-    class Connection {
+    class Connection : public AbstractRefCounted {
         WTF_MAKE_TZONE_ALLOCATED_EXPORT(Connection, WEBCORE_EXPORT);
     public:
         virtual ~Connection() { }
@@ -68,7 +69,7 @@ public:
         bool m_isClosed { false };
     };
 
-    WEBCORE_EXPORT void setConnection(std::unique_ptr<Connection>&&);
+    WEBCORE_EXPORT void setConnection(RefPtr<Connection>&&);
     WEBCORE_EXPORT Connection* connection() const;
 
     WEBCORE_EXPORT void registerSharedWorkerThread(Ref<SharedWorkerThreadProxy>&&);
@@ -80,7 +81,7 @@ private:
 
     SharedWorkerContextManager() = default;
 
-    std::unique_ptr<Connection> m_connection;
+    RefPtr<Connection> m_connection;
     HashMap<SharedWorkerIdentifier, Ref<SharedWorkerThreadProxy>> m_workerMap;
 };
 

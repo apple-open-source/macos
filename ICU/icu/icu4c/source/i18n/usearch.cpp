@@ -116,7 +116,7 @@ uint16_t getFCD(const char16_t   *str, int32_t *offset,
 {
     const char16_t *temp = str + *offset;
     uint16_t    result = g_nfcImpl->nextFCD16(temp, str + strlength);
-    *offset = (int32_t)(temp - str);
+    *offset = static_cast<int32_t>(temp - str);
     return result;
 }
 
@@ -167,7 +167,7 @@ inline int32_t getCE(const UStringSearch *strsrch, uint32_t sourcece)
 static
 inline void * allocateMemory(uint32_t size, UErrorCode *status)
 {
-    uint32_t *result = (uint32_t *)uprv_malloc(size);
+    uint32_t* result = static_cast<uint32_t*>(uprv_malloc(size));
     if (result == nullptr) {
         *status = U_MEMORY_ALLOCATION_ERROR;
     }
@@ -201,8 +201,8 @@ inline int32_t * addTouint32_tArray(int32_t    *destination,
     uint32_t newlength = *destinationlength;
     if (offset + 1 == newlength) {
         newlength += increments;
-        int32_t *temp = (int32_t *)allocateMemory(
-                                         sizeof(int32_t) * newlength, status);
+        int32_t* temp = static_cast<int32_t*>(allocateMemory(
+                                         sizeof(int32_t) * newlength, status));
         if (U_FAILURE(*status)) {
             return nullptr;
         }
@@ -241,8 +241,8 @@ inline int64_t * addTouint64_tArray(int64_t    *destination,
     uint32_t newlength = *destinationlength;
     if (offset + 1 == newlength) {
         newlength += increments;
-        int64_t *temp = (int64_t *)allocateMemory(
-                                         sizeof(int64_t) * newlength, status);
+        int64_t* temp = static_cast<int64_t*>(allocateMemory(
+                                         sizeof(int64_t) * newlength, status));
 
         if (U_FAILURE(*status)) {
             return nullptr;
@@ -1437,7 +1437,7 @@ CEIBuffer::CEIBuffer(UStringSearch *ss, UErrorCode *status) {
     if (!initTextProcessedIter(ss, status)) { return; }
 
     if (bufSize>DEFAULT_CEBUFFER_SIZE) {
-        buf = (CEI *)uprv_malloc(bufSize * sizeof(CEI));
+        buf = static_cast<CEI*>(uprv_malloc(bufSize * sizeof(CEI)));
         if (buf == nullptr) {
             *status = U_MEMORY_ALLOCATION_ERROR;
         }
@@ -1710,8 +1710,8 @@ static UCompareCEsResult compareCE64s(int64_t targCE, int64_t patCE, int16_t com
     int64_t mask;
 
     mask = 0xFFFF0000;
-    int32_t targLev1 = (int32_t)(targCEshifted & mask);
-    int32_t patLev1 = (int32_t)(patCEshifted & mask);
+    int32_t targLev1 = static_cast<int32_t>(targCEshifted & mask);
+    int32_t patLev1 = static_cast<int32_t>(patCEshifted & mask);
     if ( targLev1 != patLev1 ) {
         if ( targLev1 == 0 ) {
             return U_CE_SKIP_TARG;
@@ -1723,8 +1723,8 @@ static UCompareCEsResult compareCE64s(int64_t targCE, int64_t patCE, int16_t com
     }
 
     mask = 0x0000FFFF;
-    int32_t targLev2 = (int32_t)(targCEshifted & mask);
-    int32_t patLev2 = (int32_t)(patCEshifted & mask);
+    int32_t targLev2 = static_cast<int32_t>(targCEshifted & mask);
+    int32_t patLev2 = static_cast<int32_t>(patCEshifted & mask);
     if ( targLev2 != patLev2 ) {
         if ( targLev2 == 0 ) {
             return U_CE_SKIP_TARG;
@@ -1737,8 +1737,8 @@ static UCompareCEsResult compareCE64s(int64_t targCE, int64_t patCE, int16_t com
     }
     
     mask = 0xFFFF0000;
-    int32_t targLev3 = (int32_t)(targCE & mask);
-    int32_t patLev3 = (int32_t)(patCE & mask);
+    int32_t targLev3 = static_cast<int32_t>(targCE & mask);
+    int32_t patLev3 = static_cast<int32_t>(patCE & mask);
     if ( targLev3 != patLev3 ) {
         return (patLev3 == U_CE_LEVEL3_BASE || (compareType == USEARCH_ANY_BASE_WEIGHT_IS_WILDCARD && targLev3 == U_CE_LEVEL3_BASE) )?
             U_CE_MATCH: U_CE_NO_MATCH;
@@ -1910,7 +1910,7 @@ U_CAPI UBool U_EXPORT2 usearch_search(UStringSearch  *strsrch,
         //    1. The match extended to the last CE from the target text, which is OK, or
         //    2. The last CE that was part of the match is in an expansion that extends
         //       to the first CE after the match. In this case, we reject the match.
-        const CEI *nextCEI = 0;
+        const CEI* nextCEI = nullptr;
         if (strsrch->search->elementComparisonType == 0) {
             nextCEI  = ceb.get(targetIx + targetIxOffset);
             maxLimit = nextCEI->lowIndex;

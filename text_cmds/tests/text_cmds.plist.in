@@ -7223,33 +7223,30 @@
 		</dict>
 		<dict>
 		        <key>TestName</key>
-		        <string>text_cmds.jq.optionaltest</string>
+		        <string>text_cmds.jq.base64test</string>
+			<key>ShellEnv</key>
+			<dict>
+				<key>JQ</key>
+				<string>jq</string>
+			</dict>
 		        <key>Command</key>
 		        <array>
                                 <string>/bin/sh</string>
-                                <string>/AppleInternal/Tests/text_cmds/jq/tests/optionaltest</string>
+                                <string>/AppleInternal/Tests/text_cmds/jq/tests/base64test</string>
 		        </array>
 		        <key>Description</key>
-                        <string>optionaltest from the jq source distribution</string>
-		        <key>Timeout</key>
-		        <integer>300</integer>
-		</dict>
-		<dict>
-		        <key>TestName</key>
-		        <string>text_cmds.jq.mantest</string>
-		        <key>Command</key>
-		        <array>
-                                <string>/bin/sh</string>
-                                <string>/AppleInternal/Tests/text_cmds/jq/tests/mantest</string>
-		        </array>
-		        <key>Description</key>
-                        <string>mantest from the jq source distribution</string>
+                        <string>base64test from the jq source distribution</string>
 		        <key>Timeout</key>
 		        <integer>300</integer>
 		</dict>
 		<dict>
 		        <key>TestName</key>
                         <string>text_cmds.jq.jqtest</string>
+			<key>ShellEnv</key>
+			<dict>
+				<key>JQ</key>
+				<string>jq</string>
+			</dict>
 		        <key>Command</key>
 		        <array>
                                 <string>/bin/sh</string>
@@ -7262,7 +7259,48 @@
 		</dict>
 		<dict>
 		        <key>TestName</key>
+		        <string>text_cmds.jq.manonigtest</string>
+			<key>ShellEnv</key>
+			<dict>
+				<key>JQ</key>
+				<string>jq</string>
+			</dict>
+		        <key>Command</key>
+		        <array>
+                                <string>/bin/sh</string>
+                                <string>/AppleInternal/Tests/text_cmds/jq/tests/manonigtest</string>
+		        </array>
+		        <key>Description</key>
+                        <string>manonigtest from the jq source distribution</string>
+		        <key>Timeout</key>
+		        <integer>300</integer>
+		</dict>
+		<dict>
+		        <key>TestName</key>
+		        <string>text_cmds.jq.mantest</string>
+			<key>ShellEnv</key>
+			<dict>
+				<key>JQ</key>
+				<string>jq</string>
+			</dict>
+		        <key>Command</key>
+		        <array>
+                                <string>/bin/sh</string>
+                                <string>/AppleInternal/Tests/text_cmds/jq/tests/mantest</string>
+		        </array>
+		        <key>Description</key>
+                        <string>mantest from the jq source distribution</string>
+		        <key>Timeout</key>
+		        <integer>300</integer>
+		</dict>
+		<dict>
+		        <key>TestName</key>
 		        <string>text_cmds.jq.onigtest</string>
+			<key>ShellEnv</key>
+			<dict>
+				<key>JQ</key>
+				<string>jq</string>
+			</dict>
 		        <key>Command</key>
 		        <array>
                                 <string>/bin/sh</string>
@@ -7275,7 +7313,30 @@
 		</dict>
 		<dict>
 		        <key>TestName</key>
+		        <string>text_cmds.jq.optionaltest</string>
+			<key>ShellEnv</key>
+			<dict>
+				<key>JQ</key>
+				<string>jq</string>
+			</dict>
+		        <key>Command</key>
+		        <array>
+                                <string>/bin/sh</string>
+                                <string>/AppleInternal/Tests/text_cmds/jq/tests/optionaltest</string>
+		        </array>
+		        <key>Description</key>
+                        <string>optionaltest from the jq source distribution</string>
+		        <key>Timeout</key>
+		        <integer>300</integer>
+		</dict>
+		<dict>
+		        <key>TestName</key>
 		        <string>text_cmds.jq.shtest</string>
+			<key>ShellEnv</key>
+			<dict>
+				<key>JQ</key>
+				<string>jq</string>
+			</dict>
 		        <key>Command</key>
 		        <array>
                                 <string>/bin/sh</string>
@@ -7289,6 +7350,11 @@
 		<dict>
 		        <key>TestName</key>
 		        <string>text_cmds.jq.utf8test</string>
+			<key>ShellEnv</key>
+			<dict>
+				<key>JQ</key>
+				<string>jq</string>
+			</dict>
 		        <key>Command</key>
 		        <array>
                                 <string>/bin/sh</string>
@@ -7296,19 +7362,6 @@
 		        </array>
 		        <key>Description</key>
                         <string>utf8test from the jq source distribution</string>
-		        <key>Timeout</key>
-		        <integer>300</integer>
-		</dict>
-		<dict>
-		        <key>TestName</key>
-		        <string>text_cmds.jq.base64test</string>
-		        <key>Command</key>
-		        <array>
-                                <string>/bin/sh</string>
-                                <string>/AppleInternal/Tests/text_cmds/jq/tests/base64test</string>
-		        </array>
-		        <key>Description</key>
-                        <string>base64test from the jq source distribution</string>
 		        <key>Timeout</key>
 		        <integer>300</integer>
 		</dict>
@@ -10533,6 +10586,33 @@
 			</array>
 			<key>Description</key>
 			<string>print every instance of repeated lines</string>
+			<key>MayRunConcurrently</key>
+			<true/>
+			<key>Timeout</key>
+			<integer>300</integer>
+		</dict>
+		<dict>
+			<key>TestName</key>
+			<string>text_cmds.uniq_test.sh.count_all_repeated</string>
+			<key>ShellEnv</key>
+			<dict>
+				<key>ATF_SH</key>
+				<string>/usr/local/bin/atf-sh</string>
+				<key>__RUNNING_INSIDE_ATF_RUN</key>
+				<string>internal-yes-value</string>
+			</dict>
+			<key>Command</key>
+			<array>
+				<string>/usr/local/bin/atf-sh</string>
+				<string>/AppleInternal/Tests/text_cmds/uniq/uniq_test.sh</string>
+				<string>-s</string>
+				<string>/AppleInternal/Tests/text_cmds/uniq</string>
+				<string>-r</string>
+				<string>uniq_test.sh.count_all_repeated.results.txt</string>
+				<string>count_all_repeated</string>
+			</array>
+			<key>Description</key>
+			<string>count and print every instance of repeated lines</string>
 			<key>MayRunConcurrently</key>
 			<true/>
 			<key>Timeout</key>

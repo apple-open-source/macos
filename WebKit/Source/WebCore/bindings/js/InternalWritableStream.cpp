@@ -52,6 +52,37 @@ static ExceptionOr<JSC::JSValue> invokeWritableStreamFunction(JSC::JSGlobalObjec
     return result;
 }
 
+ExceptionOr<JSC::JSValue> InternalWritableStream::writeChunkForBingings(JSC::JSGlobalObject& globalObject, JSC::JSValue chunk)
+{
+    auto* clientData = static_cast<JSVMClientData*>(globalObject.vm().clientData);
+    JSC::MarkedArgumentBuffer arguments;
+    arguments.append(guardedObject());
+    ASSERT(!arguments.hasOverflowed());
+    auto& writerPrivateName = clientData->builtinFunctions().writableStreamInternalsBuiltins().acquireWritableStreamDefaultWriterPrivateName();
+    auto writerResult = invokeWritableStreamFunction(globalObject, writerPrivateName, arguments);
+    if (UNLIKELY(writerResult.hasException()))
+        return writerResult.releaseException();
+
+    arguments.clear();
+    arguments.append(writerResult.returnValue());
+    arguments.append(chunk);
+    ASSERT(!arguments.hasOverflowed());
+    auto& writePrivateName = clientData->builtinFunctions().writableStreamInternalsBuiltins().writableStreamDefaultWriterWritePrivateName();
+    auto writeResult = invokeWritableStreamFunction(globalObject, writePrivateName, arguments);
+    if (UNLIKELY(writeResult.hasException()))
+        return writeResult.releaseException();
+
+    arguments.clear();
+    arguments.append(writerResult.returnValue());
+    ASSERT(!arguments.hasOverflowed());
+    auto& releasePrivateName = clientData->builtinFunctions().writableStreamInternalsBuiltins().writableStreamDefaultWriterReleasePrivateName();
+    auto releaseResult = invokeWritableStreamFunction(globalObject, releasePrivateName, arguments);
+    if (UNLIKELY(releaseResult.hasException()))
+        return releaseResult.releaseException();
+
+    return writeResult;
+}
+
 ExceptionOr<Ref<InternalWritableStream>> InternalWritableStream::createFromUnderlyingSink(JSDOMGlobalObject& globalObject, JSC::JSValue underlyingSink, JSC::JSValue strategy)
 {
     auto* clientData = static_cast<JSVMClientData*>(globalObject.vm().clientData);

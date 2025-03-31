@@ -810,7 +810,7 @@ string/FreeBSD/strcasecmp.3	freebsd	lib/libc/string/strcasecmp.3	5174a6a262d28e1
 string/FreeBSD/strcasecmp.c	freebsd	lib/libc/string/strcasecmp.c	bd604b4b064135e661660c045cd31145e2e4ce71
 string/FreeBSD/strcasestr.c	freebsd	lib/libc/string/strcasestr.c	bd604b4b064135e661660c045cd31145e2e4ce71
 string/FreeBSD/strcat.3	freebsd	lib/libc/string/strcat.3	ef33e7368a5be64385219b7c212071e25d2528ad
-string/FreeBSD/strchr.3	freebsd	lib/libc/string/strchr.3	5174a6a262d28e127da375394374b40dc9f3127d
+string/FreeBSD/strchr.3	freebsd	lib/libc/string/strchr.3	dc36d6f9bb1753f3808552f3afd30eda9a7b206a
 string/FreeBSD/strcmp.3	freebsd	lib/libc/string/strcmp.3	2ce5c85ed065b37eb3c759877f3a287dd032c716
 string/FreeBSD/strcoll.3	freebsd	lib/libc/string/strcoll.3	c879ae3536e6d92b8d96c8965c5b05fcb9541520
 string/FreeBSD/strcoll.c	freebsd	lib/libc/string/strcoll.c	bd604b4b064135e661660c045cd31145e2e4ce71
@@ -882,7 +882,9 @@ string/FreeBSD/wmemset.c	freebsd	lib/libc/string/wmemset.c	ea58272861af2404aa2c8
 sys/OpenBSD/stack_protector.c	openbsd	lib/libc/sys/stack_protector.c	3fb315b1c38f6a51d2b0b8852f7796476bf816a3
 sys/nanosleep.2	freebsd	lib/libc/sys/nanosleep.2	32eef9aeb1f39a1623cea55da147c89abbd5b9a5
 sys/sigwait.2	freebsd	lib/libc_r/man/sigwait.3	32eef9aeb1f39a1623cea55da147c89abbd5b9a5
+string/FreeBSD/strchrnul.c	freebsd	lib/libc/string/strchrnul.c	559a218c9b257775fb249b67945fe4a05b7a6b9f
 tests/FreeBSD/gen/popen_test.c	freebsd	lib/libc/tests/gen/popen_test.c	397f4a0de5c2ffeda63fb81930d94a51bc248ff6
+tests/FreeBSD/string/t_strchrnul.c freebsd	contrib/netbsd-tests/lib/libc/string/t_strchrnul.c	606d0e4a9a862a7b4e3469a084834ca0e888afa4
 tests/freebsd_fmemopen.c	freebsd	lib/libc/tests/stdio/fmemopen2_test.c	a3422d96bd4c08d07bb6c1984c86578b67ee6a41
 tests/freebsd_glob.c	freebsd	lib/libc/tests/gen/glob2_test.c	215b15da57f0caef9e0ec0641dc108fa5b909784
 tests/freebsd_open_memstream.c	freebsd	lib/libc/tests/stdio/open_memstream2_test.c	a3422d96bd4c08d07bb6c1984c86578b67ee6a41

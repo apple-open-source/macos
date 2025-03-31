@@ -122,8 +122,8 @@
 #else
 66	AUE_NULL	ALL	{ int nosys(void); }   { old vfork }
 #endif
-67	AUE_NULL	ALL	{ int nosys(void); }   { old vread }
-68	AUE_NULL	ALL	{ int nosys(void); }   { old vwrite }
+67	AUE_NULL	ALL	{ int oslog_coproc_reg(const char *uuid, const char *file_path, size_t file_path_len) NO_SYSCALL_STUB; }
+68	AUE_NULL	ALL	{ int oslog_coproc(void *buff, uint64_t buff_len, uint32_t type, const char *uuid, uint64_t timestamp, uint32_t offset, uint32_t stream_log) NO_SYSCALL_STUB; }
 69	AUE_NULL	ALL	{ int nosys(void); }   { old sbrk }
 70	AUE_NULL	ALL	{ int nosys(void); }   { old sstk }
 71	AUE_NULL	ALL	{ int nosys(void); }   { old mmap }

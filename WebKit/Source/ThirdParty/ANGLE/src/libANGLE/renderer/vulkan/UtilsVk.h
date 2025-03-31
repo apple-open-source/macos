@@ -75,6 +75,14 @@ class UtilsVk : angle::NonCopyable
         uint32_t dstIndexBufferOffset    = 0;
     };
 
+    struct OffsetAndVertexCount
+    {
+        uint32_t srcOffset;
+        uint32_t dstOffset;
+        uint32_t vertexCount;
+    };
+    using OffsetAndVertexCounts = std::vector<OffsetAndVertexCount>;
+
     struct ConvertVertexParameters
     {
         size_t vertexCount;
@@ -104,6 +112,15 @@ class UtilsVk : angle::NonCopyable
 
         VkClearColorValue colorClearValue;
         VkClearDepthStencilValue depthStencilClearValue;
+    };
+
+    struct ClearTextureParameters
+    {
+        VkImageAspectFlags aspectFlags;
+        vk::LevelIndex level;
+        uint32_t layer;
+        gl::Box clearArea;
+        VkClearValue clearValue;
     };
 
     struct BlitResolveParameters
@@ -147,6 +164,7 @@ class UtilsVk : angle::NonCopyable
         int dstOffset[2];
         int srcMip;
         int srcLayer;
+        int srcSampleCount;
         int srcHeight;
         gl::LevelIndex dstMip;
         int dstLayer;
@@ -245,7 +263,13 @@ class UtilsVk : angle::NonCopyable
     angle::Result convertVertexBuffer(ContextVk *contextVk,
                                       vk::BufferHelper *dst,
                                       vk::BufferHelper *src,
-                                      const ConvertVertexParameters &params);
+                                      const ConvertVertexParameters &params,
+                                      const OffsetAndVertexCounts &additionalOffsetVertexCounts);
+
+    // EXT_clear_texture
+    angle::Result clearTexture(ContextVk *contextVk,
+                               vk::ImageHelper *dst,
+                               ClearTextureParameters &params);
 
     angle::Result clearFramebuffer(ContextVk *contextVk,
                                    FramebufferVk *framebuffer,
@@ -311,6 +335,10 @@ class UtilsVk : angle::NonCopyable
                                  const GenerateMipmapDestLevelViews &dstLevelViews,
                                  const vk::Sampler &sampler,
                                  const GenerateMipmapParameters &params);
+    angle::Result generateMipmapWithDraw(ContextVk *contextVk,
+                                         vk::ImageHelper *image,
+                                         const angle::FormatID actualFormatID,
+                                         const bool isMipmapFiltered);
 
     angle::Result unresolve(ContextVk *contextVk,
                             const FramebufferVk *framebuffer,
@@ -408,6 +436,7 @@ class UtilsVk : angle::NonCopyable
         int32_t dstOffset[2]            = {};
         int32_t srcMip                  = 0;
         int32_t srcLayer                = 0;
+        int32_t srcSampleCount          = 0;
         uint32_t flipX                  = 0;
         uint32_t flipY                  = 0;
         uint32_t premultiplyAlpha       = 0;
@@ -529,6 +558,7 @@ class UtilsVk : angle::NonCopyable
         ComputeStartIndex,  // Special value to separate draw and dispatch functions.
         ConvertIndexBuffer = ComputeStartIndex,
         ConvertVertexBuffer,
+        ClearTexture,
         BlitResolveStencilNoExport,
         ConvertIndexIndirectBuffer,
         ConvertIndexIndirectLineLoopBuffer,
@@ -550,7 +580,7 @@ class UtilsVk : angle::NonCopyable
     struct ComputeShaderProgramAndPipelines
     {
         vk::ShaderProgramHelper program;
-        vk::ComputePipelineCache pipelines;
+        ComputePipelineCache pipelines;
     };
 
     // Common functions that create the pipeline for the specified function, binds it and prepares
@@ -558,7 +588,7 @@ class UtilsVk : angle::NonCopyable
     angle::Result setupComputeProgram(
         ContextVk *contextVk,
         Function function,
-        vk::RefCounted<vk::ShaderModule> *csShader,
+        const vk::ShaderModulePtr &csShader,
         ComputeShaderProgramAndPipelines *programAndPipelines,
         const VkDescriptorSet descriptorSet,
         const void *pushConstants,
@@ -567,8 +597,8 @@ class UtilsVk : angle::NonCopyable
     angle::Result setupGraphicsProgramWithLayout(
         ContextVk *contextVk,
         const vk::PipelineLayout &pipelineLayout,
-        vk::RefCounted<vk::ShaderModule> *vsShader,
-        vk::RefCounted<vk::ShaderModule> *fsShader,
+        const vk::ShaderModulePtr &vsShader,
+        const vk::ShaderModulePtr &fsShader,
         GraphicsShaderProgramAndPipelines *programAndPipelines,
         const vk::GraphicsPipelineDesc *pipelineDesc,
         const VkDescriptorSet descriptorSet,
@@ -577,8 +607,8 @@ class UtilsVk : angle::NonCopyable
         vk::RenderPassCommandBuffer *commandBuffer);
     angle::Result setupGraphicsProgram(ContextVk *contextVk,
                                        Function function,
-                                       vk::RefCounted<vk::ShaderModule> *vsShader,
-                                       vk::RefCounted<vk::ShaderModule> *fsShader,
+                                       const vk::ShaderModulePtr &vsShader,
+                                       const vk::ShaderModulePtr &fsShader,
                                        GraphicsShaderProgramAndPipelines *programAndPipelines,
                                        const vk::GraphicsPipelineDesc *pipelineDesc,
                                        const VkDescriptorSet descriptorSet,
@@ -630,6 +660,9 @@ class UtilsVk : angle::NonCopyable
                                   const vk::ImageView *imageView,
                                   const vk::RenderPassDesc &renderPassDesc,
                                   const gl::Rectangle &renderArea,
+                                  const VkImageAspectFlags aspectFlags,
+                                  const VkClearValue *clearValue,
+                                  vk::RenderPassSource renderPassSource,
                                   vk::RenderPassCommandBuffer **commandBufferOut);
 
     // Set up descriptor set and call dispatch.
@@ -639,7 +672,8 @@ class UtilsVk : angle::NonCopyable
         vk::BufferHelper *src,
         uint32_t flags,
         vk::OutsideRenderPassCommandBufferHelper *commandBufferHelper,
-        const ConvertVertexShaderParams &shaderParams);
+        const ConvertVertexShaderParams &shaderParams,
+        const OffsetAndVertexCounts &additionalOffsetVertexCounts);
 
     // Blits or resolves either color or depth/stencil, based on which view is given.
     angle::Result blitResolveImpl(ContextVk *contextVk,
@@ -670,13 +704,12 @@ class UtilsVk : angle::NonCopyable
         VkDescriptorSet *descriptorSetOut);
 
     angle::PackedEnumMap<Function, vk::DescriptorSetLayoutPointerArray> mDescriptorSetLayouts;
-    angle::PackedEnumMap<Function, vk::AtomicBindingPointer<vk::PipelineLayout>> mPipelineLayouts;
+    angle::PackedEnumMap<Function, vk::PipelineLayoutPtr> mPipelineLayouts;
     angle::PackedEnumMap<Function, vk::DynamicDescriptorPool> mDescriptorPools;
 
     std::unordered_map<vk::SamplerDesc, vk::DescriptorSetLayoutPointerArray>
         mImageCopyWithSamplerDescriptorSetLayouts;
-    std::unordered_map<vk::SamplerDesc, vk::AtomicBindingPointer<vk::PipelineLayout>>
-        mImageCopyWithSamplerPipelineLayouts;
+    std::unordered_map<vk::SamplerDesc, vk::PipelineLayoutPtr> mImageCopyWithSamplerPipelineLayouts;
     std::unordered_map<vk::SamplerDesc, vk::DynamicDescriptorPool>
         mImageCopyWithSamplerDescriptorPools;
 
@@ -691,8 +724,8 @@ class UtilsVk : angle::NonCopyable
     GraphicsShaderProgramAndPipelines mImageClearVSOnly;
     GraphicsShaderProgramAndPipelines mImageClear[vk::InternalShader::ImageClear_frag::kArrayLen];
     GraphicsShaderProgramAndPipelines mImageCopy[vk::InternalShader::ImageCopy_frag::kArrayLen];
-    std::unordered_map<vk::SamplerDesc, GraphicsShaderProgramAndPipelines>
-        mImageCopyWithSampler[vk::InternalShader::ImageCopy_frag::kArrayLen];
+    GraphicsShaderProgramAndPipelines mImageCopyFloat;
+    std::unordered_map<vk::SamplerDesc, GraphicsShaderProgramAndPipelines> mImageCopyWithSampler;
     ComputeShaderProgramAndPipelines
         mCopyImageToBuffer[vk::InternalShader::CopyImageToBuffer_comp::kArrayLen];
     GraphicsShaderProgramAndPipelines mBlitResolve[vk::InternalShader::BlitResolve_frag::kArrayLen];
@@ -707,7 +740,7 @@ class UtilsVk : angle::NonCopyable
 
     // Unresolve shaders are special as they are generated on the fly due to the large number of
     // combinations.
-    std::unordered_map<uint32_t, vk::RefCounted<vk::ShaderModule>> mUnresolveFragShaders;
+    std::unordered_map<uint32_t, vk::ShaderModulePtr> mUnresolveFragShaders;
     std::unordered_map<uint32_t, GraphicsShaderProgramAndPipelines> mUnresolve;
 
     ComputeShaderProgramAndPipelines mGenerateFragmentShadingRateAttachment;
@@ -766,6 +799,8 @@ class LineLoopHelper final : angle::NonCopyable
 
     void release(ContextVk *contextVk);
     void destroy(vk::Renderer *renderer);
+
+    vk::BufferHelper *getCurrentIndexBuffer() { return mDynamicIndexBuffer.getBuffer(); }
 
     static void Draw(uint32_t count,
                      uint32_t baseVertex,

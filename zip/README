@@ -1,19 +1,11 @@
-This is the "zip" project, which comprises both zip(1) and unzip(1),
-and associated tools. The canonical home page for these tools are:
+This is the "zip" repository, which contains the zip(1) and unzip(1)
+commands originally developed by the Info-Zip project.  The canonical
+home page for these tools are:
 
 Zip: <http://www.info-zip.org/Zip.html>
 UnZip: <http://www.info-zip.org/UnZip.html>
 
-Currently, this project tracks:
+The final releases of both packages were:
+
 Zip 3.0 (released 5 June 2008)
 UnZip 6.0 (released 20 April 2009)
-
-Imports should commit the new tarball, and change the makefiles
-as appropriate.
-
-Local modifications should be implemented as patches applied during build.
-
-
-Shantonu Sen
-ssen@apple.com
-October 5, 2006

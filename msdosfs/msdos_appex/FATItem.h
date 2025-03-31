@@ -66,12 +66,22 @@ NS_ASSUME_NONNULL_BEGIN
 @end
 
 
-@interface FATItem : FSUnaryItem
+@interface FATItem : FSItem
 
 @property FATVolume *volume;
 
-@property NSString *name;
+@property FSFileName *name;
+/**
+ Set to false upon creation, set to true if the item becomes open-unlinked.
+ In this case, there are operations that are not allowed on the item.
+ */
 @property bool isDeleted;
+/**
+ Set to false upon creation, set to true if the item becomes open-unlinked.
+ Set to false again in inactive/reclaim, once this item is no longer counted as
+ one of the volume's open-unlinked files.
+ */
+@property bool includedInVolumeOUFiles;
 
 @property FATItem * _Nullable parentDir;
 
@@ -83,13 +93,17 @@ NS_ASSUME_NONNULL_BEGIN
 
 @property DirEntryData * _Nullable entryData;
 
+@property (strong, nonatomic) dispatch_queue_t queue;
+
 +(instancetype)dynamicCast:(id)candidate;
+
+- (instancetype)init NS_UNAVAILABLE;
 
 -(instancetype)initInVolume:(FATVolume *)volume
                       inDir:(FATItem * _Nullable)parentDir
                  startingAt:(uint32_t)firstCluster
                    withData:(DirEntryData * _Nullable)entryData
-                    andName:(nonnull NSString *)name
+                    andName:(FSFileName *)name
                      isRoot:(bool)isRoot;
 
 -(uint64_t)getFileID;
@@ -102,7 +116,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 -(void)setDeleted;
 
--(NSError *)reclaim;
+-(NSError *)reclaim:(bool)isInactive;
 
 /*
  * Symlinks have a non constant block size, so the implementation slightly
@@ -137,7 +151,7 @@ NS_ASSUME_NONNULL_BEGIN
                       inDir:(FATItem * _Nullable)parentDir
                  startingAt:(uint32_t)firstCluster
                    withData:(DirEntryData * _Nullable)entryData
-                    andName:(nonnull NSString *)name;
+                    andName:(FSFileName *)name;
 
 -(uint64_t)maxFileSize;
 
@@ -157,30 +171,33 @@ NS_ASSUME_NONNULL_BEGIN
 
 /**
  Blockmap the given range in the file.
- @param range The range in file to blockmap.
- @param startIO Whether it's the first blockmapFile call for this range.
+ @param offset File offset to start blockmap.
+ @param length File length of requested mapping.
  @param flags blockmapFile flags.
- @param operationID a unique ID for this blockmapFile operation. Used for saving some context to use in endIO.
+ @param operationID a unique ID for this blockmapFile operation. Used for saving some context to use in completeIO.
+ @param packer extent packer
  @param reply In case of an error, calling reply(error). In case of success, calling reply(nil).
  */
--(void)blockmapRange:(NSRange)range
-             startIO:(bool)startIO
+-(void)blockmapOffset:(off_t)offset
+               length:(size_t)length
                flags:(FSBlockmapFlags)flags
-         operationID:(uint64_t)operationID
-         usingBlocks:(FSExtentPacker)packer
+         operationID:(FSOperationID)operationID
+              packer:(FSExtentPacker *)packer
         replyHandler:(nonnull void (^)(NSError * _Nullable error))reply;
 
 /**
- endIO the given range in the file.
- @param range The range in file to end the IO for.
+ completeIO the given range in the file.
+ @param offset IO completed starting at this offset.
+ @param length File length of completed IO.
  @param ioStatus Whether the IO succeeded or not.
- @param flags endIO flags.
+ @param flags completeIO flags.
  @param operationID the operationID used for the corresponding blockmapFile operation.
  */
--(NSError *)endIOOfRange:(NSRange)range
-                  status:(int)ioStatus
-                   flags:(FSBlockmapFlags)flags
-             operationID:(uint64_t)operationID;
+-(NSError *)completeIOAtOffset:(off_t)offset
+                        length:(size_t)length
+                        status:(int)ioStatus
+                         flags:(FSCompleteIOFlags)flags
+                   operationID:(FSOperationID)operationID;
 
 /**
  Fetch the relevant extents of the given file.
@@ -192,7 +209,7 @@ NS_ASSUME_NONNULL_BEGIN
  */
 -(void)fetchFileExtentsFrom:(uint64_t)startOffset
                          to:(uint64_t)endOffset
-                usingBlocks:(FSExtentPacker)packer
+                usingBlocks:(FSExtentPacker *)packer
                replyHandler:(nonnull void (^)(NSError * _Nullable error))reply;
 
 /**

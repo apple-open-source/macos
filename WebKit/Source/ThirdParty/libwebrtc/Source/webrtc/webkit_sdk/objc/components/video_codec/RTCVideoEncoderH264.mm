@@ -400,7 +400,7 @@ uint32_t computeFramerate(uint32_t proposedFramerate, uint32_t maxAllowedFramera
   uint32_t _encoderFrameRate;
   uint32_t _maxAllowedFrameRate;
   RTCH264PacketizationMode _packetizationMode;
-  absl::optional<webrtc::H264ProfileLevelId> _profile_level_id;
+    std::optional<webrtc::H264ProfileLevelId> _profile_level_id;
   RTCVideoEncoderCallback _callback;
   int32_t _width;
   int32_t _height;

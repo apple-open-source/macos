@@ -22,13 +22,10 @@
 
 #pragma once
 
-#include "CaretRectComputation.h"
 #include "FloatingObjects.h"
 #include "LegacyLineLayout.h"
 #include "LineWidth.h"
 #include "RenderBlock.h"
-#include "RenderLineBoxList.h"
-#include "TrailingObjects.h"
 #include <memory>
 #include <wtf/TZoneMalloc.h>
 
@@ -43,6 +40,7 @@ template<> struct IsDeprecatedWeakRefSmartPointerException<WebCore::RenderBlockF
 
 namespace WebCore {
 
+class FloatingObjects;
 class LineBreaker;
 class RenderMultiColumnFlow;
 
@@ -238,6 +236,7 @@ public:
     };
 
     bool shouldTrimChildMargin(MarginTrimType, const RenderBox&) const;
+    void performBlockStepSizing(RenderBox& child, LayoutUnit blockStepSizeForChild) const;
 
     void layoutBlockChild(RenderBox& child, MarginInfo&, LayoutUnit& previousFloatLogicalBottom, LayoutUnit& maxFloatLogicalBottom);
     void adjustPositionedBlock(RenderBox& child, const MarginInfo&);
@@ -245,13 +244,13 @@ public:
 
     void trimBlockEndChildrenMargins();
 
-    void setStaticInlinePositionForChild(RenderBox& child, LayoutUnit blockOffset, LayoutUnit inlinePosition);
+    void setStaticInlinePositionForChild(RenderBox& child, LayoutUnit inlinePosition);
     void updateStaticInlinePositionForChild(RenderBox& child, LayoutUnit logicalTop);
 
     LayoutUnit staticInlinePositionForOriginalDisplayInline(LayoutUnit logicalTop);
 
     LayoutUnit collapseMargins(RenderBox& child, MarginInfo&);
-    LayoutUnit collapseMarginsWithChildInfo(RenderBox* child, RenderObject* prevSibling, MarginInfo&);
+    LayoutUnit collapseMarginsWithChildInfo(RenderBox* child, MarginInfo&);
 
     LayoutUnit clearFloatsIfNeeded(RenderBox& child, MarginInfo&, LayoutUnit oldTopPosMargin, LayoutUnit oldTopNegMargin, LayoutUnit yPos);
     LayoutUnit estimateLogicalTopPosition(RenderBox& child, const MarginInfo&, LayoutUnit& estimateWithoutPagination);
@@ -517,7 +516,7 @@ private:
     GapRects inlineSelectionGaps(RenderBlock& rootBlock, const LayoutPoint& rootBlockPhysicalPosition, const LayoutSize& offsetFromRootBlock,
         LayoutUnit& lastLogicalTop, LayoutUnit& lastLogicalLeft, LayoutUnit& lastLogicalRight, const LogicalSelectionOffsetCaches&, const PaintInfo*) override;
     
-    VisiblePosition positionForPointWithInlineChildren(const LayoutPoint& pointInLogicalContents, HitTestSource, const RenderFragmentContainer*) override;
+    VisiblePosition positionForPointWithInlineChildren(const LayoutPoint& pointInLogicalContents, HitTestSource) override;
     void addFocusRingRectsForInlineChildren(Vector<LayoutRect>& rects, const LayoutPoint& additionalOffset, const RenderLayerModelObject*) const override;
 
 private:
@@ -534,13 +533,14 @@ private:
 
     void setTextBoxTrimForSubtree(const RenderBlockFlow* inlineFormattingContextRootForTextBoxTrimEnd = nullptr);
     void adjustTextBoxTrimAfterLayout();
+    std::pair<float, float> inlineContentTopAndBottomIncludingInkOverflow() const;
 
 #if ENABLE(TEXT_AUTOSIZING)
     int m_widthForTextAutosizing;
     unsigned m_lineCountForTextAutosizing : 2;
 #endif
     // FIXME: This is temporary until after we remove the forced "line layout codepath" invalidation.
-    std::optional<LayoutUnit> m_previousInlineLayoutContentBoxLogicalHeight;
+    std::optional<std::pair<LayoutUnit, LayoutUnit>> m_previousInlineLayoutContentTopAndBottomIncludingInkOverflow;
 
     std::optional<LayoutUnit> selfCollapsingMarginBeforeWithClear(RenderObject* candidate);
 

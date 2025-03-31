@@ -1,0 +1,29 @@
+import sys
+
+from bento.commands import hooks
+
+@hooks.pre_build
+def pre_build(context):
+    default_builder = context.default_builder
+
+    def builder(extension):
+        # FIXME: detect this properly
+        if sys.platform == "darwin":
+            use_c_calling = True
+        else:
+            use_c_calling = False
+        sources = extension.sources[:]
+        if use_c_calling:
+            sources.append("ARPACK/FWRAPPERS/wrap_veclib_f.f")
+            sources.append("ARPACK/FWRAPPERS/wrap_veclib_c.c")
+        else:
+            sources.append("ARPACK/FWRAPPERS/wrap_dummy.f")
+        return default_builder(extension,
+                               features="c fc cstlib pyext bento",
+                               source=sources,
+                               # Hack to make use of claoadable flags for static archive
+                               use="cshlib")
+    context.register_compiled_library_builder("arpack", builder)
+
+    context.tweak_extension("_arpack", features="c fc pyext cshlib f2py bento",
+                          use="arpack LAPACK CLIB")

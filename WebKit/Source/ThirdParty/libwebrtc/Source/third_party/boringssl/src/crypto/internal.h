@@ -217,7 +217,9 @@ typedef __uint128_t uint128_t;
 // __uint128_t division depends on intrinsics in the compiler runtime. Those
 // intrinsics are missing in clang-cl (https://crbug.com/787617) and nanolibc.
 // These may be bugs in the toolchain definition, but just disable it for now.
-#if !defined(_MSC_VER) && !defined(OPENSSL_NANOLIBC)
+// EDK2's toolchain is missing __udivti3 (b/339380897) so cannot support
+// 128-bit division currently.
+#if !defined(_MSC_VER) && !defined(OPENSSL_NANOLIBC) && !defined(__EDK2_BORINGSSL__)
 #define BORINGSSL_CAN_DIVIDE_UINT128
 #endif
 #endif
@@ -272,9 +274,9 @@ typedef __uint128_t uint128_t;
 #endif
 
 #if defined(__GNUC__) || defined(__clang__)
-#define OPENSSL_ATTR_PURE __attribute__((pure))
+#define OPENSSL_ATTR_CONST __attribute__((const))
 #else
-#define OPENSSL_ATTR_PURE
+#define OPENSSL_ATTR_CONST
 #endif
 
 #if defined(BORINGSSL_MALLOC_FAILURE_TESTING)
@@ -568,11 +570,22 @@ static inline void constant_time_conditional_memcpy(void *dst, const void *src,
 // |mask| is 0xff..ff and does nothing if |mask| is 0. The |n|-byte memory
 // ranges at |dst| and |src| must not overlap, as when calling |memcpy|.
 static inline void constant_time_conditional_memxor(void *dst, const void *src,
-                                                    const size_t n,
+                                                    size_t n,
                                                     const crypto_word_t mask) {
   assert(!buffers_alias(dst, n, src, n));
   uint8_t *out = (uint8_t *)dst;
   const uint8_t *in = (const uint8_t *)src;
+#if defined(__GNUC__) && !defined(__clang__)
+  // gcc 13.2.0 doesn't automatically vectorize this loop regardless of barrier
+  typedef uint8_t v32u8 __attribute__((vector_size(32), aligned(1), may_alias));
+  size_t n_vec = n&~(size_t)31;
+  v32u8 masks = ((uint8_t)mask-(v32u8){}); // broadcast
+  for (size_t i = 0; i < n_vec; i += 32) {
+    *(v32u8*)&out[i] ^= masks & *(v32u8*)&in[i];
+  }
+  out += n_vec;
+  n -= n_vec;
+#endif
   for (size_t i = 0; i < n; i++) {
     out[i] ^= value_barrier_w(mask) & in[i];
   }
@@ -1081,6 +1094,17 @@ static inline void *OPENSSL_memset(void *dst, int c, size_t n) {
 // endianness. They use |memcpy|, and so avoid alignment or strict aliasing
 // requirements on the input and output pointers.
 
+static inline uint16_t CRYPTO_load_u16_be(const void *in) {
+  uint16_t v;
+  OPENSSL_memcpy(&v, in, sizeof(v));
+  return CRYPTO_bswap2(v);
+}
+
+static inline void CRYPTO_store_u16_be(void *out, uint16_t v) {
+  v = CRYPTO_bswap2(v);
+  OPENSSL_memcpy(out, &v, sizeof(v));
+}
+
 static inline uint32_t CRYPTO_load_u32_le(const void *in) {
   uint32_t v;
   OPENSSL_memcpy(&v, in, sizeof(v));
@@ -1378,21 +1402,23 @@ OPENSSL_INLINE int boringssl_fips_break_test(const char *test) {
 //     ECX for CPUID where EAX = 1
 //     Bit 11 is used to indicate AMD XOP support, not SDBG
 //   Index 2:
-//     EBX for CPUID where EAX = 7
+//     EBX for CPUID where EAX = 7, ECX = 0
+//     Bit 14 (for removed feature MPX) is used to indicate a preference for ymm
+//       registers over zmm even when zmm registers are supported
 //   Index 3:
-//     ECX for CPUID where EAX = 7
+//     ECX for CPUID where EAX = 7, ECX = 0
 //
-// Note: the CPUID bits are pre-adjusted for the OSXSAVE bit and the YMM and XMM
-// bits in XCR0, so it is not necessary to check those. (WARNING: See caveats
-// in cpu_intel.c.)
+// Note: the CPUID bits are pre-adjusted for the OSXSAVE bit and the XMM, YMM,
+// and AVX512 bits in XCR0, so it is not necessary to check those. (WARNING: See
+// caveats in cpu_intel.c.)
 //
 // From C, this symbol should only be accessed with |OPENSSL_get_ia32cap|.
 extern uint32_t OPENSSL_ia32cap_P[4];
 
 // OPENSSL_get_ia32cap initializes the library if needed and returns the |idx|th
-// entry of |OPENSSL_ia32cap_P|. It is marked as a pure function so duplicate
+// entry of |OPENSSL_ia32cap_P|. It is marked as a const function so duplicate
 // calls can be merged by the compiler, at least when indices match.
-OPENSSL_ATTR_PURE uint32_t OPENSSL_get_ia32cap(int idx);
+OPENSSL_ATTR_CONST uint32_t OPENSSL_get_ia32cap(int idx);
 
 // See Intel manual, volume 2A, table 3-11.
 
@@ -1552,6 +1578,46 @@ OPENSSL_INLINE int CRYPTO_cpu_perf_is_like_silvermont(void) {
   return !hardware_supports_xsave && CRYPTO_is_MOVBE_capable();
 }
 
+OPENSSL_INLINE int CRYPTO_is_AVX512BW_capable(void) {
+#if defined(__AVX512BW__)
+  return 1;
+#else
+  return (OPENSSL_get_ia32cap(2) & (1u << 30)) != 0;
+#endif
+}
+
+OPENSSL_INLINE int CRYPTO_is_AVX512VL_capable(void) {
+#if defined(__AVX512VL__)
+  return 1;
+#else
+  return (OPENSSL_get_ia32cap(2) & (1u << 31)) != 0;
+#endif
+}
+
+// CRYPTO_cpu_avoid_zmm_registers returns 1 if zmm registers (512-bit vectors)
+// should not be used even if the CPU supports them.
+//
+// Note that this reuses the bit for the removed MPX feature.
+OPENSSL_INLINE int CRYPTO_cpu_avoid_zmm_registers(void) {
+  return (OPENSSL_get_ia32cap(2) & (1u << 14)) != 0;
+}
+
+OPENSSL_INLINE int CRYPTO_is_VAES_capable(void) {
+#if defined(__VAES__)
+  return 1;
+#else
+  return (OPENSSL_get_ia32cap(3) & (1u << 9)) != 0;
+#endif
+}
+
+OPENSSL_INLINE int CRYPTO_is_VPCLMULQDQ_capable(void) {
+#if defined(__VPCLMULQDQ__)
+  return 1;
+#else
+  return (OPENSSL_get_ia32cap(3) & (1u << 10)) != 0;
+#endif
+}
+
 #endif  // OPENSSL_X86 || OPENSSL_X86_64
 
 #if defined(OPENSSL_ARM) || defined(OPENSSL_AARCH64)
@@ -1561,9 +1627,9 @@ OPENSSL_INLINE int CRYPTO_cpu_perf_is_like_silvermont(void) {
 extern uint32_t OPENSSL_armcap_P;
 
 // OPENSSL_get_armcap initializes the library if needed and returns ARM CPU
-// capabilities. It is marked as a pure function so duplicate calls can be
-// merged by the compiler, at least when indices match.
-OPENSSL_ATTR_PURE uint32_t OPENSSL_get_armcap(void);
+// capabilities. It is marked as a const function so duplicate calls can be
+// merged by the compiler.
+OPENSSL_ATTR_CONST uint32_t OPENSSL_get_armcap(void);
 
 // We do not detect any features at runtime on several 32-bit Arm platforms.
 // Apple platforms and OpenBSD require NEON and moved to 64-bit to pick up Armv8

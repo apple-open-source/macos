@@ -11065,21 +11065,30 @@ OSKext::consumeDeferredKextCollection(kc_kind_t type)
 
 // #include <InstrProfiling.h>
 extern "C" {
-uint64_t __llvm_profile_get_size_for_buffer_internal(const char *DataBegin,
-    const char *DataEnd,
-    const char *CountersBegin,
-    const char *CountersEnd,
-    const char *NamesBegin,
-    const char *NamesEnd);
-int __llvm_profile_write_buffer_internal(char *Buffer,
-    const char *DataBegin,
-    const char *DataEnd,
-    const char *CountersBegin,
-    const char *CountersEnd,
-    const char *NamesBegin,
-    const char *NamesEnd);
+uint64_t __llvm_profile_get_size_for_buffer_internal(
+	const char *DataBegin,
+	const char *DataEnd,
+	const char *CountersBegin,
+	const char *CountersEnd,
+	const char *BitmapBegin,
+	const char *BitmapEnd,
+	const char *NamesBegin,
+	const char *NamesEnd,
+	const char *VTableBegin,
+	const char *VTableEnd,
+	const char *VNamesBegin,
+	const char *VNamesEnd);
+int __llvm_profile_write_buffer_internal(
+	char *Buffer,
+	const char *DataBegin,
+	const char *DataEnd,
+	const char *CountersBegin,
+	const char *CountersEnd,
+	const char *BitmapBegin,
+	const char *BitmapEnd,
+	const char *NamesBegin,
+	const char *NamesEnd);
 }
-
 
 static
 void
@@ -11206,6 +11215,9 @@ OSKextGrabPgoDataLocked(OSKext *kext,
 	}
 	sect_prf_cnts = kext->lookupSection("__DATA", "__llvm_prf_cnts");
 
+	// Ignore some sections used by optional PGO variants.
+	const char *unused_section = NULL;
+
 	if (!sect_prf_data || !sect_prf_name || !sect_prf_cnts) {
 		err = ENOTSUP;
 		goto out;
@@ -11214,7 +11226,10 @@ OSKextGrabPgoDataLocked(OSKext *kext,
 	size = __llvm_profile_get_size_for_buffer_internal(
 		(const char*) sect_prf_data->addr, (const char*) sect_prf_data->addr + sect_prf_data->size,
 		(const char*) sect_prf_cnts->addr, (const char*) sect_prf_cnts->addr + sect_prf_cnts->size,
-		(const char*) sect_prf_name->addr, (const char*) sect_prf_name->addr + sect_prf_name->size);
+		unused_section /* bits */, unused_section /* bits end */,
+		(const char*) sect_prf_name->addr, (const char*) sect_prf_name->addr + sect_prf_name->size,
+		unused_section /* vtab */, unused_section /* vtab end */,
+		unused_section /* vnam */, unused_section /* vnam end */);
 
 	if (metadata) {
 		metadata_size = OSKextPgoMetadataSize(kext);
@@ -11237,6 +11252,7 @@ OSKextGrabPgoDataLocked(OSKext *kext,
 			pBuffer,
 			(const char*) sect_prf_data->addr, (const char*) sect_prf_data->addr + sect_prf_data->size,
 			(const char*) sect_prf_cnts->addr, (const char*) sect_prf_cnts->addr + sect_prf_cnts->size,
+			unused_section /* bits */, unused_section /* bits end */,
 			(const char*) sect_prf_name->addr, (const char*) sect_prf_name->addr + sect_prf_name->size);
 
 		if (err) {
@@ -15786,8 +15802,9 @@ OSKext::kextForAddress(const void *address)
 		for (baseIdx = 0, lim = sKextAccountsCount; lim; lim >>= 1) {
 			active = &sKextAccounts[baseIdx + (lim >> 1)];
 			if ((addr >= active->address) && (addr < active->address_end)) {
-				kext = active->account->kext;
-				if (kext && kext->kmod_info) {
+				if (active->account &&
+				    (kext = active->account->kext) &&
+				    kext->kmod_info) {
 					lck_ticket_unlock(sKextAccountsLock);
 					return (void *)kext->kmod_info->address;
 				}

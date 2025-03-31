@@ -195,6 +195,10 @@
 #include <IOKit/IOBSD.h>
 #include <kdp/processor_core.h>
 
+#if defined (__arm64__)
+#include <pexpert/arm64/board_config.h>
+#endif
+
 #include <string.h>
 
 #if KPERF
@@ -221,6 +225,8 @@ static void task_port_no_senders(ipc_port_t, mach_msg_type_number_t);
 static void task_port_with_flavor_no_senders(ipc_port_t, mach_msg_type_number_t);
 static void task_suspension_no_senders(ipc_port_t, mach_msg_type_number_t);
 static inline void task_zone_init(void);
+
+static void task_store_owned_vmobject_info(task_t to_task, task_t from_task);
 
 #if CONFIG_EXCLAVES
 static bool task_should_panic_on_exit_due_to_conclave_taint(task_t task);
@@ -345,12 +351,10 @@ SECURITY_READ_ONLY_LATE(struct _task_ledger_indices) task_ledgers __attribute__(
  .physical_writes = -1,
  .logical_writes = -1,
  .logical_writes_to_external = -1,
-#if DEBUG || DEVELOPMENT
  .pages_grabbed = -1,
  .pages_grabbed_kern = -1,
  .pages_grabbed_iopl = -1,
  .pages_grabbed_upl = -1,
-#endif
 #if CONFIG_FREEZE
  .frozen_to_swap = -1,
 #endif /* CONFIG_FREEZE */
@@ -1146,6 +1150,8 @@ task_init(void)
 		panic("task_init");
 	}
 
+
+	vm_map_setup(get_task_map(kernel_task), kernel_task);
 	ipc_task_enable(kernel_task);
 
 #if defined(HAS_APPLE_PAC)
@@ -1258,12 +1264,10 @@ init_task_ledgers(void)
 	task_ledgers.purgeable_nonvolatile = ledger_entry_add_with_flags(t, "purgeable_nonvolatile", "physmem", "bytes", LEDGER_ENTRY_ALLOW_PANIC_ON_NEGATIVE);
 	task_ledgers.purgeable_volatile_compressed = ledger_entry_add_with_flags(t, "purgeable_volatile_compress", "physmem", "bytes", LEDGER_ENTRY_ALLOW_PANIC_ON_NEGATIVE);
 	task_ledgers.purgeable_nonvolatile_compressed = ledger_entry_add_with_flags(t, "purgeable_nonvolatile_compress", "physmem", "bytes", LEDGER_ENTRY_ALLOW_PANIC_ON_NEGATIVE);
-#if DEBUG || DEVELOPMENT
 	task_ledgers.pages_grabbed = ledger_entry_add_with_flags(t, "pages_grabbed", "physmem", "count", LEDGER_ENTRY_ALLOW_PANIC_ON_NEGATIVE);
 	task_ledgers.pages_grabbed_kern = ledger_entry_add_with_flags(t, "pages_grabbed_kern", "physmem", "count", LEDGER_ENTRY_ALLOW_PANIC_ON_NEGATIVE);
 	task_ledgers.pages_grabbed_iopl = ledger_entry_add_with_flags(t, "pages_grabbed_iopl", "physmem", "count", LEDGER_ENTRY_ALLOW_PANIC_ON_NEGATIVE);
 	task_ledgers.pages_grabbed_upl = ledger_entry_add_with_flags(t, "pages_grabbed_upl", "physmem", "count", LEDGER_ENTRY_ALLOW_PANIC_ON_NEGATIVE);
-#endif
 	task_ledgers.tagged_nofootprint = ledger_entry_add_with_flags(t, "tagged_nofootprint", "physmem", "bytes", LEDGER_ENTRY_ALLOW_PANIC_ON_NEGATIVE);
 	task_ledgers.tagged_footprint = ledger_entry_add_with_flags(t, "tagged_footprint", "physmem", "bytes", LEDGER_ENTRY_ALLOW_PANIC_ON_NEGATIVE);
 	task_ledgers.tagged_nofootprint_compressed = ledger_entry_add_with_flags(t, "tagged_nofootprint_compressed", "physmem", "bytes", LEDGER_ENTRY_ALLOW_PANIC_ON_NEGATIVE);
@@ -1528,7 +1532,7 @@ task_create_internal(
 			 * so that the child's map is in sync with the forked reclamation
 			 * metadata.
 			 */
-			vm_deferred_reclamation_buffer_own(
+			vm_deferred_reclamation_ring_own(
 				parent_task->deferred_reclamation_metadata);
 		}
 #endif /* CONFIG_DEFERRED_RECLAIM */
@@ -1537,8 +1541,12 @@ task_create_internal(
 		if (new_task->map != NULL &&
 		    parent_task->deferred_reclamation_metadata) {
 			new_task->deferred_reclamation_metadata =
-			    vm_deferred_reclamation_buffer_fork(new_task,
+			    vm_deferred_reclamation_task_fork(new_task,
 			    parent_task->deferred_reclamation_metadata);
+		}
+		if (parent_task->deferred_reclamation_metadata) {
+			vm_deferred_reclamation_ring_disown(
+				parent_task->deferred_reclamation_metadata);
 		}
 #endif /* CONFIG_DEFERRED_RECLAIM */
 	} else {
@@ -1783,6 +1791,7 @@ task_create_internal(
 		}
 #endif
 
+
 		new_task->priority = BASEPRI_DEFAULT;
 		new_task->max_priority = MAXPRI_USER;
 	} else {
@@ -1830,6 +1839,10 @@ task_create_internal(
 	counter_alloc(&(new_task->cow_faults));
 	counter_alloc(&(new_task->messages_sent));
 	counter_alloc(&(new_task->messages_received));
+	counter_alloc(&(new_task->pages_grabbed));
+	counter_alloc(&(new_task->pages_grabbed_kern));
+	counter_alloc(&(new_task->pages_grabbed_iopl));
+	counter_alloc(&(new_task->pages_grabbed_upl));
 
 	/* Copy resource acc. info from Parent for Corpe Forked task. */
 	if (parent_task != NULL && (t_flags & TF_CORPSE_FORK)) {
@@ -2146,6 +2159,9 @@ task_deallocate_internal(
 	}
 
 #if CONFIG_DEFERRED_RECLAIM
+	/*
+	 * Remove this tasks reclaim buffer from global queues.
+	 */
 	if (task->deferred_reclamation_metadata != NULL) {
 		vm_deferred_reclamation_buffer_deallocate(task->deferred_reclamation_metadata);
 		task->deferred_reclamation_metadata = NULL;
@@ -2214,6 +2230,10 @@ task_deallocate_internal(
 	counter_free(&task->cow_faults);
 	counter_free(&task->messages_sent);
 	counter_free(&task->messages_received);
+	counter_free(&task->pages_grabbed);
+	counter_free(&task->pages_grabbed_kern);
+	counter_free(&task->pages_grabbed_iopl);
+	counter_free(&task->pages_grabbed_upl);
 
 #if CONFIG_COALITIONS
 	task_release_coalitions(task);
@@ -2556,6 +2576,9 @@ task_mark_corpse(task_t task)
 	if (kr != KERN_SUCCESS) {
 		goto out;
 	}
+
+	/* Store owned vmobjects so we can access them after being marked as corpse */
+	task_store_owned_vmobject_info(task, task);
 
 	self_thread = current_thread();
 
@@ -3155,15 +3178,6 @@ task_terminate_internal(
 	    task_ledgers.alternate_accounting_compressed);
 #endif
 
-#if CONFIG_DEFERRED_RECLAIM
-	/*
-	 * Remove this tasks reclaim buffer from global queues.
-	 */
-	if (task->deferred_reclamation_metadata != NULL) {
-		vm_deferred_reclamation_buffer_uninstall(task->deferred_reclamation_metadata);
-	}
-#endif /* CONFIG_DEFERRED_RECLAIM */
-
 	/*
 	 * If the current thread is a member of the task
 	 * being terminated, then the last reference to
@@ -3437,8 +3451,6 @@ task_complete_halt(task_t task)
 
 #if CONFIG_DEFERRED_RECLAIM
 	if (task->deferred_reclamation_metadata) {
-		vm_deferred_reclamation_buffer_uninstall(
-			task->deferred_reclamation_metadata);
 		vm_deferred_reclamation_buffer_deallocate(
 			task->deferred_reclamation_metadata);
 		task->deferred_reclamation_metadata = NULL;
@@ -3617,6 +3629,26 @@ task_get_suspend_sources_kdp(task_t task, task_suspend_source_array_t sources)
 #pragma unused(task, sources)
 	return KERN_NOT_SUPPORTED;
 #endif
+}
+
+kern_return_t
+task_set_cs_auxiliary_info(task_t task, uint64_t info)
+{
+	if (task == TASK_NULL) {
+		return KERN_INVALID_ARGUMENT;
+	}
+
+	task->task_cs_auxiliary_info = info;
+	return KERN_SUCCESS;
+}
+
+uint64_t
+task_get_cs_auxiliary_info_kdp(task_t task)
+{
+	if (task == TASK_NULL) {
+		return 0;
+	}
+	return task->task_cs_auxiliary_info;
 }
 
 /*
@@ -4168,9 +4200,9 @@ task_suspend(
 	 * deallocate the send right will auto-release the suspension.
 	 */
 	if (IP_VALID(port)) {
-		kr = ipc_object_copyout(current_space(), ip_to_object(port),
+		kr = ipc_object_copyout(current_space(), port,
 		    MACH_MSG_TYPE_MOVE_SEND, IPC_OBJECT_COPYOUT_FLAGS_NONE,
-		    NULL, NULL, &name);
+		    NULL, &name);
 	} else {
 		kr = KERN_SUCCESS;
 	}
@@ -4450,6 +4482,7 @@ task_pidsuspend(
 
 	if ((KERN_SUCCESS == kr) && task->message_app_suspended) {
 		iokit_task_app_suspended_changed(task);
+		vm_deferred_reclamation_task_suspend(task);
 	}
 
 	return kr;
@@ -5067,6 +5100,15 @@ task_freeze(
 	freezer_context_global.freezer_ctx_task = task;
 
 	task_unlock(task);
+
+#if CONFIG_DEFERRED_RECLAIM
+	if (vm_deferred_reclamation_task_has_ring(task)) {
+		kr = vm_deferred_reclamation_task_drain(task, RECLAIM_OPTIONS_NONE);
+		if (kr != KERN_SUCCESS) {
+			os_log_error(OS_LOG_DEFAULT, "Failed to drain reclamation ring prior to freezing (%d)\n", kr);
+		}
+	}
+#endif /* CONFIG_DEFERRED_RECLAIM */
 
 	kr = vm_map_freeze(task,
 	    purgeable_count,
@@ -7310,12 +7352,12 @@ task_footprint_exceeded(int warning, __unused const void *param0, __unused const
 	ledger_get_diag_mem_threshold(task->ledger, task_ledgers.phys_footprint, &diag_threshold_limit);
 #endif
 #if CONFIG_DEFERRED_RECLAIM
-	if (task->deferred_reclamation_metadata != NULL) {
+	if (vm_deferred_reclamation_task_has_ring(task)) {
 		/*
 		 * Task is enrolled in deferred reclamation.
 		 * Do a reclaim to ensure it's really over its limit.
 		 */
-		vm_deferred_reclamation_reclaim_from_task_sync(task, UINT64_MAX);
+		vm_deferred_reclamation_task_drain(task, RECLAIM_OPTIONS_NONE);
 		ledger_get_balance(task->ledger, task_ledgers.phys_footprint, &current_footprint);
 		if (current_footprint < max_footprint) {
 			return;
@@ -9445,6 +9487,14 @@ task_ledgers_footprint(
 }
 
 #if CONFIG_MEMORYSTATUS
+void
+task_ledger_settle_dirty_time(task_t t)
+{
+	task_lock(t);
+	task_ledger_settle_dirty_time_locked(t);
+	task_unlock(t);
+}
+
 /*
  * Credit any outstanding task dirty time to the ledger.
  * memstat_dirty_start is pushed forward to prevent any possibility of double
@@ -9452,9 +9502,9 @@ task_ledgers_footprint(
  * anyone reading the ledger gets up-to-date information.
  */
 void
-task_ledger_settle_dirty_time(task_t t)
+task_ledger_settle_dirty_time_locked(task_t t)
 {
-	task_lock(t);
+	task_lock_assert_owned(t);
 
 	uint64_t start = t->memstat_dirty_start;
 	if (start) {
@@ -9468,10 +9518,50 @@ task_ledger_settle_dirty_time(task_t t)
 
 		t->memstat_dirty_start = now;
 	}
+}
+#endif /* CONFIG_MEMORYSTATUS */
+
+static void
+task_ledger_settle_counter(ledger_t ledger, int entry, counter_t *counter)
+{
+	ledger_amount_t ledger_val;
+	kern_return_t kr;
+	uint64_t counter_val;
+
+	kr = ledger_get_balance(ledger, entry, &ledger_val);
+	if (kr != KERN_SUCCESS) {
+		return;
+	}
+
+	counter_val = counter_load(counter);
+	if (counter_val <= ledger_val) {
+		return; /* These counters should only move forward, but just in case. */
+	}
+
+	ledger_credit(ledger, entry, counter_val - ledger_val);
+}
+
+void
+task_ledger_settle(task_t t)
+{
+	ledger_t ledger;
+
+	task_lock(t);
+
+	/* Settle pages grabbed */
+	ledger = get_task_ledger(t);
+	task_ledger_settle_counter(ledger, task_ledgers.pages_grabbed, &t->pages_grabbed);
+	task_ledger_settle_counter(ledger, task_ledgers.pages_grabbed_kern, &t->pages_grabbed_kern);
+	task_ledger_settle_counter(ledger, task_ledgers.pages_grabbed_iopl, &t->pages_grabbed_iopl);
+	task_ledger_settle_counter(ledger, task_ledgers.pages_grabbed_upl, &t->pages_grabbed_upl);
+
+#if CONFIG_MEMORYSTATUS
+	/* Settle memorystatus dirty time */
+	task_ledger_settle_dirty_time_locked(t);
+#endif
 
 	task_unlock(t);
 }
-#endif /* CONFIG_MEMORYSTATUS */
 
 void
 task_set_memory_ownership_transfer(
@@ -9568,7 +9658,7 @@ task_get_owned_vmobjects(task_t task, size_t buffer_size, vmobject_list_output_t
 	}
 }
 
-void
+static void
 task_store_owned_vmobject_info(task_t to_task, task_t from_task)
 {
 	size_t buffer_size;
@@ -9576,9 +9666,7 @@ task_store_owned_vmobject_info(task_t to_task, task_t from_task)
 	size_t output_size;
 	size_t entries;
 
-	assert(to_task != from_task);
-
-	/* get the size, allocate a bufferr, and populate */
+	/* get the size, allocate a buffer, and populate */
 	entries = 0;
 	output_size = 0;
 	task_get_owned_vmobjects(from_task, 0, NULL, &output_size, &entries);
@@ -9593,10 +9681,18 @@ task_store_owned_vmobject_info(task_t to_task, task_t from_task)
 
 			task_get_owned_vmobjects(from_task, buffer_size, buffer, &output_size, &entries);
 
-			if (entries) {
-				to_task->corpse_vmobject_list = buffer;
-				to_task->corpse_vmobject_list_size = buffer_size;
+			task_lock(to_task);
+
+			if (!entries || (to_task->corpse_vmobject_list != NULL)) {
+				kfree_data(buffer, buffer_size);
+				task_unlock(to_task);
+				return;
 			}
+
+			to_task->corpse_vmobject_list = buffer;
+			to_task->corpse_vmobject_list_size = buffer_size;
+
+			task_unlock(to_task);
 		}
 	}
 }
@@ -9804,14 +9900,16 @@ task_is_pac_exception_fatal(
 #define FATAL_EXCEPTION_ENTITLEMENT "com.apple.security.fatal-exceptions"
 #define FATAL_EXCEPTION_ENTITLEMENT_JIT "jit"
 
+
 void
-task_set_jit_exception_fatal_flag(
+task_set_jit_flags(
 	task_t task)
 {
 	assert(task != TASK_NULL);
 	if (IOTaskHasStringEntitlement(task, FATAL_EXCEPTION_ENTITLEMENT, FATAL_EXCEPTION_ENTITLEMENT_JIT)) {
 		task_ro_flags_set(task, TFRO_JIT_EXC_FATAL);
 	}
+
 }
 
 bool
@@ -9937,8 +10035,9 @@ current_task_get_fatal_port_name(void)
 	task_fatal_port = task_allocate_fatal_port();
 
 	if (task_fatal_port) {
-		ipc_object_copyout(current_space(), ip_to_object(task_fatal_port), MACH_MSG_TYPE_PORT_SEND,
-		    IPC_OBJECT_COPYOUT_FLAGS_NONE, NULL, NULL, &port_name);
+		ipc_object_copyout(current_space(), task_fatal_port,
+		    MACH_MSG_TYPE_PORT_SEND, IPC_OBJECT_COPYOUT_FLAGS_NONE,
+		    NULL, &port_name);
 	}
 
 	return port_name;
@@ -10472,3 +10571,37 @@ task_best_name(task_t task)
 {
 	return proc_best_name(task_get_proc_raw(task));
 }
+
+/*
+ * Set AST_MACH_EXCEPTION on all threads owned by this task.
+ * Called with the task locked.
+ */
+void
+task_set_ast_mach_exception(task_t task)
+{
+	spl_t s = splsched();
+
+	/* Set an AST on each of the task's threads, sending IPIs if needed */
+	thread_t thread;
+	queue_iterate(&task->threads, thread, thread_t, task_threads) {
+		if (thread == current_thread()) {
+			thread_ast_set(thread, AST_MACH_EXCEPTION);
+			ast_propagate(thread);
+		} else {
+			processor_t processor;
+
+			thread_lock(thread);
+			thread_ast_set(thread, AST_MACH_EXCEPTION);
+			processor = thread->last_processor;
+			if (processor != PROCESSOR_NULL &&
+			    processor->state == PROCESSOR_RUNNING &&
+			    processor->active_thread == thread) {
+				cause_ast_check(processor);
+			}
+			thread_unlock(thread);
+		}
+	};
+
+	splx(s);
+}
+

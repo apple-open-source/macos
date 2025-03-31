@@ -47,11 +47,16 @@
 #import <pal/spi/cocoa/QuartzCoreSPI.h>
 #import <wtf/TZoneMallocInlines.h>
 #import <wtf/cocoa/TypeCastsCocoa.h>
-#import <pal/cocoa/QuartzCoreSoftLink.h>
 
 #if PLATFORM(IOS_FAMILY)
 #import <UIKit/UIView.h>
+#if ENABLE(MODEL_PROCESS)
+#import "ModelPresentationManagerProxy.h"
 #endif
+#endif
+
+#import <pal/cocoa/CoreMaterialSoftLink.h>
+#import <pal/cocoa/QuartzCoreSoftLink.h>
 
 namespace WebKit {
 using namespace WebCore;
@@ -85,7 +90,7 @@ LayerContentsType RemoteLayerTreeHost::layerContentsType() const
         return LayerContentsType::IOSurface;
 
     // If e.g. SceneKit will be doing an in-process snapshot of the layer tree, CAMachPort cannot be used: rdar://problem/47481972
-    if (m_drawingArea->page().windowKind() == WindowKind::InProcessSnapshotting)
+    if (m_drawingArea->page() && m_drawingArea->page()->windowKind() == WindowKind::InProcessSnapshotting)
         return LayerContentsType::IOSurface;
 
     if (PAL::canLoad_QuartzCore_CAIOSurfaceCreate())
@@ -100,7 +105,7 @@ LayerContentsType RemoteLayerTreeHost::layerContentsType() const
 bool RemoteLayerTreeHost::replayDynamicContentScalingDisplayListsIntoBackingStore() const
 {
 #if ENABLE(RE_DYNAMIC_CONTENT_SCALING)
-    return m_drawingArea->page().preferences().replayCGDisplayListsIntoBackingStore();
+    return m_drawingArea->page() && m_drawingArea->page()->preferences().replayCGDisplayListsIntoBackingStore();
 #else
     return false;
 #endif
@@ -108,12 +113,12 @@ bool RemoteLayerTreeHost::replayDynamicContentScalingDisplayListsIntoBackingStor
 
 bool RemoteLayerTreeHost::threadedAnimationResolutionEnabled() const
 {
-    return m_drawingArea->page().preferences().threadedAnimationResolutionEnabled();
+    return m_drawingArea->page() && m_drawingArea->page()->preferences().threadedAnimationResolutionEnabled();
 }
 
 bool RemoteLayerTreeHost::cssUnprefixedBackdropFilterEnabled() const
 {
-    return m_drawingArea->page().preferences().cssUnprefixedBackdropFilterEnabled();
+    return m_drawingArea->page() && m_drawingArea->page()->preferences().cssUnprefixedBackdropFilterEnabled();
 }
 
 #if PLATFORM(MAC)
@@ -134,8 +139,12 @@ bool RemoteLayerTreeHost::updateBannerLayers(const RemoteLayerTreeTransaction& t
         return true;
     };
 
-    bool headerBannerLayerChanged = updateBannerLayer(m_drawingArea->page().headerBannerLayer(), scrolledContentsLayer);
-    bool footerBannerLayerChanged = updateBannerLayer(m_drawingArea->page().footerBannerLayer(), scrolledContentsLayer);
+    RefPtr page = m_drawingArea->page();
+    if (!page)
+        return false;
+
+    bool headerBannerLayerChanged = updateBannerLayer(page->headerBannerLayer(), scrolledContentsLayer);
+    bool footerBannerLayerChanged = updateBannerLayer(page->footerBannerLayer(), scrolledContentsLayer);
     return headerBannerLayerChanged || footerBannerLayerChanged;
 }
 #endif
@@ -294,9 +303,17 @@ void RemoteLayerTreeHost::layerWillBeRemoved(WebCore::ProcessIdentifier processI
 #if HAVE(AVKIT)
     auto videoLayerIter = m_videoLayers.find(layerID);
     if (videoLayerIter != m_videoLayers.end()) {
-        if (auto videoManager = m_drawingArea->page().videoPresentationManager())
+        if (auto videoManager = m_drawingArea->page() ? m_drawingArea->page()->videoPresentationManager() : nullptr)
             videoManager->willRemoveLayerForID(videoLayerIter->value);
         m_videoLayers.remove(videoLayerIter);
+    }
+#endif
+
+#if PLATFORM(IOS_FAMILY) && ENABLE(MODEL_PROCESS)
+    if (m_modelLayers.contains(layerID)) {
+        if (auto modelPresentationManager = m_drawingArea->page() ? m_drawingArea->page()->modelPresentationManagerProxy() : nullptr)
+            modelPresentationManager->invalidateModel(layerID);
+        m_modelLayers.remove(layerID);
     }
 #endif
 }
@@ -374,9 +391,7 @@ CALayer *RemoteLayerTreeHost::layerForID(std::optional<WebCore::PlatformLayerIde
 
 CALayer *RemoteLayerTreeHost::rootLayer() const
 {
-    if (!m_rootNode)
-        return nil;
-    return m_rootNode->layer();
+    return m_rootNode ? m_rootNode->layer() : nil;
 }
 
 void RemoteLayerTreeHost::createLayer(const RemoteLayerTreeTransaction::LayerCreationProperties& properties)
@@ -399,14 +414,14 @@ void RemoteLayerTreeHost::createLayer(const RemoteLayerTreeTransaction::LayerCre
             hostedNode->addToHostingNode(*node);
     }
 
-    m_nodes.add(*properties.layerID, WTFMove(node));
+    m_nodes.add(*properties.layerID, node.releaseNonNull());
 }
 
 #if !PLATFORM(IOS_FAMILY)
-std::unique_ptr<RemoteLayerTreeNode> RemoteLayerTreeHost::makeNode(const RemoteLayerTreeTransaction::LayerCreationProperties& properties)
+RefPtr<RemoteLayerTreeNode> RemoteLayerTreeHost::makeNode(const RemoteLayerTreeTransaction::LayerCreationProperties& properties)
 {
     auto makeWithLayer = [&] (RetainPtr<CALayer>&& layer) {
-        return makeUnique<RemoteLayerTreeNode>(*properties.layerID, properties.hostIdentifier(), WTFMove(layer));
+        return RemoteLayerTreeNode::create(*properties.layerID, properties.hostIdentifier(), WTFMove(layer));
     };
 
     switch (properties.type) {
@@ -420,6 +435,9 @@ std::unique_ptr<RemoteLayerTreeNode> RemoteLayerTreeHost::makeNode(const RemoteL
     case PlatformCALayer::LayerType::LayerTypeScrollContainerLayer:
 #if ENABLE(MODEL_ELEMENT)
     case PlatformCALayer::LayerType::LayerTypeModelLayer:
+#endif
+#if HAVE(CORE_ANIMATION_SEPARATED_LAYERS)
+    case PlatformCALayer::LayerType::LayerTypeSeparatedImageLayer:
 #endif
     case PlatformCALayer::LayerType::LayerTypeHost:
     case PlatformCALayer::LayerType::LayerTypeContentsProvidedLayer: {
@@ -435,6 +453,12 @@ std::unique_ptr<RemoteLayerTreeNode> RemoteLayerTreeHost::makeNode(const RemoteL
 
     case PlatformCALayer::LayerType::LayerTypeBackdropLayer:
         return makeWithLayer(adoptNS([[CABackdropLayer alloc] init]));
+
+#if HAVE(CORE_MATERIAL)
+    case PlatformCALayer::LayerType::LayerTypeMaterialLayer:
+        return makeWithLayer(adoptNS([PAL::allocMTMaterialLayerInstance() init]));
+#endif
+
     case PlatformCALayer::LayerType::LayerTypeCustom:
     case PlatformCALayer::LayerType::LayerTypeAVPlayerLayer:
         if (m_isDebugLayerTreeHost)
@@ -442,7 +466,7 @@ std::unique_ptr<RemoteLayerTreeNode> RemoteLayerTreeHost::makeNode(const RemoteL
 
 #if HAVE(AVKIT)
         if (properties.videoElementData) {
-            if (auto videoManager = m_drawingArea->page().videoPresentationManager()) {
+            if (auto videoManager = m_drawingArea->page() ? m_drawingArea->page()->videoPresentationManager() : nullptr) {
                 m_videoLayers.add(*properties.layerID, properties.videoElementData->playerIdentifier);
                 return makeWithLayer(videoManager->createLayerWithID(properties.videoElementData->playerIdentifier, properties.hostingContextID(), properties.videoElementData->initialSize, properties.videoElementData->naturalSize, properties.hostingDeviceScaleFactor()));
             }
@@ -461,10 +485,8 @@ std::unique_ptr<RemoteLayerTreeNode> RemoteLayerTreeHost::makeNode(const RemoteL
 
 void RemoteLayerTreeHost::detachRootLayer()
 {
-    if (!m_rootNode)
-        return;
-    m_rootNode->detachFromParent();
-    m_rootNode = nullptr;
+    if (RefPtr rootNode = std::exchange(m_rootNode, nullptr).get())
+        rootNode->detachFromParent();
 }
 
 static void recursivelyMapIOSurfaceBackingStore(CALayer *layer)
@@ -495,14 +517,14 @@ void RemoteLayerTreeHost::animationsWereRemovedFromNode(RemoteLayerTreeNode& nod
     m_drawingArea->animationsWereRemovedFromNode(node);
 }
 
-Seconds RemoteLayerTreeHost::acceleratedTimelineTimeOrigin() const
+Seconds RemoteLayerTreeHost::acceleratedTimelineTimeOrigin(WebCore::ProcessIdentifier processIdentifier) const
 {
-    return m_drawingArea->acceleratedTimelineTimeOrigin();
+    return m_drawingArea->acceleratedTimelineTimeOrigin(processIdentifier);
 }
 
-MonotonicTime RemoteLayerTreeHost::animationCurrentTime() const
+MonotonicTime RemoteLayerTreeHost::animationCurrentTime(WebCore::ProcessIdentifier processIdentifier) const
 {
-    return m_drawingArea->animationCurrentTime();
+    return m_drawingArea->animationCurrentTime(processIdentifier);
 }
 #endif
 

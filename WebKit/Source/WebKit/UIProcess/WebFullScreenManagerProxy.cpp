@@ -31,6 +31,7 @@
 #include "APIFullscreenClient.h"
 #include "APIPageConfiguration.h"
 #include "MessageSenderInlines.h"
+#include "RemotePageFullscreenManagerProxy.h"
 #include "WebAutomationSession.h"
 #include "WebFullScreenManagerMessages.h"
 #include "WebFullScreenManagerProxyMessages.h"
@@ -57,6 +58,11 @@ static WorkQueue& sharedQuickLookFileQueue()
 
 WTF_MAKE_TZONE_ALLOCATED_IMPL(WebFullScreenManagerProxy);
 
+Ref<WebFullScreenManagerProxy> WebFullScreenManagerProxy::create(WebPageProxy& page, WebFullScreenManagerProxyClient& client)
+{
+    return adoptRef(*new WebFullScreenManagerProxy(page, client));
+}
+
 WebFullScreenManagerProxy::WebFullScreenManagerProxy(WebPageProxy& page, WebFullScreenManagerProxyClient& client)
     : m_page(page)
     , m_client(client)
@@ -65,48 +71,71 @@ WebFullScreenManagerProxy::WebFullScreenManagerProxy(WebPageProxy& page, WebFull
     , m_logIdentifier(page.logIdentifier())
 #endif
 {
-    m_page.legacyMainFrameProcess().addMessageReceiver(Messages::WebFullScreenManagerProxy::messageReceiverName(), m_page.webPageIDInMainFrameProcess(), *this);
+    page.protectedLegacyMainFrameProcess()->addMessageReceiver(Messages::WebFullScreenManagerProxy::messageReceiverName(), page.webPageIDInMainFrameProcess(), *this);
 }
 
 WebFullScreenManagerProxy::~WebFullScreenManagerProxy()
 {
-    m_page.legacyMainFrameProcess().removeMessageReceiver(Messages::WebFullScreenManagerProxy::messageReceiverName(), m_page.webPageIDInMainFrameProcess());
-    m_client.closeFullScreenManager();
+    if (RefPtr page = m_page.get())
+        page->protectedLegacyMainFrameProcess()->removeMessageReceiver(Messages::WebFullScreenManagerProxy::messageReceiverName(), page->webPageIDInMainFrameProcess());
+    if (CheckedPtr client = m_client)
+        client->closeFullScreenManager();
     callCloseCompletionHandlers();
 }
 
-const SharedPreferencesForWebProcess& WebFullScreenManagerProxy::sharedPreferencesForWebProcess() const
+std::optional<SharedPreferencesForWebProcess> WebFullScreenManagerProxy::sharedPreferencesForWebProcess(const IPC::Connection& connection) const
 {
-    return m_page.legacyMainFrameProcess().sharedPreferencesForWebProcess();
+    return dynamicDowncast<WebProcessProxy>(AuxiliaryProcessProxy::fromConnection(connection))->sharedPreferencesForWebProcess();
 }
 
-void WebFullScreenManagerProxy::willEnterFullScreen(WebCore::HTMLMediaElementEnums::VideoFullscreenMode mode)
+void WebFullScreenManagerProxy::willEnterFullScreen(CompletionHandler<void(bool)>&& completionHandler)
 {
     ALWAYS_LOG(LOGIDENTIFIER);
     m_fullscreenState = FullscreenState::EnteringFullscreen;
-    m_page.fullscreenClient().willEnterFullscreen(&m_page);
-    m_page.legacyMainFrameProcess().send(Messages::WebFullScreenManager::WillEnterFullScreen(mode), m_page.webPageIDInMainFrameProcess());
+
+    if (RefPtr page = m_page.get())
+        page->fullscreenClient().willEnterFullscreen(page.get());
+    completionHandler(true);
+}
+
+template<typename M> void WebFullScreenManagerProxy::sendToWebProcess(M&& message)
+{
+    RefPtr page = m_page.get();
+    if (!page)
+        return;
+    RefPtr fullScreenProcess = m_fullScreenProcess.get();
+    if (!fullScreenProcess)
+        return;
+    fullScreenProcess->send(std::forward<M>(message), page->webPageIDInProcess(*fullScreenProcess));
 }
 
 void WebFullScreenManagerProxy::didEnterFullScreen()
 {
     ALWAYS_LOG(LOGIDENTIFIER);
-    m_fullscreenState = FullscreenState::InFullscreen;
-    m_page.fullscreenClient().didEnterFullscreen(&m_page);
-    m_page.legacyMainFrameProcess().send(Messages::WebFullScreenManager::DidEnterFullScreen(), m_page.webPageIDInMainFrameProcess());
+    RefPtr page = m_page.get();
+    if (!page)
+        return;
 
-    if (m_page.isControlledByAutomation()) {
-        if (WebAutomationSession* automationSession = m_page.configuration().processPool().automationSession())
-            automationSession->didEnterFullScreenForPage(m_page);
+    m_fullscreenState = FullscreenState::InFullscreen;
+    page->fullscreenClient().didEnterFullscreen(page.get());
+    sendToWebProcess(Messages::WebFullScreenManager::DidEnterFullScreen());
+
+    if (page->isControlledByAutomation()) {
+        if (RefPtr automationSession = page->protectedConfiguration()->processPool().automationSession())
+            automationSession->didEnterFullScreenForPage(*page);
     }
 }
 
 void WebFullScreenManagerProxy::willExitFullScreen()
 {
     ALWAYS_LOG(LOGIDENTIFIER);
+    RefPtr page = m_page.get();
+    if (!page)
+        return;
+
     m_fullscreenState = FullscreenState::ExitingFullscreen;
-    m_page.fullscreenClient().willExitFullscreen(&m_page);
-    m_page.legacyMainFrameProcess().send(Messages::WebFullScreenManager::WillExitFullScreen(), m_page.webPageIDInMainFrameProcess());
+    page->fullscreenClient().willExitFullscreen(page.get());
+    sendToWebProcess(Messages::WebFullScreenManager::WillExitFullScreen());
 }
 
 void WebFullScreenManagerProxy::callCloseCompletionHandlers()
@@ -126,70 +155,81 @@ void WebFullScreenManagerProxy::didExitFullScreen()
 {
     ALWAYS_LOG(LOGIDENTIFIER);
     m_fullscreenState = FullscreenState::NotInFullscreen;
-    m_page.fullscreenClient().didExitFullscreen(&m_page);
-    m_page.legacyMainFrameProcess().send(Messages::WebFullScreenManager::DidExitFullScreen(), m_page.webPageIDInMainFrameProcess());
-    
-    if (m_page.isControlledByAutomation()) {
-        if (WebAutomationSession* automationSession = m_page.configuration().processPool().automationSession())
-            automationSession->didExitFullScreenForPage(m_page);
+    if (RefPtr page = m_page.get()) {
+        page->fullscreenClient().didExitFullscreen(page.get());
+        sendToWebProcess(Messages::WebFullScreenManager::DidExitFullScreen());
+
+        if (page->isControlledByAutomation()) {
+            if (RefPtr automationSession = page->protectedConfiguration()->processPool().automationSession())
+                automationSession->didExitFullScreenForPage(*page);
+        }
     }
     callCloseCompletionHandlers();
 }
 
 void WebFullScreenManagerProxy::setAnimatingFullScreen(bool animating)
 {
-    m_page.legacyMainFrameProcess().send(Messages::WebFullScreenManager::SetAnimatingFullScreen(animating), m_page.webPageIDInMainFrameProcess());
+    sendToWebProcess(Messages::WebFullScreenManager::SetAnimatingFullScreen(animating));
 }
 
 void WebFullScreenManagerProxy::requestRestoreFullScreen(CompletionHandler<void(bool)>&& completionHandler)
 {
     ALWAYS_LOG(LOGIDENTIFIER);
-    m_page.legacyMainFrameProcess().sendWithAsyncReply(Messages::WebFullScreenManager::RequestRestoreFullScreen(), WTFMove(completionHandler), m_page.webPageIDInMainFrameProcess());
+    RefPtr page = m_page.get();
+    if (!page)
+        return completionHandler(false);
+    RefPtr fullScreenProcess = m_fullScreenProcess.get();
+    if (!fullScreenProcess)
+        return completionHandler(false);
+    fullScreenProcess->sendWithAsyncReply(Messages::WebFullScreenManager::RequestRestoreFullScreen(), WTFMove(completionHandler), page->webPageIDInProcess(*fullScreenProcess));
 }
 
 void WebFullScreenManagerProxy::requestExitFullScreen()
 {
     ALWAYS_LOG(LOGIDENTIFIER);
-    m_page.legacyMainFrameProcess().send(Messages::WebFullScreenManager::RequestExitFullScreen(), m_page.webPageIDInMainFrameProcess());
-}
-
-void WebFullScreenManagerProxy::supportsFullScreen(bool withKeyboard, CompletionHandler<void(bool)>&& completionHandler)
-{
-#if PLATFORM(IOS_FAMILY)
-    completionHandler(!withKeyboard);
-#else
-    completionHandler(true);
-#endif
+    sendToWebProcess(Messages::WebFullScreenManager::RequestExitFullScreen());
 }
 
 void WebFullScreenManagerProxy::saveScrollPosition()
 {
-    m_page.legacyMainFrameProcess().send(Messages::WebFullScreenManager::SaveScrollPosition(), m_page.webPageIDInMainFrameProcess());
+    sendToWebProcess(Messages::WebFullScreenManager::SaveScrollPosition());
 }
 
 void WebFullScreenManagerProxy::restoreScrollPosition()
 {
-    m_page.legacyMainFrameProcess().send(Messages::WebFullScreenManager::RestoreScrollPosition(), m_page.webPageIDInMainFrameProcess());
+    sendToWebProcess(Messages::WebFullScreenManager::RestoreScrollPosition());
 }
 
 void WebFullScreenManagerProxy::setFullscreenInsets(const WebCore::FloatBoxExtent& insets)
 {
-    m_page.legacyMainFrameProcess().send(Messages::WebFullScreenManager::SetFullscreenInsets(insets), m_page.webPageIDInMainFrameProcess());
+    sendToWebProcess(Messages::WebFullScreenManager::SetFullscreenInsets(insets));
 }
 
 void WebFullScreenManagerProxy::setFullscreenAutoHideDuration(Seconds duration)
 {
-    m_page.legacyMainFrameProcess().send(Messages::WebFullScreenManager::SetFullscreenAutoHideDuration(duration), m_page.webPageIDInMainFrameProcess());
+    sendToWebProcess(Messages::WebFullScreenManager::SetFullscreenAutoHideDuration(duration));
 }
 
 void WebFullScreenManagerProxy::close()
 {
-    m_client.closeFullScreenManager();
+    if (CheckedPtr client = m_client)
+        client->closeFullScreenManager();
+}
+
+void WebFullScreenManagerProxy::detachFromClient()
+{
+    close();
+    m_client = nullptr;
+}
+
+void WebFullScreenManagerProxy::attachToNewClient(WebFullScreenManagerProxyClient& client)
+{
+    m_client = &client;
 }
 
 bool WebFullScreenManagerProxy::isFullScreen()
 {
-    return m_client.isFullScreen();
+    return m_client && m_client->isFullScreen();
 }
 
 bool WebFullScreenManagerProxy::blocksReturnToFullscreenFromPictureInPicture() const
@@ -197,8 +237,9 @@ bool WebFullScreenManagerProxy::blocksReturnToFullscreenFromPictureInPicture() c
     return m_blocksReturnToFullscreenFromPictureInPicture;
 }
 
-void WebFullScreenManagerProxy::enterFullScreen(bool blocksReturnToFullscreenFromPictureInPicture, FullScreenMediaDetails&& mediaDetails)
+void WebFullScreenManagerProxy::enterFullScreen(IPC::Connection& connection, bool blocksReturnToFullscreenFromPictureInPicture, FullScreenMediaDetails&& mediaDetails, CompletionHandler<void(bool)>&& completionHandler)
 {
+    m_fullScreenProcess = dynamicDowncast<WebProcessProxy>(AuxiliaryProcessProxy::fromConnection(connection));
     m_blocksReturnToFullscreenFromPictureInPicture = blocksReturnToFullscreenFromPictureInPicture;
 #if PLATFORM(IOS_FAMILY)
 
@@ -215,19 +256,40 @@ void WebFullScreenManagerProxy::enterFullScreen(bool blocksReturnToFullscreenFro
 #endif // QUICKLOOK_FULLSCREEN
 
     auto mediaDimensions = mediaDetails.mediaDimensions;
-    m_client.enterFullScreen(mediaDimensions);
+    if (CheckedPtr client = m_client)
+        client->enterFullScreen(mediaDimensions, WTFMove(completionHandler));
+    else
+        completionHandler(false);
 #else
     UNUSED_PARAM(mediaDetails);
-    m_client.enterFullScreen();
+    if (CheckedPtr client = m_client)
+        client->enterFullScreen(WTFMove(completionHandler));
+    else
+        completionHandler(false);
 #endif
 }
+
+#if ENABLE(QUICKLOOK_FULLSCREEN)
+void WebFullScreenManagerProxy::updateImageSource(FullScreenMediaDetails&& mediaDetails)
+{
+    if (mediaDetails.imageHandle) {
+        if (auto sharedMemoryBuffer = SharedMemory::map(WTFMove(*mediaDetails.imageHandle), WebCore::SharedMemory::Protection::ReadOnly))
+            m_imageBuffer = sharedMemoryBuffer->createSharedBuffer(sharedMemoryBuffer->size());
+    }
+    m_imageMIMEType = mediaDetails.mimeType;
+
+    if (CheckedPtr client = m_client)
+        client->updateImageSource();
+}
+#endif // ENABLE(QUICKLOOK_FULLSCREEN)
 
 void WebFullScreenManagerProxy::exitFullScreen()
 {
 #if ENABLE(QUICKLOOK_FULLSCREEN)
     m_imageBuffer = nullptr;
 #endif
-    m_client.exitFullScreen();
+    if (CheckedPtr client = m_client)
+        client->exitFullScreen();
 }
 
 #if ENABLE(QUICKLOOK_FULLSCREEN)
@@ -254,25 +316,33 @@ void WebFullScreenManagerProxy::prepareQuickLookImageURL(CompletionHandler<void(
 
 void WebFullScreenManagerProxy::beganEnterFullScreen(const IntRect& initialFrame, const IntRect& finalFrame)
 {
-    m_page.callAfterNextPresentationUpdate([weakThis = WeakPtr { *this }, initialFrame = initialFrame, finalFrame = finalFrame] {
-        if (weakThis)
-            weakThis->m_client.beganEnterFullScreen(initialFrame, finalFrame);
+    RefPtr page = m_page.get();
+    if (!page)
+        return;
+
+    page->callAfterNextPresentationUpdate([weakThis = WeakPtr { *this }, initialFrame = initialFrame, finalFrame = finalFrame] {
+        if (CheckedPtr client = weakThis ? weakThis->m_client : nullptr)
+            client->beganEnterFullScreen(initialFrame, finalFrame);
     });
 }
 
 void WebFullScreenManagerProxy::beganExitFullScreen(const IntRect& initialFrame, const IntRect& finalFrame)
 {
-    m_client.beganExitFullScreen(initialFrame, finalFrame);
+    if (CheckedPtr client = m_client)
+        client->beganExitFullScreen(initialFrame, finalFrame);
 }
 
 bool WebFullScreenManagerProxy::lockFullscreenOrientation(WebCore::ScreenOrientationType orientation)
 {
-    return m_client.lockFullscreenOrientation(orientation);
+    if (CheckedPtr client = m_client)
+        return client->lockFullscreenOrientation(orientation);
+    return false;
 }
 
 void WebFullScreenManagerProxy::unlockFullscreenOrientation()
 {
-    m_client.unlockFullscreenOrientation();
+    if (CheckedPtr client = m_client)
+        client->unlockFullscreenOrientation();
 }
 
 #if !RELEASE_LOG_DISABLED

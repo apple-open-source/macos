@@ -499,14 +499,6 @@ NSString* CKKSAccountStatusToString(CKKSAccountStatus status)
     return [[SOSAccountStatus alloc] init:status error:nil];
 }
 
-+ (NSString*)stringFromAccountStatus: (CKKSAccountStatus) status {
-    switch(status) {
-        case CKKSAccountStatusUnknown: return @"account state unknown";
-        case CKKSAccountStatusAvailable: return @"logged in";
-        case CKKSAccountStatusNoAccount: return @"no account";
-    }
-}
-
 - (void)triggerOctagonStatusFetch
 {
     WEAKIFY(self);

@@ -160,10 +160,17 @@ WK_CLASS_AVAILABLE(macos(14.5), ios(17.5), visionos(1.2))
 // Test only. Should be called before any web content processes are launched.
 + (void)_forceGameControllerFramework WK_API_AVAILABLE(macos(10.13), ios(11.0));
 + (void)_setLinkedOnOrAfterEverythingForTesting WK_API_AVAILABLE(macos(12.0), ios(15.0));
++ (void)_crashOnMessageCheckFailureForTesting WK_API_AVAILABLE(macos(WK_MAC_TBA), ios(WK_IOS_TBA), visionos(WK_XROS_TBA));
 + (void)_setLinkedOnOrBeforeEverythingForTesting WK_API_AVAILABLE(macos(12.0), ios(15.0));
 + (void)_setCaptivePortalModeEnabledGloballyForTesting:(BOOL)isEnabled WK_API_AVAILABLE(macos(13.0), ios(16.0));
 + (void)_clearCaptivePortalModeEnabledGloballyForTesting WK_API_AVAILABLE(macos(13.0), ios(16.0));
 + (BOOL)_lockdownModeEnabledGloballyForTesting WK_API_AVAILABLE(macos(13.0), ios(16.0));
+
+// Test only. Should be called before a GPU process has been launched.
++ (void)_setEnableMetalDebugDeviceInNewGPUProcessesForTesting:(BOOL)enable WK_API_AVAILABLE(macos(15.4), ios(18.4), visionos(2.4));
++ (void)_setEnableMetalShaderValidationInNewGPUProcessesForTesting:(BOOL)enable WK_API_AVAILABLE(macos(15.4), ios(18.4), visionos(2.4));
++ (BOOL)_isMetalDebugDeviceEnabledInGPUProcessForTesting WK_API_AVAILABLE(macos(15.4), ios(18.4), visionos(2.4));
++ (BOOL)_isMetalShaderValidationEnabledInGPUProcessForTesting WK_API_AVAILABLE(macos(15.4), ios(18.4), visionos(2.4));
 
 - (void)_preconnectToServer:(NSURL *)serverURL WK_API_DEPRECATED_WITH_REPLACEMENT("WKWebView._preconnectToServer", macos(10.13.4, 10.15.4), ios(11.3, 13.4));
 

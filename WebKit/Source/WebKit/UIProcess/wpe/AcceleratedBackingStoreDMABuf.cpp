@@ -44,15 +44,16 @@ namespace WebKit {
 
 WTF_MAKE_TZONE_ALLOCATED_IMPL(AcceleratedBackingStoreDMABuf);
 
-std::unique_ptr<AcceleratedBackingStoreDMABuf> AcceleratedBackingStoreDMABuf::create(WebPageProxy& webPage, WPEView* view)
+Ref<AcceleratedBackingStoreDMABuf> AcceleratedBackingStoreDMABuf::create(WebPageProxy& webPage, WPEView* view)
 {
-    return std::unique_ptr<AcceleratedBackingStoreDMABuf>(new AcceleratedBackingStoreDMABuf(webPage, view));
+    return adoptRef(*new AcceleratedBackingStoreDMABuf(webPage, view));
 }
 
 AcceleratedBackingStoreDMABuf::AcceleratedBackingStoreDMABuf(WebPageProxy& webPage, WPEView* view)
     : m_webPage(webPage)
     , m_wpeView(view)
     , m_fenceMonitor([this] { renderPendingBuffer(); })
+    , m_legacyMainFrameProcess(webPage.legacyMainFrameProcess())
 {
     g_signal_connect(m_wpeView.get(), "buffer-rendered", G_CALLBACK(+[](WPEView*, WPEBuffer*, gpointer userData) {
         auto& backingStore = *static_cast<AcceleratedBackingStoreDMABuf*>(userData);
@@ -82,12 +83,15 @@ void AcceleratedBackingStoreDMABuf::updateSurfaceID(uint64_t surfaceID)
         }
         m_buffers.clear();
         m_bufferIDs.clear();
-        m_webPage.legacyMainFrameProcess().removeMessageReceiver(Messages::AcceleratedBackingStoreDMABuf::messageReceiverName(), m_surfaceID);
+        if (RefPtr legacyMainFrameProcess = m_legacyMainFrameProcess.get())
+            legacyMainFrameProcess->removeMessageReceiver(Messages::AcceleratedBackingStoreDMABuf::messageReceiverName(), m_surfaceID);
     }
 
     m_surfaceID = surfaceID;
-    if (m_surfaceID)
-        m_webPage.legacyMainFrameProcess().addMessageReceiver(Messages::AcceleratedBackingStoreDMABuf::messageReceiverName(), m_surfaceID, *this);
+    if (m_surfaceID && m_webPage) {
+        m_legacyMainFrameProcess = m_webPage->legacyMainFrameProcess();
+        Ref { *m_legacyMainFrameProcess }->addMessageReceiver(Messages::AcceleratedBackingStoreDMABuf::messageReceiverName(), m_surfaceID, *this);
+    }
 }
 
 void AcceleratedBackingStoreDMABuf::didCreateBuffer(uint64_t id, const WebCore::IntSize& size, uint32_t format, Vector<WTF::UnixFileDescriptor>&& fds, Vector<uint32_t>&& offsets, Vector<uint32_t>&& strides, uint64_t modifier, DMABufRendererBufferFormat::Usage usage)
@@ -166,7 +170,8 @@ void AcceleratedBackingStoreDMABuf::renderPendingBuffer()
 
 void AcceleratedBackingStoreDMABuf::frameDone()
 {
-    m_webPage.legacyMainFrameProcess().send(Messages::AcceleratedSurfaceDMABuf::FrameDone(), m_surfaceID);
+    if (RefPtr legacyMainFrameProcess = m_legacyMainFrameProcess.get())
+        legacyMainFrameProcess->send(Messages::AcceleratedSurfaceDMABuf::FrameDone(), m_surfaceID);
 }
 
 void AcceleratedBackingStoreDMABuf::bufferRendered()
@@ -182,7 +187,8 @@ void AcceleratedBackingStoreDMABuf::bufferReleased(WPEBuffer* buffer)
         if (WPE_IS_BUFFER_DMA_BUF(buffer))
             releaseFence = UnixFileDescriptor { wpe_buffer_dma_buf_take_release_fence(WPE_BUFFER_DMA_BUF(buffer)), UnixFileDescriptor::Adopt };
 
-        m_webPage.legacyMainFrameProcess().send(Messages::AcceleratedSurfaceDMABuf::ReleaseBuffer(id, WTFMove(releaseFence)), m_surfaceID);
+        if (RefPtr legacyMainFrameProcess = m_legacyMainFrameProcess.get())
+            legacyMainFrameProcess->send(Messages::AcceleratedSurfaceDMABuf::ReleaseBuffer(id, WTFMove(releaseFence)), m_surfaceID);
     }
 }
 

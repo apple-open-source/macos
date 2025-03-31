@@ -99,6 +99,7 @@ OS_OBJECT_DECL(nw_resolver);
 OS_OBJECT_DECL(nw_parameters);
 OS_OBJECT_DECL(nw_proxy_config);
 OS_OBJECT_DECL(nw_protocol_options);
+OS_OBJECT_DECL(nw_establishment_report);
 #else
 struct nw_array;
 typedef struct nw_array *nw_array_t;
@@ -116,6 +117,8 @@ struct nw_proxy_config;
 typedef struct nw_proxy_config *nw_proxy_config_t;
 struct nw_protocol_options;
 typedef struct nw_protocol_options *nw_protocol_options_t;
+struct nw_establishment_report;
+typedef struct nw_establishment_report *nw_establishment_report_t;
 #endif // OS_OBJECT_USE_OBJC
 
 #if HAVE(NW_PROXY_CONFIG) || HAVE(SYSTEM_SUPPORT_FOR_ADVANCED_PRIVACY_PROTECTIONS)
@@ -145,11 +148,11 @@ bool nw_resolver_set_update_handler(nw_resolver_t, dispatch_queue_t, nw_resolver
 bool nw_resolver_cancel(nw_resolver_t);
 void nw_context_set_privacy_level(nw_context_t, nw_context_privacy_level_t);
 void nw_parameters_set_context(nw_parameters_t, nw_context_t);
+nw_endpoint_t nw_establishment_report_copy_proxy_endpoint(nw_establishment_report_t);
+
 nw_context_t nw_context_create(const char *);
 size_t nw_array_get_count(nw_array_t);
 nw_object_t nw_array_get_object_at_index(nw_array_t, size_t);
-nw_parameters_t nw_parameters_create_quic_stream(nw_parameters_configure_protocol_block_t, nw_parameters_configure_protocol_block_t);
-sec_protocol_options_t nw_quic_connection_copy_sec_protocol_options(nw_protocol_options_t);
 #ifdef __cplusplus
 }
 #endif
@@ -229,15 +232,22 @@ typedef enum {
 - (id)_initWithIdentifier:(NSString *)identifier private:(bool)isPrivate;
 - (void)_getCookiesForURL:(NSURL *)url mainDocumentURL:(NSURL *)mainDocumentURL partition:(NSString *)partition completionHandler:(void (^)(NSArray *))completionHandler;
 - (void)_getCookiesForURL:(NSURL *)url mainDocumentURL:(NSURL *)mainDocumentURL partition:(NSString *)partition policyProperties:(NSDictionary*)props completionHandler:(void (NS_NOESCAPE ^)(NSArray *))completionHandler;
+- (void)_getCookiesForPartition:(NSString* __nullable) partition completionHandler:(void (NS_NOESCAPE ^) (NSArray* __nullable))completionHandler;
 - (void)_setCookies:(NSArray *)cookies forURL:(NSURL *)URL mainDocumentURL:(NSURL *)mainDocumentURL policyProperties:(NSDictionary*) props;
 - (void)removeCookiesSinceDate:(NSDate *)date;
 - (id)_initWithCFHTTPCookieStorage:(CFHTTPCookieStorageRef)cfStorage;
 - (CFHTTPCookieStorageRef)_cookieStorage;
 - (void)_saveCookies:(dispatch_block_t) completionHandler;
-#if HAVE(CFNETWORK_OVERRIDE_SESSION_COOKIE_ACCEPT_POLICY)
 @property (nonatomic, readwrite) BOOL _overrideSessionCookieAcceptPolicy;
-#endif
 @end
+
+typedef CF_ENUM(int, CFURLCredentialPersistence)
+{
+    kCFURLCredentialPersistenceNone = 1,
+    kCFURLCredentialPersistenceForSession = 2,
+    kCFURLCredentialPersistencePermanent = 3,
+    kCFURLCredentialPersistenceSynchronizable = 4
+};
 
 @interface NSURLCredentialStorage ()
 - (id)_initWithIdentifier:(NSString *)identifier private:(bool)isPrivate;
@@ -267,6 +277,9 @@ typedef enum {
 #endif
 #if HAVE(ALLOW_PRIVATE_ACCESS_TOKENS_FOR_THIRD_PARTY)
 @property (setter=_setAllowPrivateAccessTokensForThirdParty:) BOOL _allowPrivateAccessTokensForThirdParty;
+#endif
+#if HAVE(ALLOW_ONLY_PARTITIONED_COOKIES)
+@property (setter=_setAllowOnlyPartitionedCookies:) BOOL _allowOnlyPartitionedCookies;
 #endif
 @end
 
@@ -362,9 +375,7 @@ typedef NS_ENUM(NSInteger, NSURLSessionCompanionProxyPreference) {
 @property (readwrite, assign) NSInteger _connectionCacheNumFastLanes;
 @property (readwrite, assign) NSInteger _connectionCacheMinimumFastLanePriority;
 #endif
-#if HAVE(CFNETWORK_NSURLSESSION_ATTRIBUTED_BUNDLE_IDENTIFIER)
 @property (nullable, copy) NSString *_attributedBundleIdentifier;
-#endif
 @end
 
 @interface NSURLSessionTask ()
@@ -394,6 +405,7 @@ typedef NS_ENUM(NSInteger, NSURLSessionCompanionProxyPreference) {
 @property (nullable, copy, readonly) NSString* _interfaceName;
 #if HAVE(NETWORK_CONNECTION_PRIVACY_STANCE)
 @property (assign, readonly) nw_connection_privacy_stance_t _privacyStance;
+@property (nullable, retain, readonly) nw_establishment_report_t _establishmentReport;
 #endif
 @property (assign) SSLProtocol _negotiatedTLSProtocol;
 @property (assign) SSLCipherSuite _negotiatedTLSCipher;
@@ -448,6 +460,17 @@ enum : NSUInteger {
 #endif // defined(__OBJC__)
 
 #endif // USE(APPLE_INTERNAL_SDK)
+
+enum URLCredentialType {
+    kURLCredentialInternetPassword = 0,
+    kURLCredentialServerTrust,
+    kURLCredentialKerberosTicket,
+    kURLCredentialClientCertificate,
+    kURLCredentialXMobileMeAuthToken,
+    kURLCredentialUnknown,
+    kURLCredentialOAuth2,
+    kURLCredentialOAuth1
+};
 
 WTF_EXTERN_C_BEGIN
 
@@ -571,7 +594,6 @@ WTF_EXTERN_C_END
 
 @interface NSURLSessionTask ()
 - (void)_setExplicitCookieStorage:(CFHTTPCookieStorageRef)storage;
-@property (readonly) SSLProtocol _TLSNegotiatedProtocolVersion;
 @end
 
 @interface NSURLSessionWebSocketTask (SPI)
@@ -588,6 +610,7 @@ WTF_EXTERN_C_END
 
 @interface NSMutableURLRequest (Staging_103362732)
 @property (setter=_setWebSearchContent:) BOOL _isWebSearchContent;
+@property (setter=_setAllowOnlyPartitionedCookies:) BOOL _allowOnlyPartitionedCookies;
 @end
 
 #if HAVE(ALTERNATIVE_SERVICE)
@@ -595,5 +618,9 @@ WTF_EXTERN_C_END
 @property BOOL canSuspendLocked;
 @end
 #endif
+
+@interface NSURLProtectionSpace (SPI)
+- (void)_setServerTrust:(SecTrustRef)serverTrust;
+@end
 
 #endif // defined(__OBJC__)

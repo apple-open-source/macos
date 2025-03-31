@@ -333,7 +333,7 @@ struct FrameData {
 
     struct InputSource {
         InputSourceHandle handle { 0 };
-        XRHandedness handeness { XRHandedness::None };
+        XRHandedness handedness { XRHandedness::None };
         XRTargetRayMode targetRayMode { XRTargetRayMode::Gaze };
         Vector<String> profiles;
         InputSourcePose pointerOrigin;
@@ -365,10 +365,6 @@ class Device : public ThreadSafeRefCountedAndCanMakeThreadSafeWeakPtr<Device> {
     WTF_MAKE_NONCOPYABLE(Device);
 public:
     virtual ~Device() = default;
-
-    void ref() const { ThreadSafeRefCountedAndCanMakeThreadSafeWeakPtr<Device>::ref(); }
-    void deref() const { ThreadSafeRefCountedAndCanMakeThreadSafeWeakPtr<Device>::deref(); }
-    ThreadSafeWeakPtrControlBlock& controlBlock() const { return ThreadSafeRefCountedAndCanMakeThreadSafeWeakPtr<Device>::controlBlock(); }
 
     using FeatureList = Vector<SessionFeature>;
     bool supports(SessionMode mode) const { return m_supportedFeaturesMap.contains(mode); }

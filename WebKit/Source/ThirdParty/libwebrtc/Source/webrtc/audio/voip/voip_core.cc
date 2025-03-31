@@ -122,7 +122,7 @@ bool VoipCore::InitializeIfNeeded() {
 }
 
 ChannelId VoipCore::CreateChannel(Transport* transport,
-                                  absl::optional<uint32_t> local_ssrc) {
+                                  std::optional<uint32_t> local_ssrc) {
   ChannelId channel_id;
 
   // Set local ssrc to random if not set by caller.
@@ -132,8 +132,7 @@ ChannelId VoipCore::CreateChannel(Transport* transport,
   }
 
   rtc::scoped_refptr<AudioChannel> channel =
-      rtc::make_ref_counted<AudioChannel>(transport, local_ssrc.value(),
-                                          &env_.task_queue_factory(),
+      rtc::make_ref_counted<AudioChannel>(env_, transport, local_ssrc.value(),
                                           audio_mixer_.get(), decoder_factory_);
 
   {

@@ -116,7 +116,7 @@ extension OctagonPairingTests {
         let ThirdAcceptorCallback = self.expectation(description: "ThirdAcceptorCallback callback occurs")
 
         acceptor.exchangePacket(initiatorThirdPacket) { complete, packet, error in
-            XCTAssertFalse(complete, "should be false")
+            XCTAssertTrue(complete, "should be true")
             XCTAssertNotNil(packet, "packet should not be nil")
             XCTAssertNil(error, "error should be nil")
             acceptorThirdPacket = packet!
@@ -128,54 +128,14 @@ extension OctagonPairingTests {
         /* PAIR-1 INITIATOR FOURTH STEP*/
         let fourthInitiatorCallback = self.expectation(description: "fourthInitiatorCallback callback occurs")
 
-        var initiatorFourthPacket = Data()
         initiator.exchangePacket(acceptorThirdPacket) { complete, packet, error in
-            XCTAssertFalse(complete, "should be false")
-            XCTAssertNotNil(packet, "packet should not be nil")
+            XCTAssertTrue(complete, "should be true")
+            XCTAssertNil(packet, "packet should be nil")
             XCTAssertNil(error, "error should be nil")
-            initiatorFourthPacket = packet!
             fourthInitiatorCallback.fulfill()
         }
 
         self.wait(for: [fourthInitiatorCallback], timeout: 10)
-        XCTAssertNotNil(initiatorFourthPacket, "initiator fourth packet should not be nil")
-
-        var acceptorFourthPacket = Data()
-        let FourthAcceptorCallback = self.expectation(description: "FourthAcceptorCallback callback occurs")
-
-        acceptor.setDSIDForTest("123456")
-        acceptor.exchangePacket(initiatorFourthPacket) { complete, packet, error in
-            XCTAssertFalse(complete, "should be false")
-            XCTAssertNotNil(packet, "packet should not be nil")
-            XCTAssertNil(error, "error should be nil")
-            acceptorFourthPacket = packet!
-            FourthAcceptorCallback.fulfill()
-        }
-        self.wait(for: [FourthAcceptorCallback], timeout: 10)
-        XCTAssertNotNil(acceptorFourthPacket, "acceptor fourth packet should not be nil")
-
-        let fifthInitiatorCallback = self.expectation(description: "fifthInitiatorCallback callback occurs")
-        var initiatorFifthPacket = Data()
-
-        initiator.exchangePacket(acceptorFourthPacket) { complete, packet, error in
-            XCTAssertTrue(complete, "should be true")
-            XCTAssertNotNil(packet, "packet should not be nil")
-            XCTAssertNil(error, "error should be nil")
-            initiatorFifthPacket = packet!
-            fifthInitiatorCallback.fulfill()
-        }
-        self.wait(for: [fifthInitiatorCallback], timeout: 10)
-        XCTAssertNotNil(initiatorFifthPacket, "initiator fifth packet should not be nil")
-
-        let FifthAcceptorCallback = self.expectation(description: "FifthAcceptorCallback callback occurs")
-
-        acceptor.exchangePacket(initiatorFifthPacket) { complete, packet, error in
-            XCTAssertTrue(complete, "should be true")
-            XCTAssertNil(packet, "packet should be nil")
-            XCTAssertNil(error, "error should be nil")
-            FifthAcceptorCallback.fulfill()
-        }
-        self.wait(for: [FifthAcceptorCallback], timeout: 10)
 
         assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
 
@@ -296,7 +256,7 @@ extension OctagonPairingTests {
         let pair2ThirdAcceptorCallback = self.expectation(description: "pair2ThirdAcceptorCallback callback occurs")
 
         acceptor2.exchangePacket(pair2InitiatorThirdPacket) { complete, packet, error in
-            XCTAssertFalse(complete, "should be false")
+            XCTAssertTrue(complete, "should be true")
             XCTAssertNotNil(packet, "packet should not be nil")
             XCTAssertNil(error, "error should be nil")
             pair2AcceptorThirdPacket = packet!
@@ -307,58 +267,15 @@ extension OctagonPairingTests {
 
         /* PAIR-2 INITIATOR FOURTH STEP*/
         let pair2FourthInitiatorCallback = self.expectation(description: "pair2FourthInitiatorCallback callback occurs")
-        var pair2InitiatorFourthPacket = Data()
 
         initiator2.exchangePacket(pair2AcceptorThirdPacket) { complete, packet, error in
-            XCTAssertFalse(complete, "should be false")
-            XCTAssertNotNil(packet, "packet should not be nil")
+            XCTAssertTrue(complete, "should be true")
+            XCTAssertNil(packet, "packet should be nil")
             XCTAssertNil(error, "error should be nil")
-            pair2InitiatorFourthPacket = packet!
             pair2FourthInitiatorCallback.fulfill()
         }
 
         self.wait(for: [pair2FourthInitiatorCallback], timeout: 10)
-        XCTAssertNotNil(pair2InitiatorFourthPacket, "initiator fourth packet should not be nil")
-
-        var pair2AcceptorFourthPacket = Data()
-        let pair2FourthAcceptorCallback = self.expectation(description: "pair2FourthAcceptorCallback callback occurs")
-
-        acceptor2.setDSIDForTest("123456")
-        acceptor2.exchangePacket(pair2InitiatorFourthPacket) { complete, packet, error in
-            XCTAssertFalse(complete, "should be false")
-            XCTAssertNotNil(packet, "packet should not be nil")
-            XCTAssertNil(error, "error should be nil")
-            pair2AcceptorFourthPacket = packet!
-            pair2FourthAcceptorCallback.fulfill()
-        }
-        self.wait(for: [pair2FourthAcceptorCallback], timeout: 10)
-        XCTAssertNotNil(pair2AcceptorFourthPacket, "acceptor fourth packet should not be nil")
-
-        /* PAIR-2 INITIATOR FOURTH STEP*/
-        let pair2FifthInitiatorCallback = self.expectation(description: "pair2FifthInitiatorCallback callback occurs")
-        var pair2InitiatorFifthPacket = Data()
-
-        initiator2.exchangePacket(pair2AcceptorFourthPacket) { complete, packet, error in
-            XCTAssertTrue(complete, "should be true")
-            XCTAssertNotNil(packet, "packet should not be nil")
-            XCTAssertNil(error, "error should be nil")
-            pair2InitiatorFifthPacket = packet!
-            pair2FifthInitiatorCallback.fulfill()
-        }
-
-        self.wait(for: [pair2FifthInitiatorCallback], timeout: 10)
-        XCTAssertNotNil(pair2InitiatorFifthPacket, "initiator fifth packet should not be nil")
-
-        let pair2AcceptorFifthCallback = self.expectation(description: "pair2AcceptorFifthCallback callback occurs")
-
-        acceptor2.exchangePacket(pair2InitiatorFifthPacket) { complete, packet, error in
-            XCTAssertTrue(complete, "should be true")
-            XCTAssertNil(packet, "packet should be nil")
-            XCTAssertNil(error, "error should be nil")
-            pair2AcceptorFifthCallback.fulfill()
-        }
-        self.wait(for: [pair2AcceptorFifthCallback], timeout: 10)
-
 
         try self.forceFetch(context: self.cuttlefishContextForAcceptor)
 
@@ -488,7 +405,7 @@ extension OctagonPairingTests {
         let SecondAcceptorCallback = self.expectation(description: "SecondAcceptorCallback callback occurs")
 
         acceptor.exchangePacket(initiatorSecondPacket) { complete, packet, error in
-            XCTAssertFalse(complete, "should be false")
+            XCTAssertTrue(complete, "should be true")
             XCTAssertNotNil(packet, "packet should be nil")
             XCTAssertNil(error, "error should be nil")
             acceptorSecondPacket = packet!
@@ -499,54 +416,14 @@ extension OctagonPairingTests {
 
         /* PAIR-1 INITIATOR THIRD STEP*/
         let thirdInitiatorCallback = self.expectation(description: "thirdInitiatorCallback callback occurs")
-        var initiatorThirdPacket = Data()
 
         initiator.exchangePacket(acceptorSecondPacket) { complete, packet, error in
-            XCTAssertFalse(complete, "should be false")
-            XCTAssertNotNil(packet, "packet should not be nil")
-            XCTAssertNil(error, "error should be nil")
-            initiatorThirdPacket = packet!
-            thirdInitiatorCallback.fulfill()
-        }
-        self.wait(for: [thirdInitiatorCallback], timeout: 10)
-
-        var acceptorThirdPacket = Data()
-        let ThirdAcceptorCallback = self.expectation(description: "ThirdAcceptorCallback callback occurs")
-
-        acceptor.setDSIDForTest("123456")
-        acceptor.exchangePacket(initiatorThirdPacket) { complete, packet, error in
-            XCTAssertFalse(complete, "should be false")
-            XCTAssertNotNil(packet, "packet should not be nil")
-            XCTAssertNil(error, "error should be nil")
-            acceptorThirdPacket = packet!
-            ThirdAcceptorCallback.fulfill()
-        }
-        self.wait(for: [ThirdAcceptorCallback], timeout: 10)
-        XCTAssertNotNil(acceptorThirdPacket, "acceptor third packet should not be nil")
-
-        let fourthInitiatorCallback = self.expectation(description: "fourthInitiatorCallback callback occurs")
-        var initiatorFourthPacket = Data()
-
-        initiator.exchangePacket(acceptorThirdPacket) { complete, packet, error in
-            XCTAssertTrue(complete, "should be true")
-            XCTAssertNotNil(packet, "packet should not be nil")
-            XCTAssertNil(error, "error should be nil")
-            initiatorFourthPacket = packet!
-            fourthInitiatorCallback.fulfill()
-        }
-        self.wait(for: [fourthInitiatorCallback], timeout: 10)
-        XCTAssertNotNil(initiatorFourthPacket, "acceptor fourth packet should not be nil")
-
-        let FourthAcceptorCallback = self.expectation(description: "FourthAcceptorCallback callback occurs")
-
-        acceptor.exchangePacket(initiatorFourthPacket) { complete, packet, error in
             XCTAssertTrue(complete, "should be true")
             XCTAssertNil(packet, "packet should be nil")
             XCTAssertNil(error, "error should be nil")
-            FourthAcceptorCallback.fulfill()
+            thirdInitiatorCallback.fulfill()
         }
-        self.wait(for: [FourthAcceptorCallback], timeout: 10)
-
+        self.wait(for: [thirdInitiatorCallback], timeout: 10)
 
         assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
 
@@ -640,7 +517,7 @@ extension OctagonPairingTests {
         let pair2SecondAcceptorCallback = self.expectation(description: "pair2SecondAcceptorCallback callback occurs")
 
         acceptor2.exchangePacket(pair2InitiatorSecondPacket) { complete, packet, error in
-            XCTAssertFalse(complete, "should be false")
+            XCTAssertTrue(complete, "should be true")
             XCTAssertNotNil(packet, "packet should not be nil")
             XCTAssertNil(error, "error should be nil")
             pair2AcceptorSecondPacket = packet!
@@ -651,54 +528,14 @@ extension OctagonPairingTests {
 
         /* PAIR-2 INITIATOR THIRD STEP*/
         let pair2ThirdInitiatorCallback = self.expectation(description: "thirdInitiatorCallback callback occurs")
-        var pair2InitiatorThirdPacket = Data()
 
         initiator2.exchangePacket(pair2AcceptorSecondPacket) { complete, packet, error in
-            XCTAssertFalse(complete, "should be false")
-            XCTAssertNotNil(packet, "packet should not be nil")
-            XCTAssertNil(error, "error should be nil")
-            pair2InitiatorThirdPacket = packet!
-            pair2ThirdInitiatorCallback.fulfill()
-        }
-        self.wait(for: [pair2ThirdInitiatorCallback], timeout: 10)
-        XCTAssertNotNil(pair2ThirdInitiatorCallback, "initiator third packet should not be nil")
-
-        var pair2AcceptorThirdPacket = Data()
-        let pair2ThirdAcceptorCallback = self.expectation(description: "pair2ThirdAcceptorCallback callback occurs")
-
-        acceptor2.setDSIDForTest("123456")
-        acceptor2.exchangePacket(pair2InitiatorSecondPacket) { complete, packet, error in
-            XCTAssertFalse(complete, "should be false")
-            XCTAssertNotNil(packet, "packet should not be nil")
-            XCTAssertNil(error, "error should be nil")
-            pair2AcceptorThirdPacket = packet!
-            pair2ThirdAcceptorCallback.fulfill()
-        }
-        self.wait(for: [pair2ThirdAcceptorCallback], timeout: 10)
-        XCTAssertNotNil(pair2AcceptorThirdPacket, "acceptor third packet should not be nil")
-
-        let pair2FourthInitiatorCallback = self.expectation(description: "fourthInitiatorCallback callback occurs")
-        var pair2InitiatorFourthPacket = Data()
-
-        initiator2.exchangePacket(pair2AcceptorThirdPacket) { complete, packet, error in
-            XCTAssertTrue(complete, "should be true")
-            XCTAssertNotNil(packet, "packet should not be nil")
-            XCTAssertNil(error, "error should be nil")
-            pair2InitiatorFourthPacket = packet!
-            pair2FourthInitiatorCallback.fulfill()
-        }
-        self.wait(for: [pair2FourthInitiatorCallback], timeout: 10)
-        XCTAssertNotNil(pair2InitiatorFourthPacket, "initiator fourth packet should not be nil")
-
-        let pair2FourthAcceptorCallback = self.expectation(description: "pair2FourthAcceptorCallback callback occurs")
-
-        acceptor2.exchangePacket(pair2InitiatorFourthPacket) { complete, packet, error in
             XCTAssertTrue(complete, "should be true")
             XCTAssertNil(packet, "packet should be nil")
             XCTAssertNil(error, "error should be nil")
-            pair2FourthAcceptorCallback.fulfill()
+            pair2ThirdInitiatorCallback.fulfill()
         }
-        self.wait(for: [pair2FourthAcceptorCallback], timeout: 10)
+        self.wait(for: [pair2ThirdInitiatorCallback], timeout: 10)
 
         XCTAssertNil(initiator2Context.pairingUUID, "pairingUUID should be nil")
         XCTAssertNil(initiator1Context.pairingUUID, "pairingUUID should be nil")
@@ -1138,7 +975,7 @@ extension OctagonPairingTests {
         let SecondAcceptorCallback = self.expectation(description: "SecondAcceptorCallback callback occurs")
 
         acceptor.exchangePacket(initiatorSecondPacket) { complete, packet, error in
-            XCTAssertFalse(complete, "should be false")
+            XCTAssertTrue(complete, "should be true")
             XCTAssertNotNil(packet, "packet should not be nil")
             XCTAssertNil(error, "error should be nil")
             acceptorSecondPacket = packet!
@@ -1162,56 +999,15 @@ extension OctagonPairingTests {
         XCTAssertNotNil(pair2AcceptorFirstPacket, "first packet should not be nil")
 
         /* PAIR-1 INITIATOR THIRD STEP*/
-        var initiatorThirdPacket: Data?
         let thirdInitiatorCallback = self.expectation(description: "thirdInitiatorCallback callback occurs")
 
         initiator.exchangePacket(acceptorSecondPacket) { complete, packet, error in
-            XCTAssertFalse(complete, "should be false")
-            XCTAssertNotNil(packet, "packet should not be nil")
-            XCTAssertNil(error, "error should be nil")
-            initiatorThirdPacket = (packet)
-            thirdInitiatorCallback.fulfill()
-        }
-        self.wait(for: [thirdInitiatorCallback], timeout: 10)
-        XCTAssertNotNil(initiatorThirdPacket, "acceptor second packet should not be nil")
-
-
-        var acceptorThirdPacket = Data()
-        let ThirdAcceptorCallback = self.expectation(description: "ThirdAcceptorCallback callback occurs")
-
-        acceptor.setDSIDForTest("123456")
-        acceptor.exchangePacket(initiatorThirdPacket) { complete, packet, error in
-            XCTAssertFalse(complete, "should be false")
-            XCTAssertNotNil(packet, "packet should not be nil")
-            XCTAssertNil(error, "error should be nil")
-            acceptorThirdPacket = packet!
-            ThirdAcceptorCallback.fulfill()
-        }
-        self.wait(for: [ThirdAcceptorCallback], timeout: 10)
-        XCTAssertNotNil(acceptorThirdPacket, "third packet should not be nil")
-
-        var initiatorFourthPacket: Data?
-        let fourthInitiatorCallback = self.expectation(description: "fourthInitiatorCallback callback occurs")
-
-        initiator.exchangePacket(acceptorThirdPacket) { complete, packet, error in
-            XCTAssertTrue(complete, "should be true")
-            XCTAssertNotNil(packet, "packet should not be nil")
-            XCTAssertNil(error, "error should be nil")
-            initiatorFourthPacket = (packet)
-            fourthInitiatorCallback.fulfill()
-        }
-        self.wait(for: [fourthInitiatorCallback], timeout: 10)
-        XCTAssertNotNil(initiatorFourthPacket, "initiator fourth packet should not be nil")
-
-        let FourthAcceptorCallback = self.expectation(description: "FourthAcceptorCallback callback occurs")
-
-        acceptor.exchangePacket(initiatorFourthPacket) { complete, packet, error in
             XCTAssertTrue(complete, "should be true")
             XCTAssertNil(packet, "packet should be nil")
             XCTAssertNil(error, "error should be nil")
-            FourthAcceptorCallback.fulfill()
+            thirdInitiatorCallback.fulfill()
         }
-        self.wait(for: [FourthAcceptorCallback], timeout: 10)
+        self.wait(for: [thirdInitiatorCallback], timeout: 10)
 
         self.sendContainerChangeWaitForFetch(context: self.cuttlefishContextForAcceptor)
         self.sendContainerChangeWaitForUntrustedFetch(context: initiator2Context)
@@ -1270,7 +1066,7 @@ extension OctagonPairingTests {
         let pair2ThirdAcceptorCallback = self.expectation(description: "pair2ThirdAcceptorCallback callback occurs")
 
         acceptor2.exchangePacket(pair2InitiatorSecondPacket) { complete, packet, error in
-            XCTAssertFalse(complete, "should be false")
+            XCTAssertTrue(complete, "should be true")
             XCTAssertNotNil(packet, "packet should not be nil")
             XCTAssertNil(error, "error should be nil")
             pair2AcceptorThirdPacket = packet!
@@ -1280,56 +1076,15 @@ extension OctagonPairingTests {
         XCTAssertNotNil(pair2AcceptorThirdPacket, "acceptor third packet should not be nil")
 
         /* PAIR-2 INITIATOR THIRD STEP*/
-        var pair2InitiatorThirdPacket: Data?
         let pair2ThirdInitiatorCallback = self.expectation(description: "thirdInitiatorCallback callback occurs")
 
         initiator2.exchangePacket(pair2AcceptorThirdPacket) { complete, packet, error in
-            XCTAssertFalse(complete, "should be false")
-            XCTAssertNotNil(packet, "packet should not be nil")
-            XCTAssertNil(error, "error should be nil")
-            pair2InitiatorThirdPacket = packet!
-            pair2ThirdInitiatorCallback.fulfill()
-        }
-        self.wait(for: [pair2ThirdInitiatorCallback], timeout: 10)
-        XCTAssertNotNil(pair2InitiatorThirdPacket, "initiator third packet should not be nil")
-
-        var pair2AcceptorFourthPacket = Data()
-        let pair2FourthAcceptorCallback = self.expectation(description: "pair2FourthAcceptorCallback callback occurs")
-
-        acceptor2.setDSIDForTest("123456")
-        acceptor2.exchangePacket(pair2InitiatorThirdPacket) { complete, packet, error in
-            XCTAssertFalse(complete, "should be false")
-            XCTAssertNotNil(packet, "packet should not be nil")
-            XCTAssertNil(error, "error should be nil")
-            pair2AcceptorFourthPacket = packet!
-            pair2FourthAcceptorCallback.fulfill()
-        }
-        self.wait(for: [pair2FourthAcceptorCallback], timeout: 10)
-        XCTAssertNotNil(pair2AcceptorFourthPacket, "acceptor fourth packet should not be nil")
-
-        /* PAIR-2 INITIATOR THIRD STEP*/
-        var pair2InitiatorFourthPacket: Data?
-        let pair2FourthInitiatorCallback = self.expectation(description: "pair2FourthInitiatorCallback callback occurs")
-
-        initiator2.exchangePacket(pair2AcceptorFourthPacket) { complete, packet, error in
-            XCTAssertTrue(complete, "should be true")
-            XCTAssertNotNil(packet, "packet should not be nil")
-            XCTAssertNil(error, "error should be nil")
-            pair2InitiatorFourthPacket = packet!
-            pair2FourthInitiatorCallback.fulfill()
-        }
-        self.wait(for: [pair2FourthInitiatorCallback], timeout: 10)
-        XCTAssertNotNil(pair2InitiatorFourthPacket, "initiator fourth packet should not be nil")
-
-
-        let pair2FifthAcceptorCallback = self.expectation(description: "pair2FifthAcceptorCallback callback occurs")
-        acceptor2.exchangePacket(pair2InitiatorThirdPacket) { complete, packet, error in
             XCTAssertTrue(complete, "should be true")
             XCTAssertNil(packet, "packet should be nil")
             XCTAssertNil(error, "error should be nil")
-            pair2FifthAcceptorCallback.fulfill()
+            pair2ThirdInitiatorCallback.fulfill()
         }
-        self.wait(for: [pair2FifthAcceptorCallback], timeout: 10)
+        self.wait(for: [pair2ThirdInitiatorCallback], timeout: 10)
 
         self.sendContainerChangeWaitForFetch(context: self.cuttlefishContextForAcceptor)
         self.sendContainerChangeWaitForFetch(context: initiator2Context)

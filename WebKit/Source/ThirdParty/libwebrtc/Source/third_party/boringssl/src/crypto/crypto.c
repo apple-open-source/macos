@@ -15,8 +15,9 @@
 #include <openssl/crypto.h>
 
 #include <assert.h>
+#include <stdio.h>
 
-#include "fipsmodule/rand/fork_detect.h"
+#include "bcm_support.h"
 #include "fipsmodule/rand/internal.h"
 #include "internal.h"
 
@@ -131,14 +132,6 @@ int CRYPTO_is_confidential_build(void) {
 #endif
 }
 
-int CRYPTO_has_asm(void) {
-#if defined(OPENSSL_NO_ASM)
-  return 0;
-#else
-  return 1;
-#endif
-}
-
 void CRYPTO_pre_sandbox_init(void) {
   // Read from /proc/cpuinfo if needed.
   OPENSSL_init_cpuid();
@@ -186,3 +179,5 @@ int OPENSSL_init_crypto(uint64_t opts, const OPENSSL_INIT_SETTINGS *settings) {
 }
 
 void OPENSSL_cleanup(void) {}
+
+FILE *CRYPTO_get_stderr(void) { return stderr; }

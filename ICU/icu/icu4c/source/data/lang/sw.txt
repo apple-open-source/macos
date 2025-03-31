@@ -74,6 +74,7 @@ sw{
         bin{"Kibini"}
         bkm{"Kikom"}
         bla{"Kisiksika"}
+        blo{"Kianii"}
         bm{"Kibambara"}
         bn{"Kibengali"}
         bo{"Kitibeti"}
@@ -254,6 +255,7 @@ sw{
         kv{"Kikomi"}
         kw{"Kikorni"}
         kwk{"Kikwakʼwala"}
+        kxv{"Kikuvi"}
         ky{"Kikyrgyz"}
         la{"Kilatini"}
         lad{"Kiladino"}
@@ -263,8 +265,10 @@ sw{
         lez{"Kilezighian"}
         lg{"Kiganda"}
         li{"Limburgish"}
+        lij{"Kiliguria"}
         lil{"Kilillooet"}
         lkt{"Kilakota"}
+        lmo{"Kilongobardi"}
         ln{"Kilingala"}
         lo{"Kilaosi"}
         lol{"Kimongo"}
@@ -431,6 +435,7 @@ sw{
         sw{"Kiswahili"}
         swb{"Shikomor"}
         syr{"Lugha ya Syriac"}
+        szl{"Kisilesia"}
         ta{"Kitamili"}
         tce{"Kitutchone cha Kusini"}
         te{"Kitelugu"}
@@ -471,7 +476,9 @@ sw{
         uz{"Kiuzbeki"}
         vai{"Kivai"}
         ve{"Kivenda"}
+        vec{"Kivenisi"}
         vi{"Kivietinamu"}
+        vmw{"Kimakhuwa"}
         vo{"Kivolapuk"}
         vun{"Kivunjo"}
         wa{"Kiwaloon"}
@@ -483,6 +490,7 @@ sw{
         wuu{"Kichina cha Wu"}
         xal{"Kikalmyk"}
         xh{"Kixhosa"}
+        xnr{"Kikangri"}
         xog{"Kisoga"}
         yao{"Kiyao"}
         yav{"Kiyangben"}
@@ -491,6 +499,7 @@ sw{
         yo{"Kiyoruba"}
         yrl{"Kinheengatu"}
         yue{"Kikantoni"}
+        za{"Kizhuang"}
         zgh{"Kiberber Sanifu cha Moroko"}
         zh{"Kichina"}
         zh_Hans{"Kichina (Kilichorahisishwa)"}
@@ -645,7 +654,6 @@ sw{
             phonebook{"Mpangilio wa Orodha za Nambari za Simu"}
             phonetic{"Utaratibu wa Kupanga Fonetiki"}
             pinyin{"Mpangilio wa Kipinyin"}
-            reformed{"Mpangilio Uliorekebishwa"}
             search{"Utafutaji wa Kijumla"}
             searchjl{"Tafuta kwa Konsonanti Halisi ya Hangul"}
             standard{"Mpangilio wa Kawaida"}

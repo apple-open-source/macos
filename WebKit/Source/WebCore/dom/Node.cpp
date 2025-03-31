@@ -92,6 +92,7 @@
 #include <wtf/HexNumber.h>
 #include <wtf/RefCountedLeakCounter.h>
 #include <wtf/SHA1.h>
+#include <wtf/StdLibExtras.h>
 #include <wtf/TZoneMallocInlines.h>
 #include <wtf/text/CString.h>
 #include <wtf/text/MakeString.h>
@@ -104,28 +105,31 @@
 
 namespace WebCore {
 
-WTF_MAKE_COMPACT_TZONE_OR_ISO_ALLOCATED_IMPL(Node);
+WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(Node);
 
 using namespace HTMLNames;
 
 struct SameSizeAsNode : EventTarget, CanMakeCheckedPtr<SameSizeAsNode> {
-    WTF_MAKE_TZONE_ALLOCATED_INLINE(SameSizeAsNode);
+    WTF_MAKE_TZONE_ALLOCATED(SameSizeAsNode);
     WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(SameSizeAsNode);
 public:
 #if ASSERT_ENABLED
-    uint32_t m_isAllocatedMemory;
     bool inRemovedLastRefFunction;
     bool adoptionIsRequired;
 #endif
     uint32_t refCountAndParentBit;
     uint32_t nodeFlags;
+    uint16_t elementStateFlags;
+    uint16_t styleBitfields;
     void* parentNode;
     void* treeScope;
-    uint8_t previous[8];
+    void* previous;
     void* next;
-    uint8_t rendererWithStyleFlags[8];
+    void* renderer;
     uint8_t rareDataWithBitfields[8];
 };
+
+WTF_MAKE_TZONE_ALLOCATED_IMPL(SameSizeAsNode);
 
 static_assert(sizeof(Node) == sizeof(SameSizeAsNode), "Node should stay small");
 
@@ -193,6 +197,8 @@ static ASCIILiteral stringForRareDataUseType(NodeRareData::UseType useType)
         return "ExplicitlySetAttrElementsMap"_s;
     case NodeRareData::UseType::Popover:
         return "Popover"_s;
+    case NodeRareData::UseType::UserInfo:
+        return "UserInfo"_s;
     }
     return { };
 }
@@ -215,7 +221,7 @@ void Node::dumpStatistics()
     size_t fragmentNodes = 0;
     size_t shadowRootNodes = 0;
 
-    HashMap<String, size_t> perTagCount;
+    UncheckedKeyHashMap<String, size_t> perTagCount;
 
     size_t attributes = 0;
     size_t attributesWithAttr = 0;
@@ -223,7 +229,7 @@ void Node::dumpStatistics()
     size_t elementsWithRareData = 0;
     size_t elementsWithNamedNodeMap = 0;
 
-    HashMap<uint32_t, size_t> rareDataSingleUseTypeCounts;
+    UncheckedKeyHashMap<uint32_t, size_t> rareDataSingleUseTypeCounts;
     size_t mixedRareDataUseCount = 0;
 
     for (auto& node : liveNodeSet()) {
@@ -254,7 +260,7 @@ void Node::dumpStatistics()
 
                 // Tag stats
                 Element& element = uncheckedDowncast<Element>(node);
-                HashMap<String, size_t>::AddResult result = perTagCount.add(element.tagName(), 1);
+                UncheckedKeyHashMap<String, size_t>::AddResult result = perTagCount.add(element.tagName(), 1);
                 if (!result.isNewEntry)
                     result.iterator->value++;
 
@@ -312,7 +318,7 @@ void Node::dumpStatistics()
     printf("Number of Nodes with RareData: %zu\n", nodesWithRareData);
     printf("  Mixed use: %zu\n", mixedRareDataUseCount);
     for (auto it : rareDataSingleUseTypeCounts)
-        printf("  %s: %zu\n", stringForRareDataUseType(static_cast<NodeRareData::UseType>(it.key)).characters(), it.value);
+        SAFE_PRINTF("  %s: %zu\n", stringForRareDataUseType(static_cast<NodeRareData::UseType>(it.key)), it.value);
     printf("\n");
 
 
@@ -330,7 +336,7 @@ void Node::dumpStatistics()
 
     printf("Element tag name distibution:\n");
     for (auto& stringSizePair : perTagCount)
-        printf("  Number of <%s> tags: %zu\n", stringSizePair.key.utf8().data(), stringSizePair.value);
+        SAFE_PRINTF("  Number of <%s> tags: %zu\n", stringSizePair.key.utf8(), stringSizePair.value);
 
     printf("Attributes:\n");
     printf("  Number of Attributes (non-Node and Node): %zu [%zu]\n", attributes, sizeof(Attribute));
@@ -338,7 +344,8 @@ void Node::dumpStatistics()
     printf("  Number of Elements with attribute storage: %zu [%zu]\n", elementsWithAttributeStorage, sizeof(ElementData));
     printf("  Number of Elements with RareData: %zu\n", elementsWithRareData);
     printf("  Number of Elements with NamedNodeMap: %zu [%zu]\n", elementsWithNamedNodeMap, sizeof(NamedNodeMap));
-#endif
+
+#endif // DUMP_NODE_STATISTICS
 }
 
 DEFINE_DEBUG_ONLY_GLOBAL(WTF::RefCountedLeakCounter, nodeCounter, ("WebCoreNode"));
@@ -406,8 +413,8 @@ Node::Node(Document& document, NodeType type, OptionSet<TypeFlag> flags)
     // Allow code to ref the Document while it is being constructed to make our life easier.
     if (isDocumentNode())
         relaxAdoptionRequirement();
-
-    document.incrementReferencingNodeCount();
+    else
+        document.incrementReferencingNodeCount();
 
 #if !defined(NDEBUG) || DUMP_NODE_STATISTICS
     trackForDebugging();
@@ -418,7 +425,6 @@ Node::~Node()
 {
     ASSERT(isMainThread());
     ASSERT(deletionHasBegun());
-    ASSERT(!deletionHasEnded());
     ASSERT(!m_adoptionIsRequired);
 
     InspectorInstrumentation::willDestroyDOMNode(*this);
@@ -434,7 +440,7 @@ Node::~Node()
 
     ASSERT(!renderer());
     ASSERT(!parentNode());
-    ASSERT(!m_previous.pointer());
+    ASSERT(!m_previousSibling);
     ASSERT(!m_next);
 
     {
@@ -445,7 +451,8 @@ Node::~Node()
         // m_treeScope CheckedPtr beforehand.
         m_treeScope = nullptr;
 
-        document.decrementReferencingNodeCount(); // This may destroy the document.
+        if (!isDocumentNode())
+            document.decrementReferencingNodeCount(); // This may destroy the document.
     }
 
 #if ENABLE(TOUCH_EVENTS) && PLATFORM(IOS_FAMILY) && (ASSERT_ENABLED || ENABLE(SECURITY_ASSERTIONS))
@@ -457,8 +464,10 @@ Node::~Node()
 #endif
 
 #if ASSERT_ENABLED
-    m_isAllocatedMemory = IsAllocatedMemory::Scribble;
+    if (m_refCountAndParentBit != s_refCountIncrement)
+        WTF::RefCountedBase::printRefDuringDestructionLogAndCrash(this);
 #endif
+    RELEASE_ASSERT(m_refCountAndParentBit == s_refCountIncrement);
 }
 
 void Node::willBeDeletedFrom(Document& document)
@@ -569,9 +578,9 @@ ExceptionOr<void> Node::appendChild(Node& newChild)
     return Exception { ExceptionCode::HierarchyRequestError };
 }
 
-static HashSet<RefPtr<Node>> nodeSetPreTransformedFromNodeOrStringVector(const FixedVector<NodeOrString>& vector)
+static UncheckedKeyHashSet<RefPtr<Node>> nodeSetPreTransformedFromNodeOrStringVector(const FixedVector<NodeOrString>& vector)
 {
-    HashSet<RefPtr<Node>> nodeSet;
+    UncheckedKeyHashSet<RefPtr<Node>> nodeSet;
     for (const auto& variant : vector) {
         WTF::switchOn(variant,
             [&] (const RefPtr<Node>& node) { nodeSet.add(const_cast<Node*>(node.get())); },
@@ -581,7 +590,7 @@ static HashSet<RefPtr<Node>> nodeSetPreTransformedFromNodeOrStringVector(const F
     return nodeSet;
 }
 
-static RefPtr<Node> firstPrecedingSiblingNotInNodeSet(Node& context, const HashSet<RefPtr<Node>>& nodeSet)
+static RefPtr<Node> firstPrecedingSiblingNotInNodeSet(Node& context, const UncheckedKeyHashSet<RefPtr<Node>>& nodeSet)
 {
     for (auto* sibling = context.previousSibling(); sibling; sibling = sibling->previousSibling()) {
         if (!nodeSet.contains(sibling))
@@ -590,7 +599,7 @@ static RefPtr<Node> firstPrecedingSiblingNotInNodeSet(Node& context, const HashS
     return nullptr;
 }
 
-static RefPtr<Node> firstFollowingSiblingNotInNodeSet(Node& context, const HashSet<RefPtr<Node>>& nodeSet)
+static RefPtr<Node> firstFollowingSiblingNotInNodeSet(Node& context, const UncheckedKeyHashSet<RefPtr<Node>>& nodeSet)
 {
     for (auto* sibling = context.nextSibling(); sibling; sibling = sibling->nextSibling()) {
         if (!nodeSet.contains(sibling))
@@ -735,7 +744,7 @@ ExceptionOr<void> Node::remove()
     return parent->removeChild(*this);
 }
 
-void Node::normalize()
+ExceptionOr<void> Node::normalize()
 {
     // Go through the subtree beneath us, normalizing all nodes. This means that
     // any two adjacent text nodes are merged and any empty text nodes are removed.
@@ -781,6 +790,11 @@ void Node::normalize()
             // Both non-empty text nodes. Merge them.
             unsigned offset = text->length();
 
+            if (nextText->length() > StringImpl::MaxLength - offset) {
+                return Exception { ExceptionCode::InvalidModificationError,
+                    "Normalized Node String representation exceeds implementation maximum length."_s };
+            }
+
             // Update start/end for any affected Ranges before appendData since modifying contents might trigger mutation events that modify ordering.
             document->textNodesMerged(nextText, offset);
 
@@ -792,6 +806,14 @@ void Node::normalize()
 
         node = NodeTraversal::nextPostOrder(*node);
     }
+
+    return { };
+}
+
+Ref<Node> Node::cloneNode(bool deep)
+{
+    ASSERT(!isShadowRoot());
+    return cloneNodeInternal(document(), deep ? CloningOperation::Everything : CloningOperation::OnlySelf);
 }
 
 ExceptionOr<Ref<Node>> Node::cloneNodeForBindings(bool deep)
@@ -927,9 +949,9 @@ LayoutRect Node::absoluteBoundingRect(bool* isReplaced)
     }
     RenderObject* renderer = hitRenderer;
     while (renderer && !renderer->isBody() && !renderer->isDocumentElementRenderer()) {
-        if (renderer->isRenderBlock() || renderer->isInlineBlockOrInlineTable() || renderer->isReplacedOrInlineBlock()) {
+        if (renderer->isRenderBlock() || renderer->isNonReplacedAtomicInline() || renderer->isReplacedOrAtomicInline()) {
             // FIXME: Is this really what callers want for the "isReplaced" flag?
-            *isReplaced = renderer->isReplacedOrInlineBlock();
+            *isReplaced = renderer->isReplacedOrAtomicInline();
             return renderer->absoluteBoundingBoxRect();
         }
         renderer = renderer->parent();
@@ -1032,7 +1054,7 @@ unsigned Node::computeNodeIndex() const
 }
 
 template<unsigned type>
-bool shouldInvalidateNodeListCachesForAttr(const unsigned nodeListCounts[], const QualifiedName& attrName)
+bool shouldInvalidateNodeListCachesForAttr(std::span<const unsigned, numNodeListInvalidationTypes> nodeListCounts, const QualifiedName& attrName)
 {
     if constexpr (type >= numNodeListInvalidationTypes)
         return false;
@@ -1636,7 +1658,7 @@ static const AtomString& locateDefaultNamespace(const Node& node, const AtomStri
             return namespaceURI;
 
         if (element.hasAttributes()) {
-            for (auto& attribute : element.attributesIterator()) {
+            for (auto& attribute : element.attributes()) {
                 if (attribute.namespaceURI() != XMLNSNames::xmlnsNamespaceURI)
                     continue;
 
@@ -1688,7 +1710,7 @@ static const AtomString& locateNamespacePrefix(const Element& element, const Ato
         return element.prefix();
 
     if (element.hasAttributes()) {
-        for (auto& attribute : element.attributesIterator()) {
+        for (auto& attribute : element.attributes()) {
             if (attribute.prefix() == xmlnsAtom() && attribute.value() == namespaceURI)
                 return attribute.localName();
         }
@@ -1800,7 +1822,7 @@ ExceptionOr<void> Node::setTextContent(String&& text)
 static SHA1::Digest hashPointer(const void* pointer)
 {
     SHA1 sha1;
-    sha1.addBytes(std::span { reinterpret_cast<const uint8_t*>(&pointer), sizeof(pointer) });
+    sha1.addBytes(asByteSpan(pointer));
     SHA1::Digest digest;
     sha1.computeHash(digest);
     return digest;
@@ -1817,7 +1839,7 @@ static inline unsigned short compareDetachedElementsPosition(Node& firstNode, No
     SHA1::Digest firstHash = hashPointer(&firstNode);
     SHA1::Digest secondHash = hashPointer(&secondNode);
 
-    unsigned short direction = memcmp(firstHash.data(), secondHash.data(), SHA1::hashSize) > 0 ? Node::DOCUMENT_POSITION_PRECEDING : Node::DOCUMENT_POSITION_FOLLOWING;
+    unsigned short direction = compareSpans(std::span { firstHash }, std::span { secondHash }) > 0 ? Node::DOCUMENT_POSITION_PRECEDING : Node::DOCUMENT_POSITION_FOLLOWING;
 
     return Node::DOCUMENT_POSITION_DISCONNECTED | Node::DOCUMENT_POSITION_IMPLEMENTATION_SPECIFIC | direction;
 }
@@ -1856,7 +1878,7 @@ unsigned short Node::compareDocumentPosition(Node& otherNode)
         // We are comparing two attributes on the same node. Crawl our attribute map and see which one we hit first.
         Element* owner1 = attr1->ownerElement();
         owner1->synchronizeAllAttributes();
-        for (const Attribute& attribute : owner1->attributesIterator()) {
+        for (auto& attribute : owner1->attributes()) {
             // If neither of the two determining nodes is a child node and nodeType is the same for both determining nodes, then an
             // implementation-dependent order between the determining nodes is returned. This order is stable as long as no nodes of
             // the same nodeType are inserted into or removed from the direct container. This would be the case, for example, 
@@ -1986,18 +2008,18 @@ void Node::showNode(ASCIILiteral prefix) const
     if (isTextNode()) {
         String value = makeStringByReplacingAll(nodeValue(), '\\', "\\\\"_s);
         value = makeStringByReplacingAll(value, '\n', "\\n"_s);
-        fprintf(stderr, "%s%s\t%p \"%s\"\n", prefix.characters(), nodeName().utf8().data(), this, value.utf8().data());
+        SAFE_FPRINTF(stderr, "%s%s\t%p \"%s\"\n", prefix, nodeName().utf8(), this, value.utf8());
     } else {
         StringBuilder attrs;
         appendAttributeDesc(this, attrs, classAttr, " CLASS="_s);
         appendAttributeDesc(this, attrs, styleAttr, " STYLE="_s);
-        fprintf(stderr, "%s%s\t%p (renderer %p) %s%s%s\n", prefix.characters(), nodeName().utf8().data(), this, renderer(), attrs.toString().utf8().data(), needsStyleRecalc() ? " (needs style recalc)" : "", childNeedsStyleRecalc() ? " (child needs style recalc)" : "");
+        SAFE_FPRINTF(stderr, "%s%s\t%p (renderer %p) %s%s%s\n", prefix, nodeName().utf8(), this, renderer(), attrs.toString().utf8(), needsStyleRecalc() ? " (needs style recalc)"_s : ""_s, childNeedsStyleRecalc() ? " (child needs style recalc)"_s : ""_s);
     }
 }
 
 void Node::showTreeForThis() const
 {
-    showTreeAndMark(this, "*");
+    showTreeAndMark(this, "*"_s);
 }
 
 void Node::showNodePathForThis() const
@@ -2020,7 +2042,7 @@ void Node::showNodePathForThis() const
 
         switch (node->nodeType()) {
         case ELEMENT_NODE: {
-            fprintf(stderr, "/%s", node->nodeName().utf8().data());
+            SAFE_FPRINTF(stderr, "/%s", node->nodeName().utf8());
 
             const Element& element = uncheckedDowncast<Element>(*node);
             const AtomString& idattr = element.getIdAttribute();
@@ -2031,18 +2053,18 @@ void Node::showNodePathForThis() const
                     if (previous->nodeName() == node->nodeName())
                         ++count;
                 if (hasIdAttr)
-                    fprintf(stderr, "[@id=\"%s\" and position()=%d]", idattr.string().utf8().data(), count);
+                    SAFE_FPRINTF(stderr, "[@id=\"%s\" and position()=%d]", idattr.string().utf8(), count);
                 else
                     fprintf(stderr, "[%d]", count);
             } else if (hasIdAttr)
-                fprintf(stderr, "[@id=\"%s\"]", idattr.string().utf8().data());
+                SAFE_FPRINTF(stderr, "[@id=\"%s\"]", idattr.string().utf8());
             break;
         }
         case TEXT_NODE:
             fprintf(stderr, "/text()");
             break;
         case ATTRIBUTE_NODE:
-            fprintf(stderr, "/@%s", node->nodeName().utf8().data());
+            SAFE_FPRINTF(stderr, "/@%s", node->nodeName().utf8());
             break;
         default:
             break;
@@ -2051,19 +2073,19 @@ void Node::showNodePathForThis() const
     fprintf(stderr, "\n");
 }
 
-static void traverseTreeAndMark(const String& baseIndent, const Node* rootNode, const Node* markedNode1, const char* markedLabel1, const Node* markedNode2, const char* markedLabel2)
+static void traverseTreeAndMark(const String& baseIndent, const Node* rootNode, const Node* markedNode1, ASCIILiteral markedLabel1, const Node* markedNode2, ASCIILiteral markedLabel2)
 {
     for (const Node* node = rootNode; node; node = NodeTraversal::next(*node)) {
         if (node == markedNode1)
-            fprintf(stderr, "%s", markedLabel1);
+            SAFE_FPRINTF(stderr, "%s", markedLabel1);
         if (node == markedNode2)
-            fprintf(stderr, "%s", markedLabel2);
+            SAFE_FPRINTF(stderr, "%s", markedLabel2);
 
         StringBuilder indent;
         indent.append(baseIndent);
         for (const Node* tmpNode = node; tmpNode && tmpNode != rootNode; tmpNode = tmpNode->parentOrShadowHostNode())
             indent.append('\t');
-        fprintf(stderr, "%s", indent.toString().utf8().data());
+        SAFE_FPRINTF(stderr, "%s", indent.toString().utf8());
         node->showNode();
         indent.append('\t');
         if (!node->isShadowRoot()) {
@@ -2073,7 +2095,7 @@ static void traverseTreeAndMark(const String& baseIndent, const Node* rootNode, 
     }
 }
 
-void Node::showTreeAndMark(const Node* markedNode1, const char* markedLabel1, const Node* markedNode2, const char* markedLabel2) const
+void Node::showTreeAndMark(const Node* markedNode1, ASCIILiteral markedLabel1, const Node* markedNode2, ASCIILiteral markedLabel2) const
 {
     const Node* node = this;
     while (node->parentOrShadowHostNode() && !node->hasTagName(bodyTag))
@@ -2096,7 +2118,7 @@ static void showSubTreeAcrossFrame(const Node* node, const Node* markedNode, con
 {
     if (node == markedNode)
         fputs("*", stderr);
-    fputs(indent.utf8().data(), stderr);
+    SAFE_FPRINTF(stderr, "%s\n", indent.utf8());
     node->showNode();
     if (!node->isShadowRoot()) {
         if (auto* frameOwner = dynamicDowncast<HTMLFrameOwnerElement>(node))
@@ -2458,6 +2480,16 @@ static inline bool tryAddEventListener(Node* targetNode, const AtomString& event
         document->addTouchEventHandler(*targetNode);
 #endif
 
+#if ENABLE(CONTENT_CHANGE_OBSERVER)
+    if (typeInfo.isInCategory(EventCategory::MouseMoveRelated)) {
+        if (WeakPtr observer = document->contentChangeObserverIfExists())
+            observer->didAddMouseMoveRelatedEventListener(eventType, *targetNode);
+    }
+#endif
+
+    if (CheckedPtr cache = document->existingAXObjectCache())
+        cache->onEventListenerAdded(*targetNode, eventType);
+
     return true;
 }
 
@@ -2500,6 +2532,9 @@ static inline bool didRemoveEventListenerOfType(Node& targetNode, const AtomStri
         document->removeTouchEventHandler(targetNode);
 #endif
 
+    if (CheckedPtr cache = document->existingAXObjectCache())
+        cache->onEventListenerRemoved(targetNode, eventType);
+
     return true;
 }
 
@@ -2540,9 +2575,9 @@ WeakHashSet<MutationObserverRegistration>* Node::transientMutationObserverRegist
     return &data->transientRegistry;
 }
 
-HashMap<Ref<MutationObserver>, MutationRecordDeliveryOptions> Node::registeredMutationObservers(MutationObserverOptionType type, const QualifiedName* attributeName)
+UncheckedKeyHashMap<Ref<MutationObserver>, MutationRecordDeliveryOptions> Node::registeredMutationObservers(MutationObserverOptionType type, const QualifiedName* attributeName)
 {
-    HashMap<Ref<MutationObserver>, MutationRecordDeliveryOptions> observers;
+    UncheckedKeyHashMap<Ref<MutationObserver>, MutationRecordDeliveryOptions> observers;
     ASSERT((type == MutationObserverOptionType::Attributes && attributeName) || !attributeName);
 
     auto collectMatchingObserversForMutation = [&](MutationObserverRegistration& registration) {
@@ -2839,7 +2874,7 @@ bool Node::willRespondToMouseClickEventsWithEditability(Editability editability)
 // delete a Node at each deref call site.
 void Node::removedLastRef()
 {
-    ASSERT(m_refCountAndParentBit == s_refCountIncrement);
+    RELEASE_ASSERT(m_refCountAndParentBit == s_refCountIncrement);
 
     // An explicit check for Document here is better than a virtual function since it is
     // faster for non-Document nodes, and because the call to removedLastRef that is inlined
@@ -2849,13 +2884,21 @@ void Node::removedLastRef()
         return;
     }
 
-    // Now it is time to detach the SVGElement from all its properties. These properties
-    // may outlive the SVGElement. The only difference after the detach is no commit will
-    // be carried out unless these properties are attached to another owner.
+    // This paragraph runs before Node destruction as a workaround for the fact
+    // that detachAllProperties() can transitively call virtual functions on our
+    // derived SVG class.
+
+    // Properties may outlive an SVGElement, but no commit will be carried out
+    // unless a property has attached to a new owner.
+
+    // FIXME: Make the registry automatically weak, or manually clear it in
+    // subclass destructors, so we can remove this workaround.
     if (auto* svgElement = dynamicDowncast<SVGElement>(*this))
         svgElement->detachAllProperties();
 
-    setStateFlag(StateFlag::HasStartedDeletion);
+#if ASSERT_ENABLED
+    setStateFlag(StateFlag::DeletionHasBegun);
+#endif
     delete this;
 }
 

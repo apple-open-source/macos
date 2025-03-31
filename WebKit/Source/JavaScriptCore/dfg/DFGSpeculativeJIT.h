@@ -44,6 +44,8 @@
 #include "VirtualRegister.h"
 #include <wtf/TZoneMalloc.h>
 
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
+
 namespace JSC { namespace DFG {
 
 class GPRTemporary;
@@ -139,7 +141,7 @@ public:
         }
 
         explicit TrustedImmPtr(size_t value)
-            : m_value(bitwise_cast<void*>(value))
+            : m_value(std::bit_cast<void*>(value))
         {
         }
 
@@ -761,6 +763,7 @@ public:
 
     void emitAllocateButterfly(GPRReg storageGPR, GPRReg sizeGPR, GPRReg scratch1, GPRReg scratch2, GPRReg scratch3, JumpList& slowCases);
     void emitInitializeButterfly(GPRReg storageGPR, GPRReg sizeGPR, JSValueRegs emptyValueRegs, GPRReg scratchGPR);
+    void compileAllocateNewArrayWithSize(Node*, GPRReg resultGPR, GPRReg sizeGPR, RegisteredStructure, bool shouldConvertLargeSizeToArrayStorage = true);
     void compileAllocateNewArrayWithSize(Node*, GPRReg resultGPR, GPRReg sizeGPR, IndexingType, bool shouldConvertLargeSizeToArrayStorage = true);
     
     // Called once a node has completed code generation but prior to setting
@@ -1498,7 +1501,10 @@ public:
     void compileMapIteratorNext(Node*);
     void compileMapIteratorKey(Node*);
     void compileMapIteratorValue(Node*);
+    template<typename Operation>
+    ALWAYS_INLINE void compileMapStorageImpl(Node*, Operation, Operation);
     void compileMapStorage(Node*);
+    void compileMapStorageOrSentinel(Node*);
     void compileMapIterationNext(Node*);
     void compileMapIterationEntry(Node*);
     void compileMapIterationEntryKey(Node*);
@@ -1678,7 +1684,7 @@ public:
     void compileNewArrayWithSpread(Node*);
     void compileGetRestLength(Node*);
     void compileArraySlice(Node*);
-    void compileArraySpliceExtract(Node*);
+    void compileArraySplice(Node*);
     void compileArrayIndexOf(Node*);
     void compileArrayPush(Node*);
     void compileNotifyWrite(Node*);
@@ -1754,6 +1760,7 @@ public:
     void compileNewArrayWithSize(Node*);
     void compileNewArrayWithConstantSize(Node*);
     void compileNewArrayWithSpecies(Node*);
+    void compileNewArrayWithSizeAndStructure(Node*);
     void compileNewTypedArray(Node*);
     void compileToThis(Node*);
     void compileOwnPropertyKeysVariant(Node*);
@@ -3038,5 +3045,7 @@ private:
     DFG_TYPE_CHECK_WITH_EXIT_KIND(BadType, source, edge, typesPassedThrough, jumpToFail)
 
 } } // namespace JSC::DFG
+
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
 
 #endif

@@ -6,6 +6,7 @@
 import os
 import re
 import sys
+import zlib
 import shutil
 import filecmp
 import argparse
@@ -16,6 +17,8 @@ from ast import literal_eval
 MIN_PYTHON = (3, 7) #Required for ordered dictionaries as default
 if sys.version_info < MIN_PYTHON:
     sys.exit("Python %s.%s or later is required.\n" % MIN_PYTHON)
+
+avVersion = "Local"
 
 # The build script will embed the DSL content here, otherwise we build it at runtime
 dslContent = None
@@ -307,6 +310,7 @@ static const std::array<VersionSetEntry, {}> sVersionMap = {{{{
             if hasVersions:
                 output.write(f"   #define __API_AVAILABLE_PLATFORM_{displayName}(x) {realName},introduced=x\n")
                 output.write(f"   #define __API_DEPRECATED_PLATFORM_{displayName}(x,y) {realName},introduced=x,deprecated=y\n")
+                output.write(f"   #define __API_OBSOLETED_PLATFORM_{displayName}(x,y,z) {realName},introduced=x,deprecated=y,obsoleted=z\n")
             output.write(f"   #define __API_UNAVAILABLE_PLATFORM_{displayName} {realName},unavailable\n")
         output.write(f"#if defined(__has_feature) && defined(__has_attribute)\n")
         output.write(f" #if __has_attribute(availability)\n")
@@ -326,6 +330,7 @@ static const std::array<VersionSetEntry, {}> sVersionMap = {{{{
         output.write(f" #endif /* __has_attribute(availability) */\n")
         output.write(f"#endif /* defined(__has_feature) && defined(__has_attribute) */\n")
     def AVAILABILITY_MACRO_IMPL(self, output, prefix, dispatcher, **optionals):
+        av_version_hash = zlib.adler32(avVersion.encode()) # This does not need to cryptographically secure as it is meant to detect accidental failures
         count = len(versions.platforms())
         for platformString in versions.platforms():
             platform = versions.platforms()[platformString]
@@ -339,8 +344,9 @@ static const std::array<VersionSetEntry, {}> sVersionMap = {{{{
         for i in range(0, count):
             platformList.append(f"arg{i}")
             output.write(f"    #define {prefix}{i}({argPrefix}{','.join(platformList)}) {' '.join([f'{dispatcher}({argPrefix}{x})' for x in platformList])}\n")   
-        output.write(f"    #define {prefix}_GET_MACRO({','.join([f'_{x}' for x in range(0, count+len(argList))])},NAME,...) NAME\n");
+        output.write(f"    #define {prefix}_GET_MACRO_{av_version_hash}({','.join([f'_{x}' for x in range(0, count+len(argList))])},NAME,...) NAME\n");
     def AVAILABILITY_MACRO_INTERFACE(self, output, name, macroName, **optionals):
+        av_version_hash = zlib.adler32(avVersion.encode()) # This does not need to cryptographically secure as it is meant to detect accidental failures
         scoped_availablity = False
         if "scoped_availablity" in optionals and optionals["scoped_availablity"] == "TRUE":
             scoped_availablity=True
@@ -352,10 +358,20 @@ static const std::array<VersionSetEntry, {}> sVersionMap = {{{{
         if "argCount" in optionals:
             argList = argList + (",0" * int(optionals["argCount"]))
         if scoped_availablity:
-            output.write(f'    #define {name}_BEGIN(...) _Pragma("clang attribute push") {macroName}_GET_MACRO(__VA_ARGS__,{argList},0)(__VA_ARGS__)\n')
+            output.write(f'    #define {name}_BEGIN(...) _Pragma("clang attribute push") {macroName}_GET_MACRO_{av_version_hash}(__VA_ARGS__,{argList},0)(__VA_ARGS__)\n')
             output.write(f'    #define {name}_END _Pragma("clang attribute pop")\n')
         else:
-            output.write(f"    #define {name}(...) {macroName}_GET_MACRO(__VA_ARGS__,{argList},0)(__VA_ARGS__)\n")
+            output.write(f"    #define {name}(...) {macroName}_GET_MACRO_{av_version_hash}(__VA_ARGS__,{argList},0)(__VA_ARGS__)\n")
+    def AVAILABILITY_VERSION_CHECK(self, output, filename):
+        av_version_string = avVersion
+        av_version_hash = zlib.adler32(avVersion.encode()) # This does not need to cryptographically secure as it is meant to detect accidental failures
+        output.write(f"#ifndef __AVAILABILITY_VERSIONS_VERSION_HASH\n")
+        output.write(f"#define __AVAILABILITY_VERSIONS_VERSION_HASH {av_version_hash}U\n")
+        output.write(f'#define __AVAILABILITY_VERSIONS_VERSION_STRING "{av_version_string}"\n')
+        output.write(f'#define __AVAILABILITY_FILE "{filename}"\n')
+        output.write(f"#elif __AVAILABILITY_VERSIONS_VERSION_HASH != {av_version_hash}U\n")
+        output.write(f'#pragma GCC error "Already found AvailabilityVersions version " __AVAILABILITY_FILE " from " __AVAILABILITY_VERSIONS_VERSION_STRING ", which is incompatible with {filename} from {av_version_string}. Mixing and matching Availability from different SDKs is not supported"\n')
+        output.write(f"#endif /* __AVAILABILITY_VERSIONS_VERSION_HASH */\n")
 
 parser = argparse.ArgumentParser()
 group = parser.add_mutually_exclusive_group()
@@ -365,7 +381,12 @@ for (name, platform) in versions.platforms().items():
         group.add_argument("--{}".format(alias), dest=name, default=False, action='store_true', help="Alias for --{}".format(name))
 group.add_argument("--sets",                                default=False, action='store_true', help='Prints all YAML for all defined version sets')
 group.add_argument("--preprocess",                          nargs=2,                            help=argparse.SUPPRESS)
+parser.add_argument("--av_version",                         nargs=1,                            help='Version string to embed in preprocessed headers')
+
 args = parser.parse_args()
+if args.av_version:
+    avVersion = args.av_version
+
 
 if args.sets:                                   print_sets();
 elif args.preprocess:                           Preprocessor(args.preprocess[0], args.preprocess[1]);

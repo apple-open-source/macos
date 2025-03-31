@@ -1,0 +1,94 @@
+Metadata-Version: 1.0
+Name: recertifi
+Version: 0.11.0
+Summary: Slim utility package to add the Apple Root Certificate Authorities to the certifi store
+Home-page: https://github.pie.apple.com/michael-r-carroll/recertifi
+Author: Michael Carroll
+Author-email: mrc@apple.com
+License: Apple Internal
+Description: reCertifi
+        ===============
+        
+        **Radar:** [![reCertifi | New Bugs](https://badges.pie.apple.com/badges/custom?t=reCertifi&v=New%20Bugs&c=8733f0)](rdar://new/problem/component=reCertifi&version=New%20Bugs)
+        
+        rdar://new/problem/component=reCertifi&version=New%20Bugs
+        
+        Join recertifi-users@group.apple.com: [adir://joingroup/1361705](<adir://joingroup/1361705>)
+        
+        ### Pipeline Status 
+        [![loading...](https://badges.pie.apple.com/badges/rio?p=other-recertifi&s=other-recertifi-python2&l=Python%202)](https://rio.apple.com/projects/other-recertifi) [![loading...](https://badges.pie.apple.com/badges/rio?p=other-recertifi&s=other-recertifi-python3&l=Python%203)](https://rio.apple.com/projects/other-recertifi) [![loading...](https://badges.pie.apple.com/badges/artifactory?r=apple-pypi-integration-local&g=%7Epypi&a=recertifi&l=pypi-integration)](https://packages.apple.com/pypi/recertifi) [![loading...](https://badges.pie.apple.com/badges/artifactory?r=pypi-apple&g=%7Epypi&a=recertifi)](https://packages.apple.com/pypi/recertifi)
+        
+        reCertifi is a small utility which adds the Apple Corporate Root CA's & Intermediates to the [certifi](https://certifi.io/en/latest/) trust store on import. Apple Corporate Root CA's have been gathered from [certificatemanager.apple.com](https://certificatemanager.apple.com/#help/caCertificates). 
+        
+        #### Changelog
+        * **v0.11.0**: ```recertifi``` is now the preferred CLI method (```recertifi_cli``` will still work, but may be removed at a later date), added ```--path``` option for the CLI for an override of the CA store to patch, separated out implementation to unblock auto-importing via ```.pth``` on AppleInternal macOS installs ([rdar://problem/49489227](rdar://problem/49489227)), detection of permissions issues accessing the CA store
+        * ~~**v0.10.x**~~: Blacklisted and should not be used due to rdar://49888540 
+        * **v0.9.4**: Fix for ```recertifi_cli``` not making it into pypi packages
+        * **v0.9.3**: Wheels properly enabled after ```setup_requires``` installs dependencies for building wheels, plus only Rio-specific publishing. Removed emoji in readme for [rdar://48367318](rdar://48367318)
+        * **v0.9.2**: Re-enables auto-building wheels, while falling back to sdist-only when ```wheel``` module not present
+        * **v0.9.0**: Includes wheels when publishing. Thanks [@rchossart](https://github.pie.apple.com/rchossart)
+        * **v0.8.1**: Minor fix for [rdar://47903764](rdar://47903764): support replacing ```certifi``` store on Windows
+        * **v0.8.0**: Patching CLI, unit tests, and OSError catching, oh my! *Sorry.*
+          * CLI added for some inevitable permissions issues when certifi has already been installed as root:
+            * ```python -m recertifi_cli --patch``` CC: [@mkjellman](https://github.pie.apple.com/mkjellman)
+          * [Rio](https://rio.apple.com)-integrated unit tests with Python 2 & 3 for better checking before pushing
+          * Catching OSError on writing to the Certifi CA store to not break excecution in weird permission cases (```ERROR``` logging level required to see message)
+          * Adopted more traditional python semantic versioning with trailing .0
+        * **v0.7**: Fixed potential race condition when multiple instances are importing at the same time. Thanks to [@michael-brooks](https://github.pie.apple.com/michael-brooks) for finding and implementing the fix
+        * **v0.6**: Removed external dependencies. Built-in ```ssl``` & ```hashlib``` modules used to verify certificates
+        * **v0.5**: Now includes Apple Intermediate CA's from [certificatemanager.apple.com](https://certificatemanager.apple.com/#help/caCertificates)
+        * **v0.4**: No pyOpenSSL dependency! Now uses crypto module to directly parse the certificates
+        * **v0.3**: Now supports & tested on Python 2.7 & 3.7. Thanks to [@ashwin-naik](https://github.pie.apple.com/ashwin-naik) for the heads up and the prototype for the compatibility fix
+        
+        Usage
+        -----
+        
+        ```python
+        import recertifi
+        ```
+        
+        Thats it!
+        
+        **Note**: This module doesnt log much by default and should be silent in most cases. If you use the ```logging``` module and have the log level set to ```DEBUG```, you will see a slightly more verbose output of what's taking place.
+        
+        Permissions
+        -----------
+        
+        ```recertifi``` is subject to system permissions, just like any process on your system. Generally, there are very few situations where python packages should be installed as root on macOS (aka: installed to ```/Library/Python/2.7/site-packages/*``` via sudo instead of ```pip install <package name> --user```). If ```certifi``` is installed there (likely because ```requests``` is), reCertifi likely won't be able to patch it because your python process is running as a user, not root. You can run ```sudo python -m recertifi_cli --patch``` to force patching at the sudo location, but this is a hack, and probably not the best way in the long run.
+        
+        To address this permissions issue, the best bet would be to reinstall requests/certifi with --user to avoid permissions conflicts (using the current requirements from [https://github.com/kennethreitz/requests/blob/master/setup.py#L44](https://github.com/kennethreitz/requests/blob/master/setup.py#L44)):
+        
+        ```bash
+        sudo pip uninstall requests
+        sudo pip uninstall chardet
+        sudo pip uninstall idna
+        sudo pip uninstall urllib3
+        sudo pip uninstall certifi
+        pip install requests --user
+        ```
+        
+        After that, reCertifi should be able to hot-patch certifi as a user and proceed as usual.
+        
+        Debugging
+        ---------
+        
+        Please add the following before you import ```recertifi``` to get some debug output from recertifi’s patching process:
+        
+        ```python
+        import logging
+        logging.basicConfig(level=logging.DEBUG)
+        import recertifi
+        # rest of your code here
+        ```
+        
+        Roadmap
+        -------
+        
+        * rdar://49276010 (Request: Add ReCertifi to the macOS Internal Build)
+           * Including auto-importing via ```.pth``` file
+        * rdar://48111154 (ER: Use wrapt to dynamically patch on certifi import)
+           * Remove requirement to import, instead dynamically wrap certifi import
+        * rdar://48622869 (Trust stores should not include intermediate CA certificates, only root certificates)
+           * Need to confirm with certificatemanager folks
+        
+Platform: UNKNOWN

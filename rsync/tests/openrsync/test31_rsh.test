@@ -13,7 +13,7 @@ rshvar="arg1 'arg2' 'arg3' 'arg4''added' 'arg5'\"added\" 'arg\"6\"'"
 rshvar="$rshvar 'arg with spaces' \"arg7\"'added' \"arg8\"\"added\""
 
 export RSYNC_RSH="$rshvar"
-rsync -vv nonexistent:file foo &>args || true
+rsync -vv nonexistent:file foo >args 2>&1 || true
 
 # smb rsync will leave the closing quote in for back-to-back quoted args (e.g.,
 # arg4added above), but this doesn't really match how shells quote... we've

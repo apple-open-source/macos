@@ -2,7 +2,16 @@
 // License & terms of use: http://www.unicode.org/copyright.html
 // Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
 scn{
-    AuxExemplarCharacters{"[ç đ éë ə ḥ ì k š ù w x y]"}
-    ExemplarCharacters{"[aàâ b c dḍ eèê f g h iíî j l m n oòô p q r s t uúû v z]"}
+    AuxExemplarCharacters{"[ç đ éë ə ḥ k š w x y]"}
+    ExemplarCharacters{"[aàâ b c dḍ eèê f g h iìî j l m n oòô p q r s t uùû v z]"}
     ExemplarCharactersIndex{"[A B C D E F G H I J L M N O P Q R S T U V Z]"}
+    NumberElements{
+        minimalPairs{
+            plural{
+                many{"{0} di jorna"}
+                one{"{0} jornu"}
+                other{"{0} jorna"}
+            }
+        }
+    }
 }

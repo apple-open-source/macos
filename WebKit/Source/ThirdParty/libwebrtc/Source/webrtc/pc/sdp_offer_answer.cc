@@ -17,6 +17,7 @@
 #include <iterator>
 #include <map>
 #include <memory>
+#include <optional>
 #include <queue>
 #include <set>
 #include <string>
@@ -27,7 +28,6 @@
 #include "absl/memory/memory.h"
 #include "absl/strings/match.h"
 #include "absl/strings/string_view.h"
-#include "absl/types/optional.h"
 #include "api/array_view.h"
 #include "api/candidate.h"
 #include "api/crypto/crypto_options.h"
@@ -50,6 +50,7 @@
 #include "api/uma_metrics.h"
 #include "api/video/builtin_video_bitrate_allocator_factory.h"
 #include "api/video/video_codec_constants.h"
+#include "call/payload_type.h"
 #include "media/base/codec.h"
 #include "media/base/media_engine.h"
 #include "media/base/rid_description.h"
@@ -639,6 +640,22 @@ std::vector<RtpEncodingParameters> GetSendEncodingsFromRemoteDescription(
     RtpEncodingParameters parameters;
     parameters.rid = layer.rid;
     parameters.active = !layer.is_paused;
+    // If a payload type has been specified for this rid, set the codec
+    // corresponding to that payload type.
+    auto rid_desc = std::find_if(
+        desc.receive_rids().begin(), desc.receive_rids().end(),
+        [&layer](const RidDescription& rid) { return rid.rid == layer.rid; });
+    if (rid_desc != desc.receive_rids().end() &&
+        !rid_desc->payload_types.empty()) {
+      int payload_type = rid_desc->payload_types[0];
+      auto codec = std::find_if(desc.codecs().begin(), desc.codecs().end(),
+                                [payload_type](const cricket::Codec& codec) {
+                                  return codec.id == payload_type;
+                                });
+      if (codec != desc.codecs().end()) {
+        parameters.codec = codec->ToCodecParameters();
+      }
+    }
     result.push_back(parameters);
   }
 
@@ -793,7 +810,17 @@ cricket::MediaDescriptionOptions GetMediaDescriptionOptionsForTransceiver(
     if (encoding.rid.empty()) {
       continue;
     }
-    send_rids.push_back(RidDescription(encoding.rid, RidDirection::kSend));
+    auto send_rid = RidDescription(encoding.rid, RidDirection::kSend);
+    if (encoding.codec) {
+      auto send_codecs = transceiver->sender_internal()->GetSendCodecs();
+      for (const cricket::Codec& codec : send_codecs) {
+        if (codec.MatchesRtpCodec(*encoding.codec)) {
+          send_rid.payload_types.push_back(codec.id);
+          break;
+        }
+      }
+    }
+    send_rids.push_back(send_rid);
     send_layers.AddLayer(SimulcastLayer(encoding.rid, !encoding.active));
   }
 
@@ -1379,16 +1406,18 @@ std::unique_ptr<SdpOfferAnswerHandler> SdpOfferAnswerHandler::Create(
     PeerConnectionSdpMethods* pc,
     const PeerConnectionInterface::RTCConfiguration& configuration,
     PeerConnectionDependencies& dependencies,
-    ConnectionContext* context) {
+    ConnectionContext* context,
+    PayloadTypeSuggester* pt_suggester) {
   auto handler = absl::WrapUnique(new SdpOfferAnswerHandler(pc, context));
-  handler->Initialize(configuration, dependencies, context);
+  handler->Initialize(configuration, dependencies, context, pt_suggester);
   return handler;
 }
 
 void SdpOfferAnswerHandler::Initialize(
     const PeerConnectionInterface::RTCConfiguration& configuration,
     PeerConnectionDependencies& dependencies,
-    ConnectionContext* context) {
+    ConnectionContext* context,
+    PayloadTypeSuggester* pt_suggester) {
   RTC_DCHECK_RUN_ON(signaling_thread());
   // 100 kbps is used by default, but can be overriden by a non-standard
   // RTCConfiguration value (not available on Web).
@@ -1421,7 +1450,7 @@ void SdpOfferAnswerHandler::Initialize(
             RTC_DCHECK_RUN_ON(signaling_thread());
             transport_controller_s()->SetLocalCertificate(certificate);
           },
-          pc_->trials());
+          pt_suggester, pc_->trials());
 
   if (pc_->options()->disable_encryption) {
     RTC_LOG(LS_INFO)
@@ -3241,7 +3270,7 @@ void SdpOfferAnswerHandler::OnOperationsChainEmpty() {
   }
 }
 
-absl::optional<bool> SdpOfferAnswerHandler::is_caller() const {
+std::optional<bool> SdpOfferAnswerHandler::is_caller() const {
   RTC_DCHECK_RUN_ON(signaling_thread());
   return is_caller_;
 }
@@ -3263,7 +3292,7 @@ bool SdpOfferAnswerHandler::NeedsIceRestart(
   return pc_->NeedsIceRestart(content_name);
 }
 
-absl::optional<rtc::SSLRole> SdpOfferAnswerHandler::GetDtlsRole(
+std::optional<rtc::SSLRole> SdpOfferAnswerHandler::GetDtlsRole(
     const std::string& mid) const {
   RTC_DCHECK_RUN_ON(signaling_thread());
   return transport_controller_s()->GetDtlsRole(mid);
@@ -3341,11 +3370,11 @@ void SdpOfferAnswerHandler::AllocateSctpSids() {
     return;
   }
 
-  absl::optional<rtc::SSLRole> guessed_role = GuessSslRole();
+  std::optional<rtc::SSLRole> guessed_role = GuessSslRole();
   network_thread()->BlockingCall(
       [&, data_channel_controller = data_channel_controller()] {
         RTC_DCHECK_RUN_ON(network_thread());
-        absl::optional<rtc::SSLRole> role = pc_->GetSctpSslRole_n();
+        std::optional<rtc::SSLRole> role = pc_->GetSctpSslRole_n();
         if (!role)
           role = guessed_role;
         if (role)
@@ -3353,10 +3382,10 @@ void SdpOfferAnswerHandler::AllocateSctpSids() {
       });
 }
 
-absl::optional<rtc::SSLRole> SdpOfferAnswerHandler::GuessSslRole() const {
+std::optional<rtc::SSLRole> SdpOfferAnswerHandler::GuessSslRole() const {
   RTC_DCHECK_RUN_ON(signaling_thread());
   if (!pc_->sctp_mid())
-    return absl::nullopt;
+    return std::nullopt;
 
   // TODO(bugs.webrtc.org/13668): This guesswork is guessing wrong (returning
   // SSL_CLIENT = ACTIVE) if remote offer has role ACTIVE, but we'll be able
@@ -4188,9 +4217,9 @@ void SdpOfferAnswerHandler::GetOptionsForPlanBOffer(
           (offer_answer_options.offer_to_receive_video > 0);
     }
   }
-  absl::optional<size_t> audio_index;
-  absl::optional<size_t> video_index;
-  absl::optional<size_t> data_index;
+  std::optional<size_t> audio_index;
+  std::optional<size_t> video_index;
+  std::optional<size_t> data_index;
   // If a current description exists, generate m= sections in the same order,
   // using the first audio/video/data section that appears and rejecting
   // extraneous ones.
@@ -4454,9 +4483,9 @@ void SdpOfferAnswerHandler::GetOptionsForPlanBAnswer(
     }
   }
 
-  absl::optional<size_t> audio_index;
-  absl::optional<size_t> video_index;
-  absl::optional<size_t> data_index;
+  std::optional<size_t> audio_index;
+  std::optional<size_t> video_index;
+  std::optional<size_t> data_index;
 
   // Generate m= sections that match those in the offer.
   // Note that mediasession.cc will handle intersection our preferred
@@ -4979,8 +5008,8 @@ void SdpOfferAnswerHandler::RemoveStoppedTransceivers() {
         (remote_content && remote_content->rejected)) {
       RTC_LOG(LS_INFO) << "Dissociating transceiver"
                           " since the media section is being recycled.";
-      transceiver->internal()->set_mid(absl::nullopt);
-      transceiver->internal()->set_mline_index(absl::nullopt);
+      transceiver->internal()->set_mid(std::nullopt);
+      transceiver->internal()->set_mline_index(std::nullopt);
     } else if (!local_content && !remote_content) {
       // TODO(bugs.webrtc.org/11973): Consider if this should be removed already
       // See https://github.com/w3c/webrtc-pc/issues/2576
@@ -5241,9 +5270,9 @@ void SdpOfferAnswerHandler::GenerateMediaDescriptionOptions(
     const SessionDescriptionInterface* session_desc,
     RtpTransceiverDirection audio_direction,
     RtpTransceiverDirection video_direction,
-    absl::optional<size_t>* audio_index,
-    absl::optional<size_t>* video_index,
-    absl::optional<size_t>* data_index,
+    std::optional<size_t>* audio_index,
+    std::optional<size_t>* video_index,
+    std::optional<size_t>* data_index,
     cricket::MediaSessionOptions* session_options) {
   RTC_DCHECK_RUN_ON(signaling_thread());
   for (const cricket::ContentInfo& content :

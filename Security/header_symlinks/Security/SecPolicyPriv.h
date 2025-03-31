@@ -231,6 +231,8 @@ extern const CFStringRef kSecPolicyAppleiAPAuthV4
     API_AVAILABLE(macos(15.0), ios(18.0), watchos(11.0), tvos(18.0));
 extern const CFStringRef kSecPolicyAppleDCAttestation
     API_AVAILABLE(macos(15.1), ios(18.1), watchos(11.1), tvos(18.1));
+extern const CFStringRef kSecPolicyAppleQWAC
+    API_AVAILABLE(macos(15.4), ios(18.4), watchos(11.4), tvos(18.4));
 
 /*!
 	@enum Policy Name Constants (Private)
@@ -258,6 +260,7 @@ extern const CFStringRef kSecPolicyAppleDCAttestation
     @constant kSecPolicyNameApplePotluckService
     @constant kSecPolicyNameAppleMacOSSoftwareUpdate
     @constant kSecPolicyNameAppleIssued
+    @constant kSecPolicyNameAppleIssuedTransparent
  */
 extern const CFStringRef kSecPolicyNameAppleAST2Service
     __OSX_AVAILABLE(10.13) __IOS_AVAILABLE(11.0) __TVOS_AVAILABLE(11.0) __WATCHOS_AVAILABLE(4.0);
@@ -303,6 +306,8 @@ extern const CFStringRef kSecPolicyNameAppleMacOSSoftwareUpdate
     API_AVAILABLE(macos(13.0), ios(16.1), watchos(9.1), tvos(16.1));
 extern const CFStringRef kSecPolicyNameAppleIssued
     API_AVAILABLE(macos(15.0), ios(18.0), watchos(11.0), tvos(18.0));
+extern const CFStringRef kSecPolicyNameAppleIssuedTransparent
+    API_AVAILABLE(macos(15.4), ios(18.4), watchos(11.4), tvos(18.4));
 
 /*!
  @enum Policy Value Constants
@@ -1525,6 +1530,15 @@ CFStringRef SecPolicyGetOidString(SecPolicyRef policy)
     __OSX_AVAILABLE(10.12) __IOS_AVAILABLE(10.0) __TVOS_AVAILABLE(10.0) __WATCHOS_AVAILABLE(3.0);
 
 /*!
+ @function SecPolicyGetCompatibilityOidString
+ @abstract Returns a policy's oid in string decimal format. (without differentiation between client/server policies)
+ @param policy A policy reference.
+ @result A policy oid.
+ */
+CFStringRef SecPolicyGetCompatibilityOidString(SecPolicyRef policy)
+    API_AVAILABLE(macos(15.4), ios(18.4), watchos(11.4), tvos(18.4));
+
+/*!
  @function SecPolicyCreateAppleUniqueDeviceCertificate
  @abstract Returns a policy object for verifying Unique Device Identifier Certificates.
  @param testRootHash Optional; The SHA-256 fingerprint of a test root for pinning.
@@ -2265,6 +2279,38 @@ __nullable CF_RETURNS_RETAINED
 SecPolicyRef SecPolicyCreateDCAttestation(void)
     API_AVAILABLE(macos(15.1), ios(18.1), watchos(11.1), tvos(18.1));
 
+/*!
+ @function SecPolicyCreateQWAC
+ @abstract Returns a policy object for verifying EU QWAC certs
+ @discussion The resulting policy uses the Basic X.509 policy with validity check and
+ verification that the anchor is allowed to issue QWACs and that the leaf asserts the
+ compliance Qualified Certificate Statement and Web Authentication Qualified Certificate
+ Type.
+ @result A policy object. The caller is responsible for calling CFRelease on this when
+ it is no longer needed.
+ */
+__nullable CF_RETURNS_RETAINED
+SecPolicyRef SecPolicyCreateQWAC(void)
+    API_AVAILABLE(macos(15.4), ios(18.4), watchos(11.4), tvos(18.4));
+
+bool SecPolicyUsesConstrainedAnchors(CFStringRef policyId)
+    API_AVAILABLE(macos(15.4), ios(18.4), watchos(11.4), tvos(18.4));
+bool SecPolicyUsesAppleAnchors(CFStringRef policyId)
+    API_AVAILABLE(macos(15.4), ios(18.4), watchos(11.4), tvos(18.4));
+
+/*!
+ @function SecPolicyCreate3PMobileAsset
+ @abstract Returns a policy object for verifying 3P MobileAsset signing certs
+ @param organizations Required; leaf certificate must contain at least one of these strings in
+ the organization field of the subject
+ @discussion The resulting policy uses the Basic X.509 policy with no validity check, requires
+ the document signing EKU (RFC 9336), and enforces that the anchor is constrained to this policy.
+ @result A policy object. The caller is responsible for calling CFRelease on this when
+ it is no longer needed.
+ */
+__nullable CF_RETURNS_RETAINED
+SecPolicyRef SecPolicyCreate3PMobileAsset(CFArrayRef organizations)
+    API_AVAILABLE(macos(15.4), ios(18.4), watchos(11.4), tvos(18.4));
 
 /*
  *  Legacy functions (macOS only)
@@ -2369,6 +2415,7 @@ extern const CFStringRef kSecPolicyCheckNotValidBefore;
 extern const CFStringRef kSecPolicyCheckOtherTrustValidityPeriod;
 extern const CFStringRef kSecPolicyCheckPinningRequired;
 extern const CFStringRef kSecPolicyCheckPolicyConstraints;
+extern const CFStringRef kSecPolicyCheckQWAC;
 extern const CFStringRef kSecPolicyCheckRevocation;
 extern const CFStringRef kSecPolicyCheckRevocationIfTrusted;
 extern const CFStringRef kSecPolicyCheckRevocationOnline;

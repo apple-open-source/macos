@@ -293,10 +293,19 @@ bool SharingResolver::canShareStyleWithElement(const Context& context, const Sty
     if (&candidateElement == m_document->activeModalDialog() || &element == m_document->activeModalDialog())
         return false;
 
+    if (!m_document->styleScope().anchorPositionedStates().isEmptyIgnoringNullReferences())
+        return false;
+
+    if (candidateElement.isInTopLayer() || element.isInTopLayer())
+        return false;
+
 #if ENABLE(FULLSCREEN_API)
-    if (CheckedPtr fullscreenManager = m_document->fullscreenManagerIfExists(); fullscreenManager && (&candidateElement == fullscreenManager->currentFullscreenElement() || &element == fullscreenManager->currentFullscreenElement()))
+    if (candidateElement.hasFullscreenFlag() || element.hasFullscreenFlag())
         return false;
 #endif
+
+    if (candidateElement.hasRandomKeyMap())
+        return false;
 
     return true;
 }
@@ -307,7 +316,7 @@ bool SharingResolver::styleSharingCandidateMatchesRuleSet(const StyledElement& e
         return false;
 
     ElementRuleCollector collector(element, m_ruleSets, &m_selectorMatchingState);
-    return collector.hasAnyMatchingRules(*ruleSet);
+    return collector.matchesAnyRules(*ruleSet);
 }
 
 bool SharingResolver::sharingCandidateHasIdenticalStyleAffectingAttributes(const Context& context, const StyledElement& sharingCandidate) const

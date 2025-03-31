@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2023 Apple Inc. All rights reserved.
+ * Copyright (C) 2014-2024 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,6 +26,7 @@
 #pragma once
 
 #include "ArgumentCoders.h"
+#include "ColorControlSupportsAlpha.h"
 #include "IdentifierTypes.h"
 #include <WebCore/AutocapitalizeTypes.h>
 #include <WebCore/Autofill.h>
@@ -60,9 +61,7 @@ enum class InputType : uint8_t {
     Time,
     Select,
     Drawing,
-#if ENABLE(INPUT_TYPE_COLOR)
     Color
-#endif
 };
 
 #if PLATFORM(IOS_FAMILY)
@@ -123,14 +122,11 @@ struct FocusedElementInformation {
     String placeholder;
     String label;
     String ariaLabel;
-#if ENABLE(DATALIST_ELEMENT)
     bool hasSuggestions { false };
     bool isFocusingWithDataListDropdown { false };
-#if ENABLE(INPUT_TYPE_COLOR)
     WebCore::Color colorValue;
+    ColorControlSupportsAlpha supportsAlpha { ColorControlSupportsAlpha::No };
     Vector<WebCore::Color> suggestedColors;
-#endif
-#endif
     bool hasEverBeenPasswordField { false };
     bool shouldSynthesizeKeyEventsForEditing { false };
     bool isSpellCheckingEnabled { true };
@@ -144,7 +140,7 @@ struct FocusedElementInformation {
     FocusedElementInformationIdentifier identifier;
     Markable<WebCore::ScrollingNodeID> containerScrollingNodeID;
 
-    WebCore::FrameIdentifier frameID;
+    Markable<WebCore::FrameIdentifier> frameID;
 };
 #endif
 

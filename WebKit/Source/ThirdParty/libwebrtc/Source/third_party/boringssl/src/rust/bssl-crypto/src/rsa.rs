@@ -168,6 +168,13 @@ impl Drop for PublicKey {
     }
 }
 
+#[cfg(feature = "std")]
+impl std::fmt::Debug for PublicKey {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "RSA PublicKey")
+    }
+}
+
 /// The set of supported RSA key sizes for key generation.
 #[allow(missing_docs)]
 pub enum KeySize {
@@ -309,7 +316,6 @@ impl Drop for PrivateKey {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::digest;
 
     #[test]
     fn sign_and_verify() {

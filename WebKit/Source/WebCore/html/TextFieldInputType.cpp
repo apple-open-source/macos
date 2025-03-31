@@ -41,8 +41,10 @@
 #include "EventLoop.h"
 #include "EventNames.h"
 #include "FrameSelection.h"
+#include "HTMLDataListElement.h"
 #include "HTMLInputElement.h"
 #include "HTMLNames.h"
+#include "HTMLOptionElement.h"
 #include "HTMLParserIdioms.h"
 #include "KeyboardEvent.h"
 #include "LocalFrame.h"
@@ -64,13 +66,7 @@
 #include "TypedElementDescendantIteratorInlines.h"
 #include "UserAgentParts.h"
 #include "UserTypingGestureIndicator.h"
-#include "WheelEvent.h"
 #include <wtf/TZoneMallocInlines.h>
-
-#if ENABLE(DATALIST_ELEMENT)
-#include "HTMLDataListElement.h"
-#include "HTMLOptionElement.h"
-#endif
 
 namespace WebCore {
 
@@ -86,9 +82,9 @@ TextFieldInputType::TextFieldInputType(Type type, HTMLInputElement& element)
 
 TextFieldInputType::~TextFieldInputType()
 {
-#if ENABLE(DATALIST_ELEMENT)
     closeSuggestions();
-#endif
+    if (RefPtr suggestionPicker = m_suggestionPicker)
+        suggestionPicker->detach();
 }
 
 bool TextFieldInputType::isKeyboardFocusable(KeyboardEvent*) const
@@ -184,7 +180,6 @@ void TextFieldInputType::setValue(const String& sanitizedValue, bool valueChange
         didSetValueByUserEdit();
 }
 
-#if ENABLE(DATALIST_ELEMENT)
 void TextFieldInputType::handleClickEvent(MouseEvent&)
 {
     if (element()->focused() && element()->list())
@@ -198,20 +193,17 @@ void TextFieldInputType::showPicker()
         displaySuggestions(DataListSuggestionActivationType::ControlClicked);
 #endif
 }
-#endif
 
 auto TextFieldInputType::handleKeydownEvent(KeyboardEvent& event) -> ShouldCallBaseEventHandler
 {
     ASSERT(element());
     if (!element()->focused())
         return ShouldCallBaseEventHandler::Yes;
-#if ENABLE(DATALIST_ELEMENT)
     const String& key = event.keyIdentifier();
-    if (m_suggestionPicker && (key == "Enter"_s || key == "Up"_s || key == "Down"_s)) {
-        m_suggestionPicker->handleKeydownWithIdentifier(key);
+    if (RefPtr suggestionPicker = m_suggestionPicker; suggestionPicker && (key == "Enter"_s || key == "Up"_s || key == "Down"_s || key == "U+001B"_s)) {
+        suggestionPicker->handleKeydownWithIdentifier(key);
         event.setDefaultHandled();
     }
-#endif
     RefPtr frame = element()->document().frame();
     if (frame && frame->editor().doTextFieldCommandFromEvent(*element(), &event))
         event.setDefaultHandled();
@@ -223,10 +215,8 @@ void TextFieldInputType::handleKeydownEventForSpinButton(KeyboardEvent& event)
     ASSERT(element());
     if (!element()->isMutable())
         return;
-#if ENABLE(DATALIST_ELEMENT)
     if (m_suggestionPicker)
         return;
-#endif
     const String& key = event.keyIdentifier();
     if (key == "Up"_s)
         spinButtonStepUp();
@@ -240,12 +230,6 @@ void TextFieldInputType::handleKeydownEventForSpinButton(KeyboardEvent& event)
 void TextFieldInputType::forwardEvent(Event& event)
 {
     ASSERT(element());
-
-    if (m_innerSpinButton) {
-        m_innerSpinButton->forwardEvent(event);
-        if (event.defaultHandled())
-            return;
-    }
 
     auto& eventNames = WebCore::eventNames();
     bool isFocusEvent = event.type() == eventNames.focusEvent;
@@ -277,9 +261,7 @@ void TextFieldInputType::elementDidBlur()
     ScrollOffset scrollOffset(isLeftToRightDirection ? 0 : innerLayerScrollable->scrollWidth(), 0);
     innerLayerScrollable->scrollToOffset(scrollOffset);
 
-#if ENABLE(DATALIST_ELEMENT)
     closeSuggestions();
-#endif
 }
 
 void TextFieldInputType::handleFocusEvent(Node* oldFocusedNode, FocusDirection)
@@ -345,14 +327,8 @@ void TextFieldInputType::createShadowSubtree()
     bool shouldHaveSpinButton = this->shouldHaveSpinButton();
     bool shouldHaveCapsLockIndicator = this->shouldHaveCapsLockIndicator();
     bool shouldDrawAutoFillButton = this->shouldDrawAutoFillButton();
-#if ENABLE(DATALIST_ELEMENT)
     bool hasDataList = element()->list();
-#endif
-    bool createsContainer = shouldHaveSpinButton || shouldHaveCapsLockIndicator || shouldDrawAutoFillButton
-#if ENABLE(DATALIST_ELEMENT)
-        || hasDataList
-#endif
-        || needsContainer();
+    bool createsContainer = shouldHaveSpinButton || shouldHaveCapsLockIndicator || shouldDrawAutoFillButton || hasDataList || needsContainer();
 
     Ref innerText = TextControlInnerTextElement::create(document, element()->isInnerTextElementEditable());
     m_innerText = innerText.copyRef();
@@ -389,9 +365,7 @@ void TextFieldInputType::createShadowSubtree()
 
     updateAutoFillButton();
 
-#if ENABLE(DATALIST_ELEMENT)
     dataListMayHaveChanged();
-#endif
 }
 
 HTMLElement* TextFieldInputType::containerElement() const
@@ -435,9 +409,7 @@ void TextFieldInputType::removeShadowSubtree()
     m_innerSpinButton = nullptr;
     m_capsLockIndicator = nullptr;
     m_autoFillButton = nullptr;
-#if ENABLE(DATALIST_ELEMENT)
     m_dataListDropdownIndicator = nullptr;
-#endif
     m_container = nullptr;
 }
 
@@ -482,8 +454,6 @@ bool TextFieldInputType::shouldUseInputMethod() const
     return true;
 }
 
-#if ENABLE(DATALIST_ELEMENT)
-
 void TextFieldInputType::createDataListDropdownIndicator()
 {
     ASSERT(!m_dataListDropdownIndicator);
@@ -498,8 +468,6 @@ void TextFieldInputType::createDataListDropdownIndicator()
     m_dataListDropdownIndicator->setUserAgentPart(UserAgentParts::webkitListButton());
     m_dataListDropdownIndicator->setInlineStyleProperty(CSSPropertyDisplay, CSSValueNone, IsImportant::Yes);
 }
-
-#endif // ENABLE(DATALIST_ELEMENT)
 
 static String limitLength(const String& string, unsigned maxLength)
 {
@@ -643,11 +611,7 @@ void TextFieldInputType::handleBeforeTextInsertedEvent(BeforeTextInsertedEvent& 
 
 bool TextFieldInputType::shouldRespectListAttribute()
 {
-#if ENABLE(DATALIST_ELEMENT)
     return element() && element()->document().settings().dataListElementEnabled();
-#else
-    return InputType::themeSupportsDataListUI(this);
-#endif
 }
 
 void TextFieldInputType::updatePlaceholderText()
@@ -727,10 +691,8 @@ void TextFieldInputType::didSetValueByUserEdit()
         return;
     if (RefPtr frame = element()->document().frame())
         frame->editor().textDidChangeInTextField(*element());
-#if ENABLE(DATALIST_ELEMENT)
     if (element()->list())
         displaySuggestions(DataListSuggestionActivationType::TextChanged);
-#endif
 }
 
 void TextFieldInputType::spinButtonStepDown()
@@ -768,12 +730,6 @@ bool TextFieldInputType::shouldSpinButtonRespondToMouseEvents() const
     return element()->isMutable();
 }
 
-bool TextFieldInputType::shouldSpinButtonRespondToWheelEvents() const
-{
-    ASSERT(element());
-    return shouldSpinButtonRespondToMouseEvents() && element()->focused();
-}
-
 bool TextFieldInputType::shouldDrawCapsLockIndicator() const
 {
     ASSERT(element());
@@ -783,7 +739,7 @@ bool TextFieldInputType::shouldDrawCapsLockIndicator() const
     if (!element()->isMutable())
         return false;
 
-    if (element()->hasAutoFillStrongPasswordButton())
+    if (element()->hasAutofillStrongPasswordButton())
         return false;
 
     RefPtr frame { element()->document().frame() };
@@ -808,17 +764,22 @@ void TextFieldInputType::capsLockStateMayHaveChanged()
 bool TextFieldInputType::shouldDrawAutoFillButton() const
 {
     ASSERT(element());
-    return element()->isMutable() && element()->autoFillButtonType() != AutoFillButtonType::None;
+    return element()->isMutable() && element()->autofillButtonType() != AutoFillButtonType::None;
 }
 
 void TextFieldInputType::autoFillButtonElementWasClicked()
 {
-    ASSERT(element());
-    Page* page = element()->document().page();
+    RefPtr element = this->element();
+    ASSERT(element);
+    Page* page = element->document().page();
     if (!page)
         return;
 
-    page->chrome().client().handleAutoFillButtonClick(*element());
+    auto event = Event::create(eventNames().webkitautofillrequestEvent, Event::CanBubble::No, Event::IsCancelable::No);
+    event->setIsAutofillEvent();
+    element->dispatchEvent(WTFMove(event));
+
+    page->chrome().client().handleAutoFillButtonClick(*element);
 }
 
 void TextFieldInputType::createContainer(PreserveSelectionRange preserveSelection)
@@ -892,7 +853,7 @@ void TextFieldInputType::updateAutoFillButton()
         if (!m_container)
             createContainer();
 
-        AutoFillButtonType autoFillButtonType = element()->autoFillButtonType();
+        AutoFillButtonType autoFillButtonType = element()->autofillButtonType();
         if (!m_autoFillButton)
             createAutoFillButton(autoFillButtonType);
 
@@ -910,8 +871,6 @@ void TextFieldInputType::updateAutoFillButton()
     if (m_autoFillButton)
         m_autoFillButton->setInlineStyleProperty(CSSPropertyDisplay, CSSValueNone, IsImportant::Yes);
 }
-
-#if ENABLE(DATALIST_ELEMENT)
 
 void TextFieldInputType::dataListMayHaveChanged()
 {
@@ -1000,7 +959,8 @@ void TextFieldInputType::didSelectDataListOption(const String& selectedOption)
 void TextFieldInputType::didCloseSuggestions()
 {
     m_cachedSuggestions = { };
-    m_suggestionPicker = nullptr;
+    if (RefPtr suggestionPicker = std::exchange(m_suggestionPicker, nullptr))
+        suggestionPicker->detach();
     if (element()->renderer())
         element()->renderer()->repaint();
 }
@@ -1016,16 +976,14 @@ void TextFieldInputType::displaySuggestions(DataListSuggestionActivationType typ
     if (!m_suggestionPicker && suggestions().size() > 0)
         m_suggestionPicker = chrome()->createDataListSuggestionPicker(*this);
 
-    if (!m_suggestionPicker)
-        return;
-
-    m_suggestionPicker->displayWithActivationType(type);
+    if (RefPtr suggestionPicker = m_suggestionPicker)
+        suggestionPicker->displayWithActivationType(type);
 }
 
 void TextFieldInputType::closeSuggestions()
 {
-    if (m_suggestionPicker)
-        m_suggestionPicker->close();
+    if (RefPtr suggestionPicker = m_suggestionPicker)
+        suggestionPicker->close();
 }
 
 bool TextFieldInputType::isPresentingAttachedView() const
@@ -1037,7 +995,5 @@ bool TextFieldInputType::isFocusingWithDataListDropdown() const
 {
     return m_isFocusingWithDataListDropdown;
 }
-
-#endif
 
 } // namespace WebCore

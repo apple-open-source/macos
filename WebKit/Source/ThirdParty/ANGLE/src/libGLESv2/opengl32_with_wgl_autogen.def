@@ -668,9 +668,6 @@ EXPORTS
     ; GL_ANGLE_translated_shader_source
     glGetTranslatedShaderSourceANGLE
 
-    ; GL_ANGLE_variable_rasterization_rate_metal
-    glBindMetalRasterizationRateMapANGLE
-
     ; GL_ANGLE_vulkan_image
     glAcquireTexturesANGLE
     glReleaseTexturesANGLE
@@ -873,6 +870,8 @@ EXPORTS
     ; GL_EXT_semaphore_fd
     glImportSemaphoreFdEXT
 
+    ; GL_EXT_separate_depth_stencil
+
     ; GL_EXT_separate_shader_objects
     glActiveShaderProgramEXT
     glBindProgramPipelineEXT
@@ -983,10 +982,16 @@ EXPORTS
 
     ; GL_EXT_texture_sRGB_decode
 
+    ; GL_EXT_texture_shadow_lod
+
     ; GL_EXT_texture_storage
     glTexStorage1DEXT
     glTexStorage2DEXT
     glTexStorage3DEXT
+
+    ; GL_EXT_texture_storage_compression
+    glTexStorageAttribs2DEXT
+    glTexStorageAttribs3DEXT
 
     ; GL_EXT_texture_type_2_10_10_10_REV
 
@@ -1267,9 +1272,6 @@ EXPORTS
     ; GL_QCOM_tiled_rendering
     glEndTilingQCOM
     glStartTilingQCOM
-
-    ; GL_WEBKIT_explicit_resolve_target
-    glFramebufferResolveRenderbufferWEBKIT
 
     ; GL 1.0
     glAccum

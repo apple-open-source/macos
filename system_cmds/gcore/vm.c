@@ -525,4 +525,21 @@ is_actual_size(const task_t task, const struct region *r, mach_vm_size_t *hostvm
     }
     return R_SIZE(r) == *hostvmsize;
 }
+
 #endif
+/*
+ * Public function to insert a region computed externally, normally from the
+ * mach-o header of dylds when using a skinny coredump
+ */
+struct region *
+vm_insert_region(struct regionhead *rhead,mach_vm_offset_t vmaddr, mach_vm_size_t vmsize, const vm_region_submap_info_data_64_t *info, dyld_shared_cache_t sc)
+{
+    struct region *d = NULL;
+
+    d = new_region(vmaddr, vmsize, info, sc);
+    if (d!=NULL) {
+        STAILQ_INSERT_TAIL(rhead, d, r_linkage);
+
+    }
+    return d;
+}

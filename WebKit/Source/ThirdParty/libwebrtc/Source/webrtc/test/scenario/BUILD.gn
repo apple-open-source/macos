@@ -89,6 +89,7 @@ if (rtc_include_tests && !build_with_chromium) {
       "../../api:time_controller",
       "../../api:transport_api",
       "../../api/audio:audio_device",
+      "../../api/audio:builtin_audio_processing_builder",
       "../../api/audio_codecs:builtin_audio_decoder_factory",
       "../../api/audio_codecs:builtin_audio_encoder_factory",
       "../../api/environment",
@@ -96,6 +97,7 @@ if (rtc_include_tests && !build_with_chromium) {
       "../../api/rtc_event_log",
       "../../api/rtc_event_log:rtc_event_log_factory",
       "../../api/task_queue",
+      "../../api/test/network_emulation",
       "../../api/test/video:function_video_factory",
       "../../api/transport:network_control",
       "../../api/units:data_rate",
@@ -111,7 +113,6 @@ if (rtc_include_tests && !build_with_chromium) {
       "../../call",
       "../../call:call_interfaces",
       "../../call:rtp_sender",
-      "../../call:video_stream_api",
       "../../common_video",
       "../../media:media_constants",
       "../../media:rtc_audio_video",
@@ -133,7 +134,9 @@ if (rtc_include_tests && !build_with_chromium) {
       "../../modules/video_coding/svc:scalability_mode_util",
       "../../rtc_base:checks",
       "../../rtc_base:copy_on_write_buffer",
+      "../../rtc_base:macromagic",
       "../../rtc_base:net_helper",
+      "../../rtc_base:network_route",
       "../../rtc_base:refcount",
       "../../rtc_base:rtc_base_tests_utils",
       "../../rtc_base:rtc_event",
@@ -157,7 +160,6 @@ if (rtc_include_tests && !build_with_chromium) {
       "//third_party/abseil-cpp/absl/memory",
       "//third_party/abseil-cpp/absl/strings",
       "//third_party/abseil-cpp/absl/strings:string_view",
-      "//third_party/abseil-cpp/absl/types:optional",
     ]
     if (is_android) {
       deps += [ "../../modules/video_coding:android_codec_factory_helper" ]

@@ -56,7 +56,7 @@ struct aom_usec_timer {
 #endif
 };
 
-static INLINE void aom_usec_timer_start(struct aom_usec_timer *t) {
+static inline void aom_usec_timer_start(struct aom_usec_timer *t) {
 #if defined(_WIN32)
   QueryPerformanceCounter(&t->begin);
 #else
@@ -64,7 +64,7 @@ static INLINE void aom_usec_timer_start(struct aom_usec_timer *t) {
 #endif
 }
 
-static INLINE void aom_usec_timer_mark(struct aom_usec_timer *t) {
+static inline void aom_usec_timer_mark(struct aom_usec_timer *t) {
 #if defined(_WIN32)
   QueryPerformanceCounter(&t->end);
 #else
@@ -72,7 +72,7 @@ static INLINE void aom_usec_timer_mark(struct aom_usec_timer *t) {
 #endif
 }
 
-static INLINE int64_t aom_usec_timer_elapsed(struct aom_usec_timer *t) {
+static inline int64_t aom_usec_timer_elapsed(struct aom_usec_timer *t) {
 #if defined(_WIN32)
   LARGE_INTEGER freq, diff;
 
@@ -99,11 +99,11 @@ struct aom_usec_timer {
   void *dummy;
 };
 
-static INLINE void aom_usec_timer_start(struct aom_usec_timer *t) { (void)t; }
+static inline void aom_usec_timer_start(struct aom_usec_timer *t) { (void)t; }
 
-static INLINE void aom_usec_timer_mark(struct aom_usec_timer *t) { (void)t; }
+static inline void aom_usec_timer_mark(struct aom_usec_timer *t) { (void)t; }
 
-static INLINE int aom_usec_timer_elapsed(struct aom_usec_timer *t) {
+static inline int aom_usec_timer_elapsed(struct aom_usec_timer *t) {
   (void)t;
   return 0;
 }

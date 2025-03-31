@@ -29,6 +29,7 @@
 
 #import "LengthBox.h"
 #import "PlatformControl.h"
+#import <wtf/TZoneMalloc.h>
 
 namespace WebCore {
 
@@ -38,6 +39,7 @@ class GraphicsContext;
 class IntSize;
 
 class ControlMac : public PlatformControl {
+    WTF_MAKE_TZONE_ALLOCATED(ControlMac);
 public:
     ControlMac(ControlPart&, ControlFactoryMac&);
 
@@ -66,9 +68,7 @@ protected:
 
     void drawCell(GraphicsContext&, const FloatRect&, float deviceScaleFactor, const ControlStyle&, NSCell *, bool drawCell = true);
 
-#if ENABLE(DATALIST_ELEMENT)
     void drawListButton(GraphicsContext&, const FloatRect&, float deviceScaleFactor, const ControlStyle&);
-#endif
 
 private:
     void drawCellInternal(GraphicsContext&, const FloatRect&, float deviceScaleFactor, const ControlStyle&, NSCell *);

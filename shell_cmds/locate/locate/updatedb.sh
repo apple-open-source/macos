@@ -1,6 +1,6 @@
 #!/bin/sh
 #
-# SPDX-License-Identifier: BSD-2-Clause-FreeBSD
+# SPDX-License-Identifier: BSD-2-Clause
 #
 # Copyright (c) September 1995 Wolfram Schneider <wosch@FreeBSD.org>. Berlin.
 # All rights reserved.
@@ -28,18 +28,25 @@
 #
 # updatedb - update locate database for local mounted filesystems
 #
-# $FreeBSD$
 
 if [ "$(id -u)" = "0" ]; then
 #ifdef __APPLE__
-	rc=0
-	export FCODES=`sudo -u nobody mktemp -t updatedb`
-	chown nobody $FCODES
-	tmpdb=`su -fm nobody -c "$0"` || rc=1
-	if [ $rc = 0 ]; then
-		install -m 0444 -o nobody -g wheel $FCODES /var/db/locate.database
+	self=$(command -v "$0")
+	cd /
+	FCODES=$(sudo -u nobody mktemp -t updatedb)
+	if [ -z "$FCODES" ] || ! [ -f "$FCODES" ]; then
+		echo ">>> ERROR" 1>&2
+		echo ">>> Failed to create a temporary file for database generation." 1>&2
+		exit 1
 	fi
-	rm $FCODES
+	export FCODES
+	chown nobody "$FCODES"
+	su -fm nobody -c "$self"
+	rc=$?
+	if [ $rc = 0 ]; then
+		install -m 0444 -o nobody -g wheel "$FCODES" /var/db/locate.database
+	fi
+	rm "$FCODES"
 	exit $rc
 #else
 #	echo ">>> WARNING" 1>&2
@@ -55,14 +62,18 @@ fi
 # The directory containing locate subprograms
 : ${LIBEXECDIR:=/usr/libexec}; export LIBEXECDIR
 : ${TMPDIR:=/tmp}; export TMPDIR
-if ! TMPDIR=`mktemp -d $TMPDIR/locateXXXXXXXXXX`; then
+if ! TMPDIR=$(mktemp -d $TMPDIR/locateXXXXXXXXXX); then
 	exit 1
 fi
+tmp=$TMPDIR/_updatedb$$
+trap 'rc=$?; rm -f $tmp; rmdir $TMPDIR; trap - 0; exit $rc' 0 1 2 3 5 10 15
 
 PATH=$LIBEXECDIR:/bin:/usr/bin:$PATH; export PATH
 
+#ifdef __APPLE__
 # 6497475
 set -o noglob
+#endif
 
 : ${mklocatedb:=locate.mklocatedb}	 # make locate database program
 : ${FCODES:=/var/db/locate.database}	 # the database
@@ -72,7 +83,7 @@ set -o noglob
 : ${PRUNEDIRS=""}	# unwanted directories, in any parent
 : ${FILESYSTEMS="hfs ufs apfs"}		# allowed filesystems
 #else
-#: ${PRUNEPATHS="/tmp /usr/tmp /var/tmp /var/db/portsnap /var/db/freebsd-update"} # unwanted directories
+#: ${PRUNEPATHS="/tmp /usr/tmp /var/tmp /var/db/freebsd-update"} # unwanted directories
 #: ${PRUNEDIRS=".zfs"}	# unwanted directories, in any parent
 #: ${FILESYSTEMS="$(lsvfs | tail -n +3 | \
 #	egrep -vw "loopback|network|synthetic|read-only|0" | \
@@ -115,21 +126,13 @@ while read firmlink; do
 done <<< "$(awk -F'\t' '{print "/System/Volumes/Data/" $2}' /usr/share/firmlinks)"
 #endif
 
-tmp=$TMPDIR/_updatedb$$
-#ifdef __APPLE__
-trap 'rm -f $tmp; rmdir $TMPDIR; exit' 0 1 2 3 5 10 15
-#else
-#trap 'rm -f $tmp; rmdir $TMPDIR' 0 1 2 3 5 10 15
-#endif
-
 # search locally
 if $find -s $SEARCHPATHS $excludes -or -print 2>/dev/null |
         $mklocatedb -presort > $tmp
 then
-	if [ -n "$($find $tmp -size -257c -print)" ]; then
+	if ! grep -aq / $tmp; then
 		echo "updatedb: locate database $tmp is empty" >&2
 		exit 1
-	else
-		cat $tmp > $FCODES		# should be cp?
 	fi
+	install $tmp $FCODES
 fi

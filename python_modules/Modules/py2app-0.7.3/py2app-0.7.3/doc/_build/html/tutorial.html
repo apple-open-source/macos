@@ -1,0 +1,203 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Tutorial &mdash; py2app 0.7.3 documentation</title>
+    
+    <link rel="stylesheet" href="_static/nature.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '',
+        VERSION:     '0.7.3',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <link rel="top" title="py2app 0.7.3 documentation" href="index.html" />
+    <link rel="next" title="Tweaking your Info.plist" href="tweaking.html" />
+    <link rel="prev" title="Dependencies" href="dependencies.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="tweaking.html" title="Tweaking your Info.plist"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="dependencies.html" title="Dependencies"
+             accesskey="P">previous</a> |</li>
+        <li><a href="index.html">py2app 0.7.3 documentation</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="tutorial">
+<h1>Tutorial<a class="headerlink" href="#tutorial" title="Permalink to this headline">¶</a></h1>
+<p>Converting your scripts to Mac OS X applications is easy with py2app.</p>
+<div class="section" id="create-a-setup-py-file">
+<h2>Create a setup.py file<a class="headerlink" href="#create-a-setup-py-file" title="Permalink to this headline">¶</a></h2>
+<p>The first step is to create a <tt class="docutils literal"><span class="pre">setup.py</span></tt> file for your script. <tt class="docutils literal"><span class="pre">setup.py</span></tt>
+is the &#8220;project file&#8221; that tells <a class="reference external" href="http://pypi.python.org/pypi/setuptools/">setuptools</a> everything it needs to know
+to build your application. We&#8217;ll use the <a class="reference internal" href="py2applet.html"><em>py2applet</em></a> script to do that:</p>
+<div class="highlight-python"><pre>$ py2applet --make-setup MyApplication.py
+Wrote setup.py</pre>
+</div>
+<p>If your application has an icon (in <tt class="docutils literal"><span class="pre">.icns</span></tt> format) or data files that it
+requires, you should also specify them as arguments to <a class="reference internal" href="py2applet.html"><em>py2applet</em></a>.</p>
+</div>
+<div class="section" id="clean-up-your-build-directories">
+<h2>Clean up your build directories<a class="headerlink" href="#clean-up-your-build-directories" title="Permalink to this headline">¶</a></h2>
+<p>Before starting development or switching development modes it&#8217;s usually
+a good idea to ensure that your <tt class="docutils literal"><span class="pre">build</span></tt> and <tt class="docutils literal"><span class="pre">dist</span></tt> directories are
+cleaned out:</p>
+<div class="highlight-python"><pre>$ rm -rf build dist</pre>
+</div>
+</div>
+<div class="section" id="development-with-alias-mode">
+<h2>Development with alias mode<a class="headerlink" href="#development-with-alias-mode" title="Permalink to this headline">¶</a></h2>
+<p>Alias mode (the <tt class="docutils literal"><span class="pre">-A</span></tt> or <tt class="docutils literal"><span class="pre">--alias</span></tt> option) instructs py2app to build
+an application bundle that uses your source and data files in-place. It
+does not create standalone applications, and the applications built in
+alias mode are not portable to other machines. This mode is similar to the
+<a class="reference external" href="http://pypi.python.org/pypi/setuptools/">setuptools</a> <tt class="docutils literal"><span class="pre">develop</span></tt> command, or <a class="reference external" href="http://developer.apple.com/tools/xcode/">Xcode</a>&#8216;s zero-link feature.</p>
+<p>To build the application in alias mode, execute <tt class="docutils literal"><span class="pre">setup.py</span></tt> with the
+<tt class="docutils literal"><span class="pre">py2app</span></tt> command and specify the <tt class="docutils literal"><span class="pre">-A</span></tt> option (or <tt class="docutils literal"><span class="pre">--alias</span></tt>):</p>
+<div class="highlight-python"><pre>$ python setup.py py2app -A</pre>
+</div>
+<p>After this, py2app will spit out a bunch of messages to your terminal
+and you&#8217;ll end up with new <tt class="docutils literal"><span class="pre">build</span></tt> and <tt class="docutils literal"><span class="pre">dist</span></tt> folders. The <tt class="docutils literal"><span class="pre">build</span></tt>
+folder contains build sludge that you&#8217;ll never need to touch,
+and the <tt class="docutils literal"><span class="pre">dist</span></tt> folder contains your application bundle.
+The application bundle will be named after your script; if your script was
+named <tt class="docutils literal"><span class="pre">MyApplication.py</span></tt>, then your application bundle will be named
+<tt class="docutils literal"><span class="pre">MyApplication.app</span></tt>. Note that Finder displays application bundles without
+the <tt class="docutils literal"><span class="pre">.app</span></tt> extension.</p>
+<p>You only need to run this command again when you add data files or change
+options. Changes to your source code won&#8217;t require rebuilding!</p>
+</div>
+<div class="section" id="running-your-application">
+<h2>Running your application<a class="headerlink" href="#running-your-application" title="Permalink to this headline">¶</a></h2>
+<p>During development, it&#8217;s often useful to have your application
+attached to the Terminal. This allows you to better debug it, e.g. by
+inserting <tt class="docutils literal"><span class="pre">import</span> <span class="pre">pdb;</span> <span class="pre">pdb.set_trace()</span></tt> into your code to inspect it
+interactively at runtime.</p>
+<p>To run your application directly from the Terminal:</p>
+<div class="highlight-python"><pre>$ ./dist/MyApplication.app/Contents/MacOS/MyApplication</pre>
+</div>
+<p>To start your application normally with LaunchServices, you can use the
+<tt class="docutils literal"><span class="pre">open</span></tt> tool:</p>
+<div class="highlight-python"><pre>$ open -a dist/MyApplication.app</pre>
+</div>
+<p>If you want to specify &#8220;open document&#8221; events, to simulate dropping files on
+your application, just specify them as additional arguments to <tt class="docutils literal"><span class="pre">open</span></tt>.</p>
+<p>You may of course also double-click your application from Finder.</p>
+<p>When run normally, your application&#8217;s stdout and stderr output will go to the
+Console logs. To see them, open the Console application:</p>
+<div class="highlight-python"><pre>$ open -a Console</pre>
+</div>
+</div>
+<div class="section" id="building-for-deployment">
+<h2>Building for deployment<a class="headerlink" href="#building-for-deployment" title="Permalink to this headline">¶</a></h2>
+<p>After you&#8217;ve got your application working smoothly in alias mode, it&#8217;s time
+to start building a redistributable version. Since we&#8217;re switching from
+alias mode to normal mode, you should remove your <tt class="docutils literal"><span class="pre">build</span></tt> and <tt class="docutils literal"><span class="pre">dist</span></tt>
+folders as above.</p>
+<p>Building a redistributable application consists of simply running the
+<tt class="docutils literal"><span class="pre">py2app</span></tt> command:</p>
+<div class="highlight-python"><pre>$ python setup.py py2app</pre>
+</div>
+<p>This will assemble your application as <tt class="docutils literal"><span class="pre">dist/MyApplication.app</span></tt>. Since
+this application is self-contained, you will have to run the <tt class="docutils literal"><span class="pre">py2app</span></tt>
+command again any time you change any source code, data files, options, etc.</p>
+<p>The easiest way to wrap your application up for distribution at this point
+is simply to right-click the application from Finder and choose
+&#8220;Create Archive&#8221;.</p>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">Tutorial</a><ul>
+<li><a class="reference internal" href="#create-a-setup-py-file">Create a setup.py file</a></li>
+<li><a class="reference internal" href="#clean-up-your-build-directories">Clean up your build directories</a></li>
+<li><a class="reference internal" href="#development-with-alias-mode">Development with alias mode</a></li>
+<li><a class="reference internal" href="#running-your-application">Running your application</a></li>
+<li><a class="reference internal" href="#building-for-deployment">Building for deployment</a></li>
+</ul>
+</li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="dependencies.html"
+                        title="previous chapter">Dependencies</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="tweaking.html"
+                        title="next chapter">Tweaking your Info.plist</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="_sources/tutorial.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="tweaking.html" title="Tweaking your Info.plist"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="dependencies.html" title="Dependencies"
+             >previous</a> |</li>
+        <li><a href="index.html">py2app 0.7.3 documentation</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2010, Ronald Oussoren, Bob Ippolito.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1.3.
+    </div>
+  </body>
+</html>

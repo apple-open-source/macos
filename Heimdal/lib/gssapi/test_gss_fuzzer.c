@@ -110,7 +110,7 @@ loop(heim_fuzz_type_t fuzzer, gss_OID mechoid, gss_const_OID nameoid, const char
 			       nameoid,
 			       &gss_target_name);
     if (GSS_ERROR(maj_stat))
-	err(1, "import name creds failed with: %d", maj_stat);
+	err(1, "import name creds failed with: %u", maj_stat);
 
     input_token.length = 0;
     input_token.value = NULL;

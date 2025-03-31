@@ -79,25 +79,25 @@ bool ApplePIODMARequest::initWithMapper(IOMapper* mapper,
     _commandSourceBuffer = IOBufferMemoryDescriptor::inTaskWithOptions(kernel_task,
                                                                        kIOMemoryPhysicallyContiguous | kIODirectionOut,
                                                                        sizeof(ApplePIODMAGenericPacket),
-                                                                       sizeof(uint32_t),
+                                                                       byteAlignment,
                                                                        0, 0);
 
     _commandDestinationBuffer = IOBufferMemoryDescriptor::inTaskWithOptions(kernel_task,
                                                                             kIOMemoryPhysicallyContiguous | kIODirectionIn,
                                                                             sizeof(ApplePIODMAGenericPacket),
-                                                                            sizeof(uint32_t),
+                                                                            byteAlignment,
                                                                             0, 0);
 
     _scalarBufferDescriptor = IOBufferMemoryDescriptor::inTaskWithOptions(kernel_task,
                                                                           kIOMemoryPhysicallyContiguous | kIODirectionInOut,
-                                                                          sizeof(uint64_t),
-                                                                          sizeof(uint32_t),
+                                                                          maxTransferSize,
+                                                                          byteAlignment,
                                                                           0, 0);
 
     _scalarTargetDescriptor = IOBufferMemoryDescriptor::inTaskWithOptions(kernel_task,
                                                                           kIOMemoryPhysicallyContiguous | kIODirectionInOut,
-                                                                          sizeof(uint64_t),
-                                                                          sizeof(uint32_t),
+                                                                          maxTransferSize,
+                                                                          byteAlignment,
                                                                           0, 0);
 
 
@@ -200,9 +200,10 @@ IOReturn ApplePIODMARequest::prepareGenericPacket(IOMemoryDescriptor*           
 
         if(result == kIOReturnSuccess)
         {
+			UInt64 _bufferOffset = static_cast<UInt64>(bufferOffset);
             bzero(&segment, sizeof(IODMACommand::Segment64));
-            uint32_t numSegments = 1;
-            result = _bufferBaseDMACommand->genIOVMSegments(&bufferOffset, &segment, &numSegments);
+            UInt32 numSegments = 1;
+            result = _bufferBaseDMACommand->genIOVMSegments(&_bufferOffset, &segment, &numSegments);
         }
 
         if(result == kIOReturnSuccess)
@@ -223,9 +224,10 @@ IOReturn ApplePIODMARequest::prepareGenericPacket(IOMemoryDescriptor*           
 
         if(result == kIOReturnSuccess)
         {
+			UInt64 _targetOffset = static_cast<UInt64>(targetOffset);
             bzero(&segment, sizeof(IODMACommand::Segment64));
-            uint32_t numSegments = 1;
-            result = _targetBaseDMACommand->genIOVMSegments(&targetOffset, &segment, &numSegments);
+            UInt32 numSegments = 1;
+            result = _targetBaseDMACommand->genIOVMSegments(&_targetOffset, &segment, &numSegments);
         }
 
         if(result == kIOReturnSuccess)
@@ -475,7 +477,7 @@ IOPhysicalAddress ApplePIODMARequest::commandSource()
     // the buffers must be physically contiguous unless we use the linked list method
     IODMACommand::Segment64 segment;
     bzero(&segment, sizeof(IODMACommand::Segment64));
-    uint32_t numSegments = 1;
+    UInt32 numSegments = 1;
     uint64_t offset      = 0;
     _commandSourceDMACommand->genIOVMSegments(&offset, &segment, &numSegments);
 
@@ -487,7 +489,7 @@ IOPhysicalAddress ApplePIODMARequest::commandDestination()
     // the buffers must be physically contiguous unless we use the linked list method
     IODMACommand::Segment64 segment;
     bzero(&segment, sizeof(IODMACommand::Segment64));
-    uint32_t numSegments = 1;
+    UInt32 numSegments = 1;
     uint64_t offset      = 0;
     _commandDestinationDMACommand->genIOVMSegments(&offset, &segment, &numSegments);
 

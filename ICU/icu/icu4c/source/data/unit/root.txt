@@ -2,7 +2,7 @@
 // License & terms of use: http://www.unicode.org/copyright.html
 // Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
 root{
-    Version{"44.1"}
+    Version{"46"}
     durationUnits{
         hm{"h:mm"}
         hms{"h:mm:ss"}
@@ -291,6 +291,11 @@ root{
             nanosecond{
                 dnam{"ns"}
                 other{"{0} ns"}
+            }
+            night{
+                dnam{"night"}
+                other{"{0} night"}
+                per{"{0}/night"}
             }
             quarter{
                 dnam{"qtr"}
@@ -684,6 +689,10 @@ root{
             knot{
                 dnam{"kn"}
                 other{"{0} kn"}
+            }
+            light-speed{
+                dnam{"light"}
+                other{"{0} light"}
             }
             meter-per-second{
                 dnam{"m/s"}

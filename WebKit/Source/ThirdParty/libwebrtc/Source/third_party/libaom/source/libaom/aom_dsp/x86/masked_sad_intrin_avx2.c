@@ -20,7 +20,7 @@
 #include "aom_dsp/x86/synonyms_avx2.h"
 #include "aom_dsp/x86/masked_sad_intrin_ssse3.h"
 
-static INLINE unsigned int masked_sad32xh_avx2(
+static inline unsigned int masked_sad32xh_avx2(
     const uint8_t *src_ptr, int src_stride, const uint8_t *a_ptr, int a_stride,
     const uint8_t *b_ptr, int b_stride, const uint8_t *m_ptr, int m_stride,
     int width, int height) {
@@ -68,7 +68,7 @@ static INLINE unsigned int masked_sad32xh_avx2(
   return sad;
 }
 
-static INLINE unsigned int masked_sad16xh_avx2(
+static inline unsigned int masked_sad16xh_avx2(
     const uint8_t *src_ptr, int src_stride, const uint8_t *a_ptr, int a_stride,
     const uint8_t *b_ptr, int b_stride, const uint8_t *m_ptr, int m_stride,
     int height) {
@@ -114,7 +114,7 @@ static INLINE unsigned int masked_sad16xh_avx2(
   return sad;
 }
 
-static INLINE unsigned int aom_masked_sad_avx2(
+static inline unsigned int aom_masked_sad_avx2(
     const uint8_t *src, int src_stride, const uint8_t *ref, int ref_stride,
     const uint8_t *second_pred, const uint8_t *msk, int msk_stride,
     int invert_mask, int m, int n) {
@@ -196,7 +196,8 @@ MASKSADMXN_AVX2(16, 64)
 MASKSADMXN_AVX2(64, 16)
 #endif  // !CONFIG_REALTIME_ONLY
 
-static INLINE unsigned int highbd_masked_sad8xh_avx2(
+#if CONFIG_AV1_HIGHBITDEPTH
+static inline unsigned int highbd_masked_sad8xh_avx2(
     const uint8_t *src8, int src_stride, const uint8_t *a8, int a_stride,
     const uint8_t *b8, int b_stride, const uint8_t *m_ptr, int m_stride,
     int height) {
@@ -253,7 +254,7 @@ static INLINE unsigned int highbd_masked_sad8xh_avx2(
   return sad;
 }
 
-static INLINE unsigned int highbd_masked_sad16xh_avx2(
+static inline unsigned int highbd_masked_sad16xh_avx2(
     const uint8_t *src8, int src_stride, const uint8_t *a8, int a_stride,
     const uint8_t *b8, int b_stride, const uint8_t *m_ptr, int m_stride,
     int width, int height) {
@@ -311,7 +312,7 @@ static INLINE unsigned int highbd_masked_sad16xh_avx2(
   return sad;
 }
 
-static INLINE unsigned int aom_highbd_masked_sad_avx2(
+static inline unsigned int aom_highbd_masked_sad_avx2(
     const uint8_t *src, int src_stride, const uint8_t *ref, int ref_stride,
     const uint8_t *second_pred, const uint8_t *msk, int msk_stride,
     int invert_mask, int m, int n) {
@@ -387,3 +388,4 @@ HIGHBD_MASKSADMXN_AVX2(32, 8)
 HIGHBD_MASKSADMXN_AVX2(16, 64)
 HIGHBD_MASKSADMXN_AVX2(64, 16)
 #endif  // !CONFIG_REALTIME_ONLY
+#endif  // CONFIG_AV1_HIGHBITDEPTH

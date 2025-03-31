@@ -20,10 +20,10 @@
 #include "aom_ports/mem.h"
 #include "av1/common/scan.h"
 #include "av1/common/txb_common.h"
+#include "gtest/gtest.h"
 #include "test/acm_random.h"
 #include "test/register_state_check.h"
 #include "test/util.h"
-#include "third_party/googletest/src/googletest/include/gtest/gtest.h"
 
 namespace {
 using libaom_test::ACMRandom;

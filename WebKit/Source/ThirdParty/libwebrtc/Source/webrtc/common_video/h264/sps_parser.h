@@ -11,7 +11,8 @@
 #ifndef COMMON_VIDEO_H264_SPS_PARSER_H_
 #define COMMON_VIDEO_H264_SPS_PARSER_H_
 
-#include "absl/types/optional.h"
+#include <optional>
+
 #include "rtc_base/bitstream_reader.h"
 #include "rtc_base/system/rtc_export.h"
 
@@ -50,17 +51,12 @@ class RTC_EXPORT SpsParser {
   };
 
   // Unpack RBSP and parse SPS state from the supplied buffer.
-  static absl::optional<SpsState> ParseSps(rtc::ArrayView<const uint8_t> data);
-  // TODO: bugs.webrtc.org/42225170 - Deprecate.
-  static inline absl::optional<SpsState> ParseSps(const uint8_t* data,
-                                                  size_t length) {
-    return ParseSps(rtc::MakeArrayView(data, length));
-  }
+  static std::optional<SpsState> ParseSps(rtc::ArrayView<const uint8_t> data);
 
  protected:
   // Parse the SPS state, up till the VUI part, for a buffer where RBSP
   // decoding has already been performed.
-  static absl::optional<SpsState> ParseSpsUpToVui(BitstreamReader& reader);
+  static std::optional<SpsState> ParseSpsUpToVui(BitstreamReader& reader);
 };
 
 }  // namespace webrtc

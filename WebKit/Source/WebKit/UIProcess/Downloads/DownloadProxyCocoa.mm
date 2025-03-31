@@ -55,7 +55,7 @@ void DownloadProxy::publishProgress(const URL& url)
     if (!handle)
         return;
 
-    m_dataStore->networkProcess().send(Messages::NetworkProcess::PublishDownloadProgress(m_downloadID, url, WTFMove(*handle)), 0);
+    protectedDataStore()->protectedNetworkProcess()->send(Messages::NetworkProcess::PublishDownloadProgress(m_downloadID, url, WTFMove(*handle)), 0);
 #endif
 }
 
@@ -76,6 +76,11 @@ void DownloadProxy::didReceiveFinalURL(const URL& finalURL, std::span<const uint
         ASSERT_UNUSED(ok, ok);
     }
     m_client->didReceiveFinalURL(*this, finalURL, bookmarkData);
+}
+
+void DownloadProxy::didStartUpdatingProgress()
+{
+    m_assertion = nullptr;
 }
 
 Vector<uint8_t> DownloadProxy::bookmarkDataForURL(const URL& url)

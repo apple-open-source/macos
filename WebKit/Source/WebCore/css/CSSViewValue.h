@@ -49,9 +49,9 @@ public:
 
     String customCSSText() const;
 
-    RefPtr<CSSValue> axis() const { return m_axis; }
-    RefPtr<CSSValue> startInset() const { return m_startInset; }
-    RefPtr<CSSValue> endInset() const { return m_endInset; }
+    const RefPtr<CSSValue>& axis() const { return m_axis; }
+    const RefPtr<CSSValue>& startInset() const { return m_startInset; }
+    const RefPtr<CSSValue>& endInset() const { return m_endInset; }
 
     bool equals(const CSSViewValue&) const;
 

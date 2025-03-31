@@ -11,12 +11,12 @@
 
 #include <ostream>
 
+#include "gtest/gtest.h"
 #include "test/codec_factory.h"
 #include "test/decode_test_driver.h"
 #include "test/ivf_video_source.h"
 #include "test/util.h"
 #include "test/video_source.h"
-#include "third_party/googletest/src/googletest/include/gtest/gtest.h"
 
 namespace {
 

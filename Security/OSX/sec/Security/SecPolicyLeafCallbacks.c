@@ -470,19 +470,22 @@ bool SecPolicyCheckCertNotValidBefore(SecCertificateRef cert, CFTypeRef pvcValue
 }
 
 bool SecPolicyCheckCertSubjectOrganization(SecCertificateRef cert, CFTypeRef pvcValue) {
-    CFStringRef org = pvcValue;
-    bool match = true;
-    if (!isString(org)) {
-        /* @@@ We can't return an error here and making the evaluation fail
-         won't help much either. */
-        return false;
-    }
+    bool match = false;
     CFArrayRef organization = SecCertificateCopyOrganization(cert);
-    if (!organization || CFArrayGetCount(organization) != 1 ||
-        !CFEqual(org, CFArrayGetValueAtIndex(organization, 0))) {
-        /* Leaf Subject Organization mismatch. */
-        match = false;
+    if (!organization || CFArrayGetCount(organization) != 1) {
+        goto out;
     }
+    CFStringRef certOrg = CFArrayGetValueAtIndex(organization, 0);
+    if (isString(pvcValue) && CFEqual(pvcValue, certOrg)) {
+        match = true;
+    } else if (isArray(pvcValue)) {
+        // If multiple organizations passed, then the cert org must match at least one of them
+        CFIndex orgCount = CFArrayGetCount(pvcValue);
+        if (CFArrayContainsValue(pvcValue, CFRangeMake(0, orgCount), certOrg)) {
+            match = true;
+        }
+    }
+out:
     CFReleaseSafe(organization);
     return match;
 }

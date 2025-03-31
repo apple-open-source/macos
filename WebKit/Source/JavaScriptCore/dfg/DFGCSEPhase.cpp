@@ -38,6 +38,8 @@
 #include "DFGPhase.h"
 #include <wtf/TZoneMallocInlines.h>
 
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
+
 namespace JSC { namespace DFG {
 
 // This file contains two CSE implementations: local and global. LocalCSE typically runs when we're
@@ -103,7 +105,7 @@ struct ImpureDataTranslator {
 };
 
 class ImpureMap {
-    WTF_MAKE_TZONE_ALLOCATED(ImpureMap);
+    WTF_MAKE_TZONE_NON_HEAP_ALLOCATABLE(ImpureMap);
     WTF_MAKE_NONCOPYABLE(ImpureMap);
 public:
     ImpureMap() = default;
@@ -164,7 +166,7 @@ public:
             break;
         }
 #if !defined(NDEBUG)
-        m_debugImpureData.removeIf([heap, clobberConservatively, this](const HashMap<HeapLocation, LazyNode>::KeyValuePairType& pair) -> bool {
+        m_debugImpureData.removeIf([heap, clobberConservatively, this](const UncheckedKeyHashMap<HeapLocation, LazyNode>::KeyValuePairType& pair) -> bool {
             switch (heap.kind()) {
             case World:
             case SideState:
@@ -217,7 +219,7 @@ public:
     }
 
 private:
-    typedef HashSet<std::unique_ptr<ImpureDataSlot>, ImpureDataSlotHash> Map;
+    typedef UncheckedKeyHashSet<std::unique_ptr<ImpureDataSlot>, ImpureDataSlotHash> Map;
 
     const ImpureDataSlot* addImpl(const HeapLocation& location, const LazyNode& node)
     {
@@ -299,13 +301,13 @@ private:
     // a duplicate in the past and now only live in m_fallbackStackMap.
     //
     // Obviously, TOP always goes into m_fallbackStackMap since it does not have a unique value.
-    HashMap<int64_t, std::unique_ptr<ImpureDataSlot>, DefaultHash<int64_t>, WTF::SignedWithZeroKeyHashTraits<int64_t>> m_abstractHeapStackMap;
+    UncheckedKeyHashMap<int64_t, std::unique_ptr<ImpureDataSlot>, DefaultHash<int64_t>, WTF::SignedWithZeroKeyHashTraits<int64_t>> m_abstractHeapStackMap;
     Map m_fallbackStackMap;
 
     Map m_heapMap;
 
 #if !defined(NDEBUG)
-    HashMap<HeapLocation, LazyNode> m_debugImpureData;
+    UncheckedKeyHashMap<HeapLocation, LazyNode> m_debugImpureData;
 #endif
 };
 
@@ -463,7 +465,7 @@ private:
         }
 
     private:
-        HashMap<PureValue, Node*> m_pureMap;
+        UncheckedKeyHashMap<PureValue, Node*> m_pureMap;
         ImpureMap m_impureMap;
     };
 
@@ -509,7 +511,7 @@ private:
         }
 
     private:
-        HashMap<PureValue, Node*> m_pureMap;
+        UncheckedKeyHashMap<PureValue, Node*> m_pureMap;
         ImpureMap m_impureMap;
     };
 
@@ -1011,5 +1013,7 @@ bool performGlobalCSE(Graph& graph)
 }
 
 } } // namespace JSC::DFG
+
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
 
 #endif // ENABLE(DFG_JIT)

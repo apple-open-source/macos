@@ -2,8 +2,8 @@
   cp1251.c -  Oniguruma (regular expression library)
 **********************************************************************/
 /*-
- * Copyright (c) 2006-2016  Byte      <byte AT mail DOT kna DOT ru>
- *                          K.Kosako  <sndgk393 AT ybb DOT ne DOT jp>
+ * Copyright (c) 2006-2020  Byte      <byte AT mail DOT kna DOT ru>
+ *                          K.Kosako
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -105,12 +105,16 @@ static const unsigned short EncCP1251_CtypeTable[256] = {
 };
 
 static int
-cp1251_mbc_case_fold(OnigCaseFoldType flag ARG_UNUSED,
+cp1251_mbc_case_fold(OnigCaseFoldType flag,
              const UChar** pp, const UChar* end ARG_UNUSED, UChar* lower)
 {
   const UChar* p = *pp;
 
-  *lower = ENC_CP1251_TO_LOWER_CASE(*p);
+  if (CASE_FOLD_IS_NOT_ASCII_ONLY(flag) || ONIGENC_IS_ASCII_CODE(*p))
+    *lower = ENC_CP1251_TO_LOWER_CASE(*p);
+  else
+    *lower = *p;
+
   (*pp)++;
   return 1;
 }
@@ -164,7 +168,7 @@ static const OnigPairCaseFoldCodes CaseFoldMap[] = {
 
 static int
 cp1251_apply_all_case_fold(OnigCaseFoldType flag,
-			       OnigApplyAllCaseFoldFunc f, void* arg)
+                           OnigApplyAllCaseFoldFunc f, void* arg)
 {
   return onigenc_apply_all_case_fold_with_map(
              sizeof(CaseFoldMap)/sizeof(OnigPairCaseFoldCodes), CaseFoldMap, 0,
@@ -176,8 +180,8 @@ cp1251_get_case_fold_codes_by_str(OnigCaseFoldType flag,
     const OnigUChar* p, const OnigUChar* end, OnigCaseFoldCodeItem items[])
 {
   return onigenc_get_case_fold_codes_by_str_with_map(
-	     sizeof(CaseFoldMap)/sizeof(OnigPairCaseFoldCodes), CaseFoldMap, 0,
-	     flag, p, end, items);
+                 sizeof(CaseFoldMap)/sizeof(OnigPairCaseFoldCodes), CaseFoldMap, 0,
+                 flag, p, end, items);
 }
 
 OnigEncodingType OnigEncodingCP1251 = {
@@ -199,5 +203,7 @@ OnigEncodingType OnigEncodingCP1251 = {
   onigenc_always_true_is_allowed_reverse_match,
   NULL, /* init */
   NULL, /* is_initialized */
-  onigenc_always_true_is_valid_mbc_string
+  onigenc_always_true_is_valid_mbc_string,
+  ENC_FLAG_ASCII_COMPATIBLE|ENC_FLAG_SKIP_OFFSET_1,
+  0, 0
 };

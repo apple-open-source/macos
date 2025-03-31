@@ -2,10 +2,11 @@
 //  CertificateToolApp.m
 //  CertificateTool
 //
-//  Copyright (c) 2012-2015 Apple Inc. All Rights Reserved.
+//  Copyright (c) 2012-2015,2024 Apple Inc. All Rights Reserved.
 //
 
 #import "CertificateToolApp.h"
+#import "DataConversion.h"
 #import "PSCerts.h"
 #import "PSUtilities.h"
 #import "PSAssetConstants.h"
@@ -13,7 +14,6 @@
 #import "PSCert.h"
 #import <Security/Security.h>
 #import <CommonCrypto/CommonDigest.h>
-//%%% #import <Security/SecCertificatePriv.h>
 
 
 @interface CertificateToolApp (PrivateMethods)
@@ -23,6 +23,9 @@
 
 - (BOOL)buildEVRootsData:(NSDictionary *)certs;
 - (BOOL)ensureDirectoryPath:(NSString *)dir_path;
+- (BOOL)buildConstraintsTable;
+- (BOOL)buildAnchorTable:(NSArray*)certs withConstraints:(NSDictionary*) constraints;
+- (BOOL)outputAnchors:(NSArray *)certs;
 
 @end
 
@@ -31,10 +34,13 @@
 
 @synthesize app_name = _app_name;
 @synthesize root_directory = _root_directory;
+@synthesize custom_directory = _custom_directory;
+@synthesize platform_directory = _platform_directory;
 @synthesize revoked_directory = _revoked_directory;
 @synthesize distrusted_directory = _distrusted_directory;
 @synthesize allowlist_directory = _allowlist_directory;
 @synthesize certs_directory = _certs_directory;
+@synthesize constraints_config_path = _constraints_config_path;
 @synthesize evroot_config_path = _evroot_config_path;
 @synthesize ev_plist_path = _ev_plist_path;
 @synthesize info_plist_path = _info_plist_path;
@@ -52,10 +58,13 @@
 
         // set all of the directory paths to nil
 		_root_directory = nil;
+        _custom_directory = nil;
+        _platform_directory = nil;
 		_revoked_directory = nil;
 		_distrusted_directory = nil;
 		_allowlist_directory = nil;
 		_certs_directory = nil;
+        _constraints_config_path = nil;
         _evroot_config_path = nil;
 		_ev_plist_path = nil;
         _info_plist_path = nil;
@@ -214,6 +223,26 @@
         	}
 		}
 
+        if (nil == _custom_directory)
+        {
+            _custom_directory = [self checkPath:@"certificates/custom" basePath:_top_level_directory isDirectory:YES];
+            if (nil == _custom_directory)
+            {
+                [self usage];
+                return nil;
+            }
+        }
+
+        if (nil == _platform_directory)
+        {
+            _platform_directory = [self checkPath:@"certificates/platform" basePath:_top_level_directory isDirectory:YES];
+            if (nil == _platform_directory)
+            {
+                [self usage];
+                return nil;
+            }
+        }
+
 		if (nil == _revoked_directory)
 		{
 			_revoked_directory = [self checkPath:@"certificates/revoked" basePath:_top_level_directory isDirectory:YES];
@@ -251,6 +280,16 @@
         	}
 		}
 
+        if (nil == _constraints_config_path)
+        {
+            _constraints_config_path = [self checkPath:@"certificates/constraints.json" basePath:_top_level_directory isDirectory:NO];
+             if (nil == _constraints_config_path)
+            {
+                [self usage];
+                return nil;
+            }
+        }
+
 		if (nil == _evroot_config_path)
 		{
 			_evroot_config_path = [self checkPath:@"certificates/evroot.config" basePath:_top_level_directory isDirectory:NO];
@@ -260,6 +299,7 @@
 				return nil;
         	}
 		}
+
         if (nil == _info_plist_path)
         {
             _info_plist_path =  [self checkPath:@"config/Info-Asset.plist" basePath:_top_level_directory isDirectory:NO];
@@ -578,17 +618,50 @@
     return result;
 }
 
+- (NSMutableArray*)anchorCertificates
+{
+    // return array of PSCert for all system roots, platform roots, and custom anchors
+    PSAssetFlags certFlags = isAnchor | hasFullCert | isSystem;
+    PSCerts* pscerts_roots = [[PSCerts alloc] initWithCertFilePath:self.root_directory withFlags:[NSNumber numberWithUnsignedLong:certFlags]];
+    certFlags = isAnchor | hasFullCert | isPlatform;
+    PSCerts* pscerts_platform = [[PSCerts alloc] initWithCertFilePath:self.platform_directory withFlags:[NSNumber numberWithUnsignedLong:certFlags]];
+    certFlags = isAnchor | hasFullCert | isCustom;
+    PSCerts* pscerts_custom = [[PSCerts alloc] initWithCertFilePath:self.custom_directory withFlags:[NSNumber numberWithUnsignedLong:certFlags]];
+    NSMutableArray* certs = [NSMutableArray array];
+    [certs addObjectsFromArray:pscerts_roots.certs];
+    [certs addObjectsFromArray:pscerts_platform.certs];
+    [certs addObjectsFromArray:pscerts_custom.certs];
+    return certs;
+}
 
 - (BOOL)processCertificates
 {
 	BOOL result = NO;
 
     // From the roots directory, create the index and table data for the asset
-    PSAssetFlags certFlags = isAnchor | hasFullCert;
+    PSAssetFlags certFlags = isAnchor | hasFullCert | isSystem;
     NSNumber* flags = [NSNumber numberWithUnsignedLong:certFlags];
     PSCerts* pscerts_roots = [[PSCerts alloc] initWithCertFilePath:self.root_directory withFlags:flags];
 	_certRootsData = [[PSCertData alloc] initWithCertificates:pscerts_roots.certs];
 
+    // Create constraints table from configuration file
+    if (![self buildConstraintsTable]) {
+        NSLog(@"Error: unable to build constraints table");
+        return NO;
+    }
+
+    // Create anchor table from certs and constraints
+    NSMutableArray* certs = [self anchorCertificates];
+    if (![self buildAnchorTable:certs withConstraints:_constraints_table]) {
+        NSLog(@"Error: unable to build anchor table");
+        return NO;
+    }
+
+    // Copy anchor certs to the output Anchors directory
+    if (![self outputAnchors:certs]) {
+        NSLog(@"Error: unable to copy anchors to output directory");
+        return NO;
+    }
 
     // From the blocked and gray listed certs create an array of the keys.
 	NSMutableArray* gray_certs = [NSMutableArray array];
@@ -653,6 +726,93 @@
     return result;
 }
 
+- (BOOL)buildConstraintsTable
+{
+    if (!_constraints_config_path) { return NO; }
+    NSDictionary* constraints = nil;
+
+    // Read config file into memory
+    NSError* error = nil;
+    NSData* fileData = [NSData dataWithContentsOfFile:self.constraints_config_path
+                           options:NSDataReadingMappedIfSafe error:&error];
+    if (!fileData) { return NO; }
+    constraints = [NSJSONSerialization JSONObjectWithData:fileData options:0 error:&error];
+    if (!constraints) { return NO; }
+    _constraints_table = constraints;
+    return YES;
+}
+
+- (BOOL)buildAnchorTable:(NSArray*)certs withConstraints:(NSDictionary*) constraints
+{
+    if (!certs) { return NO; }
+    // Create dictionary keyed by normalized subject hash
+    NSMutableDictionary* records = [NSMutableDictionary dictionary];
+    for (PSCert* aCert in certs) {
+        // Get the hash
+        NSData* normalized_subject_hash = aCert.normalized_subject_hash;
+        if (!normalized_subject_hash) {
+            NSLog(@"Could not get the normalized hash for the cert at %@", aCert.file_path);
+            return NO;
+        }
+        // See if there is already an entry with this value (multiple certs may have same subject hash)
+        NSString *normalized_subject_hash_str = [[normalized_subject_hash toHexString] uppercaseString];
+        NSMutableArray* items = [records objectForKey:normalized_subject_hash_str];
+        if (!items) {
+            // new item
+            items = [NSMutableArray array];
+        }
+        // Create a lookup dictionary for each anchor cert with these keys:
+        // "sha2" = (certificate digest as hex string)
+        // "spki-sha2" = (spki digest as hex string)
+        // "oids" = (array of permitted policy oids as string, if present)
+        // "type" = (string: "none", "system", "platform", "custom")
+        NSMutableDictionary* anchor = [NSMutableDictionary dictionary];
+        NSString* cert_hash_str = [[aCert.certificate_sha256_hash toHexString] uppercaseString];
+        [anchor setObject:cert_hash_str forKey:@"sha2"];
+        NSString* spki_hash_str = [[aCert.spki_hash toHexString] uppercaseString];
+        [anchor setObject:spki_hash_str forKey:@"spki-sha2"];
+        NSArray* policy_oids = [constraints objectForKey:cert_hash_str];
+        if (!policy_oids) { policy_oids = [NSArray array]; }
+        [anchor setObject:policy_oids forKey:@"oids"];
+        [anchor setObject:aCert.anchor_type forKey:@"type"];
+
+        PSAssetFlags assetFlags = [aCert.flags unsignedLongValue];
+        if (assetFlags & (isAnchor | hasFullCert)) {
+            // add only if we have the cert data and it is considered an anchor
+            [items addObject:anchor];
+            [records setObject:items forKey:normalized_subject_hash_str];
+        }
+    }
+    _anchor_lookup_table = records;
+    return YES;
+}
+
+- (BOOL)outputAnchors:(NSArray*)certs
+{
+    NSError* error = nil;
+    NSString* anchors_path = nil;
+    if (!certs) {
+        NSLog(@"Error: no anchors provided to output");
+        return NO;
+    }
+    anchors_path = [self.output_directory stringByAppendingPathComponent:@"Anchors"];
+    if (![self ensureDirectoryPath:anchors_path]) {
+        NSLog(@"Error: unable to ensure the output Anchors directory!");
+        return NO;
+    }
+    for (PSCert* aCert in certs) {
+        NSString* src_path = aCert.file_path;
+        NSString* hash_name = [NSString stringWithFormat:@"%@.cer",
+                               [[aCert.certificate_sha256_hash toHexString] uppercaseString]];
+        NSString *dst_path = [anchors_path stringByAppendingPathComponent:hash_name];
+        NSFileManager* fileManager = [NSFileManager defaultManager];
+        if (![fileManager copyItemAtPath:src_path toPath:dst_path error:&error]) {
+            NSLog(@"Error: unable to copy \"%@\" to \"%@\": %@", src_path, dst_path, error);
+            return NO;
+        }
+    }
+    return YES;
+}
 
 - (BOOL)outputPlistsToDirectory
 {
@@ -764,6 +924,22 @@
 			return result;
 		}
 	}
+
+    path_str = [self.output_directory stringByAppendingPathComponent:@"Anchors.plist"];
+    if (_anchor_lookup_table) {
+        NSData* anchor_plist = [NSPropertyListSerialization dataWithPropertyList:_anchor_lookup_table
+            format:NSPropertyListBinaryFormat_v1_0 /*NSPropertyListXMLFormat_v1_0*/ options:0
+            error:&error];
+        if (error) {
+            NSLog(@"Error converting the anchor lookup table into plist data: error %@", error);
+            return result;
+        }
+        if (![anchor_plist writeToFile:path_str options:0 error:&error])
+        {
+            NSLog(@"Error writing out Anchors.plist data: error %@", error);
+            return result;
+        }
+    }
 
     path_str = [self.output_directory stringByAppendingPathComponent:@"AssetVersion.plist"];
 

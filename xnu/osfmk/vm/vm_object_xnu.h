@@ -121,10 +121,11 @@ struct vm_object_fault_info {
 	/* boolean_t */ no_copy_on_read:1,
 	/* boolean_t */ fi_xnu_user_debug:1,
 	/* boolean_t */ fi_used_for_tpro:1,
-	    __vm_object_fault_info_unused_bits:21;
+	/* boolean_t */ fi_change_wiring:1,
+	/* boolean_t */ fi_no_sleep:1,
+	__vm_object_fault_info_unused_bits:19;
 	int             pmap_options;
 };
-
 
 #define vo_size                         vo_un1.vou_size
 #define vo_cache_pages_to_scan          vo_un1.vou_cache_pages_to_scan
@@ -516,10 +517,10 @@ os_refgrp_decl_extern(vm_object_refgrp);
     __wireddelta += delta; \
 
 #define VM_OBJECT_WIRED_PAGE_ADD(object, m)                     \
-    if (!(m)->vmp_private && !(m)->vmp_fictitious) __wireddelta++;
+    if (vm_page_is_canonical(m)) __wireddelta++;
 
 #define VM_OBJECT_WIRED_PAGE_REMOVE(object, m)                  \
-    if (!(m)->vmp_private && !(m)->vmp_fictitious) __wireddelta--;
+    if (vm_page_is_canonical(m)) __wireddelta--;
 
 #define OBJECT_LOCK_SHARED      0
 #define OBJECT_LOCK_EXCLUSIVE   1

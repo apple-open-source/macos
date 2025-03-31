@@ -35,7 +35,8 @@
 #include <os/atomic_private.h>
 #include <libkern/section_keywords.h>
 
-#define SOCD_CLIENT_HDR_VERSION 0x1
+// #define SOCD_CLIENT_HDR_VERSION 0x1 // original implementation
+#define SOCD_CLIENT_HDR_VERSION 0x2 // add 'mode' bits to debugid to support sticky tracepoints
 
 /* Configuration values mutable only at init time */
 typedef struct {
@@ -46,6 +47,7 @@ typedef struct {
 
 static SECURITY_READ_ONLY_LATE(socd_client_cfg_t) socd_client_cfg = {0};
 static SECURITY_READ_ONLY_LATE(bool) socd_client_trace_available = false;
+static SECURITY_READ_WRITE(bool) socd_client_trace_has_sticky_events = false;
 
 /* Run-time state */
 static struct {
@@ -84,7 +86,7 @@ socd_client_init(void)
 		os_atomic_store(&socd_client_trace_available, true, release);
 	}
 }
-STARTUP(PMAP_STEAL, 0, socd_client_init);
+STARTUP(PMAP_STEAL, STARTUP_RANK_FIRST, socd_client_init);
 
 static void
 socd_client_set_primary_kernelcache_uuid(void)
@@ -94,7 +96,7 @@ socd_client_set_primary_kernelcache_uuid(void)
 		PE_write_socd_client_buffer(offsetof(socd_client_hdr_t, primary_kernelcache_uuid), &kernelcache_uuid, sizeof(kernelcache_uuid));
 	}
 }
-STARTUP(EARLY_BOOT, 0, socd_client_set_primary_kernelcache_uuid);
+STARTUP(EARLY_BOOT, STARTUP_RANK_FIRST, socd_client_set_primary_kernelcache_uuid);
 
 void
 socd_client_reinit(void)
@@ -116,15 +118,35 @@ socd_client_trace(
 	uint64_t time_ns;
 	long available;
 	vm_offset_t offset;
+	bool has_sticky;
+	uint32_t tries = 0;
 
 	available = os_atomic_load(&socd_client_trace_available, dependency);
-	if (__probable(available)) {
-		len = os_atomic_load_with_dependency_on(&socd_client_cfg.trace_buff_len, available);
-		offset = os_atomic_load_with_dependency_on(&socd_client_cfg.trace_buff_offset, available);
+
+	if (__improbable(!available)) {
+		return;
+	}
+
+	len = os_atomic_load_with_dependency_on(&socd_client_cfg.trace_buff_len, available);
+	offset = os_atomic_load_with_dependency_on(&socd_client_cfg.trace_buff_offset, available);
+	has_sticky = os_atomic_load_with_dependency_on(&socd_client_trace_has_sticky_events, available);
+
+	/* protect against the case where the buffer is full of sticky events */
+	while (tries++ < len) {
 		/* trace_idx is allowed to overflow */
 		trace_idx = os_atomic_inc_orig(&socd_client_state.trace_idx, relaxed);
 		buff_idx = trace_idx % len;
 
+		/* if there are no sticky events then we don't need the read */
+		if (has_sticky) {
+			/* skip if this slot is sticky.  Read only the debugid to reduce perf impact */
+			PE_read_socd_client_buffer(offset + (buff_idx * sizeof(entry)) + offsetof(socd_client_trace_entry_t, debugid), &(entry.debugid), sizeof(entry.debugid));
+			if (SOCD_TRACE_EXTRACT_MODE(entry.debugid) & SOCD_TRACE_MODE_STICKY_TRACEPOINT) {
+				continue;
+			}
+		}
+
+		/* slot is available, write it */
 		absolutetime_to_nanoseconds(mach_continuous_time(), &time_ns);
 		entry.timestamp = time_ns;
 		entry.debugid = debugid;
@@ -132,7 +154,14 @@ socd_client_trace(
 		entry.arg2 = arg2;
 		entry.arg3 = arg3;
 		entry.arg4 = arg4;
+
 		PE_write_socd_client_buffer(offset + (buff_idx * sizeof(entry)), &entry, sizeof(entry));
+
+		if (SOCD_TRACE_EXTRACT_MODE(entry.debugid) & SOCD_TRACE_MODE_STICKY_TRACEPOINT) {
+			os_atomic_store(&socd_client_trace_has_sticky_events, true, relaxed);
+		}
+
+		break;
 	}
 
 	/* Duplicate tracepoint to kdebug */

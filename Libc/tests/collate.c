@@ -2,6 +2,8 @@
 #include <errno.h>
 #include <limits.h>
 #include <locale.h>
+#include <regex.h>
+#include <stdbool.h>
 #include <stdlib.h>
 #include <xlocale.h>
 
@@ -271,4 +273,81 @@ T_DECL(collate_lookup_l, "Test __collate_lookup_l() behavior") {
   T_EXPECT_EQ(prim, prim2, "Primary weight equal");
   T_EXPECT_NE(sec, sec2, "Different secondary weight");
 #endif
+}
+
+static void
+try_one(regex_t *preg, unsigned char ch, bool expected, const char *type)
+{
+	unsigned char str[2] = { ch, 0x00 };
+	regmatch_t match;
+	int error;
+
+	error = regexec(preg, (const char *)&str[0], 1, &match, 0);
+	T_ASSERT_EQ(error == 0, expected, "Character 0x%x should %s %s",
+	    ch, expected ? "match" : "not match", type);
+}
+
+T_DECL(collate_equivalence, "Test __collate_lookup() behavior",
+    T_META_ENABLED(TARGET_OS_OSX)) {
+	regex_t ireg, reg;
+	const char *cpatterns[] = { "[[=a=]]", "[[=A=]]", NULL };
+	const char *isopatterns[] = { "[[=\xe5=]]", "[[=a=]]", NULL };
+	const char *loc;
+	int error;
+	bool lower, exp, iexp;
+
+	loc = setlocale(LC_ALL, "en_US.ISO8859-1");
+	T_ASSERT_EQ_STR(loc, "en_US.ISO8859-1", "setlocale en_US.ISO8859-1");
+
+	for (const char **pat = isopatterns; *pat != NULL; pat++) {
+		T_LOG("Trying pattern '%s', ISO8859-1 locale", *pat);
+		error = regcomp(&reg, *pat, REG_BASIC);
+		T_ASSERT_EQ_INT(error, 0, "Regex compilation");
+
+		error = regcomp(&ireg, *pat, REG_BASIC | REG_ICASE);
+		T_ASSERT_EQ_INT(error, 0, "Case-insensitive regex compilation");
+
+		for (unsigned char ch = 0x00; ch < 0xff; ch++) {
+			exp = (ch >= 0xe0 && ch < 0xe6) || ch == 'a';
+			iexp = exp || (ch >= 0xc0 && ch < 0xc6) || ch == 'A' ||
+			    ch == 0xaa /* FEMININE_ORDINAL_INDICATOR */;
+
+			try_one(&reg, ch, exp, "sensitively");
+			try_one(&ireg, ch, iexp, "insensitively");
+		}
+
+		regfree(&reg);
+		regfree(&ireg);
+	}
+
+	loc = setlocale(LC_ALL, "C");
+	T_ASSERT_EQ_STR(loc, "C", "setlocale C");
+
+	lower = true;
+	for (const char **pat = cpatterns; *pat != NULL; pat++) {
+		T_LOG("Trying pattern '%s', C locale", *pat);
+		error = regcomp(&reg, *pat, REG_BASIC);
+		T_ASSERT_EQ_INT(error, 0, "Regex compilation");
+
+		error = regcomp(&ireg, *pat, REG_BASIC | REG_ICASE);
+		T_ASSERT_EQ_INT(error, 0, "Case-insensitive regex compilation");
+
+		for (unsigned char ch = 0x00; ch < 0xff; ch++) {
+			if (lower) {
+				exp = ch == 'a';
+				iexp = exp || ch == 'A';
+			} else {
+				exp = ch == 'A';
+				iexp = exp || ch == 'a';
+			}
+
+			try_one(&reg, ch, exp, "sensitively");
+			try_one(&ireg, ch, iexp, "insensitively");
+		}
+
+		regfree(&reg);
+		regfree(&ireg);
+
+		lower = false;
+	}
 }

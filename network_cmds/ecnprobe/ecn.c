@@ -294,7 +294,7 @@ void DataPkt (char *filename, u_int8_t iptos, u_int8_t tcp_flags)
   int datalen;
   int ipsz;
 
-  datalen = PrepareRequest (data, filename);
+  datalen = PrepareRequest (data, sizeof(data), filename);
 
   datapkt = AllocateIPPacket(0, 0, datalen + 1, "ECN (datapkt)");
 
@@ -524,7 +524,7 @@ void ECNAckData (struct IPPacket *p)
     char data[MAXREQUESTLEN];
     int ipsz;
 
-    datalen = PrepareRequest(data, NULL);
+    datalen = PrepareRequest(data, sizeof(data), NULL);
     datapkt = AllocateIPPacket(0, 0, datalen + 1, "ECN (datapkt)");
     dataptr = (char *)datapkt->tcp + sizeof(struct TcpHeader);
     memcpy((void *)dataptr, (void *)data, datalen);
@@ -737,7 +737,7 @@ void DataPktPathCheck(char *filename, u_int8_t iptos, u_int8_t tcp_flags)
   int ipsz;
   unsigned int init_ttl;
 
-  datalen = PrepareRequest (data, filename);
+  datalen = PrepareRequest (data, sizeof(data), filename);
 
   datapkt = AllocateIPPacket(0, 0, datalen + 1, "ECN (datapkt)");
 

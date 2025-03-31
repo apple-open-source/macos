@@ -51,7 +51,7 @@ __FBSDID("$FreeBSD: src/usr.sbin/mtree/misc.c,v 1.16 2005/03/29 11:44:17 tobez E
 
 typedef struct _key {
 	const char *name;			/* key name */
-	u_int val;			/* value */
+	u_int64_t val;				/* value */
 
 #define	NEEDVALUE	0x01
 	u_int flags;
@@ -80,6 +80,7 @@ static KEY keylist[] = {
 	{"nxattr",			F_NXATTR,		NEEDVALUE},
 	{"protectionclass",		F_PROTECTION_CLASS,	NEEDVALUE},
 	{"ptime",			F_PTIME,		NEEDVALUE},
+	{"purgeable",			F_PURGEABLE,		NEEDVALUE},
 #ifdef ENABLE_RMD160
 	{"ripemd160digest",		F_RMD160,		NEEDVALUE},
 #endif
@@ -100,7 +101,7 @@ static KEY keylist[] = {
 
 int keycompare(const void *, const void *);
 
-u_int
+u_int64_t
 parsekey(char *name, int *needvaluep)
 {
 	KEY *k, tmp;

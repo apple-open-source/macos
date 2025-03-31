@@ -58,7 +58,7 @@ public:
     bool isBlendingKeyframe() const final { return true; }
 
     void addProperty(const AnimatableCSSProperty&);
-    const HashSet<AnimatableCSSProperty>& properties() const { return m_properties; }
+    const UncheckedKeyHashSet<AnimatableCSSProperty>& properties() const { return m_properties; }
 
     void setOffset(double offset) { m_offset = offset; }
 
@@ -75,7 +75,7 @@ public:
 
 private:
     double m_offset;
-    HashSet<AnimatableCSSProperty> m_properties; // The properties specified in this keyframe.
+    UncheckedKeyHashSet<AnimatableCSSProperty> m_properties; // The properties specified in this keyframe.
     std::unique_ptr<RenderStyle> m_style;
     RefPtr<TimingFunction> m_timingFunction;
     std::optional<CompositeOperation> m_compositeOperation;
@@ -99,7 +99,7 @@ public:
 
     void addProperty(const AnimatableCSSProperty&);
     bool containsProperty(const AnimatableCSSProperty&) const;
-    const HashSet<AnimatableCSSProperty>& properties() const { return m_properties; }
+    const UncheckedKeyHashSet<AnimatableCSSProperty>& properties() const { return m_properties; }
 
     bool containsAnimatableCSSProperty() const;
     bool containsDirectionAwareProperty() const;
@@ -122,7 +122,7 @@ public:
     bool hasCSSVariableReferences() const;
     bool hasColorSetToCurrentColor() const;
     bool hasPropertySetToCurrentColor() const;
-    const HashSet<AnimatableCSSProperty>& propertiesSetToInherit() const;
+    const UncheckedKeyHashSet<AnimatableCSSProperty>& propertiesSetToInherit() const;
 
     void updatePropertiesMetadata(const StyleProperties&);
 
@@ -130,19 +130,21 @@ public:
     bool hasHeightDependentTransform() const { return m_hasHeightDependentTransform; }
     bool hasDiscreteTransformInterval() const { return m_hasDiscreteTransformInterval; }
     bool hasExplicitlyInheritedKeyframeProperty() const { return m_hasExplicitlyInheritedKeyframeProperty; }
+    bool usesAnchorFunctions() const { return m_usesAnchorFunctions; }
 
 private:
     void analyzeKeyframe(const BlendingKeyframe&);
 
     AtomString m_animationName;
     Vector<BlendingKeyframe> m_keyframes; // Kept sorted by key.
-    HashSet<AnimatableCSSProperty> m_properties; // The properties being animated.
-    HashSet<AnimatableCSSProperty> m_explicitToProperties; // The properties with an explicit value for the 100% keyframe.
-    HashSet<AnimatableCSSProperty> m_explicitFromProperties; // The properties with an explicit value for the 0% keyframe.
-    HashSet<AnimatableCSSProperty> m_propertiesSetToInherit;
-    HashSet<AnimatableCSSProperty> m_propertiesSetToCurrentColor;
+    UncheckedKeyHashSet<AnimatableCSSProperty> m_properties; // The properties being animated.
+    UncheckedKeyHashSet<AnimatableCSSProperty> m_explicitToProperties; // The properties with an explicit value for the 100% keyframe.
+    UncheckedKeyHashSet<AnimatableCSSProperty> m_explicitFromProperties; // The properties with an explicit value for the 0% keyframe.
+    UncheckedKeyHashSet<AnimatableCSSProperty> m_propertiesSetToInherit;
+    UncheckedKeyHashSet<AnimatableCSSProperty> m_propertiesSetToCurrentColor;
     bool m_usesRelativeFontWeight { false };
     bool m_containsCSSVariableReferences { false };
+    bool m_usesAnchorFunctions { false };
     bool m_hasWidthDependentTransform { false };
     bool m_hasHeightDependentTransform { false };
     bool m_hasDiscreteTransformInterval { false };

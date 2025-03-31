@@ -24,49 +24,34 @@
 
 #pragma once
 
-#include "CSSParserToken.h"
+#include "CSSPropertyParserConsumer+LengthDefinitions.h"
 #include "CSSPropertyParserConsumer+MetaConsumerDefinitions.h"
-#include "CSSPropertyParserConsumer+Primitives.h"
-#include "CSSPropertyParserConsumer+UnevaluatedCalc.h"
-#include <optional>
-#include <wtf/Brigand.h>
 
 namespace WebCore {
-
-class CSSCalcSymbolsAllowed;
-class CSSParserTokenRange;
-
 namespace CSSPropertyParserHelpers {
 
-std::optional<LengthPercentageRaw> validatedRange(LengthPercentageRaw, CSSPropertyParserOptions);
+struct LengthPercentageValidator {
+    static constexpr std::optional<CSS::LengthPercentageUnit> validate(CSSUnitType unitType, CSSPropertyParserOptions options)
+    {
+        // NOTE: Percentages are handled explicitly by the PercentageValidator, so this only
+        // needs to be concerned with the Length units.
+        if (auto result = LengthValidator::validate(unitType, options))
+            return static_cast<CSS::LengthPercentageUnit>(*result);
+        return std::nullopt;
+    }
 
-struct LengthPercentageKnownTokenTypeFunctionConsumer {
-    static constexpr CSSParserTokenType tokenType = FunctionToken;
-    static std::optional<UnevaluatedCalc<LengthPercentageRaw>> consume(CSSParserTokenRange&, CSSCalcSymbolsAllowed, CSSPropertyParserOptions);
+    template<auto R, typename V> static bool isValid(CSS::LengthPercentageRaw<R, V> raw, CSSPropertyParserOptions)
+    {
+        // Values other than 0 and +/-∞ are not supported for <length-percentage> numeric ranges currently.
+        return isValidNonCanonicalizableDimensionValue(raw);
+    }
 };
 
-struct LengthPercentageKnownTokenTypeDimensionConsumer {
-    static constexpr CSSParserTokenType tokenType = DimensionToken;
-    static std::optional<LengthPercentageRaw> consume(CSSParserTokenRange&, CSSCalcSymbolsAllowed, CSSPropertyParserOptions);
-};
-
-struct LengthPercentageKnownTokenTypePercentConsumer {
-    static constexpr CSSParserTokenType tokenType = PercentageToken;
-    static std::optional<LengthPercentageRaw> consume(CSSParserTokenRange&, CSSCalcSymbolsAllowed, CSSPropertyParserOptions);
-};
-
-struct LengthPercentageKnownTokenTypeNumberConsumer {
-    static constexpr CSSParserTokenType tokenType = NumberToken;
-    static std::optional<LengthPercentageRaw> consume(CSSParserTokenRange&, CSSCalcSymbolsAllowed, CSSPropertyParserOptions);
-};
-
-template<> struct ConsumerDefinition<LengthPercentageRaw> {
-    using type = brigand::list<LengthPercentageRaw, UnevaluatedCalc<LengthPercentageRaw>>;
-
-    using FunctionToken = LengthPercentageKnownTokenTypeFunctionConsumer;
-    using DimensionToken = LengthPercentageKnownTokenTypeDimensionConsumer;
-    using PercentageToken = LengthPercentageKnownTokenTypePercentConsumer;
-    using NumberToken = LengthPercentageKnownTokenTypeNumberConsumer;
+template<auto R, typename V> struct ConsumerDefinition<CSS::LengthPercentage<R, V>> {
+    using FunctionToken = FunctionConsumerForCalcValues<CSS::LengthPercentage<R, V>>;
+    using DimensionToken = DimensionConsumer<CSS::LengthPercentage<R, V>, LengthPercentageValidator>;
+    using PercentageToken = PercentageConsumer<CSS::LengthPercentage<R, V>, LengthPercentageValidator>;
+    using NumberToken = NumberConsumerForUnitlessValues<CSS::LengthPercentage<R, V>, LengthPercentageValidator, CSS::LengthUnit::Px>;
 };
 
 } // namespace CSSPropertyParserHelpers

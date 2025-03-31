@@ -208,9 +208,7 @@ void SharedMemoryListener::createDefaultSharedMemoryListener(uid_t uid, gid_t gi
         if (!SharedMemoryListener::findUID(fuid)) {
             secdebug("MDSPRIVACY","creating SharedMemoryListener for uid/gid: %d/%d", fuid, gid);
             // A side effect of creation of a SharedMemoryListener is addition to the ListenerMap
-#ifndef __clang_analyzer__
-            /* __unused auto sml = */ new SharedMemoryListener(SharedMemoryCommon::kDefaultSecurityMessagesName, kSharedMemoryPoolSize, uid, gid);
-#endif  // __clang_analyzer__
+            /* __unused auto sml = */ [[clang::suppress]] new SharedMemoryListener(SharedMemoryCommon::kDefaultSecurityMessagesName, kSharedMemoryPoolSize, uid, gid);
         }
     }
 }

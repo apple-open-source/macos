@@ -68,9 +68,9 @@ egl::ConfigSet DisplayNULL::generateConfigs()
     config.depthSize             = 24;
     config.level                 = 0;
     config.matchNativePixmap     = EGL_NONE;
-    config.maxPBufferWidth       = 0;
-    config.maxPBufferHeight      = 0;
-    config.maxPBufferPixels      = 0;
+    config.maxPBufferWidth       = 4096;
+    config.maxPBufferHeight      = 4096;
+    config.maxPBufferPixels      = 4096 * 4096;
     config.maxSwapInterval       = 1;
     config.minSwapInterval       = 1;
     config.nativeRenderable      = EGL_TRUE;
@@ -140,11 +140,6 @@ egl::Error DisplayNULL::waitNative(const gl::Context *context, EGLint engine)
 gl::Version DisplayNULL::getMaxSupportedESVersion() const
 {
     return gl::Version(3, 2);
-}
-
-Optional<gl::Version> DisplayNULL::getMaxSupportedDesktopVersion() const
-{
-    return Optional<gl::Version>::Invalid();
 }
 
 gl::Version DisplayNULL::getMaxConformantESVersion() const
