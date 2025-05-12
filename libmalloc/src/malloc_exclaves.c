@@ -27,6 +27,9 @@
 
 #define MAX_MALLOC_ZONES 2
 
+#define DEFAULT_MALLOC_ZONE_STRING "DefaultXzoneZone"
+#define DEFAULT_SANITIZER_ZONE_STRING "DefaultWrapperSanitizerZone"
+
 MALLOC_NOEXPORT
 unsigned int phys_ncpus = 0;
 
@@ -147,12 +150,16 @@ void __malloc_init(const char * __null_terminated * __null_terminated args)
 	const unsigned malloc_debug_flags = MALLOC_ABORT_ON_CORRUPTION |
 			MALLOC_ABORT_ON_ERROR;
 	mfm_initialize();
-	_malloc_zone_register(xzm_main_malloc_zone_create(malloc_debug_flags,
-			NULL, args, NULL), true);
+	malloc_zone_t *xzone = xzm_main_malloc_zone_create(malloc_debug_flags,
+			NULL, args, NULL);
+	_malloc_zone_register(xzone, true);
+	malloc_set_zone_name(xzone, DEFAULT_MALLOC_ZONE_STRING);
 
 #if __LIBLIBC_F_ASAN_INSTRUMENTATION
 	if ((malloc_sanitizer_enabled = sanitizer_should_enable())) {
-		_malloc_zone_register(sanitizer_create_zone(_malloc_zones[0]), true);
+		malloc_zone_t *sanitizer = sanitizer_create_zone(xzone);
+		_malloc_zone_register(sanitizer, true);
+		malloc_set_zone_name(sanitizer, DEFAULT_SANITIZER_ZONE_STRING);
 	}
 #endif // __LIBLIBC_F_ASAN_INSTRUMENTATION
 }

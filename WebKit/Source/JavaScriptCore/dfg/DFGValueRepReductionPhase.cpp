@@ -67,17 +67,17 @@ private:
 
 #if CPU(ARM64)
                 case DoubleRep: {
-                    if (node->child1().useKind() != RealNumberUse)
-                        break;
-
                     switch (node->child1()->op()) {
                     case GetClosureVar:
                     case GetGlobalVar:
                     case GetGlobalLexicalVariable:
                     case MultiGetByOffset:
                     case GetByOffset: {
-                        if (node->child1()->origin.exitOK)
-                            candidates.add(node->child1().node());
+                        if (node->child1().useKind() == RealNumberUse || node->child1().useKind() == NumberUse) {
+                            if (node->child1()->origin.exitOK)
+                                candidates.add(node->child1().node());
+                            break;
+                        }
                         break;
                     }
                     default:
@@ -263,12 +263,19 @@ private:
 
                 for (Node* user : getUsersOf(candidate)) {
                     switch (user->op()) {
-                    case DoubleRep:
-                        if (user->child1().useKind() != RealNumberUse) {
+                    case DoubleRep: {
+                        switch (user->child1().useKind()) {
+                        case RealNumberUse:
+                        case NumberUse:
+                            break;
+                        default: {
                             ok = false;
                             dumpEscape("DoubleRep escape: ", user);
+                            break;
+                        }
                         }
                         break;
+                    }
 
                     case PutHint:
                     case MovHint:
@@ -338,7 +345,7 @@ private:
                     }
                     case ValueRep: {
                         // We don't care about the incoming value being an impure NaN because users of
-                        // this Phi are either OSR exit or DoubleRep(RealNumberUse:@phi)
+                        // this Phi are either OSR exit, DoubleRep(RealNumberUse:@phi), or PurifyNaN(@phi).
                         ASSERT(incomingValue->child1().useKind() == DoubleRepUse);
                         newChild = incomingValue->child1().node();
                         break;
@@ -394,9 +401,11 @@ private:
             for (Node* user : getUsersOf(candidate)) {
                 switch (user->op()) {
                 case DoubleRep: {
-                    ASSERT(user->child1().useKind() == RealNumberUse);
-                    user->convertToIdentityOn(resultNode);
-                    doubleRepRealCheckLocations.add(user);
+                    if (user->child1().useKind() == RealNumberUse) {
+                        user->convertToIdentityOn(resultNode);
+                        doubleRepRealCheckLocations.add(user);
+                    } else
+                        user->convertToPurifyNaN(resultNode);
                     break;
                 }
                     

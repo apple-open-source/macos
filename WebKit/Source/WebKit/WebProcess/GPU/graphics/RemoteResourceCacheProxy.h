@@ -34,6 +34,7 @@
 
 namespace WebCore {
 class DecomposedGlyphs;
+class DestinationColorSpace;
 class Filter;
 class Font;
 class Gradient;
@@ -58,7 +59,7 @@ public:
 
     WebCore::NativeImage* cachedNativeImage(WebCore::RenderingResourceIdentifier) const;
 
-    void recordNativeImageUse(WebCore::NativeImage&);
+    void recordNativeImageUse(WebCore::NativeImage&, const WebCore::DestinationColorSpace&);
     void recordFontUse(WebCore::Font&);
     void recordImageBufferUse(WebCore::ImageBuffer&);
     void recordDecomposedGlyphsUse(WebCore::DecomposedGlyphs&);

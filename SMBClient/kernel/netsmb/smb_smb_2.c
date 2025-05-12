@@ -7744,7 +7744,7 @@ smb2_smb_parse_query_dir_both_dir_info(struct smb_share *share, struct mdchain *
     }
     
     if (ctx != NULL) {
-        current_query = SLIST_FIRST(&ctx->f_queries);
+        current_query = STAILQ_FIRST(&ctx->f_queries);
         /* save where we last left off searching */
         ctx->f_resume_file_index = file_index;
         

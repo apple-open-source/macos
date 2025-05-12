@@ -1851,12 +1851,13 @@ void WebLocalFrameLoaderClient::sendH2Ping(const URL& url, CompletionHandler<voi
     if (!webPage)
         return completionHandler(makeUnexpected(internalError(url)));
 
-    NetworkResourceLoadParameters parameters;
+    NetworkResourceLoadParameters parameters {
+        webPage->webPageProxyIdentifier(),
+        webPage->identifier(),
+        m_frame->frameID()
+    };
     parameters.request = ResourceRequest(url);
     parameters.identifier = WebCore::ResourceLoaderIdentifier::generate();
-    parameters.webPageProxyID = webPage->webPageProxyIdentifier();
-    parameters.webPageID = webPage->identifier();
-    parameters.webFrameID = m_frame->frameID();
     parameters.parentPID = legacyPresentingApplicationPID();
 #if HAVE(AUDIT_TOKEN)
     parameters.networkProcessAuditToken = WebProcess::singleton().ensureNetworkProcessConnection().networkProcessAuditToken();

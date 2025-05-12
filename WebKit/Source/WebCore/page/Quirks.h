@@ -245,6 +245,8 @@ public:
 
     WEBCORE_EXPORT bool needsNowPlayingFullscreenSwapQuirk() const;
 
+    bool needsWebKitMediaTextTrackDisplayQuirk() const;
+
 private:
     bool needsQuirks() const;
     bool isDomain(const String&) const;

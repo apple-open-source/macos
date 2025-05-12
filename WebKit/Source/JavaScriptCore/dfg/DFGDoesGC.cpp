@@ -202,6 +202,7 @@ bool doesGC(Graph& graph, Node* node)
     case MultiDeleteByOffset:
     case ValueRep:
     case DoubleRep:
+    case PurifyNaN:
     case Int52Rep:
     case GetGetter:
     case GetSetter:
@@ -295,6 +296,8 @@ bool doesGC(Graph& graph, Node* node)
     case Construct:
     case ConstructForwardVarargs:
     case ConstructVarargs:
+    case DataViewGetByteLength:
+    case DataViewGetByteLengthAsInt52:
     case DefineDataProperty:
     case DefineAccessorProperty:
     case DeleteById:

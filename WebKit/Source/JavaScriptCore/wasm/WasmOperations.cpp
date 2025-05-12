@@ -297,15 +297,22 @@ JSC_DEFINE_JIT_OPERATION(operationWasmToJSExitMarshalArguments, bool, (void* sp,
         return &reinterpret_cast<V*>(arr)[i / sizeof(V)];
     };
 
+    // We need to set up them immediately before potentially throwing anything.
+    auto singletonCallee = CalleeBits::boxNativeCallee(&WasmToJSCallee::singleton());
+    *access.operator()<uintptr_t>(cfr, CallFrameSlot::codeBlock * sizeof(Register)) = std::bit_cast<uintptr_t>(instance);
+    *access.operator()<uintptr_t>(cfr, CallFrameSlot::callee * sizeof(Register)) = std::bit_cast<uintptr_t>(singletonCallee);
+#if USE(JSVALUE32_64)
+    *access.operator()<uintptr_t>(cfr, CallFrameSlot::callee * sizeof(Register) + TagOffset) = JSValue::NativeCalleeTag;
+#endif
+
     CallFrame* calleeFrame = std::bit_cast<CallFrame*>(reinterpret_cast<uintptr_t>(sp) - sizeof(CallerFrameAndPC));
     ASSERT(instance);
     ASSERT(instance->globalObject());
     VM& vm = instance->vm();
+
     auto scope = DECLARE_THROW_SCOPE(vm);
 
-    constexpr int codeBlockOffset = -0x18;
-
-    auto* importableFunction = *access.operator()<WasmOrJSImportableFunctionCallLinkInfo*>(cfr, codeBlockOffset);
+    auto* importableFunction = *access.operator()<WasmOrJSImportableFunctionCallLinkInfo*>(cfr, WasmToJSCallableFunctionSlot);
     auto typeIndex = importableFunction->typeIndex;
     const TypeDefinition& typeDefinition = TypeInformation::get(typeIndex).expand();
     const auto& signature = *typeDefinition.as<FunctionSignature>();
@@ -420,12 +427,6 @@ JSC_DEFINE_JIT_OPERATION(operationWasmToJSExitMarshalArguments, bool, (void* sp,
     // materializeImportJSCell and store
     *access.operator()<uintptr_t>(calleeFrame, CallFrameSlot::callee * static_cast<int>(sizeof(Register))) = std::bit_cast<uintptr_t>(importableFunction->importFunction);
     *access.operator()<uint32_t>(calleeFrame, CallFrameSlot::argumentCountIncludingThis * static_cast<int>(sizeof(Register)) + PayloadOffset) = argCount + 1; // including this = +1
-
-    // set up codeblock
-    auto singletonCallee = CalleeBits::boxNativeCallee(&WasmToJSCallee::singleton());
-    *access.operator()<uintptr_t>(cfr, CallFrameSlot::codeBlock * sizeof(Register)) = std::bit_cast<uintptr_t>(instance);
-    *access.operator()<uintptr_t>(cfr, CallFrameSlot::callee * sizeof(Register)) = std::bit_cast<uintptr_t>(singletonCallee);
-
     OPERATION_RETURN(scope, true);
 }
 
@@ -448,9 +449,7 @@ JSC_DEFINE_JIT_OPERATION(operationWasmToJSExitMarshalReturnValues, void, (void* 
     NativeCallFrameTracer tracer(instance->vm(), cfr);
     auto scope = DECLARE_THROW_SCOPE(instance->vm());
 
-    constexpr int codeBlockOffset = -0x18;
-
-    auto* importableFunction = *access.operator()<WasmOrJSImportableFunctionCallLinkInfo*>(cfr, codeBlockOffset);
+    auto* importableFunction = *access.operator()<WasmOrJSImportableFunctionCallLinkInfo*>(cfr, WasmToJSCallableFunctionSlot);
     auto typeIndex = importableFunction->typeIndex;
     const TypeDefinition& typeDefinition = TypeInformation::get(typeIndex).expand();
     const auto& signature = *typeDefinition.as<FunctionSignature>();
@@ -1888,7 +1887,7 @@ JSC_DEFINE_NOEXCEPT_JIT_OPERATION(operationWasmArrayInitData, UCPUStrictInt32, (
     return toUCPUStrictInt32(arrayInitData(instance, dst, dstOffset, srcDataIndex, srcOffset, size));
 }
 
-JSC_DEFINE_NOEXCEPT_JIT_OPERATION(operationWasmIsSubRTT, bool, (RTT * maybeSubRTT, RTT* targetRTT))
+JSC_DEFINE_NOEXCEPT_JIT_OPERATION(operationWasmIsSubRTT, bool, (RTT* maybeSubRTT, RTT* targetRTT))
 {
     ASSERT(maybeSubRTT && targetRTT);
     return maybeSubRTT->isSubRTT(*targetRTT);

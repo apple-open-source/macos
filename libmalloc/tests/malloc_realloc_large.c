@@ -76,9 +76,10 @@ T_DECL(realloc_large_huge, "call realloc on LARGE and HUGE allocations",
 			"realloc HUGE smaller");
 
 #if MALLOC_TARGET_EXCLAVES
-	T_EXPECTFAIL_WITH_REASON("Exclaves don't support resizing mappings");
-#endif // MALLOC_TARGET_EXCLAVES
+	T_LOG("exclaves don't support resizing mappings, skipping realloc in-place");
+#else
 	T_ASSERT_EQ(ptr1, ptr2, "realloc HUGE smaller in-place");
+#endif // !MALLOC_TARGET_EXCLAVES
 	free(ptr2);
 
 	// Huge allocation grow in place

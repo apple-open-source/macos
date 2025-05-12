@@ -1,0 +1,10 @@
+line 13 column 1 - Error: unexpected </head> in <link>
+0 warnings, 1 error were found!
+
+This document has errors that must be fixed before
+using HTML Tidy to generate a tidied up version.
+
+To learn more about HTML Tidy see http://tidy.sourceforge.net
+Please send bug reports to html-tidy@w3.org
+HTML and CSS specifications are available from http://www.w3.org/
+Lobby your company to join W3C, see http://www.w3.org/Consortium

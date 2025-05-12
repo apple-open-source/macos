@@ -584,7 +584,7 @@ static void __DAMain( void *__unused context )
 #if TARGET_OS_IOS
     if ( os_variant_has_factory_content( "com.apple.diskarbitrationd" ) == false )
     {
-        DARegisterForFirstUnlockNotification();
+        DARegisterForUnlockNotification();
     }
 #endif
     

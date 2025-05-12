@@ -7113,6 +7113,8 @@
 		A188D2E22B6B0F4E00E65A08 /* WKVisibilityPropagationView.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = WKVisibilityPropagationView.h; path = ios/WKVisibilityPropagationView.h; sourceTree = "<group>"; };
 		A188D2E32B6B0F4E00E65A08 /* WKVisibilityPropagationView.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; name = WKVisibilityPropagationView.mm; path = ios/WKVisibilityPropagationView.mm; sourceTree = "<group>"; };
 		A19DD3BF1D07D16800AC823B /* _WKWebViewPrintFormatterInternal.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = _WKWebViewPrintFormatterInternal.h; sourceTree = "<group>"; };
+		A1A207432D8A7A92003B1A13 /* LinearMediaKit.swiftinterface */ = {isa = PBXFileReference; lastKnownFileType = text; path = LinearMediaKit.swiftinterface; sourceTree = "<group>"; };
+		A1A207442D8A7A92003B1A13 /* QuickLook_SPI.swiftinterface */ = {isa = PBXFileReference; lastKnownFileType = text; path = QuickLook_SPI.swiftinterface; sourceTree = "<group>"; };
 		A1A4FE5718DCE9FA00B5EA8A /* _WKDownload.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = _WKDownload.h; sourceTree = "<group>"; };
 		A1A4FE5818DCE9FA00B5EA8A /* _WKDownload.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = _WKDownload.mm; sourceTree = "<group>"; };
 		A1A4FE5918DCE9FA00B5EA8A /* _WKDownloadInternal.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = _WKDownloadInternal.h; sourceTree = "<group>"; };
@@ -16065,7 +16067,9 @@
 		E5BF52E02A44A5D9005B2848 /* visionos */ = {
 			isa = PBXGroup;
 			children = (
+				A1A207432D8A7A92003B1A13 /* LinearMediaKit.swiftinterface */,
 				E539DFEA2A44A69100769F09 /* MRUIKitSPI.h */,
+				A1A207442D8A7A92003B1A13 /* QuickLook_SPI.swiftinterface */,
 				E539DFEC2A44A78600769F09 /* RealitySimulationServicesSPI.h */,
 				DD6E58C42BE004DE0000C264 /* RealitySystemSupportSPI.h */,
 			);

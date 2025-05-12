@@ -48,8 +48,9 @@ namespace WebKit {
 
 class Download;
 class NetworkLoad;
-class NetworkLoadParameters;
 class NetworkSession;
+
+struct NetworkLoadParameters;
 
 class PendingDownload : public RefCountedAndCanMakeWeakPtr<PendingDownload>, public NetworkLoadClient, public IPC::MessageSender {
     WTF_MAKE_TZONE_ALLOCATED(PendingDownload);

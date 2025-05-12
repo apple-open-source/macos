@@ -48,6 +48,7 @@
 #include <Security/SecBase.h>
 #include <Security/SecBasePriv.h>
 #include <Security/SecCertificate.h>
+#include <Security/SecAppleCorporateAnchors.h>
 
 #if SEC_OS_OSX
 #include <Security/cssmtype.h>
@@ -487,10 +488,6 @@ CFStringRef SecCertificateCopySubjectAttributeValue(SecCertificateRef cert, DERI
 /* Return the external roots (for use with SecTrustSetAnchorCertificates) */
 CFArrayRef SecCertificateCopyAppleExternalRoots(void)
     API_AVAILABLE(macos(10.16), ios(14.0), watchos(7.0), tvos(14.0));
-
-/* Return the Apple Corporate Roots (for use with SecTrustSetAnchorCertificates or SecTrustStore/SecTrustSettings) */
-CFArrayRef SecCertificateCopyAppleCorporateRoots(void)
-    API_AVAILABLE(macos(14.4), ios(17.4), watchos(10.4), tvos(17.4));
 
 /* Convert between SecCertificateRefs and MFiv4's compressed form */
 CFDataRef SecCertificateCopyCompressedMFiCert(SecCertificateRef certificate)

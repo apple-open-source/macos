@@ -1,0 +1,18 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 3.2//EN">
+
+<html>
+<head>
+  <title>[ #433672 ] Anchor enclosing Header tags is
+  omitted</title>
+</head>
+
+<body>
+  <h2><a name="xyz">Section heading</a></h2>
+
+  <h2><a name="abc">Another heading</a></h2><a href=
+  '#xyz'></a><img alt='ack!'
+       src='joebob.gif'><br>
+
+  <p><a href='#abc'>Goto Another Heading</a></p>
+</body>
+</html>

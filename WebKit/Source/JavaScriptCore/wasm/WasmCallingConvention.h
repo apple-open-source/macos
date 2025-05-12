@@ -44,6 +44,8 @@ constexpr unsigned numberOfLLIntCalleeSaveRegisters = 2;
 constexpr unsigned numberOfIPIntCalleeSaveRegisters = 3;
 constexpr unsigned numberOfLLIntInternalRegisters = 2;
 constexpr unsigned numberOfIPIntInternalRegisters = 2;
+constexpr ptrdiff_t WasmToJSScratchSpaceSize = 0x8 * 1 + 0x8; // Needs to be aligned to 0x10.
+constexpr ptrdiff_t WasmToJSCallableFunctionSlot = -0x8;
 
 struct ArgumentLocation {
 #if USE(JSVALUE32_64)

@@ -144,7 +144,7 @@ public:
 
     void getConfiguration(RemoteMediaPlayerConfiguration&);
 
-    void prepareForPlayback(bool privateMode, WebCore::MediaPlayerEnums::Preload, bool preservesPitch, WebCore::MediaPlayerEnums::PitchCorrectionAlgorithm, bool prepareToPlay, bool prepareForRendering, WebCore::IntSize presentationSize, float videoContentScale, WebCore::DynamicRangeMode);
+    void prepareForPlayback(bool privateMode, WebCore::MediaPlayerEnums::Preload, bool preservesPitch, WebCore::MediaPlayerEnums::PitchCorrectionAlgorithm, bool prepareToPlay, bool prepareForRendering, WebCore::IntSize presentationSize, float videoContentScale, bool isFullscreen, WebCore::DynamicRangeMode);
     void prepareForRendering();
 
     void load(URL&&, std::optional<SandboxExtension::Handle>&&, const WebCore::ContentType&, const String&, bool, CompletionHandler<void(RemoteMediaPlayerConfiguration&&)>&&);

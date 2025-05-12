@@ -5882,6 +5882,8 @@ smbfs_smb_findopen(struct smb_share *share, struct smbnode *dnp,
 	ctx->f_share = share;
 	smb_share_ref(ctx->f_share);
 
+    STAILQ_INIT(&ctx->f_queries);
+
     ctx->f_is_readdir = is_readdir;
 	ctx->f_dnp = dnp;
 	ctx->f_flags |= SMBFS_RDD_FINDFIRST;

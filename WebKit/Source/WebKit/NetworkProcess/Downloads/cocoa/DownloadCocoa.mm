@@ -160,7 +160,7 @@ void Download::publishProgress(const URL& url, std::span<const uint8_t> bookmark
             return;
         }
 
-        bool isUsingPlaceholder = useDownloadPlaceholder == WebKit::UseDownloadPlaceholder::Yes;
+        bool isUsingPlaceholder = useDownloadPlaceholder == WebKit::UseDownloadPlaceholder::Yes && m_downloadTask;
 
         m_progress = adoptNS([[WKModernDownloadProgress alloc] initWithDownloadTask:m_downloadTask.get() download:*this URL:publishURL.get() useDownloadPlaceholder:isUsingPlaceholder resumePlaceholderURL:nil liveActivityAccessToken:accessToken.get()]);
 

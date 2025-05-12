@@ -201,40 +201,32 @@ template<typename T> void WebSocketChannel::sendMessageInternal(T&& message, siz
     sendWithAsyncReply(std::forward<T>(message), WTFMove(completionHandler));
 }
 
-WebSocketChannel::SendResult WebSocketChannel::send(CString&& message)
+void WebSocketChannel::send(CString&& message)
 {
     if (!increaseBufferedAmount(message.length()))
-        return SendFail;
+        return;
 
     m_messageQueue.enqueue(WTFMove(message));
-    return SendSuccess;
 }
 
-WebSocketChannel::SendResult WebSocketChannel::send(const JSC::ArrayBuffer& binaryData, unsigned byteOffset, unsigned byteLength)
+void WebSocketChannel::send(const JSC::ArrayBuffer& binaryData, unsigned byteOffset, unsigned byteLength)
 {
     if (!increaseBufferedAmount(byteLength))
-        return SendFail;
+        return;
 
     m_messageQueue.enqueue(binaryData, byteOffset, byteLength);
-    return SendSuccess;
 }
 
-WebSocketChannel::SendResult WebSocketChannel::send(Blob& blob)
+void WebSocketChannel::send(Blob& blob)
 {
     auto byteLength = blob.size();
     if (!blob.size())
         return send(JSC::ArrayBuffer::create(byteLength, 1), 0, 0);
 
     if (!increaseBufferedAmount(byteLength))
-        return SendFail;
+        return;
 
     m_messageQueue.enqueue(blob);
-    return SendSuccess;
-}
-
-unsigned WebSocketChannel::bufferedAmount() const
-{
-    return m_bufferedAmount;
 }
 
 void WebSocketChannel::close(int code, const String& reason)

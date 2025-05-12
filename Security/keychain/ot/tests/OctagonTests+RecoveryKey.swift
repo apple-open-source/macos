@@ -5100,7 +5100,7 @@ class OctagonRecoveryKeyTests: OctagonTestsBase {
         XCTAssertFalse(result, "recovery key should be incorrect")
         XCTAssertNotNil(localError, "error should not be nil")
         XCTAssertEqual(localError!.domain, TrustedPeersHelperErrorDomain, "error domain should be TrustedPeersHelperErrorDomain")
-        XCTAssertEqual(localError!.code, TrustedPeersHelperErrorCode.codeNotEnrolled.rawValue, "error code should be recovery key not enrolled")
+        XCTAssertEqual(localError!.code, TrustedPeersHelperErrorCode.notEnrolled.rawValue, "error code should be recovery key not enrolled")
     }
 
     func testPreflightRecoveryKeyFailureErrorFetching() throws {
@@ -5584,7 +5584,7 @@ class OctagonRecoveryKeyTests: OctagonTestsBase {
         XCTAssertThrowsError(try cliqueBridge.registerRecoveryKey(with: self.otcliqueContext, recoveryKey: recoveryString!), "registerRecoveryKey should throw error") { error in
             XCTAssertNotNil(error, "error should not be nil")
             XCTAssertEqual((error as NSError).domain, TrustedPeersHelperErrorDomain, "error domain should be com.apple.security.trustedpeers.container")
-            XCTAssertEqual((error as NSError).code, TrustedPeersHelperErrorCode.codeUntrustedRecoveryKeys.rawValue, "error code should be untrusted recovery keys")
+            XCTAssertEqual((error as NSError).code, TrustedPeersHelperErrorCode.untrustedRecoveryKeys.rawValue, "error code should be untrusted recovery keys")
             reRegisterRecoveryKeyExpectation.fulfill()
         }
         self.wait(for: [reRegisterRecoveryKeyExpectation], timeout: 10)

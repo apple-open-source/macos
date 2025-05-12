@@ -841,6 +841,8 @@ smb_dir_cache_remove(vnode_t dvp, void *in_cachep,
 
     if (partial_remove) {
         remove_count = offset - cachep->start_offset;
+        SMB_LOG_DIR_CACHE_LOCK(dnp, "Partial cache remove for <%s> cachep->start_offset:<%lld> offset:<%lld>\n",
+                               dnp->n_name, cachep->start_offset, offset);
     }
 
     while (entryp != NULL) {
@@ -863,6 +865,7 @@ smb_dir_cache_remove(vnode_t dvp, void *in_cachep,
         cachep->list = entryp;
     } else {
         cachep->offset = 0;
+        cachep->start_offset = 0;
         cachep->count = 0;
         cachep->list = NULL;
     }

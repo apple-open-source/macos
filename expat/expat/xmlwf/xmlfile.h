@@ -33,6 +33,10 @@
    USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
+#ifdef __APPLE__
+#include <expat.h>	/* XML_Parser and XML_Char */
+#endif
+
 #define XML_MAP_FILE 01
 #define XML_EXTERNAL_ENTITIES 02
 

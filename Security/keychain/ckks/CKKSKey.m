@@ -435,32 +435,34 @@
         return NO;
     }
 
-    NSArray<CKKSTLKShareRecord*>* possibleShares = [CKKSTLKShareRecord allForUUID:self.uuid
-                                                                        contextID:contextID
-                                                                           zoneID:self.zoneID
-                                                                            error:&localerror];
-
-    if(!possibleShares || localerror) {
-        ckkserror("ckksshare", self, "Unable to load TLK shares for TLK(%@): %@", self, localerror);
-        if(error) {
-            *error = localerror;
-        }
-        return NO;
-    }
-
     NSError* lastTrustStateError = nil;
     for(CKKSPeerProviderState* trustState in trustStates) {
-        BOOL extracted = [trustState unwrapKey:self
-                                    fromShares:possibleShares
-                                         error:&localerror];
+        @autoreleasepool {
+            NSMutableArray<CKKSTLKShareRecord*>* possibleShares = [[NSMutableArray alloc] init];
+            for(id<CKKSSelfPeer> selfPeer in trustState.currentSelfPeers.allSelves) {
+                [possibleShares addObjectsFromArray:[CKKSTLKShareRecord allFor:selfPeer.peerID contextID:contextID keyUUID:self.uuid zoneID:self.zoneID error:&localerror]];
+            }
 
-        if(!extracted || localerror) {
-            ckkserror("ckksshare", self, "Failed to recover tlk (%@) from trust state (%@): %@", self.uuid, trustState, localerror);
-            lastTrustStateError = localerror;
-            localerror = nil;
-        } else {
-            ckkserror("ckksshare", self, "Recovered tlk (%@) from trust state (%@)", self.uuid, trustState);
-            return YES;
+            if(!possibleShares || localerror) {
+                ckkserror("ckksshare", self, "Unable to load TLK shares for TLK(%@): %@", self, localerror);
+                if(error) {
+                    *error = localerror;
+                }
+                return NO;
+            }
+
+            BOOL extracted = [trustState unwrapKey:self
+                                        fromShares:possibleShares
+                                             error:&localerror];
+
+            if(!extracted || localerror) {
+                ckkserror("ckksshare", self, "Failed to recover tlk (%@) from trust state (%@): %@", self.uuid, trustState, localerror);
+                lastTrustStateError = localerror;
+                localerror = nil;
+            } else {
+                ckkserror("ckksshare", self, "Recovered tlk (%@) from trust state (%@)", self.uuid, trustState);
+                return YES;
+            }
         }
     }
 

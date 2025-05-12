@@ -1,0 +1,8 @@
+Info: Doctype given is "-//W3C//DTD XHTML 1.1//EN"
+Info: Document content looks like XHTML 1.0 Transitional
+No warnings or errors were found.
+
+To learn more about HTML Tidy see http://tidy.sourceforge.net
+Please send bug reports to html-tidy@w3.org
+HTML and CSS specifications are available from http://www.w3.org/
+Lobby your company to join W3C, see http://www.w3.org/Consortium

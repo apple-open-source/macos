@@ -320,6 +320,7 @@ inline CapabilityLevel canCompile(Node* node)
     case DoubleRep:
     case ValueRep:
     case Int52Rep:
+    case PurifyNaN:
     case DoubleConstant:
     case Int52Constant:
     case BooleanToNumber:
@@ -468,6 +469,8 @@ inline CapabilityLevel canCompile(Node* node)
     case CreatePromise:
     case CreateGenerator:
     case CreateAsyncGenerator:
+    case DataViewGetByteLength:
+    case DataViewGetByteLengthAsInt52:
     case DataViewGetInt:
     case DataViewGetFloat:
     case DataViewSet:

@@ -372,7 +372,7 @@ sec_identity_create_client_SPAKE2PLUSV1_identity_for_scrypt_default(dispatch_dat
         return SEC_NIL_BAD_INPUT;
     }
 
-    size_t scrypt_input_len = 2 + password_len + 2 + client_identity_len + 2 + server_identity_len;
+    size_t scrypt_input_len = 8 + password_len + 8 + client_identity_len + 8 + server_identity_len;
     uint8_t *scrypt_input = (uint8_t *)malloc(scrypt_input_len);
     if (scrypt_input == NULL) {
         free(client_identity);
@@ -383,16 +383,16 @@ sec_identity_create_client_SPAKE2PLUSV1_identity_for_scrypt_default(dispatch_dat
 
     // Encode the PBKDF input according to https://datatracker.ietf.org/doc/html/rfc9383#section-3.2
     size_t offset = 0;
-    uint16_t length = password_len & 0xFFFF;
-    memcpy(scrypt_input + offset, (uint8_t *)&length, 2); offset += 2;
+    uint64_t length = (uint64_t) password_len;
+    memcpy(scrypt_input + offset, (uint8_t *)&length, 8); offset += 8;
     memcpy(scrypt_input + offset, password, length); offset += length;
 
-    length = client_identity_len & 0xFFFF;
-    memcpy(scrypt_input + offset, (uint8_t *)&length, 2); offset += 2;
+    length = (uint64_t) client_identity_len;
+    memcpy(scrypt_input + offset, (uint8_t *)&length, 8); offset += 8;
     memcpy(scrypt_input + offset, client_identity, length); offset += length;
 
-    length = server_identity_len & 0xFFFF;
-    memcpy(scrypt_input + offset, (uint8_t *)&length, 2); offset += 2;
+    length = (uint64_t) server_identity_len;
+    memcpy(scrypt_input + offset, (uint8_t *)&length, 8); offset += 8;
     memcpy(scrypt_input + offset, server_identity, length); offset += length;
 
     if (offset != scrypt_input_len) {
@@ -511,12 +511,20 @@ sec_identity_create_SPAKE2PLUSV1_client_password_verifier(dispatch_data_t input_
     }
 
     // Reduce each expanded element to a scalar
+#ifdef CCSPAKE_HAS_REDUCE_W_RFC9383
+    if (ccspake_reduce_w_RFC9383(cp, expanded_element_len, w0, ccspake_sizeof_w(cp), verifier) != CCERR_OK) {
+#else
     if (ccspake_reduce_w(cp, expanded_element_len, w0, ccspake_sizeof_w(cp), verifier) != CCERR_OK) {
+#endif // CCSPAKE_HAS_REDUCE_W_RFC9383
         free(buffer);
         free(verifier);
         return SEC_NULL_OUT_OF_MEMORY;
     }
+#ifdef CCSPAKE_HAS_REDUCE_W_RFC9383
+    if (ccspake_reduce_w_RFC9383(cp, expanded_element_len, w1, ccspake_sizeof_w(cp), verifier + ccspake_sizeof_w(cp)) != CCERR_OK) {
+#else
     if (ccspake_reduce_w(cp, expanded_element_len, w1, ccspake_sizeof_w(cp), verifier + ccspake_sizeof_w(cp)) != CCERR_OK) {
+#endif // CCSPAKE_HAS_REDUCE_W_RFC9383
         free(buffer);
         free(verifier);
         return SEC_NULL_OUT_OF_MEMORY;
@@ -563,7 +571,11 @@ sec_identity_create_SPAKE2PLUSV1_server_password_verifier(dispatch_data_t input_
     }
 
     // Reduce w0 to a scalar
+#ifdef CCSPAKE_HAS_REDUCE_W_RFC9383
+    if (ccspake_reduce_w_RFC9383(cp, expanded_element_len, w0, ccspake_sizeof_w(cp), verifier) != CCERR_OK) {
+#else
     if (ccspake_reduce_w(cp, expanded_element_len, w0, ccspake_sizeof_w(cp), verifier) != CCERR_OK) {
+#endif // CCSPAKE_HAS_REDUCE_W_RFC9383
         free(buffer);
         free(verifier);
         return SEC_NULL_OUT_OF_MEMORY;
@@ -616,7 +628,11 @@ sec_identity_create_SPAKE2PLUSV1_registration_record(dispatch_data_t password_ve
         return SEC_NULL_OUT_OF_MEMORY;
     }
 
+#ifdef CCSPAKE_HAS_REDUCE_W_RFC9383
+    if (ccspake_reduce_w_RFC9383(cp, expanded_element_len, w1, ccspake_sizeof_w(cp), w1) != CCERR_OK) {
+#else
     if (ccspake_reduce_w(cp, expanded_element_len, w1, ccspake_sizeof_w(cp), w1) != CCERR_OK) {
+#endif // CCSPAKE_HAS_REDUCE_W_RFC9383
         free(buffer);
         free(L);
         return SEC_NULL_OUT_OF_MEMORY;

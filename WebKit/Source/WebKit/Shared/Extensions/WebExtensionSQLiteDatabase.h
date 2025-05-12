@@ -77,11 +77,11 @@ public:
         Complete
     };
 
-    bool openWithAccessType(AccessType, ProtectionType = { }, const String& vfs = { }, RefPtr<API::Error> = nullptr);
+    bool openWithAccessType(AccessType, RefPtr<API::Error>&, ProtectionType = { }, const String& vfs = { });
     bool enableWAL(RefPtr<API::Error>&);
 
-    void reportErrorWithCode(int, const String& query, RefPtr<API::Error> = nullptr);
-    void reportErrorWithCode(int, sqlite3_stmt* statement, RefPtr<API::Error> = nullptr);
+    void reportErrorWithCode(int, const String& query, RefPtr<API::Error>&);
+    void reportErrorWithCode(int, sqlite3_stmt* statement, RefPtr<API::Error>&);
 
     int close();
 

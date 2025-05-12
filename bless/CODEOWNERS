@@ -7,5 +7,5 @@
 *.py                            @t_finkel @jon
 *.sh                            @t_finkel @jon
 
-/test/*                         @t_finkel @jon @etamura @misha.lubich
-/*                              @t_finkel @jon @etamura
+/test/*                         @t_finkel @jon @etamura @ghitron
+/*                              @t_finkel @jon @etamura @ghitron

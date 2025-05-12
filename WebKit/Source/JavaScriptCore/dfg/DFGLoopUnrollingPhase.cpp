@@ -645,6 +645,7 @@ bool LoopUnrollingPhase::isNodeCloneable(HashSet<Node*>& cloneableCache, Node* n
         break;
     case ValueRep:
     case DoubleRep:
+    case PurifyNaN:
     case JSConstant:
     case LoopHint:
     case PhantomLocal:
@@ -768,6 +769,7 @@ Node* LoopUnrollingPhase::cloneNodeImpl(UncheckedKeyHashMap<Node*, Node*>& nodeC
     }
     case ValueRep:
     case DoubleRep:
+    case PurifyNaN:
     case ExitOK:
     case LoopHint:
     case GetButterfly:

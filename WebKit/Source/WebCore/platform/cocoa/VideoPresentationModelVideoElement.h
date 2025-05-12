@@ -29,7 +29,7 @@
 
 #include "EventListener.h"
 #include "FloatRect.h"
-#include "HTMLMediaElementEnums.h"
+#include "HTMLMediaElement.h"
 #include "MediaPlayerEnums.h"
 #include "MediaPlayerIdentifier.h"
 #include "PlatformLayer.h"
@@ -48,8 +48,17 @@ class HTMLVideoElement;
 class TextTrack;
 class PlaybackSessionModelMediaElement;
 
-class VideoPresentationModelVideoElement final : public VideoPresentationModel {
+enum class AudioSessionCategory : uint8_t;
+enum class AudioSessionMode : uint8_t;
+enum class RouteSharingPolicy : uint8_t;
+
+class VideoPresentationModelVideoElement final
+    : public VideoPresentationModel
+    , public HTMLMediaElementClient {
 public:
+    void ref() const final { VideoPresentationModel::ref(); }
+    void deref() const final { VideoPresentationModel::deref(); }
+
     static Ref<VideoPresentationModelVideoElement> create()
     {
         return adoptRef(*new VideoPresentationModelVideoElement());
@@ -120,6 +129,9 @@ private:
     void updateForEventName(const AtomString&);
     void cleanVideoListeners();
     void documentVisibilityChanged();
+
+    // HTMLMediaElementClient
+    void audioSessionCategoryChanged(AudioSessionCategory, AudioSessionMode, RouteSharingPolicy) final;
 
     Ref<VideoListener> m_videoListener;
     RefPtr<HTMLVideoElement> m_videoElement;

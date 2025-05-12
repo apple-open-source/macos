@@ -106,12 +106,12 @@ public:
 #endif
     void invalidate();
 
+#if PLATFORM(COCOA)
+    WEBCORE_EXPORT static RetainPtr<CFDataRef> tiffRepresentation(const Vector<Ref<NativeImage>>&);
+#endif
+
 private:
     Image& image() const { return m_image.get(); }
-
-#if PLATFORM(COCOA)
-    static RetainPtr<CFDataRef> tiffRepresentation(const Vector<Ref<NativeImage>>&);
-#endif
 
     RefPtr<NativeImage> nativeImageOfSize(const IntSize&);
     Vector<Ref<NativeImage>> allNativeImages();

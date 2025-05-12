@@ -486,10 +486,11 @@ WebsiteDataStore* WebExtensionController::websiteDataStore(std::optional<PAL::Se
 
 void WebExtensionController::addWebsiteDataStore(WebsiteDataStore& dataStore)
 {
+    m_websiteDataStores.add(dataStore);
+
     if (!m_cookieStoreObserver)
         m_cookieStoreObserver = HTTPCookieStoreObserver::create(*this);
 
-    m_websiteDataStores.add(dataStore);
     dataStore.protectedCookieStore()->registerObserver(*protectedCookieStoreObserver());
 }
 
@@ -502,7 +503,9 @@ void WebExtensionController::removeWebsiteDataStore(WebsiteDataStore& dataStore)
     }
 
     m_websiteDataStores.remove(dataStore);
-    dataStore.protectedCookieStore()->unregisterObserver(*protectedCookieStoreObserver());
+
+    if (RefPtr observer = protectedCookieStoreObserver())
+        dataStore.protectedCookieStore()->unregisterObserver(*observer);
 
     if (m_websiteDataStores.isEmptyIgnoringNullReferences())
         m_cookieStoreObserver = nullptr;

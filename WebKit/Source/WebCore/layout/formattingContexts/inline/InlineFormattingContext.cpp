@@ -159,11 +159,11 @@ InlineLayoutResult InlineFormattingContext::layout(const ConstraintsForInlineCon
     }
 
     if (TextOnlySimpleLineBuilder::isEligibleForSimplifiedTextOnlyInlineLayoutByContent(inlineContentCache().inlineItems(), layoutState().placedFloats()) && TextOnlySimpleLineBuilder::isEligibleForSimplifiedInlineLayoutByStyle(root().style())) {
-        auto simplifiedLineBuilder = TextOnlySimpleLineBuilder { *this, root(), constraints.horizontal(), inlineItemList };
+        auto simplifiedLineBuilder = makeUniqueRef<TextOnlySimpleLineBuilder>(*this, root(), constraints.horizontal(), inlineItemList);
         return lineLayout(simplifiedLineBuilder, inlineItemList, needsLayoutRange, previousLine(), constraints, lineDamage);
     }
     if (RangeBasedLineBuilder::isEligibleForRangeInlineLayout(*this, inlineContentCache().inlineItems(), layoutState().placedFloats())) {
-        auto rangeBasedLineBuilder = RangeBasedLineBuilder { *this, constraints.horizontal(), inlineItemList };
+        auto rangeBasedLineBuilder = makeUniqueRef<RangeBasedLineBuilder>(*this, constraints.horizontal(), inlineItemList);
         return lineLayout(rangeBasedLineBuilder, inlineItemList, needsLayoutRange, previousLine(), constraints, lineDamage);
     }
     auto lineBuilder = makeUniqueRef<LineBuilder>(*this, constraints.horizontal(), inlineItemList, inlineContentCache().textSpacingContext());

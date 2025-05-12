@@ -21,8 +21,8 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+#include <System/sys/mount.h>
 #include <sys/param.h>
-#include <sys/mount.h>
 #include <errno.h>
 #include <string.h>
 #include <stdbool.h>
@@ -30,6 +30,11 @@
 #include <stdlib.h>
 
 #include "FSPrivate.h"
+
+#if TARGET_OS_SIMULATOR
+#define statfs_ext(path, buf, flags) statfs((path), (buf))
+#define fstatfs_ext(fd, buf, flags) fstatfs((fd), &(buf))
+#endif
 
 static bool
 check_mntfromname(const char *fstype)
@@ -91,7 +96,7 @@ _FSGetTypeInfoForPath(const char *path, char *typenamebuf,
 {
     struct statfs sfs;
 
-    if (statfs(path, &sfs) == -1) {
+    if (statfs_ext(path, &sfs, STATFS_EXT_NOBLOCK) == -1) {
         return errno;
     }
     return _FSGetTypeInfoFromStatfs(&sfs, typenamebuf, typenamebufsize,
@@ -104,7 +109,7 @@ _FSGetTypeInfoForFileDescriptor(int fd, char *typenamebuf,
 {
     struct statfs sfs;
 
-    if (fstatfs(fd, &sfs) == -1) {
+    if (fstatfs_ext(fd, &sfs, STATFS_EXT_NOBLOCK) == -1) {
         return errno;
     }
     return _FSGetTypeInfoFromStatfs(&sfs, typenamebuf, typenamebufsize,
@@ -188,7 +193,7 @@ _FSGetLocationForPath(const char *path, char *locationbuf,
 {
     struct statfs sfs;
 
-    if (statfs(path, &sfs) == -1) {
+    if (statfs_ext(path, &sfs, STATFS_EXT_NOBLOCK) == -1) {
         return errno;
     }
     return _FSGetLocationFromStatfs(&sfs, locationbuf, locationbufsize);
@@ -200,7 +205,7 @@ _FSGetLocationForFileDescriptor(int fd, char *locationbuf,
 {
     struct statfs sfs;
 
-    if (fstatfs(fd, &sfs) == -1) {
+    if (fstatfs_ext(fd, &sfs, STATFS_EXT_NOBLOCK) == -1) {
         return errno;
     }
     return _FSGetLocationFromStatfs(&sfs, locationbuf, locationbufsize);

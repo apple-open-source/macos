@@ -69,6 +69,14 @@ exclaves_sensor_copy(uint32_t buffer, uint64_t size1,
     uint64_t offset1, uint64_t size2, uint64_t offset2,
     exclaves_sensor_status_t *sensor_status);
 
+/*!
+ * Returns the minimum on time deadlines for various sensors
+ * @param deadlines out parameter filled with indicator deadlines
+ */
+kern_return_t
+exclaves_indicator_min_on_time_deadlines(struct exclaves_indicator_deadlines *deadlines);
+
+
 __END_DECLS
 
 #endif /* CONFIG_EXCLAVES */

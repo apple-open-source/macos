@@ -742,7 +742,7 @@ void WebCoreNSURLSessionDataTaskClient::loadFinished(PlatformMediaResource& reso
 
     // CoreMedia will explicitly add a user agent header. Remove if present.
     RetainPtr<NSMutableURLRequest> mutableRequest;
-    if (auto* userAgentValue = [request valueForHTTPHeaderField:@"User-Agent"]) {
+    if ([request valueForHTTPHeaderField:@"User-Agent"]) {
         mutableRequest = adoptNS([request mutableCopy]);
         [mutableRequest setValue:nil forHTTPHeaderField:@"User-Agent"];
         request = mutableRequest.get();

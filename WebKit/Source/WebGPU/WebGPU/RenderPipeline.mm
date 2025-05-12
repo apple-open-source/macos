@@ -1735,7 +1735,7 @@ bool RenderPipeline::colorDepthStencilTargetsMatch(const WGPURenderPassDescripto
         return false;
     }
 
-    if (auto* depthStencil = descriptor.depthStencilAttachment) {
+    if (descriptor.depthStencilAttachment) {
         if (!depthStencilView)
             return false;
         auto& texture = *depthStencilView.get();

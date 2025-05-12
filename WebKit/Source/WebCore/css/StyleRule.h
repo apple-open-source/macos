@@ -1,7 +1,7 @@
 /*
  * (C) 1999-2003 Lars Knoll (knoll@kde.org)
  * (C) 2002-2003 Dirk Mueller (mueller@kde.org)
- * Copyright (C) 2002-2025 Apple Inc. All rights reserved.
+ * Copyright (C) 2002-2021 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -282,26 +282,7 @@ private:
     Ref<FontFeatureValues> m_value;
 };
 
-class StyleRuleGroup : public StyleRuleBase {
-public:
-    const Vector<Ref<StyleRuleBase>>& childRules() const;
-
-    void wrapperInsertRule(unsigned, Ref<StyleRuleBase>&&);
-    void wrapperRemoveRule(unsigned);
-
-    friend class CSSGroupingRule;
-    friend class CSSStyleSheet;
-
-    String debugDescription() const;
-protected:
-    StyleRuleGroup(StyleRuleType, Vector<Ref<StyleRuleBase>>&&);
-    StyleRuleGroup(const StyleRuleGroup&);
-
-private:
-    mutable Vector<Ref<StyleRuleBase>> m_childRules;
-};
-
-class StyleRulePage final : public StyleRuleGroup {
+class StyleRulePage final : public StyleRuleBase {
 public:
     static Ref<StyleRulePage> create(Ref<StyleProperties>&&, CSSSelectorList&&);
 
@@ -321,6 +302,25 @@ private:
     
     Ref<StyleProperties> m_properties;
     CSSSelectorList m_selectorList;
+};
+
+class StyleRuleGroup : public StyleRuleBase {
+public:
+    const Vector<Ref<StyleRuleBase>>& childRules() const;
+
+    void wrapperInsertRule(unsigned, Ref<StyleRuleBase>&&);
+    void wrapperRemoveRule(unsigned);
+
+    friend class CSSGroupingRule;
+    friend class CSSStyleSheet;
+
+    String debugDescription() const;
+protected:
+    StyleRuleGroup(StyleRuleType, Vector<Ref<StyleRuleBase>>&&);
+    StyleRuleGroup(const StyleRuleGroup&);
+
+private:
+    mutable Vector<Ref<StyleRuleBase>> m_childRules;
 };
 
 class StyleRuleMedia final : public StyleRuleGroup {

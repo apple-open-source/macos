@@ -796,10 +796,12 @@ static bool _SecSystemTrustStoreCopyAll(CFStringRef policyId, CFArrayRef *trustS
         SecCertificateRef cert = (SecCertificateRef)value;
         SecValidInfoRef validInfo = SecRevocationDbCopyMatching(cert, cert); // ??? Not all anchors are self-signed so this only works for roots
         if (validInfo && SecValidInfoIsRevoked(validInfo) && SecValidInfoIsDefinitive(validInfo)) {
+            CFReleaseNull(validInfo);
             return;
         }
         /* Skip anchors that are not permitted for this policy */
         if (validInfo && !SecValidInfoPolicyConstraintsPermitPolicy(validInfo, policyId)) {
+            CFReleaseNull(validInfo);
             return;
         }
 
@@ -817,6 +819,7 @@ static bool _SecSystemTrustStoreCopyAll(CFStringRef policyId, CFArrayRef *trustS
         CFReleaseNull(certData);
         CFReleaseNull(constraints);
         CFReleaseNull(certSettingsPair);
+        CFReleaseNull(validInfo);
     });
     CFReleaseNull(certs);
     if (CFArrayGetCount(CertsAndSettings) > 0) {

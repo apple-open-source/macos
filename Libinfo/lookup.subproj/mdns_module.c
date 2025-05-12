@@ -967,7 +967,10 @@ _mdns_init(void)
 {
 	pthread_atfork(_mdns_atfork_prepare, _mdns_atfork_parent, _mdns_atfork_child);
 
-	if (getenv("RES_DEBUG") != NULL) _mdns_debug |= MDNS_DEBUG_STDOUT;
+	if (!issetugid() && getenv("RES_DEBUG") != NULL)
+	{
+		_mdns_debug |= MDNS_DEBUG_STDOUT;
+	}
 #if DEBUG
 	int fd = open(MDNS_DEBUG_FILE, O_RDONLY, 0);
 	errno = 0;

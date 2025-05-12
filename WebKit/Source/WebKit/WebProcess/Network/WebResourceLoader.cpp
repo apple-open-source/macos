@@ -57,17 +57,17 @@
 #include <wtf/CompletionHandler.h>
 #include <wtf/text/MakeString.h>
 
-#define WEBRESOURCELOADER_RELEASE_LOG(fmt, ...) RELEASE_LOG_FORWARDABLE(Network, fmt, m_trackingParameters.pageID ? m_trackingParameters.pageID->toUInt64() : 0, m_trackingParameters.frameID ? m_trackingParameters.frameID->object().toUInt64() : 0, m_trackingParameters.resourceID ? m_trackingParameters.resourceID->toUInt64() : 0, ##__VA_ARGS__)
+#define WEBRESOURCELOADER_RELEASE_LOG(fmt, ...) RELEASE_LOG_FORWARDABLE(Network, fmt, m_trackingParameters ? m_trackingParameters->pageID.toUInt64() : 0, m_trackingParameters ? m_trackingParameters->frameID.object().toUInt64() : 0, m_trackingParameters ? m_trackingParameters->resourceID.toUInt64() : 0, ##__VA_ARGS__)
 
 namespace WebKit {
 using namespace WebCore;
 
-Ref<WebResourceLoader> WebResourceLoader::create(Ref<ResourceLoader>&& coreLoader, const TrackingParameters& trackingParameters)
+Ref<WebResourceLoader> WebResourceLoader::create(Ref<ResourceLoader>&& coreLoader, const std::optional<TrackingParameters>& trackingParameters)
 {
     return adoptRef(*new WebResourceLoader(WTFMove(coreLoader), trackingParameters));
 }
 
-WebResourceLoader::WebResourceLoader(Ref<WebCore::ResourceLoader>&& coreLoader, const TrackingParameters& trackingParameters)
+WebResourceLoader::WebResourceLoader(Ref<WebCore::ResourceLoader>&& coreLoader, const std::optional<TrackingParameters>& trackingParameters)
     : m_coreLoader(WTFMove(coreLoader))
     , m_trackingParameters(trackingParameters)
     , m_loadStart(MonotonicTime::now())

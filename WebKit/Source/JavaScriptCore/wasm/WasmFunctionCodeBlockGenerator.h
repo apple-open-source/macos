@@ -87,7 +87,6 @@ public:
     const Vector<uint64_t>& constantRegisters() const { return m_constants; }
     const WasmInstructionStream& instructions() const { return *m_instructions; }
     const BitVector& tailCallSuccessors() const { return m_tailCallSuccessors; }
-    FixedBitVector&& takeCallees() { return WTFMove(m_callees); }
     bool tailCallClobbersInstance() const { return m_tailCallClobbersInstance ; }
     void setTailCall(uint32_t, bool);
     void setTailCallClobbersInstance() { m_tailCallClobbersInstance = true; }
@@ -154,7 +153,6 @@ private:
     UncheckedKeyHashMap<WasmInstructionStream::Offset, LLIntTierUpCounter::OSREntryData> m_tierUpCounter;
     Vector<JumpTable> m_jumpTables;
     Vector<UnlinkedHandlerInfo> m_exceptionHandlers;
-    FixedBitVector m_callees;
     BitVector m_tailCallSuccessors;
 };
 

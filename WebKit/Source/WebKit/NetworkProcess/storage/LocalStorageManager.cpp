@@ -59,7 +59,11 @@ static std::optional<WebCore::SecurityOriginData> fileNameToOrigin(const String&
 
 static String originToFileName(const WebCore::ClientOrigin& origin)
 {
-    return makeString(origin.clientOrigin.databaseIdentifier(), ".localstorage"_s);
+    auto databaseIdentifier = origin.clientOrigin.optionalDatabaseIdentifier();
+    if (databaseIdentifier.isEmpty())
+        return { };
+
+    return makeString(databaseIdentifier, ".localstorage"_s);
 }
 
 WTF_MAKE_TZONE_ALLOCATED_IMPL(LocalStorageManager);
@@ -83,7 +87,11 @@ String LocalStorageManager::localStorageFilePath(const String& directory, const 
     if (directory.isEmpty())
         return emptyString();
 
-    return FileSystem::pathByAppendingComponent(directory, originToFileName(origin));
+    auto fileName = originToFileName(origin);
+    if (fileName.isEmpty())
+        return emptyString();
+
+    return FileSystem::pathByAppendingComponent(directory, fileName);
 }
 
 String LocalStorageManager::localStorageFilePath(const String& directory)

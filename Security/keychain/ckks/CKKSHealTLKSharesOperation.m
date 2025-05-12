@@ -216,7 +216,7 @@
                 ckksnotice("ckksshare", keyset.tlk, "Unable to create shares for trust set %@: %@", trustState, stateError);
                 [SecurityAnalyticsReporterRTC sendMetricWithEvent:createMissingSharesEventS success:NO error:stateError];
                 if(trustState.essential) {
-                    if(([stateError.domain isEqualToString:TrustedPeersHelperErrorDomain] && stateError.code == TrustedPeersHelperErrorNoPreparedIdentity) ||
+                    if(([stateError.domain isEqualToString:TrustedPeersHelperErrorDomain] && stateError.code == TrustedPeersHelperErrorCodeNoPreparedIdentity) ||
                        ([stateError.domain isEqualToString:CKKSErrorDomain] && stateError.code == CKKSLackingTrust) ||
                        ([stateError.domain isEqualToString:CKKSErrorDomain] && stateError.code == CKKSNoPeersAvailable)) {
                         ckkserror("ckksshare", viewState.zoneID, "Unable to create shares due to some trust issue: %@", createSharesError);

@@ -896,6 +896,13 @@ public:
         m_opInfo = false;
     }
 
+    void convertToPurifyNaN(Node* input)
+    {
+        ASSERT(op() == DoubleRep);
+        setOp(PurifyNaN);
+        children.setChild1(Edge(input, DoubleRepUse));
+    }
+
     JSValue asJSValue()
     {
         return constant()->value();
@@ -2593,6 +2600,12 @@ public:
         }
         m_opInfo = arrayMode.asWord();
         return true;
+    }
+
+    bool mayBeResizableOrGrowableSharedArrayBuffer()
+    {
+        ASSERT(op() == DataViewGetByteLength || op() == DataViewGetByteLengthAsInt52);
+        return m_opInfo.as<bool>();
     }
 
     bool hasECMAMode()

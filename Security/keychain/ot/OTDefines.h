@@ -107,14 +107,15 @@ typedef NS_ERROR_ENUM(OctagonErrorDomain, OctagonError) {
 #define OTMasterSecretLength 72
 
 typedef NS_ENUM(NSInteger, TrustedPeersHelperErrorCode) {
-    TrustedPeersHelperErrorNoPreparedIdentity = 1,
-    TrustedPeersHelperErrorNoPeersPreapprovePreparedIdentity = 14,
-    TrustedPeersHelperErrorFailedToCreateRecoveryKey    = 31,
+    TrustedPeersHelperErrorCodeNoPreparedIdentity = 1,
+    TrustedPeersHelperErrorCodeUnknownPolicyVersion = 12,
+    TrustedPeersHelperErrorCodeNoPeersPreapprovePreparedIdentity = 14,
+    TrustedPeersHelperErrorCodeFailedToCreateRecoveryKey    = 31,
     TrustedPeersHelperErrorCodeUntrustedRecoveryKeys    = 32,
     TrustedPeersHelperErrorCodeNotEnrolled   = 34,
-    TrustedPeersHelperErrorUnknownCloudKitError   = 36,
-    TrustedPeersHelperErrorNoPeersPreapprovedBySelf = 47,
-    TrustedPeersHelperErrorRecoveryKeyIsNotCorrect = 52,
+    TrustedPeersHelperErrorCodeUnknownCloudKitError   = 36,
+    TrustedPeersHelperErrorCodeNoPeersPreapprovedBySelf = 47,
+    TrustedPeersHelperErrorCodeRecoveryKeyIsNotCorrect = 52,
 };
 
 // See cuttlefish/CuttlefishService/Sources/CuttlefishService/CuttlefishError.swift

@@ -112,7 +112,7 @@ ServiceWorkerFetchTask::ServiceWorkerFetchTask(WebSWServerConnection& swServerCo
     bool shouldDoNavigationPreload = session && isNavigationRequest(loader.parameters().options.destination) && m_currentRequest.httpMethod() == "GET"_s;
 
     if (shouldDoNavigationPreload && (!isWorkerReady || registration.navigationPreloadState().enabled)) {
-        NetworkLoadParameters parameters = loader.parameters();
+        NetworkLoadParameters parameters = loader.parameters().networkLoadParameters();
         parameters.request = m_currentRequest;
         m_preloader = makeUnique<ServiceWorkerNavigationPreloader>(*session, WTFMove(parameters), registration.navigationPreloadState(), loader.shouldCaptureExtraNetworkLoadMetrics());
         session->addNavigationPreloaderTask(*this);

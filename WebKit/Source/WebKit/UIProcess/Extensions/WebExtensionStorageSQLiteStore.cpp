@@ -132,10 +132,10 @@ void WebExtensionStorageSQLiteStore::getStorageSizeForKeys(Vector<String> keys, 
 
         int64_t result = 0;
         RefPtr<API::Error> error;
-        bool success = SQLiteDatabaseEnumerate(*(protectedThis->database()), error, "SELECT SUM(LENGTH(key) + LENGTH(value)) FROM extension_storage"_s, std::tie(result));
+        SQLiteDatabaseEnumerate(*(protectedThis->database()), error, "SELECT SUM(LENGTH(key) + LENGTH(value)) FROM extension_storage"_s, std::tie(result));
 
-        WorkQueue::protectedMain()->dispatch([success, result, error, completionHandler = WTFMove(completionHandler)]() mutable {
-            if (success)
+        WorkQueue::protectedMain()->dispatch([result, error, completionHandler = WTFMove(completionHandler)]() mutable {
+            if (!error)
                 completionHandler(result, { });
             else {
                 RELEASE_LOG_ERROR(Extensions, "Failed to calculate storage size for keys: %s", error->localizedDescription().utf8().data());

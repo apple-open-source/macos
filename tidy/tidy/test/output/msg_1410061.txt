@@ -1,0 +1,24 @@
+line 1 column 1 - Warning: missing <!DOCTYPE> declaration
+line 5 column 1 - Warning: <li> isn't allowed in <body> elements
+line 6 column 325 - Warning: inserting implicit <ul>
+line 6 column 1117 - Warning: discarding unexpected </li>
+line 6 column 1123 - Warning: discarding unexpected </li>
+line 6 column 1129 - Warning: discarding unexpected </li>
+line 6 column 1135 - Warning: discarding unexpected </li>
+line 6 column 1141 - Warning: discarding unexpected </li>
+line 6 column 1147 - Warning: discarding unexpected </li>
+line 6 column 1153 - Warning: discarding unexpected </li>
+line 6 column 1159 - Warning: discarding unexpected </li>
+line 6 column 1165 - Warning: discarding unexpected </li>
+line 6 column 1171 - Warning: discarding unexpected </li>
+line 7 column 1 - Warning: discarding unexpected </body>
+line 8 column 1 - Warning: discarding unexpected </html>
+line 6 column 325 - Warning: missing </ul>
+Info: Document content looks like HTML 4.01 Transitional
+Info: No system identifier in emitted doctype
+16 warnings, 0 errors were found!
+
+To learn more about HTML Tidy see http://tidy.sourceforge.net
+Please send bug reports to html-tidy@w3.org
+HTML and CSS specifications are available from http://www.w3.org/
+Lobby your company to join W3C, see http://www.w3.org/Consortium

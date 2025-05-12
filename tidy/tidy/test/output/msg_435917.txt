@@ -1,0 +1,14 @@
+line 6 column 1 - Warning: <input> isn't allowed in <body> elements
+line 8 column 1 - Warning: inserting implicit <form>
+line 10 column 1 - Warning: <input> attribute with missing trailing quote mark
+line 8 column 1 - Warning: missing </form>
+line 8 column 1 - Warning: <form> lacks "action" attribute
+Info: Doctype given is "-//W3C//DTD HTML 4.01 Transitional//EN"
+Info: Document content looks like HTML 4.01 Transitional
+Info: No system identifier in emitted doctype
+5 warnings, 0 errors were found!
+
+To learn more about HTML Tidy see http://tidy.sourceforge.net
+Please send bug reports to html-tidy@w3.org
+HTML and CSS specifications are available from http://www.w3.org/
+Lobby your company to join W3C, see http://www.w3.org/Consortium

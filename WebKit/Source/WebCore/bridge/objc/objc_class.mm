@@ -133,7 +133,9 @@ Method* ObjcClass::methodNamed(PropertyName propertyName, Instance*) const
             if ([thisClass respondsToSelector:@selector(webScriptNameForSelector:)])
                 mappedName = [thisClass webScriptNameForSelector:objcMethodSelector];
 
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
             if ((mappedName && [mappedName isEqual:methodName.get()]) || !strcmp(objcMethodSelectorName, buffer.data())) {
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
                 auto method = makeUnique<ObjcMethod>(thisClass, objcMethodSelector);
                 methodPtr = method.get();
                 m_methodCache.add(name.impl(), WTFMove(method));
@@ -213,7 +215,9 @@ Field* ObjcClass::fieldNamed(PropertyName propertyName, Instance* instance) cons
                 if ([thisClass respondsToSelector:@selector(webScriptNameForKey:)])
                     mappedName = [thisClass webScriptNameForKey:objcIvarName];
 
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
                 if ((mappedName && [mappedName isEqual:fieldName.get()]) || !strcmp(objcIvarName, jsName.data())) {
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
                     auto newField = makeUnique<ObjcField>(objcIVar);
                     field = newField.get();
                     m_fieldCache.add(name.impl(), WTFMove(newField));

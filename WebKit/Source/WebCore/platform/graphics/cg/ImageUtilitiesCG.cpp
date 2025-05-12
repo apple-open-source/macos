@@ -188,64 +188,79 @@ static RefPtr<NativeImage> createNativeImageFromData(std::span<const uint8_t> da
     return NativeImage::create(WTFMove(image));
 }
 
-static RefPtr<SharedBuffer> expandNativeImageToData(NativeImage& image, ASCIILiteral uti, std::span<const unsigned> lengths)
+static Vector<Ref<ShareableBitmap>> createBitmapsFromNativeImage(NativeImage& image, std::span<const unsigned> lengths)
 {
-    RetainPtr colorSpace = adoptCF(CGColorSpaceCreateWithName(kCGColorSpaceSRGB));
-    RetainPtr destinationData = adoptCF(CFDataCreateMutable(0, 0));
-    RetainPtr cfUTI = uti.createCFString();
-    RetainPtr destination = adoptCF(CGImageDestinationCreateWithData(destinationData.get(), cfUTI.get(), lengths.size(), nullptr));
+    Vector<Ref<ShareableBitmap>> bitmaps;
+    auto sourceColorSpace = image.colorSpace();
+    // The conversion could lead to loss of HDR contents.
+    auto destinationColorSpace = sourceColorSpace.supportsOutput() ? sourceColorSpace : DestinationColorSpace::SRGB();
     for (auto length : lengths) {
-        RetainPtr context = adoptCF(CGBitmapContextCreate(nullptr, length, length, 8, length * 4, colorSpace.get(), kCGImageAlphaPremultipliedLast));
-        if (!context)
-            return nullptr;
+        RefPtr bitmap = ShareableBitmap::createFromImageDraw(image, destinationColorSpace, { (int)length, (int)length }, image.size());
+        if (!bitmap)
+            return { };
 
-        // Quality is imporatnt than rendering speed in current use case.
-        CGContextSetInterpolationQuality(context.get(), kCGInterpolationHigh);
-        CGContextDrawImage(context.get(), CGRectMake(0, 0, length, length), image.platformImage().get());
-        RetainPtr newImage = adoptCF(CGBitmapContextCreateImage(context.get()));
-        if (!newImage)
-            return nullptr;
-
-        CGImageDestinationAddImage(destination.get(), newImage.get(), nullptr);
+        bitmaps.append(bitmap.releaseNonNull());
     }
 
-    if (!CGImageDestinationFinalize(destination.get()))
-        return nullptr;
-
-    return SharedBuffer::create(destinationData.get());
+    return bitmaps;
 }
 
-RefPtr<SharedBuffer> createIconDataFromImageData(std::span<const uint8_t> data, std::span<const unsigned> lengths)
+void createBitmapsFromImageData(std::span<const uint8_t> data, std::span<const unsigned> lengths, CompletionHandler<void(Vector<Ref<ShareableBitmap>>&&)>&& completionHandler)
 {
-    RefPtr nativeImage = createNativeImageFromData(data, std::nullopt);
-    if (!nativeImage)
-        return { };
+    if (RefPtr nativeImage = createNativeImageFromData(data, std::nullopt)) {
+        completionHandler(createBitmapsFromNativeImage(*nativeImage, lengths));
+        return;
+    }
 
-    // Supported ICO image sizes by ImageIO.
-    std::array<unsigned, 5> availableLengths { { 16, 32, 48, 128, 256 } };
-    auto targetLengths = lengths.empty() ? std::span { availableLengths } : lengths;
-    return expandNativeImageToData(*nativeImage, "com.microsoft.ico"_s, targetLengths);
+    return completionHandler({ });
 }
 
-RefPtr<ShareableBitmap> decodeImageWithSize(std::span<const uint8_t> data, std::optional<FloatSize> preferredSize)
+RefPtr<SharedBuffer> createIconDataFromBitmaps(Vector<Ref<ShareableBitmap>>&& bitmaps)
+{
+    if (bitmaps.isEmpty())
+            return nullptr;
+
+        constexpr auto icoUTI = "com.microsoft.ico"_s;
+        RetainPtr cfUTI = icoUTI.createCFString();
+        RetainPtr colorSpace = adoptCF(CGColorSpaceCreateWithName(kCGColorSpaceSRGB));
+        RetainPtr destinationData = adoptCF(CFDataCreateMutable(0, 0));
+        RetainPtr destination = adoptCF(CGImageDestinationCreateWithData(destinationData.get(), cfUTI.get(), bitmaps.size(), nullptr));
+
+        for (Ref bitmap : bitmaps) {
+            RetainPtr cgImage = bitmap->makeCGImageCopy();
+            if (!cgImage) {
+                RELEASE_LOG_ERROR(Images, "createIconDataFromBitmaps: Fails to create CGImage with size { %d , %d }", bitmap->size().width(), bitmap->size().height());
+                return nullptr;
+            }
+
+            CGImageDestinationAddImage(destination.get(), cgImage.get(), nullptr);
+        }
+
+        if (!CGImageDestinationFinalize(destination.get()))
+            return nullptr;
+
+        return SharedBuffer::create(destinationData.get());
+}
+
+void decodeImageWithSize(std::span<const uint8_t> data, std::optional<FloatSize> preferredSize, CompletionHandler<void(RefPtr<ShareableBitmap>&&)>&& completionHandler)
 {
     auto nativeImage = createNativeImageFromData(data, preferredSize);
     if (!nativeImage)
-        return nullptr;
+        return completionHandler(nullptr);
 
     auto sourceColorSpace = nativeImage->colorSpace();
     auto destinationColorSpace = sourceColorSpace.supportsOutput() ? sourceColorSpace : DestinationColorSpace::SRGB();
     RefPtr bitmap = ShareableBitmap::create({ nativeImage->size(), destinationColorSpace });
     if (!bitmap)
-        return nullptr;
+        return completionHandler(nullptr);
 
     auto context = bitmap->createGraphicsContext();
     if (!context)
-        return nullptr;
+        return completionHandler(nullptr);
 
     FloatRect rect { { }, nativeImage->size() };
     context->drawNativeImage(*nativeImage, rect, rect, { CompositeOperator::Copy });
-    return bitmap;
-
+    completionHandler(WTFMove(bitmap));
 }
+
 } // namespace WebCore

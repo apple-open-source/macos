@@ -41,33 +41,7 @@ namespace WebKit {
 
 enum class PreconnectOnly : bool { No, Yes };
 
-class NetworkLoadParameters {
-public:
-    NetworkLoadParameters() = default;
-    NetworkLoadParameters(Markable<WebPageProxyIdentifier> webPageProxyID, Markable<WebCore::PageIdentifier> webPageID, Markable<WebCore::FrameIdentifier> webFrameID, RefPtr<WebCore::SecurityOrigin>&& topOrigin, RefPtr<WebCore::SecurityOrigin>&& sourceOrigin, WTF::ProcessID parentPID, WebCore::ResourceRequest&& request, WebCore::ContentSniffingPolicy contentSniffingPolicy, WebCore::ContentEncodingSniffingPolicy contentEncodingSniffingPolicy, WebCore::StoredCredentialsPolicy storedCredentialsPolicy, WebCore::ClientCredentialPolicy clientCredentialPolicy, bool shouldClearReferrerOnHTTPSToHTTPRedirect, bool needsCertificateInfo, bool isMainFrameNavigation, std::optional<NavigationActionData>&& mainResourceNavigationDataForAnyFrame, PreconnectOnly shouldPreconnectOnly, std::optional<NavigatingToAppBoundDomain> isNavigatingToAppBoundDomain, bool hadMainFrameMainResourcePrivateRelayed, bool allowPrivacyProxy, OptionSet<WebCore::AdvancedPrivacyProtections> advancedPrivacyProtections)
-        : webPageProxyID(webPageProxyID)
-        , webPageID(webPageID)
-        , webFrameID(webFrameID)
-        , topOrigin(WTFMove(topOrigin))
-        , sourceOrigin(WTFMove(sourceOrigin))
-        , parentPID(parentPID)
-        , request(WTFMove(request))
-        , contentSniffingPolicy(contentSniffingPolicy)
-        , contentEncodingSniffingPolicy(contentEncodingSniffingPolicy)
-        , storedCredentialsPolicy(storedCredentialsPolicy)
-        , clientCredentialPolicy(clientCredentialPolicy)
-        , shouldClearReferrerOnHTTPSToHTTPRedirect(shouldClearReferrerOnHTTPSToHTTPRedirect)
-        , needsCertificateInfo(needsCertificateInfo)
-        , isMainFrameNavigation(isMainFrameNavigation)
-        , mainResourceNavigationDataForAnyFrame(mainResourceNavigationDataForAnyFrame)
-        , shouldPreconnectOnly(shouldPreconnectOnly)
-        , isNavigatingToAppBoundDomain(isNavigatingToAppBoundDomain)
-        , hadMainFrameMainResourcePrivateRelayed(hadMainFrameMainResourcePrivateRelayed)
-        , allowPrivacyProxy(allowPrivacyProxy)
-        , advancedPrivacyProtections(advancedPrivacyProtections)
-    {
-    }
-    
+struct NetworkLoadParameters {
     Markable<WebPageProxyIdentifier> webPageProxyID;
     Markable<WebCore::PageIdentifier> webPageID;
     Markable<WebCore::FrameIdentifier> webFrameID;

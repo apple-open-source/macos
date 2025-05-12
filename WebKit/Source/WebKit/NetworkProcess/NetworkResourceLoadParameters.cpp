@@ -31,7 +31,26 @@ namespace WebKit {
 using namespace WebCore;
 
 NetworkResourceLoadParameters::NetworkResourceLoadParameters(
-    NetworkLoadParameters&& networkLoadParameters
+    WebPageProxyIdentifier webPageProxyID
+    , WebCore::PageIdentifier webPageID
+    , WebCore::FrameIdentifier webFrameID
+    , RefPtr<WebCore::SecurityOrigin>&& topOrigin
+    , RefPtr<WebCore::SecurityOrigin>&& sourceOrigin
+    , WTF::ProcessID parentPID
+    , WebCore::ResourceRequest&& request
+    , WebCore::ContentSniffingPolicy contentSniffingPolicy
+    , WebCore::ContentEncodingSniffingPolicy contentEncodingSniffingPolicy
+    , WebCore::StoredCredentialsPolicy storedCredentialsPolicy
+    , WebCore::ClientCredentialPolicy clientCredentialPolicy
+    , bool shouldClearReferrerOnHTTPSToHTTPRedirect
+    , bool needsCertificateInfo
+    , bool isMainFrameNavigation
+    , std::optional<NavigationActionData>&& mainResourceNavigationDataForAnyFrame
+    , PreconnectOnly shouldPreconnectOnly
+    , std::optional<NavigatingToAppBoundDomain> isNavigatingToAppBoundDomain
+    , bool hadMainFrameMainResourcePrivateRelayed
+    , bool allowPrivacyProxy
+    , OptionSet<WebCore::AdvancedPrivacyProtections> advancedPrivacyProtections
     , std::optional<WebCore::ResourceLoaderIdentifier> identifier
     , RefPtr<WebCore::FormData>&& httpBody
     , std::optional<Vector<SandboxExtension::Handle>>&& sandboxExtensionIfHttpBody
@@ -74,49 +93,69 @@ NetworkResourceLoadParameters::NetworkResourceLoadParameters(
 #endif
     , bool linkPreconnectEarlyHintsEnabled
     , bool shouldRecordFrameLoadForStorageAccess
-    ) : NetworkLoadParameters(WTFMove(networkLoadParameters))
-        , identifier(identifier)
-        , maximumBufferingTime(maximumBufferingTime)
-        , options(WTFMove(options))
-        , cspResponseHeaders(WTFMove(cspResponseHeaders))
-        , parentFrameURL(WTFMove(parentFrameURL))
-        , frameURL(WTFMove(frameURL))
-        , parentCrossOriginEmbedderPolicy(parentCrossOriginEmbedderPolicy)
-        , crossOriginEmbedderPolicy(crossOriginEmbedderPolicy)
-        , originalRequestHeaders(WTFMove(originalRequestHeaders))
-        , shouldRestrictHTTPResponseAccess(shouldRestrictHTTPResponseAccess)
-        , preflightPolicy(preflightPolicy)
-        , shouldEnableCrossOriginResourcePolicy(shouldEnableCrossOriginResourcePolicy)
-        , frameAncestorOrigins(WTFMove(frameAncestorOrigins))
-        , pageHasResourceLoadClient(pageHasResourceLoadClient)
-        , parentFrameID(parentFrameID)
-        , crossOriginAccessControlCheckEnabled(crossOriginAccessControlCheckEnabled)
-        , documentURL(WTFMove(documentURL))
-        , isCrossOriginOpenerPolicyEnabled(isCrossOriginOpenerPolicyEnabled)
-        , isClearSiteDataHeaderEnabled(isClearSiteDataHeaderEnabled)
-        , isClearSiteDataExecutionContextEnabled(isClearSiteDataExecutionContextEnabled)
-        , isDisplayingInitialEmptyDocument(isDisplayingInitialEmptyDocument)
-        , effectiveSandboxFlags(effectiveSandboxFlags)
-        , openerURL(WTFMove(openerURL))
-        , sourceCrossOriginOpenerPolicy(WTFMove(sourceCrossOriginOpenerPolicy))
-        , navigationID(navigationID)
-        , navigationRequester(WTFMove(navigationRequester))
-        , serviceWorkersMode(serviceWorkersMode)
-        , serviceWorkerRegistrationIdentifier(serviceWorkerRegistrationIdentifier)
-        , httpHeadersToKeep(httpHeadersToKeep)
-        , navigationPreloadIdentifier(navigationPreloadIdentifier)
+    ) : webPageProxyID(webPageProxyID)
+    , webPageID(webPageID)
+    , webFrameID(webFrameID)
+    , topOrigin(WTFMove(topOrigin))
+    , sourceOrigin(WTFMove(sourceOrigin))
+    , parentPID(parentPID)
+    , request(WTFMove(request))
+    , contentSniffingPolicy(contentSniffingPolicy)
+    , contentEncodingSniffingPolicy(contentEncodingSniffingPolicy)
+    , storedCredentialsPolicy(storedCredentialsPolicy)
+    , clientCredentialPolicy(clientCredentialPolicy)
+    , shouldClearReferrerOnHTTPSToHTTPRedirect(shouldClearReferrerOnHTTPSToHTTPRedirect)
+    , needsCertificateInfo(needsCertificateInfo)
+    , isMainFrameNavigation(isMainFrameNavigation)
+    , mainResourceNavigationDataForAnyFrame(mainResourceNavigationDataForAnyFrame)
+    , shouldPreconnectOnly(shouldPreconnectOnly)
+    , isNavigatingToAppBoundDomain(isNavigatingToAppBoundDomain)
+    , hadMainFrameMainResourcePrivateRelayed(hadMainFrameMainResourcePrivateRelayed)
+    , allowPrivacyProxy(allowPrivacyProxy)
+    , advancedPrivacyProtections(advancedPrivacyProtections)
+    , identifier(identifier)
+    , maximumBufferingTime(maximumBufferingTime)
+    , options(WTFMove(options))
+    , cspResponseHeaders(WTFMove(cspResponseHeaders))
+    , parentFrameURL(WTFMove(parentFrameURL))
+    , frameURL(WTFMove(frameURL))
+    , parentCrossOriginEmbedderPolicy(parentCrossOriginEmbedderPolicy)
+    , crossOriginEmbedderPolicy(crossOriginEmbedderPolicy)
+    , originalRequestHeaders(WTFMove(originalRequestHeaders))
+    , shouldRestrictHTTPResponseAccess(shouldRestrictHTTPResponseAccess)
+    , preflightPolicy(preflightPolicy)
+    , shouldEnableCrossOriginResourcePolicy(shouldEnableCrossOriginResourcePolicy)
+    , frameAncestorOrigins(WTFMove(frameAncestorOrigins))
+    , pageHasResourceLoadClient(pageHasResourceLoadClient)
+    , parentFrameID(parentFrameID)
+    , crossOriginAccessControlCheckEnabled(crossOriginAccessControlCheckEnabled)
+    , documentURL(WTFMove(documentURL))
+    , isCrossOriginOpenerPolicyEnabled(isCrossOriginOpenerPolicyEnabled)
+    , isClearSiteDataHeaderEnabled(isClearSiteDataHeaderEnabled)
+    , isClearSiteDataExecutionContextEnabled(isClearSiteDataExecutionContextEnabled)
+    , isDisplayingInitialEmptyDocument(isDisplayingInitialEmptyDocument)
+    , effectiveSandboxFlags(effectiveSandboxFlags)
+    , openerURL(WTFMove(openerURL))
+    , sourceCrossOriginOpenerPolicy(WTFMove(sourceCrossOriginOpenerPolicy))
+    , navigationID(navigationID)
+    , navigationRequester(WTFMove(navigationRequester))
+    , serviceWorkersMode(serviceWorkersMode)
+    , serviceWorkerRegistrationIdentifier(serviceWorkerRegistrationIdentifier)
+    , httpHeadersToKeep(httpHeadersToKeep)
+    , navigationPreloadIdentifier(navigationPreloadIdentifier)
 #if ENABLE(CONTENT_EXTENSIONS)
-        , mainDocumentURL(WTFMove(mainDocumentURL))
-        , userContentControllerIdentifier(userContentControllerIdentifier)
+    , mainDocumentURL(WTFMove(mainDocumentURL))
+    , userContentControllerIdentifier(userContentControllerIdentifier)
 #endif
 #if ENABLE(WK_WEB_EXTENSIONS)
-        , pageHasLoadedWebExtensions(pageHasLoadedWebExtensions)
+    , pageHasLoadedWebExtensions(pageHasLoadedWebExtensions)
 #endif
-        , linkPreconnectEarlyHintsEnabled(linkPreconnectEarlyHintsEnabled)
-        , shouldRecordFrameLoadForStorageAccess(shouldRecordFrameLoadForStorageAccess)
+    , linkPreconnectEarlyHintsEnabled(linkPreconnectEarlyHintsEnabled)
+    , shouldRecordFrameLoadForStorageAccess(shouldRecordFrameLoadForStorageAccess)
 {
     if (httpBody) {
-        request.setHTTPBody(WTFMove(httpBody));
+        // FIXME: Use EncodeRequestBody instead of this.
+        this->request.setHTTPBody(WTFMove(httpBody));
 
         if (!sandboxExtensionIfHttpBody)
             RELEASE_ASSERT_NOT_REACHED_WITH_MESSAGE("NetworkResourceLoadParameters which specify a httpBody should have sandboxExtensionIfHttpBody");
@@ -125,8 +164,8 @@ NetworkResourceLoadParameters::NetworkResourceLoadParameters(
                 requestBodySandboxExtensions.append(WTFMove(extension));
         }
     }
-    
-    if (request.url().protocolIsFile()) {
+
+    if (this->request.url().protocolIsFile()) {
         if (!sandboxExtensionIflocalFile)
             RELEASE_ASSERT_NOT_REACHED_WITH_MESSAGE("NetworkResourceLoadParameters which specify a URL of a local file should have sandboxExtensionIflocalFile");
         resourceSandboxExtension = SandboxExtension::create(WTFMove(*sandboxExtensionIflocalFile));
@@ -176,5 +215,36 @@ std::optional<SandboxExtension::Handle> NetworkResourceLoadParameters::sandboxEx
 
     return requestSandboxExtension;
 }
-    
+
+NetworkLoadParameters NetworkResourceLoadParameters::networkLoadParameters() const
+{
+    return {
+        webPageProxyID,
+        webPageID,
+        webFrameID,
+        topOrigin,
+        sourceOrigin,
+        parentPID,
+#if HAVE(AUDIT_TOKEN)
+        networkProcessAuditToken,
+#endif
+        request,
+        contentSniffingPolicy,
+        contentEncodingSniffingPolicy,
+        storedCredentialsPolicy,
+        clientCredentialPolicy,
+        shouldClearReferrerOnHTTPSToHTTPRedirect,
+        needsCertificateInfo,
+        isMainFrameNavigation,
+        mainResourceNavigationDataForAnyFrame,
+        blobFileReferences,
+        shouldPreconnectOnly,
+        networkActivityTracker,
+        isNavigatingToAppBoundDomain,
+        hadMainFrameMainResourcePrivateRelayed,
+        allowPrivacyProxy,
+        advancedPrivacyProtections
+    };
+}
+
 } // namespace WebKit

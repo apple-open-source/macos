@@ -718,6 +718,7 @@ void _dispatch_event_loop_leave_immediate(uint64_t dq_state);
 void _dispatch_event_loop_leave_deferred(dispatch_deferred_items_t ddi,
 		uint64_t dq_state);
 void _dispatch_event_loop_merge(dispatch_kevent_t events, int nevents);
+void _dispatch_event_update_all_deferred(dispatch_deferred_items_t ddi);
 #endif
 void _dispatch_event_loop_drain(uint32_t flags);
 

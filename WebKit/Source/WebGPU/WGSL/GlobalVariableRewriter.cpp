@@ -2499,7 +2499,7 @@ void RewriteGlobalVariables::storeInitialValue(AST::Expression& target, AST::Sta
         return;
     }
 
-    if (auto* atomicType = std::get_if<Types::Atomic>(type)) {
+    if (type && std::holds_alternative<Types::Atomic>(*type)) {
         auto& callee = m_shaderModule.astBuilder().construct<AST::IdentifierExpression>(SourceSpan::empty(), AST::Identifier::make("atomicStore"_s));
         callee.m_inferredType = m_shaderModule.types().bottomType();
 

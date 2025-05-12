@@ -752,7 +752,10 @@ list_item_verbose(struct bsdtar *bsdtar, FILE *out, struct archive_entry *entry)
 		tim = 0;
 		ltime = localtime(&tim);
 	}
-	strftime(tmp, sizeof(tmp), fmt, ltime);
+	if (ltime)
+		strftime(tmp, sizeof(tmp), fmt, ltime);
+	else
+		sprintf(tmp, "-- -- ----");
 	fprintf(out, " %s ", tmp);
 	safe_fprintf(out, "%s", archive_entry_pathname(entry));
 

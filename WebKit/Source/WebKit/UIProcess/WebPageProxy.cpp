@@ -763,6 +763,15 @@ WebPageProxy::Internals::Internals(WebPageProxy& page)
 WebPageProxy::Internals::~Internals() = default;
 #endif
 
+#if PLATFORM(MAC)
+// FIXME: Remove this once the cause of rdar://148942809 is found and fixed.
+static std::optional<API::PageConfiguration::OpenerInfo>& openerInfoOfPageBeingOpened()
+{
+    static NeverDestroyed<std::optional<API::PageConfiguration::OpenerInfo>> info;
+    return info.get();
+}
+#endif
+
 WebPageProxy::WebPageProxy(PageClient& pageClient, WebProcessProxy& process, Ref<API::PageConfiguration>&& configuration)
     : m_internals(makeUniqueRefWithoutRefCountedCheck<Internals>(*this))
     , m_identifier(Identifier::generate())
@@ -828,6 +837,11 @@ WebPageProxy::WebPageProxy(PageClient& pageClient, WebProcessProxy& process, Ref
     , m_pageForTesting(WebPageProxyTesting::create(*this))
 {
     WEBPAGEPROXY_RELEASE_LOG(Loading, "constructor:");
+
+#if PLATFORM(MAC)
+    if (openerInfoOfPageBeingOpened() && openerInfoOfPageBeingOpened() != m_configuration->openerInfo())
+        RELEASE_LOG_FAULT(Process, "Created WebPageProxy with wrong configuration");
+#endif
 
     if (!configuration->drawsBackground())
         internals().backgroundColor = Color(Color::transparentBlack);
@@ -2096,6 +2110,7 @@ void WebPageProxy::loadRequestWithNavigationShared(Ref<WebProcessProxy>&& proces
     loadParameters.advancedPrivacyProtections = navigation.originatorAdvancedPrivacyProtections();
     loadParameters.isRequestFromClientOrUserInput = navigation.isRequestFromClientOrUserInput();
     loadParameters.isPerformingHTTPFallback = isPerformingHTTPFallback == IsPerformingHTTPFallback::Yes;
+    loadParameters.originatingFrame = navigation.lastNavigationAction().originatingFrameInfoData.frameID ? std::optional(navigation.lastNavigationAction().originatingFrameInfoData) : std::nullopt;
 
 #if ENABLE(CONTENT_EXTENSIONS)
     if (protectedPreferences()->iFrameResourceMonitoringEnabled())
@@ -4919,6 +4934,25 @@ void WebPageProxy::receivedNavigationActionPolicyDecision(WebProcessProxy& proce
     protectedConfiguration()->protectedProcessPool()->processForNavigation(*this, frame, *navigation, sourceURL, processSwapRequestedByClient, lockdownMode, loadedWebArchive, frameInfo, WTFMove(websiteDataStore), WTFMove(continueWithProcessForNavigation));
 }
 
+Ref<WebPageProxy> WebPageProxy::downloadOriginatingPage(const API::Navigation* navigation)
+{
+    if (!navigation)
+        return *this;
+    auto& frameInfo = navigation->originatingFrameInfo();
+    return navigationOriginatingPage(frameInfo);
+}
+
+Ref<WebPageProxy> WebPageProxy::navigationOriginatingPage(const FrameInfoData& frameInfo)
+{
+    RefPtr webFrame = WebFrameProxy::webFrame(frameInfo.frameID);
+    if (!webFrame)
+        return *this;
+    RefPtr page = webFrame->page();
+    if (!page)
+        return *this;
+    return page.releaseNonNull();
+}
+
 void WebPageProxy::receivedPolicyDecision(PolicyAction action, API::Navigation* navigation, RefPtr<API::WebsitePolicies>&& websitePolicies, Ref<API::NavigationAction>&& navigationAction, WillContinueLoadInNewProcess willContinueLoadInNewProcess, std::optional<SandboxExtension::Handle> sandboxExtensionHandle, std::optional<PolicyDecisionConsoleMessage>&& consoleMessage, CompletionHandler<void(PolicyDecision&&)>&& completionHandler)
 {
     if (!hasRunningProcess())
@@ -4933,7 +4967,7 @@ void WebPageProxy::receivedPolicyDecision(PolicyAction action, API::Navigation* 
     std::optional<DownloadID> downloadID;
     if (action == PolicyAction::Download) {
         // Create a download proxy.
-        auto download = m_legacyMainFrameProcess->protectedProcessPool()->createDownloadProxy(m_websiteDataStore, navigationAction->request(), this, navigation ? navigation->originatingFrameInfo() : FrameInfoData { });
+        auto download = m_configuration->protectedProcessPool()->createDownloadProxy(m_websiteDataStore, navigationAction->request(), downloadOriginatingPage(navigation).ptr(), navigation ? navigation->originatingFrameInfo() : navigationAction->data().originatingFrameInfoData);
         download->setDidStartCallback([weakThis = WeakPtr { *this }, navigationAction = WTFMove(navigationAction)] (auto* downloadProxy) {
             RefPtr protectedThis = weakThis.get();
             if (!protectedThis || !downloadProxy)
@@ -4970,7 +5004,7 @@ void WebPageProxy::receivedNavigationResponsePolicyDecision(WebCore::PolicyActio
 
     std::optional<DownloadID> downloadID;
     if (action == PolicyAction::Download) {
-        auto download = m_legacyMainFrameProcess->protectedProcessPool()->createDownloadProxy(m_websiteDataStore, request, this, navigation ? navigation->originatingFrameInfo() : FrameInfoData { });
+        auto download = m_configuration->protectedProcessPool()->createDownloadProxy(m_websiteDataStore, request, downloadOriginatingPage(navigation).ptr(), navigation ? navigation->originatingFrameInfo() : FrameInfoData { });
         download->setDidStartCallback([weakThis = WeakPtr { *this }, navigationResponse = WTFMove(navigationResponse)] (auto* downloadProxy) {
             RefPtr protectedThis = weakThis.get();
             if (!protectedThis || !downloadProxy)
@@ -7668,7 +7702,6 @@ void WebPageProxy::decidePolicyForNavigationAction(Ref<WebProcessProxy>&& proces
     auto frameInfo = navigationActionData.frameInfo;
     auto navigationID = navigationActionData.navigationID;
     auto originatingFrameInfoData = navigationActionData.originatingFrameInfoData;
-    auto originatingPageID = navigationActionData.originatingPageID;
     auto originalRequest = navigationActionData.originalRequest;
     auto request = navigationActionData.request;
 
@@ -7729,21 +7762,19 @@ void WebPageProxy::decidePolicyForNavigationAction(Ref<WebProcessProxy>&& proces
 
     navigation->setCurrentRequest(ResourceRequest(request), process->coreProcessIdentifier());
     navigation->setLastNavigationAction(navigationActionData);
-    navigation->setOriginatingFrameInfo(originatingFrameInfoData);
+    if (!navigation->originatingFrameInfo().frameID)
+        navigation->setOriginatingFrameInfo(originatingFrameInfoData);
     navigation->setDestinationFrameSecurityOrigin(frameInfo.securityOrigin);
     if (navigationActionData.originatorAdvancedPrivacyProtections)
         navigation->setOriginatorAdvancedPrivacyProtections(*navigationActionData.originatorAdvancedPrivacyProtections);
 
     RefPtr mainFrameNavigation = frame.isMainFrame() ? navigation.get() : nullptr;
-    RefPtr originatingFrame = WebFrameProxy::webFrame(originatingFrameInfoData.frameID);
-    Ref destinationFrameInfo = API::FrameInfo::create(FrameInfoData { frameInfo }, this);
-    RefPtr<API::FrameInfo> sourceFrameInfo;
-    if (!fromAPI && originatingFrame == &frame)
-        sourceFrameInfo = destinationFrameInfo.copyRef();
-    else if (!fromAPI) {
-        RefPtr originatingPage = originatingPageID ? process->webPage(*originatingPageID) : nullptr;
-        sourceFrameInfo = API::FrameInfo::create(WTFMove(originatingFrameInfoData), WTFMove(originatingPage));
-    }
+    RefPtr originatingFrame = WebFrameProxy::webFrame(navigation->originatingFrameInfo().frameID);
+    Ref sourceFrameInfo = API::FrameInfo::create(FrameInfoData { navigation->originatingFrameInfo() }, navigationOriginatingPage(navigation->originatingFrameInfo()));
+
+    bool sourceAndDestinationEqual = originatingFrame == &frame
+        || (originatingFrame == mainFrame() && m_provisionalPage && m_provisionalPage->mainFrame() == &frame);
+    Ref destinationFrameInfo = sourceAndDestinationEqual ? sourceFrameInfo : API::FrameInfo::create(FrameInfoData { frameInfo }, this);
 
     bool shouldOpenAppLinks = !m_shouldSuppressAppLinksInNextNavigationPolicyDecision
     && destinationFrameInfo->isMainFrame()
@@ -7754,7 +7785,7 @@ void WebPageProxy::decidePolicyForNavigationAction(Ref<WebProcessProxy>&& proces
     std::optional<WebCore::FrameIdentifier> currentMainFrameIdentifier;
     if (frame.isMainFrame() && m_mainFrame)
         currentMainFrameIdentifier = m_mainFrame->frameID();
-    Ref navigationAction = API::NavigationAction::create(WTFMove(navigationActionData), sourceFrameInfo.get(), destinationFrameInfo.ptr(), String(), ResourceRequest(request), originalRequest.url(), shouldOpenAppLinks, WTFMove(userInitiatedActivity), mainFrameNavigation.get(), currentMainFrameIdentifier);
+    Ref navigationAction = API::NavigationAction::create(WTFMove(navigationActionData), sourceFrameInfo.ptr(), destinationFrameInfo.ptr(), String(), ResourceRequest(request), originalRequest.url(), shouldOpenAppLinks, WTFMove(userInitiatedActivity), mainFrameNavigation.get(), currentMainFrameIdentifier);
 
 #if ENABLE(CONTENT_FILTERING)
     if (frame.didHandleContentFilterUnblockNavigation(request)) {
@@ -7770,7 +7801,7 @@ void WebPageProxy::decidePolicyForNavigationAction(Ref<WebProcessProxy>&& proces
     // Sandboxed iframes should be allowed to open external apps via custom protocols unless explicitely allowed (https://html.spec.whatwg.org/#hand-off-to-external-software).
     bool canHandleRequest = navigationAction->data().canHandleRequest || m_urlSchemeHandlersByScheme.contains<StringViewHashTranslator>(request.url().protocol());
     if (!canHandleRequest && !destinationFrameInfo->isMainFrame() && !frameSandboxAllowsOpeningExternalCustomProtocols(navigationAction->data().effectiveSandboxFlags, !!navigationAction->data().userGestureTokenIdentifier)) {
-        if (!sourceFrameInfo || !m_preferences->needsSiteSpecificQuirks() || !Quirks::shouldAllowNavigationToCustomProtocolWithoutUserGesture(request.url().protocol(), sourceFrameInfo->securityOrigin())) {
+        if (!m_preferences->needsSiteSpecificQuirks() || !Quirks::shouldAllowNavigationToCustomProtocolWithoutUserGesture(request.url().protocol(), sourceFrameInfo->securityOrigin())) {
             WEBPAGEPROXY_RELEASE_LOG_ERROR(Process, "Ignoring request to load this main resource because it has a custom protocol and comes from a sandboxed iframe");
             PolicyDecisionConsoleMessage errorMessage {
                 MessageLevel::Error,
@@ -8100,7 +8131,7 @@ void WebPageProxy::decidePolicyForResponseShared(Ref<WebProcessProxy>&& process,
     MESSAGE_CHECK_URL_COMPLETION(process, request.url(), completionHandler({ }));
     MESSAGE_CHECK_URL_COMPLETION(process, response.url(), completionHandler({ }));
     RefPtr navigation = navigationID ? protectedNavigationState()->navigation(*navigationID) : nullptr;
-    Ref navigationResponse = API::NavigationResponse::create(API::FrameInfo::create(WTFMove(frameInfo), this).get(), request, response, canShowMIMEType, downloadAttribute);
+    Ref navigationResponse = API::NavigationResponse::create(API::FrameInfo::create(WTFMove(frameInfo), this).get(), request, response, canShowMIMEType, downloadAttribute, navigation.get());
 
     // COOP only applies to top-level browsing contexts.
     if (frameInfo.isMainFrame && coopValuesRequireBrowsingContextGroupSwitch(isShowingInitialAboutBlank, activeDocumentCOOPValue, frameInfo.securityOrigin.securityOrigin().get(), obtainCrossOriginOpenerPolicy(response).value, SecurityOrigin::create(response.url()).get())) {
@@ -8317,13 +8348,13 @@ static void trySOAuthorization(Ref<API::PageConfiguration>&& configuration, Ref<
 void WebPageProxy::createNewPage(IPC::Connection& connection, WindowFeatures&& windowFeatures, NavigationActionData&& navigationActionData, CompletionHandler<void(std::optional<WebCore::PageIdentifier>, std::optional<WebKit::WebPageCreationParameters>)>&& reply)
 {
     auto& originatingFrameInfoData = navigationActionData.originatingFrameInfoData;
-    auto originatingPageID = navigationActionData.originatingPageID;
     auto& request = navigationActionData.request;
     bool openedBlobURL = request.url().protocolIsBlob();
-    MESSAGE_CHECK_BASE(originatingPageID, connection);
     MESSAGE_CHECK_BASE(WebFrameProxy::webFrame(originatingFrameInfoData.frameID), connection);
 
-    auto originatingPage = protectedLegacyMainFrameProcess()->webPage(*originatingPageID);
+    auto navigationDataForNewProcess = navigationActionData.hasOpener ? nullptr : makeUnique<NavigationActionData>(navigationActionData);
+
+    auto originatingPage = navigationOriginatingPage(originatingFrameInfoData);
     auto originatingFrameInfo = API::FrameInfo::create(WTFMove(originatingFrameInfoData), WTFMove(originatingPage));
     auto mainFrameURL = m_mainFrame ? m_mainFrame->url() : URL();
     auto openedMainFrameName = navigationActionData.openedMainFrameName;
@@ -8335,8 +8366,6 @@ void WebPageProxy::createNewPage(IPC::Connection& connection, WindowFeatures&& w
     std::optional<bool> openerAppInitiatedState;
     if (RefPtr page = originatingFrameInfo->page())
         openerAppInitiatedState = page->lastNavigationWasAppInitiated();
-
-    auto navigationDataForNewProcess = navigationActionData.hasOpener ? nullptr : makeUnique<NavigationActionData>(navigationActionData);
 
     auto completionHandler = [
         this,
@@ -8351,6 +8380,11 @@ void WebPageProxy::createNewPage(IPC::Connection& connection, WindowFeatures&& w
         openedBlobURL,
         wantsNoOpener = windowFeatures.wantsNoOpener()
     ] (RefPtr<WebPageProxy> newPage) mutable {
+
+#if PLATFORM(MAC)
+        openerInfoOfPageBeingOpened() = std::nullopt;
+#endif
+
         m_isCallingCreateNewPage = false;
         if (!newPage) {
             reply(std::nullopt, std::nullopt);
@@ -8424,6 +8458,11 @@ void WebPageProxy::createNewPage(IPC::Connection& connection, WindowFeatures&& w
         configuration->setBrowsingContextGroup(BrowsingContextGroup::create());
         configuration->setOpenedSite(WebCore::Site(request.url()));
     }
+
+#if PLATFORM(MAC)
+    if (WTF::MacApplication::isSafari())
+        openerInfoOfPageBeingOpened() = configuration->openerInfo();
+#endif
 
     trySOAuthorization(configuration.copyRef(), WTFMove(navigationAction), *this, WTFMove(completionHandler), [this, protectedThis = Ref { *this }, configuration] (Ref<API::NavigationAction>&& navigationAction, CompletionHandler<void(RefPtr<WebPageProxy>&&)>&& completionHandler) mutable {
         m_isCallingCreateNewPage = true;

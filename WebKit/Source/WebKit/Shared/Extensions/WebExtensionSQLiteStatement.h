@@ -51,7 +51,7 @@ public:
         return adoptRef(*new WebExtensionSQLiteStatement(std::forward<Args>(args)...));
     }
 
-    explicit WebExtensionSQLiteStatement(Ref<WebExtensionSQLiteDatabase>, const String& query, RefPtr<API::Error> outError = nullptr);
+    explicit WebExtensionSQLiteStatement(Ref<WebExtensionSQLiteDatabase>, const String& query, RefPtr<API::Error>&);
 
     ~WebExtensionSQLiteStatement();
 

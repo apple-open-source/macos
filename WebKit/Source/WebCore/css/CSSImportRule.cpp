@@ -25,6 +25,7 @@
 #include "CSSLayerBlockRule.h"
 #include "CSSMarkup.h"
 #include "CSSStyleSheet.h"
+#include "CachedCSSStyleSheet.h"
 #include "MediaList.h"
 #include "MediaQueryParser.h"
 #include "StyleRuleImport.h"
@@ -120,8 +121,13 @@ CSSStyleSheet* CSSImportRule::styleSheet() const
 { 
     if (!m_importRule.get().styleSheet())
         return nullptr;
+
+    std::optional<bool> isOriginClean;
+    if (const auto* cachedSheet = m_importRule->cachedCSSStyleSheet())
+        isOriginClean = cachedSheet->isCORSSameOrigin();
+
     if (!m_styleSheetCSSOMWrapper)
-        m_styleSheetCSSOMWrapper = CSSStyleSheet::create(*m_importRule.get().styleSheet(), const_cast<CSSImportRule*>(this));
+        m_styleSheetCSSOMWrapper = CSSStyleSheet::create(*m_importRule.get().styleSheet(), const_cast<CSSImportRule*>(this), isOriginClean);
     return m_styleSheetCSSOMWrapper.get(); 
 }
 

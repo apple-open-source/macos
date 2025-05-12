@@ -1196,6 +1196,10 @@ static bool SecValidInfoGetPolicyConstraints(CFDataRef data, SecValidPolicy **co
      * the largest value which can be expressed in a signed byte.
      */
     bool result = false;
+    if (!data) {
+        return result;
+    }
+
     CFIndex length = 0;
     SecValidPolicy *p = NULL;
     if (data) {

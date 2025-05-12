@@ -231,6 +231,8 @@ enum class TapHandlingResult : uint8_t;
 - (void)_updatePageLoadObserverState NS_DIRECT;
 #endif
 
+- (UIEdgeInsets)currentlyVisibleContentInsetsWithScale:(CGFloat)scaleFactor obscuredInsets:(UIEdgeInsets)obscuredInsets;
+
 @end
 
 _WKTapHandlingResult wkTapHandlingResult(WebKit::TapHandlingResult);

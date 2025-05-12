@@ -122,6 +122,12 @@ void VideoPresentationInterfaceContext::documentVisibilityChanged(bool isDocumen
         manager->documentVisibilityChanged(m_contextId, isDocumentVisible);
 }
 
+void VideoPresentationInterfaceContext::audioSessionCategoryChanged(WebCore::AudioSessionCategory category, WebCore::AudioSessionMode mode, WebCore::RouteSharingPolicy policy)
+{
+    if (RefPtr manager = m_manager.get())
+        manager->audioSessionCategoryChanged(m_contextId, category, mode, policy);
+}
+
 void VideoPresentationInterfaceContext::videoDimensionsChanged(const FloatSize& videoDimensions)
 {
     if (m_manager)
@@ -553,6 +559,12 @@ void VideoPresentationManager::documentVisibilityChanged(PlaybackSessionContextI
 {
     if (RefPtr page = m_page.get())
         page->send(Messages::VideoPresentationManagerProxy::SetDocumentVisibility(contextId, isDocumentVisibile));
+}
+
+void VideoPresentationManager::audioSessionCategoryChanged(PlaybackSessionContextIdentifier contextId, WebCore::AudioSessionCategory category, WebCore::AudioSessionMode mode, WebCore::RouteSharingPolicy policy)
+{
+    if (RefPtr page = m_page.get())
+        page->send(Messages::VideoPresentationManagerProxy::AudioSessionCategoryChanged(contextId, category, mode, policy));
 }
 
 void VideoPresentationManager::videoDimensionsChanged(PlaybackSessionContextIdentifier contextId, const FloatSize& videoDimensions)

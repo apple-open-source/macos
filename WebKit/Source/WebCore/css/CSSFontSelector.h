@@ -86,6 +86,10 @@ public:
     void registerForInvalidationCallbacks(FontSelectorClient&) final;
     void unregisterForInvalidationCallbacks(FontSelectorClient&) final;
 
+    bool isSimpleFontSelectorForDescription() const final;
+
+    bool isCSSFontSelector() const final { return true; }
+
     ScriptExecutionContext* scriptExecutionContext() const { return m_context.get(); }
 
     FontFaceSet* fontFaceSetIfExists();
@@ -158,3 +162,7 @@ private:
 };
 
 } // namespace WebCore
+
+SPECIALIZE_TYPE_TRAITS_BEGIN(WebCore::CSSFontSelector)
+    static bool isType(const WebCore::FontSelector& selector) { return selector.isCSSFontSelector(); }
+SPECIALIZE_TYPE_TRAITS_END()

@@ -114,7 +114,7 @@ void RemoteLayerWithRemoteRenderingBackingStore::ensureBackingStore(const Parame
     if (m_bufferSet) {
         auto renderingMode = type() == RemoteLayerBackingStore::Type::IOSurface ? RenderingMode::Accelerated : RenderingMode::Unaccelerated;
         auto renderingPurpose = m_layer->containsBitmapOnly() ? WebCore::RenderingPurpose::BitmapOnlyLayerBacking : WebCore::RenderingPurpose::LayerBacking;
-        m_bufferSet->setConfiguration(size(), scale(), colorSpace(), pixelFormat(), renderingMode, renderingPurpose);
+        m_bufferSet->setConfiguration(size(), scale(), colorSpace(), contentsFormat(), pixelFormat(), renderingMode, renderingPurpose);
     }
 }
 

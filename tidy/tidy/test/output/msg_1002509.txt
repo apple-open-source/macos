@@ -1,0 +1,17 @@
+line 3 column 1 - Error: repeated FRAMESET element
+line 21 column 3 - Warning: content occurs after end of body
+line 21 column 3 - Warning: replacing <body> by <div>
+line 21 column 3 - Warning: trimming empty <div>
+line 20 column 2 - Warning: trimming empty <noframes>
+line 19 column 1 - Warning: trimming empty <frameset>
+Info: Doctype given is "-//W3C//DTD HTML 4.01 Frameset//EN"
+Info: Document content looks like HTML 4.01 Frameset
+5 warnings, 1 error were found!
+
+This document has errors that must be fixed before
+using HTML Tidy to generate a tidied up version.
+
+To learn more about HTML Tidy see http://tidy.sourceforge.net
+Please send bug reports to html-tidy@w3.org
+HTML and CSS specifications are available from http://www.w3.org/
+Lobby your company to join W3C, see http://www.w3.org/Consortium

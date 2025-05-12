@@ -1154,9 +1154,20 @@ template <class T> inline typename std::enable_if<std::is_pointer<T>::value, T>:
 
 #define SAFE_PRINTF_TYPE(...) WTF_FOR_EACH(WTF::safePrintfType, __VA_ARGS__)
 
-#define SAFE_PRINTF(format, ...) printf(format, SAFE_PRINTF_TYPE(__VA_ARGS__))
-#define SAFE_FPRINTF(file, format, ...) fprintf(file, format, SAFE_PRINTF_TYPE(__VA_ARGS__))
-#define SAFE_SPRINTF(destinationSpan, format, ...) snprintf(destinationSpan.data(), destinationSpan.size_bytes(), format, SAFE_PRINTF_TYPE(__VA_ARGS__))
+#define SAFE_PRINTF(format, ...) \
+    WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN \
+    printf(format __VA_OPT__(, SAFE_PRINTF_TYPE(__VA_ARGS__))) \
+    WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
+
+#define SAFE_FPRINTF(file, format, ...) \
+    WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN \
+    fprintf(file, format __VA_OPT__(, SAFE_PRINTF_TYPE(__VA_ARGS__))) \
+    WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
+
+#define SAFE_SPRINTF(destinationSpan, format, ...) \
+    WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN \
+    snprintf(destinationSpan.data(), destinationSpan.size_bytes(), format __VA_OPT__(, SAFE_PRINTF_TYPE(__VA_ARGS__))) \
+    WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
 
 template<typename T> concept ByteType = sizeof(T) == 1 && ((std::is_integral_v<T> && !std::same_as<T, bool>) || std::same_as<T, std::byte>) && !std::is_const_v<T>;
 

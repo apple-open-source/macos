@@ -47,7 +47,7 @@ enum class FeatureToAnimate {
 };
 
 @interface WebScrollbarPartAnimationMac : NSAnimation {
-    WebCore::ScrollerMac* _scroller;
+    CheckedPtr<WebCore::ScrollerMac> _scroller;
     FeatureToAnimate _featureToAnimate;
     CGFloat _startValue;
     CGFloat _endValue;
@@ -127,7 +127,7 @@ enum class FeatureToAnimate {
 @end
 
 @interface WebScrollerImpDelegateMac : NSObject<NSAnimationDelegate, NSScrollerImpDelegate> {
-    WebCore::ScrollerMac* _scroller;
+    CheckedPtr<WebCore::ScrollerMac> _scroller;
 
     RetainPtr<WebScrollbarPartAnimationMac> _knobAlphaAnimation;
     RetainPtr<WebScrollbarPartAnimationMac> _trackAlphaAnimation;
@@ -217,7 +217,7 @@ enum class FeatureToAnimate {
         scrollbarPartAnimation = nil;
     }
 
-    scrollbarPartAnimation = adoptNS([[WebScrollbarPartAnimationMac alloc] initWithScroller:_scroller
+    scrollbarPartAnimation = adoptNS([[WebScrollbarPartAnimationMac alloc] initWithScroller:_scroller.get()
         featureToAnimate:featureToAnimate
         animateFrom:featureToAnimate == FeatureToAnimate::KnobAlpha ? [_scroller->scrollerImp() knobAlpha] : [_scroller->scrollerImp() trackAlpha]
         animateTo:newAlpha
@@ -255,7 +255,7 @@ enum class FeatureToAnimate {
     [scrollerImp setUiStateTransitionProgress:1 - [scrollerImp uiStateTransitionProgress]];
 
     if (!_uiStateTransitionAnimation) {
-        _uiStateTransitionAnimation = adoptNS([[WebScrollbarPartAnimationMac alloc] initWithScroller:_scroller
+        _uiStateTransitionAnimation = adoptNS([[WebScrollbarPartAnimationMac alloc] initWithScroller:_scroller.get()
             featureToAnimate:FeatureToAnimate::UIStateTransition
             animateFrom:[scrollerImp uiStateTransitionProgress]
             animateTo:1.0
@@ -280,7 +280,7 @@ enum class FeatureToAnimate {
     [scrollerImp setExpansionTransitionProgress:1 - [scrollerImp expansionTransitionProgress]];
 
     if (!_expansionTransitionAnimation) {
-        _expansionTransitionAnimation = adoptNS([[WebScrollbarPartAnimationMac alloc] initWithScroller:_scroller
+        _expansionTransitionAnimation = adoptNS([[WebScrollbarPartAnimationMac alloc] initWithScroller:_scroller.get()
             featureToAnimate:FeatureToAnimate::ExpansionTransition
             animateFrom:[scrollerImp expansionTransitionProgress]
             animateTo:1.0
@@ -327,6 +327,7 @@ ScrollerMac::~ScrollerMac()
 
 void ScrollerMac::attach()
 {
+    [m_scrollerImpDelegate invalidate];
     m_scrollerImpDelegate = adoptNS([[WebScrollerImpDelegateMac alloc] initWithScroller:this]);
     setScrollerImp([NSScrollerImp scrollerImpWithStyle:nsScrollerStyle(m_pair.scrollbarStyle()) controlSize:nsControlSizeFromScrollbarWidth(m_pair.scrollbarWidthStyle()) horizontal:m_orientation == ScrollbarOrientation::Horizontal replacingScrollerImp:nil]);
     [m_scrollerImp setDelegate:m_scrollerImpDelegate.get()];

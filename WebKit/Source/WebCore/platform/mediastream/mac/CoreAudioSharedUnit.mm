@@ -198,10 +198,8 @@ bool CoreAudioSharedInternalUnit::setVoiceActivityDetection(bool shouldEnable)
 #if HAVE(VOICEACTIVITYDETECTION)
 #if PLATFORM(MAC)
     auto deviceID = CoreAudioSharedUnit::singleton().captureDeviceID();
-    if (!deviceID) {
-        if (auto err = defaultInputDevice(&deviceID))
-            return false;
-    }
+    if (!deviceID && defaultInputDevice(&deviceID))
+        return false;
     return manageSpeechActivityListener(deviceID, shouldEnable);
 #else
     const UInt32 outputBus = 0;

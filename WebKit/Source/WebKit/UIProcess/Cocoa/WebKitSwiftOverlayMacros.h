@@ -49,11 +49,11 @@
 
 #elif PLATFORM(IOS) && !PLATFORM(IOS_SIMULATOR)
 #define DECLARE_MIGRATED_NAME(Symbol, macOSVersion, iOSVersion, visionOSVersion) \
-    MIGRATE_SYMBOL("/usr/lib/swift/libswiftWebKit.dylib", 2 /*PLATFORM_IOS*/, macOSVersion, 18.4, Symbol)
+    MIGRATE_SYMBOL("/usr/lib/swift/libswiftWebKit.dylib", 2 /*PLATFORM_IOS*/, iOSVersion, 18.4, Symbol)
 
 #elif PLATFORM(IOS) && PLATFORM(IOS_SIMULATOR)
 #define DECLARE_MIGRATED_NAME(Symbol, macOSVersion, iOSVersion, visionOSVersion) \
-    MIGRATE_SYMBOL("/usr/lib/swift/libswiftWebKit.dylib", 7 /*PLATFORM_IOSSIMULATOR*/, macOSVersion, 15.4, Symbol)
+    MIGRATE_SYMBOL("/usr/lib/swift/libswiftWebKit.dylib", 7 /*PLATFORM_IOSSIMULATOR*/, iOSVersion, 18.4, Symbol)
 
 #elif PLATFORM(VISION) && !PLATFORM(IOS_FAMILY_SIMULATOR)
 #define DECLARE_MIGRATED_NAME(Symbol, macOSVersion, iOSVersion, visionOSVersion) \

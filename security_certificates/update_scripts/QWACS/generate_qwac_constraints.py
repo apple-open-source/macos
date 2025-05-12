@@ -191,7 +191,7 @@ def validate_update_against_schema(filename, schema_filename):
     except Exception as e:
         raise ValueError("File \"" + filename + "\" does not conform to schema: " + str(e))
 
-def main:
+def main():
     parser = argparse.ArgumentParser(description="Create a trust store update json for QWAC anchors based on the EU LOTL",
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument('--srcroot', help="source root path", required=True)

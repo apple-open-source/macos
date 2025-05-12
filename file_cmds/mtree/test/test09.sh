@@ -33,7 +33,7 @@ trap Cleanup INT TERM EXIT
 
 # Test all combinations of flags, one out of two being a fault
 purgencies="-low -med -high -su"
-types="-photo -music -mail -document -data -podcast -video -movie -messages -books -test -su"
+types="-photo -music -mail -document -data -podcast -video -movie -messages -books -su"
 i=0
 for p in $purgencies; do
 	for t in $types; do

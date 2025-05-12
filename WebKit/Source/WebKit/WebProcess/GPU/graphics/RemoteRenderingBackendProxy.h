@@ -132,7 +132,7 @@ public:
     Function<bool()> flushImageBuffers();
 #endif
 
-    std::unique_ptr<RemoteDisplayListRecorderProxy> createDisplayListRecorder(WebCore::RenderingResourceIdentifier, const WebCore::FloatSize&, WebCore::RenderingMode, WebCore::RenderingPurpose, float resolutionScale, const WebCore::DestinationColorSpace&, WebCore::ImageBufferPixelFormat);
+    std::unique_ptr<RemoteDisplayListRecorderProxy> createDisplayListRecorder(WebCore::RenderingResourceIdentifier, const WebCore::FloatSize&, WebCore::RenderingMode, WebCore::RenderingPurpose, float resolutionScale, const WebCore::DestinationColorSpace&, WebCore::ContentsFormat, WebCore::ImageBufferPixelFormat);
 
     struct BufferSet {
         RefPtr<WebCore::ImageBuffer> front;

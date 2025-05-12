@@ -1,0 +1,151 @@
+line 1 column 1 - Warning: missing <!DOCTYPE> declaration
+line 14 column 11 - Warning: missing </strong> before <h1>
+line 14 column 29 - Warning: inserting implicit <strong>
+line 18 column 1 - Warning: inserting implicit <strong>
+line 18 column 1 - Warning: missing </strong> before <center>
+line 20 column 11 - Warning: inserting implicit <strong>
+line 20 column 11 - Warning: missing </strong> before <h1>
+line 23 column 1 - Warning: inserting implicit <strong>
+line 25 column 99 - Warning: unescaped & or unknown entity "&body"
+line 43 column 138 - Warning: unescaped & which should be written as &amp;
+line 23 column 1 - Warning: replacing unexpected font by </font>
+line 66 column 113 - Warning: unescaped & or unknown entity "&city"
+line 66 column 7 - Warning: missing </strong> before <h2>
+line 66 column 1 - Warning: missing </h3> before <h2>
+line 74 column 1 - Warning: inserting implicit <strong>
+line 74 column 279 - Warning: unescaped & or unknown entity "&body"
+line 102 column 273 - Warning: unescaped & or unknown entity "&body"
+line 106 column 270 - Warning: unescaped & or unknown entity "&body"
+line 110 column 267 - Warning: unescaped & or unknown entity "&body"
+line 114 column 261 - Warning: unescaped & or unknown entity "&body"
+line 118 column 258 - Warning: unescaped & or unknown entity "&body"
+line 122 column 243 - Warning: unescaped & or unknown entity "&body"
+line 126 column 247 - Warning: unescaped & or unknown entity "&body"
+line 130 column 249 - Warning: unescaped & or unknown entity "&body"
+line 134 column 252 - Warning: unescaped & or unknown entity "&body"
+line 138 column 253 - Warning: unescaped & or unknown entity "&body"
+line 142 column 253 - Warning: unescaped & or unknown entity "&body"
+line 168 column 296 - Warning: unescaped & or unknown entity "&body"
+line 188 column 86 - Warning: unescaped & which should be written as &amp;
+line 196 column 159 - Warning: discarding unexpected </a>
+line 200 column 355 - Warning: unescaped & or unknown entity "&body"
+line 216 column 100 - Warning: unescaped & which should be written as &amp;
+line 240 column 77 - Warning: unescaped & which should be written as &amp;
+line 248 column 301 - Warning: unescaped & or unknown entity "&body"
+line 300 column 189 - Warning: discarding unexpected </a>
+line 314 column 1 - Warning: inserting implicit <strong>
+line 314 column 1 - Warning: missing </strong> before <center>
+line 318 column 11 - Warning: inserting implicit <strong>
+line 318 column 11 - Warning: missing </strong> before <h1>
+line 318 column 18 - Warning: inserting implicit <strong>
+line 328 column 1 - Warning: missing </a> before </h1>
+line 328 column 80 - Warning: discarding unexpected </a>
+line 330 column 1 - Warning: inserting implicit <strong>
+line 330 column 1 - Warning: missing </strong> before <h3>
+line 332 column 7 - Warning: inserting implicit <strong>
+line 332 column 7 - Warning: missing </strong> before <center>
+line 332 column 1 - Warning: <center> isn't allowed in <h3> elements
+line 339 column 81 - Warning: discarding unexpected </center>
+line 339 column 1 - Warning: <center> isn't allowed in <h3> elements
+line 353 column 1 - Warning: missing </h3> before <h1>
+line 353 column 18 - Warning: inserting implicit <strong>
+line 353 column 109 - Warning: discarding unexpected </center>
+line 353 column 119 - Warning: inserting implicit <strong>
+line 363 column 273 - Warning: discarding unexpected </h3>
+line 353 column 119 - Warning: missing </strong> before <center>
+line 367 column 11 - Warning: inserting implicit <strong>
+line 367 column 11 - Warning: missing </strong> before <h1>
+line 379 column 7 - Warning: inserting implicit <strong>
+line 381 column 1 - Warning: inserting implicit <strong>
+line 381 column 1 - Warning: missing </strong> before <h2>
+line 383 column 7 - Warning: inserting implicit <strong>
+line 383 column 7 - Warning: missing </a> before </h2>
+line 383 column 66 - Warning: discarding unexpected </strong>
+line 383 column 76 - Warning: discarding unexpected </a>
+line 414 column 79 - Warning: unescaped & or unknown entity "&font"
+line 414 column 96 - Warning: unescaped & or unknown entity "&base"
+line 424 column 1 - Warning: discarding unexpected </strong>
+line 25 column 29 - Warning: <a> escaping malformed URI reference
+line 74 column 223 - Warning: <a> escaping malformed URI reference
+line 102 column 109 - Warning: <a> anchor "MAP details" already defined
+line 102 column 203 - Warning: <a> escaping malformed URI reference
+line 106 column 107 - Warning: <a> anchor "MAP details" already defined
+line 106 column 201 - Warning: <a> escaping malformed URI reference
+line 110 column 105 - Warning: <a> anchor "MAP details" already defined
+line 110 column 199 - Warning: <a> escaping malformed URI reference
+line 114 column 103 - Warning: <a> anchor "MAP details" already defined
+line 114 column 197 - Warning: <a> escaping malformed URI reference
+line 118 column 101 - Warning: <a> anchor "MAP details" already defined
+line 118 column 195 - Warning: <a> escaping malformed URI reference
+line 122 column 95 - Warning: <a> anchor "MAP details" already defined
+line 122 column 189 - Warning: <a> escaping malformed URI reference
+line 126 column 93 - Warning: <a> anchor "MAP details" already defined
+line 126 column 187 - Warning: <a> escaping malformed URI reference
+line 130 column 95 - Warning: <a> anchor "MAP details" already defined
+line 130 column 189 - Warning: <a> escaping malformed URI reference
+line 134 column 95 - Warning: <a> anchor "MAP details" already defined
+line 134 column 190 - Warning: <a> escaping malformed URI reference
+line 138 column 96 - Warning: <a> anchor "MAP details" already defined
+line 138 column 191 - Warning: <a> escaping malformed URI reference
+line 142 column 96 - Warning: <a> anchor "MAP details" already defined
+line 142 column 191 - Warning: <a> escaping malformed URI reference
+line 168 column 137 - Warning: <a> anchor "MAP details" already defined
+line 168 column 231 - Warning: <a> escaping malformed URI reference
+line 200 column 182 - Warning: <a> anchor "MAP details" already defined
+line 200 column 276 - Warning: <a> escaping malformed URI reference
+line 248 column 104 - Warning: <a> anchor "MAP details" already defined
+line 248 column 240 - Warning: <a> escaping malformed URI reference
+line 339 column 12 - Warning: <img> lacks "alt" attribute
+line 341 column 1 - Warning: <img> lacks "alt" attribute
+line 345 column 1 - Warning: <img> lacks "alt" attribute
+line 349 column 1 - Warning: <a> escaping malformed URI reference
+line 371 column 83 - Warning: <img> lacks "alt" attribute
+line 383 column 7 - Warning: <a> proprietary attribute "alt"
+line 388 column 1 - Warning: <table> lacks "summary" attribute
+line 399 column 7 - Warning: <input> proprietary attribute "border"
+line 414 column 1 - Warning: <img> lacks "alt" attribute
+line 14 column 11 - Warning: trimming empty <strong>
+line 296 column 126 - Warning: trimming empty <font>
+line 300 column 206 - Warning: trimming empty <font>
+line 318 column 11 - Warning: trimming empty <strong>
+line 353 column 1 - Warning: trimming empty <h3>
+line 353 column 1 - Warning: trimming empty <center>
+Info: Document content looks like HTML Proprietary
+112 warnings, 0 errors were found!
+
+URIs must be properly escaped, they must not contain unescaped
+characters below U+0021 including the space character and not
+above U+007E. Tidy escapes the URI for you as recommended by
+HTML 4.01 section B.2.1 and XML 1.0 section 4.2.2. Some user agents
+use another algorithm to escape such URIs and some server-sided
+scripts depend on that. If you want to depend on that, you must
+escape the URI by your own. For more information please refer to
+http://www.w3.org/International/O-URL-and-ident.html
+
+The table summary attribute should be used to describe
+the table structure. It is very helpful for people using
+non-visual browsers. The scope and headers attributes for
+table cells are useful for specifying which headers apply
+to each table cell, enabling non-visual browsers to provide
+a meaningful context for each cell.
+
+The alt attribute should be used to give a short description
+of an image; longer descriptions should be given with the
+longdesc attribute which takes a URL linked to the description.
+These measures are needed for people using non-graphical browsers.
+
+For further advice on how to make your pages accessible
+see http://www.w3.org/WAI/GL. You may also want to try
+"http://www.cast.org/bobby/" which is a free Web-based
+service for checking URLs for accessibility.
+
+You are recommended to use CSS to specify the font and
+properties such as its size and color. This will reduce
+the size of HTML files and make them easier to maintain
+compared with using <FONT> elements.
+
+You are recommended to use CSS to specify page and link colors
+To learn more about HTML Tidy see http://tidy.sourceforge.net
+Please send bug reports to html-tidy@w3.org
+HTML and CSS specifications are available from http://www.w3.org/
+Lobby your company to join W3C, see http://www.w3.org/Consortium

@@ -151,7 +151,9 @@ MediaPlayerPrivateMediaSourceAVFObjC::MediaPlayerPrivateMediaSourceAVFObjC(Media
     }];
 
 #if ENABLE(LINEAR_MEDIA_PLAYER)
-    setVideoTarget(player->videoTarget());
+    RetainPtr videoTarget = player->videoTarget();
+    m_acceleratedVideoMode = videoTarget ? AcceleratedVideoMode::VideoRenderer : AcceleratedVideoMode::Layer;
+    setVideoTarget(videoTarget.get());
 #endif
 }
 
@@ -813,6 +815,10 @@ void MediaPlayerPrivateMediaSourceAVFObjC::acceleratedRenderingStateChanged()
 
 void MediaPlayerPrivateMediaSourceAVFObjC::updateDisplayLayer()
 {
+#if ENABLE(LINEAR_MEDIA_PLAYER)
+    m_updateDisplayLayerPending = false;
+#endif
+
     if (shouldEnsureLayerOrVideoRenderer() || willUseDecompressionSessionIfNeeded()) {
         auto needsRenderingModeChanged = destroyRenderlessVideoMediaSampleRenderer();
         ensureLayerOrVideoRenderer(needsRenderingModeChanged);
@@ -1027,12 +1033,7 @@ void MediaPlayerPrivateMediaSourceAVFObjC::ensureLayerOrVideoRenderer(MediaPlaye
 
     switch (acceleratedVideoMode()) {
     case AcceleratedVideoMode::Layer:
-#if ENABLE(LINEAR_MEDIA_PLAYER)
-        if (!m_usingLinearMediaPlayer)
-            needsRenderingModeChanged = MediaPlayerEnums::NeedsRenderingModeChanged::Yes;
-#else
         needsRenderingModeChanged = MediaPlayerEnums::NeedsRenderingModeChanged::Yes;
-#endif
         FALLTHROUGH;
     case AcceleratedVideoMode::VideoRenderer:
         if (mediaSourcePrivate)
@@ -1118,21 +1119,7 @@ Ref<VideoMediaSampleRenderer> MediaPlayerPrivateMediaSourceAVFObjC::createVideoM
 
 MediaPlayerPrivateMediaSourceAVFObjC::AcceleratedVideoMode MediaPlayerPrivateMediaSourceAVFObjC::acceleratedVideoMode() const
 {
-#if ENABLE(LINEAR_MEDIA_PLAYER)
-    if (m_usingLinearMediaPlayer) {
-        RefPtr player = m_player.get();
-        if (player && player->isInFullscreenOrPictureInPicture()) {
-            if (m_videoTarget)
-                return AcceleratedVideoMode::VideoRenderer;
-            return AcceleratedVideoMode::StagedLayer;
-        }
-
-        if (m_videoTarget)
-            return AcceleratedVideoMode::StagedVideoRenderer;
-    }
-#endif // ENABLE(LINEAR_MEDIA_PLAYER)
-
-    return AcceleratedVideoMode::Layer;
+    return m_acceleratedVideoMode;
 }
 
 bool MediaPlayerPrivateMediaSourceAVFObjC::canUseDecompressionSession() const
@@ -1182,6 +1169,13 @@ void MediaPlayerPrivateMediaSourceAVFObjC::setSynchronizerRate(double rate, std:
 
 void MediaPlayerPrivateMediaSourceAVFObjC::setHasAvailableVideoFrame(bool flag)
 {
+#if ENABLE(LINEAR_MEDIA_PLAYER)
+    if (flag && m_needNewFrameToProgressStaging) {
+        m_needNewFrameToProgressStaging = false;
+        maybeUpdateDisplayLayer();
+    }
+#endif
+
     if (m_hasAvailableVideoFrame == flag)
         return;
 
@@ -1853,8 +1847,25 @@ RefPtr<VideoMediaSampleRenderer> MediaPlayerPrivateMediaSourceAVFObjC::layerOrVi
 #if ENABLE(LINEAR_MEDIA_PLAYER)
 void MediaPlayerPrivateMediaSourceAVFObjC::setVideoTarget(const PlatformVideoTarget& videoTarget)
 {
-    ALWAYS_LOG(LOGIDENTIFIER, !!videoTarget);
-    m_usingLinearMediaPlayer = !!videoTarget;
+    RefPtr player = m_player.get();
+    bool isAlreadyInFullscreen = player && player->isInFullscreenOrPictureInPicture();
+
+    // Transition to docking goes: Layer -> StagedVideoRenderer -> Renderer
+    // Transition from docking goes: Renderer -> StagedLayer -> Layer
+    auto oldAcceleratedVideoMode = m_acceleratedVideoMode;
+    switch (oldAcceleratedVideoMode) {
+    case AcceleratedVideoMode::Layer:
+    case AcceleratedVideoMode::StagedLayer:
+        m_acceleratedVideoMode = !!videoTarget ? AcceleratedVideoMode::StagedVideoRenderer : oldAcceleratedVideoMode;
+        break;
+    case AcceleratedVideoMode::VideoRenderer:
+    case AcceleratedVideoMode::StagedVideoRenderer:
+        m_acceleratedVideoMode = !!videoTarget ? oldAcceleratedVideoMode : AcceleratedVideoMode::StagedLayer;
+        break;
+    }
+    ALWAYS_LOG(LOGIDENTIFIER, "videoTarget:", !!videoTarget, " oldAcceleratedVideoMode:", oldAcceleratedVideoMode, " newAcceleratedVideoMode:", m_acceleratedVideoMode, " fullscreen:", isAlreadyInFullscreen);
+    if (oldAcceleratedVideoMode != m_acceleratedVideoMode && m_acceleratedVideoMode == AcceleratedVideoMode::StagedLayer)
+        m_needNewFrameToProgressStaging = true;
     m_videoTarget = videoTarget;
     updateDisplayLayer();
 }
@@ -1863,14 +1874,34 @@ void MediaPlayerPrivateMediaSourceAVFObjC::setVideoTarget(const PlatformVideoTar
 void MediaPlayerPrivateMediaSourceAVFObjC::isInFullscreenOrPictureInPictureChanged(bool isInFullscreenOrPictureInPicture)
 {
 #if ENABLE(LINEAR_MEDIA_PLAYER)
-    ALWAYS_LOG(LOGIDENTIFIER, isInFullscreenOrPictureInPicture);
-    if (!m_usingLinearMediaPlayer)
+    ALWAYS_LOG(LOGIDENTIFIER, isInFullscreenOrPictureInPicture, " acceleratedVideoMode:", m_acceleratedVideoMode);
+    if (m_acceleratedVideoMode == AcceleratedVideoMode::Layer || m_acceleratedVideoMode == AcceleratedVideoMode::VideoRenderer)
         return;
-    updateDisplayLayer();
+    m_updateDisplayLayerPending = true;
+    maybeUpdateDisplayLayer();
 #else
     UNUSED_PARAM(isInFullscreenOrPictureInPicture);
 #endif
 }
+
+#if ENABLE(LINEAR_MEDIA_PLAYER)
+void MediaPlayerPrivateMediaSourceAVFObjC::maybeUpdateDisplayLayer()
+{
+    ALWAYS_LOG(LOGIDENTIFIER, "updateLayerPending:", m_updateDisplayLayerPending, " acceleratedVideoMode:", m_acceleratedVideoMode, " needNewFrame:", m_needNewFrameToProgressStaging);
+    if (m_acceleratedVideoMode == AcceleratedVideoMode::Layer || m_acceleratedVideoMode == AcceleratedVideoMode::VideoRenderer) {
+        m_updateDisplayLayerPending = false;
+        return;
+    }
+    if (m_needNewFrameToProgressStaging || !m_updateDisplayLayerPending)
+        return;
+    // Transition to/out fullscreen is now complete.
+    if (m_acceleratedVideoMode == AcceleratedVideoMode::StagedLayer)
+        m_acceleratedVideoMode = AcceleratedVideoMode::Layer;
+    else if (m_acceleratedVideoMode == AcceleratedVideoMode::StagedVideoRenderer)
+        m_acceleratedVideoMode = AcceleratedVideoMode::VideoRenderer;
+    updateDisplayLayer();
+}
+#endif
 
 } // namespace WebCore
 

@@ -94,6 +94,11 @@ int checkfilesys(const char *fname, check_context *context)
 							context->updater);
 	}
 
+	if (fname == NULL) {
+		ret = 8;
+		goto out;
+	}
+
 	/*
 	 * We accept device paths of the form "/dev/disk6s1" or "disk6s1"
 	 * and convert them to the raw path "/dev/rdisk6s1".

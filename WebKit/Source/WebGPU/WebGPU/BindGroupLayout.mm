@@ -399,7 +399,7 @@ Ref<BindGroupLayout> Device::createBindGroupLayout(const WGPUBindGroupLayoutDesc
     std::array<id<MTLArgumentEncoder>, stageCount> argumentEncoders;
     for (size_t stage = 0; stage < stageCount; ++stage) {
         auto renderStage = stages[stage];
-        if (auto bufferCountPerStage = bufferCounts[stage]) {
+        if (bufferCounts[stage]) {
             auto descriptor = [MTLArgumentDescriptor new];
             descriptor.dataType = MTLDataTypeInt;
             descriptor.access = BindGroupLayout::BindingAccessReadOnly;

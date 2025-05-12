@@ -242,6 +242,10 @@
 #include "LaunchServicesDatabaseManager.h"
 #endif
 
+#if HAVE(LOCKDOWN_MODE_FRAMEWORK)
+#import <pal/cocoa/LockdownModeCocoa.h>
+#endif
+
 #undef WEBPROCESS_RELEASE_LOG
 #define RELEASE_LOG_SESSION_ID (m_sessionID ? m_sessionID->toUInt64() : 0)
 #if RELEASE_LOG_DISABLED
@@ -622,6 +626,10 @@ void WebProcess::initializeWebProcess(WebProcessCreationParameters&& parameters,
 
     ScriptExecutionContext::setCrossOriginMode(parameters.crossOriginMode);
     DeprecatedGlobalSettings::setArePDFImagesEnabled(!isLockdownModeEnabled());
+
+#if HAVE(LOCKDOWN_MODE_FRAMEWORK)
+    PAL::setLockdownModeEnabledForCurrentProcess(isLockdownModeEnabled());
+#endif
 
 #if ENABLE(SERVICE_CONTROLS)
     setEnabledServices(parameters.hasImageServices, parameters.hasSelectionServices, parameters.hasRichContentServices);

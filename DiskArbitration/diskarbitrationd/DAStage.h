@@ -30,9 +30,11 @@
 extern "C" {
 #endif /* __cplusplus */
 
+#include "DADisk.h"
 
 extern void DAStageSignal( void );
 extern void __DASetIdleTimer( void );
+extern void DAStageDeferredProbe( DADiskRef disk );
 
 #ifdef __cplusplus
 }

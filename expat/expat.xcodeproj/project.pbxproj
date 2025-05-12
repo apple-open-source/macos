@@ -27,6 +27,7 @@
 			);
 			dependencies = (
 				FD18B1D71485AD8C00BBAEF9 /* PBXTargetDependency */,
+				2A4B3C612D9B657800DD8FFC /* PBXTargetDependency */,
 			);
 			name = expat_libs;
 			productName = expat_libs;
@@ -34,6 +35,14 @@
 /* End PBXAggregateTarget section */
 
 /* Begin PBXBuildFile section */
+		2A4B3C342D9B2A6100DD8FFC /* test-147857896.py in Install Test Files */ = {isa = PBXBuildFile; fileRef = 2A4B3C322D9B2A4900DD8FFC /* test-147857896.py */; };
+		2A4B3C362D9B2A8100DD8FFC /* expat.plist in Install test plist */ = {isa = PBXBuildFile; fileRef = 2A4B3C302D9B2A4900DD8FFC /* expat.plist */; };
+		2A4B3C372D9B2C3A00DD8FFC /* test-6295922.py in Install Test Files */ = {isa = PBXBuildFile; fileRef = 2A4B3C312D9B2A4900DD8FFC /* test-6295922.py */; };
+		2A4B3C562D9B5D5400DD8FFC /* xmlwf.c in Sources */ = {isa = PBXBuildFile; fileRef = 2A4B3C512D9B5D5400DD8FFC /* xmlwf.c */; };
+		2A4B3C5A2D9B5D5400DD8FFC /* codepage.c in Sources */ = {isa = PBXBuildFile; fileRef = 2A4B3C442D9B5D5400DD8FFC /* codepage.c */; };
+		2A4B3C5B2D9B5D5400DD8FFC /* xmlfile.c in Sources */ = {isa = PBXBuildFile; fileRef = 2A4B3C4D2D9B5D5400DD8FFC /* xmlfile.c */; };
+		2A4B3C5E2D9B5D6400DD8FFC /* libexpat.1.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = FD18B1C61485AC7200BBAEF9 /* libexpat.1.dylib */; };
+		2A4B3C5F2D9B5E3A00DD8FFC /* unixfilemap.c in Sources */ = {isa = PBXBuildFile; fileRef = 2A4B3C4A2D9B5D5400DD8FFC /* unixfilemap.c */; };
 		449F8B40285CEF9F0023BFE2 /* xml_parse_fuzzer.c in Sources */ = {isa = PBXBuildFile; fileRef = 449F8B2F285CEF420023BFE2 /* xml_parse_fuzzer.c */; };
 		449F8B4B285CEFC60023BFE2 /* xml_parsebuffer_fuzzer.c in Sources */ = {isa = PBXBuildFile; fileRef = 449F8B30285CEF420023BFE2 /* xml_parsebuffer_fuzzer.c */; };
 		449F8B4F285CEFDC0023BFE2 /* libexpat.1.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = FD18B1C61485AC7200BBAEF9 /* libexpat.1.dylib */; };
@@ -59,6 +68,13 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
+		2A4B3C602D9B657800DD8FFC /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = FD18B1B31485AC2600BBAEF9 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 2A4B3C3B2D9B5D1F00DD8FFC;
+			remoteInfo = xmlwf;
+		};
 		449F8B34285CEF650023BFE2 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = FD18B1B31485AC2600BBAEF9 /* Project object */;
@@ -104,6 +120,38 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
+		2A4B3C2D2D9B2A1000DD8FFC /* Install Test Files */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /AppleInternal/Tests/expat;
+			dstSubfolderSpec = 0;
+			files = (
+				2A4B3C372D9B2C3A00DD8FFC /* test-6295922.py in Install Test Files */,
+				2A4B3C342D9B2A6100DD8FFC /* test-147857896.py in Install Test Files */,
+			);
+			name = "Install Test Files";
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		2A4B3C352D9B2A6700DD8FFC /* Install test plist */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /AppleInternal/CoreOS/BATS/unit_tests;
+			dstSubfolderSpec = 0;
+			files = (
+				2A4B3C362D9B2A8100DD8FFC /* expat.plist in Install test plist */,
+			);
+			name = "Install test plist";
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		2A4B3C3A2D9B5D1F00DD8FFC /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = /usr/share/man/man1/;
+			dstSubfolderSpec = 0;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
 		FD18B1F91485B3F800BBAEF9 /* Install OpenSourceLicenses */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 8;
@@ -129,6 +177,28 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		2A4B3C302D9B2A4900DD8FFC /* expat.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = expat.plist; sourceTree = "<group>"; };
+		2A4B3C312D9B2A4900DD8FFC /* test-6295922.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = "test-6295922.py"; sourceTree = "<group>"; };
+		2A4B3C322D9B2A4900DD8FFC /* test-147857896.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = "test-147857896.py"; sourceTree = "<group>"; };
+		2A4B3C3C2D9B5D1F00DD8FFC /* xmlwf */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = xmlwf; sourceTree = BUILT_PRODUCTS_DIR; };
+		2A4B3C422D9B5D5400DD8FFC /* .gitignore */ = {isa = PBXFileReference; lastKnownFileType = text; path = .gitignore; sourceTree = "<group>"; };
+		2A4B3C432D9B5D5400DD8FFC /* codepage.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = codepage.h; sourceTree = "<group>"; };
+		2A4B3C442D9B5D5400DD8FFC /* codepage.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = codepage.c; sourceTree = "<group>"; };
+		2A4B3C452D9B5D5400DD8FFC /* ct.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = ct.c; sourceTree = "<group>"; };
+		2A4B3C462D9B5D5400DD8FFC /* filemap.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = filemap.h; sourceTree = "<group>"; };
+		2A4B3C472D9B5D5400DD8FFC /* Makefile.am */ = {isa = PBXFileReference; lastKnownFileType = text; path = Makefile.am; sourceTree = "<group>"; };
+		2A4B3C482D9B5D5400DD8FFC /* Makefile.in */ = {isa = PBXFileReference; lastKnownFileType = text; path = Makefile.in; sourceTree = "<group>"; };
+		2A4B3C492D9B5D5400DD8FFC /* readfilemap.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = readfilemap.c; sourceTree = "<group>"; };
+		2A4B3C4A2D9B5D5400DD8FFC /* unixfilemap.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = unixfilemap.c; sourceTree = "<group>"; };
+		2A4B3C4B2D9B5D5400DD8FFC /* win32filemap.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = win32filemap.c; sourceTree = "<group>"; };
+		2A4B3C4C2D9B5D5400DD8FFC /* xmlfile.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = xmlfile.h; sourceTree = "<group>"; };
+		2A4B3C4D2D9B5D5400DD8FFC /* xmlfile.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = xmlfile.c; sourceTree = "<group>"; };
+		2A4B3C4E2D9B5D5400DD8FFC /* xmlmime.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = xmlmime.h; sourceTree = "<group>"; };
+		2A4B3C4F2D9B5D5400DD8FFC /* xmlmime.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = xmlmime.c; sourceTree = "<group>"; };
+		2A4B3C502D9B5D5400DD8FFC /* xmltchar.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = xmltchar.h; sourceTree = "<group>"; };
+		2A4B3C512D9B5D5400DD8FFC /* xmlwf.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = xmlwf.c; sourceTree = "<group>"; };
+		2A4B3C522D9B5D5400DD8FFC /* xmlwf_helpgen.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = xmlwf_helpgen.py; sourceTree = "<group>"; };
+		2A4B3C532D9B5D5400DD8FFC /* xmlwf_helpgen.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = xmlwf_helpgen.sh; sourceTree = "<group>"; };
 		449F8B2F285CEF420023BFE2 /* xml_parse_fuzzer.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = xml_parse_fuzzer.c; sourceTree = "<group>"; };
 		449F8B30285CEF420023BFE2 /* xml_parsebuffer_fuzzer.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = xml_parsebuffer_fuzzer.c; sourceTree = "<group>"; };
 		449F8B3A285CEF8A0023BFE2 /* xml_parse_fuzzer */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = xml_parse_fuzzer; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -158,6 +228,14 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		2A4B3C392D9B5D1F00DD8FFC /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				2A4B3C5E2D9B5D6400DD8FFC /* libexpat.1.dylib in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		449F8B37285CEF8A0023BFE2 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -184,6 +262,49 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		2A4B3C332D9B2A4900DD8FFC /* tests */ = {
+			isa = PBXGroup;
+			children = (
+				2A4B3C302D9B2A4900DD8FFC /* expat.plist */,
+				2A4B3C312D9B2A4900DD8FFC /* test-6295922.py */,
+				2A4B3C322D9B2A4900DD8FFC /* test-147857896.py */,
+			);
+			path = tests;
+			sourceTree = "<group>";
+		};
+		2A4B3C542D9B5D5400DD8FFC /* xmlwf */ = {
+			isa = PBXGroup;
+			children = (
+				2A4B3C422D9B5D5400DD8FFC /* .gitignore */,
+				2A4B3C432D9B5D5400DD8FFC /* codepage.h */,
+				2A4B3C442D9B5D5400DD8FFC /* codepage.c */,
+				2A4B3C452D9B5D5400DD8FFC /* ct.c */,
+				2A4B3C462D9B5D5400DD8FFC /* filemap.h */,
+				2A4B3C472D9B5D5400DD8FFC /* Makefile.am */,
+				2A4B3C482D9B5D5400DD8FFC /* Makefile.in */,
+				2A4B3C492D9B5D5400DD8FFC /* readfilemap.c */,
+				2A4B3C4A2D9B5D5400DD8FFC /* unixfilemap.c */,
+				2A4B3C4B2D9B5D5400DD8FFC /* win32filemap.c */,
+				2A4B3C4C2D9B5D5400DD8FFC /* xmlfile.h */,
+				2A4B3C4D2D9B5D5400DD8FFC /* xmlfile.c */,
+				2A4B3C4E2D9B5D5400DD8FFC /* xmlmime.h */,
+				2A4B3C4F2D9B5D5400DD8FFC /* xmlmime.c */,
+				2A4B3C502D9B5D5400DD8FFC /* xmltchar.h */,
+				2A4B3C512D9B5D5400DD8FFC /* xmlwf.c */,
+				2A4B3C522D9B5D5400DD8FFC /* xmlwf_helpgen.py */,
+				2A4B3C532D9B5D5400DD8FFC /* xmlwf_helpgen.sh */,
+			);
+			name = xmlwf;
+			path = expat/xmlwf;
+			sourceTree = "<group>";
+		};
+		2A4B3C5D2D9B5D6400DD8FFC /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
 		449F8B2E285CEED90023BFE2 /* fuzz */ = {
 			isa = PBXGroup;
 			children = (
@@ -202,6 +323,8 @@
 				FD18B1FC1485B43D00BBAEF9 /* expat_config.h */,
 				FD18B1D81485AD9E00BBAEF9 /* Source */,
 				FD18B1C71485AC7200BBAEF9 /* Products */,
+				2A4B3C332D9B2A4900DD8FFC /* tests */,
+				2A4B3C5D2D9B5D6400DD8FFC /* Frameworks */,
 			);
 			sourceTree = "<group>";
 		};
@@ -211,6 +334,7 @@
 				FD18B1C61485AC7200BBAEF9 /* libexpat.1.dylib */,
 				449F8B3A285CEF8A0023BFE2 /* xml_parse_fuzzer */,
 				449F8B45285CEFB70023BFE2 /* xml_parsebuffer_fuzzer */,
+				2A4B3C3C2D9B5D1F00DD8FFC /* xmlwf */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -220,6 +344,7 @@
 			children = (
 				449F8B2E285CEED90023BFE2 /* fuzz */,
 				FD18B1D91485ADA500BBAEF9 /* lib */,
+				2A4B3C542D9B5D5400DD8FFC /* xmlwf */,
 			);
 			name = Source;
 			sourceTree = "<group>";
@@ -275,6 +400,25 @@
 /* End PBXHeadersBuildPhase section */
 
 /* Begin PBXNativeTarget section */
+		2A4B3C3B2D9B5D1F00DD8FFC /* xmlwf */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 2A4B3C402D9B5D1F00DD8FFC /* Build configuration list for PBXNativeTarget "xmlwf" */;
+			buildPhases = (
+				2A4B3C382D9B5D1F00DD8FFC /* Sources */,
+				2A4B3C392D9B5D1F00DD8FFC /* Frameworks */,
+				2A4B3C3A2D9B5D1F00DD8FFC /* CopyFiles */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = xmlwf;
+			packageProductDependencies = (
+			);
+			productName = xmlwf;
+			productReference = 2A4B3C3C2D9B5D1F00DD8FFC /* xmlwf */;
+			productType = "com.apple.product-type.tool";
+		};
 		449F8B39285CEF8A0023BFE2 /* xml_parse_fuzzer */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 449F8B3E285CEF8A0023BFE2 /* Build configuration list for PBXNativeTarget "xml_parse_fuzzer" */;
@@ -319,6 +463,8 @@
 				FD18B1F91485B3F800BBAEF9 /* Install OpenSourceLicenses */,
 				FD18B1FA1485B3FC00BBAEF9 /* Install OpenSourceVersions */,
 				FD18B2011485B7BB00BBAEF9 /* Create Library Symlinks */,
+				2A4B3C2D2D9B2A1000DD8FFC /* Install Test Files */,
+				2A4B3C352D9B2A6700DD8FFC /* Install test plist */,
 			);
 			buildRules = (
 			);
@@ -337,6 +483,10 @@
 			attributes = {
 				LastUpgradeCheck = 0440;
 				TargetAttributes = {
+					2A4B3C3B2D9B5D1F00DD8FFC = {
+						CreatedOnToolsVersion = 16.3;
+						ProvisioningStyle = Automatic;
+					};
 					449F8B31285CEF5D0023BFE2 = {
 						CreatedOnToolsVersion = 14.0;
 						ProvisioningStyle = Automatic;
@@ -369,6 +519,7 @@
 				449F8B31285CEF5D0023BFE2 /* Fuzzers */,
 				449F8B39285CEF8A0023BFE2 /* xml_parse_fuzzer */,
 				449F8B44285CEFB70023BFE2 /* xml_parsebuffer_fuzzer */,
+				2A4B3C3B2D9B5D1F00DD8FFC /* xmlwf */,
 			);
 		};
 /* End PBXProject section */
@@ -391,6 +542,17 @@
 /* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		2A4B3C382D9B5D1F00DD8FFC /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				2A4B3C562D9B5D5400DD8FFC /* xmlwf.c in Sources */,
+				2A4B3C5A2D9B5D5400DD8FFC /* codepage.c in Sources */,
+				2A4B3C5B2D9B5D5400DD8FFC /* xmlfile.c in Sources */,
+				2A4B3C5F2D9B5E3A00DD8FFC /* unixfilemap.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		449F8B36285CEF8A0023BFE2 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -420,6 +582,11 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
+		2A4B3C612D9B657800DD8FFC /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 2A4B3C3B2D9B5D1F00DD8FFC /* xmlwf */;
+			targetProxy = 2A4B3C602D9B657800DD8FFC /* PBXContainerItemProxy */;
+		};
 		449F8B35285CEF650023BFE2 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = FD18B1C51485AC7200BBAEF9 /* expat */;
@@ -453,6 +620,61 @@
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
+		2A4B3C412D9B5D1F00DD8FFC /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				INSTALL_PATH = /AppleInternal/Tests/expat;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MACOSX_DEPLOYMENT_TARGET = 15.4;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+			};
+			name = Release;
+		};
 		449F8B33285CEF5D0023BFE2 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -612,6 +834,14 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		2A4B3C402D9B5D1F00DD8FFC /* Build configuration list for PBXNativeTarget "xmlwf" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				2A4B3C412D9B5D1F00DD8FFC /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 		449F8B32285CEF5D0023BFE2 /* Build configuration list for PBXAggregateTarget "Fuzzers" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (

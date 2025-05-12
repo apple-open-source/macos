@@ -1,0 +1,25 @@
+line 1 column 1 - Warning: missing <!DOCTYPE> declaration
+line 160 column 131 - Warning: <o:p> is not approved by W3C
+line 168 column 73 - Warning: <o:p> is not approved by W3C
+line 170 column 129 - Warning: <o:p> is not approved by W3C
+line 175 column 45 - Warning: <o:p> is not approved by W3C
+line 189 column 129 - Warning: <o:p> is not approved by W3C
+line 202 column 61 - Warning: <o:p> is not approved by W3C
+line 204 column 129 - Warning: <o:p> is not approved by W3C
+line 1 column 1 - Warning: <html> proprietary attribute "xmlns:o"
+line 1 column 1 - Warning: <html> proprietary attribute "xmlns:w"
+line 46 column 1 - Warning: <style> inserting "type" attribute
+line 177 column 1 - Warning: replacing unexpected <p> by <li>
+line 181 column 1 - Warning: replacing unexpected <p> by <li>
+line 185 column 1 - Warning: replacing unexpected <p> by <li>
+line 160 column 1 - Warning: trimming empty <p>
+line 170 column 1 - Warning: trimming empty <p>
+line 189 column 1 - Warning: trimming empty <p>
+line 204 column 1 - Warning: trimming empty <p>
+Info: Document content looks like HTML Proprietary
+18 warnings, 0 errors were found!
+
+To learn more about HTML Tidy see http://tidy.sourceforge.net
+Please send bug reports to html-tidy@w3.org
+HTML and CSS specifications are available from http://www.w3.org/
+Lobby your company to join W3C, see http://www.w3.org/Consortium

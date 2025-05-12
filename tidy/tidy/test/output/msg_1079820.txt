@@ -1,0 +1,15 @@
+line 32 column 12 - Warning: <u> is probably intended as </u>
+line 33 column 5 - Warning: discarding unexpected </u>
+line 34 column 1 - Warning: discarding unexpected </u>
+line 36 column 12 - Warning: nested emphasis <u>
+line 40 column 12 - Warning: nested emphasis <u>
+line 44 column 1 - Warning: nested emphasis <u>
+Info: Doctype given is "-//W3C//DTD HTML 4.01//EN"
+Info: Document content looks like HTML 4.01 Transitional
+Info: No system identifier in emitted doctype
+6 warnings, 0 errors were found!
+
+To learn more about HTML Tidy see http://tidy.sourceforge.net
+Please send bug reports to html-tidy@w3.org
+HTML and CSS specifications are available from http://www.w3.org/
+Lobby your company to join W3C, see http://www.w3.org/Consortium

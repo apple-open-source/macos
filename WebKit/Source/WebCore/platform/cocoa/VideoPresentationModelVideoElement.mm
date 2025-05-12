@@ -78,6 +78,7 @@ void VideoPresentationModelVideoElement::cleanVideoListeners()
     m_isListening = false;
     if (!m_videoElement)
         return;
+    m_videoElement->removeClient(*this);
     for (auto& eventName : observedEventNames())
         m_videoElement->removeEventListener(eventName, m_videoListener, false);
     for (auto& eventName : documentObservedEventNames())
@@ -101,6 +102,7 @@ void VideoPresentationModelVideoElement::setVideoElement(HTMLVideoElement* video
     ALWAYS_LOG_IF_POSSIBLE(LOGIDENTIFIER);
 
     if (m_videoElement) {
+        m_videoElement->addClient(*this);
         for (auto& eventName : observedEventNames())
             m_videoElement->addEventListener(eventName, m_videoListener, false);
         m_isListening = true;
@@ -402,6 +404,12 @@ void VideoPresentationModelVideoElement::setTextTrackRepresentationBounds(const 
 
     ALWAYS_LOG_IF_POSSIBLE(LOGIDENTIFIER, bounds.size());
     videoElement->setTextTrackRepresentataionBounds(bounds);
+}
+
+void VideoPresentationModelVideoElement::audioSessionCategoryChanged(AudioSessionCategory category, AudioSessionMode mode, RouteSharingPolicy policy)
+{
+    for (auto& client : copyToVector(m_clients))
+        client->audioSessionCategoryChanged(category, mode, policy);
 }
 
 #if !RELEASE_LOG_DISABLED

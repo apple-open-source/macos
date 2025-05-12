@@ -81,7 +81,7 @@ NSDateFormatter *LocalizedDateCache::formatterForDateType(DateComponentsType typ
     return dateFormatter.autorelease();
 }
 
-float LocalizedDateCache::maximumWidthForDateType(DateComponentsType type, const FontCascade& font, const MeasureTextClient& measurer)
+float LocalizedDateCache::estimatedMaximumWidthForDateType(DateComponentsType type, const FontCascade& font, const MeasureTextClient& measurer)
 {
     int key = static_cast<int>(type);
     if (m_font == font) {
@@ -92,9 +92,9 @@ float LocalizedDateCache::maximumWidthForDateType(DateComponentsType type, const
         m_maxWidthMap.clear();
     }
 
-    float calculatedMaximum = calculateMaximumWidth(type, measurer);
-    m_maxWidthMap.set(key, calculatedMaximum);
-    return calculatedMaximum;
+    float estimatedMaximum = estimateMaximumWidth(type, measurer);
+    m_maxWidthMap.set(key, estimatedMaximum);
+    return estimatedMaximum;
 }
 
 RetainPtr<NSDateFormatter> LocalizedDateCache::createFormatterForType(DateComponentsType type)
@@ -133,25 +133,28 @@ RetainPtr<NSDateFormatter> LocalizedDateCache::createFormatterForType(DateCompon
 
 #if ENABLE(INPUT_TYPE_WEEK_PICKER)
 
-static float calculateMaximumWidthForWeek(const MeasureTextClient& measurer)
+static float estimateMaximumWidthForWeek(const MeasureTextClient& measurer)
 {
-    std::array<float, 10> numLengths;
-    for (auto [i, numLength] : indexedRange(numLengths)) {
-        numLength = measurer.measureText(makeString(i));
-        ASSERT(numLengths[i] == numLength);
+    RetainPtr allDigitNumber = adoptNS([[NSNumber alloc] initWithUnsignedLongLong:9876543210]);
+    RetainPtr localizedDigits = [NSNumberFormatter localizedStringFromNumber:allDigitNumber.get() numberStyle:NSNumberFormatterNoStyle];
+
+    std::array<float, 10> numeralLengths;
+    for (auto [i, numLength] : indexedRange(numeralLengths)) {
+        numLength = measurer.measureText(String([localizedDigits substringWithRange:NSMakeRange(9 - i, 1)]));
+        ASSERT(numeralLengths[i] == numLength);
     }
 
-    std::span numLengthsSpan { numLengths };
-    int widestNum = std::distance(numLengthsSpan.begin(), std::ranges::max_element(numLengthsSpan));
-    int widestNumOneThroughFour = std::distance(numLengthsSpan.begin(), std::ranges::max_element(numLengthsSpan.subspan(1, 4)));
-    int widestNumNonZero = std::distance(numLengthsSpan.begin(), std::ranges::max_element(numLengthsSpan.subspan(1)));
+    std::span numeralLengthsSpan { numeralLengths };
+    unsigned widestNum = std::distance(numeralLengthsSpan.begin(), std::ranges::max_element(numeralLengthsSpan));
+    unsigned widestNumOneThroughFour = std::distance(numeralLengthsSpan.begin(), std::ranges::max_element(numeralLengthsSpan.subspan(1, 4)));
+    unsigned widestNumNonZero = std::distance(numeralLengthsSpan.begin(), std::ranges::max_element(numeralLengthsSpan.subspan(1)));
 
     RetainPtr<NSString> weekString;
     // W50 is an edge case here; without this check, a suboptimal choice would be made when 5 and 0 are both large and all other numbers are narrow.
-    if (numLengths[5] + numLengths[0] > numLengths[widestNumOneThroughFour] + numLengths[widestNum])
-        weekString = adoptNS([NSString stringWithFormat:@"%d%d%d%d-W50", widestNumNonZero, widestNum, widestNum, widestNum]);
+    if (numeralLengths[5] + numeralLengths[0] > numeralLengths[widestNumOneThroughFour] + numeralLengths[widestNum])
+        weekString = [NSString stringWithFormat:@"%d%d%d%d-W50", widestNumNonZero, widestNum, widestNum, widestNum];
     else
-        weekString = adoptNS([NSString stringWithFormat:@"%d%d%d%d-W%d%d", widestNumNonZero, widestNum, widestNum, widestNum, widestNumOneThroughFour, widestNum]);
+        weekString = [NSString stringWithFormat:@"%d%d%d%d-W%d%d", widestNumNonZero, widestNum, widestNum, widestNum, widestNumOneThroughFour, widestNum];
 
     if (auto components = DateComponents::fromParsingWeek((String)weekString.get()))
         return measurer.measureText(inputWeekLabel(components.value()));
@@ -164,49 +167,202 @@ static float calculateMaximumWidthForWeek(const MeasureTextClient& measurer)
 
 // NOTE: This does not check for the widest day of the week.
 // We assume no formatter option shows that information.
-float LocalizedDateCache::calculateMaximumWidth(DateComponentsType type, const MeasureTextClient& measurer)
+float LocalizedDateCache::estimateMaximumWidth(DateComponentsType type, const MeasureTextClient& measurer)
 {
+    // NOTE: The purpose of this method is to quickly estimate the width of the widest possible string
+    // that a date/time control can display. It is only an estimate because it does not consider font
+    // characteristics such as kerning, and instead assumes that the order in which characters are displayed
+    // does not affect the overall width. All comments should be interpreted within this context.
+
 #if ENABLE(INPUT_TYPE_WEEK_PICKER)
     if (type == DateComponentsType::Week)
-        return calculateMaximumWidthForWeek(measurer);
+        return estimateMaximumWidthForWeek(measurer);
 #endif
 
-    float maximumWidth = 0;
+    auto shouldCalculateWidthForTime = (type == DateComponentsType::Time || type == DateComponentsType::DateTimeLocal);
+    auto shouldCalculateWidthForMonthAndYear = (type != DateComponentsType::Time && type != DateComponentsType::Week);
+    auto shouldCalculateWidthForDayOfMonth = (type == DateComponentsType::Date || type == DateComponentsType::DateTimeLocal);
 
     // Get the formatter we would use, copy it because we will force its time zone to be UTC.
-    auto dateFormatter = adoptNS([formatterForDateType(type) copy]);
+    RetainPtr dateFormatter = adoptNS([formatterForDateType(type) copy]);
     [dateFormatter setTimeZone:[NSTimeZone timeZoneForSecondsFromGMT:0]];
 
-    // Sample date with a 4 digit year and 2 digit day, hour, and minute. Digits are
-    // typically all equally wide. Force UTC timezone for the test date below so the
-    // date doesn't adjust for the current timezone. This is an arbitrary date
-    // (x-27-2007) and time (10:45 PM).
-    RetainPtr<NSCalendar> gregorian = adoptNS([[NSCalendar alloc] initWithCalendarIdentifier:NSCalendarIdentifierGregorian]);
+    RetainPtr gregorian = adoptNS([[NSCalendar alloc] initWithCalendarIdentifier:NSCalendarIdentifierGregorian]);
     [gregorian setTimeZone:[NSTimeZone timeZoneForSecondsFromGMT:0]];
-    RetainPtr<NSDateComponents> components = adoptNS([[NSDateComponents alloc] init]);
-    [components setDay:27];
-    [components setYear:2007];
-    [components setHour:22];
-    [components setMinute:45];
 
-    static const NSUInteger numberOfGregorianMonths = [[dateFormatter monthSymbols] count];
-    ASSERT(numberOfGregorianMonths == 12);
+    // Create our initial date components using arbitrary values. These will be updated as needed later on.
+    RetainPtr components = adoptNS([[NSDateComponents alloc] init]);
+    [components setMinute:55];
+    [components setHour:14];
+    [components setDay:19];
+    [components setMonth:3];
+    [components setYear:2025];
 
-    // For each month (in the Gregorian Calendar), format a date and measure its length.
-    NSUInteger totalMonthsToTest = 1;
-    if (type == DateComponentsType::Date
-        || type == DateComponentsType::DateTimeLocal
-        || type == DateComponentsType::Month
-        )
-        totalMonthsToTest = numberOfGregorianMonths;
-    for (NSUInteger i = 0; i < totalMonthsToTest; ++i) {
-        [components setMonth:(i + 1)];
-        NSDate *date = [gregorian dateFromComponents:components.get()];
-        NSString *formattedDate = [dateFormatter stringFromDate:date];
-        maximumWidth = std::max(maximumWidth, measurer.measureText(String(formattedDate)));
+    // Retrieve localized numerals to measure.
+    RetainPtr allDigitNumber = adoptNS([[NSNumber alloc] initWithUnsignedLongLong:9876543210]);
+    RetainPtr localizedDigits = [NSNumberFormatter localizedStringFromNumber:allDigitNumber.get() numberStyle:NSNumberFormatterNoStyle];
+
+    if ([localizedDigits length] != 10) {
+        ASSERT_NOT_REACHED();
+        return 0.f;
     }
 
-    return maximumWidth;
+    // Store the width of each numeral to use for comparison later.
+    std::array<float, 10> numeralLengths;
+    std::span numeralLengthsSpan { numeralLengths };
+    for (auto [i, numLength] : indexedRange(numeralLengths)) {
+        numLength = measurer.measureText(String([localizedDigits substringWithRange:NSMakeRange(9 - i, 1)]));
+        ASSERT(numeralLengths[i] == numLength);
+    }
+
+    unsigned widestNum = std::distance(numeralLengthsSpan.begin(), std::ranges::max_element(numeralLengthsSpan));
+    unsigned widestNumNonZero = std::distance(numeralLengthsSpan.begin(), std::ranges::max_element(numeralLengthsSpan.subspan(1)));
+
+    // Find the widest 4-digit year. Leading zeros are removed when the full year is displayed, so it can't start with zero.
+    if (shouldCalculateWidthForMonthAndYear)
+        [components setYear:(widestNumNonZero * 1000 + widestNum * 111)];
+
+    if (shouldCalculateWidthForTime) {
+        // Find the widest hour. Our strategy for this will differ depending on how time is displayed for the user's locale.
+        unsigned hourCandidate;
+        RetainPtr timeFormat = [NSDateFormatter dateFormatFromTemplate:@"j" options:0 locale:[dateFormatter locale]];
+        if ([timeFormat containsString:@"a"]) {
+            // Using 12 hour time.
+            unsigned widestNumZeroThroughTwo = std::distance(numeralLengthsSpan.begin(), std::ranges::max_element(numeralLengthsSpan.subspan(0, 2)));
+            hourCandidate = 10 + widestNumZeroThroughTwo;
+
+            float hourCandidateLength = numeralLengths[1] + numeralLengths[widestNumZeroThroughTwo];
+            if (hourCandidateLength < numeralLengths[widestNumNonZero])
+                hourCandidate = widestNumNonZero;
+
+            // If the symbols used for PM are wider than AM, shift the hour forward by 12.
+            if (measurer.measureText(String([dateFormatter AMSymbol])) < measurer.measureText(String([dateFormatter PMSymbol])))
+                hourCandidate += 12;
+        } else if ([timeFormat containsString:@"HH"]) {
+            // Using 24 hour time with leading zero for single-digit hours.
+            unsigned widestNumZeroThroughOne = std::distance(numeralLengthsSpan.begin(), std::ranges::max_element(numeralLengthsSpan.subspan(0, 1)));
+            unsigned widestNumZeroThroughThree = std::distance(numeralLengthsSpan.begin(), std::ranges::max_element(numeralLengthsSpan.subspan(0, 3)));
+            hourCandidate = widestNumZeroThroughOne * 10 + widestNum;
+
+            float hourCandidateLength = numeralLengths[widestNumZeroThroughOne] + numeralLengths[widestNum];
+            if (hourCandidateLength < numeralLengths[2] + numeralLengths[widestNumZeroThroughThree])
+                hourCandidate = 20 + widestNumZeroThroughThree;
+        } else {
+            // Using 24 hour time with no leading zero for single-digit hours.
+            unsigned widestNumZeroThroughThree = std::distance(numeralLengthsSpan.begin(), std::ranges::max_element(numeralLengthsSpan.subspan(0, 3)));
+            hourCandidate = 10 + widestNum;
+
+            float hourCandidateLength = numeralLengths[1] + numeralLengths[widestNum];
+            if (hourCandidateLength < numeralLengths[2] + numeralLengths[widestNumZeroThroughThree])
+                hourCandidate = 20 + widestNumZeroThroughThree;
+        }
+
+        [components setHour:hourCandidate];
+
+        // Find the widest minute.
+        unsigned widestNumZeroThroughFive = std::distance(numeralLengthsSpan.begin(), std::ranges::max_element(numeralLengthsSpan.subspan(0, 5)));
+        [components setMinute:(10 * widestNumZeroThroughFive + widestNum)];
+    }
+
+    if (shouldCalculateWidthForMonthAndYear) {
+        // Find the widest month.
+        unsigned widestMonth = 1;
+        unsigned secondWidestMonth = 2;
+        float widestDateWidthForMonthCalculation = 0;
+        float secondWidestDateWidthForMonthCalculation = 0;
+
+        // NSDateComponents start at 1 for January.
+        for (NSUInteger i = 1; i <= 12; ++i) {
+            [components setMonth:i];
+            RetainPtr tempDate = [gregorian dateFromComponents:components.get()];
+            if (!tempDate) {
+                ASSERT_NOT_REACHED();
+                return 0.f;
+            }
+
+            RetainPtr tempFormattedDate = [dateFormatter stringFromDate:tempDate.get()];
+            float currentLength = measurer.measureText(String(tempFormattedDate.get()));
+
+            if (currentLength == widestDateWidthForMonthCalculation) {
+                // Month i has the same width as the current widest month. We only need to
+                // update the widest month if it's currently February, because this would allow
+                // us to avoid checking an edge case later if we need to find the widest day of
+                // month. The second-widest month will be updated regardless.
+
+                if (widestMonth == 2) {
+                    secondWidestMonth = widestMonth;
+                    widestMonth = i;
+                    secondWidestDateWidthForMonthCalculation = widestDateWidthForMonthCalculation;
+                    widestDateWidthForMonthCalculation = currentLength;
+                } else {
+                    secondWidestMonth = i;
+                    secondWidestDateWidthForMonthCalculation = currentLength;
+                }
+            } else if (currentLength > widestDateWidthForMonthCalculation) {
+                // Month i is wider than our current widest month. Update accordingly.
+                secondWidestMonth = widestMonth;
+                widestMonth = i;
+                secondWidestDateWidthForMonthCalculation = widestDateWidthForMonthCalculation;
+                widestDateWidthForMonthCalculation = currentLength;
+            }
+        }
+
+        [components setMonth:widestMonth];
+
+        if (shouldCalculateWidthForDayOfMonth) {
+            // Get the widest day of month. If the widest month has 31 or 30 days, then the widest date is guaranteed to use
+            // the widest month. Even if the month only has 30 days and 3 and 1 are the two widest digits, we would still
+            // get the widest day by using 13.
+            unsigned widestNumOneThroughTwo = std::distance(numeralLengthsSpan.begin(), std::ranges::max_element(numeralLengthsSpan.subspan(1, 2)));
+            unsigned dayOfMonthCandidate;
+
+            if (widestMonth == 2) {
+                // The widest month is February. Find the widest day from 1-28, and check an edge case afterward. Note
+                // that we never need to consider leap years; if the widest day of the month is 29, then we know the widest
+                // year must be 9999, which is not a leap year.
+                unsigned widestNumZeroThroughEight = std::distance(numeralLengthsSpan.begin(), std::ranges::max_element(numeralLengthsSpan.subspan(0, 8)));
+                dayOfMonthCandidate = widestNumOneThroughTwo * 10 + widestNumZeroThroughEight;
+                float dayOfMonthCandidateLength = numeralLengths[widestNumOneThroughTwo] + numeralLengths[widestNumZeroThroughEight];
+
+                // Days 29 are 30 are edge cases. If either are wider than the widest day of month in February, we
+                // need to consider that the difference in day width might be larger than the difference in month width.
+                unsigned widestNumOneThroughThree = std::distance(numeralLengthsSpan.begin(), std::ranges::max_element(numeralLengthsSpan.subspan(1, 3)));
+                unsigned widerDayOfMonth = 0;
+
+                if (widestNumOneThroughTwo == 2 && widestNum == 9)
+                    widerDayOfMonth = 29;
+                else if (widestNumOneThroughThree == 3 && widestNum == 0)
+                    widerDayOfMonth = 30;
+
+                if (widerDayOfMonth) {
+                    float differenceForMonthWidths = widestDateWidthForMonthCalculation - secondWidestDateWidthForMonthCalculation;
+                    float widestDayOfMonthWidth = numeralLengths[widerDayOfMonth / 10] + numeralLengths[widerDayOfMonth % 10];
+                    float differenceForDayOfMonthWidths = widestDayOfMonthWidth - dayOfMonthCandidateLength;
+
+                    if (differenceForMonthWidths < differenceForDayOfMonthWidths) {
+                        // It is suboptimal to use February. Switch to the second-widest month
+                        // and the true widest day of month.
+                        [components setMonth:secondWidestMonth];
+                        dayOfMonthCandidate = widerDayOfMonth;
+                    }
+                }
+
+            } else {
+                dayOfMonthCandidate = widestNumOneThroughTwo * 10 + widestNum;
+                float dayOfMonthCandidateLength = numeralLengths[widestNumOneThroughTwo] + numeralLengths[widestNum];
+                if (dayOfMonthCandidateLength < numeralLengths[3] + numeralLengths[0])
+                    dayOfMonthCandidate = 30;
+            }
+
+            [components setDay:dayOfMonthCandidate];
+        }
+    }
+
+    if (RetainPtr date = [gregorian dateFromComponents:components.get()])
+        return measurer.measureText(String([dateFormatter stringFromDate:date.get()]));
+
+    ASSERT_NOT_REACHED();
+    return 0.f;
 }
 
 } // namespace WebCore

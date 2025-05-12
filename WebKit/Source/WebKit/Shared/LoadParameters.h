@@ -25,13 +25,13 @@
 
 #pragma once
 
+#include "FrameInfoData.h"
 #include "NetworkResourceLoadIdentifier.h"
 #include "PolicyDecision.h"
 #include "SandboxExtension.h"
 #include "UserData.h"
 #include "WebsitePoliciesData.h"
 #include <WebCore/AdvancedPrivacyProtections.h>
-#include <WebCore/FrameIdentifier.h>
 #include <WebCore/FrameLoaderTypes.h>
 #include <WebCore/NavigationIdentifier.h>
 #include <WebCore/OwnerPermissionsPolicyData.h>
@@ -68,6 +68,7 @@ struct LoadParameters {
     String provisionalLoadErrorURLString;
 
     std::optional<WebsitePoliciesData> websitePolicies;
+    std::optional<FrameInfoData> originatingFrame;
 
     WebCore::ShouldOpenExternalURLsPolicy shouldOpenExternalURLsPolicy { WebCore::ShouldOpenExternalURLsPolicy::ShouldNotAllow };
     WebCore::ShouldTreatAsContinuingLoad shouldTreatAsContinuingLoad { WebCore::ShouldTreatAsContinuingLoad::No };

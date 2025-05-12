@@ -1,0 +1,56 @@
+line 1 column 1 - Warning: missing <!DOCTYPE> declaration
+line 1 column 10 - Warning: <dl> missing '>' for end of tag
+line 1 column 10 - Warning: <dl> attribute name "!" (value="D") is invalid
+line 1 column 1 - Warning: missing </pre> before <dl>
+line 1 column 27 - Error: <h> is not recognized!
+line 1 column 27 - Warning: discarding unexpected <h>
+line 1 column 32 - Warning: discarding malformed <!DOCTYPE>
+line 1 column 10 - Warning: missing </dl>
+line 1 column 32 - Warning: inserting implicit <pre>
+line 2 column 45 - Warning: <dl> missing '>' for end of tag
+line 2 column 45 - Warning: <dl> attribute name "!" (value="D") is invalid
+line 1 column 32 - Warning: missing </pre> before <dl>
+line 2 column 62 - Error: <h> is not recognized!
+line 2 column 62 - Warning: discarding unexpected <h>
+line 2 column 67 - Warning: discarding malformed <!DOCTYPE>
+line 2 column 45 - Warning: missing </dl>
+line 2 column 67 - Warning: inserting implicit <pre>
+line 3 column 80 - Error: <d> is not recognized!
+line 3 column 80 - Warning: discarding unexpected <d>
+line 3 column 91 - Warning: <dl> missing '>' for end of tag
+line 3 column 91 - Warning: <dl> attribute name "!" (value="D") is invalid
+line 2 column 67 - Warning: missing </pre> before <dl>
+line 3 column 111 - Warning: discarding malformed <!DOCTYPE>
+line 3 column 91 - Warning: missing </dl>
+line 3 column 111 - Warning: inserting implicit <pre>
+line 4 column 123 - Warning: <dl> missing '>' for end of tag
+line 4 column 123 - Warning: <dl> attribute name "!" (value="D") is invalid
+line 3 column 111 - Warning: missing </pre> before <dl>
+line 4 column 140 - Error: <h> is not recognized!
+line 4 column 140 - Warning: discarding unexpected <h>
+line 4 column 145 - Warning: discarding malformed <!DOCTYPE>
+line 4 column 123 - Warning: missing </dl>
+line 4 column 145 - Warning: inserting implicit <pre>
+line 5 column 158 - Warning: <dl> missing '>' for end of tag
+line 5 column 158 - Warning: <dl> attribute name "!" (value="D") is invalid
+line 4 column 145 - Warning: missing </pre> before <dl>
+line 5 column 175 - Error: <h> is not recognized!
+line 5 column 175 - Warning: discarding unexpected <h>
+line 5 column 180 - Warning: discarding malformed <!DOCTYPE>
+line 5 column 158 - Warning: missing </dl>
+line 5 column 180 - Warning: inserting implicit <pre>
+line 6 column 193 - Warning: <dl> missing '>' for end of tag
+line 6 column 193 - Warning: <dl> attribute name "!" (value="D") is invalid
+line 5 column 180 - Warning: missing </pre> before <dl>
+line 6 column 210 - Error: <h> is not recognized!
+250 warnings, 35 errors were found! Not all warnings/errors were shown.
+
+Character codes 128 to 159 (U+0080 to U+009F) are not allowed in HTML;
+even if they were, they would likely be unprintable control characters.
+Tidy assumed you wanted to refer to a character with the same byte value in the 
+specified encoding and replaced that reference with the Unicode equivalent.
+
+To learn more about HTML Tidy see http://tidy.sourceforge.net
+Please send bug reports to html-tidy@w3.org
+HTML and CSS specifications are available from http://www.w3.org/
+Lobby your company to join W3C, see http://www.w3.org/Consortium

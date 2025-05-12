@@ -489,7 +489,7 @@ void JSWebAssemblyInstance::initElementSegment(uint32_t tableIndex, const Elemen
             }
 
             auto& jsEntrypointCallee = calleeGroup()->jsEntrypointCalleeFromFunctionIndexSpace(functionIndex);
-            auto* wasmCallee = calleeGroup()->wasmCalleeFromFunctionIndexSpace(functionIndex);
+            auto wasmCallee = calleeGroup()->wasmCalleeFromFunctionIndexSpace(functionIndex);
             ASSERT(wasmCallee);
             WasmToWasmImportableFunction::LoadLocation entrypointLoadLocation = calleeGroup()->entrypointLoadLocationFromFunctionIndexSpace(functionIndex);
             const auto& signature = TypeInformation::getFunctionSignature(typeIndex);

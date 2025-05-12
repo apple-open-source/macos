@@ -33,8 +33,10 @@
 #include <WebCore/SQLiteStatementAutoResetScope.h>
 #include <WebCore/SQLiteTransaction.h>
 #include <WebCore/StorageMap.h>
+#include <wtf/Assertions.h>
 #include <wtf/FileSystem.h>
 #include <wtf/TZoneMallocInlines.h>
+#include <wtf/Vector.h>
 
 namespace WebKit {
 
@@ -295,15 +297,28 @@ HashMap<String, String> SQLiteStorageArea::allItems()
     HashMap<String, String> items;
     if (m_cache) {
         items.reserveInitialCapacity(m_cache->size());
-        for (auto& [key, value] : *m_cache) {
-            if (auto* valueString = std::get_if<String>(&value)) {
+        for (auto& key : copyToVector(m_cache->keys())) {
+            if (!m_cache) {
+                RELEASE_LOG_ERROR(Storage, "SQLiteStorageArea::allItems cache deleted during read from cache");
+                return { };
+            }
+
+            auto iterator = m_cache->find(key);
+            RELEASE_ASSERT(iterator != m_cache->end());
+
+            if (auto* valueString = std::get_if<String>(&iterator->value)) {
                 ASSERT(!valueString->isNull());
                 items.add(key, *valueString);
                 continue;
             }
 
-            if (auto result = getItemFromDatabase(key))
+            auto result = getItemFromDatabase(key);
+            if (result.has_value())
                 items.add(key, result.value());
+            else {
+                RELEASE_LOG_ERROR(Storage, "SQLiteStorageArea::allItems failed during read from cache (%hhu)" PUBLIC_LOG_STRING, result.error());
+                return { };
+            }
         }
         return items;
     }

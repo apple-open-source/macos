@@ -1,0 +1,17 @@
+line 8 column 1 - Warning: <font> dropping value "L1" for repeated attribute "onload"
+line 8 column 1 - Warning: <font> joining values of repeated attribute "style"
+line 8 column 1 - Warning: missing </font> before </body>
+line 8 column 1 - Warning: <font> proprietary attribute "onload"
+Info: Doctype given is "-//W3C//DTD HTML 4.01//EN"
+Info: Document content looks like HTML Proprietary
+4 warnings, 0 errors were found!
+
+You are recommended to use CSS to specify the font and
+properties such as its size and color. This will reduce
+the size of HTML files and make them easier to maintain
+compared with using <FONT> elements.
+
+To learn more about HTML Tidy see http://tidy.sourceforge.net
+Please send bug reports to html-tidy@w3.org
+HTML and CSS specifications are available from http://www.w3.org/
+Lobby your company to join W3C, see http://www.w3.org/Consortium

@@ -76,6 +76,8 @@ public:
         void ref() const final { m_processor->ref(); };
         void deref() const final { m_processor->deref(); };
 
+        void setAsCancelled() { m_isCancelled = true; }
+
     private:
 
         // MediaStreamTrackPrivateObserver

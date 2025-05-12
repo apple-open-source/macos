@@ -244,25 +244,25 @@ void WebExtensionRegisteredScript::merge(WebExtensionRegisteredScriptParameters&
     if (!parameters.js && m_parameters.js)
         parameters.js = m_parameters.js.value();
 
-    if (!parameters.injectionTime)
+    if (!parameters.injectionTime && m_parameters.injectionTime)
         parameters.injectionTime = m_parameters.injectionTime.value();
 
     if (!parameters.excludeMatchPatterns && m_parameters.excludeMatchPatterns)
         parameters.excludeMatchPatterns = m_parameters.excludeMatchPatterns.value();
 
-    if (!parameters.matchPatterns)
+    if (!parameters.matchPatterns && m_parameters.matchPatterns)
         parameters.matchPatterns = m_parameters.matchPatterns.value();
 
-    if (!parameters.allFrames)
+    if (!parameters.allFrames && m_parameters.allFrames)
         parameters.allFrames = m_parameters.allFrames.value();
 
     if (!parameters.matchParentFrame && m_parameters.matchParentFrame)
         parameters.matchParentFrame = m_parameters.matchParentFrame.value();
 
-    if (!parameters.persistent)
+    if (!parameters.persistent && m_parameters.persistent)
         parameters.persistent = m_parameters.persistent.value();
 
-    if (!parameters.world)
+    if (!parameters.world && m_parameters.world)
         parameters.world = m_parameters.world.value();
 }
 

@@ -204,6 +204,7 @@ private:
     void externalOutputDeviceAvailableDidChange(bool) override;
     void setShouldPlayToPlaybackTarget(bool) override;
     void playbackTargetPickerWasDismissed() override;
+    void audioSessionCategoryChanged(AudioSessionCategory, AudioSessionMode, RouteSharingPolicy) override;
 #endif
 #if PLATFORM(IOS_FAMILY)
     bool requiresPlaybackTargetRouteMonitoring() const override;

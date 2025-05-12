@@ -51,7 +51,7 @@ static size_t pgm_metadata_index = 0;
 uint16_t pas_probabilistic_guard_malloc_random;
 uint16_t pas_probabilistic_guard_malloc_counter = 0;
 
-bool pas_probabilistic_guard_malloc_can_use = true;
+bool pas_probabilistic_guard_malloc_can_use = false;
 bool pas_probabilistic_guard_malloc_is_initialized = false;
 
 /*
@@ -340,13 +340,7 @@ void pas_probabilistic_guard_malloc_initialize_pgm(void)
 {
     if (!pas_probabilistic_guard_malloc_is_initialized) {
         pas_probabilistic_guard_malloc_is_initialized = true;
-
-        if (PAS_LIKELY(pas_get_fast_random(1000) >= 1)) {
-            pas_probabilistic_guard_malloc_can_use = false;
-            return;
-        }
-
-        pas_probabilistic_guard_malloc_random = pas_get_secure_random(1000) + 4000;
+        pas_probabilistic_guard_malloc_can_use = false;
     }
 }
 

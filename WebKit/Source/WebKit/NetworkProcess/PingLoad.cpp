@@ -123,7 +123,7 @@ void PingLoad::loadRequest(NetworkProcess& networkProcess, ResourceRequest&& req
 {
     PING_RELEASE_LOG("startNetworkLoad");
     if (auto* networkSession = networkProcess.networkSession(m_sessionID)) {
-        auto loadParameters = m_parameters;
+        auto loadParameters = m_parameters.networkLoadParameters();
         loadParameters.request = WTFMove(request);
         m_task = NetworkDataTask::create(*networkSession, *this, WTFMove(loadParameters));
         m_task->resume();

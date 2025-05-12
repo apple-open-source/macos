@@ -49,10 +49,16 @@ public:
     virtual ~MediaRecorderPrivateWriterListener() = default;
 };
 
+enum class MediaRecorderContainerType : uint8_t {
+    Mp4,
+    WebM
+};
+
 class MediaRecorderPrivateWriter {
     WTF_MAKE_TZONE_ALLOCATED(MediaRecorderPrivateWriter);
 public:
     WEBCORE_EXPORT static std::unique_ptr<MediaRecorderPrivateWriter> create(String type, MediaRecorderPrivateWriterListener&);
+    WEBCORE_EXPORT static std::unique_ptr<MediaRecorderPrivateWriter> create(MediaRecorderContainerType, MediaRecorderPrivateWriterListener&);
 
     WEBCORE_EXPORT MediaRecorderPrivateWriter();
     WEBCORE_EXPORT virtual ~MediaRecorderPrivateWriter();

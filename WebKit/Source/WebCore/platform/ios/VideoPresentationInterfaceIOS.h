@@ -79,15 +79,20 @@ public:
     void incrementCheckedPtrCount() const final { CanMakeCheckedPtr::incrementCheckedPtrCount(); }
     void decrementCheckedPtrCount() const final { CanMakeCheckedPtr::decrementCheckedPtrCount(); }
 
+    // VideoPresentationModelClient
+    void hasVideoChanged(bool) override { }
+    WEBCORE_EXPORT void videoDimensionsChanged(const FloatSize&) override;
+    WEBCORE_EXPORT void setPlayerIdentifier(std::optional<MediaPlayerIdentifier>) override;
+    WEBCORE_EXPORT void audioSessionCategoryChanged(WebCore::AudioSessionCategory, WebCore::AudioSessionMode, WebCore::RouteSharingPolicy) override;
+
+    // PlaybackSessionModelClient
+    WEBCORE_EXPORT void externalPlaybackChanged(bool enabled, PlaybackSessionModel::ExternalPlaybackTargetType, const String& localizedDeviceName) override;
+
     WEBCORE_EXPORT void setVideoPresentationModel(VideoPresentationModel*);
     PlaybackSessionInterfaceIOS& playbackSessionInterface() const { return m_playbackSessionInterface.get(); }
     PlaybackSessionModel* playbackSessionModel() const { return m_playbackSessionInterface->playbackSessionModel(); }
-    WEBCORE_EXPORT virtual void hasVideoChanged(bool) = 0;
-    WEBCORE_EXPORT void videoDimensionsChanged(const FloatSize&);
     virtual void setSpatialImmersive(bool) { }
-    WEBCORE_EXPORT virtual void setPlayerIdentifier(std::optional<MediaPlayerIdentifier>);
     WEBCORE_EXPORT virtual void setupFullscreen(const FloatRect& initialRect, const FloatSize& videoDimensions, UIView* parentView, HTMLMediaElementEnums::VideoFullscreenMode, bool allowsPictureInPicturePlayback, bool standby, bool blocksReturnToFullscreenFromPictureInPicture);
-    WEBCORE_EXPORT virtual void externalPlaybackChanged(bool enabled, PlaybackSessionModel::ExternalPlaybackTargetType, const String& localizedDeviceName);
     WEBCORE_EXPORT virtual AVPlayerViewController *avPlayerViewController() const = 0;
     WebAVPlayerController *playerController() const;
     WEBCORE_EXPORT void enterFullscreen();

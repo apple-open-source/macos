@@ -786,7 +786,6 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     bindings/js/JSDOMExceptionHandling.h
     bindings/js/JSDOMGlobalObject.h
     bindings/js/JSDOMGuardedObject.h
-    bindings/js/JSDOMMicrotask.h
     bindings/js/JSDOMOperation.h
     bindings/js/JSDOMPromiseDeferred.h
     bindings/js/JSDOMPromiseDeferredForward.h

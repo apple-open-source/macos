@@ -37,6 +37,8 @@ namespace WebKit {
 enum class FrameType : bool { Local, Remote };
 
 struct FrameInfoData {
+    WTF_MAKE_STRUCT_FAST_ALLOCATED;
+
     bool isMainFrame { false };
     FrameType frameType { FrameType::Local };
     WebCore::ResourceRequest request;

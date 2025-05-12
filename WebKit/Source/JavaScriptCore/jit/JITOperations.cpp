@@ -1609,7 +1609,7 @@ JSC_DEFINE_JIT_OPERATION(operationPutByIdSetPrivateFieldStrictOptimize, void, (E
     OPERATION_RETURN(scope);
 }
 
-static void putByVal(JSGlobalObject* globalObject, JSValue baseValue, JSValue subscript, JSValue value, ArrayProfile* arrayProfile, ECMAMode ecmaMode)
+static ALWAYS_INLINE void putByVal(JSGlobalObject* globalObject, JSValue baseValue, JSValue subscript, JSValue value, ArrayProfile* arrayProfile, ECMAMode ecmaMode)
 {
     VM& vm = globalObject->vm();
     auto scope = DECLARE_THROW_SCOPE(vm);

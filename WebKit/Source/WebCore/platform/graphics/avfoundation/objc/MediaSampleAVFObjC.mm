@@ -107,7 +107,7 @@ void MediaSampleAVFObjC::commonInit()
         }
 
 #if HAVE(FAIRPLAYSTREAMING_MTPS_INITDATA)
-        if (auto transportStreamData = static_cast<CFDataRef>(PAL::CMFormatDescriptionGetExtension(description, CFSTR("TransportStreamEncryptionInitData")))) {
+        if (static_cast<CFDataRef>(PAL::CMFormatDescriptionGetExtension(description, CFSTR("TransportStreamEncryptionInitData")))) {
             // AVStreamDataParser will attach a JSON transport stream encryption
             // description object to each sample. Use a static keyID in this case
             // as MPEG2-TS encryption dose not specify a particular keyID in the

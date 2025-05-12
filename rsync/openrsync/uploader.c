@@ -1008,6 +1008,8 @@ pre_dir(struct upload *p, struct sess *sess)
 			}
 		}
 	} else if (rc != -1) {
+		int want_mode;
+
 		if ((f->iflags & IFLAG_NEW) == 0) {
 			LOG3("%s: updating directory", f->path);
 
@@ -1018,14 +1020,27 @@ pre_dir(struct upload *p, struct sess *sess)
 			return 0;
 
 		/*
-		 * We need to fchmod the permissions here as well,
-		 * as we may locally have shut down writing into the
-		 * directory and that doesn't work.
+		 * We fchmod() here to ensure that we can actually update or
+		 * populate the directory as needed -- it may not be writable,
+		 * so we would elevate the permissions just as long as we need
+		 * to in order to create new files (or write a temporary file),
+		 * then we'll fix it up in post-order to reflect what the flist
+		 * called for.
+		 *
+		 * This uses the target permissions when it can to avoid
+		 * creating way too wide of a permission window if, e.g., it
+		 * shouldn't have any 'other' bits.
 		 */
-		if (sess->opts->preserve_perms && st.st_mode != f->st.mode && f->st.mode != 0) {
-			rc = fchmodat(p->rootfd, f->path, f->st.mode, 0);
+		if (f->st.mode == 0 || !sess->opts->preserve_perms)
+			want_mode = st.st_mode;
+		else
+			want_mode = f->st.mode;
+		if ((want_mode & S_IWUSR) == 0 && geteuid() != 0)
+			want_mode |= S_IWUSR;
+		if (st.st_mode != want_mode) {
+			rc = fchmodat(p->rootfd, f->path, want_mode, 0);
 			if (rc != 0)
-				ERRX("%s: unable to preserve dir mode", f->path);
+				ERRX("%s: unable to escalate dir mode", f->path);
 		}
 
 		if (sess->opts->del == DMODE_DURING || sess->opts->del == DMODE_DELAY) {
@@ -1051,6 +1066,8 @@ pre_dir(struct upload *p, struct sess *sess)
 	    errno != EEXIST) {
 		ERR("%s: mkpathat", f->path);
 		return -1;
+	} else {
+		LOG3("%s: created directory", f->path);
 	}
 
 	p->newdir[p->idx] = 1;
@@ -1460,6 +1477,8 @@ pre_file_check_altdir(struct sess *sess, const struct upload *p,
 
 	if ((x == 1 || x == 2) && *matchdir == NULL) {
 		/* found a local file that is a close match */
+		LOG3("%s: found close match in %s", f->path,
+		    root);
 		f->iflags |= itemize_changes(sess, st, f);
 		*matchdir = root;
 		if (savedfd != NULL) {
@@ -2239,6 +2258,19 @@ rsync_uploader(struct upload *u, struct sess *sess, int revents,
 			}
 
 			u->fl[u->idx].flstate |= FLIST_SUCCESS;
+
+			/*
+			 * The plataform may need to do its own things to this
+			 * entry, so we give it a chance here.  Failure to do so
+			 * isn't really fatal, but we'll still prevent deletions
+			 * to be safe.
+			 */
+			if (!platform_finish_transfer(sess, &u->fl[u->idx],
+			    u->rootfd, u->fl[u->idx].wpath)) {
+				ERRX1("%s: platform transfer finalization failed",
+				    u->fl[u->idx].path);
+				sess->total_errors++;
+			}
 
 			if (!protocol_itemize) {
 				log_item_impl(sess, &u->fl[u->idx]);

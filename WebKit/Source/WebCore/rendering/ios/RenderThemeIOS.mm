@@ -433,14 +433,14 @@ static void adjustInputElementButtonStyle(RenderStyle& style, const HTMLInputEle
 
     // Enforce the width and set the box-sizing to content-box to not conflict with the padding.
     FontCascade font = style.fontCascade();
-    
-    float maximumWidth = localizedDateCache().maximumWidthForDateType(dateType, font, RenderThemeMeasureTextClient(font, style));
+
+    float maximumWidth = localizedDateCache().estimatedMaximumWidthForDateType(dateType, font, RenderThemeMeasureTextClient(font, style));
 
     ASSERT(maximumWidth >= 0);
 
     if (maximumWidth > 0) {
         int width = static_cast<int>(std::ceil(maximumWidth));
-        style.setLogicalWidth(Length(width, LengthType::Fixed));
+        style.setLogicalMinWidth(Length(width, LengthType::Fixed));
         style.setBoxSizing(BoxSizing::ContentBox);
     }
 }

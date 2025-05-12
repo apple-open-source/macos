@@ -3634,171 +3634,192 @@ class Container: NSObject, ConfiguredCloudKit {
 
         // A preflight should have been successful before calling this function. So, we can assume that all required data is stored locally.
 
-        self.moc.performAndWait {
-            let eventS = AAFAnalyticsEventSecurity(keychainCircleMetrics: nil,
-                                                   altDSID: altDSID,
-                                                   flowID: flowID,
-                                                   deviceSessionID: deviceSessionID,
-                                                   eventName: kSecurityRTCEventNameVouchWithBottleTPH,
-                                                   testsAreEnabled: soft_MetricsOverrideTestsAreEnabled(),
-                                                   canSendMetrics: canSendMetrics,
-                                                   category: kSecurityRTCEventCategoryAccountDataAccessRecovery)
-            let bmo: BottleMO
-
+        // To vouchWithBottle, you must know all policies that exist
+        let allPolicyVersions: Set<TPPolicyVersion>? = self.moc.performAndWait {
             do {
-                (bmo, _, _) = try self.onMOCQueuePerformPreflight(bottleID: bottleID)
+                return try self.model.allPolicyVersions()
             } catch {
-                logger.error("vouchWithBottle failed preflight: \(String(describing: error), privacy: .public)")
-                SecurityAnalyticsReporterRTC.sendMetric(withEvent: eventS, success: false, error: error)
+                logger.error("Error fetching all policy versions: \(error, privacy: .public)")
+                reply(nil, nil, nil, nil, error)
+                return nil
+            }
+        }
+        guard let allPolicyVersions else {
+            return
+        }
+        self.fetchPolicyDocumentsWithSemaphore(versions: allPolicyVersions) { _, policyFetchError in
+            if let error = policyFetchError {
+                logger.info("vouchWithBottle: error fetching all requested policies: \(String(describing: error), privacy: .public)")
                 reply(nil, nil, nil, nil, error)
                 return
             }
 
-            guard let bottledContents = bmo.contents else {
-                SecurityAnalyticsReporterRTC.sendMetric(withEvent: eventS, success: false, error: ContainerError.bottleDoesNotContainContents)
-                reply(nil, nil, nil, nil, ContainerError.bottleDoesNotContainContents)
-                return
-            }
-            guard let signatureUsingEscrowKey = bmo.signatureUsingEscrowKey else {
-                SecurityAnalyticsReporterRTC.sendMetric(withEvent: eventS, success: false, error: ContainerError.bottleDoesNotContainEscrowKeySignature)
-                reply(nil, nil, nil, nil, ContainerError.bottleDoesNotContainEscrowKeySignature)
-                return
-            }
-
-            guard let signatureUsingPeerKey = bmo.signatureUsingPeerKey else {
-                SecurityAnalyticsReporterRTC.sendMetric(withEvent: eventS, success: false, error: ContainerError.bottleDoesNotContainerPeerKeySignature)
-                reply(nil, nil, nil, nil, ContainerError.bottleDoesNotContainerPeerKeySignature)
-                return
-            }
-            guard let sponsorPeerID = bmo.peerID else {
-                SecurityAnalyticsReporterRTC.sendMetric(withEvent: eventS, success: false, error: ContainerError.bottleDoesNotContainPeerID)
-                reply(nil, nil, nil, nil, ContainerError.bottleDoesNotContainPeerID)
-                return
-            }
-
-            // verify bottle signature using peer
-            do {
-                guard let sponsorPeer = try self.model.peer(withID: sponsorPeerID) else {
-                    logger.info("vouchWithBottle: Unable to find peer that created the bottle")
-                    SecurityAnalyticsReporterRTC.sendMetric(withEvent: eventS, success: false, error: ContainerError.bottleCreatingPeerNotFound)
-                    reply(nil, nil, nil, nil, ContainerError.bottleCreatingPeerNotFound)
-                    return
-                }
-                guard let signingKey: _SFECPublicKey = sponsorPeer.permanentInfo.signingPubKey as? _SFECPublicKey else {
-                    logger.info("vouchWithBottle: Unable to create a sponsor public key")
-                    SecurityAnalyticsReporterRTC.sendMetric(withEvent: eventS, success: false, error: ContainerError.signatureVerificationFailed)
-                    reply(nil, nil, nil, nil, ContainerError.signatureVerificationFailed)
-                    return
-                }
-
-                _ = try BottledPeer.verifyBottleSignature(data: bottledContents, signature: signatureUsingPeerKey, pubKey: signingKey)
-            } catch {
-                logger.error("vouchWithBottle: Verification of bottled signature failed: \(String(describing: error), privacy: .public)")
-                SecurityAnalyticsReporterRTC.sendMetric(withEvent: eventS, success: false, error: ContainerError.failedToCreateBottledPeer)
-                reply(nil, nil, nil, nil, ContainerError.failedToCreateBottledPeer)
-                return
-            }
-
-            // create bottled peer
-            let bottledPeer: BottledPeer
-            do {
-                bottledPeer = try BottledPeer(contents: bottledContents,
-                                              secret: entropy,
-                                              bottleSalt: bottleSalt,
-                                              signatureUsingEscrow: signatureUsingEscrowKey,
-                                              signatureUsingPeerKey: signatureUsingPeerKey)
-            } catch {
-                logger.info("Creation of Bottled Peer failed with bottle salt: \(bottleSalt, privacy: .public)\nAttempting with empty bottle salt")
+            self.moc.performAndWait {
+                let eventS = AAFAnalyticsEventSecurity(keychainCircleMetrics: nil,
+                                                       altDSID: altDSID,
+                                                       flowID: flowID,
+                                                       deviceSessionID: deviceSessionID,
+                                                       eventName: kSecurityRTCEventNameVouchWithBottleTPH,
+                                                       testsAreEnabled: soft_MetricsOverrideTestsAreEnabled(),
+                                                       canSendMetrics: canSendMetrics,
+                                                       category: kSecurityRTCEventCategoryAccountDataAccessRecovery)
+                let bmo: BottleMO
 
                 do {
-                    bottledPeer = try BottledPeer(contents: bottledContents,
-                                                  secret: entropy,
-                                                  bottleSalt: "",
-                                                  signatureUsingEscrow: signatureUsingEscrowKey,
-                                                  signatureUsingPeerKey: signatureUsingPeerKey)
+                    (bmo, _, _) = try self.onMOCQueuePerformPreflight(bottleID: bottleID)
                 } catch {
-                    logger.error("Creation of Bottled Peer failed: \(String(describing: error), privacy: .public)")
+                    logger.error("vouchWithBottle failed preflight: \(String(describing: error), privacy: .public)")
+                    SecurityAnalyticsReporterRTC.sendMetric(withEvent: eventS, success: false, error: error)
+                    reply(nil, nil, nil, nil, error)
+                    return
+                }
+
+                guard let bottledContents = bmo.contents else {
+                    SecurityAnalyticsReporterRTC.sendMetric(withEvent: eventS, success: false, error: ContainerError.bottleDoesNotContainContents)
+                    reply(nil, nil, nil, nil, ContainerError.bottleDoesNotContainContents)
+                    return
+                }
+                guard let signatureUsingEscrowKey = bmo.signatureUsingEscrowKey else {
+                    SecurityAnalyticsReporterRTC.sendMetric(withEvent: eventS, success: false, error: ContainerError.bottleDoesNotContainEscrowKeySignature)
+                    reply(nil, nil, nil, nil, ContainerError.bottleDoesNotContainEscrowKeySignature)
+                    return
+                }
+
+                guard let signatureUsingPeerKey = bmo.signatureUsingPeerKey else {
+                    SecurityAnalyticsReporterRTC.sendMetric(withEvent: eventS, success: false, error: ContainerError.bottleDoesNotContainerPeerKeySignature)
+                    reply(nil, nil, nil, nil, ContainerError.bottleDoesNotContainerPeerKeySignature)
+                    return
+                }
+                guard let sponsorPeerID = bmo.peerID else {
+                    SecurityAnalyticsReporterRTC.sendMetric(withEvent: eventS, success: false, error: ContainerError.bottleDoesNotContainPeerID)
+                    reply(nil, nil, nil, nil, ContainerError.bottleDoesNotContainPeerID)
+                    return
+                }
+
+                // verify bottle signature using peer
+                do {
+                    guard let sponsorPeer = try self.model.peer(withID: sponsorPeerID) else {
+                        logger.info("vouchWithBottle: Unable to find peer that created the bottle")
+                        SecurityAnalyticsReporterRTC.sendMetric(withEvent: eventS, success: false, error: ContainerError.bottleCreatingPeerNotFound)
+                        reply(nil, nil, nil, nil, ContainerError.bottleCreatingPeerNotFound)
+                        return
+                    }
+                    guard let signingKey: _SFECPublicKey = sponsorPeer.permanentInfo.signingPubKey as? _SFECPublicKey else {
+                        logger.info("vouchWithBottle: Unable to create a sponsor public key")
+                        SecurityAnalyticsReporterRTC.sendMetric(withEvent: eventS, success: false, error: ContainerError.signatureVerificationFailed)
+                        reply(nil, nil, nil, nil, ContainerError.signatureVerificationFailed)
+                        return
+                    }
+
+                    _ = try BottledPeer.verifyBottleSignature(data: bottledContents, signature: signatureUsingPeerKey, pubKey: signingKey)
+                } catch {
+                    logger.error("vouchWithBottle: Verification of bottled signature failed: \(String(describing: error), privacy: .public)")
                     SecurityAnalyticsReporterRTC.sendMetric(withEvent: eventS, success: false, error: ContainerError.failedToCreateBottledPeer)
                     reply(nil, nil, nil, nil, ContainerError.failedToCreateBottledPeer)
                     return
                 }
-            }
 
-            logger.info("Have a bottle for peer \(bottledPeer.peerID, privacy: .public)")
-
-            // Extract any TLKs we have been given
-            let (recoveredTLKs, recoveryResult) = extract(tlkShares: tlkShares, peer: bottledPeer.peerKeys, model: self.model)
-
-            self.moc.performAndWait {
-                // I must have an ego identity in order to vouch using bottle
-                guard let egoPeerID = self.containerMO.egoPeerID else {
-                    logger.info("As a nonmember, can't vouch for someone else")
-                    SecurityAnalyticsReporterRTC.sendMetric(withEvent: eventS, success: false, error: ContainerError.nonMember)
-                    reply(nil, nil, nil, nil, ContainerError.nonMember)
-                    return
-                }
-                guard let permanentInfo = self.containerMO.egoPeerPermanentInfo else {
-                    logger.info("permanentInfo does not exist")
-                    SecurityAnalyticsReporterRTC.sendMetric(withEvent: eventS, success: false, error: ContainerError.nonMember)
-                    reply(nil, nil, nil, nil, ContainerError.nonMember)
-                    return
-                }
-                guard let permanentInfoSig = self.containerMO.egoPeerPermanentInfoSig else {
-                    logger.info("permanentInfoSig does not exist")
-                    SecurityAnalyticsReporterRTC.sendMetric(withEvent: eventS, success: false, error: ContainerError.nonMember)
-                    reply(nil, nil, nil, nil, ContainerError.nonMember)
-                    return
-                }
-                guard let stableInfo = self.containerMO.egoPeerStableInfo else {
-                    logger.info("stableInfo does not exist")
-                    SecurityAnalyticsReporterRTC.sendMetric(withEvent: eventS, success: false, error: ContainerError.nonMember)
-                    reply(nil, nil, nil, nil, ContainerError.nonMember)
-                    return
-                }
-                guard let stableInfoSig = self.containerMO.egoPeerStableInfoSig else {
-                    logger.info("stableInfoSig does not exist")
-                    SecurityAnalyticsReporterRTC.sendMetric(withEvent: eventS, success: false, error: ContainerError.nonMember)
-                    reply(nil, nil, nil, nil, ContainerError.nonMember)
-                    return
-                }
-                let keyFactory = TPECPublicKeyFactory()
-                guard let beneficiaryPermanentInfo = TPPeerPermanentInfo(peerID: egoPeerID, data: permanentInfo, sig: permanentInfoSig, keyFactory: keyFactory) else {
-                    logger.info("Invalid permenent info or signature; can't vouch for them")
-                    SecurityAnalyticsReporterRTC.sendMetric(withEvent: eventS, success: false, error: ContainerError.invalidPermanentInfoOrSig)
-                    reply(nil, nil, nil, nil, ContainerError.invalidPermanentInfoOrSig)
-                    return
-                }
-                guard let beneficiaryStableInfo = TPPeerStableInfo(data: stableInfo, sig: stableInfoSig) else {
-                    logger.info("Invalid stableinfo or signature; van't vouch for them")
-                    SecurityAnalyticsReporterRTC.sendMetric(withEvent: eventS, success: false, error: ContainerError.invalidStableInfoOrSig)
-                    reply(nil, nil, nil, nil, ContainerError.invalidStableInfoOrSig)
-                    return
-                }
-                loadEgoKeys(peerID: egoPeerID) { egoPeerKeys, error in
-                    guard let egoPeerKeys = egoPeerKeys else {
-                        logger.error("Error loading ego peer keys: \(String(describing: error), privacy: .public)")
-                        SecurityAnalyticsReporterRTC.sendMetric(withEvent: eventS, success: false, error: error)
-                        reply(nil, nil, nil, nil, error)
-                        return
-                    }
+                // create bottled peer
+                let bottledPeer: BottledPeer
+                do {
+                    bottledPeer = try BottledPeer(contents: bottledContents,
+                                                  secret: entropy,
+                                                  bottleSalt: bottleSalt,
+                                                  signatureUsingEscrow: signatureUsingEscrowKey,
+                                                  signatureUsingPeerKey: signatureUsingPeerKey)
+                } catch {
+                    logger.info("Creation of Bottled Peer failed with bottle salt: \(bottleSalt, privacy: .public)\nAttempting with empty bottle salt")
 
                     do {
-                        let voucher = try self.model.createVoucher(forCandidate: beneficiaryPermanentInfo,
-                                                                   stableInfo: beneficiaryStableInfo,
-                                                                   withSponsorID: sponsorPeerID,
-                                                                   reason: TPVoucherReason.restore,
-                                                                   signing: bottledPeer.peerKeys.signingKey)
-
-                        let newSelfTLKShares = try makeCKKSTLKShares(ckksTLKs: recoveredTLKs, asPeer: egoPeerKeys, toPeer: egoPeerKeys, epoch: Int(beneficiaryPermanentInfo.epoch))
-
-                        SecurityAnalyticsReporterRTC.sendMetric(withEvent: eventS, success: true, error: nil)
-                        reply(voucher.data, voucher.sig, newSelfTLKShares, recoveryResult, nil)
-                        return
+                        bottledPeer = try BottledPeer(contents: bottledContents,
+                                                      secret: entropy,
+                                                      bottleSalt: "",
+                                                      signatureUsingEscrow: signatureUsingEscrowKey,
+                                                      signatureUsingPeerKey: signatureUsingPeerKey)
                     } catch {
-                        logger.error("Error creating voucher with bottle: \(String(describing: error), privacy: .public)")
-                        SecurityAnalyticsReporterRTC.sendMetric(withEvent: eventS, success: false, error: error)
-                        reply(nil, nil, nil, nil, error)
+                        logger.error("Creation of Bottled Peer failed: \(String(describing: error), privacy: .public)")
+                        SecurityAnalyticsReporterRTC.sendMetric(withEvent: eventS, success: false, error: ContainerError.failedToCreateBottledPeer)
+                        reply(nil, nil, nil, nil, ContainerError.failedToCreateBottledPeer)
                         return
+                    }
+                }
+
+                logger.info("Have a bottle for peer \(bottledPeer.peerID, privacy: .public)")
+
+                // Extract any TLKs we have been given
+                let (recoveredTLKs, recoveryResult) = extract(tlkShares: tlkShares, peer: bottledPeer.peerKeys, model: self.model)
+
+                self.moc.performAndWait {
+                    // I must have an ego identity in order to vouch using bottle
+                    guard let egoPeerID = self.containerMO.egoPeerID else {
+                        logger.info("As a nonmember, can't vouch for someone else")
+                        SecurityAnalyticsReporterRTC.sendMetric(withEvent: eventS, success: false, error: ContainerError.nonMember)
+                        reply(nil, nil, nil, nil, ContainerError.nonMember)
+                        return
+                    }
+                    guard let permanentInfo = self.containerMO.egoPeerPermanentInfo else {
+                        logger.info("permanentInfo does not exist")
+                        SecurityAnalyticsReporterRTC.sendMetric(withEvent: eventS, success: false, error: ContainerError.nonMember)
+                        reply(nil, nil, nil, nil, ContainerError.nonMember)
+                        return
+                    }
+                    guard let permanentInfoSig = self.containerMO.egoPeerPermanentInfoSig else {
+                        logger.info("permanentInfoSig does not exist")
+                        SecurityAnalyticsReporterRTC.sendMetric(withEvent: eventS, success: false, error: ContainerError.nonMember)
+                        reply(nil, nil, nil, nil, ContainerError.nonMember)
+                        return
+                    }
+                    guard let stableInfo = self.containerMO.egoPeerStableInfo else {
+                        logger.info("stableInfo does not exist")
+                        SecurityAnalyticsReporterRTC.sendMetric(withEvent: eventS, success: false, error: ContainerError.nonMember)
+                        reply(nil, nil, nil, nil, ContainerError.nonMember)
+                        return
+                    }
+                    guard let stableInfoSig = self.containerMO.egoPeerStableInfoSig else {
+                        logger.info("stableInfoSig does not exist")
+                        SecurityAnalyticsReporterRTC.sendMetric(withEvent: eventS, success: false, error: ContainerError.nonMember)
+                        reply(nil, nil, nil, nil, ContainerError.nonMember)
+                        return
+                    }
+                    let keyFactory = TPECPublicKeyFactory()
+                    guard let beneficiaryPermanentInfo = TPPeerPermanentInfo(peerID: egoPeerID, data: permanentInfo, sig: permanentInfoSig, keyFactory: keyFactory) else {
+                        logger.info("Invalid permenent info or signature; can't vouch for them")
+                        SecurityAnalyticsReporterRTC.sendMetric(withEvent: eventS, success: false, error: ContainerError.invalidPermanentInfoOrSig)
+                        reply(nil, nil, nil, nil, ContainerError.invalidPermanentInfoOrSig)
+                        return
+                    }
+                    guard let beneficiaryStableInfo = TPPeerStableInfo(data: stableInfo, sig: stableInfoSig) else {
+                        logger.info("Invalid stableinfo or signature; van't vouch for them")
+                        SecurityAnalyticsReporterRTC.sendMetric(withEvent: eventS, success: false, error: ContainerError.invalidStableInfoOrSig)
+                        reply(nil, nil, nil, nil, ContainerError.invalidStableInfoOrSig)
+                        return
+                    }
+                    loadEgoKeys(peerID: egoPeerID) { egoPeerKeys, error in
+                        guard let egoPeerKeys = egoPeerKeys else {
+                            logger.error("Error loading ego peer keys: \(String(describing: error), privacy: .public)")
+                            SecurityAnalyticsReporterRTC.sendMetric(withEvent: eventS, success: false, error: error)
+                            reply(nil, nil, nil, nil, error)
+                            return
+                        }
+
+                        do {
+                            let voucher = try self.model.createVoucher(forCandidate: beneficiaryPermanentInfo,
+                                                                       stableInfo: beneficiaryStableInfo,
+                                                                       withSponsorID: sponsorPeerID,
+                                                                       reason: TPVoucherReason.restore,
+                                                                       signing: bottledPeer.peerKeys.signingKey)
+
+                            let newSelfTLKShares = try makeCKKSTLKShares(ckksTLKs: recoveredTLKs, asPeer: egoPeerKeys, toPeer: egoPeerKeys, epoch: Int(beneficiaryPermanentInfo.epoch))
+
+                            SecurityAnalyticsReporterRTC.sendMetric(withEvent: eventS, success: true, error: nil)
+                            reply(voucher.data, voucher.sig, newSelfTLKShares, recoveryResult, nil)
+                            return
+                        } catch {
+                            logger.error("Error creating voucher with bottle: \(String(describing: error), privacy: .public)")
+                            SecurityAnalyticsReporterRTC.sendMetric(withEvent: eventS, success: false, error: error)
+                            reply(nil, nil, nil, nil, error)
+                            return
+                        }
                     }
                 }
             }

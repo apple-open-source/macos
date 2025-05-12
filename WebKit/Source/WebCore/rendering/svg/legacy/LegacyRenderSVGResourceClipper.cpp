@@ -59,19 +59,15 @@ LegacyRenderSVGResourceClipper::LegacyRenderSVGResourceClipper(SVGClipPathElemen
 
 LegacyRenderSVGResourceClipper::~LegacyRenderSVGResourceClipper() = default;
 
-void LegacyRenderSVGResourceClipper::removeAllClientsFromCacheIfNeeded(bool markForInvalidation, SingleThreadWeakHashSet<RenderObject>* visitedRenderers)
+void LegacyRenderSVGResourceClipper::removeAllClientsFromCache()
 {
     m_clipBoundaries.fill(FloatRect { });
     m_clipperMap.clear();
-
-    markAllClientsForInvalidationIfNeeded(markForInvalidation ? LayoutAndBoundariesInvalidation : ParentOnlyInvalidation, visitedRenderers);
 }
 
-void LegacyRenderSVGResourceClipper::removeClientFromCache(RenderElement& client, bool markForInvalidation)
+void LegacyRenderSVGResourceClipper::removeClientFromCache(RenderElement& client)
 {
     m_clipperMap.remove(client);
-
-    markClientForInvalidation(client, markForInvalidation ? BoundariesInvalidation : ParentOnlyInvalidation);
 }
 
 auto LegacyRenderSVGResourceClipper::applyResource(RenderElement& renderer, const RenderStyle&, GraphicsContext*& context, OptionSet<RenderSVGResourceMode> resourceMode) -> OptionSet<ApplyResult>

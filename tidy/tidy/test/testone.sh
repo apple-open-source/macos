@@ -28,6 +28,9 @@ TIDY=../bin/tidy
 INFILES=./input/in_${TESTNO}.*ml
 CFGFILE=./input/cfg_${TESTNO}.txt
 
+EXPOUTFILE=./output/out_${TESTNO}.html
+EXPMSGFILE=./output/msg_${TESTNO}.txt
+
 TIDYFILE=./tmp/out_${TESTNO}.html
 MSGFILE=./tmp/msg_${TESTNO}.txt
 
@@ -73,6 +76,30 @@ then
   echo "== $TESTNO failed (Status received: $STATUS vs expected: $EXPECTED)" 
   cat $MSGFILE
   exit 1
+fi
+
+if [ -f $EXPOUTFILE ]
+then
+  /usr/bin/diff -q $EXPOUTFILE $TIDYFILE 2> /dev/null
+  STATUS=$?
+  if [ $STATUS -ne 0 ]
+  then
+    echo "== $TESTNO failed ($TIDYFILE differs from $EXPOUTFILE)"
+    /usr/bin/diff $EXPOUTFILE $TIDYFILE
+    exit 1
+  fi
+fi
+
+if [ -f $EXPMSGFILE -o -f $MSGFILE ]
+then
+  /usr/bin/diff -q $EXPMSGFILE $MSGFILE 2> /dev/null
+  STATUS=$?
+  if [ $STATUS -ne 0 ]
+  then
+    echo "== $TESTNO failed ($MSGFILE differs from $EXPMSGFILE)"
+    /usr/bin/diff $EXPMSGFILE $MSGFILE
+    exit 1
+  fi
 fi
 
 exit 0

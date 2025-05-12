@@ -1,0 +1,25 @@
+line 1 column 1 - Warning: missing <!DOCTYPE> declaration
+line 4 column 1 - Warning: discarding unexpected <frame>
+line 5 column 1 - Error: <overlay> is not recognized!
+line 5 column 1 - Warning: discarding unexpected <overlay>
+line 6 column 1 - Warning: <bgsound> is not approved by W3C
+line 6 column 1 - Warning: <bgsound> isn't allowed in <body> elements
+line 9 column 1 - Warning: <spacer> is not approved by W3C
+line 8 column 1 - Warning: <spacer> isn't allowed in <tr> elements
+line 5 column 1 - Warning: missing </noframes>
+line 1 column 1 - Warning: inserting missing 'title' element
+line 8 column 1 - Warning: trimming empty <tr>
+Info: Document content looks like HTML Proprietary
+10 warnings, 1 error were found!
+
+This document has errors that must be fixed before
+using HTML Tidy to generate a tidied up version.
+
+You are recommended to use CSS for controlling white
+space (e.g. for indentation, margins and line spacing).
+The proprietary <SPACER> element has limited vendor support.
+
+To learn more about HTML Tidy see http://tidy.sourceforge.net
+Please send bug reports to html-tidy@w3.org
+HTML and CSS specifications are available from http://www.w3.org/
+Lobby your company to join W3C, see http://www.w3.org/Consortium

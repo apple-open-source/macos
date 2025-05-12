@@ -85,8 +85,6 @@ public:
     void setTailCall(uint32_t, bool);
     void setTailCallClobbersInstance() { m_tailCallClobbersInstance = true; }
 
-    FixedBitVector&& takeCallees() { return WTFMove(m_callees); }
-
     const uint8_t* getBytecode() const { return m_bytecode.data(); }
     const uint8_t* getMetadata() const { return m_metadata.data(); }
 
@@ -114,7 +112,6 @@ private:
 
     FunctionCodeIndex m_functionIndex;
     bool m_tailCallClobbersInstance { false };
-    FixedBitVector m_callees;
     BitVector m_tailCallSuccessors;
 
     std::span<const uint8_t> m_bytecode;

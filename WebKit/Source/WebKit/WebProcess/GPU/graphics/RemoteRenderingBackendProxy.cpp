@@ -262,12 +262,12 @@ RefPtr<ImageBuffer> RemoteRenderingBackendProxy::createImageBuffer(const FloatSi
     return imageBuffer;
 }
 
-std::unique_ptr<RemoteDisplayListRecorderProxy> RemoteRenderingBackendProxy::createDisplayListRecorder(WebCore::RenderingResourceIdentifier renderingResourceIdentifier, const FloatSize& size, RenderingMode renderingMode, RenderingPurpose purpose, float resolutionScale, const DestinationColorSpace& colorSpace, ImageBufferPixelFormat pixelFormat)
+std::unique_ptr<RemoteDisplayListRecorderProxy> RemoteRenderingBackendProxy::createDisplayListRecorder(WebCore::RenderingResourceIdentifier renderingResourceIdentifier, const FloatSize& size, RenderingMode renderingMode, RenderingPurpose purpose, float resolutionScale, const DestinationColorSpace& colorSpace, ContentsFormat contentsFormat, ImageBufferPixelFormat pixelFormat)
 {
     ASSERT(WebProcess::singleton().shouldUseRemoteRenderingFor(RenderingPurpose::DOM));
     ImageBufferParameters parameters { size, resolutionScale, colorSpace, pixelFormat, purpose };
     auto transform = ImageBufferBackend::calculateBaseTransform(ImageBuffer::backendParameters(parameters));
-    return makeUnique<RemoteDisplayListRecorderProxy>(*this, renderingResourceIdentifier, colorSpace, renderingMode, FloatRect { { }, size }, transform);
+    return makeUnique<RemoteDisplayListRecorderProxy>(*this, renderingResourceIdentifier, colorSpace, contentsFormat, renderingMode, FloatRect { { }, size }, transform);
 }
 
 void RemoteRenderingBackendProxy::releaseImageBuffer(RenderingResourceIdentifier renderingResourceIdentifier)

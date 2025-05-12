@@ -110,6 +110,10 @@ std::optional<Color> NativeImage::singlePixelSolidColor() const
 void NativeImage::draw(GraphicsContext& context, const FloatRect& destinationRect, const FloatRect& sourceRect, ImagePaintingOptions options)
 {
 #if !HAVE(CORE_ANIMATION_FIX_FOR_RADAR_93560567)
+    auto isHDRColorSpace = [](const DestinationColorSpace& colorSpace) -> bool {
+        return CGColorSpaceUsesITUR_2100TF(colorSpace.platformColorSpace());
+    };
+
     auto colorSpaceForHDRImageBuffer = [](GraphicsContext& context) -> const DestinationColorSpace& {
 #if PLATFORM(IOS_FAMILY)
         // iOS typically renders into extended range sRGB to preserve wide gamut colors, but we want
@@ -123,12 +127,12 @@ void NativeImage::draw(GraphicsContext& context, const FloatRect& destinationRec
     };
 
     auto drawHDRNativeImage = [&](GraphicsContext& context, const FloatRect& destinationRect, const FloatRect& sourceRect, ImagePaintingOptions options) -> bool {
-        if (sourceRect.isEmpty() || colorSpace().usesStandardRange())
+        if (sourceRect.isEmpty() || !isHDRColorSpace(colorSpace()))
             return false;
 
         // If context and the image have HDR colorSpaces, draw the image directly without
         // going through the workaround.
-        if (!context.colorSpace().usesStandardRange())
+        if (isHDRColorSpace(context.colorSpace()))
             return false;
 
         // Create a temporary ImageBuffer for destinationRect with the current scaleFator.

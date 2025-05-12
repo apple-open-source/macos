@@ -157,7 +157,7 @@ void attributedStringSetElement(NSMutableAttributedString *string, NSString *att
     id wrapper = object.wrapper();
     if ([attribute isEqualToString:NSAccessibilityAttachmentTextAttribute] && object.isAttachment()) {
         if (id attachmentView = [wrapper attachmentView])
-            wrapper = [wrapper attachmentView];
+            wrapper = attachmentView;
     }
 
     if (RetainPtr axElement = adoptCF(NSAccessibilityCreateAXUIElementRef(wrapper)))

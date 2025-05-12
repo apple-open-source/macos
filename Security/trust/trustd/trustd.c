@@ -343,13 +343,13 @@ static bool SecXPC_OTAPKI_GetCurrentTrustStoreVersion(SecurityClient * __unused 
 
 static bool SecXPC_OTAPKI_GetCurrentAssetVersion(SecurityClient * __unused client, xpc_object_t __unused event,
                                                  xpc_object_t reply, CFErrorRef *error) {
-    xpc_dictionary_set_uint64(reply, kSecXPCKeyResult, SecOTAPKIGetCurrentAssetVersion(error));
+    xpc_dictionary_set_uint64(reply, kSecXPCKeyResult, SecOTATrustSupplementalsGetCurrentAssetVersion(error));
     return true;
 }
 
 static bool SecXPC_OTAPKI_GetNewAsset(SecurityClient * __unused client, xpc_object_t __unused event,
                                       xpc_object_t reply, CFErrorRef *error) {
-    xpc_dictionary_set_uint64(reply, kSecXPCKeyResult, SecOTAPKISignalNewAsset(error));
+    xpc_dictionary_set_uint64(reply, kSecXPCKeyResult, SecOTAPKISignalNewSupplementalsAsset(error));
     return true;
 }
 

@@ -254,7 +254,15 @@ id WebProcess::accessibilityFocusedUIElement()
         }
 
         RefPtr object = (*isolatedTree)->focusedNode();
-        return object ? object->wrapper() : nil;
+        id objectWrapper = object ? object->wrapper() : nil;
+        if (objectWrapper) {
+            ALLOW_DEPRECATED_DECLARATIONS_BEGIN
+            id associatedParent = [objectWrapper accessibilityAttributeValue:@"_AXAssociatedPluginParent"];
+            ALLOW_DEPRECATED_DECLARATIONS_END
+            if (associatedParent)
+                objectWrapper = associatedParent;
+        }
+        return objectWrapper;
     }
 #endif
 

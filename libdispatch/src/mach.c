@@ -1338,6 +1338,14 @@ again:
 	while (dmsr->dmsr_tail) {
 		dc = _dispatch_mach_send_get_head(dmsr);
 		do {
+			// rdar://61528779: If we have a pending EV_DELETE for a mach reply
+			// knote in our ddi, we need to send that to the kernel before we
+			// send another message. The next message could have a reply port
+			// with the same name as the knote that we've deferred deleting,
+			// which opens us up to knote collision. After we fix the unote
+			// lifecycle (rdar://146968641), this check can be removed.
+			_dispatch_clear_pending_deferred_events();
+
 			dispatch_mach_send_invoke_flags_t sf = send_flags;
 			// Only request immediate send result for the first message
 			send_flags &= ~DM_SEND_INVOKE_IMMEDIATE_SEND_MASK;

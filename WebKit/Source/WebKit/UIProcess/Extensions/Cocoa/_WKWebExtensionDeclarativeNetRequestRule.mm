@@ -272,7 +272,7 @@ using namespace WebKit;
         [self removeInvalidResourceTypesForKey:declarativeNetRequestRuleConditionResourceTypeKey];
     }
 
-    if (NSArray<NSString *> *excludedResourceTypes = _condition[declarativeNetRequestRuleConditionExcludedResourceTypesKey])
+    if (_condition[declarativeNetRequestRuleConditionExcludedResourceTypesKey])
         [self removeInvalidResourceTypesForKey:declarativeNetRequestRuleConditionResourceTypeKey];
 
     if ([_action[declarativeNetRequestRuleActionTypeKey] isEqualToString:declarativeNetRequestRuleActionTypeAllowAllRequests]) {

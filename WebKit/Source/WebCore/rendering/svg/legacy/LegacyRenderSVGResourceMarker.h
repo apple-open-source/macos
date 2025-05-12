@@ -36,8 +36,8 @@ public:
 
     inline SVGMarkerElement& markerElement() const;
 
-    void removeAllClientsFromCacheIfNeeded(bool markForInvalidation, SingleThreadWeakHashSet<RenderObject>* visitedRenderers) override;
-    void removeClientFromCache(RenderElement&, bool markForInvalidation = true) override;
+    void removeAllClientsFromCache() override { }
+    void removeClientFromCache(RenderElement&) override { }
 
     void draw(PaintInfo&, const AffineTransform&);
 

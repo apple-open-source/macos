@@ -45,7 +45,7 @@ enum class WebKitAv1 { Off, On };
 void setH264HardwareEncoderAllowed(bool);
 bool isH264HardwareEncoderAllowed();
 
-enum class BufferType { I420, I010 };
+enum class BufferType { I420, I010, I422, I210 };
 CVPixelBufferRef copyPixelBufferForFrame(const VideoFrame&) CF_RETURNS_RETAINED;
 CVPixelBufferRef createPixelBufferFromFrame(const VideoFrame&, const std::function<CVPixelBufferRef(size_t, size_t, BufferType)>& createPixelBuffer) CF_RETURNS_RETAINED;
 CVPixelBufferRef createPixelBufferFromFrameBuffer(VideoFrameBuffer&, const std::function<CVPixelBufferRef(size_t, size_t, BufferType)>& createPixelBuffer) CF_RETURNS_RETAINED;

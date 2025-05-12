@@ -1,0 +1,18 @@
+line 1 column 1 - Warning: missing <!DOCTYPE> declaration
+line 3 column 1 - Warning: <marquee> is not approved by W3C
+line 2 column 1 - Warning: missing </title> before <marquee>
+line 3 column 1 - Warning: replacing unexpected basefont by </basefont>
+line 3 column 1 - Warning: content occurs after end of body
+line 6 column 1 - Warning: missing </b> before <base>
+line 6 column 1 - Warning: <base> isn't allowed in <b> elements
+line 6 column 1 - Warning: missing </b> before <hr>
+line 3 column 1 - Warning: content occurs after end of body
+line 3 column 1 - Warning: trimming empty <marquee>
+line 6 column 1 - Warning: trimming empty <b>
+Info: Document content looks like HTML Proprietary
+11 warnings, 0 errors were found!
+
+To learn more about HTML Tidy see http://tidy.sourceforge.net
+Please send bug reports to html-tidy@w3.org
+HTML and CSS specifications are available from http://www.w3.org/
+Lobby your company to join W3C, see http://www.w3.org/Consortium

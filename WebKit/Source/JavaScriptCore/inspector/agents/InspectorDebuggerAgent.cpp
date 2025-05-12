@@ -31,7 +31,6 @@
 #include "InspectorDebuggerAgent.h"
 
 #include "AsyncStackTrace.h"
-#include "ContentSearchUtilities.h"
 #include "Debugger.h"
 #include "DebuggerScope.h"
 #include "DeferGC.h"
@@ -1385,9 +1384,10 @@ void InspectorDebuggerAgent::setBlackboxConfiguration(JSC::SourceID sourceID, co
     for (const auto& [blackboxParameters, blackboxRanges] : m_blackboxedURLs) {
         const auto& [url, caseSensitive, isRegex] = blackboxParameters;
 
-        auto searchStringType = isRegex ? ContentSearchUtilities::SearchStringType::Regex : ContentSearchUtilities::SearchStringType::ExactString;
-        auto regex = ContentSearchUtilities::createRegularExpressionForSearchString(url, caseSensitive, searchStringType);
-        if ((script.sourceURL.isEmpty() || regex.match(script.sourceURL) == -1) && (script.url.isEmpty() || regex.match(script.url) == -1))
+        auto searchType = isRegex ? ContentSearchUtilities::SearchType::Regex : ContentSearchUtilities::SearchType::ExactString;
+        auto searchCaseSensitive = caseSensitive ? ContentSearchUtilities::SearchCaseSensitive::Yes : ContentSearchUtilities::SearchCaseSensitive::No;
+        auto searcher = ContentSearchUtilities::createSearcherForString(url, searchType, searchCaseSensitive);
+        if ((script.sourceURL.isEmpty() || !ContentSearchUtilities::searcherMatchesText(searcher, script.sourceURL)) && (script.url.isEmpty() || !ContentSearchUtilities::searcherMatchesText(searcher, script.url)))
             continue;
 
         if (blackboxRanges.isEmpty()) {
@@ -1969,11 +1969,12 @@ bool InspectorDebuggerAgent::SymbolicBreakpoint::matches(const String& symbol)
     if (knownMatchingSymbols.contains(symbol))
         return true;
 
-    if (!m_symbolMatchRegex) {
-        auto searchStringType = isRegex ? ContentSearchUtilities::SearchStringType::Regex : ContentSearchUtilities::SearchStringType::ExactString;
-        m_symbolMatchRegex = ContentSearchUtilities::createRegularExpressionForSearchString(this->symbol, caseSensitive, searchStringType);
+    if (!m_symbolSearcher) {
+        auto searchType = isRegex ? ContentSearchUtilities::SearchType::Regex : ContentSearchUtilities::SearchType::ExactString;
+        auto searchCaseSensitive = caseSensitive ? ContentSearchUtilities::SearchCaseSensitive::Yes : ContentSearchUtilities::SearchCaseSensitive::No;
+        m_symbolSearcher = ContentSearchUtilities::createSearcherForString(this->symbol, searchType, searchCaseSensitive);
     }
-    if (m_symbolMatchRegex->match(symbol) == -1)
+    if (!ContentSearchUtilities::searcherMatchesText(*m_symbolSearcher, symbol))
         return false;
 
     knownMatchingSymbols.add(symbol);

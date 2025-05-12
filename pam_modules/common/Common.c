@@ -23,7 +23,8 @@ PAM_DEFINE_LOG(Common)
 
 enum {
 	kWaitSeconds       =  1,
-	kMaxIterationCount = 30
+	kMaxIterationCount = 30,
+	kMaxSeconds        = 20,
 };
 
 int
@@ -129,6 +130,7 @@ od_record_create(pam_handle_t *pamh, ODRecordRef *record, CFStringRef cfUser)
 		goto cleanup;
 	}
 
+	time_t seconds = time(NULL);
 	while (current_iterations <= kMaxIterationCount) {
 		CFIndex unreachable_count = 0;
 		CFArrayRef unreachable_nodes = ODNodeCopyUnreachableSubnodeNames(cfNode, NULL);
@@ -139,10 +141,16 @@ od_record_create(pam_handle_t *pamh, ODRecordRef *record, CFStringRef cfUser)
 		}
 
 		*record = ODNodeCopyRecord(cfNode, kODRecordTypeUsers, cfUser, attrs, &cferror);
-		if (*record)
+		if (*record) {
 			break;
-		if (0 == unreachable_count)
+		}
+		if (0 == unreachable_count) {
 			break;
+		}
+		if (time(NULL) > (seconds + kMaxSeconds)) {
+            _LOG_ERROR("Timeout when waiting for the unreachable nodes");
+			break;
+		}
 
 		_LOG_DEBUG("Waiting %d seconds for nodes to become reachable", kWaitSeconds);
 		sleep(kWaitSeconds);

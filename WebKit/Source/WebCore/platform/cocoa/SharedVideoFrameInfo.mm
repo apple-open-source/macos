@@ -209,10 +209,7 @@ RetainPtr<CVPixelBufferRef> SharedVideoFrameInfo::createPixelBufferFromMemory(st
 
     data = copyToCVPixelBufferPlane(rawPixelBuffer, 0, data, m_height, m_bytesPerRow);
     if (CVPixelBufferGetPlaneCount(rawPixelBuffer) >= 2) {
-        if (CVPixelBufferGetWidthOfPlane(rawPixelBuffer, 1) != m_widthPlaneB || CVPixelBufferGetHeightOfPlane(rawPixelBuffer, 1) != m_heightPlaneB)
-            return nullptr;
-        data = copyToCVPixelBufferPlane(rawPixelBuffer, 1, data, m_heightPlaneB, m_bytesPerRowPlaneB);
-
+        data = copyToCVPixelBufferPlane(rawPixelBuffer, 1, data, std::min<size_t>(m_heightPlaneB, CVPixelBufferGetHeightOfPlane(rawPixelBuffer, 1)), m_bytesPerRowPlaneB);
         if (CVPixelBufferGetPlaneCount(rawPixelBuffer) == 3)
             copyToCVPixelBufferPlane(rawPixelBuffer, 2, data, m_height, m_bytesPerRowPlaneAlpha);
     }

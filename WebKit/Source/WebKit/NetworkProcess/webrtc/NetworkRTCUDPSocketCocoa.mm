@@ -181,7 +181,7 @@ static inline bool isNat64IPAddress(const rtc::IPAddress& ip)
         return false;
 
     struct ifaddrs* interfaces;
-    if (auto error = getifaddrs(&interfaces))
+    if (getifaddrs(&interfaces))
         return true;
     std::unique_ptr<struct ifaddrs> toBeFreed(interfaces);
 

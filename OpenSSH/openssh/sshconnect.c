@@ -502,6 +502,7 @@ ssh_connect_direct(struct ssh *ssh, const char *host, struct addrinfo *aitop,
 		__block bool semaphore_signalled = false;
 		__block bool connection_connected = false;
 		__block bool connection_cancelled = false;
+		__block bool connection_reported_waiting = false;
 		nw_connection_set_state_changed_handler(connection, ^(nw_connection_state_t state, nw_error_t _Nullable event_error) {
 			switch (state) {
 				case nw_connection_state_ready: {
@@ -549,6 +550,16 @@ ssh_connect_direct(struct ssh *ssh, const char *host, struct addrinfo *aitop,
 					break;
 				}
 				case nw_connection_state_waiting:
+					// When the family is specified, we may move into waiting
+					// because the underlying network might not support the
+					// address family. However, the nw_connection may be able
+					// to still connect after synthesizing an address, so let
+					// the connection keep running in this case by ignoring the
+					// waiting state once.
+					if (family != AF_UNSPEC && !connection_reported_waiting) {
+						connection_reported_waiting = true;
+						break;
+					}
 				case nw_connection_state_failed: {
 					/*
 					 * We will receive a failed or waiting event on failure

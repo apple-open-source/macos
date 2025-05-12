@@ -517,10 +517,11 @@ static void init_seq_coding_tools(AV1_PRIMARY *const ppi,
 
   seq->max_frame_width = frm_dim_cfg->forced_max_frame_width
                              ? frm_dim_cfg->forced_max_frame_width
-                             : frm_dim_cfg->width;
-  seq->max_frame_height = frm_dim_cfg->forced_max_frame_height
-                              ? frm_dim_cfg->forced_max_frame_height
-                              : frm_dim_cfg->height;
+                             : AOMMAX(seq->max_frame_width, frm_dim_cfg->width);
+  seq->max_frame_height =
+      frm_dim_cfg->forced_max_frame_height
+          ? frm_dim_cfg->forced_max_frame_height
+          : AOMMAX(seq->max_frame_height, frm_dim_cfg->height);
   seq->num_bits_width =
       (seq->max_frame_width > 1) ? get_msb(seq->max_frame_width - 1) + 1 : 1;
   seq->num_bits_height =
@@ -932,6 +933,9 @@ void av1_change_config(struct AV1_COMP *cpi, const AV1EncoderConfig *oxcf,
     cm->render_width = frm_dim_cfg->width;
     cm->render_height = frm_dim_cfg->height;
   }
+
+  int last_width = cm->width;
+  int last_height = cm->height;
   cm->width = frm_dim_cfg->width;
   cm->height = frm_dim_cfg->height;
 
@@ -949,6 +953,31 @@ void av1_change_config(struct AV1_COMP *cpi, const AV1EncoderConfig *oxcf,
     cpi->frame_size_related_setup_done = false;
   }
   av1_update_frame_size(cpi);
+
+  if (cm->width != last_width || cm->height != last_height) {
+    if (cpi->oxcf.q_cfg.aq_mode == CYCLIC_REFRESH_AQ) {
+      int mi_rows = cpi->common.mi_params.mi_rows;
+      int mi_cols = cpi->common.mi_params.mi_cols;
+      aom_free(cpi->cyclic_refresh->map);
+      CHECK_MEM_ERROR(
+          cm, cpi->cyclic_refresh->map,
+          aom_calloc(mi_rows * mi_cols, sizeof(*cpi->cyclic_refresh->map)));
+      if (cpi->svc.number_spatial_layers > 1) {
+        for (int sl = 0; sl < cpi->svc.number_spatial_layers; ++sl) {
+          const int layer =
+              LAYER_IDS_TO_IDX(sl, 0, cpi->svc.number_temporal_layers);
+          LAYER_CONTEXT *const lc = &cpi->svc.layer_context[layer];
+          lc->sb_index = 0;
+          lc->actual_num_seg1_blocks = 0;
+          lc->actual_num_seg2_blocks = 0;
+          lc->counter_encode_maxq_scene_change = 0;
+          aom_free(lc->map);
+          CHECK_MEM_ERROR(cm, lc->map,
+                          aom_calloc(mi_rows * mi_cols, sizeof(*lc->map)));
+        }
+      }
+    }
+  }
 
   rc->is_src_frame_alt_ref = 0;
 

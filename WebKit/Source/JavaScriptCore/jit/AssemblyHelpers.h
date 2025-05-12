@@ -1210,10 +1210,12 @@ public:
 #if USE(JSVALUE64)
     JumpList branchIfResizableOrGrowableSharedTypedArrayIsOutOfBounds(GPRReg baseGPR, GPRReg scratchGPR, GPRReg scratch2GPR, std::optional<TypedArrayType>);
     void loadTypedArrayByteLength(GPRReg baseGPR, GPRReg valueGPR, GPRReg scratchGPR, GPRReg scratch2GPR, TypedArrayType);
+    std::tuple<Jump, JumpList> loadDataViewByteLength(GPRReg baseGPR, GPRReg valueGPR, GPRReg scratchGPR, GPRReg scratch2GPR, TypedArrayType);
     void loadTypedArrayLength(GPRReg baseGPR, GPRReg valueGPR, GPRReg scratchGPR, GPRReg scratch2GPR, std::optional<TypedArrayType>);
 #else
     JumpList branchIfResizableOrGrowableSharedTypedArrayIsOutOfBounds(GPRReg, GPRReg, GPRReg, std::optional<TypedArrayType>) { return { }; }
     void loadTypedArrayByteLength(GPRReg, GPRReg, GPRReg, GPRReg, TypedArrayType) { }
+    std::tuple<Jump, JumpList> loadDataViewByteLength(GPRReg, GPRReg, GPRReg, GPRReg, TypedArrayType) { return { }; };
     void loadTypedArrayLength(GPRReg, GPRReg, GPRReg, GPRReg, std::optional<TypedArrayType>) { }
 #endif
 
@@ -2137,7 +2139,8 @@ protected:
     void copyCalleeSavesToEntryFrameCalleeSavesBufferImpl(GPRReg calleeSavesBuffer);
 
     enum class TypedArrayField { Length, ByteLength };
-    void loadTypedArrayByteLengthImpl(GPRReg baseGPR, GPRReg valueGPR, GPRReg scratchGPR, GPRReg scratch2GPR, std::optional<TypedArrayType>, TypedArrayField);
+    std::tuple<Jump, JumpList> loadTypedArrayByteLengthImpl(GPRReg baseGPR, GPRReg valueGPR, GPRReg scratchGPR, GPRReg scratch2GPR, std::optional<TypedArrayType>, TypedArrayField);
+    void loadTypedArrayByteLengthCommonImpl(GPRReg baseGPR, GPRReg valueGPR, GPRReg scratchGPR, GPRReg scratch2GPR, std::optional<TypedArrayType>, TypedArrayField);
 
     CodeBlock* const m_codeBlock;
     CodeBlock* const m_baselineCodeBlock;

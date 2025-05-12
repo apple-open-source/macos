@@ -50,7 +50,7 @@ class RemoteDisplayListRecorderProxy : public WebCore::DisplayList::Recorder {
     WTF_MAKE_TZONE_ALLOCATED(RemoteDisplayListRecorderProxy);
 public:
     RemoteDisplayListRecorderProxy(RemoteImageBufferProxy&, RemoteRenderingBackendProxy&, const WebCore::FloatRect& initialClip, const WebCore::AffineTransform&);
-    RemoteDisplayListRecorderProxy(RemoteRenderingBackendProxy& , WebCore::RenderingResourceIdentifier, const WebCore::DestinationColorSpace&, WebCore::RenderingMode, const WebCore::FloatRect&, const WebCore::AffineTransform&);
+    RemoteDisplayListRecorderProxy(RemoteRenderingBackendProxy& , WebCore::RenderingResourceIdentifier, const WebCore::DestinationColorSpace&, WebCore::ContentsFormat, WebCore::RenderingMode, const WebCore::FloatRect&, const WebCore::AffineTransform&);
     virtual ~RemoteDisplayListRecorderProxy();
 
     void disconnect();
@@ -167,6 +167,7 @@ private:
     WebCore::RenderingResourceIdentifier m_destinationBufferIdentifier;
     ThreadSafeWeakPtr<RemoteImageBufferProxy> m_imageBuffer;
     WeakPtr<RemoteRenderingBackendProxy> m_renderingBackend;
+    std::optional<WebCore::ContentsFormat> m_contentsFormat;
     WebCore::RenderingMode m_renderingMode;
 #if PLATFORM(COCOA) && ENABLE(VIDEO)
     Lock m_sharedVideoFrameWriterLock;

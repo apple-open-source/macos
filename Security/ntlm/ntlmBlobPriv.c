@@ -42,6 +42,7 @@
 #include <CommonCrypto/CommonCryptor.h>
 #include <CommonCrypto/CommonHMAC.h>
 #include <CoreFoundation/CFDate.h>
+#include <os/overflow.h>
 #include <Security/SecFramework.h>
 #include <Security/SecRandom.h>
 #include <utilities/SecCFWrappers.h>
@@ -157,12 +158,25 @@ OSStatus ntlmParseSecBuffer(
 	uint16_t *dataLen)					/* RETURNED, length of actual data */
 {
 	assert(cp >= bufStart);
-
+    
+    if (cp + 6 > bufStart + bufLen) { /* length of secBufLen (2) and offset (4) */
+        dprintf("ntlmParseSecBuffer: buf overflow\n");
+        return NTLM_ERR_PARSE_ERR;
+    }
+    
 	uint16_t secBufLen = OSReadLittleInt16(cp, 0);
 	/* skip length we just parsed plus alloc size, which we don't use */
 	cp += 4;
 	uint32_t offset = OSReadLittleInt32(cp, 0);
-	if((offset + secBufLen) > bufLen) {
+    
+    uint16_t secBufSize = 0;
+    if (os_add_overflow(offset, secBufLen, &secBufSize)) {
+        dprintf("ntlmParseSecBuffer: buf size overflow\n");
+        return NTLM_ERR_PARSE_ERR;
+    }
+    
+    // the buffer should not extend past the end of the message
+	if(bufStart + secBufSize > bufStart + bufLen) {
 		dprintf("ntlmParseSecBuffer: buf overflow\n");
 		return NTLM_ERR_PARSE_ERR;
 	}

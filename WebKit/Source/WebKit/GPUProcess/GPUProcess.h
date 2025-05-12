@@ -285,6 +285,7 @@ private:
 #endif
 #if ENABLE(VP9) && PLATFORM(COCOA)
     bool m_haveEnabledVP9Decoder { false };
+    bool m_haveEnabledSWVP9Decoder { false };
 #endif
 
 };

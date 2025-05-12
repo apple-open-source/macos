@@ -2920,6 +2920,26 @@ void IOPCIBridge::removeDevice( IOPCIDevice * device, IOOptionBits options )
     configOp(&cp);
 }
 
+IOService *IOPCIBridge::findThunderboltPortForNub(IOPCIDevice *nub)
+{
+	IOService *tbNode = NULL;
+
+#if TARGET_OS_HAS_THUNDERBOLT
+	// Find the thunderbolt node from its registry entry ID
+	OSNumber *tbEntryID = OSDynamicCast(OSNumber, getProperty("Thunderbolt Entry ID", gIOServicePlane));
+	if (!tbEntryID) {
+		return NULL;
+	}
+
+	OSDictionary *matching = registryEntryIDMatching(tbEntryID->unsigned64BitValue());
+	tbNode = copyMatchingService(matching);
+	OSSafeReleaseNULL(matching);
+#endif
+
+	// The caller is responsible for releasing tbNode
+	return tbNode;
+}
+
 bool IOPCIBridge::publishNub( IOPCIDevice * nub, UInt32 /* index */ )
 {
 	IOPCIDevice *               root;
@@ -3030,25 +3050,42 @@ bool IOPCIBridge::publishNub( IOPCIDevice * nub, UInt32 /* index */ )
 
             if (shadow && shadow->tunnelled)
             {
-                OSNumber *tbEntryID = OSDynamicCast(OSNumber, getProperty("Thunderbolt Entry ID", gIOServicePlane));
-                if (tbEntryID)
-                {
-                    OSDictionary *matching = registryEntryIDMatching(tbEntryID->unsigned64BitValue());
-                    IOService *tbNode = copyMatchingService(matching);
-                    OSSafeReleaseNULL(matching);
-                    if (tbNode)
-                    {
-						IOPCIDevice *linkPartner = OSDynamicCast(IOPCIDevice, getParentEntry(gIOServicePlane));
-                        OSNumber *clx = OSDynamicCast(OSNumber, tbNode->getProperty(kIOThunderboltPortCLxStateProperty, gIOServicePlane));
-                        tbNode->release();
+                const uint32_t retryCount = 10;
+                IOService *tbNode = NULL;
 
-                        if (   (clx && clx->unsigned32BitValue())
-							&& !IOPCIDevice::hasL1Errata(nub)
-							&& (nub->isDownstreamFacing() || !IOPCIDevice::hasL1Errata(linkPartner)))
-						{
-							nub->setProperty(kIOCLxEnabledKey, kOSBooleanTrue);
-						}
+                // Search for the nub's corresponding thunderbolt upstream adapter, retrying up to 10 times every millisecond.
+                // If the upstream adapter is not found after 10ms, but a downstream adapter is, use that instead.
+                for (unsigned i = 0; i < retryCount; i++) {
+                    tbNode = findThunderboltPortForNub(nub);
+					OSNumber *adapterType = NULL;
+
+                    if (tbNode) {
+                        adapterType = OSDynamicCast(OSNumber, tbNode->getProperty(kIOThunderboltPortAdapterTypeProperty, gIOServicePlane));
                     }
+
+                    if ( tbNode && adapterType && adapterType->unsigned64BitValue() == kIOTBPortAdapterTypePCIeUp )
+                    {
+                        break;
+                    }
+
+                    // If the port isn't found or isn't a Up adapter, retry after a short sleep
+                    IOSleep(1);
+                }
+
+                if (tbNode) {
+                    IOPCIDevice *linkPartner = OSDynamicCast(IOPCIDevice, getParentEntry(gIOServicePlane));
+                    OSNumber *clx = OSDynamicCast(OSNumber, tbNode->getProperty(kIOThunderboltPortCLxStateProperty, gIOServicePlane));
+                    tbNode->release();
+
+                    if (   (clx && clx->unsigned32BitValue())
+                            && !IOPCIDevice::hasL1Errata(nub)
+                            && (nub->isDownstreamFacing() || !IOPCIDevice::hasL1Errata(linkPartner)))
+                    {
+                        nub->setProperty(kIOCLxEnabledKey, kOSBooleanTrue);
+                    }
+                } else {
+                    DLOG("nub %s@%u:%u:%u's thunderbolt port wasn't found after %u ms\n",
+                        nub->getName(), PCI_ADDRESS_TUPLE(nub), retryCount);
                 }
             }
         }

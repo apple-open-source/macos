@@ -7,6 +7,7 @@
 
 #include <stdio.h>
 #include <darwintest.h>
+#include <darwintest/accessors.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -28,6 +29,7 @@ static L4_MessageTag_t endpoint_thread(void *ctx, L4_MessageTag_t tag,
 }
 
 static int run_tests(void *arg) {
+    dt_init_section_ptrs();
     /* Call the minirunner to start executing all tests */
     minirunner_exclave();
     return 0;

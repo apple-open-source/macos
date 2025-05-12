@@ -29,6 +29,7 @@
 #include <Security/SecPolicy.h>
 #include <Security/SecTrust.h>
 #include <Security/SecTrustSettings.h>
+#include <utilities/SecAppleAnchorPriv.h>
 
 #import "TrustEvaluationTestCase.h"
 #include "../TestMacroConversions.h"
@@ -92,6 +93,45 @@ static SecTrustRef trust = nil;
     ok_status(SecTrustSetVerifyDate(trust, date), "set trust date to 12 Jan 10000");
     XCTAssertFalse(SecTrustEvaluateWithError(trust, NULL), "evaluate trust on 12 Jan 10000 and expect failure");
     CFReleaseNull(date);
+}
+
+- (void)testNonExpiringAnchors {
+    NSArray *anchors = (__bridge NSArray*)SecGetAppleTrustAnchors(true);
+    anchors = [anchors arrayByAddingObjectsFromArray:CFBridgingRelease(SecCertificateCopyAppleExternalRoots())];
+    anchors = [anchors arrayByAddingObject:CFBridgingRelease(SecCertificateCreateWithBytes(NULL, _syniverse_anchor, sizeof(_syniverse_anchor)))];
+
+    NSDate *farFuture = [NSDate dateWithTimeIntervalSince1970:2369548800.0];
+    SecPolicyRef basic = SecPolicyCreateBasicX509();
+
+    for(id cert in anchors) {
+        TestTrustEvaluation *test = [[TestTrustEvaluation alloc] initWithCertificates:@[cert]
+                                                                              policies:@[(__bridge id)basic]];
+        [test setVerifyDate:farFuture];
+        [test setAnchors:anchors];
+        XCTAssert([test evaluate:nil]);
+    }
+
+    CFReleaseNull(basic);
+}
+
+- (void)testExpiredChainFromNonExpiredAnchor {
+    id leaf = [self SecCertificateCreateFromResource:@"escrow" subdirectory:@"si-20-sectrust-policies-data"];
+    id ca = [self SecCertificateCreateFromResource:@"AppleServerAuthentication" subdirectory:@"si-20-sectrust-policies-data"];
+
+    NSArray *certs = @[leaf, ca];
+    NSArray *anchors = (__bridge NSArray*)SecGetAppleTrustAnchors(true);
+    NSDate *farFuture = [NSDate dateWithTimeIntervalSince1970:2369548800.0];
+    SecPolicyRef basic = SecPolicyCreateBasicX509();
+
+    TestTrustEvaluation *test = [[TestTrustEvaluation alloc] initWithCertificates:certs
+                                                                          policies:@[(__bridge id)basic]];
+    [test setVerifyDate:farFuture];
+    [test setAnchors:anchors];
+    XCTAssertFalse([test evaluate:nil]);
+
+    CFReleaseNull(basic);
+    CFReleaseSafe((__bridge CFTypeRef)leaf);
+    CFReleaseSafe((__bridge CFTypeRef)ca);
 }
 
 @end

@@ -66,9 +66,10 @@ namespace WebKit {
 
 class NetworkConnectionToWebProcess;
 class NetworkProcess;
-class NetworkResourceLoadParameters;
 class NetworkResourceLoader;
 class ServiceWorkerFetchTask;
+
+struct NetworkResourceLoadParameters;
 struct SharedPreferencesForWebProcess;
 
 class WebSWServerConnection final : public WebCore::SWServer::Connection, public IPC::MessageSender, public IPC::MessageReceiver {

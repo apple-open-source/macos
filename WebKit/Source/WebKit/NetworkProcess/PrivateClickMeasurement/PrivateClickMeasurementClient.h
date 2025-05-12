@@ -39,7 +39,7 @@ class ResourceResponse;
 
 namespace WebKit {
 
-class NetworkLoadParameters;
+struct NetworkLoadParameters;
 
 namespace PCM {
 

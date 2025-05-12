@@ -39,7 +39,7 @@ extern "C" {
 extern void _DAConfigurationCallback( SCDynamicStoreRef store, CFArrayRef keys, void * info );
 #endif
 #if TARGET_OS_IOS
-extern void DARegisterForFirstUnlockNotification( void );
+extern void DARegisterForUnlockNotification( void );
 #endif
 extern DADiskRef DADiskListGetDisk( const char * diskID );
 extern void _DAMediaAppearedCallback( void * context, io_iterator_t notification );

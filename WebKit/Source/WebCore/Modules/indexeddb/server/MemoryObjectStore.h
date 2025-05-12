@@ -131,7 +131,7 @@ private:
     void unregisterIndex(MemoryIndex&);
     HashMap<IDBIndexIdentifier, RefPtr<MemoryIndex>> m_indexesByIdentifier;
     HashMap<String, RefPtr<MemoryIndex>> m_indexesByName;
-    HashMap<IDBResourceIdentifier, std::unique_ptr<MemoryObjectStoreCursor>> m_cursors;
+    HashMap<IDBResourceIdentifier, RefPtr<MemoryObjectStoreCursor>> m_cursors;
 };
 
 } // namespace IDBServer

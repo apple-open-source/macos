@@ -59,6 +59,10 @@
 #include <Security/SecTask.h>
 #endif
 
+#if TARGET_OS_IOS
+#include <MobileKeyBag/MobileKeyBag.h>
+#endif
+
 struct __DAAuthorizeWithCallbackContext
 {
     DAAuthorizeCallback callback;
@@ -1244,10 +1248,17 @@ const CFStringRef kDAMountMapMountPathKey      = CFSTR( "DAMountPath"      );
 const CFStringRef kDAMountMapProbeIDKey        = CFSTR( "DAProbeID"        );
 const CFStringRef kDAMountMapProbeKindKey      = CFSTR( "DAProbeKind"      );
 
+// TODO: Figure out security policy for rdar://143332014
+static BOOL __DAShouldAddMountMapEntry( )
+{
+    return YES;
+}
+
 static CFDictionaryRef __DAMountMapCreate1( CFAllocatorRef allocator, struct fstab * fs )
 {
     CFMutableDictionaryRef map = NULL;
-
+    static BOOL fstabEntryAdded = NO; // Don't post the event again during subsequent refreshes
+    
     if ( strcmp( fs->fs_type, FSTAB_SW ) )
     {
         char * idAsCString = fs->fs_spec;
@@ -1262,22 +1273,22 @@ static CFDictionaryRef __DAMountMapCreate1( CFAllocatorRef allocator, struct fst
 
             if ( idAsString )
             {
-                CFTypeRef id = NULL;
+                CFTypeRef entryID = NULL;
 
                 if ( strcmp( fs->fs_spec, "UUID" ) == 0 )
                 {
-                    id = ___CFUUIDCreateFromString( kCFAllocatorDefault, idAsString );
+                    entryID = ___CFUUIDCreateFromString( kCFAllocatorDefault, idAsString );
                 }
                 else if ( strcmp( fs->fs_spec, "LABEL" ) == 0 )
                 {
-                    id = CFRetain( idAsString );
+                    entryID = CFRetain( idAsString );
                 }
                 else if ( strcmp( fs->fs_spec, "DEVICE" ) == 0 )
                 {
-                    id = ___CFDictionaryCreateFromXMLString( kCFAllocatorDefault, idAsString );
+                    entryID = ___CFDictionaryCreateFromXMLString( kCFAllocatorDefault, idAsString );
                 }
 
-                if ( id )
+                if ( entryID )
                 {
                     map = CFDictionaryCreateMutable( kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks );
 
@@ -1353,15 +1364,42 @@ static CFDictionaryRef __DAMountMapCreate1( CFAllocatorRef allocator, struct fst
                             }
                         }
 
-                        CFDictionarySetValue( map, kDAMountMapProbeIDKey, id );
+                        CFDictionarySetValue( map, kDAMountMapProbeIDKey, entryID );
                     }
 
-                    CFRelease( id );
+                    CFRelease( entryID );
                 }
 
                 CFRelease( idAsString );
             }
         }
+#if TARGET_OS_OSX
+        if ( map != NULL )
+        {
+            if ( __DAShouldAddMountMapEntry( ) )
+            {
+                if ( !fstabEntryAdded )
+                {
+                    // Post telemetry event for the first entry added
+                    fstabEntryAdded = YES;
+                    DATelemetrySendMountEvent( DA_STATUS_FSTAB_MOUNT_ADDED ,
+                                              CFDictionaryGetValue( map , kDAMountMapProbeKindKey ) ,
+                                              FALSE ,
+                                              0 );
+                }
+            }
+            else
+            {
+                DALogInfo( "Skipping mount map entry for %s", fs->fs_file );
+                DATelemetrySendMountEvent( DA_STATUS_FSTAB_MOUNT_SKIPPED ,
+                                          CFDictionaryGetValue( map , kDAMountMapProbeKindKey ) ,
+                                          FALSE ,
+                                          0 );
+                CFRelease( map );
+                map = NULL;
+            }
+        }
+#endif
     }
 
     return map;
@@ -1946,3 +1984,18 @@ void DAUnitSetState( DADiskRef disk, DAUnitState state, Boolean value )
         }
     }
 }
+
+#if TARGET_OS_IOS
+Boolean DADeviceIsUnlocked( void )
+{
+    int lockState = MKBGetDeviceLockState( NULL );
+    
+    switch ( lockState ) {
+        case kMobileKeyBagDisabled:
+        case kMobileKeyBagDeviceIsUnlocked:
+            return TRUE;
+        default:
+            return FALSE;
+    }
+}
+#endif

@@ -4202,7 +4202,7 @@ smb2fs_smb_add_fctx_query(struct smbfs_fctx *ctx)
         SMBERROR("out of memory");
         return NULL;
     }
-    SLIST_INSERT_HEAD(&ctx->f_queries, queryp, next);
+    STAILQ_INSERT_TAIL(&ctx->f_queries, queryp, next);
     return queryp;
 }
 
@@ -4214,9 +4214,9 @@ smb2fs_smb_free_fctx_query_head(struct smbfs_fctx *ctx) {
         return EINVAL;
     }
 
-    if (!SLIST_EMPTY(&ctx->f_queries)) {
+    if (!STAILQ_EMPTY(&ctx->f_queries)) {
         /* Free the saved query if there is one */
-        query_first = SLIST_FIRST(&ctx->f_queries);
+        query_first = STAILQ_FIRST(&ctx->f_queries);
         if (query_first->create_rqp != NULL) {
             smb_rq_done(query_first->create_rqp);
         }
@@ -4224,9 +4224,34 @@ smb2fs_smb_free_fctx_query_head(struct smbfs_fctx *ctx) {
             smb_rq_done(query_first->query_rqp);
         }
     }
-    SLIST_REMOVE_HEAD(&ctx->f_queries, next);
+    STAILQ_REMOVE_HEAD(&ctx->f_queries, next);
     if (query_first != NULL) {
         SMB_FREE_TYPE(struct smbfs_fctx_query_t, query_first);
+    }
+    return 0;
+}
+
+int
+smb2fs_smb_free_fctx_query_tail(struct smbfs_fctx *ctx) {
+    struct smbfs_fctx_query_t *query = NULL;
+
+    if (ctx == NULL) {
+        return EINVAL;
+    }
+
+    if (!STAILQ_EMPTY(&ctx->f_queries)) {
+        /* Free the saved query if there is one */
+        query = STAILQ_LAST(&ctx->f_queries, smbfs_fctx_query_t, next);
+        if (query->create_rqp != NULL) {
+            smb_rq_done(query->create_rqp);
+        }
+        if (query->query_rqp != NULL) {
+            smb_rq_done(query->query_rqp);
+        }
+    }
+    STAILQ_REMOVE(&ctx->f_queries, query, smbfs_fctx_query_t, next);
+    if (query != NULL) {
+        SMB_FREE_TYPE(struct smbfs_fctx_query_t, query);
     }
     return 0;
 }
@@ -4560,7 +4585,7 @@ parse_query:
     }
 
 bad:
-    query_first = SLIST_FIRST(&ctx->f_queries);
+    query_first = STAILQ_FIRST(&ctx->f_queries);
     query_first->create_rqp = create_rqp; /* save rqp so it can be freed later */
     query_first->query_rqp = query_rqp; /* save rqp so it can be freed later */
 	
@@ -8027,7 +8052,7 @@ smbfs_smb_findclose(struct smbfs_fctx *ctx, vfs_context_t context)
     int error;
     
     if (SS_TO_SESSION(ctx->f_share)->session_flags & SMBV_SMB2) {
-        while(!SLIST_EMPTY(&ctx->f_queries)) {
+        while(!STAILQ_EMPTY(&ctx->f_queries)) {
             /* free all saved queries */
             smb2fs_smb_free_fctx_query_head(ctx);
         }
@@ -8080,10 +8105,9 @@ smb2fs_smb_findnext(struct smbfs_fctx *ctx, vfs_context_t context)
     uint32_t file_index;
     int attempts = 0;
     off_t total_entries;
-
-    if (!SLIST_EMPTY(&ctx->f_queries)) {
+    if (!STAILQ_EMPTY(&ctx->f_queries)) {
         /* We have at least one query saved */
-        current_query = SLIST_FIRST(&ctx->f_queries);
+        current_query = STAILQ_FIRST(&ctx->f_queries);
         if (current_query->output_buf_len == 0) {
              /*
               * The current query is finished, free it
@@ -8093,7 +8117,7 @@ smb2fs_smb_findnext(struct smbfs_fctx *ctx, vfs_context_t context)
               */
             smb2fs_smb_free_fctx_query_head(ctx);
             current_query = NULL;
-            if (SLIST_EMPTY(&ctx->f_queries)) {
+            if (STAILQ_EMPTY(&ctx->f_queries)) {
                 /* We had one query only, and we finished parsing it, send query dir */
                 goto fetch_entries;
             }
@@ -8215,10 +8239,10 @@ again:
 
         if (error) {
             /* Free the saved query first */
-            smb2fs_smb_free_fctx_query_head(ctx);
+            smb2fs_smb_free_fctx_query_tail(ctx);
             if (error == ENOENT) {
                 ctx->f_flags |= SMBFS_RDD_EOF;
-                if (SLIST_EMPTY(&ctx->f_queries)) {
+                if (STAILQ_EMPTY(&ctx->f_queries)) {
                     /*
                      * ENOENT received and we parsed all saved queries
                      */
@@ -8272,8 +8296,7 @@ parse_query:
      * Either we did a new search and we are parsing the first entry out or
      * we are just parsing more names out of a previous search.
      */
-    current_query = SLIST_FIRST(&ctx->f_queries);
-
+    current_query = STAILQ_FIRST(&ctx->f_queries);
     ctx->f_NetworkNameLen = 0;
     
     /* at this point, mdp is pointing to output buffer */

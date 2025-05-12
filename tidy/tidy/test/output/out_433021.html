@@ -1,0 +1,33 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+
+<html>
+<head>
+  <title>[ #433021 ] Identify attribute whose value is bad</title>
+  <style type="text/css">
+p.c1 {text-align: fizzle}
+  </style>
+</head>
+
+<body>
+  <p class="c1">text</p>
+
+  <table summary="none">
+    <tr>
+      <td align="center"
+          valign="center">
+        <p>"valign" attr value can't be "center"</p>
+      </td>
+
+      <td align="center"
+          valign="fuzzle">
+        <p>"valign" attr value can't be "fuzzle"</p>
+      </td>
+
+      <td align="fuzzle"
+          valign="fuzzle">
+        <p>"align"/"valign" attr values can't be "fuzzle"</p>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>

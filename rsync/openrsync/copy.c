@@ -619,8 +619,7 @@ copy_file(int rootfd, const char *basedir, const struct flist *f)
 	close(dfd);
 
 	tofd = openat(rootfd, f->path,
-	    O_WRONLY | O_NOFOLLOW | O_TRUNC | O_CREAT | O_EXCL,
-	    0600);
+	    O_WRONLY | O_NOFOLLOW | O_TRUNC | O_CREAT, 0600);
 	if (tofd == -1)
 		err(ERR_FILE_IO, "%s: copy_file tofd: openat", f->path);
 

@@ -489,9 +489,7 @@
             (allow mach-message-send (notifyd-message-numbers)))))
 
 #if ENABLE(NOTIFY_BLOCKING)
-(allow mach-lookup (global-name "com.apple.system.notification_center")
-    (apply-message-filter (deny mach-message-send)))
-(with-filter (require-not (webcontent-process-launched))
+(with-filter (require-not (notify-blocking))
     (allow-notifyd))
 #else
 (allow-notifyd)

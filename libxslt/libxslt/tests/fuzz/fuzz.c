@@ -217,8 +217,12 @@ xsltFuzzXPathInit(int *argc_p ATTRIBUTE_UNUSED, char ***argv_p,
 
 xmlXPathObjectPtr
 xsltFuzzXPath(const char *data, size_t size) {
-    xmlXPathContextPtr xpctxt = tctxt->xpathCtxt;
+    xmlXPathContextPtr xpctxt = tctxt ? tctxt->xpathCtxt : NULL;
     xmlChar *xpathExpr;
+
+    /* This occurs when xpath.xml is missing and the fuzzer input is empty. */
+    if (!tctxt)
+        return NULL;
 
     /* Null-terminate */
     xpathExpr = malloc(size + 1);
@@ -328,7 +332,10 @@ xsltFuzzXslt(const char *data, size_t size) {
     xmlChar *ret = NULL;
     int retLen;
 
-    xsltDoc = xmlReadMemory(data, size, NULL, NULL, 0);
+    if (size > INT_MAX)
+        return NULL;
+
+    xsltDoc = xmlReadMemory(data, (int)size, NULL, NULL, 0);
     if (xsltDoc == NULL)
         return NULL;
     xsltRoot = xmlDocGetRootElement(xsltDoc);

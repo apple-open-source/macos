@@ -7909,6 +7909,8 @@ void HTMLMediaElement::createMediaPlayer() WTF_IGNORES_THREAD_SAFETY_ANALYSIS
     RefPtr page = document().page();
     player->setPageIsVisible(!m_elementIsHidden);
     player->setVisibleInViewport(isVisibleInViewport());
+    player->setInFullscreenOrPictureInPicture(isFullscreen());
+
 #if USE(AVFOUNDATION) && ENABLE(MEDIA_SOURCE)
     player->setDecompressionSessionPreferences(document().settings().mediaSourcePrefersDecompressionSession(), document().settings().mediaSourceCanFallbackToDecompressionSession());
 #endif
@@ -8471,6 +8473,7 @@ void HTMLMediaElement::removeBehaviorRestrictionsAfterFirstUserGesture(MediaElem
 {
     MediaElementSession::BehaviorRestrictions restrictionsToRemove = mask &
         (MediaElementSession::RequireUserGestureForLoad
+        | MediaElementSession::AutoPreloadingNotPermitted
 #if ENABLE(WIRELESS_PLAYBACK_TARGET)
         | MediaElementSession::RequireUserGestureToShowPlaybackTargetPicker
         | MediaElementSession::RequireUserGestureToAutoplayToExternalDevice
@@ -9488,6 +9491,25 @@ void HTMLMediaElement::setFullscreenMode(VideoFullscreenMode mode)
     schedulePlaybackControlsManagerUpdate();
 
     computeAcceleratedRenderingStateAndUpdateMediaPlayer();
+}
+
+void HTMLMediaElement::addClient(HTMLMediaElementClient& client)
+{
+    ASSERT(!m_clients.contains(client));
+    m_clients.add(client);
+}
+
+void HTMLMediaElement::removeClient(const HTMLMediaElementClient& client)
+{
+    ASSERT(m_clients.contains(client));
+    m_clients.remove(client);
+}
+
+void HTMLMediaElement::audioSessionCategoryChanged(AudioSessionCategory category, AudioSessionMode mode, RouteSharingPolicy policy)
+{
+    m_clients.forEach([category, mode, policy] (auto& client) {
+        client.audioSessionCategoryChanged(category, mode, policy);
+    });
 }
 
 #if !RELEASE_LOG_DISABLED

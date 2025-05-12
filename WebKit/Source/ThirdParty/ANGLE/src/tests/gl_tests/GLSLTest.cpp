@@ -6854,6 +6854,64 @@ void main()
     EXPECT_PIXEL_COLOR_EQ(0, 0, GLColor::green);
 }
 
+// Tests that extracting samplers from structs that are members of other structs
+// will not cause a error when accessing any fields (e.g., uni.b)
+// (This is a modification of the above test "SamplerInStructMemberIndexing").
+TEST_P(GLSLTest, SamplerInStructInStructMemberIndexing)
+{
+    const char kVertexShader[] = R"(attribute vec2 position;
+varying vec2 texCoord;
+void main()
+{
+    gl_Position = vec4(position, 0, 1);
+    texCoord = position * 0.5 + vec2(0.5);
+})";
+
+    const char kFragmentShader[] = R"(precision mediump float;
+struct S1 { sampler2D samp; };
+struct S2 { S1 s1; bool b; };
+uniform S2 uni;
+varying vec2 texCoord;
+void main()
+{
+    uni;
+    if (uni.b)
+    {
+        gl_FragColor = texture2D(uni.s1.samp, texCoord);
+    }
+    else
+    {
+        gl_FragColor = vec4(1, 0, 0, 1);
+    }
+})";
+
+    ANGLE_GL_PROGRAM(program, kVertexShader, kFragmentShader);
+    glUseProgram(program);
+
+    GLint bLoc = glGetUniformLocation(program, "uni.b");
+    ASSERT_NE(-1, bLoc);
+    GLint sampLoc = glGetUniformLocation(program, "uni.s1.samp");
+    ASSERT_NE(-1, sampLoc);
+
+    glUniform1i(bLoc, 1);
+
+    std::array<GLColor, 4> kGreenPixels = {
+        {GLColor::green, GLColor::green, GLColor::green, GLColor::green}};
+
+    GLTexture tex;
+    glBindTexture(GL_TEXTURE_2D, tex);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 2, 2, 0, GL_RGBA, GL_UNSIGNED_BYTE,
+                 kGreenPixels.data());
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    ASSERT_GL_NO_ERROR();
+
+    drawQuad(program, "position", 0.5f);
+    ASSERT_GL_NO_ERROR();
+
+    EXPECT_PIXEL_COLOR_EQ(0, 0, GLColor::green);
+}
+
 // Tests that rewriting samplers in structs works when passed as function argument.  In this test,
 // the function references another struct, which is not being modified.  Regression test for AST
 // validation applied to a multipass transformation, where references to declarations were attempted

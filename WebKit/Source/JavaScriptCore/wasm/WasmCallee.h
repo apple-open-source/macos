@@ -29,6 +29,7 @@
 
 #include "JITCompilation.h"
 #include "NativeCallee.h"
+#include "PCToCodeOriginMap.h"
 #include "RegisterAtOffsetList.h"
 #include "StackAlignment.h"
 #include "WasmCompilationMode.h"
@@ -50,6 +51,10 @@
 namespace JSC {
 
 class LLIntOffsetsExtractor;
+
+namespace B3 {
+class PCToOriginMap;
+}
 
 namespace Wasm {
 
@@ -251,6 +256,9 @@ public:
 
     void addCodeOrigin(unsigned firstInlineCSI, unsigned lastInlineCSI, const Wasm::ModuleInformation&, uint32_t functionIndex);
     IndexOrName getOrigin(unsigned csi, unsigned depth, bool& isInlined) const;
+    std::optional<CallSiteIndex> tryGetCallSiteIndex(const void*) const;
+
+    Box<PCToCodeOriginMap> materializePCToOriginMap(B3::PCToOriginMap&&, LinkBuffer&);
 
 protected:
     OptimizingJITCallee(Wasm::CompilationMode mode, FunctionSpaceIndex index, std::pair<const Name*, RefPtr<NameSection>>&& name)
@@ -273,6 +281,7 @@ private:
     StackMaps m_stackmaps;
     Vector<WasmCodeOrigin, 0> codeOrigins;
     Vector<Ref<NameSection>, 0> nameSections;
+    Box<PCToCodeOriginMap> m_callSiteIndexMap;
 };
 
 constexpr int32_t stackCheckUnset = 0;

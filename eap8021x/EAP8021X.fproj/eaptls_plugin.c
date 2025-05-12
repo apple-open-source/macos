@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2017, 2022-2024 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2017, 2022-2025 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -590,6 +590,17 @@ eaptls_request(EAPClientPluginDataRef plugin,
 	break;
     case kSSLHandshake:
     case kSSLConnected:
+	if (context->plugin_state != kEAPClientStateAuthenticating) {
+	    /* This means the supplicant received this EAP-TLS message
+	     * post successful authentication, without first receiving
+	     * EAP-TLS start message from the Server.
+	     *
+	     * TLS handshake must be done in Authenticating plugin state.
+	     */
+	    context->plugin_state = kEAPClientStateFailure;
+	    EAPLOG_FL(LOG_NOTICE, "unable to process the received EAP-TLS message");
+	    goto done;
+	}
 	if (write_buf->data != NULL) {
 	    /* we have data to write */
 	    if (in_pkt->identifier == context->previous_identifier) {

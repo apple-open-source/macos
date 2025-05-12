@@ -1507,8 +1507,15 @@ void WebPageProxy::getInformationFromImageData(Vector<uint8_t>&& data, Completio
 
 void WebPageProxy::createIconDataFromImageData(Ref<WebCore::SharedBuffer>&& buffer, const Vector<unsigned>& lengths, CompletionHandler<void(RefPtr<WebCore::SharedBuffer>&&)>&& completionHandler)
 {
-    ensureProtectedRunningProcess()->sendWithAsyncReply(Messages::WebPage::CreateIconDataFromImageData(WTFMove(buffer), lengths), [preventProcessShutdownScope = protectedLegacyMainFrameProcess()->shutdownPreventingScope(), completionHandler = WTFMove(completionHandler)] (auto result) mutable {
-        completionHandler(WTFMove(result));
+    // Supported ICO image sizes by ImageIO.
+    constexpr std::array<unsigned, 5> availableLengths { { 16, 32, 48, 128, 256 } };
+    auto targetLengths = lengths.isEmpty() ? std::span { availableLengths } : lengths;
+
+    ensureProtectedRunningProcess()->sendWithAsyncReply(Messages::WebPage::CreateBitmapsFromImageData(WTFMove(buffer), targetLengths), [preventProcessShutdownScope = protectedLegacyMainFrameProcess()->shutdownPreventingScope(), completionHandler = WTFMove(completionHandler)] (auto bitmaps) mutable {
+        if (bitmaps.isEmpty())
+            return completionHandler(nullptr);
+
+        completionHandler(createIconDataFromBitmaps(WTFMove(bitmaps)));
     }, webPageIDInMainFrameProcess());
 }
 

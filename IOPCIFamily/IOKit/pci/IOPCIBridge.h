@@ -482,6 +482,8 @@ private:
 
 protected:
 	static bool hasBusLeadCTOBug(uint32_t vendorDevice);
+private:
+	IOService *findThunderboltPortForNub(IOPCIDevice *nub);
 };
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */

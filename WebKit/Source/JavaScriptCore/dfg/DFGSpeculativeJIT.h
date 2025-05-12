@@ -1560,6 +1560,10 @@ public:
 #if USE(LARGE_TYPED_ARRAYS)
     void compileGetTypedArrayLengthAsInt52(Node*);
 #endif
+    void compileDataViewGetByteLength(Node*);
+#if USE(LARGE_TYPED_ARRAYS)
+    void compileDataViewGetByteLengthAsInt52(Node*);
+#endif
 
     void compileCheckTypeInfoFlags(Node*);
     void compileCheckIdent(Node*);

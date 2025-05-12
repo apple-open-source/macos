@@ -112,7 +112,7 @@ ResourceResponseData ResourceResponseData::isolatedCopy() const
     result.isRedirected = isRedirected;
     result.usedLegacyTLS = usedLegacyTLS;
     result.wasPrivateRelayed = wasPrivateRelayed;
-    result.proxyName = proxyName;
+    result.proxyName = proxyName.isolatedCopy();
     result.isRangeRequested = isRangeRequested;
     if (certificateInfo)
         result.certificateInfo = certificateInfo->isolatedCopy();
@@ -139,7 +139,7 @@ ResourceResponseData ResourceResponseBase::crossThreadData() const
     data.isRedirected = m_isRedirected;
     data.usedLegacyTLS = m_usedLegacyTLS;
     data.wasPrivateRelayed = m_wasPrivateRelayed;
-    data.proxyName = m_proxyName;
+    data.proxyName = m_proxyName.isolatedCopy();
     data.isRangeRequested = m_isRangeRequested;
     if (m_certificateInfo)
         data.certificateInfo = m_certificateInfo->isolatedCopy();
@@ -171,7 +171,7 @@ ResourceResponse ResourceResponseBase::fromCrossThreadData(CrossThreadData&& dat
     response.m_isRedirected = data.isRedirected;
     response.m_usedLegacyTLS =  data.usedLegacyTLS;
     response.m_wasPrivateRelayed = data.wasPrivateRelayed;
-    response.m_proxyName = data.proxyName;
+    response.m_proxyName = WTFMove(data.proxyName);
     response.m_isRangeRequested = data.isRangeRequested;
     response.m_certificateInfo = WTFMove(data.certificateInfo);
 

@@ -35,9 +35,10 @@
 namespace WebKit {
 
 class NetworkLoad;
-class NetworkLoadParameters;
 class NetworkProcess;
 class NetworkSession;
+
+struct NetworkLoadParameters;
 
 class PreconnectTask final : public NetworkLoadClient {
 public:

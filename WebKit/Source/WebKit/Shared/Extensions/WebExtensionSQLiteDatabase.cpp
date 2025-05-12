@@ -72,18 +72,20 @@ int WebExtensionSQLiteDatabase::close()
     return result;
 }
 
-void WebExtensionSQLiteDatabase::reportErrorWithCode(int errorCode, const String& query, RefPtr<API::Error> outError)
+void WebExtensionSQLiteDatabase::reportErrorWithCode(int errorCode, const String& query, RefPtr<API::Error>& outError)
 {
     assertQueue();
     ASSERT(errorCode != SQLITE_OK);
 
-    if (outError)
-        outError = API::Error::create({ WebExtensionSQLiteErrorDomain, errorCode, m_url, emptyString() });
+    if (!query.isEmpty())
+        RELEASE_LOG_ERROR(Extensions, "SQLite error (%d) occurred with query: %{private}s", errorCode, query.utf8().data());
     else
-        RELEASE_LOG_ERROR(Extensions, "Unhandled SQLite error: %d", errorCode);
+        RELEASE_LOG_ERROR(Extensions, "SQLite error (%d) occurred", errorCode);
+
+    outError = errorWithSQLiteErrorCode(errorCode);
 }
 
-void WebExtensionSQLiteDatabase::reportErrorWithCode(int errorCode, sqlite3_stmt* statement, RefPtr<API::Error> outError)
+void WebExtensionSQLiteDatabase::reportErrorWithCode(int errorCode, sqlite3_stmt* statement, RefPtr<API::Error>& outError)
 {
     assertQueue();
     ASSERT(errorCode != SQLITE_OK);
@@ -92,10 +94,11 @@ void WebExtensionSQLiteDatabase::reportErrorWithCode(int errorCode, sqlite3_stmt
         if (char* sql = sqlite3_expanded_sql(statement)) {
             reportErrorWithCode(errorCode, String::fromUTF8(sql), outError);
             sqlite3_free(sql);
+            return;
         }
     }
 
-    reportErrorWithCode(errorCode, emptyString(), outError);
+    reportErrorWithCode(errorCode, { }, outError);
 }
 
 RefPtr<API::Error> WebExtensionSQLiteDatabase::errorWithSQLiteErrorCode(int errorCode)
@@ -103,8 +106,8 @@ RefPtr<API::Error> WebExtensionSQLiteDatabase::errorWithSQLiteErrorCode(int erro
     if (errorCode == SQLITE_OK)
         return nullptr;
 
-    String errorMessage = String::fromUTF8(sqlite3_errstr(errorCode));
-    return API::Error::create({ WebExtensionSQLiteErrorDomain, errorCode, { }, emptyString() });
+    auto errorMessage = String::fromUTF8(sqlite3_errstr(errorCode));
+    return API::Error::create({ WebExtensionSQLiteErrorDomain, errorCode, m_url, errorMessage });
 }
 
 bool WebExtensionSQLiteDatabase::enableWAL(RefPtr<API::Error>& error)
@@ -117,7 +120,7 @@ bool WebExtensionSQLiteDatabase::enableWAL(RefPtr<API::Error>& error)
     return SQLiteDatabaseEnumerate(*this, error, "PRAGMA journal_mode = WAL"_s, std::tie(std::ignore));
 }
 
-bool WebExtensionSQLiteDatabase::openWithAccessType(AccessType accessType, ProtectionType protectionType, const String& vfs, RefPtr<API::Error> outError)
+bool WebExtensionSQLiteDatabase::openWithAccessType(AccessType accessType, RefPtr<API::Error>& outError, ProtectionType protectionType, const String& vfs)
 {
     int flags = SQLITE_OPEN_NOMUTEX;
 
@@ -163,11 +166,8 @@ bool WebExtensionSQLiteDatabase::openWithAccessType(AccessType accessType, Prote
 
         auto directory = m_url.truncatedForUseAsBase().fileSystemPath();
         if (!FileSystem::makeAllDirectories(directory) || FileSystem::fileType(directory) != FileSystem::FileType::Directory) {
-            if (outError) {
-                RELEASE_LOG_ERROR(Extensions, "Unable to create parent folder for database at path: %s", m_url.fileSystemPath().utf8().data());
-                outError = errorWithSQLiteErrorCode(SQLITE_CANTOPEN);
-            }
-
+            RELEASE_LOG_ERROR(Extensions, "Unable to create parent folder for database at path: %s", m_url.fileSystemPath().utf8().data());
+            outError = errorWithSQLiteErrorCode(SQLITE_CANTOPEN);
             return false;
         }
     }
@@ -184,8 +184,7 @@ bool WebExtensionSQLiteDatabase::openWithAccessType(AccessType accessType, Prote
     if (result == SQLITE_CANTOPEN && !(flags & SQLITE_OPEN_CREATE))
         return false;
 
-    if (outError)
-        outError = errorWithSQLiteErrorCode(result);
+    outError = errorWithSQLiteErrorCode(result);
 
     return false;
 }

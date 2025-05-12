@@ -653,30 +653,36 @@ sec_protocol_configuration_set_ats_overrides(sec_protocol_configuration_t config
 #define ATS_VALUE_FOR_KEY(dictionary, key, value, default) \
     kATSGlobalKey value = default; \
     { \
-        if (dictionary[[[NSString alloc] initWithFormat:@"%s", key]]) { \
-            NSNumber *nsValue = [dictionary valueForKey:[[NSString alloc] initWithFormat:@"%s", key]]; \
-            if (nsValue) { \
-                value = ((__bridge CFBooleanRef) nsValue == kCFBooleanTrue) ? kATSGlobalKeyValueTrue : kATSGlobalKeyValueFalse; \
+        NSNumber *nsValue = dictionary[@key]; \
+        if (nsValue) { \
+            if ([nsValue isKindOfClass:[NSNumber class]]) { \
+                value = [nsValue isEqual:@YES] ? kATSGlobalKeyValueTrue : kATSGlobalKeyValueFalse; \
+            } else { \
+                os_log_error(OS_LOG_DEFAULT, "App Transport Security value for key %s must be a boolean", key); \
             } \
         } \
     }
 #define BOOLEAN_FOR_KEY(dictionary, key, value, default) \
     bool value = default; \
     { \
-        if (dictionary[[[NSString alloc] initWithFormat:@"%s", key]]) { \
-            NSNumber *nsValue = [dictionary valueForKey:[[NSString alloc] initWithFormat:@"%s", key]]; \
-            if (nsValue) { \
-                value = (__bridge CFBooleanRef) nsValue == kCFBooleanTrue; \
+        NSNumber *nsValue = dictionary[@key]; \
+        if (nsValue) { \
+            if ([nsValue isKindOfClass:[NSNumber class]]) { \
+                value = [nsValue isEqual:@YES]; \
+            } else { \
+                os_log_error(OS_LOG_DEFAULT, "App Transport Security value for key %s must be a boolean", key); \
             } \
         } \
     }
 #define STRING_FOR_KEY(dictionary, key, value, default) \
     NSString *value = default; \
     { \
-        if (dictionary[[[NSString alloc] initWithFormat:@"%s", key]]) { \
-            NSString *nsValue = [dictionary valueForKey:[[NSString alloc] initWithFormat:@"%s", key]]; \
-            if (nsValue) { \
+        NSString *nsValue = dictionary[@key]; \
+        if (nsValue) { \
+            if ([nsValue isKindOfClass:[NSString class]]) { \
                 value = nsValue; \
+            } else { \
+                os_log_error(OS_LOG_DEFAULT, "App Transport Security value for key %s must be a string", key); \
             } \
         } \
     }
@@ -715,12 +721,13 @@ sec_protocol_configuration_set_ats_overrides(sec_protocol_configuration_t config
     }
 
     [exception_domains enumerateKeysAndObjectsUsingBlock:^(id _key, id _obj, BOOL *stop) {
+        if (![_key isKindOfClass:[NSString class]] || ![_obj isKindOfClass:[NSDictionary class]]) {
+            // Exception domains MUST have ATS information set.
+            os_log_error(OS_LOG_DEFAULT, "App Transport Security exception must be a dictionary");
+            return;
+        }
         NSString *domain = (NSString *)_key;
         NSDictionary *entry = (NSDictionary *)_obj;
-        if (entry == nil) {
-            // Exception domains MUST have ATS information set.
-            *stop = YES;
-        }
 
         BOOLEAN_FOR_KEY(entry, kExceptionAllowsInsecureHTTPLoads, allows_http, false);
         BOOLEAN_FOR_KEY(entry, kIncludesSubdomains, includes_subdomains, false);

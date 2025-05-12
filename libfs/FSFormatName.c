@@ -21,6 +21,7 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+#include <System/sys/mount.h>
 #include <errno.h>
 #include <libkern/OSByteOrder.h>
 #include <stdio.h>
@@ -265,7 +266,11 @@ _FSCopyNameForVolumeFormatAtURL_internal(CFURLRef url, bool localized)
 		uint32_t subtype;
 		bool encrypted = false;
 
+#if TARGET_OS_SIMULATOR
 		if (statfs((char *)buffer, &sfs) == 0) {
+#else
+		if (statfs_ext((char *)buffer, &sfs, STATFS_EXT_NOBLOCK) == 0) {
+#endif
 			if (_FSGetTypeInfoFromStatfs(&sfs, fstype, sizeof(fstype),
 										 &subtype) == 0) {
 				CFStringRef fsType = CFStringCreateWithCString(kCFAllocatorDefault,

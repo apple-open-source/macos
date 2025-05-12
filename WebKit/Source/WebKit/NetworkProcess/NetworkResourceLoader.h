@@ -120,9 +120,9 @@ public:
     Ref<NetworkConnectionToWebProcess> protectedConnectionToWebProcess() const;
     PAL::SessionID sessionID() const { return m_connection->sessionID(); }
     WebCore::ResourceLoaderIdentifier coreIdentifier() const { return *m_parameters.identifier; }
-    WebCore::FrameIdentifier frameID() const { return *m_parameters.webFrameID; }
-    WebCore::PageIdentifier pageID() const { return *m_parameters.webPageID; }
-    WebPageProxyIdentifier webPageProxyID() const { return *m_parameters.webPageProxyID; }
+    WebCore::FrameIdentifier frameID() const { return m_parameters.webFrameID; }
+    WebCore::PageIdentifier pageID() const { return m_parameters.webPageID; }
+    WebPageProxyIdentifier webPageProxyID() const { return m_parameters.webPageProxyID; }
     const NetworkResourceLoadParameters& parameters() const { return m_parameters; }
     NetworkResourceLoadIdentifier identifier() const { return m_resourceLoadID; }
     const URL& firstResponseURL() const { return m_firstResponseURL; }

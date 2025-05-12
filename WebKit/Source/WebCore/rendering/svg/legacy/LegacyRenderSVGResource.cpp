@@ -141,10 +141,10 @@ static inline LegacyRenderSVGResource* requestPaintingResource(RenderSVGResource
     return uriResource;
 }
 
-void LegacyRenderSVGResource::removeAllClientsFromCache(bool markForInvalidation)
+void LegacyRenderSVGResource::removeAllClientsFromCacheAndMarkForInvalidation(bool markForInvalidation)
 {
     SingleThreadWeakHashSet<RenderObject> visitedRenderers;
-    removeAllClientsFromCacheIfNeeded(markForInvalidation, &visitedRenderers);
+    removeAllClientsFromCacheAndMarkForInvalidationIfNeeded(markForInvalidation, &visitedRenderers);
 }
 
 LegacyRenderSVGResource* LegacyRenderSVGResource::fillPaintingResource(RenderElement& renderer, const RenderStyle& style, Color& fallbackColor)
@@ -169,13 +169,13 @@ static void removeFromCacheAndInvalidateDependencies(RenderElement& renderer, bo
 {
     if (auto* resources = SVGResourcesCache::cachedResourcesForRenderer(renderer)) {
         if (LegacyRenderSVGResourceFilter* filter = resources->filter())
-            filter->removeClientFromCache(renderer);
+            filter->removeClientFromCacheAndMarkForInvalidation(renderer);
 
         if (LegacyRenderSVGResourceMasker* masker = resources->masker())
-            masker->removeClientFromCache(renderer);
+            masker->removeClientFromCacheAndMarkForInvalidation(renderer);
 
         if (LegacyRenderSVGResourceClipper* clipper = resources->clipper())
-            clipper->removeClientFromCache(renderer);
+            clipper->removeClientFromCacheAndMarkForInvalidation(renderer);
     }
 
     auto svgElement = dynamicDowncast<SVGElement>(renderer.protectedElement());
@@ -256,7 +256,7 @@ void LegacyRenderSVGResource::markForLayoutAndParentResourceInvalidationIfNeeded
         if (CheckedPtr container = dynamicDowncast<LegacyRenderSVGResourceContainer>(*current)) {
             // This will process the rest of the ancestors.
             bool markForInvalidation = true;
-            container->removeAllClientsFromCacheIfNeeded(markForInvalidation, visitedRenderers);
+            container->removeAllClientsFromCacheAndMarkForInvalidationIfNeeded(markForInvalidation, visitedRenderers);
             break;
         }
 

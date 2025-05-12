@@ -339,9 +339,6 @@ void LocalFrameView::prepareForDetach()
     // When the view is no longer associated with a frame, it needs to be removed from the ax object cache
     // right now, otherwise it won't be able to reach the topDocument()'s axObject cache later.
     removeFromAXObjectCache();
-
-    if (RefPtr scrollingCoordinator = this->scrollingCoordinator())
-        scrollingCoordinator->willDestroyScrollableArea(*this);
 }
 
 void LocalFrameView::detachCustomScrollbars()
@@ -532,7 +529,7 @@ void LocalFrameView::setContentsSize(const IntSize& size)
     ScrollView::setContentsSize(size);
     contentsResized();
 
-    Page* page = m_frame->page();
+    RefPtr page = m_frame->page();
     if (!page)
         return;
 

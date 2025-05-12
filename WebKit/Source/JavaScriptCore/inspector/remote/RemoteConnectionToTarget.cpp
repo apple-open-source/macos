@@ -89,18 +89,19 @@ void RemoteConnectionToTarget::close()
 {
     RunLoop::current().dispatch([this, protectThis = Ref { *this }] {
         Locker locker { m_targetMutex };
-        RefPtr target = m_target.get();
-        if (!target)
-            return;
+        TargetID targetIdentifier = 0;
 
-        auto targetIdentifier = target->targetIdentifier();
+        if (RefPtr target = m_target.get()) {
+            targetIdentifier = target->targetIdentifier();
 
-        if (m_connected)
-            target->disconnect(*this);
+            if (m_connected)
+                target->disconnect(*this);
 
-        m_target = nullptr;
+            m_target = nullptr;
+        }
 
-        RemoteInspector::singleton().updateTargetListing(targetIdentifier);
+        if (targetIdentifier)
+            RemoteInspector::singleton().updateTargetListing(targetIdentifier);
     });
 }
 

@@ -729,7 +729,7 @@
     CFDataRef uuidData = CFDataCreate(kCFAllocatorDefault, (const void *)&uuidBytes, sizeof(uuidBytes));
     CFErrorRef setError = NULL;
     SecDbItemSetPersistentRef(item, uuidData, &setError);
-    ckksinfo("ckksincoming", viewState.zoneID, "set a new persistentref UUID for item %@: %@", item, setError);
+    ckksinfo("ckksincoming", viewState.zoneID, "set a new persistentref UUID for item " SECDBITEM_FMT ", error:%@", item, setError);
     CFReleaseNull(prefUUID);
     CFReleaseNull(uuidData);
     CFReleaseNull(setError);

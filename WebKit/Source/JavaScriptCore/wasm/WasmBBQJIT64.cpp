@@ -1710,6 +1710,7 @@ PartialResult WARN_UNUSED_RETURN BBQJIT::addArrayGet(ExtGCOpType arrayGetKind, u
         indexLocation = loadIfNecessary(index);
         throwExceptionIf(ExceptionType::OutOfBoundsArrayGet,
             m_jit.branch32(MacroAssembler::AboveOrEqual, indexLocation.asGPR(), MacroAssembler::Address(arrayLocation.asGPR(), JSWebAssemblyArray::offsetOfSize())));
+        m_jit.zeroExtend32ToWord(indexLocation.asGPR(), indexLocation.asGPR());
     }
 
     m_jit.loadPtr(MacroAssembler::Address(arrayLocation.asGPR(), JSWebAssemblyArray::offsetOfPayload()), wasmScratchGPR);
@@ -1967,6 +1968,7 @@ PartialResult WARN_UNUSED_RETURN BBQJIT::addArraySet(uint32_t typeIndex, Express
         Location indexLocation = loadIfNecessary(index);
         throwExceptionIf(ExceptionType::OutOfBoundsArraySet,
             m_jit.branch32(MacroAssembler::AboveOrEqual, indexLocation.asGPR(), MacroAssembler::Address(arrayLocation.asGPR(), JSWebAssemblyArray::offsetOfSize())));
+        m_jit.zeroExtend32ToWord(indexLocation.asGPR(), indexLocation.asGPR());
     }
 
     emitArraySetUnchecked(typeIndex, arrayref, index, value);

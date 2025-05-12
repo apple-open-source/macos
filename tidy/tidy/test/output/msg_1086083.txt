@@ -1,0 +1,16 @@
+line 11 column 1 - Warning: inserting implicit <ul>
+line 11 column 1 - Warning: missing </ul> before </td>
+line 6 column 1 - Warning: <li> isn't allowed in <body> elements
+line 16 column 1 - Warning: inserting implicit <ul>
+line 18 column 1 - Warning: discarding unexpected </body>
+line 19 column 1 - Warning: discarding unexpected </html>
+line 16 column 1 - Warning: missing </ul>
+Info: Doctype given is "-//W3C//DTD HTML 4.01//EN"
+Info: Document content looks like HTML 4.01 Strict
+Info: No system identifier in emitted doctype
+7 warnings, 0 errors were found!
+
+To learn more about HTML Tidy see http://tidy.sourceforge.net
+Please send bug reports to html-tidy@w3.org
+HTML and CSS specifications are available from http://www.w3.org/
+Lobby your company to join W3C, see http://www.w3.org/Consortium

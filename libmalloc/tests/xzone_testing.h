@@ -27,7 +27,8 @@ get_default_xzone_zone(void)
 	unsigned i = 0;
 
 	malloc_zone_t *zone = malloc_zones[i];
-	if (!strcmp(malloc_get_zone_name(zone), "ProbGuardMallocZone")) {
+	const char *name = malloc_get_zone_name(zone);
+	if (name && !strcmp(name, "ProbGuardMallocZone")) {
 		found_pgm = true;
 
 		i++;
@@ -45,9 +46,9 @@ get_default_xzone_zone(void)
 			T_ASSERT_FAIL("didn't find xzone xzone");
 		}
 		malloc_zone_t *helper_zone = malloc_zones[i];
-		const char *name = malloc_get_zone_name(helper_zone);
-		if (strcmp(name, "MallocHelperZone") != 0) {
-			T_ASSERT_FAIL("unexpected zone %s", name);
+		const char *helper_name = malloc_get_zone_name(helper_zone);
+		if (helper_name && strcmp(helper_name, "MallocHelperZone") != 0) {
+			T_ASSERT_FAIL("unexpected zone %s", helper_name);
 		}
 
 		found_nano = true;

@@ -3145,6 +3145,41 @@ void SpeculativeJIT::compileNewTypedArrayWithInt52Size(Node* node)
     emitNewTypedArrayWithSizeInRegister(node, typedArrayType, structure, sizeGPR);
 }
 
+void SpeculativeJIT::compileDataViewGetByteLengthAsInt52(Node* node)
+{
+    if (node->mayBeResizableOrGrowableSharedArrayBuffer()) {
+        SpeculateCellOperand base(this, node->child1());
+        GPRTemporary scratch1(this);
+        GPRTemporary result(this);
+
+        GPRReg baseGPR = base.gpr();
+        GPRReg scratch1GPR = scratch1.gpr();
+        GPRReg resultGPR = result.gpr();
+
+        speculateDataViewObject(node->child1(), baseGPR);
+
+        auto [outOfBounds, doneCases] = loadDataViewByteLength(baseGPR, resultGPR, scratch1GPR, resultGPR, TypeDataView);
+        speculationCheck(OutOfBounds, JSValueSource::unboxedCell(baseGPR), node, outOfBounds);
+        doneCases.link(this);
+
+        strictInt52Result(resultGPR, node);
+        return;
+    }
+
+    SpeculateCellOperand base(this, node->child1());
+    GPRTemporary result(this, Reuse, base);
+    GPRReg baseGPR = base.gpr();
+    GPRReg resultGPR = result.gpr();
+
+    speculateDataViewObject(node->child1(), baseGPR);
+
+    if (!m_graph.isNeverResizableOrGrowableSharedTypedArrayIncludingDataView(m_state.forNode(node->child1())))
+        speculationCheck(UnexpectedResizableArrayBufferView, JSValueSource::unboxedCell(baseGPR), node, branchTest8(NonZero, Address(baseGPR, JSArrayBufferView::offsetOfMode()), TrustedImm32(isResizableOrGrowableSharedMode)));
+    load64(Address(baseGPR, JSArrayBufferView::offsetOfLength()), resultGPR);
+    static_assert(MAX_ARRAY_BUFFER_SIZE < (1ull << 52), "there is a risk that the size of a array buffer won't fit in an Int52");
+    strictInt52Result(resultGPR, node);
+}
+
 void SpeculativeJIT::compileGetTypedArrayLengthAsInt52(Node* node)
 {
     // If arrayMode is ForceExit, we would not compile this node and hence, should not have arrived here.
@@ -4719,6 +4754,18 @@ void SpeculativeJIT::compile(Node* node)
     case GetArrayLength:
     case GetUndetachedTypeArrayLength:
         compileGetArrayLength(node);
+        break;
+
+    case DataViewGetByteLength:
+        compileDataViewGetByteLength(node);
+        break;
+
+    case DataViewGetByteLengthAsInt52:
+#if USE(LARGE_TYPED_ARRAYS)
+        compileDataViewGetByteLengthAsInt52(node);
+#else
+        RELEASE_ASSERT_NOT_REACHED();
+#endif
         break;
 
     case GetTypedArrayLengthAsInt52:
@@ -6493,6 +6540,7 @@ void SpeculativeJIT::compile(Node* node)
     case IdentityWithProfile:
     case CPUIntrinsic:
     case CallWasm:
+    case PurifyNaN:
         DFG_CRASH(m_graph, node, "Unexpected node");
         break;
     }

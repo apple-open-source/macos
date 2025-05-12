@@ -225,8 +225,8 @@ angle::Result ProvokingVertexHelper::preconditionIndexBuffer(ContextMtl *context
     encoder->setBuffer(indexBuffer, static_cast<uint32_t>(indexOffset), 0);
     encoder->setBufferForWrite(
         newBuffer, static_cast<uint32_t>(indexOffset) + static_cast<uint32_t>(newOffset), 1);
-    encoder->setData(&indexCountEncoded, 2);
-    encoder->setData(&primCount, 3);
+    encoder->setData(indexCountEncoded, 2);
+    encoder->setData(primCount, 3);
     encoder->dispatch(
         MTLSizeMake((primCount + threadsPerThreadgroup.width - 1) / threadsPerThreadgroup.width, 1,
                     1),

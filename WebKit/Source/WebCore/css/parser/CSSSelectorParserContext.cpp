@@ -27,7 +27,8 @@
 #include "CSSSelectorParserContext.h"
 
 #include "CSSParserContext.h"
-#include "Document.h"
+#include "DocumentInlines.h"
+#include "Quirks.h"
 #include <wtf/Hasher.h>
 
 namespace WebCore {
@@ -44,6 +45,7 @@ CSSSelectorParserContext::CSSSelectorParserContext(const CSSParserContext& conte
     , viewTransitionsEnabled(context.propertySettings.viewTransitionsEnabled)
     , viewTransitionClassesEnabled(viewTransitionsEnabled && context.propertySettings.viewTransitionClassesEnabled)
     , viewTransitionTypesEnabled(viewTransitionsEnabled && context.viewTransitionTypesEnabled)
+    , webkitMediaTextTrackDisplayQuirkEnabled(context.webkitMediaTextTrackDisplayQuirkEnabled)
 {
 }
 
@@ -59,6 +61,7 @@ CSSSelectorParserContext::CSSSelectorParserContext(const Document& document)
     , viewTransitionsEnabled(document.settings().viewTransitionsEnabled())
     , viewTransitionClassesEnabled(viewTransitionsEnabled && document.settings().viewTransitionClassesEnabled())
     , viewTransitionTypesEnabled(viewTransitionsEnabled && document.settings().viewTransitionTypesEnabled())
+    , webkitMediaTextTrackDisplayQuirkEnabled(document.quirks().needsWebKitMediaTextTrackDisplayQuirk())
 {
 }
 
@@ -75,7 +78,8 @@ void add(Hasher& hasher, const CSSSelectorParserContext& context)
         context.thumbAndTrackPseudoElementsEnabled,
         context.viewTransitionsEnabled,
         context.viewTransitionClassesEnabled,
-        context.viewTransitionTypesEnabled
+        context.viewTransitionTypesEnabled,
+        context.webkitMediaTextTrackDisplayQuirkEnabled
     );
 }
 

@@ -892,6 +892,20 @@ _dispatch_wlh_should_poll_unote(dispatch_unote_t du)
 			_dispatch_unote_wlh(du) == ddi->ddi_wlh;
 }
 
+DISPATCH_ALWAYS_INLINE
+static inline void
+_dispatch_clear_pending_deferred_events(void)
+{
+#if DISPATCH_EVENT_BACKEND_KEVENT
+	dispatch_deferred_items_t ddi = _dispatch_deferred_items_get();
+	if (ddi && unlikely(ddi->ddi_nevents) &&
+			ddi->ddi_wlh != DISPATCH_WLH_ANON) {
+		dispatch_assert(ddi->ddi_wlh_servicing);
+		_dispatch_event_update_all_deferred(ddi);
+	}
+#endif
+}
+
 #endif // DISPATCH_PURE_C
 #ifndef __cplusplus
 

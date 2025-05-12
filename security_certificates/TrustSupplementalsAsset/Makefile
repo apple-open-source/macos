@@ -48,5 +48,5 @@ clean:
 stage: asset asset2
 	echo "PKITrustSupplementals staging"
 	rm -rf staged
-	$(shell /usr/bin/xcrun --find assettool) stage -p . -s staged -b ${BASE_URL} -v 1005
+	$(shell /usr/bin/xcrun --find assettool) stage -p . -s staged -b ${BASE_URL} -v 1006
 	$(shell /usr/bin/xcrun --find assettool) sign -s staged

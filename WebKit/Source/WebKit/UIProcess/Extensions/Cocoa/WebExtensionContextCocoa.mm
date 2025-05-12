@@ -4837,7 +4837,7 @@ void WebExtensionContext::loadDeclarativeNetRequestRules(CompletionHandler<void(
     };
 
     auto addDynamicAndStaticRules = [this, protectedThis = Ref { *this }, addStaticRulesets = WTFMove(addStaticRulesets), allJSONData = RetainPtr { allJSONData }] () mutable {
-        [declarativeNetRequestDynamicRulesStore() getRulesWithCompletionHandler:makeBlockPtr([this, protectedThis = Ref { *this }, addStaticRulesets = WTFMove(addStaticRulesets), allJSONData = RetainPtr { allJSONData }](NSArray *rules, NSString *errorMessage) mutable {
+        [declarativeNetRequestDynamicRulesStore() getRulesWithRuleIDs:@[] completionHandler:makeBlockPtr([this, protectedThis = Ref { *this }, addStaticRulesets = WTFMove(addStaticRulesets), allJSONData = RetainPtr { allJSONData }](NSArray *rules, NSString *errorMessage) mutable {
             if (!rules.count) {
                 m_dynamicRulesIDs.clear();
                 addStaticRulesets();
@@ -4861,7 +4861,7 @@ void WebExtensionContext::loadDeclarativeNetRequestRules(CompletionHandler<void(
         }).get()];
     };
 
-    [declarativeNetRequestSessionRulesStore() getRulesWithCompletionHandler:makeBlockPtr([this, protectedThis = Ref { *this }, addDynamicAndStaticRules = WTFMove(addDynamicAndStaticRules), allJSONData = RetainPtr { allJSONData }](NSArray *rules, NSString *errorMessage) mutable {
+    [declarativeNetRequestSessionRulesStore() getRulesWithRuleIDs:@[] completionHandler:makeBlockPtr([this, protectedThis = Ref { *this }, addDynamicAndStaticRules = WTFMove(addDynamicAndStaticRules), allJSONData = RetainPtr { allJSONData }](NSArray *rules, NSString *errorMessage) mutable {
         if (!rules.count) {
             m_sessionRulesIDs.clear();
             addDynamicAndStaticRules();

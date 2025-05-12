@@ -239,11 +239,12 @@ void RemoteImageBufferSetProxy::close()
         remoteRenderingBackendProxy->releaseRemoteImageBufferSet(*this);
 }
 
-void RemoteImageBufferSetProxy::setConfiguration(WebCore::FloatSize size, float scale, const WebCore::DestinationColorSpace& colorSpace, WebCore::ImageBufferPixelFormat pixelFormat, WebCore::RenderingMode renderingMode, WebCore::RenderingPurpose renderingPurpose)
+void RemoteImageBufferSetProxy::setConfiguration(WebCore::FloatSize size, float scale, const WebCore::DestinationColorSpace& colorSpace, WebCore::ContentsFormat contentsFormat, WebCore::ImageBufferPixelFormat pixelFormat, WebCore::RenderingMode renderingMode, WebCore::RenderingPurpose renderingPurpose)
 {
     m_size = size;
     m_scale = scale;
     m_colorSpace = colorSpace;
+    m_contentsFormat = contentsFormat;
     m_pixelFormat = pixelFormat;
     m_renderingMode = renderingMode;
     m_renderingPurpose = renderingPurpose;
@@ -275,7 +276,7 @@ void RemoteImageBufferSetProxy::willPrepareForDisplay()
     if (m_remoteNeedsConfigurationUpdate) {
         send(Messages::RemoteImageBufferSet::UpdateConfiguration(m_size, m_renderingMode, m_renderingPurpose, m_scale, m_colorSpace, m_pixelFormat));
 
-        m_displayListRecorder = Ref { *m_remoteRenderingBackendProxy }->createDisplayListRecorder(m_displayListIdentifier, m_size, m_renderingMode, m_renderingPurpose, m_scale, m_colorSpace, m_pixelFormat);
+        m_displayListRecorder = Ref { *m_remoteRenderingBackendProxy }->createDisplayListRecorder(m_displayListIdentifier, m_size, m_renderingMode, m_renderingPurpose, m_scale, m_colorSpace, m_contentsFormat, m_pixelFormat);
     }
     m_remoteNeedsConfigurationUpdate = false;
 

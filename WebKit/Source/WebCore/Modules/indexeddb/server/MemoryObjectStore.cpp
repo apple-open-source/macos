@@ -523,7 +523,7 @@ MemoryObjectStoreCursor* MemoryObjectStore::maybeOpenCursor(const IDBCursorInfo&
     if (!result.isNewEntry)
         return nullptr;
 
-    result.iterator->value = makeUnique<MemoryObjectStoreCursor>(*this, info, transaction);
+    result.iterator->value = MemoryObjectStoreCursor::create(*this, info, transaction);
     return result.iterator->value.get();
 }
 

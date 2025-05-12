@@ -146,7 +146,9 @@ FTPEntryType parseOneFTPLine(std::span<LChar> line, ListState& state, ListResult
                                 pos++;
                             if (pos < linelen && line[pos] == ',') {
                                 unsigned long long seconds = 0;
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
                                 sscanf(byteCast<char>(p.subspan(1)).data(), "%llu", &seconds);
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
                                 time_t t = static_cast<time_t>(seconds);
 
                                 // FIXME: This code has the year 2038 bug
@@ -423,7 +425,9 @@ FTPEntryType parseOneFTPLine(std::span<LChar> line, ListState& state, ListResult
                              * So its rounded up to the next block, so what, its better
                              * than not showing the size at all.
                              */
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
                             uint64_t size = strtoull(byteCast<char>(tokens[1]).data(), 0, 10) * 512;
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
                             result.fileSize = String::number(size);
                         }
 

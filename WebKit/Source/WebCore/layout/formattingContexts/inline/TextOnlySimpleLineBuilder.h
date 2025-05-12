@@ -36,6 +36,7 @@ struct CandidateTextContent;
 struct TextOnlyLineBreakResult;
 
 class TextOnlySimpleLineBuilder final : public AbstractLineBuilder {
+    WTF_MAKE_FAST_ALLOCATED;
 public:
     TextOnlySimpleLineBuilder(InlineFormattingContext&, const ElementBox& rootBox, HorizontalConstraints rootHorizontalConstraints, const InlineItemList&);
     LineLayoutResult layoutInlineContent(const LineInput&, const std::optional<PreviousLine>&) final;

@@ -63,12 +63,15 @@ OBJC_CLASS PKPaymentSetupFeature;
 OBJC_CLASS PKPaymentMethod;
 OBJC_CLASS PKPaymentToken;
 OBJC_CLASS PKShippingMethod;
+OBJC_CLASS PKSecureElementPass;
 #endif
 
 OBJC_CLASS PlatformColor;
 OBJC_CLASS NSShadow;
 
 namespace IPC {
+
+class StreamConnectionEncoder;
 
 #ifdef __OBJC__
 

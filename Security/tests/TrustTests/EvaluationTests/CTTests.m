@@ -1226,7 +1226,7 @@ id mockFailedMA = nil;
     require_noerr_action(SecTrustSetVerifyDate(trust, (__bridge CFDateRef)date), errOut, fail("failed to set verify date"));
 
     // Out-of-date asset, test system cert after date without CT passes
-    SecOTAPKIResetCurrentAssetVersion(NULL);
+    SecOTAPKIResetCurrentSupplementalsAssetVersion(NULL);
     ok(SecTrustEvaluateWithError(trust, NULL), "system post-flag-date non-CT cert failed with out-of-date asset");
 
 errOut:
@@ -2017,7 +2017,7 @@ errOut:
     require_noerr_action(SecTrustSetVerifyDate(trust, (__bridge CFDateRef)date), errOut, fail("failed to set verify date"));
 
     // Out-of-date asset, test cert without CT passes
-    SecOTAPKIResetCurrentAssetVersion(NULL);
+    SecOTAPKIResetCurrentSupplementalsAssetVersion(NULL);
     ok(SecTrustEvaluateWithError(trust, NULL), "non-CT cert failed with out-of-date asset");
 
 errOut:

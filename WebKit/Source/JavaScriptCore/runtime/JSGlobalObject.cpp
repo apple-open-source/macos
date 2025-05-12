@@ -690,7 +690,8 @@ const GlobalObjectMethodTable* JSGlobalObject::baseGlobalObjectMethodTable()
 
 JSC_DEFINE_HOST_FUNCTION(enqueueJob, (JSGlobalObject* globalObject, CallFrame* callFrame))
 {
-    JSValue job = callFrame->argument(0);
+    auto* job = jsCast<JSFunction*>(callFrame->argument(0));
+    ASSERT(job->globalObject() == globalObject);
     JSValue argument0 = callFrame->argument(1);
     JSValue argument1 = callFrame->argument(2);
     JSValue argument2 = callFrame->argument(3);
@@ -980,7 +981,7 @@ void JSGlobalObject::init(VM& vm)
     
     m_typedArrayDataView.initLater(
         [] (LazyClassStructure::Initializer& init) {
-            init.setPrototype(JSDataViewPrototype::create(init.vm, JSDataViewPrototype::createStructure(init.vm, init.global, init.global->m_objectPrototype.get())));
+            init.setPrototype(JSDataViewPrototype::create(init.vm, init.global, JSDataViewPrototype::createStructure(init.vm, init.global, init.global->m_objectPrototype.get())));
             init.setStructure(JSDataView::createStructure(init.vm, init.global, init.prototype));
             init.setConstructor(JSDataViewConstructor::create(init.vm, init.global, JSDataViewConstructor::createStructure(init.vm, init.global, init.global->m_functionPrototype.get()), init.prototype, "DataView"_s));
             init.global->typedArrayStructure(TypeDataView, /* isResizableOrGrowableShared */ true); /* Initialize resizable Structure too */
@@ -3273,28 +3274,14 @@ void JSGlobalObject::bumpGlobalLexicalBindingEpoch(VM& vm)
     }
 }
 
-void JSGlobalObject::queueMicrotask(Ref<Microtask>&& task)
+void JSGlobalObject::queueMicrotask(JSFunction* job, JSValue argument0, JSValue argument1, JSValue argument2, JSValue argument3)
 {
-    auto& taskRef = task.get();
-
-    ASSERT(globalObjectMethodTable()->queueMicrotaskToEventLoop);
-    globalObjectMethodTable()->queueMicrotaskToEventLoop(*this, WTFMove(task));
-
-    if (UNLIKELY(m_debugger))
-        m_debugger->didQueueMicrotask(this, taskRef.identifier());
-}
-
-void JSGlobalObject::queueMicrotask(JSValue job, JSValue argument0, JSValue argument1, JSValue argument2, JSValue argument3)
-{
+    QueuedTask task { nullptr, this, job, argument0, argument1, argument2, argument3 };
     if (globalObjectMethodTable()->queueMicrotaskToEventLoop) {
-        queueMicrotask(createJSMicrotask(vm(), job, argument0, argument1, argument2, argument3));
+        globalObjectMethodTable()->queueMicrotaskToEventLoop(*this, WTFMove(task));
         return;
     }
-
-    auto microtaskIdentifier = MicrotaskIdentifier::generate();
-    vm().queueMicrotask(QueuedTask { microtaskIdentifier, job, argument0, argument1, argument2, argument3 });
-    if (UNLIKELY(m_debugger))
-        m_debugger->didQueueMicrotask(this, microtaskIdentifier);
+    vm().queueMicrotask(WTFMove(task));
 }
 
 void JSGlobalObject::reportUncaughtExceptionAtEventLoop(JSGlobalObject*, Exception* exception)

@@ -62,10 +62,11 @@ RemoteDisplayListRecorderProxy::RemoteDisplayListRecorderProxy(RemoteImageBuffer
 {
 }
 
-RemoteDisplayListRecorderProxy::RemoteDisplayListRecorderProxy(RemoteRenderingBackendProxy& renderingBackend, RenderingResourceIdentifier renderingResourceIdentifier, const DestinationColorSpace& colorSpace, RenderingMode renderingMode, const FloatRect& initialClip, const AffineTransform& initialCTM)
+RemoteDisplayListRecorderProxy::RemoteDisplayListRecorderProxy(RemoteRenderingBackendProxy& renderingBackend, RenderingResourceIdentifier renderingResourceIdentifier, const DestinationColorSpace& colorSpace, ContentsFormat contentsFormat, RenderingMode renderingMode, const FloatRect& initialClip, const AffineTransform& initialCTM)
     : DisplayList::Recorder(IsDeferred::No, { }, initialClip, initialCTM, colorSpace, DrawGlyphsMode::DeconstructUsingDrawGlyphsCommands)
     , m_destinationBufferIdentifier(renderingResourceIdentifier)
     , m_renderingBackend(renderingBackend)
+    , m_contentsFormat(contentsFormat)
     , m_renderingMode(renderingMode)
 {
 }
@@ -578,7 +579,26 @@ bool RemoteDisplayListRecorderProxy::recordResourceUse(NativeImage& image)
         return false;
     }
 
-    m_renderingBackend->remoteResourceCacheProxy().recordNativeImageUse(image);
+    auto colorSpace = image.colorSpace();
+
+    if (image.headroom() > Headroom::None) {
+#if ENABLE(PIXEL_FORMAT_RGBA16F) && HAVE(CORE_GRAPHICS_EXTENDED_SRGB_COLOR_SPACE)
+        // The image will be drawn to a Float16 layer, so use extended range sRGB
+        // to preserve the HDR contents.
+        if (m_contentsFormat && *m_contentsFormat == ContentsFormat::RGBA16F)
+            colorSpace = DestinationColorSpace::ExtendedSRGB();
+        else
+#endif
+#if PLATFORM(IOS_FAMILY)
+            // iOS typically renders into extended range sRGB to preserve wide gamut colors, but we want
+            // a non-extended range colorspace here so that the contents are tone mapped to SDR range.
+            colorSpace = DestinationColorSpace::DisplayP3();
+#else
+            colorSpace = DestinationColorSpace::SRGB();
+#endif
+    }
+
+    m_renderingBackend->remoteResourceCacheProxy().recordNativeImageUse(image, colorSpace);
     return true;
 }
 

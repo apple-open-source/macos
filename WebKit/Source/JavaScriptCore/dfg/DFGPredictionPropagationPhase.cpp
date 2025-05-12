@@ -1146,6 +1146,7 @@ private:
             break;
         }
 
+        case DataViewGetByteLength:
         case GetTypedArrayByteOffset:
         case GetArrayLength:
         case GetUndetachedTypeArrayLength:
@@ -1154,6 +1155,7 @@ private:
             break;
         }
 
+        case DataViewGetByteLengthAsInt52:
         case GetTypedArrayLengthAsInt52:
         case GetTypedArrayByteOffsetAsInt52: {
             setPrediction(SpecInt52Any);
@@ -1561,6 +1563,7 @@ private:
         case DoubleRep:
         case ValueRep:
         case Int52Rep:
+        case PurifyNaN:
         case Int52Constant:
         case Identity:
         case BooleanToNumber:

@@ -303,7 +303,7 @@ Expected<RetainPtr<CMSampleBufferRef>, CString> toCMSampleBuffer(const MediaSamp
     }
 
     CMSampleBufferRef rawSampleBuffer = nullptr;
-    if (auto err = PAL::CMSampleBufferCreateReady(kCFAllocatorDefault, completeBlockBuffers.get(), format.get(), packetSizes.size(), packetTimings.size(), packetTimings.data(), packetSizes.size(), packetSizes.data(), &rawSampleBuffer))
+    if (PAL::CMSampleBufferCreateReady(kCFAllocatorDefault, completeBlockBuffers.get(), format.get(), packetSizes.size(), packetTimings.size(), packetTimings.data(), packetSizes.size(), packetSizes.data(), &rawSampleBuffer))
         return makeUnexpected("CMSampleBufferCreateReady failed: OOM");
 
     if (samples.isVideo() && samples.size()) {

@@ -25,6 +25,7 @@
 
 #pragma once
 
+#include "MediaRecorderPrivateWriter.h"
 #include "NowPlayingManager.h"
 #include <wtf/Forward.h>
 
@@ -52,7 +53,7 @@ public:
     static void addMockMediaSourceEngine();
 #endif
 #if PLATFORM(COCOA) && ENABLE(MEDIA_RECORDER)
-    virtual std::unique_ptr<MediaRecorderPrivateWriter> createMediaRecorderPrivateWriter(const String&, MediaRecorderPrivateWriterListener&) const;
+    virtual std::unique_ptr<MediaRecorderPrivateWriter> createMediaRecorderPrivateWriter(MediaRecorderContainerType, MediaRecorderPrivateWriterListener&) const;
 #endif
 protected:
     MediaStrategy();

@@ -711,10 +711,11 @@ DNSNameListDataCreateWithCString(const char * str)
     CFDataRef	data = NULL;
     uint8_t *	encoded;
     int		encoded_length = 0;
+    DNSFlags	flags = kDNSFlagsSingleName | kDNSFlagsPreserveEndLabel;
 
     encoded = DNSNameListBufferCreateCommon((const char * *)&str, 1,
 					    NULL, &encoded_length,
-					    false, kDNSFlagsSingleName);
+					    false, flags);
     if (encoded != NULL) {
 	data = CFDataCreate(NULL, encoded, encoded_length);
 	free(encoded);
@@ -1047,6 +1048,9 @@ DNSNameStringCreate(const uint8_t * buffer, int buffer_size,
 
 #ifdef TEST_DNSNAMELIST
 
+#include <ctype.h>
+#include <SystemConfiguration/SCPrivate.h>
+
 const uint8_t	bad_buf1[] = {
     5, 'a', 'p', 'p', 'l', 'e', 3, 'c', 'o', 'm', 0,
     3, 'g', 'o', 'o', 0xc0, 0xb };
@@ -1191,7 +1195,6 @@ STATIC const struct test all_string_tests[] = {
     { NULL, NULL, 0}
 };
 
-#include <ctype.h>
 
 STATIC void
 DNSNameListBufferDumpCharArray(const uint8_t * buf, int buf_size)
@@ -1359,7 +1362,15 @@ main(int argc, const char * argv[])
 		exit(2);
 	    }
 	    if (str != NULL) {
+		CFDataRef	data;
+
 		CFShow(str);
+		data = DNSNameListDataCreateWithString(str);
+		if (data != NULL) {
+		    SCPrint(TRUE, stdout, CFSTR("data: %@\n"),
+			    data);
+		    CFRelease(data);
+		}
 		CFRelease(str);
 	    }
 	    if (preserve_end_label == true) {

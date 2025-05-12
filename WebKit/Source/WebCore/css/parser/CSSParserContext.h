@@ -106,6 +106,7 @@ struct CSSParserContext {
     bool cssMediaProgressFunctionEnabled : 1 { false };
     bool cssContainerProgressFunctionEnabled : 1 { false };
     bool cssRandomFunctionEnabled : 1 { false };
+    bool webkitMediaTextTrackDisplayQuirkEnabled : 1 { false };
 
     // Settings, those affecting properties.
     CSSPropertySettings propertySettings;

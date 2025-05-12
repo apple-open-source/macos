@@ -147,6 +147,7 @@ namespace JSC { namespace DFG {
     macro(DoubleRep, NodeResultDouble) \
     macro(Int52Rep, NodeResultInt52) \
     macro(ValueRep, NodeResultJS) \
+    macro(PurifyNaN, NodeResultDouble) \
     \
     /* Bogus type asserting node. Useful for testing, disappears during Fixup. */\
     macro(FiatInt52, NodeResultJS) \
@@ -608,6 +609,8 @@ namespace JSC { namespace DFG {
     macro(DataViewGetInt, NodeMustGenerate | NodeResultJS) /* The gets are must generate for now because they do bounds checks */ \
     macro(DataViewGetFloat, NodeMustGenerate | NodeResultDouble) \
     macro(DataViewSet, NodeMustGenerate | NodeMustGenerate | NodeHasVarArgs) \
+    macro(DataViewGetByteLength, NodeResultInt32) \
+    macro(DataViewGetByteLengthAsInt52, NodeResultInt52) \
     /* Date access */ \
     macro(DateGetInt32OrNaN, NodeResultJS) \
     macro(DateGetTime, NodeResultDouble) \

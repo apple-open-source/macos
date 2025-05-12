@@ -56,8 +56,32 @@ void WebExtensionContext::permissionsGetAll(CompletionHandler<void(Vector<String
     for (auto& permission : currentPermissions())
         permissions.append(permission);
 
-    for (auto& matchPattern : currentPermissionMatchPatterns())
+    bool hasGrantedAccessToAllURLsOrHosts = false;
+
+    for (auto& matchPattern : currentPermissionMatchPatterns()) {
+        if (matchPattern->matchesAllHosts()) {
+            hasGrantedAccessToAllURLsOrHosts = true;
+            continue;
+        }
+
         origins.append(matchPattern->string());
+    }
+
+    if (hasGrantedAccessToAllURLsOrHosts) {
+        auto combinedPermissionMatchPatterns = protectedExtension()->combinedPermissionMatchPatterns();
+        bool appendedMatchAllURLsOrHostsPattern = false;
+
+        for (auto& matchPattern : combinedPermissionMatchPatterns) {
+            if (matchPattern->matchesAllHosts()) {
+                origins.append(matchPattern->string());
+                appendedMatchAllURLsOrHostsPattern = true;
+            }
+        }
+
+        // If we don't have the all URLs and hosts match pattern(s) in the manifest, access was requested implicitly (tabs, web navigation, etc.).
+        if (!appendedMatchAllURLsOrHostsPattern)
+            origins.append(WebExtensionMatchPattern::allHostsAndSchemesMatchPattern()->string());
+    }
 
     completionHandler(WTFMove(permissions), WTFMove(origins));
 }

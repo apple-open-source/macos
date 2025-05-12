@@ -47,6 +47,7 @@ SEC_OBJECT_DECL(sec_array);
 #endif // !SEC_OBJECT_IMPL
 
 #define SEC_PROTOCOL_HAS_QUIC_CODEPOINT_TOGGLE 1
+#define SEC_PROTOCOL_HAS_METADATA_STRING_COPY_FUNCTIONS 1
 
 struct sec_protocol_options_content;
 typedef struct sec_protocol_options_content *sec_protocol_options_content_t;
@@ -877,9 +878,25 @@ sec_protocol_options_apply_config(sec_protocol_options_t options, xpc_object_t c
  *
  * @return A string representation of the negotiated group, or NULL if it does not exist.
  */
-API_AVAILABLE(macos(10.15), ios(13.0), watchos(6.0), tvos(13.0))
+API_DEPRECATED_WITH_REPLACEMENT("sec_protocol_metadata_copy_tls_negotiated_group", macos(10.15, 15.5), ios(13.0, 18.5), watchos(6.0, 11.5), tvos(13.0, 18.5))
 const char * __nullable
 sec_protocol_metadata_get_tls_negotiated_group(sec_protocol_metadata_t metadata);
+
+/*!
+ * @function sec_protocol_metadata_copy_tls_negotiated_group
+ *
+ * @abstract
+ *      Copy a human readable representation of the negotiated key exchange group.
+ *      The caller is expected to `free` the output string when this is no longer needed.
+ *
+ * @param metadata
+ *      A `sec_protocol_metadata_t` instance.
+ *
+ * @return A string representation of the negotiated group, or NULL if it does not exist.
+ */
+SPI_AVAILABLE(macos(15.5), ios(18.5), watchos(11.5), tvos(18.5))
+const char * __nullable
+sec_protocol_metadata_copy_tls_negotiated_group(sec_protocol_metadata_t metadata);
 
 /*!
  * @function sec_protocol_metadata_get_tls_negotiated_pake
@@ -909,9 +926,27 @@ sec_protocol_metadata_get_tls_negotiated_pake(sec_protocol_metadata_t metadata);
  *
  * @return The identifier for a secure connection experiment, or NULL if none was specified.
  */
-API_AVAILABLE(macos(10.15), ios(13.0), watchos(6.0), tvos(13.0))
+API_DEPRECATED_WITH_REPLACEMENT("sec_protocol_metadata_copy_experiment_identifier", macos(10.15, 15.5), ios(13.0, 18.5), watchos(6.0, 11.5), tvos(13.0, 18.5))
 const char * __nullable
 sec_protocol_metadata_get_experiment_identifier(sec_protocol_metadata_t metadata);
+
+/*!
+ * @function sec_protocol_metadata_copy_experiment_identifier
+ *
+ * @abstract
+ *      Copy the SecExperiment identifier for a given connection. The caller is expected to
+ *      `free` the output string when it is no longer needed.
+ *
+ *      Note: this SPI is meant to be called by libnetcore. It should not be called in any other circumstances.
+ *
+ * @param metadata
+ *      A `sec_protocol_metadata_t` instance.
+ *
+ * @return The identifier for a secure connection experiment, or NULL if none was specified.
+ */
+SPI_AVAILABLE(macos(15.5), ios(18.5), watchos(11.5), tvos(18.5))
+const char * __nullable
+sec_protocol_metadata_copy_experiment_identifier(sec_protocol_metadata_t metadata);
 
 /*!
  * @function sec_protocol_metadata_copy_connection_id
@@ -1878,6 +1913,13 @@ struct sec_protocol_metadata_content {
     sec_protocol_metadata_copy_authenticator_f copy_authenticator_function;
     sec_protocol_metadata_copy_authenticator_trust_f copy_authenticator_trust_function;
     void *authenticator_context; // Opaque context for the authenticator functions
+
+    // This set is initialized within legacy APIs that return raw string pointers.
+    // It is freed within boringssl when metadata is deallocated.
+    // Strings stored in it are allocated in
+    // the legacy APIs that return raw string pointers (e.g. sec_protocol_metadata_get_server_name)
+    // and freed in nw_protocol_boringssl_deallocate_metadata.
+    CFMutableSetRef returned_raw_string_pointers;
 };
 
 SEC_ASSUME_NONNULL_END

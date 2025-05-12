@@ -30,11 +30,15 @@
 
 #include "Connection.h"
 #include "GPUConnectionToWebProcess.h"
+#include "Logging.h"
 #include "RemoteMediaRecorderPrivateWriterIdentifier.h"
 #include "RemoteMediaResourceManagerMessages.h"
 #include <WebCore/MediaSample.h>
 #include <wtf/Deque.h>
 #include <wtf/TZoneMallocInlines.h>
+
+#define MESSAGE_CHECK(assertion) MESSAGE_CHECK_BASE(assertion, m_gpuConnectionToWebProcess.get()->connection())
+#define MESSAGE_CHECK_COMPLETION(assertion, completion) MESSAGE_CHECK_COMPLETION_BASE(assertion, m_gpuConnectionToWebProcess.get()->connection(), completion)
 
 typedef const struct opaqueCMFormatDescription* CMFormatDescriptionRef;
 
@@ -47,7 +51,7 @@ WTF_MAKE_TZONE_ALLOCATED_IMPL(RemoteMediaRecorderPrivateWriterManager);
 class RemoteMediaRecorderPrivateWriterProxy : public WebCore::MediaRecorderPrivateWriterListener {
     WTF_MAKE_TZONE_ALLOCATED(RemoteMediaRecorderPrivateWriterProxy);
 public:
-    static Ref<RemoteMediaRecorderPrivateWriterProxy> create(const String& mimeType) { return adoptRef(*new RemoteMediaRecorderPrivateWriterProxy(mimeType)); }
+    static Ref<RemoteMediaRecorderPrivateWriterProxy> create() { return adoptRef(*new RemoteMediaRecorderPrivateWriterProxy()); }
 
     std::optional<uint8_t> addAudioTrack(const AudioInfo& description)
     {
@@ -81,8 +85,8 @@ public:
     }
 
 private:
-    RemoteMediaRecorderPrivateWriterProxy(const String& mimeType)
-        : m_writer(makeUniqueRefFromNonNullUniquePtr(MediaRecorderPrivateWriter::create(mimeType, *this)))
+    RemoteMediaRecorderPrivateWriterProxy()
+        : m_writer(makeUniqueRefFromNonNullUniquePtr(MediaRecorderPrivateWriter::create(MediaRecorderContainerType::Mp4, *this)))
     {
     }
 
@@ -116,16 +120,17 @@ void RemoteMediaRecorderPrivateWriterManager::deref() const
     m_gpuConnectionToWebProcess.get()->deref();
 }
 
-void RemoteMediaRecorderPrivateWriterManager::create(RemoteMediaRecorderPrivateWriterIdentifier identifier, const String& mimeType)
+void RemoteMediaRecorderPrivateWriterManager::create(RemoteMediaRecorderPrivateWriterIdentifier identifier)
 {
-    ASSERT(!m_remoteMediaRecorderPrivateWriters.contains(identifier));
+    MESSAGE_CHECK(!m_remoteMediaRecorderPrivateWriters.contains(identifier));
 
-    m_remoteMediaRecorderPrivateWriters.add(identifier, Writer { RemoteMediaRecorderPrivateWriterProxy::create(mimeType) });
+    m_remoteMediaRecorderPrivateWriters.add(identifier, Writer { RemoteMediaRecorderPrivateWriterProxy::create() });
 }
 
 void RemoteMediaRecorderPrivateWriterManager::addAudioTrack(RemoteMediaRecorderPrivateWriterIdentifier identifier, RemoteAudioInfo info, CompletionHandler<void(std::optional<uint8_t>)>&& completionHandler)
 {
-    ASSERT(m_remoteMediaRecorderPrivateWriters.contains(identifier));
+    MESSAGE_CHECK_COMPLETION(m_remoteMediaRecorderPrivateWriters.contains(identifier), completionHandler(std::nullopt));
+
     auto iterator = m_remoteMediaRecorderPrivateWriters.find(identifier);
     if (iterator == m_remoteMediaRecorderPrivateWriters.end())
         return;
@@ -141,7 +146,8 @@ void RemoteMediaRecorderPrivateWriterManager::addAudioTrack(RemoteMediaRecorderP
 
 void RemoteMediaRecorderPrivateWriterManager::addVideoTrack(RemoteMediaRecorderPrivateWriterIdentifier identifier, RemoteVideoInfo info, std::optional<CGAffineTransform> transform, CompletionHandler<void(std::optional<uint8_t>)>&& completionHandler)
 {
-    ASSERT(m_remoteMediaRecorderPrivateWriters.contains(identifier));
+    MESSAGE_CHECK_COMPLETION(m_remoteMediaRecorderPrivateWriters.contains(identifier), completionHandler(std::nullopt));
+
     auto iterator = m_remoteMediaRecorderPrivateWriters.find(identifier);
     if (iterator == m_remoteMediaRecorderPrivateWriters.end())
         return;
@@ -157,7 +163,7 @@ void RemoteMediaRecorderPrivateWriterManager::addVideoTrack(RemoteMediaRecorderP
 
 void RemoteMediaRecorderPrivateWriterManager::allTracksAdded(RemoteMediaRecorderPrivateWriterIdentifier identifier, CompletionHandler<void(bool)>&& completionHandler)
 {
-    ASSERT(m_remoteMediaRecorderPrivateWriters.contains(identifier));
+    MESSAGE_CHECK_COMPLETION(m_remoteMediaRecorderPrivateWriters.contains(identifier), completionHandler(false));
 
     RefPtr writer = m_remoteMediaRecorderPrivateWriters.get(identifier).proxy;
     completionHandler(writer ? writer->allTracksAdded() : false);
@@ -165,7 +171,8 @@ void RemoteMediaRecorderPrivateWriterManager::allTracksAdded(RemoteMediaRecorder
 
 void RemoteMediaRecorderPrivateWriterManager::writeFrames(RemoteMediaRecorderPrivateWriterIdentifier identifier, Vector<BlockPair>&& vectorSamples, const MediaTime& endTime, CompletionHandler<void(Expected<Ref<WebCore::SharedBuffer>, WebCore::MediaRecorderPrivateWriter::Result>)>&& completionHandler)
 {
-    ASSERT(m_remoteMediaRecorderPrivateWriters.contains(identifier));
+    MESSAGE_CHECK_COMPLETION(m_remoteMediaRecorderPrivateWriters.contains(identifier), makeUnexpected("Invalid Identifier"));
+
     auto iterator = m_remoteMediaRecorderPrivateWriters.find(identifier);
     if (iterator == m_remoteMediaRecorderPrivateWriters.end())
         return;

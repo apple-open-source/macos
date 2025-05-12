@@ -1565,7 +1565,7 @@ public:
     void loadAndDecodeImage(WebCore::ResourceRequest&&, std::optional<WebCore::FloatSize> sizeConstraint, size_t, CompletionHandler<void(std::variant<WebCore::ResourceError, Ref<WebCore::ShareableBitmap>>&&)>&&);
 #if PLATFORM(COCOA)
     void getInformationFromImageData(const Vector<uint8_t>&, CompletionHandler<void(Expected<std::pair<String, Vector<WebCore::IntSize>>, WebCore::ImageDecodingError>&&)>&&);
-    void createIconDataFromImageData(Ref<WebCore::SharedBuffer>&&, const Vector<unsigned>&, CompletionHandler<void(RefPtr<WebCore::SharedBuffer>&&)>&&);
+    void createBitmapsFromImageData(Ref<WebCore::SharedBuffer>&&, const Vector<unsigned>&, CompletionHandler<void(Vector<Ref<WebCore::ShareableBitmap>>&&)>&&);
     void decodeImageData(Ref<WebCore::SharedBuffer>&&, std::optional<WebCore::FloatSize>, CompletionHandler<void(RefPtr<WebCore::ShareableBitmap>&&)>&&);
 #endif
 
@@ -1937,6 +1937,8 @@ public:
 #endif
 
     void didProgrammaticallyClearTextFormControl(const WebCore::HTMLTextFormControlElement&);
+
+    std::unique_ptr<FrameInfoData> takeMainFrameNavigationInitiator();
 
 private:
     WebPage(WebCore::PageIdentifier, WebPageCreationParameters&&);
@@ -3003,6 +3005,7 @@ private:
 #endif
 
     std::unique_ptr<WebCore::NowPlayingMetadataObserver> m_nowPlayingMetadataObserver;
+    std::unique_ptr<FrameInfoData> m_mainFrameNavigationInitiator;
 
     mutable RefPtr<Logger> m_logger;
 };

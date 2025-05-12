@@ -4984,5 +4984,35 @@
 		<key>ExpectedResult</key>
 		<integer>5</integer>
 	</dict>
+	<dict>
+		<key>CertDirectory</key>
+		<string>si-20-sectrust-policies-data</string>
+		<key>MajorTestName</key>
+		<string>3PMA</string>
+		<key>MinorTestName</key>
+		<string>PositiveTest-AATL-EKU</string>
+		<key>Policies</key>
+		<dict>
+			<key>PolicyIdentifier</key>
+			<string>1.2.840.113635.100.1.122</string>
+			<key>Properties</key>
+			<dict>
+				<key>SecPolicyName</key>
+				<array>
+					<string>阿里巴巴（中国）网络技术有限公司</string>
+				</array>
+			</dict>
+		</dict>
+		<key>Leaf</key>
+		<string>mobile_asset_3p</string>
+		<key>Intermediates</key>
+		<string>GlobalSignR45AATLCA2020</string>
+		<key>Anchors</key>
+		<string>GlobalSignR45AATLRoot2020</string>
+		<key>VerifyDate</key>
+		<date>2025-03-01T20:00:00Z</date>
+		<key>ExpectedResult</key>
+		<integer>4</integer>
+	</dict>
 </array>
 </plist>

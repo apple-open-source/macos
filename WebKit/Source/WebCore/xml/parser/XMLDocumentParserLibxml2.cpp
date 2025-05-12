@@ -980,6 +980,7 @@ void XMLDocumentParser::error(XMLErrors::Type type, const char* message, va_list
     if (isStopped())
         return;
 
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
     va_list preflightArgs;
     va_copy(preflightArgs, args);
     size_t stringLength = vsnprintf(nullptr, 0, message, preflightArgs);
@@ -987,6 +988,7 @@ void XMLDocumentParser::error(XMLErrors::Type type, const char* message, va_list
 
     Vector<char, 1024> buffer(stringLength + 1);
     vsnprintf(buffer.data(), stringLength + 1, message, args);
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
 
     TextPosition position = textPosition();
     if (m_parserPaused)

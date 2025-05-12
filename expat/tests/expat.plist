@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>TestOutputType</key>
+	<string>stderrOutput</string>
+	<key>Project</key>
+	<string>expat</string>
+	<key>Tests</key>
+	<array>
+		<dict>
+			<key>TestName</key>
+			<string>expat.6295922</string>
+			<key>Command</key>
+			<array>
+				<string>/AppleInternal/Tests/expat/test-6295922.py</string>
+			</array>
+			<key>MayRunConcurrently</key>
+			<true/>
+			<key>Timeout</key>
+			<integer>300</integer>
+		</dict>
+		<dict>
+			<key>TestName</key>
+			<string>expat.147857896</string>
+			<key>Command</key>
+			<array>
+				<string>/AppleInternal/Tests/expat/test-147857896.py</string>
+			</array>
+			<key>MayRunConcurrently</key>
+			<true/>
+			<key>Timeout</key>
+			<integer>300</integer>
+		</dict>
+	</array>
+</dict>
+</plist>

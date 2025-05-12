@@ -39,7 +39,9 @@ namespace WebCore {
 class FloatPoint;
 class ScrollerPairMac;
 
-class ScrollerMac {
+class ScrollerMac final : public CanMakeCheckedPtr<ScrollerMac> {
+    WTF_MAKE_FAST_ALLOCATED;
+    WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(ScrollerMac);
     friend class ScrollerPairMac;
 public:
     ScrollerMac(ScrollerPairMac&, ScrollbarOrientation);

@@ -146,8 +146,8 @@ public:
     void setUsedLegacyTLS(UsedLegacyTLS used) { m_usedLegacyTLS = used; }
     bool wasPrivateRelayed() const { return m_wasPrivateRelayed == WasPrivateRelayed::Yes; }
     void setWasPrivateRelayed(WasPrivateRelayed privateRelayed) { m_wasPrivateRelayed = privateRelayed; }
-    void setProxyName(String&& proxyName) { m_proxyName = proxyName; }
-    String proxyName() const { return m_proxyName; }
+    void setProxyName(String&& proxyName) { m_proxyName = WTFMove(proxyName); }
+    const String& proxyName() const { return m_proxyName; }
 
     // These functions return parsed values of the corresponding response headers.
     WEBCORE_EXPORT bool cacheControlContainsNoCache() const;
@@ -266,7 +266,7 @@ protected:
     unsigned m_initLevel : 3; // Controlled by ResourceResponse.
     mutable UsedLegacyTLS m_usedLegacyTLS : bitWidthOfUsedLegacyTLS { UsedLegacyTLS::No };
     mutable WasPrivateRelayed m_wasPrivateRelayed : bitWidthOfWasPrivateRelayed { WasPrivateRelayed::No };
-    String m_proxyName { };
+    String m_proxyName;
 
 private:
     friend struct WTF::Persistence::Coder<ResourceResponse>;

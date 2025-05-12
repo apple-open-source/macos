@@ -330,6 +330,7 @@ public:
     // These are not the currently allowed permission patterns.
     const MatchPatternSet& requestedPermissionMatchPatterns();
     const MatchPatternSet& optionalPermissionMatchPatterns();
+    const MatchPatternSet combinedPermissionMatchPatterns() { return requestedPermissionMatchPatterns().unionWith(optionalPermissionMatchPatterns()); }
 
     // Permission patterns requested by the extension in their manifest.
     // These determine which websites the extension can communicate with.

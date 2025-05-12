@@ -45,7 +45,7 @@
 .Op Fl -delete-excluded
 .Op Fl -exclude Ar pattern
 .Op Fl -exclude-from Ns = Ns Ar file
-.Op Fl --extended-attributes
+.Op Fl -extended-attributes
 .Op Fl -files-from Ns = Ns Ar filespec
 .Op Fl -force
 .Op Fl -ignore-errors
@@ -396,7 +396,7 @@ and
 .Em rules
 from
 .Em file .
-.It Fl --extended-attributes
+.It Fl -extended-attributes
 Apple specific option to copy extended attributes, resource forks, and ACLs.
 Requires at least Mac OS X 10.4 or suitably patched rsync.
 .It Fl E , -executability
@@ -518,7 +518,7 @@ is also given or if the remote group name is unknown on the local machine,
 set the numeric group ID to match the source instead.
 .It Fl H , -hard-links
 Attempt to preserve hard links within the list of files transferred.
-.It Fl h, --human-readable
+.It Fl h, -human-readable
 Display numbers of bytes in human readable units.
 If specified once, uses units of 1000, if specified twice uses units of 1024.
 .It Fl -help

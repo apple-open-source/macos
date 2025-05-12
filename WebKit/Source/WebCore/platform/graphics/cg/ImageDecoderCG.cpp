@@ -275,8 +275,8 @@ ImageDecoderCG::ImageDecoderCG(FragmentedSharedBuffer& data, AlphaOption, GammaA
 {
     RetainPtr<CFStringRef> utiHint;
     if (data.size() >= 32)
-        utiHint = adoptCF(CGImageSourceGetTypeWithData(data.makeContiguous()->createCFData().get(), nullptr, nullptr));
-    
+        utiHint = CGImageSourceGetTypeWithData(data.makeContiguous()->createCFData().get(), nullptr, nullptr);
+
     if (utiHint) {
         const void* key = kCGImageSourceTypeIdentifierHint;
         const void* value = utiHint.get();

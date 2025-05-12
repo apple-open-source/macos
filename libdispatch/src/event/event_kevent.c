@@ -2003,6 +2003,16 @@ _dispatch_event_loop_merge(dispatch_kevent_t events, int nevents)
 }
 
 void
+_dispatch_event_update_all_deferred(dispatch_deferred_items_t ddi)
+{
+	dispatch_wlh_t wlh = ddi->ddi_wlh;
+	int nevents = ddi->ddi_nevents;
+	ddi->ddi_nevents = 0;
+	_dispatch_kq_update_all(wlh, ddi->ddi_eventlist, nevents);
+	dispatch_assert(ddi->ddi_nevents == 0);
+}
+
+void
 _dispatch_event_loop_leave_immediate(uint64_t dq_state)
 {
 #if DISPATCH_USE_KEVENT_WORKLOOP

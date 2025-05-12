@@ -573,13 +573,12 @@ static DASessionRef __DASessionListGetSession( mach_port_t sessionID )
 }
 
 #if TARGET_OS_IOS
-static void __DAFirstUnlockNotificationCallback( CFNotificationCenterRef center, void *observer, CFStringRef name, const void *object, CFDictionaryRef userInfo )
+static void __DAUnlockNotificationCallback( CFNotificationCenterRef center, void *observer, CFStringRef name, const void *object, CFDictionaryRef userInfo )
 {
-    DALogInfo( "First unlock notification received" );
-    Boolean prevUnlockedState = gDAUnlockedState;
-    gDAUnlockedState = TRUE;
+    gDAUnlockedState = DADeviceIsUnlocked();
+    DALogInfo( "Lock notification received - device is %slocked" , ( gDAUnlockedState ) ? "un" : "");
     
-    if ( prevUnlockedState == FALSE )
+    if ( gDAUnlockedState == TRUE )
     {
         CFIndex count;
         CFIndex index;
@@ -593,7 +592,16 @@ static void __DAFirstUnlockNotificationCallback( CFNotificationCenterRef center,
         for ( index = 0; index < count; index++ )
         {
             DADiskRef disk;
-
+            CFIndex currentCount = CFArrayGetCount( gDADiskList );
+            
+            if ( count != currentCount )
+            {
+                /* disk list has changed - start from the beginning again */
+                index = -1;
+                count = currentCount;
+                continue;
+            }
+            
             disk = ( void * ) CFArrayGetValueAtIndex( gDADiskList, index );
 
             /*
@@ -605,33 +613,46 @@ static void __DAFirstUnlockNotificationCallback( CFNotificationCenterRef center,
                 {
                     if ( DAMountGetPreference( disk, kDAMountPreferenceDefer ) )
                     {
-                        DADiskMountWithArguments( disk, NULL, kDADiskMountOptionDefault, NULL, CFSTR( "automatic" ) );
+                        if ( DADiskGetDescription( disk, kDADiskDescriptionVolumePathKey ) == NULL )
+                        {
+                            DADiskMountWithArguments( disk, NULL, kDADiskMountOptionDefault, NULL,
+                                                      CFSTR( "automatic" ) );
+                        }
                     }
                 }
             }
+            
+            /*
+             * Probe and possibly mount the deferred volume after we processed the outstanding mount
+             */
+            if ( DADiskGetState( disk , kDADiskStateRequireReprobe ) == TRUE )
+            {
+                DADiskSetState( disk, kDADiskStateRequireReprobe, FALSE );
+                DAStageDeferredProbe( disk );
+            }
+            
         }
      }
 }
 
 
-void DARegisterForFirstUnlockNotification( void )
+void DARegisterForUnlockNotification( void )
 {
     CFNotificationCenterAddObserver( CFNotificationCenterGetDarwinNotifyCenter(),
                                     (void *)nil,
-                                    __DAFirstUnlockNotificationCallback,
-                                    CFSTR("com.apple.mobile.keybagd.first_unlock"),
+                                    __DAUnlockNotificationCallback,
+                                    CFSTR("com.apple.mobile.keybagd.lock_status"),
                                     NULL,
                                     CFNotificationSuspensionBehaviorDeliverImmediately );
 
-    int lockState = MKBGetDeviceLockState( NULL );
-    if ( ( lockState != kMobileKeyBagDisabled ) && ( MKBDeviceUnlockedSinceBoot( ) == false ) )
+    gDAUnlockedState = DADeviceIsUnlocked();
+    if ( gDAUnlockedState == FALSE )
     {
         DALogInfo(" Device is locked" );
     }
     else
     {
         DALogInfo(" Device is unlocked" );
-        gDAUnlockedState = TRUE;
     }
 }
 

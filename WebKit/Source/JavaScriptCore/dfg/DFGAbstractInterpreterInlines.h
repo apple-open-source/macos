@@ -785,6 +785,20 @@ bool AbstractInterpreter<AbstractStateType>::executeEffects(unsigned clobberLimi
         setNonCellTypeForNode(node, SpecInt32Only);
         break;
     }
+
+    case PurifyNaN: {
+        auto abstractValue = forNode(node->child1());
+        JSValue child = abstractValue.value();
+        if (child && child.isNumber()) {
+            setConstant(node, jsDoubleNumber(purifyNaN(child.asNumber())));
+            break;
+        }
+        if (!abstractValue.couldBeType(SpecDoubleImpureNaN))
+            m_state.setShouldTryConstantFolding(true);
+        abstractValue.filter(SpecBytecodeDouble);
+        forNode(node) = abstractValue;
+        break;
+    }
         
     case DoubleRep: {
         JSValue child = forNode(node->child1()).value();
@@ -3330,7 +3344,8 @@ bool AbstractInterpreter<AbstractStateType>::executeEffects(unsigned clobberLimi
             m_graph.globalObjectFor(node->origin.semantic)->arrayStructureForIndexingTypeDuringAllocation(node->indexingType()));
         break;
 
-    case NewArrayWithSpread:
+    case NewArrayWithSpread: {
+        auto* globalObject = m_graph.globalObjectFor(node->origin.semantic);
         if (m_graph.isWatchingHavingABadTimeWatchpoint(node)) {
             // We've compiled assuming we're not having a bad time, so to be consistent
             // with StructureRegisterationPhase we must say we produce an original array
@@ -3338,29 +3353,14 @@ bool AbstractInterpreter<AbstractStateType>::executeEffects(unsigned clobberLimi
 #if USE(JSVALUE64)
             BitVector* bitVector = node->bitVector();
             if (node->numChildren() == 1 && bitVector->get(0)) {
-                Edge use = m_graph.varArgChild(node, 0);
-                if (use->op() == PhantomSpread) {
-                    if (use->child1()->op() == PhantomNewArrayBuffer) {
-                        auto* immutableButterfly = use->child1()->castOperand<JSImmutableButterfly*>();
-                        if (hasContiguous(immutableButterfly->indexingType())) {
-                            m_state.setShouldTryConstantFolding(true);
-                            setForNode(node, m_graph.globalObjectFor(node->origin.semantic)->originalArrayStructureForIndexingType(CopyOnWriteArrayWithContiguous));
-                            break;
-                        }
-                    }
-                } else {
-                    setForNode(node, m_graph.globalObjectFor(node->origin.semantic)->originalArrayStructureForIndexingType(CopyOnWriteArrayWithContiguous));
-                    break;
-                }
+                setForNode(node, globalObject->originalArrayStructureForIndexingType(CopyOnWriteArrayWithContiguous));
+                break;
             }
 #endif
-            setForNode(node, m_graph.globalObjectFor(node->origin.semantic)->originalArrayStructureForIndexingType(ArrayWithContiguous));
-        } else {
-            setForNode(node, 
-                m_graph.globalObjectFor(node->origin.semantic)->arrayStructureForIndexingTypeDuringAllocation(ArrayWithContiguous));
         }
-
+        setForNode(node, globalObject->arrayStructureForIndexingTypeDuringAllocation(ArrayWithContiguous));
         break;
+    }
 
     case Spread:
         switch (node->child1()->op()) {
@@ -3906,7 +3906,7 @@ bool AbstractInterpreter<AbstractStateType>::executeEffects(unsigned clobberLimi
                     break;
                 }
             }
-            setTypeForNode(node, SpecBytecodeRealNumber);
+            setTypeForNode(node, SpecBytecodeDouble);
             break;
         }
 
@@ -4117,6 +4117,11 @@ bool AbstractInterpreter<AbstractStateType>::executeEffects(unsigned clobberLimi
         break;
     }
 
+    case DataViewGetByteLengthAsInt52:
+        setNonCellTypeForNode(node, SpecInt52Any);
+        break;
+
+    case DataViewGetByteLength:
     case GetVectorLength: {
         setNonCellTypeForNode(node, SpecInt32Only);
         break;
@@ -4572,10 +4577,10 @@ bool AbstractInterpreter<AbstractStateType>::executeEffects(unsigned clobberLimi
             m_state.setIsValid(false);
 
         if (node->hasDoubleResult()) {
-            if (value.isType(SpecBytecodeRealNumber))
+            if (value.isType(SpecBytecodeDouble))
                 setForNode(node, value);
             else
-                setTypeForNode(node, SpecBytecodeRealNumber);
+                setTypeForNode(node, SpecBytecodeDouble);
         } else
             setForNode(node, value);
 
@@ -4642,10 +4647,10 @@ bool AbstractInterpreter<AbstractStateType>::executeEffects(unsigned clobberLimi
             m_state.setIsValid(false);
         
         if (node->hasDoubleResult()) {
-            if (result.isType(SpecBytecodeRealNumber))
+            if (result.isType(SpecBytecodeDouble))
                 setForNode(node, result);
             else
-                setTypeForNode(node, SpecBytecodeRealNumber);
+                setTypeForNode(node, SpecBytecodeDouble);
         } else
             setForNode(node, result);
         break;
@@ -5041,17 +5046,35 @@ bool AbstractInterpreter<AbstractStateType>::executeEffects(unsigned clobberLimi
 
     case GetGlobalVar: {
         if (node->hasDoubleResult())
-            setTypeForNode(node, SpecBytecodeRealNumber);
-        else
+            setTypeForNode(node, SpecBytecodeDouble);
+        else {
+            // Emptiness is monotonic. And GetGlobalLexicalVariable and GetGlobalVar are tied to GlobalObject.
+            // So long as it is not unlinked.
+            if (!m_graph.m_plan.isUnlinked()) {
+                if (JSValue concurrentlyRead = node->variablePointer()->get()) {
+                    setTypeForNode(node, SpecHeapTop & ~SpecEmpty);
+                    break;
+                }
+            }
             makeHeapTopForNode(node);
+        }
         break;
     }
 
     case GetGlobalLexicalVariable:
         if (node->hasDoubleResult())
-            setTypeForNode(node, SpecBytecodeRealNumber);
-        else
+            setTypeForNode(node, SpecBytecodeDouble);
+        else {
+            // Emptiness is monotonic. And GetGlobalLexicalVariable and GetGlobalVar are tied to GlobalObject.
+            // So long as it is not unlinked.
+            if (!m_graph.m_plan.isUnlinked()) {
+                if (JSValue concurrentlyRead = node->variablePointer()->get()) {
+                    setTypeForNode(node, SpecBytecodeTop & ~SpecEmpty);
+                    break;
+                }
+            }
             makeBytecodeTopForNode(node);
+        }
         break;
 
     case GetDynamicVar:

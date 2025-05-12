@@ -67,6 +67,7 @@ DNSNameListBufferCreate(const char * names[], int names_count,
  * Function: DNSNameListDataCreateWithString, DNSNameListDataCreateWithCString
  * Purpose:
  *   Convert a single string to DNS-encoded data.
+ *   Preserves the end label, if it is present.
  */
 CFDataRef
 DNSNameListDataCreateWithString(CFStringRef cfstr);

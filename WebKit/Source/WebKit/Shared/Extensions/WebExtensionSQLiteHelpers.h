@@ -116,7 +116,8 @@ int SQLiteDatabaseExecuteAndReturnIntError(Ref<WebExtensionSQLiteDatabase> datab
 template <typename... Parameters>
 Ref<WebExtensionSQLiteRowEnumerator> SQLiteDatabaseFetch(Ref<WebExtensionSQLiteDatabase> database, const String& query, Parameters&&... parameters)
 {
-    RefPtr statement = WebExtensionSQLiteStatement::create(database, query, nullptr);
+    RefPtr<API::Error> error;
+    RefPtr statement = WebExtensionSQLiteStatement::create(database, query, error);
     SQLiteStatementBindAllParameters(statement, std::forward<Parameters>(parameters)...);
     return statement->fetch();
 }
@@ -209,16 +210,16 @@ typename std::enable_if<std::is_void<R>::value, bool>::type StatementCallBlockWi
 }
 
 template<typename TupleType, int ...S>
-bool WBSStatementFetchColumnsInTuple(sqlite3_stmt* statement, TupleType&& tuple, std::integer_sequence<int, S...>)
+bool SQLiteStatementFetchColumnsInTuple(sqlite3_stmt* statement, TupleType&& tuple, std::integer_sequence<int, S...>)
 {
     tuple = std::make_tuple(WebExtensionSQLiteDatatypeTraits<typename std::remove_reference<typename std::tuple_element<S, TupleType>::type>::type>::fetch(statement, S)...);
     return true;
 }
 
 template<typename TupleType>
-bool WBSStatementFetchColumnsInTuple(sqlite3_stmt* statement, TupleType&& tuple)
+bool SQLiteStatementFetchColumnsInTuple(sqlite3_stmt* statement, TupleType&& tuple)
 {
-    return WBSStatementFetchColumnsInTuple(statement, std::forward<TupleType>(tuple), std::make_integer_sequence<int, std::tuple_size<TupleType>::value>());
+    return SQLiteStatementFetchColumnsInTuple(statement, std::forward<TupleType>(tuple), std::make_integer_sequence<int, std::tuple_size<TupleType>::value>());
 }
 
 template<int Index, int Count, typename TupleType>
@@ -250,7 +251,7 @@ typename std::enable_if<Index >= Count && IsTuple<typename std::tuple_element<In
         return false;
     }
 
-    if (!WBSStatementFetchColumnsInTuple(statement, WTFMove(std::get<Index>(tuple))))
+    if (!SQLiteStatementFetchColumnsInTuple(statement, WTFMove(std::get<Index>(tuple))))
         return false;
 
     resultCode = sqlite3_step(statement);
@@ -293,10 +294,8 @@ typename std::enable_if<Index < Count, bool>::type SQLiteStatementBind(Ref<WebEx
 template<typename... Args>
 bool SQLiteDatabaseEnumerate(Ref<WebExtensionSQLiteDatabase> database, RefPtr<API::Error>& error, const String& query, Args&&... args)
 {
-    RefPtr<API::Error> outError;
-    RefPtr<WebExtensionSQLiteStatement> statement = WebExtensionSQLiteStatement::create(database, query, outError);
-    error = outError;
-    if (outError)
+    RefPtr statement = WebExtensionSQLiteStatement::create(database, query, error);
+    if (error)
         return false;
 
     bool result = SQLiteStatementBindOrStep<0, sizeof...(args) - 1, typename std::tuple<Args...>>(database, statement->handle(), error, std::forward_as_tuple(args...));
@@ -316,10 +315,8 @@ bool SQLiteDatabaseEnumerate(RefPtr<WebExtensionSQLiteStatement> statement, RefP
 template<typename... Parameters>
 bool SQLiteDatabaseEnumerateRows(Ref<WebExtensionSQLiteDatabase> database, RefPtr<API::Error>& error, const String& query, std::tuple<Parameters...>&& parameters, Function<void(RefPtr<WebExtensionSQLiteRow>, bool)> enumerationBlock)
 {
-    RefPtr<API::Error> outError;
-    RefPtr<WebExtensionSQLiteStatement> statement = WebExtensionSQLiteStatement::create(database, query, outError);
-    error = outError;
-    if (outError)
+    RefPtr statement = WebExtensionSQLiteStatement::create(database, query, error);
+    if (error)
         return false;
 
     SQLiteStatementBind<0, std::tuple_size<std::tuple<Parameters...>>::value, typename std::tuple<Parameters...>>(database, statement->handle(), error, WTFMove(parameters));

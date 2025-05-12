@@ -408,6 +408,12 @@ struct	flist {
 	struct fldstat	 dstat; /* original destination file information */
 };
 
+/*
+ * Allocate the file list in chunk sizes of 8MiB's worth of items
+ * to reduce thrashing the memory allocator and improve performance.
+ */
+#define	FLIST_CHUNK_SIZE	((8 << 20) / sizeof(struct flist))
+
 #define	FLIST_COMPLETE		0x01	/* Finished */
 #define	FLIST_REDO		0x02	/* Finished, but go again */
 #define	FLIST_SUCCESS		0x04	/* Finished and in place */

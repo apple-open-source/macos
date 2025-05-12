@@ -71,6 +71,7 @@
 #include "RenderStyleSetters.h"
 #include "RenderTextControlSingleLine.h"
 #include "RenderTheme.h"
+#include "ResourceLoadObserver.h"
 #include "ScopedEventQueue.h"
 #include "SearchInputType.h"
 #include "Settings.h"
@@ -1533,10 +1534,21 @@ URL HTMLInputElement::src() const
     return document().completeURL(attributeWithoutSynchronization(srcAttr));
 }
 
+void HTMLInputElement::logUserInteraction()
+{
+    if (!document().frame() || !document().frame()->localMainFrame())
+        return;
+    if (RefPtr mainFrameDocument = document().frame()->localMainFrame()->document())
+        ResourceLoadObserver::shared().logUserInteractionWithReducedTimeResolution(*mainFrameDocument);
+}
+
 void HTMLInputElement::setAutofilled(bool autoFilled)
 {
     if (autoFilled == m_isAutoFilled)
         return;
+
+    if (autoFilled)
+        logUserInteraction();
 
     Style::PseudoClassChangeInvalidation styleInvalidation(*this, CSSSelector::PseudoClass::Autofill, autoFilled);
     m_isAutoFilled = autoFilled;
@@ -1547,6 +1559,9 @@ void HTMLInputElement::setAutofilledAndViewable(bool autoFilledAndViewable)
     if (autoFilledAndViewable == m_isAutoFilledAndViewable)
         return;
 
+    if (autoFilledAndViewable)
+        logUserInteraction();
+
     Style::PseudoClassChangeInvalidation styleInvalidation(*this, CSSSelector::PseudoClass::WebKitAutofillStrongPasswordViewable, autoFilledAndViewable);
     m_isAutoFilledAndViewable = autoFilledAndViewable;
 }
@@ -1555,6 +1570,9 @@ void HTMLInputElement::setAutofilledAndObscured(bool autoFilledAndObscured)
 {
     if (autoFilledAndObscured == m_isAutoFilledAndObscured)
         return;
+
+    if (autoFilledAndObscured)
+        logUserInteraction();
 
     Style::PseudoClassChangeInvalidation styleInvalidation(*this, CSSSelector::PseudoClass::WebKitAutofillAndObscured, autoFilledAndObscured);
     m_isAutoFilledAndObscured = autoFilledAndObscured;

@@ -30,3 +30,29 @@ cd ..
 # call -a without -p.
 rsync -Dglort -- dir1/ dir3
 compare_trees dir2 dir3
+
+# Run a test with r/o directories without preserving perms
+1>&2 echo ">> Running r/o directory test"
+rm -rf dir1 dir2 dir3
+mkdir -p dir1/logs
+echo 'first' > dir1/logs/first.txt
+chmod -R 0555 dir1/logs
+
+cp -Rp dir1 dir2
+1>&2 echo "> Initial sync"
+rsync -a -- dir1/ dir3
+compare_trees dir2 dir3
+
+1>&2 echo "> Update and re-sync"
+for updir in dir1 dir2; do
+	chmod -R 0755 "$updir"/logs
+	echo 'updated' >> "$updir"/logs/first.txt
+	echo 'new' > "$updir"/logs/second.txt
+	chmod -R 0555 "$updir"/logs
+done
+
+# smb rsync will escalate the directory to writable, but it won't revert it
+# back to its initial permissions after the update has concluded.
+chmod u+w dir2/logs
+rsync -Dglort -- dir1/ dir3
+compare_trees dir2 dir3

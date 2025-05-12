@@ -358,6 +358,8 @@ public:
 
     void updateURLAndHistory(const URL&, RefPtr<SerializedScriptValue>&& stateObject, NavigationHistoryBehavior = NavigationHistoryBehavior::Replace);
 
+    WEBCORE_EXPORT void prefetchDNSIfNeeded(const URL&);
+
 private:
     enum FormSubmissionCacheLoadPolicy {
         MayAttemptCacheOnlyLoadForFormSubmissionItem,

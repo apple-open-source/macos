@@ -60,7 +60,7 @@ static void               __DAStageMount( DADiskRef disk );
 static void               __DAStagePeek( DADiskRef disk );
 static void               __DAStagePeekCallback( CFTypeRef response, void * context );
 static CFComparisonResult __DAStagePeekCompare( const void * value1, const void * value2, void * context );
-static void               __DAStageProbe( DADiskRef disk );
+static void               __DAStageProbe( DADiskRef disk , Boolean performMount );
 
 static void __DAStageProbeCallback( int             status,
                                     DAFileSystemRef filesystem,
@@ -69,6 +69,14 @@ static void __DAStageProbeCallback( int             status,
                                     CFStringRef     type,
                                     CFUUIDRef       uuid,
                                     void *          context );
+
+static void __DAStageProbeCallbackAndMount( int             status,
+                                            DAFileSystemRef filesystem,
+                                            int             cleanStatus,
+                                            CFStringRef     name,
+                                            CFStringRef     type,
+                                            CFUUIDRef       uuid,
+                                            void *          context );
 
 static void __DABusyTimerCallback( void )
 {
@@ -223,7 +231,7 @@ static void __DAStageDispatch( void * info )
                     fresh = FALSE;
                 }
 
-                __DAStageProbe( disk );
+                __DAStageProbe( disk , FALSE );
             }
             else if ( DADiskGetState( disk, kDADiskStateStagedPeek ) == FALSE )
             {
@@ -685,7 +693,7 @@ static CFComparisonResult __DAStagePeekCompare( const void * value1, const void 
     return kCFCompareEqualTo;
 }
 
-static void __DAStageProbe( DADiskRef disk )
+static void __DAStageProbe( DADiskRef disk , Boolean performMount )
 {
     /*
      * We commence the "probe" stage if the conditions are right.
@@ -711,7 +719,10 @@ static void __DAStageProbe( DADiskRef disk )
         contDisk = DADiskGetContainerDisk( disk );
 #endif
 
-        DAProbe( disk, contDisk,  __DAStageProbeCallback, disk );
+        DAProbeCallback probeCallback = ( performMount == TRUE ) ? __DAStageProbeCallbackAndMount
+            : __DAStageProbeCallback;
+        
+        DAProbe( disk, contDisk, probeCallback, disk );
     }
 }
 
@@ -951,6 +962,18 @@ static void __DAStageProbeCallback( int             status,
     CFRelease( disk );
 }
 
+static void __DAStageProbeCallbackAndMount( int             status,
+                                            DAFileSystemRef filesystem,
+                                            int             cleanStatus,
+                                            CFStringRef     name,
+                                            CFStringRef     type,
+                                            CFUUIDRef       uuid,
+                                            void *          context )
+{
+    DADiskRef disk = context;
+    DADiskSetState( disk, kDADiskStateStagedMount , FALSE ); // stage the mount again
+    __DAStageProbeCallback( status , filesystem , cleanStatus , name , type , uuid , context );
+}
 
 void DAStageSignal( void )
 {
@@ -966,4 +989,10 @@ void DAStageSignal( void )
     gDAIdle = FALSE;
 
     dispatch_async_f(DAServerWorkLoop(), NULL, __DAStageDispatch);
+}
+
+
+void DAStageDeferredProbe( DADiskRef disk )
+{
+    __DAStageProbe( disk , TRUE );
 }

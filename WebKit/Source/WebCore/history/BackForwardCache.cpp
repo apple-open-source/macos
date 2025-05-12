@@ -390,8 +390,7 @@ void BackForwardCache::markPagesForContentsSizeChanged(Page& page)
             ASSERT(!m_items.contains(item.key));
             continue;
         }
-        RefPtr localMainFrame = page.localMainFrame();
-        if (localMainFrame == &(*cachedPage)->cachedMainFrame()->view()->frame())
+        if (page.localMainFrame() == &(*cachedPage)->cachedMainFrame()->view()->frame())
             (*cachedPage)->markForContentsSizeChanged();
     }
 }

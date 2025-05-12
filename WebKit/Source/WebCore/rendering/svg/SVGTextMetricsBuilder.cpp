@@ -20,6 +20,7 @@
 #include "config.h"
 #include "SVGTextMetricsBuilder.h"
 
+#include "FontCascadeCache.h"
 #include "RenderChildIterator.h"
 #include "RenderSVGInline.h"
 #include "RenderSVGInlineText.h"
@@ -101,6 +102,9 @@ void SVGTextMetricsBuilder::initializeMeasurementWithTextRenderer(RenderSVGInlin
     const FontCascade& scaledFont = text.scaledFont();
     m_run = SVGTextMetrics::constructTextRun(text);
     m_isComplexText = scaledFont.codePath(m_run) == FontCascade::CodePath::Complex;
+
+    if (m_isComplexText)
+        FontCascadeCache::forCurrentThread().invalidate();
 
     m_canUseSimplifiedTextMeasuring = false;
     if (!m_isComplexText) {

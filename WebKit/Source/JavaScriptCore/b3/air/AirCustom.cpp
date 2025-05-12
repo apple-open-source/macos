@@ -226,11 +226,11 @@ MacroAssembler::Jump WasmBoundsCheckCustom::generate(Inst& inst, CCallHelpers& j
             outOfBounds.link(&jit);
             switch (value->boundsType()) {
             case WasmBoundsCheckValue::Type::Pinned:
-                context.code->wasmBoundsCheckGenerator()->run(jit, value->bounds().pinnedSize);
+                context.code->wasmBoundsCheckGenerator()->run(jit, value, value->bounds().pinnedSize);
                 break;
 
             case WasmBoundsCheckValue::Type::Maximum:
-                context.code->wasmBoundsCheckGenerator()->run(jit, InvalidGPRReg);
+                context.code->wasmBoundsCheckGenerator()->run(jit, value, InvalidGPRReg);
                 break;
             }
         }));

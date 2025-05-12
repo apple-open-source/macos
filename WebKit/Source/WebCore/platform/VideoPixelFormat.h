@@ -39,7 +39,7 @@ enum class VideoPixelFormat {
     BGRX
 };
 
-VideoPixelFormat convertVideoFramePixelFormat(uint32_t, bool shouldDiscardAlpha);
+VideoPixelFormat convertVideoFramePixelFormat(uint32_t, bool shouldDiscardAlpha = false);
 
 inline bool isRGBVideoPixelFormat(VideoPixelFormat format)
 {

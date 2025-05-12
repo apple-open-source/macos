@@ -164,7 +164,6 @@ bindings/js/JSDOMConvertInterface.h
 bindings/js/JSDOMConvertPromise.h
 bindings/js/JSDOMConvertStrings.cpp
 bindings/js/JSDOMGlobalObject.cpp
-bindings/js/JSDOMMicrotask.cpp
 bindings/js/JSDOMPromiseDeferred.cpp
 bindings/js/JSDOMWindowBase.cpp
 bindings/js/JSDOMWindowCustom.cpp

@@ -66,7 +66,7 @@ void RenderSVGGradientStop::styleDidChange(StyleDifference diff, const RenderSty
         return;
     }
 
-    downcast<LegacyRenderSVGResourceContainer>(*renderer).removeAllClientsFromCache();
+    downcast<LegacyRenderSVGResourceContainer>(*renderer).removeAllClientsFromCacheAndMarkForInvalidation();
 }
 
 void RenderSVGGradientStop::layout()

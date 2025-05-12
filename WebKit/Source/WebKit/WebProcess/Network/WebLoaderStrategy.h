@@ -78,7 +78,7 @@ public:
     void didFinishPingLoad(WebCore::ResourceLoaderIdentifier pingLoadIdentifier, WebCore::ResourceError&&, WebCore::ResourceResponse&&);
 
     void preconnectTo(WebCore::ResourceRequest&&, WebPage&, WebFrame&, WebCore::StoredCredentialsPolicy, ShouldPreconnectAsFirstParty, PreconnectCompletionHandler&& = nullptr);
-    void preconnectTo(WebCore::FrameLoader&, const URL&, WebCore::StoredCredentialsPolicy, ShouldPreconnectAsFirstParty, PreconnectCompletionHandler&&) final;
+    void preconnectTo(WebCore::FrameLoader&, WebCore::ResourceRequest&&, WebCore::StoredCredentialsPolicy, ShouldPreconnectAsFirstParty, PreconnectCompletionHandler&&) final;
     void didFinishPreconnection(WebCore::ResourceLoaderIdentifier preconnectionIdentifier, WebCore::ResourceError&&);
 
     void setCaptureExtraNetworkLoadMetricsEnabled(bool) final;
@@ -106,9 +106,9 @@ private:
     void scheduleInternallyFailedLoad(WebCore::ResourceLoader&);
     void internallyFailedLoadTimerFired();
     void startLocalLoad(WebCore::ResourceLoader&);
-    bool tryLoadingUsingURLSchemeHandler(WebCore::ResourceLoader&, const WebResourceLoader::TrackingParameters&);
+    bool tryLoadingUsingURLSchemeHandler(WebCore::ResourceLoader&, const std::optional<WebResourceLoader::TrackingParameters>&);
 #if ENABLE(PDFJS)
-    bool tryLoadingUsingPDFJSHandler(WebCore::ResourceLoader&, const WebResourceLoader::TrackingParameters&);
+    bool tryLoadingUsingPDFJSHandler(WebCore::ResourceLoader&, const std::optional<WebResourceLoader::TrackingParameters>&);
 #endif
 
     WebCore::ResourceError cancelledError(const WebCore::ResourceRequest&) const final;

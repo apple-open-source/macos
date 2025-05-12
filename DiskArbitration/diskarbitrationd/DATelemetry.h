@@ -27,4 +27,8 @@ int DATelemetrySendUnmountEvent    ( int status , CFStringRef fsType , CFStringR
                                      bool forced , pid_t dissenterPid ,
                                      bool dissentedViaAPI , uint64_t durationNs );
 
-#endif /* Header_h */
+/* Special telemetry status codes */
+#define DA_STATUS_FSTAB_MOUNT_SKIPPED 255
+#define DA_STATUS_FSTAB_MOUNT_ADDED   256
+
+#endif /* __DISKARBITRATIOND_DATELEMETRY__ */

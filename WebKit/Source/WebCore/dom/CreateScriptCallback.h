@@ -32,7 +32,7 @@
 
 namespace WebCore {
 
-class CreateScriptCallback : public RefCounted<CreateScriptCallback>, public ActiveDOMCallback {
+class CreateScriptCallback : public ThreadSafeRefCounted<CreateScriptCallback>, public ActiveDOMCallback {
 public:
     using ActiveDOMCallback::ActiveDOMCallback;
 

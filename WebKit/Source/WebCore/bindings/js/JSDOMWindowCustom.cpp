@@ -32,7 +32,6 @@
 #include "JSDOMConvertNumbers.h"
 #include "JSDOMConvertStrings.h"
 #include "JSDOMGlobalObjectInlines.h"
-#include "JSDOMMicrotask.h"
 #include "JSDatabase.h"
 #include "JSDatabaseCallback.h"
 #include "JSEvent.h"
@@ -606,7 +605,7 @@ JSValue JSDOMWindow::queueMicrotask(JSGlobalObject& lexicalGlobalObject, CallFra
         return JSValue::decode(throwArgumentMustBeFunctionError(lexicalGlobalObject, scope, 0, "callback"_s, "Window"_s, "queueMicrotask"_s));
 
     scope.release();
-    Base::queueMicrotask(createJSDOMMicrotask(vm, asObject(functionValue)));
+    globalObjectMethodTable()->queueMicrotaskToEventLoop(*this, JSC::QueuedTask { nullptr, this, functionValue, { }, { }, { }, { } });
     return jsUndefined();
 }
 

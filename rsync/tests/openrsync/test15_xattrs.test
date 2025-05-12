@@ -16,16 +16,65 @@ rm -rf dir1 dir2 dir3
 mkdir dir1
 cd dir1
 mkdirfile foo
+mkdir attr_dir
+ln -s attr_dir attr_link
+
 xattr_set foo rsync_test.foo bar
+xattr_set attr_dir rsync_test.dir bar
+xattr_set attr_link rsync_test.link bar
 
 # make the tree we want to compare to
 mkdir ../dir2
 cd ../dir2
 mkdirfile foo
 xattr_set foo rsync_test.foo bar
+mkdir attr_dir
+ln -s attr_dir attr_link
+
+xattr_set foo rsync_test.foo bar
+xattr_set attr_dir rsync_test.dir bar
+xattr_set attr_link rsync_test.link bar
 
 cd ..
-# XXX --rsync-path needed because we aren't interoperable with rsync at the
-# moment.
-$rsync --rsync-path=$rsync -a -X dir1/ dir3
+#ifdef __APPLE__
+rsync -a --extended-attributes -- dir1/ dir3
+#else
+#rsync -a -X -- dir1/ dir3
+#endif
 compare_trees dir2 dir3
+
+#ifdef __APPLE__
+# We test here that --extended-attributes doesn't crash when presented wth an
+# empty flist in our platform bits.
+rsync --extended-attributes -- dir1/ dir3
+#endif
+
+# Test sending a lot of files with xattrs, which may trigger a need to realloc
+# the flist if the platform implementation has to serialize/deserialize xattrs
+# via a file.
+if ! chunksz=$(rsync --print-flist-chunk-size); then
+	1>&2 echo "--print-flist-chunk-size not supported by this implementation"
+	exit 0
+fi
+rm -rf dir1 dir2 dir3
+mkdir -p dir1 dir3
+
+# We subtract one because we always allocate an entry for the root dir, so this
+# puts us right at the edge of what might require a reallocation.
+target=$((chunksz - 1))
+for i in $(seq 1 "$target"); do
+	srcf=dir1/file"$i"
+
+	:> "$srcf"
+done
+
+# Just set one xattr; we only need one to cross the chunk size boundary, so it's
+# not worth the overhead of doing all of them.
+xattr_set dir1/file1 rsync_test.file yes
+cp -Rp dir1 dir2
+
+#ifdef __APPLE__
+rsync -a --extended-attributes -- dir1/ dir3
+#else
+#rsync -a -X -- dir1/ dir3
+#endif

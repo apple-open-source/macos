@@ -1,0 +1,23 @@
+line 1 column 1 - Warning: missing <!DOCTYPE> declaration
+line 4 column 1 - Warning: missing </title> before <option>
+line 4 column 31 - Warning: <option> isn't allowed in <body> elements
+line 4 column 63 - Warning: discarding unexpected </title>
+line 4 column 31 - Warning: </head> isn't allowed in <body> elements
+line 6 column 1 - Warning: discarding unexpected <body>
+line 29 column 41 - Warning: unescaped & which should be written as &amp;
+line 30 column 41 - Warning: unescaped & which should be written as &amp;
+line 8 column 1 - Warning: <form> lacks "action" attribute
+line 18 column 1 - Warning: trimming empty <option>
+line 19 column 1 - Warning: trimming empty <option>
+line 20 column 1 - Warning: trimming empty <option>
+line 21 column 1 - Warning: trimming empty <option>
+line 22 column 1 - Warning: trimming empty <option>
+line 23 column 1 - Warning: trimming empty <option>
+Info: Document content looks like HTML 4.01 Transitional
+Info: No system identifier in emitted doctype
+15 warnings, 0 errors were found!
+
+To learn more about HTML Tidy see http://tidy.sourceforge.net
+Please send bug reports to html-tidy@w3.org
+HTML and CSS specifications are available from http://www.w3.org/
+Lobby your company to join W3C, see http://www.w3.org/Consortium

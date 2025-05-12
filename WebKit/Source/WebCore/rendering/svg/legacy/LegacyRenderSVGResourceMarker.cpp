@@ -54,16 +54,6 @@ void LegacyRenderSVGResourceMarker::layout()
     LegacyRenderSVGContainer::layout();
 }
 
-void LegacyRenderSVGResourceMarker::removeAllClientsFromCacheIfNeeded(bool markForInvalidation, SingleThreadWeakHashSet<RenderObject>* visitedRenderers)
-{
-    markAllClientsForInvalidationIfNeeded(markForInvalidation ? LayoutAndBoundariesInvalidation : ParentOnlyInvalidation, visitedRenderers);
-}
-
-void LegacyRenderSVGResourceMarker::removeClientFromCache(RenderElement& client, bool markForInvalidation)
-{
-    markClientForInvalidation(client, markForInvalidation ? BoundariesInvalidation : ParentOnlyInvalidation);
-}
-
 void LegacyRenderSVGResourceMarker::applyViewportClip(PaintInfo& paintInfo)
 {
     if (SVGRenderSupport::isOverflowHidden(*this))

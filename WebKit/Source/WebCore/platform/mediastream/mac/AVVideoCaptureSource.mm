@@ -225,6 +225,10 @@ CaptureSourceOrError AVVideoCaptureSource::create(const CaptureDevice& device, M
         return CaptureSourceOrError({ "No AVVideoCaptureSource device"_s , MediaAccessDenialReason::PermissionDenied });
 
     Ref<RealtimeMediaSource> source = adoptRef(*new AVVideoCaptureSource(avDevice, device, WTFMove(hashSalts), pageIdentifier));
+
+    if (!source->capabilities().width().max() || !source->capabilities().height().max() || !source->capabilities().frameRate().max())
+        return CaptureSourceOrError({ "AVVideoCaptureSource device has invalid width, height or frameRate capabilities"_s , MediaAccessDenialReason::PermissionDenied });
+
     if (constraints) {
         if (auto result = source->applyConstraints(*constraints))
             return CaptureSourceOrError(CaptureSourceError { result->invalidConstraint });

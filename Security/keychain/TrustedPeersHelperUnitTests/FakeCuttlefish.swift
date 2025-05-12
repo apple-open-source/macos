@@ -340,6 +340,8 @@ class FakeCuttlefishServer: NSObject, ConfiguredCuttlefishAPIAsync {
     var setRecoveryKeyListener: ((SetRecoveryKeyRequest) -> NSError?)?
     var removeRecoveryKeyListener: ((RemoveRecoveryKeyRequest) -> NSError?)?
     var performCKServerDataRemovalListener: ((RemoveUnreadableCKServerDataRequest) -> NSError?)?
+    var fetchPolicyDocumentsListener: ((FetchPolicyDocumentsRequest) -> NSError?)?
+    var fetchPolicyDocumentsReturnEmptyResponse: Bool = false
 
     static let mapper = { (doc: TPPolicyDocument) in (doc.version.versionNumber, (doc.version.policyHash, doc.protobuf)) }
 
@@ -1133,6 +1135,18 @@ class FakeCuttlefishServer: NSObject, ConfiguredCuttlefishAPIAsync {
     func fetchPolicyDocuments(_ request: FetchPolicyDocumentsRequest, completion: @escaping (Result<FetchPolicyDocumentsResponse, Error>) -> Void) {
         print("FakeCuttlefish: fetchPolicyDocuments called")
         var response = FetchPolicyDocumentsResponse()
+
+        if let fetchPolicyDocumentsListener = self.fetchPolicyDocumentsListener {
+            let possibleError = fetchPolicyDocumentsListener(request)
+            guard possibleError == nil else {
+                completion(.failure(possibleError!))
+                return
+            }
+            if fetchPolicyDocumentsReturnEmptyResponse {
+                completion(.success(FetchPolicyDocumentsResponse()))
+                return
+            }
+        }
 
         let overlayPolicies = Dictionary(uniqueKeysWithValues: policyOverlay.map({ $0 }).map(FakeCuttlefishServer.mapper))
 

@@ -1829,11 +1829,14 @@
             (allow mach-message-send (kernel-mig-routines-iokit))
             (allow mach-message-send (kernel-mig-routines-iokit-service))
 #endif
-#if HAVE(SANDBOX_STATE_FLAGS) && HAVE(MACH_RANGE_CREATE)
+#if HAVE(SANDBOX_STATE_FLAGS)
             ;; <rdar://105161083>
             (with-filter (require-not (webcontent-process-launched))
-                (when (defined? 'mach_vm_range_create)
-                    (allow mach-message-send (kernel-mig-routine mach_vm_range_create))))
+#if HAVE(MACH_RANGE_CREATE)
+                 (when (defined? 'mach_vm_range_create)
+                    (allow mach-message-send (kernel-mig-routine mach_vm_range_create)))
+#endif
+                (allow mach-message-send (kernel-mig-routine task_restartable_ranges_register)))
 #endif
         )))
 

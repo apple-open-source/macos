@@ -6130,7 +6130,6 @@
 		E3C788EE2D035C9500D6C13D /* LogClient.h in Headers */ = {isa = PBXBuildFile; fileRef = E3C788ED2D035C9500D6C13D /* LogClient.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		E3C788FD2D039A2500D6C13D /* LogMessages.in in Headers */ = {isa = PBXBuildFile; fileRef = E3C788FC2D039A1600D6C13D /* LogMessages.in */; settings = {ATTRIBUTES = (Private, ); }; };
 		E3C99A091DC3D41C00794AD3 /* DOMJITCheckDOM.h in Headers */ = {isa = PBXBuildFile; fileRef = E3C99A081DC3D41700794AD3 /* DOMJITCheckDOM.h */; };
-		E3C9AECB2113149900419B92 /* JSMicrotaskCallback.h in Headers */ = {isa = PBXBuildFile; fileRef = E3C9AEC92113147400419B92 /* JSMicrotaskCallback.h */; };
 		E3CA0BFC2673F47C009FDD67 /* JSDOMBindingSecurityInlines.h in Headers */ = {isa = PBXBuildFile; fileRef = E3CA0BFA2673F478009FDD67 /* JSDOMBindingSecurityInlines.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		E3D3C00B2881D90B00ECD5F6 /* GPUAvailabilityMetal.mm in Sources */ = {isa = PBXBuildFile; fileRef = E3D3C00A2881D90B00ECD5F6 /* GPUAvailabilityMetal.mm */; };
 		E3E4E2A81E3B17100023BB8A /* ScriptElementCachedScriptFetcher.h in Headers */ = {isa = PBXBuildFile; fileRef = E3E4E2A61E3B16FC0023BB8A /* ScriptElementCachedScriptFetcher.h */; settings = {ATTRIBUTES = (Private, ); }; };
@@ -14795,8 +14794,6 @@
 		8AA642052A672CAB00A84D49 /* EXTClipControl.idl */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = EXTClipControl.idl; sourceTree = "<group>"; };
 		8AA642062A672CAB00A84D49 /* EXTClipControl.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = EXTClipControl.cpp; sourceTree = "<group>"; };
 		8AA642072A672CAC00A84D49 /* EXTClipControl.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = EXTClipControl.h; sourceTree = "<group>"; };
-		8AA9407E279EEE8100EC0C48 /* JSDOMMicrotask.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = JSDOMMicrotask.h; sourceTree = "<group>"; };
-		8AA94080279EEE8100EC0C48 /* JSDOMMicrotask.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = JSDOMMicrotask.cpp; sourceTree = "<group>"; };
 		8AA9BACC2A73DA06001F6766 /* EXTTextureMirrorClampToEdge.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = EXTTextureMirrorClampToEdge.cpp; sourceTree = "<group>"; };
 		8AA9BACD2A73DA07001F6766 /* EXTTextureMirrorClampToEdge.idl */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = EXTTextureMirrorClampToEdge.idl; sourceTree = "<group>"; };
 		8AA9BACE2A73DA07001F6766 /* EXTTextureMirrorClampToEdge.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = EXTTextureMirrorClampToEdge.h; sourceTree = "<group>"; };
@@ -19276,7 +19273,6 @@
 		CDD8D310271F2C8D00DAA256 /* FormatDescriptionUtilities.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = FormatDescriptionUtilities.h; sourceTree = "<group>"; };
 		CDD8D311271F2C8D00DAA256 /* FormatDescriptionUtilities.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = FormatDescriptionUtilities.cpp; sourceTree = "<group>"; };
 		CDDC1E7918A952F30027A9D4 /* MediaSourcePrivateClient.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = MediaSourcePrivateClient.h; sourceTree = "<group>"; };
-		CDDD004A2D49B890000B23CC /* DenormalDisabler.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = DenormalDisabler.cpp; sourceTree = "<group>"; };
 		CDDDEA222538CD8000A1300C /* MediaSession.idl */ = {isa = PBXFileReference; lastKnownFileType = text; path = MediaSession.idl; sourceTree = "<group>"; };
 		CDDDEA232538CD8000A1300C /* MediaSession.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = MediaSession.h; sourceTree = "<group>"; };
 		CDDDEA242538CD8000A1300C /* MediaSession.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = MediaSession.cpp; sourceTree = "<group>"; };
@@ -20444,7 +20440,6 @@
 		E3C788ED2D035C9500D6C13D /* LogClient.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = LogClient.h; sourceTree = "<group>"; };
 		E3C788FC2D039A1600D6C13D /* LogMessages.in */ = {isa = PBXFileReference; lastKnownFileType = text; path = LogMessages.in; sourceTree = "<group>"; };
 		E3C99A081DC3D41700794AD3 /* DOMJITCheckDOM.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = DOMJITCheckDOM.h; sourceTree = "<group>"; };
-		E3C9AEC92113147400419B92 /* JSMicrotaskCallback.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = JSMicrotaskCallback.h; sourceTree = "<group>"; };
 		E3CA0BFA2673F478009FDD67 /* JSDOMBindingSecurityInlines.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = JSDOMBindingSecurityInlines.h; sourceTree = "<group>"; };
 		E3D049931DADC04500718F3C /* NodeConstants.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = NodeConstants.h; sourceTree = "<group>"; };
 		E3D3C0092881D72200ECD5F6 /* GPUAvailability.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = GPUAvailability.h; sourceTree = "<group>"; };
@@ -34359,7 +34354,6 @@
 				B56576E417DA599F00A56BDC /* JSExecStateInstrumentation.h */,
 				93849C1624BE12E500448D5A /* JSIDBSerializationGlobalObject.cpp */,
 				93849C2124BEDD8800448D5A /* JSIDBSerializationGlobalObject.h */,
-				E3C9AEC92113147400419B92 /* JSMicrotaskCallback.h */,
 				460C70FC28E662D5005F4D74 /* JSObservableArray.cpp */,
 				460C70FB28E662D4005F4D74 /* JSObservableArray.h */,
 				93B70D4F09EB0C7C009D8468 /* JSPluginElementFunctions.cpp */,
@@ -35192,8 +35186,6 @@
 			children = (
 				1449E286107D4DB400B5793F /* JSCallbackData.cpp */,
 				1449E24A107D4A8400B5793F /* JSCallbackData.h */,
-				8AA94080279EEE8100EC0C48 /* JSDOMMicrotask.cpp */,
-				8AA9407E279EEE8100EC0C48 /* JSDOMMicrotask.h */,
 				F3D461461161D53200CA0D09 /* JSErrorHandler.cpp */,
 				F3D461471161D53200CA0D09 /* JSErrorHandler.h */,
 				93B70D4D09EB0C7C009D8468 /* JSEventListener.cpp */,
@@ -39330,7 +39322,6 @@
 				FD31605712B026F700C1A359 /* Biquad.h */,
 				FD31605812B026F700C1A359 /* Cone.cpp */,
 				FD31605912B026F700C1A359 /* Cone.h */,
-				CDDD004A2D49B890000B23CC /* DenormalDisabler.cpp */,
 				FD1660A413787C6D001FFA7B /* DenormalDisabler.h */,
 				FDAF19961513D131008DB0C3 /* DirectConvolver.cpp */,
 				FDAF19971513D131008DB0C3 /* DirectConvolver.h */,
@@ -42089,7 +42080,6 @@
 				75793EC90D0CE72D007FC0AC /* JSMessageEvent.h in Headers */,
 				E1ADEDDA0E76BD93004A1A5E /* JSMessagePort.h in Headers */,
 				072D3D6B2AAD4FA600ED82C5 /* JSMeteringMode.h in Headers */,
-				E3C9AECB2113149900419B92 /* JSMicrotaskCallback.h in Headers */,
 				A86629D109DA2B48009633A5 /* JSMouseEvent.h in Headers */,
 				830A36BD1DAC5FAD006D7D09 /* JSMouseEventInit.h in Headers */,
 				65DF31FC09D1CC60000BE325 /* JSMutationEvent.h in Headers */,

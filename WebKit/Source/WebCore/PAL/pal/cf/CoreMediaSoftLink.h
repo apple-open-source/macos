@@ -417,7 +417,7 @@ inline std::span<uint8_t> CMBlockBufferGetDataSpan(CMBlockBufferRef theBuffer, s
 {
     char* data = nullptr;
     size_t lengthAtOffset = 0;
-    if (auto error = PAL::CMBlockBufferGetDataPointer(theBuffer, offset, &lengthAtOffset, nullptr, &data))
+    if (PAL::CMBlockBufferGetDataPointer(theBuffer, offset, &lengthAtOffset, nullptr, &data))
         return { };
     return unsafeMakeSpan(byteCast<uint8_t>(data), lengthAtOffset);
 }

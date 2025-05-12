@@ -40,6 +40,12 @@
     // Event for receiving messages from the test harness.
     readonly attribute WebExtensionAPIEvent onMessage;
 
+    // Runs the provided function in the context of a user gesture.
+    [NeedsFrame] any runWithUserGesture([ValuesAllowed] any function);
+
+    // Returns if a user gesture is active.
+    boolean isProcessingUserGesture();
+
     // Logs a message during testing.
     [NeedsScriptContext] void log([ValuesAllowed] any message);
 

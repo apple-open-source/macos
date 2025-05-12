@@ -60,6 +60,11 @@ void CSSAnimation::syncPropertiesWithBackingAnimation()
 {
     StyleOriginatedAnimation::syncPropertiesWithBackingAnimation();
 
+    // If we have been disassociated from our original owning element,
+    // we should no longer sync any of the `animation-*` CSS properties.
+    if (!owningElement())
+        return;
+
     if (!effect())
         return;
 

@@ -2352,6 +2352,9 @@ void RenderBlock::computePreferredLogicalWidths()
     if (!isRenderTableCell() && lengthToUse.isFixed() && lengthToUse.value() >= 0 && !(isDeprecatedFlexItem() && !lengthToUse.intValue())) {
         m_minPreferredLogicalWidth = adjustContentBoxLogicalWidthForBoxSizing(lengthToUse);
         m_maxPreferredLogicalWidth = m_minPreferredLogicalWidth;
+    } else if (lengthToUse.isMaxContent()) {
+        computeIntrinsicLogicalWidths(m_minPreferredLogicalWidth, m_maxPreferredLogicalWidth);
+        m_minPreferredLogicalWidth = m_maxPreferredLogicalWidth;
     } else if (shouldComputeLogicalWidthFromAspectRatio()) {
         m_minPreferredLogicalWidth = m_maxPreferredLogicalWidth = (computeLogicalWidthFromAspectRatio() - borderAndPaddingLogicalWidth());
         m_minPreferredLogicalWidth = std::max(0_lu, m_minPreferredLogicalWidth);

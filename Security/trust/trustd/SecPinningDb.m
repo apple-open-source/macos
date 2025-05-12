@@ -473,7 +473,7 @@ const CFStringRef kSecPinningDbKeyTransparentConnection = CFSTR("PinningTranspar
                      ok &= [self updateDb:dbconn error:error pinningList:pinningList updateSchema:updateSchema updateContent:updateContent];
                      /* Since we updated the DB to match the list that shipped with the system,
                       * reset the OTAPKI Asset version to the system asset version */
-                     (void)SecOTAPKIResetCurrentAssetVersion(NULL);
+                     (void)SecOTAPKIResetCurrentSupplementalsAssetVersion(NULL);
                  }
                  if (!ok) {
                      secerror("SecPinningDb: %s failed: %@", didCreate ? "Create" : "Open", error ? *error : NULL);

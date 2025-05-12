@@ -74,9 +74,25 @@ SEC_ASSUME_NONNULL_BEGIN
  *
  * @return A NULL-terminated string carrying the negotiated protocol.
  */
-API_AVAILABLE(macos(10.14), ios(12.0), watchos(5.0), tvos(12.0))
+API_DEPRECATED_WITH_REPLACEMENT("sec_protocol_metadata_copy_negotiated_protocol", macos(10.14, 15.5), ios(12.0, 18.5), watchos(5.0, 11.5), tvos(12.0, 18.5))
 const char * _Nullable
 sec_protocol_metadata_get_negotiated_protocol(sec_protocol_metadata_t metadata);
+
+/*!
+ * @function sec_protocol_metadata_copy_negotiated_protocol
+ *
+ * @abstract
+ *      Copy the application protocol negotiated, e.g., via the TLS ALPN extension.
+ *      The caller is expected to `free` the output string when no longer needed.
+ *
+ * @param metadata
+ *      A `sec_protocol_metadata_t` instance.
+ *
+ * @return A NULL-terminated string carrying the negotiated protocol.
+ */
+API_AVAILABLE(macos(15.5), ios(18.5), watchos(11.5), tvos(18.5))
+const char * __nullable
+sec_protocol_metadata_copy_negotiated_protocol(sec_protocol_metadata_t metadata);
 
 /*!
  * @function sec_protocol_metadata_copy_peer_public_key
@@ -282,9 +298,28 @@ sec_protocol_metadata_access_pre_shared_keys(sec_protocol_metadata_t metadata, v
  * @return Returns A NULL-terminated string carrying the server name, or NULL
  *      if none was provided.
  */
-API_AVAILABLE(macos(10.14), ios(12.0), watchos(5.0), tvos(12.0))
+API_DEPRECATED_WITH_REPLACEMENT("sec_protocol_metadata_copy_server_name", macos(10.14, 15.5), ios(12.0, 18.5), watchos(5.0, 11.5), tvos(12.0, 18.5))
 const char * _Nullable
 sec_protocol_metadata_get_server_name(sec_protocol_metadata_t metadata);
+
+/*!
+ * @function sec_protocol_metadata_copy_server_name
+ *
+ * @abstract
+ *      Obtain a copy of the server name offered by a client or server during
+ *      connection establishmet. This is the value commonly carried
+ *      in the TLS SNI extesion. The caller is expected to `free` the output
+ *      string when it is no longer needed.
+ *
+ * @param metadata
+ *      A `sec_protocol_metadata_t` instance.
+ *
+ * @return Returns A NULL-terminated string carrying the server name, or NULL
+ *      if none was provided.
+ */
+API_AVAILABLE(macos(15.5), ios(18.5), watchos(11.5), tvos(18.5))
+const char * __nullable
+sec_protocol_metadata_copy_server_name(sec_protocol_metadata_t metadata);
 
 /*!
  * @function sec_protocol_metadata_peers_are_equal

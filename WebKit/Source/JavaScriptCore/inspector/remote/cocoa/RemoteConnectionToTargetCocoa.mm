@@ -215,9 +215,10 @@ void RemoteConnectionToTarget::close()
                 target->disconnect(*this);
 
             m_target = nullptr;
-            if (targetIdentifier)
-                RemoteInspector::singleton().updateTargetListing(targetIdentifier);
         }
+
+        if (targetIdentifier)
+            RemoteInspector::singleton().updateTargetListing(targetIdentifier);
     });
 }
 

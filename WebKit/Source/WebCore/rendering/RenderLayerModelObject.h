@@ -29,6 +29,7 @@
 namespace WebCore {
 
 class BlendingKeyframes;
+class LegacyRenderSVGResourceClipper;
 class RenderLayer;
 class RenderSVGResourceClipper;
 class RenderSVGResourceFilter;
@@ -106,6 +107,8 @@ public:
     RenderSVGResourceMarker* svgMarkerStartResourceFromStyle() const;
     RenderSVGResourceMarker* svgMarkerMidResourceFromStyle() const;
     RenderSVGResourceMarker* svgMarkerEndResourceFromStyle() const;
+
+    LegacyRenderSVGResourceClipper* legacySVGClipperResourceFromStyle() const;
 
     bool pointInSVGClippingArea(const FloatPoint&) const;
 

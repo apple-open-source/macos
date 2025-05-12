@@ -43,7 +43,7 @@ setuid_allowed_path = regress
 timestamp_path = regress
 
 // OpenSSH version
-Semvers = 9.9.1
+Semvers = 9.9.2
 
 // Miscellaneous
 GCC_PREPROCESSOR_DEFINITIONS = $(AppleSshFeatures) $(DebugFlagDefinition)

@@ -5958,7 +5958,15 @@ void RenderLayerCompositor::didAddScrollingLayer(RenderLayer& layer)
 
 ScrollingCoordinator* RenderLayerCompositor::scrollingCoordinator() const
 {
-    return page().scrollingCoordinator();
+    RefPtr frame = m_renderView.document().frame();
+    if (!frame)
+        return nullptr;
+
+    RefPtr page = frame->page();
+    if (!page)
+        return nullptr;
+
+    return page->scrollingCoordinator();
 }
 
 GraphicsLayerFactory* RenderLayerCompositor::graphicsLayerFactory() const

@@ -50,12 +50,14 @@ class SharedBuffer;
 
 namespace WebKit {
 
-class NetworkLoadParameters;
 class NetworkSession;
 class PendingDownload;
+
 enum class AuthenticationChallengeDisposition : uint8_t;
 enum class NegotiatedLegacyTLS : bool;
 enum class PrivateRelayed : bool;
+
+struct NetworkLoadParameters;
 
 using RedirectCompletionHandler = CompletionHandler<void(WebCore::ResourceRequest&&)>;
 using ChallengeCompletionHandler = CompletionHandler<void(AuthenticationChallengeDisposition, const WebCore::Credential&)>;

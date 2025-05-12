@@ -868,6 +868,11 @@ void MediaElementSession::playbackTargetPickerWasDismissed()
     client().playbackTargetPickerWasDismissed();
 }
 
+void MediaElementSession::audioSessionCategoryChanged(AudioSessionCategory category, AudioSessionMode mode, RouteSharingPolicy policy)
+{
+    m_element.audioSessionCategoryChanged(category, mode, policy);
+}
+
 void MediaElementSession::mediaStateDidChange(MediaProducerMediaStateFlags state)
 {
     m_element.document().playbackTargetPickerClientStateDidChange(*this, state);

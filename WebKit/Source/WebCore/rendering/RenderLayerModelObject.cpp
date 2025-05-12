@@ -588,6 +588,15 @@ RenderSVGResourcePaintServer* RenderLayerModelObject::svgStrokePaintServerResour
     return nullptr;
 }
 
+LegacyRenderSVGResourceClipper* RenderLayerModelObject::legacySVGClipperResourceFromStyle() const
+{
+    RefPtr referenceClipPathOperation = dynamicDowncast<ReferencePathOperation>(style().clipPath());
+    if (!referenceClipPathOperation)
+        return nullptr;
+
+    return ReferencedSVGResources::referencedClipperRenderer(treeScopeForSVGReferences(), *referenceClipPathOperation);
+}
+
 bool RenderLayerModelObject::pointInSVGClippingArea(const FloatPoint& point) const
 {
     auto* clipPathOperation = style().clipPath();

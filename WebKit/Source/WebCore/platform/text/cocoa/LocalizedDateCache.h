@@ -42,7 +42,7 @@ public:
 class LocalizedDateCache {
 public:
     NSDateFormatter *formatterForDateType(DateComponentsType);
-    float maximumWidthForDateType(DateComponentsType, const FontCascade&, const MeasureTextClient&);
+    float estimatedMaximumWidthForDateType(DateComponentsType, const FontCascade&, const MeasureTextClient&);
     void localeChanged();
 
 private:
@@ -50,7 +50,7 @@ private:
     ~LocalizedDateCache();
 
     RetainPtr<NSDateFormatter> createFormatterForType(DateComponentsType);
-    float calculateMaximumWidth(DateComponentsType, const MeasureTextClient&);
+    float estimateMaximumWidth(DateComponentsType, const MeasureTextClient&);
 
     // Using int instead of DateComponentsType for the key because the enum
     // does not have a default hash and hash traits. Usage of the maps

@@ -419,6 +419,8 @@ bool WebExtensionContext::createInjectedContentForScripts(const Vector<WebExtens
                 *errorMessage = toErrorString(callingAPIName, nullString(), @"script with ID '%@' has an invalid exclude match pattern '%@'", (NSString *)scriptID, matchPatternString);
                 return false;
             }
+
+            excludeMatchPatterns.add(matchPattern.releaseNonNull());
         }
 
         InjectedContentData injectedContentData;

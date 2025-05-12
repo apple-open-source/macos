@@ -319,7 +319,12 @@ replayTransaction(block_list_header *txn, size_t blSize, size_t blkSize, swapper
                 fsck_print(ctx, LOG_TYPE_INFO, "\tSkipping this block due to magic skip number\n");
             }
 #endif
-		} else {
+		} else if (swap->swap32(txn->binfo[i].bsize) == 0) {
+            if (state.debug) {
+                fsck_print(ctx, LOG_TYPE_INFO, "\tInvalid block size block_list_header\n");
+            }
+            return retval;
+        } else {
 			// Should we set retval to -2 here?
 			if (writer) {
 				if ((writer)(swap->swap64(txn->binfo[i].bnum) * blkSize, dataPtr, swap->swap32(txn->binfo[i].bsize)) == -1)
@@ -431,6 +436,16 @@ journal_open(int jfd,
         fsck_print(ctx, LOG_TYPE_STDERR, "%s:  Unknown journal header magic number %#x from %s\n", __FUNCTION__, jhdr.magic, jdev_name);
 		return -1;
 	}
+
+    /*
+     * Check for a bad jhdr size after reading in the journal header.
+     */
+    if ((jnlSwap->swap32(jhdr.jhdr_size) < min_fs_blksize) ||
+        (jnlSwap->swap32(jhdr.jhdr_size) > jBlkSize)) {
+        fsck_print(ctx, LOG_TYPE_STDERR, "%s: jnl: %s: open: bad jhdr size (%d) \n", __FUNCTION__,
+                   jdev_name, jhdr.jhdr_size);
+        return -1;
+    }
 
 	/*
 	 * Checksums have to be done with the checksum field set to 0.

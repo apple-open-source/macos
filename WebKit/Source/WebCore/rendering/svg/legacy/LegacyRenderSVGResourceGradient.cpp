@@ -43,17 +43,21 @@ LegacyRenderSVGResourceGradient::LegacyRenderSVGResourceGradient(Type type, SVGG
 
 LegacyRenderSVGResourceGradient::~LegacyRenderSVGResourceGradient() = default;
 
-void LegacyRenderSVGResourceGradient::removeAllClientsFromCacheIfNeeded(bool markForInvalidation, SingleThreadWeakHashSet<RenderObject>* visitedRenderers)
+void LegacyRenderSVGResourceGradient::removeAllClientsFromCache()
 {
     m_gradientMap.clear();
     m_shouldCollectGradientAttributes = true;
+}
+
+void LegacyRenderSVGResourceGradient::removeAllClientsFromCacheAndMarkForInvalidationIfNeeded(bool markForInvalidation, SingleThreadWeakHashSet<RenderObject>* visitedRenderers)
+{
+    removeAllClientsFromCache();
     markAllClientsForInvalidationIfNeeded(markForInvalidation ? RepaintInvalidation : ParentOnlyInvalidation, visitedRenderers);
 }
 
-void LegacyRenderSVGResourceGradient::removeClientFromCache(RenderElement& client, bool markForInvalidation)
+void LegacyRenderSVGResourceGradient::removeClientFromCache(RenderElement& client)
 {
     m_gradientMap.remove(&client);
-    markClientForInvalidation(client, markForInvalidation ? RepaintInvalidation : ParentOnlyInvalidation);
 }
 
 GradientData::Inputs LegacyRenderSVGResourceGradient::computeInputs(RenderElement& renderer, OptionSet<RenderSVGResourceMode> resourceMode)
@@ -73,7 +77,7 @@ GradientData* LegacyRenderSVGResourceGradient::gradientDataForRenderer(RenderEle
 {
     // Be sure to synchronize all SVG properties on the gradientElement _before_ processing any further.
     // Otherwhise the call to collectGradientAttributes() in createTileImage(), may cause the SVG DOM property
-    // synchronization to kick in, which causes removeAllClientsFromCache() to be called, which in turn deletes our
+    // synchronization to kick in, which causes removeAllClientsFromCacheAndMarkForInvalidation() to be called, which in turn deletes our
     // GradientData object! Leaving out the line below will cause svg/dynamic-updates/SVG*GradientElement-svgdom* to crash.
     if (m_shouldCollectGradientAttributes) {
         gradientElement().synchronizeAllAttributes();

@@ -39,7 +39,7 @@ namespace JSC {
 class JSWebAssemblyTable final : public JSNonFinalObject {
 public:
     using Base = JSNonFinalObject;
-    static constexpr bool needsDestruction = true;
+    static constexpr DestructionMode needsDestruction = NeedsDestruction;
     static void destroy(JSCell*);
 
     template<typename CellType, SubspaceAccess mode>

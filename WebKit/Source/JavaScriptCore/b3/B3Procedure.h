@@ -61,13 +61,14 @@ class Dominators;
 class NaturalLoops;
 class Value;
 class Variable;
+class WasmBoundsCheckValue;
 
 namespace Air {
 class Code;
 class StackSlot;
 } // namespace Air
 
-typedef void WasmBoundsCheckGeneratorFunction(CCallHelpers&, GPRReg);
+typedef void WasmBoundsCheckGeneratorFunction(CCallHelpers&, WasmBoundsCheckValue*, GPRReg);
 typedef SharedTask<WasmBoundsCheckGeneratorFunction> WasmBoundsCheckGenerator;
 
 // This represents B3's view of a piece of code. Note that this object must exist in a 1:1

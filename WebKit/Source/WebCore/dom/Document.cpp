@@ -4618,7 +4618,7 @@ bool Document::isNavigationBlockedByThirdPartyIFrameRedirectBlocking(Frame& targ
         return false;
 
     // Only prevent navigations by subframes that the user has not interacted with.
-    if (hasHadUserInteraction())
+    if (m_frame->hasHadUserInteraction())
         return false;
 
     // Only prevent navigations by unsandboxed iframes. Such navigations by sandboxed iframes would have already been blocked unless

@@ -450,6 +450,8 @@ ALLOW_DEPRECATED_DECLARATIONS_END
             [_centeredStackView addArrangedSubview:_enterVideoFullscreenButton.get()];
             _buttonState.add(FullscreenVideo);
         }
+        [self _removeEnvironmentPickerButtonView];
+        return;
     } else
         [self _removeEnvironmentFullscreenVideoButtonView];
 

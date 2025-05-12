@@ -491,6 +491,11 @@ bool FullscreenManager::willEnterFullscreen(Element& element, HTMLMediaElementEn
         return false;
     }
 
+    if (!element.isConnected()) {
+        ERROR_LOG(LOGIDENTIFIER, "Element to fullscreen is disconnected; bailing.");
+        return false;
+    }
+
     // The element is an open popover.
     if (element.isPopoverShowing()) {
         ERROR_LOG(LOGIDENTIFIER, "Element to fullscreen is an open popover; bailing.");

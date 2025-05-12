@@ -118,7 +118,7 @@ String WebExtensionSQLiteStore::openDatabase(const URL& databaseURL, WebExtensio
 
     // FIXME: rdar://87898825 (unlimitedStorage: Allow the SQLite database to be opened as SQLiteDatabaseAccessTypeReadOnly if the request is to calculate storage size).
     RefPtr<API::Error> error;
-    if (RefPtr db = m_database; !db->openWithAccessType(accessType, { }, { }, error)) {
+    if (RefPtr db = m_database; !db->openWithAccessType(accessType, error)) {
         if (!error && accessType != WebExtensionSQLiteDatabase::AccessType::ReadWriteCreate) {
             // The file didn't exist and we were not asked to create it.
             m_database = nullptr;

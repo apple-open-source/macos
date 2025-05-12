@@ -379,12 +379,9 @@ bool MediaControlTextTrackContainerElement::updateVideoDisplaySize()
         return false;
 
     IntRect videoBox;
-    if (m_textTrackRepresentation) {
+    if (m_textTrackRepresentation)
         videoBox = m_textTrackRepresentation->bounds();
-        float deviceScaleFactor = document().page()->deviceScaleFactor();
-        videoBox.setWidth(videoBox.width() * deviceScaleFactor);
-        videoBox.setHeight(videoBox.height() * deviceScaleFactor);
-    } else {
+    else {
         if (auto* renderVideo = dynamicDowncast<RenderVideo>(m_mediaElement->renderer()))
             videoBox = renderVideo->videoBox();
         else

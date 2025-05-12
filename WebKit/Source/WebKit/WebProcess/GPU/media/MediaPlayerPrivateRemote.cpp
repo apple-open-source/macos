@@ -234,8 +234,9 @@ void MediaPlayerPrivateRemote::prepareForPlayback(bool privateMode, MediaPlayer:
     auto preferredDynamicRangeMode = player->preferredDynamicRangeMode();
     auto presentationSize = player->presentationSize();
     auto pitchCorrectionAlgorithm = player->pitchCorrectionAlgorithm();
+    auto isFullscreen = player->isInFullscreenOrPictureInPicture();
 
-    connection().send(Messages::RemoteMediaPlayerProxy::PrepareForPlayback(privateMode, preload, preservesPitch, pitchCorrectionAlgorithm, prepareToPlay, prepareToRender, presentationSize, scale, preferredDynamicRangeMode), m_id);
+    protectedConnection()->send(Messages::RemoteMediaPlayerProxy::PrepareForPlayback(privateMode, preload, preservesPitch, pitchCorrectionAlgorithm, prepareToPlay, prepareToRender, presentationSize, scale, isFullscreen, preferredDynamicRangeMode), m_id);
 }
 
 void MediaPlayerPrivateRemote::load(const URL& url, const ContentType& contentType, const String& keySystem)

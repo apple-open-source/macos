@@ -9,7 +9,10 @@
 
 int
 LLVMFuzzerInitialize(int *argc_p, char ***argv_p) {
-    return xsltFuzzXsltInit(argc_p, argv_p, NULL);
+    const char *dir = getenv("STATIC_XML_FILE_DIR");
+    if (dir && dir[0] == '\0')
+        dir = NULL;
+    return xsltFuzzXsltInit(argc_p, argv_p, dir);
 }
 
 int

@@ -1670,7 +1670,7 @@ typedef NS_ENUM(NSInteger, RecoveryKeyInOctagonState) {
 
     if (octagonError &&
         [octagonError.domain isEqualToString:TrustedPeersHelperErrorDomain]
-        && octagonError.code == TrustedPeersHelperErrorFailedToCreateRecoveryKey) {
+        && octagonError.code == TrustedPeersHelperErrorCodeFailedToCreateRecoveryKey) {
         NSError* underlyingError = octagonError.userInfo[NSUnderlyingErrorKey];
         if (underlyingError && [underlyingError.domain isEqualToString:TrustedPeersHelperRecoveryKeySetErrorDomain] && underlyingError.code == TrustedPeersHelperRecoveryKeySetErrorFailedToSaveToKeychain) {
             NSError* secondUnderlyingError = underlyingError.userInfo[NSUnderlyingErrorKey];

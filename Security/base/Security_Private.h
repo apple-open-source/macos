@@ -47,6 +47,7 @@
 #include <Security/OTControlProtocol.h>
 #include <Security/OTJoiningConfiguration.h>
 #include <Security/SecAccessControlPriv.h>
+#include <Security/SecAppleCorporateAnchors.h>
 #include <Security/secasn1t.h>
 #include <Security/SecBase64.h>
 #include <Security/SecBasePriv.h>

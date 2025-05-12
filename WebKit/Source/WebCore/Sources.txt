@@ -667,7 +667,6 @@ bindings/js/JSDOMGlobalObject.cpp
 bindings/js/JSDOMGuardedObject.cpp
 bindings/js/JSDOMIterator.cpp
 bindings/js/JSDOMMapLike.cpp
-bindings/js/JSDOMMicrotask.cpp
 bindings/js/JSDOMPromise.cpp
 bindings/js/JSDOMPromiseDeferred.cpp
 bindings/js/JSDOMQuadCustom.cpp
@@ -2381,7 +2380,6 @@ platform/audio/AudioResamplerKernel.cpp
 platform/audio/AudioUtilities.cpp
 platform/audio/Biquad.cpp
 platform/audio/Cone.cpp
-platform/audio/DenormalDisabler.cpp
 platform/audio/DirectConvolver.cpp
 platform/audio/Distance.cpp
 platform/audio/DownSampler.cpp

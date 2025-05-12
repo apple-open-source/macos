@@ -682,6 +682,11 @@ skipvcs:
 				say("%d out of %d hunks %s--saving rejects to %s\n",
 				    failed, hunk, skip_rest_of_patch ? "ignored" : "failed",
 				    quoted_name(rejname));
+#ifdef __APPLE__
+			else if (filearg[0] == NULL)
+				say("%d out of %d hunks %s\n",
+				    failed, hunk, skip_rest_of_patch ? "ignored" : "failed");
+#endif
 			else
 				say("%d out of %d hunks %s while patching %s\n",
 				    failed, hunk, skip_rest_of_patch ? "ignored" : "failed",

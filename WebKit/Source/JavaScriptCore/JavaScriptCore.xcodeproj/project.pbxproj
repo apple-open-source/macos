@@ -1896,6 +1896,7 @@
 		DE26E9031CB5DD0500D2BE82 /* BuiltinExecutableCreator.h in Headers */ = {isa = PBXBuildFile; fileRef = DE26E9021CB5DD0500D2BE82 /* BuiltinExecutableCreator.h */; };
 		DEA7E2451BBC677F00D78440 /* JSTypedArrayViewPrototype.h in Headers */ = {isa = PBXBuildFile; fileRef = 53917E7C1B791106000EBD33 /* JSTypedArrayViewPrototype.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		E124A8F70E555775003091F1 /* OpaqueJSString.h in Headers */ = {isa = PBXBuildFile; fileRef = E124A8F50E555775003091F1 /* OpaqueJSString.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		E306C1BC2D79000D0011D5AC /* MicrotaskQueueInlines.h in Headers */ = {isa = PBXBuildFile; fileRef = E306C1BB2D7900050011D5AC /* MicrotaskQueueInlines.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		E307178324C7827100DF0644 /* IntlRelativeTimeFormat.h in Headers */ = {isa = PBXBuildFile; fileRef = A3BF885024480BE1001B9F35 /* IntlRelativeTimeFormat.h */; };
 		E307178424C7827700DF0644 /* IntlRelativeTimeFormatConstructor.h in Headers */ = {isa = PBXBuildFile; fileRef = A3BF884E24480BE0001B9F35 /* IntlRelativeTimeFormatConstructor.h */; };
 		E307178524C7827900DF0644 /* IntlRelativeTimeFormatPrototype.h in Headers */ = {isa = PBXBuildFile; fileRef = A3BF884C24480BDF001B9F35 /* IntlRelativeTimeFormatPrototype.h */; };
@@ -2015,6 +2016,7 @@
 		E366441E254409B30001876F /* IntlListFormat.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E318CA69254406B5004DC129 /* IntlListFormat.cpp */; };
 		E367062A2A2705DB00CF892F /* StringSplitCacheInlines.h in Headers */ = {isa = PBXBuildFile; fileRef = E36706282A2705DB00CF892F /* StringSplitCacheInlines.h */; };
 		E367062B2A2705DB00CF892F /* StringSplitCache.h in Headers */ = {isa = PBXBuildFile; fileRef = E36706292A2705DB00CF892F /* StringSplitCache.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		E36965F32D76E975005BCC77 /* MicrotaskQueue.h in Headers */ = {isa = PBXBuildFile; fileRef = E36965F02D76E96F005BCC77 /* MicrotaskQueue.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		E36CC9472086314F0051FFD6 /* WasmCreationMode.h in Headers */ = {isa = PBXBuildFile; fileRef = E36CC9462086314F0051FFD6 /* WasmCreationMode.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		E36D2BB82A8D9E5C001CF154 /* NativeCalleeRegistry.h in Headers */ = {isa = PBXBuildFile; fileRef = E36D2BB62A8D9E5B001CF154 /* NativeCalleeRegistry.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		E36EDCE524F0975700E60DA2 /* Concurrency.h in Headers */ = {isa = PBXBuildFile; fileRef = E36EDCE424F0975700E60DA2 /* Concurrency.h */; settings = {ATTRIBUTES = (Private, ); }; };
@@ -5509,6 +5511,7 @@
 		E18E3A570DF9278C00D90B34 /* VM.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; lineEnding = 0; path = VM.cpp; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.cpp; };
 		E3060128228F978100FAABDF /* UnlinkedMetadataTable.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = UnlinkedMetadataTable.cpp; sourceTree = "<group>"; };
 		E30677971B8BC6F5003F87F0 /* ModuleLoader.js */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.javascript; path = ModuleLoader.js; sourceTree = "<group>"; };
+		E306C1BB2D7900050011D5AC /* MicrotaskQueueInlines.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = MicrotaskQueueInlines.h; sourceTree = "<group>"; };
 		E307177D24C7824600DF0644 /* IntlSegmenterConstructor.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = IntlSegmenterConstructor.h; sourceTree = "<group>"; };
 		E307177E24C7824600DF0644 /* IntlSegmenterPrototype.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = IntlSegmenterPrototype.cpp; sourceTree = "<group>"; };
 		E307177F24C7824700DF0644 /* IntlSegmenterPrototype.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = IntlSegmenterPrototype.h; sourceTree = "<group>"; };
@@ -5565,7 +5568,6 @@
 		E32D4DE426DAFD4300D4533A /* TemporalCalendarConstructor.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = TemporalCalendarConstructor.h; sourceTree = "<group>"; };
 		E32D4DE526DAFD4300D4533A /* TemporalCalendarConstructor.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = TemporalCalendarConstructor.cpp; sourceTree = "<group>"; };
 		E32D51A52C6D0FD600B013D1 /* WasmCompilationContext.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = WasmCompilationContext.h; sourceTree = "<group>"; };
-		E32D51A62C6D0FD600B013D1 /* WasmCompilationContext.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = WasmCompilationContext.cpp; sourceTree = "<group>"; };
 		E32D51A72C6D0FD600B013D1 /* WasmOpcodeCounter.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = WasmOpcodeCounter.h; sourceTree = "<group>"; };
 		E32D51A82C6D0FD600B013D1 /* WasmOpcodeCounter.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = WasmOpcodeCounter.cpp; sourceTree = "<group>"; };
 		E32D51A92C6D0FD600B013D1 /* WasmSourceMappingURLSectionParser.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = WasmSourceMappingURLSectionParser.h; sourceTree = "<group>"; };
@@ -5714,6 +5716,8 @@
 		E365F33924AA621200C991B2 /* IntlDisplayNamesConstructor.lut.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = IntlDisplayNamesConstructor.lut.h; sourceTree = "<group>"; };
 		E36706282A2705DB00CF892F /* StringSplitCacheInlines.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = StringSplitCacheInlines.h; sourceTree = "<group>"; };
 		E36706292A2705DB00CF892F /* StringSplitCache.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = StringSplitCache.h; sourceTree = "<group>"; };
+		E36965F02D76E96F005BCC77 /* MicrotaskQueue.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = MicrotaskQueue.h; sourceTree = "<group>"; };
+		E36965F12D76E96F005BCC77 /* MicrotaskQueue.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = MicrotaskQueue.cpp; sourceTree = "<group>"; };
 		E36B480123E9573800E4A66E /* UnlinkedCodeBlockGenerator.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = UnlinkedCodeBlockGenerator.cpp; sourceTree = "<group>"; };
 		E36CC9462086314F0051FFD6 /* WasmCreationMode.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = WasmCreationMode.h; sourceTree = "<group>"; };
 		E36D2BB62A8D9E5B001CF154 /* NativeCalleeRegistry.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = NativeCalleeRegistry.h; sourceTree = "<group>"; };
@@ -7788,7 +7792,6 @@
 				53FD04D11D7AB187003287D3 /* WasmCallingConvention.cpp */,
 				53FD04D21D7AB187003287D3 /* WasmCallingConvention.h */,
 				E337B966224324E50093A820 /* WasmCapabilities.h */,
-				E32D51A62C6D0FD600B013D1 /* WasmCompilationContext.cpp */,
 				E32D51A52C6D0FD600B013D1 /* WasmCompilationContext.h */,
 				E37CFB2D22F27C57009A7B38 /* WasmCompilationMode.cpp */,
 				E3BD2B7522F275020011765C /* WasmCompilationMode.h */,
@@ -8631,6 +8634,9 @@
 				90213E3B123A40C200D422F3 /* MemoryStatistics.cpp */,
 				90213E3C123A40C200D422F3 /* MemoryStatistics.h */,
 				7C008CE5187631B600955C24 /* Microtask.h */,
+				E36965F12D76E96F005BCC77 /* MicrotaskQueue.cpp */,
+				E36965F02D76E96F005BCC77 /* MicrotaskQueue.h */,
+				E306C1BB2D7900050011D5AC /* MicrotaskQueueInlines.h */,
 				FE2A875F1F02381600EB31B2 /* MinimumReservedZoneSize.h */,
 				147341DD1DC2CE9600AA29BA /* ModuleProgramExecutable.cpp */,
 				147341D51DC02EB900AA29BA /* ModuleProgramExecutable.h */,
@@ -11567,6 +11573,8 @@
 				142F16E021558802003D49C9 /* MetadataTable.h in Headers */,
 				0FB5467B14F5C7E1002C2989 /* MethodOfGettingAValueProfile.h in Headers */,
 				7C008CE7187631B600955C24 /* Microtask.h in Headers */,
+				E36965F32D76E975005BCC77 /* MicrotaskQueue.h in Headers */,
+				E306C1BC2D79000D0011D5AC /* MicrotaskQueueInlines.h in Headers */,
 				FE2A87601F02381600EB31B2 /* MinimumReservedZoneSize.h in Headers */,
 				C4703CD7192844CC0013FBEA /* models.py in Headers */,
 				E3794E761B77EB97005543AE /* ModuleAnalyzer.h in Headers */,

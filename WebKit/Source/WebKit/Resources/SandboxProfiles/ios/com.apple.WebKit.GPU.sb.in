@@ -804,6 +804,7 @@
         SYS_kdebug_typefilter
         SYS_kevent_id
         SYS_kevent_qos
+        SYS_kqueue
         SYS_kqueue_workloop_ctl
         SYS_lseek
         SYS_lstat64

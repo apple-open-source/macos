@@ -198,7 +198,10 @@ ExceptionOr<float> SVGLengthContext::convertValueFromUserUnitsToPercentage(float
     if (!viewportSize)
         return Exception { ExceptionCode::NotSupportedError };
 
-    return value / dimensionForLengthMode(lengthMode, *viewportSize) * 100;
+    if (auto divisor = dimensionForLengthMode(lengthMode, *viewportSize))
+        return value / divisor * 100;
+
+    return value;
 }
 
 ExceptionOr<float> SVGLengthContext::convertValueFromPercentageToUserUnits(float value, SVGLengthMode lengthMode) const

@@ -27,16 +27,16 @@
 ]
 messages -> NetworkConnectionToWebProcess WantsDispatchMessage {
 
-    ScheduleResourceLoad(WebKit::NetworkResourceLoadParameters resourceLoadParameters, std::optional<WebKit::NetworkResourceLoadIdentifier> existingLoaderToResume)
-    PerformSynchronousLoad(WebKit::NetworkResourceLoadParameters resourceLoadParameters) -> (WebCore::ResourceError error, WebCore::ResourceResponse response, Vector<uint8_t> data) Synchronous
+    ScheduleResourceLoad(struct WebKit::NetworkResourceLoadParameters resourceLoadParameters, std::optional<WebKit::NetworkResourceLoadIdentifier> existingLoaderToResume)
+    PerformSynchronousLoad(struct WebKit::NetworkResourceLoadParameters resourceLoadParameters) -> (WebCore::ResourceError error, WebCore::ResourceResponse response, Vector<uint8_t> data) Synchronous
     TestProcessIncomingSyncMessagesWhenWaitingForSyncReply(WebKit::WebPageProxyIdentifier pageID) -> (bool handled) Synchronous
-    LoadPing(WebKit::NetworkResourceLoadParameters resourceLoadParameters)
+    LoadPing(struct WebKit::NetworkResourceLoadParameters resourceLoadParameters)
     RemoveLoadIdentifier(WebCore::ResourceLoaderIdentifier resourceLoadIdentifier)
     PageLoadCompleted(WebCore::PageIdentifier webPageID)
     BrowsingContextRemoved(WebKit::WebPageProxyIdentifier webPageProxyID, WebCore::PageIdentifier webPageID, WebCore::FrameIdentifier webFrameID)
     PrefetchDNS(String hostname)
-    SendH2Ping(WebKit::NetworkResourceLoadParameters parameters) -> (Expected<Seconds, WebCore::ResourceError> result)
-    PreconnectTo(std::optional<WebCore::ResourceLoaderIdentifier> preconnectionIdentifier, WebKit::NetworkResourceLoadParameters loadParameters);
+    SendH2Ping(struct WebKit::NetworkResourceLoadParameters parameters) -> (Expected<Seconds, WebCore::ResourceError> result)
+    PreconnectTo(std::optional<WebCore::ResourceLoaderIdentifier> preconnectionIdentifier, struct WebKit::NetworkResourceLoadParameters loadParameters);
     IsResourceLoadFinished(WebCore::ResourceLoaderIdentifier resourceLoadIdentifier) -> (bool isFinished)
 
     StartDownload(WebKit::DownloadID downloadID, WebCore::ResourceRequest request, std::optional<WebCore::SecurityOriginData> topOrigin, std::optional<WebKit::NavigatingToAppBoundDomain> isNavigatingToAppBoundDomain, String suggestedName, enum:bool WebCore::FromDownloadAttribute fromDownloadAttribute, std::optional<WebCore::FrameIdentifier> frameID, std::optional<WebCore::PageIdentifier> pageID)

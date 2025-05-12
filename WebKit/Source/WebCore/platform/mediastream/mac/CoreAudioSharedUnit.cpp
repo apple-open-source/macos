@@ -712,7 +712,7 @@ void CoreAudioSharedUnit::validateOutputDevice(uint32_t currentOutputDeviceID)
         return;
 
     uint32_t currentDefaultOutputDeviceID = 0;
-    if (auto err = m_ioUnit->defaultOutputDevice(&currentDefaultOutputDeviceID))
+    if (m_ioUnit->defaultOutputDevice(&currentDefaultOutputDeviceID))
         return;
 
     if (!currentDefaultOutputDeviceID || currentOutputDeviceID == currentDefaultOutputDeviceID)

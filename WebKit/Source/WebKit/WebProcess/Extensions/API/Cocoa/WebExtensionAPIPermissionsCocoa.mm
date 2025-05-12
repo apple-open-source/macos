@@ -170,7 +170,7 @@ bool WebExtensionAPIPermissions::verifyRequestedPermissions(HashSet<String>& per
     WebExtension::MatchPatternSet allowedHostPermissions = extension->allRequestedMatchPatterns();
 
     if ([callingAPIName isEqualToString:@"permissions.remove()"]) {
-        if (bool requestingToRemoveFunctionalPermissions = permissions.size() && permissions.intersectionWith(allowedPermissions).size()) {
+        if (permissions.size() && permissions.intersectionWith(allowedPermissions).size()) {
             *outExceptionString = toErrorString(nullString(), permissionsKey, @"required permissions cannot be removed");
             return false;
         }

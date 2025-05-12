@@ -518,15 +518,16 @@ find_pvd_options(ptrlist_t * options_p, size_t * pvd_id_length,
 }
 
 STATIC const CFArrayRef
-copy_prefixes_array(ptrlist_t * options_p, CFArrayRef *ret_prefix_lengths)
+copy_prefixes_array(ptrlist_t * options_p)
 {
     CFMutableArrayRef prefixes = NULL;
-    CFMutableArrayRef prefix_lengths = NULL;
     bool success = false;
 
     for (int i = 0; i < ptrlist_count(options_p); i++) {
 	const struct nd_opt_prefix_info *pio = NULL;
 	uint8_t opt_len = 0;
+	char ntopbuf[INET6_ADDRSTRLEN];
+	const char *ntop_ret = NULL;
 	CFStringRef prefix_str = NULL;
 
 	pio = (const struct nd_opt_prefix_info *)ptrlist_element(options_p, i);
@@ -540,37 +541,36 @@ copy_prefixes_array(ptrlist_t * options_p, CFArrayRef *ret_prefix_lengths)
 	    goto done;
 	}
 	if (prefixes == NULL) {
-	    prefixes = CFArrayCreateMutable(NULL, 0,
+	    prefixes = CFArrayCreateMutable(NULL,
+					    1,
 					    &kCFTypeArrayCallBacks);
-	    if (ret_prefix_lengths != NULL) {
-		    prefix_lengths
-			    = CFArrayCreateMutable(NULL, 0,
-						   &kCFTypeArrayCallBacks);
+	    if (prefixes == NULL) {
+		goto done;
 	    }
 	}
-	prefix_str = my_CFStringCreateWithIPv6Address(&pio->nd_opt_pi_prefix);
+	ntop_ret = inet_ntop(AF_INET6,
+			     &pio->nd_opt_pi_prefix,
+			     ntopbuf,
+			     sizeof(ntopbuf));
+	if (ntop_ret == NULL) {
+	    goto done;
+	}
+	prefix_str = CFStringCreateWithCString(NULL,
+					       ntop_ret,
+					       kCFStringEncodingUTF8);
+	if (prefix_str == NULL) {
+	    goto done;
+	}
 	CFArrayAppendValue(prefixes, prefix_str);
 	my_CFRelease(&prefix_str);
-	if (prefix_lengths != NULL) {
-		CFNumberRef	num;
-		int		prefix_length = pio->nd_opt_pi_prefix_len;
-
-		num = CFNumberCreate(NULL, kCFNumberIntType, &prefix_length);
-		CFArrayAppendValue(prefix_lengths, num);
-		CFRelease(num);
-	}
     }
     success = true;
 
 done:
     if (!success) {
 	my_CFRelease(&prefixes);
-	my_CFRelease(&prefix_lengths);
     }
-    else if (ret_prefix_lengths != NULL) {
-	    *ret_prefix_lengths = prefix_lengths;
-    }
-    return prefixes;
+    return (CFArrayRef)prefixes;
 }
 
 STATIC const uint8_t *
@@ -1328,10 +1328,9 @@ RouterAdvertisementGetSourceLinkAddress(RouterAdvertisementRef ra,
 }
 
 PRIVATE_EXTERN CFArrayRef
-RouterAdvertisementCopyPrefixes(RouterAdvertisementRef ra,
-				CFArrayRef * lengths)
+RouterAdvertisementCopyPrefixes(RouterAdvertisementRef ra)
 {
-	return (copy_prefixes_array(&ra->options, lengths));
+    return (copy_prefixes_array(&ra->options));
 }
 
 PRIVATE_EXTERN uint32_t

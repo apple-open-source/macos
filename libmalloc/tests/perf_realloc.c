@@ -185,13 +185,15 @@ T_DECL(realloc_perf_base, "realloc without nano",
 	realloc_tests("NoNano", false);
 }
 
+#if !MALLOC_TARGET_EXCLAVES
 T_DECL(realloc_perf_nanov2, "realloc with nanoV2",
 	   T_META_TAG_PERF, T_META_TAG_VM_NOT_PREFERRED,
 	   T_META_ENVVAR("MallocNanoZone=V2"))
 {
 #if CONFIG_NANOZONE
 	realloc_tests("Nanov2", true);
-#else // CONFIG_NANOZONE
+#else
 	T_SKIP("Nano allocator not configured");
 #endif // CONFIG_NANOZONE
 }
+#endif // !MALLOC_TARGET_EXCLAVES

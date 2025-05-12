@@ -172,6 +172,7 @@ NetworkSession::NetworkSession(NetworkProcess& networkProcess, const NetworkSess
 #if ENABLE(DECLARATIVE_WEB_PUSH)
     , m_isDeclarativeWebPushEnabled(parameters.isDeclarativeWebPushEnabled)
 #endif
+    , m_dataStoreIdentifier(parameters.dataStoreIdentifier)
 {
     if (!m_sessionID.isEphemeral()) {
         String networkCacheDirectory = parameters.networkCacheDirectory;

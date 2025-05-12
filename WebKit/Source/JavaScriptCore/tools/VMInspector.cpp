@@ -502,7 +502,7 @@ SUPPRESS_ASAN void VMInspector::dumpRegisters(CallFrame* callFrame)
     
     dataLogF("% 4d  CallerFrame      : %10p  %p \n", registerNumber++, it++, callFrame->callerFrame());
     if constexpr (isARM64E())
-        dataLogF("% 4d  ReturnPC         : %10p  %p (pac signed %p) \n", registerNumber++, it++, callFrame->returnPCForInspection(), callFrame->rawReturnPCForInspection());
+        dataLogF("% 4d  ReturnPC         : %10p  %p (pac signed %p) \n", registerNumber++, it++, callFrame->returnPCForInspection(), callFrame->rawReturnPC());
     else
         dataLogF("% 4d  ReturnPC         : %10p  %p \n", registerNumber++, it++, callFrame->returnPCForInspection());
     dataLogF("% 4d  CodeBlock        : %10p  0x%llx ", registerNumber++, it++, (long long)codeBlock);

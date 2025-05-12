@@ -46,11 +46,33 @@ class Encoder;
 
 namespace WebKit {
 
-class NetworkResourceLoadParameters : public NetworkLoadParameters {
-public:
-    NetworkResourceLoadParameters() = default;
+struct NetworkResourceLoadParameters {
+    NetworkResourceLoadParameters(WebPageProxyIdentifier webPageProxyID, WebCore::PageIdentifier webPageID, WebCore::FrameIdentifier webFrameID)
+        : webPageProxyID(webPageProxyID)
+        , webPageID(webPageID)
+        , webFrameID(webFrameID) { }
+
     NetworkResourceLoadParameters(
-        NetworkLoadParameters&&
+        WebPageProxyIdentifier
+        , WebCore::PageIdentifier
+        , WebCore::FrameIdentifier
+        , RefPtr<WebCore::SecurityOrigin>&&
+        , RefPtr<WebCore::SecurityOrigin>&&
+        , WTF::ProcessID
+        , WebCore::ResourceRequest&&
+        , WebCore::ContentSniffingPolicy
+        , WebCore::ContentEncodingSniffingPolicy
+        , WebCore::StoredCredentialsPolicy
+        , WebCore::ClientCredentialPolicy
+        , bool shouldClearReferrerOnHTTPSToHTTPRedirect
+        , bool needsCertificateInfo
+        , bool isMainFrameNavigation
+        , std::optional<NavigationActionData>&&
+        , PreconnectOnly
+        , std::optional<NavigatingToAppBoundDomain>
+        , bool hadMainFrameMainResourcePrivateRelayed
+        , bool allowPrivacyProxy
+        , OptionSet<WebCore::AdvancedPrivacyProtections>
         , std::optional<WebCore::ResourceLoaderIdentifier>
         , RefPtr<WebCore::FormData>&& httpBody
         , std::optional<Vector<SandboxExtension::Handle>>&& sandboxExtensionIfHttpBody
@@ -99,6 +121,35 @@ public:
     std::optional<SandboxExtension::Handle> sandboxExtensionIflocalFile() const;
 
     RefPtr<WebCore::SecurityOrigin> parentOrigin() const;
+    NetworkLoadParameters networkLoadParameters() const;
+
+    WebPageProxyIdentifier webPageProxyID;
+    WebCore::PageIdentifier webPageID;
+    WebCore::FrameIdentifier webFrameID;
+    RefPtr<WebCore::SecurityOrigin> topOrigin;
+    RefPtr<WebCore::SecurityOrigin> sourceOrigin;
+    WTF::ProcessID parentPID { 0 };
+#if HAVE(AUDIT_TOKEN)
+    std::optional<audit_token_t> networkProcessAuditToken;
+#endif
+    WebCore::ResourceRequest request;
+    WebCore::ContentSniffingPolicy contentSniffingPolicy { WebCore::ContentSniffingPolicy::SniffContent };
+    WebCore::ContentEncodingSniffingPolicy contentEncodingSniffingPolicy { WebCore::ContentEncodingSniffingPolicy::Default };
+    WebCore::StoredCredentialsPolicy storedCredentialsPolicy { WebCore::StoredCredentialsPolicy::DoNotUse };
+    WebCore::ClientCredentialPolicy clientCredentialPolicy { WebCore::ClientCredentialPolicy::CannotAskClientForCredentials };
+    bool shouldClearReferrerOnHTTPSToHTTPRedirect { true };
+    bool needsCertificateInfo { false };
+    bool isMainFrameNavigation { false };
+    std::optional<NavigationActionData> mainResourceNavigationDataForAnyFrame;
+    Vector<RefPtr<WebCore::BlobDataFileReference>> blobFileReferences;
+    PreconnectOnly shouldPreconnectOnly { PreconnectOnly::No };
+    std::optional<NetworkActivityTracker> networkActivityTracker;
+    std::optional<NavigatingToAppBoundDomain> isNavigatingToAppBoundDomain { NavigatingToAppBoundDomain::No };
+    bool hadMainFrameMainResourcePrivateRelayed { false };
+    bool allowPrivacyProxy { true };
+    OptionSet<WebCore::AdvancedPrivacyProtections> advancedPrivacyProtections;
+
+    RefPtr<WebCore::SecurityOrigin> protectedSourceOrigin() const { return sourceOrigin; }
 
     Markable<WebCore::ResourceLoaderIdentifier> identifier;
     Vector<RefPtr<SandboxExtension>> requestBodySandboxExtensions; // Created automatically for the sender.

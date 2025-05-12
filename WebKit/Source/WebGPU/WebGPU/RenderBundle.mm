@@ -144,7 +144,7 @@ bool RenderBundle::validateRenderPass(bool depthReadOnly, bool stencilReadOnly, 
         defaultRasterSampleCount = attachmentView->sampleCount();
     }
 
-    if (auto* depthStencil = descriptor.depthStencilAttachment) {
+    if (descriptor.depthStencilAttachment) {
         if (!depthStencilView) {
             if (m_descriptor.depthStencilFormat != WGPUTextureFormat_Undefined)
                 return false;

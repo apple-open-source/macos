@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2022 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2025 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -548,75 +548,6 @@ SCDynamicStoreCopyLocalHostName(SCDynamicStoreRef store)
 	return name;
 }
 
-
-Boolean
-_SC_stringIsValidDNSName(const char *name)
-{
-	size_t		i;
-	size_t		len	= strlen(name);
-	char		prev	= '\0';
-	const char	*scan;
-
-	if (len == 0) {
-		return FALSE;
-	}
-
-	for (scan = name, i = 0; i < len; i++, scan++) {
-		char	ch	= *scan;
-		char 	next	= *(scan + 1);
-
-		if (prev == '.' || prev == '\0') {
-			if (isalnum(ch) == 0) {
-				/* a label must begin with a letter or digit */
-				return FALSE;
-			}
-		} else if (next == '\0' || next == '.') {
-			if (isalnum(ch) == 0) {
-				/* a label must end with a letter or digit */
-				return FALSE;
-			}
-		} else if (isalnum(ch) == 0) {
-			switch (ch) {
-				case '.':
-					/* a label separator */
-					break;
-				case '-':
-					/* hyphens are OK within a label */
-					break;
-				default:
-					/* an invalid character */
-					return FALSE;
-			}
-		}
-		prev = ch;
-	}
-
-	return TRUE;
-}
-
-
-Boolean
-_SC_CFStringIsValidDNSName(CFStringRef name)
-{
-	Boolean	clean	= FALSE;
-	char	*str	= NULL;
-
-	if (!isA_CFString(name)) {
-		return FALSE;
-	}
-
-	str = _SC_cfstring_to_cstring(name, NULL, 0, kCFStringEncodingASCII);
-	if (str == NULL) {
-		return FALSE;
-	}
-
-	clean = _SC_stringIsValidDNSName(str);
-
-	if (str != NULL)	CFAllocatorDeallocate(NULL, str);
-	return clean;
-}
-
-
 Boolean
 SCPreferencesSetLocalHostName(SCPreferencesRef	prefs,
 			      CFStringRef	name)
@@ -686,19 +617,4 @@ SCPreferencesSetLocalHostName(SCPreferencesRef	prefs,
 	CFRelease(newDict);
 
 	return ok;
-}
-
-
-Boolean
-_SC_CFStringIsValidNetBIOSName(CFStringRef name)
-{
-	if (!isA_CFString(name)) {
-		return FALSE;
-	}
-
-	if (CFStringGetLength(name) > 15) {
-		return FALSE;
-	}
-
-	return TRUE;
 }

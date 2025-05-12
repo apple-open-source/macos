@@ -106,7 +106,6 @@
 ./tools/VMInspector.cpp
 ./wasm/WasmBBQPlan.cpp
 ./wasm/WasmCallee.cpp
-./wasm/WasmCalleeGroup.cpp
 ./wasm/WasmConstExprGenerator.cpp
 ./wasm/WasmFaultSignalHandler.cpp
 ./wasm/WasmFunctionParser.h

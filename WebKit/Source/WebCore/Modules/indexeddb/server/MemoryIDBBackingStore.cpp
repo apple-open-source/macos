@@ -525,8 +525,6 @@ IDBError MemoryIDBBackingStore::openCursor(const IDBResourceIdentifier& transact
 {
     LOG(IndexedDB, "MemoryIDBBackingStore::openCursor");
 
-    ASSERT(!MemoryCursor::cursorForIdentifier(info.identifier()));
-
     auto transaction = m_transactions.get(transactionIdentifier);
     if (!transaction)
         return IDBError { ExceptionCode::UnknownError, "No backing store transaction found in which to open a cursor"_s };
@@ -538,7 +536,7 @@ IDBError MemoryIDBBackingStore::openCursor(const IDBResourceIdentifier& transact
         if (!objectStore)
             return IDBError { ExceptionCode::UnknownError, "No backing store object store found"_s };
 
-        MemoryCursor* cursor = objectStore->maybeOpenCursor(info, *transaction);
+        RefPtr<MemoryCursor> cursor = objectStore->maybeOpenCursor(info, *transaction);
         if (!cursor)
             return IDBError { ExceptionCode::UnknownError, "Could not create object store cursor in backing store"_s };
 
@@ -555,7 +553,7 @@ IDBError MemoryIDBBackingStore::openCursor(const IDBResourceIdentifier& transact
         if (!index)
             return IDBError { ExceptionCode::UnknownError, "No backing store index found"_s };
 
-        MemoryCursor* cursor = index->maybeOpenCursor(info, *transaction);
+        RefPtr<MemoryCursor> cursor = index->maybeOpenCursor(info, *transaction);
         if (!cursor)
             return IDBError { ExceptionCode::UnknownError, "Could not create index cursor in backing store"_s };
 
@@ -570,10 +568,11 @@ IDBError MemoryIDBBackingStore::iterateCursor(const IDBResourceIdentifier& trans
 {
     LOG(IndexedDB, "MemoryIDBBackingStore::iterateCursor");
 
-    if (!m_transactions.contains(transactionIdentifier))
+    auto transaction = m_transactions.get(transactionIdentifier);
+    if (!transaction)
         return IDBError { ExceptionCode::UnknownError, "No backing store transaction found in which to iterate cursor"_s };
 
-    auto* cursor = MemoryCursor::cursorForIdentifier(cursorIdentifier);
+    RefPtr cursor = transaction->cursor(cursorIdentifier);
     if (!cursor)
         return IDBError { ExceptionCode::UnknownError, "No backing store cursor found in which to iterate cursor"_s };
 

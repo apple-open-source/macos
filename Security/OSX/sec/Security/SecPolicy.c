@@ -5594,6 +5594,7 @@ SecPolicyRef SecPolicyCreate3PMobileAsset(CFArrayRef organizations) {
 
     SecPolicyAddBasicCertOptions(options);
     add_eku_string(options, CFSTR("1.3.6.1.5.5.7.3.36")); // RFC 9336 document signing EKU
+    add_eku_string(options, CFSTR("1.2.840.113583.1.1.5")); // Adobe document signing EKU
     CFDictionaryAddValue(options, kSecPolicyCheckSubjectOrganization, organizations);
 
     require(result = SecPolicyCreate(kSecPolicyApple3PMobileAsset,

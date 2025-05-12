@@ -29,6 +29,7 @@
 #if ENABLE(CONTENT_EXTENSIONS)
 
 #include "APIContentRuleList.h"
+#include "Logging.h"
 #include "NetworkCacheData.h"
 #include "NetworkCacheFileSystem.h"
 #include "WebCompiledContentRuleList.h"
@@ -36,6 +37,7 @@
 #include <WebCore/ContentExtensionCompiler.h>
 #include <WebCore/ContentExtensionError.h>
 #include <WebCore/ContentExtensionParser.h>
+#include <WebCore/DFABytecodeInterpreter.h>
 #include <WebCore/QualifiedName.h>
 #include <WebCore/SharedBuffer.h>
 #include <WebCore/SharedMemory.h>
@@ -224,6 +226,27 @@ struct MappedData {
     WebKit::NetworkCache::Data data;
 };
 
+static bool validateContentRuleListActionsMatchingEverything(const WTF::String& path, const WebKit::NetworkCache::Data& fileData, const ContentRuleListMetaData& metaData)
+{
+    const size_t headerAndSourceSize = headerSize(metaData.version) + metaData.sourceSize;
+    const size_t actionsOffset = headerAndSourceSize;
+    const size_t urlFiltersOffset = actionsOffset + metaData.actionsSize;
+    if (!metaData.urlFiltersBytecodeSize)
+        return true;
+    if (urlFiltersOffset + metaData.urlFiltersBytecodeSize > fileData.size())
+        return false;
+
+    WebCore::ContentExtensions::DFABytecodeInterpreter interpreter(fileData.span().subspan(urlFiltersOffset, metaData.urlFiltersBytecodeSize));
+    auto universalActions = copyToVector(interpreter.actionsMatchingEverything());
+    for (uint64_t universalActionLocation : universalActions) {
+        if (universalActionLocation >= metaData.actionsSize) {
+            LOG(ContentRuleLists, "Universal action has location outside range of serialized actions. The compiled extension may be corrupted: %s", path.utf8().data());
+            return false;
+        }
+    }
+    return true;
+}
+
 static std::optional<MappedData> openAndMapContentRuleList(const WTF::String& path)
 {
     if (!FileSystem::makeSafeToUseMemoryMapForPath(path))
@@ -234,6 +257,7 @@ static std::optional<MappedData> openAndMapContentRuleList(const WTF::String& pa
     auto metaData = decodeContentRuleListMetaData(fileData);
     if (!metaData)
         return std::nullopt;
+
     return {{ WTFMove(*metaData), { WTFMove(fileData) }}};
 }
 
@@ -514,9 +538,10 @@ void ContentRuleListStore::lookupContentRuleListFile(WTF::String&& filePath, WTF
 
         bool versionMismatch = contentRuleList->metaData.version != ContentRuleListStore::CurrentContentRuleListFileVersion;
         bool fileSizeMismatch = contentRuleList->metaData.fileSize() != contentRuleList->data.size();
+        bool actionsMatchingEverythingValid = validateContentRuleListActionsMatchingEverything(identifier, contentRuleList->data,  contentRuleList->metaData);
 
-        if (versionMismatch || fileSizeMismatch) {
-            if (auto sourceFromOldVersion = getContentRuleListSourceFromMappedFile(*contentRuleList); !sourceFromOldVersion.isEmpty()) {
+        if (versionMismatch || fileSizeMismatch || !actionsMatchingEverythingValid) {
+            if (auto sourceFromOldVersion = getContentRuleListSourceFromMappedFile(*contentRuleList); actionsMatchingEverythingValid && !sourceFromOldVersion.isEmpty()) {
                 RunLoop::main().dispatch([protectedThis = WTFMove(protectedThis), sourceFromOldVersion = WTFMove(sourceFromOldVersion).isolatedCopy(), identifier = WTFMove(identifier).isolatedCopy(), completionHandler = WTFMove(completionHandler)] () mutable {
                     protectedThis->compileContentRuleList(WTFMove(identifier), WTFMove(sourceFromOldVersion), WTFMove(completionHandler));
                 });
@@ -656,6 +681,40 @@ void ContentRuleListStore::corruptContentRuleListHeader(const WTF::String& ident
 
     auto bytesWritten = writeToFile(file, asByteSpan(invalidHeader));
     ASSERT_UNUSED(bytesWritten, bytesWritten == sizeof(invalidHeader));
+
+    closeFile(file);
+}
+
+void ContentRuleListStore::corruptContentRuleListActionsMatchingEverything(const WTF::String& identifier)
+{
+    auto path = constructedPath(m_storePath, identifier);
+    if (!FileSystem::makeSafeToUseMemoryMapForPath(path))
+        return;
+    auto fileData = mapFile(path);
+    if (fileData.isNull())
+        return;
+    auto metaData = decodeContentRuleListMetaData(fileData);
+    if (!metaData)
+        return;
+
+    auto file = openFile(constructedPath(m_storePath, identifier), FileOpenMode::ReadWrite);
+    if (file == invalidPlatformFileHandle)
+        return;
+
+    size_t headerAndSourceSize = headerSize(metaData->version) + metaData->sourceSize;
+    size_t actionsOffset = headerAndSourceSize;
+    size_t urlFiltersOffset = actionsOffset + metaData->actionsSize;
+    size_t dfaFirstInstructionOffset = urlFiltersOffset + sizeof(WebCore::ContentExtensions::DFAHeader);
+    size_t urlFilterLocationOffset = dfaFirstInstructionOffset + 1;
+
+    if (seekFile(file, urlFilterLocationOffset, FileSeekOrigin::Beginning) == -1) {
+        closeFile(file);
+        return;
+    }
+
+    // FIXME: we should check data[dfaFirstInstructionOffset] & DFABytecodeActionSizeMask) to decide how many bytes
+    std::array<uint8_t, 3> values { 0xFF, 0xFF, 0xFF };
+    writeToFile(file, asByteSpan(values));
 
     closeFile(file);
 }

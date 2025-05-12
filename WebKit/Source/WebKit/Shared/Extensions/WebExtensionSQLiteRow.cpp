@@ -110,23 +110,16 @@ WebExtensionSQLiteRowEnumerator::WebExtensionSQLiteRowEnumerator(Ref<WebExtensio
 RefPtr<WebExtensionSQLiteRow> WebExtensionSQLiteRowEnumerator::next()
 {
     m_statement->database()->assertQueue();
-    int lastResultCode = sqlite3_step(m_statement->handle());
 
-    switch (lastResultCode) {
+    switch (sqlite3_step(m_statement->handle())) {
     case SQLITE_ROW:
         if (!m_row)
             m_row = WebExtensionSQLiteRow::create(m_statement);
         return m_row;
-    case SQLITE_OK:
-    case SQLITE_DONE:
-        break;
 
     default:
-        m_statement->database()->reportErrorWithCode(lastResultCode, m_statement->handle(), nullptr);
-        break;
+        return nullptr;
     }
-
-    return nullptr;
 }
 
 } // namespace WebKit

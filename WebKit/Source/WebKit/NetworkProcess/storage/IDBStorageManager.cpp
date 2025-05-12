@@ -124,8 +124,14 @@ String IDBStorageManager::idbStorageOriginDirectory(const String& rootDirectory,
     if (rootDirectory.isEmpty())
         return emptyString();
 
-    auto originDirectory = WebCore::IDBDatabaseIdentifier::databaseDirectoryRelativeToRoot(origin, rootDirectory, "v1"_s);
-    auto oldOriginDirectory = WebCore::IDBDatabaseIdentifier::databaseDirectoryRelativeToRoot(origin, rootDirectory, "v0"_s);
+    auto originDirectory = WebCore::IDBDatabaseIdentifier::optionalDatabaseDirectoryRelativeToRoot(origin, rootDirectory, "v1"_s);
+    if (originDirectory.isEmpty())
+        return emptyString();
+
+    auto oldOriginDirectory = WebCore::IDBDatabaseIdentifier::optionalDatabaseDirectoryRelativeToRoot(origin, rootDirectory, "v0"_s);
+    if (oldOriginDirectory.isEmpty())
+        return emptyString();
+
     migrateOriginDataImpl(oldOriginDirectory, originDirectory, [](const String& name) {
         return WebCore::SQLiteFileSystem::computeHashForFileName(WebCore::IDBServer::SQLiteIDBBackingStore::decodeDatabaseName(name));
     });

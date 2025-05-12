@@ -565,18 +565,6 @@ void AXObjectCache::setIsolatedTreeFocusedObject(AccessibilityObject* focus)
 }
 #endif
 
-AccessibilityObject* AXObjectCache::get(Widget& widget) const
-{
-    auto axID = m_widgetObjectMapping.getOptional(widget);
-    return axID ? m_objects.get(*axID) : nullptr;
-}
-
-AccessibilityObject* AXObjectCache::get(RenderObject& renderer) const
-{
-    auto axID = m_renderObjectMapping.getOptional(renderer);
-    return axID ? m_objects.get(*axID) : nullptr;
-}
-
 AccessibilityObject* AXObjectCache::get(Node& node) const
 {
     auto* renderer = node.renderer();
@@ -1105,6 +1093,17 @@ AccessibilityObject* AXObjectCache::rootObjectForFrame(LocalFrame* frame)
     return getOrCreate(frame->view());
 }    
 
+#if ENABLE(ACCESSIBILITY_ISOLATED_TREE)
+void AXObjectCache::buildAccessibilityTreeIfNeeded()
+{
+    if (!gAccessibilityEnabled)
+        return;
+
+    if (isIsolatedTreeEnabled())
+        isolatedTreeRootObject();
+}
+#endif
+
 AccessibilityObject* AXObjectCache::create(AccessibilityRole role)
 {
     RefPtr<AccessibilityObject> object;
@@ -1557,12 +1556,39 @@ void AXObjectCache::childrenChanged(Node* node, Element* changedChild)
     deferElementAddedOrRemoved(changedChild);
 }
 
+AccessibilityObject* AXObjectCache::getIncludingAncestors(RenderObject* renderer) const
+{
+    for (auto* current = renderer; current; current = current->parent()) {
+        if (auto* object = get(*current))
+            return object;
+    }
+    return nullptr;
+}
+
 void AXObjectCache::childrenChanged(RenderObject* renderer, RenderObject* changedChild)
 {
     if (!renderer)
         return;
 
-    childrenChanged(get(*renderer));
+    if (renderer->isAnonymous()) {
+        // Don't drop a children-changed event if we can't |get| the given renderer if the renderer is anonymous.
+        // Sometimes the only children-changed we get from the render tree for some subtrees is for an anonymous renderer,
+        // so if we just drop it, we can have a stale accessibility tree. This problem is specific to anonymous renderers
+        // because we walk the DOM when building the accessibility tree, so it's unlikely that we will have created
+        // an accessibility object for this renderer (since it only exists in the render tree).
+        //
+        // Children-changed events associated with a DOM node are safe to drop if |get| fails, since some other
+        // element that does have an accessibility object must also get a children-changed event. The same is
+        // not always true for anonymous renderers, hence this branch.
+        //
+        // This behavior comes from a bug on a real webpage that I unfortunately couldn't figure out how to distill
+        // into a layout test. The key seems to be anonymous continuation renderers destroyed and recreated as part
+        // of a call to Node::insertBefore(). dynamic-inline-continuation.html gets close to reproducing the issue,
+        // following many of the same codepaths, but unfortunately will still pass even without this branch.
+        childrenChanged(getIncludingAncestors(renderer));
+    } else
+        childrenChanged(get(*renderer));
+
     if (changedChild)
         deferElementAddedOrRemoved(dynamicDowncast<Element>(changedChild->node()));
 }

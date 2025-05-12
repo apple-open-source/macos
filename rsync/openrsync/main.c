@@ -942,6 +942,7 @@ enum {
 	OP_COMPLEVEL,
 	OP_EXECUTABILITY,
 	OP_LISTONLY,
+	OP_PFLISTSZ,
 
 #ifdef __APPLE__
 	OP_TRACE,
@@ -1034,6 +1035,7 @@ const struct option	 rsync_lopts[] = {
     { "no-perms",	no_argument,	&opts.preserve_perms,	0 },
     { "no-p",		no_argument,	&opts.preserve_perms,	0 },
     { "port",		required_argument, NULL,		OP_PORT },
+    { "print-flist-chunk-size",	no_argument, NULL,		OP_PFLISTSZ },
     { "prune-empty-dirs",	no_argument, NULL,		'm' },
     { "protocol",	required_argument, NULL,		OP_PROTOCOL },
     { "quiet",		no_argument,	NULL,			'q' },
@@ -1396,6 +1398,10 @@ rsync_getopt(int argc, char *argv[], rsync_option_filter *filter,
 			if (errstr != NULL)
 				errx(ERR_SYNTAX, "timeout is %s: %s",
 				    errstr, optarg);
+			break;
+		case OP_PFLISTSZ:
+			printf("%llu\n", FLIST_CHUNK_SIZE);
+			exit(0);
 			break;
 		case OP_PORT:
 			opts.port = optarg;

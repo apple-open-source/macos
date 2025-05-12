@@ -1,0 +1,13 @@
+line 1 column 1 - Warning: missing <!DOCTYPE> declaration
+line 8 column 1 - Warning: <blink> is not approved by W3C
+Info: Document content looks like HTML Proprietary
+2 warnings, 0 errors were found!
+
+You are recommended to use CSS to control line wrapping.
+Use "white-space: nowrap" to inhibit wrapping in place
+of inserting <NOBR>...</NOBR> into the markup.
+
+To learn more about HTML Tidy see http://tidy.sourceforge.net
+Please send bug reports to html-tidy@w3.org
+HTML and CSS specifications are available from http://www.w3.org/
+Lobby your company to join W3C, see http://www.w3.org/Consortium

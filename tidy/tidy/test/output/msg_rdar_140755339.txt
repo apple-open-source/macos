@@ -1,0 +1,19 @@
+line 1 column 1 - Warning: missing <!DOCTYPE> declaration
+line 1 column 1 - Warning: <li> isn't allowed in <body> elements
+line 1 column 1 - Warning: inserting implicit <ul>
+line 1 column 1 - Warning: missing </ul> before <dir>
+line 3 column 1 - Warning: missing </dir>
+line 2 column 21 - Warning: missing </dir>
+line 1 column 9 - Warning: missing </dir>
+line 1 column 1 - Warning: inserting missing 'title' element
+line 1 column 9 - Warning: replacing obsolete element <dir> by <ul>
+line 2 column 1 - Warning: replacing obsolete element <dir> by <ul>
+line 2 column 21 - Warning: replacing obsolete element <dir> by <ul>
+line 3 column 1 - Warning: replacing obsolete element <dir> by <ul>
+Info: Document content looks like HTML 3.2
+12 warnings, 0 errors were found!
+
+To learn more about HTML Tidy see http://tidy.sourceforge.net
+Please send bug reports to html-tidy@w3.org
+HTML and CSS specifications are available from http://www.w3.org/
+Lobby your company to join W3C, see http://www.w3.org/Consortium

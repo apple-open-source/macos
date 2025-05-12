@@ -2181,6 +2181,7 @@ CookieConsentAPIEnabled:
       default: false
     WebKit:
       default: false
+  sharedPreferenceForWebProcess: true
 
 # FIXME: This is handled via WebView SPI rather than WebPreferences for WebKitLegacy. We should change the SPI to lookup the WebPreferences value instead.
 CookieEnabled:
@@ -5521,18 +5522,18 @@ OpportunisticSweepingAndGarbageCollectionEnabled:
 
 OptInPartitionedCookiesEnabled:
   type: bool
-  status: stable
+  status: testable
   category: dom
   humanReadableName: "Opt-in partitioned cookies (CHIPS)"
   humanReadableDescription: "Enable opt-in partitioned cookies"
-  condition: HAVE(ALLOW_ONLY_PARTITIONED_COOKIES)
+  condition: HAVE(ALLOW_ONLY_PARTITIONED_COOKIES) && 0
   defaultValue:
     WebKitLegacy:
-      default: true
+      default: false
     WebKit:
-      default: true
+      default: false
     WebCore:
-      default: true
+      default: false
 
 OverlappingBackingStoreProvidersEnabled:
   type: bool

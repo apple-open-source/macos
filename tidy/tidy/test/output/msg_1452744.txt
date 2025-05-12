@@ -1,0 +1,12 @@
+
+Accessibility Checks: Version 0.1
+
+line 1 column 1 - Access: [3.3.1.1]: use style sheets to control presentation.
+Info: Doctype given is "-//W3C//DTD HTML 4.01//EN"
+Info: Document content looks like HTML 4.01 Strict
+No warnings or errors were found.
+
+To learn more about HTML Tidy see http://tidy.sourceforge.net
+Please send bug reports to html-tidy@w3.org
+HTML and CSS specifications are available from http://www.w3.org/
+Lobby your company to join W3C, see http://www.w3.org/Consortium

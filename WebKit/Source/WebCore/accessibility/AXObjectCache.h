@@ -291,6 +291,7 @@ public:
     WEBCORE_EXPORT AXCoreObject* rootObject();
     // Returns the root object for a specific frame.
     WEBCORE_EXPORT AccessibilityObject* rootObjectForFrame(LocalFrame*);
+    WEBCORE_EXPORT void buildAccessibilityTreeIfNeeded();
 
     // Creation/retrieval of AX objects associated with a DOM or RenderTree object.
     inline AccessibilityObject* getOrCreate(RenderObject* renderer)
@@ -320,13 +321,21 @@ public:
     {
         return renderer ? get(*renderer) : nullptr;
     }
-    AccessibilityObject* get(RenderObject&) const;
+    inline AccessibilityObject* get(RenderObject& renderer) const
+    {
+        auto axID = m_renderObjectMapping.getOptional(renderer);
+        return axID ? m_objects.get(*axID) : nullptr;
+    }
 
     inline AccessibilityObject* get(Widget* widget) const
     {
         return widget ? get(*widget) : nullptr;
     }
-    AccessibilityObject* get(Widget&) const;
+    inline AccessibilityObject* get(Widget& widget) const
+    {
+        auto axID = m_widgetObjectMapping.getOptional(widget);
+        return axID ? m_objects.get(*axID) : nullptr;
+    }
 
     inline AccessibilityObject* get(Node* node) const
     {
@@ -684,6 +693,10 @@ protected:
     bool shouldSkipBoundary(const CharacterOffset&, const CharacterOffset&);
 private:
     AccessibilityObject* rootWebArea();
+
+    // Returns the object or nearest render-tree ancestor object that is already created (i.e.
+    // retrievable by |get|, not |getOrCreate|).
+    AccessibilityObject* getIncludingAncestors(RenderObject*) const;
 
     // The AX focus is more finegrained than the notion of focused Node. This method handles those cases where the focused AX object is a descendant or a sub-part of the focused Node.
     AccessibilityObject* focusedObjectForNode(Node*);

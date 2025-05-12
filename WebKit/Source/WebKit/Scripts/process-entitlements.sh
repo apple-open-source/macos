@@ -545,6 +545,8 @@ if [[ "${WK_PLATFORM_NAME}" == xros ]]; then
     plistbuddy Add :com.apple.surfboard.application-service-client bool YES
     plistbuddy Add :com.apple.surfboard.shared-simulation-connection-request bool YES
 fi
+
+    plistbuddy Add :com.apple.developer.kernel.extended-virtual-addressing bool YES
 }
 
 function ios_family_process_model_entitlements()

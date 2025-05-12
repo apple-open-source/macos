@@ -724,7 +724,7 @@ void AttributeValidator::validateStructIO(ShaderStage stage, const Types::Struct
             continue;
         }
 
-        if (auto* structType = std::get_if<Types::Struct>(member.type().inferredType())) {
+        if (auto inferredType = member.type().inferredType(); inferredType && std::holds_alternative<Types::Struct>(*inferredType)) {
             error(span, "nested structures cannot be used for entry point IO"_s);
             continue;
         }

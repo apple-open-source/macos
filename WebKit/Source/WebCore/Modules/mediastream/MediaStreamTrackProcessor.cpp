@@ -71,10 +71,11 @@ MediaStreamTrackProcessor::~MediaStreamTrackProcessor()
 ExceptionOr<Ref<ReadableStream>> MediaStreamTrackProcessor::readable(JSC::JSGlobalObject& globalObject)
 {
     if (!m_readable) {
-        m_readableStreamSource = makeUniqueWithoutRefCountedCheck<Source>(m_track->privateTrack(), *this);
+        if (!m_readableStreamSource)
+            m_readableStreamSource = makeUniqueWithoutRefCountedCheck<Source>(m_track->privateTrack(), *this);
         auto readableOrException = ReadableStream::create(*JSC::jsCast<JSDOMGlobalObject*>(&globalObject), *m_readableStreamSource);
         if (readableOrException.hasException()) {
-            m_readableStreamSource = nullptr;
+            m_readableStreamSource->setAsCancelled();
             return readableOrException.releaseException();
         }
         m_readable = readableOrException.releaseReturnValue();
@@ -86,7 +87,7 @@ ExceptionOr<Ref<ReadableStream>> MediaStreamTrackProcessor::readable(JSC::JSGlob
 
 void MediaStreamTrackProcessor::contextDestroyed()
 {
-    m_readableStreamSource = nullptr;
+    m_readableStreamSource->setAsCancelled();
     stopVideoFrameObserver();
 }
 
@@ -97,9 +98,11 @@ void MediaStreamTrackProcessor::stopVideoFrameObserver()
 
 void MediaStreamTrackProcessor::tryEnqueueingVideoFrame()
 {
+    ASSERT(!m_readable || m_readableStreamSource);
+
     RefPtr context = scriptExecutionContext();
     RefPtr videoFrameObserverWrapper = m_videoFrameObserverWrapper;
-    if (!context || !videoFrameObserverWrapper || !m_readableStreamSource)
+    if (!context || !videoFrameObserverWrapper || !m_readable)
         return;
 
     if (m_readableStreamSource->isCancelled())
@@ -174,11 +177,13 @@ RefPtr<WebCodecsVideoFrame> MediaStreamTrackProcessor::VideoFrameObserver::takeV
         videoFrame = m_videoFrames.takeFirst();
     }
 
-    WebCodecsVideoFrame::BufferInit init;
-    init.codedWidth = videoFrame->presentationSize().width();
-    init.codedHeight = videoFrame->presentationSize().height();
-    init.colorSpace = videoFrame->colorSpace();
-    init.timestamp = Seconds(videoFrame->presentationTime().toDouble()).microseconds();
+    WebCodecsVideoFrame::BufferInit init {
+        .format = convertVideoFramePixelFormat(videoFrame->pixelFormat()),
+        .codedWidth = static_cast<size_t>(videoFrame->presentationSize().width()),
+        .codedHeight = static_cast<size_t>(videoFrame->presentationSize().height()),
+        .timestamp = Seconds(videoFrame->presentationTime().toDouble()).microsecondsAs<int64_t>(),
+        .colorSpace = videoFrame->colorSpace()
+    };
 
     return WebCodecsVideoFrame::create(context, videoFrame.releaseNonNull(), WTFMove(init));
 }

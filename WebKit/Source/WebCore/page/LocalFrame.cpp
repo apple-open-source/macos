@@ -858,10 +858,6 @@ void LocalFrame::willDetachPage()
             focusController->setFocusedFrame(nullptr);
     }
 
-
-    if (page() && page()->scrollingCoordinator() && m_view)
-        page()->protectedScrollingCoordinator()->willDestroyScrollableArea(*protectedView());
-
     CheckedRef script = this->script();
     script->clearScriptObjects();
     script->updatePlatformScriptObjects();

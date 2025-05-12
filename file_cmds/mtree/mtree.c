@@ -291,6 +291,7 @@ main(int argc, char *argv[])
 		if (Uflag & (status == MISMATCHEXIT)) {
 			status = 0;
 		} else if (status) {
+			warnx("mtree_verifyspec returned a non-zero status: %d", status);
 			RECORD_FAILURE(100, status);
 		}
 		if (mflag) {
@@ -299,6 +300,9 @@ main(int argc, char *argv[])
 				errx(1, "could not write manifest to the file\n");
 			}
 		}
+	}
+	if (status != 0) {
+		warnx("mtree exiting with a non-zero status: %d", status);
 	}
 	exit(status);
 }

@@ -60,7 +60,7 @@ inline Structure* JSFinalObject::createStructure(VM& vm, JSGlobalObject* globalO
 template<typename CellType, SubspaceAccess>
 CompleteSubspace* JSFinalObject::subspaceFor(VM& vm)
 {
-    static_assert(!CellType::needsDestruction);
+    static_assert(CellType::needsDestruction == DoesNotNeedDestruction);
     return &vm.cellSpace();
 }
 

@@ -632,7 +632,7 @@ messages -> WebPageProxy {
     DidCreateSleepDisabler(WebCore::SleepDisablerIdentifier identifier, String reason, bool display)
     DidDestroySleepDisabler(WebCore::SleepDisablerIdentifier identifier)
 
-    RequestCookieConsent() -> (enum:uint8_t WebCore::CookieConsentDecisionResult result)
+    [EnabledBy=CookieConsentAPIEnabled] RequestCookieConsent() -> (enum:uint8_t WebCore::CookieConsentDecisionResult result)
 
 #if ENABLE(WINDOW_PROXY_PROPERTY_ACCESS_NOTIFICATION)
     DidAccessWindowProxyPropertyViaOpenerForFrame(WebCore::FrameIdentifier frameID, WebCore::SecurityOriginData openerOrigin, enum:uint8_t WebCore::WindowProxyProperty property)

@@ -42,7 +42,9 @@ RefPtr<VideoFrameLibWebRTC> VideoFrameLibWebRTC::create(MediaTime presentationTi
 {
     auto bufferType = buffer->type();
     if (bufferType != webrtc::VideoFrameBuffer::Type::kI420
-        && bufferType != webrtc::VideoFrameBuffer::Type::kI010)
+        && bufferType != webrtc::VideoFrameBuffer::Type::kI010
+        && bufferType != webrtc::VideoFrameBuffer::Type::kI422
+        && bufferType != webrtc::VideoFrameBuffer::Type::kI210)
         return nullptr;
 
     auto finalColorSpace = WTFMove(colorSpace).value_or(defaultVPXColorSpace());
@@ -203,10 +205,14 @@ VideoFrameLibWebRTC::VideoFrameLibWebRTC(MediaTime presentationTime, bool isMirr
 {
     switch (m_buffer->type()) {
     case webrtc::VideoFrameBuffer::Type::kI420:
+    case webrtc::VideoFrameBuffer::Type::kI422:
         m_videoPixelFormat = kCVPixelFormatType_420YpCbCr8BiPlanarFullRange;
         break;
     case webrtc::VideoFrameBuffer::Type::kI010:
         m_videoPixelFormat = kCVPixelFormatType_420YpCbCr10BiPlanarFullRange;
+        break;
+    case webrtc::VideoFrameBuffer::Type::kI210:
+        m_videoPixelFormat = kCVPixelFormatType_422YpCbCr10BiPlanarFullRange;
         break;
     default:
         ASSERT_NOT_REACHED();

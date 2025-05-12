@@ -795,7 +795,7 @@ RenderBundleEncoder::FinalizeRenderCommand RenderBundleEncoder::drawIndexedIndir
     if (!executePreDrawCommands(needsValidationLayerWorkaround, splitPass))
         return finalizeRenderCommand();
     id<MTLBuffer> indexBuffer = m_indexBuffer ? m_indexBuffer->buffer() : nil;
-    if (id<MTLIndirectRenderCommand> icbCommand = currentRenderCommand()) {
+    if (currentRenderCommand()) {
         if (!indexBuffer.length)
             return finalizeRenderCommand();
 
@@ -853,7 +853,7 @@ RenderBundleEncoder::FinalizeRenderCommand RenderBundleEncoder::drawIndirect(Buf
 
     if (!executePreDrawCommands(needsValidationLayerWorkaround, splitPass))
         return finalizeRenderCommand();
-    if (id<MTLIndirectRenderCommand> icbCommand = currentRenderCommand()) {
+    if (currentRenderCommand()) {
         if (renderPassEncoder) {
             if (!setCommandEncoder(indirectBuffer, renderPassEncoder))
                 return finalizeRenderCommand();
@@ -1265,7 +1265,7 @@ void RenderBundleEncoder::setPipeline(const RenderPipeline& pipeline)
         return;
     }
 
-    if (id<MTLIndirectRenderCommand> icbCommand = currentRenderCommand()) {
+    if (currentRenderCommand()) {
         id<MTLRenderPipelineState> previousRenderPipelineState = m_currentPipelineState;
         id<MTLDepthStencilState> previousDepthStencilState = m_depthStencilState;
         auto previous_cullMode = m_cullMode;
@@ -1351,7 +1351,7 @@ void RenderBundleEncoder::setVertexBuffer(uint32_t slot, Buffer* optionalBuffer,
         return;
     }
 
-    if (id<MTLIndirectRenderCommand> icbCommand = currentRenderCommand()) {
+    if (currentRenderCommand()) {
         if (!optionalBuffer) {
             if (slot < m_device->limits().maxVertexBuffers)
                 m_utilizedBufferIndices.remove(slot);

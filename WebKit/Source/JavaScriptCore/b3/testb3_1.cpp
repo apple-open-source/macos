@@ -345,6 +345,8 @@ void run(const TestConfig* config)
     RUN_UNARY(testIToF32Imm, int32Operands());
     RUN(testIToDReducedToIToF64Arg());
     RUN(testIToDReducedToIToF32Arg());
+    RUN_UNARY(testInt52RoundTripUnary, int32Operands());
+    RUN(testInt52RoundTripBinary());
 
 #if !CPU(ARM)
     RUN_UNARY(testCheckAddRemoveCheckWithSExt8, int8Operands());

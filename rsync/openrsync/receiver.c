@@ -878,6 +878,8 @@ rsync_receiver(struct sess *sess, struct cleanup_ctx *cleanup_ctx,
 		}
 	}
 #endif
+	if (dfd != -1)
+		LOG3("%s: root directory opened", root);
 
 	/*
 	 * Now that we have the root fd we can build the hardlinks table.

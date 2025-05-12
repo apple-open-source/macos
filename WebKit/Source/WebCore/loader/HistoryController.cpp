@@ -61,6 +61,21 @@ static inline void addVisitedLink(Page& page, const URL& url)
     page.visitedLinkStore().addVisitedLink(page, computeSharedStringHash(url.string()));
 }
 
+static inline bool canRecordHistoryForFrame(const LocalFrame& frame)
+{
+    RefPtr page = frame.page();
+    if (!page)
+        return false;
+
+    if (!page->usesEphemeralSession())
+        return true;
+
+    if (RefPtr document = frame.document())
+        return document->settings().allowPrivacySensitiveOperationsInNonPersistentDataStores();
+
+    return false;
+}
+
 HistoryController::HistoryController(LocalFrame& frame)
     : m_frame(frame)
     , m_frameLoadComplete(true)
@@ -518,7 +533,7 @@ void HistoryController::updateForStandardLoad(HistoryUpdateType updateType)
 
     Ref frameLoader = m_frame->loader();
 
-    bool usesEphemeralSession = m_frame->page() ? m_frame->page()->usesEphemeralSession() : true;
+    bool canRecordHistory = canRecordHistoryForFrame(m_frame);
     const URL& historyURL = frameLoader->protectedDocumentLoader()->urlForHistory();
 
     RefPtr documentLoader = frameLoader->documentLoader();
@@ -526,7 +541,7 @@ void HistoryController::updateForStandardLoad(HistoryUpdateType updateType)
         if (!historyURL.isEmpty()) {
             if (updateType != UpdateAllExceptBackForwardList)
                 updateBackForwardListClippedAtTarget(true);
-            if (!usesEphemeralSession) {
+            if (canRecordHistory) {
                 frameLoader->client().updateGlobalHistory();
                 documentLoader->setDidCreateGlobalHistoryEntry(true);
                 if (documentLoader->unreachableURL().isEmpty())
@@ -538,7 +553,7 @@ void HistoryController::updateForStandardLoad(HistoryUpdateType updateType)
         updateCurrentItem();
     }
 
-    if (!historyURL.isEmpty() && !usesEphemeralSession) {
+    if (!historyURL.isEmpty() && canRecordHistory) {
         if (RefPtr page = m_frame->page())
             addVisitedLink(*page, historyURL);
 
@@ -552,14 +567,14 @@ void HistoryController::updateForRedirectWithLockedBackForwardList()
     LOG(History, "HistoryController %p updateForRedirectWithLockedBackForwardList: Updating History for redirect load in frame %p (main frame %d) %s", this, m_frame.ptr(), m_frame->isMainFrame(), m_frame->loader().documentLoader() ? m_frame->loader().documentLoader()->url().string().utf8().data() : "");
 
     RefPtr documentLoader = m_frame->loader().documentLoader();
-    bool usesEphemeralSession = m_frame->page() ? m_frame->page()->usesEphemeralSession() : true;
+    bool canRecordHistory = canRecordHistoryForFrame(m_frame);
     auto historyURL = documentLoader ? documentLoader->urlForHistory() : URL { };
 
     if (documentLoader && documentLoader->isClientRedirect()) {
         if (!m_currentItem && !m_frame->tree().parent()) {
             if (!historyURL.isEmpty()) {
                 updateBackForwardListClippedAtTarget(true);
-                if (!usesEphemeralSession) {
+                if (canRecordHistory) {
                     Ref frameLoader = m_frame->loader();
                     frameLoader->client().updateGlobalHistory();
                     documentLoader->setDidCreateGlobalHistoryEntry(true);
@@ -582,7 +597,7 @@ void HistoryController::updateForRedirectWithLockedBackForwardList()
         }
     }
 
-    if (!historyURL.isEmpty() && !usesEphemeralSession) {
+    if (!historyURL.isEmpty() && canRecordHistory) {
         if (RefPtr page = m_frame->page())
             addVisitedLink(*page, historyURL);
 
@@ -602,10 +617,10 @@ void HistoryController::updateForClientRedirect()
         currentItem->clearScrollPosition();
     }
 
-    bool usesEphemeralSession = m_frame->page() ? m_frame->page()->usesEphemeralSession() : true;
+    bool canRecordHistory = canRecordHistoryForFrame(m_frame);
     const URL& historyURL = m_frame->loader().protectedDocumentLoader()->urlForHistory();
 
-    if (!historyURL.isEmpty() && !usesEphemeralSession) {
+    if (!historyURL.isEmpty() && canRecordHistory) {
         if (RefPtr page = m_frame->page())
             addVisitedLink(*page, historyURL);
     }
@@ -706,8 +721,8 @@ void HistoryController::updateForSameDocumentNavigation()
 
     m_policyItem = nullptr;
 
-    bool usesEphemeralSession = page->usesEphemeralSession();
-    if (!usesEphemeralSession)
+    bool canRecordHistory = canRecordHistoryForFrame(m_frame);
+    if (canRecordHistory)
         addVisitedLink(*page, m_frame->document()->url());
 
     if (RefPtr localFrame = dynamicDowncast<LocalFrame>(m_frame->mainFrame()))
@@ -715,7 +730,7 @@ void HistoryController::updateForSameDocumentNavigation()
 
     if (RefPtr currentItem = m_currentItem) {
         currentItem->setURL(m_frame->document()->url());
-        if (!usesEphemeralSession)
+        if (canRecordHistory)
             m_frame->loader().client().updateGlobalHistory();
     }
 }
@@ -1036,7 +1051,7 @@ void HistoryController::pushState(RefPtr<SerializedScriptValue>&& stateObject, c
 
     page->checkedBackForward()->addItem(WTFMove(topItem));
 
-    if (page->usesEphemeralSession())
+    if (!canRecordHistoryForFrame(m_frame))
         return;
 
     addVisitedLink(*page, URL({ }, urlString));
@@ -1063,7 +1078,7 @@ void HistoryController::replaceState(RefPtr<SerializedScriptValue>&& stateObject
 
     RefPtr page = m_frame->page();
     ASSERT(page);
-    if (page->usesEphemeralSession())
+    if (!canRecordHistoryForFrame(m_frame))
         return;
 
     addVisitedLink(*page, URL({ }, urlString));

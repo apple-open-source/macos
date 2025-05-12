@@ -49,18 +49,18 @@ namespace WebKit {
 
 WTF_MAKE_TZONE_ALLOCATED_IMPL(RemoteMediaRecorderPrivateWriter);
 
-std::unique_ptr<WebCore::MediaRecorderPrivateWriter> RemoteMediaRecorderPrivateWriter::create(GPUProcessConnection& gpuProcessConnection, const String& type, MediaRecorderPrivateWriterListener& listener)
+std::unique_ptr<WebCore::MediaRecorderPrivateWriter> RemoteMediaRecorderPrivateWriter::create(GPUProcessConnection& gpuProcessConnection, MediaRecorderPrivateWriterListener& listener)
 {
-    return std::unique_ptr<MediaRecorderPrivateWriter> { new RemoteMediaRecorderPrivateWriter(gpuProcessConnection, type, listener) };
+    return std::unique_ptr<MediaRecorderPrivateWriter> { new RemoteMediaRecorderPrivateWriter(gpuProcessConnection, listener) };
 }
 
-RemoteMediaRecorderPrivateWriter::RemoteMediaRecorderPrivateWriter(GPUProcessConnection& gpuProcessConnection, const String& type, MediaRecorderPrivateWriterListener& listener)
+RemoteMediaRecorderPrivateWriter::RemoteMediaRecorderPrivateWriter(GPUProcessConnection& gpuProcessConnection, MediaRecorderPrivateWriterListener& listener)
     : m_gpuProcessConnection(gpuProcessConnection)
     , m_listener(listener)
     , m_remoteMediaRecorderPrivateWriterIdentifier(RemoteMediaRecorderPrivateWriterIdentifier::generate())
 {
     if (RefPtr gpuProcessConnection = m_gpuProcessConnection.get())
-        gpuProcessConnection->protectedConnection()->send(Messages::RemoteMediaRecorderPrivateWriterManager::Create(m_remoteMediaRecorderPrivateWriterIdentifier, type), 0);
+        gpuProcessConnection->protectedConnection()->send(Messages::RemoteMediaRecorderPrivateWriterManager::Create(m_remoteMediaRecorderPrivateWriterIdentifier), 0);
 }
 
 std::optional<uint8_t> RemoteMediaRecorderPrivateWriter::addAudioTrack(const AudioInfo& info)

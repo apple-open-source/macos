@@ -2715,6 +2715,7 @@ std::optional<WGPUTextureViewDescriptor> Texture::resolveTextureViewDescriptorDe
             resolved.dimension = WGPUTextureViewDimension_3D;
             break;
         case MTLTextureTypeTextureBuffer:
+        default:
             ASSERT_NOT_REACHED();
             break;
         }

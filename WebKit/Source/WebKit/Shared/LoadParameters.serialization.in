@@ -37,6 +37,7 @@ enum class WebCore::LockBackForwardList : bool;
     String unreachableURLString;
     String provisionalLoadErrorURLString;
     std::optional<WebKit::WebsitePoliciesData> websitePolicies;
+    std::optional<WebKit::FrameInfoData> originatingFrame;
     WebCore::ShouldOpenExternalURLsPolicy shouldOpenExternalURLsPolicy;
     WebCore::ShouldTreatAsContinuingLoad shouldTreatAsContinuingLoad;
     WebKit::UserData userData;

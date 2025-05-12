@@ -27,8 +27,11 @@
 #include "WKVideoView.h"
 
 #if PLATFORM(IOS_FAMILY)
+
+#include <wtf/RetainPtr.h>
+
 @implementation WKVideoView {
-    WebAVPlayerLayerView* _playerView;
+    RetainPtr<WebAVPlayerLayerView> _playerView;
 }
 
 + (Class)layerClass
@@ -50,7 +53,7 @@
 
 - (CALayer *)playerLayer
 {
-    return _playerView.layer;
+    return _playerView.get().layer;
 }
 
 - (UIView *)hitTest:(CGPoint)point withEvent:(UIEvent *)event

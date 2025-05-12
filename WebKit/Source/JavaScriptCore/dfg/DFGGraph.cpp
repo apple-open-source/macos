@@ -1841,6 +1841,7 @@ MethodOfGettingAValueProfile Graph::methodOfGettingAValueProfileFor(Node* curren
         case ValueRep:
         case DoubleRep:
         case Int52Rep:
+        case PurifyNaN:
             node = node->child1().node();
             break;
         default:

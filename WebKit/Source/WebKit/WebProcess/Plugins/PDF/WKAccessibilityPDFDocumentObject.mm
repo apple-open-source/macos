@@ -253,18 +253,17 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
 
 - (id)accessibilityAssociatedControlForAnnotation:(PDFAnnotation *)annotation
 {
-    RefPtr activeAnnotation = _pdfPlugin.get()->activeAnnotation();
-    if (!activeAnnotation)
-        return nil;
-
     id wrapper = nil;
-    callOnMainRunLoopAndWait([activeAnnotation, protectedSelf = retainPtr(self), &wrapper] {
+    callOnMainRunLoopAndWait([protectedSelf = retainPtr(self), &wrapper] {
+        RefPtr activeAnnotation = protectedSelf->_pdfPlugin.get()->activeAnnotation();
+        if (!activeAnnotation)
+            return;
+
         if (auto* axObjectCache = protectedSelf->_pdfPlugin.get()->axObjectCache()) {
             if (RefPtr annotationElementAxObject = axObjectCache->getOrCreate(activeAnnotation->element()))
                 wrapper = annotationElementAxObject->wrapper();
         }
     });
-
     return wrapper;
 }
 

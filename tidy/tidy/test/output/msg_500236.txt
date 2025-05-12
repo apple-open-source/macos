@@ -1,0 +1,7 @@
+line 1 column 11 - Warning: adjacent hyphens within comment
+1 warning, 0 errors were found!
+
+To learn more about HTML Tidy see http://tidy.sourceforge.net
+Please send bug reports to html-tidy@w3.org
+HTML and CSS specifications are available from http://www.w3.org/
+Lobby your company to join W3C, see http://www.w3.org/Consortium

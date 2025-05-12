@@ -232,11 +232,18 @@ void ServiceWorkerDownloadTask::didFinish()
         m_state = State::Completed;
         close();
 
+#if !HAVE(MODERN_DOWNLOADPROGRESS)
         if (RefPtr sandboxExtension = std::exchange(m_sandboxExtension, nullptr))
             sandboxExtension->revoke();
+#endif
 
-        if (RefPtr download = protectedNetworkProcess()->downloadManager().download(*m_pendingDownloadID))
+        if (RefPtr download = protectedNetworkProcess()->downloadManager().download(*m_pendingDownloadID)) {
+#if HAVE(MODERN_DOWNLOADPROGRESS)
+            if (RefPtr sandboxExtension = std::exchange(m_sandboxExtension, nullptr))
+                download->setSandboxExtension(WTFMove(sandboxExtension));
+#endif
             download->didFinish();
+        }
 
         if (RefPtr client = m_client.get())
             client->didCompleteWithError({ });

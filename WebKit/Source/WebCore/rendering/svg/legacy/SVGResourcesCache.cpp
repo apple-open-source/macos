@@ -128,7 +128,7 @@ void SVGResourcesCache::clientLayoutChanged(RenderElement& renderer)
     // Invalidate the resources if either the RenderElement itself changed,
     // or we have filter resources, which could depend on the layout of children.
     if ((renderer.selfNeedsLayout() || resources->filter()) && hasResourcesRequiringRemovalOnClientLayoutChange(*resources))
-        resources->removeClientFromCache(renderer, false);
+        resources->removeClientFromCacheAndMarkForInvalidation(renderer, false);
 }
 
 static inline bool rendererCanHaveResources(RenderObject& renderer)
@@ -251,7 +251,7 @@ void SVGResourcesCache::clientDestroyed(RenderElement& renderer)
         return;
 
     if (auto* resources = SVGResourcesCache::cachedResourcesForRenderer(renderer)) {
-        resources->removeClientFromCache(renderer);
+        resources->removeClientFromCacheAndMarkForInvalidation(renderer);
         resourcesCacheFromRenderer(renderer).removeResourcesFromRenderer(renderer);
     }
 }

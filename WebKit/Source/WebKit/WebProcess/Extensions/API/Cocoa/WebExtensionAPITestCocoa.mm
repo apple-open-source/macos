@@ -37,11 +37,13 @@
 #import "WebExtensionControllerMessages.h"
 #import "WebExtensionControllerProxy.h"
 #import "WebExtensionEventListenerType.h"
+#import "WebFrame.h"
 #import "WebPage.h"
 #import "WebProcess.h"
 #import <JavaScriptCore/APICast.h>
 #import <JavaScriptCore/ScriptCallStack.h>
 #import <JavaScriptCore/ScriptCallStackFactory.h>
+#import <WebCore/LocalFrame.h>
 
 #if ENABLE(WK_WEB_EXTENSIONS)
 
@@ -111,6 +113,19 @@ WebExtensionAPIEvent& WebExtensionAPITest::onMessage()
         m_onMessage = WebExtensionAPIEvent::create(*this, WebExtensionEventListenerType::TestOnMessage);
 
     return *m_onMessage;
+}
+
+JSValue *WebExtensionAPITest::runWithUserGesture(WebFrame& frame, JSValue *function)
+{
+    RefPtr coreFrame = frame.protectedCoreLocalFrame();
+    WebCore::UserGestureIndicator gestureIndicator(WebCore::IsProcessingUserGesture::Yes, coreFrame ? coreFrame->document() : nullptr);
+
+    return [function callWithArguments:@[ ]];
+}
+
+bool WebExtensionAPITest::isProcessingUserGesture()
+{
+    return WebCore::UserGestureIndicator::processingUserGesture();
 }
 
 inline NSString *debugString(JSValue *value)

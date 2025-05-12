@@ -128,6 +128,7 @@ public:
         void* cellAlign(void*);
             
         bool isEmpty();
+        void setIsDestructible(bool);
 
         void lastChanceToFinalize();
 
@@ -549,7 +550,7 @@ inline CellAttributes MarkedBlock::attributes() const
 
 inline bool MarkedBlock::Handle::needsDestruction() const
 {
-    return m_attributes.destruction == NeedsDestruction;
+    return m_attributes.destruction != DoesNotNeedDestruction;
 }
 
 inline DestructionMode MarkedBlock::Handle::destruction() const

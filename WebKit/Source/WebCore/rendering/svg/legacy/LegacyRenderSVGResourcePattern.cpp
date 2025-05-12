@@ -55,17 +55,21 @@ Ref<SVGPatternElement> LegacyRenderSVGResourcePattern::protectedPatternElement()
     return patternElement();
 }
 
-void LegacyRenderSVGResourcePattern::removeAllClientsFromCacheIfNeeded(bool markForInvalidation, SingleThreadWeakHashSet<RenderObject>* visitedRenderers)
+void LegacyRenderSVGResourcePattern::removeAllClientsFromCache()
 {
     m_patternMap.clear();
     m_shouldCollectPatternAttributes = true;
+}
+
+void LegacyRenderSVGResourcePattern::removeAllClientsFromCacheAndMarkForInvalidationIfNeeded(bool markForInvalidation, SingleThreadWeakHashSet<RenderObject>* visitedRenderers)
+{
+    removeAllClientsFromCache();
     markAllClientsForInvalidationIfNeeded(markForInvalidation ? RepaintInvalidation : ParentOnlyInvalidation, visitedRenderers);
 }
 
-void LegacyRenderSVGResourcePattern::removeClientFromCache(RenderElement& client, bool markForInvalidation)
+void LegacyRenderSVGResourcePattern::removeClientFromCache(RenderElement& client)
 {
     m_patternMap.remove(client);
-    markClientForInvalidation(client, markForInvalidation ? RepaintInvalidation : ParentOnlyInvalidation);
 }
 
 void LegacyRenderSVGResourcePattern::collectPatternAttributes(PatternAttributes& attributes) const
@@ -140,7 +144,7 @@ PatternData* LegacyRenderSVGResourcePattern::buildPattern(RenderElement& rendere
 
     // Various calls above may trigger invalidations in some fringe cases (ImageBuffer allocation
     // failures in the SVG image cache for example). To avoid having our PatternData deleted by
-    // removeAllClientsFromCache(), we only make it visible in the cache at the very end.
+    // removeAllClientsFromCacheAndMarkForInvalidation(), we only make it visible in the cache at the very end.
     return m_patternMap.set(renderer, WTFMove(patternData)).iterator->value.get();
 }
 

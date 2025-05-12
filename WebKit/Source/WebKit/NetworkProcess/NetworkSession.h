@@ -293,6 +293,8 @@ public:
     bool isDeclarativeWebPushEnabled() const { return m_isDeclarativeWebPushEnabled; }
 #endif
 
+    std::optional<WTF::UUID> dataStoreIdentifier() const { return m_dataStoreIdentifier; }
+
 protected:
     NetworkSession(NetworkProcess&, const NetworkSessionCreationParameters&);
 
@@ -402,6 +404,7 @@ protected:
 #if ENABLE(DECLARATIVE_WEB_PUSH)
     bool m_isDeclarativeWebPushEnabled { false };
 #endif
+    Markable<WTF::UUID> m_dataStoreIdentifier;
 };
 
 } // namespace WebKit

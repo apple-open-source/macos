@@ -490,6 +490,32 @@ isLocalTLD(NSString *host)
     [self runATSExceptionTestForHostname:"apple-mapkit.com" configuration:configuration isAddress:false isDirect:false atsRequired:false minTLSVersion:tls_protocol_version_TLSv10 forwardSecrecyRequired:false];
 }
 
+- (void)testInvalidATSDictionary
+{
+    NSDictionary *exampleATS = @{@"NSAllowsArbitraryLoads" : @"YES",
+                                 @"NSExceptionDomains" : @{
+                                     @"invalid.exception.com" : @"",
+                                     @"neverssl.com" : @{
+                                         @"NSExceptionAllowsInsecureHTTPLoads" : @"YES",
+                                         @"NSExceptionMinimumTLSVersion" : @13,
+                                         @"NSExceptionRequiresForwardSecrecy" : @"NO",
+                                     },
+                                 }};
+
+    sec_protocol_configuration_builder_t builder = sec_protocol_configuration_builder_create((__bridge CFDictionaryRef) exampleATS, false);
+    sec_protocol_configuration_t configuration = sec_protocol_configuration_create_with_builder(builder);
+    XCTAssertTrue(configuration != nil, @"failed to build configuration");
+    if (!configuration) {
+        return;
+    }
+    [self runATSExceptionTestForHostname:"example.com" configuration:configuration isAddress:false isDirect:false atsRequired:true minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:true];
+    [self runATSExceptionTestForHostname:"neverssl.com" configuration:configuration isAddress:false isDirect:false atsRequired:true minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:true];
+    [self runATSExceptionTestForHostname:"google.com" configuration:configuration isAddress:false isDirect:false atsRequired:true minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:true];
+    [self runATSExceptionTestForHostname:"youtube.com" configuration:configuration isAddress:false isDirect:false atsRequired:true minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:true];
+    [self runATSExceptionTestForHostname:"myhost.local" configuration:configuration isAddress:false isDirect:true atsRequired:false minTLSVersion:0 forwardSecrecyRequired:false];
+    [self runATSExceptionTestForHostname:"invalid.exception.com" configuration:configuration isAddress:false isDirect:false atsRequired:true minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:true];
+}
+
 - (void)testIncludesSubdomains
 {
     NSDictionary *exampleATS = @{@"NSExceptionDomains" : @{

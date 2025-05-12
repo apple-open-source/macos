@@ -43,10 +43,10 @@ class GPUProcessConnection;
 class RemoteMediaRecorderPrivateWriter final : public WebCore::MediaRecorderPrivateWriter {
     WTF_MAKE_TZONE_ALLOCATED(RemoteMediaRecorderPrivateWriter);
 public:
-    static std::unique_ptr<MediaRecorderPrivateWriter> create(GPUProcessConnection&, const String& type, WebCore::MediaRecorderPrivateWriterListener&);
+    static std::unique_ptr<MediaRecorderPrivateWriter> create(GPUProcessConnection&, WebCore::MediaRecorderPrivateWriterListener&);
 
 private:
-    RemoteMediaRecorderPrivateWriter(GPUProcessConnection&, const String& type, WebCore::MediaRecorderPrivateWriterListener&);
+    RemoteMediaRecorderPrivateWriter(GPUProcessConnection&, WebCore::MediaRecorderPrivateWriterListener&);
     std::optional<uint8_t> addAudioTrack(const WebCore::AudioInfo&) final;
     std::optional<uint8_t> addVideoTrack(const WebCore::VideoInfo&, const std::optional<CGAffineTransform>&) final;
     bool allTracksAdded() final;

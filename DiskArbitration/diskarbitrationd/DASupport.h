@@ -120,6 +120,10 @@ extern Boolean DAUnitGetState( DADiskRef disk, DAUnitState state );
 extern Boolean DAUnitGetStateRecursively( DADiskRef disk, DAUnitState state );
 extern void    DAUnitSetState( DADiskRef disk, DAUnitState state, Boolean value );
 
+#if TARGET_OS_IOS
+extern Boolean DADeviceIsUnlocked( void );
+#endif
+
 #ifdef __cplusplus
 }
 #endif /* __cplusplus */

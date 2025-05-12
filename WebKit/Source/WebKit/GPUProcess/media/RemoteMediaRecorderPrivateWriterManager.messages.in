@@ -25,7 +25,7 @@
 
 [EnabledBy=MediaRecorderEnabled]
 messages -> RemoteMediaRecorderPrivateWriterManager {
-    Create(WebKit::RemoteMediaRecorderPrivateWriterIdentifier identifier, String type)
+    Create(WebKit::RemoteMediaRecorderPrivateWriterIdentifier identifier)
     AddAudioTrack(WebKit::RemoteMediaRecorderPrivateWriterIdentifier identifier, struct WebKit::RemoteAudioInfo trackInfo) -> (std::optional<uint8_t> trackNumber) Synchronous
     AddVideoTrack(WebKit::RemoteMediaRecorderPrivateWriterIdentifier identifier, struct WebKit::RemoteVideoInfo trackInfo, std::optional<CGAffineTransform> transform) -> (std::optional<uint8_t> trackNumber) Synchronous
     AllTracksAdded(WebKit::RemoteMediaRecorderPrivateWriterIdentifier identifier) -> (bool success) Synchronous

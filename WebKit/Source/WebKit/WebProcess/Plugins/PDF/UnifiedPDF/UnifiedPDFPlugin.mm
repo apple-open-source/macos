@@ -3556,16 +3556,23 @@ FloatRect UnifiedPDFPlugin::convertFromPDFPageToScreenForAccessibility(const Flo
 
 id UnifiedPDFPlugin::accessibilityHitTestIntPoint(const WebCore::IntPoint& point) const
 {
-    return WebCore::Accessibility::retrieveValueFromMainThread<id>([&] () -> id {
-        auto floatPoint = FloatPoint { point };
-        auto pointInDocumentSpace = convertDown(CoordinateSpace::Plugin, CoordinateSpace::PDFDocumentLayout, floatPoint);
-        auto hitPageIndex = m_presentationController->pageIndexForDocumentPoint(pointInDocumentSpace);
-        if (!hitPageIndex || *hitPageIndex >= m_documentLayout.pageCount())
-            return { };
-        auto pageIndex = *hitPageIndex;
-        auto pointInPDFPageSpace = convertDown(CoordinateSpace::PDFDocumentLayout, CoordinateSpace::PDFPage, pointInDocumentSpace, pageIndex);
+    Ref protectedThis { *this };
+    return WebCore::Accessibility::retrieveValueFromMainThread<id>([&protectedThis, point] () -> id {
+        IntPoint pluginPoint = point + (-protectedThis->m_view->location());
+        auto pointInScreenSpaceCoordinate = protectedThis->convertFromPluginToScreenForAccessibility(pluginPoint);
+        return [protectedThis->m_accessibilityDocumentObject accessibilityHitTest:pointInScreenSpaceCoordinate];
+    });
+}
 
-        return [m_accessibilityDocumentObject accessibilityHitTest:pointInPDFPageSpace];
+IntPoint UnifiedPDFPlugin::convertFromPluginToScreenForAccessibility(const IntPoint& pointInPluginCoordinate) const
+{
+    Ref protectedThis { *this };
+    return WebCore::Accessibility::retrieveValueFromMainThread<IntPoint>([&protectedThis, pointInPluginCoordinate] () -> IntPoint {
+        auto pointInRootView = protectedThis->convertFromPluginToRootView(pointInPluginCoordinate);
+        RefPtr page = protectedThis->page();
+        if (!page)
+            return { };
+        return page->chrome().rootViewToScreen(IntPoint(pointInRootView));
     });
 }
 #endif

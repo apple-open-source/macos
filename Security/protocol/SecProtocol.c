@@ -91,6 +91,25 @@
         CFRelease(value); \
     }
 
+static Boolean
+sec_protocol_c_string_equal_callback(const void *value1, const void *value2) {
+     return 0 == strcmp((const char *)value1, (const char *)value2);
+}
+
+static CFHashCode sec_protocol_helper_c_string_hash_callback(const void *value) {
+    char *first = (char *)value;
+    return (unsigned long)*first;
+}
+
+CFSetCallBacks sec_protocol_helper_c_string_set_callbacks = {
+        .version = 0,
+        .retain = NULL,
+        .release = NULL,
+        .copyDescription = NULL,
+        .equal = sec_protocol_c_string_equal_callback,
+        .hash = sec_protocol_helper_c_string_hash_callback
+};
+
 bool
 sec_protocol_options_access_handle(sec_protocol_options_t options,
                                    sec_access_block_t access_block)
@@ -1781,6 +1800,24 @@ sec_protocol_options_add_tls_key_exchange_group_set(sec_protocol_options_t optio
     }
 }
 
+const char * __nullable
+sec_protocol_metadata_copy_negotiated_protocol(sec_protocol_metadata_t metadata)
+{
+    SEC_PROTOCOL_METADATA_VALIDATE(metadata, NULL);
+
+    __block const char *negotiated_protocol = NULL;
+    (void)sec_protocol_metadata_access_handle(metadata, ^bool(void *handle) {
+        sec_protocol_metadata_content_t content = (sec_protocol_metadata_content_t)handle;
+        SEC_PROTOCOL_METADATA_VALIDATE(content, false);
+        if (content->negotiated_protocol != NULL) {
+            negotiated_protocol = strdup(content->negotiated_protocol);
+        }
+        return true;
+    });
+
+    return negotiated_protocol;
+}
+
 const char *
 sec_protocol_metadata_get_negotiated_protocol(sec_protocol_metadata_t metadata)
 {
@@ -1790,11 +1827,39 @@ sec_protocol_metadata_get_negotiated_protocol(sec_protocol_metadata_t metadata)
     (void)sec_protocol_metadata_access_handle(metadata, ^bool(void *handle) {
         sec_protocol_metadata_content_t content = (sec_protocol_metadata_content_t)handle;
         SEC_PROTOCOL_METADATA_VALIDATE(content, false);
-        negotiated_protocol = content->negotiated_protocol;
+        if (content->returned_raw_string_pointers == NULL) {
+            content->returned_raw_string_pointers = CFSetCreateMutable(NULL, 0, &sec_protocol_helper_c_string_set_callbacks);
+        }
+        const char *curr_value = content->negotiated_protocol;
+        SEC_PROTOCOL_METADATA_VALIDATE(curr_value, false);
+        negotiated_protocol = CFSetGetValue(content->returned_raw_string_pointers, curr_value);
+        if (negotiated_protocol != NULL) {
+            return true;
+        }
+        negotiated_protocol = strdup(curr_value);
+        CFSetAddValue(content->returned_raw_string_pointers, negotiated_protocol);
         return true;
     });
 
     return negotiated_protocol;
+}
+
+const char * __nullable
+sec_protocol_metadata_copy_server_name(sec_protocol_metadata_t metadata)
+{
+    SEC_PROTOCOL_METADATA_VALIDATE(metadata, NULL);
+
+    __block const char *server_name = NULL;
+    (void)sec_protocol_metadata_access_handle(metadata, ^bool(void *handle) {
+        sec_protocol_metadata_content_t content = (sec_protocol_metadata_content_t)handle;
+        SEC_PROTOCOL_METADATA_VALIDATE(content, false);
+        if (content->server_name != NULL) {
+            server_name = strdup(content->server_name);
+        }
+        return true;
+    });
+
+    return server_name;
 }
 
 const char *
@@ -1806,7 +1871,17 @@ sec_protocol_metadata_get_server_name(sec_protocol_metadata_t metadata)
     (void)sec_protocol_metadata_access_handle(metadata, ^bool(void *handle) {
         sec_protocol_metadata_content_t content = (sec_protocol_metadata_content_t)handle;
         SEC_PROTOCOL_METADATA_VALIDATE(content, false);
-        server_name = content->server_name;
+        if (content->returned_raw_string_pointers == NULL) {
+            content->returned_raw_string_pointers = CFSetCreateMutable(NULL, 0, &sec_protocol_helper_c_string_set_callbacks);
+        }
+        const char *curr_value = content->server_name;
+        SEC_PROTOCOL_METADATA_VALIDATE(curr_value, false);
+        server_name = CFSetGetValue(content->returned_raw_string_pointers, curr_value);
+        if (server_name != NULL) {
+            return true;
+        }
+        server_name = strdup(curr_value);
+        CFSetAddValue(content->returned_raw_string_pointers, server_name);
         return true;
     });
 
@@ -2548,7 +2623,7 @@ sec_protocol_metadata_copy_authenticator_trust(sec_protocol_metadata_t metadata,
 }
 
 const char * __nullable
-sec_protocol_metadata_get_experiment_identifier(sec_protocol_metadata_t metadata)
+sec_protocol_metadata_copy_experiment_identifier(sec_protocol_metadata_t metadata)
 {
     SEC_PROTOCOL_METADATA_VALIDATE(metadata, NULL);
 
@@ -2556,11 +2631,38 @@ sec_protocol_metadata_get_experiment_identifier(sec_protocol_metadata_t metadata
     sec_protocol_metadata_access_handle(metadata, ^bool(void *handle) {
         sec_protocol_metadata_content_t content = (sec_protocol_metadata_content_t)handle;
         SEC_PROTOCOL_METADATA_VALIDATE(content, false);
-
-        experiment_identifer = content->experiment_identifier;
+        if (content->experiment_identifier != NULL) {
+            experiment_identifer = strdup(content->experiment_identifier);
+        }
         return true;
     });
     return experiment_identifer;
+}
+
+const char * __nullable
+sec_protocol_metadata_get_experiment_identifier(sec_protocol_metadata_t metadata)
+{
+    SEC_PROTOCOL_METADATA_VALIDATE(metadata, NULL);
+
+    __block const char *experiment_identifier = NULL;
+    sec_protocol_metadata_access_handle(metadata, ^bool(void *handle) {
+        sec_protocol_metadata_content_t content = (sec_protocol_metadata_content_t)handle;
+        SEC_PROTOCOL_METADATA_VALIDATE(content, false);
+        if (content->returned_raw_string_pointers == NULL) {
+            content->returned_raw_string_pointers = CFSetCreateMutable(NULL, 0, &sec_protocol_helper_c_string_set_callbacks);
+        }
+        const char *curr_value = content->experiment_identifier;
+        SEC_PROTOCOL_METADATA_VALIDATE(curr_value, false);
+        experiment_identifier = CFSetGetValue(content->returned_raw_string_pointers, curr_value);
+        if (experiment_identifier != NULL) {
+            return true;
+        }
+        experiment_identifier = strdup(curr_value);
+        CFSetAddValue(content->returned_raw_string_pointers, experiment_identifier);
+        return true;
+    });
+
+    return experiment_identifier;
 }
 
 void
@@ -3109,6 +3211,26 @@ sec_protocol_metadata_access_sent_certificates(sec_protocol_metadata_t metadata,
     });
 }
 
+const char * __nullable
+sec_protocol_metadata_copy_tls_negotiated_group(sec_protocol_metadata_t metadata)
+{
+    SEC_PROTOCOL_METADATA_VALIDATE(metadata, NULL);
+
+    __block const char *negotiated_curve = NULL;
+    (void)sec_protocol_metadata_access_handle(metadata, ^bool(void *handle) {
+        sec_protocol_metadata_content_t content = (sec_protocol_metadata_content_t)handle;
+        SEC_PROTOCOL_METADATA_VALIDATE(content, false);
+        if (content->negotiated_curve != NULL) {
+            negotiated_curve = strdup(content->negotiated_curve);
+        }
+        return true;
+    });
+
+    return negotiated_curve;
+}
+
+
+
 const char *
 sec_protocol_metadata_get_tls_negotiated_group(sec_protocol_metadata_t metadata)
 {
@@ -3118,7 +3240,17 @@ sec_protocol_metadata_get_tls_negotiated_group(sec_protocol_metadata_t metadata)
     (void)sec_protocol_metadata_access_handle(metadata, ^bool(void *handle) {
         sec_protocol_metadata_content_t content = (sec_protocol_metadata_content_t)handle;
         SEC_PROTOCOL_METADATA_VALIDATE(content, false);
-        negotiated_curve = content->negotiated_curve;
+        if (content->returned_raw_string_pointers == NULL) {
+            content->returned_raw_string_pointers = CFSetCreateMutable(NULL, 0, &sec_protocol_helper_c_string_set_callbacks);
+        }
+        const char *curr_value = content->negotiated_curve;
+        SEC_PROTOCOL_METADATA_VALIDATE(curr_value, false);
+        negotiated_curve = CFSetGetValue(content->returned_raw_string_pointers, curr_value);
+        if (negotiated_curve != NULL) {
+            return true;
+        }
+        negotiated_curve = strdup(curr_value);
+        CFSetAddValue(content->returned_raw_string_pointers, negotiated_curve);
         return true;
     });
 

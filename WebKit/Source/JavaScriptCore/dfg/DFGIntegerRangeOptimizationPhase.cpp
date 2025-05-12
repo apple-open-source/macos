@@ -1525,7 +1525,8 @@ private:
             }
             break;
         }
-            
+
+        case DataViewGetByteLength:
         case GetArrayLength:
         case GetVectorLength:
         case GetUndetachedTypeArrayLength: {

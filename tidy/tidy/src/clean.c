@@ -60,6 +60,7 @@
 #include "tmbstr.h"
 #include "utf8.h"
 
+__attribute__((__warn_unused_result__))
 static Node* CleanNode( TidyDocImpl* doc, Node *node );
 
 static void RenameElem( Node* node, TidyTagId tid )
@@ -1185,7 +1186,7 @@ static Bool NestedList( TidyDocImpl* doc, Node *node, Node **pnode )
                 node->next = NULL;
                 node->prev = child->last;
                 TY_(FixNodeLinks)(node);
-                CleanNode( doc, node );
+                *pnode = CleanNode( doc, node );
             }
         }
 

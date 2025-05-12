@@ -226,7 +226,7 @@ static inline void invalidateResourcesOfChildren(RenderElement& renderer)
 {
     ASSERT(!renderer.needsLayout());
     if (auto* resources = SVGResourcesCache::cachedResourcesForRenderer(renderer))
-        resources->removeClientFromCache(renderer, false);
+        resources->removeClientFromCacheAndMarkForInvalidation(renderer, false);
 
     for (auto& child : childrenOfType<RenderElement>(renderer))
         invalidateResourcesOfChildren(child);

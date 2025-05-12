@@ -190,7 +190,7 @@ void LegacyRenderSVGRoot::layout()
     if (!m_resourcesNeedingToInvalidateClients.isEmptyIgnoringNullReferences()) {
         // Invalidate resource clients, which may mark some nodes for layout.
         for (auto& resource :  m_resourcesNeedingToInvalidateClients) {
-            resource.removeAllClientsFromCache();
+            resource.removeAllClientsFromCacheAndMarkForInvalidation();
             SVGResourcesCache::clientStyleChanged(resource, StyleDifference::Layout, nullptr, resource.style());
         }
 

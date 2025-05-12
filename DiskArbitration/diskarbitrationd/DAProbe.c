@@ -27,6 +27,7 @@
 #include "DAMain.h"
 #include "DASupport.h"
 #include "DATelemetry.h"
+#include "DAMount.h"
 
 #include <fsproperties.h>
 #include <sys/loadable_fs.h>
@@ -240,6 +241,22 @@ void DAProbe( DADiskRef disk, DADiskRef containerDisk, DAProbeCallback callback,
     CFNumberRef                size       = NULL;
     int                        status     = 0;
 
+#if TARGET_OS_IOS
+    /*
+     * Wait to probe the volumes until after the device is unlocked.
+     */
+    if ( gDAUnlockedState == FALSE )
+    {
+        if ( DAMountGetPreference( disk, kDAMountPreferenceDefer ) )
+        {
+            DALogInfo( " Device is not unlocked, delaying probe of %@", disk );
+            status = ECANCELED;
+            
+            goto DAProbeErr;
+        }
+    }
+#endif // TARGET_OS_IOS
+    
     /*
      * Prepare the probe context.
      */
@@ -323,7 +340,16 @@ DAProbeErr:
 
         if ( callback )
         {
-            ( callback )( status, -1, NULL, NULL, NULL, NULL, callbackContext );
+            /*
+             * DAProbeCallback( int             status,
+             *                  DAFileSystemRef filesystem,
+             *                  int             cleanStatus,
+             *                  CFStringRef     name,
+             *                  CFStringRef     type,
+             *                  CFUUIDRef       uuid,
+             *                  void *          context );
+             */
+            ( callback )( status, NULL, -1, NULL, NULL, NULL, callbackContext );
         }
     }
 }

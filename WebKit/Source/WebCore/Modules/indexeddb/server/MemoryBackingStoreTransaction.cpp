@@ -321,5 +321,15 @@ void MemoryBackingStoreTransaction::finish()
         objectStore->transactionFinished(*this);
 }
 
+MemoryCursor* MemoryBackingStoreTransaction::cursor(const IDBResourceIdentifier& identifier) const
+{
+    return m_cursors.get(identifier).get();
+}
+
+void MemoryBackingStoreTransaction::addCursor(MemoryCursor& cursor)
+{
+    m_cursors.add(cursor.info().identifier(), &cursor);
+}
+
 } // namespace IDBServer
 } // namespace WebCore

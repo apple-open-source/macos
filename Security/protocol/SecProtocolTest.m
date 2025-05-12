@@ -105,14 +105,44 @@ mock_protocol_allocate_metadata(__unused nw_protocol_definition_t definition)
     return calloc(1, sizeof(struct sec_protocol_metadata_content));
 }
 
+#define mock_protocol_safe_free(pointer)                                                                                 \
+    if ((pointer) != NULL) {                                                                                           \
+        free((void *)(pointer));                                                                                       \
+        (pointer) = NULL;                                                                                              \
+    }
+
+static void mock_protocol_returned_raw_string_pointer_deallocate(const void* value, __unused void *context) {
+    mock_protocol_safe_free(value);
+}
+
 static void
 mock_protocol_deallocate_metadata(__unused nw_protocol_definition_t definition, void *metadata)
 {
     sec_protocol_metadata_content_t content = (sec_protocol_metadata_content_t)metadata;
     if (content) {
-        // pass
+        mock_protocol_safe_free(content->negotiated_protocol);
+        mock_protocol_safe_free(content->negotiated_curve);
+        mock_protocol_safe_free(content->server_name);
+        mock_protocol_safe_free(content->experiment_identifier);
+        mock_protocol_safe_free(content->eap_key_material);
+        if (content->returned_raw_string_pointers != NULL) {
+            CFSetApplyFunction(content->returned_raw_string_pointers, mock_protocol_returned_raw_string_pointer_deallocate, NULL);
+            CFRelease(content->returned_raw_string_pointers);
+        }
+        content->sent_certificate_chain = nil;
+        content->peer_certificate_chain = nil;
+        content->pre_shared_keys = nil;
+        content->peer_public_key = nil;
+        content->supported_signature_algorithms = nil;
+        content->request_certificate_types = nil;
+        content->signed_certificate_timestamps = nil;
+        content->ocsp_response = nil;
+        content->distinguished_names = nil;
+        content->quic_transport_parameters = nil;
+        content->identity = nil;
+        content->trust_ref = nil;
     }
-    free(content);
+    mock_protocol_safe_free(metadata);
 }
 
 static void
@@ -357,7 +387,14 @@ mock_protocol_copy_definition(void)
         return nil;
     }
 
-    return (sec_protocol_metadata_t)_nw_protocol_metadata_create(mock_protocol_copy_definition(), identifier);
+    sec_protocol_metadata_t metadata = (sec_protocol_metadata_t)_nw_protocol_metadata_create(mock_protocol_copy_definition(), identifier);
+    (void)sec_protocol_metadata_access_handle(metadata, ^bool(void *handle) {
+        sec_protocol_metadata_content_t content = (sec_protocol_metadata_content_t)handle;
+        SEC_PROTOCOL_OPTIONS_VALIDATE(content, false);
+        return true;
+    });
+
+    return metadata;
 }
 
 - (void)test_sec_protocol_metadata_get_connection_strength_tls12 {
@@ -435,6 +472,67 @@ mock_protocol_copy_definition(void)
         XCTAssertTrue(SSLConnectionStrengthWeak == sec_protocol_metadata_get_connection_strength(metadata),
                       "Expected SSLConnectionStrengthWeak for TLS 1.0, got %d", (int)sec_protocol_metadata_get_connection_strength(metadata));
     }
+}
+
+- (void)test_sec_protocol_metadata_returned_raw_string_pointers_and_copy_apis {
+    sec_protocol_metadata_t metadata = [self create_sec_protocol_metadata];
+
+    const char *expected_negotiated_protocol = "protocolA";
+    const char *expected_server_name = "serverName";
+    const char *expected_experiment_identifier = "experimentID";
+    const char *expected_negotiated_curve = "curve";
+
+    (void)sec_protocol_metadata_access_handle(metadata, ^bool(void *handle) {
+            sec_protocol_metadata_content_t content = (sec_protocol_metadata_content_t)handle;
+            SEC_PROTOCOL_METADATA_VALIDATE(content, false);
+
+            content->negotiated_protocol = expected_negotiated_protocol;
+            content->server_name = expected_server_name;
+            content->experiment_identifier = expected_experiment_identifier;
+            content->negotiated_curve = expected_negotiated_curve;
+
+            return true;
+        });
+
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+    // should return a pointer to a string "protocolA" and that string should be stored in set returned_raw_string_pointers
+    const char *negotiated_protocol = sec_protocol_metadata_get_negotiated_protocol(metadata);
+    const char *negotiated_curve = sec_protocol_metadata_get_tls_negotiated_group(metadata);
+    const char *experiment_identifier = sec_protocol_metadata_get_experiment_identifier(metadata);
+    const char *server_name = sec_protocol_metadata_get_server_name(metadata);
+#pragma clang diagnostic pop
+    XCTAssert(strcmp(negotiated_protocol, expected_negotiated_protocol) == 0);
+    XCTAssert(strcmp(negotiated_curve, expected_negotiated_curve) == 0);
+    XCTAssert(strcmp(experiment_identifier, expected_experiment_identifier) == 0);
+    XCTAssert(strcmp(server_name, expected_server_name) == 0);
+
+    (void)sec_protocol_metadata_access_handle(metadata, ^bool(void *handle) {
+            sec_protocol_metadata_content_t content = (sec_protocol_metadata_content_t)handle;
+            SEC_PROTOCOL_METADATA_VALIDATE(content, false);
+            XCTAssert(CFSetContainsValue(content->returned_raw_string_pointers, expected_negotiated_protocol));
+            XCTAssert(CFSetContainsValue(content->returned_raw_string_pointers, expected_server_name));
+            XCTAssert(CFSetContainsValue(content->returned_raw_string_pointers, expected_experiment_identifier));
+            XCTAssert(CFSetContainsValue(content->returned_raw_string_pointers, expected_negotiated_curve));
+            return true;
+    });
+
+    // Check newer copy style APIs
+    negotiated_protocol = sec_protocol_metadata_copy_negotiated_protocol(metadata);
+    negotiated_curve = sec_protocol_metadata_copy_tls_negotiated_group(metadata);
+    experiment_identifier = sec_protocol_metadata_copy_experiment_identifier(metadata);
+    server_name = sec_protocol_metadata_copy_server_name(metadata);
+
+    XCTAssert(strcmp(negotiated_protocol, expected_negotiated_protocol) == 0);
+    XCTAssert(strcmp(negotiated_curve, expected_negotiated_curve) == 0);
+    XCTAssert(strcmp(experiment_identifier, expected_experiment_identifier) == 0);
+    XCTAssert(strcmp(server_name, expected_server_name) == 0);
+
+    // Caller responsible for freeing returned objects from new APIs
+    mock_protocol_safe_free(negotiated_protocol);
+    mock_protocol_safe_free(negotiated_curve);
+    mock_protocol_safe_free(experiment_identifier);
+    mock_protocol_safe_free(server_name);
 }
 
 static size_t
@@ -1338,7 +1436,7 @@ _sec_protocol_test_metadata_session_exporter(void *handle)
     });
 
     sec_protocol_metadata_t metadata = [self create_sec_protocol_metadata];
-    XCTAssertTrue(sec_protocol_metadata_get_experiment_identifier(metadata) == NULL);
+    XCTAssertTrue(sec_protocol_metadata_copy_experiment_identifier(metadata) == NULL);
 
     (void)sec_protocol_metadata_access_handle(metadata, ^bool(void *handle) {
         sec_protocol_metadata_content_t content = (sec_protocol_metadata_content_t)handle;
@@ -1347,7 +1445,9 @@ _sec_protocol_test_metadata_session_exporter(void *handle)
         return true;
     });
 
-    XCTAssertTrue(strncmp(identifier, sec_protocol_metadata_get_experiment_identifier(metadata), strlen(identifier)) == 0);
+    const char *experiment_id = sec_protocol_metadata_copy_experiment_identifier(metadata);
+    XCTAssertTrue(strncmp(identifier, experiment_id, strlen(identifier)) == 0);
+    mock_protocol_safe_free(experiment_id);
 }
 
 - (void)test_sec_protocol_connection_id {
@@ -1639,6 +1739,29 @@ static SecIdentityRef parse_sec_identity_from_pkcs12(NSData *pkcs12data)
 }
 
 - (void)test_sec_identity_pake_verifier_creation {
+    uint8_t context[32];
+    dispatch_data_t context_data = dispatch_data_create(context, sizeof(context), NULL, DISPATCH_DATA_DESTRUCTOR_DEFAULT);
+    uint8_t client_identity[32];
+    dispatch_data_t client_identity_data = dispatch_data_create(client_identity, sizeof(client_identity), NULL, DISPATCH_DATA_DESTRUCTOR_DEFAULT);
+    uint8_t server_identity[32];
+    dispatch_data_t server_identity_data = dispatch_data_create(server_identity, sizeof(server_identity), NULL, DISPATCH_DATA_DESTRUCTOR_DEFAULT);
+
+    // rdar://147480365 (ccspake_reduce_w performs incorrect reduction when converting w0s to w0)
+    //    w0s = 0x9b42cf8eaa1945fcb4092c5faff2ce7171ec66ed74ade384e3263361124a917b517cc23fe298bab9
+    //    w1s = 0xf7a7e9a9421959df10bf8e90ac316dba25bde15025ec4bc0f32fb2bee0a81b4641c47a0a95bf81e0
+    uint8_t input_password_verifier[80] = {
+        0x9b, 0x42, 0xcf, 0x8e, 0xaa, 0x19, 0x45, 0xfc, 0xb4, 0x09, 0x2c, 0x5f,
+        0xaf, 0xf2, 0xce, 0x71, 0x71, 0xec, 0x66, 0xed, 0x74, 0xad, 0xe3, 0x84,
+        0xe3, 0x26, 0x33, 0x61, 0x12, 0x4a, 0x91, 0x7b, 0x51, 0x7c, 0xc2, 0x3f,
+        0xe2, 0x98, 0xba, 0xb9, 0xf7, 0xa7, 0xe9, 0xa9, 0x42, 0x19, 0x59, 0xdf,
+        0x10, 0xbf, 0x8e, 0x90, 0xac, 0x31, 0x6d, 0xba, 0x25, 0xbd, 0xe1, 0x50,
+        0x25, 0xec, 0x4b, 0xc0, 0xf3, 0x2f, 0xb2, 0xbe, 0xe0, 0xa8, 0x1b, 0x46,
+        0x41, 0xc4, 0x7a, 0x0a, 0x95, 0xbf, 0x81, 0xe0
+    };
+    dispatch_data_t input_password_verifier_data = dispatch_data_create(input_password_verifier, sizeof(input_password_verifier), NULL, DISPATCH_DATA_DESTRUCTOR_DEFAULT);
+
+    sec_identity_t identity = sec_identity_create_client_SPAKE2PLUSV1_identity_internal(context_data, client_identity_data, server_identity_data, input_password_verifier_data);
+
     uint8_t buffer[SEC_PROTOCOL_SPAKE2PLUSV1_INPUT_PASSWORD_VERIFIER_NBYTES];
     dispatch_data_t input_verifier = dispatch_data_create(buffer, sizeof(buffer) - 1, NULL, DISPATCH_DATA_DESTRUCTOR_DEFAULT);
     dispatch_data_t registration_record = sec_identity_create_SPAKE2PLUSV1_registration_record(input_verifier);
@@ -1650,19 +1773,44 @@ static SecIdentityRef parse_sec_identity_from_pkcs12(NSData *pkcs12data)
     dispatch_data_t server_verifier = sec_identity_create_SPAKE2PLUSV1_server_password_verifier(input_verifier);
     XCTAssertNil(server_verifier);
 
-    input_verifier = dispatch_data_create(buffer, sizeof(buffer), NULL, DISPATCH_DATA_DESTRUCTOR_DEFAULT);
-
-    registration_record = sec_identity_create_SPAKE2PLUSV1_registration_record(input_verifier);
+    registration_record = sec_identity_copy_SPAKE2PLUSV1_registration_record(identity);
     XCTAssertNotNil(registration_record);
     XCTAssertEqual(dispatch_data_get_size(registration_record), SEC_PROTOCOL_SPAKE2PLUSV1_REGISTRATION_RECORD_NBYTES);
+    uint8_t expected_registration_record[] = {
+        0x04, 0x5a, 0xd6, 0x1d, 0x45, 0x3d, 0x5b, 0x80, 0x03, 0x90, 0x5c, 0xb1,
+        0xb7, 0xc1, 0x16, 0x37, 0x30, 0x18, 0xd3, 0x2a, 0x68, 0x42, 0x68, 0xd4,
+        0x87, 0xd2, 0x68, 0x03, 0xf4, 0xeb, 0xe9, 0xff, 0x33, 0xbf, 0x56, 0x0f,
+        0xf2, 0x7d, 0x21, 0x53, 0xee, 0x3f, 0x13, 0xdf, 0x0c, 0x54, 0x4c, 0x86,
+        0xe4, 0xc7, 0x32, 0xcd, 0xcd, 0x1e, 0x1d, 0x13, 0x17, 0x7b, 0xbc, 0x42,
+        0x4c, 0x90, 0x92, 0x04, 0xad
+    };
+    dispatch_data_t expected_registration_record_data = dispatch_data_create(expected_registration_record, sizeof(expected_registration_record), NULL, DISPATCH_DATA_DESTRUCTOR_DEFAULT);
+    XCTAssertTrue(sec_protocol_helper_dispatch_data_equal(registration_record, expected_registration_record_data));
 
-    client_verifier = sec_identity_create_SPAKE2PLUSV1_client_password_verifier(input_verifier);
+    client_verifier = sec_identity_copy_SPAKE2PLUSV1_client_password_verifier(identity);
     XCTAssertNotNil(client_verifier);
     XCTAssertEqual(dispatch_data_get_size(client_verifier), SEC_PROTOCOL_SPAKE2PLUSV1_CLIENT_PASSWORD_VERIFIER_NBYTES);
+    uint8_t expected_client_verifier[] = {
+        0x5e, 0x22, 0x72, 0x5b, 0x6a, 0x96, 0xb8, 0xe6, 0x9a, 0x9e, 0x10, 0x00,
+        0x78, 0x32, 0xf2, 0x69, 0xad, 0x83, 0x0d, 0x29, 0xe6, 0x2c, 0xe6, 0xba,
+        0x81, 0x6f, 0xe7, 0xbd, 0x78, 0x97, 0xd2, 0xbe, 0x52, 0xd8, 0xe8, 0x6e,
+        0x72, 0x70, 0x2a, 0x32, 0x66, 0xa7, 0x08, 0x03, 0x76, 0x05, 0x36, 0xc0,
+        0x58, 0xe6, 0x51, 0xb5, 0x77, 0x7c, 0x90, 0xc3, 0x8a, 0x28, 0xdf, 0x8e,
+        0x63, 0x3e, 0x7b, 0xd8
+    };
+    dispatch_data_t expected_client_verifier_data = dispatch_data_create(expected_client_verifier, sizeof(expected_client_verifier), NULL, DISPATCH_DATA_DESTRUCTOR_DEFAULT);
+    XCTAssertTrue(sec_protocol_helper_dispatch_data_equal(client_verifier, expected_client_verifier_data));
 
-    server_verifier = sec_identity_create_SPAKE2PLUSV1_server_password_verifier(input_verifier);
+    server_verifier = sec_identity_copy_SPAKE2PLUSV1_server_password_verifier(identity);
     XCTAssertNotNil(server_verifier);
     XCTAssertEqual(dispatch_data_get_size(server_verifier), SEC_PROTOCOL_SPAKE2PLUSV1_SERVER_PASSWORD_VERIFIER_NBYTES);
+    uint8_t expected_server_verifier[] = {
+        0x5e, 0x22, 0x72, 0x5b, 0x6a, 0x96, 0xb8, 0xe6, 0x9a, 0x9e, 0x10, 0x00,
+        0x78, 0x32, 0xf2, 0x69, 0xad, 0x83, 0x0d, 0x29, 0xe6, 0x2c, 0xe6, 0xba,
+        0x81, 0x6f, 0xe7, 0xbd, 0x78, 0x97, 0xd2, 0xbe
+    };
+    dispatch_data_t expected_server_verifier_data = dispatch_data_create(expected_server_verifier, sizeof(expected_server_verifier), NULL, DISPATCH_DATA_DESTRUCTOR_DEFAULT);
+    XCTAssertTrue(sec_protocol_helper_dispatch_data_equal(server_verifier, expected_server_verifier_data));
 }
 
 - (void)test_sec_identity_pake_creation_internal {

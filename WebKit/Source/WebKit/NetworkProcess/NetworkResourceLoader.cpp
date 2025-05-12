@@ -146,10 +146,6 @@ NetworkResourceLoader::NetworkResourceLoader(NetworkResourceLoadParameters&& par
     if (auto* session = connection.protectedNetworkProcess()->networkSession(sessionID()))
         m_cache = session->cache();
 
-    // FIXME: This is necessary because of the existence of EmptyFrameLoaderClient in WebCore.
-    //        Once bug 116233 is resolved, this ASSERT can just be "m_webPageID && m_webFrameID"
-    ASSERT((m_parameters.webPageID && m_parameters.webFrameID) || m_parameters.clientCredentialPolicy == ClientCredentialPolicy::CannotAskClientForCredentials);
-
     if (synchronousReply || m_parameters.shouldRestrictHTTPResponseAccess || m_parameters.options.keepAlive) {
         NetworkLoadChecker::LoadType requestLoadType = isMainFrameLoad() ? NetworkLoadChecker::LoadType::MainFrame : NetworkLoadChecker::LoadType::Other;
         m_networkLoadChecker = NetworkLoadChecker::create(Ref { connection.networkProcess() }.get(), this,  connection.protectedSchemeRegistry().ptr(), FetchOptions { m_parameters.options },
@@ -400,7 +396,7 @@ void NetworkResourceLoader::startNetworkLoad(ResourceRequest&& request, FirstLoa
             m_bufferedDataForCache.empty();
     }
 
-    NetworkLoadParameters parameters = m_parameters;
+    NetworkLoadParameters parameters = m_parameters.networkLoadParameters();
     parameters.networkActivityTracker = m_networkActivityTracker;
     if (parameters.storedCredentialsPolicy == WebCore::StoredCredentialsPolicy::Use && m_networkLoadChecker)
         parameters.storedCredentialsPolicy = m_networkLoadChecker->storedCredentialsPolicy();

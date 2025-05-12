@@ -64,29 +64,7 @@ WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
 #include <fcntl.h>
 #include <mach/mach.h>
 #include <mach/mach_time.h>
-
-extern "C" {
-    /* Routine mach_vm_remap */
-#ifdef mig_external
-    mig_external
-#else
-    extern
-#endif /* mig_external */
-    kern_return_t mach_vm_remap
-    (
-     vm_map_t target_task,
-     mach_vm_address_t *target_address,
-     mach_vm_size_t size,
-     mach_vm_offset_t mask,
-     int flags,
-     vm_map_t src_task,
-     mach_vm_address_t src_address,
-     boolean_t copy,
-     vm_prot_t *cur_protection,
-     vm_prot_t *max_protection,
-     vm_inherit_t inheritance
-     );
-}
+#include <wtf/spi/cocoa/MachVMSPI.h>
 #endif
 
 #if USE(INLINE_JIT_PERMISSIONS_API)

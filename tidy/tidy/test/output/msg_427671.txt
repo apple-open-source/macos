@@ -1,0 +1,16 @@
+line 1 column 1 - Warning: missing <!DOCTYPE> declaration
+line 8 column 7 - Warning: discarding unexpected <frame>
+line 8 column 27 - Warning: discarding unexpected </frame>
+line 9 column 7 - Warning: discarding unexpected <frameset>
+line 9 column 34 - Warning: discarding unexpected </frameset>
+line 10 column 7 - Warning: discarding unexpected <optgroup>
+line 10 column 34 - Warning: discarding unexpected </optgroup>
+line 11 column 7 - Warning: discarding unexpected <option>
+line 11 column 30 - Warning: discarding unexpected </option>
+Info: Document content looks like HTML Proprietary
+9 warnings, 0 errors were found!
+
+To learn more about HTML Tidy see http://tidy.sourceforge.net
+Please send bug reports to html-tidy@w3.org
+HTML and CSS specifications are available from http://www.w3.org/
+Lobby your company to join W3C, see http://www.w3.org/Consortium

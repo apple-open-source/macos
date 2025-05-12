@@ -35,7 +35,8 @@ build::
 	done
 	$(FIND) $(DSTROOT) \( -name script -or -name test \) -print | xargs -t rm -rf
 	$(FIND) $(DSTROOT) -type f \( -name '*.[ch]' -o -name '*.txt' \) -perm -a+x | xargs -t chmod a-x
-	rsync -irptgoD --include='*/' --include='*.bundle' --exclude='*' $(DSTROOT)/ $(SYMROOT)/
+	cd $(DSTROOT) && $(FIND) . -type d -exec mkdir -p ${SYMROOT}/{} \;
+	rsync -irptgoD --include='*/' --include='*.bundle' --exclude='*' --delete $(DSTROOT)/ $(SYMROOT)/
 	$(FIND) $(SYMROOT) -type f -perm -a+x | xargs -t -n 1 dsymutil
 	## Needed by rubygems in 2.3.1
 	for f in $$($(FIND) $(DSTROOT) -name gem.build_complete -print); do \

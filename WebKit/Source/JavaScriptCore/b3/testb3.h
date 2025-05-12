@@ -1378,4 +1378,7 @@ void testConstFloatMove();
 void testSShrCompare32(int32_t);
 void testSShrCompare64(int64_t);
 
+void testInt52RoundTripUnary(int32_t);
+void testInt52RoundTripBinary();
+
 #endif // ENABLE(B3_JIT)

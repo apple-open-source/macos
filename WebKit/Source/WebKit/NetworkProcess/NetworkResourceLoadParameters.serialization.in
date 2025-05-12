@@ -25,10 +25,10 @@ headers: "NetworkResourceLoadParameters.h"
 enum class WebKit::PreconnectOnly : bool;
 enum class WebKit::NavigatingToAppBoundDomain : bool;
 
-class WebKit::NetworkLoadParameters {
-    Markable<WebKit::WebPageProxyIdentifier> webPageProxyID;
-    Markable<WebCore::PageIdentifier> webPageID;
-    Markable<WebCore::FrameIdentifier> webFrameID;
+struct WebKit::NetworkResourceLoadParameters {
+    WebKit::WebPageProxyIdentifier webPageProxyID;
+    WebCore::PageIdentifier webPageID;
+    WebCore::FrameIdentifier webFrameID;
     RefPtr<WebCore::SecurityOrigin> topOrigin;
     RefPtr<WebCore::SecurityOrigin> sourceOrigin;
     WTF::ProcessID parentPID;
@@ -53,9 +53,6 @@ class WebKit::NetworkLoadParameters {
     bool hadMainFrameMainResourcePrivateRelayed;
     bool allowPrivacyProxy;
     OptionSet<WebCore::AdvancedPrivacyProtections> advancedPrivacyProtections;
-}
-
-class WebKit::NetworkResourceLoadParameters : WebKit::NetworkLoadParameters {
     Markable<WebCore::ResourceLoaderIdentifier> identifier;
     
     RefPtr<WebCore::FormData> request.httpBody();

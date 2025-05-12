@@ -36,7 +36,7 @@ namespace JSC {
 class JSWebAssemblyException final : public JSNonFinalObject {
 public:
     using Base = JSNonFinalObject;
-    static constexpr bool needsDestruction = true;
+    static constexpr DestructionMode needsDestruction = NeedsDestruction;
     using Payload = FixedVector<uint64_t>;
 
     static void destroy(JSCell*);

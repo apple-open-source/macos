@@ -272,7 +272,7 @@ void PreciseAllocation::sweep()
     m_weakSet.sweep();
     
     if (m_hasValidCell && !isLive()) {
-        if (m_attributes.destruction == NeedsDestruction)
+        if (m_attributes.destruction != DoesNotNeedDestruction)
             m_subspace->destroy(vm(), static_cast<JSCell*>(cell()));
         // We should clear IsoCellSet's bit before actually destroying PreciseAllocation
         // since PreciseAllocation's destruction can be delayed until its WeakSet is cleared.

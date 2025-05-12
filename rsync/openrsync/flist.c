@@ -43,12 +43,6 @@
 #include "extern.h"
 
 /*
- * Allocate the file list in chunk sizes of 8MiB's worth of items
- * to reduce thrashing the memory allocator and improve performance.
- */
-#define	FLIST_CHUNK_SIZE	((8 << 20) / sizeof(struct flist))
-
-/*
  * These flags are part of the rsync protocol.
  * They are sent as the first byte for a file transmission and encode
  * information that affects subsequent transmissions.

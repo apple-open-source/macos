@@ -1236,6 +1236,9 @@
 		F95B8A430B03E07A00993BA3 /* SCNetworkSignature.c in Sources */ = {isa = PBXBuildFile; fileRef = F95B8A420B03E07A00993BA3 /* SCNetworkSignature.c */; };
 		F95B8A460B03E09300993BA3 /* SCNetworkSignature.h in Headers */ = {isa = PBXBuildFile; fileRef = F95B8A440B03E09300993BA3 /* SCNetworkSignature.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		F95B8A470B03E09300993BA3 /* SCNetworkSignaturePrivate.h in Headers */ = {isa = PBXBuildFile; fileRef = F95B8A450B03E09300993BA3 /* SCNetworkSignaturePrivate.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		F95C219D2D84AF1800918373 /* SCValidation.c in Sources */ = {isa = PBXBuildFile; fileRef = F95C219C2D84AF1800918373 /* SCValidation.c */; };
+		F95C219E2D84AF1800918373 /* SCValidation.c in Sources */ = {isa = PBXBuildFile; fileRef = F95C219C2D84AF1800918373 /* SCValidation.c */; };
+		F95C219F2D84AF1800918373 /* SCValidation.c in Sources */ = {isa = PBXBuildFile; fileRef = F95C219C2D84AF1800918373 /* SCValidation.c */; };
 		F968AA2F2ABE4EBC00D16C87 /* ifutil.c in Sources */ = {isa = PBXBuildFile; fileRef = F968AA2E2ABE4E8200D16C87 /* ifutil.c */; };
 		F968AA302ABE4ED700D16C87 /* ifutil.c in Sources */ = {isa = PBXBuildFile; fileRef = F968AA2E2ABE4E8200D16C87 /* ifutil.c */; };
 		F968AA312ABE4EDE00D16C87 /* ifutil.c in Sources */ = {isa = PBXBuildFile; fileRef = F968AA2E2ABE4E8200D16C87 /* ifutil.c */; };
@@ -2560,6 +2563,7 @@
 		F95B8A420B03E07A00993BA3 /* SCNetworkSignature.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = SCNetworkSignature.c; sourceTree = "<group>"; };
 		F95B8A440B03E09300993BA3 /* SCNetworkSignature.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = SCNetworkSignature.h; sourceTree = "<group>"; };
 		F95B8A450B03E09300993BA3 /* SCNetworkSignaturePrivate.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = SCNetworkSignaturePrivate.h; sourceTree = "<group>"; };
+		F95C219C2D84AF1800918373 /* SCValidation.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = SCValidation.c; sourceTree = "<group>"; };
 		F968AA2E2ABE4E8200D16C87 /* ifutil.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = ifutil.c; sourceTree = "<group>"; };
 		F97A40EA293A8D6E00645955 /* SCNetworkCategory.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SCNetworkCategory.h; sourceTree = "<group>"; };
 		F97A40EB293A8D6E00645955 /* SCNetworkCategoryTypes.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SCNetworkCategoryTypes.h; sourceTree = "<group>"; };
@@ -3640,6 +3644,7 @@
 		15CB694F05C0722B0099E85F /* Other Sources */ = {
 			isa = PBXGroup;
 			children = (
+				F95C219C2D84AF1800918373 /* SCValidation.c */,
 				150607BD075A00A200B147BA /* SCSchemaDefinitions.c */,
 				15CB695005C0722B0099E85F /* SCD.c */,
 				D61AAEAD1522C99C0066B003 /* scprefs_observer.c */,
@@ -6703,6 +6708,7 @@
 				F97A40FE294B9B9900645955 /* SCNetworkSettingsManager.c in Sources */,
 				152691DE1129EEC2006BD2D5 /* VLANConfiguration.c in Sources */,
 				D61AAEB01522C99C0066B003 /* scprefs_observer.c in Sources */,
+				F95C219D2D84AF1800918373 /* SCValidation.c in Sources */,
 				C4F1848116237AFC00D97043 /* VPNService.c in Sources */,
 				B03FEFB716376D2800A1B88F /* VPNAppLayer.c in Sources */,
 				15DA6E72267551590077A9BF /* SCControlPrefs.c in Sources */,
@@ -7097,6 +7103,7 @@
 				152691DC1129EEAD006BD2D5 /* BridgeConfiguration.c in Sources */,
 				152691DF1129EEC8006BD2D5 /* VLANConfiguration.c in Sources */,
 				D61AAEB21522C99C0066B003 /* scprefs_observer.c in Sources */,
+				F95C219E2D84AF1800918373 /* SCValidation.c in Sources */,
 				C4F1848316237B1400D97043 /* VPNService.c in Sources */,
 				B0FEF41B1644089200174B99 /* VPNAppLayer.c in Sources */,
 				15EF89CD21894B32003B2C5C /* IPMonitorControl.c in Sources */,
@@ -7188,6 +7195,7 @@
 				15DAD6A807591A1A0084A6ED /* SCNetworkProtocol.c in Sources */,
 				15DAD6A907591A1A0084A6ED /* SCNetworkService.c in Sources */,
 				F90E43582012AD6900EF27C4 /* SCNetworkInterfaceProvider.c in Sources */,
+				F95C219F2D84AF1800918373 /* SCValidation.c in Sources */,
 				15DAD6AA07591A1A0084A6ED /* SCNetworkSet.c in Sources */,
 				55A3DB9E183C2AD900ED3DB7 /* SCNetworkMigration.c in Sources */,
 				15DAD6AB07591A1A0084A6ED /* BondConfiguration.c in Sources */,

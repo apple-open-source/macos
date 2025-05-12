@@ -32,6 +32,7 @@
 #include "DocumentLoader.h"
 #include "OriginAccessPatterns.h"
 #include "Page.h"
+#include "Quirks.h"
 #include "Settings.h"
 #include <wtf/NeverDestroyed.h>
 
@@ -112,6 +113,7 @@ CSSParserContext::CSSParserContext(const Document& document, const URL& sheetBas
     , cssMediaProgressFunctionEnabled { document.settings().cssMediaProgressFunctionEnabled() }
     , cssContainerProgressFunctionEnabled { document.settings().cssContainerProgressFunctionEnabled() }
     , cssRandomFunctionEnabled { document.settings().cssRandomFunctionEnabled() }
+    , webkitMediaTextTrackDisplayQuirkEnabled { document.quirks().needsWebKitMediaTextTrackDisplayQuirk() }
     , propertySettings { CSSPropertySettings { document.settings() } }
 {
 }

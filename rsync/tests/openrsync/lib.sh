@@ -317,6 +317,72 @@ findme ()
     )
 }
 
+xattr_capable ()
+{
+
+    if which lsextattr 1>/dev/null 2>&1; then
+        echo "lsextattr"
+        return 0
+    elif which getfattr 1>/dev/null 2>&1; then
+        echo "getfattr"
+        return 0
+    elif which xattr 1>/dev/null 2>&1; then
+        echo "xattr"
+        return 0
+    fi
+
+    return 1
+}
+
+xattr_set ()
+{
+    file=$1
+    name=$2
+    value=$3
+
+    xattr_tool=$(xattr_capable)
+    if [ $? -ne 0 ]; then
+        # The caller should have checked that xattrs are supported.
+        return 1
+    fi
+
+    case "$xattr_tool" in
+        lsextattr)
+            setextattr -h user "$name" "$value" "$file"
+            ;;
+        getfattr)
+            setfattr -hn "$name" -v "$value" "$file"
+            ;;
+        xattr)
+            xattr -ws "$name" "$value" "$file"
+            ;;
+    esac
+}
+
+xattr_dump ()
+{
+    file=$1
+
+    xattr_tool=$(xattr_capable)
+    if [ $? -ne 0 ]; then
+        # This one will be called unconditionally, so we want to just succeed if
+        # we don't have xattr support.
+        return 0
+    fi
+
+    case "$xattr_tool" in
+        lsextattr)
+            lsextattr -hq user "$file"
+            ;;
+        getfattr)
+            getfattr -hd "$file"
+            ;;
+        xattr)
+            xattr -s "$file"
+            ;;
+    esac
+}
+
 # compare two trees.  This will later be modular to pick between:
 # - diff
 # - find . -print0 | sort --zero-terminated | xargs -0 tar fc foo.tar
@@ -351,4 +417,24 @@ compare_trees ()
 
     # file contents
     diff -ru "$1" "$2" 1>&2
+
+    # check for any xattrs; note that this won't do the right thing if we have
+    # files that both have xattrs and newlines in the filename.  This is a known
+    # limitation that seems like an OK compromise.
+    tmpf=$(mktemp -u rsync_xattr.XXXXXXXX)
+    _IFS="$IFS"
+    IFS=$'\n'
+    for f in $(find -H "$1" -xattr); do
+        xattr_dump "$f" > "$tmpf"
+        if [ -s "$tmpf" ]; then
+            # See if the second version of the file has matching xattrs
+            mirrored=$(echo "$f" | sed -e "s/^$1/$2/")
+            xattr_dump "$mirrored" > "$tmpf-2"
+            1>&2 echo "xattr check: $1 and $2"
+            diff -u "$tmpf" "$tmpf-2" 1>&2
+            rm "$tmpf-2"
+        fi
+    done
+    IFS="$_IFS"
+    rm -f "$tmpf"
 }

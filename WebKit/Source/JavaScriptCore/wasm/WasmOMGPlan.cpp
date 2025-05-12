@@ -156,8 +156,7 @@ void OMGPlan::work(CompilationEffort)
     Vector<CodeLocationLabel<ExceptionHandlerPtrTag>> exceptionHandlerLocations;
     computeExceptionHandlerLocations(exceptionHandlerLocations, internalFunction, context, linkBuffer);
 
-    computePCToCodeOriginMap(context, linkBuffer);
-
+    auto samplingProfilerMap = callee->materializePCToOriginMap(context.procedure->releasePCToOriginMap(), linkBuffer);
     {
         ScopedPrintStream out;
         dumpDisassembly(context, linkBuffer, m_functionIndex, signature, functionIndexSpace);
@@ -174,8 +173,8 @@ void OMGPlan::work(CompilationEffort)
         callee->setEntrypoint(WTFMove(omgEntrypoint), WTFMove(unlinkedCalls), WTFMove(internalFunction->stackmaps), WTFMove(internalFunction->exceptionHandlers), WTFMove(exceptionHandlerLocations));
         entrypoint = callee->entrypoint();
 
-        if (context.pcToCodeOriginMap)
-            NativeCalleeRegistry::singleton().addPCToCodeOriginMap(callee.ptr(), WTFMove(context.pcToCodeOriginMap));
+        if (samplingProfilerMap)
+            NativeCalleeRegistry::singleton().addPCToCodeOriginMap(callee.ptr(), WTFMove(samplingProfilerMap));
 
         // We want to make sure we publish our callee at the same time as we link our callsites. This enables us to ensure we
         // always call the fastest code. Any function linked after us will see our new code and the new callsites, which they
@@ -189,18 +188,18 @@ void OMGPlan::work(CompilationEffort)
 
         for (auto& call : callee->wasmToWasmCallsites()) {
             CodePtr<WasmEntryPtrTag> entrypoint;
-            Wasm::Callee* calleeCallee = nullptr;
+            RefPtr<Wasm::Callee> calleeCallee;
             if (call.functionIndexSpace < m_module->moduleInformation().importFunctionCount())
                 entrypoint = m_calleeGroup->m_wasmToWasmExitStubs[call.functionIndexSpace].code();
             else {
-                calleeCallee = &m_calleeGroup->wasmEntrypointCalleeFromFunctionIndexSpace(locker, call.functionIndexSpace);
-                entrypoint = m_calleeGroup->wasmEntrypointCalleeFromFunctionIndexSpace(locker, call.functionIndexSpace).entrypoint().retagged<WasmEntryPtrTag>();
+                calleeCallee = m_calleeGroup->wasmEntrypointCalleeFromFunctionIndexSpace(locker, call.functionIndexSpace);
+                entrypoint = calleeCallee->entrypoint().retagged<WasmEntryPtrTag>();
             }
 
             // FIXME: This does an icache flush for each of these... which doesn't make any sense since this code isn't runnable here
             // and any stale cache will be evicted when updateCallsitesToCallUs is called.
             MacroAssembler::repatchNearCall(call.callLocation, CodeLocationLabel<WasmEntryPtrTag>(entrypoint));
-            MacroAssembler::repatchPointer(call.calleeLocation, CalleeBits::boxNativeCalleeIfExists(calleeCallee));
+            MacroAssembler::repatchPointer(call.calleeLocation, CalleeBits::boxNativeCalleeIfExists(calleeCallee.get()));
         }
 
         m_calleeGroup->updateCallsitesToCallUs(locker, CodeLocationLabel<WasmEntryPtrTag>(entrypoint), m_functionIndex);
@@ -208,7 +207,7 @@ void OMGPlan::work(CompilationEffort)
 
         {
             WTF::storeStoreFence();
-            if (BBQCallee* bbqCallee = m_calleeGroup->bbqCallee(locker, m_functionIndex)) {
+            if (RefPtr bbqCallee = m_calleeGroup->bbqCallee(locker, m_functionIndex)) {
                 Locker locker { bbqCallee->tierUpCounter().getLock() };
                 bbqCallee->tierUpCounter().setCompilationStatusForOMG(mode(), TierUpCount::CompilationStatus::Compiled);
             }

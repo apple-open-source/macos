@@ -208,8 +208,8 @@ bool hasCapacityToUseLargeGigacage();
     v(Double, mediumHeapGrowthFactor, 1.5, Normal, nullptr) \
     v(Double, largeHeapGrowthFactor, 1.24, Normal, nullptr) \
     v(Double, miniVMHeapGrowthFactor, 1.20, Normal, nullptr) \
-    v(Double, heapGrowthSteepnessFactor, 1.00, Normal, nullptr) \
-    v(Double, heapGrowthMaxIncrease, 2.00, Normal, nullptr) \
+    v(Double, heapGrowthSteepnessFactor, 2.00, Normal, nullptr) \
+    v(Double, heapGrowthMaxIncrease, 3.00, Normal, nullptr) \
     v(Unsigned, heapGrowthFunctionThresholdInMB, 16 * 1024, Normal, nullptr) \
     v(Double, criticalGCMemoryThreshold, 0.80, Normal, "percent memory in use the GC considers critical.  The collector is much more aggressive above this threshold"_s) \
     v(Double, customFullGCCallbackBailThreshold, -1.0, Normal, "percent of memory paged out before we bail out of timer based Full GCs. -1.0 means use (maxHeapGrowthFactor - 1)"_s) \
@@ -290,11 +290,13 @@ bool hasCapacityToUseLargeGigacage();
     v(Unsigned, maximumFunctionForCallInlineCandidateBytecodeCostForDFG, 80, Normal, nullptr) \
     v(Unsigned, maximumFunctionForClosureCallInlineCandidateBytecodeCostForDFG, 80, Normal, nullptr) \
     v(Unsigned, maximumFunctionForConstructInlineCandidateBytecodeCostForDFG, 80, Normal, nullptr) \
-    v(Unsigned, maximumFunctionForCallInlineCandidateBytecodeCostForFTL, 160, Normal, nullptr) \
+    v(Unsigned, maximumFunctionForCallInlineCandidateBytecodeCostForFTL, 170, Normal, nullptr) \
     v(Unsigned, maximumFunctionForClosureCallInlineCandidateBytecodeCostForFTL, 100, Normal, nullptr) \
     v(Unsigned, maximumFunctionForConstructInlineCandidateBytecodeCostForFTL, 100, Normal, nullptr) \
     \
     v(Unsigned, maximumFTLCandidateBytecodeCost, 20000, Normal, nullptr) \
+    \
+    v(Double, ratioFTLNodesToBytecodeCost, 1.8, Normal, "Ratio converting FTL # of DFG nodes to approx bytecode cost") \
     \
     /* Depth of inline stack, so 1 = no inlining, 2 = one level, etc. */ \
     v(Unsigned, maximumInliningDepth, 5, Normal, "maximum allowed inlining depth.  Depth of 1 means no inlining"_s) \
@@ -313,6 +315,7 @@ bool hasCapacityToUseLargeGigacage();
     v(Unsigned, maximumWasmDepthForInlining, isIOS() ? 2 : 8, Normal, "Maximum inlining depth to consider inlining a wasm function."_s) \
     v(Unsigned, maximumWasmCalleeSizeForInlining, 200, Normal, "Maximum wasm size in bytes to consider inlining a wasm function."_s) \
     v(Unsigned, maximumWasmCallerSizeForInlining, 10000, Normal, "Maximum wasm size in bytes for the caller of an inlined function."_s) \
+    v(Unsigned, maximumWasmSelfRecursionDepthForInlining, 5, Normal, "Maximum self cursion inlining depth to consider inlining a wasm function."_s) \
     \
     v(Double, jitPolicyScale, 1.0, Normal, "scale JIT thresholds to this specified ratio between 0.0 (compile ASAP) and 1.0 (compile like normal)."_s) \
     v(Bool, forceEagerCompilation, false, Normal, nullptr) \
@@ -567,7 +570,7 @@ bool hasCapacityToUseLargeGigacage();
     v(Unsigned, allocationProfilingMode, 0, Normal, "Allows custom arguments to be passed to bmalloc/libPAS allocation profiling features at JSC launch."_s) \
     v(Bool, dumpBaselineJITSizeStatistics, false, Normal, nullptr) \
     v(Bool, dumpDFGJITSizeStatistics, false, Normal, nullptr) \
-    v(Bool, useLoopUnrolling, true, Normal, nullptr) \
+    v(Bool, useLoopUnrolling, false, Normal, nullptr) \
     v(Bool, verboseLoopUnrolling, false, Normal, nullptr) \
     v(Unsigned, maxLoopUnrollingCount, 2, Normal, nullptr) \
     v(Unsigned, maxLoopUnrollingBodyNodeSize, 200, Normal, nullptr) \
@@ -594,6 +597,7 @@ bool hasCapacityToUseLargeGigacage();
     v(Bool, forceAllFunctionsToUseSIMD, false, Normal, "Force all functions to act conservatively w.r.t fp/vector registers for testing."_s) \
     v(Bool, useOMGInlining, true, Normal, "Use OMG inlining"_s) \
     v(Bool, freeRetiredWasmCode, true, Normal, "free BBQ/OMG-OSR wasm code once it's no longer reachable."_s) \
+    v(Bool, dumpFTLCodeSize, false, Normal, nullptr) \
     \
     /* Feature Flags */\
     \

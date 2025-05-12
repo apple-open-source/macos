@@ -7954,9 +7954,15 @@ void SpeculativeJIT::compileGetGlobalObject(Node* node)
 {
     SpeculateCellOperand object(this, node->child1());
     GPRTemporary result(this);
-    emitLoadStructure(vm(), object.gpr(), result.gpr());
-    loadPtr(Address(result.gpr(), Structure::globalObjectOffset()), result.gpr());
-    cellResult(result.gpr(), node);
+
+    GPRReg objectGPR = object.gpr();
+    GPRReg resultGPR = result.gpr();
+
+    speculateObject(node->child1(), objectGPR);
+
+    emitLoadStructure(vm(), objectGPR, resultGPR);
+    loadPtr(Address(resultGPR, Structure::globalObjectOffset()), resultGPR);
+    cellResult(resultGPR, node);
 }
 
 void SpeculativeJIT::compileGetGlobalThis(Node* node)
@@ -8129,6 +8135,47 @@ void SpeculativeJIT::compileGetArrayLength(Node* node)
     } }
 }
 
+void SpeculativeJIT::compileDataViewGetByteLength(Node* node)
+{
+#if USE(JSVALUE64)
+    if (node->mayBeResizableOrGrowableSharedArrayBuffer()) {
+        SpeculateCellOperand base(this, node->child1());
+        GPRTemporary scratch1(this);
+        GPRTemporary result(this);
+
+        GPRReg baseGPR = base.gpr();
+        GPRReg scratch1GPR = scratch1.gpr();
+        GPRReg resultGPR = result.gpr();
+
+        speculateDataViewObject(node->child1(), baseGPR);
+
+        auto [outOfBounds, doneCases] = loadDataViewByteLength(baseGPR, resultGPR, scratch1GPR, resultGPR, TypeDataView);
+        speculationCheck(OutOfBounds, JSValueSource::unboxedCell(baseGPR), node, outOfBounds);
+        doneCases.link(this);
+
+        speculationCheck(ExitKind::Overflow, JSValueSource(), nullptr, branch64(Above, resultGPR, TrustedImm64(std::numeric_limits<int32_t>::max())));
+        strictInt32Result(resultGPR, node);
+        return;
+    }
+#endif
+
+    SpeculateCellOperand base(this, node->child1());
+    GPRTemporary result(this);
+    GPRReg baseGPR = base.gpr();
+    GPRReg resultGPR = result.gpr();
+
+    speculateDataViewObject(node->child1(), baseGPR);
+
+    if (!m_graph.isNeverResizableOrGrowableSharedTypedArrayIncludingDataView(m_state.forNode(node->child1())))
+        speculationCheck(UnexpectedResizableArrayBufferView, JSValueSource::unboxedCell(baseGPR), node, branchTest8(NonZero, Address(baseGPR, JSArrayBufferView::offsetOfMode()), TrustedImm32(isResizableOrGrowableSharedMode)));
+#if USE(LARGE_TYPED_ARRAYS)
+    load64(Address(baseGPR, JSArrayBufferView::offsetOfLength()), resultGPR);
+    speculationCheck(ExitKind::Overflow, JSValueSource(), nullptr, branch64(Above, resultGPR, TrustedImm64(std::numeric_limits<int32_t>::max())));
+#else
+    load32(Address(baseGPR, JSArrayBufferView::offsetOfLength()), resultGPR);
+#endif
+    strictInt32Result(resultGPR, node);
+}
 
 void SpeculativeJIT::compileCheckIdent(Node* node)
 {

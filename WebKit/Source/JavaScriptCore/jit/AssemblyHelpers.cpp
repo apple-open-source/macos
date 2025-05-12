@@ -1863,7 +1863,7 @@ AssemblyHelpers::JumpList AssemblyHelpers::branchIfResizableOrGrowableSharedType
     return outOfBounds;
 }
 
-void AssemblyHelpers::loadTypedArrayByteLengthImpl(GPRReg baseGPR, GPRReg valueGPR, GPRReg scratchGPR, GPRReg scratch2GPR, std::optional<TypedArrayType> typedArrayType, TypedArrayField field)
+std::tuple<AssemblyHelpers::Jump, AssemblyHelpers::JumpList> AssemblyHelpers::loadTypedArrayByteLengthImpl(GPRReg baseGPR, GPRReg valueGPR, GPRReg scratchGPR, GPRReg scratch2GPR, std::optional<TypedArrayType> typedArrayType, TypedArrayField field)
 {
     ASSERT(scratchGPR != scratch2GPR);
     ASSERT(scratchGPR != valueGPR);
@@ -1978,10 +1978,6 @@ void AssemblyHelpers::loadTypedArrayByteLengthImpl(GPRReg baseGPR, GPRReg valueG
 #endif
     doneCases.append(jump());
 
-    outOfBounds.link(this);
-    move(TrustedImm32(0), valueGPR);
-    doneCases.append(jump());
-
     nonAutoLength.link(this);
     canUseRawFieldsDirectly.link(this);
 #if USE(LARGE_TYPED_ARRAYS)
@@ -1999,17 +1995,32 @@ void AssemblyHelpers::loadTypedArrayByteLengthImpl(GPRReg baseGPR, GPRReg valueG
             lshift32(TrustedImm32(logElementSize(typedArrayType.value())), valueGPR);
     }
 #endif
+    doneCases.append(jump());
+
+    return { outOfBounds, doneCases };
+}
+
+void AssemblyHelpers::loadTypedArrayByteLengthCommonImpl(GPRReg baseGPR, GPRReg valueGPR, GPRReg scratchGPR, GPRReg scratch2GPR, std::optional<TypedArrayType> typedArrayType, TypedArrayField field)
+{
+    auto [outOfBounds, doneCases] = loadTypedArrayByteLengthImpl(baseGPR, valueGPR, scratchGPR, scratch2GPR, typedArrayType, field);
+    outOfBounds.link(this);
+    move(TrustedImm32(0), valueGPR);
     doneCases.link(this);
 }
 
 void AssemblyHelpers::loadTypedArrayByteLength(GPRReg baseGPR, GPRReg valueGPR, GPRReg scratchGPR, GPRReg scratch2GPR, TypedArrayType typedArrayType)
 {
-    loadTypedArrayByteLengthImpl(baseGPR, valueGPR, scratchGPR, scratch2GPR, typedArrayType, TypedArrayField::ByteLength);
+    loadTypedArrayByteLengthCommonImpl(baseGPR, valueGPR, scratchGPR, scratch2GPR, typedArrayType, TypedArrayField::ByteLength);
+}
+
+std::tuple<AssemblyHelpers::Jump, AssemblyHelpers::JumpList> AssemblyHelpers::loadDataViewByteLength(GPRReg baseGPR, GPRReg valueGPR, GPRReg scratchGPR, GPRReg scratch2GPR, TypedArrayType typedArrayType)
+{
+    return loadTypedArrayByteLengthImpl(baseGPR, valueGPR, scratchGPR, scratch2GPR, typedArrayType, TypedArrayField::ByteLength);
 }
 
 void AssemblyHelpers::loadTypedArrayLength(GPRReg baseGPR, GPRReg valueGPR, GPRReg scratchGPR, GPRReg scratch2GPR, std::optional<TypedArrayType> typedArrayType)
 {
-    loadTypedArrayByteLengthImpl(baseGPR, valueGPR, scratchGPR, scratch2GPR, typedArrayType, TypedArrayField::Length);
+    loadTypedArrayByteLengthCommonImpl(baseGPR, valueGPR, scratchGPR, scratch2GPR, typedArrayType, TypedArrayField::Length);
 }
 
 #endif // ENABLE(JSVALUE64)

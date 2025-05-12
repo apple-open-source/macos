@@ -74,8 +74,9 @@ public:
 
     SVGGradientElement& gradientElement() const { return static_cast<SVGGradientElement&>(LegacyRenderSVGResourceContainer::element()); }
 
-    void removeAllClientsFromCacheIfNeeded(bool markForInvalidation, SingleThreadWeakHashSet<RenderObject>* visitedRenderers) final;
-    void removeClientFromCache(RenderElement&, bool markForInvalidation = true) final;
+    void removeAllClientsFromCache() final;
+    void removeAllClientsFromCacheAndMarkForInvalidationIfNeeded(bool markForInvalidation, SingleThreadWeakHashSet<RenderObject>* visitedRenderers) override;
+    void removeClientFromCache(RenderElement&) final;
 
     OptionSet<ApplyResult> applyResource(RenderElement&, const RenderStyle&, GraphicsContext*&, OptionSet<RenderSVGResourceMode>) final;
     void postApplyResource(RenderElement&, GraphicsContext*&, OptionSet<RenderSVGResourceMode>, const Path*, const RenderElement*) final;

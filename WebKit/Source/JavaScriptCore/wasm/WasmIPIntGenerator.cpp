@@ -648,7 +648,6 @@ IPIntGenerator::IPIntGenerator(ModuleInformation& info, FunctionCodeIndex functi
     , m_functionIndex(functionIndex)
     , m_metadata(WTF::makeUnique<FunctionIPIntMetadataGenerator>(functionIndex, bytecode))
 {
-    m_metadata->m_callees = FixedBitVector(m_info.internalFunctionCount());
 }
 
 PartialResult WARN_UNUSED_RETURN IPIntGenerator::addDrop(ExpressionType)
@@ -2826,8 +2825,6 @@ PartialResult WARN_UNUSED_RETURN IPIntGenerator::addCall(FunctionSpaceIndex inde
         for (unsigned i = 0; i < signature.returnCount(); i ++)
             results.append(Value { });
         changeStackSize(signature.returnCount() - signature.argumentCount());
-        if (!m_info.isImportedFunctionFromFunctionIndexSpace(index))
-            m_metadata->m_callees.testAndSet(index - m_info.importFunctionCount());
 
         IPInt::CallMetadata functionIndexMetadata {
             .length = safeCast<uint8_t>(getCurrentInstructionLength()),

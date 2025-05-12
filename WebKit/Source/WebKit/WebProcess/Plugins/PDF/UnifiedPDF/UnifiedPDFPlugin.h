@@ -447,6 +447,7 @@ private:
     id accessibilityObject() const override;
 #if PLATFORM(MAC)
     id accessibilityHitTestIntPoint(const WebCore::IntPoint&) const;
+    WebCore::IntPoint convertFromPluginToScreenForAccessibility(const WebCore::IntPoint& pointInPluginCoordinate) const;
 #endif
 
     void paint(WebCore::GraphicsContext&, const WebCore::IntRect&) override;

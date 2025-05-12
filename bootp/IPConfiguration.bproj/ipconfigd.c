@@ -7377,9 +7377,9 @@ lookup_entity(CFArrayRef all, CFStringRef ifn_cf)
     CFIndex		count;
     int 		i;
 
-    if (all == NULL)
+    if (all == NULL) {
 	return (NULL);
-
+    }
     count = CFArrayGetCount(all);
     for (i = 0; i < count; i++) {
 	CFDictionaryRef	item = CFArrayGetValueAtIndex(all, i);
@@ -7793,7 +7793,8 @@ configure_from_cache(SCDynamicStoreRef session)
     int 		i;
 
     all_ipv4 = entity_all(session, &all_ipv6);
-    if (all_ipv4 == NULL) {
+    if (all_ipv4 == NULL && all_ipv6 == NULL) {
+	my_log(LOG_NOTICE, "No configured services");
 	goto done;
     }
 
@@ -7804,18 +7805,17 @@ configure_from_cache(SCDynamicStoreRef session)
      * complete its initialization.
      */
     for (i = 0; i < ifl_count(S_interfaces); i++) {
-	CFDictionaryRef		dict;
 	interface_t *		if_p = ifl_at_index(S_interfaces, i);
 	CFStringRef		ifn_cf = NULL;
 
 	ifn_cf = CFStringCreateWithCString(NULL,
 					   if_name(if_p),
-					   kCFStringEncodingASCII);
+					   kCFStringEncodingUTF8);
 	if (ifn_cf == NULL) {
 	    continue;
 	}
-	dict = lookup_entity(all_ipv4, ifn_cf);
-	if (dict != NULL) {
+	if (lookup_entity(all_ipv4, ifn_cf) != NULL
+	    || lookup_entity(all_ipv6, ifn_cf) != NULL) {
 	    (void)IFStateList_ifstate_create(&S_ifstate_list, if_p);
 	    count++;
 	}

@@ -1,11 +1,11 @@
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
     "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
 
-<html lang="en" xmlns="http://www.w3.org/1999/xhtml">
+<html lang="en" xmlns="http://www.w3.org/1999/xhtml" xml:lang="en">
 <head>
   <title>Test for bug #533233</title>
   <script type="text/javascript">
-  //<![CDATA[
+//<![CDATA[
   function offsite()
   {
     document.write("<img src='images/world.gif' alt='[Off Site]' width='17' height='15' border='0'>");
@@ -13,15 +13,15 @@
   //]]>
   </script>
   <script type="text/javascript" src="script1.js">
-  </script>
+</script>
 </head>
 
 <body>
   <h1>Script sample 1</h1>
 
-  <p class="big">Headline project&mdash;Link to
-  <a href="http://offsite.com/"><script type="text/javascript">
-  //<![CDATA[
+  <p class="big">Headline project&mdash;Link to <a href=
+  "http://offsite.com/"><script type="text/javascript">
+//<![CDATA[
   offsite();
   //]]>
   </script>offsite page</a>.</p>
@@ -29,7 +29,7 @@
   <h1>Input 1</h1>
 
   <p>text<script type="text/javascript">
-  //<![CDATA[
+//<![CDATA[
   f(0);
   //]]>
   </script>text</p>

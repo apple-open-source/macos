@@ -672,7 +672,7 @@ struct WebCore::IDBDatabaseNameAndVersion {
 }
 
 class WebCore::IDBKeyData {
-    std::variant<std::nullptr_t, WebCore::IDBKeyData::Invalid, Vector<WebCore::IDBKeyData>, String, double, WebCore::IDBKeyData::Date, WebCore::ThreadSafeDataBuffer, WebCore::IDBKeyData::Min, WebCore::IDBKeyData::Max> value()
+    [Validator='WebCore::IDBKeyData::isValidValue(*value)'] std::variant<std::nullptr_t, WebCore::IDBKeyData::Invalid, Vector<WebCore::IDBKeyData>, String, double, WebCore::IDBKeyData::Date, WebCore::ThreadSafeDataBuffer, WebCore::IDBKeyData::Min, WebCore::IDBKeyData::Max> value()
 }
 
 [Nested] struct WebCore::IDBKeyData::Invalid {
@@ -3772,7 +3772,7 @@ header: <WebCore/ControlPart.h>
 
 header: <WebCore/ButtonPart.h>
 [RefCounted, AdditionalEncoder=StreamConnectionEncoder, DisableMissingMemberCheck] class WebCore::ButtonPart {
-    WebCore::StyleAppearance type();
+    [Validator='type == WebCore::StyleAppearance::Button || type == WebCore::StyleAppearance::DefaultButton || type == WebCore::StyleAppearance::PushButton || type == WebCore::StyleAppearance::SquareButton'] WebCore::StyleAppearance type();
 }
 
 header: <WebCore/InnerSpinButtonPart.h>
@@ -3793,12 +3793,12 @@ header: <WebCore/SearchFieldPart.h>
 
 header: <WebCore/SliderThumbPart.h>
 [RefCounted, AdditionalEncoder=StreamConnectionEncoder, DisableMissingMemberCheck] class WebCore::SliderThumbPart {
-    WebCore::StyleAppearance type();
+    [Validator='type == WebCore::StyleAppearance::SliderThumbHorizontal || type == WebCore::StyleAppearance::SliderThumbVertical'] WebCore::StyleAppearance type();
 }
 
 header: <WebCore/SearchFieldResultsPart.h>
 [RefCounted, AdditionalEncoder=StreamConnectionEncoder, DisableMissingMemberCheck] class WebCore::SearchFieldResultsPart {
-    WebCore::StyleAppearance type();
+    [Validator='type == WebCore::StyleAppearance::SearchFieldResultsButton || type == WebCore::StyleAppearance::SearchFieldResultsDecoration'] WebCore::StyleAppearance type();
 }
 
 header: <WebCore/SearchFieldCancelButtonPart.h>
@@ -3807,7 +3807,7 @@ header: <WebCore/SearchFieldCancelButtonPart.h>
 
 header: <WebCore/TextAreaPart.h>
 [RefCounted, AdditionalEncoder=StreamConnectionEncoder, DisableMissingMemberCheck] class WebCore::TextAreaPart {
-    WebCore::StyleAppearance type();
+    [Validator='type == WebCore::StyleAppearance::Listbox || type == WebCore::StyleAppearance::TextArea'] WebCore::StyleAppearance type();
 }
 
 header: <WebCore/TextFieldPart.h>
@@ -3816,7 +3816,7 @@ header: <WebCore/TextFieldPart.h>
 
 header: <WebCore/ToggleButtonPart.h>
 [RefCounted, AdditionalEncoder=StreamConnectionEncoder, DisableMissingMemberCheck] class WebCore::ToggleButtonPart {
-    WebCore::StyleAppearance type();
+    [Validator='type == WebCore::StyleAppearance::Checkbox || type == WebCore::StyleAppearance::Radio'] WebCore::StyleAppearance type();
 }
 
 #if ENABLE(SERVICE_CONTROLS)
@@ -3883,7 +3883,7 @@ enum class WebCore::ApplePayButtonStyle : uint8_t {
 };
 
 [RefCounted, AdditionalEncoder=StreamConnectionEncoder] class WebCore::SliderTrackPart {
-    WebCore::StyleAppearance type();
+    [Validator='type == WebCore::StyleAppearance::SliderHorizontal || type == WebCore::StyleAppearance::SliderVertical'] WebCore::StyleAppearance type();
     WebCore::IntSize thumbSize();
     WebCore::IntRect trackBounds();
     Vector<double> tickRatios();
@@ -5961,12 +5961,13 @@ enum class WebCore::AllowsContentJavaScript : bool
     HTTPSFirst,
     HTTPSOnly,
     HTTPSOnlyExplicitlyBypassedForDomain,
-    FailClosed,
+    FailClosedForUnreachableHosts,
     WebSearchContent,
     FingerprintingProtections,
     EnhancedNetworkPrivacy,
     LinkDecorationFiltering,
     ScriptTelemetry,
+    FailClosedForAllHosts,
 };
 
 enum class WebCore::ViolationReportType : uint8_t {

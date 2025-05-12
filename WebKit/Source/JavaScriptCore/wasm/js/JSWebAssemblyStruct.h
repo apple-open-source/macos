@@ -39,7 +39,7 @@ class JSWebAssemblyInstance;
 class JSWebAssemblyStruct final : public WebAssemblyGCObjectBase {
 public:
     using Base = WebAssemblyGCObjectBase;
-    static constexpr bool needsDestruction = true;
+    static constexpr DestructionMode needsDestruction = NeedsDestruction;
 
     static void destroy(JSCell*);
 

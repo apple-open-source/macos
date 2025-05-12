@@ -343,16 +343,27 @@ void UIDelegate::UIClient::createNewPage(WebKit::WebPageProxy&, Ref<API::PageCon
         return completionHandler(nullptr);
 
     auto delegate = uiDelegate->m_delegate.get();
-    ASSERT(delegate);
+    if (!delegate)
+        return completionHandler(nullptr);
 
-    ASSERT(configuration->windowFeatures());
+    if (!configuration->windowFeatures()) {
+        ASSERT_NOT_REACHED();
+        return completionHandler(nullptr);
+    }
+
     auto apiWindowFeatures = API::WindowFeatures::create(*configuration->windowFeatures());
     auto openerInfo = configuration->openerInfo();
+
+    ALLOW_DEPRECATED_DECLARATIONS_BEGIN
+    // FIXME: Remove this once the cause of rdar://148942809 is found and fixed.
+    RetainPtr relatedWebView = [wrapper(configuration) _relatedWebView];
+    ALLOW_DEPRECATED_DECLARATIONS_END
+    bool siteIsolationEnabled = configuration->preferences().siteIsolationEnabled();
 
     if (uiDelegate->m_delegateMethods.webViewCreateWebViewWithConfigurationForNavigationActionWindowFeaturesAsync) {
         auto checker = CompletionHandlerCallChecker::create(delegate.get(), @selector(_webView:createWebViewWithConfiguration:forNavigationAction:windowFeatures:completionHandler:));
 
-        [(id<WKUIDelegatePrivate>)delegate _webView:uiDelegate->m_webView.get().get() createWebViewWithConfiguration:wrapper(configuration) forNavigationAction:wrapper(navigationAction) windowFeatures:wrapper(apiWindowFeatures) completionHandler:makeBlockPtr([completionHandler = WTFMove(completionHandler), checker = WTFMove(checker), openerInfo] (WKWebView *webView) mutable {
+        [(id<WKUIDelegatePrivate>)delegate _webView:uiDelegate->m_webView.get().get() createWebViewWithConfiguration:wrapper(configuration) forNavigationAction:wrapper(navigationAction) windowFeatures:wrapper(apiWindowFeatures) completionHandler:makeBlockPtr([siteIsolationEnabled, relatedWebView, completionHandler = WTFMove(completionHandler), checker = WTFMove(checker), openerInfo] (WKWebView *webView) mutable {
             if (checker->completionHandlerHasBeenCalled())
                 return;
             checker->didCallCompletionHandler();
@@ -361,8 +372,15 @@ void UIDelegate::UIClient::createNewPage(WebKit::WebPageProxy&, Ref<API::PageCon
                 return completionHandler(nullptr);
 
             // FIXME: Move this to WebPageProxy once rdar://134317255 and rdar://134317400 are resolved.
-            if (openerInfo != webView->_configuration->_pageConfiguration->openerInfo())
-                [NSException raise:NSInternalInconsistencyException format:@"Returned WKWebView was not created with the given configuration."];
+            if (siteIsolationEnabled) {
+                if (openerInfo != webView->_configuration->_pageConfiguration->openerInfo())
+                    [NSException raise:NSInternalInconsistencyException format:@"Returned WKWebView was not created with the given configuration."];
+            } else {
+                ALLOW_DEPRECATED_DECLARATIONS_BEGIN
+                if ([webView->_configuration _relatedWebView] != relatedWebView.get())
+                    [NSException raise:NSInternalInconsistencyException format:@"Returned WKWebView was not created with the given configuration."];
+                ALLOW_DEPRECATED_DECLARATIONS_END
+            }
 
             completionHandler(webView->_page.get());
         }).get()];
@@ -376,8 +394,16 @@ void UIDelegate::UIClient::createNewPage(WebKit::WebPageProxy&, Ref<API::PageCon
         return completionHandler(nullptr);
 
     // FIXME: Move this to WebPageProxy once rdar://134317255 and rdar://134317400 are resolved.
-    if (openerInfo != webView.get()->_configuration->_pageConfiguration->openerInfo())
-        [NSException raise:NSInternalInconsistencyException format:@"Returned WKWebView was not created with the given configuration."];
+    if (siteIsolationEnabled) {
+        if (openerInfo != webView.get()->_configuration->_pageConfiguration->openerInfo())
+            [NSException raise:NSInternalInconsistencyException format:@"Returned WKWebView was not created with the given configuration."];
+    } else {
+        ALLOW_DEPRECATED_DECLARATIONS_BEGIN
+        if ([webView.get()->_configuration _relatedWebView] != relatedWebView.get())
+            [NSException raise:NSInternalInconsistencyException format:@"Returned WKWebView was not created with the given configuration."];
+        ALLOW_DEPRECATED_DECLARATIONS_END
+    }
+
     completionHandler(webView->_page.get());
 }
 

@@ -167,6 +167,8 @@ protected:
     void shouldUseModernAVContentKeySessionChanged();
 #endif
     void useSystemAppearanceChanged();
+    void fontFallbackPrefersPictographsChanged();
+    RefPtr<Page> protectedPage() const;
 
     WeakPtr<Page> m_page;
 

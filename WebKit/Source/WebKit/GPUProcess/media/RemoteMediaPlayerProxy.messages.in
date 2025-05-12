@@ -29,7 +29,7 @@
     EnabledBy=UseGPUProcessForMediaEnabled
 ]
 messages -> RemoteMediaPlayerProxy {
-    PrepareForPlayback(bool privateMode, enum:uint8_t WebCore::MediaPlayerPreload preload, bool preservesPitch, enum:uint8_t WebCore::MediaPlayerPitchCorrectionAlgorithm pitchCorrectionAlgorithm, bool prepareToPlay, bool prepareForRendering, WebCore::IntSize presentationSize, float videoContentScale, enum:uint8_t WebCore::DynamicRangeMode mode)
+    PrepareForPlayback(bool privateMode, enum:uint8_t WebCore::MediaPlayerPreload preload, bool preservesPitch, enum:uint8_t WebCore::MediaPlayerPitchCorrectionAlgorithm pitchCorrectionAlgorithm, bool prepareToPlay, bool prepareForRendering, WebCore::IntSize presentationSize, float videoContentScale, bool isFullscreen, enum:uint8_t WebCore::DynamicRangeMode mode)
 
     Load(URL url, std::optional<WebKit::SandboxExtensionHandle> sandboxExtension, WebCore::ContentType contentType, String keySystem, bool requiresRemotePlayback) -> (struct WebKit::RemoteMediaPlayerConfiguration playerConfiguration)
 #if ENABLE(MEDIA_SOURCE)

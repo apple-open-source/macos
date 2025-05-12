@@ -14607,6 +14607,7 @@ smbfs_fetch_new_entries(struct smb_share *share, vnode_t dvp,
     int old_dir = 0;
     uint32_t cache_entries_added = 0;
     off_t current_offset = 0, target_offset = offset;
+    int close_error = 0;
 
     dnp = VTOSMB(dvp);
     current_offset = dnp->d_offset;
@@ -14618,11 +14619,8 @@ smbfs_fetch_new_entries(struct smb_share *share, vnode_t dvp,
     SMB_LOG_KTRACE(SMB_DBG_SMBFS_FETCH_NEW_ENTRIES | DBG_FUNC_START,
                    offset, dnp->d_offset, cachep->offset, 0, 0);
 
-    if ((ctx = dnp->d_fctx) &&
-        ctx->f_fid_closed &&
-        SLIST_EMPTY(&ctx->f_queries) &&
-        ((ctx->f_flags & SMBFS_RDD_EOF) == SMBFS_RDD_EOF)) {
-        smbfs_fetch_new_entries_eof(dvp, cachep, context);
+    if ((cachep->flags & kDirCacheComplete) &&
+        (cachep->offset == offset)) {
         error = ENOENT;
         goto done;
     }
@@ -14754,7 +14752,7 @@ smbfs_fetch_new_entries(struct smb_share *share, vnode_t dvp,
         /*
          * We're filling the overflow cache and it's empty, initialize its offset
          */
-        cachep->offset = offset;
+        cachep->start_offset = cachep->offset = offset;
     }
     
     if (error) {
@@ -14789,7 +14787,7 @@ smbfs_fetch_new_entries(struct smb_share *share, vnode_t dvp,
                    fetch_count, 0, 0, 0, 0);
 
     while (fetch_count > 0) {
-        if (ctx->f_fid_closed && SLIST_EMPTY(&ctx->f_queries)) {
+        if (ctx->f_fid_closed && STAILQ_EMPTY(&ctx->f_queries)) {
             /* dir was closed after sending the last query dir
              * because the directory needs to be closed whenever possible
              * we have no more saved entries
@@ -14886,13 +14884,13 @@ smbfs_fetch_new_entries(struct smb_share *share, vnode_t dvp,
      */
     if ((ctx = dnp->d_fctx) &&
         ctx->f_need_close && is_overflow) {
-        error = smb2_smb_close_fid(ctx->f_share, ctx->f_create_fid,
+        close_error = smb2_smb_close_fid(ctx->f_share, ctx->f_create_fid,
                                    NULL, NULL, NULL, context);
         smbfs_remove_dir_lease(dnp, "smbfs_fetch_new_entries done");
         ctx->f_need_close = FALSE;
         ctx->f_fid_closed = TRUE;
-        if (error) {
-            SMBDEBUG("smb2_smb_close_fid failed %d\n", error);
+        if (close_error) {
+            SMBDEBUG("smb2_smb_close_fid failed %d\n", close_error);
         }
     }
 
@@ -15079,9 +15077,8 @@ smbfs_active_cookies_cnt(struct vnode *dvp) {
 
     /* Find an entry which has 0 for the time (unused) or the oldest */
     for (i = 0; i < kSMBDirCookieMaxCnt; i++) {
-        if (((dnp->d_cookies[i].last_used.tv_sec != 0) ||
-             (dnp->d_cookies[i].last_used.tv_nsec != 0)) &&
-            (dnp->d_cookies[i].resume_node_id != 0)) {
+        if ((dnp->d_cookies[i].last_used.tv_sec != 0) ||
+            (dnp->d_cookies[i].last_used.tv_nsec != 0)) {
             counter++;
         }
     }
@@ -15091,7 +15088,7 @@ smbfs_active_cookies_cnt(struct vnode *dvp) {
 }
 
 static off_t
-smbfs_cookies_min_offset(struct vnode *dvp, uint64_t key)
+smbfs_cookies_min_offset(struct vnode *dvp, uint64_t key, off_t start_offset)
 {
     uint8_t i = 0;
     off_t min_offset = 0;
@@ -15106,10 +15103,16 @@ smbfs_cookies_min_offset(struct vnode *dvp, uint64_t key)
     
     lck_mtx_lock(&dnp->d_cookie_lock);
 
-    /* Find an entry which has 0 for the time (unused) or the oldest */
     for (i = 0; i < kSMBDirCookieMaxCnt; i++) {
         if (dnp->d_cookies[i].key == key) {
             continue;;
+        }
+        if (dnp->d_cookies[i].resume_offset <= start_offset) {
+            /*
+             * a thread is enumerating behind the overflow cache
+             * don't take it into consideration
+             */
+            continue;
         }
         if ((dnp->d_cookies[i].last_used.tv_sec != 0) ||
             (dnp->d_cookies[i].last_used.tv_nsec != 0)) {
@@ -15792,18 +15795,17 @@ done_with_saved:
             /* Add more entries into overflow cache */
             SMB_LOG_DIR_CACHE_LOCK(dnp, "Using overflow for <%s> \n",
                                    dnp->n_name);
-
-            /*
-             * Currently, Finder has two threads enumerating at the same time
-             * don't remove entries that should be returned next from the cache
-             */
-            off_t min_offset = smbfs_cookies_min_offset(dvp, key);
-            if (min_offset == 0 || offset < min_offset) {
-                /* this is the only thread enumerating or,
-                 * this is the thread with the smallest offset
-                 * note: offset may not be equal to cookie.resume_offset
+            off_t min_offset = 0;
+            if (offset > dnp->d_overflow_cache.start_offset &&
+                offset <= dnp->d_overflow_cache.offset) {
+                /*
+                 * We're about to read within the range of the overflow cache
+                 * Finder usually has two threads enumerating at the same time
+                 * try to keep as much of the cache as possible
                  */
-                min_offset = offset;
+                min_offset = smbfs_cookies_min_offset(dvp,
+                                                      key,
+                                                      dnp->d_overflow_cache.start_offset);
             }
             
             /*

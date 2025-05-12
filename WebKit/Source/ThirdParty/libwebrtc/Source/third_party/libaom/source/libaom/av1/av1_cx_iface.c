@@ -1540,11 +1540,14 @@ static aom_codec_err_t encoder_set_config(aom_codec_alg_priv_t *ctx,
     // Note: function encoder_set_config() is allowed to be called multiple
     // times. However, when the original frame width or height is less than two
     // times of the new frame width or height, a forced key frame should be
-    // used. To make sure the correct detection of a forced key frame, we need
+    // used (for the case of single spatial layer, since otherwise a previous
+    // encoded frame at a lower layer may be the desired reference). To make
+    // sure the correct detection of a forced key frame, we need
     // to update the frame width and height only when the actual encoding is
     // performed. cpi->last_coded_width and cpi->last_coded_height are used to
     // track the actual coded frame size.
-    if (ctx->ppi->cpi->last_coded_width && ctx->ppi->cpi->last_coded_height &&
+    if (ctx->ppi->cpi->svc.number_spatial_layers == 1 &&
+        ctx->ppi->cpi->last_coded_width && ctx->ppi->cpi->last_coded_height &&
         (!valid_ref_frame_size(ctx->ppi->cpi->last_coded_width,
                                ctx->ppi->cpi->last_coded_height, cfg->g_w,
                                cfg->g_h) ||

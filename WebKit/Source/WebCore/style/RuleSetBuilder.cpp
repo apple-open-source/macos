@@ -350,9 +350,11 @@ void RuleSetBuilder::addStyleRule(StyleRuleNestedDeclarations& rule)
             return *m_selectorListStack.last();
         ASSERT(m_ancestorStack.last() == CSSParserEnum::NestedContextType::Scope);
         return CSSSelectorList { MutableCSSSelectorList::from(whereScopeSelector()) };
-    }();
+    };
 
-    rule.wrapperAdoptSelectorList(WTFMove(selectorList));
+    if (m_shouldResolveNestingForSheet)
+        rule.wrapperAdoptSelectorList(selectorList());
+
     addStyleRuleWithSelectorList(rule.selectorList(), rule);
 }
 

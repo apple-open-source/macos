@@ -108,8 +108,6 @@ public:
 
     DECLARE_INFO;
 
-    static constexpr bool needsDestructor = true;
-
     static Structure* createStructure(VM& vm, JSValue prototype)
     {
         return Structure::create(vm, nullptr, prototype, TypeInfo(GlobalObjectType, StructureFlags), info());

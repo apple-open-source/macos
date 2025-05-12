@@ -1223,7 +1223,7 @@ void WebPage::sendTapHighlightForNodeIfNecessary(WebKit::TapIdentifier requestID
 
     if (RefPtr element = dynamicDowncast<Element>(*node)) {
         ASSERT(m_page);
-        localMainFrame->loader().client().prefetchDNS(element->absoluteLinkURL().host().toString());
+        localMainFrame->loader().prefetchDNSIfNeeded(element->absoluteLinkURL());
     }
 
     if (RefPtr area = dynamicDowncast<HTMLAreaElement>(*node)) {
@@ -5546,15 +5546,19 @@ void WebPage::requestDocumentEditingContext(DocumentEditingContextRequest&& requ
                 return end;
             }();
 
-            rangeOfInterest.start = std::clamp(rangeOfInterest.start, startPositionNearSelection, endPositionNearSelection);
-            rangeOfInterest.end = std::clamp(rangeOfInterest.end, startPositionNearSelection, endPositionNearSelection);
+            if (startPositionNearSelection <= endPositionNearSelection) {
+                rangeOfInterest.start = std::clamp(rangeOfInterest.start, startPositionNearSelection, endPositionNearSelection);
+                rangeOfInterest.end = std::clamp(rangeOfInterest.end, startPositionNearSelection, endPositionNearSelection);
+            }
         }
         if (request.options.contains(DocumentEditingContextRequest::Options::SpatialAndCurrentSelection)) {
             if (RefPtr rootEditableElement = selection.rootEditableElement()) {
                 VisiblePosition startOfEditableRoot { firstPositionInOrBeforeNode(rootEditableElement.get()) };
                 VisiblePosition endOfEditableRoot { lastPositionInOrAfterNode(rootEditableElement.get()) };
-                rangeOfInterest.start = std::clamp(rangeOfInterest.start, startOfEditableRoot, endOfEditableRoot);
-                rangeOfInterest.end = std::clamp(rangeOfInterest.end, startOfEditableRoot, endOfEditableRoot);
+                if (startOfEditableRoot <= endOfEditableRoot) {
+                    rangeOfInterest.start = std::clamp(rangeOfInterest.start, startOfEditableRoot, endOfEditableRoot);
+                    rangeOfInterest.end = std::clamp(rangeOfInterest.end, startOfEditableRoot, endOfEditableRoot);
+                }
             }
         }
     } else if (!selection.isNone())

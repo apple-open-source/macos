@@ -261,7 +261,8 @@ int smb2fs_smb_query_network_interface_info(struct smb_share *share, vfs_context
 int smbfs_smb_undollardata(const char *fname, char *name, size_t *nmlen,
                            uint32_t *is_data);
 struct smbfs_fctx_query_t* smb2fs_smb_add_fctx_query(struct smbfs_fctx *ctx);
-int smb2fs_smb_free_fctx_query_head(struct smbfs_fctx *ctx) ;
+int smb2fs_smb_free_fctx_query_head(struct smbfs_fctx *ctx);
+int smb2fs_smb_free_fctx_query_tail(struct smbfs_fctx *ctx);
 int smbfs_add_dir_entry(vnode_t dvp, uio_t uio, int flags, const char *name, size_t name_len,
                         struct smbfattr *fap, int is_attrlist);
 int smbfs_enum_dir(struct vnode *dvp, uio_t uio, int is_attrlist, void* vnop_argsp);

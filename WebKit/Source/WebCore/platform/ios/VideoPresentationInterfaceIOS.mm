@@ -157,54 +157,58 @@ void VideoPresentationInterfaceIOS::ensurePipPlacardIsShowing()
         return;
     }
 
-    RetainPtr pipPlacard = adoptNS([PAL::allocUIViewInstance() initWithFrame:[layerHostView() bounds]]);
-    [pipPlacard setBackgroundColor:blackUIColor()];
-    [pipPlacard setTranslatesAutoresizingMaskIntoConstraints:NO];
+    @try {
+        RetainPtr pipPlacard = adoptNS([PAL::allocUIViewInstance() initWithFrame:[layerHostView() bounds]]);
+        [pipPlacard setBackgroundColor:blackUIColor()];
+        [pipPlacard setTranslatesAutoresizingMaskIntoConstraints:NO];
 
-    RetainPtr image = [[[PAL::getUIImageClass() systemImageNamed:@"pip"] imageWithTintColor:greyUIColor() renderingMode:UIImageRenderingModeAlwaysOriginal] imageWithConfiguration:[PAL::getUIImageSymbolConfigurationClass() configurationWithWeight:UIImageSymbolWeightThin]];
+        RetainPtr image = [[[PAL::getUIImageClass() systemImageNamed:@"pip"] imageWithTintColor:greyUIColor() renderingMode:UIImageRenderingModeAlwaysOriginal] imageWithConfiguration:[PAL::getUIImageSymbolConfigurationClass() configurationWithWeight:UIImageSymbolWeightThin]];
 
-    RetainPtr imageView = adoptNS([PAL::allocUIImageViewInstance() initWithImage:image.get()]);
-    [imageView setContentMode:UIViewContentModeScaleAspectFit];
-    [imageView setTranslatesAutoresizingMaskIntoConstraints:NO];
+        RetainPtr imageView = adoptNS([PAL::allocUIImageViewInstance() initWithImage:image.get()]);
+        [imageView setContentMode:UIViewContentModeScaleAspectFit];
+        [imageView setTranslatesAutoresizingMaskIntoConstraints:NO];
 
-    [pipPlacard addSubview:imageView.get()];
+        [pipPlacard addSubview:imageView.get()];
 
-    auto pipLabel = adoptNS([PAL::allocUILabelInstance() init]);
-    [pipLabel setText:@"This video is playing in picture in picture."];
-    [pipLabel setTextAlignment:NSTextAlignmentCenter];
-    [pipLabel setTextColor:greyUIColor()];
-    [pipLabel setFont:[PAL::getUIFontClass() systemFontOfSize:16]];
-    [pipLabel setTranslatesAutoresizingMaskIntoConstraints:NO];
+        auto pipLabel = adoptNS([PAL::allocUILabelInstance() init]);
+        [pipLabel setText:@"This video is playing in picture in picture."];
+        [pipLabel setTextAlignment:NSTextAlignmentCenter];
+        [pipLabel setTextColor:greyUIColor()];
+        [pipLabel setFont:[PAL::getUIFontClass() systemFontOfSize:16]];
+        [pipLabel setTranslatesAutoresizingMaskIntoConstraints:NO];
 
-    [pipPlacard addSubview:pipLabel.get()];
+        [pipPlacard addSubview:pipLabel.get()];
 
-    [NSLayoutConstraint activateConstraints:@[
-        [[imageView widthAnchor] constraintEqualToConstant:[image size].width * 8],
-        [[imageView heightAnchor] constraintEqualToConstant:[image size].height * 8],
-        [[imageView centerXAnchor] constraintEqualToAnchor:[pipPlacard centerXAnchor]],
-        [[imageView centerYAnchor] constraintEqualToAnchor:[pipPlacard centerYAnchor]],
-        [[pipLabel centerXAnchor] constraintEqualToAnchor:[pipPlacard centerXAnchor]],
-        [[pipLabel topAnchor] constraintEqualToAnchor:[imageView bottomAnchor] constant:10],
-    ]];
+        [NSLayoutConstraint activateConstraints:@[
+            [[imageView widthAnchor] constraintEqualToConstant:[image size].width * 8],
+            [[imageView heightAnchor] constraintEqualToConstant:[image size].height * 8],
+            [[imageView centerXAnchor] constraintEqualToAnchor:[pipPlacard centerXAnchor]],
+            [[imageView centerYAnchor] constraintEqualToAnchor:[pipPlacard centerYAnchor]],
+            [[pipLabel centerXAnchor] constraintEqualToAnchor:[pipPlacard centerXAnchor]],
+            [[pipLabel topAnchor] constraintEqualToAnchor:[imageView bottomAnchor] constant:10],
+        ]];
+    
+        CGFloat placardWidth = [pipPlacard frame].size.width;
+        CGFloat placardHeight = [pipPlacard frame].size.height;
+    
+        if (placardWidth < 170 || placardHeight < 170)
+            [imageView setHidden:YES];
+        if (placardHeight < 100)
+            [pipLabel setHidden:YES];
+    
+        UIView *parentView = layerHostView().superview;
+        [parentView.superview insertSubview:pipPlacard.get() atIndex:0];
+        [NSLayoutConstraint activateConstraints:@[
+            [parentView.leadingAnchor constraintEqualToAnchor:[pipPlacard leadingAnchor]],
+            [parentView.trailingAnchor constraintEqualToAnchor:[pipPlacard trailingAnchor]],
+            [parentView.topAnchor constraintEqualToAnchor:[pipPlacard topAnchor]],
+            [parentView.bottomAnchor constraintEqualToAnchor:[pipPlacard bottomAnchor]],
+        ]];
 
-    CGFloat placardWidth = [pipPlacard frame].size.width;
-    CGFloat placardHeight = [pipPlacard frame].size.height;
-
-    if (placardWidth < 170 || placardHeight < 170)
-        [imageView setHidden:YES];
-    if (placardHeight < 100)
-        [pipLabel setHidden:YES];
-
-    UIView *parentView = layerHostView().superview;
-    [parentView.superview insertSubview:pipPlacard.get() atIndex:0];
-    [NSLayoutConstraint activateConstraints:@[
-        [parentView.leadingAnchor constraintEqualToAnchor:[pipPlacard leadingAnchor]],
-        [parentView.trailingAnchor constraintEqualToAnchor:[pipPlacard trailingAnchor]],
-        [parentView.topAnchor constraintEqualToAnchor:[pipPlacard topAnchor]],
-        [parentView.bottomAnchor constraintEqualToAnchor:[pipPlacard bottomAnchor]],
-    ]];
-
-    m_pipPlacard = pipPlacard;
+        m_pipPlacard = pipPlacard;
+    } @catch (NSException *exception) {
+        ERROR_LOG_IF_POSSIBLE(LOGIDENTIFIER, "user info: ", exception.reason);
+    }
 }
 
 void VideoPresentationInterfaceIOS::setupFullscreen(const FloatRect& initialRect, const FloatSize&, UIView* parentView, HTMLMediaElementEnums::VideoFullscreenMode mode, bool allowsPictureInPicturePlayback, bool standby, bool blocksReturnToFullscreenFromPictureInPicture)
@@ -241,6 +245,21 @@ std::optional<MediaPlayerIdentifier>VideoPresentationInterfaceIOS::playerIdentif
 void VideoPresentationInterfaceIOS::setPlayerIdentifier(std::optional<MediaPlayerIdentifier> identifier)
 {
     m_playbackSessionInterface->setPlayerIdentifier(WTFMove(identifier));
+}
+
+void VideoPresentationInterfaceIOS::audioSessionCategoryChanged(WebCore::AudioSessionCategory, WebCore::AudioSessionMode, WebCore::RouteSharingPolicy)
+{
+    auto model = videoPresentationModel();
+    if (!model)
+        return;
+
+    // Re-request the routeContextUUID in case it also changed when the category did.
+    model->requestRouteSharingPolicyAndContextUID([this, protectedThis = Ref { *this }] (RouteSharingPolicy policy, String contextUID) {
+        m_routeSharingPolicy = policy;
+        m_routingContextUID = contextUID;
+
+        updateRouteSharingPolicy();
+    });
 }
 
 void VideoPresentationInterfaceIOS::requestHideAndExitFullscreen()

@@ -38,7 +38,7 @@ namespace WebKit {
 
 WTF_MAKE_TZONE_ALLOCATED_IMPL(WebExtensionSQLiteStatement);
 
-WebExtensionSQLiteStatement::WebExtensionSQLiteStatement(Ref<WebExtensionSQLiteDatabase> database, const String& query, RefPtr<API::Error> outError)
+WebExtensionSQLiteStatement::WebExtensionSQLiteStatement(Ref<WebExtensionSQLiteDatabase> database, const String& query, RefPtr<API::Error>& outError)
     : m_db(database)
 {
     Ref db = m_db;

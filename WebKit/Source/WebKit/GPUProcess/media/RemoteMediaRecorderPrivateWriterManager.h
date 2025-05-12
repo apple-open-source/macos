@@ -75,7 +75,7 @@ public:
     bool allowsExitUnderMemoryPressure() { return m_remoteMediaRecorderPrivateWriters.isEmpty(); }
 
     // Messages.
-    void create(RemoteMediaRecorderPrivateWriterIdentifier, const String&);
+    void create(RemoteMediaRecorderPrivateWriterIdentifier);
     void addMediaRecorderPrivateWriter(RemoteMediaRecorderPrivateWriterIdentifier);
     void addAudioTrack(RemoteMediaRecorderPrivateWriterIdentifier, RemoteAudioInfo, CompletionHandler<void(std::optional<uint8_t>)>&&);
     void addVideoTrack(RemoteMediaRecorderPrivateWriterIdentifier, RemoteVideoInfo, std::optional<CGAffineTransform>, CompletionHandler<void(std::optional<uint8_t>)>&&);

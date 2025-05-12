@@ -134,7 +134,7 @@ enum {
         retry = true;
     } else if ([self.domain isEqualToString:TrustedPeersHelperErrorDomain]) {
         switch (self.code) {
-        case TrustedPeersHelperErrorUnknownCloudKitError:
+        case TrustedPeersHelperErrorCodeUnknownCloudKitError:
             retry = true;
             break;
         default:

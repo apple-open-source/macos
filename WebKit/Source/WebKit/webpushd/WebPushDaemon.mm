@@ -534,11 +534,12 @@ void WebPushDaemon::handleIncomingPush(const PushSubscriptionSetIdentifier& iden
 #if HAVE(FULL_FEATURED_USER_NOTIFICATIONS)
 static bool supportsBuiltinNotifications(const PushSubscriptionSetIdentifier& identifier)
 {
+#if PLATFORM(IOS)
     if (identifier.pushPartition.isEmpty())
         return false;
-
+#endif
 #if PLATFORM(MAC)
-    if (identifier.bundleIdentifier == "com.apple.Safari"_s || identifier.bundleIdentifier == "com.apple.SafariTechnologyPreview"_s)
+    if (identifier.bundleIdentifier != "com.apple.WebKit.TestWebKitAPI"_s)
         return false;
 #endif // PLATFORM(MAC)
 

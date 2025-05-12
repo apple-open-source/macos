@@ -75,5 +75,9 @@ sccontrolprefs: SCControlPrefs.c
 	$(CC) -DTEST_SCCONTROL_PREFS -I../common -isysroot $(SYSROOT) $(ARCH_FLAGS) $(SYSPRIV) $(SC_INCLUDE) -framework SystemConfiguration $(PF_INC) -framework CoreFoundation -Wall -g -o $@ $^
 	codesign -s - $@
 
+valid-dns-names: SCValidation.c
+	$(CC) -DTEST_VALID_DNS_NAMES -I../common -isysroot $(SYSROOT) $(ARCH_FLAGS) $(SYSPRIV) $(SC_INCLUDE) -framework SystemConfiguration $(PF_INC) -framework CoreFoundation -Wall -g -o $@ $^
+	codesign -s - $@
+
 clean:
-	rm -rf *.o *~ *.dSYM scnetworkdefaultset network-settings category-transform scnetworkcategory scnetworkinterface sccontrolprefs
+	rm -rf *.o *~ *.dSYM scnetworkdefaultset network-settings category-transform scnetworkcategory scnetworkinterface sccontrolprefs valid-dns-names

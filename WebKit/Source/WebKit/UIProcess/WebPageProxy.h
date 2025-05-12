@@ -2665,6 +2665,8 @@ private:
     bool shouldForceForegroundPriorityForClientNavigation() const;
 
     bool canCreateFrame(WebCore::FrameIdentifier) const;
+    Ref<WebPageProxy> downloadOriginatingPage(const API::Navigation*);
+    Ref<WebPageProxy> navigationOriginatingPage(const FrameInfoData&);
 
     RefPtr<API::Navigation> goToBackForwardItem(WebBackForwardListFrameItem&, WebCore::FrameLoadType);
 
