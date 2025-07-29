@@ -123,7 +123,7 @@ struct vm_object_fault_info {
 	/* boolean_t */ fi_used_for_tpro:1,
 	/* boolean_t */ fi_change_wiring:1,
 	/* boolean_t */ fi_no_sleep:1,
-	__vm_object_fault_info_unused_bits:19;
+	    __vm_object_fault_info_unused_bits:19;
 	int             pmap_options;
 };
 
@@ -320,7 +320,7 @@ struct vm_object {
 	vm_object_offset_t      last_alloc;     /* last allocation offset */
 	vm_offset_t             cow_hint;       /* last page present in     */
 	                                        /* shadow but not in object */
-	int                     sequential;     /* sequential access size */
+	int32_t                 sequential;     /* sequential access size */
 
 	uint32_t                pages_created;
 	uint32_t                pages_used;

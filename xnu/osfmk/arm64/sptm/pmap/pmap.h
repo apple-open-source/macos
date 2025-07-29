@@ -546,6 +546,7 @@ extern boolean_t pmap_bootloader_page(ppnum_t pn);
 extern boolean_t pmap_is_empty(pmap_t pmap, vm_map_offset_t start, vm_map_offset_t end);
 
 
+
 #define ARM_PMAP_MAX_OFFSET_DEFAULT 0x01
 #define ARM_PMAP_MAX_OFFSET_MIN     0x02
 #define ARM_PMAP_MAX_OFFSET_MAX     0x04

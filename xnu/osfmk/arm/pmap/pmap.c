@@ -12911,6 +12911,7 @@ pmap_user_va_size(pmap_t pmap)
 
 
 
+
 bool
 pmap_in_ppl(void)
 {

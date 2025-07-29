@@ -351,7 +351,11 @@ SecPolicyRef SecPolicyCreateWithProperties(CFTypeRef policyIdentifier,
     } else if (CFEqual(policyIdentifier, kSecPolicyAppleRevocation)) {
         policy = SecPolicyCreateRevocation(kSecRevocationUseAnyAvailableMethod);
     } else if (CFEqual(policyIdentifier, kSecPolicyApplePassbookSigning)) {
-        policy = SecPolicyCreatePassbookCardSigner(name, teamID);
+        if (name) {
+            policy = SecPolicyCreatePassbookCardSigner(name, teamID);
+        } else {
+            secerror("policy \"%@\" requires kSecPolicyName input", policyIdentifier);
+        }
     } else if (CFEqual(policyIdentifier, kSecPolicyAppleAST2DiagnosticsServerAuth)) {
         if (name) {
             policy = SecPolicyCreateAppleAST2Service(name, context);
@@ -395,10 +399,10 @@ SecPolicyRef SecPolicyCreateWithProperties(CFTypeRef policyIdentifier,
             secerror("policy \"%@\" requires kSecPolicyPolicyName input", policyIdentifier);
         }
     } else if (CFEqual(policyIdentifier, kSecPolicyAppleGenericAppleSSLPinned)) {
-        if (policyName) {
+        if (policyName && name && leafMarkerOid) {
             policy = SecPolicyCreateAppleSSLPinned(policyName, name, intermediateMarkerOid, leafMarkerOid);
         } else {
-            secerror("policy \"%@\" requires kSecPolicyPolicyName input", policyIdentifier);
+            secerror("policy \"%@\" requires kSecPolicyPolicyName, kSecPolicyName, and kSecPolicyLeafMarkerOid  input", policyIdentifier);
         }
     } else if (CFEqual(policyIdentifier, kSecPolicyAppleIDSServiceContext)) {
         if (name) {
@@ -427,7 +431,10 @@ SecPolicyRef SecPolicyCreateWithProperties(CFTypeRef policyIdentifier,
     } else if (CFEqual(policyIdentifier, kSecPolicyAppleComponentCertificate)) {
         policy = SecPolicyCreateAppleComponentCertificate(rootDigest);
     } else if (CFEqual(policyIdentifier, kSecPolicyAppleAggregateMetricTransparency)) {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
         policy = SecPolicyCreateAggregateMetricTransparency(!client);
+#pragma clang diagnostic pop // ignored "-Wdeprecated-declarations"
     } else if (CFEqual(policyIdentifier, kSecPolicyAppleAggregateMetricEncryption)) {
         policy = SecPolicyCreateAggregateMetricEncryption(!client);
     } else if (CFEqual(policyIdentifier, kSecPolicyApplePayModelSigning)) {
@@ -463,17 +470,20 @@ SecPolicyRef SecPolicyCreateWithProperties(CFTypeRef policyIdentifier,
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
 #pragma clang diagnostic ignored "-Wunguarded-availability"
 #define _P_OPTION_
-#define _P_OPTION_N name
+#define _P_OPTION_N && name
+#define _P_PARAM_
+#define _P_PARAM_N name
 #define _P_PROPERTIES_(NAME, IN_NAME, FUNCTION)
-#define _P_PROPERTIES_Y(NAME, IN_NAME, FUNCTION)  else if (CFEqual(policyIdentifier, kSecPolicyApple##NAME)) { \
-    policy = SecPolicyCreate##FUNCTION(_P_OPTION_##IN_NAME); \
-}
+#define _P_PROPERTIES_Y(NAME, IN_NAME, FUNCTION) \
+    else if (CFEqual(policyIdentifier, kSecPolicyApple##NAME) _P_OPTION_##IN_NAME) { \
+        policy = SecPolicyCreate##FUNCTION(_P_PARAM_##IN_NAME); \
+    }
 #undef POLICYMACRO
 #define POLICYMACRO(NAME, OID, ISPUBLIC, ANCHOR_STORE, INTNAME, IN_NAME, IN_PROPERTIES, FUNCTION) \
 _P_PROPERTIES_##IN_PROPERTIES(NAME, IN_NAME, FUNCTION)
 #include "SecPolicy.list"
 	else {
-		secerror("ERROR: policy \"%@\" is unsupported", policyIdentifier);
+		secerror("ERROR: policy \"%@\" is unsupported or requires additional inputs", policyIdentifier);
 	}
 #pragma clang diagnostic pop // ignored "-Wdeprecated-declarations"
 

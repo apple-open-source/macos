@@ -27,9 +27,8 @@ refuse_body() {
 	ln -s ../bar ${dst}/link
 	bar=$(realpath bar)
 	atf_check -s not-exit:0 -o ignore \
-	    -e match:"cannot enter ${bar}" \
-	    -e match:"Operation not permitted" \
-	    -e match:"unable to process link/file.txt" \
+	    -e match:"cannot enter ${dst}/link" \
+	    -e match:"Permission denied" \
 	    unzip -d ${dst} "${input}"
 	atf_check -s not-exit:0 \
 	    test -f bar/file.txt

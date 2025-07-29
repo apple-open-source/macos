@@ -141,15 +141,13 @@ GetByStatus GetByStatus::computeFromLLInt(CodeBlock* profiledBlock, BytecodeInde
             if (metadata.m_hasInstanceModeMetadata.mode != GetByIdMode::Default)
                 return GetByStatus(NoInformation, false);
             structureID = metadata.m_hasInstanceModeMetadata.defaultMode.structureID;
-            identifier = &vm.propertyNames->done;
+            identifier = &vm.propertyNames->hasInstanceSymbol;
             break;
         case OpInstanceof::getPrototype:
             if (metadata.m_prototypeModeMetadata.mode != GetByIdMode::Default)
                 return GetByStatus(NoInformation, false);
             structureID = metadata.m_prototypeModeMetadata.defaultMode.structureID;
-            identifier = &vm.propertyNames->value;
-            break;
-        case OpInstanceof::instanceof:
+            identifier = &vm.propertyNames->prototype;
             break;
         default:
             RELEASE_ASSERT_NOT_REACHED();

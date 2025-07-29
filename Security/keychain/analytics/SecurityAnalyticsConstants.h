@@ -91,6 +91,10 @@ extern NSString *const kSecurityRTCEventNamePiggybackingSessionInitiatorHandleCh
 extern NSString *const kSecurityRTCEventNamePiggybackingSessionInitiatorHandleVerification;
 extern NSString *const kSecurityRTCEventNamePiggybackingCircleInitiatorInitialMessage;
 extern NSString *const kSecurityRTCEventNamePiggybackingCircleInitiatorHandleCircleBlobMessage;
+extern NSString *const kSecurityRTCEventNamePiggybackingInitiatorPreVersion3Change;
+extern NSString *const kSecurityRTCEventNamePiggybackingAcceptorPreVersion3Change;
+extern NSString *const kSecurityRTCEventNamePiggybackingInitiatorChannelSecured;
+extern NSString *const kSecurityRTCEventNamePiggybackingAcceptorChannelSecured;
 
 // MARK: Escrow Recovery Events
 extern NSString *const kSecurityRTCEventNamePerformSilentEscrowRecovery;

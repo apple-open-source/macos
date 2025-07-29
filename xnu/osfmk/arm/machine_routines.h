@@ -124,7 +124,7 @@ do {                                                                            
 	if (static_if(sched_debug_interrupt_disable) && os_atomic_load(&interrupt_masked_timeout, relaxed) > 0) { \
 	    thread_t thread = current_thread();                                                 \
 	    thread->machine.int_type = type;                                                    \
-	    thread->machine.int_handler_addr = (uintptr_t)VM_KERNEL_STRIP_UPTR(handler_addr);   \
+	    thread->machine.int_handler_addr = (uintptr_t)VM_KERNEL_STRIP_PTR(handler_addr);    \
 	    thread->machine.inthandler_timestamp = ml_get_sched_hygiene_timebase();             \
 	    INTERRUPT_MASKED_DEBUG_CAPTURE_PMC(thread);                                         \
 	    thread->machine.int_vector = (uintptr_t)NULL;                                       \

@@ -79,6 +79,7 @@
 #include <sys/kernel.h>
 #include <sys/systm.h>
 #include <sys/proc.h>
+#include <sys/mbuf.h>
 #include <sys/kpi_mbuf.h>
 #include <sys/malloc.h>
 #include <sys/socket.h>
@@ -190,14 +191,14 @@ netaddr_match(
 
 	switch (family) {
 	case AF_INET:
-		inetaddr = mbuf_data(nam);
+		inetaddr = SIN(mtod(nam, caddr_t));
 		if ((inetaddr->sin_family == AF_INET) &&
 		    (inetaddr->sin_addr.s_addr == haddr->had_inetaddr)) {
 			return 1;
 		}
 		break;
 	case AF_INET6:
-		inet6addr = mbuf_data(nam);
+		inet6addr = SIN6(mtod(nam, caddr_t));
 		if ((inet6addr->sin6_family == AF_INET6) &&
 		    !bcmp(&inet6addr->sin6_addr, &haddr->had_inet6addr, sizeof(inet6addr->sin6_addr))) {
 			return 1;
@@ -334,7 +335,7 @@ loop:
 	TAILQ_INSERT_TAIL(&nfsrv_reqcache_lruhead, rp, rc_lru);
 	rp->rc_state = RC_INPROG;
 	rp->rc_xid = nd->nd_retxid;
-	saddr = mbuf_data(nd->nd_nam);
+	saddr = SA(mtod(nd->nd_nam, caddr_t));
 	rp->rc_family = saddr->sa_family;
 	switch (saddr->sa_family) {
 	case AF_INET:

@@ -427,7 +427,7 @@ backup_file(int fromdfd, const char *fname, int todfd, const char *tname,
 	struct stat st;
 	int rc;
 
-	rc = move_file(fromdfd, fname, todfd, tname, replace);
+	rc = move_file(fromdfd, fname, todfd, tname, replace, 0);
 	if (rc != 0)
 		return rc;
 
@@ -438,9 +438,7 @@ backup_file(int fromdfd, const char *fname, int todfd, const char *tname,
 	 * Set metadata on the backup file to match the metadata
 	 * from the original destination file.
 	 */
-	if (st.st_atim.tv_sec != dstat->atime.tv_sec ||
-	    st.st_atim.tv_nsec != dstat->atime.tv_nsec ||
-	    st.st_mtim.tv_sec != dstat->mtime.tv_sec ||
+	if (st.st_mtim.tv_sec != dstat->mtime.tv_sec ||
 	    st.st_mtim.tv_nsec != dstat->mtime.tv_nsec) {
 		const struct timespec ts[] = {
 			dstat->atime, dstat->mtime,
@@ -517,9 +515,17 @@ backup_to_dir(struct sess *sess, int rootfd, const struct flist *f,
 	return ret;
 }
 
+/*
+ * Move the file in fromdfd named 'fname' to the path named by toodfd + 'tname'.
+ * replace is set to indicate that we aren't surprised if a file does exist
+ *     there already, but we won't complain if it doesn't.
+ * skip_metadata may be set if the caller intends to, e.g., set times and
+ *     permissions immediately after anyways.  This can avoid some classes of
+ *     errors if we weren't going to preserve the src file anyways.
+ */
 int
 move_file(int fromdfd, const char *fname, int todfd, const char *tname,
-    int replace)
+    int replace, int skip_metadata)
 {
 	int fromfd, tofd;
 	int ret, serrno;
@@ -555,7 +561,7 @@ move_file(int fromdfd, const char *fname, int todfd, const char *tname,
 	}
 
 	ret = copy_internal(fromfd, tofd);
-	if (ret == 0) {
+	if (ret == 0 && !skip_metadata) {
 		struct stat fromst, tost;
 		int rc;
 
@@ -577,11 +583,11 @@ move_file(int fromdfd, const char *fname, int todfd, const char *tname,
 		    fromst.st_gid != tost.st_gid) {
 			rc = fchown(tofd, fromst.st_uid, fromst.st_gid);
 			if (rc == -1)
-				ERR("%s: fchown", tname);
+				ERR("%s: fchown to %d.%d", tname, fromst.st_uid,
+				    fromst.st_gid);
 		}
 
-		if (fromst.st_atime != tost.st_atime ||
-		    fromst.st_mtime != tost.st_mtime) {
+		if (fromst.st_mtime != tost.st_mtime) {
 			struct timespec ts[] = {
 				fromst.st_atim, fromst.st_mtim
 			};

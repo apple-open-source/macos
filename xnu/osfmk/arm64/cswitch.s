@@ -240,8 +240,11 @@ Lskip_rop_keys_\@:
 Lskip_jop_keys_\@:
 #endif /* CSWITCH_JOP_KEYS */
 
-	cbz		\wsync, 1f
-	isb 	sy
+	cbnz	\wsync, Lsync_now_\@
+	b		1f
+
+Lsync_now_\@:
+	isb		sy
 
 #if HAS_PARAVIRTUALIZED_PAC
 1:	/* guests need to clear the sync flag even after skipping the isb, in case they synced via hvc instead */

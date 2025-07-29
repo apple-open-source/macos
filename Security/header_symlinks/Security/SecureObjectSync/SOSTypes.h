@@ -50,6 +50,7 @@ typedef enum{
     kPiggyV0 = 0, //first version of piggybacking, does not pad messages with keys
     kPiggyV1 = 1, //tacks on initial sync credentials
     kPiggyV2 = 2, //Octagon
+    kPiggyV3 = 3, //Secure version
 } PiggyBackProtocolVersion;
 
 typedef enum{

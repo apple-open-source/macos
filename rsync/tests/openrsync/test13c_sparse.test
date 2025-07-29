@@ -1,0 +1,45 @@
+#! /bin/sh
+
+set -e
+set -u
+
+. ${tstdir-.}/lib.sh
+. ${tstdir-.}/conf.sh
+
+rm -rf src dst
+mkdir src
+
+# Test sparse mode with a hole at the end of file to test that rsync
+# creates the correct destination file size.
+#
+echo "Test 1: Hole at end of file"
+dd if=/dev/random of=src/foo bs=1 count=6 seek=1048569
+dd if=/dev/zero of=src/foo bs=1 count=282624 seek=1048575 conv=notrunc
+
+rsync -aixSH -- src/ dst/
+cmp src/foo dst/foo
+
+
+# Test in-place update of a sparse file.  Initially the dest file has no
+# holes. We then punch some holes into the source file and re-rsync it to
+# test that the holes actually get punched in the dest file.  Note that
+# this test also tests the hole at end of file, albeit at a different offset
+# and length than the previous test.
+#
+echo "Test 2: In-place rsync of a file with new holes (hole punch test)"
+chunk=$((1024 * 1024 - 1))
+dd if=/dev/random of=src/foo bs=${chunk} count=8
+
+rsync -aixSH -- src/ dst/
+cmp src/foo dst/foo
+
+for i in 0 2 4 6 ; do
+    dd if=src/foo of=src/bar bs=${chunk} count=1 skip=$i seek=$i conv=notrunc 2>/dev/null
+    dd if=/dev/zero of=src/bar bs=${chunk} count=1 seek=$((i + 1)) conv=notrunc 2>/dev/null
+done
+
+mv src/bar src/foo
+touch -A -10 dst/foo
+
+rsync -aixH --inplace -- src/ dst/
+cmp src/foo dst/foo

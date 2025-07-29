@@ -58,7 +58,7 @@ TUNABLE(bool, oslog_exclaves, "oslog_exclaves", true);
 
 #if DEVELOPMENT || DEBUG
 
-#define OS_LOG_MAX_SIZE (2048)
+#define OS_LOG_MAX_SIZE (4096)
 #define dbg_counter_inc(c) counter_inc((c))
 
 SCALABLE_COUNTER_DEFINE(oslog_e_log_count);

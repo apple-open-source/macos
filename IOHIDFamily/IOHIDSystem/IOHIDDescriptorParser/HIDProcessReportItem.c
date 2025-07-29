@@ -187,23 +187,42 @@ OSStatus HIDProcessReportItem(HIDReportDescriptor *ptDescriptor, HIDPreparsedDat
 */
 
 	ptReport = &ptPreparsedData->reports[ptReportItem->globals.reportIndex];
-	iBits = (int)(ptReportItem->globals.reportSize * ptReportItem->globals.reportCount);
+	
+	// Check for overflow in multiplication
+	IOByteCount totalBits;
+	if (os_mul_overflow(ptReportItem->globals.reportSize, ptReportItem->globals.reportCount, &totalBits)) {
+		return kHIDBufferTooSmallErr;
+	}
+	
+	// Check if the result fits in an int
+	if (totalBits > 0x7FFFFFFF) {
+		return kHIDBufferTooSmallErr;
+	}
+	
+	iBits = (int)totalBits;
+	
 	switch (ptDescriptor->item.tag)
 	{
 		case kHIDTagFeature:
 			ptReportItem->reportType = kHIDFeatureReport;
             ptReportItem->startBit = ptReport->featureBitCount;
-			ptReport->featureBitCount += iBits;
+			if (os_add_overflow(ptReport->featureBitCount, iBits, &ptReport->featureBitCount)) {
+				return kHIDBufferTooSmallErr;
+			}
 			break;
 		case kHIDTagOutput:
 			ptReportItem->reportType = kHIDOutputReport;
             ptReportItem->startBit = ptReport->outputBitCount;
-			ptReport->outputBitCount += iBits;
+			if (os_add_overflow(ptReport->outputBitCount, iBits, &ptReport->outputBitCount)) {
+				return kHIDBufferTooSmallErr;
+			}
 			break;
 		case kHIDTagInput:
 			ptReportItem->reportType = kHIDInputReport;
             ptReportItem->startBit = ptReport->inputBitCount;
-			ptReport->inputBitCount += iBits;
+			if (os_add_overflow(ptReport->inputBitCount, iBits, &ptReport->inputBitCount)) {
+				return kHIDBufferTooSmallErr;
+			}
 			break;
 		default:
 			ptReportItem->reportType = kHIDUnknownReport;

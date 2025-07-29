@@ -880,8 +880,8 @@ zone_spans_ro_va(vm_offset_t addr_start, vm_offset_t addr_end)
 
 #define from_range(r, addr, size) \
 	__builtin_choose_expr(__builtin_constant_p(size) ? (size) == 1 : 0, \
-	mach_vm_range_contains(r, (mach_vm_offset_t)(addr)), \
-	mach_vm_range_contains(r, (mach_vm_offset_t)(addr), size))
+	mach_vm_range_contains(r, vm_memtag_canonicalize_kernel((mach_vm_offset_t)(addr))), \
+	mach_vm_range_contains(r, vm_memtag_canonicalize_kernel((mach_vm_offset_t)(addr)), size))
 
 #define from_ro_map(addr, size) \
 	from_range(&zone_info.zi_ro_range, addr, size)
@@ -3879,18 +3879,15 @@ zone_remove_wired_pages(zone_t z, uint32_t pages)
 }
 
 #if ZSECURITY_CONFIG(ZONE_TAGGING)
-static inline caddr_t
+
+static inline void
 zone_tag_element(zone_t zone, caddr_t addr, vm_size_t elem_size)
 {
-	addr = vm_memtag_generate_and_store_tag(addr, elem_size);
-
 	if (zone->z_percpu) {
 		zpercpu_foreach_cpu(index) {
 			vm_memtag_store_tag(addr + ptoa(index), elem_size);
 		}
 	}
-
-	return addr;
 }
 
 static inline caddr_t
@@ -3900,7 +3897,10 @@ zone_tag_free_element(zone_t zone, caddr_t addr, vm_size_t elem_size)
 		return addr;
 	}
 
-	return zone_tag_element(zone, addr, elem_size);
+	addr = vm_memtag_generate_and_store_tag(addr, elem_size);
+	zone_tag_element(zone, addr, elem_size);
+
+	return addr;
 }
 
 static inline void
@@ -3915,10 +3915,12 @@ zcram_memtag_init(zone_t zone, vm_offset_t base, uint32_t start, uint32_t end)
 	vm_size_t elem_size = zone_elem_outer_size(zone);
 	vm_size_t oob_offs = zone_elem_outer_offs(zone);
 
+
 	for (uint32_t i = start; i < end; i++) {
 		caddr_t elem_addr = (caddr_t)(base + oob_offs + i * elem_size);
 
-		(void)zone_tag_element(zone, elem_addr, elem_size);
+		elem_addr = vm_memtag_generate_and_store_tag(elem_addr, elem_size);
+		zone_tag_element(zone, elem_addr, elem_size);
 	}
 }
 #else /* ZSECURITY_CONFIG(ZONE_TAGGING) */
@@ -4877,8 +4879,10 @@ zone_expand_locked(zone_t z, zalloc_flags_t flags)
 		ZONE_TRACE_VM_KERN_REQUEST_START(ptoa(z->z_chunk_pages - cur_pages));
 
 		while (pages < z->z_chunk_pages - cur_pages) {
-			uint_t grab_options = VM_PAGE_GRAB_OPTIONS_NONE;
-			vm_page_t m = vm_page_grab_options(grab_options);
+			vm_grab_options_t grab_options = VM_PAGE_GRAB_NOPAGEWAIT;
+			vm_page_t m;
+
+			m = vm_page_grab_options(grab_options);
 
 			if (m) {
 				pages++;

@@ -1,24 +1,16 @@
 from xnu import *
 from utils import *
 from core.configuration import *
+from core import OSHashPointer
 
 import sys
 import struct
-
-def _swap32(i):
-    return struct.unpack("<I", struct.pack(">I", i))[0]
 
 def _getSafeQ(queue):
     g_wqs = kern.GetGlobalVariable('global_waitqs')
     g_cnt = unsigned(kern.GetGlobalVariable('g_num_waitqs'))
 
-    q_hash = unsigned(queue)
-    q_hash >>= 4
-    q_hash *= 0x5052acdb
-    q_hash &= 0xffffffff
-    q_hash ^= _swap32(q_hash)
-
-    return addressof(g_wqs[q_hash & (g_cnt - 1)])
+    return addressof(g_wqs[OSHashPointer(queue) & (g_cnt - 1)])
 
 class Waitq(object):
     """
@@ -179,9 +171,11 @@ def ShowWaitqHelper(waitq, O=None):
 
     if waitq.hasThreads():
         print("Waiters:")
-    with O.table("{:<20s} {:<20s}".format('waiter', 'event'), indent=True):
+    with O.table("{:<20s} {:<20s} {:s}".format('waiter', 'event', 'hint'), indent=True):
         for thread in waitq.iterateThreads():
-            print("{:<#20x} {:<#20x}".format(unsigned(thread), thread.wait_event))
+            hint = thread.block_hint or thread.pending_block_hint
+            hint = GetEnumName('block_hint_t', hint, 'kThreadWait');
+            print(f"{unsigned(thread):<#20x} {thread.wait_event:<#20x} {hint:s}");
 
     if waitq.hasSets():
         print("Sets:")

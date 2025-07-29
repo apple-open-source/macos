@@ -50,7 +50,14 @@ T_DECL(realloc_large_huge, "call realloc on LARGE and HUGE allocations",
 	void *ptr2 = realloc(ptr1, size2);
 	T_ASSERT_TRUE(memchk(ptr2, 'A', size2), "contents unchanged after realloc");
 	T_ASSERT_LE(size2, malloc_size(ptr2), "realloc LARGE smaller");
-	T_ASSERT_EQ(ptr1, ptr2, "realloc LARGE smaller in-place");
+
+	bool has_sanitizer = false;
+#if CONFIG_SANITIZER
+	has_sanitizer = malloc_sanitizer_is_enabled();
+#endif
+	if (!has_sanitizer) {
+		T_ASSERT_EQ(ptr1, ptr2, "realloc LARGE smaller in-place");
+	}
 	free(ptr2);
 
 	// Large allocation grow in place

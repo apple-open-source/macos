@@ -235,7 +235,7 @@ kern_open_file_for_direct_io(const char * name,
 	int               isssd = 0;
 	uint32_t          flags = 0;
 	uint32_t          blksize;
-	off_t             maxiocount, count, segcount, wbctotal;
+	off_t             maxiocount, count, segcount, wbctotal, set_file_size;
 	boolean_t         locked = FALSE;
 	int               fmode;
 	mode_t                    cmode;
@@ -341,9 +341,10 @@ kern_open_file_for_direct_io(const char * name,
 			}
 		}
 
-		if (set_file_size_max) {
+		if ((set_file_size = set_file_size_max)) {
 			// set file size
 			if (wbctotal) {
+				// only hibernate
 				if (wbctotal >= set_file_size_min) {
 					set_file_size_min = HIBERNATE_MIN_FILE_SIZE;
 				} else {
@@ -352,32 +353,41 @@ kern_open_file_for_direct_io(const char * name,
 						set_file_size_min = HIBERNATE_MIN_FILE_SIZE;
 					}
 				}
-				set_file_size_max = set_file_size_min;
+				set_file_size = set_file_size_min;
 			}
 			if (fs_free_size) {
 				mpFree += va.va_data_alloc;
-				if ((mpFree < set_file_size_max) || ((mpFree - set_file_size_max) < fs_free_size)) {
-					set_file_size_max = mpFree - fs_free_size;
+				if ((mpFree < set_file_size) || ((mpFree - set_file_size) < fs_free_size)) {
+					set_file_size = mpFree - fs_free_size;
 					if (0 == set_file_size_min) {
 						// passing zero for set_file_size_min (coredumps)
 						// means caller only accepts set_file_size_max
 						error = ENOSPC;
 						goto out;
 					}
-					if (set_file_size_max < set_file_size_min) {
-						set_file_size_max = set_file_size_min;
-					}
-					printf("kern_direct_file(%s): using reduced size %qd\n",
-					    ref->name, set_file_size_max);
 					// if set_file_size_min is passed (hibernation),
 					// it does not check free space on disk
 				}
 			}
-			error = vnode_setsize(ref->vp, set_file_size_max, IO_NOZEROFILL | IO_NOAUTH, ref->ctx);
+			while (TRUE) {
+				if (set_file_size < set_file_size_min) {
+					set_file_size = set_file_size_min;
+				}
+				if (set_file_size < set_file_size_max) {
+					printf("kern_direct_file(%s): using reduced size %qd\n",
+					    ref->name, set_file_size);
+				}
+				error = vnode_setsize(ref->vp, set_file_size, IO_NOZEROFILL | IO_NOAUTH, ref->ctx);
+				if ((ENOSPC == error) && set_file_size_min && (set_file_size > set_file_size_min) && (set_file_size > fs_free_size)) {
+					set_file_size -= fs_free_size;
+					continue;
+				}
+				break;
+			}
 			if (error) {
 				goto out;
 			}
-			ref->filelength = set_file_size_max;
+			ref->filelength = set_file_size;
 		}
 	} else if ((ref->vp->v_type == VBLK) || (ref->vp->v_type == VCHR)) {
 		/* Partition. */
@@ -684,10 +694,10 @@ kern_file_mount(struct kern_direct_file_io_ref_t * ref)
 void
 kern_close_file_for_direct_io(struct kern_direct_file_io_ref_t * ref,
     off_t write_offset, void * addr, size_t write_length,
-    off_t discard_offset, off_t discard_end, bool unlink)
+    off_t discard_offset, off_t discard_end, off_t set_file_size, bool unlink)
 {
 	int error;
-	printf("kern_close_file_for_direct_io(%p)\n", ref);
+	printf("kern_close_file_for_direct_io(%p) %qd\n", ref, set_file_size);
 
 	if (!ref) {
 		return;
@@ -737,7 +747,9 @@ kern_close_file_for_direct_io(struct kern_direct_file_io_ref_t * ref,
 		if (addr && write_length) {
 			(void) kern_write_file(ref, write_offset, addr, write_length, IO_SKIP_ENCRYPTION);
 		}
-
+		if (set_file_size) {
+			error = vnode_setsize(ref->vp, set_file_size, IO_NOZEROFILL | IO_NOAUTH, ref->ctx);
+		}
 		error = vnode_close(ref->vp, FWRITE, ref->ctx);
 
 		ref->vp = NULLVP;

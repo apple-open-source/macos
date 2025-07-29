@@ -1244,13 +1244,6 @@ dp_query_add_data_to_response(dnssd_query_t *query, const char *fullname, uint16
             case dns_rrtype_cname:
             case dns_rrtype_ptr:
             case dns_rrtype_ns:
-            case dns_rrtype_md:
-            case dns_rrtype_mf:
-            case dns_rrtype_mb:
-            case dns_rrtype_mg:
-            case dns_rrtype_mr:
-            case dns_rrtype_nsap_ptr:
-            case dns_rrtype_dname:
                 name = answer.data.ptr.name;
                 TOWIRE_CHECK("rdlength begin", towire, dns_rdlength_begin(towire));
                 break;

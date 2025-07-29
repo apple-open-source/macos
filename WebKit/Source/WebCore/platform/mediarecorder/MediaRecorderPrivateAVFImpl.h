@@ -66,6 +66,8 @@ private:
     void pauseRecording(CompletionHandler<void()>&&) final;
     void resumeRecording(CompletionHandler<void()>&&) final;
 
+    bool shouldApplyVideoRotation() const { return m_encoder->shouldApplyVideoRotation(); }
+
     const Ref<MediaRecorderPrivateEncoder> m_encoder;
     RefPtr<VideoFrame> m_blackFrame;
     std::optional<CAAudioStreamDescription> m_description;

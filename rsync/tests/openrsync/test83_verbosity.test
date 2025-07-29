@@ -1,0 +1,64 @@
+#! /bin/sh
+
+set -e
+set -u
+
+. ${tstdir-.}/lib.sh
+. ${tstdir-.}/conf.sh
+
+rm -rf src dst
+
+mkdir src
+for i in 1 2 3 ; do
+    echo "$i" > "src/0-file$i"
+done
+
+nfiles=$(find src -type f | wc -l)
+
+RSYNC_FLAGS=""
+
+echo "Test 1: No -v option"
+rm -rf dst
+rsync -a -- src/ dst/ >stdout 2>stderr
+compare_trees src dst
+[ -f stdout ]
+[ ! -s stdout ]
+
+opt_v='-v'
+for i in 1 2 3 4 5 ; do
+    echo "Test $((i + 1)): Has $i -v option(s)"
+    rm -rf dst
+    rsync -a ${opt_v} -- src/ dst/ >stdout 2>stderr
+    compare_trees src dst
+    X=$(grep -c '^0-file' stdout)
+    [ "$X" -eq "${nfiles}" ]
+    opt_v="${opt_v}v"
+done
+
+echo "Test 7: Has -v followed by --no-v option"
+rm -rf dst
+rsync -a -v --no-v -- src/ dst/ >stdout 2>stderr
+compare_trees src dst
+[ -f stdout ]
+[ ! -s stdout ]
+
+echo "Test 8: Has -vvv followed by --no-v option"
+rm -rf dst
+rsync -a -vvv --no-v -- src/ dst/ >stdout 2>stderr
+compare_trees src dst
+[ -f stdout ]
+[ ! -s stdout ]
+
+echo "Test 9: Has -vvv -i --no-v options"
+rm -rf dst
+rsync -a -vvv -i --no-v -- src/ dst/ >stdout 2>stderr
+compare_trees src dst
+X=$(grep -c ^ stdout)
+[ "$X" -eq $((nfiles + 1)) ]
+
+echo "Test 10: Has --no-v option followed by -v"
+rm -rf dst
+rsync -a --no-v -v -- src/ dst/ >stdout 2>stderr
+compare_trees src dst
+X=$(grep -c ^0-file stdout)
+[ "$X" -eq "${nfiles}" ]

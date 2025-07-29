@@ -394,6 +394,8 @@ __BEGIN_DECLS
 #define DBG_VM_MAP_LOOKUP_ENTRY_FAILURE     0x143
 
 
+#define DBG_VM_FAULT_DEACTIVATE_BEHIND      0x160
+
 /*
  * Codes for Working Set Measurement (DBG_MACH_WORKINGSET)
  */

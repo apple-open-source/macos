@@ -1617,7 +1617,7 @@ vm_object_reap_freelist(vm_page_t local_free_q, bool do_disconnect, bool set_cac
 	vm_page_t page;
 	if (local_free_q) {
 		if (do_disconnect) {
-			vm_page_list_foreach(page, local_free_q) {
+			_vm_page_list_foreach(page, local_free_q) {
 				if (page->vmp_pmapped) {
 					pmap_disconnect(VM_PAGE_GET_PHYS_PAGE(page));
 				}
@@ -3261,21 +3261,21 @@ vm_object_copy_slowly(
 	    ) {
 		vm_page_t       new_page;
 		vm_fault_return_t result;
+		vm_grab_options_t options;
 
-		vm_object_lock(new_object);
+		options = vm_page_grab_options_for_object(new_object);
 
-		while ((new_page = vm_page_alloc(new_object, new_offset))
-		    == VM_PAGE_NULL) {
-			vm_object_unlock(new_object);
-
+		while ((new_page = vm_page_grab_options(options)) == VM_PAGE_NULL) {
 			if (!vm_page_wait(interruptible)) {
 				vm_object_deallocate(new_object);
 				vm_object_deallocate(src_object);
 				*_result_object = VM_OBJECT_NULL;
 				return MACH_SEND_INTERRUPTED;
 			}
-			vm_object_lock(new_object);
 		}
+
+		vm_object_lock(new_object);
+		vm_page_insert(new_page, new_object, new_offset);
 		vm_object_unlock(new_object);
 
 		do {

@@ -208,7 +208,8 @@ void NetworkProcess::removeNetworkConnectionToWebProcess(NetworkConnectionToWebP
     ASSERT(m_webProcessConnections.contains(connection.webProcessIdentifier()));
     m_webProcessConnections.remove(connection.webProcessIdentifier());
     m_allowedFirstPartiesForCookies.remove(connection.webProcessIdentifier());
-    if (auto completionHandler = m_webProcessConnectionCloseHandlers.take(connection.webProcessIdentifier()))
+    auto completionHandlers = m_webProcessConnectionCloseHandlers.take(connection.webProcessIdentifier());
+    for (auto& completionHandler : completionHandlers)
         completionHandler();
 }
 
@@ -1658,12 +1659,13 @@ void NetworkProcess::fetchWebsiteData(PAL::SessionID sessionID, OptionSet<Websit
     }
 }
 
-void NetworkProcess::performDeleteWebsiteDataTask(TaskIdentifier taskIdentifier)
+void NetworkProcess::performDeleteWebsiteDataTask(TaskIdentifier taskIdentifier, TaskTrigger trigger)
 {
     auto task = m_deleteWebsiteDataTasks.take(taskIdentifier);
     if (!task.sessionID)
         return;
 
+    RELEASE_LOG(Storage, "NetworkProcess::performDeleteWebsiteDataTask started task (%" PRIu64 ") because %" PUBLIC_LOG_STRING, taskIdentifier.toUInt64(), trigger == TaskTrigger::Timer ? "timer is fired" : "connections are closed");
     deleteWebsiteDataImpl(*task.sessionID, task.websiteDataTypes, task.modifiedSince, WTFMove(task.completionHandler));
 }
 
@@ -1684,10 +1686,24 @@ void NetworkProcess::deleteWebsiteData(PAL::SessionID sessionID, OptionSet<Websi
 
 #if OS(DARWIN)
         Ref ipcConnection = connection->connection();
-        RELEASE_LOG(Storage, "NetworkProcess::deleteWebsiteData task (%" PRIu64 ") will start after process %" PRIu64 " (pid=%d) exits", taskIdentifier.toUInt64(), identifier.toUInt64(), ipcConnection->remoteProcessID());
+        auto remoteProcessID = ipcConnection->remoteProcessID();
+        // Connection is not available.
+        if (!remoteProcessID)
+            continue;
+        RELEASE_LOG(Storage, "NetworkProcess::deleteWebsiteData task (%" PRIu64 ") will start after process %" PRIu64 " (pid=%d) exits", taskIdentifier.toUInt64(), identifier.toUInt64(), remoteProcessID);
 #endif
-        m_webProcessConnectionCloseHandlers.add(identifier, [deleteTaskAggregator] { });
+        auto& completionHandlers = m_webProcessConnectionCloseHandlers.ensure(identifier, [&]() {
+            return Vector<CompletionHandler<void()>> { };
+        }).iterator->value;
+        completionHandlers.append([deleteTaskAggregator] { });
         willWait = true;
+    }
+
+    if (websiteDataTypes.contains(WebsiteDataType::ServiceWorkerRegistrations)) {
+        CheckedPtr session = networkSession(sessionID);
+        RefPtr swServer = session ? session->swServer() : nullptr;
+        if (swServer && swServer->addHandlerIfHasControlledClients([deleteTaskAggregator] { }))
+            willWait = true;
     }
 
     if (!willWait)
@@ -1695,7 +1711,7 @@ void NetworkProcess::deleteWebsiteData(PAL::SessionID sessionID, OptionSet<Websi
 
     // Schedule a timer in case web processes do not exit on time.
     RunLoop::protectedCurrent()->dispatchAfter(3_s, [protectedThis = Ref { *this }, taskIdentifier]() mutable {
-        protectedThis->performDeleteWebsiteDataTask(taskIdentifier);
+        protectedThis->performDeleteWebsiteDataTask(taskIdentifier, TaskTrigger::Timer);
     });
 }
 

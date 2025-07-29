@@ -1803,28 +1803,6 @@ void RemoteGraphicsContextGLProxy::framebufferTextureLayer(GCGLenum target, GCGL
     }
 }
 
-void RemoteGraphicsContextGLProxy::invalidateFramebuffer(GCGLenum target, std::span<const GCGLenum> attachments)
-{
-    if (isContextLost())
-        return;
-    auto sendResult = send(Messages::RemoteGraphicsContextGL::InvalidateFramebuffer(target, attachments));
-    if (sendResult != IPC::Error::NoError) {
-        markContextLost();
-        return;
-    }
-}
-
-void RemoteGraphicsContextGLProxy::invalidateSubFramebuffer(GCGLenum target, std::span<const GCGLenum> attachments, GCGLint x, GCGLint y, GCGLsizei width, GCGLsizei height)
-{
-    if (isContextLost())
-        return;
-    auto sendResult = send(Messages::RemoteGraphicsContextGL::InvalidateSubFramebuffer(target, attachments, x, y, width, height));
-    if (sendResult != IPC::Error::NoError) {
-        markContextLost();
-        return;
-    }
-}
-
 void RemoteGraphicsContextGLProxy::readBuffer(GCGLenum src)
 {
     if (isContextLost())
@@ -2195,17 +2173,6 @@ void RemoteGraphicsContextGLProxy::drawRangeElements(GCGLenum mode, GCGLuint sta
     if (isContextLost())
         return;
     auto sendResult = send(Messages::RemoteGraphicsContextGL::DrawRangeElements(mode, start, end, count, type, static_cast<uint64_t>(offset)));
-    if (sendResult != IPC::Error::NoError) {
-        markContextLost();
-        return;
-    }
-}
-
-void RemoteGraphicsContextGLProxy::drawBuffers(std::span<const GCGLenum> bufs)
-{
-    if (isContextLost())
-        return;
-    auto sendResult = send(Messages::RemoteGraphicsContextGL::DrawBuffers(bufs));
     if (sendResult != IPC::Error::NoError) {
         markContextLost();
         return;
@@ -2738,17 +2705,6 @@ String RemoteGraphicsContextGLProxy::getTranslatedShaderSourceANGLE(PlatformGLOb
     return returnValue;
 }
 
-void RemoteGraphicsContextGLProxy::drawBuffersEXT(std::span<const GCGLenum> bufs)
-{
-    if (isContextLost())
-        return;
-    auto sendResult = send(Messages::RemoteGraphicsContextGL::DrawBuffersEXT(bufs));
-    if (sendResult != IPC::Error::NoError) {
-        markContextLost();
-        return;
-    }
-}
-
 PlatformGLObject RemoteGraphicsContextGLProxy::createQueryEXT()
 {
     if (isContextLost())
@@ -3153,17 +3109,6 @@ void RemoteGraphicsContextGLProxy::disableFoveation()
     if (isContextLost())
         return;
     auto sendResult = send(Messages::RemoteGraphicsContextGL::DisableFoveation());
-    if (sendResult != IPC::Error::NoError) {
-        markContextLost();
-        return;
-    }
-}
-
-void RemoteGraphicsContextGLProxy::framebufferDiscard(GCGLenum target, std::span<const GCGLenum> attachments)
-{
-    if (isContextLost())
-        return;
-    auto sendResult = send(Messages::RemoteGraphicsContextGL::FramebufferDiscard(target, attachments));
     if (sendResult != IPC::Error::NoError) {
         markContextLost();
         return;

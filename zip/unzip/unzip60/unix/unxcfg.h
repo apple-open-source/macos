@@ -214,6 +214,15 @@ typedef struct stat z_stat;
 #endif /* ?MTS */
 
 /* Static variables that we have to add to Uz_Globs: */
+#ifdef __APPLE__
+#define SYSTEM_SPECIFIC_GLOBALS \
+    int created_dir, renamed_fullpath;\
+    char *rootpath, *buildpath, *end;\
+    ZCONST char *wildname;\
+    char *dirname, matchname[FILNAMSIZ];\
+    int rootlen, rootdir, have_dirname, dirnamelen, notfirstcall;\
+    zvoid *wild_dir;
+#else
 #define SYSTEM_SPECIFIC_GLOBALS \
     int created_dir, renamed_fullpath;\
     char *rootpath, *buildpath, *end;\
@@ -221,6 +230,7 @@ typedef struct stat z_stat;
     char *dirname, matchname[FILNAMSIZ];\
     int rootlen, have_dirname, dirnamelen, notfirstcall;\
     zvoid *wild_dir;
+#endif
 
 /* created_dir, and renamed_fullpath are used by both mapname() and    */
 /*    checkdir().                                                      */

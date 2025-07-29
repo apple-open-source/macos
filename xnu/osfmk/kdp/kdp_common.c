@@ -152,6 +152,7 @@ kdp_find_phys(vm_map_t map, vm_offset_t target_addr, kdp_fault_flags_t fault_fla
 		return 0;
 	}
 
+
 	cur_phys_addr = (vm_offset_t)kdp_vtophys(map->pmap, target_addr);
 	if (!pmap_valid_page((ppnum_t) atop(cur_phys_addr))) {
 		if (!(fault_flags & KDP_FAULT_FLAGS_ENABLE_FAULTING)) {
@@ -243,6 +244,7 @@ kdp_generic_copyin(vm_map_t map, uint64_t uaddr, void *dest, size_t size, kdp_fa
 				kdp_memcpy(kvaddr, (const void *)phystokv((pmap_paddr_t)phys_src), cur_size);
 			} else
 #endif /* defined(__arm64__) */
+
 			bcopy_phys(phys_src, phys_dest, cur_size);
 		} else {
 			break;

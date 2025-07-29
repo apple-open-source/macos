@@ -79,9 +79,14 @@ DEFINE_VISIT_CHILDREN_WITH_MODIFIER(JS_EXPORT_PRIVATE, InternalFunction);
 
 String InternalFunction::name()
 {
-    const String& name = m_originalName->tryGetValue();
+#if ASSERT_ENABLED
+    auto gcOwnedData = m_originalName->tryGetValue();
+    const String& name = gcOwnedData;
     ASSERT(name); // m_originalName was built from a String, and hence, there is no rope to resolve.
     return name;
+#else
+    return m_originalName->tryGetValue();
+#endif
 }
 
 String InternalFunction::displayName(VM& vm)

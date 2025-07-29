@@ -69,7 +69,7 @@ public:
     PlatformLayer* rootLayer() final;
     void initialize(bool hideRootLayer, IntSize, bool shouldMaintainAspectRatio, CompletionHandler<void(bool didSucceed)>&&) final;
 #if !RELEASE_LOG_DISABLED
-    void setLogIdentifier(String&& logIdentifier) final { m_logIdentifier = WTFMove(logIdentifier); }
+    void setLogIdentifier(uint64_t) final;
 #endif
     bool didFail() const final;
 
@@ -117,7 +117,7 @@ private:
     bool m_paused { false };
     bool m_didFail { false };
 #if !RELEASE_LOG_DISABLED
-    String m_logIdentifier;
+    uint64_t m_logIdentifier;
     FrameRateMonitor m_frameRateMonitor WTF_GUARDED_BY_CAPABILITY(workQueue());
 #endif
 };

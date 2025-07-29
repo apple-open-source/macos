@@ -132,11 +132,16 @@ rsync_set_logfile(FILE *new_logfile, struct sess *sess)
 {
 	FILE *prev_logfile;
 
-	/* Only the server should supply a non-null sess argument,
+	/*
+	 * Only the server should supply a non-null sess argument,
 	 * which causes log_vwritef() to send log messages to
 	 * the client via the multiplexed return channel.
+	 *
+	 * If sess->opts is NULL, then we're in the daemon client handler before
+	 * we've figured out the client options and we can assume that things
+	 * will work out.
 	 */
-	if (sess != NULL) {
+	if (sess != NULL && sess->opts != NULL && !sess->opts->daemon) {
 		assert(new_logfile == stdout);
 		assert(sess->opts->server);
 		assert(sess->mplex_writes);
@@ -149,27 +154,67 @@ rsync_set_logfile(FILE *new_logfile, struct sess *sess)
 	rsync_logfile_changed(prev_logfile, new_logfile);
 }
 
+static int
+log_priority(enum log_type type)
+{
+
+	switch (type) {
+	case LT_WARNING:
+		return LOG_WARNING;
+	case LT_ERROR:
+		return LOG_ERR;
+	case LT_CLIENT:
+	case LT_INFO:
+	case LT_LOG:
+	default:
+		return LOG_INFO;
+	}
+}
+
 static void __printflike(2, 0)
-log_vwritef(int priority, const char *fmt, va_list ap)
+log_vwritef(enum log_type type, const char *fmt, va_list ap)
 {
 	int pri;
 
-	if (log_file == NULL) {
-		vsyslog(priority, fmt, ap);
-		return;
+	pri = log_priority(type);
+
+	/*
+	 * If logging is configured, we'll send all non-client messages to it.
+	 * Note that in various places throughout here, we'll tap out a copy of
+	 * the va_list -- there's a good chance we'll be logging to multiple
+	 * places, so we want to avoid running off the end of the arg list.
+	 */
+	if (type != LT_CLIENT && (log_file == NULL || log_file != stdout)) {
+		va_list cap;
+
+		va_copy(cap, ap);
+		if (log_file == NULL) {
+			vsyslog(pri, fmt, cap);
+		} else {
+			assert(log_file != stdout);
+			vfprintf(log_file, fmt, cap);
+		}
+		va_end(cap);
 	}
 
-	pri = LOG_PRI(priority);
+	if (quiet && pri != LOG_ERR)
+		return;
 
-	if (log_sess != NULL) {
+	/*
+	 * We shouldn't route log messages to the client.  If write multiplexing
+	 * isn't turned on, we may not have a client yet (in the daemon).
+	 */
+	if (log_sess != NULL && type != LT_LOG && log_sess->mplex_writes) {
+		va_list cap;
 		char msgbuf[BIGPATH_MAX];
 		int32_t tag;
 		int n;
 
 		assert(log_sess->opts->server);
-		assert(log_sess->mplex_writes);
 
-		n = vsnprintf(msgbuf, sizeof(msgbuf), fmt, ap);
+		va_copy(cap, ap);
+		n = vsnprintf(msgbuf, sizeof(msgbuf), fmt, cap);
+		va_end(cap);
 		if (n < 1)
 			return;
 
@@ -179,7 +224,12 @@ log_vwritef(int priority, const char *fmt, va_list ap)
 		tag = (pri == LOG_ERR) ? IT_ERROR_XFER : IT_INFO;
 
 		if (log_sess->wbufp == NULL) {
-			io_write_buf_tagged(log_sess, fileno(log_file), msgbuf, n, tag);
+			int client = STDOUT_FILENO;
+
+			if (log_sess->role != NULL)
+				client = log_sess->role->client;
+
+			io_write_buf_tagged(log_sess, client, msgbuf, n, tag);
 		} else {
 			size_t *wbufszp = log_sess->wbufszp;
 			size_t pos = *log_sess->wbufszp;
@@ -198,37 +248,48 @@ log_vwritef(int priority, const char *fmt, va_list ap)
 			io_buffer_buf(*wbufp, &pos, *wbufszp, msgbuf, n);
 		}
 
-		return;
+		if (type == LT_CLIENT)
+			return;
 	}
 
-	if (log_file == stdout && pri != LOG_INFO) {
+	/*
+	 * Log messages stop here, every other type will trickle through and get
+	 * routed to stderr/stdout as appropriate.
+	 */
+	if (type == LT_LOG || log_sess != NULL)
+		return;
+
+	switch (pri) {
+	case LOG_INFO:
+		vfprintf(stdout, fmt, ap);
+		break;
+	default:
 		fflush(stdout);
 		vfprintf(stderr, fmt, ap);
-	} else {
-		vfprintf(log_file, fmt, ap);
+		break;
 	}
 }
 
 static void __printflike(2, 3)
-log_writef(int priority, const char *fmt, ...)
+log_writef(enum log_type type, const char *fmt, ...)
 {
 	va_list ap;
 
 	va_start(ap, fmt);
-	log_vwritef(priority, fmt, ap);
+	log_vwritef(type, fmt, ap);
 	va_end(ap);
 }
 
 void
 rsync_log_tag(enum iotag tag, const char *fmt, ...)
 {
-	int priority;
+	enum log_type type;
 	va_list ap;
 
-	priority = (tag == IT_ERROR_XFER) ? LOG_WARNING : LOG_INFO;
+	type = (tag == IT_ERROR_XFER) ? LT_WARNING : LT_INFO;
 
 	va_start(ap, fmt);
-	log_vwritef(priority, fmt, ap);
+	log_vwritef(type, fmt, ap);
 	va_end(ap);
 }
 
@@ -256,9 +317,9 @@ rsync_log(int level, const char *fmt, ...)
 	}
 
 	if (level <= 0 && buf != NULL)
-		log_writef(LOG_INFO, "%s\n", buf);
+		log_writef(LT_INFO, "%s\n", buf);
 	else if (level > 0)
-		log_writef(LOG_INFO, "%s(%d): %s%s\n", getprogname(),
+		log_writef(LT_INFO, "%s(%d): %s%s\n", getprogname(),
 		    getpid(), (buf != NULL) ? ": " : "",
 		    (buf != NULL) ? buf : "");
 	free(buf);
@@ -283,7 +344,7 @@ rsync_errx(const char *fmt, ...)
 		va_end(ap);
 	}
 
-	log_writef(LOG_ERR, "%s(%d): error%s%s\n", getprogname(),
+	log_writef(LT_ERROR, "%s(%d): error%s%s\n", getprogname(),
 	   getpid(), (buf != NULL) ? ": " : "",
 	   (buf != NULL) ? buf : "");
 	free(buf);
@@ -309,7 +370,7 @@ rsync_err(const char *fmt, ...)
 		va_end(ap);
 	}
 
-	log_writef(LOG_ERR, "%s(%d): error%s%s: %s\n", getprogname(),
+	log_writef(LT_ERROR, "%s(%d): error%s%s: %s\n", getprogname(),
 	   getpid(), (buf != NULL) ? ": " : "",
 	   (buf != NULL) ? buf : "", strerror(er));
 	free(buf);
@@ -337,7 +398,7 @@ rsync_errx1(const char *fmt, ...)
 		va_end(ap);
 	}
 
-	log_writef(LOG_ERR, "%s(%d): error%s%s\n", getprogname(),
+	log_writef(LT_ERROR, "%s(%d): error%s%s\n", getprogname(),
 	   getpid(), (buf != NULL) ? ": " : "",
 	   (buf != NULL) ? buf : "");
 	free(buf);
@@ -364,7 +425,7 @@ rsync_warnx1(const char *fmt, ...)
 		va_end(ap);
 	}
 
-	log_writef(LOG_WARNING, "%s(%d): warning%s%s\n", getprogname(),
+	log_writef(LT_WARNING, "%s(%d): warning%s%s\n", getprogname(),
 	   getpid(), (buf != NULL) ? ": " : "",
 	   (buf != NULL) ? buf : "");
 	free(buf);
@@ -388,7 +449,7 @@ rsync_warnx(const char *fmt, ...)
 		va_end(ap);
 	}
 
-	log_writef(LOG_WARNING, "%s(%d): warning%s%s\n", getprogname(),
+	log_writef(LT_WARNING, "%s(%d): warning%s%s\n", getprogname(),
 	   getpid(), (buf != NULL) ? ": " : "",
 	   (buf != NULL) ? buf : "");
 	free(buf);
@@ -417,7 +478,7 @@ rsync_warn(int level, const char *fmt, ...)
 		va_end(ap);
 	}
 
-	log_writef(LOG_WARNING, "%s(%d): warning%s%s: %s\n", getprogname(),
+	log_writef(LT_WARNING, "%s(%d): warning%s%s: %s\n", getprogname(),
 	   getpid(), (buf != NULL) ? ": " : "",
 	   (buf != NULL) ? buf : "", strerror(er));
 	free(buf);
@@ -529,7 +590,7 @@ print_7_or_8_bit(const struct sess *sess, const char *fmt, const char *s,
 	if (sbuf != NULL)
 		sbuf_printf(sbuf, fmt, sbuf_data(innerbuf));
 	else
-		log_writef(LOG_INFO, fmt, sbuf_data(innerbuf));
+		log_writef(LT_INFO, fmt, sbuf_data(innerbuf));
 	sbuf_delete(innerbuf);
 
 	return 1;
@@ -597,7 +658,7 @@ printf_doformat(const char *fmt, int *rval, struct sess *sess,
 	fmt++;
 
 	switch (convch) {
-	case 'a':	/* Server address (daemon) */
+	case 'a':	/* Remote address (daemon) */
 	case 'h': {	/* Remote host (daemon) */
 		if (!sess->opts->daemon)
 			break;	/* Nop in non-daemon mode. */
@@ -1032,7 +1093,8 @@ printf_doformat(const char *fmt, int *rval, struct sess *sess,
 }
 
 static int
-log_format(struct sess *sess, const char *format, const struct flist *fl)
+log_format_type(enum log_type type, struct sess *sess, const char *format,
+    const struct flist *fl)
 {
 	const bool do_print = (fl != NULL);
 	size_t len;
@@ -1099,7 +1161,7 @@ out:
 			return 0;
 		}
 
-		log_writef(LOG_INFO, "%s", sbuf_data(sbuf));
+		log_writef(type, "%s", sbuf_data(sbuf));
 		sbuf_delete(sbuf);
 	} else {
 		assert(sbuf == NULL);
@@ -1108,26 +1170,42 @@ out:
 	return rval | LOG_FORMAT_SUCCESS;
 }
 
+static int
+log_format(struct sess *sess, const char *format, const struct flist *fl)
+{
+	return log_format_type(LT_INFO, sess, format, fl);
+}
+
 void
 log_format_init(struct sess *sess)
 {
 	int flags = log_format(sess, sess->opts->outformat, NULL);
-	bool itemize_I;
+	int logflags = log_format(sess, sess->opts->logformat, NULL);
 
-	if ((flags & LOG_FORMAT_SUCCESS) == 0)
-		return;
+	if ((flags & LOG_FORMAT_SUCCESS) != 0) {
+		bool itemize_I;
 
-	sess->itemize_i = (flags & LOG_FORMAT_ITEMIZE) != 0;
-	sess->itemize_o = (flags & LOG_FORMAT_OPERATION) != 0;
-	sess->lateprint = (flags & LOG_FORMAT_LATEPRINT) != 0;
+		sess->itemize_i = (flags & LOG_FORMAT_ITEMIZE) != 0;
 
-	itemize_I = (flags & LOG_FORMAT_ITEMIZE_I) != 0;
+		sess->itemize_o = (flags & LOG_FORMAT_OPERATION) != 0;
+		sess->lateprint = (flags & LOG_FORMAT_LATEPRINT) != 0;
 
-	sess->itemize = sess->itemize_i + itemize_I;
-	if (sess->itemize == 1) {
-		if (sess->opts->itemize > 1 || verbose > 1)
-			sess->itemize++;
+		itemize_I = (flags & LOG_FORMAT_ITEMIZE_I) != 0;
+
+		sess->itemize = sess->itemize_i + itemize_I;
+		if (sess->itemize == 1) {
+			if (sess->opts->itemize > 1 || verbose > 1)
+				sess->itemize++;
+		}
 	}
+
+	if ((logflags & LOG_FORMAT_SUCCESS) != 0) {
+		sess->logfile_itemize_i = (logflags & LOG_FORMAT_ITEMIZE) != 0;
+		sess->logfile_itemize_o = (logflags & LOG_FORMAT_OPERATION) != 0;
+	}
+
+	if (sess->opts->server || sess->opts->daemon)
+		sess->lateprint = 1;
 }
 
 
@@ -1167,23 +1245,34 @@ rsync_humanize(struct sess *sess, char *buf, size_t len, int64_t val)
 }
 
 int
-log_item_impl(struct sess *sess, const struct flist *f)
+log_item_impl(enum log_type type, struct sess *sess, const struct flist *f)
 {
 	const char *outformat = sess->opts->outformat;
+	const char *logformat = sess->opts->logformat;
+	int ok = 1;
 
-	if (sess->itemize) {
-		if (sess->protocol >= 29)
-			return log_format(sess, outformat, f);
+	if (outformat == NULL && (verbose > 0 || sess->opts->progress))
+		outformat = "%n";
+	if (type != LT_LOG && outformat != NULL && !sess->opts->server &&
+	    !log_format_type(LT_CLIENT, sess, outformat, f))
+		ok = 0;
+	if (type != LT_CLIENT && logformat != NULL &&
+	    !log_format_type(LT_LOG, sess, logformat, f))
+		ok = 0;
+	return ok;
+}
 
-		if (sess->lreceiver && (f->iflags != 0 || verbose > 1)) {
-			if (sess->opts->server)
-				outformat = "%i %n%L";
+int
+log_item(struct sess *sess, const struct flist *f)
+{
+	bool visible = false;
+	bool sig = (f->iflags & SIGNIFICANT_IFLAGS) != 0;
+	bool local = (f->iflags & IFLAG_LOCAL_CHANGE) != 0 && sig;
+	bool link = (f->iflags & IFLAG_HLINK_FOLLOWS) != 0;
+	enum log_type type = (sess->opts->server ? LT_LOG : LT_INFO);
 
-			return log_format(sess, outformat, f);
-		}
-	}
-
-	if (verbose > 1 && f->iflags == 0) {
+	if (!sess->itemize && verbose > 1 && f->iflags == 0 &&
+	    sess->mode == FARGS_RECEIVER) {
 		if (S_ISDIR(f->st.mode))
 			return 1;
 
@@ -1191,49 +1280,58 @@ log_item_impl(struct sess *sess, const struct flist *f)
 	}
 
 	if (sess->itemize) {
-		if (f->iflags != 0) {
-			if (S_ISREG(f->st.mode))
-				return log_format(sess, "%i %n", f);
-
-			if (verbose > 1 ||
-			    (verbose > 0 && !S_ISLNK(f->st.mode)))
-				return log_format(sess, "%n", f);
-		}
-
-		return 1;
+		/*
+		 * We capture more with %I present, but we'll also expand our
+		 * horizons if we have a highly-verbose %i.
+		 */
+		visible = sig || sess->itemize > 1 || link ||
+		    (verbose > 1 && sess->itemize_i);
 	}
 
-	if (outformat)
-		return log_format(sess, outformat, f);
-
-	if (verbose > 1 || (verbose > 0 && f->iflags != 0) ||
-	    sess->opts->progress)
-		return log_format(sess, "%n%L", f);
-
-	return 1;
-}
-
-int
-log_item(struct sess *sess, const struct flist *f)
-{
 	/*
 	 * We don't generally log if we are the server, but there are
 	 * exceptions.  If a custom outformat is set, then we should
 	 * generate logs, except if the outformat is being overridden
 	 * by using itemize that sets the outformat to include %i or %o.
 	 */
-	if (sess->opts->server && (sess->itemize ||
-	    (!sess->opts->outformat || !*sess->opts->outformat))) {
-		bool sig = (f->iflags & SIGNIFICANT_IFLAGS) != 0;
+	if (sess->opts->server) {
+		if (sess->itemize ||
+		    (!sess->opts->outformat || !*sess->opts->outformat)) {
+			if (log_file == stdout || sess->opts->dry_run)
+				return 1;
 
-		if (log_file == stdout || sess->opts->dry_run)
-			return 1;
+			if (!(sess->itemize && (sig || verbose > 1)))
+				return 1;
 
-		if (!(sess->itemize && (sig || verbose > 1)))
+			type = LT_LOG;
+		} else {
 			return 1;
+		}
+	} else {
+		bool filtered = true;
+
+		if (visible || local)
+			filtered = false;
+		if (S_ISDIR(f->st.mode) && sig)
+			filtered = false;
+		if (link)
+			filtered = false;
+
+		/*
+		 * This is technically wrong and should be fixed.  Some filtered
+		 * subset will go to both the client and the log, while the more
+		 * complete set may go to just the client.  For now, we send the
+		 * filtered subset to both and only restrict insignificant stuff
+		 * to client-only when -i hasn't been requested in the log file.
+		 */
+		if (filtered) {
+			return 1;
+		} else if (!sess->logfile_itemize_i && !sig) {
+			type = LT_CLIENT;
+		}
 	}
 
-	return log_item_impl(sess, f);
+	return log_item_impl(type, sess, f);
 }
 
 const char *

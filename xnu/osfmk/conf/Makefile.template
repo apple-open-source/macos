@@ -21,7 +21,7 @@ SFLAGS+= -include meta_features.h
 
 ifeq ($(KSANCOV),1)
 # Don't instrument functions called by the ksancov runtime. SanitizeCoverage does
-# not support blacklists, so exclude the whole file.
+# not support denylists, so exclude the whole file.
 machine_routines.o_CFLAGS_RM = $(KCOV_CFLAGS)
 machine_routines_common.o_CFLAGS_RM = $(KCOV_CFLAGS)
 pcb_native.o_CFLAGS_RM = $(KCOV_CFLAGS)

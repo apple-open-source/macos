@@ -31,6 +31,7 @@
 #include "ComposedTreeIterator.h"
 #include "Document.h"
 #include "Element.h"
+#include "FrameSelection.h"
 #include "HTMLSlotElement.h"
 #include "LayoutState.h"
 #include "LayoutTreeBuilder.h"
@@ -760,25 +761,36 @@ static std::optional<DidRepaintAndMarkContainingBlock> repaintAndMarkContainingB
     }
 
     for (auto it = composedTreeDescendantsIterator.begin(), end = composedTreeDescendantsIterator.end(); it != end; ++it) {
-        auto* element = dynamicDowncast<Element>(*it);
-        if (!element || !element->renderer())
+        auto* renderer = it->renderer();
+        if (!renderer)
             continue;
-        auto& renderer = *element->renderer();
+
+        // If child is the start or end of the selection, then clear the selection to
+        // avoid problems of invalid pointers.
+        if (renderer->isSelectionBorder())
+            renderer->frame().selection().setNeedsSelectionUpdate();
+
+        auto* renderElement = dynamicDowncast<RenderElement>(renderer);
+        if (!renderElement)
+            continue;
+
         auto shouldRepaint = [&] {
-            if (!renderer.everHadLayout())
+            if (!renderElement->everHadLayout())
                 return false;
-            if (renderer.isOutOfFlowPositioned())
-                return true;
-            if (renderer.isFloating() || renderer.isPositioned())
+            if (!renderElement->style().opacity())
+                return false;
+            if (renderElement->isOutOfFlowPositioned())
+                return destroyRootRenderer != renderElement->containingBlock() || !destroyRootRenderer->hasNonVisibleOverflow();
+            if (renderElement->isFloating() || renderElement->isPositioned())
                 return !destroyRootRenderer || !destroyRootRenderer->hasNonVisibleOverflow();
             return false;
         };
         if (shouldRepaint())
-            renderer.repaint();
-        repaintBackdropIfApplicable(renderer);
-        if (renderer.isOutOfFlowPositioned()) {
+            renderElement->repaint();
+        repaintBackdropIfApplicable(*renderElement);
+        if (renderElement->isOutOfFlowPositioned()) {
             // FIXME: Ideally we would check if containing block is the destory root or a descendent of the destroy root.
-            markContainingBlockDirty(renderer);
+            markContainingBlockDirty(*renderElement);
         }
     }
     return destroyRootRenderer ? DidRepaintAndMarkContainingBlock::Yes : DidRepaintAndMarkContainingBlock::No;

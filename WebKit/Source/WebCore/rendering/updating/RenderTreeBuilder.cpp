@@ -1005,11 +1005,6 @@ static void resetRendererStateOnDetach(RenderElement& parent, RenderObject& chil
 
     if (CheckedPtr listItemRenderer = dynamicDowncast<RenderListItem>(child); listItemRenderer && isInternalMove == RenderTreeBuilder::IsInternalMove::No)
         listItemRenderer->updateListMarkerNumbers();
-
-    // If child is the start or end of the selection, then clear the selection to
-    // avoid problems of invalid pointers.
-    if (willBeDestroyed == RenderTreeBuilder::WillBeDestroyed::Yes && child.isSelectionBorder())
-        parent.frame().selection().setNeedsSelectionUpdate();
 }
 
 RenderPtr<RenderObject> RenderTreeBuilder::detachFromRenderElement(RenderElement& parent, RenderObject& child, WillBeDestroyed willBeDestroyed)

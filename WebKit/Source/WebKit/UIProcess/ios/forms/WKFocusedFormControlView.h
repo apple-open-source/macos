@@ -49,7 +49,7 @@
 - (void)focusedFormControllerDidUpdateSuggestions:(WKFocusedFormControlView *)view;
 @end
 
-@interface WKFocusedFormControlView : UIView <UITextInputSuggestionDelegate>
+@interface WKFocusedFormControlView : UIView
 
 - (instancetype)initWithFrame:(CGRect)frame delegate:(id <WKFocusedFormControlViewDelegate>)delegate;
 - (instancetype)initWithCoder:(NSCoder *)aDecoder NS_UNAVAILABLE;

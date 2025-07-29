@@ -3668,7 +3668,7 @@ csops_internal(pid_t pid, int ops, user_addr_t uaddr, user_size_t usersize, user
 		 */
 		if (forself == 1 && IOTaskHasEntitlement(proc_task(pt), CLEAR_LV_ENTITLEMENT)) {
 			proc_lock(pt);
-			if (!(proc_getcsflags(pt) & CS_INSTALLER)) {
+			if (!(proc_getcsflags(pt) & CS_INSTALLER) && (pt->p_subsystem_root_path == NULL)) {
 				proc_csflags_clear(pt, CS_REQUIRE_LV | CS_FORCED_LV);
 				error = 0;
 			} else {

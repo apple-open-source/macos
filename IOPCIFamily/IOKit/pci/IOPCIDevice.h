@@ -1138,6 +1138,15 @@ protected:
 	bool isDownstreamFacing(void);
 	bool shouldSkipReset(void);
 	static bool hasL1Errata(IOPCIDevice *nub);
+
+private:
+	void pauseTimerHandler(IOTimerEventSource * es);
+	static IOReturn busyStateChange(void * target, void * refCon,
+									UInt32 messageType, IOService * service,
+									void * messageArgument, vm_size_t argSize);
+	bool isInitializing(void);
+protected:
+	void initiatePause(void);
 };
 __exported_pop
 

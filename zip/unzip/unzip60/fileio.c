@@ -164,6 +164,10 @@ static ZCONST char Far CannotOpenZipfile[] =
 #endif
    static ZCONST char Far CannotCreateFile[] =
      "error:  cannot create %s\n        %s\n";
+#ifdef __APPLE__
+   static ZCONST char Far CannotEnterDir[] =
+     "error:  cannot enter %s\n        %s\n";
+#endif
 #endif /* !TANDEM */
 #endif /* !VMS && !AOS_VS && !CMS_MVS && !MACOS */
 
@@ -269,8 +273,55 @@ int open_input_file(__G)    /* return 1 if open failed */
 /* Function open_outfile() */
 /***************************/
 
+#ifdef __APPLE__
+/*
+ * We wrap open_outfile() in an outer function that passes a descriptor to the
+ * target's immediate parent and a pointer to the target's basename.  This
+ * descriptor is acquired with O_RESOLVE_BENEATH which guarantees we won't
+ * follow symbolic links outside of the original extraction directory, and
+ * allows us to easily perform all operations relative to that directory.
+ *
+ * Note that in an __APPLE__ build, G.rootpath is always an absoulte path and
+ * a strict prefix of G.filename (i.e. G.filename is identical with G.rootpath
+ * up to G.rootlen and G.filename[G.rootlen] == '/').
+ */
+static int __open_outfile OF((__GPRO__ int pd, char *fn));
+int open_outfile(__G)
+    __GDEF
+{
+    char *sep;
+    int pd, ret;
+
+    // assert(strncmp(G.filename, G.rootpath, G.rootlen) == 0);
+    // assert(path[G.rootlen] == '/');
+    if ((sep = strrchr(G.filename + G.rootlen + 1, '/')) == NULL) {
+        /* direct child of extraction directory */
+        ret = __open_outfile(__G__ G.rootdir, G.filename + G.rootlen + 1);
+    } else {
+        /* indirect descendant of extraction directory */
+        *sep = '\0';
+        pd = openat(G.rootdir, G.filename + G.rootlen + 1,
+          O_DIRECTORY | O_SEARCH | O_RESOLVE_BENEATH);
+        if (pd < 0) {
+            Info(slide, 0x401, ((char *)slide, LoadFarString(CannotEnterDir),
+              FnFilterP(G.filename), strerror(errno)));
+            *sep = '/';
+            return 1;
+        }
+        *sep = '/';
+        ret = __open_outfile(__G__ pd, sep + 1);
+        close(pd);
+    }
+    return ret;
+}
+static int __open_outfile(__G__ pd, fn)
+    __GDEF
+    int pd;
+    char *fn;
+#else
 int open_outfile(__G)           /* return 1 if fail */
     __GDEF
+#endif /* __APPLE__ */
 {
 #ifdef DLL
     if (G.redirect_data)
@@ -292,12 +343,16 @@ int open_outfile(__G)           /* return 1 if fail */
         fclose(tmp);
     }
 #endif /* BORLAND_STAT_BUG */
+#ifdef __APPLE__
+    if (fstatat(pd, fn, &G.statbuf, AT_SYMLINK_NOFOLLOW) == 0)
+#else
 #ifdef SYMLINKS
     if (SSTAT(G.filename, &G.statbuf) == 0 ||
         lstat(G.filename, &G.statbuf) == 0)
 #else
     if (SSTAT(G.filename, &G.statbuf) == 0)
 #endif /* ?SYMLINKS */
+#endif /* __APPLE__ */
     {
         Trace((stderr, "open_outfile:  stat(%s) returns 0:  file exists\n",
           FnFilter1(G.filename)));
@@ -308,14 +363,22 @@ int open_outfile(__G)           /* return 1 if fail */
             int blen, flen, tlen;
 
             blen = strlen(BackupSuffix);
+#ifdef __APPLE__
+            flen = strlen(fn);
+#else
             flen = strlen(G.filename);
+#endif /* __APPLE__ */
             tlen = flen + blen + 6;    /* includes space for 5 digits */
             if (tlen >= FILNAMSIZ) {   /* in case name is too long, truncate */
                 tname = (char *)malloc(FILNAMSIZ);
                 if (tname == NULL)
                     return 1;                 /* in case we run out of space */
                 tlen = FILNAMSIZ - 1 - blen;
+#ifdef __APPLE__
+                strcpy(tname, fn);            /* make backup name */
+#else
                 strcpy(tname, G.filename);    /* make backup name */
+#endif /* __APPLE__ */
                 tname[tlen] = '\0';
                 if (flen > tlen) flen = tlen;
                 tlen = FILNAMSIZ;
@@ -323,7 +386,11 @@ int open_outfile(__G)           /* return 1 if fail */
                 tname = (char *)malloc(tlen);
                 if (tname == NULL)
                     return 1;                 /* in case we run out of space */
+#ifdef __APPLE__
+                strcpy(tname, fn);            /* make backup name */
+#else
                 strcpy(tname, G.filename);    /* make backup name */
+#endif /* __APPLE__ */
             }
             strcpy(tname+flen, BackupSuffix);
 
@@ -331,8 +398,13 @@ int open_outfile(__G)           /* return 1 if fail */
                 /* If there is a previous backup file, delete it,
                  * otherwise the following rename operation may fail.
                  */
+#ifdef __APPLE__
+                if (fstatat(pd, tname, &tmpstat, AT_SYMLINK_NOFOLLOW) == 0)
+                    unlinkat(pd, tname, 0);
+#else
                 if (SSTAT(tname, &tmpstat) == 0)
                     unlink(tname);
+#endif /* __APPLE__ */
             } else {
                 /* Check if backupname exists, and, if it's true, try
                  * appending numbers of up to 5 digits (or the maximum
@@ -352,14 +424,27 @@ int open_outfile(__G)           /* return 1 if fail */
                     case 0: maxtail = 0; break;
                 }
                 /* while filename exists */
+#ifdef __APPLE__
+                for (i = 0; (i < maxtail) && (fstatat(pd, tname, &tmpstat, AT_SYMLINK_NOFOLLOW) == 0);)
+                    sprintf(numtail,"%u", ++i);
+#else
                 for (i = 0; (i < maxtail) && (SSTAT(tname, &tmpstat) == 0);)
                     sprintf(numtail,"%u", ++i);
+#endif
             }
 
+#ifdef __APPLE__
+            if (renameat(pd, fn, pd, tname) != 0) { /* move file */
+#else
             if (rename(G.filename, tname) != 0) {   /* move file */
+#endif /* __APPLE__ */
                 Info(slide, 0x401, ((char *)slide,
                   LoadFarString(CannotRenameOldFile),
+#ifdef __APPLE__
+                  FnFilterP(G.filename), strerror(errno)));
+#else
                   FnFilter1(G.filename), strerror(errno)));
+#endif /* __APPLE__ */
                 free(tname);
                 return 1;
             }
@@ -386,7 +471,11 @@ int open_outfile(__G)           /* return 1 if fail */
             if (unlink(G.filename) != 0) {
                 Info(slide, 0x401, ((char *)slide,
                   LoadFarString(CannotDeleteOldFile),
+#ifdef __APPLE__
+                  FnFilterP(G.filename), strerror(errno)));
+#else
                   FnFilter1(G.filename), strerror(errno)));
+#endif /* __APPLE__ */
                 return 1;
             }
             Trace((stderr, "open_outfile:  %s now deleted\n",
@@ -456,6 +545,12 @@ int open_outfile(__G)           /* return 1 if fail */
 #if defined(ATH_BE_UNX) || defined(AOS_VS) || defined(QDOS) || defined(TANDEM)
         mode_t umask_sav = umask(0077);
 #endif
+#ifdef __APPLE__
+        int fd = openat(pd, fn, O_CREAT | O_TRUNC | O_RDWR | O_NOFOLLOW, 0666);
+        if (fd >= 0) {
+            G.outfile = fdopen(fd, FOPWR);
+        }
+#else
 #if defined(SYMLINKS) || defined(QLZIP)
         /* These features require the ability to re-read extracted data from
            the output files. Output files are created with Read&Write access.
@@ -464,17 +559,26 @@ int open_outfile(__G)           /* return 1 if fail */
 #else
         G.outfile = zfopen(G.filename, FOPW);
 #endif
+#endif /* __APPLE__ */
 #if defined(ATH_BE_UNX) || defined(AOS_VS) || defined(QDOS) || defined(TANDEM)
         umask(umask_sav);
 #endif
     }
     if (G.outfile == (FILE *)NULL) {
         Info(slide, 0x401, ((char *)slide, LoadFarString(CannotCreateFile),
+#ifdef __APPLE__
+          FnFilterP(G.filename), strerror(errno)));
+#else
           FnFilter1(G.filename), strerror(errno)));
+#endif /* __APPLE__ */
         return 1;
     }
     Trace((stderr, "open_outfile:  fopen(%s) for writing succeeded\n",
+#ifdef __APPLE__
+      FnFilterP(G.filename)));
+#else
       FnFilter1(G.filename)));
+#endif /* __APPLE__ */
 #endif /* !MTS */
 #endif /* !TOPS20 */
 

@@ -52,6 +52,13 @@ KeyframeEffectStack& ElementAnimationRareData::ensureKeyframeEffectStack()
 
 void ElementAnimationRareData::setAnimationsCreatedByMarkup(CSSAnimationCollection&& animations)
 {
+    if (m_keyframeEffectStack) {
+        for (auto& animation : m_animationsCreatedByMarkup) {
+            if (RefPtr keyframeEffect = dynamicDowncast<KeyframeEffect>(animation->effect()))
+                m_keyframeEffectStack->removeEffect(*keyframeEffect);
+        }
+    }
+
     m_animationsCreatedByMarkup = WTFMove(animations);
 }
 

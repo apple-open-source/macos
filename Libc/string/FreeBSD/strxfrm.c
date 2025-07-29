@@ -1,7 +1,15 @@
 /*-
+ * SPDX-License-Identifier: BSD-2-Clause
+ *
+ * Copyright 2010 Nexenta Systems, Inc.  All rights reserved.
  * Copyright (c) 1995 Alex Tatmanjants <alex@elvisti.kiev.ua>
  *		at Electronni Visti IA, Kiev, Ukraine.
  *			All rights reserved.
+ *
+ * Copyright (c) 2011 The FreeBSD Foundation
+ *
+ * Portions of this software were developed by David Chisnall
+ * under sponsorship from the FreeBSD Foundation.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -25,126 +33,86 @@
  * SUCH DAMAGE.
  */
 
-#include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libc/string/strxfrm.c,v 1.17 2008/10/19 09:10:44 delphij Exp $");
-
-#include "xlocale_private.h"
-
 #include <stdlib.h>
 #include <string.h>
-#include <wchar.h>
 #include <errno.h>
+#include <wchar.h>
 #include "collate.h"
 
-/*
- * In the non-POSIX case, we transform each character into a string of
- * characters representing the character's priority.  Since char is usually
- * signed, we are limited by 7 bits per byte.  To avoid zero, we need to add
- * XFRM_OFFSET, so we can't use a full 7 bits.  For simplicity, we choose 6
- * bits per byte.  We choose 4 bytes per character as a good compromise
- * between maximum coverage and minimum size.  This gives 24 bits, or 16M
- * priorities.  So we choose COLLATE_MAX_PRIORITY to be (2^24 - 1).  This
- * this can be increased if more is needed.
- */
-
-#define	XFRM_BYTES	4
-#define	XFRM_OFFSET	('0')	/* make all printable characters */
-#define	XFRM_SHIFT	6
-#define	XFRM_MASK	((1 << XFRM_SHIFT) - 1)
-
-static void
-xfrm(unsigned char *p, int pri)
-{
-
-	p[3] = (pri & XFRM_MASK) + XFRM_OFFSET;
-	pri >>= XFRM_SHIFT;
-	p[2] = (pri & XFRM_MASK) + XFRM_OFFSET;
-	pri >>= XFRM_SHIFT;
-	p[1] = (pri & XFRM_MASK) + XFRM_OFFSET;
-	pri >>= XFRM_SHIFT;
-	p[0] = (pri & XFRM_MASK) + XFRM_OFFSET;
-}
-
 size_t
-strxfrm_l(char * __restrict dest, const char * __restrict src, size_t len,
-    locale_t loc)
-{
-	size_t slen;
-	wchar_t *wcs, *xf[COLL_WEIGHTS_MAX];
-	int sverrno;
-
-	if (!*src && dest) {
-		if (len > 0)
-			*dest = '\0';
-		return 0;
-	}
-
-	NORMALIZE_LOCALE(loc);
-	if (XLOCALE_COLLATE(loc)->__collate_load_error ||
-	    (wcs = __collate_mbstowcs(src, loc)) == NULL)
-		return strlcpy(dest, src, len);
-
-	__collate_xfrm(wcs, xf, loc);
-
-	/*
-	 * XXX This and wcsxfrm both need fixed to work in our new localedata
-	 * world.
-	 */
-	slen = wcslen(xf[0]) * XFRM_BYTES;
-	if (xf[1])
-		slen += (wcslen(xf[1]) + 1) * XFRM_BYTES;
-	if (len > 0) {
-		wchar_t *w = xf[0];
-		int b = 0;
-		unsigned char buf[XFRM_BYTES];
-		unsigned char *bp;
-		while (len > 1) {
-			if (!b) {
-				if (!*w)
-					break;
-				xfrm(bp = buf, *w++);
-				b = XFRM_BYTES;
-			}
-			*dest++ = *(char *)bp++;
-			b--;
-			len--;
-		}
-		if ((w = xf[1]) != NULL) {
-			xfrm(bp = buf, 0);
-			b = XFRM_BYTES;
-			while (len > 1) {
-				if (!b)
-					break;
-				*dest++ = *(char *)bp++;
-				b--;
-				len--;
-			}
-			b = 0;
-			while (len > 1) {
-				if (!b) {
-					if (!*w)
-						break;
-					xfrm(bp = buf, *w++);
-					b = XFRM_BYTES;
-				}
-				*dest++ = *(char *)bp++;
-				b--;
-				len--;
-			}
-		}
-		*dest = 0;
- 	}
-	sverrno = errno;
-	free(wcs);
-	free(xf[0]);
-	free(xf[1]);
-	errno = sverrno;
-
-	return slen;
-}
-
+strxfrm_l(char * __restrict dest, const char * __restrict src, size_t len, locale_t loc);
 size_t
 strxfrm(char * __restrict dest, const char * __restrict src, size_t len)
 {
+#ifdef __APPLE__
 	return strxfrm_l(dest, src, len, __current_locale());
+#else
+	return strxfrm_l(dest, src, len, __get_locale());
+#endif
+}
+
+size_t
+strxfrm_l(char * __restrict dest, const char * __restrict src, size_t len, locale_t locale)
+{
+	size_t slen;
+	size_t xlen;
+	wchar_t *wcs = NULL;
+
+#ifdef __APPLE__
+	int serrno;
+	NORMALIZE_LOCALE(locale);
+	struct xlocale_collate *table = XLOCALE_COLLATE(locale);
+#else
+	FIX_LOCALE(locale);
+	struct xlocale_collate *table =
+		(struct xlocale_collate*)locale->components[XLC_COLLATE];
+#endif
+
+	if (!*src) {
+		if (len > 0)
+			*dest = '\0';
+		return (0);
+	}
+
+	/*
+	 * The conversion from multibyte to wide character strings is
+	 * strictly reducing (one byte of an mbs cannot expand to more
+	 * than one wide character.)
+	 */
+	slen = strlen(src);
+
+	if (table->__collate_load_error)
+		goto error;
+
+	if ((wcs = malloc((slen + 1) * sizeof (wchar_t))) == NULL)
+		goto error;
+
+	if (mbstowcs_l(wcs, src, slen + 1, locale) == (size_t)-1)
+		goto error;
+
+	if ((xlen = _collate_sxfrm(table, wcs, dest, len)) == (size_t)-1)
+		goto error;
+
+	free(wcs);
+
+	if (len > xlen) {
+		dest[xlen] = 0;
+	} else if (len) {
+		dest[len-1] = 0;
+	}
+
+	return (xlen);
+
+error:
+	/* errno should be set to ENOMEM if malloc failed */
+#ifdef __APPLE__
+	serrno = errno;
+#endif
+	free(wcs);
+	strlcpy(dest, src, len);
+#ifdef __APPLE__
+	errno = serrno;
+#endif
+
+	return (slen);
 }

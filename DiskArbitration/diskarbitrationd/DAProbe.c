@@ -42,7 +42,7 @@ static void __DAProbeCallback( int status, int cleanStatus, CFStringRef name, CF
     __DAProbeCallbackContext * context = parameter;
     bool doFsck                       = true;
     bool didProbe                     = false;
-    char *containerBSDPath            = NULL;
+    const char *containerBSDPath      = NULL;
     
     if ( status )
     {
@@ -205,7 +205,12 @@ static void __DAProbeCallback( int status, int cleanStatus, CFStringRef name, CF
     {
         if ( didProbe )
         {
-            CFStringRef kind = ( context->filesystem != NULL && !( status ) ) ? DAFileSystemGetKind( context->filesystem ) : NULL;
+            CFStringRef kind = NULL;
+            
+            if ( context->filesystem != NULL && !( status ) )
+            {
+                kind = DAGetFSTypeWithUUID( context->filesystem , uuid );
+            }
             
             DATelemetrySendProbeEvent( status ,
                                        kind ,

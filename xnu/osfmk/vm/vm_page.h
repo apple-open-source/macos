@@ -82,9 +82,11 @@
 
 #if __x86_64__
 #define XNU_VM_HAS_DELAYED_PAGES        1
+#define XNU_VM_HAS_LOPAGE               1
 #define XNU_VM_HAS_LINEAR_PAGES_ARRAY   0
 #else
 #define XNU_VM_HAS_DELAYED_PAGES        0
+#define XNU_VM_HAS_LOPAGE               0
 #define XNU_VM_HAS_LINEAR_PAGES_ARRAY   1
 #endif
 
@@ -127,38 +129,32 @@ __enum_closed_decl(vm_relocate_reason_t, unsigned int, {
 	VM_RELOCATE_REASON_COUNT,
 });
 
-/*
- * vm_remove_reason_t:
- * A type to describe why a page is being removed from a global free queue.
+/*!
+ * @typedef vm_memory_class_t
  *
- * VM_REMOVE_REASON_USE:
- * The page is going to be used by the system (likely through the vm_page_grab
- * path).  Do any state updates to the page that are relevant.
- *
- * VM_REMOVE_REASON_REBALANCE:
- * The page is going to be put onto a different free queue.  Don't do any state
- * updates to the page; the client will do such updates.  Structured this way
- * because rebalance operations are likely to be done in bulk, so this allows
- * clients to perform any operations in bulk.
- */
-__enum_closed_decl(vm_remove_reason_t, unsigned int, {
-	VM_REMOVE_REASON_USE,
-	VM_REMOVE_REASON_REBALANCE,
-
-	VM_REMOVE_REASON_COUNT,
-});
-
-/*
- * vm_memory_class_t:
+ * @abstract
  * A type to describe what kind of memory a page represents.
  *
- * VM_MEMORY_CLASS_REGULAR:
+ * @const VM_MEMORY_CLASS_REGULAR
  * Normal memory, which should participate in the normal page lifecycle.
+ *
+ * @const VM_MEMORY_CLASS_LOPAGE
+ * this exists to support hardware controllers
+ * incapable of generating DMAs with more than 32 bits
+ * of address on platforms with physical memory > 4G...
+ *
+ * @const VM_MEMORY_CLASS_SECLUDED
+ * Denotes memory must be put on the secluded queue,
+ * this is not returned by @c vm_page_get_memory_class().
  */
-__enum_closed_decl(vm_memory_class_t, unsigned int, {
+__enum_closed_decl(vm_memory_class_t, uint8_t, {
 	VM_MEMORY_CLASS_REGULAR,
-
-	VM_MEMORY_CLASS_COUNT,
+#if XNU_VM_HAS_LOPAGE
+	VM_MEMORY_CLASS_LOPAGE,
+#endif /* XNU_VM_HAS_LOPAGE */
+#if CONFIG_SECLUDED_MEMORY
+	VM_MEMORY_CLASS_SECLUDED,
+#endif
 });
 
 /* pages of compressed data */
@@ -192,97 +188,106 @@ __enum_closed_decl(vm_memory_class_t, unsigned int, {
 
 #define VM_PAGE_NULL            ((vm_page_t) 0)
 
+__enum_closed_decl(vm_page_q_state_t, uint8_t, {
+	VM_PAGE_NOT_ON_Q                = 0,    /* page is not present on any queue, nor is it wired... mainly a transient state */
+	VM_PAGE_IS_WIRED                = 1,    /* page is currently wired */
+	VM_PAGE_USED_BY_COMPRESSOR      = 2,    /* page is in use by the compressor to hold compressed data */
+	VM_PAGE_ON_FREE_Q               = 3,    /* page is on the main free queue */
+	VM_PAGE_ON_FREE_LOCAL_Q         = 4,    /* page is on one of the per-CPU free queues */
+#if XNU_VM_HAS_LOPAGE
+	VM_PAGE_ON_FREE_LOPAGE_Q        = 5,    /* page is on the lopage pool free list */
+#endif /* XNU_VM_HAS_LOPAGE */
+#if CONFIG_SECLUDED_MEMORY
+	VM_PAGE_ON_SECLUDED_Q           = 5,    /* page is on secluded queue */
+#endif /* CONFIG_SECLUDED_MEMORY */
+	VM_PAGE_ON_THROTTLED_Q          = 6,    /* page is on the throttled queue... we stash anonymous pages here when not paging */
+	VM_PAGE_ON_PAGEOUT_Q            = 7,    /* page is on one of the pageout queues (internal/external) awaiting processing */
+	VM_PAGE_ON_SPECULATIVE_Q        = 8,    /* page is on one of the speculative queues */
+	VM_PAGE_ON_ACTIVE_LOCAL_Q       = 9,    /* page has recently been created and is being held in one of the per-CPU local queues */
+	VM_PAGE_ON_ACTIVE_Q             = 10,   /* page is in global active queue */
+	VM_PAGE_ON_INACTIVE_INTERNAL_Q  = 11,   /* page is on the inactive internal queue a.k.a.  anonymous queue */
+	VM_PAGE_ON_INACTIVE_EXTERNAL_Q  = 12,   /* page in on the inactive external queue a.k.a.  file backed queue */
+	VM_PAGE_ON_INACTIVE_CLEANED_Q   = 13,   /* page has been cleaned to a backing file and is ready to be stolen */
+});
+#define VM_PAGE_Q_STATE_LAST_VALID_VALUE  13    /* we currently use 4 bits for the state... don't let this go beyond 15 */
 
-#define VM_PAGE_INACTIVE(m)                     (vm_page_inactive_states[m->vmp_q_state])
-#define VM_PAGE_PAGEABLE(m)                     (vm_page_pageable_states[m->vmp_q_state])
-#define VM_PAGE_NON_SPECULATIVE_PAGEABLE(m)     (vm_page_non_speculative_pageable_states[m->vmp_q_state])
-#define VM_PAGE_ACTIVE_OR_INACTIVE(m)           (vm_page_active_or_inactive_states[m->vmp_q_state])
+__enum_closed_decl(vm_page_specialq_t, uint8_t, {
+	VM_PAGE_SPECIAL_Q_EMPTY         = 0,
+	VM_PAGE_SPECIAL_Q_BG            = 1,
+	VM_PAGE_SPECIAL_Q_DONATE        = 2,
+	VM_PAGE_SPECIAL_Q_FG            = 3,
+});
 
+#define VM_PAGE_INACTIVE(m)                     bit_test(vm_page_inactive_states, (m)->vmp_q_state)
+#define VM_PAGE_ACTIVE_OR_INACTIVE(m)           bit_test(vm_page_active_or_inactive_states, (m)->vmp_q_state)
+#define VM_PAGE_NON_SPECULATIVE_PAGEABLE(m)     bit_test(vm_page_non_speculative_pageable_states, (m)->vmp_q_state)
+#define VM_PAGE_PAGEABLE(m)                     bit_test(vm_page_pageable_states, (m)->vmp_q_state)
 
-#define VM_PAGE_NOT_ON_Q                0               /* page is not present on any queue, nor is it wired... mainly a transient state */
-#define VM_PAGE_IS_WIRED                1               /* page is currently wired */
-#define VM_PAGE_USED_BY_COMPRESSOR      2               /* page is in use by the compressor to hold compressed data */
-#define VM_PAGE_ON_FREE_Q               3               /* page is on the main free queue */
-#define VM_PAGE_ON_FREE_LOCAL_Q         4               /* page is on one of the per-CPU free queues */
-#define VM_PAGE_ON_FREE_LOPAGE_Q        5               /* page is on the lopage pool free list */
-#define VM_PAGE_ON_THROTTLED_Q          6               /* page is on the throttled queue... we stash anonymous pages here when not paging */
-#define VM_PAGE_ON_PAGEOUT_Q            7               /* page is on one of the pageout queues (internal/external) awaiting processing */
-#define VM_PAGE_ON_SPECULATIVE_Q        8               /* page is on one of the speculative queues */
-#define VM_PAGE_ON_ACTIVE_LOCAL_Q       9               /* page has recently been created and is being held in one of the per-CPU local queues */
-#define VM_PAGE_ON_ACTIVE_Q             10              /* page is in global active queue */
-#define VM_PAGE_ON_INACTIVE_INTERNAL_Q  11              /* page is on the inactive internal queue a.k.a.  anonymous queue */
-#define VM_PAGE_ON_INACTIVE_EXTERNAL_Q  12              /* page in on the inactive external queue a.k.a.  file backed queue */
-#define VM_PAGE_ON_INACTIVE_CLEANED_Q   13              /* page has been cleaned to a backing file and is ready to be stolen */
-#define VM_PAGE_ON_SECLUDED_Q           14              /* page is on secluded queue */
-#define VM_PAGE_Q_STATE_LAST_VALID_VALUE        14      /* we currently use 4 bits for the state... don't let this go beyond 15 */
-
-#define VM_PAGE_Q_STATE_ARRAY_SIZE      (VM_PAGE_Q_STATE_LAST_VALID_VALUE+1)
-
-extern const bool vm_page_inactive_states[VM_PAGE_Q_STATE_ARRAY_SIZE];
-extern const bool vm_page_pageable_states[VM_PAGE_Q_STATE_ARRAY_SIZE];
-extern const bool vm_page_non_speculative_pageable_states[VM_PAGE_Q_STATE_ARRAY_SIZE];
-extern const bool vm_page_active_or_inactive_states[VM_PAGE_Q_STATE_ARRAY_SIZE];
+extern const uint16_t vm_page_inactive_states;
+extern const uint16_t vm_page_active_or_inactive_states;
+extern const uint16_t vm_page_non_speculative_pageable_states;
+extern const uint16_t vm_page_pageable_states;
 
 
 /*
  * The structure itself. See the block comment above for what (O) and (P) mean.
  */
-#define vmp_pageq vmp_q_un.vmp_q_pageq
-#define vmp_snext vmp_q_un.vmp_q_snext
-
 struct vm_page {
 	union {
-		vm_page_queue_chain_t vmp_q_pageq;           /* queue info for FIFO queue or free list (P) */
-		struct vm_page        *vmp_q_snext;
-	} vmp_q_un;
+		vm_page_queue_chain_t   vmp_pageq;      /* queue info for FIFO queue or free list (P) */
+		struct vm_page         *vmp_snext;
+	};
+	vm_page_queue_chain_t           vmp_specialq;   /* anonymous pages in the special queues (P) */
 
-	vm_page_queue_chain_t         vmp_listq;           /* all pages in same object (O) */
+	vm_page_queue_chain_t           vmp_listq;      /* all pages in same object (O) */
+	vm_page_packed_t                vmp_next_m;     /* VP bucket link (O) */
 
-	vm_page_queue_chain_t         vmp_specialq;     /* anonymous pages in the special queues (P) */
-	vm_object_offset_t            vmp_offset;          /* offset into that object (O,P) */
+	vm_page_object_t                vmp_object;     /* which object am I in (O&P) */
+	vm_object_offset_t              vmp_offset;     /* offset into that object (O,P) */
 
-	vm_page_object_t              vmp_object;          /* which object am I in (O&P) */
+
+	/*
+	 * Either the current page wire count,
+	 * or the local queue id (if local queues are enabled).
+	 *
+	 * See the comments at 'vm_page_queues_remove'
+	 * as to why this is safe to do.
+	 */
+	union {
+		uint16_t                vmp_wire_count;
+		uint16_t                vmp_local_id;
+	};
 
 	/*
 	 * The following word of flags used to be protected by the "page queues" lock.
 	 * That's no longer true and what lock, if any, is needed may depend on the
 	 * value of vmp_q_state.
 	 *
-	 * We use 'vmp_wire_count' to store the local queue id if local queues are enabled.
-	 * See the comments at 'vm_page_queues_remove' as to why this is safe to do.
+	 * This bitfield is kept in its own struct to prevent coalescing
+	 * with the next one (which C allows the compiler to do) as they
+	 * are under different locking domains
 	 */
-#define VM_PAGE_SPECIAL_Q_EMPTY (0)
-#define VM_PAGE_SPECIAL_Q_BG (1)
-#define VM_PAGE_SPECIAL_Q_DONATE (2)
-#define VM_PAGE_SPECIAL_Q_FG (3)
-#define vmp_local_id vmp_wire_count
-	unsigned int vmp_wire_count:16,      /* how many wired down maps use me? (O&P) */
-	    vmp_q_state:4,                   /* which q is the page on (P) */
-	    vmp_on_specialq:2,
-	    vmp_canonical:1,                 /* this page is a canonical kernel page (immutable) */
-	    vmp_gobbled:1,                   /* page used internally (P) */
-	    vmp_laundry:1,                   /* page is being cleaned now (P)*/
-	    vmp_no_cache:1,                  /* page is not to be cached and should */
-	                                     /* be reused ahead of other pages (P) */
-	    vmp_reference:1,                 /* page has been used (P) */
-	    vmp_lopage:1,
-	    vmp_realtime:1,                  /* page used by realtime thread */
-#if !CONFIG_TRACK_UNMODIFIED_ANON_PAGES
-	    vmp_unused_page_bits:3;
-#else /* ! CONFIG_TRACK_UNMODIFIED_ANON_PAGES */
-	vmp_unmodified_ro:1,                 /* Tracks if an anonymous page is modified after a decompression (O&P).*/
-	vmp_unused_page_bits:2;
-#endif /* ! CONFIG_TRACK_UNMODIFIED_ANON_PAGES */
-
-	/*
-	 * MUST keep the 2 32 bit words used as bit fields
-	 * separated since the compiler has a nasty habit
-	 * of using 64 bit loads and stores on them as
-	 * if they were a single 64 bit field... since
-	 * they are protected by 2 different locks, this
-	 * is a real problem
-	 */
-	vm_page_packed_t vmp_next_m;            /* VP bucket link (O) */
+	struct {
+		vm_page_q_state_t       vmp_q_state:4;      /* which q is the page on (P) */
+		vm_page_specialq_t      vmp_on_specialq:2;
+		uint8_t                 vmp_lopage:1;
+		uint8_t                 vmp_canonical:1;    /* this page is a canonical kernel page (immutable) */
+	};
+	struct {
+		uint8_t                 vmp_gobbled:1;      /* page used internally (P) */
+		uint8_t                 vmp_laundry:1;      /* page is being cleaned now (P)*/
+		uint8_t                 vmp_no_cache:1;     /* page is not to be cached and should */
+		                                            /* be reused ahead of other pages (P) */
+		uint8_t                 vmp_reference:1;    /* page has been used (P) */
+		uint8_t                 vmp_realtime:1;     /* page used by realtime thread (P) */
+#if CONFIG_TRACK_UNMODIFIED_ANON_PAGES
+		uint8_t                 vmp_unmodified_ro:1;/* Tracks if an anonymous page is modified after a decompression (O&P).*/
+#else
+		uint8_t                 __vmp_reserved1:1;
+#endif
+		uint8_t                 __vmp_reserved2:1;
+		uint8_t                 __vmp_reserved3:1;
+	};
 
 	/*
 	 * The following word of flags is protected by the "VM object" lock.
@@ -327,7 +332,7 @@ struct vm_page {
 	 * Setting this value to or away from vm_page_fictitious_addr
 	 * must be done with (P) held
 	 */
-	ppnum_t         vmp_phys_page;
+	ppnum_t                         vmp_phys_page;
 #endif /* !XNU_VM_HAS_LINEAR_PAGES_ARRAY */
 };
 
@@ -380,6 +385,7 @@ vm_page_get(uint32_t i)
 	return VM_FAR_ADD_PTR_UNBOUNDED(vm_pages_array_internal(), i);
 }
 
+
 __pure2
 static inline bool
 vm_page_in_array(const struct vm_page *m)
@@ -405,6 +411,15 @@ struct vm_page_with_ppnum {
  *                      [pmap_first_pnum, vm_pages_first_pnum + vm_pages_count)
  */
 extern vm_page_t vm_page_find_canonical(ppnum_t pnum) __pure2;
+
+extern vm_page_t vm_pages_radix_next(uint32_t *cursor, ppnum_t *pnum);
+
+#define vm_pages_radix_for_each(mem) \
+	for (uint32_t __index = 0; ((mem) = vm_pages_radix_next(&__index, NULL)); )
+
+#define vm_pages_radix_for_each_pnum(pnum) \
+	for (uint32_t __index = 0; vm_pages_radix_next(&__index, &pnum); )
+
 #else
 #define vm_page_with_ppnum vm_page
 #endif /* !XNU_VM_HAS_LINEAR_PAGES_ARRAY */
@@ -444,10 +459,13 @@ VM_PAGE_SET_PHYS_PAGE(struct vm_page *m, ppnum_t pnum)
 
 #if defined(__x86_64__)
 extern unsigned int     vm_clump_mask, vm_clump_shift;
-#define VM_PAGE_GET_CLUMP(m)    ((VM_PAGE_GET_PHYS_PAGE(m)) >> vm_clump_shift)
-#define VM_PAGE_GET_COLOR(m)    ((VM_PAGE_GET_CLUMP(m)) & vm_color_mask)
+#define VM_PAGE_GET_CLUMP_PNUM(pn)      ((pn) >> vm_clump_shift)
+#define VM_PAGE_GET_CLUMP(m)            VM_PAGE_GET_CLUMP_PNUM(VM_PAGE_GET_PHYS_PAGE(m))
+#define VM_PAGE_GET_COLOR_PNUM(pn)      (VM_PAGE_GET_CLUMP_PNUM(pn) & vm_color_mask)
+#define VM_PAGE_GET_COLOR(m)            VM_PAGE_GET_COLOR_PNUM(VM_PAGE_GET_PHYS_PAGE(m))
 #else
-#define VM_PAGE_GET_COLOR(m)    (VM_PAGE_GET_PHYS_PAGE(m) & vm_color_mask)
+#define VM_PAGE_GET_COLOR_PNUM(pn)      ((pn) & vm_color_mask)
+#define VM_PAGE_GET_COLOR(m)            VM_PAGE_GET_COLOR_PNUM(VM_PAGE_GET_PHYS_PAGE(m))
 #endif
 
 /*
@@ -482,7 +500,7 @@ extern unsigned int     vm_clump_mask, vm_clump_shift;
 static inline vm_page_packed_t
 vm_page_pack_ptr(uintptr_t p)
 {
-	if (vm_page_in_array((vm_page_t)p)) {
+	if (vm_page_in_array(__unsafe_forge_single(vm_page_t, p))) {
 		ptrdiff_t diff = (vm_page_t)p - vm_pages_array_internal();
 		assert((vm_page_t)p == vm_page_get((uint32_t)diff));
 		return (vm_page_packed_t)(diff | VM_PAGE_PACKED_FROM_ARRAY);
@@ -524,6 +542,19 @@ MACRO_END
 
 
 #define VM_PAGE_CONVERT_TO_QUEUE_ENTRY(p)       VM_PAGE_PACK_PTR(p)
+
+
+/*!
+ * @abstract
+ * The type for free queue heads that live in the kernel __DATA segment.
+ *
+ * @discussion
+ * This type must be used so that the queue is properly aligned
+ * for the VM Page packing to be able to represent pointers to this queue.
+ */
+typedef struct vm_page_queue_free_head {
+	vm_page_queue_head_t    qhead;
+} VM_PAGE_PACKED_ALIGNED *vm_page_queue_free_head_t;
 
 /*
  *	Macro:	vm_page_queue_init
@@ -914,30 +945,206 @@ typedef struct vm_locks_array {
 #define NEXT_PAGE(m)            ((m)->vmp_snext)
 #define NEXT_PAGE_PTR(m)        (&(m)->vmp_snext)
 
-static inline vm_page_t
-vm_page_list_pop(vm_page_t *list)
+/*!
+ * @abstract
+ * Represents a singly linked list of pages with a count.
+ *
+ * @discussion
+ * This type is used as a way to exchange transient collections of VM pages
+ * by various subsystems.
+ *
+ * This type is designed to be less than sizeof(_Complex) which means
+ * it that can be passed by value efficiently (either as a function argument
+ * or its result).
+ *
+ *
+ * @field vmpl_head
+ * The head of the list, or VM_PAGE_NULL.
+ *
+ * @field vmpl_count
+ * How many pages are on that list.
+ *
+ * @field vmpl_has_realtime
+ * At least one page on the list has vmp_realtime set.
+ */
+typedef struct {
+	vm_page_t vmpl_head;
+	uint32_t  vmpl_count;
+	bool      vmpl_has_realtime;
+} vm_page_list_t;
+
+
+/*!
+ * @abstract
+ * Low level function that pushes a page on a naked singly linked list of VM
+ * pages.
+ *
+ * @param head          The list head.
+ * @param mem           The page to push on the list.
+ */
+static inline void
+_vm_page_list_push(vm_page_t *head, vm_page_t mem)
 {
-	vm_page_t mem = *list;
+	NEXT_PAGE(mem) = *head;
+	*head = mem;
+}
+
+/*!
+ * @abstract
+ * Pushes a page onto a VM page list, adjusting its properties.
+ *
+ * @param list          The VM page list to push onto
+ * @param mem           The page to push on the list.
+ */
+static inline void
+vm_page_list_push(vm_page_list_t *list, vm_page_t mem)
+{
+	_vm_page_list_push(&list->vmpl_head, mem);
+	list->vmpl_count++;
+	if (mem->vmp_realtime) {
+		list->vmpl_has_realtime = true;
+	}
+}
+
+/*!
+ * @abstract
+ * Conveniency function that creates a VM page list from a single page.
+ *
+ * @param mem           The VM page to put on the list.
+ */
+static inline vm_page_list_t
+vm_page_list_for_page(vm_page_t mem)
+{
+	assert(NEXT_PAGE(mem) == VM_PAGE_NULL);
+	return (vm_page_list_t){
+		       .vmpl_head  = mem,
+		       .vmpl_count = 1,
+		       .vmpl_has_realtime = mem->vmp_realtime,
+	};
+}
+
+/*!
+ * @abstract
+ * Low level function that pops a page from a naked singly linked list of VM
+ * pages.
+ *
+ * @param head          The list head.
+ *
+ * @returns             The first page that was on the list
+ *                      or VM_PAGE_NULL if it was empty.
+ */
+static inline vm_page_t
+_vm_page_list_pop(vm_page_t *head)
+{
+	vm_page_t mem = *head;
 
 	if (mem) {
-		*list = NEXT_PAGE(mem);
+		*head = NEXT_PAGE(mem);
 		VM_PAGE_ZERO_PAGEQ_ENTRY(mem);
 	}
+
 	return mem;
 }
 
-static inline void
-vm_page_list_push(vm_page_t *list, vm_page_t mem)
+/*!
+ * @abstract
+ * Pops a page from a VM page list, adjusting its properties.
+ *
+ * @param list          The VM page list to pop from.
+ *
+ * @returns             The first page that was on the list
+ *                      or VM_PAGE_NULL if it was empty.
+ */
+static inline vm_page_t
+vm_page_list_pop(vm_page_list_t *list)
 {
-	mem->vmp_snext = *list;
-	*list = mem;
+	if (list->vmpl_head) {
+		list->vmpl_count--;
+		return _vm_page_list_pop(&list->vmpl_head);
+	}
+	*list = (vm_page_list_t){ };
+	return VM_PAGE_NULL;
 }
 
-#define vm_page_list_foreach(m, list) \
-	for ((m) = (list); (m); (m) = (m)->vmp_snext)
 
-#define vm_page_list_foreach_consume(it, list) \
-	while (((it) = vm_page_list_pop((list))))
+/*!
+ * @abstract
+ * Reverses a list of VM pages in place.
+ *
+ * @param list          The VM page list to reverse.
+ */
+static inline void
+vm_page_list_reverse(vm_page_list_t *list)
+{
+	vm_page_t cur, next;
+
+	cur = list->vmpl_head;
+	list->vmpl_head = NULL;
+
+	while (cur) {
+		next = NEXT_PAGE(cur);
+		_vm_page_list_push(&list->vmpl_head, cur);
+		cur = next;
+	}
+}
+
+
+/*!
+ * @abstract
+ * Low level iterator over all pages on a naked singly linked list
+ * of VM pages.
+ *
+ * @discussion
+ * Mutating the list during enumeration is undefined.
+ *
+ * @param mem           The variable to use for iteration.
+ * @param head          The list head.
+ */
+#define _vm_page_list_foreach(mem, list) \
+	for ((mem) = (list); (mem); (mem) = NEXT_PAGE(mem))
+
+
+/*!
+ * @abstract
+ * Iterator over a VM page list.
+ *
+ * @discussion
+ * Mutating the list during enumeration is undefined.
+ *
+ * @param mem           The variable to use for iteration.
+ * @param head          The list head.
+ */
+#define vm_page_list_foreach(mem, list) \
+	_vm_page_list_foreach(mem, (list).vmpl_head)
+
+
+/*!
+ * @abstract
+ * Low level iterator over all pages on a naked singly linked list
+ * of VM pages, that also consumes the list as it iterates.
+ *
+ * @discussion
+ * Each element is removed from the list as it is being iterated.
+ *
+ * @param mem           The variable to use for iteration.
+ * @param head          The list head.
+ */
+#define _vm_page_list_foreach_consume(mem, list) \
+	while (((mem) = _vm_page_list_pop((list))))
+
+/*!
+ * @abstract
+ * Iterator over a VM page list, that consumes the list.
+ *
+ * @discussion
+ * Each element is removed from the list as it is being iterated.
+ *
+ * @param mem           The variable to use for iteration.
+ * @param head          The list head.
+ */
+#define vm_page_list_foreach_consume(mem, list) \
+	while (((mem) = vm_page_list_pop((list))))
+
 
 /*
  * XXX	The unusual bit should not be necessary.  Most of the bit
@@ -968,10 +1175,25 @@ vm_page_list_push(vm_page_t *list, vm_page_t mem)
 #define MAX_COLORS      128
 #define DEFAULT_COLORS  32
 
+/*
+ * Page free queue type.  Abstracts the notion of a free queue of pages, that
+ * contains free pages of a particular memory class, and maintains a count of
+ * the number of pages in the free queue.
+ *
+ * Pages in the queue will be marked VM_PAGE_ON_FREE_Q when they are added to
+ * the free queue, and VM_PAGE_NOT_ON_Q when they are removed.
+ *
+ * These free queues will color pages, consistent with MachVMs color mask.
+ */
+typedef struct vm_page_free_queue {
+	struct vm_page_queue_free_head vmpfq_queues[MAX_COLORS];
+	uint32_t                       vmpfq_count;
+} *vm_page_free_queue_t;
+
 extern unsigned int    vm_colors;              /* must be in range 1..MAX_COLORS */
 extern unsigned int    vm_color_mask;          /* must be (vm_colors-1) */
 extern unsigned int    vm_cache_geometry_colors; /* optimal #colors based on cache geometry */
-
+extern unsigned int    vm_free_magazine_refill_limit;
 
 /*
  * Wired memory is a very limited resource and we can't let users exhaust it
@@ -1038,8 +1260,6 @@ unsigned int    vm_page_local_q_hard_limit;
 extern
 vm_locks_array_t vm_page_locks;
 
-extern
-vm_page_queue_head_t    vm_lopage_queue_free;           /* low memory free queue */
 extern
 vm_page_queue_head_t    vm_page_queue_active;   /* active memory queue */
 extern
@@ -1235,13 +1455,46 @@ extern boolean_t        vm_himemory_mode;
 #define vm_himemory_mode TRUE
 #endif
 
-extern boolean_t        vm_lopage_needed;
+#if XNU_VM_HAS_LOPAGE
+extern bool             vm_lopage_needed;
+extern bool             vm_lopage_refill;
 extern uint32_t         vm_lopage_free_count;
 extern uint32_t         vm_lopage_free_limit;
 extern uint32_t         vm_lopage_lowater;
-extern boolean_t        vm_lopage_refill;
+#else
+#define vm_lopage_needed        0
+#define vm_lopage_free_count    0
+#endif
 extern uint64_t         max_valid_dma_address;
 extern ppnum_t          max_valid_low_ppnum;
+
+/*!
+ * @abstract
+ * Options that alter the behavior of vm_page_grab_options().
+ *
+ * @const VM_PAGE_GRAB_OPTIONS_NONE
+ * The default value when no other specific options are required.
+ *
+ * @const VM_PAGE_GRAB_Q_LOCK_HELD
+ * Denotes the caller is holding the vm page queues lock held.
+ *
+ * @const VM_PAGE_GRAB_NOPAGEWAIT
+ * Denotes that the caller never wants @c vm_page_grab_options() to call
+ * @c VM_PAGE_WAIT(), even if the thread is privileged.
+ *
+ * @const VM_PAGE_GRAB_SECLUDED
+ * The caller is eligible to the secluded pool.
+ */
+__enum_decl(vm_grab_options_t, uint32_t, {
+	VM_PAGE_GRAB_OPTIONS_NONE               = 0x00000000,
+	VM_PAGE_GRAB_Q_LOCK_HELD                = 0x00000001,
+	VM_PAGE_GRAB_NOPAGEWAIT                 = 0x00000002,
+
+	/* architecture/platform-specific flags */
+#if CONFIG_SECLUDED_MEMORY
+	VM_PAGE_GRAB_SECLUDED                   = 0x00010000,
+#endif /* CONFIG_SECLUDED_MEMORY */
+});
 
 /*
  * Prototypes for functions exported by this module.
@@ -1258,10 +1511,6 @@ extern void             vm_free_delayed_pages(void);
 #endif /* XNU_VM_HAS_DELAYED_PAGES */
 
 extern void             vm_pages_array_finalize(void);
-
-extern vm_page_t        vm_page_alloc(
-	vm_object_t             object,
-	vm_object_offset_t      offset);
 
 extern void             vm_page_reactivate_all_throttled(void);
 

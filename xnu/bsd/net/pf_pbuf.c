@@ -272,18 +272,23 @@ pbuf_resize_segment(pbuf_t *pbuf, int off, int olen, int nlen)
 			return NULL;
 		}
 
-		rv = mtod(n, void *);
-
 		if (off > 0) {
 			/* Merge the two chains */
 			int mlen;
+			struct mbuf *new_n;
+			int new_off = 0;
 
 			mlen = n->m_pkthdr.len;
 			m_cat(m, n);
 			m->m_pkthdr.len += mlen;
+
+			new_n = m_getptr(m, off, &new_off);
+			rv = mtod(new_n, uint8_t *) + new_off;
 		} else {
 			/* The new mbuf becomes the packet header */
 			pbuf->pb_mbuf = n;
+
+			rv = mtod(n, void *);
 		}
 
 		pbuf_sync(pbuf);

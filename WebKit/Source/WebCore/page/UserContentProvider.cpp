@@ -151,7 +151,7 @@ ContentRuleListResults UserContentProvider::processContentRuleListsForLoad(Page&
 {
     auto results = userContentExtensionBackend().processContentRuleListsForLoad(page, url, resourceType, initiatingDocumentLoader, redirectFrom, ruleListFilter(initiatingDocumentLoader));
 
-    if (resourceType.contains(ContentExtensions::ResourceType::Document))
+    if (resourceType.containsAny({ ContentExtensions::ResourceType::TopDocument, ContentExtensions::ResourceType::ChildDocument }))
         applyLinkDecorationFilteringIfNeeded(results, page, url, initiatingDocumentLoader);
 
     return results;

@@ -63,6 +63,7 @@ kdp_vtophys(
 {
 	pmap_paddr_t    pa;
 
+
 	/* Ensure that the provided va resides within the provided pmap range. */
 	if (!pmap || ((pmap != kernel_pmap) && ((va < pmap->min) || (va >= pmap->max)))) {
 #ifdef KDP_VTOPHYS_DEBUG

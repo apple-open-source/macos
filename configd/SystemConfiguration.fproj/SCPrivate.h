@@ -965,10 +965,6 @@ _SC_copyInterfaceUUID(CFStringRef bsdName);
 	while (0)
 #endif /* __SC_CFRELEASE_NEEDED */
 
-CF_RETURNS_RETAINED
-CFDictionaryRef
-_SC_IONetworkInterfaceBSDNameMatching(const char * bsdName);
-
 __END_DECLS
 
 #endif	/* _SCPRIVATE_H */

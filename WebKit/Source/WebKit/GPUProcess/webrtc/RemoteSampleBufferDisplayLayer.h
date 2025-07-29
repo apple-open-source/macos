@@ -78,7 +78,7 @@ private:
     RefPtr<WebCore::LocalSampleBufferDisplayLayer> protectedSampleBufferDisplayLayer() const;
 
 #if !RELEASE_LOG_DISABLED
-    void setLogIdentifier(String&&);
+    void setLogIdentifier(uint64_t);
 #endif
     void updateDisplayMode(bool hideDisplayLayer, bool hideRootLayer);
     void flush();

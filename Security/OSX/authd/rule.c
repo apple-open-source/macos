@@ -180,8 +180,9 @@ done:
     return rule;
 }
 
+// hardcoding the right definition as a fix for CVE-2024-44123
 rule_t
-rule_create_trust()
+rule_create_trust_admin()
 {
     rule_t delegate_entitled = _rule_create();
     auth_items_set_int64(delegate_entitled->data, RULE_TYPE, RT_RULE);
@@ -197,7 +198,7 @@ rule_create_trust()
     auth_items_set_int64(delegate_admin->data, RULE_TYPE, RT_RULE);
     auth_items_set_string(delegate_admin->data, RULE_NAME, "hardcoded-admin");
     auth_items_set_int64(delegate_admin->data, RULE_CLASS, RC_USER);
-    auth_items_set_int64(delegate_admin->data, RULE_TRIES, 1);
+    auth_items_set_int64(delegate_admin->data, RULE_TRIES, kMaximumAuthorizationTries);
     auth_items_set_int64(delegate_admin->data, RULE_FLAGS, RuleFlagShared | RuleFlagAuthenticateUser);
     auth_items_set_string(delegate_admin->data, RULE_GROUP, "admin");
 
@@ -210,6 +211,66 @@ rule_create_trust()
     CFArrayAppendValue(retval->delegations, delegate_admin);
     CFReleaseNull(delegate_entitled);
     CFReleaseNull(delegate_admin);
+
+    return retval;
+}
+
+// hardcoding the right definition as a fix for CVE-2025-24250
+rule_t
+rule_create_trust_user()
+{
+    rule_t delegate_entitled = _rule_create();
+    auth_items_set_int64(delegate_entitled->data, RULE_TYPE, RT_RULE);
+    auth_items_set_string(delegate_entitled->data, RULE_NAME, "hardcoded-entitled");
+    auth_items_set_int64(delegate_entitled->data, RULE_CLASS, RC_MECHANISM);
+    auth_items_set_int64(delegate_entitled->data, RULE_TRIES, 1);
+    auth_items_set_int64(delegate_entitled->data, RULE_FLAGS, RuleFlagShared);
+    mechanism_t mech = mechanism_create_with_string("builtin:entitled,privileged", NULL);
+    CFArrayAppendValue(delegate_entitled->mechanisms, mech);
+    CFReleaseNull(mech);
+    
+    rule_t delegate_session_owner = _rule_create();
+    auth_items_set_int64(delegate_session_owner->data, RULE_TYPE, RT_RULE);
+    auth_items_set_string(delegate_session_owner->data, RULE_NAME, "hardcoded-is-session-owner");
+    auth_items_set_int64(delegate_session_owner->data, RULE_CLASS, RC_USER);
+    auth_items_set_int64(delegate_session_owner->data, RULE_FLAGS, RuleFlagSessionOwner);
+    auth_items_set_int64(delegate_session_owner->data, RULE_TRIES, kMaximumAuthorizationTries);
+
+    rule_t entitled_session_owner = _rule_create();
+    auth_items_set_int64(entitled_session_owner->data, RULE_TYPE, RT_RULE);
+    auth_items_set_string(entitled_session_owner->data, RULE_NAME, "hardcoded-entitled-session-owner");
+    auth_items_set_int64(entitled_session_owner->data, RULE_CLASS, RC_RULE);
+    auth_items_set_int64(entitled_session_owner->data, RULE_KOFN, 2);
+    CFArrayAppendValue(entitled_session_owner->delegations, delegate_session_owner);
+    CFArrayAppendValue(entitled_session_owner->delegations, delegate_entitled);
+    CFReleaseNull(delegate_entitled);
+    CFReleaseNull(delegate_session_owner);
+
+    rule_t authenticate_session_owner = _rule_create();
+    auth_items_set_int64(authenticate_session_owner->data, RULE_TYPE, RT_RULE);
+    auth_items_set_string(authenticate_session_owner->data, RULE_NAME, "hardcoded-authenticate-session-owner");
+    auth_items_set_int64(authenticate_session_owner->data, RULE_CLASS, RC_USER);
+    auth_items_set_int64(authenticate_session_owner->data, RULE_FLAGS, RuleFlagSessionOwner | RuleFlagAuthenticateUser);
+    auth_items_set_int64(authenticate_session_owner->data, RULE_TRIES, kMaximumAuthorizationTries);
+
+    
+    rule_t entitled_session_or_auth_session = _rule_create();
+    auth_items_set_int64(entitled_session_or_auth_session->data, RULE_TYPE, RT_RULE);
+    auth_items_set_string(entitled_session_or_auth_session->data, RULE_NAME, "hardcoded-entitled-session-owner-or-authenticate-session-owner");
+    auth_items_set_int64(entitled_session_or_auth_session->data, RULE_CLASS, RC_RULE);
+    auth_items_set_int64(entitled_session_or_auth_session->data, RULE_KOFN, 1);
+    CFArrayAppendValue(entitled_session_or_auth_session->delegations, entitled_session_owner);
+    CFArrayAppendValue(entitled_session_or_auth_session->delegations, authenticate_session_owner);
+    CFReleaseNull(entitled_session_owner);
+    CFReleaseNull(authenticate_session_owner);
+    
+    rule_t retval = _rule_create();
+    auth_items_set_int64(retval->data, RULE_TYPE, RT_RIGHT);
+    auth_items_set_string(retval->data, RULE_NAME, "com.apple.trust-settings.user");
+    auth_items_set_int64(retval->data, RULE_CLASS, RC_RULE);
+
+    CFArrayAppendValue(retval->delegations, entitled_session_or_auth_session);
+    CFReleaseNull(entitled_session_or_auth_session);
 
     return retval;
 }

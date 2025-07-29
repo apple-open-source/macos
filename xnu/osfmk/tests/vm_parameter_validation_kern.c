@@ -565,10 +565,10 @@ will_copyio_panic_in_copy_validate(void *kernel_addr, vm_size_t size)
 		return true;
 	}
 
-	bool in_kva = (VM_KERNEL_STRIP_UPTR(kernel_addr) >= VM_MIN_KERNEL_ADDRESS) &&
-	    (VM_KERNEL_STRIP_UPTR(kernel_addr_last) <= VM_MAX_KERNEL_ADDRESS);
-	bool in_physmap = (VM_KERNEL_STRIP_UPTR(kernel_addr) >= physmap_base) &&
-	    (VM_KERNEL_STRIP_UPTR(kernel_addr_last) <= physmap_end);
+	bool in_kva = (VM_KERNEL_STRIP_PTR(kernel_addr) >= VM_MIN_KERNEL_ADDRESS) &&
+	    (VM_KERNEL_STRIP_PTR(kernel_addr_last) <= VM_MAX_KERNEL_ADDRESS);
+	bool in_physmap = (VM_KERNEL_STRIP_PTR(kernel_addr) >= physmap_base) &&
+	    (VM_KERNEL_STRIP_PTR(kernel_addr_last) <= physmap_end);
 
 	if (!(in_kva || in_physmap)) {
 		return true;
@@ -625,7 +625,8 @@ call_vm_map_write_user(MAP_T map, void * ptr, vm_map_address_t dst_addr, vm_size
 static kern_return_t
 call_vm_map_copy_overwrite_interruptible(MAP_T dst_map, vm_map_copy_t copy, mach_vm_address_t dst_addr, mach_vm_size_t copy_size)
 {
-	kern_return_t kr = vm_map_copy_overwrite(dst_map, dst_addr, copy, copy_size, TRUE);
+	kern_return_t kr = vm_map_copy_overwrite(dst_map, dst_addr, copy, copy_size,
+	    TRUE);
 
 	const mach_vm_size_t va_mask = ((1ULL << 48) - 1);
 	if ((dst_addr & ~va_mask) == 0ULL && ((dst_addr + copy_size) & ~va_mask) == ~va_mask) {

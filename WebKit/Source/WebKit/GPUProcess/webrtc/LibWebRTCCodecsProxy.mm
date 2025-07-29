@@ -372,7 +372,7 @@ void LibWebRTCCodecsProxy::createEncoder(VideoEncoderIdentifier identifier, WebC
     }
 
     webrtc::setLocalEncoderLowLatency(encoder, useLowLatency);
-    auto result = m_encoders.add(identifier, Encoder { encoder, makeUnique<SharedVideoFrameReader>(Ref { m_videoFrameObjectHeap }, m_resourceOwner), { } });
+    auto result = m_encoders.add(identifier, Encoder { encoder, makeUnique<SharedVideoFrameReader>(Ref { m_videoFrameObjectHeap }, m_resourceOwner), { }, codecType, useLowLatency });
     ASSERT_UNUSED(result, result.isNewEntry || IPC::isTestingIPC());
     m_hasEncodersOrDecoders = true;
     callback(true);
@@ -395,6 +395,22 @@ void LibWebRTCCodecsProxy::releaseEncoder(VideoEncoderIdentifier identifier)
     m_hasEncodersOrDecoders = !m_encoders.isEmpty() || !m_decoders.isEmpty();
 }
 
+static bool validateEncoderInitializationData(WebCore::VideoCodecType codecType, bool useLowLatency, size_t width, size_t height)
+{
+    switch (codecType) {
+    case WebCore::VideoCodecType::H264:
+        return !useLowLatency || (width <= 7680 && height <= 4320);
+    case WebCore::VideoCodecType::H265:
+        return true;
+    case WebCore::VideoCodecType::VP9:
+        break;
+    case WebCore::VideoCodecType::AV1:
+        break;
+    }
+    ASSERT_NOT_REACHED();
+    return true;
+}
+
 void LibWebRTCCodecsProxy::initializeEncoder(VideoEncoderIdentifier identifier, uint16_t width, uint16_t height, unsigned startBitrate, unsigned maxBitrate, unsigned minBitrate, uint32_t maxFramerate)
 {
     assertIsCurrent(workQueue());
@@ -402,6 +418,10 @@ void LibWebRTCCodecsProxy::initializeEncoder(VideoEncoderIdentifier identifier, 
     if (!encoder)
         return;
 
+    if (!validateEncoderInitializationData(encoder->codecType, encoder->useLowLatency, width, height)) {
+        encoder->isInvalid = true;
+        return;
+    }
     webrtc::initializeLocalEncoder(encoder->webrtcEncoder, width, height, startBitrate, maxBitrate, minBitrate, maxFramerate);
 }
 
@@ -433,7 +453,7 @@ void LibWebRTCCodecsProxy::encodeFrame(VideoEncoderIdentifier identifier, Shared
 {
     assertIsCurrent(workQueue());
     auto* encoder = findEncoder(identifier);
-    if (!encoder) {
+    if (!encoder || encoder->isInvalid) {
         // Make sure to read RemoteVideoFrameReadReference to prevent memory leaks.
         if (std::holds_alternative<RemoteVideoFrameReadReference>(sharedVideoFrame.buffer))
             Ref { m_videoFrameObjectHeap }->get(WTFMove(std::get<RemoteVideoFrameReadReference>(sharedVideoFrame.buffer)));

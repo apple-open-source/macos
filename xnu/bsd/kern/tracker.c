@@ -56,8 +56,10 @@ static os_log_t tracker_db_log_handle = NULL;
 static struct thread *g_tracker_gc_thread;
 #define TRACKER_GC_RUN_INTERVAL_NSEC  (10 * NSEC_PER_SEC)   // GC wakes up periodically
 #define TRACKER_GC_IDLE_TO            (10)                  // age out entries when not used for a while
+#define TRACKER_GC_EXTENDED_IDLE_TO   (120)                 // extended timeout for entries that are used for policy evaluation
 
 static int tracker_db_idle_timeout = TRACKER_GC_IDLE_TO;
+static int tracker_db_extended_idle_timeout = TRACKER_GC_EXTENDED_IDLE_TO;
 
 /*
  * Sysctls for debug logs control
@@ -69,6 +71,9 @@ SYSCTL_INT(_net_tracker, OID_AUTO, log, CTLFLAG_RW | CTLFLAG_LOCKED,
 
 SYSCTL_INT(_net_tracker, OID_AUTO, idle_timeout, CTLFLAG_RW | CTLFLAG_LOCKED,
     &tracker_db_idle_timeout, 0, "");
+
+SYSCTL_INT(_net_tracker, OID_AUTO, extended_idle_timeout, CTLFLAG_RW | CTLFLAG_LOCKED,
+    &tracker_db_extended_idle_timeout, 0, "");
 
 #define TRACKER_LOG(level, fmt, ...)                                                                                    \
 do {                                                                                                                    \
@@ -317,6 +322,12 @@ copy_metadata(tracker_metadata_t *dst_metadata, tracker_metadata_t *src_metadata
 		dst_domain_owner_buffer[0] = 0;
 	}
 
+	if (dst_metadata->flags & SO_TRACKER_ATTRIBUTE_FLAGS_EXTENDED_TIMEOUT) {
+		// If the client says this needs to extend the timeout, save that.
+		// This flag is passed in by the caller, and updates the saved metadata.
+		src_metadata->flags |= SO_TRACKER_ATTRIBUTE_FLAGS_EXTENDED_TIMEOUT;
+	}
+
 	is_short = (dst_metadata->flags & SO_TRACKER_ATTRIBUTE_FLAGS_DOMAIN_SHORT);
 	dst_metadata->flags = src_metadata->flags;
 	if (is_short) {
@@ -456,6 +467,7 @@ tracker_search_and_insert(struct tracker_db *db, struct tracker_hash_entry *matc
 			if (insert) {
 				if (copy_metadata(&nextentry->metadata, &matchentry->metadata) == true) {
 					TRACKER_ENTRY_LOG(LOG_DEBUG, "Updated entry", nextentry, hash_element);
+					nextentry->lastused = net_uptime();
 					return nextentry;
 				} else {
 					// Failed to update found entry, delete it from db and allow insertion of new entry.
@@ -1069,7 +1081,11 @@ tracker_entry_expire(void *v, wait_result_t w)
 		hash = &g_tracker_db.tracker_hashbase[i];
 
 		LIST_FOREACH_SAFE(entry, hash, entry_link, temp_entry) {
-			if (tracker_idle_timed_out(entry, tracker_db_idle_timeout, current_time)) {
+			int timeout_value = tracker_db_idle_timeout;
+			if (entry->metadata.flags & SO_TRACKER_ATTRIBUTE_FLAGS_EXTENDED_TIMEOUT) {
+				timeout_value = tracker_db_extended_idle_timeout;
+			}
+			if (tracker_idle_timed_out(entry, timeout_value, current_time)) {
 				TRACKER_ENTRY_LOG(LOG_DEBUG, "Deleting entry - IDLE TO", entry, i);
 				g_tracker_db.tracker_count--;
 				if (entry->metadata.flags & SO_TRACKER_ATTRIBUTE_FLAGS_DOMAIN_SHORT) {

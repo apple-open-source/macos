@@ -41,6 +41,20 @@ namespace CSSPropertyParserHelpers {
 
 template<typename> struct ConsumerDefinition;
 
+// Used to check that a specialization of ConsumerDefinition exists.
+struct HasConsumerDefinition {
+private:
+    template<typename T, typename U = decltype(ConsumerDefinition<T>{})>
+    static constexpr bool exists(int) { return true; }
+
+    template<typename T>
+    static constexpr bool exists(char) { return false; }
+
+public:
+    template<typename T>
+    static constexpr bool check() { return exists<T>(0); }
+};
+
 inline bool shouldAcceptUnitlessValue(double value, CSSPropertyParserOptions options)
 {
     // FIXME: Presentational HTML attributes shouldn't use the CSS parser for lengths.

@@ -126,6 +126,9 @@ private:
     };
     bool computeUserGesturePriviledge(GestureAllowedRequest);
 
+    enum class UserActivation : bool { No, Yes };
+    void queueTaskForDeviceChangeEvent(UserActivation);
+
     RunLoop::Timer m_scheduledEventTimer;
     Markable<UserMediaClient::DeviceChangeObserverToken> m_deviceChangeToken;
     const EventNames& m_eventNames; // Need to cache this so we can use it from GC threads.

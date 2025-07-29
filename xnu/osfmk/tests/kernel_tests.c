@@ -95,6 +95,7 @@ extern kern_return_t ml_io_timeout_test(void);
 #endif
 
 #ifdef __arm64__
+extern kern_return_t arm64_backtrace_test(void);
 extern kern_return_t arm64_munger_test(void);
 #if __ARM_PAN_AVAILABLE__
 extern kern_return_t arm64_pan_test(void);
@@ -129,6 +130,7 @@ struct xnupost_test kernel_post_tests[] = {
 	XNUPOST_TEST_CONFIG_BASIC(test_os_log),
 	XNUPOST_TEST_CONFIG_BASIC(test_os_log_parallel),
 #ifdef __arm64__
+	XNUPOST_TEST_CONFIG_BASIC(arm64_backtrace_test),
 	XNUPOST_TEST_CONFIG_BASIC(arm64_munger_test),
 #if __ARM_PAN_AVAILABLE__
 	XNUPOST_TEST_CONFIG_BASIC(arm64_pan_test),

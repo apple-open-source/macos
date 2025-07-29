@@ -1575,11 +1575,11 @@ arm_vm_physmap_init(boot_args *args)
 		keep_linkedit = TRUE;
 	}
 #endif /* CONFIG_DTRACE */
-#if KASAN_DYNAMIC_BLACKLIST
-	/* KASAN's dynamic blacklist needs to query the LINKEDIT segment at runtime.  As such, the
+#if KASAN_DYNAMIC_DENYLIST
+	/* KASAN's dynamic denylist needs to query the LINKEDIT segment at runtime.  As such, the
 	 * kext bootstrap code will not jettison LINKEDIT on kasan kernels, so don't bother to relocate it. */
 	keep_linkedit = TRUE;
-#endif
+#endif /* KASAN_DYNAMIC_DENYLIST */
 	if (!keep_linkedit) {
 		// Kernel LINKEDIT
 		arm_vm_physmap_slide(temp_ptov_table, segLINKB, segSizeLINK, AP_RWNA, 0);

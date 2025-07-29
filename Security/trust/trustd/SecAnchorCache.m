@@ -80,12 +80,10 @@ CFStringRef kSecAnchorTypeCustom = CFSTR("custom");
 - (instancetype)init {
     self = [super init];
     if (self) {
-        SecOTAPKIRef otapkiRef = SecOTAPKICopyCurrentOTAPKIRef();
-        self.anchor_table = CFBridgingRelease(SecOTAPKICopyConstrainedAnchorLookupTable(otapkiRef));
+        self.anchor_table = CFBridgingRelease(SecOTAPKICopyConstrainedAnchorLookupTable());
         self.cache = [NSMutableDictionary dictionary];
         self.cache_list = [NSMutableArray array];
         self.cache_lock = OS_UNFAIR_LOCK_INIT;
-        CFReleaseSafe(otapkiRef);
     }
     return self;
 }
@@ -113,9 +111,11 @@ CFStringRef kSecAnchorTypeCustom = CFSTR("custom");
 // return array of SecCertificateRef, from cache if possible
 - (NSArray*)anchorsForKey:(NSString*)anchorLookupKey {
     NSMutableArray* result = [NSMutableArray array];
-    if (!isArray((__bridge CFArrayRef)result)) { return result; }
     NSArray *records = [_anchor_table objectForKey:anchorLookupKey];
-    if (!isArray((__bridge CFArrayRef)records)) { return result; }
+    if (!isArray((__bridge CFArrayRef)records)) {
+        secerror("Malformed anchor records, not an array");
+        return result;
+    }
     NSUInteger idx, count = [records count];
 
     os_unfair_lock_lock(&_cache_lock); // grab the cache lock before using the cache
@@ -124,9 +124,15 @@ CFStringRef kSecAnchorTypeCustom = CFSTR("custom");
     // (normally there is only 1 cert per record, but can be more)
     for (idx = 0; idx < count; idx++) {
         NSDictionary* record = [records objectAtIndex:idx];
-        if (!isDictionary((__bridge CFDictionaryRef)record)) { continue; }
+        if (!isDictionary((__bridge CFDictionaryRef)record)) {
+            secerror("Malformed anchor record, not a dictionary: %{public}@", record);
+            continue;
+        }
         NSString* certHash = [record objectForKey:@"sha2"];
-        if (!isString((__bridge CFStringRef)certHash)) { continue; }
+        if (!isString((__bridge CFStringRef)certHash)) {
+            secerror("Malformed anchor record, cert hash not a string: %{public}@", certHash);
+            continue;
+        }
         NSUInteger index = [_cache_list indexOfObjectPassingTest:^BOOL(NSString* obj, NSUInteger ix, BOOL * stop) {
             if ([obj isEqualToString:certHash]) {
                 *stop = YES;
@@ -145,7 +151,10 @@ CFStringRef kSecAnchorTypeCustom = CFSTR("custom");
             // Cache miss. Add the entry to the end and check cache size.
             secdebug("Anchors", "anchor cache miss: %@", certHash);
             SecCertificateRef cert = [self copyAnchorAssetForKey:certHash];
-            if (!cert) { continue; }
+            if (!cert) {
+                secerror("Malformed anchor record, no cert for hash: %{public}@", certHash);
+                continue;
+            }
             [_cache setObject:CFBridgingRelease(cert) forKey:certHash];
             if (kSecAnchorCacheSize <= [_cache_list count]) {
                 // Remove least recently used cache entry.
@@ -174,14 +183,10 @@ CFStringRef kSecAnchorTypeCustom = CFSTR("custom");
 
     for (NSString* anchorLookupKey in _anchor_table) {
         NSArray *anchorRecords = _anchor_table[anchorLookupKey];
-        if (!isNSArray(anchorRecords)) { continue; }
-        for (NSDictionary* anchorRecord in anchorRecords) {
-            NSString *certHash = NULL;
-            if (SecAnchorPolicyPermitsAnchorRecord((__bridge CFDictionaryRef)anchorRecord, (__bridge CFStringRef)policyId)) {
-                certHash = anchorRecord[@"sha2"];
-            }
-
-            /* anchor record for this policyId */
+        NSArray *permittedAnchorRecords = [SecAnchorCache anchorRecordsPermitttedForPolicy:anchorRecords
+                                                                                  policyId:policyId];
+        for (NSDictionary* anchorRecord in permittedAnchorRecords) {
+            NSString *certHash = anchorRecord[@"sha2"];
             if (certHash) {
                 if (!isNSString(certHash)) { continue; }
                 /* lookup certs in cache but don't change the cache */
@@ -206,6 +211,61 @@ CFStringRef kSecAnchorTypeCustom = CFSTR("custom");
         return NULL;
     }
     return anchors;
+}
+
++ (NSArray<NSDictionary*>*) anchorRecordsPermitttedForPolicy:(NSArray<NSDictionary*>*)anchorRecords
+policyId:(NSString*)policyId {
+    bool systemAnchorsAllowed = !SecPolicyUsesConstrainedAnchors((__bridge CFStringRef)policyId);
+    bool appleAnchors = SecPolicyUsesAppleAnchors((__bridge CFStringRef)policyId);
+
+    if (!isNSArray(anchorRecords)) {
+        secerror("Malformed anchor records, not an array");
+        return NULL;
+    }
+
+    NSMutableArray *matchingAnchorRecords = [NSMutableArray array];
+    for (NSDictionary *anchorRecord in anchorRecords) {
+        if (!isNSDictionary(anchorRecord)) {
+            secerror("Malformed anchor record, not a dictionary: %{public}@", anchorRecord);
+            continue;
+        }
+        NSArray *policyOids = anchorRecord[@"oids"];
+        if (!isNSArray(policyOids)) {
+            secerror("Malformed anchor record, oids not an array: %{public}@", policyOids);
+            continue;
+        }
+        NSString *type = anchorRecord[@"type"];
+        if (!isNSString(type)) {
+            secerror("Malformed anchor record, type not a string: %{public}@", type);
+            continue;
+        }
+
+        /* Match policy and policy anchor type to anchor record type */
+        if ([type isEqual:(__bridge NSString*)kSecAnchorTypeSystem] && systemAnchorsAllowed) {
+            if (policyOids.count < 1 || [policyOids containsObject:policyId]) {
+                // System anchor is unconstrained or constrained to this policyId
+                [matchingAnchorRecords addObject:anchorRecord];
+            }
+        } else if ([type isEqual:(__bridge NSString*)kSecAnchorTypeCustom] && !systemAnchorsAllowed && !appleAnchors) {
+            if ([policyOids containsObject:policyId]) {
+                // custom anchor is constrained to this policyId
+                [matchingAnchorRecords addObject:anchorRecord];
+            }
+        } else if ([type isEqual:(__bridge NSString*)kSecAnchorTypePlatform] && appleAnchors) {
+            if (policyOids.count < 1 || [policyOids containsObject:policyId]) {
+                // apple anchor is unconstrained or constrained to this policyId
+                [matchingAnchorRecords addObject:anchorRecord];
+            }
+        } else {
+            secinfo("anchorCache", "unknown anchor type: %{public}@", type);
+        }
+    }
+
+    if (matchingAnchorRecords.count > 0) {
+        return matchingAnchorRecords;
+    } else {
+        return NULL;
+    }
 }
 
 @end
@@ -249,34 +309,10 @@ CFArrayRef SecAnchorCacheCopyAnchors(CFStringRef policyId) {
     }
 }
 
-bool SecAnchorPolicyPermitsAnchorRecord(CFDictionaryRef cfAnchorRecord, CFStringRef policyId) {
-    bool systemAnchorsAllowed = !SecPolicyUsesConstrainedAnchors(policyId);
-    bool appleAnchors = SecPolicyUsesAppleAnchors(policyId);
-
-    NSDictionary *anchorRecord = (__bridge NSDictionary*)cfAnchorRecord;
-    if (!isNSDictionary(anchorRecord)) { return false; }
-    NSArray *policyOids = anchorRecord[@"oids"];
-    if (!isNSArray(policyOids)) { return false; }
-    NSString *type = anchorRecord[@"type"];
-    if (!isNSString(type)) { return false; }
-
-    /* Match policy and policy anchor type to anchor record type */
-    if ([type isEqual:(__bridge NSString*)kSecAnchorTypeSystem] && systemAnchorsAllowed) {
-        if (policyOids.count < 1 || [policyOids containsObject:(__bridge NSString*)policyId]) {
-            // System anchor is unconstrained or constrained to this policyId
-            return true;
-        }
-    } else if ([type isEqual:(__bridge NSString*)kSecAnchorTypeCustom] && !systemAnchorsAllowed && !appleAnchors) {
-        if ([policyOids containsObject:(__bridge NSString*)policyId]) {
-            // custom anchor is constrained to this policyId
-            return true;
-        }
-    } else if ([type isEqual:(__bridge NSString*)kSecAnchorTypePlatform] && appleAnchors) {
-        if (policyOids.count < 1 || [policyOids containsObject:(__bridge NSString*)policyId]) {
-            // apple anchor is unconstrained or constrained to this policyId
-            return true;
-        }
+CFArrayRef SecAnchorPolicyPermittedAnchorRecords(CFArrayRef cfAnchorRecords, CFStringRef policyId) {
+    @autoreleasepool {
+        return CFBridgingRetain([SecAnchorCache anchorRecordsPermitttedForPolicy:(__bridge NSArray*)cfAnchorRecords
+                                                                        policyId:(__bridge NSString*)policyId]);
     }
-    return false;
 }
 

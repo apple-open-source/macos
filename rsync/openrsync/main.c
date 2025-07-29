@@ -53,6 +53,7 @@
 
 extern struct cleanup_ctx *cleanup_ctx;
 
+int quiet;
 int verbose;
 #ifdef __APPLE__
 int syslog_trace;
@@ -932,6 +933,7 @@ enum {
 	OP_ONLY_WRITE_BATCH,
 	OP_OUTFORMAT,
 	OP_LOGFORMAT,
+	OP_LOGFILE,
 	OP_ITEMIZE,
 	OP_BIT8,
 	OP_HELP,
@@ -1091,7 +1093,10 @@ const struct option	 rsync_lopts[] = {
     { "files-from",	required_argument,	NULL,		OP_FILESFROM },
     { "from0",		no_argument,	NULL,			'0' },
     { "out-format",	required_argument,	NULL,		OP_OUTFORMAT },
-    { "log-format",	required_argument,	NULL,		OP_LOGFORMAT },
+    { "log-file",	required_argument,	NULL,		OP_LOGFILE },
+    { "log-file-format",	required_argument,	NULL,	OP_LOGFORMAT },
+    /* Deprecated, same as --out-format */
+    { "log-format",	required_argument,	NULL,		OP_OUTFORMAT },
     { "itemize-changes", no_argument,	NULL,			OP_ITEMIZE },
     { "delay-updates",	no_argument,	&opts.dlupdates,	1 },
     { "modify-window",	required_argument,	NULL,		OP_MODWIN },
@@ -1342,7 +1347,7 @@ rsync_getopt(int argc, char *argv[], rsync_option_filter *filter,
 			opts.preserve_perms = 1;
 			break;
 		case 'q':
-			opts.quiet++;
+			quiet++;
 			break;
 		case 'r':
 			implied_recursive = 0;
@@ -1400,7 +1405,7 @@ rsync_getopt(int argc, char *argv[], rsync_option_filter *filter,
 				    errstr, optarg);
 			break;
 		case OP_PFLISTSZ:
-			printf("%llu\n", FLIST_CHUNK_SIZE);
+			printf("%zu\n", FLIST_CHUNK_SIZE);
 			exit(0);
 			break;
 		case OP_PORT:
@@ -1555,8 +1560,16 @@ basedir:
 		case OP_MODWIN:
 		        opts.modwin = atoi(optarg);
 			break;
-		case OP_OUTFORMAT:
+		case OP_LOGFILE:
+			if (opts.logformat == NULL)
+				opts.logformat = strdup("%i %n%L");
+			opts.logfile = optarg;
+			break;
 		case OP_LOGFORMAT:
+			free((void *)opts.logformat);
+		        opts.logformat = strdup(optarg);
+			break;
+		case OP_OUTFORMAT:
 			free((void *)opts.outformat);
 		        opts.outformat = strdup(optarg);
 			break;
@@ -1747,7 +1760,7 @@ basedir:
 		lidx = -1;
 	}
 
-	if (opts.quiet > 0)
+	if (quiet > 0)
 		verbose = 0;
 
 	/* Shouldn't be possible. */
@@ -1933,7 +1946,6 @@ main(int argc, char *argv[])
 	struct sess	 sess;
 	struct fargs	*fargs;
 	char		**args;
-	pid_t		 rpid;
 
 	/* We cannot safely log to stdout until we are certain that we're
 	 * the client (i.e., the server must enable multiplexing before
@@ -1991,7 +2003,18 @@ main(int argc, char *argv[])
 		exit(rsync_server(cleanup_ctx, &opts, (size_t)argc, argv));
 	}
 
-	rsync_set_logfile(stdout, NULL);
+
+	if (opts.logfile != NULL) {
+		FILE *fp;
+
+		fp = fopen(opts.logfile, "a");
+		if (fp == NULL)
+			err(ERR_IPC, "%s: fopen", opts.logfile);
+
+		rsync_set_logfile(fp, NULL);
+	} else {
+		rsync_set_logfile(stdout, NULL);
+	}
 
 	/*
 	 * Now we know that we're the client on the local machine

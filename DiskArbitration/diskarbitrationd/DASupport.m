@@ -506,23 +506,6 @@ CFStringRef DSFSKitGetBundleNameWithoutSuffix( CFStringRef filesystemName )
     return fsname;
 }
 
-/*
- * Given a bundle name in the form 'fsname_fskit', convert it to a bundle ID in the form 'com.apple.fskit.fsname'.
- */
-CFStringRef DAGetFSKitBundleID( CFStringRef filesystemName )
-{
-    CFStringRef                  bundleID          = NULL;
-    CFStringRef                  fsName            = NULL;
-    
-    fsName = DSFSKitGetBundleNameWithoutSuffix( filesystemName );
-    
-    bundleID = CFStringCreateWithFormat( kCFAllocatorDefault ,
-                                         NULL , CFSTR("com.apple.fskit.%@") , fsName );
-    CFRelease (fsName);
-    
-    return bundleID;
-}
-
 static NSDictionary *__propertiesForFSModule( FSModuleIdentity *fsmodule ) {
     NSDictionary *extAttributes = fsmodule.attributes, *mediaTypes, *personalities;
     NSMutableDictionary *module = [[NSMutableDictionary alloc] init];
@@ -533,6 +516,7 @@ static NSDictionary *__propertiesForFSModule( FSModuleIdentity *fsmodule ) {
         [module setValue:fsname forKey:(NSString *) kCFBundleNameKey];
         [module setValue:[NSNumber numberWithBool:true] forKey:@"FSIsFSModule"];
         [module setValue:@[@"UserFS", @"kext"] forKey:@"FSImplementation"];
+        [module setValue:fsmodule.bundleIdentifier forKey:@"FSBundleID"];
 
         mediaTypes = extAttributes[@kFSMediaTypesKey];
         personalities = extAttributes[@kFSPersonalitiesKey];
@@ -612,9 +596,6 @@ static void __FSKitProbeStatusCallback( int status ,
                 CFStringRef kind = DAFileSystemGetKind( filesystem );
                 CFStringRef bundleID;
                 
-                CFRetain( filesystem );
-                context->filesystem = filesystem;
-                
                 if ( properties )
                 {
                     boolean_t match = FALSE;
@@ -631,11 +612,13 @@ static void __FSKitProbeStatusCallback( int status ,
                             DADiskSetState( disk, _kDADiskStateMountAutomaticNoDefer, FALSE );
                         }
                         
-                        CFArrayRemoveValueAtIndex( context->candidates , 0 );
                         DALogInfo( "probed disk, id = %@, with %@, ongoing.", disk , kind );
                         
-                        bundleID = DAGetFSKitBundleID( DAFileSystemGetKind( filesystem ) );
-                        
+                        bundleID = DAFileSystemCopyFSBundleID( filesystem );
+
+                        CFRetain( filesystem );
+                        context->filesystem = filesystem;
+                        CFArrayRemoveValueAtIndex( context->candidates , 0 );
                         DAProbeWithFSKit( deviceName ,
                                           bundleID ,
                                           doFsck ,
@@ -662,7 +645,12 @@ static void __FSKitProbeStatusCallback( int status ,
     {
         if ( didProbe )
         {
-            CFStringRef kind = ( context->filesystem != NULL && !( status ) ) ? DAFileSystemGetKind( context->filesystem ) : NULL;
+            CFStringRef kind = NULL;
+            
+            if ( context->filesystem != NULL && !( status ) )
+            {
+                kind = DAGetFSTypeWithUUID( context->filesystem , uuid );
+            }
             
             DATelemetrySendProbeEvent( status ,
                                        kind ,
@@ -746,11 +734,11 @@ void __DAFileSystemGetModulesCallback( int status , void *parameter )
             probes = DAFileSystemGetProbeList( filesystem );
             if ( probes )
             {
-                int numProbes = CFDictionaryGetCount( probes );
+                CFIndex numProbes = CFDictionaryGetCount( probes );
                 CFDictionaryRef *probeArray = (CFDictionaryRef *)malloc( sizeof( CFDictionaryRef ) * numProbes );
                 CFDictionaryGetKeysAndValues( probes , NULL, (const void **) probeArray );
                 
-                for (int i = 0; i < numProbes; i++)
+                for (CFIndex i = 0; i < numProbes; i++)
                 {
                     CFDictionaryRef probe = probeArray[i];
                     CFMutableDictionaryRef probeCopy = CFDictionaryCreateMutableCopy( kCFAllocatorDefault,
@@ -773,7 +761,10 @@ void __DAFileSystemGetModulesCallback( int status , void *parameter )
     
     /* Kick off the first probe and let the callback process the rest of the probes */
     __FSKitProbeStatusCallback( -1 , -1 , NULL , NULL , NULL , probeCallbackContext );
-    
+
+    if ( context->properties ) {
+        CFRelease( context->properties );
+    }
     free( context );
 }
 
@@ -786,6 +777,7 @@ int __DAFileSystemGetModulesSync( void *parameter )
     dispatch_group_t group = dispatch_group_create();
     CFMutableArrayRef result = NULL;
     uid_t user = context->user;
+    __block bool gotFSModules = false;
 
 /* We don't use the configuration callback on iOS, and diskarbitrationd runs as root on iOS, so default to 501 */
 #if TARGET_OS_IOS
@@ -808,6 +800,7 @@ int __DAFileSystemGetModulesSync( void *parameter )
         [client installedExtensionsForUser:token.audit_token replyHandler:^(NSArray<FSModuleIdentity *> * _Nullable fsmodules,
                                                                             NSError * _Nullable err) {
             if (!err) {
+                gotFSModules = true;
                 [fsmodules enumerateObjectsUsingBlock:^(FSModuleIdentity * _Nonnull obj, NSUInteger idx,
                                                         BOOL * _Nonnull stop) {
                     NSDictionary *module = __propertiesForFSModule( obj );
@@ -830,7 +823,30 @@ int __DAFileSystemGetModulesSync( void *parameter )
     
     dispatch_group_wait(group, DISPATCH_TIME_FOREVER);
     
-    context->properties = CFRetain( ( __bridge CFArrayRef ) properties );
+    /* Send probe error event if we couldn't get FSModules during first unlock reprobe */
+    if ( ! gotFSModules )
+    {
+        struct __DAProbeCallbackContext *probeCallbackContext = context->probeCallbackContext;
+        DADiskRef disk = NULL;
+        
+        if ( probeCallbackContext )
+        {
+            disk = probeCallbackContext->disk;
+        }
+        
+        if ( ( disk != NULL ) && DADiskGetState( disk , kDADiskStateRequireReprobe ) == TRUE )
+        {
+            DATelemetrySendProbeEvent( EAGAIN ,
+                                       NULL ,
+                                       CFSTR("FSKit") ,
+                                       0 ,
+                                       -1 );
+        }
+    }
+    else
+    {
+        context->properties = CFRetain( ( __bridge CFArrayRef ) properties );
+    }
     
     return 0;
 }
@@ -1999,3 +2015,51 @@ Boolean DADeviceIsUnlocked( void )
     }
 }
 #endif
+
+static Boolean DAVolumeUUIDIsEFI( CFUUIDRef volumeUUID )
+{
+    CFStringRef uuidStr;
+    Boolean ret = FALSE;
+    
+    // EFI volumes have a common volume UUID across different filesystems
+    if ( volumeUUID != NULL )
+    {
+        uuidStr = CFUUIDCreateString( kCFAllocatorDefault , volumeUUID );
+        ret = !CFStringCompare( uuidStr ,
+                                CFSTR("0E239BC6-F960-3107-89CF-1C97F78BB46B") ,
+                                kCFCompareCaseInsensitive );
+        CFRelease( uuidStr );
+    }
+    
+    return ret;
+}
+
+CFStringRef DAGetFSTypeWithUUID( DAFileSystemRef filesystem , CFUUIDRef volumeUUID )
+{
+    CFStringRef kind = DAFileSystemGetKind( filesystem );
+    CFStringRef fsTypeMinusPrefix = NULL;
+    CFStringRef fsTypeToCheck = kind;
+    
+    if ( CFStringHasSuffix( kind , CFSTR("_fskit") ) )
+    {
+#if TARGET_OS_OSX || TARGET_OS_IOS
+        fsTypeMinusPrefix = DSFSKitGetBundleNameWithoutSuffix( kind );
+        fsTypeToCheck = fsTypeMinusPrefix;
+#else
+        fsTypeToCheck = kind;
+#endif
+    }
+    
+    if ( !CFStringCompare( fsTypeToCheck , CFSTR("MSDOS") , kCFCompareCaseInsensitive )
+        && DAVolumeUUIDIsEFI( volumeUUID ) )
+    {
+        kind = CFSTR(DA_TELEMETRY_TYPE_MSDOS_EFI);
+    }
+    
+    if ( fsTypeMinusPrefix != NULL )
+    {
+        CFRelease( fsTypeMinusPrefix );
+    }
+    
+    return kind;
+}

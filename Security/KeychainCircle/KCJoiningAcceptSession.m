@@ -68,6 +68,8 @@ typedef enum {
 @property (nonatomic, strong) NSString* altDSID;
 @property (nonatomic, strong) NSString* flowID;
 @property (nonatomic, strong) NSString* deviceSessionID;
+// test only
+@property (nonatomic) uint64_t piggybacking_version_for_tests;
 @end
 
 @implementation KCJoiningAcceptSession
@@ -139,6 +141,7 @@ typedef enum {
     self.session.deviceSessionID = self.deviceSessionID;
 #endif
     self.session.piggybackingVersion = self.piggy_version;
+    self.piggybacking_version_for_tests = 0;
 
     return self.session != nil;
 }
@@ -176,11 +179,11 @@ typedef enum {
         _otControl = [OTControl controlObject:true error:error];
         _piggy_version = kPiggyV2;
         _joiningConfiguration = [[OTJoiningConfiguration alloc]initWithProtocolType:@"OctagonPiggybacking"
-                                                                           uniqueDeviceID:@"acceptor-deviceid"
-                                                                           uniqueClientID:@"requester-deviceid"
-                                                                              pairingUUID:[[NSUUID UUID] UUIDString]
-                                                                                    epoch:0
-                                                                              isInitiator:false];
+                                                                     uniqueDeviceID:@"acceptor-deviceid"
+                                                                     uniqueClientID:@"requester-deviceid"
+                                                                        pairingUUID:[[NSUUID UUID] UUIDString]
+                                                                              epoch:0
+                                                                        isInitiator:false];
         _controlArguments = [[OTControlArguments alloc] init];
 #else
         _piggy_version = kPiggyV1;
@@ -712,6 +715,19 @@ typedef enum {
             return nil;
         }
         OTApplicantToSponsorRound2M1 *prepareMessage = pairingMessage.prepare;
+        BOOL shouldEncrypt = pairingMessage.hasVersion && pairingMessage.version >= kPiggyV3;
+
+        if (shouldEncrypt == NO) {
+            AAFAnalyticsEventSecurity *event = [[AAFAnalyticsEventSecurity alloc] initWithKeychainCircleMetrics:nil
+                                                                                                        altDSID:self.altDSID
+                                                                                                         flowID:self.flowID
+                                                                                                deviceSessionID:self.deviceSessionID
+                                                                                                      eventName:kSecurityRTCEventNamePiggybackingInitiatorPreVersion3Change
+                                                                                                testsAreEnabled:MetricsOverrideTestsAreEnabled()
+                                                                                                 canSendMetrics:YES
+                                                                                                       category:kSecurityRTCEventCategoryAccountDataAccessRecovery];
+            [SecurityAnalyticsReporterRTC sendMetricWithEvent:event success:YES error:nil];
+        }
 
         // Max Capability - assume non-full and full-peers are allowed through piggybacking
         NSString* maxCap = KCPairingIntent_Capability_FullPeer;
@@ -738,9 +754,8 @@ typedef enum {
                 pairingResponse.voucher = [[OTSponsorToApplicantRound2M2 alloc] init];
                 pairingResponse.voucher.voucher = voucher;
                 pairingResponse.voucher.voucherSignature = voucherSig;
+                pairingResponse.version = self.piggybacking_version_for_tests ?: kPiggyV3;
 
-                pairingMessage.supportsSOS.supported = SOSCCIsSOSTrustAndSyncingEnabled() ? OTSupportType_supported : OTSupportType_not_supported;
-                pairingMessage.supportsOctagon.supported = OTSupportType_supported;
                 next = pairingResponse.data;
             }
         }];
@@ -773,11 +788,39 @@ typedef enum {
             }
         }
 
+        NSData* protectedPayload = nil;
+        if (shouldEncrypt && self.piggybacking_version_for_tests == 0) {
+            NSError* encryptError = nil;
+            protectedPayload = [self.session encrypt:next error:&encryptError];
+            if (protectedPayload == nil || encryptError) {
+                secerror("joining: failed to encrypt voucher payload: %@", encryptError);
+                if (error) {
+                    if (encryptError) {
+                        *error = encryptError;
+                    } else {
+                        *error = [NSError errorWithDomain:KCErrorDomain code:kFailedToEncryptVoucherData description:@"failed to encrypt the voucher"];
+                    }
+                }
+                [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:NO error:localError];
+                return nil;
+            } else {
+                AAFAnalyticsEventSecurity *channelSecuredEvent = [[AAFAnalyticsEventSecurity alloc] initWithKeychainCircleMetrics:nil
+                                                                                                                          altDSID:self.altDSID
+                                                                                                                           flowID:self.flowID
+                                                                                                                  deviceSessionID:self.deviceSessionID
+                                                                                                                        eventName:kSecurityRTCEventNamePiggybackingAcceptorChannelSecured
+                                                                                                                  testsAreEnabled:MetricsOverrideTestsAreEnabled()
+                                                                                                                   canSendMetrics:YES
+                                                                                                                         category:kSecurityRTCEventCategoryAccountDataAccessRecovery];
+                [SecurityAnalyticsReporterRTC sendMetricWithEvent:channelSecuredEvent success:YES error:nil];
+            }
+        }
+
         self->_state = kAcceptDone;
 
         //note we are stuffing SOS into the payload
         NSData* messageOut = [[KCJoiningMessage messageWithType:kCircleBlob
-                                                           data:next
+                                                           data:protectedPayload ?: next
                                                         payload:encryptedOutgoing
                                                           error:&localError] der];
         if (messageOut == nil || localError) {
@@ -891,6 +934,11 @@ typedef enum {
 - (KCAESGCMDuplexSession*)accessSession
 {
     return self.session;
+}
+
+- (void)setPiggybackingVersion:(uint64_t)version
+{
+    self.piggybacking_version_for_tests = version;
 }
 #endif
 

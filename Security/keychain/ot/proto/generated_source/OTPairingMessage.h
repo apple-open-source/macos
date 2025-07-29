@@ -24,11 +24,15 @@
 __attribute__((visibility("hidden")))
 @interface OTPairingMessage : PBCodable <NSCopying>
 {
+    uint64_t _version;
     OTSponsorToApplicantRound1M2 *_epoch;
     OTApplicantToSponsorRound2M1 *_prepare;
     OTSupportOctagonMessage *_supportsOctagon;
     OTSupportSOSMessage *_supportsSOS;
     OTSponsorToApplicantRound2M2 *_voucher;
+    struct {
+        uint version:1;
+    } _has;
 }
 
 
@@ -46,6 +50,9 @@ __attribute__((visibility("hidden")))
 
 @property (nonatomic, readonly) BOOL hasSupportsSOS;
 @property (nonatomic, retain) OTSupportSOSMessage *supportsSOS;
+
+@property (nonatomic) BOOL hasVersion;
+@property (nonatomic) uint64_t version;
 
 // Performs a shallow copy into other
 - (void)copyTo:(OTPairingMessage *)other;

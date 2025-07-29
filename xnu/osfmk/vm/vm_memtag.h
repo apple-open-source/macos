@@ -169,13 +169,13 @@ vm_memtag_extract_tag(vm_map_address_t tagged_ptr)
 }
 
 /*
- * when passed a tagged pointer, strip away the tag bits and return the
- * canonical address. Since it's used in a number of frequently called checks
+ * when passed a tagged pointer, strip away only the tag bits with their canonical
+ * value. Since these are used in a number of frequently called checks
  * (e.g. when packing VM pointers), the following definition hardcodes the
  * tag value to achieve optimal codegen and no external calls.
  */
-#define vm_memtag_canonicalize_kernel(addr)            vm_memtag_insert_tag(addr, 0xF)
-#define vm_memtag_canonicalize_user(addr)              vm_memtag_insert_tag(addr, 0x0)
+#define vm_memtag_canonicalize_kernel(addr)     vm_memtag_insert_tag(addr, 0xF)
+#define vm_memtag_canonicalize_user(addr)       vm_memtag_insert_tag(addr, 0x0)
 
 extern vm_map_address_t
 vm_memtag_canonicalize(vm_map_t map, vm_map_address_t addr);

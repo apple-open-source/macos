@@ -416,6 +416,10 @@ static Expected<MappedData, std::error_code> compiledToFile(WTF::String&& json, 
         return makeUnexpected(ContentRuleListStore::Error::CompileFailed);
     }
 
+    // Make sure we close temporaryFileHandle before using the file on disk, otherwise, the
+    // data may not have been flushed yet.
+    closeFile(temporaryFileHandle);
+
     // Try and delete any files at the destination instead of overwriting them
     // in case there is already a file there and it is mmapped.
     deleteFile(finalFilePath);

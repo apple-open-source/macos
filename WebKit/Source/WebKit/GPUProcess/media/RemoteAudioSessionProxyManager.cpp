@@ -222,15 +222,8 @@ bool RemoteAudioSessionProxyManager::tryToSetActiveForProcess(RemoteAudioSession
 
 void RemoteAudioSessionProxyManager::updatePresentingProcesses()
 {
-#if ENABLE(EXTENSION_CAPABILITIES)
-    if (PlatformMediaSessionManager::mediaCapabilityGrantsEnabled())
-        return;
-#endif
-
     Vector<audit_token_t> presentingProcesses;
-
-    if (auto token = m_gpuProcess->protectedParentProcessConnection()->getAuditToken())
-        presentingProcesses.append(*token);
+    bool shouldAppendParentProcess = false;
 
     // AVAudioSession will take out an assertion on all the "presenting applications"
     // when it moves to a "playing" state. But it's possible that (e.g.) multiple
@@ -238,12 +231,23 @@ void RemoteAudioSessionProxyManager::updatePresentingProcesses()
     // tokens from those proxies whose sessions are currently "active". Only their
     // presenting applications will be kept from becoming "suspended" during playback.
     m_proxies.forEach([&](auto& proxy) {
+        Ref gpuConnectionToWebProcess = *proxy.gpuConnectionToWebProcess();
+#if ENABLE(EXTENSION_CAPABILITIES)
+        if (gpuConnectionToWebProcess->sharedPreferencesForWebProcessValue().mediaCapabilityGrantsEnabled)
+            return;
+#endif
+        shouldAppendParentProcess = true;
         if (!proxy.isActive())
             return;
-        for (auto& token : proxy.gpuConnectionToWebProcess()->presentingApplicationAuditTokens().values())
+        for (auto& token : gpuConnectionToWebProcess->presentingApplicationAuditTokens().values())
             presentingProcesses.append(token.auditToken());
     });
-    AudioSession::protectedSharedSession()->setPresentingProcesses(WTFMove(presentingProcesses));
+
+    if (auto token = m_gpuProcess->protectedParentProcessConnection()->getAuditToken(); token && shouldAppendParentProcess)
+        presentingProcesses.append(*token);
+
+    if (!presentingProcesses.isEmpty())
+        AudioSession::protectedSharedSession()->setPresentingProcesses(WTFMove(presentingProcesses));
 }
 
 void RemoteAudioSessionProxyManager::beginInterruptionRemote()

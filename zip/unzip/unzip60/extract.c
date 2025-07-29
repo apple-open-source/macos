@@ -1498,7 +1498,7 @@ reprompt:
                 Info(slide, 0x81, ((char *)slide,
                   LoadFarString(ReplaceQuery),
 #ifdef __APPLE__
-                  FnFilterP(uO.exdir, G.filename + G.rootlen + 1)));
+                  FnFilterP(G.filename)));
 #else /* !__APPLE__ */
                   FnFilter1(G.filename)));
 #endif /* __APPLE__ */
@@ -1723,7 +1723,7 @@ static int extract_or_test_member(__G)    /* return PK-type error code */
                 if (G.symlnk)   /* can also be deflated, but rarer... */
                     Info(slide, 0, ((char *)slide, LoadFarString(ExtractMsg),
 #ifdef __APPLE__
-                      "link", FnFilterP(uO.exdir, G.filename + G.rootlen + 1), "", ""));
+                      "link", FnFilterP(G.filename), "", ""));
 #else /* !__APPLE__ */
                       "link", FnFilter1(G.filename), "", ""));
 #endif
@@ -1731,7 +1731,7 @@ static int extract_or_test_member(__G)    /* return PK-type error code */
 #endif /* SYMLINKS */
                 Info(slide, 0, ((char *)slide, LoadFarString(ExtractMsg),
 #ifdef __APPLE__
-                  "extract", FnFilterP(uO.exdir, G.filename + G.rootlen + 1),
+                  "extract", FnFilterP(G.filename),
 #else /* !__APPLE__ */
                   "extract", FnFilter1(G.filename),
 #endif /* __APPLE__ */
@@ -1769,7 +1769,7 @@ static int extract_or_test_member(__G)    /* return PK-type error code */
             if (!uO.tflag && QCOND2) {
                 Info(slide, 0, ((char *)slide, LoadFarString(ExtractMsg),
 #ifdef __APPLE__
-                  LoadFarStringSmall(Unshrink), FnFilterP(uO.exdir, G.filename + G.rootlen + 1),
+                  LoadFarStringSmall(Unshrink), FnFilterP(G.filename),
 #else /* !__APPLE__ */
                   LoadFarStringSmall(Unshrink), FnFilter1(G.filename),
 #endif /* __APPLE__ */
@@ -1805,7 +1805,7 @@ static int extract_or_test_member(__G)    /* return PK-type error code */
             if (!uO.tflag && QCOND2) {
                 Info(slide, 0, ((char *)slide, LoadFarString(ExtractMsg),
 #ifdef __APPLE__
-                  "unreduc", FnFilterP(uO.exdir, G.filename + G.rootlen + 1),
+                  "unreduc", FnFilterP(G.filename),
 #else /* !__APPLE__*/
                   "unreduc", FnFilter1(G.filename),
 #endif /* __APPLE__ */
@@ -1823,7 +1823,7 @@ static int extract_or_test_member(__G)    /* return PK-type error code */
             if (!uO.tflag && QCOND2) {
                 Info(slide, 0, ((char *)slide, LoadFarString(ExtractMsg),
 #ifdef __APPLE__
-                  "explod", FnFilterP(uO.exdir, G.filename + G.rootlen + 1),
+                  "explod", FnFilterP(G.filename),
 #else /* !__APPLE__*/
                   "explod", FnFilter1(G.filename),
 #endif /* __APPLE__ */
@@ -1882,7 +1882,7 @@ static int extract_or_test_member(__G)    /* return PK-type error code */
             if (!uO.tflag && QCOND2) {
                 Info(slide, 0, ((char *)slide, LoadFarString(ExtractMsg),
 #ifdef __APPLE__
-                  "inflat", FnFilterP(uO.exdir, G.filename + G.rootlen + 1),
+                  "inflat", FnFilterP(G.filename),
 #else /* !__APPLE__*/
                   "inflat", FnFilter1(G.filename),
 #endif /* __APPLE__ */
@@ -1921,7 +1921,7 @@ static int extract_or_test_member(__G)    /* return PK-type error code */
             if (!uO.tflag && QCOND2) {
                 Info(slide, 0, ((char *)slide, LoadFarString(ExtractMsg),
 #ifdef __APPLE__
-                  "bunzipp", FnFilterP(uO.exdir, G.filename + G.rootlen + 1),
+                  "bunzipp", FnFilterP(G.filename),
 #else /* !__APPLE__*/
                   "bunzipp", FnFilter1(G.filename),
 #endif /* __APPLE__ */
@@ -2600,7 +2600,7 @@ static void set_deferred_symlink(__G__ slnk_entry)
     if (QCOND2)
         Info(slide, 0, ((char *)slide, LoadFarString(SymLnkFinish),
 #ifdef __APPLE__
-          FnFilterP(uO.exdir, linkfname + G.rootlen + 1), FnFilter2(linktarget)));
+          FnFilterP(linkfname), FnFilter2(linktarget)));
 #else /* !__APPLE__ */
           FnFilter1(linkfname), FnFilter2(linktarget)));
 #endif /* __APPLE__ */

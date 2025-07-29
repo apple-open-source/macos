@@ -49,8 +49,8 @@ IntersectionObserverEntry::IntersectionObserverEntry(const Init& init)
 TextStream& operator<<(TextStream& ts, const IntersectionObserverEntry& entry)
 {
     TextStream::GroupScope scope(ts);
-    ts << "IntersectionObserverEntry " << &entry;
-    ts.dumpProperty("time", entry.time());
+    ts << "IntersectionObserverEntry "_s << &entry << " target " << entry.target();
+    ts.dumpProperty("time"_s, entry.time());
     
     if (entry.rootBounds())
         ts.dumpProperty("rootBounds", entry.rootBounds()->toFloatRect());

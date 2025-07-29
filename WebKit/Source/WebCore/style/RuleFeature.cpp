@@ -128,9 +128,9 @@ RuleFeature::RuleFeature(const RuleData& ruleData, MatchElement matchElement, Is
 {
 }
 
-RuleFeatureWithInvalidationSelector::RuleFeatureWithInvalidationSelector(const RuleData& data, MatchElement matchElement, IsNegation isNegation, const CSSSelector* invalidationSelector)
+RuleFeatureWithInvalidationSelector::RuleFeatureWithInvalidationSelector(const RuleData& data, MatchElement matchElement, IsNegation isNegation, CSSSelectorList&& invalidationSelector)
     : RuleFeature(data, matchElement, isNegation)
-    , invalidationSelector(invalidationSelector)
+    , invalidationSelector(WTFMove(invalidationSelector))
 {
 }
 
@@ -436,7 +436,12 @@ void RuleFeatureSet::collectFeatures(const RuleData& ruleData, const Vector<Ref<
         auto& [selector, matchElement, isNegation] = entry;
         attributeRules.ensure(selector->attribute().localNameLowercase(), [] {
             return makeUnique<Vector<RuleFeatureWithInvalidationSelector>>();
-        }).iterator->value->append({ ruleData, matchElement, isNegation, selector });
+        }).iterator->value->append({
+            ruleData,
+            matchElement,
+            isNegation,
+            CSSSelectorList::makeCopyingSimpleSelector(*selector)
+        });
         if (matchElement == MatchElement::Host)
             attributesAffectingHost.add(selector->attribute().localNameLowercase());
         setUsesMatchElement(matchElement);
@@ -460,7 +465,12 @@ void RuleFeatureSet::collectFeatures(const RuleData& ruleData, const Vector<Ref<
         // The selector argument points to a selector inside :has() selector list instead of :has() itself.
         hasPseudoClassRules.ensure(makePseudoClassInvalidationKey(CSSSelector::PseudoClass::Has, *selector), [] {
             return makeUnique<Vector<RuleFeatureWithInvalidationSelector>>();
-        }).iterator->value->append({ ruleData, matchElement, isNegation, selector });
+        }).iterator->value->append({
+            ruleData,
+            matchElement,
+            isNegation,
+            CSSSelectorList::makeCopyingComplexSelector(*selector)
+        });
 
         if (doesBreakScope == DoesBreakScope::Yes)
             scopeBreakingHasPseudoClassRules.append({ ruleData });

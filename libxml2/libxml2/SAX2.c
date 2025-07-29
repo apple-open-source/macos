@@ -989,7 +989,7 @@ xmlSAX2StartDocument(void *ctx)
 	    xmlSAX2ErrMemory(ctxt, "xmlSAX2StartDocument");
 	    return;
 	}
-	ctxt->myDoc->properties = XML_DOC_HTML;
+	XML_DOC_SET_PROPERTIES(ctxt->myDoc, XML_DOC_HTML);
 	ctxt->myDoc->parseFlags = ctxt->options;
 #else
         xmlGenericError(xmlGenericErrorContext,
@@ -1002,9 +1002,9 @@ xmlSAX2StartDocument(void *ctx)
     } else {
 	doc = ctxt->myDoc = xmlNewDoc(ctxt->version);
 	if (doc != NULL) {
-	    doc->properties = 0;
+	    XML_DOC_CLEAR_PROPERTIES(doc);
 	    if (ctxt->options & XML_PARSE_OLD10)
-	        doc->properties |= XML_DOC_OLD10;
+	        XML_DOC_ADD_PROPERTIES(doc, XML_DOC_OLD10);
 	    doc->parseFlags = ctxt->options;
 	    if (ctxt->encoding != NULL)
 		doc->encoding = xmlStrdup(ctxt->encoding);

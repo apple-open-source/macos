@@ -11,7 +11,6 @@ Modules/cookie-store/CookieStore.cpp
 Modules/encryptedmedia/MediaKeySession.cpp
 Modules/encryptedmedia/MediaKeySystemAccess.cpp
 Modules/encryptedmedia/MediaKeySystemRequest.cpp
-Modules/encryptedmedia/NavigatorEME.cpp
 Modules/entriesapi/DOMFileSystem.cpp
 Modules/entriesapi/FileSystemDirectoryEntry.cpp
 Modules/entriesapi/FileSystemDirectoryReader.cpp

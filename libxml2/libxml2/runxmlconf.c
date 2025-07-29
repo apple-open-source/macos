@@ -198,7 +198,7 @@ xmlconfTestInvalid(const char *id, const char *filename, int options) {
 	         id, filename);
     } else {
     /* invalidity should be reported both in the context and in the document */
-        if ((ctxt->valid != 0) || (doc->properties & XML_DOC_DTDVALID)) {
+        if ((ctxt->valid != 0) || (XML_DOC_GET_PROPERTIES(doc) & XML_DOC_DTDVALID)) {
 	    test_log("test %s : %s failed to detect invalid document\n",
 		     id, filename);
 	    nb_errors++;
@@ -230,7 +230,7 @@ xmlconfTestValid(const char *id, const char *filename, int options) {
 	ret = 0;
     } else {
     /* validity should be reported both in the context and in the document */
-        if ((ctxt->valid == 0) || ((doc->properties & XML_DOC_DTDVALID) == 0)) {
+        if ((ctxt->valid == 0) || ((XML_DOC_GET_PROPERTIES(doc) & XML_DOC_DTDVALID) == 0)) {
 	    test_log("test %s : %s failed to validate a valid document\n",
 		     id, filename);
 	    nb_errors++;

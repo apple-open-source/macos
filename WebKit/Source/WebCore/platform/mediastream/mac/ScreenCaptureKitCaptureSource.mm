@@ -217,56 +217,48 @@ void ScreenCaptureKitCaptureSource::whenReady(CompletionHandler<void(CaptureSour
         return;
     }
 
-    if (m_isRunning) {
-        m_whenReadyCallback = WTFMove(callback);
+    m_whenReadyCallback = WTFMove(callback);
+
+    if (m_isRunning)
         return;
-    }
 
+    m_isPrewarming = true;
     // We start to get the first frame. The frame size allows to finalize initialization of the source settings.
-    m_whenReadyCallback = [weakThis = WeakPtr { *this }, callback = WTFMove(callback)] (auto&& result) mutable {
-        RefPtr protectedThis = weakThis.get();
-        if (!protectedThis) {
-            callback(WTFMove(result));
-            return;
-        }
-        protectedThis->stopInternal([callback = WTFMove(callback), result = WTFMove(result)] () mutable {
-            callback(WTFMove(result));
-        });
-    };
-
-    start();
+    startInternal(IsPrewarming::Yes);
 }
 
 bool ScreenCaptureKitCaptureSource::start()
+{
+    startInternal(IsPrewarming::No);
+    return m_isRunning;
+}
+
+void ScreenCaptureKitCaptureSource::startInternal(IsPrewarming isPrewarming)
 {
     ASSERT(isAvailable());
     ASSERT(!m_whenReadyCallback || !m_isRunning);
 
     ALWAYS_LOG_IF_POSSIBLE(LOGIDENTIFIER);
 
+    m_isPrewarming = isPrewarming == IsPrewarming::Yes;
+
     if (m_isRunning)
-        return true;
+        return;
 
     m_isRunning = true;
     startContentStream();
-
-    return m_isRunning;
 }
 
-void ScreenCaptureKitCaptureSource::stopInternal(CompletionHandler<void()>&& callback)
+void ScreenCaptureKitCaptureSource::stop()
 {
     ALWAYS_LOG_IF_POSSIBLE(LOGIDENTIFIER);
 
     m_isRunning = false;
-    if (!contentStream()) {
-        callback();
+    if (!contentStream())
         return;
-    }
 
-    auto stopHandler = makeBlockPtr([weakThis = WeakPtr { *this }, callback = WTFMove(callback)] (NSError *error) mutable {
-        callOnMainRunLoop([weakThis = WTFMove(weakThis), error = RetainPtr { error }, callback = WTFMove(callback)]() mutable {
-            callback();
-
+    auto stopHandler = makeBlockPtr([weakThis = WeakPtr { *this }] (NSError *error) mutable {
+        callOnMainRunLoop([weakThis = WTFMove(weakThis), error = RetainPtr { error }]() mutable {
             if (!error)
                 return;
 
@@ -552,6 +544,9 @@ void ScreenCaptureKitCaptureSource::streamDidOutputVideoSampleBuffer(RetainPtr<C
 {
     ASSERT(isMainThread());
     ASSERT(sampleBuffer);
+
+    if (m_didReceiveVideoFrame && m_isPrewarming)
+        return;
 
     if (!sampleBuffer) {
         RELEASE_LOG_ERROR(WebRTC, "ScreenCaptureKitCaptureSource::streamDidOutputSampleBuffer: NULL sample buffer!");

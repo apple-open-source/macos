@@ -57,6 +57,7 @@
 #include <vm/vm_sanitize_internal.h>
 #include <vm/vm_object_internal.h>
 
+
 #define VM_SANITIZE_PROT_ALLOWED (VM_PROT_ALL | VM_PROT_ALLEXEC)
 
 // TODO: enable telemetry and ktriage separately?
@@ -474,11 +475,13 @@ vm_sanitize_addr_size(
 		assert(!(flags & VM_SANITIZE_FLAGS_GET_UNALIGNED_VALUES));
 	}
 
-#if CONFIG_KERNEL_TAGGING
+#if KASAN_TBI
 	if (flags & VM_SANITIZE_FLAGS_CANONICALIZE) {
 		*addr = vm_memtag_canonicalize_kernel(*addr);
 	}
-#endif /* CONFIG_KERNEL_TAGGING */
+#endif /* KASAN_TBI */
+
+
 	addr_aligned = vm_map_trunc_page_mask(*addr, pgmask);
 
 	/*

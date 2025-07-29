@@ -242,12 +242,13 @@ ContentRuleListResults ContentExtensionsBackend::processContentRuleListsForLoad(
 
         if (initiatingDocumentLoader.isLoadingMainResource()
             && frame->isMainFrame()
-            && resourceType == ResourceType::Document)
+            && resourceType.containsAny({ ResourceType::TopDocument, ResourceType::ChildDocument }))
             mainDocumentURL = url;
         else if (auto* page = frame->page())
             mainDocumentURL = page->mainFrameURL();
     }
-    if (currentDocument)
+
+    if (currentDocument && currentDocument->url().isValid())
         frameURL = currentDocument->url();
     else
         frameURL = url;
@@ -270,7 +271,7 @@ ContentRuleListResults ContentExtensionsBackend::processContentRuleListsForLoad(
                 results.summary.blockedCookies = true;
                 result.blockedCookies = true;
             }, [&](const CSSDisplayNoneSelectorAction& actionData) {
-                if (resourceType == ResourceType::Document)
+                if (resourceType.containsAny({ ResourceType::TopDocument, ResourceType::ChildDocument }))
                     initiatingDocumentLoader.addPendingContentExtensionDisplayNoneSelector(contentRuleListIdentifier, actionData.string, action.actionID());
                 else if (currentDocument)
                     currentDocument->extensionStyleSheets().addDisplayNoneSelector(contentRuleListIdentifier, actionData.string, action.actionID());
@@ -300,7 +301,7 @@ ContentRuleListResults ContentExtensionsBackend::processContentRuleListsForLoad(
 
         if (!actionsFromContentRuleList.sawIgnorePreviousRules) {
             if (auto* styleSheetContents = globalDisplayNoneStyleSheet(contentRuleListIdentifier)) {
-                if (resourceType == ResourceType::Document)
+                if (resourceType.containsAny({ ResourceType::TopDocument, ResourceType::ChildDocument }))
                     initiatingDocumentLoader.addPendingContentExtensionSheet(contentRuleListIdentifier, *styleSheetContents);
                 else if (currentDocument)
                     currentDocument->extensionStyleSheets().maybeAddContentExtensionSheet(contentRuleListIdentifier, *styleSheetContents);

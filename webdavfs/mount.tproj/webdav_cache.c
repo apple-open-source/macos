@@ -1139,7 +1139,7 @@ static int internal_get_path_from_node(
 			/* was this node redirected? */
 			if (cur_node->isRedirected == TRUE) {
 				/* make sure there's enough room for the node redir_name and a slash */
-				require_action((cur_ptr - cur_node->redir_name_length + 1) >= pathbuf,
+				require_action((cur_ptr - (cur_node->redir_name_length + 1)) >= pathbuf,
 							   name_too_long, error = ENAMETOOLONG);
 				
 				/* add a slash */
@@ -1155,7 +1155,7 @@ static int internal_get_path_from_node(
 			}
 			
 			/* make sure there's enough room for the next node name and a slash */
-			require_action((cur_ptr - cur_node->name_length + 1) >= pathbuf,
+			require_action((cur_ptr - (cur_node->name_length + 1)) >= pathbuf,
 				name_too_long, error = ENAMETOOLONG);
 			
 			/* add a slash */
@@ -1170,8 +1170,22 @@ static int internal_get_path_from_node(
 		
 		/* move the path to the front of the buffer */
 		path_len = strlen(cur_ptr);
-		memmove(pathbuf, cur_ptr, path_len + 1);
-		
+		/*
+		 * XXX This should not necessary, but...
+		 *
+		 * If we end up with a path that **exactly** fits the
+		 * path buffer, then the bounds-check in memmove() will
+		 * get confused and explode because path_len + 1 is the
+		 * same as the total size of the buffer.  This is really
+		 * a bug in Libc, but it's easy enough to work around
+		 * here.
+		 */
+		require_action(path_len + 1 <= PATH_MAX,
+					   name_too_long, error = ENAMETOOLONG);
+		if (cur_ptr != pathbuf) {
+			memmove(pathbuf, cur_ptr, path_len + 1);
+		}
+
 		/* remove trailing slash if not directory */
 		if ( target_node->node_type != WEBDAV_DIR_TYPE )
 		{

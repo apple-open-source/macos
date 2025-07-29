@@ -592,7 +592,7 @@ KASAN_LIGHT=0
 HWASAN_INSTRUMENT_STACK=1
 endif
 
-KASAN_BLACKLIST=$(OBJROOT)/san/kasan-blacklist-$(CURRENT_ARCH_CONFIG_LC)
+KASAN_DENYLIST=$(OBJROOT)/san/kasan-denylist-$(CURRENT_ARCH_CONFIG_LC)
 
 # To calculate the kasan offset, subtract the lowest KVA to sanitize, shifted right by KASAN_SCALE_$INSTRUMENTATION bits,
 # from the base address of the kasan shadow area, (e.g. for x86_64 solve the following equation:
@@ -613,7 +613,7 @@ KASAN_OFFSET=$($(addsuffix $(CURRENT_ARCH_CONFIG),KASAN_OFFSET_))
 KASAN_SCALE_TBI=4
 CFLAGS_KASAN_INSTRUMENTATION_TBI = -DKASAN_TBI=1 -DKASAN_SCALE=$(KASAN_SCALE_TBI) \
 	-fsanitize=kernel-hwaddress \
-	-fsanitize-ignorelist=$(KASAN_BLACKLIST) \
+	-fsanitize-ignorelist=$(KASAN_DENYLIST) \
 	-mllvm -hwasan-recover=0 \
 	-mllvm -hwasan-mapping-offset=$(KASAN_OFFSET) \
 	-mllvm -hwasan-instrument-atomics=1 \
@@ -629,7 +629,7 @@ CFLAGS_KASAN_INSTRUMENTATION_CLASSIC = -DKASAN_CLASSIC=1 -DKASAN_SCALE=$(KASAN_S
 	-fsanitize=address \
 	-mllvm -asan-globals-live-support \
 	-mllvm -asan-mapping-offset=$(KASAN_OFFSET) \
-	-fsanitize-ignorelist=$(KASAN_BLACKLIST)
+	-fsanitize-ignorelist=$(KASAN_DENYLIST)
 
 CFLAGS_KASANARM64 += $(CFLAGS_KASAN_INSTRUMENTATION_TBI)
 CFLAGS_KASANX86_64 += $(CFLAGS_KASAN_INSTRUMENTATION_CLASSIC)
@@ -683,15 +683,15 @@ ifeq ($(PLATFORM),iPhoneOS)
 UBSAN_MINIMAL_RUNTIME := DEVELOPMENT DEBUG
 ifneq ($(filter $(CURRENT_KERNEL_CONFIG), $(UBSAN_MINIMAL_RUNTIME)),)
 
-# This is (unfortunately) intentional. Currently the "kasan" blacklist, which folds both
+# This is (unfortunately) intentional. Currently the "kasan" denylist, which folds both
 # ubsan and kasan specific files, is generated for all builds during the
-# setup phase. The blacklist file itself is divided per-sanitizer, so won't
+# setup phase. The denylist file itself is divided per-sanitizer, so won't
 # affect the UBSAN build outside of the entries that are legitimately
 # intended for it.
-UBSAN_BLACKLIST=$(OBJROOT)/san/kasan-blacklist-$(CURRENT_ARCH_CONFIG_LC)
+UBSAN_DENYLIST=$(OBJROOT)/san/kasan-denylist-$(CURRENT_ARCH_CONFIG_LC)
 
 UBSAN_CHECKS = signed-integer-overflow
-UBSAN_RUNTIME = -fsanitize-minimal-runtime -fsanitize-ignorelist=$(UBSAN_BLACKLIST)
+UBSAN_RUNTIME = -fsanitize-minimal-runtime -fsanitize-ignorelist=$(UBSAN_DENYLIST)
 UBSAN_CHECKS_TRAP =
 UBSAN_CHECKS_FATAL =
 UBSAN_DISABLED =
@@ -709,13 +709,13 @@ CFLAGS_GEN += $(foreach x,$(UBSAN_DISABLED),-fno-sanitize=$(x))
 ifeq ($(KSANCOV),1)
 # Enable SanitizerCoverage instrumentation in xnu
 SAN = 1
-KCOV_BLACKLIST := $(OBJROOT)/san/kcov-blacklist-$(CURRENT_ARCH_CONFIG_LC)
-KCOV_CFLAGS := -fsanitize-coverage=trace-pc-guard -fsanitize-coverage-ignorelist=$(KCOV_BLACKLIST)
+KCOV_DENYLIST := $(OBJROOT)/san/kcov-denylist-$(CURRENT_ARCH_CONFIG_LC)
+KCOV_CFLAGS := -fsanitize-coverage=trace-pc-guard -fsanitize-coverage-ignorelist=$(KCOV_DENYLIST)
 CFLAGS_GEN += $(KCOV_CFLAGS) -DKSANCOV=1
 endif
 
 ifeq ($(SAN),1)
-CFLAGS_GEN += -fsanitize-ignorelist=$(OBJROOT)/san/kasan-blacklist-$(CURRENT_ARCH_CONFIG_LC)
+CFLAGS_GEN += -fsanitize-ignorelist=$(OBJROOT)/san/kasan-denylist-$(CURRENT_ARCH_CONFIG_LC)
 endif
 
 # Any extra flags that get passed at the command line during build.

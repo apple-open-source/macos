@@ -436,6 +436,7 @@
     }
 
     NSError* lastTrustStateError = nil;
+    BOOL failedLoadingTLKShares = NO;
     for(CKKSPeerProviderState* trustState in trustStates) {
         @autoreleasepool {
             NSMutableArray<CKKSTLKShareRecord*>* possibleShares = [[NSMutableArray alloc] init];
@@ -443,12 +444,10 @@
                 [possibleShares addObjectsFromArray:[CKKSTLKShareRecord allFor:selfPeer.peerID contextID:contextID keyUUID:self.uuid zoneID:self.zoneID error:&localerror]];
             }
 
-            if(!possibleShares || localerror) {
+            if(localerror) {
                 ckkserror("ckksshare", self, "Unable to load TLK shares for TLK(%@): %@", self, localerror);
-                if(error) {
-                    *error = localerror;
-                }
-                return NO;
+                failedLoadingTLKShares = YES;
+                break;
             }
 
             BOOL extracted = [trustState unwrapKey:self
@@ -463,6 +462,12 @@
                 ckkserror("ckksshare", self, "Recovered tlk (%@) from trust state (%@)", self.uuid, trustState);
                 return YES;
             }
+        }
+    }
+
+    if (failedLoadingTLKShares) {
+        if (error) {
+            *error = localerror;
         }
     }
 

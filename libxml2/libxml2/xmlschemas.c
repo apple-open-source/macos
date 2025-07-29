@@ -6029,7 +6029,7 @@ xmlSchemaPValAttrNodeID(xmlSchemaParserCtxtPtr ctxt, xmlAttrPtr attr)
 	/*
 	* NOTE: the IDness might have already be declared in the DTD
 	*/
-	if (attr->atype != XML_ATTRIBUTE_ID) {
+	if (XML_ATTR_GET_ATYPE(attr) != XML_ATTRIBUTE_ID) {
 	    xmlIDPtr res;
 	    xmlChar *strip;
 
@@ -6052,7 +6052,7 @@ xmlSchemaPValAttrNodeID(xmlSchemaParserCtxtPtr ctxt, xmlAttrPtr attr)
 		    NULL, NULL, "Duplicate value '%s' of simple "
 		    "type 'xs:ID'", value, NULL);
 	    } else
-		attr->atype = XML_ATTRIBUTE_ID;
+		XML_ATTR_SET_ATYPE(attr, XML_ATTRIBUTE_ID);
 	}
     } else if (ret > 0) {
 	ret = XML_SCHEMAP_S4S_ATTR_INVALID_VALUE;

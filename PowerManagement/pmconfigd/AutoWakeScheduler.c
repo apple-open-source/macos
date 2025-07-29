@@ -1235,7 +1235,7 @@ _io_pm_schedule_power_event
         
     }
 
-    if (!event) {
+    if (!event || !isA_CFDictionary(event)) {
         *return_code = kIOReturnBadArgument;
         goto exit;
     }

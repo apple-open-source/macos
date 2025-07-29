@@ -1950,6 +1950,19 @@ static int copyfile_open(copyfile_state_t s)
 		copyfile_debug(2, "open successful on source (%s)", s->src);
 		s->internal_flags |= cfSrcFdOpenedByUs;
 
+		if (fstat(s->src_fd, &repeat_sb)) {
+			copyfile_warn("fstat on open fd failed for %s\n", s->src);
+			return -1;
+		}
+
+		if (s->sb.st_dev != repeat_sb.st_dev ||
+			s->sb.st_ino != repeat_sb.st_ino ||
+			(s->sb.st_mode & S_IFMT) != (repeat_sb.st_mode & S_IFMT)) {
+			copyfile_warn("file %s changed behind our feet", s->src);
+			s->err = EBADF;
+			return -1;
+		}
+
 		/*
 		 * Now that we've called open(2),
 		 * re-check that the file on disk hasn't changed file type.

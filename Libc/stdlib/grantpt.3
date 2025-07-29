@@ -215,6 +215,12 @@ to:
 consists of an invalid mode bit.
 .It Bq Er EAGAIN
 The system has no available pseudo-terminal devices.
+.It Bq Er ENXIO
+The
+.Xr sysctl 3
+limit
+.Dq kern.tty.ptmx_max
+number of pseudo-terminal devices was reached.
 .El
 .Pp
 The
@@ -267,6 +273,7 @@ system call.
 .Fc ;
 .Sh SEE ALSO
 .Xr open 2 ,
+.Xr sysctl 3 ,
 .Xr pty 4 ,
 .Xr tty 4 ,
 .Xr compat 5

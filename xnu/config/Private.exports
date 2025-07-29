@@ -273,7 +273,7 @@ _apple_encrypted_archive_interface_register
 _assert_wait_deadline_with_leeway
 _assert_wait_timeout_with_leeway
 _audio_active
-_address_space_debugged
+_address_space_debugged_state
 _b_to_q
 _backtrace
 _backtrace_user
@@ -540,6 +540,7 @@ _ipc_port_release_send
 _ipc_port_reset_thread_attr
 _ipf_addv4_internal
 _ipf_addv6_internal
+_is_address_space_debugged
 _kalloc_data:_kalloc_data_external
 _kalloc_shared_data:_kalloc_shared_data_external
 _kalloc_type_impl:_kalloc_type_impl_external

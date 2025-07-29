@@ -348,6 +348,12 @@ VariableEntitlementEntry gVariableEntitlements[] = {
 	{ENT_RD, &gAppleWifiGuid, "preferred-networks", "com.apple.private.security.nvram.wifi-psks"},
 	{ENT_RD, &gAppleSystemVariableGuid, "preferred-count", "com.apple.private.security.nvram.wifi-psks"},
 	{ENT_RD, &gAppleWifiGuid, "preferred-count", "com.apple.private.security.nvram.wifi-psks"},
+	{ENT_MOD_RD, &gAppleSystemVariableGuid, "fmm-mobileme-token-FMM", "com.apple.private.security.nvram.fmm"},
+	{ENT_MOD_RD, &gAppleNVRAMGuid, "fmm-mobileme-token-FMM", "com.apple.private.security.nvram.fmm"},
+	{ENT_MOD_RD, &gAppleSystemVariableGuid, "fmm-mobileme-token-FMM-BridgeHasAccount", "com.apple.private.security.nvram.fmm"},
+	{ENT_MOD_RD, &gAppleNVRAMGuid, "fmm-mobileme-token-FMM-BridgeHasAccount", "com.apple.private.security.nvram.fmm"},
+	{ENT_MOD_RD, &gAppleSystemVariableGuid, "fmm-computer-name", "com.apple.private.security.nvram.fmm"},
+	{ENT_MOD_RD, &gAppleNVRAMGuid, "fmm-computer-name", "com.apple.private.security.nvram.fmm"},
 	// Variables used for testing entitlement
 	{ENT_MOD_RST, &gAppleNVRAMGuid, "testEntModRst", "com.apple.private.iokit.testEntModRst"},
 	{ENT_MOD_RST, &gAppleSystemVariableGuid, "testEntModRstSys", "com.apple.private.iokit.testEntModRst"},

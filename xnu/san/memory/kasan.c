@@ -118,7 +118,7 @@ kasan_lock_held(thread_t thread)
 bool
 kasan_check_enabled(access_t access)
 {
-	return kasan_enabled && (kasan_enabled_checks & access) && !kasan_is_blacklisted(access);
+	return kasan_enabled && (kasan_enabled_checks & access) && !kasan_is_denylisted(access);
 }
 
 void
@@ -187,8 +187,8 @@ kasan_load_kext(vm_offset_t base, vm_size_t __unused size, const void *bundleid)
 	unsigned long sectsz;
 	void *sect;
 
-#if KASAN_DYNAMIC_BLACKLIST
-	kasan_dybl_load_kext(base, bundleid);
+#if KASAN_DYNAMIC_DENYLIST
+	kasan_dyn_denylist_load_kext(base, bundleid);
 #endif
 
 	/* find the kasan globals segment/section */
@@ -212,8 +212,8 @@ kasan_unload_kext(vm_offset_t base, vm_size_t size)
 		kexts_loaded--;
 	}
 
-#if KASAN_DYNAMIC_BLACKLIST
-	kasan_dybl_unload_kext(base);
+#if KASAN_DYNAMIC_DENYLIST
+	kasan_dyn_denylist_unload_kext(base);
 #endif
 }
 
@@ -263,8 +263,8 @@ kasan_init_xnu_globals(void)
 void NOINLINE
 kasan_late_init(void)
 {
-#if KASAN_DYNAMIC_BLACKLIST
-	kasan_init_dybl();
+#if KASAN_DYNAMIC_DENYLIST
+	kasan_init_dyn_denylist();
 #endif
 	kasan_init_xnu_globals();
 	kasan_impl_late_init();
@@ -442,4 +442,4 @@ SYSCTL_COMPAT_UINT(_kern_kasan, OID_AUTO, kalloc, CTLFLAG_RD, NULL, 1, "");
 SYSCTL_COMPAT_UINT(_kern_kasan, OID_AUTO, zalloc, CTLFLAG_RD, NULL, 0, "");
 SYSCTL_COMPAT_UINT(_kern_kasan, OID_AUTO, kalloc, CTLFLAG_RD, NULL, 0, "");
 #endif
-SYSCTL_COMPAT_UINT(_kern_kasan, OID_AUTO, dynamicbl, CTLFLAG_RD, NULL, KASAN_DYNAMIC_BLACKLIST, "");
+SYSCTL_COMPAT_UINT(_kern_kasan, OID_AUTO, dynamicbl, CTLFLAG_RD, NULL, KASAN_DYNAMIC_DENYLIST, "");

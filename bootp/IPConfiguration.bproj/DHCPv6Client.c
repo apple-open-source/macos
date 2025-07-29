@@ -1182,7 +1182,8 @@ DHCPv6ClientLeaseOnSameNetwork(DHCPv6ClientRef client)
 	if (!same_network) {
 	    my_log(LOG_INFO, "%s: SSID now %@ (was %@)",
 		   DHCPv6ClientGetDescription(client),
-		   ssid, client->lease.ssid);
+		   hide_wifi_string(ssid),
+		   hide_wifi_string(client->lease.ssid));
 	}
     }
     return (same_network);

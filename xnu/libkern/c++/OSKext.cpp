@@ -1036,10 +1036,10 @@ OSKext::initialize(void)
 		sKeepSymbols = true;
 	}
 #endif /* CONFIG_DTRACE */
-#if KASAN_DYNAMIC_BLACKLIST
+#if KASAN_DYNAMIC_DENYLIST
 	/* needed for function lookup */
 	sKeepSymbols = true;
-#endif
+#endif /* KASAN_DYNAMIC_DENYLIST */
 
 	/*
 	 * Should we panic when the SystemKC is not linked against the

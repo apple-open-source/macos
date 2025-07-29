@@ -440,6 +440,9 @@ extern ppnum_t unified_page_list_iterator_page(
 	const unified_page_list_iterator_t *iter,
 	bool *is_fictitious);
 
+extern vm_page_t unified_page_list_iterator_vm_page(
+	const unified_page_list_iterator_t *iter);
+
 extern void pmap_batch_set_cache_attributes(
 	const unified_page_list_t *,
 	unsigned int);
@@ -803,7 +806,6 @@ extern bool pmap_get_jit_entitled(pmap_t pmap);
 
 /* Inform the pmap layer that the XO register is repurposed for this map */
 extern void pmap_set_tpro(pmap_t pmap);
-
 
 /* Ask the pmap layer if there is a TPRO entry in this map. */
 extern bool pmap_get_tpro(pmap_t pmap);

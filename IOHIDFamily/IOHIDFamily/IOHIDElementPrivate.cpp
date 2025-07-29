@@ -25,6 +25,7 @@
 #include <AssertMacros.h>
 #include <IOKit/IORegistryEntry.h>
 #include <IOKit/IOLib.h>
+#include <os/overflow.h>
 #include "IOHIDElementPrivate.h"
 #include "IOHIDEventQueue.h"
 #include "IOHIDReportElementQueue.h"
@@ -1284,6 +1285,17 @@ bool IOHIDElementPrivate::createReport( UInt8           reportID,
         
         //------------------------------------------------
         
+        UInt32 endBit = 0;
+        if (os_mul_and_add_overflow(_reportBits, _reportCount, _reportStartBit, &endBit)) {
+            HIDLogError("Overflow when calculating endBit");
+            break;
+        }
+        
+        // Need to check so we do not write out of bounds
+        if ((*reportLength * 8) < endBit) {
+            HIDLogError("Not enough space in buffer to write report %d < %d", *reportLength, (_reportBits * _reportCount) + _reportStartBit);
+            break;
+        }
 
         // Set next pointer to the next report handler in the chain.
         // If this is an array or duplicate, set the next to the 

@@ -82,6 +82,8 @@ NSString *const kSecurityRTCEventNamePairingEmptyAckPayload = @"com.apple.securi
 NSString *const kSecurityRTCEventNameRPDDeleteAllRecords = @"com.apple.security.rpdDeleteAllRecords";
 NSString *const kSecurityRTCEventNamePairingFailedToFetchItemForPersistentRef = @"com.apple.security.pairingFailedToFetchItemForPersistentRef";
 
+
+// MARK: Piggybacking Events
 NSString *const kSecurityRTCEventNamePiggybackingAcceptorInitialMessage = @"com.apple.security.piggybackingAcceptorInitialMessage";
 NSString *const kSecurityRTCEventNamePiggybackingAcceptorProcessMessage = @"com.apple.security.piggybackingAcceptorProcessMessage";
 NSString *const kSecurityRTCEventNamePiggybackingAcceptorProcessApplication = @"com.apple.security.piggybackingAcceptorProcessApplication";
@@ -91,6 +93,11 @@ NSString *const kSecurityRTCEventNamePiggybackingSessionInitiatorHandleChallenge
 NSString *const kSecurityRTCEventNamePiggybackingSessionInitiatorHandleVerification = @"com.apple.security.piggybackingSessionInitiatorHandleVerification";
 NSString *const kSecurityRTCEventNamePiggybackingCircleInitiatorInitialMessage = @"com.apple.security.piggybackingCircleInitiatorInitialMessage";
 NSString *const kSecurityRTCEventNamePiggybackingCircleInitiatorHandleCircleBlobMessage = @"com.apple.security.piggybackingCircleInitiatorHandleCircleBlobMessage";
+
+NSString *const kSecurityRTCEventNamePiggybackingInitiatorPreVersion3Change = @"com.apple.security.initiatorPreVersion3Change";
+NSString *const kSecurityRTCEventNamePiggybackingAcceptorPreVersion3Change = @"com.apple.security.acceptorPreVersion3Change";
+NSString *const kSecurityRTCEventNamePiggybackingInitiatorChannelSecured = @"com.apple.security.initiatorChannelSecured";
+NSString *const kSecurityRTCEventNamePiggybackingAcceptorChannelSecured = @"com.apple.security.acceptorChannelSecured";
 
 // MARK: Escrow Recovery Events
 NSString *const kSecurityRTCEventNamePerformSilentEscrowRecovery = @"com.apple.security.performSilentEscrowRecovery";

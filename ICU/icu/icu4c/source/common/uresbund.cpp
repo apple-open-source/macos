@@ -2936,6 +2936,14 @@ ures_openWithCountryFallback(const char*  packageName,
             if (originalLocaleHasScript) {
                 countryAndParameters += uprv_strlen(script) + 1; // +1 for the _ after the script
             }
+            // rdar://152680847: If we're passed an excessively long locale ID, the munging of the locale ID
+            // below will cause a buffer overflow.  To avoid that, we check to see if the entire locale ID is
+            // longer than ULOC_FULLNAME_CAPACITY, and if it is, we just ignore everything after the country code.
+            // (Basically, we're assuming that if the locale ID is that long, everything after the country code
+            // is garbage.  That might not be true, but it's better than overflowing the buffer.)
+            if (uprv_strlen(locale) > ULOC_FULLNAME_CAPACITY) {
+                countryAndParameters = country;
+            }
 
             // Get the default language for the specified country by fabricating a locale ID with
             // that country code and "und" for the language code and calling uloc_addLikelySubtags().

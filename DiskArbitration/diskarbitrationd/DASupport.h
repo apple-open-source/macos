@@ -74,7 +74,6 @@ extern void DACheckForFSKit( void );
 extern void DAGetFSModulesForUser( uid_t user ,
                                    void *probeCallbackContext );
 
-extern CFStringRef DAGetFSKitBundleID( CFStringRef filesystemName );
 #endif
 
 extern const CFStringRef kDAMountMapMountAutomaticKey; /* ( CFBoolean ) */
@@ -123,6 +122,8 @@ extern void    DAUnitSetState( DADiskRef disk, DAUnitState state, Boolean value 
 #if TARGET_OS_IOS
 extern Boolean DADeviceIsUnlocked( void );
 #endif
+
+extern CFStringRef DAGetFSTypeWithUUID( DAFileSystemRef filesystem , CFUUIDRef volumeUUID );
 
 #ifdef __cplusplus
 }

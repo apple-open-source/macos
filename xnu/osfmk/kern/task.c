@@ -166,7 +166,7 @@
 #include <sys/signalvar.h> /* for coredump */
 #include <sys/bsdtask_info.h>
 #include <sys/kdebug_triage.h>
-#include <sys/code_signing.h> /* for address_space_debugged */
+#include <sys/code_signing.h> /* for is_address_space_debugged */
 #include <sys/reason.h>
 
 /*

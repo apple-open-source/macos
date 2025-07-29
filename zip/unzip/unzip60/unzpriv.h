@@ -2735,8 +2735,9 @@ char    *GetLoadPath     OF((__GPRO));                              /* local */
         fnfilter((fname), slide + (extent)((WSIZE>>1) + (WSIZE>>2)),\
                  (extent)(WSIZE>>2))
 #ifdef __APPLE__
-#define FnFilterP(pfx, fname)						\
-	fnfilterp((pfx), (fname), slide + (extent)(WSIZE>>1), (extent)(WSIZE>>2))
+#define FnFilterP(fname) \
+        fnfilterp(uO.exdir, (fname) + G.rootlen + 1, \
+                  slide + (extent)(WSIZE>>1), (extent)(WSIZE>>2))
 #endif /* __APPLE__ */
 
 #ifndef FUNZIP   /* used only in inflate.c */

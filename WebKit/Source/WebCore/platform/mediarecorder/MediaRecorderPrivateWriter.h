@@ -70,6 +70,7 @@ public:
     using WriterPromise = NativePromise<void, Result>;
     WEBCORE_EXPORT virtual Ref<WriterPromise> writeFrames(Deque<UniqueRef<MediaSamplesBlock>>&&, const MediaTime&);
     WEBCORE_EXPORT virtual Ref<GenericPromise> close();
+    virtual bool shouldApplyVideoRotation() const { return false; }
 
 private:
     virtual Result writeFrame(const MediaSamplesBlock&) = 0;

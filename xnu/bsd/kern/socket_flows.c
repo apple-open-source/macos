@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, 2023, 2024 Apple Inc. All rights reserved.
+ * Copyright (c) 2021, 2023-2025, Apple Inc. All rights reserved.
  * @APPLE_LICENSE_HEADER_START@
  *
  * This file contains Original Code and/or Modifications of Original Code
@@ -319,7 +319,11 @@ soflow_fill_hash_entry_from_address(struct soflow_hash_entry *entry, bool isLoca
 				in6_verify_ifscope(&sin6->sin6_addr, sin6->sin6_scope_id);
 			}
 		}
-		entry->soflow_family = AF_INET6;
+		if (IN6_IS_ADDR_V4MAPPED(&sin6->sin6_addr)) {
+			entry->soflow_family = AF_INET;
+		} else {
+			entry->soflow_family = AF_INET6;
+		}
 		return TRUE;
 	default:
 		return FALSE;
@@ -334,6 +338,7 @@ soflow_fill_hash_entry_from_inp(struct soflow_hash_entry *entry, bool isLocal, s
 	}
 
 	if (inp->inp_vflag & INP_IPV6) {
+		entry->soflow_family = AF_INET6;
 		if (isLocal == TRUE) {
 			if (inp->inp_lport) {
 				entry->soflow_lport = inp->inp_lport;
@@ -348,6 +353,9 @@ soflow_fill_hash_entry_from_inp(struct soflow_hash_entry *entry, bool isLocal, s
 				if (islocalUpdate) {
 					entry->soflow_laddr_updated = TRUE;
 				}
+				if (IN6_IS_ADDR_V4MAPPED(&inp->in6p_laddr)) {
+					entry->soflow_family = AF_INET;
+				}
 			}
 		} else {
 			if (inp->inp_fport) {
@@ -357,9 +365,11 @@ soflow_fill_hash_entry_from_inp(struct soflow_hash_entry *entry, bool isLocal, s
 				entry->soflow_faddr.addr6 = inp->in6p_faddr;
 				entry->soflow_faddr6_ifscope = inp->inp_fifscope;
 				in6_verify_ifscope(&entry->soflow_faddr.addr6, inp->inp_fifscope);
+				if (IN6_IS_ADDR_V4MAPPED(&inp->in6p_faddr)) {
+					entry->soflow_family = AF_INET;
+				}
 			}
 		}
-		entry->soflow_family = AF_INET6;
 		return TRUE;
 	} else if (inp->inp_vflag & INP_IPV4) {
 		if (isLocal == TRUE) {
@@ -572,7 +582,7 @@ soflow_db_lookup_entry_internal(struct soflow_db *db, struct sockaddr *local, st
 	matchentry.soflow_debug = SOFLOW_ENABLE_DEBUG(db->soflow_db_so, (&matchentry));
 	SOFLOW_ENTRY_LOG(LOG_DEBUG, db->soflow_db_so, &matchentry, true, "Looking for entry");
 
-	if (inp->inp_vflag & INP_IPV6) {
+	if (matchentry.soflow_family == AF_INET6) {
 		hashkey_faddr = matchentry.soflow_faddr.addr6.s6_addr32[3];
 		hashkey_laddr = (remoteOnly == false) ? matchentry.soflow_laddr.addr6.s6_addr32[3] : 0;
 	} else {
@@ -588,12 +598,12 @@ soflow_db_lookup_entry_internal(struct soflow_db *db, struct sockaddr *local, st
 	flowhash = &db->soflow_db_hashbase[inp_hash_element];
 
 	LIST_FOREACH(nextentry, flowhash, soflow_entry_link) {
-		if (inp->inp_vflag & INP_IPV6) {
+		if (matchentry.soflow_family == AF_INET6) {
 			if (soflow_match_entries_v6(nextentry, &matchentry, remoteOnly)) {
 				SOFLOW_ENTRY_LOG(LOG_DEBUG, db->soflow_db_so, nextentry, nextentry->soflow_debug, "Found entry v6");
 				break;
 			}
-		} else if (inp->inp_vflag & INP_IPV4) {
+		} else if (matchentry.soflow_family == AF_INET) {
 			if (soflow_match_entries_v4(nextentry, &matchentry, remoteOnly)) {
 				SOFLOW_ENTRY_LOG(LOG_DEBUG, db->soflow_db_so, nextentry, nextentry->soflow_debug, "Found entry v4");
 				break;
@@ -746,7 +756,7 @@ soflow_db_add_entry(struct soflow_db *db, struct sockaddr *local, struct sockadd
 	entry->soflow_debug = SOFLOW_ENABLE_DEBUG(db->soflow_db_so, entry);
 	microuptime(&entry->soflow_timestamp);
 
-	if (inp->inp_vflag & INP_IPV6) {
+	if (entry->soflow_family == AF_INET6) {
 		hashkey_faddr = entry->soflow_faddr.addr6.s6_addr32[3];
 		hashkey_laddr = entry->soflow_laddr.addr6.s6_addr32[3];
 	} else {
@@ -778,15 +788,15 @@ done:
 	return entry;
 }
 
-static boolean_t
-soflow_udp_get_address_from_control(sa_family_t family, struct mbuf *control, uint8_t *__counted_by(*count) *address_ptr, int *count)
+static sa_family_t
+soflow_udp_get_address_from_control(struct mbuf *control, uint8_t *__counted_by(*count) *address_ptr, int *count)
 {
 	struct cmsghdr *cm;
 	struct in6_pktinfo *pi6;
 	struct socket *so = NULL;
 
 	if (control == NULL || address_ptr == NULL) {
-		return false;
+		return AF_UNSPEC;
 	}
 
 	for (; control != NULL; control = control->m_next) {
@@ -801,23 +811,21 @@ soflow_udp_get_address_from_control(sa_family_t family, struct mbuf *control, ui
 
 			switch (cm->cmsg_type) {
 			case IP_RECVDSTADDR:
-				if (family == AF_INET &&
-				    cm->cmsg_level == IPPROTO_IP &&
+				if (cm->cmsg_level == IPPROTO_IP &&
 				    cm->cmsg_len == CMSG_LEN(sizeof(struct in_addr))) {
 					*address_ptr = CMSG_DATA(cm);
 					*count = sizeof(struct in_addr);
-					return true;
+					return AF_INET;
 				}
 				break;
 			case IPV6_PKTINFO:
 			case IPV6_2292PKTINFO:
-				if (family == AF_INET6 &&
-				    cm->cmsg_level == IPPROTO_IPV6 &&
+				if (cm->cmsg_level == IPPROTO_IPV6 &&
 				    cm->cmsg_len == CMSG_LEN(sizeof(struct in6_pktinfo))) {
 					pi6 = (struct in6_pktinfo *)(void *)CMSG_DATA(cm);
 					*address_ptr = (uint8_t *)&pi6->ipi6_addr;
 					*count = sizeof(struct in6_addr);
-					return true;
+					return AF_INET6;
 				}
 				break;
 			default:
@@ -825,7 +833,7 @@ soflow_udp_get_address_from_control(sa_family_t family, struct mbuf *control, ui
 			}
 		}
 	}
-	return false;
+	return AF_UNSPEC;
 }
 
 static boolean_t
@@ -869,10 +877,10 @@ soflow_entry_update_local(struct soflow_db *db, struct soflow_hash_entry *entry,
 		if (local == NULL && control != NULL) {
 			int size = 0;
 			uint8_t * __counted_by(size) addr_ptr = NULL;
-			boolean_t result = soflow_udp_get_address_from_control(entry->soflow_family, control, &addr_ptr, &size);
+			sa_family_t family = soflow_udp_get_address_from_control(control, &addr_ptr, &size);
 
-			if (result && size && addr_ptr) {
-				switch (entry->soflow_family) {
+			if (family != AF_UNSPEC && size && addr_ptr) {
+				switch (family) {
 				case AF_INET:
 					if (size == sizeof(struct in_addr)) {
 						address_buf.sin.sin_port = 0;

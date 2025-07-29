@@ -606,18 +606,22 @@ void DeleteSelectionCommand::makeStylingElementsDirectChildrenOfEditableRootToPr
     if (!range)
         return;
     auto nodes = intersectingNodes(*range).begin();
+    Vector<Ref<HTMLElement>> stylingElements;
     while (nodes) {
         Ref node = *nodes;
         auto shouldMove = is<HTMLLinkElement>(node) || is<HTMLStyleElement>(node);
-        if (!shouldMove)
-            nodes.advance();
-        else {
+        if (shouldMove) {
             nodes.advanceSkippingChildren();
-            if (RefPtr rootEditableElement = node->rootEditableElement()) {
-                removeNode(node.get());
-                appendNode(node.get(), *rootEditableElement);
-            }
-        }
+            stylingElements.append(downcast<HTMLElement>(WTFMove(node)));
+        } else
+            nodes.advance();
+    }
+    for (auto& stylingElement : stylingElements) {
+        RefPtr rootEditableElement = stylingElement->rootEditableElement();
+        if (!rootEditableElement)
+            continue;
+        removeNode(stylingElement.get());
+        appendNode(stylingElement.get(), *rootEditableElement);
     }
 }
 

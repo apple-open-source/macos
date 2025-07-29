@@ -304,6 +304,7 @@ struct socket {
 #define SOF1_TRACKER_NON_APP_INITIATED  0x10000000 /* Tracker connection is non-app initiated */
 #define SOF1_APPROVED_APP_DOMAIN        0x20000000 /* Connection is for an approved associated app domain */
 #define SOF1_DOMAIN_INFO_SILENT         0x40000000 /* Maintain silence on any domain information */
+#define SOF1_DOMAIN_MATCHED_POLICY      0x80000000 /* Domain was used for policy evaluation */
 
 	uint32_t        so_upcallusecount; /* number of upcalls in progress */
 	int             so_usecount;    /* refcounting of socket use */
@@ -1020,6 +1021,9 @@ typedef struct tracker_metadata_short {
 	char domain_owner[TRACKER_DOMAIN_SHORT_MAX + 1];
 } tracker_metadata_short_t;
 
+// metadata will be filled out by the lookup.
+// Set the SO_TRACKER_ATTRIBUTE_FLAGS_EXTENDED_TIMEOUT flag in the metadata to request that the
+// entry be extended.
 extern int tracker_lookup(uuid_t app_uuid, struct sockaddr *, tracker_metadata_t *metadata);
 
 /*
@@ -1141,6 +1145,7 @@ enum so_tracker_attribute {
 #define SO_TRACKER_ATTRIBUTE_FLAGS_APP_APPROVED     0x00000001
 #define SO_TRACKER_ATTRIBUTE_FLAGS_TRACKER          0x00000002
 #define SO_TRACKER_ATTRIBUTE_FLAGS_DOMAIN_SHORT     0x00000004
+#define SO_TRACKER_ATTRIBUTE_FLAGS_EXTENDED_TIMEOUT 0x00000008
 
 #ifndef KERNEL
 #define SO_TRACKER_TRANSPARENCY_VERSION         3

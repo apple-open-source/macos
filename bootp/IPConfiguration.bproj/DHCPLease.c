@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2024 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2025 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -395,9 +395,10 @@ DHCPLeasePrintToString(CFMutableStringRef str, DHCPLeaseRef lease_p)
 	}
     }
     if (lease_p->ssid != NULL) {
-	STRING_APPEND(str, " SSID '%@'", lease_p->ssid);
+	STRING_APPEND(str, " SSID '%@'", hide_wifi_string(lease_p->ssid));
 	if (lease_p->networkID != NULL) {
-	    STRING_APPEND(str, " NetworkID '%@'", lease_p->networkID);
+	    STRING_APPEND(str, " NetworkID '%@'",
+			  hide_wifi_string(lease_p->networkID));
 	}
     }
     return;
@@ -618,7 +619,7 @@ DHCPLeaseListCopyARPAddressInfo(DHCPLeaseListRef list_p,
 	    else {
 		my_log(LOG_INFO,
 		       "ignoring lease with SSID %@",
-		       lease_p->ssid);
+		       hide_wifi_string(lease_p->ssid));
 		continue;
 	    }
 	}
@@ -755,7 +756,7 @@ DHCPLeaseListRemoveLeaseForWiFi(DHCPLeaseListRef list_p, CFStringRef ssid,
 	lease_p = dynarray_element(list_p, where);
 	my_log(LOG_NOTICE, "Removing Lease SSID %@ "
 	       IP_FORMAT " Router " IP_FORMAT,
-	       ssid,
+	       hide_wifi_string(ssid),
 	       IP_LIST(&lease_p->our_ip),
 	       IP_LIST(&lease_p->router_ip));
 	dynarray_free_element(list_p, where);

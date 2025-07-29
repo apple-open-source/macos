@@ -735,7 +735,8 @@ void IOHIDElementContainer::createReport(IOHIDReportType reportType,
 {
     IOHIDElementPrivate *element = NULL;
     UInt8 *reportData = NULL;
-    UInt32 reportLength = 0;
+    UInt32 bufferLength = (UInt32)report->getLength();
+    UInt32 reportLength = bufferLength;
     
     // Start at the head element and iterate through
     element = GetHeadElement(GetReportHandlerSlot(reportID), reportType);
@@ -745,11 +746,11 @@ void IOHIDElementContainer::createReport(IOHIDReportType reportType,
     while (element) {
         element->createReport(reportID, reportData, &reportLength, &element);
         
-        // If the reportLength was set, then this is
+        // If the reportLength changed, then this is
         // the head element for this report
-        if (reportLength) {
+        if (reportLength != bufferLength) {
             report->setLength(reportLength);
-            reportLength = 0;
+            bufferLength = reportLength;
         }
     }
 }

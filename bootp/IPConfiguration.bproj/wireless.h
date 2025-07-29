@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2024 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2025 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -84,10 +84,5 @@ WiFiInfoCompare(WiFiInfoRef info1, WiFiInfoRef info2);
 
 bool
 WiFiInfoAllowSharingDeviceType(WiFiInfoRef info);
-
-#if TARGET_OS_OSX
-void
-WiFiInfoSetHideBSSID(bool hide);
-#endif /* TARGET_OS_OSX */
 
 #endif /* _S_WIRELESS_H */

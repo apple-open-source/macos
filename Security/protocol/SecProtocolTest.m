@@ -16,6 +16,7 @@
 #import "SecProtocolPriv.h"
 #import "SecProtocolTypesPriv.h"
 #import "SecProtocolInternal.h"
+#import "SecCFRelease.h"
 
 #import <nw/private.h> // Needed for the mock protocol
 
@@ -127,7 +128,7 @@ mock_protocol_deallocate_metadata(__unused nw_protocol_definition_t definition, 
         mock_protocol_safe_free(content->eap_key_material);
         if (content->returned_raw_string_pointers != NULL) {
             CFSetApplyFunction(content->returned_raw_string_pointers, mock_protocol_returned_raw_string_pointer_deallocate, NULL);
-            CFRelease(content->returned_raw_string_pointers);
+            CFReleaseNull(content->returned_raw_string_pointers);
         }
         content->sent_certificate_chain = nil;
         content->peer_certificate_chain = nil;

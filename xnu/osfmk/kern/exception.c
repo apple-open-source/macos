@@ -853,6 +853,56 @@ pac_exception_triage(
 }
 #endif /* __has_feature(ptrauth_calls) */
 
+static void
+maybe_unrecoverable_exception_triage(
+	exception_type_t        exception,
+	mach_exception_data_t   code)
+{
+	task_t task = current_task();
+	void *proc = get_bsdtask_info(task);
+
+#ifdef MACH_BSD
+	if (!proc) {
+		return;
+	}
+
+	/*
+	 * Note that the below policy to decide whether this should be unrecoverable is
+	 * likely conceptually specific to the particular exception.
+	 * If you find yourself adding another user_brk_..._descriptor and want to customize the
+	 * policy for whether it should be unrecoverable, consider attaching each policy to
+	 * the corresponding descriptor and somehow carrying it through to here.
+	 */
+	/* These exceptions are deliverable (and potentially recoverable) if the process is being debugged. */
+	if (is_address_space_debugged(proc)) {
+		return;
+	}
+
+	/*
+	 * By policy, this exception is uncatchable by exception/signal handlers.
+	 * Therefore exit immediately.
+	 */
+	/* Should only be called on current proc */
+	int pid = proc_selfpid();
+	char *proc_name = proc_name_address(proc);
+	os_log_error(OS_LOG_DEFAULT, "%s: process %s[%d] hit an unrecoverable exception\n", __func__, proc_name, pid);
+
+	exception_info_t info = {
+		/*
+		 * For now, hard-code this to OS_REASON_FOUNDATION as that's the path we expect to be on today.
+		 * In the future this should probably be carried by the user_brk_..._descriptor and piped through.
+		 */
+		.os_reason = OS_REASON_FOUNDATION,
+		.exception_type = exception,
+		.mx_code = code[0],
+		.mx_subcode = code[1]
+	};
+	exit_with_mach_exception(proc, info, PX_FLAGS_NONE);
+	thread_exception_return();
+	/* NOT_REACHABLE */
+#endif /* MACH_BSD */
+}
+
 /*
  *	Routine:	exception_triage
  *	Purpose:
@@ -902,9 +952,16 @@ exception_triage(
 	if (exception & EXC_PTRAUTH_BIT) {
 		exception &= ~EXC_PTRAUTH_BIT;
 		assert(codeCnt == 2);
+		/* Note this may consume control flow if it decides the exception is unrecoverable. */
 		pac_exception_triage(exception, code);
 	}
 #endif /* __has_feature(ptrauth_calls) */
+	if (exception & EXC_MAY_BE_UNRECOVERABLE_BIT) {
+		exception &= ~EXC_MAY_BE_UNRECOVERABLE_BIT;
+		assert(codeCnt == 2);
+		/* Note this may consume control flow if it decides the exception is unrecoverable. */
+		maybe_unrecoverable_exception_triage(exception, code);
+	}
 	return exception_triage_thread(exception, code, codeCnt, thread);
 }
 

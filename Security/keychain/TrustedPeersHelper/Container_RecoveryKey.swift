@@ -169,10 +169,22 @@ extension Container {
                         let bestPolicy = try self.model.policy(forPeerIDs: sponsor.dynamicInfo?.includedPeerIDs ?? [sponsor.peerID],
                                                                candidatePeerID: egoPeerID,
                                                                candidateStableInfo: sponsor.stableInfo)
+#if os(visionOS)
+                        let syncingPolicy: TPSyncingPolicy
 
+                        do {
+                            syncingPolicy = try bestPolicy.syncingPolicy(forModel: selfPermanentInfo.modelID,
+                                                                         syncUserControllableViews: sponsor.stableInfo?.syncUserControllableViews ?? .UNKNOWN, isInheritedAccount: selfStableInfo.isInheritedAccount)
+                        } catch let error as NSError where error.domain == TPErrorDomain && error.code == TPError.modelNotFound.rawValue {
+                            // On XROS, old policies didn't mention RealityDevices. In this case, claim to be an iPad for purposes of recovery.
+                            // This value is only temporarily used, so we don't need to update it via policy.
+                            syncingPolicy = try bestPolicy.syncingPolicy(forModel: "iPad14,1",
+                                                                         syncUserControllableViews: sponsor.stableInfo?.syncUserControllableViews ?? .UNKNOWN, isInheritedAccount: selfStableInfo.isInheritedAccount)
+                        }
+#else
                         let syncingPolicy = try bestPolicy.syncingPolicy(forModel: selfPermanentInfo.modelID,
                                                                          syncUserControllableViews: sponsor.stableInfo?.syncUserControllableViews ?? .UNKNOWN, isInheritedAccount: selfStableInfo.isInheritedAccount)
-
+#endif
                         reply(recoveryKeys.peerKeys.peerID, syncingPolicy, nil)
                     } catch {
                         logger.error("preflightRecoveryKey: error fetching policy: \(String(describing: error), privacy: .public)")
@@ -318,8 +330,22 @@ extension Container {
                                                                candidatePeerID: egoPeerID,
                                                                candidateStableInfo: sponsor.stableInfo)
 
+#if os(visionOS)
+                        let syncingPolicy: TPSyncingPolicy
+
+                        do {
+                            syncingPolicy = try bestPolicy.syncingPolicy(forModel: selfPermanentInfo.modelID,
+                                                                         syncUserControllableViews: sponsor.stableInfo?.syncUserControllableViews ?? .UNKNOWN, isInheritedAccount: selfStableInfo.isInheritedAccount)
+                        } catch let error as NSError where error.domain == TPErrorDomain && error.code == TPError.modelNotFound.rawValue {
+                            // On XROS, old policies didn't mention RealityDevices. In this case, claim to be an iPad for purposes of recovery.
+                            // This value is only temporarily used, so we don't need to update it via policy.
+                            syncingPolicy = try bestPolicy.syncingPolicy(forModel: "iPad14,1",
+                                                                         syncUserControllableViews: sponsor.stableInfo?.syncUserControllableViews ?? .UNKNOWN, isInheritedAccount: selfStableInfo.isInheritedAccount)
+                        }
+#else
                         let syncingPolicy = try bestPolicy.syncingPolicy(forModel: selfPermanentInfo.modelID,
                                                                          syncUserControllableViews: sponsor.stableInfo?.syncUserControllableViews ?? .UNKNOWN, isInheritedAccount: selfStableInfo.isInheritedAccount)
+#endif
                         reply(crkRecoveryKey.peerKeys.peerID, syncingPolicy, nil)
                     } catch {
                         logger.error("preflightCustodianRecoveryKey: error fetching policy: \(String(describing: error), privacy: .public)")

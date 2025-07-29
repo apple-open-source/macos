@@ -810,7 +810,7 @@ struct WasmToWasmImportableFunction : public WasmCallableFunction {
     // FIXME: Pack type index and code pointer into one 64-bit value. See <https://bugs.webkit.org/show_bug.cgi?id=165511>.
     TypeIndex typeIndex { TypeDefinition::invalidIndex };
     // Used when GC proposal is enabled, otherwise can be null.
-    const RTT* rtt;
+    const RTT* rtt { nullptr };
 };
 using FunctionIndexSpace = Vector<WasmToWasmImportableFunction>;
 

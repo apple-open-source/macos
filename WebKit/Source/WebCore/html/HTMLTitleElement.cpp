@@ -60,11 +60,18 @@ Node::InsertedIntoAncestorResult HTMLTitleElement::insertedIntoAncestor(Insertio
 {
     HTMLElement::insertedIntoAncestor(insertionType, parentOfInsertedTree);
 
-    if (insertionType.connectedToDocument) {
-        m_title = computedTextWithDirection();
-        document().titleElementAdded(*this);
-    }
+    if (insertionType.connectedToDocument)
+        return InsertedIntoAncestorResult::NeedsPostInsertionCallback;
+
     return InsertedIntoAncestorResult::Done;
+}
+
+void HTMLTitleElement::didFinishInsertingNode()
+{
+    HTMLElement::didFinishInsertingNode();
+
+    m_title = computedTextWithDirection();
+    document().titleElementAdded(*this);
 }
 
 void HTMLTitleElement::removedFromAncestor(RemovalType removalType, ContainerNode& oldParentOfRemovedTree)

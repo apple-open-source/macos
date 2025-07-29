@@ -449,7 +449,7 @@ again:
 			ndp->ni_flag |= NAMEI_NOFOLLOW_ANY;
 		}
 		if (fmode & O_RESOLVE_BENEATH) {
-			/* will return EACCES if relative path does not reside in the hierarchy beneath the starting directory */
+			/* will return EACCES if path resolution escapes the starting directory */
 			ndp->ni_flag |= NAMEI_RESOLVE_BENEATH;
 		}
 
@@ -571,7 +571,7 @@ continue_create_lookup:
 			ndp->ni_flag |= NAMEI_NOFOLLOW_ANY;
 		}
 		if (fmode & O_RESOLVE_BENEATH) {
-			/* will return EACCES if relative path does not reside in the hierarchy beneath the starting directory */
+			/* will return EACCES if path resolution escapes the starting directory */
 			ndp->ni_flag |= NAMEI_RESOLVE_BENEATH;
 		}
 

@@ -120,7 +120,7 @@
  *  void const * __set_SET_sym_SYM __attribute__((section("__DATA_CONST,SET"))) = & SYM
  */
 
-/* Wrap entries in a type that can be blacklisted from KASAN */
+/* Wrap entries in a type that can be denylisted from KASAN */
 struct linker_set_entry {
 	void *ptr;
 } LINKER_SET_ENTRY_PACKED;

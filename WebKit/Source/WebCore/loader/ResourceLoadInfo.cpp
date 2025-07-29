@@ -42,12 +42,14 @@ static_assert(!(LoadContextMask & ActionConditionMask), "LoadContextMask and Act
 static_assert(!(LoadTypeMask & ActionConditionMask), "LoadTypeMask and ActionConditionMask should be mutually exclusive because they are stored in the same uint32_t");
 static_assert(static_cast<uint64_t>(AllResourceFlags) << 32 == ActionFlagMask, "ActionFlagMask should cover all the action flags");
 
-OptionSet<ResourceType> toResourceType(CachedResource::Type type, ResourceRequestRequester requester)
+OptionSet<ResourceType> toResourceType(CachedResource::Type type, ResourceRequestRequester requester, bool isMainFrame)
 {
     switch (type) {
     case CachedResource::Type::LinkPrefetch:
     case CachedResource::Type::MainResource:
-        return { ResourceType::Document };
+        if (isMainFrame)
+            return { ResourceType::TopDocument };
+        return { ResourceType::ChildDocument };
     case CachedResource::Type::SVGDocumentResource:
         return { ResourceType::SVGDocument };
     case CachedResource::Type::ImageResource:
@@ -96,7 +98,11 @@ OptionSet<ResourceType> toResourceType(CachedResource::Type type, ResourceReques
 std::optional<OptionSet<ResourceType>> readResourceType(StringView name)
 {
     if (name == "document"_s)
-        return { ResourceType::Document };
+        return { { ResourceType::TopDocument, ResourceType::ChildDocument } };
+    if (name == "top-document"_s)
+        return { ResourceType::TopDocument };
+    if (name == "child-document"_s)
+        return { ResourceType::ChildDocument };
     if (name == "image"_s)
         return { ResourceType::Image };
     if (name == "style-sheet"_s)

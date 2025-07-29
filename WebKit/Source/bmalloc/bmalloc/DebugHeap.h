@@ -64,6 +64,10 @@ public:
     static DebugHeap* tryGet();
     static DebugHeap* getExisting();
 
+#if BOS(DARWIN)
+    malloc_zone_t* zone() const { return m_zone; };
+#endif
+
 private:
     static DebugHeap* tryGetSlow();
     

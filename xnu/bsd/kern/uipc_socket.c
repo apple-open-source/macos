@@ -1695,6 +1695,9 @@ soconnectlock(struct socket *so, struct sockaddr *nam, int dolock)
 	 * This allows user to disconnect by connecting to, e.g.,
 	 * a null address.
 	 */
+#if NECP
+	bool set_domain_from_tracker_lookup = false;
+#endif /* NECP */
 	if (so->so_state & (SS_ISCONNECTED | SS_ISCONNECTING) &&
 	    ((so->so_proto->pr_flags & PR_CONNREQUIRED) ||
 	    (error = sodisconnectlocked(so)))) {
@@ -1712,6 +1715,9 @@ soconnectlock(struct socket *so, struct sockaddr *nam, int dolock)
 				if (metadata.flags & SO_TRACKER_ATTRIBUTE_FLAGS_APP_APPROVED) {
 					so->so_flags1 |= SOF1_APPROVED_APP_DOMAIN;
 				}
+#if NECP
+				set_domain_from_tracker_lookup = (metadata.domain[0] != 0);
+#endif /* NECP */
 				necp_set_socket_domain_attributes(so,
 				    __unsafe_null_terminated_from_indexable(metadata.domain),
 				    __unsafe_null_terminated_from_indexable(metadata.domain_owner));
@@ -1721,6 +1727,12 @@ soconnectlock(struct socket *so, struct sockaddr *nam, int dolock)
 #if NECP
 		/* Update NECP evaluation after setting any domain via the tracker checks */
 		so_update_necp_policy(so, NULL, nam);
+		if (set_domain_from_tracker_lookup && (so->so_flags1 & SOF1_DOMAIN_MATCHED_POLICY)) {
+			// Mark extended timeout on tracker lookup to ensure that the entry stays around
+			tracker_metadata_t update_metadata = { };
+			update_metadata.flags = SO_TRACKER_ATTRIBUTE_FLAGS_EXTENDED_TIMEOUT;
+			(void)tracker_lookup(so->so_flags & SOF_DELEGATED ? so->e_uuid : so->last_uuid, nam, &update_metadata);
+		}
 #endif /* NECP */
 
 		/*
@@ -1817,6 +1829,9 @@ soconnectxlocked(struct socket *so, struct sockaddr *src,
 	 * try to disconnect first.  This allows user to disconnect
 	 * by connecting to, e.g., a null address.
 	 */
+#if NECP
+	bool set_domain_from_tracker_lookup = false;
+#endif /* NECP */
 	if ((so->so_state & (SS_ISCONNECTED | SS_ISCONNECTING)) &&
 	    !(so->so_proto->pr_flags & PR_MULTICONN) &&
 	    ((so->so_proto->pr_flags & PR_CONNREQUIRED) ||
@@ -1836,6 +1851,9 @@ soconnectxlocked(struct socket *so, struct sockaddr *src,
 				if (metadata.flags & SO_TRACKER_ATTRIBUTE_FLAGS_APP_APPROVED) {
 					so->so_flags1 |= SOF1_APPROVED_APP_DOMAIN;
 				}
+#if NECP
+				set_domain_from_tracker_lookup = (metadata.domain[0] != 0);
+#endif /* NECP */
 				necp_set_socket_domain_attributes(so, __unsafe_null_terminated_from_indexable(metadata.domain),
 				    __unsafe_null_terminated_from_indexable(metadata.domain_owner));
 			}
@@ -1895,6 +1913,15 @@ soconnectxlocked(struct socket *so, struct sockaddr *src,
 					so->so_flags1 &= ~SOF1_PRECONNECT_DATA;
 				}
 			}
+
+#if NECP
+			if (set_domain_from_tracker_lookup && (so->so_flags1 & SOF1_DOMAIN_MATCHED_POLICY)) {
+				// Mark extended timeout on tracker lookup to ensure that the entry stays around
+				tracker_metadata_t update_metadata = { };
+				update_metadata.flags = SO_TRACKER_ATTRIBUTE_FLAGS_EXTENDED_TIMEOUT;
+				(void)tracker_lookup(so->so_flags & SOF_DELEGATED ? so->e_uuid : so->last_uuid, dst, &update_metadata);
+			}
+#endif /* NECP */
 		}
 	}
 
@@ -4176,12 +4203,12 @@ restart:
 	if ((so->so_state & (SS_NOFDREF | SS_CANTRCVMORE)) ==
 	    (SS_NOFDREF | SS_CANTRCVMORE)) {
 		error = 0;
-		goto out;
+		goto release;
 	}
 
 	error = sblock(&so->so_rcv, SBLOCKWAIT(flags));
 	if (error) {
-		goto out;
+		goto release;
 	}
 	sblocked = 1;
 
@@ -4379,7 +4406,6 @@ release:
 		socket_unlock(so, 1);
 	}
 
-out:
 	*pktcntp = npkts;
 	/*
 	 * Amortize the cost of freeing the mbufs

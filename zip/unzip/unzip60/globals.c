@@ -156,6 +156,14 @@ Uz_Globs *getGlobalPointer()
 
 
 
+#ifdef __APPLE__
+#define SYSTEM_SPECIFIC_CTOR apple_globals_ctor
+static void apple_globals_ctor(__G)
+    __GDEF
+{
+    G.rootdir = -1;
+}
+#endif /* __APPLE__ */
 Uz_Globs *globalsCtor()
 {
 #ifdef REENTRANT

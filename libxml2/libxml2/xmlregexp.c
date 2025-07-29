@@ -576,6 +576,18 @@ xmlRegEpxFromParse(xmlRegParserCtxtPtr ctxt) {
 #ifdef DEBUG_COMPACTION
 	printf("Final: %d atoms\n", nbatoms);
 #endif
+
+    if ((nbstates == INT32_MAX) || (nbatoms == INT32_MAX) || (nbstates + 1 > INT32_MAX / (nbatoms + 1))) {
+        xmlRegexpErrMemory(ctxt, "Regular expression too long to compile");
+        xmlFree(stateRemap);
+        xmlFree(stringRemap);
+        for (i = 0; i < nbatoms; i++)
+            xmlFree(stringMap[i]);
+        xmlFree(stringMap);
+        xmlFree(ret);
+        return (NULL);
+    }
+
 	transitions = (int *) xmlRegCalloc2(nbstates + 1, nbatoms + 1,
                                             sizeof(int));
 	if (transitions == NULL) {
@@ -612,6 +624,17 @@ xmlRegEpxFromParse(xmlRegParserCtxtPtr ctxt) {
 		    continue;
                 atomno = stringRemap[trans->atom->no];
 		if ((trans->atom->data != NULL) && (transdata == NULL)) {
+		    if (nbstates > INT32_MAX / nbatoms) {
+                xmlRegexpErrMemory(ctxt, "Regular expression too long to compile");
+                xmlFree(transitions);
+                xmlFree(stateRemap);
+                xmlFree(stringRemap);
+                for (i = 0; i < nbatoms; i++)
+                    xmlFree(stringMap[i]);
+                xmlFree(stringMap);
+                xmlFree(ret);
+                return NULL;
+            }
 		    transdata = (void **) xmlRegCalloc2(nbstates, nbatoms,
 			                                sizeof(void *));
 		    if (transdata == NULL) {

@@ -4906,7 +4906,7 @@ pmap_protect_options_internal(
 		 * Removing "NX" would grant "execute" access immediately, bypassing any
 		 * checks VM might want to do in its soft fault path.
 		 * pmap_protect() and co. are not allowed to increase access permissions,
-		 * except in the PMAP_PROTECT_OPTIONS_IMMEDIATE internal-only case.
+		 * except in the PMAP_OPTIONS_PROTECT_IMMEDIATE internal-only case.
 		 * Therefore, if we are not explicitly clearing execute permissions, inherit
 		 * the existing permissions.
 		 */
@@ -4924,20 +4924,16 @@ pmap_protect_options_internal(
 		 * PMAP_OPTIONS_PROTECT_IMMEDIATE is an internal-only option that's intended to
 		 * provide a "backdoor" to allow normally write-protected compressor pages to be
 		 * be temporarily written without triggering expensive write faults.
-		 * SPTM TODO: Given the intended use of this flag, we may be able to relax some
-		 * of our assumptions below when it comes to ref/mod accounting, and we may be
-		 * able to avoid holding the PVH lock across the SPTM mapping operation and the
-		 * ref/mod updates.  This will be important if we move to a batched SPTM mapping
-		 * API.
 		 */
-		if (force_write) {
+		while (force_write) {
 			if (spte == ARM_PTE_EMPTY) {
 				spte = os_atomic_load(pte_p, relaxed);
 			}
+			const pt_entry_t prev_pte = spte;
 
-			/* A concurrent remove or disconnect may have cleared the PTE. */
+			/* A concurrent disconnect may have cleared the PTE. */
 			if (__improbable(!pte_is_valid(spte))) {
-				goto pmap_protect_insert_mapping;
+				break;
 			}
 
 			/* Inherit permissions and "was_writeable" from the template. */
@@ -4951,25 +4947,38 @@ pmap_protect_options_internal(
 			locked_pvh_t locked_pvh;
 			if (pa_valid(pa)) {
 				locked_pvh = pvh_lock(pai);
+
+				/**
+				 * The VM may concurrently call pmap_disconnect() on the compressor
+				 * page in question, e.g. if relocating the page to satisfy a precious
+				 * allocation.  Now that we hold the PVH lock, re-check the PTE and
+				 * restart the loop if it's different from the value we read before
+				 * we held the lock.
+				 */
+				if (__improbable(os_atomic_load(pte_p, relaxed) != prev_pte)) {
+					pvh_unlock(&locked_pvh);
+					spte = ARM_PTE_EMPTY;
+					continue;
+				}
 				ppattr_modify_bits(pai, PP_ATTR_REFFAULT | PP_ATTR_MODFAULT,
 				    PP_ATTR_REFERENCED | PP_ATTR_MODIFIED);
 			}
 
 			__assert_only const sptm_return_t sptm_status = sptm_map_page(pmap->ttep, va, spte);
 
-			/*
-			 * We don't expect the VM to be concurrently removing these compressor mappings.
-			 * If it does for some reason, we can check for SPTM_MAP_FLUSH_PENDING and continue
-			 * the main loop.
+			/**
+			 * We don't expect the VM to be concurrently calling pmap_remove() against these
+			 * compressor mappings.  If it does for some reason, that could cause the above
+			 * call to return either SPTM_SUCCESS or SPTM_MAP_FLUSH_PENDING.
 			 */
-			assert((sptm_status == SPTM_SUCCESS) || (sptm_status == SPTM_MAP_VALID));
+			assert3u(sptm_status, ==, SPTM_MAP_VALID);
 
 			if (pa_valid(pa)) {
 				pvh_unlock(&locked_pvh);
 			}
+			break;
 		}
 
-pmap_protect_insert_mapping:
 #endif /* DEVELOPMENT || DEBUG */
 
 		va += pmap_page_size;
@@ -11195,6 +11204,7 @@ pmap_user_va_size(pmap_t pmap)
 }
 
 
+
 bool
 pmap_in_ppl(void)
 {
@@ -11491,7 +11501,7 @@ pmap_txm_allocate_page(void)
 	thread_vm_privileged = set_vm_privilege(true);
 
 	/* Allocate a page from the VM free list */
-	int grab_options = VM_PAGE_GRAB_OPTIONS_NONE;
+	vm_grab_options_t grab_options = VM_PAGE_GRAB_OPTIONS_NONE;
 	while ((page = vm_page_grab_options(grab_options)) == VM_PAGE_NULL) {
 		VM_PAGE_WAIT();
 	}

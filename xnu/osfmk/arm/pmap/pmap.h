@@ -814,7 +814,6 @@ extern boolean_t pmap_is_monitor(ppnum_t pn);
  */
 extern void pmap_static_allocations_done(void);
 
-
 #ifdef KASAN
 #define PPL_STACK_SIZE (PAGE_SIZE << 2)
 #else /* KASAN */
@@ -848,6 +847,7 @@ extern void pmap_static_allocations_done(void);
 #define MARK_AS_PMAP_RODATA
 
 #endif /* XNU_MONITOR */
+
 
 /*
  * Indicates that we are done mutating sensitive state in the system, and that

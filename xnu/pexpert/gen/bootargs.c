@@ -547,7 +547,7 @@ PE_get_default(
 }
 
 /* function: get_range_bounds
- * Parse a range string like "1_3,5_20" and return 1,3 as lower and upper.
+ * Parse a range string like "1_3,10,15_20" and return 1,3 as lower and upper.
  * Note: '_' is separator for bounds integer delimiter and
  *       ',' is considered as separator for range pair.
  * returns TRUE when both range values are found
@@ -564,7 +564,7 @@ get_range_bounds(char *c, int64_t *lower, int64_t *upper)
 	}
 
 	while (*c != '\0') {
-		if (*c == '_') {
+		if (*c == '_' || *c == ',') {
 			break;
 		}
 		c++;

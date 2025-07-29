@@ -3185,6 +3185,7 @@ rt_lookup_common(boolean_t lookup_only, boolean_t coarse, struct sockaddr *dst,
 	struct sockaddr_storage dst_ss;
 	struct sockaddr_storage mask_ss;
 	boolean_t dontcare;
+	boolean_t empty_dst;
 	char gbuf[MAX_IPv6_STR_LEN], s_dst[MAX_IPv6_STR_LEN], s_netmask[MAX_IPv6_STR_LEN];
 	VERIFY(!coarse || ifscope == IFSCOPE_NONE);
 
@@ -3198,6 +3199,11 @@ rt_lookup_common(boolean_t lookup_only, boolean_t coarse, struct sockaddr *dst,
 
 	if (!lookup_only) {
 		netmask = NULL;
+	}
+
+	if (rt_verbose > 1) {
+		empty_dst = ((af == AF_INET && SIN(dst)->sin_addr.s_addr == 0) ||
+				     (af == AF_INET6 && IN6_IS_ADDR_UNSPECIFIED(&SIN6(dst)->sin6_addr)));
 	}
 
 	/*
@@ -3235,7 +3241,7 @@ rt_lookup_common(boolean_t lookup_only, boolean_t coarse, struct sockaddr *dst,
 	dontcare = (ifscope == IFSCOPE_NONE);
 
 #if (DEVELOPMENT || DEBUG)
-	if (rt_verbose > 2) {
+	if (rt_verbose > 2 && !empty_dst) {
 		if (af == AF_INET) {
 			(void) inet_ntop(af, &SIN(dst)->sin_addr.s_addr,
 			    s_dst, sizeof(s_dst));
@@ -3405,7 +3411,7 @@ rt_lookup_common(boolean_t lookup_only, boolean_t coarse, struct sockaddr *dst,
 	}
 
     if (rn == NULL) {
-        if (rt_verbose == 2) {
+        if (rt_verbose > 1 && !empty_dst) {
             if (af == AF_INET) {
                 (void) inet_ntop(af, &SIN(dst)->sin_addr.s_addr,
                         s_dst, sizeof(s_dst));
@@ -3426,10 +3432,6 @@ rt_lookup_common(boolean_t lookup_only, boolean_t coarse, struct sockaddr *dst,
             }
             os_log(OS_LOG_DEFAULT, "%s:%d (%s, %s, %u) return NULL\n",
                     __func__, __LINE__, s_dst, s_netmask, ifscope);
-        } else {
-            if (rt_verbose > 2) {
-                os_log(OS_LOG_DEFAULT, "%s:%d %u return NULL\n", __func__, __LINE__, ifscope);
-            }
         }
     } else if (rt_verbose > 2) {
         char dbuf[MAX_SCOPE_ADDR_STR_LEN];

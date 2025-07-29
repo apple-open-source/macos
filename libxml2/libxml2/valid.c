@@ -2784,7 +2784,7 @@ xmlAddID(xmlValidCtxtPtr ctxt, xmlDocPtr doc, const xmlChar *value,
 	return(NULL);
     }
     if (attr != NULL)
-	attr->atype = XML_ATTRIBUTE_ID;
+	XML_ATTR_SET_ATYPE(attr, XML_ATTRIBUTE_ID);
     return(ret);
 }
 
@@ -2904,7 +2904,7 @@ xmlRemoveID(xmlDocPtr doc, xmlAttrPtr attr) {
 
     xmlHashRemoveEntry(table, ID, xmlFreeIDTableEntry);
     xmlFree(ID);
-    attr->atype = 0;
+    XML_ATTR_CLEAR_ATYPE(attr);
     return(0);
 }
 
@@ -3558,7 +3558,7 @@ xmlIsMixedElement(xmlDocPtr doc, const xmlChar *name) {
 
 static int
 xmlIsDocNameStartChar(xmlDocPtr doc, int c) {
-    if ((doc == NULL) || (doc->properties & XML_DOC_OLD10) == 0) {
+    if ((doc == NULL) || (XML_DOC_GET_PROPERTIES(doc) & XML_DOC_OLD10) == 0) {
         /*
 	 * Use the new checks of production [4] [4a] amd [5] of the
 	 * Update 5 of XML-1.0
@@ -3588,7 +3588,7 @@ xmlIsDocNameStartChar(xmlDocPtr doc, int c) {
 
 static int
 xmlIsDocNameChar(xmlDocPtr doc, int c) {
-    if ((doc == NULL) || (doc->properties & XML_DOC_OLD10) == 0) {
+    if ((doc == NULL) || (XML_DOC_GET_PROPERTIES(doc) & XML_DOC_OLD10) == 0) {
         /*
 	 * Use the new checks of production [4] [4a] amd [5] of the
 	 * Update 5 of XML-1.0
@@ -4527,7 +4527,7 @@ xmlValidateOneAttribute(xmlValidCtxtPtr ctxt, xmlDocPtr doc,
 	       attr->name, elem->name, NULL);
 	return(0);
     }
-    attr->atype = attrDecl->atype;
+    XML_ATTR_SET_ATYPE(attr, attrDecl->atype);
 
     val = xmlValidateAttributeValueInternal(doc, attrDecl->atype, value);
     if (val == 0) {
@@ -6637,7 +6637,7 @@ xmlValidateRef(xmlRefPtr ref, xmlValidCtxtPtr ctxt,
 	    while (IS_BLANK_CH(*cur)) cur++;
 	}
 	xmlFree(dup);
-    } else if (attr->atype == XML_ATTRIBUTE_IDREF) {
+    } else if (XML_ATTR_GET_ATYPE(attr) == XML_ATTRIBUTE_IDREF) {
 	id = xmlGetID(ctxt->doc, name);
 	if (id == NULL) {
 	    xmlErrValidNode(ctxt, attr->parent, XML_DTD_UNKNOWN_ID,
@@ -6645,7 +6645,7 @@ xmlValidateRef(xmlRefPtr ref, xmlValidCtxtPtr ctxt,
 		   attr->name, name, NULL);
 	    ctxt->valid = 0;
 	}
-    } else if (attr->atype == XML_ATTRIBUTE_IDREFS) {
+    } else if (XML_ATTR_GET_ATYPE(attr) == XML_ATTRIBUTE_IDREFS) {
 	xmlChar *dup, *str = NULL, *cur, save;
 
 	dup = xmlStrdup(name);

@@ -415,7 +415,8 @@ vm_fault_cleanup(
 #define ALIGNED(x) (((x) & (PAGE_SIZE_64 - 1)) == 0)
 
 
-boolean_t       vm_page_deactivate_behind = TRUE;
+TUNABLE(bool, vm_page_deactivate_behind, "vm_deactivate_behind", true);
+TUNABLE(uint32_t, vm_page_deactivate_behind_min_resident_ratio, "vm_deactivate_behind_min_resident_ratio", 3);
 /*
  * default sizes given VM_BEHAVIOR_DEFAULT reference behavior
  */
@@ -551,12 +552,13 @@ vm_fault_is_sequential(
 }
 
 #if DEVELOPMENT || DEBUG
-uint64_t vm_page_deactivate_behind_count = 0;
+SCALABLE_COUNTER_DEFINE(vm_page_deactivate_behind_count);
 #endif /* DEVELOPMENT || DEBUG */
 
 /*
- * vm_page_deactivate_behind
+ * @func vm_fault_deactivate_behind
  *
+ * @description
  * Determine if sequential access is in progress
  * in accordance with the behavior specified.  If
  * so, compute a potential page to deactivate and
@@ -564,30 +566,32 @@ uint64_t vm_page_deactivate_behind_count = 0;
  *
  * object must be locked.
  *
- * return TRUE if we actually deactivate a page
+ * @returns the number of deactivated pages
  */
 static
-boolean_t
+uint32_t
 vm_fault_deactivate_behind(
 	vm_object_t             object,
 	vm_object_offset_t      offset,
 	vm_behavior_t           behavior)
 {
-	int             n;
-	int             pages_in_run = 0;
-	int             max_pages_in_run = 0;
-	int             sequential_run;
-	int             sequential_behavior = VM_BEHAVIOR_SEQUENTIAL;
+	uint32_t        pages_in_run = 0;
+	uint32_t        max_pages_in_run = 0;
+	int32_t         sequential_run;
+	vm_behavior_t   sequential_behavior = VM_BEHAVIOR_SEQUENTIAL;
 	vm_object_offset_t      run_offset = 0;
 	vm_object_offset_t      pg_offset = 0;
 	vm_page_t       m;
 	vm_page_t       page_run[VM_DEFAULT_DEACTIVATE_BEHIND_CLUSTER];
 
-	pages_in_run = 0;
 #if TRACEFAULTPAGE
 	dbgTrace(0xBEEF0018, (unsigned int) object, (unsigned int) vm_fault_deactivate_behind); /* (TEST/DEBUG) */
 #endif
-	if (is_kernel_object(object) || vm_page_deactivate_behind == FALSE || (vm_object_trunc_page(offset) != offset)) {
+	if (is_kernel_object(object) ||
+	    !vm_page_deactivate_behind ||
+	    (vm_object_trunc_page(offset) != offset) ||
+	    (object->resident_page_count <
+	    vm_page_active_count / vm_page_deactivate_behind_min_resident_ratio)) {
 		/*
 		 * Do not deactivate pages from the kernel object: they
 		 * are not intended to become pageable.
@@ -597,9 +601,19 @@ vm_fault_deactivate_behind(
 		 * handle the deactivation on the aligned offset and, thus,
 		 * the full PAGE_SIZE page once. This helps us avoid the redundant
 		 * deactivates and the extra faults.
+		 *
+		 * Objects need only participate in backwards
+		 * deactivation if they are exceedingly large (i.e. their
+		 * resident pages are liable to comprise a substantially large
+		 * portion of the active queue and push out the rest of the
+		 * system's working set).
 		 */
-		return FALSE;
+		return 0;
 	}
+
+	KDBG_FILTERED(VMDBG_CODE(DBG_VM_FAULT_DEACTIVATE_BEHIND) | DBG_FUNC_START,
+	    VM_KERNEL_ADDRHIDE(object), offset, behavior);
+
 	if ((sequential_run = object->sequential)) {
 		if (sequential_run < 0) {
 			sequential_behavior = VM_BEHAVIOR_RSEQNTL;
@@ -654,7 +668,7 @@ vm_fault_deactivate_behind(
 		}
 		break;}
 	}
-	for (n = 0; n < max_pages_in_run; n++) {
+	for (unsigned n = 0; n < max_pages_in_run; n++) {
 		m = vm_page_lookup(object, offset + run_offset + (n * pg_offset));
 
 		if (m && !m->vmp_laundry && !m->vmp_busy && !m->vmp_no_cache &&
@@ -676,16 +690,17 @@ vm_fault_deactivate_behind(
 			pmap_clear_refmod_options(VM_PAGE_GET_PHYS_PAGE(m), VM_MEM_REFERENCED, PMAP_OPTIONS_NOFLUSH, (void *)NULL);
 		}
 	}
+
 	if (pages_in_run) {
 		vm_page_lockspin_queues();
 
-		for (n = 0; n < pages_in_run; n++) {
+		for (unsigned n = 0; n < pages_in_run; n++) {
 			m = page_run[n];
 
 			vm_page_deactivate_internal(m, FALSE);
 
 #if DEVELOPMENT || DEBUG
-			vm_page_deactivate_behind_count++;
+			counter_inc(&vm_page_deactivate_behind_count);
 #endif /* DEVELOPMENT || DEBUG */
 
 #if TRACEFAULTPAGE
@@ -693,10 +708,12 @@ vm_fault_deactivate_behind(
 #endif
 		}
 		vm_page_unlock_queues();
-
-		return TRUE;
 	}
-	return FALSE;
+
+	KDBG_FILTERED(VMDBG_CODE(DBG_VM_FAULT_DEACTIVATE_BEHIND) | DBG_FUNC_END,
+	    pages_in_run);
+
+	return pages_in_run;
 }
 
 
@@ -1092,7 +1109,7 @@ vm_fault_page(
 	int                     external_state = VM_EXTERNAL_STATE_UNKNOWN;
 	memory_object_t         pager;
 	vm_fault_return_t       retval;
-	int                     grab_options;
+	vm_grab_options_t       grab_options;
 	bool                    clear_absent_on_error = false;
 
 /*
@@ -1163,12 +1180,7 @@ vm_fault_page(
 		dbgTrace(0xBEEF0003, (unsigned int) 0, (unsigned int) 0);       /* (TEST/DEBUG) */
 #endif
 
-		grab_options = 0;
-#if CONFIG_SECLUDED_MEMORY
-		if (object->can_grab_secluded) {
-			grab_options |= VM_PAGE_GRAB_SECLUDED;
-		}
-#endif /* CONFIG_SECLUDED_MEMORY */
+		grab_options = vm_page_grab_options_for_object(object);
 
 		if (!object->alive) {
 			/*
@@ -2402,7 +2414,7 @@ dont_look_for_page:
 			 *
 			 * Allocate a page for the copy
 			 */
-			copy_m = vm_page_alloc(copy_object, copy_offset);
+			copy_m = vm_page_grab_options(grab_options);
 
 			if (copy_m == VM_PAGE_NULL) {
 				vm_fault_page_release_page(m, &clear_absent_on_error);
@@ -2417,9 +2429,11 @@ dont_look_for_page:
 
 				return VM_FAULT_MEMORY_SHORTAGE;
 			}
+
 			/*
 			 * Must copy page into copy-object.
 			 */
+			vm_page_insert(copy_m, copy_object, copy_offset);
 			vm_page_copy(m, copy_m);
 
 			/*
@@ -3302,7 +3316,7 @@ MACRO_END
 				vm_page_check_pageable_safe(m);
 				vm_page_queue_enter(&lq->vpl_queue, m, vmp_pageq);
 				m->vmp_q_state = VM_PAGE_ON_ACTIVE_LOCAL_Q;
-				m->vmp_local_id = lid;
+				m->vmp_local_id = (uint16_t)lid;
 				lq->vpl_count++;
 
 				if (object->internal) {
@@ -4330,7 +4344,7 @@ vm_fault_internal(
 	vm_object_offset_t      written_on_offset = 0;
 	int                     throttle_delay;
 	int                     compressed_count_delta;
-	uint8_t                 grab_options;
+	vm_grab_options_t       grab_options;
 	bool                    need_copy;
 	bool                    need_copy_on_read;
 	vm_map_offset_t         trace_vaddr;
@@ -4686,12 +4700,7 @@ RetryFault:
 	cur_object = object;
 	cur_offset = offset;
 
-	grab_options = 0;
-#if CONFIG_SECLUDED_MEMORY
-	if (object->can_grab_secluded) {
-		grab_options |= VM_PAGE_GRAB_SECLUDED;
-	}
-#endif /* CONFIG_SECLUDED_MEMORY */
+	grab_options = vm_page_grab_options_for_object(object);
 
 	while (TRUE) {
 		if (!cur_object->pager_created &&
@@ -5095,7 +5104,7 @@ FastPmapEnter:
 					vm_page_lock_queues();
 					if (!m->vmp_realtime) {
 						m->vmp_realtime = true;
-						vm_page_realtime_count++;
+						VM_COUNTER_INC(&vm_page_realtime_count);
 					}
 					vm_page_unlock_queues();
 				}
@@ -5229,8 +5238,6 @@ FastPmapEnter:
 			 * we don't drop either object lock until
 			 * the page has been copied and inserted
 			 */
-
-
 			cur_m = m;
 			m = vm_page_grab_options(grab_options);
 			m_object = NULL;
@@ -5487,7 +5494,8 @@ FastPmapEnter:
 						cur_object);
 
 					if (kr != KERN_SUCCESS) {
-						vm_page_release(m, FALSE);
+						vm_page_release(m,
+						    VMP_RELEASE_NONE);
 						m = VM_PAGE_NULL;
 					}
 					/*
@@ -5685,7 +5693,8 @@ FastPmapEnter:
 					break;
 				}
 #endif /* MACH_ASSERT */
-				m = vm_page_alloc(object, vm_object_trunc_page(offset));
+
+				m = vm_page_grab_options(grab_options);
 				m_object = NULL;
 
 				if (m == VM_PAGE_NULL) {
@@ -5696,6 +5705,7 @@ FastPmapEnter:
 					break;
 				}
 				m_object = object;
+				vm_page_insert(m, m_object, vm_object_trunc_page(offset));
 
 				if ((prot & VM_PROT_WRITE) &&
 				    !(fault_type & VM_PROT_WRITE) &&
@@ -5918,7 +5928,7 @@ zero_fill_cleanup:
 					vm_page_lock_queues();
 					if (!m->vmp_realtime) {
 						m->vmp_realtime = true;
-						vm_page_realtime_count++;
+						VM_COUNTER_INC(&vm_page_realtime_count);
 					}
 					vm_page_unlock_queues();
 				}
@@ -6661,7 +6671,7 @@ cleanup:
 			vm_page_lock_queues();
 			if (!m->vmp_realtime) {
 				m->vmp_realtime = true;
-				vm_page_realtime_count++;
+				VM_COUNTER_INC(&vm_page_realtime_count);
 			}
 			vm_page_unlock_queues();
 		}

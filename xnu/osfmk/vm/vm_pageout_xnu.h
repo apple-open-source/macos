@@ -83,8 +83,8 @@ extern kern_return_t vm_map_create_upl(
 	vm_tag_t            tag);
 
 extern void               vm_page_free_list(
-	vm_page_t   mem,
-	boolean_t   prepare_object);
+	vm_page_t               mem,
+	bool                    prepare_object);
 
 extern kern_return_t vm_page_alloc_list(
 	vm_size_t   page_count,
@@ -368,7 +368,6 @@ struct vm_pageout_vminfo {
 	unsigned long vm_pageout_forcereclaimed_sharedcache;
 	unsigned long vm_pageout_protected_realtime;
 	unsigned long vm_pageout_forcereclaimed_realtime;
-
 };
 
 extern struct vm_pageout_vminfo vm_pageout_vminfo;

@@ -178,6 +178,8 @@ struct machine_thread {
 #else
 	uint64_t                  reserved13;
 #endif
+
+	bool                      reserved14;
 };
 #endif
 

@@ -158,7 +158,10 @@ AUTH_NONNULL_ALL
 bool rule_get_securetokenuser(rule_t rule);
 
 rule_t
-rule_create_trust(void);
+rule_create_trust_admin(void);
+
+rule_t
+rule_create_trust_user(void);
 
 #if defined(__cplusplus)
 }

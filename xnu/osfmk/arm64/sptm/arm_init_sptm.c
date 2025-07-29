@@ -1481,11 +1481,11 @@ arm_vm_prot_finalize(boot_args * args __unused)
 		keep_linkedit = true;
 	}
 #endif /* CONFIG_DTRACE */
-#if KASAN_DYNAMIC_BLACKLIST
-	/* KASAN's dynamic blacklist needs to query the LINKEDIT segment at runtime.  As such, the
+#if KASAN_DYNAMIC_DENYLIST
+	/* KASAN's dynamic denylist needs to query the LINKEDIT segment at runtime.  As such, the
 	 * kext bootstrap code will not jettison LINKEDIT on kasan kernels, so don't bother to relocate it. */
 	keep_linkedit = true;
-#endif
+#endif /* KASAN_DYNAMIC_DENYLIST */
 
 	if (!keep_linkedit) {
 		sptm_slide_region(segLINKB, (unsigned int)(segSizeLINK >> PAGE_SHIFT));

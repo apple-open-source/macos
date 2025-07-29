@@ -476,6 +476,7 @@ static void vm_map_range_map_init(void);
 
 pid_t find_largest_process_vm_map_entries(void);
 
+
 __attribute__((always_inline))
 int
 vm_map_kernel_flags_vmflags(vm_map_kernel_flags_t vmk_flags)
@@ -2086,11 +2087,12 @@ vm_map_lookup_entry(
 {
 	bool result = false;
 
-#if CONFIG_KERNEL_TAGGING
+#if KASAN_TBI
 	if (VM_KERNEL_ADDRESS(address)) {
 		address = vm_memtag_canonicalize_kernel(address);
 	}
-#endif /* CONFIG_KERNEL_TAGGING */
+#endif /* KASAN_TBI */
+
 
 #if CONFIG_PROB_GZALLOC
 	if (map->pmap == kernel_pmap) {
@@ -2124,12 +2126,6 @@ vm_map_lookup_entry_allow_pgz(
 	vm_map_offset_t address,
 	vm_map_entry_t  *entry)         /* OUT */
 {
-#if CONFIG_KERNEL_TAGGING
-	if (VM_KERNEL_ADDRESS(address)) {
-		address = vm_memtag_canonicalize_kernel(address);
-	}
-#endif /* CONFIG_KERNEL_TAGGING */
-
 	return vm_map_store_lookup_entry( map, address, entry );
 }
 #endif /* CONFIG_PROB_GZALLOC */
@@ -5652,6 +5648,8 @@ vm_map_protect_sanitize(
 {
 	kern_return_t           kr;
 	vm_map_size_t           size;
+	vm_sanitize_flags_t     flags = VM_SANITIZE_FLAGS_SIZE_ZERO_SUCCEEDS;
+
 
 	kr = vm_sanitize_prot(new_prot_u, VM_SANITIZE_CALLER_VM_MAP_PROTECT,
 	    map, VM_PROT_COPY, new_prot);
@@ -5660,7 +5658,7 @@ vm_map_protect_sanitize(
 	}
 
 	kr = vm_sanitize_addr_end(start_u, end_u, VM_SANITIZE_CALLER_VM_MAP_PROTECT,
-	    map, VM_SANITIZE_FLAGS_SIZE_ZERO_SUCCEEDS, start, end, &size);
+	    map, flags, start, end, &size);
 	if (__improbable(kr != KERN_SUCCESS)) {
 		return kr;
 	}
@@ -6191,8 +6189,11 @@ vm_map_inherit_sanitize(
 		return kr;
 	}
 
+	vm_sanitize_flags_t flags = VM_SANITIZE_FLAGS_SIZE_ZERO_SUCCEEDS;
+
+
 	kr = vm_sanitize_addr_end(start_u, end_u, VM_SANITIZE_CALLER_VM_MAP_INHERIT,
-	    map, VM_SANITIZE_FLAGS_SIZE_ZERO_SUCCEEDS, start, end, &size);
+	    map, flags, start, end, &size);
 	if (__improbable(kr != KERN_SUCCESS)) {
 		return kr;
 	}
@@ -7183,9 +7184,11 @@ vm_map_wire_sanitize(
 {
 	kern_return_t   kr;
 
+	vm_sanitize_flags_t flags = VM_SANITIZE_FLAGS_SIZE_ZERO_SUCCEEDS;
+
+
 	kr = vm_sanitize_addr_end(start_u, end_u, vm_sanitize_caller, map,
-	    VM_SANITIZE_FLAGS_SIZE_ZERO_SUCCEEDS, start, end,
-	    size);
+	    flags, start, end, size);
 	if (__improbable(kr != KERN_SUCCESS)) {
 		return kr;
 	}
@@ -7658,9 +7661,11 @@ vm_map_unwire_sanitize(
 	vm_map_offset_t        *end,
 	vm_map_size_t          *size)
 {
+	vm_sanitize_flags_t flags = VM_SANITIZE_FLAGS_SIZE_ZERO_SUCCEEDS;
+
+
 	return vm_sanitize_addr_end(start_u, end_u, vm_sanitize_caller, map,
-	           VM_SANITIZE_FLAGS_SIZE_ZERO_SUCCEEDS, start, end,
-	           size);
+	           flags, start, end, size);
 }
 
 kern_return_t
@@ -9542,7 +9547,8 @@ vm_map_copy_overwrite_nested(
 	if (copy->type == VM_MAP_COPY_KERNEL_BUFFER) {
 		kr = vm_map_copyout_kernel_buffer(
 			dst_map, &dst_addr,
-			copy, copy->size, TRUE, discard_on_success);
+			copy, copy->size, TRUE,
+			discard_on_success);
 		return kr;
 	}
 
@@ -12083,6 +12089,8 @@ vm_map_copyin_sanitize(
 	*src_start = vm_map_trunc_page(*src_addr_unaligned,
 	    VM_MAP_PAGE_MASK(src_map));
 	*src_end   = vm_map_round_page(*src_end, VM_MAP_PAGE_MASK(src_map));
+
+
 	return KERN_SUCCESS;
 }
 
@@ -12149,7 +12157,6 @@ vm_map_copyin_internal(
 	if (__improbable(kr != KERN_SUCCESS)) {
 		return vm_sanitize_get_kr(kr);
 	}
-
 
 	src_destroy = (flags & VM_MAP_COPYIN_SRC_DESTROY) ? TRUE : FALSE;
 	use_maxprot = (flags & VM_MAP_COPYIN_USE_MAXPROT) ? TRUE : FALSE;
@@ -15079,6 +15086,7 @@ vm_map_region_recurse_64(
 
 	user_address = vm_sanitize_addr(map, *address_u);
 
+
 	effective_page_shift = vm_self_region_page_shift(map);
 	effective_page_size = (1 << effective_page_shift);
 
@@ -15549,6 +15557,7 @@ vm_map_region(
 	}
 
 	start = vm_sanitize_addr(map, *address_u);
+
 
 	switch (flavor) {
 	case VM_REGION_BASIC_INFO:
@@ -16368,10 +16377,12 @@ vm_map_machine_attribute_sanitize(
 	mach_vm_offset_t       *end,
 	vm_map_size_t          *size)
 {
+	vm_sanitize_flags_t flags = VM_SANITIZE_FLAGS_SIZE_ZERO_SUCCEEDS;
+
+
 	return vm_sanitize_addr_end(start_u, end_u,
 	           VM_SANITIZE_CALLER_VM_MAP_MACHINE_ATTRIBUTE, map,
-	           VM_SANITIZE_FLAGS_SIZE_ZERO_SUCCEEDS, start, end,
-	           size);
+	           flags, start, end, size);
 }
 
 
@@ -20445,8 +20456,6 @@ vm_map_page_range_info_internal(
 	info_idx = 0; /* Tracks the next index within the info structure to be filled.*/
 
 	vm_map_lock_read(map);
-
-
 	task_ledgers_footprint(map->pmap->ledger, &ledger_resident, &ledger_compressed);
 
 	for (curr_s_offset = start; curr_s_offset < end;) {
@@ -20851,11 +20860,12 @@ vm_map_msync_sanitize(
 	vm_map_size_t          *size)
 {
 	vm_object_offset_t      end;
+	vm_sanitize_flags_t     flags = VM_SANITIZE_FLAGS_SIZE_ZERO_SUCCEEDS;
+
 
 	return vm_sanitize_addr_size(address_u, size_u,
 	           VM_SANITIZE_CALLER_VM_MAP_MSYNC,
-	           map, VM_SANITIZE_FLAGS_SIZE_ZERO_SUCCEEDS,
-	           address, &end, size);
+	           map, flags, address, &end, size);
 }
 
 /*

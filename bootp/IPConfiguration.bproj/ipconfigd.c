@@ -648,8 +648,8 @@ static boolean_t		S_awake = TRUE;
 #if TARGET_OS_OSX
 static boolean_t		S_use_maintenance_wake = TRUE;
 static boolean_t		S_wake_event_sent;
-static boolean_t		S_hide_bssid;
-static boolean_t		S_hide_bssid_was_set;
+static boolean_t		S_hide_wifi_info;
+static boolean_t		S_hide_wifi_info_was_set;
 #endif /* TARGET_OS_OSX */
 static uint32_t			S_wake_generation;
 static absolute_time_t		S_wake_time;
@@ -739,7 +739,6 @@ S_get_plist_boolean_quiet(CFDictionaryRef plist, CFStringRef key,
 static int
 S_get_plist_int_quiet(CFDictionaryRef plist, CFStringRef key,
 		      int def);
-
 typedef unsigned int Rank;
 
 #define RANK_HIGHEST	(0)
@@ -2567,19 +2566,21 @@ IFStateCopySummary(IFStateRef ifstate)
                                  kCFBooleanTrue);
             if (if_is_wifi_infra(if_p) && info_p != NULL) {
 		const char *	auth_type;
-		CFStringRef	networkID;
+		CFStringRef	bssid;
+		CFStringRef	networkID = NULL;
+		CFStringRef	ssid;
 
 		auth_type = WiFiAuthTypeGetString(WiFiInfoGetAuthType(info_p));
 		my_CFDictionarySetCString(if_summary, CFSTR("Security"),
 					  auth_type);
-		CFDictionarySetValue(if_summary, CFSTR("BSSID"),
-				     WiFiInfoGetBSSIDString(info_p));
-		CFDictionarySetValue(if_summary, CFSTR("SSID"),
-				     WiFiInfoGetSSID(info_p));
+		bssid = hide_wifi_string(WiFiInfoGetBSSIDString(info_p));
+		ssid = hide_wifi_string(WiFiInfoGetSSID(info_p));
 		networkID = WiFiInfoGetNetworkID(info_p);
+		CFDictionarySetValue(if_summary, CFSTR("BSSID"), bssid);
+		CFDictionarySetValue(if_summary, CFSTR("SSID"), ssid);
 		if (networkID != NULL) {
 		    CFDictionarySetValue(if_summary, CFSTR("NetworkID"),
-					 networkID);
+					 hide_wifi_string(networkID));
 		}
             }
         }
@@ -8676,24 +8677,24 @@ S_copy_wifi_info(CFStringRef ifname)
 
     info_p = WiFiInfoCopy(ifname);
     if (info_p != NULL) {
+	CFStringRef	bssid;
 	CFStringRef	networkID;
+	CFStringRef	ssid;
 
+	bssid = hide_wifi_string(WiFiInfoGetBSSIDString(info_p));
+	ssid = hide_wifi_string(WiFiInfoGetSSID(info_p));
 	networkID = WiFiInfoGetNetworkID(info_p);
 	if (networkID == NULL) {
 	    my_log(LOG_NOTICE,
 		   "%@: SSID %@ BSSID %@ Security %s",
-		   ifname,
-		   WiFiInfoGetSSID(info_p),
-		   WiFiInfoGetBSSIDString(info_p),
+		   ifname, ssid, bssid,
 		   WiFiAuthTypeGetString(WiFiInfoGetAuthType(info_p)));
 	}
 	else {
 	    my_log(LOG_NOTICE,
 		   "%@: SSID %@ BSSID %@ NetworkID %@ Security %s",
-		   ifname,
-		   WiFiInfoGetSSID(info_p),
-		   WiFiInfoGetBSSIDString(info_p),
-		   networkID,
+		   ifname, ssid, bssid,
+		   hide_wifi_string(networkID),
 		   WiFiAuthTypeGetString(WiFiInfoGetAuthType(info_p)));
 	}
     }
@@ -9763,22 +9764,54 @@ S_add_dhcp_parameters(SCPreferencesRef prefs)
 }
 
 #if TARGET_OS_OSX
-STATIC void
-check_hide_bssid(void)
+
+static void
+check_hide_wifi_info(void)
 {
-    Boolean	hide_bssid;
+    Boolean	hide_wifi_info;
     Boolean	was_set = FALSE;
 
-    hide_bssid = IPConfigurationControlPrefsGetHideBSSID(FALSE, &was_set);
-    if (hide_bssid != S_hide_bssid) {
-	S_hide_bssid = hide_bssid;
-	S_hide_bssid_was_set = was_set;
+    hide_wifi_info
+	= IPConfigurationControlPrefsGetHideWiFiInfo(FALSE, &was_set);
+    S_hide_wifi_info_was_set = was_set;
+    if (hide_wifi_info != S_hide_wifi_info) {
+	S_hide_wifi_info = hide_wifi_info;
     }
-    if (!S_hide_bssid_was_set) {
-	hide_bssid = !_SC_isAppleInternal() && !G_IPConfiguration_verbose;
-    }
-    WiFiInfoSetHideBSSID(hide_bssid);
 }
+static Boolean
+should_hide_wifi_info(void)
+{
+    Boolean	hide_wifi_info = S_hide_wifi_info;
+
+    if (!S_hide_wifi_info_was_set) {
+	hide_wifi_info = !_SC_isAppleInternal() && !G_IPConfiguration_verbose;
+    }
+    return (hide_wifi_info);
+}
+
+PRIVATE_EXTERN CFStringRef
+hide_wifi_string(CFStringRef str)
+{
+    if (should_hide_wifi_info()) {
+	str = CFSTR("<redacted>");
+    }
+    return (str);
+}
+
+#else /* TARGET_OS_OSX */
+
+static void
+check_hide_wifi_info(void)
+{
+    return;
+}
+
+PRIVATE_EXTERN CFStringRef
+hide_wifi_string(CFStringRef str)
+{
+    return (str);
+}
+
 #endif /* TARGET_OS_OSX */
 
 STATIC void
@@ -9858,9 +9891,7 @@ check_prefs(SCPreferencesRef prefs)
 	    break;
 	}
     }
-#if TARGET_OS_OSX
-    check_hide_bssid();
-#endif /* TARGET_OS_OSX */
+    check_hide_wifi_info();
 
     IPConfigurationControlPrefsSynchronize();
     return;

@@ -1409,7 +1409,8 @@ inline Expected<std::invoke_result_t<Func, std::span<const char8_t>>, UTF8Conver
     //  * We could allocate a CStringBuffer with an appropriate size to
     //    have a good chance of being able to write the string into the
     //    buffer without reallocing (say, 1.5 x length).
-    if (characters.size() > MaxLength / 2)
+
+    if (productOverflows<size_t>(characters.size(), 2))
         return makeUnexpected(UTF8ConversionError::OutOfMemory);
 
 #if CPU(ARM64)
@@ -1437,7 +1438,7 @@ inline Expected<std::invoke_result_t<Func, std::span<const char8_t>>, UTF8Conver
     if (characters.empty())
         return function(nonNullEmptyUTF8Span());
 
-    if (characters.size() > MaxLength / 3)
+    if (productOverflows<size_t>(characters.size(), 3))
         return makeUnexpected(UTF8ConversionError::OutOfMemory);
 
     size_t bufferSize = characters.size() * 3;

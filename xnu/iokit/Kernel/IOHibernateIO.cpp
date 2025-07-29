@@ -594,7 +594,15 @@ IOHibernateSystemSleep(void)
 			enum { setFileRound = 1024 * 1024ULL };
 			setFileSizeMin = ((setFileSizeMin + setFileRound) & ~(setFileRound - 1));
 
+#if defined(__arm64__)
+			// setFileSizeMin was our guess but if free disk space allows,
+			// open a file sized up for no compression and all memory saved,
+			// but leave at least kIOHibernateDiskFreeSpace bytes free on disk
+			setFileSizeMax = ptoa_64(vars->page_list->page_count);
+			setFileSizeMax = setFileSizeMax & ~(setFileRound - 1);
+#else
 			setFileSizeMax = setFileSizeMin;
+#endif
 			HIBLOG("hibernate_page_list_setall preflight pageCount %d est comp %qd setfilemin %qd setfilemax %qd min %qd\n",
 			    pageCount, (100ULL * gIOHibernateCompression) >> 8,
 			    setFileSizeMin, setFileSizeMax, vars->fileMinSize);

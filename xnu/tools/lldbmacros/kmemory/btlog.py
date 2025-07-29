@@ -7,20 +7,10 @@ import struct
 import sys
 
 from collections import namedtuple
-from core import caching, xnu_format
+from core import caching, xnu_format, OSHashPointer
 
 # FIXME: should not import this from xnu
 from xnu import GetSourceInformationForAddress
-
-def _swap32(i):
-    return struct.unpack("<I", struct.pack(">I", i))[0]
-
-def _hash_ptr(ptr):
-    h  = ptr >> 4
-    h *= 0x5052acdb
-    h &= 0xffffffff
-    return (h ^ _swap32(h)) & 0xffffffff
-
 
 class BTStack(object):
     """
@@ -322,7 +312,7 @@ class BTLog(object):
                 for i in range(h_mask + 1)
             )
         else:
-            i = _hash_ptr(wantElement) & h_mask
+            i = OSHashPointer(wantElement) & h_mask
             heads = (target.xCreateValueFromAddress(
                 None, h_base + i * h_tysz, h_ty).xGetIntegerByName('bthh_first'), )
 

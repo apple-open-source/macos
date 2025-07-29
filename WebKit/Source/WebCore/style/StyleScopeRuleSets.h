@@ -48,7 +48,11 @@ class Resolver;
 
 struct InvalidationRuleSet {
     RefPtr<RuleSet> ruleSet;
-    Vector<const CSSSelector*> invalidationSelectors;
+    // Invalidation selectors are used for attribute selector and :has() invalidation.
+    // For attributes selectors it contains the simple selectors for fast testing of whether an attribute mutation may have an effect.
+    // For :has() it contains the complex argument selectors for testing if adding or removing a node may affect :has() matching.
+    // Otherwise the list is empty.
+    CSSSelectorList invalidationSelectors;
     MatchElement matchElement;
     IsNegation isNegation;
 };

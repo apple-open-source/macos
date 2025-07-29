@@ -938,7 +938,6 @@ struct vm_pageout_stat {
 	unsigned int forcereclaimed_realtime;
 	unsigned int protected_sharedcache;
 	unsigned int protected_realtime;
-
 } vm_pageout_stats[VM_PAGEOUT_STAT_SIZE];
 
 unsigned int vm_pageout_stat_now = 0;
@@ -1735,7 +1734,6 @@ update_vm_info(void)
 	vm_pageout_stats[vm_pageout_stat_now].pages_freed = (unsigned int)(tmp - last.vm_page_pages_freed);
 	last.vm_page_pages_freed = tmp;
 
-
 	if (vm_pageout_stats[vm_pageout_stat_now].considered) {
 		tmp = vm_pageout_vminfo.vm_pageout_pages_evicted;
 		vm_pageout_stats[vm_pageout_stat_now].pages_evicted = (unsigned int)(tmp - last.vm_pageout_pages_evicted);
@@ -1961,7 +1959,6 @@ vps_deal_with_secluded_page_overflow(vm_page_t *local_freeq, int *local_freed)
 
 #endif /* CONFIG_SECLUDED_MEMORY */
 }
-
 
 /*
  * This function is called only from vm_pageout_scan and
@@ -3178,7 +3175,6 @@ return_from_scan:
 			lock_yield_check = FALSE;
 			continue;
 		}
-
 
 		/*
 		 * If our 'aged' queue is empty and we have some speculative pages
@@ -5851,7 +5847,7 @@ vm_object_upl_request(
 	int                     dw_count;
 	int                     dw_limit;
 	int                     io_tracking_flag = 0;
-	int                     grab_options;
+	vm_grab_options_t       grab_options;
 	int                     page_grab_count = 0;
 	ppnum_t                 phys_page;
 	pmap_flush_context      pmap_flush_context_storage;
@@ -5961,7 +5957,7 @@ vm_object_upl_request(
 	vm_object_lock(object);
 	vm_object_activity_begin(object);
 
-	grab_options = 0;
+	grab_options = VM_PAGE_GRAB_OPTIONS_NONE;
 #if CONFIG_SECLUDED_MEMORY
 	if (object->can_grab_secluded) {
 		grab_options |= VM_PAGE_GRAB_SECLUDED;
@@ -6342,7 +6338,7 @@ check_busy:
 
 					if (dst_page != VM_PAGE_NULL) {
 						vm_page_release(dst_page,
-						    FALSE);
+						    VMP_RELEASE_NONE);
 					}
 
 					dst_page = vm_object_page_grab(object);
@@ -6664,13 +6660,7 @@ vm_map_create_upl(
 	vm_object_offset_t      offset_in_mapped_page;
 	boolean_t               release_map = FALSE;
 
-
 start_with_map:
-
-	original_offset = offset;
-	original_size = *upl_size;
-	adjusted_size = original_size;
-
 	caller_flags = *flags;
 
 	if (caller_flags & ~UPL_VALID_FLAGS) {
@@ -6681,13 +6671,19 @@ start_with_map:
 		ret = KERN_INVALID_VALUE;
 		goto done;
 	}
-	force_data_sync = (caller_flags & UPL_FORCE_DATA_SYNC);
-	sync_cow_data = !(caller_flags & UPL_COPYOUT_FROM);
 
 	if (upl == NULL) {
 		ret = KERN_INVALID_ARGUMENT;
 		goto done;
 	}
+
+
+	original_offset = offset;
+	original_size = *upl_size;
+	adjusted_size = original_size;
+
+	force_data_sync = (caller_flags & UPL_FORCE_DATA_SYNC);
+	sync_cow_data = !(caller_flags & UPL_COPYOUT_FROM);
 
 REDISCOVER_ENTRY:
 	vm_map_lock_read(map);
@@ -7154,7 +7150,6 @@ REDISCOVER_ENTRY:
 	    caller_flags,
 	    tag);
 	vm_object_deallocate(local_object);
-
 
 done:
 	if (release_map) {
@@ -7794,16 +7789,16 @@ vm_object_iopl_wire_empty(
 	int                     page_count,
 	int                    *page_grab_count)
 {
-	vm_page_t       dst_page;
-	boolean_t       no_zero_fill = FALSE;
-	int             interruptible;
-	int             pages_wired = 0;
-	int             pages_inserted = 0;
-	int             entry = 0;
-	uint64_t        delayed_ledger_update = 0;
-	kern_return_t   ret = KERN_SUCCESS;
-	int             grab_options;
-	ppnum_t         phys_page;
+	vm_page_t         dst_page;
+	boolean_t         no_zero_fill = FALSE;
+	int               interruptible;
+	int               pages_wired = 0;
+	int               pages_inserted = 0;
+	int               entry = 0;
+	uint64_t          delayed_ledger_update = 0;
+	kern_return_t     ret = KERN_SUCCESS;
+	vm_grab_options_t grab_options;
+	ppnum_t           phys_page;
 
 	vm_object_lock_assert_exclusive(object);
 	assert(object->purgable != VM_PURGABLE_VOLATILE);
@@ -7822,7 +7817,7 @@ vm_object_iopl_wire_empty(
 		no_zero_fill = TRUE;
 	}
 
-	grab_options = 0;
+	grab_options = VM_PAGE_GRAB_OPTIONS_NONE;
 #if CONFIG_SECLUDED_MEMORY
 	if (object->can_grab_secluded) {
 		grab_options |= VM_PAGE_GRAB_SECLUDED;
@@ -8040,7 +8035,7 @@ vm_object_iopl_request(
 		 */
 		return KERN_INVALID_VALUE;
 	}
-	if (vm_lopage_needed == FALSE) {
+	if (!vm_lopage_needed) {
 		cntrl_flags &= ~UPL_NEED_32BIT_ADDR;
 	}
 
@@ -8510,9 +8505,8 @@ memory_error:
 			vm_pageout_steal_laundry(dst_page, FALSE);
 		}
 
-		if (
-			((cntrl_flags & UPL_NEED_32BIT_ADDR) &&
-			phys_page >= (max_valid_dma_address >> PAGE_SHIFT))) {
+		if ((cntrl_flags & UPL_NEED_32BIT_ADDR) &&
+		    phys_page >= (max_valid_dma_address >> PAGE_SHIFT)) {
 			vm_page_t       new_page;
 			int             refmod;
 
@@ -8529,9 +8523,7 @@ memory_error:
 				goto return_err;
 			}
 
-			{
-				new_page = vm_page_grablo();
-			}
+			new_page = vm_page_grablo(VM_PAGE_GRAB_OPTIONS_NONE);
 
 			if (new_page == VM_PAGE_NULL) {
 				ret = KERN_RESOURCE_SHORTAGE;

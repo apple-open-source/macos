@@ -22,6 +22,7 @@
 #include "SVGTextLayoutAttributes.h"
 #include "TextRun.h"
 #include "WidthIterator.h"
+#include "platform/graphics/ComplexTextController.h"
 
 namespace WebCore {
 
@@ -60,6 +61,10 @@ private:
 
     // Complex text only.
     SVGTextMetrics m_complexStartToCurrentMetrics;
+
+#if PLATFORM(COCOA)
+    std::unique_ptr<ComplexTextController> m_complexTextController;
+#endif
 };
 
 } // namespace WebCore

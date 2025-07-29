@@ -78,6 +78,8 @@
 
 #include <sys/systm.h>
 #include <sys/kauth.h>
+#include <sys/param.h>
+#include <sys/mbuf.h>
 #include <sys/mount_internal.h>
 #include <sys/kpi_mbuf.h>
 
@@ -144,7 +146,7 @@ rpc_gss_prepend_32(mbuf_t *mb, uint32_t value)
 	uint32_t *data;
 
 #if 0
-	data = mbuf_data(*mb);
+	data = mtod(*mb, uint32_t *);
 	/*
 	 * If a wap token comes back and is not aligned
 	 * get a new buffer (which should be aligned) to put the
@@ -166,7 +168,7 @@ rpc_gss_prepend_32(mbuf_t *mb, uint32_t value)
 		return error;
 	}
 
-	data = mbuf_data(*mb);
+	data = mtod(*mb, uint32_t *);
 	*data = txdr_unsigned(value);
 
 	return 0;
@@ -193,7 +195,7 @@ rpc_gss_data_create(mbuf_t *mbp_head, uint32_t seqnum)
 	if (error) {
 		return error;
 	}
-	data = mbuf_data(mb);
+	data = mtod(mb, uint8_t *);
 #if 0
 	/* Reserve space for prepending */
 	len = mbuf_maxlen(mb);
@@ -201,7 +203,7 @@ rpc_gss_data_create(mbuf_t *mbp_head, uint32_t seqnum)
 	printf("%s: data = %p, len = %d\n", __func__, data, (int)len);
 	error = mbuf_setdata(mb, data + len, 0);
 	if (error || mbuf_trailingspace(mb)) {
-		printf("%s: data = %p trailingspace = %d error = %d\n", __func__, mbuf_data(mb), (int)mbuf_trailingspace(mb), error);
+		printf("%s: data = %p trailingspace = %d error = %d\n", __func__, mtod(mb, caddr_t), (int)mbuf_trailingspace(mb), error);
 	}
 #endif
 	/* Reserve 16 words for prepending */
@@ -744,7 +746,7 @@ nfs_gss_svc_cred_get(struct nfsrv_descript *nd, struct nfsm_chain *nmc)
 			}
 
 			/* Get the wrap token (current mbuf in the chain starting at the current offset) */
-			start = nmc->nmc_ptr - (caddr_t)mbuf_data(nmc->nmc_mcur);
+			start = nmc->nmc_ptr - mtod(nmc->nmc_mcur, caddr_t);
 
 			/* split out the wrap token */
 			argsize = arglen;
@@ -770,7 +772,7 @@ nfs_gss_svc_cred_get(struct nfsrv_descript *nd, struct nfsm_chain *nmc)
 			/* Now replace the wrapped arguments with the unwrapped ones */
 			mbuf_setnext(prev_mbuf, reply_mbuf);
 			nmc->nmc_mcur = reply_mbuf;
-			nmc->nmc_ptr = mbuf_data(reply_mbuf);
+			nmc->nmc_ptr = mtod(reply_mbuf, caddr_t);
 			nmc->nmc_left = mbuf_len(reply_mbuf);
 
 			/*
@@ -1495,7 +1497,7 @@ nfs_gss_append_chain(struct nfsm_chain *nmc, mbuf_t mc)
 	}
 
 	nmc->nmc_mcur = tail;
-	nmc->nmc_ptr = (caddr_t) mbuf_data(tail) + mbuf_len(tail);
+	nmc->nmc_ptr = mtod(tail, caddr_t) + mbuf_len(tail);
 	nmc->nmc_left = mbuf_trailingspace(tail);
 
 	return 0;
@@ -1517,7 +1519,7 @@ nfs_gss_nfsm_chain(struct nfsm_chain *nmc, mbuf_t mc)
 
 	nmc->nmc_mhead = mc;
 	nmc->nmc_mcur = tail;
-	nmc->nmc_ptr = (caddr_t) mbuf_data(tail) + mbuf_len(tail);
+	nmc->nmc_ptr = mtod(tail, caddr_t) + mbuf_len(tail);
 	nmc->nmc_left = mbuf_trailingspace(tail);
 	nmc->nmc_flags = 0;
 }

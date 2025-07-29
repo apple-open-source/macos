@@ -79,13 +79,16 @@ struct InstructionLengthMetadata {
 };
 
 struct BlockMetadata {
-    uint32_t deltaPC; // 4B for new PC
-    uint32_t deltaMC; // 4B for new MC
+    // Field order is significant, both may be loaded with one 'loadpairi' instruction.
+    // Negative deltas are possible for some Wasm instructions and require sign extension to 64b before the addition.
+    int32_t deltaPC; // 4B added to PC
+    int32_t deltaMC; // 4B added to MC
 };
 
 struct IfMetadata {
-    uint32_t elseDeltaPC; // 4B PC for new else PC
-    uint32_t elseDeltaMC; // 4B MC of new else MC
+    // Field order is significant, both may be loaded with one 'loadpairi' instruction.
+    uint32_t elseDeltaPC; // 4B added to PC
+    uint32_t elseDeltaMC; // 4B added to MC
     InstructionLengthMetadata instructionLength;
 };
 

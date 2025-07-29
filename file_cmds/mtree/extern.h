@@ -62,7 +62,7 @@ extern int ftsoptions;
 extern int xattr_options;
 extern u_int64_t keys;
 extern int lineno;
-extern int dflag, eflag, iflag, nflag, qflag, rflag, sflag, uflag, wflag, mflag, tflag, xflag;
+extern int dflag, eflag, iflag, nflag, qflag, rflag, sflag, uflag, wflag, mflag, tflag, xflag, vflag;
 extern int insert_mod, insert_birth, insert_access, insert_change, insert_parent;
 extern struct timespec ts;
 #ifdef MAXPATHLEN

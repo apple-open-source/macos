@@ -94,6 +94,7 @@ namespace WebCore {
     M(CompositingOverlap) \
     M(ContentFiltering) \
     M(ContentObservation) \
+    M(ContentVisibility) \
     M(Crypto) \
     M(DatabaseTracker) \
     M(DisplayLink) \

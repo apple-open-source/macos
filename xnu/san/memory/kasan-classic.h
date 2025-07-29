@@ -46,7 +46,7 @@
 typedef uintptr_t uptr;
 
 #define KASAN_DEBUG  0
-#define KASAN_DYNAMIC_BLACKLIST 1
+#define KASAN_DYNAMIC_DENYLIST 1
 #define KASAN_FAKESTACK 1
 /*
  * KASAN features and config

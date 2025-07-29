@@ -117,13 +117,13 @@ void MediaSessionManageriOS::configureWirelessTargetMonitoring()
 #endif
 }
 
-void MediaSessionManageriOS::providePresentingApplicationPIDIfNecessary(ProcessID pid)
+void MediaSessionManageriOS::providePresentingApplicationPIDIfNecessary(const std::optional<ProcessID>& pid)
 {
 #if HAVE(MEDIAEXPERIENCE_AVSYSTEMCONTROLLER)
-    if (m_havePresentedApplicationPID)
+    if (m_havePresentedApplicationPID || !pid)
         return;
     m_havePresentedApplicationPID = true;
-    MediaSessionHelper::sharedHelper().providePresentingApplicationPID(pid);
+    MediaSessionHelper::sharedHelper().providePresentingApplicationPID(*pid);
 #else
     UNUSED_PARAM(pid);
 #endif

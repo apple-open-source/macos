@@ -14,14 +14,32 @@ cd ../dir2
 generate_tree_1
 
 rsync_one() {
-	rsync -a "$@" --remove-source-files -- dir1/ dir3
-	compare_trees dir2 dir3
+	local dry_run
 
-	find dir1 -type f > files
-	if [ -s "files" ]; then
-		1>&2 echo "Failed to remove source files"
-		1>&2 cat files
-		exit 1
+	case "$@" in
+	*--dry-run*)
+		dry_run="yes"
+		;;
+	esac
+
+	rsync -a "$@" --remove-source-files -- dir1/ dir3
+
+	if [ -n "$dry_run" ]; then
+		compare_trees dir1 dir2
+		# Dry run shouldn't even create the directory.
+		if [ -d dir3 ]; then
+			1>&2 echo "--dry-run should not have created directory"
+			1>&2 find dir3
+			exit 1
+		fi
+	else
+		compare_trees dir2 dir3
+		find dir1 -type f > files
+		if [ -s "files" ]; then
+			1>&2 echo "Failed to remove source files"
+			1>&2 cat files
+			exit 1
+		fi
 	fi
 }
 
@@ -31,3 +49,7 @@ rm -rf dir1
 mv dir3 dir1
 
 rsync_one --delay-updates
+
+rm -rf dir1
+mv dir3 dir1
+rsync_one --dry-run

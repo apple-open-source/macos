@@ -139,8 +139,21 @@ extension Container {
             throw ContainerError.sponsorNotRegistered(bottleMO.peerID ?? "no peer ID given")
         }
 
+        // We need to extract the syncing policy that the remote peer would have used (if they were the type of device that we are)
+#if os(visionOS)
+        do {
+            let policy = try self.syncingPolicyFor(modelID: egoPermanentInfo.modelID, stableInfo: sponsorPeerStableInfo)
+            return (bottleMO, sponsorPeer.peerID, policy)
+        } catch let error as NSError where error.domain == TPErrorDomain && error.code == TPError.modelNotFound.rawValue {
+            // On XROS, old policies didn't mention RealityDevices. In this case, claim to be an iPad for purposes of recovery.
+            // This value is only temporarily used, so we don't need to update it via policy.
+            let policy = try self.syncingPolicyFor(modelID: "iPad14,1", stableInfo: sponsorPeerStableInfo)
+            return (bottleMO, sponsorPeer.peerID, policy)
+        }
+#else
         let policy = try self.syncingPolicyFor(modelID: egoPermanentInfo.modelID, stableInfo: sponsorPeerStableInfo)
         return (bottleMO, sponsorPeer.peerID, policy)
+#endif
     }
 
     func octagonPeerID(for bottleID: String, reply: @escaping (String?, Error?) -> Void) {

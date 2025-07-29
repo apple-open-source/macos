@@ -217,6 +217,11 @@ static WKSyntheticClickType toWKSyntheticClickType(WebKit::WebMouseEventSyntheti
     return wrapper(_navigationAction->userInitiatedAction());
 }
 
+- (BOOL)_isContentExtensionRedirect
+{
+    return _navigationAction->isContentExtensionRedirect();
+}
+
 - (BOOL)_isRedirect
 {
     return _navigationAction->isRedirect();

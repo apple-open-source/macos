@@ -444,6 +444,41 @@ void RemoteGraphicsContextGL::multiDrawElementsInstancedBaseVertexBaseInstanceAN
     protectedContext()->multiDrawElementsInstancedBaseVertexBaseInstanceANGLE(mode, GCGLSpanTuple { counts.data(), offsets, instanceCounts.data(), baseVertices.data(), baseInstances.data(), counts.size() }, type);
 }
 
+void RemoteGraphicsContextGL::drawBuffers(std::span<const uint32_t> bufs)
+{
+    assertIsCurrent(workQueue());
+    protectedContext()->drawBuffers(Vector(bufs));
+}
+
+void RemoteGraphicsContextGL::drawBuffersEXT(std::span<const uint32_t> bufs)
+{
+    assertIsCurrent(workQueue());
+    protectedContext()->drawBuffersEXT(Vector(bufs));
+}
+
+void RemoteGraphicsContextGL::invalidateFramebuffer(uint32_t target, std::span<const uint32_t> attachments)
+{
+    assertIsCurrent(workQueue());
+    protectedContext()->invalidateFramebuffer(target, Vector(attachments));
+}
+
+void RemoteGraphicsContextGL::invalidateSubFramebuffer(uint32_t target, std::span<const uint32_t> attachments, int32_t x, int32_t y, int32_t width, int32_t height)
+{
+    assertIsCurrent(workQueue());
+    protectedContext()->invalidateSubFramebuffer(target, Vector(attachments), x, y, width, height);
+}
+
+#if ENABLE(WEBXR)
+
+void RemoteGraphicsContextGL::framebufferDiscard(uint32_t target, std::span<const uint32_t> attachments)
+{
+    assertIsCurrent(workQueue());
+    messageCheck(webXRPromptAccepted());
+    protectedContext()->framebufferDiscard(target, Vector(attachments));
+}
+
+#endif
+
 RefPtr<RemoteGraphicsContextGL::GCGLContext> RemoteGraphicsContextGL::protectedContext()
 {
     assertIsCurrent(workQueue());

@@ -246,11 +246,14 @@ _xsltGetProfileInformation
 _xsltSaveProfiling
 _xsltTimestamp
 
-# Symbols added for LIBXML_API_AVAILABLE_MACOS13_IOS16_WATCHOS9_TVOS16; see xsltconfig.h.
+# Symbols added for LIBXSLT_API_AVAILABLE_MACOS13_IOS16_WATCHOS9_TVOS16; see xsltconfig.h.
 _xsltCompMatchClearCache
 _xsltDecimalFormatGetByQName
 _xsltFlagRVTs
 _xsltParseStylesheetUser
 
-# Symbols required for LIBXML_API_AVAILABLE_MACOS14_IOS17_WATCHOS10_TVOS17.
+# Symbols required for LIBXSLT_API_AVAILABLE_MACOS14_IOS17_WATCHOS10_TVOS17.
 _linkedOnOrAfterFall2023OSVersions
+
+# Symbols required for LIBXSLT_API_AVAILABLE_MACOS26_IOS26_WATCHOS26_TVOS26.
+_xsltReleaseRVTList

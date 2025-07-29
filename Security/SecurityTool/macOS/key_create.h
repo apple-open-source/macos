@@ -31,6 +31,8 @@ extern "C" {
 #endif
 
 extern int key_create_pair(int argc, char * const *argv);
+extern int key_create_loop(int argc, char * const *argv);
+extern int wait_for_notifications(int argc, char * const *argv);
 
 extern int csr_create(int argc, char * const *argv);
 

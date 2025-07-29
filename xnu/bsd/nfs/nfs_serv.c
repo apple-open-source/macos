@@ -78,6 +78,7 @@
 #include <sys/mount_internal.h>
 #include <sys/socket.h>
 #include <sys/socketvar.h>
+#include <sys/mbuf.h>
 #include <sys/kpi_mbuf.h>
 #include <sys/dirent.h>
 #include <sys/stat.h>
@@ -812,7 +813,7 @@ nfsrv_readlink(
 	nfsmerr_if(error);
 
 	for (mp = mpath; mp; mp = mbuf_next(mp)) {
-		uio_addiov(auio, CAST_USER_ADDR_T((caddr_t)mbuf_data(mp)), mbuf_len(mp));
+		uio_addiov(auio, CAST_USER_ADDR_T(mtod(mp, caddr_t)), mbuf_len(mp));
 	}
 
 	error = nfsrv_fhtovp(&nfh, nd, &vp, &nx, &nxo);
@@ -1018,7 +1019,7 @@ nfsrv_read(
 			goto errorexit;
 		}
 		for (m = mread; m; m = mbuf_next(m)) {
-			uio_addiov(auio, CAST_USER_ADDR_T((caddr_t)mbuf_data(m)), mbuf_len(m));
+			uio_addiov(auio, CAST_USER_ADDR_T(mtod(m, caddr_t)), mbuf_len(m));
 		}
 		error = VNOP_READ(vp, auio, IO_NODELOCKED, ctx);
 	} else {
@@ -1419,7 +1420,7 @@ nfsrv_write(
 		nfsmerr_if(error);
 		for (m = nmreq->nmc_mcur; m; m = mbuf_next(m)) {
 			if ((mlen = (int)mbuf_len(m)) > 0) {
-				uio_addiov(auio, CAST_USER_ADDR_T((caddr_t)mbuf_data(m)), mlen);
+				uio_addiov(auio, CAST_USER_ADDR_T(mtod(m, caddr_t)), mlen);
 			}
 		}
 		/*
@@ -1728,7 +1729,7 @@ loop1:
 			if (!error) {
 				for (m = nmreq->nmc_mhead; m; m = mbuf_next(m)) {
 					if ((tlen = mbuf_len(m)) > 0) {
-						uio_addiov(auio, CAST_USER_ADDR_T((caddr_t)mbuf_data(m)), tlen);
+						uio_addiov(auio, CAST_USER_ADDR_T(mtod(m, caddr_t)), tlen);
 					}
 				}
 				error = VNOP_WRITE(vp, auio, ioflags, ctx);

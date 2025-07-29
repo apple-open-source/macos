@@ -45,7 +45,6 @@
 		293EE4A824154F8F0047493D /* AccessibilitySupportSoftLink.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 293EE4A624154F8F0047493D /* AccessibilitySupportSoftLink.cpp */; };
 		297CB482288B11D700BB7971 /* AccessibilitySoftLink.h in Headers */ = {isa = PBXBuildFile; fileRef = 297CB480288B11D700BB7971 /* AccessibilitySoftLink.h */; };
 		297CB483288B11D700BB7971 /* AccessibilitySoftLink.mm in Sources */ = {isa = PBXBuildFile; fileRef = 297CB481288B11D700BB7971 /* AccessibilitySoftLink.mm */; };
-		2A4584402D0A471100814856 /* NSStepperCellSPI.h in Headers */ = {isa = PBXBuildFile; fileRef = 2A45843C2D0A470400814856 /* NSStepperCellSPI.h */; };
 		2E1342CD215AA10A007199D2 /* UIKitSoftLink.mm in Sources */ = {isa = PBXBuildFile; fileRef = 2E1342CB215AA10A007199D2 /* UIKitSoftLink.mm */; };
 		31647FB0251759DD0010F8FB /* OpenGLSoftLinkCocoa.mm in Sources */ = {isa = PBXBuildFile; fileRef = 31647FAE251759DB0010F8FB /* OpenGLSoftLinkCocoa.mm */; };
 		3A02FE2B2B214A38001724B1 /* ARKitSPI.h in Headers */ = {isa = PBXBuildFile; fileRef = 3A02FE2A2B214A38001724B1 /* ARKitSPI.h */; settings = {ATTRIBUTES = (Private, ); }; };
@@ -599,7 +598,6 @@
 		297CB481288B11D700BB7971 /* AccessibilitySoftLink.mm */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.objcpp; path = AccessibilitySoftLink.mm; sourceTree = "<group>"; };
 		29C15F4725D75F63001CE31C /* MediaAccessibilitySPI.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = MediaAccessibilitySPI.h; sourceTree = "<group>"; };
 		29CDEB9E2548D055007C07B7 /* AXSpeechManagerSPI.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = AXSpeechManagerSPI.h; sourceTree = "<group>"; };
-		2A45843C2D0A470400814856 /* NSStepperCellSPI.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = NSStepperCellSPI.h; sourceTree = "<group>"; };
 		2D02E93B2056FAA700A13797 /* AudioToolboxSPI.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = AudioToolboxSPI.h; sourceTree = "<group>"; };
 		2D68D6572740B15B005EBB2E /* IOKitSPIIOS.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = IOKitSPIIOS.h; sourceTree = "<group>"; };
 		2E1342CA215AA10A007199D2 /* UIKitSoftLink.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = UIKitSoftLink.h; sourceTree = "<group>"; };
@@ -894,7 +892,6 @@
 				F442915D1FA52473002CC93E /* NSFileSizeFormatterSPI.h */,
 				5CF869EC29D266AE0045F0D2 /* NSKeyedUnarchiverSPI.h */,
 				63E369F921AFA83F001C14BC /* NSProgressSPI.h */,
-				2A45843C2D0A470400814856 /* NSStepperCellSPI.h */,
 				0C2DA1341F3BEB4900DBC317 /* NSStringSPI.h */,
 				0C2DA1351F3BEB4900DBC317 /* NSTouchBarSPI.h */,
 				0C2DA1361F3BEB4900DBC317 /* NSURLConnectionSPI.h */,
@@ -1526,7 +1523,6 @@
 				DD20DE3627BC90D80093D175 /* NSSharingServicePickerSPI.h in Headers */,
 				DD20DE3727BC90D80093D175 /* NSSharingServiceSPI.h in Headers */,
 				DD20DE3827BC90D80093D175 /* NSSpellCheckerSPI.h in Headers */,
-				2A4584402D0A471100814856 /* NSStepperCellSPI.h in Headers */,
 				DD20DDFB27BC90D70093D175 /* NSStringSPI.h in Headers */,
 				DD20DE3927BC90D80093D175 /* NSTextFinderSPI.h in Headers */,
 				DD20DE3A27BC90D80093D175 /* NSTextInputContextSPI.h in Headers */,

@@ -46,6 +46,10 @@ public:
     explicit CSSSelectorList(UniqueArray<CSSSelector>&& array)
         : m_selectorArray(WTFMove(array)) { }
 
+    static CSSSelectorList makeCopyingSimpleSelector(const CSSSelector&);
+    static CSSSelectorList makeCopyingComplexSelector(const CSSSelector&);
+    static CSSSelectorList makeJoining(const CSSSelectorList&, const CSSSelectorList&);
+
     bool isEmpty() const { return !m_selectorArray; }
     const CSSSelector* first() const { return m_selectorArray.get(); }
     static const CSSSelector* next(const CSSSelector*);

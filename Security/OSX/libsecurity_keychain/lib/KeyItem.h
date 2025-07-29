@@ -51,7 +51,6 @@ public:
     void attachSecKeyRef() const;
     void initializeWithSecKeyRef(SecKeyRef ref);
 
-private:
     // This weak backpointer to owning SecKeyRef instance (which is created by iOS SecKey code).
     mutable SecKeyRef mWeakSecKeyRef;
 

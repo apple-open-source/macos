@@ -124,7 +124,6 @@ vm_mem_bootstrap(void)
 
 	vm_retire_boot_pages();
 
-
 	vm_mem_bootstrap_log("vm_map_init");
 	vm_map_init();
 

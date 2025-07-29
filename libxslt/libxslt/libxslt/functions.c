@@ -50,6 +50,7 @@
 #include "numbersInternals.h"
 #include "keys.h"
 #include "documents.h"
+#include "transformInternals.h"
 
 #ifdef WITH_XSLT_DEBUG
 #define WITH_XSLT_DEBUG_FUNCTION
@@ -171,7 +172,26 @@ xsltDocumentFunctionLoadDocument(xmlXPathParserContextPtr ctxt, xmlChar* URI)
 	    /*
 	    * This selects the stylesheet's doc itself.
 	    */
-	    doc = tctxt->style->doc;
+	    doc = xmlCopyDoc(tctxt->style->doc, 1);
+	    if (doc == NULL) {
+		xsltTransformError(tctxt, NULL, NULL,
+		    "document() : failed to copy style doc\n");
+		valuePush(ctxt, xmlXPathNewNodeSet(NULL));
+		if (fragment != NULL)
+		    xmlFree(fragment);
+		return;
+	    }
+	    xsltCleanupSourceDoc(doc); /* Remove psvi fields. */
+	    idoc = xsltNewDocument(tctxt, doc);
+	    if (idoc == NULL) {
+		xsltTransformError(tctxt, NULL, NULL,
+		    "document() : failed to create xsltDocument\n");
+		valuePush(ctxt, xmlXPathNewNodeSet(NULL));
+		if (fragment != NULL)
+		    xmlFree(fragment);
+		xmlFreeDoc(doc);
+		return;
+	    }
 	} else {
 	    valuePush(ctxt, xmlXPathNewNodeSet(NULL));
 
@@ -707,7 +727,7 @@ xsltFormatNumberFunction(xmlXPathParserContextPtr ctxt, int nargs)
 }
 
 static void
-_initBaseValue()
+_initBaseValue(void)
 {
     srandom((unsigned)time(NULL));
     base_value = random() || random();

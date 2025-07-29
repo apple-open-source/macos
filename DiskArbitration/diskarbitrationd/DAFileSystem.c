@@ -117,6 +117,7 @@ const CFStringRef kDAFileSystemMountArgumentNoExecute    = CFSTR( "noexec"   );
 const CFStringRef kDAFileSystemMountArgumentNoOwnership  = CFSTR( "noowners" );
 const CFStringRef kDAFileSystemMountArgumentNoPermission = CFSTR( "noperm" );
 const CFStringRef kDAFileSystemMountArgumentOwnership    = CFSTR( "owners" );
+const CFStringRef kDAFileSystemMountArgumentPermission   = CFSTR( "perm" );
 const CFStringRef kDAFileSystemMountArgumentNoSetUserID  = CFSTR( "nosuid"   );
 const CFStringRef kDAFileSystemMountArgumentSetUserID    = CFSTR( "suid"   );
 const CFStringRef kDAFileSystemMountArgumentNoWrite      = CFSTR( "rdonly"   );
@@ -571,6 +572,12 @@ CFStringRef DAFileSystemGetKind( DAFileSystemRef filesystem )
     return CFDictionaryGetValue( filesystem->_properties, kCFBundleNameKey );
 }
 
+CFStringRef DAFileSystemCopyFSBundleID( DAFileSystemRef filesystem )
+{
+    return CFRetain( CFDictionaryGetValue( filesystem->_properties, CFSTR( "FSBundleID" ) ) );
+}
+
+
 CFDictionaryRef DAFileSystemGetProbeList( DAFileSystemRef filesystem )
 {
     return CFDictionaryGetValue( filesystem->_properties, CFSTR( kFSMediaTypesKey ) );
@@ -823,8 +830,7 @@ void DAFileSystemProbe( DAFileSystemRef           filesystem,
      */
     if ( DAFileSystemIsFSModule( filesystem ) )
     {
-        /* Given a bundle name in the form 'fsname_fskit', convert it to a bundle ID in the form 'com.apple.fskit.fsname' */
-        bundleID = DAGetFSKitBundleID( DAFileSystemGetKind( filesystem ) );
+        bundleID = DAFileSystemCopyFSBundleID( filesystem );
         DAProbeWithFSKit( deviceName , bundleID , doFsck , callback , callbackContext );
         return;
     }
@@ -917,13 +923,15 @@ void DAFileSystemProbe( DAFileSystemRef           filesystem,
 
 DAFileSystemProbeErr:
 
+    if ( fdPathStr     )      CFRelease( fdPathStr );
+
     if ( status )
     {
+        // Ownership of these objects transfered to the context
         if ( deviceName    )  CFRelease( deviceName    );
         if ( devicePath    )  CFRelease( devicePath    );
         if ( probeCommand  )  CFRelease( probeCommand  );
         if ( repairCommand )  CFRelease( repairCommand );
-        if ( fdPathStr     )  CFRelease( fdPathStr );
 
         if ( context )  free( context );
 
@@ -1020,7 +1028,7 @@ void DAFileSystemRepair( DAFileSystemRef      filesystem,
     if ( DAFileSystemIsFSModule( filesystem ) )
     {
         deviceName = CFURLCopyLastPathComponent(device);
-        bundleID = DAGetFSKitBundleID( DAFileSystemGetKind( filesystem ) );
+        bundleID = DAFileSystemCopyFSBundleID( filesystem );
         DARepairWithFSKit( deviceName , bundleID , callback , callbackContext );
         return;
     }

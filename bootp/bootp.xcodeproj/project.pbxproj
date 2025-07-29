@@ -518,6 +518,7 @@
 		F9AE55C51ED3A66100746927 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F96BC2551ED3A3FB00C68C9B /* Foundation.framework */; };
 		F9B04E6B107C12D0004C86A7 /* linklocal_v6.c in Sources */ = {isa = PBXBuildFile; fileRef = F9B04E6A107C12D0004C86A7 /* linklocal_v6.c */; };
 		F9B04E6C107C12D0004C86A7 /* linklocal_v6.c in Sources */ = {isa = PBXBuildFile; fileRef = F9B04E6A107C12D0004C86A7 /* linklocal_v6.c */; };
+		F9B11A782DB1A3650044EAE2 /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F9B11A772DB1A3650044EAE2 /* Security.framework */; };
 		F9B822FB2143412A0034F1A6 /* libbootplib.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 1562DF9A0AC4F47B00CF228A /* libbootplib.a */; };
 		F9B822FE214341450034F1A6 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F9B822FC214341450034F1A6 /* CoreFoundation.framework */; };
 		F9B822FF214341450034F1A6 /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F9B822FD214341450034F1A6 /* SystemConfiguration.framework */; };
@@ -1285,6 +1286,7 @@
 		F9465CEF1C80FBC700AF5739 /* report_symptoms.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = report_symptoms.h; path = IPConfiguration.bproj/report_symptoms.h; sourceTree = "<group>"; };
 		F947F5C10FF525E300D18E84 /* sysconfig.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = sysconfig.c; path = IPConfiguration.bproj/sysconfig.c; sourceTree = "<group>"; };
 		F947F5C40FF525FF00D18E84 /* sysconfig.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = sysconfig.h; path = IPConfiguration.bproj/sysconfig.h; sourceTree = "<group>"; };
+		F94AECB32DB30A13002EB412 /* entitlements.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = entitlements.plist; path = ipconfig.tproj/entitlements.plist; sourceTree = "<group>"; };
 		F94B1E752AB3B8530087BB6C /* IPConfigurationAgentUtil.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = IPConfigurationAgentUtil.c; path = IPConfiguration.bproj/IPConfigurationAgentUtil.c; sourceTree = "<group>"; };
 		F94B1E782AB3B86B0087BB6C /* IPConfigurationAgentUtil.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = IPConfigurationAgentUtil.h; path = IPConfiguration.bproj/IPConfigurationAgentUtil.h; sourceTree = "<group>"; };
 		F95272DF1EB29E9200C99E70 /* bootpd */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = bootpd; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -1328,6 +1330,7 @@
 		F9A24D73171C65D6003F7EE2 /* HostUUID.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = HostUUID.c; path = IPConfiguration.bproj/HostUUID.c; sourceTree = "<group>"; };
 		F9A24D7D171C6629003F7EE2 /* CGA.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = CGA.h; path = IPConfiguration.bproj/CGA.h; sourceTree = "<group>"; };
 		F9B04E6A107C12D0004C86A7 /* linklocal_v6.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = linklocal_v6.c; path = IPConfiguration.bproj/linklocal_v6.c; sourceTree = "<group>"; };
+		F9B11A772DB1A3650044EAE2 /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Security.framework; path = /System/Library/Frameworks/Security.framework; sourceTree = "<absolute>"; };
 		F9B822EA214340920034F1A6 /* DHCPv6Server.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = DHCPv6Server.c; sourceTree = "<group>"; };
 		F9B822EB214340920034F1A6 /* Makefile */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.make; path = Makefile; sourceTree = "<group>"; };
 		F9B822ED214340920034F1A6 /* main.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = main.c; sourceTree = "<group>"; };
@@ -1341,8 +1344,8 @@
 		F9B8231121482C950034F1A6 /* com.apple.dhcp6d.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = com.apple.dhcp6d.plist; sourceTree = "<group>"; };
 		F9BBE03517557C190000FDF9 /* ICMPv6Socket.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = ICMPv6Socket.c; path = IPConfiguration.bproj/ICMPv6Socket.c; sourceTree = "<group>"; };
 		F9BBE03817557C310000FDF9 /* ICMPv6Socket.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = ICMPv6Socket.h; path = IPConfiguration.bproj/ICMPv6Socket.h; sourceTree = "<group>"; };
-		F9BC1B9927E16B5C003F78CE /* IO80211.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = IO80211.framework; path = ../../../../../../../../../System/Library/PrivateFrameworks/IO80211.framework; sourceTree = SDKROOT; };
-		F9BC1B9B27E16B91003F78CE /* IO80211.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = IO80211.framework; path = ../../../../../../../../../System/Library/PrivateFrameworks/IO80211.framework; sourceTree = SDKROOT; };
+		F9BC1B9927E16B5C003F78CE /* IO80211.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = IO80211.framework; path = System/Library/PrivateFrameworks/IO80211.framework; sourceTree = SDKROOT; };
+		F9BC1B9B27E16B91003F78CE /* IO80211.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = IO80211.framework; path = System/Library/PrivateFrameworks/IO80211.framework; sourceTree = SDKROOT; };
 		F9C8ECE60D3306F50047CE42 /* IPConfiguration.bundle */ = {isa = PBXFileReference; comments = "embedded\n"; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = IPConfiguration.bundle; sourceTree = BUILT_PRODUCTS_DIR; };
 		F9D27B8821E3F6EC0014528D /* dhcp6d.8 */ = {isa = PBXFileReference; lastKnownFileType = text; path = dhcp6d.8; sourceTree = "<group>"; };
 		F9D27B9621E3F7100014528D /* dhcp6d */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = dhcp6d; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -1376,6 +1379,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				F9B11A782DB1A3650044EAE2 /* Security.framework in Frameworks */,
 				8AD705662B6AE693009FD931 /* IPConfiguration.framework in Frameworks */,
 				8A578A342B61A050005F8C69 /* libMobileGestalt.tbd in Frameworks */,
 				8AF8D2512B2A9BA400620F57 /* WatchdogClient.framework in Frameworks */,
@@ -1975,6 +1979,7 @@
 		15F0055C0AC5784F00C5C101 /* Supporting Files */ = {
 			isa = PBXGroup;
 			children = (
+				F94AECB32DB30A13002EB412 /* entitlements.plist */,
 				15F005650AC578BD00C5C101 /* ipconfig.8 */,
 			);
 			name = "Supporting Files";
@@ -2207,6 +2212,7 @@
 		F9AE55C61ED3A6BD00746927 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				F9B11A772DB1A3650044EAE2 /* Security.framework */,
 				8A5813262BA19C1200796029 /* IOKit.framework */,
 				8A96C2232B98F04500D3DF23 /* Network.framework */,
 				8A96C2212B98F04100D3DF23 /* CFNetwork.framework */,
@@ -4117,6 +4123,7 @@
 		15F005680AC578BE00C5C101 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = ipconfig.tproj/entitlements.plist;
 				INSTALL_PATH = /usr/sbin;
 				PRODUCT_NAME = ipconfig;
 				SDKROOT = macosx.internal;
@@ -4128,6 +4135,7 @@
 		15F005690AC578BE00C5C101 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = ipconfig.tproj/entitlements.plist;
 				INSTALL_PATH = /usr/sbin;
 				PRODUCT_NAME = ipconfig;
 				SDKROOT = macosx.internal;
@@ -5245,6 +5253,7 @@
 		F99DF92A0D340EA10045E43B /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = ipconfig.tproj/entitlements.plist;
 				GCC_PREPROCESSOR_DEFINITIONS = USE_SYSTEMCONFIGURATION_PRIVATE_HEADERS;
 				INSTALL_PATH = /usr/sbin;
 				PRODUCT_NAME = ipconfig;
@@ -5257,6 +5266,7 @@
 		F99DF92B0D340EA10045E43B /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = ipconfig.tproj/entitlements.plist;
 				GCC_PREPROCESSOR_DEFINITIONS = USE_SYSTEMCONFIGURATION_PRIVATE_HEADERS;
 				INSTALL_PATH = /usr/sbin;
 				PRODUCT_NAME = ipconfig;

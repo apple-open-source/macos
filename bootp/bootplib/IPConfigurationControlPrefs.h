@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2024 Apple Inc. All rights reserved.
+ * Copyright (c) 2013-2025 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -94,12 +94,12 @@ Boolean
 IPConfigurationControlPrefsSetDHCPDUIDType(DHCPDUIDType type);
 
 Boolean
-IPConfigurationControlPrefsGetHideBSSID(Boolean default_val,
-                                        Boolean * ret_was_set);
+IPConfigurationControlPrefsGetHideWiFiInfo(Boolean default_val,
+					   Boolean * ret_was_set);
 Boolean
-IPConfigurationControlPrefsSetHideBSSID(Boolean hide);
+IPConfigurationControlPrefsSetHideWiFiInfo(Boolean hide);
 
 Boolean
-IPConfigurationControlPrefsSetHideBSSIDDefault(void);
+IPConfigurationControlPrefsSetHideWiFiInfoDefault(void);
 
 #endif /* _S_IPCONFIGURATIONCONTROLPREFS_H */

@@ -1086,6 +1086,11 @@
 #define TCR_EL1_4KB  (TCR_EL1_BASE | (T1SZ_BOOT << TCR_T1SZ_SHIFT) | (TCR_TG0_GRANULE_4KB))
 #define TCR_EL1_16KB (TCR_EL1_BASE | (T1SZ_BOOT << TCR_T1SZ_SHIFT) | (TCR_TG0_GRANULE_16KB))
 
+/*
+ * Bit 55 of the VA is used to select which TTBR to use during a translation table walk.
+ */
+#define TTBR_SELECTOR           (1ULL << 55)
+
 
 
 

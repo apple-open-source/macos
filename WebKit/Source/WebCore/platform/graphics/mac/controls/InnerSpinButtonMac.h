@@ -37,22 +37,13 @@ class InnerSpinButtonPart;
 class InnerSpinButtonMac final : public ControlMac {
     WTF_MAKE_TZONE_ALLOCATED(InnerSpinButtonMac);
 public:
-    InnerSpinButtonMac(InnerSpinButtonPart&, ControlFactoryMac&, NSStepperCell *);
+    InnerSpinButtonMac(InnerSpinButtonPart&, ControlFactoryMac&);
+    ~InnerSpinButtonMac();
 
 private:
     IntSize cellSize(NSControlSize, const ControlStyle&) const override;
 
     void draw(GraphicsContext&, const FloatRoundedRect& borderRect, float deviceScaleFactor, const ControlStyle&) override;
-    void drawWithCoreUI(GraphicsContext&, const FloatRoundedRect& borderRect, const ControlStyle&);
-
-#if HAVE(NSSTEPPERCELL_INCREMENTING)
-    IntOutsets cellOutsets(NSControlSize, const ControlStyle&) const override;
-    void drawWithCell(GraphicsContext&, const FloatRoundedRect& borderRect, float deviceScaleFactor, const ControlStyle&);
-    FloatRect rectForBounds(const FloatRect&, const ControlStyle&) const override;
-    void updateCellStates(const FloatRect&, const ControlStyle&) override;
-#endif
-
-    RetainPtr<NSStepperCell> m_stepperCell;
 };
 
 } // namespace WebCore

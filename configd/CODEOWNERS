@@ -10,10 +10,14 @@
 # This suppresses info comment on pull request creation about added code owners.
 CODEOWNERS.toplevel.create_pull_request_comment disable
 
+# Core reviewers group
+@@@configd		@dieter @gmishtaku
+
 # Any and all changes should be reviewed by the following people:
 #Radar: configd | all
-*		@dieter @sushant_chavan @gmishtaku
+*			@@configd @sushant_chavan
+get-network-info/	@@configd @randall_meyer @vlubet
 
 # This project is owned by:
-CODEOWNERS	@dieter @gmishtaku
+CODEOWNERS		@@configd
 

@@ -369,8 +369,11 @@ vm_test_page_wire_overflow_panic(void)
 	printf("VM_TEST_PAGE_WIRE_OVERFLOW_PANIC: starting...\n");
 
 	object = vm_object_allocate(PAGE_SIZE, VM_MAP_SERIAL_NONE);
+	while ((page = vm_page_grab()) == VM_PAGE_NULL) {
+		VM_PAGE_WAIT();
+	}
 	vm_object_lock(object);
-	page = vm_page_alloc(object, 0x0);
+	vm_page_insert(page, object, 0);
 	vm_page_lock_queues();
 	do {
 		vm_page_wire(page, 1, FALSE);

@@ -32,6 +32,8 @@
 #include <CoreFoundation/CFString.h>
 #include <Security/SecAccess.h>
 #include <Security/SecKey.h>
+#include <Security/SecItem.h>
+#include "SecCFRelease.h"
 #include <Security/SecKeychainItem.h>
 #include <Security/SecTrustedApplication.h>
 #include <stdio.h>
@@ -318,6 +320,146 @@ loser:
 		CFRelease(access);
 
 	return result;
+}
+
+int
+key_create_loop(int argc, char * const *argv)
+{
+    const char *keychainName = NULL;
+    int ch, result = 0;
+    CFStringRef description = NULL;
+    SecKeychainRef keychain = NULL;
+    int bits_raw = 256;
+    CFNumberRef bits = CFNumberCreate(NULL, kCFNumberIntType, &bits_raw);
+    CFMutableDictionaryRef params = NULL;
+
+    /*
+     { "create-key-loop", key_create_loop,
+     "[-h] [-k keychain] [description]\n"
+     "    -k  Use the specified keychain rather than the default\n"
+     "Create a symmetric key and destroy it, in a loop." },
+     */
+
+    while ((ch = getopt(argc, argv, "k:")) != -1)
+    {
+        switch  (ch)
+        {
+        case 'k':
+            keychainName = optarg;
+            break;
+        default:
+            return SHOW_USAGE_MESSAGE;
+        }
+    }
+
+    argc -= optind;
+    argv += optind;
+
+    if (argc == 1)
+    {
+        if (*argv[0] == '\0')
+        {
+            result = 2;
+            goto loser;
+        }
+        description  = CFStringCreateWithCString(NULL, argv[0], kCFStringEncodingUTF8);
+    }
+    else if (argc != 0)
+        return SHOW_USAGE_MESSAGE;
+    else
+        description = CFStringCreateWithCString(NULL, "<loopy key>", kCFStringEncodingUTF8);
+
+    if (keychainName == NULL)
+        result = SHOW_USAGE_MESSAGE;
+
+    if (result)
+        goto loser;
+
+    keychain = keychain_open(keychainName);
+
+    params = CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+    CFDictionarySetValue(params, kSecAttrKeyType, kSecAttrKeyTypeAES);
+    CFDictionarySetValue(params, kSecAttrKeySizeInBits, bits);
+    CFDictionarySetValue(params, kSecUseKeychain, keychain); // need to set system keychain
+    CFDictionarySetValue(params, kSecAttrLabel, description);
+
+    printf("Looping...\n");
+    for (uint64_t i=0;true;i++) {
+        if ((i & 0xf) == 0) {
+            printf("Iteration %llu\n", i);
+        }
+        CFErrorRef error = NULL;
+        SecKeyRef symkey = SecKeyGenerateSymmetric(params, &error);
+        if (symkey == NULL) {
+            CFStringRef errStr = CFErrorCopyDescription(error);
+            char buf[2048];
+            CFStringGetCString(errStr, buf, sizeof(buf), kCFStringEncodingUTF8);
+            printf("SecKeyGenerateSymmetric: %s\n", buf);
+            CFRelease(errStr);
+            CFRelease(error);
+            result = 1;
+            break;
+        }
+        result = SecKeychainItemDelete((SecKeychainItemRef)symkey);
+        if (result != 0) {
+            printf("SecKeychainItemDelete: %d\n", result);
+            break;
+        }
+    }
+
+loser:
+    CFReleaseNull(description);
+    CFReleaseNull(keychain);
+    CFReleaseNull(bits);
+    CFReleaseNull(params);
+
+    return result;
+}
+
+static int callback(SecKeychainEvent event, struct SecKeychainCallbackInfo* info , void* ctx) {
+    static uint64_t count = 0;
+    if ((count & 0xff) == 0) {
+        printf("Got notification %llu\n", count);
+    }
+    ++count;
+    return 0;
+}
+
+int
+wait_for_notifications(int argc, char * const *argv)
+{
+    int ch, result = 0;
+
+    /*
+     { "wait-for-notifications", wait_for_notifications,
+     "[-h]\n"
+     "Call SecKeychainAddCallback() and then run the runloop." },
+     */
+
+    while ((ch = getopt(argc, argv, "")) != -1)
+    {
+        switch  (ch)
+        {
+        default:
+            return SHOW_USAGE_MESSAGE;
+        }
+    }
+
+    argc -= optind;
+    argv += optind;
+
+    if (argc != 0)
+    {
+        return 2;
+    }
+
+    printf("Registering for notifications...\n");
+    result = SecKeychainAddCallback(callback, kSecAddEventMask|kSecDeleteEventMask|kSecUpdateEventMask, NULL);
+    printf("Waiting for notifications...\n");
+
+    CFRunLoopRun();
+
+    return result;
 }
 
 #if 0

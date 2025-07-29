@@ -66,7 +66,6 @@ struct daemon_role {
 	int			 lockfd;
 	id_t			 uid;		/* setuid if root */
 	id_t			 gid;		/* setgid if root */
-	int			 client;
 	enum daemon_state	 dstate;
 	bool			 do_setid;	/* do setuid/setgid */
 	struct daemon_refused	 refused;

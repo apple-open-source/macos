@@ -301,8 +301,7 @@ pre_symlink(struct upload *p, struct sess *sess)
 			    unlinkat(p->rootfd, f->path,
 				     S_ISDIR(st.st_mode) ? AT_REMOVEDIR : 0) == -1) {
 				ERR("%s: unlinkat", f->path);
-				f->flstate |= FLIST_FAILED;
-				return 0;
+				return -1;
 			}
 		}
 		rc = -1;
@@ -374,12 +373,11 @@ pre_symlink(struct upload *p, struct sess *sess)
 	    newlink && temp != NULL ? temp : f->path);
 
 	if (newlink && temp != NULL) {
-		if (move_file(TMPDIR_FD, temp, p->rootfd, f->path, 1) == -1) {
+		if (move_file(TMPDIR_FD, temp, p->rootfd, f->path, 1, 0) == -1) {
 			ERR("%s: move_file %s", temp, f->path);
 			(void)unlinkat(TMPDIR_FD, temp, 0);
-			f->flstate |= FLIST_FAILED;
 			free(temp);
-			return 0;
+			return -1;
 		}
 		free(temp);
 	}
@@ -437,8 +435,7 @@ pre_dev(struct upload *p, struct sess *sess)
 			if (S_ISDIR(st.st_mode) &&
 			    unlinkat(p->rootfd, f->path, AT_REMOVEDIR) == -1) {
 				ERR("%s: unlinkat", f->path);
-				f->flstate |= FLIST_FAILED;
-				return 0;
+				return -1;
 			}
 		}
 		rc = -1;
@@ -495,12 +492,11 @@ pre_dev(struct upload *p, struct sess *sess)
 	    newdev && temp != NULL ? temp : f->path);
 
 	if (newdev && temp != NULL) {
-		if (move_file(TMPDIR_FD, temp, p->rootfd, f->path, 1) == -1) {
+		if (move_file(TMPDIR_FD, temp, p->rootfd, f->path, 1, 0) == -1) {
 			ERR("%s: move_file %s", temp, f->path);
 			(void)unlinkat(TMPDIR_FD, temp, 0);
-			f->flstate |= FLIST_FAILED;
 			free(temp);
-			return 0;
+			return -1;
 		}
 		free(temp);
 	}
@@ -557,8 +553,7 @@ pre_fifo(struct upload *p, struct sess *sess)
 			if (S_ISDIR(st.st_mode) &&
 			    unlinkat(p->rootfd, f->path, AT_REMOVEDIR) == -1) {
 				ERR("%s: unlinkat", f->path);
-				f->flstate |= FLIST_FAILED;
-				return 0;
+				return -1;
 			}
 		}
 		rc = -1;
@@ -604,12 +599,11 @@ pre_fifo(struct upload *p, struct sess *sess)
 	    newfifo && temp != NULL ? temp : f->path);
 
 	if (newfifo && temp != NULL) {
-		if (move_file(TMPDIR_FD, temp, p->rootfd, f->path, 1) == -1) {
+		if (move_file(TMPDIR_FD, temp, p->rootfd, f->path, 1, 0) == -1) {
 			ERR("%s: move_file %s", temp, f->path);
 			(void)unlinkat(TMPDIR_FD, temp, 0);
-			f->flstate |= FLIST_FAILED;
 			free(temp);
-			return 0;
+			return -1;
 		}
 		free(temp);
 	}
@@ -663,8 +657,7 @@ pre_sock(struct upload *p, struct sess *sess)
 			if (S_ISDIR(st.st_mode) &&
 			    unlinkat(p->rootfd, f->path, AT_REMOVEDIR) == -1) {
 				ERR("%s: unlinkat", f->path);
-				f->flstate |= FLIST_FAILED;
-				return 0;
+				return -1;
 			}
 		}
 		rc = -1;
@@ -673,7 +666,7 @@ pre_sock(struct upload *p, struct sess *sess)
 	if (rc == -1) {
 		if (!sess->opts->dry_run) {
 			if (sess->opts->inplace) {
-				if (mksock(temp, p->root) == -1) {
+				if (mksock(p->root, f->path) == -1) {
 					ERR("mksock");
 					return -1;
 				}
@@ -708,12 +701,11 @@ pre_sock(struct upload *p, struct sess *sess)
 		newsock && temp != NULL ? temp : f->path);
 
 	if (newsock && temp != NULL) {
-		if (move_file(TMPDIR_FD, temp, p->rootfd, f->path, 1) == -1) {
+		if (move_file(TMPDIR_FD, temp, p->rootfd, f->path, 1, 0) == -1) {
 			ERR("%s: move_file %s", temp, f->path);
 			(void)unlinkat(TMPDIR_FD, temp, 0);
-			f->flstate |= FLIST_FAILED;
 			free(temp);
-			return 0;
+			return -1;
 		}
 		free(temp);
 	}
@@ -951,6 +943,58 @@ keep_dirlinks_applies(const struct stat *st, const struct flist *f,
 }
 
 /*
+ * Fix the mode of the file/directory in place for the flist entry.  This deals
+ * with upgrading permissions just enough to allow us to progress.
+ */
+static int
+uploader_fix_mode(struct upload *p, struct sess *sess, struct flist *f,
+    struct stat *st)
+{
+	int want_mode;
+	int rc;
+	bool fixing_dir = S_ISDIR(f->st.mode);
+
+	/*
+	 * For the uploader, our primary focus is upgrading the mode only as
+	 * much as we need to.  For directories with --perms, we'll just upgrade
+	 * them all the way and include our upgrade so that we can write into
+	 * it; they'll be downgraded to the final mode after we're done inside.
+	 *
+	 * For files with or without --perms, we're likely looking at the
+	 * original file or a backup file rather than the final file and should
+	 * only go as far as to make them readable to be minimally invasive to
+	 * the file that's about to get replaced.  This also gives us a better
+	 * chance of not breaking if the ownership of the file isn't quite
+	 * ideal.
+	 */
+	if (f->st.mode == 0 || !fixing_dir || !sess->opts->preserve_perms)
+		want_mode = st->st_mode;
+	else
+		want_mode = f->st.mode;
+	if (geteuid() != 0) {
+		/*
+		 * For directories, we want to make sure we're writable at
+		 * least.  For files, we're expecting to open these r/o and
+		 * thus need at least u+r.
+		 */
+		if (fixing_dir)
+			want_mode |= S_IWUSR;
+		else
+			want_mode |= S_IRUSR;
+	}
+
+	rc = 0;
+	if (st->st_mode != want_mode) {
+		rc = fchmodat(p->rootfd, f->path, want_mode,
+		    AT_SYMLINK_NOFOLLOW);
+		if (rc != 0)
+			ERRX("%s: unable to escalate mode", f->path);
+	}
+
+	return rc;
+}
+
+/*
  * If not found, create the destination directory in prefix order.
  * Create directories using the existing umask.
  * Return <0 on failure 0 on success.
@@ -1008,8 +1052,6 @@ pre_dir(struct upload *p, struct sess *sess)
 			}
 		}
 	} else if (rc != -1) {
-		int want_mode;
-
 		if ((f->iflags & IFLAG_NEW) == 0) {
 			LOG3("%s: updating directory", f->path);
 
@@ -1031,23 +1073,13 @@ pre_dir(struct upload *p, struct sess *sess)
 		 * creating way too wide of a permission window if, e.g., it
 		 * shouldn't have any 'other' bits.
 		 */
-		if (f->st.mode == 0 || !sess->opts->preserve_perms)
-			want_mode = st.st_mode;
-		else
-			want_mode = f->st.mode;
-		if ((want_mode & S_IWUSR) == 0 && geteuid() != 0)
-			want_mode |= S_IWUSR;
-		if (st.st_mode != want_mode) {
-			rc = fchmodat(p->rootfd, f->path, want_mode, 0);
-			if (rc != 0)
-				ERRX("%s: unable to escalate dir mode", f->path);
-		}
+		rc = uploader_fix_mode(p, sess, f, &st);
 
 		if (sess->opts->del == DMODE_DURING || sess->opts->del == DMODE_DELAY) {
 			pre_dir_delete(p, sess, sess->opts->del);
 		}
 
-		return 0;
+		return rc;
 	}
 
 	f->iflags = IFLAG_NEW | IFLAG_LOCAL_CHANGE;
@@ -1388,8 +1420,7 @@ check_file(int rootfd, struct flist *f, struct stat *st,
 				if (f->st.mtime != st->st_mtime)
 					LOG3("%s: fits time modify window",
 						f->path);
-				if (st->st_nlink == 1 || sess->opts->hard_links)
-					return 0;
+				return 0;
 			}
 			return 1;
 		}
@@ -1703,8 +1734,7 @@ pre_file(struct upload *p, int *filefd, off_t *size,
 		if (do_unlink && !dry_run &&
 		    unlinkat(p->rootfd, f->path, uflags) == -1) {
 			ERR("%s: unlinkat", f->path);
-			f->flstate |= FLIST_FAILED;
-			return 0;
+			return -1;
 		}
 
 		/*
@@ -1725,6 +1755,7 @@ pre_file(struct upload *p, int *filefd, off_t *size,
 	if (rc >= 0 && rc < 3) {
 		bool fix_metadata = (rc != 0 || !sess->opts->ign_non_exist) &&
 		    !dry_run;
+		bool failed;
 
 		/*
 		 * If the file is a hardlink to another file (or will become
@@ -1741,15 +1772,21 @@ pre_file(struct upload *p, int *filefd, off_t *size,
 				fix_metadata = false;
 		}
 
-		if (fix_metadata)
-			dstat_save(&st, &f->dstat);
+		if (!fix_metadata)
+			goto fixed;
 
-		if (fix_metadata &&
-		    !rsync_set_metadata_at(sess, 0, p->rootfd, f, f->path)) {
+		dstat_save(&st, &f->dstat);
+		if (rc == 0) {
+			failed = !rsync_set_metadata_at(sess, 0, p->rootfd, f,
+			    f->path);
+		} else {
+			failed = uploader_fix_mode(p, sess, f, &st) != 0;
+		}
+
+		if (failed) {
 			if (errno != EACCES && errno != EPERM) {
 				ERRX1("rsync_set_metadata");
-				f->flstate |= FLIST_FAILED;
-				return 0;
+				return -1;
 			}
 
 			/* Before unlinking the file check to see if it can
@@ -1762,14 +1799,14 @@ pre_file(struct upload *p, int *filefd, off_t *size,
 				sess->total_errors++;
 			if (unlinkat(p->rootfd, f->path, 0) == -1) {
 				ERR("%s: unlinkat", f->path);
-				f->flstate |= FLIST_FAILED;
-				return 0;
+				return -1;
 			}
 
 			f->iflags |= IFLAG_NEW | IFLAG_TRANSFER;
 			rc = 3;
 		}
 
+fixed:
 		if (rc == 0) {
 			LOG3("%s: skipping: up to date", f->path);
 			return 0;
@@ -1832,8 +1869,7 @@ pre_file(struct upload *p, int *filefd, off_t *size,
 				close(pdfd);
 			if (!dry_run && unlinkat(p->rootfd, download_partial_filepath(f), 0) == -1) {
 				ERR("%s: unlinkat", download_partial_filepath(f));
-				f->flstate |= FLIST_FAILED;
-				return 0;
+				return -1;
 			}
 
 			return dry_full ? 0 : 1;
@@ -1857,8 +1893,7 @@ pre_file(struct upload *p, int *filefd, off_t *size,
 			sess->total_errors++;
 			if (!dry_run && unlinkat(p->rootfd, f->path, 0) == -1) {
 				ERR("%s: unlinkat", f->path);
-				f->flstate |= FLIST_FAILED;
-				return 0;
+				return -1;
 			}
 
 			return 1;
@@ -2247,14 +2282,12 @@ rsync_uploader(struct upload *u, struct sess *sess, int revents,
 			else
 				c = 0;
 
-			if (c < 0)
-				return -1;
-			else if (c > 0)
-				break;
-
-			if ((u->fl[u->idx].flstate & FLIST_FAILED) != 0) {
+			if (c < 0) {
+				u->fl[u->idx].flstate |= FLIST_FAILED;
 				sess->total_errors++;
 				continue;
+			} else if (c > 0) {
+				break;
 			}
 
 			u->fl[u->idx].flstate |= FLIST_SUCCESS;
@@ -2273,7 +2306,11 @@ rsync_uploader(struct upload *u, struct sess *sess, int revents,
 			}
 
 			if (!protocol_itemize) {
-				log_item_impl(sess, &u->fl[u->idx]);
+				/*
+				 * Non-transferred items are subject to
+				 * conditional logging.
+				 */
+				log_item(sess, &u->fl[u->idx]);
 				continue;
 			}
 

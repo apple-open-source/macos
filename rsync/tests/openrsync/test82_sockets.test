@@ -1,0 +1,63 @@
+#!/bin/sh
+
+# Test that --specials works on UNIX sockets
+
+set -e
+
+. ${tstdir-.}/lib.sh
+. ${tstdir-.}/conf.sh
+
+rm -rf src dst
+mkdir -p src dst
+
+mksock src/test.sock
+if [ ! -S src/test.sock ]; then
+	1>&2 echo "mksock did not create a UNIX socket"
+	1>&2 ls -l src/
+	exit 1
+fi
+
+rsync --specials -- src/test.sock dst/
+if [ ! -S dst/test.sock ]; then
+	1>&2 echo "newly created directory entry is not a socket"
+	1>&2 ls -l dst
+	exit 1
+fi
+
+rm dst/test.sock
+rsync --specials --inplace -- src/test.sock dst/
+if [ ! -S dst/test.sock ]; then
+	1>&2 echo "newly created directory entry is not a socket (--inplace)"
+	1>&2 ls -l dst
+	exit 1
+fi
+
+rm -rf dst
+
+# Now, we'll create a long name so that bind(2) should fail, and make sure it
+# does not interrupt the transfer completely.
+longname="$(jot -b 'A' -ns '' 128)"
+longsrc=src/"$longname"
+longdst=dst/"$longname"
+mkdir -p "$longsrc"
+touch "$longsrc"/sorts_early
+mv src/test.sock "$longsrc"
+touch "$longsrc"/ultra_late
+
+# We're expecting a partial transfer here, so temporarily allow it to fail.
+set +e
+rsync --specials -r -- src/ dst/
+rc=$?
+set -e
+
+if [ "$rc" -eq 0 ]; then
+	1>&2 echo "This rsync invocation should have failed to create a socket."
+	1>&2 ls -l "$longname"
+	exit 1
+fi
+
+if [ ! -f "$longdst"/sorts_early ] || [ ! -f "$longdst"/ultra_late ]; then
+	1>&2 echo "Missing other files that should have transferred."
+	1>&2 ls -l "$longname"
+	exit 1
+fi

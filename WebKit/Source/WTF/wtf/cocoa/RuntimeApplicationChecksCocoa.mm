@@ -242,6 +242,9 @@ static SDKAlignedBehaviors computeSDKAlignedBehaviors()
         disableBehavior(SDKAlignedBehavior::BlockCrossOriginRedirectDownloads);
     }
 
+    if (linkedBefore(dyld_2024_SU_F_os_versions, DYLD_IOS_VERSION_18_5, DYLD_MACOSX_VERSION_15_5))
+        disableBehavior(SDKAlignedBehavior::NavigationActionSourceFrameNonNull);
+
     disableAdditionalSDKAlignedBehaviors(behaviors);
 
     return behaviors;

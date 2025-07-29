@@ -1057,6 +1057,11 @@ inline LayoutUnit adjustLayoutUnitForAbsoluteZoom(LayoutUnit value, const Render
     return LayoutUnit(value / style.usedZoom());
 }
 
+inline float applyZoom(float value, const RenderStyle& style)
+{
+    return value * style.usedZoom();
+}
+
 constexpr BorderStyle collapsedBorderStyle(BorderStyle style)
 {
     if (style == BorderStyle::Outset)

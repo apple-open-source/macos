@@ -49,6 +49,7 @@ private:
     Result writeFrame(const MediaSamplesBlock&) final;
     void forceNewSegment(const WTF::MediaTime&) final;
     Ref<GenericPromise> close(const WTF::MediaTime&) final;
+    bool shouldApplyVideoRotation() const final { return true; }
 
     const UniqueRef<MediaRecorderPrivateWriterWebMDelegate> m_delegate;
 };

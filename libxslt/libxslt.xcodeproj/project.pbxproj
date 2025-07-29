@@ -33,7 +33,8 @@
 /* End PBXAggregateTarget section */
 
 /* Begin PBXBuildFile section */
-		4435B6AB27BDB4DF00565869 /* fuzz-xpath in CopyFiles */ = {isa = PBXBuildFile; fileRef = 448CD33427B76F1A00A15C90 /* fuzz-xpath */; };
+		442199722DACA36C00D00915 /* transformInternals.h in Headers */ = {isa = PBXBuildFile; fileRef = 442199712DACA34A00D00915 /* transformInternals.h */; };
+		4435B6AB27BDB4DF00565869 /* fuzz-libxslt-xpath in CopyFiles */ = {isa = PBXBuildFile; fileRef = 448CD33427B76F1A00A15C90 /* fuzz-libxslt-xpath */; };
 		4435B6AC27BDBB2300565869 /* fuzz-xslt in CopyFiles */ = {isa = PBXBuildFile; fileRef = 448CD34527B76F1D00A15C90 /* fuzz-xslt */; };
 		448CD34627B76F2C00A15C90 /* fuzz.c in Sources */ = {isa = PBXBuildFile; fileRef = 448CD32427B76D2E00A15C90 /* fuzz.c */; };
 		448CD34727B76F3000A15C90 /* xpath.c in Sources */ = {isa = PBXBuildFile; fileRef = 448CD32227B76D2D00A15C90 /* xpath.c */; };
@@ -198,7 +199,7 @@
 			dstPath = "$(SRCROOT)/libxslt/tests/fuzz";
 			dstSubfolderSpec = 0;
 			files = (
-				4435B6AB27BDB4DF00565869 /* fuzz-xpath in CopyFiles */,
+				4435B6AB27BDB4DF00565869 /* fuzz-libxslt-xpath in CopyFiles */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -281,6 +282,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		442199712DACA34A00D00915 /* transformInternals.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = transformInternals.h; sourceTree = "<group>"; };
 		448CD32227B76D2D00A15C90 /* xpath.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = xpath.c; sourceTree = "<group>"; };
 		448CD32327B76D2D00A15C90 /* xslt.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = xslt.c; sourceTree = "<group>"; };
 		448CD32427B76D2E00A15C90 /* fuzz.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = fuzz.c; sourceTree = "<group>"; };
@@ -289,7 +291,7 @@
 		448CD32727B76D2E00A15C90 /* xpath.dict */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = xpath.dict; sourceTree = "<group>"; };
 		448CD32827B76D2E00A15C90 /* xpath.xml */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = xpath.xml; sourceTree = "<group>"; };
 		448CD32927B76D2E00A15C90 /* xslt.xml */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = xslt.xml; sourceTree = "<group>"; };
-		448CD33427B76F1A00A15C90 /* fuzz-xpath */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = "fuzz-xpath"; sourceTree = BUILT_PRODUCTS_DIR; };
+		448CD33427B76F1A00A15C90 /* fuzz-libxslt-xpath */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = "fuzz-libxslt-xpath"; sourceTree = BUILT_PRODUCTS_DIR; };
 		448CD33627B76F1A00A15C90 /* main.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = main.c; sourceTree = "<group>"; };
 		448CD34527B76F1D00A15C90 /* fuzz-xslt */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = "fuzz-xslt"; sourceTree = BUILT_PRODUCTS_DIR; };
 		448CD35B27B82A8200A15C90 /* FuzzExecutable.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = FuzzExecutable.xcconfig; sourceTree = "<group>"; };
@@ -482,7 +484,7 @@
 				5D87352714FDA3BB006E89B4 /* libexslt.0.dylib */,
 				5D6883EC14FDA2C5009E3E04 /* libxslt.1.dylib */,
 				5DCB92C714FDAA5500F7276A /* xsltproc */,
-				448CD33427B76F1A00A15C90 /* fuzz-xpath */,
+				448CD33427B76F1A00A15C90 /* fuzz-libxslt-xpath */,
 				448CD34527B76F1D00A15C90 /* fuzz-xslt */,
 			);
 			name = Products;
@@ -536,6 +538,7 @@
 				5DCB930F14FDAB1700F7276A /* templates.h */,
 				5DCB931014FDAB1700F7276A /* transform.c */,
 				5DCB931114FDAB1700F7276A /* transform.h */,
+				442199712DACA34A00D00915 /* transformInternals.h */,
 				5DCB931214FDAB1700F7276A /* trio.h */,
 				5DCB931314FDAB1700F7276A /* triodef.h */,
 				5DCB931414FDAB1700F7276A /* variables.c */,
@@ -644,6 +647,7 @@
 				5DCB933714FDAB1700F7276A /* security.h in Headers */,
 				5DCB933914FDAB1700F7276A /* templates.h in Headers */,
 				5DCB933B14FDAB1700F7276A /* transform.h in Headers */,
+				442199722DACA36C00D00915 /* transformInternals.h in Headers */,
 				5DCB933C14FDAB1700F7276A /* trio.h in Headers */,
 				5DCB933D14FDAB1700F7276A /* triodef.h in Headers */,
 				5DCB933F14FDAB1700F7276A /* variables.h in Headers */,
@@ -672,9 +676,9 @@
 /* End PBXHeadersBuildPhase section */
 
 /* Begin PBXNativeTarget section */
-		448CD33327B76F1A00A15C90 /* fuzz-xpath */ = {
+		448CD33327B76F1A00A15C90 /* fuzz-libxslt-xpath */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 448CD33827B76F1A00A15C90 /* Build configuration list for PBXNativeTarget "fuzz-xpath" */;
+			buildConfigurationList = 448CD33827B76F1A00A15C90 /* Build configuration list for PBXNativeTarget "fuzz-libxslt-xpath" */;
 			buildPhases = (
 				448CD33027B76F1A00A15C90 /* Sources */,
 				448CD33127B76F1A00A15C90 /* Frameworks */,
@@ -686,9 +690,9 @@
 				448CD35427B76F9F00A15C90 /* PBXTargetDependency */,
 				448CD35627B76FA100A15C90 /* PBXTargetDependency */,
 			);
-			name = "fuzz-xpath";
+			name = "fuzz-libxslt-xpath";
 			productName = "fuzz-xpath";
-			productReference = 448CD33427B76F1A00A15C90 /* fuzz-xpath */;
+			productReference = 448CD33427B76F1A00A15C90 /* fuzz-libxslt-xpath */;
 			productType = "com.apple.product-type.tool";
 		};
 		448CD33C27B76F1D00A15C90 /* fuzz-xslt */ = {
@@ -811,7 +815,7 @@
 				5D6883EB14FDA2C5009E3E04 /* libxslt */,
 				5DCB92C614FDAA5500F7276A /* xsltproc */,
 				448CD32B27B76EC100A15C90 /* Fuzz */,
-				448CD33327B76F1A00A15C90 /* fuzz-xpath */,
+				448CD33327B76F1A00A15C90 /* fuzz-libxslt-xpath */,
 				448CD33C27B76F1D00A15C90 /* fuzz-xslt */,
 			);
 		};
@@ -976,7 +980,7 @@
 		};
 		448CD35827B76FC000A15C90 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = 448CD33327B76F1A00A15C90 /* fuzz-xpath */;
+			target = 448CD33327B76F1A00A15C90 /* fuzz-libxslt-xpath */;
 			targetProxy = 448CD35727B76FC000A15C90 /* PBXContainerItemProxy */;
 		};
 		448CD35A27B76FC300A15C90 /* PBXTargetDependency */ = {
@@ -1182,7 +1186,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Production;
 		};
-		448CD33827B76F1A00A15C90 /* Build configuration list for PBXNativeTarget "fuzz-xpath" */ = {
+		448CD33827B76F1A00A15C90 /* Build configuration list for PBXNativeTarget "fuzz-libxslt-xpath" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				448CD33927B76F1A00A15C90 /* Debug */,

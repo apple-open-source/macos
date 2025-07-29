@@ -267,11 +267,6 @@ MediaSessionHelperIOS::MediaSessionHelperIOS()
 
 void MediaSessionHelperIOS::providePresentingApplicationPID(int pid, ShouldOverride shouldOverride)
 {
-#if ENABLE(EXTENSION_CAPABILITIES)
-    if (PlatformMediaSessionManager::mediaCapabilityGrantsEnabled())
-        return;
-#endif
-
 #if HAVE(MEDIAEXPERIENCE_AVSYSTEMCONTROLLER)
     if (m_presentedApplicationPID && (*m_presentedApplicationPID == pid || shouldOverride == ShouldOverride::No))
         return;

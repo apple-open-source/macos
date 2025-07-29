@@ -1445,14 +1445,6 @@ public:
                 m_alternative->m_terms.append(PatternTerm::ForwardReference());
                 return;
             }
-
-            if (parenthesisMatchDirection() == Backward
-                && term.type == PatternTerm::Type::ParentheticalAssertion
-                && term.matchDirection() == Backward
-                && subpatternId >= term.parentheses.subpatternId) {
-                m_alternative->m_terms.append(PatternTerm::ForwardReference());
-                return;
-            }
         }
 
         m_alternative->m_terms.append(PatternTerm(subpatternId));
@@ -1478,14 +1470,6 @@ public:
                 ASSERT((term.type == PatternTerm::Type::ParenthesesSubpattern) || (term.type == PatternTerm::Type::ParentheticalAssertion));
 
                 if ((term.type == PatternTerm::Type::ParenthesesSubpattern) && term.capture() && (subpatternId == term.parentheses.subpatternId)) {
-                    m_alternative->m_terms.append(PatternTerm::ForwardReference());
-                    return;
-                }
-
-                if (parenthesisMatchDirection() == Backward
-                    && term.type == PatternTerm::Type::ParentheticalAssertion
-                    && term.matchDirection() == Backward
-                    && subpatternId >= term.parentheses.subpatternId) {
                     m_alternative->m_terms.append(PatternTerm::ForwardReference());
                     return;
                 }
@@ -1589,12 +1573,14 @@ public:
         ASSERT(m_alternative->m_terms.size());
 
         if (!max) {
-            // If we're removing a ForwardReference, we need to remove the corresponding references in
-            // m_forwardReferencesInLookbehind, or else we have a bad pointer.
-            // We know that the ForwardReference is the atom we just pushed, so it has to be at the end
-            // of m_forwardReferencesInLookbehind.
-            if (parenthesisMatchDirection() == Backward && m_alternative->m_terms.last().type == PatternTerm::Type::ForwardReference)
-                m_forwardReferencesInLookbehind.removeLast();
+            // In a case of backwards parentheses matching, we may have a forward reference that has
+            // been quantified with {0}, meaning that we can elide it. We should check if we added an
+            // UnresolvedForwardReference object for this term, and if so, pop it.
+            if (parenthesisMatchDirection() == Backward && m_forwardReferencesInLookbehind.size()) {
+                UnresolvedForwardReference& mostRecentForwardReference = m_forwardReferencesInLookbehind.last();
+                if (mostRecentForwardReference.term() == &m_alternative->lastTerm())
+                    m_forwardReferencesInLookbehind.removeLast();
+            }
             m_alternative->removeLastTerm();
             return;
         }

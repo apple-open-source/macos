@@ -29,7 +29,7 @@
 namespace WTF {
 
 // A `CompactVariant` acts like a `std::variant` with the following differences:
-// - All alternatives must be pointers, smart pointers, have size of 56 bits or fewer, or be specialized for `CompactVariantTraits`.
+// - All alternatives must be pointers, smart pointers, have size of 48 bits or fewer, or be specialized for `CompactVariantTraits`.
 // - Can only contain 254 or fewer alternatives.
 // - Has a more limited API, only offering `holds_alternative()` for type checking and `switchOn()` for value access.
 

@@ -496,7 +496,7 @@ pmap_page_alloc(pmap_paddr_t *ppa, unsigned options)
 	 * If we're only allocating a single page, just grab one off the VM's
 	 * global page free list.
 	 */
-	int grab_options = VM_PAGE_GRAB_OPTIONS_NONE;
+	vm_grab_options_t grab_options = VM_PAGE_GRAB_OPTIONS_NONE;
 	while ((mem = vm_page_grab_options(grab_options)) == VM_PAGE_NULL) {
 		if (options & PMAP_PAGE_ALLOCATE_NOWAIT) {
 			break;

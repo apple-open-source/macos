@@ -982,7 +982,7 @@ csm_resolve_os_entitlements_from_proc(
 }
 
 kern_return_t
-address_space_debugged(
+address_space_debugged_state(
 	const proc_t process)
 {
 	/* Must pass in a valid proc_t */
@@ -1047,6 +1047,12 @@ address_space_debugged(
 #endif
 
 	return KERN_DENIED;
+}
+
+bool
+is_address_space_debugged(const proc_t process)
+{
+	return address_space_debugged_state(process) == KERN_SUCCESS;
 }
 
 #if CODE_SIGNING_MONITOR

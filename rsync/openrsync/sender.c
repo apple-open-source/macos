@@ -533,8 +533,7 @@ send_up_fsm_compressed(struct sess *sess, size_t *phase,
 		sess->total_files_xfer++;
 		sess->total_xfer_size += fl[up->cur->idx].st.size;
 
-		if (sess->lateprint)
-			log_item(sess, &fl[up->cur->idx]);
+		log_item_impl(xfer_log_level(sess), sess, &fl[up->cur->idx]);
 
 		send_up_reset(up);
 		return 1;
@@ -743,8 +742,7 @@ send_up_fsm(struct sess *sess, size_t *phase,
 		sess->total_files_xfer++;
 		sess->total_xfer_size += fl[up->cur->idx].st.size;
 
-		if (sess->lateprint)
-			log_item(sess, &fl[up->cur->idx]);
+		log_item_impl(xfer_log_level(sess), sess, &fl[up->cur->idx]);
 
 		send_up_reset(up);
 		return 1;
@@ -1037,6 +1035,7 @@ static int
 file_success(void *cookie, const void *data, size_t datasz)
 {
 	struct success_ctx *sctx = cookie;
+	struct opts *opts;
 	size_t pos = 0;
 	int32_t idx;
 
@@ -1051,7 +1050,8 @@ file_success(void *cookie, const void *data, size_t datasz)
 		return 0;
 	}
 
-	if (sctx->sess->opts->remove_source) {
+	opts = sctx->sess->opts;
+	if (opts->remove_source) {
 		struct flist *fl;
 		struct stat sb;
 
@@ -1067,7 +1067,7 @@ file_success(void *cookie, const void *data, size_t datasz)
 			return 1;
 		}
 
-		if (unlink(fl->path) == -1)
+		if (!opts->dry_run && unlink(fl->path) == -1)
 			ERR("%s: unlink", fl->path);
 	}
 
@@ -1241,6 +1241,10 @@ rsync_sender(struct sess *sess, int fdin,
 		    sess->role->role_fetch_outfmt_cookie;
 	}
 
+	if (sess->opts->server)
+		sender.client = fdout;
+	else
+		sender.client = -1;
 	sess->role = &sender;
 
 	memset(&up, 0, sizeof(struct send_up));
@@ -1306,6 +1310,8 @@ rsync_sender(struct sess *sess, int fdin,
 		ERRX1("flist_gen");
 		goto out;
 	}
+	assert(fl.flp != NULL || fl.sz == 0);
+
 	gettimeofday(&fb_after, NULL);
 	timersub(&fb_after, &fb_before, &tv);
 	sess->flist_build = (tv.tv_sec * 1000) + (tv.tv_usec / 1000);
@@ -1787,21 +1793,12 @@ rsync_sender(struct sess *sess, int fdin,
 			f = &fl.flp[up.cur->idx];
 
 			if ((f->iflags & IFLAG_TRANSFER) == 0) {
-				bool hlink = (f->iflags & IFLAG_HLINK_FOLLOWS) != 0;
-				bool sig = (f->iflags & SIGNIFICANT_IFLAGS) != 0;
 				size_t pos = wbufsz;
 
 				send_iflags(sess, &wbuf, &wbufsz,
 					&wbufmax, &pos, fl.flp, up.cur->idx);
 
-				if (sig || hlink || sess->itemize) {
-					bool local = (f->iflags & IFLAG_LOCAL_CHANGE) != 0;
-					bool dir = S_ISDIR(f->st.mode);
-
-					if (local || dir || hlink || sess->itemize)
-						log_item(sess, f);
-				}
-
+				log_item(sess, f);
 				send_up_reset(&up);
 				pfd[1].fd = fdout;
 				continue;
@@ -1851,7 +1848,7 @@ rsync_sender(struct sess *sess, int fdin,
 			pfd[2].fd = up.stat.fd;
 
 			if (!sess->lateprint)
-				log_item(sess, f);
+				log_item_impl(LT_CLIENT, sess, f);
 		}
 	}
 

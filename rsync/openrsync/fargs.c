@@ -388,7 +388,7 @@ fargs_cmdline(struct sess *sess, const struct fargs *f, size_t *skip)
 		addargs(&args, "--ignore-errors");
 	if (sess->opts->preserve_executability)
 		addargs(&args, "--executability");
-	if (sess->opts->quiet)
+	if (quiet)
 		addargs(&args, "-q");
 	if (sess->opts->max_delete)
 		addargs(&args, "--max-delete=%ld", sess->opts->max_delete);

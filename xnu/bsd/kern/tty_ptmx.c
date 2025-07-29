@@ -286,6 +286,7 @@ ptmx_get_ioctl(int minor, int open_flag)
 		 */
 		if ((_state.pis_total - _state.pis_free) >= ptmx_max) {
 			DEVFS_UNLOCK();
+			printf("ptmx_get_ioctl failed due to ptmx_max limit %d\n", ptmx_max);
 			return NULL;
 		}
 		DEVFS_UNLOCK();
@@ -314,6 +315,7 @@ ptmx_get_ioctl(int minor, int open_flag)
 			ttyfree(new_ptmx_ioctl->pt_tty);
 			DEVFS_UNLOCK();
 			kfree_type(struct ptmx_ioctl, new_ptmx_ioctl);
+			printf("ptmx_get_ioctl failed due to ptmx_max limit %d\n", ptmx_max);
 			return NULL;
 		}
 
@@ -348,6 +350,7 @@ ptmx_get_ioctl(int minor, int open_flag)
 			ttyfree(new_ptmx_ioctl->pt_tty);
 			DEVFS_UNLOCK();
 			kfree_type(struct ptmx_ioctl, new_ptmx_ioctl);
+			printf("ptmx_get_ioctl failed because minor number %d was out of range\n", minor);
 			return NULL;
 		}
 
@@ -357,6 +360,7 @@ ptmx_get_ioctl(int minor, int open_flag)
 			kfree_type(struct ptmx_ioctl, new_ptmx_ioctl);
 
 			/* Special error value so we know to redrive the open, we've been raced */
+			/* XXX Can this still occur? */
 			return (struct ptmx_ioctl*)-1;
 		}
 

@@ -5827,7 +5827,7 @@ static void source_var_based_partition_search_method(VP9_COMP *cpi) {
       if (cpi->source_diff_var) vpx_free(cpi->source_diff_var);
 
       CHECK_MEM_ERROR(&cm->error, cpi->source_diff_var,
-                      vpx_calloc(cm->MBs, sizeof(cpi->source_diff_var)));
+                      vpx_calloc(cm->MBs, sizeof(*cpi->source_diff_var)));
     }
 
     if (!cpi->frames_till_next_var_check)

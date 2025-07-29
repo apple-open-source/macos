@@ -116,7 +116,10 @@ std::unique_ptr<MediaRecorderPrivateAVFImpl> MediaRecorderPrivateAVFImpl::create
         recorder->checkTrackState(*selectedTracks.audioTrack);
     }
     if (selectedTracks.videoTrack) {
-        recorder->setVideoSource(&selectedTracks.videoTrack->source());
+        Ref source = selectedTracks.videoTrack->source();
+        if (recorder->shouldApplyVideoRotation())
+            source->setShouldApplyRotation(true);
+        recorder->setVideoSource(WTFMove(source));
         recorder->checkTrackState(*selectedTracks.videoTrack);
     }
     return recorder;

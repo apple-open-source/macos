@@ -233,6 +233,8 @@ extern const CFStringRef kSecPolicyAppleDCAttestation
     API_AVAILABLE(macos(15.1), ios(18.1), watchos(11.1), tvos(18.1));
 extern const CFStringRef kSecPolicyAppleQWAC
     API_AVAILABLE(macos(15.4), ios(18.4), watchos(11.4), tvos(18.4));
+extern const CFStringRef kSecPolicyApple3PMobileAsset
+    API_AVAILABLE(macos(15.5), ios(18.5), watchos(11.5), tvos(18.5));
 
 /*!
 	@enum Policy Name Constants (Private)

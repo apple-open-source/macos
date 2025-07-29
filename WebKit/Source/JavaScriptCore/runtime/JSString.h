@@ -309,6 +309,7 @@ private:
     friend JSString* jsNontrivialString(VM&, String&&);
     friend JSString* jsSubstring(VM&, const String&, unsigned, unsigned);
     friend JSString* jsSubstring(VM&, JSGlobalObject*, JSString*, unsigned, unsigned);
+    friend JSString* tryJSSubstringImpl(VM&, JSGlobalObject*, JSString*, unsigned, unsigned);
     friend JSString* jsSubstringOfResolved(VM&, GCDeferralContext*, JSString*, unsigned, unsigned);
     friend JSString* jsOwnedString(VM&, const String&);
     friend JSString* jsAtomString(JSGlobalObject*, VM&, JSString*);
@@ -737,6 +738,7 @@ private:
     friend JSString* jsString(JSGlobalObject*, const String&, const String&, const String&);
     friend JSString* jsSubstringOfResolved(VM&, GCDeferralContext*, JSString*, unsigned, unsigned);
     friend JSString* jsSubstring(VM&, JSGlobalObject*, JSString*, unsigned, unsigned);
+    friend JSString* tryJSSubstringImpl(VM&, JSGlobalObject*, JSString*, unsigned, unsigned);
     friend JSString* jsAtomString(JSGlobalObject*, VM&, JSString*);
     friend JSString* jsAtomString(JSGlobalObject*, VM&, JSString*, JSString*);
     friend JSString* jsAtomString(JSGlobalObject*, VM&, JSString*, JSString*, JSString*);
@@ -985,7 +987,7 @@ ALWAYS_INLINE JSString* jsString(VM& vm, Ref<StringImpl>&& s)
     return jsString(vm, String { WTFMove(s) });
 }
 
-inline JSString* jsSubstring(VM& vm, JSGlobalObject* globalObject, JSString* base, unsigned offset, unsigned length)
+inline JSString* tryJSSubstringImpl(VM& vm, JSGlobalObject* globalObject, JSString* base, unsigned offset, unsigned length)
 {
     ASSERT(offset <= base->length());
     ASSERT(length <= base->length());
@@ -1012,7 +1014,7 @@ inline JSString* jsSubstring(VM& vm, JSGlobalObject* globalObject, JSString* bas
     ASSERT(fiber0);
     if (offset < fiber0->length()) {
         if ((offset + length) <= fiber0->length())
-            MUST_TAIL_CALL return jsSubstring(vm, globalObject, fiber0, offset, length);
+            MUST_TAIL_CALL return tryJSSubstringImpl(vm, globalObject, fiber0, offset, length);
         // Crossing multiple fibers. Giving up and resolving the rope.
     } else {
         unsigned adjustedOffset = offset - fiber0->length();
@@ -1020,7 +1022,7 @@ inline JSString* jsSubstring(VM& vm, JSGlobalObject* globalObject, JSString* bas
         ASSERT(fiber1);
         if (adjustedOffset < fiber1->length()) {
             if ((adjustedOffset + length) <= fiber1->length())
-                MUST_TAIL_CALL return jsSubstring(vm, globalObject, fiber1, adjustedOffset, length);
+                MUST_TAIL_CALL return tryJSSubstringImpl(vm, globalObject, fiber1, adjustedOffset, length);
             // Crossing multiple fibers. Giving up and resolving the rope.
         } else {
             adjustedOffset -= fiber1->length();
@@ -1028,14 +1030,26 @@ inline JSString* jsSubstring(VM& vm, JSGlobalObject* globalObject, JSString* bas
             ASSERT(fiber2);
             ASSERT(adjustedOffset < fiber2->length());
             ASSERT((adjustedOffset + length) <= fiber2->length());
-            MUST_TAIL_CALL return jsSubstring(vm, globalObject, fiber2, adjustedOffset, length);
+            MUST_TAIL_CALL return tryJSSubstringImpl(vm, globalObject, fiber2, adjustedOffset, length);
         }
     }
 
+    return nullptr;
+}
+
+inline JSString* jsSubstring(VM& vm, JSGlobalObject* globalObject, JSString* base, unsigned offset, unsigned length)
+{
     auto scope = DECLARE_THROW_SCOPE(vm);
-    rope->resolveRope(globalObject);
+    JSString* result = tryJSSubstringImpl(vm, globalObject, base, offset, length);
     RETURN_IF_EXCEPTION(scope, nullptr);
-    return jsSubstringOfResolved(vm, nullptr, base, offset, length);
+
+    if (!result) {
+        jsCast<JSRopeString*>(base)->resolveRope(globalObject);
+        RETURN_IF_EXCEPTION(scope, nullptr);
+        return jsSubstringOfResolved(vm, nullptr, base, offset, length);
+    }
+
+    return result;
 }
 
 inline JSString* jsSubstringOfResolved(VM& vm, JSString* s, unsigned offset, unsigned length)

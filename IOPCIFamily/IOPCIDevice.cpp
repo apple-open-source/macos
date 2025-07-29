@@ -332,6 +332,17 @@ void IOPCIDevice::detach( IOService * provider )
 	}
 	IORecursiveLockUnlock(reserved->lock);
 
+
+	if (reserved->pauseTimer)
+	{
+		IOWorkLoop *tempWL = NULL;
+		reserved->pauseTimer->cancelTimeout();
+		if ((tempWL = reserved->pauseTimer->getWorkLoop()))
+		{
+			tempWL->removeEventSource(reserved->pauseTimer);
+		}
+	}
+
     if (parent) parent->removeDevice(this);
 
     super::detach(provider);
@@ -426,6 +437,12 @@ void IOPCIDevice::free()
 	{
 		if (reserved->lock)
 			IORecursiveLockFree(reserved->lock);
+		OSSafeReleaseNULL(reserved->pauseTimer);
+		if (reserved->busyNotifier)
+		{
+			reserved->busyNotifier->remove();
+			reserved->busyNotifier = NULL;
+		}
         IOFreeType(reserved, IOPCIDeviceExpansionData);
 	}
 
@@ -882,6 +899,52 @@ void IOPCIDevice::resetNubState(void)
 	configShadow(this)->restoreCount = 0;
 
 	reserved->clientCrashed = false;
+}
+
+// The grace period is the time (in seconds) after the nub's busy state
+// becomes 0 before the nub's IOPM state can be transitioned to Paused.
+#define NUB_SETTLED_GRACE_PERIOD_S 2
+
+bool IOPCIDevice::isInitializing(void)
+{
+	uint64_t deltaNS = 0;
+
+	absolutetime_to_nanoseconds(mach_absolute_time() - reserved->busyTimestamp, &deltaNS);
+
+	return (getBusyState() > 0 || deltaNS < (NUB_SETTLED_GRACE_PERIOD_S * NSEC_PER_SEC));
+}
+
+#define PAUSE_TIMER_DURATION_MS 100
+void IOPCIDevice::initiatePause(void)
+{
+	if (isInitializing()) {
+		DLOG("%s(0x%qx) still initializing, deferring pause\n", getName(), getRegistryEntryID());
+		reserved->pauseTimer->setTimeoutMS(PAUSE_TIMER_DURATION_MS);
+	} else {
+		DLOG("configOp:->deferredRequestPause: %s(0x%qx)\n", getName(), getRegistryEntryID());
+		changePowerStateToPriv(kIOPCIDevicePausedState);
+		powerOverrideOnPriv();
+	}
+}
+
+void IOPCIDevice::pauseTimerHandler(IOTimerEventSource * es)
+{
+	initiatePause();
+}
+
+// Fires when the nub's busy state becomes busy or non-busy
+IOReturn IOPCIDevice::busyStateChange(void * target, void * refCon,
+									  UInt32 messageType, IOService * service,
+									  void * messageArgument, vm_size_t argSize)
+{
+	IOPCIDevice *self = OSDynamicCast(IOPCIDevice, (IOService*)refCon);
+
+	if (self) {
+		DLOG("[%s()] nub %s(0x%qx) has busy state %u\n", __func__, self->getName(), self->getRegistryEntryID(), self->getBusyState());
+		self->reserved->busyTimestamp = mach_absolute_time();
+	}
+
+	return kIOReturnSuccess;
 }
 
 IOReturn IOPCIDevice::getResources( void )

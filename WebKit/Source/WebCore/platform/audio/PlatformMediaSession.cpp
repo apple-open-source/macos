@@ -494,9 +494,9 @@ void PlatformMediaSession::setActiveNowPlayingSession(bool isActiveNowPlayingSes
     client().isActiveNowPlayingSessionChanged();
 }
 
-ProcessID PlatformMediaSession::presentingApplicationPID() const
+std::optional<ProcessID> PlatformMediaSession::presentingApplicationPID() const
 {
-    return client().presentingApplicationPID();
+    return client().mediaSessionPresentingApplicationPID();
 }
 
 #if !RELEASE_LOG_DISABLED

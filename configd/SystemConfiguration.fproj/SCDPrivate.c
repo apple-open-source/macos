@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2024 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2025 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -1647,30 +1647,4 @@ _SC_copyInterfaceUUID(CFStringRef bsdName)
 	CFRelease(uuid);
 
 	return uuid_str;
-}
-
-CF_RETURNS_RETAINED
-CFDictionaryRef
-_SC_IONetworkInterfaceBSDNameMatching(const char * bsdName)
-{
-#define N_MATCH		2
-	const void *		keys[N_MATCH] = {
-		CFSTR(kIOBSDNameKey),
-		CFSTR(kIOProviderClassKey)
-	};
-	CFDictionaryRef		matching;
-	CFStringRef		str;
-	const void *		values[N_MATCH];
-
-	str = CFStringCreateWithCString(NULL, bsdName, kCFStringEncodingUTF8);
-	values[0] = str;
-	values[1] = CFSTR(kIONetworkInterfaceClass);
-	matching = CFDictionaryCreate(NULL,
-				      (const void * *)keys,
-				      (const void * *)values,
-				      N_MATCH,
-				      &kCFTypeDictionaryKeyCallBacks,
-				      &kCFTypeDictionaryValueCallBacks);
-	CFRelease(str);
-	return matching;
 }

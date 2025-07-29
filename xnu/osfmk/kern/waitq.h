@@ -395,8 +395,8 @@ waitq_valid(waitq_t waitq)
 /*
  * global waitqs
  */
-extern struct waitq *_global_eventq(char *event, size_t event_length);
-#define global_eventq(event) _global_eventq((char *)&(event), sizeof(event))
+extern struct waitq *_global_eventq(event64_t event) __pure2;
+#define global_eventq(event) _global_eventq(CAST_EVENT64_T(event))
 
 static inline waitq_wakeup_flags_t
 waitq_flags_splx(spl_t spl_level)
@@ -585,8 +585,10 @@ extern kern_return_t waitq_wakeup64_one(
  * to TURNSTILE_INHERITOR_NULL if it is a turnstile wait queue.
  *
  * @c waitq must be unlocked
+ *
+ * @returns how many threads have been woken up
  */
-extern kern_return_t waitq_wakeup64_nthreads(
+extern uint32_t waitq_wakeup64_nthreads(
 	waitq_t                 waitq,
 	event64_t               wake_event,
 	wait_result_t           result,
@@ -739,8 +741,10 @@ extern kern_return_t waitq_wakeup64_all_locked(
  * @c waitq must be locked.
  *
  * May temporarily disable and re-enable interrupts.
+ *
+ * @returns how many threads have been woken up
  */
-extern kern_return_t waitq_wakeup64_nthreads_locked(
+extern uint32_t waitq_wakeup64_nthreads_locked(
 	waitq_t                 waitq,
 	event64_t               wake_event,
 	wait_result_t           result,
@@ -778,7 +782,6 @@ extern kern_return_t waitq_wakeup64_one_locked(
 extern thread_t waitq_wakeup64_identify_locked(
 	waitq_t                 waitq,
 	event64_t               wake_event,
-	wait_result_t           result,
 	waitq_wakeup_flags_t    flags);
 
 /**

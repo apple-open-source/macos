@@ -74,10 +74,17 @@ __BEGIN_DECLS
 #define SOCD_TRACE_GEN_CLASS_ENUM(entry) SOCD_TRACE_CLASS_##entry,
 #define SOCD_TRACE_GEN_CODE_ENUM(entry) SOCD_TRACE_CODE_##entry,
 
-/* List of socd trace classes */
+/* *
+ * List of socd trace classes
+ *
+ * XNU: Tracepoints from xnu itself
+ * WDT: Tracepoints from whatever kext is in charge of the system watchdog
+ * SOC: Tracepoints relating to SoC-wide events or errors (e.g. an SoC thermal sensor reading)
+ */
 #define SOCD_TRACE_FOR_EACH_CLASS(iter) \
 	iter(XNU) \
-	iter(WDT)
+	iter(WDT) \
+	iter(SOC)
 
 /* List of xnu trace codes */
 #define SOCD_TRACE_FOR_EACH_XNU_CODE(iter) \

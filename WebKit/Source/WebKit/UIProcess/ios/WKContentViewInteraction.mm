@@ -6247,7 +6247,7 @@ static NSArray<WKTextSelectionRect *> *textSelectionRects(const Vector<WebCore::
     // to achieve the visual effect that the caret is narrow when zoomed in and wide
     // when zoomed out.
     double inverseScale = [self inverseScale];
-    if (bool isHorizontalCaret = caretRect.width() < caretRect.height())
+    if (caretRect.width() < caretRect.height())
         caretRect.setWidth(caretRect.width() * inverseScale);
     else
         caretRect.setHeight(caretRect.height() * inverseScale);
@@ -6260,7 +6260,7 @@ static NSArray<WKTextSelectionRect *> *textSelectionRects(const Vector<WebCore::
     // to achieve the visual effect that the caret is narrow when zoomed in and wide
     // when zoomed out.
     double inverseScale = [self inverseScale];
-    if (bool isHorizontalCaret = caretRect.width() < caretRect.height()) {
+    if (caretRect.width() < caretRect.height()) {
         float originalWidth = caretRect.width();
         caretRect.setWidth(originalWidth * inverseScale);
         caretRect.move(caretRect.width() - originalWidth, 0);
@@ -8572,7 +8572,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     _focusedFormControlView = adoptNS([[WKFocusedFormControlView alloc] initWithFrame:self.webView.bounds delegate:self]);
     [_focusedFormControlView hide:NO];
     [_webView addSubview:_focusedFormControlView.get()];
-    [self setInputDelegate:_focusedFormControlView.get()];
+    [self setInputDelegate:static_cast<id<UITextInputDelegate>>(_focusedFormControlView.get())];
 }
 
 - (void)removeFocusedFormControlOverlay

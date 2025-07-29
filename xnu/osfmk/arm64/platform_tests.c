@@ -60,6 +60,8 @@
 #include <vm/vm_map_xnu.h>
 #include <vm/vm_page_internal.h>
 #include <vm/vm_kern_xnu.h>
+#include <mach/vm_map.h>
+#include <kern/backtrace.h>
 #include <kern/kalloc.h>
 #include <kern/cpu_number.h>
 #include <kern/locks.h>
@@ -92,6 +94,7 @@
 
 #include <arm64/machine_machdep.h>
 
+kern_return_t arm64_backtrace_test(void);
 kern_return_t arm64_lock_test(void);
 kern_return_t arm64_munger_test(void);
 kern_return_t arm64_pan_test(void);
@@ -2446,5 +2449,47 @@ arm64_speculation_guard_test(void)
 		/* n_cc */ "LS", /* sel_2 */ cookie2_64);
 	T_EXPECT_EQ_ULLONG(result32, cookie1_32, "32, 64 select guard works (2)");
 
+	return KERN_SUCCESS;
+}
+
+extern void arm64_brk_lr_gpr(void);
+extern void arm64_brk_lr_fault(void);
+
+static NOKASAN bool
+arm64_backtrace_test_fault_handler(arm_saved_state_t * state)
+{
+	/* Similar setup to backtrace_kernel_sysctl() */
+	const unsigned int bt_len = 24;
+	const size_t bt_size = sizeof(uint8_t) * bt_len;
+	uint8_t *bt = kalloc_data(bt_size, Z_WAITOK | Z_ZERO);
+	backtrace_info_t packed_info = BTI_NONE;
+
+	/* Call the backtrace function */
+	backtrace_packed(BTP_KERN_OFFSET_32, bt, bt_size, NULL, &packed_info);
+
+	add_saved_state_pc(state, 4);
+	return true;
+}
+
+/**
+ * Make sure EL1 fleh doesn't push a bogus stack frame when LR is being used as
+ * a GPR in the caller.
+ *
+ * This test writes a GPR-like value into LR that is >4GB away from any kernel
+ * address and tries to run backtrace_packed() from a sync handler.
+ * backtrace_packed() has an invariant that all addresses in the stack frame are
+ * within 4GB of the kernel text.
+ */
+kern_return_t
+arm64_backtrace_test(void)
+{
+	ml_expect_fault_pc_begin(arm64_backtrace_test_fault_handler, (uintptr_t)&arm64_brk_lr_fault);
+	arm64_brk_lr_gpr();
+	ml_expect_fault_end();
+
+#if CONFIG_SPTM && (DEVELOPMENT || DEBUG)
+	/* Reset the debug data so it can be filled later if needed */
+	debug_panic_lockdown_initiator_state.initiator_pc = 0;
+#endif /* CONFIG_SPTM && (DEVELOPMENT || DEBUG) */
 	return KERN_SUCCESS;
 }

@@ -483,15 +483,16 @@ void WebExtensionContext::tabsSendMessage(WebExtensionTabIdentifier tabIdentifie
         return;
     }
 
-    ASSERT(processes.size() == 1);
-    RefPtr process = processes.takeAny();
+    Ref callbackAggregator = EagerCallbackAggregator<void(Expected<String, WebExtensionError>)>::create(WTFMove(completionHandler), { });
 
-    auto targetParametersCopy = targetParameters;
-    targetParametersCopy.pageProxyIdentifier = webView._protectedPage->identifier();
+    for (Ref process : processes) {
+        process->sendWithAsyncReply(Messages::WebExtensionContextProxy::DispatchRuntimeMessageEvent(targetContentWorldType, messageJSON, targetParameters, senderParameters), [callbackAggregator](String&& replyJSON) {
+            if (replyJSON.isNull())
+                return;
 
-    process->sendWithAsyncReply(Messages::WebExtensionContextProxy::DispatchRuntimeMessageEvent(targetContentWorldType, messageJSON, targetParametersCopy, senderParameters), [protectedThis = Ref { *this }, completionHandler = WTFMove(completionHandler)](String&& replyJSON) mutable {
-        completionHandler(WTFMove(replyJSON));
-    }, identifier());
+            callbackAggregator.get()(WTFMove(replyJSON));
+        }, identifier());
+    }
 }
 
 void WebExtensionContext::tabsConnect(WebExtensionTabIdentifier tabIdentifier, WebExtensionPortChannelIdentifier channelIdentifier, String name, const WebExtensionMessageTargetParameters& targetParameters, const WebExtensionMessageSenderParameters& senderParameters, CompletionHandler<void(Expected<void, WebExtensionError>&&)>&& completionHandler)
@@ -516,21 +517,26 @@ void WebExtensionContext::tabsConnect(WebExtensionTabIdentifier tabIdentifier, W
         return;
     }
 
-    ASSERT(processes.size() == 1);
-    RefPtr process = processes.takeAny();
+    size_t handledCount = 0;
+    size_t totalExpected = processes.size();
 
-    process->sendWithAsyncReply(Messages::WebExtensionContextProxy::DispatchRuntimeConnectEvent(targetContentWorldType, channelIdentifier, name, targetParameters, senderParameters), [=, this, protectedThis = Ref { *this }](HashCountedSet<WebPageProxyIdentifier>&& addedPortCounts) mutable {
-        // Flip target and source worlds since we're adding the opposite side of the port connection, sending from target back to source.
-        addPorts(targetContentWorldType, sourceContentWorldType, channelIdentifier, WTFMove(addedPortCounts));
+    for (Ref process : processes) {
+        process->sendWithAsyncReply(Messages::WebExtensionContextProxy::DispatchRuntimeConnectEvent(targetContentWorldType, channelIdentifier, name, targetParameters, senderParameters), [=, this, protectedThis = Ref { *this }, &handledCount](HashCountedSet<WebPageProxyIdentifier>&& addedPortCounts) mutable {
+            // Flip target and source worlds since we're adding the opposite side of the port connection, sending from target back to source.
+            addPorts(targetContentWorldType, sourceContentWorldType, channelIdentifier, WTFMove(addedPortCounts));
 
-        fireQueuedPortMessageEventsIfNeeded(targetContentWorldType, channelIdentifier);
-        fireQueuedPortMessageEventsIfNeeded(sourceContentWorldType, channelIdentifier);
+            fireQueuedPortMessageEventsIfNeeded(targetContentWorldType, channelIdentifier);
+            fireQueuedPortMessageEventsIfNeeded(sourceContentWorldType, channelIdentifier);
 
-        firePortDisconnectEventIfNeeded(sourceContentWorldType, targetContentWorldType, channelIdentifier);
+            firePortDisconnectEventIfNeeded(sourceContentWorldType, targetContentWorldType, channelIdentifier);
 
-        clearQueuedPortMessages(targetContentWorldType, channelIdentifier);
-        clearQueuedPortMessages(sourceContentWorldType, channelIdentifier);
-    }, identifier());
+            if (++handledCount < totalExpected)
+                return;
+
+            clearQueuedPortMessages(targetContentWorldType, channelIdentifier);
+            clearQueuedPortMessages(sourceContentWorldType, channelIdentifier);
+        }, identifier());
+    }
 
     completionHandler({ });
 }

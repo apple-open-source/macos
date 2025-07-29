@@ -614,7 +614,7 @@ handle_kernel_breakpoint(
 	if (out_comment) {
 		*out_comment = comment;
 	}
-	desc = find_brk_descriptor_by_comment(comment);
+	desc = find_kernel_brk_descriptor_by_comment(comment);
 
 	if (!desc) {
 		return false;

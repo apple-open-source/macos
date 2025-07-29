@@ -871,6 +871,7 @@ typedef struct {
 #define VM_KERN_MEMORY_KALLOC_SHARED    37
 /* add new tags here and adjust first-dynamic value */
 #define VM_KERN_MEMORY_FIRST_DYNAMIC    38
+#define VM_KERN_MEMORY_CPUTRACE         39
 
 /* out of tags: */
 #define VM_KERN_MEMORY_ANY              255

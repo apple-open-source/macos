@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 70;
+	objectVersion = 71;
 	objects = {
 
 /* Begin PBXAggregateTarget section */
@@ -2081,15 +2081,6 @@
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 		};
-		8A4FBFFD2CEF208300EE71AD /* CopyFiles */ = {
-			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 8;
-			dstPath = usr/local/share/man/man1;
-			dstSubfolderSpec = 16;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 1;
-		};
 		8AC687F62C7E81280053C3B9 /* Install posix spawn filtering rules for MTE enablement */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 2147483647;
@@ -2609,6 +2600,7 @@
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		8A4FC0012CEF208400EE71AD /* get-network-info */ = {isa = PBXFileSystemSynchronizedRootGroup; explicitFileTypes = {}; explicitFolders = (); path = "get-network-info"; sourceTree = "<group>"; };
+		8A5611B62DB95E770098E724 /* xcconfig */ = {isa = PBXFileSystemSynchronizedRootGroup; explicitFileTypes = {}; explicitFolders = (); path = xcconfig; sourceTree = "<group>"; };
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -3530,6 +3522,7 @@
 		15CB68FC05C072220099E85F /* configd */ = {
 			isa = PBXGroup;
 			children = (
+				8A5611B62DB95E770098E724 /* xcconfig */,
 				F9121F842805FDDD00D05246 /* common */,
 				1513C3541F1849920022398F /* Build Support */,
 				15CB6A8605C072500099E85F /* MiG */,
@@ -5808,7 +5801,7 @@
 			buildPhases = (
 				8A4FBFFB2CEF208300EE71AD /* Sources */,
 				8A4FBFFC2CEF208300EE71AD /* Frameworks */,
-				8A4FBFFD2CEF208300EE71AD /* CopyFiles */,
+				8AC35CC22DC1396A00BEB76E /* Install copy for darwinOS variants */,
 			);
 			buildRules = (
 			);
@@ -5816,6 +5809,7 @@
 			);
 			fileSystemSynchronizedGroups = (
 				8A4FC0012CEF208400EE71AD /* get-network-info */,
+				8A5611B62DB95E770098E724 /* xcconfig */,
 			);
 			name = "get-network-info";
 			packageProductDependencies = (
@@ -6553,6 +6547,25 @@
 			runOnlyForDeploymentPostprocessing = 1;
 			shellPath = /bin/sh;
 			shellScript = "if [ ${UID} -eq 0 ]; then\n\tchown 0:0 \"${DSTROOT}/AppleInternal/CoreOS/BATS/npt_tests/npt_configd.plist\"\nfi\n\nexit 0\n";
+		};
+		8AC35CC22DC1396A00BEB76E /* Install copy for darwinOS variants */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 8;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Install copy for darwinOS variants";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = /bin/sh;
+			shellScript = "# this script copies the built get-network-info binary to a place that's installed in darwinOS variants of macOS and iOS\n\nif [ ${RC_MACOS} ]; then\nCOPY_DEST_PATH=\"/AppleInternal/DarwinDebug/System/Library/Frameworks/SystemConfiguration.framework/Versions/A/Resources/\"\nelse\nCOPY_DEST_PATH=\"/AppleInternal/DarwinDebug/System/Library/Frameworks/SystemConfiguration.framework/\"\nfi\n\nmkdir -p \"${DSTROOT}${COPY_DEST_PATH}\"\ncp -f \"${DSTROOT}${INSTALL_PATH}/${PRODUCT_NAME}\" \"${DSTROOT}${COPY_DEST_PATH}\"\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -10634,6 +10647,8 @@
 		};
 		8A4FC0082CEF208400EE71AD /* Debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReferenceAnchor = 8A5611B62DB95E770098E724 /* xcconfig */;
+			baseConfigurationReferenceRelativePath = "get-network-info.xcconfig";
 			buildSettings = {
 				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
 				CLANG_ANALYZER_NONNULL = YES;
@@ -10655,9 +10670,6 @@
 				);
 				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
-				INSTALL_PATH = /System/Library/Frameworks/SystemConfiguration.framework;
-				"INSTALL_PATH[sdk=macosx*]" = /System/Library/Frameworks/SystemConfiguration.framework/Versions/A/Resources;
-				"INSTALL_PATH[sdk=watchos*]" = /System/Library/PrivateFrameworks/SystemConfiguration.framework;
 				IPHONEOS_DEPLOYMENT_TARGET = 19.0;
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
@@ -10667,6 +10679,7 @@
 				STRIP_INSTALLED_PRODUCT = NO;
 				SUPPORTED_PLATFORMS = "iphonesimulator iphoneos";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 6.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
@@ -10674,6 +10687,8 @@
 		};
 		8A4FC0092CEF208400EE71AD /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReferenceAnchor = 8A5611B62DB95E770098E724 /* xcconfig */;
+			baseConfigurationReferenceRelativePath = "get-network-info.xcconfig";
 			buildSettings = {
 				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
 				CLANG_ANALYZER_NONNULL = YES;
@@ -10691,9 +10706,6 @@
 				GCC_C_LANGUAGE_STANDARD = gnu17;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
-				INSTALL_PATH = /System/Library/Frameworks/SystemConfiguration.framework;
-				"INSTALL_PATH[sdk=macosx*]" = /System/Library/Frameworks/SystemConfiguration.framework/Versions/A/Resources;
-				"INSTALL_PATH[sdk=watchos*]" = /System/Library/PrivateFrameworks/SystemConfiguration.framework;
 				IPHONEOS_DEPLOYMENT_TARGET = 19.0;
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
 				MTL_ENABLE_DEBUG_INFO = NO;
@@ -10701,6 +10713,7 @@
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos.internal;
 				SUPPORTED_PLATFORMS = "iphonesimulator iphoneos";
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 6.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 				VALIDATE_PRODUCT = YES;

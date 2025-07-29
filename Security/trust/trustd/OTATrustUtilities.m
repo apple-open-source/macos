@@ -2401,12 +2401,19 @@ CFDictionaryRef SecOTAPKICopyEVPolicyToAnchorMapping(SecOTAPKIRef otapkiRef) {
     return CFRetainSafe(otapkiRef->_evPolicyToAnchorMapping);
 }
 
-CFDictionaryRef SecOTAPKICopyConstrainedAnchorLookupTable(SecOTAPKIRef otapkiRef) {
-    if (NULL == otapkiRef) {
+CFDictionaryRef SecOTAPKICopyConstrainedAnchorLookupTable() {
+    if (!kOTAQueue) {
         return NULL;
     }
 
-    return CFRetainSafe(otapkiRef->_constrainedAnchorLookupTable);
+    __block CFDictionaryRef result = NULL;
+    dispatch_sync(kOTAQueue, ^{
+        if (kCurrentOTAPKIRef) {
+            result = CFRetainSafe(kCurrentOTAPKIRef->_constrainedAnchorLookupTable);
+        }
+    });
+
+    return result;
 }
 
 CFDataRef SecOTAPKICopyConstrainedAnchorData(SecOTAPKIRef otapkiRef, CFStringRef anchorHash) {
@@ -2894,5 +2901,22 @@ static CFDataRef SecTrustStoreAssetMetadataCopyResourceContents(SecOTAPKIRef ota
             result = CFBridgingRetain(fileData);
         }
     }
+    return result;
+}
+
+/* MARK: Unit test setters */
+bool SecOTAPKISetConstrainedAnchorLookupTable(CFDictionaryRef table) {
+    if (!kOTAQueue) {
+        return NULL;
+    }
+
+    __block bool result = false;
+    dispatch_sync(kOTAQueue, ^{
+        if (kCurrentOTAPKIRef) {
+            CFReleaseSafe(kCurrentOTAPKIRef->_constrainedAnchorLookupTable);
+            kCurrentOTAPKIRef->_constrainedAnchorLookupTable = CFRetainSafe(table);
+            result = true;
+        }
+    });
     return result;
 }

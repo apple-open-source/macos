@@ -65,6 +65,7 @@
 #include <utilities/SecCFWrappers.h>
 #include <utilities/SecCoreAnalytics.h>
 #include <utilities/SecDb.h>
+#include <utilities/SecDbStats.h>
 #include <utilities/SecFileLocations.h>
 #include <utilities/SecIOFormat.h>
 #include <utilities/SecPLWrappers.h>
@@ -1816,6 +1817,11 @@ int main(int argc, char *argv[])
 
     /* setup SQDLite before some other component have a chance to create a database connection */
     _SecDbServerSetup();
+
+#if !defined(SECURITYD_SYSTEM) || !SECURITYD_SYSTEM
+    // tell the DB layer we want signpost logging for this daemon
+    _SecDbStatsEnableWaitSignposts(true);
+#endif
 
     securityd_init_server();
 

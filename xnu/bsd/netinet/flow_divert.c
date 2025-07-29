@@ -3415,6 +3415,8 @@ flow_divert_detach(struct socket *so)
 	sbflush(&so->so_snd);
 	sbflush(&so->so_rcv);
 
+	flow_divert_disconnect_socket(so, !(fd_cb->flags & FLOW_DIVERT_IMPLICIT_CONNECT), false);
+
 	if (!fd_cb->plugin_locked) {
 		socket_unlock(so, 0);
 		FDLOCK(fd_cb);

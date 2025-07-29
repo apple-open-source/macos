@@ -136,6 +136,7 @@ static void __DADiskSendTerminationEvent( DADiskRef disk )
     DAFileSystemRef filesystem = DADiskGetFileSystem( disk );
     CFStringRef fsImplementation;
     bool diskIsUnrepairable, diskIsMounted, diskIsProbing;
+    CFStringRef kind = NULL;
     
     if ( filesystem && DAFileSystemIsFSModule( filesystem ) )
     {
@@ -156,7 +157,12 @@ static void __DADiskSendTerminationEvent( DADiskRef disk )
     diskIsProbing = DADiskGetState( disk , kDADiskStateStagedProbe )
         && DADiskGetState( disk , kDADiskStateCommandActive );
     
-    DATelemetrySendTerminationEvent( ( filesystem ) ? DAFileSystemGetKind( filesystem ) : NULL ,
+    if ( filesystem != NULL )
+    {
+        kind = DAGetFSTypeWithUUID( filesystem , DADiskGetDescription( disk, kDADiskDescriptionVolumeUUIDKey ) );
+    }
+    
+    DATelemetrySendTerminationEvent( kind ,
                                     fsImplementation ,
                                     diskIsMounted ,
                                     DADiskGetState( disk , kDADiskStateStagedAppear ) ,
@@ -627,8 +633,10 @@ static void __DAUnlockNotificationCallback( CFNotificationCenterRef center, void
              */
             if ( DADiskGetState( disk , kDADiskStateRequireReprobe ) == TRUE )
             {
-                DADiskSetState( disk, kDADiskStateRequireReprobe, FALSE );
-                DAStageDeferredProbe( disk );
+                dispatch_async( DAServerWorkLoop() , ^{
+                    DADiskSetState( disk, kDADiskStateStagedMount , FALSE ); // stage the mount again
+                    DADiskProbe( disk , NULL ); // dispatch on DAServer work queue
+                });
             }
             
         }

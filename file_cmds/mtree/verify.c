@@ -67,12 +67,16 @@ mtree_verifyspec(FILE *fi)
 	mval = miss(root, path, path_length);
 	
 	if (rval != 0) {
-		(void)printf("rval returned a non-zero rval: %d\n", rval);
+		if (vflag) {
+			warnx("rval returned a non-zero rval: %d\n", rval);
+		}
 		RECORD_FAILURE(60, WARN_MISMATCH);
 		return rval;
 	} else {
 		if (mval != 0) {
-			(void)printf("mval returned a non-zero mval: %d\n", mval);
+			if (vflag) {
+				warnx("mval returned a non-zero mval: %d\n", mval);
+			}
 			RECORD_FAILURE(61, WARN_MISMATCH);
 		}
 		return mval;
@@ -139,7 +143,9 @@ vwalk(void)
 				int r1 = (ep->flags & F_NOCHANGE);
 				int r2 = compare(ep->name, ep, p);
 				if ((r1 == 0) && r2) {
-					(void)printf("vwalk failed: r1: %d and r2: %d\n", r1, r2);
+					if (vflag) {
+						warnx("vwalk failed: r1: %d and r2: %d\n", r1, r2);
+					}
 					RECORD_FAILURE(64, WARN_MISMATCH);
 					rval = MISMATCHEXIT;
 				}
@@ -306,7 +312,9 @@ miss(NODE *p, char *tail, size_t path_length)
 		++path_length;
 		rrval = miss(p->child, tp + 1, path_length);
 		if (rrval != 0) {
-			(void)printf("miss returned non-zero rrval: %d\n", rrval);
+			if (vflag) {
+				warnx("miss returned non-zero rrval: %d\n", rrval);
+			}
 			RECORD_FAILURE(72, WARN_MISMATCH);
 			rval = rrval;
 		}

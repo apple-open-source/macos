@@ -434,6 +434,8 @@ uaddr_findobj(user_addr_t uaddr, uint64_t *objectp, uint64_t *offsetp)
 	kern_return_t ret;
 	vm_page_info_basic_data_t info;
 	mach_msg_type_number_t count = VM_PAGE_INFO_BASIC_COUNT;
+
+
 	ret = vm_map_page_info(current_map(), uaddr, VM_PAGE_INFO_BASIC, (vm_page_info_t)&info, &count);
 	if (ret != KERN_SUCCESS) {
 		return EINVAL;

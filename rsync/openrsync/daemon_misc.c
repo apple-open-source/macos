@@ -184,35 +184,36 @@ daemon_apply_xferlog(struct sess *sess, const char *module, struct opts *opts)
 	}
 
 	if (!logging) {
-		opts->outformat = NULL;
-	} else if (opts->outformat == NULL) {
+		free(opts->logformat);
+		opts->logformat = NULL;
+	} else if (opts->logformat == NULL) {
 		const char *cfgformat;
 		int rc;
 
 		rc = cfg_param_str(role->dcfg, module, "log format", &cfgformat);
 		assert(rc == 0);
 
-		opts->outformat = strdup(cfgformat);
-		if (opts->outformat == NULL) {
+		opts->logformat = strdup(cfgformat);
+		if (opts->logformat == NULL) {
 			daemon_client_error(sess, "%s: out of memory", module);
 			return 0;
 		}
 	}
 
-	if (role->using_logfile && opts->outformat != NULL) {
+	if (role->using_logfile && opts->logformat != NULL) {
 		char *newformat;
 
 		if (asprintf(&newformat, "%s %s", RSYNCD_LOG_FILE_PREFIX,
-		    opts->outformat) == -1) {
+		    opts->logformat) == -1) {
 			daemon_client_error(sess, "%s: out of memory", module);
 			return 0;
 		}
 
-		free((void *)opts->outformat);
-		opts->outformat = newformat;
+		free((void *)opts->logformat);
+		opts->logformat = newformat;
 	}
 
-	if (opts->outformat != NULL) {
+	if (opts->logformat != NULL) {
 		log_format_init(sess);
 
 		sess->role->role_fetch_outfmt = daemon_fetch_outfmt;
@@ -342,9 +343,9 @@ daemon_client_error(struct sess *sess, const char *fmt, ...)
 	if ((msgsz = vasprintf(&msg, fmt, ap)) != -1) {
 		switch (role->dstate) {
 		case DSTATE_INIT:
-			if (!io_write_buf(sess, role->client, "@ERROR ",
+			if (!io_write_buf(sess, role->role.client, "@ERROR ",
 			    sizeof("@ERROR ") - 1) ||
-			    !io_write_line(sess, role->client, msg)) {
+			    !io_write_line(sess, role->role.client, msg)) {
 				ERR("io_write");
 			}
 
@@ -363,11 +364,11 @@ daemon_client_error(struct sess *sess, const char *fmt, ...)
 
 			/* FALLTHROUGH */
 		case DSTATE_RUNNING:
-			if (!io_write_buf_tagged(sess, role->client, msg,
+			if (!io_write_buf_tagged(sess, role->role.client, msg,
 			    msgsz, IT_ERROR_XFER)) {
 				ERR("io_write");
-			} else if(!io_write_buf_tagged(sess, role->client, "\n",
-			    1, IT_ERROR_XFER)) {
+			} else if(!io_write_buf_tagged(sess, role->role.client,
+			    "\n", 1, IT_ERROR_XFER)) {
 				ERR("io_write");
 			}
 
@@ -1326,18 +1327,18 @@ daemon_open_logfile(struct sess *sess, const char *logfile, bool printerr)
 		 * Logging infrastructure will take the FILE and close it if we
 		 * switch away later.
 		 */
-		rsync_set_logfile(fp, NULL);
+		rsync_set_logfile(fp, sess);
 	} else {
 #ifdef __APPLE__
 		if (!role->socket_initiator) {
 			fprintf(stderr,
 			    "The syslog(3) facility is not currently available in the standalone rsyncd.\n"
 			    "Falling back to logging to stdout.\n");
-			rsync_set_logfile(stdout, NULL);
+			rsync_set_logfile(stdout, sess);
 			return 1;
 		}
 #endif
-		rsync_set_logfile(NULL, NULL);
+		rsync_set_logfile(NULL, sess);
 	}
 
 	return 1;

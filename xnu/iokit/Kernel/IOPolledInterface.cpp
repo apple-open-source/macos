@@ -789,7 +789,7 @@ IOPolledFileClose(IOPolledFileIOVars ** pVars,
 
 	if (vars->fileRef) {
 		kern_close_file_for_direct_io(vars->fileRef, write_offset, addr, write_length,
-		    discard_offset, discard_end, unlink);
+		    discard_offset, discard_end, vars->fileSizeMin, unlink);
 		vars->fileRef = NULL;
 	}
 	if (vars->fileExtents) {

@@ -69,12 +69,6 @@ static WebCore::IntRect screenRectOfContents(WebCore::Element* element)
     if (!element)
         return { };
 
-    if (element->renderer() && element->renderer()->hasLayer() && element->renderer()->enclosingLayer()->isComposited()) {
-        WebCore::FloatQuad contentsBox = static_cast<WebCore::FloatRect>(element->renderer()->enclosingLayer()->backing()->compositedBounds());
-        contentsBox = element->renderer()->localToAbsoluteQuad(contentsBox);
-        return element->renderer()->view().frameView().contentsToScreen(contentsBox.enclosingBoundingBox());
-    }
-
     return element->screenRect();
 }
 
@@ -271,8 +265,14 @@ void WebFullScreenManager::enterFullScreenForElement(WebCore::Element& element, 
     if (CheckedPtr renderImage = dynamicDowncast<RenderImage>(element.renderer()))
         mediaDetails = getImageMediaDetails(renderImage, IsUpdating::No);
 
-    if (m_willUseQuickLookForFullscreen)
+    if (m_willUseQuickLookForFullscreen) {
         m_page->freezeLayerTree(WebPage::LayerTreeFreezeReason::OutOfProcessFullscreen);
+        static constexpr auto maxViewportSize = FloatSize { 10000, 10000 };
+        m_oldSize = m_page->viewportConfiguration().viewLayoutSize();
+        m_scaleFactor = m_page->viewportConfiguration().layoutSizeScaleFactor();
+        m_minEffectiveWidth = m_page->viewportConfiguration().minimumEffectiveDeviceWidth();
+        m_page->setViewportConfigurationViewLayoutSize(maxViewportSize, m_scaleFactor, m_minEffectiveWidth);
+    }
 #endif
 
     m_initialFrame = screenRectOfContents(m_element.get());
@@ -318,6 +318,9 @@ void WebFullScreenManager::enterFullScreenForElement(WebCore::Element& element, 
 #if ENABLE(QUICKLOOK_FULLSCREEN)
 void WebFullScreenManager::updateImageSource(WebCore::Element& element)
 {
+    if (&element != m_element)
+        return;
+
     FullScreenMediaDetails mediaDetails;
     CheckedPtr renderImage = dynamicDowncast<RenderImage>(element.renderer());
     if (renderImage && m_willUseQuickLookForFullscreen) {
@@ -385,16 +388,6 @@ void WebFullScreenManager::didEnterFullScreen()
         close();
         return;
     }
-
-#if ENABLE(QUICKLOOK_FULLSCREEN)
-    static constexpr auto maxViewportSize = FloatSize { 10000, 10000 };
-    if (m_willUseQuickLookForFullscreen) {
-        m_oldSize = m_page->viewportConfiguration().viewLayoutSize();
-        m_scaleFactor = m_page->viewportConfiguration().layoutSizeScaleFactor();
-        m_minEffectiveWidth = m_page->viewportConfiguration().minimumEffectiveDeviceWidth();
-        m_page->setViewportConfigurationViewLayoutSize(maxViewportSize, m_scaleFactor, m_minEffectiveWidth);
-    }
-#endif
 
 #if PLATFORM(IOS_FAMILY) || (PLATFORM(MAC) && ENABLE(VIDEO_PRESENTATION_MODE))
     auto* currentPlaybackControlsElement = m_page->playbackSessionManager().currentPlaybackControlsElement();

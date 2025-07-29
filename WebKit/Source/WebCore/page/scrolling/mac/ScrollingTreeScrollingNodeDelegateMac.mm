@@ -318,19 +318,8 @@ void ScrollingTreeScrollingNodeDelegateMac::rubberBandingStateChanged(bool inRub
 
 void ScrollingTreeScrollingNodeDelegateMac::updateScrollbarPainters()
 {
-    if (m_inMomentumPhase && m_scrollerPair->hasScrollerImp() && m_scrollerPair->isUsingPresentationValues()) {
-        BEGIN_BLOCK_OBJC_EXCEPTIONS
-        [CATransaction lock];
-
-        auto horizontalValues = m_scrollerPair->valuesForOrientation(ScrollbarOrientation::Horizontal);
-        m_scrollerPair->setHorizontalScrollbarPresentationValue(horizontalValues.value);
-
-        auto verticalValues = m_scrollerPair->valuesForOrientation(ScrollbarOrientation::Vertical);
-        m_scrollerPair->setVerticalScrollbarPresentationValue(verticalValues.value);
-
-        [CATransaction unlock];
-        END_BLOCK_OBJC_EXCEPTIONS
-    }
+    if (m_inMomentumPhase && m_scrollerPair->hasScrollerImp() && m_scrollerPair->isUsingPresentationValues())
+        m_scrollerPair->updateScrollbarPainters();
 }
 
 void ScrollingTreeScrollingNodeDelegateMac::initScrollbars()

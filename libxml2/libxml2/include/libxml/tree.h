@@ -446,6 +446,19 @@ struct _xmlAttr {
     void            *psvi;	/* for type/PSVI information */
 };
 
+#if defined(__IPHONE_OS_VERSION_MIN_REQUIRED) && __IPHONE_OS_VERSION_MIN_REQUIRED >= 170000 \
+    || defined(__MAC_OS_X_VERSION_MIN_REQUIRED) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 140000 \
+    || defined(__TV_OS_VERSION_MIN_REQUIRED) && __TV_OS_VERSION_MIN_REQUIRED >= 170000 \
+    || defined(__WATCH_OS_VERSION_MIN_REQUIRED) && __WATCH_OS_VERSION_MIN_REQUIRED >= 100000
+#define XML_ATTR_CLEAR_ATYPE(attr) (((attr)->atype) = 0)
+#define XML_ATTR_GET_ATYPE(attr) (((attr)->atype) & ~(15U << 27))
+#define XML_ATTR_SET_ATYPE(attr, type) ((attr)->atype = ((((attr)->atype) & (15U << 27)) | ((type) & ~(15U << 27))))
+#else
+#define XML_ATTR_CLEAR_ATYPE(attr) (((attr)->atype) = 0)
+#define XML_ATTR_GET_ATYPE(attr) ((attr)->atype)
+#define XML_ATTR_SET_ATYPE(attr, type) ((attr)->atype = (type))
+#endif
+
 /**
  * xmlID:
  *
@@ -506,6 +519,21 @@ struct _xmlNode {
     unsigned short   line;	/* line number */
     unsigned short   extra;	/* extra data for XPath/XSLT */
 };
+
+#if defined(__IPHONE_OS_VERSION_MIN_REQUIRED) && __IPHONE_OS_VERSION_MIN_REQUIRED >= 170000 \
+    || defined(__MAC_OS_X_VERSION_MIN_REQUIRED) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 140000 \
+    || defined(__TV_OS_VERSION_MIN_REQUIRED) && __TV_OS_VERSION_MIN_REQUIRED >= 170000 \
+    || defined(__WATCH_OS_VERSION_MIN_REQUIRED) && __WATCH_OS_VERSION_MIN_REQUIRED >= 100000
+#define XML_NODE_ADD_EXTRA(node, type) ((node)->extra |= ((type) & ~(15U << 12)))
+#define XML_NODE_CLEAR_EXTRA(node) (((node)->extra) = 0)
+#define XML_NODE_GET_EXTRA(node) (((node)->extra) & ~(15U << 12))
+#define XML_NODE_SET_EXTRA(node, type) ((node)->extra = ((((node)->extra) & (15U << 12)) | ((type) & ~(15U << 12))))
+#else
+#define XML_NODE_ADD_EXTRA(node, type) ((node)->extra |= (type))
+#define XML_NODE_CLEAR_EXTRA(node) (((node)->extra) = 0)
+#define XML_NODE_GET_EXTRA(node) ((node)->extra)
+#define XML_NODE_SET_EXTRA(node, type) ((node)->extra = (type))
+#endif
 
 /**
  * XML_GET_CONTENT:
@@ -585,6 +613,20 @@ struct _xmlDoc {
 				   set at the end of parsing */
 };
 
+#if defined(__IPHONE_OS_VERSION_MIN_REQUIRED) && __IPHONE_OS_VERSION_MIN_REQUIRED >= 170000 \
+    || defined(__MAC_OS_X_VERSION_MIN_REQUIRED) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 140000 \
+    || defined(__TV_OS_VERSION_MIN_REQUIRED) && __TV_OS_VERSION_MIN_REQUIRED >= 170000 \
+    || defined(__WATCH_OS_VERSION_MIN_REQUIRED) && __WATCH_OS_VERSION_MIN_REQUIRED >= 100000
+#define XML_DOC_ADD_PROPERTIES(doc, type) ((doc)->properties |= ((type) & ~(15U << 27)))
+#define XML_DOC_CLEAR_PROPERTIES(doc) (((doc)->properties) = 0)
+#define XML_DOC_GET_PROPERTIES(doc) (((doc)->properties) & ~(15U << 27))
+#define XML_DOC_SET_PROPERTIES(doc, type) ((doc)->properties = ((((doc)->properties) & (15U << 27)) | ((type) & ~(15U << 27))))
+#else
+#define XML_DOC_ADD_PROPERTIES(doc, type) ((doc)->properties |= (type))
+#define XML_DOC_CLEAR_PROPERTIES(doc) (((doc)->properties) = 0)
+#define XML_DOC_GET_PROPERTIES(doc) ((doc)->properties)
+#define XML_DOC_SET_PROPERTIES(doc, type) ((doc)->properties = (type))
+#endif
 
 typedef struct _xmlDOMWrapCtxt xmlDOMWrapCtxt;
 typedef xmlDOMWrapCtxt *xmlDOMWrapCtxtPtr;

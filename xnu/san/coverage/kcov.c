@@ -60,7 +60,7 @@ SYSCTL_NODE(_kern, OID_AUTO, kcov, CTLFLAG_RW | CTLFLAG_LOCKED, 0, "kcov");
  *
  * A compiler will add hooks almost in any basic block in the kernel. However it is
  * not safe to call hook from some of the contexts. To make this safe it would require
- * precise blacklist of all unsafe sources. Which results in high maintenance costs.
+ * precise denylist of all unsafe sources. Which results in high maintenance costs.
  *
  * To avoid this we bootsrap the coverage sanitizer in phases:
  *
@@ -77,7 +77,7 @@ SYSCTL_NODE(_kern, OID_AUTO, kcov, CTLFLAG_RW | CTLFLAG_LOCKED, 0, "kcov");
  *      configured the boostrap originator enables its converage sanitizer by writing
  *      secondary's per-cpu data.
  *
- *      To make this step safe, it is required to maintain blacklist that contains CPU
+ *      To make this step safe, it is required to maintain denylist that contains CPU
  *      bootstrap code to avoid firing hook from unsupported context.
  *
  *   ... From this point all CPUs can execute the hook correctly.
@@ -174,7 +174,7 @@ kcov_init_thread(kcov_thread_data_t *data)
  * contexts (for example per-cpu data access).
  *
  * Do not call anything unnecessary before ksancov_disable() as that will cause
- * recursion. Update blacklist after any such change.
+ * recursion. Update denylist after any such change.
  *
  * Every complex code here may have impact on the overall performance. This function
  * is called for every edge in the kernel and that means multiple times through a

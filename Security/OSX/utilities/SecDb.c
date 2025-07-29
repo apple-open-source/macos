@@ -36,6 +36,7 @@
 #include "SecCFWrappers.h"
 #include "SecCFError.h"
 #include "SecIOFormat.h"
+#include "SecDbStats.h"
 #include <stdio.h>
 #include "Security/SecBase.h"
 #include "SecAutorelease.h"
@@ -1156,7 +1157,32 @@ SecDbConnectionRef SecDbConnectionAcquire(SecDbRef db, bool readOnly, CFErrorRef
     return dbconn;
 }
 
+static void SecDbConnectionConsumeResourceWithSignposts(SecDbRef db, bool readOnly) {
+    if (readOnly) {
+        if (dispatch_semaphore_wait(db->readSemaphore, DISPATCH_TIME_NOW) != 0) {
+            StatCtx ctx = SecDbStatStart(readOnly);
+            dispatch_semaphore_wait(db->readSemaphore, DISPATCH_TIME_FOREVER);
+            SecDbStatEnd(ctx);
+        } else {
+            SecDbStatImpulse(readOnly);
+        }
+    } else {
+        if (pthread_mutex_trylock(&(db->writeMutex)) != 0) {
+            StatCtx ctx = SecDbStatStart(readOnly);
+            pthread_mutex_lock(&(db->writeMutex));
+            SecDbStatEnd(ctx);
+        } else {
+            SecDbStatImpulse(readOnly);
+        }
+    }
+}
+
 static void SecDbConnectionConsumeResource(SecDbRef db, bool readOnly) {
+    if (_SecDbStatsWaitSignpostsEnabled()) {
+        SecDbConnectionConsumeResourceWithSignposts(db, readOnly);
+        return;
+    }
+
     if (readOnly) {
         dispatch_semaphore_wait(db->readSemaphore, DISPATCH_TIME_FOREVER);
     } else {

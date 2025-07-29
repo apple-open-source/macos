@@ -220,10 +220,10 @@ copy_validate_kernel_addr(uintptr_t kernel_addr, vm_size_t nbytes)
 		    (void *)kernel_addr, nbytes);
 	}
 
-	bool in_kva = (VM_KERNEL_STRIP_UPTR(kernel_addr) >= VM_MIN_KERNEL_ADDRESS) &&
-	    (VM_KERNEL_STRIP_UPTR(kernel_addr_last) <= VM_MAX_KERNEL_ADDRESS);
-	bool in_physmap = (VM_KERNEL_STRIP_UPTR(kernel_addr) >= physmap_base) &&
-	    (VM_KERNEL_STRIP_UPTR(kernel_addr_last) <= physmap_end);
+	bool in_kva = (VM_KERNEL_STRIP_PTR(kernel_addr) >= VM_MIN_KERNEL_ADDRESS) &&
+	    (VM_KERNEL_STRIP_PTR(kernel_addr_last) <= VM_MAX_KERNEL_ADDRESS);
+	bool in_physmap = (VM_KERNEL_STRIP_PTR(kernel_addr) >= physmap_base) &&
+	    (VM_KERNEL_STRIP_PTR(kernel_addr_last) <= physmap_end);
 
 	if (__improbable(!(in_kva || in_physmap))) {
 		panic("%s(%p, %lu) - kaddr not in kernel", __func__,

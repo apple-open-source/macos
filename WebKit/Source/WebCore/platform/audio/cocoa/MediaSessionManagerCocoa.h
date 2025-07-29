@@ -90,7 +90,7 @@ protected:
     void clientCharacteristicsChanged(PlatformMediaSession&, bool) final;
     void sessionCanProduceAudioChanged() final;
 
-    virtual void providePresentingApplicationPIDIfNecessary(ProcessID) { }
+    virtual void providePresentingApplicationPIDIfNecessary(const std::optional<ProcessID>&) { }
 
     WeakPtr<PlatformMediaSession> nowPlayingEligibleSession();
 

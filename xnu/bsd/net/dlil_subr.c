@@ -826,10 +826,18 @@ dlil_clat46(ifnet_t ifp, protocol_family_t *proto_family, mbuf_t *m)
 	boolean_t is_first_frag = TRUE;
 	boolean_t is_last_frag = TRUE;
 
-	pbuf_init_mbuf(&pbuf_store, *m, ifp);
-	pbuf = &pbuf_store;
-	iph = pbuf->pb_data;
+	/*
+	 * Ensure that the incoming mbuf chain contains a valid
+	 * IPv4 header in contiguous memory, or exit early.
+	 */
+	if ((size_t)(*m)->m_pkthdr.len < sizeof(struct ip) ||
+	    ((size_t)(*m)->m_len < sizeof(struct ip) &&
+	    (*m = m_pullup(*m, sizeof(struct ip))) == NULL)) {
+		ip6stat.ip6s_clat464_in_tooshort_drop++;
+		return -1;
+	}
 
+	iph = mtod(*m, struct ip *);
 	osrc = iph->ip_src;
 	odst = iph->ip_dst;
 	proto = iph->ip_p;
@@ -838,6 +846,15 @@ dlil_clat46(ifnet_t ifp, protocol_family_t *proto_family, mbuf_t *m)
 	ip_frag_off = ntohs(iph->ip_off) & IP_OFFMASK;
 
 	tot_len = ntohs(iph->ip_len);
+
+	/* Validate that mbuf contains IP payload equal to `iph->ip_len' */
+	if ((size_t)(*m)->m_pkthdr.len < tot_len) {
+		ip6stat.ip6s_clat464_in_tooshort_drop++;
+		return -1;
+	}
+
+	pbuf_init_mbuf(&pbuf_store, *m, ifp);
+	pbuf = &pbuf_store;
 
 	/*
 	 * For packets that are not first frags
@@ -884,8 +901,12 @@ dlil_clat46(ifnet_t ifp, protocol_family_t *proto_family, mbuf_t *m)
 		goto cleanup;
 	}
 
-
-	/* Translate the IP header part first */
+	/*
+	 * Translate the IP header part first.
+	 * NOTE: `nat464_translate_46' handles the situation where the value
+	 * `off' is past the end of the mbuf chain that is associated with
+	 * the pbuf, in a graceful manner.
+	 */
 	error = (nat464_translate_46(pbuf, off, iph->ip_tos, iph->ip_p,
 	    iph->ip_ttl, src_storage, dstsock.sin6_addr, tot_len) == NT_NAT64) ? 0 : -1;
 
@@ -963,7 +984,10 @@ dlil_clat64(ifnet_t ifp, protocol_family_t *proto_family, mbuf_t *m)
 	uint8_t tos = 0;
 	boolean_t is_first_frag = TRUE;
 
-	/* Incoming mbuf does not contain valid IP6 header */
+	/*
+	 * Ensure that the incoming mbuf chain contains a valid
+	 * IPv6 header in contiguous memory, or exit early.
+	 */
 	if ((size_t)(*m)->m_pkthdr.len < sizeof(struct ip6_hdr) ||
 	    ((size_t)(*m)->m_len < sizeof(struct ip6_hdr) &&
 	    (*m = m_pullup(*m, sizeof(struct ip6_hdr))) == NULL)) {

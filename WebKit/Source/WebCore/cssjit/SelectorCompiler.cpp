@@ -1346,12 +1346,20 @@ static inline FunctionType addPseudoClassType(const CSSSelector& selector, Selec
                 FunctionType localFunctionType = constructFragments(&subselector, selectorContext, *selectorFragments, FragmentsLevel::InFunctionalPseudoType, positionInRootFragments, visitedMatchEnabled, ignoreVisitedMode, pseudoElementMatchingBehavior);
                 ASSERT_WITH_MESSAGE(ignoreVisitedMode == VisitedMode::None, ":visited is disabled in the functional pseudo classes");
 
+                if (localFunctionType == FunctionType::CannotCompile)
+                    return FunctionType::CannotCompile;
+
+                // Standalone pseudo-element (like ::before) are invalid, fallback to SelectorChecker.
+                if (selectorFragments->isEmpty())
+                    return FunctionType::CannotCompile;
+
+                // Pseudo-element in functional pseudo-classes are invalid, fallback to SelectorChecker.
+                if (selectorFragments->first().pseudoElementSelector)
+                    return FunctionType::CannotCompile;
+
                 // Since this fragment never matches against the element, don't insert it to matchesList.
                 if (localFunctionType == FunctionType::CannotMatchAnything)
                     continue;
-
-                if (localFunctionType == FunctionType::CannotCompile)
-                    return FunctionType::CannotCompile;
 
                 functionType = mostRestrictiveFunctionType(functionType, localFunctionType);
                 selectorFragments = nullptr;

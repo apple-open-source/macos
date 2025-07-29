@@ -1911,8 +1911,11 @@ thread_wakeup_nthreads_prim(
 	}
 
 	struct waitq *wq = global_eventq(event);
+	uint32_t count;
 
-	return waitq_wakeup64_nthreads(wq, CAST_EVENT64_T(event), result, WAITQ_WAKEUP_DEFAULT, nthreads);
+	count = waitq_wakeup64_nthreads(wq, CAST_EVENT64_T(event), result,
+	    WAITQ_WAKEUP_DEFAULT, nthreads);
+	return count ? KERN_SUCCESS : KERN_NOT_WAITING;
 }
 
 /*
@@ -1954,45 +1957,6 @@ thread_wakeup_thread(
 	struct waitq *wq = global_eventq(event);
 
 	return waitq_wakeup64_thread(wq, CAST_EVENT64_T(event), thread, THREAD_AWAKENED);
-}
-
-/*
- * Wakeup a thread waiting on an event and promote it to a priority.
- *
- * Requires woken thread to un-promote itself when done.
- */
-kern_return_t
-thread_wakeup_one_with_pri(
-	event_t      event,
-	int          priority)
-{
-	if (__improbable(event == NO_EVENT)) {
-		panic("%s() called with NO_EVENT", __func__);
-	}
-
-	struct waitq *wq = global_eventq(event);
-
-	return waitq_wakeup64_one(wq, CAST_EVENT64_T(event), THREAD_AWAKENED, priority);
-}
-
-/*
- * Wakeup a thread waiting on an event,
- * promote it to a priority,
- * and return a reference to the woken thread.
- *
- * Requires woken thread to un-promote itself when done.
- */
-thread_t
-thread_wakeup_identify(event_t  event,
-    int      priority)
-{
-	if (__improbable(event == NO_EVENT)) {
-		panic("%s() called with NO_EVENT", __func__);
-	}
-
-	struct waitq *wq = global_eventq(event);
-
-	return waitq_wakeup64_identify(wq, CAST_EVENT64_T(event), THREAD_AWAKENED, priority);
 }
 
 /*

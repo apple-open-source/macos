@@ -439,18 +439,18 @@ public:
         Storage* candidate = expandIfNeeded(globalObject, owner, base);
         RETURN_IF_EXCEPTION(scope, void());
 
-        Storage& candidateRef = *candidate;
-        TableSize capacity = Helper::capacity(candidateRef);
-        Entry newEntry = usedCapacity(candidateRef);
-        TableIndex newEntryKeyIndex = entryDataStartIndex(dataTableStartIndex(capacity), newEntry);
-        incrementAliveEntryCount(candidateRef);
-
         bool firstAliveEntry = result.normalizedKey.isEmpty();
         if (UNLIKELY(firstAliveEntry)) {
             result.normalizedKey = normalizeMapKey(key);
             result.hash = jsMapHash(globalObject, vm, result.normalizedKey);
             RETURN_IF_EXCEPTION(scope, void());
         }
+
+        Storage& candidateRef = *candidate;
+        TableSize capacity = Helper::capacity(candidateRef);
+        Entry newEntry = usedCapacity(candidateRef);
+        TableIndex newEntryKeyIndex = entryDataStartIndex(dataTableStartIndex(capacity), newEntry);
+        incrementAliveEntryCount(candidateRef);
 
         bool rehashed = &base != candidate;
         if (UNLIKELY(rehashed || firstAliveEntry))

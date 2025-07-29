@@ -1005,92 +1005,6 @@ __collate_wcsdup(const wchar_t *s)
 }
 
 __private_extern__ void
-__collate_xfrm(const wchar_t *src, wchar_t **xf, locale_t loc)
-{
-	int pri, len;
-	size_t slen;
-	const wchar_t *t;
-	wchar_t *tt = NULL, *tr = NULL;
-	int direc, pass;
-	wchar_t *xfp;
-	collate_info_t *info = collate_info;
-	int sverrno;
-
-	for(pass = 0; pass < COLL_WEIGHTS_MAX; pass++)
-		xf[pass] = NULL;
-	for(pass = 0; pass < info->directive_count; pass++) {
-		direc = info->directive[pass];
-		if (pass == 0 || !(info->flags & COLLATE_SUBST_DUP)) {
-			sverrno = errno;
-			free(tt);
-			errno = sverrno;
-			tt = __collate_substitute(src, pass, loc);
-		}
-		if (direc & DIRECTIVE_BACKWARD) {
-			wchar_t *bp, *fp, c;
-			sverrno = errno;
-			free(tr);
-			errno = sverrno;
-			tr = __collate_wcsdup(tt ? tt : src);
-			bp = tr;
-			fp = tr + wcslen(tr) - 1;
-			while(bp < fp) {
-				c = *bp;
-				*bp++ = *fp;
-				*fp-- = c;
-			}
-			t = (const wchar_t *)tr;
-		} else if (tt)
-			t = (const wchar_t *)tt;
-		else
-			t = (const wchar_t *)src;
-		sverrno = errno;
-		if ((xf[pass] = (wchar_t *)malloc(sizeof(wchar_t) * (wcslen(t) + 1))) == NULL) {
-			errno = sverrno;
-			slen = 0;
-			goto end;
-		}
-		errno = sverrno;
-		xfp = xf[pass];
-		if (direc & DIRECTIVE_POSITION) {
-			while(*t) {
-				__collate_lookup_which(t, &len, &pri, pass, loc);
-				t += len;
-				if (pri <= 0) {
-					if (pri < 0) {
-						errno = EINVAL;
-						slen = 0;
-						goto end;
-					}
-					pri = COLLATE_MAX_PRIORITY;
-				}
-				*xfp++ = pri;
-			}
-		} else {
-			while(*t) {
-				__collate_lookup_which(t, &len, &pri, pass, loc);
-				t += len;
-				if (pri <= 0) {
-					if (pri < 0) {
-						errno = EINVAL;
-						slen = 0;
-						goto end;
-					}
-					continue;
-				}
-				*xfp++ = pri;
-			}
- 		}
-		*xfp = 0;
-	}
-  end:
-	sverrno = errno;
-	free(tt);
-	free(tr);
-	errno = sverrno;
-}
-
-__private_extern__ void
 __collate_err(int ex, const char *f)
 {
 	const char *s;
@@ -1455,6 +1369,311 @@ __collate_equiv_wchar(locale_t loc, wchar_t lch, wchar_t rch,
 			return (0);
 	}
 	return (1);
+}
+
+/*
+ * This is the meaty part of wcsxfrm & strxfrm.  Note that it does
+ * NOT NULL terminate.  That is left to the caller.
+ */
+__private_extern__ size_t
+_collate_wxfrm(struct xlocale_collate *table, const wchar_t *src, wchar_t *xf,
+    size_t room)
+{
+	int		pri;
+	int		len;
+	const wchar_t	*t;
+	wchar_t		*tr = NULL;
+	int		direc;
+	int		pass;
+	const int32_t 	*state;
+	size_t		want = 0;
+	size_t		need = 0;
+	int		ndir = table->info->directive_count;
+
+	assert(src);
+
+#ifdef __APPLE__
+	for (pass = 0; pass < ndir; pass++) {
+#else
+	for (pass = 0; pass <= ndir; pass++) {
+#endif
+
+		state = NULL;
+
+		if (pass != 0) {
+			/* insert level separator from the previous pass */
+			if (room) {
+				*xf++ = 1;
+				room--;
+			}
+			want++;
+		}
+
+#ifdef __APPLE__
+		direc = table->info->directive[pass];
+#else
+		/* special pass for undefined */
+		if (pass == ndir) {
+			direc = DIRECTIVE_FORWARD | DIRECTIVE_UNDEFINED;
+		} else {
+			direc = table->info->directive[pass];
+		}
+#endif
+
+		t = src;
+
+		if (direc & DIRECTIVE_BACKWARD) {
+			wchar_t *bp, *fp, c;
+			free(tr);
+			if ((tr = wcsdup(t)) == NULL) {
+				errno = ENOMEM;
+				goto fail;
+			}
+			bp = tr;
+			fp = tr + wcslen(tr) - 1;
+			while (bp < fp) {
+				c = *bp;
+				*bp++ = *fp;
+				*fp-- = c;
+			}
+			t = (const wchar_t *)tr;
+		}
+
+		if (direc & DIRECTIVE_POSITION) {
+			while (*t || state) {
+				_collate_lookup(table, t, &len, &pri, pass, &state);
+				t += len;
+				if (pri <= 0) {
+					if (pri < 0) {
+						errno = EINVAL;
+						goto fail;
+					}
+					state = NULL;
+					pri = COLLATE_MAX_PRIORITY;
+				}
+				if (room) {
+					*xf++ = pri;
+					room--;
+				}
+				want++;
+				need = want;
+			}
+		} else {
+			while (*t || state) {
+				_collate_lookup(table, t, &len, &pri, pass, &state);
+				t += len;
+				if (pri <= 0) {
+					if (pri < 0) {
+						errno = EINVAL;
+						goto fail;
+					}
+					state = NULL;
+					continue;
+				}
+				if (room) {
+					*xf++ = pri;
+					room--;
+				}
+				want++;
+				need = want;
+			}
+		}
+	}
+	free(tr);
+	return (need);
+
+fail:
+#ifdef __APPLE__
+	if (tr != NULL) {
+		int serrno = errno;
+
+		free(tr);
+		errno = serrno;
+	}
+#else
+	free(tr);
+#endif
+	return ((size_t)(-1));
+}
+
+/*
+ * In the non-POSIX case, we transform each character into a string of
+ * characters representing the character's priority.  Since char is usually
+ * signed, we are limited by 7 bits per byte.  To avoid zero, we need to add
+ * XFRM_OFFSET, so we can't use a full 7 bits.  For simplicity, we choose 6
+ * bits per byte.
+ *
+ * It turns out that we sometimes have real priorities that are
+ * 31-bits wide.  (But: be careful using priorities where the high
+ * order bit is set -- i.e. the priority is negative.  The sort order
+ * may be surprising!)
+ *
+ * TODO: This would be a good area to optimize somewhat.  It turns out
+ * that real prioririties *except for the last UNDEFINED pass* are generally
+ * very small.  We need the localedef code to precalculate the max
+ * priority for us, and ideally also give us a mask, and then we could
+ * severely limit what we expand to.
+ */
+#define	XFRM_BYTES	6
+#define	XFRM_OFFSET	('0')	/* make all printable characters */
+#define	XFRM_SHIFT	6
+#define	XFRM_MASK	((1 << XFRM_SHIFT) - 1)
+#define	XFRM_SEP	('.')	/* chosen to be less than XFRM_OFFSET */
+
+static int
+xfrm(struct xlocale_collate *table, unsigned char *p, int pri, int pass)
+{
+	/* we use unsigned to ensure zero fill on right shift */
+	uint32_t val = (uint32_t)table->info->pri_count[pass];
+	int nc = 0;
+
+	while (val) {
+		*p = (pri & XFRM_MASK) + XFRM_OFFSET;
+		pri >>= XFRM_SHIFT;
+		val >>= XFRM_SHIFT;
+		p++;
+		nc++;
+	}
+	return (nc);
+}
+
+__private_extern__ size_t
+_collate_sxfrm(struct xlocale_collate *table, const wchar_t *src, char *xf,
+    size_t room)
+{
+	int		pri;
+	int		len;
+	const wchar_t	*t;
+	wchar_t		*tr = NULL;
+	int		direc;
+	int		pass;
+	const int32_t 	*state;
+	size_t		want = 0;
+	size_t		need = 0;
+	int		b;
+	uint8_t		buf[XFRM_BYTES];
+	int		ndir = table->info->directive_count;
+
+	assert(src);
+
+#ifdef __APPLE__
+	for (pass = 0; pass < ndir; pass++) {
+#else
+	for (pass = 0; pass <= ndir; pass++) {
+#endif
+
+		state = NULL;
+
+		if (pass != 0) {
+			/* insert level separator from the previous pass */
+			if (room) {
+				*xf++ = XFRM_SEP;
+				room--;
+			}
+			want++;
+		}
+
+#ifdef __APPLE__
+		direc = table->info->directive[pass];
+#else
+		/* special pass for undefined */
+		if (pass == ndir) {
+			direc = DIRECTIVE_FORWARD | DIRECTIVE_UNDEFINED;
+		} else {
+			direc = table->info->directive[pass];
+		}
+#endif
+
+		t = src;
+
+		if (direc & DIRECTIVE_BACKWARD) {
+			wchar_t *bp, *fp, c;
+			free(tr);
+			if ((tr = wcsdup(t)) == NULL) {
+				errno = ENOMEM;
+				goto fail;
+			}
+			bp = tr;
+			fp = tr + wcslen(tr) - 1;
+			while (bp < fp) {
+				c = *bp;
+				*bp++ = *fp;
+				*fp-- = c;
+			}
+			t = (const wchar_t *)tr;
+		}
+
+		if (direc & DIRECTIVE_POSITION) {
+			while (*t || state) {
+
+				_collate_lookup(table, t, &len, &pri, pass, &state);
+				t += len;
+				if (pri <= 0) {
+					if (pri < 0) {
+						errno = EINVAL;
+						goto fail;
+					}
+					state = NULL;
+					pri = COLLATE_MAX_PRIORITY;
+				}
+
+				b = xfrm(table, buf, pri, pass);
+				want += b;
+				if (room) {
+					while (b) {
+						b--;
+						if (room) {
+							*xf++ = buf[b];
+							room--;
+						}
+					}
+				}
+				need = want;
+			}
+		} else {
+			while (*t || state) {
+				_collate_lookup(table, t, &len, &pri, pass, &state);
+				t += len;
+				if (pri <= 0) {
+					if (pri < 0) {
+						errno = EINVAL;
+						goto fail;
+					}
+					state = NULL;
+					continue;
+				}
+
+				b = xfrm(table, buf, pri, pass);
+				want += b;
+				if (room) {
+
+					while (b) {
+						b--;
+						if (room) {
+							*xf++ = buf[b];
+							room--;
+						}
+					}
+				}
+				need = want;
+			}
+		}
+	}
+	free(tr);
+	return (need);
+
+fail:
+#ifdef __APPLE__
+	if (tr != NULL) {
+		int serrno = errno;
+
+		free(tr);
+		errno = serrno;
+	}
+#else
+	free(tr);
+#endif
+	return ((size_t)(-1));
 }
 
 /*

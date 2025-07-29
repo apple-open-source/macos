@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016-2023 Apple, Inc. All rights reserved.
+ * Copyright (C) 2016-2025 Apple, Inc. All rights reserved.
  * Some portions covered by other copyrights, listed below.
  *---
  * Copyright (C) 2016 and later: Unicode, Inc. and others.
@@ -50,8 +50,8 @@ int32_t u32CharToUTF8Bytes(uint32_t u32char, uint8_t utf8Bytes[kMaxUTF8BytesPerC
 void
 utf8_normalizeOptCaseFoldGetUVersion(unsigned char version[4])
 {
-	version[0] = 15;
-	version[1] = 1;
+	version[0] = 16;
+	version[1] = 0;
 	version[2] = 0;
 	version[3] = 0;
 	return;

@@ -3693,6 +3693,7 @@ void HTMLMediaElement::setAudioOutputDevice(String&& deviceId, DOMPromiseDeferre
     }
 
     if (!document().processingUserGestureForMedia() && document().settings().speakerSelectionRequiresUserGesture()) {
+        ERROR_LOG(LOGIDENTIFIER, "rejecting promise as a user gesture is required");
         promise.reject(Exception { ExceptionCode::NotAllowedError, "A user gesture is required"_s });
         return;
     }
@@ -9732,12 +9733,18 @@ void HTMLMediaElement::isActiveNowPlayingSessionChanged()
         page->hasActiveNowPlayingSessionChanged();
 }
 
-ProcessID HTMLMediaElement::presentingApplicationPID() const
+std::optional<ProcessID> HTMLMediaElement::mediaSessionPresentingApplicationPID() const
 {
-    if (RefPtr page = protectedDocument()->protectedPage())
-        return page->presentingApplicationPID();
+    RefPtr page = protectedDocument()->page();
+    if (!page)
+        return std::nullopt;
 
-    return { };
+#if ENABLE(EXTENSION_CAPABILITIES)
+    if (page->settings().mediaCapabilityGrantsEnabled())
+        return std::nullopt;
+#endif
+
+    return page->presentingApplicationPID();
 }
 
 #if HAVE(SPATIAL_TRACKING_LABEL)

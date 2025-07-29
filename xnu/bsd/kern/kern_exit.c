@@ -844,6 +844,8 @@ populate_corpse_crashinfo(proc_t p, task_t corpse_task, struct rusage_superset *
 	if (p->p_exit_reason != OS_REASON_NULL && reason == OS_REASON_NULL) {
 		reason = p->p_exit_reason;
 	}
+
+
 	if (reason != OS_REASON_NULL) {
 		if (KERN_SUCCESS == kcdata_get_memory_addr(crash_info_ptr, EXIT_REASON_SNAPSHOT, sizeof(struct exit_reason_snapshot), &uaddr)) {
 			struct exit_reason_snapshot ers = {
@@ -863,8 +865,6 @@ populate_corpse_crashinfo(proc_t p, task_t corpse_task, struct rusage_superset *
 				kcdata_memcpy(crash_info_ptr, uaddr, reason->osr_kcd_buf, reason_buf_size);
 			}
 		}
-#if DEVELOPMENT || DEBUG
-#endif /* DEVELOPMENT || DEBUG */
 	}
 
 	if (num_udata > 0) {
@@ -3537,7 +3537,7 @@ exit_with_exception_internal(
 	}
 
 	if (!(flags & PX_DEBUG_NO_HONOR)
-	    && address_space_debugged(p) == KERN_SUCCESS) {
+	    && is_address_space_debugged(p)) {
 		return 0;
 	}
 

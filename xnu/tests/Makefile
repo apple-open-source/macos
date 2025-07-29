@@ -1134,6 +1134,14 @@ pac_exception_entitlement: OTHER_CFLAGS += $(OBJROOT)/excserver.c -Wno-language-
 pac_exception_entitlement: CODE_SIGN_ENTITLEMENTS = pac_exception_entitlement.plist
 endif
 
+unrecoverable_trap_test: excserver exc_helpers.c
+unrecoverable_trap_test: OTHER_CFLAGS += $(OBJROOT)/excserver.c -Wno-language-extension-token
+unrecoverable_trap_test: CODE_SIGN_ENTITLEMENTS = entitlements/set_exception_port.entitlement
+# libdarwintest.a doesn't have an arm64 slice on watchOS
+ifeq ($(PLATFORM),WatchOS)
+unrecoverable_trap_test: INVALID_ARCHS += arm64
+endif
+
 ifeq ($(findstring arm64,$(ARCH_CONFIGS)),)
 EXCLUDED_SOURCES += arm_cpu_capabilities.c
 else

@@ -310,9 +310,9 @@ findme ()
     (
         cd "$1" ; shift
 	if [ ${dirs} -ne 0 ] ; then
-            find "$@" -type d -exec stat -f "$stat_fmt" {} \; | sort
+            find "$@" -type d -print0 | xargs -0 stat -f "$stat_fmt" | sort
         else
-            find "$@" ! -type d -exec stat -f "$stat_fmt %z" {} \; | sort
+            find "$@" ! -type d -print0 | xargs -0 stat -f "$stat_fmt %z" | sort
         fi
     )
 }
@@ -359,28 +359,33 @@ xattr_set ()
     esac
 }
 
-xattr_dump ()
+xattr_dump_cmd ()
 {
-    file=$1
-
     xattr_tool=$(xattr_capable)
     if [ $? -ne 0 ]; then
         # This one will be called unconditionally, so we want to just succeed if
         # we don't have xattr support.
+        echo 'true'
         return 0
     fi
 
     case "$xattr_tool" in
         lsextattr)
-            lsextattr -hq user "$file"
+            echo 'lsextattr -hq user '
             ;;
         getfattr)
-            getfattr -hd "$file"
+            echo 'getfattr -hd '
             ;;
         xattr)
-            xattr -s "$file"
+            echo 'xattr -s '
             ;;
     esac
+}
+
+xattr_dump ()
+{
+
+    $(xattr_dump_cmd) "$1"
 }
 
 # compare two trees.  This will later be modular to pick between:
@@ -418,23 +423,29 @@ compare_trees ()
     # file contents
     diff -ru "$1" "$2" 1>&2
 
-    # check for any xattrs; note that this won't do the right thing if we have
+    # Check to see if find supports -xattr:
+    #
+    if ! find . -depth 0 -xattr ; then
+        continue
+    fi
+
+    # Check for any xattrs; note that this won't do the right thing if we have
     # files that both have xattrs and newlines in the filename.  This is a known
     # limitation that seems like an OK compromise.
-    tmpf=$(mktemp -u rsync_xattr.XXXXXXXX)
-    _IFS="$IFS"
-    IFS=$'\n'
-    for f in $(find -H "$1" -xattr); do
-        xattr_dump "$f" > "$tmpf"
-        if [ -s "$tmpf" ]; then
-            # See if the second version of the file has matching xattrs
-            mirrored=$(echo "$f" | sed -e "s/^$1/$2/")
-            xattr_dump "$mirrored" > "$tmpf-2"
-            1>&2 echo "xattr check: $1 and $2"
-            diff -u "$tmpf" "$tmpf-2" 1>&2
-            rm "$tmpf-2"
-        fi
-    done
-    IFS="$_IFS"
-    rm -f "$tmpf"
+    #
+    xdc="$(xattr_dump_cmd)"
+
+    find -H "$1" -xattr -print0 | xargs -0 ${xdc} > find1x
+    sed -E -i.orig -e "s%^$1%dirx%" find1x
+
+    find -H "$2" -xattr -print0 | xargs -0 ${xdc} > find2x
+    sed -E -i.orig -e "s%^$2%dirx%" find2x
+
+    diff -u find[12]x 1>&2
+}
+
+mksock()
+{
+
+	command $tstdir/mksock "$@"
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2023 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2025 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -378,6 +378,8 @@ S_get_packet(mach_port_t server, int argc, char * argv[])
 	goto done;
     }
     if (status != ipconfig_status_success_e) {
+	fprintf(stderr, "ipconfig_get_packet(%s) failed: %s\n",
+		name, ipconfig_status_string(status));
 	goto done;
     }
     dhcp_packet_print((struct dhcp *)(void *)packet, packet_cnt);
@@ -409,6 +411,8 @@ S_get_v6_packet(mach_port_t server, int argc, char * argv[])
 	goto done;
     }
     if (status != ipconfig_status_success_e) {
+	fprintf(stderr, "ipconfig_get_v6_packet(%s) failed: %s\n",
+		name, ipconfig_status_string(status));
 	goto done;
     }
     DHCPv6PacketFPrint(stdout, (DHCPv6PacketRef)packet, packet_cnt);
@@ -446,6 +450,8 @@ S_get_ra(mach_port_t server, int argc, char * argv[])
 	goto done;
     }
     if (status != ipconfig_status_success_e) {
+	fprintf(stderr, "ipconfig_get_ra(%s) failed: %s\n",
+		name, ipconfig_status_string(status));
 	goto done;
     }
     dict = my_CFPropertyListCreateWithBytePtrAndLength(ra_data, ra_data_cnt);
@@ -1428,9 +1434,8 @@ S_forget_network(mach_port_t server, int argc, char * argv[])
     return (0);
 }
 
-#if TARGET_OS_OSX
 static int
-S_set_hide_BSSID(mach_port_t server, int argc, char * argv[])
+S_set_hide_wifi_info(mach_port_t server, int argc, char * argv[])
 {
     char *		arg = argv[0];
     int			enable;
@@ -1438,9 +1443,9 @@ S_set_hide_BSSID(mach_port_t server, int argc, char * argv[])
 
     errno = 0;
     if (strcasecmp(arg, "default") == 0) {
-	success = IPConfigurationControlPrefsSetHideBSSIDDefault();
+	success = IPConfigurationControlPrefsSetHideWiFiInfoDefault();
 	if (!success) {
-	    fprintf(stderr, "failed to set hide BSSID\n");
+	    fprintf(stderr, "failed to set hide WiFi info\n");
 	}
     }
     else {
@@ -1450,14 +1455,13 @@ S_set_hide_BSSID(mach_port_t server, int argc, char * argv[])
 		    "conversion to integer of %s failed\n", arg);
 	    return (1);
 	}
-	success = IPConfigurationControlPrefsSetHideBSSID(enable != 0);
+	success = IPConfigurationControlPrefsSetHideWiFiInfo(enable != 0);
 	if (!success) {
-	    fprintf(stderr, "failed to set hide BSSID\n");
+	    fprintf(stderr, "failed to set hide WiFi info\n");
 	}
     }
     return (success ? 0 : 1);
 }
-#endif
 
 static const struct command_info {
     const char *command;
@@ -1521,9 +1525,7 @@ static const struct command_info {
     { "setdhcpduidtype", S_set_dhcp_duid_type, 0, "[ ll | llt | uuid ]", 0, 1 },
     { "getdhcpduidtype", S_get_dhcp_duid_type, 0, NULL, 0, 1 },
     { "forgetNetwork", S_forget_network, 2, "<interface name> <ssid>", 0, 0},
-#if TARGET_OS_OSX
-    { "setHideBSSID", S_set_hide_BSSID, 1, "0 | 1 | default", 0, 1},
-#endif
+    { "setHideWiFiInfo", S_set_hide_wifi_info, 1, "0 | 1 | default", 0, 1},
     { NULL, NULL, 0, NULL, 0, 0 },
 };
 

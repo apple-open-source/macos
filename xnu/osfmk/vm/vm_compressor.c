@@ -2444,7 +2444,13 @@ c_seg_major_compact(
 
 		c_dst = C_SEG_SLOT_FROM_INDEX(c_seg_dst, c_seg_dst->c_nextslot);
 
+		/*
+		 * We don't want pages to get stolen by the contiguous memory allocator
+		 * when copying data from one segment to another.
+		 */
+		PAGE_REPLACEMENT_DISALLOWED(TRUE);
 		memcpy(&c_seg_dst->c_store.c_buffer[c_seg_dst->c_nextoffset], &c_seg_src->c_store.c_buffer[c_src->c_offset], combined_size);
+		PAGE_REPLACEMENT_DISALLOWED(FALSE);
 
 		c_seg_major_compact_stats[c_seg_major_compact_stats_now].moved_slots++;
 		c_seg_major_compact_stats[c_seg_major_compact_stats_now].moved_bytes += combined_size;
@@ -4583,7 +4589,7 @@ c_seg_swapin(c_segment_t c_seg, boolean_t force_minor_compaction, boolean_t age_
 		c_seg_swapin_requeue(c_seg, FALSE, TRUE, age_on_swapin_q);
 	} else {
 #if ENCRYPTED_SWAP
-		vm_swap_decrypt(c_seg);
+		vm_swap_decrypt(c_seg, true);
 #endif /* ENCRYPTED_SWAP */
 
 #if CHECKSUM_THE_SWAP
@@ -5925,8 +5931,6 @@ Relookup_src:
 
 	lck_mtx_unlock_always(&c_seg_src->c_lock);
 
-	PAGE_REPLACEMENT_DISALLOWED(FALSE);
-
 	/* find the c_slot */
 	c_indx = src_slot->s_cindx;
 
@@ -5941,8 +5945,6 @@ Relookup_src:
 		/*
 		 * This segment is full. We need a new one.
 		 */
-
-		PAGE_REPLACEMENT_DISALLOWED(TRUE);
 
 		lck_mtx_lock_spin_always(&c_seg_src->c_lock);
 		C_SEG_WAKEUP_DONE(c_seg_src);
@@ -5973,6 +5975,7 @@ Relookup_src:
 	c_dst = C_SEG_SLOT_FROM_INDEX(c_seg_dst, c_seg_dst->c_nextslot);
 
 	memcpy(&c_seg_dst->c_store.c_buffer[c_seg_dst->c_nextoffset], &c_seg_src->c_store.c_buffer[c_src->c_offset], combined_size);
+	PAGE_REPLACEMENT_DISALLOWED(FALSE);
 	/*
 	 * Is platform alignment actually necessary since wkdm aligns its output?
 	 */
@@ -6216,6 +6219,11 @@ vm_compressor_serialize_segment_debug_info(int segno, char *buf, size_t *size, v
 #else
 	csi->csi_decompressions_since_swapin = 0;
 #endif /* TRACK_C_SEGMENT_UTILIZATION */
+	/* This entire data collection races with the compressor threads which can change any
+	 * of this data members, and specifically can drop the data buffer to swap
+	 * We don't take the segment lock since that would slow the iteration over the segments down
+	 * and hurt the "snapshot-ness" of the data. The race risk is acceptable since this is
+	 * used only for a tester in development. */
 
 	for (int si = 0; si < nslots; ++si) {
 		if (offset + sizeof(struct c_slot_info) > insize) {

@@ -3300,6 +3300,7 @@ def ShowVMPage(cmd_args=None, cmd_options={}, O=None):
     pager=-1
     paging_in_progress=-1
     activity_in_progress=-1
+    object=0
     if(page.vmp_object):
         m_object_val = _vm_page_unpack_ptr(page.vmp_object)
         object = kern.GetValueFromAddress(m_object_val, 'vm_object_t')
@@ -3673,6 +3674,10 @@ FixedTags = {
     33: "VM_KERN_MEMORY_RECOUNT",
     34: "VM_KERN_MEMORY_TAG",
     35: "VM_KERN_MEMORY_EXCLAVES",
+    36: "VM_KERN_MEMORY_EXCLAVES_SHARED",
+    37: "VM_KERN_MEMORY_KALLOC_SHARED",
+    38: "VM_KERN_MEMORY_FIRST_DYNAMIC",
+    39: "VM_KERN_MEMORY_CPUTRACE",
     255:"VM_KERN_MEMORY_ANY",
 }
 
@@ -4076,11 +4081,11 @@ def match_vm_page_attributes(page, matching_attributes):
     matched_attributes = 0
     if "vmp_q_state" in matching_attributes and (page.vmp_q_state == matching_attributes["vmp_q_state"]):
         matched_attributes += 1
-    if "vm_object" in matching_attributes and (unsigned(unpacked_vm_object) == unsigned(matching_attributes["vm_object"])):
+    if "vm_object" in matching_attributes and (unsigned(unpacked_vm_object) == matching_attributes["vm_object"]):
         matched_attributes += 1
-    if "vmp_offset" in matching_attributes and (unsigned(page.vmp_offset) == unsigned(matching_attributes["vmp_offset"])):
+    if "vmp_offset" in matching_attributes and (unsigned(page.vmp_offset) == matching_attributes["vmp_offset"]):
         matched_attributes += 1
-    if "phys_page" in matching_attributes and (unsigned(_vm_page_get_phys_page(page_ptr)) == unsigned(matching_attributes["phys_page"])):
+    if "phys_page" in matching_attributes and (unsigned(_vm_page_get_phys_page(page_ptr)) == matching_attributes["phys_page"]):
         matched_attributes += 1
     if "bitfield" in matching_attributes and unsigned(page.__getattr__(matching_attributes["bitfield"])) == 1:
         matched_attributes += 1
@@ -4127,19 +4132,22 @@ def ScanVMPages(cmd_args=None, cmd_options={}):
 
     attribute_values = {}
     if "-S" in cmd_options:
-        attribute_values["vmp_q_state"] = kern.GetValueFromAddress(cmd_options["-S"], 'int')
+        try:
+            attribute_values["vmp_q_state"] = ArgumentStringToInt(cmd_options["-S"])
+        except:
+            attribute_values["vmp_q_state"] = GetEnumValue('vm_page_q_state_t', cmd_options["-S"])
         attribute_count += 1
 
     if "-O" in cmd_options:
-        attribute_values["vm_object"] = kern.GetValueFromAddress(cmd_options["-O"], 'vm_object_t')
+        attribute_values["vm_object"] = ArgumentStringToAddress(cmd_options["-O"])
         attribute_count += 1
 
     if "-F" in cmd_options:
-        attribute_values["vmp_offset"] = kern.GetValueFromAddress(cmd_options["-F"], 'unsigned long long')
+        attribute_values["vmp_offset"] = ArgumentStringToAddress(cmd_options["-F"])
         attribute_count += 1
 
     if "-P" in cmd_options:
-        attribute_values["phys_page"] = kern.GetValueFromAddress(cmd_options["-P"], 'unsigned int')
+        attribute_values["phys_page"] = ArgumentStringToAddress(cmd_options["-P"])
         attribute_count += 1
 
     if "-B" in cmd_options:
@@ -4233,8 +4241,6 @@ def ScanVMPages(cmd_args=None, cmd_options={}):
     print("Found {0:d} vm pages ({1:d} in array, {2:d} in zone) matching the requested {3:d} attribute(s)".format(total, found_in_array, found_in_zone, attribute_count))
 
 #EndMacro scan_vm_pages
-
-VM_PAGE_IS_WIRED = 1
 
 @header("{0: <10s} of {1: <10s} {2: <20s} {3: <20s} {4: <20s} {5: <10s} {6: <5s}\t{7: <28s}\t{8: <50s}".format("index", "total", "vm_page_t", "offset", "next", "phys_page", "wire#", "first bitfield", "second bitfield"))
 @lldb_command('vmobjectwalkpages', 'CSBNQP:O:')
@@ -4349,7 +4355,7 @@ def VMObjectWalkPages(cmd_args=None, cmd_options={}):
             print(out_string + " vm_page_t: " + "{0: <#020x}".format(unsigned(vmp)) +  " points to different vm_object_t: " + "{0: <#020x}".format(unsigned(_vm_page_unpack_ptr(vmp.vmp_object))))
             return
 
-        if (vmp.vmp_q_state == VM_PAGE_IS_WIRED) and (vmp.vmp_wire_count == 0):
+        if (vmp.vmp_q_state == GetEnumValue('vm_page_q_state_t', 'VM_PAGE_IS_WIRED')) and (vmp.vmp_wire_count == 0):
             print(out_string + " page in wired state with wire_count of 0\n")
             print("vm_page_t: " + "{0: <#020x}".format(unsigned(vmp)) + "\n")
             print("stopping...\n")
@@ -5007,23 +5013,6 @@ def vm_page_lookup_in_compressor(slot_ptr):
     else:
         print("<no compressed data>")
 
-# From vm_page.h
-VM_PAGE_NOT_ON_Q = 0
-VM_PAGE_IS_WIRED = 1
-VM_PAGE_USED_BY_COMPRESSOR = 2
-VM_PAGE_ON_FREE_Q = 3
-VM_PAGE_ON_FREE_LOCAL_Q = 4
-VM_PAGE_ON_FREE_LOPAGE_Q = 5
-VM_PAGE_ON_THROTTLED_Q = 6
-VM_PAGE_ON_PAGEOUT_Q = 7
-VM_PAGE_ON_SPECULATIVE_Q = 8
-VM_PAGE_ON_ACTIVE_LOCAL_Q = 9
-VM_PAGE_ON_ACTIVE_Q = 10
-VM_PAGE_ON_INACTIVE_INTERNAL_Q = 11
-VM_PAGE_ON_INACTIVE_EXTERNAL_Q = 12
-VM_PAGE_ON_INACTIVE_CLEANED_Q = 13
-VM_PAGE_ON_SECLUDED_Q = 14
-
 @lldb_command('vm_scan_all_pages')
 def VMScanAllPages(cmd_args=None):
     """Scans the vm_pages[] array
@@ -5058,30 +5047,32 @@ def VMScanAllPages(cmd_args=None):
         if m_object_addr != 0 and (m_object := kern.CreateValueFromAddress(m_object_addr, "struct vm_object")).GetSBValue().IsValid() and m_object.internal:
             internal = True
 
-        m_vmp_q_state = int(m.vmp_q_state)
-        if m.vmp_wire_count != 0 and m_vmp_q_state != VM_PAGE_ON_ACTIVE_LOCAL_Q:
+        m_vmp_q_state = GetEnumName('vm_page_q_state_t', int(m.vmp_q_state))
+
+        if m.vmp_wire_count != 0 and m_vmp_q_state != 'VM_PAGE_ON_ACTIVE_LOCAL_Q':
             wired_count = wired_count + 1
             pageable = 0
-        elif m_vmp_q_state == VM_PAGE_ON_THROTTLED_Q:
+        elif m_vmp_q_state == 'VM_PAGE_ON_THROTTLED_Q':
             throttled_count = throttled_count + 1
             pageable = 0
-        elif m_vmp_q_state == VM_PAGE_ON_ACTIVE_Q:
+        elif m_vmp_q_state == 'VM_PAGE_ON_ACTIVE_Q':
             active_count = active_count + 1
             pageable = 1
-        elif m_vmp_q_state == VM_PAGE_ON_ACTIVE_LOCAL_Q:
+        elif m_vmp_q_state == 'VM_PAGE_ON_ACTIVE_LOCAL_Q':
             local_active_count = local_active_count + 1
             pageable = 0
-        elif m_vmp_q_state in (VM_PAGE_ON_INACTIVE_CLEANED_Q, VM_PAGE_ON_INACTIVE_INTERNAL_Q,
-                               VM_PAGE_ON_INACTIVE_EXTERNAL_Q):
+        elif m_vmp_q_state in ('VM_PAGE_ON_INACTIVE_CLEANED_Q',
+                               'VM_PAGE_ON_INACTIVE_INTERNAL_Q',
+                               'VM_PAGE_ON_INACTIVE_EXTERNAL_Q'):
             inactive_count = inactive_count + 1
             pageable = 1
-        elif m_vmp_q_state == VM_PAGE_ON_SPECULATIVE_Q:
+        elif m_vmp_q_state == 'VM_PAGE_ON_SPECULATIVE_Q':
             speculative_count = speculative_count + 1
             pageable = 0
-        elif m_vmp_q_state == VM_PAGE_ON_FREE_Q:
+        elif m_vmp_q_state == 'VM_PAGE_ON_FREE_Q':
             free_count = free_count + 1
             pageable = 0
-        elif m_vmp_q_state == VM_PAGE_ON_SECLUDED_Q:
+        elif m_vmp_q_state == 'VM_PAGE_ON_SECLUDED_Q':
             secluded_count = secluded_count + 1
             if m_object_addr == 0:
                 secluded_free_count = secluded_free_count + 1
@@ -5091,7 +5082,7 @@ def VMScanAllPages(cmd_args=None):
         elif m_object_addr == 0 and m.vmp_busy:
             local_free_count = local_free_count + 1
             pageable = 0
-        elif m_vmp_q_state == VM_PAGE_USED_BY_COMPRESSOR:
+        elif m_vmp_q_state == 'VM_PAGE_USED_BY_COMPRESSOR':
             compressor_count = compressor_count + 1
             pageable = 0
         else:

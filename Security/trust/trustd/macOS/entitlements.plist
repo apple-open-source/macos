@@ -34,5 +34,7 @@
 	</array>
 	<key>com.apple.private.trustd.FileHelp</key>
 	<true/>
+	<key>com.apple.private.amfi.version-restriction</key>
+	<integer>1</integer>
 </dict>
 </plist>

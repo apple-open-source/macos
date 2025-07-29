@@ -3983,7 +3983,8 @@ ipc_kmsg_copyout_ool_descriptor(
 				}
 				rcv_addr = rounded_addr;
 
-				kr = vm_map_copy_overwrite(map, rcv_addr, copy, size, FALSE);
+				kr = vm_map_copy_overwrite(map, rcv_addr, copy, size,
+				    FALSE);
 			}
 		} else {
 			kr = vm_map_copyout_size(map, &rcv_addr, copy, size);

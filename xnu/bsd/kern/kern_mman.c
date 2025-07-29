@@ -1168,10 +1168,12 @@ mprotect_sanitize(
 	 * check unaligned start due to UNIX SPEC: user address is not page-aligned,
 	 * return EINVAL
 	 */
+	vm_sanitize_flags_t     flags = VM_SANITIZE_FLAGS_CHECK_ALIGNED_START |
+	    VM_SANITIZE_FLAGS_SIZE_ZERO_FALLTHROUGH;
+
+
 	result = vm_sanitize_addr_size(user_addr_u, user_size_u,
-	    VM_SANITIZE_CALLER_MPROTECT, user_map,
-	    VM_SANITIZE_FLAGS_CHECK_ALIGNED_START |
-	    VM_SANITIZE_FLAGS_SIZE_ZERO_FALLTHROUGH,
+	    VM_SANITIZE_CALLER_MPROTECT, user_map, flags,
 	    user_addr, user_end_aligned, user_size);
 	if (__improbable(result != KERN_SUCCESS)) {
 		return result;
@@ -1325,10 +1327,11 @@ minherit_sanitize(
 	kern_return_t            result;
 	mach_vm_offset_t         addr_end;
 
+	vm_sanitize_flags_t flags = VM_SANITIZE_FLAGS_SIZE_ZERO_FALLTHROUGH;
+
+
 	result = vm_sanitize_addr_size(addr_u, size_u, VM_SANITIZE_CALLER_MINHERIT,
-	    user_map,
-	    VM_SANITIZE_FLAGS_SIZE_ZERO_FALLTHROUGH, addr,
-	    &addr_end, size);
+	    user_map, flags, addr, &addr_end, size);
 	if (__improbable(result != KERN_SUCCESS)) {
 		return result;
 	}
@@ -1397,10 +1400,11 @@ madvise_sanitize(
 	mach_vm_offset_t       *end,
 	mach_vm_size_t         *size)
 {
+	vm_sanitize_flags_t     flags = VM_SANITIZE_FLAGS_SIZE_ZERO_FALLTHROUGH;
+
+
 	return vm_sanitize_addr_size(addr_u, len_u, VM_SANITIZE_CALLER_MADVISE,
-	           user_map,
-	           VM_SANITIZE_FLAGS_SIZE_ZERO_FALLTHROUGH,
-	           start, end, size);
+	           user_map, flags, start, end, size);
 }
 
 int
@@ -1510,8 +1514,10 @@ mincore_sanitize(
 	mach_vm_offset_t        *end,
 	mach_vm_size_t          *size)
 {
+	vm_sanitize_flags_t flags = VM_SANITIZE_FLAGS_SIZE_ZERO_SUCCEEDS;
+
 	return vm_sanitize_addr_size(addr_u, len_u, VM_SANITIZE_CALLER_MINCORE,
-	           map, VM_SANITIZE_FLAGS_SIZE_ZERO_SUCCEEDS, addr, end, size);
+	           map, flags, addr, end, size);
 }
 
 int

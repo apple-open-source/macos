@@ -65,7 +65,7 @@ private:
     void repositionCueSnapToLinesNotSet();
     void repositionGenericCue();
 
-    RenderBlockFlow& backdropBox() const;
+    RenderBlockFlow* backdropBox() const;
     RenderInline* cueBox() const;
 
     VTTCue* m_cue;

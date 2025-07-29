@@ -341,7 +341,6 @@ __options_decl(thread_exclaves_inspection_flags_t, uint16_t, {
 
 #endif /* CONFIG_EXCLAVES */
 
-
 typedef union thread_rr_state {
 	uint32_t trr_value;
 	struct {

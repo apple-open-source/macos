@@ -34,6 +34,7 @@
 
 #import "APIData.h"
 #import "APIError.h"
+#import "APIFrameHandle.h"
 #import "APIFrameInfo.h"
 #import "WKNSData.h"
 #import "WKNSError.h"
@@ -62,12 +63,19 @@ WebExtensionURLSchemeHandler::WebExtensionURLSchemeHandler(WebExtensionControlle
 void WebExtensionURLSchemeHandler::platformStartTask(WebPageProxy& page, WebURLSchemeTask& task)
 {
     auto *operation = [NSBlockOperation blockOperationWithBlock:makeBlockPtr([this, protectedThis = Ref { *this }, &task, protectedTask = Ref { task }, &page, protectedPage = Ref { page }]() {
-        // If a frame is loading, the frame request URL will be an empty string, since the request is actually the frame URL being loaded.
-        // In this case, consider the firstPartyForCookies() to be the document including the frame. This fails for nested frames, since
-        // it is always the main frame URL, not the immediate parent frame.
-        // FIXME: <rdar://problem/59193765> Remove this workaround when there is a way to know the proper parent frame.
-        URL frameDocumentURL = task.frameInfo().request().url().isEmpty() ? task.request().firstPartyForCookies() : task.frameInfo().request().url();
+        URL frameDocumentURL = task.frameInfo().request().url();
         URL requestURL = task.request().url();
+
+        if (task.frameInfo().request().url().isEmpty() || task.frameInfo().request().url().isAboutBlank()) {
+            frameDocumentURL = task.request().firstPartyForCookies();
+
+            if (!task.frameInfo().isMainFrame()) {
+                if (RefPtr parentFrameHandle = task.frameInfo().parentFrameHandle()) {
+                    if (RefPtr parent = WebFrameProxy::webFrame(parentFrameHandle->frameID()))
+                        frameDocumentURL = parent->url();
+                }
+            }
+        }
 
         if (!m_webExtensionController) {
             task.didComplete([NSError errorWithDomain:NSURLErrorDomain code:noPermissionErrorCode userInfo:nil]);

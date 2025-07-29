@@ -64,6 +64,7 @@
 #include <sys/systm.h>
 #include <sys/kernel.h>
 #include <sys/malloc.h>
+#include <sys/mbuf.h>
 #include <sys/kpi_mbuf.h>
 #include <sys/random.h>
 #include <mach_assert.h>
@@ -139,7 +140,7 @@ printmbuf(const char *str, mbuf_t mb, uint32_t offset, uint32_t len)
 		}
 		for (i = offset; len && i < mbuf_len(mb); i++) {
 			const char *s = (cout % 8) ? " " : (cout % 16) ? "    " : "\n";
-			printf("%02x%s", ((uint8_t *)mbuf_data(mb))[i], s);
+			printf("%02x%s", (mtod(mb, uint8_t *))[i], s);
 			len--;
 			cout++;
 		}
@@ -387,7 +388,7 @@ gss_join_mbuf(mbuf_t head, mbuf_t body, mbuf_t tail)
 errno_t
 gss_prepend_mbuf(mbuf_t *chain, uint8_t *bytes, size_t size)
 {
-	uint8_t *data = mbuf_data(*chain);
+	uint8_t *data = mtod(*chain, uint8_t *);
 	size_t leading = mbuf_leadingspace(*chain);
 	size_t trailing = mbuf_trailingspace(*chain);
 	size_t mlen = mbuf_len(*chain);
@@ -402,7 +403,7 @@ gss_prepend_mbuf(mbuf_t *chain, uint8_t *bytes, size_t size)
 	if (error) {
 		return error;
 	}
-	data = mbuf_data(*chain);
+	data = mtod(*chain, uint8_t *);
 	memcpy(data, bytes, size);
 
 	return 0;
@@ -458,7 +459,7 @@ mbuf_walk(mbuf_t mbp, size_t offset, size_t len, size_t blocksize, int (*crypto_
 
 	/* Move to the start of the chain */
 	for (mb = mbp; mb && len > 0; mb = mbuf_next(mb)) {
-		ptr = mbuf_data(mb);
+		ptr = mtod(mb, uint8_t *);
 		mlen = mbuf_len(mb);
 		if (offset >= mlen) {
 			/* Offset not yet reached */
@@ -530,7 +531,7 @@ mbuf_walk(mbuf_t mbp, size_t offset, size_t len, size_t blocksize, int (*crypto_
 						return error;
 					}
 				}
-				nptr = mbuf_data(nmb);
+				nptr = mtod(nmb, uint8_t *);
 				memcpy(block + residue, nptr, offset);
 			}
 			len -= offset;

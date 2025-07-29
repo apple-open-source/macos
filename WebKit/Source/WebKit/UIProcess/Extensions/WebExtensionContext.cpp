@@ -94,7 +94,7 @@ const WebExtensionContext::UserContentControllerProxySet& WebExtensionContext::u
     return extensionController()->allNonPrivateUserContentControllers();
 }
 
-WebExtensionContext::WebProcessProxySet WebExtensionContext::processes(EventListenerTypeSet&& typeSet, ContentWorldTypeSet&& contentWorldTypeSet, Function<bool(WebPageProxy&, WebFrameProxy&)>&& predicate) const
+WebExtensionContext::WebProcessProxySet WebExtensionContext::processes(EventListenerTypeSet&& typeSet, ContentWorldTypeSet&& contentWorldTypeSet, Function<bool(WebProcessProxy&, WebPageProxy&, WebFrameProxy&)>&& predicate) const
 {
     if (!isLoaded())
         return { };
@@ -124,10 +124,10 @@ WebExtensionContext::WebProcessProxySet WebExtensionContext::processes(EventList
                 if (!hasAccessToPrivateData() && page->sessionID().isEphemeral())
                     continue;
 
-                if (predicate && !predicate(*page, frame))
+                Ref webProcess = frame->process();
+                if (predicate && !predicate(webProcess, *page, frame))
                     continue;
 
-                Ref webProcess = frame->process();
                 if (webProcess->canSendMessage())
                     result.add(webProcess);
             }

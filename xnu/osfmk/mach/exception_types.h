@@ -177,6 +177,13 @@
 
 #ifdef  KERNEL_PRIVATE
 #define EXC_MASK_VALID  (EXC_MASK_ALL | EXC_MASK_CRASH | EXC_MASK_CORPSE_NOTIFY)
+
+/*
+ * Additional mask for use with EXC_BREAKPOINT.
+ * Note this is used just while the exception is shuffled around within xnu.
+ * It's wiped off before we reach exception_triage_thread().
+ */
+#define EXC_MAY_BE_UNRECOVERABLE_BIT    0x400   /* Set if this exception may be uncatchable by userspace */
 #endif /* KERNEL_PRIVATE */
 
 #define FIRST_EXCEPTION         1       /* ZERO is illegal */

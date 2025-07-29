@@ -1760,13 +1760,12 @@ bool CDMInstanceSessionFairPlayStreamingAVFObjC::isLicenseTypeSupported(LicenseT
 AVContentKey *CDMInstanceSessionFairPlayStreamingAVFObjC::contentKeyForSample(const MediaSampleAVFObjC& sample)
 {
     auto& sampleKeyIDs = sample.keyIDs();
-    size_t keyStatusIndex = 0;
 
     for (auto& request : contentKeyRequests()) {
-        for (auto& keyID : CDMPrivateFairPlayStreaming::keyIDsForRequest(request.get())) {
-            if (!isPotentiallyUsableKeyStatus(m_keyStatuses[keyStatusIndex++].second))
-                continue;
+        if (!isPotentiallyUsableKeyStatus(requestStatusToCDMStatus([request status])))
+            continue;
 
+        for (auto& keyID : CDMPrivateFairPlayStreaming::keyIDsForRequest(request.get())) {
             if (!sampleKeyIDs.containsIf([&](auto& sampleKeyID) { return sampleKeyID.get() == keyID.get(); }))
                 continue;
 

@@ -413,7 +413,7 @@ unix.pic.o:	unix/unix.c $(UNZIP_H) unzvers.h		# Unix shlib
 unix_make:
 #	@echo\
 # '(Ignore any errors from `make'"' due to the following command; it's harmless.)"
-	-@2>&1 $(LN) $(SRCDIR)/unix/Makefile . > /dev/null || echo > /dev/null
+	-@2>&1 $(LN) -s $(SRCDIR)/unix/Makefile . > /dev/null || echo > /dev/null
 
 # this really only works for Unix targets, unless E and O specified on cmd line
 clean:

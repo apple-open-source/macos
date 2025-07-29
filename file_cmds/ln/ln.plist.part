@@ -2,11 +2,11 @@
 		<key>OpenSourceProject</key>
 		<string>ln</string>
 		<key>OpenSourceVersion</key>
-		<string>2024-04-04</string>
+		<string>2025-04-15</string>
 		<key>OpenSourceWebsiteURL</key>
-		<string>https://cgit.freebsd.org/src/tree/bin/ln?id=bee7cf9e97f6d7bdc918421a93270fa88659808b</string>
+		<string>https://cgit.freebsd.org/src/tree/bin/ln?id=8ce85300c792ecfcb9a307577e3af96ea9a4544c</string>
 		<key>OpenSourceImportDate</key>
-		<string>2024-04-04</string>
+		<string>2025-04-15</string>
 		<key>OpenSourceModifications</key>
 		<array>
 			<string>symlink.7: lutimes(3) instead of lutimes(2) (5815743)</string>

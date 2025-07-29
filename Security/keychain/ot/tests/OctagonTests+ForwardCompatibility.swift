@@ -947,8 +947,6 @@ class OctagonForwardCompatibilityTests: OctagonTestsBase {
     func testRecoverFromPeerUsingOldPolicy() throws {
         self.startCKAccountStatusMock()
 
-        let pastPeerContext = self.makeInitiatorContext(contextID: "pastPeer")
-
         let policyV6Document = builtInPolicyDocumentsFilteredByVersion { $0 == 6 }.first!()
         pastPeerContext.policyOverride = policyV6Document.version
 
@@ -1011,10 +1009,6 @@ class OctagonForwardCompatibilityTests: OctagonTestsBase {
         self.startCKAccountStatusMock()
 
         let pastPeerContext = self.makeInitiatorContext(contextID: "pastPeer")
-        self.mockDeviceInfo.mockModelID = oldDeviceInfo
-#else
-        let pastPeerContext = self.makeInitiatorContext(contextID: "pastPeer")
-#endif
         let policyV1Document = builtInPolicyDocumentsFilteredByVersion { $0 == 1 }.first!()
         pastPeerContext.policyOverride = policyV1Document.version
 
@@ -1097,10 +1091,6 @@ class OctagonForwardCompatibilityTests: OctagonTestsBase {
         self.startCKAccountStatusMock()
 
         let pastPeerContext = self.makeInitiatorContext(contextID: "pastPeer")
-        self.mockDeviceInfo.mockModelID = oldDeviceInfo
-#else
-        let pastPeerContext = self.makeInitiatorContext(contextID: "pastPeer")
-#endif
         let policyV18Document = builtInPolicyDocumentsFilteredByVersion { $0 == 18 }.first!()
         pastPeerContext.policyOverride = policyV18Document.version
 
@@ -1178,10 +1168,6 @@ class OctagonForwardCompatibilityTests: OctagonTestsBase {
         self.startCKAccountStatusMock()
 
         let pastPeerContext = self.makeInitiatorContext(contextID: "pastPeer")
-        self.mockDeviceInfo.mockModelID = oldDeviceInfo
-#else
-        let pastPeerContext = self.makeInitiatorContext(contextID: "pastPeer")
-#endif
         let policyV18Document = builtInPolicyDocumentsFilteredByVersion { $0 == 18 }.first!()
         pastPeerContext.policyOverride = policyV18Document.version
 

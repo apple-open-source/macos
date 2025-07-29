@@ -173,10 +173,8 @@ WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
     bool isFirstInTagHistory() const { return m_isFirstInTagHistory; }
     bool isLastInTagHistory() const { return m_isLastInTagHistory; }
 
-    // FIXME: These should ideally be private, but CSSSelectorList and StyleRule use them.
+    // FIXME: This should ideally be private, but StyleRule uses it.
     void setLastInSelectorList() { m_isLastInSelectorList = true; }
-    void setNotFirstInTagHistory() { m_isFirstInTagHistory = false; }
-    void setNotLastInTagHistory() { m_isLastInTagHistory = false; }
 
     bool isForPage() const { return m_isForPage; }
 
@@ -188,6 +186,7 @@ WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
 #endif
 
 private:
+    friend class CSSSelectorList;
     friend class MutableCSSSelector;
 
     void setValue(const AtomString&, bool matchLowerCase = false);

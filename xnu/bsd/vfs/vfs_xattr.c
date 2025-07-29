@@ -78,7 +78,7 @@ static int shadow_sequence;
 
 #define SHADOW_NAME_FMT         ".vfs_rsrc_stream_%p%08x%p"
 #define SHADOW_DIR_FMT          ".vfs_rsrc_streams_%p%x"
-#define SHADOW_DIR_CONTAINER "/var/run"
+#define SHADOW_DIR_CONTAINER    "/private/var/run"
 
 #define MAKE_SHADOW_NAME(VP, NAME)  \
 	snprintf((NAME), sizeof((NAME)), (SHADOW_NAME_FMT), \
@@ -1096,6 +1096,70 @@ default_removenamedstream(vnode_t vp, const char *name, vfs_context_t context)
 	return default_removexattr(vp, XATTR_RESOURCEFORK_NAME, 0, context);
 }
 
+static bool
+is_shadow_dir_valid(vnode_t parent_sdvp, vnode_t sdvp, vfs_context_t kernelctx)
+{
+	struct vnode_attr va;
+	uint32_t tmp_fsid;
+	bool is_valid = false;
+
+	/* Make sure it's in fact a directory */
+	if (sdvp->v_type != VDIR) {
+		goto out;
+	}
+
+	/* Obtain the fsid for what should be the /private/var/run directory. */
+	VATTR_INIT(&va);
+	VATTR_WANTED(&va, va_fsid);
+	if (VNOP_GETATTR(parent_sdvp, &va, kernelctx) != 0 ||
+	    !VATTR_IS_SUPPORTED(&va, va_fsid)) {
+		goto out;
+	}
+
+	tmp_fsid = va.va_fsid;
+
+	VATTR_INIT(&va);
+	VATTR_WANTED(&va, va_uid);
+	VATTR_WANTED(&va, va_gid);
+	VATTR_WANTED(&va, va_mode);
+	VATTR_WANTED(&va, va_fsid);
+	VATTR_WANTED(&va, va_dirlinkcount);
+	VATTR_WANTED(&va, va_acl);
+	/* Provide defaults for attrs that may not be supported */
+	va.va_dirlinkcount = 1;
+	va.va_acl = (kauth_acl_t) KAUTH_FILESEC_NONE;
+
+	if (VNOP_GETATTR(sdvp, &va, kernelctx) != 0 ||
+	    !VATTR_IS_SUPPORTED(&va, va_uid) ||
+	    !VATTR_IS_SUPPORTED(&va, va_gid) ||
+	    !VATTR_IS_SUPPORTED(&va, va_mode) ||
+	    !VATTR_IS_SUPPORTED(&va, va_fsid)) {
+		goto out;
+	}
+
+	/*
+	 * Make sure its what we want:
+	 *      - owned by root
+	 *	- not writable by anyone
+	 *	- on same file system as /private/var/run
+	 *	- not a hard-linked directory
+	 *	- no ACLs (they might grant write access)
+	 */
+	if ((va.va_uid != 0) || (va.va_gid != 0) ||
+	    (va.va_mode & (S_IWUSR | S_IRWXG | S_IRWXO)) ||
+	    (va.va_fsid != tmp_fsid) ||
+	    (va.va_dirlinkcount != 1) ||
+	    (va.va_acl != (kauth_acl_t) KAUTH_FILESEC_NONE)) {
+		goto out;
+	}
+
+	/* If we get here, then the shadow dir is valid. */
+	is_valid = true;
+
+out:
+	return is_valid;
+}
+
 static int
 get_shadow_dir(vnode_t *sdvpp)
 {
@@ -1104,40 +1168,23 @@ get_shadow_dir(vnode_t *sdvpp)
 	struct componentname  cn;
 	struct vnode_attr  va;
 	char tmpname[80];
-	uint32_t  tmp_fsid;
 	int  error;
 	vfs_context_t kernelctx = vfs_context_kernel();
 
-	bzero(tmpname, sizeof(tmpname));
-	MAKE_SHADOW_DIRNAME(rootvnode, tmpname);
 	/*
-	 * Look up the shadow directory to ensure that it still exists.
-	 * By looking it up, we get an iocounted dvp to use, and avoid some coherency issues
-	 * in caching it when multiple threads may be trying to manipulate the pointers.
-	 *
 	 * Make sure to use the kernel context.  We want a singular view of
 	 * the shadow dir regardless of chrooted processes.
 	 */
-	error = vnode_lookup(tmpname, 0, &sdvp, kernelctx);
-	if (error == 0) {
-		/*
-		 * If we get here, then we have successfully looked up the shadow dir,
-		 * and it has an iocount from the lookup. Return the vp in the output argument.
-		 */
-		*sdvpp = sdvp;
-		return 0;
-	}
-	/* In the failure case, no iocount is acquired */
-	sdvp = NULLVP;
-	bzero(tmpname, sizeof(tmpname));
 
 	/*
-	 * Obtain the vnode for "/var/run" directory using the kernel
+	 * Obtain the vnode for "/private/var/run" directory using the kernel
 	 * context.
 	 *
 	 * This is defined in the SHADOW_DIR_CONTAINER macro
 	 */
-	if (vnode_lookup(SHADOW_DIR_CONTAINER, 0, &dvp, kernelctx) != 0) {
+	error = vnode_lookup(SHADOW_DIR_CONTAINER, VNODE_LOOKUP_NOFOLLOW_ANY, &dvp,
+	    kernelctx);
+	if (error) {
 		error = ENOTSUP;
 		goto out;
 	}
@@ -1147,7 +1194,50 @@ get_shadow_dir(vnode_t *sdvpp)
 	 * 'dvp' below suggests the parent directory so
 	 * we only need to provide the leaf entry name
 	 */
+	bzero(tmpname, sizeof(tmpname));
 	MAKE_SHADOW_DIR_LEAF(rootvnode, tmpname);
+
+	/*
+	 * Look up the shadow directory to ensure that it still exists.
+	 * By looking it up, we get an iocounted sdvp to use, and avoid some
+	 * coherency issues in caching it when multiple threads may be trying to
+	 * manipulate the pointers.
+	 */
+	error = vnode_lookupat(tmpname, VNODE_LOOKUP_NOFOLLOW, &sdvp, kernelctx, dvp);
+	if (error == 0) {
+		if (is_shadow_dir_valid(dvp, sdvp, kernelctx)) {
+			/*
+			 * If we get here, then we have successfully looked up the shadow
+			 * dir, and it has an iocount from the lookup. Return the vp in the
+			 * output argument.
+			 */
+			goto out;
+		}
+
+		/*
+		 * Lookup returned us something that is not a valid shadow dir.
+		 * Remove it and proceed with recreating the shadow dir.
+		 */
+		bzero(&cn, sizeof(cn));
+		cn.cn_nameiop = DELETE;
+		cn.cn_flags = ISLASTCN;
+		cn.cn_context = kernelctx;
+		cn.cn_pnbuf = tmpname;
+		cn.cn_pnlen = sizeof(tmpname);
+		cn.cn_nameptr = cn.cn_pnbuf;
+		cn.cn_namelen = (int)strlen(tmpname);
+
+		error = VNOP_REMOVE(dvp, sdvp, &cn, 0, kernelctx);
+		if (error) {
+			error = ENOTSUP;
+			goto out;
+		}
+
+		vnode_put(sdvp);
+	}
+
+	/* In the failure case, no iocount is acquired */
+	sdvp = NULLVP;
 	bzero(&cn, sizeof(cn));
 	cn.cn_nameiop = LOOKUP;
 	cn.cn_flags = ISLASTCN;
@@ -1176,53 +1266,8 @@ get_shadow_dir(vnode_t *sdvpp)
 	if (error == EEXIST) {
 		/* loser has to look up directory */
 		error = VNOP_LOOKUP(dvp, &sdvp, &cn, kernelctx);
-		if (error == 0) {
-			/* Make sure its in fact a directory */
-			if (sdvp->v_type != VDIR) {
-				goto baddir;
-			}
-			/* Obtain the fsid for /var/run directory */
-			VATTR_INIT(&va);
-			VATTR_WANTED(&va, va_fsid);
-			if (VNOP_GETATTR(dvp, &va, kernelctx) != 0 ||
-			    !VATTR_IS_SUPPORTED(&va, va_fsid)) {
-				goto baddir;
-			}
-			tmp_fsid = va.va_fsid;
-
-			VATTR_INIT(&va);
-			VATTR_WANTED(&va, va_uid);
-			VATTR_WANTED(&va, va_gid);
-			VATTR_WANTED(&va, va_mode);
-			VATTR_WANTED(&va, va_fsid);
-			VATTR_WANTED(&va, va_dirlinkcount);
-			VATTR_WANTED(&va, va_acl);
-			/* Provide defaults for attrs that may not be supported */
-			va.va_dirlinkcount = 1;
-			va.va_acl = (kauth_acl_t) KAUTH_FILESEC_NONE;
-
-			if (VNOP_GETATTR(sdvp, &va, kernelctx) != 0 ||
-			    !VATTR_IS_SUPPORTED(&va, va_uid) ||
-			    !VATTR_IS_SUPPORTED(&va, va_gid) ||
-			    !VATTR_IS_SUPPORTED(&va, va_mode) ||
-			    !VATTR_IS_SUPPORTED(&va, va_fsid)) {
-				goto baddir;
-			}
-			/*
-			 * Make sure its what we want:
-			 *      - owned by root
-			 *	- not writable by anyone
-			 *	- on same file system as /var/run
-			 *	- not a hard-linked directory
-			 *	- no ACLs (they might grant write access)
-			 */
-			if ((va.va_uid != 0) || (va.va_gid != 0) ||
-			    (va.va_mode & (S_IWUSR | S_IRWXG | S_IRWXO)) ||
-			    (va.va_fsid != tmp_fsid) ||
-			    (va.va_dirlinkcount != 1) ||
-			    (va.va_acl != (kauth_acl_t) KAUTH_FILESEC_NONE)) {
-				goto baddir;
-			}
+		if (error == 0 && is_shadow_dir_valid(dvp, sdvp, kernelctx) == false) {
+			goto baddir;
 		}
 	}
 out:

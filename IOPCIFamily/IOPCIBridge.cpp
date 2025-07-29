@@ -939,11 +939,11 @@ IOReturn IOPCIBridge::configOp(configOpParams *params)
 				}
 				else if (kPCIDeviceStateRequestPause & state)
 				{
-					DLOG("configOp:->pause: %s(0x%qx), 0x%x\n", next->getName(), next->getRegistryEntryID(), state);
 					if (vars->_waitingPauseSet->setObject(next))
 					{
-						next->changePowerStateToPriv(kIOPCIDevicePausedState);
-						next->powerOverrideOnPriv();
+						// initiatePause() starts the pause IOPM transition if the nub and its children have
+						// finished initializing, else it defers the transition for (at least) another 100ms.
+						next->initiatePause();
 					}
 				}
 				else
@@ -2839,6 +2839,15 @@ bool IOPCIBridge::initializeNub( IOPCIDevice * nub,
 
     if (ioDeviceMemory())
         nub->ioMap = ioDeviceMemory()->map();
+
+	nub->reserved->pauseTimer = IOTimerEventSource::timerEventSource(nub,
+										OSMemberFunctionCast(IOTimerEventSource::Action,
+															 this, &IOPCIDevice::pauseTimerHandler));
+	assert(nub->reserved->pauseTimer);
+    getConfiguratorWorkLoop()->addEventSource(nub->reserved->pauseTimer);
+
+	nub->reserved->busyNotifier = nub->registerInterest(gIOBusyInterest, &IOPCIDevice::busyStateChange, 0, nub);
+	nub->reserved->busyTimestamp = mach_absolute_time();
 
     return (true);
 }

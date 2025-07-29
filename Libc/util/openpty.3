@@ -134,7 +134,21 @@ will fail if:
 .Bl -tag -width Er
 .It Bq Er EAGAIN
 There are no available pseudo-ttys.
+.It Bq Er ENXIO
+The
+.Xr sysctl 3
+limit
+.Dq kern.tty.ptmx_max
+number of pseudo-terminal devices was reached.
 .El
+.Pp
+The
+.Fn openpty
+function may also fail and set
+.Va errno
+for any of the errors specified for the
+.Xr open 2
+system call.
 .Pp
 .Fn login_tty
 will fail if
@@ -156,4 +170,5 @@ cloning pseudo-tty device
 replica pseudo-tty devices
 .El
 .Sh SEE ALSO
-.Xr fork 2
+.Xr fork 2 ,
+.Xr sysctl 3

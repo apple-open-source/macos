@@ -326,6 +326,9 @@ ALWAYS_INLINE JSArray* tryCreateContiguousArrayWithPattern(JSGlobalObject* globa
     if (initialLength >= MIN_ARRAY_STORAGE_CONSTRUCTION_LENGTH)
         return nullptr;
 
+    if (UNLIKELY(globalObject->isHavingABadTime()))
+        return nullptr;
+
     VM& vm = globalObject->vm();
     Structure* structure = globalObject->originalArrayStructureForIndexingType(ArrayWithContiguous);
     if (UNLIKELY(!hasContiguous(structure->indexingType())))
@@ -542,7 +545,7 @@ inline void JSGlobalObject::createGlobalVarBinding(const Identifier& ident)
 
     PropertySlot slot(this, PropertySlot::InternalMethodType::GetOwnProperty);
     bool hasProperty = getOwnPropertySlot(this, this, ident, slot);
-    scope.assertNoExceptionExceptTermination();
+    RETURN_IF_EXCEPTION(scope, void());
     if (UNLIKELY(hasProperty))
         return;
 

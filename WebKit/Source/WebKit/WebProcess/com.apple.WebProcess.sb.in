@@ -1490,6 +1490,7 @@
         SYS_lseek
         SYS_lstat64
         SYS_madvise
+        SYS_mincore
         SYS_mkdir
         SYS_mmap
         SYS_mprotect
@@ -1568,7 +1569,6 @@
     SYS_kqueue ;; See <rdar://problem/88241768>. Remove after <rdar://56634240> is resolved.
     SYS_kqueue_workloop_ctl ;; <rdar://problem/50999499>
     SYS_listxattr
-    SYS_mincore
     SYS_psynch_rw_unlock
     SYS_psynch_rw_wrlock
     SYS_sigprocmask
@@ -1741,6 +1741,7 @@
     task_get_special_port_from_user
     task_info_from_user
     task_policy_set
+    task_restartable_ranges_register
     task_restartable_ranges_synchronize
     thread_get_state_to_user
     thread_resume
@@ -1831,12 +1832,11 @@
 #endif
 #if HAVE(SANDBOX_STATE_FLAGS)
             ;; <rdar://105161083>
-            (with-filter (require-not (webcontent-process-launched))
 #if HAVE(MACH_RANGE_CREATE)
+            (with-filter (require-not (webcontent-process-launched))
                  (when (defined? 'mach_vm_range_create)
-                    (allow mach-message-send (kernel-mig-routine mach_vm_range_create)))
+                    (allow mach-message-send (kernel-mig-routine mach_vm_range_create))))
 #endif
-                (allow mach-message-send (kernel-mig-routine task_restartable_ranges_register)))
 #endif
         )))
 

@@ -287,6 +287,9 @@ extension OctagonPairingTests {
             XCTAssertNil(error, "error retrieving voucherMessage message")
         }
 
+        let decryptedVoucherMessage = try self.decryptAndVerifyPiggybackingVoucherMessage(voucherMessage: voucherMessage!, session: requestCircleSession.accessSession())
+        XCTAssertTrue(decryptedVoucherMessage.hasVoucher, "Pairing message should contain a voucher")
+
         var nothing: Data?
         do {
             nothing = try requestCircleSession.processMessage(voucherMessage!)
@@ -1342,6 +1345,318 @@ extension OctagonPairingTests {
         let idents = piggybackedPlist?["idents"] as? [Any]
         XCTAssertNotNil(idents, "Should have some idents array")
         XCTAssertEqual(idents?.count, 0, "Should have no idents contents")
+    }
+
+    func testV2RequestorAndV3AcceptorPiggybacking() throws {
+        self.startCKAccountStatusMock()
+
+        let initiator1Context = self.manager.context(forContainerName: OTCKContainerName, contextID: OTDefaultContext)
+        let acceptorContext = self.manager.context(forContainerName: OTCKContainerName, contextID: self.contextForAcceptor)
+
+        self.getAcceptorInCircle()
+        self.assertEnters(context: acceptorContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
+
+        initiator1Context.startOctagonStateMachine()
+
+        self.assertEnters(context: initiator1Context, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
+
+        let (requestDelegate, acceptDelegate, acceptSession, requestSession) = self.setupKCJoiningSessionObjects()
+        var initialMessageContainingOctagonVersion: Data?
+        var challengeContainingEpoch: Data?
+        var response: Data?
+        var verification: Data?
+        var doneMessage: Data?
+
+        XCTAssertNotNil(acceptSession, "acceptSession should not be nil")
+        XCTAssertNotNil(requestSession, "requestSession should not be nil")
+        XCTAssertNotNil(requestDelegate, "requestDelegate should not be nil")
+        XCTAssertNotNil(acceptDelegate, "acceptDelegate should not be nil")
+        OctagonSetSOSFeatureEnabled(false)
+
+        do {
+            initialMessageContainingOctagonVersion = try requestSession!.initialMessage()
+        } catch {
+            XCTAssertNil(error, "error retrieving initialMessageContainingOctagonVersion message")
+        }
+
+        XCTAssertNotNil(initialMessageContainingOctagonVersion, "initial message should not be nil")
+
+        do {
+            challengeContainingEpoch = try acceptSession!.processMessage(initialMessageContainingOctagonVersion!)
+            XCTAssertNotNil(challengeContainingEpoch, "challengeContainingEpoch should not be nil")
+        } catch {
+            XCTAssertNil(error, "error retrieving challengeContainingEpoch message")
+        }
+
+        do {
+            response = try requestSession!.processMessage(challengeContainingEpoch!)
+            XCTAssertNotNil(response, "response message should not be nil")
+        } catch {
+            XCTAssertNil(error, "error retrieving response message")
+        }
+
+        do {
+            verification = try acceptSession!.processMessage(response!)
+            XCTAssertNotNil(verification, "verification should not be nil")
+        } catch {
+            XCTAssertNil(error, "error retrieving verification message")
+        }
+
+        do {
+            doneMessage = try requestSession!.processMessage(verification!)
+            XCTAssertNotNil(doneMessage, "doneMessage should not be nil")
+        } catch {
+            XCTAssertNil(error, "error retrieving response message")
+        }
+
+        XCTAssertTrue(requestSession!.isDone(), "SecretSession done")
+        XCTAssertFalse(acceptSession!.isDone(), "Unexpected accept session done")
+
+        let aesSession = requestSession!.session
+
+        let requestCircleSession = KCJoiningRequestCircleSession(circleDelegate: requestDelegate!,
+                                                                 session: aesSession!,
+                                                                 otcontrol: self.otControl,
+                                                                 altDSID: try XCTUnwrap(self.mockAuthKit.primaryAltDSID()),
+                                                                 flowID: "flowID-test",
+                                                                 deviceSessionID: "deviceSessionID-test",
+                                                                 error: nil)
+        XCTAssertNotNil(requestCircleSession, "No request secret session")
+
+        requestCircleSession.setContextIDFor(self.initiatorArguments.contextID)
+        requestCircleSession.setControlObject(self.otControl)
+
+        requestCircleSession.setPiggybackingVersion(2)
+
+        var identityMessage: Data?
+        do {
+            identityMessage = try requestCircleSession.initialMessage()
+            XCTAssertNotNil(identityMessage, "No identity message")
+        } catch {
+            XCTAssertNil(error, "error retrieving identityMessage message")
+        }
+
+        // Double-check that there's an Octagon message in the packet
+        let initiatorIdentityMessage = try self.unpackPiggybackingInitialMessage(identityMessage: identityMessage!, session: acceptSession!.accessSession())
+        XCTAssertTrue(initiatorIdentityMessage.hasPrepare, "Pairing message should contain prepared information")
+
+        var voucherMessage: Data?
+        do {
+            voucherMessage = try acceptSession!.processMessage(identityMessage!)
+            XCTAssertNotNil(voucherMessage, "No voucherMessage message")
+        } catch {
+            XCTAssertNil(error, "error retrieving voucherMessage message")
+        }
+
+        var nothing: Data?
+        do {
+            nothing = try requestCircleSession.processMessage(voucherMessage!)
+            XCTAssertNotNil(nothing, "No nothing message")
+        } catch {
+            XCTAssertNil(error, "error retrieving nothing message")
+        }
+
+        XCTAssertTrue(requestSession!.isDone(), "requestor should be done")
+        XCTAssertTrue(acceptSession!.isDone(), "acceptor should be done")
+
+        try self.forceFetch(context: self.cuttlefishContextForAcceptor)
+
+        assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
+
+        self.sendContainerChange(context: initiator1Context)
+
+        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
+        self.assertEnters(context: self.cuttlefishContextForAcceptor, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
+        self.assertConsidersSelfTrusted(context: self.cuttlefishContext)
+        self.assertConsidersSelfTrusted(context: self.cuttlefishContextForAcceptor)
+        self.verifyDatabaseMocks()
+
+        let initiatorDumpCallback = self.expectation(description: "initiatorDumpCallback callback occurs")
+        self.tphClient.dump(with: try XCTUnwrap(self.cuttlefishContext.activeAccount)) { dump, _ in
+            XCTAssertNotNil(dump, "dump should not be nil")
+            let egoSelf = dump!["self"] as? [String: AnyObject]
+            XCTAssertNotNil(egoSelf, "egoSelf should not be nil")
+            let dynamicInfo = egoSelf!["dynamicInfo"] as? [String: AnyObject]
+            XCTAssertNotNil(dynamicInfo, "dynamicInfo should not be nil")
+            let included = dynamicInfo!["included"] as? [String]
+            XCTAssertNotNil(included, "included should not be nil")
+            XCTAssertEqual(included!.count, 2, "should be 2 peer ids")
+
+            initiatorDumpCallback.fulfill()
+        }
+        self.wait(for: [initiatorDumpCallback], timeout: 10)
+
+        let joiningPeerID = self.fetchEgoPeerID(context: self.cuttlefishContext)
+        let acceptorDumpCallback = self.expectation(description: "acceptorDumpCallback callback occurs")
+        self.tphClient.dump(with: try XCTUnwrap(self.cuttlefishContextForAcceptor.activeAccount)) { dump, _ in
+            XCTAssertNotNil(dump, "dump should not be nil")
+            let egoSelf = dump!["self"] as? [String: AnyObject]
+            XCTAssertNotNil(egoSelf, "egoSelf should not be nil")
+            let dynamicInfo = egoSelf!["dynamicInfo"] as? [String: AnyObject]
+            XCTAssertNotNil(dynamicInfo, "dynamicInfo should not be nil")
+            let included = dynamicInfo!["included"] as? [String]
+            XCTAssertNotNil(included, "included should not be nil")
+            XCTAssertEqual(included!.count, 2, "should be 2 peer ids")
+            acceptorDumpCallback.fulfill()
+        }
+        self.wait(for: [acceptorDumpCallback], timeout: 10)
+        XCTAssertEqual(self.fakeCuttlefishServer.state.bottles.count, 2, "should be 2 bottles")
+    }
+
+    func testV3RequestorAndV2AcceptorPiggybacking() throws {
+        self.startCKAccountStatusMock()
+
+        let initiator1Context = self.manager.context(forContainerName: OTCKContainerName, contextID: OTDefaultContext)
+        let acceptorContext = self.manager.context(forContainerName: OTCKContainerName, contextID: self.contextForAcceptor)
+
+        self.getAcceptorInCircle()
+        self.assertEnters(context: acceptorContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
+
+        initiator1Context.startOctagonStateMachine()
+
+        self.assertEnters(context: initiator1Context, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
+
+        let (requestDelegate, acceptDelegate, acceptSession, requestSession) = self.setupKCJoiningSessionObjects()
+        var initialMessageContainingOctagonVersion: Data?
+        var challengeContainingEpoch: Data?
+        var response: Data?
+        var verification: Data?
+        var doneMessage: Data?
+
+        XCTAssertNotNil(acceptSession, "acceptSession should not be nil")
+        XCTAssertNotNil(requestSession, "requestSession should not be nil")
+        XCTAssertNotNil(requestDelegate, "requestDelegate should not be nil")
+        XCTAssertNotNil(acceptDelegate, "acceptDelegate should not be nil")
+        OctagonSetSOSFeatureEnabled(false)
+
+        do {
+            initialMessageContainingOctagonVersion = try requestSession!.initialMessage()
+        } catch {
+            XCTAssertNil(error, "error retrieving initialMessageContainingOctagonVersion message")
+        }
+
+        XCTAssertNotNil(initialMessageContainingOctagonVersion, "initial message should not be nil")
+
+        do {
+            challengeContainingEpoch = try acceptSession!.processMessage(initialMessageContainingOctagonVersion!)
+            XCTAssertNotNil(challengeContainingEpoch, "challengeContainingEpoch should not be nil")
+        } catch {
+            XCTAssertNil(error, "error retrieving challengeContainingEpoch message")
+        }
+
+        do {
+            response = try requestSession!.processMessage(challengeContainingEpoch!)
+            XCTAssertNotNil(response, "response message should not be nil")
+        } catch {
+            XCTAssertNil(error, "error retrieving response message")
+        }
+
+        do {
+            verification = try acceptSession!.processMessage(response!)
+            XCTAssertNotNil(verification, "verification should not be nil")
+        } catch {
+            XCTAssertNil(error, "error retrieving verification message")
+        }
+
+        do {
+            doneMessage = try requestSession!.processMessage(verification!)
+            XCTAssertNotNil(doneMessage, "doneMessage should not be nil")
+        } catch {
+            XCTAssertNil(error, "error retrieving response message")
+        }
+
+        XCTAssertTrue(requestSession!.isDone(), "SecretSession done")
+        XCTAssertFalse(acceptSession!.isDone(), "Unexpected accept session done")
+
+        let aesSession = requestSession!.session
+
+        let requestCircleSession = KCJoiningRequestCircleSession(circleDelegate: requestDelegate!,
+                                                                 session: aesSession!,
+                                                                 otcontrol: self.otControl,
+                                                                 altDSID: try XCTUnwrap(self.mockAuthKit.primaryAltDSID()),
+                                                                 flowID: "flowID-test",
+                                                                 deviceSessionID: "deviceSessionID-test",
+                                                                 error: nil)
+        XCTAssertNotNil(requestCircleSession, "No request secret session")
+
+        requestCircleSession.setContextIDFor(self.initiatorArguments.contextID)
+        requestCircleSession.setControlObject(self.otControl)
+
+        var identityMessage: Data?
+        do {
+            identityMessage = try requestCircleSession.initialMessage()
+            XCTAssertNotNil(identityMessage, "No identity message")
+        } catch {
+            XCTAssertNil(error, "error retrieving identityMessage message")
+        }
+
+        // Double-check that there's an Octagon message in the packet
+        let initiatorIdentityMessage = try self.unpackPiggybackingInitialMessage(identityMessage: identityMessage!, session: acceptSession!.accessSession())
+        XCTAssertTrue(initiatorIdentityMessage.hasPrepare, "Pairing message should contain prepared information")
+
+        acceptSession!.setPiggybackingVersion(2)
+
+        var voucherMessage: Data?
+        do {
+            voucherMessage = try acceptSession!.processMessage(identityMessage!)
+            XCTAssertNotNil(voucherMessage, "No voucherMessage message")
+        } catch {
+            XCTAssertNil(error, "error retrieving voucherMessage message")
+        }
+
+        var nothing: Data?
+        do {
+            nothing = try requestCircleSession.processMessage(voucherMessage!)
+            XCTAssertNotNil(nothing, "No nothing message")
+        } catch {
+            XCTAssertNil(error, "error retrieving nothing message")
+        }
+
+        XCTAssertTrue(requestSession!.isDone(), "requestor should be done")
+        XCTAssertTrue(acceptSession!.isDone(), "acceptor should be done")
+
+        try self.forceFetch(context: self.cuttlefishContextForAcceptor)
+
+        assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
+
+        self.sendContainerChange(context: initiator1Context)
+
+        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
+        self.assertEnters(context: self.cuttlefishContextForAcceptor, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
+        self.assertConsidersSelfTrusted(context: self.cuttlefishContext)
+        self.assertConsidersSelfTrusted(context: self.cuttlefishContextForAcceptor)
+        self.verifyDatabaseMocks()
+
+        let initiatorDumpCallback = self.expectation(description: "initiatorDumpCallback callback occurs")
+        self.tphClient.dump(with: try XCTUnwrap(self.cuttlefishContext.activeAccount)) { dump, _ in
+            XCTAssertNotNil(dump, "dump should not be nil")
+            let egoSelf = dump!["self"] as? [String: AnyObject]
+            XCTAssertNotNil(egoSelf, "egoSelf should not be nil")
+            let dynamicInfo = egoSelf!["dynamicInfo"] as? [String: AnyObject]
+            XCTAssertNotNil(dynamicInfo, "dynamicInfo should not be nil")
+            let included = dynamicInfo!["included"] as? [String]
+            XCTAssertNotNil(included, "included should not be nil")
+            XCTAssertEqual(included!.count, 2, "should be 2 peer ids")
+
+            initiatorDumpCallback.fulfill()
+        }
+        self.wait(for: [initiatorDumpCallback], timeout: 10)
+
+        let joiningPeerID = self.fetchEgoPeerID(context: self.cuttlefishContext)
+        let acceptorDumpCallback = self.expectation(description: "acceptorDumpCallback callback occurs")
+        self.tphClient.dump(with: try XCTUnwrap(self.cuttlefishContextForAcceptor.activeAccount)) { dump, _ in
+            XCTAssertNotNil(dump, "dump should not be nil")
+            let egoSelf = dump!["self"] as? [String: AnyObject]
+            XCTAssertNotNil(egoSelf, "egoSelf should not be nil")
+            let dynamicInfo = egoSelf!["dynamicInfo"] as? [String: AnyObject]
+            XCTAssertNotNil(dynamicInfo, "dynamicInfo should not be nil")
+            let included = dynamicInfo!["included"] as? [String]
+            XCTAssertNotNil(included, "included should not be nil")
+            XCTAssertEqual(included!.count, 2, "should be 2 peer ids")
+            acceptorDumpCallback.fulfill()
+        }
+        self.wait(for: [acceptorDumpCallback], timeout: 10)
+        XCTAssertEqual(self.fakeCuttlefishServer.state.bottles.count, 2, "should be 2 bottles")
     }
 }
 

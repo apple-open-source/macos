@@ -939,19 +939,8 @@ TRAP_UNWIND_DIRECTIVES
 	ARM64_JUMP_TARGET
 	mrs		x1, ESR_EL1							// Load exception syndrome
 	mrs		x2, FAR_EL1							// Load fault address
-
-	/* At this point, the LR contains the value of ELR_EL1. In the case of an
-	 * instruction prefetch abort, this will be the faulting pc, which we know
-	 * to be invalid. This will prevent us from backtracing through the
-	 * exception if we put it in our stack frame, so we load the LR from the
-	 * exception saved state instead.
-	 */
-	and		w6, w1, #(ESR_EC_MASK)
-	lsr		w6, w6, #(ESR_EC_SHIFT)
-	mov		w4, #(ESR_EC_IABORT_EL1)
-	cmp		w6, w4
-	b.eq	Lfleh_sync_load_lr
-Lvalid_link_register:
+	mrs		lr, ELR_EL1
+	/* NB: lr might not be a valid address (e.g. instruction abort). */
 	PUSH_FRAME
 
 #if CONFIG_SPTM
@@ -988,10 +977,6 @@ Lfleh_synchronous_continue:
 
 	mov		x28, xzr		// Don't need to check PFZ if there are ASTs
 	b		exception_return_dispatch
-
-Lfleh_sync_load_lr:
-	ldr		lr, [x0, SS64_LR]
-	b Lvalid_link_register
 
 #if CONFIG_SPTM
 Lfleh_synchronous_ool_check_exception_el1:
@@ -1626,8 +1611,10 @@ Lskip_restore_neon_saved_state:
 	// Set the bit, but don't sync, it will be synced shortly after this.
 	orr		x5, x5, x2, lsl #(BIT_ISB_PENDING)
 #else
+	cbz		w2, 1f
 	// Last chance, sync now.
 	isb		sy
+1:
 #endif  /* ERET_NEEDS_ISB */
 #endif  /* defined(ERET_IS_NOT_CONTEXT_SYNCHRONIZING) && !__ARM_KERNEL_PROTECT__ */
 	strb	wzr, [x1, CPU_SYNC_ON_CSWITCH]

@@ -83,12 +83,17 @@ void RemoteObjectRegistry::invokeMethod(const RemoteObjectInvocation& invocation
     [m_remoteObjectRegistry _invokeMethod:invocation];
 }
 
-void RemoteObjectRegistry::callReplyBlock(uint64_t replyID, const UserData& blockInvocation)
+void RemoteObjectRegistry::callReplyBlock(IPC::Connection& connection, uint64_t replyID, const UserData& blockInvocation)
 {
     bool wasRemoved = m_pendingReplies.remove(replyID);
     ASSERT_UNUSED(wasRemoved, wasRemoved);
 
-    [m_remoteObjectRegistry _callReplyWithID:replyID blockInvocation:blockInvocation];
+    @try {
+        [m_remoteObjectRegistry _callReplyWithID:replyID blockInvocation:blockInvocation];
+    } @catch (NSException *exception) {
+        NSLog(@"Warning: Exception caught during handling of received message, marking message invalid .\nException: %@", exception);
+        connection.markCurrentlyDispatchedMessageAsInvalid();
+    }
 }
 
 void RemoteObjectRegistry::releaseUnusedReplyBlock(uint64_t replyID)

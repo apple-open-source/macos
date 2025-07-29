@@ -327,7 +327,9 @@ pas_try_reallocate(void* old_ptr,
             
             PAS_ASSERT(free_mode == pas_reallocate_free_if_successful);
 
-            raw_result = pas_debug_heap_realloc(old_ptr, new_size);
+            raw_result = allocation_mode == pas_non_compact_allocation_mode
+                ? pas_debug_heap_realloc(old_ptr, new_size)
+                : pas_debug_heap_realloc_compact(old_ptr, new_size);
 
             result = pas_allocation_result_create_failure();
 

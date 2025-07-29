@@ -220,17 +220,44 @@ bool pas_debug_heap_is_enabled(pas_heap_config_kind kind)
 
 void* pas_debug_heap_malloc(size_t size)
 {
-    return DebugHeap::getExisting()->malloc(size, FailureAction::ReturnNull);
+    auto debugHeap = DebugHeap::getExisting();
+    PAS_PROFILE(DEBUG_HEAP_ALLOCATION, debugHeap, size, 1, pas_non_compact_allocation_mode);
+    return debugHeap->malloc(size, FailureAction::ReturnNull);
 }
 
 void* pas_debug_heap_memalign(size_t alignment, size_t size)
 {
-    return DebugHeap::getExisting()->memalign(alignment, size, FailureAction::ReturnNull);
+    auto debugHeap = DebugHeap::getExisting();
+    PAS_PROFILE(DEBUG_HEAP_ALLOCATION, debugHeap, size, alignment, pas_non_compact_allocation_mode);
+    return debugHeap->memalign(alignment, size, FailureAction::ReturnNull);
 }
 
 void* pas_debug_heap_realloc(void* ptr, size_t size)
 {
-    return DebugHeap::getExisting()->realloc(ptr, size, FailureAction::ReturnNull);
+    auto debugHeap = DebugHeap::getExisting();
+    PAS_PROFILE(DEBUG_HEAP_REALLOCATION, debugHeap, ptr, size, pas_non_compact_allocation_mode);
+    return debugHeap->realloc(ptr, size, FailureAction::ReturnNull);
+}
+
+void* pas_debug_heap_malloc_compact(size_t size)
+{
+    auto debugHeap = DebugHeap::getExisting();
+    PAS_PROFILE(DEBUG_HEAP_ALLOCATION, debugHeap, size, 1, pas_maybe_compact_allocation_mode);
+    return debugHeap->malloc(size, FailureAction::ReturnNull);
+}
+
+void* pas_debug_heap_memalign_compact(size_t alignment, size_t size)
+{
+    auto debugHeap = DebugHeap::getExisting();
+    PAS_PROFILE(DEBUG_HEAP_ALLOCATION, debugHeap, size, alignment, pas_maybe_compact_allocation_mode);
+    return debugHeap->memalign(alignment, size, FailureAction::ReturnNull);
+}
+
+void* pas_debug_heap_realloc_compact(void* ptr, size_t size)
+{
+    auto debugHeap = DebugHeap::getExisting();
+    PAS_PROFILE(DEBUG_HEAP_REALLOCATION, debugHeap, ptr, size, pas_maybe_compact_allocation_mode);
+    return debugHeap->realloc(ptr, size, FailureAction::ReturnNull);
 }
 
 void pas_debug_heap_free(void* ptr)
@@ -262,6 +289,29 @@ void* pas_debug_heap_memalign(size_t alignment, size_t size)
 }
 
 void* pas_debug_heap_realloc(void* ptr, size_t size)
+{
+    BUNUSED_PARAM(ptr);
+    BUNUSED_PARAM(size);
+    RELEASE_BASSERT_NOT_REACHED();
+    return nullptr;
+}
+
+void* pas_debug_heap_malloc_compact(size_t size)
+{
+    BUNUSED_PARAM(size);
+    RELEASE_BASSERT_NOT_REACHED();
+    return nullptr;
+}
+
+void* pas_debug_heap_memalign_compact(size_t alignment, size_t size)
+{
+    BUNUSED_PARAM(size);
+    BUNUSED_PARAM(alignment);
+    RELEASE_BASSERT_NOT_REACHED();
+    return nullptr;
+}
+
+void* pas_debug_heap_realloc_compact(void* ptr, size_t size)
 {
     BUNUSED_PARAM(ptr);
     BUNUSED_PARAM(size);

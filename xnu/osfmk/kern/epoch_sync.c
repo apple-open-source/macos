@@ -571,7 +571,7 @@ esync_wake(esync_space_t space, const uint64_t id, const uint64_t epoch,
 		KDBG_RELEASE(MACHDBG_CODE(DBG_MACH_EPOCH_SYNC,
 		    MACH_EPOCH_SYNC_WAKE_THREAD), unique_id, epoch, tid);
 		kr = waitq_wakeup64_thread(&ts->ts_waitq, CAST_EVENT64_T(sync),
-		    thread, WAITQ_WAKEUP_DEFAULT);
+		    thread, THREAD_AWAKENED);
 	}
 
 	turnstile_update_inheritor_complete(ts, TURNSTILE_INTERLOCK_HELD);

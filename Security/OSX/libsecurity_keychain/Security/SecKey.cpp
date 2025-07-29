@@ -87,14 +87,16 @@ SecCDSAKeyDestroy(SecKeyRef keyRef) {
 
     Keychain kc = keyItem->keychain();
 
-    // We have a +1 reference to the KeyItem now; no need to protect our storage any more
+    // We must drop the mutex to prevent deadlocks with threads accessing the KeyItem directly, e.g. notifications/cache
     cdsaMutex.unlock();
 
     {
-        StMaybeLock<Mutex> _(keyItem->getMutexForObject());
+        // Get the key again, in case it changed since we dropped the cdsaMutex above.
         keyItem = static_cast<KeyItem *>(keyRef->key);
-        if (keyItem == NULL) {
-            // Second version of the check above, the definitive one because this one is performed with locked object's mutex, therefore we can be sure that KeyImpl is still connected to this keyRef instance.
+        StMaybeLock<Mutex> _(keyItem->getMutexForObject());
+        // If the keyItem is pointing at some other SecCDSAKey, that's ok, and we're done.
+        if (keyItem == NULL || keyItem->mWeakSecKeyRef != keyRef) {
+            delete cdsaKey->cdsaKeyMutex;
             return;
         }
 

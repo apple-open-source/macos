@@ -833,14 +833,15 @@ void RenderLayer::rebuildZOrderLists(std::unique_ptr<Vector<RenderLayer*>>& posZ
         if (topLayerLayers.size()) {
             if (!posZOrderList)
                 posZOrderList = makeUnique<Vector<RenderLayer*>>();
-
-            CheckedPtr<RenderLayer> viewTransitionLayer;
-            if (posZOrderList->size() && posZOrderList->last()->renderer().style().pseudoElementType() == PseudoId::ViewTransition)
-                viewTransitionLayer = posZOrderList->takeLast();
-
             posZOrderList->appendVector(topLayerLayers);
-            if (viewTransitionLayer)
-                posZOrderList->append(viewTransitionLayer.get());
+        }
+    }
+
+    if (isRenderViewLayer() && renderer().document().hasViewTransitionPseudoElementTree()) {
+        if (WeakPtr viewTransitionRoot = dynamicDowncast<RenderLayerModelObject>(renderer().view().viewTransitionRoot().get()); viewTransitionRoot && viewTransitionRoot->hasLayer()) {
+            if (!posZOrderList)
+                posZOrderList = makeUnique<Vector<RenderLayer*>>();
+            posZOrderList->append(viewTransitionRoot->layer());
         }
     }
 }
@@ -882,7 +883,7 @@ void RenderLayer::setWasOmittedFromZOrderTree()
 void RenderLayer::collectLayers(std::unique_ptr<Vector<RenderLayer*>>& positiveZOrderList, std::unique_ptr<Vector<RenderLayer*>>& negativeZOrderList, OptionSet<Compositing>& accumulatedDirtyFlags)
 {
     ASSERT(!descendantDependentFlagsAreDirty());
-    if (establishesTopLayer())
+    if (establishesTopLayer() || renderer().isViewTransitionRoot())
         return;
 
     bool isStacking = isStackingContext();
@@ -3147,7 +3148,7 @@ void RenderLayer::clipToRect(GraphicsContext& context, GraphicsContextStateSaver
                 break;
         
             if (layer->renderer().hasNonVisibleOverflow() && layer->renderer().style().hasBorderRadius() && ancestorLayerIsInContainingBlockChain(*layer)) {
-                LayoutRect adjustedClipRect = LayoutRect(toLayoutPoint(layer->offsetFromAncestor(paintingInfo.rootLayer, AdjustForColumns)), layer->size());
+                auto adjustedClipRect = LayoutRect { LayoutPoint { layer->offsetFromAncestor(paintingInfo.rootLayer, AdjustForColumns) }, layer->rendererBorderBoxRect().size() };
                 adjustedClipRect.move(paintingInfo.subpixelOffset);
                 auto borderShape = BorderShape::shapeForBorderRect(layer->renderer().style(), adjustedClipRect);
                 if (borderShape.innerShapeContains(paintingInfo.paintDirtyRect))
@@ -4481,7 +4482,7 @@ static RefPtr<Element> flattenedParent(Element* element)
         return nullptr;
     RefPtr parent = element->parentElementInComposedTree();
     while (parent) {
-        if (parent->computedStyle()->display() != DisplayType::Contents)
+        if (!parent->isConnected() || parent->computedStyle()->display() != DisplayType::Contents)
             break;
         parent = parent->parentElementInComposedTree();
     }

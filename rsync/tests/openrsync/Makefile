@@ -1,9 +1,9 @@
 
 CFLAGS += -fno-omit-frame-pointer
 
-all: sparseme netwrapd
+all: sparseme mksock netwrapd
 
-run: sparseme netwrapd
+run: sparseme mksock netwrapd
 	./generate-kyua
 	-kyua test
 

@@ -1,0 +1,105 @@
+#! /bin/sh
+
+set -e
+set -u
+
+. ${tstdir-.}/lib.sh
+. ${tstdir-.}/conf.sh
+
+rm -rf src dst
+mkdir src dst
+
+jot -r 33 > src/f1
+jot -r 61 > src/f2
+
+ln src/f1 dst/f1
+
+echo
+echo 'Test 1: link-dest, check that hard links between src and dst files are preserved'
+
+rsync -ai --link-dest=$PWD/dst/ -- $PWD/src/ dst/
+compare_trees src dst
+
+stat_src1=$(stat -f '%i %z %l' src/f1)
+stat_dst1=$(stat -f '%i %z %l' dst/f1)
+
+if [ "$(stat -f %l src/f1)" -ne 2 ] ; then
+    echo "link count of src/f1 is not 4: ${stat_src1}" >&2
+    exit 1
+fi
+
+if [ "${stat_src1}" != "${stat_dst1}" ] ; then
+    echo "src1: ${stat_src1}"
+    echo "dst1: ${stat_dst1}"
+    exit 1
+fi
+
+
+echo
+echo 'Test 2: link-dest, check that increased hard links between src and dst files are preserved'
+
+ln src/f1 src/f3
+ln src/f1 dst/f3
+
+rsync -ai --link-dest=$PWD/dst/ -- $PWD/src/ dst/
+compare_trees src dst
+
+stat_src1=$(stat -f '%i %z %l' src/f1)
+stat_dst1=$(stat -f '%i %z %l' dst/f1)
+stat_dst3=$(stat -f '%i %z %l' dst/f3)
+
+if [ "$(stat -f %l src/f1)" -ne 4 ] ; then
+    echo "link count of src/f1 is not 4: ${stat_src1}" >&2
+    exit 1
+fi
+
+if [ "${stat_src1}" != "${stat_dst1}" ] ; then
+    echo "src1: ${stat_src1}"
+    echo "dst1: ${stat_dst1}"
+    exit 1
+fi
+
+if [ "${stat_src1}" != "${stat_dst3}" ] ; then
+    echo "src1: ${stat_src1}"
+    echo "dst3: ${stat_dst3}"
+    exit 1
+fi
+
+
+echo
+echo 'Test 3: check that hard links between src and dst files are preserved and existing updated correctly'
+
+rm src/f2
+ln src/f1 src/f2
+
+rsync -aiH -- $PWD/src/ dst/
+compare_trees src dst
+
+stat_src1=$(stat -f '%i %z %l' src/f1)
+
+stat_dst1=$(stat -f '%i %z %l' dst/f1)
+stat_dst2=$(stat -f '%i %z %l' dst/f2)
+stat_dst3=$(stat -f '%i %z %l' dst/f3)
+
+if [ "$(stat -f %l src/f1)" -ne 6 ] ; then
+    echo "link count of src/f1 is not 6: ${stat_src1}" >&2
+    exit 1
+fi
+
+if [ "${stat_src1}" != "${stat_dst1}" ] ; then
+    echo "src1: ${stat_src1}"
+    echo "dst1: ${stat_dst1}"
+    exit 1
+fi
+
+if [ "${stat_src1}" != "${stat_dst2}" ] ; then
+    echo "src1: ${stat_src1}"
+    echo "dst2: ${stat_dst2}"
+    exit 1
+fi
+
+if [ "${stat_src1}" != "${stat_dst3}" ] ; then
+    echo "src1: ${stat_src1}"
+    echo "dst3: ${stat_dst3}"
+    exit 1
+fi

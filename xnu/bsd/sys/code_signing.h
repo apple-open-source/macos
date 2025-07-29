@@ -470,7 +470,14 @@ get_jit_address_range_kdp(
  * address space from the monitor.
  */
 kern_return_t
-address_space_debugged(
+address_space_debugged_state(
+	const proc_t process);
+
+/**
+ * Implements the same policy as address_space_debugged_state(), but returns
+ * with boolean semantics.
+ */
+bool is_address_space_debugged(
 	const proc_t process);
 
 #if CODE_SIGNING_MONITOR

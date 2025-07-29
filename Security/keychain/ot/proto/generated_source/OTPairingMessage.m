@@ -44,6 +44,20 @@
     return _supportsSOS != nil;
 }
 @synthesize supportsSOS = _supportsSOS;
+@synthesize version = _version;
+- (void)setVersion:(uint64_t)v
+{
+    _has.version = (uint)YES;
+    _version = v;
+}
+- (void)setHasVersion:(BOOL)f
+{
+    _has.version = (uint)f;
+}
+- (BOOL)hasVersion
+{
+    return _has.version != 0;
+}
 
 - (NSString *)description
 {
@@ -72,6 +86,10 @@
     if (self->_supportsSOS)
     {
         [dict setObject:[_supportsSOS dictionaryRepresentation] forKey:@"supportsSOS"];
+    }
+    if (self->_has.version)
+    {
+        [dict setObject:[NSNumber numberWithUnsignedLongLong:self->_version] forKey:@"version"];
     }
     return dict;
 }
@@ -182,6 +200,12 @@ BOOL OTPairingMessageReadFrom(__unsafe_unretained OTPairingMessage *self, __unsa
                 PBReaderRecallMark(reader, &mark_supportsSOS);
             }
             break;
+            case 7 /* version */:
+            {
+                self->_has.version = (uint)YES;
+                self->_version = PBReaderReadUint64(reader);
+            }
+            break;
             default:
                 if (!PBReaderSkipValueWithTag(reader, tag, aType))
                     return NO;
@@ -232,6 +256,13 @@ BOOL OTPairingMessageReadFrom(__unsafe_unretained OTPairingMessage *self, __unsa
             PBDataWriterWriteSubmessage(writer, self->_supportsSOS, 6);
         }
     }
+    /* version */
+    {
+        if (self->_has.version)
+        {
+            PBDataWriterWriteUint64Field(writer, self->_version, 7);
+        }
+    }
 }
 
 - (void)copyTo:(OTPairingMessage *)other
@@ -256,6 +287,11 @@ BOOL OTPairingMessageReadFrom(__unsafe_unretained OTPairingMessage *self, __unsa
     {
         other.supportsSOS = _supportsSOS;
     }
+    if (self->_has.version)
+    {
+        other->_version = _version;
+        other->_has.version = YES;
+    }
 }
 
 - (id)copyWithZone:(NSZone *)zone
@@ -266,6 +302,11 @@ BOOL OTPairingMessageReadFrom(__unsafe_unretained OTPairingMessage *self, __unsa
     copy->_voucher = [_voucher copyWithZone:zone];
     copy->_supportsOctagon = [_supportsOctagon copyWithZone:zone];
     copy->_supportsSOS = [_supportsSOS copyWithZone:zone];
+    if (self->_has.version)
+    {
+        copy->_version = _version;
+        copy->_has.version = YES;
+    }
     return copy;
 }
 
@@ -283,6 +324,8 @@ BOOL OTPairingMessageReadFrom(__unsafe_unretained OTPairingMessage *self, __unsa
     ((!self->_supportsOctagon && !other->_supportsOctagon) || [self->_supportsOctagon isEqual:other->_supportsOctagon])
     &&
     ((!self->_supportsSOS && !other->_supportsSOS) || [self->_supportsSOS isEqual:other->_supportsSOS])
+    &&
+    ((self->_has.version && other->_has.version && self->_version == other->_version) || (!self->_has.version && !other->_has.version))
     ;
 }
 
@@ -299,6 +342,8 @@ BOOL OTPairingMessageReadFrom(__unsafe_unretained OTPairingMessage *self, __unsa
     [self->_supportsOctagon hash]
     ^
     [self->_supportsSOS hash]
+    ^
+    (self->_has.version ? PBHashInt((NSUInteger)self->_version) : 0)
     ;
 }
 
@@ -343,6 +388,11 @@ BOOL OTPairingMessageReadFrom(__unsafe_unretained OTPairingMessage *self, __unsa
     else if (!self->_supportsSOS && other->_supportsSOS)
     {
         [self setSupportsSOS:other->_supportsSOS];
+    }
+    if (other->_has.version)
+    {
+        self->_version = other->_version;
+        self->_has.version = YES;
     }
 }
 

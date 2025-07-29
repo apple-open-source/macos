@@ -2455,10 +2455,14 @@ private:
 #endif
 };
 
+// Map from computed style values (which take zoom into account) to web-exposed values, which are zoom-independent.
 inline int adjustForAbsoluteZoom(int, const RenderStyle&);
 inline float adjustFloatForAbsoluteZoom(float, const RenderStyle&);
 inline LayoutUnit adjustLayoutUnitForAbsoluteZoom(LayoutUnit, const RenderStyle&);
 inline LayoutSize adjustLayoutSizeForAbsoluteZoom(LayoutSize, const RenderStyle&);
+
+// Map from zoom-independent style values to computed style values (which take zoom into account).
+inline float applyZoom(float, const RenderStyle&);
 
 constexpr BorderStyle collapsedBorderStyle(BorderStyle);
 

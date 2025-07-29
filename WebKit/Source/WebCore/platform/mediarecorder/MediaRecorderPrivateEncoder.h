@@ -75,6 +75,7 @@ public:
 
     bool hasAudio() const { return m_hasAudio; }
     bool hasVideo() const { return m_hasVideo; }
+    bool shouldApplyVideoRotation() const { return m_writer ? m_writer->shouldApplyVideoRotation() : false; }
 
 private:
     MediaRecorderPrivateEncoder(bool hasAudio, bool hasVideo);
@@ -200,7 +201,7 @@ private:
     const bool m_hasAudio { false };
     const bool m_hasVideo { false };
     const Ref<Listener> m_listener;
-    std::unique_ptr<MediaRecorderPrivateWriter> m_writer; // Always set and immutable once initialize() has been called
+    const std::unique_ptr<MediaRecorderPrivateWriter> m_writer; // Always set and immutable once initialize() has been called
 };
 
 } // namespace WebCore

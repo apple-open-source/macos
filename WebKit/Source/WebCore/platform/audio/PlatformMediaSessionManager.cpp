@@ -56,10 +56,6 @@ bool PlatformMediaSessionManager::m_vp9DecoderEnabled;
 bool PlatformMediaSessionManager::m_swVPDecodersAlwaysEnabled;
 #endif
 
-#if ENABLE(EXTENSION_CAPABILITIES)
-bool PlatformMediaSessionManager::s_mediaCapabilityGrantsEnabled;
-#endif
-
 static std::unique_ptr<PlatformMediaSessionManager>& sharedPlatformMediaSessionManager()
 {
     static NeverDestroyed<std::unique_ptr<PlatformMediaSessionManager>> platformMediaSessionManager;
@@ -835,18 +831,6 @@ bool PlatformMediaSessionManager::swVPDecodersAlwaysEnabled()
     return m_swVPDecodersAlwaysEnabled;
 }
 #endif // ENABLE(VP9)
-
-#if ENABLE(EXTENSION_CAPABILITIES)
-bool PlatformMediaSessionManager::mediaCapabilityGrantsEnabled()
-{
-    return s_mediaCapabilityGrantsEnabled;
-}
-
-void PlatformMediaSessionManager::setMediaCapabilityGrantsEnabled(bool mediaCapabilityGrantsEnabled)
-{
-    s_mediaCapabilityGrantsEnabled = mediaCapabilityGrantsEnabled;
-}
-#endif
 
 WeakPtr<PlatformMediaSession> PlatformMediaSessionManager::bestEligibleSessionForRemoteControls(const Function<bool(const PlatformMediaSession&)>& filterFunction, PlatformMediaSession::PlaybackControlsPurpose purpose)
 {

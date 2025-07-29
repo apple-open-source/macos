@@ -41,7 +41,6 @@ constexpr Seconds voiceActivityThrottlingDuration = 5_s;
 
 BaseAudioSharedUnit::BaseAudioSharedUnit()
     : m_sampleRate(AudioSession::protectedSharedSession()->sampleRate())
-    , m_voiceActivityThrottleTimer([] { })
 {
     RealtimeMediaSourceCenter::singleton().addDevicesChangedObserver(*this);
 }
@@ -341,14 +340,24 @@ void BaseAudioSharedUnit::handleNewCurrentMicrophoneDevice(CaptureDevice&& devic
 
 void BaseAudioSharedUnit::voiceActivityDetected()
 {
-    if (m_voiceActivityThrottleTimer.isActive() || !m_voiceActivityCallback)
+    if (!m_voiceActivityThrottleTimer)
+        m_voiceActivityThrottleTimer = makeUnique<Timer>([] { });
+
+    if (m_voiceActivityThrottleTimer->isActive() || !m_voiceActivityCallback)
         return;
 
     RELEASE_LOG_INFO(WebRTC, "BaseAudioSharedUnit::voiceActivityDetected");
 
     m_voiceActivityCallback();
-    m_voiceActivityThrottleTimer.startOneShot(voiceActivityThrottlingDuration);
+    m_voiceActivityThrottleTimer->startOneShot(voiceActivityThrottlingDuration);
 }
+
+void BaseAudioSharedUnit::disableVoiceActivityThrottleTimerForTesting()
+{
+    if (m_voiceActivityThrottleTimer)
+        m_voiceActivityThrottleTimer->stop();
+}
+
 
 } // namespace WebCore
 

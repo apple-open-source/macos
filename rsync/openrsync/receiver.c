@@ -83,7 +83,7 @@ rsync_set_metadata(struct sess *sess, int newfile,
 	struct stat      st;
 	bool		 pres_exec;
 
-	if (sess->opts->dry_run)
+	if (sess->opts->dry_run || (f->flstate & FLIST_SKIP_METADATA) != 0)
 		return 1;
 
 	pres_exec = !newfile && S_ISREG(f->st.mode) &&
@@ -174,7 +174,7 @@ rsync_set_metadata_at(struct sess *sess, int newfile, int rootfd,
 	struct stat      st;
 	bool		 pres_exec;
 
-	if (sess->opts->dry_run)
+	if (sess->opts->dry_run || (f->flstate & FLIST_SKIP_METADATA) != 0)
 		return 1;
 
 	pres_exec = !newfile && S_ISREG(f->st.mode) &&
@@ -535,7 +535,7 @@ make_hardlinks(struct sess *sess, const struct flist *fl, size_t flsz,
 		}
 
 		if (!protocol_itemize)
-			log_item_impl(sess, f);
+			log_item(sess, f);
 	}
 
 	return 0;
@@ -589,6 +589,10 @@ rsync_receiver(struct sess *sess, struct cleanup_ctx *cleanup_ctx,
 		    sess->role->role_fetch_outfmt_cookie;
 	}
 
+	if (sess->opts->server)
+		receiver.client = fdout;
+	else
+		receiver.client = -1;
 	sess->role = &receiver;
 
 	/*

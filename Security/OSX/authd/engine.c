@@ -1230,7 +1230,11 @@ _find_rule(engine_t engine, authdb_connection_t dbconn, const char * string, boo
     if (strncmp("com.apple.trust-settings.admin", string,  strlen("com.apple.trust-settings.admin")) == 0) {
         os_log_debug(AUTHD_LOG, "Using local version of %s", string);
         
-        return rule_create_trust();
+        return rule_create_trust_admin();
+    } else if (strncmp("com.apple.trust-settings.user", string,  strlen("com.apple.trust-settings.user")) == 0) {
+        os_log_debug(AUTHD_LOG, "Using local version of %s", string);
+        
+        return rule_create_trust_user();
     }
 
     rule_t r = NULL;

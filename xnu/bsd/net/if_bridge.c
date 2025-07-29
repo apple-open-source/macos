@@ -593,7 +593,7 @@ struct bridge_softc {
 #define SCF_DETACHING            0x01
 #define SCF_RESIZING             0x02
 #define SCF_MEDIA_ACTIVE         0x04
-#define SCF_ADDRESS_ASSIGNED     0x08
+#define SCF_PROTO_ATTACHED       0x08
 
 typedef enum {
 	CHECKSUM_OPERATION_NONE = 0,
@@ -1540,6 +1540,91 @@ done:
 	return error;
 }
 
+static void
+bridge_interface_proto_attach_changed(ifnet_t ifp)
+{
+	uint32_t                        proto_count;
+	struct bridge_softc * __single  sc = ifp->if_softc;
+
+	proto_count = if_get_protolist(ifp, NULL, 0);
+	BRIDGE_LOG(LOG_DEBUG, BR_DBGF_LIFECYCLE,
+	    "%s: proto count %d", ifp->if_xname, proto_count);
+
+	if (sc == NULL) {
+		return;
+	}
+	BRIDGE_LOCK(sc);
+	if ((sc->sc_flags & SCF_DETACHING) != 0) {
+		BRIDGE_UNLOCK(sc);
+		return;
+	}
+	if (proto_count >= 2) {
+		/* an upper layer protocol is attached */
+		sc->sc_flags |= SCF_PROTO_ATTACHED;
+		BRIDGE_LOG(LOG_DEBUG, BR_DBGF_LIFECYCLE,
+		    "%s: setting SCF_PROTO_ATTACHED", ifp->if_xname);
+	} else {
+		/* an upper layer protocol was detached */
+		sc->sc_flags &= ~SCF_PROTO_ATTACHED;
+		BRIDGE_LOG(LOG_DEBUG, BR_DBGF_LIFECYCLE,
+		    "%s: clearing SCF_PROTO_ATTACHED", ifp->if_xname);
+	}
+	BRIDGE_UNLOCK(sc);
+}
+
+static void
+bridge_interface_event(struct ifnet * ifp,
+    __unused protocol_family_t protocol, const struct kev_msg * event)
+{
+	int         event_code;
+
+	if (event->vendor_code != KEV_VENDOR_APPLE
+	    || event->kev_class != KEV_NETWORK_CLASS
+	    || event->kev_subclass != KEV_DL_SUBCLASS) {
+		return;
+	}
+	event_code = event->event_code;
+	switch (event_code) {
+	case KEV_DL_PROTO_DETACHED:
+	case KEV_DL_PROTO_ATTACHED:
+		bridge_interface_proto_attach_changed(ifp);
+		break;
+	default:
+		break;
+	}
+	return;
+}
+
+/*
+ * Function: bridge_interface_attach_protocol
+ * Purpose:
+ *   Attach a protocol to the bridge to get events on the interface,
+ *   in particular, whether protocols are attached/detached.
+ */
+static int
+bridge_interface_attach_protocol(ifnet_t ifp)
+{
+	int                                 error;
+	struct ifnet_attach_proto_param_v2  reg;
+
+	bzero(&reg, sizeof(reg));
+	reg.event = bridge_interface_event;
+
+	error = ifnet_attach_protocol_v2(ifp, PF_BRIDGE, &reg);
+	if (error != 0) {
+		BRIDGE_LOG(LOG_NOTICE, BR_DBGF_LIFECYCLE,
+		    "%s: ifnet_attach_protocol failed, %d",
+		    ifp->if_xname, error);
+	}
+	return error;
+}
+
+static void
+bridge_interface_detach_protocol(ifnet_t ifp)
+{
+	(void)ifnet_detach_protocol(ifp, PF_BRIDGE);
+}
+
 /*
  * bridge_clone_create:
  *
@@ -1675,6 +1760,7 @@ bridge_clone_create(struct if_clone *ifc, uint32_t unit, void *params)
 		BRIDGE_LOG(LOG_NOTICE, 0, "ifnet_attach failed %d", error);
 		goto done;
 	}
+	(void)bridge_interface_attach_protocol(ifp);
 
 	error = ifnet_set_lladdr_and_type(ifp, sc->sc_defaddr, ETHER_ADDR_LEN,
 	    IFT_ETHER);
@@ -1706,6 +1792,9 @@ bridge_clone_create(struct if_clone *ifc, uint32_t unit, void *params)
 
 done:
 	if (error != 0) {
+		if (ifp != NULL) {
+			bridge_interface_detach_protocol(ifp);
+		}
 		BRIDGE_LOG(LOG_NOTICE, 0, "failed error %d", error);
 		/* TBD: Clean up: sc, sc_rthash etc */
 	}
@@ -1724,6 +1813,8 @@ bridge_clone_destroy(struct ifnet *ifp)
 	struct bridge_softc * __single sc = ifp->if_softc;
 	struct bridge_iflist *bif;
 	errno_t error;
+
+	bridge_interface_detach_protocol(ifp);
 
 	BRIDGE_LOCK(sc);
 	if ((sc->sc_flags & SCF_DETACHING)) {
@@ -1857,16 +1948,9 @@ bridge_ioctl(struct ifnet *ifp, u_long cmd, void *__sized_by(IOCPARM_LEN(cmd)) d
 	    (char)IOCGROUP(cmd), cmd & 0xff);
 
 	switch (cmd) {
-	case SIOCAIFADDR_IN6_32:
-	case SIOCAIFADDR_IN6_64:
 	case SIOCSIFADDR:
 	case SIOCAIFADDR:
 		ifnet_set_flags(ifp, IFF_UP, IFF_UP);
-		BRIDGE_LOCK(sc);
-		sc->sc_flags |= SCF_ADDRESS_ASSIGNED;
-		BRIDGE_UNLOCK(sc);
-		BRIDGE_LOG(LOG_NOTICE, 0,
-		    "ifp %s has address", ifp->if_xname);
 		break;
 
 	case SIOCGIFMEDIA32:
@@ -5412,10 +5496,6 @@ bridge_member_output(struct bridge_softc *sc, ifnet_t ifp, mbuf_t *data)
 		}
 	}
 
-	eh = mtod(m, struct ether_header *);
-	vlan = VLANTAGOF(m);
-	etypef = ether_type_flag_get(eh->ether_type);
-
 	BRIDGE_LOCK(sc);
 	mac_nat_bif = sc->sc_mac_nat_bif;
 	mac_nat_ifp = (mac_nat_bif != NULL) ? mac_nat_bif->bif_ifp : NULL;
@@ -5430,6 +5510,9 @@ bridge_member_output(struct bridge_softc *sc, ifnet_t ifp, mbuf_t *data)
 		}
 	}
 	bridge_ifp = sc->sc_ifp;
+	eh = mtod(m, struct ether_header *);
+	vlan = VLANTAGOF(m);
+	etypef = ether_type_flag_get(eh->ether_type);
 
 	/*
 	 * APPLE MODIFICATION
@@ -6222,8 +6305,8 @@ static void
 bridge_broadcast_list(struct bridge_softc *sc, struct bridge_iflist * sbif,
     ether_type_flag_t etypef, mbuf_t m, pkt_direction_t direction)
 {
-	bool                    bridge_has_address;
 	ifnet_t                 bridge_ifp;
+	bool                    bridge_needs_input;
 	struct bridge_iflist *  dbif;
 	bool                    is_bcast_mcast;
 	errno_t                 error = 0;
@@ -6285,7 +6368,7 @@ bridge_broadcast_list(struct bridge_softc *sc, struct bridge_iflist * sbif,
 		    mac_nat_if, m);
 	}
 	sc_filter_flags = sc->sc_filter_flags;
-	bridge_has_address = (sc->sc_flags & SCF_ADDRESS_ASSIGNED) != 0;
+	bridge_needs_input = (sc->sc_flags & SCF_PROTO_ATTACHED) != 0;
 	BRIDGE_LOCK2REF(sc, error);
 	if (error) {
 		goto done;
@@ -6293,7 +6376,7 @@ bridge_broadcast_list(struct bridge_softc *sc, struct bridge_iflist * sbif,
 	is_bcast_mcast = IS_BCAST_MCAST(m);
 
 	/* make a copy for the bridge interface */
-	if (sbif != NULL && is_bcast_mcast && bridge_has_address) {
+	if (sbif != NULL && is_bcast_mcast && bridge_needs_input) {
 		mbuf_t  in_list;
 
 		in_list = copy_packet_list(m);
@@ -9490,6 +9573,7 @@ bridge_input_list(struct bridge_softc * sc, ifnet_t ifp,
 {
 	struct bridge_iflist *  bif;
 	ifnet_t                 bridge_ifp;
+	bool                    bridge_needs_input;
 	bool                    checksum_offload;
 	uint8_t *               dhost;
 #if BRIDGESTP
@@ -9686,11 +9770,12 @@ bridge_input_list(struct bridge_softc * sc, ifnet_t ifp,
 	}
 
 	/*
-	 * If the bridge has an address assigned, and the destination MAC
+	 * If the bridge has ULP attached, and the destination MAC
 	 * matches the bridge interface, claim the packets for the bridge
 	 * interface.
 	 */
-	if ((sc->sc_flags & SCF_ADDRESS_ASSIGNED) != 0 &&
+	bridge_needs_input = (sc->sc_flags & SCF_PROTO_ATTACHED) != 0;
+	if (bridge_needs_input &&
 	    !is_broadcast && _ether_cmp(dhost, IF_LLADDR(bridge_ifp)) == 0) {
 		is_bridge_mac = true;
 	}

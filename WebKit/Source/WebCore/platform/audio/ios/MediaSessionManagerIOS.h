@@ -67,7 +67,7 @@ private:
 #endif
 
     void configureWirelessTargetMonitoring() final;
-    void providePresentingApplicationPIDIfNecessary(ProcessID) final;
+    void providePresentingApplicationPIDIfNecessary(const std::optional<ProcessID>&) final;
     void updatePresentingApplicationPIDIfNecessary(ProcessID) final;
     bool sessionWillBeginPlayback(PlatformMediaSession&) final;
     void sessionWillEndPlayback(PlatformMediaSession&, DelayCallingUpdateNowPlaying) final;

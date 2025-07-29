@@ -31,4 +31,7 @@ int DATelemetrySendUnmountEvent    ( int status , CFStringRef fsType , CFStringR
 #define DA_STATUS_FSTAB_MOUNT_SKIPPED 255
 #define DA_STATUS_FSTAB_MOUNT_ADDED   256
 
+/* Filesystem type name for MSDOS EFI volumes */
+#define DA_TELEMETRY_TYPE_MSDOS_EFI "msdos-efi"
+
 #endif /* __DISKARBITRATIOND_DATELEMETRY__ */

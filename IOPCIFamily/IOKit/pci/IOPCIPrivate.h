@@ -169,6 +169,10 @@ struct IOPCIDeviceExpansionData
 
 	uint8_t linkDepth;
 	uint64_t linkUpTimestamp;
+
+	IOTimerEventSource *pauseTimer;
+	IONotifier *busyNotifier;
+	AbsoluteTime busyTimestamp;
 };
 
 enum

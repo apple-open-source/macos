@@ -288,13 +288,6 @@ __header_always_inline bool
 mach_vm_range_contains(const struct mach_vm_range *r, mach_vm_offset_t addr)
 {
 	mach_vm_offset_t rmin, rmax;
-
-#if CONFIG_KERNEL_TAGGING
-	if (VM_KERNEL_ADDRESS(addr)) {
-		addr = vm_memtag_canonicalize_kernel(addr);
-	}
-#endif /* CONFIG_KERNEL_TAGGING */
-
 	/*
 	 * The `&` is not a typo: we really expect the check to pass,
 	 * so encourage the compiler to eagerly load and test without branches
@@ -311,14 +304,8 @@ mach_vm_range_contains(
 	mach_vm_offset_t        size)
 {
 	mach_vm_offset_t rmin, rmax;
-
-#if CONFIG_KERNEL_TAGGING
-	if (VM_KERNEL_ADDRESS(addr)) {
-		addr = vm_memtag_canonicalize_kernel(addr);
-	}
-#endif /* CONFIG_KERNEL_TAGGING */
-
 	mach_vm_offset_t end;
+
 	if (__improbable(os_add_overflow(addr, size, &end))) {
 		return false;
 	}
@@ -364,10 +351,6 @@ mach_vm_range_intersects(
 {
 	struct mach_vm_range r2;
 
-#if CONFIG_KERNEL_TAGGING
-	addr = VM_KERNEL_STRIP_UPTR(addr);
-#endif /* CONFIG_KERNEL_TAGGING */
-
 	r2.min_address = addr;
 	if (os_add_overflow(addr, size, &r2.max_address)) {
 		__mach_vm_range_overflow(addr, size);
@@ -382,7 +365,7 @@ kmem_range_id_contains(
 	vm_map_offset_t         addr,
 	vm_map_size_t           size)
 {
-	return mach_vm_range_contains(&kmem_ranges[range_id], addr, size);
+	return mach_vm_range_contains(&kmem_ranges[range_id], vm_memtag_canonicalize_kernel(addr), size);
 }
 
 __abortlike
@@ -4566,7 +4549,7 @@ vm_kernel_addrhash_internal(vm_offset_t addr, uint64_t salt)
 		return VM_KERNEL_UNSLIDE(addr);
 	}
 
-	addr = VM_KERNEL_STRIP_UPTR(addr);
+	addr = VM_KERNEL_STRIP_PTR(addr);
 
 	vm_offset_t sha_digest[SHA256_DIGEST_LENGTH / sizeof(vm_offset_t)];
 	SHA256_CTX sha_ctx;

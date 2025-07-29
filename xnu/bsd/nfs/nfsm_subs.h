@@ -74,6 +74,8 @@
 #ifdef __APPLE_API_PRIVATE
 
 #include <nfs/nfs_conf.h>
+#include <sys/param.h>
+#include <sys/mbuf.h>
 
 int nfsm_chain_new_mbuf(struct nfsm_chain *, size_t);
 int nfsm_chain_add_opaque_f(struct nfsm_chain *, const u_char *, size_t);
@@ -230,7 +232,7 @@ int nfsm_chain_trim_data(struct nfsm_chain *, int, int *);
 	do { \
 	        (NMC)->nmc_mhead = (MB); \
 	        (NMC)->nmc_mcur = (NMC)->nmc_mhead; \
-	        (NMC)->nmc_ptr = mbuf_data((NMC)->nmc_mcur); \
+	        (NMC)->nmc_ptr = mtod((NMC)->nmc_mcur, caddr_t); \
 	        (NMC)->nmc_left = mbuf_trailingspace((NMC)->nmc_mcur); \
 	        (NMC)->nmc_flags = 0; \
 	} while (0)
@@ -250,7 +252,7 @@ int nfsm_chain_trim_data(struct nfsm_chain *, int, int *);
 	        if ((E) || !(NMC)->nmc_mcur) break; \
 	/* cap off current mbuf */ \
 	        mbuf_setlen((NMC)->nmc_mcur, \
-	                (NMC)->nmc_ptr - (caddr_t)mbuf_data((NMC)->nmc_mcur)); \
+	                (NMC)->nmc_ptr - (caddr_t)mtod((NMC)->nmc_mcur, caddr_t)); \
 	} while (0)
 
 /* make sure there's room for size bytes in current mbuf */
@@ -327,7 +329,7 @@ int nfsm_chain_trim_data(struct nfsm_chain *, int, int *);
 	do { \
 	        if (E) break; \
 	        mbuf_setlen((NMC)->nmc_mcur, \
-	                (NMC)->nmc_ptr - (caddr_t)mbuf_data((NMC)->nmc_mcur)); \
+	                (NMC)->nmc_ptr - mtod((NMC)->nmc_mcur, caddr_t)); \
 	        (NMC)->nmc_left = 0; \
 	} while (0)
 
@@ -418,7 +420,7 @@ int nfsm_chain_trim_data(struct nfsm_chain *, int, int *);
 	                break; \
 	        } \
 	        (NMC)->nmc_mcur = (NMC)->nmc_mhead = (H); \
-	        (NMC)->nmc_ptr = mbuf_data(H); \
+	        (NMC)->nmc_ptr = mtod(H, caddr_t); \
 	        (NMC)->nmc_left = mbuf_len(H); \
 	} while (0)
 

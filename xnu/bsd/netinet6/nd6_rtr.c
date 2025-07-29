@@ -3539,6 +3539,7 @@ nd6_prefix_sync(struct ifnet *ifp)
 {
 	struct nd_prefix *__single pr, *__single opr;
 	int err = 0;
+	uint64_t timenow;
 
 	LCK_MTX_ASSERT(nd6_mutex, LCK_MTX_ASSERT_OWNED);
 
@@ -3546,9 +3547,17 @@ nd6_prefix_sync(struct ifnet *ifp)
 		return;
 	}
 
-	for (pr = nd_prefix.lh_first; pr; pr = pr->ndpr_next) {
+
+	net_update_uptime();
+	timenow = net_uptime();
+
+	LIST_FOREACH(pr, &nd_prefix, ndpr_entry) {
 		NDPR_LOCK(pr);
-		if (!(pr->ndpr_stateflags & NDPRF_ONLINK)) {
+		if ((pr->ndpr_stateflags & NDPRF_ONLINK) == 0) {
+			NDPR_UNLOCK(pr);
+			continue;
+		}
+		if (pr->ndpr_expire != 0 && pr->ndpr_expire < timenow) {
 			NDPR_UNLOCK(pr);
 			continue;
 		}

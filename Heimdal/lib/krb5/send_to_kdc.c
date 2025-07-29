@@ -548,6 +548,7 @@ send_kkdcp(krb5_context context, struct host *host)
     dispatch_queue_t q;
     char *url = NULL;
     char *path = host->hi->path;
+    char *hostName = NULL;
     __block krb5_data data;
 
     q = dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0);
@@ -565,6 +566,8 @@ send_kkdcp(krb5_context context, struct host *host)
     if (url == NULL)
 	return ENOMEM;
     
+    asprintf(&hostName, "kkdcp : (%s)", host->hi->hostname);
+    
     data = host->data;
     krb5_data_zero(&host->data);
 
@@ -581,13 +584,14 @@ send_kkdcp(krb5_context context, struct host *host)
 	    ret = _krb5_kkdcp_request(context, host->ctx->realm, url,
 				      &data, &retdata);
 	    krb5_data_free(&data);
- 	    free(url);
  	    if (ret == 0) {
-		debug_host(context, 5, host, "kkdcp: got %d bytes, feeding them back", (int)retdata.length);
+		_krb5_debugx(context, 5, "kkdcp: got %d bytes, feeding them back: %s", (int)retdata.length, hostName);
 		
 		krb5_net_write_block(context, &host->fd2, retdata.data, retdata.length, 2);
 		krb5_data_free(&retdata);
 	    }
+	    free(url);
+	    free(hostName);
  
  	    close(host->fd2);
 	    host->fd2 = -1;

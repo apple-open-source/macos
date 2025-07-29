@@ -77,7 +77,7 @@ void ResourceMonitor::setDocumentURL(URL&& url)
 
     m_frameURL = WTFMove(url);
 
-    didReceiveResponse(m_frameURL, ContentExtensions::ResourceType::Document);
+    didReceiveResponse(m_frameURL, m_frame->isMainFrame() ? ContentExtensions::ResourceType::TopDocument : ContentExtensions::ResourceType::ChildDocument);
 
     if (RefPtr iframe = dynamicDowncast<HTMLIFrameElement>(frame->ownerElement())) {
         if (auto& url = iframe->initiatorSourceURL(); !url.isEmpty())

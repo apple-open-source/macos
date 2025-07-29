@@ -852,6 +852,11 @@
 		<dict>
 			<key>PolicyIdentifier</key>
 			<string>1.2.840.113635.100.1.33</string>
+			<key>Properties</key>
+			<dict>
+				<key>SecPolicyName</key>
+				<string>bbasile-test.scv.apple.com</string>
+			</dict>
 		</dict>
 		<key>Leaf</key>
 		<string>generic_apple_server</string>

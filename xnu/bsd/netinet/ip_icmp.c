@@ -1242,6 +1242,11 @@ icmp_dgram_send(struct socket *so, int flags, struct mbuf *m,
 	if ((inp_flags & INP_HDRINCL) != 0) {
 		/* Expect 32-bit aligned data ptr on strict-align platforms */
 		MBUF_STRICT_DATA_ALIGNMENT_CHECK_32(m);
+
+		if (m->m_pkthdr.len < sizeof(struct ip)) {
+			goto bad;
+		}
+
 		/*
 		 * This is not raw IP, we liberal only for fields TOS,
 		 * id and TTL.

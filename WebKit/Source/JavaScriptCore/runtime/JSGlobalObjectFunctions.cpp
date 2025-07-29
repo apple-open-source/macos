@@ -861,17 +861,11 @@ JSC_DEFINE_HOST_FUNCTION(globalFuncImportModule, (JSGlobalObject* globalObject, 
 
 static bool canPerformFastPropertyEnumerationForCopyDataProperties(Structure* structure)
 {
-    if (structure->typeInfo().overridesGetOwnPropertySlot())
-        return false;
-    if (structure->typeInfo().overridesAnyFormOfGetOwnPropertyNames())
+    if (!structure->canPerformFastPropertyEnumerationCommon())
         return false;
     // FIXME: Indexed properties can be handled.
     // https://bugs.webkit.org/show_bug.cgi?id=185358
     if (hasIndexedProperties(structure->indexingType()))
-        return false;
-    if (structure->hasAnyKindOfGetterSetterProperties())
-        return false;
-    if (structure->isUncacheableDictionary())
         return false;
     return true;
 };

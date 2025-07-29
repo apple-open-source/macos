@@ -569,6 +569,7 @@ struct kcdata_type_definition {
 #define STACKSHOT_KCTYPE_LATENCY_INFO_CPU            0x956u /* struct stackshot_latency_cpu */
 #define STACKSHOT_KCTYPE_TASK_EXEC_META              0x957u /* struct task_exec_meta */
 
+
 struct stack_snapshot_frame32 {
 	uint32_t lr;
 	uint32_t sp;
@@ -726,6 +727,8 @@ enum task_exec_flags : uint64_t {
 struct task_exec_meta {
 	uint64_t tem_flags; /* task_exec_flags */
 } __attribute__((packed));
+
+
 
 enum thread_snapshot_flags {
 	/* k{User,Kernel}64_p (values 0x1 and 0x2) are defined in generic_snapshot_flags */

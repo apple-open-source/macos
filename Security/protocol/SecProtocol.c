@@ -15,6 +15,7 @@
 
 #include <xpc/xpc.h>
 #include <os/log.h>
+#include <os/lock.h>
 #include <dlfcn.h>
 #include <sys/param.h>
 
@@ -1349,9 +1350,7 @@ sec_protocol_options_copy_sec_protocol_configuration(sec_protocol_options_t opti
         sec_protocol_options_content_t content = (sec_protocol_options_content_t)handle;
         SEC_PROTOCOL_OPTIONS_VALIDATE(content, false);
 
-        if (content->sec_protocol_configuration != NULL) {
-            configuration = content->sec_protocol_configuration;
-        }
+        configuration = sec_retain(content->sec_protocol_configuration);
         return true;
     });
 
@@ -1367,8 +1366,9 @@ sec_protocol_options_set_sec_protocol_configuration(sec_protocol_options_t optio
         sec_protocol_options_content_t content = (sec_protocol_options_content_t)handle;
         SEC_PROTOCOL_OPTIONS_VALIDATE(content, false);
 
-        content->sec_protocol_configuration = configuration;
-        sec_retain(content->sec_protocol_configuration);
+        sec_protocol_configuration_t previous_value = content->sec_protocol_configuration;
+        content->sec_protocol_configuration = sec_retain(configuration);
+        sec_release(previous_value);
         return true;
     });
 }
@@ -1818,12 +1818,17 @@ sec_protocol_metadata_copy_negotiated_protocol(sec_protocol_metadata_t metadata)
     return negotiated_protocol;
 }
 
+// Global lock to ensure returned_raw_string_pointers accesses are thread-safe
+// APIs using this lock are deprecated and consumers should migrate to replacements.
+static os_unfair_lock returned_raw_string_pointers_lock = OS_UNFAIR_LOCK_INIT;
+
 const char *
 sec_protocol_metadata_get_negotiated_protocol(sec_protocol_metadata_t metadata)
 {
     SEC_PROTOCOL_METADATA_VALIDATE(metadata, NULL);
 
     __block const char *negotiated_protocol = NULL;
+    os_unfair_lock_lock(&returned_raw_string_pointers_lock);
     (void)sec_protocol_metadata_access_handle(metadata, ^bool(void *handle) {
         sec_protocol_metadata_content_t content = (sec_protocol_metadata_content_t)handle;
         SEC_PROTOCOL_METADATA_VALIDATE(content, false);
@@ -1840,6 +1845,7 @@ sec_protocol_metadata_get_negotiated_protocol(sec_protocol_metadata_t metadata)
         CFSetAddValue(content->returned_raw_string_pointers, negotiated_protocol);
         return true;
     });
+    os_unfair_lock_unlock(&returned_raw_string_pointers_lock);
 
     return negotiated_protocol;
 }
@@ -1868,6 +1874,7 @@ sec_protocol_metadata_get_server_name(sec_protocol_metadata_t metadata)
     SEC_PROTOCOL_METADATA_VALIDATE(metadata, NULL);
 
     __block const char *server_name = NULL;
+    os_unfair_lock_lock(&returned_raw_string_pointers_lock);
     (void)sec_protocol_metadata_access_handle(metadata, ^bool(void *handle) {
         sec_protocol_metadata_content_t content = (sec_protocol_metadata_content_t)handle;
         SEC_PROTOCOL_METADATA_VALIDATE(content, false);
@@ -1884,6 +1891,7 @@ sec_protocol_metadata_get_server_name(sec_protocol_metadata_t metadata)
         CFSetAddValue(content->returned_raw_string_pointers, server_name);
         return true;
     });
+    os_unfair_lock_unlock(&returned_raw_string_pointers_lock);
 
     return server_name;
 }
@@ -2645,6 +2653,7 @@ sec_protocol_metadata_get_experiment_identifier(sec_protocol_metadata_t metadata
     SEC_PROTOCOL_METADATA_VALIDATE(metadata, NULL);
 
     __block const char *experiment_identifier = NULL;
+    os_unfair_lock_lock(&returned_raw_string_pointers_lock);
     sec_protocol_metadata_access_handle(metadata, ^bool(void *handle) {
         sec_protocol_metadata_content_t content = (sec_protocol_metadata_content_t)handle;
         SEC_PROTOCOL_METADATA_VALIDATE(content, false);
@@ -2661,6 +2670,7 @@ sec_protocol_metadata_get_experiment_identifier(sec_protocol_metadata_t metadata
         CFSetAddValue(content->returned_raw_string_pointers, experiment_identifier);
         return true;
     });
+    os_unfair_lock_unlock(&returned_raw_string_pointers_lock);
 
     return experiment_identifier;
 }
@@ -3237,6 +3247,7 @@ sec_protocol_metadata_get_tls_negotiated_group(sec_protocol_metadata_t metadata)
     SEC_PROTOCOL_METADATA_VALIDATE(metadata, NULL);
 
     __block const char *negotiated_curve = NULL;
+    os_unfair_lock_lock(&returned_raw_string_pointers_lock);
     (void)sec_protocol_metadata_access_handle(metadata, ^bool(void *handle) {
         sec_protocol_metadata_content_t content = (sec_protocol_metadata_content_t)handle;
         SEC_PROTOCOL_METADATA_VALIDATE(content, false);
@@ -3253,6 +3264,7 @@ sec_protocol_metadata_get_tls_negotiated_group(sec_protocol_metadata_t metadata)
         CFSetAddValue(content->returned_raw_string_pointers, negotiated_curve);
         return true;
     });
+    os_unfair_lock_unlock(&returned_raw_string_pointers_lock);
 
     return negotiated_curve;
 }

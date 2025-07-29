@@ -117,11 +117,9 @@ public:
 
     void setScrollbarWidth(ScrollbarWidth);
 
+    void updateScrollbarPainters();
 private:
     ScrollerPairMac(ScrollingTreeScrollingNode&);
-
-    NSScrollerImp *scrollerImpHorizontal() { return horizontalScroller().scrollerImp(); }
-    NSScrollerImp *scrollerImpVertical() { return verticalScroller().scrollerImp(); }
 
     ThreadSafeWeakPtr<ScrollingTreeScrollingNode> m_scrollingNode;
 

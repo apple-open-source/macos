@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2024 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2025 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -43,25 +43,6 @@
 
 #include <CoreFoundation/CFRuntime.h>
 #include <pthread.h>
-
-#if TARGET_OS_OSX
-
-static bool S_hide_bssid;
-
-PRIVATE_EXTERN void
-WiFiInfoSetHideBSSID(bool hide)
-{
-	my_log(LOG_NOTICE, "BSSID %shidden", hide ? "" : "not ");
-	S_hide_bssid = hide;
-}
-
-STATIC bool
-WiFiInfoGetHideBSSID(void)
-{
-	return (S_hide_bssid);
-}
-
-#endif /* TARGET_OS_OSX */
 
 struct WiFiInfo {
 	CFRuntimeBase	cf_base;
@@ -429,11 +410,6 @@ WiFiInfoGetBSSID(WiFiInfoRef w)
 PRIVATE_EXTERN CFStringRef
 WiFiInfoGetBSSIDString(WiFiInfoRef w)
 {
-#if TARGET_OS_OSX
-	if (WiFiInfoGetHideBSSID()) {
-		return (CFSTR("<redacted>"));
-	}
-#endif /* TARGET_OS_OSX */
 	if (w->bssid_string == NULL) {
 		char			bssid[LINK_ADDR_ETHER_STR_LEN];
 

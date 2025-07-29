@@ -1191,7 +1191,6 @@ kcdata_get_typedescription(unsigned type_id, uint8_t * buffer, uint32_t buffer_s
 		setup_type_definition(retval, type_id, i, "kernel_triage_info_v1");
 		break;
 	}
-
 	default:
 		retval = NULL;
 		break;

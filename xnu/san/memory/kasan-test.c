@@ -459,22 +459,22 @@ test_strncat(struct kasan_test *t)
 
 /* we ignore the top *two* frames in backtrace - so add an extra one */
 static int OS_NOINLINE
-test_blacklist_helper(void)
+test_denylist_helper(void)
 {
-	return kasan_is_blacklisted(TYPE_TEST);
+	return kasan_is_denylisted(TYPE_TEST);
 }
 
 static int OS_NOINLINE
-test_blacklist(struct kasan_test *t)
+test_denylist(struct kasan_test *t)
 {
 	TEST_START(t);
-	int res = (int)!test_blacklist_helper();
+	int res = (int)!test_denylist_helper();
 	TEST_DONE(t, res);
 	return 0;
 }
 
 static int OS_NOINLINE
-test_blacklist_str(struct kasan_test *t)
+test_denylist_str(struct kasan_test *t)
 {
 	TEST_START(t);
 	char a1[8];
@@ -570,8 +570,8 @@ static struct kasan_test xnu_tests[] = {
 	DECLARE_TEST(test_strlcat, "strlcat"),
 	DECLARE_TEST(test_strncpy, "strncpy"),
 	DECLARE_TEST(test_strncat, "strncat"),
-	DECLARE_TEST(test_blacklist, "blacklist"),
-	DECLARE_TEST(test_blacklist_str, "blacklist_str"),
+	DECLARE_TEST(test_denylist, "denylist"),
+	DECLARE_TEST(test_denylist_str, "denylist_str"),
 	DECLARE_TEST(test_fakestack, "fakestack"),
 };
 static int num_xnutests = sizeof(xnu_tests) / sizeof(xnu_tests[0]);

@@ -395,6 +395,9 @@ DEFINE_TEST(test_read_format_txz)
 DEFINE_TEST(test_read_format_tz)
 //DEFINE_TEST(test_read_format_ustar_filename)
 DEFINE_TEST(test_read_format_warc)
+#ifdef __APPLE__
+DEFINE_TEST(test_read_format_warc_incomplete)
+#endif
 DEFINE_TEST(test_read_format_xar)
 DEFINE_TEST(test_read_format_xar_doublelink)
 DEFINE_TEST(test_read_format_zip)

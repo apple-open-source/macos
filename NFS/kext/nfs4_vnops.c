@@ -2241,6 +2241,7 @@ alloc:
 		newnofp = kalloc_type(struct nfs_open_file,
 		    Z_WAITOK | Z_ZERO | Z_NOFAIL);
 		lck_mtx_init(&newnofp->nof_lock, get_lck_group(NLG_OPEN), LCK_ATTR_NULL);
+		newnofp->nof_link.tqe_next = NFSNOLIST;
 		newnofp->nof_owner = noop;
 		nfs_open_owner_ref(noop);
 		newnofp->nof_np = np;
@@ -2280,6 +2281,16 @@ alloc:
 void
 nfs_open_file_destroy(struct nfs_open_file *nofp)
 {
+	/* Ensure the open file is not included in the list */
+	if (nofp->nof_np && nofp->nof_link.tqe_next != NFSNOLIST) {
+		lck_mtx_lock(&nofp->nof_np->n_openlock);
+		if (nofp->nof_link.tqe_next != NFSNOLIST) {
+			TAILQ_REMOVE(&nofp->nof_np->n_opens, nofp, nof_link);
+			nofp->nof_link.tqe_next = NFSNOLIST;
+		}
+		lck_mtx_unlock(&nofp->nof_np->n_openlock);
+	}
+
 	lck_mtx_lock(&nofp->nof_owner->noo_opens_lock);
 	TAILQ_REMOVE(&nofp->nof_owner->noo_opens, nofp, nof_oolink);
 	lck_mtx_unlock(&nofp->nof_owner->noo_opens_lock);

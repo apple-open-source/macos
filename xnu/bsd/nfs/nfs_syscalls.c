@@ -75,6 +75,8 @@
  */
 
 #include <sys/file_internal.h>
+#include <sys/param.h>
+#include <sys/mbuf.h>
 #include <sys/vnode_internal.h>
 #include <sys/uio_internal.h>
 #include <sys/sysctl.h>
@@ -1076,12 +1078,12 @@ nfssvc_nfsd(void)
 			if (nfsrv_require_resv_port) {
 				/* Check if source port is a reserved port */
 				in_port_t port = 0;
-				struct sockaddr *saddr = mbuf_data(nd->nd_nam);
+				struct sockaddr *saddr = mtod(nd->nd_nam, struct sockaddr*);
 
 				if (saddr->sa_family == AF_INET) {
-					port = ntohs(((struct sockaddr_in*)saddr)->sin_port);
+					port = ntohs((SIN(saddr))->sin_port);
 				} else if (saddr->sa_family == AF_INET6) {
-					port = ntohs(((struct sockaddr_in6*)saddr)->sin6_port);
+					port = ntohs((SIN6(saddr))->sin6_port);
 				}
 				if ((port >= IPPORT_RESERVED) && (nd->nd_procnum != NFSPROC_NULL)) {
 					nd->nd_procnum = NFSPROC_NOOP;
@@ -1177,7 +1179,7 @@ nfssvc_nfsd(void)
 				if (slp->ns_sotype == SOCK_STREAM) {
 					error = mbuf_prepend(&m, NFSX_UNSIGNED, MBUF_WAITOK);
 					if (!error) {
-						*(u_int32_t*)mbuf_data(m) = htonl(0x80000000 | siz);
+						*mtod(m, u_int32_t *) = htonl(0x80000000 | siz);
 					}
 				}
 				if (!error) {

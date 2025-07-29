@@ -1074,7 +1074,6 @@ nfs_vnop_reclaim(
 #endif
 			}
 		}
-		TAILQ_REMOVE(&np->n_opens, nofp, nof_link);
 		lck_mtx_unlock(&np->n_openlock);
 		nfs_open_file_destroy(nofp);
 		lck_mtx_lock(&np->n_openlock);

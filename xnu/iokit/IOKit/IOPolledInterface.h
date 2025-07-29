@@ -257,7 +257,7 @@ kern_open_file_for_direct_io(const char * name,
 void
 kern_close_file_for_direct_io(struct kern_direct_file_io_ref_t * ref,
     off_t write_offset, void * addr, size_t write_length,
-    off_t discard_offset, off_t discard_end, bool unlink);
+    off_t discard_offset, off_t discard_end, off_t set_file_size, bool unlink);
 int
 kern_write_file(struct kern_direct_file_io_ref_t * ref, off_t offset, void * addr, size_t len, int ioflag);
 int

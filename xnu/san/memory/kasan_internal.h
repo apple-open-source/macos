@@ -72,7 +72,7 @@ typedef uintptr_t uptr;
 #define KASAN_STRIP_ADDR(_x)    (_x)
 #elif KASAN_TBI
 #define KASAN_MODEL_STR                 "kasan-tbi"
-#define KASAN_STRIP_ADDR(_x)    (VM_KERNEL_STRIP_UPTR(_x))
+#define KASAN_STRIP_ADDR(_x)    (VM_KERNEL_STRIP_PTR(_x))
 #else
 #error "No kasan model specified"
 #endif /* KASAN_CLASSIC || KASAN_TBI */
@@ -165,11 +165,11 @@ bool kasan_check_enabled(access_t);
 bool kasan_impl_check_enabled(access_t);
 void kasan_check_range(const void *, size_t, access_t);
 
-/* dynamic blacklist */
-void kasan_init_dybl(void);
-bool kasan_is_blacklisted(access_t);
-void kasan_dybl_load_kext(uintptr_t, const char *);
-void kasan_dybl_unload_kext(uintptr_t);
+/* dynamic denylist */
+void kasan_init_dyn_denylist(void);
+bool kasan_is_denylisted(access_t);
+void kasan_dyn_denylist_load_kext(uintptr_t, const char *);
+void kasan_dyn_denylist_unload_kext(uintptr_t);
 
 /* arch-specific interface */
 void kasan_arch_init(void);

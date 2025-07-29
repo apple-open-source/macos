@@ -57,6 +57,8 @@
 .Op Fl -keep-dirlinks
 .Op Fl -link-dest Ns = Ns Ar directory
 .Op Fl -list-only
+.Op Fl -log-file Ns = Ns Ar file
+.Op Fl -log-file-format Ns = Ns Ar format
 .Op Fl -max-delete Ns = Ns MAX
 .Op Fl -max-size Ns = Ns size
 .Op Fl -min-size Ns = Ns size
@@ -396,10 +398,10 @@ and
 .Em rules
 from
 .Em file .
-.It Fl -extended-attributes
+.It Fl E , -extended-attributes
 Apple specific option to copy extended attributes, resource forks, and ACLs.
 Requires at least Mac OS X 10.4 or suitably patched rsync.
-.It Fl E , -executability
+.It Fl -executability
 Preserve the executability of regular files (i.e., a file is "executable" if
 at least one 'x' mode bit is enabled in its permissions).
 If the source file is executable, then for each 'r' mode bit enabled in the
@@ -553,6 +555,98 @@ is a relative path, it is relative to the destination directory.
 .It Fl -list-only
 Instead of transferring files, only list them.
 This option is implied if there is only a single source argument and no destination argument.
+.It Fl -log-file Ns = Ns Ar file
+Specify a
+.Ar file
+to log to instead of
+.Va stdout .
+This implies a
+.Fl -log-file-format
+of
+.Dq "%i %n%L"
+if none was previously specified.
+.It Fl -log-file-format Ns = Ns Ar format
+Specify a log format for each file involved in the transfer.
+The
+.Ar format
+argument may contain any number of tokens, like
+.Dq %i ,
+with special meaning.
+The following tokens are defined for daemon mode, but are also accepted for
+normal
+.Nm
+usage:
+.Bl -tag -width "%L"
+.It %a
+The client's remote IP address.
+.It %h
+The client's hostname.
+.It %m
+The module requested by the client.
+.It %P
+The path to the module requested by the client.
+.It %u
+The username that the client has authenticated as.
+.El
+.Pp
+These tokens are globally defined:
+.Bl -tag -width "%L"
+.It %b
+The number of bytes transferred.
+.It %B
+The file mode, in a human-readable format.
+.It %c
+The size of block checksums received for the source file.
+This is not currently implemented by this implementation, but will be accepted.
+.It %f
+The long-form filename without a trailing
+.Dq /
+indicator.
+.It %G
+The group of the file in decimal format, or
+.Dq DEFAULT
+when the group is
+.Li 0 .
+.It %I
+The itemized list of updates including unchanged files, as if
+.Fl -itemize-changes
+was specified twice.
+.It %i
+The itemized list of updates, as if
+.Fl -itemize-changes
+was specified.
+.It %l
+The length of the file.
+.It %L
+An indicator of the file being a symlink or a hardlink.
+For hardlinks, this token is replaced with
+.Dq => FILENAME .
+For symlinks, this token is replaced with
+.Dq => FILENAME .
+For non-links, this token is replaced with the empty string.
+.It %M
+The mtime of the file, in full date-time format.
+.It %n
+The short-form filename with a trailing
+.Dq /
+indicator.
+.It %o
+The operation conducted on the file.
+This can be one of
+.Dq send ,
+.Dq recv ,
+or
+.Dq del. .
+.It %p
+The PID of the rsync client.
+.It %t
+The current time, in date-time format.
+.It %U
+The user of the file in decimal format, or
+.Dq DEFAULT
+when the user is
+.Li 0 .
+.El
 .It Fl -max-delete Ar MAX
 Once MAX files have been deleted, do not delete any more files.
 .It Fl -max-size Ar size

@@ -1395,6 +1395,14 @@ static void TestLongLocaleID(void) {
     UDateTimePatternGenerator* dtpg = udatpg_open(
       "en-abcdefg0-abcdefg1-abcdefg2-abcdefg3-abcdefg4-abcdefg5-abcdefg6-abcdefg7-abcdefg8-abcdefg9-abcdefga-abcdefgb-abcdefgc-abcdefgd-abcdefge-abcdefgf-abcdefgg-abcdefgh-abcdefgi-abcdefgj", &err);
     udatpg_close(dtpg);
+    
+    // a second test for rdar://152680847: This follows a different code path than the example above.  This won't necessarily
+    // crash, but should cause ASAN to report a buffer-overflow error in ures_openWithCountryFallback().
+    // The difference between this issue and the one above is the presence of the country code, which causes us to go
+    // through the country-fallback logic
+    dtpg = udatpg_open(
+      "en_US_0000_0001_0002_0003_0004_0005_0006_0007_0008_0009_0010_0011_0012_0013_0014_0015_0016_0017_0018_0019_0020_0021_0022_0023_0024_0025_0026_0027_0028_0029_0030", &err);
+    udatpg_close(dtpg);
 }
 
 #endif  // APPLE_ICU_CHANGES

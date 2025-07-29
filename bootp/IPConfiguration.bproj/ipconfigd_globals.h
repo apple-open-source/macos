@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2016 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2025 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -59,5 +59,8 @@ ipconfigd_create_paths(void)
     return;
 
 }
+
+CFStringRef
+hide_wifi_string(CFStringRef str);
 
 #endif /* _S_IPCONFIGD_GLOBALS_H */

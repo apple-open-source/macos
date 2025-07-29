@@ -2379,6 +2379,12 @@ SCALABLE_COUNTER_DECLARE(vm_page_grab_count);
 SYSCTL_SCALABLE_COUNTER(_vm, pages_grabbed, vm_page_grab_count, "Total pages grabbed");
 
 #if DEVELOPMENT || DEBUG
+SCALABLE_COUNTER_DECLARE(vm_page_deactivate_behind_count);
+SYSCTL_SCALABLE_COUNTER(_vm, pages_deactivated_behind, vm_page_deactivate_behind_count,
+    "Number of pages deactivated behind");
+#endif
+
+#if DEVELOPMENT || DEBUG
 #if __ARM_MIXED_PAGE_SIZE__
 static int vm_mixed_pagesize_supported = 1;
 #else
@@ -3219,7 +3225,6 @@ SYSCTL_QUAD(_vm, OID_AUTO, object_shadow_forced, CTLFLAG_RD | CTLFLAG_LOCKED,
     &vm_object_shadow_forced, "");
 SYSCTL_QUAD(_vm, OID_AUTO, object_shadow_skipped, CTLFLAG_RD | CTLFLAG_LOCKED,
     &vm_object_shadow_skipped, "");
-
 
 
 SYSCTL_INT(_vm, OID_AUTO, vmtc_total, CTLFLAG_RD | CTLFLAG_LOCKED,

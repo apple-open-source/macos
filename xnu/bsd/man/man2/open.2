@@ -157,7 +157,7 @@ O_SYMLINK	allow open of symlinks
 O_EVTONLY	descriptor requested for event notifications only
 O_CLOEXEC	mark as close-on-exec
 O_NOFOLLOW_ANY	do not follow symlinks in the entire path
-O_RESOLVE_BENEATH	path must reside in the hierarchy beneath the starting directory
+O_RESOLVE_BENEATH	path resolution must not escape the directory associated with the file descriptor
 .Ed
 .Pp
 Opening a file with
@@ -257,7 +257,7 @@ will fail.
 .Pp
 If
 .Dv O_RESOLVE_BENEATH
-is used in the mask and the specified relative path does not reside in the directory hierarchy beneath the starting directory passed by
+is used in the mask and the specified path resolution escapes the directory associated with the
 .Fa fd
 then the
 .Fn openat
@@ -489,7 +489,7 @@ The filename does not match the encoding rules.
 O_SHLOCK or O_EXLOCK is specified, but the file is locked and the O_NONBLOCK option was specified.
 .It Bq Er EACCES
 .Fa path
-does not reside in the directory hierarchy beneath the starting directory passed by
+resolution escapes the directory associated with
 .Fa fd
 and O_RESOLVE_BENEATH option was specified.
 .El

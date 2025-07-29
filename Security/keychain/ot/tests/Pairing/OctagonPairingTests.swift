@@ -292,6 +292,18 @@ extension OctagonTestsBase {
         return initiatorIdentityMessageOpt!
     }
 
+    func decryptAndVerifyPiggybackingVoucherMessage(voucherMessage: Data, session: KCAESGCMDuplexSession) throws -> OTPairingMessage {
+        let encryptedVoucherMessage = try KCJoiningMessage(der: voucherMessage)
+        // ensure we can't just pass the payload directly to the protobuf
+        let withoutDecryptAttempt = OTPairingMessage(data: encryptedVoucherMessage.firstData)
+        XCTAssertNil(withoutDecryptAttempt, "should be nil")
+
+        let voucherMessage = try session.decryptAndVerify(encryptedVoucherMessage.firstData)
+        let voucher = OTPairingMessage(data: voucherMessage)
+        XCTAssertNotNil(voucher, "should have an Octagon message")
+        return voucher!
+    }
+
     func makePiggybackingPacket(combining currentMessage: KCJoiningMessage, octagonMessage: OTPairingMessage) throws -> Data {
         let newMessage = try KCJoiningMessage(type: currentMessage.type,
                                               data: currentMessage.firstData,

@@ -63,7 +63,7 @@ public:
 
     virtual void initialize(bool hideRootLayer, IntSize, bool shouldMaintainAspectRatio, CompletionHandler<void(bool didSucceed)>&&) = 0;
 #if !RELEASE_LOG_DISABLED
-    virtual void setLogIdentifier(String&&) = 0;
+    virtual void setLogIdentifier(uint64_t) = 0;
 #endif
     virtual bool didFail() const = 0;
 

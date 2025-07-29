@@ -57,6 +57,8 @@ typedef enum {
 @property (nonatomic, strong) OTJoiningConfiguration* joiningConfiguration;
 @property (nonatomic, strong) OTControlArguments* controlArguments;
 #endif
+//test only
+@property (nonatomic) uint64_t piggybacking_version_for_tests;
 @end
 
 @implementation KCJoiningRequestCircleSession
@@ -74,6 +76,11 @@ typedef enum {
 - (KCAESGCMDuplexSession*)accessSession
 {
     return self.session;
+}
+
+- (void)setPiggybackingVersion:(uint64_t)version
+{
+    self.piggybacking_version_for_tests = version;
 }
 
 #endif
@@ -190,6 +197,9 @@ typedef enum {
 
                 pairingMessage.supportsSOS.supported = SOSCCIsSOSTrustAndSyncingEnabled() ? OTSupportType_supported : OTSupportType_not_supported;
                 pairingMessage.supportsOctagon.supported = OTSupportType_supported;
+
+                //secure piggybacking version
+                pairingMessage.version = self.piggybacking_version_for_tests?: kPiggyV3;
 
                 next = pairingMessage.data;
             }
@@ -356,7 +366,43 @@ typedef enum {
         __block NSData* nextMessage = nil;
         __block NSError* joinError = nil;
 
-        OTPairingMessage* pairingMessage = [[OTPairingMessage alloc] initWithData:message.firstData];
+        OTPairingMessage* pairingMessage = nil;
+        NSError* decryptError = nil;
+        NSData* decryptedPayload = [self.session decryptAndVerify:message.firstData error:&decryptError];
+        if (decryptedPayload == nil || decryptError) {
+            secnotice("joining", "failed to decrypt voucher packet, fall back to legacy path, error: %@", decryptError);
+            pairingMessage = [[OTPairingMessage alloc] initWithData:message.firstData];
+            AAFAnalyticsEventSecurity *event = [[AAFAnalyticsEventSecurity alloc] initWithKeychainCircleMetrics:nil
+                                                                                                        altDSID:self.altDSID
+                                                                                                         flowID:self.flowID
+                                                                                                deviceSessionID:self.deviceSessionID
+                                                                                                      eventName:kSecurityRTCEventNamePiggybackingAcceptorPreVersion3Change
+                                                                                                testsAreEnabled:MetricsOverrideTestsAreEnabled()
+                                                                                                 canSendMetrics:YES
+                                                                                                       category:kSecurityRTCEventCategoryAccountDataAccessRecovery];
+            [SecurityAnalyticsReporterRTC sendMetricWithEvent:event success:YES error:nil];
+        } else {
+            pairingMessage = [[OTPairingMessage alloc] initWithData:decryptedPayload];
+            if (pairingMessage.hasVersion == NO || pairingMessage.version < kPiggyV3) {
+                secerror("joining: unexpected piggybacking version, received: %llu", pairingMessage.version);
+                if (error) {
+                    *error = [NSError errorWithDomain:KCErrorDomain code:kUnexpectedVersion description:@"Unexpected piggybacking version"];
+                }
+                [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:NO error:localError];
+                return nil;
+            } else  {
+                AAFAnalyticsEventSecurity *channelSecuredEvent = [[AAFAnalyticsEventSecurity alloc] initWithKeychainCircleMetrics:nil
+                                                                                                                          altDSID:self.altDSID
+                                                                                                                           flowID:self.flowID
+                                                                                                                  deviceSessionID:self.deviceSessionID
+                                                                                                                        eventName:kSecurityRTCEventNamePiggybackingInitiatorChannelSecured
+                                                                                                                  testsAreEnabled:MetricsOverrideTestsAreEnabled()
+                                                                                                                   canSendMetrics:YES
+                                                                                                                         category:kSecurityRTCEventCategoryAccountDataAccessRecovery];
+                [SecurityAnalyticsReporterRTC sendMetricWithEvent:channelSecuredEvent success:YES error:nil];
+            }
+        }
+
         if (!pairingMessage.hasVoucher) {
             secerror("octagon: expected voucher! returning from piggybacking.");
             localError = [NSError errorWithDomain:KCErrorDomain code:kMissingVoucher description:@"Missing voucher from acceptor"];

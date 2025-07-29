@@ -60,7 +60,7 @@ namespace WebKit {
 
 bool methodSignaturesAreCompatible(NSString *wire, NSString *local)
 {
-    if ([local isEqualToString:wire] ==  NSOrderedSame)
+    if ([local isEqualToString:wire])
         return true;
 
     if (local.length != wire.length)
@@ -1004,6 +1004,9 @@ static NSInvocation *decodeInvocation(WKRemoteObjectDecoder *decoder)
         if (!invocation)
             [NSException raise:NSInvalidUnarchiveOperationException format:@"Reply block for selector \"%s\" is not defined in the local interface", sel_getName(decoder->_replyToSelector)];
     } else {
+        if (decoder->_replyToSelector)
+            [NSException raise:NSInvalidUnarchiveOperationException format:@"%@: Expected reply block but received isReplyBlock false", decoder];
+
         NSString *selectorString = [decoder decodeObjectOfClass:[NSString class] forKey:selectorKey];
         if (!selectorString)
             [NSException raise:NSInvalidUnarchiveOperationException format:@"Invocation had no selector"];

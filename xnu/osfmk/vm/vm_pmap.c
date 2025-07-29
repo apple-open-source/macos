@@ -155,3 +155,40 @@ unified_page_list_iterator_page(
 
 	return phys_page;
 }
+
+#if XNU_VM_HAS_LINEAR_PAGES_ARRAY
+
+/**
+ * Attempts to resolve the canonical VM page for the current position of a page list iter
+ *
+ * @note The behavior of this function is undefined if the iterator is already at or
+ *       beyond the end of the page list.
+ *
+ * @param iter The iterator from which to extract the current page.
+ *
+ * @return The canonical vm_page_t for the current iterator position or
+ *         VM_PAGE_NULL (if the page isn't managed and is part of an UPL array).
+ */
+__attribute__((always_inline))
+vm_page_t
+unified_page_list_iterator_vm_page(
+	const unified_page_list_iterator_t *iter)
+{
+	vm_page_t page = VM_PAGE_NULL;
+	ppnum_t phys_page;
+
+	switch (iter->list->type) {
+	case UNIFIED_PAGE_LIST_TYPE_UPL_ARRAY:
+		phys_page = iter->list->upl.upl_info[iter->upl_index].phys_addr;
+		page = vm_page_find_canonical(phys_page);
+		break;
+	case UNIFIED_PAGE_LIST_TYPE_VM_PAGE_LIST:
+	case UNIFIED_PAGE_LIST_TYPE_VM_PAGE_OBJ_Q:
+	case UNIFIED_PAGE_LIST_TYPE_VM_PAGE_FIFO_Q:
+		page = iter->pageq_pos;
+		break;
+	}
+	return page;
+}
+
+#endif /* XNU_VM_HAS_LINEAR_PAGES_ARRAY */

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2024 Apple Inc. All rights reserved.
+ * Copyright (c) 2013-2025 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -88,10 +88,10 @@
 
 
 /*
- * kHideBSSID
- * - indicates whether the BSSID should be hidden or not
+ * kHideWiFiInfo
+ * - indicates whether the WiFi information should be hidden or not
  */
-#define kHideBSSID			CFSTR("HideBSSID")	/* boolean */
+#define kHideWiFiInfo			CFSTR("HideWiFiInfo")	/* boolean */
 
 
 STATIC SCPreferencesRef				S_prefs;
@@ -425,14 +425,14 @@ IPConfigurationControlPrefsGetDHCPDUIDType(void)
 }
 
 PRIVATE_EXTERN Boolean
-IPConfigurationControlPrefsGetHideBSSID(Boolean default_val,
+IPConfigurationControlPrefsGetHideWiFiInfo(Boolean default_val,
 					Boolean * ret_was_set)
 {
 	Boolean		hide = default_val;
 	CFBooleanRef	val;
 	Boolean		was_set = FALSE;
 
-	val = prefs_get_boolean(kHideBSSID);
+	val = prefs_get_boolean(kHideWiFiInfo);
 	if (val != NULL) {
 		hide = CFBooleanGetValue(val);
 		was_set = TRUE;
@@ -497,19 +497,19 @@ IPConfigurationControlPrefsSetDHCPDUIDType(DHCPDUIDType type)
 }
 
 PRIVATE_EXTERN Boolean
-IPConfigurationControlPrefsSetHideBSSID(Boolean hide)
+IPConfigurationControlPrefsSetHideWiFiInfo(Boolean hide)
 {
-	prefs_set_boolean_value(kHideBSSID, hide);
+	prefs_set_boolean_value(kHideWiFiInfo, hide);
 	return (IPConfigurationControlPrefsSave());
 }
 
 PRIVATE_EXTERN Boolean
-IPConfigurationControlPrefsSetHideBSSIDDefault(void)
+IPConfigurationControlPrefsSetHideWiFiInfoDefault(void)
 {
     SCPreferencesRef	prefs = IPConfigurationControlPrefsGet();
 
     if (prefs != NULL) {
-	    SCPreferencesRemoveValue(prefs, kHideBSSID);
+	    SCPreferencesRemoveValue(prefs, kHideWiFiInfo);
     }
     return (IPConfigurationControlPrefsSave());
 }

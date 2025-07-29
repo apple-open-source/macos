@@ -49,8 +49,10 @@ FrameInfo* NavigationResponse::navigationInitiatingFrame()
     if (!m_navigation)
         return nullptr;
     auto& frameInfo = m_navigation->originatingFrameInfo();
-    RefPtr frame = WebKit::WebFrameProxy::webFrame(frameInfo.frameID);
-    m_sourceFrame = FrameInfo::create(FrameInfoData { frameInfo }, frame ? frame->page() : nullptr);
+    if (!frameInfo)
+        return nullptr;
+    RefPtr frame = WebKit::WebFrameProxy::webFrame(frameInfo->frameID);
+    m_sourceFrame = FrameInfo::create(FrameInfoData { *frameInfo }, frame ? frame->page() : nullptr);
     return m_sourceFrame.get();
 }
 

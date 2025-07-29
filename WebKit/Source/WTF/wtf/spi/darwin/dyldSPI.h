@@ -101,6 +101,10 @@
 #define DYLD_IOS_VERSION_18_0 0x00120000
 #endif
 
+#ifndef DYLD_IOS_VERSION_18_5
+#define DYLD_IOS_VERSION_18_5 0x00120500
+#endif
+
 #ifndef DYLD_MACOSX_VERSION_10_13
 #define DYLD_MACOSX_VERSION_10_13 0x000A0D00
 #endif
@@ -161,6 +165,10 @@
 #define DYLD_MACOSX_VERSION_15_0 0x000f0000
 #endif
 
+#ifndef DYLD_MACOSX_VERSION_15_5
+#define DYLD_MACOSX_VERSION_15_5 0x000f0500
+#endif
+
 #else
 
 typedef uint32_t dyld_platform_t;
@@ -195,6 +203,7 @@ typedef struct {
 #define DYLD_IOS_VERSION_17_2 0x00110200
 #define DYLD_IOS_VERSION_17_4 0x00110400
 #define DYLD_IOS_VERSION_18_0 0x00120000
+#define DYLD_IOS_VERSION_18_5 0x00120500
 
 #define DYLD_MACOSX_VERSION_10_10 0x000A0A00
 #define DYLD_MACOSX_VERSION_10_11 0x000A0B00
@@ -216,6 +225,7 @@ typedef struct {
 #define DYLD_MACOSX_VERSION_14_2 0x000e0200
 #define DYLD_MACOSX_VERSION_14_4 0x000e0400
 #define DYLD_MACOSX_VERSION_15_0 0x000f0000
+#define DYLD_MACOSX_VERSION_15_5 0x000f0500
 
 #endif
 
@@ -311,6 +321,10 @@ WTF_EXTERN_C_BEGIN
 
 #ifndef dyld_fall_2024_os_versions
 #define dyld_fall_2024_os_versions ({ (dyld_build_version_t) { 0, 0 }; })
+#endif
+
+#ifndef dyld_2024_SU_F_os_versions
+#define dyld_2024_SU_F_os_versions ({ (dyld_build_version_t) { 0, 0 }; })
 #endif
 
 uint32_t dyld_get_program_sdk_version();

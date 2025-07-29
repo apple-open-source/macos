@@ -2626,6 +2626,10 @@ ifioctl_iforder(u_long cmd, caddr_t __sized_by(IOCPARM_LEN(cmd)) data)
 	case SIOCSIFORDER: {            /* struct if_order */
 		struct if_order *ifo = (struct if_order *)(void *)data;
 
+		if ((error = priv_check_cred(kauth_cred_get(),
+		    PRIV_NET_INTERFACE_CONTROL, 0)) != 0) {
+			break;
+		}
 		if (ifo->ifo_count > (u_int32_t)if_index) {
 			error = EINVAL;
 			break;
@@ -2732,7 +2736,10 @@ ifioctl_networkid(struct ifnet *ifp, caddr_t __indexable data)
 	int len = ifnetidr->ifnetid_len;
 
 	VERIFY(ifp != NULL);
-
+	if ((error = priv_check_cred(kauth_cred_get(),
+	    PRIV_NET_INTERFACE_CONTROL, 0)) != 0) {
+		goto end;
+	}
 	if (len > sizeof(ifnetidr->ifnetid)) {
 		error = EINVAL;
 		goto end;
@@ -2762,6 +2769,10 @@ ifioctl_netsignature(struct ifnet *ifp, u_long cmd, caddr_t __sized_by(IOCPARM_L
 
 	switch (cmd) {
 	case SIOCSIFNETSIGNATURE:               /* struct if_nsreq */
+		if ((error = priv_check_cred(kauth_cred_get(),
+		    PRIV_NET_INTERFACE_CONTROL, 0)) != 0) {
+			break;
+		}
 		if (ifnsr->ifnsr_len > sizeof(ifnsr->ifnsr_data)) {
 			error = EINVAL;
 			break;
@@ -2800,6 +2811,10 @@ ifioctl_nat64prefix(struct ifnet *ifp, u_long cmd, caddr_t __sized_by(IOCPARM_LE
 
 	switch (cmd) {
 	case SIOCSIFNAT64PREFIX:                /* struct if_nat64req */
+		if ((error = priv_check_cred(kauth_cred_get(),
+		    PRIV_NET_INTERFACE_CONTROL, 0)) != 0) {
+			break;
+		}
 		error = ifnet_set_nat64prefix(ifp, ifnat64->ifnat64_prefixes);
 		if (error != 0) {
 			ip6stat.ip6s_clat464_plat64_pfx_setfail++;

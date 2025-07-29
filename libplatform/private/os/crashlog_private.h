@@ -28,6 +28,54 @@ __ptrcheck_abi_assume_single()
 
 #include <os/base_private.h>
 
+/*
+ * Expresses a trap that cannot be caught by signal handlers under some system configurations.
+ * It's the caller's responsibility to pass a `code` that the system recognizes as
+ * an unrecoverable trap (see `os_trap_code` below and `user_brk_label_range_descriptor` in xnu).
+ * Normal traps will throw a SIGTRAP/SIGABRT, and signal handlers can choose to catch and
+ * continue execution. By contrast, fatal traps can elide signal/exception handler dispatch.
+ * Note they will not always do so: for example, system policy might allow such signal
+ * handler dispatch if a security feature is disabled.
+ */
+#if defined(__x86_64__)
+#define os_fatal_trap(code)		({ \
+	__asm__ volatile ("ud1l %0(%%eax), %%eax" : : "p"(code)); \
+	__builtin_unreachable(); \
+})
+#elif __has_builtin(__builtin_arm_trap)
+#define os_fatal_trap(code) ({ \
+	__builtin_arm_trap(code); \
+	__builtin_unreachable(); \
+})
+#elif defined(__arm64__)
+#define os_fatal_trap(code)		({ \
+	__asm__ volatile ("brk #%0" : : "i"(code)); \
+	__builtin_unreachable(); \
+})
+#else
+#define os_fatal_trap(code) \
+	__builtin_trap();
+#endif
+
+/*
+ * Trap codes that are wired up to be unrecoverable to
+ * the calling process when triggered under some system configurations.
+ * (See `USER_BRK_DESCRIPTOR_DEFINE` usages in xnu.)
+ * Note these ranges are inclusive.
+ */
+__enum_decl(os_trap_code_t, unsigned short, {
+	/* Runtimes defined       : [0xB000 ~ 0xBFFF] */
+	OS_TRAP_HARD_START        = 0xB000,
+	OS_TRAP_HARD_GENERIC      = 0xB001, /* Fatal abort without a specific subsystem available */
+	OS_TRAP_HARD_FOUNDATION   = 0xB002, /* Foundation/CoreFoundation Runtime hard asserts */
+	OS_TRAP_HARD_END          = 0xBFFF,
+
+	/* PTRAUTH                : [0xC470 ~ 0xC473] <ARM only> */
+	OS_TRAP_PAC_START         = 0xC470,
+	OS_TRAP_PAC_END           = 0xC473,
+});
+
+
 #if __has_include(<CrashReporterClient.h>)
 #include <CrashReporterClient.h>
 
@@ -155,7 +203,7 @@ __ptrcheck_abi_assume_single()
  *             my_other_type_t other OS_UNUSED, long code)
  *     {
  *         _os_set_crash_log_cause_and_message(code, "object is corrupt");
- *         __builtin_trap();
+ *         os_fatal_trap(OS_TRAP_HARD_GENERIC);
  *     }
  * </code>
  *
@@ -208,7 +256,7 @@ __ptrcheck_abi_assume_single()
 #define OS_BUG_INTERNAL(ac, lib, msg) ({ \
 		_os_set_crash_log_cause_and_message(ac, "BUG IN " lib ": " msg); \
 		os_prevent_tail_call_optimization(); \
-		__builtin_trap(); \
+		os_fatal_trap(OS_TRAP_HARD_GENERIC); \
 })
 
 /*!
@@ -229,7 +277,7 @@ __ptrcheck_abi_assume_single()
 #define OS_BUG_CLIENT(ac, lib, msg) ({ \
 		_os_set_crash_log_cause_and_message(ac, "BUG IN CLIENT OF " lib ": " msg); \
 		os_prevent_tail_call_optimization(); \
-		__builtin_trap(); \
+		os_fatal_trap(OS_TRAP_HARD_GENERIC); \
 })
 
 #endif // __OS_CRASHLOG_PRIVATE__

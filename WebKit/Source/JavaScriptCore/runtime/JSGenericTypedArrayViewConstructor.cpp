@@ -60,7 +60,7 @@ JSC_DEFINE_HOST_FUNCTION(uint8ArrayConstructorFromBase64, (JSGlobalObject* globa
             if (UNLIKELY(!alphabetString))
                 return throwVMTypeError(globalObject, scope, "Uint8Array.fromBase64 requires that alphabet be \"base64\" or \"base64url\""_s);
 
-            StringView alphabetStringView = alphabetString->view(globalObject);
+            auto alphabetStringView = alphabetString->view(globalObject);
             RETURN_IF_EXCEPTION(scope, { });
             if (alphabetStringView == "base64url"_s)
                 alphabet = WTF::Alphabet::Base64URL;
@@ -75,7 +75,7 @@ JSC_DEFINE_HOST_FUNCTION(uint8ArrayConstructorFromBase64, (JSGlobalObject* globa
             if (UNLIKELY(!lastChunkHandlingString))
                 return throwVMTypeError(globalObject, scope, "Uint8Array.fromBase64 requires that lastChunkHandling be \"loose\", \"strict\", or \"stop-before-partial\""_s);
 
-            StringView lastChunkHandlingStringView = lastChunkHandlingString->view(globalObject);
+            auto lastChunkHandlingStringView = lastChunkHandlingString->view(globalObject);
             RETURN_IF_EXCEPTION(scope, { });
             if (lastChunkHandlingStringView == "strict"_s)
                 lastChunkHandling = WTF::LastChunkHandling::Strict;
@@ -86,7 +86,8 @@ JSC_DEFINE_HOST_FUNCTION(uint8ArrayConstructorFromBase64, (JSGlobalObject* globa
         }
     }
 
-    StringView view = jsString->view(globalObject);
+    auto gcOwnedData = jsString->view(globalObject);
+    StringView view = gcOwnedData;
     RETURN_IF_EXCEPTION(scope, { });
 
     Vector<uint8_t, 128> output;
@@ -220,7 +221,8 @@ JSC_DEFINE_HOST_FUNCTION(uint8ArrayConstructorFromHex, (JSGlobalObject* globalOb
     if (UNLIKELY(jsString->length() % 2))
         return JSValue::encode(throwSyntaxError(globalObject, scope, "Uint8Array.fromHex requires a string of even length"_s));
 
-    StringView view = jsString->view(globalObject);
+    auto gcOwnedData = jsString->view(globalObject);
+    StringView view = gcOwnedData;
     RETURN_IF_EXCEPTION(scope, { });
 
     size_t count = static_cast<size_t>(view.length() / 2);

@@ -459,6 +459,10 @@ static ExceptionOr<void> forEachRendererInPaintOrder(const std::function<Excepti
 
     layer.updateLayerListsIfNeeded();
 
+#if ASSERT_ENABLED
+    LayerListMutationDetector mutationChecker(layer);
+#endif
+
     for (auto* child : layer.negativeZOrderLayers()) {
         auto result = forEachRendererInPaintOrder(function, *child);
         if (result.hasException())
@@ -488,7 +492,7 @@ ExceptionOr<void> ViewTransition::captureOldState()
     Vector<CheckedRef<RenderLayerModelObject>> captureRenderers;
 
     // Ensure style & render tree are up-to-date.
-    protectedDocument()->updateStyleIfNeeded();
+    protectedDocument()->updateStyleIfNeededIgnoringPendingStylesheets();
 
     if (CheckedPtr view = document()->renderView()) {
         Ref frame = view->frameView().frame();
@@ -698,7 +702,7 @@ void ViewTransition::activateViewTransition()
     document()->clearRenderingIsSuppressedForViewTransition();
 
     // Ensure style & render tree are up-to-date.
-    protectedDocument()->updateStyleIfNeeded();
+    protectedDocument()->updateStyleIfNeededIgnoringPendingStylesheets();
 
     auto checkSize = checkForViewportSizeChange();
     if (checkSize.hasException()) {
@@ -880,6 +884,8 @@ void ViewTransition::updatePseudoElementStylesRead()
     if (!document)
         return;
 
+    document->updateStyleIfNeededIgnoringPendingStylesheets();
+
     for (auto& [name, capturedElement] : m_namedElements.map()) {
         if (auto newStyleable = capturedElement->newElement.styleable()) {
             if (CheckedPtr renderer = dynamicDowncast<RenderBoxModelObject>(newStyleable->renderer())) {
@@ -920,7 +926,7 @@ ExceptionOr<void> ViewTransition::updatePseudoElementRenderers()
     if (!documentElement)
         return { };
 
-    document->updateStyleIfNeeded();
+    document->updateStyleIfNeededIgnoringPendingStylesheets();
 
     for (auto& [name, capturedElement] : m_namedElements.map()) {
         if (auto newStyleable = capturedElement->newElement.styleable()) {
@@ -936,7 +942,7 @@ ExceptionOr<void> ViewTransition::updatePseudoElementRenderers()
 
                 RefPtr<ImageBuffer> image;
                 if (RefPtr frame = document->frame(); !viewTransitionCapture->canUseExistingLayers()) {
-                    document->updateLayout();
+                    document->updateLayoutIgnorePendingStylesheets();
                     image = snapshotElementVisualOverflowClippedToViewport(*frame, *renderer, capturedElement->newOverflowRect);
                 } else if (CheckedPtr layer = renderer->isDocumentElementRenderer() ? renderer->view().layer() : renderer->layer())
                     layer->setNeedsCompositingGeometryUpdate();

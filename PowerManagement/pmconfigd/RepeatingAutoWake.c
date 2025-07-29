@@ -394,7 +394,7 @@ _io_pm_schedule_repeat_event
         events = (CFDictionaryRef)CFPropertyListCreateWithData(0, dataRef, 0, NULL, NULL); 
     }
 
-    if (!events) {
+    if (!events || !isA_CFDictionary(events)) {
         *return_code = kIOReturnBadArgument;
         goto exit;
     }

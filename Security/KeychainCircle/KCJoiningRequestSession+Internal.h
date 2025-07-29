@@ -36,6 +36,7 @@
 
 - (void)setControlObject:(OTControl*)control;
 - (void)setContextIDForSession:(NSString*)contextID;
+- (void)setPiggybackingVersion:(uint64_t)version;
 @end
 #endif /* Header_h */
 #endif

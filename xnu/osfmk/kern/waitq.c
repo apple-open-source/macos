@@ -377,17 +377,15 @@ static SECURITY_READ_ONLY_LATE(uint32_t) g_num_waitqs = 1;
 #define _CAST_TO_EVENT_MASK(event) \
 	((waitq_flags_t)(uintptr_t)(event) & ((1ul << _EVENT_MASK_BITS) - 1ul))
 
-static inline uint32_t
-waitq_hash(char *key, size_t length)
-{
-	return os_hash_jenkins(key, length) & (g_num_waitqs - 1);
-}
-
 /* return a global waitq pointer corresponding to the given event */
 struct waitq *
-_global_eventq(char *event, size_t event_length)
+_global_eventq(event64_t event)
 {
-	return &global_waitqs[waitq_hash(event, event_length)];
+	/*
+	 * this doesn't use os_hash_kernel_pointer() because
+	 * some clients use "numbers" here.
+	 */
+	return &global_waitqs[os_hash_uint64(event) & (g_num_waitqs - 1)];
 }
 
 bool
@@ -1512,7 +1510,7 @@ waitq_should_enable_interrupts(waitq_wakeup_flags_t flags)
 	return (flags & (WAITQ_UNLOCK | WAITQ_KEEP_LOCKED | WAITQ_ENABLE_INTERRUPTS)) == (WAITQ_UNLOCK | WAITQ_ENABLE_INTERRUPTS);
 }
 
-kern_return_t
+uint32_t
 waitq_wakeup64_nthreads_locked(
 	waitq_t                 waitq,
 	event64_t               wake_event,
@@ -1523,7 +1521,7 @@ waitq_wakeup64_nthreads_locked(
 	struct waitq_select_args args = {
 		.event = wake_event,
 		.result = result,
-		.flags = (nthreads == 1) ? flags: (flags & ~WAITQ_HANDOFF),
+		.flags = (nthreads == 1) ? flags : (flags & ~WAITQ_HANDOFF),
 		.max_threads = nthreads,
 	};
 
@@ -1549,11 +1547,7 @@ waitq_wakeup64_nthreads_locked(
 		waitq_select_queue_flush(waitq, &args);
 	}
 
-	if (args.nthreads > 0) {
-		return KERN_SUCCESS;
-	}
-
-	return KERN_NOT_WAITING;
+	return args.nthreads;
 }
 
 kern_return_t
@@ -1563,7 +1557,11 @@ waitq_wakeup64_all_locked(
 	wait_result_t           result,
 	waitq_wakeup_flags_t    flags)
 {
-	return waitq_wakeup64_nthreads_locked(waitq, wake_event, result, flags, UINT32_MAX);
+	uint32_t count;
+
+	count = waitq_wakeup64_nthreads_locked(waitq, wake_event, result,
+	    flags, UINT32_MAX);
+	return count ? KERN_SUCCESS : KERN_NOT_WAITING;
 }
 
 kern_return_t
@@ -1573,19 +1571,22 @@ waitq_wakeup64_one_locked(
 	wait_result_t           result,
 	waitq_wakeup_flags_t    flags)
 {
-	return waitq_wakeup64_nthreads_locked(waitq, wake_event, result, flags, 1);
+	uint32_t count;
+
+	count = waitq_wakeup64_nthreads_locked(waitq, wake_event, result,
+	    flags, 1);
+	return count ? KERN_SUCCESS : KERN_NOT_WAITING;
 }
 
 thread_t
 waitq_wakeup64_identify_locked(
 	waitq_t                 waitq,
 	event64_t               wake_event,
-	wait_result_t           result,
 	waitq_wakeup_flags_t    flags)
 {
 	struct waitq_select_args args = {
 		.event = wake_event,
-		.result = result,
+		.result = THREAD_AWAKENED, /* this won't be used */
 		.flags = flags,
 		.max_threads = 1,
 		.is_identified = true,
@@ -2331,7 +2332,7 @@ waitq_assert_wait64_leeway(struct waitq *waitq,
 	return ret;
 }
 
-kern_return_t
+uint32_t
 waitq_wakeup64_nthreads(
 	waitq_t                 waitq,
 	event64_t               wake_event,
@@ -2361,7 +2362,11 @@ waitq_wakeup64_all(
 	wait_result_t           result,
 	waitq_wakeup_flags_t    flags)
 {
-	return waitq_wakeup64_nthreads(waitq, wake_event, result, flags, UINT32_MAX);
+	uint32_t count;
+
+	count = waitq_wakeup64_nthreads(waitq, wake_event, result,
+	    flags, UINT32_MAX);
+	return count ? KERN_SUCCESS : KERN_NOT_WAITING;
 }
 
 kern_return_t
@@ -2371,7 +2376,10 @@ waitq_wakeup64_one(
 	wait_result_t           result,
 	waitq_wakeup_flags_t    flags)
 {
-	return waitq_wakeup64_nthreads(waitq, wake_event, result, flags, 1);
+	uint32_t count;
+
+	count = waitq_wakeup64_nthreads(waitq, wake_event, result, flags, 1);
+	return count ? KERN_SUCCESS : KERN_NOT_WAITING;
 }
 
 kern_return_t
@@ -2413,7 +2421,7 @@ waitq_wakeup64_identify(
 	waitq_lock(waitq);
 
 	thread_t thread = waitq_wakeup64_identify_locked(waitq, wake_event,
-	    result, flags | waitq_flags_splx(spl) | WAITQ_UNLOCK);
+	    flags | waitq_flags_splx(spl) | WAITQ_UNLOCK);
 	/* waitq is unlocked, thread is not go-ed yet */
 	/* preemption disabled if thread non-null */
 	/* splx is handled */

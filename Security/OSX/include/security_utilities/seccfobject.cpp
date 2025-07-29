@@ -21,6 +21,11 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+// *****************************************************************
+// NOTE: This file is compiled as Objective-C++ for @autoreleasepool
+// *****************************************************************
+#pragma mark - Objective-C++!!!
+
 #include <security_utilities/seccfobject.h>
 #include <security_utilities/cfclass.h>
 #include <security_utilities/errors.h>
@@ -35,47 +40,55 @@
 
 SecPointerBase::SecPointerBase(const SecPointerBase& p)
 {
-	if (p.ptr)
-	{
-		CFRetain(p.ptr->operator CFTypeRef());
-	}
-	ptr = p.ptr;
+    @autoreleasepool {
+        if (p.ptr)
+        {
+            CFRetain(p.ptr->operator CFTypeRef());
+        }
+        ptr = p.ptr;
+    }
 }
 
 
 SecPointerBase::SecPointerBase(SecCFObject *p)
 {
-	if (p && !p->isNew())
-	{
-		CFRetain(p->operator CFTypeRef());
-	}
-	ptr = p;
+    @autoreleasepool {
+        if (p && !p->isNew())
+        {
+            CFRetain(p->operator CFTypeRef());
+        }
+        ptr = p;
+    }
 }
 
 
 
 SecPointerBase::~SecPointerBase()
 {
-	if (ptr)
-	{
-		CFRelease(ptr->operator CFTypeRef());
-	}
+    @autoreleasepool {
+        if (ptr)
+        {
+            CFRelease(ptr->operator CFTypeRef());
+        }
+    }
 }
 
 
 
 SecPointerBase& SecPointerBase::operator = (const SecPointerBase& p)
 {
-	if (p.ptr)
-	{
-		CFTypeRef tr = p.ptr->operator CFTypeRef();
-		CFRetain(tr);
-	}
-	if (ptr)
-	{
-		CFRelease(ptr->operator CFTypeRef());
-	}
-	ptr = p.ptr;
+    @autoreleasepool {
+        if (p.ptr)
+        {
+            CFTypeRef tr = p.ptr->operator CFTypeRef();
+            CFRetain(tr);
+        }
+        if (ptr)
+        {
+            CFRelease(ptr->operator CFTypeRef());
+        }
+        ptr = p.ptr;
+    }
 	return *this;
 }
 
@@ -83,27 +96,31 @@ SecPointerBase& SecPointerBase::operator = (const SecPointerBase& p)
 
 void SecPointerBase::assign(SecCFObject * p)
 {
-	if (p && !p->isNew())
-	{
-		CFRetain(p->operator CFTypeRef());
-	}
-	if (ptr)
-	{
-		CFRelease(ptr->operator CFTypeRef());
-	}
-	ptr = p;
+    @autoreleasepool {
+        if (p && !p->isNew())
+        {
+            CFRetain(p->operator CFTypeRef());
+        }
+        if (ptr)
+        {
+            CFRelease(ptr->operator CFTypeRef());
+        }
+        ptr = p;
+    }
 }
 
 
 
 void SecPointerBase::copy(SecCFObject * p)
 {
-	if (ptr)
-	{
-		CFRelease(ptr->operator CFTypeRef());
-	}
-	
-	ptr = p;
+    @autoreleasepool {
+        if (ptr)
+        {
+            CFRelease(ptr->operator CFTypeRef());
+        }
+        
+        ptr = p;
+    }
 }
 
 
@@ -219,8 +236,11 @@ SecCFObject::copyDebugDesc()
 CFTypeRef
 SecCFObject::handle(bool retain) _NOEXCEPT
 {
-	CFTypeRef cfType = *this;
-	if (retain && !isNew()) CFRetain(cfType);
+    __block CFTypeRef cfType = NULL;
+    @autoreleasepool {
+        cfType = *this;
+        if (retain && !isNew()) CFRetain(cfType);
+    }
 	return cfType;
 }
 

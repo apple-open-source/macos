@@ -91,7 +91,7 @@ public:
 
         Entry entry() const { return m_entry; }
 
-        MallocPtr<ExpressionInfo> createExpressionInfo();
+        std::unique_ptr<ExpressionInfo> createExpressionInfo();
 
         void dumpEncodedInfo() // For debugging use only.
         {
@@ -242,7 +242,7 @@ private:
         return std::bit_cast<unsigned*>(this + 1);
     }
 
-    static MallocPtr<ExpressionInfo> createUninitialized(unsigned numberOfChapters, unsigned numberOfEncodedInfo, unsigned numberOfEncodedInfoExtensions);
+    static std::unique_ptr<ExpressionInfo> createUninitialized(unsigned numberOfChapters, unsigned numberOfEncodedInfo, unsigned numberOfEncodedInfoExtensions);
 
     static constexpr unsigned bitsPerWord = sizeof(unsigned) * CHAR_BIT;
 

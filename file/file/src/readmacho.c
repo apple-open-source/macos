@@ -314,7 +314,7 @@ file_trymacho(struct magic_set *ms, const struct buffer *b, const char *inname)
 
 	/* Check magic number, plus little hack for Mach-O vs. Java. */
 	if(!((fat_header.magic == FAT_MAGIC && fat_header.nfat_arch < 20) ||
-			fat_header.magic == FAT_GPU_MAGIC)) {
+	      fat_header.magic == FAT_GPU_MAGIC && fat_header.nfat_arch < 20)) {
 		return -1;
 	}
 

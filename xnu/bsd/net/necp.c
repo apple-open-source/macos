@@ -9253,6 +9253,9 @@ necp_socket_check_policy(struct necp_kernel_socket_policy *kernel_policy,
 		// Exact match requires the number of dots to match (no suffix matching allowed)
 		bool domain_matches = (domain_dot_count == kernel_policy->cond_domain_dot_count &&
 		    necp_hostname_matches_domain(domain, domain_dot_count, kernel_policy->cond_domain, kernel_policy->cond_domain_dot_count));
+		if (domain_matches && socket != NULL) {
+			socket->so_flags1 |= SOF1_DOMAIN_MATCHED_POLICY;
+		}
 		if (kernel_policy->condition_negated_mask & NECP_KERNEL_CONDITION_EXACT_DOMAIN) {
 			if (domain_matches) {
 				// No match, matches forbidden domain
@@ -9268,6 +9271,9 @@ necp_socket_check_policy(struct necp_kernel_socket_policy *kernel_policy,
 		NECP_DATA_TRACE_LOG_CONDITION_SOCKET_STR(debug, socket, "SOCKET", kernel_policy->condition_negated_mask & NECP_KERNEL_CONDITION_DOMAIN,
 		    "NECP_KERNEL_CONDITION_DOMAIN", kernel_policy->cond_domain, domain.string);
 		bool domain_matches = necp_hostname_matches_domain(domain, domain_dot_count, kernel_policy->cond_domain, kernel_policy->cond_domain_dot_count);
+		if (domain_matches && socket != NULL) {
+			socket->so_flags1 |= SOF1_DOMAIN_MATCHED_POLICY;
+		}
 		if (kernel_policy->condition_negated_mask & NECP_KERNEL_CONDITION_DOMAIN) {
 			if (domain_matches) {
 				// No match, matches forbidden domain
@@ -9297,6 +9303,9 @@ necp_socket_check_policy(struct necp_kernel_socket_policy *kernel_policy,
 			if (debug) {
 				NECPLOG(LOG_ERR, "DATA-TRACE: matching <%s %zu> with trie id %d - matched %d", domain.string, domain.length, kernel_policy->cond_domain_filter, domain_matches);
 			}
+		}
+		if (domain_matches && socket != NULL) {
+			socket->so_flags1 |= SOF1_DOMAIN_MATCHED_POLICY;
 		}
 		if (kernel_policy->condition_negated_mask & NECP_KERNEL_CONDITION_DOMAIN_FILTER) {
 			if (domain_matches) {
@@ -13640,7 +13649,7 @@ necp_addr_is_loopback(struct sockaddr *address)
 	}
 
 	if (address->sa_family == AF_INET) {
-		return ntohl(SIN(address)->sin_addr.s_addr) == INADDR_LOOPBACK;
+		return IN_LOOPBACK(ntohl(SIN(address)->sin_addr.s_addr));
 	} else if (address->sa_family == AF_INET6) {
 		if (!IN6_IS_ADDR_V4MAPPED(&SIN6(address)->sin6_addr)) {
 			return IN6_IS_ADDR_LOOPBACK(&SIN6(address)->sin6_addr);
@@ -13675,8 +13684,8 @@ necp_is_loopback(struct sockaddr *local_addr, struct sockaddr *remote_addr, stru
 			return TRUE;
 		}
 		if (inp->inp_vflag & INP_IPV4) {
-			if (ntohl(inp->inp_laddr.s_addr) == INADDR_LOOPBACK ||
-			    ntohl(inp->inp_faddr.s_addr) == INADDR_LOOPBACK) {
+			if (IN_LOOPBACK(ntohl(inp->inp_laddr.s_addr)) ||
+			    IN_LOOPBACK(ntohl(inp->inp_faddr.s_addr))) {
 				return TRUE;
 			}
 		} else if (inp->inp_vflag & INP_IPV6) {
@@ -13692,10 +13701,10 @@ necp_is_loopback(struct sockaddr *local_addr, struct sockaddr *remote_addr, stru
 	if (packet != NULL) {
 		struct ip *ip = mtod(packet, struct ip *);
 		if (ip->ip_v == 4) {
-			if (ntohl(ip->ip_src.s_addr) == INADDR_LOOPBACK) {
+			if (IN_LOOPBACK(ntohl(ip->ip_src.s_addr))) {
 				return TRUE;
 			}
-			if (ntohl(ip->ip_dst.s_addr) == INADDR_LOOPBACK) {
+			if (IN_LOOPBACK(ntohl(ip->ip_dst.s_addr))) {
 				return TRUE;
 			}
 		} else if (ip->ip_v == 6) {

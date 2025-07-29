@@ -422,7 +422,7 @@ dispatch_mach_t DACommandCreateMachChannel( void )
              * Set up the dispatch source to catch child status changes from BSD.
              */
 
-            dispatch_source_t sig_source;
+            static dispatch_source_t sig_source;
 
             sig_source = dispatch_source_create( DISPATCH_SOURCE_TYPE_SIGNAL, SIGCHLD, 0, DAServerWorkLoop() );
 

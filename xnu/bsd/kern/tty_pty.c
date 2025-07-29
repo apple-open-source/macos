@@ -117,6 +117,7 @@ static struct ptmx_ioctl *
 pty_get_ioctl(int minor, int open_flag)
 {
 	if (minor >= NPTY) {
+		printf("pty_get_ioctl failed because minor number %d exceeded %d\n", minor, NPTY);
 		return NULL;
 	}
 	struct ptmx_ioctl *pti = &pt_ioctl[minor];

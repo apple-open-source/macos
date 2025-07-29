@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2018-2019 Apple Inc. All rights reserved.
+ * Copyright (C) 2018-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -87,7 +87,7 @@ static NSString * const _WKARQLWebsiteURLParameterKey = @"ARQLWebsiteURLParamete
 #endif
     URL _originatingPageURL;
     URL _downloadedURL;
-    WebKit::SystemPreviewController* _previewController;
+    WeakPtr<WebKit::SystemPreviewController> _previewController;
 };
 
 @property (strong) NSItemProviderCompletionHandler completionHandler;
@@ -185,18 +185,19 @@ static NSString * const _WKARQLWebsiteURLParameterKey = @"ARQLWebsiteURLParamete
 #if HAVE(ARKIT_QUICK_LOOK_PREVIEW_ITEM)
 - (void)previewItem:(ARQuickLookWebKitItem *)previewItem didReceiveMessage:(NSDictionary *)message
 {
-    if (!_previewController)
+    RefPtr previewController = _previewController.get();
+    if (!previewController)
         return;
 
     if ([[message[@"callToAction"] stringValue] isEqualToString:@"buttonTapped"])
-        _previewController->triggerSystemPreviewAction();
+        previewController->triggerSystemPreviewAction();
 }
 #endif
 
 @end
 
 @interface _WKPreviewControllerDelegate : NSObject <QLPreviewControllerDelegate> {
-    WebKit::SystemPreviewController* _previewController;
+    WeakPtr<WebKit::SystemPreviewController> _previewController;
     WebCore::IntRect _linkRect;
 };
 @end
@@ -214,19 +215,23 @@ static NSString * const _WKARQLWebsiteURLParameterKey = @"ARQLWebsiteURLParamete
 
 - (void)previewControllerDidDismiss:(QLPreviewController *)controller
 {
-    if (_previewController)
-        _previewController->end();
+    if (RefPtr previewController = _previewController.get())
+        previewController->end();
 }
 
 - (UIViewController *)presentingViewController
 {
-    if (!_previewController || !_previewController->page())
+    RefPtr previewController = _previewController.get();
+    if (!previewController)
+        return nil;
+    RefPtr page = previewController->page();
+    if (!page)
         return nil;
 
     // FIXME: When in element fullscreen, UIClient::presentingViewController() may not return the
     // WKFullScreenViewController even though that is the presenting view controller of the WKWebView.
     // We should call PageClientImpl::presentingViewController() instead.
-    return _previewController->page()->uiClient().presentingViewController();
+    return page->uiClient().presentingViewController();
 }
 
 - (CGRect)previewController:(QLPreviewController *)controller frameForPreviewItem:(id <QLPreviewItem>)item inSourceView:(UIView * *)view
@@ -236,14 +241,17 @@ static NSString * const _WKARQLWebsiteURLParameterKey = @"ARQLWebsiteURLParamete
     if (!presentingViewController)
         return CGRectZero;
 
-    RefPtr page = _previewController->page();
+    RefPtr previewController = _previewController.get();
+    if (!previewController)
+        return CGRectZero;
+    RefPtr page = previewController->page();
     if (!page)
         return CGRectZero;
 
     *view = presentingViewController.view;
 
-    if (!_previewController->previewInfo().previewRect.isEmpty())
-        return page->syncRootViewToScreen(_previewController->previewInfo().previewRect);
+    if (!previewController->previewInfo().previewRect.isEmpty())
+        return page->syncRootViewToScreen(previewController->previewInfo().previewRect);
 
     CGRect frame;
     frame.size.width = (*view).frame.size.width / 2.0;
@@ -261,9 +269,11 @@ static NSString * const _WKARQLWebsiteURLParameterKey = @"ARQLWebsiteURLParamete
     if (presentingViewController) {
         if (_linkRect.isEmpty())
             *contentRect = {CGPointZero, {presentingViewController.view.frame.size.width / 2.0, presentingViewController.view.frame.size.height / 2.0}};
-        else if (RefPtr page = _previewController->page()) {
-            WebCore::IntRect screenRect = page->syncRootViewToScreen(_linkRect);
-            *contentRect = { CGPointZero, { static_cast<CGFloat>(screenRect.width()), static_cast<CGFloat>(screenRect.height()) } };
+        else if (RefPtr previewController = _previewController.get()) {
+            if (RefPtr page = previewController->page()) {
+                WebCore::IntRect screenRect = page->syncRootViewToScreen(_linkRect);
+                *contentRect = { CGPointZero, { static_cast<CGFloat>(screenRect.width()), static_cast<CGFloat>(screenRect.height()) } };
+            }
         }
     }
 
@@ -273,7 +283,7 @@ static NSString * const _WKARQLWebsiteURLParameterKey = @"ARQLWebsiteURLParamete
 @end
 
 @interface _WKSystemPreviewDataTaskDelegate : NSObject <_WKDataTaskDelegate> {
-    WebKit::SystemPreviewController* _previewController;
+    WeakPtr<WebKit::SystemPreviewController> _previewController;
     long long _expectedContentLength;
     RetainPtr<NSMutableData> _data;
     FileSystem::PlatformFileHandle _fileHandle;
@@ -306,11 +316,13 @@ static NSString * const _WKARQLWebsiteURLParameterKey = @"ARQLWebsiteURLParamete
 
 - (void)dataTask:(_WKDataTask *)dataTask didReceiveResponse:(NSURLResponse *)response decisionHandler:(void (^)(_WKDataTaskResponsePolicy))decisionHandler
 {
+    RefPtr previewController = _previewController.get();
     if (auto *HTTPResponse = dynamic_objc_cast<NSHTTPURLResponse>(response)) {
         if ([NSHTTPURLResponse isErrorStatusCode:HTTPResponse.statusCode]) {
             RELEASE_LOG(SystemPreview, "cancelling subresource load due to error status code: %ld", (long)HTTPResponse.statusCode);
             decisionHandler(_WKDataTaskResponsePolicyCancel);
-            _previewController->loadFailed();
+            if (previewController)
+                previewController->loadFailed();
             return;
         }
     }
@@ -318,7 +330,8 @@ static NSString * const _WKARQLWebsiteURLParameterKey = @"ARQLWebsiteURLParamete
     if (![self isValidMIMEType:response.MIMEType] && ![self isValidFileExtension:response.URL.pathExtension]) {
         RELEASE_LOG(SystemPreview, "cancelling subresource load due to unhandled MIME type: \"%@\" extension: \"%@\"", response.MIMEType, response.URL.pathExtension);
         decisionHandler(_WKDataTaskResponsePolicyCancel);
-        _previewController->loadFailed();
+        if (previewController)
+            previewController->loadFailed();
         return;
     }
 
@@ -340,7 +353,8 @@ static NSString * const _WKARQLWebsiteURLParameterKey = @"ARQLWebsiteURLParamete
     _fileHandle = result.second;
     ASSERT(FileSystem::isHandleValid(_fileHandle));
 
-    _previewController->loadStarted(URL::fileURLWithFileSystemPath(_filePath));
+    if (previewController)
+        previewController->loadStarted(URL::fileURLWithFileSystemPath(_filePath));
     decisionHandler(_WKDataTaskResponsePolicyAllow);
 }
 
@@ -348,15 +362,18 @@ static NSString * const _WKARQLWebsiteURLParameterKey = @"ARQLWebsiteURLParamete
 {
     ASSERT(_data);
     [_data appendData:data];
-    if (_expectedContentLength)
-        _previewController->updateProgress((float)_data.get().length / _expectedContentLength);
+    if (_expectedContentLength) {
+        if (RefPtr previewController = _previewController.get())
+            previewController->updateProgress((float)_data.get().length / _expectedContentLength);
+    }
 }
 
 - (void)dataTask:(_WKDataTask *)dataTask didCompleteWithError:(NSError *)error
 {
     if (error) {
         FileSystem::closeFile(_fileHandle);
-        _previewController->loadFailed();
+        if (RefPtr previewController = _previewController.get())
+            previewController->loadFailed();
         return;
     }
 
@@ -369,12 +386,16 @@ static NSString * const _WKARQLWebsiteURLParameterKey = @"ARQLWebsiteURLParamete
     size_t byteCount = FileSystem::writeToFile(_fileHandle, span(_data.get()));
     FileSystem::closeFile(_fileHandle);
 
+    RefPtr previewController = _previewController.get();
+    if (!previewController)
+        return;
+
     if (byteCount != _data.get().length) {
-        _previewController->loadFailed();
+        previewController->loadFailed();
         return;
     }
 
-    _previewController->loadCompleted(URL::fileURLWithFileSystemPath(_filePath));
+    previewController->loadCompleted(URL::fileURLWithFileSystemPath(_filePath));
 }
 
 @end

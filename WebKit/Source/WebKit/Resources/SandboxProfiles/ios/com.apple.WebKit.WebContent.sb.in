@@ -890,8 +890,10 @@
 #endif
 
 (with-filter (system-attribute apple-internal)
+    (allow mach-lookup (global-name "com.apple.diagnosticd")))
+
+(with-filter (system-attribute apple-internal)
     (allow mach-lookup
-        (global-name "com.apple.diagnosticd")
         (global-name "com.apple.osanalytics.osanalyticshelper")))
 
 (with-filter (require-not (state-flag "BlockMobileAssetInWebContentSandbox"))

@@ -1030,7 +1030,7 @@ public:
         m_storage.encode(encoder, info.payload(), info.payloadSize());
     }
 
-    MallocPtr<ExpressionInfo> decode(Decoder& decoder) const
+    std::unique_ptr<ExpressionInfo> decode(Decoder& decoder) const
     {
         auto info = ExpressionInfo::createUninitialized(m_numberOfChapters, m_numberOfEncodedInfo, m_numberOfEncodedInfoExtensions);
         m_storage.decode(decoder, info->payload(), info->payloadSize());

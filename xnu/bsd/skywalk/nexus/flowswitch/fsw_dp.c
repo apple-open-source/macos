@@ -126,7 +126,7 @@ static uint32_t fsw_flow_route_id_buckets = NX_FSW_FRIB_HASHSZ;
 #define NX_FSW_FLOW_REAP_INTERVAL 1     /* seconds */
 static uint32_t fsw_flow_reap_interval = NX_FSW_FLOW_REAP_INTERVAL;
 
-#define NX_FSW_RX_STALL_THRES   10       /* seconds */
+#define NX_FSW_RX_STALL_THRES   10      /* seconds (0 = disable) */
 static uint32_t fsw_rx_stall_thresh = NX_FSW_RX_STALL_THRES;
 
 #define NX_FSW_RX_STALL_DEFUNCT 1       /* defunct Rx-stalled channel (0 = disable) */
@@ -4633,13 +4633,15 @@ fsw_reap_thread_cont(void *v, wait_result_t wres)
 			fsw->fsw_reap_last = now;
 		}
 
-		/* Check for Rx stall condition every NX_FSW_RX_STALL_THRES seconds */
+		/* Check for Rx stall condition every fsw_rx_stall_thresh seconds */
 		last = fsw->fsw_rx_stall_chk_last;
-		if (last != 0 && (now - last) >= NX_FSW_RX_STALL_THRES) {
-			fsw_defunct_rx_stall_channel(fsw);
-			fsw->fsw_rx_stall_chk_last = now;
-		} else if (__improbable(last == 0)) {
-			fsw->fsw_rx_stall_chk_last = now;
+		if (fsw_rx_stall_thresh != 0) {
+			if (last != 0 && (now - last) >= fsw_rx_stall_thresh) {
+				fsw_defunct_rx_stall_channel(fsw);
+				fsw->fsw_rx_stall_chk_last = now;
+			} else if (__improbable(last == 0)) {
+				fsw->fsw_rx_stall_chk_last = now;
+			}
 		}
 
 		nanoseconds_to_absolutetime(i * NSEC_PER_SEC, &t);
@@ -4701,12 +4703,28 @@ fsw_drain_channels(struct nx_flowswitch *fsw, uint64_t now, boolean_t low)
 	/* uncrustify doesn't handle C blocks properly */
 	/* BEGIN IGNORE CODESTYLE */
 	nx_port_foreach(nx, ^(nexus_port_t p) {
+		boolean_t purge;
 		struct nexus_adapter *na = nx_port_get_na(nx, p);
-		if (na == NULL || na->na_work_ts == 0 || na->na_rx_rings == NULL) { 
+
+		if (na == NULL) {
+			DTRACE_SKYWALK1(ch__drain__na__null, struct nexus_adapter *, na);
 			return;
 		}
 
-		boolean_t purge;
+		/*
+		 * If NA is deactivated, no need to proceed further with channel drain.
+		 * Note: fsw_vp_na_activate takes FSW_WLOCK before clearing the
+		 * NAF_ACTIVE flag.
+		 */
+		if ((na->na_flags & NAF_ACTIVE) == 0) {
+			DTRACE_SKYWALK1(ch__drain__na__inactive, struct nexus_adapter *, na);
+			return;
+		}
+
+		if (na->na_work_ts == 0 || na->na_rx_rings == NULL) {
+			DTRACE_SKYWALK1(ch__drain__na__invalid, struct nexus_adapter *, na);
+			return;
+		}
 
 		/*
 		 * If some activity happened in the last FSW_DRAIN_CH_THRES

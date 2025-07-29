@@ -76,11 +76,11 @@ $(COMPONENT).libfilelist: $(LIBOBJS)
 		 $(ECHO) $(TARGET)/$(CURRENT_KERNEL_CONFIG)/$${obj}; \
 	done > $(COMPONENT).libfilelist
 
-$(TARGET)/$(CURRENT_KERNEL_CONFIG)/kasan_blacklist_dynamic.h: $(SRCROOT)/$(COMPONENT)/memory/kasan-blacklist-dynamic
+$(TARGET)/$(CURRENT_KERNEL_CONFIG)/kasan_denylist_dynamic.h: $(SRCROOT)/$(COMPONENT)/memory/kasan-denylist-dynamic
 	@$(LOG_GENERATE) "$(notdir $@)"
-	@$(SRCROOT)/$(COMPONENT)/tools/generate_dynamic_blacklist.py "$<" > "$@"
+	@$(SRCROOT)/$(COMPONENT)/tools/generate_dynamic_denylist.py "$<" > "$@"
 
-$(SRCROOT)/$(COMPONENT)/memory/kasan_dynamic_blacklist.c: $(TARGET)/$(CURRENT_KERNEL_CONFIG)/kasan_blacklist_dynamic.h
+$(SRCROOT)/$(COMPONENT)/memory/kasan_dynamic_denylist.c: $(TARGET)/$(CURRENT_KERNEL_CONFIG)/kasan_denylist_dynamic.h
 
 ifeq ($(RC_ProjectName),xnu_libraries)
 do_all: $(COMPONENT).libfilelist

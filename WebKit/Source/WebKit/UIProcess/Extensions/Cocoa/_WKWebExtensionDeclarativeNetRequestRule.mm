@@ -270,6 +270,14 @@ using namespace WebKit;
         }
 
         [self removeInvalidResourceTypesForKey:declarativeNetRequestRuleConditionResourceTypeKey];
+        resourceTypes = _condition[declarativeNetRequestRuleConditionResourceTypeKey];
+
+        if (!resourceTypes.count) {
+            if (outErrorString)
+                *outErrorString = [NSString stringWithFormat:@"Rule with id %ld is invalid. The value in the `resourceTypes` array is invalid.", (long)_ruleID];
+
+            return nil;
+        }
     }
 
     if (_condition[declarativeNetRequestRuleConditionExcludedResourceTypesKey])
@@ -722,76 +730,86 @@ static BOOL isArrayOfExcludedDomainsValid(NSArray<NSString *> *excludedDomains)
 
     NSMutableArray<NSDictionary<NSString *, id> *> *convertedRules = [NSMutableArray array];
 
-    NSString *webKitActionType = chromeActionTypesToWebKitActionTypes[_action[declarativeNetRequestRuleActionTypeKey]];
     NSString *chromeActionType = _action[declarativeNetRequestRuleActionTypeKey];
-    if ([webKitActionType isEqualToString:@"make-https"]) {
-        NSArray *rulesToMaintainOrderingOfUpgradeSchemeRule = [self _convertedRulesForWebKitActionType:@"ignore-previous-rules" chromeActionType:chromeActionType];
-        [convertedRules addObjectsFromArray:rulesToMaintainOrderingOfUpgradeSchemeRule];
+    NSString *webKitActionType = chromeActionTypesToWebKitActionTypes[chromeActionType];
+
+    NSDictionary *(^createModifiedConditionsForURLFilter)(NSString *) = ^NSDictionary *(NSString *urlFilter) {
+        NSMutableDictionary *modifiedCondition = [self->_condition mutableCopy];
+        modifiedCondition[declarativeNetRequestRuleConditionURLFilterKey] = urlFilter;
+        modifiedCondition[declarativeNetRequestRuleConditionRegexFilterKey] = nil;
+        modifiedCondition[ruleConditionRequestDomainsKey] = nil;
+        modifiedCondition[ruleConditionExcludedRequestDomainsKey] = nil;
+        return modifiedCondition;
+    };
+
+    // We have to create one rule per request domain, unless we have a regex filter, in which case we just ignore request domains...
+    NSArray *requestDomains = _condition[ruleConditionRequestDomainsKey];
+    if (requestDomains && !_condition[declarativeNetRequestRuleConditionRegexFilterKey]) {
+        for (NSString *requestDomain in requestDomains) {
+            NSString *combinedRequestDomainAndURLFilter = [self _combineRequestDomain:requestDomain withURLFilter:_condition[declarativeNetRequestRuleConditionURLFilterKey]];
+            [convertedRules addObjectsFromArray:[self _convertRulesWithModifiedCondition:createModifiedConditionsForURLFilter(combinedRequestDomainAndURLFilter) webKitActionType:webKitActionType chromeActionType:chromeActionType]];
+        }
+    } else
+        [convertedRules addObjectsFromArray:[self _convertRulesWithModifiedCondition:_condition webKitActionType:webKitActionType chromeActionType:chromeActionType]];
+
+    // ...and we also have to create one ignore-previous-rules rule per excluded request domain
+    if (NSArray *excludedRequestDomains = _condition[ruleConditionExcludedRequestDomainsKey]) {
+        for (NSString *excludedRequestDomain in excludedRequestDomains)
+            [convertedRules addObjectsFromArray:[self _convertRulesWithModifiedCondition:createModifiedConditionsForURLFilter(excludedRequestDomain) webKitActionType:@"ignore-previous-rules" chromeActionType:chromeActionType]];
     }
 
-    [convertedRules addObjectsFromArray:[self _convertedRulesForWebKitActionType:webKitActionType chromeActionType:chromeActionType]];
+    return convertedRules;
+}
 
-    if (_condition[ruleConditionInitiatorDomainsKey] && _condition[ruleConditionExcludedInitiatorDomainsKey]) {
-        // If a rule specifies both initiatorDomains and excludedInitiatorDomains, we need to turn that into two rules. The first rule will have the excludedInitiatorDomains, and be implemented
-        // as an ignore-previous-rules using if-frame-url (instead of unless-frame-url).
-        // To do this, make a copy of the condition dictionary, make the initiatorDomains be the excludedInitiatorDomains of the original rule, and create an ignore-previous-rules rule.
-        NSDictionary *originalCondition = [_condition copy];
+- (NSArray<NSDictionary *> *)_convertRulesWithModifiedCondition:(NSDictionary *)condition webKitActionType:(NSString *)webKitActionType chromeActionType:(NSString *)chromeActionType
+{
+    NSMutableArray<NSDictionary<NSString *, id> *> *convertedRules = [NSMutableArray array];
 
-        NSMutableDictionary *modifiedCondition = [_condition mutableCopy];
+    if ([webKitActionType isEqualToString:@"make-https"])
+        [convertedRules addObject:[self _webKitRuleWithWebKitActionType:@"ignore-previous-rules" chromeActionType:chromeActionType condition:condition]];
 
+    [convertedRules addObject:[self _webKitRuleWithWebKitActionType:webKitActionType chromeActionType:chromeActionType condition:condition]];
+
+    if ((condition[ruleConditionInitiatorDomainsKey] && condition[ruleConditionExcludedInitiatorDomainsKey]) && ![chromeActionType isEqualToString:declarativeNetRequestRuleActionTypeAllowAllRequests]) {
+        // If a rule specifies both initiatorDomains and excludedInitiatorDomains, we need to turn that into two rules.
+        // The first rule will have the initiatorDomains implemented as normal (using if-frame-url). We then create a
+        // second rule as an ignore-previous-rules rule using if-frame-url instead of unless-frame-url.
+        NSMutableDictionary *modifiedCondition = [condition mutableCopy];
         modifiedCondition[ruleConditionInitiatorDomainsKey] = modifiedCondition[ruleConditionExcludedInitiatorDomainsKey];
         modifiedCondition[ruleConditionExcludedInitiatorDomainsKey] = nil;
-
-        _condition = [modifiedCondition copy];
-        [convertedRules addObjectsFromArray:[self _convertedRulesForWebKitActionType:@"ignore-previous-rules" chromeActionType:chromeActionType]];
-
-        _condition = [originalCondition copy];
+        [convertedRules addObject:[self _webKitRuleWithWebKitActionType:@"ignore-previous-rules" chromeActionType:chromeActionType condition:modifiedCondition]];
     }
 
     return [convertedRules copy];
 }
 
-- (NSArray<NSDictionary *> *)_convertedRulesForWebKitActionType:(NSString *)webKitActionType chromeActionType:(NSString *)chromeActionType
+- (NSDictionary *)_webKitRuleWithWebKitActionType:(NSString *)webKitActionType chromeActionType:(NSString *)chromeActionType condition:(NSDictionary *)condition
 {
-    NSMutableArray *convertedRules = [NSMutableArray array];
-
-    NSMutableArray<NSString *> *chromeResourceTypes = [[self _allChromeResourceTypes] mutableCopy];
-    BOOL ruleBlocksMainFrame = [chromeResourceTypes containsObject:@"main_frame"];
-    BOOL ruleBlocksSubFrame = [chromeResourceTypes containsObject:@"sub_frame"];
-    NSArray<NSString *> *frameResourceTypes;
-    if (ruleBlocksMainFrame && ruleBlocksSubFrame)
-        frameResourceTypes = @[ @"main_frame", @"sub_frame" ];
-    else if (ruleBlocksMainFrame)
-        frameResourceTypes = @[ @"main_frame" ];
-    else if (ruleBlocksSubFrame)
-        frameResourceTypes = @[ @"sub_frame" ];
-
-    if (frameResourceTypes)
-        [convertedRules addObject:[self _webKitRuleWithWebKitActionType:webKitActionType chromeActionType:chromeActionType chromeResourceTypes:frameResourceTypes]];
-
-    [chromeResourceTypes removeObjectsInArray:@[ @"main_frame", @"sub_frame" ]];
-    if (chromeResourceTypes.count)
-        [convertedRules addObject:[self _webKitRuleWithWebKitActionType:webKitActionType chromeActionType:chromeActionType chromeResourceTypes:chromeResourceTypes]];
-
-    return [convertedRules copy];
-}
-
-- (NSDictionary *)_webKitRuleWithWebKitActionType:(NSString *)webKitActionType chromeActionType:(NSString *)chromeActionType chromeResourceTypes:(NSArray *)chromeResourceTypes
-{
-    NSString *filter;
-    NSArray *webKitResourceTypes;
-    BOOL isRuleForAllowAllRequests = [chromeActionType isEqualToString:declarativeNetRequestRuleActionTypeAllowAllRequests];
-    if (isRuleForAllowAllRequests) {
-        filter = @".*";
-        // Intentionally leave the resourceTypes array empty to use all of WebKit's resource types.
-    } else {
-        filter = [self _regexURLFilterForChromeURLFilter:_condition[declarativeNetRequestRuleConditionURLFilterKey]] ?: _condition[declarativeNetRequestRuleConditionRegexFilterKey] ?: @".*";
-        webKitResourceTypes = [self _convertedResourceTypesForChromeResourceTypes:chromeResourceTypes];
-    }
-
     NSMutableDictionary *actionDictionary = [@{ @"type": webKitActionType } mutableCopy];
     NSMutableDictionary *triggerDictionary = [NSMutableDictionary dictionary];
-    NSNumber *isCaseSensitive = _condition[declarativeNetRequestRuleConditionCaseSensitiveKey] ?: @NO;
+    NSNumber *isCaseSensitive = condition[declarativeNetRequestRuleConditionCaseSensitiveKey] ?: @NO;
+    NSDictionary<NSString *, id> *convertedRule = @{
+        @"action": actionDictionary,
+        @"trigger": triggerDictionary,
+    };
+
+    if ([chromeActionType isEqualToString:declarativeNetRequestRuleActionTypeAllowAllRequests]) {
+        triggerDictionary[@"url-filter"] = @".*";
+        triggerDictionary[@"if-frame-url"] = @[ [self _regexURLFilterForChromeURLFilter:condition[declarativeNetRequestRuleConditionURLFilterKey]] ?: condition[declarativeNetRequestRuleConditionRegexFilterKey] ?: @".*" ];
+
+        NSMutableArray *loadContexts = [NSMutableArray array];
+        if ([condition[declarativeNetRequestRuleConditionResourceTypeKey] containsObject:@"main_frame"])
+            [loadContexts addObject:@"top-frame"];
+        if ([condition[declarativeNetRequestRuleConditionResourceTypeKey] containsObject:@"sub_frame"])
+            [loadContexts addObject:@"child-frame"];
+        triggerDictionary[@"load-context"] = loadContexts;
+
+        return [convertedRule copy];
+    }
+
+    NSString *filter = [self _regexURLFilterForChromeURLFilter:condition[declarativeNetRequestRuleConditionURLFilterKey]] ?: condition[declarativeNetRequestRuleConditionRegexFilterKey] ?: @".*";
+    NSArray *webKitResourceTypes = [self _convertedResourceTypesForChromeResourceTypes:[self _allChromeResourceTypesForCondition:condition]];
+
     if (filter) {
         triggerDictionary[@"url-filter"] = filter;
 
@@ -799,11 +817,6 @@ static BOOL isArrayOfExcludedDomainsValid(NSArray<NSString *> *excludedDomains)
         if (isCaseSensitive.boolValue)
             triggerDictionary[@"url-filter-is-case-sensitive"] = isCaseSensitive;
     }
-
-    NSDictionary<NSString *, id> *convertedRule = @{
-        @"action": actionDictionary,
-        @"trigger": triggerDictionary,
-    };
 
     if ([chromeActionType isEqualToString:declarativeNetRequestRuleActionTypeModifyHeaders]) {
         NSArray<NSDictionary *> *requestHeadersInfo = _action[declarativeNetRequestRuleRequestHeadersKey];
@@ -854,20 +867,10 @@ static BOOL isArrayOfExcludedDomainsValid(NSArray<NSString *> *excludedDomains)
         actionDictionary[@"redirect"] = outputRedirectDictonary;
     }
 
-    if (webKitResourceTypes) {
-        NSDictionary<NSString *, NSString *> *chromeResourceTypeToWebKitLoadContext = [self _chromeResourceTypeToWebKitLoadContext];
-        NSArray *loadContextsArray = mapObjects(chromeResourceTypes, ^id(id key, NSString *resourceType) {
-            return chromeResourceTypeToWebKitLoadContext[resourceType];
-        });
+    if (webKitResourceTypes)
+        triggerDictionary[@"resource-type"] = webKitResourceTypes;
 
-        if (loadContextsArray.count) {
-            triggerDictionary[@"load-context"] = loadContextsArray;
-            triggerDictionary[@"resource-type"] = @[ @"document" ];
-        } else
-            triggerDictionary[@"resource-type"] = webKitResourceTypes;
-    }
-
-    if (NSString *domainType = _condition[declarativeNetRequestRuleConditionDomainTypeKey])
+    if (NSString *domainType = condition[declarativeNetRequestRuleConditionDomainTypeKey])
         triggerDictionary[@"load-type"] = @[ [self _chromeDomainTypeToWebKitDomainType][domainType] ];
 
     id (^includeSubdomainConversionBlock)(id, NSString *) = ^(id key, NSString *domain) {
@@ -877,44 +880,22 @@ static BOOL isArrayOfExcludedDomainsValid(NSArray<NSString *> *excludedDomains)
         return [@"*" stringByAppendingString:domain];
     };
 
-    if (NSArray *domains = _condition[declarativeNetRequestRuleConditionDomainsKey])
+    if (NSArray *domains = condition[declarativeNetRequestRuleConditionDomainsKey])
         triggerDictionary[@"if-domain"] = mapObjects(domains, includeSubdomainConversionBlock);
-    else if (NSArray *domains = _condition[ruleConditionRequestDomainsKey])
-        triggerDictionary[@"if-domain"] = mapObjects(domains, includeSubdomainConversionBlock);
-    else if (NSArray *excludedDomains = _condition[declarativeNetRequestRuleConditionExcludedDomainsKey])
+    else if (NSArray *excludedDomains = condition[declarativeNetRequestRuleConditionExcludedDomainsKey])
         triggerDictionary[@"unless-domain"] = mapObjects(excludedDomains, includeSubdomainConversionBlock);
-    else if (NSArray *excludedDomains = _condition[ruleConditionExcludedRequestDomainsKey])
-        triggerDictionary[@"unless-domain"] = mapObjects(excludedDomains, includeSubdomainConversionBlock);
-
 
     id (^convertToURLRegexBlock)(id, NSString *) = ^(id key, NSString *domain) {
         static NSString *regexDomainString = @"^[^:]+://+([^:/]+\\.)?";
         return [[regexDomainString stringByAppendingString:escapeCharactersInString(domain, @"*?+[(){}^$|\\.")] stringByAppendingString:@"/.*"];
     };
 
-    // If `initiatorDomains` and `excludedInitiatorDomains` are specified, we will have already created a rule honoring the `excludedInitiatorDomains` with an `ignore-previous-action` (see rdar://139515419).
-    // Therefore, honor the `initiatorDomains` first and drop the excluded ones on the floor for this rule.
-    if (NSArray *domains = _condition[ruleConditionInitiatorDomainsKey])
+    if (NSArray *domains = condition[ruleConditionInitiatorDomainsKey])
         triggerDictionary[@"if-frame-url"] = mapObjects(domains, convertToURLRegexBlock);
-    else if (NSArray *excludedDomains = _condition[ruleConditionExcludedInitiatorDomainsKey])
+    else if (NSArray *excludedDomains = condition[ruleConditionExcludedInitiatorDomainsKey])
         triggerDictionary[@"unless-frame-url"] = mapObjects(excludedDomains, convertToURLRegexBlock);
 
-
-    // FIXME: <rdar://72203692> Support 'allowAllRequests' when the resource type is 'sub_frame'.
-    if (isRuleForAllowAllRequests)
-        triggerDictionary[@"if-top-url"] = @[ [self _regexURLFilterForChromeURLFilter:_condition[declarativeNetRequestRuleConditionURLFilterKey]] ?: _condition[declarativeNetRequestRuleConditionRegexFilterKey] ?: @"" ];
-
     return [convertedRule copy];
-}
-
-- (NSDictionary *)_chromeResourceTypeToWebKitLoadContext
-{
-    static NSDictionary *chromeResourceTypeToWebKitLoadContext = @{
-        @"main_frame": @"top-frame",
-        @"sub_frame": @"child-frame",
-    };
-
-    return chromeResourceTypeToWebKitLoadContext;
 }
 
 - (NSDictionary *)_chromeDomainTypeToWebKitDomainType
@@ -932,13 +913,13 @@ static BOOL isArrayOfExcludedDomainsValid(NSArray<NSString *> *excludedDomains)
     static NSDictionary *resourceTypes = @{
         @"font": @"font",
         @"image": @"image",
-        @"main_frame": @"document",
+        @"main_frame": @"top-document",
         @"media": @"media",
         @"other": @"other",
         @"ping": @"ping",
         @"script": @"script",
         @"stylesheet": @"style-sheet",
-        @"sub_frame": @"document",
+        @"sub_frame": @"child-document",
         @"websocket": @"websocket",
         @"xmlhttprequest": @"fetch",
     };
@@ -958,15 +939,15 @@ static BOOL isArrayOfExcludedDomainsValid(NSArray<NSString *> *excludedDomains)
     return resourceTypesExceptMainFrame;
 }
 
-- (NSArray<NSString *> *)_allChromeResourceTypes
+- (NSArray<NSString *> *)_allChromeResourceTypesForCondition:(NSDictionary *)condition
 {
-    NSArray<NSString *> *includedResourceTypes = _condition[declarativeNetRequestRuleConditionResourceTypeKey];
-    NSArray<NSString *> *excludedResourceTypes = _condition[declarativeNetRequestRuleConditionExcludedResourceTypesKey];
+    NSArray<NSString *> *includedResourceTypes = condition[declarativeNetRequestRuleConditionResourceTypeKey];
+    NSArray<NSString *> *excludedResourceTypes = condition[declarativeNetRequestRuleConditionExcludedResourceTypesKey];
     if (!includedResourceTypes && !excludedResourceTypes)
         return [self _resourcesToTargetWhenNoneAreSpecifiedInRule];
 
     if (includedResourceTypes)
-        return includedResourceTypes;
+        return [NSSet setWithArray:includedResourceTypes].allObjects;
 
     NSMutableDictionary *allResourceTypesExceptExcludedTypes = [[self _chromeResourceTypeToWebKitResourceType] mutableCopy];
     for (NSString *resourceType in excludedResourceTypes)
@@ -985,6 +966,98 @@ static BOOL isArrayOfExcludedDomainsValid(NSArray<NSString *> *excludedDomains)
     return mapObjects(chromeResourceTypes, ^id(id key, NSString *resourceType) {
         return chromeResourceTypeToWebKitResourceType[resourceType];
     });
+}
+
+- (NSString *)_findLongestCommonSubstringWithString:(NSString *)string1 andString:(NSString *)string2
+{
+    if (!string1.length || !string2.length)
+        return nil;
+
+    NSString *longestCommonSubstring = @"";
+
+    for (NSUInteger i = 0; i < string1.length; i++) {
+        for (NSUInteger j = 0; j < string2.length; j++) {
+            if ([string1 characterAtIndex:i] == [string2 characterAtIndex:j]) {
+                NSUInteger k = 1;
+
+                while (i + k < string1.length && j + k < string2.length && [string1 characterAtIndex:i + k] == [string2 characterAtIndex:j + k])
+                    k++;
+
+                if (k > 0) {
+                    NSString *currentSubstring = [string1 substringWithRange:NSMakeRange(i, k)];
+
+                    if (currentSubstring.length > longestCommonSubstring.length)
+                        longestCommonSubstring = currentSubstring;
+                }
+            }
+        }
+    }
+
+    return longestCommonSubstring.length ? longestCommonSubstring : nil;
+}
+
+- (NSString *)_combineRequestDomain:(NSString *)requestDomain withURLFilter:(NSString *)urlFilter
+{
+    // If we don't have a URL filter, just return the request domain; there's nothing to combine here.
+    // Also add the domain name anchor to make sure that the request domain only matches domains though.
+    if (!urlFilter)
+        return [@"||" stringByAppendingString:requestDomain];
+
+    // If the URL filter contains the request domain, we can just use the URL filter.
+    //
+    // E.g.
+    // requestDomain = com, urlFilter = .com/foo/bar, result = \\.com/foo/bar
+    NSString *trimmedDomain = requestDomain;
+    NSString *trimmedFilter = urlFilter;
+    while ([trimmedDomain hasPrefix:@"."])
+        trimmedDomain = [trimmedDomain substringFromIndex:1];
+    while ([trimmedFilter hasPrefix:@"."])
+        trimmedFilter = [trimmedFilter substringFromIndex:1];
+
+    if ([trimmedFilter hasPrefix:requestDomain])
+        return [urlFilter hasPrefix:@"||"] ? urlFilter : [@"||" stringByAppendingString:urlFilter];
+
+    // If part of the request domain is in the URL filter, insert the entire request domain into the URL filter at that place.
+    //
+    // E.g.
+    // requestDomain = foo.com, urlFilter = foo.*/bar/baz, result = foo.com*/bar/baz
+    // requstDomain = foo.com, urlFilter = bar-*.com^, result = bar-*foo.com^
+    if (NSString *longestCommonSubstring = [self _findLongestCommonSubstringWithString:requestDomain andString:urlFilter]) {
+        if (longestCommonSubstring.length > 1) {
+            NSString *modifiedURLFilter = [urlFilter hasPrefix:@"||"] ? urlFilter : [@"||" stringByAppendingString:urlFilter];
+            return [modifiedURLFilter stringByReplacingCharactersInRange:[modifiedURLFilter rangeOfString:longestCommonSubstring] withString:requestDomain];
+        }
+    }
+
+    // If the URL filter is prefixed with the domain name anchor or ://, we need to append/insert the request domain into the URL filter.
+    //
+    // E.g.
+    // requestDomain = com, urlFilter = ||foo, result = ||foo*com
+    // requestDomain = com, urlFilter = ://www., result = ://www.*com
+    // requestDomain = com, urlFilter = ://www.*/foo/bar, result = ://www.*com/foo/bar
+    if ([urlFilter hasPrefix:@"||"] || [urlFilter hasPrefix:@"://"]) {
+        if ([[urlFilter stringByReplacingOccurrencesOfString:@"://" withString:@""] containsString:@"/"]) {
+            NSMutableArray<NSString *> *urlFilterParts = [[[urlFilter substringFromIndex:3] componentsSeparatedByString:@"/"] mutableCopy];
+
+            if (![urlFilterParts.firstObject hasSuffix:@"*"])
+                [urlFilterParts replaceObjectAtIndex:0 withObject:[[urlFilterParts.firstObject stringByAppendingString:@"*"] stringByAppendingString:requestDomain]];
+            else
+                [urlFilterParts replaceObjectAtIndex:0 withObject:[urlFilterParts.firstObject stringByAppendingString:requestDomain]];
+
+            return [@"://" stringByAppendingString:[urlFilterParts componentsJoinedByString:@"/"]];
+        }
+
+        return [urlFilter hasSuffix:@"*"] ?
+            [urlFilter stringByAppendingString:requestDomain] :
+            [[urlFilter stringByAppendingString:@"*"] stringByAppendingString:requestDomain];
+    }
+
+    // Otherwise, we can just combine the request domain and URL filter with a wildcard character sandwiched in between.
+    //
+    // E.g.
+    // requestDomain = com, urlFilter = /foo/bar, result = com*/foo/bar
+    // requestDomain = com, urlFilter = &foo=bar|, result = com*&foo=bar|
+    return [@"||" stringByAppendingString:[[requestDomain stringByAppendingString:@"*"] stringByAppendingString:urlFilter]];
 }
 
 - (NSString *)_regexURLFilterForChromeURLFilter:(NSString *)chromeURLFilter

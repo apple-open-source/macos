@@ -31,7 +31,7 @@
 				<key>TestOutputType</key>
 				<string>stderrOutput</string>
 				<key>Timeout</key>
-				<integer>600</integer>
+				<integer>1200</integer>
 				<key>RequiresSysctl</key>
 				<string>kern.hv.supported==1</string>
 				<key>Command</key>
@@ -51,7 +51,7 @@
 				<key>TestOutputType</key>
 				<string>stderrOutput</string>
 				<key>Timeout</key>
-				<integer>600</integer>
+				<integer>1200</integer>
 				<key>RequiresSysctl</key>
 				<string>kern.hv.supported==1</string>
 				<key>Command</key>
@@ -62,8 +62,6 @@
 					<string>--corefile-path</string>
 					<string>EVE_corefile.core</string>
 				</array>
-				<key>Disabled</key>
-				<true/>
 			</dict>
 		</array>
 	</dict>

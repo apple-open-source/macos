@@ -92,7 +92,7 @@ CFDictionaryRef SecOTAPKICopyAnchorLookupTable(SecOTAPKIRef otapkiRef);
 // certs and constraint info.
 // Caller is responsible for releasing the returned CFDictionaryRef
 CF_EXPORT
-CFDictionaryRef SecOTAPKICopyConstrainedAnchorLookupTable(SecOTAPKIRef otapkiRef);
+CFDictionaryRef SecOTAPKICopyConstrainedAnchorLookupTable(void);
 
 // Accessor to retrieve the data of an anchor certificate specified by
 // its SHA256 hash as a hex string. This retrieves the contents of a file
@@ -238,6 +238,7 @@ CFDictionaryRef SecOTASecExperimentCopyAsset(CFErrorRef* error);
 BOOL UpdateOTACheckInDate(void);
 void UpdateKillSwitch(NSString *key, bool value);
 #endif
+bool SecOTAPKISetConstrainedAnchorLookupTable(CFDictionaryRef table);
 
 __END_DECLS
 

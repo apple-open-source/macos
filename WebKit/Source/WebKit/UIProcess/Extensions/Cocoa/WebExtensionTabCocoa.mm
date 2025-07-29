@@ -860,8 +860,18 @@ WebExtensionTab::WebProcessProxySet WebExtensionTab::processes(WebExtensionEvent
     if (!extensionContext)
         return { };
 
-    return extensionContext->processes({ listenerType }, { contentWorldType }, [&](auto& page, auto& frame) {
-        return webView._page.get() == &page;
+    RefPtr page = webView->_page.get();
+    if (!page)
+        return { };
+
+    WebProcessProxySet pageProcesses;
+    page->forEachWebContentProcess([&](auto& webProcess, auto pageIdentifier) {
+        pageProcesses.add(webProcess);
+    });
+
+    // Return the intersection of processes in the page that listen to the event.
+    return extensionContext->processes({ listenerType }, { contentWorldType }, [&](auto& process, auto& page, auto& frame) {
+        return pageProcesses.contains(process);
     });
 }
 

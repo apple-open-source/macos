@@ -59,7 +59,7 @@ __FBSDID("$FreeBSD: src/usr.sbin/mtree/mtree.c,v 1.29 2004/06/04 19:29:28 ru Exp
 
 int ftsoptions = FTS_PHYSICAL;
 int xattr_options = XATTR_NOFOLLOW | XATTR_SHOWCOMPRESSION;
-int cflag, dflag, eflag, iflag, nflag, qflag, rflag, sflag, uflag, Uflag, wflag, mflag, tflag, xflag;
+int cflag, dflag, eflag, iflag, nflag, qflag, rflag, sflag, uflag, Uflag, wflag, mflag, tflag, xflag, vflag;
 int insert_mod, insert_birth, insert_access, insert_change, insert_parent;
 struct timespec ts;
 u_int64_t keys;
@@ -103,7 +103,7 @@ main(int argc, char *argv[])
 	atexit(do_cleanup);
 	atexit(print_metrics_to_file);
 
-	while ((ch = getopt(argc, argv, "cdef:iK:k:LnPp:qrs:UuwxX:m:F:t:E:SD")) != -1)
+	while ((ch = getopt(argc, argv, "cdef:iK:k:LnPp:qrs:UuvwxX:m:F:t:E:SD")) != -1)
 		switch((char)ch) {
 		case 'c':
 			cflag = 1;
@@ -182,6 +182,9 @@ main(int argc, char *argv[])
 			break;
 		case 'u':
 			uflag = 1;
+			break;
+		case 'v':
+			vflag = 1;
 			break;
 		case 'w':
 			wflag = 1;
@@ -291,7 +294,9 @@ main(int argc, char *argv[])
 		if (Uflag & (status == MISMATCHEXIT)) {
 			status = 0;
 		} else if (status) {
-			warnx("mtree_verifyspec returned a non-zero status: %d", status);
+			if (vflag) {
+				warnx("mtree_verifyspec returned a non-zero status: %d", status);
+			}
 			RECORD_FAILURE(100, status);
 		}
 		if (mflag) {
@@ -301,7 +306,7 @@ main(int argc, char *argv[])
 			}
 		}
 	}
-	if (status != 0) {
+	if (status != 0 && vflag) {
 		warnx("mtree exiting with a non-zero status: %d", status);
 	}
 	exit(status);

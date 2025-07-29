@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2024 Apple Inc. All rights reserved.
+ * Copyright (c) 2004-2025 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -4295,7 +4295,7 @@ _SCNetworkInterfaceCreateWithEntity(CFAllocatorRef	allocator,
 			if (_SC_cfstring_to_cstring(ifDevice, bsdName, sizeof(bsdName), kCFStringEncodingUTF8) == NULL) {
 				goto done;
 			}
-			matching = _SC_IONetworkInterfaceBSDNameMatching(bsdName);
+			matching = IOBSDNameMatching(masterPort, 0, bsdName);
 			if (matching == NULL) {
 				__SCNetworkInterfaceCacheAdd(ifDevice, NULL);
 				goto done;

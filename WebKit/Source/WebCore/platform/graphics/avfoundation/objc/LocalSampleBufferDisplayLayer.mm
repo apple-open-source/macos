@@ -191,6 +191,11 @@ void LocalSampleBufferDisplayLayer::initialize(bool hideRootLayer, IntSize size,
     callback(true);
 }
 
+void LocalSampleBufferDisplayLayer::setLogIdentifier(uint64_t logIdentifier)
+{
+    m_logIdentifier = logIdentifier;
+}
+
 LocalSampleBufferDisplayLayer::~LocalSampleBufferDisplayLayer()
 {
     ASSERT(isMainThread());
@@ -227,7 +232,7 @@ void LocalSampleBufferDisplayLayer::layerStatusDidChange()
 ALLOW_DEPRECATED_DECLARATIONS_BEGIN
     if (m_client && m_sampleBufferDisplayLayer.get().status == AVQueuedSampleBufferRenderingStatusFailed) {
 ALLOW_DEPRECATED_DECLARATIONS_END
-        RELEASE_LOG_ERROR(WebRTC, "LocalSampleBufferDisplayLayer::layerStatusDidChange going to failed status (%{public}s) ", m_logIdentifier.utf8().data());
+    RELEASE_LOG_ERROR(WebRTC, "LocalSampleBufferDisplayLayer::layerStatusDidChange going to failed status (%llu) ", m_logIdentifier);
         if (!m_didFail) {
             m_didFail = true;
             m_client->sampleBufferDisplayLayerStatusDidFail();
@@ -238,7 +243,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 void LocalSampleBufferDisplayLayer::layerErrorDidChange()
 {
     ASSERT(isMainThread());
-    RELEASE_LOG_ERROR(WebRTC, "LocalSampleBufferDisplayLayer::layerErrorDidChange (%{public}s) ", m_logIdentifier.utf8().data());
+    RELEASE_LOG_ERROR(WebRTC, "LocalSampleBufferDisplayLayer::layerErrorDidChange (%llu) ", m_logIdentifier);
     if (!m_client || m_didFail)
         return;
     m_didFail = true;
@@ -410,7 +415,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     constexpr size_t frameCountPerLog = 1800; // log every minute at 30 fps
     if (!(m_frameRateMonitor.frameCount() % frameCountPerLog)) {
         if (auto* metrics = [m_sampleBufferDisplayLayer videoPerformanceMetrics])
-            RELEASE_LOG(WebRTC, "LocalSampleBufferDisplayLayer (%{public}s) metrics, total=%lu, dropped=%lu, corrupted=%lu, display-composited=%lu, non-display-composited=%lu (pending=%lu)", m_logIdentifier.utf8().data(), metrics.totalNumberOfVideoFrames, metrics.numberOfDroppedVideoFrames, metrics.numberOfCorruptedVideoFrames, metrics.numberOfDisplayCompositedVideoFrames, metrics.numberOfNonDisplayCompositedVideoFrames, m_pendingVideoFrameQueue.size());
+            RELEASE_LOG(WebRTC, "LocalSampleBufferDisplayLayer (%llu) metrics, total=%lu, dropped=%lu, corrupted=%lu, display-composited=%lu, non-display-composited=%lu (pending=%lu)", m_logIdentifier, metrics.totalNumberOfVideoFrames, metrics.numberOfDroppedVideoFrames, metrics.numberOfCorruptedVideoFrames, metrics.numberOfDisplayCompositedVideoFrames, metrics.numberOfNonDisplayCompositedVideoFrames, m_pendingVideoFrameQueue.size());
     }
     m_frameRateMonitor.update();
 #endif
@@ -426,7 +431,7 @@ void LocalSampleBufferDisplayLayer::onIrregularFrameRateNotification(MonotonicTi
         if (!protectedThis)
             return;
 
-        RELEASE_LOG(WebRTC, "LocalSampleBufferDisplayLayer::enqueueVideoFrame (%{public}s) at %f, previous frame was at %f, observed frame rate is %f, delay since last frame is %f ms, frame count is %lu", protectedThis->m_logIdentifier.utf8().data(), frameTime, lastFrameTime, observedFrameRate, (frameTime - lastFrameTime) * 1000, frameCount);
+        RELEASE_LOG(WebRTC, "LocalSampleBufferDisplayLayer::enqueueVideoFrame (%llu) at %f, previous frame was at %f, observed frame rate is %f, delay since last frame is %f ms, frame count is %lu", protectedThis->m_logIdentifier, frameTime, lastFrameTime, observedFrameRate, (frameTime - lastFrameTime) * 1000, frameCount);
     });
 }
 #endif

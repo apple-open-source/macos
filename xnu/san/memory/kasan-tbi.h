@@ -42,7 +42,7 @@
 
 /* old-style configs. */
 #define KASAN_DEBUG 0
-#define KASAN_DYNAMIC_BLACKLIST 1
+#define KASAN_DYNAMIC_DENYLIST 1
 #define KASAN_FAKESTACK 0
 
 /* Granularity is 16 bytes */

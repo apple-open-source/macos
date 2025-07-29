@@ -297,8 +297,10 @@ void Invalidator::invalidateStyleWithMatchElement(Element& element, MatchElement
             invalidateIfNeeded(*sibling, nullptr);
         break;
     case MatchElement::AnySibling:
-        for (auto& parentChild : childrenOfType<Element>(*element.parentNode()))
-            invalidateIfNeeded(parentChild, nullptr);
+        if (CheckedPtr parentNode = element.parentNode()) {
+            for (auto& parentChild : childrenOfType<Element>(*element.parentNode()))
+                invalidateIfNeeded(parentChild, nullptr);
+        }
         break;
     case MatchElement::ParentSibling:
         for (auto* sibling = element.nextElementSibling(); sibling; sibling = sibling->nextElementSibling()) {

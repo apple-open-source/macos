@@ -355,7 +355,7 @@ download_cleanup_partial(struct sess *sess, struct download *p)
 		 * file and make a decision on it.
 		 */
 		if (platform_move_file(sess, f, p->rootfd, p->fname,
-		    pdfd, fname, 0) == -1) {
+		    pdfd, fname, 0, 0) == -1) {
 			/*
 			 * Don't leave the partial file laying around if
 			 * --partial-dir was requested and we can't manage it.
@@ -610,7 +610,7 @@ delayed_renames(struct sess *sess)
 		if (sess->opts->hard_links)
 			hl_p = find_hl(curr->file, dlr->hl);
 		if (!platform_move_file(sess, curr->file,
-		    dlr->fromfd, curr->from, dlr->tofd, curr->to, 1)) {
+		    dlr->fromfd, curr->from, dlr->tofd, curr->to, 1, 0)) {
 			status = FLIST_FAILED;
 		}
 		if (hl_p != NULL) {
@@ -942,7 +942,10 @@ protocol_token_ff(struct sess *sess, struct download *p, size_t tok)
 	}
 	sz = (tok == p->blk.blksz - 1 && p->blk.rem) ? p->blk.rem : p->blk.len;
 	assert(sz);
-	assert(p->map != NULL);
+	if (p->map == NULL) {
+		ERRX("no map file");
+		return TOKEN_ERROR;
+	}
 	off = tok * p->blk.len;
 
 	if (!fmap_trap(p->map)) {
@@ -1269,7 +1272,7 @@ rsync_downloader(struct download *p, struct sess *sess, int *ofd, size_t flsz,
 	unsigned char	 ourmd[MD4_DIGEST_LENGTH],
 			 md[MD4_DIGEST_LENGTH];
 	char             buf2[PATH_MAX];
-	char            *usethis;
+	char            *usethis = NULL;
 	enum protocol_token_result	tokres;
 	int		 dirlen;
 	struct dlrename  *renamer = NULL;
@@ -1369,24 +1372,16 @@ rsync_downloader(struct download *p, struct sess *sess, int *ofd, size_t flsz,
 		sess->total_write_lf = sess->total_write;
 
 		if ((f->iflags & IFLAG_TRANSFER) == 0) {
-			bool hlink = (f->iflags & IFLAG_HLINK_FOLLOWS) != 0;
-			bool sig = (f->iflags & SIGNIFICANT_IFLAGS) != 0;
-
-			if (sig || hlink || sess->itemize || verbose > 1) {
-				bool local = (f->iflags & IFLAG_LOCAL_CHANGE) != 0;
-				bool dir = S_ISDIR(f->st.mode);
-
-				if (local || dir || hlink || sess->itemize)
-					log_item(sess, f);
-				else if (verbose > 1)
-					log_item_impl(sess, f);
-			}
-
+			/*
+			 * Untransferred items are subject to conditional
+			 * logging.
+			 */
+			log_item(sess, f);
 			return 1;
 		}
 
 		if (!sess->lateprint || sess->opts->dry_run)
-			log_item(sess, f);
+			log_item_impl(LT_CLIENT, sess, f);
 
 		/*
 		 * Short-circuit: dry_run mode does nothing, with one exception:
@@ -1436,21 +1431,49 @@ rsync_downloader(struct download *p, struct sess *sess, int *ofd, size_t flsz,
 			ERR("%s: rsync_downloader: openat", path);
 			goto out;
 		} else if (p->ofd != -1) {
-			*ofd = p->ofd;
-			if (sess->opts->no_cache) {
-#if defined(F_NOCACHE)
-				fcntl(p->ofd, F_NOCACHE);
-#elif defined(O_DIRECT)
-				int getfl;
+			struct stat sb;
 
-				if ((getfl = fcntl(p->ofd, F_GETFL)) < 0) {
-					warn("fcntl failed");
-				} else {
-					fcntl(p->ofd, F_SETFL, getfl | O_DIRECT);
-				}
-#endif
+			/*
+			 * We need to double-check that the existing entry is
+			 * actually a file, because it could be a symlink to a
+			 * directory or some other non-file if we're racing
+			 * something else.  We're not too concerned about the
+			 * file having been replaced completely after the
+			 * uploader sent block information, as we'll just
+			 * assemble a likely incorrect file and fail the
+			 * checksum at the end to trigger a redo.
+			 */
+			if (fstat(p->ofd, &sb) == -1 ) {
+				ERR("%s: fstat", f->path);
+				close(p->ofd);
+				p->ofd = -1;
+				goto out;
 			}
-			return 1;
+
+			if (!S_ISREG(sb.st_mode)) {
+				close(p->ofd);
+				p->ofd = -1;
+			} else {
+				*ofd = p->ofd;
+				if (sess->opts->no_cache) {
+#if defined(F_NOCACHE)
+					if (fcntl(p->ofd, F_NOCACHE) == -1) {
+						warn("Failed to set --no-cache");
+					}
+#elif defined(O_DIRECT)
+					int getfl;
+
+					if ((getfl = fcntl(p->ofd, F_GETFL)) < 0) {
+						warn("fcntl(F_GETFL) failed");
+					} else if (fcntl(p->ofd, F_SETFL,
+					    getfl | O_DIRECT) < 0) {
+						warn("Failed to set --no-cache");
+					}
+#endif
+				}
+
+				return 1;
+			}
 		}
 
 		/* Fall-through: there's no file. */
@@ -1806,12 +1829,6 @@ again:
 		}
 	}
 
-	/* Adjust our file metadata (uid, mode, etc.). */
-
-	if (!rsync_set_metadata(sess, p->ofd == -1, p->fd, f, p->fname)) {
-		ERRX1("rsync_set_metadata");
-		goto out;
-	}
 	/* 
 	 * Finally, rename the temporary to the real file, unless
 	 * --delay-updates is in effect, in which case it is going to
@@ -1898,8 +1915,15 @@ again:
 		if (f->pdfd >= 0)
 			fromfd = f->pdfd;
 		if (!platform_move_file(sess, f, fromfd, p->fname,
-		    p->rootfd, usethis, usethis == f->path))
+		    p->rootfd, usethis, usethis == f->path, 1))
 			goto out;
+	} else {
+		/*
+		 * For --inplace, we should adjust it down to the correct
+		 * size.
+		 */
+		if (ftruncate(p->fd, f->st.size) == -1)
+			ERR("%s: ftruncate", f->path);
 	}
 
 	/*
@@ -1934,8 +1958,7 @@ again:
 	rsync_progress(sess, p->fl[p->idx].st.size, p->fl[p->idx].st.size,
 	    true, p->idx, p->flsz);
 
-	if (sess->lateprint)
-		log_item(sess, f);
+	log_item_impl(xfer_log_level(sess), sess, f);
 
 done:
 	/*
@@ -1943,6 +1966,28 @@ done:
 	 * or move it into a --partial-dir.
 	 */
 	download_cleanup(sess, p, (f->flstate & FLIST_REDO) != 0);
+
+	if ((f->flstate & FLIST_REDO) == 0) {
+		bool newfile;
+
+		if (usethis == NULL)
+			usethis = f->path;
+
+		/*
+		 * Adjust our file metadata (uid, mode, etc.) now that we've
+		 * closed the file.  The timing here is to avoid suboptimal
+		 * behavior in samba, at least, which will update the mtime on
+		 * last close even if we issued a futimens(2) after our last
+		 * write(2).
+		 */
+		newfile = (f->iflags & IFLAG_NEW) != 0;
+		if (!rsync_set_metadata_at(sess, newfile, p->rootfd, f,
+		    usethis)) {
+			ERRX1("rsync_set_metadata");
+			goto out;
+		}
+	}
+
 	return 1;
 out:
 	if (f != NULL)

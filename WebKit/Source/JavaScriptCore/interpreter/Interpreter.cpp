@@ -1502,7 +1502,7 @@ JSValue Interpreter::executeEval(EvalExecutable* eval, JSValue thisValue, JSScop
             for (unsigned i = 0; i < numTopLevelFunctionDecls; ++i) {
                 FunctionExecutable* function = codeBlock->functionDecl(i);
                 bool canDeclare = jsCast<JSGlobalObject*>(variableObject)->canDeclareGlobalFunction(function->name());
-                throwScope.assertNoExceptionExceptTermination();
+                RETURN_IF_EXCEPTION(throwScope, throwScope.exception());
                 if (!canDeclare)
                     return throwException(globalObject, throwScope, createErrorForInvalidGlobalFunctionDeclaration(globalObject, function->name()));
             }
@@ -1511,7 +1511,7 @@ JSValue Interpreter::executeEval(EvalExecutable* eval, JSValue thisValue, JSScop
                 for (unsigned i = 0; i < numVariables; ++i) {
                     const Identifier& ident = unlinkedCodeBlock->variable(i);
                     bool canDeclare = jsCast<JSGlobalObject*>(variableObject)->canDeclareGlobalVar(ident);
-                    throwScope.assertNoExceptionExceptTermination();
+                    RETURN_IF_EXCEPTION(throwScope, throwScope.exception());
                     if (!canDeclare)
                         return throwException(globalObject, throwScope, createErrorForInvalidGlobalVarDeclaration(globalObject, ident));
                 }
@@ -1520,12 +1520,12 @@ JSValue Interpreter::executeEval(EvalExecutable* eval, JSValue thisValue, JSScop
 
         auto ensureBindingExists = [&](const Identifier& ident) {
             bool hasProperty = variableObject->hasOwnProperty(globalObject, ident);
-            throwScope.assertNoExceptionExceptTermination();
+            RETURN_IF_EXCEPTION(throwScope, void());
             if (!hasProperty) {
                 bool shouldThrow = true;
                 PutPropertySlot slot(variableObject, shouldThrow);
                 variableObject->methodTable()->put(variableObject, globalObject, ident, jsUndefined(), slot);
-                throwScope.assertNoExceptionExceptTermination();
+                RETURN_IF_EXCEPTION(throwScope, void());
             }
         };
 
@@ -1537,13 +1537,15 @@ JSValue Interpreter::executeEval(EvalExecutable* eval, JSValue thisValue, JSScop
                 if (!resolvedScope.isUndefined()) {
                     if (isGlobalVariableEnvironment) {
                         bool canDeclare = jsCast<JSGlobalObject*>(variableObject)->canDeclareGlobalVar(ident);
-                        throwScope.assertNoExceptionExceptTermination();
+                        RETURN_IF_EXCEPTION(throwScope, throwScope.exception());
                         if (canDeclare) {
                             jsCast<JSGlobalObject*>(variableObject)->createGlobalVarBinding<BindingCreationContext::Eval>(ident);
-                            throwScope.assertNoExceptionExceptTermination();
+                            RETURN_IF_EXCEPTION(throwScope, throwScope.exception());
                         }
-                    } else
+                    } else {
                         ensureBindingExists(ident);
+                        RETURN_IF_EXCEPTION(throwScope, throwScope.exception());
+                    }
                 }
             }
         }
@@ -1552,18 +1554,22 @@ JSValue Interpreter::executeEval(EvalExecutable* eval, JSValue thisValue, JSScop
             FunctionExecutable* function = codeBlock->functionDecl(i);
             if (isGlobalVariableEnvironment) {
                 jsCast<JSGlobalObject*>(variableObject)->createGlobalFunctionBinding<BindingCreationContext::Eval>(function->name());
-                throwScope.assertNoExceptionExceptTermination();
-            } else
+                RETURN_IF_EXCEPTION(throwScope, throwScope.exception());
+            } else {
                 ensureBindingExists(function->name());
+                RETURN_IF_EXCEPTION(throwScope, throwScope.exception());
+            }
         }
 
         for (unsigned i = 0; i < numVariables; ++i) {
             const Identifier& ident = unlinkedCodeBlock->variable(i);
             if (isGlobalVariableEnvironment) {
                 jsCast<JSGlobalObject*>(variableObject)->createGlobalVarBinding<BindingCreationContext::Eval>(ident);
-                throwScope.assertNoExceptionExceptTermination();
-            } else
+                RETURN_IF_EXCEPTION(throwScope, throwScope.exception());
+            } else {
                 ensureBindingExists(ident);
+                RETURN_IF_EXCEPTION(throwScope, throwScope.exception());
+            }
         }
     }
 

@@ -1,0 +1,15 @@
+//
+//  get-network-info.xcconfig
+//  get-network-info
+//
+//  Created by Gebri Mishtaku on 4/23/25.
+//
+
+// Configuration settings file format documentation can be found at:
+// https://developer.apple.com/documentation/xcode/adding-a-build-configuration-file-to-your-project
+
+
+
+INSTALL_PATH = /System/Library/Frameworks/SystemConfiguration.framework
+INSTALL_PATH[sdk=macosx*] = /System/Library/Frameworks/SystemConfiguration.framework/Versions/A/Resources
+INSTALL_PATH[sdk=watchos*] = /System/Library/PrivateFrameworks/SystemConfiguration.framework

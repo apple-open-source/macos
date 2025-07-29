@@ -186,10 +186,12 @@ mach_vm_deallocate_sanitize(
 	mach_vm_offset_t       *end,
 	mach_vm_size_t         *size)
 {
+	vm_sanitize_flags_t     flags = VM_SANITIZE_FLAGS_SIZE_ZERO_SUCCEEDS;
+
+
 	return vm_sanitize_addr_size(start_u, size_u,
-	           VM_SANITIZE_CALLER_VM_DEALLOCATE, map,
-	           VM_SANITIZE_FLAGS_SIZE_ZERO_SUCCEEDS, start,
-	           end, size);
+	           VM_SANITIZE_CALLER_VM_DEALLOCATE, map, flags,
+	           start, end, size);
 }
 
 /*
@@ -596,7 +598,10 @@ mach_vm_read_overwrite(
 		}
 
 		error = vm_map_copy_overwrite(current_thread()->map,
-		    data, copy, size, FALSE);
+		    data,
+		    copy,
+		    size,
+		    FALSE);
 		if (KERN_SUCCESS == error) {
 			*data_size = size;
 			return error;
@@ -672,8 +677,11 @@ mach_vm_write(
 	 */
 	vm_map_copy_t data = (vm_map_copy_t) VM_SANITIZE_UNSAFE_UNWRAP(data_u);
 
-	return vm_map_copy_overwrite(map, address,
-	           data, size, FALSE /* interruptible XXX */);
+	return vm_map_copy_overwrite(map,
+	           address,
+	           data,
+	           size,
+	           FALSE /* interruptible XXX */);
 }
 
 /*
@@ -723,8 +731,11 @@ mach_vm_copy(
 			assert(VM_SANITIZE_UNSAFE_IS_EQUAL(size, copy->size));
 		}
 
-		kr = vm_map_copy_overwrite(map, dest_address,
-		    copy, size, FALSE /* interruptible XXX */);
+		kr = vm_map_copy_overwrite(map,
+		    dest_address,
+		    copy,
+		    size,
+		    FALSE);
 
 		if (KERN_SUCCESS != kr) {
 			vm_map_copy_discard(copy);
@@ -1262,10 +1273,11 @@ mach_vm_behavior_set_sanitize(
 		break;
 	}
 
+	vm_sanitize_flags_t     flags = VM_SANITIZE_FLAGS_SIZE_ZERO_SUCCEEDS;
+
+
 	kr = vm_sanitize_addr_size(start_u, size_u, VM_SANITIZE_CALLER_VM_BEHAVIOR_SET,
-	    align_mask, map,
-	    VM_SANITIZE_FLAGS_SIZE_ZERO_SUCCEEDS,
-	    start, end, size);
+	    align_mask, map, flags, start, end, size);
 	if (__improbable(kr != KERN_SUCCESS)) {
 		return kr;
 	}

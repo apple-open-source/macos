@@ -122,6 +122,9 @@ private:
         webrtc::LocalEncoder webrtcEncoder { nullptr };
         std::unique_ptr<SharedVideoFrameReader> frameReader;
         Deque<CompletionHandler<void(bool)>> encodingCallbacks;
+        WebCore::VideoCodecType codecType { WebCore::VideoCodecType::H264 };
+        bool useLowLatency { false };
+        bool isInvalid { false };
     };
     Encoder* findEncoder(VideoEncoderIdentifier) WTF_REQUIRES_CAPABILITY(workQueue());
 

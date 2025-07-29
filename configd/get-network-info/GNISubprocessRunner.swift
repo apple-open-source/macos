@@ -27,15 +27,15 @@ import System
 import Darwin
 
 final class GNISubprocessRunner {
-	static let logger: Logger = Logger(subsystem: "com.apple.get-network-info",
-					   category: "GNISubprocessRunner")
-	static let dateFormatter: DateFormatter = {
+	private let logger: Logger = Logger(subsystem: "com.apple.get-network-info",
+						   category: "GNISubprocessRunner")
+	private let dateFormatter: DateFormatter = {
 		let formatter = DateFormatter()
 		formatter.dateFormat = "yyyy-MM-dd HH:mm:ss.SSSSSS"
 		return formatter
 	}()
 
-	final private  class GNIOutputTargetFile: TextOutputStream {
+	final private class GNIOutputTargetFile: TextOutputStream {
 		private let filePath: FilePath
 		private let fileDescriptor: FileDescriptor
 		private let fileHandle: FileHandle
@@ -52,12 +52,12 @@ final class GNISubprocessRunner {
 									      // 0o644
 									      permissions: [.ownerReadWrite, .groupRead, .otherRead])
 			} catch {
-				fatalError("failed creating output file '\(self.filePath)' with error '\(error)'")
-				return nil
+				print("failed creating output file '\(self.filePath)' with error '\(error)'")
+				exit(1)
 			}
 			guard let fileHandle = FileHandle(forWritingAtPath: filePath.string) else {
-				fatalError("failed creating file handle for \(self.filePath)")
-				return nil
+				print("failed creating file handle for \(self.filePath)")
+				exit(1)
 			}
 			self.fileHandle = fileHandle
 		}
@@ -71,7 +71,8 @@ final class GNISubprocessRunner {
 				fileHandle.seekToEndOfFile()
 				try fileHandle.write(contentsOf: string.data(using: .utf8)!)
 			} catch {
-				fatalError("failed writing to '\(self.filePath)' with error '\(error)'")
+				print("failed writing to '\(self.filePath)' with error '\(error)'")
+				exit(1)
 			}
 		}
 
@@ -79,7 +80,8 @@ final class GNISubprocessRunner {
 			do {
 				return try String(contentsOf: URL(filePath: filePath.description), encoding: .utf8)
 			} catch {
-				fatalError("failed reading '\(self.filePath)' with error '\(error)'")
+				print("failed reading '\(self.filePath)' with error '\(error)'")
+				exit(1)
 			}
 		}
 
@@ -89,20 +91,21 @@ final class GNISubprocessRunner {
 					try fileDescriptor.close()
 					try fileHandle.close()
 				} catch {
-					fatalError("failed closing '\(self.filePath)' with error '\(error)'")
+					print("failed closing '\(self.filePath)' with error '\(error)'")
+					exit(1)
 				}
 				closed = true
 			}
 		}
 	}
 
-	private var pathRoot: FilePath = "/tmp"
-	private let runnerTmpStdoutFilename: FilePath = "tmp-gni-output.txt"
+	private var pathRoot: FilePath
+	private let runnerTmpStdoutFilename: FilePath = "tmp-gni-output.XXXXXX"
 	private let runnerStdoutFilename: FilePath = "get-network-info.txt"
 	private var runnerStdoutTarget: GNIOutputTargetFile
 
-	init?(pathRoot: FilePath? = nil) {
-		self.pathRoot = pathRoot ?? self.pathRoot
+	init?(pathRoot: FilePath) {
+		self.pathRoot = pathRoot
 		let runnerOutputFilePath = self.pathRoot.appending("\(self.runnerStdoutFilename)")
 		guard let runnerStdoutTarget = GNIOutputTargetFile(filePath: runnerOutputFilePath) else {
 			return nil
@@ -115,12 +118,12 @@ final class GNISubprocessRunner {
 	}
 
 	var currentTimeString: String {
-		GNISubprocessRunner.dateFormatter.string(from: Date())
+		self.dateFormatter.string(from: Date())
 	}
 
 	public func log(_ message: String, at level: OSLogType = .default) {
 		print("\(currentTimeString): \(message)", to: &runnerStdoutTarget)
-		GNISubprocessRunner.logger.log(level: level, "\(message)")
+		self.logger.log(level: level, "\(message)")
 	}
 
 	public func errorlog(_ message: String) {
@@ -143,10 +146,10 @@ final class GNISubprocessRunner {
 		defer {
 			argv.forEach { free($0) }
 		}
-		var skip_header: Bool = false
+		var skipHeader: Bool = false
 
 		if arguments[0].hasSuffix("tar") || (stdout?.hasSuffix(".tar") ?? false) || (stdout?.hasSuffix(".plist") ?? false) {
-			skip_header = true
+			skipHeader = true
 		}
 		guard FileManager.default.fileExists(atPath: arguments[0]) else {
 			errorlog("command '\(arguments[0])' doesn't exist")
@@ -164,7 +167,12 @@ final class GNISubprocessRunner {
 		} else if stdout != nil {
 			stdoutPath = pathRoot.appending(stdout!)
 		} else {
-			stdoutPath = pathRoot.appending(runnerTmpStdoutFilename.string)
+			let stdoutURL = FileManager.default.temporaryDirectory.appending(component: runnerTmpStdoutFilename.string)
+			guard let stdoutPath_ = FilePath(stdoutURL) else {
+				errorlog("failed to create temporary file path at url '\(stdoutURL)'")
+				return (false, nil)
+			}
+			stdoutPath = stdoutPath_
 		}
 		if stderr == nil {
 			stderrPath = stdoutPath
@@ -179,7 +187,7 @@ final class GNISubprocessRunner {
 			return (false, nil)
 		}
 
-		if stdout != nil && !skip_header {
+		if stdout != nil && !skipHeader {
 			// parent writes into subprocess output file
 			outputFile.write("#\n")
 			outputFile.write("# \(command)\n")

@@ -2665,7 +2665,7 @@ VP9_COMP *vp9_create_compressor(const VP9EncoderConfig *oxcf,
 
   // Allocate memory to store variances for a frame.
   CHECK_MEM_ERROR(&cm->error, cpi->source_diff_var,
-                  vpx_calloc(cm->MBs, sizeof(cpi->source_diff_var)));
+                  vpx_calloc(cm->MBs, sizeof(*cpi->source_diff_var)));
   cpi->source_var_thresh = 0;
   cpi->frames_till_next_var_check = 0;
 #define BFP(BT, SDF, SDSF, SDAF, VF, SVF, SVAF, SDX4DF, SDSX4DF) \

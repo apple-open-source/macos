@@ -47,4 +47,9 @@ dport=$(daemon_port)
 
 command $RSYNC_CLIENT rsync://localhost:$dport/without_motd/flag from-without_motd > out
 cmp -s "from-without_motd" "$dest/flag"
-test ! -s out
+
+if grep -qv "^from-without_motd$" out; then
+	1>&2 echo "stdout contained unexpected contents:"
+	1>&2 cat out
+	exit 1
+fi

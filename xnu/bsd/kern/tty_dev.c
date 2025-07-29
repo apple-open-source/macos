@@ -222,11 +222,16 @@ static struct ptmx_ioctl *
 pty_get_ioctl(dev_t dev, int open_flag, struct tty_dev_t **out_driver)
 {
 	struct tty_dev_t *driver = pty_get_driver(dev);
+	struct ptmx_ioctl *out = NULL;
 	if (out_driver) {
 		*out_driver = driver;
 	}
 	if (driver && driver->open) {
-		return driver->open(minor(dev), open_flag);
+		out = driver->open(minor(dev), open_flag);
+		if (!out) {
+			printf("pty_get_ioctl: driver->open returned NULL\n");
+		}
+		return out;
 	}
 	return NULL;
 }

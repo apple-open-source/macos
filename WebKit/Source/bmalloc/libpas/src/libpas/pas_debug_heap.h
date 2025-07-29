@@ -48,6 +48,9 @@ BEXPORT extern bool pas_debug_heap_is_enabled(pas_heap_config_kind);
 BEXPORT extern void* pas_debug_heap_malloc(size_t);
 BEXPORT extern void* pas_debug_heap_memalign(size_t alignment, size_t);
 BEXPORT extern void* pas_debug_heap_realloc(void* ptr, size_t);
+BEXPORT extern void* pas_debug_heap_malloc_compact(size_t);
+BEXPORT extern void* pas_debug_heap_memalign_compact(size_t alignment, size_t);
+BEXPORT extern void* pas_debug_heap_realloc_compact(void* ptr, size_t);
 BEXPORT extern void pas_debug_heap_free(void* ptr);
 
 #else /* PAS_BMALLOC -> so !PAS_BMALLOC */
@@ -81,6 +84,29 @@ static inline void* pas_debug_heap_realloc(void* ptr, size_t size)
     return NULL;
 }
 
+static inline void* pas_debug_heap_malloc_compact(size_t size)
+{
+    PAS_UNUSED_PARAM(size);
+    PAS_ASSERT(!"Should not be reached");
+    return NULL;
+}
+
+static inline void* pas_debug_heap_memalign_compact(size_t alignment, size_t size)
+{
+    PAS_UNUSED_PARAM(alignment);
+    PAS_UNUSED_PARAM(size);
+    PAS_ASSERT(!"Should not be reached");
+    return NULL;
+}
+
+static inline void* pas_debug_heap_realloc_compact(void* ptr, size_t size)
+{
+    PAS_UNUSED_PARAM(ptr);
+    PAS_UNUSED_PARAM(size);
+    PAS_ASSERT(!"Should not be reached");
+    return NULL;
+}
+
 static inline void pas_debug_heap_free(void* ptr)
 {
     PAS_UNUSED_PARAM(ptr);
@@ -99,11 +125,15 @@ static inline pas_allocation_result pas_debug_heap_allocate(size_t size, size_t 
     if (alignment > sizeof(void*)) {
         if (verbose)
             pas_log("Going down debug memalign path.\n");
-        raw_result = pas_debug_heap_memalign(alignment, size);
+        raw_result = allocation_mode == pas_non_compact_allocation_mode
+            ? pas_debug_heap_memalign(alignment, size)
+            : pas_debug_heap_memalign_compact(alignment, size);
     } else {
         if (verbose)
             pas_log("Going down debug malloc path.\n");
-        raw_result = pas_debug_heap_malloc(size);
+        raw_result = allocation_mode == pas_non_compact_allocation_mode
+            ? pas_debug_heap_malloc(size)
+            : pas_debug_heap_malloc_compact(size);
     }
 
     if (verbose)
@@ -112,7 +142,6 @@ static inline pas_allocation_result pas_debug_heap_allocate(size_t size, size_t 
     result.did_succeed = !!raw_result;
     result.begin = (uintptr_t)raw_result;
     result.zero_mode = pas_zero_mode_may_have_non_zero;
-    PAS_PROFILE(DEBUG_HEAP_ALLOCATION, result.begin, size, allocation_mode);
 
     return result;
 }

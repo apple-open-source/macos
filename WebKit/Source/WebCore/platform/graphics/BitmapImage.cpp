@@ -100,13 +100,14 @@ ImageDrawResult BitmapImage::draw(GraphicsContext& context, const FloatRect& des
     auto nativeImage = m_source->currentNativeImageForDrawing(subsamplingLevel, { options.decodingMode(), sizeForDrawing });
 
     if (!nativeImage) {
-        if (nativeImage.error() != DecodingStatus::Decoding)
-            return ImageDrawResult::DidNothing;
-
-        if (options.showDebugBackground() == ShowDebugBackground::Yes)
-            fillWithSolidColor(context, destinationRect, Color::yellow.colorWithAlphaByte(128), options.compositeOperator());
-
-        return ImageDrawResult::DidRequestDecoding;
+        // The decoder has not returned a frame. Fill the image rectangle with a debugging color to show what has happened.
+        if (options.showDebugBackground() == ShowDebugBackground::Yes) {
+            if (nativeImage.error() == DecodingStatus::Decoding)
+                fillWithSolidColor(context, destinationRect, Color::yellow.colorWithAlphaByte(128), options.compositeOperator());
+            else if (nativeImage.error() == DecodingStatus::Invalid)
+                fillWithSolidColor(context, destinationRect, Color::red.colorWithAlphaByte(128), options.compositeOperator());
+        }
+        return nativeImage.error() == DecodingStatus::Decoding ? ImageDrawResult::DidRequestDecoding : ImageDrawResult::DidNothing;
     }
 
     if (auto color = (*nativeImage)->singlePixelSolidColor())

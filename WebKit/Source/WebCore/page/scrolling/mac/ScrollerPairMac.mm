@@ -110,7 +110,7 @@
     else
         scroller = &scrollerPair->verticalScroller();
 
-    ASSERT(scrollerImp == scroller->scrollerImp());
+    ASSERT(scroller->isScrollerFor(scrollerImp));
 
     return scroller->lastKnownMousePositionInScrollbar();
 }
@@ -233,18 +233,18 @@ void ScrollerPairMac::contentsSizeChanged()
 void ScrollerPairMac::setUsePresentationValues(bool inMomentumPhase)
 {
     m_usingPresentationValues = inMomentumPhase;
-    [scrollerImpHorizontal() setUsePresentationValue:m_usingPresentationValues];
-    [scrollerImpVertical() setUsePresentationValue:m_usingPresentationValues];
+    m_horizontalScroller.setUsePresentationValue(m_usingPresentationValues);
+    m_verticalScroller.setUsePresentationValue(m_usingPresentationValues);
 }
 
 void ScrollerPairMac::setHorizontalScrollbarPresentationValue(float scrollbValue)
 {
-    [scrollerImpHorizontal() setPresentationValue:scrollbValue];
+    m_horizontalScroller.setUsePresentationValue(scrollbValue);
 }
 
 void ScrollerPairMac::setVerticalScrollbarPresentationValue(float scrollbValue)
 {
-    [scrollerImpVertical() setPresentationValue:scrollbValue];
+    m_verticalScroller.setUsePresentationValue(scrollbValue);
 }
 
 void ScrollerPairMac::updateValues()
@@ -317,7 +317,7 @@ ScrollerPairMac::Values ScrollerPairMac::valuesForOrientation(ScrollbarOrientati
 
 bool ScrollerPairMac::hasScrollerImp()
 {
-    return verticalScroller().scrollerImp() || horizontalScroller().scrollerImp();
+    return verticalScroller().hasScrollerImp() || horizontalScroller().hasScrollerImp();
 }
 
 void ScrollerPairMac::releaseReferencesToScrollerImpsOnTheMainThread()
@@ -442,6 +442,24 @@ void ScrollerPairMac::setScrollbarWidth(ScrollbarWidth scrollbarWidth)
 
     horizontalScroller().updateScrollbarStyle();
     verticalScroller().updateScrollbarStyle();
+}
+
+void ScrollerPairMac::updateScrollbarPainters()
+{
+    Locker lockerHorizontal { horizontalScroller().scrollerImpLock() };
+    Locker lockerVertical { verticalScroller().scrollerImpLock() };
+
+    BEGIN_BLOCK_OBJC_EXCEPTIONS
+    [CATransaction lock];
+
+    auto horizontalValues = valuesForOrientation(ScrollbarOrientation::Horizontal);
+    setHorizontalScrollbarPresentationValue(horizontalValues.value);
+
+    auto verticalValues = valuesForOrientation(ScrollbarOrientation::Vertical);
+    setVerticalScrollbarPresentationValue(verticalValues.value);
+
+    [CATransaction unlock];
+    END_BLOCK_OBJC_EXCEPTIONS
 }
 
 } // namespace WebCore

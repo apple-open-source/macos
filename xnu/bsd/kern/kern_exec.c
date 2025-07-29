@@ -175,12 +175,14 @@
 #include <machine/pal_routines.h>
 
 #include <pexpert/pexpert.h>
+#include <pexpert/device_tree.h>
 
 #if CONFIG_MEMORYSTATUS
 #include <sys/kern_memorystatus.h>
 #endif
 
 #include <IOKit/IOBSD.h>
+#include <IOKit/IOKitKeys.h> /* kIODriverKitEntitlementKey */
 
 #include "kern_exec_internal.h"
 
@@ -7718,6 +7720,35 @@ proc_process_signature(proc_t p, os_reason_t *signature_failure_reason)
 	return error;
 }
 
+#define DT_UNRESTRICTED_SUBSYSTEM_ROOT "unrestricted-subsystem-root"
+
+static bool
+allow_unrestricted_subsystem_root(void)
+{
+#if !(DEVELOPMENT || DEBUG)
+	static bool allow_unrestricted_subsystem_root = false;
+	static bool has_been_set = false;
+
+	if (!has_been_set) {
+		DTEntry chosen;
+		const uint32_t *value;
+		unsigned size;
+
+		has_been_set = true;
+		if (SecureDTLookupEntry(0, "/chosen", &chosen) == kSuccess &&
+		    SecureDTGetProperty(chosen, DT_UNRESTRICTED_SUBSYSTEM_ROOT, (const void**)&value, &size) == kSuccess &&
+		    value != NULL &&
+		    size == sizeof(uint32_t)) {
+			allow_unrestricted_subsystem_root = (bool)*value;
+		}
+	}
+
+	return allow_unrestricted_subsystem_root;
+#else
+	return true;
+#endif
+}
+
 static int
 process_signature(proc_t p, struct image_params *imgp)
 {
@@ -7777,6 +7808,20 @@ process_signature(proc_t p, struct image_params *imgp)
 	if ((error = mac_proc_check_launch_constraints(p, imgp, &launch_constraint_reason)) != 0) {
 		signature_failure_reason = launch_constraint_reason;
 		goto done;
+	}
+
+	/*
+	 * Reject when there's subsystem root path set, but the image is restricted, and doesn't require
+	 * library validation. This is to avoid subsystem root being used to inject unsigned code
+	 */
+	if (!allow_unrestricted_subsystem_root()) {
+		if ((imgp->ip_csflags & CS_RESTRICT || proc_issetugid(p)) &&
+		    !(imgp->ip_csflags & CS_REQUIRE_LV) &&
+		    (imgp->ip_subsystem_root_path != NULL)) {
+			signature_failure_reason = os_reason_create(OS_REASON_EXEC, EXEC_EXIT_REASON_SECURITY_POLICY);
+			error = EACCES;
+			goto done;
+		}
 	}
 
 #if XNU_TARGET_OS_OSX

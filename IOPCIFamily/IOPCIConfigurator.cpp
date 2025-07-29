@@ -4567,7 +4567,8 @@ int32_t CLASS::bridgeFinalizeConfigProc(void * unused, IOPCIConfigEntry * bridge
 		{
 			if (kPCIDeviceStateDeadOrHidden   & child->deviceState) continue;
 			if (!child->expressCapBlock) 							continue;
-			if (!(child->rootPortEntry->deviceState & kPCIDeviceStateDomainChanged)) continue;
+			// Re-calculate Device Control settings if either the domain changed or we paused to service an MPS update
+			if (!(child->rootPortEntry->deviceState & kPCIDeviceStateDomainChanged) && !(fStates & kIOPCIConfiguratorMPSOverridePause)) continue;
 			deviceControl = configRead16(child, child->expressCapBlock + 0x08);
 			if ((fStates & kIOPCIConfiguratorMPSOverride) && (child->deviceState & kPCIDeviceStatePaused))
 			{

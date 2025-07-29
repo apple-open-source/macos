@@ -75,6 +75,11 @@ invoke_tool_from_fskit(fskit_command_t operation, int flags,
         return EINVAL;
     }
 
+    if (!module.enabled) {
+        fprintf(stderr, "Module %s is disabled!\n", module.bundleIdentifier.UTF8String);
+        return EINVAL;
+    }
+
 #pragma mark - Parse command options
     NSDictionary        *attributes = module.attributes;
     NSDictionary        *commandOptions;

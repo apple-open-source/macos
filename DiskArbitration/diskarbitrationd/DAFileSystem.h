@@ -43,6 +43,7 @@ extern const CFStringRef kDAFileSystemMountArgumentNoExecute;
 extern const CFStringRef kDAFileSystemMountArgumentNoOwnership;
 extern const CFStringRef kDAFileSystemMountArgumentNoPermission;
 extern const CFStringRef kDAFileSystemMountArgumentOwnership;
+extern const CFStringRef kDAFileSystemMountArgumentPermission;
 extern const CFStringRef kDAFileSystemMountArgumentNoSetUserID;
 extern const CFStringRef kDAFileSystemMountArgumentSetUserID;
 extern const CFStringRef kDAFileSystemMountArgumentNoWrite;
@@ -69,6 +70,8 @@ extern DAFileSystemRef DAFileSystemCreateFromProperties( CFAllocatorRef allocato
 extern dispatch_mach_t DAFileSystemCreateMachChannel( void );
 
 extern CFStringRef DAFileSystemGetKind( DAFileSystemRef filesystem );
+
+extern CFStringRef DAFileSystemCopyFSBundleID( DAFileSystemRef filesystem );
 
 extern CFDictionaryRef DAFileSystemGetProbeList( DAFileSystemRef filesystem );
 

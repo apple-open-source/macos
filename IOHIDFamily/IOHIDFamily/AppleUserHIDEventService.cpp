@@ -526,7 +526,7 @@ IOReturn AppleUserHIDEventService::setProperties(OSObject *properties)
 
     retain();
 
-    caller.id = callerID;
+    caller.id = callerID++;
     STAILQ_INSERT_TAIL(&_setPropertiesCallers, &caller, setLink);
     caller.status = kIOReturnAborted;
 

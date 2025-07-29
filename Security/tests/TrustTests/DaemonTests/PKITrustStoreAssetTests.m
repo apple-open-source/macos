@@ -141,7 +141,7 @@
     XCTAssertNotEqual(NULL, store);
 
     /* Verify that the test anchors are in the constrained anchors */
-    NSDictionary *anchorLookupTable = CFBridgingRelease(SecOTAPKICopyConstrainedAnchorLookupTable(store));
+    NSDictionary *anchorLookupTable = CFBridgingRelease(SecOTAPKICopyConstrainedAnchorLookupTable());
     XCTAssertNotNil(anchorLookupTable);
 
     SecCertificateRef anchor = SecCertificateCreateWithBytes(NULL, _constrained_test_anchor, sizeof(_constrained_test_anchor));

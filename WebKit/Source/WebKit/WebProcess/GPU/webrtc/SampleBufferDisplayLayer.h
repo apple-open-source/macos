@@ -60,7 +60,7 @@ private:
     // WebCore::SampleBufferDisplayLayer
     void initialize(bool hideRootLayer, WebCore::IntSize, bool shouldMaintainAspectRatio, CompletionHandler<void(bool)>&&) final;
 #if !RELEASE_LOG_DISABLED
-    void setLogIdentifier(String&&) final;
+    void setLogIdentifier(uint64_t) final;
 #endif
     bool didFail() const final;
     void updateDisplayMode(bool hideDisplayLayer, bool hideRootLayer) final;

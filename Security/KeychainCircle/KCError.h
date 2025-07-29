@@ -68,6 +68,8 @@ typedef NS_ERROR_ENUM(KCErrorDomain, KCJoiningError) {
     kReceivedUnexpectedMessageTypeRequireCircleBlob = 54,
     kFailedToDecryptCircleBlob = 55,
     kFailedToProcessCircleJoinData = 56,
+    kFailedToEncryptVoucherData = 57,
+    kUnexpectedVersion = 58,
 };
 
 @interface NSError(KCJoiningError)

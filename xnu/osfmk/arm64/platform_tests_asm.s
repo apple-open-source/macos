@@ -30,6 +30,20 @@
 #include <pexpert/arm64/board_config.h>
 
 
+/**
+ * Raise a sync exception while LR is being used as a GPR.
+ */
+	.globl EXT(arm64_brk_lr_fault)
+	.globl EXT(arm64_brk_lr_gpr)
+LEXT(arm64_brk_lr_gpr)
+	ARM64_PROLOG
+	stp lr, xzr, [sp, #-0x10]!
+	mov lr, #0x80
+LEXT(arm64_brk_lr_fault)
+	brk		0xC470
+	ldp lr, xzr, [sp], 0x10
+	ret
+
 #if CONFIG_SPTM
 	.text
 	.align 2

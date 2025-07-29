@@ -24,3 +24,26 @@ cd ..
 # pre-existing symlink should be gone?
 rsync --delete -Dgortp -- dir1/ dir3
 compare_trees dir2 dir3
+
+rm -rf dir1 dir2 dir3
+
+1>&2 echo ">> Override link with regular file test"
+
+mkdir -p dir1/dir dir2/dir
+ln -s dir dir1/link
+ln -s dir dir2/link
+
+# This part typically goes well: simple setup where we have a directory and a
+# symlink to that directory.
+rsync -a -- dir1/ dir3
+compare_trees dir2 dir3
+
+rm dir1/link dir2/link
+touch dir1/link
+cp -p dir1/link dir2/link
+
+# Here we have an opportunity to go off the rails; a pre-existing dirent is
+# there at dir3/link, but it's the wrong type of file and points to a directory
+# that we clearly can't use as a reference for a regular file.
+rsync -a -- dir1/ dir3
+compare_trees dir2 dir3

@@ -31,6 +31,7 @@
 #include "Timer.h"
 #include <dns_sd.h>
 #include <pal/spi/cf/CFNetworkSPI.h>
+#include <pal/spi/cocoa/NetworkSPI.h>
 #include <wtf/BlockPtr.h>
 #include <wtf/CompletionHandler.h>
 #include <wtf/HashSet.h>
@@ -39,6 +40,7 @@
 #include <wtf/StdLibExtras.h>
 #include <wtf/URL.h>
 #include <wtf/cf/VectorCF.h>
+#include <wtf/cocoa/RuntimeApplicationChecksCocoa.h>
 #include <wtf/text/StringHash.h>
 
 namespace WebCore {
@@ -115,6 +117,11 @@ void DNSResolveQueueCFNet::performDNSLookup(const String& hostname, Ref<Completi
     RetainPtr hostEndpoint = adoptCF(nw_endpoint_create_host(hostname.utf8().data(), "0"));
     RetainPtr context = adoptCF(nw_context_create("WebKit DNS Lookup"));
     RetainPtr parameters = adoptCF(nw_parameters_create());
+
+    auto bundleID = applicationBundleIdentifier();
+    if (!bundleID.isEmpty())
+        nw_parameters_set_source_application_by_bundle_id(parameters.get(), bundleID.ascii().data());
+
     nw_context_set_privacy_level(context.get(), nw_context_privacy_level_silent);
     nw_parameters_set_context(parameters.get(), context.get());
     RetainPtr resolver = adoptCF(nw_resolver_create_with_endpoint(hostEndpoint.get(), parameters.get()));
@@ -129,6 +136,10 @@ void DNSResolveQueueCFNet::performDNSLookup(const String& hostname, Ref<Completi
     nw_resolver_set_update_handler(resolver.get(), dispatch_get_main_queue(), makeBlockPtr([resolver = WTFMove(resolver), completionHandler = WTFMove(completionHandler), timeoutTimer = WTFMove(timeoutTimer)] (nw_resolver_status_t status, nw_array_t resolvedEndpoints) mutable {
         if (status != nw_resolver_status_complete)
             return;
+
+#if PLATFORM(IOS_FAMILY)
+        WebThreadLock();
+#endif
 
         auto callCompletionHandler = [resolver = WTFMove(resolver), completionHandler = WTFMove(completionHandler), timeoutTimer = WTFMove(timeoutTimer)](DNSAddressesOrError&& result) mutable {
             timeoutTimer->stop();

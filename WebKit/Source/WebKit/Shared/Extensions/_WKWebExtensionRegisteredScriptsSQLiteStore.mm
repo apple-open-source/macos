@@ -202,7 +202,7 @@ static NSString *rowFilterStringFromRowKeys(NSArray *keys)
 
 - (NSArray *)_getKeysAndValuesFromRowEnumerator:(_WKWebExtensionSQLiteRowEnumerator *)rows
 {
-    static NSSet *allowedClasses = [NSSet setWithObjects:NSString.class, NSArray.class, NSMutableDictionary.class, nil];
+    static NSSet *allowedClasses = [NSSet setWithObjects:NSString.class, NSNumber.class, NSArray.class, NSMutableDictionary.class, nil];
 
     NSMutableArray<NSDictionary<NSString *, id> *> *scripts = [NSMutableArray array];
 

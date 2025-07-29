@@ -98,6 +98,7 @@ static void __DAMountSendFSCKEvent( int status , __DAMountCallbackContext * cont
 {
     CFNumberRef diskSize = DADiskGetDescription( context->disk , kDADiskDescriptionMediaSizeKey );
     DAFileSystemRef filesystem = DADiskGetFileSystem( context->disk );
+    CFStringRef kind = NULL;
     uint64_t diskSizeUInt = 0;
     
     if ( diskSize )
@@ -105,8 +106,14 @@ static void __DAMountSendFSCKEvent( int status , __DAMountCallbackContext * cont
         diskSizeUInt = ___CFNumberGetIntegerValue( diskSize );
     }
     
+    if ( filesystem != NULL )
+    {
+        kind = DAGetFSTypeWithUUID( filesystem ,
+                                    DADiskGetDescription( context->disk, kDADiskDescriptionVolumeUUIDKey ) );
+    }
+    
     DATelemetrySendFSCKEvent( status ,
-                              ( filesystem ) ? DAFileSystemGetKind( filesystem ) : NULL ,
+                              kind ,
                               ( filesystem && DAFileSystemIsFSModule( filesystem ) ) ? CFSTR("FSKit") : CFSTR("kext") ,
                               clock_gettime_nsec_np(CLOCK_UPTIME_RAW) - context->fsckStartTime ,
                               diskSizeUInt );
@@ -249,9 +256,16 @@ static void __DAMountWithArgumentsCallbackStage2( int status, void * parameter )
     __DAMountCallbackContext * context = parameter;
     DAFileSystemRef filesystem = DADiskGetFileSystem( context->disk );
     DADiskSetState( context->disk , kDADiskStateMountOngoing , FALSE );
+    CFStringRef kind = NULL;
+    
+    if ( filesystem != NULL )
+    {
+        kind = DAGetFSTypeWithUUID( filesystem ,
+                                    DADiskGetDescription( context->disk, kDADiskDescriptionVolumeUUIDKey ) );
+    }
     
     DATelemetrySendMountEvent( status ,
-                               ( filesystem ) ? DAFileSystemGetKind( filesystem ) : NULL ,
+                               kind ,
                                context->useUserFS ,
                                clock_gettime_nsec_np(CLOCK_UPTIME_RAW) - context->mountStartTime );
     
@@ -342,47 +356,29 @@ void DAMount( DADiskRef disk, CFURLRef mountpoint, DAMountCallback callback, voi
 
 }
 
-Boolean DAMountContainsArgument( CFStringRef arguments, CFStringRef argument )
+/*
+ * For a list of arguments in the form of "arg1,arg2,arg3,etc.", check these arguments for mount flags.
+ * Each argument is expected to be single strings, with no '=' or other getopt()-adjacent format.
+ */
+static Boolean __DAMountCheckMntOptsForString( CFMutableStringRef mntOpsStr , CFStringRef argument )
 {
     mntoptparse_t mp;
+    CFRange result;
     int mntflags = 0;
     int altflags = 0;
     int getmntSilentCurrent;
+    uint64_t bufSize;
+    char *optionBuffer;
     Boolean containsValue = FALSE;
-    CFMutableStringRef mutableArguments = NULL;
-    CFRange result;
-    uint32_t bufSize;
     static const struct mntopt mopts[] = {
         MOPT_STDOPTS,
         MOPT_UPDATE,
         MOPT_FORCE,
         MOPT_BROWSE,
-        { "s" , 0 , MNT_SNAPSHOT , 0 },
-        { "-s" , 0 , MNT_SNAPSHOT , 0 },
         { NULL }
     };
     
-    if ( arguments == NULL )
-    {
-        return FALSE;
-    }
-    
-    mutableArguments = CFStringCreateMutableCopy( kCFAllocatorDefault , CFStringGetLength( arguments ) , arguments );
-    
-    if ( mutableArguments == NULL )
-    {
-        return FALSE;
-    }
-    
-    CFStringTrimWhitespace( mutableArguments );
-    
-    if ( CFStringGetLength( mutableArguments ) == 0 )
-    {
-        CFRelease( mutableArguments );
-        return FALSE;
-    }
-    
-    bufSize = CFStringGetMaximumSizeForEncoding( CFStringGetLength( mutableArguments ) ,
+    bufSize = CFStringGetMaximumSizeForEncoding( CFStringGetLength( mntOpsStr ) ,
                                                  kCFStringEncodingUTF8 );
     
     if ( bufSize == kCFNotFound )
@@ -390,19 +386,18 @@ Boolean DAMountContainsArgument( CFStringRef arguments, CFStringRef argument )
         bufSize = MAXPATHLEN;
     }
     
-    char *optionBuffer = malloc( bufSize );
+    optionBuffer = malloc( bufSize );
     
     if ( optionBuffer == NULL )
     {
         DALogError( "Failed to malloc buffer" );
-        CFRelease( mutableArguments );
         return FALSE;
     }
-    if ( FALSE == CFStringGetCString( mutableArguments , optionBuffer , bufSize , kCFStringEncodingUTF8 ) )
+    
+    if ( CFStringGetCString( mntOpsStr , optionBuffer , bufSize , kCFStringEncodingUTF8 ) == FALSE )
     {
         DALogError( "Failed to copy argument" );
         free( optionBuffer );
-        CFRelease( mutableArguments );
         return FALSE;
     }
     
@@ -414,11 +409,11 @@ Boolean DAMountContainsArgument( CFStringRef arguments, CFStringRef argument )
     if ( mp == NULL )
     {
         DALogError( "Failed to get mnt opts" );
-        CFRelease( mutableArguments );
         free( optionBuffer );
         return FALSE;
     }
     
+    // Check the "no" and flag-friendly options first before the string searching options
     if ( CFEqual( argument , kDAFileSystemMountArgumentForce ) )
     {
         containsValue = ( mntflags & MNT_FORCE ) ? TRUE : FALSE;
@@ -427,44 +422,14 @@ Boolean DAMountContainsArgument( CFStringRef arguments, CFStringRef argument )
     {
         containsValue = ( mntflags & MNT_NODEV ) ? TRUE : FALSE;
     }
-    else if ( CFEqual( argument , kDAFileSystemMountArgumentDevice ) )
-    {
-        // Only return true if the arguments explicitly asked for "dev"
-        // Not passing "nodev" is not the same as passing "dev"
-        if ( ! ( mntflags & MNT_NODEV ) )
-        {
-            result = CFStringFind( mutableArguments , kDAFileSystemMountArgumentDevice , 0 );
-            containsValue = ( result.location != kCFNotFound ) ? TRUE : FALSE;
-        }
-    }
     else if ( CFEqual( argument , kDAFileSystemMountArgumentNoOwnership )
         || CFEqual( argument , kDAFileSystemMountArgumentNoPermission ) )
     {
         containsValue = ( mntflags & MNT_IGNORE_OWNERSHIP ) ? TRUE : FALSE;
     }
-    else if ( CFEqual( argument , kDAFileSystemMountArgumentOwnership ) )
-    {
-        // Only return true if the arguments explicitly asked for "owners"
-        // Not passing "noowners" is not the same as passing "owners"
-        if ( ! ( mntflags & MNT_IGNORE_OWNERSHIP ) )
-        {
-            result = CFStringFind( mutableArguments , kDAFileSystemMountArgumentOwnership , 0 );
-            containsValue = ( result.location != kCFNotFound ) ? TRUE : FALSE;
-        }
-    }
     else if ( CFEqual( argument , kDAFileSystemMountArgumentNoSetUserID ) )
     {
         containsValue = ( mntflags & MNT_NOSUID ) ? TRUE : FALSE;
-    }
-    else if ( CFEqual( argument , kDAFileSystemMountArgumentSetUserID ) )
-    {
-        // Only return true if the arguments explicitly asked for "suid"
-        // Not passing "nosuid" is not the same as passing "suid"
-        if ( ! ( mntflags & MNT_NOSUID ) )
-        {
-            result = CFStringFind( mutableArguments , kDAFileSystemMountArgumentSetUserID , 0 );
-            containsValue = ( result.location != kCFNotFound ) ? TRUE : FALSE;
-        }
     }
     else if ( CFEqual( argument , kDAFileSystemMountArgumentNoWrite ) )
     {
@@ -486,17 +451,250 @@ Boolean DAMountContainsArgument( CFStringRef arguments, CFStringRef argument )
     {
         containsValue = ( mntflags & MNT_NOFOLLOW ) ? TRUE : FALSE;
     }
-    else if ( CFEqual( argument , kDAFileSystemMountArgumentSnapshot ) )
-    {
-        containsValue = ( mntflags & MNT_SNAPSHOT ) ? TRUE : FALSE;
-    }
     else if ( CFEqual( argument , kDAFileSystemMountArgumentNoExecute ) )
     {
         containsValue = ( mntflags & MNT_NOEXEC ) ? TRUE : FALSE;
     }
+    else if ( CFEqual( argument , kDAFileSystemMountArgumentDevice ) )
+    {
+        // Only return true if the arguments explicitly asked for "dev"
+        // Not passing "nodev" is not the same as passing "dev"
+        if ( ! ( mntflags & MNT_NODEV ) )
+        {
+            result = CFStringFind( mntOpsStr , kDAFileSystemMountArgumentDevice , 0 );
+            containsValue = ( result.location != kCFNotFound ) ? TRUE : FALSE;
+        }
+    }
+    else if ( CFEqual( argument , kDAFileSystemMountArgumentOwnership ) )
+    {
+        // Only return true if the arguments explicitly asked for "owners"
+        // Not passing "noowners" is not the same as passing "owners"
+        if ( ! ( mntflags & MNT_IGNORE_OWNERSHIP ) )
+        {
+            result = CFStringFind( mntOpsStr , kDAFileSystemMountArgumentOwnership , 0 );
+            containsValue = ( result.location != kCFNotFound ) ? TRUE : FALSE;
+        }
+    }
+    else if ( CFEqual( argument , kDAFileSystemMountArgumentPermission ) )
+    {
+        // Only return true if the arguments explicitly asked for "perm"
+        // Not passing "noperm" is not the same as passing "perm"
+        if ( ! ( mntflags & MNT_IGNORE_OWNERSHIP ) )
+        {
+            result = CFStringFind( mntOpsStr , kDAFileSystemMountArgumentPermission , 0 );
+            containsValue = ( result.location != kCFNotFound ) ? TRUE : FALSE;
+        }
+    }
+    else if ( CFEqual( argument , kDAFileSystemMountArgumentSetUserID ) )
+    {
+        // Only return true if the arguments explicitly asked for "suid"
+        // Not passing "nosuid" is not the same as passing "suid"
+        if ( ! ( mntflags & MNT_NOSUID ) )
+        {
+            result = CFStringFind( mntOpsStr , kDAFileSystemMountArgumentSetUserID , 0 );
+            containsValue = ( result.location != kCFNotFound ) ? TRUE : FALSE;
+        }
+    }
     
     freemntopts( mp );
     free( optionBuffer );
+    
+    return containsValue;
+}
+
+/*
+ * Given a single string beginning with '-', check if this string matches the following formats;
+ * 1. -o (ex. -onoowners, -oowners=-onoowners)
+ * 2. -s (ex. -s=/path/to/snapshot)
+ * Return the option supplied by -o, or verify that kDAFileSystemMountArgumentSnapshot is found
+ * if that is the argument we are searching for.
+ */
+static CFStringRef __DAMountGetOpt( CFStringRef optArgStr , CFStringRef argument , Boolean *foundArgument ) {
+    char *argv[2];
+    char *optArgCStr;
+    char opt;
+    int oldOptErr = opterr;
+    CFStringRef argumentToAdd = NULL;
+    Boolean containsValue = FALSE;
+    uint64_t bufSize = CFStringGetMaximumSizeForEncoding( CFStringGetLength( optArgStr ) ,
+                                                          kCFStringEncodingUTF8 );
+    
+    if ( bufSize == kCFNotFound )
+    {
+        bufSize = MAXPATHLEN;
+    }
+    
+    optArgCStr = malloc( bufSize );
+    
+    if ( optArgCStr != NULL )
+    {
+        if ( CFStringGetCString( optArgStr , optArgCStr , bufSize ,
+                                 kCFStringEncodingUTF8 ) == FALSE )
+        {
+            DALogError( "Failed to copy option argument" );
+            free( optArgCStr );
+            return argumentToAdd;
+        }
+        else
+        {
+            argv[0] = optArgCStr;
+            argv[1] = NULL;
+        }
+        
+        optreset = 1;
+        optind = 0;
+        opterr = 0;
+        while ( !containsValue && ( opt = getopt( 1 , argv , "o:s:") ) != -1 )
+        {
+            switch ( opt ) {
+                case 'o':
+                    // Get mount flag
+                    argumentToAdd = CFStringCreateWithCString( kCFAllocatorDefault ,
+                                                               optarg ,
+                                                               kCFStringEncodingUTF8 );
+                    break;
+                case 's':
+                    // Snapshot argument - not a mount flag, but needs to be checked by DA
+                    if ( CFEqual( argument , kDAFileSystemMountArgumentSnapshot ) )
+                    {
+                        containsValue = TRUE;
+                        *foundArgument = containsValue;
+                    }
+                    break;
+                default:
+                    break;
+            }
+        }
+        opterr = oldOptErr;
+        free( optArgCStr );
+    }
+    
+    return argumentToAdd;
+}
+
+/*
+ * For a list of arguments in the form of "arg1,arg2,arg3,etc.", find the specified argument.
+ * Each argument is expected to take one of the following forms:
+ * 1. a single string (ex. noowners, nodev, nofollow)
+ * 2. an option string that is accepted for getopt() for the following options:
+ *    2a. -o (ex. -onoowners, -oowners=-onoowners)
+ *    2b. -s (ex. -s=/path/to/snapshot)
+ */
+Boolean DAMountContainsArgument( CFStringRef arguments, CFStringRef argument )
+{
+    Boolean containsValue = FALSE;
+    CFMutableStringRef mutableArguments = NULL;
+    CFArrayRef argumentList;
+    CFIndex    argumentListCount;
+    CFIndex    argumentListIndex;
+    
+    if ( arguments == NULL )
+    {
+        return FALSE;
+    }
+    
+    mutableArguments = CFStringCreateMutable( kCFAllocatorDefault , 0 );
+    
+    if ( mutableArguments == NULL )
+    {
+        return FALSE;
+    }
+    
+    /* Process each individual argument at a time, separated by comma. */
+    argumentList = CFStringCreateArrayBySeparatingStrings( kCFAllocatorDefault , arguments , CFSTR( "," ) );
+
+    if ( argumentList )
+    {
+        argumentListCount = CFArrayGetCount( argumentList );
+
+        for ( argumentListIndex = 0; !containsValue && argumentListIndex < argumentListCount; argumentListIndex++ )
+        {
+            CFStringRef currentArgument = CFArrayGetValueAtIndex( argumentList, argumentListIndex );
+            CFStringRef argumentToAdd = NULL;
+            
+            if ( currentArgument != NULL )
+            {
+                /* If this argument starts with a -o or -s, prepare argv to call getopt() */
+                if ( CFStringHasPrefix( currentArgument , CFSTR( "-" ) ) )
+                {
+                    argumentToAdd = __DAMountGetOpt( currentArgument , argument , &containsValue );
+                }
+                else
+                {
+                    /* Add this argument verbatim to the list of mount flags to process */
+                    argumentToAdd = CFStringCreateCopy( kCFAllocatorDefault, currentArgument );
+                }
+            }
+            
+            if ( argumentToAdd != NULL )
+            {
+                /* Check for argument mapping '(""/owners/perm)=(noowners/noperm)' */
+                CFStringRef itemOne;
+                CFStringRef itemTwo;
+                CFRange result;
+                Boolean foundNoowners = FALSE;
+                CFArrayRef pair = CFStringCreateArrayBySeparatingStrings( kCFAllocatorDefault ,
+                                                                          argumentToAdd ,
+                                                                          CFSTR( "=" ) );
+                if ( pair != NULL )
+                {
+                    /*
+                     * Check if the first string is "", "owners", "perm"
+                     * and the second string is "noowners" or "noperm".
+                     * Treat this argument as "noowners".
+                     */
+                    if ( CFArrayGetCount( pair ) == 2 )
+                    {
+                        itemOne = CFArrayGetValueAtIndex( pair , 0 );
+                        itemTwo = CFArrayGetValueAtIndex( pair , 1 );
+                        
+                        if ( CFStringGetLength( itemOne ) == 0
+                             || ! CFStringCompare( itemOne ,
+                                                   kDAFileSystemMountArgumentOwnership ,
+                                                   kCFCompareCaseInsensitive )
+                             || ! CFStringCompare( itemOne ,
+                                                   kDAFileSystemMountArgumentPermission ,
+                                                   kCFCompareCaseInsensitive ) )
+                        {
+                            result = CFStringFind( itemTwo , kDAFileSystemMountArgumentNoOwnership , 0 );
+                            foundNoowners = ( result.location != kCFNotFound );
+                            
+                            if ( ! foundNoowners )
+                            {
+                                result = CFStringFind( itemTwo , kDAFileSystemMountArgumentNoPermission , 0 );
+                                foundNoowners = ( result.location != kCFNotFound );
+                            }
+                            
+                            if ( foundNoowners )
+                            {
+                                CFRelease( argumentToAdd );
+                                argumentToAdd = CFStringCreateCopy( kCFAllocatorDefault ,
+                                                                    kDAFileSystemMountArgumentNoOwnership );
+                            }
+                        }
+                    }
+                    CFRelease( pair );
+                }
+                
+                /* If this is not the first argument, separate with a comma */
+                if ( CFStringGetLength( mutableArguments ) > 0 )
+                {
+                    CFStringAppend( mutableArguments , CFSTR(",") );
+                }
+                CFStringAppend( mutableArguments , argumentToAdd );
+                CFRelease( argumentToAdd );
+            }
+        }
+        
+        CFRelease( argumentList );
+    }
+    
+    /* Updated argument string now only contains comma separated string suitable for getmntopts() */
+    if ( !containsValue && CFStringGetLength( mutableArguments ) > 0 )
+    {
+        containsValue = __DAMountCheckMntOptsForString( mutableArguments , argument );
+    }
+        
     CFRelease( mutableArguments );
     
     return containsValue;

@@ -37,6 +37,7 @@
 -(void)setControlObject:(OTControl*)control;
 - (void)setSessionControlArguments:(OTControlArguments*)controlArguments;
 - (void)setConfiguration:(OTJoiningConfiguration *)config;
+- (void)setPiggybackingVersion:(uint64_t)version;
 @end
 #endif /* Header_h */
 #endif

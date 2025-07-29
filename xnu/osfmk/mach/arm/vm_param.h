@@ -279,30 +279,37 @@ extern int PAGE_SHIFT_CONST;
 #define VM_USER_STRIP_TBI(_v)    (_v)
 #endif /* __arm64__ */
 
-#if CONFIG_KERNEL_TAGGING
-#include <vm/vm_memtag.h>
-/*
- * 'strip' in PAC sense, therefore replacing the stripped bits sign extending
- * the sign bit. In kernel space the sign bit is 1, so 0xFF is a valid mask
- * here.
- */
-#define VM_KERNEL_STRIP_TAG(_v)         (vm_memtag_canonicalize_kernel((vm_offset_t)_v))
-#else /* CONFIG_KERNEL_TAGGING */
-#define VM_KERNEL_STRIP_TAG(_v)         (_v)
-#endif /* CONFIG_KERNEL_TAGGING */
+
+#if __arm64__
+
+#if XNU_KERNEL_PRIVATE
+#define VM_KERNEL_STRIP_MASK            (-1ULL << (64 - T1SZ_BOOT))
+#define VM_USER_STRIP_MASK              (-1ULL >> (T0SZ_BOOT))
+#define _VM_KERNEL_STRIP_PTR(_va)       ({((_va) & 1ULL << 55) ? ((_va) | VM_KERNEL_STRIP_MASK) : ((_va) & VM_USER_STRIP_MASK);})
+#else /* XNU_KERNEL_PRIVATE */
 
 #if __has_feature(ptrauth_calls)
 #include <ptrauth.h>
-#define VM_KERNEL_STRIP_PAC(_v) (ptrauth_strip((void *)(uintptr_t)(_v), ptrauth_key_asia))
+#define VM_KERNEL_STRIP_PAC(_v)         ((uintptr_t)(ptrauth_strip((void *)(uintptr_t)(_v), ptrauth_key_asia)))
 #else /* !ptrauth_calls */
-#define VM_KERNEL_STRIP_PAC(_v) (_v)
+#define VM_KERNEL_STRIP_PAC(_v)         (_v)
 #endif /* ptrauth_calls */
+/* For KEXT, just blow away TBI bits, even if only used for KASAN. */
+#define _VM_KERNEL_STRIP_PTR(_v)        (VM_KERNEL_STRIP_PAC(_v) | (0xFF00000000000000ULL))
+#endif /* XNU_KERNEL_PRIVATE */
 
-#define VM_KERNEL_STRIP_PTR(_va)        ((VM_KERNEL_STRIP_TAG(VM_KERNEL_STRIP_PAC((_va)))))
-#define VM_KERNEL_STRIP_UPTR(_va)       ((vm_address_t)VM_KERNEL_STRIP_PTR((uintptr_t)(_va)))
+#else /* __arm64__ */
+#define _VM_KERNEL_STRIP_PTR(_v)        (_v)
+#endif /* __arm64__ */
+
+#define VM_KERNEL_STRIP_PTR(_va)        (_VM_KERNEL_STRIP_PTR((uintptr_t)(_va)))
+
+/* Vestige from the past, kept for retro-compatibility. */
+#define VM_KERNEL_STRIP_UPTR(_va)       (VM_KERNEL_STRIP_PTR(_va))
+
 #define VM_KERNEL_ADDRESS(_va)  \
-	((VM_KERNEL_STRIP_UPTR(_va) >= VM_MIN_KERNEL_ADDRESS) && \
-	 (VM_KERNEL_STRIP_UPTR(_va) <= VM_MAX_KERNEL_ADDRESS))
+	((VM_KERNEL_STRIP_PTR(_va) >= VM_MIN_KERNEL_ADDRESS) && \
+	 (VM_KERNEL_STRIP_PTR(_va) <= VM_MAX_KERNEL_ADDRESS))
 
 #define VM_USER_STRIP_PTR(_v)           (VM_USER_STRIP_TBI(_v))
 

@@ -564,7 +564,7 @@ dtrace_load##bits(uintptr_t addr)					\
 	int i;								\
 	volatile uint16_t *flags = (volatile uint16_t *)		\
 	    &cpu_core[CPU->cpu_id].cpuc_dtrace_flags;			\
-	uintptr_t caddr = vm_memtag_canonicalize_kernel(addr);		\
+	uintptr_t caddr = VM_KERNEL_STRIP_PTR(addr);			\
 									\
 	DTRACE_ALIGNCHECK(addr, size, flags);				\
 									\

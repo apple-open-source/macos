@@ -513,7 +513,7 @@ mbuf_adjustlen(mbuf_t m, int amount)
 {
 	/* Verify m_len will be valid after adding amount */
 	if (amount > 0) {
-		size_t used = (size_t)mbuf_data(m) - (size_t)mbuf_datastart(m) +
+		size_t used = (size_t)mtod(m, void*) - (size_t)mbuf_datastart(m) +
 		    m->m_len;
 
 		if ((size_t)(amount + used) > mbuf_maxlen(m)) {

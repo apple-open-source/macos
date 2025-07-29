@@ -98,6 +98,13 @@ public:
     void multiDrawElementsInstancedANGLE(GCGLenum mode, GCGLSpanTuple<const GCGLsizei, const GCGLsizei, const GCGLsizei> countsOffsetsAndInstanceCounts, GCGLenum type) final;
     void multiDrawArraysInstancedBaseInstanceANGLE(GCGLenum mode, GCGLSpanTuple<const GCGLint, const GCGLsizei, const GCGLsizei, const GCGLuint> firstsCountsInstanceCountsAndBaseInstances) final;
     void multiDrawElementsInstancedBaseVertexBaseInstanceANGLE(GCGLenum mode, GCGLSpanTuple<const GCGLsizei, const GCGLsizei, const GCGLsizei, const GCGLint, const GCGLuint> countsOffsetsInstanceCountsBaseVerticesAndBaseInstances, GCGLenum type) final;
+    void drawBuffers(std::span<const GCGLenum> bufs) final;
+    void drawBuffersEXT(std::span<const GCGLenum> bufs) final;
+    void invalidateFramebuffer(GCGLenum target, std::span<const GCGLenum> attachments) final;
+    void invalidateSubFramebuffer(GCGLenum target, std::span<const GCGLenum> attachments, GCGLint x, GCGLint y, GCGLsizei width, GCGLsizei height) final;
+#if ENABLE(WEBXR)
+    void framebufferDiscard(GCGLenum target, std::span<const GCGLenum> attachments) final;
+#endif
 
     // Functions with a generated implementation. This list is used by generate-gpup-webgl script.
     void activeTexture(GCGLenum texture) final;
@@ -253,8 +260,6 @@ public:
     void copyBufferSubData(GCGLenum readTarget, GCGLenum writeTarget, GCGLintptr readOffset, GCGLintptr writeOffset, GCGLsizeiptr) final;
     void blitFramebuffer(GCGLint srcX0, GCGLint srcY0, GCGLint srcX1, GCGLint srcY1, GCGLint dstX0, GCGLint dstY0, GCGLint dstX1, GCGLint dstY1, GCGLbitfield mask, GCGLenum filter) final;
     void framebufferTextureLayer(GCGLenum target, GCGLenum attachment, PlatformGLObject texture, GCGLint level, GCGLint layer) final;
-    void invalidateFramebuffer(GCGLenum target, std::span<const GCGLenum> attachments) final;
-    void invalidateSubFramebuffer(GCGLenum target, std::span<const GCGLenum> attachments, GCGLint x, GCGLint y, GCGLsizei width, GCGLsizei height) final;
     void readBuffer(GCGLenum src) final;
     void renderbufferStorageMultisample(GCGLenum target, GCGLsizei samples, GCGLenum internalformat, GCGLsizei width, GCGLsizei height) final;
     void texStorage2D(GCGLenum target, GCGLsizei levels, GCGLenum internalformat, GCGLsizei width, GCGLsizei height) final;
@@ -289,7 +294,6 @@ public:
     void vertexAttribI4uiv(GCGLuint index, std::span<const GCGLuint, 4> values) final;
     void vertexAttribIPointer(GCGLuint index, GCGLint size, GCGLenum type, GCGLsizei stride, GCGLintptr offset) final;
     void drawRangeElements(GCGLenum mode, GCGLuint start, GCGLuint end, GCGLsizei count, GCGLenum type, GCGLintptr offset) final;
-    void drawBuffers(std::span<const GCGLenum> bufs) final;
     void clearBufferiv(GCGLenum buffer, GCGLint drawbuffer, std::span<const GCGLint> values) final;
     void clearBufferuiv(GCGLenum buffer, GCGLint drawbuffer, std::span<const GCGLuint> values) final;
     void clearBufferfv(GCGLenum buffer, GCGLint drawbuffer, std::span<const GCGLfloat> values) final;
@@ -334,7 +338,6 @@ public:
     void uniformBlockBinding(PlatformGLObject program, GCGLuint uniformBlockIndex, GCGLuint uniformBlockBinding) final;
     void getActiveUniformBlockiv(PlatformGLObject program, GCGLuint uniformBlockIndex, GCGLenum pname, std::span<GCGLint> params) final;
     String getTranslatedShaderSourceANGLE(PlatformGLObject arg0) final;
-    void drawBuffersEXT(std::span<const GCGLenum> bufs) final;
     PlatformGLObject createQueryEXT() final;
     void deleteQueryEXT(PlatformGLObject query) final;
     GCGLboolean isQueryEXT(PlatformGLObject query) final;
@@ -375,7 +378,6 @@ public:
     bool addFoveation(WebCore::IntSize physicalSizeLeft, WebCore::IntSize physicalSizeRight, WebCore::IntSize screenSize, std::span<const GCGLfloat> horizontalSamplesLeft, std::span<const GCGLfloat> verticalSamples, std::span<const GCGLfloat> horizontalSamplesRight) IPC_MESSAGE_CHECK(webXRPromptAccepted()) final;
     void enableFoveation(PlatformGLObject arg0) IPC_MESSAGE_CHECK(webXRPromptAccepted()) final;
     void disableFoveation() IPC_MESSAGE_CHECK(webXRPromptAccepted()) final;
-    void framebufferDiscard(GCGLenum target, std::span<const GCGLenum> attachments) IPC_MESSAGE_CHECK(webXRPromptAccepted()) final;
     void framebufferResolveRenderbuffer(GCGLenum target, GCGLenum attachment, GCGLenum renderbuffertarget, PlatformGLObject arg3) IPC_MESSAGE_CHECK(webXRPromptAccepted()) final;
 #endif
     // End of list used by generate-gpup-webgl script.

@@ -60,15 +60,21 @@ extern CFStringRef kSecAnchorTypeCustom;
 
 - (SecCertificateRef _Nullable)copyAnchorAssetForKey:(NSString * _Nullable)anchorHash;
 - (NSArray * _Nonnull)anchorsForKey:(NSString*_Nullable)anchorLookupKey;
-
++ (NSArray<NSDictionary*>* _Nullable) anchorRecordsPermitttedForPolicy:(NSArray<NSDictionary*>*)anchorRecords
+                                                    policyId:(NSString*)policyId;
 @end
 #endif // __OBJC__
 
 void SecAnchorCacheInitialize(void);
+
+CF_RETURNS_RETAINED
 CFArrayRef SecAnchorCacheCopyParentCertificates(CFStringRef anchorLookupKey);
+
+CF_RETURNS_RETAINED
 CFArrayRef SecAnchorCacheCopyAnchors(CFStringRef policyId);
 
-bool SecAnchorPolicyPermitsAnchorRecord(CFDictionaryRef cfAnchorRecord, CFStringRef policyId);
+CF_RETURNS_RETAINED
+_Nullable CFArrayRef SecAnchorPolicyPermittedAnchorRecords(CFArrayRef cfAnchorRecords, CFStringRef policyId);
 
 CF_IMPLICIT_BRIDGING_DISABLED
 CF_ASSUME_NONNULL_END

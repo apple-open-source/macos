@@ -151,6 +151,13 @@ IGNORE_CLANG_STATIC_ANALYZER_WARNINGS_END
     void multiDrawElementsInstancedANGLE(uint32_t mode, IPC::ArrayReferenceTuple<int32_t, int32_t, int32_t>&& countsOffsetsAndInstanceCounts, uint32_t type);
     void multiDrawArraysInstancedBaseInstanceANGLE(uint32_t mode, IPC::ArrayReferenceTuple<int32_t, int32_t, int32_t, uint32_t>&& firstsCountsInstanceCountsAndBaseInstances);
     void multiDrawElementsInstancedBaseVertexBaseInstanceANGLE(uint32_t mode, IPC::ArrayReferenceTuple<int32_t, int32_t, int32_t, int32_t, uint32_t>&& countsOffsetsInstanceCountsBaseVerticesAndBaseInstances, uint32_t type);
+    void drawBuffers(std::span<const uint32_t>);
+    void drawBuffersEXT(std::span<const uint32_t>);
+    void invalidateFramebuffer(uint32_t target, std::span<const uint32_t> attachments);
+    void invalidateSubFramebuffer(uint32_t target, std::span<const uint32_t> attachments, int32_t x, int32_t y, int32_t width, int32_t height);
+#if ENABLE(WEBXR)
+    void framebufferDiscard(uint32_t target, std::span<const uint32_t> attachments);
+#endif
 
 #if ENABLE(VIDEO)
     Ref<RemoteVideoFrameObjectHeap> protectedVideoFrameObjectHeap() const;

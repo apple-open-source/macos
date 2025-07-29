@@ -52,7 +52,7 @@ SCNETWORK_DEFAULT_SET_TEST_CFILES += BondConfiguration.c
 endif
 
 scnetworkinterface: $(SCNETWORKINTERFACE_TEST_CFILES)
-	$(CC) -DTEST_SCNETWORKINTERFACE -isysroot $(SYSROOT) $(ARCH_FLAGS) $(SYSPRIV) $(SC_INCLUDE) -framework Foundation -framework SystemConfiguration -framework IOKit $(PF_INC) -lCrashReporterClient -Wall -g -o $@ $^
+	$(CC) -DTEST_SCNETWORKINTERFACE -isysroot $(SYSROOT) $(ARCH_FLAGS) $(SYSPRIV) $(SC_INCLUDE) -framework Foundation -framework SystemConfiguration -framework IOKit $(PF_INC) -lCrashReporterClient -I../common -Wall -g -o $@ $^
 	codesign -s - $@
 
 scnetworkcategory: $(SCNETWORK_CATEGORY_MANAGER_TEST_CFILES)

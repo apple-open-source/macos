@@ -638,7 +638,11 @@ int mapname(__G__ renamed)
         if (G.created_dir) {
             if (QCOND2) {
                 Info(slide, 0, ((char *)slide, "   creating: %s\n",
+#ifdef __APPLE__
+                  FnFilterP(G.filename)));
+#else
                   FnFilter1(G.filename)));
+#endif /* __APPLE__ */
             }
 #ifndef NO_CHMOD
             /* Filter out security-relevant attributes bits. */
@@ -753,7 +757,60 @@ int mapname(__G__ renamed)
 static int
 mkdir_qtn(int zipfd, const char *path, int mode)
 {
+#ifdef __APPLE__
+    /*
+     * This is called by checkdir() to:
+     *
+     * - Create the extraction directory if it does not already exist (its
+     *   parent must exist, we will not create it recursively, though we could
+     *   easily do so if we wanted to).  In this case, G.rootpath is null and
+     *   path is an absolute path to the extraction directory.
+     *
+     * - Create any other directory within the extraction directory prior to
+     *   extracting a file or link.  In this case, G.rootpath is an absolute
+     *   path and a strict prefix of path (i.e. path is identical with
+     *   G.rootpath up to G.rootlen and path[G.rootlen] == '/').
+     *
+     * There is no O_RESOLVE_BENEATH equivalent for mkdir(), so we start by
+     * identifying the parent directory, then open it relative to the root
+     * using O_RESOLVE_BENEATH, then create the target directory within its
+     * parent.
+     */
+    char *sep;
+    int pd = G.rootdir, r = -1, serrno;
+    if (G.rootpath == NULL) {
+        /* extraction directory */
+        Trace((stderr, "mkdir(\"%s\")\n", path));
+        r = mkdir(path, mode);
+    } else {
+        // assert(strncmp(path, G.rootpath, G.rootlen) == 0);
+        // assert(path[G.rootlen] == '/');
+        if ((sep = strrchr(path + G.rootlen + 1, '/')) == NULL) {
+            /* direct child of extraction directory */
+            Trace((stderr, "mkdirat(\"%s\", \"%s\")\n",
+              G.rootpath, path + G.rootlen + 1));
+            r = mkdirat(G.rootdir, path + G.rootlen + 1, mode);
+        } else {
+            /* indirect descendant of extraction directory */
+            *sep = '\0';
+            Trace((stderr, "openat(\"%s\", \"%s\")\n",
+              G.rootpath, path + G.rootlen + 1));
+            pd = openat(G.rootdir, path + G.rootlen + 1,
+              O_DIRECTORY | O_SEARCH | O_RESOLVE_BENEATH);
+            *sep = '/';
+            if (pd < 0)
+                return pd;
+            Trace((stderr, "mkdirat(\"%.*s\", \"%s\")\n",
+              (int)(sep - path), path, sep + 1));
+            r = mkdirat(pd, sep + 1, mode);
+            serrno = errno;
+            close(pd);
+            errno = serrno;
+        }
+    }
+#else
     int r = mkdir(path, mode);
+#endif /* __APPLE__ */
 
     if (r != 0 && errno != EEXIST)
         return r;
@@ -812,6 +869,10 @@ mkdir_qtn(int zipfd, const char *path, int mode)
  *
  * The argument points to a buffer.  Copies G.buildpath to the specified
  * location and cleans up in preparation for the next file.
+ *
+ * END
+ *
+ * Called to release resources after all files have been processed.
  */
 #endif /* __APPLE__ */
 int checkdir(__G__ pathcomp, flag)
@@ -870,7 +931,12 @@ int checkdir(__G__ pathcomp, flag)
         /* next check: need to append '/', at least one-char name, '\0' */
         if ((G.end-G.buildpath) > FILNAMSIZ-3)
             too_long = TRUE;                    /* check if extracting dir? */
+#if defined(__APPLE__) && defined(AT_RESOLVE_BENEATH)
+        if (fstatat(G.rootdir, G.buildpath + G.rootlen + 1, &G.statbuf,
+          AT_RESOLVE_BENEATH | AT_SYMLINK_NOFOLLOW) != 0) { /* path doesn't exist */
+#else
         if (SSTAT(G.buildpath, &G.statbuf)) {   /* path doesn't exist */
+#endif /* __APPLE__ && AT_RESOLVE_BENEATH */
             if (!G.create_dirs) { /* told not to create (freshening) */
                 free(G.buildpath);
                 return MPN_INF_SKIP;    /* path doesn't exist: nothing to do */
@@ -904,30 +970,6 @@ int checkdir(__G__ pathcomp, flag)
             free(G.buildpath);
             /* path existed but wasn't dir */
             return MPN_ERR_SKIP;
-#ifdef __APPLE__
-        } else {
-            /* check that we didn't follow a symlink outside rootpath */
-            char *real, *p, *q;
-            if ((real = realpath(G.buildpath, NULL)) == NULL) {
-                free(G.buildpath);
-                return MPN_ERR_SKIP;
-            }
-            for (p = real, q = G.rootpath; *p && *q && *p == *q; p++, q++)
-                /* nothing */;
-            if (*q || (*p && *p != '/')) {
-                Info(slide, 1, ((char *)slide,
-                  "checkdir error:  cannot enter %s\n\
-                 %s\n\
-                 unable to process %s.\n",
-                  FnFilter2(real),
-                  strerror(EPERM),
-                  FnFilter1(G.filename)));
-                free(real);
-                free(G.buildpath);
-                return MPN_ERR_SKIP;
-            }
-            free(real);
-#endif /* __APPLE__ */
         }
         if (too_long) {
             Info(slide, 1, ((char *)slide,
@@ -1083,6 +1125,12 @@ int checkdir(__G__ pathcomp, flag)
                 return MPN_ERR_SKIP;
             }
             G.rootlen = strlen(G.rootpath);
+            if ((G.rootdir = open(G.rootpath, O_DIRECTORY | O_SEARCH)) < 0) {
+                free(G.rootpath);
+                G.rootpath = NULL;
+                G.rootlen = 0;
+                return MPN_ERR_SKIP;
+            }
 #else /* !__APPLE__ */
             tmproot[G.rootlen++] = '/';
             tmproot[G.rootlen] = '\0';
@@ -1107,6 +1155,12 @@ int checkdir(__G__ pathcomp, flag)
         if (G.rootlen > 0) {
             free(G.rootpath);
             G.rootlen = 0;
+#ifdef __APPLE__
+            if (G.rootdir >= 0) {
+                close(G.rootdir);
+                G.rootdir = -1;
+            }
+#endif /* __APPLE__ */
         }
         return MPN_OK;
     }

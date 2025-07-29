@@ -4985,7 +4985,6 @@ IOGeneralMemoryDescriptor::doMap(
 		}
 	}
 
-
 	memory_object_t pager;
 	pager = (memory_object_t) (reserved ? reserved->dp.devicePager : NULL);
 

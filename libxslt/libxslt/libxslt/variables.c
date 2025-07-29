@@ -48,6 +48,21 @@ static const xmlChar *xsltComputingGlobalVarMarker =
 #define XSLT_VAR_IN_SELECT (1<<1)
 #define XSLT_TCTXT_VARIABLE(c) ((xsltStackElemPtr) (c)->contextVariable)
 
+static xsltRVTListPtr
+xsltRVTListCreate(void)
+{
+    xsltRVTListPtr ret;
+
+    ret = (xsltRVTListPtr) xmlMalloc(sizeof(xsltRVTList));
+    if (ret == NULL) {
+    xsltTransformError(NULL, NULL, NULL,
+        "xsltRVTListCreate: malloc failed\n");
+    return(NULL);
+    }
+    memset(ret, 0, sizeof(xsltRVTList));
+    return(ret);
+}
+
 /************************************************************************
  *									*
  *  Result Value Tree (Result Tree Fragment) interfaces			*
@@ -65,6 +80,7 @@ static const xmlChar *xsltComputingGlobalVarMarker =
 xmlDocPtr
 xsltCreateRVT(xsltTransformContextPtr ctxt)
 {
+    xsltRVTListPtr rvtList;
     xmlDocPtr container;
 
     /*
@@ -77,12 +93,11 @@ xsltCreateRVT(xsltTransformContextPtr ctxt)
     /*
     * Reuse a RTF from the cache if available.
     */
-    if (ctxt->cache->RVT) {
-	container = ctxt->cache->RVT;
-	ctxt->cache->RVT = (xmlDocPtr) container->next;
-	/* clear the internal pointers */
-	container->next = NULL;
-	container->prev = NULL;
+    if (ctxt->cache->rvtList) {
+        rvtList = ctxt->cache->rvtList;
+        container = ctxt->cache->rvtList->RVT;
+        ctxt->cache->rvtList = rvtList->next;
+        xmlFree(rvtList);
 	if (ctxt->cache->nbRVT > 0)
 	    ctxt->cache->nbRVT--;
 #ifdef XSLT_DEBUG_PROFILE_CACHE
@@ -120,13 +135,17 @@ xsltCreateRVT(xsltTransformContextPtr ctxt)
 int
 xsltRegisterTmpRVT(xsltTransformContextPtr ctxt, xmlDocPtr RVT)
 {
+    xsltRVTListPtr list;
+
     if ((ctxt == NULL) || (RVT == NULL))
 	return(-1);
 
-    RVT->prev = NULL;
+    list = xsltRVTListCreate();
+    if (list == NULL) return(-1);
 #ifdef LIBXSLT_API_FOR_MACOS14_IOS17_WATCHOS10_TVOS17
     if (linkedOnOrAfterFall2023OSVersions()) {
         RVT->compression = XSLT_RVT_LOCAL;
+        list->RVT = RVT;
     } else {
         RVT->psvi = (void *)XSLT_RVT_LOCAL;
     }
@@ -141,15 +160,13 @@ xsltRegisterTmpRVT(xsltTransformContextPtr ctxt, xmlDocPtr RVT)
     * var/param itself.
     */
     if (ctxt->contextVariable != NULL) {
-	RVT->next = (xmlNodePtr) XSLT_TCTXT_VARIABLE(ctxt)->fragment;
-	XSLT_TCTXT_VARIABLE(ctxt)->fragment = RVT;
-	return(0);
+        list->next = XSLT_TCTXT_VARIABLE(ctxt)->fragment;
+        XSLT_TCTXT_VARIABLE(ctxt)->fragment = list;
+        return(0);
     }
 
-    RVT->next = (xmlNodePtr) ctxt->tmpRVT;
-    if (ctxt->tmpRVT != NULL)
-	ctxt->tmpRVT->prev = (xmlNodePtr) RVT;
-    ctxt->tmpRVT = RVT;
+    list->next = ctxt->tmpRVTList;
+    ctxt->tmpRVTList = list;
     return(0);
 }
 
@@ -169,10 +186,14 @@ int
 xsltRegisterLocalRVT(xsltTransformContextPtr ctxt,
 		     xmlDocPtr RVT)
 {
+    xsltRVTListPtr list;
+
     if ((ctxt == NULL) || (RVT == NULL))
 	return(-1);
 
-    RVT->prev = NULL;
+    list = xsltRVTListCreate();
+    if (list == NULL) return(-1);
+
 #ifdef LIBXSLT_API_FOR_MACOS14_IOS17_WATCHOS10_TVOS17
     if (linkedOnOrAfterFall2023OSVersions()) {
         RVT->compression = XSLT_RVT_LOCAL;
@@ -182,6 +203,7 @@ xsltRegisterLocalRVT(xsltTransformContextPtr ctxt,
 #else
     RVT->psvi = XSLT_RVT_LOCAL;
 #endif
+    list->RVT = RVT;
 
     /*
     * When evaluating "select" expressions of xsl:variable
@@ -192,19 +214,17 @@ xsltRegisterLocalRVT(xsltTransformContextPtr ctxt,
     if ((ctxt->contextVariable != NULL) &&
 	(XSLT_TCTXT_VARIABLE(ctxt)->flags & XSLT_VAR_IN_SELECT))
     {
-	RVT->next = (xmlNodePtr) XSLT_TCTXT_VARIABLE(ctxt)->fragment;
-	XSLT_TCTXT_VARIABLE(ctxt)->fragment = RVT;
-	return(0);
+        list->next = XSLT_TCTXT_VARIABLE(ctxt)->fragment;
+        XSLT_TCTXT_VARIABLE(ctxt)->fragment = list;
+        return(0);
     }
     /*
     * Store the fragment in the scope of the current instruction.
     * If not reference by a returning instruction (like EXSLT's function),
     * then this fragment will be freed, when the instruction exits.
     */
-    RVT->next = (xmlNodePtr) ctxt->localRVT;
-    if (ctxt->localRVT != NULL)
-	ctxt->localRVT->prev = (xmlNodePtr) RVT;
-    ctxt->localRVT = RVT;
+    list->next = ctxt->localRVTList;
+    ctxt->localRVTList = list;
     return(0);
 }
 
@@ -416,8 +436,9 @@ xsltFlagRVTs(xsltTransformContextPtr ctxt, xmlXPathObjectPtr obj, void *val)
  * @ctxt:  an XSLT transformation context
  * @RVT:  a result value tree (Result Tree Fragment)
  *
- * Either frees the RVT (which is an xmlDoc) or stores
- * it in the context's cache for later reuse.
+ * Either frees the RVT (which is an xmlDoc) or stores it in the context's
+ * cache for later reuse. Preserved for ABI/API compatibility; internal use
+ * has all migrated to xsltReleaseRVTList().
  */
 void
 xsltReleaseRVT(xsltTransformContextPtr ctxt, xmlDocPtr RVT)
@@ -425,32 +446,61 @@ xsltReleaseRVT(xsltTransformContextPtr ctxt, xmlDocPtr RVT)
     if (RVT == NULL)
 	return;
 
+    xsltRVTListPtr list = xsltRVTListCreate();
+    if (list == NULL) {
+        if (RVT->_private != NULL) {
+            xsltFreeDocumentKeys((xsltDocumentPtr) RVT->_private);
+            xmlFree(RVT->_private);
+        }
+        xmlFreeDoc(RVT);
+        return;
+    }
+
+    list->RVT = RVT;
+    xsltReleaseRVTList(ctxt, list);
+}
+
+/**
+ * xsltReleaseRVTList:
+ * @ctxt:  an XSLT transformation context
+ * @list:  a list node containing a result value tree (Result Tree Fragment)
+ *
+ * Either frees the list node or stores it in the context's cache for later
+ * reuse. Optimization to avoid adding a fallible allocation path when the
+ * caller already has a RVT list node.
+ */
+void
+xsltReleaseRVTList(xsltTransformContextPtr ctxt, xsltRVTListPtr list)
+{
+    if (list == NULL)
+    return;
+
     if (ctxt && (ctxt->cache->nbRVT < 40)) {
 	/*
 	* Store the Result Tree Fragment.
 	* Free the document info.
 	*/
-	if (RVT->_private != NULL) {
-	    xsltFreeDocumentKeys((xsltDocumentPtr) RVT->_private);
-	    xmlFree(RVT->_private);
-	    RVT->_private = NULL;
+	if (list->RVT->_private != NULL) {
+            xsltFreeDocumentKeys((xsltDocumentPtr) list->RVT->_private);
+            xmlFree(list->RVT->_private);
+            list->RVT->_private = NULL;
 	}
 	/*
 	* Clear the document tree.
 	* REVISIT TODO: Do we expect ID/IDREF tables to be existent?
 	*/
-	if (RVT->children != NULL) {
-	    xmlFreeNodeList(RVT->children);
-	    RVT->children = NULL;
-	    RVT->last = NULL;
+	if (list->RVT->children != NULL) {
+            xmlFreeNodeList(list->RVT->children);
+            list->RVT->children = NULL;
+            list->RVT->last = NULL;
 	}
-	if (RVT->ids != NULL) {
-	    xmlFreeIDTable((xmlIDTablePtr) RVT->ids);
-	    RVT->ids = NULL;
+	if (list->RVT->ids != NULL) {
+	    xmlFreeIDTable((xmlIDTablePtr) list->RVT->ids);
+            list->RVT->ids = NULL;
 	}
-	if (RVT->refs != NULL) {
-	    xmlFreeRefTable((xmlRefTablePtr) RVT->refs);
-	    RVT->refs = NULL;
+	if (list->RVT->refs != NULL) {
+	    xmlFreeRefTable((xmlRefTablePtr) list->RVT->refs);
+            list->RVT->refs = NULL;
 	}
 
 	/*
@@ -458,16 +508,16 @@ xsltReleaseRVT(xsltTransformContextPtr ctxt, xmlDocPtr RVT)
 	*/
 #ifdef LIBXSLT_API_FOR_MACOS14_IOS17_WATCHOS10_TVOS17
         if (linkedOnOrAfterFall2023OSVersions()) {
-            RVT->compression = 0;
+            list->RVT->compression = 0;
         } else {
-            RVT->psvi = NULL;
+            list->RVT->psvi = NULL;
         }
 #else
-	RVT->psvi = NULL;
+	list->RVT->psvi = NULL;
 #endif
 
-	RVT->next = (xmlNodePtr) ctxt->cache->RVT;
-	ctxt->cache->RVT = RVT;
+        list->next = ctxt->cache->rvtList;
+	ctxt->cache->rvtList = list;
 
 	ctxt->cache->nbRVT++;
 
@@ -479,11 +529,12 @@ xsltReleaseRVT(xsltTransformContextPtr ctxt, xmlDocPtr RVT)
     /*
     * Free it.
     */
-    if (RVT->_private != NULL) {
-	xsltFreeDocumentKeys((xsltDocumentPtr) RVT->_private);
-	xmlFree(RVT->_private);
+    if (list->RVT->_private != NULL) {
+	xsltFreeDocumentKeys((xsltDocumentPtr) list->RVT->_private);
+	xmlFree(list->RVT->_private);
     }
-    xmlFreeDoc(RVT);
+    xmlFreeDoc(list->RVT);
+    xmlFree(list);
 }
 
 /**
@@ -501,7 +552,12 @@ xsltReleaseRVT(xsltTransformContextPtr ctxt, xmlDocPtr RVT)
 int
 xsltRegisterPersistRVT(xsltTransformContextPtr ctxt, xmlDocPtr RVT)
 {
+    xsltRVTListPtr list;
+
     if ((ctxt == NULL) || (RVT == NULL)) return(-1);
+
+    list = xsltRVTListCreate();
+    if (list == NULL) return(-1);
 
 #ifdef LIBXSLT_API_FOR_MACOS14_IOS17_WATCHOS10_TVOS17
     if (linkedOnOrAfterFall2023OSVersions()) {
@@ -512,11 +568,10 @@ xsltRegisterPersistRVT(xsltTransformContextPtr ctxt, xmlDocPtr RVT)
 #else
     RVT->psvi = XSLT_RVT_GLOBAL;
 #endif
-    RVT->prev = NULL;
-    RVT->next = (xmlNodePtr) ctxt->persistRVT;
-    if (ctxt->persistRVT != NULL)
-	ctxt->persistRVT->prev = (xmlNodePtr) RVT;
-    ctxt->persistRVT = RVT;
+    list->RVT = RVT;
+    list->next = ctxt->persistRVTList;
+    ctxt->persistRVTList = list;
+
     return(0);
 }
 
@@ -531,52 +586,57 @@ xsltRegisterPersistRVT(xsltTransformContextPtr ctxt, xmlDocPtr RVT)
 void
 xsltFreeRVTs(xsltTransformContextPtr ctxt)
 {
-    xmlDocPtr cur, next;
+    xsltRVTListPtr cur, next;
 
     if (ctxt == NULL)
 	return;
     /*
     * Local fragments.
     */
-    cur = ctxt->localRVT;
+    cur = ctxt->localRVTList;
     while (cur != NULL) {
-        next = (xmlDocPtr) cur->next;
-	if (cur->_private != NULL) {
-	    xsltFreeDocumentKeys(cur->_private);
-	    xmlFree(cur->_private);
+        next = cur->next;
+        if (cur->RVT->_private != NULL) {
+            xsltFreeDocumentKeys(cur->RVT->_private);
+            xmlFree(cur->RVT->_private);
 	}
-	xmlFreeDoc(cur);
+	xmlFreeDoc(cur->RVT);
+    xmlFree(cur);
 	cur = next;
     }
-    ctxt->localRVT = NULL;
+    ctxt->localRVTList = NULL;
+
     /*
     * User-created per-template fragments.
     */
-    cur = ctxt->tmpRVT;
+    cur = ctxt->tmpRVTList;
     while (cur != NULL) {
-        next = (xmlDocPtr) cur->next;
-	if (cur->_private != NULL) {
-	    xsltFreeDocumentKeys(cur->_private);
-	    xmlFree(cur->_private);
+        next = cur->next;
+        if (cur->RVT->_private != NULL) {
+            xsltFreeDocumentKeys(cur->RVT->_private);
+            xmlFree(cur->RVT->_private);
 	}
-	xmlFreeDoc(cur);
+	xmlFreeDoc(cur->RVT);
+        xmlFree(cur);
 	cur = next;
     }
-    ctxt->tmpRVT = NULL;
+    ctxt->tmpRVTList = NULL;
+
     /*
     * Global fragments.
     */
-    cur = ctxt->persistRVT;
+    cur = ctxt->persistRVTList;
     while (cur != NULL) {
-        next = (xmlDocPtr) cur->next;
-	if (cur->_private != NULL) {
-	    xsltFreeDocumentKeys(cur->_private);
-	    xmlFree(cur->_private);
+        next = cur->next;
+        if (cur->RVT->_private != NULL) {
+            xsltFreeDocumentKeys(cur->RVT->_private);
+            xmlFree(cur->RVT->_private);
 	}
-	xmlFreeDoc(cur);
+        xmlFreeDoc(cur->RVT);
+        xmlFree(cur);
 	cur = next;
     }
-    ctxt->persistRVT = NULL;
+    ctxt->persistRVTList = NULL;
 }
 
 /************************************************************************
@@ -664,7 +724,7 @@ xsltFreeStackElem(xsltStackElemPtr elem) {
     * Release the list of temporary Result Tree Fragments.
     */
     if (elem->context) {
-	xmlDocPtr cur;
+        xsltRVTListPtr cur;
 
 	while (elem->fragment != NULL) {
 #ifdef LIBXSLT_API_FOR_MACOS14_IOS17_WATCHOS10_TVOS17
@@ -673,29 +733,35 @@ xsltFreeStackElem(xsltStackElemPtr elem) {
             void *curRVT = NULL;
 #endif
 	    cur = elem->fragment;
-	    elem->fragment = (xmlDocPtr) cur->next;
+            elem->fragment = cur->next;
+
+        if (cur->RVT == NULL) {
+            xmlFree(cur);
+            continue;
+        }
 
 #ifdef LIBXSLT_API_FOR_MACOS14_IOS17_WATCHOS10_TVOS17
             if (linkedOnOrAfterFall2023OSVersions()) {
-                curRVT = cur->compression;
+                curRVT = cur->RVT->compression;
             } else {
-                curRVT = (int)cur->psvi;
+                curRVT = (int)cur->RVT->psvi;
             }
 #else
-            curRVT = cur->psvi;
+            curRVT = cur->RVT->psvi;
 #endif
             if (curRVT == XSLT_RVT_LOCAL) {
-		xsltReleaseRVT(elem->context, cur);
+                xsltReleaseRVTList(elem->context, cur);
             } else if (curRVT == XSLT_RVT_FUNC_RESULT) {
-                xsltRegisterLocalRVT(elem->context, cur);
+                xsltRegisterLocalRVT(elem->context, cur->RVT);
 #ifdef LIBXSLT_API_FOR_MACOS14_IOS17_WATCHOS10_TVOS17
                 if (linkedOnOrAfterFall2023OSVersions()) {
-                    cur->compression = XSLT_RVT_FUNC_RESULT;
+                    cur->RVT->compression = XSLT_RVT_FUNC_RESULT;
                 } else {
-                    cur->psvi = (void *)XSLT_RVT_FUNC_RESULT;
+                    cur->RVT->psvi = (void *)XSLT_RVT_FUNC_RESULT;
                 }
+                xmlFree(cur);
 #else
-                cur->psvi = XSLT_RVT_FUNC_RESULT;
+                cur->RVT->psvi = (void *)XSLT_RVT_FUNC_RESULT;
 #endif
             } else {
                 xmlGenericError(xmlGenericErrorContext,
@@ -1078,6 +1144,7 @@ xsltEvalVariable(xsltTransformContextPtr ctxt, xsltStackElemPtr variable,
 	} else {
 	    if (variable->tree) {
 		xmlDocPtr container;
+                xsltRVTListPtr rvtList;
 		xmlNodePtr oldInsert;
 		xmlDocPtr  oldOutput;
 		xsltStackElemPtr oldVar = ctxt->contextVariable;
@@ -1100,7 +1167,11 @@ xsltEvalVariable(xsltTransformContextPtr ctxt, xsltStackElemPtr variable,
 		* when the variable is freed, it will also free
 		* the Result Tree Fragment.
 		*/
-		variable->fragment = container;
+                rvtList = xsltRVTListCreate();
+                if (rvtList == NULL)
+                    goto error;
+                rvtList->RVT = container;
+                variable->fragment = rvtList;
 #ifdef LIBXSLT_API_FOR_MACOS14_IOS17_WATCHOS10_TVOS17
                 if (linkedOnOrAfterFall2023OSVersions()) {
                     container->compression = XSLT_RVT_LOCAL;
@@ -2490,5 +2561,3 @@ local_variable_found:
 
     return(valueObj);
 }
-
-

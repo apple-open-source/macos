@@ -1005,9 +1005,10 @@ bool portAllowed(const URL& url)
     if (!port)
         return true;
 
-    // This blocked port list matches the port blocking that Mozilla implements.
-    // See http://www.mozilla.org/projects/netlib/PortBanning.html for more information.
+    // This blocked port list is defined by the Fetch spec, with the addition of port 0.
+    // See https://fetch.spec.whatwg.org/#port-blocking for more information.
     static const uint16_t blockedPortList[] = {
+        0,    // reserved
         1,    // tcpmux
         7,    // echo
         9,    // discard

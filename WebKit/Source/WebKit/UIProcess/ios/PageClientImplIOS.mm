@@ -37,6 +37,7 @@
 #import "InteractionInformationAtPosition.h"
 #import "NativeWebKeyboardEvent.h"
 #import "NavigationState.h"
+#import "PickerDismissalReason.h"
 #import "PlatformXRSystem.h"
 #import "RemoteLayerTreeNode.h"
 #import "RunningBoardServicesSPI.h"
@@ -735,6 +736,11 @@ bool PageClientImpl::showShareSheet(const ShareDataWithParsedURL& shareData, WTF
 void PageClientImpl::showContactPicker(const WebCore::ContactsRequestData& requestData, WTF::CompletionHandler<void(std::optional<Vector<WebCore::ContactInfo>>&&)>&& completionHandler)
 {
     [contentView() _showContactPicker:requestData completionHandler:WTFMove(completionHandler)];
+}
+
+void PageClientImpl::dismissAnyOpenPicker()
+{
+    [contentView() dismissPickersIfNeededWithReason:WebKit::PickerDismissalReason::ViewRemoved];
 }
 
 void PageClientImpl::showInspectorHighlight(const WebCore::InspectorOverlay::Highlight& highlight)

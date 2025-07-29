@@ -1176,16 +1176,6 @@
             texture = m_objectNames.get(texture);
         protectedContext()->framebufferTextureLayer(target, attachment, texture, level, layer);
     }
-    void invalidateFramebuffer(uint32_t target, std::span<const uint32_t>&& attachments)
-    {
-        assertIsCurrent(workQueue());
-        protectedContext()->invalidateFramebuffer(target, attachments);
-    }
-    void invalidateSubFramebuffer(uint32_t target, std::span<const uint32_t>&& attachments, int32_t x, int32_t y, int32_t width, int32_t height)
-    {
-        assertIsCurrent(workQueue());
-        protectedContext()->invalidateSubFramebuffer(target, attachments, x, y, width, height);
-    }
     void readBuffer(uint32_t src)
     {
         assertIsCurrent(workQueue());
@@ -1363,11 +1353,6 @@
     {
         assertIsCurrent(workQueue());
         protectedContext()->drawRangeElements(mode, start, end, count, type, static_cast<GCGLintptr>(offset));
-    }
-    void drawBuffers(std::span<const uint32_t>&& bufs)
-    {
-        assertIsCurrent(workQueue());
-        protectedContext()->drawBuffers(bufs);
     }
     void clearBufferiv(uint32_t buffer, int32_t drawbuffer, std::span<const int32_t>&& values)
     {
@@ -1796,11 +1781,6 @@
         returnValue = protectedContext()->getTranslatedShaderSourceANGLE(arg0);
         completionHandler(WTFMove(returnValue));
     }
-    void drawBuffersEXT(std::span<const uint32_t>&& bufs)
-    {
-        assertIsCurrent(workQueue());
-        protectedContext()->drawBuffersEXT(bufs);
-    }
     void createQueryEXT(uint32_t name)
     {
         assertIsCurrent(workQueue());
@@ -2084,12 +2064,6 @@
         assertIsCurrent(workQueue());
         messageCheck(webXRPromptAccepted());
         protectedContext()->disableFoveation();
-    }
-    void framebufferDiscard(uint32_t target, std::span<const uint32_t>&& attachments)
-    {
-        assertIsCurrent(workQueue());
-        messageCheck(webXRPromptAccepted());
-        protectedContext()->framebufferDiscard(target, attachments);
     }
     void framebufferResolveRenderbuffer(uint32_t target, uint32_t attachment, uint32_t renderbuffertarget, uint32_t arg3)
     {

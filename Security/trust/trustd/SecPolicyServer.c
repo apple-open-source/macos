@@ -1542,7 +1542,7 @@ static void SecPolicyCheckQWAC(SecPVCRef pvc, CFStringRef key) {
     CFArrayRef constraints = NULL;
     for (ix = 1; ix < count; ix++) {
         SecCertificateRef cert = SecPVCGetCertificateAtIndex(pvc, ix);
-        if (!SecSystemConstrainedAnchorSourceContainsAnchor(cert)) {
+        if (!SecSystemConstrainedAnchorSourceContainsAnchorByKey(cert)) {
             continue;
         }
         constraints = SecCertificateSourceCopyUsageConstraints(kSecSystemConstrainedAnchorSource, cert);

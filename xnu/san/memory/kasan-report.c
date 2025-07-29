@@ -166,7 +166,7 @@ kasan_log_report(uptr p, uptr width, access_t access, violation_t reason)
 }
 
 /*
- * Report a violation that may be disabled and/or blacklisted. This can only be
+ * Report a violation that may be disabled and/or denylisted. This can only be
  * called for dynamic checks (i.e. where the fault is recoverable). Use
  * kasan_crash_report() for static (unrecoverable) violations.
  *

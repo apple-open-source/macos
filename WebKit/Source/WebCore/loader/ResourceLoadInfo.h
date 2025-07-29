@@ -35,52 +35,53 @@ namespace WebCore::ContentExtensions {
 
 enum class ActionCondition : uint32_t {
     None = 0x00000,
-    IfTopURL = 0x20000,
-    UnlessTopURL = 0x40000,
-    IfFrameURL = 0x60000,
-    UnlessFrameURL = 0x80000
+    IfTopURL = 0x40000,
+    UnlessTopURL = 0x80000,
+    IfFrameURL = 0x140000,
+    UnlessFrameURL = 0x180000
 };
-static constexpr uint32_t ActionConditionMask = 0xE0000;
+static constexpr uint32_t ActionConditionMask = 0x1C0000;
 
 enum class ResourceType : uint32_t {
-    Document = 0x0001,
-    Image = 0x0002,
-    StyleSheet = 0x0004,
-    Script = 0x0008,
-    Font = 0x0010,
-    SVGDocument = 0x0020,
-    Media = 0x0040,
-    Popup = 0x0080,
-    Ping = 0x0100,
-    Fetch = 0x0200,
-    WebSocket = 0x0400,
-    Other = 0x0800,
-    CSPReport = 0x10000,
+    TopDocument = 0x0001,
+    ChildDocument = 0x0002,
+    Image = 0x0004,
+    StyleSheet = 0x0008,
+    Script = 0x0010,
+    Font = 0x0020,
+    SVGDocument = 0x0040,
+    Media = 0x0080,
+    Popup = 0x0100,
+    Ping = 0x0200,
+    Fetch = 0x0400,
+    WebSocket = 0x0800,
+    CSPReport = 0x1000,
+    Other = 0x2000,
 };
-static constexpr uint32_t ResourceTypeMask = 0x10FFF;
+static constexpr uint32_t ResourceTypeMask = 0x3FFF;
 
 enum class LoadType : uint32_t {
-    FirstParty = 0x1000,
-    ThirdParty = 0x2000,
+    FirstParty = 0x4000,
+    ThirdParty = 0x8000,
 };
-static constexpr uint32_t LoadTypeMask = 0x3000;
+static constexpr uint32_t LoadTypeMask = 0xC000;
 
 enum class LoadContext : uint32_t {
-    TopFrame = 0x4000,
-    ChildFrame = 0x8000,
+    TopFrame = 0x10000,
+    ChildFrame = 0x20000,
 };
-static constexpr uint32_t LoadContextMask = 0xC000;
+static constexpr uint32_t LoadContextMask = 0x30000;
 
 using ResourceFlags = uint32_t;
 
 constexpr ResourceFlags AllResourceFlags = LoadTypeMask | ResourceTypeMask | LoadContextMask | ActionConditionMask;
 
 // The first 32 bits of a uint64_t action are used for the action location.
-// The next 20 bits are used for the flags (ResourceType, LoadType, LoadContext, ActionCondition).
+// The next 21 bits are used for the flags (ResourceType, LoadType, LoadContext, ActionCondition).
 // The values -1 and -2 are used for removed and empty values in HashTables.
-static constexpr uint64_t ActionFlagMask = 0x000FFFFF00000000;
+static constexpr uint64_t ActionFlagMask = 0x001FFFFF00000000;
 
-OptionSet<ResourceType> toResourceType(CachedResource::Type, ResourceRequestRequester);
+OptionSet<ResourceType> toResourceType(CachedResource::Type, ResourceRequestRequester, bool isMainFrame);
 std::optional<OptionSet<ResourceType>> readResourceType(StringView);
 std::optional<OptionSet<LoadType>> readLoadType(StringView);
 std::optional<OptionSet<LoadContext>> readLoadContext(StringView);

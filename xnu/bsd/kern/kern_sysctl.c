@@ -156,6 +156,7 @@
 #include <nfs/nfs_conf.h>
 
 #include <vm/vm_protos.h>
+#include <vm/vm_page.h>
 #include <vm/vm_pageout_xnu.h>
 #include <vm/vm_compressor_algorithms_xnu.h>
 #include <vm/vm_compressor_xnu.h>
@@ -1510,7 +1511,8 @@ sysctl_procargsx(int *name, u_int namelen, user_addr_t where,
 
 	if (vm_map_copy_overwrite(kernel_map,
 	    (vm_map_address_t)copy_start,
-	    tmp, (vm_map_size_t) arg_size, FALSE) != KERN_SUCCESS) {
+	    tmp, (vm_map_size_t) arg_size,
+	    FALSE) != KERN_SUCCESS) {
 		error = EIO;
 		goto finish;
 	}
@@ -4394,11 +4396,10 @@ SYSCTL_PROC(_vm, OID_AUTO, add_wire_count_over_user_limit, CTLTYPE_QUAD | CTLFLA
 
 #if DEVELOPMENT || DEBUG
 /* These sysctls are used to test the wired limit. */
-extern unsigned int    vm_page_wire_count;
-extern uint32_t        vm_lopage_free_count;
-extern unsigned int    vm_page_stolen_count;
 SYSCTL_INT(_vm, OID_AUTO, page_wire_count, CTLFLAG_RD | CTLFLAG_LOCKED, &vm_page_wire_count, 0, "");
+#if XNU_VM_HAS_LOPAGE
 SYSCTL_INT(_vm, OID_AUTO, lopage_free_count, CTLFLAG_RD | CTLFLAG_LOCKED, &vm_lopage_free_count, 0, "");
+#endif
 SYSCTL_INT(_vm, OID_AUTO, page_stolen_count, CTLFLAG_RD | CTLFLAG_LOCKED, &vm_page_stolen_count, 0, "");
 
 /*

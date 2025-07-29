@@ -825,8 +825,8 @@ i386_vm_init(uint64_t   maxmem,
 				vm_lopage_lowater = vm_lopage_free_limit / 16;
 			}
 
-			vm_lopage_refill = TRUE;
-			vm_lopage_needed = TRUE;
+			vm_lopage_refill = true;
+			vm_lopage_needed = true;
 		}
 	}
 

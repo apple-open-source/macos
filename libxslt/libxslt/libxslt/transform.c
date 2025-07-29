@@ -43,6 +43,7 @@
 #include "xsltutilsInternal.h"
 #include "pattern.h"
 #include "transform.h"
+#include "transformInternals.h"
 #include "variables.h"
 #include "numbersInternals.h"
 #include "namespaces.h"
@@ -492,7 +493,7 @@ void xsltDebugSetDefaultTrace(xsltDebugTraceCodes val) {
  *
  * Returns the current default debug tracing level mask
  */
-xsltDebugTraceCodes xsltDebugGetDefaultTrace() {
+xsltDebugTraceCodes xsltDebugGetDefaultTrace(void) {
 	return (xsltDebugTraceCodes)xsltDefaultTrace;
 }
 
@@ -525,19 +526,20 @@ xsltTransformCacheFree(xsltTransformCachePtr cache)
     /*
     * Free tree fragments.
     */
-    if (cache->RVT) {
-	xmlDocPtr tmp, cur = cache->RVT;
+    if (cache->rvtList) {
+        xsltRVTListPtr tmp, cur = cache->rvtList;
 	while (cur) {
 	    tmp = cur;
-	    cur = (xmlDocPtr) cur->next;
-	    if (tmp->_private != NULL) {
+	    cur = cur->next;
+	    if (tmp->RVT && tmp->RVT->_private != NULL) {
 		/*
-		* Tree the document info.
+		* Free the document info.
 		*/
-		xsltFreeDocumentKeys((xsltDocumentPtr) tmp->_private);
-		xmlFree(tmp->_private);
+		xsltFreeDocumentKeys((xsltDocumentPtr) tmp->RVT->_private);
+		xmlFree(tmp->RVT->_private);
 	    }
-	    xmlFreeDoc(tmp);
+            xmlFreeDoc(tmp->RVT);
+	    xmlFree(tmp);
 	}
     }
     /*
@@ -2259,19 +2261,18 @@ xsltLocalVariablePush(xsltTransformContextPtr ctxt,
  * are preserved; all other fragments are freed/cached.
  */
 static void
-xsltReleaseLocalRVTs(xsltTransformContextPtr ctxt, xmlDocPtr base)
+xsltReleaseLocalRVTs(xsltTransformContextPtr ctxt, xsltRVTListPtr base)
 {
-    xmlDocPtr cur = ctxt->localRVT, tmp;
-
-    if (cur == base)
+    if (!ctxt)
         return;
-    if (cur->prev != NULL)
-        xsltTransformError(ctxt, NULL, NULL, "localRVT not head of list\n");
 
-    /* Reset localRVT early because some RVTs might be registered again. */
-    ctxt->localRVT = base;
-    if (base != NULL)
-        base->prev = NULL;
+    xsltRVTListPtr cur = ctxt->localRVTList, tmp;
+
+    if (!cur || cur == base)
+        return;
+
+    /* Reset localRVTList early because some RVTs might be registered again. */
+        ctxt->localRVTList = base;
 
     do {
 #ifdef LIBXSLT_API_FOR_MACOS14_IOS17_WATCHOS10_TVOS17
@@ -2280,41 +2281,49 @@ xsltReleaseLocalRVTs(xsltTransformContextPtr ctxt, xmlDocPtr base)
         void *tmpRVT = NULL;
 #endif
         tmp = cur;
-        cur = (xmlDocPtr) cur->next;
+        cur = cur->next;
+        if (tmp->RVT == NULL) {
+            xmlFree(tmp);
+            continue;
+        }
+
 #ifdef LIBXSLT_API_FOR_MACOS14_IOS17_WATCHOS10_TVOS17
         if (linkedOnOrAfterFall2023OSVersions()) {
-            tmpRVT = tmp->compression;
+            tmpRVT = tmp->RVT->compression;
         } else {
-            tmpRVT = (int)tmp->psvi;
+            tmpRVT = (int)tmp->RVT->psvi;
         }
 #else
-        tmpRVT = tmp->psvi;
+        tmpRVT = tmp->RVT->psvi;
 #endif
         if (tmpRVT == XSLT_RVT_LOCAL) {
-            xsltReleaseRVT(ctxt, tmp);
+            xsltReleaseRVTList(ctxt, tmp);
         } else if (tmpRVT == XSLT_RVT_GLOBAL) {
-            xsltRegisterPersistRVT(ctxt, tmp);
+            xsltRegisterPersistRVT(ctxt, tmp->RVT);
+            xmlFree(tmp);
         } else if (tmpRVT == XSLT_RVT_FUNC_RESULT) {
             /*
              * This will either register the RVT again or move it to the
              * context variable.
              */
-            xsltRegisterLocalRVT(ctxt, tmp);
+            xsltRegisterLocalRVT(ctxt, tmp->RVT);
 #ifdef LIBXSLT_API_FOR_MACOS14_IOS17_WATCHOS10_TVOS17
-            if (linkedOnOrAfterFall2023OSVersions()) {
-                tmp->compression = XSLT_RVT_FUNC_RESULT;
-            } else {
-                tmp->psvi = (void *)XSLT_RVT_FUNC_RESULT;
-            }
+           if (linkedOnOrAfterFall2023OSVersions()) {
+               tmp->RVT->compression = XSLT_RVT_FUNC_RESULT;
+           } else {
+               tmp->RVT->psvi = (void *)XSLT_RVT_FUNC_RESULT;
+           }
 #else
-            tmp->psvi = XSLT_RVT_FUNC_RESULT;
+            tmp->RVT->psvi = XSLT_RVT_FUNC_RESULT;
 #endif
+            xmlFree(tmp);
         } else {
             xmlGenericError(xmlGenericErrorContext,
                     "xsltReleaseLocalRVTs: Unexpected RVT flag %p\n",
-                    tmp->psvi);
+                    tmpRVT);
+            xmlFree(tmp);
         }
-    } while (cur != base);
+    } while (cur && cur != base);
 }
 
 /**
@@ -2340,7 +2349,7 @@ xsltApplySequenceConstructor(xsltTransformContextPtr ctxt,
     xmlNodePtr oldInsert, oldInst, oldCurInst, oldContextNode;
     xmlNodePtr cur, insert, copy = NULL;
     int level = 0, oldVarsNr;
-    xmlDocPtr oldLocalFragmentTop;
+    xsltRVTListPtr oldLocalFragmentTop;
 
 #ifdef XSLT_REFACTORED
     xsltStylePreCompPtr info;
@@ -2386,7 +2395,7 @@ xsltApplySequenceConstructor(xsltTransformContextPtr ctxt,
     }
     ctxt->depth++;
 
-    oldLocalFragmentTop = ctxt->localRVT;
+    oldLocalFragmentTop = ctxt->localRVTList;
     oldInsert = insert = ctxt->insert;
     oldInst = oldCurInst = ctxt->inst;
     oldContextNode = ctxt->node;
@@ -2624,7 +2633,7 @@ xsltApplySequenceConstructor(xsltTransformContextPtr ctxt,
 		    /*
 		    * Cleanup temporary tree fragments.
 		    */
-		    if (oldLocalFragmentTop != ctxt->localRVT)
+		    if (oldLocalFragmentTop != ctxt->localRVTList)
 			xsltReleaseLocalRVTs(ctxt, oldLocalFragmentTop);
 
 		    ctxt->insert = oldInsert;
@@ -2719,7 +2728,7 @@ xsltApplySequenceConstructor(xsltTransformContextPtr ctxt,
 		    /*
 		    * Cleanup temporary tree fragments.
 		    */
-		    if (oldLocalFragmentTop != ctxt->localRVT)
+		    if (oldLocalFragmentTop != ctxt->localRVTList)
 			xsltReleaseLocalRVTs(ctxt, oldLocalFragmentTop);
 
 		    ctxt->insert = oldInsert;
@@ -2785,7 +2794,7 @@ xsltApplySequenceConstructor(xsltTransformContextPtr ctxt,
 		/*
 		* Cleanup temporary tree fragments.
 		*/
-		if (oldLocalFragmentTop != ctxt->localRVT)
+		if (oldLocalFragmentTop != ctxt->localRVTList)
 		    xsltReleaseLocalRVTs(ctxt, oldLocalFragmentTop);
 
                 ctxt->insert = oldInsert;
@@ -2915,7 +2924,7 @@ xsltApplySequenceConstructor(xsltTransformContextPtr ctxt,
 		/*
 		* Cleanup temporary tree fragments.
 		*/
-		if (oldLocalFragmentTop != ctxt->localRVT)
+		if (oldLocalFragmentTop != ctxt->localRVTList)
 		    xsltReleaseLocalRVTs(ctxt, oldLocalFragmentTop);
 
                 ctxt->insert = oldInsert;
@@ -3094,7 +3103,7 @@ xsltApplyXSLTTemplate(xsltTransformContextPtr ctxt,
     int oldVarsBase = 0;
     xmlNodePtr cur;
     xsltStackElemPtr tmpParam = NULL;
-    xmlDocPtr oldUserFragmentTop;
+    xsltRVTListPtr oldUserFragmentTop;
 #ifdef WITH_PROFILER
     long start = 0;
 #endif
@@ -3142,8 +3151,8 @@ xsltApplyXSLTTemplate(xsltTransformContextPtr ctxt,
         return;
 	}
 
-    oldUserFragmentTop = ctxt->tmpRVT;
-    ctxt->tmpRVT = NULL;
+    oldUserFragmentTop = ctxt->tmpRVTList;
+    ctxt->tmpRVTList = NULL;
 
     /*
     * Initiate a distinct scope of local params/variables.
@@ -3254,16 +3263,17 @@ xsltApplyXSLTTemplate(xsltTransformContextPtr ctxt,
     * user code should now use xsltRegisterLocalRVT() instead
     * of the obsolete xsltRegisterTmpRVT().
     */
-    if (ctxt->tmpRVT) {
-	xmlDocPtr curdoc = ctxt->tmpRVT, tmp;
+    if (ctxt->tmpRVTList) {
+        xsltRVTListPtr curRVTList = ctxt->tmpRVTList, tmp;
 
-	while (curdoc != NULL) {
-	    tmp = curdoc;
-	    curdoc = (xmlDocPtr) curdoc->next;
-	    xsltReleaseRVT(ctxt, tmp);
+
+	while (curRVTList != NULL) {
+	    tmp = curRVTList;
+            curRVTList = curRVTList->next;
+            xsltReleaseRVTList(ctxt, tmp);
 	}
     }
-    ctxt->tmpRVT = oldUserFragmentTop;
+    ctxt->tmpRVTList = oldUserFragmentTop;
 
     /*
     * Pop the xsl:template declaration from the stack.
@@ -5342,7 +5352,7 @@ xsltIf(xsltTransformContextPtr ctxt, xmlNodePtr contextNode,
 
 #ifdef XSLT_FAST_IF
     {
-	xmlDocPtr oldLocalFragmentTop = ctxt->localRVT;
+        xsltRVTListPtr oldLocalFragmentTop = ctxt->localRVTList;
 
 	res = xsltPreCompEvalToBoolean(ctxt, contextNode, comp);
 
@@ -5350,7 +5360,7 @@ xsltIf(xsltTransformContextPtr ctxt, xmlNodePtr contextNode,
 	* Cleanup fragments created during evaluation of the
 	* "select" expression.
 	*/
-	if (oldLocalFragmentTop != ctxt->localRVT)
+	if (oldLocalFragmentTop != ctxt->localRVTList)
 	    xsltReleaseLocalRVTs(ctxt, oldLocalFragmentTop);
     }
 
@@ -5782,7 +5792,7 @@ xsltCountKeys(xsltTransformContextPtr ctxt)
  *
  * Resets source node flags and ids stored in 'psvi' member.
  */
-static void
+void
 xsltCleanupSourceDoc(xmlDocPtr doc) {
     xmlNodePtr cur = (xmlNodePtr) doc;
     void **psviPtr;

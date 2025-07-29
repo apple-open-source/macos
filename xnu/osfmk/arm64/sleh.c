@@ -170,7 +170,7 @@ static void handle_uncategorized(arm_saved_state_t *);
 
 static void handle_kernel_breakpoint(arm_saved_state_t *, uint64_t);
 
-static void handle_breakpoint(arm_saved_state_t *, uint64_t) __dead2;
+static void handle_user_breakpoint(arm_saved_state_t *, uint64_t) __dead2;
 
 typedef void (*abort_inspector_t)(uint32_t, fault_status_t *, vm_prot_t *);
 static void inspect_instruction_abort(uint32_t, fault_status_t *, vm_prot_t *);
@@ -456,8 +456,9 @@ is_table_walk_error(fault_status_t status)
 
 
 static inline int
-is_servicible_fault(fault_status_t status)
+is_servicible_fault(fault_status_t status, uint64_t esr)
 {
+#pragma unused(esr)
 	return is_vm_fault(status);
 }
 
@@ -613,6 +614,7 @@ thread_exception_return()
 		    MACHDBG_CODE(DBG_MACH_EXCP_SYNC_ARM, thread->machine.exception_trace_code) | DBG_FUNC_END, 0, 0, 0, 0, 0);
 		thread->machine.exception_trace_code = 0;
 	}
+
 
 #if KASAN_TBI
 	kasan_unpoison_curstack(true);
@@ -926,7 +928,7 @@ sleh_synchronous(arm_context_t *context, uint64_t esr, vm_offset_t far, __unused
 		__builtin_unreachable();
 
 	case ESR_EC_BKPT_AARCH32:
-		handle_breakpoint(state, esr);
+		handle_user_breakpoint(state, esr);
 		__builtin_unreachable();
 
 	case ESR_EC_BRK_AARCH64:
@@ -939,13 +941,13 @@ sleh_synchronous(arm_context_t *context, uint64_t esr, vm_offset_t far, __unused
 			handle_kernel_breakpoint(state, esr);
 			break;
 		} else {
-			handle_breakpoint(state, esr);
+			handle_user_breakpoint(state, esr);
 			__builtin_unreachable();
 		}
 
 	case ESR_EC_BKPT_REG_MATCH_EL0:
 		if (FSC_DEBUG_FAULT == ISS_SSDE_FSC(esr)) {
-			handle_breakpoint(state, esr);
+			handle_user_breakpoint(state, esr);
 		}
 		panic("Unsupported Class %u event code. state=%p class=%u esr=%llu far=%p",
 		    class, state, class, esr, (void *)far);
@@ -1181,14 +1183,6 @@ handle_uncategorized(arm_saved_state_t *state)
 }
 
 #if __has_feature(ptrauth_calls)
-static const uint16_t PTRAUTH_TRAP_START = 0xC470;
-static inline bool
-brk_comment_is_ptrauth(uint16_t comment)
-{
-	return comment >= PTRAUTH_TRAP_START &&
-	       comment <= PTRAUTH_TRAP_START + ptrauth_key_asdb;
-}
-
 static inline const char *
 ptrauth_key_to_string(ptrauth_key key)
 {
@@ -1284,7 +1278,7 @@ xnu_hard_trap_handle_breakpoint(void *tstate, uint16_t comment)
 KERNEL_BRK_DESCRIPTOR_DEFINE(ptrauth_desc,
     .type                = TRAP_TELEMETRY_TYPE_KERNEL_BRK_PTRAUTH,
     .base                = PTRAUTH_TRAP_START,
-    .max                 = PTRAUTH_TRAP_START + ptrauth_key_asdb,
+    .max                 = PTRAUTH_TRAP_END,
     .options             = BRK_TELEMETRY_OPTIONS_FATAL_DEFAULT,
     .handle_breakpoint   = ptrauth_handle_brk_trap);
 #endif
@@ -1330,7 +1324,7 @@ handle_kernel_breakpoint(arm_saved_state_t *state, uint64_t esr)
 	const struct kernel_brk_descriptor *desc;
 	const char *msg = NULL;
 
-	desc = find_brk_descriptor_by_comment(comment);
+	desc = find_kernel_brk_descriptor_by_comment(comment);
 
 	if (!desc) {
 		goto brk_out;
@@ -1373,19 +1367,88 @@ brk_out:
 #undef MSG_FMT
 }
 
+/*
+ * Similar in spirit to kernel_brk_descriptor, but with less flexible semantics:
+ * each descriptor defines a `brk` label range for use from userspace.
+ * When used, system policy may decide to kill the calling process without giving them opportunity to
+ * catch the exception or continue execution from a signal handler.
+ * This is used to enforce security boundaries: userspace code may use this mechanism
+ * to reliably terminate when internal inconsistencies are detected.
+ * Note that we don't invariably terminate without giving the process a say: we might only enforce
+ * such a policy if a security feature is enabled, for example.
+ */
+typedef struct user_brk_label_range_descriptor {
+	uint16_t base;
+	uint16_t max;
+} user_brk_label_range_descriptor_t;
+
+const user_brk_label_range_descriptor_t user_brk_descriptors[] = {
+#if __has_feature(ptrauth_calls)
+	/* PAC failures detected in data by userspace */
+	{
+		/* Use the exact same label range as kernel PAC */
+		.base   = PTRAUTH_TRAP_START,
+		.max    = PTRAUTH_TRAP_END,
+	},
+#endif /* __has_feature(ptrauth_calls) */
+	/* Available for use by system libraries when detecting disallowed conditions */
+	{
+		/* Note this uses the same range as the kernel-specific XNU_HARD_TRAP range */
+		.base   = 0xB000,
+		.max    = 0xBFFF,
+	}
+};
+const int user_brk_descriptor_count = sizeof(user_brk_descriptors) / sizeof(user_brk_descriptors[0]);
+
+const static inline user_brk_label_range_descriptor_t *
+find_user_brk_descriptor_by_comment(uint16_t comment)
+{
+	for (int desc_idx = 0; desc_idx < user_brk_descriptor_count; desc_idx++) {
+		const user_brk_label_range_descriptor_t* des = &user_brk_descriptors[desc_idx];
+		if (comment >= des->base && comment <= des->max) {
+			return des;
+		}
+	}
+
+	return NULL;
+}
+
 static void
-handle_breakpoint(arm_saved_state_t *state, uint64_t esr __unused)
+handle_user_breakpoint(arm_saved_state_t *state, uint64_t esr __unused)
 {
 	exception_type_t           exception = EXC_BREAKPOINT;
 	mach_exception_data_type_t codes[2]  = {EXC_ARM_BREAKPOINT};
 	mach_msg_type_number_t     numcodes  = 2;
 
+	if (ESR_EC(esr) == ESR_EC_BRK_AARCH64) {
+		/*
+		 * Consult the trap labels we know about to decide whether userspace
+		 * should be given the opportunity to handle the exception.
+		 */
+		uint16_t brk_label = ISS_BRK_COMMENT(esr);
+		const struct user_brk_label_range_descriptor* descriptor = find_user_brk_descriptor_by_comment(brk_label);
+		/*
+		 * Note it's no problem if we don't recognize the label.
+		 * In this case we'll just go through normal exception delivery.
+		 */
+		if (descriptor != NULL) {
+			exception |= EXC_MAY_BE_UNRECOVERABLE_BIT;
+
 #if __has_feature(ptrauth_calls)
-	if (ESR_EC(esr) == ESR_EC_BRK_AARCH64 &&
-	    brk_comment_is_ptrauth(ISS_BRK_COMMENT(esr))) {
-		exception |= EXC_PTRAUTH_BIT;
-	}
+			/*
+			 * We have additional policy specifically for PAC violations.
+			 * To make the rest of the code easier to follow, don't set
+			 * EXC_MAY_BE_UNRECOVERABLE_BIT here and just set EXC_PTRAUTH_BIT instead.
+			 * Conceptually a PAC failure is absolutely 'maybe unrecoverable', but it's
+			 * not really worth excising the discrepency from the plumbing.
+			 */
+			if (descriptor->base == PTRAUTH_TRAP_START) {
+				exception &= ~(EXC_MAY_BE_UNRECOVERABLE_BIT);
+				exception |= EXC_PTRAUTH_BIT;
+			}
 #endif /* __has_feature(ptrauth_calls) */
+		}
+	}
 
 	codes[1] = get_saved_state_pc(state);
 	exception_triage(exception, codes, numcodes);
@@ -1770,7 +1833,6 @@ handle_user_abort(arm_saved_state_t *state, uint64_t esr, vm_offset_t fault_addr
 	mach_msg_type_number_t     numcodes = 2;
 	thread_t                   thread   = current_thread();
 
-	(void)esr;
 	(void)expected_fault_handler;
 
 	if (__improbable(!SPSR_INTERRUPTS_ENABLED(get_saved_state_cpsr(state)))) {
@@ -1779,7 +1841,7 @@ handle_user_abort(arm_saved_state_t *state, uint64_t esr, vm_offset_t fault_addr
 
 	thread->iotier_override = THROTTLE_LEVEL_NONE; /* Reset IO tier override before handling abort from userspace */
 
-	if (!is_servicible_fault(fault_code) &&
+	if (!is_servicible_fault(fault_code, esr) &&
 	    thread->t_rr_state.trr_fault_state != TRR_FAULT_NONE) {
 		thread_reset_pcs_done_faulting(thread);
 	}
@@ -2766,7 +2828,7 @@ sleh_panic_lockdown_should_initiate_el1_sp0_sync(uint64_t esr, uint64_t elr,
 		 */
 #if HAS_TELEMETRY_KERNEL_BRK
 		const struct kernel_brk_descriptor *desc;
-		desc = find_brk_descriptor_by_comment(ISS_BRK_COMMENT(esr));
+		desc = find_kernel_brk_descriptor_by_comment(ISS_BRK_COMMENT(esr));
 		if (desc && desc->options.recoverable) {
 			/*
 			 * We matched a breakpoint and it's recoverable, skip lockdown.

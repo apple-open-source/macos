@@ -1,7 +1,15 @@
 /*-
+ * SPDX-License-Identifier: BSD-2-Clause
+ *
+ * Copyright 2010 Nexenta Systems, Inc.  All rights reserved.
  * Copyright (c) 1995 Alex Tatmanjants <alex@elvisti.kiev.ua>
  *		at Electronni Visti IA, Kiev, Ukraine.
  *			All rights reserved.
+ *
+ * Copyright (c) 2011 The FreeBSD Foundation
+ *
+ * Portions of this software were developed by David Chisnall
+ * under sponsorship from the FreeBSD Foundation.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -25,29 +33,25 @@
  * SUCH DAMAGE.
  */
 
-#include <sys/cdefs.h>
-#if 0
-__FBSDID("FreeBSD: src/lib/libc/string/strxfrm.c,v 1.15 2002/09/06 11:24:06 tjr Exp ");
-#endif
-__FBSDID("$FreeBSD: src/lib/libc/string/wcsxfrm.c,v 1.3 2004/04/07 09:47:56 tjr Exp $");
-
-#include "xlocale_private.h"
-
+#include <errno.h>
 #include <stdlib.h>
 #include <string.h>
 #include <wchar.h>
-#include <errno.h>
 #include "collate.h"
 
-#define WCS_XFRM_OFFSET	1
-
 size_t
-wcsxfrm_l(wchar_t * __restrict dest, const wchar_t * __restrict src, size_t len,
-    locale_t loc)
+wcsxfrm_l(wchar_t * __restrict dest, const wchar_t * __restrict src, size_t len, locale_t locale)
 {
 	size_t slen;
-	wchar_t *xf[COLL_WEIGHTS_MAX];
-	int sverrno;
+#ifdef __APPLE__
+	int serrno;
+	NORMALIZE_LOCALE(locale);
+	struct xlocale_collate *table = XLOCALE_COLLATE(locale);
+#else
+	FIX_LOCALE(locale);
+	struct xlocale_collate *table =
+		(struct xlocale_collate*)locale->components[XLC_COLLATE];
+#endif
 
 	if (*src == L'\0') {
 		if (len != 0)
@@ -55,55 +59,43 @@ wcsxfrm_l(wchar_t * __restrict dest, const wchar_t * __restrict src, size_t len,
 		return (0);
 	}
 
-	NORMALIZE_LOCALE(loc);
-	if (XLOCALE_COLLATE(loc)->__collate_load_error) {
-		slen = wcslen(src);
-		if (len > 0) {
-			if (slen < len)
-				wcscpy(dest, src);
-			else {
-				wcsncpy(dest, src, len - 1);
-				dest[len - 1] = L'\0';
-			}
-		}
-		return (slen);
+	if ((table->__collate_load_error) ||
+	    ((slen = _collate_wxfrm(table, src, dest, len)) == (size_t)-1)) {
+		goto error;
 	}
 
-	__collate_xfrm(src, xf, loc);
+	/* Add null termination at the correct location. */
+	if (len > slen) {
+		dest[slen] = 0;
+	} else if (len) {
+		dest[len-1] = 0;
+	}
 
-	slen = wcslen(xf[0]);
-	if (xf[1])
-		slen += wcslen(xf[1]) + 1;
-	if (len > 0) {
-		wchar_t *w = xf[0];
-		while (len > 1) {
-			if (!*w)
-				break;
-			*dest++ = *w++ + WCS_XFRM_OFFSET;
-			len--;
-		}
-		if ((w = xf[1]) != NULL) {
-			if (len > 1)
-				*dest++ = WCS_XFRM_OFFSET;
-			while (len > 1) {
-				if (!*w)
-					break;
-				*dest++ = *w++ + WCS_XFRM_OFFSET;
-				len--;
-			}
-		}
-		*dest = 0;
- 	}
-	sverrno = errno;
-	free(xf[0]);
-	free(xf[1]);
-	errno = sverrno;
- 
+	return (slen);
+
+error:
+#ifdef __APPLE__
+	serrno = errno;
+#endif
+	slen = wcslen(src);
+	if (slen < len)
+		(void) wcscpy(dest, src);
+	else if (len > 0) {
+		(void) wcsncpy(dest, src, len - 1);
+		dest[len - 1] = L'\0';
+	}
+#ifdef __APPLE__
+	errno = serrno;
+#endif
 	return (slen);
 }
 
 size_t
 wcsxfrm(wchar_t * __restrict dest, const wchar_t * __restrict src, size_t len)
 {
+#ifdef __APPLE__
 	return wcsxfrm_l(dest, src, len, __current_locale());
+#else
+	return wcsxfrm_l(dest, src, len, __get_locale());
+#endif
 }

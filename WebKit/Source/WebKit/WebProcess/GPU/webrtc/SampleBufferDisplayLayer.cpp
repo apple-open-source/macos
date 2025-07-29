@@ -68,7 +68,7 @@ void SampleBufferDisplayLayer::initialize(bool hideRootLayer, IntSize size, bool
 }
 
 #if !RELEASE_LOG_DISABLED
-void SampleBufferDisplayLayer::setLogIdentifier(String&& logIdentifier)
+void SampleBufferDisplayLayer::setLogIdentifier(uint64_t logIdentifier)
 {
     ASSERT(m_hostingContextID);
     m_connection->send(Messages::RemoteSampleBufferDisplayLayer::SetLogIdentifier { logIdentifier }, identifier());

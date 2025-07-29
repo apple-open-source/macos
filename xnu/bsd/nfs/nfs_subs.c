@@ -76,6 +76,7 @@
 #include <sys/kauth.h>
 #include <sys/mount_internal.h>
 #include <sys/vnode_internal.h>
+#include <sys/mbuf.h>
 #include <sys/kpi_mbuf.h>
 #include <sys/un.h>
 #include <sys/domain.h>
@@ -152,7 +153,7 @@ nfs_dump_mbuf(const char *func, int lineno, const char *msg, mbuf_t mb)
 
 	printf("%s:%d %s\n", func, lineno, msg);
 	for (m = mb; m; m = mbuf_next(m)) {
-		hexdump(mbuf_data(m), mbuf_len(m));
+		hexdump(mtod(m, void *), mbuf_len(m));
 	}
 }
 
@@ -411,7 +412,7 @@ nfsm_chain_new_mbuf(struct nfsm_chain *nmc, size_t sizehint)
 	/* do we have a current mbuf? */
 	if (nmc->nmc_mcur) {
 		/* first cap off current mbuf */
-		mbuf_setlen(nmc->nmc_mcur, nmc->nmc_ptr - (caddr_t)mbuf_data(nmc->nmc_mcur));
+		mbuf_setlen(nmc->nmc_mcur, nmc->nmc_ptr - mtod(nmc->nmc_mcur, caddr_t));
 		/* then append the new mbuf */
 		error = mbuf_setnext(nmc->nmc_mcur, mb);
 		if (error) {
@@ -422,7 +423,7 @@ nfsm_chain_new_mbuf(struct nfsm_chain *nmc, size_t sizehint)
 
 	/* set up for using the new mbuf */
 	nmc->nmc_mcur = mb;
-	nmc->nmc_ptr = mbuf_data(mb);
+	nmc->nmc_ptr = mtod(mb, caddr_t);
 	nmc->nmc_left = mbuf_trailingspace(mb);
 
 	return 0;
@@ -511,7 +512,7 @@ nfsm_chain_offset(struct nfsm_chain *nmc)
 
 	for (mb = nmc->nmc_mhead; mb; mb = mbuf_next(mb)) {
 		if (mb == nmc->nmc_mcur) {
-			return len + (nmc->nmc_ptr - (caddr_t) mbuf_data(mb));
+			return len + (nmc->nmc_ptr - mtod(mb, caddr_t));
 		}
 		len += mbuf_len(mb);
 	}
@@ -540,7 +541,7 @@ nfsm_chain_advance(struct nfsm_chain *nmc, size_t len)
 		if (!mb) {
 			return EBADRPC;
 		}
-		nmc->nmc_ptr = mbuf_data(mb);
+		nmc->nmc_ptr = mtod(mb, caddr_t);
 		nmc->nmc_left = mbuf_len(mb);
 	}
 
@@ -560,7 +561,7 @@ nfsm_chain_reverse(struct nfsm_chain *nmc, size_t len)
 	size_t mlen, new_offset;
 	int error = 0;
 
-	mlen = nmc->nmc_ptr - (caddr_t) mbuf_data(nmc->nmc_mcur);
+	mlen = nmc->nmc_ptr - mtod(nmc->nmc_mcur, caddr_t);
 	if (len <= mlen) {
 		nmc->nmc_ptr -= len;
 		nmc->nmc_left += len;
@@ -603,7 +604,7 @@ nfsm_chain_get_opaque_pointer_f(struct nfsm_chain *nmc, uint32_t len, u_char **p
 		if (!mb) {
 			break;
 		}
-		nmc->nmc_ptr = mbuf_data(mb);
+		nmc->nmc_ptr = mtod(mb, caddr_t);
 		nmc->nmc_left = mbuf_len(mb);
 	}
 	/* check if we've run out of data */
@@ -642,7 +643,7 @@ nfsm_chain_get_opaque_pointer_f(struct nfsm_chain *nmc, uint32_t len, u_char **p
 		}
 
 		/* the returned pointer will be the new mbuf's data pointer */
-		*pptr = ptr = mbuf_data(mb);
+		*pptr = ptr = mtod(mb, u_char *);
 
 		/* copy "left" bytes to the new mbuf */
 		bcopy(nmc->nmc_ptr, ptr, left);
@@ -696,7 +697,7 @@ nfsm_chain_get_opaque_pointer_f(struct nfsm_chain *nmc, uint32_t len, u_char **p
 
 	while (need && mb) {
 		/* copy as much as we need/can */
-		ptr = mbuf_data(mb);
+		ptr = mtod(mb, u_char *);
 		mblen = mbuf_len(mb);
 		cplen = MIN(mblen, need);
 		if (cplen) {
@@ -733,7 +734,7 @@ nfsm_chain_get_opaque_pointer_f(struct nfsm_chain *nmc, uint32_t len, u_char **p
 	 * just set nmc to point at whatever remains in that mbuf.
 	 */
 	nmc->nmc_mcur = mb;
-	nmc->nmc_ptr = mbuf_data(mb);
+	nmc->nmc_ptr = mtod(mb, caddr_t);
 	nmc->nmc_left = mbuf_len(mb);
 
 	/* move past any padding */
@@ -773,7 +774,7 @@ nfsm_chain_get_opaque_f(struct nfsm_chain *nmc, size_t len, u_char *buf)
 		if (len) {
 			mbuf_t mb = mbuf_next(nmc->nmc_mcur);
 			nmc->nmc_mcur = mb;
-			nmc->nmc_ptr = mb ? mbuf_data(mb) : NULL;
+			nmc->nmc_ptr = mb ? mtod(mb, caddr_t) : NULL;
 			nmc->nmc_left = mb ? mbuf_len(mb) : 0;
 		}
 	}
@@ -822,7 +823,7 @@ nfsm_chain_get_uio(struct nfsm_chain *nmc, size_t len, uio_t uio)
 		if (len) {
 			mbuf_t mb = mbuf_next(nmc->nmc_mcur);
 			nmc->nmc_mcur = mb;
-			nmc->nmc_ptr = mb ? mbuf_data(mb) : NULL;
+			nmc->nmc_ptr = mb ? mtod(mb, caddr_t) : NULL;
 			nmc->nmc_left = mb ? mbuf_len(mb) : 0;
 		}
 	}
@@ -1054,7 +1055,7 @@ nfsm_adj(mbuf_t mp, int len, int nul)
 		mlen -= len;
 		mbuf_setlen(m, mlen);
 		if (nul > 0) {
-			cp = (caddr_t)mbuf_data(m) + mlen - nul;
+			cp = mtod(m, caddr_t) + mlen - nul;
 			for (i = 0; i < nul; i++) {
 				*cp++ = '\0';
 			}
@@ -1076,7 +1077,7 @@ nfsm_adj(mbuf_t mp, int len, int nul)
 			mlen = count;
 			mbuf_setlen(m, count);
 			if (nul > 0) {
-				cp = (caddr_t)mbuf_data(m) + mlen - nul;
+				cp = mtod(m, caddr_t) + mlen - nul;
 				for (i = 0; i < nul; i++) {
 					*cp++ = '\0';
 				}
@@ -1115,7 +1116,7 @@ nfsm_chain_trim_data(struct nfsm_chain *nmc, int len, int *mlen)
 	}
 
 	/* trim current mbuf */
-	data = mbuf_data(m);
+	data = mtod(m, caddr_t);
 	dlen = mbuf_len(m);
 	adjust = nmc->nmc_ptr - data;
 	dlen -= adjust;
@@ -2179,7 +2180,7 @@ nfsrv_export_lookup(struct nfs_export *nx, mbuf_t nam)
 
 	/* Lookup in the export list first. */
 	if (nam != NULL) {
-		saddr = mbuf_data(nam);
+		saddr = SA(mtod(nam, caddr_t));
 		if (saddr->sa_family > AF_MAX) {
 			/* Bogus sockaddr?  Don't match anything. */
 			return NULL;
@@ -2610,7 +2611,7 @@ nfsrv_update_user_stat(struct nfs_export *nx, struct nfsrv_descript *nd, uid_t u
 		return;
 	}
 
-	saddr = (struct sockaddr *)mbuf_data(nd->nd_nam);
+	saddr = SA(mtod(nd->nd_nam, caddr_t));
 
 	/* check address family before going any further */
 	if ((saddr->sa_family != AF_INET) && (saddr->sa_family != AF_INET6)) {

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2024 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2025 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  *
@@ -710,7 +710,7 @@ nd6_ns_output(
 		 * Otherwise, we perform the source address selection as usual.
 		 */
 		struct ip6_hdr *__single hip6;           /* hold ip6 */
-		struct in6_addr *__single hsrc = NULL;
+		struct in6_addr hsrc = {};
 
 		/* Caller holds ref on this route */
 		if (ln != NULL) {
@@ -723,9 +723,7 @@ nd6_ns_output(
 				hip6 = mtod(ln->ln_hold, struct ip6_hdr *);
 				/* XXX pullup? */
 				if (sizeof(*hip6) < ln->ln_hold->m_len) {
-					hsrc = &hip6->ip6_src;
-				} else {
-					hsrc = NULL;
+					memcpy(&hsrc, &hip6->ip6_src, sizeof(struct in6_addr));
 				}
 			}
 			/* Update probe count, if applicable */
@@ -737,9 +735,9 @@ nd6_ns_output(
 			rtflags = ln->ln_rt->rt_flags;
 			RT_UNLOCK(ln->ln_rt);
 		}
-		if (hsrc != NULL && (ia = in6ifa_ifpwithaddr(ifp, hsrc)) &&
+		if (!IN6_IS_ADDR_UNSPECIFIED(&hsrc) && (ia = in6ifa_ifpwithaddr(ifp, &hsrc)) &&
 		    (ia->ia6_flags & IN6_IFF_OPTIMISTIC) == 0) {
-			src = hsrc;
+			src = &hsrc;
 		} else {
 			int error;
 			struct sockaddr_in6 dst_sa;
@@ -803,6 +801,7 @@ nd6_ns_output(
 		src = &src_in;
 		ip6oa.ip6oa_flags &= ~IP6OAF_BOUND_SRCADDR;
 	}
+
 	ip6->ip6_src = *src;
 	ip6_output_setsrcifscope(m, ifp->if_index, ia);
 	nd_ns = (struct nd_neighbor_solicit *)(ip6 + 1);

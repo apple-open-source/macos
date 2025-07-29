@@ -13,7 +13,9 @@ static const char *g_sysctl_no_wire_name = "vm.global_no_user_wire_amount";
 static const char *g_sysctl_wire_name = "vm.global_user_wire_limit";
 static const char *g_sysctl_per_task_wire_name = "vm.user_wire_limit";
 static const char *g_sysctl_current_wired_count_name = "vm.page_wire_count";
+#if __x86_64__
 static const char *g_sysctl_current_free_count_name = "vm.lopage_free_count";
+#endif /* __x86_64__ */
 static const char *g_sysctl_vm_page_size_name = "vm.pagesize";
 static const char *g_sysctl_memsize_name = "hw.memsize";
 
@@ -149,12 +151,18 @@ wire_to_limit(size_t limit, size_t *size)
 	size_t buffer_size, offset_from_limit;
 	void *buffer;
 	size_t current_wired_size = sizeof(current_wired);
+#if __x86_64__
 	size_t current_free_size = sizeof(current_free);
+#endif /* __x86_64__ */
 	while (true) {
 		ret = sysctlbyname(g_sysctl_current_wired_count_name, &current_wired, &current_wired_size, NULL, 0);
 		T_QUIET; T_ASSERT_POSIX_SUCCESS(ret, "get current wired count failed");
+#if __x86_64__
 		ret = sysctlbyname(g_sysctl_current_free_count_name, &current_free, &current_free_size, NULL, 0);
 		T_QUIET; T_ASSERT_POSIX_SUCCESS(ret, "get current free count failed");
+#else
+		current_free = 0;
+#endif /* __x86_64__ */
 		offset_from_limit = ptoa(current_wired + current_free + wiggle_room_pages);
 		T_QUIET; T_ASSERT_GE(limit, offset_from_limit, "more pages are wired than the limit.");
 		buffer_size = limit - offset_from_limit;

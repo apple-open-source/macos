@@ -1860,7 +1860,9 @@ dhcp_check_link_with_status(ServiceRef service_p, IFEventID_t event_id,
 
 	    /* try to switch to new lease */
 	    my_log(LOG_NOTICE, "%s: SSID is now %@ (was %@)",
-		   if_name(if_p), ssid, dhcp->lease.ssid);
+		   if_name(if_p),
+		   hide_wifi_string(ssid),
+		   hide_wifi_string(dhcp->lease.ssid));
 	    where = DHCPLeaseListFindLeaseForWiFi(&dhcp->lease_list,
 						  ssid, networkID);
 	    if (where != DHCP_LEASE_NOT_FOUND) {
@@ -1869,7 +1871,8 @@ dhcp_check_link_with_status(ServiceRef service_p, IFEventID_t event_id,
 	    }
 	    else {
 		/* go back to INIT state */
-		my_log(LOG_NOTICE, "%s: No lease for %@", if_name(if_p), ssid);
+		my_log(LOG_NOTICE, "%s: No lease for %@", if_name(if_p),
+		       hide_wifi_string(ssid));
 		dhcp_invalidate_lease(dhcp);
 		service_router_clear(service_p);
 		(void)service_remove_address(service_p);
@@ -1881,7 +1884,7 @@ dhcp_check_link_with_status(ServiceRef service_p, IFEventID_t event_id,
 	    if (bcmp(dhcp->lease.wifi_mac, if_link_address(if_p),
 		     sizeof(dhcp->lease.wifi_mac)) != 0) {
 		my_log(LOG_NOTICE, "%s: discarding lease for %@, MAC mismatch",
-		       if_name(if_p), ssid);
+		       if_name(if_p), hide_wifi_string(ssid));
 		dhcp_invalidate_lease(dhcp);
 		service_router_clear(service_p);
 		(void)service_remove_address(service_p);
@@ -1889,7 +1892,7 @@ dhcp_check_link_with_status(ServiceRef service_p, IFEventID_t event_id,
 	    }
 	    else {
 		my_log(LOG_NOTICE, "%s: using lease for %@",
-		       if_name(if_p), ssid);
+		       if_name(if_p), hide_wifi_string(ssid));
 	    }
 	    dhcp->lease.wifi_mac_is_set = FALSE;
 	}
@@ -2527,7 +2530,8 @@ dhcp_thread(ServiceRef service_p, IFEventID_t event_id, void * event_data)
       case IFEventID_forget_ssid_e: {
 	  CFStringRef	ssid = (CFStringRef)event_data;
 
-	  my_log(LOG_NOTICE, "DHCP %s: ForgetSSID %@", if_name(if_p), ssid);
+	  my_log(LOG_NOTICE, "DHCP %s: ForgetSSID %@", if_name(if_p),
+		 hide_wifi_string(ssid));
 	  DHCPLeaseListRemoveLeaseForWiFi(&dhcp->lease_list, ssid, NULL);
 	  if (dhcp->lease.ssid != NULL && CFEqual(dhcp->lease.ssid, ssid)) {
 	      struct timeval	tv;

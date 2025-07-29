@@ -74,6 +74,7 @@
 #include <kern/policy_internal.h>
 #include <kern/socd_client.h>
 #include <kern/startup.h>
+#include <vm/pmap.h>
 #include <vm/vm_map_xnu.h>
 #include <vm/vm_kern_xnu.h>
 #include <vm/vm_pageout.h>
@@ -82,6 +83,8 @@
 #include <vm/vm_compressor_xnu.h>
 #include <libkern/OSKextLibPrivate.h>
 #include <os/log.h>
+
+
 
 #ifdef CONFIG_EXCLAVES
 #include <kern/exclaves.tightbeam.h>
@@ -2979,7 +2982,8 @@ stackshot_plh_setup(void)
 static int16_t
 stackshot_plh_hash(struct ipc_service_port_label *ispl)
 {
-	uintptr_t ptr = (uintptr_t)ispl;
+	uintptr_t ptr = VM_KERNEL_STRIP_PTR((uintptr_t)ispl);
+
 	static_assert(STACKSHOT_PLH_SHIFT < 16, "plh_hash must fit in 15 bits");
 #define PLH_HASH_STEP(ptr, x) \
 	    ((((x) * STACKSHOT_PLH_SHIFT) < (sizeof(ispl) * CHAR_BIT)) ? ((ptr) >> ((x) * STACKSHOT_PLH_SHIFT)) : 0)
@@ -4182,6 +4186,7 @@ _stackshot_backtrace_copy(void *vctx, void *dst, user_addr_t src, size_t size)
 	 */
 	kasan_notify_address_nopoison(src_kva, size);
 #endif
+
 	memcpy(dst, (const void *)src_kva, size);
 
 	return 0;
@@ -5233,6 +5238,7 @@ kdp_stackshot_kcdata_format(void)
 		kcd_exit_on_error(kcdata_push_data(stackshot_kcdata_p, STACKSHOT_KCTYPE_GLOBAL_MEM_STATS, sizeof(mais), &mais));
 	}
 
+
 #if CONFIG_THREAD_GROUPS
 	struct thread_group_snapshot_v3 *thread_groups = NULL;
 	int num_thread_groups = 0;
@@ -5584,6 +5590,7 @@ kdp_mem_and_io_snapshot(struct mem_and_io_snapshot *memio_snap)
 		memio_snap->pages_wanted_reclaimed_valid = 0;
 	}
 }
+
 
 static vm_offset_t
 stackshot_find_phys(vm_map_t map, vm_offset_t target_addr, kdp_fault_flags_t fault_flags, uint32_t *kdp_fault_result_flags)

@@ -3032,6 +3032,10 @@ in6ifa_ifpforlinklocal(struct ifnet *ifp, int ignoreflags)
 {
 	struct ifaddr *__single ifa;
 
+	if (ifp == NULL) {
+		return NULL;
+	}
+
 	ifnet_lock_shared(ifp);
 	TAILQ_FOREACH(ifa, &ifp->if_addrlist, ifa_list)
 	{

@@ -570,12 +570,13 @@ private:
 
     struct TaskIdentifierType;
     using TaskIdentifier = ObjectIdentifier<TaskIdentifierType>;
-    void performDeleteWebsiteDataTask(TaskIdentifier);
+    enum class TaskTrigger : bool { Timer, Connection };
+    void performDeleteWebsiteDataTask(TaskIdentifier, TaskTrigger = TaskTrigger::Connection);
     void deleteWebsiteDataImpl(PAL::SessionID, OptionSet<WebsiteDataType>, WallTime, CompletionHandler<void()>&&);
 
     // Connections to WebProcesses.
     HashMap<WebCore::ProcessIdentifier, Ref<NetworkConnectionToWebProcess>> m_webProcessConnections;
-    HashMap<WebCore::ProcessIdentifier, CompletionHandler<void()>> m_webProcessConnectionCloseHandlers;
+    HashMap<WebCore::ProcessIdentifier, Vector<CompletionHandler<void()>>> m_webProcessConnectionCloseHandlers;
 
     bool m_hasSetCacheModel { false };
     CacheModel m_cacheModel { CacheModel::DocumentViewer };

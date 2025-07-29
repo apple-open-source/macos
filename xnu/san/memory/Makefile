@@ -35,12 +35,12 @@ INSTALL_MI_DIR = san
 EXPORT_MI_DIR = san
 
 .DELETE_ON_ERROR:
-$(OBJROOT)/san/kasan-blacklist-%: $(SOURCE)/kasan-blacklist $(SOURCE)/ubsan-blacklist $(SOURCE)/kasan-blacklist-%
+$(OBJROOT)/san/kasan-denylist-%: $(SOURCE)/kasan-denylist $(SOURCE)/ubsan-denylist $(SOURCE)/kasan-denylist-%
 	@$(LOG_GENERATE) "$(notdir $@)"
 	$(_v)sed -e 's,^src:\./,src:'"$(SRCROOT)/," $^ > $@
-	$(_v)$(SRCROOT)/san/tools/validate_blacklist.sh "$@"
+	$(_v)$(SRCROOT)/san/tools/validate_denylist.sh "$@"
 
-do_build_setup:: $(OBJROOT)/san/kasan-blacklist-x86_64 $(OBJROOT)/san/kasan-blacklist-arm64
+do_build_setup:: $(OBJROOT)/san/kasan-denylist-x86_64 $(OBJROOT)/san/kasan-denylist-arm64
 
 #
 # Kasan System.kext plugin

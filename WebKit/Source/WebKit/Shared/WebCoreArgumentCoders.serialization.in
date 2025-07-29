@@ -3960,14 +3960,14 @@ header: <WebCore/FEComponentTransfer.h>
 };
 
 [RefCounted, AdditionalEncoder=StreamConnectionEncoder] class WebCore::FEConvolveMatrix {
-    WebCore::IntSize kernelSize();
-    float divisor();
+    [Validator='!kernelSize->isEmpty()'] WebCore::IntSize kernelSize();
+    [Validator='*divisor != 0'] float divisor();
     float bias();
-    WebCore::IntPoint targetOffset();
+    [Validator='WebCore::IntRect({ }, *kernelSize).contains(*targetOffset)'] WebCore::IntPoint targetOffset();
     WebCore::EdgeModeType edgeMode();
-    WebCore::FloatPoint kernelUnitLength();
+    [Validator='kernelUnitLength->x() > 0 && kernelUnitLength->y() > 0'] WebCore::FloatPoint kernelUnitLength();
     bool preserveAlpha();
-    Vector<float> kernel();
+    [Validator='kernelSize->area() == kernel->size()'] Vector<float> kernel();
 
     WebCore::DestinationColorSpace operatingColorSpace();
 };
@@ -8325,13 +8325,13 @@ header: <WebCore/VideoTrackPrivate.h>
 
 header: <WebCore/ShareableBitmap.h>
 [CustomHeader] class WebCore::ShareableBitmapConfiguration {
-    [Validator='m_size->width() >= 0 && m_size->height() >= 0'] WebCore::IntSize m_size;
+    [Validator='m_size->width() > 0 && m_size->height() > 0'] WebCore::IntSize m_size;
     std::optional<WebCore::DestinationColorSpace> m_colorSpace;
     bool m_isOpaque;
-    unsigned bytesPerPixel();
-    unsigned bytesPerRow();
+    [Validator='*bytesPerPixel >= 1 && *bytesPerPixel <= 8'] unsigned bytesPerPixel();
+    [Validator='*bytesPerRow >= m_size->width() * *bytesPerPixel'] unsigned bytesPerRow();
 #if USE(CG)
-    CGBitmapInfo m_bitmapInfo;
+    [Validator='!(*m_bitmapInfo & ~(kCGBitmapAlphaInfoMask | static_cast<CGBitmapInfo>(kCGImageByteOrderMask) | kCGBitmapFloatComponents))'] CGBitmapInfo m_bitmapInfo;
 #endif
 }
 

@@ -75,11 +75,13 @@
 #include "RenderTheme.h"
 #include "RenderTreeBuilder.h"
 #include "RenderView.h"
+#include "RenderViewTransitionCapture.h"
 #include "RenderWidget.h"
 #include "SVGRenderSupport.h"
 #include "Settings.h"
 #include "StyleResolver.h"
 #include "TransformState.h"
+#include "ViewTransition.h"
 #include <algorithm>
 #include <stdio.h>
 #include <wtf/HexNumber.h>
@@ -1827,6 +1829,15 @@ bool RenderObject::setCapturedInViewTransition(bool captured)
     if (CheckedPtr renderBox = dynamicDowncast<RenderBox>(*this))
         renderBox->invalidateAncestorBackgroundObscurationStatus();
 
+    if (CheckedPtr layerModelRenderer = dynamicDowncast<RenderLayerModelObject>(this)) {
+        if (RefPtr activeViewTransition = document().activeViewTransition()) {
+            if (CheckedPtr viewTransitionCapture = activeViewTransition->viewTransitionNewPseudoForCapturedElement(*layerModelRenderer)) {
+                if (viewTransitionCapture->hasLayer())
+                    viewTransitionCapture->layer()->setNeedsCompositingLayerConnection();
+            }
+        }
+    }
+
     return true;
 }
 
@@ -1837,6 +1848,8 @@ void RenderObject::willBeDestroyed()
 
     if (CheckedPtr cache = document().existingAXObjectCache())
         cache->remove(this);
+
+    setCapturedInViewTransition(false);
 
     if (RefPtr node = this->node()) {
         // FIXME: Continuations should be anonymous.

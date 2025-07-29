@@ -48,11 +48,6 @@ void GPUProcessPreferences::copyEnabledWebPreferences(const WebPreferences& webP
         alternateWebMPlayerEnabled = true;
 #endif
 
-#if ENABLE(EXTENSION_CAPABILITIES)
-    if (webPreferences.mediaCapabilityGrantsEnabled())
-        mediaCapabilityGrantsEnabled = true;
-#endif
-
 #if ENABLE(VP9)
     if (webPreferences.vp9DecoderEnabled())
         vp9DecoderEnabled = true;

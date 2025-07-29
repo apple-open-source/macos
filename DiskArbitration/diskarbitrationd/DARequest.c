@@ -395,7 +395,8 @@ static void __DARequestEjectCallback( int status, void * context )
     filesystem = DADiskGetFileSystem( disk );
     if ( filesystem )
     {
-        fsType = DAFileSystemGetKind( filesystem );
+        fsType = DAGetFSTypeWithUUID( filesystem ,
+                                      DADiskGetDescription( disk, kDADiskDescriptionVolumeUUIDKey ) );
     }
     
     if ( status )
@@ -1303,9 +1304,10 @@ static void __DARequestUnmountSendEvent( DARequestRef request , int status , Boo
     }
 #endif
     
-    if ( filesystem )
+    if ( filesystem != NULL )
     {
-        fsType = DAFileSystemGetKind( filesystem );
+        fsType = DAGetFSTypeWithUUID( filesystem ,
+                                      DADiskGetDescription( disk, kDADiskDescriptionVolumeUUIDKey ) );
         fsImplementation = ( DAFilesystemShouldMountWithUserFS( filesystem , preferredMountMethod ) )
             ? CFSTR("UserFS") : CFSTR("kext");
     }

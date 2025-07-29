@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2023 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2025 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -34,6 +34,7 @@
 #include <SystemConfiguration/SCPrivate.h>
 #include <bsm/libbsm.h>
 #include <TargetConditionals.h>
+#include <Security/SecTask.h>
 
 #include "symbol_scope.h"
 #include "cfutil.h"
@@ -48,19 +49,10 @@ static uid_t S_uid = -1;
 static pid_t S_pid = -1;
 
 
-#if TARGET_OS_OSX
-#define	kIPConfigurationServiceEntitlement	NULL
-
-static boolean_t
-S_has_entitlement(audit_token_t token, CFStringRef entitlement)
-{
-    return (FALSE);
-}
-
-#else /* TARGET_OS_OSX */
 #define	kIPConfigurationServiceEntitlement	CFSTR("com.apple.IPConfigurationService")	/* boolean */
 
-#include <Security/SecTask.h>
+#define kIPConfigurationGetInformationEntitlement	CFSTR("com.apple.IPConfiguration.get-information")	/* boolean */
+
 static boolean_t
 S_has_entitlement(audit_token_t token, CFStringRef entitlement)
 {
@@ -82,7 +74,6 @@ S_has_entitlement(audit_token_t token, CFStringRef entitlement)
     }
     return (ret);
 }
-#endif /* TARGET_OS_OSX */
 
 static void
 S_process_audit_token(audit_token_t audit_token)
@@ -108,6 +99,18 @@ S_IPConfigurationServiceOperationAllowed(audit_token_t audit_token)
     if (S_uid == 0
 	|| S_has_entitlement(audit_token,
 			     kIPConfigurationServiceEntitlement)) {
+	return (TRUE);
+    }
+    return (FALSE);
+}
+
+static boolean_t
+S_IPConfigurationGetInformationIsAllowed(audit_token_t audit_token)
+{
+    S_process_audit_token(audit_token);
+    if (S_uid == 0
+	|| S_has_entitlement(audit_token,
+			     kIPConfigurationGetInformationEntitlement)) {
 	return (TRUE);
     }
     return (FALSE);
@@ -163,10 +166,16 @@ PRIVATE_EXTERN kern_return_t
 _ipconfig_get_packet(mach_port_t p, InterfaceName name,
 		     dataOut_t * packet_data,
 		     mach_msg_type_number_t * packet_dataCnt,
-		     ipconfig_status_t * status)
+		     ipconfig_status_t * status,
+		     audit_token_t audit_token)
 {
-    *status = get_if_packet(InterfaceNameNulTerminate(name),
-			    packet_data, packet_dataCnt);
+    if (!S_IPConfigurationGetInformationIsAllowed(audit_token)) {
+	*status = ipconfig_status_permission_denied_e;
+    }
+    else {
+	*status = get_if_packet(InterfaceNameNulTerminate(name),
+				packet_data, packet_dataCnt);
+    }
     return (KERN_SUCCESS);
 }
 
@@ -174,10 +183,16 @@ PRIVATE_EXTERN kern_return_t
 _ipconfig_get_v6_packet(mach_port_t p, InterfaceName name,
 			dataOut_t * packet_data,
 			mach_msg_type_number_t * packet_dataCnt,
-			ipconfig_status_t * status)
+			ipconfig_status_t * status,
+			audit_token_t audit_token)
 {
-    *status = get_if_v6_packet(InterfaceNameNulTerminate(name),
-			       packet_data, packet_dataCnt);
+    if (!S_IPConfigurationGetInformationIsAllowed(audit_token)) {
+	*status = ipconfig_status_permission_denied_e;
+    }
+    else {
+	*status = get_if_v6_packet(InterfaceNameNulTerminate(name),
+				   packet_data, packet_dataCnt);
+    }
     return (KERN_SUCCESS);
 }
 
@@ -469,9 +484,16 @@ PRIVATE_EXTERN kern_return_t
 _ipconfig_get_ra(mach_port_t p, InterfaceName name,
 		 xmlDataOut_t * ra_data,
 		 mach_msg_type_number_t * ra_data_cnt,
-		 ipconfig_status_t * status)
+		 ipconfig_status_t * status,
+		 audit_token_t audit_token)
 {
-    *status = get_if_ra(InterfaceNameNulTerminate(name), ra_data, ra_data_cnt);
+    if (!S_IPConfigurationGetInformationIsAllowed(audit_token)) {
+	*status = ipconfig_status_permission_denied_e;
+    }
+    else {
+	*status = get_if_ra(InterfaceNameNulTerminate(name),
+			    ra_data, ra_data_cnt);
+    }
     return (KERN_SUCCESS);
 }
 
@@ -480,23 +502,30 @@ _ipconfig_get_summary(mach_port_t server,
                       InterfaceName name,
                       xmlData_t * xml_data,
                       mach_msg_type_number_t * xml_data_len,
-                      ipconfig_status_t * ret_status)
+                      ipconfig_status_t * ret_status,
+		      audit_token_t audit_token)
 {
     ipconfig_status_t	status;
-    CFDictionaryRef	summary = NULL;
 
     *xml_data = NULL;
     *xml_data_len = 0;
-    status = copy_if_summary(InterfaceNameNulTerminate(name), &summary);
-    if (summary != NULL) {
-        *xml_data = (xmlDataOut_t)
-        my_CFPropertyListCreateVMData(summary, xml_data_len);
-        if (*xml_data == NULL) {
-            my_log(LOG_NOTICE, "failed to serialize data");
-            status = ipconfig_status_allocation_failed_e;
-        }
+    if (!S_IPConfigurationGetInformationIsAllowed(audit_token)) {
+	status = ipconfig_status_permission_denied_e;
     }
-    my_CFRelease(&summary);
+    else {
+	CFDictionaryRef	summary = NULL;
+
+	status = copy_if_summary(InterfaceNameNulTerminate(name), &summary);
+	if (summary != NULL) {
+	    *xml_data = (xmlDataOut_t)
+		my_CFPropertyListCreateVMData(summary, xml_data_len);
+	    if (*xml_data == NULL) {
+		my_log(LOG_NOTICE, "failed to serialize data");
+		status = ipconfig_status_allocation_failed_e;
+	    }
+	    my_CFRelease(&summary);
+	}
+    }
     *ret_status = status;
     return (KERN_SUCCESS);
 }

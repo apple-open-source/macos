@@ -35,11 +35,113 @@
 __BEGIN_DECLS
 #ifdef XNU_KERNEL_PRIVATE
 
-struct vm_page_queue_free_head {
-	vm_page_queue_head_t    qhead;
-} VM_PAGE_PACKED_ALIGNED;
+PERCPU_DECL(unsigned int, start_color);
 
-extern struct vm_page_queue_free_head  vm_page_queue_free[MAX_COLORS];
+extern struct vm_page_free_queue vm_page_queue_free;
+
+/*!
+ * @abstract
+ * Applies a signed delta to a VM counter that is not meant to ever overflow.
+ *
+ * @discussion
+ * This is not meant for counters counting "events", but for counters that
+ * maintain how many objects there is in a given state (free pages, ...).
+ *
+ * @param counter         A pointer to a counter of any integer type.
+ * @param value           The signed delta to apply.
+ * @returns               The new value of the counter.
+ */
+#define VM_COUNTER_DELTA(counter, value)  ({ \
+	__auto_type __counter = (counter);                                      \
+	release_assert(!os_add_overflow(*__counter, value, __counter));         \
+	*__counter;                                                             \
+})
+#define VM_COUNTER_ATOMIC_DELTA(counter, value)  ({ \
+	__auto_type __value = (value);                                          \
+	__auto_type __orig  = os_atomic_add_orig(counter, __value, relaxed);    \
+	release_assert(!os_add_overflow(__orig, __value, &__orig));             \
+	__orig + __value;                                                       \
+})
+
+
+/*!
+ * @abstract
+ * Applies an unsigned increment to a VM counter that is not meant to ever
+ * overflow.
+ *
+ * @discussion
+ * This is not meant for counters counting "events", but for counters that
+ * maintain how many objects there is in a given state (free pages, ...).
+ *
+ * @param counter         A pointer to a counter of any integer type.
+ * @param value           The unsigned value to add.
+ * @returns               The new value of the counter.
+ */
+#define VM_COUNTER_ADD(counter, value)  ({ \
+	__auto_type __counter = (counter);                                      \
+	release_assert(!os_add_overflow(*__counter, value, __counter));         \
+	*__counter;                                                             \
+})
+#define VM_COUNTER_ATOMIC_ADD(counter, value)  ({ \
+	__auto_type __value = (value);                                          \
+	__auto_type __orig  = os_atomic_add_orig(counter, __value, relaxed);    \
+	release_assert(!os_add_overflow(__orig, __value, &__orig));             \
+	__orig + __value;                                                       \
+})
+
+/*!
+ * @abstract
+ * Applies an unsigned decrement to a VM counter that is not meant to ever
+ * overflow.
+ *
+ * @discussion
+ * This is not meant for counters counting "events", but for counters that
+ * maintain how many objects there is in a given state (free pages, ...).
+ *
+ * @param counter         A pointer to a counter of any integer type.
+ * @param value           The unsigned value to substract.
+ * @returns               The new value of the counter.
+ */
+#define VM_COUNTER_SUB(counter, value)  ({ \
+	__auto_type __counter = (counter);                                      \
+	release_assert(!os_sub_overflow(*__counter, value, __counter));         \
+	*__counter;                                                             \
+})
+#define VM_COUNTER_ATOMIC_SUB(counter, value)  ({ \
+	__auto_type __value = (value);                                          \
+	__auto_type __orig  = os_atomic_sub_orig(counter, __value, relaxed);    \
+	release_assert(!os_sub_overflow(__orig, __value, &__orig));             \
+	__orig - __value;                                                       \
+})
+
+
+/*!
+ * @abstract
+ * Convenience wrapper to increment a VM counter.
+ *
+ * @discussion
+ * This is not meant for counters counting "events", but for counters that
+ * maintain how many objects there is in a given state (free pages, ...).
+ *
+ * @param counter         A pointer to a counter of any integer type.
+ * @returns               The new value of the counter.
+ */
+#define VM_COUNTER_INC(counter)         VM_COUNTER_ADD(counter, 1)
+#define VM_COUNTER_ATOMIC_INC(counter)  VM_COUNTER_ATOMIC_ADD(counter, 1)
+
+/*!
+ * @abstract
+ * Convenience wrapper to decrement a VM counter.
+ *
+ * @discussion
+ * This is not meant for counters counting "events", but for counters that
+ * maintain how many objects there is in a given state (free pages, ...).
+ *
+ * @param counter         A pointer to a counter of any integer type.
+ * @returns               The new value of the counter.
+ */
+#define VM_COUNTER_DEC(counter)         VM_COUNTER_SUB(counter, 1)
+#define VM_COUNTER_ATOMIC_DEC(counter)  VM_COUNTER_ATOMIC_SUB(counter, 1)
 
 static inline int
 VMP_CS_FOR_OFFSET(
@@ -304,7 +406,143 @@ vm_page_queue_enter_clump(
 #endif /* __LP64__ */
 
 
-extern  void    vm_page_assign_special_state(vm_page_t mem, int mode);
+/*!
+ * @abstract
+ * The number of pages to try to free/process at once while under
+ * the free page queue lock.
+ *
+ * @discussion
+ * The value is chosen to be a trade off between:
+ * - creating a lot of contention on the free page queue lock
+ *   taking and dropping it all the time,
+ * - avoiding to hold the free page queue lock for too long periods of time.
+ */
+#define VMP_FREE_BATCH_SIZE     64
+
+/*!
+ * @function vm_page_free_queue_init()
+ *
+ * @abstract
+ * Initialize a free queue.
+ *
+ * @param free_queue    The free queue to initialize.
+ */
+extern void vm_page_free_queue_init(
+	vm_page_free_queue_t    free_queue);
+
+/*!
+ * @function vm_page_free_queue_enter()
+ *
+ * @abstract
+ * Add a page to a free queue.
+ *
+ * @discussion
+ * Internally, the free queue is not synchronized, so any locking must be done
+ * outside of this function.
+ *
+ * The page queue state will be set to the appropriate free queue state for the
+ * memory class (typically VM_PAGE_ON_FREE_Q).
+ *
+ * Note that the callers are responsible for making sure that this operation is
+ * a valid transition.  This is a helper to abstract handling of the several
+ * free page queues on the system which sits above vm_page_queue_enter() and
+ * maintains counters as well, but is otherwise oblivious to the page state
+ * machine.
+ *
+ * Most clients should use a wrapper around this function (typically
+ * vm_page_release() or vm_page_free_list()) and not call it directly.
+ *
+ * @param mem_class     The memory class to free pages to.
+ * @param page          The page to free.
+ * @param pnum          the physical address of @c page
+ */
+extern void vm_page_free_queue_enter(
+	vm_memory_class_t       mem_class,
+	vm_page_t               page,
+	ppnum_t                 pnum);
+
+/*!
+ * @function vm_page_free_queue_remove()
+ *
+ * @abstract
+ * Removes an arbitrary free page from the given free queue.
+ *
+ * @discussion
+ * The given page must be in the given free queue, or state may be corrupted.
+ *
+ * Internally, the free queue is not synchronized, so any locking must be done
+ * outside of this function.
+ *
+ * Note that the callers are responsible for making sure that the requested
+ * queue state corresponds to a valid transition. This is a helper to abstract
+ * handling of the several free page queues on the system which sits above
+ * vm_page_queue_remove() and maintains counters as well, but is otherwise
+ * oblivious to the page state machine.
+ *
+ * Most clients should use a wrapper around this function (typically
+ * vm_page_free_queue_steal()) and not call it directly.
+ *
+ * @param class         The memory class corresponding to the free queue
+ *                      @c page is enqueued on.
+ * @param mem           The page to remove.
+ * @param pnum          The physical address of @c page
+ * @param q_state       The desired queue state for the page.
+ */
+__attribute__((always_inline))
+extern void vm_page_free_queue_remove(
+	vm_memory_class_t       class,
+	vm_page_t               mem,
+	ppnum_t                 pnum,
+	vm_page_q_state_t       q_state);
+
+/*!
+ * @function vm_page_free_queue_grab()
+ *
+ * @abstract
+ * Gets pages from the free queue.
+ *
+ * @discussion
+ * Clients cannot get more pages than the free queue has; attempting to do so
+ * will cause a panic.
+ *
+ * Internally, the free queue is not synchronized, so any locking must be done
+ * outside of this function.
+ *
+ * Note that the callers are responsible for making sure that the requested
+ * queue state corresponds to a valid transition. This is a helper to abstract
+ * handling of the several free page queues on the system which sits above
+ * vm_page_queue_remove() and maintains counters as well, but is otherwise
+ * oblivious to the page state machine.
+ *
+ * Most clients should use a wrapper (typically vm_page_grab_options())
+ * around this function and not call it directly.
+ *
+ * @param options       The grab options.
+ * @param mem_class     The memory class to allocate from.
+ * @param num_pages     The number of pages to grab.
+ * @param q_state       The vmp_q_state to set on the page.
+ *
+ * @returns
+ * A list of pages; the list will be num_pages long.
+ */
+extern vm_page_list_t vm_page_free_queue_grab(
+	vm_grab_options_t       options,
+	vm_memory_class_t       mem_class,
+	unsigned int            num_pages,
+	vm_page_q_state_t       q_state);
+
+/*!
+ * @abstract
+ * Perform a wakeup for a free page queue wait event.
+ *
+ * @param event         the free page queue event to wake up
+ * @param n             the number of threads to try to wake up
+ *                      (UINT32_MAX means all).
+ */
+extern void vm_page_free_wakeup(event_t event, uint32_t n);
+
+
+extern  void    vm_page_assign_special_state(vm_page_t mem, vm_page_specialq_t mode);
 extern  void    vm_page_update_special_state(vm_page_t mem);
 extern  void    vm_page_add_to_specialq(vm_page_t mem, boolean_t first);
 extern  void    vm_page_remove_from_specialq(vm_page_t mem);
@@ -443,25 +681,63 @@ extern void             vm_page_make_private(vm_page_t m, ppnum_t base_page);
  */
 extern void             vm_page_reset_private(vm_page_t m);
 
+
 extern bool             vm_pool_low(void);
 
-extern vm_page_t        vm_page_grab(void);
-extern vm_page_t        vm_page_grab_options(int flags);
+/*!
+ * @abstract
+ * Grabs a page.
+ *
+ * @discussion
+ * Allocate a page by looking at:
+ * - per-cpu queues,
+ * - global free queues,
+ * - magical queues (delayed, secluded, ...)
+ *
+ * This function always succeeds for VM privileged threads,
+ * unless VM_PAGE_GRAB_NOPAGEWAIT is passed.
+ *
+ * This function might return VM_PAGE_NULL if there are no pages left.
+ */
+extern vm_page_t        vm_page_grab_options(vm_grab_options_t options);
 
-#define VM_PAGE_GRAB_OPTIONS_NONE 0x00000000
-#if CONFIG_SECLUDED_MEMORY
-#define VM_PAGE_GRAB_SECLUDED     0x00000001
-#endif /* CONFIG_SECLUDED_MEMORY */
-#define VM_PAGE_GRAB_Q_LOCK_HELD  0x00000002
+static inline vm_page_t
+vm_page_grab(void)
+{
+	return vm_page_grab_options(VM_PAGE_GRAB_OPTIONS_NONE);
+}
 
-extern vm_page_t        vm_page_grablo(void);
+/*!
+ * @abstract
+ * Returns the proper grab options for the specified object.
+ */
+extern vm_grab_options_t vm_page_grab_options_for_object(vm_object_t object);
 
-extern void             vm_page_release(
-	vm_page_t       page,
-	boolean_t       page_queues_locked);
+#if XNU_VM_HAS_LOPAGE
+extern vm_page_t vm_page_grablo(vm_grab_options_t options);
+#else
+static inline vm_page_t
+vm_page_grablo(vm_grab_options_t options)
+{
+	return vm_page_grab_options(options);
+}
+#endif
+
+
+__options_closed_decl(vmp_release_options_t, uint32_t, {
+	VMP_RELEASE_NONE                = 0x00,
+	VMP_RELEASE_Q_LOCKED            = 0x01,
+	VMP_RELEASE_SKIP_FREE_CHECK     = 0x02,
+	VMP_RELEASE_HIBERNATE           = 0x04,
+	VMP_RELEASE_STARTUP             = 0x08,
+});
+
+extern void vm_page_release(
+	vm_page_t               page,
+	vmp_release_options_t   options);
 
 extern boolean_t        vm_page_wait(
-	int             interruptible );
+	int             interruptible);
 
 extern void             vm_page_init(
 	vm_page_t       page,
@@ -474,50 +750,6 @@ extern void             vm_page_free_unlocked(
 	vm_page_t       page,
 	boolean_t       remove_from_hash);
 
-/*
- * vm_page_get_memory_class:
- * Given a page, returns the memory class of that page.
- */
-extern vm_memory_class_t        vm_page_get_memory_class(
-	vm_page_t               page);
-
-/*
- * vm_page_steal_free_page:
- * Given a VM_PAGE_ON_FREE_Q page, steals it from its free queue.
- */
-extern void                     vm_page_steal_free_page(
-	vm_page_t               page,
-	vm_remove_reason_t      remove_reason);
-
-/*!
- * @typedef vmp_free_list_result_t
- *
- * @discussion
- * This data structure is used by vm_page_put_list_on_free_queue to track
- * how many pages were freed to which free lists, so that it can then drive
- * which waiters we are going to wake up.
- *
- * uint8_t counters are enough because we never free more than 64 pages at
- * a time, and this allows for the data structure to be passed by register.
- */
-typedef struct {
-	uint8_t vmpr_regular;
-	uint8_t vmpr_lopage;
-#if CONFIG_SECLUDED_MEMORY
-	uint8_t vmpr_secluded;
-#endif /* CONFIG_SECLUDED_MEMORY */
-} vmp_free_list_result_t;
-
-/*
- * vm_page_put_list_on_free_queue:
- * Given a list of pages, put each page on whichever global free queue is
- * appropriate.
- *
- * Must be called with the VM free page lock held.
- */
-extern vmp_free_list_result_t vm_page_put_list_on_free_queue(
-	vm_page_t       list,
-	bool            page_queues_locked);
 
 extern void             vm_page_balance_inactive(
 	int             max_to_move);

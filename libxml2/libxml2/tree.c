@@ -233,16 +233,18 @@ xmlGetParameterEntityFromDtd(const xmlDtd *dtd, const xmlChar *name) {
 xmlChar *
 xmlBuildQName(const xmlChar *ncname, const xmlChar *prefix,
 	      xmlChar *memory, int len) {
-    int lenn, lenp;
+    size_t lenn, lenp;
     xmlChar *ret;
 
-    if (ncname == NULL) return(NULL);
+    if ((ncname == NULL) || (len < 0)) return(NULL);
     if (prefix == NULL) return((xmlChar *) ncname);
 
     lenn = strlen((char *) ncname);
     lenp = strlen((char *) prefix);
+    if (lenn >= SIZE_MAX - lenp - 1)
+        return(NULL);
 
-    if ((memory == NULL) || (len < lenn + lenp + 2)) {
+    if ((memory == NULL) || ((size_t) len < lenn + lenp + 2)) {
 	ret = (xmlChar *) xmlMallocAtomic(lenn + lenp + 2);
 	if (ret == NULL) {
 	    xmlTreeErrMemory("building QName");
@@ -1197,7 +1199,7 @@ xmlNewDoc(const xmlChar *version) {
     cur->compression = -1; /* not initialized */
     cur->doc = cur;
     cur->parseFlags = 0;
-    cur->properties = XML_DOC_USERBUILT;
+    XML_DOC_SET_PROPERTIES(cur, XML_DOC_USERBUILT);
     /*
      * The in memory encoding is always UTF8
      * This field will never change and would
@@ -2147,7 +2149,7 @@ xmlFreeProp(xmlAttrPtr cur) {
 	xmlDeregisterNodeDefaultValue((xmlNodePtr)cur);
 
     /* Check for ID removal -> leading to invalid references ! */
-    if ((cur->doc != NULL) && (cur->atype == XML_ATTRIBUTE_ID)) {
+    if ((cur->doc != NULL) && (XML_ATTR_GET_ATYPE(cur) == XML_ATTRIBUTE_ID)) {
 	    xmlRemoveID(cur->doc, cur);
     }
     if (cur->children != NULL) xmlFreeNodeList(cur->children);
@@ -2883,7 +2885,7 @@ xmlSetTreeDoc(xmlNodePtr tree, xmlDocPtr doc) {
 	if(tree->type == XML_ELEMENT_NODE) {
 	    prop = tree->properties;
 	    while (prop != NULL) {
-                if (prop->atype == XML_ATTRIBUTE_ID) {
+                if (XML_ATTR_GET_ATYPE(prop) == XML_ATTRIBUTE_ID) {
                     xmlRemoveID(tree->doc, prop);
                 }
 
@@ -7048,9 +7050,9 @@ xmlSetNsProp(xmlNodePtr node, xmlNsPtr ns, const xmlChar *name,
 	/*
 	* Modify the attribute's value.
 	*/
-	if (prop->atype == XML_ATTRIBUTE_ID) {
+	if (XML_ATTR_GET_ATYPE(prop) == XML_ATTRIBUTE_ID) {
 	    xmlRemoveID(node->doc, prop);
-	    prop->atype = XML_ATTRIBUTE_ID;
+	    XML_ATTR_SET_ATYPE(prop, XML_ATTRIBUTE_ID);
 	}
 	if (prop->children != NULL)
 	    xmlFreeNodeList(prop->children);
@@ -7070,7 +7072,7 @@ xmlSetNsProp(xmlNodePtr node, xmlNsPtr ns, const xmlChar *name,
 		tmp = tmp->next;
 	    }
 	}
-	if (prop->atype == XML_ATTRIBUTE_ID)
+	if (XML_ATTR_GET_ATYPE(prop) == XML_ATTRIBUTE_ID)
 	    xmlAddID(NULL, node->doc, value, prop);
 	return(prop);
     }
@@ -9366,7 +9368,7 @@ ns_end:
 		if (cur->type == XML_ELEMENT_NODE) {
 		    cur->psvi = NULL;
 		    cur->line = 0;
-		    cur->extra = 0;
+		    XML_NODE_CLEAR_EXTRA(cur);
 		    /*
 		    * Walk attributes.
 		    */
@@ -9382,11 +9384,11 @@ ns_end:
 		    * Attributes.
 		    */
 		    if ((sourceDoc != NULL) &&
-			(((xmlAttrPtr) cur)->atype == XML_ATTRIBUTE_ID))
+			(XML_ATTR_GET_ATYPE((xmlAttrPtr) cur) == XML_ATTRIBUTE_ID))
 		    {
 			xmlRemoveID(sourceDoc, (xmlAttrPtr) cur);
 		    }
-		    ((xmlAttrPtr) cur)->atype = 0;
+		    XML_ATTR_CLEAR_ATYPE((xmlAttrPtr) cur);
 		    ((xmlAttrPtr) cur)->psvi = NULL;
 		}
 		break;
@@ -10101,7 +10103,7 @@ xmlDOMWrapAdoptAttr(xmlDOMWrapCtxtPtr ctxt,
     }
 
     XML_TREE_ADOPT_STR(attr->name);
-    attr->atype = 0;
+    XML_ATTR_CLEAR_ATYPE(attr);
     attr->psvi = NULL;
     /*
     * Walk content.

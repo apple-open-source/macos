@@ -481,6 +481,8 @@ inline PropertyOffset Structure::add(VM& vm, PropertyName propertyName, unsigned
     checkConsistency();
     if (attributes & PropertyAttribute::DontEnum || propertyName.isSymbol())
         setIsQuickPropertyAccessAllowedForEnumeration(false);
+    if (attributes & PropertyAttribute::ReadOnly)
+        setContainsReadOnlyProperties();
     if (attributes & PropertyAttribute::DontEnum)
         setHasNonEnumerableProperties(true);
     if (attributes & PropertyAttribute::DontDelete) {
@@ -637,6 +639,8 @@ ALWAYS_INLINE auto Structure::addOrReplacePropertyWithoutTransition(VM& vm, Prop
     checkConsistency();
     if (newAttributes & PropertyAttribute::DontEnum || propertyName.isSymbol())
         setIsQuickPropertyAccessAllowedForEnumeration(false);
+    if (newAttributes & PropertyAttribute::ReadOnly)
+        setContainsReadOnlyProperties();
     if (newAttributes & PropertyAttribute::DontEnum)
         setHasNonEnumerableProperties(true);
     if (newAttributes & PropertyAttribute::DontDelete) {

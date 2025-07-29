@@ -254,7 +254,6 @@ static NSString *replyBlockSignature(Protocol *protocol, SEL selector, NSUIntege
 
         if (!WebKit::methodSignaturesAreCompatible(wireBlockSignature, expectedBlockSignature)) {
             NSLog(@"_invokeMethod: Failed to validate reply block signature: %@ != %@", wireBlockSignature, expectedBlockSignature);
-            ASSERT_NOT_REACHED();
             return;
         }
 

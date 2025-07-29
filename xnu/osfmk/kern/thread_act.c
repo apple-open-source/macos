@@ -728,7 +728,7 @@ thread_set_state_internal(
 #if !(XNU_TARGET_OS_OSX || XNU_TARGET_OS_BRIDGE)
 	/*
 	 * Setting the thread state from a userspace mach exception handler is
-	 * allowed iff it comes from the same process, or if the process is
+	 * allowed if it comes from the same process, or if the process is
 	 * being debugged (in dev mode), regardless of TSSF_CHECK_ENTITLEMENT
 	 */
 	if (thread->options & TH_IN_MACH_EXCEPTION) {
@@ -737,7 +737,7 @@ thread_set_state_internal(
 		curr_task = current_task();
 		if (target_task != curr_task &&
 		    task_is_hardened_binary(target_task) &&
-		    (address_space_debugged(target_proc) != KERN_SUCCESS) &&
+		    !is_address_space_debugged(target_proc) &&
 		    !IOTaskHasEntitlement(curr_task, "com.apple.private.thread-set-state")) {
 			mach_port_guard_exception(MACH_PORT_NULL, 0, kGUARD_EXC_THREAD_SET_STATE);
 			send_thread_set_state_telemetry();

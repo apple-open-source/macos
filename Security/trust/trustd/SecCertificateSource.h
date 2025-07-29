@@ -29,7 +29,6 @@
 
 #include <CoreFoundation/CoreFoundation.h>
 #include <Security/SecCertificate.h>
-#include "trust/trustd/SecTrustServer.h"
 #ifndef SecPVCRef
 typedef struct OpaqueSecPVC *SecPVCRef;
 #endif
@@ -82,7 +81,7 @@ SecCertificateSourceRef SecMemoryCertificateSourceCreate(CFArrayRef certificates
 void SecMemoryCertificateSourceDestroy(SecCertificateSourceRef source);
 
 /* SecSystemConstrainedAnchorSource */
-bool SecSystemConstrainedAnchorSourceContainsAnchor(SecCertificateRef certificate);
+bool SecSystemConstrainedAnchorSourceContainsAnchorByKey(SecCertificateRef certificate);
 CFArrayRef SecSystemConstrainedAnchorSourceCopyUsageConstraints(SecCertificateSourceRef source, SecCertificateRef certificate);
 extern const SecCertificateSourceRef kSecSystemConstrainedAnchorSource;
 
@@ -103,5 +102,11 @@ extern const SecCertificateSourceRef kSecLegacyCertificateSource;
 /* SecLegacyAnchorSource */
 extern const SecCertificateSourceRef kSecLegacyAnchorSource;
 #endif
+
+/* Functions exposed for unit testing */
+CFArrayRef CopyAnchorRecordsForSPKI(SecCertificateRef certificate);
+CFArrayRef CopyAnchorRecordsForCertificate(SecCertificateRef certificate);
+CFArrayRef CopyUsageConstraintsForCertificate(SecCertificateRef certificate);
+
 
 #endif /* _SECURITY_SECCERTIFICATESOURCE_H_ */

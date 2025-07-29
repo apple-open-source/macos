@@ -77,17 +77,27 @@ namespace WebKit {
 #if USE(EXTENSIONKIT)
 static std::pair<ASCIILiteral, RetainPtr<NSString>> serviceNameAndIdentifier(ProcessLauncher::ProcessType processType, ProcessLauncher::Client* client, bool isRetryingLaunch)
 {
+    bool hasExtensionsInAppBundle = ProcessLauncher::hasExtensionsInAppBundle();
     switch (processType) {
     case ProcessLauncher::ProcessType::Web: {
-        if (client && client->shouldEnableLockdownMode())
+        bool useCaptivePortal = client && client->shouldEnableLockdownMode();
+        if (!hasExtensionsInAppBundle) {
+            if (!useCaptivePortal)
+                return { "com.apple.WebKit.WebContent"_s, @"com.apple.WebKit.WebContent" };
             return { "com.apple.WebKit.WebContent"_s, @"com.apple.WebKit.WebContent.CaptivePortal" };
-        return { "com.apple.WebKit.WebContent"_s, @"com.apple.WebKit.WebContent" };
+        }
+        NSString *webContentAppex = !useCaptivePortal ? @"WebContentExtension" : @"WebContentCaptivePortalExtension";
+        return { "com.apple.WebKit.WebContent"_s, [NSString stringWithFormat:@"%@.%@", [[NSBundle mainBundle] bundleIdentifier], webContentAppex] };
     }
     case ProcessLauncher::ProcessType::Network:
-        return { "com.apple.WebKit.Networking"_s, @"com.apple.WebKit.Networking" };
+        if (!hasExtensionsInAppBundle)
+            return { "com.apple.WebKit.Networking"_s, @"com.apple.WebKit.Networking" };
+        return { "com.apple.WebKit.Networking"_s, [NSString stringWithFormat:@"%@.NetworkingExtension", [[NSBundle mainBundle] bundleIdentifier]] };
 #if ENABLE(GPU_PROCESS)
     case ProcessLauncher::ProcessType::GPU:
-        return { "com.apple.WebKit.GPU"_s, @"com.apple.WebKit.GPU" };
+        if (!hasExtensionsInAppBundle)
+            return { "com.apple.WebKit.GPU"_s, @"com.apple.WebKit.GPU" };
+        return { "com.apple.WebKit.GPU"_s, [NSString stringWithFormat:@"%@.GPUExtension", [[NSBundle mainBundle] bundleIdentifier]] };
 #endif
     }
 }
@@ -157,30 +167,21 @@ static void launchWithExtensionKit(ProcessLauncher& processLauncher, ProcessLaun
         auto block = makeBlockPtr([handler = WTFMove(handler), weakProcessLauncher = ThreadSafeWeakPtr { processLauncher }, name = name](BEWebContentProcess *_Nullable process, NSError *_Nullable error) {
             handler(WTFMove(weakProcessLauncher), process, name, error);
         });
-        if (ProcessLauncher::hasExtensionsInAppBundle())
-            [BEWebContentProcess webContentProcessWithInterruptionHandler:^{ } completion:block.get()];
-        else
-            [BEWebContentProcess webContentProcessWithBundleID:identifier.get() interruptionHandler:^{ } completion:block.get()];
+        [BEWebContentProcess webContentProcessWithBundleID:identifier.get() interruptionHandler:^{ } completion:block.get()];
         break;
     }
     case ProcessLauncher::ProcessType::Network: {
         auto block = makeBlockPtr([handler = WTFMove(handler), weakProcessLauncher = ThreadSafeWeakPtr { processLauncher }, name = name](BENetworkingProcess *_Nullable process, NSError *_Nullable error) {
             handler(WTFMove(weakProcessLauncher), process, name, error);
         });
-        if (ProcessLauncher::hasExtensionsInAppBundle())
-            [BENetworkingProcess networkProcessWithInterruptionHandler:^{ } completion:block.get()];
-        else
-            [BENetworkingProcess networkProcessWithBundleID:identifier.get() interruptionHandler:^{ } completion:block.get()];
+        [BENetworkingProcess networkProcessWithBundleID:identifier.get() interruptionHandler:^{ } completion:block.get()];
         break;
     }
     case ProcessLauncher::ProcessType::GPU: {
         auto block = makeBlockPtr([handler = WTFMove(handler), weakProcessLauncher = ThreadSafeWeakPtr { processLauncher }, name = name](BERenderingProcess *_Nullable process, NSError *_Nullable error) {
             handler(WTFMove(weakProcessLauncher), process, name, error);
         });
-        if (ProcessLauncher::hasExtensionsInAppBundle())
-            [BERenderingProcess renderingProcessWithInterruptionHandler:^{ } completion:block.get()];
-        else
-            [BERenderingProcess renderingProcessWithBundleID:identifier.get() interruptionHandler:^{ } completion:block.get()];
+        [BERenderingProcess renderingProcessWithBundleID:identifier.get() interruptionHandler:^{ } completion:block.get()];
         break;
     }
     }

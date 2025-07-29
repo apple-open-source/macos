@@ -145,7 +145,8 @@ typedef enum DATelemetryFSType {
     DATelemetryFSTypeAPFS,
     DATelemetryFSTypeHFS,
     DATelemetryFSTypeNTFS,
-    DATelemetryFSTypeOther
+    DATelemetryFSTypeOther,
+    DATelemetryFSTypeMSDOSEFI
 } DATelemetryFSType;
 
 typedef enum DATelemetryUnmountApprovalStatus {
@@ -196,6 +197,8 @@ int done = 0;
             return "hfs";
         case DATelemetryFSTypeNTFS:
             return "ntfs";
+        case DATelemetryFSTypeMSDOSEFI:
+            return "msdos-efi";
         default:
             return "other";
     }

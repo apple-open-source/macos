@@ -29,6 +29,7 @@
 #include <skywalk/os_skywalk_private.h>
 #include <machine/limits.h>
 #include <machine/machine_routines.h>
+#include <vm/vm_page.h>
 #include <vm/vm_pageout.h>
 
 /*
@@ -592,12 +593,6 @@ skmem_get_sysctls_obj(size_t * size)
 
 	return sk_sys_obj;
 }
-
-/* for VM stats */
-extern unsigned int vm_page_free_count, vm_page_speculative_count,
-    vm_page_active_count, vm_page_inactive_count, vm_page_inactive_count,
-    vm_page_wire_count, vm_page_throttled_count, vm_lopage_free_count,
-    vm_page_purgeable_count, vm_page_purged_count;
 
 #define SKMEM_WDT_DUMP_BUF_CHK() do {                           \
 	clen -= k;                                              \

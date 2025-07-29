@@ -910,6 +910,7 @@ bool SelectorChecker::checkOne(CheckingContext& checkingContext, LocalContext& c
                 bool hasMatchedAnything = false;
 
                 MatchType localMatchType = MatchType::VirtualPseudoElementOnly;
+                ASSERT(selector.selectorList());
                 for (const auto& subselector : *selector.selectorList()) {
                     LocalContext subcontext(context);
                     subcontext.inFunctionalPseudoClass = true;

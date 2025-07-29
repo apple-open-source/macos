@@ -373,6 +373,14 @@ struct	fldstat {
 	gid_t		 gid;	 /* group */
 };
 
+enum log_type {
+	LT_CLIENT,
+	LT_INFO,
+	LT_LOG,
+	LT_WARNING,
+	LT_ERROR,
+};
+
 enum name_basis {
 	BASIS_DIR_LOW = 0,
 	BASIS_DIR_HIGH = 0x7F,
@@ -421,7 +429,7 @@ struct	flist {
 #define	FLIST_SUCCESS_ACKED	0x10	/* Sent success message */
 #define	FLIST_NEED_HLINK	0x20	/* Needs to be hardlinked */
 #define	FLIST_SKIPPED		0x40	/* File should be skipped */
-
+#define	FLIST_SKIP_METADATA	0x80	/* File metadata should be skipped */
 #define	FLIST_DONE_MASK		(FLIST_SUCCESS | FLIST_REDO | FLIST_FAILED)
 
 /*
@@ -515,6 +523,8 @@ struct	opts {
 	long		 block_size;		/* --block-size */
 	char            *filesfrom_host;        /* --files-from */
 	char            *filesfrom_path;        /* --files-from */
+	char		*logfile;		/* --log-file */
+	char		*logformat;		/* --log-file-format */
 	int		 whole_file;		/* --whole-file */
 	const char	*read_batch;		/* --read-batch */
 	const char	*write_batch;		/* --write-batch */
@@ -531,7 +541,6 @@ struct	opts {
 	int		 preserve_executability;	/* --executability */
 	int		 modwin;		/* --modify-windows=sec */
 	int		 fuzzy_basis;		/* -y */
-	int		 quiet;			/* -q, --quiet */
 	long		 max_delete;		/* --max-delete */
 #ifdef __APPLE__
 	int		 extended_attributes;	/* --extended-attributes */
@@ -626,6 +635,7 @@ typedef const char *(role_fetch_outfmt_fn)(const struct sess *, void *, char);
  */
 struct	role {
 	int		 append;		/* Append mode active */
+	int		 client;		/* Socket for the client */
 
 	/* Propagated between successive roles */
 	role_fetch_outfmt_fn	*role_fetch_outfmt;	/* --out-format field */
@@ -692,6 +702,8 @@ struct	sess {
 	uint8_t		   itemize; /* %i + %I in --out-format */
 	uint8_t		   itemize_i; /* %i in --out-format */
 	uint8_t		   itemize_o; /* %o in --out-format */
+	uint8_t		   logfile_itemize_i; /* %i in --log-file-format */
+	uint8_t		   logfile_itemize_o; /* %o in --log-file-format */
 	uint8_t		   lateprint; /* Does output format contain a flag requiring late print? */
 	char             **filesfrom; /* Contents of files-from */
 	size_t             filesfrom_n; /* Number of lines for filesfrom */
@@ -755,6 +767,7 @@ struct hardlinks;
 
 extern const char rsync_shopts[];
 extern const struct option rsync_lopts[];
+extern int quiet;
 extern int verbose;
 
 #define	TMPDIR_FD	(sess->opts->temp_dir && p->tempfd != -1 ? p->tempfd : p->rootfd)
@@ -1155,7 +1168,7 @@ int		 hash_file_by_path(int, const char *, size_t, unsigned char *);
  * generic move_file() that should handle things well enough for the majority of
  * platforms.
  */
-int		 move_file(int, const char *, int, const char *, int);
+int		 move_file(int, const char *, int, const char *, int, int);
 void		 copy_file(int, const char *, const struct flist *);
 int		 backup_file(int, const char *, int, const char *, int, const struct fldstat *);
 int		 backup_to_dir(struct sess *, int, const struct flist *,
@@ -1180,7 +1193,7 @@ int		 platform_flist_entry_received(struct sess *, int,
 		    struct flist *);
 void		 platform_flist_received(struct sess *, struct flist *, size_t);
 int		 platform_move_file(const struct sess *, struct flist *,
-		    int, const char *, int, const char *, int);
+		    int, const char *, int, const char *, int, int);
 int		 platform_finish_transfer(const struct sess *, struct flist *,
 		    int, const char *);
 
@@ -1243,8 +1256,17 @@ void log_format_init(struct sess *sess);
 void our_strmode(mode_t mode, char *p);
 int print_7_or_8_bit(const struct sess *sess, const char *fmt, const char *s,
     struct sbuf *);
-int log_item_impl(struct sess *sess, const struct flist *f);
+int log_item_impl(enum log_type, struct sess *sess, const struct flist *f);
 int log_item(struct sess *sess, const struct flist *f);
 const char *iflags_decode(uint32_t iflags);
+
+static inline enum log_type
+xfer_log_level(struct sess *sess)
+{
+
+	if (sess->lateprint && !sess->opts->server && !sess->opts->daemon)
+		return (LT_INFO);
+	return (LT_LOG);
+}
 
 #endif /*!EXTERN_H*/

@@ -704,7 +704,7 @@ sanitizer_size(sanitizer_zone_t *zone, const void * __unsafe_indexable ptr)
 	return size;
 }
 
-static void * __alloc_size(2)
+static void * __alloc_size(2) __sized_by_or_null(size)
 sanitizer_malloc_type_malloc_noalign_with_options(sanitizer_zone_t *zone,
 		size_t size, uint64_t options, malloc_type_id_t type_id)
 {
@@ -785,14 +785,14 @@ sanitizer_malloc_type_malloc_noalign_with_options(sanitizer_zone_t *zone,
 	return ptr;
 }
 
-static void * __alloc_size(2)
+static void * __alloc_size(2) __sized_by_or_null(size)
 sanitizer_malloc(sanitizer_zone_t *zone, size_t size)
 {
 	return sanitizer_malloc_type_malloc_noalign_with_options(zone, size, 0,
 			malloc_get_tsd_type_id());
 }
 
-static void * __alloc_size(2)
+static void * __alloc_size(2) __sized_by_or_null(size)
 sanitizer_malloc_type_malloc(sanitizer_zone_t *zone, size_t size,
 		malloc_type_id_t type_id)
 {
@@ -800,7 +800,7 @@ sanitizer_malloc_type_malloc(sanitizer_zone_t *zone, size_t size,
 			type_id);
 }
 
-static void * __alloc_size(2,3)
+static void * __alloc_size(2,3) __sized_by_or_null(num_items * size)
 sanitizer_malloc_type_calloc(sanitizer_zone_t *zone, size_t num_items,
 		size_t size, malloc_type_id_t type_id)
 {
@@ -859,14 +859,14 @@ sanitizer_malloc_type_calloc(sanitizer_zone_t *zone, size_t num_items,
 }
 
 
-static void * __alloc_size(2,3)
+static void * __alloc_size(2,3) __sized_by_or_null(num_items * size)
 sanitizer_calloc(sanitizer_zone_t *zone, size_t num_items, size_t size)
 {
 	return sanitizer_malloc_type_calloc(zone, num_items, size,
 			malloc_get_tsd_type_id());
 }
 
-static void * __alloc_size(2)
+static void * __alloc_size(2) __sized_by_or_null(size)
 sanitizer_valloc(sanitizer_zone_t *zone, size_t size)
 {
 	if (!size) {
@@ -904,6 +904,10 @@ sanitizer_valloc(sanitizer_zone_t *zone, size_t size)
 static void
 sanitizer_free(sanitizer_zone_t *zone, void * __unsafe_indexable ptr)
 {
+	if (os_unlikely(!ptr)) {
+		return;
+	}
+
 	size_t size = 0;
 	if (zone->do_poisoning) {
 		size = DELEGATE(size, ptr);
@@ -913,7 +917,7 @@ sanitizer_free(sanitizer_zone_t *zone, void * __unsafe_indexable ptr)
 	place_into_quarantine(zone, ptr, size);
 }
 
-static void * __alloc_size(3)
+static void * __alloc_size(3) __sized_by_or_null(new_size)
 sanitizer_malloc_type_realloc(sanitizer_zone_t *zone,
 		void * __unsafe_indexable ptr, size_t new_size,
 		malloc_type_id_t type_id)
@@ -991,7 +995,7 @@ sanitizer_malloc_type_realloc(sanitizer_zone_t *zone,
 	return new_ptr;
 }
 
-static void * __alloc_size(3)
+static void * __alloc_size(3) __sized_by_or_null(new_size)
 sanitizer_realloc(sanitizer_zone_t *zone, void * __unsafe_indexable ptr, size_t new_size)
 {
 	return sanitizer_malloc_type_realloc(zone, ptr, new_size,
@@ -1011,7 +1015,7 @@ sanitizer_destroy(sanitizer_zone_t *zone)
 #endif /* !MALLOC_TARGET_EXCLAVES */
 }
 
-static void * __alloc_align(2) __alloc_size(3)
+static void * __alloc_align(2) __alloc_size(3) __sized_by_or_null(size)
 sanitizer_malloc_type_memalign(sanitizer_zone_t *zone, size_t align,
 		size_t size, malloc_type_id_t type_id)
 {
@@ -1059,14 +1063,14 @@ sanitizer_malloc_type_memalign(sanitizer_zone_t *zone, size_t align,
 	return ptr;
 }
 
-static void * __alloc_align(2) __alloc_size(3)
+static void * __alloc_align(2) __alloc_size(3) __sized_by_or_null(size)
 sanitizer_memalign(sanitizer_zone_t *zone, size_t align, size_t size)
 {
 	return sanitizer_malloc_type_memalign(zone, align, size,
 			malloc_get_tsd_type_id());
 }
 
-static void * __alloc_align(2) __alloc_size(3)
+static void * __alloc_align(2) __alloc_size(3) __sized_by_or_null(size)
 sanitizer_malloc_type_malloc_with_options(sanitizer_zone_t *zone, size_t align,
 	size_t size, uint64_t options, malloc_type_id_t type_id)
 {
@@ -1095,7 +1099,7 @@ sanitizer_malloc_type_malloc_with_options(sanitizer_zone_t *zone, size_t align,
 	return ptr;
 }
 
-static void * __alloc_align(2) __alloc_size(3)
+static void * __alloc_align(2) __alloc_size(3) __sized_by_or_null(size)
 sanitizer_malloc_with_options(sanitizer_zone_t *zone, size_t align, size_t size,
 		uint64_t options)
 {

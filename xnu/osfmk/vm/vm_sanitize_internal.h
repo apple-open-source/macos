@@ -191,7 +191,7 @@ __enum_closed_decl(vm_sanitize_caller_id_t, uint32_t, {
  * Reject non user allowed mem map flags for memory entry.
  *
  * @const VM_SANITIZE_FLAGS_CANONICALIZE
- * Canonicalize address for CONFIG_KERNEL_TAGGING
+ * Canonicalize address for KASAN_TBI
  *
  * @const VM_SANITIZE_FLAGS_CHECK_ALIGNED_SIZE
  * Checks that the size is aligned to map page size.

@@ -69,22 +69,22 @@ void ChildChangeInvalidation::invalidateForChangedElement(Element& changedElemen
         SelectorChecker::CheckingContext checkingContext(SelectorChecker::Mode::CollectingRulesIgnoringVirtualPseudoElements);
         checkingContext.matchesAllHasScopes = true;
 
-        for (auto* selector : invalidationRuleSet.invalidationSelectors) {
+        for (auto& selector : invalidationRuleSet.invalidationSelectors) {
             if (isFirst && invalidationRuleSet.isNegation == IsNegation::No) {
                 // If this :has() matches ignoring this mutation, nothing actually changes and we don't need to invalidate.
                 // FIXME: We could cache this state across invalidations instead of just testing a single sibling.
-                auto* sibling = m_childChange.previousSiblingElement ? m_childChange.previousSiblingElement : m_childChange.nextSiblingElement;
-                if (sibling && selectorChecker.match(*selector, *sibling, checkingContext)) {
-                    matchingHasSelectors.add(selector);
+                RefPtr sibling = m_childChange.previousSiblingElement ? m_childChange.previousSiblingElement : m_childChange.nextSiblingElement;
+                if (sibling && selectorChecker.match(selector, *sibling, checkingContext)) {
+                    matchingHasSelectors.add(&selector);
                     continue;
                 }
             }
 
-            if (matchingHasSelectors.contains(selector))
+            if (matchingHasSelectors.contains(&selector))
                 continue;
 
-            if (selectorChecker.match(*selector, changedElement, checkingContext)) {
-                matchingHasSelectors.add(selector);
+            if (selectorChecker.match(selector, changedElement, checkingContext)) {
+                matchingHasSelectors.add(&selector);
                 return true;
             }
         }

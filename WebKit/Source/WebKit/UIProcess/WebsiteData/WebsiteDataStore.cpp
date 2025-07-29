@@ -818,7 +818,7 @@ static WebsiteDataStore::ProcessAccessType computeWebProcessAccessTypeForDataRem
     return WebsiteDataStore::ProcessAccessType::None;
 }
 
-HashSet<WebCore::ProcessIdentifier> WebsiteDataStore::activeWebProcesses(ServiceWorkerProcessCanBeActive serviceWorkerProcessCanBeActive) const
+HashSet<WebCore::ProcessIdentifier> WebsiteDataStore::activeWebProcesses() const
 {
     HashSet<WebCore::ProcessIdentifier> identifiers;
     // m_processes does not include worker processes now, so we iterate all processes.
@@ -827,9 +827,7 @@ HashSet<WebCore::ProcessIdentifier> WebsiteDataStore::activeWebProcesses(Service
             if (process->isPrewarmed() || process->websiteDataStore() != this)
                 continue;
 
-            if (process->pageCount() || process->provisionalPageCount())
-                identifiers.add(process->coreProcessIdentifier());
-            else if (serviceWorkerProcessCanBeActive == ServiceWorkerProcessCanBeActive::Yes && process->isRunningServiceWorkers())
+            if (process->pageCount() || process->provisionalPageCount() || process->isRunningServiceWorkers())
                 identifiers.add(process->coreProcessIdentifier());
         }
     }
@@ -848,10 +846,7 @@ void WebsiteDataStore::removeDataInNetworkProcess(WebsiteDataStore::ProcessAcces
     if (!networkProcess)
         return completionHandler();
 
-    // Service worker processes will be terminated for data removal if types include service worker registrations,
-    // so they cannot be treated as active process.
-    ServiceWorkerProcessCanBeActive canBeActive = dataTypes.contains(WebsiteDataType::ServiceWorkerRegistrations) ? ServiceWorkerProcessCanBeActive::No : ServiceWorkerProcessCanBeActive::Yes;
-    networkProcess->deleteWebsiteData(m_sessionID, dataTypes, modifiedSince, activeWebProcesses(canBeActive), WTFMove(completionHandler));
+    networkProcess->deleteWebsiteData(m_sessionID, dataTypes, modifiedSince, activeWebProcesses(), WTFMove(completionHandler));
 }
 
 void WebsiteDataStore::removeData(OptionSet<WebsiteDataType> dataTypes, WallTime modifiedSince, Function<void()>&& completionHandler)
@@ -883,10 +878,6 @@ void WebsiteDataStore::removeData(OptionSet<WebsiteDataType> dataTypes, WallTime
             // be added to the WebProcess cache.
             processPool->protectedBackForwardCache()->removeEntriesForSession(sessionID());
             processPool->checkedWebProcessCache()->clearAllProcessesForSession(sessionID());
-
-            // Terminate worker processes if we will also delete service worker registrations.
-            if (dataTypes.contains(WebsiteDataType::ServiceWorkerRegistrations))
-                processPool->terminateServiceWorkersForSession(sessionID());
         }
     }
 
@@ -2570,7 +2561,7 @@ void WebsiteDataStore::setEmulatedConditions(std::optional<int64_t>&& bytesPerSe
 
 #endif // ENABLE(INSPECTOR_NETWORK_THROTTLING)
 
-Ref<DownloadProxy> WebsiteDataStore::createDownloadProxy(Ref<API::DownloadClient>&& client, const WebCore::ResourceRequest& request, WebPageProxy* originatingPage, const FrameInfoData& frameInfo)
+Ref<DownloadProxy> WebsiteDataStore::createDownloadProxy(Ref<API::DownloadClient>&& client, const WebCore::ResourceRequest& request, WebPageProxy* originatingPage, const std::optional<FrameInfoData>& frameInfo)
 {
     return protectedNetworkProcess()->createDownloadProxy(*this, WTFMove(client), request, frameInfo, originatingPage);
 }

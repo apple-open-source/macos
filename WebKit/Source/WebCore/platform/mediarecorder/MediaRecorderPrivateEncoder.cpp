@@ -142,7 +142,7 @@ bool MediaRecorderPrivateEncoder::initialize(const MediaRecorderPrivateOptions& 
 {
     assertIsMainThread();
 
-    m_writer = writer.moveToUniquePtr();
+    lazyInitialize(m_writer, writer.moveToUniquePtr());
 
     ContentType mimeType(options.mimeType);
     auto containerType = mimeType.containerType();

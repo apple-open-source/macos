@@ -364,6 +364,13 @@ vm_swap_encrypt(c_segment_t c_seg)
 		swap_crypt_initialize();
 	}
 
+	/*
+	 * Data stored in the compressor should never need to be faulted in.
+	 * Make sure pages storing data that we're encrypting cannot
+	 * be stolen out from under us in the off chance that the mapping
+	 * gets disconnected while we're actively encrypting.
+	 */
+	PAGE_REPLACEMENT_DISALLOWED(TRUE);
 #if DEVELOPMENT || DEBUG
 	C_SEG_MAKE_WRITEABLE(c_seg);
 #endif
@@ -382,10 +389,11 @@ vm_swap_encrypt(c_segment_t c_seg)
 #if DEVELOPMENT || DEBUG
 	C_SEG_WRITE_PROTECT(c_seg);
 #endif
+	PAGE_REPLACEMENT_DISALLOWED(FALSE);
 }
 
 void
-vm_swap_decrypt(c_segment_t c_seg)
+vm_swap_decrypt(c_segment_t c_seg, bool disallow_page_replacement)
 {
 	uint8_t *ptr;
 	uint8_t *iv;
@@ -394,6 +402,15 @@ vm_swap_decrypt(c_segment_t c_seg)
 	int rc   = 0;
 
 	assert(swap_crypt_initialized);
+
+	/*
+	 * See comment in vm_swap_encrypt().
+	 * The master lock may already be held, though, which is why we don't do
+	 * PAGE_REPLACEMENT_DISALLOWED(TRUE) and do a try_lock instead.
+	 */
+	if (disallow_page_replacement) {
+		PAGE_REPLACEMENT_DISALLOWED(TRUE);
+	}
 
 #if DEVELOPMENT || DEBUG
 	C_SEG_MAKE_WRITEABLE(c_seg);
@@ -413,6 +430,9 @@ vm_swap_decrypt(c_segment_t c_seg)
 #if DEVELOPMENT || DEBUG
 	C_SEG_WRITE_PROTECT(c_seg);
 #endif
+	if (disallow_page_replacement) {
+		PAGE_REPLACEMENT_DISALLOWED(FALSE);
+	}
 }
 #endif /* ENCRYPTED_SWAP */
 
@@ -1410,7 +1430,7 @@ vm_swapout_finish(c_segment_t c_seg, uint64_t f_offset, uint32_t size, kern_retu
 	}
 #if ENCRYPTED_SWAP
 	else {
-		vm_swap_decrypt(c_seg);
+		vm_swap_decrypt(c_seg, false);
 	}
 #endif /* ENCRYPTED_SWAP */
 	lck_mtx_lock_spin_always(c_list_lock);
@@ -2293,7 +2313,7 @@ ReTry_for_cseg:
 
 			c_seg->c_store.c_buffer = (int32_t *)c_buffer;
 #if ENCRYPTED_SWAP
-			vm_swap_decrypt(c_seg);
+			vm_swap_decrypt(c_seg, true);
 #endif /* ENCRYPTED_SWAP */
 			c_seg_swapin_requeue(c_seg, TRUE, TRUE, FALSE);
 			/*

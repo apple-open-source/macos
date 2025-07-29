@@ -63,7 +63,6 @@
 #define BCOPY_PHYS_SRC_IS_USER(flags) (((flags) & (cppvPsrc | cppvKmap)) == 0)
 #define BCOPY_PHYS_DST_IS_USER(flags) (((flags) & (cppvPsnk | cppvKmap)) == 0)
 
-
 static kern_return_t
 bcopy_phys_internal(addr64_t src, addr64_t dst, vm_size_t bytes, int flags)
 {
@@ -77,7 +76,6 @@ bcopy_phys_internal(addr64_t src, addr64_t dst, vm_size_t bytes, int flags)
 	ppnum_t         pn_dst;
 	addr64_t        end __assert_only;
 	kern_return_t   res = KERN_SUCCESS;
-
 
 	if (!BCOPY_PHYS_SRC_IS_USER(flags)) {
 		assert(!__improbable(os_add_overflow(src, bytes, &end)));

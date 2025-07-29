@@ -33,6 +33,7 @@ struct ProgramVars; /* forward reference */
 
 extern void _simple_asl_init(const char *envp[], const struct ProgramVars *vars);
 extern void __pfz_setup(const char *apple[]);
+extern void __os_security_config_init(const char *apple[]);
 
 #if !VARIANT_STATIC
 static const struct _libkernel_string_functions _platform_string_functions = {
@@ -57,11 +58,13 @@ static const struct _libkernel_string_functions _platform_string_functions = {
 #endif
 
 
-
 void
 __libplatform_init(void *future_use __unused, const char *envp[],
 		const char *apple[], const struct ProgramVars *vars)
 {
+#if !VARIANT_STATIC
+	__os_security_config_init(apple);
+#endif
 
 
     /* In the Simulator, we just provide _simple for dyld */

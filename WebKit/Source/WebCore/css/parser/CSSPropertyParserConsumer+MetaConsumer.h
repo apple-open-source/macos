@@ -175,6 +175,8 @@ struct MetaConsumerUnroller<T, Ts...> {
 //    );
 template<typename T, typename... Ts>
 struct MetaConsumer {
+    static_assert(WTF::all<HasConsumerDefinition::check<T>(), HasConsumerDefinition::check<Ts>()...>);
+
     using Unroller = MetaConsumerUnroller<T, Ts...>;
 
     template<typename... F>

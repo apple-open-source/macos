@@ -674,9 +674,10 @@
 
 (media-accessibility-support)
 
+(log-streaming)
+
 (with-filter (system-attribute apple-internal)
     (allow mach-lookup
-        (global-name "com.apple.diagnosticd")
         (global-name "com.apple.analyticsd")))
 
 ;; Silence reports about things we do not want access to:
@@ -746,6 +747,12 @@
             SYS_setrlimit
             SYS_sigaltstack))
 #endif
+
+    ;; The mkdtemp function requires this syscall.
+    (with-filter (require-not (process-attribute is-apple-signed-executable))
+        (allow syscall-unix
+            (syscall-number SYS_mkdirat)))
+
     (allow syscall-unix (syscall-number
         SYS___disable_threadsignal
         SYS___mac_syscall

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2007, 2010, 2011, 2013, 2015-2024 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2007, 2010, 2011, 2013, 2015-2025 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -929,7 +929,7 @@ __getIOMTULimits(char	ifr_name[IFNAMSIZ],
 		}
 	}
 
-	matchingDict = _SC_IONetworkInterfaceBSDNameMatching(ifr_name);
+	matchingDict = IOBSDNameMatching(masterPort, 0, ifr_name);
 	if (matchingDict) {
 		/* Note: IOServiceGetMatchingServices consumes a reference on the 'matchingDict' */
 		kr = IOServiceGetMatchingServices(masterPort, matchingDict, &io_iter);

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2025 Apple Inc. All rights reserved.
+ * Copyright (C) 2008-2024 Apple Inc. All rights reserved.
  * Copyright (C) 2008 Cameron Zwarich <cwzwarich@uwaterloo.ca>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -50,7 +50,6 @@
 #include "InlineCallFrame.h"
 #include "Instruction.h"
 #include "InstructionStream.h"
-#include "Integrity.h" // FIXME: rdar://149223818
 #include "IsoCellSetInlines.h"
 #include "JIT.h"
 #include "JITMathIC.h"
@@ -313,8 +312,6 @@ CodeBlock::CodeBlock(VM& vm, Structure* structure, CopyParsedBlockTag, CodeBlock
 
     ASSERT(m_couldBeTainted == (taintednessToTriState(source().provider()->sourceTaintedOrigin()) != TriState::False));
     vm.heap.codeBlockSet().add(this);
-    checker().set(CrashChecker::This, checker().hash(this));
-    checker().set(CrashChecker::Metadata, checker().hash(this, m_metadata.get()));
 }
 
 void CodeBlock::finishCreation(VM& vm, CopyParsedBlockTag, CodeBlock& other)
@@ -363,8 +360,6 @@ CodeBlock::CodeBlock(VM& vm, Structure* structure, ScriptExecutable* ownerExecut
 
     m_couldBeTainted = source().provider()->couldBeTainted();
     vm.heap.codeBlockSet().add(this);
-    checker().set(CrashChecker::This, checker().hash(this));
-    checker().set(CrashChecker::Metadata, checker().hash(this, m_metadata.get()));
 }
 
 // The main purpose of this function is to generate linked bytecode from unlinked bytecode. The process
@@ -763,16 +758,6 @@ bool CodeBlock::finishCreation(VM& vm, ScriptExecutable* ownerExecutable, Unlink
 }
 
 #if ENABLE(JIT)
-void CodeBlock::setBaselineJITData(std::unique_ptr<BaselineJITData>&& jitData)
-{
-    ASSERT(!m_jitData);
-    WTF::storeStoreFence(); // m_jitData is accessed from concurrent GC threads.
-    m_jitData = jitData.release();
-    checker().set(CrashChecker::BaselineJITData, checker().hash(this, m_jitData));
-    auto* baselineJITData = std::bit_cast<BaselineJITData*>(m_jitData);
-    checker().set(CrashChecker::StubInfoCount, checker().hash(this, baselineJITData->stubInfos().size()));
-}
-
 void CodeBlock::setupWithUnlinkedBaselineCode(Ref<BaselineJITCode> jitCode)
 {
     setJITCode(jitCode.copyRef());
@@ -839,31 +824,9 @@ void CodeBlock::setupWithUnlinkedBaselineCode(Ref<BaselineJITCode> jitCode)
 
 CodeBlock::~CodeBlock()
 {
-    auto& cc = checker();
-    if (cc.isEnabled) {
-        RELEASE_ASSERT(cc.get(CrashChecker::This) == cc.hash(this),
-            CrashChecker::This, cc.value(), cc.hash(this), this);
-        RELEASE_ASSERT(!cc.get(CrashChecker::Destructed),
-            CrashChecker::Destructed, cc.value(), cc.hash(this), this);
-        RELEASE_ASSERT(cc.get(CrashChecker::Metadata) == cc.hash(this, m_metadata.get()),
-            CrashChecker::Metadata, cc.value(), cc.hash(this, m_metadata.get()), this, m_metadata.get());
-    }
-
     VM& vm = *m_vm;
 
     if (JITCode::isBaselineCode(jitType())) {
-#if ENABLE(JIT)
-        if (cc.isEnabled && m_jitData) {
-            RELEASE_ASSERT(cc.get(CrashChecker::BaselineJITData) == cc.hash(this, m_jitData),
-                CrashChecker::BaselineJITData, cc.value(), cc.hash(this, m_jitData), this, m_jitData);
-            auto stubInfoCount = std::bit_cast<BaselineJITData*>(m_jitData)->stubInfos().size();
-            RELEASE_ASSERT(cc.get(CrashChecker::StubInfoCount) == cc.hash(this, stubInfoCount),
-                CrashChecker::StubInfoCount, cc.value(),
-                cc.hash(this, stubInfoCount), this, m_jitData, stubInfoCount);
-            RELEASE_ASSERT(!cc.get(CrashChecker::DFGJITData),
-                CrashChecker::DFGJITData, cc.value(), cc.hash(this, m_jitData), this, m_jitData);
-        }
-#endif
         if (m_metadata) {
             m_metadata->forEach<OpCatch>([&](auto& metadata) {
                 if (metadata.m_buffer)
@@ -923,20 +886,6 @@ CodeBlock::~CodeBlock()
     // destructors.
 
 #if ENABLE(JIT)
-    if (cc.isEnabled && m_jitData) {
-        if (JSC::JITCode::isOptimizingJIT(jitType())) {
-            RELEASE_ASSERT(cc.get(CrashChecker::DFGJITData) == cc.hash(this, m_jitData),
-                CrashChecker::DFGJITData, cc.value(), cc.hash(this, m_jitData), this, m_jitData);
-            RELEASE_ASSERT(!cc.get(CrashChecker::BaselineJITData),
-                CrashChecker::BaselineJITData, cc.value(), cc.hash(this, m_jitData), this, m_jitData);
-        } else {
-            RELEASE_ASSERT(cc.get(CrashChecker::BaselineJITData) == cc.hash(this, m_jitData),
-                CrashChecker::BaselineJITData, cc.value(), cc.hash(this, m_jitData), this, m_jitData);
-            auto stubInfoCount = std::bit_cast<BaselineJITData*>(m_jitData)->stubInfos().size();
-            RELEASE_ASSERT(cc.get(CrashChecker::StubInfoCount) == cc.hash(this, stubInfoCount),
-                CrashChecker::StubInfoCount, cc.value(), cc.hash(this, stubInfoCount), this, m_jitData, stubInfoCount);
-        }
-    }
     forEachStructureStubInfo([&](StructureStubInfo& stubInfo) {
         stubInfo.aboutToDie();
         stubInfo.deref();
@@ -956,55 +905,6 @@ CodeBlock::~CodeBlock()
         }
     }
 #endif // ENABLE(JIT)
-    if (cc.isEnabled) {
-        if (!m_llintGetByIdWatchpointMap.isEmpty()) {
-            // Do some spot checks.
-            auto iterator = m_llintGetByIdWatchpointMap.begin();
-            FixedVector<LLIntPrototypeLoadAdaptiveStructureWatchpoint>& watchpoints = iterator.get()->value;
-            auto numberOfWatchpoints = watchpoints.size();
-            RELEASE_ASSERT(numberOfWatchpoints);
-
-            auto checkWatchpointLink = [&] (auto& watchpoint, unsigned index) {
-                if (!watchpoint.isOnList())
-                    return;
-                auto* prev = watchpoint.prev();
-                auto* next = watchpoint.next();
-                if (UNLIKELY(!Integrity::isSanePointer(prev) || !Integrity::isSanePointer(next))) {
-                    uintptr_t status = 0;
-                    if (Integrity::isSanePointer(prev))
-                        status |= 0x5;
-                    if (Integrity::isSanePointer(next))
-                        status |= 0xa << 4;
-                    CrashChecker actual;
-                    actual.set(CrashChecker::This, actual.hash(this));
-                    actual.set(CrashChecker::Metadata, actual.hash(this, m_metadata.get()));
-                    if (JITCode::isOptimizingJIT(jitType()))
-                        status |= 0xc << 8; // We expect this path to never be taken because this path is only for LLint.
-                    else if (JITCode::isBaselineCode(jitType()))
-                        status |= 0xb << 8;
-                    if (cc.get(CrashChecker::Destructed))
-                        status |= 0xd << 12;
-#if ENABLE(JIT)
-                    status |= std::bit_cast<uintptr_t>(m_jitData) << 16;
-#endif
-
-                    RELEASE_ASSERT(Integrity::isSanePointer(prev) && Integrity::isSanePointer(next),
-                        status, index, numberOfWatchpoints, prev, next, &watchpoints, cc.value());
-                }
-            };
-            checkWatchpointLink(watchpoints.first(), 0);
-            if (numberOfWatchpoints > 1) {
-                checkWatchpointLink(watchpoints.last(), numberOfWatchpoints - 1);
-                if (numberOfWatchpoints > 2) {
-                    size_t mid = numberOfWatchpoints / 2;
-                    checkWatchpointLink(watchpoints.at(mid), mid);
-                }
-            }
-
-            m_llintGetByIdWatchpointMap.clear();
-        }
-        cc.set(CrashChecker::Destructed, 0xdd);
-    }
 }
 
 bool CodeBlock::isConstantOwnedByUnlinkedCodeBlock(VirtualRegister reg) const

@@ -138,7 +138,6 @@ kcdata_type_def = {
     'STACKSHOT_KCTYPE_KERN_EXCLAVES_CRASH_THREADINFO' : 0x955,
     'STACKSHOT_KCTYPE_LATENCY_INFO_CPU': 0x956,
     'STACKSHOT_KCTYPE_TASK_EXEC_META': 0x957,
-
     'KCDATA_TYPE_BUFFER_END':      0xF19158ED,
 
     'TASK_CRASHINFO_EXTMODINFO':           0x801,
@@ -1542,6 +1541,8 @@ KNOWN_TYPES_COLLECTION[GetTypeForName('STACKSHOT_KCTYPE_EXCLAVE_TEXTLAYOUT_SEGME
         KCSubTypeElement.FromBasicCtype('layoutSegment_loadAddress', KCSUBTYPE_TYPE.KC_ST_UINT64, 16),
         KCSubTypeElement.FromBasicCtype('layoutSegment_rawLoadAddress', KCSUBTYPE_TYPE.KC_ST_UINT64, 24),
     ), 'exclave_textlayout_segments')
+
+
 
 def GetSecondsFromMATime(mat, tb):
     return (float(long(mat) * tb['numer']) / tb['denom']) / 1e9

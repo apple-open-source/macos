@@ -55,6 +55,7 @@
 		<string>libarchive/archive_read_support_format_rar.c: Backport fix for CVE-2024-26256 (142994908)</string>
 		<string>libarchive/archive_read_support_format_rar.c: Backport fix for CVE-2024-48957 (142994908)</string>
 		<string>libarchive/archive_read_support_format_rar.c: Backport fix for CVE-2024-48958 (142994908)</string>
+		<string>libarchive/archive_write_set_format_pax.c: Apply 7c02cde37a63580cd1859183fbbd2cf04a89be85 to avoid overflow (150087613)</string>
 	</array>
 	<key>OpenSourceLicense</key>
 	<string>BSD</string>

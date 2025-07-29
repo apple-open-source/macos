@@ -35,14 +35,14 @@ EXPORT_MI_LIST = ${PRIVATE_XNUFILES} ${KERNELFILES} ${PRIVATE_KERNELFILES}
 INSTALL_MI_DIR = san
 EXPORT_MI_DIR = san
 
-# Generate blacklist
+# Generate denylist
 .DELETE_ON_ERROR:
-$(OBJROOT)/san/kcov-blacklist-%: $(SOURCE)/kcov-blacklist $(SOURCE)/kcov-blacklist-%
+$(OBJROOT)/san/kcov-denylist-%: $(SOURCE)/kcov-denylist $(SOURCE)/kcov-denylist-%
 	@$(LOG_GENERATE) "$(notdir $@)"
 	$(_v)sed -e 's,^src:\./,src:'"$(SRCROOT)/," $^ > $@
-	$(_v)$(SRCROOT)/san/tools/validate_blacklist.sh "$@"
+	$(_v)$(SRCROOT)/san/tools/validate_denylist.sh "$@"
 
-do_build_setup:: $(OBJROOT)/san/kcov-blacklist-x86_64 $(OBJROOT)/san/kcov-blacklist-arm64
+do_build_setup:: $(OBJROOT)/san/kcov-denylist-x86_64 $(OBJROOT)/san/kcov-denylist-arm64
 
 #
 # Kcov System.kext plugin

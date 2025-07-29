@@ -215,9 +215,9 @@ private:
 
     uint64_t m_microphoneProcsCalled { 0 };
     uint64_t m_microphoneProcsCalledLastTime { 0 };
-    Timer m_verifyCapturingTimer;
+    std::unique_ptr<Timer> m_verifyCapturingTimer;
 
-    Timer m_updateMutedStateTimer;
+    std::unique_ptr<Timer> m_updateMutedStateTimer;
 
     std::optional<size_t> m_minimumMicrophoneSampleFrames;
     bool m_isReconfiguring { false };

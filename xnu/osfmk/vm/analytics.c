@@ -83,7 +83,7 @@ add_trial_uuids(char *treatment_id, char *experiment_id)
 }
 
 static void
-report_vm_swapusage()
+report_vm_swapusage(void)
 {
 	uint64_t max_alloced, max_used;
 	ca_event_t event = CA_EVENT_ALLOCATE(vm_swapusage);
@@ -98,7 +98,7 @@ report_vm_swapusage()
 }
 
 static void
-report_mlock_failures()
+report_mlock_failures(void)
 {
 	ca_event_t event = CA_EVENT_ALLOCATE(mlock_failures);
 	CA_EVENT_TYPE(mlock_failures) * e = event->data;
@@ -148,7 +148,7 @@ typedef struct {
  * Report the age of segments in the compressor.
  */
 static void
-report_compressor_age()
+report_compressor_age(void)
 {
 	/* If the compressor is not configured, do nothing and return early. */
 	if (vm_compressor_mode == VM_PAGER_NOT_CONFIGURED) {
@@ -212,7 +212,7 @@ CA_EVENT(accounting_health, CA_INT, percentage);
  * Report health of resident vm page accounting.
  */
 static void
-report_accounting_health()
+report_accounting_health(void)
 {
 	/**
 	 * @note If a new accounting bucket is added, it must also be added in
@@ -239,7 +239,7 @@ report_accounting_health()
 }
 
 static void
-schedule_analytics_thread_call()
+schedule_analytics_thread_call(void)
 {
 	static const uint64_t analytics_period_ns = ANALYTICS_PERIOD_HOURS * 60 * 60 * NSEC_PER_SEC;
 	uint64_t analytics_period_absolutetime;
@@ -269,7 +269,7 @@ vm_analytics_tick(void *arg0, void *arg1)
 }
 
 static void
-vm_analytics_init()
+vm_analytics_init(void)
 {
 	vm_analytics_thread_call = thread_call_allocate_with_options(vm_analytics_tick, NULL, THREAD_CALL_PRIORITY_KERNEL, THREAD_CALL_OPTIONS_ONCE);
 	schedule_analytics_thread_call();

@@ -800,6 +800,7 @@
                 task_get_special_port_from_user
                 task_info_from_user
                 task_policy_set
+                task_restartable_ranges_register
                 task_restartable_ranges_synchronize
                 task_set_exc_guard_behavior
                 task_set_special_port

@@ -27,8 +27,11 @@ get_default_xzone_zone(void)
 	unsigned i = 0;
 
 	malloc_zone_t *zone = malloc_zones[i];
+
 	const char *name = malloc_get_zone_name(zone);
-	if (name && !strcmp(name, "ProbGuardMallocZone")) {
+	if ((zone->version >= 14 &&
+			zone->introspect->zone_type == MALLOC_ZONE_TYPE_PGM) ||
+			(name && !strcmp(name, "ProbGuardMallocZone"))) {
 		found_pgm = true;
 
 		i++;
@@ -39,6 +42,18 @@ get_default_xzone_zone(void)
 	}
 
 	T_ASSERT_GE(zone->version, 14, "zone version");
+
+#if CONFIG_SANITIZER
+	if (zone->introspect->zone_type == MALLOC_ZONE_TYPE_SANITIZER &&
+			malloc_sanitizer_is_enabled()) {
+		i++;
+		if (i == malloc_num_zones) {
+			T_ASSERT_FAIL("didn't find xzone zone");
+		}
+		zone = malloc_zones[i];
+	}
+#endif
+
 	if (zone->introspect->zone_type != MALLOC_ZONE_TYPE_XZONE) {
 		// Maybe it's nano?
 		i++;

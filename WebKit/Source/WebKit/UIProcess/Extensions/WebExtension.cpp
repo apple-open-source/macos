@@ -397,6 +397,10 @@ bool WebExtension::isWebAccessibleResource(const URL& resourceURL, const URL& pa
             continue;
 
         for (auto& pathPattern : data.resourcePathPatterns) {
+            // Because we remove the prefix slash from the resource path, we also have to remove it from the pattern path.
+            if (pathPattern.startsWith('/'))
+                pathPattern = pathPattern.substring(1);
+
             if (WebCore::matchesWildcardPattern(pathPattern, resourcePath))
                 return true;
         }

@@ -222,8 +222,6 @@ CoreAudioSharedUnit& CoreAudioSharedUnit::singleton()
 
 CoreAudioSharedUnit::CoreAudioSharedUnit()
     : m_sampleRateCapabilities(8000, 96000)
-    , m_verifyCapturingTimer(*this, &CoreAudioSharedUnit::verifyIsCapturing)
-    , m_updateMutedStateTimer(*this, &CoreAudioSharedUnit::updateMutedStateTimerFired)
 #if PLATFORM(MAC)
     , m_storedVPIOUnitDeallocationTimer(*this, &CoreAudioSharedUnit::deallocateStoredVPIOUnit)
 #endif
@@ -579,6 +577,8 @@ void CoreAudioSharedUnit::cleanupAudioUnit()
     }
 
     updateVoiceActivityDetection();
+    updateMutedState();
+
     m_ioUnit = nullptr;
 
     m_microphoneSampleBuffer = nullptr;
@@ -660,9 +660,11 @@ OSStatus CoreAudioSharedUnit::startInternal()
 
     m_ioUnitStarted = true;
 
-    m_verifyCapturingTimer.startRepeating(m_ioUnit->verifyCaptureInterval(isProducingMicrophoneSamples()));
     m_microphoneProcsCalled = 0;
     m_microphoneProcsCalledLastTime = 0;
+    if (!m_verifyCapturingTimer)
+        m_verifyCapturingTimer = makeUnique<Timer>(*this, &CoreAudioSharedUnit::verifyIsCapturing);
+    m_verifyCapturingTimer->startRepeating(m_ioUnit->verifyCaptureInterval(!m_microphoneProcsCalledLastTime || isProducingMicrophoneSamples()));
 
     updateVoiceActivityDetection();
     updateMutedState();
@@ -677,21 +679,28 @@ void CoreAudioSharedUnit::isProducingMicrophoneSamplesChanged()
 
     if (!isProducingData())
         return;
-    m_verifyCapturingTimer.startRepeating(m_ioUnit->verifyCaptureInterval(isProducingMicrophoneSamples()));
+
+    if (!m_verifyCapturingTimer)
+        m_verifyCapturingTimer = makeUnique<Timer>(*this, &CoreAudioSharedUnit::verifyIsCapturing);
+    m_verifyCapturingTimer->startRepeating(m_ioUnit->verifyCaptureInterval(!m_microphoneProcsCalledLastTime || isProducingMicrophoneSamples()));
 }
 
 void CoreAudioSharedUnit::updateMutedState(SyncUpdate syncUpdate)
 {
-    UInt32 muteUplinkOutput = !isProducingMicrophoneSamples();
+    UInt32 muteUplinkOutput = m_ioUnit && isProducingData() && !isProducingMicrophoneSamples();
 
     if (syncUpdate == SyncUpdate::No && muteUplinkOutput) {
         RELEASE_LOG_INFO(WebRTC, "CoreAudioSharedUnit::updateMutedState(%p) delaying mute in case unit gets stopped or unmuted soon", this);
         // We leave some time for playback to stop or for capture to restart, but not too long if the user decided to stop capture.
         static constexpr Seconds mutedStateDelay = 500_ms;
-        m_updateMutedStateTimer.startOneShot(mutedStateDelay);
+
+        if (!m_updateMutedStateTimer)
+            m_updateMutedStateTimer = makeUnique<Timer>(*this, &CoreAudioSharedUnit::updateMutedStateTimerFired);
+        m_updateMutedStateTimer->startOneShot(mutedStateDelay);
         return;
     }
-    m_updateMutedStateTimer.stop();
+    if (m_updateMutedStateTimer)
+        m_updateMutedStateTimer->stop();
 
     if (m_ioUnit) {
         auto error = m_ioUnit->set(kAUVoiceIOProperty_MuteOutput, kAudioUnitScope_Global, outputBus, &muteUplinkOutput, sizeof(muteUplinkOutput));
@@ -779,7 +788,7 @@ void CoreAudioSharedUnit::verifyIsCapturing()
         return;
     }
 
-    RELEASE_LOG_ERROR(WebRTC, "CoreAudioSharedUnit::verifyIsCapturing - no audio received in %d seconds, failing", static_cast<int>(m_verifyCapturingTimer.repeatInterval().value()));
+    RELEASE_LOG_ERROR(WebRTC, "CoreAudioSharedUnit::verifyIsCapturing - no audio received in %d seconds, failing", static_cast<int>(m_verifyCapturingTimer->repeatInterval().value()));
     captureFailed();
 }
 
@@ -787,7 +796,8 @@ void CoreAudioSharedUnit::stopInternal()
 {
     ASSERT(isMainThread());
 
-    m_verifyCapturingTimer.stop();
+    if (m_verifyCapturingTimer)
+        m_verifyCapturingTimer->stop();
 
     if (!m_ioUnit || !m_ioUnitStarted)
         return;
@@ -807,6 +817,7 @@ void CoreAudioSharedUnit::stopInternal()
     setIsInBackground(false);
 #endif
     updateVoiceActivityDetection();
+    updateMutedState();
 }
 
 void CoreAudioSharedUnit::registerSpeakerSamplesProducer(CoreAudioSpeakerSamplesProducer& producer)

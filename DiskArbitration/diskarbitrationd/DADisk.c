@@ -1486,6 +1486,7 @@ void DADiskSetFskitAdditions( DADiskRef disk, CFDictionaryRef additions )
     if ( count == 0)
     {
         // We didn't have any additions before and we have none now. Ok. We are done.
+        CFRelease( keys );
         return;
     }
 

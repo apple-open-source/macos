@@ -32,7 +32,8 @@ typedef enum DATelemetryFSType {
     DATelemetryFSTypeAPFS,
     DATelemetryFSTypeHFS,
     DATelemetryFSTypeNTFS,
-    DATelemetryFSTypeOther
+    DATelemetryFSTypeOther,
+    DATelemetryFSTypeMSDOSEFI
 } DATelemetryFSType;
 
 typedef enum DATelemetryFSImplementation {
@@ -145,6 +146,11 @@ static DATelemetryFSType __DA_checkFSTypeName( CFStringRef fsType )
     if ( !CFStringCompare( fsType , CFSTR("NTFS") , kCFCompareCaseInsensitive ) )
     {
         return DATelemetryFSTypeNTFS;
+    }
+    
+    if ( !CFStringCompare( fsType , CFSTR(DA_TELEMETRY_TYPE_MSDOS_EFI) , kCFCompareCaseInsensitive ) )
+    {
+        return DATelemetryFSTypeMSDOSEFI;
     }
     
     return DATelemetryFSTypeOther;

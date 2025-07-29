@@ -504,7 +504,7 @@ __smrw_wakeup_and_unlock(struct smr_worker *smrw)
 	assert(!ml_get_interrupts_enabled());
 
 	thread = waitq_wakeup64_identify_locked(&smrw->waitq,
-	    __smrw_drain_event(smrw), THREAD_AWAKENED, WAITQ_UNLOCK);
+	    __smrw_drain_event(smrw), WAITQ_UNLOCK);
 
 	if (thread != THREAD_NULL) {
 		assert(thread == smrw->thread);

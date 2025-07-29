@@ -77,9 +77,9 @@ ipcrm/ipcrm.1	freebsd	usr.bin/ipcrm/ipcrm.1	d51868a30a8782c6141eba40a30239d03f89
 ipcrm/ipcrm.c	freebsd	usr.bin/ipcrm/ipcrm.c	75c1df31cff84d203a3711e12c3ab54057b4c89c
 
 ln/ln.1	freebsd	bin/ln/ln.1	90aea514c6249118e880d75972d063362f4bf492
-ln/ln.c	freebsd	bin/ln/ln.c	bee7cf9e97f6d7bdc918421a93270fa88659808b
+ln/ln.c	freebsd	bin/ln/ln.c	8ce85300c792ecfcb9a307577e3af96ea9a4544c
 ln/symlink.7	freebsd	bin/ln/symlink.7	90aea514c6249118e880d75972d063362f4bf492
-ln/tests/ln_test.sh	freebsd	bin/ln/tests/ln_test.sh	bee7cf9e97f6d7bdc918421a93270fa88659808b
+ln/tests/ln_test.sh	freebsd	bin/ln/tests/ln_test.sh	8ce85300c792ecfcb9a307577e3af96ea9a4544c
 
 ls/cmp.c	freebsd	bin/ls/cmp.c	8a16b7a18f5d0b031f09832fd7752fba717e2a97
 ls/extern.h	freebsd	bin/ls/extern.h	e10ba80063386211b1c74eb72b4fb0f4093e93c0

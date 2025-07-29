@@ -852,8 +852,7 @@ struct m_tag *cfil_dgram_save_socket_state(struct cfil_info *, struct mbuf *);
 boolean_t cfil_dgram_peek_socket_state(struct mbuf *m, int *inp_flags);
 static void cfil_sock_received_verdict(struct socket *so);
 static void cfil_fill_event_msg_addresses(struct soflow_hash_entry *, struct inpcb *,
-    union sockaddr_in_4_6 *, union sockaddr_in_4_6 *,
-    boolean_t, boolean_t);
+    union sockaddr_in_4_6 *, union sockaddr_in_4_6 *, boolean_t);
 static void cfil_stats_report_thread_func(void *, wait_result_t);
 static void cfil_stats_report(void *v, wait_result_t w);
 static bool cfil_dgram_gc_needed(struct socket *, struct soflow_hash_entry *, u_int64_t);
@@ -3115,9 +3114,10 @@ cfil_sock_detach(struct socket *so)
 static void
 cfil_fill_event_msg_addresses(struct soflow_hash_entry *entry, struct inpcb *inp,
     union sockaddr_in_4_6 *sin_src, union sockaddr_in_4_6 *sin_dst,
-    boolean_t isIPv4, boolean_t outgoing)
+    boolean_t outgoing)
 {
-	if (isIPv4) {
+	if ((entry != NULL && entry->soflow_family == AF_INET) ||
+	    !IS_INP_V6(inp)) {
 		struct in_addr laddr = {0}, faddr = {0};
 		u_int16_t lport = 0, fport = 0;
 
@@ -3344,7 +3344,7 @@ cfil_dispatch_closed_event_sign(cfil_crypto_state_t crypto_state,
 		boolean_t outgoing = (cfil_info->cfi_dir == CFS_CONNECTION_DIR_OUT);
 		union sockaddr_in_4_6 *src = outgoing ? &data.local : &data.remote;
 		union sockaddr_in_4_6 *dst = outgoing ? &data.remote : &data.local;
-		cfil_fill_event_msg_addresses(hash_entry_ptr, inp, src, dst, !IS_INP_V6(inp), outgoing);
+		cfil_fill_event_msg_addresses(hash_entry_ptr, inp, src, dst, outgoing);
 	}
 
 	data.byte_count_in = cfil_info->cfi_byte_inbound_count;
@@ -3503,7 +3503,7 @@ cfil_dispatch_attach_event(struct socket *so, struct cfil_info *cfil_info,
 	if (hash_entry_ptr != NULL) {
 		cfil_fill_event_msg_addresses(hash_entry_ptr, inp,
 		    &msg_attached->cfs_src, &msg_attached->cfs_dst,
-		    !IS_INP_V6(inp), conn_dir == CFS_CONNECTION_DIR_OUT);
+		    conn_dir == CFS_CONNECTION_DIR_OUT);
 	}
 	msg_attached->cfs_conn_dir = conn_dir;
 
@@ -3752,7 +3752,7 @@ cfil_dispatch_closed_event(struct socket *so, struct cfil_info *cfil_info, int k
 				union sockaddr_in_4_6 *src = outgoing ? &cfil_info->cfi_so_attach_laddr : NULL;
 				union sockaddr_in_4_6 *dst = outgoing ? NULL : &cfil_info->cfi_so_attach_laddr;
 				cfil_fill_event_msg_addresses(cfil_info->cfi_hash_entry, inp,
-				    src, dst, !IS_INP_V6(inp), outgoing);
+				    src, dst, outgoing);
 			}
 		}
 
@@ -4015,7 +4015,7 @@ cfil_dispatch_data_event(struct socket *so, struct cfil_info *cfil_info, uint32_
 	 */
 	cfil_fill_event_msg_addresses(cfil_info->cfi_hash_entry, inp,
 	    &data_req->cfc_src, &data_req->cfc_dst,
-	    !IS_INP_V6(inp), outgoing);
+	    outgoing);
 
 	if (cfil_info->cfi_debug && cfil_log_data) {
 		cfil_info_log(LOG_ERR, cfil_info, "CFIL: SENDING DATA UP");
@@ -7434,7 +7434,7 @@ cfil_stats_collect_flow_stats_for_filter(int kcunit,
 						union sockaddr_in_4_6 *src = outgoing ? &cfil_info->cfi_so_attach_laddr : NULL;
 						union sockaddr_in_4_6 *dst = outgoing ? NULL : &cfil_info->cfi_so_attach_laddr;
 						cfil_fill_event_msg_addresses(cfil_info->cfi_hash_entry, inp,
-						    src, dst, !IS_INP_V6(inp), outgoing);
+						    src, dst, outgoing);
 					}
 				}
 

@@ -162,6 +162,8 @@ enum kernel_brk_trap_comment {
 	XNU_HARD_TRAP_END              = 0xBFFF,
 
 	/* PTRAUTH (sleh.c)       : [0xC470 ~ 0xC473] <ARM only> */
+	PTRAUTH_TRAP_START             = 0xC470,
+	PTRAUTH_TRAP_END               = 0xC473,
 
 	/* TELEMETRY              : [0xFF00 ~ 0xFFFE] */
 	XNU_SOFT_TRAP_START            = 0xFF00,
@@ -214,20 +216,20 @@ typedef struct kernel_brk_descriptor {
 	const char *(*handle_breakpoint)(void *states, uint16_t comment);
 } *kernel_brk_descriptor_t;
 
-extern struct kernel_brk_descriptor brk_descriptors[]
-__SECTION_START_SYM("__DATA_CONST", "__brk_desc");
+extern struct kernel_brk_descriptor kernel_brk_descriptors[]
+__SECTION_START_SYM("__DATA_CONST", "__kern_brk_desc");
 
-extern struct kernel_brk_descriptor brk_descriptors_end[]
-__SECTION_END_SYM("__DATA_CONST", "__brk_desc");
+extern struct kernel_brk_descriptor kernel_brk_descriptors_end[]
+__SECTION_END_SYM("__DATA_CONST", "__kern_brk_desc");
 
 #define KERNEL_BRK_DESCRIPTOR_DEFINE(name, ...) \
-__PLACE_IN_SECTION("__DATA_CONST,__brk_desc") \
+__PLACE_IN_SECTION("__DATA_CONST,__kern_brk_desc") \
 static const struct kernel_brk_descriptor name = { __VA_ARGS__ };
 
 const static inline struct kernel_brk_descriptor *
-find_brk_descriptor_by_comment(uint16_t comment)
+find_kernel_brk_descriptor_by_comment(uint16_t comment)
 {
-	for (kernel_brk_descriptor_t des = brk_descriptors; des < brk_descriptors_end; des++) {
+	for (kernel_brk_descriptor_t des = kernel_brk_descriptors; des < kernel_brk_descriptors_end; des++) {
 		if (comment >= des->base && comment <= des->max) {
 			return des;
 		}

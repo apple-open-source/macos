@@ -201,7 +201,7 @@ nfsrv_rephead(
 	}
 	if (siz < nfs_mbuf_minclsize) {
 		/* leave space for lower level headers */
-		tl = mbuf_data(mrep);
+		tl = mtod(mrep, u_int32_t *);
 		tl += 80 / sizeof(*tl);  /* XXX max_hdr? XXX */
 		mbuf_setdata(mrep, tl, 6 * NFSX_UNSIGNED);
 	}
@@ -297,7 +297,7 @@ nfsrv_send(struct nfsrv_sock *slp, mbuf_t nam, mbuf_t top)
 
 	bzero(&msg, sizeof(msg));
 	if (nam && !sock_isconnected(so) && (slp->ns_sotype != SOCK_STREAM)) {
-		if ((sendnam = mbuf_data(nam))) {
+		if ((sendnam = SA(mtod(nam, caddr_t)))) {
 			msg.msg_name = (caddr_t)sendnam;
 			msg.msg_namelen = sendnam->sa_len;
 		}
@@ -441,7 +441,7 @@ nfsrv_rcv_locked(socket_t so, struct nfsrv_sock *slp, int waitflag)
 			if (mp) {
 				if (msg.msg_name && (mbuf_get(MBUF_WAITOK, MBUF_TYPE_SONAME, &mhck) == 0)) {
 					mbuf_setlen(mhck, nam.ss_len);
-					bcopy(&nam, mbuf_data(mhck), nam.ss_len);
+					bcopy(&nam, mtod(mhck, caddr_t), nam.ss_len);
 					m = mhck;
 					if (mbuf_setnext(m, mp)) {
 						/* trouble... just drop it */
@@ -518,7 +518,7 @@ nfsrv_getstream(struct nfsrv_sock *slp, int waitflag)
 				return 0;
 			}
 			m = slp->ns_raw;
-			mdata = mbuf_data(m);
+			mdata = mtod(m, caddr_t);
 			mlen = mbuf_len(m);
 			if (mlen >= NFSX_UNSIGNED) {
 				bcopy(mdata, (caddr_t)&recmark, NFSX_UNSIGNED);
@@ -531,7 +531,7 @@ nfsrv_getstream(struct nfsrv_sock *slp, int waitflag)
 				while (cp1 < ((caddr_t)&recmark) + NFSX_UNSIGNED) {
 					while (mlen == 0) {
 						m = mbuf_next(m);
-						cp2 = mbuf_data(m);
+						cp2 = mtod(m, caddr_t);
 						mlen = mbuf_len(m);
 					}
 					*cp1++ = *cp2++;
@@ -576,7 +576,7 @@ nfsrv_getstream(struct nfsrv_sock *slp, int waitflag)
 			len = 0;
 			m = slp->ns_raw;
 			mlen = mbuf_len(m);
-			mdata = mbuf_data(m);
+			mdata = mtod(m, caddr_t);
 			om = NULL;
 			while (len < slp->ns_reclen) {
 				if ((len + mlen) > slp->ns_reclen) {
@@ -611,13 +611,13 @@ nfsrv_getstream(struct nfsrv_sock *slp, int waitflag)
 						return EWOULDBLOCK;
 					}
 					mlen = mbuf_len(m);
-					mdata = mbuf_data(m);
+					mdata = mtod(m, caddr_t);
 				} else {
 					om = m;
 					len += mlen;
 					m = mbuf_next(m);
 					mlen = mbuf_len(m);
-					mdata = mbuf_data(m);
+					mdata = mtod(m, caddr_t);
 				}
 			}
 			slp->ns_raw = m;
